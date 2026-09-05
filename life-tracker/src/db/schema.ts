@@ -59,14 +59,6 @@ export interface SettingsDocument {
 // RXDB SCHEMAS (v17 Dev-Mode Compliant)
 // ============================================================================
 
-/**
- * RULES APPLIED FOR DEV-MODE COMPLIANCE:
- * 1. All indexed strings MUST have maxLength (SC34)
- * 2. All indexed numbers/integers MUST have multipleOf: 1 (SC35)
- * 3. All indexed integers MUST have minimum & maximum bounds (SC37)
- * 4. 'deleted' is reserved; using 'isDeleted' instead (SC17)
- */
-
 export const tasksSchema: RxJsonSchema<TaskDocument> = {
   version: 0,
   primaryKey: 'id',
@@ -75,8 +67,7 @@ export const tasksSchema: RxJsonSchema<TaskDocument> = {
   properties: {
     id: { type: 'string', maxLength: 255 },
     title: { type: 'string', maxLength: 255 },
-    // Boolean used in index -> treated as integer by RxDB internals
-    completed: { type: 'boolean', multipleOf: 1 }, 
+    completed: { type: 'boolean' }, // FIX: Removed multipleOf (only for numbers)
     categoryId: { type: 'string', maxLength: 255 },
     tags: { type: 'string', maxLength: 1000 },
     date: { type: 'string', maxLength: 50 },
@@ -87,7 +78,7 @@ export const tasksSchema: RxJsonSchema<TaskDocument> = {
     updatedAt: { type: 'string', maxLength: 50 },
     source: { type: 'string', maxLength: 50 },
     userId: { type: 'string', maxLength: 255 },
-    isDeleted: { type: 'boolean', multipleOf: 1 },
+    isDeleted: { type: 'boolean' }, // FIX: Removed multipleOf (only for numbers)
     routineId: { type: 'string', maxLength: 255 },
     reminderTime: { type: 'string', maxLength: 50 },
     reactions: { type: 'string', maxLength: 5000 },
@@ -110,7 +101,6 @@ export const categoriesSchema: RxJsonSchema<CategoryDocument> = {
     id: { type: 'string', maxLength: 255 },
     name: { type: 'string', maxLength: 100 },
     color: { type: 'string', maxLength: 20 },
-    // FIX: Integer in index requires multipleOf + min/max bounds
     order: { 
       type: 'integer', 
       multipleOf: 1,
@@ -119,7 +109,7 @@ export const categoriesSchema: RxJsonSchema<CategoryDocument> = {
     }, 
     visibility: { type: 'string', maxLength: 50, enum: ['public', 'followers', 'private'] },
     userId: { type: 'string', maxLength: 255 },
-    isDeleted: { type: 'boolean', multipleOf: 1 },
+    isDeleted: { type: 'boolean' }, // FIX: Removed multipleOf
     icon: { type: 'string', maxLength: 10 },
   },
   indexes: [
@@ -141,7 +131,7 @@ export const diarySchema: RxJsonSchema<DiaryDocument> = {
     userId: { type: 'string', maxLength: 255 },
     createdAt: { type: 'string', maxLength: 50 },
     updatedAt: { type: 'string', maxLength: 50 },
-    isDeleted: { type: 'boolean', multipleOf: 1 },
+    isDeleted: { type: 'boolean' }, // FIX: Removed multipleOf
   },
   indexes: [
     ['userId', 'date', 'isDeleted'],
@@ -159,7 +149,7 @@ export const settingsSchema: RxJsonSchema<SettingsDocument> = {
     userId: { type: 'string', maxLength: 255 },
     key: { type: 'string', maxLength: 100 },
     value: { type: 'string', maxLength: 10000 },
-    isDeleted: { type: 'boolean', multipleOf: 1 },
+    isDeleted: { type: 'boolean' }, // FIX: Removed multipleOf
   },
   indexes: [
     ['userId', 'key', 'isDeleted'],

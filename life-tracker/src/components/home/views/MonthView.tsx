@@ -1,17 +1,16 @@
 import React from 'react';
 import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, eachDayOfInterval, isSameMonth } from 'date-fns';
 import { DayCell } from './DayCell';
-import { generateMockTasks, mockCategories } from '../../../lib/mockData';
 import type { TaskDocument } from '../../../db/schema';
 
 interface MonthViewProps {
   focusDate: Date;
   onDayClick?: (date: Date) => void;
+  tasks: TaskDocument[];
+  categoriesMap: Record<string, { color: string; name: string }>;
 }
 
-export const MonthView: React.FC<MonthViewProps> = ({ focusDate, onDayClick }) => {
-  const [tasks] = React.useState<TaskDocument[]>(generateMockTasks());
-
+export const MonthView: React.FC<MonthViewProps> = ({ focusDate, onDayClick, tasks, categoriesMap }) => {
   const monthStart = startOfMonth(focusDate);
   const monthEnd = endOfMonth(monthStart);
   const startDate = startOfWeek(monthStart);
@@ -22,12 +21,11 @@ export const MonthView: React.FC<MonthViewProps> = ({ focusDate, onDayClick }) =
 
   const getTasksForDay = (day: Date) => {
     const dateStr = format(day, 'yyyy-MM-dd');
-    return tasks.filter(task => task.date === dateStr);
+    return tasks.filter((task: TaskDocument) => task.date === dateStr);
   };
 
   return (
     <div className="flex flex-col h-full">
-      {/* FIX: Standardized header spacing */}
       <div className="grid grid-cols-7 gap-1 px-2 mb-1">
         {weekDays.map(day => (
           <div key={day} className="text-center text-[10px] font-medium text-gray-500 py-1">
@@ -36,14 +34,13 @@ export const MonthView: React.FC<MonthViewProps> = ({ focusDate, onDayClick }) =
         ))}
       </div>
 
-      {/* Calendar Grid */}
       <div className="grid grid-cols-7 gap-1 px-2 flex-1 auto-rows-fr">
         {calendarDays.map((day, index) => (
           <DayCell
             key={index}
             date={day}
             tasks={getTasksForDay(day)}
-            categories={mockCategories}
+            categories={categoriesMap}
             isCurrentMonth={isSameMonth(day, focusDate)}
             onClick={onDayClick ? () => onDayClick(day) : undefined}
           />

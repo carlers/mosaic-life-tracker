@@ -22,6 +22,7 @@
     "react-router-dom": "^7.18.3",
     "rxdb": "^17.5.0",
     "rxjs": "^7.8.2",
+    "swiper": "^14.2.0",
     "vite-plugin-pwa": "^1.3.0"
   },
   "devDependencies": {

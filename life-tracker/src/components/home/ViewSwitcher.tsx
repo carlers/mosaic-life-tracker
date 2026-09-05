@@ -1,8 +1,8 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Calendar, ListChecks, BookOpen } from 'lucide-react';
+import { Calendar, BookOpen } from 'lucide-react';
 
-export type ViewType = 'calendar' | 'todo' | 'diary';
+export type ViewType = 'calendar' | 'diary';
 
 interface ViewSwitcherProps {
   activeView: ViewType;
@@ -11,7 +11,6 @@ interface ViewSwitcherProps {
 
 const views: { id: ViewType; label: string; icon: React.FC<{ size?: number }> }[] = [
   { id: 'calendar', label: 'Calendar', icon: Calendar },
-  { id: 'todo', label: 'Todo', icon: ListChecks },
   { id: 'diary', label: 'Diary', icon: BookOpen },
 ];
 

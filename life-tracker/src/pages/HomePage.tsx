@@ -7,7 +7,7 @@ export const HomePage: React.FC = () => {
   // Initialize state from localStorage to implement View Memory
   const [activeView, setActiveView] = useState<ViewType>(() => {
     const saved = localStorage.getItem('mosaic_activeView');
-    if (saved === 'calendar' || saved === 'todo' || saved === 'diary') {
+    if (saved === 'calendar' || saved === 'diary') {
       return saved;
     }
     return 'calendar'; // Default fallback

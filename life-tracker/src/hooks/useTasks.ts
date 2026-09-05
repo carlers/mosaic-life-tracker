@@ -8,8 +8,15 @@ export function useTasks() {
   const [tasks, setTasks] = useState<TaskDocument[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Subscribe to all non-deleted tasks for the current user
   useEffect(() => {
+    const userId = user?.$id;
+    
+    if (!userId) {
+      setTasks([]);
+      setIsLoading(false);
+      return;
+    }
+
     let subscription: any;
 
     async function init() {
@@ -17,7 +24,7 @@ export function useTasks() {
         const db = getDatabase();
         const query = db.tasks.find({
           selector: {
-            userId: user?.$id,
+            userId: userId,
             isDeleted: false,
           },
           sort: [{ date: 'asc' }, { createdAt: 'desc' }],
@@ -38,23 +45,29 @@ export function useTasks() {
     return () => {
       if (subscription) subscription.unsubscribe();
     };
-  }, []);
+  }, [user?.$id]);
 
   const addTask = useCallback(async (task: Omit<TaskDocument, 'id' | 'userId' | 'createdAt' | 'updatedAt' | 'isDeleted'>) => {
+    const userId = user?.$id;
+    if (!userId) {
+      console.error('[useTasks] Cannot add task: User not authenticated');
+      return;
+    }
+
     const db = getDatabase();
     const now = new Date().toISOString();
 
     const newTask: TaskDocument = {
       ...task,
       id: `task_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-      userId: user?.$id || 'guest',
+      userId: userId,
       createdAt: now,
       updatedAt: now,
       isDeleted: false,
     };
 
     await db.tasks.insert(newTask);
-  }, []);
+  }, [user?.$id]);
 
   const updateTask = useCallback(async (id: string, updates: Partial<TaskDocument>) => {
     const db = getDatabase();
@@ -68,15 +81,19 @@ export function useTasks() {
   }, []);
 
   const deleteTask = useCallback(async (id: string) => {
-    // Soft delete: never hard delete
     await updateTask(id, { isDeleted: true });
   }, [updateTask]);
 
+  // FIX: Conditionally add completedAt to avoid RxDB patching with 'undefined'
   const toggleTaskCompletion = useCallback(async (id: string, completed: boolean) => {
     const updates: Partial<TaskDocument> = {
       completed,
-      completedAt: completed ? new Date().toISOString() : undefined,
     };
+    
+    if (completed) {
+      updates.completedAt = new Date().toISOString();
+    }
+    
     await updateTask(id, updates);
   }, [updateTask]);
 

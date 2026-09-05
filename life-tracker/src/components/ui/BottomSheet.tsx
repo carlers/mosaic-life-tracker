@@ -1,13 +1,14 @@
 import React, { useEffect, useRef } from 'react';
 import { motion, AnimatePresence, useDragControls } from 'framer-motion';
-import ReactDOM from 'react-dom'; // <-- ADD THIS
+import ReactDOM from 'react-dom';
 
 interface BottomSheetProps {
   isOpen: boolean;
   onClose: () => void;
   children: React.ReactNode;
   title?: string;
-  height?: 'auto' | 'full'; 
+  height?: 'auto' | 'full';
+  isLocked?: boolean; // NEW: Disable drag and blur header
 }
 
 export const BottomSheet: React.FC<BottomSheetProps> = ({ 
@@ -15,7 +16,8 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
   onClose, 
   children, 
   title,
-  height = 'auto' 
+  height = 'auto',
+  isLocked = false
 }) => {
   const sheetRef = useRef<HTMLDivElement>(null);
   const dragControls = useDragControls();
@@ -39,7 +41,6 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
 
   const heightClass = height === 'full' ? 'h-[100dvh] rounded-none' : 'max-h-[90vh] rounded-t-3xl';
 
-  // FIX: Render content via Portal to document.body to escape all z-index/overflow traps
   const sheetContent = (
     <AnimatePresence>
       {isOpen && (
@@ -68,9 +69,16 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
             }}
             className={`fixed bottom-0 left-0 right-0 z-[60] bg-[#1E1E1E] text-white shadow-2xl flex flex-col ${heightClass}`}
           >
+            {/* Header with conditional blur and drag disable */}
             <div 
-              className="flex-shrink-0 pt-3 pb-2 px-4 flex flex-col items-center cursor-grab active:cursor-grabbing touch-none"
-              onPointerDown={(e) => dragControls.start(e)}
+              className={`flex-shrink-0 pt-3 pb-2 px-4 flex flex-col items-center transition-all duration-300 ${
+                isLocked ? 'cursor-default opacity-50 blur-sm pointer-events-none' : 'cursor-grab active:cursor-grabbing touch-none'
+              }`}
+              onPointerDown={(e) => {
+                if (!isLocked) {
+                  dragControls.start(e);
+                }
+              }}
             >
               <div className="w-10 h-1.5 bg-[#444444] rounded-full mb-3" />
               {title && <h3 className="text-lg font-semibold w-full text-center">{title}</h3>}

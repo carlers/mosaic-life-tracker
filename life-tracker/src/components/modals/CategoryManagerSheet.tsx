@@ -16,6 +16,7 @@ export const CategoryManagerSheet: React.FC<{ isOpen: boolean; onClose: () => vo
 
   const [isAdding, setIsAdding] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
 
   const [newName, setNewName] = useState('');
   const [newColor, setNewColor] = useState('#3B82F6');
@@ -26,13 +27,21 @@ export const CategoryManagerSheet: React.FC<{ isOpen: boolean; onClose: () => vo
 
   const handleSaveNew = async () => {
     if (!newName.trim()) return;
-    await addCategory({
-      name: newName.trim(),
-      color: newColor,
-      visibility: newVisibility,
-      order: categories.length,
-    });
-    resetForm();
+    
+    setIsSaving(true);
+    try {
+      await addCategory({
+        name: newName.trim(),
+        color: newColor,
+        visibility: newVisibility,
+        order: categories.length,
+      });
+      resetForm();
+    } catch (error) {
+      console.error("Failed to save category:", error);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleUpdate = async (id: string, name: string, visibility: Visibility) => {
@@ -82,7 +91,7 @@ export const CategoryManagerSheet: React.FC<{ isOpen: boolean; onClose: () => vo
           </div>
         ) : (
           <>
-            {/* FIX: Category List or Empty State */}
+            {/* Category List or Empty State */}
             {!isAdding && (
               <div className="space-y-3 mb-6">
                 {categories.length === 0 ? (
@@ -152,7 +161,7 @@ export const CategoryManagerSheet: React.FC<{ isOpen: boolean; onClose: () => vo
               </div>
             )}
 
-            {/* FIX: Add Category Form or Button (Always visible at the bottom) */}
+            {/* Add Category Form or Button */}
             {isAdding ? (
               <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-200">
                 <Input
@@ -182,8 +191,17 @@ export const CategoryManagerSheet: React.FC<{ isOpen: boolean; onClose: () => vo
                 </div>
                 <div className="flex gap-3 pt-2">
                   <Button variant="ghost" className="flex-1" onClick={resetForm}>Cancel</Button>
-                  <Button variant="primary" className="flex-1" onClick={handleSaveNew} disabled={!newName.trim()}>
-                    Create Category
+                  <Button 
+                    variant="primary" 
+                    className="flex-1" 
+                    onClick={handleSaveNew} 
+                    disabled={!newName.trim() || isSaving}
+                  >
+                    {isSaving ? (
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    ) : (
+                      'Create Category'
+                    )}
                   </Button>
                 </div>
               </div>
