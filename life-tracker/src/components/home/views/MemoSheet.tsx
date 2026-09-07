@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { BottomSheet } from '../../ui/BottomSheet';
-import { EyeOff, Eye } from 'lucide-react';
 import type { TaskDocument } from '../../../db/schema';
 
 interface MemoSheetProps {
@@ -41,27 +40,15 @@ export const MemoSheet: React.FC<MemoSheetProps> = ({
   return (
     <BottomSheet isOpen={isOpen} onClose={onClose} title={task.title} height="auto">
       <div className="pt-2 pb-8 px-4">
-        {/* Header with Delete (conditional) and Done */}
         <div className="flex items-center justify-between mb-4">
           {task.memo ? (
-            <button
-              onClick={handleDelete}
-              className="text-red-400 font-semibold text-base"
-            >
-              Delete
-            </button>
+            <button onClick={handleDelete} className="text-red-400 font-semibold text-base">Delete</button>
           ) : (
-            <div className="w-12" /> // Spacer to keep "Done" aligned
+            <div className="w-12" />
           )}
-          <button
-            onClick={handleDone}
-            className="text-white font-semibold text-base"
-          >
-            Done
-          </button>
+          <button onClick={handleDone} className="text-white font-semibold text-base">Done</button>
         </div>
 
-        {/* Memo Textarea */}
         <textarea
           value={memo}
           onChange={(e) => setMemo(e.target.value)}
@@ -70,7 +57,6 @@ export const MemoSheet: React.FC<MemoSheetProps> = ({
           className="w-full bg-[#1A1A1A] rounded-xl p-4 text-base text-white placeholder-gray-500 focus:outline-none min-h-[200px] resize-none mb-6"
         />
 
-        {/* Visibility Toggle */}
         <div className="flex items-center justify-end gap-3">
           <span className="text-sm text-gray-400">Visible to me only</span>
           <button

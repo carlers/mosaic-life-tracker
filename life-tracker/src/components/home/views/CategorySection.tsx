@@ -19,7 +19,6 @@ interface CategorySectionProps {
   onEditChange: (value: string) => void;
   onEditSave: () => void;
   onEditCancel: () => void;
-  onStartEdit: (task: TaskDocument) => void;
 }
 
 export const CategorySection: React.FC<CategorySectionProps> = ({ 
@@ -35,8 +34,7 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
   editValue,
   onEditChange,
   onEditSave,
-  onEditCancel,
-  onStartEdit
+  onEditCancel
 }) => {
   const [isAdding, setIsAdding] = useState(false);
   const [newTaskTitle, setNewTaskTitle] = useState('');

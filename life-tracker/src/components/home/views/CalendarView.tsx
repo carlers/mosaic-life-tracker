@@ -8,7 +8,7 @@ import { ViewToggle } from './ViewToggle';
 import { DayViewSheet } from './DayViewSheet';
 import { useTasks } from '../../../hooks/useTasks';
 import { useCategories } from '../../../hooks/useCategories';
-import type { TaskDocument, CategoryDocument } from '../../../db/schema';
+import type { CategoryDocument } from '../../../db/schema';
 
 export type CalendarViewMode = 'month' | 'week';
 
@@ -17,7 +17,6 @@ export const CalendarView: React.FC = () => {
   const [focusDate, setFocusDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   
-  // FIX: Lifted hooks to the top level to prevent re-subscription lag on view toggle
   const { tasks } = useTasks();
   const { categories } = useCategories();
 
@@ -129,7 +128,6 @@ export const CalendarView: React.FC = () => {
     ? format(focusDate, 'MMMM yyyy')
     : `${format(weekStart, 'MMM d')} - ${format(weekEnd, 'MMM d, yyyy')}`;
 
-  // FIX: Pass tasks and categoriesMap down to the views
   const renderCalendarContent = (date: Date) => {
     if (viewMode === 'month') {
       return <MonthView focusDate={date} onDayClick={setSelectedDate} tasks={tasks} categoriesMap={categoriesMap} />;

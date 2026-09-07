@@ -1,0 +1,4821 @@
+This file is a merged representation of a subset of the codebase, containing files not matching ignore patterns, combined into a single document by Repomix.
+
+<file_summary>
+This section contains a summary of this file.
+
+<purpose>
+This file contains a packed representation of a subset of the repository's contents that is considered the most important context.
+It is designed to be easily consumable by AI systems for analysis, code review,
+or other automated processes.
+</purpose>
+
+<file_format>
+The content is organized as follows:
+1. This summary section
+2. Repository information
+3. Directory structure
+4. Repository files (if enabled)
+5. Multiple file entries, each consisting of:
+  - File path as an attribute
+  - Full contents of the file
+</file_format>
+
+<usage_guidelines>
+- This file should be treated as read-only. Any changes should be made to the
+  original repository files, not this packed version.
+- When processing this file, use the file path to distinguish
+  between different files in the repository.
+- Be aware that this file may contain sensitive information. Handle it with
+  the same level of security as you would the original repository.
+</usage_guidelines>
+
+<notes>
+- Some files may have been excluded based on .gitignore rules and Repomix's configuration
+- Binary files are not included in this packed representation. Please refer to the Repository Structure section for a complete list of file paths, including binary files
+- Files matching these patterns are excluded: public/
+- Files matching patterns in .gitignore are excluded
+- Files matching default ignore patterns are excluded
+- Files are sorted by Git change count (files with more changes are at the bottom)
+</notes>
+
+</file_summary>
+
+<directory_structure>
+src/
+  components/
+    home/
+      views/
+        CalendarView.tsx
+        CategorySection.tsx
+        DatePickerSheet.tsx
+        DayCell.tsx
+        DayViewSheet.tsx
+        DiaryView.tsx
+        EditTaskSheet.tsx
+        ImagePickerSheet.tsx
+        MemoSheet.tsx
+        MonthView.tsx
+        TaskActionSheet.tsx
+        TaskBlock.tsx
+        TaskItem.tsx
+        TodoListView.tsx
+        ViewToggle.tsx
+        WeekView.tsx
+      HamburgerMenu.tsx
+      TopBar.tsx
+      ViewContainer.tsx
+      ViewSwitcher.tsx
+    layout/
+      AppLayout.tsx
+      BottomNav.tsx
+      ComingSoon.tsx
+      MainLayout.tsx
+    modals/
+      CategoryManagerSheet.tsx
+    ui/
+      Avatar.tsx
+      BottomSheet.tsx
+      Button.tsx
+      ColorPalettePicker.tsx
+      Input.tsx
+      OfflineBanner.tsx
+  constants/
+    colors.ts
+  db/
+    database.ts
+    schema.ts
+    sync.ts
+  hooks/
+    useAuth.ts
+    useCategories.ts
+    useDiary.ts
+    useImageCompression.ts
+    useSettings.ts
+    useTasks.ts
+  lib/
+    appwrite.ts
+    mockData.ts
+    storage.ts
+  pages/
+    AuthPage.tsx
+    HomePage.tsx
+    TestPlayground.tsx
+  App.css
+  App.tsx
+  index.css
+  main.tsx
+.gitignore
+eslint.config.js
+index.html
+package.json
+postcss.config.js
+README.md
+tailwind.config.js
+tsconfig.app.json
+tsconfig.json
+tsconfig.node.json
+vite.config.ts
+</directory_structure>
+
+<files>
+This section contains the contents of the repository's files.
+
+<file path="src/components/home/views/CalendarView.tsx">
+import React, { useState, useRef, useEffect, useMemo } from 'react';
+import { format, addMonths, subMonths, addWeeks, subWeeks, startOfMonth, startOfWeek, endOfWeek } from 'date-fns';
+import { motion, useAnimation } from 'framer-motion';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { MonthView } from './MonthView';
+import { WeekView } from './WeekView';
+import { ViewToggle } from './ViewToggle';
+import { DayViewSheet } from './DayViewSheet';
+import { useTasks } from '../../../hooks/useTasks';
+import { useCategories } from '../../../hooks/useCategories';
+import type { CategoryDocument } from '../../../db/schema';
+
+export type CalendarViewMode = 'month' | 'week';
+
+export const CalendarView: React.FC = () => {
+  const [viewMode, setViewMode] = useState<CalendarViewMode>('month');
+  const [focusDate, setFocusDate] = useState(new Date());
+  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+  
+  const { tasks } = useTasks();
+  const { categories } = useCategories();
+
+  const categoriesMap = useMemo(() => {
+    return categories.reduce((acc: Record<string, { color: string; name: string }>, cat: CategoryDocument) => {
+      acc[cat.id] = { color: cat.color, name: cat.name };
+      return acc;
+    }, {});
+  }, [categories]);
+
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [width, setWidth] = useState(0);
+  const controls = useAnimation();
+  const [isAnimating, setIsAnimating] = useState(false);
+
+  useEffect(() => {
+    const element = containerRef.current;
+    if (!element) return;
+
+    const resizeObserver = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        const newWidth = entry.contentRect.width;
+        setWidth(newWidth);
+        controls.set({ x: -newWidth });
+      }
+    });
+
+    resizeObserver.observe(element);
+    return () => resizeObserver.disconnect();
+  }, [viewMode, controls]);
+
+  const getPrevDate = () => viewMode === 'month' ? subMonths(focusDate, 1) : subWeeks(focusDate, 1);
+  const getNextDate = () => viewMode === 'month' ? addMonths(focusDate, 1) : addWeeks(focusDate, 1);
+
+  const handleDragEnd = (_event: any, info: any) => {
+    if (isAnimating || width === 0) return;
+    
+    const threshold = width / 4;
+    const snapTransition = { type: "tween" as const, duration: 0.2, ease: "easeOut" as const };
+    const rejectTransition = { type: "tween" as const, duration: 0.15, ease: "easeOut" as const };
+    
+    if (info.offset.x < -threshold) {
+      setIsAnimating(true);
+      controls.start({ 
+        x: -2 * width, 
+        transition: snapTransition 
+      }).then(() => {
+        setFocusDate(getNextDate());
+        controls.set({ x: -width });
+        setIsAnimating(false);
+      });
+    } else if (info.offset.x > threshold) {
+      setIsAnimating(true);
+      controls.start({ 
+        x: 0, 
+        transition: snapTransition 
+      }).then(() => {
+        setFocusDate(getPrevDate());
+        controls.set({ x: -width });
+        setIsAnimating(false);
+      });
+    } else {
+      controls.start({ 
+        x: -width, 
+        transition: rejectTransition 
+      });
+    }
+  };
+
+  const handlePrev = () => {
+    if (isAnimating || width === 0) return;
+    setIsAnimating(true);
+    controls.start({ 
+      x: 0, 
+      transition: { type: "tween" as const, duration: 0.2, ease: "easeOut" as const } 
+    }).then(() => {
+      setFocusDate(getPrevDate());
+      controls.set({ x: -width });
+      setIsAnimating(false);
+    });
+  };
+
+  const handleNext = () => {
+    if (isAnimating || width === 0) return;
+    setIsAnimating(true);
+    controls.start({ 
+      x: -2 * width, 
+      transition: { type: "tween" as const, duration: 0.2, ease: "easeOut" as const } 
+    }).then(() => {
+      setFocusDate(getNextDate());
+      controls.set({ x: -width });
+      setIsAnimating(false);
+    });
+  };
+
+  const handleToggle = () => {
+    if (viewMode === 'month') {
+      setFocusDate(startOfMonth(focusDate));
+      setViewMode('week');
+    } else {
+      setViewMode('month');
+    }
+  };
+
+  const weekStart = startOfWeek(focusDate, { weekStartsOn: 0 });
+  const weekEnd = endOfWeek(focusDate, { weekStartsOn: 0 });
+
+  const title = viewMode === 'month' 
+    ? format(focusDate, 'MMMM yyyy')
+    : `${format(weekStart, 'MMM d')} - ${format(weekEnd, 'MMM d, yyyy')}`;
+
+  const renderCalendarContent = (date: Date) => {
+    if (viewMode === 'month') {
+      return <MonthView focusDate={date} onDayClick={setSelectedDate} tasks={tasks} categoriesMap={categoriesMap} />;
+    }
+    return <WeekView focusDate={date} onDayClick={setSelectedDate} tasks={tasks} categoriesMap={categoriesMap} />;
+  };
+
+  return (
+    <div className="flex flex-col h-full animate-in fade-in duration-300">
+      <div className="px-4 py-3 flex items-center justify-between border-b border-[#333333]">
+        <h2 className="text-lg font-bold text-white transition-all duration-200">
+          {title}
+        </h2>
+        
+        <div className="flex items-center gap-2">
+          <ViewToggle activeMode={viewMode} onToggle={handleToggle} />
+          
+          <button 
+            onClick={handlePrev} 
+            disabled={isAnimating}
+            className="p-1.5 rounded-lg bg-[#1E1E1E] border border-[#333333] text-gray-400 hover:text-white hover:bg-[#2A2A2A] transition-colors disabled:opacity-50"
+          >
+            <ChevronLeft size={16} />
+          </button>
+          <button 
+            onClick={handleNext} 
+            disabled={isAnimating}
+            className="p-1.5 rounded-lg bg-[#1E1E1E] border border-[#333333] text-gray-400 hover:text-white hover:bg-[#2A2A2A] transition-colors disabled:opacity-50"
+          >
+            <ChevronRight size={16} />
+          </button>
+        </div>
+      </div>
+
+      <div ref={containerRef} className="flex-1 overflow-hidden py-2 relative">
+        <motion.div
+          drag="x"
+          dragConstraints={{ left: -2 * width, right: 0 }}
+          dragElastic={0.1}
+          animate={controls}
+          onDragEnd={handleDragEnd}
+          className="flex h-full cursor-grab active:cursor-grabbing"
+          style={{ width: width * 3, touchAction: 'pan-y' }}
+        >
+          <div style={{ width }} className="flex-shrink-0 opacity-60 pointer-events-none">
+            {renderCalendarContent(getPrevDate())}
+          </div>
+          <div style={{ width }} className="flex-shrink-0 h-full">
+            {renderCalendarContent(focusDate)}
+          </div>
+          <div style={{ width }} className="flex-shrink-0 opacity-60 pointer-events-none">
+            {renderCalendarContent(getNextDate())}
+          </div>
+        </motion.div>
+      </div>
+
+      <DayViewSheet 
+        isOpen={!!selectedDate} 
+        onClose={() => setSelectedDate(null)} 
+        selectedDate={selectedDate || new Date()} 
+        onDateChange={setSelectedDate}
+      />
+    </div>
+  );
+};
+</file>
+
+<file path="src/components/home/views/CategorySection.tsx">
+import React, { useState, useRef, useEffect } from 'react';
+import { Plus, Eye, EyeOff, Users } from 'lucide-react';
+import { TaskItem } from './TaskItem';
+import type { TaskDocument } from '../../../db/schema';
+
+type Visibility = 'private' | 'followers' | 'public';
+
+interface CategorySectionProps {
+  categoryName: string;
+  categoryColor: string;
+  visibility?: Visibility;
+  tasks: TaskDocument[];
+  onToggleTask: (taskId: string, currentStatus: boolean) => void;
+  onAddTask: (title: string) => void;
+  onOpenActions: (task: TaskDocument) => void;
+  onOpenMemo: (task: TaskDocument) => void;
+  editingTaskId: string | null;
+  editValue: string;
+  onEditChange: (value: string) => void;
+  onEditSave: () => void;
+  onEditCancel: () => void;
+}
+
+export const CategorySection: React.FC<CategorySectionProps> = ({ 
+  categoryName, 
+  categoryColor, 
+  visibility = 'private',
+  tasks, 
+  onToggleTask,
+  onAddTask,
+  onOpenActions,
+  onOpenMemo,
+  editingTaskId,
+  editValue,
+  onEditChange,
+  onEditSave,
+  onEditCancel
+}) => {
+  const [isAdding, setIsAdding] = useState(false);
+  const [newTaskTitle, setNewTaskTitle] = useState('');
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (isAdding && inputRef.current) {
+      inputRef.current.focus();
+    }
+  }, [isAdding]);
+
+  const handleAdd = () => {
+    if (newTaskTitle.trim()) {
+      onAddTask(newTaskTitle.trim());
+      setNewTaskTitle('');
+      setIsAdding(false);
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      handleAdd();
+    } else if (e.key === 'Escape') {
+      setIsAdding(false);
+      setNewTaskTitle('');
+    }
+  };
+
+  const getVisibilityIcon = (v: Visibility) => {
+    switch (v) {
+      case 'public': return <Eye size={12} className="text-gray-600" />;
+      case 'followers': return <Users size={12} className="text-gray-600" />;
+      case 'private': return <EyeOff size={12} className="text-gray-600" />;
+    }
+  };
+
+  return (
+    <div className="mb-4">
+      <div className="flex items-center gap-2 mb-2">
+        <div
+          onClick={() => setIsAdding(!isAdding)}
+          className={`inline-flex items-center gap-2 bg-[#1E1E1E] border rounded-full pl-2.5 pr-3 py-1.5 cursor-pointer transition-all active:scale-95 ${
+            isAdding ? 'border-[#555555] bg-[#252525]' : 'border-[#333333] hover:bg-[#2A2A2A]'
+          }`}
+        >
+          <div 
+            className="w-2.5 h-2.5 rounded-full flex-shrink-0"
+            style={{ backgroundColor: categoryColor }}
+          />
+          <span className="text-xs font-bold text-white">
+            {categoryName}
+          </span>
+          <Plus size={14} className="text-white" strokeWidth={2.5} />
+        </div>
+
+        <div className="ml-1">
+          {getVisibilityIcon(visibility)}
+        </div>
+      </div>
+
+      <div className="bg-[#1E1E1E] rounded-xl border border-[#333333] overflow-hidden">
+        {tasks.length > 0 && (
+          <div className="px-3 py-1">
+            {tasks.map((task) => (
+              <TaskItem 
+                key={task.id} 
+                task={task} 
+                categoryColor={categoryColor}
+                onToggle={(id) => onToggleTask(id, task.completed)} 
+                onOpenActions={onOpenActions}
+                onOpenMemo={onOpenMemo}
+                isEditing={editingTaskId === task.id}
+                editValue={editValue}
+                onEditChange={onEditChange}
+                onEditSave={onEditSave}
+                onEditCancel={onEditCancel}
+              />
+            ))}
+          </div>
+        )}
+
+        {isAdding && (
+          <div className="flex items-center gap-2 px-3 py-2.5 border-t border-[#333333] bg-[#1A1A1A] animate-in fade-in slide-in-from-top-1 duration-200">
+            <button 
+              className="flex-shrink-0 text-gray-500 hover:text-white transition-colors"
+              onClick={handleAdd}
+            >
+              <Plus size={16} />
+            </button>
+            <input
+              ref={inputRef}
+              type="text"
+              value={newTaskTitle}
+              onChange={(e) => setNewTaskTitle(e.target.value)}
+              onKeyDown={handleKeyDown}
+              onBlur={() => {
+                if (!newTaskTitle.trim()) {
+                  setIsAdding(false);
+                }
+              }}
+              placeholder={`Add a task to ${categoryName}...`}
+              className="flex-1 bg-transparent text-sm text-white placeholder-gray-600 focus:outline-none"
+            />
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+</file>
+
+<file path="src/components/home/views/DatePickerSheet.tsx">
+import React, { useState, useEffect } from 'react';
+import { BottomSheet } from '../../ui/BottomSheet';
+import { Button } from '../../ui/Button';
+import { Calendar } from 'lucide-react';
+import type { TaskDocument } from '../../../db/schema';
+
+interface DatePickerSheetProps {
+  isOpen: boolean;
+  onClose: () => void;
+  task: TaskDocument | null;
+  onDateChange: (newDate: string) => void;
+}
+
+export const DatePickerSheet: React.FC<DatePickerSheetProps> = ({
+  isOpen,
+  onClose,
+  task,
+  onDateChange
+}) => {
+  const [selectedDate, setSelectedDate] = useState('');
+
+  useEffect(() => {
+    if (task) {
+      setSelectedDate(task.date);
+    }
+  }, [task, isOpen]);
+
+  const handleConfirm = () => {
+    if (selectedDate) {
+      onDateChange(selectedDate);
+    }
+  };
+
+  if (!task) return null;
+
+  return (
+    <BottomSheet isOpen={isOpen} onClose={onClose} title="Change Date" height="auto">
+      <div className="pt-2 pb-8 px-4 space-y-4">
+        <div>
+          <label className="block text-xs text-gray-500 mb-2 ml-1">Select Date</label>
+          <input
+            type="date"
+            value={selectedDate}
+            onChange={(e) => setSelectedDate(e.target.value)}
+            className="w-full bg-[#1E1E1E] border border-[#333333] rounded-xl p-3 text-sm text-white focus:outline-none focus:border-[#555555] transition-colors [color-scheme:dark]"
+          />
+        </div>
+        <Button variant="primary" className="w-full gap-2 py-3" onClick={handleConfirm} disabled={!selectedDate}>
+          <Calendar size={18} />
+          Confirm Date
+        </Button>
+      </div>
+    </BottomSheet>
+  );
+};
+</file>
+
+<file path="src/components/home/views/DayCell.tsx">
+import React from 'react';
+import { motion } from 'framer-motion';
+import { isToday } from 'date-fns';
+import { TaskBlock } from './TaskBlock';
+import type { TaskDocument } from '../../../db/schema';
+
+interface DayCellProps {
+  date: Date;
+  tasks: TaskDocument[];
+  categories: Record<string, { color: string; name: string }>;
+  isCurrentMonth?: boolean;
+  onClick?: () => void;
+}
+
+export const DayCell: React.FC<DayCellProps> = ({
+  date,
+  tasks,
+  categories,
+  isCurrentMonth = true,
+  onClick,
+}) => {
+  const dayNumber = date.getDate();
+  const dayOfWeek = date.getDay(); 
+  const isTodayDate = isToday(date);
+
+  let dayColor = 'text-gray-400';
+  if (dayOfWeek === 6) dayColor = 'text-blue-500'; 
+  if (dayOfWeek === 0) dayColor = 'text-red-500';  
+  if (!isCurrentMonth) dayColor = 'text-gray-600'; 
+
+  const sortedTasks = [...tasks].sort((a, b) => {
+    if (a.completed !== b.completed) return a.completed ? -1 : 1;
+    return 0;
+  });
+
+  return (
+    <motion.div
+      whileTap={onClick ? { scale: 0.98 } : {}}
+      onClick={onClick}
+      // FIX: Removed px-0.5 to let tasks fill the entire column width
+      className={`py-0.5 cursor-pointer flex flex-col h-full rounded-md hover:bg-[#1E1E1E] transition-colors ${
+        !isCurrentMonth ? 'opacity-40' : ''
+      }`}
+    >
+      <div className="flex justify-center mb-1">
+        <div 
+          className={`text-xs font-bold flex items-center justify-center w-6 h-6 rounded-full ${dayColor} ${
+            isTodayDate ? 'border border-blue-500' : ''
+          }`}
+        >
+          {dayNumber}
+        </div>
+      </div>
+
+      <div className="flex-1 space-y-0.5">
+        {sortedTasks.map((task) => (
+          <TaskBlock 
+            key={task.id} 
+            task={task} 
+            categoryColor={categories[task.categoryId]?.color || '#6B7280'} 
+          />
+        ))}
+      </div>
+    </motion.div>
+  );
+};
+</file>
+
+<file path="src/components/home/views/DayViewSheet.tsx">
+import React, { useMemo, useRef, useEffect, useState } from 'react';
+import { format, addDays, subDays } from 'date-fns';
+import { motion, useAnimation } from 'framer-motion';
+import { BottomSheet } from '../../ui/BottomSheet';
+import { CategorySection } from './CategorySection';
+import { TaskActionSheet } from './TaskActionSheet';
+import { MemoSheet } from './MemoSheet';
+import { DatePickerSheet } from './DatePickerSheet';
+import { ImagePickerSheet } from './ImagePickerSheet';
+import { useTasks } from '../../../hooks/useTasks';
+import { useCategories } from '../../../hooks/useCategories';
+import { deleteImage } from '../../../lib/storage';
+import type { CategoryDocument, TaskDocument } from '../../../db/schema';
+
+interface DayViewSheetProps {
+  isOpen: boolean;
+  onClose: () => void;
+  selectedDate: Date;
+  onDateChange?: (date: Date) => void;
+}
+
+export const DayViewSheet: React.FC<DayViewSheetProps> = ({ 
+  isOpen, 
+  onClose, 
+  selectedDate,
+  onDateChange
+}) => {
+  const { tasks, addTask, updateTask, deleteTask, toggleTaskCompletion } = useTasks();
+  const { categories } = useCategories();
+  
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [width, setWidth] = useState(0);
+  const controls = useAnimation();
+  const [isAnimating, setIsAnimating] = useState(false);
+
+  // Sheet State
+  const [activeTask, setActiveTask] = useState<TaskDocument | null>(null);
+  const [isActionSheetOpen, setIsActionSheetOpen] = useState(false);
+  const [isMemoSheetOpen, setIsMemoSheetOpen] = useState(false);
+  const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
+  const [isImagePickerOpen, setIsImagePickerOpen] = useState(false);
+  
+  // Inline Edit State
+  const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
+  const [editValue, setEditValue] = useState('');
+
+  useEffect(() => {
+    const element = containerRef.current;
+    if (!element || !isOpen) return;
+
+    const resizeObserver = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        const newWidth = entry.contentRect.width;
+        setWidth(newWidth);
+        controls.set({ x: -newWidth });
+      }
+    });
+
+    resizeObserver.observe(element);
+    return () => resizeObserver.disconnect();
+  }, [isOpen, controls]);
+
+  useEffect(() => {
+    if (width > 0) {
+      controls.set({ x: -width });
+    }
+  }, [selectedDate, width, controls]);
+
+  const prevDate = subDays(selectedDate, 1);
+  const nextDate = addDays(selectedDate, 1);
+
+  const handleDragEnd = (_event: any, info: any) => {
+    if (isAnimating || width === 0 || isActionSheetOpen || isMemoSheetOpen || isDatePickerOpen || isImagePickerOpen) return;
+    
+    const threshold = width / 4;
+    const snapTransition = { type: "tween" as const, duration: 0.2, ease: "easeOut" as const };
+    const rejectTransition = { type: "tween" as const, duration: 0.15, ease: "easeOut" as const };
+    
+    if (info.offset.x < -threshold) {
+      setIsAnimating(true);
+      controls.start({ 
+        x: -2 * width, 
+        transition: snapTransition 
+      }).then(() => {
+        onDateChange?.(nextDate);
+        controls.set({ x: -width });
+        setIsAnimating(false);
+      });
+    } else if (info.offset.x > threshold) {
+      setIsAnimating(true);
+      controls.start({ 
+        x: 0, 
+        transition: snapTransition 
+      }).then(() => {
+        onDateChange?.(prevDate);
+        controls.set({ x: -width });
+        setIsAnimating(false);
+      });
+    } else {
+      controls.start({ 
+        x: -width, 
+        transition: rejectTransition 
+      });
+    }
+  };
+
+  const handleToggleTask = (taskId: string, currentStatus: boolean) => {
+    toggleTaskCompletion(taskId, !currentStatus);
+  };
+
+  const handleAddTask = (title: string, categoryId: string) => {
+    addTask({ 
+      title, 
+      categoryId, 
+      date: format(selectedDate, 'yyyy-MM-dd'),
+      completed: false,
+      visibility: 'private'
+    });
+  };
+
+  // Inline Edit Handlers
+  const handleStartEdit = (task: TaskDocument) => {
+    setEditingTaskId(task.id);
+    setEditValue(task.title);
+    setIsActionSheetOpen(false);
+  };
+
+  const handleEditChange = (value: string) => {
+    setEditValue(value);
+  };
+
+  const handleEditSave = async () => {
+    if (editingTaskId && editValue.trim()) {
+      await updateTask(editingTaskId, { title: editValue.trim() });
+    }
+    setEditingTaskId(null);
+    setEditValue('');
+  };
+
+  const handleEditCancel = () => {
+    setEditingTaskId(null);
+    setEditValue('');
+  };
+
+  // Action Handlers
+  const handleOpenActions = (task: TaskDocument) => {
+    if (editingTaskId) return;
+    setActiveTask(task);
+    setIsActionSheetOpen(true);
+  };
+
+  const handleOpenMemo = (task: TaskDocument) => {
+    setActiveTask(task);
+    setIsMemoSheetOpen(true);
+  };
+
+  const handleDelete = async () => {
+    if (activeTask) {
+      // If task has an image, delete it from storage first
+      if (activeTask.image) {
+        await deleteImage(activeTask.image);
+      }
+      await deleteTask(activeTask.id);
+      setIsActionSheetOpen(false);
+      setActiveTask(null);
+    }
+  };
+
+  const handleMemoSave = async (memo: string, visibility: 'private' | 'followers' | 'public') => {
+    if (activeTask) {
+      await updateTask(activeTask.id, { memo, visibility });
+      setIsMemoSheetOpen(false);
+    }
+  };
+
+  const handleDateChange = async (newDate: string) => {
+    if (activeTask) {
+      await updateTask(activeTask.id, { date: newDate });
+      setIsDatePickerOpen(false);
+    }
+  };
+
+  const handleDoItTomorrowOrToday = async () => {
+    if (!activeTask) return;
+    const now = new Date();
+    const taskDate = new Date(activeTask.date);
+    const todayStr = format(now, 'yyyy-MM-dd');
+    const taskDateStr = format(taskDate, 'yyyy-MM-dd');
+    const newDate = taskDateStr === todayStr 
+      ? format(addDays(now, 1), 'yyyy-MM-dd')
+      : todayStr;
+    await updateTask(activeTask.id, { date: newDate });
+  };
+
+  const handleOpenImagePicker = () => {
+    setIsImagePickerOpen(true);
+  };
+
+  const handleImageSave = async (imageFileId: string) => {
+    if (activeTask) {
+      // Delete old image from storage if replacing
+      if (activeTask.image && activeTask.image !== imageFileId) {
+        await deleteImage(activeTask.image);
+      }
+      await updateTask(activeTask.id, { image: imageFileId });
+    }
+  };
+
+  const handleImageRemove = async () => {
+    if (activeTask && activeTask.image) {
+      await deleteImage(activeTask.image);
+      await updateTask(activeTask.id, { image: '' });
+    }
+  };
+
+  const renderDayContent = (date: Date, isCenter: boolean) => {
+    const dateStr = format(date, 'yyyy-MM-dd');
+    const dayTasks = tasks.filter(t => t.date === dateStr);
+    
+    const groupedTasks = useMemo(() => {
+      const groups: Record<string, typeof dayTasks> = {};
+      dayTasks.forEach(task => {
+        if (!groups[task.categoryId]) groups[task.categoryId] = [];
+        groups[task.categoryId].push(task);
+      });
+      return groups;
+    }, [dayTasks]);
+
+    if (categories.length === 0) {
+      return (
+        <div className="text-center py-12 text-gray-500 text-sm px-4">
+          Create a category to start adding tasks.
+        </div>
+      );
+    }
+
+    return (
+      <div 
+        className={`pt-2 pb-8 px-1 h-full overflow-y-auto ${!isCenter ? 'pointer-events-none' : ''}`}
+        style={{ touchAction: 'pan-y' }}
+      >
+        {categories.map((category: CategoryDocument) => (
+          <CategorySection
+            key={category.id}
+            categoryName={category.name}
+            categoryColor={category.color}
+            visibility={category.visibility}
+            tasks={groupedTasks[category.id] || []}
+            onToggleTask={handleToggleTask}
+            onAddTask={(title) => handleAddTask(title, category.id)}
+            onOpenActions={handleOpenActions}
+            onOpenMemo={handleOpenMemo}
+            editingTaskId={editingTaskId}
+            editValue={editValue}
+            onEditChange={handleEditChange}
+            onEditSave={handleEditSave}
+            onEditCancel={handleEditCancel}
+          />
+        ))}
+      </div>
+    );
+  };
+
+  const isBackgroundLocked = isActionSheetOpen || isMemoSheetOpen || isDatePickerOpen || isImagePickerOpen;
+
+  return (
+    <>
+      <BottomSheet 
+        isOpen={isOpen} 
+        onClose={onClose}
+        title={format(selectedDate, 'EEEE, MMMM d')}
+        height="auto"
+        isLocked={isBackgroundLocked}
+      >
+        <div ref={containerRef} className="overflow-hidden w-full">
+          <motion.div
+            drag="x"
+            dragConstraints={{ left: -2 * width, right: 0 }}
+            dragElastic={0.1}
+            animate={controls}
+            onDragEnd={handleDragEnd}
+            className={`flex cursor-grab active:cursor-grabbing transition-[filter,opacity] duration-300 ${
+              isBackgroundLocked ? 'blur-sm opacity-50 pointer-events-none select-none' : ''
+            }`}
+            style={{ width: width * 3, touchAction: 'pan-y' }}
+          >
+            <div style={{ width }} className="flex-shrink-0 opacity-60">
+              {renderDayContent(prevDate, false)}
+            </div>
+            
+            <div style={{ width }} className="flex-shrink-0">
+              {renderDayContent(selectedDate, true)}
+            </div>
+            
+            <div style={{ width }} className="flex-shrink-0 opacity-60">
+              {renderDayContent(nextDate, false)}
+            </div>
+          </motion.div>
+        </div>
+      </BottomSheet>
+
+      {/* Task Action Sheet */}
+      <TaskActionSheet 
+        isOpen={isActionSheetOpen}
+        onClose={() => setIsActionSheetOpen(false)}
+        task={activeTask}
+        onEdit={() => activeTask && handleStartEdit(activeTask)}
+        onDelete={handleDelete}
+        onMemo={() => setIsMemoSheetOpen(true)}
+        onChangeDate={() => setIsDatePickerOpen(true)}
+        onAddPhoto={handleOpenImagePicker}
+        onDoItTomorrowOrToday={handleDoItTomorrowOrToday}
+      />
+
+      {/* Memo Sheet */}
+      <MemoSheet
+        isOpen={isMemoSheetOpen}
+        onClose={() => setIsMemoSheetOpen(false)}
+        task={activeTask}
+        onSave={handleMemoSave}
+      />
+
+      {/* Date Picker Sheet */}
+      <DatePickerSheet
+        isOpen={isDatePickerOpen}
+        onClose={() => setIsDatePickerOpen(false)}
+        task={activeTask}
+        onDateChange={handleDateChange}
+      />
+
+      {/* Image Picker Sheet */}
+      <ImagePickerSheet
+        isOpen={isImagePickerOpen}
+        onClose={() => setIsImagePickerOpen(false)}
+        task={activeTask}
+        onSave={handleImageSave}
+        onRemove={handleImageRemove}
+      />
+    </>
+  );
+};
+</file>
+
+<file path="src/components/home/views/DiaryView.tsx">
+import React from 'react';
+import { BookOpen } from 'lucide-react';
+
+export const DiaryView: React.FC = () => {
+  return (
+    <div className="flex flex-col items-center justify-center h-[60vh] text-center p-6 animate-in fade-in duration-300">
+      <div className="w-16 h-16 bg-[#1E1E1E] rounded-full flex items-center justify-center mb-4 border border-[#333333]">
+        <BookOpen size={32} className="text-gray-400" />
+      </div>
+      <h2 className="text-xl font-bold text-white mb-2">Diary View</h2>
+      <p className="text-gray-500 text-sm max-w-xs">
+        Daily journal editor coming in Batch 5.
+      </p>
+    </div>
+  );
+};
+</file>
+
+<file path="src/components/home/views/EditTaskSheet.tsx">
+import React, { useState, useEffect } from 'react';
+import { BottomSheet } from '../../ui/BottomSheet';
+import { Button } from '../../ui/Button';
+import { Input } from '../../ui/Input';
+import { Save } from 'lucide-react';
+import type { TaskDocument } from '../../../db/schema';
+
+interface EditTaskSheetProps {
+  isOpen: boolean;
+  onClose: () => void;
+  task: TaskDocument | null;
+  onSave: (updates: Partial<TaskDocument>) => void;
+  initialFocus?: 'title' | 'memo';
+}
+
+export const EditTaskSheet: React.FC<EditTaskSheetProps> = ({
+  isOpen,
+  onClose,
+  task,
+  onSave,
+  initialFocus = 'title'
+}) => {
+  const [title, setTitle] = useState('');
+  const [memo, setMemo] = useState('');
+
+  useEffect(() => {
+    if (task) {
+      setTitle(task.title);
+      setMemo(task.memo || '');
+    }
+  }, [task, isOpen]);
+
+  const handleSave = () => {
+    if (title.trim()) {
+      onSave({ title: title.trim(), memo: memo.trim() });
+      onClose();
+    }
+  };
+
+  if (!task) return null;
+
+  return (
+    <BottomSheet isOpen={isOpen} onClose={onClose} title={initialFocus === 'memo' ? 'Add Memo' : 'Edit Task'} height="auto">
+      <div className="pt-2 pb-8 px-1 space-y-4">
+        <Input
+          label="Title"
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          autoFocus={initialFocus === 'title'}
+        />
+        <div>
+          <label className="block text-xs text-gray-500 mb-2 ml-1">Memo / Notes</label>
+          <textarea
+            value={memo}
+            onChange={(e) => setMemo(e.target.value)}
+            autoFocus={initialFocus === 'memo'}
+            placeholder="Add details to this task..."
+            className="w-full bg-[#1E1E1E] border border-[#333333] rounded-xl p-3 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-[#555555] transition-colors min-h-[100px] resize-none"
+          />
+        </div>
+        <Button variant="primary" className="w-full gap-2 py-3" onClick={handleSave} disabled={!title.trim()}>
+          <Save size={18} />
+          Save Changes
+        </Button>
+      </div>
+    </BottomSheet>
+  );
+};
+</file>
+
+<file path="src/components/home/views/ImagePickerSheet.tsx">
+import React, { useRef, useState } from 'react';
+import { BottomSheet } from '../../ui/BottomSheet';
+import { Button } from '../../ui/Button';
+import { Upload, X, Loader2 } from 'lucide-react';
+import { uploadImage } from '../../../lib/storage';
+import type { TaskDocument } from '../../../db/schema';
+
+interface ImagePickerSheetProps {
+  isOpen: boolean;
+  onClose: () => void;
+  task: TaskDocument | null;
+  onSave: (imageFileId: string) => void;
+  onRemove?: () => void;
+}
+
+export const ImagePickerSheet: React.FC<ImagePickerSheetProps> = ({
+  isOpen,
+  onClose,
+  task,
+  onSave,
+  onRemove
+}) => {
+  const [isUploading, setIsUploading] = useState(false);
+  const [error, setError] = useState('');
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsUploading(true);
+    setError('');
+
+    try {
+      const fileId = await uploadImage(file);
+      onSave(fileId);
+      onClose();
+    } catch (err) {
+      setError('Failed to upload image. Please try again.');
+      console.error('[ImagePicker] Upload failed:', err);
+    } finally {
+      setIsUploading(false);
+      // Reset input so the same file can be selected again if needed
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
+  const handleRemove = () => {
+    if (onRemove) {
+      onRemove();
+      onClose();
+    }
+  };
+
+  if (!task) return null;
+
+  return (
+    <BottomSheet isOpen={isOpen} onClose={onClose} title="Add Photo" height="auto">
+      <div className="pt-2 pb-8 px-4 space-y-4">
+        <p className="text-sm text-gray-400 text-center">
+          Images are automatically compressed to 150KB before uploading.
+        </p>
+
+        {error && (
+          <div className="bg-red-900/20 border border-red-500/30 text-red-400 text-sm p-3 rounded-xl">
+            {error}
+          </div>
+        )}
+
+        <div className="flex flex-col gap-3">
+          <Button
+            variant="primary"
+            className="w-full gap-2 py-3"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={isUploading}
+          >
+            {isUploading ? (
+              <>
+                <Loader2 size={18} className="animate-spin" />
+                Compressing & Uploading...
+              </>
+            ) : (
+              <>
+                <Upload size={18} />
+                Choose from Device
+              </>
+            )}
+          </Button>
+
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            onChange={handleFileSelect}
+            className="hidden"
+          />
+
+          {task.image && (
+            <Button
+              variant="danger"
+              className="w-full gap-2 py-3"
+              onClick={handleRemove}
+              disabled={isUploading}
+            >
+              <X size={18} />
+              Remove Current Photo
+            </Button>
+          )}
+        </div>
+      </div>
+    </BottomSheet>
+  );
+};
+</file>
+
+<file path="src/components/home/views/MemoSheet.tsx">
+import React, { useState, useEffect } from 'react';
+import { BottomSheet } from '../../ui/BottomSheet';
+import type { TaskDocument } from '../../../db/schema';
+
+interface MemoSheetProps {
+  isOpen: boolean;
+  onClose: () => void;
+  task: TaskDocument | null;
+  onSave: (memo: string, visibility: 'private' | 'followers' | 'public') => void;
+}
+
+export const MemoSheet: React.FC<MemoSheetProps> = ({
+  isOpen,
+  onClose,
+  task,
+  onSave
+}) => {
+  const [memo, setMemo] = useState('');
+  const [visibility, setVisibility] = useState<'private' | 'followers' | 'public'>('private');
+
+  useEffect(() => {
+    if (task) {
+      setMemo(task.memo || '');
+      setVisibility(task.visibility || 'private');
+    }
+  }, [task, isOpen]);
+
+  const handleDone = () => {
+    onSave(memo, visibility);
+    onClose();
+  };
+
+  const handleDelete = () => {
+    onSave('', visibility);
+    onClose();
+  };
+
+  if (!task) return null;
+
+  return (
+    <BottomSheet isOpen={isOpen} onClose={onClose} title={task.title} height="auto">
+      <div className="pt-2 pb-8 px-4">
+        <div className="flex items-center justify-between mb-4">
+          {task.memo ? (
+            <button onClick={handleDelete} className="text-red-400 font-semibold text-base">Delete</button>
+          ) : (
+            <div className="w-12" />
+          )}
+          <button onClick={handleDone} className="text-white font-semibold text-base">Done</button>
+        </div>
+
+        <textarea
+          value={memo}
+          onChange={(e) => setMemo(e.target.value)}
+          placeholder="Enter a memo"
+          autoFocus
+          className="w-full bg-[#1A1A1A] rounded-xl p-4 text-base text-white placeholder-gray-500 focus:outline-none min-h-[200px] resize-none mb-6"
+        />
+
+        <div className="flex items-center justify-end gap-3">
+          <span className="text-sm text-gray-400">Visible to me only</span>
+          <button
+            onClick={() => setVisibility(visibility === 'private' ? 'public' : 'private')}
+            className={`relative w-12 h-7 rounded-full transition-colors ${
+              visibility === 'private' ? 'bg-gray-600' : 'bg-blue-500'
+            }`}
+          >
+            <div
+              className={`absolute top-1 w-5 h-5 rounded-full bg-white transition-transform ${
+                visibility === 'private' ? 'left-1' : 'left-6'
+              }`}
+            />
+            <span className="absolute inset-0 flex items-center justify-center text-[10px] font-bold text-white">
+              {visibility === 'private' ? 'ON' : 'OFF'}
+            </span>
+          </button>
+        </div>
+      </div>
+    </BottomSheet>
+  );
+};
+</file>
+
+<file path="src/components/home/views/MonthView.tsx">
+import React from 'react';
+import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, eachDayOfInterval, isSameMonth } from 'date-fns';
+import { DayCell } from './DayCell';
+import type { TaskDocument } from '../../../db/schema';
+
+interface MonthViewProps {
+  focusDate: Date;
+  onDayClick?: (date: Date) => void;
+  tasks: TaskDocument[];
+  categoriesMap: Record<string, { color: string; name: string }>;
+}
+
+export const MonthView: React.FC<MonthViewProps> = ({ focusDate, onDayClick, tasks, categoriesMap }) => {
+  const monthStart = startOfMonth(focusDate);
+  const monthEnd = endOfMonth(monthStart);
+  const startDate = startOfWeek(monthStart);
+  const endDate = endOfWeek(monthEnd);
+  
+  const calendarDays = eachDayOfInterval({ start: startDate, end: endDate });
+  const weekDays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+  const getTasksForDay = (day: Date) => {
+    const dateStr = format(day, 'yyyy-MM-dd');
+    return tasks.filter((task: TaskDocument) => task.date === dateStr);
+  };
+
+  return (
+    <div className="flex flex-col h-full">
+      <div className="grid grid-cols-7 gap-1 px-2 mb-1">
+        {weekDays.map(day => (
+          <div key={day} className="text-center text-[10px] font-medium text-gray-500 py-1">
+            {day}
+          </div>
+        ))}
+      </div>
+
+      <div className="grid grid-cols-7 gap-1 px-2 flex-1 auto-rows-fr">
+        {calendarDays.map((day, index) => (
+          <DayCell
+            key={index}
+            date={day}
+            tasks={getTasksForDay(day)}
+            categories={categoriesMap}
+            isCurrentMonth={isSameMonth(day, focusDate)}
+            onClick={onDayClick ? () => onDayClick(day) : undefined}
+          />
+        ))}
+      </div>
+    </div>
+  );
+};
+</file>
+
+<file path="src/components/home/views/TaskActionSheet.tsx">
+import React from 'react';
+import { BottomSheet } from '../../ui/BottomSheet';
+import { Pencil, Trash2, FileText, Clock, ArrowRight, RotateCcw, CheckCircle, Archive, Image as ImageIcon } from 'lucide-react';
+import { isToday } from 'date-fns';
+import type { TaskDocument } from '../../../db/schema';
+
+interface TaskActionSheetProps {
+  isOpen: boolean;
+  onClose: () => void;
+  task: TaskDocument | null;
+  onEdit: () => void;
+  onDelete: () => void;
+  onMemo: () => void;
+  onChangeDate: () => void;
+  onAddPhoto: () => void;
+  onDoItTomorrowOrToday: () => void;
+}
+
+export const TaskActionSheet: React.FC<TaskActionSheetProps> = ({
+  isOpen,
+  onClose,
+  task,
+  onEdit,
+  onDelete,
+  onMemo,
+  onChangeDate,
+  onAddPhoto,
+  onDoItTomorrowOrToday
+}) => {
+  if (!task) return null;
+
+  const isTaskToday = isToday(new Date(task.date));
+  const tomorrowOrTodayLabel = isTaskToday ? 'Do It Tomorrow' : 'Do It Today';
+
+  return (
+    <BottomSheet isOpen={isOpen} onClose={onClose} title={task.title} height="auto">
+      <div className="pt-2 pb-8 px-4">
+        {/* Edit/Delete Buttons Side by Side */}
+        <div className="grid grid-cols-2 gap-3 mb-6">
+          <button onClick={onEdit} className="flex flex-col items-center justify-center gap-2 py-4 bg-[#2A2A2A] rounded-xl hover:bg-[#333333] transition-colors">
+            <Pencil size={20} className="text-blue-400" />
+            <span className="text-sm text-white">Edit</span>
+          </button>
+          <button onClick={onDelete} className="flex flex-col items-center justify-center gap-2 py-4 bg-[#2A2A2A] rounded-xl hover:bg-[#333333] transition-colors">
+            <Trash2 size={20} className="text-red-400" />
+            <span className="text-sm text-white">Delete</span>
+          </button>
+        </div>
+
+        {/* Integrated Memo Section - Only if memo exists */}
+        {task.memo && (
+          <div className="mb-6">
+            <div className="flex items-center gap-2 mb-3">
+              <div className="w-8 h-8 rounded-full bg-yellow-400 flex items-center justify-center">
+                <FileText size={16} className="text-black" />
+              </div>
+              <h3 className="text-lg font-semibold text-white">Memo</h3>
+            </div>
+            <div onClick={onMemo} className="bg-[#1A1A1A] rounded-xl p-4 cursor-pointer hover:bg-[#222222] transition-colors">
+              <p className="text-sm text-gray-300 whitespace-pre-wrap">{task.memo}</p>
+            </div>
+          </div>
+        )}
+
+        {/* Action Items */}
+        <div className="space-y-1">
+          {/* Memo Button - Only show if NO memo exists yet */}
+          {!task.memo && (
+            <button onClick={() => { onMemo(); onClose(); }} className="w-full flex items-center gap-4 px-2 py-3.5 rounded-xl hover:bg-[#1E1E1E] transition-colors text-white">
+              <div className="w-8 h-8 rounded-full bg-yellow-400 flex items-center justify-center">
+                <FileText size={16} className="text-black" />
+              </div>
+              <span className="text-base font-medium">Memo</span>
+            </button>
+          )}
+
+          {/* Add/Change Photo Button */}
+          <button onClick={() => { onAddPhoto(); onClose(); }} className="w-full flex items-center gap-4 px-2 py-3.5 rounded-xl hover:bg-[#1E1E1E] transition-colors text-white">
+            <div className="w-8 h-8 rounded-full bg-green-400 flex items-center justify-center">
+              <ImageIcon size={16} className="text-black" />
+            </div>
+            <span className="text-base font-medium">{task.image ? 'Change Photo' : 'Add Photo'}</span>
+          </button>
+
+          <button onClick={() => alert('Set Alarm coming soon')} className="w-full flex items-center gap-4 px-2 py-3.5 rounded-xl hover:bg-[#1E1E1E] transition-colors text-white">
+            <div className="w-8 h-8 rounded-full bg-pink-400 flex items-center justify-center">
+              <Clock size={16} className="text-black" />
+            </div>
+            <span className="text-base font-medium">Set Alarm</span>
+          </button>
+
+          <button onClick={() => alert('Open Timer coming soon')} className="w-full flex items-center gap-4 px-2 py-3.5 rounded-xl hover:bg-[#1E1E1E] transition-colors text-white">
+            <div className="w-8 h-8 rounded-full bg-pink-400 flex items-center justify-center">
+              <Clock size={16} className="text-black" />
+            </div>
+            <span className="text-base font-medium">Open Timer</span>
+          </button>
+
+          <button onClick={() => { onDoItTomorrowOrToday(); onClose(); }} className="w-full flex items-center gap-4 px-2 py-3.5 rounded-xl hover:bg-[#1E1E1E] transition-colors text-white">
+            <div className="w-8 h-8 rounded-full bg-blue-400 flex items-center justify-center">
+              <ArrowRight size={16} className="text-black" />
+            </div>
+            <span className="text-base font-medium">{tomorrowOrTodayLabel}</span>
+          </button>
+
+          <button onClick={() => { onChangeDate(); onClose(); }} className="w-full flex items-center gap-4 px-2 py-3.5 rounded-xl hover:bg-[#1E1E1E] transition-colors text-white">
+            <div className="w-8 h-8 rounded-full bg-blue-400 flex items-center justify-center">
+              <RotateCcw size={16} className="text-black" />
+            </div>
+            <span className="text-base font-medium">Change Date</span>
+          </button>
+
+          <button onClick={() => alert('Make It a Routine coming soon')} className="w-full flex items-center gap-4 px-2 py-3.5 rounded-xl hover:bg-[#1E1E1E] transition-colors text-white">
+            <div className="w-8 h-8 rounded-full bg-blue-400 flex items-center justify-center">
+              <CheckCircle size={16} className="text-black" />
+            </div>
+            <span className="text-base font-medium">Make It a Routine</span>
+          </button>
+
+          <button onClick={() => alert('Move to Backlog coming soon')} className="w-full flex items-center gap-4 px-2 py-3.5 rounded-xl hover:bg-[#1E1E1E] transition-colors text-white">
+            <div className="w-8 h-8 rounded-full bg-blue-400 flex items-center justify-center">
+              <Archive size={16} className="text-black" />
+            </div>
+            <span className="text-base font-medium">Move to Backlog</span>
+          </button>
+        </div>
+      </div>
+    </BottomSheet>
+  );
+};
+</file>
+
+<file path="src/components/home/views/TaskBlock.tsx">
+import React from 'react';
+import type { TaskDocument } from '../../../db/schema';
+
+interface TaskBlockProps {
+  task: TaskDocument;
+  categoryColor: string;
+}
+
+export const TaskBlock: React.FC<TaskBlockProps> = ({ task, categoryColor }) => {
+  const bgColor = task.completed ? categoryColor : '#374151';
+  const textColor = task.completed ? 'text-white' : 'text-gray-400';
+
+  return (
+    <div
+      className={`text-[9px] px-1 py-0.5 w-full font-medium rounded-[3px] overflow-hidden whitespace-nowrap ${textColor}`}
+      style={{ backgroundColor: bgColor }}
+      title={task.title}
+    >
+      <span className="block overflow-hidden whitespace-nowrap">{task.title}</span>
+    </div>
+  );
+};
+</file>
+
+<file path="src/components/home/views/TaskItem.tsx">
+import React from 'react';
+import { motion } from 'framer-motion';
+import { Check, FileText } from 'lucide-react';
+import { getImagePreviewUrl } from '../../../lib/storage';
+import type { TaskDocument } from '../../../db/schema';
+
+interface TaskItemProps {
+  task: TaskDocument;
+  categoryColor: string;
+  onToggle: (taskId: string) => void;
+  onOpenActions: (task: TaskDocument) => void;
+  onOpenMemo: (task: TaskDocument) => void;
+  isEditing: boolean;
+  editValue: string;
+  onEditChange: (value: string) => void;
+  onEditSave: () => void;
+  onEditCancel: () => void;
+}
+
+export const TaskItem: React.FC<TaskItemProps> = ({ 
+  task, 
+  categoryColor, 
+  onToggle, 
+  onOpenActions, 
+  onOpenMemo,
+  isEditing,
+  editValue,
+  onEditChange,
+  onEditSave,
+  onEditCancel
+}) => {
+  return (
+    <motion.div 
+      initial={{ opacity: 0, y: 5 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="py-2.5 group"
+    >
+      <div className="flex items-start gap-3">
+        {/* Custom Checkbox */}
+        <button
+          onClick={() => onToggle(task.id)}
+          onPointerDown={(e) => e.stopPropagation()}
+          className="flex-shrink-0 w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all mt-1"
+          style={{ 
+            backgroundColor: task.completed ? categoryColor : 'transparent',
+            borderColor: task.completed ? categoryColor : '#333333'
+          }}
+        >
+          {task.completed && <Check size={12} className="text-white" strokeWidth={3} />}
+        </button>
+
+        {/* Task Content */}
+        <div className="flex-1 min-w-0">
+          {isEditing ? (
+            <input
+              type="text"
+              value={editValue}
+              onChange={(e) => onEditChange(e.target.value)}
+              onBlur={onEditSave}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') onEditSave();
+                if (e.key === 'Escape') onEditCancel();
+              }}
+              autoFocus
+              className="w-full bg-transparent text-base text-white focus:outline-none border-b border-blue-500 pb-1"
+              onPointerDown={(e) => e.stopPropagation()}
+            />
+          ) : (
+            <div onClick={() => onOpenActions(task)} onPointerDown={(e) => e.stopPropagation()}>
+              <p className={`text-base ${task.completed ? 'text-gray-500 line-through' : 'text-gray-200'}`}>
+                {task.title}
+              </p>
+              
+              {/* Memo Display */}
+              {task.memo && (
+                <p
+                  className="text-sm text-gray-400 mt-1 cursor-pointer hover:text-gray-300 transition-colors whitespace-pre-wrap"
+                  onClick={(e) => { e.stopPropagation(); onOpenMemo(task); }}
+                  onPointerDown={(e) => e.stopPropagation()}
+                >
+                  {task.memo}
+                </p>
+              )}
+
+              {/* Image Thumbnail */}
+              {task.image && (
+                <div className="mt-2 flex items-center gap-2">
+                  <img 
+                    src={getImagePreviewUrl(task.image)} 
+                    alt="Task attachment"
+                    className="w-12 h-12 rounded-lg object-cover border border-[#333333]"
+                    loading="lazy"
+                  />
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Indicators */}
+        {!isEditing && (
+          <div className="flex items-center gap-2 flex-shrink-0 pointer-events-none">
+            {task.memo && !task.image && (
+              <FileText size={14} className="text-gray-600" />
+            )}
+          </div>
+        )}
+      </div>
+    </motion.div>
+  );
+};
+</file>
+
+<file path="src/components/home/views/TodoListView.tsx">
+import React from 'react';
+import { ListChecks } from 'lucide-react';
+
+export const TodoListView: React.FC = () => {
+  return (
+    <div className="flex flex-col items-center justify-center h-[60vh] text-center p-6 animate-in fade-in duration-300">
+      <div className="w-16 h-16 bg-[#1E1E1E] rounded-full flex items-center justify-center mb-4 border border-[#333333]">
+        <ListChecks size={32} className="text-gray-400" />
+      </div>
+      <h2 className="text-xl font-bold text-white mb-2">Todo List View</h2>
+      <p className="text-gray-500 text-sm max-w-xs">
+        Compact color grid and vertical task list coming in Batch 4.
+      </p>
+    </div>
+  );
+};
+</file>
+
+<file path="src/components/home/views/ViewToggle.tsx">
+import React from 'react';
+
+interface ViewToggleProps {
+  activeMode: 'month' | 'week';
+  onToggle: () => void;
+}
+
+export const ViewToggle: React.FC<ViewToggleProps> = ({ activeMode, onToggle }) => {
+  return (
+    <button
+      onClick={onToggle}
+      className="relative flex items-center justify-center w-8 h-7 bg-[#1E1E1E] border border-[#333333] rounded-lg text-xs font-bold focus:outline-none hover:bg-[#2A2A2A] transition-colors"
+    >
+      <span className="text-white">{activeMode === 'month' ? 'M' : 'W'}</span>
+    </button>
+  );
+};
+</file>
+
+<file path="src/components/home/views/WeekView.tsx">
+import React from 'react';
+import { format, startOfWeek, endOfWeek, eachDayOfInterval } from 'date-fns';
+import { DayCell } from './DayCell';
+import type { TaskDocument } from '../../../db/schema';
+
+interface WeekViewProps {
+  focusDate: Date;
+  onDayClick?: (date: Date) => void;
+  tasks: TaskDocument[];
+  categoriesMap: Record<string, { color: string; name: string }>;
+}
+
+export const WeekView: React.FC<WeekViewProps> = ({ focusDate, onDayClick, tasks, categoriesMap }) => {
+  const weekStart = startOfWeek(focusDate, { weekStartsOn: 0 });
+  const weekEnd = endOfWeek(focusDate, { weekStartsOn: 0 });
+  const weekDays = eachDayOfInterval({ start: weekStart, end: weekEnd });
+
+  const getTasksForDay = (day: Date) => {
+    const dateStr = format(day, 'yyyy-MM-dd');
+    return tasks.filter((task: TaskDocument) => task.date === dateStr);
+  };
+
+  return (
+    <div className="flex flex-col h-full">
+      <div className="grid grid-cols-7 gap-1 px-2 mb-1">
+        {weekDays.map(day => (
+          <div key={day.toISOString()} className="text-center text-[10px] font-medium text-gray-500 py-1">
+            {format(day, 'EEE')}
+          </div>
+        ))}
+      </div>
+
+      <div className="grid grid-cols-7 gap-1 px-2 flex-1 auto-rows-fr">
+        {weekDays.map((day, index) => (
+          <DayCell
+            key={index}
+            date={day}
+            tasks={getTasksForDay(day)}
+            categories={categoriesMap}
+            isCurrentMonth={true} 
+            onClick={onDayClick ? () => onDayClick(day) : undefined}
+          />
+        ))}
+      </div>
+    </div>
+  );
+};
+</file>
+
+<file path="src/components/home/HamburgerMenu.tsx">
+import React, { useState } from 'react';
+import { Menu, List, RefreshCw, Bell } from 'lucide-react';
+import { BottomSheet } from '../ui/BottomSheet';
+import { Button } from '../ui/Button';
+import { CategoryManagerSheet } from '../modals/CategoryManagerSheet';
+
+export const HamburgerMenu: React.FC = () => {
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isCategoryManagerOpen, setIsCategoryManagerOpen] = useState(false);
+
+  const menuItems = [
+    { 
+      label: 'Lists & Categories', 
+      icon: List, 
+      action: () => {
+        setIsMenuOpen(false);
+        setIsCategoryManagerOpen(true);
+      } 
+    },
+    { label: 'Routines', icon: RefreshCw, action: () => console.log('Coming Soon') },
+    { label: 'Reminders', icon: Bell, action: () => console.log('Coming Soon') },
+  ];
+
+  return (
+    <>
+      <button
+        onClick={() => setIsMenuOpen(true)}
+        className="p-2 rounded-lg bg-[#1E1E1E] border border-[#333333] text-gray-400 hover:text-white hover:bg-[#2A2A2A] transition-colors focus:outline-none"
+        aria-label="Open menu"
+      >
+        <Menu size={20} />
+      </button>
+
+      <BottomSheet isOpen={isMenuOpen} onClose={() => setIsMenuOpen(false)} title="Menu">
+        <div className="space-y-2 pt-2">
+          {menuItems.map((item) => {
+            const Icon = item.icon;
+            return (
+              <Button
+                key={item.label}
+                variant="ghost"
+                className="w-full justify-start gap-3 py-3"
+                onClick={item.action}
+              >
+                <Icon size={18} className="text-gray-400" />
+                <span>{item.label}</span>
+              </Button>
+            );
+          })}
+        </div>
+      </BottomSheet>
+
+      <CategoryManagerSheet 
+        isOpen={isCategoryManagerOpen} 
+        onClose={() => setIsCategoryManagerOpen(false)} 
+      />
+    </>
+  );
+};
+</file>
+
+<file path="src/components/home/TopBar.tsx">
+import React from 'react';
+import { ViewSwitcher, type ViewType } from './ViewSwitcher';
+import { HamburgerMenu } from './HamburgerMenu';
+
+interface TopBarProps {
+  activeView: ViewType;
+  onViewChange: (view: ViewType) => void;
+}
+
+export const TopBar: React.FC<TopBarProps> = ({ activeView, onViewChange }) => {
+  return (
+    // FIX: Applied sticky, top-0, and z-20 directly here. 
+    // bg-[#111111] ensures content doesn't show through when scrolling.
+    <div className="sticky top-0 z-20 bg-[#111111] px-4 py-3 border-b border-[#333333]">
+      <div className="flex items-center justify-between">
+        <ViewSwitcher activeView={activeView} onViewChange={onViewChange} />
+        <HamburgerMenu />
+      </div>
+    </div>
+  );
+};
+</file>
+
+<file path="src/components/home/ViewContainer.tsx">
+import React from 'react';
+import { CalendarView } from './views/CalendarView';
+import { DiaryView } from './views/DiaryView';
+import type { ViewType } from './ViewSwitcher';
+
+interface ViewContainerProps {
+  activeView: ViewType;
+}
+
+export const ViewContainer: React.FC<ViewContainerProps> = ({ activeView }) => {
+  switch (activeView) {
+    case 'calendar':
+      return <CalendarView />;
+    case 'diary':
+      return <DiaryView />;
+    default:
+      return <CalendarView />;
+  }
+};
+</file>
+
+<file path="src/components/home/ViewSwitcher.tsx">
+import React from 'react';
+import { motion } from 'framer-motion';
+import { Calendar, BookOpen } from 'lucide-react';
+
+export type ViewType = 'calendar' | 'diary';
+
+interface ViewSwitcherProps {
+  activeView: ViewType;
+  onViewChange: (view: ViewType) => void;
+}
+
+const views: { id: ViewType; label: string; icon: React.FC<{ size?: number }> }[] = [
+  { id: 'calendar', label: 'Calendar', icon: Calendar },
+  { id: 'diary', label: 'Diary', icon: BookOpen },
+];
+
+export const ViewSwitcher: React.FC<ViewSwitcherProps> = ({ activeView, onViewChange }) => {
+  return (
+    <div className="flex bg-[#1E1E1E] rounded-lg p-1 border border-[#333333]">
+      {views.map((view) => {
+        const isActive = activeView === view.id;
+        const Icon = view.icon;
+        return (
+          <button
+            key={view.id}
+            onClick={() => onViewChange(view.id)}
+            className="relative flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium focus:outline-none"
+          >
+            {/* Sliding Active Background */}
+            {isActive && (
+              <motion.div
+                layoutId="viewSwitcherActive"
+                className="absolute inset-0 bg-[#333333] rounded-md"
+                transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+              />
+            )}
+            <span className={`relative z-10 transition-colors ${isActive ? 'text-white' : 'text-gray-500'}`}>
+              <Icon size={14} />
+            </span>
+            <span className={`relative z-10 transition-colors ${isActive ? 'text-white' : 'text-gray-500'}`}>
+              {view.label}
+            </span>
+          </button>
+        );
+      })}
+    </div>
+  );
+};
+</file>
+
+<file path="src/components/layout/AppLayout.tsx">
+import React from 'react';
+import { Outlet, useLocation, useNavigate, Navigate } from 'react-router-dom';
+import { MainLayout } from './MainLayout';
+import { useAuth } from '../../hooks/useAuth';
+import type { TabId } from './BottomNav';
+
+export const AppLayout: React.FC = () => {
+    const { user, isLoading } = useAuth();
+    const location = useLocation();
+    const navigate = useNavigate();
+
+    // If still checking session, show a minimal loading state
+    if (isLoading) {
+        return (
+            <div className="min-h-screen bg-[#111111] flex items-center justify-center">
+                <div className="w-8 h-8 border-2 border-white border-t-transparent rounded-full animate-spin" />
+            </div>
+        );
+    }
+
+    // If not logged in, redirect to login page
+    if (!user) {
+        return <Navigate to="/login" replace state={{ from: location }} />;
+    }
+
+    // Derive the active tab from the current URL path
+    const path = location.pathname;
+    let activeTab: TabId = 'home';
+    
+    if (path.includes('explore')) activeTab = 'explore';
+    else if (path.includes('notifications')) activeTab = 'notifications';
+    else if (path.includes('messages')) activeTab = 'messages';
+    else if (path.includes('account')) activeTab = 'account';
+
+    const handleTabChange = (tab: TabId) => {
+        navigate(`/${tab}`);
+    };
+
+    return (
+        <MainLayout activeTab={activeTab} onTabChange={handleTabChange}>
+            <Outlet />
+        </MainLayout>
+    );
+};
+</file>
+
+<file path="src/components/layout/BottomNav.tsx">
+import React from 'react';
+import { motion } from 'framer-motion';
+import { Home, Compass, Bell, MessageCircle, User } from 'lucide-react';
+
+export type TabId = 'home' | 'explore' | 'notifications' | 'messages' | 'account';
+
+interface Tab {
+  id: TabId;
+  label: string;
+  icon: React.FC<{ size?: number; className?: string }>;
+}
+
+const tabs: Tab[] = [
+  { id: 'home', label: 'Home', icon: Home },
+  { id: 'explore', label: 'Explore', icon: Compass },
+  { id: 'notifications', label: 'Alerts', icon: Bell },
+  { id: 'messages', label: 'Chat', icon: MessageCircle },
+  { id: 'account', label: 'Me', icon: User },
+];
+
+interface BottomNavProps {
+  activeTab: TabId;
+  onTabChange: (tab: TabId) => void;
+}
+
+export const BottomNav: React.FC<BottomNavProps> = ({ activeTab, onTabChange }) => {
+  return (
+    <nav className="fixed bottom-0 left-0 right-0 z-30 bg-[#1E1E1E] border-t border-[#333333]">
+      {/* pb-[env(safe-area-inset-bottom)] ensures it looks correct on iOS PWAs */}
+      <div className="flex justify-around items-center h-16 max-w-lg mx-auto pb-[env(safe-area-inset-bottom)]">
+        {tabs.map((tab) => {
+          const isActive = activeTab === tab.id;
+          const Icon = tab.icon;
+          return (
+            <button
+              key={tab.id}
+              onClick={() => onTabChange(tab.id)}
+              className="relative flex flex-col items-center justify-center w-full h-full focus:outline-none"
+            >
+              {/* Sliding Active Indicator Dot */}
+              {isActive && (
+                <motion.div
+                  layoutId="activeTabIndicator"
+                  className="absolute top-2 w-1 h-1 bg-white rounded-full"
+                  transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+                />
+              )}
+              <Icon 
+                size={22} 
+                className={`transition-colors duration-200 ${isActive ? 'text-white' : 'text-gray-500'}`} 
+              />
+              <span className={`text-[10px] mt-1 font-medium transition-colors duration-200 ${isActive ? 'text-white' : 'text-gray-500'}`}>
+                {tab.label}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+    </nav>
+  );
+};
+</file>
+
+<file path="src/components/layout/ComingSoon.tsx">
+import React from 'react';
+import { Construction } from 'lucide-react';
+
+export const ComingSoon: React.FC = () => {
+  return (
+    <div className="flex flex-col items-center justify-center h-full min-h-[60vh] text-center p-6">
+      <div className="w-16 h-16 bg-[#1E1E1E] rounded-full flex items-center justify-center mb-4 border border-[#333333]">
+        <Construction size={32} className="text-gray-500" />
+      </div>
+      <h2 className="text-xl font-bold text-white mb-2">Coming Soon</h2>
+      <p className="text-gray-500 text-sm max-w-xs leading-relaxed">
+        This feature is currently under construction. Check back in Phase 2!
+      </p>
+    </div>
+  );
+};
+</file>
+
+<file path="src/components/layout/MainLayout.tsx">
+import React from 'react';
+import { BottomNav, type TabId } from './BottomNav';
+import { OfflineBanner } from '../ui/OfflineBanner';
+
+interface MainLayoutProps {
+  children: React.ReactNode;
+  activeTab: TabId;
+  onTabChange: (tab: TabId) => void;
+}
+
+export const MainLayout: React.FC<MainLayoutProps> = ({ children, activeTab, onTabChange }) => {
+  return (
+    // FIX: Changed min-h-screen to h-screen and added overflow-hidden.
+    // This creates a strict viewport-bound container.
+    <div className="h-screen w-full bg-[#111111] text-white relative flex flex-col overflow-hidden">
+      <OfflineBanner />
+      
+      {/* FIX: flex-1 now correctly fills remaining space. overflow-y-auto makes THIS the scroll container. */}
+      <main className="flex-1 overflow-y-auto pb-24">
+        {children}
+      </main>
+      
+      <BottomNav activeTab={activeTab} onTabChange={onTabChange} />
+    </div>
+  );
+};
+</file>
+
+<file path="src/components/modals/CategoryManagerSheet.tsx">
+import React, { useState } from 'react';
+import { BottomSheet } from '../ui/BottomSheet';
+import { ColorPalettePicker } from '../ui/ColorPalettePicker';
+import { Button } from '../ui/Button';
+import { Input } from '../ui/Input';
+import { Plus, Trash2, Save, X, Eye, EyeOff, Users } from 'lucide-react';
+import { useCategories } from '../../hooks/useCategories';
+
+type Visibility = 'private' | 'followers' | 'public';
+
+export const CategoryManagerSheet: React.FC<{ isOpen: boolean; onClose: () => void }> = ({
+  isOpen,
+  onClose
+}) => {
+  const { categories, addCategory, updateCategory, deleteCategory, isLoading } = useCategories();
+
+  const [isAdding, setIsAdding] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+
+  const [newName, setNewName] = useState('');
+  const [newColor, setNewColor] = useState('#3B82F6');
+  const [newVisibility, setNewVisibility] = useState<Visibility>('private');
+
+  const [editName, setEditName] = useState('');
+  const [editVisibility, setEditVisibility] = useState<Visibility>('private');
+
+  const handleSaveNew = async () => {
+    if (!newName.trim()) return;
+    
+    setIsSaving(true);
+    try {
+      await addCategory({
+        name: newName.trim(),
+        color: newColor,
+        visibility: newVisibility,
+        order: categories.length,
+      });
+      resetForm();
+    } catch (error) {
+      console.error("Failed to save category:", error);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleUpdate = async (id: string, name: string, visibility: Visibility) => {
+    await updateCategory(id, { name: name.trim(), visibility });
+    setEditingId(null);
+  };
+
+  const handleDelete = async (id: string) => {
+    if (window.confirm('Are you sure? This will hide the category and its tasks.')) {
+      await deleteCategory(id);
+    }
+  };
+
+  const resetForm = () => {
+    setIsAdding(false);
+    setNewName('');
+    setNewColor('#3B82F6');
+    setNewVisibility('private');
+  };
+
+  const handleEditStart = (cat: { id: string; name: string; visibility?: Visibility }) => {
+    setEditingId(cat.id);
+    setEditName(cat.name);
+    setEditVisibility(cat.visibility || 'private');
+  };
+
+  const handleEditCancel = () => {
+    setEditingId(null);
+    setEditName('');
+    setEditVisibility('private');
+  };
+
+  const getVisibilityIcon = (v: Visibility) => {
+    switch (v) {
+      case 'public': return <Eye size={14} className="text-gray-400" />;
+      case 'followers': return <Users size={14} className="text-gray-400" />;
+      case 'private': return <EyeOff size={14} className="text-gray-400" />;
+    }
+  };
+
+  return (
+    <BottomSheet isOpen={isOpen} onClose={onClose} title="Lists & Categories" height="auto">
+      <div className="pt-2 pb-8 px-1">
+        {isLoading ? (
+          <div className="flex justify-center py-8">
+            <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin" />
+          </div>
+        ) : (
+          <>
+            {/* Category List or Empty State */}
+            {!isAdding && (
+              <div className="space-y-3 mb-6">
+                {categories.length === 0 ? (
+                  <div className="text-center py-8 text-gray-500 text-sm">
+                    No categories yet. Create your first one below!
+                  </div>
+                ) : (
+                  categories.map((cat) => {
+                    const isEditing = editingId === cat.id;
+                    return (
+                      <div key={cat.id} className="bg-[#1E1E1E] rounded-xl border border-[#333333] p-3">
+                        {isEditing ? (
+                          <div className="space-y-3">
+                            <Input
+                              value={editName}
+                              onChange={(e) => setEditName(e.target.value)}
+                              className="text-sm py-2"
+                            />
+                            <div className="flex items-center justify-between">
+                              <div className="flex bg-[#111111] rounded-lg p-0.5 border border-[#333333]">
+                                {(['private', 'followers', 'public'] as Visibility[]).map((v) => (
+                                  <button
+                                    key={v}
+                                    onClick={() => setEditVisibility(v)}
+                                    className={`p-1.5 rounded-md transition-colors ${editVisibility === v ? 'bg-[#2A2A2A] text-white' : 'text-gray-500'}`}
+                                    title={v}
+                                  >
+                                    {getVisibilityIcon(v)}
+                                  </button>
+                                ))}
+                              </div>
+                              <div className="flex gap-2">
+                                <Button variant="ghost" className="p-2" onClick={handleEditCancel}>
+                                  <X size={16} />
+                                </Button>
+                                <Button variant="primary" className="p-2" onClick={() => handleUpdate(cat.id, editName, editVisibility)}>
+                                  <Save size={16} />
+                                </Button>
+                              </div>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-3">
+                            <div
+                              className="w-4 h-4 rounded-full flex-shrink-0"
+                              style={{ backgroundColor: cat.color }}
+                            />
+                            <span className="flex-1 text-sm font-medium text-white truncate">{cat.name}</span>
+                            <div className="flex items-center gap-1 text-[10px] text-gray-500 uppercase tracking-wider">
+                              {getVisibilityIcon(cat.visibility || 'private')}
+                              <span>{cat.visibility || 'private'}</span>
+                            </div>
+                            <div className="flex gap-1">
+                              <Button variant="ghost" className="p-2 h-8 w-8" onClick={() => handleEditStart(cat)}>
+                                <span className="text-xs font-bold">Edit</span>
+                              </Button>
+                              <Button variant="ghost" className="p-2 h-8 w-8 text-red-400 hover:text-red-300 hover:bg-red-900/20" onClick={() => handleDelete(cat.id)}>
+                                <Trash2 size={16} />
+                              </Button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            )}
+
+            {/* Add Category Form or Button */}
+            {isAdding ? (
+              <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-200">
+                <Input
+                  label="Category Name"
+                  placeholder="e.g., Work, Fitness, Reading"
+                  value={newName}
+                  onChange={(e) => setNewName(e.target.value)}
+                />
+                <div>
+                  <label className="block text-xs text-gray-500 mb-2 ml-1">Color</label>
+                  <ColorPalettePicker selectedColor={newColor} onSelect={setNewColor} />
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-500 mb-2 ml-1">Visibility</label>
+                  <div className="flex bg-[#111111] rounded-lg p-1 border border-[#333333]">
+                    {(['private', 'followers', 'public'] as Visibility[]).map((v) => (
+                      <button
+                        key={v}
+                        onClick={() => setNewVisibility(v)}
+                        className={`flex-1 py-2 text-xs font-medium rounded-md transition-colors flex items-center justify-center gap-1.5 ${newVisibility === v ? 'bg-[#2A2A2A] text-white' : 'text-gray-500'}`}
+                      >
+                        {getVisibilityIcon(v)}
+                        <span className="capitalize">{v}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div className="flex gap-3 pt-2">
+                  <Button variant="ghost" className="flex-1" onClick={resetForm}>Cancel</Button>
+                  <Button 
+                    variant="primary" 
+                    className="flex-1" 
+                    onClick={handleSaveNew} 
+                    disabled={!newName.trim() || isSaving}
+                  >
+                    {isSaving ? (
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    ) : (
+                      'Create Category'
+                    )}
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <Button variant="primary" className="w-full gap-2 py-3" onClick={() => setIsAdding(true)}>
+                <Plus size={18} />
+                Add New Category
+              </Button>
+            )}
+          </>
+        )}
+      </div>
+    </BottomSheet>
+  );
+};
+</file>
+
+<file path="src/components/ui/Avatar.tsx">
+import React from 'react';
+
+interface AvatarProps {
+  src?: string;
+  alt?: string;
+  size?: 'sm' | 'md' | 'lg';
+  className?: string;
+}
+
+export const Avatar: React.FC<AvatarProps> = ({ src, alt = 'User', size = 'md', className = '' }) => {
+  const sizeClasses = {
+    sm: 'w-8 h-8 text-xs',
+    md: 'w-10 h-10 text-sm',
+    lg: 'w-16 h-16 text-xl',
+  };
+
+  if (src) {
+    return (
+      <img 
+        src={src} 
+        alt={alt} 
+        className={`${sizeClasses[size]} rounded-full object-cover border-2 border-[#1E1E1E] ${className}`} 
+      />
+    );
+  }
+
+  return (
+    <div className={`${sizeClasses[size]} rounded-full bg-[#333333] flex items-center justify-center text-gray-400 font-bold border-2 border-[#1E1E1E] ${className}`}>
+      {alt.charAt(0).toUpperCase()}
+    </div>
+  );
+};
+</file>
+
+<file path="src/components/ui/BottomSheet.tsx">
+import React, { useEffect, useRef } from 'react';
+import { motion, AnimatePresence, useDragControls } from 'framer-motion';
+import ReactDOM from 'react-dom';
+
+interface BottomSheetProps {
+  isOpen: boolean;
+  onClose: () => void;
+  children: React.ReactNode;
+  title?: string;
+  height?: 'auto' | 'full';
+  isLocked?: boolean; // NEW: Disable drag and blur header
+}
+
+export const BottomSheet: React.FC<BottomSheetProps> = ({ 
+  isOpen, 
+  onClose, 
+  children, 
+  title,
+  height = 'auto',
+  isLocked = false
+}) => {
+  const sheetRef = useRef<HTMLDivElement>(null);
+  const dragControls = useDragControls();
+
+  useEffect(() => {
+    if (isOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
+    }
+    return () => { document.body.style.overflow = 'unset'; };
+  }, [isOpen]);
+
+  useEffect(() => {
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isOpen) onClose();
+    };
+    window.addEventListener('keydown', handleEsc);
+    return () => window.removeEventListener('keydown', handleEsc);
+  }, [isOpen, onClose]);
+
+  const heightClass = height === 'full' ? 'h-[100dvh] rounded-none' : 'max-h-[90vh] rounded-t-3xl';
+
+  const sheetContent = (
+    <AnimatePresence>
+      {isOpen && (
+        <>
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={onClose}
+            className="fixed inset-0 z-[50] bg-black/60 backdrop-blur-sm"
+          />
+
+          <motion.div
+            ref={sheetRef}
+            initial={{ y: '100%' }}
+            animate={{ y: 0 }}
+            exit={{ y: '100%' }}
+            transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+            drag="y"
+            dragControls={dragControls}
+            dragListener={false}
+            dragConstraints={{ top: 0 }}
+            dragElastic={0.1}
+            onDragEnd={(_, info) => {
+              if (info.offset.y > 100 || info.velocity.y > 500) onClose();
+            }}
+            className={`fixed bottom-0 left-0 right-0 z-[60] bg-[#1E1E1E] text-white shadow-2xl flex flex-col ${heightClass}`}
+          >
+            {/* Header with conditional blur and drag disable */}
+            <div 
+              className={`flex-shrink-0 pt-3 pb-2 px-4 flex flex-col items-center transition-all duration-300 ${
+                isLocked ? 'cursor-default opacity-50 blur-sm pointer-events-none' : 'cursor-grab active:cursor-grabbing touch-none'
+              }`}
+              onPointerDown={(e) => {
+                if (!isLocked) {
+                  dragControls.start(e);
+                }
+              }}
+            >
+              <div className="w-10 h-1.5 bg-[#444444] rounded-full mb-3" />
+              {title && <h3 className="text-lg font-semibold w-full text-center">{title}</h3>}
+            </div>
+
+            <div className="flex-1 overflow-y-auto px-4 pb-8 overscroll-contain">
+              {children}
+            </div>
+          </motion.div>
+        </>
+      )}
+    </AnimatePresence>
+  );
+
+  return ReactDOM.createPortal(sheetContent, document.body);
+};
+</file>
+
+<file path="src/components/ui/Button.tsx">
+import React from 'react';
+import { motion } from 'framer-motion';
+import type { HTMLMotionProps } from 'framer-motion'; // FIX: Explicit type-only import
+
+type ButtonVariant = 'primary' | 'ghost' | 'icon' | 'danger';
+
+interface ButtonProps extends HTMLMotionProps<'button'> {
+  variant?: ButtonVariant;
+}
+
+export const Button: React.FC<ButtonProps> = ({ 
+  variant = 'primary', 
+  children, 
+  className = '', 
+  ...props 
+}) => {
+  const baseStyles = "flex items-center justify-center font-medium transition-colors focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed";
+  
+  const variants = {
+    primary: "bg-[#2A2A2A] hover:bg-[#333333] text-white rounded-lg px-4 py-2.5",
+    ghost: "bg-transparent hover:bg-[#1E1E1E] text-gray-400 hover:text-white rounded-lg px-4 py-2",
+    icon: "bg-transparent hover:bg-[#1E1E1E] text-gray-400 hover:text-white rounded-full p-2",
+    danger: "bg-red-900/20 hover:bg-red-900/40 text-red-500 rounded-lg px-4 py-2.5",
+  };
+
+  return (
+    <motion.button
+      whileTap={{ scale: 0.95 }}
+      className={`${baseStyles} ${variants[variant]} ${className}`}
+      {...props}
+    >
+      {children}
+    </motion.button>
+  );
+};
+</file>
+
+<file path="src/components/ui/ColorPalettePicker.tsx">
+import React, { useState } from 'react';
+import { Check } from 'lucide-react';
+import { PREDEFINED_COLORS } from '../../constants/colors';
+
+interface ColorPalettePickerProps {
+  selectedColor: string;
+  onSelect: (color: string) => void;
+}
+
+export const ColorPalettePicker: React.FC<ColorPalettePickerProps> = ({ selectedColor, onSelect }) => {
+  // Default to the first palette ('default')
+  const [activePaletteId, setActivePaletteId] = useState<string>(PREDEFINED_COLORS[0].id);
+
+  const activePalette = PREDEFINED_COLORS.find(p => p.id === activePaletteId) || PREDEFINED_COLORS[0];
+
+  return (
+    <div className="flex flex-col">
+      {/* Tabs */}
+      <div className="flex bg-[#111111] rounded-lg p-1 mb-4 border border-[#333333]">
+        {PREDEFINED_COLORS.map((palette) => {
+          const isActive = activePaletteId === palette.id;
+          return (
+            <button
+              key={palette.id}
+              type="button"
+              onClick={() => setActivePaletteId(palette.id)}
+              className={`flex-1 py-1.5 text-xs font-medium rounded-md transition-colors ${
+                isActive ? 'bg-[#2A2A2A] text-white' : 'text-gray-500'
+              }`}
+            >
+              {palette.name}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Color Grid */}
+      <div className="grid grid-cols-5 sm:grid-cols-6 gap-3 p-2">
+        {activePalette.colors.map((color) => {
+          const isSelected = selectedColor === color;
+          return (
+            <button
+              key={color}
+              type="button"
+              onClick={() => onSelect(color)}
+              className="relative w-10 h-10 rounded-full flex items-center justify-center transition-transform focus:outline-none hover:scale-110"
+              style={{ backgroundColor: color }} // STRICT RULE: Inline style for dynamic color
+              aria-label={`Select color ${color}`}
+            >
+              {isSelected && (
+                <>
+                  {/* Outer white ring for selection */}
+                  <div className="absolute inset-0 rounded-full border-2 border-white" />
+                  {/* Checkmark */}
+                  <Check size={16} className="text-white drop-shadow-md" strokeWidth={3} />
+                </>
+              )}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+};
+</file>
+
+<file path="src/components/ui/Input.tsx">
+import React, { forwardRef } from 'react';
+
+interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
+  label?: string;
+}
+
+export const Input = forwardRef<HTMLInputElement, InputProps>(({ label, className = '', ...props }, ref) => {
+  return (
+    <div className="w-full">
+      {label && <label className="block text-xs text-gray-500 mb-1.5 ml-1">{label}</label>}
+      <input
+        ref={ref}
+        className={`w-full bg-[#1E1E1E] text-white border border-[#333333] rounded-lg px-4 py-2.5 focus:border-[#555555] focus:outline-none transition-colors placeholder-gray-600 ${className}`}
+        {...props}
+      />
+    </div>
+  );
+});
+
+Input.displayName = 'Input';
+
+interface TextareaProps extends React.TextareaHTMLAttributes<HTMLTextAreaElement> {
+  label?: string;
+}
+
+export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(({ label, className = '', ...props }, ref) => {
+  return (
+    <div className="w-full">
+      {label && <label className="block text-xs text-gray-500 mb-1.5 ml-1">{label}</label>}
+      <textarea
+        ref={ref}
+        className={`w-full bg-[#1E1E1E] text-white border border-[#333333] rounded-lg px-4 py-2.5 focus:border-[#555555] focus:outline-none transition-colors placeholder-gray-600 resize-none ${className}`}
+        {...props}
+      />
+    </div>
+  );
+});
+
+Textarea.displayName = 'Textarea';
+</file>
+
+<file path="src/components/ui/OfflineBanner.tsx">
+import React, { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
+import { WifiOff, X } from 'lucide-react';
+
+export const OfflineBanner: React.FC = () => {
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
+  const [isDismissed, setIsDismissed] = useState(false);
+
+  useEffect(() => {
+    const handleOnline = () => {
+      setIsOnline(true);
+      // Reset dismissal when back online so it's ready to show next time we go offline
+      setIsDismissed(false); 
+    };
+    
+    const handleOffline = () => {
+      setIsOnline(false);
+    };
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
+
+  const handleDismiss = () => {
+    setIsDismissed(true);
+  };
+
+  // Only show if we are offline AND the user hasn't dismissed it for this session
+  if (isOnline || isDismissed) return null;
+
+  return (
+    <motion.div
+      initial={{ y: -50, opacity: 0 }}
+      animate={{ y: 0, opacity: 1 }}
+      exit={{ y: -50, opacity: 0 }}
+      className="fixed top-0 left-0 right-0 z-50 bg-[#1E1E1E] border-b border-[#333333] px-4 py-2 flex items-center justify-between shadow-lg"
+    >
+      <div className="flex items-center gap-2">
+        <WifiOff size={14} className="text-gray-400" />
+        <span className="text-xs text-gray-400">You are offline. Changes will sync later.</span>
+      </div>
+      <button 
+        onClick={handleDismiss}
+        className="text-gray-500 hover:text-gray-300 transition-colors p-1 rounded-md hover:bg-[#333333]"
+        aria-label="Dismiss offline banner"
+      >
+        <X size={14} />
+      </button>
+    </motion.div>
+  );
+};
+</file>
+
+<file path="src/constants/colors.ts">
+/**
+ * Predefined Color Palettes for Categories
+ * 
+ * ARCHITECTURAL RULE: No free-form hex inputs.
+ * All category colors must come from these predefined palettes.
+ * 
+ * Phase 2 Ready: Easy to add new palettes (e.g., "Seasonal", "Custom")
+ */
+
+export interface ColorPalette {
+  id: string;
+  name: string;
+  colors: string[];
+}
+
+export const PREDEFINED_COLORS: ColorPalette[] = [
+  {
+    id: 'default',
+    name: 'Default',
+    colors: [
+      '#FF6B6B', // Coral Red
+      '#4ECDC4', // Turquoise
+      '#45B7D1', // Sky Blue
+      '#96CEB4', // Sage Green
+      '#FFEAA7', // Soft Yellow
+      '#DDA0DD', // Plum
+      '#98D8C8', // Mint
+      '#F7DC6F', // Golden
+      '#BB8FCE', // Lavender
+      '#85C1E9', // Light Blue
+    ],
+  },
+  {
+    id: 'vibrant',
+    name: 'Vibrant',
+    colors: [
+      '#FF006E', // Hot Pink
+      '#FB5607', // Orange
+      '#FFBE0B', // Amber
+      '#8338EC', // Purple
+      '#3A86FF', // Bright Blue
+      '#06FFB4', // Neon Green
+      '#FF4081', // Rose
+      '#00E5FF', // Cyan
+      '#76FF03', // Lime
+      '#FF9100', // Deep Orange
+    ],
+  },
+  {
+    id: 'pastel',
+    name: 'Pastel',
+    colors: [
+      '#FFB3BA', // Pastel Pink
+      '#BAFFC9', // Pastel Green
+      '#BAE1FF', // Pastel Blue
+      '#FFFFBA', // Pastel Yellow
+      '#FFDFBA', // Pastel Orange
+      '#E0BBE4', // Pastel Purple
+      '#957DAD', // Muted Purple
+      '#D291BC', // Soft Magenta
+      '#FEC8D8', // Blush
+      '#AEC6CF', // Powder Blue
+    ],
+  },
+];
+
+/**
+ * Helper to get all colors as a flat array
+ * Useful for validation
+ */
+export const getAllAvailableColors = (): string[] => {
+  return PREDEFINED_COLORS.flatMap(palette => palette.colors);
+};
+
+/**
+ * Validate if a color hex is in the predefined list
+ * Prevents users from injecting arbitrary colors
+ */
+export const isValidPredefinedColor = (hex: string): boolean => {
+  return getAllAvailableColors().includes(hex);
+};
+</file>
+
+<file path="src/db/database.ts">
+import { 
+  createRxDatabase, 
+  addRxPlugin, 
+  type RxDatabase, 
+  type RxCollection 
+} from 'rxdb';
+import { getRxStorageDexie } from 'rxdb/plugins/storage-dexie';
+import { RxDBDevModePlugin } from 'rxdb/plugins/dev-mode';
+import { wrappedValidateAjvStorage } from 'rxdb/plugins/validate-ajv'; // <-- NEW IMPORT
+import { 
+  tasksSchema, 
+  categoriesSchema, 
+  diarySchema, 
+  settingsSchema,
+  type TaskDocument,
+  type CategoryDocument,
+  type DiaryDocument,
+  type SettingsDocument,
+} from './schema';
+
+// ============================================================================
+// PLUGIN INITIALIZATION
+// ============================================================================
+
+if (import.meta.env.DEV) {
+  addRxPlugin(RxDBDevModePlugin);
+  console.log('[RxDB] Dev Mode Plugin enabled (v17)');
+}
+
+const DB_NAME = 'life_tracker_db';
+const DEBUG = import.meta.env.DEV;
+
+// ============================================================================
+// TYPE DEFINITIONS
+// ============================================================================
+
+export interface AppDatabaseCollections {
+  tasks: RxCollection<TaskDocument>;
+  categories: RxCollection<CategoryDocument>;
+  diary: RxCollection<DiaryDocument>;
+  settings: RxCollection<SettingsDocument>;
+}
+
+// ============================================================================
+// DATABASE INSTANCE
+// ============================================================================
+
+let dbInstance: RxDatabase<AppDatabaseCollections> | null = null;
+
+export async function initializeDatabase(): Promise<RxDatabase<AppDatabaseCollections>> {
+  if (dbInstance) {
+    if (DEBUG) console.log('[RxDB] Using existing database instance');
+    return dbInstance;
+  }
+
+  try {
+    if (DEBUG) console.log('[RxDB] Initializing database:', DB_NAME);
+
+    const database = await createRxDatabase<AppDatabaseCollections>({
+      name: DB_NAME,
+      // FIX: Wrap storage with Ajv validator to satisfy dev-mode requirements
+      storage: wrappedValidateAjvStorage({
+        storage: getRxStorageDexie()
+      }),
+      multiInstance: true,
+      eventReduce: true,
+      ignoreDuplicate: true,
+    });
+
+    if (DEBUG) console.log('[RxDB] Database created successfully');
+
+    await database.addCollections({
+      tasks: { schema: tasksSchema },
+      categories: { schema: categoriesSchema },
+      diary: { schema: diarySchema },
+      settings: { schema: settingsSchema },
+    });
+
+    if (DEBUG) {
+      console.log('[RxDB] Collections added successfully');
+      const stats = await getDatabaseStats(database);
+      console.log('[RxDB] Initial stats:', stats);
+    }
+
+    dbInstance = database;
+    return dbInstance;
+
+  } catch (error) {
+    console.error('[RxDB] FATAL: Database initialization failed', error);
+    throw error;
+  }
+}
+
+export function getDatabase(): RxDatabase<AppDatabaseCollections> {
+  if (!dbInstance) {
+    throw new Error('Database not initialized! Call initializeDatabase() first.');
+  }
+  return dbInstance;
+}
+
+export async function destroyDatabase(): Promise<void> {
+  if (!dbInstance) return;
+  try {
+    if (DEBUG) console.log('[RxDB] Destroying database instance');
+    await dbInstance.remove();
+    dbInstance = null;
+  } catch (error) {
+    console.error('[RxDB] Error destroying database', error);
+    throw error;
+  }
+}
+
+export async function getDatabaseStats(db?: RxDatabase<AppDatabaseCollections>) {
+  const database = db || getDatabase();
+  const [tasks, categories, diary, settings] = await Promise.all([
+    database.tasks.count().exec(),
+    database.categories.count().exec(),
+    database.diary.count().exec(),
+    database.settings.count().exec(),
+  ]);
+  return { tasks, categories, diary, settings };
+}
+</file>
+
+<file path="src/db/schema.ts">
+import type { RxJsonSchema } from 'rxdb';
+
+// ============================================================================
+// TYPE DEFINITIONS
+// ============================================================================
+
+export interface TaskDocument {
+  id: string;
+  title: string;
+  completed: boolean;
+  categoryId: string;
+  tags?: string;
+  date: string;
+  memo?: string;
+  image?: string;
+  createdAt: string;
+  completedAt?: string;
+  updatedAt: string;
+  source?: string;
+  userId: string;
+  isDeleted: boolean;
+  routineId?: string;
+  reminderTime?: string;
+  reactions?: string;
+  visibility: 'public' | 'followers' | 'private';
+}
+
+export interface CategoryDocument {
+  id: string;
+  name: string;
+  color: string;
+  order: number;
+  visibility: 'public' | 'followers' | 'private';
+  userId: string;
+  isDeleted: boolean;
+  icon?: string;
+}
+
+export interface DiaryDocument {
+  id: string;
+  date: string;
+  content?: string;
+  visibility: 'public' | 'followers' | 'private';
+  userId: string;
+  createdAt: string;
+  updatedAt: string;
+  isDeleted: boolean;
+}
+
+export interface SettingsDocument {
+  id: string;
+  userId: string;
+  key: string;
+  value: string;
+  isDeleted: boolean;
+}
+
+// ============================================================================
+// RXDB SCHEMAS (v17 Dev-Mode Compliant)
+// ============================================================================
+
+export const tasksSchema: RxJsonSchema<TaskDocument> = {
+  version: 0,
+  primaryKey: 'id',
+  type: 'object',
+  required: ['id', 'title', 'completed', 'categoryId', 'date', 'createdAt', 'updatedAt', 'userId', 'isDeleted'],
+  properties: {
+    id: { type: 'string', maxLength: 255 },
+    title: { type: 'string', maxLength: 255 },
+    completed: { type: 'boolean' }, // FIX: Removed multipleOf (only for numbers)
+    categoryId: { type: 'string', maxLength: 255 },
+    tags: { type: 'string', maxLength: 1000 },
+    date: { type: 'string', maxLength: 50 },
+    memo: { type: 'string', maxLength: 2000 },
+    image: { type: 'string', maxLength: 1000000 },
+    createdAt: { type: 'string', maxLength: 50 },
+    completedAt: { type: 'string', maxLength: 50 },
+    updatedAt: { type: 'string', maxLength: 50 },
+    source: { type: 'string', maxLength: 50 },
+    userId: { type: 'string', maxLength: 255 },
+    isDeleted: { type: 'boolean' }, // FIX: Removed multipleOf (only for numbers)
+    routineId: { type: 'string', maxLength: 255 },
+    reminderTime: { type: 'string', maxLength: 50 },
+    reactions: { type: 'string', maxLength: 5000 },
+    visibility: { type: 'string', maxLength: 50, enum: ['public', 'followers', 'private'], default: 'private' },
+  },
+  indexes: [
+    ['userId', 'isDeleted'],
+    ['date', 'userId', 'isDeleted'],
+    ['categoryId', 'userId', 'isDeleted'],
+    ['completed', 'userId', 'isDeleted'],
+  ],
+};
+
+export const categoriesSchema: RxJsonSchema<CategoryDocument> = {
+  version: 0,
+  primaryKey: 'id',
+  type: 'object',
+  required: ['id', 'name', 'color', 'order', 'visibility', 'userId', 'isDeleted'],
+  properties: {
+    id: { type: 'string', maxLength: 255 },
+    name: { type: 'string', maxLength: 100 },
+    color: { type: 'string', maxLength: 20 },
+    order: { 
+      type: 'integer', 
+      multipleOf: 1,
+      minimum: 0,
+      maximum: 999999 
+    }, 
+    visibility: { type: 'string', maxLength: 50, enum: ['public', 'followers', 'private'] },
+    userId: { type: 'string', maxLength: 255 },
+    isDeleted: { type: 'boolean' }, // FIX: Removed multipleOf
+    icon: { type: 'string', maxLength: 10 },
+  },
+  indexes: [
+    ['userId', 'isDeleted', 'order'],
+    ['visibility', 'userId', 'isDeleted'],
+  ],
+};
+
+export const diarySchema: RxJsonSchema<DiaryDocument> = {
+  version: 0,
+  primaryKey: 'id',
+  type: 'object',
+  required: ['id', 'date', 'visibility', 'userId', 'createdAt', 'updatedAt', 'isDeleted'],
+  properties: {
+    id: { type: 'string', maxLength: 255 },
+    date: { type: 'string', maxLength: 50 },
+    content: { type: 'string' },
+    visibility: { type: 'string', maxLength: 50, enum: ['public', 'followers', 'private'] },
+    userId: { type: 'string', maxLength: 255 },
+    createdAt: { type: 'string', maxLength: 50 },
+    updatedAt: { type: 'string', maxLength: 50 },
+    isDeleted: { type: 'boolean' }, // FIX: Removed multipleOf
+  },
+  indexes: [
+    ['userId', 'date', 'isDeleted'],
+    ['visibility', 'userId', 'isDeleted'],
+  ],
+};
+
+export const settingsSchema: RxJsonSchema<SettingsDocument> = {
+  version: 0,
+  primaryKey: 'id',
+  type: 'object',
+  required: ['id', 'userId', 'key', 'value', 'isDeleted'],
+  properties: {
+    id: { type: 'string', maxLength: 255 },
+    userId: { type: 'string', maxLength: 255 },
+    key: { type: 'string', maxLength: 100 },
+    value: { type: 'string', maxLength: 10000 },
+    isDeleted: { type: 'boolean' }, // FIX: Removed multipleOf
+  },
+  indexes: [
+    ['userId', 'key', 'isDeleted'],
+  ],
+};
+</file>
+
+<file path="src/db/sync.ts">
+import { getDatabase, type AppDatabaseCollections } from './database';
+
+const APPWRITE_CONFIG = {
+  endpoint: 'https://sgp.cloud.appwrite.io', 
+  projectId: '6a9703c50016b37110ff',
+  databaseId: 'life_tracker',
+  tables: {
+    tasks: 'tasks',
+    categories: 'categories',
+    diary: 'diary',
+    settings: 'settings',
+  },
+} as const;
+
+export const CURRENT_USER_ID = 'user1';
+const DEBUG = import.meta.env.DEV;
+
+export interface SyncStatus {
+  isSyncing: boolean;
+  lastSync: string | null;
+  errors: string[];
+}
+
+let syncStatus: SyncStatus = {
+  isSyncing: false,
+  lastSync: localStorage.getItem('lastSyncTime') || null,
+  errors: [],
+};
+
+export function getSyncStatus(): SyncStatus {
+  return syncStatus;
+}
+
+type SyncListener = (status: SyncStatus) => void;
+const listeners: SyncListener[] = [];
+
+function updateSyncStatus(updates: Partial<SyncStatus>) {
+  syncStatus = { ...syncStatus, ...updates };
+  if (syncStatus.lastSync) {
+    localStorage.setItem('lastSyncTime', syncStatus.lastSync);
+  }
+  listeners.forEach(l => l(syncStatus));
+  if (DEBUG) console.log('[Sync] Status:', syncStatus);
+}
+
+export function subscribeToSyncStatus(listener: SyncListener): () => void {
+  listeners.push(listener);
+  listener(syncStatus);
+  return () => {
+    const idx = listeners.indexOf(listener);
+    if (idx > -1) listeners.splice(idx, 1);
+  };
+}
+
+function toAppwriteFormat(doc: any, collection: string): Record<string, any> {
+  const mapped: Record<string, any> = {};
+  
+  delete doc._meta;
+  delete doc._deleted;
+  delete doc._rev;
+
+  if (collection === 'tasks') {
+    mapped.title = doc.title || '';
+    mapped.is_completed = doc.completed ?? false;
+    mapped.category_id = doc.categoryId || '';
+    mapped.tags = doc.tags || '';
+    mapped.date = doc.date || '';
+    mapped.memo = doc.memo || '';
+    mapped.image = doc.image || '';
+    mapped.created_at = doc.createdAt || new Date().toISOString();
+    mapped.completed_at = doc.completedAt || null;
+    mapped.updated_at = doc.updatedAt || new Date().toISOString();
+    mapped.user_id = doc.userId || CURRENT_USER_ID;
+    mapped.deleted = doc.isDeleted ?? false;
+    mapped.visibility = doc.visibility || 'private';
+  } else if (collection === 'categories') {
+    mapped.name = doc.name || '';
+    mapped.color = doc.color || '#3B82F6';
+    mapped.visibility = doc.visibility || 'private';
+    mapped.order = doc.order ?? 0;
+    mapped.user_id = doc.userId || CURRENT_USER_ID;
+    mapped.deleted = doc.isDeleted ?? false;
+    mapped.icon = doc.icon || '';
+  } else if (collection === 'diary') {
+    mapped.date = doc.date || '';
+    mapped.content = doc.content || '';
+    mapped.visibility = doc.visibility || 'private';
+    mapped.user_id = doc.userId || CURRENT_USER_ID;
+    mapped.deleted = doc.isDeleted ?? false;
+    mapped.created_at = doc.createdAt || new Date().toISOString();
+    mapped.updated_at = doc.updatedAt || new Date().toISOString();
+  } else if (collection === 'settings') {
+    mapped.user_id = doc.userId || CURRENT_USER_ID;
+    mapped.key = doc.key || '';
+    mapped.value = doc.value || '';
+    mapped.deleted = doc.isDeleted ?? false;
+  }
+  
+  return mapped;
+}
+
+function fromAppwriteFormat(row: any, collection: string): Record<string, any> {
+  const mapped: Record<string, any> = { ...row };
+  
+  // FIX: Strictly delete ALL Appwrite internal fields starting with '$'
+  delete mapped.$id;
+  delete mapped.$createdAt;
+  delete mapped.$updatedAt;
+  delete mapped.$permissions;
+  delete mapped.$databaseId;
+  delete mapped.$collectionId;
+  delete mapped.$sequence;
+  delete mapped.$tableId;
+
+  if (collection === 'tasks') {
+    mapped.id = row.$id || mapped.id;
+    mapped.completed = mapped.is_completed ?? false;
+    mapped.categoryId = mapped.category_id || '';
+    mapped.createdAt = mapped.created_at;
+    mapped.completedAt = mapped.completed_at;
+    mapped.updatedAt = mapped.updated_at;
+    mapped.userId = mapped.user_id;
+    mapped.isDeleted = mapped.deleted ?? false;
+    
+    delete mapped.is_completed;
+    delete mapped.category_id;
+    delete mapped.created_at;
+    delete mapped.completed_at;
+    delete mapped.updated_at;
+    delete mapped.user_id;
+    delete mapped.deleted;
+  } else if (collection === 'categories') {
+    mapped.id = row.$id || mapped.id;
+    mapped.userId = mapped.user_id;
+    mapped.isDeleted = mapped.deleted ?? false;
+    
+    delete mapped.user_id;
+    delete mapped.deleted;
+  } else if (collection === 'diary') {
+    mapped.id = row.$id || mapped.id;
+    mapped.userId = mapped.user_id;
+    mapped.isDeleted = mapped.deleted ?? false;
+    mapped.createdAt = mapped.created_at;
+    mapped.updatedAt = mapped.updated_at;
+    
+    delete mapped.user_id;
+    delete mapped.deleted;
+    delete mapped.created_at;
+    delete mapped.updated_at;
+  } else if (collection === 'settings') {
+    mapped.id = row.$id || mapped.id;
+    mapped.userId = mapped.user_id;
+    mapped.isDeleted = mapped.deleted ?? false;
+    
+    delete mapped.user_id;
+    delete mapped.deleted;
+  }
+  
+  return mapped;
+}
+
+async function appwriteFetch(
+  table: string, 
+  method: 'GET' | 'POST' | 'PATCH' | 'PUT', 
+  body?: any,
+  rowId?: string
+) {
+  const url = `${APPWRITE_CONFIG.endpoint}/v1/tablesdb/${APPWRITE_CONFIG.databaseId}/tables/${table}/rows${rowId ? `/${rowId}` : ''}`;
+  
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    'X-Appwrite-Project': APPWRITE_CONFIG.projectId,
+  };
+
+  const options: RequestInit = { method, headers };
+  if (body && Object.keys(body).length > 0) {
+    options.body = JSON.stringify(body);
+  }
+
+  try {
+    const res = await fetch(url, options);
+    
+    if (!res.ok) {
+      const errorText = await res.text();
+      let errorMessage = `Appwrite API Error (${res.status})`;
+      
+      try {
+        const jsonError = JSON.parse(errorText);
+        errorMessage += `: ${jsonError.message || errorText}`;
+      } catch {
+        errorMessage += `: ${errorText}`;
+      }
+      
+      throw new Error(errorMessage);
+    }
+    
+    return res.json();
+  } catch (error) {
+    if (error instanceof Error && error.message.startsWith('Appwrite API Error')) {
+      throw error;
+    }
+    throw new Error(`Network error during Appwrite sync: ${error instanceof Error ? error.message : 'Unknown network error'}`);
+  }
+}
+
+export async function initializeSync(): Promise<void> {
+  if (DEBUG) console.log('[Sync] Starting initial sync...');
+  updateSyncStatus({ isSyncing: true, errors: [] });
+
+  try {
+    const db = getDatabase();
+    const collections: (keyof AppDatabaseCollections)[] = ['tasks', 'categories', 'diary', 'settings'];
+    
+    for (const colName of collections) {
+      await syncCollection(db[colName], colName);
+    }
+
+    updateSyncStatus({ isSyncing: false, lastSync: new Date().toISOString() });
+    if (DEBUG) console.log('[Sync] ✅ Initial sync complete');
+  } catch (error) {
+    console.error('[Sync] ❌ Sync failed', error);
+    updateSyncStatus({ 
+      isSyncing: false, 
+      errors: [...syncStatus.errors, error instanceof Error ? error.message : 'Unknown error'] 
+    });
+  }
+}
+
+async function syncCollection(collection: any, colName: string) {
+  const tableId = APPWRITE_CONFIG.tables[colName as keyof typeof APPWRITE_CONFIG.tables];
+  if (DEBUG) console.log(`[Sync] Syncing ${colName}...`);
+
+  try {
+    const remoteData = await appwriteFetch(tableId, 'GET');
+    const rows = remoteData.rows || [];
+    
+    if (DEBUG) console.log(`[Sync] Pulled ${rows.length} rows from ${tableId}`);
+
+    for (const row of rows) {
+      const doc = fromAppwriteFormat(row, colName);
+      await collection.upsert(doc);
+    }
+
+    const localDocs = await collection.find().exec();
+    for (const doc of localDocs) {
+      const rowData = toAppwriteFormat(doc.toJSON(), colName);
+      
+      const remotePayload = {
+        data: rowData,
+        permissions: ['read("any")', 'update("any")', 'delete("any")', 'write("any")']
+      };
+      
+      if (DEBUG) console.log(`[Sync] Pushing ${colName} ${doc.id}:`, remotePayload);
+      
+      try {
+        await appwriteFetch(tableId, 'PATCH', remotePayload, doc.id);
+      } catch (patchError) {
+        try {
+          await appwriteFetch(tableId, 'PUT', remotePayload, doc.id);
+        } catch (upsertError) {
+          console.error(`[Sync] Failed to upsert ${colName} ${doc.id}:`, upsertError);
+        }
+      }
+    }
+    
+    if (DEBUG) console.log(`[Sync] ✅ ${colName} synced`);
+  } catch (error) {
+    console.error(`[Sync] Error syncing ${colName}`, error);
+    throw error;
+  }
+}
+
+export async function forceSync() {
+  if (DEBUG) console.log('[Sync] Force sync triggered');
+  await initializeSync();
+}
+
+if (typeof window !== 'undefined') {
+  window.addEventListener('focus', () => {
+    try {
+      getDatabase();
+      if (DEBUG) console.log('[Sync] Window focused, syncing...');
+      forceSync().catch(e => console.error('[Sync] Focus sync failed', e));
+    } catch {
+      // Database not initialized yet
+    }
+  });
+}
+</file>
+
+<file path="src/hooks/useAuth.ts">
+import { useState, useEffect, useCallback } from 'react';
+import { account } from '../lib/appwrite';
+import type { Models } from 'appwrite';
+
+
+export interface AuthState {
+    user: Models.User<Models.Preferences> | null;
+    isLoading: boolean;
+    error: string | null;
+}
+
+export function useAuth() {
+    const [state, setState] = useState<AuthState>({ 
+        user: null, 
+        isLoading: true, 
+        error: null 
+    });
+
+    useEffect(() => {
+        account.get().then(
+            (user) => setState({ user, isLoading: false, error: null }),
+            () => setState({ user: null, isLoading: false, error: null })
+        );
+    }, []);
+
+    const login = useCallback(async (email: string, password: string): Promise<boolean> => {
+        setState(s => ({ ...s, isLoading: true, error: null }));
+        try {
+            // Clear any stale sessions first to prevent conflicts
+            try { await account.deleteSession('current'); } catch {} 
+            
+            await account.createEmailPasswordSession(email, password);
+            const user = await account.get();
+            setState({ user, isLoading: false, error: null });
+            return true;
+        } catch (err: any) {
+            setState(s => ({ ...s, isLoading: false, error: err.message || 'Login failed' }));
+            return false;
+        }
+    }, []);
+
+    const signup = useCallback(async (email: string, password: string, name: string): Promise<boolean> => {
+        setState(s => ({ ...s, isLoading: true, error: null }));
+        try {
+            await account.create('unique()', email, password, name);
+            
+            // Appwrite sometimes auto-creates a session on signup. 
+            // We try to login, but if it says "session active", we ignore the error.
+            try {
+                await account.createEmailPasswordSession(email, password);
+            } catch (sessionError: any) {
+                const msg = sessionError.message || '';
+                if (!msg.includes('already active') && !msg.includes('prohibited')) {
+                    throw sessionError;
+                }
+            }
+            
+            const user = await account.get();
+            setState({ user, isLoading: false, error: null });
+            return true;
+        } catch (err: any) {
+            setState(s => ({ ...s, isLoading: false, error: err.message || 'Signup failed' }));
+            return false;
+        }
+    }, []);
+
+    const logout = useCallback(async () => {
+        setState(s => ({ ...s, isLoading: true, error: null }));
+        try {
+            await account.deleteSession('current');
+            setState({ user: null, isLoading: false, error: null });
+        } catch (err: any) {
+            setState(s => ({ ...s, isLoading: false, error: err.message || 'Logout failed' }));
+        }
+    }, []);
+
+    return { ...state, login, signup, logout };
+}
+</file>
+
+<file path="src/hooks/useCategories.ts">
+import { useState, useEffect, useCallback } from 'react';
+import { getDatabase } from '../db/database';
+import { useAuth } from './useAuth';
+import type { CategoryDocument } from '../db/schema';
+
+export function useCategories() {
+  const { user } = useAuth();
+  const [categories, setCategories] = useState<CategoryDocument[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    // FIX 1: Extract userId to safely narrow the type and avoid 'user is possibly null' error
+    const userId = user?.$id;
+    
+    if (!userId) {
+      setCategories([]);
+      setIsLoading(false);
+      return;
+    }
+
+    let subscription: any;
+    
+    async function init() {
+      try {
+        const db = getDatabase();
+        const query = db.categories.find({
+          selector: {
+            userId: userId,
+            isDeleted: false,
+          },
+          sort: [{ order: 'asc' }],
+        });
+
+        subscription = query.$.subscribe((docs) => {
+          setCategories(docs);
+          setIsLoading(false);
+        });
+      } catch (error) {
+        console.error('[useCategories] Error loading categories:', error);
+        setIsLoading(false);
+      }
+    }
+
+    init();
+
+    return () => {
+      if (subscription) subscription.unsubscribe();
+    };
+  }, [user?.$id]);
+
+  const addCategory = useCallback(async (cat: Omit<CategoryDocument, 'id' | 'userId' | 'isDeleted'>) => {
+    const userId = user?.$id;
+    if (!userId) {
+      console.error('[useCategories] Cannot add category: User not authenticated');
+      return;
+    }
+
+    const db = getDatabase();
+    
+    // FIX 2: Removed createdAt/updatedAt to strictly match the existing CategoryDocument schema
+    const newCat: CategoryDocument = {
+      ...cat,
+      id: `cat_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      userId: userId,
+      isDeleted: false,
+    };
+
+    try {
+      await db.categories.insert(newCat);
+    } catch (error) {
+      console.error('[useCategories] Error inserting category:', error);
+    }
+  }, [user?.$id]);
+
+  const updateCategory = useCallback(async (id: string, updates: Partial<CategoryDocument>) => {
+    const db = getDatabase();
+    const doc = await db.categories.findOne(id).exec();
+    if (doc) {
+      // FIX 3: Removed updatedAt to strictly match the existing CategoryDocument schema
+      await doc.patch(updates);
+    }
+  }, []);
+
+  const deleteCategory = useCallback(async (id: string) => {
+    await updateCategory(id, { isDeleted: true });
+  }, [updateCategory]);
+
+  const reorderCategories = useCallback(async (newOrder: CategoryDocument[]) => {
+    const db = getDatabase();
+    const promises = newOrder.map((cat, index) => {
+      const doc = db.categories.findOne(cat.id).exec();
+      // FIX 4: Removed updatedAt to strictly match the existing CategoryDocument schema
+      return doc.then(d => d ? d.patch({ order: index }) : null);
+    });
+    await Promise.all(promises);
+  }, []);
+
+  return { categories, isLoading, addCategory, updateCategory, deleteCategory, reorderCategories };
+}
+</file>
+
+<file path="src/hooks/useDiary.ts">
+import { useState, useEffect, useCallback } from 'react';
+import { getDatabase } from '../db/database';
+import { CURRENT_USER_ID } from '../db/sync';
+import type { DiaryDocument } from '../db/schema';
+
+export function useDiary() {
+  const [entries, setEntries] = useState<DiaryDocument[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    let subscription: any;
+    
+    async function init() {
+      try {
+        const db = getDatabase();
+        const query = db.diary.find({
+          selector: {
+            userId: CURRENT_USER_ID,
+            isDeleted: false,
+          },
+          sort: [{ date: 'desc' }],
+        });
+
+        subscription = query.$.subscribe((docs) => {
+          setEntries(docs);
+          setIsLoading(false);
+        });
+      } catch (error) {
+        console.error('[useDiary] Error loading diary:', error);
+        setIsLoading(false);
+      }
+    }
+
+    init();
+
+    return () => {
+      if (subscription) subscription.unsubscribe();
+    };
+  }, []);
+
+  const saveEntry = useCallback(async (date: string, content: string, visibility: 'public' | 'followers' | 'private' = 'private') => {
+    const db = getDatabase();
+    const id = `${CURRENT_USER_ID}_${date}`;
+    const now = new Date().toISOString();
+
+    const doc = await db.diary.findOne(id).exec();
+    
+    if (doc) {
+      await doc.patch({
+        content,
+        visibility,
+        updatedAt: now,
+        isDeleted: false, // In case it was previously soft-deleted
+      });
+    } else {
+      const newEntry: DiaryDocument = {
+        id,
+        date,
+        content,
+        visibility,
+        userId: CURRENT_USER_ID,
+        createdAt: now,
+        updatedAt: now,
+        isDeleted: false,
+      };
+      await db.diary.insert(newEntry);
+    }
+  }, []);
+
+  const deleteEntry = useCallback(async (date: string) => {
+    const id = `${CURRENT_USER_ID}_${date}`;
+    const doc = await getDatabase().diary.findOne(id).exec();
+    if (doc) {
+      await doc.patch({ isDeleted: true });
+    }
+  }, []);
+
+  const getEntryByDate = useCallback((date: string): DiaryDocument | undefined => {
+    return entries.find(e => e.date === date);
+  }, [entries]);
+
+  return { entries, isLoading, saveEntry, deleteEntry, getEntryByDate };
+}
+</file>
+
+<file path="src/hooks/useImageCompression.ts">
+import { useState, useCallback } from 'react';
+import imageCompression from 'browser-image-compression';
+
+export interface UseImageCompressionReturn {
+  compressImage: (file: File) => Promise<string>;
+  isCompressing: boolean;
+  error: string | null;
+}
+
+export function useImageCompression(): UseImageCompressionReturn {
+  const [isCompressing, setIsCompressing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const compressImage = useCallback(async (file: File): Promise<string> => {
+    setIsCompressing(true);
+    setError(null);
+
+    try {
+      const options = {
+        maxSizeMB: 0.15, // 150KB max
+        maxWidthOrHeight: 800, // Reasonable resolution for thumbnails
+        useWebWorker: true,
+        fileType: 'image/jpeg', // Force JPEG for better compression
+      };
+
+      const compressedFile = await imageCompression(file, options);
+      
+      // Convert to base64
+      const reader = new FileReader();
+      const base64String = await new Promise<string>((resolve, reject) => {
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(compressedFile);
+      });
+
+      return base64String;
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to compress image';
+      setError(errorMessage);
+      throw new Error(errorMessage);
+    } finally {
+      setIsCompressing(false);
+    }
+  }, []);
+
+  return { compressImage, isCompressing, error };
+}
+</file>
+
+<file path="src/hooks/useSettings.ts">
+import { useState, useEffect, useCallback } from 'react';
+import { getDatabase } from '../db/database';
+import { CURRENT_USER_ID } from '../db/sync';
+import type { SettingsDocument } from '../db/schema';
+
+export function useSettings() {
+  const [settings, setSettings] = useState<Record<string, any>>({});
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    let subscription: any;
+    
+    async function init() {
+      try {
+        const db = getDatabase();
+        const query = db.settings.find({
+          selector: {
+            userId: CURRENT_USER_ID,
+            isDeleted: false,
+          },
+        });
+
+        subscription = query.$.subscribe((docs) => {
+          const settingsMap: Record<string, any> = {};
+          docs.forEach(doc => {
+            try {
+              settingsMap[doc.key] = JSON.parse(doc.value);
+            } catch {
+              settingsMap[doc.key] = doc.value; // Fallback if not JSON
+            }
+          });
+          setSettings(settingsMap);
+          setIsLoading(false);
+        });
+      } catch (error) {
+        console.error('[useSettings] Error loading settings:', error);
+        setIsLoading(false);
+      }
+    }
+
+    init();
+
+    return () => {
+      if (subscription) subscription.unsubscribe();
+    };
+  }, []);
+
+  const setSetting = useCallback(async (key: string, value: any) => {
+    const db = getDatabase();
+    const id = `${CURRENT_USER_ID}_${key}`;
+    const stringValue = typeof value === 'string' ? value : JSON.stringify(value);
+
+    const doc = await db.settings.findOne(id).exec();
+    
+    if (doc) {
+      await doc.patch({ value: stringValue, isDeleted: false });
+    } else {
+      const newSetting: SettingsDocument = {
+        id,
+        userId: CURRENT_USER_ID,
+        key,
+        value: stringValue,
+        isDeleted: false,
+      };
+      await db.settings.insert(newSetting);
+    }
+  }, []);
+
+  const getSetting = useCallback((key: string, defaultValue?: any) => {
+    return settings[key] !== undefined ? settings[key] : defaultValue;
+  }, [settings]);
+
+  return { settings, isLoading, setSetting, getSetting };
+}
+</file>
+
+<file path="src/hooks/useTasks.ts">
+import { useState, useEffect, useCallback } from 'react';
+import { getDatabase } from '../db/database';
+import type { TaskDocument } from '../db/schema';
+import { useAuth } from './useAuth';
+
+export function useTasks() {
+  const { user } = useAuth();
+  const [tasks, setTasks] = useState<TaskDocument[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const userId = user?.$id;
+    
+    if (!userId) {
+      setTasks([]);
+      setIsLoading(false);
+      return;
+    }
+
+    let subscription: any;
+
+    async function init() {
+      try {
+        const db = getDatabase();
+        const query = db.tasks.find({
+          selector: {
+            userId: userId,
+            isDeleted: false,
+          },
+          sort: [{ date: 'asc' }, { createdAt: 'desc' }],
+        });
+
+        subscription = query.$.subscribe((docs) => {
+          setTasks(docs);
+          setIsLoading(false);
+        });
+      } catch (error) {
+        console.error('[useTasks] Error loading tasks:', error);
+        setIsLoading(false);
+      }
+    }
+
+    init();
+
+    return () => {
+      if (subscription) subscription.unsubscribe();
+    };
+  }, [user?.$id]);
+
+  const addTask = useCallback(async (task: Omit<TaskDocument, 'id' | 'userId' | 'createdAt' | 'updatedAt' | 'isDeleted'>) => {
+    const userId = user?.$id;
+    if (!userId) {
+      console.error('[useTasks] Cannot add task: User not authenticated');
+      return;
+    }
+
+    const db = getDatabase();
+    const now = new Date().toISOString();
+
+    const newTask: TaskDocument = {
+      ...task,
+      id: `task_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      userId: userId,
+      createdAt: now,
+      updatedAt: now,
+      isDeleted: false,
+    };
+
+    await db.tasks.insert(newTask);
+  }, [user?.$id]);
+
+  const updateTask = useCallback(async (id: string, updates: Partial<TaskDocument>) => {
+    const db = getDatabase();
+    const doc = await db.tasks.findOne(id).exec();
+    if (doc) {
+      await doc.patch({
+        ...updates,
+        updatedAt: new Date().toISOString(),
+      });
+    }
+  }, []);
+
+  const deleteTask = useCallback(async (id: string) => {
+    await updateTask(id, { isDeleted: true });
+  }, [updateTask]);
+
+  // FIX: Conditionally add completedAt to avoid RxDB patching with 'undefined'
+  const toggleTaskCompletion = useCallback(async (id: string, completed: boolean) => {
+    const updates: Partial<TaskDocument> = {
+      completed,
+    };
+    
+    if (completed) {
+      updates.completedAt = new Date().toISOString();
+    }
+    
+    await updateTask(id, updates);
+  }, [updateTask]);
+
+  return { tasks, isLoading, addTask, updateTask, deleteTask, toggleTaskCompletion };
+}
+</file>
+
+<file path="src/lib/appwrite.ts">
+import { Client, Account } from 'appwrite';
+
+const client = new Client();
+client
+    .setEndpoint('https://sgp.cloud.appwrite.io/v1') // Singapore regional endpoint
+    .setProject('6a9703c50016b37110ff');
+
+export const account = new Account(client);
+export { client };
+</file>
+
+<file path="src/lib/mockData.ts">
+import type { TaskDocument } from '../db/schema';
+
+// Mock categories for visualization
+export const mockCategories = {
+  'cat-1': { id: 'cat-1', name: 'Work', color: '#3B82F6', order: 0 },
+  'cat-2': { id: 'cat-2', name: 'Personal', color: '#10B981', order: 1 },
+  'cat-3': { id: 'cat-3', name: 'Fitness', color: '#F59E0B', order: 2 },
+  'cat-4': { id: 'cat-4', name: 'Learning', color: '#8B5CF6', order: 3 },
+};
+
+// Generate mock tasks for the current month
+export const generateMockTasks = (): TaskDocument[] => {
+  const today = new Date();
+  const tasks: TaskDocument[] = [];
+  
+  // Create some tasks scattered across the month
+  const taskTemplates = [
+    { title: 'Setup project', categoryId: 'cat-1', completed: true, date: 1 },
+    { title: 'Team meeting', categoryId: 'cat-1', completed: true, date: 1 },
+    { title: 'Buy groceries', categoryId: 'cat-2', completed: false, date: 2 },
+    { title: 'Gym workout', categoryId: 'cat-3', completed: true, date: 3 },
+    { title: 'Read chapter 5', categoryId: 'cat-4', completed: false, date: 5 },
+    { title: 'Code review', categoryId: 'cat-1', completed: true, date: 7 },
+    { title: 'Meal prep', categoryId: 'cat-2', completed: false, date: 8 },
+    { title: 'Running', categoryId: 'cat-3', completed: true, date: 10 },
+    { title: 'Watch tutorial', categoryId: 'cat-4', completed: true, date: 12 },
+    { title: 'Client call', categoryId: 'cat-1', completed: false, date: 14 },
+    { title: 'Clean room', categoryId: 'cat-2', completed: true, date: 15 },
+    { title: 'Leg day', categoryId: 'cat-3', completed: false, date: 17 },
+    { title: 'Study notes', categoryId: 'cat-4', completed: true, date: 19 },
+    { title: 'Deploy app', categoryId: 'cat-1', completed: true, date: 21 },
+    { title: 'Laundry', categoryId: 'cat-2', completed: false, date: 22 },
+    { title: 'Yoga', categoryId: 'cat-3', completed: true, date: 24 },
+    { title: 'Practice coding', categoryId: 'cat-4', completed: false, date: 26 },
+    { title: 'Sprint planning', categoryId: 'cat-1', completed: true, date: 28 },
+    { title: 'Date night', categoryId: 'cat-2', completed: false, date: 30 },
+  ];
+
+  taskTemplates.forEach((template, index) => {
+    const date = new Date(today.getFullYear(), today.getMonth(), template.date);
+    
+    tasks.push({
+      id: `task-${index}`,
+      title: template.title,
+      completed: template.completed,
+      categoryId: template.categoryId,
+      date: date.toISOString().split('T')[0], // YYYY-MM-DD format
+      createdAt: date.toISOString(),
+      updatedAt: date.toISOString(),
+      userId: 'user1',
+      isDeleted: false,
+      visibility: 'private',
+      tags: '',
+      memo: '',
+      image: index % 5 === 0 ? 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=100&h=100&fit=crop' : undefined,
+      source: '',
+      routineId: undefined,
+      reminderTime: undefined,
+      reactions: undefined,
+    });
+  });
+
+  return tasks;
+};
+</file>
+
+<file path="src/lib/storage.ts">
+import imageCompression from 'browser-image-compression';
+
+const APPWRITE_CONFIG = {
+  endpoint: 'https://sgp.cloud.appwrite.io',
+  projectId: '6a9703c50016b37110ff',
+  bucketId: 'task_images',
+};
+
+export async function compressImage(file: File): Promise<File> {
+  const options = {
+    maxSizeMB: 0.15, // 150KB
+    maxWidthOrHeight: 1024,
+    useWebWorker: true,
+    fileType: 'image/jpeg',
+  };
+
+  try {
+    const compressedFile = await imageCompression(file, options);
+    return compressedFile;
+  } catch (error) {
+    console.error('[Storage] Image compression failed:', error);
+    throw error;
+  }
+}
+
+export async function uploadImage(file: File): Promise<string> {
+  const compressedFile = await compressImage(file);
+  
+  const fileId = `img_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  const formData = new FormData();
+  formData.append('fileId', fileId);
+  formData.append('file', compressedFile);
+  
+  // FIX: Removed 'create("any")'. Storage files only accept read, update, delete, write.
+  formData.append('permissions[]', 'read("any")');
+  formData.append('permissions[]', 'update("any")');
+  formData.append('permissions[]', 'delete("any")');
+  formData.append('permissions[]', 'write("any")');
+
+  const url = `${APPWRITE_CONFIG.endpoint}/v1/storage/buckets/${APPWRITE_CONFIG.bucketId}/files`;
+
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'X-Appwrite-Project': APPWRITE_CONFIG.projectId,
+    },
+    body: formData,
+  });
+
+  if (!res.ok) {
+    const errorText = await res.text();
+    throw new Error(`Appwrite Storage Upload Error: ${errorText}`);
+  }
+
+  return fileId;
+}
+
+export async function deleteImage(fileId: string): Promise<void> {
+  const url = `${APPWRITE_CONFIG.endpoint}/v1/storage/buckets/${APPWRITE_CONFIG.bucketId}/files/${fileId}`;
+
+  const res = await fetch(url, {
+    method: 'DELETE',
+    headers: {
+      'X-Appwrite-Project': APPWRITE_CONFIG.projectId,
+    },
+  });
+
+  if (!res.ok) {
+    console.warn('[Storage] Failed to delete image:', fileId);
+  }
+}
+
+export function getImagePreviewUrl(fileId: string): string {
+  return `${APPWRITE_CONFIG.endpoint}/v1/storage/buckets/${APPWRITE_CONFIG.bucketId}/files/${fileId}/preview?project=${APPWRITE_CONFIG.projectId}&width=200&height=200`;
+}
+
+export function getImageFullUrl(fileId: string): string {
+  return `${APPWRITE_CONFIG.endpoint}/v1/storage/buckets/${APPWRITE_CONFIG.bucketId}/files/${fileId}/view?project=${APPWRITE_CONFIG.projectId}`;
+}
+</file>
+
+<file path="src/pages/AuthPage.tsx">
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../hooks/useAuth';
+import { Button } from '../components/ui/Button';
+import { Input } from '../components/ui/Input';
+import { motion } from 'framer-motion';
+import { Eye, EyeOff } from 'lucide-react';
+
+export const AuthPage: React.FC = () => {
+  const [isLogin, setIsLogin] = useState(true);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [name, setName] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+
+  const { login, signup, isLoading, error } = useAuth();
+  const navigate = useNavigate();
+
+  // FIX: Clear sensitive fields when switching between Login and Signup
+  useEffect(() => {
+    setPassword(''); // Always clear password
+    if (isLogin) {
+      setName(''); // Clear name when switching to Login
+    }
+  }, [isLogin]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    let success = false;
+
+    if (isLogin) {
+      success = await login(email, password);
+    } else {
+      success = await signup(email, password, name);
+    }
+
+    if (success) {
+      navigate('/home', { replace: true });
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-[#111111] text-white flex items-center justify-center p-6">
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="w-full max-w-md bg-[#1E1E1E] rounded-2xl p-8 border border-[#333333] shadow-2xl"
+      >
+        <h1 className="text-2xl font-bold text-center mb-2">
+          {isLogin ? 'Welcome Back' : 'Create Account'}
+        </h1>
+        <p className="text-gray-500 text-sm text-center mb-8">
+          {isLogin ? 'Sign in to access your life tracker.' : 'Start tracking your life today.'}
+        </p>
+
+        {/* Tab Switcher */}
+        <div className="flex bg-[#111111] rounded-lg p-1 mb-6">
+          <button
+            type="button"
+            onClick={() => setIsLogin(true)}
+            className={`flex-1 py-2 text-sm font-medium rounded-md transition-colors ${isLogin ? 'bg-[#2A2A2A] text-white' : 'text-gray-500'
+              }`}
+          >
+            Login
+          </button>
+          <button
+            type="button"
+            onClick={() => setIsLogin(false)}
+            className={`flex-1 py-2 text-sm font-medium rounded-md transition-colors ${!isLogin ? 'bg-[#2A2A2A] text-white' : 'text-gray-500'
+              }`}
+          >
+            Sign Up
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          {!isLogin && (
+            <Input
+              label="Full Name"
+              type="text"
+              placeholder="John Doe"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              required={!isLogin}
+            />
+          )}
+          <Input
+            label="Email Address"
+            type="email"
+            placeholder="you@example.com"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+          />
+
+          {/* Password Input with Visibility Toggle */}
+          <div className="w-full">
+            <label className="block text-xs text-gray-500 mb-1.5 ml-1">Password</label>
+            <div className="relative">
+              <input
+                type={showPassword ? 'text' : 'password'}
+                placeholder="••••••••"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                className="w-full bg-[#1E1E1E] text-white border border-[#333333] rounded-lg px-4 py-2.5 pr-10 focus:border-[#555555] focus:outline-none transition-colors placeholder-gray-600"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300 transition-colors"
+              >
+                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
+            </div>
+          </div>
+
+          {error && (
+            <div className="text-red-400 text-sm bg-red-900/20 p-3 rounded-lg border border-red-900/50">
+              {error}
+            </div>
+          )}
+
+          <Button
+            variant="primary"
+            className="w-full mt-4"
+            disabled={isLoading}
+          >
+            {isLoading ? 'Processing...' : (isLogin ? 'Sign In' : 'Create Account')}
+          </Button>
+        </form>
+      </motion.div>
+    </div>
+  );
+};
+</file>
+
+<file path="src/pages/HomePage.tsx">
+import React, { useState, useEffect } from 'react';
+import { TopBar } from '../components/home/TopBar';
+import { ViewContainer } from '../components/home/ViewContainer';
+import type { ViewType } from '../components/home/ViewSwitcher';
+
+export const HomePage: React.FC = () => {
+  // Initialize state from localStorage to implement View Memory
+  const [activeView, setActiveView] = useState<ViewType>(() => {
+    const saved = localStorage.getItem('mosaic_activeView');
+    if (saved === 'calendar' || saved === 'diary') {
+      return saved;
+    }
+    return 'calendar'; // Default fallback
+  });
+
+  // Save to localStorage whenever the view changes
+  useEffect(() => {
+    localStorage.setItem('mosaic_activeView', activeView);
+  }, [activeView]);
+
+  const handleViewChange = (view: ViewType) => {
+    setActiveView(view);
+  };
+
+  return (
+    <div className="min-h-full flex flex-col">
+      {/* Sticky Top Bar */}
+      <TopBar activeView={activeView} onViewChange={handleViewChange} />
+      
+      {/* Content Area */}
+      <div className="flex-1">
+        <ViewContainer activeView={activeView} />
+      </div>
+    </div>
+  );
+};
+</file>
+
+<file path="src/pages/TestPlayground.tsx">
+import React, { useState } from 'react';
+import { Button } from '../components/ui/Button';
+import { Input, Textarea } from '../components/ui/Input';
+import { Avatar } from '../components/ui/Avatar';
+import { BottomSheet } from '../components/ui/BottomSheet';
+import { TopBar } from '../components/home/TopBar';
+import type { ViewType } from '../components/home/ViewSwitcher';
+import { Home, Settings, Image as ImageIcon } from 'lucide-react';
+
+export const TestPlayground: React.FC = () => {
+  const [text, setText] = useState('');
+  const [isSheetOpen, setIsSheetOpen] = useState(false);
+  
+  // FIX: Initialize state from localStorage, default to 'calendar'
+  const [activeView, setActiveView] = useState<ViewType>(() => {
+    return (localStorage.getItem('activeView') as ViewType) || 'calendar';
+  });
+
+  // FIX: Save to localStorage whenever view changes
+  const handleViewChange = (view: ViewType) => {
+    setActiveView(view);
+    localStorage.setItem('activeView', view);
+  };
+
+  const renderContent = () => {
+    return (
+      <div className="min-h-full"> {/* Ensure container is tall enough to scroll */}
+        
+        {/* FIX: TopBar is now sticky internally, no wrapper needed */}
+        <TopBar activeView={activeView} onViewChange={handleViewChange} />
+        
+        <div className="p-6 space-y-6 max-w-md mx-auto">
+          
+          {/* Active View Indicator */}
+          <div className="bg-[#1E1E1E] p-4 rounded-xl border border-[#333333] text-center">
+            <p className="text-sm text-gray-400">
+              Current Active View: <span className="text-white font-bold uppercase">{activeView}</span>
+            </p>
+          </div>
+
+          <h1 className="text-2xl font-bold mb-2 text-center">Milestone 2.1 Batch 1 Playground</h1>
+          <p className="text-gray-500 text-sm text-center mb-8">
+            Verify TopBar, ViewSwitcher animations, and Hamburger Menu sheet.
+          </p>
+
+          {/* --- AVATARS --- */}
+          <section className="bg-[#1E1E1E] p-4 rounded-xl border border-[#333333]">
+            <h2 className="text-xs font-semibold text-gray-500 mb-4 uppercase tracking-wider">Avatars</h2>
+            <div className="flex items-center gap-4">
+              <Avatar size="sm" alt="Small" />
+              <Avatar size="md" alt="Medium" />
+              <Avatar size="lg" alt="Large" />
+              <Avatar 
+                size="md" 
+                src="https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=100&h=100" 
+                alt="With Image" 
+              />
+            </div>
+          </section>
+
+          {/* --- BUTTONS --- */}
+          <section className="bg-[#1E1E1E] p-4 rounded-xl border border-[#333333]">
+            <h2 className="text-xs font-semibold text-gray-500 mb-4 uppercase tracking-wider">Buttons</h2>
+            <div className="flex flex-wrap gap-3">
+              <Button variant="primary">Primary Action</Button>
+              <Button variant="ghost">Ghost Button</Button>
+              <Button variant="danger">Danger Action</Button>
+              <Button variant="icon"><Home size={20} /></Button>
+              <Button variant="icon"><Settings size={20} /></Button>
+              <Button variant="primary" disabled>Disabled</Button>
+            </div>
+          </section>
+
+          {/* --- INPUTS --- */}
+          <section className="bg-[#1E1E1E] p-4 rounded-xl border border-[#333333]">
+            <h2 className="text-xs font-semibold text-gray-500 mb-4 uppercase tracking-wider">Inputs</h2>
+            <div className="space-y-4">
+              <Input 
+                label="Task Title" 
+                placeholder="e.g., Buy groceries" 
+                value={text}
+                onChange={(e) => setText(e.target.value)}
+              />
+              <Textarea 
+                label="Memo / Notes" 
+                placeholder="Add some details here..." 
+                rows={3}
+              />
+              <div className="flex items-center gap-2 text-xs text-gray-500">
+                <ImageIcon size={14} />
+                <span>Image upload would go here</span>
+              </div>
+            </div>
+          </section>
+
+          {/* --- BOTTOM SHEET TEST --- */}
+          <section className="bg-[#1E1E1E] p-4 rounded-xl border border-[#333333]">
+            <h2 className="text-xs font-semibold text-gray-500 mb-4 uppercase tracking-wider">Bottom Sheet Primitive</h2>
+            <p className="text-sm text-gray-400 mb-4">
+              Tests spring animation, backdrop click, escape key, and drag-to-close physics.
+            </p>
+            <Button variant="primary" onClick={() => setIsSheetOpen(true)}>
+              Open Test Sheet
+            </Button>
+          </section>
+        </div>
+
+        {/* --- BOTTOM SHEET MODAL --- */}
+        <BottomSheet 
+          isOpen={isSheetOpen} 
+          onClose={() => setIsSheetOpen(false)}
+          title="Test Bottom Sheet"
+        >
+          <div className="space-y-4 pt-2">
+            <p className="text-gray-300 text-sm leading-relaxed">
+              Try dragging this sheet down to close it! Or click the dark backdrop outside. 
+              Pressing Escape on desktop also works.
+            </p>
+            
+            <div className="h-32 bg-[#111111] rounded-lg flex items-center justify-center text-gray-600 text-sm border border-[#333333]">
+              Content Block 1
+            </div>
+            <div className="h-32 bg-[#111111] rounded-lg flex items-center justify-center text-gray-600 text-sm border border-[#333333]">
+              Content Block 2
+            </div>
+            <div className="h-32 bg-[#111111] rounded-lg flex items-center justify-center text-gray-600 text-sm border border-[#333333]">
+              Content Block 3 (Scroll me!)
+            </div>
+            
+            <div className="pt-4 border-t border-[#333333]">
+               <Button variant="primary" className="w-full" onClick={() => setIsSheetOpen(false)}>
+                 Close via Button
+               </Button>
+            </div>
+          </div>
+        </BottomSheet>
+      </div>
+    );
+  };
+
+  return renderContent();
+};
+</file>
+
+<file path="src/App.css">
+.counter {
+  font-size: 16px;
+  padding: 5px 10px;
+  border-radius: 5px;
+  color: var(--accent);
+  background: var(--accent-bg);
+  border: 2px solid transparent;
+  transition: border-color 0.3s;
+  margin-bottom: 24px;
+
+  &:hover {
+    border-color: var(--accent-border);
+  }
+  &:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+}
+
+.hero {
+  position: relative;
+
+  .base,
+  .framework,
+  .vite {
+    inset-inline: 0;
+    margin: 0 auto;
+  }
+
+  .base {
+    width: 170px;
+    position: relative;
+    z-index: 0;
+  }
+
+  .framework,
+  .vite {
+    position: absolute;
+  }
+
+  .framework {
+    z-index: 1;
+    top: 34px;
+    height: 28px;
+    transform: perspective(2000px) rotateZ(300deg) rotateX(44deg) rotateY(39deg)
+      scale(1.4);
+  }
+
+  .vite {
+    z-index: 0;
+    top: 107px;
+    height: 26px;
+    width: auto;
+    transform: perspective(2000px) rotateZ(300deg) rotateX(40deg) rotateY(39deg)
+      scale(0.8);
+  }
+}
+
+#center {
+  display: flex;
+  flex-direction: column;
+  gap: 25px;
+  place-content: center;
+  place-items: center;
+  flex-grow: 1;
+
+  @media (max-width: 1024px) {
+    padding: 32px 20px 24px;
+    gap: 18px;
+  }
+}
+
+#next-steps {
+  display: flex;
+  border-top: 1px solid var(--border);
+  text-align: left;
+
+  & > div {
+    flex: 1 1 0;
+    padding: 32px;
+    @media (max-width: 1024px) {
+      padding: 24px 20px;
+    }
+  }
+
+  .icon {
+    margin-bottom: 16px;
+    width: 22px;
+    height: 22px;
+  }
+
+  @media (max-width: 1024px) {
+    flex-direction: column;
+    text-align: center;
+  }
+}
+
+#docs {
+  border-right: 1px solid var(--border);
+
+  @media (max-width: 1024px) {
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+  }
+}
+
+#next-steps ul {
+  list-style: none;
+  padding: 0;
+  display: flex;
+  gap: 8px;
+  margin: 32px 0 0;
+
+  .logo {
+    height: 18px;
+  }
+
+  a {
+    color: var(--text-h);
+    font-size: 16px;
+    border-radius: 6px;
+    background: var(--social-bg);
+    display: flex;
+    padding: 6px 12px;
+    align-items: center;
+    gap: 8px;
+    text-decoration: none;
+    transition: box-shadow 0.3s;
+
+    &:hover {
+      box-shadow: var(--shadow);
+    }
+    .button-icon {
+      height: 18px;
+      width: 18px;
+    }
+  }
+
+  @media (max-width: 1024px) {
+    margin-top: 20px;
+    flex-wrap: wrap;
+    justify-content: center;
+
+    li {
+      flex: 1 1 calc(50% - 8px);
+    }
+
+    a {
+      width: 100%;
+      justify-content: center;
+      box-sizing: border-box;
+    }
+  }
+}
+
+#spacer {
+  height: 88px;
+  border-top: 1px solid var(--border);
+  @media (max-width: 1024px) {
+    height: 48px;
+  }
+}
+
+.ticks {
+  position: relative;
+  width: 100%;
+
+  &::before,
+  &::after {
+    content: '';
+    position: absolute;
+    top: -4.5px;
+    border: 5px solid transparent;
+  }
+
+  &::before {
+    left: 0;
+    border-left-color: var(--border);
+  }
+  &::after {
+    right: 0;
+    border-right-color: var(--border);
+  }
+}
+</file>
+
+<file path="src/App.tsx">
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { AppLayout } from './components/layout/AppLayout';
+import { HomePage } from './pages/HomePage'; // <-- CHANGED
+import { ComingSoon } from './components/layout/ComingSoon';
+import { AuthPage } from './pages/AuthPage';
+
+function App() {
+  return (
+    <BrowserRouter>
+      <Routes>
+        {/* Public Route: Login Page */}
+        <Route path="/login" element={<AuthPage />} />
+        
+        {/* Protected Routes: Wrapped in AppLayout */}
+        <Route element={<AppLayout />}>
+          <Route path="/" element={<Navigate to="/home" replace />} />
+          <Route path="/home" element={<HomePage />} /> {/* <-- CHANGED */}
+          <Route path="/explore" element={<ComingSoon />} />
+          <Route path="/notifications" element={<ComingSoon />} />
+          <Route path="/messages" element={<ComingSoon />} />
+          <Route path="/account" element={<ComingSoon />} />
+        </Route>
+      </Routes>
+    </BrowserRouter>
+  );
+}
+
+export default App;
+</file>
+
+<file path="src/index.css">
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+}
+
+body {
+  @apply bg-background text-white m-0 p-0 min-h-screen font-sans;
+  /* Prevent pull-to-refresh on mobile which can interfere with swipe gestures */
+  overscroll-behavior-y: none; 
+}
+
+/* Hide scrollbar for Chrome, Safari and Opera */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+/* Hide scrollbar for IE, Edge and Firefox */
+.no-scrollbar {
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
+}
+</file>
+
+<file path="src/main.tsx">
+import React from 'react';
+import ReactDOM from 'react-dom/client';
+import App from './App.tsx';
+import './index.css';
+import { initializeDatabase } from './db/database';
+import { initializeSync } from './db/sync';
+
+async function bootstrap() {
+  // 1. Request persistent storage (prevents iOS/WebKit from purging IndexedDB)
+  if (navigator.storage && navigator.storage.persist) {
+    const isPersisted = await navigator.storage.persist();
+    console.log(`[Bootstrap] Storage persisted: ${isPersisted}`);
+  }
+
+  // 2. Initialize RxDB BEFORE React mounts
+  try {
+    console.log('[Bootstrap] Initializing database...');
+    await initializeDatabase();
+    console.log('[Bootstrap] ✅ Database initialized successfully.');
+    
+    // 3. Start background sync 
+    // We don't 'await' this so it doesn't block the UI from rendering immediately
+    initializeSync().catch(err => console.error('[Bootstrap] Initial sync failed:', err));
+  } catch (error) {
+    console.error('[Bootstrap] FATAL: Database initialization failed', error);
+  }
+
+  // 4. Render React App
+  ReactDOM.createRoot(document.getElementById('root')!).render(
+    <React.StrictMode>
+      <App />
+    </React.StrictMode>
+  );
+}
+
+// Kick off the application
+bootstrap();
+</file>
+
+<file path=".gitignore">
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+node_modules
+dist
+dist-ssr
+*.local
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+</file>
+
+<file path="eslint.config.js">
+import js from '@eslint/js'
+import globals from 'globals'
+import reactHooks from 'eslint-plugin-react-hooks'
+import reactRefresh from 'eslint-plugin-react-refresh'
+import tseslint from 'typescript-eslint'
+import { defineConfig, globalIgnores } from 'eslint/config'
+
+export default defineConfig([
+  globalIgnores(['dist']),
+  {
+    files: ['**/*.{ts,tsx}'],
+    extends: [
+      js.configs.recommended,
+      tseslint.configs.recommended,
+      reactHooks.configs.flat.recommended,
+      reactRefresh.configs.vite,
+    ],
+    languageOptions: {
+      globals: globals.browser,
+    },
+  },
+])
+</file>
+
+<file path="index.html">
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    
+    <!-- PWA & iOS Meta Tags -->
+    <meta name="theme-color" content="#111111" />
+    <meta name="description" content="An offline-first, local-first life tracker PWA." />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Mosaic" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    
+    <title>Mosaic | Life Tracker</title>
+  </head>
+  <body class="bg-[#111111] text-white">
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
+</file>
+
+<file path="package.json">
+{
+  "name": "life-tracker",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "lint": "eslint .",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "ajv": "^8.20.0",
+    "appwrite": "^26.2.0",
+    "browser-image-compression": "^2.0.2",
+    "date-fns": "^4.4.0",
+    "emoji-picker-react": "^4.19.4",
+    "framer-motion": "^13.2.0",
+    "lucide-react": "^1.39.0",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "react-router-dom": "^7.18.3",
+    "repomix": "^1.18.0",
+    "rxdb": "^17.5.0",
+    "rxjs": "^7.8.2",
+    "swiper": "^14.2.0",
+    "vite-plugin-pwa": "^1.3.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/node": "^24.13.3",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.4",
+    "@vitejs/plugin-basic-ssl": "^2.3.0",
+    "@vitejs/plugin-react": "^6.1.0",
+    "autoprefixer": "^10.5.4",
+    "eslint": "^10.9.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "eslint-plugin-react-refresh": "^0.5.4",
+    "globals": "^17.11.0",
+    "postcss": "^8.5.27",
+    "tailwindcss": "^3.4.19",
+    "typescript": "~6.0.2",
+    "typescript-eslint": "^8.67.0",
+    "vite": "^8.2.2"
+  }
+}
+</file>
+
+<file path="postcss.config.js">
+export default {
+  plugins: {
+    tailwindcss: {},
+    autoprefixer: {},
+  },
+}
+</file>
+
+<file path="README.md">
+# React + TypeScript + Vite
+
+This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+
+Currently, two official plugins are available:
+
+- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
+- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+
+## React Compiler
+
+The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+
+## Expanding the ESLint configuration
+
+If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+
+```js
+export default defineConfig([
+  globalIgnores(['dist']),
+  {
+    files: ['**/*.{ts,tsx}'],
+    extends: [
+      // Other configs...
+
+      // Remove tseslint.configs.recommended and replace with this
+      tseslint.configs.recommendedTypeChecked,
+      // Alternatively, use this for stricter rules
+      tseslint.configs.strictTypeChecked,
+      // Optionally, add this for stylistic rules
+      tseslint.configs.stylisticTypeChecked,
+
+      // Other configs...
+    ],
+    languageOptions: {
+      parserOptions: {
+        project: ['./tsconfig.node.json', './tsconfig.app.json'],
+        tsconfigRootDir: import.meta.dirname,
+      },
+      // other options...
+    },
+  },
+])
+
+```
+
+You can also install [eslint-plugin-react-x](https://npmx.dev/package/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://npmx.dev/package/eslint-plugin-react-dom) for React-specific lint rules:
+
+```js
+// eslint.config.js
+import reactX from 'eslint-plugin-react-x'
+import reactDom from 'eslint-plugin-react-dom'
+
+export default defineConfig([
+  globalIgnores(['dist']),
+  {
+    files: ['**/*.{ts,tsx}'],
+    extends: [
+      // Other configs...
+      // Enable lint rules for React
+      reactX.configs['recommended-typescript'],
+      // Enable lint rules for React DOM
+      reactDom.configs.recommended,
+    ],
+    languageOptions: {
+      parserOptions: {
+        project: ['./tsconfig.node.json', './tsconfig.app.json'],
+        tsconfigRootDir: import.meta.dirname,
+      },
+      // other options...
+    },
+  },
+])
+
+```
+</file>
+
+<file path="tailwind.config.js">
+/** @type {import('tailwindcss').Config} */
+export default {
+  content: [
+    "./index.html",
+    "./src/**/*.{js,ts,jsx,tsx}",
+  ],
+  darkMode: 'class', // We will force dark mode
+  theme: {
+    extend: {
+      colors: {
+        background: '#111111', // Deep dark background
+        surface: '#1E1E1E',    // Slightly lighter for cards/sheets
+        surfaceHighlight: '#2A2A2A',
+      },
+      fontFamily: {
+        sans: ['Inter', 'system-ui', 'sans-serif'],
+      }
+    },
+  },
+  plugins: [],
+}
+</file>
+
+<file path="tsconfig.app.json">
+{
+  "compilerOptions": {
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.app.tsbuildinfo",
+    "target": "es2023",
+    "lib": ["ES2023", "DOM"],
+    "module": "esnext",
+    "types": ["vite/client"],
+    "allowArbitraryExtensions": true,
+    "skipLibCheck": true,
+
+    /* Bundler mode */
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "verbatimModuleSyntax": true,
+    "moduleDetection": "force",
+    "noEmit": true,
+    "jsx": "react-jsx",
+
+    /* Linting */
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "erasableSyntaxOnly": true,
+    "noFallthroughCasesInSwitch": true
+  },
+  "include": ["src"]
+}
+</file>
+
+<file path="tsconfig.json">
+{
+  "files": [],
+  "references": [
+    { "path": "./tsconfig.app.json" },
+    { "path": "./tsconfig.node.json" }
+  ]
+}
+</file>
+
+<file path="tsconfig.node.json">
+{
+  "compilerOptions": {
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.node.tsbuildinfo",
+    "target": "es2023",
+    "lib": ["ES2023"],
+    "types": ["node"],
+    "skipLibCheck": true,
+
+    /* Bundler mode */
+    "module": "nodenext",
+    "allowImportingTsExtensions": true,
+    "verbatimModuleSyntax": true,
+    "moduleDetection": "force",
+    "noEmit": true,
+
+    /* Linting */
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "erasableSyntaxOnly": true,
+    "noFallthroughCasesInSwitch": true
+  },
+  "include": ["vite.config.ts"]
+}
+</file>
+
+<file path="vite.config.ts">
+import { defineConfig } from 'vite';
+import react from '@vitejs/plugin-react';
+import { VitePWA } from 'vite-plugin-pwa';
+import basicSsl from '@vitejs/plugin-basic-ssl';
+
+export default defineConfig({
+  plugins: [
+    react(),
+    basicSsl(),
+    VitePWA({
+      registerType: 'autoUpdate', // Automatically update the service worker when a new version is deployed
+      includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'masked-icon.svg'],
+      manifest: {
+        name: 'Life Tracker',
+        short_name: 'Mosaic',
+        description: 'An offline-first, local-first life tracker PWA.',
+        theme_color: '#111111', // Matches our dark mode background
+        background_color: '#111111',
+        display: 'standalone', // Hides the browser URL bar when installed
+        orientation: 'portrait',
+        scope: '/',
+        start_url: '/',
+        icons: [
+          {
+            src: 'pwa-192x192.png',
+            sizes: '192x192',
+            type: 'image/png'
+          },
+          {
+            src: 'pwa-512x512.png',
+            sizes: '512x512',
+            type: 'image/png'
+          },
+          {
+            src: 'pwa-512x512.png',
+            sizes: '512x512',
+            type: 'image/png',
+            purpose: 'any maskable' // Required for Android adaptive icons
+          }
+        ]
+      },
+      workbox: {
+        // Cache all static assets and API calls for offline use
+        globPatterns: ['**/*.{js,css,html,ico,png,svg,webp}'],
+        runtimeCaching: [
+          {
+            urlPattern: /^https:\/\/sgp\.cloud\.appwrite\.io\/.*/i,
+            handler: 'NetworkFirst', // Try network first, fallback to cache for Appwrite API
+            options: {
+              cacheName: 'appwrite-api-cache',
+              expiration: {
+                maxEntries: 50,
+                maxAgeSeconds: 60 * 60 * 24 // 1 day
+              }
+            }
+          }
+        ]
+      }
+    })
+  ],
+});
+</file>
+
+</files>
