@@ -1,7 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { motion } from 'framer-motion';
 import { Check, FileText } from 'lucide-react';
-import { getImageAsBlobUrl } from '../../../lib/storage';
+import { useTaskImage } from '../../../hooks/useTaskImage';
 import type { TaskDocument } from '../../../db/schema';
 
 interface TaskItemProps {
@@ -10,6 +10,7 @@ interface TaskItemProps {
   onToggle: (taskId: string) => void;
   onOpenActions: (task: TaskDocument) => void;
   onOpenMemo: (task: TaskDocument) => void;
+  onViewImage?: (task: TaskDocument) => void;
   isEditing: boolean;
   editValue: string;
   onEditChange: (value: string) => void;
@@ -23,29 +24,14 @@ export const TaskItem: React.FC<TaskItemProps> = ({
   onToggle,
   onOpenActions,
   onOpenMemo,
+  onViewImage,
   isEditing,
   editValue,
   onEditChange,
   onEditSave,
   onEditCancel
 }) => {
-  const [imageBlobUrl, setImageBlobUrl] = useState<string>('');
-
-  useEffect(() => {
-    if (task.image && task.image.trim() !== '') {
-      getImageAsBlobUrl(task.image)
-        .then(url => setImageBlobUrl(url))
-        .catch(err => console.error('[TaskItem] Failed to load image:', err));
-    } else {
-      setImageBlobUrl('');
-    }
-
-    return () => {
-      if (imageBlobUrl) {
-        URL.revokeObjectURL(imageBlobUrl);
-      }
-    };
-  }, [task.image]);
+  const { imageUrl, isLoading } = useTaskImage(task.image);
 
   return (
     <motion.div
@@ -54,7 +40,6 @@ export const TaskItem: React.FC<TaskItemProps> = ({
       className="py-2.5 group"
     >
       <div className="flex items-start gap-3">
-        {/* Custom Checkbox */}
         <button
           onClick={() => onToggle(task.id)}
           onPointerDown={(e) => e.stopPropagation()}
@@ -67,7 +52,6 @@ export const TaskItem: React.FC<TaskItemProps> = ({
           {task.completed && <Check size={12} className="text-white" strokeWidth={3} />}
         </button>
 
-        {/* Task Content */}
         <div className="flex-1 min-w-0">
           {isEditing ? (
             <input
@@ -88,7 +72,6 @@ export const TaskItem: React.FC<TaskItemProps> = ({
               <p className={`text-base ${task.completed ? 'text-gray-500 line-through' : 'text-gray-200'}`}>
                 {task.title}
               </p>
-              {/* Memo Display */}
               {task.memo && (
                 <p
                   className="text-sm text-gray-400 mt-1 cursor-pointer hover:text-gray-300 transition-colors whitespace-pre-wrap"
@@ -98,22 +81,27 @@ export const TaskItem: React.FC<TaskItemProps> = ({
                   {task.memo}
                 </p>
               )}
-              {/* Image Thumbnail */}
-              {task.image && imageBlobUrl && (
-                <div className="mt-2 flex items-center gap-2">
-                  <img 
-                    src={imageBlobUrl} 
-                    alt="Task attachment"
-                    className="w-12 h-12 rounded-lg object-cover border border-[#333333]"
-                    loading="lazy"
-                  />
+              {task.image && (
+                <div className="mt-2 w-full">
+                  <div 
+                    className="w-full h-48 md:h-64 lg:h-80 xl:h-96 rounded-lg overflow-hidden border border-[#333333] bg-[#2A2A2A] cursor-pointer relative group"
+                    onClick={(e) => { e.stopPropagation(); onViewImage?.(task); }}
+                  >
+                    {isLoading ? (
+                      <div className="w-full h-full bg-gray-500/30 animate-pulse" />
+                    ) : imageUrl ? (
+                      <img src={imageUrl} alt="Task attachment" className="w-full h-full object-cover" />
+                    ) : null}
+                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
+                      <span className="text-white text-xs font-medium bg-black/50 px-3 py-1 rounded-full backdrop-blur-sm">View Photo</span>
+                    </div>
+                  </div>
                 </div>
               )}
             </div>
           )}
         </div>
 
-        {/* Indicators */}
         {!isEditing && (
           <div className="flex items-center gap-2 flex-shrink-0 pointer-events-none">
             {task.memo && !task.image && (

@@ -1,8 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { BottomSheet } from '../../ui/BottomSheet';
 import { Pencil, Trash2, FileText, Clock, ArrowRight, RotateCcw, CheckCircle, Archive, Image as ImageIcon } from 'lucide-react';
 import { isToday } from 'date-fns';
-import { getImageAsBlobUrl } from '../../../lib/storage';
 import type { TaskDocument } from '../../../db/schema';
 
 interface TaskActionSheetProps {
@@ -13,7 +12,8 @@ interface TaskActionSheetProps {
   onDelete: () => void;
   onMemo: () => void;
   onChangeDate: () => void;
-  onAddPhoto: () => void;
+  onViewPhoto: () => void;
+  onDeletePhoto: () => void;
   onDoItTomorrowOrToday: () => void;
 }
 
@@ -25,38 +25,10 @@ export const TaskActionSheet: React.FC<TaskActionSheetProps> = ({
   onDelete,
   onMemo,
   onChangeDate,
-  onAddPhoto,
+  onViewPhoto,
+  onDeletePhoto,
   onDoItTomorrowOrToday
 }) => {
-  const [imageBlobUrl, setImageBlobUrl] = useState<string>('');
-  const [imageLoading, setImageLoading] = useState(false);
-
-  useEffect(() => {
-    if (task?.image && isOpen) {
-      setImageLoading(true);
-      setImageBlobUrl('');
-      
-      getImageAsBlobUrl(task.image)
-        .then(url => {
-          setImageBlobUrl(url);
-          setImageLoading(false);
-        })
-        .catch(err => {
-          console.error('[TaskActionSheet] Failed to load image:', err);
-          setImageLoading(false);
-        });
-    } else {
-      setImageBlobUrl('');
-    }
-
-    // Cleanup blob URL when component unmounts or task changes
-    return () => {
-      if (imageBlobUrl) {
-        URL.revokeObjectURL(imageBlobUrl);
-      }
-    };
-  }, [task?.image, isOpen]);
-
   if (!task) return null;
 
   const isTaskToday = isToday(new Date(task.date));
@@ -77,40 +49,8 @@ export const TaskActionSheet: React.FC<TaskActionSheetProps> = ({
           </button>
         </div>
 
-        {/* Photo Section - Only show if image exists */}
-        {task.image && task.image.trim() !== '' && (
-          <div className="mb-6">
-            <div className="flex items-center gap-2 mb-3">
-              <div className="w-8 h-8 rounded-full bg-green-400 flex items-center justify-center">
-                <ImageIcon size={16} className="text-black" />
-              </div>
-              <h3 className="text-lg font-semibold text-white">Photo</h3>
-            </div>
-            <div 
-              onClick={onAddPhoto}
-              className="cursor-pointer rounded-xl overflow-hidden border border-[#333333] bg-[#1A1A1A] min-h-[120px] flex items-center justify-center relative"
-            >
-              {imageLoading ? (
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <div className="w-8 h-8 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                </div>
-              ) : imageBlobUrl ? (
-                <img 
-                  src={imageBlobUrl} 
-                  alt="Task attachment"
-                  className="w-full h-48 object-cover absolute inset-0"
-                />
-              ) : (
-                <div className="absolute inset-0 flex items-center justify-center text-gray-500 text-sm">
-                  Tap to change photo
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
         {/* Memo Section - Only show if memo exists */}
-        {task.memo && task.memo.trim() !== '' && (
+        {task.memo && (
           <div className="mb-6">
             <div className="flex items-center gap-2 mb-3">
               <div className="w-8 h-8 rounded-full bg-yellow-400 flex items-center justify-center">
@@ -126,6 +66,7 @@ export const TaskActionSheet: React.FC<TaskActionSheetProps> = ({
 
         {/* Action Items */}
         <div className="space-y-1">
+          {/* Memo Button - Only show if NO memo exists yet */}
           {!task.memo && (
             <button onClick={() => { onMemo(); onClose(); }} className="w-full flex items-center gap-4 px-2 py-3.5 rounded-xl hover:bg-[#1E1E1E] transition-colors text-white">
               <div className="w-8 h-8 rounded-full bg-yellow-400 flex items-center justify-center">
@@ -135,12 +76,25 @@ export const TaskActionSheet: React.FC<TaskActionSheetProps> = ({
             </button>
           )}
           
-          <button onClick={() => { onAddPhoto(); onClose(); }} className="w-full flex items-center gap-4 px-2 py-3.5 rounded-xl hover:bg-[#1E1E1E] transition-colors text-white">
-            <div className="w-8 h-8 rounded-full bg-green-400 flex items-center justify-center">
-              <ImageIcon size={16} className="text-black" />
-            </div>
-            <span className="text-base font-medium">{task.image ? 'Change Photo' : 'Add Photo'}</span>
-          </button>
+          {/* View Photo Button - Replaces the inline preview */}
+          {task.image && (
+            <button onClick={() => { onViewPhoto(); onClose(); }} className="w-full flex items-center gap-4 px-2 py-3.5 rounded-xl hover:bg-[#1E1E1E] transition-colors text-white">
+              <div className="w-8 h-8 rounded-full bg-green-400 flex items-center justify-center">
+                <ImageIcon size={16} className="text-black" />
+              </div>
+              <span className="text-base font-medium">View Photo</span>
+            </button>
+          )}
+
+          {/* Delete Photo Button - Only show if photo exists */}
+          {task.image && (
+            <button onClick={() => { onDeletePhoto(); onClose(); }} className="w-full flex items-center gap-4 px-2 py-3.5 rounded-xl hover:bg-[#1E1E1E] transition-colors text-white">
+              <div className="w-8 h-8 rounded-full bg-red-400 flex items-center justify-center">
+                <Trash2 size={16} className="text-black" />
+              </div>
+              <span className="text-base font-medium">Delete Photo</span>
+            </button>
+          )}
 
           <button onClick={() => alert('Set Alarm coming soon')} className="w-full flex items-center gap-4 px-2 py-3.5 rounded-xl hover:bg-[#1E1E1E] transition-colors text-white">
             <div className="w-8 h-8 rounded-full bg-pink-400 flex items-center justify-center">

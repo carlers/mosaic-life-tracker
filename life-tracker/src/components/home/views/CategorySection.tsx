@@ -14,6 +14,7 @@ interface CategorySectionProps {
   onAddTask: (title: string) => void;
   onOpenActions: (task: TaskDocument) => void;
   onOpenMemo: (task: TaskDocument) => void;
+  onViewImage?: (task: TaskDocument) => void;
   editingTaskId: string | null;
   editValue: string;
   onEditChange: (value: string) => void;
@@ -21,15 +22,16 @@ interface CategorySectionProps {
   onEditCancel: () => void;
 }
 
-export const CategorySection: React.FC<CategorySectionProps> = ({ 
-  categoryName, 
-  categoryColor, 
+export const CategorySection: React.FC<CategorySectionProps> = ({
+  categoryName,
+  categoryColor,
   visibility = 'private',
-  tasks, 
+  tasks,
   onToggleTask,
   onAddTask,
   onOpenActions,
   onOpenMemo,
+  onViewImage,
   editingTaskId,
   editValue,
   onEditChange,
@@ -80,16 +82,13 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
             isAdding ? 'border-[#555555] bg-[#252525]' : 'border-[#333333] hover:bg-[#2A2A2A]'
           }`}
         >
-          <div 
+          <div
             className="w-2.5 h-2.5 rounded-full flex-shrink-0"
             style={{ backgroundColor: categoryColor }}
           />
-          <span className="text-xs font-bold text-white">
-            {categoryName}
-          </span>
+          <span className="text-xs font-bold text-white">{categoryName}</span>
           <Plus size={14} className="text-white" strokeWidth={2.5} />
         </div>
-
         <div className="ml-1">
           {getVisibilityIcon(visibility)}
         </div>
@@ -106,6 +105,7 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
                 onToggle={(id) => onToggleTask(id, task.completed)} 
                 onOpenActions={onOpenActions}
                 onOpenMemo={onOpenMemo}
+                onViewImage={onViewImage}
                 isEditing={editingTaskId === task.id}
                 editValue={editValue}
                 onEditChange={onEditChange}
@@ -115,7 +115,6 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
             ))}
           </div>
         )}
-
         {isAdding && (
           <div className="flex items-center gap-2 px-3 py-2.5 border-t border-[#333333] bg-[#1A1A1A] animate-in fade-in slide-in-from-top-1 duration-200">
             <button 

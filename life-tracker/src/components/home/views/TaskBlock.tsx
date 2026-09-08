@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { getImageAsBlobUrl } from '../../../lib/storage';
+import React from 'react';
+import { useTaskImage } from '../../../hooks/useTaskImage';
 import type { TaskDocument } from '../../../db/schema';
 
 interface TaskBlockProps {
@@ -8,24 +8,7 @@ interface TaskBlockProps {
 }
 
 export const TaskBlock: React.FC<TaskBlockProps> = ({ task, categoryColor }) => {
-  const [imageBlobUrl, setImageBlobUrl] = useState<string>('');
-
-  useEffect(() => {
-    if (task.image && task.image.trim() !== '') {
-      getImageAsBlobUrl(task.image)
-        .then(url => setImageBlobUrl(url))
-        .catch(err => console.error('[TaskBlock] Failed to load image:', err));
-    } else {
-      setImageBlobUrl('');
-    }
-
-    return () => {
-      if (imageBlobUrl) {
-        URL.revokeObjectURL(imageBlobUrl);
-      }
-    };
-  }, [task.image]);
-
+  const { imageUrl, isLoading } = useTaskImage(task.image);
   const bgColor = task.completed ? categoryColor : '#374151';
   const textColor = task.completed ? 'text-white' : 'text-gray-400';
 
@@ -37,12 +20,14 @@ export const TaskBlock: React.FC<TaskBlockProps> = ({ task, categoryColor }) => 
     >
       <div className="flex flex-col gap-0.5">
         <span className="block overflow-hidden whitespace-nowrap">{task.title}</span>
-        {task.image && task.image.trim() !== '' && imageBlobUrl && (
-          <img 
-            src={imageBlobUrl} 
-            alt=""
-            className="w-full h-6 object-cover rounded-[2px] mt-0.5"
-          />
+        {task.image && (
+          <div className="w-full h-10 mt-0.5 rounded-[2px] overflow-hidden bg-black/20">
+            {isLoading ? (
+              <div className="w-full h-full bg-gray-500/30 animate-pulse" />
+            ) : imageUrl ? (
+              <img src={imageUrl} alt="" className="w-full h-full object-cover" />
+            ) : null}
+          </div>
         )}
       </div>
     </div>

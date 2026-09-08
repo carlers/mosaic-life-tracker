@@ -67,15 +67,11 @@ function toAppwriteFormat(doc: any, collection: string): Record<string, any> {
     mapped.memo = doc.memo || '';
     mapped.image = doc.image || '';
     mapped.created_at = doc.createdAt || new Date().toISOString();
-    mapped.completed_at = doc.completedAt || null;
+    mapped.completed_at = doc.completedAt || ''; 
     mapped.updated_at = doc.updatedAt || new Date().toISOString();
     mapped.user_id = doc.userId || CURRENT_USER_ID;
     mapped.deleted = doc.isDeleted ?? false;
     mapped.visibility = doc.visibility || 'private';
-    mapped.source = doc.source || '';
-    mapped.routine_id = doc.routineId || '';
-    mapped.reminder_time = doc.reminderTime || '';
-    mapped.reactions = doc.reactions || '';
   } else if (collection === 'categories') {
     mapped.name = doc.name || '';
     mapped.color = doc.color || '#3B82F6';
@@ -119,7 +115,7 @@ function fromAppwriteFormat(row: any, collection: string): Record<string, any> {
     mapped.completed = mapped.is_completed ?? false;
     mapped.categoryId = mapped.category_id || '';
     mapped.createdAt = mapped.created_at || new Date().toISOString();
-    mapped.completedAt = mapped.completed_at || ''; // FIX: Prevent null to satisfy RxDB schema
+    mapped.completedAt = mapped.completed_at || '';
     mapped.updatedAt = mapped.updated_at || new Date().toISOString();
     mapped.userId = mapped.user_id;
     mapped.isDeleted = mapped.deleted ?? false;
@@ -179,7 +175,7 @@ async function appwriteFetch(
     'Content-Type': 'application/json',
     'X-Appwrite-Project': APPWRITE_CONFIG.projectId,
   };
-  const options: RequestInit = { method, headers };
+  const options: RequestInit = { method, headers, credentials: 'include' };
 
   if (body && Object.keys(body).length > 0) {
     options.body = JSON.stringify(body);
@@ -192,10 +188,11 @@ async function appwriteFetch(
       let errorMessage = `Appwrite API Error (${res.status})`;
       try {
         const jsonError = JSON.parse(errorText);
-        errorMessage += `: ${jsonError.message || errorText}`;
+        errorMessage += `: ${jsonError.message || JSON.stringify(jsonError)}`;
       } catch {
         errorMessage += `: ${errorText}`;
       }
+      console.error(`[Sync] ❌ ${method} ${url} failed:`, errorMessage);
       throw new Error(errorMessage);
     }
     return res.json();
@@ -241,7 +238,22 @@ async function syncCollection(collection: any, colName: string) {
 
     for (const row of rows) {
       const doc = fromAppwriteFormat(row, colName);
-      await collection.upsert(doc);
+      const localDoc = await collection.findOne(doc.id).exec();
+      
+      if (localDoc) {
+        // FIX: Last-Write-Wins conflict resolution
+        const localLwt = localDoc._meta?.lwt || 0;
+        const remoteLwt = row.$updatedAt ? new Date(row.$updatedAt).getTime() : 0;
+        
+        // Only overwrite local data if the remote change is strictly NEWER
+        if (remoteLwt > localLwt) {
+          await collection.upsert(doc);
+        } else {
+          if (DEBUG) console.log(`[Sync] Skipping remote overwrite for ${doc.id} (local is newer)`);
+        }
+      } else {
+        await collection.upsert(doc);
+      }
     }
 
     const localDocs = await collection.find().exec();
@@ -249,9 +261,9 @@ async function syncCollection(collection: any, colName: string) {
       const rowData = toAppwriteFormat(doc.toJSON(), colName);
       const remotePayload = {
         data: rowData,
-        permissions: ['read("any")', 'update("any")', 'delete("any")', 'write("any")']
+        permissions: ['read("any")', 'update("any")', 'delete("any")']
       };
-      if (DEBUG) console.log(`[Sync] Pushing ${colName} ${doc.id}:`, remotePayload);
+      if (DEBUG) console.log(`[Sync] Pushing ${colName} ${doc.id}`);
       try {
         await appwriteFetch(tableId, 'PATCH', remotePayload, doc.id);
       } catch (patchError) {

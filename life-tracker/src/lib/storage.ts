@@ -6,16 +6,17 @@ const APPWRITE_CONFIG = {
   bucketId: 'task_images',
 };
 
-export async function compressImage(file: File): Promise<File> {
+// --- Image Compression & Upload ---
+
+export async function compressImage(file: File): Promise<Blob> {
   const options = {
-    maxSizeMB: 0.15,
+    maxSizeMB: 0.15, // 150KB target
     maxWidthOrHeight: 1024,
     useWebWorker: true,
-    fileType: 'image/jpeg',
+    fileType: 'image/webp', // Force WebP for superior compression
   };
   try {
-    const compressedFile = await imageCompression(file, options);
-    return compressedFile;
+    return await imageCompression(file, options);
   } catch (error) {
     console.error('[Storage] Image compression failed:', error);
     throw error;
@@ -23,19 +24,15 @@ export async function compressImage(file: File): Promise<File> {
 }
 
 export async function uploadImage(file: File): Promise<string> {
-  const compressedFile = await compressImage(file);
+  const compressedBlob = await compressImage(file);
   const fileId = `img_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
   
-  // Create a new File object with proper name and extension
-  const fileWithExtension = new File(
-    [compressedFile],
-    `${fileId}.jpg`, // Force .jpg extension
-    { type: 'image/jpeg' }
-  );
+  // Explicitly name the file with .webp extension to satisfy Appwrite validation
+  const webpFile = new Blob([compressedBlob], { type: 'image/webp' });
   
   const formData = new FormData();
   formData.append('fileId', fileId);
-  formData.append('file', fileWithExtension); // Use the renamed file
+  formData.append('file', webpFile, `${fileId}.webp`); 
   formData.append('permissions[]', 'read("any")');
   formData.append('permissions[]', 'update("any")');
   formData.append('permissions[]', 'delete("any")');
@@ -44,9 +41,7 @@ export async function uploadImage(file: File): Promise<string> {
   const url = `${APPWRITE_CONFIG.endpoint}/v1/storage/buckets/${APPWRITE_CONFIG.bucketId}/files`;
   const res = await fetch(url, {
     method: 'POST',
-    headers: {
-      'X-Appwrite-Project': APPWRITE_CONFIG.projectId,
-    },
+    headers: { 'X-Appwrite-Project': APPWRITE_CONFIG.projectId },
     body: formData,
     credentials: 'include',
   });
@@ -58,40 +53,114 @@ export async function uploadImage(file: File): Promise<string> {
   return fileId;
 }
 
+// --- Offline Caching Layer ---
+
+const DB_NAME = 'mosaic_image_cache';
+const STORE_NAME = 'blobs';
+
+function openCacheDB(): Promise<IDBDatabase> {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open(DB_NAME, 1);
+    request.onupgradeneeded = (e) => {
+      const db = (e.target as IDBOpenDBRequest).result;
+      if (!db.objectStoreNames.contains(STORE_NAME)) {
+        db.createObjectStore(STORE_NAME);
+      }
+    };
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
+}
+
+async function getCachedImage(fileId: string): Promise<Blob | undefined> {
+  const db = await openCacheDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE_NAME, 'readonly');
+    const store = tx.objectStore(STORE_NAME);
+    const req = store.get(fileId);
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+async function cacheImage(fileId: string, blob: Blob): Promise<void> {
+  const db = await openCacheDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE_NAME, 'readwrite');
+    const store = tx.objectStore(STORE_NAME);
+    const req = store.put(blob, fileId);
+    req.onsuccess = () => resolve();
+    req.onerror = () => reject(req.error);
+  });
+}
+
+async function deleteCachedImage(fileId: string): Promise<void> {
+  const db = await openCacheDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE_NAME, 'readwrite');
+    const store = tx.objectStore(STORE_NAME);
+    const req = store.delete(fileId);
+    req.onsuccess = () => resolve();
+    req.onerror = () => reject(req.error);
+  });
+}
+
+/**
+ * Fetches an image with a cache-first strategy for 100% offline support.
+ * Returns a Blob URL that MUST be revoked by the consumer via URL.revokeObjectURL()
+ */
+export async function getLocalImageUrl(fileId: string): Promise<string | null> {
+  if (!fileId) return null;
+
+  // 1. Check local cache first
+  const cachedBlob = await getCachedImage(fileId);
+  if (cachedBlob) {
+    return URL.createObjectURL(cachedBlob);
+  }
+
+  // 2. If offline and not cached, return null
+  if (!navigator.onLine) return null;
+
+  // 3. Fetch from Appwrite, cache it, and return URL
+  try {
+    const url = `${APPWRITE_CONFIG.endpoint}/v1/storage/buckets/${APPWRITE_CONFIG.bucketId}/files/${fileId}/view?project=${APPWRITE_CONFIG.projectId}`;
+    const res = await fetch(url, {
+      credentials: 'include',
+      headers: { 'X-Appwrite-Project': APPWRITE_CONFIG.projectId },
+    });
+
+    if (!res.ok) return null;
+
+    const blob = await res.blob();
+    await cacheImage(fileId, blob); // Save to IndexedDB
+    return URL.createObjectURL(blob);
+  } catch (err) {
+    console.error('[Storage] Failed to fetch image:', err);
+    return null;
+  }
+}
+
+// --- Deletion & Cleanup ---
+
 export async function deleteImage(fileId: string): Promise<void> {
+  // Delete from Appwrite Cloud
   const url = `${APPWRITE_CONFIG.endpoint}/v1/storage/buckets/${APPWRITE_CONFIG.bucketId}/files/${fileId}`;
-  const res = await fetch(url, {
-    method: 'DELETE',
-    headers: {
-      'X-Appwrite-Project': APPWRITE_CONFIG.projectId,
-    },
-    credentials: 'include',
-  });
-
-  if (!res.ok) {
-    console.warn('[Storage] Failed to delete image:', fileId);
-  }
-}
-
-// NEW: Fetch image with credentials and return as blob URL
-export async function getImageAsBlobUrl(fileId: string): Promise<string> {
-  const url = `${APPWRITE_CONFIG.endpoint}/v1/storage/buckets/${APPWRITE_CONFIG.bucketId}/files/${fileId}/view?project=${APPWRITE_CONFIG.projectId}`;
-  
-  const res = await fetch(url, {
-    credentials: 'include',
-    headers: {
-      'X-Appwrite-Project': APPWRITE_CONFIG.projectId,
-    },
-  });
-
-  if (!res.ok) {
-    throw new Error(`Failed to fetch image: ${res.status}`);
+  try {
+    const res = await fetch(url, {
+      method: 'DELETE',
+      headers: { 'X-Appwrite-Project': APPWRITE_CONFIG.projectId },
+      credentials: 'include',
+    });
+    if (!res.ok) console.warn('[Storage] Failed to delete image from Appwrite:', fileId);
+  } catch (err) {
+    console.warn('[Storage] Network error deleting image:', err);
   }
 
-  const blob = await res.blob();
-  return URL.createObjectURL(blob);
+  // ALWAYS delete from local cache to free up space
+  await deleteCachedImage(fileId);
 }
 
+// Legacy helpers kept for backward compatibility / non-cached contexts
 export function getImagePreviewUrl(fileId: string): string {
   return `${APPWRITE_CONFIG.endpoint}/v1/storage/buckets/${APPWRITE_CONFIG.bucketId}/files/${fileId}/preview?project=${APPWRITE_CONFIG.projectId}&width=200&height=200`;
 }
