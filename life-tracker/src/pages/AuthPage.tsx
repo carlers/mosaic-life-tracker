@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { Button } from '../components/ui/Button';
@@ -12,28 +12,25 @@ export const AuthPage: React.FC = () => {
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-
   const { login, signup, isLoading, error } = useAuth();
   const navigate = useNavigate();
 
-  // FIX: Clear sensitive fields when switching between Login and Signup
-  useEffect(() => {
-    setPassword(''); // Always clear password
-    if (isLogin) {
-      setName(''); // Clear name when switching to Login
-    }
-  }, [isLogin]);
+  const switchToLogin = () => {
+    setIsLogin(true);
+    setPassword('');
+    setName('');
+  };
+
+  const switchToSignup = () => {
+    setIsLogin(false);
+    setPassword('');
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    let success = false;
-
-    if (isLogin) {
-      success = await login(email, password);
-    } else {
-      success = await signup(email, password, name);
-    }
-
+    const success = isLogin
+      ? await login(email, password)
+      : await signup(email, password, name);
     if (success) {
       navigate('/home', { replace: true });
     }
@@ -53,11 +50,10 @@ export const AuthPage: React.FC = () => {
           {isLogin ? 'Sign in to access your life tracker.' : 'Start tracking your life today.'}
         </p>
 
-        {/* Tab Switcher */}
         <div className="flex bg-[#111111] rounded-lg p-1 mb-6">
           <button
             type="button"
-            onClick={() => setIsLogin(true)}
+            onClick={switchToLogin}
             className={`flex-1 py-2 text-sm font-medium rounded-md transition-colors ${isLogin ? 'bg-[#2A2A2A] text-white' : 'text-gray-500'
               }`}
           >
@@ -65,7 +61,7 @@ export const AuthPage: React.FC = () => {
           </button>
           <button
             type="button"
-            onClick={() => setIsLogin(false)}
+            onClick={switchToSignup}
             className={`flex-1 py-2 text-sm font-medium rounded-md transition-colors ${!isLogin ? 'bg-[#2A2A2A] text-white' : 'text-gray-500'
               }`}
           >
@@ -93,7 +89,6 @@ export const AuthPage: React.FC = () => {
             required
           />
 
-          {/* Password Input with Visibility Toggle */}
           <div className="w-full">
             <label className="block text-xs text-gray-500 mb-1.5 ml-1">Password</label>
             <div className="relative">

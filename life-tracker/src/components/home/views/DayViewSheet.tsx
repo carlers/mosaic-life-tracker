@@ -1,6 +1,9 @@
-import React, { useMemo, useRef, useEffect, useState } from 'react';
-import { format, addDays, subDays } from 'date-fns';
-import { motion, useAnimation, AnimatePresence } from 'framer-motion';
+import React, { useRef, useEffect, useState, useMemo, useCallback } from 'react';
+import { format, addDays, differenceInCalendarDays, startOfDay } from 'date-fns';
+import { Swiper, SwiperSlide } from 'swiper/react';
+import type { Swiper as SwiperClass } from 'swiper';
+import 'swiper/css';
+import { AnimatePresence } from 'framer-motion';
 import { BottomSheet } from '../../ui/BottomSheet';
 import { CategorySection } from './CategorySection';
 import { TaskActionSheet } from './TaskActionSheet';
@@ -20,58 +23,175 @@ interface DayViewSheetProps {
   onDateChange?: (date: Date) => void;
 }
 
+const SWIPE_RANGE = 90;
+const TOTAL_SLIDES = SWIPE_RANGE * 2 + 1;
+const RENDER_WINDOW = 3;
+
+const EMPTY_TASKS: TaskDocument[] = [];
+
+interface DaySlideProps {
+  date: Date;
+  dateStr: string;
+  tasks: TaskDocument[];
+  categories: CategoryDocument[];
+  editingTaskId: string | null;
+  editValue: string;
+  onToggleTask: (taskId: string, currentStatus: boolean) => void;
+  onAddTask: (title: string, categoryId: string, dateStr: string) => void;
+  onOpenActions: (task: TaskDocument) => void;
+  onOpenMemo: (task: TaskDocument) => void;
+  onViewImage: (task: TaskDocument) => void;
+  onEditChange: (val: string) => void;
+  onEditSave: () => void;
+  onEditCancel: () => void;
+}
+
+const DaySlide = React.memo(({
+  date, dateStr, tasks, categories, editingTaskId, editValue,
+  onToggleTask, onAddTask, onOpenActions, onOpenMemo, onViewImage,
+  onEditChange, onEditSave, onEditCancel,
+}: DaySlideProps) => {
+  const groupedTasks = useMemo(() => {
+    const map: Record<string, TaskDocument[]> = {};
+    for (const task of tasks) {
+      (map[task.categoryId] ||= []).push(task);
+    }
+    return map;
+  }, [tasks]);
+
+  const headerLabel = useMemo(() => format(date, 'EEEE, MMMM d'), [date]);
+
+  return (
+    <div className="w-full">
+      {/* Slide-attached header — drags with the slide, native gallery feel */}
+      <div className="px-4 pt-3 pb-2 select-none">
+        <h2 className="text-white text-lg font-semibold tracking-tight">
+          {headerLabel}
+        </h2>
+      </div>
+
+      <div className="pt-1 pb-8 px-1">
+        {categories.length === 0 ? (
+          <div className="text-center py-12 text-gray-500 text-sm px-4">
+            Create a category to start adding tasks.
+          </div>
+        ) : (
+          categories.map((category: CategoryDocument) => (
+            <CategorySection
+              key={category.id}
+              categoryName={category.name}
+              categoryColor={category.color}
+              visibility={category.visibility}
+              tasks={groupedTasks[category.id] || EMPTY_TASKS}
+              onToggleTask={onToggleTask}
+              onAddTask={(title) => onAddTask(title, category.id, dateStr)}
+              onOpenActions={onOpenActions}
+              onOpenMemo={onOpenMemo}
+              onViewImage={onViewImage}
+              editingTaskId={editingTaskId}
+              editValue={editValue}
+              onEditChange={onEditChange}
+              onEditSave={onEditSave}
+              onEditCancel={onEditCancel}
+            />
+          ))
+        )}
+      </div>
+    </div>
+  );
+});
+DaySlide.displayName = 'DaySlide';
+
 export const DayViewSheet: React.FC<DayViewSheetProps> = ({
-  isOpen,
-  onClose,
-  selectedDate,
-  onDateChange
+  isOpen, onClose, selectedDate, onDateChange,
 }) => {
   const { tasks, addTask, updateTask, deleteTask, toggleTaskCompletion } = useTasks();
   const { categories } = useCategories();
-  
-  const containerRef = useRef<HTMLDivElement>(null);
-  const [width, setWidth] = useState(0);
-  const controls = useAnimation();
-  const [isAnimating, setIsAnimating] = useState(false);
 
-  // Sheet State
+  const swiperRef = useRef<SwiperClass | null>(null);
+  const isProgrammaticMoveRef = useRef(false);
+  const wasOpenRef = useRef(false);
+
+  const selectedDateRef = useRef(selectedDate);
+  useEffect(() => {
+    selectedDateRef.current = selectedDate;
+  }, [selectedDate]);
+
+  const [anchorDate, setAnchorDate] = useState(() => startOfDay(selectedDate));
+
+  useEffect(() => {
+    if (isOpen && !wasOpenRef.current) {
+      setAnchorDate(startOfDay(selectedDate));
+    }
+    wasOpenRef.current = isOpen;
+  }, [isOpen, selectedDate]);
+
+  const slideDates = useMemo(
+    () => Array.from({ length: TOTAL_SLIDES }, (_, i) => addDays(anchorDate, i - SWIPE_RANGE)),
+    [anchorDate]
+  );
+
+  const slideDateStrs = useMemo(
+    () => slideDates.map((d) => format(d, 'yyyy-MM-dd')),
+    [slideDates]
+  );
+
+  const initialIndex = useMemo(() => {
+    const offset = differenceInCalendarDays(selectedDate, anchorDate);
+    return Math.min(TOTAL_SLIDES - 1, Math.max(0, offset + SWIPE_RANGE));
+  }, [selectedDate, anchorDate]);
+
+  const [activeIndex, setActiveIndex] = useState(initialIndex);
+
+  // When initialIndex changes externally (sheet re-anchors, parent-driven date
+  // change), keep the render window in sync without an effect.
+  const [prevInitialIndex, setPrevInitialIndex] = useState(initialIndex);
+  if (prevInitialIndex !== initialIndex) {
+    setPrevInitialIndex(initialIndex);
+    setActiveIndex(initialIndex);
+  }
+
+  const tasksByDate = useMemo(() => {
+    const map = new Map<string, TaskDocument[]>();
+    for (const t of tasks) {
+      const arr = map.get(t.date);
+      if (arr) arr.push(t);
+      else map.set(t.date, [t]);
+    }
+    return map;
+  }, [tasks]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const s = swiperRef.current;
+    if (!s) return;
+
+    const offset = differenceInCalendarDays(selectedDate, anchorDate);
+    const targetIndex = offset + SWIPE_RANGE;
+    if (targetIndex < 0 || targetIndex >= TOTAL_SLIDES) return;
+    if (s.activeIndex === targetIndex) return;
+
+    isProgrammaticMoveRef.current = true;
+    s.slideTo(targetIndex, 0);
+
+    const raf = requestAnimationFrame(() => {
+      isProgrammaticMoveRef.current = false;
+    });
+    return () => cancelAnimationFrame(raf);
+  }, [isOpen, selectedDate, anchorDate]);
+
+  // ----- UI state -----
   const [activeTask, setActiveTask] = useState<TaskDocument | null>(null);
   const [isActionSheetOpen, setIsActionSheetOpen] = useState(false);
   const [isMemoSheetOpen, setIsMemoSheetOpen] = useState(false);
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
   const [viewingTask, setViewingTask] = useState<TaskDocument | null>(null);
-  
-  // Fetch image URL for the viewer
   const viewingImageUrl = useTaskImage(viewingTask?.image).imageUrl;
-
-  // Delete Photo Confirmation State
   const [isDeletePhotoConfirmOpen, setIsDeletePhotoConfirmOpen] = useState(false);
   const [isDeletingPhoto, setIsDeletingPhoto] = useState(false);
   const [deleteFeedback, setDeleteFeedback] = useState<string | null>(null);
-
-  // Inline Edit State
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
   const [editValue, setEditValue] = useState('');
-
-  useEffect(() => {
-    const element = containerRef.current;
-    if (!element || !isOpen) return;
-    const resizeObserver = new ResizeObserver((entries) => {
-      for (const entry of entries) {
-        const newWidth = entry.contentRect.width;
-        setWidth(newWidth);
-        controls.set({ x: -newWidth });
-      }
-    });
-    resizeObserver.observe(element);
-    return () => resizeObserver.disconnect();
-  }, [isOpen, controls]);
-
-  useEffect(() => {
-    if (width > 0) {
-      controls.set({ x: -width });
-    }
-  }, [selectedDate, width, controls]);
 
   useEffect(() => {
     if (deleteFeedback) {
@@ -80,77 +200,53 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
     }
   }, [deleteFeedback]);
 
-  const prevDate = subDays(selectedDate, 1);
-  const nextDate = addDays(selectedDate, 1);
-
-  const handleDragEnd = (_event: any, info: any) => {
-    if (isAnimating || width === 0 || isActionSheetOpen || isMemoSheetOpen || isDatePickerOpen || viewingTask || isDeletePhotoConfirmOpen) return;
-    const threshold = width / 4;
-    const snapTransition = { type: "tween" as const, duration: 0.2, ease: "easeOut" as const };
-    const rejectTransition = { type: "tween" as const, duration: 0.15, ease: "easeOut" as const };
-    
-    if (info.offset.x < -threshold) {
-      setIsAnimating(true);
-      controls.start({ x: -2 * width, transition: snapTransition }).then(() => {
-        onDateChange?.(nextDate);
-        controls.set({ x: -width });
-        setIsAnimating(false);
-      });
-    } else if (info.offset.x > threshold) {
-      setIsAnimating(true);
-      controls.start({ x: 0, transition: snapTransition }).then(() => {
-        onDateChange?.(prevDate);
-        controls.set({ x: -width });
-        setIsAnimating(false);
-      });
-    } else {
-      controls.start({ x: -width, transition: rejectTransition });
-    }
-  };
-
-  const handleToggleTask = (taskId: string, currentStatus: boolean) => {
+  // ----- Stable handlers -----
+  const handleToggleTask = useCallback((taskId: string, currentStatus: boolean) => {
     toggleTaskCompletion(taskId, !currentStatus);
-  };
+  }, [toggleTaskCompletion]);
 
-  const handleAddTask = (title: string, categoryId: string) => {
+  const handleAddTask = useCallback((title: string, categoryId: string, dateStr: string) => {
     addTask({
       title,
       categoryId,
-      date: format(selectedDate, 'yyyy-MM-dd'),
+      date: dateStr,
       completed: false,
-      visibility: 'private'
+      visibility: 'private',
     });
-  };
+  }, [addTask]);
 
-  const handleStartEdit = (task: TaskDocument) => {
+  const handleStartEdit = useCallback((task: TaskDocument) => {
     setEditingTaskId(task.id);
     setEditValue(task.title);
     setIsActionSheetOpen(false);
-  };
+  }, []);
 
-  const handleEditSave = async () => {
+  const handleEditSave = useCallback(async () => {
     if (editingTaskId && editValue.trim()) {
       await updateTask(editingTaskId, { title: editValue.trim() });
     }
     setEditingTaskId(null);
     setEditValue('');
-  };
+  }, [editingTaskId, editValue, updateTask]);
 
-  const handleEditCancel = () => {
+  const handleEditCancel = useCallback(() => {
     setEditingTaskId(null);
     setEditValue('');
-  };
+  }, []);
 
-  const handleOpenActions = (task: TaskDocument) => {
-    if (editingTaskId) return;
+  const handleOpenActions = useCallback((task: TaskDocument) => {
     setActiveTask(task);
     setIsActionSheetOpen(true);
-  };
+  }, []);
 
-  const handleOpenMemo = (task: TaskDocument) => {
+  const handleOpenMemo = useCallback((task: TaskDocument) => {
     setActiveTask(task);
     setIsMemoSheetOpen(true);
-  };
+  }, []);
+
+  const handleViewImage = useCallback((task: TaskDocument) => {
+    setViewingTask(task);
+  }, []);
 
   const handleDelete = async () => {
     if (activeTask) {
@@ -197,7 +293,7 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
       await deleteImage(activeTask.image);
       await updateTask(activeTask.id, { image: '' });
       setDeleteFeedback('Photo deleted');
-      setActiveTask(prev => prev ? { ...prev, image: '' } : null);
+      setActiveTask(prev => (prev ? { ...prev, image: '' } : null));
       setIsDeletePhotoConfirmOpen(false);
     } catch (err) {
       console.error('[DayViewSheet] Failed to delete photo:', err);
@@ -211,88 +307,89 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
     setIsDeletePhotoConfirmOpen(false);
   };
 
-  const renderDayContent = (date: Date, isCenter: boolean) => {
-    const dateStr = format(date, 'yyyy-MM-dd');
-    const dayTasks = tasks.filter(t => t.date === dateStr);
-    const groupedTasks = useMemo(() => {
-      const groups: Record<string, typeof dayTasks> = {};
-      dayTasks.forEach(task => {
-        if (!groups[task.categoryId]) groups[task.categoryId] = [];
-        groups[task.categoryId].push(task);
-      });
-      return groups;
-    }, [dayTasks]);
+  const isBackgroundLocked =
+    isActionSheetOpen || isMemoSheetOpen || isDatePickerOpen || !!viewingTask || isDeletePhotoConfirmOpen;
 
-    if (categories.length === 0) {
-      return (
-        <div className="text-center py-12 text-gray-500 text-sm px-4">
-          Create a category to start adding tasks.
-        </div>
-      );
+  const handleSwipeSettled = useCallback((s: SwiperClass) => {
+    setActiveIndex(s.activeIndex);
+
+    if (isProgrammaticMoveRef.current) return;
+    const date = slideDates[s.activeIndex];
+    if (!date) return;
+    if (differenceInCalendarDays(date, selectedDateRef.current) !== 0) {
+      onDateChange?.(date);
     }
+  }, [slideDates, onDateChange]);
 
-    return (
-      <div className={`pt-2 pb-8 px-1 h-full overflow-y-auto ${!isCenter ? 'pointer-events-none' : ''}`} style={{ touchAction: 'pan-y' }}>
-        {categories.map((category: CategoryDocument) => (
-          <CategorySection
-            key={category.id}
-            categoryName={category.name}
-            categoryColor={category.color}
-            visibility={category.visibility}
-            tasks={groupedTasks[category.id] || []}
-            onToggleTask={handleToggleTask}
-            onAddTask={(title) => handleAddTask(title, category.id)}
-            onOpenActions={handleOpenActions}
-            onOpenMemo={handleOpenMemo}
-            onViewImage={setViewingTask}
-            editingTaskId={editingTaskId}
-            editValue={editValue}
-            onEditChange={(val) => setEditValue(val)}
-            onEditSave={handleEditSave}
-            onEditCancel={handleEditCancel}
-          />
-        ))}
-      </div>
-    );
-  };
-
-  const isBackgroundLocked = isActionSheetOpen || isMemoSheetOpen || isDatePickerOpen || !!viewingTask || isDeletePhotoConfirmOpen;
+  const slides = useMemo(() => {
+    return slideDates.map((date, i) => {
+      const dateStr = slideDateStrs[i];
+      const inWindow = Math.abs(i - activeIndex) <= RENDER_WINDOW;
+      return (
+        <SwiperSlide key={dateStr}>
+          {inWindow ? (
+            <DaySlide
+              date={date}
+              dateStr={dateStr}
+              tasks={tasksByDate.get(dateStr) ?? EMPTY_TASKS}
+              categories={categories}
+              editingTaskId={editingTaskId}
+              editValue={editValue}
+              onToggleTask={handleToggleTask}
+              onAddTask={handleAddTask}
+              onOpenActions={handleOpenActions}
+              onOpenMemo={handleOpenMemo}
+              onViewImage={handleViewImage}
+              onEditChange={setEditValue}
+              onEditSave={handleEditSave}
+              onEditCancel={handleEditCancel}
+            />
+          ) : null}
+        </SwiperSlide>
+      );
+    });
+  }, [
+    slideDates, slideDateStrs, activeIndex, tasksByDate, categories,
+    editingTaskId, editValue, handleToggleTask, handleAddTask,
+    handleOpenActions, handleOpenMemo, handleViewImage,
+    handleEditSave, handleEditCancel,
+  ]);
 
   return (
     <>
       <BottomSheet
         isOpen={isOpen}
         onClose={onClose}
-        title={format(selectedDate, 'EEEE, MMMM d')}
         height="auto"
         isLocked={isBackgroundLocked}
       >
-        <div ref={containerRef} className="overflow-hidden w-full">
-          <motion.div
-            drag="x"
-            dragConstraints={{ left: -2 * width, right: 0 }}
-            dragElastic={0.1}
-            animate={controls}
-            onDragEnd={handleDragEnd}
-            className={`flex cursor-grab active:cursor-grabbing transition-[filter,opacity] duration-300 ${
-              isBackgroundLocked ? 'blur-sm opacity-50 pointer-events-none select-none' : ''
+        <div
+          className={`w-full transition-opacity duration-300 ${isBackgroundLocked ? 'opacity-50 pointer-events-none select-none' : ''
             }`}
-            style={{ width: width * 3, touchAction: 'pan-y' }}
+        >
+          <Swiper
+            onSwiper={(s) => { swiperRef.current = s; }}
+            initialSlide={initialIndex}
+            slidesPerView={1}
+            spaceBetween={0}
+            speed={320}
+            resistanceRatio={0.85}
+            threshold={3}
+            touchRatio={1}
+            followFinger
+            longSwipes
+            longSwipesRatio={0.35}
+            longSwipesMs={250}
+            shortSwipes
+            allowTouchMove={!isBackgroundLocked}
+            onSlideChangeTransitionEnd={handleSwipeSettled}
           >
-            <div style={{ width }} className="flex-shrink-0 opacity-60">
-              {renderDayContent(prevDate, false)}
-            </div>
-            <div style={{ width }} className="flex-shrink-0">
-              {renderDayContent(selectedDate, true)}
-            </div>
-            <div style={{ width }} className="flex-shrink-0 opacity-60">
-              {renderDayContent(nextDate, false)}
-            </div>
-          </motion.div>
+            {slides}
+          </Swiper>
         </div>
       </BottomSheet>
 
-      <TaskActionSheet 
+      <TaskActionSheet
         isOpen={isActionSheetOpen}
         onClose={() => setIsActionSheetOpen(false)}
         task={activeTask}
@@ -307,22 +404,18 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
         onDeletePhoto={handleRequestDeletePhoto}
         onDoItTomorrowOrToday={handleDoItTomorrowOrToday}
       />
-
       <MemoSheet
         isOpen={isMemoSheetOpen}
         onClose={() => setIsMemoSheetOpen(false)}
         task={activeTask}
         onSave={handleMemoSave}
       />
-
       <DatePickerSheet
         isOpen={isDatePickerOpen}
         onClose={() => setIsDatePickerOpen(false)}
         task={activeTask}
         onDateChange={handleDateChange}
       />
-
-      {/* PhotoSwipe Viewer */}
       <ImageViewer
         isOpen={!!viewingTask}
         imageUrl={viewingImageUrl}
@@ -330,8 +423,6 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
         taskDate={viewingTask?.createdAt ? format(new Date(viewingTask.createdAt), 'MMM d, yyyy') : undefined}
         onClose={() => setViewingTask(null)}
       />
-
-      {/* Delete Photo Confirmation */}
       <BottomSheet
         isOpen={isDeletePhotoConfirmOpen}
         onClose={handleCancelDeletePhoto}
@@ -357,28 +448,17 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
               className="flex-1 py-3 bg-red-500 rounded-xl text-white font-medium hover:bg-red-600 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
             >
               {isDeletingPhoto ? (
-                <>
-                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  Deleting...
-                </>
-              ) : (
-                'Delete'
-              )}
+                <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> Deleting...</>
+              ) : 'Delete'}
             </button>
           </div>
         </div>
       </BottomSheet>
-
       <AnimatePresence>
         {deleteFeedback && (
-          <motion.div
-            initial={{ opacity: 0, y: 50 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 50 }}
-            className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[70] bg-[#2A2A2A] border border-[#444444] text-white text-sm px-5 py-2.5 rounded-full shadow-lg backdrop-blur-md"
-          >
+          <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[70] bg-[#2A2A2A] border border-[#444444] text-white text-sm px-5 py-2.5 rounded-full shadow-lg backdrop-blur-md">
             {deleteFeedback}
-          </motion.div>
+          </div>
         )}
       </AnimatePresence>
     </>

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { BottomSheet } from '../../ui/BottomSheet';
 import { Button } from '../../ui/Button';
 import { Input } from '../../ui/Input';
@@ -20,15 +20,19 @@ export const EditTaskSheet: React.FC<EditTaskSheetProps> = ({
   onSave,
   initialFocus = 'title'
 }) => {
-  const [title, setTitle] = useState('');
-  const [memo, setMemo] = useState('');
+  const [syncedTaskId, setSyncedTaskId] = useState<string | null>(null);
+  const [editedTitle, setEditedTitle] = useState<string | null>(null);
+  const [editedMemo, setEditedMemo] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (task) {
-      setTitle(task.title);
-      setMemo(task.memo || '');
-    }
-  }, [task, isOpen]);
+  const taskId = task?.id ?? null;
+  if (taskId !== syncedTaskId) {
+    setSyncedTaskId(taskId);
+    setEditedTitle(null);
+    setEditedMemo(null);
+  }
+
+  const title = editedTitle ?? task?.title ?? '';
+  const memo = editedMemo ?? task?.memo ?? '';
 
   const handleSave = () => {
     if (title.trim()) {
@@ -45,14 +49,14 @@ export const EditTaskSheet: React.FC<EditTaskSheetProps> = ({
         <Input
           label="Title"
           value={title}
-          onChange={(e) => setTitle(e.target.value)}
+          onChange={(e) => setEditedTitle(e.target.value)}
           autoFocus={initialFocus === 'title'}
         />
         <div>
           <label className="block text-xs text-gray-500 mb-2 ml-1">Memo / Notes</label>
           <textarea
             value={memo}
-            onChange={(e) => setMemo(e.target.value)}
+            onChange={(e) => setEditedMemo(e.target.value)}
             autoFocus={initialFocus === 'memo'}
             placeholder="Add details to this task..."
             className="w-full bg-[#1E1E1E] border border-[#333333] rounded-xl p-3 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-[#555555] transition-colors min-h-[100px] resize-none"

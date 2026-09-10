@@ -5,67 +5,70 @@ import { useAuth } from './useAuth';
 
 export function useTasks() {
   const { user } = useAuth();
+  const userId = user?.$id;
+
   const [tasks, setTasks] = useState<TaskDocument[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [loadedUserId, setLoadedUserId] = useState<string | null>(null);
 
   useEffect(() => {
-    const userId = user?.$id;
-    
-    if (!userId) {
-      setTasks([]);
-      setIsLoading(false);
-      return;
-    }
+    if (!userId) return;
+    const uid = userId;
 
-    let subscription: any;
+    let subscription: { unsubscribe: () => void } | undefined;
+    let isMounted = true;
 
     async function init() {
       try {
         const db = getDatabase();
         const query = db.tasks.find({
           selector: {
-            userId: userId,
+            userId: uid,
             isDeleted: false,
           },
           sort: [{ date: 'asc' }, { createdAt: 'desc' }],
         });
 
-        subscription = query.$.subscribe((docs) => {
+        const sub = query.$.subscribe((docs) => {
+          if (!isMounted) return;
           setTasks(docs);
-          setIsLoading(false);
+          setLoadedUserId(uid);
         });
+
+        if (!isMounted) {
+          sub.unsubscribe();
+        } else {
+          subscription = sub;
+        }
       } catch (error) {
         console.error('[useTasks] Error loading tasks:', error);
-        setIsLoading(false);
+        if (isMounted) setLoadedUserId(uid);
       }
     }
 
     init();
 
     return () => {
+      isMounted = false;
       if (subscription) subscription.unsubscribe();
     };
-  }, [user?.$id]);
+  }, [userId]);
 
   const addTask = useCallback(async (task: Omit<TaskDocument, 'id' | 'userId' | 'createdAt' | 'updatedAt' | 'isDeleted'>) => {
-    const userId = user?.$id;
-    if (!userId) {
+    const uid = user?.$id;
+    if (!uid) {
       console.error('[useTasks] Cannot add task: User not authenticated');
       return;
     }
-
     const db = getDatabase();
     const now = new Date().toISOString();
-
     const newTask: TaskDocument = {
       ...task,
       id: `task_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-      userId: userId,
+      userId: uid,
       createdAt: now,
       updatedAt: now,
       isDeleted: false,
     };
-
     await db.tasks.insert(newTask);
   }, [user?.$id]);
 
@@ -84,18 +87,16 @@ export function useTasks() {
     await updateTask(id, { isDeleted: true });
   }, [updateTask]);
 
-  // FIX: Conditionally add completedAt to avoid RxDB patching with 'undefined'
   const toggleTaskCompletion = useCallback(async (id: string, completed: boolean) => {
     const updates: Partial<TaskDocument> = {
       completed,
+      completedAt: completed ? new Date().toISOString() : '',
     };
-    
-    if (completed) {
-      updates.completedAt = new Date().toISOString();
-    }
-    
     await updateTask(id, updates);
   }, [updateTask]);
 
-  return { tasks, isLoading, addTask, updateTask, deleteTask, toggleTaskCompletion };
+  const visibleTasks = userId && loadedUserId === userId ? tasks : [];
+  const isLoading = !!userId && loadedUserId !== userId;
+
+  return { tasks: visibleTasks, isLoading, addTask, updateTask, deleteTask, toggleTaskCompletion };
 }

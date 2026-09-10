@@ -5,66 +5,67 @@ import type { CategoryDocument } from '../db/schema';
 
 export function useCategories() {
   const { user } = useAuth();
+  const userId = user?.$id;
+
   const [categories, setCategories] = useState<CategoryDocument[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [loadedUserId, setLoadedUserId] = useState<string | null>(null);
 
   useEffect(() => {
-    // FIX 1: Extract userId to safely narrow the type and avoid 'user is possibly null' error
-    const userId = user?.$id;
-    
-    if (!userId) {
-      setCategories([]);
-      setIsLoading(false);
-      return;
-    }
+    if (!userId) return;
+    const uid = userId;
 
-    let subscription: any;
-    
+    let subscription: { unsubscribe: () => void } | undefined;
+    let isMounted = true;
+
     async function init() {
       try {
         const db = getDatabase();
         const query = db.categories.find({
           selector: {
-            userId: userId,
+            userId: uid,
             isDeleted: false,
           },
           sort: [{ order: 'asc' }],
         });
 
-        subscription = query.$.subscribe((docs) => {
+        const sub = query.$.subscribe((docs) => {
+          if (!isMounted) return;
           setCategories(docs);
-          setIsLoading(false);
+          setLoadedUserId(uid);
         });
+
+        if (!isMounted) {
+          sub.unsubscribe();
+        } else {
+          subscription = sub;
+        }
       } catch (error) {
         console.error('[useCategories] Error loading categories:', error);
-        setIsLoading(false);
+        if (isMounted) setLoadedUserId(uid);
       }
     }
 
     init();
 
     return () => {
+      isMounted = false;
       if (subscription) subscription.unsubscribe();
     };
-  }, [user?.$id]);
+  }, [userId]);
 
   const addCategory = useCallback(async (cat: Omit<CategoryDocument, 'id' | 'userId' | 'isDeleted'>) => {
-    const userId = user?.$id;
-    if (!userId) {
+    const uid = user?.$id;
+    if (!uid) {
       console.error('[useCategories] Cannot add category: User not authenticated');
       return;
     }
-
     const db = getDatabase();
-    
-    // FIX 2: Removed createdAt/updatedAt to strictly match the existing CategoryDocument schema
     const newCat: CategoryDocument = {
       ...cat,
       id: `cat_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-      userId: userId,
+      userId: uid,
       isDeleted: false,
     };
-
     try {
       await db.categories.insert(newCat);
     } catch (error) {
@@ -76,7 +77,6 @@ export function useCategories() {
     const db = getDatabase();
     const doc = await db.categories.findOne(id).exec();
     if (doc) {
-      // FIX 3: Removed updatedAt to strictly match the existing CategoryDocument schema
       await doc.patch(updates);
     }
   }, []);
@@ -89,11 +89,13 @@ export function useCategories() {
     const db = getDatabase();
     const promises = newOrder.map((cat, index) => {
       const doc = db.categories.findOne(cat.id).exec();
-      // FIX 4: Removed updatedAt to strictly match the existing CategoryDocument schema
       return doc.then(d => d ? d.patch({ order: index }) : null);
     });
     await Promise.all(promises);
   }, []);
 
-  return { categories, isLoading, addCategory, updateCategory, deleteCategory, reorderCategories };
+  const visibleCategories = userId && loadedUserId === userId ? categories : [];
+  const isLoading = !!userId && loadedUserId !== userId;
+
+  return { categories: visibleCategories, isLoading, addCategory, updateCategory, deleteCategory, reorderCategories };
 }

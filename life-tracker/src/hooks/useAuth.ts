@@ -2,7 +2,6 @@ import { useState, useEffect, useCallback } from 'react';
 import { account } from '../lib/appwrite';
 import type { Models } from 'appwrite';
 
-
 export interface AuthState {
     user: Models.User<Models.Preferences> | null;
     isLoading: boolean;
@@ -10,31 +9,44 @@ export interface AuthState {
 }
 
 export function useAuth() {
-    const [state, setState] = useState<AuthState>({ 
-        user: null, 
-        isLoading: true, 
-        error: null 
+    const [state, setState] = useState<AuthState>({
+        user: null,
+        isLoading: true,
+        error: null
     });
 
     useEffect(() => {
+        let isMounted = true;
         account.get().then(
-            (user) => setState({ user, isLoading: false, error: null }),
-            () => setState({ user: null, isLoading: false, error: null })
+            (user) => {
+                if (!isMounted) return;
+                setState({ user, isLoading: false, error: null });
+            },
+            () => {
+                if (!isMounted) return;
+                setState({ user: null, isLoading: false, error: null });
+            }
         );
+        return () => {
+            isMounted = false;
+        };
     }, []);
 
     const login = useCallback(async (email: string, password: string): Promise<boolean> => {
         setState(s => ({ ...s, isLoading: true, error: null }));
         try {
-            // Clear any stale sessions first to prevent conflicts
-            try { await account.deleteSession('current'); } catch {} 
-            
+            try {
+                await account.deleteSession('current');
+            } catch {
+                // No active session to delete — safe to ignore.
+            }
             await account.createEmailPasswordSession(email, password);
             const user = await account.get();
             setState({ user, isLoading: false, error: null });
             return true;
-        } catch (err: any) {
-            setState(s => ({ ...s, isLoading: false, error: err.message || 'Login failed' }));
+        } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : 'Login failed';
+            setState(s => ({ ...s, isLoading: false, error: message }));
             return false;
         }
     }, []);
@@ -43,23 +55,20 @@ export function useAuth() {
         setState(s => ({ ...s, isLoading: true, error: null }));
         try {
             await account.create('unique()', email, password, name);
-            
-            // Appwrite sometimes auto-creates a session on signup. 
-            // We try to login, but if it says "session active", we ignore the error.
             try {
                 await account.createEmailPasswordSession(email, password);
-            } catch (sessionError: any) {
-                const msg = sessionError.message || '';
+            } catch (sessionError: unknown) {
+                const msg = sessionError instanceof Error ? sessionError.message : '';
                 if (!msg.includes('already active') && !msg.includes('prohibited')) {
                     throw sessionError;
                 }
             }
-            
             const user = await account.get();
             setState({ user, isLoading: false, error: null });
             return true;
-        } catch (err: any) {
-            setState(s => ({ ...s, isLoading: false, error: err.message || 'Signup failed' }));
+        } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : 'Signup failed';
+            setState(s => ({ ...s, isLoading: false, error: message }));
             return false;
         }
     }, []);
@@ -69,8 +78,9 @@ export function useAuth() {
         try {
             await account.deleteSession('current');
             setState({ user: null, isLoading: false, error: null });
-        } catch (err: any) {
-            setState(s => ({ ...s, isLoading: false, error: err.message || 'Logout failed' }));
+        } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : 'Logout failed';
+            setState(s => ({ ...s, isLoading: false, error: message }));
         }
     }, []);
 

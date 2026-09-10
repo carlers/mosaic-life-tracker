@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { BottomSheet } from '../../ui/BottomSheet';
 import { Button } from '../../ui/Button';
 import { Calendar } from 'lucide-react';
@@ -17,13 +17,16 @@ export const DatePickerSheet: React.FC<DatePickerSheetProps> = ({
   task,
   onDateChange
 }) => {
-  const [selectedDate, setSelectedDate] = useState('');
+  const [syncedTaskId, setSyncedTaskId] = useState<string | null>(null);
+  const [editedDate, setEditedDate] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (task) {
-      setSelectedDate(task.date);
-    }
-  }, [task, isOpen]);
+  const taskId = task?.id ?? null;
+  if (taskId !== syncedTaskId) {
+    setSyncedTaskId(taskId);
+    setEditedDate(null);
+  }
+
+  const selectedDate = editedDate ?? task?.date ?? '';
 
   const handleConfirm = () => {
     if (selectedDate) {
@@ -41,7 +44,7 @@ export const DatePickerSheet: React.FC<DatePickerSheetProps> = ({
           <input
             type="date"
             value={selectedDate}
-            onChange={(e) => setSelectedDate(e.target.value)}
+            onChange={(e) => setEditedDate(e.target.value)}
             className="w-full bg-[#1E1E1E] border border-[#333333] rounded-xl p-3 text-sm text-white focus:outline-none focus:border-[#555555] transition-colors [color-scheme:dark]"
           />
         </div>

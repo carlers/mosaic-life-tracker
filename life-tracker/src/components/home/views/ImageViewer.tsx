@@ -15,12 +15,12 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
 }) => {
   const lightboxRef = useRef<PhotoSwipeLightbox | null>(null);
   const onCloseRef = useRef(onClose);
-  
-  // Keep the ref updated so the close event always calls the latest onClose
-  onCloseRef.current = onClose;
 
   useEffect(() => {
-    // 1. If closed or no image yet, destroy any existing lightbox
+    onCloseRef.current = onClose;
+  }, [onClose]);
+
+  useEffect(() => {
     if (!isOpen || !imageUrl) {
       if (lightboxRef.current) {
         lightboxRef.current.destroy();
@@ -29,16 +29,16 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
       return;
     }
 
-    // 2. Destroy previous instance if re-opening or image changed
     if (lightboxRef.current) {
       lightboxRef.current.destroy();
     }
 
-    // 3. Initialize and OPEN immediately
+    let effectIsActive = true;
+
     const lightbox = new PhotoSwipeLightbox({
       dataSource: [{
         src: imageUrl,
-        w: 1920, h: 1080, // Fallback dimensions for initial zoom animation
+        w: 1920, h: 1080,
         alt: taskTitle || 'Task image'
       }],
       pswpModule: () => import('photoswipe'),
@@ -46,12 +46,10 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
       bgOpacity: 1,
       closeOnVerticalDrag: true,
     });
-    
-    // 4. Inject custom caption via uiRegister event
+
     lightbox.on('uiRegister', () => {
       const pswp = lightbox.pswp;
       if (!pswp) return;
-
       const captionEl = document.createElement('div');
       captionEl.className = 'pswp__custom-caption';
       captionEl.innerHTML = `
@@ -60,25 +58,25 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
           ${taskDate ? `<p style="margin: 0; font-size: 12px; color: #a1a1aa;">Added ${taskDate}</p>` : ''}
         </div>
       `;
-      
-      // Append to root so it sits above the image but below the default UI buttons
       pswp.element?.appendChild(captionEl);
     });
 
-    lightbox.init();
-    lightbox.loadAndOpen(0); // <-- CRITICAL: Opens the viewer immediately
-    lightboxRef.current = lightbox;
-
-    // 5. Sync React state when user swipes down or taps close
     lightbox.on('close', () => {
-      onCloseRef.current();
+      if (effectIsActive) {
+        onCloseRef.current();
+      }
     });
 
+    lightbox.init();
+    lightbox.loadAndOpen(0);
+    lightboxRef.current = lightbox;
+
     return () => {
+      effectIsActive = false;
       lightbox.destroy();
       lightboxRef.current = null;
     };
-  }, [isOpen, imageUrl]); // Re-runs safely whenever either state changes
+  }, [isOpen, imageUrl, taskTitle, taskDate]);
 
-  return null; // PhotoSwipe renders its own DOM directly into body
+  return null;
 };

@@ -1,6 +1,15 @@
-import React, { useState, useRef, useEffect, useMemo } from 'react';
-import { format, addMonths, subMonths, addWeeks, subWeeks, startOfMonth, startOfWeek, endOfWeek } from 'date-fns';
-import { motion, useAnimation } from 'framer-motion';
+import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
+import {
+  format,
+  startOfMonth,
+  startOfWeek,
+  endOfWeek,
+  addMonths,
+  addWeeks,
+  differenceInCalendarMonths,
+  differenceInCalendarWeeks,
+} from 'date-fns';
+import useEmblaCarousel from 'embla-carousel-react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { MonthView } from './MonthView';
 import { WeekView } from './WeekView';
@@ -8,108 +17,138 @@ import { ViewToggle } from './ViewToggle';
 import { DayViewSheet } from './DayViewSheet';
 import { useTasks } from '../../../hooks/useTasks';
 import { useCategories } from '../../../hooks/useCategories';
-import type { CategoryDocument } from '../../../db/schema';
+import type { CategoryDocument, TaskDocument } from '../../../db/schema';
 
 export type CalendarViewMode = 'month' | 'week';
+
+const SLIDES_EACH_SIDE = 30;
+const TOTAL_SLIDES = SLIDES_EACH_SIDE * 2 + 1;
+const CENTER_INDEX = SLIDES_EACH_SIDE;
+
+interface CalendarSlideProps {
+  date: Date;
+  viewMode: CalendarViewMode;
+  onDayClick: (date: Date) => void;
+  tasks: TaskDocument[];
+  categoriesMap: Record<string, { color: string; name: string }>;
+}
+
+const CalendarSlide = React.memo(({
+  date,
+  viewMode,
+  onDayClick,
+  tasks,
+  categoriesMap,
+}: CalendarSlideProps) => {
+  if (viewMode === 'month') {
+    return (
+      <MonthView
+        focusDate={date}
+        onDayClick={onDayClick}
+        tasks={tasks}
+        categoriesMap={categoriesMap}
+      />
+    );
+  }
+  return (
+    <WeekView
+      focusDate={date}
+      onDayClick={onDayClick}
+      tasks={tasks}
+      categoriesMap={categoriesMap}
+    />
+  );
+});
+
+CalendarSlide.displayName = 'CalendarSlide';
 
 export const CalendarView: React.FC = () => {
   const [viewMode, setViewMode] = useState<CalendarViewMode>('month');
   const [focusDate, setFocusDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
-  
+
   const { tasks } = useTasks();
   const { categories } = useCategories();
 
   const categoriesMap = useMemo(() => {
-    return categories.reduce((acc: Record<string, { color: string; name: string }>, cat: CategoryDocument) => {
-      acc[cat.id] = { color: cat.color, name: cat.name };
-      return acc;
-    }, {});
+    return categories.reduce(
+      (acc: Record<string, { color: string; name: string }>, cat: CategoryDocument) => {
+        acc[cat.id] = { color: cat.color, name: cat.name };
+        return acc;
+      },
+      {}
+    );
   }, [categories]);
 
-  const containerRef = useRef<HTMLDivElement>(null);
-  const [width, setWidth] = useState(0);
-  const controls = useAnimation();
-  const [isAnimating, setIsAnimating] = useState(false);
+  const [baseDate, setBaseDate] = useState(focusDate);
+  const isInternalSwipeRef = useRef(false);
+
+  // Re-anchor baseDate to the current focusDate whenever viewMode changes.
+  // React-official "adjust state during render" pattern — no ref mirror, no effect.
+  const [prevViewMode, setPrevViewMode] = useState(viewMode);
+  if (prevViewMode !== viewMode) {
+    setPrevViewMode(viewMode);
+    setBaseDate(focusDate);
+  }
+
+  const slides = useMemo(() => {
+    const fn = viewMode === 'month' ? addMonths : addWeeks;
+    return Array.from({ length: TOTAL_SLIDES }, (_, i) => fn(baseDate, i - CENTER_INDEX));
+  }, [baseDate, viewMode]);
+
+  const [emblaRef, emblaApi] = useEmblaCarousel({
+    loop: false,
+    align: 'start',
+    skipSnaps: false,
+  });
 
   useEffect(() => {
-    const element = containerRef.current;
-    if (!element) return;
+    if (!emblaApi) return;
 
-    const resizeObserver = new ResizeObserver((entries) => {
-      for (const entry of entries) {
-        const newWidth = entry.contentRect.width;
-        setWidth(newWidth);
-        controls.set({ x: -newWidth });
-      }
-    });
-
-    resizeObserver.observe(element);
-    return () => resizeObserver.disconnect();
-  }, [viewMode, controls]);
-
-  const getPrevDate = () => viewMode === 'month' ? subMonths(focusDate, 1) : subWeeks(focusDate, 1);
-  const getNextDate = () => viewMode === 'month' ? addMonths(focusDate, 1) : addWeeks(focusDate, 1);
-
-  const handleDragEnd = (_event: any, info: any) => {
-    if (isAnimating || width === 0) return;
-    
-    const threshold = width / 4;
-    const snapTransition = { type: "tween" as const, duration: 0.2, ease: "easeOut" as const };
-    const rejectTransition = { type: "tween" as const, duration: 0.15, ease: "easeOut" as const };
-    
-    if (info.offset.x < -threshold) {
-      setIsAnimating(true);
-      controls.start({ 
-        x: -2 * width, 
-        transition: snapTransition 
-      }).then(() => {
-        setFocusDate(getNextDate());
-        controls.set({ x: -width });
-        setIsAnimating(false);
-      });
-    } else if (info.offset.x > threshold) {
-      setIsAnimating(true);
-      controls.start({ 
-        x: 0, 
-        transition: snapTransition 
-      }).then(() => {
-        setFocusDate(getPrevDate());
-        controls.set({ x: -width });
-        setIsAnimating(false);
-      });
-    } else {
-      controls.start({ 
-        x: -width, 
-        transition: rejectTransition 
-      });
+    if (isInternalSwipeRef.current) {
+      isInternalSwipeRef.current = false;
+      return;
     }
-  };
+
+    const offset =
+      viewMode === 'month'
+        ? differenceInCalendarMonths(focusDate, baseDate)
+        : differenceInCalendarWeeks(focusDate, baseDate);
+    const targetIndex = CENTER_INDEX + offset;
+    if (targetIndex < 0 || targetIndex >= TOTAL_SLIDES) return;
+    if (emblaApi.selectedScrollSnap() !== targetIndex) {
+      emblaApi.scrollTo(targetIndex, true);
+    }
+  }, [emblaApi, focusDate, baseDate, viewMode]);
+
+  useEffect(() => {
+    if (!emblaApi) return;
+    const onSelect = () => {
+      const index = emblaApi.selectedScrollSnap();
+      const offset = index - CENTER_INDEX;
+      const fn = viewMode === 'month' ? addMonths : addWeeks;
+      const newDate = fn(baseDate, offset);
+      const same =
+        viewMode === 'month'
+          ? differenceInCalendarMonths(newDate, focusDate) === 0
+          : differenceInCalendarWeeks(newDate, focusDate) === 0;
+      if (!same) {
+        isInternalSwipeRef.current = true;
+        setFocusDate(newDate);
+      }
+    };
+    emblaApi.on('select', onSelect);
+    return () => {
+      emblaApi.off('select', onSelect);
+    };
+  }, [emblaApi, baseDate, focusDate, viewMode]);
 
   const handlePrev = () => {
-    if (isAnimating || width === 0) return;
-    setIsAnimating(true);
-    controls.start({ 
-      x: 0, 
-      transition: { type: "tween" as const, duration: 0.2, ease: "easeOut" as const } 
-    }).then(() => {
-      setFocusDate(getPrevDate());
-      controls.set({ x: -width });
-      setIsAnimating(false);
-    });
+    emblaApi?.scrollPrev();
   };
 
   const handleNext = () => {
-    if (isAnimating || width === 0) return;
-    setIsAnimating(true);
-    controls.start({ 
-      x: -2 * width, 
-      transition: { type: "tween" as const, duration: 0.2, ease: "easeOut" as const } 
-    }).then(() => {
-      setFocusDate(getNextDate());
-      controls.set({ x: -width });
-      setIsAnimating(false);
-    });
+    emblaApi?.scrollNext();
   };
 
   const handleToggle = () => {
@@ -124,16 +163,14 @@ export const CalendarView: React.FC = () => {
   const weekStart = startOfWeek(focusDate, { weekStartsOn: 0 });
   const weekEnd = endOfWeek(focusDate, { weekStartsOn: 0 });
 
-  const title = viewMode === 'month' 
-    ? format(focusDate, 'MMMM yyyy')
-    : `${format(weekStart, 'MMM d')} - ${format(weekEnd, 'MMM d, yyyy')}`;
+  const title =
+    viewMode === 'month'
+      ? format(focusDate, 'MMMM yyyy')
+      : `${format(weekStart, 'MMM d')} - ${format(weekEnd, 'MMM d, yyyy')}`;
 
-  const renderCalendarContent = (date: Date) => {
-    if (viewMode === 'month') {
-      return <MonthView focusDate={date} onDayClick={setSelectedDate} tasks={tasks} categoriesMap={categoriesMap} />;
-    }
-    return <WeekView focusDate={date} onDayClick={setSelectedDate} tasks={tasks} categoriesMap={categoriesMap} />;
-  };
+  const handleDayClick = useCallback((date: Date) => {
+    setSelectedDate(date);
+  }, []);
 
   return (
     <div className="flex flex-col h-full animate-in fade-in duration-300">
@@ -141,53 +178,47 @@ export const CalendarView: React.FC = () => {
         <h2 className="text-lg font-bold text-white transition-all duration-200">
           {title}
         </h2>
-        
         <div className="flex items-center gap-2">
           <ViewToggle activeMode={viewMode} onToggle={handleToggle} />
-          
-          <button 
-            onClick={handlePrev} 
-            disabled={isAnimating}
-            className="p-1.5 rounded-lg bg-[#1E1E1E] border border-[#333333] text-gray-400 hover:text-white hover:bg-[#2A2A2A] transition-colors disabled:opacity-50"
+          <button
+            onClick={handlePrev}
+            className="p-1.5 rounded-lg bg-[#1E1E1E] border border-[#333333] text-gray-400 hover:text-white hover:bg-[#2A2A2A] transition-colors"
           >
             <ChevronLeft size={16} />
           </button>
-          <button 
-            onClick={handleNext} 
-            disabled={isAnimating}
-            className="p-1.5 rounded-lg bg-[#1E1E1E] border border-[#333333] text-gray-400 hover:text-white hover:bg-[#2A2A2A] transition-colors disabled:opacity-50"
+          <button
+            onClick={handleNext}
+            className="p-1.5 rounded-lg bg-[#1E1E1E] border border-[#333333] text-gray-400 hover:text-white hover:bg-[#2A2A2A] transition-colors"
           >
             <ChevronRight size={16} />
           </button>
         </div>
       </div>
 
-      <div ref={containerRef} className="flex-1 overflow-hidden py-2 relative">
-        <motion.div
-          drag="x"
-          dragConstraints={{ left: -2 * width, right: 0 }}
-          dragElastic={0.1}
-          animate={controls}
-          onDragEnd={handleDragEnd}
-          className="flex h-full cursor-grab active:cursor-grabbing"
-          style={{ width: width * 3, touchAction: 'pan-y' }}
-        >
-          <div style={{ width }} className="flex-shrink-0 opacity-60 pointer-events-none">
-            {renderCalendarContent(getPrevDate())}
-          </div>
-          <div style={{ width }} className="flex-shrink-0 h-full">
-            {renderCalendarContent(focusDate)}
-          </div>
-          <div style={{ width }} className="flex-shrink-0 opacity-60 pointer-events-none">
-            {renderCalendarContent(getNextDate())}
-          </div>
-        </motion.div>
+      <div className="flex-1 overflow-hidden py-2" ref={emblaRef}>
+        <div className="flex h-full" style={{ touchAction: 'pan-y' }}>
+          {slides.map((date, i) => (
+            <div
+              key={i}
+              className="flex-shrink-0 h-full w-full"
+              style={{ flex: '0 0 100%', minWidth: 0 }}
+            >
+              <CalendarSlide
+                date={date}
+                viewMode={viewMode}
+                onDayClick={handleDayClick}
+                tasks={tasks}
+                categoriesMap={categoriesMap}
+              />
+            </div>
+          ))}
+        </div>
       </div>
 
-      <DayViewSheet 
-        isOpen={!!selectedDate} 
-        onClose={() => setSelectedDate(null)} 
-        selectedDate={selectedDate || new Date()} 
+      <DayViewSheet
+        isOpen={!!selectedDate}
+        onClose={() => setSelectedDate(null)}
+        selectedDate={selectedDate || new Date()}
         onDateChange={setSelectedDate}
       />
     </div>
