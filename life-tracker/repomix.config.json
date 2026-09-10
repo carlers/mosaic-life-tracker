@@ -1,0 +1,26 @@
+{
+  "output": {
+    "filePath": "repomix-output.xml",
+    "style": "xml",
+    "removeComments": true,
+    "removeEmptyLines": true,
+    "topFilesLength": 0,
+    "showLineNumbers": false
+  },
+  "ignore": {
+    "useGitignore": true,
+    "useDefaultPatterns": true,
+    "customPatterns": [
+      "node_modules",
+      "public",
+      "dist",
+      "build",
+      ".next",
+      "*.md",
+      "*.lock",
+      "*.log",
+      ".env*",
+      "repomix-output.xml"
+    ]
+  }
+}

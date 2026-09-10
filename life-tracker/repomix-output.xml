@@ -1,4 +1,5 @@
 This file is a merged representation of a subset of the codebase, containing files not matching ignore patterns, combined into a single document by Repomix.
+The content has been processed where comments have been removed, empty lines have been removed.
 
 <file_summary>
 This section contains a summary of this file.
@@ -32,9 +33,11 @@ The content is organized as follows:
 <notes>
 - Some files may have been excluded based on .gitignore rules and Repomix's configuration
 - Binary files are not included in this packed representation. Please refer to the Repository Structure section for a complete list of file paths, including binary files
-- Files matching these patterns are excluded: public/
+- Files matching these patterns are excluded: node_modules, public, dist, build, .next, *.md, *.lock, *.log, .env*, repomix-output.xml
 - Files matching patterns in .gitignore are excluded
 - Files matching default ignore patterns are excluded
+- Code comments have been removed from supported file types
+- Empty lines have been removed from all files
 - Files are sorted by Git change count (files with more changes are at the bottom)
 </notes>
 
@@ -53,6 +56,7 @@ src/
         DiaryView.tsx
         EditTaskSheet.tsx
         ImagePickerSheet.tsx
+        ImageViewer.tsx
         MemoSheet.tsx
         MonthView.tsx
         TaskActionSheet.tsx
@@ -91,9 +95,11 @@ src/
     useDiary.ts
     useImageCompression.ts
     useSettings.ts
+    useTaskImage.ts
     useTasks.ts
   lib/
     appwrite.ts
+    imageCache.ts
     mockData.ts
     storage.ts
   pages/
@@ -109,7 +115,7 @@ eslint.config.js
 index.html
 package.json
 postcss.config.js
-README.md
+repomix.config.json
 tailwind.config.js
 tsconfig.app.json
 tsconfig.json
@@ -132,33 +138,26 @@ import { DayViewSheet } from './DayViewSheet';
 import { useTasks } from '../../../hooks/useTasks';
 import { useCategories } from '../../../hooks/useCategories';
 import type { CategoryDocument } from '../../../db/schema';
-
 export type CalendarViewMode = 'month' | 'week';
-
 export const CalendarView: React.FC = () => {
   const [viewMode, setViewMode] = useState<CalendarViewMode>('month');
   const [focusDate, setFocusDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
-  
   const { tasks } = useTasks();
   const { categories } = useCategories();
-
   const categoriesMap = useMemo(() => {
     return categories.reduce((acc: Record<string, { color: string; name: string }>, cat: CategoryDocument) => {
       acc[cat.id] = { color: cat.color, name: cat.name };
       return acc;
     }, {});
   }, [categories]);
-
   const containerRef = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(0);
   const controls = useAnimation();
   const [isAnimating, setIsAnimating] = useState(false);
-
   useEffect(() => {
     const element = containerRef.current;
     if (!element) return;
-
     const resizeObserver = new ResizeObserver((entries) => {
       for (const entry of entries) {
         const newWidth = entry.contentRect.width;
@@ -166,26 +165,21 @@ export const CalendarView: React.FC = () => {
         controls.set({ x: -newWidth });
       }
     });
-
     resizeObserver.observe(element);
     return () => resizeObserver.disconnect();
   }, [viewMode, controls]);
-
   const getPrevDate = () => viewMode === 'month' ? subMonths(focusDate, 1) : subWeeks(focusDate, 1);
   const getNextDate = () => viewMode === 'month' ? addMonths(focusDate, 1) : addWeeks(focusDate, 1);
-
   const handleDragEnd = (_event: any, info: any) => {
     if (isAnimating || width === 0) return;
-    
     const threshold = width / 4;
     const snapTransition = { type: "tween" as const, duration: 0.2, ease: "easeOut" as const };
     const rejectTransition = { type: "tween" as const, duration: 0.15, ease: "easeOut" as const };
-    
     if (info.offset.x < -threshold) {
       setIsAnimating(true);
-      controls.start({ 
-        x: -2 * width, 
-        transition: snapTransition 
+      controls.start({
+        x: -2 * width,
+        transition: snapTransition
       }).then(() => {
         setFocusDate(getNextDate());
         controls.set({ x: -width });
@@ -193,48 +187,45 @@ export const CalendarView: React.FC = () => {
       });
     } else if (info.offset.x > threshold) {
       setIsAnimating(true);
-      controls.start({ 
-        x: 0, 
-        transition: snapTransition 
+      controls.start({
+        x: 0,
+        transition: snapTransition
       }).then(() => {
         setFocusDate(getPrevDate());
         controls.set({ x: -width });
         setIsAnimating(false);
       });
     } else {
-      controls.start({ 
-        x: -width, 
-        transition: rejectTransition 
+      controls.start({
+        x: -width,
+        transition: rejectTransition
       });
     }
   };
-
   const handlePrev = () => {
     if (isAnimating || width === 0) return;
     setIsAnimating(true);
-    controls.start({ 
-      x: 0, 
-      transition: { type: "tween" as const, duration: 0.2, ease: "easeOut" as const } 
+    controls.start({
+      x: 0,
+      transition: { type: "tween" as const, duration: 0.2, ease: "easeOut" as const }
     }).then(() => {
       setFocusDate(getPrevDate());
       controls.set({ x: -width });
       setIsAnimating(false);
     });
   };
-
   const handleNext = () => {
     if (isAnimating || width === 0) return;
     setIsAnimating(true);
-    controls.start({ 
-      x: -2 * width, 
-      transition: { type: "tween" as const, duration: 0.2, ease: "easeOut" as const } 
+    controls.start({
+      x: -2 * width,
+      transition: { type: "tween" as const, duration: 0.2, ease: "easeOut" as const }
     }).then(() => {
       setFocusDate(getNextDate());
       controls.set({ x: -width });
       setIsAnimating(false);
     });
   };
-
   const handleToggle = () => {
     if (viewMode === 'month') {
       setFocusDate(startOfMonth(focusDate));
@@ -243,40 +234,34 @@ export const CalendarView: React.FC = () => {
       setViewMode('month');
     }
   };
-
   const weekStart = startOfWeek(focusDate, { weekStartsOn: 0 });
   const weekEnd = endOfWeek(focusDate, { weekStartsOn: 0 });
-
-  const title = viewMode === 'month' 
+  const title = viewMode === 'month'
     ? format(focusDate, 'MMMM yyyy')
     : `${format(weekStart, 'MMM d')} - ${format(weekEnd, 'MMM d, yyyy')}`;
-
   const renderCalendarContent = (date: Date) => {
     if (viewMode === 'month') {
       return <MonthView focusDate={date} onDayClick={setSelectedDate} tasks={tasks} categoriesMap={categoriesMap} />;
     }
     return <WeekView focusDate={date} onDayClick={setSelectedDate} tasks={tasks} categoriesMap={categoriesMap} />;
   };
-
   return (
     <div className="flex flex-col h-full animate-in fade-in duration-300">
       <div className="px-4 py-3 flex items-center justify-between border-b border-[#333333]">
         <h2 className="text-lg font-bold text-white transition-all duration-200">
           {title}
         </h2>
-        
         <div className="flex items-center gap-2">
           <ViewToggle activeMode={viewMode} onToggle={handleToggle} />
-          
-          <button 
-            onClick={handlePrev} 
+          <button
+            onClick={handlePrev}
             disabled={isAnimating}
             className="p-1.5 rounded-lg bg-[#1E1E1E] border border-[#333333] text-gray-400 hover:text-white hover:bg-[#2A2A2A] transition-colors disabled:opacity-50"
           >
             <ChevronLeft size={16} />
           </button>
-          <button 
-            onClick={handleNext} 
+          <button
+            onClick={handleNext}
             disabled={isAnimating}
             className="p-1.5 rounded-lg bg-[#1E1E1E] border border-[#333333] text-gray-400 hover:text-white hover:bg-[#2A2A2A] transition-colors disabled:opacity-50"
           >
@@ -284,7 +269,6 @@ export const CalendarView: React.FC = () => {
           </button>
         </div>
       </div>
-
       <div ref={containerRef} className="flex-1 overflow-hidden py-2 relative">
         <motion.div
           drag="x"
@@ -306,11 +290,10 @@ export const CalendarView: React.FC = () => {
           </div>
         </motion.div>
       </div>
-
-      <DayViewSheet 
-        isOpen={!!selectedDate} 
-        onClose={() => setSelectedDate(null)} 
-        selectedDate={selectedDate || new Date()} 
+      <DayViewSheet
+        isOpen={!!selectedDate}
+        onClose={() => setSelectedDate(null)}
+        selectedDate={selectedDate || new Date()}
         onDateChange={setSelectedDate}
       />
     </div>
@@ -323,9 +306,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Plus, Eye, EyeOff, Users } from 'lucide-react';
 import { TaskItem } from './TaskItem';
 import type { TaskDocument } from '../../../db/schema';
-
 type Visibility = 'private' | 'followers' | 'public';
-
 interface CategorySectionProps {
   categoryName: string;
   categoryColor: string;
@@ -335,22 +316,23 @@ interface CategorySectionProps {
   onAddTask: (title: string) => void;
   onOpenActions: (task: TaskDocument) => void;
   onOpenMemo: (task: TaskDocument) => void;
+  onViewImage?: (task: TaskDocument) => void;
   editingTaskId: string | null;
   editValue: string;
   onEditChange: (value: string) => void;
   onEditSave: () => void;
   onEditCancel: () => void;
 }
-
-export const CategorySection: React.FC<CategorySectionProps> = ({ 
-  categoryName, 
-  categoryColor, 
+export const CategorySection: React.FC<CategorySectionProps> = ({
+  categoryName,
+  categoryColor,
   visibility = 'private',
-  tasks, 
+  tasks,
   onToggleTask,
   onAddTask,
   onOpenActions,
   onOpenMemo,
+  onViewImage,
   editingTaskId,
   editValue,
   onEditChange,
@@ -360,13 +342,11 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
   const [isAdding, setIsAdding] = useState(false);
   const [newTaskTitle, setNewTaskTitle] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
-
   useEffect(() => {
     if (isAdding && inputRef.current) {
       inputRef.current.focus();
     }
   }, [isAdding]);
-
   const handleAdd = () => {
     if (newTaskTitle.trim()) {
       onAddTask(newTaskTitle.trim());
@@ -374,7 +354,6 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
       setIsAdding(false);
     }
   };
-
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
       handleAdd();
@@ -383,7 +362,6 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
       setNewTaskTitle('');
     }
   };
-
   const getVisibilityIcon = (v: Visibility) => {
     switch (v) {
       case 'public': return <Eye size={12} className="text-gray-600" />;
@@ -391,7 +369,6 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
       case 'private': return <EyeOff size={12} className="text-gray-600" />;
     }
   };
-
   return (
     <div className="mb-4">
       <div className="flex items-center gap-2 mb-2">
@@ -401,32 +378,29 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
             isAdding ? 'border-[#555555] bg-[#252525]' : 'border-[#333333] hover:bg-[#2A2A2A]'
           }`}
         >
-          <div 
+          <div
             className="w-2.5 h-2.5 rounded-full flex-shrink-0"
             style={{ backgroundColor: categoryColor }}
           />
-          <span className="text-xs font-bold text-white">
-            {categoryName}
-          </span>
+          <span className="text-xs font-bold text-white">{categoryName}</span>
           <Plus size={14} className="text-white" strokeWidth={2.5} />
         </div>
-
         <div className="ml-1">
           {getVisibilityIcon(visibility)}
         </div>
       </div>
-
       <div className="bg-[#1E1E1E] rounded-xl border border-[#333333] overflow-hidden">
         {tasks.length > 0 && (
           <div className="px-3 py-1">
             {tasks.map((task) => (
-              <TaskItem 
-                key={task.id} 
-                task={task} 
+              <TaskItem
+                key={task.id}
+                task={task}
                 categoryColor={categoryColor}
-                onToggle={(id) => onToggleTask(id, task.completed)} 
+                onToggle={(id) => onToggleTask(id, task.completed)}
                 onOpenActions={onOpenActions}
                 onOpenMemo={onOpenMemo}
+                onViewImage={onViewImage}
                 isEditing={editingTaskId === task.id}
                 editValue={editValue}
                 onEditChange={onEditChange}
@@ -436,10 +410,9 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
             ))}
           </div>
         )}
-
         {isAdding && (
           <div className="flex items-center gap-2 px-3 py-2.5 border-t border-[#333333] bg-[#1A1A1A] animate-in fade-in slide-in-from-top-1 duration-200">
-            <button 
+            <button
               className="flex-shrink-0 text-gray-500 hover:text-white transition-colors"
               onClick={handleAdd}
             >
@@ -473,14 +446,12 @@ import { BottomSheet } from '../../ui/BottomSheet';
 import { Button } from '../../ui/Button';
 import { Calendar } from 'lucide-react';
 import type { TaskDocument } from '../../../db/schema';
-
 interface DatePickerSheetProps {
   isOpen: boolean;
   onClose: () => void;
   task: TaskDocument | null;
   onDateChange: (newDate: string) => void;
 }
-
 export const DatePickerSheet: React.FC<DatePickerSheetProps> = ({
   isOpen,
   onClose,
@@ -488,21 +459,17 @@ export const DatePickerSheet: React.FC<DatePickerSheetProps> = ({
   onDateChange
 }) => {
   const [selectedDate, setSelectedDate] = useState('');
-
   useEffect(() => {
     if (task) {
       setSelectedDate(task.date);
     }
   }, [task, isOpen]);
-
   const handleConfirm = () => {
     if (selectedDate) {
       onDateChange(selectedDate);
     }
   };
-
   if (!task) return null;
-
   return (
     <BottomSheet isOpen={isOpen} onClose={onClose} title="Change Date" height="auto">
       <div className="pt-2 pb-8 px-4 space-y-4">
@@ -531,7 +498,6 @@ import { motion } from 'framer-motion';
 import { isToday } from 'date-fns';
 import { TaskBlock } from './TaskBlock';
 import type { TaskDocument } from '../../../db/schema';
-
 interface DayCellProps {
   date: Date;
   tasks: TaskDocument[];
@@ -539,7 +505,6 @@ interface DayCellProps {
   isCurrentMonth?: boolean;
   onClick?: () => void;
 }
-
 export const DayCell: React.FC<DayCellProps> = ({
   date,
   tasks,
@@ -548,30 +513,26 @@ export const DayCell: React.FC<DayCellProps> = ({
   onClick,
 }) => {
   const dayNumber = date.getDate();
-  const dayOfWeek = date.getDay(); 
+  const dayOfWeek = date.getDay();
   const isTodayDate = isToday(date);
-
   let dayColor = 'text-gray-400';
-  if (dayOfWeek === 6) dayColor = 'text-blue-500'; 
-  if (dayOfWeek === 0) dayColor = 'text-red-500';  
-  if (!isCurrentMonth) dayColor = 'text-gray-600'; 
-
+  if (dayOfWeek === 6) dayColor = 'text-blue-500';
+  if (dayOfWeek === 0) dayColor = 'text-red-500';
+  if (!isCurrentMonth) dayColor = 'text-gray-600';
   const sortedTasks = [...tasks].sort((a, b) => {
     if (a.completed !== b.completed) return a.completed ? -1 : 1;
     return 0;
   });
-
   return (
     <motion.div
       whileTap={onClick ? { scale: 0.98 } : {}}
       onClick={onClick}
-      // FIX: Removed px-0.5 to let tasks fill the entire column width
       className={`py-0.5 cursor-pointer flex flex-col h-full rounded-md hover:bg-[#1E1E1E] transition-colors ${
         !isCurrentMonth ? 'opacity-40' : ''
       }`}
     >
       <div className="flex justify-center mb-1">
-        <div 
+        <div
           className={`text-xs font-bold flex items-center justify-center w-6 h-6 rounded-full ${dayColor} ${
             isTodayDate ? 'border border-blue-500' : ''
           }`}
@@ -579,13 +540,12 @@ export const DayCell: React.FC<DayCellProps> = ({
           {dayNumber}
         </div>
       </div>
-
       <div className="flex-1 space-y-0.5">
         {sortedTasks.map((task) => (
-          <TaskBlock 
-            key={task.id} 
-            task={task} 
-            categoryColor={categories[task.categoryId]?.color || '#6B7280'} 
+          <TaskBlock
+            key={task.id}
+            task={task}
+            categoryColor={categories[task.categoryId]?.color || '#6B7280'}
           />
         ))}
       </div>
@@ -597,54 +557,50 @@ export const DayCell: React.FC<DayCellProps> = ({
 <file path="src/components/home/views/DayViewSheet.tsx">
 import React, { useMemo, useRef, useEffect, useState } from 'react';
 import { format, addDays, subDays } from 'date-fns';
-import { motion, useAnimation } from 'framer-motion';
+import { motion, useAnimation, AnimatePresence } from 'framer-motion';
 import { BottomSheet } from '../../ui/BottomSheet';
 import { CategorySection } from './CategorySection';
 import { TaskActionSheet } from './TaskActionSheet';
 import { MemoSheet } from './MemoSheet';
 import { DatePickerSheet } from './DatePickerSheet';
-import { ImagePickerSheet } from './ImagePickerSheet';
+import { ImageViewer } from './ImageViewer';
 import { useTasks } from '../../../hooks/useTasks';
 import { useCategories } from '../../../hooks/useCategories';
+import { useTaskImage } from '../../../hooks/useTaskImage';
 import { deleteImage } from '../../../lib/storage';
 import type { CategoryDocument, TaskDocument } from '../../../db/schema';
-
 interface DayViewSheetProps {
   isOpen: boolean;
   onClose: () => void;
   selectedDate: Date;
   onDateChange?: (date: Date) => void;
 }
-
-export const DayViewSheet: React.FC<DayViewSheetProps> = ({ 
-  isOpen, 
-  onClose, 
+export const DayViewSheet: React.FC<DayViewSheetProps> = ({
+  isOpen,
+  onClose,
   selectedDate,
   onDateChange
 }) => {
   const { tasks, addTask, updateTask, deleteTask, toggleTaskCompletion } = useTasks();
   const { categories } = useCategories();
-  
   const containerRef = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(0);
   const controls = useAnimation();
   const [isAnimating, setIsAnimating] = useState(false);
-
-  // Sheet State
   const [activeTask, setActiveTask] = useState<TaskDocument | null>(null);
   const [isActionSheetOpen, setIsActionSheetOpen] = useState(false);
   const [isMemoSheetOpen, setIsMemoSheetOpen] = useState(false);
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
-  const [isImagePickerOpen, setIsImagePickerOpen] = useState(false);
-  
-  // Inline Edit State
+  const [viewingTask, setViewingTask] = useState<TaskDocument | null>(null);
+  const viewingImageUrl = useTaskImage(viewingTask?.image).imageUrl;
+  const [isDeletePhotoConfirmOpen, setIsDeletePhotoConfirmOpen] = useState(false);
+  const [isDeletingPhoto, setIsDeletingPhoto] = useState(false);
+  const [deleteFeedback, setDeleteFeedback] = useState<string | null>(null);
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
   const [editValue, setEditValue] = useState('');
-
   useEffect(() => {
     const element = containerRef.current;
     if (!element || !isOpen) return;
-
     const resizeObserver = new ResizeObserver((entries) => {
       for (const entry of entries) {
         const newWidth = entry.contentRect.width;
@@ -652,80 +608,62 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
         controls.set({ x: -newWidth });
       }
     });
-
     resizeObserver.observe(element);
     return () => resizeObserver.disconnect();
   }, [isOpen, controls]);
-
   useEffect(() => {
     if (width > 0) {
       controls.set({ x: -width });
     }
   }, [selectedDate, width, controls]);
-
+  useEffect(() => {
+    if (deleteFeedback) {
+      const timer = setTimeout(() => setDeleteFeedback(null), 2000);
+      return () => clearTimeout(timer);
+    }
+  }, [deleteFeedback]);
   const prevDate = subDays(selectedDate, 1);
   const nextDate = addDays(selectedDate, 1);
-
   const handleDragEnd = (_event: any, info: any) => {
-    if (isAnimating || width === 0 || isActionSheetOpen || isMemoSheetOpen || isDatePickerOpen || isImagePickerOpen) return;
-    
+    if (isAnimating || width === 0 || isActionSheetOpen || isMemoSheetOpen || isDatePickerOpen || viewingTask || isDeletePhotoConfirmOpen) return;
     const threshold = width / 4;
     const snapTransition = { type: "tween" as const, duration: 0.2, ease: "easeOut" as const };
     const rejectTransition = { type: "tween" as const, duration: 0.15, ease: "easeOut" as const };
-    
     if (info.offset.x < -threshold) {
       setIsAnimating(true);
-      controls.start({ 
-        x: -2 * width, 
-        transition: snapTransition 
-      }).then(() => {
+      controls.start({ x: -2 * width, transition: snapTransition }).then(() => {
         onDateChange?.(nextDate);
         controls.set({ x: -width });
         setIsAnimating(false);
       });
     } else if (info.offset.x > threshold) {
       setIsAnimating(true);
-      controls.start({ 
-        x: 0, 
-        transition: snapTransition 
-      }).then(() => {
+      controls.start({ x: 0, transition: snapTransition }).then(() => {
         onDateChange?.(prevDate);
         controls.set({ x: -width });
         setIsAnimating(false);
       });
     } else {
-      controls.start({ 
-        x: -width, 
-        transition: rejectTransition 
-      });
+      controls.start({ x: -width, transition: rejectTransition });
     }
   };
-
   const handleToggleTask = (taskId: string, currentStatus: boolean) => {
     toggleTaskCompletion(taskId, !currentStatus);
   };
-
   const handleAddTask = (title: string, categoryId: string) => {
-    addTask({ 
-      title, 
-      categoryId, 
+    addTask({
+      title,
+      categoryId,
       date: format(selectedDate, 'yyyy-MM-dd'),
       completed: false,
       visibility: 'private'
     });
   };
-
-  // Inline Edit Handlers
   const handleStartEdit = (task: TaskDocument) => {
     setEditingTaskId(task.id);
     setEditValue(task.title);
     setIsActionSheetOpen(false);
   };
-
-  const handleEditChange = (value: string) => {
-    setEditValue(value);
-  };
-
   const handleEditSave = async () => {
     if (editingTaskId && editValue.trim()) {
       await updateTask(editingTaskId, { title: editValue.trim() });
@@ -733,87 +671,74 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
     setEditingTaskId(null);
     setEditValue('');
   };
-
   const handleEditCancel = () => {
     setEditingTaskId(null);
     setEditValue('');
   };
-
-  // Action Handlers
   const handleOpenActions = (task: TaskDocument) => {
     if (editingTaskId) return;
     setActiveTask(task);
     setIsActionSheetOpen(true);
   };
-
   const handleOpenMemo = (task: TaskDocument) => {
     setActiveTask(task);
     setIsMemoSheetOpen(true);
   };
-
   const handleDelete = async () => {
     if (activeTask) {
-      // If task has an image, delete it from storage first
-      if (activeTask.image) {
-        await deleteImage(activeTask.image);
-      }
+      if (activeTask.image) await deleteImage(activeTask.image);
       await deleteTask(activeTask.id);
       setIsActionSheetOpen(false);
       setActiveTask(null);
     }
   };
-
   const handleMemoSave = async (memo: string, visibility: 'private' | 'followers' | 'public') => {
     if (activeTask) {
       await updateTask(activeTask.id, { memo, visibility });
       setIsMemoSheetOpen(false);
     }
   };
-
   const handleDateChange = async (newDate: string) => {
     if (activeTask) {
       await updateTask(activeTask.id, { date: newDate });
       setIsDatePickerOpen(false);
     }
   };
-
   const handleDoItTomorrowOrToday = async () => {
     if (!activeTask) return;
     const now = new Date();
     const taskDate = new Date(activeTask.date);
     const todayStr = format(now, 'yyyy-MM-dd');
     const taskDateStr = format(taskDate, 'yyyy-MM-dd');
-    const newDate = taskDateStr === todayStr 
-      ? format(addDays(now, 1), 'yyyy-MM-dd')
-      : todayStr;
+    const newDate = taskDateStr === todayStr ? format(addDays(now, 1), 'yyyy-MM-dd') : todayStr;
     await updateTask(activeTask.id, { date: newDate });
   };
-
-  const handleOpenImagePicker = () => {
-    setIsImagePickerOpen(true);
+  const handleRequestDeletePhoto = () => {
+    setIsActionSheetOpen(false);
+    setIsDeletePhotoConfirmOpen(true);
   };
-
-  const handleImageSave = async (imageFileId: string) => {
-    if (activeTask) {
-      // Delete old image from storage if replacing
-      if (activeTask.image && activeTask.image !== imageFileId) {
-        await deleteImage(activeTask.image);
-      }
-      await updateTask(activeTask.id, { image: imageFileId });
-    }
-  };
-
-  const handleImageRemove = async () => {
-    if (activeTask && activeTask.image) {
+  const handleConfirmDeletePhoto = async () => {
+    if (!activeTask?.image) return;
+    setIsDeletingPhoto(true);
+    try {
       await deleteImage(activeTask.image);
       await updateTask(activeTask.id, { image: '' });
+      setDeleteFeedback('Photo deleted');
+      setActiveTask(prev => prev ? { ...prev, image: '' } : null);
+      setIsDeletePhotoConfirmOpen(false);
+    } catch (err) {
+      console.error('[DayViewSheet] Failed to delete photo:', err);
+      setDeleteFeedback('Failed to delete photo');
+    } finally {
+      setIsDeletingPhoto(false);
     }
   };
-
+  const handleCancelDeletePhoto = () => {
+    setIsDeletePhotoConfirmOpen(false);
+  };
   const renderDayContent = (date: Date, isCenter: boolean) => {
     const dateStr = format(date, 'yyyy-MM-dd');
     const dayTasks = tasks.filter(t => t.date === dateStr);
-    
     const groupedTasks = useMemo(() => {
       const groups: Record<string, typeof dayTasks> = {};
       dayTasks.forEach(task => {
@@ -822,7 +747,6 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
       });
       return groups;
     }, [dayTasks]);
-
     if (categories.length === 0) {
       return (
         <div className="text-center py-12 text-gray-500 text-sm px-4">
@@ -830,12 +754,8 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
         </div>
       );
     }
-
     return (
-      <div 
-        className={`pt-2 pb-8 px-1 h-full overflow-y-auto ${!isCenter ? 'pointer-events-none' : ''}`}
-        style={{ touchAction: 'pan-y' }}
-      >
+      <div className={`pt-2 pb-8 px-1 h-full overflow-y-auto ${!isCenter ? 'pointer-events-none' : ''}`} style={{ touchAction: 'pan-y' }}>
         {categories.map((category: CategoryDocument) => (
           <CategorySection
             key={category.id}
@@ -847,9 +767,10 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
             onAddTask={(title) => handleAddTask(title, category.id)}
             onOpenActions={handleOpenActions}
             onOpenMemo={handleOpenMemo}
+            onViewImage={setViewingTask}
             editingTaskId={editingTaskId}
             editValue={editValue}
-            onEditChange={handleEditChange}
+            onEditChange={(val) => setEditValue(val)}
             onEditSave={handleEditSave}
             onEditCancel={handleEditCancel}
           />
@@ -857,13 +778,11 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
       </div>
     );
   };
-
-  const isBackgroundLocked = isActionSheetOpen || isMemoSheetOpen || isDatePickerOpen || isImagePickerOpen;
-
+  const isBackgroundLocked = isActionSheetOpen || isMemoSheetOpen || isDatePickerOpen || !!viewingTask || isDeletePhotoConfirmOpen;
   return (
     <>
-      <BottomSheet 
-        isOpen={isOpen} 
+      <BottomSheet
+        isOpen={isOpen}
         onClose={onClose}
         title={format(selectedDate, 'EEEE, MMMM d')}
         height="auto"
@@ -884,20 +803,16 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
             <div style={{ width }} className="flex-shrink-0 opacity-60">
               {renderDayContent(prevDate, false)}
             </div>
-            
             <div style={{ width }} className="flex-shrink-0">
               {renderDayContent(selectedDate, true)}
             </div>
-            
             <div style={{ width }} className="flex-shrink-0 opacity-60">
               {renderDayContent(nextDate, false)}
             </div>
           </motion.div>
         </div>
       </BottomSheet>
-
-      {/* Task Action Sheet */}
-      <TaskActionSheet 
+      <TaskActionSheet
         isOpen={isActionSheetOpen}
         onClose={() => setIsActionSheetOpen(false)}
         task={activeTask}
@@ -905,34 +820,82 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
         onDelete={handleDelete}
         onMemo={() => setIsMemoSheetOpen(true)}
         onChangeDate={() => setIsDatePickerOpen(true)}
-        onAddPhoto={handleOpenImagePicker}
+        onViewPhoto={() => {
+          if (activeTask) setViewingTask(activeTask);
+          setIsActionSheetOpen(false);
+        }}
+        onDeletePhoto={handleRequestDeletePhoto}
         onDoItTomorrowOrToday={handleDoItTomorrowOrToday}
       />
-
-      {/* Memo Sheet */}
       <MemoSheet
         isOpen={isMemoSheetOpen}
         onClose={() => setIsMemoSheetOpen(false)}
         task={activeTask}
         onSave={handleMemoSave}
       />
-
-      {/* Date Picker Sheet */}
       <DatePickerSheet
         isOpen={isDatePickerOpen}
         onClose={() => setIsDatePickerOpen(false)}
         task={activeTask}
         onDateChange={handleDateChange}
       />
-
-      {/* Image Picker Sheet */}
-      <ImagePickerSheet
-        isOpen={isImagePickerOpen}
-        onClose={() => setIsImagePickerOpen(false)}
-        task={activeTask}
-        onSave={handleImageSave}
-        onRemove={handleImageRemove}
+      {}
+      <ImageViewer
+        isOpen={!!viewingTask}
+        imageUrl={viewingImageUrl}
+        taskTitle={viewingTask?.title}
+        taskDate={viewingTask?.createdAt ? format(new Date(viewingTask.createdAt), 'MMM d, yyyy') : undefined}
+        onClose={() => setViewingTask(null)}
       />
+      {}
+      <BottomSheet
+        isOpen={isDeletePhotoConfirmOpen}
+        onClose={handleCancelDeletePhoto}
+        title="Delete Photo"
+        height="auto"
+        isLocked={true}
+      >
+        <div className="pt-2 pb-8 px-4">
+          <p className="text-gray-300 text-sm text-center mb-6 leading-relaxed">
+            Are you sure you want to delete this photo? This action cannot be undone.
+          </p>
+          <div className="flex gap-3">
+            <button
+              onClick={handleCancelDeletePhoto}
+              disabled={isDeletingPhoto}
+              className="flex-1 py-3 bg-[#2A2A2A] rounded-xl text-white font-medium hover:bg-[#333333] transition-colors disabled:opacity-50"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleConfirmDeletePhoto}
+              disabled={isDeletingPhoto}
+              className="flex-1 py-3 bg-red-500 rounded-xl text-white font-medium hover:bg-red-600 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+            >
+              {isDeletingPhoto ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                'Delete'
+              )}
+            </button>
+          </div>
+        </div>
+      </BottomSheet>
+      <AnimatePresence>
+        {deleteFeedback && (
+          <motion.div
+            initial={{ opacity: 0, y: 50 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 50 }}
+            className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[70] bg-[#2A2A2A] border border-[#444444] text-white text-sm px-5 py-2.5 rounded-full shadow-lg backdrop-blur-md"
+          >
+            {deleteFeedback}
+          </motion.div>
+        )}
+      </AnimatePresence>
     </>
   );
 };
@@ -941,7 +904,6 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
 <file path="src/components/home/views/DiaryView.tsx">
 import React from 'react';
 import { BookOpen } from 'lucide-react';
-
 export const DiaryView: React.FC = () => {
   return (
     <div className="flex flex-col items-center justify-center h-[60vh] text-center p-6 animate-in fade-in duration-300">
@@ -964,7 +926,6 @@ import { Button } from '../../ui/Button';
 import { Input } from '../../ui/Input';
 import { Save } from 'lucide-react';
 import type { TaskDocument } from '../../../db/schema';
-
 interface EditTaskSheetProps {
   isOpen: boolean;
   onClose: () => void;
@@ -972,7 +933,6 @@ interface EditTaskSheetProps {
   onSave: (updates: Partial<TaskDocument>) => void;
   initialFocus?: 'title' | 'memo';
 }
-
 export const EditTaskSheet: React.FC<EditTaskSheetProps> = ({
   isOpen,
   onClose,
@@ -982,23 +942,19 @@ export const EditTaskSheet: React.FC<EditTaskSheetProps> = ({
 }) => {
   const [title, setTitle] = useState('');
   const [memo, setMemo] = useState('');
-
   useEffect(() => {
     if (task) {
       setTitle(task.title);
       setMemo(task.memo || '');
     }
   }, [task, isOpen]);
-
   const handleSave = () => {
     if (title.trim()) {
       onSave({ title: title.trim(), memo: memo.trim() });
       onClose();
     }
   };
-
   if (!task) return null;
-
   return (
     <BottomSheet isOpen={isOpen} onClose={onClose} title={initialFocus === 'memo' ? 'Add Memo' : 'Edit Task'} height="auto">
       <div className="pt-2 pb-8 px-1 space-y-4">
@@ -1035,7 +991,6 @@ import { Button } from '../../ui/Button';
 import { Upload, X, Loader2 } from 'lucide-react';
 import { uploadImage } from '../../../lib/storage';
 import type { TaskDocument } from '../../../db/schema';
-
 interface ImagePickerSheetProps {
   isOpen: boolean;
   onClose: () => void;
@@ -1043,7 +998,6 @@ interface ImagePickerSheetProps {
   onSave: (imageFileId: string) => void;
   onRemove?: () => void;
 }
-
 export const ImagePickerSheet: React.FC<ImagePickerSheetProps> = ({
   isOpen,
   onClose,
@@ -1054,14 +1008,11 @@ export const ImagePickerSheet: React.FC<ImagePickerSheetProps> = ({
   const [isUploading, setIsUploading] = useState(false);
   const [error, setError] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
-
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-
     setIsUploading(true);
     setError('');
-
     try {
       const fileId = await uploadImage(file);
       onSave(fileId);
@@ -1075,29 +1026,24 @@ export const ImagePickerSheet: React.FC<ImagePickerSheetProps> = ({
       if (fileInputRef.current) fileInputRef.current.value = '';
     }
   };
-
   const handleRemove = () => {
     if (onRemove) {
       onRemove();
       onClose();
     }
   };
-
   if (!task) return null;
-
   return (
     <BottomSheet isOpen={isOpen} onClose={onClose} title="Add Photo" height="auto">
       <div className="pt-2 pb-8 px-4 space-y-4">
         <p className="text-sm text-gray-400 text-center">
           Images are automatically compressed to 150KB before uploading.
         </p>
-
         {error && (
           <div className="bg-red-900/20 border border-red-500/30 text-red-400 text-sm p-3 rounded-xl">
             {error}
           </div>
         )}
-
         <div className="flex flex-col gap-3">
           <Button
             variant="primary"
@@ -1117,7 +1063,6 @@ export const ImagePickerSheet: React.FC<ImagePickerSheetProps> = ({
               </>
             )}
           </Button>
-
           <input
             ref={fileInputRef}
             type="file"
@@ -1125,7 +1070,6 @@ export const ImagePickerSheet: React.FC<ImagePickerSheetProps> = ({
             onChange={handleFileSelect}
             className="hidden"
           />
-
           {task.image && (
             <Button
               variant="danger"
@@ -1144,18 +1088,83 @@ export const ImagePickerSheet: React.FC<ImagePickerSheetProps> = ({
 };
 </file>
 
+<file path="src/components/home/views/ImageViewer.tsx">
+import React, { useEffect, useRef } from 'react';
+import PhotoSwipeLightbox from 'photoswipe/lightbox';
+import 'photoswipe/style.css';
+interface ImageViewerProps {
+  isOpen: boolean;
+  imageUrl: string | null;
+  taskTitle?: string;
+  taskDate?: string;
+  onClose: () => void;
+}
+export const ImageViewer: React.FC<ImageViewerProps> = ({
+  isOpen, imageUrl, taskTitle, taskDate, onClose
+}) => {
+  const lightboxRef = useRef<PhotoSwipeLightbox | null>(null);
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+  useEffect(() => {
+    if (!isOpen || !imageUrl) {
+      if (lightboxRef.current) {
+        lightboxRef.current.destroy();
+        lightboxRef.current = null;
+      }
+      return;
+    }
+    if (lightboxRef.current) {
+      lightboxRef.current.destroy();
+    }
+    const lightbox = new PhotoSwipeLightbox({
+      dataSource: [{
+        src: imageUrl,
+        w: 1920, h: 1080,
+        alt: taskTitle || 'Task image'
+      }],
+      pswpModule: () => import('photoswipe'),
+      showHideAnimationType: 'zoom',
+      bgOpacity: 1,
+      closeOnVerticalDrag: true,
+    });
+    lightbox.on('uiRegister', () => {
+      const pswp = lightbox.pswp;
+      if (!pswp) return;
+      const captionEl = document.createElement('div');
+      captionEl.className = 'pswp__custom-caption';
+      captionEl.innerHTML = `
+        <div style="padding: 20px; background: linear-gradient(to top, rgba(0,0,0,0.85), transparent); pointer-events: none;">
+          ${taskTitle ? `<h3 style="margin: 0 0 4px 0; font-size: 16px; font-weight: 600; color: white;">${taskTitle}</h3>` : ''}
+          ${taskDate ? `<p style="margin: 0; font-size: 12px; color: #a1a1aa;">Added ${taskDate}</p>` : ''}
+        </div>
+      `;
+      pswp.element?.appendChild(captionEl);
+    });
+    lightbox.init();
+    lightbox.loadAndOpen(0);
+    lightboxRef.current = lightbox;
+    lightbox.on('close', () => {
+      onCloseRef.current();
+    });
+    return () => {
+      lightbox.destroy();
+      lightboxRef.current = null;
+    };
+  }, [isOpen, imageUrl]);
+  return null;
+};
+</file>
+
 <file path="src/components/home/views/MemoSheet.tsx">
 import React, { useState, useEffect } from 'react';
 import { BottomSheet } from '../../ui/BottomSheet';
 import type { TaskDocument } from '../../../db/schema';
-
 interface MemoSheetProps {
   isOpen: boolean;
   onClose: () => void;
   task: TaskDocument | null;
   onSave: (memo: string, visibility: 'private' | 'followers' | 'public') => void;
 }
-
 export const MemoSheet: React.FC<MemoSheetProps> = ({
   isOpen,
   onClose,
@@ -1164,26 +1173,21 @@ export const MemoSheet: React.FC<MemoSheetProps> = ({
 }) => {
   const [memo, setMemo] = useState('');
   const [visibility, setVisibility] = useState<'private' | 'followers' | 'public'>('private');
-
   useEffect(() => {
     if (task) {
       setMemo(task.memo || '');
       setVisibility(task.visibility || 'private');
     }
   }, [task, isOpen]);
-
   const handleDone = () => {
     onSave(memo, visibility);
     onClose();
   };
-
   const handleDelete = () => {
     onSave('', visibility);
     onClose();
   };
-
   if (!task) return null;
-
   return (
     <BottomSheet isOpen={isOpen} onClose={onClose} title={task.title} height="auto">
       <div className="pt-2 pb-8 px-4">
@@ -1195,7 +1199,6 @@ export const MemoSheet: React.FC<MemoSheetProps> = ({
           )}
           <button onClick={handleDone} className="text-white font-semibold text-base">Done</button>
         </div>
-
         <textarea
           value={memo}
           onChange={(e) => setMemo(e.target.value)}
@@ -1203,7 +1206,6 @@ export const MemoSheet: React.FC<MemoSheetProps> = ({
           autoFocus
           className="w-full bg-[#1A1A1A] rounded-xl p-4 text-base text-white placeholder-gray-500 focus:outline-none min-h-[200px] resize-none mb-6"
         />
-
         <div className="flex items-center justify-end gap-3">
           <span className="text-sm text-gray-400">Visible to me only</span>
           <button
@@ -1233,28 +1235,23 @@ import React from 'react';
 import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, eachDayOfInterval, isSameMonth } from 'date-fns';
 import { DayCell } from './DayCell';
 import type { TaskDocument } from '../../../db/schema';
-
 interface MonthViewProps {
   focusDate: Date;
   onDayClick?: (date: Date) => void;
   tasks: TaskDocument[];
   categoriesMap: Record<string, { color: string; name: string }>;
 }
-
 export const MonthView: React.FC<MonthViewProps> = ({ focusDate, onDayClick, tasks, categoriesMap }) => {
   const monthStart = startOfMonth(focusDate);
   const monthEnd = endOfMonth(monthStart);
   const startDate = startOfWeek(monthStart);
   const endDate = endOfWeek(monthEnd);
-  
   const calendarDays = eachDayOfInterval({ start: startDate, end: endDate });
   const weekDays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-
   const getTasksForDay = (day: Date) => {
     const dateStr = format(day, 'yyyy-MM-dd');
     return tasks.filter((task: TaskDocument) => task.date === dateStr);
   };
-
   return (
     <div className="flex flex-col h-full">
       <div className="grid grid-cols-7 gap-1 px-2 mb-1">
@@ -1264,7 +1261,6 @@ export const MonthView: React.FC<MonthViewProps> = ({ focusDate, onDayClick, tas
           </div>
         ))}
       </div>
-
       <div className="grid grid-cols-7 gap-1 px-2 flex-1 auto-rows-fr">
         {calendarDays.map((day, index) => (
           <DayCell
@@ -1288,7 +1284,6 @@ import { BottomSheet } from '../../ui/BottomSheet';
 import { Pencil, Trash2, FileText, Clock, ArrowRight, RotateCcw, CheckCircle, Archive, Image as ImageIcon } from 'lucide-react';
 import { isToday } from 'date-fns';
 import type { TaskDocument } from '../../../db/schema';
-
 interface TaskActionSheetProps {
   isOpen: boolean;
   onClose: () => void;
@@ -1297,10 +1292,10 @@ interface TaskActionSheetProps {
   onDelete: () => void;
   onMemo: () => void;
   onChangeDate: () => void;
-  onAddPhoto: () => void;
+  onViewPhoto: () => void;
+  onDeletePhoto: () => void;
   onDoItTomorrowOrToday: () => void;
 }
-
 export const TaskActionSheet: React.FC<TaskActionSheetProps> = ({
   isOpen,
   onClose,
@@ -1309,18 +1304,17 @@ export const TaskActionSheet: React.FC<TaskActionSheetProps> = ({
   onDelete,
   onMemo,
   onChangeDate,
-  onAddPhoto,
+  onViewPhoto,
+  onDeletePhoto,
   onDoItTomorrowOrToday
 }) => {
   if (!task) return null;
-
   const isTaskToday = isToday(new Date(task.date));
   const tomorrowOrTodayLabel = isTaskToday ? 'Do It Tomorrow' : 'Do It Today';
-
   return (
     <BottomSheet isOpen={isOpen} onClose={onClose} title={task.title} height="auto">
       <div className="pt-2 pb-8 px-4">
-        {/* Edit/Delete Buttons Side by Side */}
+        {}
         <div className="grid grid-cols-2 gap-3 mb-6">
           <button onClick={onEdit} className="flex flex-col items-center justify-center gap-2 py-4 bg-[#2A2A2A] rounded-xl hover:bg-[#333333] transition-colors">
             <Pencil size={20} className="text-blue-400" />
@@ -1331,8 +1325,7 @@ export const TaskActionSheet: React.FC<TaskActionSheetProps> = ({
             <span className="text-sm text-white">Delete</span>
           </button>
         </div>
-
-        {/* Integrated Memo Section - Only if memo exists */}
+        {}
         {task.memo && (
           <div className="mb-6">
             <div className="flex items-center gap-2 mb-3">
@@ -1346,10 +1339,9 @@ export const TaskActionSheet: React.FC<TaskActionSheetProps> = ({
             </div>
           </div>
         )}
-
-        {/* Action Items */}
+        {}
         <div className="space-y-1">
-          {/* Memo Button - Only show if NO memo exists yet */}
+          {}
           {!task.memo && (
             <button onClick={() => { onMemo(); onClose(); }} className="w-full flex items-center gap-4 px-2 py-3.5 rounded-xl hover:bg-[#1E1E1E] transition-colors text-white">
               <div className="w-8 h-8 rounded-full bg-yellow-400 flex items-center justify-center">
@@ -1358,50 +1350,54 @@ export const TaskActionSheet: React.FC<TaskActionSheetProps> = ({
               <span className="text-base font-medium">Memo</span>
             </button>
           )}
-
-          {/* Add/Change Photo Button */}
-          <button onClick={() => { onAddPhoto(); onClose(); }} className="w-full flex items-center gap-4 px-2 py-3.5 rounded-xl hover:bg-[#1E1E1E] transition-colors text-white">
-            <div className="w-8 h-8 rounded-full bg-green-400 flex items-center justify-center">
-              <ImageIcon size={16} className="text-black" />
-            </div>
-            <span className="text-base font-medium">{task.image ? 'Change Photo' : 'Add Photo'}</span>
-          </button>
-
+          {}
+          {task.image && (
+            <button onClick={() => { onViewPhoto(); onClose(); }} className="w-full flex items-center gap-4 px-2 py-3.5 rounded-xl hover:bg-[#1E1E1E] transition-colors text-white">
+              <div className="w-8 h-8 rounded-full bg-green-400 flex items-center justify-center">
+                <ImageIcon size={16} className="text-black" />
+              </div>
+              <span className="text-base font-medium">View Photo</span>
+            </button>
+          )}
+          {}
+          {task.image && (
+            <button onClick={() => { onDeletePhoto(); onClose(); }} className="w-full flex items-center gap-4 px-2 py-3.5 rounded-xl hover:bg-[#1E1E1E] transition-colors text-white">
+              <div className="w-8 h-8 rounded-full bg-red-400 flex items-center justify-center">
+                <Trash2 size={16} className="text-black" />
+              </div>
+              <span className="text-base font-medium">Delete Photo</span>
+            </button>
+          )}
           <button onClick={() => alert('Set Alarm coming soon')} className="w-full flex items-center gap-4 px-2 py-3.5 rounded-xl hover:bg-[#1E1E1E] transition-colors text-white">
             <div className="w-8 h-8 rounded-full bg-pink-400 flex items-center justify-center">
               <Clock size={16} className="text-black" />
             </div>
             <span className="text-base font-medium">Set Alarm</span>
           </button>
-
           <button onClick={() => alert('Open Timer coming soon')} className="w-full flex items-center gap-4 px-2 py-3.5 rounded-xl hover:bg-[#1E1E1E] transition-colors text-white">
             <div className="w-8 h-8 rounded-full bg-pink-400 flex items-center justify-center">
               <Clock size={16} className="text-black" />
             </div>
             <span className="text-base font-medium">Open Timer</span>
           </button>
-
           <button onClick={() => { onDoItTomorrowOrToday(); onClose(); }} className="w-full flex items-center gap-4 px-2 py-3.5 rounded-xl hover:bg-[#1E1E1E] transition-colors text-white">
             <div className="w-8 h-8 rounded-full bg-blue-400 flex items-center justify-center">
               <ArrowRight size={16} className="text-black" />
             </div>
             <span className="text-base font-medium">{tomorrowOrTodayLabel}</span>
           </button>
-
           <button onClick={() => { onChangeDate(); onClose(); }} className="w-full flex items-center gap-4 px-2 py-3.5 rounded-xl hover:bg-[#1E1E1E] transition-colors text-white">
             <div className="w-8 h-8 rounded-full bg-blue-400 flex items-center justify-center">
               <RotateCcw size={16} className="text-black" />
             </div>
             <span className="text-base font-medium">Change Date</span>
           </button>
-
           <button onClick={() => alert('Make It a Routine coming soon')} className="w-full flex items-center gap-4 px-2 py-3.5 rounded-xl hover:bg-[#1E1E1E] transition-colors text-white">
             <div className="w-8 h-8 rounded-full bg-blue-400 flex items-center justify-center">
               <CheckCircle size={16} className="text-black" />
             </div>
             <span className="text-base font-medium">Make It a Routine</span>
           </button>
-
           <button onClick={() => alert('Move to Backlog coming soon')} className="w-full flex items-center gap-4 px-2 py-3.5 rounded-xl hover:bg-[#1E1E1E] transition-colors text-white">
             <div className="w-8 h-8 rounded-full bg-blue-400 flex items-center justify-center">
               <Archive size={16} className="text-black" />
@@ -1417,24 +1413,34 @@ export const TaskActionSheet: React.FC<TaskActionSheetProps> = ({
 
 <file path="src/components/home/views/TaskBlock.tsx">
 import React from 'react';
+import { useTaskImage } from '../../../hooks/useTaskImage';
 import type { TaskDocument } from '../../../db/schema';
-
 interface TaskBlockProps {
   task: TaskDocument;
   categoryColor: string;
 }
-
 export const TaskBlock: React.FC<TaskBlockProps> = ({ task, categoryColor }) => {
+  const { imageUrl, isLoading } = useTaskImage(task.image);
   const bgColor = task.completed ? categoryColor : '#374151';
   const textColor = task.completed ? 'text-white' : 'text-gray-400';
-
   return (
     <div
-      className={`text-[9px] px-1 py-0.5 w-full font-medium rounded-[3px] overflow-hidden whitespace-nowrap ${textColor}`}
+      className={`text-[9px] px-1 py-0.5 w-full font-medium rounded-[3px] overflow-hidden ${textColor}`}
       style={{ backgroundColor: bgColor }}
       title={task.title}
     >
-      <span className="block overflow-hidden whitespace-nowrap">{task.title}</span>
+      <div className="flex flex-col gap-0.5">
+        <span className="block overflow-hidden whitespace-nowrap">{task.title}</span>
+        {task.image && (
+          <div className="w-full h-10 mt-0.5 rounded-[2px] overflow-hidden bg-black/20">
+            {isLoading ? (
+              <div className="w-full h-full bg-gray-500/30 animate-pulse" />
+            ) : imageUrl ? (
+              <img src={imageUrl} alt="" className="w-full h-full object-cover" />
+            ) : null}
+          </div>
+        )}
+      </div>
     </div>
   );
 };
@@ -1444,55 +1450,53 @@ export const TaskBlock: React.FC<TaskBlockProps> = ({ task, categoryColor }) => 
 import React from 'react';
 import { motion } from 'framer-motion';
 import { Check, FileText } from 'lucide-react';
-import { getImagePreviewUrl } from '../../../lib/storage';
+import { useTaskImage } from '../../../hooks/useTaskImage';
 import type { TaskDocument } from '../../../db/schema';
-
 interface TaskItemProps {
   task: TaskDocument;
   categoryColor: string;
   onToggle: (taskId: string) => void;
   onOpenActions: (task: TaskDocument) => void;
   onOpenMemo: (task: TaskDocument) => void;
+  onViewImage?: (task: TaskDocument) => void;
   isEditing: boolean;
   editValue: string;
   onEditChange: (value: string) => void;
   onEditSave: () => void;
   onEditCancel: () => void;
 }
-
-export const TaskItem: React.FC<TaskItemProps> = ({ 
-  task, 
-  categoryColor, 
-  onToggle, 
-  onOpenActions, 
+export const TaskItem: React.FC<TaskItemProps> = ({
+  task,
+  categoryColor,
+  onToggle,
+  onOpenActions,
   onOpenMemo,
+  onViewImage,
   isEditing,
   editValue,
   onEditChange,
   onEditSave,
   onEditCancel
 }) => {
+  const { imageUrl, isLoading } = useTaskImage(task.image);
   return (
-    <motion.div 
+    <motion.div
       initial={{ opacity: 0, y: 5 }}
       animate={{ opacity: 1, y: 0 }}
       className="py-2.5 group"
     >
       <div className="flex items-start gap-3">
-        {/* Custom Checkbox */}
         <button
           onClick={() => onToggle(task.id)}
           onPointerDown={(e) => e.stopPropagation()}
           className="flex-shrink-0 w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all mt-1"
-          style={{ 
+          style={{
             backgroundColor: task.completed ? categoryColor : 'transparent',
             borderColor: task.completed ? categoryColor : '#333333'
           }}
         >
           {task.completed && <Check size={12} className="text-white" strokeWidth={3} />}
         </button>
-
-        {/* Task Content */}
         <div className="flex-1 min-w-0">
           {isEditing ? (
             <input
@@ -1513,8 +1517,6 @@ export const TaskItem: React.FC<TaskItemProps> = ({
               <p className={`text-base ${task.completed ? 'text-gray-500 line-through' : 'text-gray-200'}`}>
                 {task.title}
               </p>
-              
-              {/* Memo Display */}
               {task.memo && (
                 <p
                   className="text-sm text-gray-400 mt-1 cursor-pointer hover:text-gray-300 transition-colors whitespace-pre-wrap"
@@ -1524,23 +1526,26 @@ export const TaskItem: React.FC<TaskItemProps> = ({
                   {task.memo}
                 </p>
               )}
-
-              {/* Image Thumbnail */}
               {task.image && (
-                <div className="mt-2 flex items-center gap-2">
-                  <img 
-                    src={getImagePreviewUrl(task.image)} 
-                    alt="Task attachment"
-                    className="w-12 h-12 rounded-lg object-cover border border-[#333333]"
-                    loading="lazy"
-                  />
+                <div className="mt-2 w-full">
+                  <div
+                    className="w-full h-48 md:h-64 lg:h-80 xl:h-96 rounded-lg overflow-hidden border border-[#333333] bg-[#2A2A2A] cursor-pointer relative group"
+                    onClick={(e) => { e.stopPropagation(); onViewImage?.(task); }}
+                  >
+                    {isLoading ? (
+                      <div className="w-full h-full bg-gray-500/30 animate-pulse" />
+                    ) : imageUrl ? (
+                      <img src={imageUrl} alt="Task attachment" className="w-full h-full object-cover" />
+                    ) : null}
+                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
+                      <span className="text-white text-xs font-medium bg-black/50 px-3 py-1 rounded-full backdrop-blur-sm">View Photo</span>
+                    </div>
+                  </div>
                 </div>
               )}
             </div>
           )}
         </div>
-
-        {/* Indicators */}
         {!isEditing && (
           <div className="flex items-center gap-2 flex-shrink-0 pointer-events-none">
             {task.memo && !task.image && (
@@ -1557,7 +1562,6 @@ export const TaskItem: React.FC<TaskItemProps> = ({
 <file path="src/components/home/views/TodoListView.tsx">
 import React from 'react';
 import { ListChecks } from 'lucide-react';
-
 export const TodoListView: React.FC = () => {
   return (
     <div className="flex flex-col items-center justify-center h-[60vh] text-center p-6 animate-in fade-in duration-300">
@@ -1575,12 +1579,10 @@ export const TodoListView: React.FC = () => {
 
 <file path="src/components/home/views/ViewToggle.tsx">
 import React from 'react';
-
 interface ViewToggleProps {
   activeMode: 'month' | 'week';
   onToggle: () => void;
 }
-
 export const ViewToggle: React.FC<ViewToggleProps> = ({ activeMode, onToggle }) => {
   return (
     <button
@@ -1598,24 +1600,20 @@ import React from 'react';
 import { format, startOfWeek, endOfWeek, eachDayOfInterval } from 'date-fns';
 import { DayCell } from './DayCell';
 import type { TaskDocument } from '../../../db/schema';
-
 interface WeekViewProps {
   focusDate: Date;
   onDayClick?: (date: Date) => void;
   tasks: TaskDocument[];
   categoriesMap: Record<string, { color: string; name: string }>;
 }
-
 export const WeekView: React.FC<WeekViewProps> = ({ focusDate, onDayClick, tasks, categoriesMap }) => {
   const weekStart = startOfWeek(focusDate, { weekStartsOn: 0 });
   const weekEnd = endOfWeek(focusDate, { weekStartsOn: 0 });
   const weekDays = eachDayOfInterval({ start: weekStart, end: weekEnd });
-
   const getTasksForDay = (day: Date) => {
     const dateStr = format(day, 'yyyy-MM-dd');
     return tasks.filter((task: TaskDocument) => task.date === dateStr);
   };
-
   return (
     <div className="flex flex-col h-full">
       <div className="grid grid-cols-7 gap-1 px-2 mb-1">
@@ -1625,7 +1623,6 @@ export const WeekView: React.FC<WeekViewProps> = ({ focusDate, onDayClick, tasks
           </div>
         ))}
       </div>
-
       <div className="grid grid-cols-7 gap-1 px-2 flex-1 auto-rows-fr">
         {weekDays.map((day, index) => (
           <DayCell
@@ -1633,7 +1630,7 @@ export const WeekView: React.FC<WeekViewProps> = ({ focusDate, onDayClick, tasks
             date={day}
             tasks={getTasksForDay(day)}
             categories={categoriesMap}
-            isCurrentMonth={true} 
+            isCurrentMonth={true}
             onClick={onDayClick ? () => onDayClick(day) : undefined}
           />
         ))}
@@ -1649,24 +1646,21 @@ import { Menu, List, RefreshCw, Bell } from 'lucide-react';
 import { BottomSheet } from '../ui/BottomSheet';
 import { Button } from '../ui/Button';
 import { CategoryManagerSheet } from '../modals/CategoryManagerSheet';
-
 export const HamburgerMenu: React.FC = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isCategoryManagerOpen, setIsCategoryManagerOpen] = useState(false);
-
   const menuItems = [
-    { 
-      label: 'Lists & Categories', 
-      icon: List, 
+    {
+      label: 'Lists & Categories',
+      icon: List,
       action: () => {
         setIsMenuOpen(false);
         setIsCategoryManagerOpen(true);
-      } 
+      }
     },
     { label: 'Routines', icon: RefreshCw, action: () => console.log('Coming Soon') },
     { label: 'Reminders', icon: Bell, action: () => console.log('Coming Soon') },
   ];
-
   return (
     <>
       <button
@@ -1676,7 +1670,6 @@ export const HamburgerMenu: React.FC = () => {
       >
         <Menu size={20} />
       </button>
-
       <BottomSheet isOpen={isMenuOpen} onClose={() => setIsMenuOpen(false)} title="Menu">
         <div className="space-y-2 pt-2">
           {menuItems.map((item) => {
@@ -1695,10 +1688,9 @@ export const HamburgerMenu: React.FC = () => {
           })}
         </div>
       </BottomSheet>
-
-      <CategoryManagerSheet 
-        isOpen={isCategoryManagerOpen} 
-        onClose={() => setIsCategoryManagerOpen(false)} 
+      <CategoryManagerSheet
+        isOpen={isCategoryManagerOpen}
+        onClose={() => setIsCategoryManagerOpen(false)}
       />
     </>
   );
@@ -1709,16 +1701,12 @@ export const HamburgerMenu: React.FC = () => {
 import React from 'react';
 import { ViewSwitcher, type ViewType } from './ViewSwitcher';
 import { HamburgerMenu } from './HamburgerMenu';
-
 interface TopBarProps {
   activeView: ViewType;
   onViewChange: (view: ViewType) => void;
 }
-
 export const TopBar: React.FC<TopBarProps> = ({ activeView, onViewChange }) => {
   return (
-    // FIX: Applied sticky, top-0, and z-20 directly here. 
-    // bg-[#111111] ensures content doesn't show through when scrolling.
     <div className="sticky top-0 z-20 bg-[#111111] px-4 py-3 border-b border-[#333333]">
       <div className="flex items-center justify-between">
         <ViewSwitcher activeView={activeView} onViewChange={onViewChange} />
@@ -1734,11 +1722,9 @@ import React from 'react';
 import { CalendarView } from './views/CalendarView';
 import { DiaryView } from './views/DiaryView';
 import type { ViewType } from './ViewSwitcher';
-
 interface ViewContainerProps {
   activeView: ViewType;
 }
-
 export const ViewContainer: React.FC<ViewContainerProps> = ({ activeView }) => {
   switch (activeView) {
     case 'calendar':
@@ -1755,19 +1741,15 @@ export const ViewContainer: React.FC<ViewContainerProps> = ({ activeView }) => {
 import React from 'react';
 import { motion } from 'framer-motion';
 import { Calendar, BookOpen } from 'lucide-react';
-
 export type ViewType = 'calendar' | 'diary';
-
 interface ViewSwitcherProps {
   activeView: ViewType;
   onViewChange: (view: ViewType) => void;
 }
-
 const views: { id: ViewType; label: string; icon: React.FC<{ size?: number }> }[] = [
   { id: 'calendar', label: 'Calendar', icon: Calendar },
   { id: 'diary', label: 'Diary', icon: BookOpen },
 ];
-
 export const ViewSwitcher: React.FC<ViewSwitcherProps> = ({ activeView, onViewChange }) => {
   return (
     <div className="flex bg-[#1E1E1E] rounded-lg p-1 border border-[#333333]">
@@ -1780,7 +1762,7 @@ export const ViewSwitcher: React.FC<ViewSwitcherProps> = ({ activeView, onViewCh
             onClick={() => onViewChange(view.id)}
             className="relative flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium focus:outline-none"
           >
-            {/* Sliding Active Background */}
+            {}
             {isActive && (
               <motion.div
                 layoutId="viewSwitcherActive"
@@ -1808,13 +1790,10 @@ import { Outlet, useLocation, useNavigate, Navigate } from 'react-router-dom';
 import { MainLayout } from './MainLayout';
 import { useAuth } from '../../hooks/useAuth';
 import type { TabId } from './BottomNav';
-
 export const AppLayout: React.FC = () => {
     const { user, isLoading } = useAuth();
     const location = useLocation();
     const navigate = useNavigate();
-
-    // If still checking session, show a minimal loading state
     if (isLoading) {
         return (
             <div className="min-h-screen bg-[#111111] flex items-center justify-center">
@@ -1822,25 +1801,18 @@ export const AppLayout: React.FC = () => {
             </div>
         );
     }
-
-    // If not logged in, redirect to login page
     if (!user) {
         return <Navigate to="/login" replace state={{ from: location }} />;
     }
-
-    // Derive the active tab from the current URL path
     const path = location.pathname;
     let activeTab: TabId = 'home';
-    
     if (path.includes('explore')) activeTab = 'explore';
     else if (path.includes('notifications')) activeTab = 'notifications';
     else if (path.includes('messages')) activeTab = 'messages';
     else if (path.includes('account')) activeTab = 'account';
-
     const handleTabChange = (tab: TabId) => {
         navigate(`/${tab}`);
     };
-
     return (
         <MainLayout activeTab={activeTab} onTabChange={handleTabChange}>
             <Outlet />
@@ -1853,15 +1825,12 @@ export const AppLayout: React.FC = () => {
 import React from 'react';
 import { motion } from 'framer-motion';
 import { Home, Compass, Bell, MessageCircle, User } from 'lucide-react';
-
 export type TabId = 'home' | 'explore' | 'notifications' | 'messages' | 'account';
-
 interface Tab {
   id: TabId;
   label: string;
   icon: React.FC<{ size?: number; className?: string }>;
 }
-
 const tabs: Tab[] = [
   { id: 'home', label: 'Home', icon: Home },
   { id: 'explore', label: 'Explore', icon: Compass },
@@ -1869,16 +1838,14 @@ const tabs: Tab[] = [
   { id: 'messages', label: 'Chat', icon: MessageCircle },
   { id: 'account', label: 'Me', icon: User },
 ];
-
 interface BottomNavProps {
   activeTab: TabId;
   onTabChange: (tab: TabId) => void;
 }
-
 export const BottomNav: React.FC<BottomNavProps> = ({ activeTab, onTabChange }) => {
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-30 bg-[#1E1E1E] border-t border-[#333333]">
-      {/* pb-[env(safe-area-inset-bottom)] ensures it looks correct on iOS PWAs */}
+      {}
       <div className="flex justify-around items-center h-16 max-w-lg mx-auto pb-[env(safe-area-inset-bottom)]">
         {tabs.map((tab) => {
           const isActive = activeTab === tab.id;
@@ -1889,7 +1856,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({ activeTab, onTabChange }) 
               onClick={() => onTabChange(tab.id)}
               className="relative flex flex-col items-center justify-center w-full h-full focus:outline-none"
             >
-              {/* Sliding Active Indicator Dot */}
+              {}
               {isActive && (
                 <motion.div
                   layoutId="activeTabIndicator"
@@ -1897,9 +1864,9 @@ export const BottomNav: React.FC<BottomNavProps> = ({ activeTab, onTabChange }) 
                   transition={{ type: 'spring', stiffness: 300, damping: 30 }}
                 />
               )}
-              <Icon 
-                size={22} 
-                className={`transition-colors duration-200 ${isActive ? 'text-white' : 'text-gray-500'}`} 
+              <Icon
+                size={22}
+                className={`transition-colors duration-200 ${isActive ? 'text-white' : 'text-gray-500'}`}
               />
               <span className={`text-[10px] mt-1 font-medium transition-colors duration-200 ${isActive ? 'text-white' : 'text-gray-500'}`}>
                 {tab.label}
@@ -1916,7 +1883,6 @@ export const BottomNav: React.FC<BottomNavProps> = ({ activeTab, onTabChange }) 
 <file path="src/components/layout/ComingSoon.tsx">
 import React from 'react';
 import { Construction } from 'lucide-react';
-
 export const ComingSoon: React.FC = () => {
   return (
     <div className="flex flex-col items-center justify-center h-full min-h-[60vh] text-center p-6">
@@ -1936,25 +1902,19 @@ export const ComingSoon: React.FC = () => {
 import React from 'react';
 import { BottomNav, type TabId } from './BottomNav';
 import { OfflineBanner } from '../ui/OfflineBanner';
-
 interface MainLayoutProps {
   children: React.ReactNode;
   activeTab: TabId;
   onTabChange: (tab: TabId) => void;
 }
-
 export const MainLayout: React.FC<MainLayoutProps> = ({ children, activeTab, onTabChange }) => {
   return (
-    // FIX: Changed min-h-screen to h-screen and added overflow-hidden.
-    // This creates a strict viewport-bound container.
     <div className="h-screen w-full bg-[#111111] text-white relative flex flex-col overflow-hidden">
       <OfflineBanner />
-      
-      {/* FIX: flex-1 now correctly fills remaining space. overflow-y-auto makes THIS the scroll container. */}
+      {}
       <main className="flex-1 overflow-y-auto pb-24">
         {children}
       </main>
-      
       <BottomNav activeTab={activeTab} onTabChange={onTabChange} />
     </div>
   );
@@ -1969,29 +1929,22 @@ import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
 import { Plus, Trash2, Save, X, Eye, EyeOff, Users } from 'lucide-react';
 import { useCategories } from '../../hooks/useCategories';
-
 type Visibility = 'private' | 'followers' | 'public';
-
 export const CategoryManagerSheet: React.FC<{ isOpen: boolean; onClose: () => void }> = ({
   isOpen,
   onClose
 }) => {
   const { categories, addCategory, updateCategory, deleteCategory, isLoading } = useCategories();
-
   const [isAdding, setIsAdding] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
-
   const [newName, setNewName] = useState('');
   const [newColor, setNewColor] = useState('#3B82F6');
   const [newVisibility, setNewVisibility] = useState<Visibility>('private');
-
   const [editName, setEditName] = useState('');
   const [editVisibility, setEditVisibility] = useState<Visibility>('private');
-
   const handleSaveNew = async () => {
     if (!newName.trim()) return;
-    
     setIsSaving(true);
     try {
       await addCategory({
@@ -2007,37 +1960,31 @@ export const CategoryManagerSheet: React.FC<{ isOpen: boolean; onClose: () => vo
       setIsSaving(false);
     }
   };
-
   const handleUpdate = async (id: string, name: string, visibility: Visibility) => {
     await updateCategory(id, { name: name.trim(), visibility });
     setEditingId(null);
   };
-
   const handleDelete = async (id: string) => {
     if (window.confirm('Are you sure? This will hide the category and its tasks.')) {
       await deleteCategory(id);
     }
   };
-
   const resetForm = () => {
     setIsAdding(false);
     setNewName('');
     setNewColor('#3B82F6');
     setNewVisibility('private');
   };
-
   const handleEditStart = (cat: { id: string; name: string; visibility?: Visibility }) => {
     setEditingId(cat.id);
     setEditName(cat.name);
     setEditVisibility(cat.visibility || 'private');
   };
-
   const handleEditCancel = () => {
     setEditingId(null);
     setEditName('');
     setEditVisibility('private');
   };
-
   const getVisibilityIcon = (v: Visibility) => {
     switch (v) {
       case 'public': return <Eye size={14} className="text-gray-400" />;
@@ -2045,7 +1992,6 @@ export const CategoryManagerSheet: React.FC<{ isOpen: boolean; onClose: () => vo
       case 'private': return <EyeOff size={14} className="text-gray-400" />;
     }
   };
-
   return (
     <BottomSheet isOpen={isOpen} onClose={onClose} title="Lists & Categories" height="auto">
       <div className="pt-2 pb-8 px-1">
@@ -2055,7 +2001,7 @@ export const CategoryManagerSheet: React.FC<{ isOpen: boolean; onClose: () => vo
           </div>
         ) : (
           <>
-            {/* Category List or Empty State */}
+            {}
             {!isAdding && (
               <div className="space-y-3 mb-6">
                 {categories.length === 0 ? (
@@ -2124,8 +2070,7 @@ export const CategoryManagerSheet: React.FC<{ isOpen: boolean; onClose: () => vo
                 )}
               </div>
             )}
-
-            {/* Add Category Form or Button */}
+            {}
             {isAdding ? (
               <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-200">
                 <Input
@@ -2155,10 +2100,10 @@ export const CategoryManagerSheet: React.FC<{ isOpen: boolean; onClose: () => vo
                 </div>
                 <div className="flex gap-3 pt-2">
                   <Button variant="ghost" className="flex-1" onClick={resetForm}>Cancel</Button>
-                  <Button 
-                    variant="primary" 
-                    className="flex-1" 
-                    onClick={handleSaveNew} 
+                  <Button
+                    variant="primary"
+                    className="flex-1"
+                    onClick={handleSaveNew}
                     disabled={!newName.trim() || isSaving}
                   >
                     {isSaving ? (
@@ -2185,31 +2130,27 @@ export const CategoryManagerSheet: React.FC<{ isOpen: boolean; onClose: () => vo
 
 <file path="src/components/ui/Avatar.tsx">
 import React from 'react';
-
 interface AvatarProps {
   src?: string;
   alt?: string;
   size?: 'sm' | 'md' | 'lg';
   className?: string;
 }
-
 export const Avatar: React.FC<AvatarProps> = ({ src, alt = 'User', size = 'md', className = '' }) => {
   const sizeClasses = {
     sm: 'w-8 h-8 text-xs',
     md: 'w-10 h-10 text-sm',
     lg: 'w-16 h-16 text-xl',
   };
-
   if (src) {
     return (
-      <img 
-        src={src} 
-        alt={alt} 
-        className={`${sizeClasses[size]} rounded-full object-cover border-2 border-[#1E1E1E] ${className}`} 
+      <img
+        src={src}
+        alt={alt}
+        className={`${sizeClasses[size]} rounded-full object-cover border-2 border-[#1E1E1E] ${className}`}
       />
     );
   }
-
   return (
     <div className={`${sizeClasses[size]} rounded-full bg-[#333333] flex items-center justify-center text-gray-400 font-bold border-2 border-[#1E1E1E] ${className}`}>
       {alt.charAt(0).toUpperCase()}
@@ -2222,27 +2163,24 @@ export const Avatar: React.FC<AvatarProps> = ({ src, alt = 'User', size = 'md', 
 import React, { useEffect, useRef } from 'react';
 import { motion, AnimatePresence, useDragControls } from 'framer-motion';
 import ReactDOM from 'react-dom';
-
 interface BottomSheetProps {
   isOpen: boolean;
   onClose: () => void;
   children: React.ReactNode;
   title?: string;
   height?: 'auto' | 'full';
-  isLocked?: boolean; // NEW: Disable drag and blur header
+  isLocked?: boolean;
 }
-
-export const BottomSheet: React.FC<BottomSheetProps> = ({ 
-  isOpen, 
-  onClose, 
-  children, 
+export const BottomSheet: React.FC<BottomSheetProps> = ({
+  isOpen,
+  onClose,
+  children,
   title,
   height = 'auto',
   isLocked = false
 }) => {
   const sheetRef = useRef<HTMLDivElement>(null);
   const dragControls = useDragControls();
-
   useEffect(() => {
     if (isOpen) {
       document.body.style.overflow = 'hidden';
@@ -2251,7 +2189,6 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
     }
     return () => { document.body.style.overflow = 'unset'; };
   }, [isOpen]);
-
   useEffect(() => {
     const handleEsc = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && isOpen) onClose();
@@ -2259,9 +2196,7 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
     window.addEventListener('keydown', handleEsc);
     return () => window.removeEventListener('keydown', handleEsc);
   }, [isOpen, onClose]);
-
   const heightClass = height === 'full' ? 'h-[100dvh] rounded-none' : 'max-h-[90vh] rounded-t-3xl';
-
   const sheetContent = (
     <AnimatePresence>
       {isOpen && (
@@ -2273,7 +2208,6 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
             onClick={onClose}
             className="fixed inset-0 z-[50] bg-black/60 backdrop-blur-sm"
           />
-
           <motion.div
             ref={sheetRef}
             initial={{ y: '100%' }}
@@ -2290,8 +2224,8 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
             }}
             className={`fixed bottom-0 left-0 right-0 z-[60] bg-[#1E1E1E] text-white shadow-2xl flex flex-col ${heightClass}`}
           >
-            {/* Header with conditional blur and drag disable */}
-            <div 
+            {}
+            <div
               className={`flex-shrink-0 pt-3 pb-2 px-4 flex flex-col items-center transition-all duration-300 ${
                 isLocked ? 'cursor-default opacity-50 blur-sm pointer-events-none' : 'cursor-grab active:cursor-grabbing touch-none'
               }`}
@@ -2304,7 +2238,6 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
               <div className="w-10 h-1.5 bg-[#444444] rounded-full mb-3" />
               {title && <h3 className="text-lg font-semibold w-full text-center">{title}</h3>}
             </div>
-
             <div className="flex-1 overflow-y-auto px-4 pb-8 overscroll-contain">
               {children}
             </div>
@@ -2313,7 +2246,6 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
       )}
     </AnimatePresence>
   );
-
   return ReactDOM.createPortal(sheetContent, document.body);
 };
 </file>
@@ -2321,29 +2253,24 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
 <file path="src/components/ui/Button.tsx">
 import React from 'react';
 import { motion } from 'framer-motion';
-import type { HTMLMotionProps } from 'framer-motion'; // FIX: Explicit type-only import
-
+import type { HTMLMotionProps } from 'framer-motion';
 type ButtonVariant = 'primary' | 'ghost' | 'icon' | 'danger';
-
 interface ButtonProps extends HTMLMotionProps<'button'> {
   variant?: ButtonVariant;
 }
-
-export const Button: React.FC<ButtonProps> = ({ 
-  variant = 'primary', 
-  children, 
-  className = '', 
-  ...props 
+export const Button: React.FC<ButtonProps> = ({
+  variant = 'primary',
+  children,
+  className = '',
+  ...props
 }) => {
   const baseStyles = "flex items-center justify-center font-medium transition-colors focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed";
-  
   const variants = {
     primary: "bg-[#2A2A2A] hover:bg-[#333333] text-white rounded-lg px-4 py-2.5",
     ghost: "bg-transparent hover:bg-[#1E1E1E] text-gray-400 hover:text-white rounded-lg px-4 py-2",
     icon: "bg-transparent hover:bg-[#1E1E1E] text-gray-400 hover:text-white rounded-full p-2",
     danger: "bg-red-900/20 hover:bg-red-900/40 text-red-500 rounded-lg px-4 py-2.5",
   };
-
   return (
     <motion.button
       whileTap={{ scale: 0.95 }}
@@ -2360,21 +2287,16 @@ export const Button: React.FC<ButtonProps> = ({
 import React, { useState } from 'react';
 import { Check } from 'lucide-react';
 import { PREDEFINED_COLORS } from '../../constants/colors';
-
 interface ColorPalettePickerProps {
   selectedColor: string;
   onSelect: (color: string) => void;
 }
-
 export const ColorPalettePicker: React.FC<ColorPalettePickerProps> = ({ selectedColor, onSelect }) => {
-  // Default to the first palette ('default')
   const [activePaletteId, setActivePaletteId] = useState<string>(PREDEFINED_COLORS[0].id);
-
   const activePalette = PREDEFINED_COLORS.find(p => p.id === activePaletteId) || PREDEFINED_COLORS[0];
-
   return (
     <div className="flex flex-col">
-      {/* Tabs */}
+      {}
       <div className="flex bg-[#111111] rounded-lg p-1 mb-4 border border-[#333333]">
         {PREDEFINED_COLORS.map((palette) => {
           const isActive = activePaletteId === palette.id;
@@ -2392,8 +2314,7 @@ export const ColorPalettePicker: React.FC<ColorPalettePickerProps> = ({ selected
           );
         })}
       </div>
-
-      {/* Color Grid */}
+      {}
       <div className="grid grid-cols-5 sm:grid-cols-6 gap-3 p-2">
         {activePalette.colors.map((color) => {
           const isSelected = selectedColor === color;
@@ -2403,14 +2324,14 @@ export const ColorPalettePicker: React.FC<ColorPalettePickerProps> = ({ selected
               type="button"
               onClick={() => onSelect(color)}
               className="relative w-10 h-10 rounded-full flex items-center justify-center transition-transform focus:outline-none hover:scale-110"
-              style={{ backgroundColor: color }} // STRICT RULE: Inline style for dynamic color
+              style={{ backgroundColor: color }}
               aria-label={`Select color ${color}`}
             >
               {isSelected && (
                 <>
-                  {/* Outer white ring for selection */}
+                  {}
                   <div className="absolute inset-0 rounded-full border-2 border-white" />
-                  {/* Checkmark */}
+                  {}
                   <Check size={16} className="text-white drop-shadow-md" strokeWidth={3} />
                 </>
               )}
@@ -2425,11 +2346,9 @@ export const ColorPalettePicker: React.FC<ColorPalettePickerProps> = ({ selected
 
 <file path="src/components/ui/Input.tsx">
 import React, { forwardRef } from 'react';
-
 interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
   label?: string;
 }
-
 export const Input = forwardRef<HTMLInputElement, InputProps>(({ label, className = '', ...props }, ref) => {
   return (
     <div className="w-full">
@@ -2442,13 +2361,10 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(({ label, classNam
     </div>
   );
 });
-
 Input.displayName = 'Input';
-
 interface TextareaProps extends React.TextareaHTMLAttributes<HTMLTextAreaElement> {
   label?: string;
 }
-
 export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(({ label, className = '', ...props }, ref) => {
   return (
     <div className="w-full">
@@ -2461,7 +2377,6 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(({ label,
     </div>
   );
 });
-
 Textarea.displayName = 'Textarea';
 </file>
 
@@ -2469,38 +2384,28 @@ Textarea.displayName = 'Textarea';
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { WifiOff, X } from 'lucide-react';
-
 export const OfflineBanner: React.FC = () => {
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [isDismissed, setIsDismissed] = useState(false);
-
   useEffect(() => {
     const handleOnline = () => {
       setIsOnline(true);
-      // Reset dismissal when back online so it's ready to show next time we go offline
-      setIsDismissed(false); 
+      setIsDismissed(false);
     };
-    
     const handleOffline = () => {
       setIsOnline(false);
     };
-
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
-
     return () => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
     };
   }, []);
-
   const handleDismiss = () => {
     setIsDismissed(true);
   };
-
-  // Only show if we are offline AND the user hasn't dismissed it for this session
   if (isOnline || isDismissed) return null;
-
   return (
     <motion.div
       initial={{ y: -50, opacity: 0 }}
@@ -2512,7 +2417,7 @@ export const OfflineBanner: React.FC = () => {
         <WifiOff size={14} className="text-gray-400" />
         <span className="text-xs text-gray-400">You are offline. Changes will sync later.</span>
       </div>
-      <button 
+      <button
         onClick={handleDismiss}
         className="text-gray-500 hover:text-gray-300 transition-colors p-1 rounded-md hover:bg-[#333333]"
         aria-label="Dismiss offline banner"
@@ -2525,151 +2430,111 @@ export const OfflineBanner: React.FC = () => {
 </file>
 
 <file path="src/constants/colors.ts">
-/**
- * Predefined Color Palettes for Categories
- * 
- * ARCHITECTURAL RULE: No free-form hex inputs.
- * All category colors must come from these predefined palettes.
- * 
- * Phase 2 Ready: Easy to add new palettes (e.g., "Seasonal", "Custom")
- */
-
 export interface ColorPalette {
   id: string;
   name: string;
   colors: string[];
 }
-
 export const PREDEFINED_COLORS: ColorPalette[] = [
   {
     id: 'default',
     name: 'Default',
     colors: [
-      '#FF6B6B', // Coral Red
-      '#4ECDC4', // Turquoise
-      '#45B7D1', // Sky Blue
-      '#96CEB4', // Sage Green
-      '#FFEAA7', // Soft Yellow
-      '#DDA0DD', // Plum
-      '#98D8C8', // Mint
-      '#F7DC6F', // Golden
-      '#BB8FCE', // Lavender
-      '#85C1E9', // Light Blue
+      '#FF6B6B',
+      '#4ECDC4',
+      '#45B7D1',
+      '#96CEB4',
+      '#FFEAA7',
+      '#DDA0DD',
+      '#98D8C8',
+      '#F7DC6F',
+      '#BB8FCE',
+      '#85C1E9',
     ],
   },
   {
     id: 'vibrant',
     name: 'Vibrant',
     colors: [
-      '#FF006E', // Hot Pink
-      '#FB5607', // Orange
-      '#FFBE0B', // Amber
-      '#8338EC', // Purple
-      '#3A86FF', // Bright Blue
-      '#06FFB4', // Neon Green
-      '#FF4081', // Rose
-      '#00E5FF', // Cyan
-      '#76FF03', // Lime
-      '#FF9100', // Deep Orange
+      '#FF006E',
+      '#FB5607',
+      '#FFBE0B',
+      '#8338EC',
+      '#3A86FF',
+      '#06FFB4',
+      '#FF4081',
+      '#00E5FF',
+      '#76FF03',
+      '#FF9100',
     ],
   },
   {
     id: 'pastel',
     name: 'Pastel',
     colors: [
-      '#FFB3BA', // Pastel Pink
-      '#BAFFC9', // Pastel Green
-      '#BAE1FF', // Pastel Blue
-      '#FFFFBA', // Pastel Yellow
-      '#FFDFBA', // Pastel Orange
-      '#E0BBE4', // Pastel Purple
-      '#957DAD', // Muted Purple
-      '#D291BC', // Soft Magenta
-      '#FEC8D8', // Blush
-      '#AEC6CF', // Powder Blue
+      '#FFB3BA',
+      '#BAFFC9',
+      '#BAE1FF',
+      '#FFFFBA',
+      '#FFDFBA',
+      '#E0BBE4',
+      '#957DAD',
+      '#D291BC',
+      '#FEC8D8',
+      '#AEC6CF',
     ],
   },
 ];
-
-/**
- * Helper to get all colors as a flat array
- * Useful for validation
- */
 export const getAllAvailableColors = (): string[] => {
   return PREDEFINED_COLORS.flatMap(palette => palette.colors);
 };
-
-/**
- * Validate if a color hex is in the predefined list
- * Prevents users from injecting arbitrary colors
- */
 export const isValidPredefinedColor = (hex: string): boolean => {
   return getAllAvailableColors().includes(hex);
 };
 </file>
 
 <file path="src/db/database.ts">
-import { 
-  createRxDatabase, 
-  addRxPlugin, 
-  type RxDatabase, 
-  type RxCollection 
+import {
+  createRxDatabase,
+  addRxPlugin,
+  type RxDatabase,
+  type RxCollection
 } from 'rxdb';
 import { getRxStorageDexie } from 'rxdb/plugins/storage-dexie';
 import { RxDBDevModePlugin } from 'rxdb/plugins/dev-mode';
-import { wrappedValidateAjvStorage } from 'rxdb/plugins/validate-ajv'; // <-- NEW IMPORT
-import { 
-  tasksSchema, 
-  categoriesSchema, 
-  diarySchema, 
+import { wrappedValidateAjvStorage } from 'rxdb/plugins/validate-ajv';
+import {
+  tasksSchema,
+  categoriesSchema,
+  diarySchema,
   settingsSchema,
   type TaskDocument,
   type CategoryDocument,
   type DiaryDocument,
   type SettingsDocument,
 } from './schema';
-
-// ============================================================================
-// PLUGIN INITIALIZATION
-// ============================================================================
-
 if (import.meta.env.DEV) {
   addRxPlugin(RxDBDevModePlugin);
   console.log('[RxDB] Dev Mode Plugin enabled (v17)');
 }
-
 const DB_NAME = 'life_tracker_db';
 const DEBUG = import.meta.env.DEV;
-
-// ============================================================================
-// TYPE DEFINITIONS
-// ============================================================================
-
 export interface AppDatabaseCollections {
   tasks: RxCollection<TaskDocument>;
   categories: RxCollection<CategoryDocument>;
   diary: RxCollection<DiaryDocument>;
   settings: RxCollection<SettingsDocument>;
 }
-
-// ============================================================================
-// DATABASE INSTANCE
-// ============================================================================
-
 let dbInstance: RxDatabase<AppDatabaseCollections> | null = null;
-
 export async function initializeDatabase(): Promise<RxDatabase<AppDatabaseCollections>> {
   if (dbInstance) {
     if (DEBUG) console.log('[RxDB] Using existing database instance');
     return dbInstance;
   }
-
   try {
     if (DEBUG) console.log('[RxDB] Initializing database:', DB_NAME);
-
     const database = await createRxDatabase<AppDatabaseCollections>({
       name: DB_NAME,
-      // FIX: Wrap storage with Ajv validator to satisfy dev-mode requirements
       storage: wrappedValidateAjvStorage({
         storage: getRxStorageDexie()
       }),
@@ -2677,38 +2542,31 @@ export async function initializeDatabase(): Promise<RxDatabase<AppDatabaseCollec
       eventReduce: true,
       ignoreDuplicate: true,
     });
-
     if (DEBUG) console.log('[RxDB] Database created successfully');
-
     await database.addCollections({
       tasks: { schema: tasksSchema },
       categories: { schema: categoriesSchema },
       diary: { schema: diarySchema },
       settings: { schema: settingsSchema },
     });
-
     if (DEBUG) {
       console.log('[RxDB] Collections added successfully');
       const stats = await getDatabaseStats(database);
       console.log('[RxDB] Initial stats:', stats);
     }
-
     dbInstance = database;
     return dbInstance;
-
   } catch (error) {
     console.error('[RxDB] FATAL: Database initialization failed', error);
     throw error;
   }
 }
-
 export function getDatabase(): RxDatabase<AppDatabaseCollections> {
   if (!dbInstance) {
     throw new Error('Database not initialized! Call initializeDatabase() first.');
   }
   return dbInstance;
 }
-
 export async function destroyDatabase(): Promise<void> {
   if (!dbInstance) return;
   try {
@@ -2720,7 +2578,6 @@ export async function destroyDatabase(): Promise<void> {
     throw error;
   }
 }
-
 export async function getDatabaseStats(db?: RxDatabase<AppDatabaseCollections>) {
   const database = db || getDatabase();
   const [tasks, categories, diary, settings] = await Promise.all([
@@ -2735,11 +2592,6 @@ export async function getDatabaseStats(db?: RxDatabase<AppDatabaseCollections>) 
 
 <file path="src/db/schema.ts">
 import type { RxJsonSchema } from 'rxdb';
-
-// ============================================================================
-// TYPE DEFINITIONS
-// ============================================================================
-
 export interface TaskDocument {
   id: string;
   title: string;
@@ -2760,7 +2612,6 @@ export interface TaskDocument {
   reactions?: string;
   visibility: 'public' | 'followers' | 'private';
 }
-
 export interface CategoryDocument {
   id: string;
   name: string;
@@ -2771,7 +2622,6 @@ export interface CategoryDocument {
   isDeleted: boolean;
   icon?: string;
 }
-
 export interface DiaryDocument {
   id: string;
   date: string;
@@ -2782,7 +2632,6 @@ export interface DiaryDocument {
   updatedAt: string;
   isDeleted: boolean;
 }
-
 export interface SettingsDocument {
   id: string;
   userId: string;
@@ -2790,11 +2639,6 @@ export interface SettingsDocument {
   value: string;
   isDeleted: boolean;
 }
-
-// ============================================================================
-// RXDB SCHEMAS (v17 Dev-Mode Compliant)
-// ============================================================================
-
 export const tasksSchema: RxJsonSchema<TaskDocument> = {
   version: 0,
   primaryKey: 'id',
@@ -2803,7 +2647,7 @@ export const tasksSchema: RxJsonSchema<TaskDocument> = {
   properties: {
     id: { type: 'string', maxLength: 255 },
     title: { type: 'string', maxLength: 255 },
-    completed: { type: 'boolean' }, // FIX: Removed multipleOf (only for numbers)
+    completed: { type: 'boolean' },
     categoryId: { type: 'string', maxLength: 255 },
     tags: { type: 'string', maxLength: 1000 },
     date: { type: 'string', maxLength: 50 },
@@ -2814,7 +2658,7 @@ export const tasksSchema: RxJsonSchema<TaskDocument> = {
     updatedAt: { type: 'string', maxLength: 50 },
     source: { type: 'string', maxLength: 50 },
     userId: { type: 'string', maxLength: 255 },
-    isDeleted: { type: 'boolean' }, // FIX: Removed multipleOf (only for numbers)
+    isDeleted: { type: 'boolean' },
     routineId: { type: 'string', maxLength: 255 },
     reminderTime: { type: 'string', maxLength: 50 },
     reactions: { type: 'string', maxLength: 5000 },
@@ -2827,7 +2671,6 @@ export const tasksSchema: RxJsonSchema<TaskDocument> = {
     ['completed', 'userId', 'isDeleted'],
   ],
 };
-
 export const categoriesSchema: RxJsonSchema<CategoryDocument> = {
   version: 0,
   primaryKey: 'id',
@@ -2837,15 +2680,15 @@ export const categoriesSchema: RxJsonSchema<CategoryDocument> = {
     id: { type: 'string', maxLength: 255 },
     name: { type: 'string', maxLength: 100 },
     color: { type: 'string', maxLength: 20 },
-    order: { 
-      type: 'integer', 
+    order: {
+      type: 'integer',
       multipleOf: 1,
       minimum: 0,
-      maximum: 999999 
-    }, 
+      maximum: 999999
+    },
     visibility: { type: 'string', maxLength: 50, enum: ['public', 'followers', 'private'] },
     userId: { type: 'string', maxLength: 255 },
-    isDeleted: { type: 'boolean' }, // FIX: Removed multipleOf
+    isDeleted: { type: 'boolean' },
     icon: { type: 'string', maxLength: 10 },
   },
   indexes: [
@@ -2853,7 +2696,6 @@ export const categoriesSchema: RxJsonSchema<CategoryDocument> = {
     ['visibility', 'userId', 'isDeleted'],
   ],
 };
-
 export const diarySchema: RxJsonSchema<DiaryDocument> = {
   version: 0,
   primaryKey: 'id',
@@ -2867,14 +2709,13 @@ export const diarySchema: RxJsonSchema<DiaryDocument> = {
     userId: { type: 'string', maxLength: 255 },
     createdAt: { type: 'string', maxLength: 50 },
     updatedAt: { type: 'string', maxLength: 50 },
-    isDeleted: { type: 'boolean' }, // FIX: Removed multipleOf
+    isDeleted: { type: 'boolean' },
   },
   indexes: [
     ['userId', 'date', 'isDeleted'],
     ['visibility', 'userId', 'isDeleted'],
   ],
 };
-
 export const settingsSchema: RxJsonSchema<SettingsDocument> = {
   version: 0,
   primaryKey: 'id',
@@ -2885,7 +2726,7 @@ export const settingsSchema: RxJsonSchema<SettingsDocument> = {
     userId: { type: 'string', maxLength: 255 },
     key: { type: 'string', maxLength: 100 },
     value: { type: 'string', maxLength: 10000 },
-    isDeleted: { type: 'boolean' }, // FIX: Removed multipleOf
+    isDeleted: { type: 'boolean' },
   },
   indexes: [
     ['userId', 'key', 'isDeleted'],
@@ -2895,9 +2736,8 @@ export const settingsSchema: RxJsonSchema<SettingsDocument> = {
 
 <file path="src/db/sync.ts">
 import { getDatabase, type AppDatabaseCollections } from './database';
-
 const APPWRITE_CONFIG = {
-  endpoint: 'https://sgp.cloud.appwrite.io', 
+  endpoint: 'https://sgp.cloud.appwrite.io',
   projectId: '6a9703c50016b37110ff',
   databaseId: 'life_tracker',
   tables: {
@@ -2907,29 +2747,23 @@ const APPWRITE_CONFIG = {
     settings: 'settings',
   },
 } as const;
-
 export const CURRENT_USER_ID = 'user1';
 const DEBUG = import.meta.env.DEV;
-
 export interface SyncStatus {
   isSyncing: boolean;
   lastSync: string | null;
   errors: string[];
 }
-
 let syncStatus: SyncStatus = {
   isSyncing: false,
   lastSync: localStorage.getItem('lastSyncTime') || null,
   errors: [],
 };
-
 export function getSyncStatus(): SyncStatus {
   return syncStatus;
 }
-
 type SyncListener = (status: SyncStatus) => void;
 const listeners: SyncListener[] = [];
-
 function updateSyncStatus(updates: Partial<SyncStatus>) {
   syncStatus = { ...syncStatus, ...updates };
   if (syncStatus.lastSync) {
@@ -2938,7 +2772,6 @@ function updateSyncStatus(updates: Partial<SyncStatus>) {
   listeners.forEach(l => l(syncStatus));
   if (DEBUG) console.log('[Sync] Status:', syncStatus);
 }
-
 export function subscribeToSyncStatus(listener: SyncListener): () => void {
   listeners.push(listener);
   listener(syncStatus);
@@ -2947,14 +2780,11 @@ export function subscribeToSyncStatus(listener: SyncListener): () => void {
     if (idx > -1) listeners.splice(idx, 1);
   };
 }
-
 function toAppwriteFormat(doc: any, collection: string): Record<string, any> {
   const mapped: Record<string, any> = {};
-  
   delete doc._meta;
   delete doc._deleted;
   delete doc._rev;
-
   if (collection === 'tasks') {
     mapped.title = doc.title || '';
     mapped.is_completed = doc.completed ?? false;
@@ -2964,7 +2794,7 @@ function toAppwriteFormat(doc: any, collection: string): Record<string, any> {
     mapped.memo = doc.memo || '';
     mapped.image = doc.image || '';
     mapped.created_at = doc.createdAt || new Date().toISOString();
-    mapped.completed_at = doc.completedAt || null;
+    mapped.completed_at = doc.completedAt || '';
     mapped.updated_at = doc.updatedAt || new Date().toISOString();
     mapped.user_id = doc.userId || CURRENT_USER_ID;
     mapped.deleted = doc.isDeleted ?? false;
@@ -2991,14 +2821,10 @@ function toAppwriteFormat(doc: any, collection: string): Record<string, any> {
     mapped.value = doc.value || '';
     mapped.deleted = doc.isDeleted ?? false;
   }
-  
   return mapped;
 }
-
 function fromAppwriteFormat(row: any, collection: string): Record<string, any> {
   const mapped: Record<string, any> = { ...row };
-  
-  // FIX: Strictly delete ALL Appwrite internal fields starting with '$'
   delete mapped.$id;
   delete mapped.$createdAt;
   delete mapped.$updatedAt;
@@ -3007,17 +2833,22 @@ function fromAppwriteFormat(row: any, collection: string): Record<string, any> {
   delete mapped.$collectionId;
   delete mapped.$sequence;
   delete mapped.$tableId;
-
   if (collection === 'tasks') {
     mapped.id = row.$id || mapped.id;
     mapped.completed = mapped.is_completed ?? false;
     mapped.categoryId = mapped.category_id || '';
-    mapped.createdAt = mapped.created_at;
-    mapped.completedAt = mapped.completed_at;
-    mapped.updatedAt = mapped.updated_at;
+    mapped.createdAt = mapped.created_at || new Date().toISOString();
+    mapped.completedAt = mapped.completed_at || '';
+    mapped.updatedAt = mapped.updated_at || new Date().toISOString();
     mapped.userId = mapped.user_id;
     mapped.isDeleted = mapped.deleted ?? false;
-    
+    mapped.source = row.source || '';
+    mapped.tags = row.tags || '';
+    mapped.memo = row.memo || '';
+    mapped.image = row.image || '';
+    mapped.routineId = row.routine_id || '';
+    mapped.reminderTime = row.reminder_time || '';
+    mapped.reactions = row.reactions || '';
     delete mapped.is_completed;
     delete mapped.category_id;
     delete mapped.created_at;
@@ -3029,16 +2860,16 @@ function fromAppwriteFormat(row: any, collection: string): Record<string, any> {
     mapped.id = row.$id || mapped.id;
     mapped.userId = mapped.user_id;
     mapped.isDeleted = mapped.deleted ?? false;
-    
+    mapped.icon = row.icon || '';
     delete mapped.user_id;
     delete mapped.deleted;
   } else if (collection === 'diary') {
     mapped.id = row.$id || mapped.id;
     mapped.userId = mapped.user_id;
     mapped.isDeleted = mapped.deleted ?? false;
-    mapped.createdAt = mapped.created_at;
-    mapped.updatedAt = mapped.updated_at;
-    
+    mapped.createdAt = mapped.created_at || new Date().toISOString();
+    mapped.updatedAt = mapped.updated_at || new Date().toISOString();
+    mapped.content = row.content || '';
     delete mapped.user_id;
     delete mapped.deleted;
     delete mapped.created_at;
@@ -3047,49 +2878,40 @@ function fromAppwriteFormat(row: any, collection: string): Record<string, any> {
     mapped.id = row.$id || mapped.id;
     mapped.userId = mapped.user_id;
     mapped.isDeleted = mapped.deleted ?? false;
-    
     delete mapped.user_id;
     delete mapped.deleted;
   }
-  
   return mapped;
 }
-
 async function appwriteFetch(
-  table: string, 
-  method: 'GET' | 'POST' | 'PATCH' | 'PUT', 
+  table: string,
+  method: 'GET' | 'POST' | 'PATCH' | 'PUT',
   body?: any,
   rowId?: string
 ) {
   const url = `${APPWRITE_CONFIG.endpoint}/v1/tablesdb/${APPWRITE_CONFIG.databaseId}/tables/${table}/rows${rowId ? `/${rowId}` : ''}`;
-  
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     'X-Appwrite-Project': APPWRITE_CONFIG.projectId,
   };
-
-  const options: RequestInit = { method, headers };
+  const options: RequestInit = { method, headers, credentials: 'include' };
   if (body && Object.keys(body).length > 0) {
     options.body = JSON.stringify(body);
   }
-
   try {
     const res = await fetch(url, options);
-    
     if (!res.ok) {
       const errorText = await res.text();
       let errorMessage = `Appwrite API Error (${res.status})`;
-      
       try {
         const jsonError = JSON.parse(errorText);
-        errorMessage += `: ${jsonError.message || errorText}`;
+        errorMessage += `: ${jsonError.message || JSON.stringify(jsonError)}`;
       } catch {
         errorMessage += `: ${errorText}`;
       }
-      
+      console.error(`[Sync] ❌ ${method} ${url} failed:`, errorMessage);
       throw new Error(errorMessage);
     }
-    
     return res.json();
   } catch (error) {
     if (error instanceof Error && error.message.startsWith('Appwrite API Error')) {
@@ -3098,56 +2920,55 @@ async function appwriteFetch(
     throw new Error(`Network error during Appwrite sync: ${error instanceof Error ? error.message : 'Unknown network error'}`);
   }
 }
-
 export async function initializeSync(): Promise<void> {
   if (DEBUG) console.log('[Sync] Starting initial sync...');
   updateSyncStatus({ isSyncing: true, errors: [] });
-
   try {
     const db = getDatabase();
     const collections: (keyof AppDatabaseCollections)[] = ['tasks', 'categories', 'diary', 'settings'];
-    
     for (const colName of collections) {
       await syncCollection(db[colName], colName);
     }
-
     updateSyncStatus({ isSyncing: false, lastSync: new Date().toISOString() });
     if (DEBUG) console.log('[Sync] ✅ Initial sync complete');
   } catch (error) {
     console.error('[Sync] ❌ Sync failed', error);
-    updateSyncStatus({ 
-      isSyncing: false, 
-      errors: [...syncStatus.errors, error instanceof Error ? error.message : 'Unknown error'] 
+    updateSyncStatus({
+      isSyncing: false,
+      errors: [...syncStatus.errors, error instanceof Error ? error.message : 'Unknown error']
     });
   }
 }
-
 async function syncCollection(collection: any, colName: string) {
   const tableId = APPWRITE_CONFIG.tables[colName as keyof typeof APPWRITE_CONFIG.tables];
   if (DEBUG) console.log(`[Sync] Syncing ${colName}...`);
-
   try {
     const remoteData = await appwriteFetch(tableId, 'GET');
     const rows = remoteData.rows || [];
-    
     if (DEBUG) console.log(`[Sync] Pulled ${rows.length} rows from ${tableId}`);
-
     for (const row of rows) {
       const doc = fromAppwriteFormat(row, colName);
-      await collection.upsert(doc);
+      const localDoc = await collection.findOne(doc.id).exec();
+      if (localDoc) {
+        const localLwt = localDoc._meta?.lwt || 0;
+        const remoteLwt = row.$updatedAt ? new Date(row.$updatedAt).getTime() : 0;
+        if (remoteLwt > localLwt) {
+          await collection.upsert(doc);
+        } else {
+          if (DEBUG) console.log(`[Sync] Skipping remote overwrite for ${doc.id} (local is newer)`);
+        }
+      } else {
+        await collection.upsert(doc);
+      }
     }
-
     const localDocs = await collection.find().exec();
     for (const doc of localDocs) {
       const rowData = toAppwriteFormat(doc.toJSON(), colName);
-      
       const remotePayload = {
         data: rowData,
-        permissions: ['read("any")', 'update("any")', 'delete("any")', 'write("any")']
+        permissions: ['read("any")', 'update("any")', 'delete("any")']
       };
-      
-      if (DEBUG) console.log(`[Sync] Pushing ${colName} ${doc.id}:`, remotePayload);
-      
+      if (DEBUG) console.log(`[Sync] Pushing ${colName} ${doc.id}`);
       try {
         await appwriteFetch(tableId, 'PATCH', remotePayload, doc.id);
       } catch (patchError) {
@@ -3158,19 +2979,16 @@ async function syncCollection(collection: any, colName: string) {
         }
       }
     }
-    
     if (DEBUG) console.log(`[Sync] ✅ ${colName} synced`);
   } catch (error) {
     console.error(`[Sync] Error syncing ${colName}`, error);
     throw error;
   }
 }
-
 export async function forceSync() {
   if (DEBUG) console.log('[Sync] Force sync triggered');
   await initializeSync();
 }
-
 if (typeof window !== 'undefined') {
   window.addEventListener('focus', () => {
     try {
@@ -3178,7 +2996,6 @@ if (typeof window !== 'undefined') {
       if (DEBUG) console.log('[Sync] Window focused, syncing...');
       forceSync().catch(e => console.error('[Sync] Focus sync failed', e));
     } catch {
-      // Database not initialized yet
     }
   });
 }
@@ -3188,34 +3005,27 @@ if (typeof window !== 'undefined') {
 import { useState, useEffect, useCallback } from 'react';
 import { account } from '../lib/appwrite';
 import type { Models } from 'appwrite';
-
-
 export interface AuthState {
     user: Models.User<Models.Preferences> | null;
     isLoading: boolean;
     error: string | null;
 }
-
 export function useAuth() {
-    const [state, setState] = useState<AuthState>({ 
-        user: null, 
-        isLoading: true, 
-        error: null 
+    const [state, setState] = useState<AuthState>({
+        user: null,
+        isLoading: true,
+        error: null
     });
-
     useEffect(() => {
         account.get().then(
             (user) => setState({ user, isLoading: false, error: null }),
             () => setState({ user: null, isLoading: false, error: null })
         );
     }, []);
-
     const login = useCallback(async (email: string, password: string): Promise<boolean> => {
         setState(s => ({ ...s, isLoading: true, error: null }));
         try {
-            // Clear any stale sessions first to prevent conflicts
-            try { await account.deleteSession('current'); } catch {} 
-            
+            try { await account.deleteSession('current'); } catch {}
             await account.createEmailPasswordSession(email, password);
             const user = await account.get();
             setState({ user, isLoading: false, error: null });
@@ -3225,14 +3035,10 @@ export function useAuth() {
             return false;
         }
     }, []);
-
     const signup = useCallback(async (email: string, password: string, name: string): Promise<boolean> => {
         setState(s => ({ ...s, isLoading: true, error: null }));
         try {
             await account.create('unique()', email, password, name);
-            
-            // Appwrite sometimes auto-creates a session on signup. 
-            // We try to login, but if it says "session active", we ignore the error.
             try {
                 await account.createEmailPasswordSession(email, password);
             } catch (sessionError: any) {
@@ -3241,7 +3047,6 @@ export function useAuth() {
                     throw sessionError;
                 }
             }
-            
             const user = await account.get();
             setState({ user, isLoading: false, error: null });
             return true;
@@ -3250,7 +3055,6 @@ export function useAuth() {
             return false;
         }
     }, []);
-
     const logout = useCallback(async () => {
         setState(s => ({ ...s, isLoading: true, error: null }));
         try {
@@ -3260,7 +3064,6 @@ export function useAuth() {
             setState(s => ({ ...s, isLoading: false, error: err.message || 'Logout failed' }));
         }
     }, []);
-
     return { ...state, login, signup, logout };
 }
 </file>
@@ -3270,24 +3073,18 @@ import { useState, useEffect, useCallback } from 'react';
 import { getDatabase } from '../db/database';
 import { useAuth } from './useAuth';
 import type { CategoryDocument } from '../db/schema';
-
 export function useCategories() {
   const { user } = useAuth();
   const [categories, setCategories] = useState<CategoryDocument[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-
   useEffect(() => {
-    // FIX 1: Extract userId to safely narrow the type and avoid 'user is possibly null' error
     const userId = user?.$id;
-    
     if (!userId) {
       setCategories([]);
       setIsLoading(false);
       return;
     }
-
     let subscription: any;
-    
     async function init() {
       try {
         const db = getDatabase();
@@ -3298,7 +3095,6 @@ export function useCategories() {
           },
           sort: [{ order: 'asc' }],
         });
-
         subscription = query.$.subscribe((docs) => {
           setCategories(docs);
           setIsLoading(false);
@@ -3308,61 +3104,48 @@ export function useCategories() {
         setIsLoading(false);
       }
     }
-
     init();
-
     return () => {
       if (subscription) subscription.unsubscribe();
     };
   }, [user?.$id]);
-
   const addCategory = useCallback(async (cat: Omit<CategoryDocument, 'id' | 'userId' | 'isDeleted'>) => {
     const userId = user?.$id;
     if (!userId) {
       console.error('[useCategories] Cannot add category: User not authenticated');
       return;
     }
-
     const db = getDatabase();
-    
-    // FIX 2: Removed createdAt/updatedAt to strictly match the existing CategoryDocument schema
     const newCat: CategoryDocument = {
       ...cat,
       id: `cat_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
       userId: userId,
       isDeleted: false,
     };
-
     try {
       await db.categories.insert(newCat);
     } catch (error) {
       console.error('[useCategories] Error inserting category:', error);
     }
   }, [user?.$id]);
-
   const updateCategory = useCallback(async (id: string, updates: Partial<CategoryDocument>) => {
     const db = getDatabase();
     const doc = await db.categories.findOne(id).exec();
     if (doc) {
-      // FIX 3: Removed updatedAt to strictly match the existing CategoryDocument schema
       await doc.patch(updates);
     }
   }, []);
-
   const deleteCategory = useCallback(async (id: string) => {
     await updateCategory(id, { isDeleted: true });
   }, [updateCategory]);
-
   const reorderCategories = useCallback(async (newOrder: CategoryDocument[]) => {
     const db = getDatabase();
     const promises = newOrder.map((cat, index) => {
       const doc = db.categories.findOne(cat.id).exec();
-      // FIX 4: Removed updatedAt to strictly match the existing CategoryDocument schema
       return doc.then(d => d ? d.patch({ order: index }) : null);
     });
     await Promise.all(promises);
   }, []);
-
   return { categories, isLoading, addCategory, updateCategory, deleteCategory, reorderCategories };
 }
 </file>
@@ -3372,14 +3155,11 @@ import { useState, useEffect, useCallback } from 'react';
 import { getDatabase } from '../db/database';
 import { CURRENT_USER_ID } from '../db/sync';
 import type { DiaryDocument } from '../db/schema';
-
 export function useDiary() {
   const [entries, setEntries] = useState<DiaryDocument[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-
   useEffect(() => {
     let subscription: any;
-    
     async function init() {
       try {
         const db = getDatabase();
@@ -3390,7 +3170,6 @@ export function useDiary() {
           },
           sort: [{ date: 'desc' }],
         });
-
         subscription = query.$.subscribe((docs) => {
           setEntries(docs);
           setIsLoading(false);
@@ -3400,27 +3179,22 @@ export function useDiary() {
         setIsLoading(false);
       }
     }
-
     init();
-
     return () => {
       if (subscription) subscription.unsubscribe();
     };
   }, []);
-
   const saveEntry = useCallback(async (date: string, content: string, visibility: 'public' | 'followers' | 'private' = 'private') => {
     const db = getDatabase();
     const id = `${CURRENT_USER_ID}_${date}`;
     const now = new Date().toISOString();
-
     const doc = await db.diary.findOne(id).exec();
-    
     if (doc) {
       await doc.patch({
         content,
         visibility,
         updatedAt: now,
-        isDeleted: false, // In case it was previously soft-deleted
+        isDeleted: false,
       });
     } else {
       const newEntry: DiaryDocument = {
@@ -3436,7 +3210,6 @@ export function useDiary() {
       await db.diary.insert(newEntry);
     }
   }, []);
-
   const deleteEntry = useCallback(async (date: string) => {
     const id = `${CURRENT_USER_ID}_${date}`;
     const doc = await getDatabase().diary.findOne(id).exec();
@@ -3444,11 +3217,9 @@ export function useDiary() {
       await doc.patch({ isDeleted: true });
     }
   }, []);
-
   const getEntryByDate = useCallback((date: string): DiaryDocument | undefined => {
     return entries.find(e => e.date === date);
   }, [entries]);
-
   return { entries, isLoading, saveEntry, deleteEntry, getEntryByDate };
 }
 </file>
@@ -3456,39 +3227,31 @@ export function useDiary() {
 <file path="src/hooks/useImageCompression.ts">
 import { useState, useCallback } from 'react';
 import imageCompression from 'browser-image-compression';
-
 export interface UseImageCompressionReturn {
   compressImage: (file: File) => Promise<string>;
   isCompressing: boolean;
   error: string | null;
 }
-
 export function useImageCompression(): UseImageCompressionReturn {
   const [isCompressing, setIsCompressing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
   const compressImage = useCallback(async (file: File): Promise<string> => {
     setIsCompressing(true);
     setError(null);
-
     try {
       const options = {
-        maxSizeMB: 0.15, // 150KB max
-        maxWidthOrHeight: 800, // Reasonable resolution for thumbnails
+        maxSizeMB: 0.15,
+        maxWidthOrHeight: 800,
         useWebWorker: true,
-        fileType: 'image/jpeg', // Force JPEG for better compression
+        fileType: 'image/jpeg',
       };
-
       const compressedFile = await imageCompression(file, options);
-      
-      // Convert to base64
       const reader = new FileReader();
       const base64String = await new Promise<string>((resolve, reject) => {
         reader.onload = () => resolve(reader.result as string);
         reader.onerror = reject;
         reader.readAsDataURL(compressedFile);
       });
-
       return base64String;
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to compress image';
@@ -3498,7 +3261,6 @@ export function useImageCompression(): UseImageCompressionReturn {
       setIsCompressing(false);
     }
   }, []);
-
   return { compressImage, isCompressing, error };
 }
 </file>
@@ -3508,14 +3270,11 @@ import { useState, useEffect, useCallback } from 'react';
 import { getDatabase } from '../db/database';
 import { CURRENT_USER_ID } from '../db/sync';
 import type { SettingsDocument } from '../db/schema';
-
 export function useSettings() {
   const [settings, setSettings] = useState<Record<string, any>>({});
   const [isLoading, setIsLoading] = useState(true);
-
   useEffect(() => {
     let subscription: any;
-    
     async function init() {
       try {
         const db = getDatabase();
@@ -3525,14 +3284,13 @@ export function useSettings() {
             isDeleted: false,
           },
         });
-
         subscription = query.$.subscribe((docs) => {
           const settingsMap: Record<string, any> = {};
           docs.forEach(doc => {
             try {
               settingsMap[doc.key] = JSON.parse(doc.value);
             } catch {
-              settingsMap[doc.key] = doc.value; // Fallback if not JSON
+              settingsMap[doc.key] = doc.value;
             }
           });
           setSettings(settingsMap);
@@ -3543,21 +3301,16 @@ export function useSettings() {
         setIsLoading(false);
       }
     }
-
     init();
-
     return () => {
       if (subscription) subscription.unsubscribe();
     };
   }, []);
-
   const setSetting = useCallback(async (key: string, value: any) => {
     const db = getDatabase();
     const id = `${CURRENT_USER_ID}_${key}`;
     const stringValue = typeof value === 'string' ? value : JSON.stringify(value);
-
     const doc = await db.settings.findOne(id).exec();
-    
     if (doc) {
       await doc.patch({ value: stringValue, isDeleted: false });
     } else {
@@ -3571,12 +3324,43 @@ export function useSettings() {
       await db.settings.insert(newSetting);
     }
   }, []);
-
   const getSetting = useCallback((key: string, defaultValue?: any) => {
     return settings[key] !== undefined ? settings[key] : defaultValue;
   }, [settings]);
-
   return { settings, isLoading, setSetting, getSetting };
+}
+</file>
+
+<file path="src/hooks/useTaskImage.ts">
+import { useState, useEffect } from 'react';
+import { getLocalImageUrl } from '../lib/storage';
+export function useTaskImage(fileId: string | undefined) {
+  const [imageUrl, setImageUrl] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  useEffect(() => {
+    let isMounted = true;
+    let currentUrl: string | null = null;
+    if (!fileId) {
+      setImageUrl(null);
+      setIsLoading(false);
+      return;
+    }
+    setIsLoading(true);
+    getLocalImageUrl(fileId).then((url) => {
+      if (isMounted) {
+        currentUrl = url;
+        setImageUrl(url);
+        setIsLoading(false);
+      }
+    });
+    return () => {
+      isMounted = false;
+      if (currentUrl) {
+        URL.revokeObjectURL(currentUrl);
+      }
+    };
+  }, [fileId]);
+  return { imageUrl, isLoading };
 }
 </file>
 
@@ -3585,23 +3369,18 @@ import { useState, useEffect, useCallback } from 'react';
 import { getDatabase } from '../db/database';
 import type { TaskDocument } from '../db/schema';
 import { useAuth } from './useAuth';
-
 export function useTasks() {
   const { user } = useAuth();
   const [tasks, setTasks] = useState<TaskDocument[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-
   useEffect(() => {
     const userId = user?.$id;
-    
     if (!userId) {
       setTasks([]);
       setIsLoading(false);
       return;
     }
-
     let subscription: any;
-
     async function init() {
       try {
         const db = getDatabase();
@@ -3612,7 +3391,6 @@ export function useTasks() {
           },
           sort: [{ date: 'asc' }, { createdAt: 'desc' }],
         });
-
         subscription = query.$.subscribe((docs) => {
           setTasks(docs);
           setIsLoading(false);
@@ -3622,24 +3400,19 @@ export function useTasks() {
         setIsLoading(false);
       }
     }
-
     init();
-
     return () => {
       if (subscription) subscription.unsubscribe();
     };
   }, [user?.$id]);
-
   const addTask = useCallback(async (task: Omit<TaskDocument, 'id' | 'userId' | 'createdAt' | 'updatedAt' | 'isDeleted'>) => {
     const userId = user?.$id;
     if (!userId) {
       console.error('[useTasks] Cannot add task: User not authenticated');
       return;
     }
-
     const db = getDatabase();
     const now = new Date().toISOString();
-
     const newTask: TaskDocument = {
       ...task,
       id: `task_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
@@ -3648,10 +3421,8 @@ export function useTasks() {
       updatedAt: now,
       isDeleted: false,
     };
-
     await db.tasks.insert(newTask);
   }, [user?.$id]);
-
   const updateTask = useCallback(async (id: string, updates: Partial<TaskDocument>) => {
     const db = getDatabase();
     const doc = await db.tasks.findOne(id).exec();
@@ -3662,57 +3433,91 @@ export function useTasks() {
       });
     }
   }, []);
-
   const deleteTask = useCallback(async (id: string) => {
     await updateTask(id, { isDeleted: true });
   }, [updateTask]);
-
-  // FIX: Conditionally add completedAt to avoid RxDB patching with 'undefined'
   const toggleTaskCompletion = useCallback(async (id: string, completed: boolean) => {
     const updates: Partial<TaskDocument> = {
       completed,
     };
-    
     if (completed) {
       updates.completedAt = new Date().toISOString();
     }
-    
     await updateTask(id, updates);
   }, [updateTask]);
-
   return { tasks, isLoading, addTask, updateTask, deleteTask, toggleTaskCompletion };
 }
 </file>
 
 <file path="src/lib/appwrite.ts">
 import { Client, Account } from 'appwrite';
-
 const client = new Client();
 client
-    .setEndpoint('https://sgp.cloud.appwrite.io/v1') // Singapore regional endpoint
+    .setEndpoint('https://sgp.cloud.appwrite.io/v1')
     .setProject('6a9703c50016b37110ff');
-
 export const account = new Account(client);
 export { client };
 </file>
 
+<file path="src/lib/imageCache.ts">
+const DB_NAME = 'mosaic_image_cache';
+const STORE_NAME = 'blobs';
+function openDB(): Promise<IDBDatabase> {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open(DB_NAME, 1);
+    request.onupgradeneeded = (e) => {
+      const db = (e.target as IDBOpenDBRequest).result;
+      if (!db.objectStoreNames.contains(STORE_NAME)) {
+        db.createObjectStore(STORE_NAME);
+      }
+    };
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
+}
+export async function getCachedImage(fileId: string): Promise<Blob | undefined> {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE_NAME, 'readonly');
+    const store = tx.objectStore(STORE_NAME);
+    const req = store.get(fileId);
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+export async function cacheImage(fileId: string, blob: Blob): Promise<void> {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE_NAME, 'readwrite');
+    const store = tx.objectStore(STORE_NAME);
+    const req = store.put(blob, fileId);
+    req.onsuccess = () => resolve();
+    req.onerror = () => reject(req.error);
+  });
+}
+export async function deleteCachedImage(fileId: string): Promise<void> {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE_NAME, 'readwrite');
+    const store = tx.objectStore(STORE_NAME);
+    const req = store.delete(fileId);
+    req.onsuccess = () => resolve();
+    req.onerror = () => reject(req.error);
+  });
+}
+</file>
+
 <file path="src/lib/mockData.ts">
 import type { TaskDocument } from '../db/schema';
-
-// Mock categories for visualization
 export const mockCategories = {
   'cat-1': { id: 'cat-1', name: 'Work', color: '#3B82F6', order: 0 },
   'cat-2': { id: 'cat-2', name: 'Personal', color: '#10B981', order: 1 },
   'cat-3': { id: 'cat-3', name: 'Fitness', color: '#F59E0B', order: 2 },
   'cat-4': { id: 'cat-4', name: 'Learning', color: '#8B5CF6', order: 3 },
 };
-
-// Generate mock tasks for the current month
 export const generateMockTasks = (): TaskDocument[] => {
   const today = new Date();
   const tasks: TaskDocument[] = [];
-  
-  // Create some tasks scattered across the month
   const taskTemplates = [
     { title: 'Setup project', categoryId: 'cat-1', completed: true, date: 1 },
     { title: 'Team meeting', categoryId: 'cat-1', completed: true, date: 1 },
@@ -3734,16 +3539,14 @@ export const generateMockTasks = (): TaskDocument[] => {
     { title: 'Sprint planning', categoryId: 'cat-1', completed: true, date: 28 },
     { title: 'Date night', categoryId: 'cat-2', completed: false, date: 30 },
   ];
-
   taskTemplates.forEach((template, index) => {
     const date = new Date(today.getFullYear(), today.getMonth(), template.date);
-    
     tasks.push({
       id: `task-${index}`,
       title: template.title,
       completed: template.completed,
       categoryId: template.categoryId,
-      date: date.toISOString().split('T')[0], // YYYY-MM-DD format
+      date: date.toISOString().split('T')[0],
       createdAt: date.toISOString(),
       updatedAt: date.toISOString(),
       userId: 'user1',
@@ -3751,95 +3554,146 @@ export const generateMockTasks = (): TaskDocument[] => {
       visibility: 'private',
       tags: '',
       memo: '',
-      image: index % 5 === 0 ? 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=100&h=100&fit=crop' : undefined,
+      image: index % 5 === 0 ? 'https:
       source: '',
       routineId: undefined,
       reminderTime: undefined,
       reactions: undefined,
     });
   });
-
   return tasks;
 };
 </file>
 
 <file path="src/lib/storage.ts">
 import imageCompression from 'browser-image-compression';
-
 const APPWRITE_CONFIG = {
   endpoint: 'https://sgp.cloud.appwrite.io',
   projectId: '6a9703c50016b37110ff',
   bucketId: 'task_images',
 };
-
-export async function compressImage(file: File): Promise<File> {
+export async function compressImage(file: File): Promise<Blob> {
   const options = {
-    maxSizeMB: 0.15, // 150KB
+    maxSizeMB: 0.15,
     maxWidthOrHeight: 1024,
     useWebWorker: true,
-    fileType: 'image/jpeg',
+    fileType: 'image/webp',
   };
-
   try {
-    const compressedFile = await imageCompression(file, options);
-    return compressedFile;
+    return await imageCompression(file, options);
   } catch (error) {
     console.error('[Storage] Image compression failed:', error);
     throw error;
   }
 }
-
 export async function uploadImage(file: File): Promise<string> {
-  const compressedFile = await compressImage(file);
-  
+  const compressedBlob = await compressImage(file);
   const fileId = `img_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  const webpFile = new Blob([compressedBlob], { type: 'image/webp' });
   const formData = new FormData();
   formData.append('fileId', fileId);
-  formData.append('file', compressedFile);
-  
-  // FIX: Removed 'create("any")'. Storage files only accept read, update, delete, write.
+  formData.append('file', webpFile, `${fileId}.webp`);
   formData.append('permissions[]', 'read("any")');
   formData.append('permissions[]', 'update("any")');
   formData.append('permissions[]', 'delete("any")');
   formData.append('permissions[]', 'write("any")');
-
   const url = `${APPWRITE_CONFIG.endpoint}/v1/storage/buckets/${APPWRITE_CONFIG.bucketId}/files`;
-
   const res = await fetch(url, {
     method: 'POST',
-    headers: {
-      'X-Appwrite-Project': APPWRITE_CONFIG.projectId,
-    },
+    headers: { 'X-Appwrite-Project': APPWRITE_CONFIG.projectId },
     body: formData,
+    credentials: 'include',
   });
-
   if (!res.ok) {
     const errorText = await res.text();
     throw new Error(`Appwrite Storage Upload Error: ${errorText}`);
   }
-
   return fileId;
 }
-
-export async function deleteImage(fileId: string): Promise<void> {
-  const url = `${APPWRITE_CONFIG.endpoint}/v1/storage/buckets/${APPWRITE_CONFIG.bucketId}/files/${fileId}`;
-
-  const res = await fetch(url, {
-    method: 'DELETE',
-    headers: {
-      'X-Appwrite-Project': APPWRITE_CONFIG.projectId,
-    },
+const DB_NAME = 'mosaic_image_cache';
+const STORE_NAME = 'blobs';
+function openCacheDB(): Promise<IDBDatabase> {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open(DB_NAME, 1);
+    request.onupgradeneeded = (e) => {
+      const db = (e.target as IDBOpenDBRequest).result;
+      if (!db.objectStoreNames.contains(STORE_NAME)) {
+        db.createObjectStore(STORE_NAME);
+      }
+    };
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
   });
-
-  if (!res.ok) {
-    console.warn('[Storage] Failed to delete image:', fileId);
+}
+async function getCachedImage(fileId: string): Promise<Blob | undefined> {
+  const db = await openCacheDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE_NAME, 'readonly');
+    const store = tx.objectStore(STORE_NAME);
+    const req = store.get(fileId);
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+async function cacheImage(fileId: string, blob: Blob): Promise<void> {
+  const db = await openCacheDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE_NAME, 'readwrite');
+    const store = tx.objectStore(STORE_NAME);
+    const req = store.put(blob, fileId);
+    req.onsuccess = () => resolve();
+    req.onerror = () => reject(req.error);
+  });
+}
+async function deleteCachedImage(fileId: string): Promise<void> {
+  const db = await openCacheDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE_NAME, 'readwrite');
+    const store = tx.objectStore(STORE_NAME);
+    const req = store.delete(fileId);
+    req.onsuccess = () => resolve();
+    req.onerror = () => reject(req.error);
+  });
+}
+export async function getLocalImageUrl(fileId: string): Promise<string | null> {
+  if (!fileId) return null;
+  const cachedBlob = await getCachedImage(fileId);
+  if (cachedBlob) {
+    return URL.createObjectURL(cachedBlob);
+  }
+  if (!navigator.onLine) return null;
+  try {
+    const url = `${APPWRITE_CONFIG.endpoint}/v1/storage/buckets/${APPWRITE_CONFIG.bucketId}/files/${fileId}/view?project=${APPWRITE_CONFIG.projectId}`;
+    const res = await fetch(url, {
+      credentials: 'include',
+      headers: { 'X-Appwrite-Project': APPWRITE_CONFIG.projectId },
+    });
+    if (!res.ok) return null;
+    const blob = await res.blob();
+    await cacheImage(fileId, blob);
+    return URL.createObjectURL(blob);
+  } catch (err) {
+    console.error('[Storage] Failed to fetch image:', err);
+    return null;
   }
 }
-
+export async function deleteImage(fileId: string): Promise<void> {
+  const url = `${APPWRITE_CONFIG.endpoint}/v1/storage/buckets/${APPWRITE_CONFIG.bucketId}/files/${fileId}`;
+  try {
+    const res = await fetch(url, {
+      method: 'DELETE',
+      headers: { 'X-Appwrite-Project': APPWRITE_CONFIG.projectId },
+      credentials: 'include',
+    });
+    if (!res.ok) console.warn('[Storage] Failed to delete image from Appwrite:', fileId);
+  } catch (err) {
+    console.warn('[Storage] Network error deleting image:', err);
+  }
+  await deleteCachedImage(fileId);
+}
 export function getImagePreviewUrl(fileId: string): string {
   return `${APPWRITE_CONFIG.endpoint}/v1/storage/buckets/${APPWRITE_CONFIG.bucketId}/files/${fileId}/preview?project=${APPWRITE_CONFIG.projectId}&width=200&height=200`;
 }
-
 export function getImageFullUrl(fileId: string): string {
   return `${APPWRITE_CONFIG.endpoint}/v1/storage/buckets/${APPWRITE_CONFIG.bucketId}/files/${fileId}/view?project=${APPWRITE_CONFIG.projectId}`;
 }
@@ -3853,17 +3707,14 @@ import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { motion } from 'framer-motion';
 import { Eye, EyeOff } from 'lucide-react';
-
 export const AuthPage: React.FC = () => {
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-
   const { login, signup, isLoading, error } = useAuth();
   const navigate = useNavigate();
-
   // FIX: Clear sensitive fields when switching between Login and Signup
   useEffect(() => {
     setPassword(''); // Always clear password
@@ -3871,22 +3722,18 @@ export const AuthPage: React.FC = () => {
       setName(''); // Clear name when switching to Login
     }
   }, [isLogin]);
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     let success = false;
-
     if (isLogin) {
       success = await login(email, password);
     } else {
       success = await signup(email, password, name);
     }
-
     if (success) {
       navigate('/home', { replace: true });
     }
   };
-
   return (
     <div className="min-h-screen bg-[#111111] text-white flex items-center justify-center p-6">
       <motion.div
@@ -3900,8 +3747,7 @@ export const AuthPage: React.FC = () => {
         <p className="text-gray-500 text-sm text-center mb-8">
           {isLogin ? 'Sign in to access your life tracker.' : 'Start tracking your life today.'}
         </p>
-
-        {/* Tab Switcher */}
+        {}
         <div className="flex bg-[#111111] rounded-lg p-1 mb-6">
           <button
             type="button"
@@ -3920,7 +3766,6 @@ export const AuthPage: React.FC = () => {
             Sign Up
           </button>
         </div>
-
         <form onSubmit={handleSubmit} className="space-y-4">
           {!isLogin && (
             <Input
@@ -3940,8 +3785,7 @@ export const AuthPage: React.FC = () => {
             onChange={(e) => setEmail(e.target.value)}
             required
           />
-
-          {/* Password Input with Visibility Toggle */}
+          {}
           <div className="w-full">
             <label className="block text-xs text-gray-500 mb-1.5 ml-1">Password</label>
             <div className="relative">
@@ -3962,13 +3806,11 @@ export const AuthPage: React.FC = () => {
               </button>
             </div>
           </div>
-
           {error && (
             <div className="text-red-400 text-sm bg-red-900/20 p-3 rounded-lg border border-red-900/50">
               {error}
             </div>
           )}
-
           <Button
             variant="primary"
             className="w-full mt-4"
@@ -3988,32 +3830,25 @@ import React, { useState, useEffect } from 'react';
 import { TopBar } from '../components/home/TopBar';
 import { ViewContainer } from '../components/home/ViewContainer';
 import type { ViewType } from '../components/home/ViewSwitcher';
-
 export const HomePage: React.FC = () => {
-  // Initialize state from localStorage to implement View Memory
   const [activeView, setActiveView] = useState<ViewType>(() => {
     const saved = localStorage.getItem('mosaic_activeView');
     if (saved === 'calendar' || saved === 'diary') {
       return saved;
     }
-    return 'calendar'; // Default fallback
+    return 'calendar';
   });
-
-  // Save to localStorage whenever the view changes
   useEffect(() => {
     localStorage.setItem('mosaic_activeView', activeView);
   }, [activeView]);
-
   const handleViewChange = (view: ViewType) => {
     setActiveView(view);
   };
-
   return (
     <div className="min-h-full flex flex-col">
-      {/* Sticky Top Bar */}
+      {}
       <TopBar activeView={activeView} onViewChange={handleViewChange} />
-      
-      {/* Content Area */}
+      {}
       <div className="flex-1">
         <ViewContainer activeView={activeView} />
       </div>
@@ -4031,59 +3866,48 @@ import { BottomSheet } from '../components/ui/BottomSheet';
 import { TopBar } from '../components/home/TopBar';
 import type { ViewType } from '../components/home/ViewSwitcher';
 import { Home, Settings, Image as ImageIcon } from 'lucide-react';
-
 export const TestPlayground: React.FC = () => {
   const [text, setText] = useState('');
   const [isSheetOpen, setIsSheetOpen] = useState(false);
-  
   // FIX: Initialize state from localStorage, default to 'calendar'
   const [activeView, setActiveView] = useState<ViewType>(() => {
     return (localStorage.getItem('activeView') as ViewType) || 'calendar';
   });
-
-  // FIX: Save to localStorage whenever view changes
   const handleViewChange = (view: ViewType) => {
     setActiveView(view);
     localStorage.setItem('activeView', view);
   };
-
   const renderContent = () => {
     return (
-      <div className="min-h-full"> {/* Ensure container is tall enough to scroll */}
-        
-        {/* FIX: TopBar is now sticky internally, no wrapper needed */}
+      <div className="min-h-full"> {}
+        {}
         <TopBar activeView={activeView} onViewChange={handleViewChange} />
-        
         <div className="p-6 space-y-6 max-w-md mx-auto">
-          
-          {/* Active View Indicator */}
+          {}
           <div className="bg-[#1E1E1E] p-4 rounded-xl border border-[#333333] text-center">
             <p className="text-sm text-gray-400">
               Current Active View: <span className="text-white font-bold uppercase">{activeView}</span>
             </p>
           </div>
-
           <h1 className="text-2xl font-bold mb-2 text-center">Milestone 2.1 Batch 1 Playground</h1>
           <p className="text-gray-500 text-sm text-center mb-8">
             Verify TopBar, ViewSwitcher animations, and Hamburger Menu sheet.
           </p>
-
-          {/* --- AVATARS --- */}
+          {}
           <section className="bg-[#1E1E1E] p-4 rounded-xl border border-[#333333]">
             <h2 className="text-xs font-semibold text-gray-500 mb-4 uppercase tracking-wider">Avatars</h2>
             <div className="flex items-center gap-4">
               <Avatar size="sm" alt="Small" />
               <Avatar size="md" alt="Medium" />
               <Avatar size="lg" alt="Large" />
-              <Avatar 
-                size="md" 
-                src="https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=100&h=100" 
-                alt="With Image" 
+              <Avatar
+                size="md"
+                src="https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=100&h=100"
+                alt="With Image"
               />
             </div>
           </section>
-
-          {/* --- BUTTONS --- */}
+          {}
           <section className="bg-[#1E1E1E] p-4 rounded-xl border border-[#333333]">
             <h2 className="text-xs font-semibold text-gray-500 mb-4 uppercase tracking-wider">Buttons</h2>
             <div className="flex flex-wrap gap-3">
@@ -4095,20 +3919,19 @@ export const TestPlayground: React.FC = () => {
               <Button variant="primary" disabled>Disabled</Button>
             </div>
           </section>
-
-          {/* --- INPUTS --- */}
+          {}
           <section className="bg-[#1E1E1E] p-4 rounded-xl border border-[#333333]">
             <h2 className="text-xs font-semibold text-gray-500 mb-4 uppercase tracking-wider">Inputs</h2>
             <div className="space-y-4">
-              <Input 
-                label="Task Title" 
-                placeholder="e.g., Buy groceries" 
+              <Input
+                label="Task Title"
+                placeholder="e.g., Buy groceries"
                 value={text}
                 onChange={(e) => setText(e.target.value)}
               />
-              <Textarea 
-                label="Memo / Notes" 
-                placeholder="Add some details here..." 
+              <Textarea
+                label="Memo / Notes"
+                placeholder="Add some details here..."
                 rows={3}
               />
               <div className="flex items-center gap-2 text-xs text-gray-500">
@@ -4117,8 +3940,7 @@ export const TestPlayground: React.FC = () => {
               </div>
             </div>
           </section>
-
-          {/* --- BOTTOM SHEET TEST --- */}
+          {}
           <section className="bg-[#1E1E1E] p-4 rounded-xl border border-[#333333]">
             <h2 className="text-xs font-semibold text-gray-500 mb-4 uppercase tracking-wider">Bottom Sheet Primitive</h2>
             <p className="text-sm text-gray-400 mb-4">
@@ -4129,19 +3951,17 @@ export const TestPlayground: React.FC = () => {
             </Button>
           </section>
         </div>
-
-        {/* --- BOTTOM SHEET MODAL --- */}
-        <BottomSheet 
-          isOpen={isSheetOpen} 
+        {}
+        <BottomSheet
+          isOpen={isSheetOpen}
           onClose={() => setIsSheetOpen(false)}
           title="Test Bottom Sheet"
         >
           <div className="space-y-4 pt-2">
             <p className="text-gray-300 text-sm leading-relaxed">
-              Try dragging this sheet down to close it! Or click the dark backdrop outside. 
+              Try dragging this sheet down to close it! Or click the dark backdrop outside.
               Pressing Escape on desktop also works.
             </p>
-            
             <div className="h-32 bg-[#111111] rounded-lg flex items-center justify-center text-gray-600 text-sm border border-[#333333]">
               Content Block 1
             </div>
@@ -4151,7 +3971,6 @@ export const TestPlayground: React.FC = () => {
             <div className="h-32 bg-[#111111] rounded-lg flex items-center justify-center text-gray-600 text-sm border border-[#333333]">
               Content Block 3 (Scroll me!)
             </div>
-            
             <div className="pt-4 border-t border-[#333333]">
                <Button variant="primary" className="w-full" onClick={() => setIsSheetOpen(false)}>
                  Close via Button
@@ -4162,7 +3981,6 @@ export const TestPlayground: React.FC = () => {
       </div>
     );
   };
-
   return renderContent();
 };
 </file>
@@ -4177,7 +3995,6 @@ export const TestPlayground: React.FC = () => {
   border: 2px solid transparent;
   transition: border-color 0.3s;
   margin-bottom: 24px;
-
   &:hover {
     border-color: var(--accent-border);
   }
@@ -4186,28 +4003,23 @@ export const TestPlayground: React.FC = () => {
     outline-offset: 2px;
   }
 }
-
 .hero {
   position: relative;
-
   .base,
   .framework,
   .vite {
     inset-inline: 0;
     margin: 0 auto;
   }
-
   .base {
     width: 170px;
     position: relative;
     z-index: 0;
   }
-
   .framework,
   .vite {
     position: absolute;
   }
-
   .framework {
     z-index: 1;
     top: 34px;
@@ -4215,7 +4027,6 @@ export const TestPlayground: React.FC = () => {
     transform: perspective(2000px) rotateZ(300deg) rotateX(44deg) rotateY(39deg)
       scale(1.4);
   }
-
   .vite {
     z-index: 0;
     top: 107px;
@@ -4225,7 +4036,6 @@ export const TestPlayground: React.FC = () => {
       scale(0.8);
   }
 }
-
 #center {
   display: flex;
   flex-direction: column;
@@ -4233,18 +4043,15 @@ export const TestPlayground: React.FC = () => {
   place-content: center;
   place-items: center;
   flex-grow: 1;
-
   @media (max-width: 1024px) {
     padding: 32px 20px 24px;
     gap: 18px;
   }
 }
-
 #next-steps {
   display: flex;
   border-top: 1px solid var(--border);
   text-align: left;
-
   & > div {
     flex: 1 1 0;
     padding: 32px;
@@ -4252,39 +4059,32 @@ export const TestPlayground: React.FC = () => {
       padding: 24px 20px;
     }
   }
-
   .icon {
     margin-bottom: 16px;
     width: 22px;
     height: 22px;
   }
-
   @media (max-width: 1024px) {
     flex-direction: column;
     text-align: center;
   }
 }
-
 #docs {
   border-right: 1px solid var(--border);
-
   @media (max-width: 1024px) {
     border-right: none;
     border-bottom: 1px solid var(--border);
   }
 }
-
 #next-steps ul {
   list-style: none;
   padding: 0;
   display: flex;
   gap: 8px;
   margin: 32px 0 0;
-
   .logo {
     height: 18px;
   }
-
   a {
     color: var(--text-h);
     font-size: 16px;
@@ -4296,7 +4096,6 @@ export const TestPlayground: React.FC = () => {
     gap: 8px;
     text-decoration: none;
     transition: box-shadow 0.3s;
-
     &:hover {
       box-shadow: var(--shadow);
     }
@@ -4305,16 +4104,13 @@ export const TestPlayground: React.FC = () => {
       width: 18px;
     }
   }
-
   @media (max-width: 1024px) {
     margin-top: 20px;
     flex-wrap: wrap;
     justify-content: center;
-
     li {
       flex: 1 1 calc(50% - 8px);
     }
-
     a {
       width: 100%;
       justify-content: center;
@@ -4322,7 +4118,6 @@ export const TestPlayground: React.FC = () => {
     }
   }
 }
-
 #spacer {
   height: 88px;
   border-top: 1px solid var(--border);
@@ -4330,11 +4125,9 @@ export const TestPlayground: React.FC = () => {
     height: 48px;
   }
 }
-
 .ticks {
   position: relative;
   width: 100%;
-
   &::before,
   &::after {
     content: '';
@@ -4342,7 +4135,6 @@ export const TestPlayground: React.FC = () => {
     top: -4.5px;
     border: 5px solid transparent;
   }
-
   &::before {
     left: 0;
     border-left-color: var(--border);
@@ -4357,21 +4149,19 @@ export const TestPlayground: React.FC = () => {
 <file path="src/App.tsx">
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AppLayout } from './components/layout/AppLayout';
-import { HomePage } from './pages/HomePage'; // <-- CHANGED
+import { HomePage } from './pages/HomePage';
 import { ComingSoon } from './components/layout/ComingSoon';
 import { AuthPage } from './pages/AuthPage';
-
 function App() {
   return (
     <BrowserRouter>
       <Routes>
-        {/* Public Route: Login Page */}
+        {}
         <Route path="/login" element={<AuthPage />} />
-        
-        {/* Protected Routes: Wrapped in AppLayout */}
+        {}
         <Route element={<AppLayout />}>
           <Route path="/" element={<Navigate to="/home" replace />} />
-          <Route path="/home" element={<HomePage />} /> {/* <-- CHANGED */}
+          <Route path="/home" element={<HomePage />} /> {}
           <Route path="/explore" element={<ComingSoon />} />
           <Route path="/notifications" element={<ComingSoon />} />
           <Route path="/messages" element={<ComingSoon />} />
@@ -4381,7 +4171,6 @@ function App() {
     </BrowserRouter>
   );
 }
-
 export default App;
 </file>
 
@@ -4389,25 +4178,31 @@ export default App;
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-
 :root {
   color-scheme: dark;
 }
-
 body {
   @apply bg-background text-white m-0 p-0 min-h-screen font-sans;
-  /* Prevent pull-to-refresh on mobile which can interfere with swipe gestures */
-  overscroll-behavior-y: none; 
+  overscroll-behavior-y: none;
 }
-
-/* Hide scrollbar for Chrome, Safari and Opera */
 .no-scrollbar::-webkit-scrollbar {
   display: none;
 }
-/* Hide scrollbar for IE, Edge and Firefox */
 .no-scrollbar {
-  -ms-overflow-style: none;  /* IE and Edge */
-  scrollbar-width: none;  /* Firefox */
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.pswp__custom-caption {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 10;
+  transition: opacity 0.2s ease;
+  opacity: 1;
+}
+.pswp__ui--hidden .pswp__custom-caption {
+  opacity: 0 !important;
 }
 </file>
 
@@ -4418,36 +4213,25 @@ import App from './App.tsx';
 import './index.css';
 import { initializeDatabase } from './db/database';
 import { initializeSync } from './db/sync';
-
 async function bootstrap() {
-  // 1. Request persistent storage (prevents iOS/WebKit from purging IndexedDB)
   if (navigator.storage && navigator.storage.persist) {
     const isPersisted = await navigator.storage.persist();
     console.log(`[Bootstrap] Storage persisted: ${isPersisted}`);
   }
-
-  // 2. Initialize RxDB BEFORE React mounts
   try {
     console.log('[Bootstrap] Initializing database...');
     await initializeDatabase();
     console.log('[Bootstrap] ✅ Database initialized successfully.');
-    
-    // 3. Start background sync 
-    // We don't 'await' this so it doesn't block the UI from rendering immediately
     initializeSync().catch(err => console.error('[Bootstrap] Initial sync failed:', err));
   } catch (error) {
     console.error('[Bootstrap] FATAL: Database initialization failed', error);
   }
-
-  // 4. Render React App
   ReactDOM.createRoot(document.getElementById('root')!).render(
     <React.StrictMode>
       <App />
     </React.StrictMode>
   );
 }
-
-// Kick off the application
 bootstrap();
 </file>
 
@@ -4485,7 +4269,6 @@ import reactHooks from 'eslint-plugin-react-hooks'
 import reactRefresh from 'eslint-plugin-react-refresh'
 import tseslint from 'typescript-eslint'
 import { defineConfig, globalIgnores } from 'eslint/config'
-
 export default defineConfig([
   globalIgnores(['dist']),
   {
@@ -4506,25 +4289,23 @@ export default defineConfig([
 <file path="index.html">
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-    
-    <!-- PWA & iOS Meta Tags -->
-    <meta name="theme-color" content="#111111" />
-    <meta name="description" content="An offline-first, local-first life tracker PWA." />
-    <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-    <meta name="apple-mobile-web-app-title" content="Mosaic" />
-    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
-    
-    <title>Mosaic | Life Tracker</title>
-  </head>
-  <body class="bg-[#111111] text-white">
-    <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
-  </body>
+<head>
+  <meta charset="UTF-8" />
+  <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="theme-color" content="#111111" />
+  <meta name="description" content="An offline-first, local-first life tracker PWA." />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Mosaic" />
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+  <title>Mosaic | Life Tracker</title>
+</head>
+<body class="bg-[#111111] text-white">
+  <div id="root"></div>
+  <script type="module" src="/src/main.tsx"></script>
+</body>
 </html>
 </file>
 
@@ -4548,6 +4329,7 @@ export default defineConfig([
     "emoji-picker-react": "^4.19.4",
     "framer-motion": "^13.2.0",
     "lucide-react": "^1.39.0",
+    "photoswipe": "^5.4.4",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "react-router-dom": "^7.18.3",
@@ -4587,97 +4369,47 @@ export default {
 }
 </file>
 
-<file path="README.md">
-# React + TypeScript + Vite
-
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
-
-Currently, two official plugins are available:
-
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
-
-## React Compiler
-
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
+<file path="repomix.config.json">
+{
+  "output": {
+    "filePath": "repomix-output.xml",
+    "style": "xml",
+    "removeComments": true,
+    "removeEmptyLines": true,
+    "topFilesLength": 0,
+    "showLineNumbers": false
   },
-])
-
-```
-
-You can also install [eslint-plugin-react-x](https://npmx.dev/package/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://npmx.dev/package/eslint-plugin-react-dom) for React-specific lint rules:
-
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-
-```
+  "ignore": {
+    "useGitignore": true,
+    "useDefaultPatterns": true,
+    "customPatterns": [
+      "node_modules",
+      "public",
+      "dist",
+      "build",
+      ".next",
+      "*.md",
+      "*.lock",
+      "*.log",
+      ".env*",
+      "repomix-output.xml"
+    ]
+  }
+}
 </file>
 
 <file path="tailwind.config.js">
-/** @type {import('tailwindcss').Config} */
 export default {
   content: [
     "./index.html",
     "./src/**/*.{js,ts,jsx,tsx}",
   ],
-  darkMode: 'class', // We will force dark mode
+  darkMode: 'class',
   theme: {
     extend: {
       colors: {
-        background: '#111111', // Deep dark background
-        surface: '#1E1E1E',    // Slightly lighter for cards/sheets
+        background: '#111111',
+        surface: '#1E1E1E',
         surfaceHighlight: '#2A2A2A',
       },
       fontFamily: {
@@ -4759,21 +4491,20 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
 import basicSsl from '@vitejs/plugin-basic-ssl';
-
 export default defineConfig({
   plugins: [
     react(),
     basicSsl(),
     VitePWA({
-      registerType: 'autoUpdate', // Automatically update the service worker when a new version is deployed
+      registerType: 'autoUpdate',
       includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'masked-icon.svg'],
       manifest: {
         name: 'Life Tracker',
         short_name: 'Mosaic',
         description: 'An offline-first, local-first life tracker PWA.',
-        theme_color: '#111111', // Matches our dark mode background
+        theme_color: '#111111',
         background_color: '#111111',
-        display: 'standalone', // Hides the browser URL bar when installed
+        display: 'standalone',
         orientation: 'portrait',
         scope: '/',
         start_url: '/',
@@ -4792,22 +4523,21 @@ export default defineConfig({
             src: 'pwa-512x512.png',
             sizes: '512x512',
             type: 'image/png',
-            purpose: 'any maskable' // Required for Android adaptive icons
+            purpose: 'any maskable'
           }
         ]
       },
       workbox: {
-        // Cache all static assets and API calls for offline use
         globPatterns: ['**/*.{js,css,html,ico,png,svg,webp}'],
         runtimeCaching: [
           {
             urlPattern: /^https:\/\/sgp\.cloud\.appwrite\.io\/.*/i,
-            handler: 'NetworkFirst', // Try network first, fallback to cache for Appwrite API
+            handler: 'NetworkFirst',
             options: {
               cacheName: 'appwrite-api-cache',
               expiration: {
                 maxEntries: 50,
-                maxAgeSeconds: 60 * 60 * 24 // 1 day
+                maxAgeSeconds: 60 * 60 * 24
               }
             }
           }
