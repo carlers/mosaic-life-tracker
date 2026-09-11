@@ -1,4 +1,6 @@
 import imageCompression from 'browser-image-compression';
+import { client, account } from './appwrite';
+import { Storage, Permission, Role } from 'appwrite';
 
 const APPWRITE_CONFIG = {
   endpoint: 'https://sgp.cloud.appwrite.io',
@@ -6,14 +8,14 @@ const APPWRITE_CONFIG = {
   bucketId: 'task_images',
 };
 
-// --- Image Compression & Upload ---
+const storage = new Storage(client);
 
 export async function compressImage(file: File): Promise<Blob> {
   const options = {
-    maxSizeMB: 0.15, // 150KB target
+    maxSizeMB: 0.15,
     maxWidthOrHeight: 1024,
     useWebWorker: true,
-    fileType: 'image/webp', // Force WebP for superior compression
+    fileType: 'image/webp',
   };
   try {
     return await imageCompression(file, options);
@@ -23,37 +25,60 @@ export async function compressImage(file: File): Promise<Blob> {
   }
 }
 
-export async function uploadImage(file: File): Promise<string> {
-  const compressedBlob = await compressImage(file);
-  const fileId = `img_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-  
-  // Explicitly name the file with .webp extension to satisfy Appwrite validation
-  const webpFile = new Blob([compressedBlob], { type: 'image/webp' });
-  
-  const formData = new FormData();
-  formData.append('fileId', fileId);
-  formData.append('file', webpFile, `${fileId}.webp`); 
-  formData.append('permissions[]', 'read("any")');
-  formData.append('permissions[]', 'update("any")');
-  formData.append('permissions[]', 'delete("any")');
-  formData.append('permissions[]', 'write("any")');
-
-  const url = `${APPWRITE_CONFIG.endpoint}/v1/storage/buckets/${APPWRITE_CONFIG.bucketId}/files`;
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: { 'X-Appwrite-Project': APPWRITE_CONFIG.projectId },
-    body: formData,
-    credentials: 'include',
-  });
-
-  if (!res.ok) {
-    const errorText = await res.text();
-    throw new Error(`Appwrite Storage Upload Error: ${errorText}`);
+function generateFileId(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return `img_${crypto.randomUUID().replace(/-/g, '')}`;
   }
-  return fileId;
+  if (typeof crypto !== 'undefined' && typeof crypto.getRandomValues === 'function') {
+    const randomBytes = new Uint8Array(16);
+    crypto.getRandomValues(randomBytes);
+    const hex = Array.from(randomBytes, b => b.toString(16).padStart(2, '0')).join('');
+    return `img_${hex}`;
+  }
+  return `img_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
 }
 
-// --- Offline Caching Layer ---
+async function getCurrentUserId(): Promise<string | null> {
+  try {
+    const user = await account.get();
+    return user?.$id || null;
+  } catch {
+    return null;
+  }
+}
+
+function buildFilePermissions(userId: string) {
+  return [
+    Permission.read(Role.user(userId)),
+    Permission.update(Role.user(userId)),
+    Permission.delete(Role.user(userId)),
+  ];
+}
+
+export async function uploadImage(file: File): Promise<string> {
+  const userId = await getCurrentUserId();
+  if (!userId) {
+    throw new Error('Cannot upload image: no authenticated user');
+  }
+  const compressedBlob = await compressImage(file);
+  const fileId = generateFileId();
+  const webpFile = new File([compressedBlob], `${fileId}.webp`, { type: 'image/webp' });
+  try {
+    await storage.createFile({
+      bucketId: APPWRITE_CONFIG.bucketId,
+      fileId: fileId,
+      file: webpFile,
+      permissions: buildFilePermissions(userId),
+    });
+    return fileId;
+  } catch (error) {
+    console.error('[Storage] Upload failed:', error);
+    throw new Error(
+      `Appwrite Storage Upload Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      { cause: error }
+    );
+  }
+}
 
 const DB_NAME = 'mosaic_image_cache';
 const STORE_NAME = 'blobs';
@@ -105,34 +130,25 @@ async function deleteCachedImage(fileId: string): Promise<void> {
   });
 }
 
-/**
- * Fetches an image with a cache-first strategy for 100% offline support.
- * Returns a Blob URL that MUST be revoked by the consumer via URL.revokeObjectURL()
- */
 export async function getLocalImageUrl(fileId: string): Promise<string | null> {
   if (!fileId) return null;
-
-  // 1. Check local cache first
   const cachedBlob = await getCachedImage(fileId);
   if (cachedBlob) {
     return URL.createObjectURL(cachedBlob);
   }
-
-  // 2. If offline and not cached, return null
   if (!navigator.onLine) return null;
-
-  // 3. Fetch from Appwrite, cache it, and return URL
   try {
-    const url = `${APPWRITE_CONFIG.endpoint}/v1/storage/buckets/${APPWRITE_CONFIG.bucketId}/files/${fileId}/view?project=${APPWRITE_CONFIG.projectId}`;
-    const res = await fetch(url, {
+    const url = storage.getFileView({
+      bucketId: APPWRITE_CONFIG.bucketId,
+      fileId: fileId,
+    });
+    const res = await fetch(url.toString(), {
       credentials: 'include',
       headers: { 'X-Appwrite-Project': APPWRITE_CONFIG.projectId },
     });
-
     if (!res.ok) return null;
-
     const blob = await res.blob();
-    await cacheImage(fileId, blob); // Save to IndexedDB
+    await cacheImage(fileId, blob);
     return URL.createObjectURL(blob);
   } catch (err) {
     console.error('[Storage] Failed to fetch image:', err);
@@ -140,31 +156,32 @@ export async function getLocalImageUrl(fileId: string): Promise<string | null> {
   }
 }
 
-// --- Deletion & Cleanup ---
-
 export async function deleteImage(fileId: string): Promise<void> {
-  // Delete from Appwrite Cloud
-  const url = `${APPWRITE_CONFIG.endpoint}/v1/storage/buckets/${APPWRITE_CONFIG.bucketId}/files/${fileId}`;
   try {
-    const res = await fetch(url, {
-      method: 'DELETE',
-      headers: { 'X-Appwrite-Project': APPWRITE_CONFIG.projectId },
-      credentials: 'include',
+    await storage.deleteFile({
+      bucketId: APPWRITE_CONFIG.bucketId,
+      fileId: fileId,
     });
-    if (!res.ok) console.warn('[Storage] Failed to delete image from Appwrite:', fileId);
   } catch (err) {
-    console.warn('[Storage] Network error deleting image:', err);
+    console.warn('[Storage] Failed to delete image from Appwrite:', fileId, err);
   }
-
-  // ALWAYS delete from local cache to free up space
   await deleteCachedImage(fileId);
 }
 
-// Legacy helpers kept for backward compatibility / non-cached contexts
 export function getImagePreviewUrl(fileId: string): string {
-  return `${APPWRITE_CONFIG.endpoint}/v1/storage/buckets/${APPWRITE_CONFIG.bucketId}/files/${fileId}/preview?project=${APPWRITE_CONFIG.projectId}&width=200&height=200`;
+  const url = storage.getFilePreview({
+    bucketId: APPWRITE_CONFIG.bucketId,
+    fileId: fileId,
+    width: 200,
+    height: 200,
+  });
+  return url.toString();
 }
 
 export function getImageFullUrl(fileId: string): string {
-  return `${APPWRITE_CONFIG.endpoint}/v1/storage/buckets/${APPWRITE_CONFIG.bucketId}/files/${fileId}/view?project=${APPWRITE_CONFIG.projectId}`;
+  const url = storage.getFileView({
+    bucketId: APPWRITE_CONFIG.bucketId,
+    fileId: fileId,
+  });
+  return url.toString();
 }

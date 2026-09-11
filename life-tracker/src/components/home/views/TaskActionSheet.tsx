@@ -3,7 +3,6 @@ import { BottomSheet } from '../../ui/BottomSheet';
 import { Pencil, Trash2, FileText, Clock, ArrowRight, RotateCcw, CheckCircle, Archive, Image as ImageIcon } from 'lucide-react';
 import { isToday } from 'date-fns';
 import type { TaskDocument } from '../../../db/schema';
-
 interface TaskActionSheetProps {
   isOpen: boolean;
   onClose: () => void;
@@ -12,11 +11,11 @@ interface TaskActionSheetProps {
   onDelete: () => void;
   onMemo: () => void;
   onChangeDate: () => void;
+  onAddPhoto: () => void;
   onViewPhoto: () => void;
   onDeletePhoto: () => void;
   onDoItTomorrowOrToday: () => void;
 }
-
 export const TaskActionSheet: React.FC<TaskActionSheetProps> = ({
   isOpen,
   onClose,
@@ -25,19 +24,18 @@ export const TaskActionSheet: React.FC<TaskActionSheetProps> = ({
   onDelete,
   onMemo,
   onChangeDate,
+  onAddPhoto,
   onViewPhoto,
   onDeletePhoto,
   onDoItTomorrowOrToday
 }) => {
   if (!task) return null;
-
   const isTaskToday = isToday(new Date(task.date));
   const tomorrowOrTodayLabel = isTaskToday ? 'Do It Tomorrow' : 'Do It Today';
-
   return (
     <BottomSheet isOpen={isOpen} onClose={onClose} title={task.title} height="auto">
       <div className="pt-2 pb-8 px-4">
-        {/* Edit/Delete Buttons Side by Side */}
+        {}
         <div className="grid grid-cols-2 gap-3 mb-6">
           <button onClick={onEdit} className="flex flex-col items-center justify-center gap-2 py-4 bg-[#2A2A2A] rounded-xl hover:bg-[#333333] transition-colors">
             <Pencil size={20} className="text-blue-400" />
@@ -48,8 +46,7 @@ export const TaskActionSheet: React.FC<TaskActionSheetProps> = ({
             <span className="text-sm text-white">Delete</span>
           </button>
         </div>
-
-        {/* Memo Section - Only show if memo exists */}
+        {}
         {task.memo && (
           <div className="mb-6">
             <div className="flex items-center gap-2 mb-3">
@@ -63,10 +60,9 @@ export const TaskActionSheet: React.FC<TaskActionSheetProps> = ({
             </div>
           </div>
         )}
-
-        {/* Action Items */}
+        {}
         <div className="space-y-1">
-          {/* Memo Button - Only show if NO memo exists yet */}
+          {}
           {!task.memo && (
             <button onClick={() => { onMemo(); onClose(); }} className="w-full flex items-center gap-4 px-2 py-3.5 rounded-xl hover:bg-[#1E1E1E] transition-colors text-white">
               <div className="w-8 h-8 rounded-full bg-yellow-400 flex items-center justify-center">
@@ -75,8 +71,16 @@ export const TaskActionSheet: React.FC<TaskActionSheetProps> = ({
               <span className="text-base font-medium">Memo</span>
             </button>
           )}
-          
-          {/* View Photo Button - Replaces the inline preview */}
+          {}
+          {!task.image && (
+            <button onClick={() => { onAddPhoto(); onClose(); }} className="w-full flex items-center gap-4 px-2 py-3.5 rounded-xl hover:bg-[#1E1E1E] transition-colors text-white">
+              <div className="w-8 h-8 rounded-full bg-green-400 flex items-center justify-center">
+                <ImageIcon size={16} className="text-black" />
+              </div>
+              <span className="text-base font-medium">Add Photo</span>
+            </button>
+          )}
+          {}
           {task.image && (
             <button onClick={() => { onViewPhoto(); onClose(); }} className="w-full flex items-center gap-4 px-2 py-3.5 rounded-xl hover:bg-[#1E1E1E] transition-colors text-white">
               <div className="w-8 h-8 rounded-full bg-green-400 flex items-center justify-center">
@@ -85,8 +89,7 @@ export const TaskActionSheet: React.FC<TaskActionSheetProps> = ({
               <span className="text-base font-medium">View Photo</span>
             </button>
           )}
-
-          {/* Delete Photo Button - Only show if photo exists */}
+          {}
           {task.image && (
             <button onClick={() => { onDeletePhoto(); onClose(); }} className="w-full flex items-center gap-4 px-2 py-3.5 rounded-xl hover:bg-[#1E1E1E] transition-colors text-white">
               <div className="w-8 h-8 rounded-full bg-red-400 flex items-center justify-center">
@@ -95,7 +98,6 @@ export const TaskActionSheet: React.FC<TaskActionSheetProps> = ({
               <span className="text-base font-medium">Delete Photo</span>
             </button>
           )}
-
           <button onClick={() => alert('Set Alarm coming soon')} className="w-full flex items-center gap-4 px-2 py-3.5 rounded-xl hover:bg-[#1E1E1E] transition-colors text-white">
             <div className="w-8 h-8 rounded-full bg-pink-400 flex items-center justify-center">
               <Clock size={16} className="text-black" />

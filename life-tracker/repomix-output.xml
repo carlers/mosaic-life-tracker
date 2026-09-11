@@ -127,9 +127,18 @@ vite.config.ts
 This section contains the contents of the repository's files.
 
 <file path="src/components/home/views/CalendarView.tsx">
-import React, { useState, useRef, useEffect, useMemo } from 'react';
-import { format, addMonths, subMonths, addWeeks, subWeeks, startOfMonth, startOfWeek, endOfWeek } from 'date-fns';
-import { motion, useAnimation, type PanInfo } from 'framer-motion';
+import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
+import {
+  format,
+  startOfMonth,
+  startOfWeek,
+  endOfWeek,
+  addMonths,
+  addWeeks,
+  differenceInCalendarMonths,
+  differenceInCalendarWeeks,
+} from 'date-fns';
+import useEmblaCarousel from 'embla-carousel-react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { MonthView } from './MonthView';
 import { WeekView } from './WeekView';
@@ -137,8 +146,45 @@ import { ViewToggle } from './ViewToggle';
 import { DayViewSheet } from './DayViewSheet';
 import { useTasks } from '../../../hooks/useTasks';
 import { useCategories } from '../../../hooks/useCategories';
-import type { CategoryDocument } from '../../../db/schema';
+import type { CategoryDocument, TaskDocument } from '../../../db/schema';
 export type CalendarViewMode = 'month' | 'week';
+const SLIDES_EACH_SIDE = 30;
+const TOTAL_SLIDES = SLIDES_EACH_SIDE * 2 + 1;
+const CENTER_INDEX = SLIDES_EACH_SIDE;
+interface CalendarSlideProps {
+  date: Date;
+  viewMode: CalendarViewMode;
+  onDayClick: (date: Date) => void;
+  tasks: TaskDocument[];
+  categoriesMap: Record<string, { color: string; name: string }>;
+}
+const CalendarSlide = React.memo(({
+  date,
+  viewMode,
+  onDayClick,
+  tasks,
+  categoriesMap,
+}: CalendarSlideProps) => {
+  if (viewMode === 'month') {
+    return (
+      <MonthView
+        focusDate={date}
+        onDayClick={onDayClick}
+        tasks={tasks}
+        categoriesMap={categoriesMap}
+      />
+    );
+  }
+  return (
+    <WeekView
+      focusDate={date}
+      onDayClick={onDayClick}
+      tasks={tasks}
+      categoriesMap={categoriesMap}
+    />
+  );
+});
+CalendarSlide.displayName = 'CalendarSlide';
 export const CalendarView: React.FC = () => {
   const [viewMode, setViewMode] = useState<CalendarViewMode>('month');
   const [focusDate, setFocusDate] = useState(new Date());
@@ -146,85 +192,72 @@ export const CalendarView: React.FC = () => {
   const { tasks } = useTasks();
   const { categories } = useCategories();
   const categoriesMap = useMemo(() => {
-    return categories.reduce((acc: Record<string, { color: string; name: string }>, cat: CategoryDocument) => {
-      acc[cat.id] = { color: cat.color, name: cat.name };
-      return acc;
-    }, {});
+    return categories.reduce(
+      (acc: Record<string, { color: string; name: string }>, cat: CategoryDocument) => {
+        acc[cat.id] = { color: cat.color, name: cat.name };
+        return acc;
+      },
+      {}
+    );
   }, [categories]);
-  const containerRef = useRef<HTMLDivElement>(null);
-  const [width, setWidth] = useState(0);
-  const controls = useAnimation();
-  const [isAnimating, setIsAnimating] = useState(false);
+  const [baseDate, setBaseDate] = useState(focusDate);
+  const isInternalSwipeRef = useRef(false);
+  const [prevViewMode, setPrevViewMode] = useState(viewMode);
+  if (prevViewMode !== viewMode) {
+    setPrevViewMode(viewMode);
+    setBaseDate(focusDate);
+  }
+  const slides = useMemo(() => {
+    const fn = viewMode === 'month' ? addMonths : addWeeks;
+    return Array.from({ length: TOTAL_SLIDES }, (_, i) => fn(baseDate, i - CENTER_INDEX));
+  }, [baseDate, viewMode]);
+  const [emblaRef, emblaApi] = useEmblaCarousel({
+    loop: false,
+    align: 'start',
+    skipSnaps: false,
+  });
   useEffect(() => {
-    const element = containerRef.current;
-    if (!element) return;
-    const resizeObserver = new ResizeObserver((entries) => {
-      for (const entry of entries) {
-        const newWidth = entry.contentRect.width;
-        setWidth(newWidth);
-        controls.set({ x: -newWidth });
-      }
-    });
-    resizeObserver.observe(element);
-    return () => resizeObserver.disconnect();
-  }, [viewMode, controls]);
-  const getPrevDate = () => viewMode === 'month' ? subMonths(focusDate, 1) : subWeeks(focusDate, 1);
-  const getNextDate = () => viewMode === 'month' ? addMonths(focusDate, 1) : addWeeks(focusDate, 1);
-  const handleDragEnd = (_event: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
-    if (isAnimating || width === 0) return;
-    const threshold = width / 4;
-    const snapTransition = { type: "tween" as const, duration: 0.2, ease: "easeOut" as const };
-    const rejectTransition = { type: "tween" as const, duration: 0.15, ease: "easeOut" as const };
-    if (info.offset.x < -threshold) {
-      setIsAnimating(true);
-      controls.start({
-        x: -2 * width,
-        transition: snapTransition
-      }).then(() => {
-        setFocusDate(getNextDate());
-        controls.set({ x: -width });
-        setIsAnimating(false);
-      });
-    } else if (info.offset.x > threshold) {
-      setIsAnimating(true);
-      controls.start({
-        x: 0,
-        transition: snapTransition
-      }).then(() => {
-        setFocusDate(getPrevDate());
-        controls.set({ x: -width });
-        setIsAnimating(false);
-      });
-    } else {
-      controls.start({
-        x: -width,
-        transition: rejectTransition
-      });
+    if (!emblaApi) return;
+    if (isInternalSwipeRef.current) {
+      isInternalSwipeRef.current = false;
+      return;
     }
-  };
+    const offset =
+      viewMode === 'month'
+        ? differenceInCalendarMonths(focusDate, baseDate)
+        : differenceInCalendarWeeks(focusDate, baseDate);
+    const targetIndex = CENTER_INDEX + offset;
+    if (targetIndex < 0 || targetIndex >= TOTAL_SLIDES) return;
+    if (emblaApi.selectedScrollSnap() !== targetIndex) {
+      emblaApi.scrollTo(targetIndex, true);
+    }
+  }, [emblaApi, focusDate, baseDate, viewMode]);
+  useEffect(() => {
+    if (!emblaApi) return;
+    const onSelect = () => {
+      const index = emblaApi.selectedScrollSnap();
+      const offset = index - CENTER_INDEX;
+      const fn = viewMode === 'month' ? addMonths : addWeeks;
+      const newDate = fn(baseDate, offset);
+      const same =
+        viewMode === 'month'
+          ? differenceInCalendarMonths(newDate, focusDate) === 0
+          : differenceInCalendarWeeks(newDate, focusDate) === 0;
+      if (!same) {
+        isInternalSwipeRef.current = true;
+        setFocusDate(newDate);
+      }
+    };
+    emblaApi.on('select', onSelect);
+    return () => {
+      emblaApi.off('select', onSelect);
+    };
+  }, [emblaApi, baseDate, focusDate, viewMode]);
   const handlePrev = () => {
-    if (isAnimating || width === 0) return;
-    setIsAnimating(true);
-    controls.start({
-      x: 0,
-      transition: { type: "tween" as const, duration: 0.2, ease: "easeOut" as const }
-    }).then(() => {
-      setFocusDate(getPrevDate());
-      controls.set({ x: -width });
-      setIsAnimating(false);
-    });
+    emblaApi?.scrollPrev();
   };
   const handleNext = () => {
-    if (isAnimating || width === 0) return;
-    setIsAnimating(true);
-    controls.start({
-      x: -2 * width,
-      transition: { type: "tween" as const, duration: 0.2, ease: "easeOut" as const }
-    }).then(() => {
-      setFocusDate(getNextDate());
-      controls.set({ x: -width });
-      setIsAnimating(false);
-    });
+    emblaApi?.scrollNext();
   };
   const handleToggle = () => {
     if (viewMode === 'month') {
@@ -236,15 +269,13 @@ export const CalendarView: React.FC = () => {
   };
   const weekStart = startOfWeek(focusDate, { weekStartsOn: 0 });
   const weekEnd = endOfWeek(focusDate, { weekStartsOn: 0 });
-  const title = viewMode === 'month'
-    ? format(focusDate, 'MMMM yyyy')
-    : `${format(weekStart, 'MMM d')} - ${format(weekEnd, 'MMM d, yyyy')}`;
-  const renderCalendarContent = (date: Date) => {
-    if (viewMode === 'month') {
-      return <MonthView focusDate={date} onDayClick={setSelectedDate} tasks={tasks} categoriesMap={categoriesMap} />;
-    }
-    return <WeekView focusDate={date} onDayClick={setSelectedDate} tasks={tasks} categoriesMap={categoriesMap} />;
-  };
+  const title =
+    viewMode === 'month'
+      ? format(focusDate, 'MMMM yyyy')
+      : `${format(weekStart, 'MMM d')} - ${format(weekEnd, 'MMM d, yyyy')}`;
+  const handleDayClick = useCallback((date: Date) => {
+    setSelectedDate(date);
+  }, []);
   return (
     <div className="flex flex-col h-full animate-in fade-in duration-300">
       <div className="px-4 py-3 flex items-center justify-between border-b border-[#333333]">
@@ -255,40 +286,36 @@ export const CalendarView: React.FC = () => {
           <ViewToggle activeMode={viewMode} onToggle={handleToggle} />
           <button
             onClick={handlePrev}
-            disabled={isAnimating}
-            className="p-1.5 rounded-lg bg-[#1E1E1E] border border-[#333333] text-gray-400 hover:text-white hover:bg-[#2A2A2A] transition-colors disabled:opacity-50"
+            className="p-1.5 rounded-lg bg-[#1E1E1E] border border-[#333333] text-gray-400 hover:text-white hover:bg-[#2A2A2A] transition-colors"
           >
             <ChevronLeft size={16} />
           </button>
           <button
             onClick={handleNext}
-            disabled={isAnimating}
-            className="p-1.5 rounded-lg bg-[#1E1E1E] border border-[#333333] text-gray-400 hover:text-white hover:bg-[#2A2A2A] transition-colors disabled:opacity-50"
+            className="p-1.5 rounded-lg bg-[#1E1E1E] border border-[#333333] text-gray-400 hover:text-white hover:bg-[#2A2A2A] transition-colors"
           >
             <ChevronRight size={16} />
           </button>
         </div>
       </div>
-      <div ref={containerRef} className="flex-1 overflow-hidden py-2 relative">
-        <motion.div
-          drag="x"
-          dragConstraints={{ left: -2 * width, right: 0 }}
-          dragElastic={0.1}
-          animate={controls}
-          onDragEnd={handleDragEnd}
-          className="flex h-full cursor-grab active:cursor-grabbing"
-          style={{ width: width * 3, touchAction: 'pan-y' }}
-        >
-          <div style={{ width }} className="flex-shrink-0 opacity-60 pointer-events-none">
-            {renderCalendarContent(getPrevDate())}
-          </div>
-          <div style={{ width }} className="flex-shrink-0 h-full">
-            {renderCalendarContent(focusDate)}
-          </div>
-          <div style={{ width }} className="flex-shrink-0 opacity-60 pointer-events-none">
-            {renderCalendarContent(getNextDate())}
-          </div>
-        </motion.div>
+      <div className="flex-1 overflow-hidden py-2" ref={emblaRef}>
+        <div className="flex h-full" style={{ touchAction: 'pan-y' }}>
+          {slides.map((date, i) => (
+            <div
+              key={i}
+              className="flex-shrink-0 h-full w-full"
+              style={{ flex: '0 0 100%', minWidth: 0 }}
+            >
+              <CalendarSlide
+                date={date}
+                viewMode={viewMode}
+                onDayClick={handleDayClick}
+                tasks={tasks}
+                categoriesMap={categoriesMap}
+              />
+            </div>
+          ))}
+        </div>
       </div>
       <DayViewSheet
         isOpen={!!selectedDate}
@@ -557,15 +584,19 @@ export const DayCell: React.FC<DayCellProps> = ({
 </file>
 
 <file path="src/components/home/views/DayViewSheet.tsx">
-import React, { useRef, useEffect, useState } from 'react';
-import { format, addDays, subDays } from 'date-fns';
-import { motion, useAnimation, AnimatePresence, type PanInfo } from 'framer-motion';
+import React, { useRef, useEffect, useState, useMemo, useCallback } from 'react';
+import { format, addDays, differenceInCalendarDays, startOfDay } from 'date-fns';
+import { Swiper, SwiperSlide } from 'swiper/react';
+import type { Swiper as SwiperClass } from 'swiper';
+import 'swiper/css';
+import { AnimatePresence } from 'framer-motion';
 import { BottomSheet } from '../../ui/BottomSheet';
 import { CategorySection } from './CategorySection';
 import { TaskActionSheet } from './TaskActionSheet';
 import { MemoSheet } from './MemoSheet';
 import { DatePickerSheet } from './DatePickerSheet';
 import { ImageViewer } from './ImageViewer';
+import { ImagePickerSheet } from './ImagePickerSheet';
 import { useTasks } from '../../../hooks/useTasks';
 import { useCategories } from '../../../hooks/useCategories';
 import { useTaskImage } from '../../../hooks/useTaskImage';
@@ -577,23 +608,145 @@ interface DayViewSheetProps {
   selectedDate: Date;
   onDateChange?: (date: Date) => void;
 }
+const SWIPE_RANGE = 90;
+const TOTAL_SLIDES = SWIPE_RANGE * 2 + 1;
+const RENDER_WINDOW = 3;
+const EMPTY_TASKS: TaskDocument[] = [];
+interface DaySlideProps {
+  date: Date;
+  dateStr: string;
+  tasks: TaskDocument[];
+  categories: CategoryDocument[];
+  editingTaskId: string | null;
+  editValue: string;
+  onToggleTask: (taskId: string, currentStatus: boolean) => void;
+  onAddTask: (title: string, categoryId: string, dateStr: string) => void;
+  onOpenActions: (task: TaskDocument) => void;
+  onOpenMemo: (task: TaskDocument) => void;
+  onViewImage: (task: TaskDocument) => void;
+  onEditChange: (val: string) => void;
+  onEditSave: () => void;
+  onEditCancel: () => void;
+}
+const DaySlide = React.memo(({
+  date, dateStr, tasks, categories, editingTaskId, editValue,
+  onToggleTask, onAddTask, onOpenActions, onOpenMemo, onViewImage,
+  onEditChange, onEditSave, onEditCancel,
+}: DaySlideProps) => {
+  const groupedTasks = useMemo(() => {
+    const map: Record<string, TaskDocument[]> = {};
+    for (const task of tasks) {
+      (map[task.categoryId] ||= []).push(task);
+    }
+    return map;
+  }, [tasks]);
+  const headerLabel = useMemo(() => format(date, 'EEEE, MMMM d'), [date]);
+  return (
+    <div className="w-full">
+      {}
+      <div className="px-4 pt-3 pb-2 select-none">
+        <h2 className="text-white text-lg font-semibold tracking-tight">
+          {headerLabel}
+        </h2>
+      </div>
+      <div className="pt-1 pb-8 px-1">
+        {categories.length === 0 ? (
+          <div className="text-center py-12 text-gray-500 text-sm px-4">
+            Create a category to start adding tasks.
+          </div>
+        ) : (
+          categories.map((category: CategoryDocument) => (
+            <CategorySection
+              key={category.id}
+              categoryName={category.name}
+              categoryColor={category.color}
+              visibility={category.visibility}
+              tasks={groupedTasks[category.id] || EMPTY_TASKS}
+              onToggleTask={onToggleTask}
+              onAddTask={(title) => onAddTask(title, category.id, dateStr)}
+              onOpenActions={onOpenActions}
+              onOpenMemo={onOpenMemo}
+              onViewImage={onViewImage}
+              editingTaskId={editingTaskId}
+              editValue={editValue}
+              onEditChange={onEditChange}
+              onEditSave={onEditSave}
+              onEditCancel={onEditCancel}
+            />
+          ))
+        )}
+      </div>
+    </div>
+  );
+});
+DaySlide.displayName = 'DaySlide';
 export const DayViewSheet: React.FC<DayViewSheetProps> = ({
-  isOpen,
-  onClose,
-  selectedDate,
-  onDateChange
+  isOpen, onClose, selectedDate, onDateChange,
 }) => {
   const { tasks, addTask, updateTask, deleteTask, toggleTaskCompletion } = useTasks();
   const { categories } = useCategories();
-  const containerRef = useRef<HTMLDivElement>(null);
-  const [width, setWidth] = useState(0);
-  const controls = useAnimation();
-  const [isAnimating, setIsAnimating] = useState(false);
+  const swiperRef = useRef<SwiperClass | null>(null);
+  const isProgrammaticMoveRef = useRef(false);
+  const wasOpenRef = useRef(false);
+  const selectedDateRef = useRef(selectedDate);
+  useEffect(() => {
+    selectedDateRef.current = selectedDate;
+  }, [selectedDate]);
+  const [anchorDate, setAnchorDate] = useState(() => startOfDay(selectedDate));
+  useEffect(() => {
+    if (isOpen && !wasOpenRef.current) {
+      setAnchorDate(startOfDay(selectedDate));
+    }
+    wasOpenRef.current = isOpen;
+  }, [isOpen, selectedDate]);
+  const slideDates = useMemo(
+    () => Array.from({ length: TOTAL_SLIDES }, (_, i) => addDays(anchorDate, i - SWIPE_RANGE)),
+    [anchorDate]
+  );
+  const slideDateStrs = useMemo(
+    () => slideDates.map((d) => format(d, 'yyyy-MM-dd')),
+    [slideDates]
+  );
+  const initialIndex = useMemo(() => {
+    const offset = differenceInCalendarDays(selectedDate, anchorDate);
+    return Math.min(TOTAL_SLIDES - 1, Math.max(0, offset + SWIPE_RANGE));
+  }, [selectedDate, anchorDate]);
+  const [activeIndex, setActiveIndex] = useState(initialIndex);
+  const [prevInitialIndex, setPrevInitialIndex] = useState(initialIndex);
+  if (prevInitialIndex !== initialIndex) {
+    setPrevInitialIndex(initialIndex);
+    setActiveIndex(initialIndex);
+  }
+  const tasksByDate = useMemo(() => {
+    const map = new Map<string, TaskDocument[]>();
+    for (const t of tasks) {
+      const arr = map.get(t.date);
+      if (arr) arr.push(t);
+      else map.set(t.date, [t]);
+    }
+    return map;
+  }, [tasks]);
+  useEffect(() => {
+    if (!isOpen) return;
+    const s = swiperRef.current;
+    if (!s) return;
+    const offset = differenceInCalendarDays(selectedDate, anchorDate);
+    const targetIndex = offset + SWIPE_RANGE;
+    if (targetIndex < 0 || targetIndex >= TOTAL_SLIDES) return;
+    if (s.activeIndex === targetIndex) return;
+    isProgrammaticMoveRef.current = true;
+    s.slideTo(targetIndex, 0);
+    const raf = requestAnimationFrame(() => {
+      isProgrammaticMoveRef.current = false;
+    });
+    return () => cancelAnimationFrame(raf);
+  }, [isOpen, selectedDate, anchorDate]);
   const [activeTask, setActiveTask] = useState<TaskDocument | null>(null);
   const [isActionSheetOpen, setIsActionSheetOpen] = useState(false);
   const [isMemoSheetOpen, setIsMemoSheetOpen] = useState(false);
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
   const [viewingTask, setViewingTask] = useState<TaskDocument | null>(null);
+  const [imagePickerTask, setImagePickerTask] = useState<TaskDocument | null>(null);
   const viewingImageUrl = useTaskImage(viewingTask?.image).imageUrl;
   const [isDeletePhotoConfirmOpen, setIsDeletePhotoConfirmOpen] = useState(false);
   const [isDeletingPhoto, setIsDeletingPhoto] = useState(false);
@@ -601,91 +754,51 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
   const [editValue, setEditValue] = useState('');
   useEffect(() => {
-    const element = containerRef.current;
-    if (!element || !isOpen) return;
-    const resizeObserver = new ResizeObserver((entries) => {
-      for (const entry of entries) {
-        const newWidth = entry.contentRect.width;
-        setWidth(newWidth);
-        controls.set({ x: -newWidth });
-      }
-    });
-    resizeObserver.observe(element);
-    return () => resizeObserver.disconnect();
-  }, [isOpen, controls]);
-  useEffect(() => {
-    if (width > 0) {
-      controls.set({ x: -width });
-    }
-  }, [selectedDate, width, controls]);
-  useEffect(() => {
     if (deleteFeedback) {
       const timer = setTimeout(() => setDeleteFeedback(null), 2000);
       return () => clearTimeout(timer);
     }
   }, [deleteFeedback]);
-  const prevDate = subDays(selectedDate, 1);
-  const nextDate = addDays(selectedDate, 1);
-  const handleDragEnd = (_event: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
-    if (isAnimating || width === 0 || isActionSheetOpen || isMemoSheetOpen || isDatePickerOpen || viewingTask || isDeletePhotoConfirmOpen) return;
-    const threshold = width / 4;
-    const snapTransition = { type: "tween" as const, duration: 0.2, ease: "easeOut" as const };
-    const rejectTransition = { type: "tween" as const, duration: 0.15, ease: "easeOut" as const };
-    if (info.offset.x < -threshold) {
-      setIsAnimating(true);
-      controls.start({ x: -2 * width, transition: snapTransition }).then(() => {
-        onDateChange?.(nextDate);
-        controls.set({ x: -width });
-        setIsAnimating(false);
-      });
-    } else if (info.offset.x > threshold) {
-      setIsAnimating(true);
-      controls.start({ x: 0, transition: snapTransition }).then(() => {
-        onDateChange?.(prevDate);
-        controls.set({ x: -width });
-        setIsAnimating(false);
-      });
-    } else {
-      controls.start({ x: -width, transition: rejectTransition });
-    }
-  };
-  const handleToggleTask = (taskId: string, currentStatus: boolean) => {
+  // ----- Stable handlers -----
+  const handleToggleTask = useCallback((taskId: string, currentStatus: boolean) => {
     toggleTaskCompletion(taskId, !currentStatus);
-  };
-  const handleAddTask = (title: string, categoryId: string) => {
+  }, [toggleTaskCompletion]);
+  const handleAddTask = useCallback((title: string, categoryId: string, dateStr: string) => {
     addTask({
       title,
       categoryId,
-      date: format(selectedDate, 'yyyy-MM-dd'),
+      date: dateStr,
       completed: false,
-      visibility: 'private'
+      visibility: 'private',
     });
-  };
-  const handleStartEdit = (task: TaskDocument) => {
+  }, [addTask]);
+  const handleStartEdit = useCallback((task: TaskDocument) => {
     setEditingTaskId(task.id);
     setEditValue(task.title);
     setIsActionSheetOpen(false);
-  };
-  const handleEditSave = async () => {
+  }, []);
+  const handleEditSave = useCallback(async () => {
     if (editingTaskId && editValue.trim()) {
       await updateTask(editingTaskId, { title: editValue.trim() });
     }
     setEditingTaskId(null);
     setEditValue('');
-  };
-  const handleEditCancel = () => {
+  }, [editingTaskId, editValue, updateTask]);
+  const handleEditCancel = useCallback(() => {
     setEditingTaskId(null);
     setEditValue('');
-  };
-  const handleOpenActions = (task: TaskDocument) => {
-    if (editingTaskId) return;
+  }, []);
+  const handleOpenActions = useCallback((task: TaskDocument) => {
     setActiveTask(task);
     setIsActionSheetOpen(true);
-  };
-  const handleOpenMemo = (task: TaskDocument) => {
+  }, []);
+  const handleOpenMemo = useCallback((task: TaskDocument) => {
     setActiveTask(task);
     setIsMemoSheetOpen(true);
-  };
+  }, []);
+  const handleViewImage = useCallback((task: TaskDocument) => {
+    setViewingTask(task);
+  }, []);
   const handleDelete = async () => {
     if (activeTask) {
       if (activeTask.image) await deleteImage(activeTask.image);
@@ -726,7 +839,7 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
       await deleteImage(activeTask.image);
       await updateTask(activeTask.id, { image: '' });
       setDeleteFeedback('Photo deleted');
-      setActiveTask(prev => prev ? { ...prev, image: '' } : null);
+      setActiveTask(prev => (prev ? { ...prev, image: '' } : null));
       setIsDeletePhotoConfirmOpen(false);
     } catch (err) {
       console.error('[DayViewSheet] Failed to delete photo:', err);
@@ -738,77 +851,95 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
   const handleCancelDeletePhoto = () => {
     setIsDeletePhotoConfirmOpen(false);
   };
-  const renderDayContent = (date: Date, isCenter: boolean) => {
-    const dateStr = format(date, 'yyyy-MM-dd');
-    const dayTasks = tasks.filter(t => t.date === dateStr);
-    const groupedTasks: Record<string, TaskDocument[]> = {};
-    dayTasks.forEach(task => {
-      if (!groupedTasks[task.categoryId]) groupedTasks[task.categoryId] = [];
-      groupedTasks[task.categoryId].push(task);
-    });
-    if (categories.length === 0) {
-      return (
-        <div className="text-center py-12 text-gray-500 text-sm px-4">
-          Create a category to start adding tasks.
-        </div>
-      );
+  const handleAddPhoto = useCallback((task: TaskDocument) => {
+    setImagePickerTask(task);
+    setIsActionSheetOpen(false);
+  }, []);
+  const handleImageSaved = useCallback(async (fileId: string) => {
+    if (imagePickerTask) {
+      await updateTask(imagePickerTask.id, { image: fileId });
     }
-    return (
-      <div className={`pt-2 pb-8 px-1 h-full overflow-y-auto ${!isCenter ? 'pointer-events-none' : ''}`} style={{ touchAction: 'pan-y' }}>
-        {categories.map((category: CategoryDocument) => (
-          <CategorySection
-            key={category.id}
-            categoryName={category.name}
-            categoryColor={category.color}
-            visibility={category.visibility}
-            tasks={groupedTasks[category.id] || []}
-            onToggleTask={handleToggleTask}
-            onAddTask={(title) => handleAddTask(title, category.id)}
-            onOpenActions={handleOpenActions}
-            onOpenMemo={handleOpenMemo}
-            onViewImage={setViewingTask}
-            editingTaskId={editingTaskId}
-            editValue={editValue}
-            onEditChange={(val) => setEditValue(val)}
-            onEditSave={handleEditSave}
-            onEditCancel={handleEditCancel}
-          />
-        ))}
-      </div>
-    );
-  };
-  const isBackgroundLocked = isActionSheetOpen || isMemoSheetOpen || isDatePickerOpen || !!viewingTask || isDeletePhotoConfirmOpen;
+  }, [imagePickerTask, updateTask]);
+  const handleImageRemoved = useCallback(async () => {
+    if (imagePickerTask) {
+      await updateTask(imagePickerTask.id, { image: '' });
+    }
+  }, [imagePickerTask, updateTask]);
+  const isBackgroundLocked =
+    isActionSheetOpen || isMemoSheetOpen || isDatePickerOpen || !!viewingTask || isDeletePhotoConfirmOpen || !!imagePickerTask;
+  const handleSwipeSettled = useCallback((s: SwiperClass) => {
+    setActiveIndex(s.activeIndex);
+    if (isProgrammaticMoveRef.current) return;
+    const date = slideDates[s.activeIndex];
+    if (!date) return;
+    if (differenceInCalendarDays(date, selectedDateRef.current) !== 0) {
+      onDateChange?.(date);
+    }
+  }, [slideDates, onDateChange]);
+  const slides = useMemo(() => {
+    return slideDates.map((date, i) => {
+      const dateStr = slideDateStrs[i];
+      const inWindow = Math.abs(i - activeIndex) <= RENDER_WINDOW;
+      return (
+        <SwiperSlide key={dateStr}>
+          {inWindow ? (
+            <DaySlide
+              date={date}
+              dateStr={dateStr}
+              tasks={tasksByDate.get(dateStr) ?? EMPTY_TASKS}
+              categories={categories}
+              editingTaskId={editingTaskId}
+              editValue={editValue}
+              onToggleTask={handleToggleTask}
+              onAddTask={handleAddTask}
+              onOpenActions={handleOpenActions}
+              onOpenMemo={handleOpenMemo}
+              onViewImage={handleViewImage}
+              onEditChange={setEditValue}
+              onEditSave={handleEditSave}
+              onEditCancel={handleEditCancel}
+            />
+          ) : null}
+        </SwiperSlide>
+      );
+    });
+  }, [
+    slideDates, slideDateStrs, activeIndex, tasksByDate, categories,
+    editingTaskId, editValue, handleToggleTask, handleAddTask,
+    handleOpenActions, handleOpenMemo, handleViewImage,
+    handleEditSave, handleEditCancel,
+  ]);
   return (
     <>
       <BottomSheet
         isOpen={isOpen}
         onClose={onClose}
-        title={format(selectedDate, 'EEEE, MMMM d')}
         height="auto"
         isLocked={isBackgroundLocked}
       >
-        <div ref={containerRef} className="overflow-hidden w-full">
-          <motion.div
-            drag="x"
-            dragConstraints={{ left: -2 * width, right: 0 }}
-            dragElastic={0.1}
-            animate={controls}
-            onDragEnd={handleDragEnd}
-            className={`flex cursor-grab active:cursor-grabbing transition-[filter,opacity] duration-300 ${
-              isBackgroundLocked ? 'blur-sm opacity-50 pointer-events-none select-none' : ''
+        <div
+          className={`w-full transition-opacity duration-300 ${isBackgroundLocked ? 'opacity-50 pointer-events-none select-none' : ''
             }`}
-            style={{ width: width * 3, touchAction: 'pan-y' }}
+        >
+          <Swiper
+            onSwiper={(s) => { swiperRef.current = s; }}
+            initialSlide={initialIndex}
+            slidesPerView={1}
+            spaceBetween={0}
+            speed={320}
+            resistanceRatio={0.85}
+            threshold={3}
+            touchRatio={1}
+            followFinger
+            longSwipes
+            longSwipesRatio={0.35}
+            longSwipesMs={250}
+            shortSwipes
+            allowTouchMove={!isBackgroundLocked}
+            onSlideChangeTransitionEnd={handleSwipeSettled}
           >
-            <div style={{ width }} className="flex-shrink-0 opacity-60">
-              {renderDayContent(prevDate, false)}
-            </div>
-            <div style={{ width }} className="flex-shrink-0">
-              {renderDayContent(selectedDate, true)}
-            </div>
-            <div style={{ width }} className="flex-shrink-0 opacity-60">
-              {renderDayContent(nextDate, false)}
-            </div>
-          </motion.div>
+            {slides}
+          </Swiper>
         </div>
       </BottomSheet>
       <TaskActionSheet
@@ -819,6 +950,7 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
         onDelete={handleDelete}
         onMemo={() => setIsMemoSheetOpen(true)}
         onChangeDate={() => setIsDatePickerOpen(true)}
+        onAddPhoto={() => activeTask && handleAddPhoto(activeTask)}
         onViewPhoto={() => {
           if (activeTask) setViewingTask(activeTask);
           setIsActionSheetOpen(false);
@@ -837,6 +969,13 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
         onClose={() => setIsDatePickerOpen(false)}
         task={activeTask}
         onDateChange={handleDateChange}
+      />
+      <ImagePickerSheet
+        isOpen={!!imagePickerTask}
+        onClose={() => setImagePickerTask(null)}
+        task={imagePickerTask}
+        onSave={handleImageSaved}
+        onRemove={handleImageRemoved}
       />
       <ImageViewer
         isOpen={!!viewingTask}
@@ -870,27 +1009,17 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
               className="flex-1 py-3 bg-red-500 rounded-xl text-white font-medium hover:bg-red-600 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
             >
               {isDeletingPhoto ? (
-                <>
-                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  Deleting...
-                </>
-              ) : (
-                'Delete'
-              )}
+                <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> Deleting...</>
+              ) : 'Delete'}
             </button>
           </div>
         </div>
       </BottomSheet>
       <AnimatePresence>
         {deleteFeedback && (
-          <motion.div
-            initial={{ opacity: 0, y: 50 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 50 }}
-            className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[70] bg-[#2A2A2A] border border-[#444444] text-white text-sm px-5 py-2.5 rounded-full shadow-lg backdrop-blur-md"
-          >
+          <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[70] bg-[#2A2A2A] border border-[#444444] text-white text-sm px-5 py-2.5 rounded-full shadow-lg backdrop-blur-md">
             {deleteFeedback}
-          </motion.div>
+          </div>
         )}
       </AnimatePresence>
     </>
@@ -1118,10 +1247,12 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
     if (lightboxRef.current) {
       lightboxRef.current.destroy();
     }
+    let effectIsActive = true;
     const lightbox = new PhotoSwipeLightbox({
       dataSource: [{
         src: imageUrl,
-        w: 1920, h: 1080,
+        w: 1920,
+        h: 1080,
         alt: taskTitle || 'Task image'
       }],
       pswpModule: () => import('photoswipe'),
@@ -1134,21 +1265,40 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
       if (!pswp) return;
       const captionEl = document.createElement('div');
       captionEl.className = 'pswp__custom-caption';
-      captionEl.innerHTML = `
-        <div style="padding: 20px; background: linear-gradient(to top, rgba(0,0,0,0.85), transparent); pointer-events: none;">
-          ${taskTitle ? `<h3 style="margin: 0 0 4px 0; font-size: 16px; font-weight: 600; color: white;">${taskTitle}</h3>` : ''}
-          ${taskDate ? `<p style="margin: 0; font-size: 12px; color: #a1a1aa;">Added ${taskDate}</p>` : ''}
-        </div>
-      `;
+      const inner = document.createElement('div');
+      inner.style.padding = '20px';
+      inner.style.background = 'linear-gradient(to top, rgba(0,0,0,0.85), transparent)';
+      inner.style.pointerEvents = 'none';
+      if (taskTitle) {
+        const titleEl = document.createElement('h3');
+        titleEl.style.margin = '0 0 4px 0';
+        titleEl.style.fontSize = '16px';
+        titleEl.style.fontWeight = '600';
+        titleEl.style.color = 'white';
+        titleEl.textContent = taskTitle;
+        inner.appendChild(titleEl);
+      }
+      if (taskDate) {
+        const dateEl = document.createElement('p');
+        dateEl.style.margin = '0';
+        dateEl.style.fontSize = '12px';
+        dateEl.style.color = '#a1a1aa';
+        dateEl.textContent = `Added ${taskDate}`;
+        inner.appendChild(dateEl);
+      }
+      captionEl.appendChild(inner);
       pswp.element?.appendChild(captionEl);
+    });
+    lightbox.on('close', () => {
+      if (effectIsActive) {
+        onCloseRef.current();
+      }
     });
     lightbox.init();
     lightbox.loadAndOpen(0);
     lightboxRef.current = lightbox;
-    lightbox.on('close', () => {
-      onCloseRef.current();
-    });
     return () => {
+      effectIsActive = false;
       lightbox.destroy();
       lightboxRef.current = null;
     };
@@ -1297,6 +1447,7 @@ interface TaskActionSheetProps {
   onDelete: () => void;
   onMemo: () => void;
   onChangeDate: () => void;
+  onAddPhoto: () => void;
   onViewPhoto: () => void;
   onDeletePhoto: () => void;
   onDoItTomorrowOrToday: () => void;
@@ -1309,6 +1460,7 @@ export const TaskActionSheet: React.FC<TaskActionSheetProps> = ({
   onDelete,
   onMemo,
   onChangeDate,
+  onAddPhoto,
   onViewPhoto,
   onDeletePhoto,
   onDoItTomorrowOrToday
@@ -1353,6 +1505,15 @@ export const TaskActionSheet: React.FC<TaskActionSheetProps> = ({
                 <FileText size={16} className="text-black" />
               </div>
               <span className="text-base font-medium">Memo</span>
+            </button>
+          )}
+          {}
+          {!task.image && (
+            <button onClick={() => { onAddPhoto(); onClose(); }} className="w-full flex items-center gap-4 px-2 py-3.5 rounded-xl hover:bg-[#1E1E1E] transition-colors text-white">
+              <div className="w-8 h-8 rounded-full bg-green-400 flex items-center justify-center">
+                <ImageIcon size={16} className="text-black" />
+              </div>
+              <span className="text-base font-medium">Add Photo</span>
             </button>
           )}
           {}
@@ -2757,6 +2918,8 @@ export const settingsSchema: RxJsonSchema<SettingsDocument> = {
 
 <file path="src/db/sync.ts">
 import { getDatabase, type AppDatabaseCollections } from './database';
+import { client, account } from '../lib/appwrite';
+import { TablesDB, Permission, Role, Query } from 'appwrite';
 const APPWRITE_CONFIG = {
   endpoint: 'https://sgp.cloud.appwrite.io',
   projectId: '6a9703c50016b37110ff',
@@ -2768,8 +2931,9 @@ const APPWRITE_CONFIG = {
     settings: 'settings',
   },
 } as const;
-export const CURRENT_USER_ID = 'user1';
+const tablesDB = new TablesDB(client);
 const DEBUG = import.meta.env.DEV;
+const PAGE_SIZE = 100;
 export interface SyncStatus {
   isSyncing: boolean;
   lastSync: string | null;
@@ -2790,7 +2954,7 @@ function updateSyncStatus(updates: Partial<SyncStatus>) {
   if (syncStatus.lastSync) {
     localStorage.setItem('lastSyncTime', syncStatus.lastSync);
   }
-  listeners.forEach(l => l(syncStatus));
+  listeners.forEach((l) => l(syncStatus));
   if (DEBUG) console.log('[Sync] Status:', syncStatus);
 }
 export function subscribeToSyncStatus(listener: SyncListener): () => void {
@@ -2807,53 +2971,70 @@ type LocalDoc = {
   id: string;
   _meta?: { lwt?: number };
   toJSON: () => Record<string, unknown>;
-  patch: (data: Record<string, unknown>) => Promise<unknown>;
 };
 type LocalCollection = {
   findOne: (id: string) => { exec: () => Promise<LocalDoc | null> };
   find: () => { exec: () => Promise<LocalDoc[]> };
   upsert: (doc: Record<string, unknown>) => Promise<unknown>;
 };
-function toAppwriteFormat(doc: Record<string, unknown>, collection: string): AppwritePayload {
+let isSyncInProgress = false;
+declare global {
+  interface Window {
+    __mosaicFocusSyncAttached?: boolean;
+  }
+}
+function isTimestampedCollection(collection: string): boolean {
+  return collection === 'tasks' || collection === 'diary';
+}
+function toAppwriteFormat(
+  doc: Record<string, unknown>,
+  collection: string,
+  userId: string
+): AppwritePayload {
+  const source: Record<string, unknown> = { ...doc };
+  delete source._meta;
+  delete source._deleted;
+  delete source._rev;
   const mapped: AppwritePayload = {};
-  delete doc._meta;
-  delete doc._deleted;
-  delete doc._rev;
   if (collection === 'tasks') {
-    mapped.title = doc.title || '';
-    mapped.is_completed = doc.completed ?? false;
-    mapped.category_id = doc.categoryId || '';
-    mapped.tags = doc.tags || '';
-    mapped.date = doc.date || '';
-    mapped.memo = doc.memo || '';
-    mapped.image = doc.image || '';
-    mapped.created_at = doc.createdAt || new Date().toISOString();
-    mapped.completed_at = doc.completedAt || '';
-    mapped.updated_at = doc.updatedAt || new Date().toISOString();
-    mapped.user_id = doc.userId || CURRENT_USER_ID;
-    mapped.deleted = doc.isDeleted ?? false;
-    mapped.visibility = doc.visibility || 'private';
+    mapped.title = source.title || '';
+    mapped.is_completed = source.completed ?? false;
+    mapped.category_id = source.categoryId || '';
+    mapped.tags = source.tags || '';
+    mapped.date = source.date || '';
+    mapped.memo = source.memo || '';
+    mapped.image = source.image || '';
+    mapped.created_at = source.createdAt || new Date().toISOString();
+    mapped.completed_at = source.completedAt || '';
+    mapped.updated_at = source.updatedAt || new Date().toISOString();
+    mapped.user_id = userId;
+    mapped.deleted = source.isDeleted ?? false;
+    mapped.visibility = source.visibility || 'private';
+    mapped.source = source.source || '';
+    mapped.routine_id = source.routineId || '';
+    mapped.reminder_time = source.reminderTime || '';
+    mapped.reactions = source.reactions || '';
   } else if (collection === 'categories') {
-    mapped.name = doc.name || '';
-    mapped.color = doc.color || '#3B82F6';
-    mapped.visibility = doc.visibility || 'private';
-    mapped.order = doc.order ?? 0;
-    mapped.user_id = doc.userId || CURRENT_USER_ID;
-    mapped.deleted = doc.isDeleted ?? false;
-    mapped.icon = doc.icon || '';
+    mapped.name = source.name || '';
+    mapped.color = source.color || '#3B82F6';
+    mapped.visibility = source.visibility || 'private';
+    mapped.order = source.order ?? 0;
+    mapped.user_id = userId;
+    mapped.deleted = source.isDeleted ?? false;
+    mapped.icon = source.icon || '';
   } else if (collection === 'diary') {
-    mapped.date = doc.date || '';
-    mapped.content = doc.content || '';
-    mapped.visibility = doc.visibility || 'private';
-    mapped.user_id = doc.userId || CURRENT_USER_ID;
-    mapped.deleted = doc.isDeleted ?? false;
-    mapped.created_at = doc.createdAt || new Date().toISOString();
-    mapped.updated_at = doc.updatedAt || new Date().toISOString();
+    mapped.date = source.date || '';
+    mapped.content = source.content || '';
+    mapped.visibility = source.visibility || 'private';
+    mapped.user_id = userId;
+    mapped.deleted = source.isDeleted ?? false;
+    mapped.created_at = source.createdAt || new Date().toISOString();
+    mapped.updated_at = source.updatedAt || new Date().toISOString();
   } else if (collection === 'settings') {
-    mapped.user_id = doc.userId || CURRENT_USER_ID;
-    mapped.key = doc.key || '';
-    mapped.value = doc.value || '';
-    mapped.deleted = doc.isDeleted ?? false;
+    mapped.user_id = userId;
+    mapped.key = source.key || '';
+    mapped.value = source.value || '';
+    mapped.deleted = source.isDeleted ?? false;
   }
   return mapped;
 }
@@ -2864,9 +3045,8 @@ function fromAppwriteFormat(row: AppwriteRow, collection: string): Record<string
   delete mapped.$updatedAt;
   delete mapped.$permissions;
   delete mapped.$databaseId;
-  delete mapped.$collectionId;
-  delete mapped.$sequence;
   delete mapped.$tableId;
+  delete mapped.$sequence;
   if (collection === 'tasks') {
     mapped.id = row.$id || mapped.id;
     mapped.completed = mapped.is_completed ?? false;
@@ -2890,6 +3070,8 @@ function fromAppwriteFormat(row: AppwriteRow, collection: string): Record<string
     delete mapped.updated_at;
     delete mapped.user_id;
     delete mapped.deleted;
+    delete mapped.routine_id;
+    delete mapped.reminder_time;
   } else if (collection === 'categories') {
     mapped.id = row.$id || mapped.id;
     mapped.userId = mapped.user_id;
@@ -2917,125 +3099,226 @@ function fromAppwriteFormat(row: AppwriteRow, collection: string): Record<string
   }
   return mapped;
 }
-async function appwriteFetch(
-  table: string,
-  method: 'GET' | 'POST' | 'PATCH' | 'PUT',
-  body?: AppwritePayload,
-  rowId?: string
-) {
-  const url = `${APPWRITE_CONFIG.endpoint}/v1/tablesdb/${APPWRITE_CONFIG.databaseId}/tables/${table}/rows${rowId ? `/${rowId}` : ''}`;
-  const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
-    'X-Appwrite-Project': APPWRITE_CONFIG.projectId,
-  };
-  const options: RequestInit = { method, headers, credentials: 'include' };
-  if (body && Object.keys(body).length > 0) {
-    options.body = JSON.stringify(body);
-  }
+function buildRowPermissions(userId: string) {
+  return [
+    Permission.read(Role.user(userId)),
+    Permission.update(Role.user(userId)),
+    Permission.delete(Role.user(userId)),
+  ];
+}
+function toMs(value: unknown): number {
+  if (typeof value !== 'string' || !value) return 0;
+  const t = new Date(value).getTime();
+  return Number.isFinite(t) ? t : 0;
+}
+async function resolveAuthenticatedUserId(): Promise<string | null> {
   try {
-    const res = await fetch(url, options);
-    if (!res.ok) {
-      const errorText = await res.text();
-      let errorMessage = `Appwrite API Error (${res.status})`;
-      try {
-        const jsonError = JSON.parse(errorText);
-        errorMessage += `: ${jsonError.message || JSON.stringify(jsonError)}`;
-      } catch {
-        errorMessage += `: ${errorText}`;
-      }
-      console.error(`[Sync] ❌ ${method} ${url} failed:`, errorMessage);
-      throw new Error(errorMessage);
-    }
-    return res.json();
-  } catch (error) {
-    if (error instanceof Error && error.message.startsWith('Appwrite API Error')) {
-      throw error;
-    }
-    throw new Error(
-      `Network error during Appwrite sync: ${error instanceof Error ? error.message : 'Unknown network error'}`,
-      { cause: error }
-    );
+    const user = await account.get();
+    return user?.$id || null;
+  } catch (err) {
+    if (DEBUG) console.log('[Sync] account.get() failed:', err);
+    return null;
   }
 }
 export async function initializeSync(): Promise<void> {
+  if (isSyncInProgress) {
+    if (DEBUG) console.log('[Sync] initializeSync skipped: sync already in progress');
+    return;
+  }
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+    if (DEBUG) console.log('[Sync] Offline, skipping sync');
+    updateSyncStatus({ isSyncing: false });
+    return;
+  }
+  isSyncInProgress = true;
   if (DEBUG) console.log('[Sync] Starting initial sync...');
   updateSyncStatus({ isSyncing: true, errors: [] });
   try {
-    const db = getDatabase();
-    const collections: (keyof AppDatabaseCollections)[] = ['tasks', 'categories', 'diary', 'settings'];
-    for (const colName of collections) {
-      await syncCollection(db[colName] as unknown as LocalCollection, colName);
+    const userId = await resolveAuthenticatedUserId();
+    if (!userId) {
+      if (DEBUG) console.log('[Sync] No authenticated user, skipping sync');
+      updateSyncStatus({ isSyncing: false });
+      return;
     }
-    updateSyncStatus({ isSyncing: false, lastSync: new Date().toISOString() });
-    if (DEBUG) console.log('[Sync] ✅ Initial sync complete');
+    const db = getDatabase();
+    const collections: (keyof AppDatabaseCollections)[] = [
+      'tasks',
+      'categories',
+      'diary',
+      'settings',
+    ];
+    const collectionErrors: string[] = [];
+    for (const colName of collections) {
+      try {
+        await syncCollection(db[colName] as unknown as LocalCollection, colName, userId);
+      } catch (colError) {
+        const message =
+          colError instanceof Error ? colError.message : `Unknown error in ${colName}`;
+        console.error(`[Sync] Collection "${colName}" failed:`, colError);
+        collectionErrors.push(`${colName}: ${message}`);
+      }
+    }
+    if (collectionErrors.length === 0) {
+      updateSyncStatus({ isSyncing: false, lastSync: new Date().toISOString(), errors: [] });
+      if (DEBUG) console.log('[Sync] ✅ Initial sync complete');
+    } else {
+      updateSyncStatus({ isSyncing: false, errors: collectionErrors });
+      if (DEBUG) console.warn('[Sync] ⚠️ Sync completed with errors:', collectionErrors);
+    }
   } catch (error) {
     console.error('[Sync] ❌ Sync failed', error);
     updateSyncStatus({
       isSyncing: false,
-      errors: [...syncStatus.errors, error instanceof Error ? error.message : 'Unknown error']
+      errors: [
+        ...syncStatus.errors,
+        error instanceof Error ? error.message : 'Unknown error',
+      ],
     });
+  } finally {
+    isSyncInProgress = false;
   }
 }
-async function syncCollection(collection: LocalCollection, colName: string) {
-  const tableId = APPWRITE_CONFIG.tables[colName as keyof typeof APPWRITE_CONFIG.tables];
+async function syncCollection(
+  collection: LocalCollection,
+  colName: string,
+  userId: string
+) {
+  const tableId =
+    APPWRITE_CONFIG.tables[colName as keyof typeof APPWRITE_CONFIG.tables];
   if (DEBUG) console.log(`[Sync] Syncing ${colName}...`);
-  try {
-    const remoteData = await appwriteFetch(tableId, 'GET');
-    const rows: AppwriteRow[] = remoteData.rows || [];
-    if (DEBUG) console.log(`[Sync] Pulled ${rows.length} rows from ${tableId}`);
+  const lastSyncMs = syncStatus.lastSync ? new Date(syncStatus.lastSync).getTime() : 0;
+  const usesTimestamps = isTimestampedCollection(colName);
+  const remoteIndex = new Map<string, { updatedAt: number; isDeleted: boolean }>();
+  const justPulled = new Set<string>();
+  let cursor: string | undefined = undefined;
+  let pageCount = 0;
+  for (;;) {
+    const queries: unknown[] = [
+      Query.equal('user_id', userId),
+      Query.limit(PAGE_SIZE),
+      Query.orderAsc('$id'),
+    ];
+    if (cursor) queries.push(Query.cursorAfter(cursor));
+    const remoteResponse = await tablesDB.listRows({
+      databaseId: APPWRITE_CONFIG.databaseId,
+      tableId,
+      queries: queries as never,
+      total: false,
+    });
+    const rows = ((remoteResponse as { rows?: AppwriteRow[] }).rows || []) as AppwriteRow[];
+    pageCount++;
+    if (DEBUG) console.log(`[Sync] ${colName} page ${pageCount}: ${rows.length} rows`);
+    if (rows.length === 0) break;
     for (const row of rows) {
-      const doc = fromAppwriteFormat(row, colName);
-      const docId = doc.id as string;
-      const localDoc = await collection.findOne(docId).exec();
-      if (localDoc) {
-        const localLwt = localDoc._meta?.lwt || 0;
-        const remoteLwt = row.$updatedAt ? new Date(row.$updatedAt as string).getTime() : 0;
-        if (remoteLwt > localLwt) {
-          await collection.upsert(doc);
-        } else {
-          if (DEBUG) console.log(`[Sync] Skipping remote overwrite for ${docId} (local is newer)`);
-        }
-      } else {
-        await collection.upsert(doc);
-      }
-    }
-    const localDocs = await collection.find().exec();
-    for (const doc of localDocs) {
-      const rowData = toAppwriteFormat(doc.toJSON(), colName);
-      const remotePayload = {
-        data: rowData,
-        permissions: ['read("any")', 'update("any")', 'delete("any")']
-      };
-      if (DEBUG) console.log(`[Sync] Pushing ${colName} ${doc.id}`);
       try {
-        await appwriteFetch(tableId, 'PATCH', remotePayload, doc.id);
-      } catch {
-        try {
-          await appwriteFetch(tableId, 'PUT', remotePayload, doc.id);
-        } catch (upsertError) {
-          console.error(`[Sync] Failed to upsert ${colName} ${doc.id}:`, upsertError);
+        const doc = fromAppwriteFormat(row, colName);
+        const docId = doc.id as string;
+        if (!docId) continue;
+        const remoteUpdatedAt = toMs(row.$updatedAt);
+        remoteIndex.set(docId, {
+          updatedAt: remoteUpdatedAt,
+          isDeleted: (doc.isDeleted as boolean) ?? false,
+        });
+        const localDoc = await collection.findOne(docId).exec();
+        if (!localDoc) {
+          await collection.upsert(doc);
+          justPulled.add(docId);
+          continue;
         }
+        const localLwt = localDoc._meta?.lwt ?? 0;
+        const isLocalDirty = localLwt > lastSyncMs;
+        if (isLocalDirty) {
+          continue;
+        }
+        let remoteWins = false;
+        if (usesTimestamps) {
+          const localUpdatedAt = toMs(localDoc.toJSON().updatedAt);
+          remoteWins = remoteUpdatedAt > localUpdatedAt;
+        } else {
+          remoteWins = remoteUpdatedAt > localLwt;
+        }
+        if (remoteWins) {
+          await collection.upsert(doc);
+          justPulled.add(docId);
+        }
+      } catch (rowError) {
+        console.error(`[Sync] Failed to process ${colName} row:`, rowError);
       }
     }
-    if (DEBUG) console.log(`[Sync] ✅ ${colName} synced`);
-  } catch (error) {
-    console.error(`[Sync] Error syncing ${colName}`, error);
-    throw error;
+    if (rows.length < PAGE_SIZE) break;
+    const lastId = rows[rows.length - 1].$id as string | undefined;
+    if (!lastId || lastId === cursor) break;
+    cursor = lastId;
   }
+  const localDocs = await collection.find().exec();
+  for (const doc of localDocs) {
+    const json = doc.toJSON();
+    const docUserId = json.userId as string | undefined;
+    if (docUserId !== userId) continue;
+    const docId = (json.id as string) || doc.id;
+    if (!docId) continue;
+    if (justPulled.has(docId)) continue;
+    const remoteMeta = remoteIndex.get(docId);
+    const localLwt = doc._meta?.lwt ?? 0;
+    const isLocalDirty = localLwt > lastSyncMs;
+    let shouldPush = false;
+    if (!remoteMeta) {
+      shouldPush = true;
+    } else if (isLocalDirty) {
+      shouldPush = true;
+    } else if (usesTimestamps) {
+      const localUpdatedAt = toMs(json.updatedAt);
+      shouldPush = localUpdatedAt > remoteMeta.updatedAt;
+    }
+    if (!shouldPush) continue;
+    const rowData = toAppwriteFormat(json, colName, userId);
+    if (DEBUG) console.log(`[Sync] Pushing ${colName} ${docId}`);
+    try {
+      await tablesDB.upsertRow({
+        databaseId: APPWRITE_CONFIG.databaseId,
+        tableId,
+        rowId: docId,
+        data: rowData,
+        permissions: buildRowPermissions(userId),
+      });
+    } catch (upsertError) {
+      console.error(`[Sync] Failed to upsert ${colName} ${docId}:`, upsertError);
+      throw upsertError;
+    }
+  }
+  if (DEBUG) console.log(`[Sync] ✅ ${colName} synced (${pageCount} page(s) pulled)`);
 }
 export async function forceSync() {
   if (DEBUG) console.log('[Sync] Force sync triggered');
   await initializeSync();
 }
-if (typeof window !== 'undefined') {
-  window.addEventListener('focus', () => {
-    try {
-      getDatabase();
-      if (DEBUG) console.log('[Sync] Window focused, syncing...');
-      forceSync().catch(e => console.error('[Sync] Focus sync failed', e));
-    } catch {
-    }
-  });
+function safeForceSync(reason: string) {
+  try {
+    getDatabase();
+    if (DEBUG) console.log(`[Sync] ${reason}, syncing...`);
+    forceSync().catch((e) => console.error(`[Sync] ${reason} sync failed`, e));
+  } catch (e) {
+    if (DEBUG) console.log(`[Sync] ${reason} handler skipped (DB not ready):`, e);
+  }
+}
+function handleWindowFocus() {
+  safeForceSync('Window focused');
+}
+function handleOnline() {
+  safeForceSync('Connection restored');
+}
+function handleVisibilityChange() {
+  if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
+    safeForceSync('App became visible');
+  }
+}
+if (typeof window !== 'undefined' && !window.__mosaicFocusSyncAttached) {
+  window.__mosaicFocusSyncAttached = true;
+  window.addEventListener('focus', handleWindowFocus);
+  window.addEventListener('online', handleOnline);
+  if (typeof document !== 'undefined') {
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+  }
 }
 </file>
 
@@ -3055,10 +3338,20 @@ export function useAuth() {
         error: null
     });
     useEffect(() => {
+        let isMounted = true;
         account.get().then(
-            (user) => setState({ user, isLoading: false, error: null }),
-            () => setState({ user: null, isLoading: false, error: null })
+            (user) => {
+                if (!isMounted) return;
+                setState({ user, isLoading: false, error: null });
+            },
+            () => {
+                if (!isMounted) return;
+                setState({ user: null, isLoading: false, error: null });
+            }
         );
+        return () => {
+            isMounted = false;
+        };
     }, []);
     const login = useCallback(async (email: string, password: string): Promise<boolean> => {
         setState(s => ({ ...s, isLoading: true, error: null }));
@@ -3300,7 +3593,7 @@ export function useDiary() {
 </file>
 
 <file path="src/hooks/useImageCompression.ts">
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import imageCompression from 'browser-image-compression';
 export interface UseImageCompressionReturn {
   compressImage: (file: File) => Promise<string>;
@@ -3310,9 +3603,18 @@ export interface UseImageCompressionReturn {
 export function useImageCompression(): UseImageCompressionReturn {
   const [isCompressing, setIsCompressing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const isMountedRef = useRef(true);
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
   const compressImage = useCallback(async (file: File): Promise<string> => {
-    setIsCompressing(true);
-    setError(null);
+    if (isMountedRef.current) {
+      setIsCompressing(true);
+      setError(null);
+    }
     try {
       const options = {
         maxSizeMB: 0.15,
@@ -3330,10 +3632,14 @@ export function useImageCompression(): UseImageCompressionReturn {
       return base64String;
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to compress image';
-      setError(errorMessage);
+      if (isMountedRef.current) {
+        setError(errorMessage);
+      }
       throw new Error(errorMessage, { cause: err });
     } finally {
-      setIsCompressing(false);
+      if (isMountedRef.current) {
+        setIsCompressing(false);
+      }
     }
   }, []);
   return { compressImage, isCompressing, error };
@@ -3671,11 +3977,14 @@ export const generateMockTasks = (): TaskDocument[] => {
 
 <file path="src/lib/storage.ts">
 import imageCompression from 'browser-image-compression';
+import { client, account } from './appwrite';
+import { Storage, Permission, Role } from 'appwrite';
 const APPWRITE_CONFIG = {
   endpoint: 'https://sgp.cloud.appwrite.io',
   projectId: '6a9703c50016b37110ff',
   bucketId: 'task_images',
 };
+const storage = new Storage(client);
 export async function compressImage(file: File): Promise<Blob> {
   const options = {
     maxSizeMB: 0.15,
@@ -3690,29 +3999,56 @@ export async function compressImage(file: File): Promise<Blob> {
     throw error;
   }
 }
-export async function uploadImage(file: File): Promise<string> {
-  const compressedBlob = await compressImage(file);
-  const fileId = `img_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-  const webpFile = new Blob([compressedBlob], { type: 'image/webp' });
-  const formData = new FormData();
-  formData.append('fileId', fileId);
-  formData.append('file', webpFile, `${fileId}.webp`);
-  formData.append('permissions[]', 'read("any")');
-  formData.append('permissions[]', 'update("any")');
-  formData.append('permissions[]', 'delete("any")');
-  formData.append('permissions[]', 'write("any")');
-  const url = `${APPWRITE_CONFIG.endpoint}/v1/storage/buckets/${APPWRITE_CONFIG.bucketId}/files`;
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: { 'X-Appwrite-Project': APPWRITE_CONFIG.projectId },
-    body: formData,
-    credentials: 'include',
-  });
-  if (!res.ok) {
-    const errorText = await res.text();
-    throw new Error(`Appwrite Storage Upload Error: ${errorText}`);
+function generateFileId(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return `img_${crypto.randomUUID().replace(/-/g, '')}`;
   }
-  return fileId;
+  if (typeof crypto !== 'undefined' && typeof crypto.getRandomValues === 'function') {
+    const randomBytes = new Uint8Array(16);
+    crypto.getRandomValues(randomBytes);
+    const hex = Array.from(randomBytes, b => b.toString(16).padStart(2, '0')).join('');
+    return `img_${hex}`;
+  }
+  return `img_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
+}
+async function getCurrentUserId(): Promise<string | null> {
+  try {
+    const user = await account.get();
+    return user?.$id || null;
+  } catch {
+    return null;
+  }
+}
+function buildFilePermissions(userId: string) {
+  return [
+    Permission.read(Role.user(userId)),
+    Permission.update(Role.user(userId)),
+    Permission.delete(Role.user(userId)),
+  ];
+}
+export async function uploadImage(file: File): Promise<string> {
+  const userId = await getCurrentUserId();
+  if (!userId) {
+    throw new Error('Cannot upload image: no authenticated user');
+  }
+  const compressedBlob = await compressImage(file);
+  const fileId = generateFileId();
+  const webpFile = new File([compressedBlob], `${fileId}.webp`, { type: 'image/webp' });
+  try {
+    await storage.createFile({
+      bucketId: APPWRITE_CONFIG.bucketId,
+      fileId: fileId,
+      file: webpFile,
+      permissions: buildFilePermissions(userId),
+    });
+    return fileId;
+  } catch (error) {
+    console.error('[Storage] Upload failed:', error);
+    throw new Error(
+      `Appwrite Storage Upload Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      { cause: error }
+    );
+  }
 }
 const DB_NAME = 'mosaic_image_cache';
 const STORE_NAME = 'blobs';
@@ -3767,8 +4103,11 @@ export async function getLocalImageUrl(fileId: string): Promise<string | null> {
   }
   if (!navigator.onLine) return null;
   try {
-    const url = `${APPWRITE_CONFIG.endpoint}/v1/storage/buckets/${APPWRITE_CONFIG.bucketId}/files/${fileId}/view?project=${APPWRITE_CONFIG.projectId}`;
-    const res = await fetch(url, {
+    const url = storage.getFileView({
+      bucketId: APPWRITE_CONFIG.bucketId,
+      fileId: fileId,
+    });
+    const res = await fetch(url.toString(), {
       credentials: 'include',
       headers: { 'X-Appwrite-Project': APPWRITE_CONFIG.projectId },
     });
@@ -3782,24 +4121,31 @@ export async function getLocalImageUrl(fileId: string): Promise<string | null> {
   }
 }
 export async function deleteImage(fileId: string): Promise<void> {
-  const url = `${APPWRITE_CONFIG.endpoint}/v1/storage/buckets/${APPWRITE_CONFIG.bucketId}/files/${fileId}`;
   try {
-    const res = await fetch(url, {
-      method: 'DELETE',
-      headers: { 'X-Appwrite-Project': APPWRITE_CONFIG.projectId },
-      credentials: 'include',
+    await storage.deleteFile({
+      bucketId: APPWRITE_CONFIG.bucketId,
+      fileId: fileId,
     });
-    if (!res.ok) console.warn('[Storage] Failed to delete image from Appwrite:', fileId);
   } catch (err) {
-    console.warn('[Storage] Network error deleting image:', err);
+    console.warn('[Storage] Failed to delete image from Appwrite:', fileId, err);
   }
   await deleteCachedImage(fileId);
 }
 export function getImagePreviewUrl(fileId: string): string {
-  return `${APPWRITE_CONFIG.endpoint}/v1/storage/buckets/${APPWRITE_CONFIG.bucketId}/files/${fileId}/preview?project=${APPWRITE_CONFIG.projectId}&width=200&height=200`;
+  const url = storage.getFilePreview({
+    bucketId: APPWRITE_CONFIG.bucketId,
+    fileId: fileId,
+    width: 200,
+    height: 200,
+  });
+  return url.toString();
 }
 export function getImageFullUrl(fileId: string): string {
-  return `${APPWRITE_CONFIG.endpoint}/v1/storage/buckets/${APPWRITE_CONFIG.bucketId}/files/${fileId}/view?project=${APPWRITE_CONFIG.projectId}`;
+  const url = storage.getFileView({
+    bucketId: APPWRITE_CONFIG.bucketId,
+    fileId: fileId,
+  });
+  return url.toString();
 }
 </file>
 
@@ -4427,6 +4773,7 @@ export default defineConfig([
     "appwrite": "^26.2.0",
     "browser-image-compression": "^2.0.2",
     "date-fns": "^4.4.0",
+    "embla-carousel-react": "^8.6.0",
     "emoji-picker-react": "^4.19.4",
     "framer-motion": "^13.2.0",
     "lucide-react": "^1.39.0",

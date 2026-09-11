@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { BottomSheet } from '../../ui/BottomSheet';
 import { Button } from '../../ui/Button';
 import { Input } from '../../ui/Input';
@@ -23,6 +23,8 @@ export const EditTaskSheet: React.FC<EditTaskSheetProps> = ({
   const [syncedTaskId, setSyncedTaskId] = useState<string | null>(null);
   const [editedTitle, setEditedTitle] = useState<string | null>(null);
   const [editedMemo, setEditedMemo] = useState<string | null>(null);
+  const titleInputRef = useRef<HTMLInputElement>(null);
+  const memoTextareaRef = useRef<HTMLTextAreaElement>(null);
 
   const taskId = task?.id ?? null;
   if (taskId !== syncedTaskId) {
@@ -30,6 +32,16 @@ export const EditTaskSheet: React.FC<EditTaskSheetProps> = ({
     setEditedTitle(null);
     setEditedMemo(null);
   }
+
+  useEffect(() => {
+    if (isOpen && taskId) {
+      if (initialFocus === 'memo') {
+        memoTextareaRef.current?.focus();
+      } else {
+        titleInputRef.current?.focus();
+      }
+    }
+  }, [isOpen, taskId, initialFocus]);
 
   const title = editedTitle ?? task?.title ?? '';
   const memo = editedMemo ?? task?.memo ?? '';
@@ -47,17 +59,17 @@ export const EditTaskSheet: React.FC<EditTaskSheetProps> = ({
     <BottomSheet isOpen={isOpen} onClose={onClose} title={initialFocus === 'memo' ? 'Add Memo' : 'Edit Task'} height="auto">
       <div className="pt-2 pb-8 px-1 space-y-4">
         <Input
+          ref={titleInputRef}
           label="Title"
           value={title}
           onChange={(e) => setEditedTitle(e.target.value)}
-          autoFocus={initialFocus === 'title'}
         />
         <div>
           <label className="block text-xs text-gray-500 mb-2 ml-1">Memo / Notes</label>
           <textarea
+            ref={memoTextareaRef}
             value={memo}
             onChange={(e) => setEditedMemo(e.target.value)}
-            autoFocus={initialFocus === 'memo'}
             placeholder="Add details to this task..."
             className="w-full bg-[#1E1E1E] border border-[#333333] rounded-xl p-3 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-[#555555] transition-colors min-h-[100px] resize-none"
           />

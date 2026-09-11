@@ -13,21 +13,19 @@ export const CategoryManagerSheet: React.FC<{ isOpen: boolean; onClose: () => vo
   onClose
 }) => {
   const { categories, addCategory, updateCategory, deleteCategory, isLoading } = useCategories();
-
   const [isAdding, setIsAdding] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
-
   const [newName, setNewName] = useState('');
   const [newColor, setNewColor] = useState('#3B82F6');
   const [newVisibility, setNewVisibility] = useState<Visibility>('private');
-
   const [editName, setEditName] = useState('');
   const [editVisibility, setEditVisibility] = useState<Visibility>('private');
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const handleSaveNew = async () => {
     if (!newName.trim()) return;
-    
     setIsSaving(true);
     try {
       await addCategory({
@@ -49,10 +47,23 @@ export const CategoryManagerSheet: React.FC<{ isOpen: boolean; onClose: () => vo
     setEditingId(null);
   };
 
-  const handleDelete = async (id: string) => {
-    if (window.confirm('Are you sure? This will hide the category and its tasks.')) {
-      await deleteCategory(id);
+  const handleDeleteRequest = (id: string) => {
+    setPendingDeleteId(id);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!pendingDeleteId) return;
+    setIsDeleting(true);
+    try {
+      await deleteCategory(pendingDeleteId);
+      setPendingDeleteId(null);
+    } finally {
+      setIsDeleting(false);
     }
+  };
+
+  const handleCancelDelete = () => {
+    setPendingDeleteId(null);
   };
 
   const resetForm = () => {
@@ -83,137 +94,176 @@ export const CategoryManagerSheet: React.FC<{ isOpen: boolean; onClose: () => vo
   };
 
   return (
-    <BottomSheet isOpen={isOpen} onClose={onClose} title="Lists & Categories" height="auto">
-      <div className="pt-2 pb-8 px-1">
-        {isLoading ? (
-          <div className="flex justify-center py-8">
-            <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin" />
-          </div>
-        ) : (
-          <>
-            {/* Category List or Empty State */}
-            {!isAdding && (
-              <div className="space-y-3 mb-6">
-                {categories.length === 0 ? (
-                  <div className="text-center py-8 text-gray-500 text-sm">
-                    No categories yet. Create your first one below!
+    <>
+      <BottomSheet
+        isOpen={isOpen}
+        onClose={onClose}
+        title="Lists & Categories"
+        height="auto"
+        isLocked={!!pendingDeleteId}
+      >
+        <div className="pt-2 pb-8 px-1">
+          {isLoading ? (
+            <div className="flex justify-center py-8">
+              <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin" />
+            </div>
+          ) : (
+            <>
+              {}
+              {!isAdding && (
+                <div className="space-y-3 mb-6">
+                  {categories.length === 0 ? (
+                    <div className="text-center py-8 text-gray-500 text-sm">
+                      No categories yet. Create your first one below!
+                    </div>
+                  ) : (
+                    categories.map((cat) => {
+                      const isEditing = editingId === cat.id;
+                      return (
+                        <div key={cat.id} className="bg-[#1E1E1E] rounded-xl border border-[#333333] p-3">
+                          {isEditing ? (
+                            <div className="space-y-3">
+                              <Input
+                                value={editName}
+                                onChange={(e) => setEditName(e.target.value)}
+                                className="text-sm py-2"
+                              />
+                              <div className="flex items-center justify-between">
+                                <div className="flex bg-[#111111] rounded-lg p-0.5 border border-[#333333]">
+                                  {(['private', 'followers', 'public'] as Visibility[]).map((v) => (
+                                    <button
+                                      key={v}
+                                      onClick={() => setEditVisibility(v)}
+                                      className={`p-1.5 rounded-md transition-colors ${editVisibility === v ? 'bg-[#2A2A2A] text-white' : 'text-gray-500'}`}
+                                      title={v}
+                                    >
+                                      {getVisibilityIcon(v)}
+                                    </button>
+                                  ))}
+                                </div>
+                                <div className="flex gap-2">
+                                  <Button variant="ghost" className="p-2" onClick={handleEditCancel}>
+                                    <X size={16} />
+                                  </Button>
+                                  <Button variant="primary" className="p-2" onClick={() => handleUpdate(cat.id, editName, editVisibility)}>
+                                    <Save size={16} />
+                                  </Button>
+                                </div>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-3">
+                              <div
+                                className="w-4 h-4 rounded-full flex-shrink-0"
+                                style={{ backgroundColor: cat.color }}
+                              />
+                              <span className="flex-1 text-sm font-medium text-white truncate">{cat.name}</span>
+                              <div className="flex items-center gap-1 text-[10px] text-gray-500 uppercase tracking-wider">
+                                {getVisibilityIcon(cat.visibility || 'private')}
+                                <span>{cat.visibility || 'private'}</span>
+                              </div>
+                              <div className="flex gap-1">
+                                <Button variant="ghost" className="p-2 h-8 w-8" onClick={() => handleEditStart(cat)}>
+                                  <span className="text-xs font-bold">Edit</span>
+                                </Button>
+                                <Button variant="ghost" className="p-2 h-8 w-8 text-red-400 hover:text-red-300 hover:bg-red-900/20" onClick={() => handleDeleteRequest(cat.id)}>
+                                  <Trash2 size={16} />
+                                </Button>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              )}
+              {}
+              {isAdding ? (
+                <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-200">
+                  <Input
+                    label="Category Name"
+                    placeholder="e.g., Work, Fitness, Reading"
+                    value={newName}
+                    onChange={(e) => setNewName(e.target.value)}
+                  />
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-2 ml-1">Color</label>
+                    <ColorPalettePicker selectedColor={newColor} onSelect={setNewColor} />
                   </div>
-                ) : (
-                  categories.map((cat) => {
-                    const isEditing = editingId === cat.id;
-                    return (
-                      <div key={cat.id} className="bg-[#1E1E1E] rounded-xl border border-[#333333] p-3">
-                        {isEditing ? (
-                          <div className="space-y-3">
-                            <Input
-                              value={editName}
-                              onChange={(e) => setEditName(e.target.value)}
-                              className="text-sm py-2"
-                            />
-                            <div className="flex items-center justify-between">
-                              <div className="flex bg-[#111111] rounded-lg p-0.5 border border-[#333333]">
-                                {(['private', 'followers', 'public'] as Visibility[]).map((v) => (
-                                  <button
-                                    key={v}
-                                    onClick={() => setEditVisibility(v)}
-                                    className={`p-1.5 rounded-md transition-colors ${editVisibility === v ? 'bg-[#2A2A2A] text-white' : 'text-gray-500'}`}
-                                    title={v}
-                                  >
-                                    {getVisibilityIcon(v)}
-                                  </button>
-                                ))}
-                              </div>
-                              <div className="flex gap-2">
-                                <Button variant="ghost" className="p-2" onClick={handleEditCancel}>
-                                  <X size={16} />
-                                </Button>
-                                <Button variant="primary" className="p-2" onClick={() => handleUpdate(cat.id, editName, editVisibility)}>
-                                  <Save size={16} />
-                                </Button>
-                              </div>
-                            </div>
-                          </div>
-                        ) : (
-                          <div className="flex items-center gap-3">
-                            <div
-                              className="w-4 h-4 rounded-full flex-shrink-0"
-                              style={{ backgroundColor: cat.color }}
-                            />
-                            <span className="flex-1 text-sm font-medium text-white truncate">{cat.name}</span>
-                            <div className="flex items-center gap-1 text-[10px] text-gray-500 uppercase tracking-wider">
-                              {getVisibilityIcon(cat.visibility || 'private')}
-                              <span>{cat.visibility || 'private'}</span>
-                            </div>
-                            <div className="flex gap-1">
-                              <Button variant="ghost" className="p-2 h-8 w-8" onClick={() => handleEditStart(cat)}>
-                                <span className="text-xs font-bold">Edit</span>
-                              </Button>
-                              <Button variant="ghost" className="p-2 h-8 w-8 text-red-400 hover:text-red-300 hover:bg-red-900/20" onClick={() => handleDelete(cat.id)}>
-                                <Trash2 size={16} />
-                              </Button>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })
-                )}
-              </div>
-            )}
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-2 ml-1">Visibility</label>
+                    <div className="flex bg-[#111111] rounded-lg p-1 border border-[#333333]">
+                      {(['private', 'followers', 'public'] as Visibility[]).map((v) => (
+                        <button
+                          key={v}
+                          onClick={() => setNewVisibility(v)}
+                          className={`flex-1 py-2 text-xs font-medium rounded-md transition-colors flex items-center justify-center gap-1.5 ${newVisibility === v ? 'bg-[#2A2A2A] text-white' : 'text-gray-500'}`}
+                        >
+                          {getVisibilityIcon(v)}
+                          <span className="capitalize">{v}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="flex gap-3 pt-2">
+                    <Button variant="ghost" className="flex-1" onClick={resetForm}>Cancel</Button>
+                    <Button
+                      variant="primary"
+                      className="flex-1"
+                      onClick={handleSaveNew}
+                      disabled={!newName.trim() || isSaving}
+                    >
+                      {isSaving ? (
+                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      ) : (
+                        'Create Category'
+                      )}
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <Button variant="primary" className="w-full gap-2 py-3" onClick={() => setIsAdding(true)}>
+                  <Plus size={18} />
+                  Add New Category
+                </Button>
+              )}
+            </>
+          )}
+        </div>
+      </BottomSheet>
 
-            {/* Add Category Form or Button */}
-            {isAdding ? (
-              <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-200">
-                <Input
-                  label="Category Name"
-                  placeholder="e.g., Work, Fitness, Reading"
-                  value={newName}
-                  onChange={(e) => setNewName(e.target.value)}
-                />
-                <div>
-                  <label className="block text-xs text-gray-500 mb-2 ml-1">Color</label>
-                  <ColorPalettePicker selectedColor={newColor} onSelect={setNewColor} />
-                </div>
-                <div>
-                  <label className="block text-xs text-gray-500 mb-2 ml-1">Visibility</label>
-                  <div className="flex bg-[#111111] rounded-lg p-1 border border-[#333333]">
-                    {(['private', 'followers', 'public'] as Visibility[]).map((v) => (
-                      <button
-                        key={v}
-                        onClick={() => setNewVisibility(v)}
-                        className={`flex-1 py-2 text-xs font-medium rounded-md transition-colors flex items-center justify-center gap-1.5 ${newVisibility === v ? 'bg-[#2A2A2A] text-white' : 'text-gray-500'}`}
-                      >
-                        {getVisibilityIcon(v)}
-                        <span className="capitalize">{v}</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                <div className="flex gap-3 pt-2">
-                  <Button variant="ghost" className="flex-1" onClick={resetForm}>Cancel</Button>
-                  <Button 
-                    variant="primary" 
-                    className="flex-1" 
-                    onClick={handleSaveNew} 
-                    disabled={!newName.trim() || isSaving}
-                  >
-                    {isSaving ? (
-                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                    ) : (
-                      'Create Category'
-                    )}
-                  </Button>
-                </div>
-              </div>
-            ) : (
-              <Button variant="primary" className="w-full gap-2 py-3" onClick={() => setIsAdding(true)}>
-                <Plus size={18} />
-                Add New Category
-              </Button>
-            )}
-          </>
-        )}
-      </div>
-    </BottomSheet>
+      <BottomSheet
+        isOpen={!!pendingDeleteId}
+        onClose={handleCancelDelete}
+        title="Delete Category"
+        height="auto"
+        isLocked={true}
+      >
+        <div className="pt-2 pb-8 px-4">
+          <p className="text-gray-300 text-sm text-center mb-6 leading-relaxed">
+            Are you sure you want to delete this category? Its tasks will be hidden. This action cannot be undone.
+          </p>
+          <div className="flex gap-3">
+            <button
+              onClick={handleCancelDelete}
+              disabled={isDeleting}
+              className="flex-1 py-3 bg-[#2A2A2A] rounded-xl text-white font-medium hover:bg-[#333333] transition-colors disabled:opacity-50"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleConfirmDelete}
+              disabled={isDeleting}
+              className="flex-1 py-3 bg-red-500 rounded-xl text-white font-medium hover:bg-red-600 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+            >
+              {isDeleting ? (
+                <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> Deleting...</>
+              ) : 'Delete'}
+            </button>
+          </div>
+        </div>
+      </BottomSheet>
+    </>
   );
 };

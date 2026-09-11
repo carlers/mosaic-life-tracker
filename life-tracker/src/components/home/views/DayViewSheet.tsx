@@ -10,25 +10,22 @@ import { TaskActionSheet } from './TaskActionSheet';
 import { MemoSheet } from './MemoSheet';
 import { DatePickerSheet } from './DatePickerSheet';
 import { ImageViewer } from './ImageViewer';
+import { ImagePickerSheet } from './ImagePickerSheet';
 import { useTasks } from '../../../hooks/useTasks';
 import { useCategories } from '../../../hooks/useCategories';
 import { useTaskImage } from '../../../hooks/useTaskImage';
 import { deleteImage } from '../../../lib/storage';
 import type { CategoryDocument, TaskDocument } from '../../../db/schema';
-
 interface DayViewSheetProps {
   isOpen: boolean;
   onClose: () => void;
   selectedDate: Date;
   onDateChange?: (date: Date) => void;
 }
-
 const SWIPE_RANGE = 90;
 const TOTAL_SLIDES = SWIPE_RANGE * 2 + 1;
 const RENDER_WINDOW = 3;
-
 const EMPTY_TASKS: TaskDocument[] = [];
-
 interface DaySlideProps {
   date: Date;
   dateStr: string;
@@ -45,7 +42,6 @@ interface DaySlideProps {
   onEditSave: () => void;
   onEditCancel: () => void;
 }
-
 const DaySlide = React.memo(({
   date, dateStr, tasks, categories, editingTaskId, editValue,
   onToggleTask, onAddTask, onOpenActions, onOpenMemo, onViewImage,
@@ -58,18 +54,15 @@ const DaySlide = React.memo(({
     }
     return map;
   }, [tasks]);
-
   const headerLabel = useMemo(() => format(date, 'EEEE, MMMM d'), [date]);
-
   return (
     <div className="w-full">
-      {/* Slide-attached header — drags with the slide, native gallery feel */}
+      {}
       <div className="px-4 pt-3 pb-2 select-none">
         <h2 className="text-white text-lg font-semibold tracking-tight">
           {headerLabel}
         </h2>
       </div>
-
       <div className="pt-1 pb-8 px-1">
         {categories.length === 0 ? (
           <div className="text-center py-12 text-gray-500 text-sm px-4">
@@ -101,56 +94,43 @@ const DaySlide = React.memo(({
   );
 });
 DaySlide.displayName = 'DaySlide';
-
 export const DayViewSheet: React.FC<DayViewSheetProps> = ({
   isOpen, onClose, selectedDate, onDateChange,
 }) => {
   const { tasks, addTask, updateTask, deleteTask, toggleTaskCompletion } = useTasks();
   const { categories } = useCategories();
-
   const swiperRef = useRef<SwiperClass | null>(null);
   const isProgrammaticMoveRef = useRef(false);
   const wasOpenRef = useRef(false);
-
   const selectedDateRef = useRef(selectedDate);
   useEffect(() => {
     selectedDateRef.current = selectedDate;
   }, [selectedDate]);
-
   const [anchorDate, setAnchorDate] = useState(() => startOfDay(selectedDate));
-
   useEffect(() => {
     if (isOpen && !wasOpenRef.current) {
       setAnchorDate(startOfDay(selectedDate));
     }
     wasOpenRef.current = isOpen;
   }, [isOpen, selectedDate]);
-
   const slideDates = useMemo(
     () => Array.from({ length: TOTAL_SLIDES }, (_, i) => addDays(anchorDate, i - SWIPE_RANGE)),
     [anchorDate]
   );
-
   const slideDateStrs = useMemo(
     () => slideDates.map((d) => format(d, 'yyyy-MM-dd')),
     [slideDates]
   );
-
   const initialIndex = useMemo(() => {
     const offset = differenceInCalendarDays(selectedDate, anchorDate);
     return Math.min(TOTAL_SLIDES - 1, Math.max(0, offset + SWIPE_RANGE));
   }, [selectedDate, anchorDate]);
-
   const [activeIndex, setActiveIndex] = useState(initialIndex);
-
-  // When initialIndex changes externally (sheet re-anchors, parent-driven date
-  // change), keep the render window in sync without an effect.
   const [prevInitialIndex, setPrevInitialIndex] = useState(initialIndex);
   if (prevInitialIndex !== initialIndex) {
     setPrevInitialIndex(initialIndex);
     setActiveIndex(initialIndex);
   }
-
   const tasksByDate = useMemo(() => {
     const map = new Map<string, TaskDocument[]>();
     for (const t of tasks) {
@@ -160,51 +140,43 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
     }
     return map;
   }, [tasks]);
-
   useEffect(() => {
     if (!isOpen) return;
     const s = swiperRef.current;
     if (!s) return;
-
     const offset = differenceInCalendarDays(selectedDate, anchorDate);
     const targetIndex = offset + SWIPE_RANGE;
     if (targetIndex < 0 || targetIndex >= TOTAL_SLIDES) return;
     if (s.activeIndex === targetIndex) return;
-
     isProgrammaticMoveRef.current = true;
     s.slideTo(targetIndex, 0);
-
     const raf = requestAnimationFrame(() => {
       isProgrammaticMoveRef.current = false;
     });
     return () => cancelAnimationFrame(raf);
   }, [isOpen, selectedDate, anchorDate]);
-
-  // ----- UI state -----
   const [activeTask, setActiveTask] = useState<TaskDocument | null>(null);
   const [isActionSheetOpen, setIsActionSheetOpen] = useState(false);
   const [isMemoSheetOpen, setIsMemoSheetOpen] = useState(false);
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
   const [viewingTask, setViewingTask] = useState<TaskDocument | null>(null);
+  const [imagePickerTask, setImagePickerTask] = useState<TaskDocument | null>(null);
   const viewingImageUrl = useTaskImage(viewingTask?.image).imageUrl;
   const [isDeletePhotoConfirmOpen, setIsDeletePhotoConfirmOpen] = useState(false);
   const [isDeletingPhoto, setIsDeletingPhoto] = useState(false);
   const [deleteFeedback, setDeleteFeedback] = useState<string | null>(null);
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
   const [editValue, setEditValue] = useState('');
-
   useEffect(() => {
     if (deleteFeedback) {
       const timer = setTimeout(() => setDeleteFeedback(null), 2000);
       return () => clearTimeout(timer);
     }
   }, [deleteFeedback]);
-
   // ----- Stable handlers -----
   const handleToggleTask = useCallback((taskId: string, currentStatus: boolean) => {
     toggleTaskCompletion(taskId, !currentStatus);
   }, [toggleTaskCompletion]);
-
   const handleAddTask = useCallback((title: string, categoryId: string, dateStr: string) => {
     addTask({
       title,
@@ -214,13 +186,11 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
       visibility: 'private',
     });
   }, [addTask]);
-
   const handleStartEdit = useCallback((task: TaskDocument) => {
     setEditingTaskId(task.id);
     setEditValue(task.title);
     setIsActionSheetOpen(false);
   }, []);
-
   const handleEditSave = useCallback(async () => {
     if (editingTaskId && editValue.trim()) {
       await updateTask(editingTaskId, { title: editValue.trim() });
@@ -228,26 +198,21 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
     setEditingTaskId(null);
     setEditValue('');
   }, [editingTaskId, editValue, updateTask]);
-
   const handleEditCancel = useCallback(() => {
     setEditingTaskId(null);
     setEditValue('');
   }, []);
-
   const handleOpenActions = useCallback((task: TaskDocument) => {
     setActiveTask(task);
     setIsActionSheetOpen(true);
   }, []);
-
   const handleOpenMemo = useCallback((task: TaskDocument) => {
     setActiveTask(task);
     setIsMemoSheetOpen(true);
   }, []);
-
   const handleViewImage = useCallback((task: TaskDocument) => {
     setViewingTask(task);
   }, []);
-
   const handleDelete = async () => {
     if (activeTask) {
       if (activeTask.image) await deleteImage(activeTask.image);
@@ -256,21 +221,18 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
       setActiveTask(null);
     }
   };
-
   const handleMemoSave = async (memo: string, visibility: 'private' | 'followers' | 'public') => {
     if (activeTask) {
       await updateTask(activeTask.id, { memo, visibility });
       setIsMemoSheetOpen(false);
     }
   };
-
   const handleDateChange = async (newDate: string) => {
     if (activeTask) {
       await updateTask(activeTask.id, { date: newDate });
       setIsDatePickerOpen(false);
     }
   };
-
   const handleDoItTomorrowOrToday = async () => {
     if (!activeTask) return;
     const now = new Date();
@@ -280,12 +242,10 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
     const newDate = taskDateStr === todayStr ? format(addDays(now, 1), 'yyyy-MM-dd') : todayStr;
     await updateTask(activeTask.id, { date: newDate });
   };
-
   const handleRequestDeletePhoto = () => {
     setIsActionSheetOpen(false);
     setIsDeletePhotoConfirmOpen(true);
   };
-
   const handleConfirmDeletePhoto = async () => {
     if (!activeTask?.image) return;
     setIsDeletingPhoto(true);
@@ -302,17 +262,27 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
       setIsDeletingPhoto(false);
     }
   };
-
   const handleCancelDeletePhoto = () => {
     setIsDeletePhotoConfirmOpen(false);
   };
-
+  const handleAddPhoto = useCallback((task: TaskDocument) => {
+    setImagePickerTask(task);
+    setIsActionSheetOpen(false);
+  }, []);
+  const handleImageSaved = useCallback(async (fileId: string) => {
+    if (imagePickerTask) {
+      await updateTask(imagePickerTask.id, { image: fileId });
+    }
+  }, [imagePickerTask, updateTask]);
+  const handleImageRemoved = useCallback(async () => {
+    if (imagePickerTask) {
+      await updateTask(imagePickerTask.id, { image: '' });
+    }
+  }, [imagePickerTask, updateTask]);
   const isBackgroundLocked =
-    isActionSheetOpen || isMemoSheetOpen || isDatePickerOpen || !!viewingTask || isDeletePhotoConfirmOpen;
-
+    isActionSheetOpen || isMemoSheetOpen || isDatePickerOpen || !!viewingTask || isDeletePhotoConfirmOpen || !!imagePickerTask;
   const handleSwipeSettled = useCallback((s: SwiperClass) => {
     setActiveIndex(s.activeIndex);
-
     if (isProgrammaticMoveRef.current) return;
     const date = slideDates[s.activeIndex];
     if (!date) return;
@@ -320,7 +290,6 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
       onDateChange?.(date);
     }
   }, [slideDates, onDateChange]);
-
   const slides = useMemo(() => {
     return slideDates.map((date, i) => {
       const dateStr = slideDateStrs[i];
@@ -354,7 +323,6 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
     handleOpenActions, handleOpenMemo, handleViewImage,
     handleEditSave, handleEditCancel,
   ]);
-
   return (
     <>
       <BottomSheet
@@ -388,7 +356,6 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
           </Swiper>
         </div>
       </BottomSheet>
-
       <TaskActionSheet
         isOpen={isActionSheetOpen}
         onClose={() => setIsActionSheetOpen(false)}
@@ -397,6 +364,7 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
         onDelete={handleDelete}
         onMemo={() => setIsMemoSheetOpen(true)}
         onChangeDate={() => setIsDatePickerOpen(true)}
+        onAddPhoto={() => activeTask && handleAddPhoto(activeTask)}
         onViewPhoto={() => {
           if (activeTask) setViewingTask(activeTask);
           setIsActionSheetOpen(false);
@@ -415,6 +383,13 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
         onClose={() => setIsDatePickerOpen(false)}
         task={activeTask}
         onDateChange={handleDateChange}
+      />
+      <ImagePickerSheet
+        isOpen={!!imagePickerTask}
+        onClose={() => setImagePickerTask(null)}
+        task={imagePickerTask}
+        onSave={handleImageSaved}
+        onRemove={handleImageRemoved}
       />
       <ImageViewer
         isOpen={!!viewingTask}

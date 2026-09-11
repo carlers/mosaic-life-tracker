@@ -1,4 +1,6 @@
 import { getDatabase, type AppDatabaseCollections } from './database';
+import { client, account } from '../lib/appwrite';
+import { TablesDB, Permission, Role, Query } from 'appwrite';
 
 const APPWRITE_CONFIG = {
   endpoint: 'https://sgp.cloud.appwrite.io',
@@ -12,9 +14,9 @@ const APPWRITE_CONFIG = {
   },
 } as const;
 
-export const CURRENT_USER_ID = 'user1';
-
+const tablesDB = new TablesDB(client);
 const DEBUG = import.meta.env.DEV;
+const PAGE_SIZE = 100;
 
 export interface SyncStatus {
   isSyncing: boolean;
@@ -40,7 +42,7 @@ function updateSyncStatus(updates: Partial<SyncStatus>) {
   if (syncStatus.lastSync) {
     localStorage.setItem('lastSyncTime', syncStatus.lastSync);
   }
-  listeners.forEach(l => l(syncStatus));
+  listeners.forEach((l) => l(syncStatus));
   if (DEBUG) console.log('[Sync] Status:', syncStatus);
 }
 
@@ -59,7 +61,6 @@ type LocalDoc = {
   id: string;
   _meta?: { lwt?: number };
   toJSON: () => Record<string, unknown>;
-  patch: (data: Record<string, unknown>) => Promise<unknown>;
 };
 type LocalCollection = {
   findOne: (id: string) => { exec: () => Promise<LocalDoc | null> };
@@ -67,63 +68,70 @@ type LocalCollection = {
   upsert: (doc: Record<string, unknown>) => Promise<unknown>;
 };
 
-// --- Module-level guards against concurrent / duplicate sync activity ---
 let isSyncInProgress = false;
-let activeSyncController: AbortController | null = null;
-
 declare global {
   interface Window {
     __mosaicFocusSyncAttached?: boolean;
   }
 }
 
-function makeAbortError(): Error {
-  const err = new Error('Sync aborted');
-  err.name = 'AbortError';
-  return err;
+function isTimestampedCollection(collection: string): boolean {
+  return collection === 'tasks' || collection === 'diary';
 }
 
-function toAppwriteFormat(doc: Record<string, unknown>, collection: string): AppwritePayload {
+function toAppwriteFormat(
+  doc: Record<string, unknown>,
+  collection: string,
+  userId: string
+): AppwritePayload {
+  const source: Record<string, unknown> = { ...doc };
+  delete source._meta;
+  delete source._deleted;
+  delete source._rev;
+
   const mapped: AppwritePayload = {};
-  delete doc._meta;
-  delete doc._deleted;
-  delete doc._rev;
+
   if (collection === 'tasks') {
-    mapped.title = doc.title || '';
-    mapped.is_completed = doc.completed ?? false;
-    mapped.category_id = doc.categoryId || '';
-    mapped.tags = doc.tags || '';
-    mapped.date = doc.date || '';
-    mapped.memo = doc.memo || '';
-    mapped.image = doc.image || '';
-    mapped.created_at = doc.createdAt || new Date().toISOString();
-    mapped.completed_at = doc.completedAt || '';
-    mapped.updated_at = doc.updatedAt || new Date().toISOString();
-    mapped.user_id = doc.userId || CURRENT_USER_ID;
-    mapped.deleted = doc.isDeleted ?? false;
-    mapped.visibility = doc.visibility || 'private';
+    mapped.title = source.title || '';
+    mapped.is_completed = source.completed ?? false;
+    mapped.category_id = source.categoryId || '';
+    mapped.tags = source.tags || '';
+    mapped.date = source.date || '';
+    mapped.memo = source.memo || '';
+    mapped.image = source.image || '';
+    mapped.created_at = source.createdAt || new Date().toISOString();
+    mapped.completed_at = source.completedAt || '';
+    mapped.updated_at = source.updatedAt || new Date().toISOString();
+    mapped.user_id = userId;
+    mapped.deleted = source.isDeleted ?? false;
+    mapped.visibility = source.visibility || 'private';
+    mapped.source = source.source || '';
+    mapped.routine_id = source.routineId || '';
+    mapped.reminder_time = source.reminderTime || '';
+    mapped.reactions = source.reactions || '';
   } else if (collection === 'categories') {
-    mapped.name = doc.name || '';
-    mapped.color = doc.color || '#3B82F6';
-    mapped.visibility = doc.visibility || 'private';
-    mapped.order = doc.order ?? 0;
-    mapped.user_id = doc.userId || CURRENT_USER_ID;
-    mapped.deleted = doc.isDeleted ?? false;
-    mapped.icon = doc.icon || '';
+    mapped.name = source.name || '';
+    mapped.color = source.color || '#3B82F6';
+    mapped.visibility = source.visibility || 'private';
+    mapped.order = source.order ?? 0;
+    mapped.user_id = userId;
+    mapped.deleted = source.isDeleted ?? false;
+    mapped.icon = source.icon || '';
   } else if (collection === 'diary') {
-    mapped.date = doc.date || '';
-    mapped.content = doc.content || '';
-    mapped.visibility = doc.visibility || 'private';
-    mapped.user_id = doc.userId || CURRENT_USER_ID;
-    mapped.deleted = doc.isDeleted ?? false;
-    mapped.created_at = doc.createdAt || new Date().toISOString();
-    mapped.updated_at = doc.updatedAt || new Date().toISOString();
+    mapped.date = source.date || '';
+    mapped.content = source.content || '';
+    mapped.visibility = source.visibility || 'private';
+    mapped.user_id = userId;
+    mapped.deleted = source.isDeleted ?? false;
+    mapped.created_at = source.createdAt || new Date().toISOString();
+    mapped.updated_at = source.updatedAt || new Date().toISOString();
   } else if (collection === 'settings') {
-    mapped.user_id = doc.userId || CURRENT_USER_ID;
-    mapped.key = doc.key || '';
-    mapped.value = doc.value || '';
-    mapped.deleted = doc.isDeleted ?? false;
+    mapped.user_id = userId;
+    mapped.key = source.key || '';
+    mapped.value = source.value || '';
+    mapped.deleted = source.isDeleted ?? false;
   }
+
   return mapped;
 }
 
@@ -134,9 +142,9 @@ function fromAppwriteFormat(row: AppwriteRow, collection: string): Record<string
   delete mapped.$updatedAt;
   delete mapped.$permissions;
   delete mapped.$databaseId;
-  delete mapped.$collectionId;
-  delete mapped.$sequence;
   delete mapped.$tableId;
+  delete mapped.$sequence;
+
   if (collection === 'tasks') {
     mapped.id = row.$id || mapped.id;
     mapped.completed = mapped.is_completed ?? false;
@@ -160,6 +168,8 @@ function fromAppwriteFormat(row: AppwriteRow, collection: string): Record<string
     delete mapped.updated_at;
     delete mapped.user_id;
     delete mapped.deleted;
+    delete mapped.routine_id;
+    delete mapped.reminder_time;
   } else if (collection === 'categories') {
     mapped.id = row.$id || mapped.id;
     mapped.userId = mapped.user_id;
@@ -185,52 +195,31 @@ function fromAppwriteFormat(row: AppwriteRow, collection: string): Record<string
     delete mapped.user_id;
     delete mapped.deleted;
   }
+
   return mapped;
 }
 
-async function appwriteFetch(
-  table: string,
-  method: 'GET' | 'POST' | 'PATCH' | 'PUT',
-  body?: AppwritePayload,
-  rowId?: string,
-  signal?: AbortSignal
-) {
-  const url = `${APPWRITE_CONFIG.endpoint}/v1/tablesdb/${APPWRITE_CONFIG.databaseId}/tables/${table}/rows${rowId ? `/${rowId}` : ''}`;
-  const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
-    'X-Appwrite-Project': APPWRITE_CONFIG.projectId,
-  };
-  const options: RequestInit = { method, headers, credentials: 'include' };
-  if (signal) options.signal = signal;
-  if (body && Object.keys(body).length > 0) {
-    options.body = JSON.stringify(body);
-  }
+function buildRowPermissions(userId: string) {
+  return [
+    Permission.read(Role.user(userId)),
+    Permission.update(Role.user(userId)),
+    Permission.delete(Role.user(userId)),
+  ];
+}
+
+function toMs(value: unknown): number {
+  if (typeof value !== 'string' || !value) return 0;
+  const t = new Date(value).getTime();
+  return Number.isFinite(t) ? t : 0;
+}
+
+async function resolveAuthenticatedUserId(): Promise<string | null> {
   try {
-    const res = await fetch(url, options);
-    if (!res.ok) {
-      const errorText = await res.text();
-      let errorMessage = `Appwrite API Error (${res.status})`;
-      try {
-        const jsonError = JSON.parse(errorText);
-        errorMessage += `: ${jsonError.message || JSON.stringify(jsonError)}`;
-      } catch {
-        errorMessage += `: ${errorText}`;
-      }
-      console.error(`[Sync] ❌ ${method} ${url} failed:`, errorMessage);
-      throw new Error(errorMessage);
-    }
-    return res.json();
-  } catch (error) {
-    if (error instanceof Error && error.name === 'AbortError') {
-      throw error;
-    }
-    if (error instanceof Error && error.message.startsWith('Appwrite API Error')) {
-      throw error;
-    }
-    throw new Error(
-      `Network error during Appwrite sync: ${error instanceof Error ? error.message : 'Unknown network error'}`,
-      { cause: error }
-    );
+    const user = await account.get();
+    return user?.$id || null;
+  } catch (err) {
+    if (DEBUG) console.log('[Sync] account.get() failed:', err);
+    return null;
   }
 }
 
@@ -239,93 +228,202 @@ export async function initializeSync(): Promise<void> {
     if (DEBUG) console.log('[Sync] initializeSync skipped: sync already in progress');
     return;
   }
+
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+    if (DEBUG) console.log('[Sync] Offline, skipping sync');
+    updateSyncStatus({ isSyncing: false });
+    return;
+  }
+
   isSyncInProgress = true;
   if (DEBUG) console.log('[Sync] Starting initial sync...');
   updateSyncStatus({ isSyncing: true, errors: [] });
 
-  const controller = new AbortController();
-  activeSyncController = controller;
-
   try {
-    const db = getDatabase();
-    const collections: (keyof AppDatabaseCollections)[] = ['tasks', 'categories', 'diary', 'settings'];
-    for (const colName of collections) {
-      if (controller.signal.aborted) throw makeAbortError();
-      await syncCollection(db[colName] as unknown as LocalCollection, colName, controller.signal);
-    }
-    updateSyncStatus({ isSyncing: false, lastSync: new Date().toISOString() });
-    if (DEBUG) console.log('[Sync] ✅ Initial sync complete');
-  } catch (error) {
-    if (error instanceof Error && error.name === 'AbortError') {
-      if (DEBUG) console.log('[Sync] Sync aborted');
+    const userId = await resolveAuthenticatedUserId();
+    if (!userId) {
+      if (DEBUG) console.log('[Sync] No authenticated user, skipping sync');
+      updateSyncStatus({ isSyncing: false });
       return;
     }
+
+    const db = getDatabase();
+    const collections: (keyof AppDatabaseCollections)[] = [
+      'tasks',
+      'categories',
+      'diary',
+      'settings',
+    ];
+
+    const collectionErrors: string[] = [];
+    for (const colName of collections) {
+      try {
+        await syncCollection(db[colName] as unknown as LocalCollection, colName, userId);
+      } catch (colError) {
+        const message =
+          colError instanceof Error ? colError.message : `Unknown error in ${colName}`;
+        console.error(`[Sync] Collection "${colName}" failed:`, colError);
+        collectionErrors.push(`${colName}: ${message}`);
+      }
+    }
+
+    if (collectionErrors.length === 0) {
+      updateSyncStatus({ isSyncing: false, lastSync: new Date().toISOString(), errors: [] });
+      if (DEBUG) console.log('[Sync] ✅ Initial sync complete');
+    } else {
+      updateSyncStatus({ isSyncing: false, errors: collectionErrors });
+      if (DEBUG) console.warn('[Sync] ⚠️ Sync completed with errors:', collectionErrors);
+    }
+  } catch (error) {
     console.error('[Sync] ❌ Sync failed', error);
     updateSyncStatus({
       isSyncing: false,
-      errors: [...syncStatus.errors, error instanceof Error ? error.message : 'Unknown error']
+      errors: [
+        ...syncStatus.errors,
+        error instanceof Error ? error.message : 'Unknown error',
+      ],
     });
   } finally {
-    if (activeSyncController === controller) {
-      activeSyncController = null;
-    }
     isSyncInProgress = false;
   }
 }
 
-async function syncCollection(collection: LocalCollection, colName: string, signal: AbortSignal) {
-  const tableId = APPWRITE_CONFIG.tables[colName as keyof typeof APPWRITE_CONFIG.tables];
+async function syncCollection(
+  collection: LocalCollection,
+  colName: string,
+  userId: string
+) {
+  const tableId =
+    APPWRITE_CONFIG.tables[colName as keyof typeof APPWRITE_CONFIG.tables];
   if (DEBUG) console.log(`[Sync] Syncing ${colName}...`);
-  try {
-    const remoteData = await appwriteFetch(tableId, 'GET', undefined, undefined, signal);
-    const rows: AppwriteRow[] = remoteData.rows || [];
-    if (DEBUG) console.log(`[Sync] Pulled ${rows.length} rows from ${tableId}`);
+
+  const lastSyncMs = syncStatus.lastSync ? new Date(syncStatus.lastSync).getTime() : 0;
+  const usesTimestamps = isTimestampedCollection(colName);
+  const remoteIndex = new Map<string, { updatedAt: number; isDeleted: boolean }>();
+  const justPulled = new Set<string>();
+
+  // ---------------- PULL (paginated) ----------------
+  let cursor: string | undefined = undefined;
+  let pageCount = 0;
+
+  for (;;) {
+    const queries: unknown[] = [
+      Query.equal('user_id', userId),
+      Query.limit(PAGE_SIZE),
+      Query.orderAsc('$id'),
+    ];
+    if (cursor) queries.push(Query.cursorAfter(cursor));
+
+    const remoteResponse = await tablesDB.listRows({
+      databaseId: APPWRITE_CONFIG.databaseId,
+      tableId,
+      queries: queries as never,
+      total: false,
+    });
+
+    const rows = ((remoteResponse as { rows?: AppwriteRow[] }).rows || []) as AppwriteRow[];
+    pageCount++;
+    if (DEBUG) console.log(`[Sync] ${colName} page ${pageCount}: ${rows.length} rows`);
+
+    if (rows.length === 0) break;
 
     for (const row of rows) {
-      if (signal.aborted) throw makeAbortError();
-      const doc = fromAppwriteFormat(row, colName);
-      const docId = doc.id as string;
-      const localDoc = await collection.findOne(docId).exec();
-      if (localDoc) {
-        const localLwt = localDoc._meta?.lwt || 0;
-        const remoteLwt = row.$updatedAt ? new Date(row.$updatedAt as string).getTime() : 0;
-        if (remoteLwt > localLwt) {
+      try {
+        const doc = fromAppwriteFormat(row, colName);
+        const docId = doc.id as string;
+        if (!docId) continue;
+
+        const remoteUpdatedAt = toMs(row.$updatedAt);
+        remoteIndex.set(docId, {
+          updatedAt: remoteUpdatedAt,
+          isDeleted: (doc.isDeleted as boolean) ?? false,
+        });
+
+        const localDoc = await collection.findOne(docId).exec();
+        if (!localDoc) {
           await collection.upsert(doc);
-        } else {
-          if (DEBUG) console.log(`[Sync] Skipping remote overwrite for ${docId} (local is newer)`);
+          justPulled.add(docId);
+          continue;
         }
-      } else {
-        await collection.upsert(doc);
+
+        const localLwt = localDoc._meta?.lwt ?? 0;
+        const isLocalDirty = localLwt > lastSyncMs;
+
+        if (isLocalDirty) {
+          continue;
+        }
+
+        let remoteWins = false;
+        if (usesTimestamps) {
+          const localUpdatedAt = toMs(localDoc.toJSON().updatedAt);
+          remoteWins = remoteUpdatedAt > localUpdatedAt;
+        } else {
+          remoteWins = remoteUpdatedAt > localLwt;
+        }
+
+        if (remoteWins) {
+          await collection.upsert(doc);
+          justPulled.add(docId);
+        }
+      } catch (rowError) {
+        console.error(`[Sync] Failed to process ${colName} row:`, rowError);
       }
     }
 
-    const localDocs = await collection.find().exec();
-    for (const doc of localDocs) {
-      if (signal.aborted) throw makeAbortError();
-      const rowData = toAppwriteFormat(doc.toJSON(), colName);
-      const remotePayload = {
-        data: rowData,
-        permissions: ['read("any")', 'update("any")', 'delete("any")']
-      };
-      if (DEBUG) console.log(`[Sync] Pushing ${colName} ${doc.id}`);
-      try {
-        await appwriteFetch(tableId, 'PATCH', remotePayload, doc.id, signal);
-      } catch (err) {
-        if (err instanceof Error && err.name === 'AbortError') throw err;
-        try {
-          await appwriteFetch(tableId, 'PUT', remotePayload, doc.id, signal);
-        } catch (upsertError) {
-          if (upsertError instanceof Error && upsertError.name === 'AbortError') throw upsertError;
-          console.error(`[Sync] Failed to upsert ${colName} ${doc.id}:`, upsertError);
-        }
-      }
-    }
-    if (DEBUG) console.log(`[Sync] ✅ ${colName} synced`);
-  } catch (error) {
-    if (error instanceof Error && error.name === 'AbortError') throw error;
-    console.error(`[Sync] Error syncing ${colName}`, error);
-    throw error;
+    if (rows.length < PAGE_SIZE) break;
+
+    const lastId = rows[rows.length - 1].$id as string | undefined;
+    if (!lastId || lastId === cursor) break;
+    cursor = lastId;
   }
+
+  // ---------------- PUSH ----------------
+  const localDocs = await collection.find().exec();
+  for (const doc of localDocs) {
+    const json = doc.toJSON();
+    const docUserId = json.userId as string | undefined;
+    if (docUserId !== userId) continue;
+
+    const docId = (json.id as string) || doc.id;
+    if (!docId) continue;
+
+    if (justPulled.has(docId)) continue;
+
+    const remoteMeta = remoteIndex.get(docId);
+    const localLwt = doc._meta?.lwt ?? 0;
+    const isLocalDirty = localLwt > lastSyncMs;
+
+    let shouldPush = false;
+    if (!remoteMeta) {
+      shouldPush = true;
+    } else if (isLocalDirty) {
+      shouldPush = true;
+    } else if (usesTimestamps) {
+      const localUpdatedAt = toMs(json.updatedAt);
+      shouldPush = localUpdatedAt > remoteMeta.updatedAt;
+    }
+
+    if (!shouldPush) continue;
+
+    const rowData = toAppwriteFormat(json, colName, userId);
+
+    if (DEBUG) console.log(`[Sync] Pushing ${colName} ${docId}`);
+
+    try {
+      await tablesDB.upsertRow({
+        databaseId: APPWRITE_CONFIG.databaseId,
+        tableId,
+        rowId: docId,
+        data: rowData,
+        permissions: buildRowPermissions(userId),
+      });
+    } catch (upsertError) {
+      console.error(`[Sync] Failed to upsert ${colName} ${docId}:`, upsertError);
+      throw upsertError;
+    }
+  }
+
+  if (DEBUG) console.log(`[Sync] ✅ ${colName} synced (${pageCount} page(s) pulled)`);
 }
 
 export async function forceSync() {
@@ -333,17 +431,35 @@ export async function forceSync() {
   await initializeSync();
 }
 
-function handleWindowFocus() {
+function safeForceSync(reason: string) {
   try {
     getDatabase();
-    if (DEBUG) console.log('[Sync] Window focused, syncing...');
-    forceSync().catch(e => console.error('[Sync] Focus sync failed', e));
-  } catch {
-    // Database not yet initialized; bootstrap will trigger initial sync
+    if (DEBUG) console.log(`[Sync] ${reason}, syncing...`);
+    forceSync().catch((e) => console.error(`[Sync] ${reason} sync failed`, e));
+  } catch (e) {
+    if (DEBUG) console.log(`[Sync] ${reason} handler skipped (DB not ready):`, e);
+  }
+}
+
+function handleWindowFocus() {
+  safeForceSync('Window focused');
+}
+
+function handleOnline() {
+  safeForceSync('Connection restored');
+}
+
+function handleVisibilityChange() {
+  if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
+    safeForceSync('App became visible');
   }
 }
 
 if (typeof window !== 'undefined' && !window.__mosaicFocusSyncAttached) {
   window.__mosaicFocusSyncAttached = true;
   window.addEventListener('focus', handleWindowFocus);
+  window.addEventListener('online', handleOnline);
+  if (typeof document !== 'undefined') {
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+  }
 }

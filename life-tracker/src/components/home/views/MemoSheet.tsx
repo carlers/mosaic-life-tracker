@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { BottomSheet } from '../../ui/BottomSheet';
 import type { TaskDocument } from '../../../db/schema';
 
@@ -18,6 +18,7 @@ export const MemoSheet: React.FC<MemoSheetProps> = ({
   const [syncedTaskId, setSyncedTaskId] = useState<string | null>(null);
   const [editedMemo, setEditedMemo] = useState<string | null>(null);
   const [editedVisibility, setEditedVisibility] = useState<'private' | 'followers' | 'public' | null>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const taskId = task?.id ?? null;
   if (taskId !== syncedTaskId) {
@@ -25,6 +26,12 @@ export const MemoSheet: React.FC<MemoSheetProps> = ({
     setEditedMemo(null);
     setEditedVisibility(null);
   }
+
+  useEffect(() => {
+    if (isOpen && taskId) {
+      textareaRef.current?.focus();
+    }
+  }, [isOpen, taskId]);
 
   const memo = editedMemo ?? task?.memo ?? '';
   const visibility = editedVisibility ?? task?.visibility ?? 'private';
@@ -53,24 +60,22 @@ export const MemoSheet: React.FC<MemoSheetProps> = ({
           <button onClick={handleDone} className="text-white font-semibold text-base">Done</button>
         </div>
         <textarea
+          ref={textareaRef}
           value={memo}
           onChange={(e) => setEditedMemo(e.target.value)}
           placeholder="Enter a memo"
-          autoFocus
           className="w-full bg-[#1A1A1A] rounded-xl p-4 text-base text-white placeholder-gray-500 focus:outline-none min-h-[200px] resize-none mb-6"
         />
         <div className="flex items-center justify-end gap-3">
           <span className="text-sm text-gray-400">Visible to me only</span>
           <button
             onClick={() => setEditedVisibility(visibility === 'private' ? 'public' : 'private')}
-            className={`relative w-12 h-7 rounded-full transition-colors ${
-              visibility === 'private' ? 'bg-gray-600' : 'bg-blue-500'
-            }`}
+            className={`relative w-12 h-7 rounded-full transition-colors ${visibility === 'private' ? 'bg-gray-600' : 'bg-blue-500'
+              }`}
           >
             <div
-              className={`absolute top-1 w-5 h-5 rounded-full bg-white transition-transform ${
-                visibility === 'private' ? 'left-1' : 'left-6'
-              }`}
+              className={`absolute top-1 w-5 h-5 rounded-full bg-white transition-transform ${visibility === 'private' ? 'left-1' : 'left-6'
+                }`}
             />
             <span className="absolute inset-0 flex items-center justify-center text-[10px] font-bold text-white">
               {visibility === 'private' ? 'ON' : 'OFF'}

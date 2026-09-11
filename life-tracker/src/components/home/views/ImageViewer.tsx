@@ -38,7 +38,8 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
     const lightbox = new PhotoSwipeLightbox({
       dataSource: [{
         src: imageUrl,
-        w: 1920, h: 1080,
+        w: 1920,
+        h: 1080,
         alt: taskTitle || 'Task image'
       }],
       pswpModule: () => import('photoswipe'),
@@ -50,14 +51,35 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
     lightbox.on('uiRegister', () => {
       const pswp = lightbox.pswp;
       if (!pswp) return;
+
       const captionEl = document.createElement('div');
       captionEl.className = 'pswp__custom-caption';
-      captionEl.innerHTML = `
-        <div style="padding: 20px; background: linear-gradient(to top, rgba(0,0,0,0.85), transparent); pointer-events: none;">
-          ${taskTitle ? `<h3 style="margin: 0 0 4px 0; font-size: 16px; font-weight: 600; color: white;">${taskTitle}</h3>` : ''}
-          ${taskDate ? `<p style="margin: 0; font-size: 12px; color: #a1a1aa;">Added ${taskDate}</p>` : ''}
-        </div>
-      `;
+
+      const inner = document.createElement('div');
+      inner.style.padding = '20px';
+      inner.style.background = 'linear-gradient(to top, rgba(0,0,0,0.85), transparent)';
+      inner.style.pointerEvents = 'none';
+
+      if (taskTitle) {
+        const titleEl = document.createElement('h3');
+        titleEl.style.margin = '0 0 4px 0';
+        titleEl.style.fontSize = '16px';
+        titleEl.style.fontWeight = '600';
+        titleEl.style.color = 'white';
+        titleEl.textContent = taskTitle;
+        inner.appendChild(titleEl);
+      }
+
+      if (taskDate) {
+        const dateEl = document.createElement('p');
+        dateEl.style.margin = '0';
+        dateEl.style.fontSize = '12px';
+        dateEl.style.color = '#a1a1aa';
+        dateEl.textContent = `Added ${taskDate}`;
+        inner.appendChild(dateEl);
+      }
+
+      captionEl.appendChild(inner);
       pswp.element?.appendChild(captionEl);
     });
 
