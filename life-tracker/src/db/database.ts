@@ -1,26 +1,24 @@
-import { 
-  createRxDatabase, 
-  addRxPlugin, 
-  type RxDatabase, 
-  type RxCollection 
+import {
+  createRxDatabase,
+  addRxPlugin,
+  type RxDatabase,
+  type RxCollection,
 } from 'rxdb';
 import { getRxStorageDexie } from 'rxdb/plugins/storage-dexie';
 import { RxDBDevModePlugin } from 'rxdb/plugins/dev-mode';
-import { wrappedValidateAjvStorage } from 'rxdb/plugins/validate-ajv'; // <-- NEW IMPORT
-import { 
-  tasksSchema, 
-  categoriesSchema, 
-  diarySchema, 
+import { wrappedValidateAjvStorage } from 'rxdb/plugins/validate-ajv';
+import {
+  tasksSchema,
+  categoriesSchema,
+  diarySchema,
   settingsSchema,
+  friendshipsSchema,
   type TaskDocument,
   type CategoryDocument,
   type DiaryDocument,
   type SettingsDocument,
+  type FriendshipDocument,
 } from './schema';
-
-// ============================================================================
-// PLUGIN INITIALIZATION
-// ============================================================================
 
 if (import.meta.env.DEV) {
   addRxPlugin(RxDBDevModePlugin);
@@ -30,20 +28,13 @@ if (import.meta.env.DEV) {
 const DB_NAME = 'life_tracker_db';
 const DEBUG = import.meta.env.DEV;
 
-// ============================================================================
-// TYPE DEFINITIONS
-// ============================================================================
-
 export interface AppDatabaseCollections {
   tasks: RxCollection<TaskDocument>;
   categories: RxCollection<CategoryDocument>;
   diary: RxCollection<DiaryDocument>;
   settings: RxCollection<SettingsDocument>;
+  friendships: RxCollection<FriendshipDocument>;
 }
-
-// ============================================================================
-// DATABASE INSTANCE
-// ============================================================================
 
 let dbInstance: RxDatabase<AppDatabaseCollections> | null = null;
 
@@ -58,9 +49,8 @@ export async function initializeDatabase(): Promise<RxDatabase<AppDatabaseCollec
 
     const database = await createRxDatabase<AppDatabaseCollections>({
       name: DB_NAME,
-      // FIX: Wrap storage with Ajv validator to satisfy dev-mode requirements
       storage: wrappedValidateAjvStorage({
-        storage: getRxStorageDexie()
+        storage: getRxStorageDexie(),
       }),
       multiInstance: true,
       eventReduce: true,
@@ -74,6 +64,7 @@ export async function initializeDatabase(): Promise<RxDatabase<AppDatabaseCollec
       categories: { schema: categoriesSchema },
       diary: { schema: diarySchema },
       settings: { schema: settingsSchema },
+      friendships: { schema: friendshipsSchema },
     });
 
     if (DEBUG) {
@@ -84,7 +75,6 @@ export async function initializeDatabase(): Promise<RxDatabase<AppDatabaseCollec
 
     dbInstance = database;
     return dbInstance;
-
   } catch (error) {
     console.error('[RxDB] FATAL: Database initialization failed', error);
     throw error;
@@ -112,11 +102,12 @@ export async function destroyDatabase(): Promise<void> {
 
 export async function getDatabaseStats(db?: RxDatabase<AppDatabaseCollections>) {
   const database = db || getDatabase();
-  const [tasks, categories, diary, settings] = await Promise.all([
+  const [tasks, categories, diary, settings, friendships] = await Promise.all([
     database.tasks.count().exec(),
     database.categories.count().exec(),
     database.diary.count().exec(),
     database.settings.count().exec(),
+    database.friendships.count().exec(),
   ]);
-  return { tasks, categories, diary, settings };
+  return { tasks, categories, diary, settings, friendships };
 }

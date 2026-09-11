@@ -11,6 +11,7 @@ const APPWRITE_CONFIG = {
     categories: 'categories',
     diary: 'diary',
     settings: 'settings',
+    friendships: 'friendships',
   },
 } as const;
 
@@ -69,6 +70,7 @@ type LocalCollection = {
 };
 
 let isSyncInProgress = false;
+
 declare global {
   interface Window {
     __mosaicFocusSyncAttached?: boolean;
@@ -76,7 +78,11 @@ declare global {
 }
 
 function isTimestampedCollection(collection: string): boolean {
-  return collection === 'tasks' || collection === 'diary';
+  return (
+    collection === 'tasks' ||
+    collection === 'diary' ||
+    collection === 'friendships'
+  );
 }
 
 function toAppwriteFormat(
@@ -130,12 +136,25 @@ function toAppwriteFormat(
     mapped.key = source.key || '';
     mapped.value = source.value || '';
     mapped.deleted = source.isDeleted ?? false;
+  } else if (collection === 'friendships') {
+    mapped.user_id = userId;
+    mapped.friend_id = source.friendId || '';
+    mapped.friend_username = source.friendUsername || '';
+    mapped.friend_display_name = source.friendDisplayName || '';
+    mapped.friend_avatar_file_id = source.friendAvatarFileId || '';
+    mapped.status = source.status || 'pending_outgoing';
+    mapped.created_at = source.createdAt || new Date().toISOString();
+    mapped.updated_at = source.updatedAt || new Date().toISOString();
+    mapped.deleted = source.isDeleted ?? false;
   }
 
   return mapped;
 }
 
-function fromAppwriteFormat(row: AppwriteRow, collection: string): Record<string, unknown> {
+function fromAppwriteFormat(
+  row: AppwriteRow,
+  collection: string
+): Record<string, unknown> {
   const mapped: Record<string, unknown> = { ...row };
   delete mapped.$id;
   delete mapped.$createdAt;
@@ -194,11 +213,42 @@ function fromAppwriteFormat(row: AppwriteRow, collection: string): Record<string
     mapped.isDeleted = mapped.deleted ?? false;
     delete mapped.user_id;
     delete mapped.deleted;
+  } else if (collection === 'friendships') {
+    mapped.id = row.$id || mapped.id;
+    mapped.userId = mapped.user_id;
+    mapped.friendId = mapped.friend_id || '';
+    mapped.friendUsername = mapped.friend_username || '';
+    mapped.friendDisplayName = mapped.friend_display_name || '';
+    mapped.friendAvatarFileId = mapped.friend_avatar_file_id || '';
+    mapped.status = mapped.status || 'pending_outgoing';
+    mapped.createdAt = mapped.created_at || new Date().toISOString();
+    mapped.updatedAt = mapped.updated_at || new Date().toISOString();
+    mapped.isDeleted = mapped.deleted ?? false;
+    delete mapped.user_id;
+    delete mapped.friend_id;
+    delete mapped.friend_username;
+    delete mapped.friend_display_name;
+    delete mapped.friend_avatar_file_id;
+    delete mapped.created_at;
+    delete mapped.updated_at;
+    delete mapped.deleted;
   }
 
   return mapped;
 }
 
+/**
+ * Row-level permissions granted to the row's OWNER only.
+ *
+ * We cannot grant `user:{friendId}` on a friendship row — Appwrite forbids
+ * granting roles you don't hold ("Permissions must be one of: (any, users,
+ * user:{yourId}, ...)"). Cross-user visibility comes from the table-level
+ * `all users` grant configured in the Console.
+ *
+ * Passing this explicitly (rather than omitting `permissions`) is required:
+ * when the key is absent, the SDK serializes it as `[]`, which the server
+ * rejects with the same "Permissions must be one of" error.
+ */
 function buildRowPermissions(userId: string) {
   return [
     Permission.read(Role.user(userId)),
@@ -225,7 +275,8 @@ async function resolveAuthenticatedUserId(): Promise<string | null> {
 
 export async function initializeSync(): Promise<void> {
   if (isSyncInProgress) {
-    if (DEBUG) console.log('[Sync] initializeSync skipped: sync already in progress');
+    if (DEBUG)
+      console.log('[Sync] initializeSync skipped: sync already in progress');
     return;
   }
 
@@ -253,26 +304,39 @@ export async function initializeSync(): Promise<void> {
       'categories',
       'diary',
       'settings',
+      'friendships',
     ];
 
     const collectionErrors: string[] = [];
+
     for (const colName of collections) {
       try {
-        await syncCollection(db[colName] as unknown as LocalCollection, colName, userId);
+        await syncCollection(
+          db[colName] as unknown as LocalCollection,
+          colName,
+          userId
+        );
       } catch (colError) {
         const message =
-          colError instanceof Error ? colError.message : `Unknown error in ${colName}`;
+          colError instanceof Error
+            ? colError.message
+            : `Unknown error in ${colName}`;
         console.error(`[Sync] Collection "${colName}" failed:`, colError);
         collectionErrors.push(`${colName}: ${message}`);
       }
     }
 
     if (collectionErrors.length === 0) {
-      updateSyncStatus({ isSyncing: false, lastSync: new Date().toISOString(), errors: [] });
+      updateSyncStatus({
+        isSyncing: false,
+        lastSync: new Date().toISOString(),
+        errors: [],
+      });
       if (DEBUG) console.log('[Sync] ✅ Initial sync complete');
     } else {
       updateSyncStatus({ isSyncing: false, errors: collectionErrors });
-      if (DEBUG) console.warn('[Sync] ⚠️ Sync completed with errors:', collectionErrors);
+      if (DEBUG)
+        console.warn('[Sync] ⚠️ Sync completed with errors:', collectionErrors);
     }
   } catch (error) {
     console.error('[Sync] ❌ Sync failed', error);
@@ -297,12 +361,14 @@ async function syncCollection(
     APPWRITE_CONFIG.tables[colName as keyof typeof APPWRITE_CONFIG.tables];
   if (DEBUG) console.log(`[Sync] Syncing ${colName}...`);
 
-  const lastSyncMs = syncStatus.lastSync ? new Date(syncStatus.lastSync).getTime() : 0;
+  const lastSyncMs = syncStatus.lastSync
+    ? new Date(syncStatus.lastSync).getTime()
+    : 0;
   const usesTimestamps = isTimestampedCollection(colName);
+
   const remoteIndex = new Map<string, { updatedAt: number; isDeleted: boolean }>();
   const justPulled = new Set<string>();
 
-  // ---------------- PULL (paginated) ----------------
   let cursor: string | undefined = undefined;
   let pageCount = 0;
 
@@ -321,9 +387,11 @@ async function syncCollection(
       total: false,
     });
 
-    const rows = ((remoteResponse as { rows?: AppwriteRow[] }).rows || []) as AppwriteRow[];
+    const rows = ((remoteResponse as { rows?: AppwriteRow[] }).rows ||
+      []) as AppwriteRow[];
     pageCount++;
-    if (DEBUG) console.log(`[Sync] ${colName} page ${pageCount}: ${rows.length} rows`);
+    if (DEBUG)
+      console.log(`[Sync] ${colName} page ${pageCount}: ${rows.length} rows`);
 
     if (rows.length === 0) break;
 
@@ -348,10 +416,7 @@ async function syncCollection(
 
         const localLwt = localDoc._meta?.lwt ?? 0;
         const isLocalDirty = localLwt > lastSyncMs;
-
-        if (isLocalDirty) {
-          continue;
-        }
+        if (isLocalDirty) continue;
 
         let remoteWins = false;
         if (usesTimestamps) {
@@ -371,13 +436,11 @@ async function syncCollection(
     }
 
     if (rows.length < PAGE_SIZE) break;
-
     const lastId = rows[rows.length - 1].$id as string | undefined;
     if (!lastId || lastId === cursor) break;
     cursor = lastId;
   }
 
-  // ---------------- PUSH ----------------
   const localDocs = await collection.find().exec();
   for (const doc of localDocs) {
     const json = doc.toJSON();
@@ -386,7 +449,6 @@ async function syncCollection(
 
     const docId = (json.id as string) || doc.id;
     if (!docId) continue;
-
     if (justPulled.has(docId)) continue;
 
     const remoteMeta = remoteIndex.get(docId);
@@ -406,10 +468,22 @@ async function syncCollection(
     if (!shouldPush) continue;
 
     const rowData = toAppwriteFormat(json, colName, userId);
-
     if (DEBUG) console.log(`[Sync] Pushing ${colName} ${docId}`);
 
     try {
+      // Always pass the OWNER's permissions explicitly.
+      //
+      // - For tasks/categories/diary/settings: this is the standard
+      //   user-scoped ACL.
+      // - For friendships: the row's `user_id` column points at the
+      //   recipient (the friend), while we (the authenticated writer) are
+      //   the creator. Granting `user:{userId}` is always allowed because
+      //   it's our own role. The friend gains read/update/delete via the
+      //   table-level `all users` grant in the Console.
+      //
+      // Passing `permissions` explicitly is required: an omitted key is
+      // serialized by the SDK as `[]`, which the server rejects with
+      // "Permissions must be one of: (any, users, user:{yourId}, ...)".
       await tablesDB.upsertRow({
         databaseId: APPWRITE_CONFIG.databaseId,
         tableId,
@@ -423,7 +497,8 @@ async function syncCollection(
     }
   }
 
-  if (DEBUG) console.log(`[Sync] ✅ ${colName} synced (${pageCount} page(s) pulled)`);
+  if (DEBUG)
+    console.log(`[Sync] ✅ ${colName} synced (${pageCount} page(s) pulled)`);
 }
 
 export async function forceSync() {
@@ -437,18 +512,17 @@ function safeForceSync(reason: string) {
     if (DEBUG) console.log(`[Sync] ${reason}, syncing...`);
     forceSync().catch((e) => console.error(`[Sync] ${reason} sync failed`, e));
   } catch (e) {
-    if (DEBUG) console.log(`[Sync] ${reason} handler skipped (DB not ready):`, e);
+    if (DEBUG)
+      console.log(`[Sync] ${reason} handler skipped (DB not ready):`, e);
   }
 }
 
 function handleWindowFocus() {
   safeForceSync('Window focused');
 }
-
 function handleOnline() {
   safeForceSync('Connection restored');
 }
-
 function handleVisibilityChange() {
   if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
     safeForceSync('App became visible');

@@ -1,9 +1,5 @@
 import type { RxJsonSchema } from 'rxdb';
 
-// ============================================================================
-// TYPE DEFINITIONS
-// ============================================================================
-
 export interface TaskDocument {
   id: string;
   title: string;
@@ -55,9 +51,18 @@ export interface SettingsDocument {
   isDeleted: boolean;
 }
 
-// ============================================================================
-// RXDB SCHEMAS (v17 Dev-Mode Compliant)
-// ============================================================================
+export interface FriendshipDocument {
+  id: string; // `${userId}_${friendId}`
+  userId: string;
+  friendId: string;
+  friendUsername: string;
+  friendDisplayName: string;
+  friendAvatarFileId: string;
+  status: 'pending_outgoing' | 'pending_incoming' | 'accepted' | 'blocked';
+  createdAt: string;
+  updatedAt: string;
+  isDeleted: boolean;
+}
 
 export const tasksSchema: RxJsonSchema<TaskDocument> = {
   version: 0,
@@ -67,7 +72,7 @@ export const tasksSchema: RxJsonSchema<TaskDocument> = {
   properties: {
     id: { type: 'string', maxLength: 255 },
     title: { type: 'string', maxLength: 255 },
-    completed: { type: 'boolean' }, // FIX: Removed multipleOf (only for numbers)
+    completed: { type: 'boolean' },
     categoryId: { type: 'string', maxLength: 255 },
     tags: { type: 'string', maxLength: 1000 },
     date: { type: 'string', maxLength: 50 },
@@ -78,7 +83,7 @@ export const tasksSchema: RxJsonSchema<TaskDocument> = {
     updatedAt: { type: 'string', maxLength: 50 },
     source: { type: 'string', maxLength: 50 },
     userId: { type: 'string', maxLength: 255 },
-    isDeleted: { type: 'boolean' }, // FIX: Removed multipleOf (only for numbers)
+    isDeleted: { type: 'boolean' },
     routineId: { type: 'string', maxLength: 255 },
     reminderTime: { type: 'string', maxLength: 50 },
     reactions: { type: 'string', maxLength: 5000 },
@@ -101,15 +106,10 @@ export const categoriesSchema: RxJsonSchema<CategoryDocument> = {
     id: { type: 'string', maxLength: 255 },
     name: { type: 'string', maxLength: 100 },
     color: { type: 'string', maxLength: 20 },
-    order: { 
-      type: 'integer', 
-      multipleOf: 1,
-      minimum: 0,
-      maximum: 999999 
-    }, 
+    order: { type: 'integer', multipleOf: 1, minimum: 0, maximum: 999999 },
     visibility: { type: 'string', maxLength: 50, enum: ['public', 'followers', 'private'] },
     userId: { type: 'string', maxLength: 255 },
-    isDeleted: { type: 'boolean' }, // FIX: Removed multipleOf
+    isDeleted: { type: 'boolean' },
     icon: { type: 'string', maxLength: 10 },
   },
   indexes: [
@@ -131,7 +131,7 @@ export const diarySchema: RxJsonSchema<DiaryDocument> = {
     userId: { type: 'string', maxLength: 255 },
     createdAt: { type: 'string', maxLength: 50 },
     updatedAt: { type: 'string', maxLength: 50 },
-    isDeleted: { type: 'boolean' }, // FIX: Removed multipleOf
+    isDeleted: { type: 'boolean' },
   },
   indexes: [
     ['userId', 'date', 'isDeleted'],
@@ -149,9 +149,45 @@ export const settingsSchema: RxJsonSchema<SettingsDocument> = {
     userId: { type: 'string', maxLength: 255 },
     key: { type: 'string', maxLength: 100 },
     value: { type: 'string', maxLength: 10000 },
-    isDeleted: { type: 'boolean' }, // FIX: Removed multipleOf
+    isDeleted: { type: 'boolean' },
+  },
+  indexes: [['userId', 'key', 'isDeleted']],
+};
+
+export const friendshipsSchema: RxJsonSchema<FriendshipDocument> = {
+  version: 0,
+  primaryKey: 'id',
+  type: 'object',
+  required: [
+    'id',
+    'userId',
+    'friendId',
+    'friendUsername',
+    'friendDisplayName',
+    'status',
+    'createdAt',
+    'updatedAt',
+    'isDeleted',
+  ],
+  properties: {
+    id: { type: 'string', maxLength: 550 },
+    userId: { type: 'string', maxLength: 255 },
+    friendId: { type: 'string', maxLength: 255 },
+    friendUsername: { type: 'string', maxLength: 50 },
+    friendDisplayName: { type: 'string', maxLength: 100 },
+    friendAvatarFileId: { type: 'string', maxLength: 255 },
+    status: {
+      type: 'string',
+      maxLength: 30,
+      enum: ['pending_outgoing', 'pending_incoming', 'accepted', 'blocked'],
+    },
+    createdAt: { type: 'string', maxLength: 50 },
+    updatedAt: { type: 'string', maxLength: 50 },
+    isDeleted: { type: 'boolean' },
   },
   indexes: [
-    ['userId', 'key', 'isDeleted'],
+    ['userId', 'isDeleted'],
+    ['userId', 'status', 'isDeleted'],
+    ['friendId', 'userId'],
   ],
 };

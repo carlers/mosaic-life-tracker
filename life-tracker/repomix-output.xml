@@ -75,7 +75,13 @@ src/
       ComingSoon.tsx
       MainLayout.tsx
     modals/
+      AccountSettingsSheet.tsx
       CategoryManagerSheet.tsx
+      ChangeEmailSheet.tsx
+      ChangePasswordSheet.tsx
+      EditDescriptionSheet.tsx
+      EditNameSheet.tsx
+      EditProfileImageSheet.tsx
     ui/
       Avatar.tsx
       BottomSheet.tsx
@@ -83,6 +89,7 @@ src/
       ColorPalettePicker.tsx
       Input.tsx
       OfflineBanner.tsx
+      SettingsRow.tsx
   constants/
     colors.ts
   db/
@@ -94,6 +101,7 @@ src/
     useCategories.ts
     useDiary.ts
     useImageCompression.ts
+    useProfile.ts
     useSettings.ts
     useTaskImage.ts
     useTasks.ts
@@ -103,8 +111,11 @@ src/
     mockData.ts
     storage.ts
   pages/
+    AccountPage.tsx
     AuthPage.tsx
     HomePage.tsx
+    ProfilePage.tsx
+    SettingsPage.tsx
     TestPlayground.tsx
   App.css
   App.tsx
@@ -1046,7 +1057,7 @@ export const DiaryView: React.FC = () => {
 </file>
 
 <file path="src/components/home/views/EditTaskSheet.tsx">
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { BottomSheet } from '../../ui/BottomSheet';
 import { Button } from '../../ui/Button';
 import { Input } from '../../ui/Input';
@@ -1069,12 +1080,23 @@ export const EditTaskSheet: React.FC<EditTaskSheetProps> = ({
   const [syncedTaskId, setSyncedTaskId] = useState<string | null>(null);
   const [editedTitle, setEditedTitle] = useState<string | null>(null);
   const [editedMemo, setEditedMemo] = useState<string | null>(null);
+  const titleInputRef = useRef<HTMLInputElement>(null);
+  const memoTextareaRef = useRef<HTMLTextAreaElement>(null);
   const taskId = task?.id ?? null;
   if (taskId !== syncedTaskId) {
     setSyncedTaskId(taskId);
     setEditedTitle(null);
     setEditedMemo(null);
   }
+  useEffect(() => {
+    if (isOpen && taskId) {
+      if (initialFocus === 'memo') {
+        memoTextareaRef.current?.focus();
+      } else {
+        titleInputRef.current?.focus();
+      }
+    }
+  }, [isOpen, taskId, initialFocus]);
   const title = editedTitle ?? task?.title ?? '';
   const memo = editedMemo ?? task?.memo ?? '';
   const handleSave = () => {
@@ -1088,17 +1110,17 @@ export const EditTaskSheet: React.FC<EditTaskSheetProps> = ({
     <BottomSheet isOpen={isOpen} onClose={onClose} title={initialFocus === 'memo' ? 'Add Memo' : 'Edit Task'} height="auto">
       <div className="pt-2 pb-8 px-1 space-y-4">
         <Input
+          ref={titleInputRef}
           label="Title"
           value={title}
           onChange={(e) => setEditedTitle(e.target.value)}
-          autoFocus={initialFocus === 'title'}
         />
         <div>
           <label className="block text-xs text-gray-500 mb-2 ml-1">Memo / Notes</label>
           <textarea
+            ref={memoTextareaRef}
             value={memo}
             onChange={(e) => setEditedMemo(e.target.value)}
-            autoFocus={initialFocus === 'memo'}
             placeholder="Add details to this task..."
             className="w-full bg-[#1E1E1E] border border-[#333333] rounded-xl p-3 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-[#555555] transition-colors min-h-[100px] resize-none"
           />
@@ -1308,7 +1330,7 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
 </file>
 
 <file path="src/components/home/views/MemoSheet.tsx">
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { BottomSheet } from '../../ui/BottomSheet';
 import type { TaskDocument } from '../../../db/schema';
 interface MemoSheetProps {
@@ -1326,12 +1348,18 @@ export const MemoSheet: React.FC<MemoSheetProps> = ({
   const [syncedTaskId, setSyncedTaskId] = useState<string | null>(null);
   const [editedMemo, setEditedMemo] = useState<string | null>(null);
   const [editedVisibility, setEditedVisibility] = useState<'private' | 'followers' | 'public' | null>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const taskId = task?.id ?? null;
   if (taskId !== syncedTaskId) {
     setSyncedTaskId(taskId);
     setEditedMemo(null);
     setEditedVisibility(null);
   }
+  useEffect(() => {
+    if (isOpen && taskId) {
+      textareaRef.current?.focus();
+    }
+  }, [isOpen, taskId]);
   const memo = editedMemo ?? task?.memo ?? '';
   const visibility = editedVisibility ?? task?.visibility ?? 'private';
   const handleDone = () => {
@@ -1355,24 +1383,22 @@ export const MemoSheet: React.FC<MemoSheetProps> = ({
           <button onClick={handleDone} className="text-white font-semibold text-base">Done</button>
         </div>
         <textarea
+          ref={textareaRef}
           value={memo}
           onChange={(e) => setEditedMemo(e.target.value)}
           placeholder="Enter a memo"
-          autoFocus
           className="w-full bg-[#1A1A1A] rounded-xl p-4 text-base text-white placeholder-gray-500 focus:outline-none min-h-[200px] resize-none mb-6"
         />
         <div className="flex items-center justify-end gap-3">
           <span className="text-sm text-gray-400">Visible to me only</span>
           <button
             onClick={() => setEditedVisibility(visibility === 'private' ? 'public' : 'private')}
-            className={`relative w-12 h-7 rounded-full transition-colors ${
-              visibility === 'private' ? 'bg-gray-600' : 'bg-blue-500'
-            }`}
+            className={`relative w-12 h-7 rounded-full transition-colors ${visibility === 'private' ? 'bg-gray-600' : 'bg-blue-500'
+              }`}
           >
             <div
-              className={`absolute top-1 w-5 h-5 rounded-full bg-white transition-transform ${
-                visibility === 'private' ? 'left-1' : 'left-6'
-              }`}
+              className={`absolute top-1 w-5 h-5 rounded-full bg-white transition-transform ${visibility === 'private' ? 'left-1' : 'left-6'
+                }`}
             />
             <span className="absolute inset-0 flex items-center justify-center text-[10px] font-bold text-white">
               {visibility === 'private' ? 'ON' : 'OFF'}
@@ -1957,33 +1983,33 @@ import { MainLayout } from './MainLayout';
 import { useAuth } from '../../hooks/useAuth';
 import type { TabId } from './BottomNav';
 export const AppLayout: React.FC = () => {
-    const { user, isLoading } = useAuth();
-    const location = useLocation();
-    const navigate = useNavigate();
-    if (isLoading) {
-        return (
-            <div className="min-h-screen bg-[#111111] flex items-center justify-center">
-                <div className="w-8 h-8 border-2 border-white border-t-transparent rounded-full animate-spin" />
-            </div>
-        );
-    }
-    if (!user) {
-        return <Navigate to="/login" replace state={{ from: location }} />;
-    }
-    const path = location.pathname;
-    let activeTab: TabId = 'home';
-    if (path.includes('explore')) activeTab = 'explore';
-    else if (path.includes('notifications')) activeTab = 'notifications';
-    else if (path.includes('messages')) activeTab = 'messages';
-    else if (path.includes('account')) activeTab = 'account';
-    const handleTabChange = (tab: TabId) => {
-        navigate(`/${tab}`);
-    };
+  const { user, isLoading } = useAuth();
+  const location = useLocation();
+  const navigate = useNavigate();
+  if (isLoading) {
     return (
-        <MainLayout activeTab={activeTab} onTabChange={handleTabChange}>
-            <Outlet />
-        </MainLayout>
+      <div className="min-h-screen bg-[#111111] flex items-center justify-center">
+        <div className="w-8 h-8 border-2 border-white border-t-transparent rounded-full animate-spin" />
+      </div>
     );
+  }
+  if (!user) {
+    return <Navigate to="/login" replace state={{ from: location }} />;
+  }
+  const path = location.pathname;
+  let activeTab: TabId = 'home';
+  if (path.includes('explore')) activeTab = 'explore';
+  else if (path.includes('notifications')) activeTab = 'notifications';
+  else if (path.includes('messages')) activeTab = 'messages';
+  else if (path.includes('account') || path.includes('settings') || path.includes('profile')) activeTab = 'account';
+  const handleTabChange = (tab: TabId) => {
+    navigate(`/${tab}`);
+  };
+  return (
+    <MainLayout activeTab={activeTab} onTabChange={handleTabChange}>
+      <Outlet />
+    </MainLayout>
+  );
 };
 </file>
 
@@ -2087,6 +2113,54 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children, activeTab, onT
 };
 </file>
 
+<file path="src/components/modals/AccountSettingsSheet.tsx">
+import React from 'react';
+import { BottomSheet } from '../ui/BottomSheet';
+import { Button } from '../ui/Button';
+import { Mail, KeyRound } from 'lucide-react';
+interface AccountSettingsSheetProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onOpenChangeEmail: () => void;
+  onOpenChangePassword: () => void;
+  currentEmail: string;
+}
+export const AccountSettingsSheet: React.FC<AccountSettingsSheetProps> = ({
+  isOpen,
+  onClose,
+  onOpenChangeEmail,
+  onOpenChangePassword,
+  currentEmail,
+}) => {
+  return (
+    <BottomSheet isOpen={isOpen} onClose={onClose} title="Account Settings" height="auto">
+      <div className="pt-2 pb-8 px-1 space-y-3">
+        <div className="bg-[#111111] rounded-xl p-4 mb-4 border border-[#333333] text-center">
+          <p className="text-xs text-gray-500 mb-1">Current Email</p>
+          <p className="text-sm text-white font-medium break-all">{currentEmail}</p>
+        </div>
+        <Button
+          variant="ghost"
+          className="w-full justify-start gap-3 py-3.5 border border-[#333333] rounded-xl"
+          onClick={() => { onClose(); onOpenChangeEmail(); }}
+        >
+          <Mail size={18} className="text-blue-500" />
+          <span className="text-white">Change Email</span>
+        </Button>
+        <Button
+          variant="ghost"
+          className="w-full justify-start gap-3 py-3.5 border border-[#333333] rounded-xl"
+          onClick={() => { onClose(); onOpenChangePassword(); }}
+        >
+          <KeyRound size={18} className="text-yellow-500" />
+          <span className="text-white">Change Password</span>
+        </Button>
+      </div>
+    </BottomSheet>
+  );
+};
+</file>
+
 <file path="src/components/modals/CategoryManagerSheet.tsx">
 import React, { useState } from 'react';
 import { BottomSheet } from '../ui/BottomSheet';
@@ -2109,6 +2183,8 @@ export const CategoryManagerSheet: React.FC<{ isOpen: boolean; onClose: () => vo
   const [newVisibility, setNewVisibility] = useState<Visibility>('private');
   const [editName, setEditName] = useState('');
   const [editVisibility, setEditVisibility] = useState<Visibility>('private');
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   const handleSaveNew = async () => {
     if (!newName.trim()) return;
     setIsSaving(true);
@@ -2130,10 +2206,21 @@ export const CategoryManagerSheet: React.FC<{ isOpen: boolean; onClose: () => vo
     await updateCategory(id, { name: name.trim(), visibility });
     setEditingId(null);
   };
-  const handleDelete = async (id: string) => {
-    if (window.confirm('Are you sure? This will hide the category and its tasks.')) {
-      await deleteCategory(id);
+  const handleDeleteRequest = (id: string) => {
+    setPendingDeleteId(id);
+  };
+  const handleConfirmDelete = async () => {
+    if (!pendingDeleteId) return;
+    setIsDeleting(true);
+    try {
+      await deleteCategory(pendingDeleteId);
+      setPendingDeleteId(null);
+    } finally {
+      setIsDeleting(false);
     }
+  };
+  const handleCancelDelete = () => {
+    setPendingDeleteId(null);
   };
   const resetForm = () => {
     setIsAdding(false);
@@ -2159,135 +2246,662 @@ export const CategoryManagerSheet: React.FC<{ isOpen: boolean; onClose: () => vo
     }
   };
   return (
-    <BottomSheet isOpen={isOpen} onClose={onClose} title="Lists & Categories" height="auto">
-      <div className="pt-2 pb-8 px-1">
-        {isLoading ? (
-          <div className="flex justify-center py-8">
-            <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin" />
+    <>
+      <BottomSheet
+        isOpen={isOpen}
+        onClose={onClose}
+        title="Lists & Categories"
+        height="auto"
+        isLocked={!!pendingDeleteId}
+      >
+        <div className="pt-2 pb-8 px-1">
+          {isLoading ? (
+            <div className="flex justify-center py-8">
+              <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin" />
+            </div>
+          ) : (
+            <>
+              {}
+              {!isAdding && (
+                <div className="space-y-3 mb-6">
+                  {categories.length === 0 ? (
+                    <div className="text-center py-8 text-gray-500 text-sm">
+                      No categories yet. Create your first one below!
+                    </div>
+                  ) : (
+                    categories.map((cat) => {
+                      const isEditing = editingId === cat.id;
+                      return (
+                        <div key={cat.id} className="bg-[#1E1E1E] rounded-xl border border-[#333333] p-3">
+                          {isEditing ? (
+                            <div className="space-y-3">
+                              <Input
+                                value={editName}
+                                onChange={(e) => setEditName(e.target.value)}
+                                className="text-sm py-2"
+                              />
+                              <div className="flex items-center justify-between">
+                                <div className="flex bg-[#111111] rounded-lg p-0.5 border border-[#333333]">
+                                  {(['private', 'followers', 'public'] as Visibility[]).map((v) => (
+                                    <button
+                                      key={v}
+                                      onClick={() => setEditVisibility(v)}
+                                      className={`p-1.5 rounded-md transition-colors ${editVisibility === v ? 'bg-[#2A2A2A] text-white' : 'text-gray-500'}`}
+                                      title={v}
+                                    >
+                                      {getVisibilityIcon(v)}
+                                    </button>
+                                  ))}
+                                </div>
+                                <div className="flex gap-2">
+                                  <Button variant="ghost" className="p-2" onClick={handleEditCancel}>
+                                    <X size={16} />
+                                  </Button>
+                                  <Button variant="primary" className="p-2" onClick={() => handleUpdate(cat.id, editName, editVisibility)}>
+                                    <Save size={16} />
+                                  </Button>
+                                </div>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-3">
+                              <div
+                                className="w-4 h-4 rounded-full flex-shrink-0"
+                                style={{ backgroundColor: cat.color }}
+                              />
+                              <span className="flex-1 text-sm font-medium text-white truncate">{cat.name}</span>
+                              <div className="flex items-center gap-1 text-[10px] text-gray-500 uppercase tracking-wider">
+                                {getVisibilityIcon(cat.visibility || 'private')}
+                                <span>{cat.visibility || 'private'}</span>
+                              </div>
+                              <div className="flex gap-1">
+                                <Button variant="ghost" className="p-2 h-8 w-8" onClick={() => handleEditStart(cat)}>
+                                  <span className="text-xs font-bold">Edit</span>
+                                </Button>
+                                <Button variant="ghost" className="p-2 h-8 w-8 text-red-400 hover:text-red-300 hover:bg-red-900/20" onClick={() => handleDeleteRequest(cat.id)}>
+                                  <Trash2 size={16} />
+                                </Button>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              )}
+              {}
+              {isAdding ? (
+                <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-200">
+                  <Input
+                    label="Category Name"
+                    placeholder="e.g., Work, Fitness, Reading"
+                    value={newName}
+                    onChange={(e) => setNewName(e.target.value)}
+                  />
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-2 ml-1">Color</label>
+                    <ColorPalettePicker selectedColor={newColor} onSelect={setNewColor} />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-2 ml-1">Visibility</label>
+                    <div className="flex bg-[#111111] rounded-lg p-1 border border-[#333333]">
+                      {(['private', 'followers', 'public'] as Visibility[]).map((v) => (
+                        <button
+                          key={v}
+                          onClick={() => setNewVisibility(v)}
+                          className={`flex-1 py-2 text-xs font-medium rounded-md transition-colors flex items-center justify-center gap-1.5 ${newVisibility === v ? 'bg-[#2A2A2A] text-white' : 'text-gray-500'}`}
+                        >
+                          {getVisibilityIcon(v)}
+                          <span className="capitalize">{v}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="flex gap-3 pt-2">
+                    <Button variant="ghost" className="flex-1" onClick={resetForm}>Cancel</Button>
+                    <Button
+                      variant="primary"
+                      className="flex-1"
+                      onClick={handleSaveNew}
+                      disabled={!newName.trim() || isSaving}
+                    >
+                      {isSaving ? (
+                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      ) : (
+                        'Create Category'
+                      )}
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <Button variant="primary" className="w-full gap-2 py-3" onClick={() => setIsAdding(true)}>
+                  <Plus size={18} />
+                  Add New Category
+                </Button>
+              )}
+            </>
+          )}
+        </div>
+      </BottomSheet>
+      <BottomSheet
+        isOpen={!!pendingDeleteId}
+        onClose={handleCancelDelete}
+        title="Delete Category"
+        height="auto"
+        isLocked={true}
+      >
+        <div className="pt-2 pb-8 px-4">
+          <p className="text-gray-300 text-sm text-center mb-6 leading-relaxed">
+            Are you sure you want to delete this category? Its tasks will be hidden. This action cannot be undone.
+          </p>
+          <div className="flex gap-3">
+            <button
+              onClick={handleCancelDelete}
+              disabled={isDeleting}
+              className="flex-1 py-3 bg-[#2A2A2A] rounded-xl text-white font-medium hover:bg-[#333333] transition-colors disabled:opacity-50"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleConfirmDelete}
+              disabled={isDeleting}
+              className="flex-1 py-3 bg-red-500 rounded-xl text-white font-medium hover:bg-red-600 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+            >
+              {isDeleting ? (
+                <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> Deleting...</>
+              ) : 'Delete'}
+            </button>
           </div>
-        ) : (
-          <>
-            {}
-            {!isAdding && (
-              <div className="space-y-3 mb-6">
-                {categories.length === 0 ? (
-                  <div className="text-center py-8 text-gray-500 text-sm">
-                    No categories yet. Create your first one below!
-                  </div>
-                ) : (
-                  categories.map((cat) => {
-                    const isEditing = editingId === cat.id;
-                    return (
-                      <div key={cat.id} className="bg-[#1E1E1E] rounded-xl border border-[#333333] p-3">
-                        {isEditing ? (
-                          <div className="space-y-3">
-                            <Input
-                              value={editName}
-                              onChange={(e) => setEditName(e.target.value)}
-                              className="text-sm py-2"
-                            />
-                            <div className="flex items-center justify-between">
-                              <div className="flex bg-[#111111] rounded-lg p-0.5 border border-[#333333]">
-                                {(['private', 'followers', 'public'] as Visibility[]).map((v) => (
-                                  <button
-                                    key={v}
-                                    onClick={() => setEditVisibility(v)}
-                                    className={`p-1.5 rounded-md transition-colors ${editVisibility === v ? 'bg-[#2A2A2A] text-white' : 'text-gray-500'}`}
-                                    title={v}
-                                  >
-                                    {getVisibilityIcon(v)}
-                                  </button>
-                                ))}
-                              </div>
-                              <div className="flex gap-2">
-                                <Button variant="ghost" className="p-2" onClick={handleEditCancel}>
-                                  <X size={16} />
-                                </Button>
-                                <Button variant="primary" className="p-2" onClick={() => handleUpdate(cat.id, editName, editVisibility)}>
-                                  <Save size={16} />
-                                </Button>
-                              </div>
-                            </div>
-                          </div>
-                        ) : (
-                          <div className="flex items-center gap-3">
-                            <div
-                              className="w-4 h-4 rounded-full flex-shrink-0"
-                              style={{ backgroundColor: cat.color }}
-                            />
-                            <span className="flex-1 text-sm font-medium text-white truncate">{cat.name}</span>
-                            <div className="flex items-center gap-1 text-[10px] text-gray-500 uppercase tracking-wider">
-                              {getVisibilityIcon(cat.visibility || 'private')}
-                              <span>{cat.visibility || 'private'}</span>
-                            </div>
-                            <div className="flex gap-1">
-                              <Button variant="ghost" className="p-2 h-8 w-8" onClick={() => handleEditStart(cat)}>
-                                <span className="text-xs font-bold">Edit</span>
-                              </Button>
-                              <Button variant="ghost" className="p-2 h-8 w-8 text-red-400 hover:text-red-300 hover:bg-red-900/20" onClick={() => handleDelete(cat.id)}>
-                                <Trash2 size={16} />
-                              </Button>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })
-                )}
-              </div>
-            )}
-            {}
-            {isAdding ? (
-              <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-200">
-                <Input
-                  label="Category Name"
-                  placeholder="e.g., Work, Fitness, Reading"
-                  value={newName}
-                  onChange={(e) => setNewName(e.target.value)}
-                />
-                <div>
-                  <label className="block text-xs text-gray-500 mb-2 ml-1">Color</label>
-                  <ColorPalettePicker selectedColor={newColor} onSelect={setNewColor} />
-                </div>
-                <div>
-                  <label className="block text-xs text-gray-500 mb-2 ml-1">Visibility</label>
-                  <div className="flex bg-[#111111] rounded-lg p-1 border border-[#333333]">
-                    {(['private', 'followers', 'public'] as Visibility[]).map((v) => (
-                      <button
-                        key={v}
-                        onClick={() => setNewVisibility(v)}
-                        className={`flex-1 py-2 text-xs font-medium rounded-md transition-colors flex items-center justify-center gap-1.5 ${newVisibility === v ? 'bg-[#2A2A2A] text-white' : 'text-gray-500'}`}
-                      >
-                        {getVisibilityIcon(v)}
-                        <span className="capitalize">{v}</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                <div className="flex gap-3 pt-2">
-                  <Button variant="ghost" className="flex-1" onClick={resetForm}>Cancel</Button>
-                  <Button
-                    variant="primary"
-                    className="flex-1"
-                    onClick={handleSaveNew}
-                    disabled={!newName.trim() || isSaving}
-                  >
-                    {isSaving ? (
-                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                    ) : (
-                      'Create Category'
-                    )}
-                  </Button>
-                </div>
-              </div>
-            ) : (
-              <Button variant="primary" className="w-full gap-2 py-3" onClick={() => setIsAdding(true)}>
-                <Plus size={18} />
-                Add New Category
-              </Button>
-            )}
-          </>
+        </div>
+      </BottomSheet>
+    </>
+  );
+};
+</file>
+
+<file path="src/components/modals/ChangeEmailSheet.tsx">
+import React, { useState, useRef, useEffect } from 'react';
+import { BottomSheet } from '../ui/BottomSheet';
+import { Button } from '../ui/Button';
+import { Input } from '../ui/Input';
+import { Save } from 'lucide-react';
+import { useAuth } from '../../hooks/useAuth';
+interface ChangeEmailSheetProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onSuccess: () => void;
+  currentEmail: string;
+}
+export const ChangeEmailSheet: React.FC<ChangeEmailSheetProps> = ({
+  isOpen,
+  onClose,
+  onSuccess,
+  currentEmail,
+}) => {
+  const { updateEmail, error } = useAuth();
+  const [newEmail, setNewEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const emailInputRef = useRef<HTMLInputElement>(null);
+  const passwordInputRef = useRef<HTMLInputElement>(null);
+  // Render-body reset pattern (React 18/19 compliant, prevents cascading renders)
+  const [syncedIsOpen, setSyncedIsOpen] = useState(false);
+  if (isOpen !== syncedIsOpen) {
+    setSyncedIsOpen(isOpen);
+    if (isOpen) {
+      setNewEmail('');
+      setPassword('');
+    }
+  }
+  useEffect(() => {
+    if (isOpen) {
+      const timer = setTimeout(() => emailInputRef.current?.focus(), 300);
+      return () => clearTimeout(timer);
+    }
+  }, [isOpen]);
+  const handleSave = async () => {
+    if (!newEmail.trim() || !password.trim()) return;
+    setIsLoading(true);
+    const success = await updateEmail(newEmail.trim(), password);
+    setIsLoading(false);
+    if (success) {
+      onSuccess();
+      onClose();
+    }
+  };
+  return (
+    <BottomSheet isOpen={isOpen} onClose={onClose} title="Change Email" height="auto">
+      <div className="pt-2 pb-8 px-1 space-y-4">
+        <div className="bg-[#111111] rounded-xl p-3 mb-2 border border-[#333333]">
+          <p className="text-xs text-gray-500 mb-1">Current Email</p>
+          <p className="text-sm text-white font-medium break-all">{currentEmail}</p>
+        </div>
+        {error && (
+          <div className="bg-red-900/20 border border-red-500/30 text-red-400 text-sm p-3 rounded-xl">
+            {error}
+          </div>
         )}
+        <Input
+          ref={emailInputRef}
+          label="New Email Address"
+          type="email"
+          placeholder="new@example.com"
+          value={newEmail}
+          onChange={(e) => setNewEmail(e.target.value)}
+          autoComplete="email"
+        />
+        <div className="w-full">
+          <label className="block text-xs text-gray-500 mb-1.5 ml-1">Current Password</label>
+          <div className="relative">
+            <input
+              ref={passwordInputRef}
+              type="password"
+              placeholder="••••••••"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              autoComplete="current-password"
+              className="w-full bg-[#1E1E1E] text-white border border-[#333333] rounded-lg px-4 py-2.5 focus:border-[#555555] focus:outline-none transition-colors placeholder-gray-600"
+              onPointerDown={(e) => e.stopPropagation()}
+            />
+          </div>
+        </div>
+        <Button
+          variant="primary"
+          className="w-full gap-2 py-3"
+          onClick={handleSave}
+          disabled={!newEmail.trim() || !password.trim() || isLoading}
+        >
+          {isLoading ? (
+            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+          ) : (
+            <>
+              <Save size={18} />
+              Update Email
+            </>
+          )}
+        </Button>
+      </div>
+    </BottomSheet>
+  );
+};
+</file>
+
+<file path="src/components/modals/ChangePasswordSheet.tsx">
+import React, { useState, useRef, useEffect } from 'react';
+import { BottomSheet } from '../ui/BottomSheet';
+import { Button } from '../ui/Button';
+import { Save } from 'lucide-react';
+import { useAuth } from '../../hooks/useAuth';
+interface ChangePasswordSheetProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onSuccess: () => void;
+}
+export const ChangePasswordSheet: React.FC<ChangePasswordSheetProps> = ({
+  isOpen,
+  onClose,
+  onSuccess,
+}) => {
+  const { updatePassword, error } = useAuth();
+  const [oldPassword, setOldPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [localError, setLocalError] = useState<string | null>(null);
+  const oldPasswordInputRef = useRef<HTMLInputElement>(null);
+  // Render-body reset pattern (React 18/19 compliant, prevents cascading renders)
+  const [syncedIsOpen, setSyncedIsOpen] = useState(false);
+  if (isOpen !== syncedIsOpen) {
+    setSyncedIsOpen(isOpen);
+    if (isOpen) {
+      setOldPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+      setLocalError(null);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }
+  useEffect(() => {
+    if (isOpen) {
+      const timer = setTimeout(() => oldPasswordInputRef.current?.focus(), 300);
+      return () => clearTimeout(timer);
+    }
+  }, [isOpen]);
+  const handleSave = async () => {
+    setLocalError(null);
+    if (newPassword.length < 8) {
+      setLocalError('Password must be at least 8 characters.');
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setLocalError('New passwords do not match.');
+      return;
+    }
+    if (!oldPassword.trim()) return;
+    setIsLoading(true);
+    const success = await updatePassword(newPassword, oldPassword);
+    setIsLoading(false);
+    if (success) {
+      onSuccess();
+      onClose();
+    }
+  };
+  const displayError = localError || error;
+  return (
+    <BottomSheet isOpen={isOpen} onClose={onClose} title="Change Password" height="auto">
+      <div className="pt-2 pb-8 px-1 space-y-4">
+        {displayError && (
+          <div className="bg-red-900/20 border border-red-500/30 text-red-400 text-sm p-3 rounded-xl">
+            {displayError}
+          </div>
+        )}
+        <div className="w-full">
+          <label className="block text-xs text-gray-500 mb-1.5 ml-1">Current Password</label>
+          <div className="relative">
+            <input
+              ref={oldPasswordInputRef}
+              type="password"
+              placeholder="••••••••"
+              value={oldPassword}
+              onChange={(e) => setOldPassword(e.target.value)}
+              autoComplete="current-password"
+              className="w-full bg-[#1E1E1E] text-white border border-[#333333] rounded-lg px-4 py-2.5 focus:border-[#555555] focus:outline-none transition-colors placeholder-gray-600"
+              onPointerDown={(e) => e.stopPropagation()}
+            />
+          </div>
+        </div>
+        <div className="w-full">
+          <label className="block text-xs text-gray-500 mb-1.5 ml-1">New Password</label>
+          <div className="relative">
+            <input
+              type="password"
+              placeholder="Minimum 8 characters"
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              autoComplete="new-password"
+              className="w-full bg-[#1E1E1E] text-white border border-[#333333] rounded-lg px-4 py-2.5 focus:border-[#555555] focus:outline-none transition-colors placeholder-gray-600"
+              onPointerDown={(e) => e.stopPropagation()}
+            />
+          </div>
+        </div>
+        <div className="w-full">
+          <label className="block text-xs text-gray-500 mb-1.5 ml-1">Confirm New Password</label>
+          <div className="relative">
+            <input
+              type="password"
+              placeholder="••••••••"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              autoComplete="new-password"
+              className="w-full bg-[#1E1E1E] text-white border border-[#333333] rounded-lg px-4 py-2.5 focus:border-[#555555] focus:outline-none transition-colors placeholder-gray-600"
+              onPointerDown={(e) => e.stopPropagation()}
+            />
+          </div>
+        </div>
+        <Button
+          variant="primary"
+          className="w-full gap-2 py-3"
+          onClick={handleSave}
+          disabled={!oldPassword.trim() || !newPassword.trim() || !confirmPassword.trim() || isLoading}
+        >
+          {isLoading ? (
+            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+          ) : (
+            <>
+              <Save size={18} />
+              Update Password
+            </>
+          )}
+        </Button>
+      </div>
+    </BottomSheet>
+  );
+};
+</file>
+
+<file path="src/components/modals/EditDescriptionSheet.tsx">
+import React, { useState, useRef, useEffect } from 'react';
+import { BottomSheet } from '../ui/BottomSheet';
+import { Button } from '../ui/Button';
+import { Save } from 'lucide-react';
+interface EditDescriptionSheetProps {
+  isOpen: boolean;
+  onClose: () => void;
+  currentDescription: string;
+  onSave: (description: string) => void;
+}
+export const EditDescriptionSheet: React.FC<EditDescriptionSheetProps> = ({
+  isOpen,
+  onClose,
+  currentDescription,
+  onSave,
+}) => {
+  const [description, setDescription] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const [syncedIsOpen, setSyncedIsOpen] = useState(false);
+  if (isOpen !== syncedIsOpen) {
+    setSyncedIsOpen(isOpen);
+    if (isOpen) {
+      setDescription(currentDescription);
+    }
+  }
+  useEffect(() => {
+    if (isOpen) {
+      const timer = setTimeout(() => textareaRef.current?.focus(), 300);
+      return () => clearTimeout(timer);
+    }
+  }, [isOpen]);
+  const handleSave = async () => {
+    setIsSaving(true);
+    await onSave(description.trim());
+    setIsSaving(false);
+    onClose();
+  };
+  return (
+    <BottomSheet isOpen={isOpen} onClose={onClose} title="Edit Description" height="auto">
+      <div className="pt-2 pb-8 px-1 space-y-4">
+        <div className="w-full">
+          <label className="block text-xs text-gray-500 mb-1.5 ml-1">Bio / Description</label>
+          <textarea
+            ref={textareaRef}
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            placeholder="Tell us about yourself..."
+            maxLength={200}
+            className="w-full bg-[#1E1E1E] text-white border border-[#333333] rounded-lg px-4 py-2.5 focus:border-[#555555] focus:outline-none transition-colors placeholder-gray-600 resize-none min-h-[120px]"
+            onPointerDown={(e) => e.stopPropagation()}
+          />
+          <p className="text-right text-xs text-gray-500 mt-1">{description.length}/200</p>
+        </div>
+        <Button
+          variant="primary"
+          className="w-full gap-2 py-3"
+          onClick={handleSave}
+          disabled={isSaving}
+        >
+          {isSaving ? (
+            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+          ) : (
+            <>
+              <Save size={18} />
+              Save Description
+            </>
+          )}
+        </Button>
+      </div>
+    </BottomSheet>
+  );
+};
+</file>
+
+<file path="src/components/modals/EditNameSheet.tsx">
+import React, { useState, useRef, useEffect } from 'react';
+import { BottomSheet } from '../ui/BottomSheet';
+import { Button } from '../ui/Button';
+import { Input } from '../ui/Input';
+import { Save } from 'lucide-react';
+interface EditNameSheetProps {
+  isOpen: boolean;
+  onClose: () => void;
+  currentName: string;
+  onSave: (name: string) => void;
+}
+export const EditNameSheet: React.FC<EditNameSheetProps> = ({
+  isOpen,
+  onClose,
+  currentName,
+  onSave,
+}) => {
+  const [name, setName] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [syncedIsOpen, setSyncedIsOpen] = useState(false);
+  if (isOpen !== syncedIsOpen) {
+    setSyncedIsOpen(isOpen);
+    if (isOpen) {
+      setName(currentName);
+    }
+  }
+  useEffect(() => {
+    if (isOpen) {
+      const timer = setTimeout(() => inputRef.current?.focus(), 300);
+      return () => clearTimeout(timer);
+    }
+  }, [isOpen]);
+  const handleSave = async () => {
+    if (!name.trim()) return;
+    setIsSaving(true);
+    await onSave(name.trim());
+    setIsSaving(false);
+    onClose();
+  };
+  return (
+    <BottomSheet isOpen={isOpen} onClose={onClose} title="Edit Name" height="auto">
+      <div className="pt-2 pb-8 px-1 space-y-4">
+        <Input
+          ref={inputRef}
+          label="Display Name"
+          placeholder="Enter your name"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          maxLength={50}
+        />
+        <Button
+          variant="primary"
+          className="w-full gap-2 py-3"
+          onClick={handleSave}
+          disabled={!name.trim() || isSaving}
+        >
+          {isSaving ? (
+            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+          ) : (
+            <>
+              <Save size={18} />
+              Save Name
+            </>
+          )}
+        </Button>
+      </div>
+    </BottomSheet>
+  );
+};
+</file>
+
+<file path="src/components/modals/EditProfileImageSheet.tsx">
+import React, { useRef, useState } from 'react';
+import { BottomSheet } from '../ui/BottomSheet';
+import { Button } from '../ui/Button';
+import { Upload, X, Loader2 } from 'lucide-react';
+import { uploadImage } from '../../lib/storage';
+interface EditProfileImageSheetProps {
+  isOpen: boolean;
+  onClose: () => void;
+  currentImageId: string;
+  onSave: (fileId: string) => void;
+  onRemove: () => void;
+}
+export const EditProfileImageSheet: React.FC<EditProfileImageSheetProps> = ({
+  isOpen,
+  onClose,
+  currentImageId,
+  onSave,
+  onRemove,
+}) => {
+  const [isUploading, setIsUploading] = useState(false);
+  const [error, setError] = useState('');
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setIsUploading(true);
+    setError('');
+    try {
+      const fileId = await uploadImage(file);
+      onSave(fileId);
+      onClose();
+    } catch (err) {
+      setError('Failed to upload image. Please try again.');
+      console.error('[EditProfileImage] Upload failed:', err);
+    } finally {
+      setIsUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+  const handleRemove = () => {
+    onRemove();
+    onClose();
+  };
+  return (
+    <BottomSheet isOpen={isOpen} onClose={onClose} title="Profile Image" height="auto">
+      <div className="pt-2 pb-8 px-4 space-y-4">
+        <p className="text-sm text-gray-400 text-center">
+          Images are automatically compressed to 150KB before uploading.
+        </p>
+        {error && (
+          <div className="bg-red-900/20 border border-red-500/30 text-red-400 text-sm p-3 rounded-xl">
+            {error}
+          </div>
+        )}
+        <div className="flex flex-col gap-3">
+          <Button
+            variant="primary"
+            className="w-full gap-2 py-3"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={isUploading}
+          >
+            {isUploading ? (
+              <>
+                <Loader2 size={18} className="animate-spin" />
+                Compressing & Uploading...
+              </>
+            ) : (
+              <>
+                <Upload size={18} />
+                Choose from Device
+              </>
+            )}
+          </Button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            onChange={handleFileSelect}
+            className="hidden"
+          />
+          {currentImageId && (
+            <Button
+              variant="danger"
+              className="w-full gap-2 py-3"
+              onClick={handleRemove}
+              disabled={isUploading}
+            >
+              <X size={18} />
+              Remove Current Photo
+            </Button>
+          )}
+        </div>
       </div>
     </BottomSheet>
   );
@@ -2607,6 +3221,51 @@ export const OfflineBanner: React.FC = () => {
         <X size={14} />
       </button>
     </motion.div>
+  );
+};
+</file>
+
+<file path="src/components/ui/SettingsRow.tsx">
+import React from 'react';
+import { ChevronRight } from 'lucide-react';
+interface SettingsRowProps {
+  icon: React.ReactNode;
+  label: string;
+  value?: string;
+  onClick?: () => void;
+  isDestructive?: boolean;
+  showChevron?: boolean;
+  rightElement?: React.ReactNode;
+}
+export const SettingsRow: React.FC<SettingsRowProps> = ({
+  icon,
+  label,
+  value,
+  onClick,
+  isDestructive = false,
+  showChevron = true,
+  rightElement,
+}) => {
+  return (
+    <button
+      onClick={onClick}
+      onPointerDown={(e) => e.stopPropagation()}
+      className={`w-full flex items-center justify-between px-4 py-3.5 hover:bg-[#2A2A2A] transition-colors ${
+        isDestructive ? 'text-red-500' : 'text-white'
+      }`}
+    >
+      <div className="flex items-center gap-3">
+        <div className={`w-8 h-8 rounded-full flex items-center justify-center ${isDestructive ? 'bg-red-500/10' : 'bg-[#2A2A2A]'}`}>
+          {icon}
+        </div>
+        <span className="text-base font-medium">{label}</span>
+      </div>
+      <div className="flex items-center gap-2">
+        {value && <span className="text-sm text-gray-500">{value}</span>}
+        {rightElement}
+        {showChevron && <ChevronRight size={18} className="text-gray-500" />}
+      </div>
+    </button>
   );
 };
 </file>
@@ -3327,81 +3986,104 @@ import { useState, useEffect, useCallback } from 'react';
 import { account } from '../lib/appwrite';
 import type { Models } from 'appwrite';
 export interface AuthState {
-    user: Models.User<Models.Preferences> | null;
-    isLoading: boolean;
-    error: string | null;
+  user: Models.User<Models.Preferences> | null;
+  isLoading: boolean;
+  error: string | null;
 }
 export function useAuth() {
-    const [state, setState] = useState<AuthState>({
-        user: null,
-        isLoading: true,
-        error: null
-    });
-    useEffect(() => {
-        let isMounted = true;
-        account.get().then(
-            (user) => {
-                if (!isMounted) return;
-                setState({ user, isLoading: false, error: null });
-            },
-            () => {
-                if (!isMounted) return;
-                setState({ user: null, isLoading: false, error: null });
-            }
-        );
-        return () => {
-            isMounted = false;
-        };
-    }, []);
-    const login = useCallback(async (email: string, password: string): Promise<boolean> => {
-        setState(s => ({ ...s, isLoading: true, error: null }));
-        try {
-            try {
-                await account.deleteSession('current');
-            } catch {
-            }
-            await account.createEmailPasswordSession(email, password);
-            const user = await account.get();
-            setState({ user, isLoading: false, error: null });
-            return true;
-        } catch (err: unknown) {
-            const message = err instanceof Error ? err.message : 'Login failed';
-            setState(s => ({ ...s, isLoading: false, error: message }));
-            return false;
+  const [state, setState] = useState<AuthState>({
+    user: null,
+    isLoading: true,
+    error: null
+  });
+  useEffect(() => {
+    let isMounted = true;
+    account.get().then(
+      (user) => {
+        if (!isMounted) return;
+        setState({ user, isLoading: false, error: null });
+      },
+      () => {
+        if (!isMounted) return;
+        setState({ user: null, isLoading: false, error: null });
+      }
+    );
+    return () => { isMounted = false; };
+  }, []);
+  const login = useCallback(async (email: string, password: string): Promise<boolean> => {
+    setState(s => ({ ...s, isLoading: true, error: null }));
+    try {
+      try {
+        await account.deleteSession('current');
+      } catch {
+      }
+      await account.createEmailPasswordSession(email, password);
+      const user = await account.get();
+      setState({ user, isLoading: false, error: null });
+      return true;
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Login failed';
+      setState(s => ({ ...s, isLoading: false, error: message }));
+      return false;
+    }
+  }, []);
+  const signup = useCallback(async (email: string, password: string, name: string): Promise<boolean> => {
+    setState(s => ({ ...s, isLoading: true, error: null }));
+    try {
+      await account.create('unique()', email, password, name);
+      try {
+        await account.createEmailPasswordSession(email, password);
+      } catch (sessionError: unknown) {
+        const msg = sessionError instanceof Error ? sessionError.message : '';
+        if (!msg.includes('already active') && !msg.includes('prohibited')) {
+          throw sessionError;
         }
-    }, []);
-    const signup = useCallback(async (email: string, password: string, name: string): Promise<boolean> => {
-        setState(s => ({ ...s, isLoading: true, error: null }));
-        try {
-            await account.create('unique()', email, password, name);
-            try {
-                await account.createEmailPasswordSession(email, password);
-            } catch (sessionError: unknown) {
-                const msg = sessionError instanceof Error ? sessionError.message : '';
-                if (!msg.includes('already active') && !msg.includes('prohibited')) {
-                    throw sessionError;
-                }
-            }
-            const user = await account.get();
-            setState({ user, isLoading: false, error: null });
-            return true;
-        } catch (err: unknown) {
-            const message = err instanceof Error ? err.message : 'Signup failed';
-            setState(s => ({ ...s, isLoading: false, error: message }));
-            return false;
-        }
-    }, []);
-    const logout = useCallback(async () => {
-        setState(s => ({ ...s, isLoading: true, error: null }));
-        try {
-            await account.deleteSession('current');
-            setState({ user: null, isLoading: false, error: null });
-        } catch (err: unknown) {
-            const message = err instanceof Error ? err.message : 'Logout failed';
-            setState(s => ({ ...s, isLoading: false, error: message }));
-        }
-    }, []);
-    return { ...state, login, signup, logout };
+      }
+      const user = await account.get();
+      setState({ user, isLoading: false, error: null });
+      return true;
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Signup failed';
+      setState(s => ({ ...s, isLoading: false, error: message }));
+      return false;
+    }
+  }, []);
+  const logout = useCallback(async () => {
+    setState(s => ({ ...s, isLoading: true, error: null }));
+    try {
+      await account.deleteSession('current');
+      setState({ user: null, isLoading: false, error: null });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Logout failed';
+      setState(s => ({ ...s, isLoading: false, error: message }));
+    }
+  }, []);
+  const updateEmail = useCallback(async (newEmail: string, password: string): Promise<boolean> => {
+    setState(s => ({ ...s, error: null }));
+    try {
+      await account.updateEmail(newEmail, password);
+      const user = await account.get();
+      setState({ user, isLoading: false, error: null });
+      return true;
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to update email';
+      setState(s => ({ ...s, error: message }));
+      return false;
+    }
+  }, []);
+  const updatePassword = useCallback(async (newPassword: string, oldPassword: string): Promise<boolean> => {
+    setState(s => ({ ...s, error: null }));
+    try {
+      await account.updatePassword(newPassword, oldPassword);
+      setState(s => ({ ...s, error: null }));
+      return true;
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to update password';
+      setState(s => ({ ...s, error: message }));
+      return false;
+    }
+  }, []);
+  return { ...state, login, signup, logout, updateEmail, updatePassword };
 }
 </file>
 
@@ -3643,6 +4325,30 @@ export function useImageCompression(): UseImageCompressionReturn {
     }
   }, []);
   return { compressImage, isCompressing, error };
+}
+</file>
+
+<file path="src/hooks/useProfile.ts">
+import { useSettings } from './useSettings';
+export function useProfile() {
+  const { settings, setSetting, isLoading } = useSettings();
+  const displayName = (settings['displayName'] as string) || '';
+  const description = (settings['description'] as string) || '';
+  const profileImageId = (settings['profileImageId'] as string) || '';
+  const updateDisplayName = async (name: string) => setSetting('displayName', name);
+  const updateDescription = async (desc: string) => setSetting('description', desc);
+  const updateProfileImage = async (fileId: string) => setSetting('profileImageId', fileId);
+  const removeProfileImage = async () => setSetting('profileImageId', '');
+  return {
+    displayName,
+    description,
+    profileImageId,
+    isLoading,
+    updateDisplayName,
+    updateDescription,
+    updateProfileImage,
+    removeProfileImage,
+  };
 }
 </file>
 
@@ -4149,6 +4855,109 @@ export function getImageFullUrl(fileId: string): string {
 }
 </file>
 
+<file path="src/pages/AccountPage.tsx">
+import React from 'react';
+import { useNavigate } from 'react-router-dom';
+import { Settings, LogOut, BarChart3, Crown, Sticker, ListTodo } from 'lucide-react';
+import { Avatar } from '../components/ui/Avatar';
+import { Button } from '../components/ui/Button';
+import { useAuth } from '../hooks/useAuth';
+import { useTasks } from '../hooks/useTasks';
+import { useCategories } from '../hooks/useCategories';
+export const AccountPage: React.FC = () => {
+  const { user, logout } = useAuth();
+  const { tasks } = useTasks();
+  const { categories } = useCategories();
+  const navigate = useNavigate();
+  const handleLogout = async () => {
+    await logout();
+    navigate('/login', { replace: true });
+  };
+  const backlogCount = tasks.filter((t) => !t.completed).length;
+  return (
+    <div className="flex flex-col h-full animate-in fade-in duration-300">
+      {}
+      <div className="sticky top-0 z-20 bg-[#111111] px-4 py-3 border-b border-[#333333] flex items-center justify-between">
+        <h1 className="text-lg font-bold text-white">Me</h1>
+        <button
+          onClick={() => navigate('/settings')}
+          onPointerDown={(e) => e.stopPropagation()}
+          className="p-2 rounded-lg bg-[#1E1E1E] border border-[#333333] text-gray-400 hover:text-white hover:bg-[#2A2A2A] transition-colors"
+          aria-label="Settings"
+        >
+          <Settings size={20} />
+        </button>
+      </div>
+      <div className="flex-1 overflow-y-auto pb-24 px-4 pt-6 space-y-6">
+        {}
+        <div className="flex flex-col items-center text-center space-y-3">
+          <Avatar
+            size="lg"
+            alt={user?.name || user?.email || 'User'}
+          />
+          <div>
+            <h2 className="text-xl font-bold text-white">{user?.name || 'User'}</h2>
+            <p className="text-sm text-gray-500">{user?.email}</p>
+          </div>
+          <div className="flex items-center gap-6 text-sm text-gray-400">
+            <div className="flex flex-col items-center">
+              <span className="font-bold text-white">0</span>
+              <span>Following</span>
+            </div>
+            <div className="flex flex-col items-center">
+              <span className="font-bold text-white">0</span>
+              <span>Followers</span>
+            </div>
+          </div>
+        </div>
+        {}
+        <div className="grid grid-cols-3 gap-3">
+          <div className="bg-[#1E1E1E] border border-[#333333] rounded-xl p-3 flex flex-col items-center gap-2">
+            <BarChart3 size={20} className="text-blue-500" />
+            <span className="text-xs text-gray-400">My Progress</span>
+          </div>
+          <div className="bg-[#1E1E1E] border border-[#333333] rounded-xl p-3 flex flex-col items-center gap-2">
+            <Crown size={20} className="text-yellow-500" />
+            <span className="text-xs text-gray-400">Premium</span>
+          </div>
+          <div className="bg-[#1E1E1E] border border-[#333333] rounded-xl p-3 flex flex-col items-center gap-2">
+            <Sticker size={20} className="text-green-500" />
+            <span className="text-xs text-gray-400">Sticker Shop</span>
+          </div>
+        </div>
+        {}
+        <div className="bg-[#1E1E1E] border border-[#333333] rounded-xl p-4 flex items-center justify-between">
+          <div>
+            <h3 className="text-base font-bold text-white">Backlog</h3>
+            <p className="text-sm text-gray-400">{backlogCount} tasks</p>
+          </div>
+          <ListTodo size={24} className="text-gray-500" />
+        </div>
+        <div className="bg-[#1E1E1E] border border-[#333333] rounded-xl p-4 flex items-center justify-between">
+          <div>
+            <h3 className="text-base font-bold text-white">Categories</h3>
+            <p className="text-sm text-gray-400">{categories.length} active</p>
+          </div>
+          <div className="w-6 h-6 rounded-full bg-gradient-to-tr from-blue-500 to-purple-500" />
+        </div>
+        {}
+        <div className="text-center py-4">
+          <p className="text-sm text-gray-500 italic">"Tact is the ability to describe others as they see themselves."</p>
+          <p className="text-xs text-gray-600 mt-1">Eleanor Chaffee</p>
+        </div>
+      </div>
+      {}
+      <div className="px-4 pb-8">
+        <Button variant="danger" className="w-full gap-2 py-3" onClick={handleLogout}>
+          <LogOut size={18} />
+          Logout
+        </Button>
+      </div>
+    </div>
+  );
+};
+</file>
+
 <file path="src/pages/AuthPage.tsx">
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -4299,6 +5108,323 @@ export const HomePage: React.FC = () => {
       <div className="flex-1">
         <ViewContainer activeView={activeView} />
       </div>
+    </div>
+  );
+};
+</file>
+
+<file path="src/pages/ProfilePage.tsx">
+import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { ChevronLeft, Share2, ChevronRight, Camera } from 'lucide-react';
+import { Avatar } from '../components/ui/Avatar';
+import { EditNameSheet } from '../components/modals/EditNameSheet';
+import { EditDescriptionSheet } from '../components/modals/EditDescriptionSheet';
+import { EditProfileImageSheet } from '../components/modals/EditProfileImageSheet';
+import { useProfile } from '../hooks/useProfile';
+import { useTaskImage } from '../hooks/useTaskImage';
+export const ProfilePage: React.FC = () => {
+  const navigate = useNavigate();
+  const {
+    displayName,
+    description,
+    profileImageId,
+    updateDisplayName,
+    updateDescription,
+    updateProfileImage,
+    removeProfileImage,
+  } = useProfile();
+  const [isNameSheetOpen, setIsNameSheetOpen] = useState(false);
+  const [isDescSheetOpen, setIsDescSheetOpen] = useState(false);
+  const [isImageSheetOpen, setIsImageSheetOpen] = useState(false);
+  const { imageUrl } = useTaskImage(profileImageId || undefined);
+  return (
+    <div className="flex flex-col h-full animate-in fade-in duration-300 bg-[#111111]">
+      {}
+      <div className="sticky top-0 z-20 bg-[#111111] px-4 py-3 border-b border-[#333333] flex items-center justify-between">
+        <button
+          onClick={() => navigate(-1)}
+          onPointerDown={(e) => e.stopPropagation()}
+          className="p-2 rounded-lg text-gray-400 hover:text-white hover:bg-[#2A2A2A] transition-colors"
+          aria-label="Back"
+        >
+          <ChevronLeft size={20} />
+        </button>
+        <h1 className="text-lg font-bold text-white">Profile</h1>
+        <button
+          onClick={() => {}}
+          onPointerDown={(e) => e.stopPropagation()}
+          className="p-2 rounded-lg text-gray-400 hover:text-white hover:bg-[#2A2A2A] transition-colors"
+          aria-label="Share"
+        >
+          <Share2 size={20} />
+        </button>
+      </div>
+      <div className="flex-1 overflow-y-auto pb-24 px-4 pt-8">
+        {}
+        <div className="flex flex-col items-center mb-10">
+          <button
+            onClick={() => setIsImageSheetOpen(true)}
+            onPointerDown={(e) => e.stopPropagation()}
+            className="relative group"
+          >
+            <Avatar
+              src={imageUrl || undefined}
+              alt={displayName || 'Profile'}
+              size="lg"
+              className="border-4 border-[#1E1E1E]"
+            />
+            <div className="absolute inset-0 rounded-full bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+              <Camera size={24} className="text-white" />
+            </div>
+          </button>
+          <button
+            onClick={() => setIsImageSheetOpen(true)}
+            onPointerDown={(e) => e.stopPropagation()}
+            className="mt-3 text-blue-500 text-sm font-medium hover:underline"
+          >
+            Profile image
+          </button>
+        </div>
+        {}
+        <div className="space-y-3">
+          <button
+            onClick={() => setIsNameSheetOpen(true)}
+            onPointerDown={(e) => e.stopPropagation()}
+            className="w-full bg-[#1E1E1E] border border-[#333333] rounded-xl p-4 flex items-center justify-between hover:bg-[#252525] transition-colors"
+          >
+            <span className="text-base text-gray-300">Name</span>
+            <div className="flex items-center gap-2">
+              <span className="text-base font-medium text-white">
+                {displayName || 'Not set'}
+              </span>
+              <ChevronRight size={18} className="text-gray-500" />
+            </div>
+          </button>
+          <button
+            onClick={() => setIsDescSheetOpen(true)}
+            onPointerDown={(e) => e.stopPropagation()}
+            className="w-full bg-[#1E1E1E] border border-[#333333] rounded-xl p-4 flex items-center justify-between hover:bg-[#252525] transition-colors"
+          >
+            <span className="text-base text-gray-300">Description</span>
+            <div className="flex items-center gap-2">
+              <span className="text-base font-medium text-white text-right max-w-[200px] truncate">
+                {description || 'Not set'}
+              </span>
+              <ChevronRight size={18} className="text-gray-500" />
+            </div>
+          </button>
+        </div>
+      </div>
+      {}
+      <EditNameSheet
+        isOpen={isNameSheetOpen}
+        onClose={() => setIsNameSheetOpen(false)}
+        currentName={displayName}
+        onSave={updateDisplayName}
+      />
+      <EditDescriptionSheet
+        isOpen={isDescSheetOpen}
+        onClose={() => setIsDescSheetOpen(false)}
+        currentDescription={description}
+        onSave={updateDescription}
+      />
+      <EditProfileImageSheet
+        isOpen={isImageSheetOpen}
+        onClose={() => setIsImageSheetOpen(false)}
+        currentImageId={profileImageId}
+        onSave={updateProfileImage}
+        onRemove={removeProfileImage}
+      />
+    </div>
+  );
+};
+</file>
+
+<file path="src/pages/SettingsPage.tsx">
+import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import {
+  User,
+  Shield,
+  Lock,
+  Monitor,
+  Bell,
+  Megaphone,
+  Smile,
+  Crown,
+  Info,
+  HelpCircle,
+  FlaskConical,
+  LogOut,
+  Database,
+  ChevronLeft
+} from 'lucide-react';
+import { BottomSheet } from '../components/ui/BottomSheet';
+import { SettingsRow } from '../components/ui/SettingsRow';
+import { useAuth } from '../hooks/useAuth';
+import { destroyDatabase } from '../db/database';
+import { AccountSettingsSheet } from '../components/modals/AccountSettingsSheet';
+import { ChangeEmailSheet } from '../components/modals/ChangeEmailSheet';
+import { ChangePasswordSheet } from '../components/modals/ChangePasswordSheet';
+export const SettingsPage: React.FC = () => {
+  const { user, logout } = useAuth();
+  const navigate = useNavigate();
+  const [isClearDataOpen, setIsClearDataOpen] = useState(false);
+  const [isClearingData, setIsClearingData] = useState(false);
+  const [isAccountSettingsOpen, setIsAccountSettingsOpen] = useState(false);
+  const [isChangeEmailOpen, setIsChangeEmailOpen] = useState(false);
+  const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
+  const [feedback, setFeedback] = useState<string | null>(null);
+  const showFeedback = (msg: string) => {
+    setFeedback(msg);
+    setTimeout(() => setFeedback(null), 2000);
+  };
+  const handleLogout = async () => {
+    await logout();
+    navigate('/login', { replace: true });
+  };
+  const handleClearData = async () => {
+    setIsClearingData(true);
+    try {
+      await destroyDatabase();
+      await logout();
+      window.location.reload();
+    } catch (error) {
+      console.error('[SettingsPage] Failed to clear data:', error);
+      setIsClearingData(false);
+      setIsClearDataOpen(false);
+    }
+  };
+  return (
+    <div className="flex flex-col h-full animate-in fade-in duration-300">
+      {}
+      <div className="sticky top-0 z-20 bg-[#111111] px-4 py-3 border-b border-[#333333] flex items-center justify-center relative">
+        <button
+          onClick={() => navigate(-1)}
+          onPointerDown={(e) => e.stopPropagation()}
+          className="absolute left-4 p-2 rounded-lg text-gray-400 hover:text-white hover:bg-[#2A2A2A] transition-colors"
+          aria-label="Back"
+        >
+          <ChevronLeft size={20} />
+        </button>
+        <h1 className="text-lg font-bold text-white">Settings</h1>
+      </div>
+      <div className="flex-1 overflow-y-auto pb-24">
+        <div className="py-2">
+          <SettingsRow icon={<User size={18} className="text-blue-500" />} label="Profile" onClick={() => navigate('/profile')} />
+          <SettingsRow
+            icon={<Shield size={18} className="text-gray-400" />}
+            label="Account"
+            value={user?.email}
+            onClick={() => setIsAccountSettingsOpen(true)}
+          />
+          <SettingsRow icon={<Lock size={18} className="text-gray-400" />} label="Privacy" onClick={() => { }} />
+          <SettingsRow icon={<Shield size={18} className="text-gray-400" />} label="App Permissions" onClick={() => { }} />
+          <SettingsRow icon={<Monitor size={18} className="text-gray-400" />} label="Screen" onClick={() => { }} />
+          <SettingsRow icon={<Bell size={18} className="text-gray-400" />} label="Notifications" onClick={() => { }} />
+          <SettingsRow
+            icon={<Megaphone size={18} className="text-gray-400" />}
+            label="Announcements"
+            rightElement={<div className="w-5 h-5 rounded-full bg-red-500 flex items-center justify-center text-[10px] font-bold text-white">N</div>}
+            onClick={() => { }}
+          />
+          <SettingsRow icon={<Smile size={18} className="text-gray-400" />} label="My stickers" onClick={() => { }} />
+          <SettingsRow icon={<Crown size={18} className="text-yellow-500" />} label="Premium" onClick={() => { }} />
+          <SettingsRow icon={<Info size={18} className="text-gray-400" />} label="Information" onClick={() => { }} />
+          <SettingsRow icon={<HelpCircle size={18} className="text-gray-400" />} label="Inquiry" onClick={() => { }} />
+          <SettingsRow icon={<FlaskConical size={18} className="text-gray-400" />} label="Laboratory" onClick={() => { }} />
+        </div>
+        <div className="border-t border-[#333333] py-2">
+          <SettingsRow
+            icon={<Database size={18} className="text-red-500" />}
+            label="Clear Local Data"
+            isDestructive={true}
+            showChevron={false}
+            onClick={() => setIsClearDataOpen(true)}
+          />
+        </div>
+        <div className="border-t border-[#333333] py-2">
+          <div className="px-4 py-3.5 flex items-center justify-between text-white">
+            <span className="text-base font-medium">Version</span>
+            <span className="text-sm text-gray-500">0.0.0</span>
+          </div>
+        </div>
+        <div className="px-4 pt-4 pb-8">
+          <button
+            onClick={handleLogout}
+            onPointerDown={(e) => e.stopPropagation()}
+            className="w-full py-3 bg-[#1E1E1E] border border-[#333333] rounded-xl text-red-500 font-medium hover:bg-[#2A2A2A] transition-colors flex items-center justify-center gap-2"
+          >
+            <LogOut size={18} />
+            Sign Out
+          </button>
+        </div>
+      </div>
+      {}
+      <BottomSheet
+        isOpen={isClearDataOpen}
+        onClose={() => setIsClearDataOpen(false)}
+        title="Clear Local Data"
+        height="auto"
+        isLocked={true}
+      >
+        <div className="pt-2 pb-8 px-4">
+          <p className="text-gray-300 text-sm text-center mb-6 leading-relaxed">
+            Are you sure you want to clear all local data? This will delete your offline database and log you out. This action cannot be undone.
+          </p>
+          <div className="flex gap-3">
+            <button
+              onClick={() => setIsClearDataOpen(false)}
+              disabled={isClearingData}
+              className="flex-1 py-3 bg-[#2A2A2A] rounded-xl text-white font-medium hover:bg-[#333333] transition-colors disabled:opacity-50"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleClearData}
+              disabled={isClearingData}
+              className="flex-1 py-3 bg-red-500 rounded-xl text-white font-medium hover:bg-red-600 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+            >
+              {isClearingData ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  Clearing...
+                </>
+              ) : (
+                'Clear Data'
+              )}
+            </button>
+          </div>
+        </div>
+      </BottomSheet>
+      {}
+      <AccountSettingsSheet
+        isOpen={isAccountSettingsOpen}
+        onClose={() => setIsAccountSettingsOpen(false)}
+        onOpenChangeEmail={() => setIsChangeEmailOpen(true)}
+        onOpenChangePassword={() => setIsChangePasswordOpen(true)}
+        currentEmail={user?.email || ''}
+      />
+      {/* Change Email Sheet */}
+      <ChangeEmailSheet
+        isOpen={isChangeEmailOpen}
+        onClose={() => setIsChangeEmailOpen(false)}
+        onSuccess={() => showFeedback('Email updated successfully')}
+        currentEmail={user?.email || ''}
+      />
+      {/* Change Password Sheet */}
+      <ChangePasswordSheet
+        isOpen={isChangePasswordOpen}
+        onClose={() => setIsChangePasswordOpen(false)}
+        onSuccess={() => showFeedback('Password updated successfully')}
+      />
+      {}
+      {feedback && (
+        <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[70] bg-[#2A2A2A] border border-[#444444] text-white text-sm px-5 py-2.5 rounded-full shadow-lg backdrop-blur-md animate-in fade-in slide-in-from-bottom-2 duration-200">
+          {feedback}
+        </div>
+      )}
     </div>
   );
 };
@@ -4599,20 +5725,23 @@ import { AppLayout } from './components/layout/AppLayout';
 import { HomePage } from './pages/HomePage';
 import { ComingSoon } from './components/layout/ComingSoon';
 import { AuthPage } from './pages/AuthPage';
+import { AccountPage } from './pages/AccountPage';
+import { SettingsPage } from './pages/SettingsPage';
+import { ProfilePage } from './pages/ProfilePage';
 function App() {
   return (
     <BrowserRouter>
       <Routes>
-        {}
         <Route path="/login" element={<AuthPage />} />
-        {}
         <Route element={<AppLayout />}>
           <Route path="/" element={<Navigate to="/home" replace />} />
-          <Route path="/home" element={<HomePage />} /> {}
+          <Route path="/home" element={<HomePage />} />
           <Route path="/explore" element={<ComingSoon />} />
           <Route path="/notifications" element={<ComingSoon />} />
           <Route path="/messages" element={<ComingSoon />} />
-          <Route path="/account" element={<ComingSoon />} />
+          <Route path="/account" element={<AccountPage />} />
+          <Route path="/settings" element={<SettingsPage />} />
+          <Route path="/profile" element={<ProfilePage />} />
         </Route>
       </Routes>
     </BrowserRouter>
