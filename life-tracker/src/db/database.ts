@@ -6,6 +6,7 @@ import {
 } from 'rxdb';
 import { getRxStorageDexie } from 'rxdb/plugins/storage-dexie';
 import { RxDBDevModePlugin } from 'rxdb/plugins/dev-mode';
+import { RxDBMigrationSchemaPlugin } from 'rxdb/plugins/migration-schema';
 import { wrappedValidateAjvStorage } from 'rxdb/plugins/validate-ajv';
 import {
   tasksSchema,
@@ -24,6 +25,8 @@ if (import.meta.env.DEV) {
   addRxPlugin(RxDBDevModePlugin);
   console.log('[RxDB] Dev Mode Plugin enabled (v17)');
 }
+
+addRxPlugin(RxDBMigrationSchemaPlugin);
 
 const DB_NAME = 'life_tracker_db';
 const DEBUG = import.meta.env.DEV;
@@ -60,7 +63,15 @@ export async function initializeDatabase(): Promise<RxDatabase<AppDatabaseCollec
     if (DEBUG) console.log('[RxDB] Database created successfully');
 
     await database.addCollections({
-      tasks: { schema: tasksSchema },
+      tasks: {
+        schema: tasksSchema,
+        migrationStrategies: {
+          // v0 → v1: `visibility` enum gained '' (inherit-from-category).
+          // Existing values ('private'/'followers'/'public') remain valid, so
+          // no transformation is needed. Old tasks keep their explicit value.
+          1: (oldDoc) => oldDoc,
+        },
+      },
       categories: { schema: categoriesSchema },
       diary: { schema: diarySchema },
       settings: { schema: settingsSchema },

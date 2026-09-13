@@ -7,6 +7,7 @@ import { AccountPage } from './pages/AccountPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { ProfilePage } from './pages/ProfilePage';
 import { ExplorePage } from './pages/ExplorePage';
+import { FriendCalendarPage } from './pages/FriendCalendarPage';
 
 function App() {
   return (
@@ -17,6 +18,7 @@ function App() {
           <Route path="/" element={<Navigate to="/home" replace />} />
           <Route path="/home" element={<HomePage />} />
           <Route path="/explore" element={<ExplorePage />} />
+          <Route path="/friends/:friendId" element={<FriendCalendarPage />} />
           <Route path="/notifications" element={<ComingSoon />} />
           <Route path="/messages" element={<ComingSoon />} />
           <Route path="/account" element={<AccountPage />} />

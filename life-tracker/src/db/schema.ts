@@ -18,7 +18,7 @@ export interface TaskDocument {
   routineId?: string;
   reminderTime?: string;
   reactions?: string;
-  visibility: 'public' | 'followers' | 'private';
+  visibility: 'public' | 'followers' | 'private' | '';
 }
 
 export interface CategoryDocument {
@@ -52,7 +52,7 @@ export interface SettingsDocument {
 }
 
 export interface FriendshipDocument {
-  id: string; // `${userId}_${friendId}`
+  id: string;
   userId: string;
   friendId: string;
   friendUsername: string;
@@ -65,7 +65,7 @@ export interface FriendshipDocument {
 }
 
 export const tasksSchema: RxJsonSchema<TaskDocument> = {
-  version: 0,
+  version: 1,
   primaryKey: 'id',
   type: 'object',
   required: ['id', 'title', 'completed', 'categoryId', 'date', 'createdAt', 'updatedAt', 'userId', 'isDeleted'],
@@ -87,7 +87,12 @@ export const tasksSchema: RxJsonSchema<TaskDocument> = {
     routineId: { type: 'string', maxLength: 255 },
     reminderTime: { type: 'string', maxLength: 50 },
     reactions: { type: 'string', maxLength: 5000 },
-    visibility: { type: 'string', maxLength: 50, enum: ['public', 'followers', 'private'], default: 'private' },
+    visibility: {
+      type: 'string',
+      maxLength: 50,
+      enum: ['public', 'followers', 'private', ''],
+      default: '',
+    },
   },
   indexes: [
     ['userId', 'isDeleted'],

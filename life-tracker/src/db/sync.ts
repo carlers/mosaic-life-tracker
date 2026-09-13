@@ -110,7 +110,7 @@ function toAppwriteFormat(
     mapped.updated_at = source.updatedAt || new Date().toISOString();
     mapped.user_id = userId;
     mapped.deleted = source.isDeleted ?? false;
-    mapped.visibility = source.visibility || 'private';
+    mapped.visibility = source.visibility ?? '';
     mapped.source = source.source || '';
     mapped.routine_id = source.routineId || '';
     mapped.reminder_time = source.reminderTime || '';
@@ -173,6 +173,7 @@ function fromAppwriteFormat(
     mapped.updatedAt = mapped.updated_at || new Date().toISOString();
     mapped.userId = mapped.user_id;
     mapped.isDeleted = mapped.deleted ?? false;
+    mapped.visibility = (row.visibility as string) ?? '';
     mapped.source = row.source || '';
     mapped.tags = row.tags || '';
     mapped.memo = row.memo || '';

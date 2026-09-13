@@ -8,6 +8,7 @@ import {
   blockFriend,
   type ProfileCard,
 } from '../lib/social';
+import { clearCachedCalendar } from '../lib/friendCache';
 import type { FriendshipDocument } from '../db/schema';
 import type { MyProfileInput } from '../lib/social';
 
@@ -150,6 +151,7 @@ export function useFriends(): UseFriendsReturn {
         return;
       }
       await deleteFriendPair(uid, friendUserId);
+      await clearCachedCalendar(friendUserId);
     },
     [user?.$id]
   );
@@ -162,6 +164,7 @@ export function useFriends(): UseFriendsReturn {
         return;
       }
       await deleteFriendPair(uid, friendUserId);
+      await clearCachedCalendar(friendUserId);
     },
     [user?.$id]
   );
@@ -174,6 +177,7 @@ export function useFriends(): UseFriendsReturn {
         return;
       }
       await deleteFriendPair(uid, friendUserId);
+      await clearCachedCalendar(friendUserId);
     },
     [user?.$id]
   );
@@ -186,6 +190,7 @@ export function useFriends(): UseFriendsReturn {
         return;
       }
       await blockFriend(uid, friendUserId);
+      await clearCachedCalendar(friendUserId);
     },
     [user?.$id]
   );
