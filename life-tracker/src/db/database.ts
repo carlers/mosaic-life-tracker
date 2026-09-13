@@ -25,7 +25,6 @@ if (import.meta.env.DEV) {
   addRxPlugin(RxDBDevModePlugin);
   console.log('[RxDB] Dev Mode Plugin enabled (v17)');
 }
-
 addRxPlugin(RxDBMigrationSchemaPlugin);
 
 const DB_NAME = 'life_tracker_db';
@@ -46,10 +45,8 @@ export async function initializeDatabase(): Promise<RxDatabase<AppDatabaseCollec
     if (DEBUG) console.log('[RxDB] Using existing database instance');
     return dbInstance;
   }
-
   try {
     if (DEBUG) console.log('[RxDB] Initializing database:', DB_NAME);
-
     const database = await createRxDatabase<AppDatabaseCollections>({
       name: DB_NAME,
       storage: wrappedValidateAjvStorage({
@@ -59,31 +56,29 @@ export async function initializeDatabase(): Promise<RxDatabase<AppDatabaseCollec
       eventReduce: true,
       ignoreDuplicate: true,
     });
-
     if (DEBUG) console.log('[RxDB] Database created successfully');
-
     await database.addCollections({
       tasks: {
         schema: tasksSchema,
         migrationStrategies: {
-          // v0 → v1: `visibility` enum gained '' (inherit-from-category).
-          // Existing values ('private'/'followers'/'public') remain valid, so
-          // no transformation is needed. Old tasks keep their explicit value.
           1: (oldDoc) => oldDoc,
         },
       },
       categories: { schema: categoriesSchema },
       diary: { schema: diarySchema },
       settings: { schema: settingsSchema },
-      friendships: { schema: friendshipsSchema },
+      friendships: {
+        schema: friendshipsSchema,
+        migrationStrategies: {
+          1: (oldDoc) => ({ ...oldDoc, friendBio: '' }),
+        },
+      },
     });
-
     if (DEBUG) {
       console.log('[RxDB] Collections added successfully');
       const stats = await getDatabaseStats(database);
       console.log('[RxDB] Initial stats:', stats);
     }
-
     dbInstance = database;
     return dbInstance;
   } catch (error) {

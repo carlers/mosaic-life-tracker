@@ -9,9 +9,7 @@ interface TopBarProps {
 
 export const TopBar: React.FC<TopBarProps> = ({ activeView, onViewChange }) => {
   return (
-    // FIX: Applied sticky, top-0, and z-20 directly here. 
-    // bg-[#111111] ensures content doesn't show through when scrolling.
-    <div className="sticky top-0 z-20 bg-[#111111] px-4 py-3 border-b border-[#333333]">
+    <div className="bg-[#111111] px-4 py-3 border-b border-[#333333]">
       <div className="flex items-center justify-between">
         <ViewSwitcher activeView={activeView} onViewChange={onViewChange} />
         <HamburgerMenu />

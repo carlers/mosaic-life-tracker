@@ -44,8 +44,27 @@ The content is organized as follows:
 </file_summary>
 
 <directory_structure>
+appwrite-functions/
+  get-friend-calendar/
+    Archive.tar.gz
+    main.js
+    package.json
+  get-friend-calendar.tar.gz
+scripts/
+  setup-social-tables.mjs
 src/
   components/
+    explore/
+      ExploreView.tsx
+      FriendActionSheet.tsx
+      FriendRequestRow.tsx
+      FriendRow.tsx
+      OutgoingRequestRow.tsx
+      SearchBar.tsx
+      UserResultCard.tsx
+    friend/
+      FriendCalendarView.tsx
+      FriendDayViewSheet.tsx
     home/
       views/
         CalendarView.tsx
@@ -62,6 +81,7 @@ src/
         TaskActionSheet.tsx
         TaskBlock.tsx
         TaskItem.tsx
+        TaskVisibilitySheet.tsx
         TodoListView.tsx
         ViewToggle.tsx
         WeekView.tsx
@@ -82,6 +102,8 @@ src/
       EditDescriptionSheet.tsx
       EditNameSheet.tsx
       EditProfileImageSheet.tsx
+      ExportDataSheet.tsx
+      SetUsernameSheet.tsx
     ui/
       Avatar.tsx
       BottomSheet.tsx
@@ -100,19 +122,30 @@ src/
     useAuth.ts
     useCategories.ts
     useDiary.ts
+    useFriends.ts
     useImageCompression.ts
+    useMyProfile.ts
     useProfile.ts
+    useProfileLookup.ts
     useSettings.ts
     useTaskImage.ts
     useTasks.ts
   lib/
     appwrite.ts
+    exportData.ts
+    friendCache.ts
+    friendData.ts
     imageCache.ts
     mockData.ts
+    social.ts
     storage.ts
+    useFriendCalendar.ts
+    visibility.ts
   pages/
     AccountPage.tsx
     AuthPage.tsx
+    ExplorePage.tsx
+    FriendCalendarPage.tsx
     HomePage.tsx
     ProfilePage.tsx
     SettingsPage.tsx
@@ -136,6 +169,1235 @@ vite.config.ts
 
 <files>
 This section contains the contents of the repository's files.
+
+<file path="appwrite-functions/get-friend-calendar/main.js">
+const { Client, TablesDB, Query } = require('node-appwrite');
+const DATABASE_ID = 'life_tracker';
+module.exports = async ({ req, res, log, error }) => {
+    const callerId = req.headers['x-appwrite-user-id'];
+    if (!callerId) {
+        error('Unauthorized: no x-appwrite-user-id header');
+        return res.json({ error: 'Unauthorized' }, 401);
+    }
+    let friendUserId;
+    try {
+        const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
+        friendUserId = body?.friendUserId;
+        if (!friendUserId || typeof friendUserId !== 'string') {
+            throw new Error('friendUserId is required');
+        }
+    } catch (e) {
+        error(`Bad Request: ${e.message}`);
+        return res.json({ error: 'Bad Request: friendUserId is required' }, 400);
+    }
+    if (callerId === friendUserId) {
+        error('Bad Request: caller requested their own calendar');
+        return res.json({ error: 'Bad Request: cannot query your own calendar' }, 400);
+    }
+    const client = new Client()
+        .setEndpoint(process.env.APPWRITE_FUNCTION_API_ENDPOINT)
+        .setProject(process.env.APPWRITE_FUNCTION_PROJECT_ID)
+        .setKey(req.headers['x-appwrite-key']);
+    const tablesDB = new TablesDB(client);
+    try {
+        const friendshipCheck = await tablesDB.listRows({
+            databaseId: DATABASE_ID,
+            tableId: 'friendships',
+            queries: [
+                Query.equal('user_id', callerId),
+                Query.equal('friend_id', friendUserId),
+                Query.equal('status', 'accepted'),
+                Query.equal('deleted', false),
+                Query.limit(1),
+            ],
+        });
+        if (friendshipCheck.rows.length === 0) {
+            error(`Forbidden: no accepted friendship ${callerId} -> ${friendUserId}`);
+            return res.json({ error: 'Forbidden: not friends with this user' }, 403);
+        }
+        const categoriesRes = await tablesDB.listRows({
+            databaseId: DATABASE_ID,
+            tableId: 'categories',
+            queries: [
+                Query.equal('user_id', friendUserId),
+                Query.equal('deleted', false),
+                Query.orderAsc('order'),
+                Query.limit(200),
+            ],
+        });
+        const categoryVisibility = new Map();
+        for (const c of categoriesRes.rows) {
+            categoryVisibility.set(c.$id, c.visibility || 'private');
+        }
+        const tasksRes = await tablesDB.listRows({
+            databaseId: DATABASE_ID,
+            tableId: 'tasks',
+            queries: [
+                Query.equal('user_id', friendUserId),
+                Query.equal('deleted', false),
+                Query.orderAsc('date'),
+                Query.limit(1000),
+            ],
+        });
+        const visibleTasks = tasksRes.rows.filter((t) => {
+            const taskVis = t.visibility;
+            const effective =
+                taskVis && taskVis !== ''
+                    ? taskVis
+                    : categoryVisibility.get(t.category_id) || 'private';
+            return effective !== 'private';
+        });
+        const visibleCategories = categoriesRes.rows.filter(
+            (c) => (c.visibility || 'private') !== 'private'
+        );
+        log(
+            `OK: ${callerId} fetched ${visibleTasks.length}/${tasksRes.rows.length} tasks, ` +
+                `${visibleCategories.length}/${categoriesRes.rows.length} categories for ${friendUserId}`
+        );
+        return res.json({
+            tasks: visibleTasks,
+            categories: visibleCategories,
+            fetchedAt: new Date().toISOString(),
+        });
+    } catch (err) {
+        error(`Internal error: ${err.message}`);
+        if (err.cause) {
+            error(`Cause: ${err.cause.code || err.cause.message || err.cause}`);
+        }
+        return res.json({ error: 'An internal error occurred' }, 500);
+    }
+};
+</file>
+
+<file path="appwrite-functions/get-friend-calendar/package.json">
+{
+  "name": "get-friend-calendar",
+  "version": "1.0.0",
+  "dependencies": {
+    "node-appwrite": "^21.1.0"
+  }
+}
+</file>
+
+<file path="scripts/setup-social-tables.mjs">
+import { Client, TablesDB, ID, Permission, Role } from 'node-appwrite';
+const client = new Client()
+  .setEndpoint('https://sgp.cloud.appwrite.io/v1')
+  .setProject('6a9703c50016b37110ff')
+  .setKey(process.env.APPWRITE_API_KEY);
+const tablesDB = new TablesDB(client);
+const DATABASE_ID = 'life_tracker';
+async function createFriendshipsTable() {
+  await tablesDB.createTable({
+    databaseId: DATABASE_ID,
+    tableId: 'friendships',
+    name: 'Friendships',
+    permissions: [Permission.create(Role.users())],
+    rowSecurity: true,
+    columns: [
+      { key: 'user_id', type: 'varchar', size: 255, required: true },
+      { key: 'friend_id', type: 'varchar', size: 255, required: true },
+      { key: 'friend_username', type: 'varchar', size: 50, required: false, default: '' },
+      { key: 'friend_display_name', type: 'varchar', size: 100, required: false, default: '' },
+      { key: 'friend_avatar_file_id', type: 'varchar', size: 255, required: false, default: '' },
+      { key: 'status', type: 'varchar', size: 30, required: true },
+      { key: 'created_at', type: 'varchar', size: 50, required: false, default: '' },
+      { key: 'updated_at', type: 'varchar', size: 50, required: false, default: '' },
+      { key: 'deleted', type: 'boolean', required: false, default: false },
+    ],
+    indexes: [
+      { key: 'idx_user_status', type: 'key', attributes: ['user_id', 'status'] },
+      { key: 'idx_user_id', type: 'key', attributes: ['user_id'] },
+      { key: 'idx_friend_id', type: 'key', attributes: ['friend_id'] },
+    ],
+  });
+  console.log('✅ friendships table created');
+}
+async function createProfilesTable() {
+  await tablesDB.createTable({
+    databaseId: DATABASE_ID,
+    tableId: 'profiles',
+    name: 'Profiles',
+    permissions: [Permission.create(Role.users())],
+    rowSecurity: true,
+    columns: [
+      { key: 'user_id', type: 'varchar', size: 255, required: true },
+      { key: 'username', type: 'varchar', size: 50, required: true },
+      { key: 'display_name', type: 'varchar', size: 100, required: false, default: '' },
+      { key: 'avatar_file_id', type: 'varchar', size: 255, required: false, default: '' },
+      { key: 'bio', type: 'varchar', size: 300, required: false, default: '' },
+      { key: 'is_searchable', type: 'boolean', required: false, default: true },
+      { key: 'created_at', type: 'varchar', size: 50, required: false, default: '' },
+      { key: 'updated_at', type: 'varchar', size: 50, required: false, default: '' },
+      { key: 'deleted', type: 'boolean', required: false, default: false },
+    ],
+    indexes: [
+      { key: 'idx_username_unique', type: 'unique', attributes: ['username'] },
+      { key: 'idx_user_id_unique', type: 'unique', attributes: ['user_id'] },
+      { key: 'idx_username_key', type: 'key', attributes: ['username'] },
+    ],
+  });
+  console.log('✅ profiles table created');
+}
+async function main() {
+  try {
+    await createFriendshipsTable();
+    await createProfilesTable();
+  } catch (err) {
+    console.error('❌ Setup failed:', err.message ?? err);
+    process.exit(1);
+  }
+}
+main();
+</file>
+
+<file path="src/components/explore/ExploreView.tsx">
+import React, { useCallback, useMemo, useState } from 'react';
+import { Copy, Check, Users, Inbox } from 'lucide-react';
+import { motion } from 'framer-motion';
+import { SearchBar } from './SearchBar';
+import { UserResultCard } from './UserResultCard';
+import { FriendRequestRow } from './FriendRequestRow';
+import { FriendRow } from './FriendRow';
+import { OutgoingRequestRow } from './OutgoingRequestRow';
+import { FriendActionSheet } from './FriendActionSheet';
+import { useFriends } from '../../hooks/useFriends';
+import { useProfileLookup } from '../../hooks/useProfileLookup';
+import { useMyProfile } from '../../hooks/useMyProfile';
+import type { ProfileCard } from '../../lib/social';
+import type { FriendshipDocument } from '../../db/schema';
+interface ExploreViewProps {
+  onRequestUsername: () => void;
+  onFeedback?: (message: string) => void;
+}
+export const ExploreView: React.FC<ExploreViewProps> = ({
+  onRequestUsername,
+  onFeedback,
+}) => {
+  const { profile, isLoading: profileLoading } = useMyProfile();
+  const {
+    friends,
+    incomingRequests,
+    outgoingRequests,
+    isLoading: friendsLoading,
+    sendRequest,
+    accept,
+    decline,
+    cancel,
+    remove,
+    block,
+    findFriendship,
+  } = useFriends();
+  const {
+    results,
+    isSearching,
+    error: searchError,
+    query,
+    setQuery,
+    clear,
+  } = useProfileLookup();
+  const [sendingTo, setSendingTo] = useState<string | null>(null);
+  const [actionTarget, setActionTarget] = useState<FriendshipDocument | null>(
+    null
+  );
+  const [copied, setCopied] = useState(false);
+  const myUsername = profile?.username || '';
+  const relationshipFor = useCallback(
+    (p: ProfileCard) => {
+      const existing = findFriendship(p.user_id);
+      if (existing) {
+        if (existing.status === 'accepted') return 'friends' as const;
+        if (existing.status === 'pending_outgoing') return 'outgoing' as const;
+        if (existing.status === 'pending_incoming') return 'incoming' as const;
+      }
+      return 'none' as const;
+    },
+    [findFriendship]
+  );
+  const handleAdd = useCallback(
+    async (p: ProfileCard) => {
+      if (!profile) return;
+      setSendingTo(p.user_id);
+      try {
+        await sendRequest(
+          {
+            username: profile.username,
+            displayName: profile.display_name || profile.username,
+            avatarFileId: profile.avatar_file_id || '',
+          },
+          p
+        );
+        onFeedback?.('Request sent');
+      } catch (err) {
+        console.error('[ExploreView] Send request failed:', err);
+      } finally {
+        setSendingTo(null);
+      }
+    },
+    [profile, sendRequest, onFeedback]
+  );
+  const handleCancelRequest = useCallback(
+    async (friendUserId: string) => {
+      try {
+        await cancel(friendUserId);
+        onFeedback?.('Request cancelled');
+      } catch (err) {
+        console.error('[ExploreView] Cancel request failed:', err);
+      }
+    },
+    [cancel, onFeedback]
+  );
+  const handleCopyUsername = useCallback(async () => {
+    if (!myUsername) return;
+    try {
+      await navigator.clipboard.writeText(myUsername);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1800);
+    } catch (err) {
+      console.error('[ExploreView] Copy failed:', err);
+    }
+  }, [myUsername]);
+  const visibleResults = useMemo(
+    () => results.filter((r) => r.user_id !== profile?.user_id),
+    [results, profile?.user_id]
+  );
+  if (profileLoading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <div className="w-8 h-8 border-2 border-white border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+  if (!profile) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 px-6 text-center">
+        <div className="w-16 h-16 bg-[#1E1E1E] rounded-full flex items-center justify-center mb-4 border border-[#333333]">
+          <Users size={28} className="text-gray-400" />
+        </div>
+        <h2 className="text-lg font-bold text-white mb-2">Set up your profile</h2>
+        <p className="text-sm text-gray-500 mb-6 max-w-xs">
+          Pick a username so friends can find and add you.
+        </p>
+        <motion.button
+          whileTap={{ scale: 0.95 }}
+          onClick={onRequestUsername}
+          className="bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-medium px-5 py-2.5 rounded-xl transition-colors"
+        >
+          Choose username
+        </motion.button>
+      </div>
+    );
+  }
+  return (
+    <div className="flex flex-col h-full animate-in fade-in duration-300">
+      <div className="sticky top-0 z-20 bg-[#111111] px-4 py-3 border-b border-[#333333]">
+        <h1 className="text-lg font-bold text-white">Explore</h1>
+      </div>
+      <div className="flex-1 overflow-y-auto pb-24 px-4 pt-4 space-y-6">
+        <SearchBar
+          value={query}
+          onChange={setQuery}
+          onClear={clear}
+          disabled={typeof navigator !== 'undefined' && !navigator.onLine}
+        />
+        {searchError && (
+          <div className="bg-red-900/20 border border-red-500/30 text-red-400 text-xs p-3 rounded-xl">
+            {searchError}
+          </div>
+        )}
+        {isSearching && (
+          <div className="flex items-center gap-2 px-2 text-xs text-gray-500">
+            <div className="w-3 h-3 border-2 border-gray-500 border-t-transparent rounded-full animate-spin" />
+            Searching…
+          </div>
+        )}
+        {visibleResults.length > 0 && (
+          <section className="space-y-2">
+            <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wider px-1">
+              Search results
+            </h2>
+            {visibleResults.map((p) => (
+              <UserResultCard
+                key={p.$id}
+                profile={p}
+                relationship={relationshipFor(p)}
+                onAdd={handleAdd}
+                isSending={sendingTo === p.user_id}
+              />
+            ))}
+          </section>
+        )}
+        {query.trim() && !isSearching && visibleResults.length === 0 && !searchError && (
+          <p className="text-xs text-gray-500 px-2">
+            No user found. Check the spelling or ask them to share their username.
+          </p>
+        )}
+        {incomingRequests.length > 0 && (
+          <section className="space-y-2">
+            <div className="flex items-center gap-2 px-1">
+              <Inbox size={14} className="text-gray-500" />
+              <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                Incoming requests ({incomingRequests.length})
+              </h2>
+            </div>
+            {incomingRequests.map((r) => (
+              <FriendRequestRow
+                key={r.id}
+                friendship={r}
+                onAccept={accept}
+                onDecline={decline}
+              />
+            ))}
+          </section>
+        )}
+        <section className="space-y-2">
+          <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wider px-1">
+            My friends ({friends.length})
+          </h2>
+          {friendsLoading ? (
+            <div className="flex justify-center py-6">
+              <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+            </div>
+          ) : friends.length === 0 ? (
+            <p className="text-xs text-gray-500 px-2">
+              No friends yet. Search above to add someone.
+            </p>
+          ) : (
+            friends.map((f) => (
+              <FriendRow
+                key={f.id}
+                friendship={f}
+                onOpenActions={setActionTarget}
+              />
+            ))
+          )}
+        </section>
+        {outgoingRequests.length > 0 && (
+          <section className="space-y-2">
+            <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wider px-1">
+              Sent requests ({outgoingRequests.length})
+            </h2>
+            {outgoingRequests.map((r) => (
+              <OutgoingRequestRow
+                key={r.id}
+                friendship={r}
+                onCancel={handleCancelRequest}
+              />
+            ))}
+          </section>
+        )}
+        <section className="bg-[#1E1E1E] border border-[#333333] rounded-xl p-4">
+          <p className="text-xs text-gray-500 mb-1">Your username</p>
+          <div className="flex items-center gap-2">
+            <p className="text-base font-bold text-white flex-1 truncate">
+              @{myUsername}
+            </p>
+            <motion.button
+              whileTap={{ scale: 0.95 }}
+              onClick={handleCopyUsername}
+              className="flex items-center gap-1.5 bg-[#2A2A2A] hover:bg-[#333333] text-xs font-medium text-white px-3 py-1.5 rounded-full transition-colors"
+            >
+              {copied ? (
+                <>
+                  <Check size={12} strokeWidth={3} />
+                  Copied
+                </>
+              ) : (
+                <>
+                  <Copy size={12} />
+                  Copy
+                </>
+              )}
+            </motion.button>
+          </div>
+          <p className="text-xs text-gray-600 mt-2">
+            Share this so friends can find you.
+          </p>
+        </section>
+      </div>
+      <FriendActionSheet
+        isOpen={!!actionTarget}
+        onClose={() => setActionTarget(null)}
+        friendship={actionTarget}
+        onRemove={remove}
+        onBlock={block}
+      />
+    </div>
+  );
+};
+</file>
+
+<file path="src/components/explore/FriendActionSheet.tsx">
+import React, { useState } from 'react';
+import { BottomSheet } from '../ui/BottomSheet';
+import { UserMinus, ShieldOff } from 'lucide-react';
+import { Avatar } from '../ui/Avatar';
+import { useTaskImage } from '../../hooks/useTaskImage';
+import type { FriendshipDocument } from '../../db/schema';
+interface FriendActionSheetProps {
+  isOpen: boolean;
+  onClose: () => void;
+  friendship: FriendshipDocument | null;
+  onRemove: (friendId: string) => Promise<void>;
+  onBlock: (friendId: string) => Promise<void>;
+}
+export const FriendActionSheet: React.FC<FriendActionSheetProps> = ({
+  isOpen,
+  onClose,
+  friendship,
+  onRemove,
+  onBlock,
+}) => {
+  const { imageUrl } = useTaskImage(
+    friendship?.friendAvatarFileId || undefined
+  );
+  const [isWorking, setIsWorking] = useState(false);
+  if (!friendship) return null;
+  const handleAction = async (fn: (id: string) => Promise<void>) => {
+    setIsWorking(true);
+    try {
+      await fn(friendship.friendId);
+      onClose();
+    } finally {
+      setIsWorking(false);
+    }
+  };
+  return (
+    <BottomSheet
+      isOpen={isOpen}
+      onClose={onClose}
+      title={friendship.friendDisplayName || friendship.friendUsername}
+      height="auto"
+    >
+      <div className="pt-2 pb-8 px-4">
+        <div className="flex flex-col items-center mb-6">
+          <Avatar
+            src={imageUrl || undefined}
+            alt={friendship.friendDisplayName || friendship.friendUsername}
+            size="lg"
+          />
+          <p className="text-xs text-gray-500 mt-3">
+            @{friendship.friendUsername}
+          </p>
+        </div>
+        <div className="space-y-1">
+          <button
+            onClick={() => handleAction(onRemove)}
+            disabled={isWorking}
+            className="w-full flex items-center gap-4 px-2 py-3.5 rounded-xl hover:bg-[#1E1E1E] transition-colors text-white disabled:opacity-50"
+          >
+            <div className="w-8 h-8 rounded-full bg-orange-400 flex items-center justify-center">
+              <UserMinus size={16} className="text-black" />
+            </div>
+            <span className="text-base font-medium">Remove Friend</span>
+          </button>
+          <button
+            onClick={() => handleAction(onBlock)}
+            disabled={isWorking}
+            className="w-full flex items-center gap-4 px-2 py-3.5 rounded-xl hover:bg-[#1E1E1E] transition-colors text-red-400 disabled:opacity-50"
+          >
+            <div className="w-8 h-8 rounded-full bg-red-400 flex items-center justify-center">
+              <ShieldOff size={16} className="text-black" />
+            </div>
+            <span className="text-base font-medium">Block</span>
+          </button>
+        </div>
+      </div>
+    </BottomSheet>
+  );
+};
+</file>
+
+<file path="src/components/explore/FriendRequestRow.tsx">
+import React, { useState } from 'react';
+import { motion } from 'framer-motion';
+import { Check, X } from 'lucide-react';
+import { Avatar } from '../ui/Avatar';
+import { useTaskImage } from '../../hooks/useTaskImage';
+import type { FriendshipDocument } from '../../db/schema';
+interface FriendRequestRowProps {
+  friendship: FriendshipDocument;
+  onAccept: (friendId: string) => Promise<void>;
+  onDecline: (friendId: string) => Promise<void>;
+}
+export const FriendRequestRow: React.FC<FriendRequestRowProps> = ({
+  friendship,
+  onAccept,
+  onDecline,
+}) => {
+  const { imageUrl } = useTaskImage(friendship.friendAvatarFileId || undefined);
+  const [pendingAction, setPendingAction] = useState<'accept' | 'decline' | null>(
+    null
+  );
+  const handleAccept = async () => {
+    setPendingAction('accept');
+    try {
+      await onAccept(friendship.friendId);
+    } finally {
+      setPendingAction(null);
+    }
+  };
+  const handleDecline = async () => {
+    setPendingAction('decline');
+    try {
+      await onDecline(friendship.friendId);
+    } finally {
+      setPendingAction(null);
+    }
+  };
+  const busy = pendingAction !== null;
+  return (
+    <div className="flex items-center gap-3 bg-[#1E1E1E] border border-[#333333] rounded-xl p-3">
+      <Avatar
+        src={imageUrl || undefined}
+        alt={friendship.friendDisplayName || friendship.friendUsername}
+        size="md"
+      />
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-medium text-white truncate">
+          {friendship.friendDisplayName || friendship.friendUsername}
+        </p>
+        <p className="text-xs text-gray-500 truncate">
+          @{friendship.friendUsername}
+        </p>
+      </div>
+      <div className="flex items-center gap-2">
+        <motion.button
+          whileTap={{ scale: 0.95 }}
+          onClick={handleAccept}
+          onPointerDown={(e) => e.stopPropagation()}
+          disabled={busy}
+          className="flex items-center justify-center w-8 h-8 rounded-full bg-emerald-500 hover:bg-emerald-600 text-white transition-colors disabled:opacity-50"
+          aria-label="Accept"
+        >
+          {pendingAction === 'accept' ? (
+            <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+          ) : (
+            <Check size={16} strokeWidth={3} />
+          )}
+        </motion.button>
+        <motion.button
+          whileTap={{ scale: 0.95 }}
+          onClick={handleDecline}
+          onPointerDown={(e) => e.stopPropagation()}
+          disabled={busy}
+          className="flex items-center justify-center w-8 h-8 rounded-full bg-[#2A2A2A] hover:bg-[#333333] text-gray-400 hover:text-white transition-colors disabled:opacity-50"
+          aria-label="Decline"
+        >
+          {pendingAction === 'decline' ? (
+            <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+          ) : (
+            <X size={16} strokeWidth={3} />
+          )}
+        </motion.button>
+      </div>
+    </div>
+  );
+};
+</file>
+
+<file path="src/components/explore/FriendRow.tsx">
+import React from 'react';
+import { motion } from 'framer-motion';
+import { MoreHorizontal, ChevronRight } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Avatar } from '../ui/Avatar';
+import { useTaskImage } from '../../hooks/useTaskImage';
+import type { FriendshipDocument } from '../../db/schema';
+interface FriendRowProps {
+  friendship: FriendshipDocument;
+  onOpenActions: (friendship: FriendshipDocument) => void;
+}
+export const FriendRow: React.FC<FriendRowProps> = ({
+  friendship,
+  onOpenActions,
+}) => {
+  const { imageUrl } = useTaskImage(
+    friendship.friendAvatarFileId || undefined
+  );
+  const navigate = useNavigate();
+  const handleOpen = () => {
+    navigate(`/friends/${friendship.friendId}`);
+  };
+  return (
+    <motion.div
+      whileTap={{ scale: 0.98 }}
+      onClick={handleOpen}
+      className="flex items-center gap-3 bg-[#1E1E1E] border border-[#333333] rounded-xl p-3 cursor-pointer hover:bg-[#252525] transition-colors"
+    >
+      <Avatar
+        src={imageUrl || undefined}
+        alt={friendship.friendDisplayName || friendship.friendUsername}
+        size="md"
+      />
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-medium text-white truncate">
+          {friendship.friendDisplayName || friendship.friendUsername}
+        </p>
+        <p className="text-xs text-gray-500 truncate">
+          @{friendship.friendUsername}
+        </p>
+      </div>
+      <ChevronRight size={16} className="text-gray-600 flex-shrink-0" />
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          onOpenActions(friendship);
+        }}
+        onPointerDown={(e) => e.stopPropagation()}
+        className="p-2 rounded-lg text-gray-500 hover:text-white hover:bg-[#2A2A2A] transition-colors flex-shrink-0"
+        aria-label="Friend options"
+      >
+        <MoreHorizontal size={18} />
+      </button>
+    </motion.div>
+  );
+};
+</file>
+
+<file path="src/components/explore/OutgoingRequestRow.tsx">
+import React, { useState } from 'react';
+import { motion } from 'framer-motion';
+import { X } from 'lucide-react';
+import { Avatar } from '../ui/Avatar';
+import { useTaskImage } from '../../hooks/useTaskImage';
+import type { FriendshipDocument } from '../../db/schema';
+interface OutgoingRequestRowProps {
+  friendship: FriendshipDocument;
+  onCancel: (friendId: string) => Promise<void>;
+}
+export const OutgoingRequestRow: React.FC<OutgoingRequestRowProps> = ({
+  friendship,
+  onCancel,
+}) => {
+  const { imageUrl } = useTaskImage(friendship.friendAvatarFileId || undefined);
+  const [isCancelling, setIsCancelling] = useState(false);
+  const handleCancel = async () => {
+    if (isCancelling) return;
+    setIsCancelling(true);
+    try {
+      await onCancel(friendship.friendId);
+    } finally {
+      setIsCancelling(false);
+    }
+  };
+  return (
+    <div className="flex items-center gap-3 bg-[#1E1E1E] border border-[#333333] rounded-xl p-3">
+      <Avatar
+        src={imageUrl || undefined}
+        alt={friendship.friendDisplayName || friendship.friendUsername}
+        size="md"
+      />
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-medium text-white truncate">
+          {friendship.friendDisplayName || friendship.friendUsername}
+        </p>
+        <p className="text-xs text-gray-500 truncate">
+          @{friendship.friendUsername}
+        </p>
+      </div>
+      <motion.button
+        whileTap={{ scale: 0.95 }}
+        onClick={handleCancel}
+        onPointerDown={(e) => e.stopPropagation()}
+        disabled={isCancelling}
+        aria-label="Cancel friend request"
+        className="flex items-center gap-1.5 bg-[#2A2A2A] hover:bg-[#333333] text-gray-300 hover:text-white text-xs font-medium px-3 py-1.5 rounded-full transition-colors disabled:opacity-50"
+      >
+        {isCancelling ? (
+          <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
+        ) : (
+          <>
+            <X size={12} strokeWidth={3} />
+            Cancel
+          </>
+        )}
+      </motion.button>
+    </div>
+  );
+};
+</file>
+
+<file path="src/components/explore/SearchBar.tsx">
+import React from 'react';
+import { Search, X } from 'lucide-react';
+interface SearchBarProps {
+  value: string;
+  onChange: (v: string) => void;
+  onClear: () => void;
+  placeholder?: string;
+  disabled?: boolean;
+}
+export const SearchBar: React.FC<SearchBarProps> = ({
+  value,
+  onChange,
+  onClear,
+  placeholder = 'Search by username…',
+  disabled = false,
+}) => {
+  return (
+    <div className="relative">
+      <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none">
+        <Search size={18} />
+      </div>
+      <input
+        type="text"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        disabled={disabled}
+        autoCapitalize="none"
+        autoCorrect="off"
+        spellCheck={false}
+        className="w-full bg-[#1E1E1E] text-white border border-[#333333] rounded-xl pl-10 pr-10 py-3 text-sm focus:border-[#555555] focus:outline-none transition-colors placeholder-gray-600 disabled:opacity-50"
+      />
+      {value && (
+        <button
+          type="button"
+          onClick={onClear}
+          onPointerDown={(e) => e.stopPropagation()}
+          className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white transition-colors p-1 rounded-md"
+          aria-label="Clear search"
+        >
+          <X size={16} />
+        </button>
+      )}
+    </div>
+  );
+};
+</file>
+
+<file path="src/components/explore/UserResultCard.tsx">
+import React from 'react';
+import { motion } from 'framer-motion';
+import { UserPlus, Clock, Check } from 'lucide-react';
+import { Avatar } from '../ui/Avatar';
+import { useTaskImage } from '../../hooks/useTaskImage';
+import type { ProfileCard } from '../../lib/social';
+interface UserResultCardProps {
+  profile: ProfileCard;
+  relationship: 'none' | 'outgoing' | 'incoming' | 'friends' | 'self';
+  onAdd: (profile: ProfileCard) => void;
+  isSending?: boolean;
+}
+export const UserResultCard: React.FC<UserResultCardProps> = ({
+  profile,
+  relationship,
+  onAdd,
+  isSending = false,
+}) => {
+  const { imageUrl } = useTaskImage(profile.avatar_file_id || undefined);
+  const renderAction = () => {
+    switch (relationship) {
+      case 'self':
+        return (
+          <span className="text-xs text-gray-500 font-medium px-3 py-1.5">
+            This is you
+          </span>
+        );
+      case 'friends':
+        return (
+          <span className="flex items-center gap-1 text-xs text-emerald-400 font-medium px-3 py-1.5">
+            <Check size={12} strokeWidth={3} />
+            Friends
+          </span>
+        );
+      case 'outgoing':
+        return (
+          <span className="flex items-center gap-1 text-xs text-gray-400 font-medium px-3 py-1.5">
+            <Clock size={12} />
+            Pending
+          </span>
+        );
+      case 'incoming':
+        return (
+          <span className="text-xs text-blue-400 font-medium px-3 py-1.5">
+            Respond in requests
+          </span>
+        );
+      case 'none':
+      default:
+        return (
+          <motion.button
+            whileTap={{ scale: 0.95 }}
+            onClick={() => onAdd(profile)}
+            onPointerDown={(e) => e.stopPropagation()}
+            disabled={isSending}
+            className="flex items-center gap-1.5 bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-medium px-3 py-1.5 rounded-full transition-colors disabled:opacity-50"
+          >
+            <UserPlus size={12} />
+            {isSending ? 'Sending…' : 'Add'}
+          </motion.button>
+        );
+    }
+  };
+  return (
+    <div className="flex items-center gap-3 bg-[#1E1E1E] border border-[#333333] rounded-xl p-3">
+      <Avatar
+        src={imageUrl || undefined}
+        alt={profile.display_name || profile.username}
+        size="md"
+      />
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-medium text-white truncate">
+          {profile.display_name || profile.username}
+        </p>
+        <p className="text-xs text-gray-500 truncate">@{profile.username}</p>
+      </div>
+      {renderAction()}
+    </div>
+  );
+};
+</file>
+
+<file path="src/components/friend/FriendCalendarView.tsx">
+import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
+import {
+  format,
+  startOfMonth,
+  startOfWeek,
+  endOfWeek,
+  addMonths,
+  addWeeks,
+  differenceInCalendarMonths,
+  differenceInCalendarWeeks,
+} from 'date-fns';
+import useEmblaCarousel from 'embla-carousel-react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { MonthView } from '../home/views/MonthView';
+import { WeekView } from '../home/views/WeekView';
+import { ViewToggle } from '../home/views/ViewToggle';
+import { FriendDayViewSheet } from './FriendDayViewSheet';
+import type {
+  TaskDocument,
+  CategoryDocument,
+} from '../../db/schema';
+type CalendarViewMode = 'month' | 'week';
+const SLIDES_EACH_SIDE = 12;
+const TOTAL_SLIDES = SLIDES_EACH_SIDE * 2 + 1;
+const CENTER_INDEX = SLIDES_EACH_SIDE;
+interface CalendarSlideProps {
+  date: Date;
+  viewMode: CalendarViewMode;
+  onDayClick: (date: Date) => void;
+  tasks: TaskDocument[];
+  categoriesMap: Record<string, { color: string; name: string }>;
+}
+const CalendarSlide = React.memo(
+  ({ date, viewMode, onDayClick, tasks, categoriesMap }: CalendarSlideProps) => {
+    if (viewMode === 'month') {
+      return (
+        <MonthView
+          focusDate={date}
+          onDayClick={onDayClick}
+          tasks={tasks}
+          categoriesMap={categoriesMap}
+        />
+      );
+    }
+    return (
+      <WeekView
+        focusDate={date}
+        onDayClick={onDayClick}
+        tasks={tasks}
+        categoriesMap={categoriesMap}
+      />
+    );
+  }
+);
+CalendarSlide.displayName = 'CalendarSlide';
+interface FriendCalendarViewProps {
+  friendName: string;
+  tasks: TaskDocument[];
+  categories: CategoryDocument[];
+}
+export const FriendCalendarView: React.FC<FriendCalendarViewProps> = ({
+  friendName,
+  tasks,
+  categories,
+}) => {
+  const [viewMode, setViewMode] = useState<CalendarViewMode>('month');
+  const [focusDate, setFocusDate] = useState(new Date());
+  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+  const categoriesMap = useMemo(() => {
+    return categories.reduce(
+      (acc: Record<string, { color: string; name: string }>, cat) => {
+        acc[cat.id] = { color: cat.color, name: cat.name };
+        return acc;
+      },
+      {}
+    );
+  }, [categories]);
+  const [baseDate, setBaseDate] = useState(focusDate);
+  const isInternalSwipeRef = useRef(false);
+  const [prevViewMode, setPrevViewMode] = useState(viewMode);
+  if (prevViewMode !== viewMode) {
+    setPrevViewMode(viewMode);
+    setBaseDate(focusDate);
+  }
+  const slides = useMemo(() => {
+    const fn = viewMode === 'month' ? addMonths : addWeeks;
+    return Array.from({ length: TOTAL_SLIDES }, (_, i) =>
+      fn(baseDate, i - CENTER_INDEX)
+    );
+  }, [baseDate, viewMode]);
+  const [emblaRef, emblaApi] = useEmblaCarousel({
+    loop: false,
+    align: 'start',
+    skipSnaps: false,
+  });
+  useEffect(() => {
+    if (!emblaApi) return;
+    if (isInternalSwipeRef.current) {
+      isInternalSwipeRef.current = false;
+      return;
+    }
+    const offset =
+      viewMode === 'month'
+        ? differenceInCalendarMonths(focusDate, baseDate)
+        : differenceInCalendarWeeks(focusDate, baseDate);
+    const targetIndex = CENTER_INDEX + offset;
+    if (targetIndex < 0 || targetIndex >= TOTAL_SLIDES) return;
+    if (emblaApi.selectedScrollSnap() !== targetIndex) {
+      emblaApi.scrollTo(targetIndex, true);
+    }
+  }, [emblaApi, focusDate, baseDate, viewMode]);
+  useEffect(() => {
+    if (!emblaApi) return;
+    const onSelect = () => {
+      const index = emblaApi.selectedScrollSnap();
+      const offset = index - CENTER_INDEX;
+      const fn = viewMode === 'month' ? addMonths : addWeeks;
+      const newDate = fn(baseDate, offset);
+      const same =
+        viewMode === 'month'
+          ? differenceInCalendarMonths(newDate, focusDate) === 0
+          : differenceInCalendarWeeks(newDate, focusDate) === 0;
+      if (!same) {
+        isInternalSwipeRef.current = true;
+        setFocusDate(newDate);
+      }
+    };
+    emblaApi.on('select', onSelect);
+    return () => {
+      emblaApi.off('select', onSelect);
+    };
+  }, [emblaApi, baseDate, focusDate, viewMode]);
+  const handlePrev = () => emblaApi?.scrollPrev();
+  const handleNext = () => emblaApi?.scrollNext();
+  const handleToggle = () => {
+    if (viewMode === 'month') {
+      setFocusDate(startOfMonth(focusDate));
+      setViewMode('week');
+    } else {
+      setViewMode('month');
+    }
+  };
+  const weekStart = startOfWeek(focusDate, { weekStartsOn: 0 });
+  const weekEnd = endOfWeek(focusDate, { weekStartsOn: 0 });
+  const title =
+    viewMode === 'month'
+      ? format(focusDate, 'MMMM yyyy')
+      : `${format(weekStart, 'MMM d')} - ${format(weekEnd, 'MMM d, yyyy')}`;
+  const handleDayClick = useCallback((date: Date) => {
+    setSelectedDate(date);
+  }, []);
+  return (
+    <div className="flex flex-col h-full animate-in fade-in duration-300">
+      <div className="px-4 py-3 flex items-center justify-between border-b border-[#333333]">
+        <h2 className="text-lg font-bold text-white transition-all duration-200">
+          {title}
+        </h2>
+        <div className="flex items-center gap-2">
+          <ViewToggle activeMode={viewMode} onToggle={handleToggle} />
+          <button
+            onClick={handlePrev}
+            className="p-1.5 rounded-lg bg-[#1E1E1E] border border-[#333333] text-gray-400 hover:text-white hover:bg-[#2A2A2A] transition-colors"
+            aria-label="Previous"
+          >
+            <ChevronLeft size={16} />
+          </button>
+          <button
+            onClick={handleNext}
+            className="p-1.5 rounded-lg bg-[#1E1E1E] border border-[#333333] text-gray-400 hover:text-white hover:bg-[#2A2A2A] transition-colors"
+            aria-label="Next"
+          >
+            <ChevronRight size={16} />
+          </button>
+        </div>
+      </div>
+      <div className="flex-1 overflow-hidden py-2" ref={emblaRef}>
+        <div className="flex h-full" style={{ touchAction: 'pan-y' }}>
+          {slides.map((date, i) => (
+            <div
+              key={i}
+              className="flex-shrink-0 h-full w-full"
+              style={{ flex: '0 0 100%', minWidth: 0 }}
+            >
+              <CalendarSlide
+                date={date}
+                viewMode={viewMode}
+                onDayClick={handleDayClick}
+                tasks={tasks}
+                categoriesMap={categoriesMap}
+              />
+            </div>
+          ))}
+        </div>
+      </div>
+      <FriendDayViewSheet
+        isOpen={!!selectedDate}
+        onClose={() => setSelectedDate(null)}
+        date={selectedDate}
+        tasks={tasks}
+        categories={categories}
+        friendName={friendName}
+      />
+    </div>
+  );
+};
+</file>
+
+<file path="src/components/friend/FriendDayViewSheet.tsx">
+import React, { useMemo } from 'react';
+import { format } from 'date-fns';
+import { BottomSheet } from '../ui/BottomSheet';
+import { Check, Image as ImageIcon } from 'lucide-react';
+import type { TaskDocument, CategoryDocument } from '../../db/schema';
+interface FriendDayViewSheetProps {
+  isOpen: boolean;
+  onClose: () => void;
+  date: Date | null;
+  tasks: TaskDocument[];
+  categories: CategoryDocument[];
+  friendName: string;
+}
+const EMPTY_TASKS: TaskDocument[] = [];
+export const FriendDayViewSheet: React.FC<FriendDayViewSheetProps> = ({
+  isOpen,
+  onClose,
+  date,
+  tasks,
+  categories,
+  friendName,
+}) => {
+  const dateStr = date ? format(date, 'yyyy-MM-dd') : null;
+  const headerLabel = date ? format(date, 'EEEE, MMMM d') : '';
+  const tasksByCategory = useMemo(() => {
+    if (!dateStr) return new Map<string, TaskDocument[]>();
+    const map = new Map<string, TaskDocument[]>();
+    for (const t of tasks) {
+      if (t.date !== dateStr) continue;
+      const arr = map.get(t.categoryId) || [];
+      arr.push(t);
+      map.set(t.categoryId, arr);
+    }
+    return map;
+  }, [tasks, dateStr]);
+  const visibleCategories = useMemo(() => {
+    if (!dateStr) return [];
+    return categories.filter((c) => (tasksByCategory.get(c.id) || EMPTY_TASKS).length > 0);
+  }, [categories, tasksByCategory, dateStr]);
+  const totalTasks = useMemo(
+    () => Array.from(tasksByCategory.values()).reduce((n, arr) => n + arr.length, 0),
+    [tasksByCategory]
+  );
+  if (!date) return null;
+  return (
+    <BottomSheet isOpen={isOpen} onClose={onClose} height="auto">
+      <div className="pt-1 pb-8 px-4">
+        <div className="text-center mb-5">
+          <h2 className="text-white text-lg font-semibold tracking-tight">
+            {headerLabel}
+          </h2>
+          <p className="text-xs text-gray-500 mt-1">
+            {friendName} · {totalTasks} {totalTasks === 1 ? 'task' : 'tasks'}
+          </p>
+        </div>
+        {totalTasks === 0 ? (
+          <div className="text-center py-10">
+            <p className="text-sm text-gray-500">Nothing shared on this day.</p>
+          </div>
+        ) : (
+          <div className="space-y-5">
+            {visibleCategories.map((cat) => {
+              const catTasks = tasksByCategory.get(cat.id) || EMPTY_TASKS;
+              return (
+                <div key={cat.id}>
+                  <div className="flex items-center gap-2 mb-2">
+                    <div
+                      className="w-2.5 h-2.5 rounded-full flex-shrink-0"
+                      style={{ backgroundColor: cat.color }}
+                    />
+                    <span className="text-xs font-bold text-white">
+                      {cat.name}
+                    </span>
+                    <span className="text-xs text-gray-500">
+                      {catTasks.length}
+                    </span>
+                  </div>
+                  <div className="bg-[#1A1A1A] rounded-xl border border-[#2A2A2A] overflow-hidden">
+                    {catTasks.map((task, idx) => (
+                      <div
+                        key={task.id}
+                        className={`flex items-start gap-3 px-3 py-2.5 ${
+                          idx > 0 ? 'border-t border-[#2A2A2A]' : ''
+                        }`}
+                      >
+                        <div
+                          className="flex-shrink-0 w-4 h-4 rounded-full border-2 mt-0.5 flex items-center justify-center"
+                          style={{
+                            backgroundColor: task.completed
+                              ? cat.color
+                              : 'transparent',
+                            borderColor: task.completed
+                              ? cat.color
+                              : '#444444',
+                          }}
+                        >
+                          {task.completed && (
+                            <Check
+                              size={9}
+                              className="text-white"
+                              strokeWidth={3.5}
+                            />
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p
+                            className={`text-sm ${
+                              task.completed
+                                ? 'text-gray-500 line-through'
+                                : 'text-gray-200'
+                            }`}
+                          >
+                            {task.title}
+                          </p>
+                          {task.memo && (
+                            <p className="text-xs text-gray-500 mt-0.5 whitespace-pre-wrap">
+                              {task.memo}
+                            </p>
+                          )}
+                          {task.image && (
+                            <div className="flex items-center gap-1 mt-1 text-xs text-gray-600">
+                              <ImageIcon size={11} />
+                              <span>Photo attached</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </BottomSheet>
+  );
+};
+</file>
 
 <file path="src/components/home/views/CalendarView.tsx">
 import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
@@ -608,6 +1870,7 @@ import { MemoSheet } from './MemoSheet';
 import { DatePickerSheet } from './DatePickerSheet';
 import { ImageViewer } from './ImageViewer';
 import { ImagePickerSheet } from './ImagePickerSheet';
+import { TaskVisibilitySheet } from './TaskVisibilitySheet';
 import { useTasks } from '../../../hooks/useTasks';
 import { useCategories } from '../../../hooks/useCategories';
 import { useTaskImage } from '../../../hooks/useTaskImage';
@@ -639,60 +1902,75 @@ interface DaySlideProps {
   onEditSave: () => void;
   onEditCancel: () => void;
 }
-const DaySlide = React.memo(({
-  date, dateStr, tasks, categories, editingTaskId, editValue,
-  onToggleTask, onAddTask, onOpenActions, onOpenMemo, onViewImage,
-  onEditChange, onEditSave, onEditCancel,
-}: DaySlideProps) => {
-  const groupedTasks = useMemo(() => {
-    const map: Record<string, TaskDocument[]> = {};
-    for (const task of tasks) {
-      (map[task.categoryId] ||= []).push(task);
-    }
-    return map;
-  }, [tasks]);
-  const headerLabel = useMemo(() => format(date, 'EEEE, MMMM d'), [date]);
-  return (
-    <div className="w-full">
-      {}
-      <div className="px-4 pt-3 pb-2 select-none">
-        <h2 className="text-white text-lg font-semibold tracking-tight">
-          {headerLabel}
-        </h2>
+const DaySlide = React.memo(
+  ({
+    date,
+    dateStr,
+    tasks,
+    categories,
+    editingTaskId,
+    editValue,
+    onToggleTask,
+    onAddTask,
+    onOpenActions,
+    onOpenMemo,
+    onViewImage,
+    onEditChange,
+    onEditSave,
+    onEditCancel,
+  }: DaySlideProps) => {
+    const groupedTasks = useMemo(() => {
+      const map: Record<string, TaskDocument[]> = {};
+      for (const task of tasks) {
+        (map[task.categoryId] ||= []).push(task);
+      }
+      return map;
+    }, [tasks]);
+    const headerLabel = useMemo(() => format(date, 'EEEE, MMMM d'), [date]);
+    return (
+      <div className="w-full">
+        <div className="px-4 pt-3 pb-2 select-none">
+          <h2 className="text-white text-lg font-semibold tracking-tight">
+            {headerLabel}
+          </h2>
+        </div>
+        <div className="pt-1 pb-8 px-1">
+          {categories.length === 0 ? (
+            <div className="text-center py-12 text-gray-500 text-sm px-4">
+              Create a category to start adding tasks.
+            </div>
+          ) : (
+            categories.map((category: CategoryDocument) => (
+              <CategorySection
+                key={category.id}
+                categoryName={category.name}
+                categoryColor={category.color}
+                visibility={category.visibility}
+                tasks={groupedTasks[category.id] || EMPTY_TASKS}
+                onToggleTask={onToggleTask}
+                onAddTask={(title) => onAddTask(title, category.id, dateStr)}
+                onOpenActions={onOpenActions}
+                onOpenMemo={onOpenMemo}
+                onViewImage={onViewImage}
+                editingTaskId={editingTaskId}
+                editValue={editValue}
+                onEditChange={onEditChange}
+                onEditSave={onEditSave}
+                onEditCancel={onEditCancel}
+              />
+            ))
+          )}
+        </div>
       </div>
-      <div className="pt-1 pb-8 px-1">
-        {categories.length === 0 ? (
-          <div className="text-center py-12 text-gray-500 text-sm px-4">
-            Create a category to start adding tasks.
-          </div>
-        ) : (
-          categories.map((category: CategoryDocument) => (
-            <CategorySection
-              key={category.id}
-              categoryName={category.name}
-              categoryColor={category.color}
-              visibility={category.visibility}
-              tasks={groupedTasks[category.id] || EMPTY_TASKS}
-              onToggleTask={onToggleTask}
-              onAddTask={(title) => onAddTask(title, category.id, dateStr)}
-              onOpenActions={onOpenActions}
-              onOpenMemo={onOpenMemo}
-              onViewImage={onViewImage}
-              editingTaskId={editingTaskId}
-              editValue={editValue}
-              onEditChange={onEditChange}
-              onEditSave={onEditSave}
-              onEditCancel={onEditCancel}
-            />
-          ))
-        )}
-      </div>
-    </div>
-  );
-});
+    );
+  }
+);
 DaySlide.displayName = 'DaySlide';
 export const DayViewSheet: React.FC<DayViewSheetProps> = ({
-  isOpen, onClose, selectedDate, onDateChange,
+  isOpen,
+  onClose,
+  selectedDate,
+  onDateChange,
 }) => {
   const { tasks, addTask, updateTask, deleteTask, toggleTaskCompletion } = useTasks();
   const { categories } = useCategories();
@@ -711,7 +1989,10 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
     wasOpenRef.current = isOpen;
   }, [isOpen, selectedDate]);
   const slideDates = useMemo(
-    () => Array.from({ length: TOTAL_SLIDES }, (_, i) => addDays(anchorDate, i - SWIPE_RANGE)),
+    () =>
+      Array.from({ length: TOTAL_SLIDES }, (_, i) =>
+        addDays(anchorDate, i - SWIPE_RANGE)
+      ),
     [anchorDate]
   );
   const slideDateStrs = useMemo(
@@ -756,6 +2037,7 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
   const [isActionSheetOpen, setIsActionSheetOpen] = useState(false);
   const [isMemoSheetOpen, setIsMemoSheetOpen] = useState(false);
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
+  const [isVisibilitySheetOpen, setIsVisibilitySheetOpen] = useState(false);
   const [viewingTask, setViewingTask] = useState<TaskDocument | null>(null);
   const [imagePickerTask, setImagePickerTask] = useState<TaskDocument | null>(null);
   const viewingImageUrl = useTaskImage(viewingTask?.image).imageUrl;
@@ -764,6 +2046,10 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
   const [deleteFeedback, setDeleteFeedback] = useState<string | null>(null);
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
   const [editValue, setEditValue] = useState('');
+  const activeTaskCategory = useMemo(() => {
+    if (!activeTask) return null;
+    return categories.find((c) => c.id === activeTask.categoryId) || null;
+  }, [activeTask, categories]);
   useEffect(() => {
     if (deleteFeedback) {
       const timer = setTimeout(() => setDeleteFeedback(null), 2000);
@@ -771,18 +2057,24 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
     }
   }, [deleteFeedback]);
   // ----- Stable handlers -----
-  const handleToggleTask = useCallback((taskId: string, currentStatus: boolean) => {
-    toggleTaskCompletion(taskId, !currentStatus);
-  }, [toggleTaskCompletion]);
-  const handleAddTask = useCallback((title: string, categoryId: string, dateStr: string) => {
-    addTask({
-      title,
-      categoryId,
-      date: dateStr,
-      completed: false,
-      visibility: 'private',
-    });
-  }, [addTask]);
+  const handleToggleTask = useCallback(
+    (taskId: string, currentStatus: boolean) => {
+      toggleTaskCompletion(taskId, !currentStatus);
+    },
+    [toggleTaskCompletion]
+  );
+  const handleAddTask = useCallback(
+    (title: string, categoryId: string, dateStr: string) => {
+      addTask({
+        title,
+        categoryId,
+        date: dateStr,
+        completed: false,
+        visibility: '',
+      });
+    },
+    [addTask]
+  );
   const handleStartEdit = useCallback((task: TaskDocument) => {
     setEditingTaskId(task.id);
     setEditValue(task.title);
@@ -818,12 +2110,23 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
       setActiveTask(null);
     }
   };
-  const handleMemoSave = async (memo: string, visibility: 'private' | 'followers' | 'public') => {
+  const handleMemoSave = async (
+    memo: string,
+    visibility: 'private' | 'followers' | 'public'
+  ) => {
     if (activeTask) {
       await updateTask(activeTask.id, { memo, visibility });
       setIsMemoSheetOpen(false);
     }
   };
+  const handleVisibilitySave = useCallback(
+    async (visibility: '' | 'private' | 'followers' | 'public') => {
+      if (activeTask) {
+        await updateTask(activeTask.id, { visibility });
+      }
+    },
+    [activeTask, updateTask]
+  );
   const handleDateChange = async (newDate: string) => {
     if (activeTask) {
       await updateTask(activeTask.id, { date: newDate });
@@ -836,7 +2139,8 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
     const taskDate = new Date(activeTask.date);
     const todayStr = format(now, 'yyyy-MM-dd');
     const taskDateStr = format(taskDate, 'yyyy-MM-dd');
-    const newDate = taskDateStr === todayStr ? format(addDays(now, 1), 'yyyy-MM-dd') : todayStr;
+    const newDate =
+      taskDateStr === todayStr ? format(addDays(now, 1), 'yyyy-MM-dd') : todayStr;
     await updateTask(activeTask.id, { date: newDate });
   };
   const handleRequestDeletePhoto = () => {
@@ -850,7 +2154,7 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
       await deleteImage(activeTask.image);
       await updateTask(activeTask.id, { image: '' });
       setDeleteFeedback('Photo deleted');
-      setActiveTask(prev => (prev ? { ...prev, image: '' } : null));
+      setActiveTask((prev) => (prev ? { ...prev, image: '' } : null));
       setIsDeletePhotoConfirmOpen(false);
     } catch (err) {
       console.error('[DayViewSheet] Failed to delete photo:', err);
@@ -866,27 +2170,39 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
     setImagePickerTask(task);
     setIsActionSheetOpen(false);
   }, []);
-  const handleImageSaved = useCallback(async (fileId: string) => {
-    if (imagePickerTask) {
-      await updateTask(imagePickerTask.id, { image: fileId });
-    }
-  }, [imagePickerTask, updateTask]);
+  const handleImageSaved = useCallback(
+    async (fileId: string) => {
+      if (imagePickerTask) {
+        await updateTask(imagePickerTask.id, { image: fileId });
+      }
+    },
+    [imagePickerTask, updateTask]
+  );
   const handleImageRemoved = useCallback(async () => {
     if (imagePickerTask) {
       await updateTask(imagePickerTask.id, { image: '' });
     }
   }, [imagePickerTask, updateTask]);
   const isBackgroundLocked =
-    isActionSheetOpen || isMemoSheetOpen || isDatePickerOpen || !!viewingTask || isDeletePhotoConfirmOpen || !!imagePickerTask;
-  const handleSwipeSettled = useCallback((s: SwiperClass) => {
-    setActiveIndex(s.activeIndex);
-    if (isProgrammaticMoveRef.current) return;
-    const date = slideDates[s.activeIndex];
-    if (!date) return;
-    if (differenceInCalendarDays(date, selectedDateRef.current) !== 0) {
-      onDateChange?.(date);
-    }
-  }, [slideDates, onDateChange]);
+    isActionSheetOpen ||
+    isMemoSheetOpen ||
+    isDatePickerOpen ||
+    isVisibilitySheetOpen ||
+    !!viewingTask ||
+    isDeletePhotoConfirmOpen ||
+    !!imagePickerTask;
+  const handleSwipeSettled = useCallback(
+    (s: SwiperClass) => {
+      setActiveIndex(s.activeIndex);
+      if (isProgrammaticMoveRef.current) return;
+      const date = slideDates[s.activeIndex];
+      if (!date) return;
+      if (differenceInCalendarDays(date, selectedDateRef.current) !== 0) {
+        onDateChange?.(date);
+      }
+    },
+    [slideDates, onDateChange]
+  );
   const slides = useMemo(() => {
     return slideDates.map((date, i) => {
       const dateStr = slideDateStrs[i];
@@ -915,10 +2231,20 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
       );
     });
   }, [
-    slideDates, slideDateStrs, activeIndex, tasksByDate, categories,
-    editingTaskId, editValue, handleToggleTask, handleAddTask,
-    handleOpenActions, handleOpenMemo, handleViewImage,
-    handleEditSave, handleEditCancel,
+    slideDates,
+    slideDateStrs,
+    activeIndex,
+    tasksByDate,
+    categories,
+    editingTaskId,
+    editValue,
+    handleToggleTask,
+    handleAddTask,
+    handleOpenActions,
+    handleOpenMemo,
+    handleViewImage,
+    handleEditSave,
+    handleEditCancel,
   ]);
   return (
     <>
@@ -929,11 +2255,14 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
         isLocked={isBackgroundLocked}
       >
         <div
-          className={`w-full transition-opacity duration-300 ${isBackgroundLocked ? 'opacity-50 pointer-events-none select-none' : ''
-            }`}
+          className={`w-full transition-opacity duration-300 ${
+            isBackgroundLocked ? 'opacity-50 pointer-events-none select-none' : ''
+          }`}
         >
           <Swiper
-            onSwiper={(s) => { swiperRef.current = s; }}
+            onSwiper={(s) => {
+              swiperRef.current = s;
+            }}
             initialSlide={initialIndex}
             slidesPerView={1}
             spaceBetween={0}
@@ -957,10 +2286,12 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
         isOpen={isActionSheetOpen}
         onClose={() => setIsActionSheetOpen(false)}
         task={activeTask}
+        category={activeTaskCategory}
         onEdit={() => activeTask && handleStartEdit(activeTask)}
         onDelete={handleDelete}
         onMemo={() => setIsMemoSheetOpen(true)}
         onChangeDate={() => setIsDatePickerOpen(true)}
+        onVisibility={() => setIsVisibilitySheetOpen(true)}
         onAddPhoto={() => activeTask && handleAddPhoto(activeTask)}
         onViewPhoto={() => {
           if (activeTask) setViewingTask(activeTask);
@@ -974,6 +2305,13 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
         onClose={() => setIsMemoSheetOpen(false)}
         task={activeTask}
         onSave={handleMemoSave}
+      />
+      <TaskVisibilitySheet
+        isOpen={isVisibilitySheetOpen}
+        onClose={() => setIsVisibilitySheetOpen(false)}
+        task={activeTask}
+        category={activeTaskCategory}
+        onSave={handleVisibilitySave}
       />
       <DatePickerSheet
         isOpen={isDatePickerOpen}
@@ -992,7 +2330,11 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
         isOpen={!!viewingTask}
         imageUrl={viewingImageUrl}
         taskTitle={viewingTask?.title}
-        taskDate={viewingTask?.createdAt ? format(new Date(viewingTask.createdAt), 'MMM d, yyyy') : undefined}
+        taskDate={
+          viewingTask?.createdAt
+            ? format(new Date(viewingTask.createdAt), 'MMM d, yyyy')
+            : undefined
+        }
         onClose={() => setViewingTask(null)}
       />
       <BottomSheet
@@ -1020,8 +2362,13 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
               className="flex-1 py-3 bg-red-500 rounded-xl text-white font-medium hover:bg-red-600 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
             >
               {isDeletingPhoto ? (
-                <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> Deleting...</>
-              ) : 'Delete'}
+                <>
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                'Delete'
+              )}
             </button>
           </div>
         </div>
@@ -1343,17 +2690,15 @@ export const MemoSheet: React.FC<MemoSheetProps> = ({
   isOpen,
   onClose,
   task,
-  onSave
+  onSave,
 }) => {
   const [syncedTaskId, setSyncedTaskId] = useState<string | null>(null);
   const [editedMemo, setEditedMemo] = useState<string | null>(null);
-  const [editedVisibility, setEditedVisibility] = useState<'private' | 'followers' | 'public' | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const taskId = task?.id ?? null;
   if (taskId !== syncedTaskId) {
     setSyncedTaskId(taskId);
     setEditedMemo(null);
-    setEditedVisibility(null);
   }
   useEffect(() => {
     if (isOpen && taskId) {
@@ -1361,13 +2706,26 @@ export const MemoSheet: React.FC<MemoSheetProps> = ({
     }
   }, [isOpen, taskId]);
   const memo = editedMemo ?? task?.memo ?? '';
-  const visibility = editedVisibility ?? task?.visibility ?? 'private';
   const handleDone = () => {
-    onSave(memo, visibility);
+    const taskVisibility = task?.visibility;
+    const safeVisibility =
+      taskVisibility === 'private' ||
+      taskVisibility === 'followers' ||
+      taskVisibility === 'public'
+        ? taskVisibility
+        : 'private';
+    onSave(memo, safeVisibility);
     onClose();
   };
   const handleDelete = () => {
-    onSave('', visibility);
+    const taskVisibility = task?.visibility;
+    const safeVisibility =
+      taskVisibility === 'private' ||
+      taskVisibility === 'followers' ||
+      taskVisibility === 'public'
+        ? taskVisibility
+        : 'private';
+    onSave('', safeVisibility);
     onClose();
   };
   if (!task) return null;
@@ -1376,35 +2734,29 @@ export const MemoSheet: React.FC<MemoSheetProps> = ({
       <div className="pt-2 pb-8 px-4">
         <div className="flex items-center justify-between mb-4">
           {task.memo ? (
-            <button onClick={handleDelete} className="text-red-400 font-semibold text-base">Delete</button>
+            <button
+              onClick={handleDelete}
+              className="text-red-400 font-semibold text-base"
+            >
+              Delete
+            </button>
           ) : (
             <div className="w-12" />
           )}
-          <button onClick={handleDone} className="text-white font-semibold text-base">Done</button>
+          <button
+            onClick={handleDone}
+            className="text-white font-semibold text-base"
+          >
+            Done
+          </button>
         </div>
         <textarea
           ref={textareaRef}
           value={memo}
           onChange={(e) => setEditedMemo(e.target.value)}
           placeholder="Enter a memo"
-          className="w-full bg-[#1A1A1A] rounded-xl p-4 text-base text-white placeholder-gray-500 focus:outline-none min-h-[200px] resize-none mb-6"
+          className="w-full bg-[#1A1A1A] rounded-xl p-4 text-base text-white placeholder-gray-500 focus:outline-none min-h-[200px] resize-none"
         />
-        <div className="flex items-center justify-end gap-3">
-          <span className="text-sm text-gray-400">Visible to me only</span>
-          <button
-            onClick={() => setEditedVisibility(visibility === 'private' ? 'public' : 'private')}
-            className={`relative w-12 h-7 rounded-full transition-colors ${visibility === 'private' ? 'bg-gray-600' : 'bg-blue-500'
-              }`}
-          >
-            <div
-              className={`absolute top-1 w-5 h-5 rounded-full bg-white transition-transform ${visibility === 'private' ? 'left-1' : 'left-6'
-                }`}
-            />
-            <span className="absolute inset-0 flex items-center justify-center text-[10px] font-bold text-white">
-              {visibility === 'private' ? 'ON' : 'OFF'}
-            </span>
-          </button>
-        </div>
       </div>
     </BottomSheet>
   );
@@ -1462,17 +2814,36 @@ export const MonthView: React.FC<MonthViewProps> = ({ focusDate, onDayClick, tas
 <file path="src/components/home/views/TaskActionSheet.tsx">
 import React from 'react';
 import { BottomSheet } from '../../ui/BottomSheet';
-import { Pencil, Trash2, FileText, Clock, ArrowRight, RotateCcw, CheckCircle, Archive, Image as ImageIcon } from 'lucide-react';
+import {
+  Pencil,
+  Trash2,
+  FileText,
+  Clock,
+  ArrowRight,
+  RotateCcw,
+  CheckCircle,
+  Archive,
+  Image as ImageIcon,
+  Eye,
+} from 'lucide-react';
 import { isToday } from 'date-fns';
-import type { TaskDocument } from '../../../db/schema';
+import {
+  resolveVisibility,
+  isInheriting,
+  labelForVisibility,
+  type TaskVisibility,
+} from '../../../lib/visibility';
+import type { TaskDocument, CategoryDocument } from '../../../db/schema';
 interface TaskActionSheetProps {
   isOpen: boolean;
   onClose: () => void;
   task: TaskDocument | null;
+  category: CategoryDocument | null;
   onEdit: () => void;
   onDelete: () => void;
   onMemo: () => void;
   onChangeDate: () => void;
+  onVisibility: () => void;
   onAddPhoto: () => void;
   onViewPhoto: () => void;
   onDeletePhoto: () => void;
@@ -1482,32 +2853,59 @@ export const TaskActionSheet: React.FC<TaskActionSheetProps> = ({
   isOpen,
   onClose,
   task,
+  category,
   onEdit,
   onDelete,
   onMemo,
   onChangeDate,
+  onVisibility,
   onAddPhoto,
   onViewPhoto,
   onDeletePhoto,
-  onDoItTomorrowOrToday
+  onDoItTomorrowOrToday,
 }) => {
   if (!task) return null;
   const isTaskToday = isToday(new Date(task.date));
   const tomorrowOrTodayLabel = isTaskToday ? 'Do It Tomorrow' : 'Do It Today';
+  const effective = resolveVisibility(task.visibility, category?.visibility);
+  const inheriting = isInheriting(task.visibility);
+  const visibilityLabel = inheriting
+    ? `${labelForVisibility(effective as TaskVisibility)} · Default`
+    : labelForVisibility(effective as TaskVisibility);
   return (
     <BottomSheet isOpen={isOpen} onClose={onClose} title={task.title} height="auto">
       <div className="pt-2 pb-8 px-4">
         {}
         <div className="grid grid-cols-2 gap-3 mb-6">
-          <button onClick={onEdit} className="flex flex-col items-center justify-center gap-2 py-4 bg-[#2A2A2A] rounded-xl hover:bg-[#333333] transition-colors">
+          <button
+            onClick={onEdit}
+            className="flex flex-col items-center justify-center gap-2 py-4 bg-[#2A2A2A] rounded-xl hover:bg-[#333333] transition-colors"
+          >
             <Pencil size={20} className="text-blue-400" />
             <span className="text-sm text-white">Edit</span>
           </button>
-          <button onClick={onDelete} className="flex flex-col items-center justify-center gap-2 py-4 bg-[#2A2A2A] rounded-xl hover:bg-[#333333] transition-colors">
+          <button
+            onClick={onDelete}
+            className="flex flex-col items-center justify-center gap-2 py-4 bg-[#2A2A2A] rounded-xl hover:bg-[#333333] transition-colors"
+          >
             <Trash2 size={20} className="text-red-400" />
             <span className="text-sm text-white">Delete</span>
           </button>
         </div>
+        {}
+        <button
+          onClick={() => {
+            onVisibility();
+            onClose();
+          }}
+          className="w-full flex items-center gap-4 px-2 py-3.5 rounded-xl hover:bg-[#1E1E1E] transition-colors text-white mb-2"
+        >
+          <div className="w-8 h-8 rounded-full bg-purple-400 flex items-center justify-center flex-shrink-0">
+            <Eye size={16} className="text-black" />
+          </div>
+          <span className="text-base font-medium flex-1 text-left">Visibility</span>
+          <span className="text-xs text-gray-500">{visibilityLabel}</span>
+        </button>
         {}
         {task.memo && (
           <div className="mb-6">
@@ -1517,80 +2915,127 @@ export const TaskActionSheet: React.FC<TaskActionSheetProps> = ({
               </div>
               <h3 className="text-lg font-semibold text-white">Memo</h3>
             </div>
-            <div onClick={onMemo} className="bg-[#1A1A1A] rounded-xl p-4 cursor-pointer hover:bg-[#222222] transition-colors">
+            <div
+              onClick={onMemo}
+              className="bg-[#1A1A1A] rounded-xl p-4 cursor-pointer hover:bg-[#222222] transition-colors"
+            >
               <p className="text-sm text-gray-300 whitespace-pre-wrap">{task.memo}</p>
             </div>
           </div>
         )}
         {}
         <div className="space-y-1">
-          {}
           {!task.memo && (
-            <button onClick={() => { onMemo(); onClose(); }} className="w-full flex items-center gap-4 px-2 py-3.5 rounded-xl hover:bg-[#1E1E1E] transition-colors text-white">
+            <button
+              onClick={() => {
+                onMemo();
+                onClose();
+              }}
+              className="w-full flex items-center gap-4 px-2 py-3.5 rounded-xl hover:bg-[#1E1E1E] transition-colors text-white"
+            >
               <div className="w-8 h-8 rounded-full bg-yellow-400 flex items-center justify-center">
                 <FileText size={16} className="text-black" />
               </div>
               <span className="text-base font-medium">Memo</span>
             </button>
           )}
-          {}
           {!task.image && (
-            <button onClick={() => { onAddPhoto(); onClose(); }} className="w-full flex items-center gap-4 px-2 py-3.5 rounded-xl hover:bg-[#1E1E1E] transition-colors text-white">
+            <button
+              onClick={() => {
+                onAddPhoto();
+                onClose();
+              }}
+              className="w-full flex items-center gap-4 px-2 py-3.5 rounded-xl hover:bg-[#1E1E1E] transition-colors text-white"
+            >
               <div className="w-8 h-8 rounded-full bg-green-400 flex items-center justify-center">
                 <ImageIcon size={16} className="text-black" />
               </div>
               <span className="text-base font-medium">Add Photo</span>
             </button>
           )}
-          {}
           {task.image && (
-            <button onClick={() => { onViewPhoto(); onClose(); }} className="w-full flex items-center gap-4 px-2 py-3.5 rounded-xl hover:bg-[#1E1E1E] transition-colors text-white">
+            <button
+              onClick={() => {
+                onViewPhoto();
+                onClose();
+              }}
+              className="w-full flex items-center gap-4 px-2 py-3.5 rounded-xl hover:bg-[#1E1E1E] transition-colors text-white"
+            >
               <div className="w-8 h-8 rounded-full bg-green-400 flex items-center justify-center">
                 <ImageIcon size={16} className="text-black" />
               </div>
               <span className="text-base font-medium">View Photo</span>
             </button>
           )}
-          {}
           {task.image && (
-            <button onClick={() => { onDeletePhoto(); onClose(); }} className="w-full flex items-center gap-4 px-2 py-3.5 rounded-xl hover:bg-[#1E1E1E] transition-colors text-white">
+            <button
+              onClick={() => {
+                onDeletePhoto();
+                onClose();
+              }}
+              className="w-full flex items-center gap-4 px-2 py-3.5 rounded-xl hover:bg-[#1E1E1E] transition-colors text-white"
+            >
               <div className="w-8 h-8 rounded-full bg-red-400 flex items-center justify-center">
                 <Trash2 size={16} className="text-black" />
               </div>
               <span className="text-base font-medium">Delete Photo</span>
             </button>
           )}
-          <button onClick={() => alert('Set Alarm coming soon')} className="w-full flex items-center gap-4 px-2 py-3.5 rounded-xl hover:bg-[#1E1E1E] transition-colors text-white">
+          <button
+            onClick={() => alert('Set Alarm coming soon')}
+            className="w-full flex items-center gap-4 px-2 py-3.5 rounded-xl hover:bg-[#1E1E1E] transition-colors text-white"
+          >
             <div className="w-8 h-8 rounded-full bg-pink-400 flex items-center justify-center">
               <Clock size={16} className="text-black" />
             </div>
             <span className="text-base font-medium">Set Alarm</span>
           </button>
-          <button onClick={() => alert('Open Timer coming soon')} className="w-full flex items-center gap-4 px-2 py-3.5 rounded-xl hover:bg-[#1E1E1E] transition-colors text-white">
+          <button
+            onClick={() => alert('Open Timer coming soon')}
+            className="w-full flex items-center gap-4 px-2 py-3.5 rounded-xl hover:bg-[#1E1E1E] transition-colors text-white"
+          >
             <div className="w-8 h-8 rounded-full bg-pink-400 flex items-center justify-center">
               <Clock size={16} className="text-black" />
             </div>
             <span className="text-base font-medium">Open Timer</span>
           </button>
-          <button onClick={() => { onDoItTomorrowOrToday(); onClose(); }} className="w-full flex items-center gap-4 px-2 py-3.5 rounded-xl hover:bg-[#1E1E1E] transition-colors text-white">
+          <button
+            onClick={() => {
+              onDoItTomorrowOrToday();
+              onClose();
+            }}
+            className="w-full flex items-center gap-4 px-2 py-3.5 rounded-xl hover:bg-[#1E1E1E] transition-colors text-white"
+          >
             <div className="w-8 h-8 rounded-full bg-blue-400 flex items-center justify-center">
               <ArrowRight size={16} className="text-black" />
             </div>
             <span className="text-base font-medium">{tomorrowOrTodayLabel}</span>
           </button>
-          <button onClick={() => { onChangeDate(); onClose(); }} className="w-full flex items-center gap-4 px-2 py-3.5 rounded-xl hover:bg-[#1E1E1E] transition-colors text-white">
+          <button
+            onClick={() => {
+              onChangeDate();
+              onClose();
+            }}
+            className="w-full flex items-center gap-4 px-2 py-3.5 rounded-xl hover:bg-[#1E1E1E] transition-colors text-white"
+          >
             <div className="w-8 h-8 rounded-full bg-blue-400 flex items-center justify-center">
               <RotateCcw size={16} className="text-black" />
             </div>
             <span className="text-base font-medium">Change Date</span>
           </button>
-          <button onClick={() => alert('Make It a Routine coming soon')} className="w-full flex items-center gap-4 px-2 py-3.5 rounded-xl hover:bg-[#1E1E1E] transition-colors text-white">
+          <button
+            onClick={() => alert('Make It a Routine coming soon')}
+            className="w-full flex items-center gap-4 px-2 py-3.5 rounded-xl hover:bg-[#1E1E1E] transition-colors text-white"
+          >
             <div className="w-8 h-8 rounded-full bg-blue-400 flex items-center justify-center">
               <CheckCircle size={16} className="text-black" />
             </div>
             <span className="text-base font-medium">Make It a Routine</span>
           </button>
-          <button onClick={() => alert('Move to Backlog coming soon')} className="w-full flex items-center gap-4 px-2 py-3.5 rounded-xl hover:bg-[#1E1E1E] transition-colors text-white">
+          <button
+            onClick={() => alert('Move to Backlog coming soon')}
+            className="w-full flex items-center gap-4 px-2 py-3.5 rounded-xl hover:bg-[#1E1E1E] transition-colors text-white"
+          >
             <div className="w-8 h-8 rounded-full bg-blue-400 flex items-center justify-center">
               <Archive size={16} className="text-black" />
             </div>
@@ -1747,6 +3192,132 @@ export const TaskItem: React.FC<TaskItemProps> = ({
         )}
       </div>
     </motion.div>
+  );
+};
+</file>
+
+<file path="src/components/home/views/TaskVisibilitySheet.tsx">
+import React from 'react';
+import { BottomSheet } from '../../ui/BottomSheet';
+import { EyeOff, Users, Globe, Check } from 'lucide-react';
+import {
+  resolveVisibility,
+  isInheriting,
+  labelForVisibility,
+  type TaskVisibility,
+} from '../../../lib/visibility';
+import type { TaskDocument, CategoryDocument } from '../../../db/schema';
+interface TaskVisibilitySheetProps {
+  isOpen: boolean;
+  onClose: () => void;
+  task: TaskDocument | null;
+  category: CategoryDocument | null;
+  onSave: (visibility: '' | TaskVisibility) => void;
+}
+const OVERRIDE_OPTIONS: {
+  value: TaskVisibility;
+  label: string;
+  desc: string;
+  icon: React.FC<{ size?: number; className?: string }>;
+}[] = [
+  {
+    value: 'private',
+    label: 'Private',
+    desc: 'Only visible to you',
+    icon: EyeOff,
+  },
+  {
+    value: 'followers',
+    label: 'Friends',
+    desc: 'Visible to your accepted friends',
+    icon: Users,
+  },
+  {
+    value: 'public',
+    label: 'Public',
+    desc: 'Visible to anyone',
+    icon: Globe,
+  },
+];
+export const TaskVisibilitySheet: React.FC<TaskVisibilitySheetProps> = ({
+  isOpen,
+  onClose,
+  task,
+  category,
+  onSave,
+}) => {
+  if (!task) return null;
+  const inheriting = isInheriting(task.visibility);
+  const effective = resolveVisibility(task.visibility, category?.visibility);
+  const categoryLabel = category?.name || 'this category';
+  const inheritedVisibilityLabel = category?.visibility
+    ? labelForVisibility(category.visibility as TaskVisibility)
+    : 'Private';
+  const handleSelect = (value: '' | TaskVisibility) => {
+    onSave(value);
+    onClose();
+  };
+  return (
+    <BottomSheet isOpen={isOpen} onClose={onClose} title="Visibility" height="auto">
+      <div className="pt-2 pb-8 px-4">
+        <p className="text-xs text-gray-500 text-center mb-5 leading-relaxed">
+          Control who can see this task on your shared calendar.
+        </p>
+        {/* Inherit option */}
+        <button
+          onClick={() => handleSelect('')}
+          onPointerDown={(e) => e.stopPropagation()}
+          className={`w-full flex items-center gap-3 p-3 rounded-xl border transition-colors mb-2 ${
+            inheriting
+              ? 'bg-[#252525] border-emerald-500/50'
+              : 'bg-[#1A1A1A] border-[#2A2A2A] hover:bg-[#222222]'
+          }`}
+        >
+          <div className="w-9 h-9 rounded-full bg-[#2A2A2A] flex items-center justify-center flex-shrink-0">
+            <Users size={16} className="text-gray-300" />
+          </div>
+          <div className="flex-1 min-w-0 text-left">
+            <p className="text-sm font-medium text-white">
+              Default ({inheritedVisibilityLabel})
+            </p>
+            <p className="text-xs text-gray-500 mt-0.5 truncate">
+              Follows the &quot;{categoryLabel}&quot; category
+            </p>
+          </div>
+          {inheriting && (
+            <Check size={18} className="text-emerald-500 flex-shrink-0" strokeWidth={3} />
+          )}
+        </button>
+        {/* Explicit overrides */}
+        {OVERRIDE_OPTIONS.map((opt) => {
+          const selected = !inheriting && effective === opt.value;
+          const Icon = opt.icon;
+          return (
+            <button
+              key={opt.value}
+              onClick={() => handleSelect(opt.value)}
+              onPointerDown={(e) => e.stopPropagation()}
+              className={`w-full flex items-center gap-3 p-3 rounded-xl border transition-colors mb-2 ${
+                selected
+                  ? 'bg-[#252525] border-emerald-500/50'
+                  : 'bg-[#1A1A1A] border-[#2A2A2A] hover:bg-[#222222]'
+              }`}
+            >
+              <div className="w-9 h-9 rounded-full bg-[#2A2A2A] flex items-center justify-center flex-shrink-0">
+                <Icon size={16} className="text-gray-300" />
+              </div>
+              <div className="flex-1 min-w-0 text-left">
+                <p className="text-sm font-medium text-white">{opt.label}</p>
+                <p className="text-xs text-gray-500 mt-0.5">{opt.desc}</p>
+              </div>
+              {selected && (
+                <Check size={18} className="text-emerald-500 flex-shrink-0" strokeWidth={3} />
+              )}
+            </button>
+          );
+        })}
+      </div>
+    </BottomSheet>
   );
 };
 </file>
@@ -2162,19 +3733,36 @@ export const AccountSettingsSheet: React.FC<AccountSettingsSheetProps> = ({
 </file>
 
 <file path="src/components/modals/CategoryManagerSheet.tsx">
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { BottomSheet } from '../ui/BottomSheet';
 import { ColorPalettePicker } from '../ui/ColorPalettePicker';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
-import { Plus, Trash2, Save, X, Eye, EyeOff, Users } from 'lucide-react';
+import {
+  Plus,
+  Trash2,
+  Save,
+  X,
+  Eye,
+  EyeOff,
+  Users,
+  RotateCcw,
+} from 'lucide-react';
 import { useCategories } from '../../hooks/useCategories';
+import { useTasks } from '../../hooks/useTasks';
 type Visibility = 'private' | 'followers' | 'public';
-export const CategoryManagerSheet: React.FC<{ isOpen: boolean; onClose: () => void }> = ({
-  isOpen,
-  onClose
-}) => {
-  const { categories, addCategory, updateCategory, deleteCategory, isLoading } = useCategories();
+export const CategoryManagerSheet: React.FC<{
+  isOpen: boolean;
+  onClose: () => void;
+}> = ({ isOpen, onClose }) => {
+  const {
+    categories,
+    addCategory,
+    updateCategory,
+    deleteCategory,
+    isLoading,
+  } = useCategories();
+  const { tasks, updateTask } = useTasks();
   const [isAdding, setIsAdding] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -2185,6 +3773,20 @@ export const CategoryManagerSheet: React.FC<{ isOpen: boolean; onClose: () => vo
   const [editVisibility, setEditVisibility] = useState<Visibility>('private');
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isResetting, setIsResetting] = useState(false);
+  const [feedback, setFeedback] = useState<string | null>(null);
+  const showFeedback = (msg: string) => {
+    setFeedback(msg);
+    setTimeout(() => setFeedback(null), 2000);
+  };
+  const overriddenTaskCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const task of tasks) {
+      if (task.visibility === '') continue;
+      counts[task.categoryId] = (counts[task.categoryId] || 0) + 1;
+    }
+    return counts;
+  }, [tasks]);
   const handleSaveNew = async () => {
     if (!newName.trim()) return;
     setIsSaving(true);
@@ -2197,7 +3799,7 @@ export const CategoryManagerSheet: React.FC<{ isOpen: boolean; onClose: () => vo
       });
       resetForm();
     } catch (error) {
-      console.error("Failed to save category:", error);
+      console.error('[CategoryManagerSheet] Failed to save category:', error);
     } finally {
       setIsSaving(false);
     }
@@ -2205,6 +3807,7 @@ export const CategoryManagerSheet: React.FC<{ isOpen: boolean; onClose: () => vo
   const handleUpdate = async (id: string, name: string, visibility: Visibility) => {
     await updateCategory(id, { name: name.trim(), visibility });
     setEditingId(null);
+    showFeedback('Category updated');
   };
   const handleDeleteRequest = (id: string) => {
     setPendingDeleteId(id);
@@ -2222,13 +3825,35 @@ export const CategoryManagerSheet: React.FC<{ isOpen: boolean; onClose: () => vo
   const handleCancelDelete = () => {
     setPendingDeleteId(null);
   };
+  const handleResetTasks = async (categoryId: string) => {
+    const toReset = tasks.filter(
+      (t) => t.categoryId === categoryId && t.visibility !== ''
+    );
+    if (toReset.length === 0) return;
+    setIsResetting(true);
+    try {
+      await Promise.all(toReset.map((t) => updateTask(t.id, { visibility: '' })));
+      showFeedback(
+        `Reset ${toReset.length} task${toReset.length === 1 ? '' : 's'}`
+      );
+    } catch (err) {
+      console.error('[CategoryManagerSheet] Reset failed:', err);
+      showFeedback('Reset failed');
+    } finally {
+      setIsResetting(false);
+    }
+  };
   const resetForm = () => {
     setIsAdding(false);
     setNewName('');
     setNewColor('#3B82F6');
     setNewVisibility('private');
   };
-  const handleEditStart = (cat: { id: string; name: string; visibility?: Visibility }) => {
+  const handleEditStart = (cat: {
+    id: string;
+    name: string;
+    visibility?: Visibility;
+  }) => {
     setEditingId(cat.id);
     setEditName(cat.name);
     setEditVisibility(cat.visibility || 'private');
@@ -2240,9 +3865,12 @@ export const CategoryManagerSheet: React.FC<{ isOpen: boolean; onClose: () => vo
   };
   const getVisibilityIcon = (v: Visibility) => {
     switch (v) {
-      case 'public': return <Eye size={14} className="text-gray-400" />;
-      case 'followers': return <Users size={14} className="text-gray-400" />;
-      case 'private': return <EyeOff size={14} className="text-gray-400" />;
+      case 'public':
+        return <Eye size={14} className="text-gray-400" />;
+      case 'followers':
+        return <Users size={14} className="text-gray-400" />;
+      case 'private':
+        return <EyeOff size={14} className="text-gray-400" />;
     }
   };
   return (
@@ -2261,7 +3889,6 @@ export const CategoryManagerSheet: React.FC<{ isOpen: boolean; onClose: () => vo
             </div>
           ) : (
             <>
-              {}
               {!isAdding && (
                 <div className="space-y-3 mb-6">
                   {categories.length === 0 ? (
@@ -2271,8 +3898,12 @@ export const CategoryManagerSheet: React.FC<{ isOpen: boolean; onClose: () => vo
                   ) : (
                     categories.map((cat) => {
                       const isEditing = editingId === cat.id;
+                      const overriddenCount = overriddenTaskCounts[cat.id] || 0;
                       return (
-                        <div key={cat.id} className="bg-[#1E1E1E] rounded-xl border border-[#333333] p-3">
+                        <div
+                          key={cat.id}
+                          className="bg-[#1E1E1E] rounded-xl border border-[#333333] p-3"
+                        >
                           {isEditing ? (
                             <div className="space-y-3">
                               <Input
@@ -2282,11 +3913,17 @@ export const CategoryManagerSheet: React.FC<{ isOpen: boolean; onClose: () => vo
                               />
                               <div className="flex items-center justify-between">
                                 <div className="flex bg-[#111111] rounded-lg p-0.5 border border-[#333333]">
-                                  {(['private', 'followers', 'public'] as Visibility[]).map((v) => (
+                                  {(
+                                    ['private', 'followers', 'public'] as Visibility[]
+                                  ).map((v) => (
                                     <button
                                       key={v}
                                       onClick={() => setEditVisibility(v)}
-                                      className={`p-1.5 rounded-md transition-colors ${editVisibility === v ? 'bg-[#2A2A2A] text-white' : 'text-gray-500'}`}
+                                      className={`p-1.5 rounded-md transition-colors ${
+                                        editVisibility === v
+                                          ? 'bg-[#2A2A2A] text-white'
+                                          : 'text-gray-500'
+                                      }`}
                                       title={v}
                                     >
                                       {getVisibilityIcon(v)}
@@ -2294,14 +3931,45 @@ export const CategoryManagerSheet: React.FC<{ isOpen: boolean; onClose: () => vo
                                   ))}
                                 </div>
                                 <div className="flex gap-2">
-                                  <Button variant="ghost" className="p-2" onClick={handleEditCancel}>
+                                  <Button
+                                    variant="ghost"
+                                    className="p-2"
+                                    onClick={handleEditCancel}
+                                  >
                                     <X size={16} />
                                   </Button>
-                                  <Button variant="primary" className="p-2" onClick={() => handleUpdate(cat.id, editName, editVisibility)}>
+                                  <Button
+                                    variant="primary"
+                                    className="p-2"
+                                    onClick={() =>
+                                      handleUpdate(cat.id, editName, editVisibility)
+                                    }
+                                  >
                                     <Save size={16} />
                                   </Button>
                                 </div>
                               </div>
+                              {overriddenCount > 0 && (
+                                <div className="pt-2 border-t border-[#333333]">
+                                  <button
+                                    onClick={() => handleResetTasks(cat.id)}
+                                    disabled={isResetting}
+                                    onPointerDown={(e) => e.stopPropagation()}
+                                    className="flex items-center gap-1.5 text-xs text-blue-400 hover:text-blue-300 transition-colors disabled:opacity-50"
+                                  >
+                                    {isResetting ? (
+                                      <div className="w-3 h-3 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" />
+                                    ) : (
+                                      <RotateCcw size={12} />
+                                    )}
+                                    <span>
+                                      Reset {overriddenCount} task
+                                      {overriddenCount === 1 ? '' : 's'} to follow
+                                      this category
+                                    </span>
+                                  </button>
+                                </div>
+                              )}
                             </div>
                           ) : (
                             <div className="flex items-center gap-3">
@@ -2309,16 +3977,26 @@ export const CategoryManagerSheet: React.FC<{ isOpen: boolean; onClose: () => vo
                                 className="w-4 h-4 rounded-full flex-shrink-0"
                                 style={{ backgroundColor: cat.color }}
                               />
-                              <span className="flex-1 text-sm font-medium text-white truncate">{cat.name}</span>
+                              <span className="flex-1 text-sm font-medium text-white truncate">
+                                {cat.name}
+                              </span>
                               <div className="flex items-center gap-1 text-[10px] text-gray-500 uppercase tracking-wider">
                                 {getVisibilityIcon(cat.visibility || 'private')}
                                 <span>{cat.visibility || 'private'}</span>
                               </div>
                               <div className="flex gap-1">
-                                <Button variant="ghost" className="p-2 h-8 w-8" onClick={() => handleEditStart(cat)}>
+                                <Button
+                                  variant="ghost"
+                                  className="p-2 h-8 w-8"
+                                  onClick={() => handleEditStart(cat)}
+                                >
                                   <span className="text-xs font-bold">Edit</span>
                                 </Button>
-                                <Button variant="ghost" className="p-2 h-8 w-8 text-red-400 hover:text-red-300 hover:bg-red-900/20" onClick={() => handleDeleteRequest(cat.id)}>
+                                <Button
+                                  variant="ghost"
+                                  className="p-2 h-8 w-8 text-red-400 hover:text-red-300 hover:bg-red-900/20"
+                                  onClick={() => handleDeleteRequest(cat.id)}
+                                >
                                   <Trash2 size={16} />
                                 </Button>
                               </div>
@@ -2330,7 +4008,6 @@ export const CategoryManagerSheet: React.FC<{ isOpen: boolean; onClose: () => vo
                   )}
                 </div>
               )}
-              {}
               {isAdding ? (
                 <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-200">
                   <Input
@@ -2340,17 +4017,30 @@ export const CategoryManagerSheet: React.FC<{ isOpen: boolean; onClose: () => vo
                     onChange={(e) => setNewName(e.target.value)}
                   />
                   <div>
-                    <label className="block text-xs text-gray-500 mb-2 ml-1">Color</label>
-                    <ColorPalettePicker selectedColor={newColor} onSelect={setNewColor} />
+                    <label className="block text-xs text-gray-500 mb-2 ml-1">
+                      Color
+                    </label>
+                    <ColorPalettePicker
+                      selectedColor={newColor}
+                      onSelect={setNewColor}
+                    />
                   </div>
                   <div>
-                    <label className="block text-xs text-gray-500 mb-2 ml-1">Visibility</label>
+                    <label className="block text-xs text-gray-500 mb-2 ml-1">
+                      Visibility
+                    </label>
                     <div className="flex bg-[#111111] rounded-lg p-1 border border-[#333333]">
-                      {(['private', 'followers', 'public'] as Visibility[]).map((v) => (
+                      {(
+                        ['private', 'followers', 'public'] as Visibility[]
+                      ).map((v) => (
                         <button
                           key={v}
                           onClick={() => setNewVisibility(v)}
-                          className={`flex-1 py-2 text-xs font-medium rounded-md transition-colors flex items-center justify-center gap-1.5 ${newVisibility === v ? 'bg-[#2A2A2A] text-white' : 'text-gray-500'}`}
+                          className={`flex-1 py-2 text-xs font-medium rounded-md transition-colors flex items-center justify-center gap-1.5 ${
+                            newVisibility === v
+                              ? 'bg-[#2A2A2A] text-white'
+                              : 'text-gray-500'
+                          }`}
                         >
                           {getVisibilityIcon(v)}
                           <span className="capitalize">{v}</span>
@@ -2359,7 +4049,9 @@ export const CategoryManagerSheet: React.FC<{ isOpen: boolean; onClose: () => vo
                     </div>
                   </div>
                   <div className="flex gap-3 pt-2">
-                    <Button variant="ghost" className="flex-1" onClick={resetForm}>Cancel</Button>
+                    <Button variant="ghost" className="flex-1" onClick={resetForm}>
+                      Cancel
+                    </Button>
                     <Button
                       variant="primary"
                       className="flex-1"
@@ -2375,7 +4067,11 @@ export const CategoryManagerSheet: React.FC<{ isOpen: boolean; onClose: () => vo
                   </div>
                 </div>
               ) : (
-                <Button variant="primary" className="w-full gap-2 py-3" onClick={() => setIsAdding(true)}>
+                <Button
+                  variant="primary"
+                  className="w-full gap-2 py-3"
+                  onClick={() => setIsAdding(true)}
+                >
                   <Plus size={18} />
                   Add New Category
                 </Button>
@@ -2393,7 +4089,8 @@ export const CategoryManagerSheet: React.FC<{ isOpen: boolean; onClose: () => vo
       >
         <div className="pt-2 pb-8 px-4">
           <p className="text-gray-300 text-sm text-center mb-6 leading-relaxed">
-            Are you sure you want to delete this category? Its tasks will be hidden. This action cannot be undone.
+            Are you sure you want to delete this category? Its tasks will be hidden.
+            This action cannot be undone.
           </p>
           <div className="flex gap-3">
             <button
@@ -2409,12 +4106,22 @@ export const CategoryManagerSheet: React.FC<{ isOpen: boolean; onClose: () => vo
               className="flex-1 py-3 bg-red-500 rounded-xl text-white font-medium hover:bg-red-600 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
             >
               {isDeleting ? (
-                <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> Deleting...</>
-              ) : 'Delete'}
+                <>
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                'Delete'
+              )}
             </button>
           </div>
         </div>
       </BottomSheet>
+      {feedback && (
+        <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[70] bg-[#2A2A2A] border border-[#444444] text-white text-sm px-5 py-2.5 rounded-full shadow-lg backdrop-blur-md animate-in fade-in slide-in-from-bottom-2 duration-200">
+          {feedback}
+        </div>
+      )}
     </>
   );
 };
@@ -2560,7 +4267,6 @@ export const ChangePasswordSheet: React.FC<ChangePasswordSheetProps> = ({
       setConfirmPassword('');
       setLocalError(null);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }
   useEffect(() => {
     if (isOpen) {
@@ -2902,6 +4608,289 @@ export const EditProfileImageSheet: React.FC<EditProfileImageSheetProps> = ({
             </Button>
           )}
         </div>
+      </div>
+    </BottomSheet>
+  );
+};
+</file>
+
+<file path="src/components/modals/ExportDataSheet.tsx">
+import React, { useState } from 'react';
+import { BottomSheet } from '../ui/BottomSheet';
+import { Button } from '../ui/Button';
+import { FileDown, Loader2, Image as ImageIcon } from 'lucide-react';
+import { useAuth } from '../../hooks/useAuth';
+import { exportUserData, triggerDownload } from '../../lib/exportData';
+interface ExportDataSheetProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onSuccess?: (message: string) => void;
+}
+export const ExportDataSheet: React.FC<ExportDataSheetProps> = ({
+  isOpen,
+  onClose,
+  onSuccess,
+}) => {
+  const { user } = useAuth();
+  const [includeImages, setIncludeImages] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
+  const [progressText, setProgressText] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  // Render-body reset pattern
+  const [syncedIsOpen, setSyncedIsOpen] = useState(false);
+  if (isOpen !== syncedIsOpen) {
+    setSyncedIsOpen(isOpen);
+    if (isOpen) {
+      setIncludeImages(false);
+      setIsExporting(false);
+      setProgressText('');
+      setError(null);
+    }
+  }
+  const handleExport = async () => {
+    if (!user || isExporting) return;
+    setIsExporting(true);
+    setError(null);
+    setProgressText('Preparing…');
+    try {
+      const result = await exportUserData(
+        { id: user.$id, email: user.email, name: user.name || '' },
+        {
+          includeImages,
+          onProgress: (msg) => setProgressText(msg),
+        }
+      );
+      triggerDownload(result.blob, result.filename);
+      setIsExporting(false);
+      onSuccess?.('Export ready');
+      onClose();
+    } catch (err) {
+      console.error('[ExportDataSheet] Export failed:', err);
+      setError(
+        err instanceof Error ? err.message : 'Export failed. Please try again.'
+      );
+      setIsExporting(false);
+    }
+  };
+  return (
+    <BottomSheet isOpen={isOpen} onClose={onClose} title="Export Data" height="auto">
+      <div className="pt-2 pb-8 px-4 space-y-4">
+        <p className="text-sm text-gray-400 text-center leading-relaxed">
+          Download a copy of your tasks, categories, diary, and settings. This file
+          contains your personal data — store it safely.
+        </p>
+        {error && (
+          <div className="bg-red-900/20 border border-red-500/30 text-red-400 text-sm p-3 rounded-xl">
+            {error}
+          </div>
+        )}
+        <button
+          type="button"
+          onClick={() => setIncludeImages(!includeImages)}
+          disabled={isExporting}
+          className="w-full flex items-center justify-between gap-3 bg-[#1A1A1A] border border-[#333333] rounded-xl p-4 hover:bg-[#222222] transition-colors disabled:opacity-50"
+        >
+          <div className="flex items-center gap-3 text-left">
+            <div className="w-8 h-8 rounded-full bg-emerald-500/15 flex items-center justify-center flex-shrink-0">
+              <ImageIcon size={16} className="text-emerald-400" />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-white">Include photos</p>
+              <p className="text-xs text-gray-500 mt-0.5">
+                Larger ZIP file. Requires internet for uncached photos.
+              </p>
+            </div>
+          </div>
+          <div
+            className={`relative w-11 h-6 rounded-full transition-colors flex-shrink-0 ${
+              includeImages ? 'bg-emerald-500' : 'bg-gray-600'
+            }`}
+          >
+            <div
+              className={`absolute top-0.5 w-5 h-5 rounded-full bg-white transition-transform ${
+                includeImages ? 'left-[22px]' : 'left-0.5'
+              }`}
+            />
+          </div>
+        </button>
+        {isExporting && progressText && (
+          <div className="flex items-center gap-3 px-2 py-1">
+            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin flex-shrink-0" />
+            <span className="text-sm text-gray-300">{progressText}</span>
+          </div>
+        )}
+        <Button
+          variant="primary"
+          className="w-full gap-2 py-3"
+          onClick={handleExport}
+          disabled={isExporting || !user}
+        >
+          {isExporting ? (
+            <>
+              <Loader2 size={18} className="animate-spin" />
+              Exporting…
+            </>
+          ) : (
+            <>
+              <FileDown size={18} />
+              Export
+            </>
+          )}
+        </Button>
+      </div>
+    </BottomSheet>
+  );
+};
+</file>
+
+<file path="src/components/modals/SetUsernameSheet.tsx">
+import React, { useState, useRef, useEffect } from 'react';
+import { BottomSheet } from '../ui/BottomSheet';
+import { Button } from '../ui/Button';
+import { Input } from '../ui/Input';
+import { Save } from 'lucide-react';
+import { useMyProfile } from '../../hooks/useMyProfile';
+import { useAuth } from '../../hooks/useAuth';
+interface SetUsernameSheetProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onSuccess?: (username: string) => void;
+}
+const USERNAME_REGEX = /^[a-z0-9_]{3,20}$/;
+export const SetUsernameSheet: React.FC<SetUsernameSheetProps> = ({
+  isOpen,
+  onClose,
+  onSuccess,
+}) => {
+  const { user } = useAuth();
+  const { profile, createProfile, checkUsername } = useMyProfile();
+  const [username, setUsername] = useState('');
+  const [displayName, setDisplayName] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  // Render-body reset
+  const [syncedIsOpen, setSyncedIsOpen] = useState(false);
+  if (isOpen !== syncedIsOpen) {
+    setSyncedIsOpen(isOpen);
+    if (isOpen) {
+      setUsername(profile?.username || '');
+      setDisplayName(profile?.display_name || user?.name || '');
+      setError(null);
+      setIsSaving(false);
+    }
+  }
+  useEffect(() => {
+    if (isOpen) {
+      const timer = setTimeout(() => inputRef.current?.focus(), 300);
+      return () => clearTimeout(timer);
+    }
+  }, [isOpen]);
+  const handleSave = async () => {
+    const trimmed = username.trim().toLowerCase();
+    if (!USERNAME_REGEX.test(trimmed)) {
+      setError('Username must be 3–20 characters: a–z, 0–9, underscore.');
+      return;
+    }
+    if (!displayName.trim()) {
+      setError('Please enter a display name.');
+      return;
+    }
+    setIsSaving(true);
+    setError(null);
+    try {
+      if (!profile || profile.username !== trimmed) {
+        const available = await checkUsername(trimmed);
+        if (!available) {
+          setError('That username is already taken.');
+          setIsSaving(false);
+          return;
+        }
+      }
+      const created = await createProfile({
+        username: trimmed,
+        displayName: displayName.trim(),
+        avatarFileId: profile?.avatar_file_id || '',
+        bio: profile?.bio || '',
+      });
+      if (created) {
+        onSuccess?.(created.username);
+        onClose();
+      }
+    } catch (err) {
+      console.error('[SetUsernameSheet] Save failed:', err);
+      setError('Could not save. Try again.');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+  const isEditing = !!profile;
+  return (
+    <BottomSheet
+      isOpen={isOpen}
+      onClose={onClose}
+      title={isEditing ? 'Edit Profile' : 'Choose Username'}
+      height="auto"
+    >
+      <div className="pt-2 pb-8 px-4 space-y-4">
+        <p className="text-sm text-gray-400 text-center leading-relaxed">
+          Your username is how friends find and add you. It must be unique.
+        </p>
+        {error && (
+          <div className="bg-red-900/20 border border-red-500/30 text-red-400 text-sm p-3 rounded-xl">
+            {error}
+          </div>
+        )}
+        <div className="w-full">
+          <label className="block text-xs text-gray-500 mb-1.5 ml-1">
+            Username
+          </label>
+          <div className="relative">
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm pointer-events-none">
+              @
+            </span>
+            <input
+              ref={inputRef}
+              type="text"
+              value={username}
+              onChange={(e) =>
+                setUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ''))
+              }
+              placeholder="your_handle"
+              maxLength={20}
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck={false}
+              className="w-full bg-[#1E1E1E] text-white border border-[#333333] rounded-lg pl-8 pr-4 py-2.5 focus:border-[#555555] focus:outline-none transition-colors placeholder-gray-600"
+              onPointerDown={(e) => e.stopPropagation()}
+            />
+          </div>
+          <p className="text-xs text-gray-600 mt-1.5 ml-1">
+            3–20 characters · a–z, 0–9, underscore
+          </p>
+        </div>
+        <Input
+          label="Display Name"
+          value={displayName}
+          onChange={(e) => setDisplayName(e.target.value)}
+          placeholder="Your Name"
+          maxLength={50}
+        />
+        <Button
+          variant="primary"
+          className="w-full gap-2 py-3"
+          onClick={handleSave}
+          disabled={isSaving || !username.trim() || !displayName.trim()}
+        >
+          {isSaving ? (
+            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+          ) : (
+            <>
+              <Save size={18} />
+              {isEditing ? 'Save Profile' : 'Create Profile'}
+            </>
+          )}
+        </Button>
       </div>
     </BottomSheet>
   );
@@ -3339,25 +5328,29 @@ import {
   createRxDatabase,
   addRxPlugin,
   type RxDatabase,
-  type RxCollection
+  type RxCollection,
 } from 'rxdb';
 import { getRxStorageDexie } from 'rxdb/plugins/storage-dexie';
 import { RxDBDevModePlugin } from 'rxdb/plugins/dev-mode';
+import { RxDBMigrationSchemaPlugin } from 'rxdb/plugins/migration-schema';
 import { wrappedValidateAjvStorage } from 'rxdb/plugins/validate-ajv';
 import {
   tasksSchema,
   categoriesSchema,
   diarySchema,
   settingsSchema,
+  friendshipsSchema,
   type TaskDocument,
   type CategoryDocument,
   type DiaryDocument,
   type SettingsDocument,
+  type FriendshipDocument,
 } from './schema';
 if (import.meta.env.DEV) {
   addRxPlugin(RxDBDevModePlugin);
   console.log('[RxDB] Dev Mode Plugin enabled (v17)');
 }
+addRxPlugin(RxDBMigrationSchemaPlugin);
 const DB_NAME = 'life_tracker_db';
 const DEBUG = import.meta.env.DEV;
 export interface AppDatabaseCollections {
@@ -3365,6 +5358,7 @@ export interface AppDatabaseCollections {
   categories: RxCollection<CategoryDocument>;
   diary: RxCollection<DiaryDocument>;
   settings: RxCollection<SettingsDocument>;
+  friendships: RxCollection<FriendshipDocument>;
 }
 let dbInstance: RxDatabase<AppDatabaseCollections> | null = null;
 export async function initializeDatabase(): Promise<RxDatabase<AppDatabaseCollections>> {
@@ -3377,7 +5371,7 @@ export async function initializeDatabase(): Promise<RxDatabase<AppDatabaseCollec
     const database = await createRxDatabase<AppDatabaseCollections>({
       name: DB_NAME,
       storage: wrappedValidateAjvStorage({
-        storage: getRxStorageDexie()
+        storage: getRxStorageDexie(),
       }),
       multiInstance: true,
       eventReduce: true,
@@ -3385,10 +5379,16 @@ export async function initializeDatabase(): Promise<RxDatabase<AppDatabaseCollec
     });
     if (DEBUG) console.log('[RxDB] Database created successfully');
     await database.addCollections({
-      tasks: { schema: tasksSchema },
+      tasks: {
+        schema: tasksSchema,
+        migrationStrategies: {
+          1: (oldDoc) => oldDoc,
+        },
+      },
       categories: { schema: categoriesSchema },
       diary: { schema: diarySchema },
       settings: { schema: settingsSchema },
+      friendships: { schema: friendshipsSchema },
     });
     if (DEBUG) {
       console.log('[RxDB] Collections added successfully');
@@ -3421,13 +5421,14 @@ export async function destroyDatabase(): Promise<void> {
 }
 export async function getDatabaseStats(db?: RxDatabase<AppDatabaseCollections>) {
   const database = db || getDatabase();
-  const [tasks, categories, diary, settings] = await Promise.all([
+  const [tasks, categories, diary, settings, friendships] = await Promise.all([
     database.tasks.count().exec(),
     database.categories.count().exec(),
     database.diary.count().exec(),
     database.settings.count().exec(),
+    database.friendships.count().exec(),
   ]);
-  return { tasks, categories, diary, settings };
+  return { tasks, categories, diary, settings, friendships };
 }
 </file>
 
@@ -3451,7 +5452,7 @@ export interface TaskDocument {
   routineId?: string;
   reminderTime?: string;
   reactions?: string;
-  visibility: 'public' | 'followers' | 'private';
+  visibility: 'public' | 'followers' | 'private' | '';
 }
 export interface CategoryDocument {
   id: string;
@@ -3480,8 +5481,20 @@ export interface SettingsDocument {
   value: string;
   isDeleted: boolean;
 }
+export interface FriendshipDocument {
+  id: string;
+  userId: string;
+  friendId: string;
+  friendUsername: string;
+  friendDisplayName: string;
+  friendAvatarFileId: string;
+  status: 'pending_outgoing' | 'pending_incoming' | 'accepted' | 'blocked';
+  createdAt: string;
+  updatedAt: string;
+  isDeleted: boolean;
+}
 export const tasksSchema: RxJsonSchema<TaskDocument> = {
-  version: 0,
+  version: 1,
   primaryKey: 'id',
   type: 'object',
   required: ['id', 'title', 'completed', 'categoryId', 'date', 'createdAt', 'updatedAt', 'userId', 'isDeleted'],
@@ -3503,7 +5516,12 @@ export const tasksSchema: RxJsonSchema<TaskDocument> = {
     routineId: { type: 'string', maxLength: 255 },
     reminderTime: { type: 'string', maxLength: 50 },
     reactions: { type: 'string', maxLength: 5000 },
-    visibility: { type: 'string', maxLength: 50, enum: ['public', 'followers', 'private'], default: 'private' },
+    visibility: {
+      type: 'string',
+      maxLength: 50,
+      enum: ['public', 'followers', 'private', ''],
+      default: '',
+    },
   },
   indexes: [
     ['userId', 'isDeleted'],
@@ -3521,12 +5539,7 @@ export const categoriesSchema: RxJsonSchema<CategoryDocument> = {
     id: { type: 'string', maxLength: 255 },
     name: { type: 'string', maxLength: 100 },
     color: { type: 'string', maxLength: 20 },
-    order: {
-      type: 'integer',
-      multipleOf: 1,
-      minimum: 0,
-      maximum: 999999
-    },
+    order: { type: 'integer', multipleOf: 1, minimum: 0, maximum: 999999 },
     visibility: { type: 'string', maxLength: 50, enum: ['public', 'followers', 'private'] },
     userId: { type: 'string', maxLength: 255 },
     isDeleted: { type: 'boolean' },
@@ -3569,8 +5582,43 @@ export const settingsSchema: RxJsonSchema<SettingsDocument> = {
     value: { type: 'string', maxLength: 10000 },
     isDeleted: { type: 'boolean' },
   },
+  indexes: [['userId', 'key', 'isDeleted']],
+};
+export const friendshipsSchema: RxJsonSchema<FriendshipDocument> = {
+  version: 0,
+  primaryKey: 'id',
+  type: 'object',
+  required: [
+    'id',
+    'userId',
+    'friendId',
+    'friendUsername',
+    'friendDisplayName',
+    'status',
+    'createdAt',
+    'updatedAt',
+    'isDeleted',
+  ],
+  properties: {
+    id: { type: 'string', maxLength: 550 },
+    userId: { type: 'string', maxLength: 255 },
+    friendId: { type: 'string', maxLength: 255 },
+    friendUsername: { type: 'string', maxLength: 50 },
+    friendDisplayName: { type: 'string', maxLength: 100 },
+    friendAvatarFileId: { type: 'string', maxLength: 255 },
+    status: {
+      type: 'string',
+      maxLength: 30,
+      enum: ['pending_outgoing', 'pending_incoming', 'accepted', 'blocked'],
+    },
+    createdAt: { type: 'string', maxLength: 50 },
+    updatedAt: { type: 'string', maxLength: 50 },
+    isDeleted: { type: 'boolean' },
+  },
   indexes: [
-    ['userId', 'key', 'isDeleted'],
+    ['userId', 'isDeleted'],
+    ['userId', 'status', 'isDeleted'],
+    ['friendId', 'userId'],
   ],
 };
 </file>
@@ -3588,6 +5636,7 @@ const APPWRITE_CONFIG = {
     categories: 'categories',
     diary: 'diary',
     settings: 'settings',
+    friendships: 'friendships',
   },
 } as const;
 const tablesDB = new TablesDB(client);
@@ -3643,7 +5692,11 @@ declare global {
   }
 }
 function isTimestampedCollection(collection: string): boolean {
-  return collection === 'tasks' || collection === 'diary';
+  return (
+    collection === 'tasks' ||
+    collection === 'diary' ||
+    collection === 'friendships'
+  );
 }
 function toAppwriteFormat(
   doc: Record<string, unknown>,
@@ -3668,7 +5721,7 @@ function toAppwriteFormat(
     mapped.updated_at = source.updatedAt || new Date().toISOString();
     mapped.user_id = userId;
     mapped.deleted = source.isDeleted ?? false;
-    mapped.visibility = source.visibility || 'private';
+    mapped.visibility = source.visibility ?? '';
     mapped.source = source.source || '';
     mapped.routine_id = source.routineId || '';
     mapped.reminder_time = source.reminderTime || '';
@@ -3694,10 +5747,23 @@ function toAppwriteFormat(
     mapped.key = source.key || '';
     mapped.value = source.value || '';
     mapped.deleted = source.isDeleted ?? false;
+  } else if (collection === 'friendships') {
+    mapped.user_id = userId;
+    mapped.friend_id = source.friendId || '';
+    mapped.friend_username = source.friendUsername || '';
+    mapped.friend_display_name = source.friendDisplayName || '';
+    mapped.friend_avatar_file_id = source.friendAvatarFileId || '';
+    mapped.status = source.status || 'pending_outgoing';
+    mapped.created_at = source.createdAt || new Date().toISOString();
+    mapped.updated_at = source.updatedAt || new Date().toISOString();
+    mapped.deleted = source.isDeleted ?? false;
   }
   return mapped;
 }
-function fromAppwriteFormat(row: AppwriteRow, collection: string): Record<string, unknown> {
+function fromAppwriteFormat(
+  row: AppwriteRow,
+  collection: string
+): Record<string, unknown> {
   const mapped: Record<string, unknown> = { ...row };
   delete mapped.$id;
   delete mapped.$createdAt;
@@ -3715,6 +5781,7 @@ function fromAppwriteFormat(row: AppwriteRow, collection: string): Record<string
     mapped.updatedAt = mapped.updated_at || new Date().toISOString();
     mapped.userId = mapped.user_id;
     mapped.isDeleted = mapped.deleted ?? false;
+    mapped.visibility = (row.visibility as string) ?? '';
     mapped.source = row.source || '';
     mapped.tags = row.tags || '';
     mapped.memo = row.memo || '';
@@ -3755,6 +5822,25 @@ function fromAppwriteFormat(row: AppwriteRow, collection: string): Record<string
     mapped.isDeleted = mapped.deleted ?? false;
     delete mapped.user_id;
     delete mapped.deleted;
+  } else if (collection === 'friendships') {
+    mapped.id = row.$id || mapped.id;
+    mapped.userId = mapped.user_id;
+    mapped.friendId = mapped.friend_id || '';
+    mapped.friendUsername = mapped.friend_username || '';
+    mapped.friendDisplayName = mapped.friend_display_name || '';
+    mapped.friendAvatarFileId = mapped.friend_avatar_file_id || '';
+    mapped.status = mapped.status || 'pending_outgoing';
+    mapped.createdAt = mapped.created_at || new Date().toISOString();
+    mapped.updatedAt = mapped.updated_at || new Date().toISOString();
+    mapped.isDeleted = mapped.deleted ?? false;
+    delete mapped.user_id;
+    delete mapped.friend_id;
+    delete mapped.friend_username;
+    delete mapped.friend_display_name;
+    delete mapped.friend_avatar_file_id;
+    delete mapped.created_at;
+    delete mapped.updated_at;
+    delete mapped.deleted;
   }
   return mapped;
 }
@@ -3781,7 +5867,8 @@ async function resolveAuthenticatedUserId(): Promise<string | null> {
 }
 export async function initializeSync(): Promise<void> {
   if (isSyncInProgress) {
-    if (DEBUG) console.log('[Sync] initializeSync skipped: sync already in progress');
+    if (DEBUG)
+      console.log('[Sync] initializeSync skipped: sync already in progress');
     return;
   }
   if (typeof navigator !== 'undefined' && navigator.onLine === false) {
@@ -3805,24 +5892,36 @@ export async function initializeSync(): Promise<void> {
       'categories',
       'diary',
       'settings',
+      'friendships',
     ];
     const collectionErrors: string[] = [];
     for (const colName of collections) {
       try {
-        await syncCollection(db[colName] as unknown as LocalCollection, colName, userId);
+        await syncCollection(
+          db[colName] as unknown as LocalCollection,
+          colName,
+          userId
+        );
       } catch (colError) {
         const message =
-          colError instanceof Error ? colError.message : `Unknown error in ${colName}`;
+          colError instanceof Error
+            ? colError.message
+            : `Unknown error in ${colName}`;
         console.error(`[Sync] Collection "${colName}" failed:`, colError);
         collectionErrors.push(`${colName}: ${message}`);
       }
     }
     if (collectionErrors.length === 0) {
-      updateSyncStatus({ isSyncing: false, lastSync: new Date().toISOString(), errors: [] });
+      updateSyncStatus({
+        isSyncing: false,
+        lastSync: new Date().toISOString(),
+        errors: [],
+      });
       if (DEBUG) console.log('[Sync] ✅ Initial sync complete');
     } else {
       updateSyncStatus({ isSyncing: false, errors: collectionErrors });
-      if (DEBUG) console.warn('[Sync] ⚠️ Sync completed with errors:', collectionErrors);
+      if (DEBUG)
+        console.warn('[Sync] ⚠️ Sync completed with errors:', collectionErrors);
     }
   } catch (error) {
     console.error('[Sync] ❌ Sync failed', error);
@@ -3845,7 +5944,9 @@ async function syncCollection(
   const tableId =
     APPWRITE_CONFIG.tables[colName as keyof typeof APPWRITE_CONFIG.tables];
   if (DEBUG) console.log(`[Sync] Syncing ${colName}...`);
-  const lastSyncMs = syncStatus.lastSync ? new Date(syncStatus.lastSync).getTime() : 0;
+  const lastSyncMs = syncStatus.lastSync
+    ? new Date(syncStatus.lastSync).getTime()
+    : 0;
   const usesTimestamps = isTimestampedCollection(colName);
   const remoteIndex = new Map<string, { updatedAt: number; isDeleted: boolean }>();
   const justPulled = new Set<string>();
@@ -3864,9 +5965,11 @@ async function syncCollection(
       queries: queries as never,
       total: false,
     });
-    const rows = ((remoteResponse as { rows?: AppwriteRow[] }).rows || []) as AppwriteRow[];
+    const rows = ((remoteResponse as { rows?: AppwriteRow[] }).rows ||
+      []) as AppwriteRow[];
     pageCount++;
-    if (DEBUG) console.log(`[Sync] ${colName} page ${pageCount}: ${rows.length} rows`);
+    if (DEBUG)
+      console.log(`[Sync] ${colName} page ${pageCount}: ${rows.length} rows`);
     if (rows.length === 0) break;
     for (const row of rows) {
       try {
@@ -3886,9 +5989,7 @@ async function syncCollection(
         }
         const localLwt = localDoc._meta?.lwt ?? 0;
         const isLocalDirty = localLwt > lastSyncMs;
-        if (isLocalDirty) {
-          continue;
-        }
+        if (isLocalDirty) continue;
         let remoteWins = false;
         if (usesTimestamps) {
           const localUpdatedAt = toMs(localDoc.toJSON().updatedAt);
@@ -3945,7 +6046,8 @@ async function syncCollection(
       throw upsertError;
     }
   }
-  if (DEBUG) console.log(`[Sync] ✅ ${colName} synced (${pageCount} page(s) pulled)`);
+  if (DEBUG)
+    console.log(`[Sync] ✅ ${colName} synced (${pageCount} page(s) pulled)`);
 }
 export async function forceSync() {
   if (DEBUG) console.log('[Sync] Force sync triggered');
@@ -3957,7 +6059,8 @@ function safeForceSync(reason: string) {
     if (DEBUG) console.log(`[Sync] ${reason}, syncing...`);
     forceSync().catch((e) => console.error(`[Sync] ${reason} sync failed`, e));
   } catch (e) {
-    if (DEBUG) console.log(`[Sync] ${reason} handler skipped (DB not ready):`, e);
+    if (DEBUG)
+      console.log(`[Sync] ${reason} handler skipped (DB not ready):`, e);
   }
 }
 function handleWindowFocus() {
@@ -4274,6 +6377,207 @@ export function useDiary() {
 }
 </file>
 
+<file path="src/hooks/useFriends.ts">
+import { useState, useEffect, useCallback, useMemo } from 'react';
+import { getDatabase } from '../db/database';
+import { useAuth } from './useAuth';
+import {
+  sendFriendRequest,
+  acceptFriendRequest,
+  deleteFriendPair,
+  blockFriend,
+  type ProfileCard,
+} from '../lib/social';
+import { clearCachedCalendar } from '../lib/friendCache';
+import type { FriendshipDocument } from '../db/schema';
+import type { MyProfileInput } from '../lib/social';
+export interface UseFriendsReturn {
+  friends: FriendshipDocument[];
+  incomingRequests: FriendshipDocument[];
+  outgoingRequests: FriendshipDocument[];
+  blockedUsers: FriendshipDocument[];
+  isLoading: boolean;
+  sendRequest: (
+    myProfile: Omit<MyProfileInput, 'userId'>,
+    friend: ProfileCard
+  ) => Promise<void>;
+  accept: (friendUserId: string) => Promise<void>;
+  decline: (friendUserId: string) => Promise<void>;
+  cancel: (friendUserId: string) => Promise<void>;
+  remove: (friendUserId: string) => Promise<void>;
+  block: (friendUserId: string) => Promise<void>;
+  findFriendship: (friendUserId: string) => FriendshipDocument | undefined;
+}
+export function useFriends(): UseFriendsReturn {
+  const { user } = useAuth();
+  const userId = user?.$id;
+  const [rows, setRows] = useState<FriendshipDocument[]>([]);
+  const [loadedUserId, setLoadedUserId] = useState<string | null>(null);
+  useEffect(() => {
+    if (!userId) return;
+    const uid = userId;
+    let subscription: { unsubscribe: () => void } | undefined;
+    let isMounted = true;
+    async function init() {
+      try {
+        const db = getDatabase();
+        const allMine = await db.friendships
+          .find({ selector: { userId: uid } })
+          .exec();
+        for (const doc of allMine) {
+          if (doc.id.length > 36 && doc.id.includes('_')) {
+            if (import.meta.env.DEV) {
+              console.log('[useFriends] Removing legacy friendship row:', doc.id);
+            }
+            await doc.remove();
+          }
+        }
+        const query = db.friendships.find({
+          selector: { userId: uid, isDeleted: false },
+          sort: [{ updatedAt: 'desc' }],
+        });
+        const sub = query.$.subscribe((docs) => {
+          if (!isMounted) return;
+          setRows(docs as FriendshipDocument[]);
+          setLoadedUserId(uid);
+        });
+        if (!isMounted) {
+          sub.unsubscribe();
+        } else {
+          subscription = sub;
+        }
+      } catch (error) {
+        console.error('[useFriends] Error loading friendships:', error);
+        if (isMounted) setLoadedUserId(uid);
+      }
+    }
+    init();
+    return () => {
+      isMounted = false;
+      if (subscription) subscription.unsubscribe();
+    };
+  }, [userId]);
+  const friends = useMemo(
+    () => rows.filter((r) => r.status === 'accepted'),
+    [rows]
+  );
+  const incomingRequests = useMemo(
+    () => rows.filter((r) => r.status === 'pending_incoming'),
+    [rows]
+  );
+  const outgoingRequests = useMemo(
+    () => rows.filter((r) => r.status === 'pending_outgoing'),
+    [rows]
+  );
+  const blockedUsers = useMemo(
+    () => rows.filter((r) => r.status === 'blocked'),
+    [rows]
+  );
+  const findFriendship = useCallback(
+    (friendUserId: string) => rows.find((r) => r.friendId === friendUserId),
+    [rows]
+  );
+  const sendRequest = useCallback(
+    async (
+      myProfile: Omit<MyProfileInput, 'userId'>,
+      friend: ProfileCard
+    ) => {
+      const uid = user?.$id;
+      if (!uid) {
+        console.error(
+          '[useFriends] Cannot send request: User not authenticated'
+        );
+        return;
+      }
+      await sendFriendRequest({
+        myUserId: uid,
+        myUsername: myProfile.username,
+        myDisplayName: myProfile.displayName,
+        myAvatarFileId: myProfile.avatarFileId || '',
+        friend,
+      });
+    },
+    [user?.$id]
+  );
+  const accept = useCallback(
+    async (friendUserId: string) => {
+      const uid = user?.$id;
+      if (!uid) {
+        console.error('[useFriends] Cannot accept: User not authenticated');
+        return;
+      }
+      await acceptFriendRequest(uid, friendUserId);
+    },
+    [user?.$id]
+  );
+  const decline = useCallback(
+    async (friendUserId: string) => {
+      const uid = user?.$id;
+      if (!uid) {
+        console.error('[useFriends] Cannot decline: User not authenticated');
+        return;
+      }
+      await deleteFriendPair(uid, friendUserId);
+      await clearCachedCalendar(friendUserId);
+    },
+    [user?.$id]
+  );
+  const cancel = useCallback(
+    async (friendUserId: string) => {
+      const uid = user?.$id;
+      if (!uid) {
+        console.error('[useFriends] Cannot cancel: User not authenticated');
+        return;
+      }
+      await deleteFriendPair(uid, friendUserId);
+      await clearCachedCalendar(friendUserId);
+    },
+    [user?.$id]
+  );
+  const remove = useCallback(
+    async (friendUserId: string) => {
+      const uid = user?.$id;
+      if (!uid) {
+        console.error('[useFriends] Cannot remove: User not authenticated');
+        return;
+      }
+      await deleteFriendPair(uid, friendUserId);
+      await clearCachedCalendar(friendUserId);
+    },
+    [user?.$id]
+  );
+  const block = useCallback(
+    async (friendUserId: string) => {
+      const uid = user?.$id;
+      if (!uid) {
+        console.error('[useFriends] Cannot block: User not authenticated');
+        return;
+      }
+      await blockFriend(uid, friendUserId);
+      await clearCachedCalendar(friendUserId);
+    },
+    [user?.$id]
+  );
+  const isLoading = !!userId && loadedUserId !== userId;
+  return {
+    friends: userId && loadedUserId === userId ? friends : [],
+    incomingRequests:
+      userId && loadedUserId === userId ? incomingRequests : [],
+    outgoingRequests:
+      userId && loadedUserId === userId ? outgoingRequests : [],
+    blockedUsers: userId && loadedUserId === userId ? blockedUsers : [],
+    isLoading,
+    sendRequest,
+    accept,
+    decline,
+    cancel,
+    remove,
+    block,
+    findFriendship,
+  };
+}
+</file>
+
 <file path="src/hooks/useImageCompression.ts">
 import { useState, useCallback, useRef, useEffect } from 'react';
 import imageCompression from 'browser-image-compression';
@@ -4328,6 +6632,97 @@ export function useImageCompression(): UseImageCompressionReturn {
 }
 </file>
 
+<file path="src/hooks/useMyProfile.ts">
+import { useState, useEffect, useCallback } from 'react';
+import { useAuth } from './useAuth';
+import {
+  fetchMyProfile,
+  createOrUpdateProfile,
+  isUsernameAvailable,
+  type ProfileCard,
+  type MyProfileInput,
+} from '../lib/social';
+export interface UseMyProfileReturn {
+  profile: ProfileCard | null;
+  isLoading: boolean;
+  error: string | null;
+  createProfile: (
+    input: Omit<MyProfileInput, 'userId'>
+  ) => Promise<ProfileCard | null>;
+  refetch: () => Promise<void>;
+  checkUsername: (username: string) => Promise<boolean>;
+}
+export function useMyProfile(): UseMyProfileReturn {
+  const { user } = useAuth();
+  const userId = user?.$id;
+  const [profile, setProfile] = useState<ProfileCard | null>(null);
+  const [loadedUserId, setLoadedUserId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const load = useCallback(async () => {
+    if (!userId) return;
+    setError(null);
+    try {
+      const p = await fetchMyProfile(userId);
+      setProfile(p);
+      setLoadedUserId(userId);
+    } catch (err) {
+      console.error('[useMyProfile] Load failed:', err);
+      setError('Could not load profile.');
+      setLoadedUserId(userId);
+    }
+  }, [userId]);
+  useEffect(() => {
+    if (!userId) return;
+    let isMounted = true;
+    (async () => {
+      try {
+        const p = await fetchMyProfile(userId);
+        if (!isMounted) return;
+        setProfile(p);
+        setLoadedUserId(userId);
+      } catch (err) {
+        if (!isMounted) return;
+        console.error('[useMyProfile] Load failed:', err);
+        setError('Could not load profile.');
+        setLoadedUserId(userId);
+      }
+    })();
+    return () => {
+      isMounted = false;
+    };
+  }, [userId]);
+  const createProfile = useCallback(
+    async (input: Omit<MyProfileInput, 'userId'>) => {
+      if (!userId) {
+        console.error('[useMyProfile] Cannot create profile: Not authenticated');
+        return null;
+      }
+      try {
+        const created = await createOrUpdateProfile({ ...input, userId });
+        setProfile(created);
+        return created;
+      } catch (err) {
+        console.error('[useMyProfile] Create failed:', err);
+        throw err;
+      }
+    },
+    [userId]
+  );
+  const checkUsername = useCallback(async (username: string) => {
+    return isUsernameAvailable(username);
+  }, []);
+  const isLoading = !!userId && loadedUserId !== userId;
+  return {
+    profile: userId && loadedUserId === userId ? profile : null,
+    isLoading,
+    error,
+    createProfile,
+    refetch: load,
+    checkUsername,
+  };
+}
+</file>
+
 <file path="src/hooks/useProfile.ts">
 import { useSettings } from './useSettings';
 export function useProfile() {
@@ -4349,6 +6744,87 @@ export function useProfile() {
     updateProfileImage,
     removeProfileImage,
   };
+}
+</file>
+
+<file path="src/hooks/useProfileLookup.ts">
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { searchProfiles, type ProfileCard } from '../lib/social';
+import { useAuth } from './useAuth';
+export interface UseProfileLookupReturn {
+  results: ProfileCard[];
+  isSearching: boolean;
+  error: string | null;
+  query: string;
+  setQuery: (q: string) => void;
+  clear: () => void;
+}
+export function useProfileLookup(debounceMs = 300): UseProfileLookupReturn {
+  const { user } = useAuth();
+  const userId = user?.$id;
+  const [query, setQueryState] = useState('');
+  const [results, setResults] = useState<ProfileCard[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Render-body reset on user switch (canonical pattern from conventions §9)
+  const [trackedUserId, setTrackedUserId] = useState<string | undefined>(userId);
+  if (userId !== trackedUserId) {
+    setTrackedUserId(userId);
+    setQueryState('');
+    setResults([]);
+    setIsSearching(false);
+    setError(null);
+  }
+  const setQuery = useCallback((q: string) => {
+    setQueryState(q);
+    const trimmed = q.trim();
+    if (!trimmed) {
+      setResults([]);
+      setIsSearching(false);
+      setError(null);
+    } else {
+      setIsSearching(true);
+      setError(null);
+    }
+  }, []);
+  const clear = useCallback(() => {
+    setQueryState('');
+    setResults([]);
+    setIsSearching(false);
+    setError(null);
+  }, []);
+  useEffect(() => {
+    if (timerRef.current) clearTimeout(timerRef.current);
+    const trimmed = query.trim();
+    if (!trimmed || !userId) return;
+    const uid = userId;
+    let effectIsActive = true;
+    timerRef.current = setTimeout(async () => {
+      if (!effectIsActive) return;
+      if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+        setError('You need to be online to search.');
+        setIsSearching(false);
+        return;
+      }
+      try {
+        const res = await searchProfiles(trimmed, uid);
+        if (!effectIsActive) return;
+        setResults(res);
+        setIsSearching(false);
+      } catch (err) {
+        if (!effectIsActive) return;
+        console.error('[useProfileLookup] Search failed:', err);
+        setError('Search failed. Try again.');
+        setIsSearching(false);
+      }
+    }, debounceMs);
+    return () => {
+      effectIsActive = false;
+      if (timerRef.current) clearTimeout(timerRef.current);
+    };
+  }, [query, userId, debounceMs]);
+  return { results, isSearching, error, query, setQuery, clear };
 }
 </file>
 
@@ -4575,6 +7051,541 @@ export const account = new Account(client);
 export { client };
 </file>
 
+<file path="src/lib/exportData.ts">
+import { format } from 'date-fns';
+import { zip } from 'fflate';
+import { Storage } from 'appwrite';
+import { client } from './appwrite';
+import { getDatabase } from '../db/database';
+import { getCachedImage, cacheImage } from './imageCache';
+import type {
+  TaskDocument,
+  CategoryDocument,
+  DiaryDocument,
+  SettingsDocument,
+  FriendshipDocument,
+} from '../db/schema';
+const APPWRITE_CONFIG = {
+  bucketId: 'task_images',
+  projectId: '6a9703c50016b37110ff',
+} as const;
+const storage = new Storage(client);
+const DEBUG = import.meta.env.DEV;
+const APP_NAME = 'Mosaic';
+const APP_VERSION = '0.0.0';
+const EXPORT_VERSION = 1;
+export interface ExportUser {
+  id: string;
+  email: string;
+  name: string;
+}
+export interface ExportOptions {
+  includeImages: boolean;
+  onProgress?: (message: string) => void;
+}
+export interface ExportCounts {
+  tasks: number;
+  categories: number;
+  diary: number;
+  settings: number;
+  friendships: number;
+  images: number;
+  missingImages: number;
+}
+export interface ExportPayload {
+  app: { name: string; version: string };
+  version: number;
+  exportedAt: string;
+  user: ExportUser;
+  counts: ExportCounts;
+  data: {
+    tasks: TaskDocument[];
+    categories: CategoryDocument[];
+    diary: DiaryDocument[];
+    settings: Record<string, unknown>;
+    friendships: FriendshipDocument[];
+  };
+  images: {
+    included: boolean;
+    referenced: string[];
+    missingImages: string[];
+    note: string;
+  };
+}
+export interface ExportResult {
+  blob: Blob;
+  filename: string;
+  counts: ExportCounts;
+}
+function toDoc<T>(doc: { toJSON: () => unknown }): T {
+  const json = { ...(doc.toJSON() as Record<string, unknown>) };
+  delete json._rev;
+  delete json._meta;
+  delete json._attachments;
+  delete json._deleted;
+  return json as T;
+}
+interface RawCollections {
+  tasks: TaskDocument[];
+  categories: CategoryDocument[];
+  diary: DiaryDocument[];
+  settings: SettingsDocument[];
+  friendships: FriendshipDocument[];
+}
+async function collectCollections(userId: string): Promise<RawCollections> {
+  const db = getDatabase();
+  const [tasks, categories, diary, settings, friendships] = await Promise.all([
+    db.tasks
+      .find({
+        selector: { userId, isDeleted: false },
+        sort: [{ date: 'asc' }, { createdAt: 'desc' }],
+      })
+      .exec(),
+    db.categories
+      .find({
+        selector: { userId, isDeleted: false },
+        sort: [{ order: 'asc' }],
+      })
+      .exec(),
+    db.diary
+      .find({
+        selector: { userId, isDeleted: false },
+        sort: [{ date: 'desc' }],
+      })
+      .exec(),
+    db.settings
+      .find({
+        selector: { userId, isDeleted: false },
+      })
+      .exec(),
+    db.friendships
+      .find({
+        selector: { userId, isDeleted: false },
+        sort: [{ updatedAt: 'desc' }],
+      })
+      .exec(),
+  ]);
+  return {
+    tasks: tasks.map((d) => toDoc<TaskDocument>(d)),
+    categories: categories.map((d) => toDoc<CategoryDocument>(d)),
+    diary: diary.map((d) => toDoc<DiaryDocument>(d)),
+    settings: settings.map((d) => toDoc<SettingsDocument>(d)),
+    friendships: friendships.map((d) => toDoc<FriendshipDocument>(d)),
+  };
+}
+function parseSettings(raw: SettingsDocument[]): Record<string, unknown> {
+  const map: Record<string, unknown> = {};
+  for (const doc of raw) {
+    try {
+      map[doc.key] = JSON.parse(doc.value);
+    } catch {
+      map[doc.key] = doc.value;
+    }
+  }
+  return map;
+}
+async function fetchImageBlob(fileId: string): Promise<Blob | null> {
+  const cached = await getCachedImage(fileId);
+  if (cached) return cached;
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+    if (DEBUG) console.log(`[Export] Skipping uncached image (offline): ${fileId}`);
+    return null;
+  }
+  try {
+    const url = storage.getFileView({
+      bucketId: APPWRITE_CONFIG.bucketId,
+      fileId,
+    });
+    const res = await fetch(url.toString(), {
+      credentials: 'include',
+      headers: { 'X-Appwrite-Project': APPWRITE_CONFIG.projectId },
+    });
+    if (!res.ok) {
+      if (DEBUG) console.warn(`[Export] Image fetch returned ${res.status}: ${fileId}`);
+      return null;
+    }
+    const blob = await res.blob();
+    await cacheImage(fileId, blob);
+    return blob;
+  } catch (err) {
+    console.warn(`[Export] Failed to fetch image ${fileId}:`, err);
+    return null;
+  }
+}
+function zipAsync(files: Record<string, Uint8Array>): Promise<Uint8Array> {
+  return new Promise((resolve, reject) => {
+    zip(files, { level: 6 }, (err, data) => {
+      if (err) reject(err);
+      else resolve(data);
+    });
+  });
+}
+function makeFilename(ext: 'json' | 'zip'): string {
+  const ts = format(new Date(), 'yyyy-MM-dd-HHmmss');
+  return `mosaic-export-${ts}.${ext}`;
+}
+export async function exportUserData(
+  user: ExportUser,
+  options: ExportOptions
+): Promise<ExportResult> {
+  const { includeImages, onProgress } = options;
+  const report = (msg: string) => {
+    if (onProgress) onProgress(msg);
+  };
+  report('Collecting data…');
+  if (DEBUG) console.log('[Export] Collecting data for user', user.id);
+  const raw = await collectCollections(user.id);
+  const parsedSettings = parseSettings(raw.settings);
+  const referencedImages = new Set<string>();
+  for (const task of raw.tasks) {
+    if (task.image && task.image.trim()) referencedImages.add(task.image);
+  }
+  const profileImageId = parsedSettings['profileImageId'];
+  if (typeof profileImageId === 'string' && profileImageId.trim()) {
+    referencedImages.add(profileImageId);
+  }
+  const referencedArray = Array.from(referencedImages);
+  const exportedAt = new Date().toISOString();
+  const payload: ExportPayload = {
+    app: { name: APP_NAME, version: APP_VERSION },
+    version: EXPORT_VERSION,
+    exportedAt,
+    user,
+    counts: {
+      tasks: raw.tasks.length,
+      categories: raw.categories.length,
+      diary: raw.diary.length,
+      settings: Object.keys(parsedSettings).length,
+      friendships: raw.friendships.length,
+      images: 0,
+      missingImages: 0,
+    },
+    data: {
+      tasks: raw.tasks,
+      categories: raw.categories,
+      diary: raw.diary,
+      settings: parsedSettings,
+      friendships: raw.friendships,
+    },
+    images: {
+      included: includeImages,
+      referenced: referencedArray,
+      missingImages: [],
+      note: includeImages
+        ? 'Image blobs are bundled inside images/.'
+        : 'Image blobs not included. Re-export with "Include photos" to bundle them.',
+    },
+  };
+  if (!includeImages) {
+    const json = JSON.stringify(payload, null, 2);
+    const blob = new Blob([json], { type: 'application/json' });
+    if (DEBUG) console.log('[Export] JSON export ready', payload.counts);
+    return {
+      blob,
+      filename: makeFilename('json'),
+      counts: payload.counts,
+    };
+  }
+  const imageBlobs = new Map<string, Blob>();
+  const missing: string[] = [];
+  let index = 0;
+  for (const fileId of referencedArray) {
+    index++;
+    report(`Fetching photos (${index}/${referencedArray.length})…`);
+    const blob = await fetchImageBlob(fileId);
+    if (blob) imageBlobs.set(fileId, blob);
+    else missing.push(fileId);
+  }
+  payload.counts.images = imageBlobs.size;
+  payload.counts.missingImages = missing.length;
+  payload.images.missingImages = missing;
+  report('Compressing…');
+  const encoder = new TextEncoder();
+  const files: Record<string, Uint8Array> = {};
+  files['manifest.json'] = encoder.encode(JSON.stringify(payload, null, 2));
+  files['data/tasks.json'] = encoder.encode(JSON.stringify(raw.tasks, null, 2));
+  files['data/categories.json'] = encoder.encode(
+    JSON.stringify(raw.categories, null, 2)
+  );
+  files['data/diary.json'] = encoder.encode(JSON.stringify(raw.diary, null, 2));
+  files['data/settings.json'] = encoder.encode(
+    JSON.stringify(parsedSettings, null, 2)
+  );
+  files['data/friendships.json'] = encoder.encode(
+    JSON.stringify(raw.friendships, null, 2)
+  );
+  for (const [fileId, blob] of imageBlobs) {
+    const buf = await blob.arrayBuffer();
+    files[`images/${fileId}.webp`] = new Uint8Array(buf);
+  }
+  const zipped = await zipAsync(files);
+  const zipBuffer = zipped.buffer as ArrayBuffer;
+  const blob = new Blob([zipBuffer], { type: 'application/zip' });
+  if (DEBUG) console.log('[Export] ZIP export ready', payload.counts);
+  return {
+    blob,
+    filename: makeFilename('zip'),
+    counts: payload.counts,
+  };
+}
+export function triggerDownload(blob: Blob, filename: string): void {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.style.display = 'none';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 1500);
+}
+</file>
+
+<file path="src/lib/friendCache.ts">
+import type { TaskDocument, CategoryDocument } from '../db/schema';
+const DB_NAME = 'mosaic_friend_cache';
+const STORE_NAME = 'calendars';
+const DB_VERSION = 1;
+const TTL_MS = 5 * 60 * 1000;
+export interface FriendCalendarBundle {
+  friendUserId: string;
+  tasks: TaskDocument[];
+  categories: CategoryDocument[];
+  fetchedAt: string;
+}
+interface CachedEntry {
+  bundle: FriendCalendarBundle;
+  cachedAt: number;
+}
+function openDB(): Promise<IDBDatabase> {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open(DB_NAME, DB_VERSION);
+    request.onupgradeneeded = () => {
+      const db = request.result;
+      if (!db.objectStoreNames.contains(STORE_NAME)) {
+        db.createObjectStore(STORE_NAME);
+      }
+    };
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
+}
+export async function getCachedCalendar(
+  friendUserId: string
+): Promise<FriendCalendarBundle | null> {
+  try {
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(STORE_NAME, 'readonly');
+      const store = tx.objectStore(STORE_NAME);
+      const req = store.get(friendUserId);
+      req.onsuccess = () => {
+        const entry = req.result as CachedEntry | undefined;
+        if (!entry) return resolve(null);
+        if (Date.now() - entry.cachedAt > TTL_MS) return resolve(null);
+        resolve(entry.bundle);
+      };
+      req.onerror = () => reject(req.error);
+    });
+  } catch (err) {
+    console.warn('[friendCache] read failed:', err);
+    return null;
+  }
+}
+export async function setCachedCalendar(
+  bundle: FriendCalendarBundle
+): Promise<void> {
+  try {
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(STORE_NAME, 'readwrite');
+      const store = tx.objectStore(STORE_NAME);
+      const entry: CachedEntry = { bundle, cachedAt: Date.now() };
+      const req = store.put(entry, bundle.friendUserId);
+      req.onsuccess = () => resolve();
+      req.onerror = () => reject(req.error);
+    });
+  } catch (err) {
+    console.warn('[friendCache] write failed:', err);
+  }
+}
+export async function clearCachedCalendar(friendUserId: string): Promise<void> {
+  try {
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(STORE_NAME, 'readwrite');
+      const store = tx.objectStore(STORE_NAME);
+      const req = store.delete(friendUserId);
+      req.onsuccess = () => resolve();
+      req.onerror = () => reject(req.error);
+    });
+  } catch (err) {
+    console.warn('[friendCache] delete failed:', err);
+  }
+}
+export async function clearAllFriendCaches(): Promise<void> {
+  try {
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(STORE_NAME, 'readwrite');
+      const store = tx.objectStore(STORE_NAME);
+      const req = store.clear();
+      req.onsuccess = () => resolve();
+      req.onerror = () => reject(req.error);
+    });
+  } catch (err) {
+    console.warn('[friendCache] clear failed:', err);
+  }
+}
+</file>
+
+<file path="src/lib/friendData.ts">
+import { Functions, ExecutionMethod } from 'appwrite';
+import { client } from './appwrite';
+import type {
+  TaskDocument,
+  CategoryDocument,
+} from '../db/schema';
+import {
+  getCachedCalendar,
+  setCachedCalendar,
+  type FriendCalendarBundle,
+} from './friendCache';
+const DEBUG = import.meta.env.DEV;
+const FUNCTION_ID = '6aa5595700257d69011b';
+const functions = new Functions(client);
+type AppwriteRow = Record<string, unknown>;
+function mapTaskRow(row: AppwriteRow): TaskDocument {
+  return {
+    id: (row.$id as string) || '',
+    title: (row.title as string) || '',
+    completed: (row.is_completed as boolean) ?? false,
+    categoryId: (row.category_id as string) || '',
+    tags: (row.tags as string) || '',
+    date: (row.date as string) || '',
+    memo: (row.memo as string) || '',
+    image: (row.image as string) || '',
+    createdAt: (row.created_at as string) || '',
+    completedAt: (row.completed_at as string) || '',
+    updatedAt: (row.updated_at as string) || '',
+    source: (row.source as string) || '',
+    userId: (row.user_id as string) || '',
+    isDeleted: (row.deleted as boolean) ?? false,
+    routineId: (row.routine_id as string) || '',
+    reminderTime: (row.reminder_time as string) || '',
+    reactions: (row.reactions as string) || '',
+    visibility:
+      (row.visibility as 'public' | 'followers' | 'private') || 'private',
+  };
+}
+function mapCategoryRow(row: AppwriteRow): CategoryDocument {
+  return {
+    id: (row.$id as string) || '',
+    name: (row.name as string) || '',
+    color: (row.color as string) || '#6B7280',
+    order: (row.order as number) ?? 0,
+    visibility:
+      (row.visibility as 'public' | 'followers' | 'private') || 'private',
+    userId: (row.user_id as string) || '',
+    isDeleted: (row.deleted as boolean) ?? false,
+    icon: (row.icon as string) || '',
+  };
+}
+export type FriendAccessErrorKind = 'forbidden' | 'offline' | 'server';
+export class FriendAccessError extends Error {
+  kind: FriendAccessErrorKind;
+  constructor(message: string, kind: FriendAccessErrorKind) {
+    super(message);
+    this.name = 'FriendAccessError';
+    this.kind = kind;
+  }
+}
+export interface FetchFriendOptions {
+  forceRefresh?: boolean;
+}
+export async function fetchFriendCalendar(
+  friendUserId: string,
+  options: FetchFriendOptions = {}
+): Promise<FriendCalendarBundle> {
+  if (!options.forceRefresh) {
+    const cached = await getCachedCalendar(friendUserId);
+    if (cached) {
+      if (DEBUG) console.log('[friendData] cache hit for', friendUserId);
+      return cached;
+    }
+  }
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+    throw new FriendAccessError(
+      "You need to be online to view a friend's calendar.",
+      'offline'
+    );
+  }
+  let execution;
+  try {
+    execution = await functions.createExecution({
+      functionId: FUNCTION_ID,
+      body: JSON.stringify({ friendUserId }),
+      async: false,
+      xpath: '/',
+      method: ExecutionMethod.POST,
+    });
+  } catch (err) {
+    console.error('[friendData] Function call failed:', err);
+    throw new FriendAccessError(
+      'Could not reach the server. Check your connection.',
+      'server'
+    );
+  }
+  if (execution.status !== 'completed') {
+    console.error('[friendData] Execution not completed:', execution.status);
+    throw new FriendAccessError('The request did not complete.', 'server');
+  }
+  const statusCode = execution.responseStatusCode;
+  let parsed: {
+    tasks?: AppwriteRow[];
+    categories?: AppwriteRow[];
+    fetchedAt?: string;
+    error?: string;
+  };
+  try {
+    parsed = JSON.parse(execution.responseBody);
+  } catch (err) {
+    console.error('[friendData] Response parse failed:', err);
+    throw new FriendAccessError('Unexpected server response.', 'server');
+  }
+  if (statusCode === 403) {
+    throw new FriendAccessError(
+      'You are not friends with this user.',
+      'forbidden'
+    );
+  }
+  if (statusCode >= 400) {
+    console.error('[friendData] Function returned error:', parsed.error);
+    throw new FriendAccessError(
+      parsed.error || 'Could not load the calendar.',
+      'server'
+    );
+  }
+  const bundle: FriendCalendarBundle = {
+    friendUserId,
+    tasks: (parsed.tasks || []).map(mapTaskRow),
+    categories: (parsed.categories || []).map(mapCategoryRow),
+    fetchedAt: parsed.fetchedAt || new Date().toISOString(),
+  };
+  await setCachedCalendar(bundle);
+  if (DEBUG) {
+    console.log(
+      `[friendData] fetched for ${friendUserId}:`,
+      bundle.tasks.length,
+      'tasks,',
+      bundle.categories.length,
+      'categories'
+    );
+  }
+  return bundle;
+}
+</file>
+
 <file path="src/lib/imageCache.ts">
 const DB_NAME = 'mosaic_image_cache';
 const STORE_NAME = 'blobs';
@@ -4679,6 +7690,285 @@ export const generateMockTasks = (): TaskDocument[] => {
   });
   return tasks;
 };
+</file>
+
+<file path="src/lib/social.ts">
+import { TablesDB, Permission, Role, Query } from 'appwrite';
+import { client } from './appwrite';
+import { getDatabase } from '../db/database';
+import type { FriendshipDocument } from '../db/schema';
+const DEBUG = import.meta.env.DEV;
+const APPWRITE_CONFIG = {
+  databaseId: 'life_tracker',
+  tables: {
+    profiles: 'profiles',
+    friendships: 'friendships',
+  },
+} as const;
+const tablesDB = new TablesDB(client);
+export type FriendStatus =
+  | 'pending_outgoing'
+  | 'pending_incoming'
+  | 'accepted'
+  | 'blocked';
+export interface ProfileCard {
+  $id: string;
+  user_id: string;
+  username: string;
+  display_name: string;
+  avatar_file_id: string;
+  bio: string;
+  is_searchable: boolean;
+}
+export interface MyProfileInput {
+  userId: string;
+  username: string;
+  displayName: string;
+  avatarFileId?: string;
+  bio?: string;
+}
+async function makeFriendshipId(
+  ownerId: string,
+  friendId: string
+): Promise<string> {
+  const input = `${ownerId}|${friendId}`;
+  const data = new TextEncoder().encode(input);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+  const hex = Array.from(new Uint8Array(hashBuffer))
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('');
+  return `fr_${hex.slice(0, 32)}`;
+}
+function buildProfileRowPermissions(userId: string) {
+  return [
+    Permission.read(Role.users()),
+    Permission.update(Role.user(userId)),
+    Permission.delete(Role.user(userId)),
+  ];
+}
+/**
+ * The creator's own role. We pass this on friendship writes because the
+ * Appwrite SDK defaults `permissions` to `[]` when omitted, which the server
+ * rejects. Cross-user access (friend reading/writing this row) is granted via
+ * table-level `all users` permissions in the Console — NOT via row-level
+ * grants, which Appwrite forbids for other users.
+ */
+function buildCreatorOwnPermissions(userId: string) {
+  return [
+    Permission.read(Role.user(userId)),
+    Permission.update(Role.user(userId)),
+    Permission.delete(Role.user(userId)),
+  ];
+}
+function toMs(value: unknown): number {
+  if (typeof value !== 'string' || !value) return 0;
+  const t = new Date(value).getTime();
+  return Number.isFinite(t) ? t : 0;
+}
+export async function fetchMyProfile(
+  userId: string
+): Promise<ProfileCard | null> {
+  try {
+    const row = await tablesDB.getRow({
+      databaseId: APPWRITE_CONFIG.databaseId,
+      tableId: APPWRITE_CONFIG.tables.profiles,
+      rowId: `profile_${userId}`,
+    });
+    if (!row || (row as Record<string, unknown>).deleted === true) return null;
+    return row as unknown as ProfileCard;
+  } catch (err: unknown) {
+    const code = (err as { code?: number })?.code;
+    if (code === 404) return null;
+    console.error('[social] fetchMyProfile failed:', err);
+    throw err;
+  }
+}
+export async function createOrUpdateProfile(
+  input: MyProfileInput
+): Promise<ProfileCard> {
+  const now = new Date().toISOString();
+  const rowId = `profile_${input.userId}`;
+  const data = {
+    user_id: input.userId,
+    username: input.username.toLowerCase(),
+    display_name: input.displayName || '',
+    avatar_file_id: input.avatarFileId || '',
+    bio: input.bio || '',
+    is_searchable: true,
+    created_at: now,
+    updated_at: now,
+    deleted: false,
+  };
+  const row = await tablesDB.upsertRow({
+    databaseId: APPWRITE_CONFIG.databaseId,
+    tableId: APPWRITE_CONFIG.tables.profiles,
+    rowId,
+    data,
+    permissions: buildProfileRowPermissions(input.userId),
+  });
+  if (DEBUG) console.log('[social] Profile upserted:', rowId);
+  return row as unknown as ProfileCard;
+}
+export async function isUsernameAvailable(username: string): Promise<boolean> {
+  try {
+    const res = await tablesDB.listRows({
+      databaseId: APPWRITE_CONFIG.databaseId,
+      tableId: APPWRITE_CONFIG.tables.profiles,
+      queries: [
+        Query.equal('username', username.toLowerCase()),
+        Query.limit(1),
+      ],
+    });
+    return (res.rows || []).length === 0;
+  } catch (err) {
+    console.error('[social] isUsernameAvailable failed:', err);
+    return false;
+  }
+}
+export async function searchProfiles(
+  query: string,
+  excludeUserId: string,
+  limit = 10
+): Promise<ProfileCard[]> {
+  const trimmed = query.trim().toLowerCase();
+  if (trimmed.length < 1) return [];
+  try {
+    const res = await tablesDB.listRows({
+      databaseId: APPWRITE_CONFIG.databaseId,
+      tableId: APPWRITE_CONFIG.tables.profiles,
+      queries: [
+        Query.startsWith('username', trimmed),
+        Query.equal('deleted', false),
+        Query.limit(limit),
+      ],
+    });
+    const rows = (res.rows || []) as unknown as ProfileCard[];
+    return rows.filter((r) => r.user_id !== excludeUserId);
+  } catch (err) {
+    console.error('[social] searchProfiles failed:', err);
+    throw err;
+  }
+}
+export interface SendRequestInput {
+  myUserId: string;
+  myUsername: string;
+  myDisplayName: string;
+  myAvatarFileId: string;
+  friend: ProfileCard;
+}
+export async function sendFriendRequest(
+  input: SendRequestInput
+): Promise<void> {
+  const { myUserId, myUsername, myDisplayName, myAvatarFileId, friend } = input;
+  const now = new Date().toISOString();
+  const db = getDatabase();
+  const myRowId = await makeFriendshipId(myUserId, friend.user_id);
+  const friendRowId = await makeFriendshipId(friend.user_id, myUserId);
+  const myLocalRow: FriendshipDocument = {
+    id: myRowId,
+    userId: myUserId,
+    friendId: friend.user_id,
+    friendUsername: friend.username,
+    friendDisplayName: friend.display_name || friend.username,
+    friendAvatarFileId: friend.avatar_file_id || '',
+    status: 'pending_outgoing',
+    createdAt: now,
+    updatedAt: now,
+    isDeleted: false,
+  };
+  await db.friendships.upsert(myLocalRow);
+  await tablesDB.upsertRow({
+    databaseId: APPWRITE_CONFIG.databaseId,
+    tableId: APPWRITE_CONFIG.tables.friendships,
+    rowId: friendRowId,
+    data: {
+      user_id: friend.user_id,
+      friend_id: myUserId,
+      friend_username: myUsername,
+      friend_display_name: myDisplayName,
+      friend_avatar_file_id: myAvatarFileId,
+      status: 'pending_incoming',
+      created_at: now,
+      updated_at: now,
+      deleted: false,
+    },
+    permissions: buildCreatorOwnPermissions(myUserId),
+  });
+  if (DEBUG) console.log('[social] Friend request sent:', myRowId, friendRowId);
+}
+export async function acceptFriendRequest(
+  myUserId: string,
+  friendUserId: string
+): Promise<void> {
+  const now = new Date().toISOString();
+  const db = getDatabase();
+  const myRowId = await makeFriendshipId(myUserId, friendUserId);
+  const friendRowId = await makeFriendshipId(friendUserId, myUserId);
+  const localDoc = await db.friendships.findOne(myRowId).exec();
+  if (localDoc) {
+    await localDoc.patch({ status: 'accepted', updatedAt: now });
+  }
+  await tablesDB.updateRow({
+    databaseId: APPWRITE_CONFIG.databaseId,
+    tableId: APPWRITE_CONFIG.tables.friendships,
+    rowId: friendRowId,
+    data: { status: 'accepted', updated_at: now },
+  });
+  if (DEBUG) console.log('[social] Friend request accepted:', myRowId);
+}
+export async function deleteFriendPair(
+  myUserId: string,
+  friendUserId: string
+): Promise<void> {
+  const now = new Date().toISOString();
+  const db = getDatabase();
+  const myRowId = await makeFriendshipId(myUserId, friendUserId);
+  const friendRowId = await makeFriendshipId(friendUserId, myUserId);
+  const localDoc = await db.friendships.findOne(myRowId).exec();
+  if (localDoc) {
+    await localDoc.patch({ isDeleted: true, updatedAt: now });
+  }
+  try {
+    await tablesDB.updateRow({
+      databaseId: APPWRITE_CONFIG.databaseId,
+      tableId: APPWRITE_CONFIG.tables.friendships,
+      rowId: friendRowId,
+      data: { deleted: true, updated_at: now },
+    });
+  } catch (err: unknown) {
+    const code = (err as { code?: number })?.code;
+    if (code !== 404) {
+      console.warn('[social] deleteFriendPair remote failed:', err);
+    }
+  }
+  if (DEBUG) console.log('[social] Friend pair soft-deleted:', myRowId);
+}
+export async function blockFriend(
+  myUserId: string,
+  friendUserId: string
+): Promise<void> {
+  const now = new Date().toISOString();
+  const db = getDatabase();
+  const myRowId = await makeFriendshipId(myUserId, friendUserId);
+  const friendRowId = await makeFriendshipId(friendUserId, myUserId);
+  const localDoc = await db.friendships.findOne(myRowId).exec();
+  if (localDoc) {
+    await localDoc.patch({ status: 'blocked', updatedAt: now });
+  }
+  try {
+    await tablesDB.updateRow({
+      databaseId: APPWRITE_CONFIG.databaseId,
+      tableId: APPWRITE_CONFIG.tables.friendships,
+      rowId: friendRowId,
+      data: { status: 'blocked', updated_at: now },
+    });
+  } catch (err) {
+    console.warn('[social] blockFriend remote update failed:', err);
+  }
+}
+export function hasRecentTimestamp(iso: string, thresholdMs = 5000): boolean {
+  return Date.now() - toMs(iso) < thresholdMs;
+}
 </file>
 
 <file path="src/lib/storage.ts">
@@ -4855,10 +8145,149 @@ export function getImageFullUrl(fileId: string): string {
 }
 </file>
 
+<file path="src/lib/useFriendCalendar.ts">
+import { useState, useEffect, useCallback } from 'react';
+import {
+  fetchFriendCalendar,
+  FriendAccessError,
+} from '../lib/friendData';
+import type { TaskDocument, CategoryDocument } from '../db/schema';
+export interface UseFriendCalendarReturn {
+  tasks: TaskDocument[];
+  categories: CategoryDocument[];
+  isLoading: boolean;
+  error: string | null;
+  errorKind: 'forbidden' | 'offline' | 'server' | null;
+  refetch: (force?: boolean) => Promise<void>;
+  lastFetchedAt: string | null;
+}
+export function useFriendCalendar(
+  friendUserId: string | null
+): UseFriendCalendarReturn {
+  const [tasks, setTasks] = useState<TaskDocument[]>([]);
+  const [categories, setCategories] = useState<CategoryDocument[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [errorKind, setErrorKind] = useState<
+    'forbidden' | 'offline' | 'server' | null
+  >(null);
+  const [lastFetchedAt, setLastFetchedAt] = useState<string | null>(null);
+  const [trackedFriendId, setTrackedFriendId] = useState<string | null>(
+    friendUserId
+  );
+  if (friendUserId !== trackedFriendId) {
+    setTrackedFriendId(friendUserId);
+    setTasks([]);
+    setCategories([]);
+    setError(null);
+    setErrorKind(null);
+    setLastFetchedAt(null);
+    setIsLoading(!!friendUserId);
+  }
+  const load = useCallback(
+    async (force = false) => {
+      if (!friendUserId) return;
+      setIsLoading(true);
+      setError(null);
+      setErrorKind(null);
+      try {
+        const bundle = await fetchFriendCalendar(friendUserId, {
+          forceRefresh: force,
+        });
+        setTasks(bundle.tasks);
+        setCategories(bundle.categories);
+        setLastFetchedAt(bundle.fetchedAt);
+      } catch (err) {
+        if (err instanceof FriendAccessError) {
+          setError(err.message);
+          setErrorKind(err.kind);
+        } else {
+          console.error('[useFriendCalendar] unexpected error:', err);
+          setError('Something went wrong.');
+          setErrorKind('server');
+        }
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [friendUserId]
+  );
+  useEffect(() => {
+    if (!friendUserId) return;
+    let effectIsActive = true;
+    (async () => {
+      try {
+        const bundle = await fetchFriendCalendar(friendUserId);
+        if (!effectIsActive) return;
+        setTasks(bundle.tasks);
+        setCategories(bundle.categories);
+        setLastFetchedAt(bundle.fetchedAt);
+        setError(null);
+        setErrorKind(null);
+      } catch (err) {
+        if (!effectIsActive) return;
+        if (err instanceof FriendAccessError) {
+          setError(err.message);
+          setErrorKind(err.kind);
+        } else {
+          console.error('[useFriendCalendar] unexpected error:', err);
+          setError('Something went wrong.');
+          setErrorKind('server');
+        }
+      } finally {
+        if (effectIsActive) setIsLoading(false);
+      }
+    })();
+    return () => {
+      effectIsActive = false;
+    };
+  }, [friendUserId]);
+  return {
+    tasks,
+    categories,
+    isLoading,
+    error,
+    errorKind,
+    refetch: load,
+    lastFetchedAt,
+  };
+}
+</file>
+
+<file path="src/lib/visibility.ts">
+export type TaskVisibility = 'private' | 'followers' | 'public';
+const VALID: readonly TaskVisibility[] = ['private', 'followers', 'public'];
+export function resolveVisibility(
+  taskVisibility: string | undefined,
+  categoryVisibility: string | undefined
+): TaskVisibility {
+  if (taskVisibility && (VALID as readonly string[]).includes(taskVisibility)) {
+    return taskVisibility as TaskVisibility;
+  }
+  if (categoryVisibility && (VALID as readonly string[]).includes(categoryVisibility)) {
+    return categoryVisibility as TaskVisibility;
+  }
+  return 'private';
+}
+export function isInheriting(taskVisibility: string | undefined): boolean {
+  return !taskVisibility;
+}
+export function labelForVisibility(v: TaskVisibility): string {
+  switch (v) {
+    case 'private':
+      return 'Private';
+    case 'followers':
+      return 'Friends';
+    case 'public':
+      return 'Public';
+  }
+}
+</file>
+
 <file path="src/pages/AccountPage.tsx">
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Settings, LogOut, BarChart3, Crown, Sticker, ListTodo } from 'lucide-react';
+import { Settings, LogOut, BarChart3, Sticker, ListTodo } from 'lucide-react';
 import { Avatar } from '../components/ui/Avatar';
 import { Button } from '../components/ui/Button';
 import { useAuth } from '../hooks/useAuth';
@@ -4911,14 +8340,10 @@ export const AccountPage: React.FC = () => {
           </div>
         </div>
         {}
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-2 gap-3">
           <div className="bg-[#1E1E1E] border border-[#333333] rounded-xl p-3 flex flex-col items-center gap-2">
             <BarChart3 size={20} className="text-blue-500" />
             <span className="text-xs text-gray-400">My Progress</span>
-          </div>
-          <div className="bg-[#1E1E1E] border border-[#333333] rounded-xl p-3 flex flex-col items-center gap-2">
-            <Crown size={20} className="text-yellow-500" />
-            <span className="text-xs text-gray-400">Premium</span>
           </div>
           <div className="bg-[#1E1E1E] border border-[#333333] rounded-xl p-3 flex flex-col items-center gap-2">
             <Sticker size={20} className="text-green-500" />
@@ -4933,6 +8358,7 @@ export const AccountPage: React.FC = () => {
           </div>
           <ListTodo size={24} className="text-gray-500" />
         </div>
+        {}
         <div className="bg-[#1E1E1E] border border-[#333333] rounded-xl p-4 flex items-center justify-between">
           <div>
             <h3 className="text-base font-bold text-white">Categories</h3>
@@ -5081,6 +8507,207 @@ export const AuthPage: React.FC = () => {
 };
 </file>
 
+<file path="src/pages/ExplorePage.tsx">
+import React, { useState } from 'react';
+import { ExploreView } from '../components/explore/ExploreView';
+import { SetUsernameSheet } from '../components/modals/SetUsernameSheet';
+export const ExplorePage: React.FC = () => {
+  const [isUsernameSheetOpen, setIsUsernameSheetOpen] = useState(false);
+  const [feedback, setFeedback] = useState<string | null>(null);
+  const showFeedback = (msg: string) => {
+    setFeedback(msg);
+    setTimeout(() => setFeedback(null), 2000);
+  };
+  return (
+    <>
+      <ExploreView
+        onRequestUsername={() => setIsUsernameSheetOpen(true)}
+        onFeedback={showFeedback}
+      />
+      <SetUsernameSheet
+        isOpen={isUsernameSheetOpen}
+        onClose={() => setIsUsernameSheetOpen(false)}
+        onSuccess={(username) => showFeedback(`Profile saved as @${username}`)}
+      />
+      {feedback && (
+        <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[70] bg-[#2A2A2A] border border-[#444444] text-white text-sm px-5 py-2.5 rounded-full shadow-lg backdrop-blur-md animate-in fade-in slide-in-from-bottom-2 duration-200">
+          {feedback}
+        </div>
+      )}
+    </>
+  );
+};
+</file>
+
+<file path="src/pages/FriendCalendarPage.tsx">
+import React, { useMemo } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
+import { ChevronLeft, RefreshCw } from 'lucide-react';
+import { motion } from 'framer-motion';
+import { Avatar } from '../components/ui/Avatar';
+import { FriendCalendarView } from '../components/friend/FriendCalendarView';
+import { useFriendCalendar } from '../lib/useFriendCalendar';
+import { useFriends } from '../hooks/useFriends';
+import { useTaskImage } from '../hooks/useTaskImage';
+import { clearCachedCalendar } from '../lib/friendCache';
+export const FriendCalendarPage: React.FC = () => {
+  const { friendId } = useParams<{ friendId: string }>();
+  const navigate = useNavigate();
+  const { friends, isLoading: friendsLoading } = useFriends();
+  const friend = useMemo(() => {
+    if (!friendId || friendsLoading) return null;
+    return friends.find((f) => f.friendId === friendId) || null;
+  }, [friendId, friends, friendsLoading]);
+  const {
+    tasks,
+    categories,
+    isLoading,
+    error,
+    errorKind,
+    refetch,
+    lastFetchedAt,
+  } = useFriendCalendar(friend ? friend.friendId : null);
+  const { imageUrl } = useTaskImage(friend?.friendAvatarFileId || undefined);
+  const handleBack = () => navigate(-1);
+  const handleRefresh = async () => {
+    if (friend) {
+      await clearCachedCalendar(friend.friendId);
+    }
+    await refetch(true);
+  };
+  const handleGoToExplore = () => {
+    navigate('/explore', { replace: true });
+  };
+  if (friendsLoading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <div className="w-8 h-8 border-2 border-white border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+  if (!friend) {
+    return (
+      <div className="flex flex-col h-full">
+        <div className="sticky top-0 z-20 bg-[#111111] px-4 py-3 border-b border-[#333333] flex items-center">
+          <button
+            onClick={handleBack}
+            className="p-2 rounded-lg text-gray-400 hover:text-white hover:bg-[#2A2A2A] transition-colors"
+            aria-label="Back"
+          >
+            <ChevronLeft size={20} />
+          </button>
+        </div>
+        <div className="flex-1 flex items-center justify-center px-6 text-center">
+          <div>
+            <p className="text-white font-medium mb-2">Not friends anymore</p>
+            <p className="text-sm text-gray-500 mb-6">
+              You can no longer view this calendar.
+            </p>
+            <button
+              onClick={handleGoToExplore}
+              className="bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-medium px-5 py-2.5 rounded-xl transition-colors"
+            >
+              Back to Explore
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+  const displayName = friend.friendDisplayName || friend.friendUsername;
+  return (
+    <div className="flex flex-col h-full animate-in fade-in duration-300">
+      {}
+      <div className="sticky top-0 z-20 bg-[#111111] px-4 py-3 border-b border-[#333333]">
+        <div className="flex items-center gap-3">
+          <button
+            onClick={handleBack}
+            onPointerDown={(e) => e.stopPropagation()}
+            className="p-2 rounded-lg text-gray-400 hover:text-white hover:bg-[#2A2A2A] transition-colors flex-shrink-0"
+            aria-label="Back"
+          >
+            <ChevronLeft size={20} />
+          </button>
+          <Avatar
+            src={imageUrl || undefined}
+            alt={displayName}
+            size="sm"
+          />
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold text-white truncate">
+              {displayName}
+            </p>
+            <p className="text-xs text-gray-500 truncate">
+              @{friend.friendUsername}
+            </p>
+          </div>
+          <motion.button
+            whileTap={{ scale: 0.95 }}
+            onClick={handleRefresh}
+            disabled={isLoading}
+            className="p-2 rounded-lg text-gray-400 hover:text-white hover:bg-[#2A2A2A] transition-colors disabled:opacity-50 flex-shrink-0"
+            aria-label="Refresh"
+          >
+            <RefreshCw size={18} className={isLoading ? 'animate-spin' : ''} />
+          </motion.button>
+        </div>
+        {lastFetchedAt && !error && (
+          <p className="text-[10px] text-gray-600 mt-2 text-center">
+            Last updated {new Date(lastFetchedAt).toLocaleTimeString()}
+          </p>
+        )}
+      </div>
+      {/* Body */}
+      <div className="flex-1 overflow-hidden">
+        {isLoading && tasks.length === 0 ? (
+          <div className="flex items-center justify-center py-20">
+            <div className="w-8 h-8 border-2 border-white border-t-transparent rounded-full animate-spin" />
+          </div>
+        ) : error ? (
+          <div className="flex flex-col items-center justify-center py-20 px-6 text-center">
+            <div className="w-16 h-16 bg-[#1E1E1E] rounded-full flex items-center justify-center mb-4 border border-[#333333]">
+              <span className="text-2xl">🔒</span>
+            </div>
+            <p className="text-white font-medium mb-2">
+              {errorKind === 'forbidden'
+                ? 'No access'
+                : errorKind === 'offline'
+                ? "You're offline"
+                : "Couldn't load calendar"}
+            </p>
+            <p className="text-sm text-gray-500 mb-6 max-w-xs">{error}</p>
+            {errorKind !== 'forbidden' && (
+              <button
+                onClick={() => refetch(true)}
+                className="bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-medium px-5 py-2.5 rounded-xl transition-colors"
+              >
+                Try again
+              </button>
+            )}
+          </div>
+        ) : tasks.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-20 px-6 text-center">
+            <div className="w-16 h-16 bg-[#1E1E1E] rounded-full flex items-center justify-center mb-4 border border-[#333333]">
+              <span className="text-2xl">📭</span>
+            </div>
+            <p className="text-white font-medium mb-2">Nothing shared yet</p>
+            <p className="text-sm text-gray-500 max-w-xs">
+              {displayName} hasn't shared any tasks with you.
+            </p>
+          </div>
+        ) : (
+          <FriendCalendarView
+            friendName={displayName}
+            tasks={tasks}
+            categories={categories}
+          />
+        )}
+      </div>
+    </div>
+  );
+};
+</file>
+
 <file path="src/pages/HomePage.tsx">
 import React, { useState, useEffect } from 'react';
 import { TopBar } from '../components/home/TopBar';
@@ -5116,12 +8743,14 @@ export const HomePage: React.FC = () => {
 <file path="src/pages/ProfilePage.tsx">
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ChevronLeft, Share2, ChevronRight, Camera } from 'lucide-react';
+import { ChevronLeft, Share2, ChevronRight, Camera, AtSign } from 'lucide-react';
 import { Avatar } from '../components/ui/Avatar';
 import { EditNameSheet } from '../components/modals/EditNameSheet';
 import { EditDescriptionSheet } from '../components/modals/EditDescriptionSheet';
 import { EditProfileImageSheet } from '../components/modals/EditProfileImageSheet';
+import { SetUsernameSheet } from '../components/modals/SetUsernameSheet';
 import { useProfile } from '../hooks/useProfile';
+import { useMyProfile } from '../hooks/useMyProfile';
 import { useTaskImage } from '../hooks/useTaskImage';
 export const ProfilePage: React.FC = () => {
   const navigate = useNavigate();
@@ -5134,13 +8763,14 @@ export const ProfilePage: React.FC = () => {
     updateProfileImage,
     removeProfileImage,
   } = useProfile();
+  const { profile } = useMyProfile();
   const [isNameSheetOpen, setIsNameSheetOpen] = useState(false);
   const [isDescSheetOpen, setIsDescSheetOpen] = useState(false);
   const [isImageSheetOpen, setIsImageSheetOpen] = useState(false);
+  const [isUsernameSheetOpen, setIsUsernameSheetOpen] = useState(false);
   const { imageUrl } = useTaskImage(profileImageId || undefined);
   return (
     <div className="flex flex-col h-full animate-in fade-in duration-300 bg-[#111111]">
-      {}
       <div className="sticky top-0 z-20 bg-[#111111] px-4 py-3 border-b border-[#333333] flex items-center justify-between">
         <button
           onClick={() => navigate(-1)}
@@ -5161,7 +8791,6 @@ export const ProfilePage: React.FC = () => {
         </button>
       </div>
       <div className="flex-1 overflow-y-auto pb-24 px-4 pt-8">
-        {}
         <div className="flex flex-col items-center mb-10">
           <button
             onClick={() => setIsImageSheetOpen(true)}
@@ -5186,8 +8815,23 @@ export const ProfilePage: React.FC = () => {
             Profile image
           </button>
         </div>
-        {}
         <div className="space-y-3">
+          <button
+            onClick={() => setIsUsernameSheetOpen(true)}
+            onPointerDown={(e) => e.stopPropagation()}
+            className="w-full bg-[#1E1E1E] border border-[#333333] rounded-xl p-4 flex items-center justify-between hover:bg-[#252525] transition-colors"
+          >
+            <span className="flex items-center gap-2 text-base text-gray-300">
+              <AtSign size={16} className="text-gray-500" />
+              Username
+            </span>
+            <div className="flex items-center gap-2">
+              <span className="text-base font-medium text-white">
+                {profile?.username ? `@${profile.username}` : 'Not set'}
+              </span>
+              <ChevronRight size={18} className="text-gray-500" />
+            </div>
+          </button>
           <button
             onClick={() => setIsNameSheetOpen(true)}
             onPointerDown={(e) => e.stopPropagation()}
@@ -5216,7 +8860,6 @@ export const ProfilePage: React.FC = () => {
           </button>
         </div>
       </div>
-      {}
       <EditNameSheet
         isOpen={isNameSheetOpen}
         onClose={() => setIsNameSheetOpen(false)}
@@ -5236,6 +8879,10 @@ export const ProfilePage: React.FC = () => {
         onSave={updateProfileImage}
         onRemove={removeProfileImage}
       />
+      <SetUsernameSheet
+        isOpen={isUsernameSheetOpen}
+        onClose={() => setIsUsernameSheetOpen(false)}
+      />
     </div>
   );
 };
@@ -5252,13 +8899,12 @@ import {
   Bell,
   Megaphone,
   Smile,
-  Crown,
   Info,
   HelpCircle,
-  FlaskConical,
   LogOut,
   Database,
-  ChevronLeft
+  ChevronLeft,
+  FileDown,
 } from 'lucide-react';
 import { BottomSheet } from '../components/ui/BottomSheet';
 import { SettingsRow } from '../components/ui/SettingsRow';
@@ -5267,6 +8913,7 @@ import { destroyDatabase } from '../db/database';
 import { AccountSettingsSheet } from '../components/modals/AccountSettingsSheet';
 import { ChangeEmailSheet } from '../components/modals/ChangeEmailSheet';
 import { ChangePasswordSheet } from '../components/modals/ChangePasswordSheet';
+import { ExportDataSheet } from '../components/modals/ExportDataSheet';
 export const SettingsPage: React.FC = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
@@ -5275,11 +8922,13 @@ export const SettingsPage: React.FC = () => {
   const [isAccountSettingsOpen, setIsAccountSettingsOpen] = useState(false);
   const [isChangeEmailOpen, setIsChangeEmailOpen] = useState(false);
   const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
+  const [isExportSheetOpen, setIsExportSheetOpen] = useState(false);
   const [feedback, setFeedback] = useState<string | null>(null);
   const showFeedback = (msg: string) => {
     setFeedback(msg);
     setTimeout(() => setFeedback(null), 2000);
   };
+  const handleComingSoon = () => showFeedback('Coming soon');
   const handleLogout = async () => {
     await logout();
     navigate('/login', { replace: true });
@@ -5319,21 +8968,27 @@ export const SettingsPage: React.FC = () => {
             value={user?.email}
             onClick={() => setIsAccountSettingsOpen(true)}
           />
-          <SettingsRow icon={<Lock size={18} className="text-gray-400" />} label="Privacy" onClick={() => { }} />
-          <SettingsRow icon={<Shield size={18} className="text-gray-400" />} label="App Permissions" onClick={() => { }} />
-          <SettingsRow icon={<Monitor size={18} className="text-gray-400" />} label="Screen" onClick={() => { }} />
-          <SettingsRow icon={<Bell size={18} className="text-gray-400" />} label="Notifications" onClick={() => { }} />
+          <SettingsRow icon={<Lock size={18} className="text-gray-400" />} label="Privacy" onClick={handleComingSoon} />
+          <SettingsRow icon={<Shield size={18} className="text-gray-400" />} label="App Permissions" onClick={handleComingSoon} />
+          <SettingsRow icon={<Monitor size={18} className="text-gray-400" />} label="Screen" onClick={handleComingSoon} />
+          <SettingsRow icon={<Bell size={18} className="text-gray-400" />} label="Notifications" onClick={handleComingSoon} />
           <SettingsRow
             icon={<Megaphone size={18} className="text-gray-400" />}
             label="Announcements"
             rightElement={<div className="w-5 h-5 rounded-full bg-red-500 flex items-center justify-center text-[10px] font-bold text-white">N</div>}
-            onClick={() => { }}
+            onClick={handleComingSoon}
           />
-          <SettingsRow icon={<Smile size={18} className="text-gray-400" />} label="My stickers" onClick={() => { }} />
-          <SettingsRow icon={<Crown size={18} className="text-yellow-500" />} label="Premium" onClick={() => { }} />
-          <SettingsRow icon={<Info size={18} className="text-gray-400" />} label="Information" onClick={() => { }} />
-          <SettingsRow icon={<HelpCircle size={18} className="text-gray-400" />} label="Inquiry" onClick={() => { }} />
-          <SettingsRow icon={<FlaskConical size={18} className="text-gray-400" />} label="Laboratory" onClick={() => { }} />
+          <SettingsRow icon={<Smile size={18} className="text-gray-400" />} label="My stickers" onClick={handleComingSoon} />
+          <SettingsRow icon={<Info size={18} className="text-gray-400" />} label="Information" onClick={handleComingSoon} />
+          <SettingsRow icon={<HelpCircle size={18} className="text-gray-400" />} label="FAQs" onClick={handleComingSoon} />
+        </div>
+        {}
+        <div className="border-t border-[#333333] py-2">
+          <SettingsRow
+            icon={<FileDown size={18} className="text-emerald-500" />}
+            label="Export Data"
+            onClick={() => setIsExportSheetOpen(true)}
+          />
         </div>
         <div className="border-t border-[#333333] py-2">
           <SettingsRow
@@ -5418,6 +9073,12 @@ export const SettingsPage: React.FC = () => {
         isOpen={isChangePasswordOpen}
         onClose={() => setIsChangePasswordOpen(false)}
         onSuccess={() => showFeedback('Password updated successfully')}
+      />
+      {}
+      <ExportDataSheet
+        isOpen={isExportSheetOpen}
+        onClose={() => setIsExportSheetOpen(false)}
+        onSuccess={showFeedback}
       />
       {}
       {feedback && (
@@ -5728,6 +9389,8 @@ import { AuthPage } from './pages/AuthPage';
 import { AccountPage } from './pages/AccountPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { ProfilePage } from './pages/ProfilePage';
+import { ExplorePage } from './pages/ExplorePage';
+import { FriendCalendarPage } from './pages/FriendCalendarPage';
 function App() {
   return (
     <BrowserRouter>
@@ -5736,7 +9399,8 @@ function App() {
         <Route element={<AppLayout />}>
           <Route path="/" element={<Navigate to="/home" replace />} />
           <Route path="/home" element={<HomePage />} />
-          <Route path="/explore" element={<ComingSoon />} />
+          <Route path="/explore" element={<ExplorePage />} />
+          <Route path="/friends/:friendId" element={<FriendCalendarPage />} />
           <Route path="/notifications" element={<ComingSoon />} />
           <Route path="/messages" element={<ComingSoon />} />
           <Route path="/account" element={<AccountPage />} />
@@ -5904,6 +9568,7 @@ export default defineConfig([
     "date-fns": "^4.4.0",
     "embla-carousel-react": "^8.6.0",
     "emoji-picker-react": "^4.19.4",
+    "fflate": "^0.8.3",
     "framer-motion": "^13.2.0",
     "lucide-react": "^1.39.0",
     "photoswipe": "^5.4.4",
@@ -5928,6 +9593,7 @@ export default defineConfig([
     "eslint-plugin-react-hooks": "^7.1.1",
     "eslint-plugin-react-refresh": "^0.5.4",
     "globals": "^17.11.0",
+    "node-appwrite": "^29.0.0",
     "postcss": "^8.5.27",
     "tailwindcss": "^3.4.19",
     "typescript": "~6.0.2",

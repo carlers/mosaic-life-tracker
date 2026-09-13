@@ -94,7 +94,6 @@ function toAppwriteFormat(
   delete source._meta;
   delete source._deleted;
   delete source._rev;
-
   const mapped: AppwritePayload = {};
 
   if (collection === 'tasks') {
@@ -142,12 +141,12 @@ function toAppwriteFormat(
     mapped.friend_username = source.friendUsername || '';
     mapped.friend_display_name = source.friendDisplayName || '';
     mapped.friend_avatar_file_id = source.friendAvatarFileId || '';
+    mapped.friend_bio = source.friendBio || '';
     mapped.status = source.status || 'pending_outgoing';
     mapped.created_at = source.createdAt || new Date().toISOString();
     mapped.updated_at = source.updatedAt || new Date().toISOString();
     mapped.deleted = source.isDeleted ?? false;
   }
-
   return mapped;
 }
 
@@ -221,6 +220,7 @@ function fromAppwriteFormat(
     mapped.friendUsername = mapped.friend_username || '';
     mapped.friendDisplayName = mapped.friend_display_name || '';
     mapped.friendAvatarFileId = mapped.friend_avatar_file_id || '';
+    mapped.friendBio = mapped.friend_bio || '';
     mapped.status = mapped.status || 'pending_outgoing';
     mapped.createdAt = mapped.created_at || new Date().toISOString();
     mapped.updatedAt = mapped.updated_at || new Date().toISOString();
@@ -230,26 +230,14 @@ function fromAppwriteFormat(
     delete mapped.friend_username;
     delete mapped.friend_display_name;
     delete mapped.friend_avatar_file_id;
+    delete mapped.friend_bio;
     delete mapped.created_at;
     delete mapped.updated_at;
     delete mapped.deleted;
   }
-
   return mapped;
 }
 
-/**
- * Row-level permissions granted to the row's OWNER only.
- *
- * We cannot grant `user:{friendId}` on a friendship row — Appwrite forbids
- * granting roles you don't hold ("Permissions must be one of: (any, users,
- * user:{yourId}, ...)"). Cross-user visibility comes from the table-level
- * `all users` grant configured in the Console.
- *
- * Passing this explicitly (rather than omitting `permissions`) is required:
- * when the key is absent, the SDK serializes it as `[]`, which the server
- * rejects with the same "Permissions must be one of" error.
- */
 function buildRowPermissions(userId: string) {
   return [
     Permission.read(Role.user(userId)),
@@ -280,13 +268,11 @@ export async function initializeSync(): Promise<void> {
       console.log('[Sync] initializeSync skipped: sync already in progress');
     return;
   }
-
   if (typeof navigator !== 'undefined' && navigator.onLine === false) {
     if (DEBUG) console.log('[Sync] Offline, skipping sync');
     updateSyncStatus({ isSyncing: false });
     return;
   }
-
   isSyncInProgress = true;
   if (DEBUG) console.log('[Sync] Starting initial sync...');
   updateSyncStatus({ isSyncing: true, errors: [] });
@@ -298,7 +284,6 @@ export async function initializeSync(): Promise<void> {
       updateSyncStatus({ isSyncing: false });
       return;
     }
-
     const db = getDatabase();
     const collections: (keyof AppDatabaseCollections)[] = [
       'tasks',
@@ -307,7 +292,6 @@ export async function initializeSync(): Promise<void> {
       'settings',
       'friendships',
     ];
-
     const collectionErrors: string[] = [];
 
     for (const colName of collections) {
@@ -366,7 +350,6 @@ async function syncCollection(
     ? new Date(syncStatus.lastSync).getTime()
     : 0;
   const usesTimestamps = isTimestampedCollection(colName);
-
   const remoteIndex = new Map<string, { updatedAt: number; isDeleted: boolean }>();
   const justPulled = new Set<string>();
 
@@ -409,6 +392,7 @@ async function syncCollection(
         });
 
         const localDoc = await collection.findOne(docId).exec();
+
         if (!localDoc) {
           await collection.upsert(doc);
           justPulled.add(docId);
@@ -470,21 +454,7 @@ async function syncCollection(
 
     const rowData = toAppwriteFormat(json, colName, userId);
     if (DEBUG) console.log(`[Sync] Pushing ${colName} ${docId}`);
-
     try {
-      // Always pass the OWNER's permissions explicitly.
-      //
-      // - For tasks/categories/diary/settings: this is the standard
-      //   user-scoped ACL.
-      // - For friendships: the row's `user_id` column points at the
-      //   recipient (the friend), while we (the authenticated writer) are
-      //   the creator. Granting `user:{userId}` is always allowed because
-      //   it's our own role. The friend gains read/update/delete via the
-      //   table-level `all users` grant in the Console.
-      //
-      // Passing `permissions` explicitly is required: an omitted key is
-      // serialized by the SDK as `[]`, which the server rejects with
-      // "Permissions must be one of: (any, users, user:{yourId}, ...)".
       await tablesDB.upsertRow({
         databaseId: APPWRITE_CONFIG.databaseId,
         tableId,
@@ -521,9 +491,11 @@ function safeForceSync(reason: string) {
 function handleWindowFocus() {
   safeForceSync('Window focused');
 }
+
 function handleOnline() {
   safeForceSync('Connection restored');
 }
+
 function handleVisibilityChange() {
   if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
     safeForceSync('App became visible');

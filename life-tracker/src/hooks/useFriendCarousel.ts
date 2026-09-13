@@ -1,0 +1,183 @@
+import { useMemo, useCallback, useEffect, useRef } from 'react';
+import { useFriends } from './useFriends';
+import { useMyProfile } from './useMyProfile';
+import { useSettings } from './useSettings';
+import {
+  fetchProfileByUserId,
+  updateFriendBioLocally,
+} from '../lib/social';
+import type { FriendshipDocument } from '../db/schema';
+
+const PREFS_KEY = 'friend_carousel_prefs';
+const DEBUG = import.meta.env.DEV;
+
+export interface CarouselPerson {
+  id: string;
+  kind: 'me' | 'friend';
+  userId: string;
+  username: string;
+  displayName: string;
+  avatarFileId: string;
+  bio: string;
+}
+
+interface CarouselPrefs {
+  order: string[];
+  hidden: string[];
+}
+
+const DEFAULT_PREFS: CarouselPrefs = { order: [], hidden: [] };
+
+function parsePrefs(raw: unknown): CarouselPrefs {
+  if (!raw || typeof raw !== 'object') return DEFAULT_PREFS;
+  const obj = raw as Record<string, unknown>;
+  const order = Array.isArray(obj.order)
+    ? (obj.order as unknown[]).filter((x): x is string => typeof x === 'string')
+    : [];
+  const hidden = Array.isArray(obj.hidden)
+    ? (obj.hidden as unknown[]).filter((x): x is string => typeof x === 'string')
+    : [];
+  return { order, hidden };
+}
+
+export interface UseFriendCarouselReturn {
+  persons: CarouselPerson[];
+  isLoading: boolean;
+  reorder: (newOrder: string[]) => Promise<void>;
+  toggleVisibility: (friendId: string) => Promise<void>;
+  resetOrder: () => Promise<void>;
+  rawFriends: FriendshipDocument[];
+  order: string[];
+  hidden: string[];
+}
+
+export function useFriendCarousel(): UseFriendCarouselReturn {
+  const { friends, isLoading: friendsLoading } = useFriends();
+  const { profile, isLoading: profileLoading } = useMyProfile();
+  const { settings, isLoading: settingsLoading, setSetting } = useSettings();
+
+  const prefs = useMemo(() => parsePrefs(settings[PREFS_KEY]), [settings]);
+
+  const attemptedBiosRef = useRef<Set<string>>(new Set());
+
+  useEffect(() => {
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) return;
+    const missing = friends.filter(
+      (f) =>
+        (!f.friendBio || f.friendBio === '') &&
+        !attemptedBiosRef.current.has(f.friendId)
+    );
+    if (missing.length === 0) return;
+    let cancelled = false;
+    (async () => {
+      for (const f of missing) {
+        attemptedBiosRef.current.add(f.friendId);
+        try {
+          const p = await fetchProfileByUserId(f.friendId);
+          if (cancelled) return;
+          if (p?.bio) {
+            await updateFriendBioLocally(f.id, p.bio);
+          }
+        } catch (err) {
+          if (DEBUG) {
+            console.warn(
+              '[useFriendCarousel] Bio backfill failed for',
+              f.friendId,
+              err
+            );
+          }
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [friends]);
+
+  const persons = useMemo<CarouselPerson[]>(() => {
+    const list: CarouselPerson[] = [];
+
+    list.push({
+      id: 'me',
+      kind: 'me',
+      userId: profile?.user_id || '',
+      username: profile?.username || '',
+      displayName: profile?.display_name || profile?.username || 'Me',
+      avatarFileId: profile?.avatar_file_id || '',
+      bio: profile?.bio || '',
+    });
+
+    const hiddenSet = new Set(prefs.hidden);
+    const visibleFriends = friends.filter((f) => !hiddenSet.has(f.friendId));
+
+    const orderIndex = new Map<string, number>();
+    prefs.order.forEach((id, idx) => orderIndex.set(id, idx));
+
+    const sorted = [...visibleFriends].sort((a, b) => {
+      const aIdx = orderIndex.get(a.friendId);
+      const bIdx = orderIndex.get(b.friendId);
+      if (aIdx !== undefined && bIdx !== undefined) return aIdx - bIdx;
+      if (aIdx !== undefined) return -1;
+      if (bIdx !== undefined) return 1;
+      const aName = (a.friendDisplayName || a.friendUsername || '').toLowerCase();
+      const bName = (b.friendDisplayName || b.friendUsername || '').toLowerCase();
+      return aName.localeCompare(bName);
+    });
+
+    for (const f of sorted) {
+      list.push({
+        id: f.friendId,
+        kind: 'friend',
+        userId: f.friendId,
+        username: f.friendUsername,
+        displayName: f.friendDisplayName || f.friendUsername,
+        avatarFileId: f.friendAvatarFileId || '',
+        bio: f.friendBio || '',
+      });
+    }
+
+    return list;
+  }, [friends, profile, prefs]);
+
+  const reorder = useCallback(
+    async (newFriendOrder: string[]) => {
+      const next: CarouselPrefs = {
+        order: newFriendOrder,
+        hidden: prefs.hidden,
+      };
+      await setSetting(PREFS_KEY, next);
+    },
+    [prefs.hidden, setSetting]
+  );
+
+  const toggleVisibility = useCallback(
+    async (friendId: string) => {
+      const hiddenSet = new Set(prefs.hidden);
+      if (hiddenSet.has(friendId)) hiddenSet.delete(friendId);
+      else hiddenSet.add(friendId);
+      const next: CarouselPrefs = {
+        order: prefs.order,
+        hidden: Array.from(hiddenSet),
+      };
+      await setSetting(PREFS_KEY, next);
+    },
+    [prefs.order, prefs.hidden, setSetting]
+  );
+
+  const resetOrder = useCallback(async () => {
+    await setSetting(PREFS_KEY, DEFAULT_PREFS);
+  }, [setSetting]);
+
+  const isLoading = friendsLoading || profileLoading || settingsLoading;
+
+  return {
+    persons,
+    isLoading,
+    reorder,
+    toggleVisibility,
+    resetOrder,
+    rawFriends: friends,
+    order: prefs.order,
+    hidden: prefs.hidden,
+  };
+}

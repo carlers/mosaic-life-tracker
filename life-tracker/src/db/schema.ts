@@ -58,6 +58,7 @@ export interface FriendshipDocument {
   friendUsername: string;
   friendDisplayName: string;
   friendAvatarFileId: string;
+  friendBio: string;
   status: 'pending_outgoing' | 'pending_incoming' | 'accepted' | 'blocked';
   createdAt: string;
   updatedAt: string;
@@ -160,7 +161,7 @@ export const settingsSchema: RxJsonSchema<SettingsDocument> = {
 };
 
 export const friendshipsSchema: RxJsonSchema<FriendshipDocument> = {
-  version: 0,
+  version: 1,
   primaryKey: 'id',
   type: 'object',
   required: [
@@ -181,6 +182,7 @@ export const friendshipsSchema: RxJsonSchema<FriendshipDocument> = {
     friendUsername: { type: 'string', maxLength: 50 },
     friendDisplayName: { type: 'string', maxLength: 100 },
     friendAvatarFileId: { type: 'string', maxLength: 255 },
+    friendBio: { type: 'string', maxLength: 300, default: '' },
     status: {
       type: 'string',
       maxLength: 30,

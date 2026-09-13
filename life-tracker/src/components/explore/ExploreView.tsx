@@ -36,7 +36,6 @@ export const ExploreView: React.FC<ExploreViewProps> = ({
     block,
     findFriendship,
   } = useFriends();
-
   const {
     results,
     isSearching,
@@ -77,6 +76,7 @@ export const ExploreView: React.FC<ExploreViewProps> = ({
             username: profile.username,
             displayName: profile.display_name || profile.username,
             avatarFileId: profile.avatar_file_id || '',
+            bio: profile.bio || '',
           },
           p
         );

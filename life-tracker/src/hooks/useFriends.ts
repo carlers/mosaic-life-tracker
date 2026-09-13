@@ -10,7 +10,13 @@ import {
 } from '../lib/social';
 import { clearCachedCalendar } from '../lib/friendCache';
 import type { FriendshipDocument } from '../db/schema';
-import type { MyProfileInput } from '../lib/social';
+
+export interface MyProfileSummary {
+  username: string;
+  displayName: string;
+  avatarFileId?: string;
+  bio?: string;
+}
 
 export interface UseFriendsReturn {
   friends: FriendshipDocument[];
@@ -19,7 +25,7 @@ export interface UseFriendsReturn {
   blockedUsers: FriendshipDocument[];
   isLoading: boolean;
   sendRequest: (
-    myProfile: Omit<MyProfileInput, 'userId'>,
+    myProfile: MyProfileSummary,
     friend: ProfileCard
   ) => Promise<void>;
   accept: (friendUserId: string) => Promise<void>;
@@ -45,8 +51,6 @@ export function useFriends(): UseFriendsReturn {
     async function init() {
       try {
         const db = getDatabase();
-
-        // Legacy cleanup: pre-hash rows (41-char IDs) fail Appwrite's 36-char limit
         const allMine = await db.friendships
           .find({ selector: { userId: uid } })
           .exec();
@@ -58,7 +62,6 @@ export function useFriends(): UseFriendsReturn {
             await doc.remove();
           }
         }
-
         const query = db.friendships.find({
           selector: { userId: uid, isDeleted: false },
           sort: [{ updatedAt: 'desc' }],
@@ -78,7 +81,6 @@ export function useFriends(): UseFriendsReturn {
         if (isMounted) setLoadedUserId(uid);
       }
     }
-
     init();
     return () => {
       isMounted = false;
@@ -109,10 +111,7 @@ export function useFriends(): UseFriendsReturn {
   );
 
   const sendRequest = useCallback(
-    async (
-      myProfile: Omit<MyProfileInput, 'userId'>,
-      friend: ProfileCard
-    ) => {
+    async (myProfile: MyProfileSummary, friend: ProfileCard) => {
       const uid = user?.$id;
       if (!uid) {
         console.error(
@@ -125,6 +124,7 @@ export function useFriends(): UseFriendsReturn {
         myUsername: myProfile.username,
         myDisplayName: myProfile.displayName,
         myAvatarFileId: myProfile.avatarFileId || '',
+        myBio: myProfile.bio || '',
         friend,
       });
     },

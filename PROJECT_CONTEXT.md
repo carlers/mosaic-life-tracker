@@ -9,6 +9,7 @@
 ## 2. Product Reference: The "Todo Mate" Clone (Phase 1)
 - **Dark Mode Aesthetic:** Clean, dark UI (`bg-[#111111]` / `bg-[#1E1E1E]`) with high-contrast, user-defined colors for categories
 - **The Home Page & View Switcher:** Top-left button toggles between three sub-views: Calendar, Todo List, and Diary. The app must remember the user's last selected view (via localStorage or RxDB settings)
+- **Person Carousel (Home):** A horizontal pill row at the top of Home switches between the user's own calendar and friends' calendars. First pill is always "Me"; friends follow (default alphabetical, user-reorderable, hideable). A double-person icon at the end opens the friends-preference sheet. Tapping a pill slides the calendar in the direction of travel and highlights the active pill. The profile header (avatar + name + bio) sits below the carousel and applies to **every** person, including Me. Horizontal swipe on the top zone (carousel row is scrollable independently, everything else above the calendar body) switches persons. Calendar resets to today on person change
 - **Calendar View (Refined):**
   - Supports Month and Week views
   - Task blocks fill the entire horizontal space of the grid cell with minimal margins (`px-1.5`), subtle rounded corners (`rounded-[3px]`), and natural text cutoff (use `overflow-hidden whitespace-nowrap`, NEVER truncate or `...`)
@@ -47,6 +48,7 @@
 - **Row-Level vs Table-Level Permissions (VERIFIED):** `Permission.create()` **does NOT apply to rows**. Applying it to a row throws an error. Row-level permissions must only ever be `[read, update, delete]`. The **`create` permission belongs on the TABLE-level permissions** in the Appwrite Console (e.g., grant `create("users")` at the table level so authenticated users can insert new rows). If new-row sync fails with 401/403, the fix is in the Console, NOT in `buildRowPermissions`
 - **REST Endpoints:** Base path for tables is `/v1/tablesdb/{databaseId}/tables/{tableId}`
 - **ID Mapping:** RxDB primary key `id` maps directly to Appwrite's `$id` column
+- **Row ID Length Cap (CRITICAL):** Appwrite `rowId` values must be **≤36 characters**, matching `[a-zA-Z0-9_]+`, and MUST NOT start with a leading underscore. Any locally-generated ID that will become a remote `rowId` (settings, diary, or deterministic composite IDs) must respect this limit. **Rule:** when building `${userId}_${key}` IDs, validate the total length; if it exceeds 36 chars, fall back to a deterministic hashed ID (see §11)
 - **Session Management:** Appwrite sometimes auto-creates a session on signup. Always wrap `account.createEmailPasswordSession` in a `try/catch` during signup, and explicitly clear stale sessions (`account.deleteSession('current')`) before login to prevent "Session is already active" errors
 - **`$sequence` Type Change:** In Appwrite 2.0, `$sequence` is now a `string` (was `int`). Currently unused in this codebase, but note it if you ever sort by sequence
 
@@ -58,6 +60,7 @@
   - **CRITICAL:** `<BottomSheet>` MUST use `ReactDOM.createPortal` to render directly into `document.body` to escape parent z-index and overflow traps, guaranteeing it sits above the `BottomNav`
   - **Drag Restriction:** Drag-to-close must be restricted to the header handle using Framer Motion's `useDragControls` and `dragListener={false}` on the main container. This prevents accidental closes while scrolling content
 - **Sticky Layout Rules:** For `position: sticky` to work correctly inside the app, `MainLayout` root must be `h-screen overflow-hidden`, and the `<main>` tag must be `flex-1 overflow-y-auto`
+- **Non-Sticky Home Chrome:** On the Home page, the person carousel, profile header, `TopBar`, and calendar date header are **intentionally NOT sticky** — they scroll away with content so the calendar grid owns the whole viewport on long days. Do not re-add `sticky top-0` to these
 - **RxDB Reserved Keywords:** NEVER use `deleted` as a field name in RxDB schemas (it is a reserved keyword). Always use `isDeleted` locally and map it to `deleted` in the Appwrite sync layer
 - **Soft Deletes:** Never hard delete. Always use `isDeleted: true` for RxDB tombstones
 - **Strict ISO Dates:** All date fields MUST be stored as ISO 8601 strings (`yyyy-MM-dd` for day keys, full `.toISOString()` for timestamps)
@@ -70,6 +73,7 @@
 - ✅ **Phase 2.6 Complete:** Category Manager Sheet, Color Palette Picker (with Default/Vibrant/Pastel tabs), and `useCategories` hook wired to RxDB
 - ✅ **Phase 2.3 Complete:** Day View Bottom Sheet with inline task creation, real `useTasks` data wiring, task action sheet, memo sheet, date picker, image picker/viewer, and delete confirmations
 - ✅ **Conventions Hardening Complete:** `window.confirm` eliminated (nested sheet pattern enforced), iOS focus behavior fixed (ref-based), Appwrite row-permission correctness verified
+- ✅ **Person Carousel Complete:** Home page person carousel with Me + friends, per-person calendar switching (direction-aware slide animation), `useCalendarState` refactor (shared state + `CalendarHeader` + `CalendarBody`), `SwipeableTopZone` for person switching, `FriendCarouselSettingsSheet` (Framer Motion `Reorder` + visibility toggles), `friendBio` schema v1 with lazy profile backfill, and settings rowId hashing to satisfy Appwrite's 36-char limit
 - 🔄 **Next Up:** Phase 3 (Todo List View — compact color grid + vertical task list for selected day)
 
 ---
@@ -94,6 +98,7 @@
   ```
   This is the canonical replacement for useEffect-based prop-syncing in sheets/modals (MemoSheet, DatePickerSheet, EditTaskSheet, DayViewSheet)
 - **Primitive-Only Deps in Effects:** When an effect needs to react to a document prop, read `const taskId = task?.id ?? null` at the top of the component and use `taskId` in both the effect body and the deps array. NEVER reference the whole `task` object inside the effect. This satisfies `react-hooks/exhaustive-deps` AND prevents re-fire on RxDB identity churn
+- **Debounced Persistence in Sheets:** When a sheet needs to persist live reorder state (e.g., `FriendCarouselSettingsSheet`), debounce the write (~400ms) inside a `useEffect` keyed on the local items array. Do NOT write on every drag tick
 
 ## 10. Error Handling & Logging Conventions
 - **Hook/Service Log Prefix:** All `console.error` and `console.warn` calls MUST be prefixed with `[ComponentName]` or `[hookName]` in square brackets (e.g., `[useTasks]`, `[Storage]`, `[Sync]`, `[Bootstrap]`, `[RxDB]`). Makes log filtering trivial
@@ -101,14 +106,20 @@
 - **Silent Session Cleanup:** Before any `account.createEmailPasswordSession`, wrap a `try { await account.deleteSession('current') } catch {}` — swallowing that error is intentional and required
 - **DEBUG Gating:** Non-error diagnostic logs MUST be wrapped in `if (import.meta.env.DEV)` or gated behind a module-level `const DEBUG = import.meta.env.DEV`. Never log to production consoles
 - **Error Surfacing to UI:** Use a fixed-position toast (`fixed bottom-24 left-1/2 -translate-x-1/2 z-[70]`) with auto-dismiss via `setTimeout` (2000ms) — see DayViewSheet's `deleteFeedback` pattern. Do not use `alert()` for anything except placeholder "Coming Soon" features
+- **Invalid RowId Recovery:** If sync logs an `Invalid rowId` error for a locally-created doc, that doc will retry forever. The owning hook (e.g., `useSettings`) must scan for and `remove()` any legacy rows whose ID violates Appwrite's constraints during its init phase
 
 ## 11. ID Generation & Naming
 - **Client-Generated IDs:** All primary keys are generated client-side (no server round-trip) with a type prefix:
   - Tasks: `task_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
   - Categories: `cat_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
   - Images: `img_${crypto.randomUUID().replace(/-/g, '')}` (with a `getRandomValues` fallback for iOS)
-  - Deterministic composite IDs (settings, diary): `${userId}_${key}` or `${userId}_${date}`
-- `Math.random().toString(36).substr(2, 9)` is the standard suffix — do not use `.slice()` in new code (consistency with existing)
+  - Deterministic composite IDs (settings, diary): `${userId}_${key}` or `${userId}_${date}` — **but only when the total length is ≤36 chars** (see §6 Row ID Length Cap)
+- **Settings Row ID Hashing:** Because `${userId}_${key}` easily exceeds Appwrite's 36-char cap for long keys (`friend_carousel_prefs`, etc.), `useSettings` uses a `makeSettingsRowId(userId, key)` helper:
+  1. If `${userId}_${key}` fits in ≤36 chars → use it as-is (keeps short keys like `displayName` stable)
+  2. Otherwise → return `s_${hashString(userId + '_' + key)}` where `hashString` is a deterministic dual-djb2 variant producing a ~12–14 char base36 string
+  Any new feature that needs a long settings key automatically gets a valid Appwrite row ID without schema changes
+- **Friendship Row IDs:** Deterministic SHA-256 based: `fr_${hex.slice(0, 32)}` from `${ownerId}|${friendId}` (already 35 chars, safe)
+- **`Math.random().toString(36).substr(2, 9)`** is the standard suffix — do not use `.slice()` in new code (consistency with existing)
 
 ## 12. Field Naming & Serialization
 - **Local ↔ Remote Mapping Rules:**
@@ -120,7 +131,8 @@
   - Day keys (task date, diary date, sorting): `yyyy-MM-dd` via `date-fns.format`
   - Timestamps (`createdAt`, `updatedAt`, `completedAt`): full ISO 8601 via `.toISOString()`
   - When comparing timestamps, always use the `toMs()` helper pattern (`Number.isFinite` guard)
-- **Empty-String Over Null:** Optional string fields (`memo`, `image`, `completedAt`, `icon`) MUST default to `''`, never `null` or `undefined`, so RxDB schema validation never fails
+- **Empty-String Over Null:** Optional string fields (`memo`, `image`, `completedAt`, `icon`, `friendBio`) MUST default to `''`, never `null` or `undefined`, so RxDB schema validation never fails
+- **Schema Migrations:** When adding a new optional field to an existing RxDB collection, bump the schema `version` and add a `migrationStrategies` entry in `database.ts` that backfills the field with `''`. Also update both `toAppwriteFormat` and `fromAppwriteFormat` in `sync.ts`, and run a one-off `scripts/*.mjs` script to add the corresponding Appwrite column
 
 ## 13. Modal & Bottom Sheet Structure
 - **One Sheet = One File:** Every sheet lives in its own file and takes `{ isOpen, onClose, <entity>, onSave/onConfirm }` props. No context-based sheet orchestration
@@ -129,6 +141,7 @@
 - **Sheet Content Padding:** Sheet bodies use `pt-2 pb-8 px-4` (or `px-1` for full-width lists). Do not add extra wrappers
 - **Delete Confirmations:** Destructive flows inside a sheet MUST open a nested BottomSheet with `isLocked={true}` and a two-button `[Cancel | Delete]` row (`bg-[#2A2A2A]` / `bg-red-500`). `window.confirm` is BANNED in sheets. The reference implementation is DayViewSheet's "Delete Photo" sheet; CategoryManagerSheet's "Delete Category" sheet mirrors it
 - **Deleting State:** Nested delete-confirm sheets track a local `isDeleting` boolean and render a spinner inside the Delete button while the async operation is in flight
+- **Reorderable Sheets:** Lists that support drag-to-reorder use Framer Motion's `Reorder.Group` / `Reorder.Item` with `dragListener={false}` on the item and a dedicated grip handle that calls `dragControls.start(e)`. Never enable whole-row drag in a scrollable sheet
 
 ## 14. Component Conventions
 - **Export Style:** Components are named exports (`export const Foo: React.FC<Props> = ...`). No default exports except `App.tsx`
@@ -138,19 +151,23 @@
 - **Stop Event Leakage in Lists:** Buttons/inputs inside tappable rows MUST call `onPointerDown={(e) => e.stopPropagation()}` to prevent parent row's tap handler from firing (critical inside Swiper slides)
 - **Animation Tokens:** Entry animations use `animate-in fade-in duration-300` or `animate-in fade-in slide-in-from-<dir>-1 duration-200`. Framer Motion `whileTap={{ scale: 0.95–0.98 }}` on all tappables
 - **Spinner Primitive:** Loading spinners are ALWAYS `<div className="w-N h-N border-2 border-white border-t-transparent rounded-full animate-spin" />`. No SVG spinners, no library spinners
+- **AnimatePresence Person/View Switching:** Person and view transitions between full calendar panes use `<AnimatePresence mode="wait">` with `custom={direction}` and a slide variant keyed on direction. `mode="wait"` prevents two Embla carousels from simultaneously mounting and fighting for touch events
 
 ## 15. File Organization Rules
 - `src/components/ui/` — pure, entity-agnostic primitives (Button, Input, BottomSheet, Avatar, ColorPalettePicker, OfflineBanner)
 - `src/components/layout/` — chrome that wraps routes (MainLayout, BottomNav, AppLayout, ComingSoon)
-- `src/components/home/views/` — feature components scoped to the Home page; sub-sheets for a view live alongside the view (DayViewSheet next to CalendarView)
-- `src/hooks/` — one hook per data domain (useTasks, useCategories, useDiary, useSettings) plus focused utilities (useTaskImage, useImageCompression)
-- `src/lib/` — side-effectful SDK wrappers and pure utilities (appwrite, storage, imageCache, mockData). No React imports allowed here
+- `src/components/home/` — Home page feature components (PersonCarousel, PersonProfileHeader, SwipeableTopZone, FriendCarouselSettingsSheet, TopBar, ViewSwitcher, HamburgerMenu)
+- `src/components/home/views/` — calendar sub-views and their sub-sheets (CalendarHeader, CalendarBody, MonthView, WeekView, DayViewSheet, etc.) plus the shared `useCalendarState` hook
+- `src/components/friend/` — read-only friend views used by both HomePage's carousel content and `FriendCalendarPage`
+- `src/hooks/` — one hook per data domain (useTasks, useCategories, useDiary, useSettings, useFriends, useFriendCarousel) plus focused utilities (useTaskImage, useImageCompression)
+- `src/lib/` — side-effectful SDK wrappers and pure utilities (appwrite, storage, imageCache, social, friendCache, friendData, mockData). No React imports allowed here
 
 ## 16. List Rendering & Sorting
 - **Default Sort Contracts (in hooks, not components):**
   - Tasks: `[{ date: 'asc' }, { createdAt: 'desc' }]`
   - Categories: `[{ order: 'asc' }]`
   - Diary: `[{ date: 'desc' }]`
+  - Friends (carousel): user-defined `order` first, then alphabetical by `friendDisplayName || friendUsername` for the un-ordered tail
 - **Grouping is Memoized:** Any grouping (e.g., tasks-by-category, tasks-by-date) MUST use a `useMemo` that returns a Map or Record, not a `filter()` inside a `.map()`
 - **Empty Arrays Are Module Constants:** Pass shared empty arrays as `const EMPTY_TASKS: TaskDocument[] = []` to keep `React.memo` prop equality stable across renders
 
@@ -164,9 +181,11 @@
 - **Cancellation Ref:** Every async `useEffect` MUST have a local `let isMounted = true` (or `effectIsActive`) flag, and every `.then`/`await` continuation MUST check it before `setState`. Cleanup sets the flag to `false`
 - **Programmatic-Move Guards:** When a component programmatically drives a carousel (Swiper, Embla), set an `isProgrammaticMoveRef.current = true` before calling `.slideTo()` / `.scrollTo()`, and clear it in a `requestAnimationFrame`. Event handlers (`onSlideChangeTransitionEnd`, `onSelect`) check this ref to ignore self-induced events — prevents infinite feedback loops between state and carousel
 - **Re-entrancy Guards:** Sync/network loops use a module-level boolean (`isSyncInProgress`) and log-and-return on re-entry rather than queueing
+- **Attempt-Once Ref:** Lazy side effects that should only ever run once per entity (e.g., friend bio backfill) use a `useRef<Set<string>>` to track attempted entity IDs. Never rely on `useEffect` deps alone for "run only once" semantics
 
 ## 19. Bootstrap & Persistence
 - **Order of Operations in `main.tsx`:** 1) `navigator.storage.persist()`, 2) `initializeDatabase()`, 3) fire-and-forget `initializeSync()` (never block render on network), 4) `ReactDOM.createRoot(...).render(...)`
 - **Non-Blocking Sync:** `initializeSync()` is always called with `.catch()` — a sync failure must never prevent the app from mounting
 - **`ignoreDuplicate: true`** on `createRxDatabase` and a singleton `dbInstance` module variable are required to survive React StrictMode double-invocations
+- **Local Cleanup on Init:** Data hooks should opportunistically purge known-bad local state (oversized row IDs, legacy composite IDs) during their init phase, before subscribing. This avoids permanent sync failures for users who already have broken rows in IndexedDB
 ```

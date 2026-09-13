@@ -60,13 +60,6 @@ function buildProfileRowPermissions(userId: string) {
   ];
 }
 
-/**
- * The creator's own role. We pass this on friendship writes because the
- * Appwrite SDK defaults `permissions` to `[]` when omitted, which the server
- * rejects. Cross-user access (friend reading/writing this row) is granted via
- * table-level `all users` permissions in the Console — NOT via row-level
- * grants, which Appwrite forbids for other users.
- */
 function buildCreatorOwnPermissions(userId: string) {
   return [
     Permission.read(Role.user(userId)),
@@ -100,6 +93,12 @@ export async function fetchMyProfile(
   }
 }
 
+export async function fetchProfileByUserId(
+  userId: string
+): Promise<ProfileCard | null> {
+  return fetchMyProfile(userId);
+}
+
 export async function createOrUpdateProfile(
   input: MyProfileInput
 ): Promise<ProfileCard> {
@@ -116,7 +115,6 @@ export async function createOrUpdateProfile(
     updated_at: now,
     deleted: false,
   };
-
   const row = await tablesDB.upsertRow({
     databaseId: APPWRITE_CONFIG.databaseId,
     tableId: APPWRITE_CONFIG.tables.profiles,
@@ -124,7 +122,6 @@ export async function createOrUpdateProfile(
     data,
     permissions: buildProfileRowPermissions(input.userId),
   });
-
   if (DEBUG) console.log('[social] Profile upserted:', rowId);
   return row as unknown as ProfileCard;
 }
@@ -153,7 +150,6 @@ export async function searchProfiles(
 ): Promise<ProfileCard[]> {
   const trimmed = query.trim().toLowerCase();
   if (trimmed.length < 1) return [];
-
   try {
     const res = await tablesDB.listRows({
       databaseId: APPWRITE_CONFIG.databaseId,
@@ -177,16 +173,23 @@ export interface SendRequestInput {
   myUsername: string;
   myDisplayName: string;
   myAvatarFileId: string;
+  myBio: string;
   friend: ProfileCard;
 }
 
 export async function sendFriendRequest(
   input: SendRequestInput
 ): Promise<void> {
-  const { myUserId, myUsername, myDisplayName, myAvatarFileId, friend } = input;
+  const {
+    myUserId,
+    myUsername,
+    myDisplayName,
+    myAvatarFileId,
+    myBio,
+    friend,
+  } = input;
   const now = new Date().toISOString();
   const db = getDatabase();
-
   const myRowId = await makeFriendshipId(myUserId, friend.user_id);
   const friendRowId = await makeFriendshipId(friend.user_id, myUserId);
 
@@ -197,6 +200,7 @@ export async function sendFriendRequest(
     friendUsername: friend.username,
     friendDisplayName: friend.display_name || friend.username,
     friendAvatarFileId: friend.avatar_file_id || '',
+    friendBio: friend.bio || '',
     status: 'pending_outgoing',
     createdAt: now,
     updatedAt: now,
@@ -204,10 +208,6 @@ export async function sendFriendRequest(
   };
   await db.friendships.upsert(myLocalRow);
 
-  // Explicitly pass the creator's OWN permissions (which are allowed).
-  // Omitting permissions causes the SDK to default to an empty array that the
-  // server rejects. Granting `user:{friendId}` is forbidden by Appwrite — the
-  // friend's access comes from the table-level `all users` role instead.
   await tablesDB.upsertRow({
     databaseId: APPWRITE_CONFIG.databaseId,
     tableId: APPWRITE_CONFIG.tables.friendships,
@@ -218,6 +218,7 @@ export async function sendFriendRequest(
       friend_username: myUsername,
       friend_display_name: myDisplayName,
       friend_avatar_file_id: myAvatarFileId,
+      friend_bio: myBio,
       status: 'pending_incoming',
       created_at: now,
       updated_at: now,
@@ -225,7 +226,6 @@ export async function sendFriendRequest(
     },
     permissions: buildCreatorOwnPermissions(myUserId),
   });
-
   if (DEBUG) console.log('[social] Friend request sent:', myRowId, friendRowId);
 }
 
@@ -249,7 +249,6 @@ export async function acceptFriendRequest(
     rowId: friendRowId,
     data: { status: 'accepted', updated_at: now },
   });
-
   if (DEBUG) console.log('[social] Friend request accepted:', myRowId);
 }
 
@@ -280,7 +279,6 @@ export async function deleteFriendPair(
       console.warn('[social] deleteFriendPair remote failed:', err);
     }
   }
-
   if (DEBUG) console.log('[social] Friend pair soft-deleted:', myRowId);
 }
 
@@ -312,4 +310,19 @@ export async function blockFriend(
 
 export function hasRecentTimestamp(iso: string, thresholdMs = 5000): boolean {
   return Date.now() - toMs(iso) < thresholdMs;
+}
+
+export async function updateFriendBioLocally(
+  friendshipDocId: string,
+  bio: string
+): Promise<void> {
+  try {
+    const db = getDatabase();
+    const doc = await db.friendships.findOne(friendshipDocId).exec();
+    if (doc && (!doc.friendBio || doc.friendBio === '')) {
+      await doc.patch({ friendBio: bio });
+    }
+  } catch (err) {
+    console.warn('[social] updateFriendBioLocally failed:', err);
+  }
 }
