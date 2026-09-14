@@ -27,15 +27,16 @@ export const HomePage: React.FC = () => {
   const swiperRef = useRef<SwiperClass | null>(null);
   const isProgrammaticMoveRef = useRef(false);
 
+  // Render-body reset: if the active person disappears (removed/hidden),
+  // fall back to Me. React will immediately re-render with the new value,
+  // no effect or cascading render needed.
+  if (persons.length > 0 && !persons.some((p) => p.id === activePersonId)) {
+    setActivePersonId('me');
+  }
+
   const activeIndex = useMemo(() => {
     const idx = persons.findIndex((p) => p.id === activePersonId);
     return idx >= 0 ? idx : 0;
-  }, [persons, activePersonId]);
-
-  useEffect(() => {
-    if (persons.length === 0) return;
-    const exists = persons.some((p) => p.id === activePersonId);
-    if (!exists) setActivePersonId('me');
   }, [persons, activePersonId]);
 
   useEffect(() => {

@@ -8,6 +8,8 @@ import { SettingsPage } from './pages/SettingsPage';
 import { ProfilePage } from './pages/ProfilePage';
 import { ExplorePage } from './pages/ExplorePage';
 import { FriendCalendarPage } from './pages/FriendCalendarPage';
+import { MessagesPage } from './pages/MessagesPage';
+import { ChatPage } from './pages/ChatPage';
 
 function App() {
   return (
@@ -20,7 +22,8 @@ function App() {
           <Route path="/explore" element={<ExplorePage />} />
           <Route path="/friends/:friendId" element={<FriendCalendarPage />} />
           <Route path="/notifications" element={<ComingSoon />} />
-          <Route path="/messages" element={<ComingSoon />} />
+          <Route path="/messages" element={<MessagesPage />} />
+          <Route path="/messages/:friendId" element={<ChatPage />} />
           <Route path="/account" element={<AccountPage />} />
           <Route path="/settings" element={<SettingsPage />} />
           <Route path="/profile" element={<ProfilePage />} />

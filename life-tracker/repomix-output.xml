@@ -67,6 +67,8 @@ src/
       FriendDayViewSheet.tsx
     home/
       views/
+        CalendarBody.tsx
+        CalendarHeader.tsx
         CalendarView.tsx
         CategorySection.tsx
         DatePickerSheet.tsx
@@ -83,9 +85,14 @@ src/
         TaskItem.tsx
         TaskVisibilitySheet.tsx
         TodoListView.tsx
+        useCalendarState.ts
         ViewToggle.tsx
         WeekView.tsx
+      FriendCarouselSettingsSheet.tsx
       HamburgerMenu.tsx
+      PersonCarousel.tsx
+      PersonPane.tsx
+      PersonProfileHeader.tsx
       TopBar.tsx
       ViewContainer.tsx
       ViewSwitcher.tsx
@@ -122,6 +129,7 @@ src/
     useAuth.ts
     useCategories.ts
     useDiary.ts
+    useFriendCarousel.ts
     useFriends.ts
     useImageCompression.ts
     useMyProfile.ts
@@ -424,6 +432,7 @@ export const ExploreView: React.FC<ExploreViewProps> = ({
             username: profile.username,
             displayName: profile.display_name || profile.username,
             avatarFileId: profile.avatar_file_id || '',
+            bio: profile.bio || '',
           },
           p
         );
@@ -1395,6 +1404,175 @@ export const FriendDayViewSheet: React.FC<FriendDayViewSheetProps> = ({
         )}
       </div>
     </BottomSheet>
+  );
+};
+</file>
+
+<file path="src/components/home/views/CalendarBody.tsx">
+import React, { useState, useCallback } from 'react';
+import { MonthView } from './MonthView';
+import { WeekView } from './WeekView';
+import { DayViewSheet } from './DayViewSheet';
+import { FriendDayViewSheet } from '../../friend/FriendDayViewSheet';
+import type { TaskDocument, CategoryDocument } from '../../../db/schema';
+import type { CalendarViewMode } from './useCalendarState';
+interface CalendarSlideProps {
+  date: Date;
+  viewMode: CalendarViewMode;
+  onDayClick: (date: Date) => void;
+  tasks: TaskDocument[];
+  categoriesMap: Record<string, { color: string; name: string }>;
+}
+const CalendarSlide = React.memo(
+  ({ date, viewMode, onDayClick, tasks, categoriesMap }: CalendarSlideProps) => {
+    if (viewMode === 'month') {
+      return (
+        <MonthView
+          focusDate={date}
+          onDayClick={onDayClick}
+          tasks={tasks}
+          categoriesMap={categoriesMap}
+        />
+      );
+    }
+    return (
+      <WeekView
+        focusDate={date}
+        onDayClick={onDayClick}
+        tasks={tasks}
+        categoriesMap={categoriesMap}
+      />
+    );
+  }
+);
+CalendarSlide.displayName = 'CalendarSlide';
+interface CalendarBodyProps {
+  viewMode: CalendarViewMode;
+  slides: Date[];
+  emblaRef: (node: HTMLElement | null) => void;
+  tasks: TaskDocument[];
+  categoriesMap: Record<string, { color: string; name: string }>;
+  variant: 'me' | 'friend';
+  friendCategories?: CategoryDocument[];
+  friendName?: string;
+}
+export const CalendarBody: React.FC<CalendarBodyProps> = ({
+  viewMode,
+  slides,
+  emblaRef,
+  tasks,
+  categoriesMap,
+  variant,
+  friendCategories,
+  friendName,
+}) => {
+  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+  const handleDayClick = useCallback((date: Date) => {
+    setSelectedDate(date);
+  }, []);
+  const handleCloseSheet = useCallback(() => {
+    setSelectedDate(null);
+  }, []);
+  return (
+    <>
+      {
+}
+      <div
+        className="flex-1 min-h-0 overflow-hidden py-2"
+        ref={emblaRef}
+      >
+        <div className="flex h-full" style={{ touchAction: 'pan-y' }}>
+          {slides.map((date, i) => (
+            <div
+              key={i}
+              className="flex-shrink-0 h-full w-full"
+              style={{ flex: '0 0 100%', minWidth: 0 }}
+            >
+              <CalendarSlide
+                date={date}
+                viewMode={viewMode}
+                onDayClick={handleDayClick}
+                tasks={tasks}
+                categoriesMap={categoriesMap}
+              />
+            </div>
+          ))}
+        </div>
+      </div>
+      {variant === 'me' ? (
+        <DayViewSheet
+          isOpen={!!selectedDate}
+          onClose={handleCloseSheet}
+          selectedDate={selectedDate || new Date()}
+          onDateChange={setSelectedDate}
+        />
+      ) : (
+        <FriendDayViewSheet
+          isOpen={!!selectedDate}
+          onClose={handleCloseSheet}
+          date={selectedDate}
+          tasks={tasks}
+          categories={friendCategories || []}
+          friendName={friendName || 'Friend'}
+        />
+      )}
+    </>
+  );
+};
+</file>
+
+<file path="src/components/home/views/CalendarHeader.tsx">
+import React from 'react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ViewToggle } from './ViewToggle';
+import { ViewSwitcher, type ViewType } from '../ViewSwitcher';
+import type { CalendarViewMode } from './useCalendarState';
+interface CalendarHeaderProps {
+  title: string;
+  viewMode: CalendarViewMode;
+  onToggleMode: () => void;
+  onPrev: () => void;
+  onNext: () => void;
+  activeView: ViewType;
+  onViewChange: (v: ViewType) => void;
+}
+export const CalendarHeader: React.FC<CalendarHeaderProps> = ({
+  title,
+  viewMode,
+  onToggleMode,
+  onPrev,
+  onNext,
+  activeView,
+  onViewChange,
+}) => {
+  return (
+    <div className="px-4 py-3 flex items-center gap-3 border-b border-[#333333]">
+      <ViewSwitcher activeView={activeView} onViewChange={onViewChange} />
+      <h2 className="text-base font-bold text-white flex-1 truncate transition-all duration-200">
+        {title}
+      </h2>
+      <div className="flex items-center gap-2 flex-shrink-0">
+        <ViewToggle activeMode={viewMode} onToggle={onToggleMode} />
+        <button
+          type="button"
+          onClick={onPrev}
+          onPointerDown={(e) => e.stopPropagation()}
+          className="p-1.5 rounded-lg bg-[#1E1E1E] border border-[#333333] text-gray-400 hover:text-white hover:bg-[#2A2A2A] transition-colors"
+          aria-label="Previous"
+        >
+          <ChevronLeft size={16} />
+        </button>
+        <button
+          type="button"
+          onClick={onNext}
+          onPointerDown={(e) => e.stopPropagation()}
+          className="p-1.5 rounded-lg bg-[#1E1E1E] border border-[#333333] text-gray-400 hover:text-white hover:bg-[#2A2A2A] transition-colors"
+          aria-label="Next"
+        >
+          <ChevronRight size={16} />
+        </button>
+      </div>
+    </div>
   );
 };
 </file>
@@ -3340,6 +3518,132 @@ export const TodoListView: React.FC = () => {
 };
 </file>
 
+<file path="src/components/home/views/useCalendarState.ts">
+import { useState, useRef, useEffect, useMemo, useCallback } from 'react';
+import {
+  format,
+  startOfMonth,
+  startOfWeek,
+  endOfWeek,
+  addMonths,
+  addWeeks,
+  differenceInCalendarMonths,
+  differenceInCalendarWeeks,
+} from 'date-fns';
+import useEmblaCarousel from 'embla-carousel-react';
+export type CalendarViewMode = 'month' | 'week';
+const SLIDES_EACH_SIDE = 30;
+const TOTAL_SLIDES = SLIDES_EACH_SIDE * 2 + 1;
+const CENTER_INDEX = SLIDES_EACH_SIDE;
+export interface CalendarState {
+  viewMode: CalendarViewMode;
+  focusDate: Date;
+  slides: Date[];
+  emblaRef: (node: HTMLElement | null) => void;
+  title: string;
+  handlePrev: () => void;
+  handleNext: () => void;
+  handleToggle: () => void;
+  resetToToday: () => void;
+}
+export function useCalendarState(): CalendarState {
+  const [viewMode, setViewMode] = useState<CalendarViewMode>('month');
+  const [focusDate, setFocusDate] = useState<Date>(() => new Date());
+  const [baseDate, setBaseDate] = useState<Date>(() => new Date());
+  const isInternalSwipeRef = useRef(false);
+  const [prevViewMode, setPrevViewMode] = useState(viewMode);
+  if (prevViewMode !== viewMode) {
+    setPrevViewMode(viewMode);
+    setBaseDate(focusDate);
+  }
+  const slides = useMemo(() => {
+    const fn = viewMode === 'month' ? addMonths : addWeeks;
+    return Array.from({ length: TOTAL_SLIDES }, (_, i) =>
+      fn(baseDate, i - CENTER_INDEX)
+    );
+  }, [baseDate, viewMode]);
+  const [emblaRef, emblaApi] = useEmblaCarousel({
+    loop: false,
+    align: 'start',
+    skipSnaps: false,
+  });
+  useEffect(() => {
+    if (!emblaApi) return;
+    if (isInternalSwipeRef.current) {
+      isInternalSwipeRef.current = false;
+      return;
+    }
+    const offset =
+      viewMode === 'month'
+        ? differenceInCalendarMonths(focusDate, baseDate)
+        : differenceInCalendarWeeks(focusDate, baseDate);
+    const targetIndex = CENTER_INDEX + offset;
+    if (targetIndex < 0 || targetIndex >= TOTAL_SLIDES) return;
+    if (emblaApi.selectedScrollSnap() !== targetIndex) {
+      emblaApi.scrollTo(targetIndex, true);
+    }
+  }, [emblaApi, focusDate, baseDate, viewMode]);
+  useEffect(() => {
+    if (!emblaApi) return;
+    const onSelect = () => {
+      const index = emblaApi.selectedScrollSnap();
+      const offset = index - CENTER_INDEX;
+      const fn = viewMode === 'month' ? addMonths : addWeeks;
+      const newDate = fn(baseDate, offset);
+      const same =
+        viewMode === 'month'
+          ? differenceInCalendarMonths(newDate, focusDate) === 0
+          : differenceInCalendarWeeks(newDate, focusDate) === 0;
+      if (!same) {
+        isInternalSwipeRef.current = true;
+        setFocusDate(newDate);
+      }
+    };
+    emblaApi.on('select', onSelect);
+    return () => {
+      emblaApi.off('select', onSelect);
+    };
+  }, [emblaApi, baseDate, focusDate, viewMode]);
+  const handlePrev = useCallback(() => {
+    emblaApi?.scrollPrev();
+  }, [emblaApi]);
+  const handleNext = useCallback(() => {
+    emblaApi?.scrollNext();
+  }, [emblaApi]);
+  const handleToggle = useCallback(() => {
+    if (viewMode === 'month') {
+      setFocusDate(startOfMonth(focusDate));
+      setViewMode('week');
+    } else {
+      setViewMode('month');
+    }
+  }, [viewMode, focusDate]);
+  const resetToToday = useCallback(() => {
+    const today = new Date();
+    setFocusDate(today);
+    setBaseDate(today);
+  }, []);
+  const weekStart = startOfWeek(focusDate, { weekStartsOn: 0 });
+  const weekEnd = endOfWeek(focusDate, { weekStartsOn: 0 });
+  const title = useMemo(() => {
+    return viewMode === 'month'
+      ? format(focusDate, 'MMMM yyyy')
+      : `${format(weekStart, 'MMM d')} - ${format(weekEnd, 'MMM d, yyyy')}`;
+  }, [viewMode, focusDate, weekStart, weekEnd]);
+  return {
+    viewMode,
+    focusDate,
+    slides,
+    emblaRef,
+    title,
+    handlePrev,
+    handleNext,
+    handleToggle,
+    resetToToday,
+  };
+}
+</file>
+
 <file path="src/components/home/views/ViewToggle.tsx">
 import React from 'react';
 interface ViewToggleProps {
@@ -3403,6 +3707,181 @@ export const WeekView: React.FC<WeekViewProps> = ({ focusDate, onDayClick, tasks
 };
 </file>
 
+<file path="src/components/home/FriendCarouselSettingsSheet.tsx">
+import React, { useEffect, useMemo, useState } from 'react';
+import { Reorder, useDragControls } from 'framer-motion';
+import { GripVertical, RotateCcw } from 'lucide-react';
+import { BottomSheet } from '../ui/BottomSheet';
+import { Avatar } from '../ui/Avatar';
+import { useTaskImage } from '../../hooks/useTaskImage';
+import type { FriendshipDocument } from '../../db/schema';
+interface FriendRowProps {
+  friend: FriendshipDocument;
+  hidden: boolean;
+  onToggle: () => void;
+}
+const FriendRow: React.FC<FriendRowProps> = ({ friend, hidden, onToggle }) => {
+  const dragControls = useDragControls();
+  const { imageUrl } = useTaskImage(friend.friendAvatarFileId || undefined);
+  return (
+    <Reorder.Item
+      value={friend.friendId}
+      dragListener={false}
+      dragControls={dragControls}
+      className="bg-[#1E1E1E] border border-[#333333] rounded-xl p-3 flex items-center gap-3"
+    >
+      <button
+        type="button"
+        onPointerDown={(e) => {
+          e.stopPropagation();
+          dragControls.start(e);
+        }}
+        className="p-1 -ml-1 text-gray-500 hover:text-white touch-none cursor-grab active:cursor-grabbing"
+        aria-label="Drag to reorder"
+      >
+        <GripVertical size={16} />
+      </button>
+      <Avatar
+        src={imageUrl || undefined}
+        alt={friend.friendDisplayName || friend.friendUsername}
+        size="sm"
+      />
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-medium text-white truncate">
+          {friend.friendDisplayName || friend.friendUsername}
+        </p>
+        <p className="text-xs text-gray-500 truncate">
+          @{friend.friendUsername}
+        </p>
+      </div>
+      <button
+        type="button"
+        onClick={onToggle}
+        onPointerDown={(e) => e.stopPropagation()}
+        className={`relative w-10 h-5 rounded-full transition-colors flex-shrink-0 ${
+          hidden ? 'bg-gray-600' : 'bg-emerald-500'
+        }`}
+        aria-label={hidden ? 'Show in carousel' : 'Hide from carousel'}
+      >
+        <div
+          className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform ${
+            hidden ? 'left-0.5' : 'left-[22px]'
+          }`}
+        />
+      </button>
+    </Reorder.Item>
+  );
+};
+interface FriendCarouselSettingsSheetProps {
+  isOpen: boolean;
+  onClose: () => void;
+  friends: FriendshipDocument[];
+  order: string[];
+  hidden: string[];
+  onReorder: (newOrder: string[]) => void;
+  onToggleVisibility: (friendId: string) => void;
+  onReset: () => void;
+}
+export const FriendCarouselSettingsSheet: React.FC<
+  FriendCarouselSettingsSheetProps
+> = ({
+  isOpen,
+  onClose,
+  friends,
+  order,
+  hidden,
+  onReorder,
+  onToggleVisibility,
+  onReset,
+}) => {
+  const sortedFriends = useMemo(() => {
+    const orderIndex = new Map<string, number>();
+    order.forEach((id, idx) => orderIndex.set(id, idx));
+    return [...friends].sort((a, b) => {
+      const aIdx = orderIndex.get(a.friendId);
+      const bIdx = orderIndex.get(b.friendId);
+      if (aIdx !== undefined && bIdx !== undefined) return aIdx - bIdx;
+      if (aIdx !== undefined) return -1;
+      if (bIdx !== undefined) return 1;
+      const aName = (a.friendDisplayName || a.friendUsername || '').toLowerCase();
+      const bName = (b.friendDisplayName || b.friendUsername || '').toLowerCase();
+      return aName.localeCompare(bName);
+    });
+  }, [friends, order]);
+  const [items, setItems] = useState<string[]>(() =>
+    sortedFriends.map((f) => f.friendId)
+  );
+  const [wasOpen, setWasOpen] = useState(false);
+  if (isOpen !== wasOpen) {
+    setWasOpen(isOpen);
+    if (isOpen) {
+      setItems(sortedFriends.map((f) => f.friendId));
+    }
+  }
+  useEffect(() => {
+    if (!isOpen) return;
+    const t = setTimeout(() => {
+      onReorder(items);
+    }, 400);
+    return () => clearTimeout(t);
+  }, [items, isOpen, onReorder]);
+  const friendsById = useMemo(() => {
+    const m = new Map<string, FriendshipDocument>();
+    for (const f of friends) m.set(f.friendId, f);
+    return m;
+  }, [friends]);
+  return (
+    <BottomSheet
+      isOpen={isOpen}
+      onClose={onClose}
+      title="Friends in Carousel"
+      height="auto"
+    >
+      <div className="pt-2 pb-8 px-1">
+        <p className="text-xs text-gray-500 text-center mb-4 leading-relaxed px-3">
+          Drag to reorder. Toggle to show or hide a friend from the top carousel.
+        </p>
+        {friends.length === 0 ? (
+          <div className="text-center py-10 px-4">
+            <p className="text-sm text-gray-500">No friends yet.</p>
+          </div>
+        ) : (
+          <Reorder.Group
+            axis="y"
+            values={items}
+            onReorder={setItems}
+            className="space-y-2"
+          >
+            {items.map((friendId) => {
+              const friend = friendsById.get(friendId);
+              if (!friend) return null;
+              return (
+                <FriendRow
+                  key={friendId}
+                  friend={friend}
+                  hidden={hidden.includes(friendId)}
+                  onToggle={() => onToggleVisibility(friendId)}
+                />
+              );
+            })}
+          </Reorder.Group>
+        )}
+        <div className="pt-4 px-3">
+          <button
+            type="button"
+            onClick={onReset}
+            className="w-full flex items-center justify-center gap-2 py-2.5 bg-[#1E1E1E] border border-[#333333] rounded-xl text-sm text-gray-300 hover:bg-[#252525] transition-colors"
+          >
+            <RotateCcw size={14} />
+            Reset to alphabetical
+          </button>
+        </div>
+      </div>
+    </BottomSheet>
+  );
+};
+</file>
+
 <file path="src/components/home/HamburgerMenu.tsx">
 import React, { useState } from 'react';
 import { Menu, List, RefreshCw, Bell } from 'lucide-react';
@@ -3460,6 +3939,257 @@ export const HamburgerMenu: React.FC = () => {
 };
 </file>
 
+<file path="src/components/home/PersonCarousel.tsx">
+import React, { useEffect, useRef } from 'react';
+import { motion } from 'framer-motion';
+import { Users } from 'lucide-react';
+import { Avatar } from '../ui/Avatar';
+import { useTaskImage } from '../../hooks/useTaskImage';
+import type { CarouselPerson } from '../../hooks/useFriendCarousel';
+interface PersonPillProps {
+  person: CarouselPerson;
+  isActive: boolean;
+  onSelect: () => void;
+}
+const PersonPill = React.memo<PersonPillProps>(
+  ({ person, isActive, onSelect }) => {
+    const { imageUrl } = useTaskImage(person.avatarFileId || undefined);
+    const pillRef = useRef<HTMLButtonElement>(null);
+    useEffect(() => {
+      if (isActive && pillRef.current) {
+        pillRef.current.scrollIntoView({
+          behavior: 'smooth',
+          inline: 'center',
+          block: 'nearest',
+        });
+      }
+    }, [isActive]);
+    return (
+      <motion.button
+        ref={pillRef}
+        type="button"
+        whileTap={{ scale: 0.95 }}
+        onClick={onSelect}
+        onPointerDown={(e) => e.stopPropagation()}
+        className={`flex-shrink-0 flex items-center gap-2 pl-1 pr-3 py-1 rounded-full border transition-colors ${
+          isActive
+            ? 'bg-white border-white'
+            : 'bg-[#1E1E1E] border-[#333333] hover:bg-[#252525]'
+        }`}
+      >
+        <Avatar
+          src={imageUrl || undefined}
+          alt={person.displayName}
+          size="sm"
+        />
+        <span
+          className={`text-xs font-medium whitespace-nowrap ${
+            isActive ? 'text-black' : 'text-gray-400'
+          }`}
+        >
+          {person.kind === 'me' ? 'Me' : person.displayName}
+        </span>
+      </motion.button>
+    );
+  }
+);
+PersonPill.displayName = 'PersonPill';
+interface PersonCarouselProps {
+  persons: CarouselPerson[];
+  activePersonId: string;
+  onSelect: (personId: string) => void;
+  onOpenSettings: () => void;
+}
+export const PersonCarousel: React.FC<PersonCarouselProps> = ({
+  persons,
+  activePersonId,
+  onSelect,
+  onOpenSettings,
+}) => {
+  return (
+    <div className="bg-[#111111] px-3 py-1.5">
+      <div
+        className="flex items-center gap-2 overflow-x-auto no-scrollbar py-0.5"
+        style={{ scrollbarWidth: 'none' }}
+      >
+        {persons.map((p) => (
+          <PersonPill
+            key={p.id}
+            person={p}
+            isActive={p.id === activePersonId}
+            onSelect={() => {
+              if (p.id !== activePersonId) onSelect(p.id);
+            }}
+          />
+        ))}
+        <motion.button
+          type="button"
+          whileTap={{ scale: 0.95 }}
+          onClick={onOpenSettings}
+          onPointerDown={(e) => e.stopPropagation()}
+          className="flex-shrink-0 flex items-center justify-center w-8 h-8 rounded-full bg-[#1E1E1E] border border-[#333333] text-gray-400 hover:text-white hover:bg-[#252525] transition-colors"
+          aria-label="Friend preferences"
+        >
+          <Users size={14} />
+        </motion.button>
+      </div>
+    </div>
+  );
+};
+</file>
+
+<file path="src/components/home/PersonPane.tsx">
+import React, { useState, useEffect, useMemo } from 'react';
+import { PersonProfileHeader } from './PersonProfileHeader';
+import { CalendarHeader } from './views/CalendarHeader';
+import { CalendarBody } from './views/CalendarBody';
+import { ComingSoon } from '../layout/ComingSoon';
+import { useCalendarState } from './views/useCalendarState';
+import { useTasks } from '../../hooks/useTasks';
+import { useCategories } from '../../hooks/useCategories';
+import { useFriendCalendar } from '../../lib/useFriendCalendar';
+import type { CarouselPerson } from '../../hooks/useFriendCarousel';
+import type { ViewType } from './ViewSwitcher';
+interface PersonPaneProps {
+  person: CarouselPerson;
+  isActive: boolean;
+}
+const VIEW_KEY = 'mosaic_activeView';
+function readMeView(): ViewType {
+  const saved = localStorage.getItem(VIEW_KEY);
+  if (saved === 'calendar' || saved === 'diary') return saved;
+  return 'calendar';
+}
+export const PersonPane: React.FC<PersonPaneProps> = ({ person, isActive }) => {
+  const isMe = person.kind === 'me';
+  const [activeView, setActiveView] = useState<ViewType>(() =>
+    isMe ? readMeView() : 'calendar'
+  );
+  if (!isMe && !isActive && activeView !== 'calendar') {
+    setActiveView('calendar');
+  }
+  useEffect(() => {
+    if (isMe) localStorage.setItem(VIEW_KEY, activeView);
+  }, [isMe, activeView]);
+  const calendarState = useCalendarState();
+  const { resetToToday } = calendarState;
+  useEffect(() => {
+    if (!isActive) return;
+    resetToToday();
+  }, [isActive, resetToToday]);
+  const { tasks: myTasks } = useTasks();
+  const { categories: myCategories } = useCategories();
+  const friendId = !isMe ? person.userId : null;
+  const {
+    tasks: friendTasks,
+    categories: friendCategories,
+    error: friendError,
+    errorKind: friendErrorKind,
+  } = useFriendCalendar(friendId);
+  const tasks = isMe ? myTasks : friendTasks;
+  const categories = isMe ? myCategories : friendCategories;
+  const categoriesMap = useMemo(() => {
+    const map: Record<string, { color: string; name: string }> = {};
+    for (const cat of categories) {
+      map[cat.id] = { color: cat.color, name: cat.name };
+    }
+    return map;
+  }, [categories]);
+  const showDiary = isMe && activeView === 'diary';
+  return (
+    <div className="flex flex-col h-full min-h-0 overflow-hidden">
+      <div className="flex-shrink-0">
+        <PersonProfileHeader person={person} />
+      </div>
+      <div className="flex-shrink-0">
+        <CalendarHeader
+          title={calendarState.title}
+          viewMode={calendarState.viewMode}
+          onToggleMode={calendarState.handleToggle}
+          onPrev={calendarState.handlePrev}
+          onNext={calendarState.handleNext}
+          activeView={activeView}
+          onViewChange={setActiveView}
+        />
+      </div>
+      <div className="swiper-no-swiping flex-1 min-h-0 flex flex-col overflow-hidden">
+        {showDiary ? (
+          <div className="flex-1 min-h-0 overflow-hidden">
+            <ComingSoon />
+          </div>
+        ) : !isMe && friendError ? (
+          <div className="flex-1 min-h-0 overflow-hidden flex items-center justify-center px-6 text-center">
+            <div>
+              <div className="w-16 h-16 bg-[#1E1E1E] rounded-full flex items-center justify-center mb-4 border border-[#333333] mx-auto">
+                <span className="text-2xl">🔒</span>
+              </div>
+              <p className="text-white font-medium mb-2">
+                {friendErrorKind === 'forbidden'
+                  ? 'No access'
+                  : friendErrorKind === 'offline'
+                  ? "You're offline"
+                  : "Couldn't load calendar"}
+              </p>
+              <p className="text-sm text-gray-500 max-w-xs">{friendError}</p>
+            </div>
+          </div>
+        ) : (
+          <CalendarBody
+            viewMode={calendarState.viewMode}
+            slides={calendarState.slides}
+            emblaRef={calendarState.emblaRef}
+            tasks={tasks}
+            categoriesMap={categoriesMap}
+            variant={isMe ? 'me' : 'friend'}
+            friendCategories={friendCategories}
+            friendName={person.displayName}
+          />
+        )}
+      </div>
+    </div>
+  );
+};
+</file>
+
+<file path="src/components/home/PersonProfileHeader.tsx">
+import React from 'react';
+import { Avatar } from '../ui/Avatar';
+import { useTaskImage } from '../../hooks/useTaskImage';
+import type { CarouselPerson } from '../../hooks/useFriendCarousel';
+interface PersonProfileHeaderProps {
+  person: CarouselPerson;
+}
+export const PersonProfileHeader: React.FC<PersonProfileHeaderProps> = ({
+  person,
+}) => {
+  const { imageUrl } = useTaskImage(person.avatarFileId || undefined);
+  return (
+    <div className="px-4 py-1.5 flex items-center gap-3">
+      <Avatar
+        src={imageUrl || undefined}
+        alt={person.displayName}
+        size="md"
+      />
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-semibold text-white truncate">
+          {person.displayName}
+        </p>
+        {person.username && (
+          <p className="text-xs text-gray-500 truncate">
+            @{person.username}
+          </p>
+        )}
+        {person.bio && (
+          <p className="text-xs text-gray-400 mt-0.5 line-clamp-2">
+            {person.bio}
+          </p>
+        )}
+      </div>
+    </div>
+  );
+};
+</file>
+
 <file path="src/components/home/TopBar.tsx">
 import React from 'react';
 import { ViewSwitcher, type ViewType } from './ViewSwitcher';
@@ -3470,7 +4200,7 @@ interface TopBarProps {
 }
 export const TopBar: React.FC<TopBarProps> = ({ activeView, onViewChange }) => {
   return (
-    <div className="sticky top-0 z-20 bg-[#111111] px-4 py-3 border-b border-[#333333]">
+    <div className="bg-[#111111] px-4 py-3 border-b border-[#333333]">
       <div className="flex items-center justify-between">
         <ViewSwitcher activeView={activeView} onViewChange={onViewChange} />
         <HamburgerMenu />
@@ -3502,41 +4232,49 @@ export const ViewContainer: React.FC<ViewContainerProps> = ({ activeView }) => {
 
 <file path="src/components/home/ViewSwitcher.tsx">
 import React from 'react';
-import { motion } from 'framer-motion';
 import { Calendar, BookOpen } from 'lucide-react';
 export type ViewType = 'calendar' | 'diary';
 interface ViewSwitcherProps {
   activeView: ViewType;
   onViewChange: (view: ViewType) => void;
 }
-const views: { id: ViewType; label: string; icon: React.FC<{ size?: number }> }[] = [
+const views: {
+  id: ViewType;
+  label: string;
+  icon: React.FC<{ size?: number }>;
+}[] = [
   { id: 'calendar', label: 'Calendar', icon: Calendar },
   { id: 'diary', label: 'Diary', icon: BookOpen },
 ];
-export const ViewSwitcher: React.FC<ViewSwitcherProps> = ({ activeView, onViewChange }) => {
+export const ViewSwitcher: React.FC<ViewSwitcherProps> = ({
+  activeView,
+  onViewChange,
+}) => {
   return (
-    <div className="flex bg-[#1E1E1E] rounded-lg p-1 border border-[#333333]">
+    <div className="relative flex bg-[#1E1E1E] rounded-lg p-0.5 border border-[#333333] flex-shrink-0">
       {views.map((view) => {
         const isActive = activeView === view.id;
         const Icon = view.icon;
         return (
           <button
             key={view.id}
+            type="button"
             onClick={() => onViewChange(view.id)}
-            className="relative flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium focus:outline-none"
+            onPointerDown={(e) => e.stopPropagation()}
+            className="relative flex items-center justify-center w-7 h-7 rounded-md focus:outline-none group"
+            aria-label={view.label}
           >
-            {}
             {isActive && (
-              <motion.div
-                layoutId="viewSwitcherActive"
-                className="absolute inset-0 bg-[#333333] rounded-md"
-                transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-              />
+              <div className="absolute inset-0 bg-white rounded-md" />
             )}
-            <span className={`relative z-10 transition-colors ${isActive ? 'text-white' : 'text-gray-500'}`}>
+            <span
+              className={`relative z-10 transition-colors ${
+                isActive ? 'text-black' : 'text-gray-500 group-hover:text-gray-300'
+              }`}
+            >
               <Icon size={14} />
             </span>
-            <span className={`relative z-10 transition-colors ${isActive ? 'text-white' : 'text-gray-500'}`}>
+            <span className="pointer-events-none absolute -bottom-8 left-1/2 -translate-x-1/2 px-2 py-1 bg-[#2A2A2A] border border-[#444444] rounded text-[10px] text-white whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity hidden md:block z-50">
               {view.label}
             </span>
           </button>
@@ -5388,7 +6126,12 @@ export async function initializeDatabase(): Promise<RxDatabase<AppDatabaseCollec
       categories: { schema: categoriesSchema },
       diary: { schema: diarySchema },
       settings: { schema: settingsSchema },
-      friendships: { schema: friendshipsSchema },
+      friendships: {
+        schema: friendshipsSchema,
+        migrationStrategies: {
+          1: (oldDoc) => ({ ...oldDoc, friendBio: '' }),
+        },
+      },
     });
     if (DEBUG) {
       console.log('[RxDB] Collections added successfully');
@@ -5488,6 +6231,7 @@ export interface FriendshipDocument {
   friendUsername: string;
   friendDisplayName: string;
   friendAvatarFileId: string;
+  friendBio: string;
   status: 'pending_outgoing' | 'pending_incoming' | 'accepted' | 'blocked';
   createdAt: string;
   updatedAt: string;
@@ -5585,7 +6329,7 @@ export const settingsSchema: RxJsonSchema<SettingsDocument> = {
   indexes: [['userId', 'key', 'isDeleted']],
 };
 export const friendshipsSchema: RxJsonSchema<FriendshipDocument> = {
-  version: 0,
+  version: 1,
   primaryKey: 'id',
   type: 'object',
   required: [
@@ -5606,6 +6350,7 @@ export const friendshipsSchema: RxJsonSchema<FriendshipDocument> = {
     friendUsername: { type: 'string', maxLength: 50 },
     friendDisplayName: { type: 'string', maxLength: 100 },
     friendAvatarFileId: { type: 'string', maxLength: 255 },
+    friendBio: { type: 'string', maxLength: 300, default: '' },
     status: {
       type: 'string',
       maxLength: 30,
@@ -5753,6 +6498,7 @@ function toAppwriteFormat(
     mapped.friend_username = source.friendUsername || '';
     mapped.friend_display_name = source.friendDisplayName || '';
     mapped.friend_avatar_file_id = source.friendAvatarFileId || '';
+    mapped.friend_bio = source.friendBio || '';
     mapped.status = source.status || 'pending_outgoing';
     mapped.created_at = source.createdAt || new Date().toISOString();
     mapped.updated_at = source.updatedAt || new Date().toISOString();
@@ -5829,6 +6575,7 @@ function fromAppwriteFormat(
     mapped.friendUsername = mapped.friend_username || '';
     mapped.friendDisplayName = mapped.friend_display_name || '';
     mapped.friendAvatarFileId = mapped.friend_avatar_file_id || '';
+    mapped.friendBio = mapped.friend_bio || '';
     mapped.status = mapped.status || 'pending_outgoing';
     mapped.createdAt = mapped.created_at || new Date().toISOString();
     mapped.updatedAt = mapped.updated_at || new Date().toISOString();
@@ -5838,6 +6585,7 @@ function fromAppwriteFormat(
     delete mapped.friend_username;
     delete mapped.friend_display_name;
     delete mapped.friend_avatar_file_id;
+    delete mapped.friend_bio;
     delete mapped.created_at;
     delete mapped.updated_at;
     delete mapped.deleted;
@@ -6377,6 +7125,170 @@ export function useDiary() {
 }
 </file>
 
+<file path="src/hooks/useFriendCarousel.ts">
+import { useMemo, useCallback, useEffect, useRef } from 'react';
+import { useFriends } from './useFriends';
+import { useMyProfile } from './useMyProfile';
+import { useSettings } from './useSettings';
+import {
+  fetchProfileByUserId,
+  updateFriendBioLocally,
+} from '../lib/social';
+import type { FriendshipDocument } from '../db/schema';
+const PREFS_KEY = 'friend_carousel_prefs';
+const DEBUG = import.meta.env.DEV;
+export interface CarouselPerson {
+  id: string;
+  kind: 'me' | 'friend';
+  userId: string;
+  username: string;
+  displayName: string;
+  avatarFileId: string;
+  bio: string;
+}
+interface CarouselPrefs {
+  order: string[];
+  hidden: string[];
+}
+const DEFAULT_PREFS: CarouselPrefs = { order: [], hidden: [] };
+function parsePrefs(raw: unknown): CarouselPrefs {
+  if (!raw || typeof raw !== 'object') return DEFAULT_PREFS;
+  const obj = raw as Record<string, unknown>;
+  const order = Array.isArray(obj.order)
+    ? (obj.order as unknown[]).filter((x): x is string => typeof x === 'string')
+    : [];
+  const hidden = Array.isArray(obj.hidden)
+    ? (obj.hidden as unknown[]).filter((x): x is string => typeof x === 'string')
+    : [];
+  return { order, hidden };
+}
+export interface UseFriendCarouselReturn {
+  persons: CarouselPerson[];
+  isLoading: boolean;
+  reorder: (newOrder: string[]) => Promise<void>;
+  toggleVisibility: (friendId: string) => Promise<void>;
+  resetOrder: () => Promise<void>;
+  rawFriends: FriendshipDocument[];
+  order: string[];
+  hidden: string[];
+}
+export function useFriendCarousel(): UseFriendCarouselReturn {
+  const { friends, isLoading: friendsLoading } = useFriends();
+  const { profile, isLoading: profileLoading } = useMyProfile();
+  const { settings, isLoading: settingsLoading, setSetting } = useSettings();
+  const prefs = useMemo(() => parsePrefs(settings[PREFS_KEY]), [settings]);
+  const attemptedBiosRef = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) return;
+    const missing = friends.filter(
+      (f) =>
+        (!f.friendBio || f.friendBio === '') &&
+        !attemptedBiosRef.current.has(f.friendId)
+    );
+    if (missing.length === 0) return;
+    let cancelled = false;
+    (async () => {
+      for (const f of missing) {
+        attemptedBiosRef.current.add(f.friendId);
+        try {
+          const p = await fetchProfileByUserId(f.friendId);
+          if (cancelled) return;
+          if (p?.bio) {
+            await updateFriendBioLocally(f.id, p.bio);
+          }
+        } catch (err) {
+          if (DEBUG) {
+            console.warn(
+              '[useFriendCarousel] Bio backfill failed for',
+              f.friendId,
+              err
+            );
+          }
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [friends]);
+  const persons = useMemo<CarouselPerson[]>(() => {
+    const list: CarouselPerson[] = [];
+    list.push({
+      id: 'me',
+      kind: 'me',
+      userId: profile?.user_id || '',
+      username: profile?.username || '',
+      displayName: profile?.display_name || profile?.username || 'Me',
+      avatarFileId: profile?.avatar_file_id || '',
+      bio: profile?.bio || '',
+    });
+    const hiddenSet = new Set(prefs.hidden);
+    const visibleFriends = friends.filter((f) => !hiddenSet.has(f.friendId));
+    const orderIndex = new Map<string, number>();
+    prefs.order.forEach((id, idx) => orderIndex.set(id, idx));
+    const sorted = [...visibleFriends].sort((a, b) => {
+      const aIdx = orderIndex.get(a.friendId);
+      const bIdx = orderIndex.get(b.friendId);
+      if (aIdx !== undefined && bIdx !== undefined) return aIdx - bIdx;
+      if (aIdx !== undefined) return -1;
+      if (bIdx !== undefined) return 1;
+      const aName = (a.friendDisplayName || a.friendUsername || '').toLowerCase();
+      const bName = (b.friendDisplayName || b.friendUsername || '').toLowerCase();
+      return aName.localeCompare(bName);
+    });
+    for (const f of sorted) {
+      list.push({
+        id: f.friendId,
+        kind: 'friend',
+        userId: f.friendId,
+        username: f.friendUsername,
+        displayName: f.friendDisplayName || f.friendUsername,
+        avatarFileId: f.friendAvatarFileId || '',
+        bio: f.friendBio || '',
+      });
+    }
+    return list;
+  }, [friends, profile, prefs]);
+  const reorder = useCallback(
+    async (newFriendOrder: string[]) => {
+      const next: CarouselPrefs = {
+        order: newFriendOrder,
+        hidden: prefs.hidden,
+      };
+      await setSetting(PREFS_KEY, next);
+    },
+    [prefs.hidden, setSetting]
+  );
+  const toggleVisibility = useCallback(
+    async (friendId: string) => {
+      const hiddenSet = new Set(prefs.hidden);
+      if (hiddenSet.has(friendId)) hiddenSet.delete(friendId);
+      else hiddenSet.add(friendId);
+      const next: CarouselPrefs = {
+        order: prefs.order,
+        hidden: Array.from(hiddenSet),
+      };
+      await setSetting(PREFS_KEY, next);
+    },
+    [prefs.order, prefs.hidden, setSetting]
+  );
+  const resetOrder = useCallback(async () => {
+    await setSetting(PREFS_KEY, DEFAULT_PREFS);
+  }, [setSetting]);
+  const isLoading = friendsLoading || profileLoading || settingsLoading;
+  return {
+    persons,
+    isLoading,
+    reorder,
+    toggleVisibility,
+    resetOrder,
+    rawFriends: friends,
+    order: prefs.order,
+    hidden: prefs.hidden,
+  };
+}
+</file>
+
 <file path="src/hooks/useFriends.ts">
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { getDatabase } from '../db/database';
@@ -6390,7 +7302,12 @@ import {
 } from '../lib/social';
 import { clearCachedCalendar } from '../lib/friendCache';
 import type { FriendshipDocument } from '../db/schema';
-import type { MyProfileInput } from '../lib/social';
+export interface MyProfileSummary {
+  username: string;
+  displayName: string;
+  avatarFileId?: string;
+  bio?: string;
+}
 export interface UseFriendsReturn {
   friends: FriendshipDocument[];
   incomingRequests: FriendshipDocument[];
@@ -6398,7 +7315,7 @@ export interface UseFriendsReturn {
   blockedUsers: FriendshipDocument[];
   isLoading: boolean;
   sendRequest: (
-    myProfile: Omit<MyProfileInput, 'userId'>,
+    myProfile: MyProfileSummary,
     friend: ProfileCard
   ) => Promise<void>;
   accept: (friendUserId: string) => Promise<void>;
@@ -6478,10 +7395,7 @@ export function useFriends(): UseFriendsReturn {
     [rows]
   );
   const sendRequest = useCallback(
-    async (
-      myProfile: Omit<MyProfileInput, 'userId'>,
-      friend: ProfileCard
-    ) => {
+    async (myProfile: MyProfileSummary, friend: ProfileCard) => {
       const uid = user?.$id;
       if (!uid) {
         console.error(
@@ -6494,6 +7408,7 @@ export function useFriends(): UseFriendsReturn {
         myUsername: myProfile.username,
         myDisplayName: myProfile.displayName,
         myAvatarFileId: myProfile.avatarFileId || '',
+        myBio: myProfile.bio || '',
         friend,
       });
     },
@@ -6833,6 +7748,23 @@ import { useState, useEffect, useCallback } from 'react';
 import { getDatabase } from '../db/database';
 import { useAuth } from './useAuth';
 import type { SettingsDocument } from '../db/schema';
+const DEBUG = import.meta.env.DEV;
+const MAX_ROW_ID_LENGTH = 36;
+function hashString(str: string): string {
+  let h1 = 5381;
+  let h2 = 52711;
+  for (let i = 0; i < str.length; i++) {
+    const c = str.charCodeAt(i);
+    h1 = ((h1 << 5) + h1 + c) | 0;
+    h2 = ((h2 << 5) + h2 + c * 31) | 0;
+  }
+  return (h1 >>> 0).toString(36) + (h2 >>> 0).toString(36);
+}
+function makeSettingsRowId(userId: string, key: string): string {
+  const raw = `${userId}_${key}`;
+  if (raw.length <= MAX_ROW_ID_LENGTH) return raw;
+  return `s_${hashString(raw)}`;
+}
 export function useSettings() {
   const { user } = useAuth();
   const userId = user?.$id;
@@ -6846,6 +7778,26 @@ export function useSettings() {
     async function init() {
       try {
         const db = getDatabase();
+        try {
+          const all = await db.settings
+            .find({ selector: { userId: uid } })
+            .exec();
+          for (const doc of all) {
+            if (doc.id.length > MAX_ROW_ID_LENGTH) {
+              if (DEBUG) {
+                console.warn(
+                  '[useSettings] Removing oversized legacy settings row:',
+                  doc.id
+                );
+              }
+              await doc.remove();
+            }
+          }
+        } catch (cleanupErr) {
+          if (DEBUG) {
+            console.warn('[useSettings] Legacy cleanup failed:', cleanupErr);
+          }
+        }
         const query = db.settings.find({
           selector: {
             userId: uid,
@@ -6855,7 +7807,7 @@ export function useSettings() {
         const sub = query.$.subscribe((docs) => {
           if (!isMounted) return;
           const settingsMap: Record<string, unknown> = {};
-          docs.forEach(doc => {
+          docs.forEach((doc) => {
             try {
               settingsMap[doc.key] = JSON.parse(doc.value);
             } catch {
@@ -6881,32 +7833,39 @@ export function useSettings() {
       if (subscription) subscription.unsubscribe();
     };
   }, [userId]);
-  const setSetting = useCallback(async (key: string, value: unknown) => {
-    const uid = user?.$id;
-    if (!uid) {
-      console.error('[useSettings] Cannot set setting: User not authenticated');
-      return;
-    }
-    const db = getDatabase();
-    const id = `${uid}_${key}`;
-    const stringValue = typeof value === 'string' ? value : JSON.stringify(value);
-    const doc = await db.settings.findOne(id).exec();
-    if (doc) {
-      await doc.patch({ value: stringValue, isDeleted: false });
-    } else {
-      const newSetting: SettingsDocument = {
-        id,
-        userId: uid,
-        key,
-        value: stringValue,
-        isDeleted: false,
-      };
-      await db.settings.insert(newSetting);
-    }
-  }, [user?.$id]);
-  const getSetting = useCallback((key: string, defaultValue?: unknown) => {
-    return settings[key] !== undefined ? settings[key] : defaultValue;
-  }, [settings]);
+  const setSetting = useCallback(
+    async (key: string, value: unknown) => {
+      const uid = user?.$id;
+      if (!uid) {
+        console.error('[useSettings] Cannot set setting: User not authenticated');
+        return;
+      }
+      const db = getDatabase();
+      const id = makeSettingsRowId(uid, key);
+      const stringValue =
+        typeof value === 'string' ? value : JSON.stringify(value);
+      const doc = await db.settings.findOne(id).exec();
+      if (doc) {
+        await doc.patch({ value: stringValue, isDeleted: false });
+      } else {
+        const newSetting: SettingsDocument = {
+          id,
+          userId: uid,
+          key,
+          value: stringValue,
+          isDeleted: false,
+        };
+        await db.settings.insert(newSetting);
+      }
+    },
+    [user?.$id]
+  );
+  const getSetting = useCallback(
+    (key: string, defaultValue?: unknown) => {
+      return settings[key] !== undefined ? settings[key] : defaultValue;
+    },
+    [settings]
+  );
   const visibleSettings = userId && loadedUserId === userId ? settings : {};
   const isLoading = !!userId && loadedUserId !== userId;
   return { settings: visibleSettings, isLoading, setSetting, getSetting };
@@ -7746,13 +8705,6 @@ function buildProfileRowPermissions(userId: string) {
     Permission.delete(Role.user(userId)),
   ];
 }
-/**
- * The creator's own role. We pass this on friendship writes because the
- * Appwrite SDK defaults `permissions` to `[]` when omitted, which the server
- * rejects. Cross-user access (friend reading/writing this row) is granted via
- * table-level `all users` permissions in the Console — NOT via row-level
- * grants, which Appwrite forbids for other users.
- */
 function buildCreatorOwnPermissions(userId: string) {
   return [
     Permission.read(Role.user(userId)),
@@ -7782,6 +8734,11 @@ export async function fetchMyProfile(
     console.error('[social] fetchMyProfile failed:', err);
     throw err;
   }
+}
+export async function fetchProfileByUserId(
+  userId: string
+): Promise<ProfileCard | null> {
+  return fetchMyProfile(userId);
 }
 export async function createOrUpdateProfile(
   input: MyProfileInput
@@ -7854,12 +8811,20 @@ export interface SendRequestInput {
   myUsername: string;
   myDisplayName: string;
   myAvatarFileId: string;
+  myBio: string;
   friend: ProfileCard;
 }
 export async function sendFriendRequest(
   input: SendRequestInput
 ): Promise<void> {
-  const { myUserId, myUsername, myDisplayName, myAvatarFileId, friend } = input;
+  const {
+    myUserId,
+    myUsername,
+    myDisplayName,
+    myAvatarFileId,
+    myBio,
+    friend,
+  } = input;
   const now = new Date().toISOString();
   const db = getDatabase();
   const myRowId = await makeFriendshipId(myUserId, friend.user_id);
@@ -7871,6 +8836,7 @@ export async function sendFriendRequest(
     friendUsername: friend.username,
     friendDisplayName: friend.display_name || friend.username,
     friendAvatarFileId: friend.avatar_file_id || '',
+    friendBio: friend.bio || '',
     status: 'pending_outgoing',
     createdAt: now,
     updatedAt: now,
@@ -7887,6 +8853,7 @@ export async function sendFriendRequest(
       friend_username: myUsername,
       friend_display_name: myDisplayName,
       friend_avatar_file_id: myAvatarFileId,
+      friend_bio: myBio,
       status: 'pending_incoming',
       created_at: now,
       updated_at: now,
@@ -7968,6 +8935,20 @@ export async function blockFriend(
 }
 export function hasRecentTimestamp(iso: string, thresholdMs = 5000): boolean {
   return Date.now() - toMs(iso) < thresholdMs;
+}
+export async function updateFriendBioLocally(
+  friendshipDocId: string,
+  bio: string
+): Promise<void> {
+  try {
+    const db = getDatabase();
+    const doc = await db.friendships.findOne(friendshipDocId).exec();
+    if (doc && (!doc.friendBio || doc.friendBio === '')) {
+      await doc.patch({ friendBio: bio });
+    }
+  } catch (err) {
+    console.warn('[social] updateFriendBioLocally failed:', err);
+  }
 }
 </file>
 
@@ -8709,33 +9690,143 @@ export const FriendCalendarPage: React.FC = () => {
 </file>
 
 <file path="src/pages/HomePage.tsx">
-import React, { useState, useEffect } from 'react';
-import { TopBar } from '../components/home/TopBar';
-import { ViewContainer } from '../components/home/ViewContainer';
-import type { ViewType } from '../components/home/ViewSwitcher';
+import React, { useState, useMemo, useCallback, useRef, useEffect } from 'react';
+import { Swiper, SwiperSlide } from 'swiper/react';
+import type { Swiper as SwiperClass } from 'swiper';
+import 'swiper/css';
+import { HamburgerMenu } from '../components/home/HamburgerMenu';
+import { PersonCarousel } from '../components/home/PersonCarousel';
+import { PersonPane } from '../components/home/PersonPane';
+import { FriendCarouselSettingsSheet } from '../components/home/FriendCarouselSettingsSheet';
+import { useFriendCarousel } from '../hooks/useFriendCarousel';
+const RENDER_WINDOW = 1;
 export const HomePage: React.FC = () => {
-  const [activeView, setActiveView] = useState<ViewType>(() => {
-    const saved = localStorage.getItem('mosaic_activeView');
-    if (saved === 'calendar' || saved === 'diary') {
-      return saved;
-    }
-    return 'calendar';
-  });
+  const {
+    persons,
+    reorder,
+    toggleVisibility,
+    resetOrder,
+    rawFriends,
+    order,
+    hidden,
+  } = useFriendCarousel();
+  const [activePersonId, setActivePersonId] = useState<string>('me');
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const swiperRef = useRef<SwiperClass | null>(null);
+  const isProgrammaticMoveRef = useRef(false);
+  if (persons.length > 0 && !persons.some((p) => p.id === activePersonId)) {
+    setActivePersonId('me');
+  }
+  const activeIndex = useMemo(() => {
+    const idx = persons.findIndex((p) => p.id === activePersonId);
+    return idx >= 0 ? idx : 0;
+  }, [persons, activePersonId]);
   useEffect(() => {
-    localStorage.setItem('mosaic_activeView', activeView);
-  }, [activeView]);
-  const handleViewChange = (view: ViewType) => {
-    setActiveView(view);
-  };
+    const s = swiperRef.current;
+    if (!s) return;
+    const idx = persons.findIndex((p) => p.id === activePersonId);
+    if (idx < 0) return;
+    if (s.activeIndex === idx) return;
+    isProgrammaticMoveRef.current = true;
+    s.slideTo(idx, 280);
+    const raf = requestAnimationFrame(() => {
+      isProgrammaticMoveRef.current = false;
+    });
+    return () => cancelAnimationFrame(raf);
+  }, [activePersonId, persons]);
+  useEffect(() => {
+    const s = swiperRef.current;
+    if (!s) return;
+    const raf = requestAnimationFrame(() => {
+      s.update();
+      s.updateSize();
+      s.updateSlides();
+      const idx = persons.findIndex((p) => p.id === activePersonId);
+      if (idx >= 0 && s.activeIndex !== idx) {
+        s.slideTo(idx, 0);
+      }
+    });
+    return () => cancelAnimationFrame(raf);
+  }, [persons.length, persons.map((p) => p.id).join('|')]);
+  const handleSlideChange = useCallback(
+    (s: SwiperClass) => {
+      if (isProgrammaticMoveRef.current) return;
+      const person = persons[s.activeIndex];
+      if (!person) return;
+      if (person.id !== activePersonId) setActivePersonId(person.id);
+    },
+    [persons, activePersonId]
+  );
+  const handlePillSelect = useCallback(
+    (personId: string) => {
+      if (personId === activePersonId) return;
+      setActivePersonId(personId);
+    },
+    [activePersonId]
+  );
   return (
-    <div className="min-h-full flex flex-col">
-      {}
-      <TopBar activeView={activeView} onViewChange={handleViewChange} />
-      {}
-      <div className="flex-1">
-        <ViewContainer activeView={activeView} />
+    <>
+      <div className="h-full flex flex-col min-h-0">
+        {}
+        <div className="bg-[#111111] px-4 pt-3 pb-1 flex justify-end flex-shrink-0">
+          <HamburgerMenu />
+        </div>
+        <div className="flex-shrink-0">
+          <PersonCarousel
+            persons={persons}
+            activePersonId={activePersonId}
+            onSelect={handlePillSelect}
+            onOpenSettings={() => setIsSettingsOpen(true)}
+          />
+        </div>
+        <div className="flex-1 min-h-0 relative">
+          <Swiper
+            onSwiper={(s) => {
+              swiperRef.current = s;
+            }}
+            slidesPerView={1}
+            spaceBetween={0}
+            speed={280}
+            resistanceRatio={0.85}
+            threshold={5}
+            followFinger
+            longSwipes
+            longSwipesRatio={0.25}
+            longSwipesMs={250}
+            shortSwipes
+            allowTouchMove={!isSettingsOpen}
+            onSlideChange={handleSlideChange}
+            observer
+            observeParents
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+            }}
+          >
+            {persons.map((p, i) => (
+              <SwiperSlide key={p.id} style={{ height: '100%' }}>
+                {Math.abs(i - activeIndex) <= RENDER_WINDOW ? (
+                  <PersonPane person={p} isActive={i === activeIndex} />
+                ) : null}
+              </SwiperSlide>
+            ))}
+          </Swiper>
+        </div>
       </div>
-    </div>
+      <FriendCarouselSettingsSheet
+        isOpen={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
+        friends={rawFriends}
+        order={order}
+        hidden={hidden}
+        onReorder={reorder}
+        onToggleVisibility={toggleVisibility}
+        onReset={resetOrder}
+      />
+    </>
   );
 };
 </file>

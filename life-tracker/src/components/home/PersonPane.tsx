@@ -25,24 +25,20 @@ function readMeView(): ViewType {
 
 export const PersonPane: React.FC<PersonPaneProps> = ({ person, isActive }) => {
   const isMe = person.kind === 'me';
-
   const [activeView, setActiveView] = useState<ViewType>(() =>
     isMe ? readMeView() : 'calendar'
   );
+
+  if (!isMe && !isActive && activeView !== 'calendar') {
+    setActiveView('calendar');
+  }
 
   useEffect(() => {
     if (isMe) localStorage.setItem(VIEW_KEY, activeView);
   }, [isMe, activeView]);
 
-  useEffect(() => {
-    if (!isMe && !isActive && activeView !== 'calendar') {
-      setActiveView('calendar');
-    }
-  }, [isMe, isActive, activeView]);
-
   const calendarState = useCalendarState();
   const { resetToToday } = calendarState;
-
   useEffect(() => {
     if (!isActive) return;
     resetToToday();
@@ -77,7 +73,6 @@ export const PersonPane: React.FC<PersonPaneProps> = ({ person, isActive }) => {
       <div className="flex-shrink-0">
         <PersonProfileHeader person={person} />
       </div>
-
       <div className="flex-shrink-0">
         <CalendarHeader
           title={calendarState.title}
@@ -89,7 +84,6 @@ export const PersonPane: React.FC<PersonPaneProps> = ({ person, isActive }) => {
           onViewChange={setActiveView}
         />
       </div>
-
       <div className="swiper-no-swiping flex-1 min-h-0 flex flex-col overflow-hidden">
         {showDiary ? (
           <div className="flex-1 min-h-0 overflow-hidden">
@@ -121,6 +115,7 @@ export const PersonPane: React.FC<PersonPaneProps> = ({ person, isActive }) => {
             variant={isMe ? 'me' : 'friend'}
             friendCategories={friendCategories}
             friendName={person.displayName}
+            friendUserId={friendId}
           />
         )}
       </div>

@@ -1,4 +1,10 @@
-import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
+import React, {
+  useState,
+  useRef,
+  useEffect,
+  useMemo,
+  useCallback,
+} from 'react';
 import {
   format,
   startOfMonth,
@@ -15,10 +21,8 @@ import { MonthView } from '../home/views/MonthView';
 import { WeekView } from '../home/views/WeekView';
 import { ViewToggle } from '../home/views/ViewToggle';
 import { FriendDayViewSheet } from './FriendDayViewSheet';
-import type {
-  TaskDocument,
-  CategoryDocument,
-} from '../../db/schema';
+import { ReplyComposerSheet } from '../messages/ReplyComposerSheet';
+import type { TaskDocument, CategoryDocument } from '../../db/schema';
 
 type CalendarViewMode = 'month' | 'week';
 
@@ -60,18 +64,24 @@ CalendarSlide.displayName = 'CalendarSlide';
 
 interface FriendCalendarViewProps {
   friendName: string;
+  friendUserId: string;
   tasks: TaskDocument[];
   categories: CategoryDocument[];
 }
 
 export const FriendCalendarView: React.FC<FriendCalendarViewProps> = ({
   friendName,
+  friendUserId,
   tasks,
   categories,
 }) => {
   const [viewMode, setViewMode] = useState<CalendarViewMode>('month');
   const [focusDate, setFocusDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+
+  const [replyTask, setReplyTask] = useState<TaskDocument | null>(null);
+  const [replyColor, setReplyColor] = useState<string>('');
+  const [feedback, setFeedback] = useState<string | null>(null);
 
   const categoriesMap = useMemo(() => {
     return categories.reduce(
@@ -86,7 +96,6 @@ export const FriendCalendarView: React.FC<FriendCalendarViewProps> = ({
   const [baseDate, setBaseDate] = useState(focusDate);
   const isInternalSwipeRef = useRef(false);
   const [prevViewMode, setPrevViewMode] = useState(viewMode);
-
   if (prevViewMode !== viewMode) {
     setPrevViewMode(viewMode);
     setBaseDate(focusDate);
@@ -167,6 +176,19 @@ export const FriendCalendarView: React.FC<FriendCalendarViewProps> = ({
     setSelectedDate(date);
   }, []);
 
+  const handleReplyToTask = useCallback(
+    (task: TaskDocument, color: string) => {
+      setReplyTask(task);
+      setReplyColor(color);
+    },
+    []
+  );
+
+  const handleReplySent = useCallback((msg: string) => {
+    setFeedback(msg);
+    setTimeout(() => setFeedback(null), 2000);
+  }, []);
+
   return (
     <div className="flex flex-col h-full animate-in fade-in duration-300">
       <div className="px-4 py-3 flex items-center justify-between border-b border-[#333333]">
@@ -191,7 +213,6 @@ export const FriendCalendarView: React.FC<FriendCalendarViewProps> = ({
           </button>
         </div>
       </div>
-
       <div className="flex-1 overflow-hidden py-2" ref={emblaRef}>
         <div className="flex h-full" style={{ touchAction: 'pan-y' }}>
           {slides.map((date, i) => (
@@ -211,7 +232,6 @@ export const FriendCalendarView: React.FC<FriendCalendarViewProps> = ({
           ))}
         </div>
       </div>
-
       <FriendDayViewSheet
         isOpen={!!selectedDate}
         onClose={() => setSelectedDate(null)}
@@ -219,7 +239,22 @@ export const FriendCalendarView: React.FC<FriendCalendarViewProps> = ({
         tasks={tasks}
         categories={categories}
         friendName={friendName}
+        onReplyToTask={handleReplyToTask}
       />
+      <ReplyComposerSheet
+        isOpen={!!replyTask}
+        onClose={() => setReplyTask(null)}
+        task={replyTask}
+        categoryColor={replyColor}
+        friendId={friendUserId}
+        friendName={friendName}
+        onSent={handleReplySent}
+      />
+      {feedback && (
+        <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[70] bg-[#2A2A2A] border border-[#444444] text-white text-sm px-5 py-2.5 rounded-full shadow-lg backdrop-blur-md animate-in fade-in slide-in-from-bottom-2 duration-200">
+          {feedback}
+        </div>
+      )}
     </div>
   );
 };

@@ -12,6 +12,7 @@ const APPWRITE_CONFIG = {
     diary: 'diary',
     settings: 'settings',
     friendships: 'friendships',
+    messages: 'messages',
   },
 } as const;
 
@@ -81,7 +82,8 @@ function isTimestampedCollection(collection: string): boolean {
   return (
     collection === 'tasks' ||
     collection === 'diary' ||
-    collection === 'friendships'
+    collection === 'friendships' ||
+    collection === 'messages'
   );
 }
 
@@ -94,6 +96,7 @@ function toAppwriteFormat(
   delete source._meta;
   delete source._deleted;
   delete source._rev;
+
   const mapped: AppwritePayload = {};
 
   if (collection === 'tasks') {
@@ -143,6 +146,22 @@ function toAppwriteFormat(
     mapped.friend_avatar_file_id = source.friendAvatarFileId || '';
     mapped.friend_bio = source.friendBio || '';
     mapped.status = source.status || 'pending_outgoing';
+    mapped.created_at = source.createdAt || new Date().toISOString();
+    mapped.updated_at = source.updatedAt || new Date().toISOString();
+    mapped.deleted = source.isDeleted ?? false;
+  } else if (collection === 'messages') {
+    mapped.user_id = userId;
+    mapped.thread_id = source.threadId || '';
+    mapped.sender_id = source.senderId || '';
+    mapped.recipient_id = source.recipientId || '';
+    mapped.direction = source.direction || 'outgoing';
+    mapped.content = source.content || '';
+    mapped.task_ref_id = source.taskRefId || '';
+    mapped.task_ref_title = source.taskRefTitle || '';
+    mapped.task_ref_date = source.taskRefDate || '';
+    mapped.task_ref_color = source.taskRefColor || '';
+    mapped.read_at = source.readAt || '';
+    mapped.delivery_status = source.deliveryStatus || 'delivered';
     mapped.created_at = source.createdAt || new Date().toISOString();
     mapped.updated_at = source.updatedAt || new Date().toISOString();
     mapped.deleted = source.isDeleted ?? false;
@@ -234,6 +253,36 @@ function fromAppwriteFormat(
     delete mapped.created_at;
     delete mapped.updated_at;
     delete mapped.deleted;
+  } else if (collection === 'messages') {
+    mapped.id = row.$id || mapped.id;
+    mapped.userId = mapped.user_id;
+    mapped.threadId = mapped.thread_id || '';
+    mapped.senderId = mapped.sender_id || '';
+    mapped.recipientId = mapped.recipient_id || '';
+    mapped.direction = mapped.direction || 'outgoing';
+    mapped.content = mapped.content || '';
+    mapped.taskRefId = mapped.task_ref_id || '';
+    mapped.taskRefTitle = mapped.task_ref_title || '';
+    mapped.taskRefDate = mapped.task_ref_date || '';
+    mapped.taskRefColor = mapped.task_ref_color || '';
+    mapped.readAt = mapped.read_at || '';
+    mapped.deliveryStatus = mapped.delivery_status || 'delivered';
+    mapped.createdAt = mapped.created_at || new Date().toISOString();
+    mapped.updatedAt = mapped.updated_at || new Date().toISOString();
+    mapped.isDeleted = mapped.deleted ?? false;
+    delete mapped.user_id;
+    delete mapped.thread_id;
+    delete mapped.sender_id;
+    delete mapped.recipient_id;
+    delete mapped.task_ref_id;
+    delete mapped.task_ref_title;
+    delete mapped.task_ref_date;
+    delete mapped.task_ref_color;
+    delete mapped.read_at;
+    delete mapped.delivery_status;
+    delete mapped.created_at;
+    delete mapped.updated_at;
+    delete mapped.deleted;
   }
   return mapped;
 }
@@ -276,7 +325,6 @@ export async function initializeSync(): Promise<void> {
   isSyncInProgress = true;
   if (DEBUG) console.log('[Sync] Starting initial sync...');
   updateSyncStatus({ isSyncing: true, errors: [] });
-
   try {
     const userId = await resolveAuthenticatedUserId();
     if (!userId) {
@@ -291,9 +339,9 @@ export async function initializeSync(): Promise<void> {
       'diary',
       'settings',
       'friendships',
+      'messages',
     ];
     const collectionErrors: string[] = [];
-
     for (const colName of collections) {
       try {
         await syncCollection(
@@ -310,7 +358,6 @@ export async function initializeSync(): Promise<void> {
         collectionErrors.push(`${colName}: ${message}`);
       }
     }
-
     if (collectionErrors.length === 0) {
       updateSyncStatus({
         isSyncing: false,
@@ -352,7 +399,6 @@ async function syncCollection(
   const usesTimestamps = isTimestampedCollection(colName);
   const remoteIndex = new Map<string, { updatedAt: number; isDeleted: boolean }>();
   const justPulled = new Set<string>();
-
   let cursor: string | undefined = undefined;
   let pageCount = 0;
 
@@ -370,13 +416,11 @@ async function syncCollection(
       queries: queries as never,
       total: false,
     });
-
     const rows = ((remoteResponse as { rows?: AppwriteRow[] }).rows ||
       []) as AppwriteRow[];
     pageCount++;
     if (DEBUG)
       console.log(`[Sync] ${colName} page ${pageCount}: ${rows.length} rows`);
-
     if (rows.length === 0) break;
 
     for (const row of rows) {
@@ -392,7 +436,6 @@ async function syncCollection(
         });
 
         const localDoc = await collection.findOne(docId).exec();
-
         if (!localDoc) {
           await collection.upsert(doc);
           justPulled.add(docId);
@@ -449,11 +492,11 @@ async function syncCollection(
       const localUpdatedAt = toMs(json.updatedAt);
       shouldPush = localUpdatedAt > remoteMeta.updatedAt;
     }
-
     if (!shouldPush) continue;
 
     const rowData = toAppwriteFormat(json, colName, userId);
     if (DEBUG) console.log(`[Sync] Pushing ${colName} ${docId}`);
+
     try {
       await tablesDB.upsertRow({
         databaseId: APPWRITE_CONFIG.databaseId,
@@ -491,11 +534,9 @@ function safeForceSync(reason: string) {
 function handleWindowFocus() {
   safeForceSync('Window focused');
 }
-
 function handleOnline() {
   safeForceSync('Connection restored');
 }
-
 function handleVisibilityChange() {
   if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
     safeForceSync('App became visible');

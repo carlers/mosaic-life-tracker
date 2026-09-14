@@ -1,0 +1,51 @@
+import React from 'react';
+import { useNavigate } from 'react-router-dom';
+import { motion } from 'framer-motion';
+import { MessageCircle, Users } from 'lucide-react';
+import { ConversationRow } from '../components/messages/ConversationRow';
+import { useConversations } from '../hooks/useConversations';
+
+export const MessagesPage: React.FC = () => {
+  const navigate = useNavigate();
+  const { conversations, isLoading } = useConversations();
+
+  return (
+    <div className="flex flex-col h-full animate-in fade-in duration-300">
+      <div className="sticky top-0 z-20 bg-[#111111] px-4 py-3 border-b border-[#333333]">
+        <h1 className="text-lg font-bold text-white">Messages</h1>
+      </div>
+      <div className="flex-1 overflow-y-auto pb-24 px-4 pt-4">
+        {isLoading ? (
+          <div className="flex justify-center py-10">
+            <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin" />
+          </div>
+        ) : conversations.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-20 text-center">
+            <div className="w-16 h-16 bg-[#1E1E1E] rounded-full flex items-center justify-center mb-4 border border-[#333333]">
+              <MessageCircle size={28} className="text-gray-400" />
+            </div>
+            <h2 className="text-lg font-bold text-white mb-2">No friends yet</h2>
+            <p className="text-sm text-gray-500 mb-6 max-w-xs">
+              Add friends to start chatting. You can also reply to their tasks
+              from their calendar.
+            </p>
+            <motion.button
+              whileTap={{ scale: 0.95 }}
+              onClick={() => navigate('/explore')}
+              className="flex items-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-medium px-5 py-2.5 rounded-xl transition-colors"
+            >
+              <Users size={16} />
+              Find Friends
+            </motion.button>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {conversations.map((c) => (
+              <ConversationRow key={c.friend.friendId} conversation={c} />
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};

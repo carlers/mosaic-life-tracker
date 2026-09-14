@@ -14,11 +14,13 @@ import {
   diarySchema,
   settingsSchema,
   friendshipsSchema,
+  messagesSchema,
   type TaskDocument,
   type CategoryDocument,
   type DiaryDocument,
   type SettingsDocument,
   type FriendshipDocument,
+  type MessageDocument,
 } from './schema';
 
 if (import.meta.env.DEV) {
@@ -36,6 +38,7 @@ export interface AppDatabaseCollections {
   diary: RxCollection<DiaryDocument>;
   settings: RxCollection<SettingsDocument>;
   friendships: RxCollection<FriendshipDocument>;
+  messages: RxCollection<MessageDocument>;
 }
 
 let dbInstance: RxDatabase<AppDatabaseCollections> | null = null;
@@ -57,6 +60,7 @@ export async function initializeDatabase(): Promise<RxDatabase<AppDatabaseCollec
       ignoreDuplicate: true,
     });
     if (DEBUG) console.log('[RxDB] Database created successfully');
+
     await database.addCollections({
       tasks: {
         schema: tasksSchema,
@@ -73,7 +77,9 @@ export async function initializeDatabase(): Promise<RxDatabase<AppDatabaseCollec
           1: (oldDoc) => ({ ...oldDoc, friendBio: '' }),
         },
       },
+      messages: { schema: messagesSchema },
     });
+
     if (DEBUG) {
       console.log('[RxDB] Collections added successfully');
       const stats = await getDatabaseStats(database);
@@ -108,12 +114,13 @@ export async function destroyDatabase(): Promise<void> {
 
 export async function getDatabaseStats(db?: RxDatabase<AppDatabaseCollections>) {
   const database = db || getDatabase();
-  const [tasks, categories, diary, settings, friendships] = await Promise.all([
+  const [tasks, categories, diary, settings, friendships, messages] = await Promise.all([
     database.tasks.count().exec(),
     database.categories.count().exec(),
     database.diary.count().exec(),
     database.settings.count().exec(),
     database.friendships.count().exec(),
+    database.messages.count().exec(),
   ]);
-  return { tasks, categories, diary, settings, friendships };
+  return { tasks, categories, diary, settings, friendships, messages };
 }

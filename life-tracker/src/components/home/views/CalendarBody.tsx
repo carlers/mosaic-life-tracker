@@ -3,6 +3,7 @@ import { MonthView } from './MonthView';
 import { WeekView } from './WeekView';
 import { DayViewSheet } from './DayViewSheet';
 import { FriendDayViewSheet } from '../../friend/FriendDayViewSheet';
+import { ReplyComposerSheet } from '../../messages/ReplyComposerSheet';
 import type { TaskDocument, CategoryDocument } from '../../../db/schema';
 import type { CalendarViewMode } from './useCalendarState';
 
@@ -47,6 +48,7 @@ interface CalendarBodyProps {
   variant: 'me' | 'friend';
   friendCategories?: CategoryDocument[];
   friendName?: string;
+  friendUserId?: string | null;
 }
 
 export const CalendarBody: React.FC<CalendarBodyProps> = ({
@@ -58,8 +60,12 @@ export const CalendarBody: React.FC<CalendarBodyProps> = ({
   variant,
   friendCategories,
   friendName,
+  friendUserId,
 }) => {
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+  const [replyTask, setReplyTask] = useState<TaskDocument | null>(null);
+  const [replyColor, setReplyColor] = useState<string>('');
+  const [feedback, setFeedback] = useState<string | null>(null);
 
   const handleDayClick = useCallback((date: Date) => {
     setSelectedDate(date);
@@ -69,14 +75,22 @@ export const CalendarBody: React.FC<CalendarBodyProps> = ({
     setSelectedDate(null);
   }, []);
 
+  const handleReplyToTask = useCallback(
+    (task: TaskDocument, color: string) => {
+      setReplyTask(task);
+      setReplyColor(color);
+    },
+    []
+  );
+
+  const handleReplySent = useCallback((msg: string) => {
+    setFeedback(msg);
+    setTimeout(() => setFeedback(null), 2000);
+  }, []);
+
   return (
     <>
-      {/* min-h-0 lets this flex-1 child actually shrink so the calendar
-          grid fills the remaining height instead of forcing overflow. */}
-      <div
-        className="flex-1 min-h-0 overflow-hidden py-2"
-        ref={emblaRef}
-      >
+      <div className="flex-1 min-h-0 overflow-hidden py-2" ref={emblaRef}>
         <div className="flex h-full" style={{ touchAction: 'pan-y' }}>
           {slides.map((date, i) => (
             <div
@@ -104,14 +118,31 @@ export const CalendarBody: React.FC<CalendarBodyProps> = ({
           onDateChange={setSelectedDate}
         />
       ) : (
-        <FriendDayViewSheet
-          isOpen={!!selectedDate}
-          onClose={handleCloseSheet}
-          date={selectedDate}
-          tasks={tasks}
-          categories={friendCategories || []}
-          friendName={friendName || 'Friend'}
-        />
+        <>
+          <FriendDayViewSheet
+            isOpen={!!selectedDate}
+            onClose={handleCloseSheet}
+            date={selectedDate}
+            tasks={tasks}
+            categories={friendCategories || []}
+            friendName={friendName || 'Friend'}
+            onReplyToTask={handleReplyToTask}
+          />
+          <ReplyComposerSheet
+            isOpen={!!replyTask}
+            onClose={() => setReplyTask(null)}
+            task={replyTask}
+            categoryColor={replyColor}
+            friendId={replyTask ? friendUserId || null : null}
+            friendName={friendName || 'Friend'}
+            onSent={handleReplySent}
+          />
+          {feedback && (
+            <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[70] bg-[#2A2A2A] border border-[#444444] text-white text-sm px-5 py-2.5 rounded-full shadow-lg backdrop-blur-md animate-in fade-in slide-in-from-bottom-2 duration-200">
+              {feedback}
+            </div>
+          )}
+        </>
       )}
     </>
   );

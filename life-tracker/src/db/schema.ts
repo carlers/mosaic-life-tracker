@@ -65,6 +65,25 @@ export interface FriendshipDocument {
   isDeleted: boolean;
 }
 
+export interface MessageDocument {
+  id: string;
+  userId: string;
+  threadId: string;
+  senderId: string;
+  recipientId: string;
+  direction: 'outgoing' | 'incoming';
+  content: string;
+  taskRefId: string;
+  taskRefTitle: string;
+  taskRefDate: string;
+  taskRefColor: string;
+  readAt: string;
+  deliveryStatus: 'pending' | 'delivered';
+  createdAt: string;
+  updatedAt: string;
+  isDeleted: boolean;
+}
+
 export const tasksSchema: RxJsonSchema<TaskDocument> = {
   version: 1,
   primaryKey: 'id',
@@ -196,5 +215,57 @@ export const friendshipsSchema: RxJsonSchema<FriendshipDocument> = {
     ['userId', 'isDeleted'],
     ['userId', 'status', 'isDeleted'],
     ['friendId', 'userId'],
+  ],
+};
+
+export const messagesSchema: RxJsonSchema<MessageDocument> = {
+  version: 0,
+  primaryKey: 'id',
+  type: 'object',
+  required: [
+    'id',
+    'userId',
+    'threadId',
+    'senderId',
+    'recipientId',
+    'direction',
+    'content',
+    'taskRefId',
+    'taskRefTitle',
+    'taskRefDate',
+    'taskRefColor',
+    'readAt',
+    'deliveryStatus',
+    'createdAt',
+    'updatedAt',
+    'isDeleted',
+  ],
+  properties: {
+    id: { type: 'string', maxLength: 255 },
+    userId: { type: 'string', maxLength: 255 },
+    threadId: { type: 'string', maxLength: 50 },
+    senderId: { type: 'string', maxLength: 255 },
+    recipientId: { type: 'string', maxLength: 255 },
+    direction: { type: 'string', maxLength: 20, enum: ['outgoing', 'incoming'] },
+    content: { type: 'string', maxLength: 4000 },
+    taskRefId: { type: 'string', maxLength: 255, default: '' },
+    taskRefTitle: { type: 'string', maxLength: 500, default: '' },
+    taskRefDate: { type: 'string', maxLength: 50, default: '' },
+    taskRefColor: { type: 'string', maxLength: 20, default: '' },
+    readAt: { type: 'string', maxLength: 50, default: '' },
+    deliveryStatus: {
+      type: 'string',
+      maxLength: 20,
+      enum: ['pending', 'delivered'],
+      default: 'delivered',
+    },
+    createdAt: { type: 'string', maxLength: 50 },
+    updatedAt: { type: 'string', maxLength: 50 },
+    isDeleted: { type: 'boolean' },
+  },
+  indexes: [
+    ['userId', 'threadId', 'createdAt'],
+    ['userId', 'isDeleted', 'createdAt'],
+    ['userId', 'direction', 'readAt'],
   ],
 };
