@@ -32,6 +32,8 @@ export const MessageActionSheet: React.FC<MessageActionSheetProps> = ({
   if (!message) return null;
 
   const hasContent = message.content.trim().length > 0;
+  const hasTaskRef = message.taskRefTitle.trim().length > 0;
+  const canCopy = hasContent || hasTaskRef;
   const isUnsent = message.isUnsent;
 
   if (isUnsent) {
@@ -100,7 +102,7 @@ export const MessageActionSheet: React.FC<MessageActionSheetProps> = ({
           <span className="text-base font-medium">Reply</span>
         </button>
 
-        {hasContent && (
+        {canCopy && (
           <button
             onClick={() => {
               onCopy();

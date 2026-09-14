@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { format } from 'date-fns';
-import { Check, CheckCheck, Ban } from 'lucide-react';
+import { Check, CheckCheck, Ban, Reply } from 'lucide-react';
 import { TaskRefCard } from './TaskRefCard';
 import { ReplyPreview } from './ReplyPreview';
 import { ReactionRow } from './ReactionRow';
-import { useLongPress } from '../../hooks/useLongPress';
+import { useBubbleGestures, type SwipeDirection } from '../../hooks/useBubbleGestures';
 import { parseReactions } from '../../lib/reactionUtils';
 import type { MessageDocument } from '../../db/schema';
 
@@ -20,9 +20,13 @@ interface MessageBubbleProps {
   onLongPress?: (message: MessageDocument) => void;
   onQuoteTap?: (targetMessageId: string) => void;
   onReact?: (messageId: string, emoji: string) => void;
+  onSwipeReply?: (message: MessageDocument) => void;
+  /** When true, gestures are disabled globally (e.g. a sheet is open). */
+  gesturesDisabled?: boolean;
 }
 
 const REVEAL_DURATION_MS = 2500;
+const DOUBLE_TAP_EMOJI = '❤️';
 
 export const MessageBubble: React.FC<MessageBubbleProps> = ({
   message,
@@ -34,6 +38,8 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
   onLongPress,
   onQuoteTap,
   onReact,
+  onSwipeReply,
+  gesturesDisabled = false,
 }) => {
   const [hovered, setHovered] = useState(false);
   const [revealed, setRevealed] = useState(false);
@@ -47,23 +53,40 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
 
   const isUnsent = message.isUnsent;
 
-  const longPress = useLongPress(
-    () => {
-      if (!isUnsent) onLongPress?.(message);
-    },
-    { threshold: 500 }
-  );
+  const swipeDirection: SwipeDirection = isOutgoing ? 'left' : 'right';
+  const disabled = isUnsent || gesturesDisabled;
 
-  const handleClick = () => {
-    if (longPress.consumeDidFire()) return;
-    if (isUnsent) return;
-    if (timeoutRef.current) clearTimeout(timeoutRef.current);
-    setRevealed(true);
-    timeoutRef.current = setTimeout(
-      () => setRevealed(false),
-      REVEAL_DURATION_MS
-    );
-  };
+  const gestures = useBubbleGestures({
+    swipeDirection,
+    disabled,
+    onSingleTap: () => {
+      if (isUnsent) return;
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+      setRevealed(true);
+      timeoutRef.current = setTimeout(
+        () => setRevealed(false),
+        REVEAL_DURATION_MS
+      );
+    },
+    onDoubleTap: () => {
+      if (isUnsent) return;
+      onReact?.(message.id, DOUBLE_TAP_EMOJI);
+    },
+    onLongPress: () => {
+      if (isUnsent) return;
+      onLongPress?.(message);
+    },
+    onSwipeReply: () => {
+      if (isUnsent) return;
+      onSwipeReply?.(message);
+    },
+    onContextMenu: () => {
+      if (isUnsent) return;
+      onLongPress?.(message);
+    },
+  });
+
+  const { swipeOffset, isSwiping } = gestures;
 
   const timeLabel = format(new Date(message.createdAt), 'h:mm a');
   const readTimeLabel = message.readAt
@@ -100,7 +123,6 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
     message.replyToSenderId && resolveSenderName
       ? resolveSenderName(message.replyToSenderId)
       : '';
-
   const replyIsDeleted =
     !!message.replyToId && message.replyToContent.length === 0;
 
@@ -111,6 +133,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
     ? 'bg-emerald-600 text-white rounded-br-md'
     : 'bg-[#1E1E1E] text-gray-100 border border-[#333333] rounded-bl-md';
 
+  // ---- Unsent tombstone: no gestures ----
   if (isUnsent) {
     return (
       <div
@@ -145,6 +168,18 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
     );
   }
 
+  // ---- Reply icon reveal ----
+  const swipeProgress = Math.min(Math.abs(swipeOffset) / 60, 1);
+  const replyIconOpacity = swipeProgress;
+  const replyIconScale = 0.85 + swipeProgress * 0.25;
+  const iconSideClass = isOutgoing ? 'right-0 pr-3' : 'left-0 pl-3';
+  const iconTransition = isSwiping
+    ? 'none'
+    : 'opacity 220ms ease-out, transform 220ms ease-out';
+  const bubbleTransition = isSwiping
+    ? 'none'
+    : 'transform 220ms cubic-bezier(0.22, 1, 0.36, 1)';
+
   return (
     <div
       data-message-id={message.id}
@@ -152,48 +187,70 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
         isOutgoing ? 'items-end' : 'items-start'
       } mb-1`}
     >
-      <div
-        onPointerDown={longPress.onPointerDown}
-        onPointerMove={longPress.onPointerMove}
-        onPointerUp={longPress.onPointerUp}
-        onPointerLeave={longPress.onPointerLeave}
-        onPointerCancel={longPress.onPointerCancel}
-        onContextMenu={longPress.onContextMenu}
-        onClick={handleClick}
-        onMouseEnter={() => setHovered(true)}
-        onMouseLeave={() => setHovered(false)}
-        className={`max-w-[78%] rounded-2xl px-3 py-2 cursor-pointer select-none ${bubbleBgClass}`}
-        style={{ WebkitTouchCallout: 'none' }}
-      >
-        {message.replyToId && (
-          <div
-            onClick={(e) => {
-              e.stopPropagation();
-              if (message.replyToId) onQuoteTap?.(message.replyToId);
-            }}
-            className="cursor-pointer"
-          >
-            <ReplyPreview
-              senderName={replySenderName || 'Message'}
-              content={message.replyToContent}
-              isDeleted={replyIsDeleted}
-              variant="bubble"
-            />
+      <div className="relative max-w-[78%]">
+        {/* Reply icon sits behind the bubble; revealed as the bubble slides away */}
+        <div
+          className={`absolute top-0 bottom-0 flex items-center pointer-events-none ${iconSideClass}`}
+          style={{
+            opacity: replyIconOpacity,
+            transform: `scale(${replyIconScale})`,
+            transition: iconTransition,
+          }}
+          aria-hidden
+        >
+          <div className="w-8 h-8 rounded-full bg-emerald-500/25 flex items-center justify-center">
+            <Reply size={16} className="text-emerald-400" />
           </div>
-        )}
-        {message.taskRefTitle && (
-          <TaskRefCard
-            taskId={message.taskRefId}
-            title={message.taskRefTitle}
-            date={message.taskRefDate}
-            color={message.taskRefColor}
-          />
-        )}
-        {message.content && (
-          <p className="text-sm whitespace-pre-wrap break-words">
-            {message.content}
-          </p>
-        )}
+        </div>
+
+        <div
+          onPointerDown={gestures.onPointerDown}
+          onPointerMove={gestures.onPointerMove}
+          onPointerUp={gestures.onPointerUp}
+          onPointerCancel={gestures.onPointerCancel}
+          onContextMenu={gestures.onContextMenu}
+          onMouseEnter={() => setHovered(true)}
+          onMouseLeave={() => setHovered(false)}
+          className={`rounded-2xl px-3 py-2 cursor-pointer select-none ${bubbleBgClass}`}
+          style={{
+            transform: `translateX(${swipeOffset}px)`,
+            transition: bubbleTransition,
+            touchAction: 'pan-y',
+            WebkitTouchCallout: 'none',
+            willChange: isSwiping ? 'transform' : undefined,
+          }}
+        >
+          {message.replyToId && (
+            <div
+              onPointerDown={(e) => e.stopPropagation()}
+              onClick={(e) => {
+                e.stopPropagation();
+                if (message.replyToId) onQuoteTap?.(message.replyToId);
+              }}
+              className="cursor-pointer"
+            >
+              <ReplyPreview
+                senderName={replySenderName || 'Message'}
+                content={message.replyToContent}
+                isDeleted={replyIsDeleted}
+                variant="bubble"
+              />
+            </div>
+          )}
+          {message.taskRefTitle && (
+            <TaskRefCard
+              taskId={message.taskRefId}
+              title={message.taskRefTitle}
+              date={message.taskRefDate}
+              color={message.taskRefColor}
+            />
+          )}
+          {message.content && (
+            <p className="text-sm whitespace-pre-wrap break-words">
+              {message.content}
+            </p>
+          )}
+        </div>
       </div>
 
       {showReactions && (

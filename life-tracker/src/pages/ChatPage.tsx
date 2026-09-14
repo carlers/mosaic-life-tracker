@@ -6,7 +6,7 @@ import React, {
   useCallback,
 } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ChevronLeft, MessageSquare } from 'lucide-react';
+import { ChevronLeft, MessageSquare, Search } from 'lucide-react';
 import { format, isSameDay, subDays } from 'date-fns';
 import { Avatar } from '../components/ui/Avatar';
 import { BottomSheet } from '../components/ui/BottomSheet';
@@ -14,9 +14,14 @@ import {
   MessageBubble,
   type MessageStatusKind,
 } from '../components/messages/MessageBubble';
-import { MessageComposer } from '../components/messages/MessageComposer';
+import {
+  MessageComposer,
+  type MessageComposerHandle,
+} from '../components/messages/MessageComposer';
 import { MessageActionSheet } from '../components/messages/MessageActionSheet';
 import { EmojiPickerSheet } from '../components/messages/EmojiPickerSheet';
+import { ScrollToBottomButton } from '../components/messages/ScrollToBottomButton';
+import { ChatSearchBar } from '../components/messages/ChatSearchBar';
 import { useMessages, type ReplyContext } from '../hooks/useMessages';
 import { useFriends } from '../hooks/useFriends';
 import { useTaskImage } from '../hooks/useTaskImage';
@@ -25,6 +30,7 @@ import type { MessageDocument } from '../db/schema';
 
 const TIMESTAMP_GAP_MS = 5 * 60 * 1000;
 const POLL_INTERVAL_MS = 10_000;
+const SCROLL_FAB_THRESHOLD_PX = 300;
 
 type RenderItem =
   | { kind: 'divider'; key: string; label: string }
@@ -47,6 +53,14 @@ function dateDividerLabel(date: Date): string {
   if (isSameDay(date, today)) return 'Today';
   if (isSameDay(date, subDays(today, 1))) return 'Yesterday';
   return format(date, 'MMMM d, yyyy');
+}
+
+function messageMatchesQuery(m: MessageDocument, query: string): boolean {
+  const q = query.toLowerCase();
+  if (m.content.toLowerCase().includes(q)) return true;
+  if (m.taskRefTitle.toLowerCase().includes(q)) return true;
+  if (m.replyToContent.toLowerCase().includes(q)) return true;
+  return false;
 }
 
 export const ChatPage: React.FC = () => {
@@ -90,7 +104,23 @@ export const ChatPage: React.FC = () => {
   );
   const [isEmojiPickerOpen, setIsEmojiPickerOpen] = useState(false);
 
+  // Search
+  const [isSearching, setIsSearching] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+
+  // Scroll FAB
+  const [showScrollButton, setShowScrollButton] = useState(false);
+  const [lastAcknowledgedId, setLastAcknowledgedId] = useState<string | null>(
+    null
+  );
+
   const scrollRef = useRef<HTMLDivElement>(null);
+  const composerRef = useRef<MessageComposerHandle>(null);
+  // Tracks whether the user was near the bottom *before* the latest render.
+  // Updated synchronously inside the scroll handler so the auto-scroll effect
+  // reads an accurate value for the current scroll position.
+  const isPinnedToBottomRef = useRef(true);
+
   const lastMsgId =
     messages.length > 0 ? messages[messages.length - 1].id : null;
 
@@ -110,15 +140,33 @@ export const ChatPage: React.FC = () => {
     [myUserId, friend]
   );
 
+  // Auto-scroll to bottom on new messages.
+  // - Suppressed while searching.
+  // - Outgoing messages always scroll (you just sent it).
+  // - Incoming messages only scroll if the user was already pinned to bottom.
   useEffect(() => {
     if (!lastMsgId) return;
+    if (isSearching) return;
     const el = scrollRef.current;
     if (!el) return;
+
+    const lastMessage = messages[messages.length - 1];
+    const isOutgoing = lastMessage?.direction === 'outgoing';
+    const wasPinned = isPinnedToBottomRef.current;
+
+    if (!isOutgoing && !wasPinned) {
+      // User is reading history — leave them alone. The FAB indicates unread.
+      return;
+    }
+
     requestAnimationFrame(() => {
       el.scrollTop = el.scrollHeight;
+      isPinnedToBottomRef.current = true;
+      setLastAcknowledgedId(lastMsgId);
     });
-  }, [lastMsgId]);
+  }, [lastMsgId, isSearching, messages]);
 
+  // Mark incoming as read
   useEffect(() => {
     if (messages.length === 0) return;
     const hasUnread = messages.some(
@@ -131,6 +179,7 @@ export const ChatPage: React.FC = () => {
     }
   }, [messages, markAllRead]);
 
+  // Polling sync
   useEffect(() => {
     if (!friendId) return;
     let cancelled = false;
@@ -158,11 +207,76 @@ export const ChatPage: React.FC = () => {
     };
   }, [friendId]);
 
+  // Feedback auto-dismiss
   useEffect(() => {
     if (!feedback) return;
     const t = setTimeout(() => setFeedback(null), 2000);
     return () => clearTimeout(t);
   }, [feedback]);
+
+  // Scroll listener drives the FAB visibility + acknowledgement + pinned flag
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    let raf: number | null = null;
+    const handleScroll = () => {
+      // Update the pinned flag synchronously so the auto-scroll effect can
+      // read the freshest value even before rAF runs.
+      const distFromBottom =
+        el.scrollHeight - el.scrollTop - el.clientHeight;
+      isPinnedToBottomRef.current =
+        distFromBottom < SCROLL_FAB_THRESHOLD_PX;
+
+      if (raf !== null) return;
+      raf = requestAnimationFrame(() => {
+        raf = null;
+        const shouldShow = !isPinnedToBottomRef.current;
+        setShowScrollButton(shouldShow);
+        if (!shouldShow && lastMsgId) {
+          setLastAcknowledgedId(lastMsgId);
+        }
+      });
+    };
+    el.addEventListener('scroll', handleScroll, { passive: true });
+    handleScroll();
+    return () => {
+      el.removeEventListener('scroll', handleScroll);
+      if (raf !== null) cancelAnimationFrame(raf);
+    };
+  }, [lastMsgId]);
+
+  // Keyboard shortcuts
+  const isOverlayOpen =
+    isActionSheetOpen || isUnsendConfirmOpen || isEmojiPickerOpen;
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Let sheets handle their own Escape
+      if (isOverlayOpen) return;
+
+      if (e.key === 'Escape') {
+        if (isSearching) {
+          setIsSearching(false);
+          setSearchQuery('');
+          return;
+        }
+        if (composerReply) {
+          setComposerReply(null);
+          return;
+        }
+        return;
+      }
+
+      if ((e.metaKey || e.ctrlKey) && (e.key === 'f' || e.key === 'k')) {
+        e.preventDefault();
+        setIsSearching(true);
+        return;
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOverlayOpen, isSearching, composerReply]);
 
   const statusById = useMemo(() => {
     const map = new Map<string, MessageStatusKind>();
@@ -190,14 +304,31 @@ export const ChatPage: React.FC = () => {
     return map;
   }, [messages]);
 
+  // Search match count (independent of renderItems)
+  const searchMatchCount = useMemo(() => {
+    const q = searchQuery.trim();
+    if (!q) return 0;
+    return messages.filter((m) => messageMatchesQuery(m, q)).length;
+  }, [messages, searchQuery]);
+
   const renderItems = useMemo<RenderItem[]>(() => {
+    const trimmedQuery = searchQuery.trim();
+    const isFiltering = isSearching && trimmedQuery.length > 0;
+
+    const filtered = isFiltering
+      ? messages.filter((m) => messageMatchesQuery(m, trimmedQuery))
+      : messages;
+
     const items: RenderItem[] = [];
     let lastDayKey = '';
     let lastTs = 0;
-    messages.forEach((m) => {
+
+    filtered.forEach((m) => {
       const created = new Date(m.createdAt);
       const dayKey = format(created, 'yyyy-MM-dd');
-      if (dayKey !== lastDayKey) {
+
+      // Hide date dividers while searching — the timeline is broken up.
+      if (!isFiltering && dayKey !== lastDayKey) {
         items.push({
           kind: 'divider',
           key: `d-${dayKey}`,
@@ -206,8 +337,9 @@ export const ChatPage: React.FC = () => {
         lastDayKey = dayKey;
         lastTs = 0;
       }
+
       const ts = created.getTime();
-      const showTimestamp = ts - lastTs > TIMESTAMP_GAP_MS;
+      const showTimestamp = !isFiltering && ts - lastTs > TIMESTAMP_GAP_MS;
       items.push({
         kind: 'message',
         key: m.id,
@@ -216,8 +348,9 @@ export const ChatPage: React.FC = () => {
       });
       lastTs = ts;
     });
+
     return items;
-  }, [messages]);
+  }, [messages, isSearching, searchQuery]);
 
   const handleOpenActionSheet = useCallback((message: MessageDocument) => {
     if (message.isUnsent) return;
@@ -237,7 +370,27 @@ export const ChatPage: React.FC = () => {
 
   const handleCopyFromSheet = useCallback(async () => {
     if (!actionMessage) return;
-    const text = actionMessage.content || actionMessage.taskRefTitle || '';
+
+    const parts: string[] = [];
+    if (actionMessage.content.trim()) {
+      parts.push(actionMessage.content.trim());
+    }
+    if (actionMessage.taskRefTitle.trim()) {
+      const refDate = actionMessage.taskRefDate
+        ? format(
+            new Date(`${actionMessage.taskRefDate}T00:00:00`),
+            'MMM d, yyyy'
+          )
+        : '';
+      parts.push(
+        refDate
+          ? `↳ ${actionMessage.taskRefTitle} (${refDate})`
+          : `↳ ${actionMessage.taskRefTitle}`
+      );
+    }
+    const text = parts.join('\n\n');
+    if (!text) return;
+
     try {
       await navigator.clipboard.writeText(text);
       setFeedback('Copied');
@@ -310,6 +463,20 @@ export const ChatPage: React.FC = () => {
     [toggleReaction]
   );
 
+  const handleSwipeReply = useCallback(
+    (message: MessageDocument) => {
+      if (message.isUnsent) return;
+      setComposerReply({
+        id: message.id,
+        senderId: message.senderId,
+        senderName: resolveSenderName(message.senderId),
+        content: message.content || message.taskRefTitle || '',
+      });
+      setTimeout(() => composerRef.current?.focus(), 50);
+    },
+    [resolveSenderName]
+  );
+
   const handleQuoteTap = useCallback((targetId: string) => {
     const el = document.querySelector(
       `[data-message-id="${targetId}"]`
@@ -343,7 +510,25 @@ export const ChatPage: React.FC = () => {
     [sendMessage, composerReply]
   );
 
+  const handleScrollToBottom = useCallback(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
+  }, []);
+
+  const handleOpenSearch = useCallback(() => {
+    setIsSearching(true);
+  }, []);
+
+  const handleCloseSearch = useCallback(() => {
+    setIsSearching(false);
+    setSearchQuery('');
+  }, []);
+
   const handleBack = () => navigate(-1);
+
+  const hasUnreadBelow =
+    !!lastMsgId && lastMsgId !== lastAcknowledgedId;
 
   if (friendsLoading) {
     return (
@@ -378,6 +563,11 @@ export const ChatPage: React.FC = () => {
   }
 
   const displayName = friend.friendDisplayName || friend.friendUsername;
+  const showEmptyState = messages.length === 0 && !isSearching;
+  const showNoMatches =
+    isSearching &&
+    searchQuery.trim().length > 0 &&
+    renderItems.length === 0;
 
   return (
     <div className="flex flex-col h-full animate-in fade-in duration-300 relative">
@@ -400,15 +590,44 @@ export const ChatPage: React.FC = () => {
               @{friend.friendUsername}
             </p>
           </div>
+          {!isSearching && (
+            <button
+              onClick={handleOpenSearch}
+              onPointerDown={(e) => e.stopPropagation()}
+              className="p-2 rounded-lg text-gray-400 hover:text-white hover:bg-[#2A2A2A] transition-colors flex-shrink-0"
+              aria-label="Search messages"
+            >
+              <Search size={18} />
+            </button>
+          )}
         </div>
       </div>
+
+      {isSearching && (
+        <ChatSearchBar
+          query={searchQuery}
+          onChange={setSearchQuery}
+          matchCount={searchMatchCount}
+          totalCount={messages.length}
+          onClose={handleCloseSearch}
+        />
+      )}
 
       <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-3">
         {isLoading ? (
           <div className="flex justify-center py-10">
             <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin" />
           </div>
-        ) : messages.length === 0 ? (
+        ) : showNoMatches ? (
+          <div className="flex flex-col items-center justify-center py-16 text-center">
+            <div className="w-14 h-14 bg-[#1E1E1E] rounded-full flex items-center justify-center mb-3 border border-[#333333]">
+              <Search size={22} className="text-gray-500" />
+            </div>
+            <p className="text-sm text-gray-500 max-w-xs">
+              No messages match &quot;{searchQuery.trim()}&quot;
+            </p>
+          </div>
+        ) : showEmptyState ? (
           <div className="flex flex-col items-center justify-center py-16 text-center">
             <div className="w-14 h-14 bg-[#1E1E1E] rounded-full flex items-center justify-center mb-3 border border-[#333333]">
               <MessageSquare size={22} className="text-gray-500" />
@@ -446,6 +665,8 @@ export const ChatPage: React.FC = () => {
                 onLongPress={handleOpenActionSheet}
                 onQuoteTap={handleQuoteTap}
                 onReact={handleBubbleReact}
+                onSwipeReply={handleSwipeReply}
+                gesturesDisabled={isOverlayOpen}
               />
             );
           })
@@ -453,10 +674,19 @@ export const ChatPage: React.FC = () => {
       </div>
 
       <MessageComposer
+        ref={composerRef}
         onSend={handleSend}
         replyTo={composerReply}
         onCancelReply={() => setComposerReply(null)}
       />
+
+      {!isSearching && (
+        <ScrollToBottomButton
+          visible={showScrollButton}
+          hasNewMessages={hasUnreadBelow}
+          onClick={handleScrollToBottom}
+        />
+      )}
 
       <MessageActionSheet
         isOpen={isActionSheetOpen}
