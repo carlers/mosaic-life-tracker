@@ -164,8 +164,8 @@ function toAppwriteFormat(
     mapped.reply_to_content = source.replyToContent || '';
     mapped.reply_to_sender_id = source.replyToSenderId || '';
     mapped.is_unsent = source.isUnsent ?? false;
-    // read_at is intentionally omitted from outgoing pushes — the server-side
-    // mark_read action is the sole writer for that field on the sender's rows.
+    mapped.original_message_id = source.originalMessageId || '';
+    mapped.reactions = source.reactions || '';
     if (source.direction !== 'outgoing') {
       mapped.read_at = source.readAt || '';
     }
@@ -277,6 +277,8 @@ function fromAppwriteFormat(
     mapped.replyToContent = mapped.reply_to_content || '';
     mapped.replyToSenderId = mapped.reply_to_sender_id || '';
     mapped.isUnsent = mapped.is_unsent ?? false;
+    mapped.originalMessageId = mapped.original_message_id || '';
+    mapped.reactions = mapped.reactions || '';
     mapped.readAt = mapped.read_at || '';
     mapped.deliveryStatus = mapped.delivery_status || 'delivered';
     mapped.createdAt = mapped.created_at || new Date().toISOString();
@@ -294,6 +296,7 @@ function fromAppwriteFormat(
     delete mapped.reply_to_content;
     delete mapped.reply_to_sender_id;
     delete mapped.is_unsent;
+    delete mapped.original_message_id;
     delete mapped.read_at;
     delete mapped.delivery_status;
     delete mapped.created_at;

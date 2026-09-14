@@ -14,7 +14,7 @@ let isDeliveryInProgress = false;
 
 export async function sendMessageAction(
   payload: Record<string, unknown>
-): Promise<void> {
+): Promise<Record<string, unknown>> {
   if (typeof navigator !== 'undefined' && navigator.onLine === false) {
     throw new Error('Offline');
   }
@@ -37,6 +37,12 @@ export async function sendMessageAction(
     throw new Error(
       `Message action failed (${execution.responseStatusCode}): ${execution.responseBody}`
     );
+  }
+
+  try {
+    return JSON.parse(execution.responseBody) as Record<string, unknown>;
+  } catch {
+    return {};
   }
 }
 
@@ -120,11 +126,6 @@ export async function markReadOnRemote(
   }
 }
 
-/**
- * Notifies the server to wipe both the sender's and recipient's copies of a
- * message (the tombstone flow). Non-blocking; failures are logged but never
- * thrown — the local patch already applied the tombstone.
- */
 export async function unsendOnRemote(
   messageId: string,
   recipientId: string
@@ -137,5 +138,34 @@ export async function unsendOnRemote(
     });
   } catch (err) {
     console.error('[messageDelivery] unsendOnRemote failed:', err);
+  }
+}
+
+/**
+ * Fires the `react` action and returns the peer row id the server resolved
+ * (if it had to look it up for a legacy row). Returns null when the server
+ * didn't need to resolve anything.
+ */
+export async function reactOnRemote(
+  myRowId: string,
+  peerRowId: string,
+  recipientId: string,
+  emoji: string,
+  op: 'add' | 'remove'
+): Promise<string | null> {
+  try {
+    const result = await sendMessageAction({
+      action: 'react',
+      myRowId,
+      peerRowId: peerRowId || '',
+      recipientId,
+      emoji,
+      op,
+    });
+    const resolved = result?.resolvedPeerRowId;
+    return typeof resolved === 'string' && resolved.length > 0 ? resolved : null;
+  } catch (err) {
+    console.error('[messageDelivery] reactOnRemote failed:', err);
+    return null;
   }
 }

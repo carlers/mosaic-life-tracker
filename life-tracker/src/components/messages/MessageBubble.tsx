@@ -3,7 +3,9 @@ import { format } from 'date-fns';
 import { Check, CheckCheck, Ban } from 'lucide-react';
 import { TaskRefCard } from './TaskRefCard';
 import { ReplyPreview } from './ReplyPreview';
+import { ReactionRow } from './ReactionRow';
 import { useLongPress } from '../../hooks/useLongPress';
+import { parseReactions } from '../../lib/reactionUtils';
 import type { MessageDocument } from '../../db/schema';
 
 export type MessageStatusKind = 'pending' | 'delivered' | 'read';
@@ -11,11 +13,13 @@ export type MessageStatusKind = 'pending' | 'delivered' | 'read';
 interface MessageBubbleProps {
   message: MessageDocument;
   isOutgoing: boolean;
+  currentUserId: string;
   showTimestamp?: boolean;
   statusKind?: MessageStatusKind;
   resolveSenderName?: (senderId: string) => string;
   onLongPress?: (message: MessageDocument) => void;
   onQuoteTap?: (targetMessageId: string) => void;
+  onReact?: (messageId: string, emoji: string) => void;
 }
 
 const REVEAL_DURATION_MS = 2500;
@@ -23,11 +27,13 @@ const REVEAL_DURATION_MS = 2500;
 export const MessageBubble: React.FC<MessageBubbleProps> = ({
   message,
   isOutgoing,
+  currentUserId,
   showTimestamp = false,
   statusKind,
   resolveSenderName,
   onLongPress,
   onQuoteTap,
+  onReact,
 }) => {
   const [hovered, setHovered] = useState(false);
   const [revealed, setRevealed] = useState(false);
@@ -95,15 +101,16 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
       ? resolveSenderName(message.replyToSenderId)
       : '';
 
-  // A quote is a tombstone when it has a link but the content was wiped.
   const replyIsDeleted =
     !!message.replyToId && message.replyToContent.length === 0;
+
+  const reactions = parseReactions(message.reactions);
+  const showReactions = !isUnsent && reactions.length > 0;
 
   const bubbleBgClass = isOutgoing
     ? 'bg-emerald-600 text-white rounded-br-md'
     : 'bg-[#1E1E1E] text-gray-100 border border-[#333333] rounded-bl-md';
 
-  // Unsent rendering: no quote, no task-ref, no content, italic tombstone.
   if (isUnsent) {
     return (
       <div
@@ -188,6 +195,16 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
           </p>
         )}
       </div>
+
+      {showReactions && (
+        <ReactionRow
+          reactions={reactions}
+          currentUserId={currentUserId}
+          isOutgoing={isOutgoing}
+          onToggle={(emoji) => onReact?.(message.id, emoji)}
+        />
+      )}
+
       {showRow && (
         <div className="flex items-center gap-1.5 mt-0.5 px-1 text-[10px] text-gray-500">
           {items.map((node, i) => (

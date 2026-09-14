@@ -6,7 +6,14 @@ import {
   deliverPendingMessages,
   markReadOnRemote,
   unsendOnRemote,
+  reactOnRemote,
 } from '../lib/messageDelivery';
+import {
+  parseReactions,
+  stringifyReactions,
+  applyReactionDelta,
+  hasUserReacted,
+} from '../lib/reactionUtils';
 import type { MessageDocument, TaskDocument } from '../db/schema';
 
 export interface ReplyContext {
@@ -26,6 +33,7 @@ export interface UseMessagesReturn {
   ) => Promise<void>;
   markAllRead: () => Promise<void>;
   unsendMessage: (id: string) => Promise<void>;
+  toggleReaction: (id: string, emoji: string) => Promise<void>;
 }
 
 function truncateForSnapshot(s: string, max = 100): string {
@@ -101,8 +109,11 @@ export function useMessages(friendId: string | null): UseMessagesReturn {
 
       const db = getDatabase();
       const now = new Date().toISOString();
+      const localId = `msg_${Date.now()}_${Math.random()
+        .toString(36)
+        .substr(2, 9)}`;
       const newMsg: MessageDocument = {
-        id: `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        id: localId,
         userId: uid,
         threadId: tid,
         senderId: uid,
@@ -117,6 +128,8 @@ export function useMessages(friendId: string | null): UseMessagesReturn {
         replyToContent: replyTo ? truncateForSnapshot(replyTo.content) : '',
         replyToSenderId: replyTo?.senderId || '',
         isUnsent: false,
+        originalMessageId: localId,
+        reactions: '',
         readAt: '',
         deliveryStatus: 'pending',
         createdAt: now,
@@ -149,8 +162,11 @@ export function useMessages(friendId: string | null): UseMessagesReturn {
 
       const db = getDatabase();
       const now = new Date().toISOString();
+      const localId = `msg_${Date.now()}_${Math.random()
+        .toString(36)
+        .substr(2, 9)}`;
       const newMsg: MessageDocument = {
-        id: `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        id: localId,
         userId: uid,
         threadId: tid,
         senderId: uid,
@@ -165,6 +181,8 @@ export function useMessages(friendId: string | null): UseMessagesReturn {
         replyToContent: '',
         replyToSenderId: '',
         isUnsent: false,
+        originalMessageId: localId,
+        reactions: '',
         readAt: '',
         deliveryStatus: 'pending',
         createdAt: now,
@@ -245,7 +263,6 @@ export function useMessages(friendId: string | null): UseMessagesReturn {
       const recipientId = doc.recipientId;
       const now = new Date().toISOString();
 
-      // Local tombstone first so the UI reacts immediately.
       await doc.patch({
         content: '',
         taskRefId: '',
@@ -256,18 +273,11 @@ export function useMessages(friendId: string | null): UseMessagesReturn {
         replyToContent: '',
         replyToSenderId: '',
         isUnsent: true,
+        reactions: '',
         deliveryStatus: 'delivered',
         updatedAt: now,
       });
 
-      // Cascade: wipe the reply snapshot on any messages (own + received)
-      // that quoted this one.
-      //
-      // Two IDs must be checked because the `replyToId` field is stored from
-      // the perspective of whoever wrote the reply:
-      //   - "msg_<id>"      → replies the sender wrote to their own message
-      //   - "rmsg_<hash>"   → replies the *recipient* wrote (their local copy
-      //                       of the original has this synthetic row id)
       const rmsgId = await makeRecipientRowId(id);
 
       try {
@@ -304,8 +314,90 @@ export function useMessages(friendId: string | null): UseMessagesReturn {
         );
       }
 
-      // Fire-and-forget remote wipe (both sides + cascade).
       unsendOnRemote(id, recipientId);
+    },
+    [user?.$id]
+  );
+
+  const toggleReaction = useCallback(
+    async (id: string, emoji: string) => {
+      const uid = user?.$id;
+      if (!uid) {
+        console.error('[useMessages] Cannot react: User not authenticated');
+        return;
+      }
+
+      const db = getDatabase();
+      const doc = await db.messages.findOne(id).exec();
+      if (!doc) return;
+      if (doc.isUnsent) return;
+
+      // Peer user id is the OTHER person in the thread — never ourselves.
+      // - outgoing (we sent it): the peer is recipientId
+      // - incoming (we received it): the peer is senderId
+      const peerUserId =
+        doc.direction === 'outgoing' ? doc.recipientId : doc.senderId;
+
+      // Peer row id is the other person's copy of the same logical message.
+      // - outgoing: derive it deterministically from our local id
+      // - incoming: use originalMessageId (set by deliver, or backfilled)
+      const myRowId = doc.id;
+      const peerRowId =
+        doc.direction === 'outgoing'
+          ? await makeRecipientRowId(doc.id)
+          : doc.originalMessageId || '';
+
+      const current = parseReactions(doc.reactions);
+      const op: 'add' | 'remove' = hasUserReacted(current, emoji, uid)
+        ? 'remove'
+        : 'add';
+      const next = applyReactionDelta(current, emoji, uid, op);
+      const nextStr = stringifyReactions(next);
+      const now = new Date().toISOString();
+
+      // Optimistic local patch.
+      try {
+        await doc.patch({ reactions: nextStr, updatedAt: now });
+      } catch (patchErr) {
+        const code = (patchErr as { code?: string })?.code;
+        if (code === 'CONFLICT') {
+          const fresh = await db.messages.findOne(id).exec();
+          if (fresh && !fresh.isUnsent) {
+            const freshCurrent = parseReactions(fresh.reactions);
+            const freshNext = applyReactionDelta(
+              freshCurrent,
+              emoji,
+              uid,
+              op
+            );
+            await fresh.patch({
+              reactions: stringifyReactions(freshNext),
+              updatedAt: now,
+            });
+          }
+        } else {
+          console.error('[useMessages] react patch failed:', patchErr);
+          return;
+        }
+      }
+
+      // Fire-and-forget server write. If the server resolved a peer row id
+      // for a legacy row, persist it locally.
+      reactOnRemote(myRowId, peerRowId, peerUserId, emoji, op)
+        .then(async (resolvedPeerRowId) => {
+          if (!resolvedPeerRowId) return;
+          try {
+            const fresh = await db.messages.findOne(id).exec();
+            if (!fresh) return;
+            if (fresh.originalMessageId) return;
+            await fresh.patch({ originalMessageId: resolvedPeerRowId });
+          } catch (err) {
+            console.error('[useMessages] react backfill failed:', err);
+          }
+        })
+        .catch((err) => {
+          console.error('[useMessages] react delivery failed:', err);
+        });
     },
     [user?.$id]
   );
@@ -321,5 +413,6 @@ export function useMessages(friendId: string | null): UseMessagesReturn {
     sendTaskReply,
     markAllRead,
     unsendMessage,
+    toggleReaction,
   };
 }

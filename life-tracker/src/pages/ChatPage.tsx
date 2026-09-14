@@ -16,6 +16,7 @@ import {
 } from '../components/messages/MessageBubble';
 import { MessageComposer } from '../components/messages/MessageComposer';
 import { MessageActionSheet } from '../components/messages/MessageActionSheet';
+import { EmojiPickerSheet } from '../components/messages/EmojiPickerSheet';
 import { useMessages, type ReplyContext } from '../hooks/useMessages';
 import { useFriends } from '../hooks/useFriends';
 import { useTaskImage } from '../hooks/useTaskImage';
@@ -60,8 +61,14 @@ export const ChatPage: React.FC = () => {
     [friendId, friends]
   );
 
-  const { messages, isLoading, sendMessage, markAllRead, unsendMessage } =
-    useMessages(friend ? friend.friendId : null);
+  const {
+    messages,
+    isLoading,
+    sendMessage,
+    markAllRead,
+    unsendMessage,
+    toggleReaction,
+  } = useMessages(friend ? friend.friendId : null);
   const { imageUrl } = useTaskImage(friend?.friendAvatarFileId || undefined);
 
   const [actionMessage, setActionMessage] = useState<MessageDocument | null>(
@@ -77,6 +84,11 @@ export const ChatPage: React.FC = () => {
   );
   const [isUnsendConfirmOpen, setIsUnsendConfirmOpen] = useState(false);
   const [isUnsending, setIsUnsending] = useState(false);
+
+  const [reactionTarget, setReactionTarget] = useState<MessageDocument | null>(
+    null
+  );
+  const [isEmojiPickerOpen, setIsEmojiPickerOpen] = useState(false);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const lastMsgId =
@@ -262,6 +274,42 @@ export const ChatPage: React.FC = () => {
     setUnsendTarget(null);
   }, []);
 
+  const handleReactFromSheet = useCallback(
+    (emoji: string) => {
+      if (!actionMessage) return;
+      toggleReaction(actionMessage.id, emoji).catch((err) =>
+        console.error('[ChatPage] react failed:', err)
+      );
+    },
+    [actionMessage, toggleReaction]
+  );
+
+  const handleMoreEmojiFromSheet = useCallback(() => {
+    if (!actionMessage) return;
+    setReactionTarget(actionMessage);
+    setIsEmojiPickerOpen(true);
+  }, [actionMessage]);
+
+  const handleEmojiPicked = useCallback(
+    (emoji: string) => {
+      if (!reactionTarget) return;
+      toggleReaction(reactionTarget.id, emoji).catch((err) =>
+        console.error('[ChatPage] react failed:', err)
+      );
+      setReactionTarget(null);
+    },
+    [reactionTarget, toggleReaction]
+  );
+
+  const handleBubbleReact = useCallback(
+    (messageId: string, emoji: string) => {
+      toggleReaction(messageId, emoji).catch((err) =>
+        console.error('[ChatPage] react failed:', err)
+      );
+    },
+    [toggleReaction]
+  );
+
   const handleQuoteTap = useCallback((targetId: string) => {
     const el = document.querySelector(
       `[data-message-id="${targetId}"]`
@@ -391,11 +439,13 @@ export const ChatPage: React.FC = () => {
                 key={item.key}
                 message={item.message}
                 isOutgoing={item.message.direction === 'outgoing'}
+                currentUserId={myUserId}
                 showTimestamp={item.showTimestamp}
                 statusKind={statusById.get(item.message.id)}
                 resolveSenderName={resolveSenderName}
                 onLongPress={handleOpenActionSheet}
                 onQuoteTap={handleQuoteTap}
+                onReact={handleBubbleReact}
               />
             );
           })
@@ -413,9 +463,21 @@ export const ChatPage: React.FC = () => {
         onClose={() => setIsActionSheetOpen(false)}
         message={actionMessage}
         isOwn={actionMessage?.direction === 'outgoing'}
+        currentUserId={myUserId}
         onReply={handleReplyFromSheet}
         onCopy={handleCopyFromSheet}
         onUnsend={handleUnsendFromSheet}
+        onReact={handleReactFromSheet}
+        onMoreEmoji={handleMoreEmojiFromSheet}
+      />
+
+      <EmojiPickerSheet
+        isOpen={isEmojiPickerOpen}
+        onClose={() => {
+          setIsEmojiPickerOpen(false);
+          setReactionTarget(null);
+        }}
+        onPick={handleEmojiPicked}
       />
 
       <BottomSheet

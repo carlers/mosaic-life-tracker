@@ -8,18 +8,15 @@
 
 body {
   @apply bg-background text-white m-0 p-0 min-h-screen font-sans;
-  /* Prevent pull-to-refresh on mobile which can interfere with swipe gestures */
-  overscroll-behavior-y: none; 
+  overscroll-behavior-y: none;
 }
 
-/* Hide scrollbar for Chrome, Safari and Opera */
 .no-scrollbar::-webkit-scrollbar {
   display: none;
 }
-/* Hide scrollbar for IE, Edge and Firefox */
 .no-scrollbar {
-  -ms-overflow-style: none;  /* IE and Edge */
-  scrollbar-width: none;  /* Firefox */
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }
 
 .pswp__custom-caption {
@@ -33,4 +30,31 @@ body {
 }
 .pswp__ui--hidden .pswp__custom-caption {
   opacity: 0 !important;
+}
+
+/* emoji-picker-react dark theme harmony with app palette */
+.emoji-picker-wrapper .epr-main {
+  background-color: #1a1a1a !important;
+  border: 1px solid #333333 !important;
+  border-radius: 12px !important;
+}
+.emoji-picker-wrapper .epr-search-container input {
+  background-color: #111111 !important;
+  border: 1px solid #333333 !important;
+  color: #ffffff !important;
+}
+.emoji-picker-wrapper .epr-category-nav {
+  background-color: #1a1a1a !important;
+  border-bottom: 1px solid #2a2a2a !important;
+}
+.emoji-picker-wrapper .epr-emoji-category-label {
+  background-color: #1a1a1a !important;
+  color: #9ca3af !important;
+}
+.emoji-picker-wrapper .epr-body::-webkit-scrollbar {
+  width: 6px;
+}
+.emoji-picker-wrapper .epr-body::-webkit-scrollbar-thumb {
+  background: #333333;
+  border-radius: 3px;
 }

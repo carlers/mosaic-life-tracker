@@ -13,6 +13,61 @@ function makeRecipientRowId(senderMessageId) {
   return `rmsg_${sha256Hex(senderMessageId).slice(0, 30)}`;
 }
 
+function parseReactions(raw) {
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .filter(
+        (r) =>
+          r &&
+          typeof r === 'object' &&
+          typeof r.emoji === 'string' &&
+          Array.isArray(r.userIds)
+      )
+      .map((r) => ({
+        emoji: r.emoji,
+        userIds: r.userIds.filter((id) => typeof id === 'string'),
+      }))
+      .filter((r) => r.userIds.length > 0);
+  } catch {
+    return [];
+  }
+}
+
+function stringifyReactions(reactions) {
+  const cleaned = reactions
+    .map((r) => ({
+      emoji: r.emoji,
+      userIds: Array.from(new Set(r.userIds)),
+    }))
+    .filter((r) => r.userIds.length > 0);
+  if (cleaned.length === 0) return '';
+  return JSON.stringify(cleaned);
+}
+
+function applyReactionDelta(reactions, emoji, userId, op) {
+  const next = reactions.map((r) => ({
+    emoji: r.emoji,
+    userIds: [...r.userIds],
+  }));
+  const idx = next.findIndex((r) => r.emoji === emoji);
+  if (op === 'add') {
+    if (idx === -1) {
+      next.push({ emoji, userIds: [userId] });
+    } else if (!next[idx].userIds.includes(userId)) {
+      next[idx].userIds.push(userId);
+    }
+  } else {
+    if (idx !== -1) {
+      next[idx].userIds = next[idx].userIds.filter((id) => id !== userId);
+      if (next[idx].userIds.length === 0) next.splice(idx, 1);
+    }
+  }
+  return next;
+}
+
 async function verifyFriendship(tablesDB, a, b) {
   const fsCheck = await tablesDB.listRows({
     databaseId: DATABASE_ID,
@@ -87,6 +142,8 @@ async function handleDeliver(tablesDB, senderId, payload, log, error) {
       reply_to_content: replyToContent || '',
       reply_to_sender_id: replyToSenderId || '',
       is_unsent: false,
+      original_message_id: messageId,
+      reactions: '',
       read_at: '',
       delivery_status: 'delivered',
       created_at: createdAt || now,
@@ -170,17 +227,6 @@ async function handleMarkRead(tablesDB, callerId, payload, log, error) {
   return { status: 200, body: { ok: true, marked } };
 }
 
-/**
- * Wipes the reply snapshot on every message (across both users) that quoted
- * the target. Checks BOTH possible `reply_to_id` values:
- *   - `senderMessageId` — replies the original sender wrote to their own
- *     message (uses their local id directly).
- *   - `recipientRowId`  — replies the recipient wrote (their local copy of
- *     the original has this synthetic `rmsg_<hash>` row id).
- *
- * Paginated per-user. Idempotent: rows whose `reply_to_content` is already
- * empty are skipped.
- */
 async function cascadeReplyWipe(
   tablesDB,
   userIds,
@@ -272,6 +318,7 @@ async function handleUnsend(tablesDB, callerId, payload, log, error) {
     reply_to_content: '',
     reply_to_sender_id: '',
     is_unsent: true,
+    reactions: '',
     updated_at: now,
   };
 
@@ -330,6 +377,141 @@ async function handleUnsend(tablesDB, callerId, payload, log, error) {
   };
 }
 
+/**
+ * Best-effort lookup of the sender's original row for a legacy incoming row
+ * that was delivered before `original_message_id` existed. Matches on
+ * (sender_id, created_at, content). Returns null if not uniquely resolvable.
+ */
+async function resolveLegacyPeerRowId(tablesDB, myRow, log) {
+  try {
+    if (!myRow || myRow.direction !== 'incoming') return null;
+    const senderId = myRow.sender_id;
+    const createdAt = myRow.created_at;
+    const content = myRow.content || '';
+    if (!senderId || !createdAt) return null;
+
+    const res = await tablesDB.listRows({
+      databaseId: DATABASE_ID,
+      tableId: MESSAGES_TABLE,
+      queries: [
+        Query.equal('user_id', senderId),
+        Query.equal('created_at', createdAt),
+        Query.equal('deleted', false),
+        Query.limit(5),
+      ],
+    });
+    const candidates = (res.rows || []).filter(
+      (r) => (r.content || '') === content && r.direction === 'outgoing'
+    );
+    if (candidates.length !== 1) {
+      log(
+        `resolveLegacyPeerRowId: ${candidates.length} candidates for ${myRow.$id}`
+      );
+      return null;
+    }
+    return candidates[0].$id;
+  } catch (err) {
+    log(`resolveLegacyPeerRowId failed: ${err.message}`);
+    return null;
+  }
+}
+
+async function handleReact(tablesDB, callerId, payload, log, error) {
+  const { myRowId, peerRowId, recipientId, emoji, op } = payload || {};
+
+  if (!myRowId || typeof myRowId !== 'string') {
+    error('react: Missing myRowId');
+    return { status: 400, body: { error: 'Missing myRowId' } };
+  }
+  if (!recipientId || typeof recipientId !== 'string') {
+    error('react: Missing recipientId');
+    return { status: 400, body: { error: 'Missing recipientId' } };
+  }
+  if (!emoji || typeof emoji !== 'string' || emoji.length > 16) {
+    error('react: Missing or invalid emoji');
+    return { status: 400, body: { error: 'Invalid emoji' } };
+  }
+  if (op !== 'add' && op !== 'remove') {
+    error('react: op must be add or remove');
+    return { status: 400, body: { error: 'Invalid op' } };
+  }
+  if (callerId === recipientId) {
+    error('react: Cannot react to yourself');
+    return { status: 400, body: { error: 'Cannot react to yourself' } };
+  }
+
+  const isFriend = await verifyFriendship(tablesDB, callerId, recipientId);
+  if (!isFriend) {
+    error(`react: Forbidden, no accepted friendship ${callerId} -> ${recipientId}`);
+    return { status: 403, body: { error: 'Not friends with this user' } };
+  }
+
+  const now = new Date().toISOString();
+  let updated = 0;
+  let resolvedPeerRowId = '';
+
+  // Fetch the caller's row so we can optionally resolve the peer from it.
+  let myRow = null;
+  try {
+    myRow = await tablesDB.getRow({
+      databaseId: DATABASE_ID,
+      tableId: MESSAGES_TABLE,
+      rowId: myRowId,
+    });
+  } catch (err) {
+    log(`react: could not fetch myRow ${myRowId} (${err.message})`);
+  }
+
+  // If the peer id wasn't provided (legacy row with empty original_message_id),
+  // attempt a lookup.
+  let effectivePeerRowId = peerRowId;
+  if (!effectivePeerRowId && myRow) {
+    const resolved = await resolveLegacyPeerRowId(tablesDB, myRow, log);
+    if (resolved) {
+      effectivePeerRowId = resolved;
+      resolvedPeerRowId = resolved;
+      log(`react: resolved legacy peer ${myRowId} -> ${resolved}`);
+    }
+  }
+
+  const targets = [myRowId, effectivePeerRowId].filter(Boolean);
+
+  for (const rowId of targets) {
+    try {
+      const row = await tablesDB.getRow({
+        databaseId: DATABASE_ID,
+        tableId: MESSAGES_TABLE,
+        rowId,
+      });
+      const current = parseReactions(row.reactions || '');
+      const next = applyReactionDelta(current, emoji, callerId, op);
+      const nextStr = stringifyReactions(next);
+      await tablesDB.updateRow({
+        databaseId: DATABASE_ID,
+        tableId: MESSAGES_TABLE,
+        rowId,
+        data: { reactions: nextStr, updated_at: now },
+      });
+      updated++;
+    } catch (err) {
+      log(`react: row ${rowId} update skipped (${err.message})`);
+    }
+  }
+
+  if (updated === 0) {
+    error(`react: no rows updated for ${myRowId} / ${effectivePeerRowId || '(none)'}`);
+    return { status: 404, body: { error: 'Message not found' } };
+  }
+
+  log(
+    `react: caller=${callerId} emoji=${emoji} op=${op} rows=${updated} resolvedPeer=${resolvedPeerRowId || '-'}`
+  );
+  return {
+    status: 200,
+    body: { ok: true, updated, resolvedPeerRowId },
+  };
+}
+
 module.exports = async ({ req, res, log, error }) => {
   const callerId = req.headers['x-appwrite-user-id'];
   if (!callerId) {
@@ -368,6 +550,9 @@ module.exports = async ({ req, res, log, error }) => {
         break;
       case 'unsend':
         result = await handleUnsend(tablesDB, callerId, payload, log, error);
+        break;
+      case 'react':
+        result = await handleReact(tablesDB, callerId, payload, log, error);
         break;
       default:
         error(`Unknown action: ${action}`);

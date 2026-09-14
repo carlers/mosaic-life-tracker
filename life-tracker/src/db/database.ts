@@ -90,6 +90,11 @@ export async function initializeDatabase(): Promise<RxDatabase<AppDatabaseCollec
             ...oldDoc,
             isUnsent: false,
           }),
+          3: (oldDoc) => ({
+            ...oldDoc,
+            originalMessageId: '',
+            reactions: '',
+          }),
         },
       },
     });

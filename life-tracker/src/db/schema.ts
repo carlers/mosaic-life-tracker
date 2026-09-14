@@ -81,6 +81,8 @@ export interface MessageDocument {
   replyToContent: string;
   replyToSenderId: string;
   isUnsent: boolean;
+  originalMessageId: string;
+  reactions: string;
   readAt: string;
   deliveryStatus: 'pending' | 'delivered';
   createdAt: string;
@@ -223,7 +225,7 @@ export const friendshipsSchema: RxJsonSchema<FriendshipDocument> = {
 };
 
 export const messagesSchema: RxJsonSchema<MessageDocument> = {
-  version: 2,
+  version: 3,
   primaryKey: 'id',
   type: 'object',
   required: [
@@ -242,6 +244,8 @@ export const messagesSchema: RxJsonSchema<MessageDocument> = {
     'replyToContent',
     'replyToSenderId',
     'isUnsent',
+    'originalMessageId',
+    'reactions',
     'readAt',
     'deliveryStatus',
     'createdAt',
@@ -264,6 +268,8 @@ export const messagesSchema: RxJsonSchema<MessageDocument> = {
     replyToContent: { type: 'string', maxLength: 300, default: '' },
     replyToSenderId: { type: 'string', maxLength: 255, default: '' },
     isUnsent: { type: 'boolean', default: false },
+    originalMessageId: { type: 'string', maxLength: 255, default: '' },
+    reactions: { type: 'string', maxLength: 5000, default: '' },
     readAt: { type: 'string', maxLength: 50, default: '' },
     deliveryStatus: {
       type: 'string',
