@@ -4,6 +4,7 @@ const { Client, TablesDB, Query, Permission, Role } = require('node-appwrite');
 const DATABASE_ID = 'life_tracker';
 const MESSAGES_TABLE = 'messages';
 const FRIENDSHIPS_TABLE = 'friendships';
+const TASKS_TABLE = 'tasks';
 
 function sha256Hex(input) {
   return crypto.createHash('sha256').update(input).digest('hex');
@@ -377,11 +378,6 @@ async function handleUnsend(tablesDB, callerId, payload, log, error) {
   };
 }
 
-/**
- * Best-effort lookup of the sender's original row for a legacy incoming row
- * that was delivered before `original_message_id` existed. Matches on
- * (sender_id, created_at, content). Returns null if not uniquely resolvable.
- */
 async function resolveLegacyPeerRowId(tablesDB, myRow, log) {
   try {
     if (!myRow || myRow.direction !== 'incoming') return null;
@@ -450,7 +446,6 @@ async function handleReact(tablesDB, callerId, payload, log, error) {
   let updated = 0;
   let resolvedPeerRowId = '';
 
-  // Fetch the caller's row so we can optionally resolve the peer from it.
   let myRow = null;
   try {
     myRow = await tablesDB.getRow({
@@ -462,8 +457,6 @@ async function handleReact(tablesDB, callerId, payload, log, error) {
     log(`react: could not fetch myRow ${myRowId} (${err.message})`);
   }
 
-  // If the peer id wasn't provided (legacy row with empty original_message_id),
-  // attempt a lookup.
   let effectivePeerRowId = peerRowId;
   if (!effectivePeerRowId && myRow) {
     const resolved = await resolveLegacyPeerRowId(tablesDB, myRow, log);
@@ -512,6 +505,87 @@ async function handleReact(tablesDB, callerId, payload, log, error) {
   };
 }
 
+/**
+ * Applies a reaction delta to a task owned by another user.
+ * The caller must be an accepted friend of the task owner. The task row lives
+ * on the owner's account; the function patches it via the API key.
+ */
+async function handleReactToTask(tablesDB, callerId, payload, log, error) {
+  const { taskId, taskOwnerId, emoji, op } = payload || {};
+
+  if (!taskId || typeof taskId !== 'string') {
+    error('react_to_task: Missing taskId');
+    return { status: 400, body: { error: 'Missing taskId' } };
+  }
+  if (!taskOwnerId || typeof taskOwnerId !== 'string') {
+    error('react_to_task: Missing taskOwnerId');
+    return { status: 400, body: { error: 'Missing taskOwnerId' } };
+  }
+  if (!emoji || typeof emoji !== 'string' || emoji.length > 16) {
+    error('react_to_task: Missing or invalid emoji');
+    return { status: 400, body: { error: 'Invalid emoji' } };
+  }
+  if (op !== 'add' && op !== 'remove') {
+    error('react_to_task: op must be add or remove');
+    return { status: 400, body: { error: 'Invalid op' } };
+  }
+  if (callerId === taskOwnerId) {
+    error('react_to_task: Cannot react to your own task');
+    return { status: 400, body: { error: 'Cannot react to your own task' } };
+  }
+
+  const isFriend = await verifyFriendship(tablesDB, callerId, taskOwnerId);
+  if (!isFriend) {
+    error(
+      `react_to_task: Forbidden, no accepted friendship ${callerId} -> ${taskOwnerId}`
+    );
+    return { status: 403, body: { error: 'Not friends with this user' } };
+  }
+
+  let row;
+  try {
+    row = await tablesDB.getRow({
+      databaseId: DATABASE_ID,
+      tableId: TASKS_TABLE,
+      rowId: taskId,
+    });
+  } catch (err) {
+    error(`react_to_task: task ${taskId} not found (${err.message})`);
+    return { status: 404, body: { error: 'Task not found' } };
+  }
+
+  if (row.user_id !== taskOwnerId) {
+    error(`react_to_task: task ${taskId} is not owned by ${taskOwnerId}`);
+    return { status: 403, body: { error: 'Task ownership mismatch' } };
+  }
+  if (row.deleted === true) {
+    error(`react_to_task: task ${taskId} is deleted`);
+    return { status: 404, body: { error: 'Task not found' } };
+  }
+
+  const current = parseReactions(row.reactions || '');
+  const next = applyReactionDelta(current, emoji, callerId, op);
+  const nextStr = stringifyReactions(next);
+  const now = new Date().toISOString();
+
+  try {
+    await tablesDB.updateRow({
+      databaseId: DATABASE_ID,
+      tableId: TASKS_TABLE,
+      rowId: taskId,
+      data: { reactions: nextStr, updated_at: now },
+    });
+  } catch (err) {
+    error(`react_to_task: failed to update task ${taskId} (${err.message})`);
+    return { status: 500, body: { error: 'Update failed' } };
+  }
+
+  log(
+    `react_to_task: caller=${callerId} task=${taskId} owner=${taskOwnerId} emoji=${emoji} op=${op}`
+  );
+  return { status: 200, body: { ok: true, reactions: nextStr } };
+}
+
 module.exports = async ({ req, res, log, error }) => {
   const callerId = req.headers['x-appwrite-user-id'];
   if (!callerId) {
@@ -553,6 +627,9 @@ module.exports = async ({ req, res, log, error }) => {
         break;
       case 'react':
         result = await handleReact(tablesDB, callerId, payload, log, error);
+        break;
+      case 'react_to_task':
+        result = await handleReactToTask(tablesDB, callerId, payload, log, error);
         break;
       default:
         error(`Unknown action: ${action}`);

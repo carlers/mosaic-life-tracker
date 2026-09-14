@@ -1,8 +1,16 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { format } from 'date-fns';
 import { motion } from 'framer-motion';
-import { Check, Image as ImageIcon, MessageSquare } from 'lucide-react';
+import {
+  Check,
+  Image as ImageIcon,
+  MessageSquare,
+  Heart,
+} from 'lucide-react';
 import { BottomSheet } from '../ui/BottomSheet';
+import { ReactionRow } from '../messages/ReactionRow';
+import { EmojiPickerSheet } from '../messages/EmojiPickerSheet';
+import { parseReactions } from '../../lib/reactionUtils';
 import type { TaskDocument, CategoryDocument } from '../../db/schema';
 
 interface FriendDayViewSheetProps {
@@ -12,7 +20,9 @@ interface FriendDayViewSheetProps {
   tasks: TaskDocument[];
   categories: CategoryDocument[];
   friendName: string;
+  currentUserId: string;
   onReplyToTask?: (task: TaskDocument, categoryColor: string) => void;
+  onReactToTask?: (task: TaskDocument, emoji: string) => void;
 }
 
 const EMPTY_TASKS: TaskDocument[] = [];
@@ -24,8 +34,12 @@ export const FriendDayViewSheet: React.FC<FriendDayViewSheetProps> = ({
   tasks,
   categories,
   friendName,
+  currentUserId,
   onReplyToTask,
+  onReactToTask,
 }) => {
+  const [reactionTask, setReactionTask] = useState<TaskDocument | null>(null);
+
   const dateStr = date ? format(date, 'yyyy-MM-dd') : null;
   const headerLabel = date ? format(date, 'EEEE, MMMM d') : '';
 
@@ -54,119 +68,165 @@ export const FriendDayViewSheet: React.FC<FriendDayViewSheetProps> = ({
     [tasksByCategory]
   );
 
+  const handlePickEmoji = (emoji: string) => {
+    if (!reactionTask) return;
+    onReactToTask?.(reactionTask, emoji);
+    setReactionTask(null);
+  };
+
   if (!date) return null;
 
   return (
-    <BottomSheet isOpen={isOpen} onClose={onClose} height="auto">
-      <div className="pt-1 pb-8 px-4">
-        <div className="text-center mb-5">
-          <h2 className="text-white text-lg font-semibold tracking-tight">
-            {headerLabel}
-          </h2>
-          <p className="text-xs text-gray-500 mt-1">
-            {friendName} · {totalTasks} {totalTasks === 1 ? 'task' : 'tasks'}
-          </p>
-        </div>
-
-        {totalTasks === 0 ? (
-          <div className="text-center py-10">
-            <p className="text-sm text-gray-500">Nothing shared on this day.</p>
+    <>
+      <BottomSheet isOpen={isOpen} onClose={onClose} height="auto">
+        <div className="pt-1 pb-8 px-4">
+          <div className="text-center mb-5">
+            <h2 className="text-white text-lg font-semibold tracking-tight">
+              {headerLabel}
+            </h2>
+            <p className="text-xs text-gray-500 mt-1">
+              {friendName} · {totalTasks} {totalTasks === 1 ? 'task' : 'tasks'}
+            </p>
           </div>
-        ) : (
-          <div className="space-y-5">
-            {visibleCategories.map((cat) => {
-              const catTasks = tasksByCategory.get(cat.id) || EMPTY_TASKS;
-              return (
-                <div key={cat.id}>
-                  <div className="flex items-center gap-2 mb-2">
-                    <div
-                      className="w-2.5 h-2.5 rounded-full flex-shrink-0"
-                      style={{ backgroundColor: cat.color }}
-                    />
-                    <span className="text-xs font-bold text-white">
-                      {cat.name}
-                    </span>
-                    <span className="text-xs text-gray-500">
-                      {catTasks.length}
-                    </span>
-                  </div>
-                  <div className="bg-[#1A1A1A] rounded-xl border border-[#2A2A2A] overflow-hidden">
-                    {catTasks.map((task, idx) => {
-                      const tappable = !!onReplyToTask;
-                      return (
-                        <motion.div
-                          key={task.id}
-                          whileTap={tappable ? { scale: 0.99 } : undefined}
-                          onClick={
-                            tappable
-                              ? () => onReplyToTask!(task, cat.color)
-                              : undefined
-                          }
-                          className={`flex items-start gap-3 px-3 py-2.5 ${
-                            idx > 0 ? 'border-t border-[#2A2A2A]' : ''
-                          } ${
-                            tappable
-                              ? 'cursor-pointer hover:bg-[#222222] transition-colors'
-                              : ''
-                          }`}
-                        >
+
+          {totalTasks === 0 ? (
+            <div className="text-center py-10">
+              <p className="text-sm text-gray-500">Nothing shared on this day.</p>
+            </div>
+          ) : (
+            <div className="space-y-5">
+              {visibleCategories.map((cat) => {
+                const catTasks = tasksByCategory.get(cat.id) || EMPTY_TASKS;
+                return (
+                  <div key={cat.id}>
+                    <div className="flex items-center gap-2 mb-2">
+                      <div
+                        className="w-2.5 h-2.5 rounded-full flex-shrink-0"
+                        style={{ backgroundColor: cat.color }}
+                      />
+                      <span className="text-xs font-bold text-white">
+                        {cat.name}
+                      </span>
+                      <span className="text-xs text-gray-500">
+                        {catTasks.length}
+                      </span>
+                    </div>
+                    <div className="bg-[#1A1A1A] rounded-xl border border-[#2A2A2A] overflow-hidden">
+                      {catTasks.map((task, idx) => {
+                        const canInteract =
+                          !!onReplyToTask || !!onReactToTask;
+                        const reactions = parseReactions(task.reactions);
+                        return (
                           <div
-                            className="flex-shrink-0 w-4 h-4 rounded-full border-2 mt-0.5 flex items-center justify-center"
-                            style={{
-                              backgroundColor: task.completed
-                                ? cat.color
-                                : 'transparent',
-                              borderColor: task.completed
-                                ? cat.color
-                                : '#444444',
-                            }}
+                            key={task.id}
+                            className={`flex items-start gap-3 px-3 py-2.5 ${
+                              idx > 0 ? 'border-t border-[#2A2A2A]' : ''
+                            }`}
                           >
-                            {task.completed && (
-                              <Check
-                                size={9}
-                                className="text-white"
-                                strokeWidth={3.5}
-                              />
-                            )}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p
-                              className={`text-sm ${
-                                task.completed
-                                  ? 'text-gray-500 line-through'
-                                  : 'text-gray-200'
-                              }`}
+                            <div
+                              className="flex-shrink-0 w-4 h-4 rounded-full border-2 mt-0.5 flex items-center justify-center"
+                              style={{
+                                backgroundColor: task.completed
+                                  ? cat.color
+                                  : 'transparent',
+                                borderColor: task.completed
+                                  ? cat.color
+                                  : '#444444',
+                              }}
                             >
-                              {task.title}
-                            </p>
-                            {task.memo && (
-                              <p className="text-xs text-gray-500 mt-0.5 whitespace-pre-wrap">
-                                {task.memo}
+                              {task.completed && (
+                                <Check
+                                  size={9}
+                                  className="text-white"
+                                  strokeWidth={3.5}
+                                />
+                              )}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p
+                                className={`text-sm ${
+                                  task.completed
+                                    ? 'text-gray-500 line-through'
+                                    : 'text-gray-200'
+                                }`}
+                              >
+                                {task.title}
                               </p>
-                            )}
-                            {task.image && (
-                              <div className="flex items-center gap-1 mt-1 text-xs text-gray-600">
-                                <ImageIcon size={11} />
-                                <span>Photo attached</span>
+                              {task.memo && (
+                                <p className="text-xs text-gray-500 mt-0.5 whitespace-pre-wrap">
+                                  {task.memo}
+                                </p>
+                              )}
+                              {task.image && (
+                                <div className="flex items-center gap-1 mt-1 text-xs text-gray-600">
+                                  <ImageIcon size={11} />
+                                  <span>Photo attached</span>
+                                </div>
+                              )}
+                              {reactions.length > 0 && (
+                                <div className="mt-1.5">
+                                  <ReactionRow
+                                    reactions={reactions}
+                                    currentUserId={currentUserId}
+                                    isOutgoing={false}
+                                    onToggle={(emoji) =>
+                                      onReactToTask?.(task, emoji)
+                                    }
+                                  />
+                                </div>
+                              )}
+                            </div>
+                            {canInteract && (
+                              <div className="flex items-center gap-1 flex-shrink-0 mt-0.5">
+                                {onReplyToTask && (
+                                  <motion.button
+                                    type="button"
+                                    whileTap={{ scale: 0.9 }}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      onReplyToTask(task, cat.color);
+                                    }}
+                                    onPointerDown={(e) => e.stopPropagation()}
+                                    className="p-1.5 rounded-lg text-gray-500 hover:text-white hover:bg-[#252525] transition-colors"
+                                    aria-label="Reply to task"
+                                  >
+                                    <MessageSquare size={14} />
+                                  </motion.button>
+                                )}
+                                {onReactToTask && (
+                                  <motion.button
+                                    type="button"
+                                    whileTap={{ scale: 0.9 }}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setReactionTask(task);
+                                    }}
+                                    onPointerDown={(e) => e.stopPropagation()}
+                                    className="p-1.5 rounded-lg text-gray-500 hover:text-pink-400 hover:bg-[#252525] transition-colors"
+                                    aria-label="React to task"
+                                  >
+                                    <Heart size={14} />
+                                  </motion.button>
+                                )}
                               </div>
                             )}
                           </div>
-                          {tappable && (
-                            <MessageSquare
-                              size={14}
-                              className="text-gray-600 flex-shrink-0 mt-0.5"
-                            />
-                          )}
-                        </motion.div>
-                      );
-                    })}
+                        );
+                      })}
+                    </div>
                   </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
-    </BottomSheet>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </BottomSheet>
+
+      <EmojiPickerSheet
+        isOpen={!!reactionTask}
+        onClose={() => setReactionTask(null)}
+        onPick={handlePickEmoji}
+      />
+    </>
   );
 };

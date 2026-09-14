@@ -65,15 +65,19 @@ CalendarSlide.displayName = 'CalendarSlide';
 interface FriendCalendarViewProps {
   friendName: string;
   friendUserId: string;
+  currentUserId: string;
   tasks: TaskDocument[];
   categories: CategoryDocument[];
+  onReactToTask?: (task: TaskDocument, emoji: string) => void;
 }
 
 export const FriendCalendarView: React.FC<FriendCalendarViewProps> = ({
   friendName,
   friendUserId,
+  currentUserId,
   tasks,
   categories,
+  onReactToTask,
 }) => {
   const [viewMode, setViewMode] = useState<CalendarViewMode>('month');
   const [focusDate, setFocusDate] = useState(new Date());
@@ -239,7 +243,9 @@ export const FriendCalendarView: React.FC<FriendCalendarViewProps> = ({
         tasks={tasks}
         categories={categories}
         friendName={friendName}
+        currentUserId={currentUserId}
         onReplyToTask={handleReplyToTask}
+        onReactToTask={onReactToTask}
       />
       <ReplyComposerSheet
         isOpen={!!replyTask}

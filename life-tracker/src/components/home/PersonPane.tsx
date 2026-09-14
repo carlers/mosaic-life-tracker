@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { PersonProfileHeader } from './PersonProfileHeader';
 import { CalendarHeader } from './views/CalendarHeader';
 import { CalendarBody } from './views/CalendarBody';
@@ -6,9 +6,12 @@ import { ComingSoon } from '../layout/ComingSoon';
 import { useCalendarState } from './views/useCalendarState';
 import { useTasks } from '../../hooks/useTasks';
 import { useCategories } from '../../hooks/useCategories';
+import { useMessages } from '../../hooks/useMessages';
+import { useAuth } from '../../hooks/useAuth';
 import { useFriendCalendar } from '../../lib/useFriendCalendar';
 import type { CarouselPerson } from '../../hooks/useFriendCarousel';
 import type { ViewType } from './ViewSwitcher';
+import type { TaskDocument } from '../../db/schema';
 
 interface PersonPaneProps {
   person: CarouselPerson;
@@ -24,6 +27,9 @@ function readMeView(): ViewType {
 }
 
 export const PersonPane: React.FC<PersonPaneProps> = ({ person, isActive }) => {
+  const { user } = useAuth();
+  const currentUserId = user?.$id ?? '';
+
   const isMe = person.kind === 'me';
   const [activeView, setActiveView] = useState<ViewType>(() =>
     isMe ? readMeView() : 'calendar'
@@ -53,7 +59,19 @@ export const PersonPane: React.FC<PersonPaneProps> = ({ person, isActive }) => {
     categories: friendCategories,
     error: friendError,
     errorKind: friendErrorKind,
+    reactToTask,
   } = useFriendCalendar(friendId);
+
+  // useMessages is fine to call with null — it no-ops.
+  const { sendTaskReaction } = useMessages(friendId);
+
+  const [feedback, setFeedback] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!feedback) return;
+    const t = setTimeout(() => setFeedback(null), 2000);
+    return () => clearTimeout(t);
+  }, [feedback]);
 
   const tasks = isMe ? myTasks : friendTasks;
   const categories = isMe ? myCategories : friendCategories;
@@ -65,6 +83,26 @@ export const PersonPane: React.FC<PersonPaneProps> = ({ person, isActive }) => {
     }
     return map;
   }, [categories]);
+
+  const handleReactToTask = useCallback(
+    async (task: TaskDocument, emoji: string) => {
+      if (isMe) return;
+      try {
+        const op = await reactToTask(task.id, emoji);
+        if (op === 'add') {
+          const cat = categories.find((c) => c.id === task.categoryId);
+          await sendTaskReaction(task, emoji, cat?.color || '');
+          setFeedback('Reaction sent');
+        } else {
+          setFeedback('Reaction removed');
+        }
+      } catch (err) {
+        console.error('[PersonPane] reactToTask failed:', err);
+        setFeedback('Reaction failed');
+      }
+    },
+    [isMe, reactToTask, sendTaskReaction, categories]
+  );
 
   const showDiary = isMe && activeView === 'diary';
 
@@ -116,9 +154,17 @@ export const PersonPane: React.FC<PersonPaneProps> = ({ person, isActive }) => {
             friendCategories={friendCategories}
             friendName={person.displayName}
             friendUserId={friendId}
+            currentUserId={currentUserId}
+            onReactToTask={handleReactToTask}
           />
         )}
       </div>
+
+      {feedback && (
+        <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[70] bg-[#2A2A2A] border border-[#444444] text-white text-sm px-5 py-2.5 rounded-full shadow-lg backdrop-blur-md animate-in fade-in slide-in-from-bottom-2 duration-200">
+          {feedback}
+        </div>
+      )}
     </div>
   );
 };

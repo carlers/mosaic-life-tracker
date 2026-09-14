@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useEffect, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ChevronLeft, RefreshCw } from 'lucide-react';
 import { motion } from 'framer-motion';
@@ -6,12 +6,17 @@ import { Avatar } from '../components/ui/Avatar';
 import { FriendCalendarView } from '../components/friend/FriendCalendarView';
 import { useFriendCalendar } from '../lib/useFriendCalendar';
 import { useFriends } from '../hooks/useFriends';
+import { useMessages } from '../hooks/useMessages';
+import { useAuth } from '../hooks/useAuth';
 import { useTaskImage } from '../hooks/useTaskImage';
 import { clearCachedCalendar } from '../lib/friendCache';
+import type { TaskDocument } from '../db/schema';
 
 export const FriendCalendarPage: React.FC = () => {
   const { friendId } = useParams<{ friendId: string }>();
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const currentUserId = user?.$id ?? '';
   const { friends, isLoading: friendsLoading } = useFriends();
   const friend = useMemo(() => {
     if (!friendId || friendsLoading) return null;
@@ -26,9 +31,37 @@ export const FriendCalendarPage: React.FC = () => {
     errorKind,
     refetch,
     lastFetchedAt,
+    reactToTask,
   } = useFriendCalendar(friend ? friend.friendId : null);
 
+  const { sendTaskReaction } = useMessages(friend ? friend.friendId : null);
   const { imageUrl } = useTaskImage(friend?.friendAvatarFileId || undefined);
+  const [feedback, setFeedback] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!feedback) return;
+    const t = setTimeout(() => setFeedback(null), 2000);
+    return () => clearTimeout(t);
+  }, [feedback]);
+
+  const handleReactToTask = useCallback(
+    async (task: TaskDocument, emoji: string) => {
+      try {
+        const op = await reactToTask(task.id, emoji);
+        if (op === 'add') {
+          const cat = categories.find((c) => c.id === task.categoryId);
+          await sendTaskReaction(task, emoji, cat?.color || '');
+          setFeedback('Reaction sent');
+        } else {
+          setFeedback('Reaction removed');
+        }
+      } catch (err) {
+        console.error('[FriendCalendarPage] reactToTask failed:', err);
+        setFeedback('Reaction failed');
+      }
+    },
+    [reactToTask, sendTaskReaction, categories]
+  );
 
   const handleBack = () => navigate(-1);
   const handleRefresh = async () => {
@@ -159,11 +192,19 @@ export const FriendCalendarPage: React.FC = () => {
           <FriendCalendarView
             friendName={displayName}
             friendUserId={friend.friendId}
+            currentUserId={currentUserId}
             tasks={tasks}
             categories={categories}
+            onReactToTask={handleReactToTask}
           />
         )}
       </div>
+
+      {feedback && (
+        <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[70] bg-[#2A2A2A] border border-[#444444] text-white text-sm px-5 py-2.5 rounded-full shadow-lg backdrop-blur-md animate-in fade-in slide-in-from-bottom-2 duration-200">
+          {feedback}
+        </div>
+      )}
     </div>
   );
 };

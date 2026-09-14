@@ -49,6 +49,8 @@ interface CalendarBodyProps {
   friendCategories?: CategoryDocument[];
   friendName?: string;
   friendUserId?: string | null;
+  currentUserId: string;
+  onReactToTask?: (task: TaskDocument, emoji: string) => void;
 }
 
 export const CalendarBody: React.FC<CalendarBodyProps> = ({
@@ -61,6 +63,8 @@ export const CalendarBody: React.FC<CalendarBodyProps> = ({
   friendCategories,
   friendName,
   friendUserId,
+  currentUserId,
+  onReactToTask,
 }) => {
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [replyTask, setReplyTask] = useState<TaskDocument | null>(null);
@@ -126,7 +130,9 @@ export const CalendarBody: React.FC<CalendarBodyProps> = ({
             tasks={tasks}
             categories={friendCategories || []}
             friendName={friendName || 'Friend'}
+            currentUserId={currentUserId}
             onReplyToTask={handleReplyToTask}
+            onReactToTask={onReactToTask}
           />
           <ReplyComposerSheet
             isOpen={!!replyTask}

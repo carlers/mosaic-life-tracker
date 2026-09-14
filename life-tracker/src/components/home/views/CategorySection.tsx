@@ -9,6 +9,7 @@ interface CategorySectionProps {
   categoryName: string;
   categoryColor: string;
   visibility?: Visibility;
+  currentUserId: string;
   tasks: TaskDocument[];
   onToggleTask: (taskId: string, currentStatus: boolean) => void;
   onAddTask: (title: string) => void;
@@ -26,6 +27,7 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
   categoryName,
   categoryColor,
   visibility = 'private',
+  currentUserId,
   tasks,
   onToggleTask,
   onAddTask,
@@ -36,7 +38,7 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
   editValue,
   onEditChange,
   onEditSave,
-  onEditCancel
+  onEditCancel,
 }) => {
   const [isAdding, setIsAdding] = useState(false);
   const [newTaskTitle, setNewTaskTitle] = useState('');
@@ -67,9 +69,12 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
 
   const getVisibilityIcon = (v: Visibility) => {
     switch (v) {
-      case 'public': return <Eye size={12} className="text-gray-600" />;
-      case 'followers': return <Users size={12} className="text-gray-600" />;
-      case 'private': return <EyeOff size={12} className="text-gray-600" />;
+      case 'public':
+        return <Eye size={12} className="text-gray-600" />;
+      case 'followers':
+        return <Users size={12} className="text-gray-600" />;
+      case 'private':
+        return <EyeOff size={12} className="text-gray-600" />;
     }
   };
 
@@ -79,7 +84,9 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
         <div
           onClick={() => setIsAdding(!isAdding)}
           className={`inline-flex items-center gap-2 bg-[#1E1E1E] border rounded-full pl-2.5 pr-3 py-1.5 cursor-pointer transition-all active:scale-95 ${
-            isAdding ? 'border-[#555555] bg-[#252525]' : 'border-[#333333] hover:bg-[#2A2A2A]'
+            isAdding
+              ? 'border-[#555555] bg-[#252525]'
+              : 'border-[#333333] hover:bg-[#2A2A2A]'
           }`}
         >
           <div
@@ -89,20 +96,18 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
           <span className="text-xs font-bold text-white">{categoryName}</span>
           <Plus size={14} className="text-white" strokeWidth={2.5} />
         </div>
-        <div className="ml-1">
-          {getVisibilityIcon(visibility)}
-        </div>
+        <div className="ml-1">{getVisibilityIcon(visibility)}</div>
       </div>
-
       <div className="bg-[#1E1E1E] rounded-xl border border-[#333333] overflow-hidden">
         {tasks.length > 0 && (
           <div className="px-3 py-1">
             {tasks.map((task) => (
-              <TaskItem 
-                key={task.id} 
-                task={task} 
+              <TaskItem
+                key={task.id}
+                task={task}
                 categoryColor={categoryColor}
-                onToggle={(id) => onToggleTask(id, task.completed)} 
+                currentUserId={currentUserId}
+                onToggle={(id) => onToggleTask(id, task.completed)}
                 onOpenActions={onOpenActions}
                 onOpenMemo={onOpenMemo}
                 onViewImage={onViewImage}
@@ -117,7 +122,7 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
         )}
         {isAdding && (
           <div className="flex items-center gap-2 px-3 py-2.5 border-t border-[#333333] bg-[#1A1A1A] animate-in fade-in slide-in-from-top-1 duration-200">
-            <button 
+            <button
               className="flex-shrink-0 text-gray-500 hover:text-white transition-colors"
               onClick={handleAdd}
             >

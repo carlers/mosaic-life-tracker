@@ -141,11 +141,6 @@ export async function unsendOnRemote(
   }
 }
 
-/**
- * Fires the `react` action and returns the peer row id the server resolved
- * (if it had to look it up for a legacy row). Returns null when the server
- * didn't need to resolve anything.
- */
 export async function reactOnRemote(
   myRowId: string,
   peerRowId: string,
@@ -168,4 +163,25 @@ export async function reactOnRemote(
     console.error('[messageDelivery] reactOnRemote failed:', err);
     return null;
   }
+}
+
+/**
+ * Sends a reaction to a task owned by a friend. Returns the updated reactions
+ * string on success, or throws on failure.
+ */
+export async function reactToTaskOnRemote(
+  taskId: string,
+  taskOwnerId: string,
+  emoji: string,
+  op: 'add' | 'remove'
+): Promise<string> {
+  const result = await sendMessageAction({
+    action: 'react_to_task',
+    taskId,
+    taskOwnerId,
+    emoji,
+    op,
+  });
+  const reactions = result?.reactions;
+  return typeof reactions === 'string' ? reactions : '';
 }

@@ -14,6 +14,7 @@ import { ImagePickerSheet } from './ImagePickerSheet';
 import { TaskVisibilitySheet } from './TaskVisibilitySheet';
 import { useTasks } from '../../../hooks/useTasks';
 import { useCategories } from '../../../hooks/useCategories';
+import { useAuth } from '../../../hooks/useAuth';
 import { useTaskImage } from '../../../hooks/useTaskImage';
 import { deleteImage } from '../../../lib/storage';
 import type { CategoryDocument, TaskDocument } from '../../../db/schema';
@@ -35,6 +36,7 @@ interface DaySlideProps {
   dateStr: string;
   tasks: TaskDocument[];
   categories: CategoryDocument[];
+  currentUserId: string;
   editingTaskId: string | null;
   editValue: string;
   onToggleTask: (taskId: string, currentStatus: boolean) => void;
@@ -53,6 +55,7 @@ const DaySlide = React.memo(
     dateStr,
     tasks,
     categories,
+    currentUserId,
     editingTaskId,
     editValue,
     onToggleTask,
@@ -93,6 +96,7 @@ const DaySlide = React.memo(
                 categoryName={category.name}
                 categoryColor={category.color}
                 visibility={category.visibility}
+                currentUserId={currentUserId}
                 tasks={groupedTasks[category.id] || EMPTY_TASKS}
                 onToggleTask={onToggleTask}
                 onAddTask={(title) => onAddTask(title, category.id, dateStr)}
@@ -120,8 +124,12 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
   selectedDate,
   onDateChange,
 }) => {
-  const { tasks, addTask, updateTask, deleteTask, toggleTaskCompletion } = useTasks();
+  const { tasks, addTask, updateTask, deleteTask, toggleTaskCompletion } =
+    useTasks();
   const { categories } = useCategories();
+  const { user } = useAuth();
+  const currentUserId = user?.$id ?? '';
+
   const swiperRef = useRef<SwiperClass | null>(null);
   const isProgrammaticMoveRef = useRef(false);
   const wasOpenRef = useRef(false);
@@ -132,7 +140,6 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
   }, [selectedDate]);
 
   const [anchorDate, setAnchorDate] = useState(() => startOfDay(selectedDate));
-
   useEffect(() => {
     if (isOpen && !wasOpenRef.current) {
       setAnchorDate(startOfDay(selectedDate));
@@ -198,9 +205,7 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
   const [isVisibilitySheetOpen, setIsVisibilitySheetOpen] = useState(false);
   const [viewingTask, setViewingTask] = useState<TaskDocument | null>(null);
   const [imagePickerTask, setImagePickerTask] = useState<TaskDocument | null>(null);
-
   const viewingImageUrl = useTaskImage(viewingTask?.image).imageUrl;
-
   const [isDeletePhotoConfirmOpen, setIsDeletePhotoConfirmOpen] = useState(false);
   const [isDeletingPhoto, setIsDeletingPhoto] = useState(false);
   const [deleteFeedback, setDeleteFeedback] = useState<string | null>(null);
@@ -399,6 +404,7 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
               dateStr={dateStr}
               tasks={tasksByDate.get(dateStr) ?? EMPTY_TASKS}
               categories={categories}
+              currentUserId={currentUserId}
               editingTaskId={editingTaskId}
               editValue={editValue}
               onToggleTask={handleToggleTask}
@@ -420,6 +426,7 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
     activeIndex,
     tasksByDate,
     categories,
+    currentUserId,
     editingTaskId,
     editValue,
     handleToggleTask,
@@ -467,7 +474,6 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
           </Swiper>
         </div>
       </BottomSheet>
-
       <TaskActionSheet
         isOpen={isActionSheetOpen}
         onClose={() => setIsActionSheetOpen(false)}
@@ -486,14 +492,12 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
         onDeletePhoto={handleRequestDeletePhoto}
         onDoItTomorrowOrToday={handleDoItTomorrowOrToday}
       />
-
       <MemoSheet
         isOpen={isMemoSheetOpen}
         onClose={() => setIsMemoSheetOpen(false)}
         task={activeTask}
         onSave={handleMemoSave}
       />
-
       <TaskVisibilitySheet
         isOpen={isVisibilitySheetOpen}
         onClose={() => setIsVisibilitySheetOpen(false)}
@@ -501,14 +505,12 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
         category={activeTaskCategory}
         onSave={handleVisibilitySave}
       />
-
       <DatePickerSheet
         isOpen={isDatePickerOpen}
         onClose={() => setIsDatePickerOpen(false)}
         task={activeTask}
         onDateChange={handleDateChange}
       />
-
       <ImagePickerSheet
         isOpen={!!imagePickerTask}
         onClose={() => setImagePickerTask(null)}
@@ -516,7 +518,6 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
         onSave={handleImageSaved}
         onRemove={handleImageRemoved}
       />
-
       <ImageViewer
         isOpen={!!viewingTask}
         imageUrl={viewingImageUrl}
@@ -528,7 +529,6 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
         }
         onClose={() => setViewingTask(null)}
       />
-
       <BottomSheet
         isOpen={isDeletePhotoConfirmOpen}
         onClose={handleCancelDeletePhoto}
@@ -565,7 +565,6 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
           </div>
         </div>
       </BottomSheet>
-
       <AnimatePresence>
         {deleteFeedback && (
           <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[70] bg-[#2A2A2A] border border-[#444444] text-white text-sm px-5 py-2.5 rounded-full shadow-lg backdrop-blur-md">

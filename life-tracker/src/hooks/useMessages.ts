@@ -31,6 +31,11 @@ export interface UseMessagesReturn {
     content: string,
     categoryColor: string
   ) => Promise<void>;
+  sendTaskReaction: (
+    task: TaskDocument,
+    emoji: string,
+    categoryColor: string
+  ) => Promise<void>;
   markAllRead: () => Promise<void>;
   unsendMessage: (id: string) => Promise<void>;
   toggleReaction: (id: string, emoji: string) => Promise<void>;
@@ -156,6 +161,59 @@ export function useMessages(friendId: string | null): UseMessagesReturn {
         return;
       }
       const trimmed = content.trim();
+      if (!trimmed) return;
+
+      const tid = await makeThreadId(uid, friendId);
+
+      const db = getDatabase();
+      const now = new Date().toISOString();
+      const localId = `msg_${Date.now()}_${Math.random()
+        .toString(36)
+        .substr(2, 9)}`;
+      const newMsg: MessageDocument = {
+        id: localId,
+        userId: uid,
+        threadId: tid,
+        senderId: uid,
+        recipientId: friendId,
+        direction: 'outgoing',
+        content: trimmed,
+        taskRefId: task.id,
+        taskRefTitle: task.title,
+        taskRefDate: task.date,
+        taskRefColor: categoryColor || '',
+        replyToId: '',
+        replyToContent: '',
+        replyToSenderId: '',
+        isUnsent: false,
+        originalMessageId: localId,
+        reactions: '',
+        readAt: '',
+        deliveryStatus: 'pending',
+        createdAt: now,
+        updatedAt: now,
+        isDeleted: false,
+      };
+      await db.messages.insert(newMsg);
+      deliverPendingMessages(uid).catch((err) =>
+        console.error('[useMessages] delivery failed:', err)
+      );
+    },
+    [user?.$id, friendId]
+  );
+
+  const sendTaskReaction = useCallback(
+    async (task: TaskDocument, emoji: string, categoryColor: string) => {
+      const uid = user?.$id;
+      if (!uid) {
+        console.error('[useMessages] Cannot react: User not authenticated');
+        return;
+      }
+      if (!friendId) {
+        console.error('[useMessages] Cannot react: No friendId');
+        return;
+      }
+      const trimmed = emoji.trim();
       if (!trimmed) return;
 
       const tid = await makeThreadId(uid, friendId);
@@ -332,15 +390,9 @@ export function useMessages(friendId: string | null): UseMessagesReturn {
       if (!doc) return;
       if (doc.isUnsent) return;
 
-      // Peer user id is the OTHER person in the thread — never ourselves.
-      // - outgoing (we sent it): the peer is recipientId
-      // - incoming (we received it): the peer is senderId
       const peerUserId =
         doc.direction === 'outgoing' ? doc.recipientId : doc.senderId;
 
-      // Peer row id is the other person's copy of the same logical message.
-      // - outgoing: derive it deterministically from our local id
-      // - incoming: use originalMessageId (set by deliver, or backfilled)
       const myRowId = doc.id;
       const peerRowId =
         doc.direction === 'outgoing'
@@ -355,7 +407,6 @@ export function useMessages(friendId: string | null): UseMessagesReturn {
       const nextStr = stringifyReactions(next);
       const now = new Date().toISOString();
 
-      // Optimistic local patch.
       try {
         await doc.patch({ reactions: nextStr, updatedAt: now });
       } catch (patchErr) {
@@ -381,8 +432,6 @@ export function useMessages(friendId: string | null): UseMessagesReturn {
         }
       }
 
-      // Fire-and-forget server write. If the server resolved a peer row id
-      // for a legacy row, persist it locally.
       reactOnRemote(myRowId, peerRowId, peerUserId, emoji, op)
         .then(async (resolvedPeerRowId) => {
           if (!resolvedPeerRowId) return;
@@ -411,6 +460,7 @@ export function useMessages(friendId: string | null): UseMessagesReturn {
     isLoading,
     sendMessage,
     sendTaskReply,
+    sendTaskReaction,
     markAllRead,
     unsendMessage,
     toggleReaction,

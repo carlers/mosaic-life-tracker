@@ -3,7 +3,7 @@ import type { TaskDocument, CategoryDocument } from '../db/schema';
 const DB_NAME = 'mosaic_friend_cache';
 const STORE_NAME = 'calendars';
 const DB_VERSION = 1;
-const TTL_MS = 5 * 60 * 1000; // 5 minutes
+const TTL_MS = 5 * 60 * 1000;
 
 export interface FriendCalendarBundle {
   friendUserId: string;
@@ -99,5 +99,26 @@ export async function clearAllFriendCaches(): Promise<void> {
     });
   } catch (err) {
     console.warn('[friendCache] clear failed:', err);
+  }
+}
+
+/**
+ * Patches a single task in the cached bundle. No-op if the cache is missing
+ * or expired.
+ */
+export async function patchCachedCalendarTask(
+  friendUserId: string,
+  taskId: string,
+  updates: Partial<TaskDocument>
+): Promise<void> {
+  try {
+    const bundle = await getCachedCalendar(friendUserId);
+    if (!bundle) return;
+    const nextTasks = bundle.tasks.map((t) =>
+      t.id === taskId ? { ...t, ...updates } : t
+    );
+    await setCachedCalendar({ ...bundle, tasks: nextTasks });
+  } catch (err) {
+    console.warn('[friendCache] patch failed:', err);
   }
 }

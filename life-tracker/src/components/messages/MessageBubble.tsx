@@ -4,7 +4,10 @@ import { Check, CheckCheck, Ban, Reply } from 'lucide-react';
 import { TaskRefCard } from './TaskRefCard';
 import { ReplyPreview } from './ReplyPreview';
 import { ReactionRow } from './ReactionRow';
-import { useBubbleGestures, type SwipeDirection } from '../../hooks/useBubbleGestures';
+import {
+  useBubbleGestures,
+  type SwipeDirection,
+} from '../../hooks/useBubbleGestures';
 import { parseReactions } from '../../lib/reactionUtils';
 import type { MessageDocument } from '../../db/schema';
 
@@ -21,12 +24,12 @@ interface MessageBubbleProps {
   onQuoteTap?: (targetMessageId: string) => void;
   onReact?: (messageId: string, emoji: string) => void;
   onSwipeReply?: (message: MessageDocument) => void;
-  /** When true, gestures are disabled globally (e.g. a sheet is open). */
   gesturesDisabled?: boolean;
 }
 
 const REVEAL_DURATION_MS = 2500;
 const DOUBLE_TAP_EMOJI = '❤️';
+const STATUS_ROW_MIN_HEIGHT_PX = 14;
 
 export const MessageBubble: React.FC<MessageBubbleProps> = ({
   message,
@@ -94,6 +97,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
     : '';
   const timestampVisible = showTimestamp || revealed || hovered;
 
+  // ---- Compose status row items ----
   const items: React.ReactNode[] = [];
   if (statusKind === 'read') {
     items.push(
@@ -117,7 +121,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
   if (showMessageTime) {
     items.push(<span key="time">{timeLabel}</span>);
   }
-  const showRow = items.length > 0;
+  const hasRowContent = items.length > 0;
 
   const replySenderName =
     message.replyToSenderId && resolveSenderName
@@ -133,14 +137,14 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
     ? 'bg-emerald-600 text-white rounded-br-md'
     : 'bg-[#1E1E1E] text-gray-100 border border-[#333333] rounded-bl-md';
 
-  // ---- Unsent tombstone: no gestures ----
+  // ---- Unsent tombstone ----
   if (isUnsent) {
     return (
       <div
         data-message-id={message.id}
         className={`flex flex-col ${
           isOutgoing ? 'items-end' : 'items-start'
-        } mb-1`}
+        }`}
       >
         <div
           className={`max-w-[78%] rounded-2xl px-3 py-2 ${
@@ -154,16 +158,18 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
             Message deleted
           </p>
         </div>
-        {showRow && (
-          <div className="flex items-center gap-1.5 mt-0.5 px-1 text-[10px] text-gray-500">
-            {items.map((node, i) => (
+        <div
+          className="flex items-center gap-1.5 mt-0.5 px-1 text-[10px] text-gray-500 transition-opacity duration-150"
+          style={{ minHeight: `${STATUS_ROW_MIN_HEIGHT_PX}px` }}
+        >
+          {hasRowContent &&
+            items.map((node, i) => (
               <React.Fragment key={i}>
                 {i > 0 && <span className="text-gray-600">·</span>}
                 {node}
               </React.Fragment>
             ))}
-          </div>
-        )}
+        </div>
       </div>
     );
   }
@@ -185,7 +191,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
       data-message-id={message.id}
       className={`flex flex-col ${
         isOutgoing ? 'items-end' : 'items-start'
-      } mb-1`}
+      }`}
     >
       <div className="relative max-w-[78%]">
         {/* Reply icon sits behind the bubble; revealed as the bubble slides away */}
@@ -262,16 +268,22 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
         />
       )}
 
-      {showRow && (
-        <div className="flex items-center gap-1.5 mt-0.5 px-1 text-[10px] text-gray-500">
-          {items.map((node, i) => (
+      {/* Status / timestamp row — space is always reserved to prevent hover flicker */}
+      <div
+        className="flex items-center gap-1.5 mt-0.5 px-1 text-[10px] text-gray-500 transition-opacity duration-150"
+        style={{
+          minHeight: `${STATUS_ROW_MIN_HEIGHT_PX}px`,
+          opacity: hasRowContent ? 1 : 0,
+        }}
+      >
+        {hasRowContent &&
+          items.map((node, i) => (
             <React.Fragment key={i}>
               {i > 0 && <span className="text-gray-600">·</span>}
               {node}
             </React.Fragment>
           ))}
-        </div>
-      )}
+      </div>
     </div>
   );
 };

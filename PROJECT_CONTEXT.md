@@ -4,6 +4,7 @@
 - An offline-first, local-first, self-hostable "Life Tracker" PWA
 - **Phase 1:** A pixel-perfect, highly polished clone of "Todo Mate" (tasks, categories, social calendar, diary) to replace an ad-filled app
 - **Phase 2:** Optional, modular integrations for fitness, media, and personal CRM
+- **Phase 3 (extension beyond Todo Mate):** 1:1 messaging with friends, message reactions, and task reactions — a native social layer woven into the calendar
 - **Core UX:** A unified, dark-mode calendar view that aggregates all life data, featuring 0ms load times (via RxDB), bottom-sheet interactions, and 100% offline functionality. Cloud is strictly for background sync
 
 ## 2. Product Reference: The "Todo Mate" Clone (Phase 1)
@@ -21,6 +22,7 @@
 - **Bottom Sheet Interactions:** Tapping a day in Calendar view slides up a `DayViewSheet` showing tasks grouped by category, with an inline "Add Task" input at the bottom of each category section
 - **Task & Category Management:** Categories are customizable (rename, predefined color picker, visibility toggles). Tasks can have memos and compressed image attachments
 - **The Social Aspect:** Users can view friends' calendars. **ARCHITECTURAL RULE:** To avoid Appwrite's complex RLS, we "fake" this. Every Category and Diary document will have a `visibility` field (public, followers, private)
+- **Messaging (Phase 3 extension, not in Todo Mate):** A native chat layer with friends, plus task reactions — see §20-22. This is a Mosaic addition, not part of the reference app.
 
 ## 3. Strict Constraints
 - **Budget:** $0 for AI tools. $0 for Apple (relying on PWA "Add to Home Screen"). $25 one-time for Google Play (later)
@@ -30,10 +32,11 @@
 
 ## 4. The Locked Tech Stack
 - **Frontend:** Vite + React 18 (TS) + React Router v6 + Tailwind CSS v3 + lucide-react + date-fns
-- **Media & UI:** `browser-image-compression` (max 150KB base64), `emoji-picker-react`
+- **Media & UI:** `browser-image-compression` (max 150KB base64), `emoji-picker-react` (used by message + task emoji pickers)
 - **Local DB & Sync Engine:** RxDB v17 (using `getRxStorageDexie` and `wrappedValidateAjvStorage`)
   - **CRITICAL:** We do NOT use the `replicateAppwrite` plugin. We use a custom REST-based sync engine (`src/db/sync.ts`) that directly calls the Appwrite TablesDB API via `fetch`
 - **Backend:** Appwrite 2.0 (TablesDB)
+- **Backend Functions:** `message-action` (Node.js 18) handles all cross-user writes for messaging and task reactions. Actions: `deliver`, `mark_read`, `unsend`, `react`, `react_to_task`. Required scopes: `rows.read`, `rows.write`, `tables.read`.
 - **PWA:** `vite-plugin-pwa` (with `registerType: 'autoUpdate'`)
 
 ## 5. The "Brain Generates, Human Executes" Workflow
@@ -46,6 +49,8 @@
 - **Use TablesDB, NOT Databases:** All SDK calls must use the TablesDB service (e.g., `tablesDB.createRow`), not the deprecated Databases service
 - **Permission String Format:** Use the new format: `create("any")`, `read("any")`, `update("any")`, `delete("any")`. The old `"role:any"` formats are deprecated
 - **Row-Level vs Table-Level Permissions (VERIFIED):** `Permission.create()` **does NOT apply to rows**. Applying it to a row throws an error. Row-level permissions must only ever be `[read, update, delete]`. The **`create` permission belongs on the TABLE-level permissions** in the Appwrite Console (e.g., grant `create("users")` at the table level so authenticated users can insert new rows). If new-row sync fails with 401/403, the fix is in the Console, NOT in `buildRowPermissions`
+- **`updateRow` vs `upsertRow` (CRITICAL):** `upsertRow` is a **full replace (PUT semantics)** in Appwrite 2.0 — any column omitted from `data` is reset to its column default. `updateRow` is a **PATCH** — omitted columns are left untouched. The sync engine **must** use `updateRow` for rows that already exist remotely, and `upsertRow` **only** for brand-new rows. Failing to do this caused `read_at` on outgoing messages to be wiped on every sync cycle
+- **Cross-User Writes Go Through Appwrite Functions:** A user can only assign permissions they themselves hold. To write a row owned by another user (recipient's message copy, sender's task reaction, sender's read receipt), the write must be performed inside an Appwrite Function using its API key. Direct client writes to another user's row will 401/403
 - **REST Endpoints:** Base path for tables is `/v1/tablesdb/{databaseId}/tables/{tableId}`
 - **ID Mapping:** RxDB primary key `id` maps directly to Appwrite's `$id` column
 - **Row ID Length Cap (CRITICAL):** Appwrite `rowId` values must be **≤36 characters**, matching `[a-zA-Z0-9_]+`, and MUST NOT start with a leading underscore. Any locally-generated ID that will become a remote `rowId` (settings, diary, or deterministic composite IDs) must respect this limit. **Rule:** when building `${userId}_${key}` IDs, validate the total length; if it exceeds 36 chars, fall back to a deterministic hashed ID (see §11)
@@ -61,26 +66,33 @@
   - **Drag Restriction:** Drag-to-close must be restricted to the header handle using Framer Motion's `useDragControls` and `dragListener={false}` on the main container. This prevents accidental closes while scrolling content
 - **Sticky Layout Rules:** For `position: sticky` to work correctly inside the app, `MainLayout` root must be `h-screen overflow-hidden`, and the `<main>` tag must be `flex-1 overflow-y-auto`
 - **Non-Sticky Home Chrome:** On the Home page, the person carousel, profile header, `TopBar`, and calendar date header are **intentionally NOT sticky** — they scroll away with content so the calendar grid owns the whole viewport on long days. Do not re-add `sticky top-0` to these
+- **Layout-Shift Reservation:** Any UI element whose visibility toggles on hover or interaction (message timestamps, status rows, hover-only controls) must **always reserve its space** in the layout. Toggle opacity, never presence. This prevents the hover-flicker feedback loop where content reflow pushes the cursor off the element, causing infinite toggle
+- **Gesture Priority on Interactive Elements:** swipe > long-press > double-tap > single-tap. Single-tap must be deferred (~300ms) to distinguish from double-tap. Any tap that fires on the same pointer sequence as a swipe or long-press MUST be suppressed (via a `consumeDidFire()` flag)
 - **RxDB Reserved Keywords:** NEVER use `deleted` as a field name in RxDB schemas (it is a reserved keyword). Always use `isDeleted` locally and map it to `deleted` in the Appwrite sync layer
 - **Soft Deletes:** Never hard delete. Always use `isDeleted: true` for RxDB tombstones
 - **Strict ISO Dates:** All date fields MUST be stored as ISO 8601 strings (`yyyy-MM-dd` for day keys, full `.toISOString()` for timestamps)
 - **iOS Storage:** Must call `navigator.storage.persist()` on app launch to prevent WebKit from purging IndexedDB
-- **Coming Soon:** Bottom nav has 5 tabs: Home, Explore, Notifications, Messages, Account. Tabs 2-4 render a full `<ComingSoon />` page
+- **Coming Soon:** Bottom nav has 5 tabs: Home, Explore, Notifications, Messages, Account. Notifications renders a full `<ComingSoon />` page
 
 ## 8. Current Progress & State (As of Latest Build)
-- ✅ **Phase 1.1 - 1.3 Complete:** App Layout, Primitives (Button, Input, Avatar, OfflineBanner), BottomSheet (with Portal & Drag Controls), Auth Flow (with session clearing), PWA Config, and React Router wiring
-- ✅ **Phase 2.1 - 2.2 Complete:** Home Page Shell, View Memory (localStorage), Calendar View (Month/Week) with refined grid styling, natural text cutoff, perfect vertical alignment, and smart view-switching logic
+- ✅ **Phase 1.1 – 1.3 Complete:** App Layout, Primitives (Button, Input, Avatar, OfflineBanner), BottomSheet (with Portal & Drag Controls), Auth Flow (with session clearing), PWA Config, and React Router wiring
+- ✅ **Phase 2.1 – 2.2 Complete:** Home Page Shell, View Memory (localStorage), Calendar View (Month/Week) with refined grid styling, natural text cutoff, perfect vertical alignment, and smart view-switching logic
 - ✅ **Phase 2.6 Complete:** Category Manager Sheet, Color Palette Picker (with Default/Vibrant/Pastel tabs), and `useCategories` hook wired to RxDB
 - ✅ **Phase 2.3 Complete:** Day View Bottom Sheet with inline task creation, real `useTasks` data wiring, task action sheet, memo sheet, date picker, image picker/viewer, and delete confirmations
-- ✅ **Conventions Hardening Complete:** `window.confirm` eliminated (nested sheet pattern enforced), iOS focus behavior fixed (ref-based), Appwrite row-permission correctness verified
+- ✅ **Conventions Hardening Complete:** `window.confirm` eliminated (nested sheet pattern enforced), iOS focus behavior fixed (ref-based), Appwrite row-permission correctness verified, `updateRow` (PATCH) vs `upsertRow` (PUT) semantics enforced in sync engine
 - ✅ **Person Carousel Complete:** Home page person carousel with Me + friends, per-person calendar switching (direction-aware slide animation), `useCalendarState` refactor (shared state + `CalendarHeader` + `CalendarBody`), `SwipeableTopZone` for person switching, `FriendCarouselSettingsSheet` (Framer Motion `Reorder` + visibility toggles), `friendBio` schema v1 with lazy profile backfill, and settings rowId hashing to satisfy Appwrite's 36-char limit
-- 🔄 **Next Up:** Phase 3 (Todo List View — compact color grid + vertical task list for selected day)
+- ✅ **Social Graph Complete:** Explore page with search, friend requests (incoming/outgoing), accept/decline/cancel, block, remove, `useFriends`, `useProfileLookup`, `useMyProfile`, `SetUsernameSheet`
+- ✅ **Phase 3.0 – Friend Calendar Complete:** `FriendCalendarPage` (full route), `FriendCalendarView` (Embla month/week carousel), `FriendDayViewSheet` (read-only task detail with reply affordance), `useFriendCalendar`, `friendData` + `friendCache` (5-min IndexedDB TTL), `get-friend-calendar` Appwrite Function
+- ✅ **Phase 3.1 – Messaging Core Complete:** RxDB `messages` collection (v3), two-row cross-user pattern, `message-action` Appwrite Function (`deliver`, `mark_read`, `unsend`, `react`), `useMessages` (per-thread), `useConversations` (inbox with every accepted friend), `useUnreadMessages`, `MessagesPage`, `ChatPage`, `MessageBubble`, `MessageComposer`, `MessageActionSheet`, `EmojiPickerSheet`, `ReactionRow`, `TaskRefCard`, `ReplyPreview`, `ReplyComposerSheet`, `ScrollToBottomButton`, `ChatSearchBar`, outbox delivery in `messageDelivery.ts`, deterministic thread + recipient row IDs in `threads.ts`, shared `reactionUtils.ts`
+- ✅ **Phase 3.2 – Chat Polish Complete:** swipe-to-reply (contextual direction), double-tap ❤️, single-tap timestamp reveal, unified `useBubbleGestures` hook (replaces `useLongPress`), read receipts with per-message "Seen at" indicator, delivery indicators, scroll-to-bottom FAB with unread dot, chat search (`Cmd/Ctrl+F`/`K`, `Esc` to close), copy improvements for task refs
+- ✅ **Phase 3.3 – Task Reactions Complete:** heart button in `FriendDayViewSheet`, `react_to_task` action, chip row on friend tasks (interactive) and own tasks (display-only), emoji-picker-driven chat message on `add`
+- 🔄 **Next Up:** Phase 3 (Todo List View — compact color grid + vertical task list for selected day), Diary View, Notifications tab (in-app notifications for message/reaction events)
 
 ---
 
 ## 9. Hook & State Conventions
 - **Hook Return Shape:** Every custom hook MUST return a **named object**, never an array. Standard fields: `{ data, isLoading, ...mutators }`. Mutators are always `useCallback`-wrapped
-- **User-Scoped Data Guard:** Any hook that reads user data (`useTasks`, `useCategories`, `useDiary`, `useSettings`) MUST track a separate `loadedUserId` state alongside the data. Expose data only when `loadedUserId === userId`; otherwise return `[]` and set `isLoading = true`. This prevents cross-user data leakage during logout/login transitions
+- **User-Scoped Data Guard:** Any hook that reads user data (`useTasks`, `useCategories`, `useDiary`, `useSettings`, `useMessages`, `useConversations`) MUST track a separate `loadedUserId` (or `loadedKey`) state alongside the data. Expose data only when `loadedUserId === userId`; otherwise return `[]` and set `isLoading = true`. This prevents cross-user data leakage during logout/login transitions
 - **Dependency Arrays:** Hooks MUST depend on `user?.$id` (primitive string), NEVER the `user` object itself. Prevents re-subscription storms from Appwrite object identity churn
 - **Observable Subscriptions:** All RxDB reads use `query.$.subscribe(...)` inside a `useEffect`, storing the subscription and unsubscribing in cleanup. Always pair with an `isMounted` boolean guard before calling `setState`
 - **Mutator Signatures:**
@@ -99,21 +111,28 @@
   This is the canonical replacement for useEffect-based prop-syncing in sheets/modals (MemoSheet, DatePickerSheet, EditTaskSheet, DayViewSheet)
 - **Primitive-Only Deps in Effects:** When an effect needs to react to a document prop, read `const taskId = task?.id ?? null` at the top of the component and use `taskId` in both the effect body and the deps array. NEVER reference the whole `task` object inside the effect. This satisfies `react-hooks/exhaustive-deps` AND prevents re-fire on RxDB identity churn
 - **Debounced Persistence in Sheets:** When a sheet needs to persist live reorder state (e.g., `FriendCarouselSettingsSheet`), debounce the write (~400ms) inside a `useEffect` keyed on the local items array. Do NOT write on every drag tick
+- **In-Flight Ref Guard for Idempotent Multi-Row Patches:** Any hook operation that patches multiple rows in a loop (`markAllRead`, batch unsends) MUST have a `useRef<boolean>` in-flight guard. Inside the loop, re-fetch each doc right before patching (`findOne(id).exec()`) to obtain the latest revision. RxDB throws `CONFLICT` when patching a stale revision
+- **Optimistic + Revert for Cross-User Writes:** When patching a foreign row (`reactToTask`, `toggleReaction`), apply the optimistic local update first, call the server, and revert the local change on failure. Never block the UI on the server round-trip. If the server returns a resolved row ID (e.g., legacy message backfill), persist it locally so the next call doesn't need a lookup
 
 ## 10. Error Handling & Logging Conventions
-- **Hook/Service Log Prefix:** All `console.error` and `console.warn` calls MUST be prefixed with `[ComponentName]` or `[hookName]` in square brackets (e.g., `[useTasks]`, `[Storage]`, `[Sync]`, `[Bootstrap]`, `[RxDB]`). Makes log filtering trivial
+- **Hook/Service Log Prefix:** All `console.error` and `console.warn` calls MUST be prefixed with `[ComponentName]` or `[hookName]` in square brackets. Active prefixes include: `[useTasks]`, `[useMessages]`, `[useConversations]`, `[messageDelivery]`, `[ChatPage]`, `[useFriendCalendar]`, `[PersonPane]`, `[FriendCalendarPage]`, `[Storage]`, `[Sync]`, `[Bootstrap]`, `[RxDB]`, `[CategoryManagerSheet]`, `[ReplyComposerSheet]`, `[EmojiPicker]`. Makes log filtering trivial
 - **Guard Clause Errors:** When a mutator is called without an authenticated user, log `[hookName] Cannot <action>: User not authenticated` and return silently. Never throw — the UI shouldn't crash because of a race with logout
 - **Silent Session Cleanup:** Before any `account.createEmailPasswordSession`, wrap a `try { await account.deleteSession('current') } catch {}` — swallowing that error is intentional and required
 - **DEBUG Gating:** Non-error diagnostic logs MUST be wrapped in `if (import.meta.env.DEV)` or gated behind a module-level `const DEBUG = import.meta.env.DEV`. Never log to production consoles
-- **Error Surfacing to UI:** Use a fixed-position toast (`fixed bottom-24 left-1/2 -translate-x-1/2 z-[70]`) with auto-dismiss via `setTimeout` (2000ms) — see DayViewSheet's `deleteFeedback` pattern. Do not use `alert()` for anything except placeholder "Coming Soon" features
+- **Error Surfacing to UI:** Use a fixed-position toast (`fixed bottom-24 left-1/2 -translate-x-1/2 z-[70]`) with auto-dismiss via `setTimeout` (2000ms) — see DayViewSheet's `deleteFeedback` and `ChatPage`'s `feedback` patterns. Do not use `alert()` for anything except placeholder "Coming Soon" features
 - **Invalid RowId Recovery:** If sync logs an `Invalid rowId` error for a locally-created doc, that doc will retry forever. The owning hook (e.g., `useSettings`) must scan for and `remove()` any legacy rows whose ID violates Appwrite's constraints during its init phase
+- **`CONFLICT` Is Not an Error:** `markAllRead` and `toggleReaction` patch rows that a parallel sync cycle may have updated. Catch `err.code === 'CONFLICT'`, re-fetch the doc, and either retry once or skip. Do NOT log `CONFLICT` as an error — it's an expected race
+- **Fire-and-Forget Cross-User Writes:** `markReadOnRemote`, `unsendOnRemote`, `reactOnRemote`, `reactToTaskOnRemote` intentionally swallow errors after logging. The user's local state is the source of truth; the server call is best-effort. Only `deliver` retries via the pending outbox
 
 ## 11. ID Generation & Naming
 - **Client-Generated IDs:** All primary keys are generated client-side (no server round-trip) with a type prefix:
   - Tasks: `task_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
   - Categories: `cat_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+  - Messages (sender's local row): `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
   - Images: `img_${crypto.randomUUID().replace(/-/g, '')}` (with a `getRandomValues` fallback for iOS)
   - Deterministic composite IDs (settings, diary): `${userId}_${key}` or `${userId}_${date}` — **but only when the total length is ≤36 chars** (see §6 Row ID Length Cap)
+- **Thread IDs (Messaging):** `th_${sha256Hex(sortedUserIdA + '|' + sortedUserIdB).slice(0, 30)}`. Deterministic — both participants compute the same value. Total length: 33 chars. Helper: `makeThreadId(userA, userB)` in `src/lib/threads.ts`
+- **Recipient Row IDs (Messaging):** `rmsg_${sha256Hex(senderMessageId).slice(0, 30)}`. Deterministic — the sender's client can compute the recipient's row id without a server round-trip. Helper: `makeRecipientRowId(senderMessageId)` in `src/lib/threads.ts`
 - **Settings Row ID Hashing:** Because `${userId}_${key}` easily exceeds Appwrite's 36-char cap for long keys (`friend_carousel_prefs`, etc.), `useSettings` uses a `makeSettingsRowId(userId, key)` helper:
   1. If `${userId}_${key}` fits in ≤36 chars → use it as-is (keeps short keys like `displayName` stable)
   2. Otherwise → return `s_${hashString(userId + '_' + key)}` where `hashString` is a deterministic dual-djb2 variant producing a ~12–14 char base36 string
@@ -127,19 +146,40 @@
   - All mapping is centralized in `src/db/sync.ts` (`toAppwriteFormat` / `fromAppwriteFormat`). Never map ad-hoc in hooks or components
   - `isDeleted` (local) ↔ `deleted` (remote) — this is a hard rule because `deleted` is a reserved RxDB keyword
   - Booleans encoded as booleans, not 0/1
+- **`messages` Collection Field Mapping:**
+  | Local | Remote |
+  |---|---|
+  | `threadId` | `thread_id` |
+  | `senderId` | `sender_id` |
+  | `recipientId` | `recipient_id` |
+  | `direction` | `direction` |
+  | `taskRefId` | `task_ref_id` |
+  | `taskRefTitle` | `task_ref_title` |
+  | `taskRefDate` | `task_ref_date` |
+  | `taskRefColor` | `task_ref_color` |
+  | `replyToId` | `reply_to_id` |
+  | `replyToContent` | `reply_to_content` |
+  | `replyToSenderId` | `reply_to_sender_id` |
+  | `isUnsent` | `is_unsent` |
+  | `originalMessageId` | `original_message_id` |
+  | `reactions` | `reactions` |
+  | `readAt` | `read_at` |
+  | `deliveryStatus` | `delivery_status` |
+- **`read_at` Is Server-Owned on Outgoing Rows:** `toAppwriteFormat` for `messages` MUST omit `read_at` when `direction === 'outgoing'`. The client would otherwise overwrite the read receipt that the `mark_read` action wrote. This applies only to the `messages` collection
 - **Date Storage:**
   - Day keys (task date, diary date, sorting): `yyyy-MM-dd` via `date-fns.format`
-  - Timestamps (`createdAt`, `updatedAt`, `completedAt`): full ISO 8601 via `.toISOString()`
+  - Timestamps (`createdAt`, `updatedAt`, `completedAt`, `readAt`): full ISO 8601 via `.toISOString()`
   - When comparing timestamps, always use the `toMs()` helper pattern (`Number.isFinite` guard)
-- **Empty-String Over Null:** Optional string fields (`memo`, `image`, `completedAt`, `icon`, `friendBio`) MUST default to `''`, never `null` or `undefined`, so RxDB schema validation never fails
-- **Schema Migrations:** When adding a new optional field to an existing RxDB collection, bump the schema `version` and add a `migrationStrategies` entry in `database.ts` that backfills the field with `''`. Also update both `toAppwriteFormat` and `fromAppwriteFormat` in `sync.ts`, and run a one-off `scripts/*.mjs` script to add the corresponding Appwrite column
+- **Empty-String Over Null:** Optional string fields (`memo`, `image`, `completedAt`, `icon`, `friendBio`, `threadId`, `replyToId`, `replyToContent`, `replyToSenderId`, `originalMessageId`, `reactions`, `readAt`) MUST default to `''`, never `null` or `undefined`, so RxDB schema validation never fails
+- **Reactions Format:** JSON string of `Array<{ emoji: string; userIds: string[] }>`. Serialized as `''` when empty (not `'[]'`). Parsed/stringified only via `src/lib/reactionUtils.ts`
+- **Schema Migrations:** When adding a new optional field to an existing RxDB collection, bump the schema `version` and add a `migrationStrategies` entry in `database.ts` that backfills the field with `''` (or `false` for booleans). Also update both `toAppwriteFormat` and `fromAppwriteFormat` in `sync.ts`, and run a one-off `scripts/*.mjs` script to add the corresponding Appwrite column
 
 ## 13. Modal & Bottom Sheet Structure
 - **One Sheet = One File:** Every sheet lives in its own file and takes `{ isOpen, onClose, <entity>, onSave/onConfirm }` props. No context-based sheet orchestration
 - **Nested Sheet Choreography:** When one sheet opens another (TaskActionSheet → MemoSheet), the parent passes `isLocked={isBackgroundLocked}` down. `isBackgroundLocked` is computed from a single boolean OR of all child-sheet open states
 - **Action Sheets Close Themselves Before Opening a Sibling:** When an action button in TaskActionSheet needs to open MemoSheet, ImageViewer, etc., the pattern is: `onClick={() => { onX(); onClose(); }}` — the action sheet must visually dismiss before the sibling opens
 - **Sheet Content Padding:** Sheet bodies use `pt-2 pb-8 px-4` (or `px-1` for full-width lists). Do not add extra wrappers
-- **Delete Confirmations:** Destructive flows inside a sheet MUST open a nested BottomSheet with `isLocked={true}` and a two-button `[Cancel | Delete]` row (`bg-[#2A2A2A]` / `bg-red-500`). `window.confirm` is BANNED in sheets. The reference implementation is DayViewSheet's "Delete Photo" sheet; CategoryManagerSheet's "Delete Category" sheet mirrors it
+- **Delete Confirmations:** Destructive flows inside a sheet MUST open a nested BottomSheet with `isLocked={true}` and a two-button `[Cancel | Delete]` row (`bg-[#2A2A2A]` / `bg-red-500`). `window.confirm` is BANNED in sheets. Reference implementations: DayViewSheet's "Delete Photo", CategoryManagerSheet's "Delete Category", ChatPage's "Unsend Message"
 - **Deleting State:** Nested delete-confirm sheets track a local `isDeleting` boolean and render a spinner inside the Delete button while the async operation is in flight
 - **Reorderable Sheets:** Lists that support drag-to-reorder use Framer Motion's `Reorder.Group` / `Reorder.Item` with `dragListener={false}` on the item and a dedicated grip handle that calls `dragControls.start(e)`. Never enable whole-row drag in a scrollable sheet
 
@@ -148,27 +188,34 @@
 - **Props Interface Above Component:** Always declare `interface XxxProps { ... }` immediately above the component; never inline
 - **Memo + displayName:** Any component wrapped in `React.memo` MUST set `.displayName` to the component name
 - **Prop Callbacks:** Internal handlers are `handleX` (useCallback for anything passed to children or used in useEffect deps). External props are `onX`
-- **Stop Event Leakage in Lists:** Buttons/inputs inside tappable rows MUST call `onPointerDown={(e) => e.stopPropagation()}` to prevent parent row's tap handler from firing (critical inside Swiper slides)
+- **Stop Event Leakage in Lists:** Buttons/inputs inside tappable rows MUST call `onPointerDown={(e) => e.stopPropagation()}` to prevent parent row's tap handler from firing (critical inside Swiper slides and message bubbles)
 - **Animation Tokens:** Entry animations use `animate-in fade-in duration-300` or `animate-in fade-in slide-in-from-<dir>-1 duration-200`. Framer Motion `whileTap={{ scale: 0.95–0.98 }}` on all tappables
 - **Spinner Primitive:** Loading spinners are ALWAYS `<div className="w-N h-N border-2 border-white border-t-transparent rounded-full animate-spin" />`. No SVG spinners, no library spinners
 - **AnimatePresence Person/View Switching:** Person and view transitions between full calendar panes use `<AnimatePresence mode="wait">` with `custom={direction}` and a slide variant keyed on direction. `mode="wait"` prevents two Embla carousels from simultaneously mounting and fighting for touch events
+- **Unified Gesture Hooks:** Any element supporting more than one gesture (swipe + tap + long-press) MUST use a single state-machine hook (`useBubbleGestures`). Do not stack `useLongPress` + custom drag + tap handlers. Refs hold the internal gesture state; only visual output (`swipeOffset`, `isSwiping`) uses React state, throttled with `requestAnimationFrame`
+- **`consumeDidFire()` Pattern:** Gesture hooks expose a `consumeDidFire()` callback that reads-and-resets an internal "gesture already fired" flag. Parent click handlers call it at the top to avoid double-firing after a long-press or swipe. Never expose the ref directly (breaks the `react-hooks/immutability` lint rule)
 
 ## 15. File Organization Rules
-- `src/components/ui/` — pure, entity-agnostic primitives (Button, Input, BottomSheet, Avatar, ColorPalettePicker, OfflineBanner)
+- `src/components/ui/` — pure, entity-agnostic primitives (Button, Input, BottomSheet, Avatar, ColorPalettePicker, OfflineBanner, SettingsRow)
 - `src/components/layout/` — chrome that wraps routes (MainLayout, BottomNav, AppLayout, ComingSoon)
-- `src/components/home/` — Home page feature components (PersonCarousel, PersonProfileHeader, SwipeableTopZone, FriendCarouselSettingsSheet, TopBar, ViewSwitcher, HamburgerMenu)
-- `src/components/home/views/` — calendar sub-views and their sub-sheets (CalendarHeader, CalendarBody, MonthView, WeekView, DayViewSheet, etc.) plus the shared `useCalendarState` hook
-- `src/components/friend/` — read-only friend views used by both HomePage's carousel content and `FriendCalendarPage`
-- `src/hooks/` — one hook per data domain (useTasks, useCategories, useDiary, useSettings, useFriends, useFriendCarousel) plus focused utilities (useTaskImage, useImageCompression)
-- `src/lib/` — side-effectful SDK wrappers and pure utilities (appwrite, storage, imageCache, social, friendCache, friendData, mockData). No React imports allowed here
+- `src/components/home/` — Home page feature components (PersonCarousel, PersonProfileHeader, SwipeableTopZone, FriendCarouselSettingsSheet, TopBar, ViewSwitcher, HamburgerMenu, PersonPane)
+- `src/components/home/views/` — calendar sub-views and their sub-sheets (CalendarHeader, CalendarBody, MonthView, WeekView, DayViewSheet, TaskItem, CategorySection, TaskActionSheet, etc.) plus the shared `useCalendarState` hook
+- `src/components/friend/` — read-only friend views used by both HomePage's carousel content and `FriendCalendarPage` (FriendCalendarView, FriendDayViewSheet)
+- `src/components/messages/` — chat feature (MessageBubble, MessageComposer, MessageActionSheet, ReplyComposerSheet, ReplyPreview, ReactionRow, EmojiPickerSheet, TaskRefCard, ConversationRow, ScrollToBottomButton, ChatSearchBar)
+- `src/components/explore/` — social graph UI (ExploreView, SearchBar, UserResultCard, FriendRow, FriendRequestRow, OutgoingRequestRow, FriendActionSheet)
+- `src/components/modals/` — account/settings modals (CategoryManagerSheet, AccountSettingsSheet, ChangeEmailSheet, ChangePasswordSheet, EditDescriptionSheet, EditNameSheet, EditProfileImageSheet, ExportDataSheet, SetUsernameSheet)
+- `src/hooks/` — one hook per data domain (useTasks, useCategories, useDiary, useSettings, useFriends, useMessages, useConversations, useUnreadMessages, useFriendCarousel) plus focused utilities (useTaskImage, useImageCompression, useBubbleGestures)
+- `src/lib/` — side-effectful SDK wrappers and pure utilities (appwrite, storage, imageCache, social, friendCache, friendData, friendCalendar, messageDelivery, threads, reactionUtils, visibility, exportData, mockData). No React imports allowed here (except `useFriendCalendar.ts` which is a hook living under lib/ for historical reasons — do not move it)
 
 ## 16. List Rendering & Sorting
 - **Default Sort Contracts (in hooks, not components):**
   - Tasks: `[{ date: 'asc' }, { createdAt: 'desc' }]`
   - Categories: `[{ order: 'asc' }]`
   - Diary: `[{ date: 'desc' }]`
+  - Messages (in-thread): `[{ createdAt: 'asc' }]`
+  - Messages (conversation list): computed client-side from `createdAt` descending per thread
   - Friends (carousel): user-defined `order` first, then alphabetical by `friendDisplayName || friendUsername` for the un-ordered tail
-- **Grouping is Memoized:** Any grouping (e.g., tasks-by-category, tasks-by-date) MUST use a `useMemo` that returns a Map or Record, not a `filter()` inside a `.map()`
+- **Grouping is Memoized:** Any grouping (tasks-by-category, tasks-by-date, messages-by-thread) MUST use a `useMemo` that returns a Map or Record, not a `filter()` inside a `.map()`
 - **Empty Arrays Are Module Constants:** Pass shared empty arrays as `const EMPTY_TASKS: TaskDocument[] = []` to keep `React.memo` prop equality stable across renders
 
 ## 17. Native Input Quirks
@@ -176,16 +223,107 @@
 - **Focus Management:** When opening a sheet or inline "Add" input, focus via a `useRef` + `useEffect` on `[isOpen, taskId]`. NEVER use `autoFocus` — Safari/iOS ignores it inside conditionally-rendered subtrees (any AnimatePresence-wrapped BottomSheet). This applies to both memo editors and title editors, not just inline add inputs
 - **File Input Reset:** After an `<input type="file">` upload completes (success OR failure), reset `fileInputRef.current.value = ''` so the same file can be re-selected
 - **Body Scroll Lock:** BottomSheet is the only component allowed to touch `document.body.style.overflow`. It uses a module-level `openSheetCount` counter to handle nested sheets correctly
+- **`touch-action: pan-y` on Gesture-Enabled Elements:** Any element that owns horizontal gesture handlers (message bubbles with swipe-to-reply) MUST set `touchAction: 'pan-y'` inline. Without it, iOS Safari interprets the horizontal swipe as browser back-navigation and suppresses the vertical scroll on that element
 
 ## 18. Async & Race Safety
 - **Cancellation Ref:** Every async `useEffect` MUST have a local `let isMounted = true` (or `effectIsActive`) flag, and every `.then`/`await` continuation MUST check it before `setState`. Cleanup sets the flag to `false`
 - **Programmatic-Move Guards:** When a component programmatically drives a carousel (Swiper, Embla), set an `isProgrammaticMoveRef.current = true` before calling `.slideTo()` / `.scrollTo()`, and clear it in a `requestAnimationFrame`. Event handlers (`onSlideChangeTransitionEnd`, `onSelect`) check this ref to ignore self-induced events — prevents infinite feedback loops between state and carousel
-- **Re-entrancy Guards:** Sync/network loops use a module-level boolean (`isSyncInProgress`) and log-and-return on re-entry rather than queueing
+- **Re-entrancy Guards:** Sync/network loops use a module-level boolean (`isSyncInProgress`, `isDeliveryInProgress`) and log-and-return on re-entry rather than queueing
 - **Attempt-Once Ref:** Lazy side effects that should only ever run once per entity (e.g., friend bio backfill) use a `useRef<Set<string>>` to track attempted entity IDs. Never rely on `useEffect` deps alone for "run only once" semantics
+- **Fire-and-Forget Cross-User Writes:** Non-critical server actions (`mark_read`, `unsend`, `react`, `react_to_task`) are dispatched without awaiting for the UI. Errors are logged but never thrown to the caller. Delivery (`deliver`) is the exception — it retries via `deliverPendingMessages`
+- **Polling in Long-Lived Screens:** `ChatPage` runs a 10s `forceSync()` interval while the tab is visible, to propagate read receipts. Guards: skip when `document.visibilityState !== 'visible'`, skip when `navigator.onLine === false`. Interval cleared on unmount
+- **Auto-Scroll Pinning:** Chat message lists track an `isPinnedToBottomRef` updated synchronously in the scroll handler. Incoming messages auto-scroll only when pinned; outgoing messages always scroll. The scroll-to-bottom FAB reflects the un-pinned state
 
 ## 19. Bootstrap & Persistence
 - **Order of Operations in `main.tsx`:** 1) `navigator.storage.persist()`, 2) `initializeDatabase()`, 3) fire-and-forget `initializeSync()` (never block render on network), 4) `ReactDOM.createRoot(...).render(...)`
 - **Non-Blocking Sync:** `initializeSync()` is always called with `.catch()` — a sync failure must never prevent the app from mounting
 - **`ignoreDuplicate: true`** on `createRxDatabase` and a singleton `dbInstance` module variable are required to survive React StrictMode double-invocations
 - **Local Cleanup on Init:** Data hooks should opportunistically purge known-bad local state (oversized row IDs, legacy composite IDs) during their init phase, before subscribing. This avoids permanent sync failures for users who already have broken rows in IndexedDB
-```
+
+---
+
+## 20. Messaging Architecture
+
+### 20.1 The Two-Row Pattern
+Every 1:1 message exists as **two independent Appwrite rows**, one per participant:
+
+| Row | `user_id` | `direction` | Row ID |
+|---|---|---|---|
+| Sender's copy | sender | `outgoing` | `msg_<random>` (client-generated, `src/lib/threads.ts`) |
+| Recipient's copy | recipient | `incoming` | `rmsg_<sha256(senderMsgId).slice(0,30)>` (deterministic, `makeRecipientRowId`) |
+
+Both rows share `thread_id`, `sender_id`, `recipient_id`, `created_at`, and content. The recipient row id is deterministic so the sender's client can compute it without a server round-trip. `original_message_id` on the incoming row stores the sender's `msg_*` id so the recipient can locate the peer row for reactions.
+
+### 20.2 Why Two Rows
+- Preserves the sync engine's single-owner invariant: every row a user syncs is owned by that user
+- Row-level permissions stay simple: `[read(owner), update(owner), delete(owner)]` on every row
+- Read receipts work naturally: recipient patches their own incoming rows; server patches sender's outgoing rows via API key
+- No RLS gymnastics for cross-user visibility
+
+### 20.3 The `message-action` Appwrite Function
+Single function, single ID, `action` field in the body. Five actions:
+
+| Action | Caller | Purpose |
+|---|---|---|
+| `deliver` | sender | Create the recipient's row via API key with recipient-owned permissions |
+| `mark_read` | recipient | Patch `read_at` on sender's outgoing rows (`WHERE user_id = sender AND thread_id = X AND direction = 'outgoing' AND read_at = ''`) |
+| `unsend` | sender | Patch BOTH rows: wipe content/refs/reactions, set `is_unsent=true`. Cascade-wipes `reply_to_content` on any messages that quoted the unsent message |
+| `react` | either | Read-modify-write reactions on BOTH rows. Handles legacy rows where `original_message_id` is empty via a `resolveLegacyPeerRowId` lookup |
+| `react_to_task` | friend of task owner | Patch the task owner's task row with a reaction delta |
+
+Function ID lives in `src/lib/messageDelivery.ts` as `MESSAGE_ACTION_FUNCTION_ID`. All actions live in `appwrite-functions/message-action/main.js`. Friendship is verified before every write.
+
+### 20.4 Delivery Flow
+1. Sender inserts local message with `deliveryStatus: 'pending'`
+2. `deliverPendingMessages(userId)` scans for pending outgoing rows
+3. Each is sent to `message-action` with `action: 'deliver'`
+4. On success: local row patched to `deliveryStatus: 'delivered'`
+5. Re-entrancy guarded by module-level `isDeliveryInProgress` boolean
+6. Triggered on `AppLayout` mount, `window.focus`, `window.online`, and after every send
+
+### 20.5 Read Receipt Flow
+1. Recipient opens `ChatPage`, patches their incoming rows' `readAt` locally (drives unread badge)
+2. Calls `markReadOnRemote(partnerId, threadId)` → server patches sender's outgoing rows
+3. Sender's 10s polling `forceSync()` in `ChatPage` pulls the update
+4. `MessageBubble` renders "✓✓ Seen at [time]" under the last read outgoing message
+
+The polling exists because the sync engine is conservative: it skips the pull phase for rows whose local `_meta.lwt` is newer than the last sync. Two poll cycles (~20s) is the floor for a read receipt to round-trip without a targeted sync path.
+
+### 20.6 Unsend Cascade
+`unsend` wipes content on both rows AND cascades to any message whose `reply_to_id` matches either the sender's `msg_*` or the recipient's `rmsg_<hash>` id. This makes quotes of an unsent message render as "Message deleted" on both sides. The client also cascades locally in `useMessages.unsendMessage` for immediate feedback.
+
+### 20.7 Message Reactions
+`action: 'react'` reads both the caller's row and the peer's row, applies a delta via `applyReactionDelta`, and writes both back. The peer row id is derived locally:
+- Outgoing message: `makeRecipientRowId(doc.id)`
+- Incoming message: `doc.originalMessageId` (or server lookup if empty)
+
+### 20.8 Task Reactions
+`action: 'react_to_task'` patches the task owner's task row. Caller must be an accepted friend of the owner. Only `add` operations fire a chat message. Uses the same `reactionUtils` helpers as message reactions.
+
+---
+
+## 21. Chat UI Conventions
+
+- **Gesture direction is role-relative:** incoming bubbles swipe right; outgoing bubbles swipe left. Both reveal a reply icon on the side being uncovered.
+- **Timestamp reservation:** bubble status rows (`Delivered`, `Seen at`, timestamp) always occupy their minimum height; visibility is toggled via `opacity`, never presence. This is the specific fix for the hover-flicker feedback loop.
+- **Auto-scroll pinning:** `ChatPage` tracks `isPinnedToBottomRef`, updated synchronously in the scroll handler. Incoming messages auto-scroll only when pinned; outgoing always scroll. Scrolling back down sets the flag to true.
+- **Scroll-to-bottom FAB:** appears when scrolled >300px from bottom. Green dot indicates unacknowledged messages below. Hidden during search.
+- **Search:** local-only, no server round-trip. `Cmd/Ctrl+F` or `Cmd/Ctrl+K` opens; `Esc` or X closes. Filters bubble content, task refs, and reply quotes. Match counter shows `N/M`. Date dividers and gap-timestamps are hidden while searching. Auto-scroll on new messages is suppressed during search.
+- **Reply focus:** swipe-to-reply sets the composer's reply context and calls `composerRef.current.focus()` after 50ms (lets the reply-strip render before focus lands).
+- **Long-press vs swipe:** movement >8px cancels the long-press timer; movement >30px vertical aborts the swipe and hands off to native scroll (`touch-action: pan-y`).
+- **Double-tap ❤️:** fixed emoji, no config. Uses `toggleReaction`.
+- **Overlay safety:** when any sheet is open, `gesturesDisabled` is passed to every bubble so swipes don't fire behind the sheet.
+- **Unsent bubbles:** all gestures disabled. No reply icon, no action sheet, no double-tap react. Status row still renders for timeline coherence.
+
+---
+
+## 22. Task Reactions
+
+- **Storage:** `task.reactions` (already exists in `TaskDocument` and `tasksSchema`). Format: JSON array of `{emoji, userIds}`. Parsed/stringified via `src/lib/reactionUtils.ts`.
+- **UI:** Heart button beside the reply button in `FriendDayViewSheet`. Tapping opens `EmojiPickerSheet`. Picking an emoji calls `useFriendCalendar.reactToTask(task.id, emoji)` and, on `add`, `useMessages.sendTaskReaction(task, emoji, color)`.
+- **Chat notification:** Emoji is sent as a chat message with a `TaskRefCard`, identical to a task reply. Only on `add` — removes are silent.
+- **Chip display:** Reaction chips render below the task title in both `FriendDayViewSheet` (interactive) and the owner's `DayViewSheet` → `TaskItem` (display-only, `onToggle` is a no-op).
+- **Optimistic update:** `useFriendCalendar.reactToTask` patches local state first, calls the server, reverts on failure. `patchCachedCalendarTask` persists the server-confirmed value to the friend cache.
+- **No self-reactions:** server rejects `callerId === taskOwnerId` with 400.
+- **Owner viewing chips:** owners see chips on their own tasks in `DayViewSheet` but cannot toggle them (would need an `remove` op from the owner's side; not implemented).
+- **Legacy messages:** message reactions on incoming rows require `originalMessageId`. If empty (pre-V2.4 rows), the server resolves it via `resolveLegacyPeerRowId` on `(sender_id, created_at, content)`. The client persists the resolved id locally so subsequent reactions don't need a lookup.
