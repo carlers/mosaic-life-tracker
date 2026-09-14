@@ -160,9 +160,12 @@ function toAppwriteFormat(
     mapped.task_ref_title = source.taskRefTitle || '';
     mapped.task_ref_date = source.taskRefDate || '';
     mapped.task_ref_color = source.taskRefColor || '';
+    mapped.reply_to_id = source.replyToId || '';
+    mapped.reply_to_content = source.replyToContent || '';
+    mapped.reply_to_sender_id = source.replyToSenderId || '';
+    mapped.is_unsent = source.isUnsent ?? false;
     // read_at is intentionally omitted from outgoing pushes — the server-side
     // mark_read action is the sole writer for that field on the sender's rows.
-    // Using updateRow (below) preserves it via PATCH semantics.
     if (source.direction !== 'outgoing') {
       mapped.read_at = source.readAt || '';
     }
@@ -270,6 +273,10 @@ function fromAppwriteFormat(
     mapped.taskRefTitle = mapped.task_ref_title || '';
     mapped.taskRefDate = mapped.task_ref_date || '';
     mapped.taskRefColor = mapped.task_ref_color || '';
+    mapped.replyToId = mapped.reply_to_id || '';
+    mapped.replyToContent = mapped.reply_to_content || '';
+    mapped.replyToSenderId = mapped.reply_to_sender_id || '';
+    mapped.isUnsent = mapped.is_unsent ?? false;
     mapped.readAt = mapped.read_at || '';
     mapped.deliveryStatus = mapped.delivery_status || 'delivered';
     mapped.createdAt = mapped.created_at || new Date().toISOString();
@@ -283,6 +290,10 @@ function fromAppwriteFormat(
     delete mapped.task_ref_title;
     delete mapped.task_ref_date;
     delete mapped.task_ref_color;
+    delete mapped.reply_to_id;
+    delete mapped.reply_to_content;
+    delete mapped.reply_to_sender_id;
+    delete mapped.is_unsent;
     delete mapped.read_at;
     delete mapped.delivery_status;
     delete mapped.created_at;
@@ -503,9 +514,6 @@ async function syncCollection(
     if (DEBUG) console.log(`[Sync] Pushing ${colName} ${docId}`);
 
     try {
-      // CHANGED: use updateRow (PATCH) for existing rows so fields not in
-      // the payload — notably read_at on outgoing messages — are preserved.
-      // upsertRow (PUT) is only used when creating a brand-new row.
       if (remoteMeta) {
         await tablesDB.updateRow({
           databaseId: APPWRITE_CONFIG.databaseId,

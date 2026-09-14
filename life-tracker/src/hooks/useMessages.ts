@@ -1,23 +1,37 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { getDatabase } from '../db/database';
 import { useAuth } from './useAuth';
-import { makeThreadId } from '../lib/threads';
+import { makeThreadId, makeRecipientRowId } from '../lib/threads';
 import {
   deliverPendingMessages,
   markReadOnRemote,
+  unsendOnRemote,
 } from '../lib/messageDelivery';
 import type { MessageDocument, TaskDocument } from '../db/schema';
+
+export interface ReplyContext {
+  id: string;
+  senderId: string;
+  content: string;
+}
 
 export interface UseMessagesReturn {
   messages: MessageDocument[];
   isLoading: boolean;
-  sendMessage: (content: string) => Promise<void>;
+  sendMessage: (content: string, replyTo?: ReplyContext) => Promise<void>;
   sendTaskReply: (
     task: TaskDocument,
     content: string,
     categoryColor: string
   ) => Promise<void>;
   markAllRead: () => Promise<void>;
+  unsendMessage: (id: string) => Promise<void>;
+}
+
+function truncateForSnapshot(s: string, max = 100): string {
+  const trimmed = s.replace(/\s+/g, ' ').trim();
+  if (trimmed.length <= max) return trimmed;
+  return trimmed.slice(0, max - 1) + '…';
 }
 
 export function useMessages(friendId: string | null): UseMessagesReturn {
@@ -70,7 +84,7 @@ export function useMessages(friendId: string | null): UseMessagesReturn {
   }, [userId, friendId]);
 
   const sendMessage = useCallback(
-    async (content: string) => {
+    async (content: string, replyTo?: ReplyContext) => {
       const uid = user?.$id;
       if (!uid) {
         console.error('[useMessages] Cannot send: User not authenticated');
@@ -99,6 +113,10 @@ export function useMessages(friendId: string | null): UseMessagesReturn {
         taskRefTitle: '',
         taskRefDate: '',
         taskRefColor: '',
+        replyToId: replyTo?.id || '',
+        replyToContent: replyTo ? truncateForSnapshot(replyTo.content) : '',
+        replyToSenderId: replyTo?.senderId || '',
+        isUnsent: false,
         readAt: '',
         deliveryStatus: 'pending',
         createdAt: now,
@@ -143,6 +161,10 @@ export function useMessages(friendId: string | null): UseMessagesReturn {
         taskRefTitle: task.title,
         taskRefDate: task.date,
         taskRefColor: categoryColor || '',
+        replyToId: '',
+        replyToContent: '',
+        replyToSenderId: '',
+        isUnsent: false,
         readAt: '',
         deliveryStatus: 'pending',
         createdAt: now,
@@ -182,8 +204,6 @@ export function useMessages(friendId: string | null): UseMessagesReturn {
       const now = new Date().toISOString();
       for (const stale of unread) {
         try {
-          // Re-fetch fresh right before patching to avoid CONFLICT when the
-          // sync engine writes a newer revision in between.
           const fresh = await db.messages.findOne(stale.id).exec();
           if (!fresh || fresh.readAt) continue;
           await fresh.patch({ readAt: now, updatedAt: now });
@@ -195,12 +215,9 @@ export function useMessages(friendId: string | null): UseMessagesReturn {
               patchErr
             );
           }
-          // CONFLICT means another path already updated this row — safe to
-          // skip; the desired state (readAt set) is already in place.
         }
       }
 
-      // Fire-and-forget: tell the partner we've read their messages.
       markReadOnRemote(friendId, tid);
     } catch (err) {
       console.error('[useMessages] markAllRead failed:', err);
@@ -208,6 +225,90 @@ export function useMessages(friendId: string | null): UseMessagesReturn {
       markAllReadInFlightRef.current = false;
     }
   }, [user?.$id, friendId]);
+
+  const unsendMessage = useCallback(
+    async (id: string) => {
+      const uid = user?.$id;
+      if (!uid) {
+        console.error('[useMessages] Cannot unsend: User not authenticated');
+        return;
+      }
+
+      const db = getDatabase();
+      const doc = await db.messages.findOne(id).exec();
+      if (!doc) return;
+      if (doc.direction !== 'outgoing') {
+        console.error('[useMessages] Cannot unsend: not an outgoing message');
+        return;
+      }
+
+      const recipientId = doc.recipientId;
+      const now = new Date().toISOString();
+
+      // Local tombstone first so the UI reacts immediately.
+      await doc.patch({
+        content: '',
+        taskRefId: '',
+        taskRefTitle: '',
+        taskRefDate: '',
+        taskRefColor: '',
+        replyToId: '',
+        replyToContent: '',
+        replyToSenderId: '',
+        isUnsent: true,
+        deliveryStatus: 'delivered',
+        updatedAt: now,
+      });
+
+      // Cascade: wipe the reply snapshot on any messages (own + received)
+      // that quoted this one.
+      //
+      // Two IDs must be checked because the `replyToId` field is stored from
+      // the perspective of whoever wrote the reply:
+      //   - "msg_<id>"      → replies the sender wrote to their own message
+      //   - "rmsg_<hash>"   → replies the *recipient* wrote (their local copy
+      //                       of the original has this synthetic row id)
+      const rmsgId = await makeRecipientRowId(id);
+
+      try {
+        const replies = await db.messages
+          .find({
+            selector: {
+              userId: uid,
+              isDeleted: false,
+              $or: [{ replyToId: id }, { replyToId: rmsgId }],
+            },
+          })
+          .exec();
+
+        for (const reply of replies) {
+          try {
+            const fresh = await db.messages.findOne(reply.id).exec();
+            if (!fresh) continue;
+            if (fresh.replyToContent === '') continue;
+            await fresh.patch({ replyToContent: '', updatedAt: now });
+          } catch (cascadeErr) {
+            const code = (cascadeErr as { code?: string })?.code;
+            if (code !== 'CONFLICT') {
+              console.error(
+                '[useMessages] unsend cascade patch failed:',
+                cascadeErr
+              );
+            }
+          }
+        }
+      } catch (cascadeQueryErr) {
+        console.error(
+          '[useMessages] unsend cascade query failed:',
+          cascadeQueryErr
+        );
+      }
+
+      // Fire-and-forget remote wipe (both sides + cascade).
+      unsendOnRemote(id, recipientId);
+    },
+    [user?.$id]
+  );
 
   const key = userId && friendId ? `${userId}_${friendId}` : null;
   const visible = key && loadedKey === key ? messages : [];
@@ -219,5 +320,6 @@ export function useMessages(friendId: string | null): UseMessagesReturn {
     sendMessage,
     sendTaskReply,
     markAllRead,
+    unsendMessage,
   };
 }

@@ -6,20 +6,12 @@ import type { MessageDocument } from '../db/schema';
 
 const DEBUG = import.meta.env.DEV;
 
-/**
- * Appwrite Function ID for `message-action`.
- * Deploy `appwrite-functions/message-action/` and paste the resulting ID here.
- */
 const MESSAGE_ACTION_FUNCTION_ID = '6aa8057f002a4c306fdd';
 
 const functions = new Functions(client);
 
 let isDeliveryInProgress = false;
 
-/**
- * Generic wrapper for calling the `message-action` Appwrite Function.
- * Throws on any non-2xx response.
- */
 export async function sendMessageAction(
   payload: Record<string, unknown>
 ): Promise<void> {
@@ -48,14 +40,6 @@ export async function sendMessageAction(
   }
 }
 
-/**
- * Scans the local `messages` collection for outgoing rows still marked
- * `deliveryStatus: 'pending'`, and pushes each one to the recipient via the
- * `message-action` function's `deliver` action.
- *
- * Safe to call frequently (focus, online, after send). Re-entrancy is
- * guarded internally.
- */
 export async function deliverPendingMessages(userId: string): Promise<void> {
   if (isDeliveryInProgress) return;
   if (typeof navigator !== 'undefined' && navigator.onLine === false) return;
@@ -114,14 +98,13 @@ async function deliverOne(doc: RxDocument<MessageDocument>): Promise<void> {
     taskRefTitle: doc.taskRefTitle,
     taskRefDate: doc.taskRefDate,
     taskRefColor: doc.taskRefColor,
+    replyToId: doc.replyToId || '',
+    replyToContent: doc.replyToContent || '',
+    replyToSenderId: doc.replyToSenderId || '',
     createdAt: doc.createdAt,
   });
 }
 
-/**
- * Notifies the partner that we've read their outgoing messages in this thread.
- * Non-blocking; failures are logged but never thrown.
- */
 export async function markReadOnRemote(
   partnerId: string,
   threadId: string
@@ -134,5 +117,25 @@ export async function markReadOnRemote(
     });
   } catch (err) {
     console.error('[messageDelivery] markReadOnRemote failed:', err);
+  }
+}
+
+/**
+ * Notifies the server to wipe both the sender's and recipient's copies of a
+ * message (the tombstone flow). Non-blocking; failures are logged but never
+ * thrown — the local patch already applied the tombstone.
+ */
+export async function unsendOnRemote(
+  messageId: string,
+  recipientId: string
+): Promise<void> {
+  try {
+    await sendMessageAction({
+      action: 'unsend',
+      messageId,
+      recipientId,
+    });
+  } catch (err) {
+    console.error('[messageDelivery] unsendOnRemote failed:', err);
   }
 }

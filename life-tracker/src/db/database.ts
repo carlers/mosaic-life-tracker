@@ -77,7 +77,21 @@ export async function initializeDatabase(): Promise<RxDatabase<AppDatabaseCollec
           1: (oldDoc) => ({ ...oldDoc, friendBio: '' }),
         },
       },
-      messages: { schema: messagesSchema },
+      messages: {
+        schema: messagesSchema,
+        migrationStrategies: {
+          1: (oldDoc) => ({
+            ...oldDoc,
+            replyToId: '',
+            replyToContent: '',
+            replyToSenderId: '',
+          }),
+          2: (oldDoc) => ({
+            ...oldDoc,
+            isUnsent: false,
+          }),
+        },
+      },
     });
 
     if (DEBUG) {

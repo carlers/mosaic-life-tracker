@@ -1,14 +1,22 @@
-import React, { useEffect, useMemo, useRef } from 'react';
+import React, {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useCallback,
+} from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ChevronLeft, MessageSquare } from 'lucide-react';
 import { format, isSameDay, subDays } from 'date-fns';
 import { Avatar } from '../components/ui/Avatar';
+import { BottomSheet } from '../components/ui/BottomSheet';
 import {
   MessageBubble,
   type MessageStatusKind,
 } from '../components/messages/MessageBubble';
 import { MessageComposer } from '../components/messages/MessageComposer';
-import { useMessages } from '../hooks/useMessages';
+import { MessageActionSheet } from '../components/messages/MessageActionSheet';
+import { useMessages, type ReplyContext } from '../hooks/useMessages';
 import { useFriends } from '../hooks/useFriends';
 import { useTaskImage } from '../hooks/useTaskImage';
 import { forceSync } from '../db/sync';
@@ -25,6 +33,13 @@ type RenderItem =
       message: MessageDocument;
       showTimestamp: boolean;
     };
+
+interface ComposerReplyState {
+  id: string;
+  senderId: string;
+  senderName: string;
+  content: string;
+}
 
 function dateDividerLabel(date: Date): string {
   const today = new Date();
@@ -45,16 +60,44 @@ export const ChatPage: React.FC = () => {
     [friendId, friends]
   );
 
-  const { messages, isLoading, sendMessage, markAllRead } = useMessages(
-    friend ? friend.friendId : null
-  );
+  const { messages, isLoading, sendMessage, markAllRead, unsendMessage } =
+    useMessages(friend ? friend.friendId : null);
   const { imageUrl } = useTaskImage(friend?.friendAvatarFileId || undefined);
+
+  const [actionMessage, setActionMessage] = useState<MessageDocument | null>(
+    null
+  );
+  const [isActionSheetOpen, setIsActionSheetOpen] = useState(false);
+  const [composerReply, setComposerReply] =
+    useState<ComposerReplyState | null>(null);
+  const [feedback, setFeedback] = useState<string | null>(null);
+
+  const [unsendTarget, setUnsendTarget] = useState<MessageDocument | null>(
+    null
+  );
+  const [isUnsendConfirmOpen, setIsUnsendConfirmOpen] = useState(false);
+  const [isUnsending, setIsUnsending] = useState(false);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const lastMsgId =
     messages.length > 0 ? messages[messages.length - 1].id : null;
 
-  // Auto-scroll to bottom on new messages
+  const myUserId = useMemo(
+    () => messages.find((m) => m.direction === 'outgoing')?.senderId || '',
+    [messages]
+  );
+
+  const resolveSenderName = useCallback(
+    (senderId: string): string => {
+      if (senderId === myUserId) return 'You';
+      if (friend && senderId === friend.friendId) {
+        return friend.friendDisplayName || friend.friendUsername || 'Them';
+      }
+      return 'Unknown';
+    },
+    [myUserId, friend]
+  );
+
   useEffect(() => {
     if (!lastMsgId) return;
     const el = scrollRef.current;
@@ -64,11 +107,10 @@ export const ChatPage: React.FC = () => {
     });
   }, [lastMsgId]);
 
-  // Mark all incoming as read whenever the thread has unread
   useEffect(() => {
     if (messages.length === 0) return;
     const hasUnread = messages.some(
-      (m) => m.direction === 'incoming' && !m.readAt
+      (m) => m.direction === 'incoming' && !m.readAt && !m.isUnsent
     );
     if (hasUnread) {
       markAllRead().catch((err) =>
@@ -77,7 +119,6 @@ export const ChatPage: React.FC = () => {
     }
   }, [messages, markAllRead]);
 
-  // Poll for remote updates (read receipts, new messages) while chat is open
   useEffect(() => {
     if (!friendId) return;
     let cancelled = false;
@@ -105,7 +146,12 @@ export const ChatPage: React.FC = () => {
     };
   }, [friendId]);
 
-  // Compute per-message status indicators under outgoing bubbles
+  useEffect(() => {
+    if (!feedback) return;
+    const t = setTimeout(() => setFeedback(null), 2000);
+    return () => clearTimeout(t);
+  }, [feedback]);
+
   const statusById = useMemo(() => {
     const map = new Map<string, MessageStatusKind>();
     let lastOutgoing: MessageDocument | null = null;
@@ -114,29 +160,24 @@ export const ChatPage: React.FC = () => {
     for (let i = messages.length - 1; i >= 0; i--) {
       const m = messages[i];
       if (m.direction !== 'outgoing') continue;
+      if (m.isUnsent) continue;
       if (!lastOutgoing) lastOutgoing = m;
       if (m.readAt && !lastReadOutgoing) lastReadOutgoing = m;
       if (lastOutgoing && lastReadOutgoing) break;
     }
 
-    // "Seen" indicator under the last message the recipient has actually read
     if (lastReadOutgoing) {
       map.set(lastReadOutgoing.id, 'read');
     }
-
-    // Delivery indicator under the latest outgoing message, if it's a
-    // different message than the "last read" one.
     if (lastOutgoing && lastOutgoing.id !== lastReadOutgoing?.id) {
       map.set(
         lastOutgoing.id,
         lastOutgoing.deliveryStatus === 'pending' ? 'pending' : 'delivered'
       );
     }
-
     return map;
   }, [messages]);
 
-  // Render list with date dividers + gap-based timestamp flags
   const renderItems = useMemo<RenderItem[]>(() => {
     const items: RenderItem[] = [];
     let lastDayKey = '';
@@ -165,6 +206,94 @@ export const ChatPage: React.FC = () => {
     });
     return items;
   }, [messages]);
+
+  const handleOpenActionSheet = useCallback((message: MessageDocument) => {
+    if (message.isUnsent) return;
+    setActionMessage(message);
+    setIsActionSheetOpen(true);
+  }, []);
+
+  const handleReplyFromSheet = useCallback(() => {
+    if (!actionMessage) return;
+    setComposerReply({
+      id: actionMessage.id,
+      senderId: actionMessage.senderId,
+      senderName: resolveSenderName(actionMessage.senderId),
+      content: actionMessage.content || actionMessage.taskRefTitle || '',
+    });
+  }, [actionMessage, resolveSenderName]);
+
+  const handleCopyFromSheet = useCallback(async () => {
+    if (!actionMessage) return;
+    const text = actionMessage.content || actionMessage.taskRefTitle || '';
+    try {
+      await navigator.clipboard.writeText(text);
+      setFeedback('Copied');
+    } catch (err) {
+      console.error('[ChatPage] Copy failed:', err);
+      setFeedback('Copy failed');
+    }
+  }, [actionMessage]);
+
+  const handleUnsendFromSheet = useCallback(() => {
+    if (!actionMessage) return;
+    setUnsendTarget(actionMessage);
+    setIsUnsendConfirmOpen(true);
+  }, [actionMessage]);
+
+  const handleConfirmUnsend = useCallback(async () => {
+    if (!unsendTarget || isUnsending) return;
+    setIsUnsending(true);
+    try {
+      await unsendMessage(unsendTarget.id);
+      setFeedback('Message unsent');
+      setIsUnsendConfirmOpen(false);
+      setUnsendTarget(null);
+    } catch (err) {
+      console.error('[ChatPage] Unsend failed:', err);
+      setFeedback('Failed to unsend');
+    } finally {
+      setIsUnsending(false);
+    }
+  }, [unsendTarget, isUnsending, unsendMessage]);
+
+  const handleCancelUnsend = useCallback(() => {
+    setIsUnsendConfirmOpen(false);
+    setUnsendTarget(null);
+  }, []);
+
+  const handleQuoteTap = useCallback((targetId: string) => {
+    const el = document.querySelector(
+      `[data-message-id="${targetId}"]`
+    ) as HTMLElement | null;
+    if (!el) return;
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    el.animate(
+      [
+        { backgroundColor: 'transparent' },
+        { backgroundColor: 'rgba(16, 185, 129, 0.15)' },
+        { backgroundColor: 'transparent' },
+      ],
+      { duration: 900, easing: 'ease-out' }
+    );
+  }, []);
+
+  const handleSend = useCallback(
+    (content: string) => {
+      const replyCtx: ReplyContext | undefined = composerReply
+        ? {
+            id: composerReply.id,
+            senderId: composerReply.senderId,
+            content: composerReply.content,
+          }
+        : undefined;
+      sendMessage(content, replyCtx).catch((err) =>
+        console.error('[ChatPage] sendMessage failed:', err)
+      );
+      setComposerReply(null);
+    },
+    [sendMessage, composerReply]
+  );
 
   const handleBack = () => navigate(-1);
 
@@ -203,7 +332,7 @@ export const ChatPage: React.FC = () => {
   const displayName = friend.friendDisplayName || friend.friendUsername;
 
   return (
-    <div className="flex flex-col h-full animate-in fade-in duration-300">
+    <div className="flex flex-col h-full animate-in fade-in duration-300 relative">
       <div className="sticky top-0 z-20 bg-[#111111] border-b border-[#333333] flex-shrink-0">
         <div className="px-4 py-3 flex items-center gap-3">
           <button
@@ -264,6 +393,9 @@ export const ChatPage: React.FC = () => {
                 isOutgoing={item.message.direction === 'outgoing'}
                 showTimestamp={item.showTimestamp}
                 statusKind={statusById.get(item.message.id)}
+                resolveSenderName={resolveSenderName}
+                onLongPress={handleOpenActionSheet}
+                onQuoteTap={handleQuoteTap}
               />
             );
           })
@@ -271,12 +403,64 @@ export const ChatPage: React.FC = () => {
       </div>
 
       <MessageComposer
-        onSend={(content) => {
-          sendMessage(content).catch((err) =>
-            console.error('[ChatPage] sendMessage failed:', err)
-          );
-        }}
+        onSend={handleSend}
+        replyTo={composerReply}
+        onCancelReply={() => setComposerReply(null)}
       />
+
+      <MessageActionSheet
+        isOpen={isActionSheetOpen}
+        onClose={() => setIsActionSheetOpen(false)}
+        message={actionMessage}
+        isOwn={actionMessage?.direction === 'outgoing'}
+        onReply={handleReplyFromSheet}
+        onCopy={handleCopyFromSheet}
+        onUnsend={handleUnsendFromSheet}
+      />
+
+      <BottomSheet
+        isOpen={isUnsendConfirmOpen}
+        onClose={handleCancelUnsend}
+        title="Unsend Message"
+        height="auto"
+        isLocked={true}
+      >
+        <div className="pt-2 pb-8 px-4">
+          <p className="text-gray-300 text-sm text-center mb-6 leading-relaxed">
+            Unsend this message? This will remove it for both of you. This
+            cannot be undone.
+          </p>
+          <div className="flex gap-3">
+            <button
+              onClick={handleCancelUnsend}
+              disabled={isUnsending}
+              className="flex-1 py-3 bg-[#2A2A2A] rounded-xl text-white font-medium hover:bg-[#333333] transition-colors disabled:opacity-50"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleConfirmUnsend}
+              disabled={isUnsending}
+              className="flex-1 py-3 bg-red-500 rounded-xl text-white font-medium hover:bg-red-600 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+            >
+              {isUnsending ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  Unsending…
+                </>
+              ) : (
+                'Unsend'
+              )}
+            </button>
+          </div>
+        </div>
+      </BottomSheet>
+
+      {feedback && (
+        <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[70] bg-[#2A2A2A] border border-[#444444] text-white text-sm px-5 py-2.5 rounded-full shadow-lg backdrop-blur-md animate-in fade-in slide-in-from-bottom-2 duration-200">
+          {feedback}
+        </div>
+      )}
     </div>
   );
 };

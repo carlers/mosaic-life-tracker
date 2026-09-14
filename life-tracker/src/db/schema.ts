@@ -77,6 +77,10 @@ export interface MessageDocument {
   taskRefTitle: string;
   taskRefDate: string;
   taskRefColor: string;
+  replyToId: string;
+  replyToContent: string;
+  replyToSenderId: string;
+  isUnsent: boolean;
   readAt: string;
   deliveryStatus: 'pending' | 'delivered';
   createdAt: string;
@@ -219,7 +223,7 @@ export const friendshipsSchema: RxJsonSchema<FriendshipDocument> = {
 };
 
 export const messagesSchema: RxJsonSchema<MessageDocument> = {
-  version: 0,
+  version: 2,
   primaryKey: 'id',
   type: 'object',
   required: [
@@ -234,6 +238,10 @@ export const messagesSchema: RxJsonSchema<MessageDocument> = {
     'taskRefTitle',
     'taskRefDate',
     'taskRefColor',
+    'replyToId',
+    'replyToContent',
+    'replyToSenderId',
+    'isUnsent',
     'readAt',
     'deliveryStatus',
     'createdAt',
@@ -252,6 +260,10 @@ export const messagesSchema: RxJsonSchema<MessageDocument> = {
     taskRefTitle: { type: 'string', maxLength: 500, default: '' },
     taskRefDate: { type: 'string', maxLength: 50, default: '' },
     taskRefColor: { type: 'string', maxLength: 20, default: '' },
+    replyToId: { type: 'string', maxLength: 255, default: '' },
+    replyToContent: { type: 'string', maxLength: 300, default: '' },
+    replyToSenderId: { type: 'string', maxLength: 255, default: '' },
+    isUnsent: { type: 'boolean', default: false },
     readAt: { type: 'string', maxLength: 50, default: '' },
     deliveryStatus: {
       type: 'string',

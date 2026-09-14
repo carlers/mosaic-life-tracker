@@ -1,14 +1,3 @@
-/**
- * Deterministic thread & message delivery IDs.
- *
- * - Thread IDs are derived from the sorted pair of user IDs so both clients
- *   compute the same value without coordination.
- * - Recipient row IDs are derived from the local message ID so the sender's
- *   outbox can retry delivery idempotently.
- *
- * All IDs are ≤36 chars and match [a-zA-Z0-9_]+ (Appwrite row ID rules).
- */
-
 async function sha256Hex(input: string): Promise<string> {
   const data = new TextEncoder().encode(input);
   const hashBuffer = await crypto.subtle.digest('SHA-256', data);
@@ -22,4 +11,17 @@ export async function makeThreadId(a: string, b: string): Promise<string> {
   const hex = await sha256Hex(`${x}|${y}`);
   // "th_" + 30 hex chars = 33 chars total
   return `th_${hex.slice(0, 30)}`;
+}
+
+/**
+ * Computes the row id that the recipient's copy of a message will have.
+ * Mirrors the `rmsg_${sha256(messageId).slice(0,30)}` logic inside the
+ * `message-action` Appwrite Function so that reply cascades can locate
+ * replies that were sent from the recipient's side.
+ */
+export async function makeRecipientRowId(
+  senderMessageId: string
+): Promise<string> {
+  const hex = await sha256Hex(senderMessageId);
+  return `rmsg_${hex.slice(0, 30)}`;
 }
