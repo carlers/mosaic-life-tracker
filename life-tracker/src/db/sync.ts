@@ -160,7 +160,12 @@ function toAppwriteFormat(
     mapped.task_ref_title = source.taskRefTitle || '';
     mapped.task_ref_date = source.taskRefDate || '';
     mapped.task_ref_color = source.taskRefColor || '';
-    mapped.read_at = source.readAt || '';
+    // read_at is intentionally omitted from outgoing pushes — the server-side
+    // mark_read action is the sole writer for that field on the sender's rows.
+    // Using updateRow (below) preserves it via PATCH semantics.
+    if (source.direction !== 'outgoing') {
+      mapped.read_at = source.readAt || '';
+    }
     mapped.delivery_status = source.deliveryStatus || 'delivered';
     mapped.created_at = source.createdAt || new Date().toISOString();
     mapped.updated_at = source.updatedAt || new Date().toISOString();
@@ -498,15 +503,27 @@ async function syncCollection(
     if (DEBUG) console.log(`[Sync] Pushing ${colName} ${docId}`);
 
     try {
-      await tablesDB.upsertRow({
-        databaseId: APPWRITE_CONFIG.databaseId,
-        tableId,
-        rowId: docId,
-        data: rowData,
-        permissions: buildRowPermissions(userId),
-      });
+      // CHANGED: use updateRow (PATCH) for existing rows so fields not in
+      // the payload — notably read_at on outgoing messages — are preserved.
+      // upsertRow (PUT) is only used when creating a brand-new row.
+      if (remoteMeta) {
+        await tablesDB.updateRow({
+          databaseId: APPWRITE_CONFIG.databaseId,
+          tableId,
+          rowId: docId,
+          data: rowData,
+        });
+      } else {
+        await tablesDB.upsertRow({
+          databaseId: APPWRITE_CONFIG.databaseId,
+          tableId,
+          rowId: docId,
+          data: rowData,
+          permissions: buildRowPermissions(userId),
+        });
+      }
     } catch (upsertError) {
-      console.error(`[Sync] Failed to upsert ${colName} ${docId}:`, upsertError);
+      console.error(`[Sync] Failed to push ${colName} ${docId}:`, upsertError);
       throw upsertError;
     }
   }

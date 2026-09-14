@@ -1,8 +1,11 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { getDatabase } from '../db/database';
 import { useAuth } from './useAuth';
 import { makeThreadId } from '../lib/threads';
-import { deliverPendingMessages } from '../lib/messageDelivery';
+import {
+  deliverPendingMessages,
+  markReadOnRemote,
+} from '../lib/messageDelivery';
 import type { MessageDocument, TaskDocument } from '../db/schema';
 
 export interface UseMessagesReturn {
@@ -22,6 +25,7 @@ export function useMessages(friendId: string | null): UseMessagesReturn {
   const userId = user?.$id;
   const [messages, setMessages] = useState<MessageDocument[]>([]);
   const [loadedKey, setLoadedKey] = useState<string | null>(null);
+  const markAllReadInFlightRef = useRef(false);
 
   useEffect(() => {
     if (!userId || !friendId) return;
@@ -79,7 +83,6 @@ export function useMessages(friendId: string | null): UseMessagesReturn {
       const trimmed = content.trim();
       if (!trimmed) return;
 
-      // Compute threadId on demand so we never race the effect.
       const tid = await makeThreadId(uid, friendId);
 
       const db = getDatabase();
@@ -157,6 +160,9 @@ export function useMessages(friendId: string | null): UseMessagesReturn {
   const markAllRead = useCallback(async () => {
     const uid = user?.$id;
     if (!uid || !friendId) return;
+    if (markAllReadInFlightRef.current) return;
+    markAllReadInFlightRef.current = true;
+
     try {
       const tid = await makeThreadId(uid, friendId);
       const db = getDatabase();
@@ -172,12 +178,34 @@ export function useMessages(friendId: string | null): UseMessagesReturn {
         })
         .exec();
       if (unread.length === 0) return;
+
       const now = new Date().toISOString();
-      for (const doc of unread) {
-        await doc.patch({ readAt: now, updatedAt: now });
+      for (const stale of unread) {
+        try {
+          // Re-fetch fresh right before patching to avoid CONFLICT when the
+          // sync engine writes a newer revision in between.
+          const fresh = await db.messages.findOne(stale.id).exec();
+          if (!fresh || fresh.readAt) continue;
+          await fresh.patch({ readAt: now, updatedAt: now });
+        } catch (patchErr) {
+          const code = (patchErr as { code?: string })?.code;
+          if (code !== 'CONFLICT') {
+            console.error(
+              '[useMessages] markAllRead patch failed:',
+              patchErr
+            );
+          }
+          // CONFLICT means another path already updated this row — safe to
+          // skip; the desired state (readAt set) is already in place.
+        }
       }
+
+      // Fire-and-forget: tell the partner we've read their messages.
+      markReadOnRemote(friendId, tid);
     } catch (err) {
       console.error('[useMessages] markAllRead failed:', err);
+    } finally {
+      markAllReadInFlightRef.current = false;
     }
   }, [user?.$id, friendId]);
 
@@ -185,5 +213,11 @@ export function useMessages(friendId: string | null): UseMessagesReturn {
   const visible = key && loadedKey === key ? messages : [];
   const isLoading = !!key && loadedKey !== key;
 
-  return { messages: visible, isLoading, sendMessage, sendTaskReply, markAllRead };
+  return {
+    messages: visible,
+    isLoading,
+    sendMessage,
+    sendTaskReply,
+    markAllRead,
+  };
 }

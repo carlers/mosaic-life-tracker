@@ -7,19 +7,51 @@ import type { MessageDocument } from '../db/schema';
 const DEBUG = import.meta.env.DEV;
 
 /**
- * Appwrite Function ID for `deliver-message`.
- * Deploy `appwrite-functions/deliver-message/` and paste the resulting ID here.
+ * Appwrite Function ID for `message-action`.
+ * Deploy `appwrite-functions/message-action/` and paste the resulting ID here.
  */
-const DELIVER_FUNCTION_ID = '6aa7ffa400242f830bb6';
+const MESSAGE_ACTION_FUNCTION_ID = '6aa8057f002a4c306fdd';
 
 const functions = new Functions(client);
 
 let isDeliveryInProgress = false;
 
 /**
+ * Generic wrapper for calling the `message-action` Appwrite Function.
+ * Throws on any non-2xx response.
+ */
+export async function sendMessageAction(
+  payload: Record<string, unknown>
+): Promise<void> {
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+    throw new Error('Offline');
+  }
+  if (MESSAGE_ACTION_FUNCTION_ID.startsWith('REPLACE_')) {
+    throw new Error('MESSAGE_ACTION_FUNCTION_ID not configured');
+  }
+
+  const execution = await functions.createExecution({
+    functionId: MESSAGE_ACTION_FUNCTION_ID,
+    body: JSON.stringify(payload),
+    async: false,
+    xpath: '/',
+    method: ExecutionMethod.POST,
+  });
+
+  if (
+    execution.status !== 'completed' ||
+    execution.responseStatusCode >= 400
+  ) {
+    throw new Error(
+      `Message action failed (${execution.responseStatusCode}): ${execution.responseBody}`
+    );
+  }
+}
+
+/**
  * Scans the local `messages` collection for outgoing rows still marked
  * `deliveryStatus: 'pending'`, and pushes each one to the recipient via the
- * `deliver-message` Appwrite Function.
+ * `message-action` function's `deliver` action.
  *
  * Safe to call frequently (focus, online, after send). Re-entrancy is
  * guarded internally.
@@ -28,10 +60,10 @@ export async function deliverPendingMessages(userId: string): Promise<void> {
   if (isDeliveryInProgress) return;
   if (typeof navigator !== 'undefined' && navigator.onLine === false) return;
   if (!userId) return;
-  if (DELIVER_FUNCTION_ID.startsWith('REPLACE_')) {
+  if (MESSAGE_ACTION_FUNCTION_ID.startsWith('REPLACE_')) {
     if (DEBUG) {
       console.warn(
-        '[messageDelivery] DELIVER_FUNCTION_ID not configured — skipping delivery'
+        '[messageDelivery] MESSAGE_ACTION_FUNCTION_ID not configured — skipping delivery'
       );
     }
     return;
@@ -73,29 +105,34 @@ export async function deliverPendingMessages(userId: string): Promise<void> {
 }
 
 async function deliverOne(doc: RxDocument<MessageDocument>): Promise<void> {
-  const execution = await functions.createExecution({
-    functionId: DELIVER_FUNCTION_ID,
-    body: JSON.stringify({
-      messageId: doc.id,
-      recipientId: doc.recipientId,
-      content: doc.content,
-      taskRefId: doc.taskRefId,
-      taskRefTitle: doc.taskRefTitle,
-      taskRefDate: doc.taskRefDate,
-      taskRefColor: doc.taskRefColor,
-      createdAt: doc.createdAt,
-    }),
-    async: false,
-    xpath: '/',
-    method: ExecutionMethod.POST,
+  await sendMessageAction({
+    action: 'deliver',
+    messageId: doc.id,
+    recipientId: doc.recipientId,
+    content: doc.content,
+    taskRefId: doc.taskRefId,
+    taskRefTitle: doc.taskRefTitle,
+    taskRefDate: doc.taskRefDate,
+    taskRefColor: doc.taskRefColor,
+    createdAt: doc.createdAt,
   });
+}
 
-  if (
-    execution.status !== 'completed' ||
-    execution.responseStatusCode >= 400
-  ) {
-    throw new Error(
-      `Delivery failed (${execution.responseStatusCode}): ${execution.responseBody}`
-    );
+/**
+ * Notifies the partner that we've read their outgoing messages in this thread.
+ * Non-blocking; failures are logged but never thrown.
+ */
+export async function markReadOnRemote(
+  partnerId: string,
+  threadId: string
+): Promise<void> {
+  try {
+    await sendMessageAction({
+      action: 'mark_read',
+      partnerId,
+      threadId,
+    });
+  } catch (err) {
+    console.error('[messageDelivery] markReadOnRemote failed:', err);
   }
 }

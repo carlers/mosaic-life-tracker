@@ -1,5 +1,5 @@
 {
-  "name": "deliver-message",
+  "name": "message-action",
   "version": "1.0.0",
   "dependencies": {
     "node-appwrite": "^21.1.0"
