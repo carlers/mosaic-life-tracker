@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import {
   format,
   startOfWeek,
@@ -23,9 +23,13 @@ export const WeekView: React.FC<WeekViewProps> = ({
   tasksByDate,
   categoriesMap,
 }) => {
-  const weekStart = startOfWeek(focusDate, { weekStartsOn: 0 });
-  const weekEnd = endOfWeek(focusDate, { weekStartsOn: 0 });
-  const weekDays = eachDayOfInterval({ start: weekStart, end: weekEnd });
+  // Memoized on `focusDate` — same rationale as MonthView: keeps the
+  // Date array referentially stable so DayCell's React.memo can bail.
+  const weekDays = useMemo(() => {
+    const weekStart = startOfWeek(focusDate, { weekStartsOn: 0 });
+    const weekEnd = endOfWeek(focusDate, { weekStartsOn: 0 });
+    return eachDayOfInterval({ start: weekStart, end: weekEnd });
+  }, [focusDate]);
 
   return (
     <div className="flex flex-col h-full">
@@ -40,16 +44,16 @@ export const WeekView: React.FC<WeekViewProps> = ({
         ))}
       </div>
       <div className="grid grid-cols-7 gap-1 px-2 flex-1 auto-rows-fr">
-        {weekDays.map((day, index) => {
+        {weekDays.map((day) => {
           const dateStr = format(day, 'yyyy-MM-dd');
           return (
             <DayCell
-              key={index}
+              key={dateStr}
               date={day}
               tasks={tasksByDate.get(dateStr) ?? EMPTY_TASKS}
               categories={categoriesMap}
               isCurrentMonth={true}
-              onClick={onDayClick ? () => onDayClick(day) : undefined}
+              onDayClick={onDayClick}
             />
           );
         })}

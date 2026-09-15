@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import {
   format,
   startOfMonth,
@@ -26,11 +26,20 @@ export const MonthView: React.FC<MonthViewProps> = ({
   tasksByDate,
   categoriesMap,
 }) => {
-  const monthStart = startOfMonth(focusDate);
-  const monthEnd = endOfMonth(monthStart);
-  const startDate = startOfWeek(monthStart);
-  const endDate = endOfWeek(monthEnd);
-  const calendarDays = eachDayOfInterval({ start: startDate, end: endDate });
+  // Memoized on `focusDate` so the array of Date objects (and therefore
+  // the `date` prop to every DayCell) stays referentially stable across
+  // renders. Without this, eachDayOfInterval would return new Date
+  // objects every render and DayCell's React.memo would never bail out.
+  // `focusDate` itself is stable per slide — it comes from the memoized
+  // `slides` array in useCalendarState / FriendCalendarView.
+  const calendarDays = useMemo(() => {
+    const monthStart = startOfMonth(focusDate);
+    const monthEnd = endOfMonth(monthStart);
+    const startDate = startOfWeek(monthStart);
+    const endDate = endOfWeek(monthEnd);
+    return eachDayOfInterval({ start: startDate, end: endDate });
+  }, [focusDate]);
+
   const weekDays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
   return (
@@ -46,16 +55,16 @@ export const MonthView: React.FC<MonthViewProps> = ({
         ))}
       </div>
       <div className="grid grid-cols-7 gap-1 px-2 flex-1 auto-rows-fr">
-        {calendarDays.map((day, index) => {
+        {calendarDays.map((day) => {
           const dateStr = format(day, 'yyyy-MM-dd');
           return (
             <DayCell
-              key={index}
+              key={dateStr}
               date={day}
               tasks={tasksByDate.get(dateStr) ?? EMPTY_TASKS}
               categories={categoriesMap}
               isCurrentMonth={isSameMonth(day, focusDate)}
-              onClick={onDayClick ? () => onDayClick(day) : undefined}
+              onDayClick={onDayClick}
             />
           );
         })}
