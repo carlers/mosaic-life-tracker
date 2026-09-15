@@ -1,10 +1,7 @@
 import { getDatabase, type AppDatabaseCollections } from './database';
-import { client, account } from '../lib/appwrite';
-import { TablesDB, Permission, Role, Query } from 'appwrite';
-import {
-  isUnauthorizedError,
-  guardedCall,
-} from '../lib/authEvents';
+import { Permission, Role, Query } from 'appwrite';
+import { isUnauthorizedError } from '../lib/authEvents';
+import { guardedTablesDB, guardedAccount } from '../lib/sdk';
 
 const APPWRITE_CONFIG = {
   endpoint: 'https://sgp.cloud.appwrite.io',
@@ -20,7 +17,6 @@ const APPWRITE_CONFIG = {
   },
 } as const;
 
-const tablesDB = new TablesDB(client);
 const DEBUG = import.meta.env.DEV;
 const PAGE_SIZE = 100;
 const PULL_OVERLAP_MS = 30_000;
@@ -408,7 +404,7 @@ function toMs(value: unknown): number {
 
 async function resolveAuthenticatedUserId(): Promise<string | null> {
   try {
-    const user = await guardedCall(() => account.get());
+    const user = await guardedAccount.get();
     return user?.$id || null;
   } catch (err) {
     if (DEBUG) console.log('[Sync] account.get() failed:', err);
@@ -586,14 +582,12 @@ async function syncCollection(
       queries.push(Query.greaterThan('$updatedAt', sinceIso));
     }
     if (cursor) queries.push(Query.cursorAfter(cursor));
-    const remoteResponse = await guardedCall(() =>
-      tablesDB.listRows({
-        databaseId: APPWRITE_CONFIG.databaseId,
-        tableId,
-        queries: queries as never,
-        total: false,
-      })
-    );
+    const remoteResponse = await guardedTablesDB.listRows({
+      databaseId: APPWRITE_CONFIG.databaseId,
+      tableId,
+      queries: queries as never,
+      total: false,
+    });
     const rows = ((remoteResponse as { rows?: AppwriteRow[] }).rows ||
       []) as AppwriteRow[];
     pageCount++;
@@ -683,26 +677,22 @@ async function syncCollection(
       const rowData = toAppwriteFormat(json, colName, userId);
       if (DEBUG) console.log(`[Sync] Pushing ${colName} ${docId}`);
       try {
-        await guardedCall(() =>
-          tablesDB.updateRow({
-            databaseId: APPWRITE_CONFIG.databaseId,
-            tableId,
-            rowId: docId,
-            data: rowData,
-          })
-        );
+        await guardedTablesDB.updateRow({
+          databaseId: APPWRITE_CONFIG.databaseId,
+          tableId,
+          rowId: docId,
+          data: rowData,
+        });
       } catch (updateErr) {
         if (isNotFoundError(updateErr)) {
           try {
-            await guardedCall(() =>
-              tablesDB.upsertRow({
-                databaseId: APPWRITE_CONFIG.databaseId,
-                tableId,
-                rowId: docId,
-                data: rowData,
-                permissions: buildRowPermissions(userId),
-              })
-            );
+            await guardedTablesDB.upsertRow({
+              databaseId: APPWRITE_CONFIG.databaseId,
+              tableId,
+              rowId: docId,
+              data: rowData,
+              permissions: buildRowPermissions(userId),
+            });
           } catch (createErr) {
             console.error(
               `[Sync] Failed to create ${colName} ${docId}:`,

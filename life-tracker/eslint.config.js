@@ -18,5 +18,26 @@ export default defineConfig([
     languageOptions: {
       globals: globals.browser,
     },
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          paths: [
+            {
+              name: 'appwrite',
+              importNames: ['TablesDB', 'Storage', 'Functions', 'Account'],
+              message:
+                'Import the guarded SDK surface from src/lib/sdk.ts instead. Raw SDK service classes may only be constructed in src/lib/sdk.ts and src/lib/appwrite.ts.',
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    files: ['src/lib/sdk.ts', 'src/lib/appwrite.ts'],
+    rules: {
+      'no-restricted-imports': 'off',
+    },
   },
 ])

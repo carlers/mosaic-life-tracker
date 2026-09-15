@@ -1,7 +1,6 @@
-import { Functions, ExecutionMethod } from 'appwrite';
-import { client } from './appwrite';
+import { ExecutionMethod } from 'appwrite';
 import { MESSAGE_ACTION_FUNCTION_ID } from './messageDelivery';
-import { guardedCall } from './authEvents';
+import { guardedFunctions } from './sdk';
 import type { TaskDocument, CategoryDocument } from '../db/schema';
 import {
   getCachedCalendar,
@@ -10,7 +9,6 @@ import {
 } from './friendCache';
 
 const DEBUG = import.meta.env.DEV;
-const functions = new Functions(client);
 
 type AppwriteRow = Record<string, unknown>;
 
@@ -93,30 +91,22 @@ export async function fetchFriendCalendar(
       'server'
     );
   }
-  const execution = await guardedCall(async () => {
-    const exec = await functions.createExecution({
-      functionId: MESSAGE_ACTION_FUNCTION_ID,
-      body: JSON.stringify({
-        action: 'get_friend_calendar',
-        friendUserId,
-      }),
-      async: false,
-      xpath: '/',
-      method: ExecutionMethod.POST,
-    });
-    if (exec.status !== 'completed') {
-      throw new FriendAccessError(
-        'The request did not complete.',
-        'server'
-      );
-    }
-    if (exec.responseStatusCode === 401) {
-      const err = new FriendAccessError('Unauthorized', 'forbidden');
-      (err as { code?: number }).code = 401;
-      throw err;
-    }
-    return exec;
+  const execution = await guardedFunctions.createExecution({
+    functionId: MESSAGE_ACTION_FUNCTION_ID,
+    body: JSON.stringify({
+      action: 'get_friend_calendar',
+      friendUserId,
+    }),
+    async: false,
+    xpath: '/',
+    method: ExecutionMethod.POST,
   });
+  if (execution.status !== 'completed') {
+    throw new FriendAccessError(
+      'The request did not complete.',
+      'server'
+    );
+  }
   const statusCode = execution.responseStatusCode;
   let parsed: {
     tasks?: AppwriteRow[];

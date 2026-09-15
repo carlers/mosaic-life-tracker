@@ -1,10 +1,9 @@
 import { format } from 'date-fns';
 import { zip } from 'fflate';
-import { Storage } from 'appwrite';
-import { client } from './appwrite';
 import { getDatabase } from '../db/database';
 import { getCachedImage, cacheImage } from './imageCache';
 import { guardedCall, makeUnauthorizedError } from './authEvents';
+import { guardedStorage } from './sdk';
 import type {
   TaskDocument,
   CategoryDocument,
@@ -18,7 +17,6 @@ const APPWRITE_CONFIG = {
   projectId: '6a9703c50016b37110ff',
 } as const;
 
-const storage = new Storage(client);
 const DEBUG = import.meta.env.DEV;
 const APP_NAME = 'Mosaic';
 const APP_VERSION = '0.0.0';
@@ -152,7 +150,7 @@ async function fetchImageBlob(fileId: string): Promise<Blob | null> {
     return null;
   }
   try {
-    const url = storage.getFileView({
+    const url = guardedStorage.getFileView({
       bucketId: APPWRITE_CONFIG.bucketId,
       fileId,
     });

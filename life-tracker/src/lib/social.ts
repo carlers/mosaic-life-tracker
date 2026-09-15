@@ -1,10 +1,7 @@
-import { TablesDB, Permission, Role, Query } from 'appwrite';
-import { client } from './appwrite';
+import { Permission, Role, Query } from 'appwrite';
 import { getDatabase } from '../db/database';
-import {
-  isUnauthorizedError,
-  guardedCall,
-} from './authEvents';
+import { isUnauthorizedError } from './authEvents';
+import { guardedTablesDB } from './sdk';
 import type { FriendshipDocument } from '../db/schema';
 
 const DEBUG = import.meta.env.DEV;
@@ -15,7 +12,6 @@ const APPWRITE_CONFIG = {
     friendships: 'friendships',
   },
 } as const;
-const tablesDB = new TablesDB(client);
 
 export type FriendStatus =
   | 'pending_outgoing'
@@ -80,13 +76,11 @@ export async function fetchMyProfile(
   userId: string
 ): Promise<ProfileCard | null> {
   try {
-    const row = await guardedCall(() =>
-      tablesDB.getRow({
-        databaseId: APPWRITE_CONFIG.databaseId,
-        tableId: APPWRITE_CONFIG.tables.profiles,
-        rowId: `profile_${userId}`,
-      })
-    );
+    const row = await guardedTablesDB.getRow({
+      databaseId: APPWRITE_CONFIG.databaseId,
+      tableId: APPWRITE_CONFIG.tables.profiles,
+      rowId: `profile_${userId}`,
+    });
     if (!row || (row as Record<string, unknown>).deleted === true) return null;
     return row as unknown as ProfileCard;
   } catch (err: unknown) {
@@ -119,15 +113,13 @@ export async function createOrUpdateProfile(
     updated_at: now,
     deleted: false,
   };
-  const row = await guardedCall(() =>
-    tablesDB.upsertRow({
-      databaseId: APPWRITE_CONFIG.databaseId,
-      tableId: APPWRITE_CONFIG.tables.profiles,
-      rowId,
-      data,
-      permissions: buildProfileRowPermissions(input.userId),
-    })
-  );
+  const row = await guardedTablesDB.upsertRow({
+    databaseId: APPWRITE_CONFIG.databaseId,
+    tableId: APPWRITE_CONFIG.tables.profiles,
+    rowId,
+    data,
+    permissions: buildProfileRowPermissions(input.userId),
+  });
   if (DEBUG) console.log('[social] Profile upserted:', rowId);
   return row as unknown as ProfileCard;
 }
@@ -144,16 +136,14 @@ export async function isUsernameAvailable(
   username: string
 ): Promise<boolean | null> {
   try {
-    const res = await guardedCall(() =>
-      tablesDB.listRows({
-        databaseId: APPWRITE_CONFIG.databaseId,
-        tableId: APPWRITE_CONFIG.tables.profiles,
-        queries: [
-          Query.equal('username', username.toLowerCase()),
-          Query.limit(1),
-        ],
-      })
-    );
+    const res = await guardedTablesDB.listRows({
+      databaseId: APPWRITE_CONFIG.databaseId,
+      tableId: APPWRITE_CONFIG.tables.profiles,
+      queries: [
+        Query.equal('username', username.toLowerCase()),
+        Query.limit(1),
+      ],
+    });
     return (res.rows || []).length === 0;
   } catch (err) {
     if (isUnauthorizedError(err)) return null;
@@ -169,17 +159,15 @@ export async function searchProfiles(
 ): Promise<ProfileCard[]> {
   const trimmed = query.trim().toLowerCase();
   if (trimmed.length < 1) return [];
-  const res = await guardedCall(() =>
-    tablesDB.listRows({
-      databaseId: APPWRITE_CONFIG.databaseId,
-      tableId: APPWRITE_CONFIG.tables.profiles,
-      queries: [
-        Query.startsWith('username', trimmed),
-        Query.equal('deleted', false),
-        Query.limit(limit),
-      ],
-    })
-  );
+  const res = await guardedTablesDB.listRows({
+    databaseId: APPWRITE_CONFIG.databaseId,
+    tableId: APPWRITE_CONFIG.tables.profiles,
+    queries: [
+      Query.startsWith('username', trimmed),
+      Query.equal('deleted', false),
+      Query.limit(limit),
+    ],
+  });
   const rows = (res.rows || []) as unknown as ProfileCard[];
   return rows.filter((r) => r.user_id !== excludeUserId);
 }
@@ -222,26 +210,24 @@ export async function sendFriendRequest(
     isDeleted: false,
   };
   await db.friendships.upsert(myLocalRow);
-  await guardedCall(() =>
-    tablesDB.upsertRow({
-      databaseId: APPWRITE_CONFIG.databaseId,
-      tableId: APPWRITE_CONFIG.tables.friendships,
-      rowId: friendRowId,
-      data: {
-        user_id: friend.user_id,
-        friend_id: myUserId,
-        friend_username: myUsername,
-        friend_display_name: myDisplayName,
-        friend_avatar_file_id: myAvatarFileId,
-        friend_bio: myBio,
-        status: 'pending_incoming',
-        created_at: now,
-        updated_at: now,
-        deleted: false,
-      },
-      permissions: buildCreatorOwnPermissions(myUserId),
-    })
-  );
+  await guardedTablesDB.upsertRow({
+    databaseId: APPWRITE_CONFIG.databaseId,
+    tableId: APPWRITE_CONFIG.tables.friendships,
+    rowId: friendRowId,
+    data: {
+      user_id: friend.user_id,
+      friend_id: myUserId,
+      friend_username: myUsername,
+      friend_display_name: myDisplayName,
+      friend_avatar_file_id: myAvatarFileId,
+      friend_bio: myBio,
+      status: 'pending_incoming',
+      created_at: now,
+      updated_at: now,
+      deleted: false,
+    },
+    permissions: buildCreatorOwnPermissions(myUserId),
+  });
   if (DEBUG)
     console.log('[social] Friend request sent:', myRowId, friendRowId);
 }
@@ -258,14 +244,12 @@ export async function acceptFriendRequest(
   if (localDoc) {
     await localDoc.patch({ status: 'accepted', updatedAt: now });
   }
-  await guardedCall(() =>
-    tablesDB.updateRow({
-      databaseId: APPWRITE_CONFIG.databaseId,
-      tableId: APPWRITE_CONFIG.tables.friendships,
-      rowId: friendRowId,
-      data: { status: 'accepted', updated_at: now },
-    })
-  );
+  await guardedTablesDB.updateRow({
+    databaseId: APPWRITE_CONFIG.databaseId,
+    tableId: APPWRITE_CONFIG.tables.friendships,
+    rowId: friendRowId,
+    data: { status: 'accepted', updated_at: now },
+  });
   if (DEBUG) console.log('[social] Friend request accepted:', myRowId);
 }
 
@@ -282,14 +266,12 @@ export async function deleteFriendPair(
     await localDoc.patch({ isDeleted: true, updatedAt: now });
   }
   try {
-    await guardedCall(() =>
-      tablesDB.updateRow({
-        databaseId: APPWRITE_CONFIG.databaseId,
-        tableId: APPWRITE_CONFIG.tables.friendships,
-        rowId: friendRowId,
-        data: { deleted: true, updated_at: now },
-      })
-    );
+    await guardedTablesDB.updateRow({
+      databaseId: APPWRITE_CONFIG.databaseId,
+      tableId: APPWRITE_CONFIG.tables.friendships,
+      rowId: friendRowId,
+      data: { deleted: true, updated_at: now },
+    });
   } catch (err: unknown) {
     const code = (err as { code?: number })?.code;
     if (code !== 404) {
@@ -312,14 +294,12 @@ export async function blockFriend(
     await localDoc.patch({ status: 'blocked', updatedAt: now });
   }
   try {
-    await guardedCall(() =>
-      tablesDB.updateRow({
-        databaseId: APPWRITE_CONFIG.databaseId,
-        tableId: APPWRITE_CONFIG.tables.friendships,
-        rowId: friendRowId,
-        data: { status: 'blocked', updated_at: now },
-      })
-    );
+    await guardedTablesDB.updateRow({
+      databaseId: APPWRITE_CONFIG.databaseId,
+      tableId: APPWRITE_CONFIG.tables.friendships,
+      rowId: friendRowId,
+      data: { status: 'blocked', updated_at: now },
+    });
   } catch (err) {
     console.warn('[social] blockFriend remote update failed:', err);
   }

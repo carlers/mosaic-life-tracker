@@ -1,14 +1,12 @@
-import { Functions, ExecutionMethod } from 'appwrite';
+import { ExecutionMethod } from 'appwrite';
 import type { RxDocument } from 'rxdb';
-import { client } from './appwrite';
 import { getDatabase } from '../db/database';
-import { guardedCall, makeUnauthorizedError } from './authEvents';
+import { guardedFunctions } from './sdk';
 import type { MessageDocument } from '../db/schema';
 
 const DEBUG = import.meta.env.DEV;
 export const MESSAGE_ACTION_FUNCTION_ID = '6aa8057f002a4c306fdd';
 
-const functions = new Functions(client);
 const SEND_TIMEOUT_MS = 15_000;
 const MAX_DELIVERY_LOOPS = 5;
 let inFlightDeliveryPromise: Promise<void> | null = null;
@@ -24,48 +22,43 @@ export async function sendMessageAction(
     throw new Error('MESSAGE_ACTION_FUNCTION_ID not configured');
   }
   let timeoutId: ReturnType<typeof setTimeout> | null = null;
-  const execution = await guardedCall(async () => {
-    const execPromise = functions.createExecution({
-      functionId: MESSAGE_ACTION_FUNCTION_ID,
-      body: JSON.stringify(payload),
-      async: false,
-      xpath: '/',
-      method: ExecutionMethod.POST,
-    });
-    execPromise.catch(() => {});
-    const exec = await Promise.race([
-      execPromise,
-      new Promise<never>((_, reject) => {
-        timeoutId = setTimeout(
-          () =>
-            reject(
-              new Error(
-                `Message action timed out after ${SEND_TIMEOUT_MS}ms`
-              )
-            ),
-          SEND_TIMEOUT_MS
-        );
-      }),
-    ]);
-    if (
-      exec.status !== 'completed' ||
-      exec.responseStatusCode >= 400
-    ) {
-      if (exec.responseStatusCode === 401) {
-        throw makeUnauthorizedError('Message action failed: Unauthorized');
-      }
-      const err = new Error(
-        `Message action failed (${exec.responseStatusCode}): ${exec.responseBody}`
+  const execPromise = guardedFunctions.createExecution({
+    functionId: MESSAGE_ACTION_FUNCTION_ID,
+    body: JSON.stringify(payload),
+    async: false,
+    xpath: '/',
+    method: ExecutionMethod.POST,
+  });
+  // Swallow the eventual rejection if the race below times out first.
+  execPromise.catch(() => {});
+  const execution = await Promise.race([
+    execPromise,
+    new Promise<never>((_, reject) => {
+      timeoutId = setTimeout(
+        () =>
+          reject(
+            new Error(
+              `Message action timed out after ${SEND_TIMEOUT_MS}ms`
+            )
+          ),
+        SEND_TIMEOUT_MS
       );
-      (err as { code?: number }).code = exec.responseStatusCode;
-      throw err;
-    }
-    return exec;
-  }).finally(() => {
+    }),
+  ]).finally(() => {
     if (timeoutId !== null) {
       clearTimeout(timeoutId);
     }
   });
+  if (
+    execution.status !== 'completed' ||
+    execution.responseStatusCode >= 400
+  ) {
+    const err = new Error(
+      `Message action failed (${execution.responseStatusCode}): ${execution.responseBody}`
+    );
+    (err as { code?: number }).code = execution.responseStatusCode;
+    throw err;
+  }
   try {
     return JSON.parse(execution.responseBody) as Record<string, unknown>;
   } catch {

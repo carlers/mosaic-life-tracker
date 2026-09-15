@@ -1,15 +1,13 @@
 import imageCompression from 'browser-image-compression';
-import { client, account } from './appwrite';
-import { Storage, Permission, Role } from 'appwrite';
+import { Permission, Role } from 'appwrite';
 import { guardedCall, makeUnauthorizedError } from './authEvents';
+import { guardedStorage, guardedAccount } from './sdk';
 
 const APPWRITE_CONFIG = {
   endpoint: 'https://sgp.cloud.appwrite.io',
   projectId: '6a9703c50016b37110ff',
   bucketId: 'task_images',
 };
-
-const storage = new Storage(client);
 
 export async function compressImage(file: File): Promise<Blob> {
   const options = {
@@ -49,7 +47,7 @@ function generateFileId(): string {
 
 async function getCurrentUserId(): Promise<string | null> {
   try {
-    const user = await guardedCall(() => account.get());
+    const user = await guardedAccount.get();
     return user?.$id || null;
   } catch {
     return null;
@@ -75,14 +73,12 @@ export async function uploadImage(file: File): Promise<string> {
     type: 'image/webp',
   });
   try {
-    await guardedCall(() =>
-      storage.createFile({
-        bucketId: APPWRITE_CONFIG.bucketId,
-        fileId: fileId,
-        file: webpFile,
-        permissions: buildFilePermissions(userId),
-      })
-    );
+    await guardedStorage.createFile({
+      bucketId: APPWRITE_CONFIG.bucketId,
+      fileId: fileId,
+      file: webpFile,
+      permissions: buildFilePermissions(userId),
+    });
     return fileId;
   } catch (error) {
     console.error('[Storage] Upload failed:', error);
@@ -153,7 +149,7 @@ export async function getLocalImageUrl(fileId: string): Promise<string | null> {
   }
   if (!navigator.onLine) return null;
   try {
-    const url = storage.getFileView({
+    const url = guardedStorage.getFileView({
       bucketId: APPWRITE_CONFIG.bucketId,
       fileId: fileId,
     });
@@ -179,12 +175,10 @@ export async function getLocalImageUrl(fileId: string): Promise<string | null> {
 
 export async function deleteImage(fileId: string): Promise<void> {
   try {
-    await guardedCall(() =>
-      storage.deleteFile({
-        bucketId: APPWRITE_CONFIG.bucketId,
-        fileId: fileId,
-      })
-    );
+    await guardedStorage.deleteFile({
+      bucketId: APPWRITE_CONFIG.bucketId,
+      fileId: fileId,
+    });
   } catch (err) {
     console.warn(
       '[Storage] Failed to delete image from Appwrite:',
@@ -196,7 +190,7 @@ export async function deleteImage(fileId: string): Promise<void> {
 }
 
 export function getImagePreviewUrl(fileId: string): string {
-  const url = storage.getFilePreview({
+  const url = guardedStorage.getFilePreview({
     bucketId: APPWRITE_CONFIG.bucketId,
     fileId: fileId,
     width: 200,
@@ -206,7 +200,7 @@ export function getImagePreviewUrl(fileId: string): string {
 }
 
 export function getImageFullUrl(fileId: string): string {
-  const url = storage.getFileView({
+  const url = guardedStorage.getFileView({
     bucketId: APPWRITE_CONFIG.bucketId,
     fileId: fileId,
   });
