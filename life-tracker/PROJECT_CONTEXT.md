@@ -385,7 +385,7 @@ Function ID lives in `src/lib/messageDelivery.ts` as `MESSAGE_ACTION_FUNCTION_ID
 3. Sender's polling `forceSync()` in `ChatPage` pulls the update
 4. `MessageBubble` renders "✓✓ Seen at [time]" under the last read outgoing message
 
-The polling exists because the sync engine is conservative: it skips the pull phase for rows whose local `_meta.lwt` is newer than the last sync. Two poll cycles is the floor for a read receipt to round-trip without a targeted sync path. The read-receipt cadence is now approximately ~60s worst-case under backoff.
+The polling exists because the sync engine is conservative: it skips the pull phase for rows whose local `_meta.lwt` is newer than the last sync. Two poll cycles is the floor for a read receipt to round-trip without a targeted sync path. The read-receipt cadence is approximately 90–120s worst-case under backoff (30s `ChatPage` poll interval + up to 60s sync backoff cap).
 
 Recipient-side `read_at` propagation depends on `markReadOnRemote` succeeding. If that remote call fails (network drop, Appwrite hiccup), the local patch is already applied but the server never learns the recipient read the thread — the badge will reappear for that thread on a fresh login or second device. The failure is not retried automatically; if it happens repeatedly, cross-device read state will diverge silently.
 
@@ -505,5 +505,6 @@ Recipient-side `read_at` propagation depends on `markReadOnRemote` succeeding. I
 | 2026-09-15 | §5.1, §18 | Switched outer mega-file fence from backticks to tildes; installer regex now accepts both and requires a length-matched closing fence. Inner backtick fences in file content no longer break delivery. Added local-dirty-wins conflict semantics to §18 | Revision Workflow Tooling |
 | 2026-09-15 | §4, §8, §9, §20.3, §20.5 | Backlog cleanup: `message-action` scope annotation, Phase 2 chronological reorder, drop React parenthetical, legacy peer cross-ref to §22, read-receipt cadence note | Backlog Closure Batches 1–7 |
 | 2026-09-16 | §6, §8, §10, §11, §15, §18, §20.3, §20.7, §21, §23.4, §23.7 | Backlog Closure 1–7 follow-up: documented fence-aware parser (§5.1); `Parameters<T>` overload trap (§6); `msg_` prefix server guard (§11); `makeUnauthorizedError` helper (§10, §15); `sdk.ts` guarded surface + ESLint enforcement (§15); bounded delivery loop and two-phase read-then-write race safety (§18); `mark_read` body shape and `handleReact` two-phase write (§20.3, §20.7); reaction timeout toast (§21); raw-SDK import restriction (§23.4, §23.7); corrected ChatPage poll interval in §18 from "10s" to "30s" to match code | Backlog Closure Batches 1–7 (post-ship doc sync) |
+| 2026-09-16 | §20.5 | Corrected read-receipt worst-case from "~60s" to "90–120s (30s `ChatPage` poll interval + up to 60s sync backoff cap)". Matches shipped code (ChatPage poll = 30s, sync backoff cap = 60s). Decision: keep code, fix doc — pushing poll back to 15s to hit 60s was rejected as 429 rate-limit risk | Post-backlog doc/code reconciliation |
 
 Sections added or rewritten in bulk should be flagged in the changelog with `(new)` and listed on every subsequent edit that touches them.
