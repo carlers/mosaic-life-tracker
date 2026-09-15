@@ -70,35 +70,41 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
   const getVisibilityIcon = (v: Visibility) => {
     switch (v) {
       case 'public':
-        return <Eye size={12} className="text-gray-600" />;
+        return <Eye size={12} className="text-gray-500" />;
       case 'followers':
-        return <Users size={12} className="text-gray-600" />;
+        return <Users size={12} className="text-gray-500" />;
       case 'private':
-        return <EyeOff size={12} className="text-gray-600" />;
+        return <EyeOff size={12} className="text-gray-500" />;
     }
   };
 
   return (
     <div className="mb-4">
-      <div className="flex items-center gap-2 mb-2">
+      <div className="flex items-center mb-2">
         <div
           onClick={() => setIsAdding(!isAdding)}
-          className={`inline-flex items-center gap-2 bg-[#1E1E1E] border rounded-full pl-2.5 pr-3 py-1.5 cursor-pointer transition-all active:scale-95 ${
+          className={`inline-flex items-center gap-2 bg-black rounded-full pl-3.5 pr-4 py-2 cursor-pointer transition-all active:scale-95 ${
             isAdding
-              ? 'border-[#555555] bg-[#252525]'
-              : 'border-[#333333] hover:bg-[#2A2A2A]'
+              ? 'ring-1 ring-[#555555]'
+              : 'hover:bg-[#0D0D0D]'
           }`}
         >
-          <div
-            className="w-2.5 h-2.5 rounded-full flex-shrink-0"
-            style={{ backgroundColor: categoryColor }}
+          {getVisibilityIcon(visibility)}
+          <span
+            className="text-sm font-bold"
+            style={{ color: categoryColor }}
+          >
+            {categoryName}
+          </span>
+          <Plus
+            size={16}
+            strokeWidth={2.5}
+            style={{ color: categoryColor }}
           />
-          <span className="text-xs font-bold text-white">{categoryName}</span>
-          <Plus size={14} className="text-white" strokeWidth={2.5} />
         </div>
-        <div className="ml-1">{getVisibilityIcon(visibility)}</div>
       </div>
-      <div className="bg-[#1E1E1E] rounded-xl border border-[#333333] overflow-hidden">
+
+      <div className="bg-[#1E1E1E] rounded-xl overflow-hidden">
         {tasks.length > 0 && (
           <div className="px-3 py-1">
             {tasks.map((task) => (
@@ -120,8 +126,9 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
             ))}
           </div>
         )}
+
         {isAdding && (
-          <div className="flex items-center gap-2 px-3 py-2.5 border-t border-[#333333] bg-[#1A1A1A] animate-in fade-in slide-in-from-top-1 duration-200">
+          <div className="flex items-center gap-2 px-3 py-2.5 bg-[#1A1A1A] animate-in fade-in slide-in-from-top-1 duration-200">
             <button
               className="flex-shrink-0 text-gray-500 hover:text-white transition-colors"
               onClick={handleAdd}

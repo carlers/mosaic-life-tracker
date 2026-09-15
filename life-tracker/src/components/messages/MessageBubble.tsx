@@ -97,7 +97,6 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
     : '';
   const timestampVisible = showTimestamp || revealed || hovered;
 
-  // ---- Compose status row items ----
   const items: React.ReactNode[] = [];
   if (statusKind === 'read') {
     items.push(
@@ -133,9 +132,12 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
   const reactions = parseReactions(message.reactions);
   const showReactions = !isUnsent && reactions.length > 0;
 
+  // Swapped bubble styling:
+  //   outgoing: dark grey surface (was incoming's style)
+  //   incoming: pure black with grey outline
   const bubbleBgClass = isOutgoing
-    ? 'bg-emerald-600 text-white rounded-br-md'
-    : 'bg-[#1E1E1E] text-gray-100 border border-[#333333] rounded-bl-md';
+    ? 'bg-[#1E1E1E] text-gray-100 border border-[#333333] rounded-br-md'
+    : 'bg-black text-gray-100 border border-[#444444] rounded-bl-md';
 
   // ---- Unsent tombstone ----
   if (isUnsent) {
@@ -149,8 +151,8 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
         <div
           className={`max-w-[78%] rounded-2xl px-3 py-2 ${
             isOutgoing
-              ? 'bg-emerald-600/40 rounded-br-md'
-              : 'bg-[#1E1E1E]/60 border border-[#333333] rounded-bl-md'
+              ? 'bg-[#1E1E1E]/60 border border-[#333333] rounded-br-md'
+              : 'bg-black/60 border border-[#444444] rounded-bl-md'
           }`}
         >
           <p className="text-sm italic text-gray-300 flex items-center gap-1.5">

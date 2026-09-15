@@ -715,7 +715,6 @@ export const ChatPage: React.FC = () => {
         onClose={handleCancelUnsend}
         title="Unsend Message"
         height="auto"
-        isLocked={true}
       >
         <div className="pt-2 pb-8 px-4">
           <p className="text-gray-300 text-sm text-center mb-6 leading-relaxed">

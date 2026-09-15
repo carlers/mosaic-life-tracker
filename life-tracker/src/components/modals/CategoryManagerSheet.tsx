@@ -1,4 +1,11 @@
-import React, { useState, useMemo } from 'react';
+import React, {
+  useState,
+  useMemo,
+  useEffect,
+  useRef,
+  useCallback,
+} from 'react';
+import { Reorder, useDragControls } from 'framer-motion';
 import { BottomSheet } from '../ui/BottomSheet';
 import { ColorPalettePicker } from '../ui/ColorPalettePicker';
 import { Button } from '../ui/Button';
@@ -12,11 +19,103 @@ import {
   EyeOff,
   Users,
   RotateCcw,
+  GripVertical,
 } from 'lucide-react';
 import { useCategories } from '../../hooks/useCategories';
 import { useTasks } from '../../hooks/useTasks';
+import type { CategoryDocument } from '../../db/schema';
 
 type Visibility = 'private' | 'followers' | 'public';
+
+const REORDER_DEBOUNCE_MS = 400;
+
+function VisibilityIcon({ v }: { v: Visibility }) {
+  if (v === 'public') return <Eye size={14} className="text-gray-400" />;
+  if (v === 'followers') return <Users size={14} className="text-gray-400" />;
+  return <EyeOff size={14} className="text-gray-400" />;
+}
+
+interface CategoryRowProps {
+  cat: CategoryDocument;
+  overriddenCount: number;
+  onEditStart: (cat: CategoryDocument) => void;
+  onDeleteRequest: (id: string) => void;
+}
+
+const CategoryRow = React.memo<CategoryRowProps>(
+  ({ cat, overriddenCount, onEditStart, onDeleteRequest }) => {
+    const dragControls = useDragControls();
+    const visibility = (cat.visibility as Visibility) || 'private';
+
+    return (
+      <Reorder.Item
+        value={cat.id}
+        dragListener={false}
+        dragControls={dragControls}
+        dragElastic={0}
+        transition={{ type: 'spring', stiffness: 700, damping: 45, mass: 0.4 }}
+        className="bg-[#1E1E1E] rounded-xl border border-[#333333] p-3"
+        style={{ willChange: 'transform' }}
+      >
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onPointerDown={(e) => {
+              e.stopPropagation();
+              dragControls.start(e);
+            }}
+            className="p-1 -ml-1 text-gray-500 hover:text-white touch-none cursor-grab active:cursor-grabbing flex-shrink-0"
+            aria-label="Drag to reorder"
+          >
+            <GripVertical size={16} />
+          </button>
+          <div
+            className="w-4 h-4 rounded-full flex-shrink-0"
+            style={{ backgroundColor: cat.color }}
+          />
+          <span className="flex-1 text-sm font-medium text-white truncate">
+            {cat.name}
+          </span>
+          <div className="flex items-center gap-1 text-[10px] text-gray-500 uppercase tracking-wider">
+            <VisibilityIcon v={visibility} />
+            <span>{visibility}</span>
+          </div>
+          <div className="flex gap-1">
+            <Button
+              variant="ghost"
+              className="p-2 h-8 w-8"
+              onClick={() => onEditStart(cat)}
+            >
+              <span className="text-xs font-bold">Edit</span>
+            </Button>
+            <Button
+              variant="ghost"
+              className="p-2 h-8 w-8 text-red-400 hover:text-red-300 hover:bg-red-900/20"
+              onClick={() => onDeleteRequest(cat.id)}
+            >
+              <Trash2 size={16} />
+            </Button>
+          </div>
+        </div>
+        {overriddenCount > 0 && (
+          <div className="pt-2 mt-2 border-t border-[#333333]">
+            <p className="text-[10px] text-gray-500">
+              {overriddenCount} task
+              {overriddenCount === 1 ? '' : 's'} with custom visibility
+            </p>
+          </div>
+        )}
+      </Reorder.Item>
+    );
+  },
+  (prev, next) =>
+    prev.cat.id === next.cat.id &&
+    prev.cat.name === next.cat.name &&
+    prev.cat.color === next.cat.color &&
+    prev.cat.visibility === next.cat.visibility &&
+    prev.overriddenCount === next.overriddenCount
+);
+CategoryRow.displayName = 'CategoryRow';
 
 export const CategoryManagerSheet: React.FC<{
   isOpen: boolean;
@@ -27,6 +126,7 @@ export const CategoryManagerSheet: React.FC<{
     addCategory,
     updateCategory,
     deleteCategory,
+    reorderCategories,
     isLoading,
   } = useCategories();
   const { tasks, updateTask } = useTasks();
@@ -44,12 +144,68 @@ export const CategoryManagerSheet: React.FC<{
   const [isResetting, setIsResetting] = useState(false);
   const [feedback, setFeedback] = useState<string | null>(null);
 
-  const showFeedback = (msg: string) => {
+  const [localOrder, setLocalOrder] = useState<string[]>([]);
+  const [wasOpen, setWasOpen] = useState(false);
+
+  if (isOpen !== wasOpen) {
+    setWasOpen(isOpen);
+    if (isOpen) {
+      setLocalOrder(categories.map((c) => c.id));
+    }
+  }
+
+  const categoryByIdRef = useRef<Map<string, CategoryDocument>>(new Map());
+
+  useEffect(() => {
+    categoryByIdRef.current = new Map(categories.map((c) => [c.id, c]));
+  }, [categories]);
+  useEffect(() => {
+    if (!isOpen) return;
+    if (localOrder.length === 0) return;
+    const t = setTimeout(() => {
+      const byId = categoryByIdRef.current;
+      const orderedDocs = localOrder
+        .map((id) => byId.get(id))
+        .filter((c): c is CategoryDocument => !!c);
+      if (orderedDocs.length > 0) {
+        reorderCategories(orderedDocs).catch((err) =>
+          console.error(
+            '[CategoryManagerSheet] reorderCategories failed:',
+            err
+          )
+        );
+      }
+    }, REORDER_DEBOUNCE_MS);
+    return () => clearTimeout(t);
+  }, [localOrder, isOpen, reorderCategories]);
+
+  const orderedCategories = useMemo(() => {
+    const byId = new Map(categories.map((c) => [c.id, c]));
+    const seen = new Set<string>();
+    const ordered: CategoryDocument[] = [];
+    for (const id of localOrder) {
+      const c = byId.get(id);
+      if (c) {
+        ordered.push(c);
+        seen.add(id);
+      }
+    }
+    for (const c of categories) {
+      if (!seen.has(c.id)) ordered.push(c);
+    }
+    return ordered;
+  }, [categories, localOrder]);
+
+  const orderedIds = useMemo(
+    () => orderedCategories.map((c) => c.id),
+    [orderedCategories]
+  );
+
+  const showFeedback = useCallback((msg: string) => {
     setFeedback(msg);
     setTimeout(() => setFeedback(null), 2000);
-  };
+  }, []);
 
-  // Count of tasks in each category that currently have an explicit (non-inheriting) visibility
   const overriddenTaskCounts = useMemo(() => {
     const counts: Record<string, number> = {};
     for (const task of tasks) {
@@ -77,15 +233,19 @@ export const CategoryManagerSheet: React.FC<{
     }
   };
 
-  const handleUpdate = async (id: string, name: string, visibility: Visibility) => {
+  const handleUpdate = async (
+    id: string,
+    name: string,
+    visibility: Visibility
+  ) => {
     await updateCategory(id, { name: name.trim(), visibility });
     setEditingId(null);
     showFeedback('Category updated');
   };
 
-  const handleDeleteRequest = (id: string) => {
+  const handleDeleteRequest = useCallback((id: string) => {
     setPendingDeleteId(id);
-  };
+  }, []);
 
   const handleConfirmDelete = async () => {
     if (!pendingDeleteId) return;
@@ -109,7 +269,9 @@ export const CategoryManagerSheet: React.FC<{
     if (toReset.length === 0) return;
     setIsResetting(true);
     try {
-      await Promise.all(toReset.map((t) => updateTask(t.id, { visibility: '' })));
+      await Promise.all(
+        toReset.map((t) => updateTask(t.id, { visibility: '' }))
+      );
       showFeedback(
         `Reset ${toReset.length} task${toReset.length === 1 ? '' : 's'}`
       );
@@ -128,31 +290,16 @@ export const CategoryManagerSheet: React.FC<{
     setNewVisibility('private');
   };
 
-  const handleEditStart = (cat: {
-    id: string;
-    name: string;
-    visibility?: Visibility;
-  }) => {
+  const handleEditStart = useCallback((cat: CategoryDocument) => {
     setEditingId(cat.id);
     setEditName(cat.name);
-    setEditVisibility(cat.visibility || 'private');
-  };
+    setEditVisibility((cat.visibility as Visibility) || 'private');
+  }, []);
 
   const handleEditCancel = () => {
     setEditingId(null);
     setEditName('');
     setEditVisibility('private');
-  };
-
-  const getVisibilityIcon = (v: Visibility) => {
-    switch (v) {
-      case 'public':
-        return <Eye size={14} className="text-gray-400" />;
-      case 'followers':
-        return <Users size={14} className="text-gray-400" />;
-      case 'private':
-        return <EyeOff size={14} className="text-gray-400" />;
-    }
   };
 
   return (
@@ -172,122 +319,122 @@ export const CategoryManagerSheet: React.FC<{
           ) : (
             <>
               {!isAdding && (
-                <div className="space-y-3 mb-6">
-                  {categories.length === 0 ? (
+                <div className="mb-6">
+                  {orderedCategories.length === 0 ? (
                     <div className="text-center py-8 text-gray-500 text-sm">
                       No categories yet. Create your first one below!
                     </div>
                   ) : (
-                    categories.map((cat) => {
-                      const isEditing = editingId === cat.id;
-                      const overriddenCount = overriddenTaskCounts[cat.id] || 0;
-                      return (
-                        <div
-                          key={cat.id}
-                          className="bg-[#1E1E1E] rounded-xl border border-[#333333] p-3"
-                        >
-                          {isEditing ? (
-                            <div className="space-y-3">
-                              <Input
-                                value={editName}
-                                onChange={(e) => setEditName(e.target.value)}
-                                className="text-sm py-2"
-                              />
-                              <div className="flex items-center justify-between">
-                                <div className="flex bg-[#111111] rounded-lg p-0.5 border border-[#333333]">
-                                  {(
-                                    ['private', 'followers', 'public'] as Visibility[]
-                                  ).map((v) => (
-                                    <button
-                                      key={v}
-                                      onClick={() => setEditVisibility(v)}
-                                      className={`p-1.5 rounded-md transition-colors ${
-                                        editVisibility === v
-                                          ? 'bg-[#2A2A2A] text-white'
-                                          : 'text-gray-500'
-                                      }`}
-                                      title={v}
-                                    >
-                                      {getVisibilityIcon(v)}
-                                    </button>
-                                  ))}
-                                </div>
-                                <div className="flex gap-2">
-                                  <Button
-                                    variant="ghost"
-                                    className="p-2"
-                                    onClick={handleEditCancel}
-                                  >
-                                    <X size={16} />
-                                  </Button>
-                                  <Button
-                                    variant="primary"
-                                    className="p-2"
-                                    onClick={() =>
-                                      handleUpdate(cat.id, editName, editVisibility)
-                                    }
-                                  >
-                                    <Save size={16} />
-                                  </Button>
-                                </div>
-                              </div>
-
-                              {overriddenCount > 0 && (
-                                <div className="pt-2 border-t border-[#333333]">
-                                  <button
-                                    onClick={() => handleResetTasks(cat.id)}
-                                    disabled={isResetting}
-                                    onPointerDown={(e) => e.stopPropagation()}
-                                    className="flex items-center gap-1.5 text-xs text-blue-400 hover:text-blue-300 transition-colors disabled:opacity-50"
-                                  >
-                                    {isResetting ? (
-                                      <div className="w-3 h-3 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" />
-                                    ) : (
-                                      <RotateCcw size={12} />
-                                    )}
-                                    <span>
-                                      Reset {overriddenCount} task
-                                      {overriddenCount === 1 ? '' : 's'} to follow
-                                      this category
-                                    </span>
-                                  </button>
-                                </div>
-                              )}
-                            </div>
-                          ) : (
-                            <div className="flex items-center gap-3">
+                    <>
+                      <p className="text-xs text-gray-500 text-center mb-3 leading-relaxed px-3">
+                        Drag the handle to reorder. Order applies everywhere.
+                      </p>
+                      <Reorder.Group
+                        axis="y"
+                        values={orderedIds}
+                        onReorder={setLocalOrder}
+                        className="space-y-3"
+                        as="div"
+                      >
+                        {orderedCategories.map((cat) => {
+                          if (editingId === cat.id) {
+                            const overriddenCount =
+                              overriddenTaskCounts[cat.id] || 0;
+                            return (
                               <div
-                                className="w-4 h-4 rounded-full flex-shrink-0"
-                                style={{ backgroundColor: cat.color }}
-                              />
-                              <span className="flex-1 text-sm font-medium text-white truncate">
-                                {cat.name}
-                              </span>
-                              <div className="flex items-center gap-1 text-[10px] text-gray-500 uppercase tracking-wider">
-                                {getVisibilityIcon(cat.visibility || 'private')}
-                                <span>{cat.visibility || 'private'}</span>
+                                key={cat.id}
+                                className="bg-[#1E1E1E] rounded-xl border border-[#333333] p-3 space-y-3"
+                              >
+                                <Input
+                                  value={editName}
+                                  onChange={(e) => setEditName(e.target.value)}
+                                  className="text-sm py-2"
+                                />
+                                <div className="flex items-center justify-between">
+                                  <div className="flex bg-[#111111] rounded-lg p-0.5 border border-[#333333]">
+                                    {(
+                                      [
+                                        'private',
+                                        'followers',
+                                        'public',
+                                      ] as Visibility[]
+                                    ).map((v) => (
+                                      <button
+                                        key={v}
+                                        onClick={() => setEditVisibility(v)}
+                                        className={`p-1.5 rounded-md transition-colors ${editVisibility === v
+                                            ? 'bg-[#2A2A2A] text-white'
+                                            : 'text-gray-500'
+                                          }`}
+                                        title={v}
+                                      >
+                                        <VisibilityIcon v={v} />
+                                      </button>
+                                    ))}
+                                  </div>
+                                  <div className="flex gap-2">
+                                    <Button
+                                      variant="ghost"
+                                      className="p-2"
+                                      onClick={handleEditCancel}
+                                    >
+                                      <X size={16} />
+                                    </Button>
+                                    <Button
+                                      variant="primary"
+                                      className="p-2"
+                                      onClick={() =>
+                                        handleUpdate(
+                                          cat.id,
+                                          editName,
+                                          editVisibility
+                                        )
+                                      }
+                                    >
+                                      <Save size={16} />
+                                    </Button>
+                                  </div>
+                                </div>
+                                {overriddenCount > 0 && (
+                                  <div className="pt-2 border-t border-[#333333]">
+                                    <button
+                                      onClick={() => handleResetTasks(cat.id)}
+                                      disabled={isResetting}
+                                      onPointerDown={(e) =>
+                                        e.stopPropagation()
+                                      }
+                                      className="flex items-center gap-1.5 text-xs text-blue-400 hover:text-blue-300 transition-colors disabled:opacity-50"
+                                    >
+                                      {isResetting ? (
+                                        <div className="w-3 h-3 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" />
+                                      ) : (
+                                        <RotateCcw size={12} />
+                                      )}
+                                      <span>
+                                        Reset {overriddenCount} task
+                                        {overriddenCount === 1 ? '' : 's'} to
+                                        follow this category
+                                      </span>
+                                    </button>
+                                  </div>
+                                )}
                               </div>
-                              <div className="flex gap-1">
-                                <Button
-                                  variant="ghost"
-                                  className="p-2 h-8 w-8"
-                                  onClick={() => handleEditStart(cat)}
-                                >
-                                  <span className="text-xs font-bold">Edit</span>
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  className="p-2 h-8 w-8 text-red-400 hover:text-red-300 hover:bg-red-900/20"
-                                  onClick={() => handleDeleteRequest(cat.id)}
-                                >
-                                  <Trash2 size={16} />
-                                </Button>
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })
+                            );
+                          }
+                          return (
+                            <CategoryRow
+                              key={cat.id}
+                              cat={cat}
+                              overriddenCount={
+                                overriddenTaskCounts[cat.id] || 0
+                              }
+                              onEditStart={handleEditStart}
+                              onDeleteRequest={handleDeleteRequest}
+                            />
+                          );
+                        })}
+                      </Reorder.Group>
+                    </>
                   )}
                 </div>
               )}
@@ -320,20 +467,23 @@ export const CategoryManagerSheet: React.FC<{
                         <button
                           key={v}
                           onClick={() => setNewVisibility(v)}
-                          className={`flex-1 py-2 text-xs font-medium rounded-md transition-colors flex items-center justify-center gap-1.5 ${
-                            newVisibility === v
+                          className={`flex-1 py-2 text-xs font-medium rounded-md transition-colors flex items-center justify-center gap-1.5 ${newVisibility === v
                               ? 'bg-[#2A2A2A] text-white'
                               : 'text-gray-500'
-                          }`}
+                            }`}
                         >
-                          {getVisibilityIcon(v)}
+                          <VisibilityIcon v={v} />
                           <span className="capitalize">{v}</span>
                         </button>
                       ))}
                     </div>
                   </div>
                   <div className="flex gap-3 pt-2">
-                    <Button variant="ghost" className="flex-1" onClick={resetForm}>
+                    <Button
+                      variant="ghost"
+                      className="flex-1"
+                      onClick={resetForm}
+                    >
                       Cancel
                     </Button>
                     <Button
@@ -370,12 +520,11 @@ export const CategoryManagerSheet: React.FC<{
         onClose={handleCancelDelete}
         title="Delete Category"
         height="auto"
-        isLocked={true}
       >
         <div className="pt-2 pb-8 px-4">
           <p className="text-gray-300 text-sm text-center mb-6 leading-relaxed">
-            Are you sure you want to delete this category? Its tasks will be hidden.
-            This action cannot be undone.
+            Are you sure you want to delete this category? Its tasks will be
+            hidden. This action cannot be undone.
           </p>
           <div className="flex gap-3">
             <button

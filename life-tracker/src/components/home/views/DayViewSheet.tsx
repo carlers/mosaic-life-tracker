@@ -443,15 +443,16 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
       <BottomSheet
         isOpen={isOpen}
         onClose={onClose}
-        height="auto"
+        height="full"
         isLocked={isBackgroundLocked}
       >
         <div
-          className={`w-full transition-opacity duration-300 ${
+          className={`w-full h-full flex flex-col transition-opacity duration-300 ${
             isBackgroundLocked ? 'opacity-50 pointer-events-none select-none' : ''
           }`}
         >
           <Swiper
+            className="flex-1 min-h-0 w-full"
             onSwiper={(s) => {
               swiperRef.current = s;
             }}
@@ -534,7 +535,6 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
         onClose={handleCancelDeletePhoto}
         title="Delete Photo"
         height="auto"
-        isLocked={true}
       >
         <div className="pt-2 pb-8 px-4">
           <p className="text-gray-300 text-sm text-center mb-6 leading-relaxed">
