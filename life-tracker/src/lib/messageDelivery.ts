@@ -6,7 +6,14 @@ import type { MessageDocument } from '../db/schema';
 
 const DEBUG = import.meta.env.DEV;
 
-const MESSAGE_ACTION_FUNCTION_ID = '6aa8057f002a4c306fdd';
+/**
+ * Appwrite Function ID for `message-action`.
+ * This single function handles ALL cross-user operations for the app:
+ *   - `deliver`, `mark_read`, `unsend`, `react`, `react_to_task` (messaging)
+ *   - `get_friend_calendar` (friend calendar fetching)
+ */
+export const MESSAGE_ACTION_FUNCTION_ID =
+  '6aa8057f002a4c306fdd';
 
 const functions = new Functions(client);
 

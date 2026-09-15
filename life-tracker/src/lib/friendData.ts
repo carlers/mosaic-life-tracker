@@ -1,9 +1,7 @@
 import { Functions, ExecutionMethod } from 'appwrite';
 import { client } from './appwrite';
-import type {
-  TaskDocument,
-  CategoryDocument,
-} from '../db/schema';
+import { MESSAGE_ACTION_FUNCTION_ID } from './messageDelivery';
+import type { TaskDocument, CategoryDocument } from '../db/schema';
 import {
   getCachedCalendar,
   setCachedCalendar,
@@ -11,7 +9,6 @@ import {
 } from './friendCache';
 
 const DEBUG = import.meta.env.DEV;
-const FUNCTION_ID = '6aa5595700257d69011b';
 
 const functions = new Functions(client);
 
@@ -59,7 +56,6 @@ export type FriendAccessErrorKind = 'forbidden' | 'offline' | 'server';
 
 export class FriendAccessError extends Error {
   kind: FriendAccessErrorKind;
-
   constructor(message: string, kind: FriendAccessErrorKind) {
     super(message);
     this.name = 'FriendAccessError';
@@ -75,7 +71,6 @@ export async function fetchFriendCalendar(
   friendUserId: string,
   options: FetchFriendOptions = {}
 ): Promise<FriendCalendarBundle> {
-  // 1. Cache-first (unless forced)
   if (!options.forceRefresh) {
     const cached = await getCachedCalendar(friendUserId);
     if (cached) {
@@ -84,7 +79,6 @@ export async function fetchFriendCalendar(
     }
   }
 
-  // 2. Offline guard
   if (typeof navigator !== 'undefined' && navigator.onLine === false) {
     throw new FriendAccessError(
       "You need to be online to view a friend's calendar.",
@@ -92,12 +86,24 @@ export async function fetchFriendCalendar(
     );
   }
 
-  // 3. Call the function
+  if (MESSAGE_ACTION_FUNCTION_ID.startsWith('REPLACE_')) {
+    console.error(
+      '[friendData] MESSAGE_ACTION_FUNCTION_ID not configured'
+    );
+    throw new FriendAccessError(
+      'Configuration error. Please try again later.',
+      'server'
+    );
+  }
+
   let execution;
   try {
     execution = await functions.createExecution({
-      functionId: FUNCTION_ID,
-      body: JSON.stringify({ friendUserId }),
+      functionId: MESSAGE_ACTION_FUNCTION_ID,
+      body: JSON.stringify({
+        action: 'get_friend_calendar',
+        friendUserId,
+      }),
       async: false,
       xpath: '/',
       method: ExecutionMethod.POST,
@@ -135,7 +141,6 @@ export async function fetchFriendCalendar(
       'forbidden'
     );
   }
-
   if (statusCode >= 400) {
     console.error('[friendData] Function returned error:', parsed.error);
     throw new FriendAccessError(
@@ -144,7 +149,6 @@ export async function fetchFriendCalendar(
     );
   }
 
-  // 4. Map + cache
   const bundle: FriendCalendarBundle = {
     friendUserId,
     tasks: (parsed.tasks || []).map(mapTaskRow),
@@ -153,7 +157,6 @@ export async function fetchFriendCalendar(
   };
 
   await setCachedCalendar(bundle);
-
   if (DEBUG) {
     console.log(
       `[friendData] fetched for ${friendUserId}:`,
@@ -163,6 +166,5 @@ export async function fetchFriendCalendar(
       'categories'
     );
   }
-
   return bundle;
 }

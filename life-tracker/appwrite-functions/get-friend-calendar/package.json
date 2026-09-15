@@ -1,7 +1,0 @@
-{
-  "name": "get-friend-calendar",
-  "version": "1.0.0",
-  "dependencies": {
-    "node-appwrite": "^21.1.0"
-  }
-}

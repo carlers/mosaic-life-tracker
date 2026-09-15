@@ -5,6 +5,7 @@ const DATABASE_ID = 'life_tracker';
 const MESSAGES_TABLE = 'messages';
 const FRIENDSHIPS_TABLE = 'friendships';
 const TASKS_TABLE = 'tasks';
+const CATEGORIES_TABLE = 'categories';
 
 function sha256Hex(input) {
   return crypto.createHash('sha256').update(input).digest('hex');
@@ -505,11 +506,6 @@ async function handleReact(tablesDB, callerId, payload, log, error) {
   };
 }
 
-/**
- * Applies a reaction delta to a task owned by another user.
- * The caller must be an accepted friend of the task owner. The task row lives
- * on the owner's account; the function patches it via the API key.
- */
 async function handleReactToTask(tablesDB, callerId, payload, log, error) {
   const { taskId, taskOwnerId, emoji, op } = payload || {};
 
@@ -586,6 +582,100 @@ async function handleReactToTask(tablesDB, callerId, payload, log, error) {
   return { status: 200, body: { ok: true, reactions: nextStr } };
 }
 
+/**
+ * Merged from the former `get-friend-calendar` function. Fetches a friend's
+ * visible tasks + categories. Caller must be an accepted friend.
+ */
+async function handleGetFriendCalendar(tablesDB, callerId, payload, log, error) {
+  const friendUserId = payload?.friendUserId;
+
+  if (!friendUserId || typeof friendUserId !== 'string') {
+    error('get_friend_calendar: Missing friendUserId');
+    return { status: 400, body: { error: 'Missing friendUserId' } };
+  }
+  if (callerId === friendUserId) {
+    error('get_friend_calendar: Cannot query your own calendar');
+    return { status: 400, body: { error: 'Cannot query your own calendar' } };
+  }
+
+  const isFriend = await verifyFriendship(tablesDB, callerId, friendUserId);
+  if (!isFriend) {
+    error(
+      `get_friend_calendar: Forbidden, no accepted friendship ${callerId} -> ${friendUserId}`
+    );
+    return { status: 403, body: { error: 'Not friends with this user' } };
+  }
+
+  let categoryRows = [];
+  try {
+    const categoriesRes = await tablesDB.listRows({
+      databaseId: DATABASE_ID,
+      tableId: CATEGORIES_TABLE,
+      queries: [
+        Query.equal('user_id', friendUserId),
+        Query.equal('deleted', false),
+        Query.orderAsc('order'),
+        Query.limit(200),
+      ],
+    });
+    categoryRows = categoriesRes.rows || [];
+  } catch (err) {
+    error(`get_friend_calendar: categories fetch failed (${err.message})`);
+    return { status: 500, body: { error: 'Failed to fetch categories' } };
+  }
+
+  const categoryVisibility = new Map();
+  for (const c of categoryRows) {
+    categoryVisibility.set(c.$id, c.visibility || 'private');
+  }
+
+  let taskRows = [];
+  try {
+    const tasksRes = await tablesDB.listRows({
+      databaseId: DATABASE_ID,
+      tableId: TASKS_TABLE,
+      queries: [
+        Query.equal('user_id', friendUserId),
+        Query.equal('deleted', false),
+        Query.orderAsc('date'),
+        Query.limit(1000),
+      ],
+    });
+    taskRows = tasksRes.rows || [];
+  } catch (err) {
+    error(`get_friend_calendar: tasks fetch failed (${err.message})`);
+    return { status: 500, body: { error: 'Failed to fetch tasks' } };
+  }
+
+  const visibleTasks = taskRows.filter((t) => {
+    const taskVis = t.visibility;
+    const effective =
+      taskVis && taskVis !== ''
+        ? taskVis
+        : categoryVisibility.get(t.category_id) || 'private';
+    return effective !== 'private';
+  });
+
+  const visibleCategories = categoryRows.filter(
+    (c) => (c.visibility || 'private') !== 'private'
+  );
+
+  log(
+    `get_friend_calendar: caller=${callerId} friend=${friendUserId} ` +
+      `tasks=${visibleTasks.length}/${taskRows.length} ` +
+      `categories=${visibleCategories.length}/${categoryRows.length}`
+  );
+
+  return {
+    status: 200,
+    body: {
+      tasks: visibleTasks,
+      categories: visibleCategories,
+      fetchedAt: new Date().toISOString(),
+    },
+  };
+}
+
 module.exports = async ({ req, res, log, error }) => {
   const callerId = req.headers['x-appwrite-user-id'];
   if (!callerId) {
@@ -630,6 +720,15 @@ module.exports = async ({ req, res, log, error }) => {
         break;
       case 'react_to_task':
         result = await handleReactToTask(tablesDB, callerId, payload, log, error);
+        break;
+      case 'get_friend_calendar':
+        result = await handleGetFriendCalendar(
+          tablesDB,
+          callerId,
+          payload,
+          log,
+          error
+        );
         break;
       default:
         error(`Unknown action: ${action}`);
