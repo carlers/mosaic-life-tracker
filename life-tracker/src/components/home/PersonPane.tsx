@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { PersonProfileHeader } from './PersonProfileHeader';
 import { CalendarHeader } from './views/CalendarHeader';
 import { CalendarBody } from './views/CalendarBody';
@@ -19,6 +19,11 @@ interface PersonPaneProps {
 }
 
 const VIEW_KEY = 'mosaic_activeView';
+
+// Minimum spacing between activation-triggered friend refetches. Prevents
+// a rapid swipe-through from firing one network fetch per intermediate
+// friend pane. Own pane is never subject to this (it does not refetch).
+const FRIEND_REFETCH_MIN_INTERVAL_MS = 15_000;
 
 function readMeView(): ViewType {
   const saved = localStorage.getItem(VIEW_KEY);
@@ -60,8 +65,30 @@ export const PersonPane: React.FC<PersonPaneProps> = ({ person, isActive }) => {
     error: friendError,
     errorKind: friendErrorKind,
     reactToTask,
+    refetch: refetchFriendCalendar,
   } = useFriendCalendar(friendId);
   const { sendTaskReaction } = useMessages(friendId);
+
+  // Force a fresh pull whenever a friend pane becomes active. Without
+  // this, the pane's data is frozen at the moment it first mounted
+  // (swiping away and back does not remount), and fetchFriendCalendar's
+  // 5-minute TTL cache means the pane can sit on stale data well past
+  // when the friend added a new task. Skipped for the own pane — own
+  // tasks stay live via the RxDB subscription in useTasks.
+  const lastFriendRefetchRef = useRef(0);
+  useEffect(() => {
+    if (!isActive) return;
+    if (isMe) return;
+    if (!friendId) return;
+    const now = Date.now();
+    if (now - lastFriendRefetchRef.current < FRIEND_REFETCH_MIN_INTERVAL_MS) {
+      return;
+    }
+    lastFriendRefetchRef.current = now;
+    refetchFriendCalendar(true).catch((err) => {
+      console.error('[PersonPane] Friend activation refetch failed:', err);
+    });
+  }, [isActive, isMe, friendId, refetchFriendCalendar]);
 
   const [feedback, setFeedback] = useState<string | null>(null);
 

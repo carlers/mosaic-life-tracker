@@ -16,7 +16,13 @@ interface CalendarSlideProps {
 }
 
 const CalendarSlide = React.memo(
-  ({ date, viewMode, onDayClick, tasksByDate, categoriesMap }: CalendarSlideProps) => {
+  ({
+    date,
+    viewMode,
+    onDayClick,
+    tasksByDate,
+    categoriesMap,
+  }: CalendarSlideProps) => {
     if (viewMode === 'month') {
       return (
         <MonthView
@@ -55,7 +61,7 @@ interface CalendarBodyProps {
   onReactToTask?: (task: TaskDocument, emoji: string) => void;
 }
 
-export const CalendarBody: React.FC<CalendarBodyProps> = ({
+const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
   viewMode,
   slides,
   renderStart,
@@ -77,9 +83,7 @@ export const CalendarBody: React.FC<CalendarBodyProps> = ({
 
   // Single index of all tasks keyed by their `yyyy-MM-dd` date string.
   // Computed once per `tasks` array identity (§16 “Grouping is Memoized”)
-  // and shared by every MonthView/WeekView slide and every DayCell. This
-  // replaces the per-day `.filter()` that ran once per calendar cell per
-  // slide — O(days × slides × tasks) → O(tasks) on the render path.
+  // and shared by every MonthView/WeekView slide and every DayCell.
   const tasksByDate = useMemo(() => {
     const map = new Map<string, TaskDocument[]>();
     for (const t of tasks) {
@@ -170,3 +174,6 @@ export const CalendarBody: React.FC<CalendarBodyProps> = ({
     </>
   );
 };
+
+export const CalendarBody = React.memo(CalendarBodyComponent);
+CalendarBody.displayName = 'CalendarBody';
