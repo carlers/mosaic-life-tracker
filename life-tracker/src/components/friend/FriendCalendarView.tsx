@@ -38,18 +38,24 @@ interface CalendarSlideProps {
   date: Date;
   viewMode: CalendarViewMode;
   onDayClick: (date: Date) => void;
-  tasks: TaskDocument[];
+  tasksByDate: Map<string, TaskDocument[]>;
   categoriesMap: Record<string, { color: string; name: string }>;
 }
 
 const CalendarSlide = React.memo(
-  ({ date, viewMode, onDayClick, tasks, categoriesMap }: CalendarSlideProps) => {
+  ({
+    date,
+    viewMode,
+    onDayClick,
+    tasksByDate,
+    categoriesMap,
+  }: CalendarSlideProps) => {
     if (viewMode === 'month') {
       return (
         <MonthView
           focusDate={date}
           onDayClick={onDayClick}
-          tasks={tasks}
+          tasksByDate={tasksByDate}
           categoriesMap={categoriesMap}
         />
       );
@@ -58,7 +64,7 @@ const CalendarSlide = React.memo(
       <WeekView
         focusDate={date}
         onDayClick={onDayClick}
-        tasks={tasks}
+        tasksByDate={tasksByDate}
         categoriesMap={categoriesMap}
       />
     );
@@ -99,6 +105,19 @@ export const FriendCalendarView: React.FC<FriendCalendarViewProps> = ({
       {}
     );
   }, [categories]);
+
+  // Single index of all tasks keyed by `yyyy-MM-dd`. Computed once per
+  // `tasks` identity and shared by every slide and DayCell — replaces the
+  // per-day `.filter()` that ran once per cell per slide.
+  const tasksByDate = useMemo(() => {
+    const map = new Map<string, TaskDocument[]>();
+    for (const t of tasks) {
+      const arr = map.get(t.date);
+      if (arr) arr.push(t);
+      else map.set(t.date, [t]);
+    }
+    return map;
+  }, [tasks]);
 
   const [baseDate, setBaseDate] = useState(focusDate);
   const isInternalSwipeRef = useRef(false);
@@ -221,8 +240,8 @@ export const FriendCalendarView: React.FC<FriendCalendarViewProps> = ({
   }, []);
 
   // The index that focusDate maps to. Combined with Embla's active index
-  // so programmatic jumps (view toggle, resetToToday-equivalent) never
-  // render an empty slide for a frame.
+  // so programmatic jumps (view toggle) never render an empty slide for
+  // a frame.
   const focusIndex = useMemo(() => {
     const offset =
       viewMode === 'month'
@@ -278,7 +297,7 @@ export const FriendCalendarView: React.FC<FriendCalendarViewProps> = ({
                   date={date}
                   viewMode={viewMode}
                   onDayClick={handleDayClick}
-                  tasks={tasks}
+                  tasksByDate={tasksByDate}
                   categoriesMap={categoriesMap}
                 />
               ) : null}

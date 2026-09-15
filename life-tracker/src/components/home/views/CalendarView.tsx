@@ -29,50 +29,53 @@ interface CalendarSlideProps {
   date: Date;
   viewMode: CalendarViewMode;
   onDayClick: (date: Date) => void;
-  tasks: TaskDocument[];
+  tasksByDate: Map<string, TaskDocument[]>;
   categoriesMap: Record<string, { color: string; name: string }>;
 }
 
-const CalendarSlide = React.memo(({
-  date,
-  viewMode,
-  onDayClick,
-  tasks,
-  categoriesMap,
-}: CalendarSlideProps) => {
-  if (viewMode === 'month') {
+const CalendarSlide = React.memo(
+  ({
+    date,
+    viewMode,
+    onDayClick,
+    tasksByDate,
+    categoriesMap,
+  }: CalendarSlideProps) => {
+    if (viewMode === 'month') {
+      return (
+        <MonthView
+          focusDate={date}
+          onDayClick={onDayClick}
+          tasksByDate={tasksByDate}
+          categoriesMap={categoriesMap}
+        />
+      );
+    }
     return (
-      <MonthView
+      <WeekView
         focusDate={date}
         onDayClick={onDayClick}
-        tasks={tasks}
+        tasksByDate={tasksByDate}
         categoriesMap={categoriesMap}
       />
     );
   }
-  return (
-    <WeekView
-      focusDate={date}
-      onDayClick={onDayClick}
-      tasks={tasks}
-      categoriesMap={categoriesMap}
-    />
-  );
-});
-
+);
 CalendarSlide.displayName = 'CalendarSlide';
 
 export const CalendarView: React.FC = () => {
   const [viewMode, setViewMode] = useState<CalendarViewMode>('month');
   const [focusDate, setFocusDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
-
   const { tasks } = useTasks();
   const { categories } = useCategories();
 
   const categoriesMap = useMemo(() => {
     return categories.reduce(
-      (acc: Record<string, { color: string; name: string }>, cat: CategoryDocument) => {
+      (
+        acc: Record<string, { color: string; name: string }>,
+        cat: CategoryDocument
+      ) => {
         acc[cat.id] = { color: cat.color, name: cat.name };
         return acc;
       },
@@ -80,12 +83,20 @@ export const CalendarView: React.FC = () => {
     );
   }, [categories]);
 
+  const tasksByDate = useMemo(() => {
+    const map = new Map<string, TaskDocument[]>();
+    for (const t of tasks) {
+      const arr = map.get(t.date);
+      if (arr) arr.push(t);
+      else map.set(t.date, [t]);
+    }
+    return map;
+  }, [tasks]);
+
   const [baseDate, setBaseDate] = useState(focusDate);
   const isInternalSwipeRef = useRef(false);
-
-  // Re-anchor baseDate to the current focusDate whenever viewMode changes.
-  // React-official "adjust state during render" pattern — no ref mirror, no effect.
   const [prevViewMode, setPrevViewMode] = useState(viewMode);
+
   if (prevViewMode !== viewMode) {
     setPrevViewMode(viewMode);
     setBaseDate(focusDate);
@@ -93,7 +104,9 @@ export const CalendarView: React.FC = () => {
 
   const slides = useMemo(() => {
     const fn = viewMode === 'month' ? addMonths : addWeeks;
-    return Array.from({ length: TOTAL_SLIDES }, (_, i) => fn(baseDate, i - CENTER_INDEX));
+    return Array.from({ length: TOTAL_SLIDES }, (_, i) =>
+      fn(baseDate, i - CENTER_INDEX)
+    );
   }, [baseDate, viewMode]);
 
   const [emblaRef, emblaApi] = useEmblaCarousel({
@@ -104,12 +117,10 @@ export const CalendarView: React.FC = () => {
 
   useEffect(() => {
     if (!emblaApi) return;
-
     if (isInternalSwipeRef.current) {
       isInternalSwipeRef.current = false;
       return;
     }
-
     const offset =
       viewMode === 'month'
         ? differenceInCalendarMonths(focusDate, baseDate)
@@ -146,7 +157,6 @@ export const CalendarView: React.FC = () => {
   const handlePrev = () => {
     emblaApi?.scrollPrev();
   };
-
   const handleNext = () => {
     emblaApi?.scrollNext();
   };
@@ -162,7 +172,6 @@ export const CalendarView: React.FC = () => {
 
   const weekStart = startOfWeek(focusDate, { weekStartsOn: 0 });
   const weekEnd = endOfWeek(focusDate, { weekStartsOn: 0 });
-
   const title =
     viewMode === 'month'
       ? format(focusDate, 'MMMM yyyy')
@@ -194,7 +203,6 @@ export const CalendarView: React.FC = () => {
           </button>
         </div>
       </div>
-
       <div className="flex-1 overflow-hidden py-2" ref={emblaRef}>
         <div className="flex h-full" style={{ touchAction: 'pan-y' }}>
           {slides.map((date, i) => (
@@ -207,14 +215,13 @@ export const CalendarView: React.FC = () => {
                 date={date}
                 viewMode={viewMode}
                 onDayClick={handleDayClick}
-                tasks={tasks}
+                tasksByDate={tasksByDate}
                 categoriesMap={categoriesMap}
               />
             </div>
           ))}
         </div>
       </div>
-
       <DayViewSheet
         isOpen={!!selectedDate}
         onClose={() => setSelectedDate(null)}

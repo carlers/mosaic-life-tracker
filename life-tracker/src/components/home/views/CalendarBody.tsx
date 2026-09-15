@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import { MonthView } from './MonthView';
 import { WeekView } from './WeekView';
 import { DayViewSheet } from './DayViewSheet';
@@ -11,18 +11,18 @@ interface CalendarSlideProps {
   date: Date;
   viewMode: CalendarViewMode;
   onDayClick: (date: Date) => void;
-  tasks: TaskDocument[];
+  tasksByDate: Map<string, TaskDocument[]>;
   categoriesMap: Record<string, { color: string; name: string }>;
 }
 
 const CalendarSlide = React.memo(
-  ({ date, viewMode, onDayClick, tasks, categoriesMap }: CalendarSlideProps) => {
+  ({ date, viewMode, onDayClick, tasksByDate, categoriesMap }: CalendarSlideProps) => {
     if (viewMode === 'month') {
       return (
         <MonthView
           focusDate={date}
           onDayClick={onDayClick}
-          tasks={tasks}
+          tasksByDate={tasksByDate}
           categoriesMap={categoriesMap}
         />
       );
@@ -31,7 +31,7 @@ const CalendarSlide = React.memo(
       <WeekView
         focusDate={date}
         onDayClick={onDayClick}
-        tasks={tasks}
+        tasksByDate={tasksByDate}
         categoriesMap={categoriesMap}
       />
     );
@@ -75,6 +75,21 @@ export const CalendarBody: React.FC<CalendarBodyProps> = ({
   const [replyColor, setReplyColor] = useState<string>('');
   const [feedback, setFeedback] = useState<string | null>(null);
 
+  // Single index of all tasks keyed by their `yyyy-MM-dd` date string.
+  // Computed once per `tasks` array identity (§16 “Grouping is Memoized”)
+  // and shared by every MonthView/WeekView slide and every DayCell. This
+  // replaces the per-day `.filter()` that ran once per calendar cell per
+  // slide — O(days × slides × tasks) → O(tasks) on the render path.
+  const tasksByDate = useMemo(() => {
+    const map = new Map<string, TaskDocument[]>();
+    for (const t of tasks) {
+      const arr = map.get(t.date);
+      if (arr) arr.push(t);
+      else map.set(t.date, [t]);
+    }
+    return map;
+  }, [tasks]);
+
   const handleDayClick = useCallback((date: Date) => {
     setSelectedDate(date);
   }, []);
@@ -108,7 +123,7 @@ export const CalendarBody: React.FC<CalendarBodyProps> = ({
                   date={date}
                   viewMode={viewMode}
                   onDayClick={handleDayClick}
-                  tasks={tasks}
+                  tasksByDate={tasksByDate}
                   categoriesMap={categoriesMap}
                 />
               ) : null}
