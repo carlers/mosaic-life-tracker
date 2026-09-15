@@ -29,6 +29,10 @@ type CalendarViewMode = 'month' | 'week';
 const SLIDES_EACH_SIDE = 12;
 const TOTAL_SLIDES = SLIDES_EACH_SIDE * 2 + 1;
 const CENTER_INDEX = SLIDES_EACH_SIDE;
+// Slides to render on each side of the active/focus index. Embla mounts
+// every child it receives; without this cap the 25-slide carousel mounts
+// 25 full month grids on cold load.
+const RENDER_WINDOW = 2;
 
 interface CalendarSlideProps {
   date: Date;
@@ -82,7 +86,6 @@ export const FriendCalendarView: React.FC<FriendCalendarViewProps> = ({
   const [viewMode, setViewMode] = useState<CalendarViewMode>('month');
   const [focusDate, setFocusDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
-
   const [replyTask, setReplyTask] = useState<TaskDocument | null>(null);
   const [replyColor, setReplyColor] = useState<string>('');
   const [feedback, setFeedback] = useState<string | null>(null);
@@ -100,6 +103,7 @@ export const FriendCalendarView: React.FC<FriendCalendarViewProps> = ({
   const [baseDate, setBaseDate] = useState(focusDate);
   const isInternalSwipeRef = useRef(false);
   const [prevViewMode, setPrevViewMode] = useState(viewMode);
+
   if (prevViewMode !== viewMode) {
     setPrevViewMode(viewMode);
     setBaseDate(focusDate);
@@ -112,11 +116,34 @@ export const FriendCalendarView: React.FC<FriendCalendarViewProps> = ({
     );
   }, [baseDate, viewMode]);
 
+  const [emblaActiveIndex, setEmblaActiveIndex] = useState(CENTER_INDEX);
+
   const [emblaRef, emblaApi] = useEmblaCarousel({
     loop: false,
     align: 'start',
     skipSnaps: false,
+    startIndex: CENTER_INDEX,
   });
+
+  // Track Embla's nearest slide index during both drag and programmatic
+  // scrolls so the render window follows the visible slide. Function-form
+  // setState bails out when the index is unchanged.
+  useEffect(() => {
+    if (!emblaApi) return;
+    const update = () => {
+      const progress = emblaApi.scrollProgress();
+      const raw = Math.round(progress * (TOTAL_SLIDES - 1));
+      const idx = Math.max(0, Math.min(TOTAL_SLIDES - 1, raw));
+      setEmblaActiveIndex((prev) => (prev === idx ? prev : idx));
+    };
+    update();
+    emblaApi.on('scroll', update);
+    emblaApi.on('reInit', update);
+    return () => {
+      emblaApi.off('scroll', update);
+      emblaApi.off('reInit', update);
+    };
+  }, [emblaApi]);
 
   useEffect(() => {
     if (!emblaApi) return;
@@ -193,6 +220,27 @@ export const FriendCalendarView: React.FC<FriendCalendarViewProps> = ({
     setTimeout(() => setFeedback(null), 2000);
   }, []);
 
+  // The index that focusDate maps to. Combined with Embla's active index
+  // so programmatic jumps (view toggle, resetToToday-equivalent) never
+  // render an empty slide for a frame.
+  const focusIndex = useMemo(() => {
+    const offset =
+      viewMode === 'month'
+        ? differenceInCalendarMonths(focusDate, baseDate)
+        : differenceInCalendarWeeks(focusDate, baseDate);
+    const raw = CENTER_INDEX + offset;
+    return Math.max(0, Math.min(TOTAL_SLIDES - 1, raw));
+  }, [focusDate, baseDate, viewMode]);
+
+  const renderStart = Math.max(
+    0,
+    Math.min(emblaActiveIndex, focusIndex) - RENDER_WINDOW
+  );
+  const renderEnd = Math.min(
+    TOTAL_SLIDES - 1,
+    Math.max(emblaActiveIndex, focusIndex) + RENDER_WINDOW
+  );
+
   return (
     <div className="flex flex-col h-full animate-in fade-in duration-300">
       <div className="px-4 py-3 flex items-center justify-between border-b border-[#333333]">
@@ -225,13 +273,15 @@ export const FriendCalendarView: React.FC<FriendCalendarViewProps> = ({
               className="flex-shrink-0 h-full w-full"
               style={{ flex: '0 0 100%', minWidth: 0 }}
             >
-              <CalendarSlide
-                date={date}
-                viewMode={viewMode}
-                onDayClick={handleDayClick}
-                tasks={tasks}
-                categoriesMap={categoriesMap}
-              />
+              {i >= renderStart && i <= renderEnd ? (
+                <CalendarSlide
+                  date={date}
+                  viewMode={viewMode}
+                  onDayClick={handleDayClick}
+                  tasks={tasks}
+                  categoriesMap={categoriesMap}
+                />
+              ) : null}
             </div>
           ))}
         </div>
