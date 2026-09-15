@@ -2,14 +2,14 @@ import { Functions, ExecutionMethod } from 'appwrite';
 import type { RxDocument } from 'rxdb';
 import { client } from './appwrite';
 import { getDatabase } from '../db/database';
-import { guardedCall } from './authEvents';
+import { guardedCall, makeUnauthorizedError } from './authEvents';
 import type { MessageDocument } from '../db/schema';
 
 const DEBUG = import.meta.env.DEV;
 export const MESSAGE_ACTION_FUNCTION_ID = '6aa8057f002a4c306fdd';
+
 const functions = new Functions(client);
 const SEND_TIMEOUT_MS = 15_000;
-
 let inFlightDeliveryPromise: Promise<void> | null = null;
 let deliveryRequestedDuringFlight = false;
 
@@ -22,9 +22,7 @@ export async function sendMessageAction(
   if (MESSAGE_ACTION_FUNCTION_ID.startsWith('REPLACE_')) {
     throw new Error('MESSAGE_ACTION_FUNCTION_ID not configured');
   }
-
   let timeoutId: ReturnType<typeof setTimeout> | null = null;
-
   const execution = await guardedCall(async () => {
     const execPromise = functions.createExecution({
       functionId: MESSAGE_ACTION_FUNCTION_ID,
@@ -33,9 +31,7 @@ export async function sendMessageAction(
       xpath: '/',
       method: ExecutionMethod.POST,
     });
-    // Prevent unhandled rejection noise if the timeout wins the race.
     execPromise.catch(() => {});
-
     const exec = await Promise.race([
       execPromise,
       new Promise<never>((_, reject) => {
@@ -50,27 +46,25 @@ export async function sendMessageAction(
         );
       }),
     ]);
-
     if (
       exec.status !== 'completed' ||
       exec.responseStatusCode >= 400
     ) {
-      // Convert a function-level 401 into a synthetic error with `code: 401`
-      // so guardedCall recognizes it and dispatches the global event.
+      if (exec.responseStatusCode === 401) {
+        throw makeUnauthorizedError('Message action failed: Unauthorized');
+      }
       const err = new Error(
         `Message action failed (${exec.responseStatusCode}): ${exec.responseBody}`
       );
       (err as { code?: number }).code = exec.responseStatusCode;
       throw err;
     }
-
     return exec;
   }).finally(() => {
     if (timeoutId !== null) {
       clearTimeout(timeoutId);
     }
   });
-
   try {
     return JSON.parse(execution.responseBody) as Record<string, unknown>;
   } catch {
@@ -93,12 +87,10 @@ export async function deliverPendingMessages(userId: string): Promise<void> {
     }
     return;
   }
-
   inFlightDeliveryPromise = (async () => {
     try {
       for (;;) {
         deliveryRequestedDuringFlight = false;
-
         let db;
         try {
           db = getDatabase();
@@ -109,7 +101,6 @@ export async function deliverPendingMessages(userId: string): Promise<void> {
           );
           break;
         }
-
         let pending;
         try {
           pending = await db.messages
@@ -129,13 +120,11 @@ export async function deliverPendingMessages(userId: string): Promise<void> {
           );
           break;
         }
-
         if (DEBUG && pending.length > 0) {
           console.log(
             `[messageDelivery] ${pending.length} pending message(s)`
           );
         }
-
         for (const doc of pending) {
           try {
             await deliverOne(doc);
@@ -147,7 +136,6 @@ export async function deliverPendingMessages(userId: string): Promise<void> {
             );
           }
         }
-
         if (!deliveryRequestedDuringFlight) break;
       }
     } finally {
@@ -155,7 +143,6 @@ export async function deliverPendingMessages(userId: string): Promise<void> {
       deliveryRequestedDuringFlight = false;
     }
   })();
-
   return inFlightDeliveryPromise;
 }
 

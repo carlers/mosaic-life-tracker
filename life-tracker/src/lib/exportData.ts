@@ -4,7 +4,7 @@ import { Storage } from 'appwrite';
 import { client } from './appwrite';
 import { getDatabase } from '../db/database';
 import { getCachedImage, cacheImage } from './imageCache';
-import { guardedCall } from './authEvents';
+import { guardedCall, makeUnauthorizedError } from './authEvents';
 import type {
   TaskDocument,
   CategoryDocument,
@@ -122,7 +122,6 @@ async function collectCollections(userId: string): Promise<RawCollections> {
       })
       .exec(),
   ]);
-
   return {
     tasks: tasks.map((d) => toDoc<TaskDocument>(d)),
     categories: categories.map((d) => toDoc<CategoryDocument>(d)),
@@ -147,13 +146,11 @@ function parseSettings(raw: SettingsDocument[]): Record<string, unknown> {
 async function fetchImageBlob(fileId: string): Promise<Blob | null> {
   const cached = await getCachedImage(fileId);
   if (cached) return cached;
-
   if (typeof navigator !== 'undefined' && navigator.onLine === false) {
     if (DEBUG)
       console.log(`[Export] Skipping uncached image (offline): ${fileId}`);
     return null;
   }
-
   try {
     const url = storage.getFileView({
       bucketId: APPWRITE_CONFIG.bucketId,
@@ -165,9 +162,7 @@ async function fetchImageBlob(fileId: string): Promise<Blob | null> {
         headers: { 'X-Appwrite-Project': APPWRITE_CONFIG.projectId },
       });
       if (r.status === 401) {
-        const err = new Error('Unauthorized');
-        (err as { code?: number }).code = 401;
-        throw err;
+        throw makeUnauthorizedError();
       }
       return r;
     });
@@ -207,13 +202,10 @@ export async function exportUserData(
   const report = (msg: string) => {
     if (onProgress) onProgress(msg);
   };
-
   report('Collecting data…');
   if (DEBUG) console.log('[Export] Collecting data for user', user.id);
-
   const raw = await collectCollections(user.id);
   const parsedSettings = parseSettings(raw.settings);
-
   const referencedImages = new Set<string>();
   for (const task of raw.tasks) {
     if (task.image && task.image.trim()) referencedImages.add(task.image);
@@ -223,7 +215,6 @@ export async function exportUserData(
     referencedImages.add(profileImageId);
   }
   const referencedArray = Array.from(referencedImages);
-
   const exportedAt = new Date().toISOString();
   const payload: ExportPayload = {
     app: { name: APP_NAME, version: APP_VERSION },
@@ -255,7 +246,6 @@ export async function exportUserData(
         : 'Image blobs not included. Re-export with "Include photos" to bundle them.',
     },
   };
-
   if (!includeImages) {
     const json = JSON.stringify(payload, null, 2);
     const blob = new Blob([json], { type: 'application/json' });
@@ -266,7 +256,6 @@ export async function exportUserData(
       counts: payload.counts,
     };
   }
-
   const imageBlobs = new Map<string, Blob>();
   const missing: string[] = [];
   let index = 0;
@@ -277,11 +266,9 @@ export async function exportUserData(
     if (blob) imageBlobs.set(fileId, blob);
     else missing.push(fileId);
   }
-
   payload.counts.images = imageBlobs.size;
   payload.counts.missingImages = missing.length;
   payload.images.missingImages = missing;
-
   report('Compressing…');
   const encoder = new TextEncoder();
   const files: Record<string, Uint8Array> = {};
@@ -301,18 +288,14 @@ export async function exportUserData(
   files['data/friendships.json'] = encoder.encode(
     JSON.stringify(raw.friendships, null, 2)
   );
-
   for (const [fileId, blob] of imageBlobs) {
     const buf = await blob.arrayBuffer();
     files[`images/${fileId}.webp`] = new Uint8Array(buf);
   }
-
   const zipped = await zipAsync(files);
   const zipBuffer = zipped.buffer as ArrayBuffer;
   const blob = new Blob([zipBuffer], { type: 'application/zip' });
-
   if (DEBUG) console.log('[Export] ZIP export ready', payload.counts);
-
   return {
     blob,
     filename: makeFilename('zip'),

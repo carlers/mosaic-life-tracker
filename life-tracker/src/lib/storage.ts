@@ -1,7 +1,7 @@
 import imageCompression from 'browser-image-compression';
 import { client, account } from './appwrite';
 import { Storage, Permission, Role } from 'appwrite';
-import { guardedCall } from './authEvents';
+import { guardedCall, makeUnauthorizedError } from './authEvents';
 
 const APPWRITE_CONFIG = {
   endpoint: 'https://sgp.cloud.appwrite.io',
@@ -69,13 +69,11 @@ export async function uploadImage(file: File): Promise<string> {
   if (!userId) {
     throw new Error('Cannot upload image: no authenticated user');
   }
-
   const compressedBlob = await compressImage(file);
   const fileId = generateFileId();
   const webpFile = new File([compressedBlob], `${fileId}.webp`, {
     type: 'image/webp',
   });
-
   try {
     await guardedCall(() =>
       storage.createFile({
@@ -149,33 +147,26 @@ async function deleteCachedImage(fileId: string): Promise<void> {
 
 export async function getLocalImageUrl(fileId: string): Promise<string | null> {
   if (!fileId) return null;
-
   const cachedBlob = await getCachedImage(fileId);
   if (cachedBlob) {
     return URL.createObjectURL(cachedBlob);
   }
-
   if (!navigator.onLine) return null;
-
   try {
     const url = storage.getFileView({
       bucketId: APPWRITE_CONFIG.bucketId,
       fileId: fileId,
     });
-
     const res = await guardedCall(async () => {
       const r = await fetch(url.toString(), {
         credentials: 'include',
         headers: { 'X-Appwrite-Project': APPWRITE_CONFIG.projectId },
       });
       if (r.status === 401) {
-        const err = new Error('Unauthorized');
-        (err as { code?: number }).code = 401;
-        throw err;
+        throw makeUnauthorizedError();
       }
       return r;
     });
-
     if (!res.ok) return null;
     const blob = await res.blob();
     await cacheImage(fileId, blob);
