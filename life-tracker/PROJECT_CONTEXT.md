@@ -47,9 +47,11 @@
 
 ## 5.1 Revision Workflow (Mega File + Installer)
 
-All future AI revisions are delivered as a **single fenced code block** tagged `mosaic`. The outer fence uses **tildes** (`~~~mosaic`), not backticks. This is required so that inner backtick fences inside file contents (e.g. `PROJECT_CONTEXT.md` examples, TypeScript snippets) do not close the outer block prematurely. Backtick fences are unreliable for nested content across AI chat renderers; tildes are inert against backticks.
+All future AI revisions are delivered as a **single fenced code block** tagged `mosaic`. The outer fence uses **exactly four tilde characters** as its boundary. It opens with those four tildes immediately followed by the word `mosaic`, and closes with those four tildes alone on their own line. That is the only place four consecutive tildes appear in the entire workflow. Every example shown in this document, and every Markdown or code fence inside file contents, uses **three or fewer** tilde or backtick characters, so nothing inside can ever be confused with the outer boundary.
 
-Format:
+Why four tildes: the installer's outer-fence regex is `/^(~~~+|`{3,})mosaic\s*\n([\s\S]*?)\n\1\s*$/`. The `\1` backreference requires the closing fence to match the opening fence's character AND length exactly. A four-tilde opening can only be closed by a line of exactly four tildes; any three-tilde or three-backtick fence inside the content is inert to the outer matcher. This is what allows §5.1 itself to show three-tilde examples without them being mistaken for the outer boundary.
+
+Format (the inner example below uses three tildes; an actual delivery uses four):
 
 ~~~mosaic
 ===FILE:path/to/file.ext===
@@ -60,9 +62,28 @@ Format:
 ===COMMIT:audit: auth context and shared lifecycle===
 ~~~
 
-Rules:
-- **Outer fence is tildes** (three or more `~` characters), not backticks. Inner backtick fences inside file contents are inert and cannot close the outer block. Do not use backticks for the outer fence.
-- One fenced block per logical change. No prose before or after.
+**Fence rules:**
+
+- **OUTER fence** — wraps the entire mega file.
+  - Opens with exactly four tilde characters immediately followed by the word `mosaic` (no space between them).
+  - Closes with exactly four tilde characters alone on their own line.
+  - Always four tildes. Never three. Never backticks. Never mixed character or length.
+- **INNER fences** — anything inside file contents: code examples, Markdown snippets, TypeScript blocks, prose examples.
+  - Any fence character and any length **up to three characters** is fine: three backticks, three tildes, a mix, whatever the content needs.
+  - The parser treats them as inert because their character and/or length differs from the outer fence.
+  - Content inside an inner fence is treated as literal — the parser will not interpret `===FILE:` / `===DELETE:` / `===COMMIT:` lines that sit inside an inner fence as directives.
+- The parser strips the outer fence first (regex above), then scans the remaining content line-by-line with CommonMark fence rules, tracking which lines sit inside an inner fence. Only lines that are *not* inside an inner fence can be directives.
+
+**Common pitfalls:**
+
+- **Do NOT use three tildes for the outer fence when the content contains three-tilde examples.** The first inner example closes the outer fence early; the rest of the file is treated as prose and no files are written.
+- **Do NOT use backticks for the outer fence.** Backticks interact badly with nested backtick examples in AI chat renderers — the same premature-close problem, plus some renderers mangle escaped backticks.
+- **Do NOT mix the outer fence's character or length.** If it opens with tildes it must close with tildes; if it opens with four characters it must close with four. The `\1` backreference will fail otherwise and the block will be rejected.
+- **Do NOT show a four-tilde fence example anywhere inside this document, including §5.1.** Every example in `PROJECT_CONTEXT.md` uses three tildes. The only place four tildes appear is the opening and closing boundary of an actual mega file being delivered for install.
+
+Additional rules (unchanged):
+
+- One fenced block per logical change. No prose before or after (aside from a single confirmation line).
 - Full file contents only — no diffs, no placeholders, no elisions.
 - Directives (`===FILE:`, `===DELETE:`, `===COMMIT:`) must be at line start, exactly as shown.
 - Do not escape content. Do not nest `mosaic` blocks.
@@ -82,21 +103,12 @@ The installer (`apply-changes.mjs`) backs up every modified or deleted file to `
 
 **Parser is fence-aware (CRITICAL).** `parseMegaFile` runs a two-pass scan:
 
-1. Pass 1 marks every line that sits inside a Markdown fence (`` ``` `` or `~~~`, CommonMark rules: opening and closing runs must be the same character, closing run must be ≥ opening length; fence-boundary lines themselves are marked "inside").
+1. Pass 1 marks every line that sits inside a Markdown fence (backticks or tildes; CommonMark rules: opening and closing runs must be the same character, closing run must be ≥ opening length; fence-boundary lines themselves are marked "inside").
 2. Pass 2 performs the linear directive scan but **refuses to match any directive on a line marked "inside"**.
 
 This means `===FILE:...===` examples appearing inside a fenced code block (like the ones in this section, and in the emission template below) are treated as literal content, not as directives. Without this guard the parser would truncate the enclosing file at the first example directive, create phantom files at the example paths, and override the outer `===COMMIT:...===` with any example commit line found inside the fences.
 
-The outer fence-matching regex is:
-
-`/^(~~~+|`{3,})mosaic\s*\n([\s\S]*?)\n\1\s*$/`
-
-It accepts three or more tildes OR three or more backticks as the opening fence, and requires the closing fence to match the opening character and length. This keeps backward compatibility with older 3-backtick blocks while making 4-tilde blocks the recommended format for any content that contains nested fences.
-
 **Mega-file emission template (append to every audit/fix prompt):**
-
-```
-Emit all revised files as a single fenced code block tagged `mosaic`, using this exact format:
 
 ~~~mosaic
 ===FILE:path/to/file.ext===
@@ -108,14 +120,13 @@ Emit all revised files as a single fenced code block tagged `mosaic`, using this
 ~~~
 
 Rules:
-- The outer fence is tildes (`~~~mosaic`), not backticks. Inner backtick fences are inert.
+- The outer fence is exactly four tildes. Do not use three tildes or backticks for the outer boundary. Inner fences of length ≤ 3 are inert.
 - One fenced block. No prose before or after.
 - Full file contents only — no diffs, no placeholders, no elisions.
 - `===FILE:path===`, `===DELETE:path===`, and `===COMMIT:...===` must be at line start, exactly as shown.
 - Do not escape content. Do not nest `mosaic` blocks.
 - The COMMIT directive uses the user's convention: `audit: ...`, `ui: ...`, `feat: ...`, `fix: ...`, `chore: ...`, `hooks: ...`, `lib: ...`, `docs: ...`.
 - Content inside Markdown fences (backticks or tildes) is treated as literal — the parser will not interpret `===FILE:` examples inside such fences as directives.
-```
 
 ## 6. Appwrite 2.0 Strict Guardrails (CRITICAL)
 - **Regional Endpoint:** Must use the specific regional endpoint found in the project URL (e.g., `https://sgp.cloud.appwrite.io/v1`), NOT the generic `cloud.appwrite.io`
@@ -159,6 +170,7 @@ Rules:
 - ✅ **Phase 3.3 – Task Reactions Complete:** heart button in `FriendDayViewSheet`, `react_to_task` action, chip row on friend tasks (interactive) and own tasks (display-only), emoji-picker-driven chat message on `add`
 - ✅ **Phase 3.4 – Auth Architecture Hardening Complete:** `AuthProvider` React Context is the single source of truth for session state. Single `account.get()` per app load instead of ~22. Logout now returns `boolean` and callers gate navigation on success. Mid-session 401 from sync, message delivery, friend-data, social reads/writes, image upload/fetch, and export now dispatch a global `auth:unauthorized` event that clears auth state and redirects to `/login`. Multi-tab logout and cross-tab login sync via `localStorage` broadcast. Mount-time network errors no longer redirect to `/login`; `AppLayout` renders a retry screen instead. See §23.
 - ✅ **Backlog Closure 1–7 Complete:** §4 scope annotation, §8 chronological reorder, §9 parenthetical removal, §20.3/20.5 cross-refs, §18 local-dirty-wins documented. `message-action`: `mark_read` returns `{ markedPartner, markedCaller }`, `handleDeliver` rejects empty content (no content/taskRef/replyTo) and enforces `msg_` prefix, `resolveLegacyPeerRowId` cap log includes candidate count, `handleReact` uses two-phase read-then-write (overflow pre-check prevents partial commit). Wrapper polish: `makeUnauthorizedError()` helper in `authEvents.ts`; `friendData` 401 throws `FriendAccessError('forbidden')` with `code = 401`; `isUsernameAvailable` returns `null` for all non-auth failures (network, 5xx, parse) and 401, `false` only for "taken"; `SetUsernameSheet` distinguishes "could not check" from "taken". Delivery/sync polish: `deliverPendingMessages` capped at 5 iterations with `[messageDelivery] delivery loop hit cap` warning; `sync.ts` adds non-429 failure backoff (5s→60s exponential) separate from rate-limit backoff. UX polish: `toggleReaction` returns `'ok' | 'timeout'`; `ChatPage` shows "Couldn't send reaction. Try again." toast on timeout-revert. Enforcement: new `src/lib/sdk.ts` guarded SDK surface; ESLint `no-restricted-imports` blocks raw `TablesDB`/`Storage`/`Functions`/`Account` imports outside `src/lib/sdk.ts` and `src/lib/appwrite.ts`.
+- ✅ **Calendar Perf Audit Complete:** Slide windowing in `useCalendarState`/`CalendarBody`/`FriendCalendarView` (RENDER_WINDOW = 2), memoized `tasksByDate` Map, memoized `DayCell` with stable props, memoized `CalendarBody`, ref-counted object-URL cache in `useTaskImage`, friend-pane activation refetch throttle. Dead code removed: `CalendarView.tsx`, `ViewContainer.tsx`, `DiaryView.tsx`, `TodoListView.tsx`. See §16 "Calendar Rendering Pipeline" for the invariants.
 - 🔄 **Next Up:** Phase 3.5 — Todo List View; Phase 3.6 — Diary View; Phase 3.7 — Notifications tab (in-app notifications for message/reaction events)
 
 ---
@@ -307,6 +319,15 @@ Rules:
   - Friends (carousel): user-defined `order` first, then alphabetical by `friendDisplayName || friendUsername` for the un-ordered tail
 - **Grouping is Memoized:** Any grouping (tasks-by-category, tasks-by-date, messages-by-thread) MUST use a `useMemo` that returns a Map or Record, not a `filter()` inside a `.map()`
 - **Empty Arrays Are Module Constants:** Pass shared empty arrays as `const EMPTY_TASKS: TaskDocument[] = []` to keep `React.memo` prop equality stable across renders
+- **Calendar Rendering Pipeline (perf invariants — do not regress):**
+  - **Slides are windowed.** `useCalendarState` exposes `renderStart` / `renderEnd` derived from Embla's live `scrollProgress` and the `focusDate` index (union of the two, expanded by `RENDER_WINDOW = 2`). `CalendarBody` and `FriendCalendarView` render slide content only when `i` is inside that window; all 61 (or 25) slide containers are still emitted so Embla's scroll geometry is unchanged. Do not un-window the map.
+  - **Tasks are indexed once.** `CalendarBody` and `FriendCalendarView` compute `tasksByDate: Map<string, TaskDocument[]>` via `useMemo` keyed on `tasks`, and pass the Map (not the array) into `MonthView` / `WeekView`. `DayCell` receives a per-day slice from the Map. Never reintroduce a per-day `.filter()` in `MonthView` / `WeekView`.
+  - **`MonthView` / `WeekView` memoize their day arrays.** `calendarDays` (`MonthView`) and `weekDays` (`WeekView`) are `useMemo`-ized on `focusDate`. This is required so the `date` prop passed to each `DayCell` is referentially stable across renders — without it, `React.memo` on `DayCell` would never bail.
+  - **`DayCell` is memoized and prop-stable.** It receives `date` (stable via the parent memo), `tasks` (stable via the Map, with `EMPTY_TASKS` for empty days), `categories` (parent `useMemo`), `isCurrentMonth` (primitive), and `onDayClick` (parent `useCallback`). `DayCell` builds its own click closure internally so the closure is not a memo-breaking prop. Sorting inside `DayCell` runs only when `tasks.length > 1` and is memoized on `tasks`.
+  - **`CalendarBody` is memoized.** `PersonPane` re-renders on feedback-toast state, `activeView` changes, and reaction toasts; `CalendarBody` bails out via `React.memo` unless one of its stable props actually changed.
+  - **Friend-calendar refetch on activation.** `PersonPane` forces `refetchFriendCalendar(true)` when a friend pane becomes active, throttled by `FRIEND_REFETCH_MIN_INTERVAL_MS = 15_000`. Without this, the pane's data is frozen at first mount (panes never remount when swiped away and back) and the 5-minute `friendCache` TTL keeps it stale well past when the friend added a new task. Own pane is exempt — it stays live via the RxDB subscription in `useTasks`.
+  - **`useTaskImage` shares object URLs.** Module-level `Map<fileId, { url, refCount, revokeTimer }>` in `src/hooks/useTaskImage.ts` ref-counts object URLs across hook instances, with a 1.5s deferred revoke window so StrictMode double-mounts, `Month↔Week` toggles, and slide re-entry do not tear down and re-read the blob. Do not bypass this hook with a direct `getLocalImageUrl` call in calendar cells.
+  - **`DayViewSheet` and `HomePage` (Swiper) use manual windowing.** `DayViewSheet` uses `RENDER_WINDOW = 3`, `HomePage` uses `RENDER_WINDOW = 1`. Do not remove those caps; they are load-bearing for scroll smoothness.
 
 ## 17. Native Input Quirks
 - **Dark Theme `<input type="date">`:** MUST include `[color-scheme:dark]` Tailwind arbitrary class, otherwise the native picker renders light-theme
@@ -327,6 +348,7 @@ Rules:
 - **`queueMicrotask` for Effect-Triggered Async:** When an effect must kick off an async function that will setState, wrap the call in `queueMicrotask(() => { ... })` and re-check `isMountedRef.current` inside. This avoids `react-hooks/set-state-in-effect` while preserving correct ordering (the async function itself must be async-first — all setState after the first `await`)
 - **Local-Dirty-Wins Conflict Semantics (Sync Engine):** When a locally-modified row (`_meta.lwt` newer than the last sync) conflicts with a remote tombstone (`deleted: true` on the server), the client keeps its local version and re-pushes it on the next sync cycle. This is deliberate: local edits are treated as user intent that outranks a stale server deletion. It is a known trade-off — if a user deletes a row on device A while device B has an unsynced edit, device B's edit will resurrect the row. Remote-wins was rejected because it caused silent data loss for offline edits. There is no per-collection override; the policy is global
 - **Two-Phase Read-Then-Write for Multi-Row Server Mutations:** When an Appwrite Function writes to more than one row in a single action (`handleReact` writes both the caller's and the peer's row), it MUST be structured as two passes: **Pass A** reads and computes the next value for every target, validating each (e.g., `REACTIONS_MAX_LEN` overflow check); **Pass B** writes. If any Pass A validation fails, return 400/403 **before any write** — this prevents one-row-succeeded / one-row-overflowed partial commits. Residual risk: if a Pass B write fails after the first succeeded, the pair is partially committed and relies on the next sync cycle to reconcile. Documented as a known limitation in §20.7
+- **Mounted Pane Freshness:** Any component that displays cached data from a source that can change externally AND stays mounted across navigation MUST refetch on activation, throttled by a module-level or hook-level minimum interval. Reference implementation: `PersonPane`'s friend-pane activation refetch (`FRIEND_REFETCH_MIN_INTERVAL_MS = 15_000`). Own-user panes are exempt if they subscribe live via RxDB. Do not rely on cache TTL alone — TTL only bounds maximum staleness, not the moment a user sees stale data.
 
 ## 19. Bootstrap & Persistence
 - **Order of Operations in `main.tsx`:** 1) `navigator.storage.persist()`, 2) `initializeDatabase()`, 3) fire-and-forget `initializeSync()` for the cold-load-with-session case (never block render on network), 4) `ReactDOM.createRoot(...).render(<React.StrictMode><AuthProvider><App /></AuthProvider></React.StrictMode>)`
@@ -506,5 +528,9 @@ Recipient-side `read_at` propagation depends on `markReadOnRemote` succeeding. I
 | 2026-09-15 | §4, §8, §9, §20.3, §20.5 | Backlog cleanup: `message-action` scope annotation, Phase 2 chronological reorder, drop React parenthetical, legacy peer cross-ref to §22, read-receipt cadence note | Backlog Closure Batches 1–7 |
 | 2026-09-16 | §6, §8, §10, §11, §15, §18, §20.3, §20.7, §21, §23.4, §23.7 | Backlog Closure 1–7 follow-up: documented fence-aware parser (§5.1); `Parameters<T>` overload trap (§6); `msg_` prefix server guard (§11); `makeUnauthorizedError` helper (§10, §15); `sdk.ts` guarded surface + ESLint enforcement (§15); bounded delivery loop and two-phase read-then-write race safety (§18); `mark_read` body shape and `handleReact` two-phase write (§20.3, §20.7); reaction timeout toast (§21); raw-SDK import restriction (§23.4, §23.7); corrected ChatPage poll interval in §18 from "10s" to "30s" to match code | Backlog Closure Batches 1–7 (post-ship doc sync) |
 | 2026-09-16 | §20.5 | Corrected read-receipt worst-case from "~60s" to "90–120s (30s `ChatPage` poll interval + up to 60s sync backoff cap)". Matches shipped code (ChatPage poll = 30s, sync backoff cap = 60s). Decision: keep code, fix doc — pushing poll back to 15s to hit 60s was rejected as 429 rate-limit risk | Post-backlog doc/code reconciliation |
+| 2026-09-16 | §16 | Added "Calendar Rendering Pipeline (perf invariants — do not regress)" bullet documenting slide windowing (`renderStart`/`renderEnd`), the `tasksByDate` Map, memoized `MonthView`/`WeekView` day arrays, memoized `DayCell` prop contract, memoized `CalendarBody`, friend-calendar activation refetch throttle, ref-counted `useTaskImage` object URL cache, and manual windowing in `DayViewSheet`/`HomePage` | Bug Audit: Calendar Rendering Performance |
+| 2026-09-16 | §5.1 | Rewrote fence rules to distinguish 4-tilde outer fence from 3-tilde/3-backtick inner fences. Added "Common pitfalls" subsection covering the four failure modes. | Post-audit doc clarity |
+| 2026-09-16 | §18 | Added "Mounted Pane Freshness" rule — mounted panes displaying externally-changeable cached data must refetch on activation, throttled by a minimum interval. Reference: PersonPane's friend-pane activation refetch (`FRIEND_REFETCH_MIN_INTERVAL_MS = 15_000`). | Calendar perf audit follow-up |
+| 2026-09-16 | §8, §15 | Marked Calendar Perf Audit complete in Current Progress. Removed `CalendarView.tsx`, `ViewContainer.tsx`, `DiaryView.tsx`, `TodoListView.tsx` from the codebase (dead code — no importers, no routes). §15 file-organization list unchanged (never named them). | Calendar perf audit follow-up |
 
 Sections added or rewritten in bulk should be flagged in the changelog with `(new)` and listed on every subsequent edit that touches them.
