@@ -8,7 +8,6 @@ import {
 import type { FriendshipDocument } from '../db/schema';
 
 const DEBUG = import.meta.env.DEV;
-
 const APPWRITE_CONFIG = {
   databaseId: 'life_tracker',
   tables: {
@@ -16,7 +15,6 @@ const APPWRITE_CONFIG = {
     friendships: 'friendships',
   },
 } as const;
-
 const tablesDB = new TablesDB(client);
 
 export type FriendStatus =
@@ -121,7 +119,6 @@ export async function createOrUpdateProfile(
     updated_at: now,
     deleted: false,
   };
-
   const row = await guardedCall(() =>
     tablesDB.upsertRow({
       databaseId: APPWRITE_CONFIG.databaseId,
@@ -138,10 +135,10 @@ export async function createOrUpdateProfile(
 /**
  * Returns:
  *   true  — username is available
- *   false — username is taken, or the check failed for a non-auth reason
- *   null  — session expired (401); a global redirect is already in flight
- *
- * Callers MUST branch on null before showing a "username taken" error.
+ *   false — username is taken
+ *   null  — could not determine (session expired, network failure, or
+ *           server error). Callers MUST branch on null before showing a
+ *           "username taken" error.
  */
 export async function isUsernameAvailable(
   username: string
@@ -159,11 +156,9 @@ export async function isUsernameAvailable(
     );
     return (res.rows || []).length === 0;
   } catch (err) {
-    // guardedCall already dispatched the global event; just classify the
-    // return value so the caller can distinguish.
     if (isUnauthorizedError(err)) return null;
     console.error('[social] isUsernameAvailable failed:', err);
-    return false;
+    return null;
   }
 }
 
@@ -211,10 +206,8 @@ export async function sendFriendRequest(
   } = input;
   const now = new Date().toISOString();
   const db = getDatabase();
-
   const myRowId = await makeFriendshipId(myUserId, friend.user_id);
   const friendRowId = await makeFriendshipId(friend.user_id, myUserId);
-
   const myLocalRow: FriendshipDocument = {
     id: myRowId,
     userId: myUserId,
@@ -229,7 +222,6 @@ export async function sendFriendRequest(
     isDeleted: false,
   };
   await db.friendships.upsert(myLocalRow);
-
   await guardedCall(() =>
     tablesDB.upsertRow({
       databaseId: APPWRITE_CONFIG.databaseId,
@@ -260,15 +252,12 @@ export async function acceptFriendRequest(
 ): Promise<void> {
   const now = new Date().toISOString();
   const db = getDatabase();
-
   const myRowId = await makeFriendshipId(myUserId, friendUserId);
   const friendRowId = await makeFriendshipId(friendUserId, myUserId);
-
   const localDoc = await db.friendships.findOne(myRowId).exec();
   if (localDoc) {
     await localDoc.patch({ status: 'accepted', updatedAt: now });
   }
-
   await guardedCall(() =>
     tablesDB.updateRow({
       databaseId: APPWRITE_CONFIG.databaseId,
@@ -286,15 +275,12 @@ export async function deleteFriendPair(
 ): Promise<void> {
   const now = new Date().toISOString();
   const db = getDatabase();
-
   const myRowId = await makeFriendshipId(myUserId, friendUserId);
   const friendRowId = await makeFriendshipId(friendUserId, myUserId);
-
   const localDoc = await db.friendships.findOne(myRowId).exec();
   if (localDoc) {
     await localDoc.patch({ isDeleted: true, updatedAt: now });
   }
-
   try {
     await guardedCall(() =>
       tablesDB.updateRow({
@@ -319,15 +305,12 @@ export async function blockFriend(
 ): Promise<void> {
   const now = new Date().toISOString();
   const db = getDatabase();
-
   const myRowId = await makeFriendshipId(myUserId, friendUserId);
   const friendRowId = await makeFriendshipId(friendUserId, myUserId);
-
   const localDoc = await db.friendships.findOne(myRowId).exec();
   if (localDoc) {
     await localDoc.patch({ status: 'blocked', updatedAt: now });
   }
-
   try {
     await guardedCall(() =>
       tablesDB.updateRow({

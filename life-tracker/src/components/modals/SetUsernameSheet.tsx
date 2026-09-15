@@ -25,9 +25,7 @@ export const SetUsernameSheet: React.FC<SetUsernameSheetProps> = ({
   const [displayName, setDisplayName] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [isSessionExpired, setIsSessionExpired] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
-
   const [syncedIsOpen, setSyncedIsOpen] = useState(false);
   if (isOpen !== syncedIsOpen) {
     setSyncedIsOpen(isOpen);
@@ -36,19 +34,15 @@ export const SetUsernameSheet: React.FC<SetUsernameSheetProps> = ({
       setDisplayName(profile?.display_name || user?.name || '');
       setError(null);
       setIsSaving(false);
-      setIsSessionExpired(false);
     }
   }
-
   useEffect(() => {
     if (isOpen) {
       const timer = setTimeout(() => inputRef.current?.focus(), 300);
       return () => clearTimeout(timer);
     }
   }, [isOpen]);
-
   const handleSave = async () => {
-    if (isSessionExpired) return;
     const trimmed = username.trim().toLowerCase();
     if (!USERNAME_REGEX.test(trimmed)) {
       setError('Username must be 3–20 characters: a–z, 0–9, underscore.');
@@ -64,9 +58,10 @@ export const SetUsernameSheet: React.FC<SetUsernameSheetProps> = ({
       if (!profile || profile.username !== trimmed) {
         const available = await checkUsername(trimmed);
         if (available === null) {
-          // Session expired. The global redirect is already in flight.
-          setIsSessionExpired(true);
-          setError('Your session expired. Please sign in again.');
+          // Could not determine: session expired, network drop, or server
+          // error. If it was a 401, the global auth redirect is already
+          // in flight. Otherwise, let the user retry.
+          setError('Could not check. Try again.');
           setIsSaving(false);
           return;
         }
@@ -93,9 +88,7 @@ export const SetUsernameSheet: React.FC<SetUsernameSheetProps> = ({
       setIsSaving(false);
     }
   };
-
   const isEditing = !!profile;
-
   return (
     <BottomSheet
       isOpen={isOpen}
@@ -134,8 +127,7 @@ export const SetUsernameSheet: React.FC<SetUsernameSheetProps> = ({
               autoCapitalize="none"
               autoCorrect="off"
               spellCheck={false}
-              disabled={isSessionExpired}
-              className="w-full bg-[#1E1E1E] text-white border border-[#333333] rounded-lg pl-8 pr-4 py-2.5 focus:border-[#555555] focus:outline-none transition-colors placeholder-gray-600 disabled:opacity-50"
+              className="w-full bg-[#1E1E1E] text-white border border-[#333333] rounded-lg pl-8 pr-4 py-2.5 focus:border-[#555555] focus:outline-none transition-colors placeholder-gray-600"
               onPointerDown={(e) => e.stopPropagation()}
             />
           </div>
@@ -149,7 +141,6 @@ export const SetUsernameSheet: React.FC<SetUsernameSheetProps> = ({
           onChange={(e) => setDisplayName(e.target.value)}
           placeholder="Your Name"
           maxLength={50}
-          disabled={isSessionExpired}
         />
         <Button
           variant="primary"
@@ -157,7 +148,6 @@ export const SetUsernameSheet: React.FC<SetUsernameSheetProps> = ({
           onClick={handleSave}
           disabled={
             isSaving ||
-            isSessionExpired ||
             !username.trim() ||
             !displayName.trim()
           }
