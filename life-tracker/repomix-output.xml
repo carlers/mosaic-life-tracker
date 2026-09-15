@@ -170,6 +170,7 @@ src/
     messageDelivery.ts
     mockData.ts
     reactionUtils.ts
+    sdk.ts
     social.ts
     storage.ts
     threads.ts
@@ -383,6 +384,10 @@ async function handleDeliver(tablesDB, senderId, payload, log, error) {
     error('deliver: invalid messageId');
     return { status: 400, body: { error: 'Invalid messageId' } };
   }
+  if (!p.messageId.startsWith('msg_')) {
+    error('deliver: messageId must start with msg_');
+    return { status: 400, body: { error: 'Invalid messageId format' } };
+  }
   if (!isValidRowId(p.recipientId)) {
     error('deliver: invalid recipientId');
     return { status: 400, body: { error: 'Invalid recipientId' } };
@@ -428,6 +433,13 @@ async function handleDeliver(tablesDB, senderId, payload, log, error) {
   const replyToContent = vReplyToContent.value;
   const replyToSenderId = vReplyToSenderId.value;
   const createdAt = vCreatedAt.value;
+  const hasContent = content.trim().length > 0;
+  const hasTaskRef = taskRefId !== '' || taskRefTitle !== '';
+  const hasReply = replyToId !== '';
+  if (!hasContent && !hasTaskRef && !hasReply) {
+    error('deliver: message has no content');
+    return { status: 400, body: { error: 'Message has no content' } };
+  }
   const isFriend = await verifyFriendship(tablesDB, senderId, recipientId);
   if (!isFriend) {
     error(`deliver: Forbidden, no accepted friendship ${senderId} -> ${recipientId}`);
@@ -684,7 +696,7 @@ async function handleMarkRead(tablesDB, callerId, payload, log, error) {
   log(
     `mark_read: caller=${callerId} partner=${partnerId} markedPartner=${markedPartner} markedCaller=${markedCaller}`
   );
-  return { status: 200, body: { ok: true, marked: markedPartner } };
+  return { status: 200, body: { ok: true, markedPartner, markedCaller } };
 }
 async function cascadeReplyWipe(
   tablesDB,
@@ -919,7 +931,7 @@ async function resolveLegacyPeerRowId(tablesDB, myRow, log) {
       cursor = lastId;
       if (pages >= MAX_PAGES) {
         log(
-          `resolveLegacyPeerRowId: hit maxPages=${MAX_PAGES} for ${myRow.$id}`
+          `resolveLegacyPeerRowId: hit maxPages=${MAX_PAGES} for ${myRow.$id} (candidates=${candidates.length})`
         );
         break;
       }
@@ -999,6 +1011,9 @@ async function handleReact(tablesDB, callerId, payload, log, error) {
     }
   }
   const targets = [myRowId, effectivePeerRowId].filter(Boolean);
+  // Pass A: read + compute + validate both rows before any write so a
+  // one-row overflow cannot leave the pair partially committed.
+  const prepared = [];
   for (const rowId of targets) {
     try {
       const row = await tablesDB.getRow({
@@ -1019,6 +1034,13 @@ async function handleReact(tablesDB, callerId, payload, log, error) {
         );
         return { status: 400, body: { error: 'Too many reactions' } };
       }
+      prepared.push({ rowId, nextStr });
+    } catch (err) {
+      log(`react: row ${rowId} read skipped (${err.message})`);
+    }
+  }
+  for (const { rowId, nextStr } of prepared) {
+    try {
       await tablesDB.updateRow({
         databaseId: DATABASE_ID,
         tableId: MESSAGES_TABLE,
@@ -8356,7 +8378,6 @@ export const SetUsernameSheet: React.FC<SetUsernameSheetProps> = ({
   const [displayName, setDisplayName] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [isSessionExpired, setIsSessionExpired] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const [syncedIsOpen, setSyncedIsOpen] = useState(false);
   if (isOpen !== syncedIsOpen) {
@@ -8366,7 +8387,6 @@ export const SetUsernameSheet: React.FC<SetUsernameSheetProps> = ({
       setDisplayName(profile?.display_name || user?.name || '');
       setError(null);
       setIsSaving(false);
-      setIsSessionExpired(false);
     }
   }
   useEffect(() => {
@@ -8376,7 +8396,6 @@ export const SetUsernameSheet: React.FC<SetUsernameSheetProps> = ({
     }
   }, [isOpen]);
   const handleSave = async () => {
-    if (isSessionExpired) return;
     const trimmed = username.trim().toLowerCase();
     if (!USERNAME_REGEX.test(trimmed)) {
       setError('Username must be 3–20 characters: a–z, 0–9, underscore.');
@@ -8392,9 +8411,10 @@ export const SetUsernameSheet: React.FC<SetUsernameSheetProps> = ({
       if (!profile || profile.username !== trimmed) {
         const available = await checkUsername(trimmed);
         if (available === null) {
-          // Session expired. The global redirect is already in flight.
-          setIsSessionExpired(true);
-          setError('Your session expired. Please sign in again.');
+          // Could not determine: session expired, network drop, or server
+          // error. If it was a 401, the global auth redirect is already
+          // in flight. Otherwise, let the user retry.
+          setError('Could not check. Try again.');
           setIsSaving(false);
           return;
         }
@@ -8460,8 +8480,7 @@ export const SetUsernameSheet: React.FC<SetUsernameSheetProps> = ({
               autoCapitalize="none"
               autoCorrect="off"
               spellCheck={false}
-              disabled={isSessionExpired}
-              className="w-full bg-[#1E1E1E] text-white border border-[#333333] rounded-lg pl-8 pr-4 py-2.5 focus:border-[#555555] focus:outline-none transition-colors placeholder-gray-600 disabled:opacity-50"
+              className="w-full bg-[#1E1E1E] text-white border border-[#333333] rounded-lg pl-8 pr-4 py-2.5 focus:border-[#555555] focus:outline-none transition-colors placeholder-gray-600"
               onPointerDown={(e) => e.stopPropagation()}
             />
           </div>
@@ -8475,7 +8494,6 @@ export const SetUsernameSheet: React.FC<SetUsernameSheetProps> = ({
           onChange={(e) => setDisplayName(e.target.value)}
           placeholder="Your Name"
           maxLength={50}
-          disabled={isSessionExpired}
         />
         <Button
           variant="primary"
@@ -8483,7 +8501,6 @@ export const SetUsernameSheet: React.FC<SetUsernameSheetProps> = ({
           onClick={handleSave}
           disabled={
             isSaving ||
-            isSessionExpired ||
             !username.trim() ||
             !displayName.trim()
           }
@@ -9359,12 +9376,9 @@ export const messagesSchema: RxJsonSchema<MessageDocument> = {
 
 <file path="src/db/sync.ts">
 import { getDatabase, type AppDatabaseCollections } from './database';
-import { client, account } from '../lib/appwrite';
-import { TablesDB, Permission, Role, Query } from 'appwrite';
-import {
-  isUnauthorizedError,
-  guardedCall,
-} from '../lib/authEvents';
+import { Permission, Role, Query } from 'appwrite';
+import { isUnauthorizedError } from '../lib/authEvents';
+import { guardedTablesDB, guardedAccount } from '../lib/sdk';
 const APPWRITE_CONFIG = {
   endpoint: 'https://sgp.cloud.appwrite.io',
   projectId: '6a9703c50016b37110ff',
@@ -9378,12 +9392,13 @@ const APPWRITE_CONFIG = {
     messages: 'messages',
   },
 } as const;
-const tablesDB = new TablesDB(client);
 const DEBUG = import.meta.env.DEV;
 const PAGE_SIZE = 100;
 const PULL_OVERLAP_MS = 30_000;
 const RATE_LIMIT_BASE_MS = 5_000;
 const RATE_LIMIT_MAX_MS = 60_000;
+const FAILURE_BACKOFF_BASE_MS = 5_000;
+const FAILURE_BACKOFF_MAX_MS = 60_000;
 const TRIGGER_DEBOUNCE_MS = 1_500;
 type CollectionName = keyof AppDatabaseCollections;
 const ALL_COLLECTIONS: CollectionName[] = [
@@ -9482,6 +9497,8 @@ type LocalCollection = {
 let isSyncInProgress = false;
 let rateLimitUntil = 0;
 let rateLimitBackoffMs = 0;
+let failureBackoffUntil = 0;
+let failureBackoffMs = 0;
 let debounceTimer: ReturnType<typeof setTimeout> | null = null;
 declare global {
   interface Window {
@@ -9736,7 +9753,7 @@ function toMs(value: unknown): number {
 }
 async function resolveAuthenticatedUserId(): Promise<string | null> {
   try {
-    const user = await guardedCall(() => account.get());
+    const user = await guardedAccount.get();
     return user?.$id || null;
   } catch (err) {
     if (DEBUG) console.log('[Sync] account.get() failed:', err);
@@ -9754,6 +9771,17 @@ export async function initializeSync(): Promise<void> {
       console.log(
         `[Sync] Skipping: rate-limit backoff until ${new Date(
           rateLimitUntil
+        ).toISOString()}`
+      );
+    }
+    updateSyncStatus({ isSyncing: false });
+    return;
+  }
+  if (Date.now() < failureBackoffUntil) {
+    if (DEBUG) {
+      console.log(
+        `[Sync] Skipping: failure backoff until ${new Date(
+          failureBackoffUntil
         ).toISOString()}`
       );
     }
@@ -9789,6 +9817,7 @@ export async function initializeSync(): Promise<void> {
     const collectionErrors: string[] = [];
     let sawRateLimit = false;
     let sawUnauthorized = false;
+    let sawNonRateLimitFailure = false;
     for (const colName of ALL_COLLECTIONS) {
       try {
         await syncCollection(
@@ -9803,8 +9832,13 @@ export async function initializeSync(): Promise<void> {
             : `Unknown error in ${colName}`;
         console.error(`[Sync] Collection "${colName}" failed:`, colError);
         collectionErrors.push(`${colName}: ${message}`);
-        if (isRateLimitError(colError)) sawRateLimit = true;
-        if (isUnauthorizedError(colError)) sawUnauthorized = true;
+        if (isRateLimitError(colError)) {
+          sawRateLimit = true;
+        } else if (isUnauthorizedError(colError)) {
+          sawUnauthorized = true;
+        } else {
+          sawNonRateLimitFailure = true;
+        }
       }
     }
     if (sawUnauthorized) {
@@ -9823,6 +9857,19 @@ export async function initializeSync(): Promise<void> {
     } else {
       rateLimitBackoffMs = 0;
       rateLimitUntil = 0;
+    }
+    if (sawNonRateLimitFailure && !sawRateLimit) {
+      failureBackoffMs =
+        failureBackoffMs === 0
+          ? FAILURE_BACKOFF_BASE_MS
+          : Math.min(failureBackoffMs * 2, FAILURE_BACKOFF_MAX_MS);
+      failureBackoffUntil = Date.now() + failureBackoffMs;
+      console.warn(
+        `[Sync] Backing off after non-429 failures for ${failureBackoffMs}ms`
+      );
+    } else if (!sawNonRateLimitFailure) {
+      failureBackoffMs = 0;
+      failureBackoffUntil = 0;
     }
     if (collectionErrors.length === 0) {
       updateSyncStatus({
@@ -9882,14 +9929,12 @@ async function syncCollection(
       queries.push(Query.greaterThan('$updatedAt', sinceIso));
     }
     if (cursor) queries.push(Query.cursorAfter(cursor));
-    const remoteResponse = await guardedCall(() =>
-      tablesDB.listRows({
-        databaseId: APPWRITE_CONFIG.databaseId,
-        tableId,
-        queries: queries as never,
-        total: false,
-      })
-    );
+    const remoteResponse = await guardedTablesDB.listRows({
+      databaseId: APPWRITE_CONFIG.databaseId,
+      tableId,
+      queries: queries as never,
+      total: false,
+    });
     const rows = ((remoteResponse as { rows?: AppwriteRow[] }).rows ||
       []) as AppwriteRow[];
     pageCount++;
@@ -9979,26 +10024,22 @@ async function syncCollection(
       const rowData = toAppwriteFormat(json, colName, userId);
       if (DEBUG) console.log(`[Sync] Pushing ${colName} ${docId}`);
       try {
-        await guardedCall(() =>
-          tablesDB.updateRow({
-            databaseId: APPWRITE_CONFIG.databaseId,
-            tableId,
-            rowId: docId,
-            data: rowData,
-          })
-        );
+        await guardedTablesDB.updateRow({
+          databaseId: APPWRITE_CONFIG.databaseId,
+          tableId,
+          rowId: docId,
+          data: rowData,
+        });
       } catch (updateErr) {
         if (isNotFoundError(updateErr)) {
           try {
-            await guardedCall(() =>
-              tablesDB.upsertRow({
-                databaseId: APPWRITE_CONFIG.databaseId,
-                tableId,
-                rowId: docId,
-                data: rowData,
-                permissions: buildRowPermissions(userId),
-              })
-            );
+            await guardedTablesDB.upsertRow({
+              databaseId: APPWRITE_CONFIG.databaseId,
+              tableId,
+              rowId: docId,
+              data: rowData,
+              permissions: buildRowPermissions(userId),
+            });
           } catch (createErr) {
             console.error(
               `[Sync] Failed to create ${colName} ${docId}:`,
@@ -11408,7 +11449,7 @@ export interface UseMessagesReturn {
   ) => Promise<void>;
   markAllRead: () => Promise<void>;
   unsendMessage: (id: string) => Promise<void>;
-  toggleReaction: (id: string, emoji: string) => Promise<void>;
+  toggleReaction: (id: string, emoji: string) => Promise<'ok' | 'timeout'>;
 }
 function truncateForSnapshot(s: string, max = 100): string {
   const trimmed = s.replace(/\s+/g, ' ').trim();
@@ -11720,16 +11761,16 @@ export function useMessages(friendId: string | null): UseMessagesReturn {
     [user?.$id]
   );
   const toggleReaction = useCallback(
-    async (id: string, emoji: string) => {
+    async (id: string, emoji: string): Promise<'ok' | 'timeout'> => {
       const uid = user?.$id;
       if (!uid) {
         console.error('[useMessages] Cannot react: User not authenticated');
-        return;
+        return 'ok';
       }
       const db = getDatabase();
       const doc = await db.messages.findOne(id).exec();
-      if (!doc) return;
-      if (doc.isUnsent) return;
+      if (!doc) return 'ok';
+      if (doc.isUnsent) return 'ok';
       const peerUserId =
         doc.direction === 'outgoing' ? doc.recipientId : doc.senderId;
       const myRowId = doc.id;
@@ -11766,7 +11807,7 @@ export function useMessages(friendId: string | null): UseMessagesReturn {
           }
         } else {
           console.error('[useMessages] react patch failed:', patchErr);
-          return;
+          return 'ok';
         }
       }
       if (doc.direction === 'outgoing' && doc.deliveryStatus === 'pending') {
@@ -11796,6 +11837,7 @@ export function useMessages(friendId: string | null): UseMessagesReturn {
           }
         }
         if (stillPending) {
+          let didRevert = false;
           try {
             const fresh = await db.messages.findOne(id).exec();
             if (fresh && fresh.reactions === nextStr) {
@@ -11803,6 +11845,7 @@ export function useMessages(friendId: string | null): UseMessagesReturn {
                 reactions: originalReactions,
                 updatedAt: new Date().toISOString(),
               });
+              didRevert = true;
             }
           } catch (revertErr) {
             const code = (revertErr as { code?: string })?.code;
@@ -11818,7 +11861,7 @@ export function useMessages(friendId: string | null): UseMessagesReturn {
               '[useMessages] react skipped: message still pending after delivery wait'
             );
           }
-          return;
+          return didRevert ? 'timeout' : 'ok';
         }
       }
       reactOnRemote(myRowId, peerRowId, peerUserId, emoji, op)
@@ -11853,6 +11896,7 @@ export function useMessages(friendId: string | null): UseMessagesReturn {
           }
           console.error('[useMessages] react delivery failed:', err);
         });
+      return 'ok';
     },
     [user?.$id]
   );
@@ -12363,6 +12407,11 @@ export function isUnauthorizedError(err: unknown): boolean {
   const msg = err instanceof Error ? err.message : String(err);
   return /unauthorized|missing scope|user_unauthorized/i.test(msg);
 }
+export function makeUnauthorizedError(message = 'Unauthorized'): Error {
+  const err = new Error(message);
+  (err as { code?: number }).code = 401;
+  return err;
+}
 export function dispatchUnauthorized(): void {
   if (typeof window !== 'undefined') {
     window.dispatchEvent(new CustomEvent(AUTH_UNAUTHORIZED_EVENT));
@@ -12381,11 +12430,10 @@ export async function guardedCall<T>(fn: () => Promise<T>): Promise<T> {
 <file path="src/lib/exportData.ts">
 import { format } from 'date-fns';
 import { zip } from 'fflate';
-import { Storage } from 'appwrite';
-import { client } from './appwrite';
 import { getDatabase } from '../db/database';
 import { getCachedImage, cacheImage } from './imageCache';
-import { guardedCall } from './authEvents';
+import { guardedCall, makeUnauthorizedError } from './authEvents';
+import { guardedStorage } from './sdk';
 import type {
   TaskDocument,
   CategoryDocument,
@@ -12397,7 +12445,6 @@ const APPWRITE_CONFIG = {
   bucketId: 'task_images',
   projectId: '6a9703c50016b37110ff',
 } as const;
-const storage = new Storage(client);
 const DEBUG = import.meta.env.DEV;
 const APP_NAME = 'Mosaic';
 const APP_VERSION = '0.0.0';
@@ -12521,7 +12568,7 @@ async function fetchImageBlob(fileId: string): Promise<Blob | null> {
     return null;
   }
   try {
-    const url = storage.getFileView({
+    const url = guardedStorage.getFileView({
       bucketId: APPWRITE_CONFIG.bucketId,
       fileId,
     });
@@ -12531,9 +12578,7 @@ async function fetchImageBlob(fileId: string): Promise<Blob | null> {
         headers: { 'X-Appwrite-Project': APPWRITE_CONFIG.projectId },
       });
       if (r.status === 401) {
-        const err = new Error('Unauthorized');
-        (err as { code?: number }).code = 401;
-        throw err;
+        throw makeUnauthorizedError();
       }
       return r;
     });
@@ -12798,10 +12843,9 @@ export async function patchCachedCalendarTask(
 </file>
 
 <file path="src/lib/friendData.ts">
-import { Functions, ExecutionMethod } from 'appwrite';
-import { client } from './appwrite';
+import { ExecutionMethod } from 'appwrite';
 import { MESSAGE_ACTION_FUNCTION_ID } from './messageDelivery';
-import { guardedCall } from './authEvents';
+import { guardedFunctions } from './sdk';
 import type { TaskDocument, CategoryDocument } from '../db/schema';
 import {
   getCachedCalendar,
@@ -12809,7 +12853,6 @@ import {
   type FriendCalendarBundle,
 } from './friendCache';
 const DEBUG = import.meta.env.DEV;
-const functions = new Functions(client);
 type AppwriteRow = Record<string, unknown>;
 function mapTaskRow(row: AppwriteRow): TaskDocument {
   return {
@@ -12885,30 +12928,22 @@ export async function fetchFriendCalendar(
       'server'
     );
   }
-  const execution = await guardedCall(async () => {
-    const exec = await functions.createExecution({
-      functionId: MESSAGE_ACTION_FUNCTION_ID,
-      body: JSON.stringify({
-        action: 'get_friend_calendar',
-        friendUserId,
-      }),
-      async: false,
-      xpath: '/',
-      method: ExecutionMethod.POST,
-    });
-    if (exec.status !== 'completed') {
-      throw new FriendAccessError(
-        'The request did not complete.',
-        'server'
-      );
-    }
-    if (exec.responseStatusCode === 401) {
-      const err = new Error('Unauthorized');
-      (err as { code?: number }).code = 401;
-      throw err;
-    }
-    return exec;
+  const execution = await guardedFunctions.createExecution({
+    functionId: MESSAGE_ACTION_FUNCTION_ID,
+    body: JSON.stringify({
+      action: 'get_friend_calendar',
+      friendUserId,
+    }),
+    async: false,
+    xpath: '/',
+    method: ExecutionMethod.POST,
   });
+  if (execution.status !== 'completed') {
+    throw new FriendAccessError(
+      'The request did not complete.',
+      'server'
+    );
+  }
   const statusCode = execution.responseStatusCode;
   let parsed: {
     tasks?: AppwriteRow[];
@@ -13004,16 +13039,15 @@ export async function deleteCachedImage(fileId: string): Promise<void> {
 </file>
 
 <file path="src/lib/messageDelivery.ts">
-import { Functions, ExecutionMethod } from 'appwrite';
+import { ExecutionMethod } from 'appwrite';
 import type { RxDocument } from 'rxdb';
-import { client } from './appwrite';
 import { getDatabase } from '../db/database';
-import { guardedCall } from './authEvents';
+import { guardedFunctions } from './sdk';
 import type { MessageDocument } from '../db/schema';
 const DEBUG = import.meta.env.DEV;
 export const MESSAGE_ACTION_FUNCTION_ID = '6aa8057f002a4c306fdd';
-const functions = new Functions(client);
 const SEND_TIMEOUT_MS = 15_000;
+const MAX_DELIVERY_LOOPS = 5;
 let inFlightDeliveryPromise: Promise<void> | null = null;
 let deliveryRequestedDuringFlight = false;
 export async function sendMessageAction(
@@ -13026,45 +13060,42 @@ export async function sendMessageAction(
     throw new Error('MESSAGE_ACTION_FUNCTION_ID not configured');
   }
   let timeoutId: ReturnType<typeof setTimeout> | null = null;
-  const execution = await guardedCall(async () => {
-    const execPromise = functions.createExecution({
-      functionId: MESSAGE_ACTION_FUNCTION_ID,
-      body: JSON.stringify(payload),
-      async: false,
-      xpath: '/',
-      method: ExecutionMethod.POST,
-    });
-    execPromise.catch(() => {});
-    const exec = await Promise.race([
-      execPromise,
-      new Promise<never>((_, reject) => {
-        timeoutId = setTimeout(
-          () =>
-            reject(
-              new Error(
-                `Message action timed out after ${SEND_TIMEOUT_MS}ms`
-              )
-            ),
-          SEND_TIMEOUT_MS
-        );
-      }),
-    ]);
-    if (
-      exec.status !== 'completed' ||
-      exec.responseStatusCode >= 400
-    ) {
-      const err = new Error(
-        `Message action failed (${exec.responseStatusCode}): ${exec.responseBody}`
+  const execPromise = guardedFunctions.createExecution({
+    functionId: MESSAGE_ACTION_FUNCTION_ID,
+    body: JSON.stringify(payload),
+    async: false,
+    xpath: '/',
+    method: ExecutionMethod.POST,
+  });
+  execPromise.catch(() => {});
+  const execution = await Promise.race([
+    execPromise,
+    new Promise<never>((_, reject) => {
+      timeoutId = setTimeout(
+        () =>
+          reject(
+            new Error(
+              `Message action timed out after ${SEND_TIMEOUT_MS}ms`
+            )
+          ),
+        SEND_TIMEOUT_MS
       );
-      (err as { code?: number }).code = exec.responseStatusCode;
-      throw err;
-    }
-    return exec;
-  }).finally(() => {
+    }),
+  ]).finally(() => {
     if (timeoutId !== null) {
       clearTimeout(timeoutId);
     }
   });
+  if (
+    execution.status !== 'completed' ||
+    execution.responseStatusCode >= 400
+  ) {
+    const err = new Error(
+      `Message action failed (${execution.responseStatusCode}): ${execution.responseBody}`
+    );
+    (err as { code?: number }).code = execution.responseStatusCode;
+    throw err;
+  }
   try {
     return JSON.parse(execution.responseBody) as Record<string, unknown>;
   } catch {
@@ -13088,7 +13119,15 @@ export async function deliverPendingMessages(userId: string): Promise<void> {
   }
   inFlightDeliveryPromise = (async () => {
     try {
+      let loopCount = 0;
       for (;;) {
+        loopCount++;
+        if (loopCount > MAX_DELIVERY_LOOPS) {
+          console.warn(
+            `[messageDelivery] delivery loop hit cap (${MAX_DELIVERY_LOOPS}); breaking`
+          );
+          break;
+        }
         deliveryRequestedDuringFlight = false;
         let db;
         try {
@@ -13355,14 +13394,160 @@ export function hasUserReacted(
 }
 </file>
 
+<file path="src/lib/sdk.ts">
+import { Functions, Storage, TablesDB } from 'appwrite';
+import { client, account } from './appwrite';
+import { guardedCall, makeUnauthorizedError } from './authEvents';
+const rawTablesDB = new TablesDB(client);
+const rawStorage = new Storage(client);
+const rawFunctions = new Functions(client);
+const rawAccount = account;
+type ListRowsParams = {
+  databaseId: string;
+  tableId: string;
+  queries?: string[];
+  transactionId?: string;
+  total?: boolean;
+  ttl?: number;
+};
+type GetRowParams = {
+  databaseId: string;
+  tableId: string;
+  rowId: string;
+  queries?: string[];
+  transactionId?: string;
+};
+type UpdateRowParams = {
+  databaseId: string;
+  tableId: string;
+  rowId: string;
+  data?: Record<string, unknown>;
+  permissions?: string[];
+  transactionId?: string;
+};
+type UpsertRowParams = {
+  databaseId: string;
+  tableId: string;
+  rowId: string;
+  data?: Record<string, unknown>;
+  permissions?: string[];
+  transactionId?: string;
+};
+type CreateRowParams = {
+  databaseId: string;
+  tableId: string;
+  rowId: string;
+  data: Record<string, unknown>;
+  permissions?: string[];
+  transactionId?: string;
+};
+type DeleteRowParams = {
+  databaseId: string;
+  tableId: string;
+  rowId: string;
+  transactionId?: string;
+};
+type CreateFileParams = {
+  bucketId: string;
+  fileId: string;
+  file: File;
+  permissions?: string[];
+  onProgress?: (progress: unknown) => void;
+};
+type DeleteFileParams = {
+  bucketId: string;
+  fileId: string;
+};
+type GetFileViewParams = {
+  bucketId: string;
+  fileId: string;
+  token?: string;
+};
+type GetFilePreviewParams = {
+  bucketId: string;
+  fileId: string;
+  width?: number;
+  height?: number;
+  gravity?: string;
+  quality?: number;
+  borderWidth?: number;
+  borderColor?: string;
+  borderRadius?: number;
+  opacity?: number;
+  rotation?: number;
+  background?: string;
+  output?: string;
+  token?: string;
+};
+type CreateExecutionParams = {
+  functionId: string;
+  body?: string;
+  async?: boolean;
+  xpath?: string;
+  method?: string;
+  headers?: Record<string, string>;
+  scheduledAt?: string;
+};
+type ListRowsResult = Awaited<ReturnType<typeof rawTablesDB.listRows>>;
+type GetRowResult = Awaited<ReturnType<typeof rawTablesDB.getRow>>;
+type UpdateRowResult = Awaited<ReturnType<typeof rawTablesDB.updateRow>>;
+type UpsertRowResult = Awaited<ReturnType<typeof rawTablesDB.upsertRow>>;
+type CreateRowResult = Awaited<ReturnType<typeof rawTablesDB.createRow>>;
+type DeleteRowResult = Awaited<ReturnType<typeof rawTablesDB.deleteRow>>;
+type CreateFileResult = Awaited<ReturnType<typeof rawStorage.createFile>>;
+type DeleteFileResult = Awaited<ReturnType<typeof rawStorage.deleteFile>>;
+type GetFileViewResult = ReturnType<typeof rawStorage.getFileView>;
+type GetFilePreviewResult = ReturnType<typeof rawStorage.getFilePreview>;
+type CreateExecutionResult = Awaited<
+  ReturnType<typeof rawFunctions.createExecution>
+>;
+type AccountGetResult = Awaited<ReturnType<typeof rawAccount.get>>;
+export const guardedTablesDB = {
+  listRows: (params: ListRowsParams): Promise<ListRowsResult> =>
+    guardedCall(() => rawTablesDB.listRows(params as never)),
+  getRow: (params: GetRowParams): Promise<GetRowResult> =>
+    guardedCall(() => rawTablesDB.getRow(params as never)),
+  updateRow: (params: UpdateRowParams): Promise<UpdateRowResult> =>
+    guardedCall(() => rawTablesDB.updateRow(params as never)),
+  upsertRow: (params: UpsertRowParams): Promise<UpsertRowResult> =>
+    guardedCall(() => rawTablesDB.upsertRow(params as never)),
+  createRow: (params: CreateRowParams): Promise<CreateRowResult> =>
+    guardedCall(() => rawTablesDB.createRow(params as never)),
+  deleteRow: (params: DeleteRowParams): Promise<DeleteRowResult> =>
+    guardedCall(() => rawTablesDB.deleteRow(params as never)),
+};
+export const guardedStorage = {
+  createFile: (params: CreateFileParams): Promise<CreateFileResult> =>
+    guardedCall(() => rawStorage.createFile(params as never)),
+  deleteFile: (params: DeleteFileParams): Promise<DeleteFileResult> =>
+    guardedCall(() => rawStorage.deleteFile(params as never)),
+  getFileView: (params: GetFileViewParams): GetFileViewResult =>
+    rawStorage.getFileView(params as never),
+  getFilePreview: (params: GetFilePreviewParams): GetFilePreviewResult =>
+    rawStorage.getFilePreview(params as never),
+};
+export const guardedFunctions = {
+  createExecution: (
+    params: CreateExecutionParams
+  ): Promise<CreateExecutionResult> =>
+    guardedCall(async () => {
+      const execution = await rawFunctions.createExecution(params as never);
+      if (execution.responseStatusCode === 401) {
+        throw makeUnauthorizedError('Function call unauthorized');
+      }
+      return execution;
+    }),
+};
+export const guardedAccount = {
+  get: (): Promise<AccountGetResult> => guardedCall(() => rawAccount.get()),
+};
+</file>
+
 <file path="src/lib/social.ts">
-import { TablesDB, Permission, Role, Query } from 'appwrite';
-import { client } from './appwrite';
+import { Permission, Role, Query } from 'appwrite';
 import { getDatabase } from '../db/database';
-import {
-  isUnauthorizedError,
-  guardedCall,
-} from './authEvents';
+import { isUnauthorizedError } from './authEvents';
+import { guardedTablesDB } from './sdk';
 import type { FriendshipDocument } from '../db/schema';
 const DEBUG = import.meta.env.DEV;
 const APPWRITE_CONFIG = {
@@ -13372,7 +13557,6 @@ const APPWRITE_CONFIG = {
     friendships: 'friendships',
   },
 } as const;
-const tablesDB = new TablesDB(client);
 export type FriendStatus =
   | 'pending_outgoing'
   | 'pending_incoming'
@@ -13429,13 +13613,11 @@ export async function fetchMyProfile(
   userId: string
 ): Promise<ProfileCard | null> {
   try {
-    const row = await guardedCall(() =>
-      tablesDB.getRow({
-        databaseId: APPWRITE_CONFIG.databaseId,
-        tableId: APPWRITE_CONFIG.tables.profiles,
-        rowId: `profile_${userId}`,
-      })
-    );
+    const row = await guardedTablesDB.getRow({
+      databaseId: APPWRITE_CONFIG.databaseId,
+      tableId: APPWRITE_CONFIG.tables.profiles,
+      rowId: `profile_${userId}`,
+    });
     if (!row || (row as Record<string, unknown>).deleted === true) return null;
     return row as unknown as ProfileCard;
   } catch (err: unknown) {
@@ -13466,45 +13648,41 @@ export async function createOrUpdateProfile(
     updated_at: now,
     deleted: false,
   };
-  const row = await guardedCall(() =>
-    tablesDB.upsertRow({
-      databaseId: APPWRITE_CONFIG.databaseId,
-      tableId: APPWRITE_CONFIG.tables.profiles,
-      rowId,
-      data,
-      permissions: buildProfileRowPermissions(input.userId),
-    })
-  );
+  const row = await guardedTablesDB.upsertRow({
+    databaseId: APPWRITE_CONFIG.databaseId,
+    tableId: APPWRITE_CONFIG.tables.profiles,
+    rowId,
+    data,
+    permissions: buildProfileRowPermissions(input.userId),
+  });
   if (DEBUG) console.log('[social] Profile upserted:', rowId);
   return row as unknown as ProfileCard;
 }
 /**
  * Returns:
  *   true  — username is available
- *   false — username is taken, or the check failed for a non-auth reason
- *   null  — session expired (401); a global redirect is already in flight
- *
- * Callers MUST branch on null before showing a "username taken" error.
+ *   false — username is taken
+ *   null  — could not determine (session expired, network failure, or
+ *           server error). Callers MUST branch on null before showing a
+ *           "username taken" error.
  */
 export async function isUsernameAvailable(
   username: string
 ): Promise<boolean | null> {
   try {
-    const res = await guardedCall(() =>
-      tablesDB.listRows({
-        databaseId: APPWRITE_CONFIG.databaseId,
-        tableId: APPWRITE_CONFIG.tables.profiles,
-        queries: [
-          Query.equal('username', username.toLowerCase()),
-          Query.limit(1),
-        ],
-      })
-    );
+    const res = await guardedTablesDB.listRows({
+      databaseId: APPWRITE_CONFIG.databaseId,
+      tableId: APPWRITE_CONFIG.tables.profiles,
+      queries: [
+        Query.equal('username', username.toLowerCase()),
+        Query.limit(1),
+      ],
+    });
     return (res.rows || []).length === 0;
   } catch (err) {
     if (isUnauthorizedError(err)) return null;
     console.error('[social] isUsernameAvailable failed:', err);
-    return false;
+    return null;
   }
 }
 export async function searchProfiles(
@@ -13514,17 +13692,15 @@ export async function searchProfiles(
 ): Promise<ProfileCard[]> {
   const trimmed = query.trim().toLowerCase();
   if (trimmed.length < 1) return [];
-  const res = await guardedCall(() =>
-    tablesDB.listRows({
-      databaseId: APPWRITE_CONFIG.databaseId,
-      tableId: APPWRITE_CONFIG.tables.profiles,
-      queries: [
-        Query.startsWith('username', trimmed),
-        Query.equal('deleted', false),
-        Query.limit(limit),
-      ],
-    })
-  );
+  const res = await guardedTablesDB.listRows({
+    databaseId: APPWRITE_CONFIG.databaseId,
+    tableId: APPWRITE_CONFIG.tables.profiles,
+    queries: [
+      Query.startsWith('username', trimmed),
+      Query.equal('deleted', false),
+      Query.limit(limit),
+    ],
+  });
   const rows = (res.rows || []) as unknown as ProfileCard[];
   return rows.filter((r) => r.user_id !== excludeUserId);
 }
@@ -13565,26 +13741,24 @@ export async function sendFriendRequest(
     isDeleted: false,
   };
   await db.friendships.upsert(myLocalRow);
-  await guardedCall(() =>
-    tablesDB.upsertRow({
-      databaseId: APPWRITE_CONFIG.databaseId,
-      tableId: APPWRITE_CONFIG.tables.friendships,
-      rowId: friendRowId,
-      data: {
-        user_id: friend.user_id,
-        friend_id: myUserId,
-        friend_username: myUsername,
-        friend_display_name: myDisplayName,
-        friend_avatar_file_id: myAvatarFileId,
-        friend_bio: myBio,
-        status: 'pending_incoming',
-        created_at: now,
-        updated_at: now,
-        deleted: false,
-      },
-      permissions: buildCreatorOwnPermissions(myUserId),
-    })
-  );
+  await guardedTablesDB.upsertRow({
+    databaseId: APPWRITE_CONFIG.databaseId,
+    tableId: APPWRITE_CONFIG.tables.friendships,
+    rowId: friendRowId,
+    data: {
+      user_id: friend.user_id,
+      friend_id: myUserId,
+      friend_username: myUsername,
+      friend_display_name: myDisplayName,
+      friend_avatar_file_id: myAvatarFileId,
+      friend_bio: myBio,
+      status: 'pending_incoming',
+      created_at: now,
+      updated_at: now,
+      deleted: false,
+    },
+    permissions: buildCreatorOwnPermissions(myUserId),
+  });
   if (DEBUG)
     console.log('[social] Friend request sent:', myRowId, friendRowId);
 }
@@ -13600,14 +13774,12 @@ export async function acceptFriendRequest(
   if (localDoc) {
     await localDoc.patch({ status: 'accepted', updatedAt: now });
   }
-  await guardedCall(() =>
-    tablesDB.updateRow({
-      databaseId: APPWRITE_CONFIG.databaseId,
-      tableId: APPWRITE_CONFIG.tables.friendships,
-      rowId: friendRowId,
-      data: { status: 'accepted', updated_at: now },
-    })
-  );
+  await guardedTablesDB.updateRow({
+    databaseId: APPWRITE_CONFIG.databaseId,
+    tableId: APPWRITE_CONFIG.tables.friendships,
+    rowId: friendRowId,
+    data: { status: 'accepted', updated_at: now },
+  });
   if (DEBUG) console.log('[social] Friend request accepted:', myRowId);
 }
 export async function deleteFriendPair(
@@ -13623,14 +13795,12 @@ export async function deleteFriendPair(
     await localDoc.patch({ isDeleted: true, updatedAt: now });
   }
   try {
-    await guardedCall(() =>
-      tablesDB.updateRow({
-        databaseId: APPWRITE_CONFIG.databaseId,
-        tableId: APPWRITE_CONFIG.tables.friendships,
-        rowId: friendRowId,
-        data: { deleted: true, updated_at: now },
-      })
-    );
+    await guardedTablesDB.updateRow({
+      databaseId: APPWRITE_CONFIG.databaseId,
+      tableId: APPWRITE_CONFIG.tables.friendships,
+      rowId: friendRowId,
+      data: { deleted: true, updated_at: now },
+    });
   } catch (err: unknown) {
     const code = (err as { code?: number })?.code;
     if (code !== 404) {
@@ -13652,14 +13822,12 @@ export async function blockFriend(
     await localDoc.patch({ status: 'blocked', updatedAt: now });
   }
   try {
-    await guardedCall(() =>
-      tablesDB.updateRow({
-        databaseId: APPWRITE_CONFIG.databaseId,
-        tableId: APPWRITE_CONFIG.tables.friendships,
-        rowId: friendRowId,
-        data: { status: 'blocked', updated_at: now },
-      })
-    );
+    await guardedTablesDB.updateRow({
+      databaseId: APPWRITE_CONFIG.databaseId,
+      tableId: APPWRITE_CONFIG.tables.friendships,
+      rowId: friendRowId,
+      data: { status: 'blocked', updated_at: now },
+    });
   } catch (err) {
     console.warn('[social] blockFriend remote update failed:', err);
   }
@@ -13685,15 +13853,14 @@ export async function updateFriendBioLocally(
 
 <file path="src/lib/storage.ts">
 import imageCompression from 'browser-image-compression';
-import { client, account } from './appwrite';
-import { Storage, Permission, Role } from 'appwrite';
-import { guardedCall } from './authEvents';
+import { Permission, Role } from 'appwrite';
+import { guardedCall, makeUnauthorizedError } from './authEvents';
+import { guardedStorage, guardedAccount } from './sdk';
 const APPWRITE_CONFIG = {
   endpoint: 'https://sgp.cloud.appwrite.io',
   projectId: '6a9703c50016b37110ff',
   bucketId: 'task_images',
 };
-const storage = new Storage(client);
 export async function compressImage(file: File): Promise<Blob> {
   const options = {
     maxSizeMB: 0.15,
@@ -13730,7 +13897,7 @@ function generateFileId(): string {
 }
 async function getCurrentUserId(): Promise<string | null> {
   try {
-    const user = await guardedCall(() => account.get());
+    const user = await guardedAccount.get();
     return user?.$id || null;
   } catch {
     return null;
@@ -13754,14 +13921,12 @@ export async function uploadImage(file: File): Promise<string> {
     type: 'image/webp',
   });
   try {
-    await guardedCall(() =>
-      storage.createFile({
-        bucketId: APPWRITE_CONFIG.bucketId,
-        fileId: fileId,
-        file: webpFile,
-        permissions: buildFilePermissions(userId),
-      })
-    );
+    await guardedStorage.createFile({
+      bucketId: APPWRITE_CONFIG.bucketId,
+      fileId: fileId,
+      file: webpFile,
+      permissions: buildFilePermissions(userId),
+    });
     return fileId;
   } catch (error) {
     console.error('[Storage] Upload failed:', error);
@@ -13826,7 +13991,7 @@ export async function getLocalImageUrl(fileId: string): Promise<string | null> {
   }
   if (!navigator.onLine) return null;
   try {
-    const url = storage.getFileView({
+    const url = guardedStorage.getFileView({
       bucketId: APPWRITE_CONFIG.bucketId,
       fileId: fileId,
     });
@@ -13836,9 +14001,7 @@ export async function getLocalImageUrl(fileId: string): Promise<string | null> {
         headers: { 'X-Appwrite-Project': APPWRITE_CONFIG.projectId },
       });
       if (r.status === 401) {
-        const err = new Error('Unauthorized');
-        (err as { code?: number }).code = 401;
-        throw err;
+        throw makeUnauthorizedError();
       }
       return r;
     });
@@ -13853,12 +14016,10 @@ export async function getLocalImageUrl(fileId: string): Promise<string | null> {
 }
 export async function deleteImage(fileId: string): Promise<void> {
   try {
-    await guardedCall(() =>
-      storage.deleteFile({
-        bucketId: APPWRITE_CONFIG.bucketId,
-        fileId: fileId,
-      })
-    );
+    await guardedStorage.deleteFile({
+      bucketId: APPWRITE_CONFIG.bucketId,
+      fileId: fileId,
+    });
   } catch (err) {
     console.warn(
       '[Storage] Failed to delete image from Appwrite:',
@@ -13869,7 +14030,7 @@ export async function deleteImage(fileId: string): Promise<void> {
   await deleteCachedImage(fileId);
 }
 export function getImagePreviewUrl(fileId: string): string {
-  const url = storage.getFilePreview({
+  const url = guardedStorage.getFilePreview({
     bucketId: APPWRITE_CONFIG.bucketId,
     fileId: fileId,
     width: 200,
@@ -13878,7 +14039,7 @@ export function getImagePreviewUrl(fileId: string): string {
   return url.toString();
 }
 export function getImageFullUrl(fileId: string): string {
-  const url = storage.getFileView({
+  const url = guardedStorage.getFileView({
     bucketId: APPWRITE_CONFIG.bucketId,
     fileId: fileId,
   });
@@ -14721,9 +14882,13 @@ export const ChatPage: React.FC = () => {
   const handleReactFromSheet = useCallback(
     (emoji: string) => {
       if (!actionMessage) return;
-      toggleReaction(actionMessage.id, emoji).catch((err) =>
-        console.error('[ChatPage] react failed:', err)
-      );
+      toggleReaction(actionMessage.id, emoji)
+        .then((result) => {
+          if (result === 'timeout') {
+            setFeedback("Couldn't send reaction. Try again.");
+          }
+        })
+        .catch((err) => console.error('[ChatPage] react failed:', err));
     },
     [actionMessage, toggleReaction]
   );
@@ -14735,18 +14900,26 @@ export const ChatPage: React.FC = () => {
   const handleEmojiPicked = useCallback(
     (emoji: string) => {
       if (!reactionTarget) return;
-      toggleReaction(reactionTarget.id, emoji).catch((err) =>
-        console.error('[ChatPage] react failed:', err)
-      );
+      toggleReaction(reactionTarget.id, emoji)
+        .then((result) => {
+          if (result === 'timeout') {
+            setFeedback("Couldn't send reaction. Try again.");
+          }
+        })
+        .catch((err) => console.error('[ChatPage] react failed:', err));
       setReactionTarget(null);
     },
     [reactionTarget, toggleReaction]
   );
   const handleBubbleReact = useCallback(
     (messageId: string, emoji: string) => {
-      toggleReaction(messageId, emoji).catch((err) =>
-        console.error('[ChatPage] react failed:', err)
-      );
+      toggleReaction(messageId, emoji)
+        .then((result) => {
+          if (result === 'timeout') {
+            setFeedback("Couldn't send reaction. Try again.");
+          }
+        })
+        .catch((err) => console.error('[ChatPage] react failed:', err));
     },
     [toggleReaction]
   );
@@ -16290,6 +16463,7 @@ dist-ssr
 
 .mosaic-backup/
 pending-changes.txt
+*.ext
 </file>
 
 <file path="apply-changes.mjs">
@@ -16328,9 +16502,41 @@ function parseMegaFile(content) {
   const fenceMatch = text.match(/^(~~~+|`{3,})mosaic\s*\n([\s\S]*?)\n\1\s*$/);
   if (fenceMatch) text = fenceMatch[1];
   const lines = text.split(/\r?\n/);
+  // Pass 1: mark lines that are inside a Markdown fence (``` or ~~~).
+  // Fence-boundary lines are also marked true so they are never treated as
+  // directives. This makes `===FILE:...===` examples inside documentation
+  // code blocks inert — critical for PROJECT_CONTEXT.md §5.1, which documents
+  // the mega-file format by showing literal directive lines inside a fence.
+  const insideFence = new Array(lines.length).fill(false);
+  let fenceChar = null;
+  let fenceLen = 0;
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const m = line.match(/^(`{3,}|~{3,})/);
+    if (m) {
+      const ch = m[1][0];
+      const len = m[1].length;
+      if (fenceChar === null) {
+        fenceChar = ch;
+        fenceLen = len;
+        insideFence[i] = true;
+        continue;
+      }
+      if (ch === fenceChar && len >= fenceLen) {
+        fenceChar = null;
+        fenceLen = 0;
+        insideFence[i] = true;
+        continue;
+      }
+      insideFence[i] = true;
+      continue;
+    }
+    insideFence[i] = fenceChar !== null;
+  }
   const files = [], deletes = [];
   let commit = null, i = 0;
   while (i < lines.length) {
+    if (insideFence[i]) { i++; continue; }
     const m = lines[i].match(DIRECTIVE_RE);
     if (!m) { i++; continue; }
     const [, type, value] = m;
@@ -16339,7 +16545,8 @@ function parseMegaFile(content) {
     const path = value.trim();
     const contentLines = [];
     i++;
-    while (i < lines.length && !DIRECTIVE_RE.test(lines[i])) {
+    while (i < lines.length) {
+      if (!insideFence[i] && DIRECTIVE_RE.test(lines[i])) break;
       contentLines.push(lines[i]);
       i++;
     }
@@ -16491,7 +16698,7 @@ import reactRefresh from 'eslint-plugin-react-refresh'
 import tseslint from 'typescript-eslint'
 import { defineConfig, globalIgnores } from 'eslint/config'
 export default defineConfig([
-  globalIgnores(['dist']),
+  globalIgnores(['dist', '.mosaic-backup']),
   {
     files: ['**/*.{ts,tsx}'],
     extends: [
@@ -16502,6 +16709,27 @@ export default defineConfig([
     ],
     languageOptions: {
       globals: globals.browser,
+    },
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          paths: [
+            {
+              name: 'appwrite',
+              importNames: ['TablesDB', 'Storage', 'Functions', 'Account'],
+              message:
+                'Import the guarded SDK surface from src/lib/sdk.ts instead. Raw SDK service classes may only be constructed in src/lib/sdk.ts and src/lib/appwrite.ts.',
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    files: ['src/lib/sdk.ts', 'src/lib/appwrite.ts'],
+    rules: {
+      'no-restricted-imports': 'off',
     },
   },
 ])

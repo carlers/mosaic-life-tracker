@@ -29,7 +29,6 @@ function readMeView(): ViewType {
 export const PersonPane: React.FC<PersonPaneProps> = ({ person, isActive }) => {
   const { user } = useAuth();
   const currentUserId = user?.$id ?? '';
-
   const isMe = person.kind === 'me';
   const [activeView, setActiveView] = useState<ViewType>(() =>
     isMe ? readMeView() : 'calendar'
@@ -45,6 +44,7 @@ export const PersonPane: React.FC<PersonPaneProps> = ({ person, isActive }) => {
 
   const calendarState = useCalendarState();
   const { resetToToday } = calendarState;
+
   useEffect(() => {
     if (!isActive) return;
     resetToToday();
@@ -61,8 +61,6 @@ export const PersonPane: React.FC<PersonPaneProps> = ({ person, isActive }) => {
     errorKind: friendErrorKind,
     reactToTask,
   } = useFriendCalendar(friendId);
-
-  // useMessages is fine to call with null — it no-ops.
   const { sendTaskReaction } = useMessages(friendId);
 
   const [feedback, setFeedback] = useState<string | null>(null);
@@ -147,6 +145,8 @@ export const PersonPane: React.FC<PersonPaneProps> = ({ person, isActive }) => {
           <CalendarBody
             viewMode={calendarState.viewMode}
             slides={calendarState.slides}
+            renderStart={calendarState.renderStart}
+            renderEnd={calendarState.renderEnd}
             emblaRef={calendarState.emblaRef}
             tasks={tasks}
             categoriesMap={categoriesMap}
@@ -159,7 +159,6 @@ export const PersonPane: React.FC<PersonPaneProps> = ({ person, isActive }) => {
           />
         )}
       </div>
-
       {feedback && (
         <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[70] bg-[#2A2A2A] border border-[#444444] text-white text-sm px-5 py-2.5 rounded-full shadow-lg backdrop-blur-md animate-in fade-in slide-in-from-bottom-2 duration-200">
           {feedback}

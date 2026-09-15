@@ -42,6 +42,8 @@ CalendarSlide.displayName = 'CalendarSlide';
 interface CalendarBodyProps {
   viewMode: CalendarViewMode;
   slides: Date[];
+  renderStart: number;
+  renderEnd: number;
   emblaRef: (node: HTMLElement | null) => void;
   tasks: TaskDocument[];
   categoriesMap: Record<string, { color: string; name: string }>;
@@ -56,6 +58,8 @@ interface CalendarBodyProps {
 export const CalendarBody: React.FC<CalendarBodyProps> = ({
   viewMode,
   slides,
+  renderStart,
+  renderEnd,
   emblaRef,
   tasks,
   categoriesMap,
@@ -74,11 +78,9 @@ export const CalendarBody: React.FC<CalendarBodyProps> = ({
   const handleDayClick = useCallback((date: Date) => {
     setSelectedDate(date);
   }, []);
-
   const handleCloseSheet = useCallback(() => {
     setSelectedDate(null);
   }, []);
-
   const handleReplyToTask = useCallback(
     (task: TaskDocument, color: string) => {
       setReplyTask(task);
@@ -86,7 +88,6 @@ export const CalendarBody: React.FC<CalendarBodyProps> = ({
     },
     []
   );
-
   const handleReplySent = useCallback((msg: string) => {
     setFeedback(msg);
     setTimeout(() => setFeedback(null), 2000);
@@ -102,18 +103,19 @@ export const CalendarBody: React.FC<CalendarBodyProps> = ({
               className="flex-shrink-0 h-full w-full"
               style={{ flex: '0 0 100%', minWidth: 0 }}
             >
-              <CalendarSlide
-                date={date}
-                viewMode={viewMode}
-                onDayClick={handleDayClick}
-                tasks={tasks}
-                categoriesMap={categoriesMap}
-              />
+              {i >= renderStart && i <= renderEnd ? (
+                <CalendarSlide
+                  date={date}
+                  viewMode={viewMode}
+                  onDayClick={handleDayClick}
+                  tasks={tasks}
+                  categoriesMap={categoriesMap}
+                />
+              ) : null}
             </div>
           ))}
         </div>
       </div>
-
       {variant === 'me' ? (
         <DayViewSheet
           isOpen={!!selectedDate}
