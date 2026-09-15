@@ -1,7 +1,7 @@
 import { Functions, ExecutionMethod } from 'appwrite';
 import { client } from './appwrite';
 import { MESSAGE_ACTION_FUNCTION_ID } from './messageDelivery';
-import { isUnauthorizedError, dispatchUnauthorized } from './authEvents';
+import { guardedCall } from './authEvents';
 import type { TaskDocument, CategoryDocument } from '../db/schema';
 import {
   getCachedCalendar,
@@ -96,9 +96,8 @@ export async function fetchFriendCalendar(
     );
   }
 
-  let execution;
-  try {
-    execution = await functions.createExecution({
+  const execution = await guardedCall(async () => {
+    const exec = await functions.createExecution({
       functionId: MESSAGE_ACTION_FUNCTION_ID,
       body: JSON.stringify({
         action: 'get_friend_calendar',
@@ -108,19 +107,24 @@ export async function fetchFriendCalendar(
       xpath: '/',
       method: ExecutionMethod.POST,
     });
-  } catch (err) {
-    if (isUnauthorizedError(err)) dispatchUnauthorized();
-    console.error('[friendData] Function call failed:', err);
-    throw new FriendAccessError(
-      'Could not reach the server. Check your connection.',
-      'server'
-    );
-  }
 
-  if (execution.status !== 'completed') {
-    console.error('[friendData] Execution not completed:', execution.status);
-    throw new FriendAccessError('The request did not complete.', 'server');
-  }
+    if (exec.status !== 'completed') {
+      throw new FriendAccessError(
+        'The request did not complete.',
+        'server'
+      );
+    }
+
+    // Convert function-level 401 to a synthetic 401 error so guardedCall
+    // dispatches the global unauthorized event.
+    if (exec.responseStatusCode === 401) {
+      const err = new Error('Unauthorized');
+      (err as { code?: number }).code = 401;
+      throw err;
+    }
+
+    return exec;
+  });
 
   const statusCode = execution.responseStatusCode;
 
@@ -137,14 +141,6 @@ export async function fetchFriendCalendar(
     throw new FriendAccessError('Unexpected server response.', 'server');
   }
 
-  if (statusCode === 401) {
-    // Session expired or revoked — notify the AuthProvider.
-    dispatchUnauthorized();
-    throw new FriendAccessError(
-      'Your session expired. Please sign in again.',
-      'server'
-    );
-  }
   if (statusCode === 403) {
     throw new FriendAccessError(
       'You are not friends with this user.',

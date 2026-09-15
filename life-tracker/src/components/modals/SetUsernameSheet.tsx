@@ -25,9 +25,9 @@ export const SetUsernameSheet: React.FC<SetUsernameSheetProps> = ({
   const [displayName, setDisplayName] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isSessionExpired, setIsSessionExpired] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Render-body reset
   const [syncedIsOpen, setSyncedIsOpen] = useState(false);
   if (isOpen !== syncedIsOpen) {
     setSyncedIsOpen(isOpen);
@@ -36,6 +36,7 @@ export const SetUsernameSheet: React.FC<SetUsernameSheetProps> = ({
       setDisplayName(profile?.display_name || user?.name || '');
       setError(null);
       setIsSaving(false);
+      setIsSessionExpired(false);
     }
   }
 
@@ -47,6 +48,7 @@ export const SetUsernameSheet: React.FC<SetUsernameSheetProps> = ({
   }, [isOpen]);
 
   const handleSave = async () => {
+    if (isSessionExpired) return;
     const trimmed = username.trim().toLowerCase();
     if (!USERNAME_REGEX.test(trimmed)) {
       setError('Username must be 3–20 characters: a–z, 0–9, underscore.');
@@ -56,27 +58,30 @@ export const SetUsernameSheet: React.FC<SetUsernameSheetProps> = ({
       setError('Please enter a display name.');
       return;
     }
-
     setIsSaving(true);
     setError(null);
-
     try {
       if (!profile || profile.username !== trimmed) {
         const available = await checkUsername(trimmed);
-        if (!available) {
+        if (available === null) {
+          // Session expired. The global redirect is already in flight.
+          setIsSessionExpired(true);
+          setError('Your session expired. Please sign in again.');
+          setIsSaving(false);
+          return;
+        }
+        if (available === false) {
           setError('That username is already taken.');
           setIsSaving(false);
           return;
         }
       }
-
       const created = await createProfile({
         username: trimmed,
         displayName: displayName.trim(),
         avatarFileId: profile?.avatar_file_id || '',
         bio: profile?.bio || '',
       });
-
       if (created) {
         onSuccess?.(created.username);
         onClose();
@@ -102,13 +107,11 @@ export const SetUsernameSheet: React.FC<SetUsernameSheetProps> = ({
         <p className="text-sm text-gray-400 text-center leading-relaxed">
           Your username is how friends find and add you. It must be unique.
         </p>
-
         {error && (
           <div className="bg-red-900/20 border border-red-500/30 text-red-400 text-sm p-3 rounded-xl">
             {error}
           </div>
         )}
-
         <div className="w-full">
           <label className="block text-xs text-gray-500 mb-1.5 ml-1">
             Username
@@ -122,14 +125,17 @@ export const SetUsernameSheet: React.FC<SetUsernameSheetProps> = ({
               type="text"
               value={username}
               onChange={(e) =>
-                setUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ''))
+                setUsername(
+                  e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, '')
+                )
               }
               placeholder="your_handle"
               maxLength={20}
               autoCapitalize="none"
               autoCorrect="off"
               spellCheck={false}
-              className="w-full bg-[#1E1E1E] text-white border border-[#333333] rounded-lg pl-8 pr-4 py-2.5 focus:border-[#555555] focus:outline-none transition-colors placeholder-gray-600"
+              disabled={isSessionExpired}
+              className="w-full bg-[#1E1E1E] text-white border border-[#333333] rounded-lg pl-8 pr-4 py-2.5 focus:border-[#555555] focus:outline-none transition-colors placeholder-gray-600 disabled:opacity-50"
               onPointerDown={(e) => e.stopPropagation()}
             />
           </div>
@@ -137,20 +143,24 @@ export const SetUsernameSheet: React.FC<SetUsernameSheetProps> = ({
             3–20 characters · a–z, 0–9, underscore
           </p>
         </div>
-
         <Input
           label="Display Name"
           value={displayName}
           onChange={(e) => setDisplayName(e.target.value)}
           placeholder="Your Name"
           maxLength={50}
+          disabled={isSessionExpired}
         />
-
         <Button
           variant="primary"
           className="w-full gap-2 py-3"
           onClick={handleSave}
-          disabled={isSaving || !username.trim() || !displayName.trim()}
+          disabled={
+            isSaving ||
+            isSessionExpired ||
+            !username.trim() ||
+            !displayName.trim()
+          }
         >
           {isSaving ? (
             <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />

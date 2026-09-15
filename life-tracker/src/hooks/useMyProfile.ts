@@ -16,7 +16,13 @@ export interface UseMyProfileReturn {
     input: Omit<MyProfileInput, 'userId'>
   ) => Promise<ProfileCard | null>;
   refetch: () => Promise<void>;
-  checkUsername: (username: string) => Promise<boolean>;
+  /**
+   * Returns:
+   *   true  — username available
+   *   false — taken, or check failed for a non-auth reason
+   *   null  — session expired (401); redirect already in flight
+   */
+  checkUsername: (username: string) => Promise<boolean | null>;
 }
 
 export function useMyProfile(): UseMyProfileReturn {
@@ -64,7 +70,9 @@ export function useMyProfile(): UseMyProfileReturn {
   const createProfile = useCallback(
     async (input: Omit<MyProfileInput, 'userId'>) => {
       if (!userId) {
-        console.error('[useMyProfile] Cannot create profile: Not authenticated');
+        console.error(
+          '[useMyProfile] Cannot create profile: Not authenticated'
+        );
         return null;
       }
       try {
@@ -79,12 +87,14 @@ export function useMyProfile(): UseMyProfileReturn {
     [userId]
   );
 
-  const checkUsername = useCallback(async (username: string) => {
-    return isUsernameAvailable(username);
-  }, []);
+  const checkUsername = useCallback(
+    async (username: string): Promise<boolean | null> => {
+      return isUsernameAvailable(username);
+    },
+    []
+  );
 
   const isLoading = !!userId && loadedUserId !== userId;
-
   return {
     profile: userId && loadedUserId === userId ? profile : null,
     isLoading,

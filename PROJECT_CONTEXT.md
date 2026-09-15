@@ -410,3 +410,14 @@ The polling exists because the sync engine is conservative: it skips the pull ph
 - Do not navigate away from a protected screen on `logout()` failure. Surface an error and stay put
 - Do not merge `authContext.ts` into `AuthProvider.tsx` — it will break fast refresh
 - Do not treat offline errors as 401. The whole point of `isOffline` is that they're different
+
+---
+
+## Changelog
+
+| Date | Section(s) | Change | Source |
+|---|---|---|---|
+| 2026-09-15 | §4, §8, §9, §10, §15, §18, §19, §23 (new) | Introduced `AuthProvider` as single source of truth for session state; `useAuth` became a consumer shim; `logout()` now returns `boolean`; global `auth:unauthorized` event for mid-session 401; multi-tab `storage` broadcast; offline retry screen; sync kicks off after login | Bug Audit: Auth Context & Shared Session Architecture |
+| 2026-09-15 | §9, §10, §15, §18, §23.4–23.7 | Added `guardedCall` helper to centralize 401 dispatch; `isUsernameAvailable` returns `null` on 401; retry screen escape hatch + backoff + offline/online copy; `logout()` JSDoc; changelog added | Auth Lifecycle Concern Closure |
+
+Sections added or rewritten in bulk should be flagged in the changelog with `(new)` and listed on every subsequent edit that touches them.

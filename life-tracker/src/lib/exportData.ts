@@ -4,7 +4,7 @@ import { Storage } from 'appwrite';
 import { client } from './appwrite';
 import { getDatabase } from '../db/database';
 import { getCachedImage, cacheImage } from './imageCache';
-import { isUnauthorizedError, dispatchUnauthorized } from './authEvents';
+import { guardedCall } from './authEvents';
 import type {
   TaskDocument,
   CategoryDocument,
@@ -159,14 +159,18 @@ async function fetchImageBlob(fileId: string): Promise<Blob | null> {
       bucketId: APPWRITE_CONFIG.bucketId,
       fileId,
     });
-    const res = await fetch(url.toString(), {
-      credentials: 'include',
-      headers: { 'X-Appwrite-Project': APPWRITE_CONFIG.projectId },
+    const res = await guardedCall(async () => {
+      const r = await fetch(url.toString(), {
+        credentials: 'include',
+        headers: { 'X-Appwrite-Project': APPWRITE_CONFIG.projectId },
+      });
+      if (r.status === 401) {
+        const err = new Error('Unauthorized');
+        (err as { code?: number }).code = 401;
+        throw err;
+      }
+      return r;
     });
-    if (res.status === 401) {
-      dispatchUnauthorized();
-      return null;
-    }
     if (!res.ok) {
       if (DEBUG)
         console.warn(`[Export] Image fetch returned ${res.status}: ${fileId}`);
@@ -176,7 +180,6 @@ async function fetchImageBlob(fileId: string): Promise<Blob | null> {
     await cacheImage(fileId, blob);
     return blob;
   } catch (err) {
-    if (isUnauthorizedError(err)) dispatchUnauthorized();
     console.warn(`[Export] Failed to fetch image ${fileId}:`, err);
     return null;
   }

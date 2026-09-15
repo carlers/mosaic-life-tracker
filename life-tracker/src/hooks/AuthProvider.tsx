@@ -51,12 +51,16 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [error, setError] = useState<string | null>(null);
   const [isOffline, setIsOffline] = useState(false);
   const isMountedRef = useRef(true);
+  const resolveInFlightRef = useRef(false);
 
-  // Async-first: every setState runs after the first `await`, so this
-  // function is safe to call from a mount effect without triggering
-  // `react-hooks/set-state-in-effect`. Callers that want a loading
-  // spinner set that state themselves before awaiting.
   const resolveInitialUser = useCallback(async () => {
+    if (resolveInFlightRef.current) {
+      if (import.meta.env.DEV) {
+        console.log('[AuthProvider] resolve skipped (in flight)');
+      }
+      return;
+    }
+    resolveInFlightRef.current = true;
     try {
       const u = await account.get();
       if (!isMountedRef.current) return;
@@ -83,12 +87,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         setIsOffline(true);
       }
     } finally {
+      resolveInFlightRef.current = false;
       if (isMountedRef.current) setIsLoading(false);
     }
   }, []);
 
-  // Mount effect: defer via microtask so the effect body itself does not
-  // synchronously invoke a state-setting function.
   useEffect(() => {
     isMountedRef.current = true;
     queueMicrotask(() => {
@@ -114,6 +117,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           setIsOffline(false);
         } else if (parsed.type === 'login') {
           // Another tab logged in — re-resolve to pick up the new session.
+          // The in-flight guard makes this idempotent against an ongoing
+          // mount resolution.
           resolveInitialUser();
         }
       } catch {

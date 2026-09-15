@@ -2,7 +2,7 @@ import { Functions, ExecutionMethod } from 'appwrite';
 import type { RxDocument } from 'rxdb';
 import { client } from './appwrite';
 import { getDatabase } from '../db/database';
-import { isUnauthorizedError, dispatchUnauthorized } from './authEvents';
+import { guardedCall } from './authEvents';
 import type { MessageDocument } from '../db/schema';
 
 const DEBUG = import.meta.env.DEV;
@@ -23,9 +23,10 @@ export async function sendMessageAction(
     throw new Error('MESSAGE_ACTION_FUNCTION_ID not configured');
   }
 
-  let executionPromise: ReturnType<typeof functions.createExecution>;
-  try {
-    executionPromise = functions.createExecution({
+  let timeoutId: ReturnType<typeof setTimeout> | null = null;
+
+  const execution = await guardedCall(async () => {
+    const execPromise = functions.createExecution({
       functionId: MESSAGE_ACTION_FUNCTION_ID,
       body: JSON.stringify(payload),
       async: false,
@@ -33,17 +34,10 @@ export async function sendMessageAction(
       method: ExecutionMethod.POST,
     });
     // Prevent unhandled rejection noise if the timeout wins the race.
-    executionPromise.catch(() => {});
-  } catch (err) {
-    if (isUnauthorizedError(err)) dispatchUnauthorized();
-    throw err;
-  }
+    execPromise.catch(() => {});
 
-  let timeoutId: ReturnType<typeof setTimeout> | null = null;
-  let execution;
-  try {
-    execution = await Promise.race([
-      executionPromise,
+    const exec = await Promise.race([
+      execPromise,
       new Promise<never>((_, reject) => {
         timeoutId = setTimeout(
           () =>
@@ -56,23 +50,26 @@ export async function sendMessageAction(
         );
       }),
     ]);
-  } finally {
+
+    if (
+      exec.status !== 'completed' ||
+      exec.responseStatusCode >= 400
+    ) {
+      // Convert a function-level 401 into a synthetic error with `code: 401`
+      // so guardedCall recognizes it and dispatches the global event.
+      const err = new Error(
+        `Message action failed (${exec.responseStatusCode}): ${exec.responseBody}`
+      );
+      (err as { code?: number }).code = exec.responseStatusCode;
+      throw err;
+    }
+
+    return exec;
+  }).finally(() => {
     if (timeoutId !== null) {
       clearTimeout(timeoutId);
     }
-  }
-
-  if (
-    execution.status !== 'completed' ||
-    execution.responseStatusCode >= 400
-  ) {
-    if (execution.responseStatusCode === 401) {
-      dispatchUnauthorized();
-    }
-    throw new Error(
-      `Message action failed (${execution.responseStatusCode}): ${execution.responseBody}`
-    );
-  }
+  });
 
   try {
     return JSON.parse(execution.responseBody) as Record<string, unknown>;

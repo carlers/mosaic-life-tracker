@@ -1,7 +1,10 @@
 import { getDatabase, type AppDatabaseCollections } from './database';
 import { client, account } from '../lib/appwrite';
 import { TablesDB, Permission, Role, Query } from 'appwrite';
-import { isUnauthorizedError, dispatchUnauthorized } from '../lib/authEvents';
+import {
+  isUnauthorizedError,
+  guardedCall,
+} from '../lib/authEvents';
 
 const APPWRITE_CONFIG = {
   endpoint: 'https://sgp.cloud.appwrite.io',
@@ -75,7 +78,7 @@ function savePerCollectionState(
     const state: PerCollectionPersistedState = { ownerId: userId, entries };
     localStorage.setItem(PER_COLLECTION_KEY, JSON.stringify(state));
   } catch {
-    // Ignore storage failures (private mode, quota, etc.)
+    // Ignore storage failures.
   }
 }
 
@@ -408,7 +411,7 @@ function toMs(value: unknown): number {
 
 async function resolveAuthenticatedUserId(): Promise<string | null> {
   try {
-    const user = await account.get();
+    const user = await guardedCall(() => account.get());
     return user?.$id || null;
   } catch (err) {
     if (DEBUG) console.log('[Sync] account.get() failed:', err);
@@ -488,10 +491,9 @@ export async function initializeSync(): Promise<void> {
       }
     }
 
-    // Session expired or revoked mid-session: notify AuthProvider so it
-    // can clear user state and redirect to /login (A4-1).
+    // 401s already dispatched from guardedCall inside syncCollection;
+    // this short-circuit just stops processing further collections.
     if (sawUnauthorized) {
-      dispatchUnauthorized();
       updateSyncStatus({ isSyncing: false, errors: collectionErrors });
       return;
     }
@@ -574,12 +576,14 @@ async function syncCollection(
     }
     if (cursor) queries.push(Query.cursorAfter(cursor));
 
-    const remoteResponse = await tablesDB.listRows({
-      databaseId: APPWRITE_CONFIG.databaseId,
-      tableId,
-      queries: queries as never,
-      total: false,
-    });
+    const remoteResponse = await guardedCall(() =>
+      tablesDB.listRows({
+        databaseId: APPWRITE_CONFIG.databaseId,
+        tableId,
+        queries: queries as never,
+        total: false,
+      })
+    );
 
     const rows = ((remoteResponse as { rows?: AppwriteRow[] }).rows ||
       []) as AppwriteRow[];
@@ -656,12 +660,7 @@ async function syncCollection(
   savePerCollectionState(userId, perCollectionSync);
 
   // Messages are excluded from the push loop. Every message row is written
-  // server-side by the `message-action` function (deliver, react, unsend,
-  // mark_read), which uses a server API key and bypasses client rate limits.
-  // Client-side PATCHes to /tablesdb/.../messages/rows were duplicate traffic
-  // and were the dominant contributor to the 120 req/min bucket that was
-  // returning 429. Pull stays enabled above so read receipts and incoming
-  // rows still arrive.
+  // server-side by the `message-action` function.
   if (colName !== 'messages') {
     const localDocs = await collection.find().exec();
     for (const doc of localDocs) {
@@ -690,22 +689,26 @@ async function syncCollection(
       const rowData = toAppwriteFormat(json, colName, userId);
       if (DEBUG) console.log(`[Sync] Pushing ${colName} ${docId}`);
       try {
-        await tablesDB.updateRow({
-          databaseId: APPWRITE_CONFIG.databaseId,
-          tableId,
-          rowId: docId,
-          data: rowData,
-        });
+        await guardedCall(() =>
+          tablesDB.updateRow({
+            databaseId: APPWRITE_CONFIG.databaseId,
+            tableId,
+            rowId: docId,
+            data: rowData,
+          })
+        );
       } catch (updateErr) {
         if (isNotFoundError(updateErr)) {
           try {
-            await tablesDB.upsertRow({
-              databaseId: APPWRITE_CONFIG.databaseId,
-              tableId,
-              rowId: docId,
-              data: rowData,
-              permissions: buildRowPermissions(userId),
-            });
+            await guardedCall(() =>
+              tablesDB.upsertRow({
+                databaseId: APPWRITE_CONFIG.databaseId,
+                tableId,
+                rowId: docId,
+                data: rowData,
+                permissions: buildRowPermissions(userId),
+              })
+            );
           } catch (createErr) {
             console.error(
               `[Sync] Failed to create ${colName} ${docId}:`,
