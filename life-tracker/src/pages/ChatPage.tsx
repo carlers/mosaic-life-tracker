@@ -29,7 +29,7 @@ import { forceSync } from '../db/sync';
 import type { MessageDocument } from '../db/schema';
 
 const TIMESTAMP_GAP_MS = 5 * 60 * 1000;
-const POLL_INTERVAL_MS = 10_000;
+const POLL_INTERVAL_MS = 30_000;
 const SCROLL_FAB_THRESHOLD_PX = 300;
 
 type RenderItem =

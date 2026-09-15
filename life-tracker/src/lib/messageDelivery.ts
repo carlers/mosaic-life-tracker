@@ -11,7 +11,10 @@ export const MESSAGE_ACTION_FUNCTION_ID =
 
 const functions = new Functions(client);
 
+const SEND_TIMEOUT_MS = 15_000;
+
 let inFlightDeliveryPromise: Promise<void> | null = null;
+let deliveryRequestedDuringFlight = false;
 
 export async function sendMessageAction(
   payload: Record<string, unknown>
@@ -22,13 +25,39 @@ export async function sendMessageAction(
   if (MESSAGE_ACTION_FUNCTION_ID.startsWith('REPLACE_')) {
     throw new Error('MESSAGE_ACTION_FUNCTION_ID not configured');
   }
-  const execution = await functions.createExecution({
+
+  const executionPromise = functions.createExecution({
     functionId: MESSAGE_ACTION_FUNCTION_ID,
     body: JSON.stringify(payload),
     async: false,
     xpath: '/',
     method: ExecutionMethod.POST,
   });
+  executionPromise.catch(() => {});
+
+  let timeoutId: ReturnType<typeof setTimeout> | null = null;
+  let execution;
+  try {
+    execution = await Promise.race([
+      executionPromise,
+      new Promise<never>((_, reject) => {
+        timeoutId = setTimeout(
+          () =>
+            reject(
+              new Error(
+                `Message action timed out after ${SEND_TIMEOUT_MS}ms`
+              )
+            ),
+          SEND_TIMEOUT_MS
+        );
+      }),
+    ]);
+  } finally {
+    if (timeoutId !== null) {
+      clearTimeout(timeoutId);
+    }
+  }
+
   if (
     execution.status !== 'completed' ||
     execution.responseStatusCode >= 400
@@ -45,10 +74,10 @@ export async function sendMessageAction(
 }
 
 export async function deliverPendingMessages(userId: string): Promise<void> {
-  // If a delivery cycle is already running, return its promise so callers
-  // (e.g. the react handler) can await the current cycle instead of starting
-  // a parallel one or bailing out early.
-  if (inFlightDeliveryPromise) return inFlightDeliveryPromise;
+  if (inFlightDeliveryPromise) {
+    deliveryRequestedDuringFlight = true;
+    return inFlightDeliveryPromise;
+  }
   if (typeof navigator !== 'undefined' && navigator.onLine === false) return;
   if (!userId) return;
   if (MESSAGE_ACTION_FUNCTION_ID.startsWith('REPLACE_')) {
@@ -62,36 +91,64 @@ export async function deliverPendingMessages(userId: string): Promise<void> {
 
   inFlightDeliveryPromise = (async () => {
     try {
-      const db = getDatabase();
-      const pending = await db.messages
-        .find({
-          selector: {
-            userId,
-            direction: 'outgoing',
-            deliveryStatus: 'pending',
-            isDeleted: false,
-          },
-        })
-        .exec();
-      if (pending.length === 0) return;
-      if (DEBUG) {
-        console.log(`[messageDelivery] ${pending.length} pending message(s)`);
-      }
-      for (const doc of pending) {
+      for (;;) {
+        deliveryRequestedDuringFlight = false;
+
+        let db;
         try {
-          await deliverOne(doc);
-          await doc.patch({ deliveryStatus: 'delivered' });
+          db = getDatabase();
         } catch (err) {
           console.error(
-            `[messageDelivery] Failed to deliver ${doc.id}:`,
+            '[messageDelivery] delivery cycle failed (db):',
             err
           );
+          break;
         }
+
+        let pending;
+        try {
+          pending = await db.messages
+            .find({
+              selector: {
+                userId,
+                direction: 'outgoing',
+                deliveryStatus: 'pending',
+                isDeleted: false,
+              },
+            })
+            .exec();
+        } catch (err) {
+          console.error(
+            '[messageDelivery] delivery cycle failed (query):',
+            err
+          );
+          break;
+        }
+
+        if (DEBUG && pending.length > 0) {
+          console.log(`[messageDelivery] ${pending.length} pending message(s)`);
+        }
+
+        for (const doc of pending) {
+          try {
+            await deliverOne(doc);
+            await doc.patch({ deliveryStatus: 'delivered' });
+          } catch (err) {
+            console.error(
+              `[messageDelivery] Failed to deliver ${doc.id}:`,
+              err
+            );
+          }
+        }
+
+        if (!deliveryRequestedDuringFlight) break;
       }
     } finally {
       inFlightDeliveryPromise = null;
+      deliveryRequestedDuringFlight = false;
     }
   })();
+
   return inFlightDeliveryPromise;
 }
 
@@ -149,21 +206,21 @@ export async function reactOnRemote(
   emoji: string,
   op: 'add' | 'remove'
 ): Promise<string | null> {
-  try {
-    const result = await sendMessageAction({
-      action: 'react',
-      myRowId,
-      peerRowId: peerRowId || '',
-      recipientId,
-      emoji,
-      op,
-    });
-    const resolved = result?.resolvedPeerRowId;
-    return typeof resolved === 'string' && resolved.length > 0 ? resolved : null;
-  } catch (err) {
-    console.error('[messageDelivery] reactOnRemote failed:', err);
-    return null;
-  }
+  // A2: errors now propagate. `useMessages.toggleReaction` needs to
+  // distinguish "server accepted the reaction" from "server never saw it"
+  // in order to revert its local optimistic patch on failure. Swallowing
+  // here would collapse both cases into a null return, which is also the
+  // shape of a successful react with no legacy peer row to resolve.
+  const result = await sendMessageAction({
+    action: 'react',
+    myRowId,
+    peerRowId: peerRowId || '',
+    recipientId,
+    emoji,
+    op,
+  });
+  const resolved = result?.resolvedPeerRowId;
+  return typeof resolved === 'string' && resolved.length > 0 ? resolved : null;
 }
 
 export async function reactToTaskOnRemote(

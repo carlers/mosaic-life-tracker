@@ -71,7 +71,7 @@ function applyReactionDelta(reactions, emoji, userId, op) {
 }
 
 async function verifyFriendship(tablesDB, a, b) {
-  const fsCheck = await tablesDB.listRows({
+  const forward = await tablesDB.listRows({
     databaseId: DATABASE_ID,
     tableId: FRIENDSHIPS_TABLE,
     queries: [
@@ -82,7 +82,20 @@ async function verifyFriendship(tablesDB, a, b) {
       Query.limit(1),
     ],
   });
-  return fsCheck.rows.length > 0;
+  if (!forward.rows || forward.rows.length === 0) return false;
+
+  const reverse = await tablesDB.listRows({
+    databaseId: DATABASE_ID,
+    tableId: FRIENDSHIPS_TABLE,
+    queries: [
+      Query.equal('user_id', b),
+      Query.equal('friend_id', a),
+      Query.equal('status', 'accepted'),
+      Query.equal('deleted', false),
+      Query.limit(1),
+    ],
+  });
+  return !!(reverse.rows && reverse.rows.length > 0);
 }
 
 async function handleDeliver(tablesDB, senderId, payload, log, error) {
@@ -164,6 +177,7 @@ async function handleDeliver(tablesDB, senderId, payload, log, error) {
       return { status: 403, body: { error: 'messageId not owned by caller' } };
     }
   }
+
   if (existingRecipientRow) {
     if (
       existingRecipientRow.sender_id !== senderId ||
@@ -176,39 +190,45 @@ async function handleDeliver(tablesDB, senderId, payload, log, error) {
     }
   }
 
-  await tablesDB.upsertRow({
-    databaseId: DATABASE_ID,
-    tableId: MESSAGES_TABLE,
-    rowId: recipientRowId,
-    data: {
-      user_id: recipientId,
-      thread_id: threadId,
-      sender_id: senderId,
-      recipient_id: recipientId,
-      direction: 'incoming',
-      content: content || '',
-      task_ref_id: taskRefId || '',
-      task_ref_title: taskRefTitle || '',
-      task_ref_date: taskRefDate || '',
-      task_ref_color: taskRefColor || '',
-      reply_to_id: replyToId || '',
-      reply_to_content: replyToContent || '',
-      reply_to_sender_id: replyToSenderId || '',
-      is_unsent: false,
-      original_message_id: messageId,
-      reactions: '',
-      read_at: '',
-      delivery_status: 'delivered',
-      created_at: createdAt || now,
-      updated_at: now,
-      deleted: false,
-    },
-    permissions: [
-      Permission.read(Role.user(recipientId)),
-      Permission.update(Role.user(recipientId)),
-      Permission.delete(Role.user(recipientId)),
-    ],
-  });
+  if (existingRecipientRow) {
+    log(
+      `deliver: recipient row ${recipientRowId} already exists; skipping upsert (idempotent)`
+    );
+  } else {
+    await tablesDB.upsertRow({
+      databaseId: DATABASE_ID,
+      tableId: MESSAGES_TABLE,
+      rowId: recipientRowId,
+      data: {
+        user_id: recipientId,
+        thread_id: threadId,
+        sender_id: senderId,
+        recipient_id: recipientId,
+        direction: 'incoming',
+        content: content || '',
+        task_ref_id: taskRefId || '',
+        task_ref_title: taskRefTitle || '',
+        task_ref_date: taskRefDate || '',
+        task_ref_color: taskRefColor || '',
+        reply_to_id: replyToId || '',
+        reply_to_content: replyToContent || '',
+        reply_to_sender_id: replyToSenderId || '',
+        is_unsent: false,
+        original_message_id: messageId,
+        reactions: '',
+        read_at: '',
+        delivery_status: 'delivered',
+        created_at: createdAt || now,
+        updated_at: now,
+        deleted: false,
+      },
+      permissions: [
+        Permission.read(Role.user(recipientId)),
+        Permission.update(Role.user(recipientId)),
+        Permission.delete(Role.user(recipientId)),
+      ],
+    });
+  }
 
   if (!existingSenderRow) {
     try {
@@ -261,7 +281,6 @@ async function handleDeliver(tablesDB, senderId, payload, log, error) {
 
 async function handleMarkRead(tablesDB, callerId, payload, log, error) {
   const { partnerId, threadId } = payload || {};
-
   if (!partnerId || typeof partnerId !== 'string') {
     error('mark_read: Missing partnerId');
     return { status: 400, body: { error: 'Missing partnerId' } };
@@ -304,7 +323,10 @@ async function handleMarkRead(tablesDB, callerId, payload, log, error) {
   }
 
   const now = new Date().toISOString();
-  let marked = 0;
+
+  // Pass 1: partner's outgoing rows. Marks the caller's read receipt on the
+  // sender's copy so the sender sees "Seen at …". Existing behavior.
+  let markedPartner = 0;
   let cursor = undefined;
 
   for (;;) {
@@ -324,7 +346,6 @@ async function handleMarkRead(tablesDB, callerId, payload, log, error) {
       tableId: MESSAGES_TABLE,
       queries,
     });
-
     const rows = res.rows || [];
     if (rows.length === 0) break;
 
@@ -335,7 +356,7 @@ async function handleMarkRead(tablesDB, callerId, payload, log, error) {
         rowId: row.$id,
         data: { read_at: now },
       });
-      marked++;
+      markedPartner++;
     }
 
     if (rows.length < 100) break;
@@ -344,8 +365,53 @@ async function handleMarkRead(tablesDB, callerId, payload, log, error) {
     cursor = lastId;
   }
 
-  log(`mark_read: caller=${callerId} partner=${partnerId} marked=${marked}`);
-  return { status: 200, body: { ok: true, marked } };
+  // Pass 2: caller's own incoming rows in the same thread. Same `now` as
+  // pass 1 — one logical "user read this thread at T" event. Keeps the
+  // recipient's own server rows authoritative for cross-device unread
+  // state, which the client push exclusion (sync.ts) no longer maintains.
+  let markedCaller = 0;
+  cursor = undefined;
+
+  for (;;) {
+    const queries = [
+      Query.equal('user_id', callerId),
+      Query.equal('thread_id', threadId),
+      Query.equal('direction', 'incoming'),
+      Query.equal('read_at', ''),
+      Query.equal('deleted', false),
+      Query.limit(100),
+      Query.orderAsc('$id'),
+    ];
+    if (cursor) queries.push(Query.cursorAfter(cursor));
+
+    const res = await tablesDB.listRows({
+      databaseId: DATABASE_ID,
+      tableId: MESSAGES_TABLE,
+      queries,
+    });
+    const rows = res.rows || [];
+    if (rows.length === 0) break;
+
+    for (const row of rows) {
+      await tablesDB.updateRow({
+        databaseId: DATABASE_ID,
+        tableId: MESSAGES_TABLE,
+        rowId: row.$id,
+        data: { read_at: now },
+      });
+      markedCaller++;
+    }
+
+    if (rows.length < 100) break;
+    const lastId = rows[rows.length - 1].$id;
+    if (!lastId || lastId === cursor) break;
+    cursor = lastId;
+  }
+
+  log(
+    `mark_read: caller=${callerId} partner=${partnerId} markedPartner=${markedPartner} markedCaller=${markedCaller}`
+  );
+  return { status: 200, body: { ok: true, marked: markedPartner } };
 }
 
 async function cascadeReplyWipe(
@@ -377,7 +443,6 @@ async function cascadeReplyWipe(
           tableId: MESSAGES_TABLE,
           queries,
         });
-
         const rows = res.rows || [];
         if (rows.length === 0) break;
 
@@ -408,7 +473,6 @@ async function cascadeReplyWipe(
 
 async function handleUnsend(tablesDB, callerId, payload, log, error) {
   const { messageId, recipientId } = payload || {};
-
   if (!messageId || typeof messageId !== 'string') {
     error('unsend: Missing messageId');
     return { status: 400, body: { error: 'Missing messageId' } };
@@ -490,7 +554,6 @@ async function handleUnsend(tablesDB, callerId, payload, log, error) {
   }
 
   const now = new Date().toISOString();
-
   const wipe = {
     content: '',
     task_ref_id: '',
@@ -578,7 +641,6 @@ async function resolveLegacyPeerRowId(tablesDB, myRow, log) {
         Query.limit(5),
       ],
     });
-
     const candidates = (res.rows || []).filter(
       (r) => (r.content || '') === content && r.direction === 'outgoing'
     );
@@ -597,7 +659,6 @@ async function resolveLegacyPeerRowId(tablesDB, myRow, log) {
 
 async function handleReact(tablesDB, callerId, payload, log, error) {
   const { myRowId, peerRowId, recipientId, emoji, op } = payload || {};
-
   if (!myRowId || typeof myRowId !== 'string') {
     error('react: Missing myRowId');
     return { status: 400, body: { error: 'Missing myRowId' } };
@@ -628,8 +689,8 @@ async function handleReact(tablesDB, callerId, payload, log, error) {
   const now = new Date().toISOString();
   let updated = 0;
   let resolvedPeerRowId = '';
-  let myRow = null;
 
+  let myRow = null;
   try {
     myRow = await tablesDB.getRow({
       databaseId: DATABASE_ID,
@@ -659,16 +720,13 @@ async function handleReact(tablesDB, callerId, payload, log, error) {
         tableId: MESSAGES_TABLE,
         rowId,
       });
-
       if (row.sender_id !== callerId && row.recipient_id !== callerId) {
         log(`react: row ${rowId} caller not a participant, skipping`);
         continue;
       }
-
       const current = parseReactions(row.reactions || '');
       const next = applyReactionDelta(current, emoji, callerId, op);
       const nextStr = stringifyReactions(next);
-
       await tablesDB.updateRow({
         databaseId: DATABASE_ID,
         tableId: MESSAGES_TABLE,
@@ -697,7 +755,6 @@ async function handleReact(tablesDB, callerId, payload, log, error) {
 
 async function handleReactToTask(tablesDB, callerId, payload, log, error) {
   const { taskId, taskOwnerId, emoji, op } = payload || {};
-
   if (!taskId || typeof taskId !== 'string') {
     error('react_to_task: Missing taskId');
     return { status: 400, body: { error: 'Missing taskId' } };
@@ -750,6 +807,7 @@ async function handleReactToTask(tablesDB, callerId, payload, log, error) {
 
   let effectiveVisibility = 'private';
   const taskVis = row.visibility;
+
   if (taskVis && taskVis !== '') {
     effectiveVisibility = taskVis;
   } else if (row.category_id) {
@@ -759,7 +817,11 @@ async function handleReactToTask(tablesDB, callerId, payload, log, error) {
         tableId: CATEGORIES_TABLE,
         rowId: row.category_id,
       });
-      effectiveVisibility = cat.visibility || 'private';
+      if (cat.deleted === true) {
+        effectiveVisibility = 'private';
+      } else {
+        effectiveVisibility = cat.visibility || 'private';
+      }
     } catch (err) {
       log(
         `react_to_task: category ${row.category_id} fetch failed (${err.message})`
@@ -767,14 +829,12 @@ async function handleReactToTask(tablesDB, callerId, payload, log, error) {
       effectiveVisibility = 'private';
     }
   } else {
-    // Defensive fallback: task has neither explicit visibility nor a category
-    // to inherit from. Friendship is already verified above, so allow the
-    // reaction rather than silently blocking. Treat as 'followers'.
-    effectiveVisibility = 'followers';
+    effectiveVisibility = 'private';
     log(
-      `react_to_task: task ${taskId} has no category and no explicit visibility; defaulting to followers`
+      `react_to_task: task ${taskId} has no category; defaulting to private`
     );
   }
+
   if (effectiveVisibility === 'private') {
     error(
       `react_to_task: task ${taskId} is private, forbidden for caller ${callerId}`
@@ -807,7 +867,6 @@ async function handleReactToTask(tablesDB, callerId, payload, log, error) {
 
 async function handleGetFriendCalendar(tablesDB, callerId, payload, log, error) {
   const friendUserId = payload?.friendUserId;
-
   if (!friendUserId || typeof friendUserId !== 'string') {
     error('get_friend_calendar: Missing friendUserId');
     return { status: 400, body: { error: 'Missing friendUserId' } };

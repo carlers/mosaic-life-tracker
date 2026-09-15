@@ -20,6 +20,83 @@ const tablesDB = new TablesDB(client);
 const DEBUG = import.meta.env.DEV;
 const PAGE_SIZE = 100;
 
+const PULL_OVERLAP_MS = 30_000;
+
+const RATE_LIMIT_BASE_MS = 5_000;
+const RATE_LIMIT_MAX_MS = 60_000;
+
+const TRIGGER_DEBOUNCE_MS = 1_500;
+
+type CollectionName = keyof AppDatabaseCollections;
+
+const ALL_COLLECTIONS: CollectionName[] = [
+  'tasks',
+  'categories',
+  'diary',
+  'settings',
+  'friendships',
+  'messages',
+];
+
+interface PerCollectionSyncEntry {
+  // ISO timestamp. Lower bound for this collection's delta pull:
+  // `$updatedAt > pull - PULL_OVERLAP_MS`. Set to the start of the last
+  // cycle for this collection whose pull phase succeeded.
+  pull: string;
+  // ISO timestamp. Threshold for `isLocalDirty`. Set to the end of the last
+  // fully-successful (pull + push) cycle so rows upserted during that cycle
+  // are not considered dirty on the next one.
+  dirty: string;
+}
+
+// S1-1: persisted state is namespaced by user id. Cross-user state leakage
+// on a shared browser would otherwise cause a new user's first sync to skip
+// rows older than the previous user's last pull.
+interface PerCollectionPersistedState {
+  ownerId: string;
+  entries: Partial<Record<CollectionName, PerCollectionSyncEntry>>;
+}
+
+const PER_COLLECTION_KEY = 'lastSyncTimePerCollection';
+
+function loadPerCollectionState(
+  userId: string
+): Partial<Record<CollectionName, PerCollectionSyncEntry>> {
+  try {
+    const raw = localStorage.getItem(PER_COLLECTION_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw) as unknown;
+    if (!parsed || typeof parsed !== 'object') return {};
+    const state = parsed as Partial<PerCollectionPersistedState>;
+    // Mismatched owner (user switch) or legacy shape (pre-S1-1 persisted as
+    // a bare entries map). Either way, treat as fresh → full pull.
+    if (state.ownerId !== userId) return {};
+    if (!state.entries || typeof state.entries !== 'object') return {};
+    return state.entries as Partial<
+      Record<CollectionName, PerCollectionSyncEntry>
+    >;
+  } catch {
+    return {};
+  }
+}
+
+function savePerCollectionState(
+  userId: string,
+  entries: Partial<Record<CollectionName, PerCollectionSyncEntry>>
+): void {
+  try {
+    const state: PerCollectionPersistedState = { ownerId: userId, entries };
+    localStorage.setItem(PER_COLLECTION_KEY, JSON.stringify(state));
+  } catch {
+    // best effort
+  }
+}
+
+let perCollectionSync: Partial<
+  Record<CollectionName, PerCollectionSyncEntry>
+> = {};
+let perCollectionOwnerId: string | null = null;
+
 export interface SyncStatus {
   isSyncing: boolean;
   lastSync: string | null;
@@ -59,12 +136,14 @@ export function subscribeToSyncStatus(listener: SyncListener): () => void {
 
 type AppwriteRow = Record<string, unknown>;
 type AppwritePayload = Record<string, unknown>;
+
 type LocalDoc = {
   id: string;
   _meta?: { lwt?: number };
   toJSON: () => Record<string, unknown>;
   incrementalPatch: (updates: Record<string, unknown>) => Promise<unknown>;
 };
+
 type LocalCollection = {
   findOne: (id: string) => { exec: () => Promise<LocalDoc | null> };
   find: () => { exec: () => Promise<LocalDoc[]> };
@@ -72,6 +151,9 @@ type LocalCollection = {
 };
 
 let isSyncInProgress = false;
+let rateLimitUntil = 0;
+let rateLimitBackoffMs = 0;
+let debounceTimer: ReturnType<typeof setTimeout> | null = null;
 
 declare global {
   interface Window {
@@ -86,6 +168,18 @@ function isTimestampedCollection(collection: string): boolean {
     collection === 'friendships' ||
     collection === 'messages'
   );
+}
+
+function isRateLimitError(err: unknown): boolean {
+  const code = (err as { code?: number } | null)?.code;
+  if (code === 429) return true;
+  const msg = err instanceof Error ? err.message : String(err);
+  return /rate limit/i.test(msg);
+}
+
+function isNotFoundError(err: unknown): boolean {
+  const code = (err as { code?: number } | null)?.code;
+  return code === 404;
 }
 
 function toAppwriteFormat(
@@ -340,6 +434,18 @@ export async function initializeSync(): Promise<void> {
     return;
   }
 
+  if (Date.now() < rateLimitUntil) {
+    if (DEBUG) {
+      console.log(
+        `[Sync] Skipping: rate-limit backoff until ${new Date(
+          rateLimitUntil
+        ).toISOString()}`
+      );
+    }
+    updateSyncStatus({ isSyncing: false });
+    return;
+  }
+
   if (typeof navigator !== 'undefined' && navigator.onLine === false) {
     if (DEBUG) console.log('[Sync] Offline, skipping sync');
     updateSyncStatus({ isSyncing: false });
@@ -347,7 +453,7 @@ export async function initializeSync(): Promise<void> {
   }
 
   isSyncInProgress = true;
-  if (DEBUG) console.log('[Sync] Starting initial sync...');
+  if (DEBUG) console.log('[Sync] Starting sync...');
   updateSyncStatus({ isSyncing: true, errors: [] });
 
   try {
@@ -358,19 +464,25 @@ export async function initializeSync(): Promise<void> {
       return;
     }
 
+    // S1-1: (re)load per-collection high-water marks for this user. A
+    // mismatch (different user, or legacy shape from before this fix) yields
+    // an empty map, which makes the first cycle a full pull for this user.
+    if (perCollectionOwnerId !== userId) {
+      perCollectionSync = loadPerCollectionState(userId);
+      perCollectionOwnerId = userId;
+      if (DEBUG) {
+        console.log(
+          `[Sync] Loaded per-collection state for user ${userId}:`,
+          Object.keys(perCollectionSync)
+        );
+      }
+    }
+
     const db = getDatabase();
-    const collections: (keyof AppDatabaseCollections)[] = [
-      'tasks',
-      'categories',
-      'diary',
-      'settings',
-      'friendships',
-      'messages',
-    ];
-
     const collectionErrors: string[] = [];
+    let sawRateLimit = false;
 
-    for (const colName of collections) {
+    for (const colName of ALL_COLLECTIONS) {
       try {
         await syncCollection(
           db[colName] as unknown as LocalCollection,
@@ -384,7 +496,22 @@ export async function initializeSync(): Promise<void> {
             : `Unknown error in ${colName}`;
         console.error(`[Sync] Collection "${colName}" failed:`, colError);
         collectionErrors.push(`${colName}: ${message}`);
+        if (isRateLimitError(colError)) sawRateLimit = true;
       }
+    }
+
+    if (sawRateLimit) {
+      rateLimitBackoffMs =
+        rateLimitBackoffMs === 0
+          ? RATE_LIMIT_BASE_MS
+          : Math.min(rateLimitBackoffMs * 2, RATE_LIMIT_MAX_MS);
+      rateLimitUntil = Date.now() + rateLimitBackoffMs;
+      console.warn(
+        `[Sync] Rate limited; backing off for ${rateLimitBackoffMs}ms`
+      );
+    } else {
+      rateLimitBackoffMs = 0;
+      rateLimitUntil = 0;
     }
 
     if (collectionErrors.length === 0) {
@@ -393,7 +520,7 @@ export async function initializeSync(): Promise<void> {
         lastSync: new Date().toISOString(),
         errors: [],
       });
-      if (DEBUG) console.log('[Sync] ✅ Initial sync complete');
+      if (DEBUG) console.log('[Sync] ✅ Sync complete');
     } else {
       updateSyncStatus({ isSyncing: false, errors: collectionErrors });
       if (DEBUG)
@@ -418,17 +545,20 @@ async function syncCollection(
   colName: string,
   userId: string
 ) {
+  const cycleStartMs = Date.now();
   const tableId =
     APPWRITE_CONFIG.tables[colName as keyof typeof APPWRITE_CONFIG.tables];
-
   if (DEBUG) console.log(`[Sync] Syncing ${colName}...`);
 
-  const lastSyncMs = syncStatus.lastSync
-    ? new Date(syncStatus.lastSync).getTime()
-    : 0;
+  const entry = perCollectionSync[colName as CollectionName];
+  const pullBoundaryMs = entry?.pull ? new Date(entry.pull).getTime() : 0;
+  const dirtyBoundaryMs = entry?.dirty ? new Date(entry.dirty).getTime() : 0;
   const usesTimestamps = isTimestampedCollection(colName);
 
-  const remoteIndex = new Map<string, { updatedAt: number; isDeleted: boolean }>();
+  const remoteIndex = new Map<
+    string,
+    { updatedAt: number; isDeleted: boolean }
+  >();
   const justPulled = new Set<string>();
 
   let cursor: string | undefined = undefined;
@@ -440,6 +570,13 @@ async function syncCollection(
       Query.limit(PAGE_SIZE),
       Query.orderAsc('$id'),
     ];
+
+    if (pullBoundaryMs > 0) {
+      const sinceIso = new Date(
+        pullBoundaryMs - PULL_OVERLAP_MS
+      ).toISOString();
+      queries.push(Query.greaterThan('$updatedAt', sinceIso));
+    }
     if (cursor) queries.push(Query.cursorAfter(cursor));
 
     const remoteResponse = await tablesDB.listRows({
@@ -448,9 +585,9 @@ async function syncCollection(
       queries: queries as never,
       total: false,
     });
-
     const rows = ((remoteResponse as { rows?: AppwriteRow[] }).rows ||
       []) as AppwriteRow[];
+
     pageCount++;
     if (DEBUG)
       console.log(`[Sync] ${colName} page ${pageCount}: ${rows.length} rows`);
@@ -464,7 +601,6 @@ async function syncCollection(
         if (!docId) continue;
 
         const remoteUpdatedAt = toMs(row.$updatedAt);
-
         remoteIndex.set(docId, {
           updatedAt: remoteUpdatedAt,
           isDeleted: (doc.isDeleted as boolean) ?? false,
@@ -478,14 +614,10 @@ async function syncCollection(
         }
 
         const localLwt = localDoc._meta?.lwt ?? 0;
-        const isLocalDirty = localLwt > lastSyncMs;
+        const isLocalDirty = localLwt > dirtyBoundaryMs;
 
-        // read_at on outgoing messages is server-owned: toAppwriteFormat
-        // excludes it from the push payload, so the client never writes this
-        // field. Pull it unconditionally so the sender's "Seen at" indicator
-        // updates on the next sync cycle even when the local row is still
-        // marked dirty from the deliveryStatus patch that runs right after a
-        // send.
+        if (isLocalDirty) continue;
+
         if (colName === 'messages' && row.direction === 'outgoing') {
           const remoteReadAt = (row.read_at as string) || '';
           const localJson = localDoc.toJSON();
@@ -500,8 +632,6 @@ async function syncCollection(
             }
           }
         }
-
-        if (isLocalDirty) continue;
 
         let remoteWins = false;
         if (usesTimestamps) {
@@ -526,57 +656,97 @@ async function syncCollection(
     cursor = lastId;
   }
 
-  const localDocs = await collection.find().exec();
-  for (const doc of localDocs) {
-    const json = doc.toJSON();
-    const docUserId = json.userId as string | undefined;
-    if (docUserId !== userId) continue;
+  // S6-4: advance the pull boundary as soon as the pull phase completes,
+  // before the push phase. If the push phase throws below, `pull` stays
+  // advanced so the next cycle's delta window does not grow unboundedly.
+  // `dirty` is deliberately not advanced here — locally-edited rows must
+  // still be visible as dirty on the next cycle if the push fails.
+  perCollectionSync[colName as CollectionName] = {
+    pull: new Date(cycleStartMs).toISOString(),
+    dirty: entry?.dirty ?? '',
+  };
+  savePerCollectionState(userId, perCollectionSync);
 
-    const docId = (json.id as string) || doc.id;
-    if (!docId) continue;
-    if (justPulled.has(docId)) continue;
+  // Messages are excluded from the push loop. Every message row is written
+  // server-side by the `message-action` function (deliver, react, unsend,
+  // mark_read), which uses a server API key and bypasses client rate limits.
+  // Client-side PATCHes to /tablesdb/.../messages/rows were duplicate traffic
+  // and were the dominant contributor to the 120 req/min bucket that was
+  // returning 429. Pull stays enabled above so read receipts and incoming
+  // rows still arrive.
+  if (colName !== 'messages') {
+    const localDocs = await collection.find().exec();
+    for (const doc of localDocs) {
+      const json = doc.toJSON();
+      const docUserId = json.userId as string | undefined;
+      if (docUserId !== userId) continue;
 
-    const remoteMeta = remoteIndex.get(docId);
-    const localLwt = doc._meta?.lwt ?? 0;
-    const isLocalDirty = localLwt > lastSyncMs;
+      const docId = (json.id as string) || doc.id;
+      if (!docId) continue;
+      if (justPulled.has(docId)) continue;
 
-    let shouldPush = false;
-    if (!remoteMeta) {
-      shouldPush = true;
-    } else if (isLocalDirty) {
-      shouldPush = true;
-    } else if (usesTimestamps) {
-      const localUpdatedAt = toMs(json.updatedAt);
-      shouldPush = localUpdatedAt > remoteMeta.updatedAt;
-    }
+      const remoteMeta = remoteIndex.get(docId);
+      const localLwt = doc._meta?.lwt ?? 0;
+      const isLocalDirty = localLwt > dirtyBoundaryMs;
 
-    if (!shouldPush) continue;
+      let shouldPush = false;
+      if (isLocalDirty) {
+        shouldPush = true;
+      } else if (remoteMeta && usesTimestamps) {
+        const localUpdatedAt = toMs(json.updatedAt);
+        shouldPush = localUpdatedAt > remoteMeta.updatedAt;
+      }
 
-    const rowData = toAppwriteFormat(json, colName, userId);
-    if (DEBUG) console.log(`[Sync] Pushing ${colName} ${docId}`);
+      if (!shouldPush) continue;
 
-    try {
-      if (remoteMeta) {
+      const rowData = toAppwriteFormat(json, colName, userId);
+      if (DEBUG) console.log(`[Sync] Pushing ${colName} ${docId}`);
+
+      try {
         await tablesDB.updateRow({
           databaseId: APPWRITE_CONFIG.databaseId,
           tableId,
           rowId: docId,
           data: rowData,
         });
-      } else {
-        await tablesDB.upsertRow({
-          databaseId: APPWRITE_CONFIG.databaseId,
-          tableId,
-          rowId: docId,
-          data: rowData,
-          permissions: buildRowPermissions(userId),
-        });
+      } catch (updateErr) {
+        if (isNotFoundError(updateErr)) {
+          try {
+            await tablesDB.upsertRow({
+              databaseId: APPWRITE_CONFIG.databaseId,
+              tableId,
+              rowId: docId,
+              data: rowData,
+              permissions: buildRowPermissions(userId),
+            });
+          } catch (createErr) {
+            console.error(
+              `[Sync] Failed to create ${colName} ${docId}:`,
+              createErr
+            );
+            throw createErr;
+          }
+        } else {
+          console.error(
+            `[Sync] Failed to push ${colName} ${docId}:`,
+            updateErr
+          );
+          throw updateErr;
+        }
       }
-    } catch (upsertError) {
-      console.error(`[Sync] Failed to push ${colName} ${docId}:`, upsertError);
-      throw upsertError;
     }
   }
+
+  // Advance `dirty` only after push completes without throwing. For
+  // `messages`, the push phase is skipped, so this runs immediately after
+  // the pull boundary was set and simply moves `dirty` to now. That is the
+  // intended behavior: the boundary advances so locally-touched message rows
+  // do not re-enter the dirty state on the next cycle.
+  perCollectionSync[colName as CollectionName] = {
+    pull: new Date(cycleStartMs).toISOString(),
+    dirty: new Date().toISOString(),
+  };
+  savePerCollectionState(userId, perCollectionSync);
 
   if (DEBUG)
     console.log(`[Sync] ✅ ${colName} synced (${pageCount} page(s) pulled)`);
@@ -598,17 +768,27 @@ function safeForceSync(reason: string) {
   }
 }
 
+function scheduleSync(reason: string) {
+  if (debounceTimer !== null) {
+    clearTimeout(debounceTimer);
+  }
+  debounceTimer = setTimeout(() => {
+    debounceTimer = null;
+    safeForceSync(reason);
+  }, TRIGGER_DEBOUNCE_MS);
+}
+
 function handleWindowFocus() {
-  safeForceSync('Window focused');
+  scheduleSync('Window focused');
 }
 
 function handleOnline() {
-  safeForceSync('Connection restored');
+  scheduleSync('Connection restored');
 }
 
 function handleVisibilityChange() {
   if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
-    safeForceSync('App became visible');
+    scheduleSync('App became visible');
   }
 }
 

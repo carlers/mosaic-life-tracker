@@ -259,6 +259,7 @@ export function useMessages(friendId: string | null): UseMessagesReturn {
     if (!uid || !friendId) return;
     if (markAllReadInFlightRef.current) return;
     markAllReadInFlightRef.current = true;
+
     try {
       const tid = await makeThreadId(uid, friendId);
       const db = getDatabase();
@@ -274,6 +275,7 @@ export function useMessages(friendId: string | null): UseMessagesReturn {
         })
         .exec();
       if (unread.length === 0) return;
+
       const now = new Date().toISOString();
       for (const stale of unread) {
         try {
@@ -290,6 +292,7 @@ export function useMessages(friendId: string | null): UseMessagesReturn {
           }
         }
       }
+
       markReadOnRemote(friendId, tid);
     } catch (err) {
       console.error('[useMessages] markAllRead failed:', err);
@@ -314,6 +317,7 @@ export function useMessages(friendId: string | null): UseMessagesReturn {
       }
       const recipientId = doc.recipientId;
       const now = new Date().toISOString();
+
       await doc.patch({
         content: '',
         taskRefId: '',
@@ -328,7 +332,9 @@ export function useMessages(friendId: string | null): UseMessagesReturn {
         deliveryStatus: 'delivered',
         updatedAt: now,
       });
+
       const rmsgId = await makeRecipientRowId(id);
+
       try {
         const replies = await db.messages
           .find({
@@ -361,6 +367,7 @@ export function useMessages(friendId: string | null): UseMessagesReturn {
           cascadeQueryErr
         );
       }
+
       unsendOnRemote(id, recipientId);
     },
     [user?.$id]
@@ -377,6 +384,7 @@ export function useMessages(friendId: string | null): UseMessagesReturn {
       const doc = await db.messages.findOne(id).exec();
       if (!doc) return;
       if (doc.isUnsent) return;
+
       const peerUserId =
         doc.direction === 'outgoing' ? doc.recipientId : doc.senderId;
       const myRowId = doc.id;
@@ -384,6 +392,8 @@ export function useMessages(friendId: string | null): UseMessagesReturn {
         doc.direction === 'outgoing'
           ? await makeRecipientRowId(doc.id)
           : doc.originalMessageId || '';
+
+      const originalReactions = doc.reactions;
       const current = parseReactions(doc.reactions);
       const op: 'add' | 'remove' = hasUserReacted(current, emoji, uid)
         ? 'remove'
@@ -391,6 +401,7 @@ export function useMessages(friendId: string | null): UseMessagesReturn {
       const next = applyReactionDelta(current, emoji, uid, op);
       const nextStr = stringifyReactions(next);
       const now = new Date().toISOString();
+
       try {
         await doc.patch({ reactions: nextStr, updatedAt: now });
       } catch (patchErr) {
@@ -416,11 +427,6 @@ export function useMessages(friendId: string | null): UseMessagesReturn {
         }
       }
 
-      // If this is an outgoing message that hasn't been delivered yet, wait
-      // for delivery to complete before firing the react action. Otherwise
-      // the react can race ahead of deliver, and the function will silently
-      // no-op because the message rows don't exist on the server yet.
-      // Bounded at 5s so we never hang indefinitely on a stalled delivery.
       if (doc.direction === 'outgoing' && doc.deliveryStatus === 'pending') {
         try {
           await Promise.race([
@@ -434,6 +440,45 @@ export function useMessages(friendId: string | null): UseMessagesReturn {
               err
             );
           }
+        }
+
+        let stillPending = true;
+        try {
+          const fresh = await db.messages.findOne(id).exec();
+          stillPending = !fresh || fresh.deliveryStatus === 'pending';
+        } catch (err) {
+          if (import.meta.env.DEV) {
+            console.warn(
+              '[useMessages] react delivery re-check failed:',
+              err
+            );
+          }
+        }
+
+        if (stillPending) {
+          try {
+            const fresh = await db.messages.findOne(id).exec();
+            if (fresh && fresh.reactions === nextStr) {
+              await fresh.patch({
+                reactions: originalReactions,
+                updatedAt: new Date().toISOString(),
+              });
+            }
+          } catch (revertErr) {
+            const code = (revertErr as { code?: string })?.code;
+            if (code !== 'CONFLICT') {
+              console.error(
+                '[useMessages] react revert failed:',
+                revertErr
+              );
+            }
+          }
+          if (import.meta.env.DEV) {
+            console.warn(
+              '[useMessages] react skipped: message still pending after delivery wait'
+            );
+          }
+          return;
         }
       }
 
@@ -449,7 +494,29 @@ export function useMessages(friendId: string | null): UseMessagesReturn {
             console.error('[useMessages] react backfill failed:', err);
           }
         })
-        .catch((err) => {
+        .catch(async (err) => {
+          // A2: revert the optimistic reaction patch on server failure so
+          // local state does not silently diverge from the peer's view.
+          // Guard against clobbering a concurrent update by verifying the
+          // row still holds our exact nextStr before reverting. CONFLICT on
+          // revert is expected under parallel sync and is ignored.
+          try {
+            const fresh = await db.messages.findOne(id).exec();
+            if (fresh && !fresh.isUnsent && fresh.reactions === nextStr) {
+              await fresh.patch({
+                reactions: originalReactions,
+                updatedAt: new Date().toISOString(),
+              });
+            }
+          } catch (revertErr) {
+            const code = (revertErr as { code?: string })?.code;
+            if (code !== 'CONFLICT') {
+              console.error(
+                '[useMessages] react revert failed:',
+                revertErr
+              );
+            }
+          }
           console.error('[useMessages] react delivery failed:', err);
         });
     },
