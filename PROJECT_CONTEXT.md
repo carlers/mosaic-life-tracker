@@ -1,4 +1,4 @@
-# LifeTracker (Working Title: Mosaic/Tessera) - Project Context & Architecture
+# PROJECT_CONTEXT.md
 
 ## 1. The Vision
 - An offline-first, local-first, self-hostable "Life Tracker" PWA
@@ -9,7 +9,7 @@
 
 ## 2. Product Reference: The "Todo Mate" Clone (Phase 1)
 - **Dark Mode Aesthetic:** Clean, dark UI (`bg-[#111111]` / `bg-[#1E1E1E]`) with high-contrast, user-defined colors for categories
-- **The Home Page & View Switcher:** Top-left button toggles between three sub-views: Calendar, Todo List, and Diary. The app must remember the user's last selected view (via localStorage or RxDB settings)
+- **The Home Page & View Switcher:** Top-left button toggles between three sub-views: Calendar, Todo List, and Diary. (Todo List and Diary are planned; only Calendar is wired today.) The app must remember the user's last selected view (via localStorage or RxDB settings)
 - **Person Carousel (Home):** A horizontal pill row at the top of Home switches between the user's own calendar and friends' calendars. First pill is always "Me"; friends follow (default alphabetical, user-reorderable, hideable). A double-person icon at the end opens the friends-preference sheet. Tapping a pill slides the calendar in the direction of travel and highlights the active pill. The profile header (avatar + name + bio) sits below the carousel and applies to **every** person, including Me. Horizontal swipe on the top zone (carousel row is scrollable independently, everything else above the calendar body) switches persons. Calendar resets to today on person change
 - **Calendar View (Refined):**
   - Supports Month and Week views
@@ -31,12 +31,12 @@
 - **Mobile PWA Testing:** Local IP testing often fails due to Appwrite CORS and mobile OS SSL restrictions for background Service Worker API calls. Always use Cloudflare Tunnels (`cloudflared tunnel --url http://localhost:5173`) for reliable mobile testing, and whitelist the tunnel URL in Appwrite Platforms
 
 ## 4. The Locked Tech Stack
-- **Frontend:** Vite + React 18 (TS) + React Router v6 + Tailwind CSS v3 + lucide-react + date-fns
+- **Frontend:** Vite + React 19 (TS) + React Router v7 + Tailwind CSS v3 + lucide-react + date-fns
 - **Media & UI:** `browser-image-compression` (max 150KB base64), `emoji-picker-react` (used by message + task emoji pickers)
 - **Local DB & Sync Engine:** RxDB v17 (using `getRxStorageDexie` and `wrappedValidateAjvStorage`)
   - **CRITICAL:** We do NOT use the `replicateAppwrite` plugin. We use a custom REST-based sync engine (`src/db/sync.ts`) that directly calls the Appwrite TablesDB API via `fetch`
-- **Backend:** Appwrite 2.0 (TablesDB)
-- **Backend Functions:** `message-action` (Node.js 18) handles all cross-user writes for messaging and task reactions. Actions: `deliver`, `mark_read`, `unsend`, `react`, `react_to_task`. Required scopes: `rows.read`, `rows.write`, `tables.read`.
+- **Backend:** Appwrite TablesDB (SDK v26+), which provides a relational model (tables, rows, columns) on top of Appwrite Databases
+- **Backend Functions:** `message-action` (Node.js 18) handles all cross-user writes for messaging and task reactions. Actions are enumerated in §20.3. Required scopes: `rows.read`, `rows.write`, `tables.read`.
 - **PWA:** `vite-plugin-pwa` (with `registerType: 'autoUpdate'`)
 
 ## 5. The "Brain Generates, Human Executes" Workflow
@@ -46,11 +46,11 @@
 
 ## 6. Appwrite 2.0 Strict Guardrails (CRITICAL)
 - **Regional Endpoint:** Must use the specific regional endpoint found in the project URL (e.g., `https://sgp.cloud.appwrite.io/v1`), NOT the generic `cloud.appwrite.io`
-- **Use TablesDB, NOT Databases:** All SDK calls must use the TablesDB service (e.g., `tablesDB.createRow`), not the deprecated Databases service
+- **Use TablesDB, NOT Databases:** All SDK calls must use the TablesDB service (e.g., `tablesDB.upsertRow`, `tablesDB.updateRow`), not the deprecated Databases service
 - **Permission String Format:** Use the new format: `create("any")`, `read("any")`, `update("any")`, `delete("any")`. The old `"role:any"` formats are deprecated
 - **Row-Level vs Table-Level Permissions (VERIFIED):** `Permission.create()` **does NOT apply to rows**. Applying it to a row throws an error. Row-level permissions must only ever be `[read, update, delete]`. The **`create` permission belongs on the TABLE-level permissions** in the Appwrite Console (e.g., grant `create("users")` at the table level so authenticated users can insert new rows). If new-row sync fails with 401/403, the fix is in the Console, NOT in `buildRowPermissions`
 - **`updateRow` vs `upsertRow` (CRITICAL):** `upsertRow` is a **full replace (PUT semantics)** in Appwrite 2.0 — any column omitted from `data` is reset to its column default. `updateRow` is a **PATCH** — omitted columns are left untouched. The sync engine **must** use `updateRow` for rows that already exist remotely, and `upsertRow` **only** for brand-new rows. Failing to do this caused `read_at` on outgoing messages to be wiped on every sync cycle
-- **Cross-User Writes Go Through Appwrite Functions:** A user can only assign permissions they themselves hold. To write a row owned by another user (recipient's message copy, sender's task reaction, sender's read receipt), the write must be performed inside an Appwrite Function using its API key. Direct client writes to another user's row will 401/403
+- **Cross-User Writes Go Through Appwrite Functions:** A user can only assign permissions they themselves hold. To write a row owned by another user (recipient's message copy, sender's task reaction, sender's read receipt), the write must be performed inside an Appwrite Function using its API key. Direct client writes to another user's row will 401/403 (see §20.3 for the messaging implementation)
 - **REST Endpoints:** Base path for tables is `/v1/tablesdb/{databaseId}/tables/{tableId}`
 - **ID Mapping:** RxDB primary key `id` maps directly to Appwrite's `$id` column
 - **Row ID Length Cap (CRITICAL):** Appwrite `rowId` values must be **≤36 characters**, matching `[a-zA-Z0-9_]+`, and MUST NOT start with a leading underscore. Any locally-generated ID that will become a remote `rowId` (settings, diary, or deterministic composite IDs) must respect this limit. **Rule:** when building `${userId}_${key}` IDs, validate the total length; if it exceeds 36 chars, fall back to a deterministic hashed ID (see §11)
@@ -60,15 +60,12 @@
 ## 7. UI/UX & Architectural Guardrails
 - **Dynamic Colors:** Category colors MUST be applied via inline styles (`style={{ backgroundColor: cat.color }}`). NEVER use dynamic strings in Tailwind classes
 - **Predefined Colors Only:** Use a strict array of hex codes (`src/constants/colors.ts`) for the `ColorPalettePicker`. NO free-form hex inputs
-- **Bottom Sheet Standardization:**
-  - All modals MUST use the `<BottomSheet>` primitive
-  - **CRITICAL:** `<BottomSheet>` MUST use `ReactDOM.createPortal` to render directly into `document.body` to escape parent z-index and overflow traps, guaranteeing it sits above the `BottomNav`
-  - **Drag Restriction:** Drag-to-close must be restricted to the header handle using Framer Motion's `useDragControls` and `dragListener={false}` on the main container. This prevents accidental closes while scrolling content
+- **Bottom Sheet Standardization:** All modals MUST use the `<BottomSheet>` primitive (see §13 for file layout and nested-sheet choreography). **CRITICAL:** `<BottomSheet>` MUST use `ReactDOM.createPortal` to render directly into `document.body` to escape parent z-index and overflow traps, guaranteeing it sits above the `BottomNav`. **Drag Restriction:** Drag-to-close must be restricted to the header handle using Framer Motion's `useDragControls` and `dragListener={false}` on the main container. This prevents accidental closes while scrolling content
 - **Sticky Layout Rules:** For `position: sticky` to work correctly inside the app, `MainLayout` root must be `h-screen overflow-hidden`, and the `<main>` tag must be `flex-1 overflow-y-auto`
 - **Non-Sticky Home Chrome:** On the Home page, the person carousel, profile header, `TopBar`, and calendar date header are **intentionally NOT sticky** — they scroll away with content so the calendar grid owns the whole viewport on long days. Do not re-add `sticky top-0` to these
 - **Layout-Shift Reservation:** Any UI element whose visibility toggles on hover or interaction (message timestamps, status rows, hover-only controls) must **always reserve its space** in the layout. Toggle opacity, never presence. This prevents the hover-flicker feedback loop where content reflow pushes the cursor off the element, causing infinite toggle
-- **Gesture Priority on Interactive Elements:** swipe > long-press > double-tap > single-tap. Single-tap must be deferred (~300ms) to distinguish from double-tap. Any tap that fires on the same pointer sequence as a swipe or long-press MUST be suppressed (via a `consumeDidFire()` flag)
-- **RxDB Reserved Keywords:** NEVER use `deleted` as a field name in RxDB schemas (it is a reserved keyword). Always use `isDeleted` locally and map it to `deleted` in the Appwrite sync layer
+- **Gesture Priority on Interactive Elements:** swipe > long-press > double-tap > single-tap. Single-tap must be deferred (~300ms) to distinguish from double-tap. Any tap that fires on the same pointer sequence as a swipe or long-press MUST be suppressed via a flag on the gesture hook (see §21 for chat implementation)
+- **RxDB Reserved Keywords:** NEVER use `deleted` as a field name in RxDB schemas (see §12)
 - **Soft Deletes:** Never hard delete. Always use `isDeleted: true` for RxDB tombstones
 - **Strict ISO Dates:** All date fields MUST be stored as ISO 8601 strings (`yyyy-MM-dd` for day keys, full `.toISOString()` for timestamps)
 - **iOS Storage:** Must call `navigator.storage.persist()` on app launch to prevent WebKit from purging IndexedDB
@@ -80,18 +77,18 @@
 - ✅ **Phase 2.6 Complete:** Category Manager Sheet, Color Palette Picker (with Default/Vibrant/Pastel tabs), and `useCategories` hook wired to RxDB
 - ✅ **Phase 2.3 Complete:** Day View Bottom Sheet with inline task creation, real `useTasks` data wiring, task action sheet, memo sheet, date picker, image picker/viewer, and delete confirmations
 - ✅ **Conventions Hardening Complete:** `window.confirm` eliminated (nested sheet pattern enforced), iOS focus behavior fixed (ref-based), Appwrite row-permission correctness verified, `updateRow` (PATCH) vs `upsertRow` (PUT) semantics enforced in sync engine
-- ✅ **Person Carousel Complete:** Home page person carousel with Me + friends, per-person calendar switching (direction-aware slide animation), `useCalendarState` refactor (shared state + `CalendarHeader` + `CalendarBody`), `SwipeableTopZone` for person switching, `FriendCarouselSettingsSheet` (Framer Motion `Reorder` + visibility toggles), `friendBio` schema v1 with lazy profile backfill, and settings rowId hashing to satisfy Appwrite's 36-char limit
+- ✅ **Person Carousel Complete:** Home page person carousel with Me + friends, per-person calendar switching (direction-aware slide animation via Swiper), `useCalendarState` refactor (shared state + `CalendarHeader` + `CalendarBody`), `FriendCarouselSettingsSheet` (Framer Motion `Reorder` + visibility toggles), `friendBio` schema v1 with lazy profile backfill, and settings rowId hashing to satisfy Appwrite's 36-char limit
 - ✅ **Social Graph Complete:** Explore page with search, friend requests (incoming/outgoing), accept/decline/cancel, block, remove, `useFriends`, `useProfileLookup`, `useMyProfile`, `SetUsernameSheet`
-- ✅ **Phase 3.0 – Friend Calendar Complete:** `FriendCalendarPage` (full route), `FriendCalendarView` (Embla month/week carousel), `FriendDayViewSheet` (read-only task detail with reply affordance), `useFriendCalendar`, `friendData` + `friendCache` (5-min IndexedDB TTL), `get-friend-calendar` Appwrite Function
+- ✅ **Phase 3.0 – Friend Calendar Complete:** `FriendCalendarPage` (full route), `FriendCalendarView` (Embla month/week carousel), `FriendDayViewSheet` (read-only task detail with reply affordance), `useFriendCalendar`, `friendData` + `friendCache` (5-min IndexedDB TTL), `get_friend_calendar` action on `message-action`
 - ✅ **Phase 3.1 – Messaging Core Complete:** RxDB `messages` collection (v3), two-row cross-user pattern, `message-action` Appwrite Function (`deliver`, `mark_read`, `unsend`, `react`), `useMessages` (per-thread), `useConversations` (inbox with every accepted friend), `useUnreadMessages`, `MessagesPage`, `ChatPage`, `MessageBubble`, `MessageComposer`, `MessageActionSheet`, `EmojiPickerSheet`, `ReactionRow`, `TaskRefCard`, `ReplyPreview`, `ReplyComposerSheet`, `ScrollToBottomButton`, `ChatSearchBar`, outbox delivery in `messageDelivery.ts`, deterministic thread + recipient row IDs in `threads.ts`, shared `reactionUtils.ts`
 - ✅ **Phase 3.2 – Chat Polish Complete:** swipe-to-reply (contextual direction), double-tap ❤️, single-tap timestamp reveal, unified `useBubbleGestures` hook (replaces `useLongPress`), read receipts with per-message "Seen at" indicator, delivery indicators, scroll-to-bottom FAB with unread dot, chat search (`Cmd/Ctrl+F`/`K`, `Esc` to close), copy improvements for task refs
 - ✅ **Phase 3.3 – Task Reactions Complete:** heart button in `FriendDayViewSheet`, `react_to_task` action, chip row on friend tasks (interactive) and own tasks (display-only), emoji-picker-driven chat message on `add`
-- 🔄 **Next Up:** Phase 3 (Todo List View — compact color grid + vertical task list for selected day), Diary View, Notifications tab (in-app notifications for message/reaction events)
+- 🔄 **Next Up:** Phase 3.4 — Todo List View; Phase 3.5 — Diary View; Phase 3.6 — Notifications tab (in-app notifications for message/reaction events)
 
 ---
 
 ## 9. Hook & State Conventions
-- **Hook Return Shape:** Every custom hook MUST return a **named object**, never an array. Standard fields: `{ data, isLoading, ...mutators }`. Mutators are always `useCallback`-wrapped
+- **Hook Return Shape:** Every custom hook MUST return a **named object**, never an array. Standard shape: `{ <domain>, isLoading, ...mutators }` where `<domain>` is the plural (or singular for singletons like `profile`) domain noun — e.g., `{ tasks, isLoading, addTask, ... }`. Mutators are always `useCallback`-wrapped
 - **User-Scoped Data Guard:** Any hook that reads user data (`useTasks`, `useCategories`, `useDiary`, `useSettings`, `useMessages`, `useConversations`) MUST track a separate `loadedUserId` (or `loadedKey`) state alongside the data. Expose data only when `loadedUserId === userId`; otherwise return `[]` and set `isLoading = true`. This prevents cross-user data leakage during logout/login transitions
 - **Dependency Arrays:** Hooks MUST depend on `user?.$id` (primitive string), NEVER the `user` object itself. Prevents re-subscription storms from Appwrite object identity churn
 - **Observable Subscriptions:** All RxDB reads use `query.$.subscribe(...)` inside a `useEffect`, storing the subscription and unsubscribing in cleanup. Always pair with an `isMounted` boolean guard before calling `setState`
@@ -120,7 +117,7 @@
 - **Silent Session Cleanup:** Before any `account.createEmailPasswordSession`, wrap a `try { await account.deleteSession('current') } catch {}` — swallowing that error is intentional and required
 - **DEBUG Gating:** Non-error diagnostic logs MUST be wrapped in `if (import.meta.env.DEV)` or gated behind a module-level `const DEBUG = import.meta.env.DEV`. Never log to production consoles
 - **Error Surfacing to UI:** Use a fixed-position toast (`fixed bottom-24 left-1/2 -translate-x-1/2 z-[70]`) with auto-dismiss via `setTimeout` (2000ms) — see DayViewSheet's `deleteFeedback` and `ChatPage`'s `feedback` patterns. Do not use `alert()` for anything except placeholder "Coming Soon" features
-- **Invalid RowId Recovery:** If sync logs an `Invalid rowId` error for a locally-created doc, that doc will retry forever. The owning hook (e.g., `useSettings`) must scan for and `remove()` any legacy rows whose ID violates Appwrite's constraints during its init phase
+- **Invalid RowId Recovery:** If sync logs an `Invalid rowId` error for a locally-created doc, that doc will retry forever. The owning hook (e.g., `useSettings`) must scan for and `remove()` any legacy rows whose ID violates Appwrite's constraints during its init phase (see §11)
 - **`CONFLICT` Is Not an Error:** `markAllRead` and `toggleReaction` patch rows that a parallel sync cycle may have updated. Catch `err.code === 'CONFLICT'`, re-fetch the doc, and either retry once or skip. Do NOT log `CONFLICT` as an error — it's an expected race
 - **Fire-and-Forget Cross-User Writes:** `markReadOnRemote`, `unsendOnRemote`, `reactOnRemote`, `reactToTaskOnRemote` intentionally swallow errors after logging. The user's local state is the source of truth; the server call is best-effort. Only `deliver` retries via the pending outbox
 
@@ -138,7 +135,7 @@
   2. Otherwise → return `s_${hashString(userId + '_' + key)}` where `hashString` is a deterministic dual-djb2 variant producing a ~12–14 char base36 string
   Any new feature that needs a long settings key automatically gets a valid Appwrite row ID without schema changes
 - **Friendship Row IDs:** Deterministic SHA-256 based: `fr_${hex.slice(0, 32)}` from `${ownerId}|${friendId}` (already 35 chars, safe)
-- **`Math.random().toString(36).substr(2, 9)`** is the standard suffix — do not use `.slice()` in new code (consistency with existing)
+- **Random Suffix Convention:** For the random suffix, use `.substr(2, 9)`. Reserve `.slice(n, m)` for truncating deterministic hashes (thread IDs, friendship IDs, recipient row IDs)
 
 ## 12. Field Naming & Serialization
 - **Local ↔ Remote Mapping Rules:**
@@ -172,10 +169,10 @@
   - When comparing timestamps, always use the `toMs()` helper pattern (`Number.isFinite` guard)
 - **Empty-String Over Null:** Optional string fields (`memo`, `image`, `completedAt`, `icon`, `friendBio`, `threadId`, `replyToId`, `replyToContent`, `replyToSenderId`, `originalMessageId`, `reactions`, `readAt`) MUST default to `''`, never `null` or `undefined`, so RxDB schema validation never fails
 - **Reactions Format:** JSON string of `Array<{ emoji: string; userIds: string[] }>`. Serialized as `''` when empty (not `'[]'`). Parsed/stringified only via `src/lib/reactionUtils.ts`
-- **Schema Migrations:** When adding a new optional field to an existing RxDB collection, bump the schema `version` and add a `migrationStrategies` entry in `database.ts` that backfills the field with `''` (or `false` for booleans). Also update both `toAppwriteFormat` and `fromAppwriteFormat` in `sync.ts`, and run a one-off `scripts/*.mjs` script to add the corresponding Appwrite column
+- **Schema Migrations:** When adding a new optional field to an existing RxDB collection, bump the schema `version` and add a `migrationStrategies` entry in `database.ts` that backfills the field with `''` (or `false` for booleans). Also update both `toAppwriteFormat` and `fromAppwriteFormat` in `sync.ts`, and run a one-off `scripts/*.mjs` script to add the corresponding Appwrite column (e.g., `scripts/add-message-reactions-columns.mjs`)
 
 ## 13. Modal & Bottom Sheet Structure
-- **One Sheet = One File:** Every sheet lives in its own file and takes `{ isOpen, onClose, <entity>, onSave/onConfirm }` props. No context-based sheet orchestration
+- **One Sheet = One File:** Every sheet lives in its own file and takes `{ isOpen, onClose, <entity>, onSave/onConfirm }` props. No context-based sheet orchestration. (Primitive rules: see §7)
 - **Nested Sheet Choreography:** When one sheet opens another (TaskActionSheet → MemoSheet), the parent passes `isLocked={isBackgroundLocked}` down. `isBackgroundLocked` is computed from a single boolean OR of all child-sheet open states
 - **Action Sheets Close Themselves Before Opening a Sibling:** When an action button in TaskActionSheet needs to open MemoSheet, ImageViewer, etc., the pattern is: `onClick={() => { onX(); onClose(); }}` — the action sheet must visually dismiss before the sibling opens
 - **Sheet Content Padding:** Sheet bodies use `pt-2 pb-8 px-4` (or `px-1` for full-width lists). Do not add extra wrappers
@@ -191,21 +188,19 @@
 - **Stop Event Leakage in Lists:** Buttons/inputs inside tappable rows MUST call `onPointerDown={(e) => e.stopPropagation()}` to prevent parent row's tap handler from firing (critical inside Swiper slides and message bubbles)
 - **Animation Tokens:** Entry animations use `animate-in fade-in duration-300` or `animate-in fade-in slide-in-from-<dir>-1 duration-200`. Framer Motion `whileTap={{ scale: 0.95–0.98 }}` on all tappables
 - **Spinner Primitive:** Loading spinners are ALWAYS `<div className="w-N h-N border-2 border-white border-t-transparent rounded-full animate-spin" />`. No SVG spinners, no library spinners
-- **AnimatePresence Person/View Switching:** Person and view transitions between full calendar panes use `<AnimatePresence mode="wait">` with `custom={direction}` and a slide variant keyed on direction. `mode="wait"` prevents two Embla carousels from simultaneously mounting and fighting for touch events
 - **Unified Gesture Hooks:** Any element supporting more than one gesture (swipe + tap + long-press) MUST use a single state-machine hook (`useBubbleGestures`). Do not stack `useLongPress` + custom drag + tap handlers. Refs hold the internal gesture state; only visual output (`swipeOffset`, `isSwiping`) uses React state, throttled with `requestAnimationFrame`
-- **`consumeDidFire()` Pattern:** Gesture hooks expose a `consumeDidFire()` callback that reads-and-resets an internal "gesture already fired" flag. Parent click handlers call it at the top to avoid double-firing after a long-press or swipe. Never expose the ref directly (breaks the `react-hooks/immutability` lint rule)
 
 ## 15. File Organization Rules
 - `src/components/ui/` — pure, entity-agnostic primitives (Button, Input, BottomSheet, Avatar, ColorPalettePicker, OfflineBanner, SettingsRow)
 - `src/components/layout/` — chrome that wraps routes (MainLayout, BottomNav, AppLayout, ComingSoon)
-- `src/components/home/` — Home page feature components (PersonCarousel, PersonProfileHeader, SwipeableTopZone, FriendCarouselSettingsSheet, TopBar, ViewSwitcher, HamburgerMenu, PersonPane)
+- `src/components/home/` — Home page feature components (PersonCarousel, PersonProfileHeader, FriendCarouselSettingsSheet, TopBar, ViewSwitcher, HamburgerMenu, PersonPane)
 - `src/components/home/views/` — calendar sub-views and their sub-sheets (CalendarHeader, CalendarBody, MonthView, WeekView, DayViewSheet, TaskItem, CategorySection, TaskActionSheet, etc.) plus the shared `useCalendarState` hook
 - `src/components/friend/` — read-only friend views used by both HomePage's carousel content and `FriendCalendarPage` (FriendCalendarView, FriendDayViewSheet)
 - `src/components/messages/` — chat feature (MessageBubble, MessageComposer, MessageActionSheet, ReplyComposerSheet, ReplyPreview, ReactionRow, EmojiPickerSheet, TaskRefCard, ConversationRow, ScrollToBottomButton, ChatSearchBar)
 - `src/components/explore/` — social graph UI (ExploreView, SearchBar, UserResultCard, FriendRow, FriendRequestRow, OutgoingRequestRow, FriendActionSheet)
 - `src/components/modals/` — account/settings modals (CategoryManagerSheet, AccountSettingsSheet, ChangeEmailSheet, ChangePasswordSheet, EditDescriptionSheet, EditNameSheet, EditProfileImageSheet, ExportDataSheet, SetUsernameSheet)
 - `src/hooks/` — one hook per data domain (useTasks, useCategories, useDiary, useSettings, useFriends, useMessages, useConversations, useUnreadMessages, useFriendCarousel) plus focused utilities (useTaskImage, useImageCompression, useBubbleGestures)
-- `src/lib/` — side-effectful SDK wrappers and pure utilities (appwrite, storage, imageCache, social, friendCache, friendData, friendCalendar, messageDelivery, threads, reactionUtils, visibility, exportData, mockData). No React imports allowed here (except `useFriendCalendar.ts` which is a hook living under lib/ for historical reasons — do not move it)
+- `src/lib/` — side-effectful SDK wrappers and pure utilities (appwrite, storage, imageCache, social, friendCache, friendData, useFriendCalendar, messageDelivery, threads, reactionUtils, visibility, exportData, mockData). No React imports allowed here (except `useFriendCalendar.ts` which is a hook living under lib/ for historical reasons — do not move it)
 
 ## 16. List Rendering & Sorting
 - **Default Sort Contracts (in hooks, not components):**
@@ -249,7 +244,7 @@ Every 1:1 message exists as **two independent Appwrite rows**, one per participa
 
 | Row | `user_id` | `direction` | Row ID |
 |---|---|---|---|
-| Sender's copy | sender | `outgoing` | `msg_<random>` (client-generated, `src/lib/threads.ts`) |
+| Sender's copy | sender | `outgoing` | `msg_<random>` (client-generated, `useMessages.ts`) |
 | Recipient's copy | recipient | `incoming` | `rmsg_<sha256(senderMsgId).slice(0,30)>` (deterministic, `makeRecipientRowId`) |
 
 Both rows share `thread_id`, `sender_id`, `recipient_id`, `created_at`, and content. The recipient row id is deterministic so the sender's client can compute it without a server round-trip. `original_message_id` on the incoming row stores the sender's `msg_*` id so the recipient can locate the peer row for reactions.
@@ -261,17 +256,18 @@ Both rows share `thread_id`, `sender_id`, `recipient_id`, `created_at`, and cont
 - No RLS gymnastics for cross-user visibility
 
 ### 20.3 The `message-action` Appwrite Function
-Single function, single ID, `action` field in the body. Five actions:
+Single function, single ID, `action` field in the body. Six actions:
 
 | Action | Caller | Purpose |
 |---|---|---|
 | `deliver` | sender | Create the recipient's row via API key with recipient-owned permissions |
 | `mark_read` | recipient | Patch `read_at` on sender's outgoing rows (`WHERE user_id = sender AND thread_id = X AND direction = 'outgoing' AND read_at = ''`) |
 | `unsend` | sender | Patch BOTH rows: wipe content/refs/reactions, set `is_unsent=true`. Cascade-wipes `reply_to_content` on any messages that quoted the unsent message |
-| `react` | either | Read-modify-write reactions on BOTH rows. Handles legacy rows where `original_message_id` is empty via a `resolveLegacyPeerRowId` lookup |
+| `react` | either | Read-modify-write reactions on BOTH rows. Handles legacy rows where `original_message_id` is empty via a `resolveLegacyPeerRowId` lookup (see §22) |
 | `react_to_task` | friend of task owner | Patch the task owner's task row with a reaction delta |
+| `get_friend_calendar` | friend of calendar owner | Read the owner's visible tasks and categories (filters by `visibility`; verifies friendship) |
 
-Function ID lives in `src/lib/messageDelivery.ts` as `MESSAGE_ACTION_FUNCTION_ID`. All actions live in `appwrite-functions/message-action/main.js`. Friendship is verified before every write.
+Function ID lives in `src/lib/messageDelivery.ts` as `MESSAGE_ACTION_FUNCTION_ID`. All actions live in `appwrite-functions/message-action/main.js`. Friendship is verified before every write. (General cross-user-write rule: see §6.)
 
 ### 20.4 Delivery Flow
 1. Sender inserts local message with `deliveryStatus: 'pending'`
