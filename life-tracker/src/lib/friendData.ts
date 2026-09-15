@@ -78,14 +78,12 @@ export async function fetchFriendCalendar(
       return cached;
     }
   }
-
   if (typeof navigator !== 'undefined' && navigator.onLine === false) {
     throw new FriendAccessError(
       "You need to be online to view a friend's calendar.",
       'offline'
     );
   }
-
   if (MESSAGE_ACTION_FUNCTION_ID.startsWith('REPLACE_')) {
     console.error(
       '[friendData] MESSAGE_ACTION_FUNCTION_ID not configured'
@@ -95,7 +93,6 @@ export async function fetchFriendCalendar(
       'server'
     );
   }
-
   const execution = await guardedCall(async () => {
     const exec = await functions.createExecution({
       functionId: MESSAGE_ACTION_FUNCTION_ID,
@@ -107,27 +104,20 @@ export async function fetchFriendCalendar(
       xpath: '/',
       method: ExecutionMethod.POST,
     });
-
     if (exec.status !== 'completed') {
       throw new FriendAccessError(
         'The request did not complete.',
         'server'
       );
     }
-
-    // Convert function-level 401 to a synthetic 401 error so guardedCall
-    // dispatches the global unauthorized event.
     if (exec.responseStatusCode === 401) {
-      const err = new Error('Unauthorized');
+      const err = new FriendAccessError('Unauthorized', 'forbidden');
       (err as { code?: number }).code = 401;
       throw err;
     }
-
     return exec;
   });
-
   const statusCode = execution.responseStatusCode;
-
   let parsed: {
     tasks?: AppwriteRow[];
     categories?: AppwriteRow[];
@@ -140,7 +130,6 @@ export async function fetchFriendCalendar(
     console.error('[friendData] Response parse failed:', err);
     throw new FriendAccessError('Unexpected server response.', 'server');
   }
-
   if (statusCode === 403) {
     throw new FriendAccessError(
       'You are not friends with this user.',
@@ -154,7 +143,6 @@ export async function fetchFriendCalendar(
       'server'
     );
   }
-
   const bundle: FriendCalendarBundle = {
     friendUserId,
     tasks: (parsed.tasks || []).map(mapTaskRow),
@@ -162,7 +150,6 @@ export async function fetchFriendCalendar(
     fetchedAt: parsed.fetchedAt || new Date().toISOString(),
   };
   await setCachedCalendar(bundle);
-
   if (DEBUG) {
     console.log(
       `[friendData] fetched for ${friendUserId}:`,
