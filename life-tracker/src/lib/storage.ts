@@ -1,6 +1,7 @@
 import imageCompression from 'browser-image-compression';
 import { client, account } from './appwrite';
 import { Storage, Permission, Role } from 'appwrite';
+import { isUnauthorizedError, dispatchUnauthorized } from './authEvents';
 
 const APPWRITE_CONFIG = {
   endpoint: 'https://sgp.cloud.appwrite.io',
@@ -26,13 +27,21 @@ export async function compressImage(file: File): Promise<Blob> {
 }
 
 function generateFileId(): string {
-  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+  if (
+    typeof crypto !== 'undefined' &&
+    typeof crypto.randomUUID === 'function'
+  ) {
     return `img_${crypto.randomUUID().replace(/-/g, '')}`;
   }
-  if (typeof crypto !== 'undefined' && typeof crypto.getRandomValues === 'function') {
+  if (
+    typeof crypto !== 'undefined' &&
+    typeof crypto.getRandomValues === 'function'
+  ) {
     const randomBytes = new Uint8Array(16);
     crypto.getRandomValues(randomBytes);
-    const hex = Array.from(randomBytes, b => b.toString(16).padStart(2, '0')).join('');
+    const hex = Array.from(randomBytes, (b) =>
+      b.toString(16).padStart(2, '0')
+    ).join('');
     return `img_${hex}`;
   }
   return `img_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
@@ -42,7 +51,8 @@ async function getCurrentUserId(): Promise<string | null> {
   try {
     const user = await account.get();
     return user?.$id || null;
-  } catch {
+  } catch (err) {
+    if (isUnauthorizedError(err)) dispatchUnauthorized();
     return null;
   }
 }
@@ -60,9 +70,13 @@ export async function uploadImage(file: File): Promise<string> {
   if (!userId) {
     throw new Error('Cannot upload image: no authenticated user');
   }
+
   const compressedBlob = await compressImage(file);
   const fileId = generateFileId();
-  const webpFile = new File([compressedBlob], `${fileId}.webp`, { type: 'image/webp' });
+  const webpFile = new File([compressedBlob], `${fileId}.webp`, {
+    type: 'image/webp',
+  });
+
   try {
     await storage.createFile({
       bucketId: APPWRITE_CONFIG.bucketId,
@@ -72,9 +86,12 @@ export async function uploadImage(file: File): Promise<string> {
     });
     return fileId;
   } catch (error) {
+    if (isUnauthorizedError(error)) dispatchUnauthorized();
     console.error('[Storage] Upload failed:', error);
     throw new Error(
-      `Appwrite Storage Upload Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      `Appwrite Storage Upload Error: ${
+        error instanceof Error ? error.message : 'Unknown error'
+      }`,
       { cause: error }
     );
   }
@@ -132,11 +149,14 @@ async function deleteCachedImage(fileId: string): Promise<void> {
 
 export async function getLocalImageUrl(fileId: string): Promise<string | null> {
   if (!fileId) return null;
+
   const cachedBlob = await getCachedImage(fileId);
   if (cachedBlob) {
     return URL.createObjectURL(cachedBlob);
   }
+
   if (!navigator.onLine) return null;
+
   try {
     const url = storage.getFileView({
       bucketId: APPWRITE_CONFIG.bucketId,
@@ -146,6 +166,10 @@ export async function getLocalImageUrl(fileId: string): Promise<string | null> {
       credentials: 'include',
       headers: { 'X-Appwrite-Project': APPWRITE_CONFIG.projectId },
     });
+    if (res.status === 401) {
+      dispatchUnauthorized();
+      return null;
+    }
     if (!res.ok) return null;
     const blob = await res.blob();
     await cacheImage(fileId, blob);
@@ -163,7 +187,12 @@ export async function deleteImage(fileId: string): Promise<void> {
       fileId: fileId,
     });
   } catch (err) {
-    console.warn('[Storage] Failed to delete image from Appwrite:', fileId, err);
+    if (isUnauthorizedError(err)) dispatchUnauthorized();
+    console.warn(
+      '[Storage] Failed to delete image from Appwrite:',
+      fileId,
+      err
+    );
   }
   await deleteCachedImage(fileId);
 }

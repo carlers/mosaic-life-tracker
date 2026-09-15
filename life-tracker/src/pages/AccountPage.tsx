@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Settings, LogOut, BarChart3, Sticker, ListTodo } from 'lucide-react';
 import { Avatar } from '../components/ui/Avatar';
@@ -12,17 +12,26 @@ export const AccountPage: React.FC = () => {
   const { tasks } = useTasks();
   const { categories } = useCategories();
   const navigate = useNavigate();
+  const [feedback, setFeedback] = useState<string | null>(null);
+
+  const showFeedback = (msg: string) => {
+    setFeedback(msg);
+    setTimeout(() => setFeedback(null), 2000);
+  };
 
   const handleLogout = async () => {
-    await logout();
-    navigate('/login', { replace: true });
+    const ok = await logout();
+    if (ok) {
+      navigate('/login', { replace: true });
+    } else {
+      showFeedback('Sign out failed. Check your connection and try again.');
+    }
   };
 
   const backlogCount = tasks.filter((t) => !t.completed).length;
 
   return (
     <div className="flex flex-col h-full animate-in fade-in duration-300">
-      {/* Header */}
       <div className="sticky top-0 z-20 bg-[#111111] px-4 py-3 border-b border-[#333333] flex items-center justify-between">
         <h1 className="text-lg font-bold text-white">Me</h1>
         <button
@@ -34,16 +43,13 @@ export const AccountPage: React.FC = () => {
           <Settings size={20} />
         </button>
       </div>
-
       <div className="flex-1 overflow-y-auto pb-24 px-4 pt-6 space-y-6">
-        {/* Profile header */}
         <div className="flex flex-col items-center text-center space-y-3">
-          <Avatar
-            size="lg"
-            alt={user?.name || user?.email || 'User'}
-          />
+          <Avatar size="lg" alt={user?.name || user?.email || 'User'} />
           <div>
-            <h2 className="text-xl font-bold text-white">{user?.name || 'User'}</h2>
+            <h2 className="text-xl font-bold text-white">
+              {user?.name || 'User'}
+            </h2>
             <p className="text-sm text-gray-500">{user?.email}</p>
           </div>
           <div className="flex items-center gap-6 text-sm text-gray-400">
@@ -57,8 +63,6 @@ export const AccountPage: React.FC = () => {
             </div>
           </div>
         </div>
-
-        {/* Feature shortcuts */}
         <div className="grid grid-cols-2 gap-3">
           <div className="bg-[#1E1E1E] border border-[#333333] rounded-xl p-3 flex flex-col items-center gap-2">
             <BarChart3 size={20} className="text-blue-500" />
@@ -69,8 +73,6 @@ export const AccountPage: React.FC = () => {
             <span className="text-xs text-gray-400">Sticker Shop</span>
           </div>
         </div>
-
-        {/* Backlog */}
         <div className="bg-[#1E1E1E] border border-[#333333] rounded-xl p-4 flex items-center justify-between">
           <div>
             <h3 className="text-base font-bold text-white">Backlog</h3>
@@ -78,8 +80,6 @@ export const AccountPage: React.FC = () => {
           </div>
           <ListTodo size={24} className="text-gray-500" />
         </div>
-
-        {/* Categories */}
         <div className="bg-[#1E1E1E] border border-[#333333] rounded-xl p-4 flex items-center justify-between">
           <div>
             <h3 className="text-base font-bold text-white">Categories</h3>
@@ -87,21 +87,28 @@ export const AccountPage: React.FC = () => {
           </div>
           <div className="w-6 h-6 rounded-full bg-gradient-to-tr from-blue-500 to-purple-500" />
         </div>
-
-        {/* Quote */}
         <div className="text-center py-4">
-          <p className="text-sm text-gray-500 italic">"Tact is the ability to describe others as they see themselves."</p>
+          <p className="text-sm text-gray-500 italic">
+            "Tact is the ability to describe others as they see themselves."
+          </p>
           <p className="text-xs text-gray-600 mt-1">Eleanor Chaffee</p>
         </div>
       </div>
-
-      {/* Logout */}
       <div className="px-4 pb-8">
-        <Button variant="danger" className="w-full gap-2 py-3" onClick={handleLogout}>
+        <Button
+          variant="danger"
+          className="w-full gap-2 py-3"
+          onClick={handleLogout}
+        >
           <LogOut size={18} />
           Logout
         </Button>
       </div>
+      {feedback && (
+        <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[70] bg-[#2A2A2A] border border-[#444444] text-white text-sm px-5 py-2.5 rounded-full shadow-lg backdrop-blur-md animate-in fade-in slide-in-from-bottom-2 duration-200">
+          {feedback}
+        </div>
+      )}
     </div>
   );
 };

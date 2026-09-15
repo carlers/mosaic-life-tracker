@@ -38,6 +38,7 @@
 - **Backend:** Appwrite TablesDB (SDK v26+), which provides a relational model (tables, rows, columns) on top of Appwrite Databases
 - **Backend Functions:** `message-action` (Node.js 18) handles all cross-user writes for messaging and task reactions. Actions are enumerated in §20.3. Required scopes: `rows.read`, `rows.write`, `tables.read`.
 - **PWA:** `vite-plugin-pwa` (with `registerType: 'autoUpdate'`)
+- **Auth:** React Context (`AuthProvider`) is the single source of truth for the authenticated user. See §23. `useAuth` is a thin consumer shim; no hook mounts its own `account.get()`.
 
 ## 5. The "Brain Generates, Human Executes" Workflow
 - **AI Role:** The AI writes 100% of the production-ready code. No local AI agents are used for coding
@@ -83,7 +84,8 @@
 - ✅ **Phase 3.1 – Messaging Core Complete:** RxDB `messages` collection (v3), two-row cross-user pattern, `message-action` Appwrite Function (`deliver`, `mark_read`, `unsend`, `react`), `useMessages` (per-thread), `useConversations` (inbox with every accepted friend), `useUnreadMessages`, `MessagesPage`, `ChatPage`, `MessageBubble`, `MessageComposer`, `MessageActionSheet`, `EmojiPickerSheet`, `ReactionRow`, `TaskRefCard`, `ReplyPreview`, `ReplyComposerSheet`, `ScrollToBottomButton`, `ChatSearchBar`, outbox delivery in `messageDelivery.ts`, deterministic thread + recipient row IDs in `threads.ts`, shared `reactionUtils.ts`
 - ✅ **Phase 3.2 – Chat Polish Complete:** swipe-to-reply (contextual direction), double-tap ❤️, single-tap timestamp reveal, unified `useBubbleGestures` hook (replaces `useLongPress`), read receipts with per-message "Seen at" indicator, delivery indicators, scroll-to-bottom FAB with unread dot, chat search (`Cmd/Ctrl+F`/`K`, `Esc` to close), copy improvements for task refs
 - ✅ **Phase 3.3 – Task Reactions Complete:** heart button in `FriendDayViewSheet`, `react_to_task` action, chip row on friend tasks (interactive) and own tasks (display-only), emoji-picker-driven chat message on `add`
-- 🔄 **Next Up:** Phase 3.4 — Todo List View; Phase 3.5 — Diary View; Phase 3.6 — Notifications tab (in-app notifications for message/reaction events)
+- ✅ **Phase 3.4 – Auth Architecture Hardening Complete:** `AuthProvider` React Context is the single source of truth for session state. Single `account.get()` per app load instead of ~22. Logout now returns `boolean` and callers gate navigation on success. Mid-session 401 from sync, message delivery, friend-data, social reads/writes, image upload/fetch, and export now dispatch a global `auth:unauthorized` event that clears auth state and redirects to `/login`. Multi-tab logout and cross-tab login sync via `localStorage` broadcast. Mount-time network errors no longer redirect to `/login`; `AppLayout` renders a retry screen instead. See §23.
+- 🔄 **Next Up:** Phase 3.5 — Todo List View; Phase 3.6 — Diary View; Phase 3.7 — Notifications tab (in-app notifications for message/reaction events)
 
 ---
 
@@ -110,6 +112,11 @@
 - **Debounced Persistence in Sheets:** When a sheet needs to persist live reorder state (e.g., `FriendCarouselSettingsSheet`), debounce the write (~400ms) inside a `useEffect` keyed on the local items array. Do NOT write on every drag tick
 - **In-Flight Ref Guard for Idempotent Multi-Row Patches:** Any hook operation that patches multiple rows in a loop (`markAllRead`, batch unsends) MUST have a `useRef<boolean>` in-flight guard. Inside the loop, re-fetch each doc right before patching (`findOne(id).exec()`) to obtain the latest revision. RxDB throws `CONFLICT` when patching a stale revision
 - **Optimistic + Revert for Cross-User Writes:** When patching a foreign row (`reactToTask`, `toggleReaction`), apply the optimistic local update first, call the server, and revert the local change on failure. Never block the UI on the server round-trip. If the server returns a resolved row ID (e.g., legacy message backfill), persist it locally so the next call doesn't need a lookup
+<!-- UPDATED -->
+- **Auth Is Not a Data Hook:** `useAuth` is a thin consumer of `AuthContext` (see §23). It does NOT mount its own `account.get()`, does NOT track a `loadedUserId`, and does NOT own session state. All session state, session transitions, and auth-error handling live in `AuthProvider`. Never add per-consumer auth state to a hook or component
+- **Async-First Effects That Set State:** Any effect that ends up calling a state-setting function (including via an async callback) MUST structure that function so all `setState` calls occur after the first `await`, or defer via `queueMicrotask`. Synchronous setState from an effect body triggers the `react-hooks/set-state-in-effect` rule and causes cascading renders
+- **Context Split for Fast Refresh:** A file that exports a React component MUST NOT also export a non-component value (context object, hooks, constants). Split them: `authContext.ts` holds `AuthContext` + `AuthContextValue`; `AuthProvider.tsx` holds only the component. This satisfies `react-refresh/only-export-components`
+<!-- /UPDATED -->
 
 ## 10. Error Handling & Logging Conventions
 - **Hook/Service Log Prefix:** All `console.error` and `console.warn` calls MUST be prefixed with `[ComponentName]` or `[hookName]` in square brackets. Active prefixes include: `[useTasks]`, `[useMessages]`, `[useConversations]`, `[messageDelivery]`, `[ChatPage]`, `[useFriendCalendar]`, `[PersonPane]`, `[FriendCalendarPage]`, `[Storage]`, `[Sync]`, `[Bootstrap]`, `[RxDB]`, `[CategoryManagerSheet]`, `[ReplyComposerSheet]`, `[EmojiPicker]`. Makes log filtering trivial
@@ -120,6 +127,12 @@
 - **Invalid RowId Recovery:** If sync logs an `Invalid rowId` error for a locally-created doc, that doc will retry forever. The owning hook (e.g., `useSettings`) must scan for and `remove()` any legacy rows whose ID violates Appwrite's constraints during its init phase (see §11)
 - **`CONFLICT` Is Not an Error:** `markAllRead` and `toggleReaction` patch rows that a parallel sync cycle may have updated. Catch `err.code === 'CONFLICT'`, re-fetch the doc, and either retry once or skip. Do NOT log `CONFLICT` as an error — it's an expected race
 - **Fire-and-Forget Cross-User Writes:** `markReadOnRemote`, `unsendOnRemote`, `reactOnRemote`, `reactToTaskOnRemote` intentionally swallow errors after logging. The user's local state is the source of truth; the server call is best-effort. Only `deliver` retries via the pending outbox
+<!-- UPDATED -->
+- **401 Detection & Global Redirect:** Any SDK call or `fetch` that can return 401 MUST route through `isUnauthorizedError(err)` from `src/lib/authEvents.ts`. On match, call `dispatchUnauthorized()` to fire the global `auth:unauthorized` window event. `AuthProvider` listens and clears user state, which causes `AppLayout` to redirect to `/login`. Do NOT redirect from the call site
+- **Differentiate "Not Logged In" From "Couldn't Check":** A 401 from `account.get()` means "definitely not logged in." A network error, timeout, or offline state means "couldn't check." These MUST be handled differently. The former clears user state; the latter sets `isOffline = true` and lets `AppLayout` render a retry screen instead of redirecting
+- **Logout Returns Success:** `useAuth().logout()` returns `Promise<boolean>`. Callers MUST check the return value before navigating away. Never assume logout succeeded. This applies to `SettingsPage.handleLogout`, `AccountPage.handleLogout`, and any future caller. See §23 for the full pattern
+- **Multi-Tab Auth Broadcast:** Login and logout both write a JSON payload (`{ type: 'login' | 'logout', at: number }`) to `localStorage` under the key `mosaic_auth_broadcast`. Other tabs listen via the `storage` event and either clear user state (logout) or re-run `account.get()` (login). Never broadcast user credentials or tokens — only the event type
+<!-- /UPDATED -->
 
 ## 11. ID Generation & Naming
 - **Client-Generated IDs:** All primary keys are generated client-side (no server round-trip) with a type prefix:
@@ -200,7 +213,13 @@
 - `src/components/explore/` — social graph UI (ExploreView, SearchBar, UserResultCard, FriendRow, FriendRequestRow, OutgoingRequestRow, FriendActionSheet)
 - `src/components/modals/` — account/settings modals (CategoryManagerSheet, AccountSettingsSheet, ChangeEmailSheet, ChangePasswordSheet, EditDescriptionSheet, EditNameSheet, EditProfileImageSheet, ExportDataSheet, SetUsernameSheet)
 - `src/hooks/` — one hook per data domain (useTasks, useCategories, useDiary, useSettings, useFriends, useMessages, useConversations, useUnreadMessages, useFriendCarousel) plus focused utilities (useTaskImage, useImageCompression, useBubbleGestures)
-- `src/lib/` — side-effectful SDK wrappers and pure utilities (appwrite, storage, imageCache, social, friendCache, friendData, useFriendCalendar, messageDelivery, threads, reactionUtils, visibility, exportData, mockData). No React imports allowed here (except `useFriendCalendar.ts` which is a hook living under lib/ for historical reasons — do not move it)
+  <!-- UPDATED -->
+  - Auth trio: `authContext.ts` (context object + types only, no component), `AuthProvider.tsx` (the provider component, no other exports), `useAuth.ts` (consumer hook). This split exists to satisfy `react-refresh/only-export-components` — do not merge
+  <!-- /UPDATED -->
+- `src/lib/` — side-effectful SDK wrappers and pure utilities (appwrite, storage, imageCache, social, friendCache, friendData, useFriendCalendar, messageDelivery, threads, reactionUtils, visibility, exportData, mockData). No React imports allowed here (except `useFriendCalendar.ts` which is a hook living under lib/ for historical reasons — do not move)
+  <!-- UPDATED -->
+  - `authEvents.ts` — pure module: `AUTH_UNAUTHORIZED_EVENT` constant, `isUnauthorizedError(err)` predicate, `dispatchUnauthorized()` helper. No React. Imported by every SDK wrapper that can receive a 401
+  <!-- /UPDATED -->
 
 ## 16. List Rendering & Sorting
 - **Default Sort Contracts (in hooks, not components):**
@@ -228,12 +247,20 @@
 - **Fire-and-Forget Cross-User Writes:** Non-critical server actions (`mark_read`, `unsend`, `react`, `react_to_task`) are dispatched without awaiting for the UI. Errors are logged but never thrown to the caller. Delivery (`deliver`) is the exception — it retries via `deliverPendingMessages`
 - **Polling in Long-Lived Screens:** `ChatPage` runs a 10s `forceSync()` interval while the tab is visible, to propagate read receipts. Guards: skip when `document.visibilityState !== 'visible'`, skip when `navigator.onLine === false`. Interval cleared on unmount
 - **Auto-Scroll Pinning:** Chat message lists track an `isPinnedToBottomRef` updated synchronously in the scroll handler. Incoming messages auto-scroll only when pinned; outgoing messages always scroll. The scroll-to-bottom FAB reflects the un-pinned state
+<!-- UPDATED -->
+- **`queueMicrotask` for Effect-Triggered Async:** When an effect must kick off an async function that will setState, wrap the call in `queueMicrotask(() => { ... })` and re-check `isMountedRef.current` inside. This avoids `react-hooks/set-state-in-effect` while preserving correct ordering (the async function itself must be async-first — all setState after the first `await`)
+<!-- /UPDATED -->
 
 ## 19. Bootstrap & Persistence
-- **Order of Operations in `main.tsx`:** 1) `navigator.storage.persist()`, 2) `initializeDatabase()`, 3) fire-and-forget `initializeSync()` (never block render on network), 4) `ReactDOM.createRoot(...).render(...)`
+<!-- UPDATED -->
+- **Order of Operations in `main.tsx`:** 1) `navigator.storage.persist()`, 2) `initializeDatabase()`, 3) fire-and-forget `initializeSync()` for the cold-load-with-session case (never block render on network), 4) `ReactDOM.createRoot(...).render(<React.StrictMode><AuthProvider><App /></AuthProvider></React.StrictMode>)`
 - **Non-Blocking Sync:** `initializeSync()` is always called with `.catch()` — a sync failure must never prevent the app from mounting
+- **Auth Resolution Happens in `AuthProvider`, Not `main.tsx`:** The provider runs a single `account.get()` on mount (deferred via `queueMicrotask`) and broadcasts the result to every consumer via context. `main.tsx` does not call `account.get()` itself; it only sets up the provider
+- **Login-Triggered Sync:** Because `initializeSync()` on cold load may run before any session exists (e.g., cold load on `/login`), `AuthPage.handleSubmit` calls `initializeSync()` after a successful `login`/`signup` and before navigating to `/home`. This closes the race where sync never re-runs after login
 - **`ignoreDuplicate: true`** on `createRxDatabase` and a singleton `dbInstance` module variable are required to survive React StrictMode double-invocations
 - **Local Cleanup on Init:** Data hooks should opportunistically purge known-bad local state (oversized row IDs, legacy composite IDs) during their init phase, before subscribing. This avoids permanent sync failures for users who already have broken rows in IndexedDB
+- **Single `account.get()` Per Load:** In production, a cold authenticated load should fire exactly one `account.get()` (from `AuthProvider`). In dev with `<React.StrictMode>`, it will fire twice — this is expected. If you ever see more, an auth source has leaked back into a consumer. Verify with `console.count('account.get')` in `AuthProvider.resolveInitialUser`
+<!-- /UPDATED -->
 
 ---
 
@@ -323,3 +350,63 @@ The polling exists because the sync engine is conservative: it skips the pull ph
 - **No self-reactions:** server rejects `callerId === taskOwnerId` with 400.
 - **Owner viewing chips:** owners see chips on their own tasks in `DayViewSheet` but cannot toggle them (would need an `remove` op from the owner's side; not implemented).
 - **Legacy messages:** message reactions on incoming rows require `originalMessageId`. If empty (pre-V2.4 rows), the server resolves it via `resolveLegacyPeerRowId` on `(sender_id, created_at, content)`. The client persists the resolved id locally so subsequent reactions don't need a lookup.
+
+---
+
+## 23. Auth Architecture
+<!-- NEW SECTION -->
+
+### 23.1 The Provider
+- `AuthProvider` (in `src/hooks/AuthProvider.tsx`) is the **single source of truth** for session state. It owns the only `account.get()` call that runs on mount
+- `AuthContext` (in `src/hooks/authContext.ts`) holds the context object and the `AuthContextValue` type. It exports no component, which keeps `AuthProvider.tsx` fast-refresh-clean
+- `useAuth` (in `src/hooks/useAuth.ts`) is a thin consumer that returns `AuthContextValue` or throws if called outside the provider
+- `AuthProvider` is wired in `main.tsx` inside `<React.StrictMode>` and wraps `<App />`
+
+### 23.2 The `AuthContextValue` Shape
+```ts
+{
+  user: Models.User<Models.Preferences> | null;
+  isLoading: boolean;
+  error: string | null;
+  isOffline: boolean;           // true = "couldn't check", not "logged out"
+  login: (email, password) => Promise<boolean>;
+  signup: (email, password, name) => Promise<boolean>;
+  logout: () => Promise<boolean>;   // UPDATED: was Promise<void>
+  updateEmail: (newEmail, password) => Promise<boolean>;
+  updatePassword: (newPassword, oldPassword) => Promise<boolean>;
+  retry: () => Promise<void>;
+}
+```
+
+### 23.3 Session Transitions
+- **Mount:** `AuthProvider` defers `account.get()` via `queueMicrotask` inside its mount effect. On 401 → `user: null`, `isOffline: false`. On network error → `user: null`, `isOffline: true`, error message set
+- **Login:** clears any stale session, creates a new one, calls `account.get()`, updates state, broadcasts a `login` event via `localStorage`
+- **Signup:** same as login after the account is created (with the `already active` / `prohibited` swallow for Appwrite's auto-session quirk)
+- **Logout:** deletes the session, updates state, broadcasts a `logout` event. Returns `true` on success and `false` on failure. **Callers must gate navigation on the return value**
+- **Update email / password:** these do not change session identity; they refresh `user` only
+
+### 23.4 Mid-Session 401 Handling
+- Any SDK call or raw `fetch` that can return 401 routes through `isUnauthorizedError(err)` from `src/lib/authEvents.ts`
+- On match, the caller invokes `dispatchUnauthorized()`, which fires the window event `auth:unauthorized`
+- `AuthProvider` listens for that event and clears `user`, sets a session-expired error, and lets `AppLayout` redirect to `/login` via its existing `!user` branch
+- Wrappers that dispatch: `src/db/sync.ts`, `src/lib/messageDelivery.ts`, `src/lib/friendData.ts`, `src/lib/social.ts` (reads and writes), `src/lib/storage.ts` (upload and fetch), `src/lib/exportData.ts` (image fetch)
+- Do not redirect from the call site. Always dispatch and let the provider drive the redirect
+
+### 23.5 Multi-Tab Auth Sync
+- Login and logout both write `JSON.stringify({ type: 'login' | 'logout', at: Date.now() })` to `localStorage` under the key `mosaic_auth_broadcast`
+- Every other tab listens via the `storage` event. On `logout`, it clears local user state. On `login`, it re-runs `resolveInitialUser()` to pick up the shared Appwrite cookie
+- Never broadcast tokens or credentials — only the event type
+- This is not a replacement for server-side session invalidation. It is a UI consistency mechanism
+
+### 23.6 Offline vs Unauthenticated
+- **401 from `account.get()`** → definitely not logged in → clear user → `AppLayout` redirects to `/login`
+- **Network error / timeout / offline from `account.get()`** → couldn't check → set `isOffline: true`, keep `user: null` → `AppLayout` renders a retry screen (with a `retry()` button) instead of redirecting
+- **Any time `navigator.onLine` is false,** `AuthProvider` treats the initial check as "couldn't check"
+- `AppLayout` renders three states: `isLoading` → spinner; `!user && isOffline` → retry screen; `!user` → redirect
+
+### 23.7 Things Not To Do
+- Do not add `account.get()` calls to a hook or component. If you need session state, call `useAuth()`
+- Do not call `account.deleteSession` outside `AuthProvider`'s `logout()` except for the pre-login cleanup inside `login()`
+- Do not navigate away from a protected screen on `logout()` failure. Surface an error and stay put
+- Do not merge `authContext.ts` into `AuthProvider.tsx` — it will break fast refresh
+- Do not treat offline errors as 401. The whole point of `isOffline` is that they're different

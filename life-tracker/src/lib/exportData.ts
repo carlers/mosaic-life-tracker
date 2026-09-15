@@ -4,6 +4,7 @@ import { Storage } from 'appwrite';
 import { client } from './appwrite';
 import { getDatabase } from '../db/database';
 import { getCachedImage, cacheImage } from './imageCache';
+import { isUnauthorizedError, dispatchUnauthorized } from './authEvents';
 import type {
   TaskDocument,
   CategoryDocument,
@@ -19,7 +20,6 @@ const APPWRITE_CONFIG = {
 
 const storage = new Storage(client);
 const DEBUG = import.meta.env.DEV;
-
 const APP_NAME = 'Mosaic';
 const APP_VERSION = '0.0.0';
 const EXPORT_VERSION = 1;
@@ -91,7 +91,6 @@ interface RawCollections {
 
 async function collectCollections(userId: string): Promise<RawCollections> {
   const db = getDatabase();
-
   const [tasks, categories, diary, settings, friendships] = await Promise.all([
     db.tasks
       .find({
@@ -150,7 +149,8 @@ async function fetchImageBlob(fileId: string): Promise<Blob | null> {
   if (cached) return cached;
 
   if (typeof navigator !== 'undefined' && navigator.onLine === false) {
-    if (DEBUG) console.log(`[Export] Skipping uncached image (offline): ${fileId}`);
+    if (DEBUG)
+      console.log(`[Export] Skipping uncached image (offline): ${fileId}`);
     return null;
   }
 
@@ -163,14 +163,20 @@ async function fetchImageBlob(fileId: string): Promise<Blob | null> {
       credentials: 'include',
       headers: { 'X-Appwrite-Project': APPWRITE_CONFIG.projectId },
     });
+    if (res.status === 401) {
+      dispatchUnauthorized();
+      return null;
+    }
     if (!res.ok) {
-      if (DEBUG) console.warn(`[Export] Image fetch returned ${res.status}: ${fileId}`);
+      if (DEBUG)
+        console.warn(`[Export] Image fetch returned ${res.status}: ${fileId}`);
       return null;
     }
     const blob = await res.blob();
     await cacheImage(fileId, blob);
     return blob;
   } catch (err) {
+    if (isUnauthorizedError(err)) dispatchUnauthorized();
     console.warn(`[Export] Failed to fetch image ${fileId}:`, err);
     return null;
   }
@@ -216,7 +222,6 @@ export async function exportUserData(
   const referencedArray = Array.from(referencedImages);
 
   const exportedAt = new Date().toISOString();
-
   const payload: ExportPayload = {
     app: { name: APP_NAME, version: APP_VERSION },
     version: EXPORT_VERSION,
@@ -275,15 +280,18 @@ export async function exportUserData(
   payload.images.missingImages = missing;
 
   report('Compressing…');
-
   const encoder = new TextEncoder();
   const files: Record<string, Uint8Array> = {};
   files['manifest.json'] = encoder.encode(JSON.stringify(payload, null, 2));
-  files['data/tasks.json'] = encoder.encode(JSON.stringify(raw.tasks, null, 2));
+  files['data/tasks.json'] = encoder.encode(
+    JSON.stringify(raw.tasks, null, 2)
+  );
   files['data/categories.json'] = encoder.encode(
     JSON.stringify(raw.categories, null, 2)
   );
-  files['data/diary.json'] = encoder.encode(JSON.stringify(raw.diary, null, 2));
+  files['data/diary.json'] = encoder.encode(
+    JSON.stringify(raw.diary, null, 2)
+  );
   files['data/settings.json'] = encoder.encode(
     JSON.stringify(parsedSettings, null, 2)
   );

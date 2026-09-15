@@ -1,6 +1,7 @@
 import { getDatabase, type AppDatabaseCollections } from './database';
 import { client, account } from '../lib/appwrite';
 import { TablesDB, Permission, Role, Query } from 'appwrite';
+import { isUnauthorizedError, dispatchUnauthorized } from '../lib/authEvents';
 
 const APPWRITE_CONFIG = {
   endpoint: 'https://sgp.cloud.appwrite.io',
@@ -19,12 +20,9 @@ const APPWRITE_CONFIG = {
 const tablesDB = new TablesDB(client);
 const DEBUG = import.meta.env.DEV;
 const PAGE_SIZE = 100;
-
 const PULL_OVERLAP_MS = 30_000;
-
 const RATE_LIMIT_BASE_MS = 5_000;
 const RATE_LIMIT_MAX_MS = 60_000;
-
 const TRIGGER_DEBOUNCE_MS = 1_500;
 
 type CollectionName = keyof AppDatabaseCollections;
@@ -39,19 +37,10 @@ const ALL_COLLECTIONS: CollectionName[] = [
 ];
 
 interface PerCollectionSyncEntry {
-  // ISO timestamp. Lower bound for this collection's delta pull:
-  // `$updatedAt > pull - PULL_OVERLAP_MS`. Set to the start of the last
-  // cycle for this collection whose pull phase succeeded.
   pull: string;
-  // ISO timestamp. Threshold for `isLocalDirty`. Set to the end of the last
-  // fully-successful (pull + push) cycle so rows upserted during that cycle
-  // are not considered dirty on the next one.
   dirty: string;
 }
 
-// S1-1: persisted state is namespaced by user id. Cross-user state leakage
-// on a shared browser would otherwise cause a new user's first sync to skip
-// rows older than the previous user's last pull.
 interface PerCollectionPersistedState {
   ownerId: string;
   entries: Partial<Record<CollectionName, PerCollectionSyncEntry>>;
@@ -68,8 +57,6 @@ function loadPerCollectionState(
     const parsed = JSON.parse(raw) as unknown;
     if (!parsed || typeof parsed !== 'object') return {};
     const state = parsed as Partial<PerCollectionPersistedState>;
-    // Mismatched owner (user switch) or legacy shape (pre-S1-1 persisted as
-    // a bare entries map). Either way, treat as fresh → full pull.
     if (state.ownerId !== userId) return {};
     if (!state.entries || typeof state.entries !== 'object') return {};
     return state.entries as Partial<
@@ -88,7 +75,7 @@ function savePerCollectionState(
     const state: PerCollectionPersistedState = { ownerId: userId, entries };
     localStorage.setItem(PER_COLLECTION_KEY, JSON.stringify(state));
   } catch {
-    // best effort
+    // Ignore storage failures (private mode, quota, etc.)
   }
 }
 
@@ -261,6 +248,8 @@ function toAppwriteFormat(
     mapped.is_unsent = source.isUnsent ?? false;
     mapped.original_message_id = source.originalMessageId || '';
     mapped.reactions = source.reactions || '';
+    // read_at is server-owned on outgoing rows (§12) — omit it to avoid
+    // overwriting the read receipt written by the mark_read action.
     if (source.direction !== 'outgoing') {
       mapped.read_at = source.readAt || '';
     }
@@ -464,9 +453,6 @@ export async function initializeSync(): Promise<void> {
       return;
     }
 
-    // S1-1: (re)load per-collection high-water marks for this user. A
-    // mismatch (different user, or legacy shape from before this fix) yields
-    // an empty map, which makes the first cycle a full pull for this user.
     if (perCollectionOwnerId !== userId) {
       perCollectionSync = loadPerCollectionState(userId);
       perCollectionOwnerId = userId;
@@ -481,6 +467,7 @@ export async function initializeSync(): Promise<void> {
     const db = getDatabase();
     const collectionErrors: string[] = [];
     let sawRateLimit = false;
+    let sawUnauthorized = false;
 
     for (const colName of ALL_COLLECTIONS) {
       try {
@@ -497,7 +484,16 @@ export async function initializeSync(): Promise<void> {
         console.error(`[Sync] Collection "${colName}" failed:`, colError);
         collectionErrors.push(`${colName}: ${message}`);
         if (isRateLimitError(colError)) sawRateLimit = true;
+        if (isUnauthorizedError(colError)) sawUnauthorized = true;
       }
+    }
+
+    // Session expired or revoked mid-session: notify AuthProvider so it
+    // can clear user state and redirect to /login (A4-1).
+    if (sawUnauthorized) {
+      dispatchUnauthorized();
+      updateSyncStatus({ isSyncing: false, errors: collectionErrors });
+      return;
     }
 
     if (sawRateLimit) {
@@ -570,7 +566,6 @@ async function syncCollection(
       Query.limit(PAGE_SIZE),
       Query.orderAsc('$id'),
     ];
-
     if (pullBoundaryMs > 0) {
       const sinceIso = new Date(
         pullBoundaryMs - PULL_OVERLAP_MS
@@ -585,13 +580,12 @@ async function syncCollection(
       queries: queries as never,
       total: false,
     });
+
     const rows = ((remoteResponse as { rows?: AppwriteRow[] }).rows ||
       []) as AppwriteRow[];
-
     pageCount++;
     if (DEBUG)
       console.log(`[Sync] ${colName} page ${pageCount}: ${rows.length} rows`);
-
     if (rows.length === 0) break;
 
     for (const row of rows) {
@@ -615,7 +609,6 @@ async function syncCollection(
 
         const localLwt = localDoc._meta?.lwt ?? 0;
         const isLocalDirty = localLwt > dirtyBoundaryMs;
-
         if (isLocalDirty) continue;
 
         if (colName === 'messages' && row.direction === 'outgoing') {
@@ -656,11 +649,6 @@ async function syncCollection(
     cursor = lastId;
   }
 
-  // S6-4: advance the pull boundary as soon as the pull phase completes,
-  // before the push phase. If the push phase throws below, `pull` stays
-  // advanced so the next cycle's delta window does not grow unboundedly.
-  // `dirty` is deliberately not advanced here — locally-edited rows must
-  // still be visible as dirty on the next cycle if the push fails.
   perCollectionSync[colName as CollectionName] = {
     pull: new Date(cycleStartMs).toISOString(),
     dirty: entry?.dirty ?? '',
@@ -701,7 +689,6 @@ async function syncCollection(
 
       const rowData = toAppwriteFormat(json, colName, userId);
       if (DEBUG) console.log(`[Sync] Pushing ${colName} ${docId}`);
-
       try {
         await tablesDB.updateRow({
           databaseId: APPWRITE_CONFIG.databaseId,
@@ -737,11 +724,6 @@ async function syncCollection(
     }
   }
 
-  // Advance `dirty` only after push completes without throwing. For
-  // `messages`, the push phase is skipped, so this runs immediately after
-  // the pull boundary was set and simply moves `dirty` to now. That is the
-  // intended behavior: the boundary advances so locally-touched message rows
-  // do not re-enter the dirty state on the next cycle.
   perCollectionSync[colName as CollectionName] = {
     pull: new Date(cycleStartMs).toISOString(),
     dirty: new Date().toISOString(),
@@ -787,7 +769,10 @@ function handleOnline() {
 }
 
 function handleVisibilityChange() {
-  if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
+  if (
+    typeof document !== 'undefined' &&
+    document.visibilityState === 'visible'
+  ) {
     scheduleSync('App became visible');
   }
 }

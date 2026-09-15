@@ -7,6 +7,75 @@ const FRIENDSHIPS_TABLE = 'friendships';
 const TASKS_TABLE = 'tasks';
 const CATEGORIES_TABLE = 'categories';
 
+const MAX_ROW_ID_LENGTH = 36;
+const ROW_ID_REGEX = /^[a-zA-Z0-9_]+$/;
+const REACTIONS_MAX_LEN = 5000;
+
+// ---------------------------------------------------------------------------
+// Grapheme-aware length (for emoji)
+// ---------------------------------------------------------------------------
+let graphemeSegmenter = null;
+try {
+  if (
+    typeof Intl !== 'undefined' &&
+    typeof Intl.Segmenter === 'function'
+  ) {
+    graphemeSegmenter = new Intl.Segmenter('en', { granularity: 'grapheme' });
+  }
+} catch {
+  graphemeSegmenter = null;
+}
+
+function graphemeLength(str) {
+  if (!str) return 0;
+  if (graphemeSegmenter) {
+    let n = 0;
+    for (const _ of graphemeSegmenter.segment(str)) n++;
+    return n;
+  }
+  return Array.from(str).length;
+}
+
+// ---------------------------------------------------------------------------
+// Validation helpers
+// ---------------------------------------------------------------------------
+function isValidRowId(value) {
+  if (typeof value !== 'string') return false;
+  if (value.length === 0 || value.length > MAX_ROW_ID_LENGTH) return false;
+  if (value.startsWith('_')) return false;
+  return ROW_ID_REGEX.test(value);
+}
+
+// Returns { ok: true, value } or { ok: false }
+function validateOptionalString(value, maxLen) {
+  if (value === undefined || value === null) return { ok: true, value: '' };
+  if (typeof value !== 'string') return { ok: false };
+  if (value.length > maxLen) return { ok: false };
+  return { ok: true, value };
+}
+
+// Optional ISO-ish string: empty allowed; otherwise must be parseable by Date.
+function validateOptionalIso(value, maxLen) {
+  const r = validateOptionalString(value, maxLen);
+  if (!r.ok) return r;
+  if (r.value === '') return r;
+  if (Number.isNaN(Date.parse(r.value))) return { ok: false };
+  return r;
+}
+
+// Emoji: non-empty after trim, ≤16 graphemes.
+function validateEmoji(value) {
+  if (typeof value !== 'string') return { ok: false };
+  const trimmed = value.trim();
+  if (trimmed.length === 0) return { ok: false };
+  const gl = graphemeLength(trimmed);
+  if (gl === 0 || gl > 16) return { ok: false };
+  return { ok: true, value: trimmed };
+}
+
+// ---------------------------------------------------------------------------
+// Reaction helpers
+// ---------------------------------------------------------------------------
 function sha256Hex(input) {
   return crypto.createHash('sha256').update(input).digest('hex');
 }
@@ -70,6 +139,9 @@ function applyReactionDelta(reactions, emoji, userId, op) {
   return next;
 }
 
+// ---------------------------------------------------------------------------
+// Friendship check (unchanged; still gated as a prerequisite)
+// ---------------------------------------------------------------------------
 async function verifyFriendship(tablesDB, a, b) {
   const forward = await tablesDB.listRows({
     databaseId: DATABASE_ID,
@@ -83,7 +155,6 @@ async function verifyFriendship(tablesDB, a, b) {
     ],
   });
   if (!forward.rows || forward.rows.length === 0) return false;
-
   const reverse = await tablesDB.listRows({
     databaseId: DATABASE_ID,
     tableId: FRIENDSHIPS_TABLE,
@@ -98,33 +169,102 @@ async function verifyFriendship(tablesDB, a, b) {
   return !!(reverse.rows && reverse.rows.length > 0);
 }
 
-async function handleDeliver(tablesDB, senderId, payload, log, error) {
-  const {
-    messageId,
-    recipientId,
-    content,
-    taskRefId,
-    taskRefTitle,
-    taskRefDate,
-    taskRefColor,
-    replyToId,
-    replyToContent,
-    replyToSenderId,
-    createdAt,
-  } = payload || {};
+// ---------------------------------------------------------------------------
+// Paginated list helper
+// Mirrors the pattern already in handleMarkRead:
+//   Query.limit(100) + Query.orderAsc('$id') + Query.cursorAfter(lastId)
+// Any additional filters are passed in baseQueries. Caller must NOT include
+// Query.limit, Query.orderAsc, or Query.cursorAfter in baseQueries.
+// ---------------------------------------------------------------------------
+async function listAllRows(tablesDB, tableId, baseQueries, log, maxPages = 100) {
+  const all = [];
+  let cursor = undefined;
+  let pages = 0;
+  for (;;) {
+    const queries = [...baseQueries, Query.limit(100), Query.orderAsc('$id')];
+    if (cursor) queries.push(Query.cursorAfter(cursor));
+    const res = await tablesDB.listRows({
+      databaseId: DATABASE_ID,
+      tableId,
+      queries,
+    });
+    const rows = res.rows || [];
+    if (rows.length === 0) break;
+    for (const r of rows) all.push(r);
+    pages++;
+    if (rows.length < 100) break;
+    const lastId = rows[rows.length - 1].$id;
+    if (!lastId || lastId === cursor) break;
+    cursor = lastId;
+    if (pages >= maxPages) {
+      log(`listAllRows: hit maxPages=${maxPages} for ${tableId}`);
+      break;
+    }
+  }
+  return all;
+}
 
-  if (!messageId || typeof messageId !== 'string') {
-    error('deliver: Missing messageId');
-    return { status: 400, body: { error: 'Missing messageId' } };
+// ---------------------------------------------------------------------------
+// deliver
+// ---------------------------------------------------------------------------
+async function handleDeliver(tablesDB, senderId, payload, log, error) {
+  const p = payload || {};
+
+  // Required IDs (V1)
+  if (!isValidRowId(p.messageId)) {
+    error('deliver: invalid messageId');
+    return { status: 400, body: { error: 'Invalid messageId' } };
   }
-  if (!recipientId || typeof recipientId !== 'string') {
-    error('deliver: Missing recipientId');
-    return { status: 400, body: { error: 'Missing recipientId' } };
+  if (!isValidRowId(p.recipientId)) {
+    error('deliver: invalid recipientId');
+    return { status: 400, body: { error: 'Invalid recipientId' } };
   }
+  const messageId = p.messageId;
+  const recipientId = p.recipientId;
+
   if (senderId === recipientId) {
     error('deliver: Cannot message yourself');
     return { status: 400, body: { error: 'Cannot message yourself' } };
   }
+
+  // Optional fields (V2)
+  const vContent = validateOptionalString(p.content, 4000);
+  const vTaskRefId = validateOptionalString(p.taskRefId, 255);
+  const vTaskRefTitle = validateOptionalString(p.taskRefTitle, 500);
+  const vTaskRefDate = validateOptionalString(p.taskRefDate, 50);
+  const vTaskRefColor = validateOptionalString(p.taskRefColor, 20);
+  const vReplyToId = validateOptionalString(p.replyToId, 255);
+  const vReplyToContent = validateOptionalString(p.replyToContent, 300);
+  const vReplyToSenderId = validateOptionalString(p.replyToSenderId, 255);
+  const vCreatedAt = validateOptionalIso(p.createdAt, 50);
+
+  const optionalChecks = [
+    ['content', vContent],
+    ['taskRefId', vTaskRefId],
+    ['taskRefTitle', vTaskRefTitle],
+    ['taskRefDate', vTaskRefDate],
+    ['taskRefColor', vTaskRefColor],
+    ['replyToId', vReplyToId],
+    ['replyToContent', vReplyToContent],
+    ['replyToSenderId', vReplyToSenderId],
+    ['createdAt', vCreatedAt],
+  ];
+  for (const [name, r] of optionalChecks) {
+    if (!r.ok) {
+      error(`deliver: invalid ${name}`);
+      return { status: 400, body: { error: `Invalid ${name}` } };
+    }
+  }
+
+  const content = vContent.value;
+  const taskRefId = vTaskRefId.value;
+  const taskRefTitle = vTaskRefTitle.value;
+  const taskRefDate = vTaskRefDate.value;
+  const taskRefColor = vTaskRefColor.value;
+  const replyToId = vReplyToId.value;
+  const replyToContent = vReplyToContent.value;
+  const replyToSenderId = vReplyToSenderId.value;
+  const createdAt = vCreatedAt.value;
 
   const isFriend = await verifyFriendship(tablesDB, senderId, recipientId);
   if (!isFriend) {
@@ -171,13 +311,10 @@ async function handleDeliver(tablesDB, senderId, payload, log, error) {
       existingSenderRow.user_id !== senderId ||
       existingSenderRow.sender_id !== senderId
     ) {
-      error(
-        `deliver: messageId ${messageId} already owned by another sender`
-      );
+      error(`deliver: messageId ${messageId} already owned by another sender`);
       return { status: 403, body: { error: 'messageId not owned by caller' } };
     }
   }
-
   if (existingRecipientRow) {
     if (
       existingRecipientRow.sender_id !== senderId ||
@@ -205,14 +342,14 @@ async function handleDeliver(tablesDB, senderId, payload, log, error) {
         sender_id: senderId,
         recipient_id: recipientId,
         direction: 'incoming',
-        content: content || '',
-        task_ref_id: taskRefId || '',
-        task_ref_title: taskRefTitle || '',
-        task_ref_date: taskRefDate || '',
-        task_ref_color: taskRefColor || '',
-        reply_to_id: replyToId || '',
-        reply_to_content: replyToContent || '',
-        reply_to_sender_id: replyToSenderId || '',
+        content,
+        task_ref_id: taskRefId,
+        task_ref_title: taskRefTitle,
+        task_ref_date: taskRefDate,
+        task_ref_color: taskRefColor,
+        reply_to_id: replyToId,
+        reply_to_content: replyToContent,
+        reply_to_sender_id: replyToSenderId,
         is_unsent: false,
         original_message_id: messageId,
         reactions: '',
@@ -242,14 +379,14 @@ async function handleDeliver(tablesDB, senderId, payload, log, error) {
           sender_id: senderId,
           recipient_id: recipientId,
           direction: 'outgoing',
-          content: content || '',
-          task_ref_id: taskRefId || '',
-          task_ref_title: taskRefTitle || '',
-          task_ref_date: taskRefDate || '',
-          task_ref_color: taskRefColor || '',
-          reply_to_id: replyToId || '',
-          reply_to_content: replyToContent || '',
-          reply_to_sender_id: replyToSenderId || '',
+          content,
+          task_ref_id: taskRefId,
+          task_ref_title: taskRefTitle,
+          task_ref_date: taskRefDate,
+          task_ref_color: taskRefColor,
+          reply_to_id: replyToId,
+          reply_to_content: replyToContent,
+          reply_to_sender_id: replyToSenderId,
           is_unsent: false,
           original_message_id: messageId,
           reactions: '',
@@ -279,16 +416,24 @@ async function handleDeliver(tablesDB, senderId, payload, log, error) {
   return { status: 200, body: { ok: true, recipientRowId, threadId } };
 }
 
+// ---------------------------------------------------------------------------
+// mark_read (already paginated; add ID validation — V6)
+// ---------------------------------------------------------------------------
 async function handleMarkRead(tablesDB, callerId, payload, log, error) {
-  const { partnerId, threadId } = payload || {};
-  if (!partnerId || typeof partnerId !== 'string') {
-    error('mark_read: Missing partnerId');
-    return { status: 400, body: { error: 'Missing partnerId' } };
+  const p = payload || {};
+
+  if (!isValidRowId(p.partnerId)) {
+    error('mark_read: invalid partnerId');
+    return { status: 400, body: { error: 'Invalid partnerId' } };
   }
-  if (!threadId || typeof threadId !== 'string') {
-    error('mark_read: Missing threadId');
-    return { status: 400, body: { error: 'Missing threadId' } };
+  const partnerId = p.partnerId;
+
+  if (!p.threadId || typeof p.threadId !== 'string' || p.threadId.length > 50) {
+    error('mark_read: invalid threadId');
+    return { status: 400, body: { error: 'Invalid threadId' } };
   }
+  const threadId = p.threadId;
+
   if (callerId === partnerId) {
     error('mark_read: partnerId cannot equal callerId');
     return { status: 400, body: { error: 'partnerId cannot be self' } };
@@ -323,12 +468,8 @@ async function handleMarkRead(tablesDB, callerId, payload, log, error) {
   }
 
   const now = new Date().toISOString();
-
-  // Pass 1: partner's outgoing rows. Marks the caller's read receipt on the
-  // sender's copy so the sender sees "Seen at …". Existing behavior.
   let markedPartner = 0;
   let cursor = undefined;
-
   for (;;) {
     const queries = [
       Query.equal('user_id', partnerId),
@@ -340,7 +481,6 @@ async function handleMarkRead(tablesDB, callerId, payload, log, error) {
       Query.orderAsc('$id'),
     ];
     if (cursor) queries.push(Query.cursorAfter(cursor));
-
     const res = await tablesDB.listRows({
       databaseId: DATABASE_ID,
       tableId: MESSAGES_TABLE,
@@ -348,7 +488,6 @@ async function handleMarkRead(tablesDB, callerId, payload, log, error) {
     });
     const rows = res.rows || [];
     if (rows.length === 0) break;
-
     for (const row of rows) {
       await tablesDB.updateRow({
         databaseId: DATABASE_ID,
@@ -358,20 +497,14 @@ async function handleMarkRead(tablesDB, callerId, payload, log, error) {
       });
       markedPartner++;
     }
-
     if (rows.length < 100) break;
     const lastId = rows[rows.length - 1].$id;
     if (!lastId || lastId === cursor) break;
     cursor = lastId;
   }
 
-  // Pass 2: caller's own incoming rows in the same thread. Same `now` as
-  // pass 1 — one logical "user read this thread at T" event. Keeps the
-  // recipient's own server rows authoritative for cross-device unread
-  // state, which the client push exclusion (sync.ts) no longer maintains.
   let markedCaller = 0;
   cursor = undefined;
-
   for (;;) {
     const queries = [
       Query.equal('user_id', callerId),
@@ -383,7 +516,6 @@ async function handleMarkRead(tablesDB, callerId, payload, log, error) {
       Query.orderAsc('$id'),
     ];
     if (cursor) queries.push(Query.cursorAfter(cursor));
-
     const res = await tablesDB.listRows({
       databaseId: DATABASE_ID,
       tableId: MESSAGES_TABLE,
@@ -391,7 +523,6 @@ async function handleMarkRead(tablesDB, callerId, payload, log, error) {
     });
     const rows = res.rows || [];
     if (rows.length === 0) break;
-
     for (const row of rows) {
       await tablesDB.updateRow({
         databaseId: DATABASE_ID,
@@ -401,7 +532,6 @@ async function handleMarkRead(tablesDB, callerId, payload, log, error) {
       });
       markedCaller++;
     }
-
     if (rows.length < 100) break;
     const lastId = rows[rows.length - 1].$id;
     if (!lastId || lastId === cursor) break;
@@ -414,6 +544,9 @@ async function handleMarkRead(tablesDB, callerId, payload, log, error) {
   return { status: 200, body: { ok: true, marked: markedPartner } };
 }
 
+// ---------------------------------------------------------------------------
+// cascadeReplyWipe (already paginated; unchanged)
+// ---------------------------------------------------------------------------
 async function cascadeReplyWipe(
   tablesDB,
   userIds,
@@ -424,7 +557,6 @@ async function cascadeReplyWipe(
 ) {
   let total = 0;
   const targets = [senderMessageId, recipientRowId];
-
   for (const uid of userIds) {
     for (const targetId of targets) {
       let cursor = undefined;
@@ -437,7 +569,6 @@ async function cascadeReplyWipe(
           Query.orderAsc('$id'),
         ];
         if (cursor) queries.push(Query.cursorAfter(cursor));
-
         const res = await tablesDB.listRows({
           databaseId: DATABASE_ID,
           tableId: MESSAGES_TABLE,
@@ -445,7 +576,6 @@ async function cascadeReplyWipe(
         });
         const rows = res.rows || [];
         if (rows.length === 0) break;
-
         for (const row of rows) {
           if (row.reply_to_content === '') continue;
           await tablesDB.updateRow({
@@ -456,7 +586,6 @@ async function cascadeReplyWipe(
           });
           total++;
         }
-
         if (rows.length < 100) break;
         const lastId = rows[rows.length - 1].$id;
         if (!lastId || lastId === cursor) break;
@@ -464,23 +593,27 @@ async function cascadeReplyWipe(
       }
     }
   }
-
-  log(
-    `unsend cascade: wiped ${total} reply snapshot(s) for ${senderMessageId}`
-  );
+  log(`unsend cascade: wiped ${total} reply snapshot(s) for ${senderMessageId}`);
   return total;
 }
 
+// ---------------------------------------------------------------------------
+// unsend (add messageId/recipientId validation — V3, V8)
+// ---------------------------------------------------------------------------
 async function handleUnsend(tablesDB, callerId, payload, log, error) {
-  const { messageId, recipientId } = payload || {};
-  if (!messageId || typeof messageId !== 'string') {
-    error('unsend: Missing messageId');
-    return { status: 400, body: { error: 'Missing messageId' } };
+  const p = payload || {};
+
+  if (!isValidRowId(p.messageId)) {
+    error('unsend: invalid messageId');
+    return { status: 400, body: { error: 'Invalid messageId' } };
   }
-  if (!recipientId || typeof recipientId !== 'string') {
-    error('unsend: Missing recipientId');
-    return { status: 400, body: { error: 'Missing recipientId' } };
+  if (!isValidRowId(p.recipientId)) {
+    error('unsend: invalid recipientId');
+    return { status: 400, body: { error: 'Invalid recipientId' } };
   }
+  const messageId = p.messageId;
+  const recipientId = p.recipientId;
+
   if (callerId === recipientId) {
     error('unsend: Cannot unsend to yourself');
     return { status: 400, body: { error: 'Cannot unsend to yourself' } };
@@ -570,7 +703,6 @@ async function handleUnsend(tablesDB, callerId, payload, log, error) {
 
   let patchedCaller = false;
   let patchedRecipient = false;
-
   try {
     await tablesDB.updateRow({
       databaseId: DATABASE_ID,
@@ -582,7 +714,6 @@ async function handleUnsend(tablesDB, callerId, payload, log, error) {
   } catch (err) {
     log(`unsend: caller-row update skipped (${err.message})`);
   }
-
   try {
     await tablesDB.updateRow({
       databaseId: DATABASE_ID,
@@ -623,6 +754,9 @@ async function handleUnsend(tablesDB, callerId, payload, log, error) {
   };
 }
 
+// ---------------------------------------------------------------------------
+// resolveLegacyPeerRowId (paginated — P3)
+// ---------------------------------------------------------------------------
 async function resolveLegacyPeerRowId(tablesDB, myRow, log) {
   try {
     if (!myRow || myRow.direction !== 'incoming') return null;
@@ -631,19 +765,44 @@ async function resolveLegacyPeerRowId(tablesDB, myRow, log) {
     const content = myRow.content || '';
     if (!senderId || !createdAt) return null;
 
-    const res = await tablesDB.listRows({
-      databaseId: DATABASE_ID,
-      tableId: MESSAGES_TABLE,
-      queries: [
+    const candidates = [];
+    let cursor = undefined;
+    let pages = 0;
+    const MAX_PAGES = 5; // safety cap: up to 500 rows scanned
+    for (;;) {
+      const queries = [
         Query.equal('user_id', senderId),
         Query.equal('created_at', createdAt),
         Query.equal('deleted', false),
-        Query.limit(5),
-      ],
-    });
-    const candidates = (res.rows || []).filter(
-      (r) => (r.content || '') === content && r.direction === 'outgoing'
-    );
+        Query.limit(100),
+        Query.orderAsc('$id'),
+      ];
+      if (cursor) queries.push(Query.cursorAfter(cursor));
+      const res = await tablesDB.listRows({
+        databaseId: DATABASE_ID,
+        tableId: MESSAGES_TABLE,
+        queries,
+      });
+      const rows = res.rows || [];
+      if (rows.length === 0) break;
+      for (const r of rows) {
+        if ((r.content || '') === content && r.direction === 'outgoing') {
+          candidates.push(r);
+        }
+      }
+      pages++;
+      if (rows.length < 100) break;
+      const lastId = rows[rows.length - 1].$id;
+      if (!lastId || lastId === cursor) break;
+      cursor = lastId;
+      if (pages >= MAX_PAGES) {
+        log(
+          `resolveLegacyPeerRowId: hit maxPages=${MAX_PAGES} for ${myRow.$id}`
+        );
+        break;
+      }
+    }
+
     if (candidates.length !== 1) {
       log(
         `resolveLegacyPeerRowId: ${candidates.length} candidates for ${myRow.$id}`
@@ -657,24 +816,47 @@ async function resolveLegacyPeerRowId(tablesDB, myRow, log) {
   }
 }
 
+// ---------------------------------------------------------------------------
+// react (V4)
+// ---------------------------------------------------------------------------
 async function handleReact(tablesDB, callerId, payload, log, error) {
-  const { myRowId, peerRowId, recipientId, emoji, op } = payload || {};
-  if (!myRowId || typeof myRowId !== 'string') {
-    error('react: Missing myRowId');
-    return { status: 400, body: { error: 'Missing myRowId' } };
+  const p = payload || {};
+
+  if (!isValidRowId(p.myRowId)) {
+    error('react: invalid myRowId');
+    return { status: 400, body: { error: 'Invalid myRowId' } };
   }
-  if (!recipientId || typeof recipientId !== 'string') {
-    error('react: Missing recipientId');
-    return { status: 400, body: { error: 'Missing recipientId' } };
+  const myRowId = p.myRowId;
+
+  // peerRowId may be omitted for legacy resolution; if present, must be valid.
+  let peerRowId = '';
+  if (p.peerRowId !== undefined && p.peerRowId !== null && p.peerRowId !== '') {
+    if (!isValidRowId(p.peerRowId)) {
+      error('react: invalid peerRowId');
+      return { status: 400, body: { error: 'Invalid peerRowId' } };
+    }
+    peerRowId = p.peerRowId;
   }
-  if (!emoji || typeof emoji !== 'string' || emoji.length > 16) {
-    error('react: Missing or invalid emoji');
+
+  if (!isValidRowId(p.recipientId)) {
+    error('react: invalid recipientId');
+    return { status: 400, body: { error: 'Invalid recipientId' } };
+  }
+  const recipientId = p.recipientId;
+
+  const vEmoji = validateEmoji(p.emoji);
+  if (!vEmoji.ok) {
+    error('react: invalid emoji');
     return { status: 400, body: { error: 'Invalid emoji' } };
   }
-  if (op !== 'add' && op !== 'remove') {
+  const emoji = vEmoji.value;
+
+  if (p.op !== 'add' && p.op !== 'remove') {
     error('react: op must be add or remove');
     return { status: 400, body: { error: 'Invalid op' } };
   }
+  const op = p.op;
+
   if (callerId === recipientId) {
     error('react: Cannot react to yourself');
     return { status: 400, body: { error: 'Cannot react to yourself' } };
@@ -689,7 +871,6 @@ async function handleReact(tablesDB, callerId, payload, log, error) {
   const now = new Date().toISOString();
   let updated = 0;
   let resolvedPeerRowId = '';
-
   let myRow = null;
   try {
     myRow = await tablesDB.getRow({
@@ -712,7 +893,6 @@ async function handleReact(tablesDB, callerId, payload, log, error) {
   }
 
   const targets = [myRowId, effectivePeerRowId].filter(Boolean);
-
   for (const rowId of targets) {
     try {
       const row = await tablesDB.getRow({
@@ -727,6 +907,14 @@ async function handleReact(tablesDB, callerId, payload, log, error) {
       const current = parseReactions(row.reactions || '');
       const next = applyReactionDelta(current, emoji, callerId, op);
       const nextStr = stringifyReactions(next);
+
+      if (nextStr.length > REACTIONS_MAX_LEN) {
+        error(
+          `react: reactions overflow on ${rowId} (${nextStr.length} > ${REACTIONS_MAX_LEN})`
+        );
+        return { status: 400, body: { error: 'Too many reactions' } };
+      }
+
       await tablesDB.updateRow({
         databaseId: DATABASE_ID,
         tableId: MESSAGES_TABLE,
@@ -747,30 +935,40 @@ async function handleReact(tablesDB, callerId, payload, log, error) {
   log(
     `react: caller=${callerId} emoji=${emoji} op=${op} rows=${updated} resolvedPeer=${resolvedPeerRowId || '-'}`
   );
-  return {
-    status: 200,
-    body: { ok: true, updated, resolvedPeerRowId },
-  };
+  return { status: 200, body: { ok: true, updated, resolvedPeerRowId } };
 }
 
+// ---------------------------------------------------------------------------
+// react_to_task (V5)
+// ---------------------------------------------------------------------------
 async function handleReactToTask(tablesDB, callerId, payload, log, error) {
-  const { taskId, taskOwnerId, emoji, op } = payload || {};
-  if (!taskId || typeof taskId !== 'string') {
-    error('react_to_task: Missing taskId');
-    return { status: 400, body: { error: 'Missing taskId' } };
+  const p = payload || {};
+
+  if (!isValidRowId(p.taskId)) {
+    error('react_to_task: invalid taskId');
+    return { status: 400, body: { error: 'Invalid taskId' } };
   }
-  if (!taskOwnerId || typeof taskOwnerId !== 'string') {
-    error('react_to_task: Missing taskOwnerId');
-    return { status: 400, body: { error: 'Missing taskOwnerId' } };
+  const taskId = p.taskId;
+
+  if (!isValidRowId(p.taskOwnerId)) {
+    error('react_to_task: invalid taskOwnerId');
+    return { status: 400, body: { error: 'Invalid taskOwnerId' } };
   }
-  if (!emoji || typeof emoji !== 'string' || emoji.length > 16) {
-    error('react_to_task: Missing or invalid emoji');
+  const taskOwnerId = p.taskOwnerId;
+
+  const vEmoji = validateEmoji(p.emoji);
+  if (!vEmoji.ok) {
+    error('react_to_task: invalid emoji');
     return { status: 400, body: { error: 'Invalid emoji' } };
   }
-  if (op !== 'add' && op !== 'remove') {
+  const emoji = vEmoji.value;
+
+  if (p.op !== 'add' && p.op !== 'remove') {
     error('react_to_task: op must be add or remove');
     return { status: 400, body: { error: 'Invalid op' } };
   }
+  const op = p.op;
+
   if (callerId === taskOwnerId) {
     error('react_to_task: Cannot react to your own task');
     return { status: 400, body: { error: 'Cannot react to your own task' } };
@@ -807,7 +1005,6 @@ async function handleReactToTask(tablesDB, callerId, payload, log, error) {
 
   let effectiveVisibility = 'private';
   const taskVis = row.visibility;
-
   if (taskVis && taskVis !== '') {
     effectiveVisibility = taskVis;
   } else if (row.category_id) {
@@ -830,9 +1027,7 @@ async function handleReactToTask(tablesDB, callerId, payload, log, error) {
     }
   } else {
     effectiveVisibility = 'private';
-    log(
-      `react_to_task: task ${taskId} has no category; defaulting to private`
-    );
+    log(`react_to_task: task ${taskId} has no category; defaulting to private`);
   }
 
   if (effectiveVisibility === 'private') {
@@ -845,8 +1040,15 @@ async function handleReactToTask(tablesDB, callerId, payload, log, error) {
   const current = parseReactions(row.reactions || '');
   const next = applyReactionDelta(current, emoji, callerId, op);
   const nextStr = stringifyReactions(next);
-  const now = new Date().toISOString();
 
+  if (nextStr.length > REACTIONS_MAX_LEN) {
+    error(
+      `react_to_task: reactions overflow on ${taskId} (${nextStr.length} > ${REACTIONS_MAX_LEN})`
+    );
+    return { status: 400, body: { error: 'Too many reactions' } };
+  }
+
+  const now = new Date().toISOString();
   try {
     await tablesDB.updateRow({
       databaseId: DATABASE_ID,
@@ -865,12 +1067,17 @@ async function handleReactToTask(tablesDB, callerId, payload, log, error) {
   return { status: 200, body: { ok: true, reactions: nextStr } };
 }
 
+// ---------------------------------------------------------------------------
+// get_friend_calendar (V7 + P1 + P2)
+// ---------------------------------------------------------------------------
 async function handleGetFriendCalendar(tablesDB, callerId, payload, log, error) {
-  const friendUserId = payload?.friendUserId;
-  if (!friendUserId || typeof friendUserId !== 'string') {
-    error('get_friend_calendar: Missing friendUserId');
-    return { status: 400, body: { error: 'Missing friendUserId' } };
+  const p = payload || {};
+  if (!isValidRowId(p.friendUserId)) {
+    error('get_friend_calendar: invalid friendUserId');
+    return { status: 400, body: { error: 'Invalid friendUserId' } };
   }
+  const friendUserId = p.friendUserId;
+
   if (callerId === friendUserId) {
     error('get_friend_calendar: Cannot query your own calendar');
     return { status: 400, body: { error: 'Cannot query your own calendar' } };
@@ -886,21 +1093,28 @@ async function handleGetFriendCalendar(tablesDB, callerId, payload, log, error) 
 
   let categoryRows = [];
   try {
-    const categoriesRes = await tablesDB.listRows({
-      databaseId: DATABASE_ID,
-      tableId: CATEGORIES_TABLE,
-      queries: [
+    categoryRows = await listAllRows(
+      tablesDB,
+      CATEGORIES_TABLE,
+      [
         Query.equal('user_id', friendUserId),
         Query.equal('deleted', false),
-        Query.orderAsc('order'),
-        Query.limit(200),
       ],
-    });
-    categoryRows = categoriesRes.rows || [];
+      log
+    );
   } catch (err) {
     error(`get_friend_calendar: categories fetch failed (${err.message})`);
     return { status: 500, body: { error: 'Failed to fetch categories' } };
   }
+
+  // Sort by `order` asc for UI stability (cursor used $id, which is stable
+  // but not display order).
+  categoryRows.sort((a, b) => {
+    const ao = typeof a.order === 'number' ? a.order : 0;
+    const bo = typeof b.order === 'number' ? b.order : 0;
+    if (ao !== bo) return ao - bo;
+    return String(a.$id).localeCompare(String(b.$id));
+  });
 
   const categoryVisibility = new Map();
   for (const c of categoryRows) {
@@ -909,21 +1123,26 @@ async function handleGetFriendCalendar(tablesDB, callerId, payload, log, error) 
 
   let taskRows = [];
   try {
-    const tasksRes = await tablesDB.listRows({
-      databaseId: DATABASE_ID,
-      tableId: TASKS_TABLE,
-      queries: [
+    taskRows = await listAllRows(
+      tablesDB,
+      TASKS_TABLE,
+      [
         Query.equal('user_id', friendUserId),
         Query.equal('deleted', false),
-        Query.orderAsc('date'),
-        Query.limit(1000),
       ],
-    });
-    taskRows = tasksRes.rows || [];
+      log
+    );
   } catch (err) {
     error(`get_friend_calendar: tasks fetch failed (${err.message})`);
     return { status: 500, body: { error: 'Failed to fetch tasks' } };
   }
+
+  // Sort by date asc for calendar display; in-memory only.
+  taskRows.sort((a, b) => {
+    const ad = (a.date || '').localeCompare(b.date || '');
+    if (ad !== 0) return ad;
+    return String(a.$id).localeCompare(String(b.$id));
+  });
 
   const visibleTasks = taskRows.filter((t) => {
     const taskVis = t.visibility;
@@ -954,6 +1173,9 @@ async function handleGetFriendCalendar(tablesDB, callerId, payload, log, error) 
   };
 }
 
+// ---------------------------------------------------------------------------
+// Entry point (unchanged shape)
+// ---------------------------------------------------------------------------
 module.exports = async ({ req, res, log, error }) => {
   const callerId = req.headers['x-appwrite-user-id'];
   if (!callerId) {

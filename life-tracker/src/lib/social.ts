@@ -1,6 +1,7 @@
 import { TablesDB, Permission, Role, Query } from 'appwrite';
 import { client } from './appwrite';
 import { getDatabase } from '../db/database';
+import { isUnauthorizedError, dispatchUnauthorized } from './authEvents';
 import type { FriendshipDocument } from '../db/schema';
 
 const DEBUG = import.meta.env.DEV;
@@ -86,6 +87,7 @@ export async function fetchMyProfile(
     if (!row || (row as Record<string, unknown>).deleted === true) return null;
     return row as unknown as ProfileCard;
   } catch (err: unknown) {
+    if (isUnauthorizedError(err)) dispatchUnauthorized();
     const code = (err as { code?: number })?.code;
     if (code === 404) return null;
     console.error('[social] fetchMyProfile failed:', err);
@@ -115,15 +117,21 @@ export async function createOrUpdateProfile(
     updated_at: now,
     deleted: false,
   };
-  const row = await tablesDB.upsertRow({
-    databaseId: APPWRITE_CONFIG.databaseId,
-    tableId: APPWRITE_CONFIG.tables.profiles,
-    rowId,
-    data,
-    permissions: buildProfileRowPermissions(input.userId),
-  });
-  if (DEBUG) console.log('[social] Profile upserted:', rowId);
-  return row as unknown as ProfileCard;
+
+  try {
+    const row = await tablesDB.upsertRow({
+      databaseId: APPWRITE_CONFIG.databaseId,
+      tableId: APPWRITE_CONFIG.tables.profiles,
+      rowId,
+      data,
+      permissions: buildProfileRowPermissions(input.userId),
+    });
+    if (DEBUG) console.log('[social] Profile upserted:', rowId);
+    return row as unknown as ProfileCard;
+  } catch (err) {
+    if (isUnauthorizedError(err)) dispatchUnauthorized();
+    throw err;
+  }
 }
 
 export async function isUsernameAvailable(username: string): Promise<boolean> {
@@ -138,6 +146,7 @@ export async function isUsernameAvailable(username: string): Promise<boolean> {
     });
     return (res.rows || []).length === 0;
   } catch (err) {
+    if (isUnauthorizedError(err)) dispatchUnauthorized();
     console.error('[social] isUsernameAvailable failed:', err);
     return false;
   }
@@ -163,6 +172,7 @@ export async function searchProfiles(
     const rows = (res.rows || []) as unknown as ProfileCard[];
     return rows.filter((r) => r.user_id !== excludeUserId);
   } catch (err) {
+    if (isUnauthorizedError(err)) dispatchUnauthorized();
     console.error('[social] searchProfiles failed:', err);
     throw err;
   }
@@ -190,6 +200,7 @@ export async function sendFriendRequest(
   } = input;
   const now = new Date().toISOString();
   const db = getDatabase();
+
   const myRowId = await makeFriendshipId(myUserId, friend.user_id);
   const friendRowId = await makeFriendshipId(friend.user_id, myUserId);
 
@@ -208,25 +219,31 @@ export async function sendFriendRequest(
   };
   await db.friendships.upsert(myLocalRow);
 
-  await tablesDB.upsertRow({
-    databaseId: APPWRITE_CONFIG.databaseId,
-    tableId: APPWRITE_CONFIG.tables.friendships,
-    rowId: friendRowId,
-    data: {
-      user_id: friend.user_id,
-      friend_id: myUserId,
-      friend_username: myUsername,
-      friend_display_name: myDisplayName,
-      friend_avatar_file_id: myAvatarFileId,
-      friend_bio: myBio,
-      status: 'pending_incoming',
-      created_at: now,
-      updated_at: now,
-      deleted: false,
-    },
-    permissions: buildCreatorOwnPermissions(myUserId),
-  });
-  if (DEBUG) console.log('[social] Friend request sent:', myRowId, friendRowId);
+  try {
+    await tablesDB.upsertRow({
+      databaseId: APPWRITE_CONFIG.databaseId,
+      tableId: APPWRITE_CONFIG.tables.friendships,
+      rowId: friendRowId,
+      data: {
+        user_id: friend.user_id,
+        friend_id: myUserId,
+        friend_username: myUsername,
+        friend_display_name: myDisplayName,
+        friend_avatar_file_id: myAvatarFileId,
+        friend_bio: myBio,
+        status: 'pending_incoming',
+        created_at: now,
+        updated_at: now,
+        deleted: false,
+      },
+      permissions: buildCreatorOwnPermissions(myUserId),
+    });
+  } catch (err) {
+    if (isUnauthorizedError(err)) dispatchUnauthorized();
+    throw err;
+  }
+  if (DEBUG)
+    console.log('[social] Friend request sent:', myRowId, friendRowId);
 }
 
 export async function acceptFriendRequest(
@@ -235,6 +252,7 @@ export async function acceptFriendRequest(
 ): Promise<void> {
   const now = new Date().toISOString();
   const db = getDatabase();
+
   const myRowId = await makeFriendshipId(myUserId, friendUserId);
   const friendRowId = await makeFriendshipId(friendUserId, myUserId);
 
@@ -243,12 +261,17 @@ export async function acceptFriendRequest(
     await localDoc.patch({ status: 'accepted', updatedAt: now });
   }
 
-  await tablesDB.updateRow({
-    databaseId: APPWRITE_CONFIG.databaseId,
-    tableId: APPWRITE_CONFIG.tables.friendships,
-    rowId: friendRowId,
-    data: { status: 'accepted', updated_at: now },
-  });
+  try {
+    await tablesDB.updateRow({
+      databaseId: APPWRITE_CONFIG.databaseId,
+      tableId: APPWRITE_CONFIG.tables.friendships,
+      rowId: friendRowId,
+      data: { status: 'accepted', updated_at: now },
+    });
+  } catch (err) {
+    if (isUnauthorizedError(err)) dispatchUnauthorized();
+    throw err;
+  }
   if (DEBUG) console.log('[social] Friend request accepted:', myRowId);
 }
 
@@ -258,6 +281,7 @@ export async function deleteFriendPair(
 ): Promise<void> {
   const now = new Date().toISOString();
   const db = getDatabase();
+
   const myRowId = await makeFriendshipId(myUserId, friendUserId);
   const friendRowId = await makeFriendshipId(friendUserId, myUserId);
 
@@ -274,6 +298,7 @@ export async function deleteFriendPair(
       data: { deleted: true, updated_at: now },
     });
   } catch (err: unknown) {
+    if (isUnauthorizedError(err)) dispatchUnauthorized();
     const code = (err as { code?: number })?.code;
     if (code !== 404) {
       console.warn('[social] deleteFriendPair remote failed:', err);
@@ -288,6 +313,7 @@ export async function blockFriend(
 ): Promise<void> {
   const now = new Date().toISOString();
   const db = getDatabase();
+
   const myRowId = await makeFriendshipId(myUserId, friendUserId);
   const friendRowId = await makeFriendshipId(friendUserId, myUserId);
 
@@ -304,6 +330,7 @@ export async function blockFriend(
       data: { status: 'blocked', updated_at: now },
     });
   } catch (err) {
+    if (isUnauthorizedError(err)) dispatchUnauthorized();
     console.warn('[social] blockFriend remote update failed:', err);
   }
 }

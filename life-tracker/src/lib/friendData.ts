@@ -1,6 +1,7 @@
 import { Functions, ExecutionMethod } from 'appwrite';
 import { client } from './appwrite';
 import { MESSAGE_ACTION_FUNCTION_ID } from './messageDelivery';
+import { isUnauthorizedError, dispatchUnauthorized } from './authEvents';
 import type { TaskDocument, CategoryDocument } from '../db/schema';
 import {
   getCachedCalendar,
@@ -9,7 +10,6 @@ import {
 } from './friendCache';
 
 const DEBUG = import.meta.env.DEV;
-
 const functions = new Functions(client);
 
 type AppwriteRow = Record<string, unknown>;
@@ -109,6 +109,7 @@ export async function fetchFriendCalendar(
       method: ExecutionMethod.POST,
     });
   } catch (err) {
+    if (isUnauthorizedError(err)) dispatchUnauthorized();
     console.error('[friendData] Function call failed:', err);
     throw new FriendAccessError(
       'Could not reach the server. Check your connection.',
@@ -122,6 +123,7 @@ export async function fetchFriendCalendar(
   }
 
   const statusCode = execution.responseStatusCode;
+
   let parsed: {
     tasks?: AppwriteRow[];
     categories?: AppwriteRow[];
@@ -135,6 +137,14 @@ export async function fetchFriendCalendar(
     throw new FriendAccessError('Unexpected server response.', 'server');
   }
 
+  if (statusCode === 401) {
+    // Session expired or revoked — notify the AuthProvider.
+    dispatchUnauthorized();
+    throw new FriendAccessError(
+      'Your session expired. Please sign in again.',
+      'server'
+    );
+  }
   if (statusCode === 403) {
     throw new FriendAccessError(
       'You are not friends with this user.',
@@ -155,8 +165,8 @@ export async function fetchFriendCalendar(
     categories: (parsed.categories || []).map(mapCategoryRow),
     fetchedAt: parsed.fetchedAt || new Date().toISOString(),
   };
-
   await setCachedCalendar(bundle);
+
   if (DEBUG) {
     console.log(
       `[friendData] fetched for ${friendUserId}:`,

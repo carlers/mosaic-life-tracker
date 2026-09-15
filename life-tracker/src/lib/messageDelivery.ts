@@ -2,15 +2,12 @@ import { Functions, ExecutionMethod } from 'appwrite';
 import type { RxDocument } from 'rxdb';
 import { client } from './appwrite';
 import { getDatabase } from '../db/database';
+import { isUnauthorizedError, dispatchUnauthorized } from './authEvents';
 import type { MessageDocument } from '../db/schema';
 
 const DEBUG = import.meta.env.DEV;
-
-export const MESSAGE_ACTION_FUNCTION_ID =
-  '6aa8057f002a4c306fdd';
-
+export const MESSAGE_ACTION_FUNCTION_ID = '6aa8057f002a4c306fdd';
 const functions = new Functions(client);
-
 const SEND_TIMEOUT_MS = 15_000;
 
 let inFlightDeliveryPromise: Promise<void> | null = null;
@@ -26,14 +23,21 @@ export async function sendMessageAction(
     throw new Error('MESSAGE_ACTION_FUNCTION_ID not configured');
   }
 
-  const executionPromise = functions.createExecution({
-    functionId: MESSAGE_ACTION_FUNCTION_ID,
-    body: JSON.stringify(payload),
-    async: false,
-    xpath: '/',
-    method: ExecutionMethod.POST,
-  });
-  executionPromise.catch(() => {});
+  let executionPromise: ReturnType<typeof functions.createExecution>;
+  try {
+    executionPromise = functions.createExecution({
+      functionId: MESSAGE_ACTION_FUNCTION_ID,
+      body: JSON.stringify(payload),
+      async: false,
+      xpath: '/',
+      method: ExecutionMethod.POST,
+    });
+    // Prevent unhandled rejection noise if the timeout wins the race.
+    executionPromise.catch(() => {});
+  } catch (err) {
+    if (isUnauthorizedError(err)) dispatchUnauthorized();
+    throw err;
+  }
 
   let timeoutId: ReturnType<typeof setTimeout> | null = null;
   let execution;
@@ -62,10 +66,14 @@ export async function sendMessageAction(
     execution.status !== 'completed' ||
     execution.responseStatusCode >= 400
   ) {
+    if (execution.responseStatusCode === 401) {
+      dispatchUnauthorized();
+    }
     throw new Error(
       `Message action failed (${execution.responseStatusCode}): ${execution.responseBody}`
     );
   }
+
   try {
     return JSON.parse(execution.responseBody) as Record<string, unknown>;
   } catch {
@@ -126,7 +134,9 @@ export async function deliverPendingMessages(userId: string): Promise<void> {
         }
 
         if (DEBUG && pending.length > 0) {
-          console.log(`[messageDelivery] ${pending.length} pending message(s)`);
+          console.log(
+            `[messageDelivery] ${pending.length} pending message(s)`
+          );
         }
 
         for (const doc of pending) {
@@ -206,11 +216,6 @@ export async function reactOnRemote(
   emoji: string,
   op: 'add' | 'remove'
 ): Promise<string | null> {
-  // A2: errors now propagate. `useMessages.toggleReaction` needs to
-  // distinguish "server accepted the reaction" from "server never saw it"
-  // in order to revert its local optimistic patch on failure. Swallowing
-  // here would collapse both cases into a null return, which is also the
-  // shape of a successful react with no legacy peer row to resolve.
   const result = await sendMessageAction({
     action: 'react',
     myRowId,

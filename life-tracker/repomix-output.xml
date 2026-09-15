@@ -211,6 +211,57 @@ const MESSAGES_TABLE = 'messages';
 const FRIENDSHIPS_TABLE = 'friendships';
 const TASKS_TABLE = 'tasks';
 const CATEGORIES_TABLE = 'categories';
+const MAX_ROW_ID_LENGTH = 36;
+const ROW_ID_REGEX = /^[a-zA-Z0-9_]+$/;
+const REACTIONS_MAX_LEN = 5000;
+let graphemeSegmenter = null;
+try {
+  if (
+    typeof Intl !== 'undefined' &&
+    typeof Intl.Segmenter === 'function'
+  ) {
+    graphemeSegmenter = new Intl.Segmenter('en', { granularity: 'grapheme' });
+  }
+} catch {
+  graphemeSegmenter = null;
+}
+function graphemeLength(str) {
+  if (!str) return 0;
+  if (graphemeSegmenter) {
+    let n = 0;
+    for (const _ of graphemeSegmenter.segment(str)) n++;
+    return n;
+  }
+  return Array.from(str).length;
+}
+function isValidRowId(value) {
+  if (typeof value !== 'string') return false;
+  if (value.length === 0 || value.length > MAX_ROW_ID_LENGTH) return false;
+  if (value.startsWith('_')) return false;
+  return ROW_ID_REGEX.test(value);
+}
+function validateOptionalString(value, maxLen) {
+  if (value === undefined || value === null) return { ok: true, value: '' };
+  if (typeof value !== 'string') return { ok: false };
+  if (value.length > maxLen) return { ok: false };
+  return { ok: true, value };
+}
+function validateOptionalIso(value, maxLen) {
+  const r = validateOptionalString(value, maxLen);
+  if (!r.ok) return r;
+  if (r.value === '') return r;
+  if (Number.isNaN(Date.parse(r.value))) return { ok: false };
+  return r;
+}
+// Emoji: non-empty after trim, ≤16 graphemes.
+function validateEmoji(value) {
+  if (typeof value !== 'string') return { ok: false };
+  const trimmed = value.trim();
+  if (trimmed.length === 0) return { ok: false };
+  const gl = graphemeLength(trimmed);
+  if (gl === 0 || gl > 16) return { ok: false };
+  return { ok: true, value: trimmed };
+}
 function sha256Hex(input) {
   return crypto.createHash('sha256').update(input).digest('hex');
 }
@@ -270,7 +321,7 @@ function applyReactionDelta(reactions, emoji, userId, op) {
   return next;
 }
 async function verifyFriendship(tablesDB, a, b) {
-  const fsCheck = await tablesDB.listRows({
+  const forward = await tablesDB.listRows({
     databaseId: DATABASE_ID,
     tableId: FRIENDSHIPS_TABLE,
     queries: [
@@ -281,34 +332,98 @@ async function verifyFriendship(tablesDB, a, b) {
       Query.limit(1),
     ],
   });
-  return fsCheck.rows.length > 0;
+  if (!forward.rows || forward.rows.length === 0) return false;
+  const reverse = await tablesDB.listRows({
+    databaseId: DATABASE_ID,
+    tableId: FRIENDSHIPS_TABLE,
+    queries: [
+      Query.equal('user_id', b),
+      Query.equal('friend_id', a),
+      Query.equal('status', 'accepted'),
+      Query.equal('deleted', false),
+      Query.limit(1),
+    ],
+  });
+  return !!(reverse.rows && reverse.rows.length > 0);
+}
+async function listAllRows(tablesDB, tableId, baseQueries, log, maxPages = 100) {
+  const all = [];
+  let cursor = undefined;
+  let pages = 0;
+  for (;;) {
+    const queries = [...baseQueries, Query.limit(100), Query.orderAsc('$id')];
+    if (cursor) queries.push(Query.cursorAfter(cursor));
+    const res = await tablesDB.listRows({
+      databaseId: DATABASE_ID,
+      tableId,
+      queries,
+    });
+    const rows = res.rows || [];
+    if (rows.length === 0) break;
+    for (const r of rows) all.push(r);
+    pages++;
+    if (rows.length < 100) break;
+    const lastId = rows[rows.length - 1].$id;
+    if (!lastId || lastId === cursor) break;
+    cursor = lastId;
+    if (pages >= maxPages) {
+      log(`listAllRows: hit maxPages=${maxPages} for ${tableId}`);
+      break;
+    }
+  }
+  return all;
 }
 async function handleDeliver(tablesDB, senderId, payload, log, error) {
-  const {
-    messageId,
-    recipientId,
-    content,
-    taskRefId,
-    taskRefTitle,
-    taskRefDate,
-    taskRefColor,
-    replyToId,
-    replyToContent,
-    replyToSenderId,
-    createdAt,
-  } = payload || {};
-  if (!messageId || typeof messageId !== 'string') {
-    error('deliver: Missing messageId');
-    return { status: 400, body: { error: 'Missing messageId' } };
+  const p = payload || {};
+  if (!isValidRowId(p.messageId)) {
+    error('deliver: invalid messageId');
+    return { status: 400, body: { error: 'Invalid messageId' } };
   }
-  if (!recipientId || typeof recipientId !== 'string') {
-    error('deliver: Missing recipientId');
-    return { status: 400, body: { error: 'Missing recipientId' } };
+  if (!isValidRowId(p.recipientId)) {
+    error('deliver: invalid recipientId');
+    return { status: 400, body: { error: 'Invalid recipientId' } };
   }
+  const messageId = p.messageId;
+  const recipientId = p.recipientId;
   if (senderId === recipientId) {
     error('deliver: Cannot message yourself');
     return { status: 400, body: { error: 'Cannot message yourself' } };
   }
+  const vContent = validateOptionalString(p.content, 4000);
+  const vTaskRefId = validateOptionalString(p.taskRefId, 255);
+  const vTaskRefTitle = validateOptionalString(p.taskRefTitle, 500);
+  const vTaskRefDate = validateOptionalString(p.taskRefDate, 50);
+  const vTaskRefColor = validateOptionalString(p.taskRefColor, 20);
+  const vReplyToId = validateOptionalString(p.replyToId, 255);
+  const vReplyToContent = validateOptionalString(p.replyToContent, 300);
+  const vReplyToSenderId = validateOptionalString(p.replyToSenderId, 255);
+  const vCreatedAt = validateOptionalIso(p.createdAt, 50);
+  const optionalChecks = [
+    ['content', vContent],
+    ['taskRefId', vTaskRefId],
+    ['taskRefTitle', vTaskRefTitle],
+    ['taskRefDate', vTaskRefDate],
+    ['taskRefColor', vTaskRefColor],
+    ['replyToId', vReplyToId],
+    ['replyToContent', vReplyToContent],
+    ['replyToSenderId', vReplyToSenderId],
+    ['createdAt', vCreatedAt],
+  ];
+  for (const [name, r] of optionalChecks) {
+    if (!r.ok) {
+      error(`deliver: invalid ${name}`);
+      return { status: 400, body: { error: `Invalid ${name}` } };
+    }
+  }
+  const content = vContent.value;
+  const taskRefId = vTaskRefId.value;
+  const taskRefTitle = vTaskRefTitle.value;
+  const taskRefDate = vTaskRefDate.value;
+  const taskRefColor = vTaskRefColor.value;
+  const replyToId = vReplyToId.value;
+  const replyToContent = vReplyToContent.value;
+  const replyToSenderId = vReplyToSenderId.value;
+  const createdAt = vCreatedAt.value;
   const isFriend = await verifyFriendship(tablesDB, senderId, recipientId);
   if (!isFriend) {
     error(`deliver: Forbidden, no accepted friendship ${senderId} -> ${recipientId}`);
@@ -350,9 +465,7 @@ async function handleDeliver(tablesDB, senderId, payload, log, error) {
       existingSenderRow.user_id !== senderId ||
       existingSenderRow.sender_id !== senderId
     ) {
-      error(
-        `deliver: messageId ${messageId} already owned by another sender`
-      );
+      error(`deliver: messageId ${messageId} already owned by another sender`);
       return { status: 403, body: { error: 'messageId not owned by caller' } };
     }
   }
@@ -367,39 +480,45 @@ async function handleDeliver(tablesDB, senderId, payload, log, error) {
       return { status: 403, body: { error: 'recipient row already exists' } };
     }
   }
-  await tablesDB.upsertRow({
-    databaseId: DATABASE_ID,
-    tableId: MESSAGES_TABLE,
-    rowId: recipientRowId,
-    data: {
-      user_id: recipientId,
-      thread_id: threadId,
-      sender_id: senderId,
-      recipient_id: recipientId,
-      direction: 'incoming',
-      content: content || '',
-      task_ref_id: taskRefId || '',
-      task_ref_title: taskRefTitle || '',
-      task_ref_date: taskRefDate || '',
-      task_ref_color: taskRefColor || '',
-      reply_to_id: replyToId || '',
-      reply_to_content: replyToContent || '',
-      reply_to_sender_id: replyToSenderId || '',
-      is_unsent: false,
-      original_message_id: messageId,
-      reactions: '',
-      read_at: '',
-      delivery_status: 'delivered',
-      created_at: createdAt || now,
-      updated_at: now,
-      deleted: false,
-    },
-    permissions: [
-      Permission.read(Role.user(recipientId)),
-      Permission.update(Role.user(recipientId)),
-      Permission.delete(Role.user(recipientId)),
-    ],
-  });
+  if (existingRecipientRow) {
+    log(
+      `deliver: recipient row ${recipientRowId} already exists; skipping upsert (idempotent)`
+    );
+  } else {
+    await tablesDB.upsertRow({
+      databaseId: DATABASE_ID,
+      tableId: MESSAGES_TABLE,
+      rowId: recipientRowId,
+      data: {
+        user_id: recipientId,
+        thread_id: threadId,
+        sender_id: senderId,
+        recipient_id: recipientId,
+        direction: 'incoming',
+        content,
+        task_ref_id: taskRefId,
+        task_ref_title: taskRefTitle,
+        task_ref_date: taskRefDate,
+        task_ref_color: taskRefColor,
+        reply_to_id: replyToId,
+        reply_to_content: replyToContent,
+        reply_to_sender_id: replyToSenderId,
+        is_unsent: false,
+        original_message_id: messageId,
+        reactions: '',
+        read_at: '',
+        delivery_status: 'delivered',
+        created_at: createdAt || now,
+        updated_at: now,
+        deleted: false,
+      },
+      permissions: [
+        Permission.read(Role.user(recipientId)),
+        Permission.update(Role.user(recipientId)),
+        Permission.delete(Role.user(recipientId)),
+      ],
+    });
+  }
   if (!existingSenderRow) {
     try {
       await tablesDB.upsertRow({
@@ -412,14 +531,14 @@ async function handleDeliver(tablesDB, senderId, payload, log, error) {
           sender_id: senderId,
           recipient_id: recipientId,
           direction: 'outgoing',
-          content: content || '',
-          task_ref_id: taskRefId || '',
-          task_ref_title: taskRefTitle || '',
-          task_ref_date: taskRefDate || '',
-          task_ref_color: taskRefColor || '',
-          reply_to_id: replyToId || '',
-          reply_to_content: replyToContent || '',
-          reply_to_sender_id: replyToSenderId || '',
+          content,
+          task_ref_id: taskRefId,
+          task_ref_title: taskRefTitle,
+          task_ref_date: taskRefDate,
+          task_ref_color: taskRefColor,
+          reply_to_id: replyToId,
+          reply_to_content: replyToContent,
+          reply_to_sender_id: replyToSenderId,
           is_unsent: false,
           original_message_id: messageId,
           reactions: '',
@@ -448,15 +567,17 @@ async function handleDeliver(tablesDB, senderId, payload, log, error) {
   return { status: 200, body: { ok: true, recipientRowId, threadId } };
 }
 async function handleMarkRead(tablesDB, callerId, payload, log, error) {
-  const { partnerId, threadId } = payload || {};
-  if (!partnerId || typeof partnerId !== 'string') {
-    error('mark_read: Missing partnerId');
-    return { status: 400, body: { error: 'Missing partnerId' } };
+  const p = payload || {};
+  if (!isValidRowId(p.partnerId)) {
+    error('mark_read: invalid partnerId');
+    return { status: 400, body: { error: 'Invalid partnerId' } };
   }
-  if (!threadId || typeof threadId !== 'string') {
-    error('mark_read: Missing threadId');
-    return { status: 400, body: { error: 'Missing threadId' } };
+  const partnerId = p.partnerId;
+  if (!p.threadId || typeof p.threadId !== 'string' || p.threadId.length > 50) {
+    error('mark_read: invalid threadId');
+    return { status: 400, body: { error: 'Invalid threadId' } };
   }
+  const threadId = p.threadId;
   if (callerId === partnerId) {
     error('mark_read: partnerId cannot equal callerId');
     return { status: 400, body: { error: 'partnerId cannot be self' } };
@@ -488,7 +609,7 @@ async function handleMarkRead(tablesDB, callerId, payload, log, error) {
     return { status: 403, body: { error: 'Not a participant in this thread' } };
   }
   const now = new Date().toISOString();
-  let marked = 0;
+  let markedPartner = 0;
   let cursor = undefined;
   for (;;) {
     const queries = [
@@ -515,15 +636,51 @@ async function handleMarkRead(tablesDB, callerId, payload, log, error) {
         rowId: row.$id,
         data: { read_at: now },
       });
-      marked++;
+      markedPartner++;
     }
     if (rows.length < 100) break;
     const lastId = rows[rows.length - 1].$id;
     if (!lastId || lastId === cursor) break;
     cursor = lastId;
   }
-  log(`mark_read: caller=${callerId} partner=${partnerId} marked=${marked}`);
-  return { status: 200, body: { ok: true, marked } };
+  let markedCaller = 0;
+  cursor = undefined;
+  for (;;) {
+    const queries = [
+      Query.equal('user_id', callerId),
+      Query.equal('thread_id', threadId),
+      Query.equal('direction', 'incoming'),
+      Query.equal('read_at', ''),
+      Query.equal('deleted', false),
+      Query.limit(100),
+      Query.orderAsc('$id'),
+    ];
+    if (cursor) queries.push(Query.cursorAfter(cursor));
+    const res = await tablesDB.listRows({
+      databaseId: DATABASE_ID,
+      tableId: MESSAGES_TABLE,
+      queries,
+    });
+    const rows = res.rows || [];
+    if (rows.length === 0) break;
+    for (const row of rows) {
+      await tablesDB.updateRow({
+        databaseId: DATABASE_ID,
+        tableId: MESSAGES_TABLE,
+        rowId: row.$id,
+        data: { read_at: now },
+      });
+      markedCaller++;
+    }
+    if (rows.length < 100) break;
+    const lastId = rows[rows.length - 1].$id;
+    if (!lastId || lastId === cursor) break;
+    cursor = lastId;
+  }
+  log(
+    `mark_read: caller=${callerId} partner=${partnerId} markedPartner=${markedPartner} markedCaller=${markedCaller}`
+  );
+  return { status: 200, body: { ok: true, marked: markedPartner } };
 }
 async function cascadeReplyWipe(
   tablesDB,
@@ -571,21 +728,24 @@ async function cascadeReplyWipe(
       }
     }
   }
-  log(
-    `unsend cascade: wiped ${total} reply snapshot(s) for ${senderMessageId}`
-  );
+  log(`unsend cascade: wiped ${total} reply snapshot(s) for ${senderMessageId}`);
   return total;
 }
+// ---------------------------------------------------------------------------
+// unsend (add messageId/recipientId validation — V3, V8)
+// ---------------------------------------------------------------------------
 async function handleUnsend(tablesDB, callerId, payload, log, error) {
-  const { messageId, recipientId } = payload || {};
-  if (!messageId || typeof messageId !== 'string') {
-    error('unsend: Missing messageId');
-    return { status: 400, body: { error: 'Missing messageId' } };
+  const p = payload || {};
+  if (!isValidRowId(p.messageId)) {
+    error('unsend: invalid messageId');
+    return { status: 400, body: { error: 'Invalid messageId' } };
   }
-  if (!recipientId || typeof recipientId !== 'string') {
-    error('unsend: Missing recipientId');
-    return { status: 400, body: { error: 'Missing recipientId' } };
+  if (!isValidRowId(p.recipientId)) {
+    error('unsend: invalid recipientId');
+    return { status: 400, body: { error: 'Invalid recipientId' } };
   }
+  const messageId = p.messageId;
+  const recipientId = p.recipientId;
   if (callerId === recipientId) {
     error('unsend: Cannot unsend to yourself');
     return { status: 400, body: { error: 'Cannot unsend to yourself' } };
@@ -723,19 +883,43 @@ async function resolveLegacyPeerRowId(tablesDB, myRow, log) {
     const createdAt = myRow.created_at;
     const content = myRow.content || '';
     if (!senderId || !createdAt) return null;
-    const res = await tablesDB.listRows({
-      databaseId: DATABASE_ID,
-      tableId: MESSAGES_TABLE,
-      queries: [
+    const candidates = [];
+    let cursor = undefined;
+    let pages = 0;
+    const MAX_PAGES = 5; // safety cap: up to 500 rows scanned
+    for (;;) {
+      const queries = [
         Query.equal('user_id', senderId),
         Query.equal('created_at', createdAt),
         Query.equal('deleted', false),
-        Query.limit(5),
-      ],
-    });
-    const candidates = (res.rows || []).filter(
-      (r) => (r.content || '') === content && r.direction === 'outgoing'
-    );
+        Query.limit(100),
+        Query.orderAsc('$id'),
+      ];
+      if (cursor) queries.push(Query.cursorAfter(cursor));
+      const res = await tablesDB.listRows({
+        databaseId: DATABASE_ID,
+        tableId: MESSAGES_TABLE,
+        queries,
+      });
+      const rows = res.rows || [];
+      if (rows.length === 0) break;
+      for (const r of rows) {
+        if ((r.content || '') === content && r.direction === 'outgoing') {
+          candidates.push(r);
+        }
+      }
+      pages++;
+      if (rows.length < 100) break;
+      const lastId = rows[rows.length - 1].$id;
+      if (!lastId || lastId === cursor) break;
+      cursor = lastId;
+      if (pages >= MAX_PAGES) {
+        log(
+          `resolveLegacyPeerRowId: hit maxPages=${MAX_PAGES} for ${myRow.$id}`
+        );
+        break;
+      }
+    }
     if (candidates.length !== 1) {
       log(
         `resolveLegacyPeerRowId: ${candidates.length} candidates for ${myRow.$id}`
@@ -749,23 +933,36 @@ async function resolveLegacyPeerRowId(tablesDB, myRow, log) {
   }
 }
 async function handleReact(tablesDB, callerId, payload, log, error) {
-  const { myRowId, peerRowId, recipientId, emoji, op } = payload || {};
-  if (!myRowId || typeof myRowId !== 'string') {
-    error('react: Missing myRowId');
-    return { status: 400, body: { error: 'Missing myRowId' } };
+  const p = payload || {};
+  if (!isValidRowId(p.myRowId)) {
+    error('react: invalid myRowId');
+    return { status: 400, body: { error: 'Invalid myRowId' } };
   }
-  if (!recipientId || typeof recipientId !== 'string') {
-    error('react: Missing recipientId');
-    return { status: 400, body: { error: 'Missing recipientId' } };
+  const myRowId = p.myRowId;
+  let peerRowId = '';
+  if (p.peerRowId !== undefined && p.peerRowId !== null && p.peerRowId !== '') {
+    if (!isValidRowId(p.peerRowId)) {
+      error('react: invalid peerRowId');
+      return { status: 400, body: { error: 'Invalid peerRowId' } };
+    }
+    peerRowId = p.peerRowId;
   }
-  if (!emoji || typeof emoji !== 'string' || emoji.length > 16) {
-    error('react: Missing or invalid emoji');
+  if (!isValidRowId(p.recipientId)) {
+    error('react: invalid recipientId');
+    return { status: 400, body: { error: 'Invalid recipientId' } };
+  }
+  const recipientId = p.recipientId;
+  const vEmoji = validateEmoji(p.emoji);
+  if (!vEmoji.ok) {
+    error('react: invalid emoji');
     return { status: 400, body: { error: 'Invalid emoji' } };
   }
-  if (op !== 'add' && op !== 'remove') {
+  const emoji = vEmoji.value;
+  if (p.op !== 'add' && p.op !== 'remove') {
     error('react: op must be add or remove');
     return { status: 400, body: { error: 'Invalid op' } };
   }
+  const op = p.op;
   if (callerId === recipientId) {
     error('react: Cannot react to yourself');
     return { status: 400, body: { error: 'Cannot react to yourself' } };
@@ -812,6 +1009,12 @@ async function handleReact(tablesDB, callerId, payload, log, error) {
       const current = parseReactions(row.reactions || '');
       const next = applyReactionDelta(current, emoji, callerId, op);
       const nextStr = stringifyReactions(next);
+      if (nextStr.length > REACTIONS_MAX_LEN) {
+        error(
+          `react: reactions overflow on ${rowId} (${nextStr.length} > ${REACTIONS_MAX_LEN})`
+        );
+        return { status: 400, body: { error: 'Too many reactions' } };
+      }
       await tablesDB.updateRow({
         databaseId: DATABASE_ID,
         tableId: MESSAGES_TABLE,
@@ -830,29 +1033,31 @@ async function handleReact(tablesDB, callerId, payload, log, error) {
   log(
     `react: caller=${callerId} emoji=${emoji} op=${op} rows=${updated} resolvedPeer=${resolvedPeerRowId || '-'}`
   );
-  return {
-    status: 200,
-    body: { ok: true, updated, resolvedPeerRowId },
-  };
+  return { status: 200, body: { ok: true, updated, resolvedPeerRowId } };
 }
 async function handleReactToTask(tablesDB, callerId, payload, log, error) {
-  const { taskId, taskOwnerId, emoji, op } = payload || {};
-  if (!taskId || typeof taskId !== 'string') {
-    error('react_to_task: Missing taskId');
-    return { status: 400, body: { error: 'Missing taskId' } };
+  const p = payload || {};
+  if (!isValidRowId(p.taskId)) {
+    error('react_to_task: invalid taskId');
+    return { status: 400, body: { error: 'Invalid taskId' } };
   }
-  if (!taskOwnerId || typeof taskOwnerId !== 'string') {
-    error('react_to_task: Missing taskOwnerId');
-    return { status: 400, body: { error: 'Missing taskOwnerId' } };
+  const taskId = p.taskId;
+  if (!isValidRowId(p.taskOwnerId)) {
+    error('react_to_task: invalid taskOwnerId');
+    return { status: 400, body: { error: 'Invalid taskOwnerId' } };
   }
-  if (!emoji || typeof emoji !== 'string' || emoji.length > 16) {
-    error('react_to_task: Missing or invalid emoji');
+  const taskOwnerId = p.taskOwnerId;
+  const vEmoji = validateEmoji(p.emoji);
+  if (!vEmoji.ok) {
+    error('react_to_task: invalid emoji');
     return { status: 400, body: { error: 'Invalid emoji' } };
   }
-  if (op !== 'add' && op !== 'remove') {
+  const emoji = vEmoji.value;
+  if (p.op !== 'add' && p.op !== 'remove') {
     error('react_to_task: op must be add or remove');
     return { status: 400, body: { error: 'Invalid op' } };
   }
+  const op = p.op;
   if (callerId === taskOwnerId) {
     error('react_to_task: Cannot react to your own task');
     return { status: 400, body: { error: 'Cannot react to your own task' } };
@@ -894,7 +1099,11 @@ async function handleReactToTask(tablesDB, callerId, payload, log, error) {
         tableId: CATEGORIES_TABLE,
         rowId: row.category_id,
       });
-      effectiveVisibility = cat.visibility || 'private';
+      if (cat.deleted === true) {
+        effectiveVisibility = 'private';
+      } else {
+        effectiveVisibility = cat.visibility || 'private';
+      }
     } catch (err) {
       log(
         `react_to_task: category ${row.category_id} fetch failed (${err.message})`
@@ -902,10 +1111,8 @@ async function handleReactToTask(tablesDB, callerId, payload, log, error) {
       effectiveVisibility = 'private';
     }
   } else {
-    effectiveVisibility = 'followers';
-    log(
-      `react_to_task: task ${taskId} has no category and no explicit visibility; defaulting to followers`
-    );
+    effectiveVisibility = 'private';
+    log(`react_to_task: task ${taskId} has no category; defaulting to private`);
   }
   if (effectiveVisibility === 'private') {
     error(
@@ -916,6 +1123,12 @@ async function handleReactToTask(tablesDB, callerId, payload, log, error) {
   const current = parseReactions(row.reactions || '');
   const next = applyReactionDelta(current, emoji, callerId, op);
   const nextStr = stringifyReactions(next);
+  if (nextStr.length > REACTIONS_MAX_LEN) {
+    error(
+      `react_to_task: reactions overflow on ${taskId} (${nextStr.length} > ${REACTIONS_MAX_LEN})`
+    );
+    return { status: 400, body: { error: 'Too many reactions' } };
+  }
   const now = new Date().toISOString();
   try {
     await tablesDB.updateRow({
@@ -934,11 +1147,12 @@ async function handleReactToTask(tablesDB, callerId, payload, log, error) {
   return { status: 200, body: { ok: true, reactions: nextStr } };
 }
 async function handleGetFriendCalendar(tablesDB, callerId, payload, log, error) {
-  const friendUserId = payload?.friendUserId;
-  if (!friendUserId || typeof friendUserId !== 'string') {
-    error('get_friend_calendar: Missing friendUserId');
-    return { status: 400, body: { error: 'Missing friendUserId' } };
+  const p = payload || {};
+  if (!isValidRowId(p.friendUserId)) {
+    error('get_friend_calendar: invalid friendUserId');
+    return { status: 400, body: { error: 'Invalid friendUserId' } };
   }
+  const friendUserId = p.friendUserId;
   if (callerId === friendUserId) {
     error('get_friend_calendar: Cannot query your own calendar');
     return { status: 400, body: { error: 'Cannot query your own calendar' } };
@@ -952,42 +1166,49 @@ async function handleGetFriendCalendar(tablesDB, callerId, payload, log, error) 
   }
   let categoryRows = [];
   try {
-    const categoriesRes = await tablesDB.listRows({
-      databaseId: DATABASE_ID,
-      tableId: CATEGORIES_TABLE,
-      queries: [
+    categoryRows = await listAllRows(
+      tablesDB,
+      CATEGORIES_TABLE,
+      [
         Query.equal('user_id', friendUserId),
         Query.equal('deleted', false),
-        Query.orderAsc('order'),
-        Query.limit(200),
       ],
-    });
-    categoryRows = categoriesRes.rows || [];
+      log
+    );
   } catch (err) {
     error(`get_friend_calendar: categories fetch failed (${err.message})`);
     return { status: 500, body: { error: 'Failed to fetch categories' } };
   }
+  categoryRows.sort((a, b) => {
+    const ao = typeof a.order === 'number' ? a.order : 0;
+    const bo = typeof b.order === 'number' ? b.order : 0;
+    if (ao !== bo) return ao - bo;
+    return String(a.$id).localeCompare(String(b.$id));
+  });
   const categoryVisibility = new Map();
   for (const c of categoryRows) {
     categoryVisibility.set(c.$id, c.visibility || 'private');
   }
   let taskRows = [];
   try {
-    const tasksRes = await tablesDB.listRows({
-      databaseId: DATABASE_ID,
-      tableId: TASKS_TABLE,
-      queries: [
+    taskRows = await listAllRows(
+      tablesDB,
+      TASKS_TABLE,
+      [
         Query.equal('user_id', friendUserId),
         Query.equal('deleted', false),
-        Query.orderAsc('date'),
-        Query.limit(1000),
       ],
-    });
-    taskRows = tasksRes.rows || [];
+      log
+    );
   } catch (err) {
     error(`get_friend_calendar: tasks fetch failed (${err.message})`);
     return { status: 500, body: { error: 'Failed to fetch tasks' } };
   }
+  taskRows.sort((a, b) => {
+    const ad = (a.date || '').localeCompare(b.date || '');
+    if (ad !== 0) return ad;
+    return String(a.$id).localeCompare(String(b.$id));
+  });
   const visibleTasks = taskRows.filter((t) => {
     const taskVis = t.visibility;
     const effective =
@@ -9070,6 +9291,60 @@ const APPWRITE_CONFIG = {
 const tablesDB = new TablesDB(client);
 const DEBUG = import.meta.env.DEV;
 const PAGE_SIZE = 100;
+const PULL_OVERLAP_MS = 30_000;
+const RATE_LIMIT_BASE_MS = 5_000;
+const RATE_LIMIT_MAX_MS = 60_000;
+const TRIGGER_DEBOUNCE_MS = 1_500;
+type CollectionName = keyof AppDatabaseCollections;
+const ALL_COLLECTIONS: CollectionName[] = [
+  'tasks',
+  'categories',
+  'diary',
+  'settings',
+  'friendships',
+  'messages',
+];
+interface PerCollectionSyncEntry {
+  pull: string;
+  dirty: string;
+}
+interface PerCollectionPersistedState {
+  ownerId: string;
+  entries: Partial<Record<CollectionName, PerCollectionSyncEntry>>;
+}
+const PER_COLLECTION_KEY = 'lastSyncTimePerCollection';
+function loadPerCollectionState(
+  userId: string
+): Partial<Record<CollectionName, PerCollectionSyncEntry>> {
+  try {
+    const raw = localStorage.getItem(PER_COLLECTION_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw) as unknown;
+    if (!parsed || typeof parsed !== 'object') return {};
+    const state = parsed as Partial<PerCollectionPersistedState>;
+    if (state.ownerId !== userId) return {};
+    if (!state.entries || typeof state.entries !== 'object') return {};
+    return state.entries as Partial<
+      Record<CollectionName, PerCollectionSyncEntry>
+    >;
+  } catch {
+    return {};
+  }
+}
+function savePerCollectionState(
+  userId: string,
+  entries: Partial<Record<CollectionName, PerCollectionSyncEntry>>
+): void {
+  try {
+    const state: PerCollectionPersistedState = { ownerId: userId, entries };
+    localStorage.setItem(PER_COLLECTION_KEY, JSON.stringify(state));
+  } catch {
+  }
+}
+let perCollectionSync: Partial<
+  Record<CollectionName, PerCollectionSyncEntry>
+> = {};
+let perCollectionOwnerId: string | null = null;
 export interface SyncStatus {
   isSyncing: boolean;
   lastSync: string | null;
@@ -9115,6 +9390,9 @@ type LocalCollection = {
   upsert: (doc: Record<string, unknown>) => Promise<unknown>;
 };
 let isSyncInProgress = false;
+let rateLimitUntil = 0;
+let rateLimitBackoffMs = 0;
+let debounceTimer: ReturnType<typeof setTimeout> | null = null;
 declare global {
   interface Window {
     __mosaicFocusSyncAttached?: boolean;
@@ -9127,6 +9405,16 @@ function isTimestampedCollection(collection: string): boolean {
     collection === 'friendships' ||
     collection === 'messages'
   );
+}
+function isRateLimitError(err: unknown): boolean {
+  const code = (err as { code?: number } | null)?.code;
+  if (code === 429) return true;
+  const msg = err instanceof Error ? err.message : String(err);
+  return /rate limit/i.test(msg);
+}
+function isNotFoundError(err: unknown): boolean {
+  const code = (err as { code?: number } | null)?.code;
+  return code === 404;
 }
 function toAppwriteFormat(
   doc: Record<string, unknown>,
@@ -9369,13 +9657,24 @@ export async function initializeSync(): Promise<void> {
       console.log('[Sync] initializeSync skipped: sync already in progress');
     return;
   }
+  if (Date.now() < rateLimitUntil) {
+    if (DEBUG) {
+      console.log(
+        `[Sync] Skipping: rate-limit backoff until ${new Date(
+          rateLimitUntil
+        ).toISOString()}`
+      );
+    }
+    updateSyncStatus({ isSyncing: false });
+    return;
+  }
   if (typeof navigator !== 'undefined' && navigator.onLine === false) {
     if (DEBUG) console.log('[Sync] Offline, skipping sync');
     updateSyncStatus({ isSyncing: false });
     return;
   }
   isSyncInProgress = true;
-  if (DEBUG) console.log('[Sync] Starting initial sync...');
+  if (DEBUG) console.log('[Sync] Starting sync...');
   updateSyncStatus({ isSyncing: true, errors: [] });
   try {
     const userId = await resolveAuthenticatedUserId();
@@ -9384,17 +9683,20 @@ export async function initializeSync(): Promise<void> {
       updateSyncStatus({ isSyncing: false });
       return;
     }
+    if (perCollectionOwnerId !== userId) {
+      perCollectionSync = loadPerCollectionState(userId);
+      perCollectionOwnerId = userId;
+      if (DEBUG) {
+        console.log(
+          `[Sync] Loaded per-collection state for user ${userId}:`,
+          Object.keys(perCollectionSync)
+        );
+      }
+    }
     const db = getDatabase();
-    const collections: (keyof AppDatabaseCollections)[] = [
-      'tasks',
-      'categories',
-      'diary',
-      'settings',
-      'friendships',
-      'messages',
-    ];
     const collectionErrors: string[] = [];
-    for (const colName of collections) {
+    let sawRateLimit = false;
+    for (const colName of ALL_COLLECTIONS) {
       try {
         await syncCollection(
           db[colName] as unknown as LocalCollection,
@@ -9408,7 +9710,21 @@ export async function initializeSync(): Promise<void> {
             : `Unknown error in ${colName}`;
         console.error(`[Sync] Collection "${colName}" failed:`, colError);
         collectionErrors.push(`${colName}: ${message}`);
+        if (isRateLimitError(colError)) sawRateLimit = true;
       }
+    }
+    if (sawRateLimit) {
+      rateLimitBackoffMs =
+        rateLimitBackoffMs === 0
+          ? RATE_LIMIT_BASE_MS
+          : Math.min(rateLimitBackoffMs * 2, RATE_LIMIT_MAX_MS);
+      rateLimitUntil = Date.now() + rateLimitBackoffMs;
+      console.warn(
+        `[Sync] Rate limited; backing off for ${rateLimitBackoffMs}ms`
+      );
+    } else {
+      rateLimitBackoffMs = 0;
+      rateLimitUntil = 0;
     }
     if (collectionErrors.length === 0) {
       updateSyncStatus({
@@ -9416,7 +9732,7 @@ export async function initializeSync(): Promise<void> {
         lastSync: new Date().toISOString(),
         errors: [],
       });
-      if (DEBUG) console.log('[Sync] ✅ Initial sync complete');
+      if (DEBUG) console.log('[Sync] ✅ Sync complete');
     } else {
       updateSyncStatus({ isSyncing: false, errors: collectionErrors });
       if (DEBUG)
@@ -9440,14 +9756,18 @@ async function syncCollection(
   colName: string,
   userId: string
 ) {
+  const cycleStartMs = Date.now();
   const tableId =
     APPWRITE_CONFIG.tables[colName as keyof typeof APPWRITE_CONFIG.tables];
   if (DEBUG) console.log(`[Sync] Syncing ${colName}...`);
-  const lastSyncMs = syncStatus.lastSync
-    ? new Date(syncStatus.lastSync).getTime()
-    : 0;
+  const entry = perCollectionSync[colName as CollectionName];
+  const pullBoundaryMs = entry?.pull ? new Date(entry.pull).getTime() : 0;
+  const dirtyBoundaryMs = entry?.dirty ? new Date(entry.dirty).getTime() : 0;
   const usesTimestamps = isTimestampedCollection(colName);
-  const remoteIndex = new Map<string, { updatedAt: number; isDeleted: boolean }>();
+  const remoteIndex = new Map<
+    string,
+    { updatedAt: number; isDeleted: boolean }
+  >();
   const justPulled = new Set<string>();
   let cursor: string | undefined = undefined;
   let pageCount = 0;
@@ -9457,6 +9777,12 @@ async function syncCollection(
       Query.limit(PAGE_SIZE),
       Query.orderAsc('$id'),
     ];
+    if (pullBoundaryMs > 0) {
+      const sinceIso = new Date(
+        pullBoundaryMs - PULL_OVERLAP_MS
+      ).toISOString();
+      queries.push(Query.greaterThan('$updatedAt', sinceIso));
+    }
     if (cursor) queries.push(Query.cursorAfter(cursor));
     const remoteResponse = await tablesDB.listRows({
       databaseId: APPWRITE_CONFIG.databaseId,
@@ -9487,7 +9813,8 @@ async function syncCollection(
           continue;
         }
         const localLwt = localDoc._meta?.lwt ?? 0;
-        const isLocalDirty = localLwt > lastSyncMs;
+        const isLocalDirty = localLwt > dirtyBoundaryMs;
+        if (isLocalDirty) continue;
         if (colName === 'messages' && row.direction === 'outgoing') {
           const remoteReadAt = (row.read_at as string) || '';
           const localJson = localDoc.toJSON();
@@ -9502,7 +9829,6 @@ async function syncCollection(
             }
           }
         }
-        if (isLocalDirty) continue;
         let remoteWins = false;
         if (usesTimestamps) {
           const localUpdatedAt = toMs(localDoc.toJSON().updatedAt);
@@ -9523,51 +9849,79 @@ async function syncCollection(
     if (!lastId || lastId === cursor) break;
     cursor = lastId;
   }
-  const localDocs = await collection.find().exec();
-  for (const doc of localDocs) {
-    const json = doc.toJSON();
-    const docUserId = json.userId as string | undefined;
-    if (docUserId !== userId) continue;
-    const docId = (json.id as string) || doc.id;
-    if (!docId) continue;
-    if (justPulled.has(docId)) continue;
-    const remoteMeta = remoteIndex.get(docId);
-    const localLwt = doc._meta?.lwt ?? 0;
-    const isLocalDirty = localLwt > lastSyncMs;
-    let shouldPush = false;
-    if (!remoteMeta) {
-      shouldPush = true;
-    } else if (isLocalDirty) {
-      shouldPush = true;
-    } else if (usesTimestamps) {
-      const localUpdatedAt = toMs(json.updatedAt);
-      shouldPush = localUpdatedAt > remoteMeta.updatedAt;
-    }
-    if (!shouldPush) continue;
-    const rowData = toAppwriteFormat(json, colName, userId);
-    if (DEBUG) console.log(`[Sync] Pushing ${colName} ${docId}`);
-    try {
-      if (remoteMeta) {
+  perCollectionSync[colName as CollectionName] = {
+    pull: new Date(cycleStartMs).toISOString(),
+    dirty: entry?.dirty ?? '',
+  };
+  savePerCollectionState(userId, perCollectionSync);
+  // Messages are excluded from the push loop. Every message row is written
+  // server-side by the `message-action` function (deliver, react, unsend,
+  // mark_read), which uses a server API key and bypasses client rate limits.
+  // Client-side PATCHes to /tablesdb/.../messages/rows were duplicate traffic
+  // and were the dominant contributor to the 120 req/min bucket that was
+  // returning 429. Pull stays enabled above so read receipts and incoming
+  // rows still arrive.
+  if (colName !== 'messages') {
+    const localDocs = await collection.find().exec();
+    for (const doc of localDocs) {
+      const json = doc.toJSON();
+      const docUserId = json.userId as string | undefined;
+      if (docUserId !== userId) continue;
+      const docId = (json.id as string) || doc.id;
+      if (!docId) continue;
+      if (justPulled.has(docId)) continue;
+      const remoteMeta = remoteIndex.get(docId);
+      const localLwt = doc._meta?.lwt ?? 0;
+      const isLocalDirty = localLwt > dirtyBoundaryMs;
+      let shouldPush = false;
+      if (isLocalDirty) {
+        shouldPush = true;
+      } else if (remoteMeta && usesTimestamps) {
+        const localUpdatedAt = toMs(json.updatedAt);
+        shouldPush = localUpdatedAt > remoteMeta.updatedAt;
+      }
+      if (!shouldPush) continue;
+      const rowData = toAppwriteFormat(json, colName, userId);
+      if (DEBUG) console.log(`[Sync] Pushing ${colName} ${docId}`);
+      try {
         await tablesDB.updateRow({
           databaseId: APPWRITE_CONFIG.databaseId,
           tableId,
           rowId: docId,
           data: rowData,
         });
-      } else {
-        await tablesDB.upsertRow({
-          databaseId: APPWRITE_CONFIG.databaseId,
-          tableId,
-          rowId: docId,
-          data: rowData,
-          permissions: buildRowPermissions(userId),
-        });
+      } catch (updateErr) {
+        if (isNotFoundError(updateErr)) {
+          try {
+            await tablesDB.upsertRow({
+              databaseId: APPWRITE_CONFIG.databaseId,
+              tableId,
+              rowId: docId,
+              data: rowData,
+              permissions: buildRowPermissions(userId),
+            });
+          } catch (createErr) {
+            console.error(
+              `[Sync] Failed to create ${colName} ${docId}:`,
+              createErr
+            );
+            throw createErr;
+          }
+        } else {
+          console.error(
+            `[Sync] Failed to push ${colName} ${docId}:`,
+            updateErr
+          );
+          throw updateErr;
+        }
       }
-    } catch (upsertError) {
-      console.error(`[Sync] Failed to push ${colName} ${docId}:`, upsertError);
-      throw upsertError;
     }
   }
+  perCollectionSync[colName as CollectionName] = {
+    pull: new Date(cycleStartMs).toISOString(),
+    dirty: new Date().toISOString(),
+  };
+  savePerCollectionState(userId, perCollectionSync);
   if (DEBUG)
     console.log(`[Sync] ✅ ${colName} synced (${pageCount} page(s) pulled)`);
 }
@@ -9585,15 +9939,24 @@ function safeForceSync(reason: string) {
       console.log(`[Sync] ${reason} handler skipped (DB not ready):`, e);
   }
 }
+function scheduleSync(reason: string) {
+  if (debounceTimer !== null) {
+    clearTimeout(debounceTimer);
+  }
+  debounceTimer = setTimeout(() => {
+    debounceTimer = null;
+    safeForceSync(reason);
+  }, TRIGGER_DEBOUNCE_MS);
+}
 function handleWindowFocus() {
-  safeForceSync('Window focused');
+  scheduleSync('Window focused');
 }
 function handleOnline() {
-  safeForceSync('Connection restored');
+  scheduleSync('Connection restored');
 }
 function handleVisibilityChange() {
   if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
-    safeForceSync('App became visible');
+    scheduleSync('App became visible');
   }
 }
 if (typeof window !== 'undefined' && !window.__mosaicFocusSyncAttached) {
@@ -11069,6 +11432,7 @@ export function useMessages(friendId: string | null): UseMessagesReturn {
         doc.direction === 'outgoing'
           ? await makeRecipientRowId(doc.id)
           : doc.originalMessageId || '';
+      const originalReactions = doc.reactions;
       const current = parseReactions(doc.reactions);
       const op: 'add' | 'remove' = hasUserReacted(current, emoji, uid)
         ? 'remove'
@@ -11114,6 +11478,43 @@ export function useMessages(friendId: string | null): UseMessagesReturn {
             );
           }
         }
+        let stillPending = true;
+        try {
+          const fresh = await db.messages.findOne(id).exec();
+          stillPending = !fresh || fresh.deliveryStatus === 'pending';
+        } catch (err) {
+          if (import.meta.env.DEV) {
+            console.warn(
+              '[useMessages] react delivery re-check failed:',
+              err
+            );
+          }
+        }
+        if (stillPending) {
+          try {
+            const fresh = await db.messages.findOne(id).exec();
+            if (fresh && fresh.reactions === nextStr) {
+              await fresh.patch({
+                reactions: originalReactions,
+                updatedAt: new Date().toISOString(),
+              });
+            }
+          } catch (revertErr) {
+            const code = (revertErr as { code?: string })?.code;
+            if (code !== 'CONFLICT') {
+              console.error(
+                '[useMessages] react revert failed:',
+                revertErr
+              );
+            }
+          }
+          if (import.meta.env.DEV) {
+            console.warn(
+              '[useMessages] react skipped: message still pending after delivery wait'
+            );
+          }
+          return;
+        }
       }
       reactOnRemote(myRowId, peerRowId, peerUserId, emoji, op)
         .then(async (resolvedPeerRowId) => {
@@ -11127,7 +11528,24 @@ export function useMessages(friendId: string | null): UseMessagesReturn {
             console.error('[useMessages] react backfill failed:', err);
           }
         })
-        .catch((err) => {
+        .catch(async (err) => {
+          try {
+            const fresh = await db.messages.findOne(id).exec();
+            if (fresh && !fresh.isUnsent && fresh.reactions === nextStr) {
+              await fresh.patch({
+                reactions: originalReactions,
+                updatedAt: new Date().toISOString(),
+              });
+            }
+          } catch (revertErr) {
+            const code = (revertErr as { code?: string })?.code;
+            if (code !== 'CONFLICT') {
+              console.error(
+                '[useMessages] react revert failed:',
+                revertErr
+              );
+            }
+          }
           console.error('[useMessages] react delivery failed:', err);
         });
     },
@@ -12242,7 +12660,9 @@ const DEBUG = import.meta.env.DEV;
 export const MESSAGE_ACTION_FUNCTION_ID =
   '6aa8057f002a4c306fdd';
 const functions = new Functions(client);
+const SEND_TIMEOUT_MS = 15_000;
 let inFlightDeliveryPromise: Promise<void> | null = null;
+let deliveryRequestedDuringFlight = false;
 export async function sendMessageAction(
   payload: Record<string, unknown>
 ): Promise<Record<string, unknown>> {
@@ -12252,13 +12672,36 @@ export async function sendMessageAction(
   if (MESSAGE_ACTION_FUNCTION_ID.startsWith('REPLACE_')) {
     throw new Error('MESSAGE_ACTION_FUNCTION_ID not configured');
   }
-  const execution = await functions.createExecution({
+  const executionPromise = functions.createExecution({
     functionId: MESSAGE_ACTION_FUNCTION_ID,
     body: JSON.stringify(payload),
     async: false,
     xpath: '/',
     method: ExecutionMethod.POST,
   });
+  executionPromise.catch(() => {});
+  let timeoutId: ReturnType<typeof setTimeout> | null = null;
+  let execution;
+  try {
+    execution = await Promise.race([
+      executionPromise,
+      new Promise<never>((_, reject) => {
+        timeoutId = setTimeout(
+          () =>
+            reject(
+              new Error(
+                `Message action timed out after ${SEND_TIMEOUT_MS}ms`
+              )
+            ),
+          SEND_TIMEOUT_MS
+        );
+      }),
+    ]);
+  } finally {
+    if (timeoutId !== null) {
+      clearTimeout(timeoutId);
+    }
+  }
   if (
     execution.status !== 'completed' ||
     execution.responseStatusCode >= 400
@@ -12274,7 +12717,10 @@ export async function sendMessageAction(
   }
 }
 export async function deliverPendingMessages(userId: string): Promise<void> {
-  if (inFlightDeliveryPromise) return inFlightDeliveryPromise;
+  if (inFlightDeliveryPromise) {
+    deliveryRequestedDuringFlight = true;
+    return inFlightDeliveryPromise;
+  }
   if (typeof navigator !== 'undefined' && navigator.onLine === false) return;
   if (!userId) return;
   if (MESSAGE_ACTION_FUNCTION_ID.startsWith('REPLACE_')) {
@@ -12287,34 +12733,56 @@ export async function deliverPendingMessages(userId: string): Promise<void> {
   }
   inFlightDeliveryPromise = (async () => {
     try {
-      const db = getDatabase();
-      const pending = await db.messages
-        .find({
-          selector: {
-            userId,
-            direction: 'outgoing',
-            deliveryStatus: 'pending',
-            isDeleted: false,
-          },
-        })
-        .exec();
-      if (pending.length === 0) return;
-      if (DEBUG) {
-        console.log(`[messageDelivery] ${pending.length} pending message(s)`);
-      }
-      for (const doc of pending) {
+      for (;;) {
+        deliveryRequestedDuringFlight = false;
+        let db;
         try {
-          await deliverOne(doc);
-          await doc.patch({ deliveryStatus: 'delivered' });
+          db = getDatabase();
         } catch (err) {
           console.error(
-            `[messageDelivery] Failed to deliver ${doc.id}:`,
+            '[messageDelivery] delivery cycle failed (db):',
             err
           );
+          break;
         }
+        let pending;
+        try {
+          pending = await db.messages
+            .find({
+              selector: {
+                userId,
+                direction: 'outgoing',
+                deliveryStatus: 'pending',
+                isDeleted: false,
+              },
+            })
+            .exec();
+        } catch (err) {
+          console.error(
+            '[messageDelivery] delivery cycle failed (query):',
+            err
+          );
+          break;
+        }
+        if (DEBUG && pending.length > 0) {
+          console.log(`[messageDelivery] ${pending.length} pending message(s)`);
+        }
+        for (const doc of pending) {
+          try {
+            await deliverOne(doc);
+            await doc.patch({ deliveryStatus: 'delivered' });
+          } catch (err) {
+            console.error(
+              `[messageDelivery] Failed to deliver ${doc.id}:`,
+              err
+            );
+          }
+        }
+        if (!deliveryRequestedDuringFlight) break;
       }
     } finally {
       inFlightDeliveryPromise = null;
+      deliveryRequestedDuringFlight = false;
     }
   })();
   return inFlightDeliveryPromise;
@@ -12370,21 +12838,16 @@ export async function reactOnRemote(
   emoji: string,
   op: 'add' | 'remove'
 ): Promise<string | null> {
-  try {
-    const result = await sendMessageAction({
-      action: 'react',
-      myRowId,
-      peerRowId: peerRowId || '',
-      recipientId,
-      emoji,
-      op,
-    });
-    const resolved = result?.resolvedPeerRowId;
-    return typeof resolved === 'string' && resolved.length > 0 ? resolved : null;
-  } catch (err) {
-    console.error('[messageDelivery] reactOnRemote failed:', err);
-    return null;
-  }
+  const result = await sendMessageAction({
+    action: 'react',
+    myRowId,
+    peerRowId: peerRowId || '',
+    recipientId,
+    emoji,
+    op,
+  });
+  const resolved = result?.resolvedPeerRowId;
+  return typeof resolved === 'string' && resolved.length > 0 ? resolved : null;
 }
 export async function reactToTaskOnRemote(
   taskId: string,
@@ -13485,7 +13948,7 @@ import { useTaskImage } from '../hooks/useTaskImage';
 import { forceSync } from '../db/sync';
 import type { MessageDocument } from '../db/schema';
 const TIMESTAMP_GAP_MS = 5 * 60 * 1000;
-const POLL_INTERVAL_MS = 10_000;
+const POLL_INTERVAL_MS = 30_000;
 const SCROLL_FAB_THRESHOLD_PX = 300;
 type RenderItem =
   | { kind: 'divider'; key: string; label: string }
