@@ -1,19 +1,13 @@
 const crypto = require('crypto');
 const { Client, TablesDB, Query, Permission, Role } = require('node-appwrite');
-
 const DATABASE_ID = 'life_tracker';
 const MESSAGES_TABLE = 'messages';
 const FRIENDSHIPS_TABLE = 'friendships';
 const TASKS_TABLE = 'tasks';
 const CATEGORIES_TABLE = 'categories';
-
 const MAX_ROW_ID_LENGTH = 36;
 const ROW_ID_REGEX = /^[a-zA-Z0-9_]+$/;
 const REACTIONS_MAX_LEN = 5000;
-
-// ---------------------------------------------------------------------------
-// Grapheme-aware length (for emoji)
-// ---------------------------------------------------------------------------
 let graphemeSegmenter = null;
 try {
   if (
@@ -25,7 +19,6 @@ try {
 } catch {
   graphemeSegmenter = null;
 }
-
 function graphemeLength(str) {
   if (!str) return 0;
   if (graphemeSegmenter) {
@@ -35,26 +28,18 @@ function graphemeLength(str) {
   }
   return Array.from(str).length;
 }
-
-// ---------------------------------------------------------------------------
-// Validation helpers
-// ---------------------------------------------------------------------------
 function isValidRowId(value) {
   if (typeof value !== 'string') return false;
   if (value.length === 0 || value.length > MAX_ROW_ID_LENGTH) return false;
   if (value.startsWith('_')) return false;
   return ROW_ID_REGEX.test(value);
 }
-
-// Returns { ok: true, value } or { ok: false }
 function validateOptionalString(value, maxLen) {
   if (value === undefined || value === null) return { ok: true, value: '' };
   if (typeof value !== 'string') return { ok: false };
   if (value.length > maxLen) return { ok: false };
   return { ok: true, value };
 }
-
-// Optional ISO-ish string: empty allowed; otherwise must be parseable by Date.
 function validateOptionalIso(value, maxLen) {
   const r = validateOptionalString(value, maxLen);
   if (!r.ok) return r;
@@ -62,7 +47,6 @@ function validateOptionalIso(value, maxLen) {
   if (Number.isNaN(Date.parse(r.value))) return { ok: false };
   return r;
 }
-
 // Emoji: non-empty after trim, ≤16 graphemes.
 function validateEmoji(value) {
   if (typeof value !== 'string') return { ok: false };
@@ -72,18 +56,12 @@ function validateEmoji(value) {
   if (gl === 0 || gl > 16) return { ok: false };
   return { ok: true, value: trimmed };
 }
-
-// ---------------------------------------------------------------------------
-// Reaction helpers
-// ---------------------------------------------------------------------------
 function sha256Hex(input) {
   return crypto.createHash('sha256').update(input).digest('hex');
 }
-
 function makeRecipientRowId(senderMessageId) {
   return `rmsg_${sha256Hex(senderMessageId).slice(0, 30)}`;
 }
-
 function parseReactions(raw) {
   if (!raw) return [];
   try {
@@ -106,7 +84,6 @@ function parseReactions(raw) {
     return [];
   }
 }
-
 function stringifyReactions(reactions) {
   const cleaned = reactions
     .map((r) => ({
@@ -117,7 +94,6 @@ function stringifyReactions(reactions) {
   if (cleaned.length === 0) return '';
   return JSON.stringify(cleaned);
 }
-
 function applyReactionDelta(reactions, emoji, userId, op) {
   const next = reactions.map((r) => ({
     emoji: r.emoji,
@@ -138,10 +114,6 @@ function applyReactionDelta(reactions, emoji, userId, op) {
   }
   return next;
 }
-
-// ---------------------------------------------------------------------------
-// Friendship check (unchanged; still gated as a prerequisite)
-// ---------------------------------------------------------------------------
 async function verifyFriendship(tablesDB, a, b) {
   const forward = await tablesDB.listRows({
     databaseId: DATABASE_ID,
@@ -168,14 +140,6 @@ async function verifyFriendship(tablesDB, a, b) {
   });
   return !!(reverse.rows && reverse.rows.length > 0);
 }
-
-// ---------------------------------------------------------------------------
-// Paginated list helper
-// Mirrors the pattern already in handleMarkRead:
-//   Query.limit(100) + Query.orderAsc('$id') + Query.cursorAfter(lastId)
-// Any additional filters are passed in baseQueries. Caller must NOT include
-// Query.limit, Query.orderAsc, or Query.cursorAfter in baseQueries.
-// ---------------------------------------------------------------------------
 async function listAllRows(tablesDB, tableId, baseQueries, log, maxPages = 100) {
   const all = [];
   let cursor = undefined;
@@ -203,17 +167,15 @@ async function listAllRows(tablesDB, tableId, baseQueries, log, maxPages = 100) 
   }
   return all;
 }
-
-// ---------------------------------------------------------------------------
-// deliver
-// ---------------------------------------------------------------------------
 async function handleDeliver(tablesDB, senderId, payload, log, error) {
   const p = payload || {};
-
-  // Required IDs (V1)
   if (!isValidRowId(p.messageId)) {
     error('deliver: invalid messageId');
     return { status: 400, body: { error: 'Invalid messageId' } };
+  }
+  if (!p.messageId.startsWith('msg_')) {
+    error('deliver: messageId must start with msg_');
+    return { status: 400, body: { error: 'Invalid messageId format' } };
   }
   if (!isValidRowId(p.recipientId)) {
     error('deliver: invalid recipientId');
@@ -221,13 +183,10 @@ async function handleDeliver(tablesDB, senderId, payload, log, error) {
   }
   const messageId = p.messageId;
   const recipientId = p.recipientId;
-
   if (senderId === recipientId) {
     error('deliver: Cannot message yourself');
     return { status: 400, body: { error: 'Cannot message yourself' } };
   }
-
-  // Optional fields (V2)
   const vContent = validateOptionalString(p.content, 4000);
   const vTaskRefId = validateOptionalString(p.taskRefId, 255);
   const vTaskRefTitle = validateOptionalString(p.taskRefTitle, 500);
@@ -237,7 +196,6 @@ async function handleDeliver(tablesDB, senderId, payload, log, error) {
   const vReplyToContent = validateOptionalString(p.replyToContent, 300);
   const vReplyToSenderId = validateOptionalString(p.replyToSenderId, 255);
   const vCreatedAt = validateOptionalIso(p.createdAt, 50);
-
   const optionalChecks = [
     ['content', vContent],
     ['taskRefId', vTaskRefId],
@@ -255,7 +213,6 @@ async function handleDeliver(tablesDB, senderId, payload, log, error) {
       return { status: 400, body: { error: `Invalid ${name}` } };
     }
   }
-
   const content = vContent.value;
   const taskRefId = vTaskRefId.value;
   const taskRefTitle = vTaskRefTitle.value;
@@ -265,19 +222,23 @@ async function handleDeliver(tablesDB, senderId, payload, log, error) {
   const replyToContent = vReplyToContent.value;
   const replyToSenderId = vReplyToSenderId.value;
   const createdAt = vCreatedAt.value;
-
+  const hasContent = content.trim().length > 0;
+  const hasTaskRef = taskRefId !== '' || taskRefTitle !== '';
+  const hasReply = replyToId !== '';
+  if (!hasContent && !hasTaskRef && !hasReply) {
+    error('deliver: message has no content');
+    return { status: 400, body: { error: 'Message has no content' } };
+  }
   const isFriend = await verifyFriendship(tablesDB, senderId, recipientId);
   if (!isFriend) {
     error(`deliver: Forbidden, no accepted friendship ${senderId} -> ${recipientId}`);
     return { status: 403, body: { error: 'Not friends with this user' } };
   }
-
   const recipientRowId = makeRecipientRowId(messageId);
   const [x, y] =
     senderId < recipientId ? [senderId, recipientId] : [recipientId, senderId];
   const threadId = `th_${sha256Hex(`${x}|${y}`).slice(0, 30)}`;
   const now = new Date().toISOString();
-
   let existingSenderRow = null;
   try {
     existingSenderRow = await tablesDB.getRow({
@@ -291,7 +252,6 @@ async function handleDeliver(tablesDB, senderId, payload, log, error) {
       log(`deliver: getRow(${messageId}) failed (${err.message})`);
     }
   }
-
   let existingRecipientRow = null;
   try {
     existingRecipientRow = await tablesDB.getRow({
@@ -305,7 +265,6 @@ async function handleDeliver(tablesDB, senderId, payload, log, error) {
       log(`deliver: getRow(${recipientRowId}) failed (${err.message})`);
     }
   }
-
   if (existingSenderRow) {
     if (
       existingSenderRow.user_id !== senderId ||
@@ -326,7 +285,6 @@ async function handleDeliver(tablesDB, senderId, payload, log, error) {
       return { status: 403, body: { error: 'recipient row already exists' } };
     }
   }
-
   if (existingRecipientRow) {
     log(
       `deliver: recipient row ${recipientRowId} already exists; skipping upsert (idempotent)`
@@ -366,7 +324,6 @@ async function handleDeliver(tablesDB, senderId, payload, log, error) {
       ],
     });
   }
-
   if (!existingSenderRow) {
     try {
       await tablesDB.upsertRow({
@@ -411,40 +368,30 @@ async function handleDeliver(tablesDB, senderId, payload, log, error) {
   } else {
     log(`deliver: sender row ${messageId} already exists`);
   }
-
   log(`deliver: ${messageId} -> ${recipientId} as ${recipientRowId}`);
   return { status: 200, body: { ok: true, recipientRowId, threadId } };
 }
-
-// ---------------------------------------------------------------------------
-// mark_read (already paginated; add ID validation — V6)
-// ---------------------------------------------------------------------------
 async function handleMarkRead(tablesDB, callerId, payload, log, error) {
   const p = payload || {};
-
   if (!isValidRowId(p.partnerId)) {
     error('mark_read: invalid partnerId');
     return { status: 400, body: { error: 'Invalid partnerId' } };
   }
   const partnerId = p.partnerId;
-
   if (!p.threadId || typeof p.threadId !== 'string' || p.threadId.length > 50) {
     error('mark_read: invalid threadId');
     return { status: 400, body: { error: 'Invalid threadId' } };
   }
   const threadId = p.threadId;
-
   if (callerId === partnerId) {
     error('mark_read: partnerId cannot equal callerId');
     return { status: 400, body: { error: 'partnerId cannot be self' } };
   }
-
   const isFriend = await verifyFriendship(tablesDB, callerId, partnerId);
   if (!isFriend) {
     error(`mark_read: Forbidden, no accepted friendship ${callerId} -> ${partnerId}`);
     return { status: 403, body: { error: 'Not friends with this user' } };
   }
-
   let callerRowsInThread;
   try {
     callerRowsInThread = await tablesDB.listRows({
@@ -466,7 +413,6 @@ async function handleMarkRead(tablesDB, callerId, payload, log, error) {
     );
     return { status: 403, body: { error: 'Not a participant in this thread' } };
   }
-
   const now = new Date().toISOString();
   let markedPartner = 0;
   let cursor = undefined;
@@ -502,7 +448,6 @@ async function handleMarkRead(tablesDB, callerId, payload, log, error) {
     if (!lastId || lastId === cursor) break;
     cursor = lastId;
   }
-
   let markedCaller = 0;
   cursor = undefined;
   for (;;) {
@@ -537,16 +482,11 @@ async function handleMarkRead(tablesDB, callerId, payload, log, error) {
     if (!lastId || lastId === cursor) break;
     cursor = lastId;
   }
-
   log(
     `mark_read: caller=${callerId} partner=${partnerId} markedPartner=${markedPartner} markedCaller=${markedCaller}`
   );
-  return { status: 200, body: { ok: true, marked: markedPartner } };
+  return { status: 200, body: { ok: true, markedPartner, markedCaller } };
 }
-
-// ---------------------------------------------------------------------------
-// cascadeReplyWipe (already paginated; unchanged)
-// ---------------------------------------------------------------------------
 async function cascadeReplyWipe(
   tablesDB,
   userIds,
@@ -596,13 +536,11 @@ async function cascadeReplyWipe(
   log(`unsend cascade: wiped ${total} reply snapshot(s) for ${senderMessageId}`);
   return total;
 }
-
 // ---------------------------------------------------------------------------
 // unsend (add messageId/recipientId validation — V3, V8)
 // ---------------------------------------------------------------------------
 async function handleUnsend(tablesDB, callerId, payload, log, error) {
   const p = payload || {};
-
   if (!isValidRowId(p.messageId)) {
     error('unsend: invalid messageId');
     return { status: 400, body: { error: 'Invalid messageId' } };
@@ -613,20 +551,16 @@ async function handleUnsend(tablesDB, callerId, payload, log, error) {
   }
   const messageId = p.messageId;
   const recipientId = p.recipientId;
-
   if (callerId === recipientId) {
     error('unsend: Cannot unsend to yourself');
     return { status: 400, body: { error: 'Cannot unsend to yourself' } };
   }
-
   const isFriend = await verifyFriendship(tablesDB, callerId, recipientId);
   if (!isFriend) {
     error(`unsend: Forbidden, no accepted friendship ${callerId} -> ${recipientId}`);
     return { status: 403, body: { error: 'Not friends with this user' } };
   }
-
   const recipientRowId = makeRecipientRowId(messageId);
-
   let callerRow = null;
   try {
     callerRow = await tablesDB.getRow({
@@ -637,7 +571,6 @@ async function handleUnsend(tablesDB, callerId, payload, log, error) {
   } catch (err) {
     log(`unsend: caller row ${messageId} not fetched (${err.message})`);
   }
-
   if (callerRow) {
     if (callerRow.user_id !== callerId) {
       error(`unsend: message ${messageId} not owned by caller ${callerId}`);
@@ -685,7 +618,6 @@ async function handleUnsend(tablesDB, callerId, payload, log, error) {
       return { status: 403, body: { error: 'Recipient mismatch' } };
     }
   }
-
   const now = new Date().toISOString();
   const wipe = {
     content: '',
@@ -700,7 +632,6 @@ async function handleUnsend(tablesDB, callerId, payload, log, error) {
     reactions: '',
     updated_at: now,
   };
-
   let patchedCaller = false;
   let patchedRecipient = false;
   try {
@@ -725,7 +656,6 @@ async function handleUnsend(tablesDB, callerId, payload, log, error) {
   } catch (err) {
     log(`unsend: recipient-row update skipped (${err.message})`);
   }
-
   let cascaded = 0;
   try {
     cascaded = await cascadeReplyWipe(
@@ -739,12 +669,10 @@ async function handleUnsend(tablesDB, callerId, payload, log, error) {
   } catch (err) {
     error(`unsend cascade failed: ${err.message}`);
   }
-
   if (!patchedCaller && !patchedRecipient && cascaded === 0) {
     error(`unsend: no rows patched for message ${messageId}`);
     return { status: 404, body: { error: 'Message not found' } };
   }
-
   log(
     `unsend: ${messageId} caller=${patchedCaller} recipient=${patchedRecipient} cascade=${cascaded}`
   );
@@ -753,10 +681,6 @@ async function handleUnsend(tablesDB, callerId, payload, log, error) {
     body: { ok: true, patchedCaller, patchedRecipient, cascaded },
   };
 }
-
-// ---------------------------------------------------------------------------
-// resolveLegacyPeerRowId (paginated — P3)
-// ---------------------------------------------------------------------------
 async function resolveLegacyPeerRowId(tablesDB, myRow, log) {
   try {
     if (!myRow || myRow.direction !== 'incoming') return null;
@@ -764,7 +688,6 @@ async function resolveLegacyPeerRowId(tablesDB, myRow, log) {
     const createdAt = myRow.created_at;
     const content = myRow.content || '';
     if (!senderId || !createdAt) return null;
-
     const candidates = [];
     let cursor = undefined;
     let pages = 0;
@@ -797,12 +720,11 @@ async function resolveLegacyPeerRowId(tablesDB, myRow, log) {
       cursor = lastId;
       if (pages >= MAX_PAGES) {
         log(
-          `resolveLegacyPeerRowId: hit maxPages=${MAX_PAGES} for ${myRow.$id}`
+          `resolveLegacyPeerRowId: hit maxPages=${MAX_PAGES} for ${myRow.$id} (candidates=${candidates.length})`
         );
         break;
       }
     }
-
     if (candidates.length !== 1) {
       log(
         `resolveLegacyPeerRowId: ${candidates.length} candidates for ${myRow.$id}`
@@ -815,20 +737,13 @@ async function resolveLegacyPeerRowId(tablesDB, myRow, log) {
     return null;
   }
 }
-
-// ---------------------------------------------------------------------------
-// react (V4)
-// ---------------------------------------------------------------------------
 async function handleReact(tablesDB, callerId, payload, log, error) {
   const p = payload || {};
-
   if (!isValidRowId(p.myRowId)) {
     error('react: invalid myRowId');
     return { status: 400, body: { error: 'Invalid myRowId' } };
   }
   const myRowId = p.myRowId;
-
-  // peerRowId may be omitted for legacy resolution; if present, must be valid.
   let peerRowId = '';
   if (p.peerRowId !== undefined && p.peerRowId !== null && p.peerRowId !== '') {
     if (!isValidRowId(p.peerRowId)) {
@@ -837,37 +752,31 @@ async function handleReact(tablesDB, callerId, payload, log, error) {
     }
     peerRowId = p.peerRowId;
   }
-
   if (!isValidRowId(p.recipientId)) {
     error('react: invalid recipientId');
     return { status: 400, body: { error: 'Invalid recipientId' } };
   }
   const recipientId = p.recipientId;
-
   const vEmoji = validateEmoji(p.emoji);
   if (!vEmoji.ok) {
     error('react: invalid emoji');
     return { status: 400, body: { error: 'Invalid emoji' } };
   }
   const emoji = vEmoji.value;
-
   if (p.op !== 'add' && p.op !== 'remove') {
     error('react: op must be add or remove');
     return { status: 400, body: { error: 'Invalid op' } };
   }
   const op = p.op;
-
   if (callerId === recipientId) {
     error('react: Cannot react to yourself');
     return { status: 400, body: { error: 'Cannot react to yourself' } };
   }
-
   const isFriend = await verifyFriendship(tablesDB, callerId, recipientId);
   if (!isFriend) {
     error(`react: Forbidden, no accepted friendship ${callerId} -> ${recipientId}`);
     return { status: 403, body: { error: 'Not friends with this user' } };
   }
-
   const now = new Date().toISOString();
   let updated = 0;
   let resolvedPeerRowId = '';
@@ -881,7 +790,6 @@ async function handleReact(tablesDB, callerId, payload, log, error) {
   } catch (err) {
     log(`react: could not fetch myRow ${myRowId} (${err.message})`);
   }
-
   let effectivePeerRowId = peerRowId;
   if (!effectivePeerRowId && myRow) {
     const resolved = await resolveLegacyPeerRowId(tablesDB, myRow, log);
@@ -891,8 +799,10 @@ async function handleReact(tablesDB, callerId, payload, log, error) {
       log(`react: resolved legacy peer ${myRowId} -> ${resolved}`);
     }
   }
-
   const targets = [myRowId, effectivePeerRowId].filter(Boolean);
+  // Pass A: read + compute + validate both rows before any write so a
+  // one-row overflow cannot leave the pair partially committed.
+  const prepared = [];
   for (const rowId of targets) {
     try {
       const row = await tablesDB.getRow({
@@ -907,14 +817,22 @@ async function handleReact(tablesDB, callerId, payload, log, error) {
       const current = parseReactions(row.reactions || '');
       const next = applyReactionDelta(current, emoji, callerId, op);
       const nextStr = stringifyReactions(next);
-
       if (nextStr.length > REACTIONS_MAX_LEN) {
         error(
           `react: reactions overflow on ${rowId} (${nextStr.length} > ${REACTIONS_MAX_LEN})`
         );
         return { status: 400, body: { error: 'Too many reactions' } };
       }
-
+      prepared.push({ rowId, nextStr });
+    } catch (err) {
+      log(`react: row ${rowId} read skipped (${err.message})`);
+    }
+  }
+  // Pass B: write both prepared rows. If the second write fails after the
+  // first succeeds, we accept partial commit and rely on the next sync
+  // cycle to reconcile (see §20.7).
+  for (const { rowId, nextStr } of prepared) {
+    try {
       await tablesDB.updateRow({
         databaseId: DATABASE_ID,
         tableId: MESSAGES_TABLE,
@@ -926,54 +844,42 @@ async function handleReact(tablesDB, callerId, payload, log, error) {
       log(`react: row ${rowId} update skipped (${err.message})`);
     }
   }
-
   if (updated === 0) {
     error(`react: no rows updated for ${myRowId} / ${effectivePeerRowId || '(none)'}`);
     return { status: 404, body: { error: 'Message not found' } };
   }
-
   log(
     `react: caller=${callerId} emoji=${emoji} op=${op} rows=${updated} resolvedPeer=${resolvedPeerRowId || '-'}`
   );
   return { status: 200, body: { ok: true, updated, resolvedPeerRowId } };
 }
-
-// ---------------------------------------------------------------------------
-// react_to_task (V5)
-// ---------------------------------------------------------------------------
 async function handleReactToTask(tablesDB, callerId, payload, log, error) {
   const p = payload || {};
-
   if (!isValidRowId(p.taskId)) {
     error('react_to_task: invalid taskId');
     return { status: 400, body: { error: 'Invalid taskId' } };
   }
   const taskId = p.taskId;
-
   if (!isValidRowId(p.taskOwnerId)) {
     error('react_to_task: invalid taskOwnerId');
     return { status: 400, body: { error: 'Invalid taskOwnerId' } };
   }
   const taskOwnerId = p.taskOwnerId;
-
   const vEmoji = validateEmoji(p.emoji);
   if (!vEmoji.ok) {
     error('react_to_task: invalid emoji');
     return { status: 400, body: { error: 'Invalid emoji' } };
   }
   const emoji = vEmoji.value;
-
   if (p.op !== 'add' && p.op !== 'remove') {
     error('react_to_task: op must be add or remove');
     return { status: 400, body: { error: 'Invalid op' } };
   }
   const op = p.op;
-
   if (callerId === taskOwnerId) {
     error('react_to_task: Cannot react to your own task');
     return { status: 400, body: { error: 'Cannot react to your own task' } };
   }
-
   const isFriend = await verifyFriendship(tablesDB, callerId, taskOwnerId);
   if (!isFriend) {
     error(
@@ -981,7 +887,6 @@ async function handleReactToTask(tablesDB, callerId, payload, log, error) {
     );
     return { status: 403, body: { error: 'Not friends with this user' } };
   }
-
   let row;
   try {
     row = await tablesDB.getRow({
@@ -993,7 +898,6 @@ async function handleReactToTask(tablesDB, callerId, payload, log, error) {
     error(`react_to_task: task ${taskId} not found (${err.message})`);
     return { status: 404, body: { error: 'Task not found' } };
   }
-
   if (row.user_id !== taskOwnerId) {
     error(`react_to_task: task ${taskId} is not owned by ${taskOwnerId}`);
     return { status: 403, body: { error: 'Task ownership mismatch' } };
@@ -1002,7 +906,6 @@ async function handleReactToTask(tablesDB, callerId, payload, log, error) {
     error(`react_to_task: task ${taskId} is deleted`);
     return { status: 404, body: { error: 'Task not found' } };
   }
-
   let effectiveVisibility = 'private';
   const taskVis = row.visibility;
   if (taskVis && taskVis !== '') {
@@ -1029,25 +932,21 @@ async function handleReactToTask(tablesDB, callerId, payload, log, error) {
     effectiveVisibility = 'private';
     log(`react_to_task: task ${taskId} has no category; defaulting to private`);
   }
-
   if (effectiveVisibility === 'private') {
     error(
       `react_to_task: task ${taskId} is private, forbidden for caller ${callerId}`
     );
     return { status: 403, body: { error: 'Task is not visible to you' } };
   }
-
   const current = parseReactions(row.reactions || '');
   const next = applyReactionDelta(current, emoji, callerId, op);
   const nextStr = stringifyReactions(next);
-
   if (nextStr.length > REACTIONS_MAX_LEN) {
     error(
       `react_to_task: reactions overflow on ${taskId} (${nextStr.length} > ${REACTIONS_MAX_LEN})`
     );
     return { status: 400, body: { error: 'Too many reactions' } };
   }
-
   const now = new Date().toISOString();
   try {
     await tablesDB.updateRow({
@@ -1060,16 +959,11 @@ async function handleReactToTask(tablesDB, callerId, payload, log, error) {
     error(`react_to_task: failed to update task ${taskId} (${err.message})`);
     return { status: 500, body: { error: 'Update failed' } };
   }
-
   log(
     `react_to_task: caller=${callerId} task=${taskId} owner=${taskOwnerId} emoji=${emoji} op=${op}`
   );
   return { status: 200, body: { ok: true, reactions: nextStr } };
 }
-
-// ---------------------------------------------------------------------------
-// get_friend_calendar (V7 + P1 + P2)
-// ---------------------------------------------------------------------------
 async function handleGetFriendCalendar(tablesDB, callerId, payload, log, error) {
   const p = payload || {};
   if (!isValidRowId(p.friendUserId)) {
@@ -1077,12 +971,10 @@ async function handleGetFriendCalendar(tablesDB, callerId, payload, log, error) 
     return { status: 400, body: { error: 'Invalid friendUserId' } };
   }
   const friendUserId = p.friendUserId;
-
   if (callerId === friendUserId) {
     error('get_friend_calendar: Cannot query your own calendar');
     return { status: 400, body: { error: 'Cannot query your own calendar' } };
   }
-
   const isFriend = await verifyFriendship(tablesDB, callerId, friendUserId);
   if (!isFriend) {
     error(
@@ -1090,7 +982,6 @@ async function handleGetFriendCalendar(tablesDB, callerId, payload, log, error) 
     );
     return { status: 403, body: { error: 'Not friends with this user' } };
   }
-
   let categoryRows = [];
   try {
     categoryRows = await listAllRows(
@@ -1106,21 +997,16 @@ async function handleGetFriendCalendar(tablesDB, callerId, payload, log, error) 
     error(`get_friend_calendar: categories fetch failed (${err.message})`);
     return { status: 500, body: { error: 'Failed to fetch categories' } };
   }
-
-  // Sort by `order` asc for UI stability (cursor used $id, which is stable
-  // but not display order).
   categoryRows.sort((a, b) => {
     const ao = typeof a.order === 'number' ? a.order : 0;
     const bo = typeof b.order === 'number' ? b.order : 0;
     if (ao !== bo) return ao - bo;
     return String(a.$id).localeCompare(String(b.$id));
   });
-
   const categoryVisibility = new Map();
   for (const c of categoryRows) {
     categoryVisibility.set(c.$id, c.visibility || 'private');
   }
-
   let taskRows = [];
   try {
     taskRows = await listAllRows(
@@ -1136,14 +1022,11 @@ async function handleGetFriendCalendar(tablesDB, callerId, payload, log, error) 
     error(`get_friend_calendar: tasks fetch failed (${err.message})`);
     return { status: 500, body: { error: 'Failed to fetch tasks' } };
   }
-
-  // Sort by date asc for calendar display; in-memory only.
   taskRows.sort((a, b) => {
     const ad = (a.date || '').localeCompare(b.date || '');
     if (ad !== 0) return ad;
     return String(a.$id).localeCompare(String(b.$id));
   });
-
   const visibleTasks = taskRows.filter((t) => {
     const taskVis = t.visibility;
     const effective =
@@ -1152,17 +1035,14 @@ async function handleGetFriendCalendar(tablesDB, callerId, payload, log, error) 
         : categoryVisibility.get(t.category_id) || 'private';
     return effective !== 'private';
   });
-
   const visibleCategories = categoryRows.filter(
     (c) => (c.visibility || 'private') !== 'private'
   );
-
   log(
     `get_friend_calendar: caller=${callerId} friend=${friendUserId} ` +
       `tasks=${visibleTasks.length}/${taskRows.length} ` +
       `categories=${visibleCategories.length}/${categoryRows.length}`
   );
-
   return {
     status: 200,
     body: {
@@ -1172,17 +1052,12 @@ async function handleGetFriendCalendar(tablesDB, callerId, payload, log, error) 
     },
   };
 }
-
-// ---------------------------------------------------------------------------
-// Entry point (unchanged shape)
-// ---------------------------------------------------------------------------
 module.exports = async ({ req, res, log, error }) => {
   const callerId = req.headers['x-appwrite-user-id'];
   if (!callerId) {
     error('Unauthorized: no x-appwrite-user-id header');
     return res.json({ error: 'Unauthorized' }, 401);
   }
-
   let payload;
   try {
     payload = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
@@ -1190,19 +1065,16 @@ module.exports = async ({ req, res, log, error }) => {
     error(`Bad Request: ${e.message}`);
     return res.json({ error: 'Bad Request' }, 400);
   }
-
   const action = payload?.action;
   if (!action || typeof action !== 'string') {
     error('Missing action');
     return res.json({ error: 'Missing action' }, 400);
   }
-
   const client = new Client()
     .setEndpoint(process.env.APPWRITE_FUNCTION_API_ENDPOINT)
     .setProject(process.env.APPWRITE_FUNCTION_PROJECT_ID)
     .setKey(req.headers['x-appwrite-key']);
   const tablesDB = new TablesDB(client);
-
   try {
     let result;
     switch (action) {
