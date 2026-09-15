@@ -80,7 +80,14 @@ The user pastes the block into `pending-changes.txt` (project root, gitignored),
 
 The installer (`apply-changes.mjs`) backs up every modified or deleted file to `.mosaic-backup/<timestamp>/` before writing. On lint or build failure it exits without restoring; the user runs `npm run apply:rollback` explicitly to revert.
 
-The fence-matching regex is:
+**Parser is fence-aware (CRITICAL).** `parseMegaFile` runs a two-pass scan:
+
+1. Pass 1 marks every line that sits inside a Markdown fence (`` ``` `` or `~~~`, CommonMark rules: opening and closing runs must be the same character, closing run must be ≥ opening length; fence-boundary lines themselves are marked "inside").
+2. Pass 2 performs the linear directive scan but **refuses to match any directive on a line marked "inside"**.
+
+This means `===FILE:...===` examples appearing inside a fenced code block (like the ones in this section, and in the emission template below) are treated as literal content, not as directives. Without this guard the parser would truncate the enclosing file at the first example directive, create phantom files at the example paths, and override the outer `===COMMIT:...===` with any example commit line found inside the fences.
+
+The outer fence-matching regex is:
 
 `/^(~~~+|`{3,})mosaic\s*\n([\s\S]*?)\n\1\s*$/`
 
@@ -107,7 +114,7 @@ Rules:
 - `===FILE:path===`, `===DELETE:path===`, and `===COMMIT:...===` must be at line start, exactly as shown.
 - Do not escape content. Do not nest `mosaic` blocks.
 - The COMMIT directive uses the user's convention: `audit: ...`, `ui: ...`, `feat: ...`, `fix: ...`, `chore: ...`, `hooks: ...`, `lib: ...`, `docs: ...`.
-- If a file's content contains `===FILE:` at line start, note it in a single line before the block.
+- Content inside Markdown fences (backticks or tildes) is treated as literal — the parser will not interpret `===FILE:` examples inside such fences as directives.
 ```
 
 ## 6. Appwrite 2.0 Strict Guardrails (CRITICAL)
@@ -122,6 +129,7 @@ Rules:
 - **Row ID Length Cap (CRITICAL):** Appwrite `rowId` values must be **≤36 characters**, matching `[a-zA-Z0-9_]+`, and MUST NOT start with a leading underscore. Any locally-generated ID that will become a remote `rowId` (settings, diary, or deterministic composite IDs) must respect this limit. **Rule:** when building `${userId}_${key}` IDs, validate the total length; if it exceeds 36 chars, fall back to a deterministic hashed ID (see §11)
 - **Session Management:** Appwrite sometimes auto-creates a session on signup. Always wrap `account.createEmailPasswordSession` in a `try/catch` during signup, and explicitly clear stale sessions (`account.deleteSession('current')`) before login to prevent "Session is already active" errors
 - **`$sequence` Type Change:** In Appwrite 2.0, `$sequence` is now a `string` (was `int`). Currently unused in this codebase, but note it if you ever sort by sequence
+- **`Parameters<T>` on SDK Methods Picks the Wrong Overload:** Appwrite's TablesDB/Storage/Functions methods are overloaded; TypeScript's built-in `Parameters<typeof method>` utility resolves to the **last** overload, which for these methods is a deprecated `(id: string, ...)` form. Never use `Parameters<>` to derive param types for these methods. Define the param shape explicitly in `src/lib/sdk.ts` and cast at the call boundary (`params as never`). See §15 for the guarded SDK surface.
 
 ## 7. UI/UX & Architectural Guardrails
 - **Dynamic Colors:** Category colors MUST be applied via inline styles (`style={{ backgroundColor: cat.color }}`). NEVER use dynamic strings in Tailwind classes
@@ -150,6 +158,7 @@ Rules:
 - ✅ **Phase 3.2 – Chat Polish Complete:** swipe-to-reply (contextual direction), double-tap ❤️, single-tap timestamp reveal, unified `useBubbleGestures` hook (replaces `useLongPress`), read receipts with per-message "Seen at" indicator, delivery indicators, scroll-to-bottom FAB with unread dot, chat search (`Cmd/Ctrl+F`/`K`, `Esc` to close), copy improvements for task refs
 - ✅ **Phase 3.3 – Task Reactions Complete:** heart button in `FriendDayViewSheet`, `react_to_task` action, chip row on friend tasks (interactive) and own tasks (display-only), emoji-picker-driven chat message on `add`
 - ✅ **Phase 3.4 – Auth Architecture Hardening Complete:** `AuthProvider` React Context is the single source of truth for session state. Single `account.get()` per app load instead of ~22. Logout now returns `boolean` and callers gate navigation on success. Mid-session 401 from sync, message delivery, friend-data, social reads/writes, image upload/fetch, and export now dispatch a global `auth:unauthorized` event that clears auth state and redirects to `/login`. Multi-tab logout and cross-tab login sync via `localStorage` broadcast. Mount-time network errors no longer redirect to `/login`; `AppLayout` renders a retry screen instead. See §23.
+- ✅ **Backlog Closure 1–7 Complete:** §4 scope annotation, §8 chronological reorder, §9 parenthetical removal, §20.3/20.5 cross-refs, §18 local-dirty-wins documented. `message-action`: `mark_read` returns `{ markedPartner, markedCaller }`, `handleDeliver` rejects empty content (no content/taskRef/replyTo) and enforces `msg_` prefix, `resolveLegacyPeerRowId` cap log includes candidate count, `handleReact` uses two-phase read-then-write (overflow pre-check prevents partial commit). Wrapper polish: `makeUnauthorizedError()` helper in `authEvents.ts`; `friendData` 401 throws `FriendAccessError('forbidden')` with `code = 401`; `isUsernameAvailable` returns `null` for all non-auth failures (network, 5xx, parse) and 401, `false` only for "taken"; `SetUsernameSheet` distinguishes "could not check" from "taken". Delivery/sync polish: `deliverPendingMessages` capped at 5 iterations with `[messageDelivery] delivery loop hit cap` warning; `sync.ts` adds non-429 failure backoff (5s→60s exponential) separate from rate-limit backoff. UX polish: `toggleReaction` returns `'ok' | 'timeout'`; `ChatPage` shows "Couldn't send reaction. Try again." toast on timeout-revert. Enforcement: new `src/lib/sdk.ts` guarded SDK surface; ESLint `no-restricted-imports` blocks raw `TablesDB`/`Storage`/`Functions`/`Account` imports outside `src/lib/sdk.ts` and `src/lib/appwrite.ts`.
 - 🔄 **Next Up:** Phase 3.5 — Todo List View; Phase 3.6 — Diary View; Phase 3.7 — Notifications tab (in-app notifications for message/reaction events)
 
 ---
@@ -176,7 +185,7 @@ Rules:
 - **Primitive-Only Deps in Effects:** When an effect needs to react to a document prop, read `const taskId = task?.id ?? null` at the top of the component and use `taskId` in both the effect body and the deps array. NEVER reference the whole `task` object inside the effect. This satisfies `react-hooks/exhaustive-deps` AND prevents re-fire on RxDB identity churn
 - **Debounced Persistence in Sheets:** When a sheet needs to persist live reorder state (e.g., `FriendCarouselSettingsSheet`), debounce the write (~400ms) inside a `useEffect` keyed on the local items array. Do NOT write on every drag tick
 - **In-Flight Ref Guard for Idempotent Multi-Row Patches:** Any hook operation that patches multiple rows in a loop (`markAllRead`, batch unsends) MUST have a `useRef<boolean>` in-flight guard. Inside the loop, re-fetch each doc right before patching (`findOne(id).exec()`) to obtain the latest revision. RxDB throws `CONFLICT` when patching a stale revision
-- **Optimistic + Revert for Cross-User Writes:** When patching a foreign row (`reactToTask`, `toggleReaction`), apply the optimistic local update first, call the server, and revert the local change on failure. Never block the UI on the server round-trip. If the server returns a resolved row ID (e.g., legacy message backfill), persist it locally so the next call doesn't need a lookup
+- **Optimistic + Revert for Cross-User Writes:** When patching a foreign row (`reactToTask`, `toggleReaction`), apply the optimistic local update first, call the server, and revert the local change on failure. Never block the UI on the server round-trip. If the server returns a resolved row ID (e.g., legacy message backfill), persist it locally so the next call doesn't need a lookup. When the revert is triggered by a delivery timeout (pending message never delivered within the 5s window), the mutator SHOULD signal the revert to the caller via a return value (see `toggleReaction` → `'ok' | 'timeout'`) so the UI can show a targeted toast (§21)
 - **Auth Is Not a Data Hook:** `useAuth` is a thin consumer of `AuthContext` (see §23). It does NOT mount its own `account.get()`, does NOT track a `loadedUserId`, and does NOT own session state. All session state, session transitions, and auth-error handling live in `AuthProvider`. Never add per-consumer auth state to a hook or component
 - **Async-First Effects That Set State:** Any effect that ends up calling a state-setting function (including via an async callback) MUST structure that function so all `setState` calls occur after the first `await`, or defer via `queueMicrotask`. Synchronous setState from an effect body triggers the `react-hooks/set-state-in-effect` rule and causes cascading renders
 - **Context Split for Fast Refresh:** A file that exports a React component MUST NOT also export a non-component value (context object, hooks, constants). Split them: `authContext.ts` holds `AuthContext` + `AuthContextValue`; `AuthProvider.tsx` holds only the component. This satisfies `react-refresh/only-export-components`
@@ -190,7 +199,7 @@ Rules:
 - **Invalid RowId Recovery:** If sync logs an `Invalid rowId` error for a locally-created doc, that doc will retry forever. The owning hook (e.g., `useSettings`) must scan for and `remove()` any legacy rows whose ID violates Appwrite's constraints during its init phase (see §11)
 - **`CONFLICT` Is Not an Error:** `markAllRead` and `toggleReaction` patch rows that a parallel sync cycle may have updated. Catch `err.code === 'CONFLICT'`, re-fetch the doc, and either retry once or skip. Do NOT log `CONFLICT` as an error — it's an expected race
 - **Fire-and-Forget Cross-User Writes:** `markReadOnRemote`, `unsendOnRemote`, `reactOnRemote`, `reactToTaskOnRemote` intentionally swallow errors after logging. The user's local state is the source of truth; the server call is best-effort. Only `deliver` retries via the pending outbox
-- **401 Detection & Global Redirect:** Any SDK call or `fetch` that can return 401 MUST route through `isUnauthorizedError(err)` from `src/lib/authEvents.ts`. On match, call `dispatchUnauthorized()` to fire the global `auth:unauthorized` window event. `AuthProvider` listens and clears user state, which causes `AppLayout` to redirect to `/login`. Do NOT redirect from the call site
+- **401 Detection & Global Redirect:** Any SDK call or `fetch` that can return 401 MUST route through `guardedCall` from `src/lib/authEvents.ts` (see §15 for the guarded SDK surface that wraps this). `guardedCall` uses `isUnauthorizedError(err)`; on match it calls `dispatchUnauthorized()` to fire the global `auth:unauthorized` window event. `AuthProvider` listens and clears user state, which causes `AppLayout` to redirect to `/login`. Do NOT redirect from the call site. For synthetic 401s constructed from raw `fetch` responses or from Appwrite Function execution result codes, use the `makeUnauthorizedError()` helper rather than inlining `const err = new Error('Unauthorized'); (err as { code?: number }).code = 401;`
 - **Differentiate "Not Logged In" From "Couldn't Check":** A 401 from `account.get()` means "definitely not logged in." A network error, timeout, or offline state means "couldn't check." These MUST be handled differently. The former clears user state; the latter sets `isOffline = true` and lets `AppLayout` render a retry screen instead of redirecting
 - **Logout Returns Success:** `useAuth().logout()` returns `Promise<boolean>`. Callers MUST check the return value before navigating away. Never assume logout succeeded. This applies to `SettingsPage.handleLogout`, `AccountPage.handleLogout`, and any future caller. See §23 for the full pattern
 - **Multi-Tab Auth Broadcast:** Login and logout both write a JSON payload (`{ type: 'login' | 'logout', at: number }`) to `localStorage` under the key `mosaic_auth_broadcast`. Other tabs listen via the `storage` event and either clear user state (logout) or re-run `account.get()` (login). Never broadcast user credentials or tokens — only the event type
@@ -202,6 +211,7 @@ Rules:
   - Messages (sender's local row): `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
   - Images: `img_${crypto.randomUUID().replace(/-/g, '')}` (with a `getRandomValues` fallback for iOS)
   - Deterministic composite IDs (settings, diary): `${userId}_${key}` or `${userId}_${date}` — **but only when the total length is ≤36 chars** (see §6 Row ID Length Cap)
+- **`msg_` Prefix Is Server-Enforced:** `message-action.handleDeliver` rejects any `messageId` that does not start with `msg_` (`Invalid messageId format`, HTTP 400). The client already generates this prefix in `useMessages`; the server guard exists to defend against direct SDK calls and future code paths that bypass `MessageComposer` (see §20.3)
 - **Thread IDs (Messaging):** `th_${sha256Hex(sortedUserIdA + '|' + sortedUserIdB).slice(0, 30)}`. Deterministic — both participants compute the same value. Total length: 33 chars. Helper: `makeThreadId(userA, userB)` in `src/lib/threads.ts`
 - **Recipient Row IDs (Messaging):** `rmsg_${sha256Hex(senderMessageId).slice(0, 30)}`. Deterministic — the sender's client can compute the recipient's row id without a server round-trip. Helper: `makeRecipientRowId(senderMessageId)` in `src/lib/threads.ts`
 - **Settings Row ID Hashing:** Because `${userId}_${key}` easily exceeds Appwrite's 36-char cap for long keys (`friend_carousel_prefs`, etc.), `useSettings` uses a `makeSettingsRowId(userId, key)` helper:
@@ -276,8 +286,16 @@ Rules:
 - `src/hooks/` — one hook per data domain (useTasks, useCategories, useDiary, useSettings, useFriends, useMessages, useConversations, useUnreadMessages, useFriendCarousel) plus focused utilities (useTaskImage, useImageCompression, useBubbleGestures)
   - Auth trio: `authContext.ts` (context object + types only, no component), `AuthProvider.tsx` (the provider component, no other exports), `useAuth.ts` (consumer hook). This split exists to satisfy `react-refresh/only-export-components` — do not merge
 - `src/lib/` — side-effectful SDK wrappers and pure utilities (appwrite, storage, imageCache, social, friendCache, friendData, useFriendCalendar, messageDelivery, threads, reactionUtils, visibility, exportData, mockData). No React imports allowed here (except `useFriendCalendar.ts` which is a hook living under lib/ for historical reasons — do not move)
-  - `authEvents.ts` — pure module: `AUTH_UNAUTHORIZED_EVENT` constant, `isUnauthorizedError(err)` predicate, `dispatchUnauthorized()` helper. No React. Imported by every SDK wrapper that can receive a 401
+  - `authEvents.ts` — pure module: `AUTH_UNAUTHORIZED_EVENT` constant, `isUnauthorizedError(err)` predicate, `makeUnauthorizedError(message?)` helper (creates a synthetic 401-coded `Error`), `dispatchUnauthorized()` helper, `guardedCall<T>(fn)` wrapper. No React. Imported by every SDK wrapper that can receive a 401.
+  - `sdk.ts` — **the guarded SDK surface.** Exports `guardedTablesDB`, `guardedStorage`, `guardedFunctions`, `guardedAccount`. Every method internally calls `guardedCall()`. Param shapes are defined explicitly (see §6 re: `Parameters<T>` on overloaded SDK methods). Raw SDK service classes (`TablesDB`, `Storage`, `Functions`, `Account`) may only be imported and constructed here and in `src/lib/appwrite.ts`. Enforced by ESLint `no-restricted-imports` (below). `guardedFunctions.createExecution` additionally normalizes `responseStatusCode === 401` (the SDK returns 401 executions instead of throwing) into a `makeUnauthorizedError()` before guardedCall's dispatch can miss it.
+  - `appwrite.ts` — the only other file permitted to construct raw `Client`/`Account`. Exports `client` and `account` used by `sdk.ts`.
 - Project root: `apply-changes.mjs` (mega-file installer, see §5.1), `pending-changes.txt` (gitignored input, see §5.1)
+
+**ESLint enforcement of the SDK surface (`eslint.config.js`):**
+
+- `globalIgnores` includes `['dist', '.mosaic-backup']`. The `.mosaic-backup` entry is required — the installer writes full-file snapshots there before each apply, and those snapshots can contain pre-fix code that would fail lint if scanned.
+- For `**/*.{ts,tsx}`, a `no-restricted-imports` rule forbids importing `TablesDB`, `Storage`, `Functions`, or `Account` from `'appwrite'`. Message directs the developer to `src/lib/sdk.ts`.
+- A per-file override turns the rule off for `src/lib/sdk.ts` and `src/lib/appwrite.ts` — the two legitimate construction sites.
 
 ## 16. List Rendering & Sorting
 - **Default Sort Contracts (in hooks, not components):**
@@ -301,12 +319,14 @@ Rules:
 - **Cancellation Ref:** Every async `useEffect` MUST have a local `let isMounted = true` (or `effectIsActive`) flag, and every `.then`/`await` continuation MUST check it before `setState`. Cleanup sets the flag to `false`
 - **Programmatic-Move Guards:** When a component programmatically drives a carousel (Swiper, Embla), set an `isProgrammaticMoveRef.current = true` before calling `.slideTo()` / `.scrollTo()`, and clear it in a `requestAnimationFrame`. Event handlers (`onSlideChangeTransitionEnd`, `onSelect`) check this ref to ignore self-induced events — prevents infinite feedback loops between state and carousel
 - **Re-entrancy Guards:** Sync/network loops use a module-level boolean (`isSyncInProgress`, `isDeliveryInProgress`) and log-and-return on re-entry rather than queueing
+- **Bounded Loops:** Any loop that can be re-entered by external events (e.g., `deliverPendingMessages` when new messages arrive mid-cycle) MUST have an iteration cap. `deliverPendingMessages` caps at 5 iterations and logs `[messageDelivery] delivery loop hit cap (5); breaking` when exceeded. Remaining pending rows stay pending until the next trigger (`focus`, `online`, next send)
 - **Attempt-Once Ref:** Lazy side effects that should only ever run once per entity (e.g., friend bio backfill) use a `useRef<Set<string>>` to track attempted entity IDs. Never rely on `useEffect` deps alone for "run only once" semantics
 - **Fire-and-Forget Cross-User Writes:** Non-critical server actions (`mark_read`, `unsend`, `react`, `react_to_task`) are dispatched without awaiting for the UI. Errors are logged but never thrown to the caller. Delivery (`deliver`) is the exception — it retries via `deliverPendingMessages`
-- **Polling in Long-Lived Screens:** `ChatPage` runs a 10s `forceSync()` interval while the tab is visible, to propagate read receipts. Guards: skip when `document.visibilityState !== 'visible'`, skip when `navigator.onLine === false`. Interval cleared on unmount
+- **Polling in Long-Lived Screens:** `ChatPage` runs a 30s `forceSync()` interval while the tab is visible, to propagate read receipts. Guards: skip when `document.visibilityState !== 'visible'`, skip when `navigator.onLine === false`. Interval cleared on unmount
 - **Auto-Scroll Pinning:** Chat message lists track an `isPinnedToBottomRef` updated synchronously in the scroll handler. Incoming messages auto-scroll only when pinned; outgoing messages always scroll. The scroll-to-bottom FAB reflects the un-pinned state
 - **`queueMicrotask` for Effect-Triggered Async:** When an effect must kick off an async function that will setState, wrap the call in `queueMicrotask(() => { ... })` and re-check `isMountedRef.current` inside. This avoids `react-hooks/set-state-in-effect` while preserving correct ordering (the async function itself must be async-first — all setState after the first `await`)
 - **Local-Dirty-Wins Conflict Semantics (Sync Engine):** When a locally-modified row (`_meta.lwt` newer than the last sync) conflicts with a remote tombstone (`deleted: true` on the server), the client keeps its local version and re-pushes it on the next sync cycle. This is deliberate: local edits are treated as user intent that outranks a stale server deletion. It is a known trade-off — if a user deletes a row on device A while device B has an unsynced edit, device B's edit will resurrect the row. Remote-wins was rejected because it caused silent data loss for offline edits. There is no per-collection override; the policy is global
+- **Two-Phase Read-Then-Write for Multi-Row Server Mutations:** When an Appwrite Function writes to more than one row in a single action (`handleReact` writes both the caller's and the peer's row), it MUST be structured as two passes: **Pass A** reads and computes the next value for every target, validating each (e.g., `REACTIONS_MAX_LEN` overflow check); **Pass B** writes. If any Pass A validation fails, return 400/403 **before any write** — this prevents one-row-succeeded / one-row-overflowed partial commits. Residual risk: if a Pass B write fails after the first succeeded, the pair is partially committed and relies on the next sync cycle to reconcile. Documented as a known limitation in §20.7
 
 ## 19. Bootstrap & Persistence
 - **Order of Operations in `main.tsx`:** 1) `navigator.storage.persist()`, 2) `initializeDatabase()`, 3) fire-and-forget `initializeSync()` for the cold-load-with-session case (never block render on network), 4) `ReactDOM.createRoot(...).render(<React.StrictMode><AuthProvider><App /></AuthProvider></React.StrictMode>)`
@@ -342,10 +362,10 @@ Single function, single ID, `action` field in the body. Six actions:
 
 | Action | Caller | Purpose |
 |---|---|---|
-| `deliver` | sender | Create the recipient's row via API key with recipient-owned permissions |
-| `mark_read` | recipient | Patch `read_at` on sender's outgoing rows (`WHERE user_id = sender AND thread_id = X AND direction = 'outgoing' AND read_at = ''`) |
+| `deliver` | sender | Create the recipient's row via API key with recipient-owned permissions. Rejects `messageId` that does not start with `msg_`, and rejects messages that have no content, no task ref, and no reply target (`Message has no content`) |
+| `mark_read` | recipient | Patch `read_at` on sender's outgoing rows (`WHERE user_id = sender AND thread_id = X AND direction = 'outgoing' AND read_at = ''`). Response body: `{ ok: true, markedPartner, markedCaller }` |
 | `unsend` | sender | Patch BOTH rows: wipe content/refs/reactions, set `is_unsent=true`. Cascade-wipes `reply_to_content` on any messages that quoted the unsent message |
-| `react` | either | Read-modify-write reactions on BOTH rows. Legacy incoming-row backfill: see §22 |
+| `react` | either | Read-modify-write reactions on BOTH rows using a two-phase read-then-write (overflow pre-check on both rows before any write — see §18 and §20.7). Legacy incoming-row backfill: see §22 |
 | `react_to_task` | friend of task owner | Patch the task owner's task row with a reaction delta |
 | `get_friend_calendar` | friend of calendar owner | Read the owner's visible tasks and categories (filters by `visibility`; verifies friendship) |
 
@@ -356,7 +376,7 @@ Function ID lives in `src/lib/messageDelivery.ts` as `MESSAGE_ACTION_FUNCTION_ID
 2. `deliverPendingMessages(userId)` scans for pending outgoing rows
 3. Each is sent to `message-action` with `action: 'deliver'`
 4. On success: local row patched to `deliveryStatus: 'delivered'`
-5. Re-entrancy guarded by module-level `isDeliveryInProgress` boolean
+5. Re-entrancy guarded by module-level `isDeliveryInProgress` boolean; outer loop capped at 5 iterations (§18)
 6. Triggered on `AppLayout` mount, `window.focus`, `window.online`, and after every send
 
 ### 20.5 Read Receipt Flow
@@ -377,6 +397,8 @@ Recipient-side `read_at` propagation depends on `markReadOnRemote` succeeding. I
 - Outgoing message: `makeRecipientRowId(doc.id)`
 - Incoming message: `doc.originalMessageId` (or server lookup if empty)
 
+**Two-phase write (CRITICAL):** the server uses Pass A / Pass B (see §18). Pass A reads both rows, applies `applyReactionDelta` to each, and validates both against `REACTIONS_MAX_LEN`. If either would overflow, the function returns HTTP 400 **before writing anything**. Pass B then writes both. Residual risk: if the second Pass B write fails (network, Appwrite hiccup) after the first succeeded, the pair is partially committed; the next sync cycle reconciles. Rollback was rejected because a third write would introduce its own failure modes. Known limitation, not a bug.
+
 ### 20.8 Task Reactions
 `action: 'react_to_task'` patches the task owner's task row. Caller must be an accepted friend of the owner. Only `add` operations fire a chat message. Uses the same `reactionUtils` helpers as message reactions.
 
@@ -394,6 +416,7 @@ Recipient-side `read_at` propagation depends on `markReadOnRemote` succeeding. I
 - **Double-tap ❤️:** fixed emoji, no config. Uses `toggleReaction`.
 - **Overlay safety:** when any sheet is open, `gesturesDisabled` is passed to every bubble so swipes don't fire behind the sheet.
 - **Unsent bubbles:** all gestures disabled. No reply icon, no action sheet, no double-tap react. Status row still renders for timeline coherence.
+- **Reaction timeout toast:** `toggleReaction` (in `useMessages`) returns `'ok' | 'timeout'`. When a reaction is applied optimistically to an outgoing message that stays `deliveryStatus: 'pending'` past the 5s delivery wait, the optimistic patch is reverted and the mutator returns `'timeout'`. All three `ChatPage` reaction call sites (`handleBubbleReact`, `handleReactFromSheet`, `handleEmojiPicked`) branch on this and show the existing toast pattern with the string `"Couldn't send reaction. Try again."`. Do not add new toast infrastructure — reuse the page-level `feedback` state that auto-dismisses after 2000ms.
 
 ---
 
@@ -442,11 +465,13 @@ Recipient-side `read_at` propagation depends on `markReadOnRemote` succeeding. I
 - **Update email / password:** these do not change session identity; they refresh `user` only
 
 ### 23.4 Mid-Session 401 Handling
-- Any SDK call or raw `fetch` that can return 401 routes through `isUnauthorizedError(err)` from `src/lib/authEvents.ts`
-- On match, the caller invokes `dispatchUnauthorized()`, which fires the window event `auth:unauthorized`
-- `AuthProvider` listens for that event and clears `user`, sets a session-expired error, and lets `AppLayout` redirect to `/login` via its existing `!user` branch
-- Wrappers that dispatch: `src/db/sync.ts`, `src/lib/messageDelivery.ts`, `src/lib/friendData.ts`, `src/lib/social.ts` (reads and writes), `src/lib/storage.ts` (upload and fetch), `src/lib/exportData.ts` (image fetch)
-- Do not redirect from the call site. Always dispatch and let the provider drive the redirect
+- Every SDK call that can 401 goes through `guardedCall` from `src/lib/authEvents.ts`. In practice this means every consumer call routes through the guarded SDK surface (`guardedTablesDB`, `guardedStorage`, `guardedFunctions`, `guardedAccount` — see §15). Do not construct raw `TablesDB`/`Storage`/`Functions`/`Account` outside `src/lib/sdk.ts` and `src/lib/appwrite.ts`; ESLint `no-restricted-imports` blocks it.
+- Raw `fetch` calls that can 401 (image blob fetches in `storage.ts` and `exportData.ts`) wrap their `fetch` in an outer `guardedCall` and throw `makeUnauthorizedError()` on `r.status === 401`. The error is then caught by `guardedCall`, which dispatches.
+- `guardedFunctions.createExecution` normalizes `execution.responseStatusCode === 401` into `makeUnauthorizedError()` before returning — the SDK does not throw on 401 executions, so this step is required for the global dispatch to fire.
+- On `isUnauthorizedError(err) === true`, `guardedCall` calls `dispatchUnauthorized()`, which fires the window event `auth:unauthorized`.
+- `AuthProvider` listens for `auth:unauthorized` and clears `user`, sets a session-expired error, and lets `AppLayout` redirect to `/login` via its existing `!user` branch.
+- Every file in `src/lib/` and `src/db/` that touches the SDK is a consumer of the guarded surface. `src/lib/friendData.ts` additionally throws `FriendAccessError('Unauthorized', 'forbidden')` with `code = 401` on 401 — the `code` is what `guardedCall` keys off; the `FriendAccessError` type is what the friend-calendar UI keys off (it renders `errorKind === 'forbidden'` as "No access"). This dual-purpose is intentional.
+- Do not redirect from the call site. Always dispatch and let the provider drive the redirect.
 
 ### 23.5 Multi-Tab Auth Sync
 - Login and logout both write `JSON.stringify({ type: 'login' | 'logout', at: Date.now() })` to `localStorage` under the key `mosaic_auth_broadcast`
@@ -466,6 +491,7 @@ Recipient-side `read_at` propagation depends on `markReadOnRemote` succeeding. I
 - Do not navigate away from a protected screen on `logout()` failure. Surface an error and stay put
 - Do not merge `authContext.ts` into `AuthProvider.tsx` — it will break fast refresh
 - Do not treat offline errors as 401. The whole point of `isOffline` is that they're different
+- Do not import `TablesDB`, `Storage`, `Functions`, or `Account` from `'appwrite'` outside `src/lib/sdk.ts` and `src/lib/appwrite.ts`. ESLint will reject it, and it defeats the whole point of the guarded surface
 
 ---
 
@@ -478,5 +504,6 @@ Recipient-side `read_at` propagation depends on `markReadOnRemote` succeeding. I
 | 2026-09-15 | §5.1 (new), §15 | Added mega-file revision workflow: single `mosaic` fenced block + `apply-changes.mjs` installer with backup, lint, build, and rollback. Documented npm scripts and the emission template appended to future prompts | Revision Workflow Tooling |
 | 2026-09-15 | §5.1, §18 | Switched outer mega-file fence from backticks to tildes; installer regex now accepts both and requires a length-matched closing fence. Inner backtick fences in file content no longer break delivery. Added local-dirty-wins conflict semantics to §18 | Revision Workflow Tooling |
 | 2026-09-15 | §4, §8, §9, §20.3, §20.5 | Backlog cleanup: `message-action` scope annotation, Phase 2 chronological reorder, drop React parenthetical, legacy peer cross-ref to §22, read-receipt cadence note | Backlog Closure Batches 1–7 |
+| 2026-09-16 | §6, §8, §10, §11, §15, §18, §20.3, §20.7, §21, §23.4, §23.7 | Backlog Closure 1–7 follow-up: documented fence-aware parser (§5.1); `Parameters<T>` overload trap (§6); `msg_` prefix server guard (§11); `makeUnauthorizedError` helper (§10, §15); `sdk.ts` guarded surface + ESLint enforcement (§15); bounded delivery loop and two-phase read-then-write race safety (§18); `mark_read` body shape and `handleReact` two-phase write (§20.3, §20.7); reaction timeout toast (§21); raw-SDK import restriction (§23.4, §23.7); corrected ChatPage poll interval in §18 from "10s" to "30s" to match code | Backlog Closure Batches 1–7 (post-ship doc sync) |
 
 Sections added or rewritten in bulk should be flagged in the changelog with `(new)` and listed on every subsequent edit that touches them.
