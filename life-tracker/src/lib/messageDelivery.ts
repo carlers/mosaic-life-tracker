@@ -6,18 +6,12 @@ import type { MessageDocument } from '../db/schema';
 
 const DEBUG = import.meta.env.DEV;
 
-/**
- * Appwrite Function ID for `message-action`.
- * This single function handles ALL cross-user operations for the app:
- *   - `deliver`, `mark_read`, `unsend`, `react`, `react_to_task` (messaging)
- *   - `get_friend_calendar` (friend calendar fetching)
- */
 export const MESSAGE_ACTION_FUNCTION_ID =
   '6aa8057f002a4c306fdd';
 
 const functions = new Functions(client);
 
-let isDeliveryInProgress = false;
+let inFlightDeliveryPromise: Promise<void> | null = null;
 
 export async function sendMessageAction(
   payload: Record<string, unknown>
@@ -28,7 +22,6 @@ export async function sendMessageAction(
   if (MESSAGE_ACTION_FUNCTION_ID.startsWith('REPLACE_')) {
     throw new Error('MESSAGE_ACTION_FUNCTION_ID not configured');
   }
-
   const execution = await functions.createExecution({
     functionId: MESSAGE_ACTION_FUNCTION_ID,
     body: JSON.stringify(payload),
@@ -36,7 +29,6 @@ export async function sendMessageAction(
     xpath: '/',
     method: ExecutionMethod.POST,
   });
-
   if (
     execution.status !== 'completed' ||
     execution.responseStatusCode >= 400
@@ -45,7 +37,6 @@ export async function sendMessageAction(
       `Message action failed (${execution.responseStatusCode}): ${execution.responseBody}`
     );
   }
-
   try {
     return JSON.parse(execution.responseBody) as Record<string, unknown>;
   } catch {
@@ -54,7 +45,10 @@ export async function sendMessageAction(
 }
 
 export async function deliverPendingMessages(userId: string): Promise<void> {
-  if (isDeliveryInProgress) return;
+  // If a delivery cycle is already running, return its promise so callers
+  // (e.g. the react handler) can await the current cycle instead of starting
+  // a parallel one or bailing out early.
+  if (inFlightDeliveryPromise) return inFlightDeliveryPromise;
   if (typeof navigator !== 'undefined' && navigator.onLine === false) return;
   if (!userId) return;
   if (MESSAGE_ACTION_FUNCTION_ID.startsWith('REPLACE_')) {
@@ -66,39 +60,39 @@ export async function deliverPendingMessages(userId: string): Promise<void> {
     return;
   }
 
-  isDeliveryInProgress = true;
-  try {
-    const db = getDatabase();
-    const pending = await db.messages
-      .find({
-        selector: {
-          userId,
-          direction: 'outgoing',
-          deliveryStatus: 'pending',
-          isDeleted: false,
-        },
-      })
-      .exec();
-
-    if (pending.length === 0) return;
-    if (DEBUG) {
-      console.log(`[messageDelivery] ${pending.length} pending message(s)`);
-    }
-
-    for (const doc of pending) {
-      try {
-        await deliverOne(doc);
-        await doc.patch({ deliveryStatus: 'delivered' });
-      } catch (err) {
-        console.error(
-          `[messageDelivery] Failed to deliver ${doc.id}:`,
-          err
-        );
+  inFlightDeliveryPromise = (async () => {
+    try {
+      const db = getDatabase();
+      const pending = await db.messages
+        .find({
+          selector: {
+            userId,
+            direction: 'outgoing',
+            deliveryStatus: 'pending',
+            isDeleted: false,
+          },
+        })
+        .exec();
+      if (pending.length === 0) return;
+      if (DEBUG) {
+        console.log(`[messageDelivery] ${pending.length} pending message(s)`);
       }
+      for (const doc of pending) {
+        try {
+          await deliverOne(doc);
+          await doc.patch({ deliveryStatus: 'delivered' });
+        } catch (err) {
+          console.error(
+            `[messageDelivery] Failed to deliver ${doc.id}:`,
+            err
+          );
+        }
+      }
+    } finally {
+      inFlightDeliveryPromise = null;
     }
-  } finally {
-    isDeliveryInProgress = false;
-  }
+  })();
+  return inFlightDeliveryPromise;
 }
 
 async function deliverOne(doc: RxDocument<MessageDocument>): Promise<void> {
@@ -172,10 +166,6 @@ export async function reactOnRemote(
   }
 }
 
-/**
- * Sends a reaction to a task owned by a friend. Returns the updated reactions
- * string on success, or throws on failure.
- */
 export async function reactToTaskOnRemote(
   taskId: string,
   taskOwnerId: string,

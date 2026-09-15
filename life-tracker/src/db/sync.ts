@@ -63,6 +63,7 @@ type LocalDoc = {
   id: string;
   _meta?: { lwt?: number };
   toJSON: () => Record<string, unknown>;
+  incrementalPatch: (updates: Record<string, unknown>) => Promise<unknown>;
 };
 type LocalCollection = {
   findOne: (id: string) => { exec: () => Promise<LocalDoc | null> };
@@ -174,6 +175,7 @@ function toAppwriteFormat(
     mapped.updated_at = source.updatedAt || new Date().toISOString();
     mapped.deleted = source.isDeleted ?? false;
   }
+
   return mapped;
 }
 
@@ -303,6 +305,7 @@ function fromAppwriteFormat(
     delete mapped.updated_at;
     delete mapped.deleted;
   }
+
   return mapped;
 }
 
@@ -336,14 +339,17 @@ export async function initializeSync(): Promise<void> {
       console.log('[Sync] initializeSync skipped: sync already in progress');
     return;
   }
+
   if (typeof navigator !== 'undefined' && navigator.onLine === false) {
     if (DEBUG) console.log('[Sync] Offline, skipping sync');
     updateSyncStatus({ isSyncing: false });
     return;
   }
+
   isSyncInProgress = true;
   if (DEBUG) console.log('[Sync] Starting initial sync...');
   updateSyncStatus({ isSyncing: true, errors: [] });
+
   try {
     const userId = await resolveAuthenticatedUserId();
     if (!userId) {
@@ -351,6 +357,7 @@ export async function initializeSync(): Promise<void> {
       updateSyncStatus({ isSyncing: false });
       return;
     }
+
     const db = getDatabase();
     const collections: (keyof AppDatabaseCollections)[] = [
       'tasks',
@@ -360,7 +367,9 @@ export async function initializeSync(): Promise<void> {
       'friendships',
       'messages',
     ];
+
     const collectionErrors: string[] = [];
+
     for (const colName of collections) {
       try {
         await syncCollection(
@@ -377,6 +386,7 @@ export async function initializeSync(): Promise<void> {
         collectionErrors.push(`${colName}: ${message}`);
       }
     }
+
     if (collectionErrors.length === 0) {
       updateSyncStatus({
         isSyncing: false,
@@ -410,14 +420,17 @@ async function syncCollection(
 ) {
   const tableId =
     APPWRITE_CONFIG.tables[colName as keyof typeof APPWRITE_CONFIG.tables];
+
   if (DEBUG) console.log(`[Sync] Syncing ${colName}...`);
 
   const lastSyncMs = syncStatus.lastSync
     ? new Date(syncStatus.lastSync).getTime()
     : 0;
   const usesTimestamps = isTimestampedCollection(colName);
+
   const remoteIndex = new Map<string, { updatedAt: number; isDeleted: boolean }>();
   const justPulled = new Set<string>();
+
   let cursor: string | undefined = undefined;
   let pageCount = 0;
 
@@ -435,11 +448,13 @@ async function syncCollection(
       queries: queries as never,
       total: false,
     });
+
     const rows = ((remoteResponse as { rows?: AppwriteRow[] }).rows ||
       []) as AppwriteRow[];
     pageCount++;
     if (DEBUG)
       console.log(`[Sync] ${colName} page ${pageCount}: ${rows.length} rows`);
+
     if (rows.length === 0) break;
 
     for (const row of rows) {
@@ -449,6 +464,7 @@ async function syncCollection(
         if (!docId) continue;
 
         const remoteUpdatedAt = toMs(row.$updatedAt);
+
         remoteIndex.set(docId, {
           updatedAt: remoteUpdatedAt,
           isDeleted: (doc.isDeleted as boolean) ?? false,
@@ -463,6 +479,28 @@ async function syncCollection(
 
         const localLwt = localDoc._meta?.lwt ?? 0;
         const isLocalDirty = localLwt > lastSyncMs;
+
+        // read_at on outgoing messages is server-owned: toAppwriteFormat
+        // excludes it from the push payload, so the client never writes this
+        // field. Pull it unconditionally so the sender's "Seen at" indicator
+        // updates on the next sync cycle even when the local row is still
+        // marked dirty from the deliveryStatus patch that runs right after a
+        // send.
+        if (colName === 'messages' && row.direction === 'outgoing') {
+          const remoteReadAt = (row.read_at as string) || '';
+          const localJson = localDoc.toJSON();
+          const localReadAt = (localJson.readAt as string) || '';
+          if (remoteReadAt && remoteReadAt !== localReadAt) {
+            try {
+              await localDoc.incrementalPatch({ readAt: remoteReadAt });
+            } catch (err) {
+              if (DEBUG) {
+                console.warn('[Sync] read_at pull failed for', docId, err);
+              }
+            }
+          }
+        }
+
         if (isLocalDirty) continue;
 
         let remoteWins = false;
@@ -511,6 +549,7 @@ async function syncCollection(
       const localUpdatedAt = toMs(json.updatedAt);
       shouldPush = localUpdatedAt > remoteMeta.updatedAt;
     }
+
     if (!shouldPush) continue;
 
     const rowData = toAppwriteFormat(json, colName, userId);
@@ -562,9 +601,11 @@ function safeForceSync(reason: string) {
 function handleWindowFocus() {
   safeForceSync('Window focused');
 }
+
 function handleOnline() {
   safeForceSync('Connection restored');
 }
+
 function handleVisibilityChange() {
   if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
     safeForceSync('App became visible');

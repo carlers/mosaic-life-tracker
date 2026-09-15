@@ -65,7 +65,6 @@ export function useMessages(friendId: string | null): UseMessagesReturn {
       try {
         const tid = await makeThreadId(uid, fid);
         if (!isMounted) return;
-
         const db = getDatabase();
         const query = db.messages.find({
           selector: {
@@ -111,12 +110,12 @@ export function useMessages(friendId: string | null): UseMessagesReturn {
       if (!trimmed) return;
 
       const tid = await makeThreadId(uid, friendId);
-
       const db = getDatabase();
       const now = new Date().toISOString();
       const localId = `msg_${Date.now()}_${Math.random()
         .toString(36)
         .substr(2, 9)}`;
+
       const newMsg: MessageDocument = {
         id: localId,
         userId: uid,
@@ -164,12 +163,12 @@ export function useMessages(friendId: string | null): UseMessagesReturn {
       if (!trimmed) return;
 
       const tid = await makeThreadId(uid, friendId);
-
       const db = getDatabase();
       const now = new Date().toISOString();
       const localId = `msg_${Date.now()}_${Math.random()
         .toString(36)
         .substr(2, 9)}`;
+
       const newMsg: MessageDocument = {
         id: localId,
         userId: uid,
@@ -217,12 +216,12 @@ export function useMessages(friendId: string | null): UseMessagesReturn {
       if (!trimmed) return;
 
       const tid = await makeThreadId(uid, friendId);
-
       const db = getDatabase();
       const now = new Date().toISOString();
       const localId = `msg_${Date.now()}_${Math.random()
         .toString(36)
         .substr(2, 9)}`;
+
       const newMsg: MessageDocument = {
         id: localId,
         userId: uid,
@@ -260,7 +259,6 @@ export function useMessages(friendId: string | null): UseMessagesReturn {
     if (!uid || !friendId) return;
     if (markAllReadInFlightRef.current) return;
     markAllReadInFlightRef.current = true;
-
     try {
       const tid = await makeThreadId(uid, friendId);
       const db = getDatabase();
@@ -276,7 +274,6 @@ export function useMessages(friendId: string | null): UseMessagesReturn {
         })
         .exec();
       if (unread.length === 0) return;
-
       const now = new Date().toISOString();
       for (const stale of unread) {
         try {
@@ -293,7 +290,6 @@ export function useMessages(friendId: string | null): UseMessagesReturn {
           }
         }
       }
-
       markReadOnRemote(friendId, tid);
     } catch (err) {
       console.error('[useMessages] markAllRead failed:', err);
@@ -309,7 +305,6 @@ export function useMessages(friendId: string | null): UseMessagesReturn {
         console.error('[useMessages] Cannot unsend: User not authenticated');
         return;
       }
-
       const db = getDatabase();
       const doc = await db.messages.findOne(id).exec();
       if (!doc) return;
@@ -317,10 +312,8 @@ export function useMessages(friendId: string | null): UseMessagesReturn {
         console.error('[useMessages] Cannot unsend: not an outgoing message');
         return;
       }
-
       const recipientId = doc.recipientId;
       const now = new Date().toISOString();
-
       await doc.patch({
         content: '',
         taskRefId: '',
@@ -335,9 +328,7 @@ export function useMessages(friendId: string | null): UseMessagesReturn {
         deliveryStatus: 'delivered',
         updatedAt: now,
       });
-
       const rmsgId = await makeRecipientRowId(id);
-
       try {
         const replies = await db.messages
           .find({
@@ -348,7 +339,6 @@ export function useMessages(friendId: string | null): UseMessagesReturn {
             },
           })
           .exec();
-
         for (const reply of replies) {
           try {
             const fresh = await db.messages.findOne(reply.id).exec();
@@ -371,7 +361,6 @@ export function useMessages(friendId: string | null): UseMessagesReturn {
           cascadeQueryErr
         );
       }
-
       unsendOnRemote(id, recipientId);
     },
     [user?.$id]
@@ -384,21 +373,17 @@ export function useMessages(friendId: string | null): UseMessagesReturn {
         console.error('[useMessages] Cannot react: User not authenticated');
         return;
       }
-
       const db = getDatabase();
       const doc = await db.messages.findOne(id).exec();
       if (!doc) return;
       if (doc.isUnsent) return;
-
       const peerUserId =
         doc.direction === 'outgoing' ? doc.recipientId : doc.senderId;
-
       const myRowId = doc.id;
       const peerRowId =
         doc.direction === 'outgoing'
           ? await makeRecipientRowId(doc.id)
           : doc.originalMessageId || '';
-
       const current = parseReactions(doc.reactions);
       const op: 'add' | 'remove' = hasUserReacted(current, emoji, uid)
         ? 'remove'
@@ -406,7 +391,6 @@ export function useMessages(friendId: string | null): UseMessagesReturn {
       const next = applyReactionDelta(current, emoji, uid, op);
       const nextStr = stringifyReactions(next);
       const now = new Date().toISOString();
-
       try {
         await doc.patch({ reactions: nextStr, updatedAt: now });
       } catch (patchErr) {
@@ -429,6 +413,27 @@ export function useMessages(friendId: string | null): UseMessagesReturn {
         } else {
           console.error('[useMessages] react patch failed:', patchErr);
           return;
+        }
+      }
+
+      // If this is an outgoing message that hasn't been delivered yet, wait
+      // for delivery to complete before firing the react action. Otherwise
+      // the react can race ahead of deliver, and the function will silently
+      // no-op because the message rows don't exist on the server yet.
+      // Bounded at 5s so we never hang indefinitely on a stalled delivery.
+      if (doc.direction === 'outgoing' && doc.deliveryStatus === 'pending') {
+        try {
+          await Promise.race([
+            deliverPendingMessages(uid),
+            new Promise<void>((resolve) => setTimeout(resolve, 5000)),
+          ]);
+        } catch (err) {
+          if (import.meta.env.DEV) {
+            console.warn(
+              '[useMessages] delivery wait before react failed:',
+              err
+            );
+          }
         }
       }
 
