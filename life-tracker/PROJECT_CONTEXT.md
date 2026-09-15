@@ -36,7 +36,7 @@
 - **Local DB & Sync Engine:** RxDB v17 (using `getRxStorageDexie` and `wrappedValidateAjvStorage`)
   - **CRITICAL:** We do NOT use the `replicateAppwrite` plugin. We use a custom REST-based sync engine (`src/db/sync.ts`) that directly calls the Appwrite TablesDB API via `fetch`
 - **Backend:** Appwrite TablesDB (SDK v26+), which provides a relational model (tables, rows, columns) on top of Appwrite Databases
-- **Backend Functions:** `message-action` (Node.js 18) handles all cross-user writes for messaging and task reactions. Actions are enumerated in §20.3. Required scopes: `rows.read`, `rows.write`, `tables.read`.
+- **Backend Functions:** `message-action` (Node.js 18) handles all cross-user writes for messaging and task reactions. Actions are enumerated in §20.3. Required scopes: `rows.read`, `rows.write`, `tables.read`. `tables.write` is intentionally absent because this function does not create or alter tables. Add `tables.write` only if Appwrite 2.0 docs or the Console API-key scope check requires it for cross-user `upsertRow`/`updateRow`; row-level writes should remain governed by `rows.write`.
 - **PWA:** `vite-plugin-pwa` (with `registerType: 'autoUpdate'`)
 - **Auth:** React Context (`AuthProvider`) is the single source of truth for the authenticated user. See §23. `useAuth` is a thin consumer shim; no hook mounts its own `account.get()`.
 
@@ -44,6 +44,71 @@
 - **AI Role:** The AI writes 100% of the production-ready code. No local AI agents are used for coding
 - **Human Role:** The user manually creates files, pastes the AI's code, and runs terminal commands
 - **Code Generation Rules:** The AI must output complete, copy-pasteable files (no `// ... rest of code` placeholders). Files should be organized by logical separation, not arbitrary line limits
+
+## 5.1 Revision Workflow (Mega File + Installer)
+
+All future AI revisions are delivered as a **single fenced code block** tagged `mosaic`. The outer fence uses **tildes** (`~~~mosaic`), not backticks. This is required so that inner backtick fences inside file contents (e.g. `PROJECT_CONTEXT.md` examples, TypeScript snippets) do not close the outer block prematurely. Backtick fences are unreliable for nested content across AI chat renderers; tildes are inert against backticks.
+
+Format:
+
+~~~mosaic
+===FILE:path/to/file.ext===
+<complete file content>
+===FILE:path/to/other.ext===
+<complete file content>
+===DELETE:path/to/removed.ext===
+===COMMIT:audit: auth context and shared lifecycle===
+~~~
+
+Rules:
+- **Outer fence is tildes** (three or more `~` characters), not backticks. Inner backtick fences inside file contents are inert and cannot close the outer block. Do not use backticks for the outer fence.
+- One fenced block per logical change. No prose before or after.
+- Full file contents only — no diffs, no placeholders, no elisions.
+- Directives (`===FILE:`, `===DELETE:`, `===COMMIT:`) must be at line start, exactly as shown.
+- Do not escape content. Do not nest `mosaic` blocks.
+- `===COMMIT:...===` is optional. If absent, the installer emits a generic fallback based on the touched paths.
+
+The user pastes the block into `pending-changes.txt` (project root, gitignored), then runs one of:
+
+| Command | Purpose |
+|---|---|
+| `npm run apply:dry` | Parse + validate, no writes |
+| `npm run apply` | Write files, lint, build |
+| `npm run apply:docs` | Write files, skip lint/build |
+| `npm run apply:start` | Write, lint, build, start dev server |
+| `npm run apply:rollback` | Restore from the most recent backup |
+
+The installer (`apply-changes.mjs`) backs up every modified or deleted file to `.mosaic-backup/<timestamp>/` before writing. On lint or build failure it exits without restoring; the user runs `npm run apply:rollback` explicitly to revert.
+
+The fence-matching regex is:
+
+`/^(~~~+|`{3,})mosaic\s*\n([\s\S]*?)\n\1\s*$/`
+
+It accepts three or more tildes OR three or more backticks as the opening fence, and requires the closing fence to match the opening character and length. This keeps backward compatibility with older 3-backtick blocks while making 4-tilde blocks the recommended format for any content that contains nested fences.
+
+**Mega-file emission template (append to every audit/fix prompt):**
+
+```
+Emit all revised files as a single fenced code block tagged `mosaic`, using this exact format:
+
+~~~mosaic
+===FILE:path/to/file.ext===
+<complete file content>
+===FILE:path/to/other.ext===
+<complete file content>
+===DELETE:path/to/removed.ext===
+===COMMIT:<type>: <short description>===
+~~~
+
+Rules:
+- The outer fence is tildes (`~~~mosaic`), not backticks. Inner backtick fences are inert.
+- One fenced block. No prose before or after.
+- Full file contents only — no diffs, no placeholders, no elisions.
+- `===FILE:path===`, `===DELETE:path===`, and `===COMMIT:...===` must be at line start, exactly as shown.
+- Do not escape content. Do not nest `mosaic` blocks.
+- The COMMIT directive uses the user's convention: `audit: ...`, `ui: ...`, `feat: ...`, `fix: ...`, `chore: ...`, `hooks: ...`, `lib: ...`, `docs: ...`.
+- If a file's content contains `===FILE:` at line start, note it in a single line before the block.
+```
 
 ## 6. Appwrite 2.0 Strict Guardrails (CRITICAL)
 - **Regional Endpoint:** Must use the specific regional endpoint found in the project URL (e.g., `https://sgp.cloud.appwrite.io/v1`), NOT the generic `cloud.appwrite.io`
@@ -75,8 +140,8 @@
 ## 8. Current Progress & State (As of Latest Build)
 - ✅ **Phase 1.1 – 1.3 Complete:** App Layout, Primitives (Button, Input, Avatar, OfflineBanner), BottomSheet (with Portal & Drag Controls), Auth Flow (with session clearing), PWA Config, and React Router wiring
 - ✅ **Phase 2.1 – 2.2 Complete:** Home Page Shell, View Memory (localStorage), Calendar View (Month/Week) with refined grid styling, natural text cutoff, perfect vertical alignment, and smart view-switching logic
-- ✅ **Phase 2.6 Complete:** Category Manager Sheet, Color Palette Picker (with Default/Vibrant/Pastel tabs), and `useCategories` hook wired to RxDB
 - ✅ **Phase 2.3 Complete:** Day View Bottom Sheet with inline task creation, real `useTasks` data wiring, task action sheet, memo sheet, date picker, image picker/viewer, and delete confirmations
+- ✅ **Phase 2.6 Complete:** Category Manager Sheet, Color Palette Picker (with Default/Vibrant/Pastel tabs), and `useCategories` hook wired to RxDB
 - ✅ **Conventions Hardening Complete:** `window.confirm` eliminated (nested sheet pattern enforced), iOS focus behavior fixed (ref-based), Appwrite row-permission correctness verified, `updateRow` (PATCH) vs `upsertRow` (PUT) semantics enforced in sync engine
 - ✅ **Person Carousel Complete:** Home page person carousel with Me + friends, per-person calendar switching (direction-aware slide animation via Swiper), `useCalendarState` refactor (shared state + `CalendarHeader` + `CalendarBody`), `FriendCarouselSettingsSheet` (Framer Motion `Reorder` + visibility toggles), `friendBio` schema v1 with lazy profile backfill, and settings rowId hashing to satisfy Appwrite's 36-char limit
 - ✅ **Social Graph Complete:** Explore page with search, friend requests (incoming/outgoing), accept/decline/cancel, block, remove, `useFriends`, `useProfileLookup`, `useMyProfile`, `SetUsernameSheet`
@@ -98,7 +163,7 @@
   - Add: `Omit<Doc, 'id' | 'userId' | 'createdAt' | 'updatedAt' | 'isDeleted'>`
   - Update: `(id: string, updates: Partial<Doc>)`
   - Both always `useCallback` with `user?.$id` in deps
-- **"Sync State From Props" Pattern (React 18/19):** When a component receives a doc via props but needs local editable state, use the *render-body reset* pattern:
+- **"Sync State From Props" Pattern:** When a component receives a doc via props but needs local editable state, use the *render-body reset* pattern:
   ```tsx
   const [syncedId, setSyncedId] = useState<string | null>(null);
   if (task?.id !== syncedId) {
@@ -112,11 +177,9 @@
 - **Debounced Persistence in Sheets:** When a sheet needs to persist live reorder state (e.g., `FriendCarouselSettingsSheet`), debounce the write (~400ms) inside a `useEffect` keyed on the local items array. Do NOT write on every drag tick
 - **In-Flight Ref Guard for Idempotent Multi-Row Patches:** Any hook operation that patches multiple rows in a loop (`markAllRead`, batch unsends) MUST have a `useRef<boolean>` in-flight guard. Inside the loop, re-fetch each doc right before patching (`findOne(id).exec()`) to obtain the latest revision. RxDB throws `CONFLICT` when patching a stale revision
 - **Optimistic + Revert for Cross-User Writes:** When patching a foreign row (`reactToTask`, `toggleReaction`), apply the optimistic local update first, call the server, and revert the local change on failure. Never block the UI on the server round-trip. If the server returns a resolved row ID (e.g., legacy message backfill), persist it locally so the next call doesn't need a lookup
-<!-- UPDATED -->
 - **Auth Is Not a Data Hook:** `useAuth` is a thin consumer of `AuthContext` (see §23). It does NOT mount its own `account.get()`, does NOT track a `loadedUserId`, and does NOT own session state. All session state, session transitions, and auth-error handling live in `AuthProvider`. Never add per-consumer auth state to a hook or component
 - **Async-First Effects That Set State:** Any effect that ends up calling a state-setting function (including via an async callback) MUST structure that function so all `setState` calls occur after the first `await`, or defer via `queueMicrotask`. Synchronous setState from an effect body triggers the `react-hooks/set-state-in-effect` rule and causes cascading renders
 - **Context Split for Fast Refresh:** A file that exports a React component MUST NOT also export a non-component value (context object, hooks, constants). Split them: `authContext.ts` holds `AuthContext` + `AuthContextValue`; `AuthProvider.tsx` holds only the component. This satisfies `react-refresh/only-export-components`
-<!-- /UPDATED -->
 
 ## 10. Error Handling & Logging Conventions
 - **Hook/Service Log Prefix:** All `console.error` and `console.warn` calls MUST be prefixed with `[ComponentName]` or `[hookName]` in square brackets. Active prefixes include: `[useTasks]`, `[useMessages]`, `[useConversations]`, `[messageDelivery]`, `[ChatPage]`, `[useFriendCalendar]`, `[PersonPane]`, `[FriendCalendarPage]`, `[Storage]`, `[Sync]`, `[Bootstrap]`, `[RxDB]`, `[CategoryManagerSheet]`, `[ReplyComposerSheet]`, `[EmojiPicker]`. Makes log filtering trivial
@@ -127,12 +190,10 @@
 - **Invalid RowId Recovery:** If sync logs an `Invalid rowId` error for a locally-created doc, that doc will retry forever. The owning hook (e.g., `useSettings`) must scan for and `remove()` any legacy rows whose ID violates Appwrite's constraints during its init phase (see §11)
 - **`CONFLICT` Is Not an Error:** `markAllRead` and `toggleReaction` patch rows that a parallel sync cycle may have updated. Catch `err.code === 'CONFLICT'`, re-fetch the doc, and either retry once or skip. Do NOT log `CONFLICT` as an error — it's an expected race
 - **Fire-and-Forget Cross-User Writes:** `markReadOnRemote`, `unsendOnRemote`, `reactOnRemote`, `reactToTaskOnRemote` intentionally swallow errors after logging. The user's local state is the source of truth; the server call is best-effort. Only `deliver` retries via the pending outbox
-<!-- UPDATED -->
 - **401 Detection & Global Redirect:** Any SDK call or `fetch` that can return 401 MUST route through `isUnauthorizedError(err)` from `src/lib/authEvents.ts`. On match, call `dispatchUnauthorized()` to fire the global `auth:unauthorized` window event. `AuthProvider` listens and clears user state, which causes `AppLayout` to redirect to `/login`. Do NOT redirect from the call site
 - **Differentiate "Not Logged In" From "Couldn't Check":** A 401 from `account.get()` means "definitely not logged in." A network error, timeout, or offline state means "couldn't check." These MUST be handled differently. The former clears user state; the latter sets `isOffline = true` and lets `AppLayout` render a retry screen instead of redirecting
 - **Logout Returns Success:** `useAuth().logout()` returns `Promise<boolean>`. Callers MUST check the return value before navigating away. Never assume logout succeeded. This applies to `SettingsPage.handleLogout`, `AccountPage.handleLogout`, and any future caller. See §23 for the full pattern
 - **Multi-Tab Auth Broadcast:** Login and logout both write a JSON payload (`{ type: 'login' | 'logout', at: number }`) to `localStorage` under the key `mosaic_auth_broadcast`. Other tabs listen via the `storage` event and either clear user state (logout) or re-run `account.get()` (login). Never broadcast user credentials or tokens — only the event type
-<!-- /UPDATED -->
 
 ## 11. ID Generation & Naming
 - **Client-Generated IDs:** All primary keys are generated client-side (no server round-trip) with a type prefix:
@@ -213,13 +274,10 @@
 - `src/components/explore/` — social graph UI (ExploreView, SearchBar, UserResultCard, FriendRow, FriendRequestRow, OutgoingRequestRow, FriendActionSheet)
 - `src/components/modals/` — account/settings modals (CategoryManagerSheet, AccountSettingsSheet, ChangeEmailSheet, ChangePasswordSheet, EditDescriptionSheet, EditNameSheet, EditProfileImageSheet, ExportDataSheet, SetUsernameSheet)
 - `src/hooks/` — one hook per data domain (useTasks, useCategories, useDiary, useSettings, useFriends, useMessages, useConversations, useUnreadMessages, useFriendCarousel) plus focused utilities (useTaskImage, useImageCompression, useBubbleGestures)
-  <!-- UPDATED -->
   - Auth trio: `authContext.ts` (context object + types only, no component), `AuthProvider.tsx` (the provider component, no other exports), `useAuth.ts` (consumer hook). This split exists to satisfy `react-refresh/only-export-components` — do not merge
-  <!-- /UPDATED -->
 - `src/lib/` — side-effectful SDK wrappers and pure utilities (appwrite, storage, imageCache, social, friendCache, friendData, useFriendCalendar, messageDelivery, threads, reactionUtils, visibility, exportData, mockData). No React imports allowed here (except `useFriendCalendar.ts` which is a hook living under lib/ for historical reasons — do not move)
-  <!-- UPDATED -->
   - `authEvents.ts` — pure module: `AUTH_UNAUTHORIZED_EVENT` constant, `isUnauthorizedError(err)` predicate, `dispatchUnauthorized()` helper. No React. Imported by every SDK wrapper that can receive a 401
-  <!-- /UPDATED -->
+- Project root: `apply-changes.mjs` (mega-file installer, see §5.1), `pending-changes.txt` (gitignored input, see §5.1)
 
 ## 16. List Rendering & Sorting
 - **Default Sort Contracts (in hooks, not components):**
@@ -247,12 +305,10 @@
 - **Fire-and-Forget Cross-User Writes:** Non-critical server actions (`mark_read`, `unsend`, `react`, `react_to_task`) are dispatched without awaiting for the UI. Errors are logged but never thrown to the caller. Delivery (`deliver`) is the exception — it retries via `deliverPendingMessages`
 - **Polling in Long-Lived Screens:** `ChatPage` runs a 10s `forceSync()` interval while the tab is visible, to propagate read receipts. Guards: skip when `document.visibilityState !== 'visible'`, skip when `navigator.onLine === false`. Interval cleared on unmount
 - **Auto-Scroll Pinning:** Chat message lists track an `isPinnedToBottomRef` updated synchronously in the scroll handler. Incoming messages auto-scroll only when pinned; outgoing messages always scroll. The scroll-to-bottom FAB reflects the un-pinned state
-<!-- UPDATED -->
 - **`queueMicrotask` for Effect-Triggered Async:** When an effect must kick off an async function that will setState, wrap the call in `queueMicrotask(() => { ... })` and re-check `isMountedRef.current` inside. This avoids `react-hooks/set-state-in-effect` while preserving correct ordering (the async function itself must be async-first — all setState after the first `await`)
-<!-- /UPDATED -->
+- **Local-Dirty-Wins Conflict Semantics (Sync Engine):** When a locally-modified row (`_meta.lwt` newer than the last sync) conflicts with a remote tombstone (`deleted: true` on the server), the client keeps its local version and re-pushes it on the next sync cycle. This is deliberate: local edits are treated as user intent that outranks a stale server deletion. It is a known trade-off — if a user deletes a row on device A while device B has an unsynced edit, device B's edit will resurrect the row. Remote-wins was rejected because it caused silent data loss for offline edits. There is no per-collection override; the policy is global
 
 ## 19. Bootstrap & Persistence
-<!-- UPDATED -->
 - **Order of Operations in `main.tsx`:** 1) `navigator.storage.persist()`, 2) `initializeDatabase()`, 3) fire-and-forget `initializeSync()` for the cold-load-with-session case (never block render on network), 4) `ReactDOM.createRoot(...).render(<React.StrictMode><AuthProvider><App /></AuthProvider></React.StrictMode>)`
 - **Non-Blocking Sync:** `initializeSync()` is always called with `.catch()` — a sync failure must never prevent the app from mounting
 - **Auth Resolution Happens in `AuthProvider`, Not `main.tsx`:** The provider runs a single `account.get()` on mount (deferred via `queueMicrotask`) and broadcasts the result to every consumer via context. `main.tsx` does not call `account.get()` itself; it only sets up the provider
@@ -260,7 +316,6 @@
 - **`ignoreDuplicate: true`** on `createRxDatabase` and a singleton `dbInstance` module variable are required to survive React StrictMode double-invocations
 - **Local Cleanup on Init:** Data hooks should opportunistically purge known-bad local state (oversized row IDs, legacy composite IDs) during their init phase, before subscribing. This avoids permanent sync failures for users who already have broken rows in IndexedDB
 - **Single `account.get()` Per Load:** In production, a cold authenticated load should fire exactly one `account.get()` (from `AuthProvider`). In dev with `<React.StrictMode>`, it will fire twice — this is expected. If you ever see more, an auth source has leaked back into a consumer. Verify with `console.count('account.get')` in `AuthProvider.resolveInitialUser`
-<!-- /UPDATED -->
 
 ---
 
@@ -290,7 +345,7 @@ Single function, single ID, `action` field in the body. Six actions:
 | `deliver` | sender | Create the recipient's row via API key with recipient-owned permissions |
 | `mark_read` | recipient | Patch `read_at` on sender's outgoing rows (`WHERE user_id = sender AND thread_id = X AND direction = 'outgoing' AND read_at = ''`) |
 | `unsend` | sender | Patch BOTH rows: wipe content/refs/reactions, set `is_unsent=true`. Cascade-wipes `reply_to_content` on any messages that quoted the unsent message |
-| `react` | either | Read-modify-write reactions on BOTH rows. Handles legacy rows where `original_message_id` is empty via a `resolveLegacyPeerRowId` lookup (see §22) |
+| `react` | either | Read-modify-write reactions on BOTH rows. Legacy incoming-row backfill: see §22 |
 | `react_to_task` | friend of task owner | Patch the task owner's task row with a reaction delta |
 | `get_friend_calendar` | friend of calendar owner | Read the owner's visible tasks and categories (filters by `visibility`; verifies friendship) |
 
@@ -307,10 +362,12 @@ Function ID lives in `src/lib/messageDelivery.ts` as `MESSAGE_ACTION_FUNCTION_ID
 ### 20.5 Read Receipt Flow
 1. Recipient opens `ChatPage`, patches their incoming rows' `readAt` locally (drives unread badge)
 2. Calls `markReadOnRemote(partnerId, threadId)` → server patches sender's outgoing rows
-3. Sender's 10s polling `forceSync()` in `ChatPage` pulls the update
+3. Sender's polling `forceSync()` in `ChatPage` pulls the update
 4. `MessageBubble` renders "✓✓ Seen at [time]" under the last read outgoing message
 
-The polling exists because the sync engine is conservative: it skips the pull phase for rows whose local `_meta.lwt` is newer than the last sync. Two poll cycles (~20s) is the floor for a read receipt to round-trip without a targeted sync path.
+The polling exists because the sync engine is conservative: it skips the pull phase for rows whose local `_meta.lwt` is newer than the last sync. Two poll cycles is the floor for a read receipt to round-trip without a targeted sync path. The read-receipt cadence is now approximately ~60s worst-case under backoff.
+
+Recipient-side `read_at` propagation depends on `markReadOnRemote` succeeding. If that remote call fails (network drop, Appwrite hiccup), the local patch is already applied but the server never learns the recipient read the thread — the badge will reappear for that thread on a fresh login or second device. The failure is not retried automatically; if it happens repeatedly, cross-device read state will diverge silently.
 
 ### 20.6 Unsend Cascade
 `unsend` wipes content on both rows AND cascades to any message whose `reply_to_id` matches either the sender's `msg_*` or the recipient's `rmsg_<hash>` id. This makes quotes of an unsent message render as "Message deleted" on both sides. The client also cascades locally in `useMessages.unsendMessage` for immediate feedback.
@@ -354,7 +411,6 @@ The polling exists because the sync engine is conservative: it skips the pull ph
 ---
 
 ## 23. Auth Architecture
-<!-- NEW SECTION -->
 
 ### 23.1 The Provider
 - `AuthProvider` (in `src/hooks/AuthProvider.tsx`) is the **single source of truth** for session state. It owns the only `account.get()` call that runs on mount
@@ -419,5 +475,8 @@ The polling exists because the sync engine is conservative: it skips the pull ph
 |---|---|---|---|
 | 2026-09-15 | §4, §8, §9, §10, §15, §18, §19, §23 (new) | Introduced `AuthProvider` as single source of truth for session state; `useAuth` became a consumer shim; `logout()` now returns `boolean`; global `auth:unauthorized` event for mid-session 401; multi-tab `storage` broadcast; offline retry screen; sync kicks off after login | Bug Audit: Auth Context & Shared Session Architecture |
 | 2026-09-15 | §9, §10, §15, §18, §23.4–23.7 | Added `guardedCall` helper to centralize 401 dispatch; `isUsernameAvailable` returns `null` on 401; retry screen escape hatch + backoff + offline/online copy; `logout()` JSDoc; changelog added | Auth Lifecycle Concern Closure |
+| 2026-09-15 | §5.1 (new), §15 | Added mega-file revision workflow: single `mosaic` fenced block + `apply-changes.mjs` installer with backup, lint, build, and rollback. Documented npm scripts and the emission template appended to future prompts | Revision Workflow Tooling |
+| 2026-09-15 | §5.1, §18 | Switched outer mega-file fence from backticks to tildes; installer regex now accepts both and requires a length-matched closing fence. Inner backtick fences in file content no longer break delivery. Added local-dirty-wins conflict semantics to §18 | Revision Workflow Tooling |
+| 2026-09-15 | §4, §8, §9, §20.3, §20.5 | Backlog cleanup: `message-action` scope annotation, Phase 2 chronological reorder, drop React parenthetical, legacy peer cross-ref to §22, read-receipt cadence note | Backlog Closure Batches 1–7 |
 
 Sections added or rewritten in bulk should be flagged in the changelog with `(new)` and listed on every subsequent edit that touches them.

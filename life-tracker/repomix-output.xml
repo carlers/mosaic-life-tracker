@@ -142,6 +142,8 @@ src/
     schema.ts
     sync.ts
   hooks/
+    authContext.ts
+    AuthProvider.tsx
     useAuth.ts
     useBubbleGestures.ts
     useCategories.ts
@@ -160,6 +162,7 @@ src/
     useUnreadMessages.ts
   lib/
     appwrite.ts
+    authEvents.ts
     exportData.ts
     friendCache.ts
     friendData.ts
@@ -188,6 +191,7 @@ src/
   index.css
   main.tsx
 .gitignore
+apply-changes.mjs
 eslint.config.js
 index.html
 package.json
@@ -5864,16 +5868,32 @@ export const ViewSwitcher: React.FC<ViewSwitcherProps> = ({
 </file>
 
 <file path="src/components/layout/AppLayout.tsx">
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Outlet, useLocation, useNavigate, Navigate } from 'react-router-dom';
+import { WifiOff, UserX } from 'lucide-react';
 import { MainLayout } from './MainLayout';
 import { useAuth } from '../../hooks/useAuth';
 import { deliverPendingMessages } from '../../lib/messageDelivery';
 import type { TabId } from './BottomNav';
+const RETRY_COOLDOWN_MS = 2000;
 export const AppLayout: React.FC = () => {
-  const { user, isLoading } = useAuth();
+  const { user, isLoading, isOffline, error, retry } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
+  const [retryDisabled, setRetryDisabled] = useState(false);
+  const [isOnline, setIsOnline] = useState(
+    typeof navigator !== 'undefined' ? navigator.onLine : true
+  );
+  useEffect(() => {
+    const onOnline = () => setIsOnline(true);
+    const onOffline = () => setIsOnline(false);
+    window.addEventListener('online', onOnline);
+    window.addEventListener('offline', onOffline);
+    return () => {
+      window.removeEventListener('online', onOnline);
+      window.removeEventListener('offline', onOffline);
+    };
+  }, []);
   useEffect(() => {
     if (!user?.$id) return;
     const uid = user.$id;
@@ -5894,6 +5914,54 @@ export const AppLayout: React.FC = () => {
     return (
       <div className="min-h-screen bg-[#111111] flex items-center justify-center">
         <div className="w-8 h-8 border-2 border-white border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+  if (!user && isOffline) {
+    const headline = isOnline
+      ? "We couldn't reach the server"
+      : "You're offline";
+    const body = isOnline
+      ? error || 'Try again in a moment.'
+      : 'Reconnect to continue.';
+    const handleRetry = async () => {
+      if (retryDisabled) return;
+      setRetryDisabled(true);
+      try {
+        await retry();
+      } finally {
+        setTimeout(() => setRetryDisabled(false), RETRY_COOLDOWN_MS);
+      }
+    };
+    const handleSwitchAccount = () => {
+      navigate('/login', { replace: true });
+    };
+    return (
+      <div className="min-h-screen bg-[#111111] flex items-center justify-center px-6">
+        <div className="text-center max-w-sm w-full">
+          <div className="w-16 h-16 bg-[#1E1E1E] rounded-full flex items-center justify-center mb-4 border border-[#333333] mx-auto">
+            <WifiOff size={28} className="text-gray-400" />
+          </div>
+          <h2 className="text-lg font-bold text-white mb-2">{headline}</h2>
+          <p className="text-sm text-gray-500 mb-6 leading-relaxed">{body}</p>
+          <div className="flex flex-col gap-3">
+            <button
+              onClick={handleRetry}
+              disabled={retryDisabled}
+              className="bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-medium px-5 py-2.5 rounded-xl transition-colors"
+            >
+              {retryDisabled ? 'Retrying…' : 'Try again'}
+            </button>
+            <button
+              onClick={handleSwitchAccount}
+              onPointerDown={(e) => e.stopPropagation()}
+              className="flex items-center justify-center gap-2 bg-transparent text-gray-400 hover:text-white text-xs font-medium px-4 py-2 rounded-xl transition-colors"
+            >
+              <UserX size={14} />
+              Sign in with a different account
+            </button>
+          </div>
+        </div>
       </div>
     );
   }
@@ -8288,8 +8356,8 @@ export const SetUsernameSheet: React.FC<SetUsernameSheetProps> = ({
   const [displayName, setDisplayName] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isSessionExpired, setIsSessionExpired] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
-  // Render-body reset
   const [syncedIsOpen, setSyncedIsOpen] = useState(false);
   if (isOpen !== syncedIsOpen) {
     setSyncedIsOpen(isOpen);
@@ -8298,6 +8366,7 @@ export const SetUsernameSheet: React.FC<SetUsernameSheetProps> = ({
       setDisplayName(profile?.display_name || user?.name || '');
       setError(null);
       setIsSaving(false);
+      setIsSessionExpired(false);
     }
   }
   useEffect(() => {
@@ -8307,6 +8376,7 @@ export const SetUsernameSheet: React.FC<SetUsernameSheetProps> = ({
     }
   }, [isOpen]);
   const handleSave = async () => {
+    if (isSessionExpired) return;
     const trimmed = username.trim().toLowerCase();
     if (!USERNAME_REGEX.test(trimmed)) {
       setError('Username must be 3–20 characters: a–z, 0–9, underscore.');
@@ -8321,7 +8391,14 @@ export const SetUsernameSheet: React.FC<SetUsernameSheetProps> = ({
     try {
       if (!profile || profile.username !== trimmed) {
         const available = await checkUsername(trimmed);
-        if (!available) {
+        if (available === null) {
+          // Session expired. The global redirect is already in flight.
+          setIsSessionExpired(true);
+          setError('Your session expired. Please sign in again.');
+          setIsSaving(false);
+          return;
+        }
+        if (available === false) {
           setError('That username is already taken.');
           setIsSaving(false);
           return;
@@ -8374,14 +8451,17 @@ export const SetUsernameSheet: React.FC<SetUsernameSheetProps> = ({
               type="text"
               value={username}
               onChange={(e) =>
-                setUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ''))
+                setUsername(
+                  e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, '')
+                )
               }
               placeholder="your_handle"
               maxLength={20}
               autoCapitalize="none"
               autoCorrect="off"
               spellCheck={false}
-              className="w-full bg-[#1E1E1E] text-white border border-[#333333] rounded-lg pl-8 pr-4 py-2.5 focus:border-[#555555] focus:outline-none transition-colors placeholder-gray-600"
+              disabled={isSessionExpired}
+              className="w-full bg-[#1E1E1E] text-white border border-[#333333] rounded-lg pl-8 pr-4 py-2.5 focus:border-[#555555] focus:outline-none transition-colors placeholder-gray-600 disabled:opacity-50"
               onPointerDown={(e) => e.stopPropagation()}
             />
           </div>
@@ -8395,12 +8475,18 @@ export const SetUsernameSheet: React.FC<SetUsernameSheetProps> = ({
           onChange={(e) => setDisplayName(e.target.value)}
           placeholder="Your Name"
           maxLength={50}
+          disabled={isSessionExpired}
         />
         <Button
           variant="primary"
           className="w-full gap-2 py-3"
           onClick={handleSave}
-          disabled={isSaving || !username.trim() || !displayName.trim()}
+          disabled={
+            isSaving ||
+            isSessionExpired ||
+            !username.trim() ||
+            !displayName.trim()
+          }
         >
           {isSaving ? (
             <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
@@ -9275,6 +9361,10 @@ export const messagesSchema: RxJsonSchema<MessageDocument> = {
 import { getDatabase, type AppDatabaseCollections } from './database';
 import { client, account } from '../lib/appwrite';
 import { TablesDB, Permission, Role, Query } from 'appwrite';
+import {
+  isUnauthorizedError,
+  guardedCall,
+} from '../lib/authEvents';
 const APPWRITE_CONFIG = {
   endpoint: 'https://sgp.cloud.appwrite.io',
   projectId: '6a9703c50016b37110ff',
@@ -9493,6 +9583,8 @@ function toAppwriteFormat(
     mapped.is_unsent = source.isUnsent ?? false;
     mapped.original_message_id = source.originalMessageId || '';
     mapped.reactions = source.reactions || '';
+    // read_at is server-owned on outgoing rows (§12) — omit it to avoid
+    // overwriting the read receipt written by the mark_read action.
     if (source.direction !== 'outgoing') {
       mapped.read_at = source.readAt || '';
     }
@@ -9644,7 +9736,7 @@ function toMs(value: unknown): number {
 }
 async function resolveAuthenticatedUserId(): Promise<string | null> {
   try {
-    const user = await account.get();
+    const user = await guardedCall(() => account.get());
     return user?.$id || null;
   } catch (err) {
     if (DEBUG) console.log('[Sync] account.get() failed:', err);
@@ -9696,6 +9788,7 @@ export async function initializeSync(): Promise<void> {
     const db = getDatabase();
     const collectionErrors: string[] = [];
     let sawRateLimit = false;
+    let sawUnauthorized = false;
     for (const colName of ALL_COLLECTIONS) {
       try {
         await syncCollection(
@@ -9711,7 +9804,12 @@ export async function initializeSync(): Promise<void> {
         console.error(`[Sync] Collection "${colName}" failed:`, colError);
         collectionErrors.push(`${colName}: ${message}`);
         if (isRateLimitError(colError)) sawRateLimit = true;
+        if (isUnauthorizedError(colError)) sawUnauthorized = true;
       }
+    }
+    if (sawUnauthorized) {
+      updateSyncStatus({ isSyncing: false, errors: collectionErrors });
+      return;
     }
     if (sawRateLimit) {
       rateLimitBackoffMs =
@@ -9784,12 +9882,14 @@ async function syncCollection(
       queries.push(Query.greaterThan('$updatedAt', sinceIso));
     }
     if (cursor) queries.push(Query.cursorAfter(cursor));
-    const remoteResponse = await tablesDB.listRows({
-      databaseId: APPWRITE_CONFIG.databaseId,
-      tableId,
-      queries: queries as never,
-      total: false,
-    });
+    const remoteResponse = await guardedCall(() =>
+      tablesDB.listRows({
+        databaseId: APPWRITE_CONFIG.databaseId,
+        tableId,
+        queries: queries as never,
+        total: false,
+      })
+    );
     const rows = ((remoteResponse as { rows?: AppwriteRow[] }).rows ||
       []) as AppwriteRow[];
     pageCount++;
@@ -9855,12 +9955,7 @@ async function syncCollection(
   };
   savePerCollectionState(userId, perCollectionSync);
   // Messages are excluded from the push loop. Every message row is written
-  // server-side by the `message-action` function (deliver, react, unsend,
-  // mark_read), which uses a server API key and bypasses client rate limits.
-  // Client-side PATCHes to /tablesdb/.../messages/rows were duplicate traffic
-  // and were the dominant contributor to the 120 req/min bucket that was
-  // returning 429. Pull stays enabled above so read receipts and incoming
-  // rows still arrive.
+  // server-side by the `message-action` function.
   if (colName !== 'messages') {
     const localDocs = await collection.find().exec();
     for (const doc of localDocs) {
@@ -9884,22 +9979,26 @@ async function syncCollection(
       const rowData = toAppwriteFormat(json, colName, userId);
       if (DEBUG) console.log(`[Sync] Pushing ${colName} ${docId}`);
       try {
-        await tablesDB.updateRow({
-          databaseId: APPWRITE_CONFIG.databaseId,
-          tableId,
-          rowId: docId,
-          data: rowData,
-        });
+        await guardedCall(() =>
+          tablesDB.updateRow({
+            databaseId: APPWRITE_CONFIG.databaseId,
+            tableId,
+            rowId: docId,
+            data: rowData,
+          })
+        );
       } catch (updateErr) {
         if (isNotFoundError(updateErr)) {
           try {
-            await tablesDB.upsertRow({
-              databaseId: APPWRITE_CONFIG.databaseId,
-              tableId,
-              rowId: docId,
-              data: rowData,
-              permissions: buildRowPermissions(userId),
-            });
+            await guardedCall(() =>
+              tablesDB.upsertRow({
+                databaseId: APPWRITE_CONFIG.databaseId,
+                tableId,
+                rowId: docId,
+                data: rowData,
+                permissions: buildRowPermissions(userId),
+              })
+            );
           } catch (createErr) {
             console.error(
               `[Sync] Failed to create ${colName} ${docId}:`,
@@ -9955,7 +10054,10 @@ function handleOnline() {
   scheduleSync('Connection restored');
 }
 function handleVisibilityChange() {
-  if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
+  if (
+    typeof document !== 'undefined' &&
+    document.visibilityState === 'visible'
+  ) {
     scheduleSync('App became visible');
   }
 }
@@ -9969,109 +10071,312 @@ if (typeof window !== 'undefined' && !window.__mosaicFocusSyncAttached) {
 }
 </file>
 
-<file path="src/hooks/useAuth.ts">
-import { useState, useEffect, useCallback } from 'react';
-import { account } from '../lib/appwrite';
+<file path="src/hooks/authContext.ts">
+import { createContext } from 'react';
 import type { Models } from 'appwrite';
-export interface AuthState {
+export interface AuthContextValue {
   user: Models.User<Models.Preferences> | null;
   isLoading: boolean;
   error: string | null;
+  isOffline: boolean;
+  login: (email: string, password: string) => Promise<boolean>;
+  signup: (email: string, password: string, name: string) => Promise<boolean>;
+  logout: () => Promise<boolean>;
+  updateEmail: (newEmail: string, password: string) => Promise<boolean>;
+  updatePassword: (newPassword: string, oldPassword: string) => Promise<boolean>;
+  retry: () => Promise<void>;
 }
-export function useAuth() {
-  const [state, setState] = useState<AuthState>({
-    user: null,
-    isLoading: true,
-    error: null
-  });
-  useEffect(() => {
-    let isMounted = true;
-    account.get().then(
-      (user) => {
-        if (!isMounted) return;
-        setState({ user, isLoading: false, error: null });
-      },
-      () => {
-        if (!isMounted) return;
-        setState({ user: null, isLoading: false, error: null });
+export const AuthContext = createContext<AuthContextValue | null>(null);
+</file>
+
+<file path="src/hooks/AuthProvider.tsx">
+import React, {
+  useState,
+  useEffect,
+  useCallback,
+  useRef,
+  type ReactNode,
+} from 'react';
+import { account } from '../lib/appwrite';
+import {
+  AUTH_UNAUTHORIZED_EVENT,
+  isUnauthorizedError,
+} from '../lib/authEvents';
+import { AuthContext } from './authContext';
+import type { Models } from 'appwrite';
+const AUTH_BROADCAST_KEY = 'mosaic_auth_broadcast';
+type AuthBroadcast = { type: 'login' | 'logout'; at: number };
+function broadcastAuth(type: 'login' | 'logout') {
+  try {
+    const payload: AuthBroadcast = { type, at: Date.now() };
+    localStorage.setItem(AUTH_BROADCAST_KEY, JSON.stringify(payload));
+  } catch {
+  }
+}
+function isNetworkError(err: unknown): boolean {
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+    return true;
+  }
+  const msg = err instanceof Error ? err.message.toLowerCase() : '';
+  return (
+    msg.includes('network') ||
+    msg.includes('failed to fetch') ||
+    msg.includes('load failed') ||
+    msg.includes('timeout')
+  );
+}
+interface AuthProviderProps {
+  children: ReactNode;
+}
+export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
+  const [user, setUser] = useState<Models.User<Models.Preferences> | null>(
+    null
+  );
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [isOffline, setIsOffline] = useState(false);
+  const isMountedRef = useRef(true);
+  const resolveInFlightRef = useRef(false);
+  const resolveInitialUser = useCallback(async () => {
+    if (resolveInFlightRef.current) {
+      if (import.meta.env.DEV) {
+        console.log('[AuthProvider] resolve skipped (in flight)');
       }
-    );
-    return () => { isMounted = false; };
-  }, []);
-  const login = useCallback(async (email: string, password: string): Promise<boolean> => {
-    setState(s => ({ ...s, isLoading: true, error: null }));
+      return;
+    }
+    resolveInFlightRef.current = true;
     try {
+      const u = await account.get();
+      if (!isMountedRef.current) return;
+      setUser(u);
+      setError(null);
+      setIsOffline(false);
+    } catch (err) {
+      if (!isMountedRef.current) return;
+      if (isUnauthorizedError(err)) {
+        setUser(null);
+        setError(null);
+        setIsOffline(false);
+      } else if (isNetworkError(err)) {
+        setUser(null);
+        setError(
+          err instanceof Error ? err.message : 'Could not reach server.'
+        );
+        setIsOffline(true);
+      } else {
+        setUser(null);
+        setError(
+          err instanceof Error ? err.message : 'Could not verify session.'
+        );
+        setIsOffline(true);
+      }
+    } finally {
+      resolveInFlightRef.current = false;
+      if (isMountedRef.current) setIsLoading(false);
+    }
+  }, []);
+  useEffect(() => {
+    isMountedRef.current = true;
+    queueMicrotask(() => {
+      if (isMountedRef.current) {
+        resolveInitialUser();
+      }
+    });
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, [resolveInitialUser]);
+  useEffect(() => {
+    const handleStorage = (e: StorageEvent) => {
+      if (e.key !== AUTH_BROADCAST_KEY) return;
+      if (!e.newValue) return;
       try {
-        await account.deleteSession('current');
+        const parsed = JSON.parse(e.newValue) as AuthBroadcast;
+        if (parsed.type === 'logout') {
+          setUser(null);
+          setError(null);
+          setIsOffline(false);
+        } else if (parsed.type === 'login') {
+          resolveInitialUser();
+        }
       } catch {
       }
-      await account.createEmailPasswordSession(email, password);
-      const user = await account.get();
-      setState({ user, isLoading: false, error: null });
-      return true;
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Login failed';
-      setState(s => ({ ...s, isLoading: false, error: message }));
-      return false;
-    }
+    };
+    window.addEventListener('storage', handleStorage);
+    return () => window.removeEventListener('storage', handleStorage);
+  }, [resolveInitialUser]);
+  useEffect(() => {
+    const handleUnauthorized = () => {
+      if (!isMountedRef.current) return;
+      setUser(null);
+      setError('Your session has expired. Please sign in again.');
+      setIsOffline(false);
+    };
+    window.addEventListener(AUTH_UNAUTHORIZED_EVENT, handleUnauthorized);
+    return () =>
+      window.removeEventListener(AUTH_UNAUTHORIZED_EVENT, handleUnauthorized);
   }, []);
-  const signup = useCallback(async (email: string, password: string, name: string): Promise<boolean> => {
-    setState(s => ({ ...s, isLoading: true, error: null }));
-    try {
-      await account.create('unique()', email, password, name);
-      try {
-        await account.createEmailPasswordSession(email, password);
-      } catch (sessionError: unknown) {
-        const msg = sessionError instanceof Error ? sessionError.message : '';
-        if (!msg.includes('already active') && !msg.includes('prohibited')) {
-          throw sessionError;
-        }
+  useEffect(() => {
+    const handleOnline = () => {
+      setIsOffline(false);
+      if (!user && isMountedRef.current) {
+        resolveInitialUser();
       }
-      const user = await account.get();
-      setState({ user, isLoading: false, error: null });
-      return true;
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Signup failed';
-      setState(s => ({ ...s, isLoading: false, error: message }));
-      return false;
-    }
-  }, []);
-  const logout = useCallback(async () => {
-    setState(s => ({ ...s, isLoading: true, error: null }));
+    };
+    window.addEventListener('online', handleOnline);
+    return () => window.removeEventListener('online', handleOnline);
+  }, [user, resolveInitialUser]);
+  const login = useCallback(
+    async (email: string, password: string): Promise<boolean> => {
+      setError(null);
+      setIsLoading(true);
+      try {
+        try {
+          await account.deleteSession('current');
+        } catch {
+        }
+        await account.createEmailPasswordSession(email, password);
+        const u = await account.get();
+        if (!isMountedRef.current) return true;
+        setUser(u);
+        setIsLoading(false);
+        setIsOffline(false);
+        broadcastAuth('login');
+        return true;
+      } catch (err: unknown) {
+        if (!isMountedRef.current) return false;
+        const message = err instanceof Error ? err.message : 'Login failed';
+        setError(message);
+        setIsLoading(false);
+        return false;
+      }
+    },
+    []
+  );
+  const signup = useCallback(
+    async (email: string, password: string, name: string): Promise<boolean> => {
+      setError(null);
+      setIsLoading(true);
+      try {
+        await account.create('unique()', email, password, name);
+        try {
+          await account.createEmailPasswordSession(email, password);
+        } catch (sessionError: unknown) {
+          const msg =
+            sessionError instanceof Error ? sessionError.message : '';
+          if (!msg.includes('already active') && !msg.includes('prohibited')) {
+            throw sessionError;
+          }
+        }
+        const u = await account.get();
+        if (!isMountedRef.current) return true;
+        setUser(u);
+        setIsLoading(false);
+        setIsOffline(false);
+        broadcastAuth('login');
+        return true;
+      } catch (err: unknown) {
+        if (!isMountedRef.current) return false;
+        const message = err instanceof Error ? err.message : 'Signup failed';
+        setError(message);
+        setIsLoading(false);
+        return false;
+      }
+    },
+    []
+  );
+  const logout = useCallback(async (): Promise<boolean> => {
+    setError(null);
+    setIsLoading(true);
     try {
       await account.deleteSession('current');
-      setState({ user: null, isLoading: false, error: null });
+      if (!isMountedRef.current) return true;
+      setUser(null);
+      setIsLoading(false);
+      setIsOffline(false);
+      broadcastAuth('logout');
+      return true;
     } catch (err: unknown) {
+      if (!isMountedRef.current) return false;
       const message = err instanceof Error ? err.message : 'Logout failed';
-      setState(s => ({ ...s, isLoading: false, error: message }));
-    }
-  }, []);
-  const updateEmail = useCallback(async (newEmail: string, password: string): Promise<boolean> => {
-    setState(s => ({ ...s, error: null }));
-    try {
-      await account.updateEmail(newEmail, password);
-      const user = await account.get();
-      setState({ user, isLoading: false, error: null });
-      return true;
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Failed to update email';
-      setState(s => ({ ...s, error: message }));
+      setError(message);
+      setIsLoading(false);
       return false;
     }
   }, []);
-  const updatePassword = useCallback(async (newPassword: string, oldPassword: string): Promise<boolean> => {
-    setState(s => ({ ...s, error: null }));
-    try {
-      await account.updatePassword(newPassword, oldPassword);
-      setState(s => ({ ...s, error: null }));
-      return true;
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Failed to update password';
-      setState(s => ({ ...s, error: message }));
-      return false;
-    }
-  }, []);
-  return { ...state, login, signup, logout, updateEmail, updatePassword };
+  const updateEmail = useCallback(
+    async (newEmail: string, password: string): Promise<boolean> => {
+      setError(null);
+      try {
+        await account.updateEmail(newEmail, password);
+        const u = await account.get();
+        if (!isMountedRef.current) return true;
+        setUser(u);
+        return true;
+      } catch (err: unknown) {
+        if (!isMountedRef.current) return false;
+        const message =
+          err instanceof Error ? err.message : 'Failed to update email';
+        setError(message);
+        return false;
+      }
+    },
+    []
+  );
+  const updatePassword = useCallback(
+    async (newPassword: string, oldPassword: string): Promise<boolean> => {
+      setError(null);
+      try {
+        await account.updatePassword(newPassword, oldPassword);
+        return true;
+      } catch (err: unknown) {
+        if (!isMountedRef.current) return false;
+        const message =
+          err instanceof Error ? err.message : 'Failed to update password';
+        setError(message);
+        return false;
+      }
+    },
+    []
+  );
+  const retry = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
+    await resolveInitialUser();
+  }, [resolveInitialUser]);
+  return (
+    <AuthContext.Provider
+      value={{
+        user,
+        isLoading,
+        error,
+        isOffline,
+        login,
+        signup,
+        logout,
+        updateEmail,
+        updatePassword,
+        retry,
+      }}
+    >
+      {children}
+    </AuthContext.Provider>
+  );
+};
+</file>
+
+<file path="src/hooks/useAuth.ts">
+import { useContext } from 'react';
+import { AuthContext, type AuthContextValue } from './authContext';
+export function useAuth(): AuthContextValue {
+  const ctx = useContext(AuthContext);
+  if (!ctx) {
+    throw new Error(
+      'useAuth must be used within an <AuthProvider>. ' +
+        'Check that <AuthProvider> wraps <App /> in main.tsx.'
+    );
+  }
+  return ctx;
 }
 </file>
 
@@ -11585,7 +11890,7 @@ export interface UseMyProfileReturn {
     input: Omit<MyProfileInput, 'userId'>
   ) => Promise<ProfileCard | null>;
   refetch: () => Promise<void>;
-  checkUsername: (username: string) => Promise<boolean>;
+  checkUsername: (username: string) => Promise<boolean | null>;
 }
 export function useMyProfile(): UseMyProfileReturn {
   const { user } = useAuth();
@@ -11629,7 +11934,9 @@ export function useMyProfile(): UseMyProfileReturn {
   const createProfile = useCallback(
     async (input: Omit<MyProfileInput, 'userId'>) => {
       if (!userId) {
-        console.error('[useMyProfile] Cannot create profile: Not authenticated');
+        console.error(
+          '[useMyProfile] Cannot create profile: Not authenticated'
+        );
         return null;
       }
       try {
@@ -11643,9 +11950,12 @@ export function useMyProfile(): UseMyProfileReturn {
     },
     [userId]
   );
-  const checkUsername = useCallback(async (username: string) => {
-    return isUsernameAvailable(username);
-  }, []);
+  const checkUsername = useCallback(
+    async (username: string): Promise<boolean | null> => {
+      return isUsernameAvailable(username);
+    },
+    []
+  );
   const isLoading = !!userId && loadedUserId !== userId;
   return {
     profile: userId && loadedUserId === userId ? profile : null,
@@ -12042,6 +12352,32 @@ export const account = new Account(client);
 export { client };
 </file>
 
+<file path="src/lib/authEvents.ts">
+export const AUTH_UNAUTHORIZED_EVENT = 'auth:unauthorized';
+export function isUnauthorizedError(err: unknown): boolean {
+  const code = (err as { code?: number } | null)?.code;
+  if (code === 401) return true;
+  const statusCode = (err as { responseStatusCode?: number } | null)
+    ?.responseStatusCode;
+  if (statusCode === 401) return true;
+  const msg = err instanceof Error ? err.message : String(err);
+  return /unauthorized|missing scope|user_unauthorized/i.test(msg);
+}
+export function dispatchUnauthorized(): void {
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent(AUTH_UNAUTHORIZED_EVENT));
+  }
+}
+export async function guardedCall<T>(fn: () => Promise<T>): Promise<T> {
+  try {
+    return await fn();
+  } catch (err) {
+    if (isUnauthorizedError(err)) dispatchUnauthorized();
+    throw err;
+  }
+}
+</file>
+
 <file path="src/lib/exportData.ts">
 import { format } from 'date-fns';
 import { zip } from 'fflate';
@@ -12049,6 +12385,7 @@ import { Storage } from 'appwrite';
 import { client } from './appwrite';
 import { getDatabase } from '../db/database';
 import { getCachedImage, cacheImage } from './imageCache';
+import { guardedCall } from './authEvents';
 import type {
   TaskDocument,
   CategoryDocument,
@@ -12179,7 +12516,8 @@ async function fetchImageBlob(fileId: string): Promise<Blob | null> {
   const cached = await getCachedImage(fileId);
   if (cached) return cached;
   if (typeof navigator !== 'undefined' && navigator.onLine === false) {
-    if (DEBUG) console.log(`[Export] Skipping uncached image (offline): ${fileId}`);
+    if (DEBUG)
+      console.log(`[Export] Skipping uncached image (offline): ${fileId}`);
     return null;
   }
   try {
@@ -12187,12 +12525,21 @@ async function fetchImageBlob(fileId: string): Promise<Blob | null> {
       bucketId: APPWRITE_CONFIG.bucketId,
       fileId,
     });
-    const res = await fetch(url.toString(), {
-      credentials: 'include',
-      headers: { 'X-Appwrite-Project': APPWRITE_CONFIG.projectId },
+    const res = await guardedCall(async () => {
+      const r = await fetch(url.toString(), {
+        credentials: 'include',
+        headers: { 'X-Appwrite-Project': APPWRITE_CONFIG.projectId },
+      });
+      if (r.status === 401) {
+        const err = new Error('Unauthorized');
+        (err as { code?: number }).code = 401;
+        throw err;
+      }
+      return r;
     });
     if (!res.ok) {
-      if (DEBUG) console.warn(`[Export] Image fetch returned ${res.status}: ${fileId}`);
+      if (DEBUG)
+        console.warn(`[Export] Image fetch returned ${res.status}: ${fileId}`);
       return null;
     }
     const blob = await res.blob();
@@ -12294,11 +12641,15 @@ export async function exportUserData(
   const encoder = new TextEncoder();
   const files: Record<string, Uint8Array> = {};
   files['manifest.json'] = encoder.encode(JSON.stringify(payload, null, 2));
-  files['data/tasks.json'] = encoder.encode(JSON.stringify(raw.tasks, null, 2));
+  files['data/tasks.json'] = encoder.encode(
+    JSON.stringify(raw.tasks, null, 2)
+  );
   files['data/categories.json'] = encoder.encode(
     JSON.stringify(raw.categories, null, 2)
   );
-  files['data/diary.json'] = encoder.encode(JSON.stringify(raw.diary, null, 2));
+  files['data/diary.json'] = encoder.encode(
+    JSON.stringify(raw.diary, null, 2)
+  );
   files['data/settings.json'] = encoder.encode(
     JSON.stringify(parsedSettings, null, 2)
   );
@@ -12450,6 +12801,7 @@ export async function patchCachedCalendarTask(
 import { Functions, ExecutionMethod } from 'appwrite';
 import { client } from './appwrite';
 import { MESSAGE_ACTION_FUNCTION_ID } from './messageDelivery';
+import { guardedCall } from './authEvents';
 import type { TaskDocument, CategoryDocument } from '../db/schema';
 import {
   getCachedCalendar,
@@ -12533,9 +12885,8 @@ export async function fetchFriendCalendar(
       'server'
     );
   }
-  let execution;
-  try {
-    execution = await functions.createExecution({
+  const execution = await guardedCall(async () => {
+    const exec = await functions.createExecution({
       functionId: MESSAGE_ACTION_FUNCTION_ID,
       body: JSON.stringify({
         action: 'get_friend_calendar',
@@ -12545,17 +12896,19 @@ export async function fetchFriendCalendar(
       xpath: '/',
       method: ExecutionMethod.POST,
     });
-  } catch (err) {
-    console.error('[friendData] Function call failed:', err);
-    throw new FriendAccessError(
-      'Could not reach the server. Check your connection.',
-      'server'
-    );
-  }
-  if (execution.status !== 'completed') {
-    console.error('[friendData] Execution not completed:', execution.status);
-    throw new FriendAccessError('The request did not complete.', 'server');
-  }
+    if (exec.status !== 'completed') {
+      throw new FriendAccessError(
+        'The request did not complete.',
+        'server'
+      );
+    }
+    if (exec.responseStatusCode === 401) {
+      const err = new Error('Unauthorized');
+      (err as { code?: number }).code = 401;
+      throw err;
+    }
+    return exec;
+  });
   const statusCode = execution.responseStatusCode;
   let parsed: {
     tasks?: AppwriteRow[];
@@ -12655,10 +13008,10 @@ import { Functions, ExecutionMethod } from 'appwrite';
 import type { RxDocument } from 'rxdb';
 import { client } from './appwrite';
 import { getDatabase } from '../db/database';
+import { guardedCall } from './authEvents';
 import type { MessageDocument } from '../db/schema';
 const DEBUG = import.meta.env.DEV;
-export const MESSAGE_ACTION_FUNCTION_ID =
-  '6aa8057f002a4c306fdd';
+export const MESSAGE_ACTION_FUNCTION_ID = '6aa8057f002a4c306fdd';
 const functions = new Functions(client);
 const SEND_TIMEOUT_MS = 15_000;
 let inFlightDeliveryPromise: Promise<void> | null = null;
@@ -12672,19 +13025,18 @@ export async function sendMessageAction(
   if (MESSAGE_ACTION_FUNCTION_ID.startsWith('REPLACE_')) {
     throw new Error('MESSAGE_ACTION_FUNCTION_ID not configured');
   }
-  const executionPromise = functions.createExecution({
-    functionId: MESSAGE_ACTION_FUNCTION_ID,
-    body: JSON.stringify(payload),
-    async: false,
-    xpath: '/',
-    method: ExecutionMethod.POST,
-  });
-  executionPromise.catch(() => {});
   let timeoutId: ReturnType<typeof setTimeout> | null = null;
-  let execution;
-  try {
-    execution = await Promise.race([
-      executionPromise,
+  const execution = await guardedCall(async () => {
+    const execPromise = functions.createExecution({
+      functionId: MESSAGE_ACTION_FUNCTION_ID,
+      body: JSON.stringify(payload),
+      async: false,
+      xpath: '/',
+      method: ExecutionMethod.POST,
+    });
+    execPromise.catch(() => {});
+    const exec = await Promise.race([
+      execPromise,
       new Promise<never>((_, reject) => {
         timeoutId = setTimeout(
           () =>
@@ -12697,19 +13049,22 @@ export async function sendMessageAction(
         );
       }),
     ]);
-  } finally {
+    if (
+      exec.status !== 'completed' ||
+      exec.responseStatusCode >= 400
+    ) {
+      const err = new Error(
+        `Message action failed (${exec.responseStatusCode}): ${exec.responseBody}`
+      );
+      (err as { code?: number }).code = exec.responseStatusCode;
+      throw err;
+    }
+    return exec;
+  }).finally(() => {
     if (timeoutId !== null) {
       clearTimeout(timeoutId);
     }
-  }
-  if (
-    execution.status !== 'completed' ||
-    execution.responseStatusCode >= 400
-  ) {
-    throw new Error(
-      `Message action failed (${execution.responseStatusCode}): ${execution.responseBody}`
-    );
-  }
+  });
   try {
     return JSON.parse(execution.responseBody) as Record<string, unknown>;
   } catch {
@@ -12765,7 +13120,9 @@ export async function deliverPendingMessages(userId: string): Promise<void> {
           break;
         }
         if (DEBUG && pending.length > 0) {
-          console.log(`[messageDelivery] ${pending.length} pending message(s)`);
+          console.log(
+            `[messageDelivery] ${pending.length} pending message(s)`
+          );
         }
         for (const doc of pending) {
           try {
@@ -13002,6 +13359,10 @@ export function hasUserReacted(
 import { TablesDB, Permission, Role, Query } from 'appwrite';
 import { client } from './appwrite';
 import { getDatabase } from '../db/database';
+import {
+  isUnauthorizedError,
+  guardedCall,
+} from './authEvents';
 import type { FriendshipDocument } from '../db/schema';
 const DEBUG = import.meta.env.DEV;
 const APPWRITE_CONFIG = {
@@ -13068,11 +13429,13 @@ export async function fetchMyProfile(
   userId: string
 ): Promise<ProfileCard | null> {
   try {
-    const row = await tablesDB.getRow({
-      databaseId: APPWRITE_CONFIG.databaseId,
-      tableId: APPWRITE_CONFIG.tables.profiles,
-      rowId: `profile_${userId}`,
-    });
+    const row = await guardedCall(() =>
+      tablesDB.getRow({
+        databaseId: APPWRITE_CONFIG.databaseId,
+        tableId: APPWRITE_CONFIG.tables.profiles,
+        rowId: `profile_${userId}`,
+      })
+    );
     if (!row || (row as Record<string, unknown>).deleted === true) return null;
     return row as unknown as ProfileCard;
   } catch (err: unknown) {
@@ -13103,28 +13466,43 @@ export async function createOrUpdateProfile(
     updated_at: now,
     deleted: false,
   };
-  const row = await tablesDB.upsertRow({
-    databaseId: APPWRITE_CONFIG.databaseId,
-    tableId: APPWRITE_CONFIG.tables.profiles,
-    rowId,
-    data,
-    permissions: buildProfileRowPermissions(input.userId),
-  });
+  const row = await guardedCall(() =>
+    tablesDB.upsertRow({
+      databaseId: APPWRITE_CONFIG.databaseId,
+      tableId: APPWRITE_CONFIG.tables.profiles,
+      rowId,
+      data,
+      permissions: buildProfileRowPermissions(input.userId),
+    })
+  );
   if (DEBUG) console.log('[social] Profile upserted:', rowId);
   return row as unknown as ProfileCard;
 }
-export async function isUsernameAvailable(username: string): Promise<boolean> {
+/**
+ * Returns:
+ *   true  — username is available
+ *   false — username is taken, or the check failed for a non-auth reason
+ *   null  — session expired (401); a global redirect is already in flight
+ *
+ * Callers MUST branch on null before showing a "username taken" error.
+ */
+export async function isUsernameAvailable(
+  username: string
+): Promise<boolean | null> {
   try {
-    const res = await tablesDB.listRows({
-      databaseId: APPWRITE_CONFIG.databaseId,
-      tableId: APPWRITE_CONFIG.tables.profiles,
-      queries: [
-        Query.equal('username', username.toLowerCase()),
-        Query.limit(1),
-      ],
-    });
+    const res = await guardedCall(() =>
+      tablesDB.listRows({
+        databaseId: APPWRITE_CONFIG.databaseId,
+        tableId: APPWRITE_CONFIG.tables.profiles,
+        queries: [
+          Query.equal('username', username.toLowerCase()),
+          Query.limit(1),
+        ],
+      })
+    );
     return (res.rows || []).length === 0;
   } catch (err) {
+    if (isUnauthorizedError(err)) return null;
     console.error('[social] isUsernameAvailable failed:', err);
     return false;
   }
@@ -13136,8 +13514,8 @@ export async function searchProfiles(
 ): Promise<ProfileCard[]> {
   const trimmed = query.trim().toLowerCase();
   if (trimmed.length < 1) return [];
-  try {
-    const res = await tablesDB.listRows({
+  const res = await guardedCall(() =>
+    tablesDB.listRows({
       databaseId: APPWRITE_CONFIG.databaseId,
       tableId: APPWRITE_CONFIG.tables.profiles,
       queries: [
@@ -13145,13 +13523,10 @@ export async function searchProfiles(
         Query.equal('deleted', false),
         Query.limit(limit),
       ],
-    });
-    const rows = (res.rows || []) as unknown as ProfileCard[];
-    return rows.filter((r) => r.user_id !== excludeUserId);
-  } catch (err) {
-    console.error('[social] searchProfiles failed:', err);
-    throw err;
-  }
+    })
+  );
+  const rows = (res.rows || []) as unknown as ProfileCard[];
+  return rows.filter((r) => r.user_id !== excludeUserId);
 }
 export interface SendRequestInput {
   myUserId: string;
@@ -13190,25 +13565,28 @@ export async function sendFriendRequest(
     isDeleted: false,
   };
   await db.friendships.upsert(myLocalRow);
-  await tablesDB.upsertRow({
-    databaseId: APPWRITE_CONFIG.databaseId,
-    tableId: APPWRITE_CONFIG.tables.friendships,
-    rowId: friendRowId,
-    data: {
-      user_id: friend.user_id,
-      friend_id: myUserId,
-      friend_username: myUsername,
-      friend_display_name: myDisplayName,
-      friend_avatar_file_id: myAvatarFileId,
-      friend_bio: myBio,
-      status: 'pending_incoming',
-      created_at: now,
-      updated_at: now,
-      deleted: false,
-    },
-    permissions: buildCreatorOwnPermissions(myUserId),
-  });
-  if (DEBUG) console.log('[social] Friend request sent:', myRowId, friendRowId);
+  await guardedCall(() =>
+    tablesDB.upsertRow({
+      databaseId: APPWRITE_CONFIG.databaseId,
+      tableId: APPWRITE_CONFIG.tables.friendships,
+      rowId: friendRowId,
+      data: {
+        user_id: friend.user_id,
+        friend_id: myUserId,
+        friend_username: myUsername,
+        friend_display_name: myDisplayName,
+        friend_avatar_file_id: myAvatarFileId,
+        friend_bio: myBio,
+        status: 'pending_incoming',
+        created_at: now,
+        updated_at: now,
+        deleted: false,
+      },
+      permissions: buildCreatorOwnPermissions(myUserId),
+    })
+  );
+  if (DEBUG)
+    console.log('[social] Friend request sent:', myRowId, friendRowId);
 }
 export async function acceptFriendRequest(
   myUserId: string,
@@ -13222,12 +13600,14 @@ export async function acceptFriendRequest(
   if (localDoc) {
     await localDoc.patch({ status: 'accepted', updatedAt: now });
   }
-  await tablesDB.updateRow({
-    databaseId: APPWRITE_CONFIG.databaseId,
-    tableId: APPWRITE_CONFIG.tables.friendships,
-    rowId: friendRowId,
-    data: { status: 'accepted', updated_at: now },
-  });
+  await guardedCall(() =>
+    tablesDB.updateRow({
+      databaseId: APPWRITE_CONFIG.databaseId,
+      tableId: APPWRITE_CONFIG.tables.friendships,
+      rowId: friendRowId,
+      data: { status: 'accepted', updated_at: now },
+    })
+  );
   if (DEBUG) console.log('[social] Friend request accepted:', myRowId);
 }
 export async function deleteFriendPair(
@@ -13243,12 +13623,14 @@ export async function deleteFriendPair(
     await localDoc.patch({ isDeleted: true, updatedAt: now });
   }
   try {
-    await tablesDB.updateRow({
-      databaseId: APPWRITE_CONFIG.databaseId,
-      tableId: APPWRITE_CONFIG.tables.friendships,
-      rowId: friendRowId,
-      data: { deleted: true, updated_at: now },
-    });
+    await guardedCall(() =>
+      tablesDB.updateRow({
+        databaseId: APPWRITE_CONFIG.databaseId,
+        tableId: APPWRITE_CONFIG.tables.friendships,
+        rowId: friendRowId,
+        data: { deleted: true, updated_at: now },
+      })
+    );
   } catch (err: unknown) {
     const code = (err as { code?: number })?.code;
     if (code !== 404) {
@@ -13270,12 +13652,14 @@ export async function blockFriend(
     await localDoc.patch({ status: 'blocked', updatedAt: now });
   }
   try {
-    await tablesDB.updateRow({
-      databaseId: APPWRITE_CONFIG.databaseId,
-      tableId: APPWRITE_CONFIG.tables.friendships,
-      rowId: friendRowId,
-      data: { status: 'blocked', updated_at: now },
-    });
+    await guardedCall(() =>
+      tablesDB.updateRow({
+        databaseId: APPWRITE_CONFIG.databaseId,
+        tableId: APPWRITE_CONFIG.tables.friendships,
+        rowId: friendRowId,
+        data: { status: 'blocked', updated_at: now },
+      })
+    );
   } catch (err) {
     console.warn('[social] blockFriend remote update failed:', err);
   }
@@ -13303,6 +13687,7 @@ export async function updateFriendBioLocally(
 import imageCompression from 'browser-image-compression';
 import { client, account } from './appwrite';
 import { Storage, Permission, Role } from 'appwrite';
+import { guardedCall } from './authEvents';
 const APPWRITE_CONFIG = {
   endpoint: 'https://sgp.cloud.appwrite.io',
   projectId: '6a9703c50016b37110ff',
@@ -13324,20 +13709,28 @@ export async function compressImage(file: File): Promise<Blob> {
   }
 }
 function generateFileId(): string {
-  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+  if (
+    typeof crypto !== 'undefined' &&
+    typeof crypto.randomUUID === 'function'
+  ) {
     return `img_${crypto.randomUUID().replace(/-/g, '')}`;
   }
-  if (typeof crypto !== 'undefined' && typeof crypto.getRandomValues === 'function') {
+  if (
+    typeof crypto !== 'undefined' &&
+    typeof crypto.getRandomValues === 'function'
+  ) {
     const randomBytes = new Uint8Array(16);
     crypto.getRandomValues(randomBytes);
-    const hex = Array.from(randomBytes, b => b.toString(16).padStart(2, '0')).join('');
+    const hex = Array.from(randomBytes, (b) =>
+      b.toString(16).padStart(2, '0')
+    ).join('');
     return `img_${hex}`;
   }
   return `img_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
 }
 async function getCurrentUserId(): Promise<string | null> {
   try {
-    const user = await account.get();
+    const user = await guardedCall(() => account.get());
     return user?.$id || null;
   } catch {
     return null;
@@ -13357,19 +13750,25 @@ export async function uploadImage(file: File): Promise<string> {
   }
   const compressedBlob = await compressImage(file);
   const fileId = generateFileId();
-  const webpFile = new File([compressedBlob], `${fileId}.webp`, { type: 'image/webp' });
+  const webpFile = new File([compressedBlob], `${fileId}.webp`, {
+    type: 'image/webp',
+  });
   try {
-    await storage.createFile({
-      bucketId: APPWRITE_CONFIG.bucketId,
-      fileId: fileId,
-      file: webpFile,
-      permissions: buildFilePermissions(userId),
-    });
+    await guardedCall(() =>
+      storage.createFile({
+        bucketId: APPWRITE_CONFIG.bucketId,
+        fileId: fileId,
+        file: webpFile,
+        permissions: buildFilePermissions(userId),
+      })
+    );
     return fileId;
   } catch (error) {
     console.error('[Storage] Upload failed:', error);
     throw new Error(
-      `Appwrite Storage Upload Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      `Appwrite Storage Upload Error: ${
+        error instanceof Error ? error.message : 'Unknown error'
+      }`,
       { cause: error }
     );
   }
@@ -13431,9 +13830,17 @@ export async function getLocalImageUrl(fileId: string): Promise<string | null> {
       bucketId: APPWRITE_CONFIG.bucketId,
       fileId: fileId,
     });
-    const res = await fetch(url.toString(), {
-      credentials: 'include',
-      headers: { 'X-Appwrite-Project': APPWRITE_CONFIG.projectId },
+    const res = await guardedCall(async () => {
+      const r = await fetch(url.toString(), {
+        credentials: 'include',
+        headers: { 'X-Appwrite-Project': APPWRITE_CONFIG.projectId },
+      });
+      if (r.status === 401) {
+        const err = new Error('Unauthorized');
+        (err as { code?: number }).code = 401;
+        throw err;
+      }
+      return r;
     });
     if (!res.ok) return null;
     const blob = await res.blob();
@@ -13446,12 +13853,18 @@ export async function getLocalImageUrl(fileId: string): Promise<string | null> {
 }
 export async function deleteImage(fileId: string): Promise<void> {
   try {
-    await storage.deleteFile({
-      bucketId: APPWRITE_CONFIG.bucketId,
-      fileId: fileId,
-    });
+    await guardedCall(() =>
+      storage.deleteFile({
+        bucketId: APPWRITE_CONFIG.bucketId,
+        fileId: fileId,
+      })
+    );
   } catch (err) {
-    console.warn('[Storage] Failed to delete image from Appwrite:', fileId, err);
+    console.warn(
+      '[Storage] Failed to delete image from Appwrite:',
+      fileId,
+      err
+    );
   }
   await deleteCachedImage(fileId);
 }
@@ -13695,7 +14108,7 @@ export function labelForVisibility(v: TaskVisibility): string {
 </file>
 
 <file path="src/pages/AccountPage.tsx">
-import React from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Settings, LogOut, BarChart3, Sticker, ListTodo } from 'lucide-react';
 import { Avatar } from '../components/ui/Avatar';
@@ -13708,14 +14121,22 @@ export const AccountPage: React.FC = () => {
   const { tasks } = useTasks();
   const { categories } = useCategories();
   const navigate = useNavigate();
+  const [feedback, setFeedback] = useState<string | null>(null);
+  const showFeedback = (msg: string) => {
+    setFeedback(msg);
+    setTimeout(() => setFeedback(null), 2000);
+  };
   const handleLogout = async () => {
-    await logout();
-    navigate('/login', { replace: true });
+    const ok = await logout();
+    if (ok) {
+      navigate('/login', { replace: true });
+    } else {
+      showFeedback('Sign out failed. Check your connection and try again.');
+    }
   };
   const backlogCount = tasks.filter((t) => !t.completed).length;
   return (
     <div className="flex flex-col h-full animate-in fade-in duration-300">
-      {}
       <div className="sticky top-0 z-20 bg-[#111111] px-4 py-3 border-b border-[#333333] flex items-center justify-between">
         <h1 className="text-lg font-bold text-white">Me</h1>
         <button
@@ -13728,14 +14149,12 @@ export const AccountPage: React.FC = () => {
         </button>
       </div>
       <div className="flex-1 overflow-y-auto pb-24 px-4 pt-6 space-y-6">
-        {}
         <div className="flex flex-col items-center text-center space-y-3">
-          <Avatar
-            size="lg"
-            alt={user?.name || user?.email || 'User'}
-          />
+          <Avatar size="lg" alt={user?.name || user?.email || 'User'} />
           <div>
-            <h2 className="text-xl font-bold text-white">{user?.name || 'User'}</h2>
+            <h2 className="text-xl font-bold text-white">
+              {user?.name || 'User'}
+            </h2>
             <p className="text-sm text-gray-500">{user?.email}</p>
           </div>
           <div className="flex items-center gap-6 text-sm text-gray-400">
@@ -13749,7 +14168,6 @@ export const AccountPage: React.FC = () => {
             </div>
           </div>
         </div>
-        {}
         <div className="grid grid-cols-2 gap-3">
           <div className="bg-[#1E1E1E] border border-[#333333] rounded-xl p-3 flex flex-col items-center gap-2">
             <BarChart3 size={20} className="text-blue-500" />
@@ -13760,7 +14178,6 @@ export const AccountPage: React.FC = () => {
             <span className="text-xs text-gray-400">Sticker Shop</span>
           </div>
         </div>
-        {}
         <div className="bg-[#1E1E1E] border border-[#333333] rounded-xl p-4 flex items-center justify-between">
           <div>
             <h3 className="text-base font-bold text-white">Backlog</h3>
@@ -13768,7 +14185,6 @@ export const AccountPage: React.FC = () => {
           </div>
           <ListTodo size={24} className="text-gray-500" />
         </div>
-        {}
         <div className="bg-[#1E1E1E] border border-[#333333] rounded-xl p-4 flex items-center justify-between">
           <div>
             <h3 className="text-base font-bold text-white">Categories</h3>
@@ -13776,19 +14192,28 @@ export const AccountPage: React.FC = () => {
           </div>
           <div className="w-6 h-6 rounded-full bg-gradient-to-tr from-blue-500 to-purple-500" />
         </div>
-        {}
         <div className="text-center py-4">
-          <p className="text-sm text-gray-500 italic">"Tact is the ability to describe others as they see themselves."</p>
+          <p className="text-sm text-gray-500 italic">
+            "Tact is the ability to describe others as they see themselves."
+          </p>
           <p className="text-xs text-gray-600 mt-1">Eleanor Chaffee</p>
         </div>
       </div>
-      {}
       <div className="px-4 pb-8">
-        <Button variant="danger" className="w-full gap-2 py-3" onClick={handleLogout}>
+        <Button
+          variant="danger"
+          className="w-full gap-2 py-3"
+          onClick={handleLogout}
+        >
           <LogOut size={18} />
           Logout
         </Button>
       </div>
+      {feedback && (
+        <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[70] bg-[#2A2A2A] border border-[#444444] text-white text-sm px-5 py-2.5 rounded-full shadow-lg backdrop-blur-md animate-in fade-in slide-in-from-bottom-2 duration-200">
+          {feedback}
+        </div>
+      )}
     </div>
   );
 };
@@ -13802,6 +14227,7 @@ import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { motion } from 'framer-motion';
 import { Eye, EyeOff } from 'lucide-react';
+import { initializeSync } from '../db/sync';
 export const AuthPage: React.FC = () => {
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState('');
@@ -13825,6 +14251,11 @@ export const AuthPage: React.FC = () => {
       ? await login(email, password)
       : await signup(email, password, name);
     if (success) {
+      // Kick off sync now that a session exists. Fire-and-forget — the
+      // user should not wait on network for navigation.
+      initializeSync().catch((err) =>
+        console.error('[AuthPage] initial sync failed:', err)
+      );
       navigate('/home', { replace: true });
     }
   };
@@ -13839,22 +14270,26 @@ export const AuthPage: React.FC = () => {
           {isLogin ? 'Welcome Back' : 'Create Account'}
         </h1>
         <p className="text-gray-500 text-sm text-center mb-8">
-          {isLogin ? 'Sign in to access your life tracker.' : 'Start tracking your life today.'}
+          {isLogin
+            ? 'Sign in to access your life tracker.'
+            : 'Start tracking your life today.'}
         </p>
         <div className="flex bg-[#111111] rounded-lg p-1 mb-6">
           <button
             type="button"
             onClick={switchToLogin}
-            className={`flex-1 py-2 text-sm font-medium rounded-md transition-colors ${isLogin ? 'bg-[#2A2A2A] text-white' : 'text-gray-500'
-              }`}
+            className={`flex-1 py-2 text-sm font-medium rounded-md transition-colors ${
+              isLogin ? 'bg-[#2A2A2A] text-white' : 'text-gray-500'
+            }`}
           >
             Login
           </button>
           <button
             type="button"
             onClick={switchToSignup}
-            className={`flex-1 py-2 text-sm font-medium rounded-md transition-colors ${!isLogin ? 'bg-[#2A2A2A] text-white' : 'text-gray-500'
-              }`}
+            className={`flex-1 py-2 text-sm font-medium rounded-md transition-colors ${
+              !isLogin ? 'bg-[#2A2A2A] text-white' : 'text-gray-500'
+            }`}
           >
             Sign Up
           </button>
@@ -13879,7 +14314,9 @@ export const AuthPage: React.FC = () => {
             required
           />
           <div className="w-full">
-            <label className="block text-xs text-gray-500 mb-1.5 ml-1">Password</label>
+            <label className="block text-xs text-gray-500 mb-1.5 ml-1">
+              Password
+            </label>
             <div className="relative">
               <input
                 type={showPassword ? 'text' : 'password'}
@@ -13908,7 +14345,7 @@ export const AuthPage: React.FC = () => {
             className="w-full mt-4"
             disabled={isLoading}
           >
-            {isLoading ? 'Processing...' : (isLogin ? 'Sign In' : 'Create Account')}
+            {isLoading ? 'Processing...' : isLogin ? 'Sign In' : 'Create Account'}
           </Button>
         </form>
       </motion.div>
@@ -15206,14 +15643,26 @@ export const SettingsPage: React.FC = () => {
   };
   const handleComingSoon = () => showFeedback('Coming soon');
   const handleLogout = async () => {
-    await logout();
-    navigate('/login', { replace: true });
+    const ok = await logout();
+    if (ok) {
+      navigate('/login', { replace: true });
+    } else {
+      showFeedback('Sign out failed. Check your connection and try again.');
+    }
   };
   const handleClearData = async () => {
     setIsClearingData(true);
     try {
+      const ok = await logout();
+      if (!ok) {
+        setIsClearingData(false);
+        setIsClearDataOpen(false);
+        showFeedback(
+          'Could not sign out. Check your connection and try again.'
+        );
+        return;
+      }
       await destroyDatabase();
-      await logout();
       window.location.reload();
     } catch (error) {
       console.error('[SettingsPage] Failed to clear data:', error);
@@ -15223,7 +15672,6 @@ export const SettingsPage: React.FC = () => {
   };
   return (
     <div className="flex flex-col h-full animate-in fade-in duration-300">
-      {}
       <div className="sticky top-0 z-20 bg-[#111111] px-4 py-3 border-b border-[#333333] flex items-center justify-center relative">
         <button
           onClick={() => navigate(-1)}
@@ -15237,28 +15685,63 @@ export const SettingsPage: React.FC = () => {
       </div>
       <div className="flex-1 overflow-y-auto pb-24">
         <div className="py-2">
-          <SettingsRow icon={<User size={18} className="text-blue-500" />} label="Profile" onClick={() => navigate('/profile')} />
+          <SettingsRow
+            icon={<User size={18} className="text-blue-500" />}
+            label="Profile"
+            onClick={() => navigate('/profile')}
+          />
           <SettingsRow
             icon={<Shield size={18} className="text-gray-400" />}
             label="Account"
             value={user?.email}
             onClick={() => setIsAccountSettingsOpen(true)}
           />
-          <SettingsRow icon={<Lock size={18} className="text-gray-400" />} label="Privacy" onClick={handleComingSoon} />
-          <SettingsRow icon={<Shield size={18} className="text-gray-400" />} label="App Permissions" onClick={handleComingSoon} />
-          <SettingsRow icon={<Monitor size={18} className="text-gray-400" />} label="Screen" onClick={handleComingSoon} />
-          <SettingsRow icon={<Bell size={18} className="text-gray-400" />} label="Notifications" onClick={handleComingSoon} />
+          <SettingsRow
+            icon={<Lock size={18} className="text-gray-400" />}
+            label="Privacy"
+            onClick={handleComingSoon}
+          />
+          <SettingsRow
+            icon={<Shield size={18} className="text-gray-400" />}
+            label="App Permissions"
+            onClick={handleComingSoon}
+          />
+          <SettingsRow
+            icon={<Monitor size={18} className="text-gray-400" />}
+            label="Screen"
+            onClick={handleComingSoon}
+          />
+          <SettingsRow
+            icon={<Bell size={18} className="text-gray-400" />}
+            label="Notifications"
+            onClick={handleComingSoon}
+          />
           <SettingsRow
             icon={<Megaphone size={18} className="text-gray-400" />}
             label="Announcements"
-            rightElement={<div className="w-5 h-5 rounded-full bg-red-500 flex items-center justify-center text-[10px] font-bold text-white">N</div>}
+            rightElement={
+              <div className="w-5 h-5 rounded-full bg-red-500 flex items-center justify-center text-[10px] font-bold text-white">
+                N
+              </div>
+            }
             onClick={handleComingSoon}
           />
-          <SettingsRow icon={<Smile size={18} className="text-gray-400" />} label="My stickers" onClick={handleComingSoon} />
-          <SettingsRow icon={<Info size={18} className="text-gray-400" />} label="Information" onClick={handleComingSoon} />
-          <SettingsRow icon={<HelpCircle size={18} className="text-gray-400" />} label="FAQs" onClick={handleComingSoon} />
+          <SettingsRow
+            icon={<Smile size={18} className="text-gray-400" />}
+            label="My stickers"
+            onClick={handleComingSoon}
+          />
+          <SettingsRow
+            icon={<Info size={18} className="text-gray-400" />}
+            label="Information"
+            onClick={handleComingSoon}
+          />
+          <SettingsRow
+            icon={<HelpCircle size={18} className="text-gray-400" />}
+            label="FAQs"
+            onClick={handleComingSoon}
+          />
         </div>
-        {}
         <div className="border-t border-[#333333] py-2">
           <SettingsRow
             icon={<FileDown size={18} className="text-emerald-500" />}
@@ -15292,7 +15775,6 @@ export const SettingsPage: React.FC = () => {
           </button>
         </div>
       </div>
-      {}
       <BottomSheet
         isOpen={isClearDataOpen}
         onClose={() => setIsClearDataOpen(false)}
@@ -15301,7 +15783,8 @@ export const SettingsPage: React.FC = () => {
       >
         <div className="pt-2 pb-8 px-4">
           <p className="text-gray-300 text-sm text-center mb-6 leading-relaxed">
-            Are you sure you want to clear all local data? This will delete your offline database and log you out. This action cannot be undone.
+            Are you sure you want to clear all local data? This will delete your
+            offline database and log you out. This action cannot be undone.
           </p>
           <div className="flex gap-3">
             <button
@@ -15328,7 +15811,6 @@ export const SettingsPage: React.FC = () => {
           </div>
         </div>
       </BottomSheet>
-      {}
       <AccountSettingsSheet
         isOpen={isAccountSettingsOpen}
         onClose={() => setIsAccountSettingsOpen(false)}
@@ -15336,26 +15818,22 @@ export const SettingsPage: React.FC = () => {
         onOpenChangePassword={() => setIsChangePasswordOpen(true)}
         currentEmail={user?.email || ''}
       />
-      {/* Change Email Sheet */}
       <ChangeEmailSheet
         isOpen={isChangeEmailOpen}
         onClose={() => setIsChangeEmailOpen(false)}
         onSuccess={() => showFeedback('Email updated successfully')}
         currentEmail={user?.email || ''}
       />
-      {/* Change Password Sheet */}
       <ChangePasswordSheet
         isOpen={isChangePasswordOpen}
         onClose={() => setIsChangePasswordOpen(false)}
         onSuccess={() => showFeedback('Password updated successfully')}
       />
-      {}
       <ExportDataSheet
         isOpen={isExportSheetOpen}
         onClose={() => setIsExportSheetOpen(false)}
         onSuccess={showFeedback}
       />
-      {}
       {feedback && (
         <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[70] bg-[#2A2A2A] border border-[#444444] text-white text-sm px-5 py-2.5 rounded-full shadow-lg backdrop-blur-md animate-in fade-in slide-in-from-bottom-2 duration-200">
           {feedback}
@@ -15756,6 +16234,7 @@ import App from './App.tsx';
 import './index.css';
 import { initializeDatabase } from './db/database';
 import { initializeSync } from './db/sync';
+import { AuthProvider } from './hooks/AuthProvider';
 async function bootstrap() {
   if (navigator.storage && navigator.storage.persist) {
     const isPersisted = await navigator.storage.persist();
@@ -15765,13 +16244,17 @@ async function bootstrap() {
     console.log('[Bootstrap] Initializing database...');
     await initializeDatabase();
     console.log('[Bootstrap] ✅ Database initialized successfully.');
-    initializeSync().catch(err => console.error('[Bootstrap] Initial sync failed:', err));
+    initializeSync().catch((err) =>
+      console.error('[Bootstrap] Initial sync failed:', err)
+    );
   } catch (error) {
     console.error('[Bootstrap] FATAL: Database initialization failed', error);
   }
   ReactDOM.createRoot(document.getElementById('root')!).render(
     <React.StrictMode>
-      <App />
+      <AuthProvider>
+        <App />
+      </AuthProvider>
     </React.StrictMode>
   );
 }
@@ -15804,6 +16287,200 @@ dist-ssr
 *.sln
 *.sw?
 *.tar.gz
+
+.mosaic-backup/
+pending-changes.txt
+</file>
+
+<file path="apply-changes.mjs">
+#!/usr/bin/env node
+import {
+  readFileSync, writeFileSync, mkdirSync, existsSync,
+  rmSync, cpSync, readdirSync, statSync,
+} from 'fs';
+import { dirname, join, resolve, relative, sep } from 'path';
+import { fileURLToPath } from 'url';
+import { execSync, spawn } from 'child_process';
+const __filename = fileURLToPath(import.meta.url);
+const ROOT = dirname(__filename);
+const BACKUP_ROOT = join(ROOT, '.mosaic-backup');
+const DIRECTIVE_RE = /^===(FILE|DELETE|COMMIT):(.+)===$/;
+function log(...a) { console.log(...a); }
+function fail(msg, code = 1) { console.error(`\n❌ ${msg}\n`); process.exit(code); }
+function parseArgs(argv) {
+  const flags = {
+    file: 'pending-changes.txt',
+    dryRun: false, noVerify: false, rollback: false, start: false, verbose: false,
+  };
+  for (const arg of argv) {
+    if (arg === '--dry-run') flags.dryRun = true;
+    else if (arg === '--no-verify') flags.noVerify = true;
+    else if (arg === '--rollback') flags.rollback = true;
+    else if (arg === '--start') flags.start = true;
+    else if (arg === '--verbose') flags.verbose = true;
+    else if (arg.startsWith('--file=')) flags.file = arg.slice('--file='.length);
+    else fail(`Unknown argument: ${arg}`);
+  }
+  return flags;
+}
+function parseMegaFile(content) {
+  let text = content;
+  const fenceMatch = text.match(/^(~~~+|`{3,})mosaic\s*\n([\s\S]*?)\n\1\s*$/);
+  if (fenceMatch) text = fenceMatch[1];
+  const lines = text.split(/\r?\n/);
+  const files = [], deletes = [];
+  let commit = null, i = 0;
+  while (i < lines.length) {
+    const m = lines[i].match(DIRECTIVE_RE);
+    if (!m) { i++; continue; }
+    const [, type, value] = m;
+    if (type === 'COMMIT') { commit = value.trim(); i++; continue; }
+    if (type === 'DELETE') { deletes.push(value.trim()); i++; continue; }
+    const path = value.trim();
+    const contentLines = [];
+    i++;
+    while (i < lines.length && !DIRECTIVE_RE.test(lines[i])) {
+      contentLines.push(lines[i]);
+      i++;
+    }
+    files.push({ path, content: contentLines.join('\n') });
+  }
+  return { files, deletes, commit };
+}
+function validatePath(p) {
+  if (!p) fail('Empty path in directive');
+  if (p.startsWith('/')) fail(`Absolute path not allowed: ${p}`);
+  if (p.includes('..')) fail(`Path traversal not allowed: ${p}`);
+  const abs = resolve(ROOT, p);
+  const rel = relative(ROOT, abs);
+  if (rel.startsWith('..') || rel === '') fail(`Path escapes project root: ${p}`);
+  return abs;
+}
+function ensureDir(p) { mkdirSync(dirname(p), { recursive: true }); }
+function formatBytes(n) {
+  if (n < 1024) return `${n} B`;
+  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
+  return `${(n / 1024 / 1024).toFixed(2)} MB`;
+}
+function run(cmd) {
+  log(`\n🔍 Running ${cmd}...`);
+  try {
+    execSync(cmd, { stdio: 'inherit', cwd: ROOT });
+    log(`  ✓ ${cmd} passed`);
+    return true;
+  } catch {
+    log(`  ✗ ${cmd} failed`);
+    return false;
+  }
+}
+function findLatestBackup() {
+  if (!existsSync(BACKUP_ROOT)) return null;
+  return readdirSync(BACKUP_ROOT)
+    .map((d) => join(BACKUP_ROOT, d))
+    .filter((d) => { try { return statSync(d).isDirectory(); } catch { return false; } })
+    .sort()
+    .reverse()[0] || null;
+}
+function doRollback() {
+  const latest = findLatestBackup();
+  if (!latest) fail('No backups found');
+  const manifestPath = join(latest, 'manifest.json');
+  if (!existsSync(manifestPath)) fail(`No manifest in ${latest}`);
+  const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
+  log(`\n⏪ Rolling back from ${relative(ROOT, latest)}`);
+  for (const p of manifest.created || []) {
+    const abs = join(ROOT, p);
+    if (existsSync(abs)) { rmSync(abs, { force: true }); log(`  ✗ Removed ${p}`); }
+  }
+  for (const p of [...(manifest.modified || []), ...(manifest.deleted || [])]) {
+    const src = join(latest, 'files', p);
+    if (existsSync(src)) {
+      const dest = join(ROOT, p);
+      ensureDir(dest);
+      cpSync(src, dest);
+      log(`  ↺ Restored ${p}`);
+    }
+  }
+  log('\n✅ Rollback complete\n');
+  process.exit(0);
+}
+function suggestCommitFallback(files, deletes) {
+  const paths = [...files.map((f) => f.path), ...deletes];
+  const prefixes = new Set(paths.map((p) => p.split(sep).slice(0, 2).join('/')));
+  if ([...prefixes].every((d) => d.startsWith('appwrite-functions/'))) return 'chore: appwrite function';
+  if ([...prefixes].every((d) => d.startsWith('src/components/ui/'))) return 'ui: primitives';
+  if ([...prefixes].every((d) => d.startsWith('src/lib/'))) return 'lib: utilities';
+  if ([...prefixes].every((d) => d.startsWith('src/hooks/'))) return 'hooks: state';
+  return `chore: apply ${files.length + deletes.length} file change(s)`;
+}
+function main() {
+  const flags = parseArgs(process.argv.slice(2));
+  if (flags.rollback) doRollback();
+  const inputPath = resolve(ROOT, flags.file);
+  if (!existsSync(inputPath)) fail(`Input file not found: ${flags.file}`);
+  const { files, deletes, commit } = parseMegaFile(readFileSync(inputPath, 'utf8'));
+  if (files.length === 0 && deletes.length === 0) fail('No directives found in input file');
+  log(`\n📋 Parsed ${files.length} FILE, ${deletes.length} DELETE`);
+  if (commit) log(`📝 Commit: ${commit}`);
+  const planned = [];
+  for (const f of files) {
+    const abs = validatePath(f.path);
+    planned.push({ kind: existsSync(abs) ? 'MODIFY' : 'CREATE', path: f.path, abs, content: f.content });
+  }
+  for (const p of deletes) {
+    planned.push({ kind: 'DELETE', path: p, abs: validatePath(p) });
+  }
+  log('\nPlanned operations:');
+  for (const p of planned) {
+    const size = p.content ? ` (${formatBytes(Buffer.byteLength(p.content, 'utf8'))})` : '';
+    log(`  ${p.kind.padEnd(7)} ${p.path}${size}`);
+  }
+  if (flags.dryRun) { log('\n🧪 Dry run — no files written.\n'); process.exit(0); }
+  const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+  const backupDir = join(BACKUP_ROOT, timestamp);
+  const backupFilesDir = join(backupDir, 'files');
+  mkdirSync(backupFilesDir, { recursive: true });
+  const manifest = { timestamp, created: [], modified: [], deleted: [], commit: commit || null };
+  for (const p of planned) {
+    if (p.kind === 'CREATE') { manifest.created.push(p.path); continue; }
+    if (existsSync(p.abs)) {
+      const dest = join(backupFilesDir, p.path);
+      ensureDir(dest);
+      cpSync(p.abs, dest);
+      (p.kind === 'MODIFY' ? manifest.modified : manifest.deleted).push(p.path);
+    }
+  }
+  writeFileSync(join(backupDir, 'manifest.json'), JSON.stringify(manifest, null, 2));
+  log(`\n💾 Backup: ${relative(ROOT, backupDir)}`);
+  log('\n✍️  Writing files...');
+  for (const p of planned) {
+    if (p.kind === 'DELETE') {
+      if (existsSync(p.abs)) { rmSync(p.abs, { force: true }); log(`  ✓ Deleted ${p.path}`); }
+      else log(`  · Skipped (not found) ${p.path}`);
+    } else {
+      ensureDir(p.abs);
+      let body = p.content;
+      if (!body.endsWith('\n')) body += '\n';
+      writeFileSync(p.abs, body, 'utf8');
+      log(`  ✓ ${p.kind === 'CREATE' ? 'Created' : 'Updated'} ${p.path}`);
+    }
+  }
+  if (!flags.noVerify) {
+    if (!run('npm run lint')) fail('Lint failed. Run `npm run apply:rollback` to restore.');
+    if (!run('npm run build')) fail('Build failed. Run `npm run apply:rollback` to restore.');
+  }
+  const commitMsg = commit || suggestCommitFallback(files, deletes);
+  log(`\n✅ ${files.length} file(s) applied, ${deletes.length} deleted.${flags.noVerify ? '' : ' Verified.'}`);
+  log(`\n📝 Suggested commit:\n   ${commitMsg}`);
+  log(`\n💡 git add -A && git commit -m "${commitMsg}"`);
+  log(`\n↩️  To rollback: npm run apply:rollback\n`);
+  if (flags.start) {
+    log('🚀 Starting dev server...\n');
+    const child = spawn('npm', ['run', 'dev'], { stdio: 'inherit', cwd: ROOT });
+    child.on('exit', (code) => process.exit(code || 0));
+  }
+}
+main();
 </file>
 
 <file path="eslint.config.js">
@@ -15863,7 +16540,12 @@ export default defineConfig([
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "apply": "node apply-changes.mjs",
+    "apply:dry": "node apply-changes.mjs --dry-run",
+    "apply:docs": "node apply-changes.mjs --no-verify",
+    "apply:start": "node apply-changes.mjs --start",
+    "apply:rollback": "node apply-changes.mjs --rollback"
   },
   "dependencies": {
     "ajv": "^8.20.0",
