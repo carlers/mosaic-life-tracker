@@ -10,6 +10,7 @@ export const MESSAGE_ACTION_FUNCTION_ID = '6aa8057f002a4c306fdd';
 
 const functions = new Functions(client);
 const SEND_TIMEOUT_MS = 15_000;
+const MAX_DELIVERY_LOOPS = 5;
 let inFlightDeliveryPromise: Promise<void> | null = null;
 let deliveryRequestedDuringFlight = false;
 
@@ -89,7 +90,15 @@ export async function deliverPendingMessages(userId: string): Promise<void> {
   }
   inFlightDeliveryPromise = (async () => {
     try {
+      let loopCount = 0;
       for (;;) {
+        loopCount++;
+        if (loopCount > MAX_DELIVERY_LOOPS) {
+          console.warn(
+            `[messageDelivery] delivery loop hit cap (${MAX_DELIVERY_LOOPS}); breaking`
+          );
+          break;
+        }
         deliveryRequestedDuringFlight = false;
         let db;
         try {

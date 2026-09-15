@@ -26,10 +26,11 @@ const PAGE_SIZE = 100;
 const PULL_OVERLAP_MS = 30_000;
 const RATE_LIMIT_BASE_MS = 5_000;
 const RATE_LIMIT_MAX_MS = 60_000;
+const FAILURE_BACKOFF_BASE_MS = 5_000;
+const FAILURE_BACKOFF_MAX_MS = 60_000;
 const TRIGGER_DEBOUNCE_MS = 1_500;
 
 type CollectionName = keyof AppDatabaseCollections;
-
 const ALL_COLLECTIONS: CollectionName[] = [
   'tasks',
   'categories',
@@ -78,7 +79,8 @@ function savePerCollectionState(
     const state: PerCollectionPersistedState = { ownerId: userId, entries };
     localStorage.setItem(PER_COLLECTION_KEY, JSON.stringify(state));
   } catch {
-    // Ignore storage failures.
+    // Intentionally swallowed: localStorage may be unavailable (private mode,
+    // quota exceeded, disabled storage). Sync state persistence is best-effort.
   }
 }
 
@@ -126,14 +128,12 @@ export function subscribeToSyncStatus(listener: SyncListener): () => void {
 
 type AppwriteRow = Record<string, unknown>;
 type AppwritePayload = Record<string, unknown>;
-
 type LocalDoc = {
   id: string;
   _meta?: { lwt?: number };
   toJSON: () => Record<string, unknown>;
   incrementalPatch: (updates: Record<string, unknown>) => Promise<unknown>;
 };
-
 type LocalCollection = {
   findOne: (id: string) => { exec: () => Promise<LocalDoc | null> };
   find: () => { exec: () => Promise<LocalDoc[]> };
@@ -143,6 +143,8 @@ type LocalCollection = {
 let isSyncInProgress = false;
 let rateLimitUntil = 0;
 let rateLimitBackoffMs = 0;
+let failureBackoffUntil = 0;
+let failureBackoffMs = 0;
 let debounceTimer: ReturnType<typeof setTimeout> | null = null;
 
 declare global {
@@ -181,9 +183,7 @@ function toAppwriteFormat(
   delete source._meta;
   delete source._deleted;
   delete source._rev;
-
   const mapped: AppwritePayload = {};
-
   if (collection === 'tasks') {
     mapped.title = source.title || '';
     mapped.is_completed = source.completed ?? false;
@@ -261,7 +261,6 @@ function toAppwriteFormat(
     mapped.updated_at = source.updatedAt || new Date().toISOString();
     mapped.deleted = source.isDeleted ?? false;
   }
-
   return mapped;
 }
 
@@ -277,7 +276,6 @@ function fromAppwriteFormat(
   delete mapped.$databaseId;
   delete mapped.$tableId;
   delete mapped.$sequence;
-
   if (collection === 'tasks') {
     mapped.id = row.$id || mapped.id;
     mapped.completed = mapped.is_completed ?? false;
@@ -391,7 +389,6 @@ function fromAppwriteFormat(
     delete mapped.updated_at;
     delete mapped.deleted;
   }
-
   return mapped;
 }
 
@@ -425,7 +422,6 @@ export async function initializeSync(): Promise<void> {
       console.log('[Sync] initializeSync skipped: sync already in progress');
     return;
   }
-
   if (Date.now() < rateLimitUntil) {
     if (DEBUG) {
       console.log(
@@ -437,17 +433,25 @@ export async function initializeSync(): Promise<void> {
     updateSyncStatus({ isSyncing: false });
     return;
   }
-
+  if (Date.now() < failureBackoffUntil) {
+    if (DEBUG) {
+      console.log(
+        `[Sync] Skipping: failure backoff until ${new Date(
+          failureBackoffUntil
+        ).toISOString()}`
+      );
+    }
+    updateSyncStatus({ isSyncing: false });
+    return;
+  }
   if (typeof navigator !== 'undefined' && navigator.onLine === false) {
     if (DEBUG) console.log('[Sync] Offline, skipping sync');
     updateSyncStatus({ isSyncing: false });
     return;
   }
-
   isSyncInProgress = true;
   if (DEBUG) console.log('[Sync] Starting sync...');
   updateSyncStatus({ isSyncing: true, errors: [] });
-
   try {
     const userId = await resolveAuthenticatedUserId();
     if (!userId) {
@@ -455,7 +459,6 @@ export async function initializeSync(): Promise<void> {
       updateSyncStatus({ isSyncing: false });
       return;
     }
-
     if (perCollectionOwnerId !== userId) {
       perCollectionSync = loadPerCollectionState(userId);
       perCollectionOwnerId = userId;
@@ -466,12 +469,11 @@ export async function initializeSync(): Promise<void> {
         );
       }
     }
-
     const db = getDatabase();
     const collectionErrors: string[] = [];
     let sawRateLimit = false;
     let sawUnauthorized = false;
-
+    let sawNonRateLimitFailure = false;
     for (const colName of ALL_COLLECTIONS) {
       try {
         await syncCollection(
@@ -486,18 +488,19 @@ export async function initializeSync(): Promise<void> {
             : `Unknown error in ${colName}`;
         console.error(`[Sync] Collection "${colName}" failed:`, colError);
         collectionErrors.push(`${colName}: ${message}`);
-        if (isRateLimitError(colError)) sawRateLimit = true;
-        if (isUnauthorizedError(colError)) sawUnauthorized = true;
+        if (isRateLimitError(colError)) {
+          sawRateLimit = true;
+        } else if (isUnauthorizedError(colError)) {
+          sawUnauthorized = true;
+        } else {
+          sawNonRateLimitFailure = true;
+        }
       }
     }
-
-    // 401s already dispatched from guardedCall inside syncCollection;
-    // this short-circuit just stops processing further collections.
     if (sawUnauthorized) {
       updateSyncStatus({ isSyncing: false, errors: collectionErrors });
       return;
     }
-
     if (sawRateLimit) {
       rateLimitBackoffMs =
         rateLimitBackoffMs === 0
@@ -511,7 +514,19 @@ export async function initializeSync(): Promise<void> {
       rateLimitBackoffMs = 0;
       rateLimitUntil = 0;
     }
-
+    if (sawNonRateLimitFailure && !sawRateLimit) {
+      failureBackoffMs =
+        failureBackoffMs === 0
+          ? FAILURE_BACKOFF_BASE_MS
+          : Math.min(failureBackoffMs * 2, FAILURE_BACKOFF_MAX_MS);
+      failureBackoffUntil = Date.now() + failureBackoffMs;
+      console.warn(
+        `[Sync] Backing off after non-429 failures for ${failureBackoffMs}ms`
+      );
+    } else if (!sawNonRateLimitFailure) {
+      failureBackoffMs = 0;
+      failureBackoffUntil = 0;
+    }
     if (collectionErrors.length === 0) {
       updateSyncStatus({
         isSyncing: false,
@@ -547,21 +562,17 @@ async function syncCollection(
   const tableId =
     APPWRITE_CONFIG.tables[colName as keyof typeof APPWRITE_CONFIG.tables];
   if (DEBUG) console.log(`[Sync] Syncing ${colName}...`);
-
   const entry = perCollectionSync[colName as CollectionName];
   const pullBoundaryMs = entry?.pull ? new Date(entry.pull).getTime() : 0;
   const dirtyBoundaryMs = entry?.dirty ? new Date(entry.dirty).getTime() : 0;
   const usesTimestamps = isTimestampedCollection(colName);
-
   const remoteIndex = new Map<
     string,
     { updatedAt: number; isDeleted: boolean }
   >();
   const justPulled = new Set<string>();
-
   let cursor: string | undefined = undefined;
   let pageCount = 0;
-
   for (;;) {
     const queries: unknown[] = [
       Query.equal('user_id', userId),
@@ -575,7 +586,6 @@ async function syncCollection(
       queries.push(Query.greaterThan('$updatedAt', sinceIso));
     }
     if (cursor) queries.push(Query.cursorAfter(cursor));
-
     const remoteResponse = await guardedCall(() =>
       tablesDB.listRows({
         databaseId: APPWRITE_CONFIG.databaseId,
@@ -584,37 +594,31 @@ async function syncCollection(
         total: false,
       })
     );
-
     const rows = ((remoteResponse as { rows?: AppwriteRow[] }).rows ||
       []) as AppwriteRow[];
     pageCount++;
     if (DEBUG)
       console.log(`[Sync] ${colName} page ${pageCount}: ${rows.length} rows`);
     if (rows.length === 0) break;
-
     for (const row of rows) {
       try {
         const doc = fromAppwriteFormat(row, colName);
         const docId = doc.id as string;
         if (!docId) continue;
-
         const remoteUpdatedAt = toMs(row.$updatedAt);
         remoteIndex.set(docId, {
           updatedAt: remoteUpdatedAt,
           isDeleted: (doc.isDeleted as boolean) ?? false,
         });
-
         const localDoc = await collection.findOne(docId).exec();
         if (!localDoc) {
           await collection.upsert(doc);
           justPulled.add(docId);
           continue;
         }
-
         const localLwt = localDoc._meta?.lwt ?? 0;
         const isLocalDirty = localLwt > dirtyBoundaryMs;
         if (isLocalDirty) continue;
-
         if (colName === 'messages' && row.direction === 'outgoing') {
           const remoteReadAt = (row.read_at as string) || '';
           const localJson = localDoc.toJSON();
@@ -629,7 +633,6 @@ async function syncCollection(
             }
           }
         }
-
         let remoteWins = false;
         if (usesTimestamps) {
           const localUpdatedAt = toMs(localDoc.toJSON().updatedAt);
@@ -637,7 +640,6 @@ async function syncCollection(
         } else {
           remoteWins = remoteUpdatedAt > localLwt;
         }
-
         if (remoteWins) {
           await collection.upsert(doc);
           justPulled.add(docId);
@@ -646,19 +648,16 @@ async function syncCollection(
         console.error(`[Sync] Failed to process ${colName} row:`, rowError);
       }
     }
-
     if (rows.length < PAGE_SIZE) break;
     const lastId = rows[rows.length - 1].$id as string | undefined;
     if (!lastId || lastId === cursor) break;
     cursor = lastId;
   }
-
   perCollectionSync[colName as CollectionName] = {
     pull: new Date(cycleStartMs).toISOString(),
     dirty: entry?.dirty ?? '',
   };
   savePerCollectionState(userId, perCollectionSync);
-
   // Messages are excluded from the push loop. Every message row is written
   // server-side by the `message-action` function.
   if (colName !== 'messages') {
@@ -667,15 +666,12 @@ async function syncCollection(
       const json = doc.toJSON();
       const docUserId = json.userId as string | undefined;
       if (docUserId !== userId) continue;
-
       const docId = (json.id as string) || doc.id;
       if (!docId) continue;
       if (justPulled.has(docId)) continue;
-
       const remoteMeta = remoteIndex.get(docId);
       const localLwt = doc._meta?.lwt ?? 0;
       const isLocalDirty = localLwt > dirtyBoundaryMs;
-
       let shouldPush = false;
       if (isLocalDirty) {
         shouldPush = true;
@@ -683,9 +679,7 @@ async function syncCollection(
         const localUpdatedAt = toMs(json.updatedAt);
         shouldPush = localUpdatedAt > remoteMeta.updatedAt;
       }
-
       if (!shouldPush) continue;
-
       const rowData = toAppwriteFormat(json, colName, userId);
       if (DEBUG) console.log(`[Sync] Pushing ${colName} ${docId}`);
       try {
@@ -726,13 +720,11 @@ async function syncCollection(
       }
     }
   }
-
   perCollectionSync[colName as CollectionName] = {
     pull: new Date(cycleStartMs).toISOString(),
     dirty: new Date().toISOString(),
   };
   savePerCollectionState(userId, perCollectionSync);
-
   if (DEBUG)
     console.log(`[Sync] ✅ ${colName} synced (${pageCount} page(s) pulled)`);
 }

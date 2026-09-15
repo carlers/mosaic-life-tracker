@@ -38,7 +38,7 @@ export interface UseMessagesReturn {
   ) => Promise<void>;
   markAllRead: () => Promise<void>;
   unsendMessage: (id: string) => Promise<void>;
-  toggleReaction: (id: string, emoji: string) => Promise<void>;
+  toggleReaction: (id: string, emoji: string) => Promise<'ok' | 'timeout'>;
 }
 
 function truncateForSnapshot(s: string, max = 100): string {
@@ -53,14 +53,12 @@ export function useMessages(friendId: string | null): UseMessagesReturn {
   const [messages, setMessages] = useState<MessageDocument[]>([]);
   const [loadedKey, setLoadedKey] = useState<string | null>(null);
   const markAllReadInFlightRef = useRef(false);
-
   useEffect(() => {
     if (!userId || !friendId) return;
     const uid = userId;
     const fid = friendId;
     let isMounted = true;
     let subscription: { unsubscribe: () => void } | undefined;
-
     (async () => {
       try {
         const tid = await makeThreadId(uid, fid);
@@ -88,13 +86,11 @@ export function useMessages(friendId: string | null): UseMessagesReturn {
         console.error('[useMessages] init failed:', err);
       }
     })();
-
     return () => {
       isMounted = false;
       if (subscription) subscription.unsubscribe();
     };
   }, [userId, friendId]);
-
   const sendMessage = useCallback(
     async (content: string, replyTo?: ReplyContext) => {
       const uid = user?.$id;
@@ -108,14 +104,12 @@ export function useMessages(friendId: string | null): UseMessagesReturn {
       }
       const trimmed = content.trim();
       if (!trimmed) return;
-
       const tid = await makeThreadId(uid, friendId);
       const db = getDatabase();
       const now = new Date().toISOString();
       const localId = `msg_${Date.now()}_${Math.random()
         .toString(36)
         .substr(2, 9)}`;
-
       const newMsg: MessageDocument = {
         id: localId,
         userId: uid,
@@ -147,7 +141,6 @@ export function useMessages(friendId: string | null): UseMessagesReturn {
     },
     [user?.$id, friendId]
   );
-
   const sendTaskReply = useCallback(
     async (task: TaskDocument, content: string, categoryColor: string) => {
       const uid = user?.$id;
@@ -161,14 +154,12 @@ export function useMessages(friendId: string | null): UseMessagesReturn {
       }
       const trimmed = content.trim();
       if (!trimmed) return;
-
       const tid = await makeThreadId(uid, friendId);
       const db = getDatabase();
       const now = new Date().toISOString();
       const localId = `msg_${Date.now()}_${Math.random()
         .toString(36)
         .substr(2, 9)}`;
-
       const newMsg: MessageDocument = {
         id: localId,
         userId: uid,
@@ -200,7 +191,6 @@ export function useMessages(friendId: string | null): UseMessagesReturn {
     },
     [user?.$id, friendId]
   );
-
   const sendTaskReaction = useCallback(
     async (task: TaskDocument, emoji: string, categoryColor: string) => {
       const uid = user?.$id;
@@ -214,14 +204,12 @@ export function useMessages(friendId: string | null): UseMessagesReturn {
       }
       const trimmed = emoji.trim();
       if (!trimmed) return;
-
       const tid = await makeThreadId(uid, friendId);
       const db = getDatabase();
       const now = new Date().toISOString();
       const localId = `msg_${Date.now()}_${Math.random()
         .toString(36)
         .substr(2, 9)}`;
-
       const newMsg: MessageDocument = {
         id: localId,
         userId: uid,
@@ -253,13 +241,11 @@ export function useMessages(friendId: string | null): UseMessagesReturn {
     },
     [user?.$id, friendId]
   );
-
   const markAllRead = useCallback(async () => {
     const uid = user?.$id;
     if (!uid || !friendId) return;
     if (markAllReadInFlightRef.current) return;
     markAllReadInFlightRef.current = true;
-
     try {
       const tid = await makeThreadId(uid, friendId);
       const db = getDatabase();
@@ -275,7 +261,6 @@ export function useMessages(friendId: string | null): UseMessagesReturn {
         })
         .exec();
       if (unread.length === 0) return;
-
       const now = new Date().toISOString();
       for (const stale of unread) {
         try {
@@ -292,7 +277,6 @@ export function useMessages(friendId: string | null): UseMessagesReturn {
           }
         }
       }
-
       markReadOnRemote(friendId, tid);
     } catch (err) {
       console.error('[useMessages] markAllRead failed:', err);
@@ -300,7 +284,6 @@ export function useMessages(friendId: string | null): UseMessagesReturn {
       markAllReadInFlightRef.current = false;
     }
   }, [user?.$id, friendId]);
-
   const unsendMessage = useCallback(
     async (id: string) => {
       const uid = user?.$id;
@@ -317,7 +300,6 @@ export function useMessages(friendId: string | null): UseMessagesReturn {
       }
       const recipientId = doc.recipientId;
       const now = new Date().toISOString();
-
       await doc.patch({
         content: '',
         taskRefId: '',
@@ -332,9 +314,7 @@ export function useMessages(friendId: string | null): UseMessagesReturn {
         deliveryStatus: 'delivered',
         updatedAt: now,
       });
-
       const rmsgId = await makeRecipientRowId(id);
-
       try {
         const replies = await db.messages
           .find({
@@ -367,24 +347,21 @@ export function useMessages(friendId: string | null): UseMessagesReturn {
           cascadeQueryErr
         );
       }
-
       unsendOnRemote(id, recipientId);
     },
     [user?.$id]
   );
-
   const toggleReaction = useCallback(
-    async (id: string, emoji: string) => {
+    async (id: string, emoji: string): Promise<'ok' | 'timeout'> => {
       const uid = user?.$id;
       if (!uid) {
         console.error('[useMessages] Cannot react: User not authenticated');
-        return;
+        return 'ok';
       }
       const db = getDatabase();
       const doc = await db.messages.findOne(id).exec();
-      if (!doc) return;
-      if (doc.isUnsent) return;
-
+      if (!doc) return 'ok';
+      if (doc.isUnsent) return 'ok';
       const peerUserId =
         doc.direction === 'outgoing' ? doc.recipientId : doc.senderId;
       const myRowId = doc.id;
@@ -392,7 +369,6 @@ export function useMessages(friendId: string | null): UseMessagesReturn {
         doc.direction === 'outgoing'
           ? await makeRecipientRowId(doc.id)
           : doc.originalMessageId || '';
-
       const originalReactions = doc.reactions;
       const current = parseReactions(doc.reactions);
       const op: 'add' | 'remove' = hasUserReacted(current, emoji, uid)
@@ -401,7 +377,6 @@ export function useMessages(friendId: string | null): UseMessagesReturn {
       const next = applyReactionDelta(current, emoji, uid, op);
       const nextStr = stringifyReactions(next);
       const now = new Date().toISOString();
-
       try {
         await doc.patch({ reactions: nextStr, updatedAt: now });
       } catch (patchErr) {
@@ -423,10 +398,9 @@ export function useMessages(friendId: string | null): UseMessagesReturn {
           }
         } else {
           console.error('[useMessages] react patch failed:', patchErr);
-          return;
+          return 'ok';
         }
       }
-
       if (doc.direction === 'outgoing' && doc.deliveryStatus === 'pending') {
         try {
           await Promise.race([
@@ -441,7 +415,6 @@ export function useMessages(friendId: string | null): UseMessagesReturn {
             );
           }
         }
-
         let stillPending = true;
         try {
           const fresh = await db.messages.findOne(id).exec();
@@ -454,8 +427,8 @@ export function useMessages(friendId: string | null): UseMessagesReturn {
             );
           }
         }
-
         if (stillPending) {
+          let didRevert = false;
           try {
             const fresh = await db.messages.findOne(id).exec();
             if (fresh && fresh.reactions === nextStr) {
@@ -463,6 +436,7 @@ export function useMessages(friendId: string | null): UseMessagesReturn {
                 reactions: originalReactions,
                 updatedAt: new Date().toISOString(),
               });
+              didRevert = true;
             }
           } catch (revertErr) {
             const code = (revertErr as { code?: string })?.code;
@@ -478,10 +452,9 @@ export function useMessages(friendId: string | null): UseMessagesReturn {
               '[useMessages] react skipped: message still pending after delivery wait'
             );
           }
-          return;
+          return didRevert ? 'timeout' : 'ok';
         }
       }
-
       reactOnRemote(myRowId, peerRowId, peerUserId, emoji, op)
         .then(async (resolvedPeerRowId) => {
           if (!resolvedPeerRowId) return;
@@ -495,11 +468,6 @@ export function useMessages(friendId: string | null): UseMessagesReturn {
           }
         })
         .catch(async (err) => {
-          // A2: revert the optimistic reaction patch on server failure so
-          // local state does not silently diverge from the peer's view.
-          // Guard against clobbering a concurrent update by verifying the
-          // row still holds our exact nextStr before reverting. CONFLICT on
-          // revert is expected under parallel sync and is ignored.
           try {
             const fresh = await db.messages.findOne(id).exec();
             if (fresh && !fresh.isUnsent && fresh.reactions === nextStr) {
@@ -519,14 +487,13 @@ export function useMessages(friendId: string | null): UseMessagesReturn {
           }
           console.error('[useMessages] react delivery failed:', err);
         });
+      return 'ok';
     },
     [user?.$id]
   );
-
   const key = userId && friendId ? `${userId}_${friendId}` : null;
   const visible = key && loadedKey === key ? messages : [];
   const isLoading = !!key && loadedKey !== key;
-
   return {
     messages: visible,
     isLoading,
