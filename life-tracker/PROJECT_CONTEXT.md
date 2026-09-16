@@ -94,12 +94,12 @@ The user pastes the block into `pending-changes.txt` (project root, gitignored),
 | Command | Purpose |
 |---|---|
 | `npm run apply:dry` | Parse + validate, no writes |
-| `npm run apply` | Write files, lint, build |
-| `npm run apply:docs` | Write files, skip lint/build |
-| `npm run apply:start` | Write, lint, build, start dev server |
+| `npm run apply` | Write files, lint, test, build |
+| `npm run apply:docs` | Write files, skip lint/test/build |
+| `npm run apply:start` | Write, lint, test, build, start dev server |
 | `npm run apply:rollback` | Restore from the most recent backup |
 
-The installer (`apply-changes.mjs`) backs up every modified or deleted file to `.mosaic-backup/<timestamp>/` before writing. On lint or build failure it exits without restoring; the user runs `npm run apply:rollback` explicitly to revert.
+The installer (`apply-changes.mjs`) backs up every modified or deleted file to `.mosaic-backup/<timestamp>/` before writing. On lint, test, or build failure it exits without restoring; the user runs `npm run apply:rollback` explicitly to revert.
 
 **Parser is fence-aware (CRITICAL).** `parseMegaFile` runs a two-pass scan:
 
@@ -171,6 +171,7 @@ Rules:
 - ✅ **Phase 3.4 – Auth Architecture Hardening Complete:** `AuthProvider` React Context is the single source of truth for session state. Single `account.get()` per app load instead of ~22. Logout now returns `boolean` and callers gate navigation on success. Mid-session 401 from sync, message delivery, friend-data, social reads/writes, image upload/fetch, and export now dispatch a global `auth:unauthorized` event that clears auth state and redirects to `/login`. Multi-tab logout and cross-tab login sync via `localStorage` broadcast. Mount-time network errors no longer redirect to `/login`; `AppLayout` renders a retry screen instead. See §23.
 - ✅ **Backlog Closure 1–7 Complete:** §4 scope annotation, §8 chronological reorder, §9 parenthetical removal, §20.3/20.5 cross-refs, §18 local-dirty-wins documented. `message-action`: `mark_read` returns `{ markedPartner, markedCaller }`, `handleDeliver` rejects empty content (no content/taskRef/replyTo) and enforces `msg_` prefix, `resolveLegacyPeerRowId` cap log includes candidate count, `handleReact` uses two-phase read-then-write (overflow pre-check prevents partial commit). Wrapper polish: `makeUnauthorizedError()` helper in `authEvents.ts`; `friendData` 401 throws `FriendAccessError('forbidden')` with `code = 401`; `isUsernameAvailable` returns `null` for all non-auth failures (network, 5xx, parse) and 401, `false` only for "taken"; `SetUsernameSheet` distinguishes "could not check" from "taken". Delivery/sync polish: `deliverPendingMessages` capped at 5 iterations with `[messageDelivery] delivery loop hit cap` warning; `sync.ts` adds non-429 failure backoff (5s→60s exponential) separate from rate-limit backoff. UX polish: `toggleReaction` returns `'ok' | 'timeout'`; `ChatPage` shows "Couldn't send reaction. Try again." toast on timeout-revert. Enforcement: new `src/lib/sdk.ts` guarded SDK surface; ESLint `no-restricted-imports` blocks raw `TablesDB`/`Storage`/`Functions`/`Account` imports outside `src/lib/sdk.ts` and `src/lib/appwrite.ts`.
 - ✅ **Calendar Perf Audit Complete:** Slide windowing in `useCalendarState`/`CalendarBody`/`FriendCalendarView` (RENDER_WINDOW = 2), memoized `tasksByDate` Map, memoized `DayCell` with stable props, memoized `CalendarBody`, ref-counted object-URL cache in `useTaskImage`, friend-pane activation refetch throttle. Dead code removed: `CalendarView.tsx`, `ViewContainer.tsx`, `DiaryView.tsx`, `TodoListView.tsx`. See §16 "Calendar Rendering Pipeline" for the invariants.
+- ✅ **Test Suite Layers 1–4 Complete:** 152 tests across 15 files in three Vitest projects (`unit`, `handlers`, `react`). Layers 1 + 3 test pure functions (`reactionUtils`, `syncMapping`, `threads`, `visibility`, `settingsRowId`, `appwriteParity`); Layer 2 tests every `message-action` handler with a mocked `node-appwrite` via `invoke-handler.ts`; Layer 4 tests hook contracts (`useConversations`, `useMessages`, `useTaskImage`) against a real in-memory RxDB built by `testDb.ts`. The installer's verify block now runs `npm test` between lint and build (§5.1), so any test failure gates a patch before it lands. See §24 for layout, philosophy, and the test helper's deliberate divergence from `src/db/database.ts`.
 - 🔄 **Next Up:** Phase 3.5 — Todo List View; Phase 3.6 — Diary View; Phase 3.7 — Notifications tab (in-app notifications for message/reaction events)
 
 ---
@@ -205,7 +206,7 @@ Rules:
 ## 10. Error Handling & Logging Conventions
 - **Hook/Service Log Prefix:** All `console.error` and `console.warn` calls MUST be prefixed with `[ComponentName]` or `[hookName]` in square brackets. Active prefixes include: `[useTasks]`, `[useMessages]`, `[useConversations]`, `[messageDelivery]`, `[ChatPage]`, `[useFriendCalendar]`, `[PersonPane]`, `[FriendCalendarPage]`, `[Storage]`, `[Sync]`, `[Bootstrap]`, `[RxDB]`, `[CategoryManagerSheet]`, `[ReplyComposerSheet]`, `[EmojiPicker]`. Makes log filtering trivial
 - **Guard Clause Errors:** When a mutator is called without an authenticated user, log `[hookName] Cannot <action>: User not authenticated` and return silently. Never throw — the UI shouldn't crash because of a race with logout
-- **Silent Session Cleanup:** Before any `account.createEmailPasswordSession`, wrap a `try { await account.deleteSession('current') } catch {}` — swallowing that error is intentional and required
+- **Silent Session Cleanup:** Before any `account.createEmailPasswordSession`, wrap a `try { await account.deleteSession('current') } catch {}` — swallowing that error is intentional and required. ESLint's `no-empty` rule is configured with `allowEmptyCatch: true` (see §15) specifically to permit this pattern without requiring a placeholder comment inside the block
 - **DEBUG Gating:** Non-error diagnostic logs MUST be wrapped in `if (import.meta.env.DEV)` or gated behind a module-level `const DEBUG = import.meta.env.DEV`. Never log to production consoles
 - **Error Surfacing to UI:** Use a fixed-position toast (`fixed bottom-24 left-1/2 -translate-x-1/2 z-[70]`) with auto-dismiss via `setTimeout` (2000ms) — see DayViewSheet's `deleteFeedback` and `ChatPage`'s `feedback` patterns. Do not use `alert()` for anything except placeholder "Coming Soon" features
 - **Invalid RowId Recovery:** If sync logs an `Invalid rowId` error for a locally-created doc, that doc will retry forever. The owning hook (e.g., `useSettings`) must scan for and `remove()` any legacy rows whose ID violates Appwrite's constraints during its init phase (see §11)
@@ -265,7 +266,7 @@ Rules:
   - When comparing timestamps, always use the `toMs()` helper pattern (`Number.isFinite` guard)
 - **Empty-String Over Null:** Optional string fields (`memo`, `image`, `completedAt`, `icon`, `friendBio`, `threadId`, `replyToId`, `replyToContent`, `replyToSenderId`, `originalMessageId`, `reactions`, `readAt`) MUST default to `''`, never `null` or `undefined`, so RxDB schema validation never fails
 - **Reactions Format:** JSON string of `Array<{ emoji: string; userIds: string[] }>`. Serialized as `''` when empty (not `'[]'`). Parsed/stringified only via `src/lib/reactionUtils.ts`
-- **Schema Migrations:** When adding a new optional field to an existing RxDB collection, bump the schema `version` and add a `migrationStrategies` entry in `database.ts` that backfills the field with `''` (or `false` for booleans). Also update both `toAppwriteFormat` and `fromAppwriteFormat` in `sync.ts`, and run a one-off `scripts/*.mjs` script to add the corresponding Appwrite column (e.g., `scripts/add-message-reactions-columns.mjs`)
+- **Schema Migrations:** When adding a new optional field to an existing RxDB collection, bump the schema `version` and add a `migrationStrategies` entry in `database.ts` that backfills the field with `''` (or `false` for booleans). Also update both `toAppwriteFormat` and `fromAppwriteFormat` in `sync.ts`, and run a one-off `scripts/*.mjs` script to add the corresponding Appwrite column (e.g., `scripts/add-message-reactions-columns.mjs`). The test helper `tests/helpers/testDb.ts` mirrors `database.ts`'s strategies and MUST be updated in lock-step — see §24.5
 
 ## 13. Modal & Bottom Sheet Structure
 - **One Sheet = One File:** Every sheet lives in its own file and takes `{ isOpen, onClose, <entity>, onSave/onConfirm }` props. No context-based sheet orchestration. (Primitive rules: see §7)
@@ -301,13 +302,15 @@ Rules:
   - `authEvents.ts` — pure module: `AUTH_UNAUTHORIZED_EVENT` constant, `isUnauthorizedError(err)` predicate, `makeUnauthorizedError(message?)` helper (creates a synthetic 401-coded `Error`), `dispatchUnauthorized()` helper, `guardedCall<T>(fn)` wrapper. No React. Imported by every SDK wrapper that can receive a 401.
   - `sdk.ts` — **the guarded SDK surface.** Exports `guardedTablesDB`, `guardedStorage`, `guardedFunctions`, `guardedAccount`. Every method internally calls `guardedCall()`. Param shapes are defined explicitly (see §6 re: `Parameters<T>` on overloaded SDK methods). Raw SDK service classes (`TablesDB`, `Storage`, `Functions`, `Account`) may only be imported and constructed here and in `src/lib/appwrite.ts`. Enforced by ESLint `no-restricted-imports` (below). `guardedFunctions.createExecution` additionally normalizes `responseStatusCode === 401` (the SDK returns 401 executions instead of throwing) into a `makeUnauthorizedError()` before guardedCall's dispatch can miss it.
   - `appwrite.ts` — the only other file permitted to construct raw `Client`/`Account`. Exports `client` and `account` used by `sdk.ts`.
+- `tests/` — Vitest test suite (three projects: `unit`, `handlers`, `react`). See §24 for full layout, philosophy, helper contracts, and how to add new tests.
 - Project root: `apply-changes.mjs` (mega-file installer, see §5.1), `pending-changes.txt` (gitignored input, see §5.1)
 
 **ESLint enforcement of the SDK surface (`eslint.config.js`):**
 
 - `globalIgnores` includes `['dist', '.mosaic-backup']`. The `.mosaic-backup` entry is required — the installer writes full-file snapshots there before each apply, and those snapshots can contain pre-fix code that would fail lint if scanned.
 - For `**/*.{ts,tsx}`, a `no-restricted-imports` rule forbids importing `TablesDB`, `Storage`, `Functions`, or `Account` from `'appwrite'`. Message directs the developer to `src/lib/sdk.ts`.
-- A per-file override turns the rule off for `src/lib/sdk.ts` and `src/lib/appwrite.ts` — the two legitimate construction sites.
+- For `**/*.{ts,tsx}`, `no-empty` is configured as `['error', { allowEmptyCatch: true }]`. This permits the intentional `catch {}` cleanups documented in §10 (Silent Session Cleanup) without requiring a placeholder comment inside the block, which Repomix's comment-stripping otherwise removes and which causes spurious lint failures.
+- A per-file override turns `no-restricted-imports` off for `src/lib/sdk.ts` and `src/lib/appwrite.ts` — the two legitimate construction sites. The `no-empty` relaxation is inherited at the base scope, not overridden per-file.
 
 ## 16. List Rendering & Sorting
 - **Default Sort Contracts (in hooks, not components):**
@@ -517,6 +520,67 @@ Recipient-side `read_at` propagation depends on `markReadOnRemote` succeeding. I
 
 ---
 
+## 24. Test Suite
+
+### 24.1 Overview
+Vitest 3.x, three projects (`unit`, `handlers`, `react`), 152 tests across 15 files. Config lives in `vitest.config.ts`. Run with `npm test` (or `npm run test:watch` for TDD, `npm run test:ui` for the browser UI). The suite is gated by the installer's verify block (§5.1) — `npm run apply` runs lint → test → build in that order. A failing test blocks a patch from landing.
+
+### 24.2 Project layout
+| Project | Environment | Include | Tests |
+|---|---|---|---|
+| `unit` | node | `tests/unit/**/*.test.ts` | 86 |
+| `handlers` | node | `tests/handlers/**/*.test.ts` | 49 |
+| `react` | happy-dom | `tests/react/**/*.test.tsx` | 17 |
+
+The `react` project loads `tests/setup/react.ts` (jest-dom matchers + `afterEach(cleanup)`) and sets `NODE_ENV=test` — required by React 19's `act`. The `unit` and `handlers` projects run in plain node with `globals: true`.
+
+### 24.3 Test philosophy — contracts, not internals
+Tests assert observable behavior: what a pure function returns, what a hook exposes through its public surface, what side effects a handler triggers on the mock DB. Tests do NOT assert subscription counts, re-render counts, memoization bail-outs, effect re-fire counts, or RxDB document identity. If a test would break from a pure refactor that preserves external behavior, it is a liability — propose deleting it rather than patching it.
+
+Two documented examples:
+- **`useMessages` CONFLICT-retry — not written.** RxDB returns the same document instance from `findOne(id).exec()` on subsequent calls, so a spy-based "throw once, succeed on retry" test couples to RxDB's internal document cache rather than to observable behavior. The retry logic is six lines of if/else and its correctness is covered indirectly by `reactionUtils.test.ts` (delta math) and the `react` handler tests (server-side two-phase commit).
+- **`useTaskImage` deferred-revoke — written but flagged.** Hardcodes 1500ms, mirroring `REVOKE_DELAY_MS` in `src/hooks/useTaskImage.ts`. The constant is module-private and not exported; coupling is preferable to weakening the assertion.
+
+### 24.4 Handler helper — `tests/helpers/invoke-handler.ts`
+Injects a mocked `node-appwrite` module into `require.cache` via `createRequire`, then `require`s the real `appwrite-functions/message-action/main.js`. The mock provides `Client`, `TablesDB`, `Query`, `Permission`, and `Role`. `makeMockDb()` returns four `vi.fn()` spies (`listRows`, `getRow`, `upsertRow`, `updateRow`); each test queues specific `mockResolvedValueOnce` / `mockRejectedValueOnce` responses per call. `invoke({ userId, body, mockDb })` constructs a synthetic `req` (with the `x-appwrite-user-id` header) and captures `res.json` calls to return `{ body, status, logs, errors }`. This is how every handler action is tested end-to-end without a live Appwrite.
+
+### 24.5 Hook helper — `tests/helpers/testDb.ts`
+**The helper deliberately diverges from `src/db/database.ts`.** This is a considered choice, not drift; a long header comment in the file documents the reasoning:
+
+- **No `RxDBDevModePlugin`.** Dev-mode loads a remote iframe from `rxdb.info` on first DB creation. The iframe's script constructs a `BroadcastChannel`, which happy-dom does not implement; the resulting unhandled `ReferenceError` fails the Vitest run even when all assertions pass. Dev-mode's three concrete checks (DB9 `ignoreDuplicate`, DVM1 validator requirement, COL12 migration-strategy count) are all dev-mode-only and catch nothing real in a test environment where every DB is freshly created with a unique name and never migrated.
+- **Storage: `wrappedValidateAjvStorage({ storage: getRxStorageMemory() })`.** Same validator production uses; it still validates every write against the schema. Ajv is the meaningful safety net; dev-mode is not.
+- **Migration strategies for `tasks` (v1), `friendships` (v1), `messages` (v3)**, mirroring `database.ts`. Strategies are pure pass-throughs / empty-default backfills. **These MUST stay in lock-step with production** — any version bump there requires the same change here, and the §12 migration checklist calls this out.
+- **`multiInstance: false`**, unique DB name per `createTestDb()` call (`` `test_${Date.now()}_${Math.random()...}` ``). Parallel test files in separate workers never collide.
+
+Do not add a "test-mode" branch to `src/db/database.ts`. The `vi.mock` pattern in each hook test file is the mechanism.
+
+### 24.6 Hook mock pattern
+Vitest hoists `vi.mock` above all imports, and the factory cannot reference imported bindings unless they were declared via `vi.hoisted`. Every hook test file inlines this boilerplate at the top:
+
+```ts
+const dbRef = vi.hoisted(() => ({ current: null as unknown }));
+vi.mock('../../src/db/database', () => ({
+  getDatabase: () => {
+    if (!dbRef.current) throw new Error('testDb not initialized');
+    return dbRef.current;
+  },
+}));
+```
+
+A shared `tests/helpers/mockDatabase.ts` was considered and rejected: the mock's operation depends on call-site context (which file is doing the mocking), and the shared-ref indirection is less readable than 6 lines of duplication per file.
+
+Lifecycle per hook test file: `beforeEach` → `dbRef.current = await createTestDb()`; `afterEach` → `await destroyTestDb(dbRef.current)`. `useMessages.test.tsx` additionally mocks `../../src/lib/threads` (deterministic thread/recipient ids) and `../../src/lib/messageDelivery` (four network entry points, all `vi.fn().mockResolvedValue`). `useTaskImage.test.tsx` mocks `../../src/lib/storage` and stubs `globalThis.URL.revokeObjectURL`.
+
+### 24.7 Adding new tests
+- Pure function → `tests/unit/<name>.test.ts`
+- Appwrite Function action → `tests/handlers/<action>.test.ts` using `invoke-handler.ts`; queue mock responses with `mockResolvedValueOnce`
+- Hook → `tests/react/<hookName>.test.tsx` with the mock pattern in §24.6 (skip `testDb.ts` entirely if the hook has no RxDB dependency)
+
+### 24.8 Regression comments
+Tests that pin behavior documented in this file carry a `// Regression: §<section> (<contract name>)` comment. Examples: `// Regression: §20.5 (unread badge contract)`, `// Regression: §10 (CONFLICT Is Not an Error)`, `// Regression: §16 (conversation list sort)`. When the referenced section changes, the test author is expected to review the test — the comment is a pointer, not enforcement.
+
+---
+
 ## Changelog
 
 | Date | Section(s) | Change | Source |
@@ -532,5 +596,6 @@ Recipient-side `read_at` propagation depends on `markReadOnRemote` succeeding. I
 | 2026-09-16 | §5.1 | Rewrote fence rules to distinguish 4-tilde outer fence from 3-tilde/3-backtick inner fences. Added "Common pitfalls" subsection covering the four failure modes. | Post-audit doc clarity |
 | 2026-09-16 | §18 | Added "Mounted Pane Freshness" rule — mounted panes displaying externally-changeable cached data must refetch on activation, throttled by a minimum interval. Reference: PersonPane's friend-pane activation refetch (`FRIEND_REFETCH_MIN_INTERVAL_MS = 15_000`). | Calendar perf audit follow-up |
 | 2026-09-16 | §8, §15 | Marked Calendar Perf Audit complete in Current Progress. Removed `CalendarView.tsx`, `ViewContainer.tsx`, `DiaryView.tsx`, `TodoListView.tsx` from the codebase (dead code — no importers, no routes). §15 file-organization list unchanged (never named them). | Calendar perf audit follow-up |
+| 2026-09-16 | §5.1, §8, §10, §12, §15, §24 (new) | Test Suite Layers 1–4 shipped: 152 tests across 15 files in three Vitest projects (`unit`, `handlers`, `react`). Installer verify block now runs `npm test` between lint and build (§5.1), gating every apply on green tests. ESLint `no-empty` relaxed with `allowEmptyCatch: true` to permit intentional silent-catch cleanup (§10, §15). §12 migration checklist now names `tests/helpers/testDb.ts` as a lock-step site. New §24 documents project layout, philosophy (contracts not internals), handler helper, hook helper (including its deliberate divergence from `src/db/database.ts`), the `vi.hoisted` mock pattern, and how to add new tests. | Test Suite Layers 1–4 |
 
 Sections added or rewritten in bulk should be flagged in the changelog with `(new)` and listed on every subsequent edit that touches them.
