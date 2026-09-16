@@ -22,23 +22,51 @@ const updateRowMock = vi.hoisted(() => vi.fn());
 const upsertRowMock = vi.hoisted(() => vi.fn());
 const createRowMock = vi.hoisted(() => vi.fn());
 const getDatabaseMock = vi.hoisted(() => vi.fn());
-vi.mock('appwrite', () => ({
-  Query: {
-    equal: (k: string, v: unknown) => ({ op: 'equal', k, v }),
-    limit: (n: number) => ({ op: 'limit', n }),
-    orderAsc: (f: string) => ({ op: 'orderAsc', f }),
-    greaterThan: (k: string, v: unknown) => ({ op: 'greaterThan', k, v }),
-    cursorAfter: (id: string) => ({ op: 'cursorAfter', id }),
-  },
-  Permission: {
-    read: (r: string) => `read("${r}")`,
-    update: (r: string) => `update("${r}")`,
-    delete: (r: string) => `delete("${r}")`,
-  },
-  Role: {
-    user: (id: string) => `user:${id}`,
-  },
-}));
+// OFF-2: sync.ts now reads `account` directly from '../../src/lib/appwrite'
+// instead of going through guardedAccount. The appwrite SDK mock must
+// therefore provide `Client` and `Account` so the real appwrite.ts module
+// can construct them at import time. Query/Permission/Role stay because
+// sync.ts imports them for query construction and row permissions.
+vi.mock('appwrite', () => {
+  class Client {
+    setEndpoint(_url: string) {
+      return this;
+    }
+    setProject(_id: string) {
+      return this;
+    }
+  }
+  class Account {
+    async get() {
+      return accountGetMock();
+    }
+    async deleteSession(_id: string) {
+      return undefined;
+    }
+    async createEmailPasswordSession(_email: string, _password: string) {
+      return undefined;
+    }
+  }
+  return {
+    Client,
+    Account,
+    Query: {
+      equal: (k: string, v: unknown) => ({ op: 'equal', k, v }),
+      limit: (n: number) => ({ op: 'limit', n }),
+      orderAsc: (f: string) => ({ op: 'orderAsc', f }),
+      greaterThan: (k: string, v: unknown) => ({ op: 'greaterThan', k, v }),
+      cursorAfter: (id: string) => ({ op: 'cursorAfter', id }),
+    },
+    Permission: {
+      read: (r: string) => `read("${r}")`,
+      update: (r: string) => `update("${r}")`,
+      delete: (r: string) => `delete("${r}")`,
+    },
+    Role: {
+      user: (id: string) => `user:${id}`,
+    },
+  };
+});
 vi.mock('../../src/lib/sdk', () => ({
   guardedAccount: {
     get: accountGetMock,

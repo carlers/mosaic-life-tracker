@@ -114,6 +114,11 @@ export const FriendCalendarPage: React.FC = () => {
 
   const displayName = friend.friendDisplayName || friend.friendUsername;
 
+  // OFF-11: cached tasks survive a transient refetch error. Only render the
+  // blocking error UI when there is nothing cached to show.
+  const errorBlocksRender = !!error && tasks.length === 0;
+  const showOfflineBanner = !!error && tasks.length > 0;
+
   return (
     <div className="flex flex-col h-full animate-in fade-in duration-300">
       <div className="sticky top-0 z-20 bg-[#111111] px-4 py-3 border-b border-[#333333]">
@@ -151,12 +156,21 @@ export const FriendCalendarPage: React.FC = () => {
           </p>
         )}
       </div>
+      {showOfflineBanner && (
+        <div className="mx-4 mt-2 mb-1 rounded-xl bg-[#1E1E1E] border border-[#333333] px-3 py-2 flex items-center gap-2">
+          <span className="text-xs text-gray-400">
+            {errorKind === 'offline'
+              ? "You're offline — showing cached data"
+              : "Couldn't refresh — showing cached data"}
+          </span>
+        </div>
+      )}
       <div className="flex-1 overflow-hidden">
         {isLoading && tasks.length === 0 ? (
           <div className="flex items-center justify-center py-20">
             <div className="w-8 h-8 border-2 border-white border-t-transparent rounded-full animate-spin" />
           </div>
-        ) : error ? (
+        ) : errorBlocksRender ? (
           <div className="flex flex-col items-center justify-center py-20 px-6 text-center">
             <div className="w-16 h-16 bg-[#1E1E1E] rounded-full flex items-center justify-center mb-4 border border-[#333333]">
               <span className="text-2xl">🔒</span>

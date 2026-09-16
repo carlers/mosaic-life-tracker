@@ -49,7 +49,19 @@ export const ExportDataSheet: React.FC<ExportDataSheetProps> = ({
       );
       triggerDownload(result.blob, result.filename);
       setIsExporting(false);
-      onSuccess?.('Export ready');
+      // OFF-12: surface photos that could not be fetched (offline, missing,
+      // or a failed blob fetch) so the user knows the export is incomplete
+      // and can re-run online.
+      const missing = result.counts.missingImages;
+      if (missing > 0) {
+        onSuccess?.(
+          `Export ready (${missing} photo${
+            missing === 1 ? '' : 's'
+          } couldn't be fetched — re-export online to include them)`
+        );
+      } else {
+        onSuccess?.('Export ready');
+      }
       onClose();
     } catch (err) {
       console.error('[ExportDataSheet] Export failed:', err);

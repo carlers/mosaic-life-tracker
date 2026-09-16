@@ -131,6 +131,15 @@ export const PersonPane: React.FC<PersonPaneProps> = ({ person, isActive }) => {
 
   const showDiary = isMe && activeView === 'diary';
 
+  // OFF-11: when a friend's cached tasks exist, a transient refetch error
+  // (typically offline) must not hide the calendar. The error only wins
+  // when we have nothing to show. When cached data exists we render the
+  // calendar with a small non-blocking offline indicator instead.
+  const friendErrorBlocksRender =
+    !isMe && !!friendError && friendTasks.length === 0;
+  const showOfflineBadge =
+    !isMe && !!friendError && friendTasks.length > 0;
+
   return (
     <div className="flex flex-col h-full min-h-0 overflow-hidden">
       <div className="flex-shrink-0">
@@ -152,7 +161,7 @@ export const PersonPane: React.FC<PersonPaneProps> = ({ person, isActive }) => {
           <div className="flex-1 min-h-0 overflow-hidden">
             <ComingSoon />
           </div>
-        ) : !isMe && friendError ? (
+        ) : friendErrorBlocksRender ? (
           <div className="flex-1 min-h-0 overflow-hidden flex items-center justify-center px-6 text-center">
             <div>
               <div className="w-16 h-16 bg-[#1E1E1E] rounded-full flex items-center justify-center mb-4 border border-[#333333] mx-auto">
@@ -169,21 +178,32 @@ export const PersonPane: React.FC<PersonPaneProps> = ({ person, isActive }) => {
             </div>
           </div>
         ) : (
-          <CalendarBody
-            viewMode={calendarState.viewMode}
-            slides={calendarState.slides}
-            renderStart={calendarState.renderStart}
-            renderEnd={calendarState.renderEnd}
-            emblaRef={calendarState.emblaRef}
-            tasks={tasks}
-            categoriesMap={categoriesMap}
-            variant={isMe ? 'me' : 'friend'}
-            friendCategories={friendCategories}
-            friendName={person.displayName}
-            friendUserId={friendId}
-            currentUserId={currentUserId}
-            onReactToTask={handleReactToTask}
-          />
+          <>
+            {showOfflineBadge && (
+              <div className="flex-shrink-0 mx-4 mt-2 mb-1 rounded-xl bg-[#1E1E1E] border border-[#333333] px-3 py-2 flex items-center gap-2">
+                <span className="text-xs text-gray-400">
+                  {friendErrorKind === 'offline'
+                    ? "You're offline — showing cached data"
+                    : "Couldn't refresh — showing cached data"}
+                </span>
+              </div>
+            )}
+            <CalendarBody
+              viewMode={calendarState.viewMode}
+              slides={calendarState.slides}
+              renderStart={calendarState.renderStart}
+              renderEnd={calendarState.renderEnd}
+              emblaRef={calendarState.emblaRef}
+              tasks={tasks}
+              categoriesMap={categoriesMap}
+              variant={isMe ? 'me' : 'friend'}
+              friendCategories={friendCategories}
+              friendName={person.displayName}
+              friendUserId={friendId}
+              currentUserId={currentUserId}
+              onReactToTask={handleReactToTask}
+            />
+          </>
         )}
       </div>
       {feedback && (

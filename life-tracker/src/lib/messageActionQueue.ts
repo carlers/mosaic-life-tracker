@@ -81,6 +81,12 @@ export function enqueueMessageAction(
   }
   if (queue.length > MAX_ENTRIES) {
     queue.sort((a, b) => a.enqueuedAt.localeCompare(b.enqueuedAt));
+    const dropped = queue.slice(0, queue.length - MAX_ENTRIES);
+    for (const entry of dropped) {
+      console.warn(
+        `[MessageActionQueue] Dropping oldest entry ${entry.id} (action=${entry.action}, attempts=${entry.attempts}) — queue cap ${MAX_ENTRIES} reached`
+      );
+    }
     queue = queue.slice(queue.length - MAX_ENTRIES);
   }
   save();

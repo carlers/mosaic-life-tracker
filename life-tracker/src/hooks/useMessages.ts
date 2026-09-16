@@ -354,6 +354,14 @@ export function useMessages(friendId: string | null): UseMessagesReturn {
         console.error('[useMessages] Cannot react: User not authenticated');
         return 'ok';
       }
+      // OFF-13: reacting requires a round-trip to the server (and, for a
+      // pending outgoing message, delivery first). There is nothing to gain
+      // from an optimistic patch that is guaranteed to revert, so bail
+      // early when the device is offline and let the caller show the
+      // standard "Couldn't send reaction. Try again." toast.
+      if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+        return 'timeout';
+      }
       const db = getDatabase();
       const doc = await db.messages.findOne(id).exec();
       if (!doc) return 'ok';

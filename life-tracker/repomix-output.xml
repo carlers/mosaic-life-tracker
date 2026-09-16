@@ -4411,21 +4411,20 @@ pending-changes.txt
 ## 0. Hard Rules
 
 1. RxDB schemas: never `deleted` — use `isDeleted` (§12)
-2. Existing remote rows: `updateRow`; new rows: `createRow`; 404 fallback on `updateRow`: `createRow` (§6, §18 D8)
+2. Never hard-delete; `isDeleted: true` (§7)
 3. Row IDs ≤36 chars, `[a-zA-Z0-9_]+`, no leading `_` (§6, §11)
-4. Outgoing messages: `read_at` is server-owned; omit on push (§12)
-5. Message IDs must start with `msg_` — server-enforced (§11)
-6. Cross-user writes go through Appwrite Functions, never direct client writes (§6, §20)
-7. Mega file: outer fence exactly four tildes + `mosaic`; inner fences ≤3 chars (§5.1)
+4. Existing remote rows: `updateRow`; new rows: `createRow`; 404 fallback on `updateRow`: `createRow`, never `upsertRow` (§6, §18 D8)
+5. Outgoing messages: `read_at` is server-owned; omit on push (§12)
+6. Message IDs must start with `msg_` — server-enforced (§11)
+7. Cross-user writes go through Appwrite Functions, never direct client writes (§6, §20)
 8. 401 from `account.get()` = "not logged in"; network error = "couldn't check" — never conflate (§10, §23.6)
-9. Never hard-delete; `isDeleted: true` (§7)
-10. `createRow` on a `updateRow` 404, never `upsertRow` (§6, §18 D8)
+9. Mega file: outer fence exactly four tildes + `mosaic`; inner fences ≤3 chars (§5.1)
 
 ## 1. The Vision
 - An offline-first, local-first, self-hostable "Life Tracker" PWA
 - **Phase 1:** A pixel-perfect, highly polished clone of "Todo Mate" (tasks, categories, social calendar, diary) to replace an ad-filled app
 - **Phase 2:** Optional, modular integrations for fitness, media, and personal CRM
-- **Phase 3 (extension beyond Todo Mate):** 1:1 messaging with friends, message reactions, and task reactions â€” a native social layer woven into the calendar
+- **Phase 3 (extension beyond Todo Mate):** 1:1 messaging with friends, message reactions, and task reactions — a native social layer woven into the calendar
 - **Core UX:** A unified, dark-mode calendar view that aggregates all life data, featuring 0ms load times (via RxDB), bottom-sheet interactions, and 100% offline functionality. Cloud is strictly for background sync
 
 ## 2. Product Reference: The "Todo Mate" Clone (Phase 1)
@@ -4433,6 +4432,14 @@ pending-changes.txt
 A dark-mode calendar clone of Todo Mate. Shipped: tasks, categories, month/week calendar, day sheet, person carousel, social calendar, 1:1 messaging, message + task reactions. Planned: Todo List view, Diary view, Notifications tab. Messaging/reactions are a Mosaic addition, not in the reference app (see §20).
 
 **ARCHITECTURAL RULE:** every Category and Diary document carries a `visibility` field (`public`, `followers`, `private`). Appwrite RLS is avoided by server-mediated reads (`get_friend_calendar`) and server-mediated cross-user writes (`message-action`). See §6 and §20.
+
+**Behavioral specs for planned views (governs Phase 3.5–3.7):**
+- **Todo List view:** compact, color-only calendar grid. Clicking a colored dot "selects" that day; scrolling down reveals a vertical list of tasks for the selected day. No task titles on the grid — color-only.
+- **Diary view:** per-day free-text entry, keyed by `yyyy-MM-dd`. Visibility field per entry. Renders in the same view-switcher slot as Calendar.
+- **Notifications tab:** in-app notifications for message and reaction events. Renders a full `<ComingSoon />` page until wired.
+- **Calendar layout alignment (permanent):** Month and Week views must be perfectly vertically aligned — same header spacing, `auto-rows-fr` on grids. Switching Month → Week jumps to the week containing the 1st of that month. Week header renders "Aug 30 - Sep 5, 2026" on a single line. Task blocks fill the full grid-cell width with `px-1.5` margins, `rounded-[3px]` corners, and `overflow-hidden whitespace-nowrap` (NEVER truncate or `...`). Completed tasks show category color; uncompleted are `bg-[#374151]` / `text-gray-400`. Saturdays `text-blue-500`, Sundays `text-red-500`, today has a blue circle border.
+
+For product-spec detail beyond the above (aesthetic descriptions, reference-app parity notes), Chat 1 may request `npm run dump -- PRODUCT_NOTES.md` if that file exists; otherwise the above is authoritative.
 
 ## 3. Strict Constraints
 - **Budget:** $0 for AI tools. $0 for Apple (relying on PWA "Add to Home Screen"). $25 one-time for Google Play (later)
@@ -4456,7 +4463,7 @@ A dark-mode calendar clone of Todo Mate. Shipped: tasks, categories, month/week 
 
 ## 5.1 Revision Workflow (Mega File + Installer)
 
-All revisions are delivered as a single fenced code block tagged `mosaic`. Outer fence: exactly four tildes + `mosaic` opener; four tildes alone on the closer. Installer regex: `/^(~~~+|`{3,})mosaic\s*\n([\s\S]*?)\n\1\s*$/` — the `\1` backreference requires the closing fence to match character AND length exactly, so a four-tilde opening can only be closed by exactly four tildes and any ≤3-char fence inside is inert.
+All revisions are delivered as a single fenced code block tagged `mosaic`. Outer fence: exactly four tildes + `mosaic` opener; four tildes alone on the closer. Installer regex: `/^(~~~+|`{3,})mosaic\s*\n([\s\S]*?)\n\1\s*$/` — the `\1` backreference requires the closing fence to match character AND length exactly, so a four-tilde opening can only be closed by exactly four tildes and any ≤3-char fence inside is inert. (The regex accepts any length ≥3; four is the convention, not a hard maximum.)
 
 Format (illustrative inner example uses three tildes; a real delivery uses four):
 
@@ -4527,8 +4534,8 @@ Rules:
 - **Use TablesDB, NOT Databases:** All SDK calls must use the TablesDB service (e.g., `tablesDB.upsertRow`, `tablesDB.updateRow`), not the deprecated Databases service
 - **Permission String Format:** Use the new format: `create("any")`, `read("any")`, `update("any")`, `delete("any")`. The old `"role:any"` formats are deprecated
 - **Row-Level vs Table-Level Permissions (VERIFIED):** `Permission.create()` **does NOT apply to rows**. Applying it to a row throws an error. Row-level permissions must only ever be `[read, update, delete]`. The **`create` permission belongs on the TABLE-level permissions** in the Appwrite Console (e.g., grant `create("users")` at the table level so authenticated users can insert new rows). If new-row sync fails with 401/403, the fix is in the Console, NOT in `buildRowPermissions`
-- **`updateRow` vs `upsertRow` (CRITICAL, §0 item 2 & 10):** `upsertRow` is a **full replace (PUT semantics)** in Appwrite 2.0 — any column omitted from `data` is reset to its column default. `updateRow` is a **PATCH** — omitted columns are left untouched. The sync engine **must** use `updateRow` for rows that already exist remotely, and `createRow` for brand-new rows. Failing to do this caused `read_at` on outgoing messages to be wiped on every sync cycle. **Do NOT use `upsertRow` as a fallback for a 404 on `updateRow`** — `createRow` is a strict insert with no PUT semantics and is the correct choice (see §18, D8).
-- **Cross-User Writes Go Through Appwrite Functions (§0 item 6):** A user can only assign permissions they themselves hold. To write a row owned by another user (recipient's message copy, sender's task reaction, sender's read receipt), the write must be performed inside an Appwrite Function using its API key. Direct client writes to another user's row will 401/403 (see §20.3)
+- **`updateRow` vs `upsertRow` (CRITICAL, §0 item 4):** `upsertRow` is a **full replace (PUT semantics)** in Appwrite 2.0 — any column omitted from `data` is reset to its column default. `updateRow` is a **PATCH** — omitted columns are left untouched. The sync engine **must** use `updateRow` for rows that already exist remotely, and `createRow` for brand-new rows. Failing to do this caused `read_at` on outgoing messages to be wiped on every sync cycle. **Do NOT use `upsertRow` as a fallback for a 404 on `updateRow`** — `createRow` is a strict insert with no PUT semantics and is the correct choice (see §18, D8).
+- **Cross-User Writes Go Through Appwrite Functions (§0 item 7):** A user can only assign permissions they themselves hold. To write a row owned by another user (recipient's message copy, sender's task reaction, sender's read receipt), the write must be performed inside an Appwrite Function using its API key. Direct client writes to another user's row will 401/403 (see §20.3)
 - **REST Endpoints:** Base path for tables is `/v1/tablesdb/{databaseId}/tables/{tableId}`
 - **ID Mapping:** RxDB primary key `id` maps directly to Appwrite's `$id` column
 - **Row ID Length Cap (CRITICAL, §0 item 3):** Appwrite `rowId` values must be **≤36 characters**, matching `[a-zA-Z0-9_]+`, and MUST NOT start with a leading underscore. Any locally-generated ID that will become a remote `rowId` (settings, diary, or deterministic composite IDs) must respect this limit. **Rule:** when building `${userId}_${key}` IDs, validate the total length; if it exceeds 36 chars, fall back to a deterministic hashed ID (see §11)
@@ -4545,7 +4552,7 @@ Rules:
 - **Layout-Shift Reservation:** Any element whose visibility toggles (timestamps, status rows, hover controls) MUST always reserve its space — toggle opacity, never presence. Prevents the hover-flicker reflow loop.
 - **Gesture Priority on Interactive Elements:** swipe > long-press > double-tap > single-tap. Single-tap is deferred ~300ms to distinguish from double-tap. Any tap on the same pointer sequence as a swipe or long-press MUST be suppressed via a flag on the gesture hook (see §21).
 - **RxDB Reserved Keywords:** NEVER use `deleted` as a field name in RxDB schemas (see §12).
-- **Soft Deletes:** Never hard delete. Always `isDeleted: true` for RxDB tombstones (§0 item 9).
+- **Soft Deletes:** Never hard delete. Always `isDeleted: true` for RxDB tombstones (§0 item 2).
 - **Strict ISO Dates:** All date fields MUST be ISO 8601 strings (`yyyy-MM-dd` for day keys, full `.toISOString()` for timestamps).
 - **iOS Storage:** Must call `navigator.storage.persist()` on launch to prevent WebKit from purging IndexedDB.
 - **Coming Soon:** Bottom nav has 5 tabs: Home, Explore, Notifications, Messages, Account. Notifications renders a full `<ComingSoon />` page.
@@ -4611,7 +4618,7 @@ Rules:
   - Booleans encoded as booleans, not 0/1.
   - `updatedAt` (local) ↔ `updated_at` (remote) — every synced collection participating in the `usesTimestamps` pull-winner predicate has it. `categories` and `settings` gained it in the D6 migration (see Changelog; migration script `scripts/add-categories-settings-updated-at-columns.mjs`).
 - **`messages` field mapping:** `threadId`→`thread_id`; `senderId`→`sender_id`; `recipientId`→`recipient_id`; `direction`→`direction`; `taskRefId`→`task_ref_id`; `taskRefTitle`→`task_ref_title`; `taskRefDate`→`task_ref_date`; `taskRefColor`→`task_ref_color`; `replyToId`→`reply_to_id`; `replyToContent`→`reply_to_content`; `replyToSenderId`→`reply_to_sender_id`; `isUnsent`→`is_unsent`; `originalMessageId`→`original_message_id`; `reactions`→`reactions`; `readAt`→`read_at`; `deliveryStatus`→`delivery_status`.
-- **`read_at` is server-owned on outgoing rows (§0 item 4):** `toAppwriteFormat` for `messages` MUST omit `read_at` when `direction === 'outgoing'` — the client would overwrite the `mark_read` receipt. Applies only to `messages`. On pull, the server-owned `read_at` on an outgoing row is applied BEFORE the dirty-skip so a locally-dirty outgoing message still receives the receipt (§18, F12).
+- **`read_at` is server-owned on outgoing rows (§0 item 5):** `toAppwriteFormat` for `messages` MUST omit `read_at` when `direction === 'outgoing'` — the client would overwrite the `mark_read` receipt. Applies only to `messages`. On pull, the server-owned `read_at` on an outgoing row is applied BEFORE the dirty-skip so a locally-dirty outgoing message still receives the receipt (§18, F12).
 - **Date storage:** day keys `yyyy-MM-dd` via `date-fns.format`; timestamps full ISO 8601 via `.toISOString()`. Compare timestamps with the `toMs()` helper (`Number.isFinite` guard).
 - **Empty-string over null:** optional string fields (`memo`, `image`, `completedAt`, `icon`, `friendBio`, `threadId`, `replyToId`, `replyToContent`, `replyToSenderId`, `originalMessageId`, `reactions`, `readAt`, `updatedAt`) default to `''` — never `null`/`undefined` — so RxDB validation never fails.
 - **Reactions format:** JSON string of `Array<{ emoji: string; userIds: string[] }>`. Serialized as `''` when empty (not `'[]'`). Parse/stringify only via `src/lib/reactionUtils.ts`.
@@ -4675,11 +4682,11 @@ Rules:
 9. **Friend-calendar refetch on activation.** `PersonPane` forces `refetchFriendCalendar(true)` when a friend pane becomes active, throttled by `FRIEND_REFETCH_MIN_INTERVAL_MS = 15_000`. Own pane stays live via RxDB subscription. Do not rely on cache TTL alone.
 10. **`useTaskImage` shares object URLs.** Module-level `Map<fileId,{url,refCount,revokeTimer}>` ref-counts URLs across hook instances with a 1.5s deferred revoke so StrictMode double-mounts, Month↔Week toggles, and slide re-entry don't tear down + re-read. Do not bypass with a direct `getLocalImageUrl` in calendar cells.
 11. **`DayViewSheet`/`HomePage` use manual windowing.** `RENDER_WINDOW = 3` for `DayViewSheet`, `RENDER_WINDOW = 1` for `HomePage`. Load-bearing for scroll smoothness.
-12. **One subscription per collection, one provider per collection.** `ConversationsProvider` (mounted in `AppLayout`) is the sole owner of the inbox `db.messages` subscription and the sole caller of `useFriends()` for badge/chat-list. `FriendsProvider` (mounted above it) owns the `db.friendships` subscription. `useConversations`/`useUnreadMessages`/`useFriends` are thin context selectors — they MUST NOT mount their own RxDB subscriptions. (F1)
-13. **Unread math excludes `isUnsent`.** Counter is `direction === 'incoming' && !readAt && !isUnsent` — required for consistency with `ChatPage`'s own unread check. Regression tests pin this. (F3)
-14. **Conversation grouping is by counterpart, not thread.** Groups by the other participant id (`senderId === userId ? recipientId : senderId`). Relies on `makeThreadId` being a pure function of the participant pair. Do not introduce rows whose `threadId` is not derived from `senderId`/`recipientId`. (F12)
-15. **`lastMessage` depends on RxDB sort order.** Inbox `lastMessage` is `msgs[0]`, correct only because the provider queries `sort: [{createdAt:'desc'}]`. Do not drop that sort in favor of client-side sorting. (F13)
-16. **`ConversationRow` is memoized with a custom comparator.** Keys on `threadId`, `unreadCount`, friend identity (`friendId`, `friendDisplayName`, `friendUsername`, `friendAvatarFileId`), and the `lastMessage` fields that affect rendering (`id`, `content`, `taskRefTitle`, `direction`, `createdAt`, `isUnsent`). Any new rendered field MUST be added to the comparator or the memo swallows the update. (F5)
+12. **One subscription per collection, one provider per collection.** `ConversationsProvider` (mounted in `AppLayout`) is the sole owner of the inbox `db.messages` subscription and the sole caller of `useFriends()` for badge/chat-list. `FriendsProvider` (mounted above it) owns the `db.friendships` subscription. `useConversations`/`useUnreadMessages`/`useFriends` are thin context selectors — they MUST NOT mount their own RxDB subscriptions.
+13. **Unread math excludes `isUnsent`.** Counter is `direction === 'incoming' && !readAt && !isUnsent` — required for consistency with `ChatPage`'s own unread check. Regression tests pin this.
+14. **Conversation grouping is by counterpart, not thread.** Groups by the other participant id (`senderId === userId ? recipientId : senderId`). Relies on `makeThreadId` being a pure function of the participant pair. Do not introduce rows whose `threadId` is not derived from `senderId`/`recipientId`.
+15. **`lastMessage` depends on RxDB sort order.** Inbox `lastMessage` is `msgs[0]`, correct only because the provider queries `sort: [{createdAt:'desc'}]`. Do not drop that sort in favor of client-side sorting.
+16. **`ConversationRow` is memoized with a custom comparator.** Keys on `threadId`, `unreadCount`, friend identity (`friendId`, `friendDisplayName`, `friendUsername`, `friendAvatarFileId`), and the `lastMessage` fields that affect rendering (`id`, `content`, `taskRefTitle`, `direction`, `createdAt`, `isUnsent`). Any new rendered field MUST be added to the comparator or the memo swallows the update.
 
 ## 17. Native Input Quirks
 - **Dark theme `<input type="date">`:** MUST include `[color-scheme:dark]` Tailwind arbitrary class, else the native picker renders light-theme.
@@ -4704,7 +4711,13 @@ Rules:
 
 ### Accepted Sync Engine Limitations
 
-Five documented, deliberate trade-offs: **D1** concurrent same-row edits are last-write-wins; **D3** clock-skew tolerance is `PULL_OVERLAP_MS = 30_000`; **D7** cold sync treats all local rows as dirty; **F9-backoff** sync backoff state is per-tab; **Social Outbox** has no server-side compensation on drop. Each was considered for a fix and rejected; rationale and rejection histories live in the Changelog. Do not "fix" them without revisiting that reasoning and the risk profile that produced the decision.
+These are documented, deliberate trade-offs after the sync-engine audit. Each was considered for a fix and rejected. Do not "fix" them without revisiting the reasoning below and the risk profile that produced the decision.
+
+- **D1 — Concurrent same-row edits are last-write-wins.** Two devices editing the same row within one sync cycle: the later `updateRow` overwrites the earlier writer's fields. Push has no etag, version column, or compare-and-set. Rejected alternatives: (a) an `updatedAt`-conditional write depends on TablesDB supporting filter-based conditional updates, which was not verified against the live API; (b) a `version` integer column per table requires a schema bump, an Appwrite migration, and a mapper change across every collection; (c) an Appwrite function-mediated CAS reintroduces the same failure modes the sync engine already handles, at higher complexity. For a personal life tracker where the typical case is one device online at a time, the failure is rare. Revisit if the app ever adds real-time collaboration or multi-device active editing.
+- **D3 — Clock-skew tolerance is `PULL_OVERLAP_MS = 30_000`.** The only guard against client-versus-server clock drift. A client clock ahead of the server by more than 30s can skip remote rows permanently, because the pull query's `$updatedAt > sinceIso` filter excludes them and cursor pagination does not re-fetch them after the overlap window passes. Rejected alternatives: fetching server time and applying an offset introduces a new failure mode on login (the offset fetch itself can fail or be skewed by a slow network), and a wider overlap window increases duplicate pulls proportionally. Accepted as a documented constraint; a device with a badly wrong clock will not sync correctly, but modern device clocks are within seconds of truth. If a user reports missing rows after a device clock change, widen the window and revisit this decision.
+- **D7 — Cold sync treats all local rows as dirty.** If `localStorage` is cleared while IndexedDB survives (partial site-data clear, or a manual developer action), `loadPerCollectionState` returns `{}`, both `pullBoundaryMs` and `dirtyBoundaryMs` are 0, every local row satisfies `localLwt > 0`, and the next sync pushes every local row. Rejected alternatives: (a) skipping the push for one cycle is ineffective — the next cycle sees `dirtyBoundaryMs` still `''` and pushes anyway; (b) overriding `dirtyBoundaryMs` to `cycleStartMs` breaks the push of local-only rows (they have no `remoteMeta`, so the non-dirty push predicate never fires) and regresses `categories`/`settings` push (they now participate in `usesTimestamps` post-D6, but only if their `updatedAt` is meaningful — a migrated row with `updatedAt: ''` would be skipped); (c) persisting per-collection state to IndexedDB is D4-adjacent architecture work, not an isolated fix. The current behavior — push local state, last-write-wins — is arguably correct for a local-first app: the user's local data is their data, and pushing it back is the local-first stance. Revisit only if a user reports data loss from a partial storage clear.
+- **F9-backoff — Sync backoff state is per-tab.** `rateLimitUntil`, `rateLimitBackoffMs`, `failureBackoffUntil`, and `failureBackoffMs` are module-level state, not cross-tab. Two tabs can each accumulate their own backoff and hit the endpoint independently. Web Locks (D4) serializes cycles but does not share backoff. Rejected fix: persisting backoff state to localStorage adds a new persisted key, cross-tab read/write coordination, and edge cases around clock changes. Accepted; the risk is a rate-limit stampede in a multi-tab session, bounded by the sync engine's page cap (F17) and per-collection error isolation to non-catastrophic.
+- **Social Outbox — no server-side compensation on drop.** When a social outbox entry is dropped (5 attempts exhausted, or a permanent 4xx), the local row is reverted but the remote side may be partially written (e.g. the outbox succeeded in creating the friend's reciprocal row on a previous attempt but the local revert fires on a later permanent failure of a different row). Because both writes in a friendship pair are independent single-row calls, the reconciliation window is bounded to the next sync cycle and the local row is authoritative. A transactional two-row write would require an Appwrite Function and is out of scope for this batch.
 
 ## 19. Bootstrap & Persistence
 1. `main.tsx` order: `navigator.storage.persist()` → `initializeDatabase()` → fire-and-forget `initializeSync()` (never block render on network) → `ReactDOM.createRoot(...).render(<React.StrictMode><AuthProvider><App /></AuthProvider></React.StrictMode>)`.
@@ -4975,6 +4988,8 @@ Use the lowest tier that supports the task.
 
 **Size:** `SESSION_STATE.md` is the phase's single document. It grows during audit phases and shrinks during feature development. No fixed line cap. Do not create separate per-audit files — a separate file risks becoming a dangling pointer if not applied in lock-step. When the phase closes, Chat 1 trims resolved items; the changelog in `AGENTS.md` is the archive.
 
+**Migration note:** A new Chat 1 picking up mid-phase reads `SESSION_STATE.md` first, not the Changelog. The Changelog is a section-touched index (date → sections → one-phrase summary → pointer), not a narrative. If the state file doesn't explain a decision, the Chat 1 requests `npm run dump -- <path>` on the affected file or reads the referenced section. Do not rely on the Changelog alone to reconstruct mid-audit context.
+
 ### 25.4 Prompt Templates
 Canonical starts for each role. The user copies one line from a previous chat's onboarding prompt, or types it manually, and pastes it together with the repomix.
 
@@ -5112,6 +5127,14 @@ Over-thinking wastes tokens without improving the artifact. These rules target t
 - **Chat 2:** OFF by default. ON only when the batch contains a §25.5 open question.
 - **Chat 1:** ON for audits and architecture. OFF for prompt generation and doc-only edits.
 
+### 25.11 Phase-Close Protocol (Chat 1)
+When Chat 1 closes a phase:
+1. Trim SESSION_STATE.md: collapse `Findings`/`Decisions` for closed batches to one line per phase; drop resolved items.
+2. Update `LastAuditSummary` with a one-line outcome; set `ActivePlan` to the next phase or `none`.
+3. Verify no dangling cross-references: any finding ID or decision referenced from AGENTS.md must either still exist in SESSION_STATE.md or be inlined into the changelog row for that phase. Do not leave IDs that point at trimmed state.
+4. Add the final Changelog row with pointer to SESSION_STATE.md for that phase's decisions.
+5. If the phase produced any "Accepted Limitations," confirm the rationale paragraphs in §18 are intact and not reduced to a pointer that loops back to the Changelog.
+
 ## 26. Writing AGENTS.md — rules for writing rules
 - Every rule must prevent an error the LLM actually makes without it. Verify against observed fix cycles.
 - One-line imperative first. Rationale elsewhere.
@@ -5150,6 +5173,9 @@ Over-thinking wastes tokens without improving the artifact. These rules target t
 | 2026-09-16 | SESSION_STATE.md as phase document | §25.3 | No per-audit files; optional `Findings`/`Decisions`/`Deferred`; phase-scoped growth/trim | §25.3 |
 | 2026-09-16 | Offline write resilience outbox | §10, §15 | `socialOutbox.ts` retries reciprocal friendship + profile writes; permanent drops emit failure events; `getCurrentUserId` distinguishes 401 from offline | §10, §15 |
 | 2026-09-17 | Post-batch + reasoning discipline + apply clipboard | §25.1, §25.8 (new), §25.9 (new), §15 | §25.8 codifies post-batch lines; §25.9 codifies reasoning discipline; `apply-changes.mjs` copies output to clipboard; `clipboard.mjs` extracted | §25.8, §25.9 |
+| 2026-09-17 | AGENTS.md compression | all | §0 hard rules added (10 → 9 on follow-up; grouped by action, dedup 2/10); §26 rules-for-writing-rules added; §8 + Changelog reformatted as index rows; section-level prose compressed throughout; ~25% AGENTS.md reduction | §0, §26 |
+| 2026-09-17 | §0 dedup follow-up | §0 | Merged former rules 2 + 10 into one; §0 is now 9 rules grouped by action (schema → sync → messaging → cross-user → auth → tooling) | §0 |
+| 2026-09-17 | Compression follow-up | §2, §18, §16, §25.3, §25.11 (new) | Restored D1/D3/D7/F9-backoff rationale paragraphs in §18 (non-circular; no pointer-to-changelog loop). Restored behavioral specs for planned views in §2 (Todo List, Diary, Notifications, calendar layout alignment) so Phase 3.5–3.7 has a spec. Dropped F1/F3/F5/F12/F13 IDs from §16 — rule text alone is sufficient for cold readers; IDs were dangling once SESSION_STATE.md trimmed. Added §25.3 migration note (new Chat 1 reads SESSION_STATE.md first, not Changelog). Added §25.11 Phase-Close Protocol to prevent dangling cross-references recurring | §2, §16, §18, §25.3, §25.11 |
 </file>
 
 <file path="apply-changes.mjs">
@@ -5372,79 +5398,74 @@ Not yet chosen.
 # SESSION STATE
 
 Updated: 2026-09-17T00:00:00Z
-ActivePlan: Phase 1 audits â€” final sweep
+ActivePlan: Phase 1 audits — final sweep
 CurrentBatch: 1 of 6
-CurrentTask: 1.1.chore-f â€” AGENTS.md compression (audit-approved rewrite)
-Status: in_progress
+CurrentTask: 1.1.chore-g — AGENTS.md compression follow-up (D1/D3/D7/F9 rationale, §2 phase-spec, F-ID cleanup, §25.3 migration note, §25.11 phase-close)
+Status: audit_closed
 NextAction: Run `npm run apply`, then resume 1.1.fix.b per BatchPlan.
 NextChatRole: chat2
 BatchPlan:
-- Phase 1 audits â€” final sweep (current)
-  - [x] 1.1 Item 10 â€” offline behavior audit (findings inline below)
-  - [x] 1.1.chore â€” dump XML format
-  - [x] 1.1.chore-b â€” Â§25.4/Â§25.6 offboarding-trigger split + review payload
-  - [x] 1.1.chore-c â€” Chat 1 docs carve-out + review-artifact boundary
-  - [x] 1.1.chore-d â€” SESSION_STATE.md as phase document + audit findings baked in
-  - [x] 1.1.fix â€” Offline write resilience (OFF-8, OFF-9, OFF-10, OFF-3 error-message only)
-  - [x] 1.1.chore-e â€” Â§25.8 post-batch instructions + Â§25.9 reasoning discipline + apply clipboard
-  - [x] 1.1.chore-f â€” AGENTS.md compression
-  - [ ] 1.1.fix.b â€” Cached-data rendering + small offline fixes (OFF-11, OFF-13, OFF-12, OFF-2, OFF-4)
-  - [ ] 1.2 Item 9 â€” realtime subscriptions layer
-  - [ ] 1.3 Item 12 â€” error boundaries / crash resilience
-  - [ ] 1.4 Item 7 residual â€” storage/imageCache consolidation (receives OFF-7)
-  - [ ] 1.5 Item 11 â€” PWA / service worker
-  - [ ] 1.6 Item 13 â€” accessibility
-- [ ] Phase 2 â€” refactor audit â†’ refactor
-- [ ] Phase 3 â€” optimize audit â†’ optimize (bundle 1.7 MB, route splitting, lazy images)
-- [ ] Phase 4 â€” spec audit group (meta-audit of AGENTS.md, discovery, enforcement)
-- [ ] Feature work â€” Phase 3.5 Todo List, 3.6 Diary, 3.7 Notifications, API integrations (paused)
+- Phase 1 audits — final sweep (current)
+  - [x] 1.1 Item 10 — offline behavior audit (findings inline below)
+  - [x] 1.1.chore — dump XML format
+  - [x] 1.1.chore-b — §25.4/§25.6 offboarding-trigger split + review payload
+  - [x] 1.1.chore-c — Chat 1 docs carve-out + review-artifact boundary
+  - [x] 1.1.chore-d — SESSION_STATE.md as phase document + audit findings baked in
+  - [x] 1.1.fix — Offline write resilience (OFF-8, OFF-9, OFF-10, OFF-3 error-message only)
+  - [x] 1.1.chore-e — §25.8 post-batch instructions + §25.9 reasoning discipline + apply clipboard
+  - [x] 1.1.chore-f — AGENTS.md compression
+  - [x] 1.1.chore-g — AGENTS.md compression follow-up
+  - [ ] 1.1.fix.b — Cached-data rendering + small offline fixes (OFF-11, OFF-13, OFF-12, OFF-2, OFF-4)
+  - [ ] 1.2 Item 9 — realtime subscriptions layer
+  - [ ] 1.3 Item 12 — error boundaries / crash resilience
+  - [ ] 1.4 Item 7 residual — storage/imageCache consolidation (receives OFF-7)
+  - [ ] 1.5 Item 11 — PWA / service worker
+  - [ ] 1.6 Item 13 — accessibility
+- [ ] Phase 2 — refactor audit → refactor
+- [ ] Phase 3 — optimize audit → optimize (bundle 1.7 MB, route splitting, lazy images)
+- [ ] Phase 4 — spec audit group (meta-audit of AGENTS.md, discovery, enforcement)
+- [ ] Feature work — Phase 3.5 Todo List, 3.6 Diary, 3.7 Notifications, API integrations (paused)
 OpenQuestions:
-- H1 â€” offline auth gate (OFF-1). Â§1 claims "100% offline functionality"; Â§23.6 maps network error â†’ `user: null` â†’ retry screen. Product/architecture decision required before Chat 2 can fix OFF-1. Options: (a) hydrate user from cached identity on network failure; (b) rename retry screen to an offline-mode screen with local read-only access; (c) accept behavior and downgrade Â§1's claim in docs.
+- H1 — offline auth gate (OFF-1). §1 claims "100% offline functionality"; §23.6 maps network error → `user: null` → retry screen. Product/architecture decision required before Chat 2 can fix OFF-1. Options: (a) hydrate user from cached identity on network failure; (b) rename retry screen to an offline-mode screen with local read-only access; (c) accept behavior and downgrade §1's claim in docs.
 Findings:
-- CHORE-F-1 â€” Â§0 Hard Rules added (10 rules, ≤200 tokens); cross-refs only, no behavioral change.
-- CHORE-F-2 â€” Â§2, Â§4, Â§5.1, Â§7, Â§9–Â§17, Â§19, Â§21–Â§22, Â§24 compressed per disposition table; intent preserved.
-- CHORE-F-3 â€” Â§8 rewritten to 5-bullet current state + Changelog pointer.
-- CHORE-F-4 â€” Â§15 directory roles compressed; trios + SDK rule preserved verbatim.
-- CHORE-F-5 â€” Â§16 rules converted to numbered one-liners with finding IDs; RENDER_WINDOW/EMPTY_TASKS preserved.
-- CHORE-F-6 â€” Â§18 Accepted Limitations â†’ one-line disposition + Changelog pointer; named constants preserved.
-- CHORE-F-7 â€” Â§25.5 examples, Â§25.9 response-shape rules, Â§25.10 DeepThink defaults, Â§26 (rules for writing rules) added.
-- CHORE-F-8 â€” Changelog rewritten as index rows (~80% length reduction).
-- OFF-1 Critical â€” Offline cold launch blocks access to local data. `AuthProvider.resolveInitialUser` sets `user: null, isOffline: true` on network error; `AppLayout` renders the retry screen when `!user && isOffline`; no branch renders the protected tree with a cached identity. All data is in IndexedDB and fully readable â€” the block is purely the live `account.get()` probe. Violates Â§1 ("100% offline functionality"). Fix direction: persist last-known user identity (localStorage or settings row); on mount-time network error, hydrate `user` from cache and set `isOffline: true`; render app tree with offline banner; clear cached identity on explicit logout or confirmed 401 (not on network error). DECISION PENDING (H1).
-- OFF-2 Medium â€” Spurious `auth:unauthorized` fires on cold-load-without-session. `main.tsx` fires `initializeSync()` before `createRoot().render()`. On no-session cold load, sync's `guardedAccount.get()` 401s â†’ `guardedCall` dispatches `auth:unauthorized` â†’ `AuthProvider`'s listener sets `"Your session has expired. Please sign in again."` in parallel with `resolveInitialUser` (raw `account.get()`) which sets `error: null`. Intermittent "session expired" message on a fresh device. Fix direction: `resolveAuthenticatedUserId` uses raw `account` from `appwrite.ts` (not the guard); sync doesn't own session state.
-- OFF-3 High â€” Image upload offline discards the compressed blob. `storage.uploadImage`: `getCurrentUserId()` catches all errors â†’ returns null â†’ throws `"Cannot upload image: no authenticated user"`. Message is misleading (user IS authenticated, just offline). No local queue for the compressed blob. Fix direction: (a) `getCurrentUserId` distinguishes "no session" from "couldn't check" â€” throw `'Offline'` when `navigator.onLine === false`; (b) larger fix: local image queue â€” store blob in `imageCache`, set `task.image = 'img_pending_<uuid>'`, upload on `online`. [resolved 1.1.fix â€” error-message fix only: `getCurrentUserId` returns null on 401, throws `OfflineError` on network; local image queue deferred to a separate batch]
-- OFF-4 Low â€” `messageActionQueue` cap drop is silent. At >100 entries, drops oldest by `enqueuedAt` sort; no log, no user-visible indicator. `mark_read` reconciles on next `ChatPage` open; a dropped `unsend` is permanent on the recipient side. Fix direction: `console.warn` on drop; document cap in Â§18 accepted limitations.
-- OFF-6 Low â€” `imageCache` has no eviction bound. `cacheImage` writes raw blobs to IndexedDB with no size cap, no LRU, no TTL; blobs persist until explicit `deleteImage(fileId)`. Cumulative over time under storage pressure. Fix direction: document in Â§18; optional LRU cap in future refactor.
-- OFF-7 Info (DEFERRED to batch 1.4) â€” `src/lib/imageCache.ts` duplicates `src/lib/storage.ts`'s private cache implementation. Same IndexedDB database `mosaic_image_cache`, same store `blobs`, identical four operations. `exportData.ts` imports from `imageCache.ts`; `storage.ts` uses its private copy. No behavioral bug â€” drift risk only. Fix belongs in batch 1.4 (Item 7 residual).
-- OFF-8 High â€” `sendFriendRequest` offline silently loses the reciprocal row. `social.sendFriendRequest`: local `db.friendships.upsert(myLocalRow)` succeeds offline; remote `guardedTablesDB.upsertRow({...friendRowId})` throws offline; `FriendsProvider.sendRequest` propagates without catch; `ExploreView.handleAdd` only `console.error`s. User sees `sendingTo` reset; local row says `pending_outgoing`; the friend's reciprocal row (`fr_<hash(friendId, myUserId)>`) was never created. The sync engine will never fix this â€” it only pushes rows where `user_id === myUserId`. Fix direction: persistent outbox for the reciprocal write; retry on `online`/`focus`/`AppLayout` mount; permanent failures (401, non-429 4xx) surface a toast and revert the local row. [resolved 1.1.fix â€” `socialOutbox.ts` enqueues the reciprocal upsert on transient failure; permanent failures revert the local row via `FriendsProvider` and surface the "Couldn't send request" toast]
-- OFF-9 High â€” `acceptFriendRequest` / `deleteFriendPair` / `blockFriend` offline lose the reciprocal update. Same pattern as OFF-8. Local row patched; remote `guardedTablesDB.updateRow` on the friend's row throws offline; `FriendsProvider.accept/decline/cancel/remove/block` don't catch. `deleteFriendPair` and `blockFriend` additionally swallow the remote error with a bare `console.warn` even online. My state diverges from the friend's; worst case is a soft-deleted local row that the friend still sees as accepted. Fix direction: same outbox as OFF-8; replace bare `console.warn` in `deleteFriendPair`/`blockFriend` with the retry path. [resolved 1.1.fix â€” same outbox path; bare `console.warn` replaced; revert restores the prior status (`previousStatus` captured before the local patch)]
-- OFF-10 Medium â€” Profile create/update requires network with no local queue. `social.createOrUpdateProfile` calls `guardedTablesDB.upsertRow` directly; no `profiles` RxDB collection. Offline â†’ throws â†’ `SetUsernameSheet` shows `"Could not save. Try again."`. User cannot set up a profile offline. Not data loss (no local row to diverge), but the offline-first contract degrades. Fix direction: same outbox as OFF-8/9. [resolved 1.1.fix â€” outbox enqueues the profile upsert; `createOrUpdateProfile` throws `OfflineError`; `useMyProfile` optimistically sets the local profile; `SetUsernameSheet` distinguishes "offline" from "save failed"]
-- OFF-11 High â€” Cached friend data hidden by a transient refetch error. `PersonPane`'s activation refetch calls `refetchFriendCalendar(true)` with `forceRefresh: true`, bypassing the cache check and hitting `navigator.onLine === false` â†’ `FriendAccessError('offline')`. `useFriendCalendar.load` sets error state but preserves `tasks`/`categories`. Both `PersonPane` and `FriendCalendarPage` gate render on `error ? <error UI> : <data UI>` â€” the error wins even when cached tasks exist. Offline swipe to a friend pane with fully cached data replaces the calendar with "You're offline." Fix direction: gate error UI on `tasks.length === 0 && error`; when cached data exists, render the calendar and show a non-blocking offline indicator.
-- OFF-12 Low â€” Export offline: missing images not surfaced. `payload.counts.missingImages` is populated and the manifest includes `payload.images.missingImages`, but the user-facing toast says only `"Export ready"`. Silent incompleteness â€” user stores an export believing it's a full backup. Fix direction: after `exportUserData` returns, if `result.counts.missingImages > 0`, extend the toast to `"Export ready (N photos couldn't be fetched â€” re-export online to include them)"`.
-- OFF-13 Low â€” Reaction toggle offline silently reverts. `toggleReaction` in `useMessages`: `reactOnRemote` throws on offline; the `.catch` reverts locally and logs but the function returns `'ok'` synchronously. For an already-delivered message, no timeout branch fires; `ChatPage` sees `'ok'` and shows no toast. Reaction flashes and disappears with no explanation. (For pending outgoing messages, the earlier delivery-wait branch does return `'timeout'` â€” pending is covered, delivered is not.) Fix direction: `navigator.onLine === false` pre-check at the top of `toggleReaction` returns `'timeout'` immediately; reuse Â§21's `"Couldn't send reaction. Try again."` toast.
-- Non-findings (verified correct): OFF-5 (`handleDeliver` idempotent â€” both rows check-then-skip on retry, retry-safe); E2, E3, F4, F5, F6, G1, G2, G3, H1, H2, H3, I1â€“I7.
+- CHORE-G-1 — §18 Accepted Sync Engine Limitations: restored D1, D3, D7, F9-backoff, Social Outbox rationale paragraphs (each 2–3 sentences: what / what was tried / why rejected). Eliminated the pointer-to-changelog circular reference. §18 is now self-contained.
+- CHORE-G-2 — §2: restored behavioral specs for planned Phase 3.5–3.7 views (Todo List color-only grid + dot selection + vertical list; Diary per-day entry + visibility; Notifications `<ComingSoon />` until wired) and permanent calendar layout alignment rules (Month/Week vertical alignment, Month→Week jump, week header single line, task block styling, day-of-week colors, today border). Phase 3.5–3.7 now has a spec.
+- CHORE-G-3 — §16: dropped F1/F3/F5/F12/F13 IDs from rules 12–16. Rule text stands alone for cold readers; IDs were dangling once SESSION_STATE.md trims at phase close.
+- CHORE-G-4 — §25.3: added migration note (new Chat 1 picking up mid-phase reads SESSION_STATE.md first, not Changelog; Changelog is an index, not a narrative). Closes the mid-audit migration gap without inflating the Changelog.
+- CHORE-G-5 — §25.11 (new): Phase-Close Protocol. Five steps: trim state, update summary, verify no dangling cross-refs from AGENTS.md into trimmed state, add final Changelog row, confirm §18 Accepted Limitations rationale is intact. Prevents the F-ID and D1-pointer problems from recurring.
+- OFF-1 Critical — Offline cold launch blocks access to local data. `AuthProvider.resolveInitialUser` sets `user: null, isOffline: true` on network error; `AppLayout` renders the retry screen when `!user && isOffline`; no branch renders the protected tree with a cached identity. All data is in IndexedDB and fully readable — the block is purely the live `account.get()` probe. Violates §1 ("100% offline functionality"). Fix direction: persist last-known user identity (localStorage or settings row); on mount-time network error, hydrate `user` from cache and set `isOffline: true`; render app tree with offline banner; clear cached identity on explicit logout or confirmed 401 (not on network error). DECISION PENDING (H1).
+- OFF-2 Medium — Spurious `auth:unauthorized` fires on cold-load-without-session. `main.tsx` fires `initializeSync()` before `createRoot().render()`. On no-session cold load, sync's `guardedAccount.get()` 401s → `guardedCall` dispatches `auth:unauthorized` → `AuthProvider`'s listener sets `"Your session has expired. Please sign in again."` in parallel with `resolveInitialUser` (raw `account.get()`) which sets `error: null`. Intermittent "session expired" message on a fresh device. Fix direction: `resolveAuthenticatedUserId` uses raw `account` from `appwrite.ts` (not the guard); sync doesn't own session state.
+- OFF-3 High — Image upload offline discards the compressed blob. [resolved 1.1.fix — error-message fix only: `getCurrentUserId` returns null on 401, throws `OfflineError` on network; local image queue deferred to a separate batch]
+- OFF-4 Low — `messageActionQueue` cap drop is silent. At >100 entries, drops oldest by `enqueuedAt` sort; no log, no user-visible indicator. `mark_read` reconciles on next `ChatPage` open; a dropped `unsend` is permanent on the recipient side. Fix direction: `console.warn` on drop; document cap in §18 accepted limitations.
+- OFF-6 Low — `imageCache` has no eviction bound. Fix direction: document in §18; optional LRU cap in future refactor.
+- OFF-7 Info (DEFERRED to batch 1.4) — `src/lib/imageCache.ts` duplicates `src/lib/storage.ts`'s private cache implementation.
+- OFF-8 High [resolved 1.1.fix] — `sendFriendRequest` offline silently loses the reciprocal row.
+- OFF-9 High [resolved 1.1.fix] — `acceptFriendRequest`/`deleteFriendPair`/`blockFriend` offline lose the reciprocal update.
+- OFF-10 Medium [resolved 1.1.fix] — Profile create/update requires network with no local queue.
+- OFF-11 High — Cached friend data hidden by a transient refetch error. `PersonPane`'s activation refetch calls `refetchFriendCalendar(true)` with `forceRefresh: true`, bypassing the cache check and hitting `navigator.onLine === false` → `FriendAccessError('offline')`. `useFriendCalendar.load` sets error state but preserves `tasks`/`categories`. Both `PersonPane` and `FriendCalendarPage` gate render on `error ? <error UI> : <data UI>` — the error wins even when cached tasks exist. Fix direction: gate error UI on `tasks.length === 0 && error`; when cached data exists, render the calendar and show a non-blocking offline indicator.
+- OFF-12 Low — Export offline: missing images not surfaced. Fix direction: after `exportUserData` returns, if `result.counts.missingImages > 0`, extend the toast to `"Export ready (N photos couldn't be fetched — re-export online to include them)"`.
+- OFF-13 Low — Reaction toggle offline silently reverts. Fix direction: `navigator.onLine === false` pre-check at the top of `toggleReaction` returns `'timeout'` immediately; reuse §21's `"Couldn't send reaction. Try again."` toast.
+- Non-findings (verified correct): OFF-5, E2, E3, F4, F5, F6, G1, G2, G3, H1, H2, H3, I1–I7.
 Decisions:
-- [2026-09-16] Chat 1 may emit docs-only mega files directly (no runtime behavior â†’ no Chat 2 round-trip). Runtime-affecting changes still route through Chat 2. â†’ chore-c.
-- [2026-09-16] Â§25.6 example block uses 3 backticks; should be 4 per the new "bump above any inner run" rule. Low priority â€” no breakage; the example is illustrative. Deferred to next AGENTS.md open.
-- [2026-09-16] OFF-7 (imageCache/storage duplication) routed to batch 1.4 rather than fixed in 1.1.fix.b. Rationale: no behavioral bug; Item 7 residual already scoped for exactly this. â†’ Deferred.
-- [2026-09-16] SESSION_STATE.md is the phase's single document â€” findings, decisions, and deferrals live in it rather than in separate per-audit files. Rationale: a separate `AUDIT_ITEM_10.md` was referenced but never actually created, producing a dangling pointer. One authoritative file eliminates the failure class. â†’ chore-d.
-- [2026-09-16] Permanent-failure UX for OFF-8/9: revert the local RxDB patch via `FriendsProvider` (which owns the local social mutators) rather than blocking the UI or retrying forever. The outbox emits a `SocialOutboxFailureEvent`; `FriendsProvider` un-patches (soft-delete for `send_request`, status restore for `accept`/`block`, un-delete for `delete_friend_pair`); `ExploreView` surfaces the existing toast pattern. Rationale: matches the existing `toggleReaction` optimistic-then-revert idiom (Â§9) and reuses the existing toast primitive (Â§10) without adding new UX surfaces. â†’ 1.1.fix.
-- [2026-09-16] OFF-10 offline UX: `createOrUpdateProfile` enqueues the upsert AND throws `OfflineError`; `useMyProfile` optimistically sets the local profile so a retry does not trip the "username taken" branch; `SetUsernameSheet` extends its existing catch to show "You're offline. Your profile will sync when you reconnect." Rationale: no local RxDB collection for profiles, so the "revert" half of the OFF-8/9 pattern does not apply; the sheet's existing error path is the correct surfacing surface. â†’ 1.1.fix.
-- [2026-09-16] OFF-3 image-queue deferral: only the error-message fix (`getCurrentUserId` distinguishes 401 from network) ships in 1.1.fix. The full local-image-queue fix is deferred â€” it requires a new IndexedDB blob queue and a `img_pending_*` sentinel, which is a different mechanism from the JSON-outbox retry used for social writes. Separate batch. â†’ Deferred (no target batch yet; will be scoped after OFF-1/H1 resolves).
-- [2026-09-17] Chat 2 must append post-batch instructions after every mega file (Â§25.8). Rationale: mega-file-only output left Chat 0 without a next-step signal. â†’ chore-e.
-- [2026-09-17] Â§25.9 reasoning discipline added after observing ~40% CoT waste in 1.1.fix (decision loops on OFF-10, spec re-reads, inline option enumeration). â†’ chore-e.
-- [2026-09-17] `npm run apply*` copies full output to clipboard on exit, all modes, success or failure. Rationale: the paste-back loop had no reliable transport. â†’ chore-e.
-- [2026-09-17] OQ1 â€” Â§0 Hard Rules added at top; ≤10 one-liners, ≤200 tokens; cross-ref owning sections. â†’ chore-f.
-- [2026-09-17] OQ2 â€” Section compression per disposition table; verbatim preservation for Â§1/Â§3/Â§5/Â§6/Â§12/Â§18/Â§20/Â§23/Â§25 and named constants (PULL_OVERLAP_MS, FRIEND_REFETCH_MIN_INTERVAL_MS, REACTIONS_MAX_LEN, RENDER_WINDOW, EMPTY_TASKS, toast string). â†’ chore-f.
-- [2026-09-17] OQ3 â€” Â§5.1 compressed to numbered fence rules; pitfalls prose deleted; outer-fence regex preserved verbatim. â†’ chore-f.
-- [2026-09-17] OQ4 â€” Â§25.5 examples + Â§25.9 response-shape rules + Â§25.10 DeepThink defaults added. â†’ chore-f.
-- [2026-09-17] OQ5 â€” Â§26 "Writing AGENTS.md" added; rules verified against observed fix cycles. â†’ chore-f.
-- [2026-09-17] OQ6 â€” Changelog rewritten as index rows (`date â€” title â€” sections â€” one-phrase summary; see pointer`); ~80% row-length reduction on last 10 rows. â†’ chore-f.
+- [2026-09-16] Chat 1 may emit docs-only mega files directly (no runtime behavior → no Chat 2 round-trip). → chore-c.
+- [2026-09-16] §25.6 example block uses 3 backticks; should be 4 per the new "bump above any inner run" rule. [resolved 2026-09-17 in chore-f]
+- [2026-09-16] OFF-7 routed to batch 1.4. → Deferred.
+- [2026-09-16] SESSION_STATE.md is the phase's single document. → chore-d.
+- [2026-09-16] Permanent-failure UX for OFF-8/9: revert local RxDB patch via `FriendsProvider`. → 1.1.fix.
+- [2026-09-16] OFF-10 offline UX: enqueue + throw `OfflineError`; `useMyProfile` optimistic; `SetUsernameSheet` distinguishes offline from save-failed. → 1.1.fix.
+- [2026-09-16] OFF-3 image-queue deferral: only error-message fix ships; full queue deferred. → Deferred.
+- [2026-09-17] Chat 2 must append post-batch instructions (§25.8). → chore-e.
+- [2026-09-17] §25.9 reasoning discipline added. → chore-e.
+- [2026-09-17] `npm run apply*` copies output to clipboard on exit. → chore-e.
+- [2026-09-17] OQ1–OQ6 from chore-f (compression disposition, verbatim preservation list, §5.1 fence rules, §25.5/§25.9/§25.10 additions, §26, Changelog index format). → chore-f.
+- [2026-09-17] §0 dedup follow-up (merged former rules 2 + 10). → chore-f.
+- [2026-09-17] CHORE-G rationale: (1) restore D1/D3/D7/F9 rationale in §18 rather than accept a circular pointer; (2) restore §2 behavioral specs for planned views rather than deferring to a separate PRODUCT_NOTES.md file — the spec is small and belongs with the product-reference section; (3) drop F-IDs from §16 rather than preserve cross-references through the phase-close trim; (4) add §25.3 migration note rather than expanding the Changelog; (5) add §25.11 Phase-Close Protocol rather than rely on Chat 1 remembering to check for dangling refs. → chore-g.
 Deferred:
-- OFF-7 â†’ batch 1.4 (imageCache consolidation).
-- OFF-1 â†’ blocked on H1 decision.
-- OFF-3 local-image-queue half â†’ separate batch (IndexedDB blob queue; different mechanism from the social outbox).
-LastApply: 2026-09-17 â€” chore: post-batch instructions + reasoning discipline + apply clipboard
-LastAuditSummary: AGENTS.md compression audit closed â€” Tier 1 size reduction applied.
+- OFF-7 → batch 1.4 (imageCache consolidation).
+- OFF-1 → blocked on H1 decision.
+- OFF-3 local-image-queue half → separate batch (IndexedDB blob queue).
+LastApply: 2026-09-17 — docs: AGENTS.md compression follow-up (§2 specs, §18 rationale, §25.3 note, §25.11)
+LastAuditSummary: AGENTS.md compression follow-up closed — D1/D3/D7/F9 rationale restored in §18; §2 behavioral specs restored for Phase 3.5–3.7; F-IDs dropped from §16; §25.3 migration note added; §25.11 Phase-Close Protocol added.
 </file>
 
 <file path="tailwind.config.js">

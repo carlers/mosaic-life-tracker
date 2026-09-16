@@ -1,7 +1,8 @@
 import { getDatabase, type AppDatabaseCollections } from './database';
 import { Permission, Role, Query } from 'appwrite';
 import { isUnauthorizedError } from '../lib/authEvents';
-import { guardedTablesDB, guardedAccount } from '../lib/sdk';
+import { guardedTablesDB } from '../lib/sdk';
+import { account } from '../lib/appwrite';
 import { toAppwriteFormat, fromAppwriteFormat } from '../lib/syncMapping';
 export { toAppwriteFormat, fromAppwriteFormat };
 const APPWRITE_CONFIG = {
@@ -198,9 +199,17 @@ function toMs(value: unknown): number {
   const t = new Date(value).getTime();
   return Number.isFinite(t) ? t : 0;
 }
+// OFF-2: this runs on every sync cycle, including the cold-load call in
+// main.tsx that precedes AuthProvider's own account.get(). A 401 here is
+// the normal "no session yet" case, not a mid-session expiry, and the
+// guarded SDK would dispatch `auth:unauthorized` on that 401 — racing
+// AuthProvider's resolveInitialUser and intermittently showing a
+// "session expired" banner on a fresh device. Use the raw client so sync
+// never owns session state; AuthProvider is the single source of truth
+// (AGENTS §23).
 async function resolveAuthenticatedUserId(): Promise<string | null> {
   try {
-    const user = await guardedAccount.get();
+    const user = await account.get();
     return user?.$id || null;
   } catch (err) {
     if (DEBUG) console.log('[Sync] account.get() failed:', err);
