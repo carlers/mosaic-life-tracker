@@ -5,13 +5,38 @@ import {
 } from 'fs';
 import { dirname, join, resolve, relative, sep } from 'path';
 import { fileURLToPath } from 'url';
-import { execSync, spawn } from 'child_process';
+import { spawn } from 'child_process';
+import { copyToClipboard } from './scripts/clipboard.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const ROOT = dirname(__filename);
 const BACKUP_ROOT = join(ROOT, '.mosaic-backup');
 const DIRECTIVE_RE = /^===(FILE|DELETE|COMMIT):(.+)===$/;
 const SELF_MOD_FILE = 'apply-changes.mjs';
+
+// Capture every byte written to stdout so the full run output can be copied
+// to the clipboard on exit (success or failure). The wrapper must be
+// installed before `main()` runs so early logs are captured too.
+const capturedOutput = [];
+const originalStdoutWrite = process.stdout.write.bind(process.stdout);
+process.stdout.write = (chunk, encoding, callback) => {
+  try {
+    if (typeof chunk === 'string') {
+      capturedOutput.push(chunk);
+    } else if (chunk instanceof Uint8Array) {
+      capturedOutput.push(Buffer.from(chunk).toString('utf8'));
+    }
+  } catch {
+    // Capture must never break the underlying write.
+  }
+  return originalStdoutWrite(chunk, encoding, callback);
+};
+
+process.on('exit', () => {
+  if (capturedOutput.length === 0) return;
+  const text = capturedOutput.join('').slice(-100_000);
+  copyToClipboard(text);
+});
 
 function log(...a) {
   console.log(...a);
@@ -135,16 +160,37 @@ function formatBytes(n) {
   return `${(n / 1024 / 1024).toFixed(2)} MB`;
 }
 
+/**
+ * Run a verify command. Streams stdout/stderr live (via the same
+ * `process.stdout.write` wrapper that feeds the clipboard capture) so the
+ * user sees lint/test/build output as it happens and it lands in the
+ * clipboard buffer. Resolves `true` on exit code 0, `false` otherwise.
+ */
 function run(cmd) {
   log(`\n🔍 Running ${cmd}...`);
-  try {
-    execSync(cmd, { stdio: 'inherit', cwd: ROOT });
-    log(`  ✓ ${cmd} passed`);
-    return true;
-  } catch {
-    log(`  ✗ ${cmd} failed`);
-    return false;
-  }
+  return new Promise((resolve) => {
+    const child = spawn(cmd, [], {
+      stdio: ['inherit', 'pipe', 'pipe'],
+      cwd: ROOT,
+      shell: true,
+    });
+    child.stdout.on('data', (chunk) => process.stdout.write(chunk));
+    child.stderr.on('data', (chunk) => process.stderr.write(chunk));
+    child.on('exit', (code) => {
+      if (code === 0) {
+        log(`  ✓ ${cmd} passed`);
+        resolve(true);
+      } else {
+        log(`  ✗ ${cmd} failed`);
+        resolve(false);
+      }
+    });
+    child.on('error', (err) => {
+      console.error(err);
+      log(`  ✗ ${cmd} failed`);
+      resolve(false);
+    });
+  });
 }
 
 function findLatestBackup() {
@@ -195,7 +241,7 @@ function suggestCommitFallback(files, deletes) {
   return `chore: apply ${files.length + deletes.length} file change(s)`;
 }
 
-function main() {
+async function main() {
   const flags = parseArgs(process.argv.slice(2));
   if (flags.rollback) doRollback();
 
@@ -265,9 +311,9 @@ function main() {
   }
 
   if (!flags.noVerify) {
-    if (!run('npm run lint')) fail('Lint failed. Run `npm run apply:rollback` to restore.');
-    if (!run('npm test')) fail('Tests failed. Run `npm run apply:rollback` to restore.');
-    if (!run('npm run build')) fail('Build failed. Run `npm run apply:rollback` to restore.');
+    if (!(await run('npm run lint'))) fail('Lint failed. Run `npm run apply:rollback` to restore.');
+    if (!(await run('npm test'))) fail('Tests failed. Run `npm run apply:rollback` to restore.');
+    if (!(await run('npm run build'))) fail('Build failed. Run `npm run apply:rollback` to restore.');
   }
 
   const commitMsg = commit || suggestCommitFallback(files, deletes);
@@ -283,4 +329,7 @@ function main() {
   }
 }
 
-main();
+main().catch((err) => {
+  console.error(err);
+  process.exit(1);
+});

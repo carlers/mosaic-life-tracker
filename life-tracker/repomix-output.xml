@@ -179,6 +179,7 @@ src/
     sdk.ts
     settingsRowId.ts
     social.ts
+    socialOutbox.ts
     storage.ts
     syncMapping.ts
     threads.ts
@@ -236,6 +237,9 @@ tests/
     messageActionQueue.test.ts
     reactionUtils.test.ts
     settingsRowId.test.ts
+    socialOffline.test.ts
+    socialOutbox.test.ts
+    storage.test.ts
     sync.test.ts
     syncMapping.test.ts
     threads.test.ts
@@ -353,7 +357,7 @@ async function main()
 </file>
 
 <file path="src/components/explore/ExploreView.tsx">
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Copy, Check, Users, Inbox } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { SearchBar } from './SearchBar';
@@ -365,6 +369,10 @@ import { FriendActionSheet } from './FriendActionSheet';
 import { useFriends } from '../../hooks/useFriends';
 import { useProfileLookup } from '../../hooks/useProfileLookup';
 import { useMyProfile } from '../../hooks/useMyProfile';
+import {
+  subscribeToSocialOutboxFailures,
+  type SocialOutboxAction,
+} from '../../lib/socialOutbox';
 import type { ProfileCard } from '../../lib/social';
 import type { FriendshipDocument } from '../../db/schema';
 ⋮----
@@ -372,6 +380,9 @@ interface ExploreViewProps {
   onRequestUsername: () => void;
   onFeedback?: (message: string) => void;
 }
+⋮----
+// Surface permanent outbox failures via the page-level toast. The
+// revert itself is handled by FriendsProvider (a sibling subscriber).
 ⋮----
 relationship=
 </file>
@@ -1317,6 +1328,7 @@ import { FriendsProvider } from '../../hooks/FriendsProvider';
 import { ConversationsProvider } from '../../hooks/ConversationsProvider';
 import { useAuth } from '../../hooks/useAuth';
 import { deliverPendingMessages } from '../../lib/messageDelivery';
+import { flushSocialOutbox } from '../../lib/socialOutbox';
 import type { TabId } from './BottomNav';
 ⋮----
 const onOnline = ()
@@ -1818,6 +1830,7 @@ import { Input } from '../ui/Input';
 import { Save } from 'lucide-react';
 import { useMyProfile } from '../../hooks/useMyProfile';
 import { useAuth } from '../../hooks/useAuth';
+import { isOfflineError } from '../../lib/authEvents';
 ⋮----
 interface SetUsernameSheetProps {
   isOpen: boolean;
@@ -1830,6 +1843,9 @@ const handleSave = async () =>
 // Could not determine: session expired, network drop, or server
 // error. If it was a 401, the global auth redirect is already
 // in flight. Otherwise, let the user retry.
+⋮----
+// Distinguish "we couldn't reach the server" from "the save itself
+// failed." The outbox has already queued the write, so the profile
 ⋮----
 onPointerDown=
 </file>
@@ -2332,6 +2348,7 @@ import {
   blockFriend,
 } from '../lib/social';
 import { clearCachedCalendar } from '../lib/friendCache';
+import { subscribeToSocialOutboxFailures } from '../lib/socialOutbox';
 import {
   FriendsContext,
   type MyProfileSummary,
@@ -2536,6 +2553,7 @@ export function useMessages(friendId: string | null): UseMessagesReturn
 <file path="src/hooks/useMyProfile.ts">
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from './useAuth';
+import { isOfflineError } from '../lib/authEvents';
 import {
   fetchMyProfile,
   createOrUpdateProfile,
@@ -2660,6 +2678,12 @@ export function isUnauthorizedError(err: unknown): boolean
 export function makeUnauthorizedError(message = 'Unauthorized'): Error
 ⋮----
 export function dispatchUnauthorized(): void
+⋮----
+export class OfflineError extends Error
+⋮----
+constructor(message = 'Offline')
+⋮----
+export function isOfflineError(err: unknown): boolean
 ⋮----
 export async function guardedCall<T>(fn: () => Promise<T>): Promise<T>
 </file>
@@ -3075,8 +3099,16 @@ export function makeSettingsRowId(userId: string, key: string): string
 <file path="src/lib/social.ts">
 import { Permission, Role, Query } from 'appwrite';
 import { getDatabase } from '../db/database';
-import { isUnauthorizedError } from './authEvents';
+import { isUnauthorizedError, OfflineError } from './authEvents';
 import { guardedTablesDB } from './sdk';
+import {
+  emitSocialOutboxFailure,
+  enqueueSocialOp,
+  setSocialOutboxSender,
+  type SocialOutboxAction,
+  type SocialOutboxRemoteOp,
+  type SocialOutboxRevertInfo,
+} from './socialOutbox';
 import type { FriendshipDocument } from '../db/schema';
 ⋮----
 export type FriendStatus =
@@ -3114,6 +3146,17 @@ function buildCreatorOwnPermissions(userId: string)
 ⋮----
 function toMs(value: unknown): number
 ⋮----
+function isTransientSocialFailure(err: unknown): boolean
+⋮----
+function handleSocialRemoteFailure(input: {
+  err: unknown;
+  userId: string;
+  action: SocialOutboxAction;
+  op: SocialOutboxRemoteOp;
+  revert: SocialOutboxRevertInfo;
+  dedupKey: string;
+}): void
+⋮----
 export async function fetchMyProfile(
   userId: string
 ): Promise<ProfileCard | null>
@@ -3125,6 +3168,9 @@ export async function fetchProfileByUserId(
 export async function createOrUpdateProfile(
   input: MyProfileInput
 ): Promise<ProfileCard>
+⋮----
+// Distinguishable error — SetUsernameSheet branches on it to show an
+// "offline" message instead of a generic "could not save".
 ⋮----
 /**
  * Returns:
@@ -3180,17 +3226,118 @@ export async function updateFriendBioLocally(
 ): Promise<void>
 </file>
 
+<file path="src/lib/socialOutbox.ts">
+import { isUnauthorizedError } from './authEvents';
+import type { FriendshipDocument } from '../db/schema';
+⋮----
+export type SocialOutboxAction =
+  | 'send_request'
+  | 'accept_friend_request'
+  | 'delete_friend_pair'
+  | 'block_friend'
+  | 'upsert_profile';
+⋮----
+export interface SocialOutboxRemoteOp {
+  kind: 'upsertRow' | 'updateRow';
+  databaseId: string;
+  tableId: string;
+  rowId: string;
+  data: Record<string, unknown>;
+  permissions?: string[];
+}
+⋮----
+export interface SocialOutboxRevertInfo {
+  myRowId: string;
+  previousStatus?: FriendshipDocument['status'];
+}
+⋮----
+export interface SocialOutboxSender {
+  (op: SocialOutboxRemoteOp): Promise<void>;
+}
+⋮----
+export interface SocialOutboxFailureEvent {
+  userId: string;
+  action: SocialOutboxAction;
+  revert: SocialOutboxRevertInfo;
+}
+⋮----
+export type SocialOutboxFailureListener = (
+  event: SocialOutboxFailureEvent
+) => void;
+⋮----
+interface QueuedEntry {
+  id: string;
+  userId: string;
+  action: SocialOutboxAction;
+  op: SocialOutboxRemoteOp;
+  revert: SocialOutboxRevertInfo;
+  attempts: number;
+  enqueuedAt: string;
+}
+⋮----
+export function setSocialOutboxSender(fn: SocialOutboxSender): void
+⋮----
+export function subscribeToSocialOutboxFailures(
+  fn: SocialOutboxFailureListener
+): () => void
+⋮----
+export function emitSocialOutboxFailure(
+  event: SocialOutboxFailureEvent
+): void
+⋮----
+function load(): void
+⋮----
+function save(): void
+⋮----
+export function enqueueSocialOp(
+  userId: string,
+  input: {
+    action: SocialOutboxAction;
+    op: SocialOutboxRemoteOp;
+    revert?: SocialOutboxRevertInfo;
+    dedupKey: string;
+  }
+): void
+⋮----
+function isPermanentFailure(err: unknown): boolean
+⋮----
+function removeEntry(entry: QueuedEntry): void
+⋮----
+function dropEntry(entry: QueuedEntry): void
+⋮----
+export async function flushSocialOutbox(userId: string): Promise<void>
+⋮----
+export function clearSocialOutbox(userId?: string): void
+⋮----
+export function getSocialOutboxSize(userId?: string): number
+⋮----
+export function __resetSocialOutboxForTests(): void
+</file>
+
 <file path="src/lib/storage.ts">
 import imageCompression from 'browser-image-compression';
 import { Permission, Role } from 'appwrite';
-import { guardedCall, makeUnauthorizedError } from './authEvents';
+import {
+  guardedCall,
+  makeUnauthorizedError,
+  isUnauthorizedError,
+  OfflineError,
+} from './authEvents';
 import { guardedStorage, guardedAccount } from './sdk';
 ⋮----
 export async function compressImage(file: File): Promise<Blob>
 ⋮----
 function generateFileId(): string
 ⋮----
-async function getCurrentUserId(): Promise<string | null>
+/**
+ * Returns the current user's id, or `null` if the server says there is no
+ * session (401). A network error / offline state throws `OfflineError` —
+ * "couldn't check" must never be conflated with "definitely not logged in"
+ * (see AGENTS.md §10 and §23.6).
+ *
+ * Exported for tests; `uploadImage` is the only production caller.
+ */
+export async function getCurrentUserId(): Promise<string | null>
 ⋮----
 function buildFilePermissions(userId: string)
 ⋮----
@@ -4107,6 +4254,54 @@ import { describe, it, expect } from 'vitest';
 import { makeSettingsRowId } from '../../src/lib/settingsRowId';
 </file>
 
+<file path="tests/unit/socialOffline.test.ts">
+import { describe, it, expect, beforeEach, vi } from 'vitest';
+⋮----
+import {
+  sendFriendRequest,
+  acceptFriendRequest,
+  createOrUpdateProfile,
+} from '../../src/lib/social';
+import {
+  __resetSocialOutboxForTests,
+  getSocialOutboxSize,
+  subscribeToSocialOutboxFailures,
+  type SocialOutboxFailureEvent,
+} from '../../src/lib/socialOutbox';
+import { isOfflineError } from '../../src/lib/authEvents';
+import type { ProfileCard } from '../../src/lib/social';
+</file>
+
+<file path="tests/unit/socialOutbox.test.ts">
+import { describe, it, expect, beforeEach, vi } from 'vitest';
+⋮----
+import {
+  enqueueSocialOp,
+  flushSocialOutbox,
+  clearSocialOutbox,
+  getSocialOutboxSize,
+  setSocialOutboxSender,
+  subscribeToSocialOutboxFailures,
+  emitSocialOutboxFailure,
+  __resetSocialOutboxForTests,
+  type SocialOutboxFailureEvent,
+  type SocialOutboxRemoteOp,
+} from '../../src/lib/socialOutbox';
+⋮----
+function makeOp(
+  overrides: Partial<SocialOutboxRemoteOp> = {}
+): SocialOutboxRemoteOp
+</file>
+
+<file path="tests/unit/storage.test.ts">
+import { describe, it, expect, beforeEach, vi } from 'vitest';
+⋮----
+import { uploadImage, getCurrentUserId } from '../../src/lib/storage';
+import { isOfflineError } from '../../src/lib/authEvents';
+⋮----
+function makeFile(): File
+</file>
+
 <file path="tests/unit/sync.test.ts">
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 ⋮----
@@ -4383,6 +4578,7 @@ Rules:
 - ✅ **Conversations / Unread Layer Refactor Complete:** `ConversationsProvider` (mounted in `AppLayout`) is the single owner of the inbox messages subscription, the `useFriends()` call, and the unread math. `FriendsProvider` (also mounted in `AppLayout`, wrapping `ConversationsProvider`) is the single owner of the friendships subscription. `useConversations` and `useUnreadMessages` are thin context selectors preserving their public return shapes per §9. `ConversationRow` is memoized with a custom comparator. Unread math now excludes `isUnsent` to match `ChatPage`'s own unread check (§21) — the badge, the Messages list, and the chat header all agree. Fixed F1 (per-call-site `useFriends`), F3 (unsent unread divergence), F5 (`ConversationRow` re-renders), F7 (duplicated friendships cleanup), and F9 (badge/list transient divergence) from the conversations/unread audit. F6 (per-emit `conversations` memo rebuild) is a documented won't-fix; F11–F13 are documented as inbox contracts in §16.
 - ✅ **Test Suite Layers 1–5 Complete:** 232 tests across 28 files in four Vitest projects (`unit`, `handlers`, `react`, `components`). Layers 1 + 3 test pure functions (`reactionUtils`, `syncMapping`, `threads`, `visibility`, `settingsRowId`, `appwriteParity`); Layer 2 tests every `message-action` handler with a mocked `node-appwrite` via `invoke-handler.ts`; Layer 4 tests hook and provider contracts (`useConversations`, `useUnreadMessages`, `useMessages`, `useTaskImage`, `ConversationsProvider`, `FriendsProvider`) against a real in-memory RxDB built by `testDb.ts`; Layer 5 tests component behavior in happy-dom with `@testing-library/react` (`BottomSheet`, `CategorySection`, `ChatSearchBar`, `ConversationRow`, `MessageBubble`, `MessageComposer`, `ReactionRow`, `TaskActionSheet`, `TaskVisibilitySheet`, `UserResultCard`). The installer's verify block now runs `npm test` between lint and build (§5.1), so any test failure gates a patch before it lands. See §24 for layout, philosophy, and the test helper's deliberate divergence from `src/db/database.ts`.
 - ✅ **Sync Engine Audit Complete:** 13 sequential slices landed. Hardened against stuck state (Slice A: listener isolation in `updateSyncStatus`/`subscribeToSyncStatus`, `forceSync` follow-up queue), boundary advancement (Slice B: `dirty` at cycle-start not cycle-end, `pull` frozen on any row failure, push loop continues past row failures and refuses to advance `dirty` on any push failure), state versioning (F15: `version: 1` on the per-collection blob with legacy-unversioned acceptance), page cap (F17), user-scoped `lastSyncTime` (F20), server-owned `read_at` applied before dirty-skip (F12), pull-then-upsert race window narrowed with `_meta.lwt` re-check plus `CONFLICT` handling (F13), `createRow` instead of `upsertRow` for the 404 fallback (D8), Web Locks cross-tab mutex with unconditional per-collection state reload (D4), persistent message-action retry queue for `mark_read`/`unsend` (D2, `src/lib/messageActionQueue.ts`), drift detection in `fromAppwriteFormat` (D5 revised), `updatedAt` on `categories` and `settings` with migrations on both sides (D6), and a `SyncStatusSheet` in Settings surfacing errors and a manual-sync trigger (F16). Four findings accepted and documented as known limitations in §18: D1 (last-write-wins), D3 (30 s clock-skew tolerance), D7 (cold-sync push), F9-backoff (per-tab backoff state). Test suite grew from 232 to 303. `sync.test.ts` grew from 0 to 35 tests.
+- ✅ **Offline Write Resilience Complete (1.1.fix):** New `src/lib/socialOutbox.ts` (mirrors `messageActionQueue.ts`) persists and retries cross-user social writes that the single-shot remote path could lose offline. `social.sendFriendRequest`/`acceptFriendRequest`/`deleteFriendPair`/`blockFriend` now enqueue the reciprocal write on transient failure and drop it (with a local revert) on permanent failure. `social.createOrUpdateProfile` enqueues the remote profile upsert and throws a distinguishable `OfflineError`, which `SetUsernameSheet` surfaces as an offline message. `storage.getCurrentUserId` now returns `null` for 401 but throws `OfflineError` on network failure, so `uploadImage` no longer misreports "no authenticated user" when the user is merely offline. Full local-image-queue fix is deferred to a separate batch (IndexedDB blob storage is a different mechanism). See §10 drop policy and §15 `socialOutbox.ts`.
 - 🔄 **Next Up:** Phase 3.5 — Todo List View; Phase 3.6 — Diary View; Phase 3.7 — Notifications tab (in-app notifications for message/reaction events)
 
 ---
@@ -4415,7 +4611,7 @@ Rules:
 - **Context Split for Fast Refresh:** A file that exports a React component MUST NOT also export a non-component value (context object, hooks, constants). Split them: `authContext.ts` holds `AuthContext` + `AuthContextValue`; `AuthProvider.tsx` holds only the component. This satisfies `react-refresh/only-export-components`
 
 ## 10. Error Handling & Logging Conventions
-- **Hook/Service Log Prefix:** All `console.error` and `console.warn` calls MUST be prefixed with `[ComponentName]` or `[hookName]` in square brackets. Active prefixes include: `[useTasks]`, `[useMessages]`, `[useConversations]`, `[messageDelivery]`, `[messageActionQueue]`, `[ChatPage]`, `[useFriendCalendar]`, `[PersonPane]`, `[FriendCalendarPage]`, `[Storage]`, `[Sync]`, `[Bootstrap]`, `[RxDB]`, `[CategoryManagerSheet]`, `[ReplyComposerSheet]`, `[EmojiPicker]`, `[SyncStatusSheet]`. Makes log filtering trivial
+- **Hook/Service Log Prefix:** All `console.error` and `console.warn` calls MUST be prefixed with `[ComponentName]` or `[hookName]` in square brackets. Active prefixes include: `[useTasks]`, `[useMessages]`, `[useConversations]`, `[messageDelivery]`, `[messageActionQueue]`, `[socialOutbox]`, `[social]`, `[ChatPage]`, `[useFriendCalendar]`, `[PersonPane]`, `[FriendCalendarPage]`, `[Storage]`, `[Sync]`, `[Bootstrap]`, `[RxDB]`, `[CategoryManagerSheet]`, `[ReplyComposerSheet]`, `[EmojiPicker]`, `[SyncStatusSheet]`. Makes log filtering trivial
 - **Guard Clause Errors:** When a mutator is called without an authenticated user, log `[hookName] Cannot <action>: User not authenticated` and return silently. Never throw — the UI shouldn't crash because of a race with logout
 - **Silent Session Cleanup:** Before any `account.createEmailPasswordSession`, wrap a `try { await account.deleteSession('current') } catch {}` — swallowing that error is intentional and required. ESLint's `no-empty` rule is configured with `allowEmptyCatch: true` (see §15) specifically to permit this pattern without requiring a placeholder comment inside the block
 - **DEBUG Gating:** Non-error diagnostic logs MUST be wrapped in `if (import.meta.env.DEV)` or gated behind a module-level `const DEBUG = import.meta.env.DEV`. Never log to production consoles
@@ -4423,8 +4619,8 @@ Rules:
 - **Invalid RowId Recovery:** If sync logs an `Invalid rowId` error for a locally-created doc, that doc will retry forever. The owning hook (e.g., `useSettings`) must scan for and `remove()` any legacy rows whose ID violates Appwrite's constraints during its init phase (see §11)
 - **`CONFLICT` Is Not an Error:** `markAllRead`, `toggleReaction`, and the pull `upsert` paths patch rows that a parallel sync cycle may have updated. Catch `err.code === 'CONFLICT'`, re-fetch the doc, and either retry once or skip. Do NOT log `CONFLICT` as an error — it's an expected race. In the pull loop, `CONFLICT` on `upsert` is treated as a preserved-local-edit and the row is skipped without freezing the pull boundary (see §18, F13)
 - **Fire-and-Forget Cross-User Writes:** `markReadOnRemote`, `unsendOnRemote`, `reactOnRemote`, `reactToTaskOnRemote` intentionally swallow errors after logging. The user's local state is the source of truth; the server call is best-effort. `mark_read` and `unsend` additionally enqueue themselves into `messageActionQueue` on transient failure and are retried on the next `deliverPendingMessages` trigger (see §20.5 and §18). `deliver` retries via the pending outbox in `deliverPendingMessages`
-- **401 Detection & Global Redirect:** Any SDK call or `fetch` that can return 401 MUST route through `guardedCall` from `src/lib/authEvents.ts` (see §15 for the guarded SDK surface that wraps this). `guardedCall` uses `isUnauthorizedError(err)`; on match it calls `dispatchUnauthorized()` to fire the global `auth:unauthorized` window event. `AuthProvider` listens and clears user state, which causes `AppLayout` to redirect to `/login`. Do NOT redirect from the call site. For synthetic 401s constructed from raw `fetch` responses or from Appwrite Function execution result codes, use the `makeUnauthorizedError()` helper rather than inlining `const err = new Error('Unauthorized'); (err as { code?: number }).code = 401;`
-- **Differentiate "Not Logged In" From "Couldn't Check":** A 401 from `account.get()` means "definitely not logged in." A network error, timeout, or offline state means "couldn't check." These MUST be handled differently. The former clears user state; the latter sets `isOffline = true` and lets `AppLayout` render a retry screen instead of redirecting
+- **Permanent-Failure Drop Policy (Social Outbox):** `src/lib/socialOutbox.ts` drops a queued entry after 5 attempts or on a permanent failure (401, or any non-429 4xx). On drop, it emits a `SocialOutboxFailureEvent` to every `subscribeToSocialOutboxFailures` listener; `FriendsProvider` listens and reverts the matching local RxDB row so local and remote state agree. The same event is fanned out to `ExploreView`, which surfaces the existing toast pattern ("Couldn't send request. Try again." / "Couldn't accept request. Try again." / "Couldn't remove friend. Try again." / "Couldn't block friend. Try again."). Do not silently drop entries — every drop MUST be accompanied by a local revert and (when the originating UI is mounted) a user-facing toast
+- **Differentiate "Not Logged In" From "Couldn't Check":** A 401 from `account.get()` means "definitely not logged in." A network error, timeout, or offline state means "couldn't check." These MUST be handled differently. The former clears user state; the latter sets `isOffline = true` and lets `AppLayout` render a retry screen instead of redirecting. Use `OfflineError` / `isOfflineError()` from `src/lib/authEvents.ts` for the "couldn't check" case; never construct ad-hoc "offline" strings
 - **Logout Returns Success:** `useAuth().logout()` returns `Promise<boolean>`. Callers MUST check the return value before navigating away. Never assume logout succeeded. This applies to `SettingsPage.handleLogout`, `AccountPage.handleLogout`, and any future caller. See §23 for the full pattern
 - **Multi-Tab Auth Broadcast:** Login and logout both write a JSON payload (`{ type: 'login' | 'logout', at: number }`) to `localStorage` under the key `mosaic_auth_broadcast`. Other tabs listen via the `storage` event and either clear user state (logout) or re-run `account.get()` (login). Never broadcast user credentials or tokens — only the event type
 
@@ -4512,11 +4708,12 @@ Rules:
   - Auth trio: `authContext.ts` (context object + types only, no component), `AuthProvider.tsx` (the provider component, no other exports), `useAuth.ts` (consumer hook). This split exists to satisfy `react-refresh/only-export-components` — do not merge
   - Conversations trio: `conversationsContext.ts` (context object + types only, no component), `ConversationsProvider.tsx` (the provider component, no other exports), `useConversations.ts` (thin context selector). Same fast-refresh split as the auth trio — do not merge
   - Friends trio: `friendsContext.ts` (context object + types only, no component), `FriendsProvider.tsx` (the provider component, no other exports), `useFriends.ts` (thin context selector). Same fast-refresh split as the auth trio — do not merge. `FriendsProvider` must be mounted above `ConversationsProvider` in the tree; the latter consumes the former
-- `src/lib/` — side-effectful SDK wrappers and pure utilities (appwrite, storage, imageCache, social, friendCache, friendData, useFriendCalendar, messageDelivery, messageActionQueue, threads, reactionUtils, visibility, exportData, mockData). No React imports allowed here (except `useFriendCalendar.ts` which is a hook living under lib/ for historical reasons — do not move)
-  - `authEvents.ts` — pure module: `AUTH_UNAUTHORIZED_EVENT` constant, `isUnauthorizedError(err)` predicate, `makeUnauthorizedError(message?)` helper (creates a synthetic 401-coded `Error`), `dispatchUnauthorized()` helper, `guardedCall<T>(fn)` wrapper. No React. Imported by every SDK wrapper that can receive a 401.
+- `src/lib/` — side-effectful SDK wrappers and pure utilities (appwrite, storage, imageCache, social, friendCache, friendData, useFriendCalendar, messageDelivery, messageActionQueue, socialOutbox, threads, reactionUtils, visibility, exportData, mockData). No React imports allowed here (except `useFriendCalendar.ts` which is a hook living under lib/ for historical reasons — do not move)
+  - `authEvents.ts` — pure module: `AUTH_UNAUTHORIZED_EVENT` constant, `isUnauthorizedError(err)` predicate, `makeUnauthorizedError(message?)` helper (creates a synthetic 401-coded `Error`), `OfflineError` class + `isOfflineError(err)` predicate (distinguishes "couldn't check" from "no session"), `dispatchUnauthorized()` helper, `guardedCall<T>(fn)` wrapper. No React. Imported by every SDK wrapper that can receive a 401.
   - `sdk.ts` — **the guarded SDK surface.** Exports `guardedTablesDB`, `guardedStorage`, `guardedFunctions`, `guardedAccount`. Every method internally calls `guardedCall()`. Param shapes are defined explicitly (see §6 re: `Parameters<T>` on overloaded SDK methods). Raw SDK service classes (`TablesDB`, `Storage`, `Functions`, `Account`) may only be imported and constructed here and in `src/lib/appwrite.ts`. Enforced by ESLint `no-restricted-imports` (below). `guardedFunctions.createExecution` additionally normalizes `responseStatusCode === 401` (the SDK returns 401 executions instead of throwing) into a `makeUnauthorizedError()` before guardedCall's dispatch can miss it.
   - `appwrite.ts` — the only other file permitted to construct raw `Client`/`Account`. Exports `client` and `account` used by `sdk.ts`.
   - `messageActionQueue.ts` — persistent retry queue for the two message actions that would otherwise leave local and remote state divergent if their single attempt failed: `mark_read` and `unsend`. Storage: JSON array under `mosaic_message_action_queue`. Dedup by `(userId, dedupKey)`. Cap 100 entries. Retries up to 5 attempts on transient failures; drops on 401 and any non-429 4xx. Single in-flight flush guard. Wired to `sendMessageAction` at module init and flushed by `deliverPendingMessages` (see §20.5).
+  - `socialOutbox.ts` — persistent retry queue for cross-user social writes that would otherwise leave the local RxDB row and the friend's reciprocal row divergent if the direct write failed: `sendFriendRequest`, `acceptFriendRequest`, `deleteFriendPair`, `blockFriend`, and `createOrUpdateProfile`. Storage: JSON array under `mosaic_social_outbox`. Dedup by `(userId, dedupKey)`. Cap 100 entries. Retries up to 5 attempts on transient failures; drops on 401 and any non-429 4xx. Single in-flight flush guard. Permanent drops emit a `SocialOutboxFailureEvent` to `subscribeToSocialOutboxFailures` listeners — `FriendsProvider` reverts the local RxDB row. Wired to `guardedTablesDB` at module init in `social.ts` and flushed by `AppLayout`'s `tryDeliver` alongside `deliverPendingMessages` (see §10 drop policy).
 - `tests/` — Vitest test suite (four projects: `unit`, `handlers`, `react`, `components`). See §24 for full layout, philosophy, helper contracts, and how to add new tests.
 - Project root: `apply-changes.mjs` (mega-file installer, see §5.1), `pending-changes.txt` (gitignored input, see §5.1)
 
@@ -4582,6 +4779,7 @@ These are documented, deliberate trade-offs after the sync-engine audit. Each wa
 - **D3 — Clock-Skew Tolerance Is 30 Seconds.** `PULL_OVERLAP_MS = 30_000` is the only guard against client-versus-server clock drift. A client clock ahead of the server by more than 30 s can skip remote rows permanently, because the pull query's `$updatedAt > sinceIso` filter excludes them and the cursor-based pagination does not re-fetch them after the overlap window passes. Rejected alternatives: fetching server time and applying an offset introduces a new failure mode on login (the offset fetch itself can fail or be skewed by a slow network), and a wider overlap window increases duplicate pulls proportionally. Accepted as a documented constraint; a device with a badly wrong clock will not sync correctly, but modern device clocks are within seconds of truth. If a user reports missing rows after a device clock change, widen the window and revisit this decision.
 - **D7 — Cold Sync Treats All Local Rows as Dirty.** If `localStorage` is cleared while IndexedDB survives (a partial site-data clear, or a manual developer action), `loadPerCollectionState` returns `{}`, `pullBoundaryMs` and `dirtyBoundaryMs` are both 0, and every local row satisfies `localLwt > 0`, so the next sync pushes every local row. Rejected alternatives: (a) skipping the push for one cycle is ineffective — the next cycle sees `dirtyBoundaryMs` still `''` and pushes anyway; (b) overriding `dirtyBoundaryMs` to `cycleStartMs` breaks the push of local-only rows (they have no `remoteMeta`, so the non-dirty push predicate never fires) and regresses `categories`/`settings` push (they now participate in `usesTimestamps` post-D6, but only if their `updatedAt` is meaningful — a migrated row with `updatedAt: ''` would be skipped); (c) persisting per-collection state to IndexedDB is D4-adjacent architecture work, not an isolated fix. The current behavior — push local state, last-write-wins — is arguably correct for a local-first app: the user's local data is their data, and pushing it back is the local-first stance. Revisit only if a user reports data loss from a partial storage clear.
 - **F9-backoff — Sync Backoff State Is Per-Tab.** `rateLimitUntil`, `rateLimitBackoffMs`, `failureBackoffUntil`, and `failureBackoffMs` are module-level state, not cross-tab. Two tabs can each accumulate their own backoff and hit the endpoint independently. Web Locks (D4) serializes cycles but does not share backoff. Rejected fix: persisting backoff state to localStorage adds a new persisted key, cross-tab read/write coordination, and edge cases around clock changes. Accepted; the risk is a rate-limit stampede in a multi-tab session, bounded by the sync engine's page cap (F17) and per-collection error isolation to non-catastrophic.
+- **Social Outbox — No Server-Side Compensation on Drop.** When a social outbox entry is dropped (5 attempts exhausted, or a permanent 4xx), the local row is reverted but the remote side may be partially written (e.g. the outbox succeeded in creating the friend's reciprocal row on a previous attempt but the local revert fires on a later permanent failure of a different row). Because both writes in a friendship pair are independent single-row calls, the reconciliation window is bounded to the next sync cycle and the local row is authoritative. A transactional two-row write would require an Appwrite Function and is out of scope for this batch.
 
 ## 19. Bootstrap & Persistence
 - **Order of Operations in `main.tsx`:** 1) `navigator.storage.persist()`, 2) `initializeDatabase()`, 3) fire-and-forget `initializeSync()` for the cold-load-with-session case (never block render on network), 4) `ReactDOM.createRoot(...).render(<React.StrictMode><AuthProvider><App /></AuthProvider></React.StrictMode>)`
@@ -4743,6 +4941,7 @@ Recipient-side `read_at` propagation depends on `markReadOnRemote` eventually su
 - **Network error / timeout / offline from `account.get()`** → couldn't check → set `isOffline: true`, keep `user: null` → `AppLayout` renders a retry screen (with a `retry()` button) instead of redirecting
 - **Any time `navigator.onLine` is false,** `AuthProvider` treats the initial check as "couldn't check"
 - `AppLayout` renders three states: `isLoading` → spinner; `!user && isOffline` → retry screen; `!user` → redirect
+- The `OfflineError` class in `src/lib/authEvents.ts` is the canonical "couldn't check" signal at the SDK-wrapper layer. `storage.getCurrentUserId` returns `null` for a confirmed 401 but throws `OfflineError` for anything else, so `uploadImage` can distinguish "you're offline" from "no authenticated user" (see §10)
 
 ### 23.7 Things Not To Do
 - Do not add `account.get()` calls to a hook or component. If you need session state, call `useAuth()`
@@ -5002,6 +5201,7 @@ No other context is needed. The new chat reads `AGENTS.md §25` and `SESSION_STA
 | 2026-09-16 | §25.3, §25.4, §25.6 | Split offboarding triggers by target role (phase completion → Chat 1, user OFFBOARD → NextChatRole). Chat-1-targeted handoff prompts now carry a review payload (what was done, files touched, review focus, test status). Replaced per-batch 'Audit closed' declaration with once-per-phase 'Phase complete' declaration. §25.3 NextChatRole clarified as non-directive. | split offboarding triggers by target role |
 | 2026-09-16 | §25.1, §25.6 | Chat 1 may emit documentation-only mega files directly (no runtime behavior → no Chat 2 round-trip). Chat-1 review is logical, not byte-level — the review payload is the sole review artifact; no mega file or git diff required. | clarify Chat 1 docs carve-out + review-artifact boundary |
 | 2026-09-16 | §25.3 | SESSION_STATE.md is the phase's single document — no separate per-audit files. Added optional `Findings`, `Decisions`, and `Deferred` sections for audit phases; replaced the 40-line size cap with phase-scoped growth/trim discipline. | SESSION_STATE.md as phase document |
+| 2026-09-16 | §10, §15 | Offline write resilience outbox for social operations. New `src/lib/socialOutbox.ts` (mirrors `messageActionQueue.ts`) retries the reciprocal friendship row (`sendFriendRequest`, `acceptFriendRequest`, `deleteFriendPair`, `blockFriend`) and the remote profile upsert (`createOrUpdateProfile`) on `online`/`focus`/`AppLayout` mount. Permanent failures (5 attempts exhausted or non-429 4xx / 401) drop the entry and fire a `SocialOutboxFailure` event — `FriendsProvider` reverts the local RxDB row. `storage.getCurrentUserId` now distinguishes 401 (returns null) from network/offline (throws `OfflineError`), so `uploadImage` no longer reports "no authenticated user" when the user is merely offline. | offline write resilience outbox |
 </file>
 
 <file path="apply-changes.mjs">
@@ -5218,9 +5418,9 @@ Not yet chosen.
 Updated: 2026-09-16
 ActivePlan: Phase 1 audits — final sweep
 CurrentBatch: 1 of 6
-CurrentTask: 1.1 — Item 10 offline audit (closed); chore sub-batches complete; 1.1.fix queued
+CurrentTask: 1.1.fix — complete
 Status: in_progress
-NextAction: Awaiting Chat 0 go-ahead to start 1.1.fix (Offline write resilience: OFF-8, OFF-9, OFF-10, OFF-3). Then 1.1.fix.b (OFF-11, OFF-13, OFF-12, OFF-2, OFF-4). Do NOT begin either without an explicit follow-up from Chat 0. OFF-1 is decision-gated (see H1).
+NextAction: Awaiting Chat 0 go-ahead to start 1.1.fix.b (OFF-11, OFF-13, OFF-12, OFF-2, OFF-4). Do NOT begin without an explicit follow-up from Chat 0. OFF-1 is decision-gated (see H1).
 NextChatRole: chat2
 BatchPlan:
 - Phase 1 audits — final sweep (current)
@@ -5229,7 +5429,7 @@ BatchPlan:
   - [x] 1.1.chore-b — §25.4/§25.6 offboarding-trigger split + review payload
   - [x] 1.1.chore-c — Chat 1 docs carve-out + review-artifact boundary
   - [x] 1.1.chore-d — SESSION_STATE.md as phase document + audit findings baked in
-  - [ ] 1.1.fix — Offline write resilience (OFF-8, OFF-9, OFF-10, OFF-3)
+  - [x] 1.1.fix — Offline write resilience (OFF-8, OFF-9, OFF-10, OFF-3 error-message only)
   - [ ] 1.1.fix.b — Cached-data rendering + small offline fixes (OFF-11, OFF-13, OFF-12, OFF-2, OFF-4)
   - [ ] 1.2 Item 9 — realtime subscriptions layer
   - [ ] 1.3 Item 12 — error boundaries / crash resilience
@@ -5245,13 +5445,13 @@ OpenQuestions:
 Findings:
 - OFF-1 Critical — Offline cold launch blocks access to local data. `AuthProvider.resolveInitialUser` sets `user: null, isOffline: true` on network error; `AppLayout` renders the retry screen when `!user && isOffline`; no branch renders the protected tree with a cached identity. All data is in IndexedDB and fully readable — the block is purely the live `account.get()` probe. Violates §1 ("100% offline functionality"). Fix direction: persist last-known user identity (localStorage or settings row); on mount-time network error, hydrate `user` from cache and set `isOffline: true`; render app tree with offline banner; clear cached identity on explicit logout or confirmed 401 (not on network error). DECISION PENDING (H1).
 - OFF-2 Medium — Spurious `auth:unauthorized` fires on cold-load-without-session. `main.tsx` fires `initializeSync()` before `createRoot().render()`. On no-session cold load, sync's `guardedAccount.get()` 401s → `guardedCall` dispatches `auth:unauthorized` → `AuthProvider`'s listener sets `"Your session has expired. Please sign in again."` in parallel with `resolveInitialUser` (raw `account.get()`) which sets `error: null`. Intermittent "session expired" message on a fresh device. Fix direction: `resolveAuthenticatedUserId` uses raw `account` from `appwrite.ts` (not the guard); sync doesn't own session state.
-- OFF-3 High — Image upload offline discards the compressed blob. `storage.uploadImage`: `getCurrentUserId()` catches all errors → returns null → throws `"Cannot upload image: no authenticated user"`. Message is misleading (user IS authenticated, just offline). No local queue for the compressed blob. Fix direction: (a) `getCurrentUserId` distinguishes "no session" from "couldn't check" — throw `'Offline'` when `navigator.onLine === false`; (b) larger fix: local image queue — store blob in `imageCache`, set `task.image = 'img_pending_<uuid>'`, upload on `online`.
+- OFF-3 High — Image upload offline discards the compressed blob. `storage.uploadImage`: `getCurrentUserId()` catches all errors → returns null → throws `"Cannot upload image: no authenticated user"`. Message is misleading (user IS authenticated, just offline). No local queue for the compressed blob. Fix direction: (a) `getCurrentUserId` distinguishes "no session" from "couldn't check" — throw `'Offline'` when `navigator.onLine === false`; (b) larger fix: local image queue — store blob in `imageCache`, set `task.image = 'img_pending_<uuid>'`, upload on `online`. [resolved 1.1.fix — error-message fix only: `getCurrentUserId` returns null on 401, throws `OfflineError` on network; local image queue deferred to a separate batch]
 - OFF-4 Low — `messageActionQueue` cap drop is silent. At >100 entries, drops oldest by `enqueuedAt` sort; no log, no user-visible indicator. `mark_read` reconciles on next `ChatPage` open; a dropped `unsend` is permanent on the recipient side. Fix direction: `console.warn` on drop; document cap in §18 accepted limitations.
 - OFF-6 Low — `imageCache` has no eviction bound. `cacheImage` writes raw blobs to IndexedDB with no size cap, no LRU, no TTL; blobs persist until explicit `deleteImage(fileId)`. Cumulative over time under storage pressure. Fix direction: document in §18; optional LRU cap in future refactor.
 - OFF-7 Info (DEFERRED to batch 1.4) — `src/lib/imageCache.ts` duplicates `src/lib/storage.ts`'s private cache implementation. Same IndexedDB database `mosaic_image_cache`, same store `blobs`, identical four operations. `exportData.ts` imports from `imageCache.ts`; `storage.ts` uses its private copy. No behavioral bug — drift risk only. Fix belongs in batch 1.4 (Item 7 residual).
-- OFF-8 High — `sendFriendRequest` offline silently loses the reciprocal row. `social.sendFriendRequest`: local `db.friendships.upsert(myLocalRow)` succeeds offline; remote `guardedTablesDB.upsertRow({...friendRowId})` throws offline; `FriendsProvider.sendRequest` propagates without catch; `ExploreView.handleAdd` only `console.error`s. User sees `sendingTo` reset; local row says `pending_outgoing`; the friend's reciprocal row (`fr_<hash(friendId, myUserId)>`) was never created. The sync engine will never fix this — it only pushes rows where `user_id === myUserId`. Fix direction: persistent outbox for the reciprocal write; retry on `online`/`focus`/`AppLayout` mount; permanent failures (401, non-429 4xx) surface a toast and revert the local row.
-- OFF-9 High — `acceptFriendRequest` / `deleteFriendPair` / `blockFriend` offline lose the reciprocal update. Same pattern as OFF-8. Local row patched; remote `guardedTablesDB.updateRow` on the friend's row throws offline; `FriendsProvider.accept/decline/cancel/remove/block` don't catch. `deleteFriendPair` and `blockFriend` additionally swallow the remote error with a bare `console.warn` even online. My state diverges from the friend's; worst case is a soft-deleted local row that the friend still sees as accepted. Fix direction: same outbox as OFF-8; replace bare `console.warn` in `deleteFriendPair`/`blockFriend` with the retry path.
-- OFF-10 Medium — Profile create/update requires network with no local queue. `social.createOrUpdateProfile` calls `guardedTablesDB.upsertRow` directly; no `profiles` RxDB collection. Offline → throws → `SetUsernameSheet` shows `"Could not save. Try again."`. User cannot set up a profile offline. Not data loss (no local row to diverge), but the offline-first contract degrades. Fix direction: same outbox as OFF-8/9.
+- OFF-8 High — `sendFriendRequest` offline silently loses the reciprocal row. `social.sendFriendRequest`: local `db.friendships.upsert(myLocalRow)` succeeds offline; remote `guardedTablesDB.upsertRow({...friendRowId})` throws offline; `FriendsProvider.sendRequest` propagates without catch; `ExploreView.handleAdd` only `console.error`s. User sees `sendingTo` reset; local row says `pending_outgoing`; the friend's reciprocal row (`fr_<hash(friendId, myUserId)>`) was never created. The sync engine will never fix this — it only pushes rows where `user_id === myUserId`. Fix direction: persistent outbox for the reciprocal write; retry on `online`/`focus`/`AppLayout` mount; permanent failures (401, non-429 4xx) surface a toast and revert the local row. [resolved 1.1.fix — `socialOutbox.ts` enqueues the reciprocal upsert on transient failure; permanent failures revert the local row via `FriendsProvider` and surface the "Couldn't send request" toast]
+- OFF-9 High — `acceptFriendRequest` / `deleteFriendPair` / `blockFriend` offline lose the reciprocal update. Same pattern as OFF-8. Local row patched; remote `guardedTablesDB.updateRow` on the friend's row throws offline; `FriendsProvider.accept/decline/cancel/remove/block` don't catch. `deleteFriendPair` and `blockFriend` additionally swallow the remote error with a bare `console.warn` even online. My state diverges from the friend's; worst case is a soft-deleted local row that the friend still sees as accepted. Fix direction: same outbox as OFF-8; replace bare `console.warn` in `deleteFriendPair`/`blockFriend` with the retry path. [resolved 1.1.fix — same outbox path; bare `console.warn` replaced; revert restores the prior status (`previousStatus` captured before the local patch)]
+- OFF-10 Medium — Profile create/update requires network with no local queue. `social.createOrUpdateProfile` calls `guardedTablesDB.upsertRow` directly; no `profiles` RxDB collection. Offline → throws → `SetUsernameSheet` shows `"Could not save. Try again."`. User cannot set up a profile offline. Not data loss (no local row to diverge), but the offline-first contract degrades. Fix direction: same outbox as OFF-8/9. [resolved 1.1.fix — outbox enqueues the profile upsert; `createOrUpdateProfile` throws `OfflineError`; `useMyProfile` optimistically sets the local profile; `SetUsernameSheet` distinguishes "offline" from "save failed"]
 - OFF-11 High — Cached friend data hidden by a transient refetch error. `PersonPane`'s activation refetch calls `refetchFriendCalendar(true)` with `forceRefresh: true`, bypassing the cache check and hitting `navigator.onLine === false` → `FriendAccessError('offline')`. `useFriendCalendar.load` sets error state but preserves `tasks`/`categories`. Both `PersonPane` and `FriendCalendarPage` gate render on `error ? <error UI> : <data UI>` — the error wins even when cached tasks exist. Offline swipe to a friend pane with fully cached data replaces the calendar with "You're offline." Fix direction: gate error UI on `tasks.length === 0 && error`; when cached data exists, render the calendar and show a non-blocking offline indicator.
 - OFF-12 Low — Export offline: missing images not surfaced. `payload.counts.missingImages` is populated and the manifest includes `payload.images.missingImages`, but the user-facing toast says only `"Export ready"`. Silent incompleteness — user stores an export believing it's a full backup. Fix direction: after `exportUserData` returns, if `result.counts.missingImages > 0`, extend the toast to `"Export ready (N photos couldn't be fetched — re-export online to include them)"`.
 - OFF-13 Low — Reaction toggle offline silently reverts. `toggleReaction` in `useMessages`: `reactOnRemote` throws on offline; the `.catch` reverts locally and logs but the function returns `'ok'` synchronously. For an already-delivered message, no timeout branch fires; `ChatPage` sees `'ok'` and shows no toast. Reaction flashes and disappears with no explanation. (For pending outgoing messages, the earlier delivery-wait branch does return `'timeout'` — pending is covered, delivered is not.) Fix direction: `navigator.onLine === false` pre-check at the top of `toggleReaction` returns `'timeout'` immediately; reuse §21's `"Couldn't send reaction. Try again."` toast.
@@ -5261,11 +5461,15 @@ Decisions:
 - [2026-09-16] §25.6 example block uses 3 backticks; should be 4 per the new "bump above any inner run" rule. Low priority — no breakage; the example is illustrative. Deferred to next AGENTS.md open.
 - [2026-09-16] OFF-7 (imageCache/storage duplication) routed to batch 1.4 rather than fixed in 1.1.fix.b. Rationale: no behavioral bug; Item 7 residual already scoped for exactly this. → Deferred.
 - [2026-09-16] SESSION_STATE.md is the phase's single document — findings, decisions, and deferrals live in it rather than in separate per-audit files. Rationale: a separate `AUDIT_ITEM_10.md` was referenced but never actually created, producing a dangling pointer. One authoritative file eliminates the failure class. → chore-d.
+- [2026-09-16] Permanent-failure UX for OFF-8/9: revert the local RxDB patch via `FriendsProvider` (which owns the local social mutators) rather than blocking the UI or retrying forever. The outbox emits a `SocialOutboxFailureEvent`; `FriendsProvider` un-patches (soft-delete for `send_request`, status restore for `accept`/`block`, un-delete for `delete_friend_pair`); `ExploreView` surfaces the existing toast pattern. Rationale: matches the existing `toggleReaction` optimistic-then-revert idiom (§9) and reuses the existing toast primitive (§10) without adding new UX surfaces. → 1.1.fix.
+- [2026-09-16] OFF-10 offline UX: `createOrUpdateProfile` enqueues the upsert AND throws `OfflineError`; `useMyProfile` optimistically sets the local profile so a retry does not trip the "username taken" branch; `SetUsernameSheet` extends its existing catch to show "You're offline. Your profile will sync when you reconnect." Rationale: no local RxDB collection for profiles, so the "revert" half of the OFF-8/9 pattern does not apply; the sheet's existing error path is the correct surfacing surface. → 1.1.fix.
+- [2026-09-16] OFF-3 image-queue deferral: only the error-message fix (`getCurrentUserId` distinguishes 401 from network) ships in 1.1.fix. The full local-image-queue fix is deferred — it requires a new IndexedDB blob queue and a `img_pending_*` sentinel, which is a different mechanism from the JSON-outbox retry used for social writes. Separate batch. → Deferred (no target batch yet; will be scoped after OFF-1/H1 resolves).
 Deferred:
 - OFF-7 → batch 1.4 (imageCache consolidation).
 - OFF-1 → blocked on H1 decision.
-LastApply: 2026-09-16 — docs: SESSION_STATE.md as phase document; audit findings baked in
-LastAuditSummary: Item 10 offline audit closed. 12 findings (1 Critical decision-gated, 4 High, 2 Medium, 4 Low, 1 Info deferred). Fix batches 1.1.fix and 1.1.fix.b queued; OFF-1 awaits H1 decision.
+- OFF-3 local-image-queue half → separate batch (IndexedDB blob queue; different mechanism from the social outbox).
+LastApply: 2026-09-16 — fix: offline write resilience (social outbox + image upload error)
+LastAuditSummary: Batch 1.1.fix complete — cross-user write outbox for social operations; OFF-3 error-message fix; image queue deferred.
 </file>
 
 <file path="tailwind.config.js">

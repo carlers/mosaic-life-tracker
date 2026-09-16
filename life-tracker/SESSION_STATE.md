@@ -1,9 +1,9 @@
 # SESSION STATE
 
-Updated: 2026-09-16
+Updated: 2026-09-17
 ActivePlan: Phase 1 audits — final sweep
 CurrentBatch: 1 of 6
-CurrentTask: 1.1.fix — complete
+CurrentTask: 1.1.chore-e — complete (post-batch instructions + reasoning discipline + apply clipboard)
 Status: in_progress
 NextAction: Awaiting Chat 0 go-ahead to start 1.1.fix.b (OFF-11, OFF-13, OFF-12, OFF-2, OFF-4). Do NOT begin without an explicit follow-up from Chat 0. OFF-1 is decision-gated (see H1).
 NextChatRole: chat2
@@ -15,6 +15,7 @@ BatchPlan:
   - [x] 1.1.chore-c — Chat 1 docs carve-out + review-artifact boundary
   - [x] 1.1.chore-d — SESSION_STATE.md as phase document + audit findings baked in
   - [x] 1.1.fix — Offline write resilience (OFF-8, OFF-9, OFF-10, OFF-3 error-message only)
+  - [x] 1.1.chore-e — §25.8 post-batch instructions + §25.9 reasoning discipline + apply clipboard
   - [ ] 1.1.fix.b — Cached-data rendering + small offline fixes (OFF-11, OFF-13, OFF-12, OFF-2, OFF-4)
   - [ ] 1.2 Item 9 — realtime subscriptions layer
   - [ ] 1.3 Item 12 — error boundaries / crash resilience
@@ -49,9 +50,12 @@ Decisions:
 - [2026-09-16] Permanent-failure UX for OFF-8/9: revert the local RxDB patch via `FriendsProvider` (which owns the local social mutators) rather than blocking the UI or retrying forever. The outbox emits a `SocialOutboxFailureEvent`; `FriendsProvider` un-patches (soft-delete for `send_request`, status restore for `accept`/`block`, un-delete for `delete_friend_pair`); `ExploreView` surfaces the existing toast pattern. Rationale: matches the existing `toggleReaction` optimistic-then-revert idiom (§9) and reuses the existing toast primitive (§10) without adding new UX surfaces. → 1.1.fix.
 - [2026-09-16] OFF-10 offline UX: `createOrUpdateProfile` enqueues the upsert AND throws `OfflineError`; `useMyProfile` optimistically sets the local profile so a retry does not trip the "username taken" branch; `SetUsernameSheet` extends its existing catch to show "You're offline. Your profile will sync when you reconnect." Rationale: no local RxDB collection for profiles, so the "revert" half of the OFF-8/9 pattern does not apply; the sheet's existing error path is the correct surfacing surface. → 1.1.fix.
 - [2026-09-16] OFF-3 image-queue deferral: only the error-message fix (`getCurrentUserId` distinguishes 401 from network) ships in 1.1.fix. The full local-image-queue fix is deferred — it requires a new IndexedDB blob queue and a `img_pending_*` sentinel, which is a different mechanism from the JSON-outbox retry used for social writes. Separate batch. → Deferred (no target batch yet; will be scoped after OFF-1/H1 resolves).
+- [2026-09-17] Chat 2 must append post-batch instructions after every mega file (§25.8). Rationale: mega-file-only output left Chat 0 without a next-step signal. → chore-e.
+- [2026-09-17] §25.9 reasoning discipline added after observing ~40% CoT waste in 1.1.fix (decision loops on OFF-10, spec re-reads, inline option enumeration). → chore-e.
+- [2026-09-17] `npm run apply*` copies full output to clipboard on exit, all modes, success or failure. Rationale: the paste-back loop had no reliable transport. → chore-e.
 Deferred:
 - OFF-7 → batch 1.4 (imageCache consolidation).
 - OFF-1 → blocked on H1 decision.
 - OFF-3 local-image-queue half → separate batch (IndexedDB blob queue; different mechanism from the social outbox).
-LastApply: 2026-09-16 — fix: offline write resilience (social outbox + image upload error)
+LastApply: 2026-09-17 — chore: post-batch instructions + reasoning discipline + apply clipboard
 LastAuditSummary: Batch 1.1.fix complete — cross-user write outbox for social operations; OFF-3 error-message fix; image queue deferred.

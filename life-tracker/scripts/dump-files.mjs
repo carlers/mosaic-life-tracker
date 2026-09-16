@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { readFileSync } from 'fs';
-import { spawnSync } from 'child_process';
+import { copyToClipboard } from './clipboard.mjs';
 
 const paths = process.argv.slice(2);
 if (paths.length === 0) {
@@ -22,30 +22,9 @@ const output = `${blocks.join('\n\n')}\n`;
 
 process.stdout.write(output);
 
-function tryClipboard() {
-  const attempts = [];
-  if (process.platform === 'darwin') {
-    attempts.push(['pbcopy', []]);
-  } else if (process.platform === 'win32') {
-    attempts.push(['clip', []]);
-  } else {
-    if (process.env.WAYLAND_DISPLAY) attempts.push(['wl-copy', []]);
-    attempts.push(['xclip', ['-selection', 'clipboard']]);
-    attempts.push(['xsel', ['--clipboard', '--input']]);
-  }
-  for (const [cmd, args] of attempts) {
-    const res = spawnSync(cmd, args, {
-      input: output,
-      stdio: ['pipe', 'ignore', 'ignore'],
-    });
-    if (res.status === 0) return cmd;
-  }
-  return null;
-}
-
-const used = tryClipboard();
-if (used) {
-  console.error(`📋 Copied ${paths.length} file(s) to clipboard via ${used}.`);
+const copied = copyToClipboard(output);
+if (copied) {
+  console.error(`📋 Copied ${paths.length} file(s) to clipboard.`);
 } else {
   console.error(
     '⚠️  No clipboard tool available. Content printed to stdout above.'

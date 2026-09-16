@@ -311,8 +311,9 @@ Rules:
   - `appwrite.ts` — the only other file permitted to construct raw `Client`/`Account`. Exports `client` and `account` used by `sdk.ts`.
   - `messageActionQueue.ts` — persistent retry queue for the two message actions that would otherwise leave local and remote state divergent if their single attempt failed: `mark_read` and `unsend`. Storage: JSON array under `mosaic_message_action_queue`. Dedup by `(userId, dedupKey)`. Cap 100 entries. Retries up to 5 attempts on transient failures; drops on 401 and any non-429 4xx. Single in-flight flush guard. Wired to `sendMessageAction` at module init and flushed by `deliverPendingMessages` (see §20.5).
   - `socialOutbox.ts` — persistent retry queue for cross-user social writes that would otherwise leave the local RxDB row and the friend's reciprocal row divergent if the direct write failed: `sendFriendRequest`, `acceptFriendRequest`, `deleteFriendPair`, `blockFriend`, and `createOrUpdateProfile`. Storage: JSON array under `mosaic_social_outbox`. Dedup by `(userId, dedupKey)`. Cap 100 entries. Retries up to 5 attempts on transient failures; drops on 401 and any non-429 4xx. Single in-flight flush guard. Permanent drops emit a `SocialOutboxFailureEvent` to `subscribeToSocialOutboxFailures` listeners — `FriendsProvider` reverts the local RxDB row. Wired to `guardedTablesDB` at module init in `social.ts` and flushed by `AppLayout`'s `tryDeliver` alongside `deliverPendingMessages` (see §10 drop policy).
+- `scripts/` — build-time utilities: `dump-files.mjs` (Tier 2 context dump, see §25.2), `clipboard.mjs` (shared clipboard helper used by `dump-files.mjs` and `apply-changes.mjs`), and one-off Appwrite migration scripts (e.g. `add-message-reactions-columns.mjs`, `add-categories-settings-updated-at-columns.mjs`).
 - `tests/` — Vitest test suite (four projects: `unit`, `handlers`, `react`, `components`). See §24 for full layout, philosophy, helper contracts, and how to add new tests.
-- Project root: `apply-changes.mjs` (mega-file installer, see §5.1), `pending-changes.txt` (gitignored input, see §5.1)
+- Project root: `apply-changes.mjs` (mega-file installer; copies its run output to the clipboard on exit — see §5.1), `pending-changes.txt` (gitignored input, see §5.1)
 
 **ESLint enforcement of the SDK surface (`eslint.config.js`):**
 
@@ -622,8 +623,8 @@ Tests that pin behavior documented in this file carry a `// Regression: §<secti
 Three roles participate in the workflow. Every chat session is exactly one role.
 
 - **Chat 0 — User / Arbiter.** The human. Makes product decisions, runs terminal commands, approves plans, and is the only party who can change scope. Not a chat session.
-- **Chat 1 — Brain.** Planner, auditor, prompt generator. Reads `AGENTS.md`, `SESSION_STATE.md`, and the attached `repomix --compress` output. Produces prompts for Chat 2 and plan updates. Does NOT write production code. May request exact file contents via `npm run dump -- <paths>` when auditing a specific implementation. **A single Chat 1 session spans the full audit cycle** — brief → dumps → findings → Chat 2 fix prompt — without handing off to another chat between steps. It requests additional dumps from the user inline (`npm run dump -- <paths>`) and continues in the same session. Only a user-typed `OFFBOARD` triggers a handoff (see §25.6); Chat 1 never hands off on its own initiative. **Chat 1 may emit its own mega files for documentation-only changes (§25.6).** All runtime-affecting changes — TypeScript, scripts, configs, `package.json`, anything that could affect runtime behavior — go through Chat 2.
-- **Chat 2 — Hands.** Coder, mega-file producer. Reads `AGENTS.md`, `SESSION_STATE.md`, and the attached `repomix --compress` output. Produces exactly one mega file per §5.1 for the current batch. Updates `SESSION_STATE.md` inside every mega file it emits. Requests exact files via `npm run dump -- <paths>` when it needs to see full contents. Follows the question policy (§25.5).
+- **Chat 1 — Brain.** Planner, auditor, prompt generator. Reads `AGENTS.md`, `SESSION_STATE.md`, and the attached `repomix --compress` output. Produces prompts for Chat 2 and plan updates. Does NOT write production code. May request exact file contents via `npm run dump -- <paths>` when auditing a specific implementation. **A single Chat 1 session spans the full audit cycle** — brief → dumps → findings → Chat 2 fix prompt — without handing off to another chat between steps. It requests additional dumps from the user inline (`npm run dump -- <paths>`) and continues in the same session. Only a user-typed `OFFBOARD` triggers a handoff (see §25.6); Chat 1 never hands off on its own initiative. **Chat 1 may emit its own mega files for documentation-only changes (§25.6).** All runtime-affecting changes — TypeScript, scripts, configs, `package.json`, anything that could affect runtime behavior — go through Chat 2. Follows §25.9 (Reasoning Discipline).
+- **Chat 2 — Hands.** Coder, mega-file producer. Reads `AGENTS.md`, `SESSION_STATE.md`, and the attached `repomix --compress` output. Produces exactly one mega file per §5.1 for the current batch. Updates `SESSION_STATE.md` inside every mega file it emits. Requests exact files via `npm run dump -- <paths>` when it needs to see full contents. Follows the question policy (§25.5) and §25.9 (Reasoning Discipline).
 
 A session declares its role in its first message (see §25.4). If a session does not declare a role, it must ask before acting.
 
@@ -771,6 +772,43 @@ No other context is needed. The new chat reads `AGENTS.md §25` and `SESSION_STA
 - Start a new chat only when the current one is actually slow, confused, or out of context — not after every batch. A Chat 2 that is still sharp should continue with the next mega file.
 - The `dump` command copies to the system clipboard automatically (macOS `pbcopy`, Windows `clip`, Linux `wl-copy`/`xclip`/`xsel`). If no clipboard tool is available, the content is still printed to stdout.
 
+### 25.8 Post-Batch Instructions (Chat 2 only)
+
+Chat 2 always appends brief next-step instructions immediately after the mega file's closing fence. The instructions are one to four lines, no preamble. They always begin with the apply command and branch on its outcome.
+
+Mid-phase batch:
+```
+Run `npm run apply`.
+- Pass → reply "continue" and I'll start <next batch>.
+- Fail → paste the error and I'll emit a fix.
+```
+
+Phase-final batch (the mega file contains the PHASE COMPLETE declaration):
+```
+Run `npm run apply`.
+- Pass → offboard to Chat 1 with the prompt below.
+- Fail → paste the error.
+
+<offboarding prompt, inside a fence with strictly more backticks than any inner run>
+```
+
+Chat 2 never emits the offboarding prompt for a mid-phase batch, even if the user reports a successful apply. Only a phase-final batch produces it. This is §25.6's "no mid-phase offboarding prompt" rule made concrete.
+
+### 25.9 Reasoning Discipline (all chats)
+
+Over-thinking wastes tokens without improving the artifact. These rules target the observed patterns — decision loops, spec re-reads, inline option enumeration — without reducing reasoning about the task itself.
+
+- **Read dumps once.** Do not re-read a section to re-verify a fact you already extracted.
+- **Do not restate the task or the spec.** Both are in context. Begin at the first non-obvious decision.
+- **Decide once.** No prose iteration on a decision already made. "Actually," "wait," and "hmm, but" are signals to commit or drop in one line — not to re-reason.
+- **Do not enumerate options you will not choose.** If an existing pattern makes the answer obvious, apply it and move on.
+- **§25.5 decisions get decided once** — naming, file placement, styling, which pattern to reuse. Pick, state the choice in the commit line, proceed.
+- **Do not pre-verify the installer.** Lint/test/build run after the mega file. Reasoning about their outcome adds nothing.
+- **Do not resolve hypotheticals the task did not ask about.** Note the edge case in one line; do not design for it.
+- **One plan, one pass.** No mid-implementation redesign unless a dump contradicts the plan.
+- **Do not restate reasoning in the artifact.** The mega file contains files, not commentary.
+- **A second "final" is a spec-gap signal.** If you write "final design" twice, the first pass was incomplete. Close the gap in one line; do not restart.
+
 ---
 
 ## Changelog
@@ -799,3 +837,4 @@ No other context is needed. The new chat reads `AGENTS.md §25` and `SESSION_STA
 | 2026-09-16 | §25.1, §25.6 | Chat 1 may emit documentation-only mega files directly (no runtime behavior → no Chat 2 round-trip). Chat-1 review is logical, not byte-level — the review payload is the sole review artifact; no mega file or git diff required. | clarify Chat 1 docs carve-out + review-artifact boundary |
 | 2026-09-16 | §25.3 | SESSION_STATE.md is the phase's single document — no separate per-audit files. Added optional `Findings`, `Decisions`, and `Deferred` sections for audit phases; replaced the 40-line size cap with phase-scoped growth/trim discipline. | SESSION_STATE.md as phase document |
 | 2026-09-16 | §10, §15 | Offline write resilience outbox for social operations. New `src/lib/socialOutbox.ts` (mirrors `messageActionQueue.ts`) retries the reciprocal friendship row (`sendFriendRequest`, `acceptFriendRequest`, `deleteFriendPair`, `blockFriend`) and the remote profile upsert (`createOrUpdateProfile`) on `online`/`focus`/`AppLayout` mount. Permanent failures (5 attempts exhausted or non-429 4xx / 401) drop the entry and fire a `SocialOutboxFailure` event — `FriendsProvider` reverts the local RxDB row. `storage.getCurrentUserId` now distinguishes 401 (returns null) from network/offline (throws `OfflineError`), so `uploadImage` no longer reports "no authenticated user" when the user is merely offline. | offline write resilience outbox |
+| 2026-09-17 | §25.1, §25.8 (new), §25.9 (new), §15 | New §25.8 codifies post-batch instructions (Chat 2 appends 1–4 lines of next-step guidance after every mega file). New §25.9 codifies ten reasoning-discipline rules derived from observed over-thinking in the 1.1.fix session (decision loops on OFF-10, spec re-reads, inline option enumeration). `apply-changes.mjs` now copies its full run output to the clipboard on exit (all modes, success or failure); clipboard helper extracted to `scripts/clipboard.mjs`. | post-batch instructions + reasoning discipline + apply clipboard |
