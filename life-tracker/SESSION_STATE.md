@@ -3,21 +3,22 @@
 Updated: 2026-09-16
 ActivePlan: Phase 1 audits — final sweep
 CurrentBatch: 1 of 6
-CurrentTask: 1.1.chore-c — complete (Chat 1 docs carve-out + review-artifact boundary)
+CurrentTask: 1.1 — Item 10 offline audit (closed); chore sub-batches complete; 1.1.fix queued
 Status: in_progress
-NextAction: Batch 1.1.chore-c complete. Awaiting Chat 0 go-ahead to start 1.1.fix (Offline write resilience, OFF-8/9/10/3). Do NOT begin 1.1.fix or 1.1.fix.b without an explicit follow-up from Chat 0.
+NextAction: Awaiting Chat 0 go-ahead to start 1.1.fix (Offline write resilience: OFF-8, OFF-9, OFF-10, OFF-3). Then 1.1.fix.b (OFF-11, OFF-13, OFF-12, OFF-2, OFF-4). Do NOT begin either without an explicit follow-up from Chat 0. OFF-1 is decision-gated (see H1).
 NextChatRole: chat2
 BatchPlan:
 - Phase 1 audits — final sweep (current)
-  - [x] 1.1 Item 10 — offline behavior audit (findings in AUDIT_ITEM_10.md)
-  - [x] 1.1.chore — dump XML format (blocking for clean dumps)
+  - [x] 1.1 Item 10 — offline behavior audit (findings inline below)
+  - [x] 1.1.chore — dump XML format
   - [x] 1.1.chore-b — §25.4/§25.6 offboarding-trigger split + review payload
   - [x] 1.1.chore-c — Chat 1 docs carve-out + review-artifact boundary
-  - [ ] 1.1.fix — Offline write resilience (OFF-8/9/10/3)
-  - [ ] 1.1.fix.b — Cached-data rendering + small offline fixes (OFF-11/13/12/2/4)
+  - [x] 1.1.chore-d — SESSION_STATE.md as phase document + audit findings baked in
+  - [ ] 1.1.fix — Offline write resilience (OFF-8, OFF-9, OFF-10, OFF-3)
+  - [ ] 1.1.fix.b — Cached-data rendering + small offline fixes (OFF-11, OFF-13, OFF-12, OFF-2, OFF-4)
   - [ ] 1.2 Item 9 — realtime subscriptions layer
   - [ ] 1.3 Item 12 — error boundaries / crash resilience
-  - [ ] 1.4 Item 7 residual — storage/imageCache consolidation
+  - [ ] 1.4 Item 7 residual — storage/imageCache consolidation (receives OFF-7)
   - [ ] 1.5 Item 11 — PWA / service worker
   - [ ] 1.6 Item 13 — accessibility
 - [ ] Phase 2 — refactor audit → refactor
@@ -25,6 +26,28 @@ BatchPlan:
 - [ ] Phase 4 — spec audit group (meta-audit of AGENTS.md, discovery, enforcement)
 - [ ] Feature work — Phase 3.5 Todo List, 3.6 Diary, 3.7 Notifications, API integrations (paused)
 OpenQuestions:
-- H1 — offline auth gate (OFF-1). §1 claims "100% offline functionality"; §23.6 maps network error → `user: null` → retry screen. Product/architecture decision required before Chat 2 can fix OFF-1. Options: (a) hydrate user from cached identity on network failure, (b) rename retry screen to an offline-mode screen with local read-only access, (c) accept behavior and downgrade §1's claim in docs.
-LastApply: 2026-09-16 — docs: clarify Chat 1 docs carve-out + review-artifact boundary
-LastAuditSummary: Batch 1.1.chore-c complete — Chat 1 may emit docs-only mega files; Chat-1 review is logical, not byte-level (payload is the sole review artifact). Awaiting Chat 0 go-ahead for 1.1.fix.
+- H1 — offline auth gate (OFF-1). §1 claims "100% offline functionality"; §23.6 maps network error → `user: null` → retry screen. Product/architecture decision required before Chat 2 can fix OFF-1. Options: (a) hydrate user from cached identity on network failure; (b) rename retry screen to an offline-mode screen with local read-only access; (c) accept behavior and downgrade §1's claim in docs.
+Findings:
+- OFF-1 Critical — Offline cold launch blocks access to local data. `AuthProvider.resolveInitialUser` sets `user: null, isOffline: true` on network error; `AppLayout` renders the retry screen when `!user && isOffline`; no branch renders the protected tree with a cached identity. All data is in IndexedDB and fully readable — the block is purely the live `account.get()` probe. Violates §1 ("100% offline functionality"). Fix direction: persist last-known user identity (localStorage or settings row); on mount-time network error, hydrate `user` from cache and set `isOffline: true`; render app tree with offline banner; clear cached identity on explicit logout or confirmed 401 (not on network error). DECISION PENDING (H1).
+- OFF-2 Medium — Spurious `auth:unauthorized` fires on cold-load-without-session. `main.tsx` fires `initializeSync()` before `createRoot().render()`. On no-session cold load, sync's `guardedAccount.get()` 401s → `guardedCall` dispatches `auth:unauthorized` → `AuthProvider`'s listener sets `"Your session has expired. Please sign in again."` in parallel with `resolveInitialUser` (raw `account.get()`) which sets `error: null`. Intermittent "session expired" message on a fresh device. Fix direction: `resolveAuthenticatedUserId` uses raw `account` from `appwrite.ts` (not the guard); sync doesn't own session state.
+- OFF-3 High — Image upload offline discards the compressed blob. `storage.uploadImage`: `getCurrentUserId()` catches all errors → returns null → throws `"Cannot upload image: no authenticated user"`. Message is misleading (user IS authenticated, just offline). No local queue for the compressed blob. Fix direction: (a) `getCurrentUserId` distinguishes "no session" from "couldn't check" — throw `'Offline'` when `navigator.onLine === false`; (b) larger fix: local image queue — store blob in `imageCache`, set `task.image = 'img_pending_<uuid>'`, upload on `online`.
+- OFF-4 Low — `messageActionQueue` cap drop is silent. At >100 entries, drops oldest by `enqueuedAt` sort; no log, no user-visible indicator. `mark_read` reconciles on next `ChatPage` open; a dropped `unsend` is permanent on the recipient side. Fix direction: `console.warn` on drop; document cap in §18 accepted limitations.
+- OFF-6 Low — `imageCache` has no eviction bound. `cacheImage` writes raw blobs to IndexedDB with no size cap, no LRU, no TTL; blobs persist until explicit `deleteImage(fileId)`. Cumulative over time under storage pressure. Fix direction: document in §18; optional LRU cap in future refactor.
+- OFF-7 Info (DEFERRED to batch 1.4) — `src/lib/imageCache.ts` duplicates `src/lib/storage.ts`'s private cache implementation. Same IndexedDB database `mosaic_image_cache`, same store `blobs`, identical four operations. `exportData.ts` imports from `imageCache.ts`; `storage.ts` uses its private copy. No behavioral bug — drift risk only. Fix belongs in batch 1.4 (Item 7 residual).
+- OFF-8 High — `sendFriendRequest` offline silently loses the reciprocal row. `social.sendFriendRequest`: local `db.friendships.upsert(myLocalRow)` succeeds offline; remote `guardedTablesDB.upsertRow({...friendRowId})` throws offline; `FriendsProvider.sendRequest` propagates without catch; `ExploreView.handleAdd` only `console.error`s. User sees `sendingTo` reset; local row says `pending_outgoing`; the friend's reciprocal row (`fr_<hash(friendId, myUserId)>`) was never created. The sync engine will never fix this — it only pushes rows where `user_id === myUserId`. Fix direction: persistent outbox for the reciprocal write; retry on `online`/`focus`/`AppLayout` mount; permanent failures (401, non-429 4xx) surface a toast and revert the local row.
+- OFF-9 High — `acceptFriendRequest` / `deleteFriendPair` / `blockFriend` offline lose the reciprocal update. Same pattern as OFF-8. Local row patched; remote `guardedTablesDB.updateRow` on the friend's row throws offline; `FriendsProvider.accept/decline/cancel/remove/block` don't catch. `deleteFriendPair` and `blockFriend` additionally swallow the remote error with a bare `console.warn` even online. My state diverges from the friend's; worst case is a soft-deleted local row that the friend still sees as accepted. Fix direction: same outbox as OFF-8; replace bare `console.warn` in `deleteFriendPair`/`blockFriend` with the retry path.
+- OFF-10 Medium — Profile create/update requires network with no local queue. `social.createOrUpdateProfile` calls `guardedTablesDB.upsertRow` directly; no `profiles` RxDB collection. Offline → throws → `SetUsernameSheet` shows `"Could not save. Try again."`. User cannot set up a profile offline. Not data loss (no local row to diverge), but the offline-first contract degrades. Fix direction: same outbox as OFF-8/9.
+- OFF-11 High — Cached friend data hidden by a transient refetch error. `PersonPane`'s activation refetch calls `refetchFriendCalendar(true)` with `forceRefresh: true`, bypassing the cache check and hitting `navigator.onLine === false` → `FriendAccessError('offline')`. `useFriendCalendar.load` sets error state but preserves `tasks`/`categories`. Both `PersonPane` and `FriendCalendarPage` gate render on `error ? <error UI> : <data UI>` — the error wins even when cached tasks exist. Offline swipe to a friend pane with fully cached data replaces the calendar with "You're offline." Fix direction: gate error UI on `tasks.length === 0 && error`; when cached data exists, render the calendar and show a non-blocking offline indicator.
+- OFF-12 Low — Export offline: missing images not surfaced. `payload.counts.missingImages` is populated and the manifest includes `payload.images.missingImages`, but the user-facing toast says only `"Export ready"`. Silent incompleteness — user stores an export believing it's a full backup. Fix direction: after `exportUserData` returns, if `result.counts.missingImages > 0`, extend the toast to `"Export ready (N photos couldn't be fetched — re-export online to include them)"`.
+- OFF-13 Low — Reaction toggle offline silently reverts. `toggleReaction` in `useMessages`: `reactOnRemote` throws on offline; the `.catch` reverts locally and logs but the function returns `'ok'` synchronously. For an already-delivered message, no timeout branch fires; `ChatPage` sees `'ok'` and shows no toast. Reaction flashes and disappears with no explanation. (For pending outgoing messages, the earlier delivery-wait branch does return `'timeout'` — pending is covered, delivered is not.) Fix direction: `navigator.onLine === false` pre-check at the top of `toggleReaction` returns `'timeout'` immediately; reuse §21's `"Couldn't send reaction. Try again."` toast.
+- Non-findings (verified correct): OFF-5 (`handleDeliver` idempotent — both rows check-then-skip on retry, retry-safe); E2, E3, F4, F5, F6, G1, G2, G3, H1, H2, H3, I1–I7.
+Decisions:
+- [2026-09-16] Chat 1 may emit docs-only mega files directly (no runtime behavior → no Chat 2 round-trip). Runtime-affecting changes still route through Chat 2. → chore-c.
+- [2026-09-16] §25.6 example block uses 3 backticks; should be 4 per the new "bump above any inner run" rule. Low priority — no breakage; the example is illustrative. Deferred to next AGENTS.md open.
+- [2026-09-16] OFF-7 (imageCache/storage duplication) routed to batch 1.4 rather than fixed in 1.1.fix.b. Rationale: no behavioral bug; Item 7 residual already scoped for exactly this. → Deferred.
+- [2026-09-16] SESSION_STATE.md is the phase's single document — findings, decisions, and deferrals live in it rather than in separate per-audit files. Rationale: a separate `AUDIT_ITEM_10.md` was referenced but never actually created, producing a dangling pointer. One authoritative file eliminates the failure class. → chore-d.
+Deferred:
+- OFF-7 → batch 1.4 (imageCache consolidation).
+- OFF-1 → blocked on H1 decision.
+LastApply: 2026-09-16 — docs: SESSION_STATE.md as phase document; audit findings baked in
+LastAuditSummary: Item 10 offline audit closed. 12 findings (1 Critical decision-gated, 4 High, 2 Medium, 4 Low, 1 Info deferred). Fix batches 1.1.fix and 1.1.fix.b queued; OFF-1 awaits H1 decision.

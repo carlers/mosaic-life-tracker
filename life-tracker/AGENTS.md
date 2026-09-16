@@ -657,6 +657,9 @@ Context is sent in tiers. Use the lowest tier that supports the current task.
 | `NextChatRole` | `chat1` or `chat2`. Tells the offboarding prompt which role the next session should assume. Not a directive to start a new session. Answers 'if an explicit OFFBOARD were typed right now, what role should the next session assume?' Mid-phase, Chat 2 continues in the same session across batches. |
 | `BatchPlan` | Checklist of the current plan's batches, with `[x]` for done. Kept short — no deeper than one level. |
 | `OpenQuestions` | Unresolved questions that block Chat 2 from proceeding under §25.5. `none` when clear. |
+| `Findings` | (optional, audit phases) One line per finding: ID, severity, one-sentence description, fix direction. Absent when the phase has no open findings. |
+| `Decisions` | (optional) One line per non-obvious decision made during the phase: date, what was decided, rationale, disposition. Absent when the phase has no decisions worth recording. |
+| `Deferred` | (optional) Items routed to other batches or phases, with the target named. Absent when nothing is deferred. |
 | `LastApply` | ISO timestamp of the most recent successful `npm run apply`. |
 | `LastAuditSummary` | One line: outcome of the last audit or completed batch. |
 
@@ -664,9 +667,9 @@ Context is sent in tiers. Use the lowest tier that supports the current task.
 
 - **Chat 1** writes the initial `ActivePlan`, `BatchPlan`, and `NextChatRole` when starting a new phase.
 - **Chat 2** updates `CurrentBatch`, `CurrentTask`, `Status`, `NextAction`, and the relevant `[x]` in `BatchPlan` inside every mega file it emits. The update is a `===FILE:SESSION_STATE.md===` block at the end of the mega file, before the `===COMMIT:...===` directive.
-- **Chat 1** updates `LastAuditSummary` and `ActivePlan` when a phase closes or a new phase opens.
+- **Chat 1** updates `LastAuditSummary` and `ActivePlan` when a phase closes or a new phase opens. Chat 1 also owns the `Findings`, `Decisions`, and `Deferred` sections during audit phases.
 
-**Size discipline:** `SESSION_STATE.md` should stay under 40 lines. If it grows, Chat 1 trims resolved items when closing a phase. The file is a snapshot, not an archive — the changelog in `AGENTS.md` is the archive.
+**Size:** `SESSION_STATE.md` is the phase's single document. It grows during audit phases (findings, decisions, deferrals all live here) and shrinks during feature development. There is no fixed line cap. Do not create separate per-audit files — a section in this file is the correct place, and a separate file risks becoming a dangling pointer if it is not applied in lock-step. When the phase closes, Chat 1 trims resolved items; the changelog in `AGENTS.md` is the archive.
 
 ### 25.4 Prompt Templates
 
@@ -790,3 +793,4 @@ No other context is needed. The new chat reads `AGENTS.md §25` and `SESSION_STA
 | 2026-09-16 | §5.1, §25.2 | `scripts/dump-files.mjs` (Tier 2 context ingest) now emits repomix-compatible `<file path="…">…</file>` XML wrappers instead of the `===FILE:path===` mega-file directive syntax. This removes the ambiguity between the *read* format (dump, repomix) and the *write* format (mega file, `apply-changes.mjs`), so a dump can never be accidentally parsed as a patch. §5.1 adds a Common-pitfalls bullet documenting the distinction; §25.2's Tier 2 row and rules bullet updated. | Phase 1 audits — batch 1.1.chore |
 | 2026-09-16 | §25.3, §25.4, §25.6 | Split offboarding triggers by target role (phase completion → Chat 1, user OFFBOARD → NextChatRole). Chat-1-targeted handoff prompts now carry a review payload (what was done, files touched, review focus, test status). Replaced per-batch 'Audit closed' declaration with once-per-phase 'Phase complete' declaration. §25.3 NextChatRole clarified as non-directive. | split offboarding triggers by target role |
 | 2026-09-16 | §25.1, §25.6 | Chat 1 may emit documentation-only mega files directly (no runtime behavior → no Chat 2 round-trip). Chat-1 review is logical, not byte-level — the review payload is the sole review artifact; no mega file or git diff required. | clarify Chat 1 docs carve-out + review-artifact boundary |
+| 2026-09-16 | §25.3 | SESSION_STATE.md is the phase's single document — no separate per-audit files. Added optional `Findings`, `Decisions`, and `Deferred` sections for audit phases; replaced the 40-line size cap with phase-scoped growth/trim discipline. | SESSION_STATE.md as phase document |
