@@ -29,7 +29,12 @@ import { forceSync } from '../db/sync';
 import type { MessageDocument } from '../db/schema';
 
 const TIMESTAMP_GAP_MS = 5 * 60 * 1000;
-const POLL_INTERVAL_MS = 30_000;
+// Realtime patches RxDB in place, so the poll is now a safety net for
+// missed socket events rather than the primary delivery path. The old
+// 30s cadence existed only to close the 90–120s read-receipt gap (§20.5);
+// that gap is now closed by realtime. 5 minutes is enough to catch a
+// dropped socket without hammering the endpoint.
+const POLL_INTERVAL_MS = 5 * 60 * 1000;
 const SCROLL_FAB_THRESHOLD_PX = 300;
 
 type RenderItem =

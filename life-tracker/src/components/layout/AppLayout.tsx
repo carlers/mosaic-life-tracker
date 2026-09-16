@@ -7,6 +7,7 @@ import { ConversationsProvider } from '../../hooks/ConversationsProvider';
 import { useAuth } from '../../hooks/useAuth';
 import { deliverPendingMessages } from '../../lib/messageDelivery';
 import { flushSocialOutbox } from '../../lib/socialOutbox';
+import { startRealtime, stopRealtime } from '../../db/realtime';
 import type { TabId } from './BottomNav';
 const RETRY_COOLDOWN_MS = 2000;
 export const AppLayout: React.FC = () => {
@@ -27,6 +28,21 @@ export const AppLayout: React.FC = () => {
       window.removeEventListener('offline', onOffline);
     };
   }, []);
+  // Open the realtime layer for the signed-in user. Closed on sign-out
+  // and on tab teardown. The layer patches RxDB in place, so the same
+  // subscriptions (useMessages, ConversationsProvider, useTasks) react
+  // without any additional wiring. Polling/focus sync stays as the
+  // safety net for anything realtime drops.
+  useEffect(() => {
+    if (!user?.$id) {
+      stopRealtime();
+      return;
+    }
+    startRealtime(user.$id);
+    return () => {
+      stopRealtime();
+    };
+  }, [user?.$id]);
   useEffect(() => {
     if (!user?.$id) return;
     const uid = user.$id;

@@ -174,3 +174,47 @@ export const guardedFunctions = {
 export const guardedAccount = {
   get: (): Promise<AccountGetResult> => guardedCall(() => rawAccount.get()),
 };
+
+// Appwrite Realtime. The SDK exposes a single callback-style `subscribe`
+// on the raw Client. We wrap it so:
+//   1. every subscription returns an unsubscribe function (the SDK's own
+//      return value in this SDK version is already a plain `() => void`,
+//      but the guard keeps the ESLint `no-restricted-imports` boundary
+//      clean: no file outside `sdk.ts` needs to touch `client` directly);
+//   2. errors thrown synchronously by `subscribe` (bad channel format,
+//      no session) are caught and logged rather than crashing the caller.
+// Realtime `subscribe` never throws on 401 — the socket just fails to
+// authorize and the subscription silently never fires. There is therefore
+// no 401 normalization here; auth:unauthorized is not dispatched from
+// realtime. Session loss is detected by the next guarded HTTP call.
+export type RealtimePayload = {
+  events: string[];
+  channels: string[];
+  timestamp: string;
+  payload: Record<string, unknown>;
+};
+
+export type RealtimeUnsubscribe = () => void;
+
+export const guardedRealtime = {
+  subscribe: (
+    channels: string | string[],
+    callback: (payload: RealtimePayload) => void
+  ): RealtimeUnsubscribe => {
+    try {
+      const unsubscribe = client.subscribe(channels as never, (raw) => {
+        callback(raw as unknown as RealtimePayload);
+      });
+      return () => {
+        try {
+          unsubscribe();
+        } catch (err) {
+          console.error('[guardedRealtime] unsubscribe failed:', err);
+        }
+      };
+    } catch (err) {
+      console.error('[guardedRealtime] subscribe failed:', err);
+      return () => {};
+    }
+  },
+};
