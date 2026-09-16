@@ -5,11 +5,9 @@ import { useNavigate } from 'react-router-dom';
 import { Avatar } from '../ui/Avatar';
 import { useTaskImage } from '../../hooks/useTaskImage';
 import type { Conversation } from '../../hooks/useConversations';
-
 interface ConversationRowProps {
   conversation: Conversation;
 }
-
 function formatRelative(iso: string): string {
   if (!iso) return '';
   const d = new Date(iso);
@@ -24,14 +22,12 @@ function formatRelative(iso: string): string {
   if (diffDay < 7) return `${diffDay}d`;
   return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 }
-
-export const ConversationRow: React.FC<ConversationRowProps> = ({
+const ConversationRowComponent: React.FC<ConversationRowProps> = ({
   conversation,
 }) => {
   const navigate = useNavigate();
   const { friend, lastMessage, unreadCount } = conversation;
   const { imageUrl } = useTaskImage(friend.friendAvatarFileId || undefined);
-
   let preview: string;
   let previewClass: string;
   if (!lastMessage) {
@@ -49,11 +45,9 @@ export const ConversationRow: React.FC<ConversationRowProps> = ({
     preview = '(empty)';
     previewClass = 'text-gray-600 italic';
   }
-
   const handleOpen = () => {
     navigate(`/messages/${friend.friendId}`);
   };
-
   return (
     <motion.div
       whileTap={{ scale: 0.98 }}
@@ -93,3 +87,34 @@ export const ConversationRow: React.FC<ConversationRowProps> = ({
     </motion.div>
   );
 };
+function areConversationRowPropsEqual(
+  prev: ConversationRowProps,
+  next: ConversationRowProps
+): boolean {
+  if (prev.conversation === next.conversation) return true;
+  const a = prev.conversation;
+  const b = next.conversation;
+  if (a.threadId !== b.threadId) return false;
+  if (a.unreadCount !== b.unreadCount) return false;
+  if (a.friend.friendId !== b.friend.friendId) return false;
+  if (a.friend.friendDisplayName !== b.friend.friendDisplayName) return false;
+  if (a.friend.friendUsername !== b.friend.friendUsername) return false;
+  if (a.friend.friendAvatarFileId !== b.friend.friendAvatarFileId) return false;
+  const am = a.lastMessage;
+  const bm = b.lastMessage;
+  if (am === bm) return true;
+  if (!am || !bm) return false;
+  return (
+    am.id === bm.id &&
+    am.content === bm.content &&
+    am.taskRefTitle === bm.taskRefTitle &&
+    am.direction === bm.direction &&
+    am.createdAt === bm.createdAt &&
+    am.isUnsent === bm.isUnsent
+  );
+}
+export const ConversationRow = React.memo(
+  ConversationRowComponent,
+  areConversationRowPropsEqual
+);
+ConversationRow.displayName = 'ConversationRow';

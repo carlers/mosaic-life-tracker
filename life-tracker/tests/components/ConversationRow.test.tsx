@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { ConversationRow } from '../../src/components/messages/ConversationRow';
 import type { Conversation } from '../../src/hooks/useConversations';
@@ -6,38 +6,15 @@ import type {
   FriendshipDocument,
   MessageDocument,
 } from '../../src/db/schema';
-
-// ---------------------------------------------------------------------------
-// ConversationRow component tests (Layer 5).
-//
-// Pins the observable contracts:
-//   - Display name renders when set; falls back to friendUsername when empty.
-//   - Preview text branches four ways (no message, content, taskRefTitle,
-//     neither).
-//   - Unread badge shows count when unreadCount > 0.
-//   - "You: " prefix renders when lastMessage.direction === 'outgoing'.
-//
-// Deliberately NOT tested here:
-//   - Navigation. useNavigate is mocked; we do not assert on the target URL.
-//   - Avatar loading. lib/storage is mocked to return null; imageUrl stays
-//     null and the Avatar renders its initial-letter fallback.
-//   - Class strings on the unread badge or preview text.
-//   - A `@username` line. ConversationRow does NOT render one (unlike
-//     FriendRow and UserResultCard, which do). The `||` fallback is the
-//     only place friendUsername surfaces.
-// ---------------------------------------------------------------------------
-
 vi.mock('react-router-dom', () => ({
   useNavigate: () => vi.fn(),
 }));
-
-const mockGetLocalImageUrl = vi.hoisted(() =>
-  vi.fn().mockResolvedValue(null)
+const useTaskImageSpy = vi.hoisted(() =>
+  vi.fn(() => ({ imageUrl: null, isLoading: false }))
 );
-vi.mock('../../src/lib/storage', () => ({
-  getLocalImageUrl: mockGetLocalImageUrl,
+vi.mock('../../src/hooks/useTaskImage', () => ({
+  useTaskImage: useTaskImageSpy,
 }));
-
 function makeFriend(): FriendshipDocument {
   return {
     id: 'fr_1',
@@ -53,7 +30,6 @@ function makeFriend(): FriendshipDocument {
     isDeleted: false,
   };
 }
-
 function makeMessage(
   overrides: Partial<MessageDocument> = {}
 ): MessageDocument {
@@ -84,7 +60,6 @@ function makeMessage(
     ...overrides,
   };
 }
-
 function makeConversation(
   overrides: Partial<Conversation> = {}
 ): Conversation {
@@ -96,13 +71,14 @@ function makeConversation(
     ...overrides,
   };
 }
-
+beforeEach(() => {
+  useTaskImageSpy.mockClear();
+});
 describe('ConversationRow', () => {
   it('renders friend display name when set', () => {
     render(<ConversationRow conversation={makeConversation()} />);
     expect(screen.getByText('Friend B')).toBeInTheDocument();
   });
-
   it('falls back to friendUsername when display name is empty', () => {
     render(
       <ConversationRow
@@ -111,17 +87,12 @@ describe('ConversationRow', () => {
         })}
       />
     );
-    // The `<p>{friendDisplayName || friendUsername}</p>` fallback renders
-    // the bare username — no `@` prefix. Case-sensitive match on 'b' does
-    // not collide with the Avatar's initial-letter fallback ('B').
     expect(screen.getByText('b')).toBeInTheDocument();
   });
-
   it('preview: no last message shows "Tap to start chatting"', () => {
     render(<ConversationRow conversation={makeConversation()} />);
     expect(screen.getByText('Tap to start chatting')).toBeInTheDocument();
   });
-
   it('preview: message content wins over taskRefTitle', () => {
     render(
       <ConversationRow
@@ -136,7 +107,6 @@ describe('ConversationRow', () => {
     expect(screen.getByText('hello there')).toBeInTheDocument();
     expect(screen.queryByText('Re: A task')).toBeNull();
   });
-
   it('preview: taskRefTitle with no content shows "Re: <title>"', () => {
     render(
       <ConversationRow
@@ -150,7 +120,6 @@ describe('ConversationRow', () => {
     );
     expect(screen.getByText('Re: Buy groceries')).toBeInTheDocument();
   });
-
   it('preview: neither content nor taskRefTitle shows "(empty)"', () => {
     render(
       <ConversationRow
@@ -161,7 +130,6 @@ describe('ConversationRow', () => {
     );
     expect(screen.getByText('(empty)')).toBeInTheDocument();
   });
-
   it('unread badge shows count when unreadCount > 0', () => {
     render(
       <ConversationRow
@@ -170,7 +138,6 @@ describe('ConversationRow', () => {
     );
     expect(screen.getByText('3')).toBeInTheDocument();
   });
-
   it('"You: " prefix renders when lastMessage is outgoing', () => {
     render(
       <ConversationRow
@@ -184,5 +151,51 @@ describe('ConversationRow', () => {
     );
     expect(screen.getByText('You:')).toBeInTheDocument();
     expect(screen.getByText('my reply')).toBeInTheDocument();
+  });
+  it('does not re-render on semantically-equal props (regression: F5)', () => {
+    const friend = makeFriend();
+    const lastMessage = makeMessage({ id: 'msg_1', content: 'hello' });
+    const first: Conversation = {
+      threadId: 'th_test',
+      friend,
+      lastMessage,
+      unreadCount: 0,
+    };
+    const second: Conversation = {
+      threadId: 'th_test',
+      friend: { ...friend },
+      lastMessage: { ...lastMessage },
+      unreadCount: 0,
+    };
+    const { rerender } = render(
+      <ConversationRow conversation={first} />
+    );
+    expect(useTaskImageSpy).toHaveBeenCalledTimes(1);
+    rerender(<ConversationRow conversation={second} />);
+    expect(useTaskImageSpy).toHaveBeenCalledTimes(1);
+  });
+  it('re-renders when unreadCount changes (regression: F5)', () => {
+    const first = makeConversation({ unreadCount: 0 });
+    const second = makeConversation({ unreadCount: 2 });
+    const { rerender } = render(
+      <ConversationRow conversation={first} />
+    );
+    expect(useTaskImageSpy).toHaveBeenCalledTimes(1);
+    rerender(<ConversationRow conversation={second} />);
+    expect(useTaskImageSpy).toHaveBeenCalledTimes(2);
+  });
+  it('re-renders when lastMessage id changes (regression: F5)', () => {
+    const first = makeConversation({
+      lastMessage: makeMessage({ id: 'msg_1', content: 'hello' }),
+    });
+    const second = makeConversation({
+      lastMessage: makeMessage({ id: 'msg_2', content: 'hello' }),
+    });
+    const { rerender } = render(
+      <ConversationRow conversation={first} />
+    );
+    expect(useTaskImageSpy).toHaveBeenCalledTimes(1);
+    rerender(<ConversationRow conversation={second} />);
+    expect(useTaskImageSpy).toHaveBeenCalledTimes(2);
   });
 });
