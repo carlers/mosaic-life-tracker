@@ -2,10 +2,10 @@
 
 Updated: 2026-09-17T00:00:00Z
 ActivePlan: Phase 1 audits — final sweep
-CurrentBatch: 7 of 9
-CurrentTask: 1.7.a Item 13 — accessibility (sub-batch 2: message surfaces)
+CurrentBatch: 8 of 9
+CurrentTask: 1.7.b Item 13 — accessibility (sub-batch 3: task/calendar surfaces)
 Status: in_progress
-NextAction: Run `npm run apply`, then continue to 1.7.b (task/calendar surfaces accessibility).
+NextAction: Run `npm run apply`, then continue to 1.7.c (layout/nav/settings surfaces accessibility — final sub-batch of Phase 1).
 NextChatRole: chat2
 BatchPlan:
 - Phase 1 audits — final sweep (current)
@@ -25,11 +25,11 @@ BatchPlan:
   - [x] 1.5 Item 11 — PWA / service worker audit + fixes
   - [x] 1.6 Item 13 — accessibility (sub-batch 1: primitives layer)
   - [x] 1.7.a Item 13 — accessibility (sub-batch 2: message surfaces)
-  - [ ] 1.7.b Item 13 — accessibility (sub-batch 3: task/calendar surfaces)
-  - [ ] 1.7.c Item 13 — accessibility (sub-batch 4: layout/nav/settings surfaces)
+  - [x] 1.7.b Item 13 — accessibility (sub-batch 3: task/calendar surfaces)
+  - [ ] 1.7.c Item 13 — accessibility (sub-batch 4: layout/nav/settings surfaces — FINAL batch of Phase 1)
 - [ ] Phase 2 — refactor audit → refactor
 - [ ] Phase 3 — optimize audit → optimize (bundle 1.7 MB, route splitting, lazy images; receives OFF-6 LRU cap)
-- [ ] Phase 4 — spec audit group (meta-audit of AGENTS.md, discovery, enforcement; receives full WCAG AA audit)
+- [ ] Phase 4 — spec audit group (meta-audit of AGENTS.md, discovery, enforcement; receives full WCAG AA audit + calendar grid semantics)
 - [ ] Feature work — Phase 3.5 Todo List, 3.6 Diary, 3.7 Notifications, API integrations (paused)
 OpenQuestions:
 - H1 — offline auth gate (OFF-1). Blocked pending product/architecture decision.
@@ -41,28 +41,31 @@ Findings:
 - ERR-1 through ERR-4 — resolved 1.3.
 - STO-1 — resolved 1.4.
 - PWA-1 through PWA-6 — resolved 1.5.
-- A11Y-1 through A11Y-11, A11Y-4 (non-finding), A11Y-14 (non-finding) — resolved 1.6.
-- A11Y-12 High [resolved 1.7.a] — `MessageBubble` gesture surface had no keyboard equivalent. Bubble is now a `<button>` with `aria-label` derived from sender + task-ref + reply + content, and `Enter`/`Space` opens the action sheet (which already contains Reply + emoji row). Swipe-reply and double-tap-react remain pointer enhancements; the action sheet is the keyboard-parity path for both. Focus ring matches the 1.6 primitives.
-- A11Y-13 Medium [resolved 1.7.a] — bubble status row is `aria-hidden="true"`. Rationale: reading "Delivered" / "Seen at 3:42 PM" on every message traversal is noise; the sender's outgoing bubbles are already announced by the composer's `aria-label="Send"` when they send, and the sender's own read receipt is conveyed by the "Seen" indicator visually. An `aria-live` region for the last-message transition was considered and rejected: it would announce read receipts unrelated to the user's current action, violating WCAG 4.1.3's "only when appropriate" guidance. Documented as a deliberate limitation, not a defect.
-- A11Y-15 Medium [resolved 1.7.a] — `MessageComposer` textarea had no `aria-label`. Added `aria-label="Message"`.
-- A11Y-16 Low [resolved 1.7.a] — character count now `aria-describedby`-linked and marked `aria-live="polite"` so the threshold crossing is announced once.
-- A11Y-17 Low [non-finding] — `MessageComposer` send button already had `aria-label="Send"`.
-- A11Y-24 Medium [resolved 1.7.a] — `ReactionRow` chips were `<motion.button>` (correct) but had no accessible name and no selected-state. Added `aria-label` (`"React with ❤️, 3 total"` / `"Remove ❤️ reaction, 3 total"`) and `aria-pressed={mine}`. Emoji glyph and count are now `aria-hidden` since both are in the label.
-- A11Y-25 Low [resolved 1.7.a] — `ChatSearchBar` input had no `aria-label` (placeholder is not a label), the match counter was unlinked, and the search icon / close icon lacked `aria-hidden`. Fixed all three; counter is `aria-live="polite"` and `aria-describedby`-linked to the input.
-- A11Y-26 Low [resolved 1.7.a] — `ScrollToBottomButton` `aria-label` did not distinguish the new-messages state. Now `"Scroll to bottom, new messages"` when `hasNewMessages`. `ArrowDown` and the green dot are `aria-hidden`.
-- A11Y-27 Low [resolved 1.7.a] — `ReplyPreview` `X` icon and `Ban` icon lacked `aria-hidden`; `ReplyPreview` bubble variant is rendered inside an `aria-hidden` wrapper by `MessageBubble` so it does not double-announce. Composer variant keeps its `aria-label="Cancel reply"` button. `TaskRefCard` color bar and calendar icon are `aria-hidden`.
-- MessageActionSheet — already correct on 1.6 pass; icon-only buttons have `aria-label`, action rows use icon+text. No change.
-- useBubbleGestures — pointer-only by design (§21). No change; keyboard path lives on the bubble element.
-- EmojiPickerSheet — third-party `emoji-picker-react` handles its own ARIA; the BottomSheet wrapper already provides `role="dialog"`. No change.
+- A11Y-1 through A11Y-11, A11Y-12 through A11Y-17, A11Y-24 through A11Y-27 — resolved 1.6 / 1.7.a.
+- A11Y-18 High [resolved 1.7.b] — `TaskItem` task title was `<div onClick>` with no role. Now `<button>` with `aria-label` = title + ", completed" when applicable.
+- A11Y-19 Medium [resolved 1.7.b] — `TaskItem` toggle button had no `aria-label` / `aria-pressed`. Added `"Mark complete"` / `"Mark incomplete"` and `aria-pressed={task.completed}`.
+- A11Y-20 Medium [resolved 1.7.b] — `TaskItem` memo was `<p onClick>`, image thumbnail was `<div onClick>`. Both now `<button>` with `aria-label="Open memo"` / `"View task photo"`. The `FileText` decorative icon on the right is `aria-hidden`.
+- A11Y-21 High [resolved 1.7.b] — `CategorySection` category pill was `<div onClick>` with no role. Now `<button>` with `aria-expanded={isAdding}` and a label that names the category and visibility scope.
+- A11Y-22 Medium [resolved 1.7.b] — inline add `<button>` with icon-only `<Plus>` had no label. Added `aria-label="Add task"`. The input gained a visually-hidden `<label>` (`sr-only`) associated via `useId` — the placeholder was the only cue.
+- A11Y-23 Low [resolved 1.7.b] — visibility icon inside the pill is now `aria-hidden="true"` — the visibility scope is conveyed by the pill's `aria-label` instead.
+- A11Y-28 High [resolved 1.7.b] — `DayCell` was `<motion.div onClick>`. Now `<motion.button type="button">` with `disabled={!onDayClick}` (cells in read-only contexts — e.g. friend calendar without click handler — are non-interactive), and `aria-label` including the full date, "today" when applicable, and the task count. Cell contents (`TaskBlock`s, day number) are `aria-hidden` since the label carries the information.
+- A11Y-29 Low [resolved 1.7.b] — Month/Week day-of-week header rows (`Sun`/`Mon`/… and `EEE`) are now `aria-hidden="true"`. They are visual column labels; with buttons-as-cells there is no grid role for them to label, and announcing them separately would be noise.
+- A11Y-30 Low [resolved 1.7.b] — `TaskBlock` documented as decorative; `title` attribute retained for pointer tooltips; `aria-hidden` wrapper provided by `DayCell` prevents double-announcement. No ARIA added to the block itself.
+- A11Y-31 Low [resolved 1.7.b] — `TaskActionSheet` icon-only controls (Edit/Delete grid) gained `aria-hidden` on icons (the visible text was already the accessible name) and `type="button"` on all controls; memo preview is now a `<button aria-label="Open memo">`; visibility row icons `aria-hidden`. Four stub actions (Set Alarm, Open Timer, Make It a Routine, Move to Backlog) keep their existing `alert('…coming soon')` — the AGENTS §10 rule permits `alert()` for "Coming Soon" placeholders, and replacing them with a toast is a §25.5 user-visible behavior change out of scope for this batch.
+- A11Y-32 Low [resolved 1.7.b] — `TaskVisibilitySheet` option buttons gained `aria-pressed` reflecting their selected state (inherit / private / followers / public) and `aria-hidden` on decorative icons. `type="button"` added throughout.
+- A11Y-33 Medium [non-finding] — `DayViewSheet`'s `Swiper` slide navigation has no keyboard path. It relies on the sheet's prev/next via… nothing — DayViewSheet has no prev/next controls; date navigation happens by swiping. This is a real gap but out of scope for (1): keyboard navigation of the calendar requires either prev/next buttons in the sheet header or arrow-key handling with roving tabindex, both of which are (2) work. Logged for Phase 4 alongside the calendar-grid decision. The `DayViewSheet` is reachable via the `DayCell` button, so a keyboard user can open any day; the gap is only in changing days once the sheet is open (Escape → pick another cell).
 - Non-findings (verified correct): OFF-5, E2, E3, F4, F5, F6, G1, G2, G3, H1, H2, H3, I1–I7.
 Decisions:
 - [2026-09-17] Batch 1.6 scope: Q1=1, Q2=a, Q3=split by domain. → 1.6.
 - [2026-09-17] Focus trap: local `useFocusTrap` hook, no new dependency. → 1.6.
-- [2026-09-17] `Button variant="icon"` `aria-label` obligation documented, not enforced at runtime. → 1.6.
+- [2026-09-17] `Button variant="icon"` label obligation documented, not enforced. → 1.6.
 - [2026-09-17] `MessageBubble` keyboard parity via `Enter` → action sheet. → 1.6 (decision), 1.7.a (implementation).
-- [2026-09-17] Batch 1.7.a `MessageBubble` accessible name: sender + task-ref title + reply quote + content, joined with commas. Chosen over a generic "message" label because it lets a screen-reader user identify a message in the thread without reading each one in full.
-- [2026-09-17] Batch 1.7.a status row `aria-hidden`. Rationale in A11Y-13 above: per-message status announcements are noise, and an `aria-live` region for the latest read-receipt transition would announce events unrelated to the user's current action. Deliberate limitation, not a defect. Revisit only if a user reports missing read-receipt awareness.
-- [2026-09-17] Batch 1.7.a `ReactionRow` chip label carries count: `"React with ❤️, 3 total"` on hover/announce. Rationale: the emoji and number are `aria-hidden`, so the count must be in the label or the button's accessible name is just the emoji.
+- [2026-09-17] `MessageBubble` accessible name and `aria-hidden` status row. → 1.7.a.
+- [2026-09-17] `ReactionRow` chip label carries count. → 1.7.a.
+- [2026-09-17] Batch 1.7.b calendar grid decision: Option (1) — buttons, no `role="grid"`. Rationale: (a) `role="grid"` over slide-windowed cells would announce empty rows because off-screen cells are not rendered; (b) the Embla carousel's prev/next buttons already provide keyboard-reachable month navigation; (c) each `DayCell` as a `<button>` with a full-date+count `aria-label` gives a keyboard user a complete path to any day's content. Grid semantics + roving tabindex deferred to Phase 4, where it can be designed together with the WCAG AA pass rather than retrofitted.
+- [2026-09-17] Batch 1.7.b `DayCell` `disabled={!onDayClick}`. Rationale: cells in read-only contexts (friend calendar with no click handler) should not be focusable — a `<button disabled>` is removed from the tab order, which is the correct behavior.
+- [2026-09-17] Batch 1.7.b `TaskBlock` stays decorative. Rationale: the cell's `aria-label` already carries the task count; announcing each block would double the traversals without adding information. `title` retained for pointer-hover.
+- [2026-09-17] Batch 1.7.b `TaskActionSheet` stubs retain `alert()`. Rationale: §10 permits `alert()` for Coming Soon; converting to toast is a user-visible behavior change outside the accessibility scope.
 Deferred:
 - OFF-1 → blocked on H1 decision.
 - OFF-3 local-image-queue half → separate batch.
@@ -70,6 +73,6 @@ Deferred:
 - OFF-6 LRU cap with byte budget → Phase 3 (optimize).
 - PWA update-prompt UI, `beforeinstallprompt` affordance → Phase 3.5+ feature work.
 - Full WCAG AA audit (contrast, reduced-motion, landmarks, skip link) → Phase 4 meta-audit.
-- A11Y-18 through A11Y-23 → 1.7.b.
-LastApply: 2026-09-17 — feat: accessibility — primitives layer (BottomSheet dialog semantics + focus trap, Button/Input focus rings + label association, BottomNav labels)
-LastAuditSummary: Batch 1.7.a shipped — message surfaces accessibility. `MessageBubble` is now a `<button>` with `Enter`/`Space` → action sheet, accessible name from sender + task-ref + reply + content; status row `aria-hidden`. `ReactionRow` chips have `aria-label` + `aria-pressed`. `MessageComposer` textarea `aria-label` + `aria-describedby` counter. `ChatSearchBar` input label + linked counter + `aria-hidden` icons. `ScrollToBottomButton` new-messages label variant. `ReplyPreview`/`TaskRefCard` icons `aria-hidden`. `MessageActionSheet` and `EmojiPickerSheet` verified correct, no change.
+- Calendar grid semantics + roving tabindex, `DayViewSheet` keyboard day navigation (A11Y-33) → Phase 4.
+LastApply: 2026-09-17 — feat: accessibility — message surfaces (bubble keyboard activation, reaction chip labels, composer/search labels)
+LastAuditSummary: Batch 1.7.b shipped — task/calendar surfaces. `DayCell` is now a `<button>` with full-date+count `aria-label`, disabled when non-interactive; month/week day-of-week rows `aria-hidden`; `TaskBlock` documented as decorative. `TaskItem` title/toggle/memo/image are `<button>`s with labels and `aria-pressed` on the toggle. `CategorySection` pill is a `<button>` with `aria-expanded` + visibility-scoped label; inline add button labeled; new-task input labeled via `sr-only`. `TaskActionSheet` and `TaskVisibilitySheet` icons `aria-hidden`, `aria-pressed` on visibility options, `type="button"` throughout. `DayViewSheet` keyboard day-navigation gap (A11Y-33) logged for Phase 4.

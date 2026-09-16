@@ -73,15 +73,20 @@ export const TaskVisibilitySheet: React.FC<TaskVisibilitySheetProps> = ({
 
         {/* Inherit option */}
         <button
+          type="button"
           onClick={() => handleSelect('')}
           onPointerDown={(e) => e.stopPropagation()}
-          className={`w-full flex items-center gap-3 p-3 rounded-xl border transition-colors mb-2 ${
+          aria-pressed={inheriting}
+          className={`w-full flex items-center gap-3 p-3 rounded-xl border transition-colors mb-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 ${
             inheriting
               ? 'bg-[#252525] border-emerald-500/50'
               : 'bg-[#1A1A1A] border-[#2A2A2A] hover:bg-[#222222]'
           }`}
         >
-          <div className="w-9 h-9 rounded-full bg-[#2A2A2A] flex items-center justify-center flex-shrink-0">
+          <div
+            className="w-9 h-9 rounded-full bg-[#2A2A2A] flex items-center justify-center flex-shrink-0"
+            aria-hidden="true"
+          >
             <Users size={16} className="text-gray-300" />
           </div>
           <div className="flex-1 min-w-0 text-left">
@@ -93,7 +98,12 @@ export const TaskVisibilitySheet: React.FC<TaskVisibilitySheetProps> = ({
             </p>
           </div>
           {inheriting && (
-            <Check size={18} className="text-emerald-500 flex-shrink-0" strokeWidth={3} />
+            <Check
+              size={18}
+              className="text-emerald-500 flex-shrink-0"
+              strokeWidth={3}
+              aria-hidden="true"
+            />
           )}
         </button>
 
@@ -104,15 +114,20 @@ export const TaskVisibilitySheet: React.FC<TaskVisibilitySheetProps> = ({
           return (
             <button
               key={opt.value}
+              type="button"
               onClick={() => handleSelect(opt.value)}
               onPointerDown={(e) => e.stopPropagation()}
-              className={`w-full flex items-center gap-3 p-3 rounded-xl border transition-colors mb-2 ${
+              aria-pressed={selected}
+              className={`w-full flex items-center gap-3 p-3 rounded-xl border transition-colors mb-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 ${
                 selected
                   ? 'bg-[#252525] border-emerald-500/50'
                   : 'bg-[#1A1A1A] border-[#2A2A2A] hover:bg-[#222222]'
               }`}
             >
-              <div className="w-9 h-9 rounded-full bg-[#2A2A2A] flex items-center justify-center flex-shrink-0">
+              <div
+                className="w-9 h-9 rounded-full bg-[#2A2A2A] flex items-center justify-center flex-shrink-0"
+                aria-hidden="true"
+              >
                 <Icon size={16} className="text-gray-300" />
               </div>
               <div className="flex-1 min-w-0 text-left">
@@ -120,7 +135,12 @@ export const TaskVisibilitySheet: React.FC<TaskVisibilitySheetProps> = ({
                 <p className="text-xs text-gray-500 mt-0.5">{opt.desc}</p>
               </div>
               {selected && (
-                <Check size={18} className="text-emerald-500 flex-shrink-0" strokeWidth={3} />
+                <Check
+                  size={18}
+                  className="text-emerald-500 flex-shrink-0"
+                  strokeWidth={3}
+                  aria-hidden="true"
+                />
               )}
             </button>
           );

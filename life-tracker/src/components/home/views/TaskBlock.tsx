@@ -7,6 +7,10 @@ interface TaskBlockProps {
   categoryColor: string;
 }
 
+// TaskBlock is a decorative preview rendered inside DayCell. The cell
+// itself owns the accessible name (date + task count); the block is a
+// visual density indicator. It is wrapped in `aria-hidden` by DayCell,
+// so no ARIA is added here — `title` remains for pointer-hover tooltips.
 export const TaskBlock: React.FC<TaskBlockProps> = ({ task, categoryColor }) => {
   const { imageUrl, isLoading } = useTaskImage(task.image);
   const bgColor = task.completed ? categoryColor : '#374151';

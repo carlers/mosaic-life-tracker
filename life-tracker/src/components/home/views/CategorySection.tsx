@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useId } from 'react';
 import { Plus, Eye, EyeOff, Users } from 'lucide-react';
 import { TaskItem } from './TaskItem';
 import type { TaskDocument } from '../../../db/schema';
@@ -43,6 +43,7 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
   const [isAdding, setIsAdding] = useState(false);
   const [newTaskTitle, setNewTaskTitle] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
+  const inputId = useId();
 
   useEffect(() => {
     if (isAdding && inputRef.current) {
@@ -78,18 +79,31 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
     }
   };
 
+  const visibilityLabel: Record<Visibility, string> = {
+    public: 'Public',
+    followers: 'Friends',
+    private: 'Private',
+  };
+
   return (
     <div className="mb-4">
       <div className="flex items-center mb-2">
-        <div
+        <button
+          type="button"
           onClick={() => setIsAdding(!isAdding)}
-          className={`inline-flex items-center gap-2 bg-black rounded-full pl-3.5 pr-4 py-2 cursor-pointer transition-all active:scale-95 ${
+          aria-expanded={isAdding}
+          aria-label={
+            isAdding
+              ? `Cancel adding to ${categoryName} (${visibilityLabel[visibility]})`
+              : `Add task to ${categoryName} (${visibilityLabel[visibility]})`
+          }
+          className={`inline-flex items-center gap-2 bg-black rounded-full pl-3.5 pr-4 py-2 cursor-pointer transition-all active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 ${
             isAdding
               ? 'ring-1 ring-[#555555]'
               : 'hover:bg-[#0D0D0D]'
           }`}
         >
-          {getVisibilityIcon(visibility)}
+          <span aria-hidden="true">{getVisibilityIcon(visibility)}</span>
           <span
             className="text-sm font-bold"
             style={{ color: categoryColor }}
@@ -100,8 +114,9 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
             size={16}
             strokeWidth={2.5}
             style={{ color: categoryColor }}
+            aria-hidden="true"
           />
-        </div>
+        </button>
       </div>
 
       <div className="bg-[#1E1E1E] rounded-xl overflow-hidden">
@@ -130,12 +145,18 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
         {isAdding && (
           <div className="flex items-center gap-2 px-3 py-2.5 bg-[#1A1A1A] animate-in fade-in slide-in-from-top-1 duration-200">
             <button
-              className="flex-shrink-0 text-gray-500 hover:text-white transition-colors"
+              type="button"
+              className="flex-shrink-0 text-gray-500 hover:text-white transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 rounded"
               onClick={handleAdd}
+              aria-label="Add task"
             >
-              <Plus size={16} />
+              <Plus size={16} aria-hidden="true" />
             </button>
+            <label htmlFor={inputId} className="sr-only">
+              New task title
+            </label>
             <input
+              id={inputId}
               ref={inputRef}
               type="text"
               value={newTaskTitle}

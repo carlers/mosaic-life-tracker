@@ -46,16 +46,24 @@ export const TaskItem: React.FC<TaskItemProps> = ({
     >
       <div className="flex items-start gap-3">
         <button
+          type="button"
           onClick={() => onToggle(task.id)}
           onPointerDown={(e) => e.stopPropagation()}
-          className="flex-shrink-0 w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all mt-1"
+          aria-label={task.completed ? 'Mark incomplete' : 'Mark complete'}
+          aria-pressed={task.completed}
+          className="flex-shrink-0 w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all mt-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
           style={{
             backgroundColor: task.completed ? categoryColor : 'transparent',
             borderColor: task.completed ? categoryColor : '#333333',
           }}
         >
           {task.completed && (
-            <Check size={12} className="text-white" strokeWidth={3} />
+            <Check
+              size={12}
+              className="text-white"
+              strokeWidth={3}
+              aria-hidden="true"
+            />
           )}
         </button>
         <div className="flex-1 min-w-0">
@@ -70,59 +78,76 @@ export const TaskItem: React.FC<TaskItemProps> = ({
                 if (e.key === 'Escape') onEditCancel();
               }}
               autoFocus
-              className="w-full bg-transparent text-base text-white focus:outline-none border-b border-blue-500 pb-1"
+              aria-label="Edit task title"
+              className="w-full bg-transparent text-base text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 border-b border-blue-500 pb-1"
               onPointerDown={(e) => e.stopPropagation()}
             />
           ) : (
-            <div
-              onClick={() => onOpenActions(task)}
-              onPointerDown={(e) => e.stopPropagation()}
-            >
-              <p
-                className={`text-base ${
-                  task.completed
-                    ? 'text-gray-500 line-through'
-                    : 'text-gray-200'
+            <>
+              <button
+                type="button"
+                onClick={() => onOpenActions(task)}
+                onPointerDown={(e) => e.stopPropagation()}
+                aria-label={`${task.title}${
+                  task.completed ? ', completed' : ''
                 }`}
+                className="w-full text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 rounded"
               >
-                {task.title}
-              </p>
-              {task.memo && (
                 <p
-                  className="text-sm text-gray-400 mt-1 cursor-pointer hover:text-gray-300 transition-colors whitespace-pre-wrap"
+                  className={`text-base ${
+                    task.completed
+                      ? 'text-gray-500 line-through'
+                      : 'text-gray-200'
+                  }`}
+                >
+                  {task.title}
+                </p>
+              </button>
+              {task.memo && (
+                <button
+                  type="button"
                   onClick={(e) => {
                     e.stopPropagation();
                     onOpenMemo(task);
                   }}
                   onPointerDown={(e) => e.stopPropagation()}
+                  aria-label="Open memo"
+                  className="block w-full text-left mt-1 rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
                 >
-                  {task.memo}
-                </p>
+                  <span className="text-sm text-gray-400 hover:text-gray-300 transition-colors whitespace-pre-wrap">
+                    {task.memo}
+                  </span>
+                </button>
               )}
               {task.image && (
                 <div className="mt-2 w-full">
-                  <div
-                    className="w-full h-48 md:h-64 lg:h-80 xl:h-96 rounded-lg overflow-hidden border border-[#333333] bg-[#2A2A2A] cursor-pointer relative group"
+                  <button
+                    type="button"
                     onClick={(e) => {
                       e.stopPropagation();
                       onViewImage?.(task);
                     }}
+                    aria-label="View task photo"
+                    className="w-full h-48 md:h-64 lg:h-80 xl:h-96 rounded-lg overflow-hidden border border-[#333333] bg-[#2A2A2A] cursor-pointer relative group focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
                   >
                     {isLoading ? (
                       <div className="w-full h-full bg-gray-500/30 animate-pulse" />
                     ) : imageUrl ? (
                       <img
                         src={imageUrl}
-                        alt="Task attachment"
+                        alt=""
                         className="w-full h-full object-cover"
                       />
                     ) : null}
-                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
+                    <div
+                      className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100"
+                      aria-hidden="true"
+                    >
                       <span className="text-white text-xs font-medium bg-black/50 px-3 py-1 rounded-full backdrop-blur-sm">
                         View Photo
                       </span>
                     </div>
-                  </div>
+                  </button>
                 </div>
               )}
               {reactions.length > 0 && (
@@ -137,11 +162,14 @@ export const TaskItem: React.FC<TaskItemProps> = ({
                   />
                 </div>
               )}
-            </div>
+            </>
           )}
         </div>
         {!isEditing && (
-          <div className="flex items-center gap-2 flex-shrink-0 pointer-events-none">
+          <div
+            className="flex items-center gap-2 flex-shrink-0 pointer-events-none"
+            aria-hidden="true"
+          >
             {task.memo && !task.image && (
               <FileText size={14} className="text-gray-600" />
             )}

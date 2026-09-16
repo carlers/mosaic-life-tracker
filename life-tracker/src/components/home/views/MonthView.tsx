@@ -44,7 +44,10 @@ export const MonthView: React.FC<MonthViewProps> = ({
 
   return (
     <div className="flex flex-col h-full">
-      <div className="grid grid-cols-7 gap-1 px-2 mb-1">
+      <div
+        className="grid grid-cols-7 gap-1 px-2 mb-1"
+        aria-hidden="true"
+      >
         {weekDays.map((day) => (
           <div
             key={day}
