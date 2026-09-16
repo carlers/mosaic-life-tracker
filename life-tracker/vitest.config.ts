@@ -29,6 +29,16 @@ export default defineConfig({
           env: { NODE_ENV: 'test' },
         },
       },
+      {
+        test: {
+          name: 'components',
+          environment: 'happy-dom',
+          globals: true,
+          include: ['tests/components/**/*.test.tsx'],
+          setupFiles: ['./tests/setup/react.ts'],
+          env: { NODE_ENV: 'test' },
+        },
+      },
     ],
   },
 });
