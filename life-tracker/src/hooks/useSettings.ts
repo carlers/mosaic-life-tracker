@@ -84,9 +84,14 @@ export function useSettings() {
       const id = makeSettingsRowId(uid, key);
       const stringValue =
         typeof value === 'string' ? value : JSON.stringify(value);
+      const now = new Date().toISOString();
       const doc = await db.settings.findOne(id).exec();
       if (doc) {
-        await doc.patch({ value: stringValue, isDeleted: false });
+        await doc.patch({
+          value: stringValue,
+          isDeleted: false,
+          updatedAt: now,
+        });
       } else {
         const newSetting: SettingsDocument = {
           id,
@@ -94,6 +99,7 @@ export function useSettings() {
           key,
           value: stringValue,
           isDeleted: false,
+          updatedAt: now,
         };
         await db.settings.insert(newSetting);
       }

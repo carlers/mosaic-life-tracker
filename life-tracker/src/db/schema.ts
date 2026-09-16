@@ -1,5 +1,4 @@
 import type { RxJsonSchema } from 'rxdb';
-
 export interface TaskDocument {
   id: string;
   title: string;
@@ -20,7 +19,6 @@ export interface TaskDocument {
   reactions?: string;
   visibility: 'public' | 'followers' | 'private' | '';
 }
-
 export interface CategoryDocument {
   id: string;
   name: string;
@@ -30,8 +28,8 @@ export interface CategoryDocument {
   userId: string;
   isDeleted: boolean;
   icon?: string;
+  updatedAt: string;
 }
-
 export interface DiaryDocument {
   id: string;
   date: string;
@@ -42,15 +40,14 @@ export interface DiaryDocument {
   updatedAt: string;
   isDeleted: boolean;
 }
-
 export interface SettingsDocument {
   id: string;
   userId: string;
   key: string;
   value: string;
   isDeleted: boolean;
+  updatedAt: string;
 }
-
 export interface FriendshipDocument {
   id: string;
   userId: string;
@@ -64,7 +61,6 @@ export interface FriendshipDocument {
   updatedAt: string;
   isDeleted: boolean;
 }
-
 export interface MessageDocument {
   id: string;
   userId: string;
@@ -89,7 +85,6 @@ export interface MessageDocument {
   updatedAt: string;
   isDeleted: boolean;
 }
-
 export const tasksSchema: RxJsonSchema<TaskDocument> = {
   version: 1,
   primaryKey: 'id',
@@ -127,28 +122,40 @@ export const tasksSchema: RxJsonSchema<TaskDocument> = {
     ['completed', 'userId', 'isDeleted'],
   ],
 };
-
 export const categoriesSchema: RxJsonSchema<CategoryDocument> = {
-  version: 0,
+  version: 1,
   primaryKey: 'id',
   type: 'object',
-  required: ['id', 'name', 'color', 'order', 'visibility', 'userId', 'isDeleted'],
+  required: [
+    'id',
+    'name',
+    'color',
+    'order',
+    'visibility',
+    'userId',
+    'isDeleted',
+    'updatedAt',
+  ],
   properties: {
     id: { type: 'string', maxLength: 255 },
     name: { type: 'string', maxLength: 100 },
     color: { type: 'string', maxLength: 20 },
     order: { type: 'integer', multipleOf: 1, minimum: 0, maximum: 999999 },
-    visibility: { type: 'string', maxLength: 50, enum: ['public', 'followers', 'private'] },
+    visibility: {
+      type: 'string',
+      maxLength: 50,
+      enum: ['public', 'followers', 'private'],
+    },
     userId: { type: 'string', maxLength: 255 },
     isDeleted: { type: 'boolean' },
     icon: { type: 'string', maxLength: 10 },
+    updatedAt: { type: 'string', maxLength: 50 },
   },
   indexes: [
     ['userId', 'isDeleted', 'order'],
     ['visibility', 'userId', 'isDeleted'],
   ],
 };
-
 export const diarySchema: RxJsonSchema<DiaryDocument> = {
   version: 0,
   primaryKey: 'id',
@@ -169,22 +176,21 @@ export const diarySchema: RxJsonSchema<DiaryDocument> = {
     ['visibility', 'userId', 'isDeleted'],
   ],
 };
-
 export const settingsSchema: RxJsonSchema<SettingsDocument> = {
-  version: 0,
+  version: 1,
   primaryKey: 'id',
   type: 'object',
-  required: ['id', 'userId', 'key', 'value', 'isDeleted'],
+  required: ['id', 'userId', 'key', 'value', 'isDeleted', 'updatedAt'],
   properties: {
     id: { type: 'string', maxLength: 255 },
     userId: { type: 'string', maxLength: 255 },
     key: { type: 'string', maxLength: 100 },
     value: { type: 'string', maxLength: 10000 },
     isDeleted: { type: 'boolean' },
+    updatedAt: { type: 'string', maxLength: 50 },
   },
   indexes: [['userId', 'key', 'isDeleted']],
 };
-
 export const friendshipsSchema: RxJsonSchema<FriendshipDocument> = {
   version: 1,
   primaryKey: 'id',
@@ -223,7 +229,6 @@ export const friendshipsSchema: RxJsonSchema<FriendshipDocument> = {
     ['friendId', 'userId'],
   ],
 };
-
 export const messagesSchema: RxJsonSchema<MessageDocument> = {
   version: 3,
   primaryKey: 'id',

@@ -2,21 +2,17 @@ import { useState, useEffect, useCallback } from 'react';
 import { getDatabase } from '../db/database';
 import { useAuth } from './useAuth';
 import type { CategoryDocument } from '../db/schema';
-
 let reorderInProgress = false;
-
 export function useCategories() {
   const { user } = useAuth();
   const userId = user?.$id;
   const [categories, setCategories] = useState<CategoryDocument[]>([]);
   const [loadedUserId, setLoadedUserId] = useState<string | null>(null);
-
   useEffect(() => {
     if (!userId) return;
     const uid = userId;
     let subscription: { unsubscribe: () => void } | undefined;
     let isMounted = true;
-
     async function init() {
       try {
         const db = getDatabase();
@@ -42,16 +38,19 @@ export function useCategories() {
         if (isMounted) setLoadedUserId(uid);
       }
     }
-
     init();
     return () => {
       isMounted = false;
       if (subscription) subscription.unsubscribe();
     };
   }, [userId]);
-
   const addCategory = useCallback(
-    async (cat: Omit<CategoryDocument, 'id' | 'userId' | 'isDeleted'>) => {
+    async (
+      cat: Omit<
+        CategoryDocument,
+        'id' | 'userId' | 'isDeleted' | 'updatedAt'
+      >
+    ) => {
       const uid = user?.$id;
       if (!uid) {
         console.error(
@@ -65,6 +64,7 @@ export function useCategories() {
         id: `cat_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
         userId: uid,
         isDeleted: false,
+        updatedAt: new Date().toISOString(),
       };
       try {
         await db.categories.insert(newCat);
@@ -74,53 +74,55 @@ export function useCategories() {
     },
     [user?.$id]
   );
-
   const updateCategory = useCallback(
     async (id: string, updates: Partial<CategoryDocument>) => {
       const db = getDatabase();
       try {
         const doc = await db.categories.findOne(id).exec();
         if (!doc) return;
-        // Skip if nothing would actually change.
         let changed = false;
         for (const key of Object.keys(updates) as (keyof CategoryDocument)[]) {
+          // `updatedAt` is hook-managed; a caller passing it is not a
+          // meaningful change signal.
+          if (key === 'updatedAt') continue;
           if (doc[key] !== updates[key]) {
             changed = true;
             break;
           }
         }
         if (!changed) return;
-        await doc.incrementalPatch(updates);
+        await doc.incrementalPatch({
+          ...updates,
+          updatedAt: new Date().toISOString(),
+        });
       } catch (err) {
         console.error('[useCategories] updateCategory failed:', err);
       }
     },
     []
   );
-
   const deleteCategory = useCallback(
     async (id: string) => {
       await updateCategory(id, { isDeleted: true });
     },
     [updateCategory]
   );
-
   const reorderCategories = useCallback(
     async (newOrder: CategoryDocument[]) => {
       if (reorderInProgress) return;
       reorderInProgress = true;
       try {
         const db = getDatabase();
-        // Serialize patches to avoid racing sync writes on the same
-        // collection. Skip no-op writes. incrementalPatch retries on
-        // CONFLICT internally.
         for (let i = 0; i < newOrder.length; i++) {
           const id = newOrder[i].id;
           try {
             const doc = await db.categories.findOne(id).exec();
             if (!doc) continue;
             if (doc.order === i) continue;
-            await doc.incrementalPatch({ order: i });
+            await doc.incrementalPatch({
+              order: i,
+              updatedAt: new Date().toISOString(),
+            });
           } catch (err) {
             console.error(
               `[useCategories] reorder failed for ${id}:`,
@@ -134,11 +136,9 @@ export function useCategories() {
     },
     []
   );
-
   const visibleCategories =
     userId && loadedUserId === userId ? categories : [];
   const isLoading = !!userId && loadedUserId !== userId;
-
   return {
     categories: visibleCategories,
     isLoading,

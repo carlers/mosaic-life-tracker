@@ -165,7 +165,9 @@ declare global {
 function isTimestampedCollection(collection: string): boolean {
   return (
     collection === 'tasks' ||
+    collection === 'categories' ||
     collection === 'diary' ||
+    collection === 'settings' ||
     collection === 'friendships' ||
     collection === 'messages'
   );

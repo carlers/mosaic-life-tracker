@@ -7,11 +7,8 @@ import {
   setCachedCalendar,
   type FriendCalendarBundle,
 } from './friendCache';
-
 const DEBUG = import.meta.env.DEV;
-
 type AppwriteRow = Record<string, unknown>;
-
 function mapTaskRow(row: AppwriteRow): TaskDocument {
   return {
     id: (row.$id as string) || '',
@@ -35,7 +32,6 @@ function mapTaskRow(row: AppwriteRow): TaskDocument {
       (row.visibility as 'public' | 'followers' | 'private') || 'private',
   };
 }
-
 function mapCategoryRow(row: AppwriteRow): CategoryDocument {
   return {
     id: (row.$id as string) || '',
@@ -47,11 +43,14 @@ function mapCategoryRow(row: AppwriteRow): CategoryDocument {
     userId: (row.user_id as string) || '',
     isDeleted: (row.deleted as boolean) ?? false,
     icon: (row.icon as string) || '',
+    // `updated_at` was added to the friend's categories table by the D6
+    // migration. If the friend has not yet run the migration script, the
+    // column is absent from the response and we fall back to '' — same
+    // convention as `fromAppwriteFormat`.
+    updatedAt: (row.updated_at as string) || '',
   };
 }
-
 export type FriendAccessErrorKind = 'forbidden' | 'offline' | 'server';
-
 export class FriendAccessError extends Error {
   kind: FriendAccessErrorKind;
   constructor(message: string, kind: FriendAccessErrorKind) {
@@ -60,11 +59,9 @@ export class FriendAccessError extends Error {
     this.kind = kind;
   }
 }
-
 export interface FetchFriendOptions {
   forceRefresh?: boolean;
 }
-
 export async function fetchFriendCalendar(
   friendUserId: string,
   options: FetchFriendOptions = {}

@@ -26,17 +26,16 @@ import {
   tasksMigrationStrategies,
   friendshipsMigrationStrategies,
   messagesMigrationStrategies,
+  categoriesMigrationStrategies,
+  settingsMigrationStrategies,
 } from './migrations';
-
 if (import.meta.env.DEV) {
   addRxPlugin(RxDBDevModePlugin);
   console.log('[RxDB] Dev Mode Plugin enabled (v17)');
 }
 addRxPlugin(RxDBMigrationSchemaPlugin);
-
 const DB_NAME = 'life_tracker_db';
 const DEBUG = import.meta.env.DEV;
-
 export interface AppDatabaseCollections {
   tasks: RxCollection<TaskDocument>;
   categories: RxCollection<CategoryDocument>;
@@ -45,9 +44,7 @@ export interface AppDatabaseCollections {
   friendships: RxCollection<FriendshipDocument>;
   messages: RxCollection<MessageDocument>;
 }
-
 let dbInstance: RxDatabase<AppDatabaseCollections> | null = null;
-
 export async function initializeDatabase(): Promise<RxDatabase<AppDatabaseCollections>> {
   if (dbInstance) {
     if (DEBUG) console.log('[RxDB] Using existing database instance');
@@ -65,15 +62,20 @@ export async function initializeDatabase(): Promise<RxDatabase<AppDatabaseCollec
       ignoreDuplicate: true,
     });
     if (DEBUG) console.log('[RxDB] Database created successfully');
-
     await database.addCollections({
       tasks: {
         schema: tasksSchema,
         migrationStrategies: tasksMigrationStrategies,
       },
-      categories: { schema: categoriesSchema },
+      categories: {
+        schema: categoriesSchema,
+        migrationStrategies: categoriesMigrationStrategies,
+      },
       diary: { schema: diarySchema },
-      settings: { schema: settingsSchema },
+      settings: {
+        schema: settingsSchema,
+        migrationStrategies: settingsMigrationStrategies,
+      },
       friendships: {
         schema: friendshipsSchema,
         migrationStrategies: friendshipsMigrationStrategies,
@@ -83,7 +85,6 @@ export async function initializeDatabase(): Promise<RxDatabase<AppDatabaseCollec
         migrationStrategies: messagesMigrationStrategies,
       },
     });
-
     if (DEBUG) {
       console.log('[RxDB] Collections added successfully');
       const stats = await getDatabaseStats(database);
@@ -96,14 +97,12 @@ export async function initializeDatabase(): Promise<RxDatabase<AppDatabaseCollec
     throw error;
   }
 }
-
 export function getDatabase(): RxDatabase<AppDatabaseCollections> {
   if (!dbInstance) {
     throw new Error('Database not initialized! Call initializeDatabase() first.');
   }
   return dbInstance;
 }
-
 export async function destroyDatabase(): Promise<void> {
   if (!dbInstance) return;
   try {
@@ -115,7 +114,6 @@ export async function destroyDatabase(): Promise<void> {
     throw error;
   }
 }
-
 export async function getDatabaseStats(db?: RxDatabase<AppDatabaseCollections>) {
   const database = db || getDatabase();
   const [tasks, categories, diary, settings, friendships, messages] = await Promise.all([

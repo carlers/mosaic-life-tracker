@@ -172,6 +172,7 @@ describe('toAppwriteFormat — categories, diary, settings, friendships', () => 
       userId: USER_ID,
       isDeleted: false,
       icon: '',
+      updatedAt: '2026-05-01T00:00:00.000Z',
     };
     const out = toAppwriteFormat(doc, 'categories', USER_ID);
     expect(out.name).toBe('Work');
@@ -181,6 +182,26 @@ describe('toAppwriteFormat — categories, diary, settings, friendships', () => 
     expect(out.user_id).toBe(USER_ID);
     expect(out.deleted).toBe(false);
     expect(out.icon).toBe('');
+    expect(out.updated_at).toBe('2026-05-01T00:00:00.000Z');
+  });
+  it('categories: maps updatedAt → updated_at, defaulting to now when absent', () => {
+    const withTs = {
+      id: 'cat_1',
+      name: 'Work',
+      color: '#3B82F6',
+      order: 0,
+      visibility: 'private',
+      userId: USER_ID,
+      isDeleted: false,
+      icon: '',
+      updatedAt: '2026-05-01T00:00:00.000Z',
+    };
+    const out = toAppwriteFormat(withTs, 'categories', USER_ID);
+    expect(out.updated_at).toBe('2026-05-01T00:00:00.000Z');
+    const withoutTs = { ...withTs, updatedAt: undefined };
+    const out2 = toAppwriteFormat(withoutTs, 'categories', USER_ID);
+    expect(typeof out2.updated_at).toBe('string');
+    expect((out2.updated_at as string).length).toBeGreaterThan(0);
   });
   it('diary: maps documented fields', () => {
     const doc = {
@@ -202,19 +223,21 @@ describe('toAppwriteFormat — categories, diary, settings, friendships', () => 
     expect(out.user_id).toBe(USER_ID);
     expect(out.deleted).toBe(false);
   });
-  it('settings: maps documented fields', () => {
+  it('settings: maps documented fields including updatedAt → updated_at', () => {
     const doc = {
       id: 's_1',
       userId: USER_ID,
       key: 'displayName',
       value: 'Alice',
       isDeleted: false,
+      updatedAt: '2026-05-01T00:00:00.000Z',
     };
     const out = toAppwriteFormat(doc, 'settings', USER_ID);
     expect(out.key).toBe('displayName');
     expect(out.value).toBe('Alice');
     expect(out.user_id).toBe(USER_ID);
     expect(out.deleted).toBe(false);
+    expect(out.updated_at).toBe('2026-05-01T00:00:00.000Z');
   });
   it('friendships: maps documented fields', () => {
     const doc = {
@@ -288,10 +311,40 @@ describe('fromAppwriteFormat', () => {
       user_id: USER_ID,
       deleted: true,
       icon: '',
+      updated_at: '2026-05-01T00:00:00.000Z',
     };
     const out = fromAppwriteFormat(row, 'categories');
     expect(out.isDeleted).toBe(true);
     expect(out.deleted).toBeUndefined();
+  });
+  it('categories: maps updated_at → updatedAt and strips the snake_case field', () => {
+    const row = {
+      $id: 'cat_1',
+      name: 'Work',
+      color: '#3B82F6',
+      order: 0,
+      visibility: 'private',
+      user_id: USER_ID,
+      deleted: false,
+      icon: '',
+      updated_at: '2026-05-01T00:00:00.000Z',
+    };
+    const out = fromAppwriteFormat(row, 'categories');
+    expect(out.updatedAt).toBe('2026-05-01T00:00:00.000Z');
+    expect(out.updated_at).toBeUndefined();
+  });
+  it('settings: maps updated_at → updatedAt and strips the snake_case field', () => {
+    const row = {
+      $id: 's_1',
+      user_id: USER_ID,
+      key: 'displayName',
+      value: 'Alice',
+      deleted: false,
+      updated_at: '2026-05-01T00:00:00.000Z',
+    };
+    const out = fromAppwriteFormat(row, 'settings');
+    expect(out.updatedAt).toBe('2026-05-01T00:00:00.000Z');
+    expect(out.updated_at).toBeUndefined();
   });
   it('messages: maps all snake_case fields back to camelCase', () => {
     const row = {
@@ -443,8 +496,20 @@ describe('round-trip', () => {
       userId: USER_ID,
       isDeleted: false,
       icon: '',
+      updatedAt: '2026-05-01T00:00:00.000Z',
     };
     expect(roundTrip(doc, 'categories', USER_ID)).toEqual(doc);
+  });
+  it('settings: round-trips a canonical doc', () => {
+    const doc = {
+      id: 's_1',
+      userId: USER_ID,
+      key: 'displayName',
+      value: 'Alice',
+      isDeleted: false,
+      updatedAt: '2026-05-01T00:00:00.000Z',
+    };
+    expect(roundTrip(doc, 'settings', USER_ID)).toEqual(doc);
   });
   it('diary: round-trips a canonical doc', () => {
     const doc = {
@@ -526,6 +591,7 @@ describe('fromAppwriteFormat — schema drift detection (D5)', () => {
     user_id: USER_ID,
     deleted: false,
     icon: '',
+    updated_at: '2026-05-01T00:00:00.000Z',
   };
   it('warns once when a row carries an unknown non-$ field', () => {
     __resetDriftWarningsForTests();

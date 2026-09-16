@@ -28,6 +28,7 @@ const KNOWN_FIELDS: Record<string, Set<string>> = {
     'user_id',
     'deleted',
     'icon',
+    'updated_at',
   ]),
   diary: new Set([
     'date',
@@ -38,7 +39,7 @@ const KNOWN_FIELDS: Record<string, Set<string>> = {
     'created_at',
     'updated_at',
   ]),
-  settings: new Set(['user_id', 'key', 'value', 'deleted']),
+  settings: new Set(['user_id', 'key', 'value', 'deleted', 'updated_at']),
   friendships: new Set([
     'user_id',
     'friend_id',
@@ -132,6 +133,7 @@ export function toAppwriteFormat(
     mapped.user_id = userId;
     mapped.deleted = source.isDeleted ?? false;
     mapped.icon = source.icon || '';
+    mapped.updated_at = source.updatedAt || new Date().toISOString();
   } else if (collection === 'diary') {
     mapped.date = source.date || '';
     mapped.content = source.content || '';
@@ -145,6 +147,7 @@ export function toAppwriteFormat(
     mapped.key = source.key || '';
     mapped.value = source.value || '';
     mapped.deleted = source.isDeleted ?? false;
+    mapped.updated_at = source.updatedAt || new Date().toISOString();
   } else if (collection === 'friendships') {
     mapped.user_id = userId;
     mapped.friend_id = source.friendId || '';
@@ -227,8 +230,10 @@ export function fromAppwriteFormat(
     mapped.userId = mapped.user_id;
     mapped.isDeleted = mapped.deleted ?? false;
     mapped.icon = row.icon || '';
+    mapped.updatedAt = mapped.updated_at || new Date().toISOString();
     delete mapped.user_id;
     delete mapped.deleted;
+    delete mapped.updated_at;
   } else if (collection === 'diary') {
     mapped.id = row.$id || mapped.id;
     mapped.userId = mapped.user_id;
@@ -244,8 +249,10 @@ export function fromAppwriteFormat(
     mapped.id = row.$id || mapped.id;
     mapped.userId = mapped.user_id;
     mapped.isDeleted = mapped.deleted ?? false;
+    mapped.updatedAt = mapped.updated_at || new Date().toISOString();
     delete mapped.user_id;
     delete mapped.deleted;
+    delete mapped.updated_at;
   } else if (collection === 'friendships') {
     mapped.id = row.$id || mapped.id;
     mapped.userId = mapped.user_id;
