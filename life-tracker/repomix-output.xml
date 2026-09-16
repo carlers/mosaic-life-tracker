@@ -135,6 +135,7 @@ src/
     colors.ts
   db/
     database.ts
+    migrations.ts
     schema.ts
     sync.ts
   hooks/
@@ -190,6 +191,17 @@ src/
   index.css
   main.tsx
 tests/
+  components/
+    BottomSheet.test.tsx
+    CategorySection.test.tsx
+    ChatSearchBar.test.tsx
+    ConversationRow.test.tsx
+    MessageBubble.test.tsx
+    MessageComposer.test.tsx
+    ReactionRow.test.tsx
+    TaskActionSheet.test.tsx
+    TaskVisibilitySheet.test.tsx
+    UserResultCard.test.tsx
   handlers/
     deliver.test.ts
     getFriendCalendar.test.ts
@@ -204,6 +216,7 @@ tests/
     useConversations.test.tsx
     useMessages.test.tsx
     useTaskImage.test.tsx
+    useUnreadMessages.test.tsx
   setup/
     react.ts
   unit/
@@ -8926,6 +8939,11 @@ import {
   type FriendshipDocument,
   type MessageDocument,
 } from './schema';
+import {
+  tasksMigrationStrategies,
+  friendshipsMigrationStrategies,
+  messagesMigrationStrategies,
+} from './migrations';
 if (import.meta.env.DEV) {
   addRxPlugin(RxDBDevModePlugin);
   console.log('[RxDB] Dev Mode Plugin enabled (v17)');
@@ -8962,38 +8980,18 @@ export async function initializeDatabase(): Promise<RxDatabase<AppDatabaseCollec
     await database.addCollections({
       tasks: {
         schema: tasksSchema,
-        migrationStrategies: {
-          1: (oldDoc) => oldDoc,
-        },
+        migrationStrategies: tasksMigrationStrategies,
       },
       categories: { schema: categoriesSchema },
       diary: { schema: diarySchema },
       settings: { schema: settingsSchema },
       friendships: {
         schema: friendshipsSchema,
-        migrationStrategies: {
-          1: (oldDoc) => ({ ...oldDoc, friendBio: '' }),
-        },
+        migrationStrategies: friendshipsMigrationStrategies,
       },
       messages: {
         schema: messagesSchema,
-        migrationStrategies: {
-          1: (oldDoc) => ({
-            ...oldDoc,
-            replyToId: '',
-            replyToContent: '',
-            replyToSenderId: '',
-          }),
-          2: (oldDoc) => ({
-            ...oldDoc,
-            isUnsent: false,
-          }),
-          3: (oldDoc) => ({
-            ...oldDoc,
-            originalMessageId: '',
-            reactions: '',
-          }),
-        },
+        migrationStrategies: messagesMigrationStrategies,
       },
     });
     if (DEBUG) {
@@ -9037,6 +9035,35 @@ export async function getDatabaseStats(db?: RxDatabase<AppDatabaseCollections>) 
   ]);
   return { tasks, categories, diary, settings, friendships, messages };
 }
+</file>
+
+<file path="src/db/migrations.ts">
+export const tasksMigrationStrategies = {
+  1: (oldDoc: Record<string, unknown>) => oldDoc,
+};
+export const friendshipsMigrationStrategies = {
+  1: (oldDoc: Record<string, unknown>) => ({
+    ...oldDoc,
+    friendBio: '',
+  }),
+};
+export const messagesMigrationStrategies = {
+  1: (oldDoc: Record<string, unknown>) => ({
+    ...oldDoc,
+    replyToId: '',
+    replyToContent: '',
+    replyToSenderId: '',
+  }),
+  2: (oldDoc: Record<string, unknown>) => ({
+    ...oldDoc,
+    isUnsent: false,
+  }),
+  3: (oldDoc: Record<string, unknown>) => ({
+    ...oldDoc,
+    originalMessageId: '',
+    reactions: '',
+  }),
+};
 </file>
 
 <file path="src/db/schema.ts">
@@ -12023,6 +12050,18 @@ function acquireObjectUrl(fileId: string): {
   };
   return { promise: e.promise, release };
 }
+export function resetTaskImageCacheForTests(): void {
+  for (const entry of objectUrlCache.values()) {
+    if (entry.revokeTimer) {
+      clearTimeout(entry.revokeTimer);
+      entry.revokeTimer = null;
+    }
+    if (entry.url) {
+      URL.revokeObjectURL(entry.url);
+    }
+  }
+  objectUrlCache.clear();
+}
 export function useTaskImage(fileId: string | undefined) {
   const [trackedFileId, setTrackedFileId] = useState<string | undefined>(fileId);
   const [state, setState] = useState<ImageState>(() => {
@@ -12145,13 +12184,68 @@ export function useTasks() {
 </file>
 
 <file path="src/hooks/useUnreadMessages.ts">
-import { useConversations } from './useConversations';
+import { useState, useEffect, useMemo } from 'react';
+import { getDatabase } from '../db/database';
+import { useAuth } from './useAuth';
+import { useFriends } from './useFriends';
+import type { MessageDocument } from '../db/schema';
 export interface UseUnreadMessagesReturn {
   totalUnread: number;
   isLoading: boolean;
 }
 export function useUnreadMessages(): UseUnreadMessagesReturn {
-  const { totalUnread, isLoading } = useConversations();
+  const { user } = useAuth();
+  const userId = user?.$id;
+  const { friends, isLoading: friendsLoading } = useFriends();
+  const [unread, setUnread] = useState<MessageDocument[]>([]);
+  const [loadedUserId, setLoadedUserId] = useState<string | null>(null);
+  useEffect(() => {
+    if (!userId) return;
+    const uid = userId;
+    let isMounted = true;
+    let subscription: { unsubscribe: () => void } | undefined;
+    (async () => {
+      try {
+        const db = getDatabase();
+        const query = db.messages.find({
+          selector: {
+            userId: uid,
+            direction: 'incoming',
+            readAt: '',
+            isDeleted: false,
+          },
+          sort: [{ readAt: 'asc' }],
+        });
+        const sub = query.$.subscribe((docs) => {
+          if (!isMounted) return;
+          setUnread(docs as MessageDocument[]);
+          setLoadedUserId(uid);
+        });
+        if (!isMounted) {
+          sub.unsubscribe();
+        } else {
+          subscription = sub;
+        }
+      } catch (err) {
+        console.error('[useUnreadMessages] init failed:', err);
+        if (isMounted) setLoadedUserId(uid);
+      }
+    })();
+    return () => {
+      isMounted = false;
+      if (subscription) subscription.unsubscribe();
+    };
+  }, [userId]);
+  const totalUnread = useMemo(() => {
+    if (!userId || loadedUserId !== userId) return 0;
+    const friendIds = new Set(friends.map((f) => f.friendId));
+    let n = 0;
+    for (const m of unread) {
+      if (friendIds.has(m.senderId)) n++;
+    }
+    return n;
+  }, [userId, loadedUserId, unread, friends]);
+  const isLoading = !!userId && (loadedUserId !== userId || friendsLoading);
   return { totalUnread, isLoading };
 }
 </file>
@@ -16442,6 +16536,1188 @@ async function bootstrap() {
 bootstrap();
 </file>
 
+<file path="tests/components/BottomSheet.test.tsx">
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { render, fireEvent } from '@testing-library/react';
+import { BottomSheet } from '../../src/components/ui/BottomSheet';
+const noop = () => {};
+describe('BottomSheet', () => {
+  beforeEach(() => {
+    document.body.style.overflow = '';
+  });
+  it('portals children into document.body, not the render container', () => {
+    const { container } = render(
+      <BottomSheet isOpen onClose={noop}>
+        <div data-marker="sheet-child">inner</div>
+      </BottomSheet>
+    );
+    expect(container.querySelector('[data-marker="sheet-child"]')).toBeNull();
+    expect(
+      document.body.querySelector('[data-marker="sheet-child"]')
+    ).not.toBeNull();
+  });
+  it('renders nothing when isOpen is false', () => {
+    render(
+      <BottomSheet isOpen={false} onClose={noop}>
+        <div data-marker="sheet-child">inner</div>
+      </BottomSheet>
+    );
+    expect(
+      document.body.querySelector('[data-marker="sheet-child"]')
+    ).toBeNull();
+    expect(document.body.style.overflow).not.toBe('hidden');
+  });
+  it('Escape calls onClose of the topmost sheet only', () => {
+    const onCloseA = vi.fn();
+    const onCloseB = vi.fn();
+    render(
+      <>
+        <BottomSheet isOpen onClose={onCloseA}>
+          <div data-marker="sheet-a">A</div>
+        </BottomSheet>
+        <BottomSheet isOpen onClose={onCloseB}>
+          <div data-marker="sheet-b">B</div>
+        </BottomSheet>
+      </>
+    );
+    fireEvent.keyDown(window, { key: 'Escape' });
+    expect(onCloseB).toHaveBeenCalledTimes(1);
+    expect(onCloseA).not.toHaveBeenCalled();
+  });
+  it('locks body scroll while open and restores on unmount', () => {
+    const { unmount } = render(
+      <BottomSheet isOpen onClose={noop}>
+        <div>inner</div>
+      </BottomSheet>
+    );
+    expect(document.body.style.overflow).toBe('hidden');
+    unmount();
+    expect(document.body.style.overflow).toBe('unset');
+  });
+  it('keeps the body locked until the last stacked sheet unmounts', () => {
+    const a = render(
+      <BottomSheet isOpen onClose={noop}>
+        <div data-marker="sheet-a">A</div>
+      </BottomSheet>
+    );
+    const b = render(
+      <BottomSheet isOpen onClose={noop}>
+        <div data-marker="sheet-b">B</div>
+      </BottomSheet>
+    );
+    expect(document.body.style.overflow).toBe('hidden');
+    a.unmount();
+    expect(document.body.style.overflow).toBe('hidden');
+    b.unmount();
+    expect(document.body.style.overflow).toBe('unset');
+  });
+});
+</file>
+
+<file path="tests/components/CategorySection.test.tsx">
+import { describe, it, expect, vi } from 'vitest';
+import { render, fireEvent, screen } from '@testing-library/react';
+import { CategorySection } from '../../src/components/home/views/CategorySection';
+import type { TaskDocument } from '../../src/db/schema';
+const mockGetLocalImageUrl = vi.hoisted(() =>
+  vi.fn().mockResolvedValue(null)
+);
+vi.mock('../../src/lib/storage', () => ({
+  getLocalImageUrl: mockGetLocalImageUrl,
+}));
+function makeTask(overrides: Partial<TaskDocument> = {}): TaskDocument {
+  return {
+    id: 'task_1',
+    title: 'Buy milk',
+    completed: false,
+    categoryId: 'cat_1',
+    date: '2026-01-01',
+    createdAt: '2026-01-01T00:00:00.000Z',
+    updatedAt: '2026-01-01T00:00:00.000Z',
+    userId: 'user_A',
+    isDeleted: false,
+    visibility: '',
+    ...overrides,
+  };
+}
+function makeCallbacks() {
+  return {
+    onToggleTask: vi.fn(),
+    onAddTask: vi.fn(),
+    onOpenActions: vi.fn(),
+    onOpenMemo: vi.fn(),
+    onEditChange: vi.fn(),
+    onEditSave: vi.fn(),
+    onEditCancel: vi.fn(),
+  };
+}
+interface RenderOpts {
+  tasks?: TaskDocument[];
+  categoryName?: string;
+}
+function renderSection(opts: RenderOpts = {}) {
+  const cbs = makeCallbacks();
+  const utils = render(
+    <CategorySection
+      categoryName={opts.categoryName ?? 'Work'}
+      categoryColor="#3B82F6"
+      visibility="private"
+      currentUserId="user_A"
+      tasks={opts.tasks ?? []}
+      editingTaskId={null}
+      editValue=""
+      {...cbs}
+    />
+  );
+  return { ...utils, cbs };
+}
+describe('CategorySection', () => {
+  it('renders the category name', () => {
+    renderSection({ categoryName: 'Errands' });
+    expect(screen.getByText('Errands')).toBeInTheDocument();
+  });
+  it('chip tap opens the inline input with the category-scoped placeholder', () => {
+    renderSection({ categoryName: 'Work' });
+    expect(
+      screen.queryByPlaceholderText('Add a task to Work...')
+    ).toBeNull();
+    const chip = screen.getByText('Work').parentElement;
+    expect(chip).not.toBeNull();
+    fireEvent.click(chip as Element);
+    expect(
+      screen.getByPlaceholderText('Add a task to Work...')
+    ).toBeInTheDocument();
+  });
+  it('Enter with non-whitespace content fires onAddTask(trimmed) and closes the input', () => {
+    const { cbs } = renderSection();
+    fireEvent.click(screen.getByText('Work').parentElement as Element);
+    const input = screen.getByPlaceholderText(
+      'Add a task to Work...'
+    ) as HTMLInputElement;
+    fireEvent.change(input, { target: { value: '  Buy milk  ' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+    expect(cbs.onAddTask).toHaveBeenCalledTimes(1);
+    expect(cbs.onAddTask).toHaveBeenCalledWith('Buy milk');
+    expect(
+      screen.queryByPlaceholderText('Add a task to Work...')
+    ).toBeNull();
+  });
+  it('Escape closes the input without firing onAddTask', () => {
+    const { cbs } = renderSection();
+    fireEvent.click(screen.getByText('Work').parentElement as Element);
+    const input = screen.getByPlaceholderText(
+      'Add a task to Work...'
+    ) as HTMLInputElement;
+    fireEvent.change(input, { target: { value: 'draft' } });
+    fireEvent.keyDown(input, { key: 'Escape' });
+    expect(cbs.onAddTask).not.toHaveBeenCalled();
+    expect(
+      screen.queryByPlaceholderText('Add a task to Work...')
+    ).toBeNull();
+  });
+  it('blur closes the input when empty; keeps it open when content remains', () => {
+    renderSection();
+    fireEvent.click(screen.getByText('Work').parentElement as Element);
+    const input = screen.getByPlaceholderText(
+      'Add a task to Work...'
+    ) as HTMLInputElement;
+    fireEvent.blur(input);
+    expect(
+      screen.queryByPlaceholderText('Add a task to Work...')
+    ).toBeNull();
+    fireEvent.click(screen.getByText('Work').parentElement as Element);
+    const input2 = screen.getByPlaceholderText(
+      'Add a task to Work...'
+    ) as HTMLInputElement;
+    fireEvent.change(input2, { target: { value: 'kept' } });
+    fireEvent.blur(input2);
+    expect(
+      screen.getByPlaceholderText('Add a task to Work...')
+    ).toBeInTheDocument();
+  });
+  it('renders TaskItem entries when tasks are supplied', () => {
+    renderSection({
+      tasks: [
+        makeTask({ id: 'task_1', title: 'Buy milk' }),
+        makeTask({ id: 'task_2', title: 'Call bank' }),
+      ],
+    });
+    expect(screen.getByText('Buy milk')).toBeInTheDocument();
+    expect(screen.getByText('Call bank')).toBeInTheDocument();
+  });
+});
+</file>
+
+<file path="tests/components/ChatSearchBar.test.tsx">
+import { describe, it, expect, vi } from 'vitest';
+import { render, fireEvent, screen } from '@testing-library/react';
+import { ChatSearchBar } from '../../src/components/messages/ChatSearchBar';
+describe('ChatSearchBar', () => {
+  it('renders the input with the search placeholder', () => {
+    render(
+      <ChatSearchBar
+        query=""
+        onChange={vi.fn()}
+        matchCount={0}
+        totalCount={0}
+        onClose={vi.fn()}
+      />
+    );
+    expect(
+      screen.getByPlaceholderText('Search messages…')
+    ).toBeInTheDocument();
+  });
+  it('typing fires onChange with the current value', () => {
+    const onChange = vi.fn();
+    render(
+      <ChatSearchBar
+        query=""
+        onChange={onChange}
+        matchCount={0}
+        totalCount={0}
+        onClose={vi.fn()}
+      />
+    );
+    const input = screen.getByPlaceholderText('Search messages…');
+    fireEvent.change(input, { target: { value: 'hello' } });
+    expect(onChange).toHaveBeenCalledWith('hello');
+  });
+  it('counter is hidden when query is empty and shown when non-empty', () => {
+    const { rerender } = render(
+      <ChatSearchBar
+        query=""
+        onChange={vi.fn()}
+        matchCount={0}
+        totalCount={5}
+        onClose={vi.fn()}
+      />
+    );
+    expect(screen.queryByText('0/5')).toBeNull();
+    rerender(
+      <ChatSearchBar
+        query="hel"
+        onChange={vi.fn()}
+        matchCount={2}
+        totalCount={5}
+        onClose={vi.fn()}
+      />
+    );
+    expect(screen.getByText('2/5')).toBeInTheDocument();
+  });
+  it('counter is hidden when query is whitespace-only', () => {
+    render(
+      <ChatSearchBar
+        query="   "
+        onChange={vi.fn()}
+        matchCount={0}
+        totalCount={5}
+        onClose={vi.fn()}
+      />
+    );
+    expect(screen.queryByText('0/5')).toBeNull();
+  });
+  it('close button fires onClose', () => {
+    const onClose = vi.fn();
+    render(
+      <ChatSearchBar
+        query=""
+        onChange={vi.fn()}
+        matchCount={0}
+        totalCount={0}
+        onClose={onClose}
+      />
+    );
+    fireEvent.click(screen.getByLabelText('Close search'));
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+});
+</file>
+
+<file path="tests/components/ConversationRow.test.tsx">
+import { describe, it, expect, vi } from 'vitest';
+import { render, screen } from '@testing-library/react';
+import { ConversationRow } from '../../src/components/messages/ConversationRow';
+import type { Conversation } from '../../src/hooks/useConversations';
+import type {
+  FriendshipDocument,
+  MessageDocument,
+} from '../../src/db/schema';
+vi.mock('react-router-dom', () => ({
+  useNavigate: () => vi.fn(),
+}));
+const mockGetLocalImageUrl = vi.hoisted(() =>
+  vi.fn().mockResolvedValue(null)
+);
+vi.mock('../../src/lib/storage', () => ({
+  getLocalImageUrl: mockGetLocalImageUrl,
+}));
+function makeFriend(): FriendshipDocument {
+  return {
+    id: 'fr_1',
+    userId: 'user_A',
+    friendId: 'user_B',
+    friendUsername: 'b',
+    friendDisplayName: 'Friend B',
+    friendAvatarFileId: '',
+    friendBio: '',
+    status: 'accepted',
+    createdAt: '2026-01-01T00:00:00.000Z',
+    updatedAt: '2026-01-01T00:00:00.000Z',
+    isDeleted: false,
+  };
+}
+function makeMessage(
+  overrides: Partial<MessageDocument> = {}
+): MessageDocument {
+  const id = overrides.id ?? 'msg_1';
+  return {
+    id,
+    userId: 'user_A',
+    threadId: 'th_test',
+    senderId: 'user_A',
+    recipientId: 'user_B',
+    direction: 'outgoing',
+    content: '',
+    taskRefId: '',
+    taskRefTitle: '',
+    taskRefDate: '',
+    taskRefColor: '',
+    replyToId: '',
+    replyToContent: '',
+    replyToSenderId: '',
+    isUnsent: false,
+    originalMessageId: id,
+    reactions: '',
+    readAt: '',
+    deliveryStatus: 'delivered',
+    createdAt: '2026-01-01T00:00:00.000Z',
+    updatedAt: '2026-01-01T00:00:00.000Z',
+    isDeleted: false,
+    ...overrides,
+  };
+}
+function makeConversation(
+  overrides: Partial<Conversation> = {}
+): Conversation {
+  return {
+    threadId: 'th_test',
+    friend: makeFriend(),
+    lastMessage: null,
+    unreadCount: 0,
+    ...overrides,
+  };
+}
+describe('ConversationRow', () => {
+  it('renders friend display name when set', () => {
+    render(<ConversationRow conversation={makeConversation()} />);
+    expect(screen.getByText('Friend B')).toBeInTheDocument();
+  });
+  it('falls back to friendUsername when display name is empty', () => {
+    render(
+      <ConversationRow
+        conversation={makeConversation({
+          friend: { ...makeFriend(), friendDisplayName: '' },
+        })}
+      />
+    );
+    // The `<p>{friendDisplayName || friendUsername}</p>` fallback renders
+    // the bare username — no `@` prefix. Case-sensitive match on 'b' does
+    expect(screen.getByText('b')).toBeInTheDocument();
+  });
+  it('preview: no last message shows "Tap to start chatting"', () => {
+    render(<ConversationRow conversation={makeConversation()} />);
+    expect(screen.getByText('Tap to start chatting')).toBeInTheDocument();
+  });
+  it('preview: message content wins over taskRefTitle', () => {
+    render(
+      <ConversationRow
+        conversation={makeConversation({
+          lastMessage: makeMessage({
+            content: 'hello there',
+            taskRefTitle: 'A task',
+          }),
+        })}
+      />
+    );
+    expect(screen.getByText('hello there')).toBeInTheDocument();
+    expect(screen.queryByText('Re: A task')).toBeNull();
+  });
+  it('preview: taskRefTitle with no content shows "Re: <title>"', () => {
+    render(
+      <ConversationRow
+        conversation={makeConversation({
+          lastMessage: makeMessage({
+            content: '',
+            taskRefTitle: 'Buy groceries',
+          }),
+        })}
+      />
+    );
+    expect(screen.getByText('Re: Buy groceries')).toBeInTheDocument();
+  });
+  it('preview: neither content nor taskRefTitle shows "(empty)"', () => {
+    render(
+      <ConversationRow
+        conversation={makeConversation({
+          lastMessage: makeMessage({ content: '', taskRefTitle: '' }),
+        })}
+      />
+    );
+    expect(screen.getByText('(empty)')).toBeInTheDocument();
+  });
+  it('unread badge shows count when unreadCount > 0', () => {
+    render(
+      <ConversationRow
+        conversation={makeConversation({ unreadCount: 3 })}
+      />
+    );
+    expect(screen.getByText('3')).toBeInTheDocument();
+  });
+  it('"You: " prefix renders when lastMessage is outgoing', () => {
+    render(
+      <ConversationRow
+        conversation={makeConversation({
+          lastMessage: makeMessage({
+            direction: 'outgoing',
+            content: 'my reply',
+          }),
+        })}
+      />
+    );
+    expect(screen.getByText('You:')).toBeInTheDocument();
+    expect(screen.getByText('my reply')).toBeInTheDocument();
+  });
+});
+</file>
+
+<file path="tests/components/MessageBubble.test.tsx">
+import { describe, it, expect, vi, afterEach } from 'vitest';
+import { render, fireEvent, act } from '@testing-library/react';
+import { MessageBubble } from '../../src/components/messages/MessageBubble';
+import type { MessageDocument } from '../../src/db/schema';
+function makeMessage(
+  overrides: Partial<MessageDocument> = {}
+): MessageDocument {
+  const id = overrides.id ?? 'msg_test';
+  return {
+    id,
+    userId: 'user_A',
+    threadId: 'th_test',
+    senderId: 'user_A',
+    recipientId: 'user_B',
+    direction: 'outgoing',
+    content: 'hello',
+    taskRefId: '',
+    taskRefTitle: '',
+    taskRefDate: '',
+    taskRefColor: '',
+    replyToId: '',
+    replyToContent: '',
+    replyToSenderId: '',
+    isUnsent: false,
+    originalMessageId: id,
+    reactions: '',
+    readAt: '',
+    deliveryStatus: 'delivered',
+    createdAt: '2026-01-01T00:00:00.000Z',
+    updatedAt: '2026-01-01T00:00:00.000Z',
+    isDeleted: false,
+    ...overrides,
+  };
+}
+function getGestureSurface(container: HTMLElement): HTMLElement {
+  const wrapper = container.querySelector('[data-message-id]');
+  if (!wrapper) throw new Error('bubble wrapper not found');
+  const bubble = wrapper.querySelector('.select-none');
+  if (!bubble) throw new Error('gesture surface not found');
+  return bubble as HTMLElement;
+}
+function tap(element: Element): void {
+  const init = {
+    pointerId: 1,
+    pointerType: 'touch',
+    button: 0,
+    clientX: 100,
+    clientY: 100,
+  };
+  fireEvent.pointerDown(element, init);
+  fireEvent.pointerUp(element, init);
+}
+describe('MessageBubble', () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+  it('unsent message renders the deleted state and exposes no gesture surface', () => {
+    const { container } = render(
+      <MessageBubble
+        message={makeMessage({ id: 'msg_x', isUnsent: true })}
+        isOutgoing
+        currentUserId="user_A"
+      />
+    );
+    expect(container.textContent).toContain('Message deleted');
+    expect(container.querySelector('.select-none')).toBeNull();
+  });
+  it('read status renders "Seen"', () => {
+    const { container } = render(
+      <MessageBubble
+        message={makeMessage({ readAt: '2026-01-01T01:00:00.000Z' })}
+        isOutgoing
+        currentUserId="user_A"
+        statusKind="read"
+      />
+    );
+    expect(container.textContent).toMatch(/Seen/);
+  });
+  it('delivered status renders "Delivered"', () => {
+    const { container } = render(
+      <MessageBubble
+        message={makeMessage()}
+        isOutgoing
+        currentUserId="user_A"
+        statusKind="delivered"
+      />
+    );
+    expect(container.textContent).toContain('Delivered');
+  });
+  it('pending status renders "Sending"', () => {
+    const { container } = render(
+      <MessageBubble
+        message={makeMessage({ deliveryStatus: 'pending' })}
+        isOutgoing
+        currentUserId="user_A"
+        statusKind="pending"
+      />
+    );
+    expect(container.textContent).toContain('Sending');
+  });
+  it('single-tap reveals the timestamp', () => {
+    vi.useFakeTimers();
+    const { container } = render(
+      <MessageBubble
+        message={makeMessage()}
+        isOutgoing
+        currentUserId="user_A"
+      />
+    );
+    const timeRegex = /\d{1,2}:\d{2}\s?(AM|PM)/i;
+    expect(container.textContent ?? '').not.toMatch(timeRegex);
+    const surface = getGestureSurface(container);
+    tap(surface);
+    // Advance past the 300ms double-tap window so the single-tap timer fires.
+    act(() => {
+      vi.advanceTimersByTime(400);
+    });
+    expect(container.textContent ?? '').toMatch(timeRegex);
+  });
+  it('double-tap fires onReact with the fixed heart emoji', () => {
+    vi.useFakeTimers();
+    const onReact = vi.fn();
+    const message = makeMessage();
+    const { container } = render(
+      <MessageBubble
+        message={message}
+        isOutgoing
+        currentUserId="user_A"
+        onReact={onReact}
+      />
+    );
+    const surface = getGestureSurface(container);
+    tap(surface);
+    act(() => {
+      vi.advanceTimersByTime(100);
+    });
+    tap(surface);
+    expect(onReact).toHaveBeenCalledTimes(1);
+    expect(onReact).toHaveBeenCalledWith(message.id, '❤️');
+  });
+  it('reply preview renders sender + quote and quote tap fires onQuoteTap', () => {
+    const onQuoteTap = vi.fn();
+    const resolveSenderName = (id: string): string =>
+      id === 'user_B' ? 'Friend B' : 'Unknown';
+    const { container } = render(
+      <MessageBubble
+        message={makeMessage({
+          id: 'msg_reply',
+          direction: 'incoming',
+          senderId: 'user_B',
+          recipientId: 'user_A',
+          replyToId: 'msg_prev',
+          replyToContent: 'quoted text',
+          replyToSenderId: 'user_B',
+        })}
+        isOutgoing={false}
+        currentUserId="user_A"
+        resolveSenderName={resolveSenderName}
+        onQuoteTap={onQuoteTap}
+      />
+    );
+    expect(container.textContent).toContain('Friend B');
+    expect(container.textContent).toContain('quoted text');
+    const replyPreview = container.querySelector('.border-l-2');
+    expect(replyPreview).not.toBeNull();
+    fireEvent.click(replyPreview as Element);
+    expect(onQuoteTap).toHaveBeenCalledWith('msg_prev');
+  });
+});
+</file>
+
+<file path="tests/components/MessageComposer.test.tsx">
+import { describe, it, expect, vi, afterEach } from 'vitest';
+import { render, fireEvent, screen, waitFor } from '@testing-library/react';
+import { MessageComposer } from '../../src/components/messages/MessageComposer';
+describe('MessageComposer', () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+  it('send button is disabled when input is empty', () => {
+    const onSend = vi.fn();
+    render(<MessageComposer onSend={onSend} />);
+    const button = screen.getByLabelText('Send');
+    expect(button).toBeDisabled();
+    fireEvent.click(button);
+    expect(onSend).not.toHaveBeenCalled();
+  });
+  it('Enter with text fires onSend(trimmed) and clears the input', async () => {
+    const onSend = vi.fn();
+    render(<MessageComposer onSend={onSend} />);
+    const textarea = screen.getByPlaceholderText(
+      'Message…'
+    ) as HTMLTextAreaElement;
+    fireEvent.change(textarea, { target: { value: '  hi  ' } });
+    fireEvent.keyDown(textarea, { key: 'Enter', shiftKey: false });
+    expect(onSend).toHaveBeenCalledTimes(1);
+    expect(onSend).toHaveBeenCalledWith('hi');
+    await waitFor(() => expect(textarea.value).toBe(''));
+  });
+  it('Shift+Enter does not fire onSend', () => {
+    const onSend = vi.fn();
+    render(<MessageComposer onSend={onSend} />);
+    const textarea = screen.getByPlaceholderText('Message…');
+    fireEvent.change(textarea, { target: { value: 'hi' } });
+    fireEvent.keyDown(textarea, { key: 'Enter', shiftKey: true });
+    expect(onSend).not.toHaveBeenCalled();
+  });
+  it('reply context renders ReplyPreview; cancel fires onCancelReply', () => {
+    const onCancelReply = vi.fn();
+    render(
+      <MessageComposer
+        onSend={vi.fn()}
+        replyTo={{
+          id: 'msg_1',
+          senderId: 'user_B',
+          senderName: 'Friend B',
+          content: 'quoted text',
+        }}
+        onCancelReply={onCancelReply}
+      />
+    );
+    expect(screen.getByText('Friend B')).toBeInTheDocument();
+    expect(screen.getByText('quoted text')).toBeInTheDocument();
+    fireEvent.click(screen.getByLabelText('Cancel reply'));
+    expect(onCancelReply).toHaveBeenCalledTimes(1);
+  });
+  it('input value is capped at MAX_LENGTH (4000)', () => {
+    const onSend = vi.fn();
+    render(<MessageComposer onSend={onSend} />);
+    const textarea = screen.getByPlaceholderText(
+      'Message…'
+    ) as HTMLTextAreaElement;
+    fireEvent.change(textarea, { target: { value: 'a'.repeat(4500) } });
+    expect(textarea.value.length).toBe(4000);
+  });
+});
+</file>
+
+<file path="tests/components/ReactionRow.test.tsx">
+import { describe, it, expect, vi } from 'vitest';
+import { render, fireEvent, screen } from '@testing-library/react';
+import { ReactionRow } from '../../src/components/messages/ReactionRow';
+import type { Reaction } from '../../src/lib/reactionUtils';
+describe('ReactionRow', () => {
+  it('renders nothing when reactions is empty', () => {
+    const { container } = render(
+      <ReactionRow
+        reactions={[]}
+        currentUserId="user_A"
+        isOutgoing={false}
+        onToggle={vi.fn()}
+      />
+    );
+    expect(container.firstChild).toBeNull();
+  });
+  it('renders each reaction chip with emoji and count; tap fires onToggle(emoji)', () => {
+    const onToggle = vi.fn();
+    const reactions: Reaction[] = [
+      { emoji: '👍', userIds: ['u1', 'u2'] },
+      { emoji: '❤️', userIds: ['u1'] },
+    ];
+    render(
+      <ReactionRow
+        reactions={reactions}
+        currentUserId="user_A"
+        isOutgoing={false}
+        onToggle={onToggle}
+      />
+    );
+    const thumbsUp = screen.getByText('👍').closest('button');
+    expect(thumbsUp).not.toBeNull();
+    expect(thumbsUp?.textContent).toContain('2');
+    const heart = screen.getByText('❤️').closest('button');
+    expect(heart?.textContent).toContain('1');
+    fireEvent.click(thumbsUp as Element);
+    expect(onToggle).toHaveBeenCalledWith('👍');
+  });
+  it('caps visible chips at 6 and shows +N overflow', () => {
+    const reactions: Reaction[] = Array.from({ length: 9 }, (_, i) => ({
+      emoji: `e${i}`,
+      userIds: ['u1'],
+    }));
+    render(
+      <ReactionRow
+        reactions={reactions}
+        currentUserId="user_A"
+        isOutgoing={false}
+        onToggle={vi.fn()}
+      />
+    );
+    for (let i = 0; i < 6; i++) {
+      expect(screen.queryByText(`e${i}`)).not.toBeNull();
+    }
+    expect(screen.queryByText('e6')).toBeNull();
+    expect(screen.queryByText('+3')).not.toBeNull();
+  });
+  it('does not render an overflow indicator when reactions <= 6', () => {
+    const reactions: Reaction[] = Array.from({ length: 6 }, (_, i) => ({
+      emoji: `e${i}`,
+      userIds: ['u1'],
+    }));
+    render(
+      <ReactionRow
+        reactions={reactions}
+        currentUserId="user_A"
+        isOutgoing={false}
+        onToggle={vi.fn()}
+      />
+    );
+    expect(screen.queryByText(/^\+\d+$/)).toBeNull();
+  });
+});
+</file>
+
+<file path="tests/components/TaskActionSheet.test.tsx">
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { render, fireEvent, screen } from '@testing-library/react';
+import { TaskActionSheet } from '../../src/components/home/views/TaskActionSheet';
+import type {
+  TaskDocument,
+  CategoryDocument,
+} from '../../src/db/schema';
+function isoDateLocal(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+const TODAY_STR = isoDateLocal(new Date());
+const TOMORROW_STR = isoDateLocal(new Date(Date.now() + 86_400_000));
+function makeTask(overrides: Partial<TaskDocument> = {}): TaskDocument {
+  return {
+    id: 'task_1',
+    title: 'Test task',
+    completed: false,
+    categoryId: 'cat_1',
+    date: TODAY_STR,
+    createdAt: '2026-01-01T00:00:00.000Z',
+    updatedAt: '2026-01-01T00:00:00.000Z',
+    userId: 'user_A',
+    isDeleted: false,
+    visibility: '',
+    ...overrides,
+  };
+}
+function makeCategory(
+  overrides: Partial<CategoryDocument> = {}
+): CategoryDocument {
+  return {
+    id: 'cat_1',
+    name: 'Work',
+    color: '#3B82F6',
+    order: 0,
+    visibility: 'private',
+    userId: 'user_A',
+    isDeleted: false,
+    ...overrides,
+  };
+}
+function makeCallbacks() {
+  return {
+    onClose: vi.fn(),
+    onEdit: vi.fn(),
+    onDelete: vi.fn(),
+    onMemo: vi.fn(),
+    onChangeDate: vi.fn(),
+    onVisibility: vi.fn(),
+    onAddPhoto: vi.fn(),
+    onViewPhoto: vi.fn(),
+    onDeletePhoto: vi.fn(),
+    onDoItTomorrowOrToday: vi.fn(),
+  };
+}
+describe('TaskActionSheet', () => {
+  beforeEach(() => {
+    document.body.style.overflow = '';
+  });
+  it('renders nothing when task is null', () => {
+    render(
+      <TaskActionSheet
+        isOpen
+        task={null}
+        category={null}
+        {...makeCallbacks()}
+      />
+    );
+    expect(screen.queryByText('Edit')).toBeNull();
+  });
+  it('shows "Add Photo" when there is no image; "View Photo" + "Delete Photo" when there is', () => {
+    const { rerender } = render(
+      <TaskActionSheet
+        isOpen
+        task={makeTask({ image: '' })}
+        category={makeCategory()}
+        {...makeCallbacks()}
+      />
+    );
+    expect(screen.queryByText('Add Photo')).not.toBeNull();
+    expect(screen.queryByText('View Photo')).toBeNull();
+    expect(screen.queryByText('Delete Photo')).toBeNull();
+    rerender(
+      <TaskActionSheet
+        isOpen
+        task={makeTask({ image: 'img_abc' })}
+        category={makeCategory()}
+        {...makeCallbacks()}
+      />
+    );
+    expect(screen.queryByText('Add Photo')).toBeNull();
+    expect(screen.queryByText('View Photo')).not.toBeNull();
+    expect(screen.queryByText('Delete Photo')).not.toBeNull();
+  });
+  it('shows the "Memo" button when there is no memo; renders the memo text when there is', () => {
+    const { rerender } = render(
+      <TaskActionSheet
+        isOpen
+        task={makeTask({ memo: '' })}
+        category={makeCategory()}
+        {...makeCallbacks()}
+      />
+    );
+    // No memo → the "Memo" action button renders.
+    expect(screen.queryByText('Memo')).not.toBeNull();
+    rerender(
+      <TaskActionSheet
+        isOpen
+        task={makeTask({ memo: 'A note to self' })}
+        category={makeCategory()}
+        {...makeCallbacks()}
+      />
+    );
+    expect(screen.queryByText('A note to self')).not.toBeNull();
+  });
+  it('visibility label reflects inheritance vs explicit override', () => {
+    const { rerender } = render(
+      <TaskActionSheet
+        isOpen
+        task={makeTask({ visibility: '' })}
+        category={makeCategory({ visibility: 'public' })}
+        {...makeCallbacks()}
+      />
+    );
+    expect(screen.queryByText('Public · Default')).not.toBeNull();
+    rerender(
+      <TaskActionSheet
+        isOpen
+        task={makeTask({ visibility: 'private' })}
+        category={makeCategory({ visibility: 'public' })}
+        {...makeCallbacks()}
+      />
+    );
+    expect(screen.queryByText('Private')).not.toBeNull();
+    expect(screen.queryByText(/·\s*Default/)).toBeNull();
+  });
+  it('"Do It Tomorrow" vs "Do It Today" label depends on the task date', () => {
+    const { rerender } = render(
+      <TaskActionSheet
+        isOpen
+        task={makeTask({ date: TODAY_STR })}
+        category={makeCategory()}
+        {...makeCallbacks()}
+      />
+    );
+    expect(screen.queryByText('Do It Tomorrow')).not.toBeNull();
+    rerender(
+      <TaskActionSheet
+        isOpen
+        task={makeTask({ date: TOMORROW_STR })}
+        category={makeCategory()}
+        {...makeCallbacks()}
+      />
+    );
+    expect(screen.queryByText('Do It Today')).not.toBeNull();
+  });
+  it('fires the top-grid and menu callbacks on tap', () => {
+    const cbs = makeCallbacks();
+    render(
+      <TaskActionSheet
+        isOpen
+        task={makeTask({ date: TOMORROW_STR })}
+        category={makeCategory()}
+        {...cbs}
+      />
+    );
+    fireEvent.click(screen.getByText('Edit'));
+    expect(cbs.onEdit).toHaveBeenCalledTimes(1);
+    fireEvent.click(screen.getByText('Delete'));
+    expect(cbs.onDelete).toHaveBeenCalledTimes(1);
+    fireEvent.click(screen.getByText('Visibility'));
+    expect(cbs.onVisibility).toHaveBeenCalledTimes(1);
+    fireEvent.click(screen.getByText('Change Date'));
+    expect(cbs.onChangeDate).toHaveBeenCalledTimes(1);
+    fireEvent.click(screen.getByText('Do It Today'));
+    expect(cbs.onDoItTomorrowOrToday).toHaveBeenCalledTimes(1);
+  });
+});
+</file>
+
+<file path="tests/components/TaskVisibilitySheet.test.tsx">
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { render, fireEvent, screen } from '@testing-library/react';
+import { TaskVisibilitySheet } from '../../src/components/home/views/TaskVisibilitySheet';
+import type {
+  TaskDocument,
+  CategoryDocument,
+} from '../../src/db/schema';
+function makeTask(overrides: Partial<TaskDocument> = {}): TaskDocument {
+  return {
+    id: 'task_1',
+    title: 'Test task',
+    completed: false,
+    categoryId: 'cat_1',
+    date: '2026-01-01',
+    createdAt: '2026-01-01T00:00:00.000Z',
+    updatedAt: '2026-01-01T00:00:00.000Z',
+    userId: 'user_A',
+    isDeleted: false,
+    visibility: '',
+    ...overrides,
+  };
+}
+function makeCategory(
+  overrides: Partial<CategoryDocument> = {}
+): CategoryDocument {
+  return {
+    id: 'cat_1',
+    name: 'Work',
+    color: '#3B82F6',
+    order: 0,
+    visibility: 'public',
+    userId: 'user_A',
+    isDeleted: false,
+    ...overrides,
+  };
+}
+function makeCallbacks() {
+  return {
+    onClose: vi.fn(),
+    onSave: vi.fn(),
+  };
+}
+describe('TaskVisibilitySheet', () => {
+  beforeEach(() => {
+    document.body.style.overflow = '';
+  });
+  it('renders all four options with the expected labels', () => {
+    render(
+      <TaskVisibilitySheet
+        isOpen
+        task={makeTask()}
+        category={makeCategory()}
+        {...makeCallbacks()}
+      />
+    );
+    expect(screen.getByText(/^Default \(/)).toBeInTheDocument();
+    expect(screen.getByText('Private')).toBeInTheDocument();
+    expect(screen.getByText('Friends')).toBeInTheDocument();
+    expect(screen.getByText('Public')).toBeInTheDocument();
+  });
+  it('Default option reflects the category visibility', () => {
+    const { rerender } = render(
+      <TaskVisibilitySheet
+        isOpen
+        task={makeTask()}
+        category={makeCategory({ visibility: 'public' })}
+        {...makeCallbacks()}
+      />
+    );
+    expect(screen.getByText('Default (Public)')).toBeInTheDocument();
+    rerender(
+      <TaskVisibilitySheet
+        isOpen
+        task={makeTask()}
+        category={makeCategory({ visibility: 'private' })}
+        {...makeCallbacks()}
+      />
+    );
+    expect(screen.getByText('Default (Private)')).toBeInTheDocument();
+  });
+  it('renders "Follows the <category> category" with the category name', () => {
+    render(
+      <TaskVisibilitySheet
+        isOpen
+        task={makeTask()}
+        category={makeCategory({ name: 'Errands' })}
+        {...makeCallbacks()}
+      />
+    );
+    expect(
+      screen.getByText('Follows the "Errands" category')
+    ).toBeInTheDocument();
+  });
+  it('tapping an override fires onSave with the concrete value and onClose', () => {
+    const cbs = makeCallbacks();
+    render(
+      <TaskVisibilitySheet
+        isOpen
+        task={makeTask()}
+        category={makeCategory()}
+        {...cbs}
+      />
+    );
+    const privateButton = screen.getByText('Private').closest('button');
+    expect(privateButton).not.toBeNull();
+    fireEvent.click(privateButton as Element);
+    expect(cbs.onSave).toHaveBeenCalledTimes(1);
+    expect(cbs.onSave).toHaveBeenCalledWith('private');
+    expect(cbs.onClose).toHaveBeenCalledTimes(1);
+  });
+  it('tapping Default fires onSave with the empty string', () => {
+    const cbs = makeCallbacks();
+    render(
+      <TaskVisibilitySheet
+        isOpen
+        task={makeTask()}
+        category={makeCategory()}
+        {...cbs}
+      />
+    );
+    const defaultButton = screen.getByText(/^Default \(/).closest('button');
+    expect(defaultButton).not.toBeNull();
+    fireEvent.click(defaultButton as Element);
+    expect(cbs.onSave).toHaveBeenCalledWith('');
+    expect(cbs.onClose).toHaveBeenCalledTimes(1);
+  });
+});
+</file>
+
+<file path="tests/components/UserResultCard.test.tsx">
+import { describe, it, expect, vi } from 'vitest';
+import { render, screen, fireEvent } from '@testing-library/react';
+import { UserResultCard } from '../../src/components/explore/UserResultCard';
+import type { ProfileCard } from '../../src/lib/social';
+const mockGetLocalImageUrl = vi.hoisted(() =>
+  vi.fn().mockResolvedValue(null)
+);
+vi.mock('../../src/lib/storage', () => ({
+  getLocalImageUrl: mockGetLocalImageUrl,
+}));
+function makeProfile(): ProfileCard {
+  return {
+    $id: 'profile_1',
+    user_id: 'user_B',
+    username: 'b',
+    display_name: 'Friend B',
+    avatar_file_id: '',
+    bio: '',
+    is_searchable: true,
+  };
+}
+describe('UserResultCard', () => {
+  it('renders display_name and username', () => {
+    render(
+      <UserResultCard
+        profile={makeProfile()}
+        relationship="none"
+        onAdd={vi.fn()}
+      />
+    );
+    expect(screen.getByText('Friend B')).toBeInTheDocument();
+    expect(screen.getByText('@b')).toBeInTheDocument();
+  });
+  it('relationship "none" renders Add button; tap fires onAdd(profile)', () => {
+    const onAdd = vi.fn();
+    const profile = makeProfile();
+    render(
+      <UserResultCard
+        profile={profile}
+        relationship="none"
+        onAdd={onAdd}
+      />
+    );
+    const addButton = screen.getByText('Add').closest('button');
+    expect(addButton).not.toBeNull();
+    fireEvent.click(addButton as Element);
+    expect(onAdd).toHaveBeenCalledWith(profile);
+  });
+  it('isSending renders "Sending…" in place of "Add"', () => {
+    render(
+      <UserResultCard
+        profile={makeProfile()}
+        relationship="none"
+        onAdd={vi.fn()}
+        isSending
+      />
+    );
+    expect(screen.getByText('Sending…')).toBeInTheDocument();
+    expect(screen.queryByText('Add')).toBeNull();
+  });
+  it('non-"none" relationships render their labels and no Add button', () => {
+    const { rerender } = render(
+      <UserResultCard
+        profile={makeProfile()}
+        relationship="friends"
+        onAdd={vi.fn()}
+      />
+    );
+    expect(screen.getByText('Friends')).toBeInTheDocument();
+    expect(screen.queryByText('Add')).toBeNull();
+    rerender(
+      <UserResultCard
+        profile={makeProfile()}
+        relationship="outgoing"
+        onAdd={vi.fn()}
+      />
+    );
+    expect(screen.getByText('Pending')).toBeInTheDocument();
+    rerender(
+      <UserResultCard
+        profile={makeProfile()}
+        relationship="incoming"
+        onAdd={vi.fn()}
+      />
+    );
+    expect(screen.getByText('Respond in requests')).toBeInTheDocument();
+    rerender(
+      <UserResultCard
+        profile={makeProfile()}
+        relationship="self"
+        onAdd={vi.fn()}
+      />
+    );
+    expect(screen.getByText('This is you')).toBeInTheDocument();
+  });
+});
+</file>
+
 <file path="tests/handlers/deliver.test.ts">
 import { describe, it, expect, beforeEach } from 'vitest';
 import { invoke, makeMockDb, type MockDb } from '../helpers/invoke-handler';
@@ -17667,6 +18943,11 @@ import {
   type FriendshipDocument,
   type MessageDocument,
 } from '../../src/db/schema';
+import {
+  tasksMigrationStrategies,
+  friendshipsMigrationStrategies,
+  messagesMigrationStrategies,
+} from '../../src/db/migrations';
 export interface TestDatabaseCollections {
   tasks: RxCollection<TaskDocument>;
   categories: RxCollection<CategoryDocument>;
@@ -17681,32 +18962,6 @@ function registerRxdbPluginsOnce(): void {
   addRxPlugin(RxDBMigrationSchemaPlugin);
   pluginsRegistered = true;
 }
-const tasksMigrationStrategies = {
-  1: (oldDoc: Record<string, unknown>) => oldDoc,
-};
-const friendshipsMigrationStrategies = {
-  1: (oldDoc: Record<string, unknown>) => ({
-    ...oldDoc,
-    friendBio: '',
-  }),
-};
-const messagesMigrationStrategies = {
-  1: (oldDoc: Record<string, unknown>) => ({
-    ...oldDoc,
-    replyToId: '',
-    replyToContent: '',
-    replyToSenderId: '',
-  }),
-  2: (oldDoc: Record<string, unknown>) => ({
-    ...oldDoc,
-    isUnsent: false,
-  }),
-  3: (oldDoc: Record<string, unknown>) => ({
-    ...oldDoc,
-    originalMessageId: '',
-    reactions: '',
-  }),
-};
 export async function createTestDb(): Promise<RxDatabase<TestDatabaseCollections>> {
   registerRxdbPluginsOnce();
   const name = `test_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
@@ -18212,7 +19467,10 @@ import {
   vi,
 } from 'vitest';
 import { renderHook, waitFor, act } from '@testing-library/react';
-import { useTaskImage } from '../../src/hooks/useTaskImage';
+import {
+  useTaskImage,
+  resetTaskImageCacheForTests,
+} from '../../src/hooks/useTaskImage';
 const mockGetLocalImageUrl = vi.hoisted(() => vi.fn());
 vi.mock('../../src/lib/storage', () => ({
   getLocalImageUrl: mockGetLocalImageUrl,
@@ -18221,6 +19479,7 @@ const originalRevoke = globalThis.URL.revokeObjectURL;
 const revokeSpy = vi.fn();
 describe('useTaskImage', () => {
   beforeEach(() => {
+    resetTaskImageCacheForTests();
     mockGetLocalImageUrl.mockReset();
     mockGetLocalImageUrl.mockImplementation(
       async (fileId: string) => `blob:fake-${fileId}`
@@ -18291,6 +19550,177 @@ describe('useTaskImage', () => {
     expect(result.current.imageUrl).toBeNull();
     expect(result.current.isLoading).toBe(false);
     expect(mockGetLocalImageUrl).not.toHaveBeenCalled();
+  });
+});
+</file>
+
+<file path="tests/react/useUnreadMessages.test.tsx">
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { renderHook, waitFor } from '@testing-library/react';
+import type { RxDatabase } from 'rxdb';
+import { useUnreadMessages } from '../../src/hooks/useUnreadMessages';
+import {
+  createTestDb,
+  destroyTestDb,
+  type TestDatabaseCollections,
+} from '../helpers/testDb';
+import type {
+  MessageDocument,
+  FriendshipDocument,
+} from '../../src/db/schema';
+const dbRef = vi.hoisted(() => ({ current: null as unknown }));
+const mockFriendsRef = vi.hoisted(() => ({ current: [] as unknown[] }));
+vi.mock('../../src/db/database', () => ({
+  getDatabase: () => {
+    if (!dbRef.current) throw new Error('testDb not initialized');
+    return dbRef.current;
+  },
+}));
+vi.mock('../../src/hooks/useAuth', () => ({
+  useAuth: () => ({ user: { $id: 'user_A' }, isLoading: false }),
+}));
+vi.mock('../../src/hooks/useFriends', () => ({
+  useFriends: () => ({
+    friends: mockFriendsRef.current,
+    isLoading: false,
+  }),
+}));
+function makeFriend(
+  overrides: Partial<FriendshipDocument> = {}
+): FriendshipDocument {
+  return {
+    id: `fr_${Math.random().toString(36).slice(2, 8)}`,
+    userId: 'user_A',
+    friendId: 'user_B',
+    friendUsername: 'friend_b',
+    friendDisplayName: 'Friend B',
+    friendAvatarFileId: '',
+    friendBio: '',
+    status: 'accepted',
+    createdAt: '2026-01-01T00:00:00.000Z',
+    updatedAt: '2026-01-01T00:00:00.000Z',
+    isDeleted: false,
+    ...overrides,
+  };
+}
+function makeMessage(
+  overrides: Partial<MessageDocument> = {}
+): MessageDocument {
+  const id = overrides.id ?? `msg_${Math.random().toString(36).slice(2, 12)}`;
+  return {
+    id,
+    userId: 'user_A',
+    threadId: 'th_test',
+    senderId: 'user_A',
+    recipientId: 'user_B',
+    direction: 'outgoing',
+    content: 'hello',
+    taskRefId: '',
+    taskRefTitle: '',
+    taskRefDate: '',
+    taskRefColor: '',
+    replyToId: '',
+    replyToContent: '',
+    replyToSenderId: '',
+    isUnsent: false,
+    originalMessageId: id,
+    reactions: '',
+    readAt: '',
+    deliveryStatus: 'delivered',
+    createdAt: '2026-01-01T00:00:00.000Z',
+    updatedAt: '2026-01-01T00:00:00.000Z',
+    isDeleted: false,
+    ...overrides,
+  };
+}
+describe('useUnreadMessages', () => {
+  beforeEach(async () => {
+    dbRef.current = await createTestDb();
+    mockFriendsRef.current = [];
+  });
+  afterEach(async () => {
+    if (dbRef.current) {
+      await destroyTestDb(
+        dbRef.current as RxDatabase<TestDatabaseCollections>
+      );
+      dbRef.current = null;
+    }
+  });
+  it('baseline: unread incoming from an accepted friend counts toward totalUnread', async () => {
+    mockFriendsRef.current = [
+      makeFriend({ friendId: 'user_B', friendUsername: 'b' }),
+    ];
+    const db = dbRef.current as RxDatabase<TestDatabaseCollections>;
+    await db.messages.bulkInsert([
+      makeMessage({
+        id: 'msg_i1',
+        senderId: 'user_B',
+        recipientId: 'user_A',
+        direction: 'incoming',
+        readAt: '',
+        createdAt: '2026-01-01T10:00:00.000Z',
+      }),
+    ]);
+    const { result } = renderHook(() => useUnreadMessages());
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(result.current.totalUnread).toBe(1);
+  });
+  it('unread incoming from a non-friend sender does not contribute to totalUnread', async () => {
+    mockFriendsRef.current = [
+      makeFriend({ friendId: 'user_B', friendUsername: 'b' }),
+    ];
+    const db = dbRef.current as RxDatabase<TestDatabaseCollections>;
+    await db.messages.bulkInsert([
+      makeMessage({
+        id: 'msg_c1',
+        senderId: 'user_C',
+        recipientId: 'user_A',
+        direction: 'incoming',
+        readAt: '',
+        createdAt: '2026-01-01T10:00:00.000Z',
+      }),
+    ]);
+    const stored = await db.messages.findOne('msg_c1').exec();
+    expect(stored).not.toBeNull();
+    expect(stored?.direction).toBe('incoming');
+    expect(stored?.readAt).toBe('');
+    const { result } = renderHook(() => useUnreadMessages());
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(result.current.totalUnread).toBe(0);
+  });
+  // Regression: §20.5 (unread badge contract) — read state and direction
+  // filtering. Only incoming rows with an empty readAt contribute.
+  it('read incoming and all outgoing do not contribute to totalUnread', async () => {
+    mockFriendsRef.current = [
+      makeFriend({ friendId: 'user_B', friendUsername: 'b' }),
+    ];
+    const db = dbRef.current as RxDatabase<TestDatabaseCollections>;
+    await db.messages.bulkInsert([
+      makeMessage({
+        id: 'msg_i_read',
+        senderId: 'user_B',
+        recipientId: 'user_A',
+        direction: 'incoming',
+        readAt: '2026-01-01T10:30:00.000Z',
+        createdAt: '2026-01-01T10:15:00.000Z',
+      }),
+      makeMessage({
+        id: 'msg_o1',
+        senderId: 'user_A',
+        recipientId: 'user_B',
+        direction: 'outgoing',
+        readAt: '',
+        createdAt: '2026-01-01T10:20:00.000Z',
+      }),
+    ]);
+    const { result } = renderHook(() => useUnreadMessages());
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(result.current.totalUnread).toBe(0);
+  });
+  it('isLoading transition: starts true, becomes false after the subscription emits', async () => {
+    const { result } = renderHook(() => useUnreadMessages());
+    expect(result.current.isLoading).toBe(true);
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
   });
 });
 </file>
@@ -19873,12 +21303,24 @@ const __filename = fileURLToPath(import.meta.url);
 const ROOT = dirname(__filename);
 const BACKUP_ROOT = join(ROOT, '.mosaic-backup');
 const DIRECTIVE_RE = /^===(FILE|DELETE|COMMIT):(.+)===$/;
+const SELF_MOD_FILE = 'apply-changes.mjs';
 function log(...a) {
   console.log(...a);
 }
 function fail(msg, code = 1) {
   console.error(`\n❌ ${msg}\n`);
   process.exit(code);
+}
+function warnSelfModification(files) {
+  const selfModifying = files.some((f) => f.path === SELF_MOD_FILE);
+  if (!selfModifying) return;
+  log('');
+  log('⚠️  WARNING: this mega file modifies apply-changes.mjs itself.');
+  log('    The currently-running process uses the OLD in-memory version for');
+  log('    parse, backup, and verify. Subsequent applies will use the NEW version.');
+  log('    If your change affects parse/backup/verify logic, re-run those steps');
+  log('    after this apply completes.');
+  log('');
 }
 function parseArgs(argv) {
   const flags = {
@@ -19905,11 +21347,11 @@ function parseMegaFile(content) {
   const fenceMatch = text.match(/^(~~~+|`{3,})mosaic\s*\n([\s\S]*?)\n\1\s*$/);
   if (fenceMatch) text = fenceMatch[2];
   const lines = text.split(/\r?\n/);
-  // Pass 1: mark lines that are inside a Markdown fence (``` or ~~~).
+  // Pass 1: mark lines that are inside a Markdown fence (backticks or tildes).
   // Fence-boundary lines are also marked true so they are never treated as
   // directives. This makes the directive examples inside documentation
-  // code blocks inert — critical for PROJECT_CONTEXT.md §5.1, which documents
-  // the mega-file format by showing literal directive lines inside a fence.
+  // code blocks inert — critical for AGENTS.md §5.1, which documents the
+  // mega-file format by showing literal directive lines inside a fence.
   const insideFence = new Array(lines.length).fill(false);
   let fenceChar = null;
   let fenceLen = 0;
@@ -20038,6 +21480,7 @@ function main() {
   const { files, deletes, commit } = parseMegaFile(readFileSync(inputPath, 'utf8'));
   if (files.length === 0 && deletes.length === 0) fail('No directives found in input file');
   log(`\n📋 Parsed ${files.length} FILE, ${deletes.length} DELETE`);
+  warnSelfModification(files);
   if (commit) log(`📝 Commit: ${commit}`);
   const planned = [];
   for (const f of files) {
@@ -20515,6 +21958,16 @@ export default defineConfig({
           environment: 'happy-dom',
           globals: true,
           include: ['tests/react/**/*.test.tsx'],
+          setupFiles: ['./tests/setup/react.ts'],
+          env: { NODE_ENV: 'test' },
+        },
+      },
+      {
+        test: {
+          name: 'components',
+          environment: 'happy-dom',
+          globals: true,
+          include: ['tests/components/**/*.test.tsx'],
           setupFiles: ['./tests/setup/react.ts'],
           env: { NODE_ENV: 'test' },
         },
