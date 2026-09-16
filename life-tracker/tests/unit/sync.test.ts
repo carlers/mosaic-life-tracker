@@ -345,3 +345,103 @@ describe('sync — boundary advancement (F1, F3, F5)', () => {
     );
   });
 });
+describe('sync — per-collection state versioning (F15)', () => {
+  it('writes version: 1 on the per-collection state blob', async () => {
+    await syncModule.initializeSync();
+    const raw = localStorageMock.getItem('lastSyncTimePerCollection');
+    expect(raw).toBeTruthy();
+    const state = JSON.parse(raw!);
+    expect(state.version).toBe(1);
+  });
+  it('accepts a legacy unversioned blob without discarding its entries', async () => {
+    const legacy = {
+      ownerId: 'user_A',
+      entries: {
+        tasks: {
+          pull: '2026-01-01T00:00:00.000Z',
+          dirty: '2026-01-01T00:00:00.000Z',
+        },
+      },
+    };
+    localStorageMock.setItem(
+      'lastSyncTimePerCollection',
+      JSON.stringify(legacy)
+    );
+    listRowsMock.mockImplementation(
+      async ({ tableId }: { tableId: string }) => {
+        if (tableId === 'tasks') {
+          return { rows: [] };
+        }
+        return { rows: [] };
+      }
+    );
+    await syncModule.initializeSync();
+    // The legacy pull boundary was non-zero, so the next pull query must
+    // have included a `$updatedAt > since` filter. If the loader had
+    // rejected the unversioned blob, pullBoundaryMs would be 0 and no
+    // greaterThan query would appear.
+    const tasksCall = listRowsMock.mock.calls.find(
+      (call) => (call[0] as { tableId: string }).tableId === 'tasks'
+    );
+    expect(tasksCall).toBeDefined();
+    const queries = (tasksCall![0] as { queries: { op?: string }[] }).queries;
+    expect(queries.some((q) => q.op === 'greaterThan')).toBe(true);
+    const rawAfter = localStorageMock.getItem('lastSyncTimePerCollection');
+    const stateAfter = JSON.parse(rawAfter!);
+    expect(stateAfter.version).toBe(1);
+  });
+  it('rejects a blob with an unrecognized version', async () => {
+    const future = {
+      version: 999,
+      ownerId: 'user_A',
+      entries: {
+        tasks: {
+          pull: '2026-01-01T00:00:00.000Z',
+          dirty: '2026-01-01T00:00:00.000Z',
+        },
+      },
+    };
+    localStorageMock.setItem(
+      'lastSyncTimePerCollection',
+      JSON.stringify(future)
+    );
+    await syncModule.initializeSync();
+    // Fresh state: pullBoundaryMs = 0, so no greaterThan query for tasks.
+    const tasksCall = listRowsMock.mock.calls.find(
+      (call) => (call[0] as { tableId: string }).tableId === 'tasks'
+    );
+    expect(tasksCall).toBeDefined();
+    const queries = (tasksCall![0] as { queries: { op?: string }[] }).queries;
+    expect(queries.some((q) => q.op === 'greaterThan')).toBe(false);
+  });
+});
+describe('sync — lastSyncTime is user-scoped (F20)', () => {
+  it('writes lastSyncTime_<userId> and does not write the bare key', async () => {
+    await syncModule.initializeSync();
+    const scoped = localStorageMock.getItem('lastSyncTime_user_A');
+    expect(scoped).toBeTruthy();
+    expect(localStorageMock.getItem('lastSyncTime')).toBeNull();
+  });
+  it('a different user on the same tab does not inherit the previous lastSyncTime', async () => {
+    await syncModule.initializeSync();
+    const userATimestamp = localStorageMock.getItem('lastSyncTime_user_A');
+    expect(userATimestamp).toBeTruthy();
+    // Ensure the second sync writes a strictly later ISO timestamp. Without
+    // this delay both syncs can complete within the same millisecond and
+    // produce identical `new Date().toISOString()` values, which is a
+    // correct-but-coincidental outcome.
+    await new Promise((r) => setTimeout(r, 10));
+    accountGetMock.mockResolvedValue({ $id: 'user_B' });
+    await syncModule.initializeSync();
+    const userBTimestamp = localStorageMock.getItem('lastSyncTime_user_B');
+    expect(userBTimestamp).toBeTruthy();
+    // user_A's scoped entry is preserved verbatim; user_B's is distinct.
+    expect(localStorageMock.getItem('lastSyncTime_user_A')).toBe(
+      userATimestamp
+    );
+    expect(userBTimestamp).not.toBe(userATimestamp);
+    // syncStatus.lastSync tracks the current owner's scoped value.
+    const statusAfterB = syncModule.getSyncStatus();
+    expect(statusAfterB.lastSync).toBe(userBTimestamp);
+  });
+});

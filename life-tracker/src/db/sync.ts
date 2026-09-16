@@ -19,6 +19,7 @@ const APPWRITE_CONFIG = {
 } as const;
 const DEBUG = import.meta.env.DEV;
 const PAGE_SIZE = 100;
+const MAX_PAGES_PER_COLLECTION = 100;
 const PULL_OVERLAP_MS = 30_000;
 const RATE_LIMIT_BASE_MS = 5_000;
 const RATE_LIMIT_MAX_MS = 60_000;
@@ -39,10 +40,12 @@ interface PerCollectionSyncEntry {
   dirty: string;
 }
 interface PerCollectionPersistedState {
+  version: number;
   ownerId: string;
   entries: Partial<Record<CollectionName, PerCollectionSyncEntry>>;
 }
 const PER_COLLECTION_KEY = 'lastSyncTimePerCollection';
+const PER_COLLECTION_STATE_VERSION = 1;
 function loadPerCollectionState(
   userId: string
 ): Partial<Record<CollectionName, PerCollectionSyncEntry>> {
@@ -52,6 +55,13 @@ function loadPerCollectionState(
     const parsed = JSON.parse(raw) as unknown;
     if (!parsed || typeof parsed !== 'object') return {};
     const state = parsed as Partial<PerCollectionPersistedState>;
+    // Legacy blobs (pre-versioning) have no `version` field. Treat them as
+    // version 1 so existing users do not lose their per-collection state.
+    const version =
+      typeof state.version === 'number'
+        ? state.version
+        : PER_COLLECTION_STATE_VERSION;
+    if (version !== PER_COLLECTION_STATE_VERSION) return {};
     if (state.ownerId !== userId) return {};
     if (!state.entries || typeof state.entries !== 'object') return {};
     return state.entries as Partial<
@@ -66,7 +76,11 @@ function savePerCollectionState(
   entries: Partial<Record<CollectionName, PerCollectionSyncEntry>>
 ): void {
   try {
-    const state: PerCollectionPersistedState = { ownerId: userId, entries };
+    const state: PerCollectionPersistedState = {
+      version: PER_COLLECTION_STATE_VERSION,
+      ownerId: userId,
+      entries,
+    };
     localStorage.setItem(PER_COLLECTION_KEY, JSON.stringify(state));
   } catch {
   }
@@ -82,7 +96,7 @@ export interface SyncStatus {
 }
 let syncStatus: SyncStatus = {
   isSyncing: false,
-  lastSync: localStorage.getItem('lastSyncTime') || null,
+  lastSync: null,
   errors: [],
 };
 export function getSyncStatus(): SyncStatus {
@@ -92,9 +106,12 @@ type SyncListener = (status: SyncStatus) => void;
 const listeners: SyncListener[] = [];
 function updateSyncStatus(updates: Partial<SyncStatus>) {
   syncStatus = { ...syncStatus, ...updates };
-  if (syncStatus.lastSync) {
+  if (syncStatus.lastSync && perCollectionOwnerId) {
     try {
-      localStorage.setItem('lastSyncTime', syncStatus.lastSync);
+      localStorage.setItem(
+        `lastSyncTime_${perCollectionOwnerId}`,
+        syncStatus.lastSync
+      );
     } catch {
     }
   }
@@ -231,6 +248,12 @@ export async function initializeSync(): Promise<void> {
     if (perCollectionOwnerId !== userId) {
       perCollectionSync = loadPerCollectionState(userId);
       perCollectionOwnerId = userId;
+      let scopedLast: string | null = null;
+      try {
+        scopedLast = localStorage.getItem(`lastSyncTime_${userId}`);
+      } catch {
+      }
+      syncStatus = { ...syncStatus, lastSync: scopedLast };
       if (DEBUG) {
         console.log(
           `[Sync] Loaded per-collection state for user ${userId}:`,
@@ -429,6 +452,12 @@ async function syncCollection(
     const lastId = rows[rows.length - 1].$id as string | undefined;
     if (!lastId || lastId === cursor) break;
     cursor = lastId;
+    if (pageCount >= MAX_PAGES_PER_COLLECTION) {
+      console.warn(
+        `[Sync] ${colName} hit page cap (${MAX_PAGES_PER_COLLECTION}); stopping pull`
+      );
+      break;
+    }
   }
   const nextPullIso = pullRowFailed
     ? entry?.pull ?? ''
