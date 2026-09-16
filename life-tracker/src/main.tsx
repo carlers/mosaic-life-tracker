@@ -5,6 +5,7 @@ import './index.css';
 import { initializeDatabase } from './db/database';
 import { initializeSync } from './db/sync';
 import { AuthProvider } from './hooks/AuthProvider';
+import { ErrorBoundary } from './components/ui/ErrorBoundary';
 
 async function bootstrap() {
   if (navigator.storage && navigator.storage.persist) {
@@ -23,9 +24,11 @@ async function bootstrap() {
   }
   ReactDOM.createRoot(document.getElementById('root')!).render(
     <React.StrictMode>
-      <AuthProvider>
-        <App />
-      </AuthProvider>
+      <ErrorBoundary label="auth">
+        <AuthProvider>
+          <App />
+        </AuthProvider>
+      </ErrorBoundary>
     </React.StrictMode>
   );
 }
