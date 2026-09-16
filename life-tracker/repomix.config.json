@@ -16,7 +16,6 @@
       "dist",
       "build",
       ".next",
-      "*.md",
       "*.lock",
       "*.log",
       ".env*",
