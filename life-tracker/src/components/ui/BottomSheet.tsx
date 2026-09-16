@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { motion, AnimatePresence, useDragControls } from 'framer-motion';
 import ReactDOM from 'react-dom';
+import { useFocusTrap } from '../../hooks/useFocusTrap';
 
 interface BottomSheetProps {
   isOpen: boolean;
@@ -25,6 +26,9 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
   const sheetRef = useRef<HTMLDivElement>(null);
   const dragControls = useDragControls();
   const sheetId = React.useId();
+  const titleId = React.useId();
+
+  useFocusTrap(sheetRef, isOpen);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -66,15 +70,26 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
     <AnimatePresence>
       {isOpen && (
         <>
+          {/*
+            Backdrop. `aria-hidden` is correct — a modal backdrop is
+            decorative and must not be reachable by keyboard or
+            announced by a screen reader. Dismissal is via Escape, via
+            the drag handle (pointer), or via a close button in the
+            sheet content.
+          */}
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={onClose}
+            aria-hidden="true"
             className="fixed inset-0 z-[50] bg-black/60"
           />
           <motion.div
             ref={sheetRef}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby={title ? titleId : undefined}
             initial={{ y: '100%' }}
             animate={{ y: 0 }}
             exit={{ y: '100%' }}
@@ -102,9 +117,15 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
                 }
               }}
             >
-              <div className="w-10 h-1.5 bg-[#444444] rounded-full mb-3" />
+              <div
+                className="w-10 h-1.5 bg-[#444444] rounded-full mb-3"
+                aria-hidden="true"
+              />
               {title && (
-                <h3 className="text-lg font-semibold w-full text-center">
+                <h3
+                  id={titleId}
+                  className="text-lg font-semibold w-full text-center"
+                >
                   {title}
                 </h3>
               )}

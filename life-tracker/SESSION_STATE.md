@@ -2,10 +2,10 @@
 
 Updated: 2026-09-17T00:00:00Z
 ActivePlan: Phase 1 audits — final sweep
-CurrentBatch: 5 of 6
-CurrentTask: 1.5 Item 11 — PWA / service worker audit + fixes
+CurrentBatch: 6 of 9
+CurrentTask: 1.6 Item 13 — accessibility (sub-batch 1: primitives layer)
 Status: in_progress
-NextAction: Run `npm run apply`, then continue to 1.6 Item 13 (accessibility).
+NextAction: Run `npm run apply`, then continue to 1.7.a (message surfaces accessibility).
 NextChatRole: chat2
 BatchPlan:
 - Phase 1 audits — final sweep (current)
@@ -23,37 +23,42 @@ BatchPlan:
   - [x] 1.3 Item 12 — error boundaries / crash resilience (Option 3: top-level + per-route)
   - [x] 1.4 Item 7 residual — storage/imageCache consolidation (absorbs OFF-6, OFF-7)
   - [x] 1.5 Item 11 — PWA / service worker audit + fixes
-  - [ ] 1.6 Item 13 — accessibility
+  - [x] 1.6 Item 13 — accessibility (sub-batch 1: primitives layer)
+  - [ ] 1.7.a Item 13 — accessibility (sub-batch 2: message surfaces)
+  - [ ] 1.7.b Item 13 — accessibility (sub-batch 3: task/calendar surfaces)
+  - [ ] 1.7.c Item 13 — accessibility (sub-batch 4: layout/nav/settings surfaces)
 - [ ] Phase 2 — refactor audit → refactor
 - [ ] Phase 3 — optimize audit → optimize (bundle 1.7 MB, route splitting, lazy images; receives OFF-6 LRU cap)
-- [ ] Phase 4 — spec audit group (meta-audit of AGENTS.md, discovery, enforcement)
+- [ ] Phase 4 — spec audit group (meta-audit of AGENTS.md, discovery, enforcement; receives full WCAG AA audit)
 - [ ] Feature work — Phase 3.5 Todo List, 3.6 Diary, 3.7 Notifications, API integrations (paused)
 OpenQuestions:
 - H1 — offline auth gate (OFF-1). §1 claims "100% offline functionality"; §23.6 maps network error → `user: null` → retry screen. Product/architecture decision required before Chat 2 can fix OFF-1. Options: (a) hydrate user from cached identity on network failure; (b) rename retry screen to an offline-mode screen with local read-only access; (c) accept behavior and downgrade §1's claim in docs.
 Findings:
-- CHORE-G-1 through CHORE-G-5 — AGENTS.md compression follow-up items (resolved).
+- CHORE-G-1 through CHORE-G-5 — resolved.
 - OFF-1 Critical — Offline cold launch blocks access to local data. Blocked on H1.
-- OFF-2 Medium [RESOLVED 1.1.fix.b] — Spurious `auth:unauthorized` on cold-load-without-session.
-- OFF-3 High — Image upload offline discards the compressed blob. [resolved 1.1.fix — error-message fix only; local image queue deferred]
-- OFF-4 Low [RESOLVED 1.1.fix.b] — `messageActionQueue` cap drop now logs each drop.
-- OFF-6 Low [RESOLVED 1.4 — documented only] — `imageCache` unbounded; documented with a Phase 3 deferral.
-- OFF-7 Info [RESOLVED 1.4] — `imageCache.ts` is now the single owner of the blob cache.
-- OFF-8 High [resolved 1.1.fix] — `sendFriendRequest` offline silently loses the reciprocal row.
-- OFF-9 High [resolved 1.1.fix] — `acceptFriendRequest`/`deleteFriendPair`/`blockFriend` offline lose the reciprocal update.
-- OFF-10 Medium [resolved 1.1.fix] — Profile create/update requires network with no local queue.
-- OFF-11 High [resolved 1.1.fix.b] — Cached friend data hidden by a transient refetch error.
-- OFF-12 Low [resolved 1.1.fix.b] — Export offline now surfaces missing-image count.
-- OFF-13 Low [resolved 1.1.fix.b] — Reaction toggle offline returns `'timeout'`.
-- RT-1 through RT-4 [resolved 1.2] — Realtime layer shipped (Option A).
-- ERR-1 through ERR-4 [resolved 1.3] — Error boundaries shipped (Option 3).
-- STO-1 Info [resolved 1.4] — `imageCache.ts` is single owner of the blob cache.
-- PWA-1 High [resolved 1.5] — `runtimeCaching` for `sgp.cloud.appwrite.io/*` cached every Appwrite call (TablesDB reads, function executions, account, storage) in a Workbox `NetworkFirst` cache. This duplicated `imageCache.ts`'s job for images and stood as a competing cache authority for data the sync engine treats as server-owned. Deleted entirely: the SW precaches the app shell only; data is RxDB + the sync engine; images are `imageCache.ts`.
-- PWA-2 High [resolved 1.5] — `globPatterns` lacked `woff2` and `wasm`, so any future font or WASM asset would silently drop out of the precache. Added both.
-- PWA-3 Medium [resolved 1.5] — No explicit `navigateFallback` for SPA routes; cold-loading `/messages/abc123` offline could 404 from the SW. Added `navigateFallback: 'index.html'` plus a `navigateFallbackDenylist` for `/v1/*` and `/api/*` to document that Appwrite REST paths must never be rewritten to the app shell.
-- PWA-4 Medium [resolved 1.5] — `registerType: 'autoUpdate'` with default `skipWaiting`/`clientsClaim` swaps the SW mid-session; a deploy landing during an in-flight RxDB write can orphan the transaction. Set `skipWaiting: false` and `clientsClaim: false` so the new SW applies on next full relaunch. An update-prompt UI is Phase 3.5+.
-- PWA-5 Low [resolved 1.5] — `includeAssets` listed `favicon.ico` and `masked-icon.svg`, neither of which exists in `public/` and neither of which is referenced. Dropped both; kept `apple-touch-icon.png` (referenced in `index.html`).
-- PWA-6 Low [resolved 1.5] — `index.html` referenced `/vite.svg` (the Vite default) as its favicon. Replaced with `/apple-touch-icon.png` so there is exactly one icon asset and it matches the manifest.
-- Non-findings (verified correct): OFF-5, E2, E3, F4, F5, F6, G1, G2, G3, H1, H2, H3, I1–I7. PWA config items verified correct and unchanged: `theme_color`/`background_color` match `index.html`; `display: 'standalone'`; `orientation: 'portrait'`; `start_url: '/'`; icons 192 + 512 with `purpose: 'any maskable'` on the 512.
+- OFF-2 through OFF-13 — resolved (see prior state).
+- RT-1 through RT-4 — resolved 1.2.
+- ERR-1 through ERR-4 — resolved 1.3.
+- STO-1 — resolved 1.4.
+- PWA-1 through PWA-6 — resolved 1.5.
+- A11Y-1 High [resolved 1.6] — `BottomSheet` had no `role="dialog"`, `aria-modal`, or `aria-labelledby`. Added all three; `titleId` is derived from `useId()` and bound to the optional `title`. Backdrop marked `aria-hidden="true"`.
+- A11Y-2 High [resolved 1.6] — `BottomSheet` had no focus trap and no focus restore. Added `useFocusTrap` (new hook, ~90 lines, no new dependency): focuses the first focusable descendant on activation, wraps Tab/Shift+Tab within the sheet, restores focus to the previously-focused element on close. Skips `disabled` and `aria-hidden="true"` elements so a nested locked sheet does not steal focus.
+- A11Y-3 Medium [resolved 1.6] — the drag handle is a pointer-only affordance and remains so; but its visual indicator (the small grey bar) is now `aria-hidden="true"` and the sheet's dismiss path via Escape is documented as the keyboard equivalent. No `role` added to the handle itself, because the handle is not a control — it is a drag target with a keyboard-reachable alternative (Escape).
+- A11Y-5 Medium [resolved 1.6] — `Button` had `focus:outline-none` with no replacement. Added `focus-visible:ring-2 focus-visible:ring-emerald-500/60 focus-visible:ring-offset-2 focus-visible:ring-offset-[#111111]` to `baseStyles`. Applies to every variant.
+- A11Y-6 Medium [resolved 1.6 — documented] — `variant="icon"` buttons are unnamed by convention. Documented as a per-callsite obligation in the variant's comment with a pointer to §14; callsite audit happens in 1.7.a–c. No primitive change: an accessible name cannot be synthesized from an icon child.
+- A11Y-7 High [resolved 1.6] — `Input` and `Textarea` rendered their `<label>` as a sibling, not associated. Both now use `useId()` and bind `htmlFor`/`id`, respecting a caller-supplied `id` prop when present.
+- A11Y-8 Low [resolved 1.6] — `Input` and `Textarea` had `focus:outline-none` with only a weak border-color signal. Added the same `focus-visible` ring as `Button`.
+- A11Y-9 High [resolved 1.6] — `BottomNav` tab buttons had no `aria-label` and no selected-state indication. Added `aria-label={tab.label}` (or the unread-augmented label) and `aria-current={isActive ? 'page' : undefined}`.
+- A11Y-10 Medium [resolved 1.6] — the unread badge was a bare `<div>` with a number, and the visible `<span>` tab label was reachable text. Both are now `aria-hidden="true"`; the badge count is folded into the button's `aria-label` (`"Chat, 3 unread"`).
+- A11Y-11 Low [resolved 1.6] — `<nav>` had no label. Added `aria-label="Main"`.
+- A11Y-12 High [deferred to 1.7.a] — `MessageBubble` gesture surface has no keyboard equivalent. Scope noted in this batch's plan.
+- A11Y-13 Medium [deferred to 1.7.a] — no `aria-live` region for message status transitions.
+- A11Y-15 through A11Y-17 [deferred to 1.7.a] — `MessageComposer` textarea label, character-count `aria-describedby`.
+- A11Y-18 through A11Y-20 [deferred to 1.7.b] — `TaskItem` title/toggle/memo/image controls are pointer-only `<div>`s.
+- A11Y-21 through A11Y-23 [deferred to 1.7.b] — `CategorySection` pill and inline add button.
+- A11Y-4 Low [non-finding] — the backdrop's `onClick` is not keyboard-reachable; correct for a modal backdrop. No change.
+- A11Y-14 Low [non-finding] — `data-message-id` is correctly exposed. No change.
+- Non-findings (verified correct): OFF-5, E2, E3, F4, F5, F6, G1, G2, G3, H1, H2, H3, I1–I7.
 Decisions:
 - [2026-09-16] Chat 1 may emit docs-only mega files directly. → chore-c.
 - [2026-09-16] §25.6 example block uses 3 backticks; should be 4. [resolved 2026-09-17 in chore-f]
@@ -68,27 +73,24 @@ Decisions:
 - [2026-09-17] OQ1–OQ6 from chore-f. → chore-f.
 - [2026-09-17] §0 dedup follow-up. → chore-f.
 - [2026-09-17] CHORE-G rationale (five items). → chore-g.
-- [2026-09-17] OFF-11 UX: single non-blocking banner above the calendar. → 1.1.fix.b.
-- [2026-09-17] OFF-13 UX: pre-check `navigator.onLine === false` and return `'timeout'`. → 1.1.fix.b.
-- [2026-09-17] OFF-12 UX: extend success toast with missing-image count. → 1.1.fix.b.
-- [2026-09-17] OFF-2 fix: raw `account` client in `resolveAuthenticatedUserId`. → 1.1.fix.b.
-- [2026-09-17] OFF-4 fix: `console.warn` per dropped entry in `enqueueMessageAction`. → 1.1.fix.b.
-- [2026-09-17] Batch 1.2 scope: Option A (full realtime layer over all six tables). → 1.2.
-- [2026-09-17] Realtime application policy mirrors sync pull loop. → 1.2.
-- [2026-09-17] Realtime lifecycle owned by `AppLayout`; `guardedRealtime.subscribe` returns plain `() => void`. → 1.2.
+- [2026-09-17] OFF-11 through OFF-13, OFF-2, OFF-4 fixes. → 1.1.fix.b.
+- [2026-09-17] Batch 1.2 scope: Option A (realtime over all six tables). → 1.2.
+- [2026-09-17] Realtime policy mirrors sync pull loop. → 1.2.
+- [2026-09-17] Realtime lifecycle owned by `AppLayout`. → 1.2.
 - [2026-09-17] Batch 1.3 scope: Option 3 (top-level + per-route boundaries). → 1.3.
-- [2026-09-17] `ErrorBoundary` is a class component with `[ErrorBoundary:<label>]` log prefix. → 1.3.
-- [2026-09-17] `App.tsx` restructured: `AppWithErrorBoundary` is the default export; `App` is a named export. → 1.3.
-- [2026-09-17] Batch 1.4 scope: (a) `storage.ts` imports the cache trio from `imageCache.ts`; (b) OFF-6 documented only, LRU cap deferred to Phase 3. → 1.4.
-- [2026-09-17] Batch 1.5 scope: Option 2 (audit + fix). Rationale: Option 3's runtime caching for Appwrite images would duplicate the 1.4 `imageCache.ts` layer; its `beforeinstallprompt` / SW-update UI is product work (Phase 3.5+); its offline fallback page would be overwritten by OFF-1's H1 resolution. → 1.5.
-- [2026-09-17] PWA-1 fix: delete `runtimeCaching` entirely. The SW is not a data cache. `imageCache.ts` owns image blobs (§15); the sync engine owns data reconciliation; the SW owns the app shell. Three caches with three different invalidation policies is worse than two. → 1.5.
-- [2026-09-17] PWA-4 fix: keep `registerType: 'autoUpdate'`, set `skipWaiting: false` + `clientsClaim: false`. Conservative middle ground — no mid-session swap, no UI required. An update-prompt UI is Phase 3.5+. → 1.5.
+- [2026-09-17] Batch 1.4 scope: `imageCache.ts` becomes single cache owner; OFF-6 documented only. → 1.4.
+- [2026-09-17] Batch 1.5 scope: Option 2 (audit + fix); PWA-1 through PWA-6 fixes; SW is app-shell-only. → 1.5.
+- [2026-09-17] Batch 1.6 scope: Q1=1 (interactive semantics only), Q2=a (`<motion.div>` → `<motion.button>` where applicable), Q3=split by domain. This batch is sub-batch 1 (primitives + BottomSheet + BottomNav). Sub-batches 1.7.a–c added to BatchPlan within Phase 1; the phase closes after 1.7.c. → 1.6.
+- [2026-09-17] Focus trap: local `useFocusTrap` hook, no new dependency. One call site does not justify `focus-trap-react`. The trap filters `disabled` and `aria-hidden="true"` elements so a nested locked sheet's children do not receive focus. → 1.6.
+- [2026-09-17] `Button variant="icon"` `aria-label` obligation documented in the variant comment; no runtime dev warning (would be a new behavior, not an existing pattern; deferred unless it recurs as a bug class). → 1.6.
+- [2026-09-17] `MessageBubble` keyboard parity (A11Y-12): `Enter` opens the action sheet, which contains Reply and the emoji row — preserving feature parity with swipe-reply and double-tap-react without inventing new UI. Implemented in 1.7.a, not this batch. → 1.6 (decision), 1.7.a (implementation).
 Deferred:
 - OFF-1 → blocked on H1 decision.
 - OFF-3 local-image-queue half → separate batch.
 - Realtime channel-level reconnection backoff → future batch.
 - OFF-6 LRU cap with byte budget → Phase 3 (optimize).
-- PWA update-prompt UI (`registerType: 'prompt'` + toast) → Phase 3.5+ feature work.
-- `beforeinstallprompt` capture + "Install app" affordance → Phase 3.5+ feature work.
-LastApply: 2026-09-17 — refactor: consolidate blob cache into imageCache.ts (Item 7 residual, OFF-6, OFF-7)
-LastAuditSummary: Batch 1.5 shipped — SW is now app-shell-only. Deleted the Appwrite `runtimeCaching` block (PWA-1); added `woff2`/`wasm` to `globPatterns` (PWA-2); set `navigateFallback: 'index.html'` + denylist (PWA-3); disabled `skipWaiting`/`clientsClaim` to prevent mid-session SW swap (PWA-4); dropped two non-existent assets from `includeAssets` (PWA-5); replaced `/vite.svg` favicon with `/apple-touch-icon.png` (PWA-6).
+- PWA update-prompt UI, `beforeinstallprompt` affordance → Phase 3.5+ feature work.
+- Full WCAG AA audit (contrast, reduced-motion, landmarks, skip link, form-field associations beyond Input) → Phase 4 meta-audit.
+- A11Y-12 through A11Y-23 → 1.7.a–c within this phase.
+LastApply: 2026-09-17 — fix: PWA / service worker audit — app-shell-only SW, SPA navigation fallback, no mid-session swap
+LastAuditSummary: Batch 1.6 (sub-batch 1 of 4) shipped — primitives layer accessibility: `BottomSheet` role/aria-modal/aria-labelledby + focus trap + focus restore; `Button` and `Input`/`Textarea` focus-visible rings; `Input`/`Textarea` label association via `useId`; `BottomNav` aria-label, aria-current, unread-in-label, `aria-hidden` on decorative elements. New `useFocusTrap` hook (no new dependency). Sub-batches 1.7.a–c queued.
