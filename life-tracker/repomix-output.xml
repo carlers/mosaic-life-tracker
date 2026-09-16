@@ -167,8 +167,10 @@ src/
     mockData.ts
     reactionUtils.ts
     sdk.ts
+    settingsRowId.ts
     social.ts
     storage.ts
+    syncMapping.ts
     threads.ts
     useFriendCalendar.ts
     visibility.ts
@@ -187,6 +189,24 @@ src/
   App.tsx
   index.css
   main.tsx
+tests/
+  handlers/
+    deliver.test.ts
+    getFriendCalendar.test.ts
+    markRead.test.ts
+    react.test.ts
+    reactToTask.test.ts
+    unsend.test.ts
+  helpers/
+    invoke-handler.ts
+  unit/
+    appwriteParity.test.ts
+    reactionUtils.test.ts
+    settingsRowId.test.ts
+    syncMapping.test.ts
+    threads.test.ts
+    visibility.test.ts
+  tsconfig.json
 .gitignore
 apply-changes.mjs
 eslint.config.js
@@ -199,6 +219,7 @@ tsconfig.app.json
 tsconfig.json
 tsconfig.node.json
 vite.config.ts
+vitest.config.ts
 </directory_structure>
 
 <files>
@@ -254,7 +275,6 @@ function validateOptionalIso(value, maxLen) {
   if (Number.isNaN(Date.parse(r.value))) return { ok: false };
   return r;
 }
-// Emoji: non-empty after trim, ≤16 graphemes.
 function validateEmoji(value) {
   if (typeof value !== 'string') return { ok: false };
   const trimmed = value.trim();
@@ -743,9 +763,6 @@ async function cascadeReplyWipe(
   log(`unsend cascade: wiped ${total} reply snapshot(s) for ${senderMessageId}`);
   return total;
 }
-// ---------------------------------------------------------------------------
-// unsend (add messageId/recipientId validation — V3, V8)
-// ---------------------------------------------------------------------------
 async function handleUnsend(tablesDB, callerId, payload, log, error) {
   const p = payload || {};
   if (!isValidRowId(p.messageId)) {
@@ -898,7 +915,7 @@ async function resolveLegacyPeerRowId(tablesDB, myRow, log) {
     const candidates = [];
     let cursor = undefined;
     let pages = 0;
-    const MAX_PAGES = 5; // safety cap: up to 500 rows scanned
+    const MAX_PAGES = 5;
     for (;;) {
       const queries = [
         Query.equal('user_id', senderId),
@@ -1007,8 +1024,6 @@ async function handleReact(tablesDB, callerId, payload, log, error) {
     }
   }
   const targets = [myRowId, effectivePeerRowId].filter(Boolean);
-  // Pass A: read + compute + validate both rows before any write so a
-  // one-row overflow cannot leave the pair partially committed.
   const prepared = [];
   for (const rowId of targets) {
     try {
@@ -1256,7 +1271,7 @@ async function handleGetFriendCalendar(tablesDB, callerId, payload, log, error) 
     },
   };
 }
-module.exports = async ({ req, res, log, error }) => {
+const handler = async ({ req, res, log, error }) => {
   const callerId = req.headers['x-appwrite-user-id'];
   if (!callerId) {
     error('Unauthorized: no x-appwrite-user-id header');
@@ -1319,6 +1334,12 @@ module.exports = async ({ req, res, log, error }) => {
     return res.json({ error: 'An internal error occurred' }, 500);
   }
 };
+handler.sha256Hex = sha256Hex;
+handler.makeRecipientRowId = makeRecipientRowId;
+handler.parseReactions = parseReactions;
+handler.stringifyReactions = stringifyReactions;
+handler.applyReactionDelta = applyReactionDelta;
+module.exports = handler;
 </file>
 
 <file path="appwrite-functions/message-action/package.json">
@@ -9294,6 +9315,8 @@ import { getDatabase, type AppDatabaseCollections } from './database';
 import { Permission, Role, Query } from 'appwrite';
 import { isUnauthorizedError } from '../lib/authEvents';
 import { guardedTablesDB, guardedAccount } from '../lib/sdk';
+import { toAppwriteFormat, fromAppwriteFormat } from '../lib/syncMapping';
+export { toAppwriteFormat, fromAppwriteFormat };
 const APPWRITE_CONFIG = {
   endpoint: 'https://sgp.cloud.appwrite.io',
   projectId: '6a9703c50016b37110ff',
@@ -9397,7 +9420,6 @@ export function subscribeToSyncStatus(listener: SyncListener): () => void {
   };
 }
 type AppwriteRow = Record<string, unknown>;
-type AppwritePayload = Record<string, unknown>;
 type LocalDoc = {
   id: string;
   _meta?: { lwt?: number };
@@ -9437,222 +9459,6 @@ function isRateLimitError(err: unknown): boolean {
 function isNotFoundError(err: unknown): boolean {
   const code = (err as { code?: number } | null)?.code;
   return code === 404;
-}
-function toAppwriteFormat(
-  doc: Record<string, unknown>,
-  collection: string,
-  userId: string
-): AppwritePayload {
-  const source: Record<string, unknown> = { ...doc };
-  delete source._meta;
-  delete source._deleted;
-  delete source._rev;
-  const mapped: AppwritePayload = {};
-  if (collection === 'tasks') {
-    mapped.title = source.title || '';
-    mapped.is_completed = source.completed ?? false;
-    mapped.category_id = source.categoryId || '';
-    mapped.tags = source.tags || '';
-    mapped.date = source.date || '';
-    mapped.memo = source.memo || '';
-    mapped.image = source.image || '';
-    mapped.created_at = source.createdAt || new Date().toISOString();
-    mapped.completed_at = source.completedAt || '';
-    mapped.updated_at = source.updatedAt || new Date().toISOString();
-    mapped.user_id = userId;
-    mapped.deleted = source.isDeleted ?? false;
-    mapped.visibility = source.visibility ?? '';
-    mapped.source = source.source || '';
-    mapped.routine_id = source.routineId || '';
-    mapped.reminder_time = source.reminderTime || '';
-    mapped.reactions = source.reactions || '';
-  } else if (collection === 'categories') {
-    mapped.name = source.name || '';
-    mapped.color = source.color || '#3B82F6';
-    mapped.visibility = source.visibility || 'private';
-    mapped.order = source.order ?? 0;
-    mapped.user_id = userId;
-    mapped.deleted = source.isDeleted ?? false;
-    mapped.icon = source.icon || '';
-  } else if (collection === 'diary') {
-    mapped.date = source.date || '';
-    mapped.content = source.content || '';
-    mapped.visibility = source.visibility || 'private';
-    mapped.user_id = userId;
-    mapped.deleted = source.isDeleted ?? false;
-    mapped.created_at = source.createdAt || new Date().toISOString();
-    mapped.updated_at = source.updatedAt || new Date().toISOString();
-  } else if (collection === 'settings') {
-    mapped.user_id = userId;
-    mapped.key = source.key || '';
-    mapped.value = source.value || '';
-    mapped.deleted = source.isDeleted ?? false;
-  } else if (collection === 'friendships') {
-    mapped.user_id = userId;
-    mapped.friend_id = source.friendId || '';
-    mapped.friend_username = source.friendUsername || '';
-    mapped.friend_display_name = source.friendDisplayName || '';
-    mapped.friend_avatar_file_id = source.friendAvatarFileId || '';
-    mapped.friend_bio = source.friendBio || '';
-    mapped.status = source.status || 'pending_outgoing';
-    mapped.created_at = source.createdAt || new Date().toISOString();
-    mapped.updated_at = source.updatedAt || new Date().toISOString();
-    mapped.deleted = source.isDeleted ?? false;
-  } else if (collection === 'messages') {
-    mapped.user_id = userId;
-    mapped.thread_id = source.threadId || '';
-    mapped.sender_id = source.senderId || '';
-    mapped.recipient_id = source.recipientId || '';
-    mapped.direction = source.direction || 'outgoing';
-    mapped.content = source.content || '';
-    mapped.task_ref_id = source.taskRefId || '';
-    mapped.task_ref_title = source.taskRefTitle || '';
-    mapped.task_ref_date = source.taskRefDate || '';
-    mapped.task_ref_color = source.taskRefColor || '';
-    mapped.reply_to_id = source.replyToId || '';
-    mapped.reply_to_content = source.replyToContent || '';
-    mapped.reply_to_sender_id = source.replyToSenderId || '';
-    mapped.is_unsent = source.isUnsent ?? false;
-    mapped.original_message_id = source.originalMessageId || '';
-    mapped.reactions = source.reactions || '';
-    // read_at is server-owned on outgoing rows (§12) — omit it to avoid
-    // overwriting the read receipt written by the mark_read action.
-    if (source.direction !== 'outgoing') {
-      mapped.read_at = source.readAt || '';
-    }
-    mapped.delivery_status = source.deliveryStatus || 'delivered';
-    mapped.created_at = source.createdAt || new Date().toISOString();
-    mapped.updated_at = source.updatedAt || new Date().toISOString();
-    mapped.deleted = source.isDeleted ?? false;
-  }
-  return mapped;
-}
-function fromAppwriteFormat(
-  row: AppwriteRow,
-  collection: string
-): Record<string, unknown> {
-  const mapped: Record<string, unknown> = { ...row };
-  delete mapped.$id;
-  delete mapped.$createdAt;
-  delete mapped.$updatedAt;
-  delete mapped.$permissions;
-  delete mapped.$databaseId;
-  delete mapped.$tableId;
-  delete mapped.$sequence;
-  if (collection === 'tasks') {
-    mapped.id = row.$id || mapped.id;
-    mapped.completed = mapped.is_completed ?? false;
-    mapped.categoryId = mapped.category_id || '';
-    mapped.createdAt = mapped.created_at || new Date().toISOString();
-    mapped.completedAt = mapped.completed_at || '';
-    mapped.updatedAt = mapped.updated_at || new Date().toISOString();
-    mapped.userId = mapped.user_id;
-    mapped.isDeleted = mapped.deleted ?? false;
-    mapped.visibility = (row.visibility as string) ?? '';
-    mapped.source = row.source || '';
-    mapped.tags = row.tags || '';
-    mapped.memo = row.memo || '';
-    mapped.image = row.image || '';
-    mapped.routineId = row.routine_id || '';
-    mapped.reminderTime = row.reminder_time || '';
-    mapped.reactions = row.reactions || '';
-    delete mapped.is_completed;
-    delete mapped.category_id;
-    delete mapped.created_at;
-    delete mapped.completed_at;
-    delete mapped.updated_at;
-    delete mapped.user_id;
-    delete mapped.deleted;
-    delete mapped.routine_id;
-    delete mapped.reminder_time;
-  } else if (collection === 'categories') {
-    mapped.id = row.$id || mapped.id;
-    mapped.userId = mapped.user_id;
-    mapped.isDeleted = mapped.deleted ?? false;
-    mapped.icon = row.icon || '';
-    delete mapped.user_id;
-    delete mapped.deleted;
-  } else if (collection === 'diary') {
-    mapped.id = row.$id || mapped.id;
-    mapped.userId = mapped.user_id;
-    mapped.isDeleted = mapped.deleted ?? false;
-    mapped.createdAt = mapped.created_at || new Date().toISOString();
-    mapped.updatedAt = mapped.updated_at || new Date().toISOString();
-    mapped.content = row.content || '';
-    delete mapped.user_id;
-    delete mapped.deleted;
-    delete mapped.created_at;
-    delete mapped.updated_at;
-  } else if (collection === 'settings') {
-    mapped.id = row.$id || mapped.id;
-    mapped.userId = mapped.user_id;
-    mapped.isDeleted = mapped.deleted ?? false;
-    delete mapped.user_id;
-    delete mapped.deleted;
-  } else if (collection === 'friendships') {
-    mapped.id = row.$id || mapped.id;
-    mapped.userId = mapped.user_id;
-    mapped.friendId = mapped.friend_id || '';
-    mapped.friendUsername = mapped.friend_username || '';
-    mapped.friendDisplayName = mapped.friend_display_name || '';
-    mapped.friendAvatarFileId = mapped.friend_avatar_file_id || '';
-    mapped.friendBio = mapped.friend_bio || '';
-    mapped.status = mapped.status || 'pending_outgoing';
-    mapped.createdAt = mapped.created_at || new Date().toISOString();
-    mapped.updatedAt = mapped.updated_at || new Date().toISOString();
-    mapped.isDeleted = mapped.deleted ?? false;
-    delete mapped.user_id;
-    delete mapped.friend_id;
-    delete mapped.friend_username;
-    delete mapped.friend_display_name;
-    delete mapped.friend_avatar_file_id;
-    delete mapped.friend_bio;
-    delete mapped.created_at;
-    delete mapped.updated_at;
-    delete mapped.deleted;
-  } else if (collection === 'messages') {
-    mapped.id = row.$id || mapped.id;
-    mapped.userId = mapped.user_id;
-    mapped.threadId = mapped.thread_id || '';
-    mapped.senderId = mapped.sender_id || '';
-    mapped.recipientId = mapped.recipient_id || '';
-    mapped.direction = mapped.direction || 'outgoing';
-    mapped.content = mapped.content || '';
-    mapped.taskRefId = mapped.task_ref_id || '';
-    mapped.taskRefTitle = mapped.task_ref_title || '';
-    mapped.taskRefDate = mapped.task_ref_date || '';
-    mapped.taskRefColor = mapped.task_ref_color || '';
-    mapped.replyToId = mapped.reply_to_id || '';
-    mapped.replyToContent = mapped.reply_to_content || '';
-    mapped.replyToSenderId = mapped.reply_to_sender_id || '';
-    mapped.isUnsent = mapped.is_unsent ?? false;
-    mapped.originalMessageId = mapped.original_message_id || '';
-    mapped.reactions = mapped.reactions || '';
-    mapped.readAt = mapped.read_at || '';
-    mapped.deliveryStatus = mapped.delivery_status || 'delivered';
-    mapped.createdAt = mapped.created_at || new Date().toISOString();
-    mapped.updatedAt = mapped.updated_at || new Date().toISOString();
-    mapped.isDeleted = mapped.deleted ?? false;
-    delete mapped.user_id;
-    delete mapped.thread_id;
-    delete mapped.sender_id;
-    delete mapped.recipient_id;
-    delete mapped.task_ref_id;
-    delete mapped.task_ref_title;
-    delete mapped.task_ref_date;
-    delete mapped.task_ref_color;
-    delete mapped.reply_to_id;
-    delete mapped.reply_to_content;
-    delete mapped.reply_to_sender_id;
-    delete mapped.is_unsent;
-    delete mapped.original_message_id;
-    delete mapped.read_at;
-    delete mapped.delivery_status;
-    delete mapped.created_at;
-    delete mapped.updated_at;
-    delete mapped.deleted;
-  }
-  return mapped;
 }
 function buildRowPermissions(userId: string) {
   return [
@@ -9914,8 +9720,6 @@ async function syncCollection(
     dirty: entry?.dirty ?? '',
   };
   savePerCollectionState(userId, perCollectionSync);
-  // Messages are excluded from the push loop. Every message row is written
-  // server-side by the `message-action` function.
   if (colName !== 'messages') {
     const localDocs = await collection.find().exec();
     for (const doc of localDocs) {
@@ -12036,24 +11840,10 @@ export function useProfileLookup(debounceMs = 300): UseProfileLookupReturn {
 import { useState, useEffect, useCallback } from 'react';
 import { getDatabase } from '../db/database';
 import { useAuth } from './useAuth';
+import { makeSettingsRowId, MAX_ROW_ID_LENGTH } from '../lib/settingsRowId';
 import type { SettingsDocument } from '../db/schema';
+export { makeSettingsRowId };
 const DEBUG = import.meta.env.DEV;
-const MAX_ROW_ID_LENGTH = 36;
-function hashString(str: string): string {
-  let h1 = 5381;
-  let h2 = 52711;
-  for (let i = 0; i < str.length; i++) {
-    const c = str.charCodeAt(i);
-    h1 = ((h1 << 5) + h1 + c) | 0;
-    h2 = ((h2 << 5) + h2 + c * 31) | 0;
-  }
-  return (h1 >>> 0).toString(36) + (h2 >>> 0).toString(36);
-}
-function makeSettingsRowId(userId: string, key: string): string {
-  const raw = `${userId}_${key}`;
-  if (raw.length <= MAX_ROW_ID_LENGTH) return raw;
-  return `s_${hashString(raw)}`;
-}
 export function useSettings() {
   const { user } = useAuth();
   const userId = user?.$id;
@@ -13514,6 +13304,25 @@ export const guardedAccount = {
 };
 </file>
 
+<file path="src/lib/settingsRowId.ts">
+export const MAX_ROW_ID_LENGTH = 36;
+export function hashString(str: string): string {
+  let h1 = 5381;
+  let h2 = 52711;
+  for (let i = 0; i < str.length; i++) {
+    const c = str.charCodeAt(i);
+    h1 = ((h1 << 5) + h1 + c) | 0;
+    h2 = ((h2 << 5) + h2 + c * 31) | 0;
+  }
+  return (h1 >>> 0).toString(36) + (h2 >>> 0).toString(36);
+}
+export function makeSettingsRowId(userId: string, key: string): string {
+  const raw = `${userId}_${key}`;
+  if (raw.length <= MAX_ROW_ID_LENGTH) return raw;
+  return `s_${hashString(raw)}`;
+}
+</file>
+
 <file path="src/lib/social.ts">
 import { Permission, Role, Query } from 'appwrite';
 import { getDatabase } from '../db/database';
@@ -14015,6 +13824,225 @@ export function getImageFullUrl(fileId: string): string {
     fileId: fileId,
   });
   return url.toString();
+}
+</file>
+
+<file path="src/lib/syncMapping.ts">
+type AppwriteRow = Record<string, unknown>;
+type AppwritePayload = Record<string, unknown>;
+export function toAppwriteFormat(
+  doc: Record<string, unknown>,
+  collection: string,
+  userId: string
+): AppwritePayload {
+  const source: Record<string, unknown> = { ...doc };
+  delete source._meta;
+  delete source._deleted;
+  delete source._rev;
+  const mapped: AppwritePayload = {};
+  if (collection === 'tasks') {
+    mapped.title = source.title || '';
+    mapped.is_completed = source.completed ?? false;
+    mapped.category_id = source.categoryId || '';
+    mapped.tags = source.tags || '';
+    mapped.date = source.date || '';
+    mapped.memo = source.memo || '';
+    mapped.image = source.image || '';
+    mapped.created_at = source.createdAt || new Date().toISOString();
+    mapped.completed_at = source.completedAt || '';
+    mapped.updated_at = source.updatedAt || new Date().toISOString();
+    mapped.user_id = userId;
+    mapped.deleted = source.isDeleted ?? false;
+    mapped.visibility = source.visibility ?? '';
+    mapped.source = source.source || '';
+    mapped.routine_id = source.routineId || '';
+    mapped.reminder_time = source.reminderTime || '';
+    mapped.reactions = source.reactions || '';
+  } else if (collection === 'categories') {
+    mapped.name = source.name || '';
+    mapped.color = source.color || '#3B82F6';
+    mapped.visibility = source.visibility || 'private';
+    mapped.order = source.order ?? 0;
+    mapped.user_id = userId;
+    mapped.deleted = source.isDeleted ?? false;
+    mapped.icon = source.icon || '';
+  } else if (collection === 'diary') {
+    mapped.date = source.date || '';
+    mapped.content = source.content || '';
+    mapped.visibility = source.visibility || 'private';
+    mapped.user_id = userId;
+    mapped.deleted = source.isDeleted ?? false;
+    mapped.created_at = source.createdAt || new Date().toISOString();
+    mapped.updated_at = source.updatedAt || new Date().toISOString();
+  } else if (collection === 'settings') {
+    mapped.user_id = userId;
+    mapped.key = source.key || '';
+    mapped.value = source.value || '';
+    mapped.deleted = source.isDeleted ?? false;
+  } else if (collection === 'friendships') {
+    mapped.user_id = userId;
+    mapped.friend_id = source.friendId || '';
+    mapped.friend_username = source.friendUsername || '';
+    mapped.friend_display_name = source.friendDisplayName || '';
+    mapped.friend_avatar_file_id = source.friendAvatarFileId || '';
+    mapped.friend_bio = source.friendBio || '';
+    mapped.status = source.status || 'pending_outgoing';
+    mapped.created_at = source.createdAt || new Date().toISOString();
+    mapped.updated_at = source.updatedAt || new Date().toISOString();
+    mapped.deleted = source.isDeleted ?? false;
+  } else if (collection === 'messages') {
+    mapped.user_id = userId;
+    mapped.thread_id = source.threadId || '';
+    mapped.sender_id = source.senderId || '';
+    mapped.recipient_id = source.recipientId || '';
+    mapped.direction = source.direction || 'outgoing';
+    mapped.content = source.content || '';
+    mapped.task_ref_id = source.taskRefId || '';
+    mapped.task_ref_title = source.taskRefTitle || '';
+    mapped.task_ref_date = source.taskRefDate || '';
+    mapped.task_ref_color = source.taskRefColor || '';
+    mapped.reply_to_id = source.replyToId || '';
+    mapped.reply_to_content = source.replyToContent || '';
+    mapped.reply_to_sender_id = source.replyToSenderId || '';
+    mapped.is_unsent = source.isUnsent ?? false;
+    mapped.original_message_id = source.originalMessageId || '';
+    mapped.reactions = source.reactions || '';
+    if (source.direction !== 'outgoing') {
+      mapped.read_at = source.readAt || '';
+    }
+    mapped.delivery_status = source.deliveryStatus || 'delivered';
+    mapped.created_at = source.createdAt || new Date().toISOString();
+    mapped.updated_at = source.updatedAt || new Date().toISOString();
+    mapped.deleted = source.isDeleted ?? false;
+  }
+  return mapped;
+}
+export function fromAppwriteFormat(
+  row: AppwriteRow,
+  collection: string
+): Record<string, unknown> {
+  const mapped: Record<string, unknown> = { ...row };
+  delete mapped.$id;
+  delete mapped.$createdAt;
+  delete mapped.$updatedAt;
+  delete mapped.$permissions;
+  delete mapped.$databaseId;
+  delete mapped.$tableId;
+  delete mapped.$sequence;
+  if (collection === 'tasks') {
+    mapped.id = row.$id || mapped.id;
+    mapped.completed = mapped.is_completed ?? false;
+    mapped.categoryId = mapped.category_id || '';
+    mapped.createdAt = mapped.created_at || new Date().toISOString();
+    mapped.completedAt = mapped.completed_at || '';
+    mapped.updatedAt = mapped.updated_at || new Date().toISOString();
+    mapped.userId = mapped.user_id;
+    mapped.isDeleted = mapped.deleted ?? false;
+    mapped.visibility = (row.visibility as string) ?? '';
+    mapped.source = row.source || '';
+    mapped.tags = row.tags || '';
+    mapped.memo = row.memo || '';
+    mapped.image = row.image || '';
+    mapped.routineId = row.routine_id || '';
+    mapped.reminderTime = row.reminder_time || '';
+    mapped.reactions = row.reactions || '';
+    delete mapped.is_completed;
+    delete mapped.category_id;
+    delete mapped.created_at;
+    delete mapped.completed_at;
+    delete mapped.updated_at;
+    delete mapped.user_id;
+    delete mapped.deleted;
+    delete mapped.routine_id;
+    delete mapped.reminder_time;
+  } else if (collection === 'categories') {
+    mapped.id = row.$id || mapped.id;
+    mapped.userId = mapped.user_id;
+    mapped.isDeleted = mapped.deleted ?? false;
+    mapped.icon = row.icon || '';
+    delete mapped.user_id;
+    delete mapped.deleted;
+  } else if (collection === 'diary') {
+    mapped.id = row.$id || mapped.id;
+    mapped.userId = mapped.user_id;
+    mapped.isDeleted = mapped.deleted ?? false;
+    mapped.createdAt = mapped.created_at || new Date().toISOString();
+    mapped.updatedAt = mapped.updated_at || new Date().toISOString();
+    mapped.content = row.content || '';
+    delete mapped.user_id;
+    delete mapped.deleted;
+    delete mapped.created_at;
+    delete mapped.updated_at;
+  } else if (collection === 'settings') {
+    mapped.id = row.$id || mapped.id;
+    mapped.userId = mapped.user_id;
+    mapped.isDeleted = mapped.deleted ?? false;
+    delete mapped.user_id;
+    delete mapped.deleted;
+  } else if (collection === 'friendships') {
+    mapped.id = row.$id || mapped.id;
+    mapped.userId = mapped.user_id;
+    mapped.friendId = mapped.friend_id || '';
+    mapped.friendUsername = mapped.friend_username || '';
+    mapped.friendDisplayName = mapped.friend_display_name || '';
+    mapped.friendAvatarFileId = mapped.friend_avatar_file_id || '';
+    mapped.friendBio = mapped.friend_bio || '';
+    mapped.status = mapped.status || 'pending_outgoing';
+    mapped.createdAt = mapped.created_at || new Date().toISOString();
+    mapped.updatedAt = mapped.updated_at || new Date().toISOString();
+    mapped.isDeleted = mapped.deleted ?? false;
+    delete mapped.user_id;
+    delete mapped.friend_id;
+    delete mapped.friend_username;
+    delete mapped.friend_display_name;
+    delete mapped.friend_avatar_file_id;
+    delete mapped.friend_bio;
+    delete mapped.created_at;
+    delete mapped.updated_at;
+    delete mapped.deleted;
+  } else if (collection === 'messages') {
+    mapped.id = row.$id || mapped.id;
+    mapped.userId = mapped.user_id;
+    mapped.threadId = mapped.thread_id || '';
+    mapped.senderId = mapped.sender_id || '';
+    mapped.recipientId = mapped.recipient_id || '';
+    mapped.direction = mapped.direction || 'outgoing';
+    mapped.content = mapped.content || '';
+    mapped.taskRefId = mapped.task_ref_id || '';
+    mapped.taskRefTitle = mapped.task_ref_title || '';
+    mapped.taskRefDate = mapped.task_ref_date || '';
+    mapped.taskRefColor = mapped.task_ref_color || '';
+    mapped.replyToId = mapped.reply_to_id || '';
+    mapped.replyToContent = mapped.reply_to_content || '';
+    mapped.replyToSenderId = mapped.reply_to_sender_id || '';
+    mapped.isUnsent = mapped.is_unsent ?? false;
+    mapped.originalMessageId = mapped.original_message_id || '';
+    mapped.reactions = mapped.reactions || '';
+    mapped.readAt = mapped.read_at || '';
+    mapped.deliveryStatus = mapped.delivery_status || 'delivered';
+    mapped.createdAt = mapped.created_at || new Date().toISOString();
+    mapped.updatedAt = mapped.updated_at || new Date().toISOString();
+    mapped.isDeleted = mapped.deleted ?? false;
+    delete mapped.user_id;
+    delete mapped.thread_id;
+    delete mapped.sender_id;
+    delete mapped.recipient_id;
+    delete mapped.task_ref_id;
+    delete mapped.task_ref_title;
+    delete mapped.task_ref_date;
+    delete mapped.task_ref_color;
+    delete mapped.reply_to_id;
+    delete mapped.reply_to_content;
+    delete mapped.reply_to_sender_id;
+    delete mapped.is_unsent;
+    delete mapped.original_message_id;
+    delete mapped.read_at;
+    delete mapped.delivery_status;
+    delete mapped.created_at;
+    delete mapped.updated_at;
+    delete mapped.deleted;
+  }
+  return mapped;
 }
 </file>
 
@@ -16405,6 +16433,2127 @@ async function bootstrap() {
 bootstrap();
 </file>
 
+<file path="tests/handlers/deliver.test.ts">
+import { describe, it, expect, beforeEach } from 'vitest';
+import { invoke, makeMockDb, type MockDb } from '../helpers/invoke-handler';
+const CALLER = 'user_a';
+const RECIPIENT = 'user_b';
+const MESSAGE_ID = 'msg_test_1';
+const friendshipRow = () => ({ $id: 'fr_test' });
+describe('message-action / deliver', () => {
+  let mockDb: MockDb;
+  beforeEach(() => {
+    mockDb = makeMockDb();
+  });
+  it('returns 400 when messageId is missing', async () => {
+    const res = await invoke({
+      userId: CALLER,
+      mockDb,
+      body: { action: 'deliver', recipientId: RECIPIENT, content: 'hi' },
+    });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe('Invalid messageId');
+  });
+  it('returns 400 when recipientId is missing', async () => {
+    const res = await invoke({
+      userId: CALLER,
+      mockDb,
+      body: { action: 'deliver', messageId: MESSAGE_ID, content: 'hi' },
+    });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe('Invalid recipientId');
+  });
+  it('returns 400 with "Invalid messageId format" when msg_ prefix is missing', async () => {
+    const res = await invoke({
+      userId: CALLER,
+      mockDb,
+      body: {
+        action: 'deliver',
+        messageId: 'not_a_msg_id',
+        recipientId: RECIPIENT,
+        content: 'hi',
+      },
+    });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe('Invalid messageId format');
+  });
+  it('returns 400 "Cannot message yourself" when recipientId equals callerId', async () => {
+    const res = await invoke({
+      userId: CALLER,
+      mockDb,
+      body: {
+        action: 'deliver',
+        messageId: MESSAGE_ID,
+        recipientId: CALLER,
+        content: 'hi',
+      },
+    });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe('Cannot message yourself');
+  });
+  it('returns 400 "Message has no content" when content and refs are all empty', async () => {
+    const res = await invoke({
+      userId: CALLER,
+      mockDb,
+      body: {
+        action: 'deliver',
+        messageId: MESSAGE_ID,
+        recipientId: RECIPIENT,
+        content: '   ',
+      },
+    });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe('Message has no content');
+  });
+  it('returns 403 when the caller is not friends with the recipient', async () => {
+    const res = await invoke({
+      userId: CALLER,
+      mockDb,
+      body: {
+        action: 'deliver',
+        messageId: MESSAGE_ID,
+        recipientId: RECIPIENT,
+        content: 'hi',
+      },
+    });
+    expect(res.status).toBe(403);
+    expect(res.body.error).toBe('Not friends with this user');
+    expect(mockDb.upsertRow).not.toHaveBeenCalled();
+  });
+  it('returns 403 when only the forward friendship is accepted', async () => {
+    mockDb.listRows
+      .mockResolvedValueOnce({ rows: [friendshipRow()] })
+      .mockResolvedValueOnce({ rows: [] });
+    const res = await invoke({
+      userId: CALLER,
+      mockDb,
+      body: {
+        action: 'deliver',
+        messageId: MESSAGE_ID,
+        recipientId: RECIPIENT,
+        content: 'hi',
+      },
+    });
+    expect(res.status).toBe(403);
+    expect(res.body.error).toBe('Not friends with this user');
+    expect(mockDb.upsertRow).not.toHaveBeenCalled();
+  });
+  it('successfully delivers: recipient row first, sender row second', async () => {
+    mockDb.listRows
+      .mockResolvedValueOnce({ rows: [friendshipRow()] })
+      .mockResolvedValueOnce({ rows: [friendshipRow()] });
+    const res = await invoke({
+      userId: CALLER,
+      mockDb,
+      body: {
+        action: 'deliver',
+        messageId: MESSAGE_ID,
+        recipientId: RECIPIENT,
+        content: 'hello',
+      },
+    });
+    expect(res.status).toBe(200);
+    expect(res.body.ok).toBe(true);
+    expect(res.body.recipientRowId).toMatch(/^rmsg_[a-f0-9]{30}$/);
+    expect(res.body.threadId).toMatch(/^th_[a-f0-9]{30}$/);
+    expect(mockDb.upsertRow).toHaveBeenCalledTimes(2);
+    const recipientCall = mockDb.upsertRow.mock.calls[0][0];
+    expect(recipientCall.rowId).toBe(res.body.recipientRowId);
+    expect(recipientCall.data.user_id).toBe(RECIPIENT);
+    expect(recipientCall.data.sender_id).toBe(CALLER);
+    expect(recipientCall.data.recipient_id).toBe(RECIPIENT);
+    expect(recipientCall.data.direction).toBe('incoming');
+    expect(recipientCall.data.original_message_id).toBe(MESSAGE_ID);
+    expect(recipientCall.permissions).toContain(`read("user:${RECIPIENT}")`);
+    expect(recipientCall.permissions).toContain(`update("user:${RECIPIENT}")`);
+    expect(recipientCall.permissions).toContain(`delete("user:${RECIPIENT}")`);
+    const senderCall = mockDb.upsertRow.mock.calls[1][0];
+    expect(senderCall.rowId).toBe(MESSAGE_ID);
+    expect(senderCall.data.user_id).toBe(CALLER);
+    expect(senderCall.data.direction).toBe('outgoing');
+    expect(senderCall.permissions).toContain(`read("user:${CALLER}")`);
+    expect(senderCall.permissions).toContain(`update("user:${CALLER}")`);
+    expect(senderCall.permissions).toContain(`delete("user:${CALLER}")`);
+  });
+  it('hijack guard: skips recipient upsert when the row already exists', async () => {
+    mockDb.listRows
+      .mockResolvedValueOnce({ rows: [friendshipRow()] })
+      .mockResolvedValueOnce({ rows: [friendshipRow()] });
+    mockDb.getRow
+      .mockRejectedValueOnce(Object.assign(new Error('Not found'), { code: 404 }))
+      .mockResolvedValueOnce({
+        user_id: RECIPIENT,
+        sender_id: CALLER,
+        recipient_id: RECIPIENT,
+        content: 'original content',
+        direction: 'incoming',
+      });
+    const res = await invoke({
+      userId: CALLER,
+      mockDb,
+      body: {
+        action: 'deliver',
+        messageId: MESSAGE_ID,
+        recipientId: RECIPIENT,
+        content: 'new content',
+      },
+    });
+    expect(res.status).toBe(200);
+    expect(res.body.ok).toBe(true);
+    const recipientRowId = res.body.recipientRowId as string;
+    for (const call of mockDb.upsertRow.mock.calls) {
+      expect(call[0].rowId).not.toBe(recipientRowId);
+    }
+  });
+});
+</file>
+
+<file path="tests/handlers/getFriendCalendar.test.ts">
+import { describe, it, expect, beforeEach } from 'vitest';
+import { invoke, makeMockDb, type MockDb } from '../helpers/invoke-handler';
+const CALLER = 'user_a';
+const FRIEND = 'user_b';
+const friendshipRow = () => ({ $id: 'fr_test' });
+describe('message-action / get_friend_calendar', () => {
+  let mockDb: MockDb;
+  beforeEach(() => {
+    mockDb = makeMockDb();
+  });
+  it('returns 400 when friendUserId is missing', async () => {
+    const res = await invoke({
+      userId: CALLER,
+      mockDb,
+      body: { action: 'get_friend_calendar' },
+    });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe('Invalid friendUserId');
+  });
+  it('returns 400 when friendUserId equals callerId', async () => {
+    const res = await invoke({
+      userId: CALLER,
+      mockDb,
+      body: { action: 'get_friend_calendar', friendUserId: CALLER },
+    });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe('Cannot query your own calendar');
+  });
+  it('returns 403 when the caller is not friends with the target', async () => {
+    const res = await invoke({
+      userId: CALLER,
+      mockDb,
+      body: { action: 'get_friend_calendar', friendUserId: FRIEND },
+    });
+    expect(res.status).toBe(403);
+    expect(res.body.error).toBe('Not friends with this user');
+  });
+  it('filters out private tasks', async () => {
+    mockDb.listRows
+      .mockResolvedValueOnce({ rows: [friendshipRow()] })
+      .mockResolvedValueOnce({ rows: [friendshipRow()] })
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            $id: 'cat_1',
+            user_id: FRIEND,
+            visibility: 'public',
+            order: 0,
+            deleted: false,
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            $id: 't1',
+            user_id: FRIEND,
+            category_id: 'cat_1',
+            visibility: 'public',
+            date: '2026-01-01',
+            deleted: false,
+          },
+          {
+            $id: 't2',
+            user_id: FRIEND,
+            category_id: 'cat_1',
+            visibility: 'private',
+            date: '2026-01-02',
+            deleted: false,
+          },
+        ],
+      });
+    const res = await invoke({
+      userId: CALLER,
+      mockDb,
+      body: { action: 'get_friend_calendar', friendUserId: FRIEND },
+    });
+    expect(res.status).toBe(200);
+    expect(res.body.tasks.map((t: { $id: string }) => t.$id)).toEqual(['t1']);
+  });
+  it('filters out private categories', async () => {
+    mockDb.listRows
+      .mockResolvedValueOnce({ rows: [friendshipRow()] })
+      .mockResolvedValueOnce({ rows: [friendshipRow()] })
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            $id: 'cat_1',
+            user_id: FRIEND,
+            visibility: 'public',
+            order: 0,
+            deleted: false,
+          },
+          {
+            $id: 'cat_2',
+            user_id: FRIEND,
+            visibility: 'private',
+            order: 1,
+            deleted: false,
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            $id: 't1',
+            user_id: FRIEND,
+            category_id: 'cat_1',
+            visibility: 'public',
+            date: '2026-01-01',
+            deleted: false,
+          },
+        ],
+      });
+    const res = await invoke({
+      userId: CALLER,
+      mockDb,
+      body: { action: 'get_friend_calendar', friendUserId: FRIEND },
+    });
+    expect(res.status).toBe(200);
+    expect(res.body.categories.map((c: { $id: string }) => c.$id)).toEqual([
+      'cat_1',
+    ]);
+  });
+  it('includes a public-override task on a private category; excludes the private category', async () => {
+    mockDb.listRows
+      .mockResolvedValueOnce({ rows: [friendshipRow()] })
+      .mockResolvedValueOnce({ rows: [friendshipRow()] })
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            $id: 'cat_priv',
+            user_id: FRIEND,
+            visibility: 'private',
+            order: 0,
+            deleted: false,
+          },
+          {
+            $id: 'cat_pub',
+            user_id: FRIEND,
+            visibility: 'public',
+            order: 1,
+            deleted: false,
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            $id: 't1',
+            user_id: FRIEND,
+            category_id: 'cat_priv',
+            visibility: 'public',
+            date: '2026-01-01',
+            deleted: false,
+          },
+          {
+            $id: 't2',
+            user_id: FRIEND,
+            category_id: 'cat_pub',
+            visibility: '',
+            date: '2026-01-02',
+            deleted: false,
+          },
+        ],
+      });
+    const res = await invoke({
+      userId: CALLER,
+      mockDb,
+      body: { action: 'get_friend_calendar', friendUserId: FRIEND },
+    });
+    expect(res.status).toBe(200);
+    const taskIds = res.body.tasks.map((t: { $id: string }) => t.$id);
+    expect(taskIds).toContain('t1');
+    expect(taskIds).toContain('t2');
+    const categoryIds = res.body.categories.map((c: { $id: string }) => c.$id);
+    expect(categoryIds).toContain('cat_pub');
+    expect(categoryIds).not.toContain('cat_priv');
+  });
+  it('pagination: >100 tasks triggers a second listRows with cursorAfter', async () => {
+    const hundredTasks = Array.from({ length: 100 }, (_, i) => ({
+      $id: `t${String(i).padStart(3, '0')}`,
+      user_id: FRIEND,
+      category_id: '',
+      visibility: 'public',
+      date: '2026-01-01',
+      deleted: false,
+    }));
+    mockDb.listRows
+      .mockResolvedValueOnce({ rows: [friendshipRow()] })
+      .mockResolvedValueOnce({ rows: [friendshipRow()] })
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: hundredTasks })
+      .mockResolvedValueOnce({ rows: [] });
+    const res = await invoke({
+      userId: CALLER,
+      mockDb,
+      body: { action: 'get_friend_calendar', friendUserId: FRIEND },
+    });
+    expect(res.status).toBe(200);
+    expect(res.body.tasks).toHaveLength(100);
+    const secondPageQueries = mockDb.listRows.mock.calls[4][0].queries;
+    expect(
+      secondPageQueries.some((q: { op?: string }) => q?.op === 'cursorAfter')
+    ).toBe(true);
+  });
+});
+</file>
+
+<file path="tests/handlers/markRead.test.ts">
+import { describe, it, expect, beforeEach } from 'vitest';
+import { invoke, makeMockDb, type MockDb } from '../helpers/invoke-handler';
+const CALLER = 'user_a';
+const PARTNER = 'user_b';
+const THREAD_ID = 'th_0123456789abcdefghijklmnopqrst';
+const friendshipRow = () => ({ $id: 'fr_test' });
+const participantRow = () => ({ $id: 'msg_caller_in_thread' });
+describe('message-action / mark_read', () => {
+  let mockDb: MockDb;
+  beforeEach(() => {
+    mockDb = makeMockDb();
+  });
+  it('returns 400 when partnerId is missing', async () => {
+    const res = await invoke({
+      userId: CALLER,
+      mockDb,
+      body: { action: 'mark_read', threadId: THREAD_ID },
+    });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe('Invalid partnerId');
+  });
+  it('returns 400 when threadId is missing', async () => {
+    const res = await invoke({
+      userId: CALLER,
+      mockDb,
+      body: { action: 'mark_read', partnerId: PARTNER },
+    });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe('Invalid threadId');
+  });
+  it('returns 400 when partnerId equals callerId', async () => {
+    const res = await invoke({
+      userId: CALLER,
+      mockDb,
+      body: { action: 'mark_read', partnerId: CALLER, threadId: THREAD_ID },
+    });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe('partnerId cannot be self');
+  });
+  it('returns 403 when the caller is not friends with the partner', async () => {
+    const res = await invoke({
+      userId: CALLER,
+      mockDb,
+      body: { action: 'mark_read', partnerId: PARTNER, threadId: THREAD_ID },
+    });
+    expect(res.status).toBe(403);
+    expect(res.body.error).toBe('Not friends with this user');
+    expect(mockDb.updateRow).not.toHaveBeenCalled();
+  });
+  it('returns 403 when the caller is not a participant in the thread', async () => {
+    mockDb.listRows
+      .mockResolvedValueOnce({ rows: [friendshipRow()] })
+      .mockResolvedValueOnce({ rows: [friendshipRow()] })
+      .mockResolvedValueOnce({ rows: [] });
+    const res = await invoke({
+      userId: CALLER,
+      mockDb,
+      body: { action: 'mark_read', partnerId: PARTNER, threadId: THREAD_ID },
+    });
+    expect(res.status).toBe(403);
+    expect(res.body.error).toBe('Not a participant in this thread');
+    expect(mockDb.updateRow).not.toHaveBeenCalled();
+  });
+  it('successful: marks partner and caller rows and reports both counts', async () => {
+    mockDb.listRows
+      .mockResolvedValueOnce({ rows: [friendshipRow()] })
+      .mockResolvedValueOnce({ rows: [friendshipRow()] })
+      .mockResolvedValueOnce({ rows: [participantRow()] })
+      .mockResolvedValueOnce({ rows: [{ $id: 'p1' }, { $id: 'p2' }] })
+      .mockResolvedValueOnce({ rows: [{ $id: 'c1' }] });
+    const res = await invoke({
+      userId: CALLER,
+      mockDb,
+      body: { action: 'mark_read', partnerId: PARTNER, threadId: THREAD_ID },
+    });
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({
+      ok: true,
+      markedPartner: 2,
+      markedCaller: 1,
+    });
+    expect(mockDb.updateRow).toHaveBeenCalledTimes(3);
+  });
+  it('pagination: >100 rows in pass 1 triggers a second listRows with cursorAfter', async () => {
+    const hundredRows = Array.from({ length: 100 }, (_, i) => ({
+      $id: `p${String(i).padStart(3, '0')}`,
+    }));
+    mockDb.listRows
+      .mockResolvedValueOnce({ rows: [friendshipRow()] })
+      .mockResolvedValueOnce({ rows: [friendshipRow()] })
+      .mockResolvedValueOnce({ rows: [participantRow()] })
+      .mockResolvedValueOnce({ rows: hundredRows })
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [] });
+    const res = await invoke({
+      userId: CALLER,
+      mockDb,
+      body: { action: 'mark_read', partnerId: PARTNER, threadId: THREAD_ID },
+    });
+    expect(res.status).toBe(200);
+    expect(res.body.ok).toBe(true);
+    expect(res.body.markedPartner).toBe(100);
+    expect(res.body.markedCaller).toBe(0);
+    const secondPageQueries = mockDb.listRows.mock.calls[4][0].queries;
+    expect(
+      secondPageQueries.some((q: { op?: string }) => q?.op === 'cursorAfter')
+    ).toBe(true);
+  });
+});
+</file>
+
+<file path="tests/handlers/react.test.ts">
+import { describe, it, expect, beforeEach } from 'vitest';
+import { invoke, makeMockDb, type MockDb } from '../helpers/invoke-handler';
+const CALLER = 'user_a';
+const RECIPIENT = 'user_b';
+const MY_ROW_ID = 'msg_test_1';
+const PEER_ROW_ID = 'rmsg_0123456789abcdefghijklmnopqrst';
+const friendshipRow = () => ({ $id: 'fr_test' });
+const HUGE_USER_ID = 'x'.repeat(5100);
+const HUGE_REACTIONS = JSON.stringify([
+  { emoji: '👍', userIds: [HUGE_USER_ID] },
+]);
+describe('message-action / react', () => {
+  let mockDb: MockDb;
+  beforeEach(() => {
+    mockDb = makeMockDb();
+  });
+  it('returns 400 when myRowId is missing', async () => {
+    const res = await invoke({
+      userId: CALLER,
+      mockDb,
+      body: {
+        action: 'react',
+        recipientId: RECIPIENT,
+        emoji: '👍',
+        op: 'add',
+      },
+    });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe('Invalid myRowId');
+  });
+  it('returns 400 when recipientId is missing', async () => {
+    const res = await invoke({
+      userId: CALLER,
+      mockDb,
+      body: {
+        action: 'react',
+        myRowId: MY_ROW_ID,
+        emoji: '👍',
+        op: 'add',
+      },
+    });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe('Invalid recipientId');
+  });
+  it('returns 400 for an empty emoji', async () => {
+    const res = await invoke({
+      userId: CALLER,
+      mockDb,
+      body: {
+        action: 'react',
+        myRowId: MY_ROW_ID,
+        recipientId: RECIPIENT,
+        emoji: '',
+        op: 'add',
+      },
+    });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe('Invalid emoji');
+  });
+  it('returns 400 for a whitespace-only emoji', async () => {
+    const res = await invoke({
+      userId: CALLER,
+      mockDb,
+      body: {
+        action: 'react',
+        myRowId: MY_ROW_ID,
+        recipientId: RECIPIENT,
+        emoji: '   ',
+        op: 'add',
+      },
+    });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe('Invalid emoji');
+  });
+  it('returns 400 for an emoji longer than 16 graphemes', async () => {
+    const res = await invoke({
+      userId: CALLER,
+      mockDb,
+      body: {
+        action: 'react',
+        myRowId: MY_ROW_ID,
+        recipientId: RECIPIENT,
+        emoji: 'a'.repeat(17),
+        op: 'add',
+      },
+    });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe('Invalid emoji');
+  });
+  it('returns 400 for an invalid op', async () => {
+    const res = await invoke({
+      userId: CALLER,
+      mockDb,
+      body: {
+        action: 'react',
+        myRowId: MY_ROW_ID,
+        recipientId: RECIPIENT,
+        emoji: '👍',
+        op: 'toggle',
+      },
+    });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe('Invalid op');
+  });
+  it('returns 400 when caller reacts to themselves', async () => {
+    const res = await invoke({
+      userId: CALLER,
+      mockDb,
+      body: {
+        action: 'react',
+        myRowId: MY_ROW_ID,
+        recipientId: CALLER,
+        emoji: '👍',
+        op: 'add',
+      },
+    });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe('Cannot react to yourself');
+  });
+  it('returns 403 when the caller is not friends with the recipient', async () => {
+    const res = await invoke({
+      userId: CALLER,
+      mockDb,
+      body: {
+        action: 'react',
+        myRowId: MY_ROW_ID,
+        peerRowId: PEER_ROW_ID,
+        recipientId: RECIPIENT,
+        emoji: '👍',
+        op: 'add',
+      },
+    });
+    expect(res.status).toBe(403);
+    expect(res.body.error).toBe('Not friends with this user');
+  });
+  it('two-phase: overflow on the second row prevents any write', async () => {
+    mockDb.listRows
+      .mockResolvedValueOnce({ rows: [friendshipRow()] })
+      .mockResolvedValueOnce({ rows: [friendshipRow()] });
+    const row = {
+      sender_id: CALLER,
+      recipient_id: RECIPIENT,
+      direction: 'outgoing',
+      reactions: '',
+    };
+    const hugeRow = {
+      sender_id: CALLER,
+      recipient_id: RECIPIENT,
+      direction: 'outgoing',
+      reactions: HUGE_REACTIONS,
+    };
+    mockDb.getRow
+      .mockResolvedValueOnce(row)
+      .mockResolvedValueOnce(row)
+      .mockResolvedValueOnce(hugeRow);
+    const res = await invoke({
+      userId: CALLER,
+      mockDb,
+      body: {
+        action: 'react',
+        myRowId: MY_ROW_ID,
+        peerRowId: PEER_ROW_ID,
+        recipientId: RECIPIENT,
+        emoji: '❤️',
+        op: 'add',
+      },
+    });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe('Too many reactions');
+    expect(mockDb.updateRow).not.toHaveBeenCalled();
+  });
+  it('successful: patches both rows with the new reactions JSON', async () => {
+    mockDb.listRows
+      .mockResolvedValueOnce({ rows: [friendshipRow()] })
+      .mockResolvedValueOnce({ rows: [friendshipRow()] });
+    const row = {
+      sender_id: CALLER,
+      recipient_id: RECIPIENT,
+      direction: 'outgoing',
+      reactions: '',
+    };
+    mockDb.getRow
+      .mockResolvedValueOnce(row)
+      .mockResolvedValueOnce(row)
+      .mockResolvedValueOnce(row);
+    const res = await invoke({
+      userId: CALLER,
+      mockDb,
+      body: {
+        action: 'react',
+        myRowId: MY_ROW_ID,
+        peerRowId: PEER_ROW_ID,
+        recipientId: RECIPIENT,
+        emoji: '👍',
+        op: 'add',
+      },
+    });
+    expect(res.status).toBe(200);
+    expect(res.body.ok).toBe(true);
+    expect(res.body.updated).toBe(2);
+    expect(mockDb.updateRow).toHaveBeenCalledTimes(2);
+    const expected = JSON.stringify([
+      { emoji: '👍', userIds: [CALLER] },
+    ]);
+    expect(mockDb.updateRow.mock.calls[0][0].data.reactions).toBe(expected);
+    expect(mockDb.updateRow.mock.calls[1][0].data.reactions).toBe(expected);
+  });
+});
+</file>
+
+<file path="tests/handlers/reactToTask.test.ts">
+import { describe, it, expect, beforeEach } from 'vitest';
+import { invoke, makeMockDb, type MockDb } from '../helpers/invoke-handler';
+const CALLER = 'user_a';
+const OWNER = 'user_b';
+const TASK_ID = 'task_test_1';
+const CATEGORY_ID = 'cat_test_1';
+const friendshipRow = () => ({ $id: 'fr_test' });
+describe('message-action / react_to_task', () => {
+  let mockDb: MockDb;
+  beforeEach(() => {
+    mockDb = makeMockDb();
+  });
+  it('returns 400 when taskId is missing', async () => {
+    const res = await invoke({
+      userId: CALLER,
+      mockDb,
+      body: {
+        action: 'react_to_task',
+        taskOwnerId: OWNER,
+        emoji: '👍',
+        op: 'add',
+      },
+    });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe('Invalid taskId');
+  });
+  it('returns 400 when taskOwnerId is missing', async () => {
+    const res = await invoke({
+      userId: CALLER,
+      mockDb,
+      body: {
+        action: 'react_to_task',
+        taskId: TASK_ID,
+        emoji: '👍',
+        op: 'add',
+      },
+    });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe('Invalid taskOwnerId');
+  });
+  it('returns 400 for an invalid emoji', async () => {
+    const res = await invoke({
+      userId: CALLER,
+      mockDb,
+      body: {
+        action: 'react_to_task',
+        taskId: TASK_ID,
+        taskOwnerId: OWNER,
+        emoji: '',
+        op: 'add',
+      },
+    });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe('Invalid emoji');
+  });
+  it('returns 400 when reacting to your own task', async () => {
+    const res = await invoke({
+      userId: CALLER,
+      mockDb,
+      body: {
+        action: 'react_to_task',
+        taskId: TASK_ID,
+        taskOwnerId: CALLER,
+        emoji: '👍',
+        op: 'add',
+      },
+    });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe('Cannot react to your own task');
+  });
+  it('returns 403 when the caller is not friends with the task owner', async () => {
+    const res = await invoke({
+      userId: CALLER,
+      mockDb,
+      body: {
+        action: 'react_to_task',
+        taskId: TASK_ID,
+        taskOwnerId: OWNER,
+        emoji: '👍',
+        op: 'add',
+      },
+    });
+    expect(res.status).toBe(403);
+    expect(res.body.error).toBe('Not friends with this user');
+  });
+  it('returns 404 when the task is not found', async () => {
+    mockDb.listRows
+      .mockResolvedValueOnce({ rows: [friendshipRow()] })
+      .mockResolvedValueOnce({ rows: [friendshipRow()] });
+    const res = await invoke({
+      userId: CALLER,
+      mockDb,
+      body: {
+        action: 'react_to_task',
+        taskId: TASK_ID,
+        taskOwnerId: OWNER,
+        emoji: '👍',
+        op: 'add',
+      },
+    });
+    expect(res.status).toBe(404);
+    expect(res.body.error).toBe('Task not found');
+  });
+  it('returns 403 when the task is owned by a different user', async () => {
+    mockDb.listRows
+      .mockResolvedValueOnce({ rows: [friendshipRow()] })
+      .mockResolvedValueOnce({ rows: [friendshipRow()] });
+    mockDb.getRow.mockResolvedValueOnce({
+      user_id: 'someone_else',
+      deleted: false,
+      visibility: 'public',
+      category_id: '',
+      reactions: '',
+    });
+    const res = await invoke({
+      userId: CALLER,
+      mockDb,
+      body: {
+        action: 'react_to_task',
+        taskId: TASK_ID,
+        taskOwnerId: OWNER,
+        emoji: '👍',
+        op: 'add',
+      },
+    });
+    expect(res.status).toBe(403);
+    expect(res.body.error).toBe('Task ownership mismatch');
+  });
+  it('returns 404 when the task is deleted', async () => {
+    mockDb.listRows
+      .mockResolvedValueOnce({ rows: [friendshipRow()] })
+      .mockResolvedValueOnce({ rows: [friendshipRow()] });
+    mockDb.getRow.mockResolvedValueOnce({
+      user_id: OWNER,
+      deleted: true,
+      visibility: 'public',
+      category_id: '',
+      reactions: '',
+    });
+    const res = await invoke({
+      userId: CALLER,
+      mockDb,
+      body: {
+        action: 'react_to_task',
+        taskId: TASK_ID,
+        taskOwnerId: OWNER,
+        emoji: '👍',
+        op: 'add',
+      },
+    });
+    expect(res.status).toBe(404);
+    expect(res.body.error).toBe('Task not found');
+  });
+  it('returns 403 when task visibility is private', async () => {
+    mockDb.listRows
+      .mockResolvedValueOnce({ rows: [friendshipRow()] })
+      .mockResolvedValueOnce({ rows: [friendshipRow()] });
+    mockDb.getRow.mockResolvedValueOnce({
+      user_id: OWNER,
+      deleted: false,
+      visibility: 'private',
+      category_id: CATEGORY_ID,
+      reactions: '',
+    });
+    const res = await invoke({
+      userId: CALLER,
+      mockDb,
+      body: {
+        action: 'react_to_task',
+        taskId: TASK_ID,
+        taskOwnerId: OWNER,
+        emoji: '👍',
+        op: 'add',
+      },
+    });
+    expect(res.status).toBe(403);
+    expect(res.body.error).toBe('Task is not visible to you');
+  });
+  it('falls back to private when the task has no category', async () => {
+    mockDb.listRows
+      .mockResolvedValueOnce({ rows: [friendshipRow()] })
+      .mockResolvedValueOnce({ rows: [friendshipRow()] });
+    mockDb.getRow.mockResolvedValueOnce({
+      user_id: OWNER,
+      deleted: false,
+      visibility: '',
+      category_id: '',
+      reactions: '',
+    });
+    const res = await invoke({
+      userId: CALLER,
+      mockDb,
+      body: {
+        action: 'react_to_task',
+        taskId: TASK_ID,
+        taskOwnerId: OWNER,
+        emoji: '👍',
+        op: 'add',
+      },
+    });
+    expect(res.status).toBe(403);
+    expect(res.body.error).toBe('Task is not visible to you');
+  });
+  it('successful: patches the task row with the new reactions JSON', async () => {
+    mockDb.listRows
+      .mockResolvedValueOnce({ rows: [friendshipRow()] })
+      .mockResolvedValueOnce({ rows: [friendshipRow()] });
+    mockDb.getRow.mockResolvedValueOnce({
+      user_id: OWNER,
+      deleted: false,
+      visibility: 'public',
+      category_id: '',
+      reactions: '',
+    });
+    const res = await invoke({
+      userId: CALLER,
+      mockDb,
+      body: {
+        action: 'react_to_task',
+        taskId: TASK_ID,
+        taskOwnerId: OWNER,
+        emoji: '👍',
+        op: 'add',
+      },
+    });
+    expect(res.status).toBe(200);
+    expect(res.body.ok).toBe(true);
+    const expected = JSON.stringify([{ emoji: '👍', userIds: [CALLER] }]);
+    expect(res.body.reactions).toBe(expected);
+    expect(mockDb.updateRow).toHaveBeenCalledTimes(1);
+    const update = mockDb.updateRow.mock.calls[0][0];
+    expect(update.tableId).toBe('tasks');
+    expect(update.rowId).toBe(TASK_ID);
+    expect(update.data.reactions).toBe(expected);
+  });
+});
+</file>
+
+<file path="tests/handlers/unsend.test.ts">
+import { describe, it, expect, beforeEach } from 'vitest';
+import { invoke, makeMockDb, type MockDb } from '../helpers/invoke-handler';
+const CALLER = 'user_a';
+const RECIPIENT = 'user_b';
+const MESSAGE_ID = 'msg_test_1';
+const friendshipRow = () => ({ $id: 'fr_test' });
+describe('message-action / unsend', () => {
+  let mockDb: MockDb;
+  beforeEach(() => {
+    mockDb = makeMockDb();
+  });
+  it('returns 400 when messageId is missing', async () => {
+    const res = await invoke({
+      userId: CALLER,
+      mockDb,
+      body: { action: 'unsend', recipientId: RECIPIENT },
+    });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe('Invalid messageId');
+  });
+  it('returns 400 when recipientId is missing', async () => {
+    const res = await invoke({
+      userId: CALLER,
+      mockDb,
+      body: { action: 'unsend', messageId: MESSAGE_ID },
+    });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe('Invalid recipientId');
+  });
+  it('returns 403 when the caller does not own the row', async () => {
+    mockDb.listRows
+      .mockResolvedValueOnce({ rows: [friendshipRow()] })
+      .mockResolvedValueOnce({ rows: [friendshipRow()] });
+    mockDb.getRow.mockResolvedValueOnce({
+      user_id: 'someone_else',
+      direction: 'outgoing',
+      sender_id: 'someone_else',
+      recipient_id: RECIPIENT,
+    });
+    const res = await invoke({
+      userId: CALLER,
+      mockDb,
+      body: { action: 'unsend', messageId: MESSAGE_ID, recipientId: RECIPIENT },
+    });
+    expect(res.status).toBe(403);
+    expect(res.body.error).toBe('Not your message');
+    expect(mockDb.updateRow).not.toHaveBeenCalled();
+  });
+  it('successful: wipes both rows and runs the cascade', async () => {
+    mockDb.listRows
+      .mockResolvedValueOnce({ rows: [friendshipRow()] })
+      .mockResolvedValueOnce({ rows: [friendshipRow()] })
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [] });
+    mockDb.getRow.mockResolvedValueOnce({
+      user_id: CALLER,
+      direction: 'outgoing',
+      sender_id: CALLER,
+      recipient_id: RECIPIENT,
+    });
+    const res = await invoke({
+      userId: CALLER,
+      mockDb,
+      body: { action: 'unsend', messageId: MESSAGE_ID, recipientId: RECIPIENT },
+    });
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({
+      ok: true,
+      patchedCaller: true,
+      patchedRecipient: true,
+      cascaded: 0,
+    });
+    expect(mockDb.updateRow).toHaveBeenCalledTimes(2);
+    const callerUpdate = mockDb.updateRow.mock.calls[0][0];
+    expect(callerUpdate.rowId).toBe(MESSAGE_ID);
+    expect(callerUpdate.data.is_unsent).toBe(true);
+    expect(callerUpdate.data.content).toBe('');
+    expect(callerUpdate.data.reactions).toBe('');
+    const recipientUpdate = mockDb.updateRow.mock.calls[1][0];
+    expect(recipientUpdate.rowId).toMatch(/^rmsg_[a-f0-9]{30}$/);
+    expect(recipientUpdate.data.is_unsent).toBe(true);
+    expect(recipientUpdate.data.content).toBe('');
+  });
+  // Regression: R1-2 — the cascade must paginate past 100 reply rows.
+  it('cascade pagination: >100 replies trigger a second listRows with cursorAfter', async () => {
+    const hundredReplies = Array.from({ length: 100 }, (_, i) => ({
+      $id: `rep${String(i).padStart(3, '0')}`,
+      reply_to_content: 'quoted text',
+    }));
+    mockDb.listRows
+      .mockResolvedValueOnce({ rows: [friendshipRow()] })
+      .mockResolvedValueOnce({ rows: [friendshipRow()] })
+      .mockResolvedValueOnce({ rows: hundredReplies })
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [] });
+    mockDb.getRow.mockResolvedValueOnce({
+      user_id: CALLER,
+      direction: 'outgoing',
+      sender_id: CALLER,
+      recipient_id: RECIPIENT,
+    });
+    const res = await invoke({
+      userId: CALLER,
+      mockDb,
+      body: { action: 'unsend', messageId: MESSAGE_ID, recipientId: RECIPIENT },
+    });
+    expect(res.status).toBe(200);
+    expect(res.body.ok).toBe(true);
+    expect(res.body.cascaded).toBe(100);
+    const secondPageQueries = mockDb.listRows.mock.calls[3][0].queries;
+    expect(
+      secondPageQueries.some((q: { op?: string }) => q?.op === 'cursorAfter')
+    ).toBe(true);
+  });
+});
+</file>
+
+<file path="tests/helpers/invoke-handler.ts">
+import { vi } from 'vitest';
+import { createRequire } from 'node:module';
+export interface MockDb {
+  listRows: any;
+  getRow: any;
+  upsertRow: any;
+  updateRow: any;
+}
+export interface InvokeInput {
+  userId: string;
+  body: Record<string, unknown>;
+  mockDb: MockDb;
+}
+export interface InvokeResult {
+  body: any;
+  status: number;
+  logs: string[];
+  errors: string[];
+}
+const state: { current: MockDb | null } = { current: null };
+class MockClient {
+  setEndpoint(_url: string) {
+    return this;
+  }
+  setProject(_id: string) {
+    return this;
+  }
+  setKey(_key: string) {
+    return this;
+  }
+}
+class MockTablesDB {
+  listRows: any;
+  getRow: any;
+  upsertRow: any;
+  updateRow: any;
+  constructor(_client: unknown) {
+    const m = state.current;
+    if (!m) {
+      throw new Error(
+        'invoke-handler: state.current is not set. Call invoke() before the handler constructs a TablesDB.'
+      );
+    }
+    this.listRows = m.listRows;
+    this.getRow = m.getRow;
+    this.upsertRow = m.upsertRow;
+    this.updateRow = m.updateRow;
+  }
+}
+const MockQuery = {
+  equal: (key: string, value: unknown) => ({ op: 'equal', key, value }),
+  limit: (n: number) => ({ op: 'limit', n }),
+  orderAsc: (field: string) => ({ op: 'orderAsc', field }),
+  orderDesc: (field: string) => ({ op: 'orderDesc', field }),
+  cursorAfter: (id: string) => ({ op: 'cursorAfter', id }),
+  greaterThan: (key: string, value: unknown) => ({
+    op: 'greaterThan',
+    key,
+    value,
+  }),
+};
+const MockPermission = {
+  read: (role: string) => `read("${role}")`,
+  update: (role: string) => `update("${role}")`,
+  delete: (role: string) => `delete("${role}")`,
+};
+const MockRole = {
+  user: (id: string) => `user:${id}`,
+};
+const requireCjs = createRequire(import.meta.url);
+const appwritePath = requireCjs.resolve('node-appwrite');
+(requireCjs as unknown as { cache: Record<string, unknown> }).cache[
+  appwritePath
+] = {
+  id: appwritePath,
+  path: appwritePath,
+  filename: appwritePath,
+  loaded: true,
+  parent: null,
+  children: [],
+  paths: [],
+  exports: {
+    Client: MockClient,
+    TablesDB: MockTablesDB,
+    Query: MockQuery,
+    Permission: MockPermission,
+    Role: MockRole,
+  },
+};
+const handler: any = requireCjs(
+  '../../appwrite-functions/message-action/main.js'
+);
+export function makeMockDb(): MockDb {
+  const notFound = Object.assign(new Error('Not found'), { code: 404 });
+  return {
+    listRows: vi.fn().mockResolvedValue({ rows: [] }),
+    getRow: vi.fn().mockRejectedValue(notFound),
+    upsertRow: vi.fn().mockResolvedValue({}),
+    updateRow: vi.fn().mockResolvedValue({}),
+  };
+}
+export async function invoke(input: InvokeInput): Promise<InvokeResult> {
+  state.current = input.mockDb;
+  const log = vi.fn();
+  const error = vi.fn();
+  let capturedBody: any = undefined;
+  let capturedStatus = 200;
+  const res = {
+    json: (body: any, status?: number) => {
+      capturedBody = body;
+      if (typeof status === 'number') capturedStatus = status;
+      return { body, status: capturedStatus };
+    },
+  };
+  const req = {
+    headers: {
+      'x-appwrite-user-id': input.userId,
+      'x-appwrite-key': 'test-key',
+    },
+    body: JSON.stringify(input.body),
+  };
+  await handler({ req, res, log, error });
+  return {
+    body: capturedBody,
+    status: capturedStatus,
+    logs: log.mock.calls.map((args) => String(args[0])),
+    errors: error.mock.calls.map((args) => String(args[0])),
+  };
+}
+</file>
+
+<file path="tests/unit/appwriteParity.test.ts">
+import { describe, it, expect } from 'vitest';
+import { createRequire } from 'node:module';
+import {
+  parseReactions as clientParse,
+  stringifyReactions as clientStringify,
+  applyReactionDelta as clientApply,
+  type Reaction,
+} from '../../src/lib/reactionUtils';
+import { makeRecipientRowId as clientMakeRecipient } from '../../src/lib/threads';
+const require = createRequire(import.meta.url);
+const handler = require('../../appwrite-functions/message-action/main.js') as any;
+const serverParse: (raw: string | undefined) => Reaction[] =
+  handler.parseReactions;
+const serverStringify: (r: Reaction[]) => string = handler.stringifyReactions;
+const serverApply: (
+  r: Reaction[],
+  emoji: string,
+  userId: string,
+  op: 'add' | 'remove'
+) => Reaction[] = handler.applyReactionDelta;
+const serverMakeRecipient: (senderMessageId: string) => string =
+  handler.makeRecipientRowId;
+const serverSha256: (input: string) => string = handler.sha256Hex;
+const FIXTURES: Reaction[][] = [
+  [],
+  [{ emoji: '👍', userIds: ['u1'] }],
+  [
+    { emoji: '👍', userIds: ['u1', 'u2'] },
+    { emoji: '❤️', userIds: ['u3'] },
+  ],
+];
+describe('client/server parity — parseReactions', () => {
+  for (let i = 0; i < FIXTURES.length; i++) {
+    it(`matches for fixture ${i}`, () => {
+      const raw = FIXTURES[i].length === 0 ? '' : JSON.stringify(FIXTURES[i]);
+      expect(serverParse(raw)).toEqual(clientParse(raw));
+    });
+  }
+});
+describe('client/server parity — stringifyReactions', () => {
+  for (let i = 0; i < FIXTURES.length; i++) {
+    it(`matches for fixture ${i}`, () => {
+      expect(serverStringify(FIXTURES[i])).toBe(clientStringify(FIXTURES[i]));
+    });
+  }
+});
+describe('client/server parity — applyReactionDelta (add)', () => {
+  it('add of a brand-new emoji matches', () => {
+    const base: Reaction[] = [];
+    expect(serverApply(base, '❤️', 'u1', 'add')).toEqual(
+      clientApply(base, '❤️', 'u1', 'add')
+    );
+  });
+  it('add of a second user to an existing emoji matches', () => {
+    const base: Reaction[] = [{ emoji: '👍', userIds: ['u1'] }];
+    expect(serverApply(base, '👍', 'u2', 'add')).toEqual(
+      clientApply(base, '👍', 'u2', 'add')
+    );
+  });
+});
+describe('client/server parity — applyReactionDelta (remove)', () => {
+  it('remove of one user matches', () => {
+    const base: Reaction[] = [{ emoji: '👍', userIds: ['u1', 'u2'] }];
+    expect(serverApply(base, '👍', 'u1', 'remove')).toEqual(
+      clientApply(base, '👍', 'u1', 'remove')
+    );
+  });
+  it('remove of the last user matches (entry is dropped)', () => {
+    const base: Reaction[] = [
+      { emoji: '👍', userIds: ['u1'] },
+      { emoji: '❤️', userIds: ['u3'] },
+    ];
+    expect(serverApply(base, '👍', 'u1', 'remove')).toEqual(
+      clientApply(base, '👍', 'u1', 'remove')
+    );
+  });
+});
+describe('client/server parity — makeRecipientRowId', () => {
+  it('matches for a known message id', async () => {
+    const messageId = 'msg_1700000000000_abcdefghi';
+    const client = await clientMakeRecipient(messageId);
+    const server = serverMakeRecipient(messageId);
+    expect(server).toBe(client);
+  });
+});
+describe('server-only helpers', () => {
+  it("sha256Hex('test') matches the well-known digest", () => {
+    expect(serverSha256('test')).toBe(
+      '9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08'
+    );
+  });
+  it('makeRecipientRowId matches /^rmsg_[a-f0-9]{30}$/', () => {
+    expect(serverMakeRecipient('msg_x')).toMatch(/^rmsg_[a-f0-9]{30}$/);
+  });
+});
+</file>
+
+<file path="tests/unit/reactionUtils.test.ts">
+import { describe, it, expect } from 'vitest';
+import {
+  parseReactions,
+  stringifyReactions,
+  applyReactionDelta,
+  hasUserReacted,
+  type Reaction,
+} from '../../src/lib/reactionUtils';
+describe('parseReactions', () => {
+  it('returns [] for empty string', () => {
+    expect(parseReactions('')).toEqual([]);
+  });
+  it('returns [] for undefined', () => {
+    expect(parseReactions(undefined)).toEqual([]);
+  });
+  it('returns [] for null-ish inputs', () => {
+    expect(parseReactions(null as any)).toEqual([]);
+  });
+  it('returns [] for invalid JSON', () => {
+    expect(parseReactions('{not json')).toEqual([]);
+  });
+  it('returns [] for non-array JSON', () => {
+    expect(parseReactions('{"emoji":"x"}')).toEqual([]);
+  });
+  it('filters entries with missing emoji', () => {
+    const raw = JSON.stringify([
+      { userIds: ['u1'] },
+      { emoji: '👍', userIds: ['u1'] },
+    ]);
+    expect(parseReactions(raw)).toEqual([{ emoji: '👍', userIds: ['u1'] }]);
+  });
+  it('filters entries with non-array userIds', () => {
+    const raw = JSON.stringify([
+      { emoji: '👍', userIds: 'u1' },
+      { emoji: '❤️', userIds: ['u1'] },
+    ]);
+    expect(parseReactions(raw)).toEqual([{ emoji: '❤️', userIds: ['u1'] }]);
+  });
+  it('filters entries whose userIds are empty after dropping non-strings', () => {
+    const raw = JSON.stringify([
+      { emoji: '👍', userIds: [1, 2, null] },
+      { emoji: '❤️', userIds: ['u1', 2] },
+    ]);
+    expect(parseReactions(raw)).toEqual([{ emoji: '❤️', userIds: ['u1'] }]);
+  });
+});
+describe('stringifyReactions', () => {
+  it('serializes empty array as "" (not "[]")', () => {
+    expect(stringifyReactions([])).toBe('');
+  });
+  it('dedupes userIds', () => {
+    const out = stringifyReactions([
+      { emoji: '👍', userIds: ['u1', 'u1', 'u2'] },
+    ]);
+    expect(JSON.parse(out)).toEqual([{ emoji: '👍', userIds: ['u1', 'u2'] }]);
+  });
+  it('drops entries with empty userIds', () => {
+    const out = stringifyReactions([
+      { emoji: '👍', userIds: [] },
+      { emoji: '❤️', userIds: ['u1'] },
+    ]);
+    expect(JSON.parse(out)).toEqual([{ emoji: '❤️', userIds: ['u1'] }]);
+  });
+  it('returns "" when all entries are dropped', () => {
+    expect(stringifyReactions([{ emoji: '👍', userIds: [] }])).toBe('');
+  });
+});
+describe('applyReactionDelta', () => {
+  it('adds a new emoji entry', () => {
+    const out = applyReactionDelta([], '👍', 'u1', 'add');
+    expect(out).toEqual([{ emoji: '👍', userIds: ['u1'] }]);
+  });
+  it('appends a new user to an existing emoji', () => {
+    const out = applyReactionDelta(
+      [{ emoji: '👍', userIds: ['u1'] }],
+      '👍',
+      'u2',
+      'add'
+    );
+    expect(out).toEqual([{ emoji: '👍', userIds: ['u1', 'u2'] }]);
+  });
+  it('is idempotent for duplicate add (same user twice → no duplicate)', () => {
+    const out = applyReactionDelta(
+      [{ emoji: '👍', userIds: ['u1'] }],
+      '👍',
+      'u1',
+      'add'
+    );
+    expect(out).toEqual([{ emoji: '👍', userIds: ['u1'] }]);
+  });
+  it('removes a user from an existing emoji', () => {
+    const out = applyReactionDelta(
+      [{ emoji: '👍', userIds: ['u1', 'u2'] }],
+      '👍',
+      'u1',
+      'remove'
+    );
+    expect(out).toEqual([{ emoji: '👍', userIds: ['u2'] }]);
+  });
+  it('removes the emoji entry when the last user is removed', () => {
+    const out = applyReactionDelta(
+      [{ emoji: '👍', userIds: ['u1'] }],
+      '👍',
+      'u1',
+      'remove'
+    );
+    expect(out).toEqual([]);
+  });
+  it('is a no-op when removing a non-existent emoji', () => {
+    const out = applyReactionDelta(
+      [{ emoji: '👍', userIds: ['u1'] }],
+      '❤️',
+      'u1',
+      'remove'
+    );
+    expect(out).toEqual([{ emoji: '👍', userIds: ['u1'] }]);
+  });
+  it('does not mutate the input array or its entries', () => {
+    const input: Reaction[] = [{ emoji: '👍', userIds: ['u1'] }];
+    const snapshot: Reaction[] = JSON.parse(JSON.stringify(input));
+    applyReactionDelta(input, '👍', 'u2', 'add');
+    expect(input).toEqual(snapshot);
+    expect(input[0].userIds).toEqual(['u1']);
+  });
+});
+describe('hasUserReacted', () => {
+  it('returns true when the user is present', () => {
+    expect(
+      hasUserReacted([{ emoji: '👍', userIds: ['u1'] }], '👍', 'u1')
+    ).toBe(true);
+  });
+  it('returns false when the user is absent', () => {
+    expect(
+      hasUserReacted([{ emoji: '👍', userIds: ['u1'] }], '👍', 'u2')
+    ).toBe(false);
+    expect(hasUserReacted([], '👍', 'u1')).toBe(false);
+  });
+});
+describe('round-trip', () => {
+  it('parse(stringify(x)) deep-equals x for valid inputs', () => {
+    const cases: Reaction[][] = [
+      [],
+      [{ emoji: '👍', userIds: ['u1'] }],
+      [
+        { emoji: '👍', userIds: ['u1', 'u2'] },
+        { emoji: '❤️', userIds: ['u3'] },
+      ],
+    ];
+    for (const c of cases) {
+      expect(parseReactions(stringifyReactions(c))).toEqual(c);
+    }
+  });
+});
+</file>
+
+<file path="tests/unit/settingsRowId.test.ts">
+import { describe, it, expect } from 'vitest';
+import { makeSettingsRowId } from '../../src/lib/settingsRowId';
+describe('makeSettingsRowId', () => {
+  it('uses ${userId}_${key} when the total fits in <= 36 chars', () => {
+    expect(makeSettingsRowId('u', 'k')).toBe('u_k');
+    expect(makeSettingsRowId('user1', 'displayName')).toBe('user1_displayName');
+  });
+  it('hashes long keys into s_<hash> ids of length <= 36', () => {
+    const id = makeSettingsRowId('u', 'x'.repeat(35));
+    expect(id.startsWith('s_')).toBe(true);
+    expect(id.length).toBeLessThanOrEqual(36);
+  });
+  it('is deterministic for the same inputs (long key path)', () => {
+    const a = makeSettingsRowId('u', 'x'.repeat(35));
+    const b = makeSettingsRowId('u', 'x'.repeat(35));
+    expect(a).toBe(b);
+  });
+  it('produces different hashes for different long keys', () => {
+    const a = makeSettingsRowId('u', 'x'.repeat(35));
+    const b = makeSettingsRowId('u', 'y'.repeat(35));
+    expect(a).not.toBe(b);
+  });
+  it('only emits [a-zA-Z0-9_] and never starts with an underscore', () => {
+    const ids = [
+      makeSettingsRowId('u', 'k'),
+      makeSettingsRowId('user1', 'displayName'),
+      makeSettingsRowId('u', 'x'.repeat(35)),
+      makeSettingsRowId('user_0123456789abcdef', 'friend_carousel_prefs'),
+    ];
+    for (const id of ids) {
+      expect(id).toMatch(/^[a-zA-Z0-9_]+$/);
+      expect(id.startsWith('_')).toBe(false);
+    }
+  });
+  it('produces the exact expected id for a pinned long-key input', () => {
+    expect(makeSettingsRowId('u', 'x'.repeat(35))).toBe('s_kc18ch1gy1y7f');
+  });
+});
+</file>
+
+<file path="tests/unit/syncMapping.test.ts">
+import { describe, it, expect } from 'vitest';
+import {
+  toAppwriteFormat,
+  fromAppwriteFormat,
+} from '../../src/lib/syncMapping';
+const USER_ID = 'user_test_1';
+describe('toAppwriteFormat — tasks', () => {
+  const doc = {
+    id: 'task_1',
+    title: 'Buy groceries',
+    completed: true,
+    categoryId: 'cat_1',
+    tags: 'shopping',
+    date: '2026-01-15',
+    memo: 'milk, eggs',
+    image: 'img_abc',
+    createdAt: '2026-01-01T10:00:00.000Z',
+    completedAt: '2026-01-15T18:00:00.000Z',
+    updatedAt: '2026-01-15T18:00:00.000Z',
+    source: 'routine',
+    userId: USER_ID,
+    isDeleted: false,
+    routineId: 'rt_1',
+    reminderTime: '09:00',
+    reactions: '',
+    visibility: 'private',
+  };
+  it('maps completed → is_completed', () => {
+    expect(toAppwriteFormat(doc, 'tasks', USER_ID).is_completed).toBe(true);
+  });
+  it('maps categoryId → category_id', () => {
+    expect(toAppwriteFormat(doc, 'tasks', USER_ID).category_id).toBe('cat_1');
+  });
+  it('maps isDeleted → deleted', () => {
+    expect(toAppwriteFormat(doc, 'tasks', USER_ID).deleted).toBe(false);
+  });
+  it('sets user_id from the userId argument, not from the doc', () => {
+    const other = { ...doc, userId: 'wrong_user' };
+    expect(toAppwriteFormat(other, 'tasks', USER_ID).user_id).toBe(USER_ID);
+  });
+  it('preserves title, date, memo, image, tags, source verbatim', () => {
+    const out = toAppwriteFormat(doc, 'tasks', USER_ID);
+    expect(out.title).toBe('Buy groceries');
+    expect(out.date).toBe('2026-01-15');
+    expect(out.memo).toBe('milk, eggs');
+    expect(out.image).toBe('img_abc');
+    expect(out.tags).toBe('shopping');
+    expect(out.source).toBe('routine');
+  });
+  it('keeps booleans as booleans', () => {
+    const out = toAppwriteFormat(doc, 'tasks', USER_ID);
+    expect(typeof out.is_completed).toBe('boolean');
+    expect(typeof out.deleted).toBe('boolean');
+  });
+  it('keeps empty optional strings as "" (never null/undefined)', () => {
+    const empty = {
+      ...doc,
+      memo: '',
+      image: '',
+      completedAt: '',
+      tags: '',
+    };
+    const out = toAppwriteFormat(empty, 'tasks', USER_ID);
+    expect(out.memo).toBe('');
+    expect(out.image).toBe('');
+    expect(out.completed_at).toBe('');
+    expect(out.tags).toBe('');
+    expect(out.memo).not.toBeNull();
+    expect(out.memo).not.toBeUndefined();
+  });
+  // Regression: §12 — RxDB internal keys must not leak into the payload
+  it('strips _meta, _deleted, _rev if present on the input', () => {
+    const withMeta = {
+      ...doc,
+      _meta: { lwt: 123 },
+      _deleted: false,
+      _rev: 'abc',
+    };
+    const out = toAppwriteFormat(withMeta, 'tasks', USER_ID);
+    expect(out._meta).toBeUndefined();
+    expect(out._deleted).toBeUndefined();
+    expect(out._rev).toBeUndefined();
+  });
+});
+describe('toAppwriteFormat — messages', () => {
+  const outgoing = {
+    id: 'msg_1',
+    userId: USER_ID,
+    threadId: 'th_abc',
+    senderId: USER_ID,
+    recipientId: 'user_b',
+    direction: 'outgoing',
+    content: 'hello',
+    taskRefId: 'task_1',
+    taskRefTitle: 'Buy groceries',
+    taskRefDate: '2026-01-15',
+    taskRefColor: '#3B82F6',
+    replyToId: 'msg_0',
+    replyToContent: 'quoted',
+    replyToSenderId: 'user_b',
+    isUnsent: false,
+    originalMessageId: 'msg_1',
+    reactions: '',
+    readAt: '2026-01-15T20:00:00.000Z',
+    deliveryStatus: 'delivered',
+    createdAt: '2026-01-15T19:00:00.000Z',
+    updatedAt: '2026-01-15T19:00:00.000Z',
+    isDeleted: false,
+  };
+  const incoming = {
+    ...outgoing,
+    id: 'rmsg_abc',
+    direction: 'incoming',
+  };
+  it('omits read_at when direction is outgoing', () => {
+    const out = toAppwriteFormat(outgoing, 'messages', USER_ID);
+    expect('read_at' in out).toBe(false);
+  });
+  it('includes read_at when direction is incoming and the value is set', () => {
+    const out = toAppwriteFormat(incoming, 'messages', USER_ID);
+    expect(out.read_at).toBe('2026-01-15T20:00:00.000Z');
+  });
+  it('includes read_at as "" when direction is incoming and the value is empty', () => {
+    const out = toAppwriteFormat(
+      { ...incoming, readAt: '' },
+      'messages',
+      USER_ID
+    );
+    expect(out.read_at).toBe('');
+  });
+  // Regression: §12 — messages field mapping table
+  it('maps every documented field from camelCase to snake_case', () => {
+    const out = toAppwriteFormat(incoming, 'messages', USER_ID);
+    expect(out.thread_id).toBe('th_abc');
+    expect(out.sender_id).toBe(USER_ID);
+    expect(out.recipient_id).toBe('user_b');
+    expect(out.task_ref_id).toBe('task_1');
+    expect(out.task_ref_title).toBe('Buy groceries');
+    expect(out.task_ref_date).toBe('2026-01-15');
+    expect(out.task_ref_color).toBe('#3B82F6');
+    expect(out.reply_to_id).toBe('msg_0');
+    expect(out.reply_to_content).toBe('quoted');
+    expect(out.reply_to_sender_id).toBe('user_b');
+    expect(out.is_unsent).toBe(false);
+    expect(out.original_message_id).toBe('msg_1');
+  });
+  it('preserves direction, content, reactions, delivery_status verbatim', () => {
+    const out = toAppwriteFormat(incoming, 'messages', USER_ID);
+    expect(out.direction).toBe('incoming');
+    expect(out.content).toBe('hello');
+    expect(out.reactions).toBe('');
+    expect(out.delivery_status).toBe('delivered');
+  });
+  it('sets user_id from the userId argument', () => {
+    expect(toAppwriteFormat(incoming, 'messages', USER_ID).user_id).toBe(
+      USER_ID
+    );
+  });
+});
+describe('toAppwriteFormat — categories, diary, settings, friendships', () => {
+  it('categories: maps documented fields', () => {
+    const doc = {
+      id: 'cat_1',
+      name: 'Work',
+      color: '#3B82F6',
+      order: 0,
+      visibility: 'private',
+      userId: USER_ID,
+      isDeleted: false,
+      icon: '',
+    };
+    const out = toAppwriteFormat(doc, 'categories', USER_ID);
+    expect(out.name).toBe('Work');
+    expect(out.color).toBe('#3B82F6');
+    expect(out.order).toBe(0);
+    expect(out.visibility).toBe('private');
+    expect(out.user_id).toBe(USER_ID);
+    expect(out.deleted).toBe(false);
+    expect(out.icon).toBe('');
+  });
+  it('diary: maps documented fields', () => {
+    const doc = {
+      id: 'd_1',
+      date: '2026-01-15',
+      content: 'Today was good.',
+      visibility: 'private',
+      userId: USER_ID,
+      createdAt: '2026-01-15T20:00:00.000Z',
+      updatedAt: '2026-01-15T21:00:00.000Z',
+      isDeleted: false,
+    };
+    const out = toAppwriteFormat(doc, 'diary', USER_ID);
+    expect(out.date).toBe('2026-01-15');
+    expect(out.content).toBe('Today was good.');
+    expect(out.visibility).toBe('private');
+    expect(out.created_at).toBe('2026-01-15T20:00:00.000Z');
+    expect(out.updated_at).toBe('2026-01-15T21:00:00.000Z');
+    expect(out.user_id).toBe(USER_ID);
+    expect(out.deleted).toBe(false);
+  });
+  it('settings: maps documented fields', () => {
+    const doc = {
+      id: 's_1',
+      userId: USER_ID,
+      key: 'displayName',
+      value: 'Alice',
+      isDeleted: false,
+    };
+    const out = toAppwriteFormat(doc, 'settings', USER_ID);
+    expect(out.key).toBe('displayName');
+    expect(out.value).toBe('Alice');
+    expect(out.user_id).toBe(USER_ID);
+    expect(out.deleted).toBe(false);
+  });
+  it('friendships: maps documented fields', () => {
+    const doc = {
+      id: 'fr_1',
+      userId: USER_ID,
+      friendId: 'user_b',
+      friendUsername: 'bob',
+      friendDisplayName: 'Bob',
+      friendAvatarFileId: 'img_xyz',
+      friendBio: 'hi',
+      status: 'accepted',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-02T00:00:00.000Z',
+      isDeleted: false,
+    };
+    const out = toAppwriteFormat(doc, 'friendships', USER_ID);
+    expect(out.friend_id).toBe('user_b');
+    expect(out.friend_username).toBe('bob');
+    expect(out.friend_display_name).toBe('Bob');
+    expect(out.friend_avatar_file_id).toBe('img_xyz');
+    expect(out.friend_bio).toBe('hi');
+    expect(out.status).toBe('accepted');
+    expect(out.user_id).toBe(USER_ID);
+    expect(out.deleted).toBe(false);
+  });
+});
+describe('fromAppwriteFormat', () => {
+  it('strips Appwrite-specific $-prefixed keys', () => {
+    const row = {
+      $id: 'task_1',
+      $createdAt: '2026-01-01T00:00:00.000Z',
+      $updatedAt: '2026-01-01T00:00:00.000Z',
+      $permissions: ['read("user:u1")'],
+      $databaseId: 'life_tracker',
+      $tableId: 'tasks',
+      $sequence: '1',
+      title: 'Buy groceries',
+      is_completed: true,
+      category_id: 'cat_1',
+      tags: '',
+      date: '2026-01-15',
+      memo: '',
+      image: '',
+      created_at: '2026-01-01T10:00:00.000Z',
+      completed_at: '',
+      updated_at: '2026-01-15T18:00:00.000Z',
+      user_id: USER_ID,
+      deleted: false,
+      visibility: 'private',
+      source: '',
+      routine_id: '',
+      reminder_time: '',
+      reactions: '',
+    };
+    const out = fromAppwriteFormat(row, 'tasks');
+    expect(out.$id).toBeUndefined();
+    expect(out.$createdAt).toBeUndefined();
+    expect(out.$updatedAt).toBeUndefined();
+    expect(out.$permissions).toBeUndefined();
+    expect(out.$databaseId).toBeUndefined();
+    expect(out.$tableId).toBeUndefined();
+    expect(out.$sequence).toBeUndefined();
+  });
+  it('maps deleted → isDeleted', () => {
+    const row = {
+      $id: 'cat_1',
+      name: 'Work',
+      color: '#3B82F6',
+      order: 0,
+      visibility: 'private',
+      user_id: USER_ID,
+      deleted: true,
+      icon: '',
+    };
+    const out = fromAppwriteFormat(row, 'categories');
+    expect(out.isDeleted).toBe(true);
+    expect(out.deleted).toBeUndefined();
+  });
+  it('messages: maps all snake_case fields back to camelCase', () => {
+    const row = {
+      $id: 'msg_1',
+      user_id: USER_ID,
+      thread_id: 'th_abc',
+      sender_id: USER_ID,
+      recipient_id: 'user_b',
+      direction: 'incoming',
+      content: 'hello',
+      task_ref_id: 'task_1',
+      task_ref_title: 'Buy groceries',
+      task_ref_date: '2026-01-15',
+      task_ref_color: '#3B82F6',
+      reply_to_id: 'msg_0',
+      reply_to_content: 'quoted',
+      reply_to_sender_id: 'user_b',
+      is_unsent: false,
+      original_message_id: 'msg_1',
+      reactions: '',
+      read_at: '2026-01-15T20:00:00.000Z',
+      delivery_status: 'delivered',
+      created_at: '2026-01-15T19:00:00.000Z',
+      updated_at: '2026-01-15T19:00:00.000Z',
+      deleted: false,
+    };
+    const out = fromAppwriteFormat(row, 'messages');
+    expect(out.threadId).toBe('th_abc');
+    expect(out.senderId).toBe(USER_ID);
+    expect(out.recipientId).toBe('user_b');
+    expect(out.taskRefId).toBe('task_1');
+    expect(out.taskRefTitle).toBe('Buy groceries');
+    expect(out.taskRefDate).toBe('2026-01-15');
+    expect(out.taskRefColor).toBe('#3B82F6');
+    expect(out.replyToId).toBe('msg_0');
+    expect(out.replyToContent).toBe('quoted');
+    expect(out.replyToSenderId).toBe('user_b');
+    expect(out.isUnsent).toBe(false);
+    expect(out.originalMessageId).toBe('msg_1');
+    expect(out.thread_id).toBeUndefined();
+    expect(out.task_ref_id).toBeUndefined();
+    expect(out.reply_to_id).toBeUndefined();
+    expect(out.is_unsent).toBeUndefined();
+    expect(out.original_message_id).toBeUndefined();
+  });
+  it('messages: read_at maps to readAt regardless of direction', () => {
+    const base = {
+      $id: 'rmsg_1',
+      user_id: USER_ID,
+      thread_id: 'th_abc',
+      sender_id: 'user_b',
+      recipient_id: USER_ID,
+      direction: 'incoming',
+      content: 'hi',
+      task_ref_id: '',
+      task_ref_title: '',
+      task_ref_date: '',
+      task_ref_color: '',
+      reply_to_id: '',
+      reply_to_content: '',
+      reply_to_sender_id: '',
+      is_unsent: false,
+      original_message_id: 'msg_1',
+      reactions: '',
+      read_at: '2026-01-15T20:00:00.000Z',
+      delivery_status: 'delivered',
+      created_at: '2026-01-15T19:00:00.000Z',
+      updated_at: '2026-01-15T19:00:00.000Z',
+      deleted: false,
+    };
+    const outgoing = { ...base, direction: 'outgoing' };
+    expect(fromAppwriteFormat(base, 'messages').readAt).toBe(
+      '2026-01-15T20:00:00.000Z'
+    );
+    expect(fromAppwriteFormat(outgoing, 'messages').readAt).toBe(
+      '2026-01-15T20:00:00.000Z'
+    );
+  });
+  it('defaults missing optional fields to ""', () => {
+    const row = {
+      $id: 'msg_1',
+      user_id: USER_ID,
+      thread_id: 'th_abc',
+      sender_id: USER_ID,
+      recipient_id: 'user_b',
+      direction: 'incoming',
+      delivery_status: 'delivered',
+      created_at: '2026-01-15T19:00:00.000Z',
+      updated_at: '2026-01-15T19:00:00.000Z',
+      deleted: false,
+    };
+    const out = fromAppwriteFormat(row, 'messages');
+    expect(out.content).toBe('');
+    expect(out.taskRefId).toBe('');
+    expect(out.taskRefTitle).toBe('');
+    expect(out.taskRefDate).toBe('');
+    expect(out.taskRefColor).toBe('');
+    expect(out.replyToId).toBe('');
+    expect(out.replyToContent).toBe('');
+    expect(out.replyToSenderId).toBe('');
+    expect(out.originalMessageId).toBe('');
+    expect(out.reactions).toBe('');
+    expect(out.readAt).toBe('');
+  });
+});
+describe('round-trip', () => {
+  function roundTrip(
+    doc: Record<string, unknown>,
+    collection: string,
+    userId: string
+  ): Record<string, unknown> {
+    const aw = toAppwriteFormat(doc, collection, userId) as Record<
+      string,
+      unknown
+    >;
+    aw.$id = doc.id;
+    return fromAppwriteFormat(aw, collection);
+  }
+  it('tasks: round-trips a canonical doc', () => {
+    const doc = {
+      id: 'task_1',
+      title: 'Buy groceries',
+      completed: true,
+      categoryId: 'cat_1',
+      tags: 'shopping',
+      date: '2026-01-15',
+      memo: 'milk',
+      image: 'img_abc',
+      createdAt: '2026-01-01T10:00:00.000Z',
+      completedAt: '2026-01-15T18:00:00.000Z',
+      updatedAt: '2026-01-15T18:00:00.000Z',
+      source: 'routine',
+      userId: USER_ID,
+      isDeleted: false,
+      routineId: 'rt_1',
+      reminderTime: '09:00',
+      reactions: '',
+      visibility: 'private',
+    };
+    expect(roundTrip(doc, 'tasks', USER_ID)).toEqual(doc);
+  });
+  it('categories: round-trips a canonical doc', () => {
+    const doc = {
+      id: 'cat_1',
+      name: 'Work',
+      color: '#3B82F6',
+      order: 0,
+      visibility: 'private',
+      userId: USER_ID,
+      isDeleted: false,
+      icon: '',
+    };
+    expect(roundTrip(doc, 'categories', USER_ID)).toEqual(doc);
+  });
+  it('diary: round-trips a canonical doc', () => {
+    const doc = {
+      id: 'd_1',
+      date: '2026-01-15',
+      content: 'Today was good.',
+      visibility: 'private',
+      userId: USER_ID,
+      createdAt: '2026-01-15T20:00:00.000Z',
+      updatedAt: '2026-01-15T21:00:00.000Z',
+      isDeleted: false,
+    };
+    expect(roundTrip(doc, 'diary', USER_ID)).toEqual(doc);
+  });
+  it('messages (incoming): round-trips and preserves readAt', () => {
+    const doc = {
+      id: 'rmsg_abc',
+      userId: USER_ID,
+      threadId: 'th_abc',
+      senderId: 'user_b',
+      recipientId: USER_ID,
+      direction: 'incoming',
+      content: 'hello',
+      taskRefId: '',
+      taskRefTitle: '',
+      taskRefDate: '',
+      taskRefColor: '',
+      replyToId: '',
+      replyToContent: '',
+      replyToSenderId: '',
+      isUnsent: false,
+      originalMessageId: 'msg_1',
+      reactions: '',
+      readAt: '2026-01-15T20:00:00.000Z',
+      deliveryStatus: 'delivered',
+      createdAt: '2026-01-15T19:00:00.000Z',
+      updatedAt: '2026-01-15T19:00:00.000Z',
+      isDeleted: false,
+    };
+    expect(roundTrip(doc, 'messages', USER_ID)).toEqual(doc);
+  });
+  it('messages (outgoing): round-trips but drops readAt', () => {
+    const doc = {
+      id: 'msg_1',
+      userId: USER_ID,
+      threadId: 'th_abc',
+      senderId: USER_ID,
+      recipientId: 'user_b',
+      direction: 'outgoing',
+      content: 'hello',
+      taskRefId: '',
+      taskRefTitle: '',
+      taskRefDate: '',
+      taskRefColor: '',
+      replyToId: '',
+      replyToContent: '',
+      replyToSenderId: '',
+      isUnsent: false,
+      originalMessageId: 'msg_1',
+      reactions: '',
+      readAt: '2026-01-15T20:00:00.000Z',
+      deliveryStatus: 'delivered',
+      createdAt: '2026-01-15T19:00:00.000Z',
+      updatedAt: '2026-01-15T19:00:00.000Z',
+      isDeleted: false,
+    };
+    const back = roundTrip(doc, 'messages', USER_ID);
+    expect(back.readAt).toBe('');
+    expect({ ...back, readAt: '2026-01-15T20:00:00.000Z' }).toEqual(doc);
+  });
+});
+</file>
+
+<file path="tests/unit/threads.test.ts">
+import { describe, it, expect } from 'vitest';
+import { makeThreadId, makeRecipientRowId } from '../../src/lib/threads';
+describe('makeThreadId', () => {
+  it('matches /^th_[a-f0-9]{30}$/ and is 33 chars total', async () => {
+    const id = await makeThreadId('alice', 'bob');
+    expect(id).toMatch(/^th_[a-f0-9]{30}$/);
+    expect(id).toHaveLength(33);
+  });
+  it('is deterministic for the same inputs', async () => {
+    const a = await makeThreadId('alice', 'bob');
+    const b = await makeThreadId('alice', 'bob');
+    expect(a).toBe(b);
+  });
+  it('is order-independent (a|b === b|a)', async () => {
+    const ab = await makeThreadId('alice', 'bob');
+    const ba = await makeThreadId('bob', 'alice');
+    expect(ab).toBe(ba);
+  });
+  it('produces different ids for different inputs', async () => {
+    const a = await makeThreadId('alice', 'bob');
+    const b = await makeThreadId('alice', 'carol');
+    expect(a).not.toBe(b);
+  });
+});
+describe('makeRecipientRowId', () => {
+  it('matches /^rmsg_[a-f0-9]{30}$/', async () => {
+    const id = await makeRecipientRowId('msg_abc');
+    expect(id).toMatch(/^rmsg_[a-f0-9]{30}$/);
+  });
+  it('is deterministic for the same inputs', async () => {
+    const a = await makeRecipientRowId('msg_x');
+    const b = await makeRecipientRowId('msg_x');
+    expect(a).toBe(b);
+  });
+  it('produces different ids for different inputs', async () => {
+    const a = await makeRecipientRowId('msg_a');
+    const b = await makeRecipientRowId('msg_b');
+    expect(a).not.toBe(b);
+  });
+});
+</file>
+
+<file path="tests/unit/visibility.test.ts">
+import { describe, it, expect } from 'vitest';
+import {
+  resolveVisibility,
+  isInheriting,
+  labelForVisibility,
+} from '../../src/lib/visibility';
+describe('resolveVisibility', () => {
+  it('lets the task value win over the category value', () => {
+    expect(resolveVisibility('public', 'private')).toBe('public');
+    expect(resolveVisibility('followers', 'public')).toBe('followers');
+    expect(resolveVisibility('private', 'public')).toBe('private');
+  });
+  it('falls back to the category when the task is empty', () => {
+    expect(resolveVisibility('', 'public')).toBe('public');
+    expect(resolveVisibility(undefined, 'followers')).toBe('followers');
+  });
+  it("falls back to 'private' when both are empty/undefined", () => {
+    expect(resolveVisibility('', '')).toBe('private');
+    expect(resolveVisibility(undefined, undefined)).toBe('private');
+    expect(resolveVisibility('', undefined)).toBe('private');
+    expect(resolveVisibility(undefined, '')).toBe('private');
+  });
+  it('falls through to the category when the task value is invalid', () => {
+    expect(resolveVisibility('bogus', 'public')).toBe('public');
+    expect(resolveVisibility('bogus', 'private')).toBe('private');
+    expect(resolveVisibility('bogus', undefined)).toBe('private');
+  });
+});
+describe('isInheriting', () => {
+  it('is true for an empty string', () => {
+    expect(isInheriting('')).toBe(true);
+  });
+  it('is true for undefined', () => {
+    expect(isInheriting(undefined)).toBe(true);
+  });
+  it('is false for concrete values', () => {
+    expect(isInheriting('private')).toBe(false);
+    expect(isInheriting('followers')).toBe(false);
+    expect(isInheriting('public')).toBe(false);
+  });
+});
+describe('labelForVisibility', () => {
+  it("maps 'private' to 'Private'", () => {
+    expect(labelForVisibility('private')).toBe('Private');
+  });
+  it("maps 'followers' to 'Friends'", () => {
+    expect(labelForVisibility('followers')).toBe('Friends');
+  });
+  it("maps 'public' to 'Public'", () => {
+    expect(labelForVisibility('public')).toBe('Public');
+  });
+});
+</file>
+
+<file path="tests/tsconfig.json">
+{
+  "extends": "../tsconfig.app.json",
+  "compilerOptions": {
+    "types": ["vite/client", "vitest/globals", "node"]
+  },
+  "include": ["**/*.ts"]
+}
+</file>
+
 <file path=".gitignore">
 # Logs
 logs
@@ -16703,6 +18852,16 @@ export default defineConfig([
       'no-restricted-imports': 'off',
     },
   },
+  {
+    files: ['tests/**/*.ts'],
+    languageOptions: {
+      globals: { ...globals.browser, ...globals.node },
+    },
+    rules: {
+      '@typescript-eslint/no-explicit-any': 'off',
+      '@typescript-eslint/no-unused-vars': 'off',
+    },
+  },
 ])
 </file>
 
@@ -16740,6 +18899,9 @@ export default defineConfig([
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:ui": "vitest --ui",
     "apply": "node apply-changes.mjs",
     "apply:dry": "node apply-changes.mjs --dry-run",
     "apply:docs": "node apply-changes.mjs --no-verify",
@@ -16773,6 +18935,7 @@ export default defineConfig([
     "@types/react-dom": "^19.2.4",
     "@vitejs/plugin-basic-ssl": "^2.3.0",
     "@vitejs/plugin-react": "^6.1.0",
+    "@vitest/ui": "^3.2.0",
     "autoprefixer": "^10.5.4",
     "eslint": "^10.9.0",
     "eslint-plugin-react-hooks": "^7.1.1",
@@ -16783,7 +18946,8 @@ export default defineConfig([
     "tailwindcss": "^3.4.19",
     "typescript": "~6.0.2",
     "typescript-eslint": "^8.67.0",
-    "vite": "^8.2.2"
+    "vite": "^8.2.2",
+    "vitest": "^3.2.0"
   }
 }
 </file>
@@ -16973,6 +19137,32 @@ export default defineConfig({
       }
     })
   ],
+});
+</file>
+
+<file path="vitest.config.ts">
+import { defineConfig } from 'vitest/config';
+export default defineConfig({
+  test: {
+    projects: [
+      {
+        test: {
+          name: 'unit',
+          environment: 'node',
+          globals: true,
+          include: ['tests/unit/**/*.test.ts'],
+        },
+      },
+      {
+        test: {
+          name: 'handlers',
+          environment: 'node',
+          globals: true,
+          include: ['tests/handlers/**/*.test.ts'],
+        },
+      },
+    ],
+  },
 });
 </file>
 
