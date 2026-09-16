@@ -35,12 +35,13 @@ export const AccountPage: React.FC = () => {
       <div className="sticky top-0 z-20 bg-[#111111] px-4 py-3 border-b border-[#333333] flex items-center justify-between">
         <h1 className="text-lg font-bold text-white">Me</h1>
         <button
+          type="button"
           onClick={() => navigate('/settings')}
           onPointerDown={(e) => e.stopPropagation()}
-          className="p-2 rounded-lg bg-[#1E1E1E] border border-[#333333] text-gray-400 hover:text-white hover:bg-[#2A2A2A] transition-colors"
+          className="p-2 rounded-lg bg-[#1E1E1E] border border-[#333333] text-gray-400 hover:text-white hover:bg-[#2A2A2A] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
           aria-label="Settings"
         >
-          <Settings size={20} />
+          <Settings size={20} aria-hidden="true" />
         </button>
       </div>
       <div className="flex-1 overflow-y-auto pb-24 px-4 pt-6 space-y-6">
@@ -65,11 +66,11 @@ export const AccountPage: React.FC = () => {
         </div>
         <div className="grid grid-cols-2 gap-3">
           <div className="bg-[#1E1E1E] border border-[#333333] rounded-xl p-3 flex flex-col items-center gap-2">
-            <BarChart3 size={20} className="text-blue-500" />
+            <BarChart3 size={20} className="text-blue-500" aria-hidden="true" />
             <span className="text-xs text-gray-400">My Progress</span>
           </div>
           <div className="bg-[#1E1E1E] border border-[#333333] rounded-xl p-3 flex flex-col items-center gap-2">
-            <Sticker size={20} className="text-green-500" />
+            <Sticker size={20} className="text-green-500" aria-hidden="true" />
             <span className="text-xs text-gray-400">Sticker Shop</span>
           </div>
         </div>
@@ -78,14 +79,17 @@ export const AccountPage: React.FC = () => {
             <h3 className="text-base font-bold text-white">Backlog</h3>
             <p className="text-sm text-gray-400">{backlogCount} tasks</p>
           </div>
-          <ListTodo size={24} className="text-gray-500" />
+          <ListTodo size={24} className="text-gray-500" aria-hidden="true" />
         </div>
         <div className="bg-[#1E1E1E] border border-[#333333] rounded-xl p-4 flex items-center justify-between">
           <div>
             <h3 className="text-base font-bold text-white">Categories</h3>
             <p className="text-sm text-gray-400">{categories.length} active</p>
           </div>
-          <div className="w-6 h-6 rounded-full bg-gradient-to-tr from-blue-500 to-purple-500" />
+          <div
+            className="w-6 h-6 rounded-full bg-gradient-to-tr from-blue-500 to-purple-500"
+            aria-hidden="true"
+          />
         </div>
         <div className="text-center py-4">
           <p className="text-sm text-gray-500 italic">
@@ -100,12 +104,16 @@ export const AccountPage: React.FC = () => {
           className="w-full gap-2 py-3"
           onClick={handleLogout}
         >
-          <LogOut size={18} />
+          <LogOut size={18} aria-hidden="true" />
           Logout
         </Button>
       </div>
       {feedback && (
-        <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[70] bg-[#2A2A2A] border border-[#444444] text-white text-sm px-5 py-2.5 rounded-full shadow-lg backdrop-blur-md animate-in fade-in slide-in-from-bottom-2 duration-200">
+        <div
+          role="status"
+          aria-live="polite"
+          className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[70] bg-[#2A2A2A] border border-[#444444] text-white text-sm px-5 py-2.5 rounded-full shadow-lg backdrop-blur-md animate-in fade-in slide-in-from-bottom-2 duration-200"
+        >
           {feedback}
         </div>
       )}

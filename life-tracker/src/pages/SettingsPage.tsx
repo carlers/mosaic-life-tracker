@@ -25,6 +25,7 @@ import { ChangeEmailSheet } from '../components/modals/ChangeEmailSheet';
 import { ChangePasswordSheet } from '../components/modals/ChangePasswordSheet';
 import { ExportDataSheet } from '../components/modals/ExportDataSheet';
 import { SyncStatusSheet } from '../components/modals/SyncStatusSheet';
+
 export const SettingsPage: React.FC = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
@@ -36,11 +37,14 @@ export const SettingsPage: React.FC = () => {
   const [isExportSheetOpen, setIsExportSheetOpen] = useState(false);
   const [isSyncStatusOpen, setIsSyncStatusOpen] = useState(false);
   const [feedback, setFeedback] = useState<string | null>(null);
+
   const showFeedback = (msg: string) => {
     setFeedback(msg);
     setTimeout(() => setFeedback(null), 2000);
   };
+
   const handleComingSoon = () => showFeedback('Coming soon');
+
   const handleLogout = async () => {
     const ok = await logout();
     if (ok) {
@@ -49,6 +53,7 @@ export const SettingsPage: React.FC = () => {
       showFeedback('Sign out failed. Check your connection and try again.');
     }
   };
+
   const handleClearData = async () => {
     setIsClearingData(true);
     try {
@@ -69,93 +74,98 @@ export const SettingsPage: React.FC = () => {
       setIsClearDataOpen(false);
     }
   };
+
   return (
     <div className="flex flex-col h-full animate-in fade-in duration-300">
       <div className="sticky top-0 z-20 bg-[#111111] px-4 py-3 border-b border-[#333333] flex items-center justify-center relative">
         <button
+          type="button"
           onClick={() => navigate(-1)}
           onPointerDown={(e) => e.stopPropagation()}
-          className="absolute left-4 p-2 rounded-lg text-gray-400 hover:text-white hover:bg-[#2A2A2A] transition-colors"
+          className="absolute left-4 p-2 rounded-lg text-gray-400 hover:text-white hover:bg-[#2A2A2A] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
           aria-label="Back"
         >
-          <ChevronLeft size={20} />
+          <ChevronLeft size={20} aria-hidden="true" />
         </button>
         <h1 className="text-lg font-bold text-white">Settings</h1>
       </div>
       <div className="flex-1 overflow-y-auto pb-24">
         <div className="py-2">
           <SettingsRow
-            icon={<User size={18} className="text-blue-500" />}
+            icon={<User size={18} className="text-blue-500" aria-hidden="true" />}
             label="Profile"
             onClick={() => navigate('/profile')}
           />
           <SettingsRow
-            icon={<Shield size={18} className="text-gray-400" />}
+            icon={<Shield size={18} className="text-gray-400" aria-hidden="true" />}
             label="Account"
             value={user?.email}
             onClick={() => setIsAccountSettingsOpen(true)}
           />
           <SettingsRow
-            icon={<Lock size={18} className="text-gray-400" />}
+            icon={<Lock size={18} className="text-gray-400" aria-hidden="true" />}
             label="Privacy"
             onClick={handleComingSoon}
           />
           <SettingsRow
-            icon={<Shield size={18} className="text-gray-400" />}
+            icon={<Shield size={18} className="text-gray-400" aria-hidden="true" />}
             label="App Permissions"
             onClick={handleComingSoon}
           />
           <SettingsRow
-            icon={<Monitor size={18} className="text-gray-400" />}
+            icon={<Monitor size={18} className="text-gray-400" aria-hidden="true" />}
             label="Screen"
             onClick={handleComingSoon}
           />
           <SettingsRow
-            icon={<Bell size={18} className="text-gray-400" />}
+            icon={<Bell size={18} className="text-gray-400" aria-hidden="true" />}
             label="Notifications"
             onClick={handleComingSoon}
           />
           <SettingsRow
-            icon={<Megaphone size={18} className="text-gray-400" />}
+            icon={<Megaphone size={18} className="text-gray-400" aria-hidden="true" />}
             label="Announcements"
             rightElement={
-              <div className="w-5 h-5 rounded-full bg-red-500 flex items-center justify-center text-[10px] font-bold text-white">
+              <div
+                className="w-5 h-5 rounded-full bg-red-500 flex items-center justify-center text-[10px] font-bold text-white"
+                aria-hidden="true"
+              >
                 N
               </div>
             }
             onClick={handleComingSoon}
           />
           <SettingsRow
-            icon={<Smile size={18} className="text-gray-400" />}
+            icon={<Smile size={18} className="text-gray-400" aria-hidden="true" />}
             label="My stickers"
             onClick={handleComingSoon}
           />
           <SettingsRow
-            icon={<Info size={18} className="text-gray-400" />}
+            icon={<Info size={18} className="text-gray-400" aria-hidden="true" />}
             label="Information"
             onClick={handleComingSoon}
           />
           <SettingsRow
-            icon={<HelpCircle size={18} className="text-gray-400" />}
+            icon={<HelpCircle size={18} className="text-gray-400" aria-hidden="true" />}
             label="FAQs"
             onClick={handleComingSoon}
           />
         </div>
         <div className="border-t border-[#333333] py-2">
           <SettingsRow
-            icon={<RefreshCw size={18} className="text-blue-500" />}
+            icon={<RefreshCw size={18} className="text-blue-500" aria-hidden="true" />}
             label="Sync Status"
             onClick={() => setIsSyncStatusOpen(true)}
           />
           <SettingsRow
-            icon={<FileDown size={18} className="text-emerald-500" />}
+            icon={<FileDown size={18} className="text-emerald-500" aria-hidden="true" />}
             label="Export Data"
             onClick={() => setIsExportSheetOpen(true)}
           />
         </div>
         <div className="border-t border-[#333333] py-2">
           <SettingsRow
-            icon={<Database size={18} className="text-red-500" />}
+            icon={<Database size={18} className="text-red-500" aria-hidden="true" />}
             label="Clear Local Data"
             isDestructive={true}
             showChevron={false}
@@ -170,11 +180,12 @@ export const SettingsPage: React.FC = () => {
         </div>
         <div className="px-4 pt-4 pb-8">
           <button
+            type="button"
             onClick={handleLogout}
             onPointerDown={(e) => e.stopPropagation()}
-            className="w-full py-3 bg-[#1E1E1E] border border-[#333333] rounded-xl text-red-500 font-medium hover:bg-[#2A2A2A] transition-colors flex items-center justify-center gap-2"
+            className="w-full py-3 bg-[#1E1E1E] border border-[#333333] rounded-xl text-red-500 font-medium hover:bg-[#2A2A2A] transition-colors flex items-center justify-center gap-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
           >
-            <LogOut size={18} />
+            <LogOut size={18} aria-hidden="true" />
             Sign Out
           </button>
         </div>
@@ -192,16 +203,18 @@ export const SettingsPage: React.FC = () => {
           </p>
           <div className="flex gap-3">
             <button
+              type="button"
               onClick={() => setIsClearDataOpen(false)}
               disabled={isClearingData}
-              className="flex-1 py-3 bg-[#2A2A2A] rounded-xl text-white font-medium hover:bg-[#333333] transition-colors disabled:opacity-50"
+              className="flex-1 py-3 bg-[#2A2A2A] rounded-xl text-white font-medium hover:bg-[#333333] transition-colors disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
             >
               Cancel
             </button>
             <button
+              type="button"
               onClick={handleClearData}
               disabled={isClearingData}
-              className="flex-1 py-3 bg-red-500 rounded-xl text-white font-medium hover:bg-red-600 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+              className="flex-1 py-3 bg-red-500 rounded-xl text-white font-medium hover:bg-red-600 transition-colors disabled:opacity-50 flex items-center justify-center gap-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
             >
               {isClearingData ? (
                 <>
@@ -243,7 +256,11 @@ export const SettingsPage: React.FC = () => {
         onClose={() => setIsSyncStatusOpen(false)}
       />
       {feedback && (
-        <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[70] bg-[#2A2A2A] border border-[#444444] text-white text-sm px-5 py-2.5 rounded-full shadow-lg backdrop-blur-md animate-in fade-in slide-in-from-bottom-2 duration-200">
+        <div
+          role="status"
+          aria-live="polite"
+          className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[70] bg-[#2A2A2A] border border-[#444444] text-white text-sm px-5 py-2.5 rounded-full shadow-lg backdrop-blur-md animate-in fade-in slide-in-from-bottom-2 duration-200"
+        >
           {feedback}
         </div>
       )}

@@ -7,7 +7,12 @@ interface AvatarProps {
   className?: string;
 }
 
-export const Avatar: React.FC<AvatarProps> = ({ src, alt = 'User', size = 'md', className = '' }) => {
+export const Avatar: React.FC<AvatarProps> = ({
+  src,
+  alt = 'User',
+  size = 'md',
+  className = '',
+}) => {
   const sizeClasses = {
     sm: 'w-8 h-8 text-xs',
     md: 'w-10 h-10 text-sm',
@@ -16,16 +21,20 @@ export const Avatar: React.FC<AvatarProps> = ({ src, alt = 'User', size = 'md', 
 
   if (src) {
     return (
-      <img 
-        src={src} 
-        alt={alt} 
-        className={`${sizeClasses[size]} rounded-full object-cover border-2 border-[#1E1E1E] ${className}`} 
+      <img
+        src={src}
+        alt={alt}
+        className={`${sizeClasses[size]} rounded-full object-cover border-2 border-[#1E1E1E] ${className}`}
       />
     );
   }
 
   return (
-    <div className={`${sizeClasses[size]} rounded-full bg-[#333333] flex items-center justify-center text-gray-400 font-bold border-2 border-[#1E1E1E] ${className}`}>
+    <div
+      className={`${sizeClasses[size]} rounded-full bg-[#333333] flex items-center justify-center text-gray-400 font-bold border-2 border-[#1E1E1E] ${className}`}
+      role="img"
+      aria-label={alt}
+    >
       {alt.charAt(0).toUpperCase()}
     </div>
   );

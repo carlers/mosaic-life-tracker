@@ -9,13 +9,13 @@ export const HamburgerMenu: React.FC = () => {
   const [isCategoryManagerOpen, setIsCategoryManagerOpen] = useState(false);
 
   const menuItems = [
-    { 
-      label: 'Lists & Categories', 
-      icon: List, 
+    {
+      label: 'Lists & Categories',
+      icon: List,
       action: () => {
         setIsMenuOpen(false);
         setIsCategoryManagerOpen(true);
-      } 
+      },
     },
     { label: 'Routines', icon: RefreshCw, action: () => console.log('Coming Soon') },
     { label: 'Reminders', icon: Bell, action: () => console.log('Coming Soon') },
@@ -24,11 +24,12 @@ export const HamburgerMenu: React.FC = () => {
   return (
     <>
       <button
+        type="button"
         onClick={() => setIsMenuOpen(true)}
-        className="p-2 rounded-lg bg-[#1E1E1E] border border-[#333333] text-gray-400 hover:text-white hover:bg-[#2A2A2A] transition-colors focus:outline-none"
+        className="p-2 rounded-lg bg-[#1E1E1E] border border-[#333333] text-gray-400 hover:text-white hover:bg-[#2A2A2A] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
         aria-label="Open menu"
       >
-        <Menu size={20} />
+        <Menu size={20} aria-hidden="true" />
       </button>
 
       <BottomSheet isOpen={isMenuOpen} onClose={() => setIsMenuOpen(false)} title="Menu">
@@ -42,7 +43,7 @@ export const HamburgerMenu: React.FC = () => {
                 className="w-full justify-start gap-3 py-3"
                 onClick={item.action}
               >
-                <Icon size={18} className="text-gray-400" />
+                <Icon size={18} className="text-gray-400" aria-hidden="true" />
                 <span>{item.label}</span>
               </Button>
             );
@@ -50,9 +51,9 @@ export const HamburgerMenu: React.FC = () => {
         </div>
       </BottomSheet>
 
-      <CategoryManagerSheet 
-        isOpen={isCategoryManagerOpen} 
-        onClose={() => setIsCategoryManagerOpen(false)} 
+      <CategoryManagerSheet
+        isOpen={isCategoryManagerOpen}
+        onClose={() => setIsCategoryManagerOpen(false)}
       />
     </>
   );

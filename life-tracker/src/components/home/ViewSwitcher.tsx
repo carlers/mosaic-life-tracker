@@ -22,7 +22,11 @@ export const ViewSwitcher: React.FC<ViewSwitcherProps> = ({
   onViewChange,
 }) => {
   return (
-    <div className="relative flex bg-[#1E1E1E] rounded-lg p-0.5 border border-[#333333] flex-shrink-0">
+    <div
+      role="tablist"
+      aria-label="View"
+      className="relative flex bg-[#1E1E1E] rounded-lg p-0.5 border border-[#333333] flex-shrink-0"
+    >
       {views.map((view) => {
         const isActive = activeView === view.id;
         const Icon = view.icon;
@@ -30,22 +34,31 @@ export const ViewSwitcher: React.FC<ViewSwitcherProps> = ({
           <button
             key={view.id}
             type="button"
+            role="tab"
+            aria-selected={isActive}
+            aria-label={view.label}
             onClick={() => onViewChange(view.id)}
             onPointerDown={(e) => e.stopPropagation()}
-            className="relative flex items-center justify-center w-7 h-7 rounded-md focus:outline-none group"
-            aria-label={view.label}
+            className="relative flex items-center justify-center w-7 h-7 rounded-md focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 group"
           >
             {isActive && (
-              <div className="absolute inset-0 bg-white rounded-md" />
+              <div
+                className="absolute inset-0 bg-white rounded-md"
+                aria-hidden="true"
+              />
             )}
             <span
               className={`relative z-10 transition-colors ${
                 isActive ? 'text-black' : 'text-gray-500 group-hover:text-gray-300'
               }`}
+              aria-hidden="true"
             >
               <Icon size={14} />
             </span>
-            <span className="pointer-events-none absolute -bottom-8 left-1/2 -translate-x-1/2 px-2 py-1 bg-[#2A2A2A] border border-[#444444] rounded text-[10px] text-white whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity hidden md:block z-50">
+            <span
+              className="pointer-events-none absolute -bottom-8 left-1/2 -translate-x-1/2 px-2 py-1 bg-[#2A2A2A] border border-[#444444] rounded text-[10px] text-white whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity hidden md:block z-50"
+              aria-hidden="true"
+            >
               {view.label}
             </span>
           </button>
