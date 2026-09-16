@@ -618,7 +618,7 @@ Tests that pin behavior documented in this file carry a `// Regression: §<secti
 Three roles participate in the workflow. Every chat session is exactly one role.
 
 - **Chat 0 — User / Arbiter.** The human. Makes product decisions, runs terminal commands, approves plans, and is the only party who can change scope. Not a chat session.
-- **Chat 1 — Brain.** Planner, auditor, prompt generator. Reads `AGENTS.md`, `SESSION_STATE.md`, and the attached `repomix --compress` output. Produces prompts for Chat 2 and plan updates. Does NOT write production code. May request exact file contents via `npm run dump -- <paths>` when auditing a specific implementation. **A single Chat 1 session spans the full audit cycle** — brief → dumps → findings → Chat 2 fix prompt — without handing off to another chat between steps. It requests additional dumps from the user inline (`npm run dump -- <paths>`) and continues in the same session. Only a user-typed `OFFBOARD` triggers a handoff (see §25.6); Chat 1 never hands off on its own initiative.
+- **Chat 1 — Brain.** Planner, auditor, prompt generator. Reads `AGENTS.md`, `SESSION_STATE.md`, and the attached `repomix --compress` output. Produces prompts for Chat 2 and plan updates. Does NOT write production code. May request exact file contents via `npm run dump -- <paths>` when auditing a specific implementation. **A single Chat 1 session spans the full audit cycle** — brief → dumps → findings → Chat 2 fix prompt — without handing off to another chat between steps. It requests additional dumps from the user inline (`npm run dump -- <paths>`) and continues in the same session. Only a user-typed `OFFBOARD` triggers a handoff (see §25.6); Chat 1 never hands off on its own initiative. **Chat 1 may emit its own mega files for documentation-only changes (§25.6).** All runtime-affecting changes — TypeScript, scripts, configs, `package.json`, anything that could affect runtime behavior — go through Chat 2.
 - **Chat 2 — Hands.** Coder, mega-file producer. Reads `AGENTS.md`, `SESSION_STATE.md`, and the attached `repomix --compress` output. Produces exactly one mega file per §5.1 for the current batch. Updates `SESSION_STATE.md` inside every mega file it emits. Requests exact files via `npm run dump -- <paths>` when it needs to see full contents. Follows the question policy (§25.5).
 
 A session declares its role in its first message (see §25.4). If a session does not declare a role, it must ask before acting.
@@ -736,12 +736,14 @@ When a chat is asked to offboard, it produces exactly two things, in this order,
 
    When the target is Chat 1, the prompt body MUST additionally include: (a) what was done, 2–3 sentences; (b) files touched; (c) review focus; (d) test status. A target-Chat-2 prompt does not need these — SESSION_STATE.md carries the state.
 
+   The summary is the sole review artifact. Chat 1 does not request the mega file, the applied diff, or a git diff. If the summary is insufficient, Chat 1 requests `npm run dump -- <paths>` and reads the affected files directly.
+
    The prompt is emitted inside a Markdown code fence whose backtick count is strictly greater than the longest backtick run appearing anywhere inside the prompt body. Four backticks is the default; bump to five or more if the prompt body contains a four-backtick run.
 
    Example:
-   ```
+   ````
    ROLE: CHAT 2 (Hands). Follow AGENTS.md §25. Read SESSION_STATE.md. Resume from NextAction. Start with the current batch.
-   ```
+   ````
 
 2. **A `SESSION_STATE.md` update**, emitted as a mosaic mega file per §5.1, **only if the state file is stale**. If it is current, the chat says so in one line and stops.
 
@@ -787,3 +789,4 @@ No other context is needed. The new chat reads `AGENTS.md §25` and `SESSION_STA
 | 2026-09-16 | §25.1, §25.4, §25.6 | Clarified Chat 1 lifecycle: a single Chat 1 session spans the full audit cycle (brief → dumps → findings → Chat 2 prompt) without handing off between steps. Only a user-typed `OFFBOARD` triggers offboarding; producing a "next-session prompt" unprompted is a spec violation. Both start templates now state "Stay in this session; only OFFBOARD ends it." | Chat 1 premature offboarding |
 | 2026-09-16 | §5.1, §25.2 | `scripts/dump-files.mjs` (Tier 2 context ingest) now emits repomix-compatible `<file path="…">…</file>` XML wrappers instead of the `===FILE:path===` mega-file directive syntax. This removes the ambiguity between the *read* format (dump, repomix) and the *write* format (mega file, `apply-changes.mjs`), so a dump can never be accidentally parsed as a patch. §5.1 adds a Common-pitfalls bullet documenting the distinction; §25.2's Tier 2 row and rules bullet updated. | Phase 1 audits — batch 1.1.chore |
 | 2026-09-16 | §25.3, §25.4, §25.6 | Split offboarding triggers by target role (phase completion → Chat 1, user OFFBOARD → NextChatRole). Chat-1-targeted handoff prompts now carry a review payload (what was done, files touched, review focus, test status). Replaced per-batch 'Audit closed' declaration with once-per-phase 'Phase complete' declaration. §25.3 NextChatRole clarified as non-directive. | split offboarding triggers by target role |
+| 2026-09-16 | §25.1, §25.6 | Chat 1 may emit documentation-only mega files directly (no runtime behavior → no Chat 2 round-trip). Chat-1 review is logical, not byte-level — the review payload is the sole review artifact; no mega file or git diff required. | clarify Chat 1 docs carve-out + review-artifact boundary |

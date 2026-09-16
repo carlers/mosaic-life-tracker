@@ -3,15 +3,16 @@
 Updated: 2026-09-16
 ActivePlan: Phase 1 audits — final sweep
 CurrentBatch: 1 of 6
-CurrentTask: 1.1.chore-b — complete (§25.4/§25.6 offboarding-trigger split + review payload)
+CurrentTask: 1.1.chore-c — complete (Chat 1 docs carve-out + review-artifact boundary)
 Status: in_progress
-NextAction: Awaiting Chat 0 go-ahead to start 1.1.fix (Offline write resilience, OFF-8/9/10/3).
+NextAction: Batch 1.1.chore-c complete. Awaiting Chat 0 go-ahead to start 1.1.fix (Offline write resilience, OFF-8/9/10/3). Do NOT begin 1.1.fix or 1.1.fix.b without an explicit follow-up from Chat 0.
 NextChatRole: chat2
 BatchPlan:
 - Phase 1 audits — final sweep (current)
   - [x] 1.1 Item 10 — offline behavior audit (findings in AUDIT_ITEM_10.md)
   - [x] 1.1.chore — dump XML format (blocking for clean dumps)
   - [x] 1.1.chore-b — §25.4/§25.6 offboarding-trigger split + review payload
+  - [x] 1.1.chore-c — Chat 1 docs carve-out + review-artifact boundary
   - [ ] 1.1.fix — Offline write resilience (OFF-8/9/10/3)
   - [ ] 1.1.fix.b — Cached-data rendering + small offline fixes (OFF-11/13/12/2/4)
   - [ ] 1.2 Item 9 — realtime subscriptions layer
@@ -25,5 +26,5 @@ BatchPlan:
 - [ ] Feature work — Phase 3.5 Todo List, 3.6 Diary, 3.7 Notifications, API integrations (paused)
 OpenQuestions:
 - H1 — offline auth gate (OFF-1). §1 claims "100% offline functionality"; §23.6 maps network error → `user: null` → retry screen. Product/architecture decision required before Chat 2 can fix OFF-1. Options: (a) hydrate user from cached identity on network failure, (b) rename retry screen to an offline-mode screen with local read-only access, (c) accept behavior and downgrade §1's claim in docs.
-LastApply: 2026-09-16 — docs: split offboarding triggers by target role
-LastAuditSummary: Batch 1.1.chore-b complete — §25.4/§25.6 offboarding triggers split by target role; Chat-1 handoffs now carry a review payload. Awaiting Chat 0 go-ahead for 1.1.fix.
+LastApply: 2026-09-16 — docs: clarify Chat 1 docs carve-out + review-artifact boundary
+LastAuditSummary: Batch 1.1.chore-c complete — Chat 1 may emit docs-only mega files; Chat-1 review is logical, not byte-level (payload is the sole review artifact). Awaiting Chat 0 go-ahead for 1.1.fix.
