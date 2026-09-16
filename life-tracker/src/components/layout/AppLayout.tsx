@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Outlet, useLocation, useNavigate, Navigate } from 'react-router-dom';
 import { WifiOff, UserX } from 'lucide-react';
 import { MainLayout } from './MainLayout';
+import { FriendsProvider } from '../../hooks/FriendsProvider';
 import { ConversationsProvider } from '../../hooks/ConversationsProvider';
 import { useAuth } from '../../hooks/useAuth';
 import { deliverPendingMessages } from '../../lib/messageDelivery';
@@ -115,10 +116,12 @@ export const AppLayout: React.FC = () => {
     navigate(`/${tab}`);
   };
   return (
-    <ConversationsProvider>
-      <MainLayout activeTab={activeTab} onTabChange={handleTabChange}>
-        <Outlet />
-      </MainLayout>
-    </ConversationsProvider>
+    <FriendsProvider>
+      <ConversationsProvider>
+        <MainLayout activeTab={activeTab} onTabChange={handleTabChange}>
+          <Outlet />
+        </MainLayout>
+      </ConversationsProvider>
+    </FriendsProvider>
   );
 };
