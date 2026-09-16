@@ -1,6 +1,101 @@
 type AppwriteRow = Record<string, unknown>;
 type AppwritePayload = Record<string, unknown>;
-
+const KNOWN_FIELDS: Record<string, Set<string>> = {
+  tasks: new Set([
+    'title',
+    'is_completed',
+    'category_id',
+    'tags',
+    'date',
+    'memo',
+    'image',
+    'created_at',
+    'completed_at',
+    'updated_at',
+    'user_id',
+    'deleted',
+    'visibility',
+    'source',
+    'routine_id',
+    'reminder_time',
+    'reactions',
+  ]),
+  categories: new Set([
+    'name',
+    'color',
+    'visibility',
+    'order',
+    'user_id',
+    'deleted',
+    'icon',
+  ]),
+  diary: new Set([
+    'date',
+    'content',
+    'visibility',
+    'user_id',
+    'deleted',
+    'created_at',
+    'updated_at',
+  ]),
+  settings: new Set(['user_id', 'key', 'value', 'deleted']),
+  friendships: new Set([
+    'user_id',
+    'friend_id',
+    'friend_username',
+    'friend_display_name',
+    'friend_avatar_file_id',
+    'friend_bio',
+    'status',
+    'created_at',
+    'updated_at',
+    'deleted',
+  ]),
+  messages: new Set([
+    'user_id',
+    'thread_id',
+    'sender_id',
+    'recipient_id',
+    'direction',
+    'content',
+    'task_ref_id',
+    'task_ref_title',
+    'task_ref_date',
+    'task_ref_color',
+    'reply_to_id',
+    'reply_to_content',
+    'reply_to_sender_id',
+    'is_unsent',
+    'original_message_id',
+    'reactions',
+    'read_at',
+    'delivery_status',
+    'created_at',
+    'updated_at',
+    'deleted',
+  ]),
+};
+const warnedDriftFields = new Set<string>();
+function warnUnknownFields(row: AppwriteRow, collection: string): void {
+  const known = KNOWN_FIELDS[collection];
+  if (!known) return;
+  for (const key of Object.keys(row)) {
+    // Appwrite metadata keys ($id, $updatedAt, ...) are expected and are
+    // stripped by fromAppwriteFormat below. Do not warn on them — Appwrite
+    // may add new metadata keys over time and those are not our concern.
+    if (key.startsWith('$')) continue;
+    if (known.has(key)) continue;
+    const tag = `${collection}::${key}`;
+    if (warnedDriftFields.has(tag)) continue;
+    warnedDriftFields.add(tag);
+    console.warn(
+      `[Sync] Unknown remote field for ${collection}: ${key}. Possible schema drift.`
+    );
+  }
+}
+export function __resetDriftWarningsForTests(): void {
+  warnedDriftFields.clear();
+}
 export function toAppwriteFormat(
   doc: Record<string, unknown>,
   collection: string,
@@ -88,11 +183,11 @@ export function toAppwriteFormat(
   }
   return mapped;
 }
-
 export function fromAppwriteFormat(
   row: AppwriteRow,
   collection: string
 ): Record<string, unknown> {
+  warnUnknownFields(row, collection);
   const mapped: Record<string, unknown> = { ...row };
   delete mapped.$id;
   delete mapped.$createdAt;

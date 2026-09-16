@@ -2,16 +2,19 @@ import { ExecutionMethod } from 'appwrite';
 import type { RxDocument } from 'rxdb';
 import { getDatabase } from '../db/database';
 import { guardedFunctions } from './sdk';
+import { isUnauthorizedError } from './authEvents';
+import {
+  enqueueMessageAction,
+  flushMessageActionQueue,
+  setMessageActionSender,
+} from './messageActionQueue';
 import type { MessageDocument } from '../db/schema';
-
 const DEBUG = import.meta.env.DEV;
 export const MESSAGE_ACTION_FUNCTION_ID = '6aa8057f002a4c306fdd';
-
 const SEND_TIMEOUT_MS = 15_000;
 const MAX_DELIVERY_LOOPS = 5;
 let inFlightDeliveryPromise: Promise<void> | null = null;
 let deliveryRequestedDuringFlight = false;
-
 export async function sendMessageAction(
   payload: Record<string, unknown>
 ): Promise<Record<string, unknown>> {
@@ -29,7 +32,6 @@ export async function sendMessageAction(
     xpath: '/',
     method: ExecutionMethod.POST,
   });
-  // Swallow the eventual rejection if the race below times out first.
   execPromise.catch(() => {});
   const execution = await Promise.race([
     execPromise,
@@ -65,8 +67,29 @@ export async function sendMessageAction(
     return {};
   }
 }
-
+setMessageActionSender(sendMessageAction);
+export { flushMessageActionQueue };
+function shouldQueueMessageAction(err: unknown): boolean {
+  if (isUnauthorizedError(err)) return false;
+  const code = (err as { code?: number } | null)?.code;
+  // No numeric code = network error, timeout, or offline: transient.
+  if (typeof code !== 'number') return true;
+  // 429: transient.
+  if (code === 429) return true;
+  // 5xx: transient.
+  if (code >= 500) return true;
+  // Any other 4xx: permanent. Retrying will not help.
+  return false;
+}
 export async function deliverPendingMessages(userId: string): Promise<void> {
+  // Best-effort drain of the message action retry queue. Not awaited — the
+  // caller only cares about delivery. The queue module enforces a single
+  // in-flight flush so multiple triggers cannot stampede.
+  flushMessageActionQueue(userId).catch((err) => {
+    if (DEBUG) {
+      console.error('[messageDelivery] queue flush failed:', err);
+    }
+  });
   if (inFlightDeliveryPromise) {
     deliveryRequestedDuringFlight = true;
     return inFlightDeliveryPromise;
@@ -147,7 +170,6 @@ export async function deliverPendingMessages(userId: string): Promise<void> {
   })();
   return inFlightDeliveryPromise;
 }
-
 async function deliverOne(doc: RxDocument<MessageDocument>): Promise<void> {
   await sendMessageAction({
     action: 'deliver',
@@ -164,8 +186,8 @@ async function deliverOne(doc: RxDocument<MessageDocument>): Promise<void> {
     createdAt: doc.createdAt,
   });
 }
-
 export async function markReadOnRemote(
+  userId: string,
   partnerId: string,
   threadId: string
 ): Promise<void> {
@@ -176,11 +198,18 @@ export async function markReadOnRemote(
       threadId,
     });
   } catch (err) {
+    if (shouldQueueMessageAction(err)) {
+      enqueueMessageAction(userId, {
+        action: 'mark_read',
+        payload: { partnerId, threadId },
+        dedupKey: `mark_read:${threadId}`,
+      });
+    }
     console.error('[messageDelivery] markReadOnRemote failed:', err);
   }
 }
-
 export async function unsendOnRemote(
+  userId: string,
   messageId: string,
   recipientId: string
 ): Promise<void> {
@@ -191,10 +220,16 @@ export async function unsendOnRemote(
       recipientId,
     });
   } catch (err) {
+    if (shouldQueueMessageAction(err)) {
+      enqueueMessageAction(userId, {
+        action: 'unsend',
+        payload: { messageId, recipientId },
+        dedupKey: `unsend:${messageId}`,
+      });
+    }
     console.error('[messageDelivery] unsendOnRemote failed:', err);
   }
 }
-
 export async function reactOnRemote(
   myRowId: string,
   peerRowId: string,
@@ -213,7 +248,6 @@ export async function reactOnRemote(
   const resolved = result?.resolvedPeerRowId;
   return typeof resolved === 'string' && resolved.length > 0 ? resolved : null;
 }
-
 export async function reactToTaskOnRemote(
   taskId: string,
   taskOwnerId: string,

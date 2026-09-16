@@ -123,6 +123,7 @@ src/
       EditProfileImageSheet.tsx
       ExportDataSheet.tsx
       SetUsernameSheet.tsx
+      SyncStatusSheet.tsx
     ui/
       Avatar.tsx
       BottomSheet.tsx
@@ -168,6 +169,7 @@ src/
     friendCache.ts
     friendData.ts
     imageCache.ts
+    messageActionQueue.ts
     messageDelivery.ts
     mockData.ts
     reactionUtils.ts
@@ -203,6 +205,7 @@ tests/
     MessageBubble.test.tsx
     MessageComposer.test.tsx
     ReactionRow.test.tsx
+    SyncStatusSheet.test.tsx
     TaskActionSheet.test.tsx
     TaskVisibilitySheet.test.tsx
     UserResultCard.test.tsx
@@ -227,8 +230,10 @@ tests/
     react.ts
   unit/
     appwriteParity.test.ts
+    messageActionQueue.test.ts
     reactionUtils.test.ts
     settingsRowId.test.ts
+    sync.test.ts
     syncMapping.test.ts
     threads.test.ts
     visibility.test.ts
@@ -8521,6 +8526,127 @@ export const SetUsernameSheet: React.FC<SetUsernameSheetProps> = ({
 };
 </file>
 
+<file path="src/components/modals/SyncStatusSheet.tsx">
+import React, { useEffect, useState } from 'react';
+import { CheckCircle2, AlertCircle, RefreshCw } from 'lucide-react';
+import { BottomSheet } from '../ui/BottomSheet';
+import {
+  getSyncStatus,
+  subscribeToSyncStatus,
+  forceSync,
+  type SyncStatus,
+} from '../../db/sync';
+interface SyncStatusSheetProps {
+  isOpen: boolean;
+  onClose: () => void;
+}
+function formatRelative(iso: string | null): string {
+  if (!iso) return 'Never';
+  const d = new Date(iso);
+  const diffMs = Date.now() - d.getTime();
+  if (!Number.isFinite(diffMs) || diffMs < 0) return 'just now';
+  const sec = Math.floor(diffMs / 1000);
+  if (sec < 60) return 'just now';
+  const min = Math.floor(sec / 60);
+  if (min < 60) return `${min}m ago`;
+  const hr = Math.floor(min / 60);
+  if (hr < 24) return `${hr}h ago`;
+  const day = Math.floor(hr / 24);
+  if (day < 7) return `${day}d ago`;
+  return d.toLocaleDateString();
+}
+export const SyncStatusSheet: React.FC<SyncStatusSheetProps> = ({
+  isOpen,
+  onClose,
+}) => {
+  const [status, setStatus] = useState<SyncStatus>(() => getSyncStatus());
+  const [isManualSyncDisabled, setIsManualSyncDisabled] = useState(false);
+  useEffect(() => {
+    if (!isOpen) return;
+    const unsubscribe = subscribeToSyncStatus((next) => setStatus(next));
+    return unsubscribe;
+  }, [isOpen]);
+  useEffect(() => {
+    if (!isManualSyncDisabled) return;
+    const t = setTimeout(() => setIsManualSyncDisabled(false), 2000);
+    return () => clearTimeout(t);
+  }, [isManualSyncDisabled]);
+  const errorCount = status.errors.length;
+  const handleSyncNow = () => {
+    if (isManualSyncDisabled) return;
+    setIsManualSyncDisabled(true);
+    forceSync().catch((err) => {
+      console.error('[SyncStatusSheet] Manual sync failed:', err);
+    });
+  };
+  return (
+    <BottomSheet
+      isOpen={isOpen}
+      onClose={onClose}
+      title="Sync Status"
+      height="auto"
+    >
+      <div className="pt-2 pb-8 px-4 space-y-4">
+        <div className="bg-[#1A1A1A] rounded-xl p-4 flex items-center gap-3">
+          {status.isSyncing ? (
+            <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin flex-shrink-0" />
+          ) : errorCount === 0 ? (
+            <CheckCircle2
+              size={20}
+              className="text-emerald-500 flex-shrink-0"
+            />
+          ) : (
+            <AlertCircle size={20} className="text-amber-500 flex-shrink-0" />
+          )}
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium text-white">
+              {status.isSyncing
+                ? 'Syncing…'
+                : errorCount === 0
+                ? 'Up to date'
+                : `${errorCount} error${errorCount === 1 ? '' : 's'}`}
+            </p>
+            <p className="text-xs text-gray-500 mt-0.5">
+              Last synced {formatRelative(status.lastSync)}
+            </p>
+          </div>
+        </div>
+        {errorCount > 0 && (
+          <div className="space-y-2">
+            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider px-1">
+              Errors
+            </p>
+            {status.errors.map((err, i) => (
+              <div
+                key={i}
+                className="bg-[#1A1A1A] border border-red-900/30 rounded-lg p-3"
+              >
+                <p className="text-xs text-red-400 break-words whitespace-pre-wrap">
+                  {err}
+                </p>
+              </div>
+            ))}
+          </div>
+        )}
+        <button
+          type="button"
+          onClick={handleSyncNow}
+          onPointerDown={(e) => e.stopPropagation()}
+          disabled={isManualSyncDisabled || status.isSyncing}
+          className="w-full flex items-center justify-center gap-2 py-3 bg-[#2A2A2A] hover:bg-[#333333] disabled:opacity-50 disabled:cursor-not-allowed rounded-xl text-white text-sm font-medium transition-colors"
+        >
+          <RefreshCw
+            size={16}
+            className={status.isSyncing ? 'animate-spin' : ''}
+          />
+          {status.isSyncing ? 'Syncing…' : 'Sync Now'}
+        </button>
+      </div>
+    </BottomSheet>
+  );
+};
+</file>
+
 <file path="src/components/ui/Avatar.tsx">
 import React from 'react';
 interface AvatarProps {
@@ -9411,12 +9537,14 @@ const APPWRITE_CONFIG = {
 } as const;
 const DEBUG = import.meta.env.DEV;
 const PAGE_SIZE = 100;
+const MAX_PAGES_PER_COLLECTION = 100;
 const PULL_OVERLAP_MS = 30_000;
 const RATE_LIMIT_BASE_MS = 5_000;
 const RATE_LIMIT_MAX_MS = 60_000;
 const FAILURE_BACKOFF_BASE_MS = 5_000;
 const FAILURE_BACKOFF_MAX_MS = 60_000;
 const TRIGGER_DEBOUNCE_MS = 1_500;
+const WEB_LOCKS_NAME = 'mosaic-sync';
 type CollectionName = keyof AppDatabaseCollections;
 const ALL_COLLECTIONS: CollectionName[] = [
   'tasks',
@@ -9431,10 +9559,12 @@ interface PerCollectionSyncEntry {
   dirty: string;
 }
 interface PerCollectionPersistedState {
+  version: number;
   ownerId: string;
   entries: Partial<Record<CollectionName, PerCollectionSyncEntry>>;
 }
 const PER_COLLECTION_KEY = 'lastSyncTimePerCollection';
+const PER_COLLECTION_STATE_VERSION = 1;
 function loadPerCollectionState(
   userId: string
 ): Partial<Record<CollectionName, PerCollectionSyncEntry>> {
@@ -9444,6 +9574,11 @@ function loadPerCollectionState(
     const parsed = JSON.parse(raw) as unknown;
     if (!parsed || typeof parsed !== 'object') return {};
     const state = parsed as Partial<PerCollectionPersistedState>;
+    const version =
+      typeof state.version === 'number'
+        ? state.version
+        : PER_COLLECTION_STATE_VERSION;
+    if (version !== PER_COLLECTION_STATE_VERSION) return {};
     if (state.ownerId !== userId) return {};
     if (!state.entries || typeof state.entries !== 'object') return {};
     return state.entries as Partial<
@@ -9458,7 +9593,11 @@ function savePerCollectionState(
   entries: Partial<Record<CollectionName, PerCollectionSyncEntry>>
 ): void {
   try {
-    const state: PerCollectionPersistedState = { ownerId: userId, entries };
+    const state: PerCollectionPersistedState = {
+      version: PER_COLLECTION_STATE_VERSION,
+      ownerId: userId,
+      entries,
+    };
     localStorage.setItem(PER_COLLECTION_KEY, JSON.stringify(state));
   } catch {
   }
@@ -9474,7 +9613,7 @@ export interface SyncStatus {
 }
 let syncStatus: SyncStatus = {
   isSyncing: false,
-  lastSync: localStorage.getItem('lastSyncTime') || null,
+  lastSync: null,
   errors: [],
 };
 export function getSyncStatus(): SyncStatus {
@@ -9484,15 +9623,31 @@ type SyncListener = (status: SyncStatus) => void;
 const listeners: SyncListener[] = [];
 function updateSyncStatus(updates: Partial<SyncStatus>) {
   syncStatus = { ...syncStatus, ...updates };
-  if (syncStatus.lastSync) {
-    localStorage.setItem('lastSyncTime', syncStatus.lastSync);
+  if (syncStatus.lastSync && perCollectionOwnerId) {
+    try {
+      localStorage.setItem(
+        `lastSyncTime_${perCollectionOwnerId}`,
+        syncStatus.lastSync
+      );
+    } catch {
+    }
   }
-  listeners.forEach((l) => l(syncStatus));
+  for (const l of listeners) {
+    try {
+      l(syncStatus);
+    } catch (err) {
+      console.error('[Sync] Status listener threw:', err);
+    }
+  }
   if (DEBUG) console.log('[Sync] Status:', syncStatus);
 }
 export function subscribeToSyncStatus(listener: SyncListener): () => void {
   listeners.push(listener);
-  listener(syncStatus);
+  try {
+    listener(syncStatus);
+  } catch (err) {
+    console.error('[Sync] Status listener threw on subscribe:', err);
+  }
   return () => {
     const idx = listeners.indexOf(listener);
     if (idx > -1) listeners.splice(idx, 1);
@@ -9511,6 +9666,8 @@ type LocalCollection = {
   upsert: (doc: Record<string, unknown>) => Promise<unknown>;
 };
 let isSyncInProgress = false;
+let isSyncCycleQueued = false;
+let syncRequestedDuringFlight = false;
 let rateLimitUntil = 0;
 let rateLimitBackoffMs = 0;
 let failureBackoffUntil = 0;
@@ -9539,6 +9696,10 @@ function isNotFoundError(err: unknown): boolean {
   const code = (err as { code?: number } | null)?.code;
   return code === 404;
 }
+function isConflictError(err: unknown): boolean {
+  const code = (err as { code?: string } | null)?.code;
+  return code === 'CONFLICT';
+}
 function buildRowPermissions(userId: string) {
   return [
     Permission.read(Role.user(userId)),
@@ -9561,9 +9722,12 @@ async function resolveAuthenticatedUserId(): Promise<string | null> {
   }
 }
 export async function initializeSync(): Promise<void> {
-  if (isSyncInProgress) {
+  if (isSyncInProgress || isSyncCycleQueued) {
     if (DEBUG)
-      console.log('[Sync] initializeSync skipped: sync already in progress');
+      console.log(
+        '[Sync] initializeSync requested while in-flight; queueing follow-up'
+      );
+    syncRequestedDuringFlight = true;
     return;
   }
   if (Date.now() < rateLimitUntil) {
@@ -9593,6 +9757,39 @@ export async function initializeSync(): Promise<void> {
     updateSyncStatus({ isSyncing: false });
     return;
   }
+  isSyncCycleQueued = true;
+  try {
+    if (
+      typeof navigator !== 'undefined' &&
+      navigator.locks &&
+      typeof navigator.locks.request === 'function'
+    ) {
+      try {
+        await navigator.locks.request(WEB_LOCKS_NAME, runSyncCycleBody);
+      } catch (lockErr) {
+        console.warn(
+          '[Sync] Web Locks request failed; running without cross-tab mutex:',
+          lockErr
+        );
+        await runSyncCycleBody();
+      }
+    } else {
+      await runSyncCycleBody();
+    }
+  } finally {
+    isSyncCycleQueued = false;
+    if (syncRequestedDuringFlight) {
+      syncRequestedDuringFlight = false;
+      if (DEBUG) console.log('[Sync] Running queued follow-up sync');
+      queueMicrotask(() => {
+        initializeSync().catch((err) => {
+          console.error('[Sync] Queued follow-up sync failed:', err);
+        });
+      });
+    }
+  }
+}
+async function runSyncCycleBody(): Promise<void> {
   isSyncInProgress = true;
   if (DEBUG) console.log('[Sync] Starting sync...');
   updateSyncStatus({ isSyncing: true, errors: [] });
@@ -9603,15 +9800,19 @@ export async function initializeSync(): Promise<void> {
       updateSyncStatus({ isSyncing: false });
       return;
     }
-    if (perCollectionOwnerId !== userId) {
-      perCollectionSync = loadPerCollectionState(userId);
-      perCollectionOwnerId = userId;
-      if (DEBUG) {
-        console.log(
-          `[Sync] Loaded per-collection state for user ${userId}:`,
-          Object.keys(perCollectionSync)
-        );
-      }
+    perCollectionSync = loadPerCollectionState(userId);
+    perCollectionOwnerId = userId;
+    let scopedLast: string | null = null;
+    try {
+      scopedLast = localStorage.getItem(`lastSyncTime_${userId}`);
+    } catch {
+    }
+    syncStatus = { ...syncStatus, lastSync: scopedLast };
+    if (DEBUG) {
+      console.log(
+        `[Sync] Loaded per-collection state for user ${userId}:`,
+        Object.keys(perCollectionSync)
+      );
     }
     const db = getDatabase();
     const collectionErrors: string[] = [];
@@ -9716,6 +9917,7 @@ async function syncCollection(
   const justPulled = new Set<string>();
   let cursor: string | undefined = undefined;
   let pageCount = 0;
+  let pullRowFailed = false;
   for (;;) {
     const queries: unknown[] = [
       Query.equal('user_id', userId),
@@ -9753,13 +9955,24 @@ async function syncCollection(
         });
         const localDoc = await collection.findOne(docId).exec();
         if (!localDoc) {
-          await collection.upsert(doc);
-          justPulled.add(docId);
+          try {
+            await collection.upsert(doc);
+            justPulled.add(docId);
+          } catch (upsertErr) {
+            if (isConflictError(upsertErr)) {
+              if (DEBUG) {
+                console.log(
+                  `[Sync] Pull insert CONFLICT for ${colName} ${docId}; preserving local`
+                );
+              }
+            } else {
+              throw upsertErr;
+            }
+          }
           continue;
         }
         const localLwt = localDoc._meta?.lwt ?? 0;
         const isLocalDirty = localLwt > dirtyBoundaryMs;
-        if (isLocalDirty) continue;
         if (colName === 'messages' && row.direction === 'outgoing') {
           const remoteReadAt = (row.read_at as string) || '';
           const localJson = localDoc.toJSON();
@@ -9774,6 +9987,7 @@ async function syncCollection(
             }
           }
         }
+        if (isLocalDirty) continue;
         let remoteWins = false;
         if (usesTimestamps) {
           const localUpdatedAt = toMs(localDoc.toJSON().updatedAt);
@@ -9781,24 +9995,56 @@ async function syncCollection(
         } else {
           remoteWins = remoteUpdatedAt > localLwt;
         }
-        if (remoteWins) {
+        if (!remoteWins) continue;
+        const recheck = await collection.findOne(docId).exec();
+        const recheckLwt = recheck?._meta?.lwt ?? 0;
+        if (recheckLwt !== localLwt) {
+          if (DEBUG) {
+            console.log(
+              `[Sync] Skipping pull upsert for ${colName} ${docId}; local edit landed mid-pull`
+            );
+          }
+          continue;
+        }
+        try {
           await collection.upsert(doc);
           justPulled.add(docId);
+        } catch (upsertErr) {
+          if (isConflictError(upsertErr)) {
+            if (DEBUG) {
+              console.log(
+                `[Sync] Pull upsert CONFLICT for ${colName} ${docId}; preserving local`
+              );
+            }
+          } else {
+            throw upsertErr;
+          }
         }
       } catch (rowError) {
         console.error(`[Sync] Failed to process ${colName} row:`, rowError);
+        pullRowFailed = true;
       }
     }
     if (rows.length < PAGE_SIZE) break;
     const lastId = rows[rows.length - 1].$id as string | undefined;
     if (!lastId || lastId === cursor) break;
     cursor = lastId;
+    if (pageCount >= MAX_PAGES_PER_COLLECTION) {
+      console.warn(
+        `[Sync] ${colName} hit page cap (${MAX_PAGES_PER_COLLECTION}); stopping pull`
+      );
+      break;
+    }
   }
+  const nextPullIso = pullRowFailed
+    ? entry?.pull ?? ''
+    : new Date(cycleStartMs).toISOString();
   perCollectionSync[colName as CollectionName] = {
-    pull: new Date(cycleStartMs).toISOString(),
+    pull: nextPullIso,
     dirty: entry?.dirty ?? '',
   };
   savePerCollectionState(userId, perCollectionSync);
+  let pushFailed = 0;
   if (colName !== 'messages') {
     const localDocs = await collection.find().exec();
     for (const doc of localDocs) {
@@ -9831,7 +10077,7 @@ async function syncCollection(
       } catch (updateErr) {
         if (isNotFoundError(updateErr)) {
           try {
-            await guardedTablesDB.upsertRow({
+            await guardedTablesDB.createRow({
               databaseId: APPWRITE_CONFIG.databaseId,
               tableId,
               rowId: docId,
@@ -9843,25 +10089,37 @@ async function syncCollection(
               `[Sync] Failed to create ${colName} ${docId}:`,
               createErr
             );
-            throw createErr;
+            pushFailed++;
           }
         } else {
           console.error(
             `[Sync] Failed to push ${colName} ${docId}:`,
             updateErr
           );
-          throw updateErr;
+          pushFailed++;
         }
       }
     }
   }
+  const nextDirtyIso =
+    pushFailed > 0
+      ? entry?.dirty ?? ''
+      : new Date(Math.max(cycleStartMs, dirtyBoundaryMs)).toISOString();
   perCollectionSync[colName as CollectionName] = {
-    pull: new Date(cycleStartMs).toISOString(),
-    dirty: new Date().toISOString(),
+    pull: nextPullIso,
+    dirty: nextDirtyIso,
   };
   savePerCollectionState(userId, perCollectionSync);
-  if (DEBUG)
-    console.log(`[Sync] ✅ ${colName} synced (${pageCount} page(s) pulled)`);
+  if (DEBUG) {
+    if (pullRowFailed || pushFailed > 0) {
+      console.warn(
+        `[Sync] ⚠️ ${colName} completed with issues: ` +
+          `pullRowFailed=${pullRowFailed} pushFailed=${pushFailed}`
+      );
+    } else {
+      console.log(`[Sync] ✅ ${colName} synced (${pageCount} page(s) pulled)`);
+    }
+  }
 }
 export async function forceSync() {
   if (DEBUG) console.log('[Sync] Force sync triggered');
@@ -11612,7 +11870,7 @@ export function useMessages(friendId: string | null): UseMessagesReturn {
           }
         }
       }
-      markReadOnRemote(friendId, tid);
+      markReadOnRemote(uid, friendId, tid);
     } catch (err) {
       console.error('[useMessages] markAllRead failed:', err);
     } finally {
@@ -11682,7 +11940,7 @@ export function useMessages(friendId: string | null): UseMessagesReturn {
           cascadeQueryErr
         );
       }
-      unsendOnRemote(id, recipientId);
+      unsendOnRemote(uid, id, recipientId);
     },
     [user?.$id]
   );
@@ -13025,11 +13283,183 @@ export async function deleteCachedImage(fileId: string): Promise<void> {
 }
 </file>
 
+<file path="src/lib/messageActionQueue.ts">
+import { isUnauthorizedError } from './authEvents';
+const DEBUG = import.meta.env.DEV;
+const STORAGE_KEY = 'mosaic_message_action_queue';
+const MAX_ATTEMPTS = 5;
+const MAX_ENTRIES = 100;
+export interface MessageActionSender {
+  (payload: Record<string, unknown>): Promise<Record<string, unknown>>;
+}
+interface QueuedEntry {
+  id: string;
+  userId: string;
+  action: string;
+  payload: Record<string, unknown>;
+  attempts: number;
+  enqueuedAt: string;
+}
+let sender: MessageActionSender | null = null;
+export function setMessageActionSender(fn: MessageActionSender): void {
+  sender = fn;
+}
+let queue: QueuedEntry[] = [];
+let isFlushing = false;
+function load(): void {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) {
+      queue = [];
+      return;
+    }
+    const parsed = JSON.parse(raw) as unknown;
+    if (!Array.isArray(parsed)) {
+      queue = [];
+      return;
+    }
+    queue = parsed.filter(
+      (e): e is QueuedEntry =>
+        !!e &&
+        typeof e === 'object' &&
+        typeof (e as QueuedEntry).id === 'string' &&
+        typeof (e as QueuedEntry).userId === 'string' &&
+        typeof (e as QueuedEntry).action === 'string' &&
+        typeof (e as QueuedEntry).attempts === 'number' &&
+        typeof (e as QueuedEntry).enqueuedAt === 'string' &&
+        typeof (e as QueuedEntry).payload === 'object'
+    );
+  } catch {
+    queue = [];
+  }
+}
+function save(): void {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(queue));
+  } catch {
+  }
+}
+export function enqueueMessageAction(
+  userId: string,
+  input: {
+    action: string;
+    payload: Record<string, unknown>;
+    dedupKey: string;
+  }
+): void {
+  load();
+  const existingIdx = queue.findIndex(
+    (e) => e.userId === userId && e.id === input.dedupKey
+  );
+  const entry: QueuedEntry = {
+    id: input.dedupKey,
+    userId,
+    action: input.action,
+    payload: input.payload,
+    attempts:
+      existingIdx >= 0 ? queue[existingIdx].attempts : 0,
+    enqueuedAt: new Date().toISOString(),
+  };
+  if (existingIdx >= 0) {
+    queue[existingIdx] = entry;
+  } else {
+    queue.push(entry);
+  }
+  if (queue.length > MAX_ENTRIES) {
+    queue.sort((a, b) => a.enqueuedAt.localeCompare(b.enqueuedAt));
+    queue = queue.slice(queue.length - MAX_ENTRIES);
+  }
+  save();
+}
+function isPermanentFailure(err: unknown): boolean {
+  const code = (err as { code?: number } | null)?.code;
+  if (typeof code !== 'number') return false;
+  if (code === 429) return false;
+  if (code >= 400 && code < 500) return true;
+  return false;
+}
+function removeEntry(entry: QueuedEntry): void {
+  queue = queue.filter(
+    (e) => !(e.id === entry.id && e.userId === entry.userId)
+  );
+}
+export async function flushMessageActionQueue(userId: string): Promise<void> {
+  if (isFlushing) return;
+  if (!sender) return;
+  load();
+  const mine = queue.filter((e) => e.userId === userId);
+  if (mine.length === 0) return;
+  isFlushing = true;
+  try {
+    for (const entry of [...mine]) {
+      try {
+        await sender({ action: entry.action, ...entry.payload });
+        removeEntry(entry);
+        save();
+      } catch (err) {
+        if (isUnauthorizedError(err) || isPermanentFailure(err)) {
+          if (DEBUG) {
+            console.log(
+              `[MessageActionQueue] Dropping ${entry.id} after permanent failure`
+            );
+          }
+          removeEntry(entry);
+          save();
+        } else {
+          const next = entry.attempts + 1;
+          if (next >= MAX_ATTEMPTS) {
+            if (DEBUG) {
+              console.log(
+                `[MessageActionQueue] Dropping ${entry.id} after ${next} attempts`
+              );
+            }
+            removeEntry(entry);
+          } else {
+            const idx = queue.findIndex(
+              (e) => e.id === entry.id && e.userId === entry.userId
+            );
+            if (idx >= 0) queue[idx] = { ...queue[idx], attempts: next };
+          }
+          save();
+        }
+      }
+    }
+  } finally {
+    isFlushing = false;
+  }
+}
+export function clearMessageActionQueue(userId?: string): void {
+  load();
+  if (userId) {
+    queue = queue.filter((e) => e.userId !== userId);
+  } else {
+    queue = [];
+  }
+  save();
+}
+export function getMessageActionQueueSize(userId?: string): number {
+  load();
+  if (userId) return queue.filter((e) => e.userId === userId).length;
+  return queue.length;
+}
+export function __resetQueueForTests(): void {
+  queue = [];
+  sender = null;
+  isFlushing = false;
+}
+</file>
+
 <file path="src/lib/messageDelivery.ts">
 import { ExecutionMethod } from 'appwrite';
 import type { RxDocument } from 'rxdb';
 import { getDatabase } from '../db/database';
 import { guardedFunctions } from './sdk';
+import { isUnauthorizedError } from './authEvents';
+import {
+  enqueueMessageAction,
+  flushMessageActionQueue,
+  setMessageActionSender,
+} from './messageActionQueue';
 import type { MessageDocument } from '../db/schema';
 const DEBUG = import.meta.env.DEV;
 export const MESSAGE_ACTION_FUNCTION_ID = '6aa8057f002a4c306fdd';
@@ -13089,7 +13519,22 @@ export async function sendMessageAction(
     return {};
   }
 }
+setMessageActionSender(sendMessageAction);
+export { flushMessageActionQueue };
+function shouldQueueMessageAction(err: unknown): boolean {
+  if (isUnauthorizedError(err)) return false;
+  const code = (err as { code?: number } | null)?.code;
+  if (typeof code !== 'number') return true;
+  if (code === 429) return true;
+  if (code >= 500) return true;
+  return false;
+}
 export async function deliverPendingMessages(userId: string): Promise<void> {
+  flushMessageActionQueue(userId).catch((err) => {
+    if (DEBUG) {
+      console.error('[messageDelivery] queue flush failed:', err);
+    }
+  });
   if (inFlightDeliveryPromise) {
     deliveryRequestedDuringFlight = true;
     return inFlightDeliveryPromise;
@@ -13187,6 +13632,7 @@ async function deliverOne(doc: RxDocument<MessageDocument>): Promise<void> {
   });
 }
 export async function markReadOnRemote(
+  userId: string,
   partnerId: string,
   threadId: string
 ): Promise<void> {
@@ -13197,10 +13643,18 @@ export async function markReadOnRemote(
       threadId,
     });
   } catch (err) {
+    if (shouldQueueMessageAction(err)) {
+      enqueueMessageAction(userId, {
+        action: 'mark_read',
+        payload: { partnerId, threadId },
+        dedupKey: `mark_read:${threadId}`,
+      });
+    }
     console.error('[messageDelivery] markReadOnRemote failed:', err);
   }
 }
 export async function unsendOnRemote(
+  userId: string,
   messageId: string,
   recipientId: string
 ): Promise<void> {
@@ -13211,6 +13665,13 @@ export async function unsendOnRemote(
       recipientId,
     });
   } catch (err) {
+    if (shouldQueueMessageAction(err)) {
+      enqueueMessageAction(userId, {
+        action: 'unsend',
+        payload: { messageId, recipientId },
+        dedupKey: `unsend:${messageId}`,
+      });
+    }
     console.error('[messageDelivery] unsendOnRemote failed:', err);
   }
 }
@@ -14056,6 +14517,99 @@ export function getImageFullUrl(fileId: string): string {
 <file path="src/lib/syncMapping.ts">
 type AppwriteRow = Record<string, unknown>;
 type AppwritePayload = Record<string, unknown>;
+const KNOWN_FIELDS: Record<string, Set<string>> = {
+  tasks: new Set([
+    'title',
+    'is_completed',
+    'category_id',
+    'tags',
+    'date',
+    'memo',
+    'image',
+    'created_at',
+    'completed_at',
+    'updated_at',
+    'user_id',
+    'deleted',
+    'visibility',
+    'source',
+    'routine_id',
+    'reminder_time',
+    'reactions',
+  ]),
+  categories: new Set([
+    'name',
+    'color',
+    'visibility',
+    'order',
+    'user_id',
+    'deleted',
+    'icon',
+  ]),
+  diary: new Set([
+    'date',
+    'content',
+    'visibility',
+    'user_id',
+    'deleted',
+    'created_at',
+    'updated_at',
+  ]),
+  settings: new Set(['user_id', 'key', 'value', 'deleted']),
+  friendships: new Set([
+    'user_id',
+    'friend_id',
+    'friend_username',
+    'friend_display_name',
+    'friend_avatar_file_id',
+    'friend_bio',
+    'status',
+    'created_at',
+    'updated_at',
+    'deleted',
+  ]),
+  messages: new Set([
+    'user_id',
+    'thread_id',
+    'sender_id',
+    'recipient_id',
+    'direction',
+    'content',
+    'task_ref_id',
+    'task_ref_title',
+    'task_ref_date',
+    'task_ref_color',
+    'reply_to_id',
+    'reply_to_content',
+    'reply_to_sender_id',
+    'is_unsent',
+    'original_message_id',
+    'reactions',
+    'read_at',
+    'delivery_status',
+    'created_at',
+    'updated_at',
+    'deleted',
+  ]),
+};
+const warnedDriftFields = new Set<string>();
+function warnUnknownFields(row: AppwriteRow, collection: string): void {
+  const known = KNOWN_FIELDS[collection];
+  if (!known) return;
+  for (const key of Object.keys(row)) {
+    if (key.startsWith('$')) continue;
+    if (known.has(key)) continue;
+    const tag = `${collection}::${key}`;
+    if (warnedDriftFields.has(tag)) continue;
+    warnedDriftFields.add(tag);
+    console.warn(
+      `[Sync] Unknown remote field for ${collection}: ${key}. Possible schema drift.`
+    );
+  }
+}
+export function __resetDriftWarningsForTests(): void {
+  warnedDriftFields.clear();
+}
 export function toAppwriteFormat(
   doc: Record<string, unknown>,
   collection: string,
@@ -14147,6 +14701,7 @@ export function fromAppwriteFormat(
   row: AppwriteRow,
   collection: string
 ): Record<string, unknown> {
+  warnUnknownFields(row, collection);
   const mapped: Record<string, unknown> = { ...row };
   delete mapped.$id;
   delete mapped.$createdAt;
@@ -16016,6 +16571,7 @@ import {
   Database,
   ChevronLeft,
   FileDown,
+  RefreshCw,
 } from 'lucide-react';
 import { BottomSheet } from '../components/ui/BottomSheet';
 import { SettingsRow } from '../components/ui/SettingsRow';
@@ -16025,6 +16581,7 @@ import { AccountSettingsSheet } from '../components/modals/AccountSettingsSheet'
 import { ChangeEmailSheet } from '../components/modals/ChangeEmailSheet';
 import { ChangePasswordSheet } from '../components/modals/ChangePasswordSheet';
 import { ExportDataSheet } from '../components/modals/ExportDataSheet';
+import { SyncStatusSheet } from '../components/modals/SyncStatusSheet';
 export const SettingsPage: React.FC = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
@@ -16034,6 +16591,7 @@ export const SettingsPage: React.FC = () => {
   const [isChangeEmailOpen, setIsChangeEmailOpen] = useState(false);
   const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
   const [isExportSheetOpen, setIsExportSheetOpen] = useState(false);
+  const [isSyncStatusOpen, setIsSyncStatusOpen] = useState(false);
   const [feedback, setFeedback] = useState<string | null>(null);
   const showFeedback = (msg: string) => {
     setFeedback(msg);
@@ -16142,6 +16700,11 @@ export const SettingsPage: React.FC = () => {
         </div>
         <div className="border-t border-[#333333] py-2">
           <SettingsRow
+            icon={<RefreshCw size={18} className="text-blue-500" />}
+            label="Sync Status"
+            onClick={() => setIsSyncStatusOpen(true)}
+          />
+          <SettingsRow
             icon={<FileDown size={18} className="text-emerald-500" />}
             label="Export Data"
             onClick={() => setIsExportSheetOpen(true)}
@@ -16231,6 +16794,10 @@ export const SettingsPage: React.FC = () => {
         isOpen={isExportSheetOpen}
         onClose={() => setIsExportSheetOpen(false)}
         onSuccess={showFeedback}
+      />
+      <SyncStatusSheet
+        isOpen={isSyncStatusOpen}
+        onClose={() => setIsSyncStatusOpen(false)}
       />
       {feedback && (
         <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[70] bg-[#2A2A2A] border border-[#444444] text-white text-sm px-5 py-2.5 rounded-full shadow-lg backdrop-blur-md animate-in fade-in slide-in-from-bottom-2 duration-200">
@@ -17471,6 +18038,121 @@ describe('ReactionRow', () => {
       />
     );
     expect(screen.queryByText(/^\+\d+$/)).toBeNull();
+  });
+});
+</file>
+
+<file path="tests/components/SyncStatusSheet.test.tsx">
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { render, screen, fireEvent, act } from '@testing-library/react';
+const statusRef = vi.hoisted(() => ({
+  current: {
+    isSyncing: false,
+    lastSync: null as string | null,
+    errors: [] as string[],
+  },
+}));
+const listenersRef = vi.hoisted(() => ({
+  current: [] as ((s: unknown) => void)[],
+}));
+const forceSyncMock = vi.hoisted(() => vi.fn().mockResolvedValue(undefined));
+vi.mock('../../src/db/sync', () => ({
+  getSyncStatus: () => statusRef.current,
+  subscribeToSyncStatus: (listener: (s: unknown) => void) => {
+    listenersRef.current.push(listener);
+    listener(statusRef.current);
+    return () => {
+      const idx = listenersRef.current.indexOf(listener);
+      if (idx > -1) listenersRef.current.splice(idx, 1);
+    };
+  },
+  forceSync: forceSyncMock,
+}));
+import { SyncStatusSheet } from '../../src/components/modals/SyncStatusSheet';
+beforeEach(() => {
+  statusRef.current = { isSyncing: false, lastSync: null, errors: [] };
+  listenersRef.current = [];
+  forceSyncMock.mockReset();
+  forceSyncMock.mockResolvedValue(undefined);
+  document.body.style.overflow = '';
+});
+describe('SyncStatusSheet', () => {
+  it('renders nothing when isOpen is false', () => {
+    render(<SyncStatusSheet isOpen={false} onClose={vi.fn()} />);
+    expect(screen.queryByText('Sync Status')).toBeNull();
+  });
+  it('shows "Up to date" and "Never" when no sync has happened', () => {
+    render(<SyncStatusSheet isOpen onClose={vi.fn()} />);
+    expect(screen.getByText('Up to date')).toBeInTheDocument();
+    expect(screen.getByText('Last synced Never')).toBeInTheDocument();
+  });
+  it('shows the error count and lists every error when errors exist', () => {
+    statusRef.current = {
+      isSyncing: false,
+      lastSync: '2026-01-01T00:00:00.000Z',
+      errors: ['tasks: boom', 'diary: boom'],
+    };
+    render(<SyncStatusSheet isOpen onClose={vi.fn()} />);
+    expect(screen.getByText('2 errors')).toBeInTheDocument();
+    expect(screen.getByText('tasks: boom')).toBeInTheDocument();
+    expect(screen.getByText('diary: boom')).toBeInTheDocument();
+  });
+  it('shows singular "error" for a single error', () => {
+    statusRef.current = {
+      isSyncing: false,
+      lastSync: null,
+      errors: ['tasks: boom'],
+    };
+    render(<SyncStatusSheet isOpen onClose={vi.fn()} />);
+    expect(screen.getByText('1 error')).toBeInTheDocument();
+  });
+  it('shows "Syncing…" while isSyncing is true', () => {
+    statusRef.current = {
+      isSyncing: true,
+      lastSync: null,
+      errors: [],
+    };
+    render(<SyncStatusSheet isOpen onClose={vi.fn()} />);
+    expect(screen.getAllByText('Syncing…').length).toBeGreaterThan(0);
+  });
+  it('updates when the status listener fires after open', () => {
+    render(<SyncStatusSheet isOpen onClose={vi.fn()} />);
+    expect(screen.getByText('Up to date')).toBeInTheDocument();
+    act(() => {
+      statusRef.current = {
+        isSyncing: false,
+        lastSync: '2026-06-01T00:00:00.000Z',
+        errors: ['tasks: late failure'],
+      };
+      listenersRef.current.forEach((l) => l(statusRef.current));
+    });
+    expect(screen.getByText('1 error')).toBeInTheDocument();
+    expect(screen.getByText('tasks: late failure')).toBeInTheDocument();
+  });
+  it('does not resubscribe when isOpen is false', () => {
+    const before = listenersRef.current.length;
+    render(<SyncStatusSheet isOpen={false} onClose={vi.fn()} />);
+    expect(listenersRef.current.length).toBe(before);
+  });
+  it('the Sync Now button calls forceSync and disables itself for 2s', async () => {
+    vi.useFakeTimers();
+    try {
+      render(<SyncStatusSheet isOpen onClose={vi.fn()} />);
+      const button = screen.getByText('Sync Now').closest('button');
+      expect(button).not.toBeNull();
+      expect(button).not.toBeDisabled();
+      fireEvent.click(button as Element);
+      expect(forceSyncMock).toHaveBeenCalledTimes(1);
+      expect(button).toBeDisabled();
+      fireEvent.click(button as Element);
+      expect(forceSyncMock).toHaveBeenCalledTimes(1);
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(2100);
+      });
+      expect(button).not.toBeDisabled();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
 </file>
@@ -20499,6 +21181,280 @@ describe('server-only helpers', () => {
 });
 </file>
 
+<file path="tests/unit/messageActionQueue.test.ts">
+import { describe, it, expect, beforeEach, vi } from 'vitest';
+const localStorageMock = vi.hoisted(() => {
+  const store = new Map<string, string>();
+  const mock = {
+    getItem: (k: string) => (store.has(k) ? store.get(k) ?? null : null),
+    setItem: (k: string, v: string) => {
+      store.set(k, v);
+    },
+    removeItem: (k: string) => {
+      store.delete(k);
+    },
+    clear: () => {
+      store.clear();
+    },
+  };
+  (globalThis as unknown as { localStorage: typeof mock }).localStorage = mock;
+  return mock;
+});
+import {
+  enqueueMessageAction,
+  flushMessageActionQueue,
+  clearMessageActionQueue,
+  getMessageActionQueueSize,
+  setMessageActionSender,
+  __resetQueueForTests,
+} from '../../src/lib/messageActionQueue';
+const STORAGE_KEY = 'mosaic_message_action_queue';
+beforeEach(() => {
+  localStorageMock.clear();
+  __resetQueueForTests();
+});
+describe('messageActionQueue — enqueue', () => {
+  it('adds an entry and persists it to localStorage', () => {
+    enqueueMessageAction('user_A', {
+      action: 'mark_read',
+      payload: { partnerId: 'user_B', threadId: 'th_x' },
+      dedupKey: 'mark_read:th_x',
+    });
+    expect(getMessageActionQueueSize('user_A')).toBe(1);
+    const raw = localStorageMock.getItem(STORAGE_KEY);
+    expect(raw).toBeTruthy();
+    const parsed = JSON.parse(raw!);
+    expect(parsed).toHaveLength(1);
+    expect(parsed[0].action).toBe('mark_read');
+    expect(parsed[0].userId).toBe('user_A');
+    expect(parsed[0].attempts).toBe(0);
+  });
+  it('dedups by (userId, dedupKey): same key replaces', () => {
+    enqueueMessageAction('user_A', {
+      action: 'mark_read',
+      payload: { partnerId: 'user_B', threadId: 'th_x' },
+      dedupKey: 'mark_read:th_x',
+    });
+    enqueueMessageAction('user_A', {
+      action: 'mark_read',
+      payload: { partnerId: 'user_B', threadId: 'th_x' },
+      dedupKey: 'mark_read:th_x',
+    });
+    expect(getMessageActionQueueSize('user_A')).toBe(1);
+  });
+  it('isolates users: same dedup key for two users keeps two entries', () => {
+    enqueueMessageAction('user_A', {
+      action: 'mark_read',
+      payload: {},
+      dedupKey: 'k',
+    });
+    enqueueMessageAction('user_B', {
+      action: 'mark_read',
+      payload: {},
+      dedupKey: 'k',
+    });
+    expect(getMessageActionQueueSize()).toBe(2);
+    expect(getMessageActionQueueSize('user_A')).toBe(1);
+    expect(getMessageActionQueueSize('user_B')).toBe(1);
+  });
+  it('caps total queue length at MAX_ENTRIES (100)', () => {
+    for (let i = 0; i < 150; i++) {
+      enqueueMessageAction('user_A', {
+        action: 'mark_read',
+        payload: { i },
+        dedupKey: `k-${i}`,
+      });
+    }
+    expect(getMessageActionQueueSize()).toBeLessThanOrEqual(100);
+  });
+});
+describe('messageActionQueue — flush', () => {
+  it('drains successfully: entries removed after sender succeeds', async () => {
+    const sender = vi.fn().mockResolvedValue({});
+    setMessageActionSender(sender);
+    enqueueMessageAction('user_A', {
+      action: 'mark_read',
+      payload: { partnerId: 'user_B', threadId: 'th_x' },
+      dedupKey: 'k1',
+    });
+    enqueueMessageAction('user_A', {
+      action: 'unsend',
+      payload: { messageId: 'msg_1', recipientId: 'user_B' },
+      dedupKey: 'k2',
+    });
+    await flushMessageActionQueue('user_A');
+    expect(sender).toHaveBeenCalledTimes(2);
+    expect(getMessageActionQueueSize('user_A')).toBe(0);
+  });
+  it('passes the action and payload to the sender', async () => {
+    const sender = vi.fn().mockResolvedValue({});
+    setMessageActionSender(sender);
+    enqueueMessageAction('user_A', {
+      action: 'mark_read',
+      payload: { partnerId: 'user_B', threadId: 'th_x' },
+      dedupKey: 'k1',
+    });
+    await flushMessageActionQueue('user_A');
+    expect(sender).toHaveBeenCalledWith({
+      action: 'mark_read',
+      partnerId: 'user_B',
+      threadId: 'th_x',
+    });
+  });
+  it('drops on permanent 4xx failure (400)', async () => {
+    const err = Object.assign(new Error('bad request'), { code: 400 });
+    const sender = vi.fn().mockRejectedValue(err);
+    setMessageActionSender(sender);
+    enqueueMessageAction('user_A', {
+      action: 'mark_read',
+      payload: {},
+      dedupKey: 'k1',
+    });
+    await flushMessageActionQueue('user_A');
+    expect(getMessageActionQueueSize('user_A')).toBe(0);
+  });
+  it('drops on 404 (row gone, retrying will not help)', async () => {
+    const err = Object.assign(new Error('not found'), { code: 404 });
+    const sender = vi.fn().mockRejectedValue(err);
+    setMessageActionSender(sender);
+    enqueueMessageAction('user_A', {
+      action: 'unsend',
+      payload: {},
+      dedupKey: 'k1',
+    });
+    await flushMessageActionQueue('user_A');
+    expect(getMessageActionQueueSize('user_A')).toBe(0);
+  });
+  it('drops on 401 (auth failure, dispatch handled elsewhere)', async () => {
+    const err = Object.assign(new Error('unauthorized'), { code: 401 });
+    const sender = vi.fn().mockRejectedValue(err);
+    setMessageActionSender(sender);
+    enqueueMessageAction('user_A', {
+      action: 'mark_read',
+      payload: {},
+      dedupKey: 'k1',
+    });
+    await flushMessageActionQueue('user_A');
+    expect(getMessageActionQueueSize('user_A')).toBe(0);
+  });
+  it('retries on 5xx: entry survives, attempts increments', async () => {
+    const err = Object.assign(new Error('server boom'), { code: 500 });
+    const sender = vi.fn().mockRejectedValue(err);
+    setMessageActionSender(sender);
+    enqueueMessageAction('user_A', {
+      action: 'mark_read',
+      payload: {},
+      dedupKey: 'k1',
+    });
+    await flushMessageActionQueue('user_A');
+    expect(getMessageActionQueueSize('user_A')).toBe(1);
+    const raw = localStorageMock.getItem(STORAGE_KEY);
+    const parsed = JSON.parse(raw!);
+    expect(parsed[0].attempts).toBe(1);
+  });
+  it('retries on 429 (rate limit)', async () => {
+    const err = Object.assign(new Error('rate limit'), { code: 429 });
+    const sender = vi.fn().mockRejectedValue(err);
+    setMessageActionSender(sender);
+    enqueueMessageAction('user_A', {
+      action: 'mark_read',
+      payload: {},
+      dedupKey: 'k1',
+    });
+    await flushMessageActionQueue('user_A');
+    expect(getMessageActionQueueSize('user_A')).toBe(1);
+  });
+  it('retries on network error (no code)', async () => {
+    const sender = vi.fn().mockRejectedValue(new Error('network failure'));
+    setMessageActionSender(sender);
+    enqueueMessageAction('user_A', {
+      action: 'mark_read',
+      payload: {},
+      dedupKey: 'k1',
+    });
+    await flushMessageActionQueue('user_A');
+    expect(getMessageActionQueueSize('user_A')).toBe(1);
+  });
+  it('drops after MAX_ATTEMPTS (5) consecutive 5xx failures', async () => {
+    const err = Object.assign(new Error('server boom'), { code: 500 });
+    const sender = vi.fn().mockRejectedValue(err);
+    setMessageActionSender(sender);
+    enqueueMessageAction('user_A', {
+      action: 'mark_read',
+      payload: {},
+      dedupKey: 'k1',
+    });
+    for (let i = 0; i < 5; i++) {
+      await flushMessageActionQueue('user_A');
+    }
+    expect(getMessageActionQueueSize('user_A')).toBe(0);
+  });
+  it('does not flush another user\u2019s entries', async () => {
+    const sender = vi.fn().mockResolvedValue({});
+    setMessageActionSender(sender);
+    enqueueMessageAction('user_A', {
+      action: 'mark_read',
+      payload: {},
+      dedupKey: 'k1',
+    });
+    enqueueMessageAction('user_B', {
+      action: 'mark_read',
+      payload: {},
+      dedupKey: 'k1',
+    });
+    await flushMessageActionQueue('user_A');
+    expect(sender).toHaveBeenCalledTimes(1);
+    expect(getMessageActionQueueSize('user_B')).toBe(1);
+  });
+  it('is a no-op when the sender has not been set', async () => {
+    enqueueMessageAction('user_A', {
+      action: 'mark_read',
+      payload: {},
+      dedupKey: 'k1',
+    });
+    await flushMessageActionQueue('user_A');
+    expect(getMessageActionQueueSize('user_A')).toBe(1);
+  });
+  it('is a no-op when the queue is empty', async () => {
+    const sender = vi.fn().mockResolvedValue({});
+    setMessageActionSender(sender);
+    await flushMessageActionQueue('user_A');
+    expect(sender).not.toHaveBeenCalled();
+  });
+});
+describe('messageActionQueue — clear', () => {
+  it('clear with no user clears every entry', () => {
+    enqueueMessageAction('user_A', {
+      action: 'x',
+      payload: {},
+      dedupKey: 'k',
+    });
+    enqueueMessageAction('user_B', {
+      action: 'x',
+      payload: {},
+      dedupKey: 'k',
+    });
+    clearMessageActionQueue();
+    expect(getMessageActionQueueSize()).toBe(0);
+  });
+  it('clear with a user clears only that user\u2019s entries', () => {
+    enqueueMessageAction('user_A', {
+      action: 'x',
+      payload: {},
+      dedupKey: 'k',
+    });
+    enqueueMessageAction('user_B', {
+      action: 'x',
+      payload: {},
+      dedupKey: 'k',
+    });
+    clearMessageActionQueue('user_A');
+    expect(getMessageActionQueueSize('user_A')).toBe(0);
+    expect(getMessageActionQueueSize('user_B')).toBe(1);
+  });
+});
+</file>
+
 <file path="tests/unit/reactionUtils.test.ts">
 import { describe, it, expect } from 'vitest';
 import {
@@ -20696,13 +21652,1092 @@ describe('makeSettingsRowId', () => {
 });
 </file>
 
+<file path="tests/unit/sync.test.ts">
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+const localStorageMock = vi.hoisted(() => {
+  const store = new Map<string, string>();
+  const mock = {
+    getItem: (k: string) => (store.has(k) ? store.get(k) ?? null : null),
+    setItem: (k: string, v: string) => {
+      store.set(k, v);
+    },
+    removeItem: (k: string) => {
+      store.delete(k);
+    },
+    clear: () => {
+      store.clear();
+    },
+  };
+  (globalThis as unknown as { localStorage: typeof mock }).localStorage = mock;
+  return mock;
+});
+const accountGetMock = vi.hoisted(() => vi.fn());
+const listRowsMock = vi.hoisted(() => vi.fn());
+const updateRowMock = vi.hoisted(() => vi.fn());
+const upsertRowMock = vi.hoisted(() => vi.fn());
+const createRowMock = vi.hoisted(() => vi.fn());
+const getDatabaseMock = vi.hoisted(() => vi.fn());
+vi.mock('appwrite', () => ({
+  Query: {
+    equal: (k: string, v: unknown) => ({ op: 'equal', k, v }),
+    limit: (n: number) => ({ op: 'limit', n }),
+    orderAsc: (f: string) => ({ op: 'orderAsc', f }),
+    greaterThan: (k: string, v: unknown) => ({ op: 'greaterThan', k, v }),
+    cursorAfter: (id: string) => ({ op: 'cursorAfter', id }),
+  },
+  Permission: {
+    read: (r: string) => `read("${r}")`,
+    update: (r: string) => `update("${r}")`,
+    delete: (r: string) => `delete("${r}")`,
+  },
+  Role: {
+    user: (id: string) => `user:${id}`,
+  },
+}));
+vi.mock('../../src/lib/sdk', () => ({
+  guardedAccount: {
+    get: accountGetMock,
+  },
+  guardedTablesDB: {
+    listRows: listRowsMock,
+    updateRow: updateRowMock,
+    upsertRow: upsertRowMock,
+    createRow: createRowMock,
+  },
+}));
+vi.mock('../../src/db/database', () => ({
+  getDatabase: getDatabaseMock,
+}));
+type SyncModule = typeof import('../../src/db/sync');
+let syncModule!: SyncModule;
+let errorSpy: ReturnType<typeof vi.spyOn>;
+let warnSpy: ReturnType<typeof vi.spyOn>;
+let logSpy: ReturnType<typeof vi.spyOn>;
+function makeDeferred<T>() {
+  let resolve!: (value: T) => void;
+  let reject!: (err: unknown) => void;
+  const promise = new Promise<T>((res, rej) => {
+    resolve = res;
+    reject = rej;
+  });
+  return { promise, resolve, reject };
+}
+function makeEmptyCollection() {
+  return {
+    findOne: () => ({ exec: async () => null }),
+    find: () => ({ exec: async () => [] }),
+    upsert: vi.fn().mockResolvedValue(undefined),
+  };
+}
+function makeDb() {
+  return {
+    tasks: makeEmptyCollection(),
+    categories: makeEmptyCollection(),
+    diary: makeEmptyCollection(),
+    settings: makeEmptyCollection(),
+    friendships: makeEmptyCollection(),
+    messages: makeEmptyCollection(),
+  };
+}
+function makeTaskRow(id: string) {
+  return {
+    $id: id,
+    user_id: 'user_A',
+    $updatedAt: '2026-01-01T00:00:00.000Z',
+    title: 'x',
+    is_completed: false,
+    category_id: '',
+    date: '2026-01-01',
+    memo: '',
+    image: '',
+    tags: '',
+    source: '',
+    routine_id: '',
+    reminder_time: '',
+    reactions: '',
+    visibility: '',
+    created_at: '2026-01-01T00:00:00.000Z',
+    updated_at: '2026-01-01T00:00:00.000Z',
+    completed_at: '',
+    deleted: false,
+  };
+}
+function makeRemoteTaskRow(id: string, updatedAt: string) {
+  return {
+    ...makeTaskRow(id),
+    $updatedAt: updatedAt,
+    updated_at: updatedAt,
+  };
+}
+function makeLocalDoc(id: string) {
+  return {
+    id,
+    _meta: { lwt: Date.now() + 1_000_000 },
+    toJSON: () => ({
+      id,
+      userId: 'user_A',
+      title: `title-${id}`,
+      completed: false,
+      categoryId: '',
+      date: '2026-01-01',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+      isDeleted: false,
+      visibility: '',
+    }),
+    incrementalPatch: vi.fn(),
+  };
+}
+function makeLocalDocWithLwt(id: string, lwt: number) {
+  return {
+    id,
+    _meta: { lwt },
+    toJSON: () => ({
+      id,
+      userId: 'user_A',
+      title: `title-${id}`,
+      completed: false,
+      categoryId: '',
+      date: '2026-01-01',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+      isDeleted: false,
+      visibility: '',
+    }),
+    incrementalPatch: vi.fn().mockResolvedValue(undefined),
+  };
+}
+function makeMessageRow(id: string, direction: 'outgoing' | 'incoming') {
+  return {
+    $id: id,
+    user_id: 'user_A',
+    $updatedAt: '2026-01-01T00:00:00.000Z',
+    thread_id: 'th_x',
+    sender_id: 'user_A',
+    recipient_id: 'user_B',
+    direction,
+    content: 'hi',
+    task_ref_id: '',
+    task_ref_title: '',
+    task_ref_date: '',
+    task_ref_color: '',
+    reply_to_id: '',
+    reply_to_content: '',
+    reply_to_sender_id: '',
+    is_unsent: false,
+    original_message_id: id,
+    reactions: '',
+    read_at: '2026-06-01T00:00:00.000Z',
+    delivery_status: 'delivered',
+    created_at: '2026-01-01T00:00:00.000Z',
+    updated_at: '2026-01-01T00:00:00.000Z',
+    deleted: false,
+  };
+}
+function makeLocalMessageDoc(
+  id: string,
+  direction: 'outgoing' | 'incoming',
+  readAt: string
+) {
+  return {
+    id,
+    _meta: { lwt: Date.now() + 1_000_000 },
+    toJSON: () => ({
+      id,
+      userId: 'user_A',
+      threadId: 'th_x',
+      senderId: 'user_A',
+      recipientId: 'user_B',
+      direction,
+      content: 'hi',
+      taskRefId: '',
+      taskRefTitle: '',
+      taskRefDate: '',
+      taskRefColor: '',
+      replyToId: '',
+      replyToContent: '',
+      replyToSenderId: '',
+      isUnsent: false,
+      originalMessageId: id,
+      reactions: '',
+      readAt,
+      deliveryStatus: 'delivered',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+      isDeleted: false,
+    }),
+    incrementalPatch: vi.fn().mockResolvedValue(undefined),
+  };
+}
+function makeTaskOnlyDb(tasks: {
+  findOne: () => { exec: () => Promise<unknown> };
+  find: () => { exec: () => Promise<unknown[]> };
+  upsert: ReturnType<typeof vi.fn>;
+}) {
+  return {
+    tasks,
+    categories: makeEmptyCollection(),
+    diary: makeEmptyCollection(),
+    settings: makeEmptyCollection(),
+    friendships: makeEmptyCollection(),
+    messages: makeEmptyCollection(),
+  };
+}
+function taskListRowsCalls() {
+  return listRowsMock.mock.calls.filter(
+    (c) => (c[0] as { tableId: string }).tableId === 'tasks'
+  );
+}
+beforeEach(async () => {
+  vi.resetModules();
+  syncModule = await import('../../src/db/sync');
+  localStorageMock.clear();
+  accountGetMock.mockReset();
+  listRowsMock.mockReset();
+  updateRowMock.mockReset();
+  upsertRowMock.mockReset();
+  createRowMock.mockReset();
+  getDatabaseMock.mockReset();
+  getDatabaseMock.mockReturnValue(makeDb());
+  listRowsMock.mockResolvedValue({ rows: [] });
+  accountGetMock.mockResolvedValue({ $id: 'user_A' });
+  updateRowMock.mockResolvedValue({});
+  upsertRowMock.mockResolvedValue({});
+  createRowMock.mockResolvedValue({});
+  errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+  warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+  logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+});
+afterEach(() => {
+  vi.restoreAllMocks();
+});
+describe('sync — listener isolation', () => {
+  it('a throwing status listener does not prevent initializeSync from completing', async () => {
+    const unsubscribe = syncModule.subscribeToSyncStatus(() => {
+      throw new Error('listener boom');
+    });
+    await expect(syncModule.initializeSync()).resolves.toBeUndefined();
+    unsubscribe();
+    expect(syncModule.getSyncStatus().isSyncing).toBe(false);
+    const messages = errorSpy.mock.calls.map((args) => String(args[0]));
+    expect(messages.some((m) => m.includes('Status listener threw'))).toBe(
+      true
+    );
+  });
+  it('does not leave isSyncInProgress stuck when a listener throws', async () => {
+    const unsubscribe = syncModule.subscribeToSyncStatus(() => {
+      throw new Error('listener boom');
+    });
+    await syncModule.initializeSync();
+    unsubscribe();
+    accountGetMock.mockClear();
+    await syncModule.initializeSync();
+    expect(accountGetMock).toHaveBeenCalledTimes(1);
+  });
+  it('a listener that throws on initial subscribe does not crash the subscriber', () => {
+    expect(() =>
+      syncModule.subscribeToSyncStatus(() => {
+        throw new Error('subscribe boom');
+      })
+    ).not.toThrow();
+    const messages = errorSpy.mock.calls.map((args) => String(args[0]));
+    expect(
+      messages.some((m) => m.includes('Status listener threw on subscribe'))
+    ).toBe(true);
+  });
+});
+describe('sync — forceSync follow-up queueing', () => {
+  it('runs a follow-up when forceSync is called during an in-flight sync', async () => {
+    const firstGet = makeDeferred<{ $id: string }>();
+    accountGetMock.mockReturnValueOnce(firstGet.promise);
+    accountGetMock.mockResolvedValue({ $id: 'user_A' });
+    const first = syncModule.initializeSync();
+    await Promise.resolve();
+    await syncModule.forceSync();
+    expect(accountGetMock).toHaveBeenCalledTimes(1);
+    firstGet.resolve({ $id: 'user_A' });
+    await first;
+    await new Promise((r) => setTimeout(r, 0));
+    expect(accountGetMock).toHaveBeenCalledTimes(2);
+  });
+  it('does not queue a follow-up when initializeSync is blocked by backoff', async () => {
+    await syncModule.initializeSync();
+    accountGetMock.mockClear();
+    const rateLimitErr = Object.assign(new Error('rate limit'), {
+      code: 429,
+    });
+    listRowsMock.mockRejectedValueOnce(rateLimitErr);
+    await syncModule.initializeSync();
+    expect(syncModule.getSyncStatus().errors.length).toBeGreaterThan(0);
+    accountGetMock.mockClear();
+    await syncModule.forceSync();
+    expect(accountGetMock).not.toHaveBeenCalled();
+  });
+});
+describe('sync — boundary advancement (F1, F3, F5)', () => {
+  it('F1: after a successful cycle, dirty boundary equals cycle-start, not cycle-end', async () => {
+    const observedFirstListRowsAt = { value: 0 };
+    listRowsMock.mockImplementation(async () => {
+      if (observedFirstListRowsAt.value === 0) {
+        observedFirstListRowsAt.value = Date.now();
+      }
+      return { rows: [] };
+    });
+    await syncModule.initializeSync();
+    const raw = localStorageMock.getItem('lastSyncTimePerCollection');
+    expect(raw).toBeTruthy();
+    const state = JSON.parse(raw!);
+    const dirtyMs = new Date(state.entries.tasks.dirty).getTime();
+    const pullMs = new Date(state.entries.tasks.pull).getTime();
+    expect(dirtyMs).toBe(pullMs);
+    expect(dirtyMs).toBeLessThanOrEqual(observedFirstListRowsAt.value);
+  });
+  it('F3: pull boundary is not advanced when a pull row fails to apply', async () => {
+    const failingUpsert = vi.fn().mockRejectedValue(new Error('upsert boom'));
+    getDatabaseMock.mockReturnValue({
+      tasks: {
+        findOne: () => ({ exec: async () => null }),
+        find: () => ({ exec: async () => [] }),
+        upsert: failingUpsert,
+      },
+      categories: makeEmptyCollection(),
+      diary: makeEmptyCollection(),
+      settings: makeEmptyCollection(),
+      friendships: makeEmptyCollection(),
+      messages: makeEmptyCollection(),
+    });
+    listRowsMock.mockImplementation(
+      async ({ tableId }: { tableId: string }) => {
+        if (tableId === 'tasks') {
+          return { rows: [makeTaskRow('task_x')] };
+        }
+        return { rows: [] };
+      }
+    );
+    await syncModule.initializeSync();
+    expect(failingUpsert).toHaveBeenCalledTimes(1);
+    const raw = localStorageMock.getItem('lastSyncTimePerCollection');
+    const state = JSON.parse(raw!);
+    expect(state.entries.tasks.pull).toBe('');
+  });
+  it('F3: pull boundary is not advanced when a row-level error is thrown during apply', async () => {
+    const findOneThrows = vi.fn().mockImplementation(() => ({
+      exec: async () => {
+        throw new Error('findOne boom');
+      },
+    }));
+    getDatabaseMock.mockReturnValue({
+      tasks: {
+        findOne: findOneThrows,
+        find: () => ({ exec: async () => [] }),
+        upsert: vi.fn().mockResolvedValue(undefined),
+      },
+      categories: makeEmptyCollection(),
+      diary: makeEmptyCollection(),
+      settings: makeEmptyCollection(),
+      friendships: makeEmptyCollection(),
+      messages: makeEmptyCollection(),
+    });
+    listRowsMock.mockImplementation(
+      async ({ tableId }: { tableId: string }) => {
+        if (tableId === 'tasks') {
+          return { rows: [makeTaskRow('task_y')] };
+        }
+        return { rows: [] };
+      }
+    );
+    await syncModule.initializeSync();
+    const raw = localStorageMock.getItem('lastSyncTimePerCollection');
+    const state = JSON.parse(raw!);
+    expect(state.entries.tasks.pull).toBe('');
+  });
+  it('F5: a push failure on one row does not prevent later rows from being attempted', async () => {
+    const docs = [makeLocalDoc('d1'), makeLocalDoc('d2'), makeLocalDoc('d3')];
+    getDatabaseMock.mockReturnValue({
+      tasks: {
+        findOne: () => ({ exec: async () => null }),
+        find: () => ({ exec: async () => docs }),
+        upsert: vi.fn(),
+      },
+      categories: makeEmptyCollection(),
+      diary: makeEmptyCollection(),
+      settings: makeEmptyCollection(),
+      friendships: makeEmptyCollection(),
+      messages: makeEmptyCollection(),
+    });
+    updateRowMock.mockResolvedValueOnce({});
+    updateRowMock.mockRejectedValueOnce(
+      Object.assign(new Error('server boom'), { code: 500 })
+    );
+    updateRowMock.mockResolvedValueOnce({});
+    await syncModule.initializeSync();
+    expect(updateRowMock).toHaveBeenCalledTimes(3);
+  });
+  it('F5: a push failure leaves the dirty boundary at its previous value', async () => {
+    await syncModule.initializeSync();
+    const rawBefore = localStorageMock.getItem('lastSyncTimePerCollection');
+    const dirtyBefore = JSON.parse(rawBefore!).entries.tasks.dirty;
+    const docs = [makeLocalDoc('d_bad')];
+    getDatabaseMock.mockReturnValue({
+      tasks: {
+        findOne: () => ({ exec: async () => null }),
+        find: () => ({ exec: async () => docs }),
+        upsert: vi.fn(),
+      },
+      categories: makeEmptyCollection(),
+      diary: makeEmptyCollection(),
+      settings: makeEmptyCollection(),
+      friendships: makeEmptyCollection(),
+      messages: makeEmptyCollection(),
+    });
+    updateRowMock.mockRejectedValueOnce(
+      Object.assign(new Error('server boom'), { code: 500 })
+    );
+    await syncModule.initializeSync();
+    const rawAfter = localStorageMock.getItem('lastSyncTimePerCollection');
+    const dirtyAfter = JSON.parse(rawAfter!).entries.tasks.dirty;
+    expect(dirtyAfter).toBe(dirtyBefore);
+  });
+  it('F5: a clean cycle still advances the dirty boundary', async () => {
+    await syncModule.initializeSync();
+    const rawBefore = localStorageMock.getItem('lastSyncTimePerCollection');
+    const dirtyBefore = JSON.parse(rawBefore!).entries.tasks.dirty;
+    await new Promise((r) => setTimeout(r, 5));
+    await syncModule.initializeSync();
+    const rawAfter = localStorageMock.getItem('lastSyncTimePerCollection');
+    const dirtyAfter = JSON.parse(rawAfter!).entries.tasks.dirty;
+    expect(new Date(dirtyAfter).getTime()).toBeGreaterThan(
+      new Date(dirtyBefore).getTime()
+    );
+  });
+});
+describe('sync — per-collection state versioning (F15)', () => {
+  it('writes version: 1 on the per-collection state blob', async () => {
+    await syncModule.initializeSync();
+    const raw = localStorageMock.getItem('lastSyncTimePerCollection');
+    expect(raw).toBeTruthy();
+    const state = JSON.parse(raw!);
+    expect(state.version).toBe(1);
+  });
+  it('accepts a legacy unversioned blob without discarding its entries', async () => {
+    const legacy = {
+      ownerId: 'user_A',
+      entries: {
+        tasks: {
+          pull: '2026-01-01T00:00:00.000Z',
+          dirty: '2026-01-01T00:00:00.000Z',
+        },
+      },
+    };
+    localStorageMock.setItem(
+      'lastSyncTimePerCollection',
+      JSON.stringify(legacy)
+    );
+    listRowsMock.mockImplementation(
+      async ({ tableId }: { tableId: string }) => {
+        if (tableId === 'tasks') {
+          return { rows: [] };
+        }
+        return { rows: [] };
+      }
+    );
+    await syncModule.initializeSync();
+    const tasksCall = taskListRowsCalls()[0];
+    expect(tasksCall).toBeDefined();
+    const queries = (tasksCall[0] as { queries: { op?: string }[] }).queries;
+    expect(queries.some((q) => q.op === 'greaterThan')).toBe(true);
+    const rawAfter = localStorageMock.getItem('lastSyncTimePerCollection');
+    const stateAfter = JSON.parse(rawAfter!);
+    expect(stateAfter.version).toBe(1);
+  });
+  it('rejects a blob with an unrecognized version', async () => {
+    const future = {
+      version: 999,
+      ownerId: 'user_A',
+      entries: {
+        tasks: {
+          pull: '2026-01-01T00:00:00.000Z',
+          dirty: '2026-01-01T00:00:00.000Z',
+        },
+      },
+    };
+    localStorageMock.setItem(
+      'lastSyncTimePerCollection',
+      JSON.stringify(future)
+    );
+    await syncModule.initializeSync();
+    const tasksCall = taskListRowsCalls()[0];
+    expect(tasksCall).toBeDefined();
+    const queries = (tasksCall[0] as { queries: { op?: string }[] }).queries;
+    expect(queries.some((q) => q.op === 'greaterThan')).toBe(false);
+  });
+});
+describe('sync — lastSyncTime is user-scoped (F20)', () => {
+  it('writes lastSyncTime_<userId> and does not write the bare key', async () => {
+    await syncModule.initializeSync();
+    const scoped = localStorageMock.getItem('lastSyncTime_user_A');
+    expect(scoped).toBeTruthy();
+    expect(localStorageMock.getItem('lastSyncTime')).toBeNull();
+  });
+  it('a different user on the same tab does not inherit the previous lastSyncTime', async () => {
+    await syncModule.initializeSync();
+    const userATimestamp = localStorageMock.getItem('lastSyncTime_user_A');
+    expect(userATimestamp).toBeTruthy();
+    await new Promise((r) => setTimeout(r, 10));
+    accountGetMock.mockResolvedValue({ $id: 'user_B' });
+    await syncModule.initializeSync();
+    const userBTimestamp = localStorageMock.getItem('lastSyncTime_user_B');
+    expect(userBTimestamp).toBeTruthy();
+    expect(localStorageMock.getItem('lastSyncTime_user_A')).toBe(
+      userATimestamp
+    );
+    expect(userBTimestamp).not.toBe(userATimestamp);
+    const statusAfterB = syncModule.getSyncStatus();
+    expect(statusAfterB.lastSync).toBe(userBTimestamp);
+  });
+});
+describe('sync — read_at pull for dirty outgoing messages (F12)', () => {
+  it('an outgoing message row that is dirty still receives the remote read_at', async () => {
+    const local = makeLocalMessageDoc('msg_dirty_out', 'outgoing', '');
+    getDatabaseMock.mockReturnValue({
+      tasks: makeEmptyCollection(),
+      categories: makeEmptyCollection(),
+      diary: makeEmptyCollection(),
+      settings: makeEmptyCollection(),
+      friendships: makeEmptyCollection(),
+      messages: {
+        findOne: () => ({ exec: async () => local }),
+        find: () => ({ exec: async () => [] }),
+        upsert: vi.fn(),
+      },
+    });
+    listRowsMock.mockImplementation(
+      async ({ tableId }: { tableId: string }) => {
+        if (tableId === 'messages') {
+          return { rows: [makeMessageRow('msg_dirty_out', 'outgoing')] };
+        }
+        return { rows: [] };
+      }
+    );
+    await syncModule.initializeSync();
+    expect(local.incrementalPatch).toHaveBeenCalledTimes(1);
+    expect(local.incrementalPatch).toHaveBeenCalledWith({
+      readAt: '2026-06-01T00:00:00.000Z',
+    });
+  });
+  it('a dirty outgoing message is not overwritten by the remote row', async () => {
+    const local = makeLocalMessageDoc('msg_dirty_out', 'outgoing', '');
+    const upsertSpy = vi.fn().mockResolvedValue(undefined);
+    getDatabaseMock.mockReturnValue({
+      tasks: makeEmptyCollection(),
+      categories: makeEmptyCollection(),
+      diary: makeEmptyCollection(),
+      settings: makeEmptyCollection(),
+      friendships: makeEmptyCollection(),
+      messages: {
+        findOne: () => ({ exec: async () => local }),
+        find: () => ({ exec: async () => [] }),
+        upsert: upsertSpy,
+      },
+    });
+    listRowsMock.mockImplementation(
+      async ({ tableId }: { tableId: string }) => {
+        if (tableId === 'messages') {
+          return {
+            rows: [
+              {
+                ...makeMessageRow('msg_dirty_out', 'outgoing'),
+                $updatedAt: '2027-01-01T00:00:00.000Z',
+              },
+            ],
+          };
+        }
+        return { rows: [] };
+      }
+    );
+    await syncModule.initializeSync();
+    expect(local.incrementalPatch).toHaveBeenCalledTimes(1);
+    expect(upsertSpy).not.toHaveBeenCalled();
+  });
+  it('an incoming message row that is dirty does NOT hit the outgoing-only read_at branch', async () => {
+    const local = makeLocalMessageDoc('msg_dirty_in', 'incoming', '');
+    getDatabaseMock.mockReturnValue({
+      tasks: makeEmptyCollection(),
+      categories: makeEmptyCollection(),
+      diary: makeEmptyCollection(),
+      settings: makeEmptyCollection(),
+      friendships: makeEmptyCollection(),
+      messages: {
+        findOne: () => ({ exec: async () => local }),
+        find: () => ({ exec: async () => [] }),
+        upsert: vi.fn(),
+      },
+    });
+    listRowsMock.mockImplementation(
+      async ({ tableId }: { tableId: string }) => {
+        if (tableId === 'messages') {
+          return { rows: [makeMessageRow('msg_dirty_in', 'incoming')] };
+        }
+        return { rows: [] };
+      }
+    );
+    await syncModule.initializeSync();
+    expect(local.incrementalPatch).not.toHaveBeenCalled();
+  });
+});
+describe('sync — pull upsert race window (F13)', () => {
+  it('a local edit landing between check and upsert is not clobbered', async () => {
+    await syncModule.initializeSync();
+    const rawPrimed = localStorageMock.getItem('lastSyncTimePerCollection');
+    const dirtyMs = new Date(
+      JSON.parse(rawPrimed!).entries.tasks.dirty
+    ).getTime();
+    const cleanLwt = dirtyMs - 100;
+    const racedLwt = dirtyMs + 100;
+    const upsertSpy = vi.fn().mockResolvedValue(undefined);
+    let findOneCalls = 0;
+    getDatabaseMock.mockReturnValue(
+      makeTaskOnlyDb({
+        findOne: () => ({
+          exec: async () => {
+            findOneCalls++;
+            const lwt = findOneCalls === 1 ? cleanLwt : racedLwt;
+            return makeLocalDocWithLwt('task_race', lwt);
+          },
+        }),
+        find: () => ({ exec: async () => [] }),
+        upsert: upsertSpy,
+      })
+    );
+    listRowsMock.mockImplementation(
+      async ({ tableId }: { tableId: string }) => {
+        if (tableId === 'tasks') {
+          return {
+            rows: [
+              makeRemoteTaskRow('task_race', '2027-01-01T00:00:00.000Z'),
+            ],
+          };
+        }
+        return { rows: [] };
+      }
+    );
+    await syncModule.initializeSync();
+    expect(findOneCalls).toBeGreaterThanOrEqual(2);
+    expect(upsertSpy).not.toHaveBeenCalled();
+    const rawAfter = localStorageMock.getItem('lastSyncTimePerCollection');
+    const stateAfter = JSON.parse(rawAfter!);
+    expect(stateAfter.entries.tasks.pull).not.toBe('');
+  });
+  it('RxDB CONFLICT during pull upsert is not classified as a row failure', async () => {
+    await syncModule.initializeSync();
+    const rawPrimed = localStorageMock.getItem('lastSyncTimePerCollection');
+    const dirtyMs = new Date(
+      JSON.parse(rawPrimed!).entries.tasks.dirty
+    ).getTime();
+    const stableLwt = dirtyMs - 100;
+    const conflictErr = Object.assign(new Error('conflict'), {
+      code: 'CONFLICT',
+    });
+    const upsertSpy = vi.fn().mockRejectedValue(conflictErr);
+    getDatabaseMock.mockReturnValue(
+      makeTaskOnlyDb({
+        findOne: () => ({
+          exec: async () => makeLocalDocWithLwt('task_cf', stableLwt),
+        }),
+        find: () => ({ exec: async () => [] }),
+        upsert: upsertSpy,
+      })
+    );
+    listRowsMock.mockImplementation(
+      async ({ tableId }: { tableId: string }) => {
+        if (tableId === 'tasks') {
+          return {
+            rows: [makeRemoteTaskRow('task_cf', '2027-01-01T00:00:00.000Z')],
+          };
+        }
+        return { rows: [] };
+      }
+    );
+    await syncModule.initializeSync();
+    expect(upsertSpy).toHaveBeenCalledTimes(1);
+    const rawAfter = localStorageMock.getItem('lastSyncTimePerCollection');
+    const stateAfter = JSON.parse(rawAfter!);
+    expect(stateAfter.entries.tasks.pull).not.toBe('');
+  });
+  it('RxDB CONFLICT during pull insert (local doc created mid-cycle) is not classified as a row failure', async () => {
+    const conflictErr = Object.assign(new Error('conflict'), {
+      code: 'CONFLICT',
+    });
+    const upsertSpy = vi.fn().mockRejectedValue(conflictErr);
+    getDatabaseMock.mockReturnValue(
+      makeTaskOnlyDb({
+        findOne: () => ({ exec: async () => null }),
+        find: () => ({ exec: async () => [] }),
+        upsert: upsertSpy,
+      })
+    );
+    listRowsMock.mockImplementation(
+      async ({ tableId }: { tableId: string }) => {
+        if (tableId === 'tasks') {
+          return {
+            rows: [
+              makeRemoteTaskRow(
+                'task_insert_cf',
+                '2027-01-01T00:00:00.000Z'
+              ),
+            ],
+          };
+        }
+        return { rows: [] };
+      }
+    );
+    await syncModule.initializeSync();
+    expect(upsertSpy).toHaveBeenCalledTimes(1);
+    const rawAfter = localStorageMock.getItem('lastSyncTimePerCollection');
+    const stateAfter = JSON.parse(rawAfter!);
+    expect(stateAfter.entries.tasks.pull).not.toBe('');
+  });
+  it('a normal pull upsert with no race still succeeds', async () => {
+    await syncModule.initializeSync();
+    const rawPrimed = localStorageMock.getItem('lastSyncTimePerCollection');
+    const dirtyMs = new Date(
+      JSON.parse(rawPrimed!).entries.tasks.dirty
+    ).getTime();
+    const stableLwt = dirtyMs - 100;
+    const upsertSpy = vi.fn().mockResolvedValue(undefined);
+    getDatabaseMock.mockReturnValue(
+      makeTaskOnlyDb({
+        findOne: () => ({
+          exec: async () => makeLocalDocWithLwt('task_ok', stableLwt),
+        }),
+        find: () => ({ exec: async () => [] }),
+        upsert: upsertSpy,
+      })
+    );
+    listRowsMock.mockImplementation(
+      async ({ tableId }: { tableId: string }) => {
+        if (tableId === 'tasks') {
+          return {
+            rows: [makeRemoteTaskRow('task_ok', '2027-01-01T00:00:00.000Z')],
+          };
+        }
+        return { rows: [] };
+      }
+    );
+    await syncModule.initializeSync();
+    expect(upsertSpy).toHaveBeenCalledTimes(1);
+  });
+});
+describe('sync — pull pagination (F14)', () => {
+  it('a multi-page pull uses cursorAfter with the previous page last id', async () => {
+    const page1 = Array.from({ length: 100 }, (_, i) =>
+      makeRemoteTaskRow(
+        `task_${String(i).padStart(3, '0')}`,
+        '2026-01-01T00:00:00.000Z'
+      )
+    );
+    const page2 = [
+      makeRemoteTaskRow('task_100', '2026-01-01T00:00:00.000Z'),
+      makeRemoteTaskRow('task_101', '2026-01-01T00:00:00.000Z'),
+      makeRemoteTaskRow('task_102', '2026-01-01T00:00:00.000Z'),
+    ];
+    let taskCallCount = 0;
+    listRowsMock.mockImplementation(
+      async ({ tableId }: { tableId: string }) => {
+        if (tableId !== 'tasks') return { rows: [] };
+        taskCallCount++;
+        if (taskCallCount === 1) return { rows: page1 };
+        if (taskCallCount === 2) return { rows: page2 };
+        return { rows: [] };
+      }
+    );
+    const upsertSpy = vi.fn().mockResolvedValue(undefined);
+    getDatabaseMock.mockReturnValue(
+      makeTaskOnlyDb({
+        findOne: () => ({ exec: async () => null }),
+        find: () => ({ exec: async () => [] }),
+        upsert: upsertSpy,
+      })
+    );
+    await syncModule.initializeSync();
+    const calls = taskListRowsCalls();
+    expect(calls.length).toBe(2);
+    const firstQueries = (
+      calls[0][0] as { queries: { op?: string; id?: string }[] }
+    ).queries;
+    expect(firstQueries.some((q) => q.op === 'cursorAfter')).toBe(false);
+    const secondQueries = (
+      calls[1][0] as { queries: { op?: string; id?: string }[] }
+    ).queries;
+    const cursor = secondQueries.find((q) => q.op === 'cursorAfter');
+    expect(cursor).toBeDefined();
+    expect(cursor?.id).toBe('task_099');
+    expect(upsertSpy).toHaveBeenCalledTimes(103);
+  });
+  it('a short page exits pagination without a second listRows call', async () => {
+    const shortPage = [
+      makeRemoteTaskRow('task_a', '2026-01-01T00:00:00.000Z'),
+      makeRemoteTaskRow('task_b', '2026-01-01T00:00:00.000Z'),
+    ];
+    listRowsMock.mockImplementation(
+      async ({ tableId }: { tableId: string }) => {
+        if (tableId !== 'tasks') return { rows: [] };
+        return { rows: shortPage };
+      }
+    );
+    const upsertSpy = vi.fn().mockResolvedValue(undefined);
+    getDatabaseMock.mockReturnValue(
+      makeTaskOnlyDb({
+        findOne: () => ({ exec: async () => null }),
+        find: () => ({ exec: async () => [] }),
+        upsert: upsertSpy,
+      })
+    );
+    await syncModule.initializeSync();
+    expect(taskListRowsCalls().length).toBe(1);
+    expect(upsertSpy).toHaveBeenCalledTimes(2);
+  });
+  it('a repeated page (last id equals cursor) breaks pagination', async () => {
+    const repeated = Array.from({ length: 100 }, (_, i) =>
+      makeRemoteTaskRow(
+        `task_${String(i).padStart(3, '0')}`,
+        '2026-01-01T00:00:00.000Z'
+      )
+    );
+    listRowsMock.mockImplementation(
+      async ({ tableId }: { tableId: string }) => {
+        if (tableId !== 'tasks') return { rows: [] };
+        return { rows: repeated };
+      }
+    );
+    const upsertSpy = vi.fn().mockResolvedValue(undefined);
+    getDatabaseMock.mockReturnValue(
+      makeTaskOnlyDb({
+        findOne: () => ({ exec: async () => null }),
+        find: () => ({ exec: async () => [] }),
+        upsert: upsertSpy,
+      })
+    );
+    await syncModule.initializeSync();
+    const calls = taskListRowsCalls();
+    expect(calls.length).toBe(2);
+    const secondQueries = (
+      calls[1][0] as { queries: { op?: string; id?: string }[] }
+    ).queries;
+    const cursor = secondQueries.find((q) => q.op === 'cursorAfter');
+    expect(cursor?.id).toBe('task_099');
+  });
+  it('a runaway server hits the page cap', async () => {
+    let counter = 0;
+    listRowsMock.mockImplementation(
+      async ({ tableId }: { tableId: string }) => {
+        if (tableId !== 'tasks') return { rows: [] };
+        counter++;
+        const base = counter * 1000;
+        return {
+          rows: Array.from({ length: 100 }, (_, i) =>
+            makeRemoteTaskRow(
+              `task_${String(base + i).padStart(7, '0')}`,
+              '2026-01-01T00:00:00.000Z'
+            )
+          ),
+        };
+      }
+    );
+    const upsertSpy = vi.fn().mockResolvedValue(undefined);
+    getDatabaseMock.mockReturnValue(
+      makeTaskOnlyDb({
+        findOne: () => ({ exec: async () => null }),
+        find: () => ({ exec: async () => [] }),
+        upsert: upsertSpy,
+      })
+    );
+    await syncModule.initializeSync();
+    expect(taskListRowsCalls().length).toBe(100);
+    const messages = warnSpy.mock.calls.map((args) => String(args[0]));
+    expect(
+      messages.some((m) => m.includes('hit page cap (100)'))
+    ).toBe(true);
+  });
+  it('the pull query uses pullBoundaryMs - 30s as the sinceIso boundary', async () => {
+    await syncModule.initializeSync();
+    const rawPrimed = localStorageMock.getItem('lastSyncTimePerCollection');
+    const pullMs = new Date(
+      JSON.parse(rawPrimed!).entries.tasks.pull
+    ).getTime();
+    const expectedSince = new Date(pullMs - 30_000).toISOString();
+    listRowsMock.mockClear();
+    listRowsMock.mockResolvedValue({ rows: [] });
+    await syncModule.initializeSync();
+    const calls = taskListRowsCalls();
+    expect(calls.length).toBeGreaterThan(0);
+    const queries = (
+      calls[0][0] as { queries: { op?: string; k?: string; v?: string }[] }
+    ).queries;
+    const sinceClause = queries.find(
+      (q) => q.op === 'greaterThan' && q.k === '$updatedAt'
+    );
+    expect(sinceClause).toBeDefined();
+    expect(sinceClause?.v).toBe(expectedSince);
+  });
+  it('the pull query includes a user_id filter matching the current user', async () => {
+    await syncModule.initializeSync();
+    const calls = taskListRowsCalls();
+    expect(calls.length).toBeGreaterThan(0);
+    const queries = (
+      calls[0][0] as { queries: { op?: string; k?: string; v?: unknown }[] }
+    ).queries;
+    const userFilter = queries.find(
+      (q) => q.op === 'equal' && q.k === 'user_id'
+    );
+    expect(userFilter).toBeDefined();
+    expect(userFilter?.v).toBe('user_A');
+  });
+});
+describe('sync — 404 fallback uses createRow (D8)', () => {
+  it('a 404 on updateRow falls back to createRow, not upsertRow', async () => {
+    const docs = [makeLocalDoc('task_new')];
+    getDatabaseMock.mockReturnValue(
+      makeTaskOnlyDb({
+        findOne: () => ({ exec: async () => null }),
+        find: () => ({ exec: async () => docs }),
+        upsert: vi.fn(),
+      })
+    );
+    const notFoundErr = Object.assign(new Error('not found'), { code: 404 });
+    updateRowMock.mockRejectedValueOnce(notFoundErr);
+    await syncModule.initializeSync();
+    expect(updateRowMock).toHaveBeenCalledTimes(1);
+    expect(createRowMock).toHaveBeenCalledTimes(1);
+    expect(upsertRowMock).not.toHaveBeenCalled();
+    const call = createRowMock.mock.calls[0][0] as {
+      tableId: string;
+      rowId: string;
+      data: Record<string, unknown>;
+    };
+    expect(call.tableId).toBe('tasks');
+    expect(call.rowId).toBe('task_new');
+    expect(call.data.user_id).toBe('user_A');
+  });
+  it('a createRow failure on 404 counts as a push failure', async () => {
+    const docs = [makeLocalDoc('task_new')];
+    getDatabaseMock.mockReturnValue(
+      makeTaskOnlyDb({
+        findOne: () => ({ exec: async () => null }),
+        find: () => ({ exec: async () => docs }),
+        upsert: vi.fn(),
+      })
+    );
+    await syncModule.initializeSync();
+    const rawBefore = localStorageMock.getItem('lastSyncTimePerCollection');
+    const dirtyBefore = JSON.parse(rawBefore!).entries.tasks.dirty;
+    expect(dirtyBefore).not.toBe('');
+    const notFoundErr = Object.assign(new Error('not found'), { code: 404 });
+    const conflictErr = Object.assign(new Error('conflict'), { code: 409 });
+    updateRowMock.mockRejectedValueOnce(notFoundErr);
+    createRowMock.mockRejectedValueOnce(conflictErr);
+    await syncModule.initializeSync();
+    const rawAfter = localStorageMock.getItem('lastSyncTimePerCollection');
+    const dirtyAfter = JSON.parse(rawAfter!).entries.tasks.dirty;
+    expect(dirtyAfter).toBe(dirtyBefore);
+  });
+});
+describe('sync — cross-tab mutex and state reload (D4)', () => {
+  it('runs the cycle inside navigator.locks.request when available', async () => {
+    const originalNavigator = (globalThis as { navigator?: unknown }).navigator;
+    const requestMock = vi.fn(
+      async (_name: string, cb: () => Promise<unknown>) => {
+        await cb();
+      }
+    );
+    Object.defineProperty(globalThis, 'navigator', {
+      configurable: true,
+      writable: true,
+      value: { locks: { request: requestMock } },
+    });
+    try {
+      await syncModule.initializeSync();
+      expect(requestMock).toHaveBeenCalledTimes(1);
+      expect(requestMock.mock.calls[0][0]).toBe('mosaic-sync');
+    } finally {
+      Object.defineProperty(globalThis, 'navigator', {
+        configurable: true,
+        writable: true,
+        value: originalNavigator,
+      });
+    }
+  });
+  it('falls back to running the cycle when navigator.locks is unavailable', async () => {
+    const originalNavigator = (globalThis as { navigator?: unknown }).navigator;
+    Object.defineProperty(globalThis, 'navigator', {
+      configurable: true,
+      writable: true,
+      value: { locks: undefined },
+    });
+    try {
+      await syncModule.initializeSync();
+      expect(syncModule.getSyncStatus().isSyncing).toBe(false);
+    } finally {
+      Object.defineProperty(globalThis, 'navigator', {
+        configurable: true,
+        writable: true,
+        value: originalNavigator,
+      });
+    }
+  });
+  it('falls back to running the cycle when navigator.locks.request throws', async () => {
+    const originalNavigator = (globalThis as { navigator?: unknown }).navigator;
+    const requestMock = vi.fn().mockRejectedValue(new Error('lock denied'));
+    Object.defineProperty(globalThis, 'navigator', {
+      configurable: true,
+      writable: true,
+      value: { locks: { request: requestMock } },
+    });
+    try {
+      await syncModule.initializeSync();
+      expect(requestMock).toHaveBeenCalledTimes(1);
+      expect(syncModule.getSyncStatus().isSyncing).toBe(false);
+      const warnings = warnSpy.mock.calls.map((args) => String(args[0]));
+      expect(
+        warnings.some((m) => m.includes('Web Locks request failed'))
+      ).toBe(true);
+    } finally {
+      Object.defineProperty(globalThis, 'navigator', {
+        configurable: true,
+        writable: true,
+        value: originalNavigator,
+      });
+    }
+  });
+  it('reloads per-collection state from localStorage at the start of every cycle', async () => {
+    await syncModule.initializeSync();
+    const raw = localStorageMock.getItem('lastSyncTimePerCollection');
+    const state = JSON.parse(raw!);
+    const future = '2099-01-01T00:00:00.000Z';
+    state.entries.tasks.dirty = future;
+    localStorageMock.setItem(
+      'lastSyncTimePerCollection',
+      JSON.stringify(state)
+    );
+    await syncModule.initializeSync();
+    const afterRaw = localStorageMock.getItem('lastSyncTimePerCollection');
+    const after = JSON.parse(afterRaw!);
+    expect(after.entries.tasks.dirty).toBe(future);
+  });
+});
+</file>
+
 <file path="tests/unit/syncMapping.test.ts">
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
 import {
   toAppwriteFormat,
   fromAppwriteFormat,
+  __resetDriftWarningsForTests,
 } from '../../src/lib/syncMapping';
 const USER_ID = 'user_test_1';
+afterEach(() => {
+  vi.restoreAllMocks();
+});
 describe('toAppwriteFormat — tasks', () => {
   const doc = {
     id: 'task_1',
@@ -21209,6 +23244,100 @@ describe('round-trip', () => {
     const back = roundTrip(doc, 'messages', USER_ID);
     expect(back.readAt).toBe('');
     expect({ ...back, readAt: '2026-01-15T20:00:00.000Z' }).toEqual(doc);
+  });
+});
+describe('fromAppwriteFormat — schema drift detection (D5)', () => {
+  const baseCategoryRow = {
+    $id: 'cat_1',
+    name: 'Work',
+    color: '#3B82F6',
+    order: 0,
+    visibility: 'private',
+    user_id: USER_ID,
+    deleted: false,
+    icon: '',
+  };
+  it('warns once when a row carries an unknown non-$ field', () => {
+    __resetDriftWarningsForTests();
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    fromAppwriteFormat(
+      { ...baseCategoryRow, mystery_column: 'surprise' },
+      'categories'
+    );
+    const drift = warnSpy.mock.calls
+      .map((args) => String(args[0]))
+      .filter((m) => m.includes('mystery_column'));
+    expect(drift).toHaveLength(1);
+    expect(drift[0]).toContain('categories');
+    expect(drift[0]).toContain('schema drift');
+  });
+  it('does not warn twice for the same (collection, field)', () => {
+    __resetDriftWarningsForTests();
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const drifting = { ...baseCategoryRow, mystery_column: 'x' };
+    fromAppwriteFormat(drifting, 'categories');
+    fromAppwriteFormat({ ...drifting, $id: 'cat_2' }, 'categories');
+    const drift = warnSpy.mock.calls
+      .map((args) => String(args[0]))
+      .filter((m) => m.includes('mystery_column'));
+    expect(drift).toHaveLength(1);
+  });
+  it('warns separately for the same field name on different collections', () => {
+    __resetDriftWarningsForTests();
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    fromAppwriteFormat(
+      { ...baseCategoryRow, mystery_column: 'x' },
+      'categories'
+    );
+    fromAppwriteFormat(
+      {
+        $id: 'task_1',
+        title: 'x',
+        is_completed: false,
+        category_id: '',
+        tags: '',
+        date: '2026-01-01',
+        memo: '',
+        image: '',
+        created_at: '2026-01-01T00:00:00.000Z',
+        completed_at: '',
+        updated_at: '2026-01-01T00:00:00.000Z',
+        user_id: USER_ID,
+        deleted: false,
+        visibility: '',
+        source: '',
+        routine_id: '',
+        reminder_time: '',
+        reactions: '',
+        mystery_column: 'x',
+      },
+      'tasks'
+    );
+    const drift = warnSpy.mock.calls
+      .map((args) => String(args[0]))
+      .filter((m) => m.includes('mystery_column'));
+    expect(drift).toHaveLength(2);
+  });
+  it('ignores unknown fields that start with $', () => {
+    __resetDriftWarningsForTests();
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    fromAppwriteFormat(
+      { ...baseCategoryRow, $mystery: 'internal-metadata' },
+      'categories'
+    );
+    expect(warnSpy).not.toHaveBeenCalled();
+  });
+  it('does not warn for a well-formed row', () => {
+    __resetDriftWarningsForTests();
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    fromAppwriteFormat(baseCategoryRow, 'categories');
+    expect(warnSpy).not.toHaveBeenCalled();
+  });
+  it('does not warn for an unknown collection name', () => {
+    __resetDriftWarningsForTests();
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    fromAppwriteFormat({ $id: 'x', some_field: 'y' }, 'not_a_real_collection');
+    expect(warnSpy).not.toHaveBeenCalled();
   });
 });
 </file>

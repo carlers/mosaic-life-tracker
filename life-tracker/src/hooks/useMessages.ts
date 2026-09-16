@@ -15,13 +15,11 @@ import {
   hasUserReacted,
 } from '../lib/reactionUtils';
 import type { MessageDocument, TaskDocument } from '../db/schema';
-
 export interface ReplyContext {
   id: string;
   senderId: string;
   content: string;
 }
-
 export interface UseMessagesReturn {
   messages: MessageDocument[];
   isLoading: boolean;
@@ -40,13 +38,11 @@ export interface UseMessagesReturn {
   unsendMessage: (id: string) => Promise<void>;
   toggleReaction: (id: string, emoji: string) => Promise<'ok' | 'timeout'>;
 }
-
 function truncateForSnapshot(s: string, max = 100): string {
   const trimmed = s.replace(/\s+/g, ' ').trim();
   if (trimmed.length <= max) return trimmed;
   return trimmed.slice(0, max - 1) + '…';
 }
-
 export function useMessages(friendId: string | null): UseMessagesReturn {
   const { user } = useAuth();
   const userId = user?.$id;
@@ -277,7 +273,7 @@ export function useMessages(friendId: string | null): UseMessagesReturn {
           }
         }
       }
-      markReadOnRemote(friendId, tid);
+      markReadOnRemote(uid, friendId, tid);
     } catch (err) {
       console.error('[useMessages] markAllRead failed:', err);
     } finally {
@@ -347,7 +343,7 @@ export function useMessages(friendId: string | null): UseMessagesReturn {
           cascadeQueryErr
         );
       }
-      unsendOnRemote(id, recipientId);
+      unsendOnRemote(uid, id, recipientId);
     },
     [user?.$id]
   );
