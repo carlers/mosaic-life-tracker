@@ -654,7 +654,7 @@ Context is sent in tiers. Use the lowest tier that supports the current task.
 | `CurrentTask` | The specific task inside the current batch (e.g., "2.3 — Wire TodoListView to useTasks"). |
 | `Status` | One of: `not_started`, `in_progress`, `blocked`, `audit_closed`. |
 | `NextAction` | One line: what the next chat should do. Chat 1 fills this in when planning; Chat 2 refines it at the end of every mega file. |
-| `NextChatRole` | `chat1` or `chat2`. Tells the offboarding prompt which role the next session should assume. |
+| `NextChatRole` | `chat1` or `chat2`. Tells the offboarding prompt which role the next session should assume. Not a directive to start a new session. Answers 'if an explicit OFFBOARD were typed right now, what role should the next session assume?' Mid-phase, Chat 2 continues in the same session across batches. |
 | `BatchPlan` | Checklist of the current plan's batches, with `[x]` for done. Kept short — no deeper than one level. |
 | `OpenQuestions` | Unresolved questions that block Chat 2 from proceeding under §25.5. `none` when clear. |
 | `LastApply` | ISO timestamp of the most recent successful `npm run apply`. |
@@ -677,6 +677,11 @@ These are the canonical starts for each role. The user copies one line from a pr
 ROLE: CHAT 1 (Brain). Follow AGENTS.md §25. Read SESSION_STATE.md. You plan, audit, and generate Chat 2 prompts. You do not write production code. Stay in this session across the full audit cycle; only OFFBOARD ends it. Objective: <one line or "resume from SESSION_STATE.md">.
 ```
 
+**Start Chat 1 (phase-review handoff):**
+```
+ROLE: CHAT 1 (Brain). Follow AGENTS.md §25. Read SESSION_STATE.md. The previous Chat 2 session completed phase <name>. Review its mega files; approve the phase closed or emit a correction prompt. Do not start the next phase without Chat 0 approval.
+```
+
 **Start Chat 2 (execution):**
 ```
 ROLE: CHAT 2 (Hands). Follow AGENTS.md §25. Read SESSION_STATE.md. You produce one mega file per §5.1 for the current batch and update SESSION_STATE.md inside it. Do not ask granular questions; follow §25.5. If you need exact file contents, output a single line: npm run dump -- <paths>. Start with NextAction from SESSION_STATE.md. Stay in this session across batches; only OFFBOARD ends it.
@@ -692,14 +697,15 @@ OFFBOARD. Produce: (1) a one-line onboarding prompt for the next chat per §25.6
 ROLE: CHAT <1|2>. Follow AGENTS.md §25. Read SESSION_STATE.md and resume from NextAction. No further context needed.
 ```
 
-**Audit closed (Chat 2 end-of-batch declaration, appended to the mega file):**
+**Phase complete (Chat 2 end-of-phase declaration, used once at the end of a phase):**
 ```
-AUDIT CLOSED
-Batch: <id>
+PHASE COMPLETE
+Phase: <name>
+Batches: <N of M>
 Files touched: <list>
-Tests: <pass|fail with count>
+Tests: <pass|fail, count>
 SESSION_STATE.md updated: yes
-NextChatRole: <chat1|chat2>
+NextChatRole: <chat1 | chat2>
 ```
 
 ### 25.5 Question Policy
@@ -718,13 +724,19 @@ If a decision fits within the current batch's scope and follows an existing patt
 
 ### 25.6 Offboarding
 
-**Only a user-typed `OFFBOARD` triggers offboarding.** Neither chat produces a "next-session prompt" or a "paste this into a new chat" line unprompted. A chat that believes it needs a fresh session (out of context, confused, at a natural break) says so explicitly and waits for the user to decide — it does not hand off by default.
+Offboarding has exactly two triggers, with different targets:
+- (a) Phase completion. Chat 2 has just appended the PHASE COMPLETE declaration (§25.4) to its final mega file. Chat 2 emits a handoff prompt targeting Chat 1. Automatic; no user command.
+- (b) User-typed OFFBOARD. The current chat emits a handoff prompt targeting NextChatRole from SESSION_STATE.md.
 
-The most common failure mode is Chat 1 producing an audit brief and then immediately emitting a "next-session prompt" instead of executing the audit in the same session. That is a spec violation, not a feature. Chat 1's deliverable is the audit findings, not a brief that requests another chat.
+Offboarding is per-phase, not per-batch. Chat 2 does not produce an offboarding prompt mid-phase except on a user-typed OFFBOARD. A mid-phase prompt without one of these two triggers is a spec violation of the same class as Chat 1 emitting a next-session prompt after an audit brief.
 
 When a chat is asked to offboard, it produces exactly two things, in this order, with nothing else:
 
-1. **A one-line onboarding prompt** in the format from §25.4. Role is taken from `SESSION_STATE.md`'s `NextChatRole`. Objective is `resume from SESSION_STATE.md` unless there is context not yet in the state file, in which case append it after a semicolon.
+1. **A one-line onboarding prompt** in the format from §25.4. Target role depends on the trigger: phase completion targets Chat 1, user OFFBOARD targets SESSION_STATE.md's NextChatRole. Objective is "resume from SESSION_STATE.md" unless there is context not yet in the state file, in which case append it after a semicolon.
+
+   When the target is Chat 1, the prompt body MUST additionally include: (a) what was done, 2–3 sentences; (b) files touched; (c) review focus; (d) test status. A target-Chat-2 prompt does not need these — SESSION_STATE.md carries the state.
+
+   The prompt is emitted inside a Markdown code fence whose backtick count is strictly greater than the longest backtick run appearing anywhere inside the prompt body. Four backticks is the default; bump to five or more if the prompt body contains a four-backtick run.
 
    Example:
    ```
@@ -774,3 +786,4 @@ No other context is needed. The new chat reads `AGENTS.md §25` and `SESSION_STA
 | 2026-09-16 | §8, §10, §15, §24 | Sync Status UI shipped (F16): new `SyncStatusSheet` component surfaces `SyncStatus.errors` via Settings → Sync Status. §10 notes this is the only user-visible surface for sync errors. §15 lists `SyncStatusSheet` in modals. §8 progress bullet updated. | Sync Status UI |
 | 2026-09-16 | §25.1, §25.4, §25.6 | Clarified Chat 1 lifecycle: a single Chat 1 session spans the full audit cycle (brief → dumps → findings → Chat 2 prompt) without handing off between steps. Only a user-typed `OFFBOARD` triggers offboarding; producing a "next-session prompt" unprompted is a spec violation. Both start templates now state "Stay in this session; only OFFBOARD ends it." | Chat 1 premature offboarding |
 | 2026-09-16 | §5.1, §25.2 | `scripts/dump-files.mjs` (Tier 2 context ingest) now emits repomix-compatible `<file path="…">…</file>` XML wrappers instead of the `===FILE:path===` mega-file directive syntax. This removes the ambiguity between the *read* format (dump, repomix) and the *write* format (mega file, `apply-changes.mjs`), so a dump can never be accidentally parsed as a patch. §5.1 adds a Common-pitfalls bullet documenting the distinction; §25.2's Tier 2 row and rules bullet updated. | Phase 1 audits — batch 1.1.chore |
+| 2026-09-16 | §25.3, §25.4, §25.6 | Split offboarding triggers by target role (phase completion → Chat 1, user OFFBOARD → NextChatRole). Chat-1-targeted handoff prompts now carry a review payload (what was done, files touched, review focus, test status). Replaced per-batch 'Audit closed' declaration with once-per-phase 'Phase complete' declaration. §25.3 NextChatRole clarified as non-directive. | split offboarding triggers by target role |
