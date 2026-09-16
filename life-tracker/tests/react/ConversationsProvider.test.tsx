@@ -1,9 +1,12 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { renderHook, waitFor } from '@testing-library/react';
-import type { ReactNode } from 'react';
+import { useContext, type ReactNode } from 'react';
 import type { RxDatabase } from 'rxdb';
-import { useUnreadMessages } from '../../src/hooks/useUnreadMessages';
 import { ConversationsProvider } from '../../src/hooks/ConversationsProvider';
+import {
+  ConversationsContext,
+  type ConversationsContextValue,
+} from '../../src/hooks/conversationsContext';
 import {
   createTestDb,
   destroyTestDb,
@@ -15,6 +18,9 @@ import type {
 } from '../../src/db/schema';
 const dbRef = vi.hoisted(() => ({ current: null as unknown }));
 const mockFriendsRef = vi.hoisted(() => ({ current: [] as unknown[] }));
+const mockUserRef = vi.hoisted(() => ({
+  current: { $id: 'user_A' } as { $id: string } | null,
+}));
 vi.mock('../../src/db/database', () => ({
   getDatabase: () => {
     if (!dbRef.current) throw new Error('testDb not initialized');
@@ -22,7 +28,7 @@ vi.mock('../../src/db/database', () => ({
   },
 }));
 vi.mock('../../src/hooks/useAuth', () => ({
-  useAuth: () => ({ user: { $id: 'user_A' }, isLoading: false }),
+  useAuth: () => ({ user: mockUserRef.current, isLoading: false }),
 }));
 vi.mock('../../src/hooks/useFriends', () => ({
   useFriends: () => ({
@@ -33,6 +39,11 @@ vi.mock('../../src/hooks/useFriends', () => ({
 const wrapper = ({ children }: { children: ReactNode }) => (
   <ConversationsProvider>{children}</ConversationsProvider>
 );
+function useProviderValue(): ConversationsContextValue {
+  const ctx = useContext(ConversationsContext);
+  if (!ctx) throw new Error('useProviderValue used outside provider');
+  return ctx;
+}
 function makeFriend(
   overrides: Partial<FriendshipDocument> = {}
 ): FriendshipDocument {
@@ -51,9 +62,7 @@ function makeFriend(
     ...overrides,
   };
 }
-function makeMessage(
-  overrides: Partial<MessageDocument> = {}
-): MessageDocument {
+function makeMessage(overrides: Partial<MessageDocument> = {}): MessageDocument {
   const id = overrides.id ?? `msg_${Math.random().toString(36).slice(2, 12)}`;
   return {
     id,
@@ -81,10 +90,11 @@ function makeMessage(
     ...overrides,
   };
 }
-describe('useUnreadMessages', () => {
+describe('ConversationsProvider', () => {
   beforeEach(async () => {
     dbRef.current = await createTestDb();
     mockFriendsRef.current = [];
+    mockUserRef.current = { $id: 'user_A' };
   });
   afterEach(async () => {
     if (dbRef.current) {
@@ -94,7 +104,34 @@ describe('useUnreadMessages', () => {
       dbRef.current = null;
     }
   });
-  it('baseline: unread incoming from an accepted friend counts toward totalUnread', async () => {
+  it('exposes empty state when there is no authenticated user', () => {
+    mockUserRef.current = null;
+    const { result } = renderHook(() => useProviderValue(), { wrapper });
+    expect(result.current.isLoading).toBe(false);
+    expect(result.current.conversations).toEqual([]);
+    expect(result.current.totalUnread).toBe(0);
+  });
+  it('exposes empty state when there are no friends and no messages', async () => {
+    const { result } = renderHook(() => useProviderValue(), { wrapper });
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(result.current.conversations).toEqual([]);
+    expect(result.current.totalUnread).toBe(0);
+  });
+  it('builds one conversation per accepted friend, with no messages yet', async () => {
+    mockFriendsRef.current = [
+      makeFriend({ friendId: 'user_B', friendUsername: 'b' }),
+      makeFriend({ friendId: 'user_C', friendUsername: 'c' }),
+    ];
+    const { result } = renderHook(() => useProviderValue(), { wrapper });
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(result.current.conversations).toHaveLength(2);
+    for (const c of result.current.conversations) {
+      expect(c.lastMessage).toBeNull();
+      expect(c.unreadCount).toBe(0);
+    }
+    expect(result.current.totalUnread).toBe(0);
+  });
+  it('counts unread incoming messages from accepted friends', async () => {
     mockFriendsRef.current = [
       makeFriend({ friendId: 'user_B', friendUsername: 'b' }),
     ];
@@ -109,61 +146,12 @@ describe('useUnreadMessages', () => {
         createdAt: '2026-01-01T10:00:00.000Z',
       }),
     ]);
-    const { result } = renderHook(() => useUnreadMessages(), { wrapper });
+    const { result } = renderHook(() => useProviderValue(), { wrapper });
     await waitFor(() => expect(result.current.isLoading).toBe(false));
     expect(result.current.totalUnread).toBe(1);
+    expect(result.current.conversations[0].unreadCount).toBe(1);
   });
-  it('unread incoming from a non-friend sender does not contribute to totalUnread', async () => {
-    mockFriendsRef.current = [
-      makeFriend({ friendId: 'user_B', friendUsername: 'b' }),
-    ];
-    const db = dbRef.current as RxDatabase<TestDatabaseCollections>;
-    await db.messages.bulkInsert([
-      makeMessage({
-        id: 'msg_c1',
-        senderId: 'user_C',
-        recipientId: 'user_A',
-        direction: 'incoming',
-        readAt: '',
-        createdAt: '2026-01-01T10:00:00.000Z',
-      }),
-    ]);
-    const stored = await db.messages.findOne('msg_c1').exec();
-    expect(stored).not.toBeNull();
-    expect(stored?.direction).toBe('incoming');
-    expect(stored?.readAt).toBe('');
-    const { result } = renderHook(() => useUnreadMessages(), { wrapper });
-    await waitFor(() => expect(result.current.isLoading).toBe(false));
-    expect(result.current.totalUnread).toBe(0);
-  });
-  it('read incoming and all outgoing do not contribute to totalUnread', async () => {
-    mockFriendsRef.current = [
-      makeFriend({ friendId: 'user_B', friendUsername: 'b' }),
-    ];
-    const db = dbRef.current as RxDatabase<TestDatabaseCollections>;
-    await db.messages.bulkInsert([
-      makeMessage({
-        id: 'msg_i_read',
-        senderId: 'user_B',
-        recipientId: 'user_A',
-        direction: 'incoming',
-        readAt: '2026-01-01T10:30:00.000Z',
-        createdAt: '2026-01-01T10:15:00.000Z',
-      }),
-      makeMessage({
-        id: 'msg_o1',
-        senderId: 'user_A',
-        recipientId: 'user_B',
-        direction: 'outgoing',
-        readAt: '',
-        createdAt: '2026-01-01T10:20:00.000Z',
-      }),
-    ]);
-    const { result } = renderHook(() => useUnreadMessages(), { wrapper });
-    await waitFor(() => expect(result.current.isLoading).toBe(false));
-    expect(result.current.totalUnread).toBe(0);
-  });
-  it('unsent incoming from an accepted friend does not contribute (regression: F3)', async () => {
+  it('excludes unsent incoming messages from unread counts (regression: F3)', async () => {
     mockFriendsRef.current = [
       makeFriend({ friendId: 'user_B', friendUsername: 'b' }),
     ];
@@ -179,13 +167,69 @@ describe('useUnreadMessages', () => {
         createdAt: '2026-01-01T10:00:00.000Z',
       }),
     ]);
-    const { result } = renderHook(() => useUnreadMessages(), { wrapper });
+    const { result } = renderHook(() => useProviderValue(), { wrapper });
     await waitFor(() => expect(result.current.isLoading).toBe(false));
     expect(result.current.totalUnread).toBe(0);
+    expect(result.current.conversations[0].unreadCount).toBe(0);
   });
-  it('isLoading transition: starts true, becomes false after the subscription emits', async () => {
-    const { result } = renderHook(() => useUnreadMessages(), { wrapper });
-    expect(result.current.isLoading).toBe(true);
+  it('sorts conversations with messages newest-first, then empty conversations alphabetically', async () => {
+    mockFriendsRef.current = [
+      makeFriend({
+        friendId: 'user_B',
+        friendUsername: 'b',
+        friendDisplayName: 'B',
+      }),
+      makeFriend({
+        friendId: 'user_C',
+        friendUsername: 'c',
+        friendDisplayName: 'C',
+      }),
+      makeFriend({
+        friendId: 'user_D',
+        friendUsername: 'd',
+        friendDisplayName: 'D',
+      }),
+    ];
+    const db = dbRef.current as RxDatabase<TestDatabaseCollections>;
+    await db.messages.bulkInsert([
+      makeMessage({
+        id: 'msg_b1',
+        recipientId: 'user_B',
+        createdAt: '2026-01-01T10:00:00.000Z',
+      }),
+      makeMessage({
+        id: 'msg_c1',
+        recipientId: 'user_C',
+        createdAt: '2026-01-01T12:00:00.000Z',
+      }),
+    ]);
+    const { result } = renderHook(() => useProviderValue(), { wrapper });
     await waitFor(() => expect(result.current.isLoading).toBe(false));
+    const order = result.current.conversations.map((c) => c.friend.friendId);
+    expect(order).toEqual(['user_C', 'user_B', 'user_D']);
+  });
+  it('resets conversations and unread on user switch', async () => {
+    mockFriendsRef.current = [
+      makeFriend({ friendId: 'user_B', friendUsername: 'b' }),
+    ];
+    const db = dbRef.current as RxDatabase<TestDatabaseCollections>;
+    await db.messages.bulkInsert([
+      makeMessage({
+        id: 'msg_i1',
+        senderId: 'user_B',
+        recipientId: 'user_A',
+        direction: 'incoming',
+        readAt: '',
+        createdAt: '2026-01-01T10:00:00.000Z',
+      }),
+    ]);
+    const { result, rerender } = renderHook(() => useProviderValue(), {
+      wrapper,
+    });
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(result.current.totalUnread).toBe(1);
+    mockUserRef.current = { $id: 'user_Z' };
+    rerender();
+    await waitFor(() => expect(result.current.totalUnread).toBe(0));
   });
 });

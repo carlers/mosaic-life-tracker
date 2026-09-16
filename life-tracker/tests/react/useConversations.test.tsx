@@ -1,7 +1,9 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { renderHook, waitFor } from '@testing-library/react';
+import type { ReactNode } from 'react';
 import type { RxDatabase } from 'rxdb';
 import { useConversations } from '../../src/hooks/useConversations';
+import { ConversationsProvider } from '../../src/hooks/ConversationsProvider';
 import {
   createTestDb,
   destroyTestDb,
@@ -11,45 +13,26 @@ import type {
   MessageDocument,
   FriendshipDocument,
 } from '../../src/db/schema';
-
-// ---------------------------------------------------------------------------
-// Module mocks
-//
-// Vitest hoists `vi.mock` above all imports, and the factory cannot reference
-// outer bindings unless they were declared via `vi.hoisted`. We use the
-// mutable-ref pattern: the hoisted holder exists at mock-evaluation time, and
-// the factory reads `.current` lazily on every call.
-//
-// Per plan Finding A, `tests/helpers/mockDatabase.ts` is intentionally NOT
-// used. The 6-line boilerplate is duplicated per hook test file, which is
-// more readable than a helper whose operation depends on the call site.
-// ---------------------------------------------------------------------------
-
 const dbRef = vi.hoisted(() => ({ current: null as unknown }));
 const mockFriendsRef = vi.hoisted(() => ({ current: [] as unknown[] }));
-
 vi.mock('../../src/db/database', () => ({
   getDatabase: () => {
     if (!dbRef.current) throw new Error('testDb not initialized');
     return dbRef.current;
   },
 }));
-
 vi.mock('../../src/hooks/useAuth', () => ({
   useAuth: () => ({ user: { $id: 'user_A' }, isLoading: false }),
 }));
-
 vi.mock('../../src/hooks/useFriends', () => ({
   useFriends: () => ({
     friends: mockFriendsRef.current,
     isLoading: false,
   }),
 }));
-
-// ---------------------------------------------------------------------------
-// Fixtures
-// ---------------------------------------------------------------------------
-
+const wrapper = ({ children }: { children: ReactNode }) => (
+  <ConversationsProvider>{children}</ConversationsProvider>
+);
 function makeFriend(
   overrides: Partial<FriendshipDocument> = {}
 ): FriendshipDocument {
@@ -68,7 +51,6 @@ function makeFriend(
     ...overrides,
   };
 }
-
 function makeMessage(overrides: Partial<MessageDocument> = {}): MessageDocument {
   const id = overrides.id ?? `msg_${Math.random().toString(36).slice(2, 12)}`;
   return {
@@ -97,17 +79,11 @@ function makeMessage(overrides: Partial<MessageDocument> = {}): MessageDocument 
     ...overrides,
   };
 }
-
-// ---------------------------------------------------------------------------
-// Tests
-// ---------------------------------------------------------------------------
-
 describe('useConversations', () => {
   beforeEach(async () => {
     dbRef.current = await createTestDb();
     mockFriendsRef.current = [];
   });
-
   afterEach(async () => {
     if (dbRef.current) {
       await destroyTestDb(
@@ -116,16 +92,13 @@ describe('useConversations', () => {
       dbRef.current = null;
     }
   });
-
   it('empty state: two friends, no messages → both conversations with lastMessage: null, unreadCount: 0', async () => {
     mockFriendsRef.current = [
       makeFriend({ friendId: 'user_B', friendUsername: 'b' }),
       makeFriend({ friendId: 'user_C', friendUsername: 'c' }),
     ];
-
-    const { result } = renderHook(() => useConversations());
+    const { result } = renderHook(() => useConversations(), { wrapper });
     await waitFor(() => expect(result.current.isLoading).toBe(false));
-
     expect(result.current.conversations).toHaveLength(2);
     for (const c of result.current.conversations) {
       expect(c.lastMessage).toBeNull();
@@ -133,9 +106,7 @@ describe('useConversations', () => {
     }
     expect(result.current.totalUnread).toBe(0);
   });
-
   it('grouping: messages across two friends map to the correct conversation', async () => {
-    // Regression: §16 (conversation list sort / grouping)
     mockFriendsRef.current = [
       makeFriend({ friendId: 'user_B', friendUsername: 'b' }),
       makeFriend({ friendId: 'user_C', friendUsername: 'c' }),
@@ -153,10 +124,8 @@ describe('useConversations', () => {
         createdAt: '2026-01-01T11:00:00.000Z',
       }),
     ]);
-
-    const { result } = renderHook(() => useConversations());
+    const { result } = renderHook(() => useConversations(), { wrapper });
     await waitFor(() => expect(result.current.isLoading).toBe(false));
-
     expect(result.current.conversations).toHaveLength(2);
     const byFriend = new Map(
       result.current.conversations.map((c) => [c.friend.friendId, c])
@@ -164,9 +133,7 @@ describe('useConversations', () => {
     expect(byFriend.get('user_B')?.lastMessage?.id).toBe('msg_b1');
     expect(byFriend.get('user_C')?.lastMessage?.id).toBe('msg_c1');
   });
-
   it('sort: conversations with messages sort newest-first, then empty conversations alphabetically', async () => {
-    // Regression: §16 (conversation list sort)
     mockFriendsRef.current = [
       makeFriend({ friendId: 'user_B', friendUsername: 'b', friendDisplayName: 'B' }),
       makeFriend({ friendId: 'user_C', friendUsername: 'c', friendDisplayName: 'C' }),
@@ -185,16 +152,12 @@ describe('useConversations', () => {
         createdAt: '2026-01-01T12:00:00.000Z',
       }),
     ]);
-
-    const { result } = renderHook(() => useConversations());
+    const { result } = renderHook(() => useConversations(), { wrapper });
     await waitFor(() => expect(result.current.isLoading).toBe(false));
-
     const order = result.current.conversations.map((c) => c.friend.friendId);
     expect(order).toEqual(['user_C', 'user_B', 'user_D']);
   });
-
   it('unread: incoming without readAt counts; read incoming and all outgoing do not count', async () => {
-    // Regression: §20.5 (unread badge contract)
     mockFriendsRef.current = [
       makeFriend({ friendId: 'user_B', friendUsername: 'b' }),
     ];
@@ -225,16 +188,35 @@ describe('useConversations', () => {
         createdAt: '2026-01-01T10:20:00.000Z',
       }),
     ]);
-
-    const { result } = renderHook(() => useConversations());
+    const { result } = renderHook(() => useConversations(), { wrapper });
     await waitFor(() => expect(result.current.isLoading).toBe(false));
-
     expect(result.current.conversations).toHaveLength(1);
     const convo = result.current.conversations[0];
     expect(convo.unreadCount).toBe(1);
     expect(result.current.totalUnread).toBe(1);
   });
-
+  it('unread: incoming unsent message does not count (regression: F3)', async () => {
+    mockFriendsRef.current = [
+      makeFriend({ friendId: 'user_B', friendUsername: 'b' }),
+    ];
+    const db = dbRef.current as RxDatabase<TestDatabaseCollections>;
+    await db.messages.bulkInsert([
+      makeMessage({
+        id: 'msg_unsent',
+        senderId: 'user_B',
+        recipientId: 'user_A',
+        direction: 'incoming',
+        readAt: '',
+        isUnsent: true,
+        createdAt: '2026-01-01T10:00:00.000Z',
+      }),
+    ]);
+    const { result } = renderHook(() => useConversations(), { wrapper });
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(result.current.conversations).toHaveLength(1);
+    expect(result.current.conversations[0].unreadCount).toBe(0);
+    expect(result.current.totalUnread).toBe(0);
+  });
   it('last message: the most recent message (any direction) becomes lastMessage', async () => {
     mockFriendsRef.current = [
       makeFriend({ friendId: 'user_B', friendUsername: 'b' }),
@@ -263,15 +245,12 @@ describe('useConversations', () => {
         createdAt: '2026-01-01T10:30:00.000Z',
       }),
     ]);
-
-    const { result } = renderHook(() => useConversations());
+    const { result } = renderHook(() => useConversations(), { wrapper });
     await waitFor(() => expect(result.current.isLoading).toBe(false));
-
     expect(result.current.conversations[0].lastMessage?.id).toBe('msg_i1');
   });
-
   it('isLoading transition: starts true, becomes false after the subscription emits', async () => {
-    const { result } = renderHook(() => useConversations());
+    const { result } = renderHook(() => useConversations(), { wrapper });
     expect(result.current.isLoading).toBe(true);
     await waitFor(() => expect(result.current.isLoading).toBe(false));
   });

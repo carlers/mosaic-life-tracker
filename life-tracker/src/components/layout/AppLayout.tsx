@@ -2,22 +2,19 @@ import React, { useEffect, useState } from 'react';
 import { Outlet, useLocation, useNavigate, Navigate } from 'react-router-dom';
 import { WifiOff, UserX } from 'lucide-react';
 import { MainLayout } from './MainLayout';
+import { ConversationsProvider } from '../../hooks/ConversationsProvider';
 import { useAuth } from '../../hooks/useAuth';
 import { deliverPendingMessages } from '../../lib/messageDelivery';
 import type { TabId } from './BottomNav';
-
 const RETRY_COOLDOWN_MS = 2000;
-
 export const AppLayout: React.FC = () => {
   const { user, isLoading, isOffline, error, retry } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
-
   const [retryDisabled, setRetryDisabled] = useState(false);
   const [isOnline, setIsOnline] = useState(
     typeof navigator !== 'undefined' ? navigator.onLine : true
   );
-
   useEffect(() => {
     const onOnline = () => setIsOnline(true);
     const onOffline = () => setIsOnline(false);
@@ -28,7 +25,6 @@ export const AppLayout: React.FC = () => {
       window.removeEventListener('offline', onOffline);
     };
   }, []);
-
   useEffect(() => {
     if (!user?.$id) return;
     const uid = user.$id;
@@ -45,7 +41,6 @@ export const AppLayout: React.FC = () => {
       window.removeEventListener('online', tryDeliver);
     };
   }, [user?.$id]);
-
   if (isLoading) {
     return (
       <div className="min-h-screen bg-[#111111] flex items-center justify-center">
@@ -53,8 +48,6 @@ export const AppLayout: React.FC = () => {
       </div>
     );
   }
-
-  // Couldn't verify session — do NOT redirect to /login, show a retry screen.
   if (!user && isOffline) {
     const headline = isOnline
       ? "We couldn't reach the server"
@@ -62,7 +55,6 @@ export const AppLayout: React.FC = () => {
     const body = isOnline
       ? error || 'Try again in a moment.'
       : 'Reconnect to continue.';
-
     const handleRetry = async () => {
       if (retryDisabled) return;
       setRetryDisabled(true);
@@ -72,13 +64,9 @@ export const AppLayout: React.FC = () => {
         setTimeout(() => setRetryDisabled(false), RETRY_COOLDOWN_MS);
       }
     };
-
     const handleSwitchAccount = () => {
-      // Navigate to login. The login flow clears any stale session before
-      // creating a new one, so this is safe even without a successful logout.
       navigate('/login', { replace: true });
     };
-
     return (
       <div className="min-h-screen bg-[#111111] flex items-center justify-center px-6">
         <div className="text-center max-w-sm w-full">
@@ -108,11 +96,9 @@ export const AppLayout: React.FC = () => {
       </div>
     );
   }
-
   if (!user) {
     return <Navigate to="/login" replace state={{ from: location }} />;
   }
-
   const path = location.pathname;
   let activeTab: TabId = 'home';
   if (path.includes('explore')) activeTab = 'explore';
@@ -125,14 +111,14 @@ export const AppLayout: React.FC = () => {
   ) {
     activeTab = 'account';
   }
-
   const handleTabChange = (tab: TabId) => {
     navigate(`/${tab}`);
   };
-
   return (
-    <MainLayout activeTab={activeTab} onTabChange={handleTabChange}>
-      <Outlet />
-    </MainLayout>
+    <ConversationsProvider>
+      <MainLayout activeTab={activeTab} onTabChange={handleTabChange}>
+        <Outlet />
+      </MainLayout>
+    </ConversationsProvider>
   );
 };
