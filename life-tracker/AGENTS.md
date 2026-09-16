@@ -3,21 +3,20 @@
 ## 0. Hard Rules
 
 1. RxDB schemas: never `deleted` — use `isDeleted` (§12)
-2. Existing remote rows: `updateRow`; new rows: `createRow`; 404 fallback on `updateRow`: `createRow` (§6, §18 D8)
+2. Never hard-delete; `isDeleted: true` (§7)
 3. Row IDs ≤36 chars, `[a-zA-Z0-9_]+`, no leading `_` (§6, §11)
-4. Outgoing messages: `read_at` is server-owned; omit on push (§12)
-5. Message IDs must start with `msg_` — server-enforced (§11)
-6. Cross-user writes go through Appwrite Functions, never direct client writes (§6, §20)
-7. Mega file: outer fence exactly four tildes + `mosaic`; inner fences ≤3 chars (§5.1)
+4. Existing remote rows: `updateRow`; new rows: `createRow`; 404 fallback on `updateRow`: `createRow`, never `upsertRow` (§6, §18 D8)
+5. Outgoing messages: `read_at` is server-owned; omit on push (§12)
+6. Message IDs must start with `msg_` — server-enforced (§11)
+7. Cross-user writes go through Appwrite Functions, never direct client writes (§6, §20)
 8. 401 from `account.get()` = "not logged in"; network error = "couldn't check" — never conflate (§10, §23.6)
-9. Never hard-delete; `isDeleted: true` (§7)
-10. `createRow` on a `updateRow` 404, never `upsertRow` (§6, §18 D8)
+9. Mega file: outer fence exactly four tildes + `mosaic`; inner fences ≤3 chars (§5.1)
 
 ## 1. The Vision
 - An offline-first, local-first, self-hostable "Life Tracker" PWA
 - **Phase 1:** A pixel-perfect, highly polished clone of "Todo Mate" (tasks, categories, social calendar, diary) to replace an ad-filled app
 - **Phase 2:** Optional, modular integrations for fitness, media, and personal CRM
-- **Phase 3 (extension beyond Todo Mate):** 1:1 messaging with friends, message reactions, and task reactions â€” a native social layer woven into the calendar
+- **Phase 3 (extension beyond Todo Mate):** 1:1 messaging with friends, message reactions, and task reactions — a native social layer woven into the calendar
 - **Core UX:** A unified, dark-mode calendar view that aggregates all life data, featuring 0ms load times (via RxDB), bottom-sheet interactions, and 100% offline functionality. Cloud is strictly for background sync
 
 ## 2. Product Reference: The "Todo Mate" Clone (Phase 1)
@@ -48,7 +47,7 @@ A dark-mode calendar clone of Todo Mate. Shipped: tasks, categories, month/week 
 
 ## 5.1 Revision Workflow (Mega File + Installer)
 
-All revisions are delivered as a single fenced code block tagged `mosaic`. Outer fence: exactly four tildes + `mosaic` opener; four tildes alone on the closer. Installer regex: `/^(~~~+|`{3,})mosaic\s*\n([\s\S]*?)\n\1\s*$/` — the `\1` backreference requires the closing fence to match character AND length exactly, so a four-tilde opening can only be closed by exactly four tildes and any ≤3-char fence inside is inert.
+All revisions are delivered as a single fenced code block tagged `mosaic`. Outer fence: exactly four tildes + `mosaic` opener; four tildes alone on the closer. Installer regex: `/^(~~~+|`{3,})mosaic\s*\n([\s\S]*?)\n\1\s*$/` — the `\1` backreference requires the closing fence to match character AND length exactly, so a four-tilde opening can only be closed by exactly four tildes and any ≤3-char fence inside is inert. (The regex accepts any length ≥3; four is the convention, not a hard maximum.)
 
 Format (illustrative inner example uses three tildes; a real delivery uses four):
 
@@ -119,8 +118,8 @@ Rules:
 - **Use TablesDB, NOT Databases:** All SDK calls must use the TablesDB service (e.g., `tablesDB.upsertRow`, `tablesDB.updateRow`), not the deprecated Databases service
 - **Permission String Format:** Use the new format: `create("any")`, `read("any")`, `update("any")`, `delete("any")`. The old `"role:any"` formats are deprecated
 - **Row-Level vs Table-Level Permissions (VERIFIED):** `Permission.create()` **does NOT apply to rows**. Applying it to a row throws an error. Row-level permissions must only ever be `[read, update, delete]`. The **`create` permission belongs on the TABLE-level permissions** in the Appwrite Console (e.g., grant `create("users")` at the table level so authenticated users can insert new rows). If new-row sync fails with 401/403, the fix is in the Console, NOT in `buildRowPermissions`
-- **`updateRow` vs `upsertRow` (CRITICAL, §0 item 2 & 10):** `upsertRow` is a **full replace (PUT semantics)** in Appwrite 2.0 — any column omitted from `data` is reset to its column default. `updateRow` is a **PATCH** — omitted columns are left untouched. The sync engine **must** use `updateRow` for rows that already exist remotely, and `createRow` for brand-new rows. Failing to do this caused `read_at` on outgoing messages to be wiped on every sync cycle. **Do NOT use `upsertRow` as a fallback for a 404 on `updateRow`** — `createRow` is a strict insert with no PUT semantics and is the correct choice (see §18, D8).
-- **Cross-User Writes Go Through Appwrite Functions (§0 item 6):** A user can only assign permissions they themselves hold. To write a row owned by another user (recipient's message copy, sender's task reaction, sender's read receipt), the write must be performed inside an Appwrite Function using its API key. Direct client writes to another user's row will 401/403 (see §20.3)
+- **`updateRow` vs `upsertRow` (CRITICAL, §0 item 4):** `upsertRow` is a **full replace (PUT semantics)** in Appwrite 2.0 — any column omitted from `data` is reset to its column default. `updateRow` is a **PATCH** — omitted columns are left untouched. The sync engine **must** use `updateRow` for rows that already exist remotely, and `createRow` for brand-new rows. Failing to do this caused `read_at` on outgoing messages to be wiped on every sync cycle. **Do NOT use `upsertRow` as a fallback for a 404 on `updateRow`** — `createRow` is a strict insert with no PUT semantics and is the correct choice (see §18, D8).
+- **Cross-User Writes Go Through Appwrite Functions (§0 item 7):** A user can only assign permissions they themselves hold. To write a row owned by another user (recipient's message copy, sender's task reaction, sender's read receipt), the write must be performed inside an Appwrite Function using its API key. Direct client writes to another user's row will 401/403 (see §20.3)
 - **REST Endpoints:** Base path for tables is `/v1/tablesdb/{databaseId}/tables/{tableId}`
 - **ID Mapping:** RxDB primary key `id` maps directly to Appwrite's `$id` column
 - **Row ID Length Cap (CRITICAL, §0 item 3):** Appwrite `rowId` values must be **≤36 characters**, matching `[a-zA-Z0-9_]+`, and MUST NOT start with a leading underscore. Any locally-generated ID that will become a remote `rowId` (settings, diary, or deterministic composite IDs) must respect this limit. **Rule:** when building `${userId}_${key}` IDs, validate the total length; if it exceeds 36 chars, fall back to a deterministic hashed ID (see §11)
@@ -137,7 +136,7 @@ Rules:
 - **Layout-Shift Reservation:** Any element whose visibility toggles (timestamps, status rows, hover controls) MUST always reserve its space — toggle opacity, never presence. Prevents the hover-flicker reflow loop.
 - **Gesture Priority on Interactive Elements:** swipe > long-press > double-tap > single-tap. Single-tap is deferred ~300ms to distinguish from double-tap. Any tap on the same pointer sequence as a swipe or long-press MUST be suppressed via a flag on the gesture hook (see §21).
 - **RxDB Reserved Keywords:** NEVER use `deleted` as a field name in RxDB schemas (see §12).
-- **Soft Deletes:** Never hard delete. Always `isDeleted: true` for RxDB tombstones (§0 item 9).
+- **Soft Deletes:** Never hard delete. Always `isDeleted: true` for RxDB tombstones (§0 item 2).
 - **Strict ISO Dates:** All date fields MUST be ISO 8601 strings (`yyyy-MM-dd` for day keys, full `.toISOString()` for timestamps).
 - **iOS Storage:** Must call `navigator.storage.persist()` on launch to prevent WebKit from purging IndexedDB.
 - **Coming Soon:** Bottom nav has 5 tabs: Home, Explore, Notifications, Messages, Account. Notifications renders a full `<ComingSoon />` page.
@@ -203,7 +202,7 @@ Rules:
   - Booleans encoded as booleans, not 0/1.
   - `updatedAt` (local) ↔ `updated_at` (remote) — every synced collection participating in the `usesTimestamps` pull-winner predicate has it. `categories` and `settings` gained it in the D6 migration (see Changelog; migration script `scripts/add-categories-settings-updated-at-columns.mjs`).
 - **`messages` field mapping:** `threadId`→`thread_id`; `senderId`→`sender_id`; `recipientId`→`recipient_id`; `direction`→`direction`; `taskRefId`→`task_ref_id`; `taskRefTitle`→`task_ref_title`; `taskRefDate`→`task_ref_date`; `taskRefColor`→`task_ref_color`; `replyToId`→`reply_to_id`; `replyToContent`→`reply_to_content`; `replyToSenderId`→`reply_to_sender_id`; `isUnsent`→`is_unsent`; `originalMessageId`→`original_message_id`; `reactions`→`reactions`; `readAt`→`read_at`; `deliveryStatus`→`delivery_status`.
-- **`read_at` is server-owned on outgoing rows (§0 item 4):** `toAppwriteFormat` for `messages` MUST omit `read_at` when `direction === 'outgoing'` — the client would overwrite the `mark_read` receipt. Applies only to `messages`. On pull, the server-owned `read_at` on an outgoing row is applied BEFORE the dirty-skip so a locally-dirty outgoing message still receives the receipt (§18, F12).
+- **`read_at` is server-owned on outgoing rows (§0 item 5):** `toAppwriteFormat` for `messages` MUST omit `read_at` when `direction === 'outgoing'` — the client would overwrite the `mark_read` receipt. Applies only to `messages`. On pull, the server-owned `read_at` on an outgoing row is applied BEFORE the dirty-skip so a locally-dirty outgoing message still receives the receipt (§18, F12).
 - **Date storage:** day keys `yyyy-MM-dd` via `date-fns.format`; timestamps full ISO 8601 via `.toISOString()`. Compare timestamps with the `toMs()` helper (`Number.isFinite` guard).
 - **Empty-string over null:** optional string fields (`memo`, `image`, `completedAt`, `icon`, `friendBio`, `threadId`, `replyToId`, `replyToContent`, `replyToSenderId`, `originalMessageId`, `reactions`, `readAt`, `updatedAt`) default to `''` — never `null`/`undefined` — so RxDB validation never fails.
 - **Reactions format:** JSON string of `Array<{ emoji: string; userIds: string[] }>`. Serialized as `''` when empty (not `'[]'`). Parse/stringify only via `src/lib/reactionUtils.ts`.
@@ -742,3 +741,5 @@ Over-thinking wastes tokens without improving the artifact. These rules target t
 | 2026-09-16 | SESSION_STATE.md as phase document | §25.3 | No per-audit files; optional `Findings`/`Decisions`/`Deferred`; phase-scoped growth/trim | §25.3 |
 | 2026-09-16 | Offline write resilience outbox | §10, §15 | `socialOutbox.ts` retries reciprocal friendship + profile writes; permanent drops emit failure events; `getCurrentUserId` distinguishes 401 from offline | §10, §15 |
 | 2026-09-17 | Post-batch + reasoning discipline + apply clipboard | §25.1, §25.8 (new), §25.9 (new), §15 | §25.8 codifies post-batch lines; §25.9 codifies reasoning discipline; `apply-changes.mjs` copies output to clipboard; `clipboard.mjs` extracted | §25.8, §25.9 |
+| 2026-09-17 | AGENTS.md compression | all | §0 hard rules added (10 → 9 on follow-up; grouped by action, dedup 2/10); §26 rules-for-writing-rules added; §8 + Changelog reformatted as index rows; section-level prose compressed throughout; ~25% AGENTS.md reduction | §0, §26 |
+| 2026-09-17 | §0 dedup follow-up | §0 | Merged former rules 2 + 10 into one; §0 is now 9 rules grouped by action (schema → sync → messaging → cross-user → auth → tooling) | §0 |
