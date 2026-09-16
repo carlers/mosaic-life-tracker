@@ -54,6 +54,7 @@ scripts/
   add-message-reactions-columns.mjs
   add-message-reply-columns.mjs
   add-message-unsent-column.mjs
+  dump-files.mjs
   repro-unauthorized.mjs
   setup-messages-table-rest.mjs
   setup-messages-table.mjs
@@ -249,6 +250,7 @@ package.json
 postcss.config.js
 README.md
 repomix.config.json
+SESSION_STATE.md
 tailwind.config.js
 tsconfig.app.json
 tsconfig.json
@@ -322,6 +324,10 @@ async function main()
 async function addUnsentColumn()
 ⋮----
 async function main()
+</file>
+
+<file path="scripts/dump-files.mjs">
+function tryClipboard()
 </file>
 
 <file path="scripts/repro-unauthorized.mjs">
@@ -4812,6 +4818,143 @@ Tests that pin behavior documented in this file carry a `// Regression: §<secti
 
 ---
 
+## 25. AI Workflow Protocol
+
+### 25.1 Roles
+
+Three roles participate in the workflow. Every chat session is exactly one role.
+
+- **Chat 0 — User / Arbiter.** The human. Makes product decisions, runs terminal commands, approves plans, and is the only party who can change scope. Not a chat session.
+- **Chat 1 — Brain.** Planner, auditor, prompt generator. Reads `AGENTS.md`, `SESSION_STATE.md`, and the attached `repomix --compress` output. Produces prompts for Chat 2 and plan updates. Does NOT write production code. May request exact file contents via `npm run dump -- <paths>` when auditing a specific implementation.
+- **Chat 2 — Hands.** Coder, mega-file producer. Reads `AGENTS.md`, `SESSION_STATE.md`, and the attached `repomix --compress` output. Produces exactly one mega file per §5.1 for the current batch. Updates `SESSION_STATE.md` inside every mega file it emits. Requests exact files via `npm run dump -- <paths>` when it needs to see full contents. Follows the question policy (§25.5).
+
+A session declares its role in its first message (see §25.4). If a session does not declare a role, it must ask before acting.
+
+### 25.2 Context Tiers
+
+Context is sent in tiers. Use the lowest tier that supports the current task.
+
+| Tier | Contents | When |
+|---|---|---|
+| **Tier 0** | `AGENTS.md` + `SESSION_STATE.md` | Always. Both are included in any repomix of the repo, so no separate action is needed if you send any repomix at all. |
+| **Tier 1** | `repomix --compress` | **Default for both chats.** ~54k tokens. A compressed file-tree + skeleton view of every file. Sufficient for planning, audits, and most edits. |
+| **Tier 2** | `npm run dump -- <paths>` | On demand. Chat 2 (or Chat 1) requests exact full-file contents for specific paths. The dump command copies the contents to the system clipboard. |
+| **Tier 3** | Full `repomix` (uncompressed) | Rare. Only for brand-new Chat 1 onboarding or a full-repo audit that genuinely needs every line. Roughly 200k tokens. |
+
+**Rules:**
+
+- The default context for every chat is `repomix --compress`. Full repomix is the exception, not the baseline.
+- When a chat needs to see a file's exact contents, it does not ask the user to upload full repomix. It outputs a single line: `npm run dump -- path/to/file.ts path/to/other.tsx` and waits. The user runs the command, the clipboard is populated, the user pastes it into the chat.
+- Compressed repomix does not alter Markdown files (`AGENTS.md`, `SESSION_STATE.md`), so Tier 0 is always delivered in full regardless of the tier chosen.
+
+### 25.3 Session State
+
+`SESSION_STATE.md` lives in the repo root and is included in every repomix. It is the single source of truth for "where are we now."
+
+**Required fields:**
+
+| Field | Meaning |
+|---|---|
+| `Updated` | ISO timestamp of the last real change to this file. Do not bump it on re-emission if the content is unchanged. |
+| `ActivePlan` | The current phase or major workstream (e.g., "Phase 3.5 — Todo List View"). |
+| `CurrentBatch` | The current batch within the plan, as `N of M` (e.g., "2 of 5"). |
+| `CurrentTask` | The specific task inside the current batch (e.g., "2.3 — Wire TodoListView to useTasks"). |
+| `Status` | One of: `not_started`, `in_progress`, `blocked`, `audit_closed`. |
+| `NextAction` | One line: what the next chat should do. Chat 1 fills this in when planning; Chat 2 refines it at the end of every mega file. |
+| `NextChatRole` | `chat1` or `chat2`. Tells the offboarding prompt which role the next session should assume. |
+| `BatchPlan` | Checklist of the current plan's batches, with `[x]` for done. Kept short — no deeper than one level. |
+| `OpenQuestions` | Unresolved questions that block Chat 2 from proceeding under §25.5. `none` when clear. |
+| `LastApply` | ISO timestamp of the most recent successful `npm run apply`. |
+| `LastAuditSummary` | One line: outcome of the last audit or completed batch. |
+
+**Who updates it:**
+
+- **Chat 1** writes the initial `ActivePlan`, `BatchPlan`, and `NextChatRole` when starting a new phase.
+- **Chat 2** updates `CurrentBatch`, `CurrentTask`, `Status`, `NextAction`, and the relevant `[x]` in `BatchPlan` inside every mega file it emits. The update is a `===FILE:SESSION_STATE.md===` block at the end of the mega file, before the `===COMMIT:...===` directive.
+- **Chat 1** updates `LastAuditSummary` and `ActivePlan` when a phase closes or a new phase opens.
+
+**Size discipline:** `SESSION_STATE.md` should stay under 40 lines. If it grows, Chat 1 trims resolved items when closing a phase. The file is a snapshot, not an archive — the changelog in `AGENTS.md` is the archive.
+
+### 25.4 Prompt Templates
+
+These are the canonical starts for each role. The user copies one line from a previous chat's onboarding prompt, or types it manually, and pastes it together with the repomix.
+
+**Start Chat 1 (new phase or full audit):**
+```
+ROLE: CHAT 1 (Brain). Follow AGENTS.md §25. Read SESSION_STATE.md. You plan, audit, and generate Chat 2 prompts. You do not write production code. Objective: <one line or "resume from SESSION_STATE.md">.
+```
+
+**Start Chat 2 (execution):**
+```
+ROLE: CHAT 2 (Hands). Follow AGENTS.md §25. Read SESSION_STATE.md. You produce one mega file per §5.1 for the current batch and update SESSION_STATE.md inside it. Do not ask granular questions; follow §25.5. If you need exact file contents, output a single line: npm run dump -- <paths>. Start with NextAction from SESSION_STATE.md.
+```
+
+**Offboard (ask the current chat to hand off):**
+```
+OFFBOARD. Produce: (1) a one-line onboarding prompt for the next chat per §25.6, and (2) if SESSION_STATE.md is stale, a mosaic mega file updating it. No other output.
+```
+
+**Resume (mid-phase, same role):**
+```
+ROLE: CHAT <1|2>. Follow AGENTS.md §25. Read SESSION_STATE.md and resume from NextAction. No further context needed.
+```
+
+**Audit closed (Chat 2 end-of-batch declaration, appended to the mega file):**
+```
+AUDIT CLOSED
+Batch: <id>
+Files touched: <list>
+Tests: <pass|fail with count>
+SESSION_STATE.md updated: yes
+NextChatRole: <chat1|chat2>
+```
+
+### 25.5 Question Policy
+
+Chat 2 must not ask granular questions during execution. It asks **only** when the answer would change one of:
+
+- Product scope (a new feature, a removed feature, a change to user-visible behavior)
+- Architecture (data model, sync semantics, auth, or any invariant in §6, §9, §18, §20)
+- External contract (Appwrite schema, function signature, column definition)
+
+For anything else — naming, file placement, styling choices, which existing pattern to reuse, whether to add a test — Chat 2 picks the option most consistent with `AGENTS.md` and existing code, states the assumption in the `===COMMIT:...===` line, and proceeds.
+
+If a decision fits within the current batch's scope and follows an existing pattern, it is not a question. It is an implementation detail.
+
+**Chat 1** has no question policy restriction — it is expected to surface open questions and record them in `SESSION_STATE.md`'s `OpenQuestions` field.
+
+### 25.6 Offboarding
+
+When a chat is asked to offboard, it produces exactly two things, in this order, with nothing else:
+
+1. **A one-line onboarding prompt** in the format from §25.4. Role is taken from `SESSION_STATE.md`'s `NextChatRole`. Objective is `resume from SESSION_STATE.md` unless there is context not yet in the state file, in which case append it after a semicolon.
+
+   Example:
+   ```
+   ROLE: CHAT 2 (Hands). Follow AGENTS.md §25. Read SESSION_STATE.md. Resume from NextAction. Start with the current batch.
+   ```
+
+2. **A `SESSION_STATE.md` update**, emitted as a mosaic mega file per §5.1, **only if the state file is stale**. If it is current, the chat says so in one line and stops.
+
+The user then pastes (1) into the next chat and (2), if present, into `pending-changes.txt`. That is the entire handoff.
+
+**The new chat's full input is:**
+
+- One repomix (`repomix --compress` by default).
+- The one-line prompt from (1).
+
+No other context is needed. The new chat reads `AGENTS.md §25` and `SESSION_STATE.md` from the repomix and knows what to do.
+
+### 25.7 Rate Limit Mitigation
+
+- Default to Tier 1 (`repomix --compress`, ~54k tokens) for both chats. Never send full repomix unless the task genuinely requires Tier 3.
+- Use `npm run dump -- <paths>` for exact file contents instead of re-sending the whole repo.
+- Keep `SESSION_STATE.md` short so onboarding a new chat is cheap.
+- Start a new chat only when the current one is actually slow, confused, or out of context — not after every batch. A Chat 2 that is still sharp should continue with the next mega file.
+- The `dump` command copies to the system clipboard automatically (macOS `pbcopy`, Windows `clip`, Linux `wl-copy`/`xclip`/`xsel`). If no clipboard tool is available, the content is still printed to stdout.
+
+---
+
 ## Changelog
 
 | Date | Section(s) | Change | Source |
@@ -4911,6 +5054,7 @@ function main()
     "test": "vitest run",
     "test:watch": "vitest",
     "test:ui": "vitest --ui",
+    "dump": "node scripts/dump-files.mjs",
     "apply": "node apply-changes.mjs",
     "apply:dry": "node apply-changes.mjs --dry-run",
     "apply:docs": "node apply-changes.mjs --no-verify",
@@ -5041,6 +5185,33 @@ Not yet chosen.
     ]
   }
 }
+</file>
+
+<file path="SESSION_STATE.md">
+# SESSION STATE
+
+Updated: 2026-09-16
+ActivePlan: Phase 1 audits — final sweep
+CurrentBatch: 1 of 6
+CurrentTask: 1.1 — Item 10: offline behavior end-to-end audit
+Status: not_started
+NextAction: Send `repomix --compress` + the Chat 1 start prompt to produce the item-10 audit brief.
+NextChatRole: chat1
+BatchPlan:
+- Phase 1 audits — final sweep (current)
+  - [ ] 1.1 Item 10 — offline behavior end-to-end (highest data-loss risk)
+  - [ ] 1.2 Item 9 — realtime subscriptions layer
+  - [ ] 1.3 Item 12 — error boundaries / crash resilience
+  - [ ] 1.4 Item 7 residual — storage/imageCache consolidation
+  - [ ] 1.5 Item 11 — PWA / service worker
+  - [ ] 1.6 Item 13 — accessibility
+- [ ] Phase 2 — refactor audit → refactor
+- [ ] Phase 3 — optimize audit → optimize (bundle 1.7 MB, route splitting, lazy images)
+- [ ] Phase 4 — spec audit group (meta-audit of AGENTS.md, discovery, enforcement)
+- [ ] Feature work — Phase 3.5 Todo List, 3.6 Diary, 3.7 Notifications, API integrations (paused)
+OpenQuestions: none
+LastApply: 2026-09-16 — workflow protocol bootstrap (§25, SESSION_STATE.md, `npm run dump`)
+LastAuditSummary: Sync Engine Audit closed (24 findings, 13 slices); Sync Status UI shipped; Conversations / Unread Layer refactor complete. 303 tests across 31 files in four Vitest projects.
 </file>
 
 <file path="tailwind.config.js">

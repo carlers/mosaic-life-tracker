@@ -617,7 +617,7 @@ Tests that pin behavior documented in this file carry a `// Regression: §<secti
 Three roles participate in the workflow. Every chat session is exactly one role.
 
 - **Chat 0 — User / Arbiter.** The human. Makes product decisions, runs terminal commands, approves plans, and is the only party who can change scope. Not a chat session.
-- **Chat 1 — Brain.** Planner, auditor, prompt generator. Reads `AGENTS.md`, `SESSION_STATE.md`, and the attached `repomix --compress` output. Produces prompts for Chat 2 and plan updates. Does NOT write production code. May request exact file contents via `npm run dump -- <paths>` when auditing a specific implementation.
+- **Chat 1 — Brain.** Planner, auditor, prompt generator. Reads `AGENTS.md`, `SESSION_STATE.md`, and the attached `repomix --compress` output. Produces prompts for Chat 2 and plan updates. Does NOT write production code. May request exact file contents via `npm run dump -- <paths>` when auditing a specific implementation. **A single Chat 1 session spans the full audit cycle** — brief → dumps → findings → Chat 2 fix prompt — without handing off to another chat between steps. It requests additional dumps from the user inline (`npm run dump -- <paths>`) and continues in the same session. Only a user-typed `OFFBOARD` triggers a handoff (see §25.6); Chat 1 never hands off on its own initiative.
 - **Chat 2 — Hands.** Coder, mega-file producer. Reads `AGENTS.md`, `SESSION_STATE.md`, and the attached `repomix --compress` output. Produces exactly one mega file per §5.1 for the current batch. Updates `SESSION_STATE.md` inside every mega file it emits. Requests exact files via `npm run dump -- <paths>` when it needs to see full contents. Follows the question policy (§25.5).
 
 A session declares its role in its first message (see §25.4). If a session does not declare a role, it must ask before acting.
@@ -673,12 +673,12 @@ These are the canonical starts for each role. The user copies one line from a pr
 
 **Start Chat 1 (new phase or full audit):**
 ```
-ROLE: CHAT 1 (Brain). Follow AGENTS.md §25. Read SESSION_STATE.md. You plan, audit, and generate Chat 2 prompts. You do not write production code. Objective: <one line or "resume from SESSION_STATE.md">.
+ROLE: CHAT 1 (Brain). Follow AGENTS.md §25. Read SESSION_STATE.md. You plan, audit, and generate Chat 2 prompts. You do not write production code. Stay in this session across the full audit cycle; only OFFBOARD ends it. Objective: <one line or "resume from SESSION_STATE.md">.
 ```
 
 **Start Chat 2 (execution):**
 ```
-ROLE: CHAT 2 (Hands). Follow AGENTS.md §25. Read SESSION_STATE.md. You produce one mega file per §5.1 for the current batch and update SESSION_STATE.md inside it. Do not ask granular questions; follow §25.5. If you need exact file contents, output a single line: npm run dump -- <paths>. Start with NextAction from SESSION_STATE.md.
+ROLE: CHAT 2 (Hands). Follow AGENTS.md §25. Read SESSION_STATE.md. You produce one mega file per §5.1 for the current batch and update SESSION_STATE.md inside it. Do not ask granular questions; follow §25.5. If you need exact file contents, output a single line: npm run dump -- <paths>. Start with NextAction from SESSION_STATE.md. Stay in this session across batches; only OFFBOARD ends it.
 ```
 
 **Offboard (ask the current chat to hand off):**
@@ -716,6 +716,10 @@ If a decision fits within the current batch's scope and follows an existing patt
 **Chat 1** has no question policy restriction — it is expected to surface open questions and record them in `SESSION_STATE.md`'s `OpenQuestions` field.
 
 ### 25.6 Offboarding
+
+**Only a user-typed `OFFBOARD` triggers offboarding.** Neither chat produces a "next-session prompt" or a "paste this into a new chat" line unprompted. A chat that believes it needs a fresh session (out of context, confused, at a natural break) says so explicitly and waits for the user to decide — it does not hand off by default.
+
+The most common failure mode is Chat 1 producing an audit brief and then immediately emitting a "next-session prompt" instead of executing the audit in the same session. That is a spec violation, not a feature. Chat 1's deliverable is the audit findings, not a brief that requests another chat.
 
 When a chat is asked to offboard, it produces exactly two things, in this order, with nothing else:
 
@@ -767,5 +771,6 @@ No other context is needed. The new chat reads `AGENTS.md §25` and `SESSION_STA
 | 2026-09-16 | §8, §9, §15, §16, §24 | Conversations / unread layer audit closed. Three code patches shipped: (1) `ConversationsProvider` mounted in `AppLayout` owning the inbox messages subscription and unread math; `useConversations`/`useUnreadMessages` reduced to thin context selectors preserving public return shapes; `ConversationRow` memoized with a custom comparator; (2) `FriendsProvider` mounted above `ConversationsProvider` owning the friendships subscription; `useFriends` reduced to a thin context selector; (3) unread math now excludes `isUnsent`, matching `ChatPage`. §15 adds the Conversations trio and Friends trio to the hooks directory listing. §16 adds "Messaging Inbox Contracts" bullet documenting the F11–F13 invariants. §8 adds a progress line. §24.1 and §24.2 test counts updated to 232/28 (react 39, components 58). | Conversations / Unread Audit & Follow-up |
 | 2026-09-16 | §6, §8, §10, §12, §15, §18, §20.5, §20.7, §24 | Sync Engine Audit closure — 13 slices: Slice A (listener isolation, `forceSync` follow-up queue, F6/F23/F10), Slice B (dirty boundary at cycle-start, pull frozen on row failure, push loop continues past failures, F1/F3/F5), Slice E (per-collection state versioning F15, page cap F17, user-scoped `lastSyncTime` F20), F12 (server-owned `read_at` before dirty-skip), F13 (pull-then-upsert `_meta.lwt` re-check + `CONFLICT` handling), F14 (pull pagination tests), D8 (`createRow` on 404 fallback replaces `upsertRow`), D4 (Web Locks cross-tab mutex + unconditional per-collection state reload), D2 (`messageActionQueue` for `mark_read`/`unsend` retry), D5 revised (drift detection in `fromAppwriteFormat`), D6 (`updatedAt` on `categories`/`settings` with RxDB v1 bump, migrations in both `database.ts` and `testDb.ts`, mapper updates, write-path updates in `useCategories`/`useSettings`, `friendData.mapCategoryRow` update, `scripts/add-categories-settings-updated-at-columns.mjs`). §18 gains "Accepted Sync Engine Limitations" subsection documenting D1, D3, D7, F9-backoff. §8 gains a completion bullet. §15 lists `messageActionQueue.ts`. §24.1 and §24.2 test counts updated to 303/31. §12 migration checklist extended. §6 update to `updateRow`/`upsertRow` guidance. §10 names `[SyncStatusSheet]` and `[messageActionQueue]` prefixes. §20.5 rewritten for the retry queue. | Sync Engine Audit & Closure |
 | 2026-09-16 | §8, §10, §15, §24 | Sync Status UI shipped (F16): new `SyncStatusSheet` component surfaces `SyncStatus.errors` via Settings → Sync Status. §10 notes this is the only user-visible surface for sync errors. §15 lists `SyncStatusSheet` in modals. §8 progress bullet updated. | Sync Status UI |
+| 2026-09-16 | §25.1, §25.4, §25.6 | Clarified Chat 1 lifecycle: a single Chat 1 session spans the full audit cycle (brief → dumps → findings → Chat 2 prompt) without handing off between steps. Only a user-typed `OFFBOARD` triggers offboarding; producing a "next-session prompt" unprompted is a spec violation. Both start templates now state "Stay in this session; only OFFBOARD ends it." | Chat 1 premature offboarding |
 
 Sections added or rewritten in bulk should be flagged in the changelog with `(new)` and listed on every subsequent edit that touches them.
