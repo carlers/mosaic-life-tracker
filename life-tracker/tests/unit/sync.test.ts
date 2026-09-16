@@ -124,6 +124,68 @@ function makeLocalDoc(id: string) {
     incrementalPatch: vi.fn(),
   };
 }
+function makeMessageRow(id: string, direction: 'outgoing' | 'incoming') {
+  return {
+    $id: id,
+    user_id: 'user_A',
+    $updatedAt: '2026-01-01T00:00:00.000Z',
+    thread_id: 'th_x',
+    sender_id: 'user_A',
+    recipient_id: 'user_B',
+    direction,
+    content: 'hi',
+    task_ref_id: '',
+    task_ref_title: '',
+    task_ref_date: '',
+    task_ref_color: '',
+    reply_to_id: '',
+    reply_to_content: '',
+    reply_to_sender_id: '',
+    is_unsent: false,
+    original_message_id: id,
+    reactions: '',
+    read_at: '2026-06-01T00:00:00.000Z',
+    delivery_status: 'delivered',
+    created_at: '2026-01-01T00:00:00.000Z',
+    updated_at: '2026-01-01T00:00:00.000Z',
+    deleted: false,
+  };
+}
+function makeLocalMessageDoc(
+  id: string,
+  direction: 'outgoing' | 'incoming',
+  readAt: string
+) {
+  return {
+    id,
+    _meta: { lwt: Date.now() + 1_000_000 },
+    toJSON: () => ({
+      id,
+      userId: 'user_A',
+      threadId: 'th_x',
+      senderId: 'user_A',
+      recipientId: 'user_B',
+      direction,
+      content: 'hi',
+      taskRefId: '',
+      taskRefTitle: '',
+      taskRefDate: '',
+      taskRefColor: '',
+      replyToId: '',
+      replyToContent: '',
+      replyToSenderId: '',
+      isUnsent: false,
+      originalMessageId: id,
+      reactions: '',
+      readAt,
+      deliveryStatus: 'delivered',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+      isDeleted: false,
+    }),
+    incrementalPatch: vi.fn().mockResolvedValue(undefined),
+  };
+}
 beforeEach(async () => {
   vi.resetModules();
   syncModule = await import('../../src/db/sync');
@@ -443,5 +505,94 @@ describe('sync — lastSyncTime is user-scoped (F20)', () => {
     // syncStatus.lastSync tracks the current owner's scoped value.
     const statusAfterB = syncModule.getSyncStatus();
     expect(statusAfterB.lastSync).toBe(userBTimestamp);
+  });
+});
+describe('sync — read_at pull for dirty outgoing messages (F12)', () => {
+  it('an outgoing message row that is dirty still receives the remote read_at', async () => {
+    const local = makeLocalMessageDoc('msg_dirty_out', 'outgoing', '');
+    getDatabaseMock.mockReturnValue({
+      tasks: makeEmptyCollection(),
+      categories: makeEmptyCollection(),
+      diary: makeEmptyCollection(),
+      settings: makeEmptyCollection(),
+      friendships: makeEmptyCollection(),
+      messages: {
+        findOne: () => ({ exec: async () => local }),
+        find: () => ({ exec: async () => [] }),
+        upsert: vi.fn(),
+      },
+    });
+    listRowsMock.mockImplementation(
+      async ({ tableId }: { tableId: string }) => {
+        if (tableId === 'messages') {
+          return { rows: [makeMessageRow('msg_dirty_out', 'outgoing')] };
+        }
+        return { rows: [] };
+      }
+    );
+    await syncModule.initializeSync();
+    expect(local.incrementalPatch).toHaveBeenCalledTimes(1);
+    expect(local.incrementalPatch).toHaveBeenCalledWith({
+      readAt: '2026-06-01T00:00:00.000Z',
+    });
+  });
+  it('a dirty outgoing message is not overwritten by the remote row', async () => {
+    const local = makeLocalMessageDoc('msg_dirty_out', 'outgoing', '');
+    const upsertSpy = vi.fn().mockResolvedValue(undefined);
+    getDatabaseMock.mockReturnValue({
+      tasks: makeEmptyCollection(),
+      categories: makeEmptyCollection(),
+      diary: makeEmptyCollection(),
+      settings: makeEmptyCollection(),
+      friendships: makeEmptyCollection(),
+      messages: {
+        findOne: () => ({ exec: async () => local }),
+        find: () => ({ exec: async () => [] }),
+        upsert: upsertSpy,
+      },
+    });
+    listRowsMock.mockImplementation(
+      async ({ tableId }: { tableId: string }) => {
+        if (tableId === 'messages') {
+          return {
+            rows: [
+              {
+                ...makeMessageRow('msg_dirty_out', 'outgoing'),
+                $updatedAt: '2027-01-01T00:00:00.000Z',
+              },
+            ],
+          };
+        }
+        return { rows: [] };
+      }
+    );
+    await syncModule.initializeSync();
+    expect(local.incrementalPatch).toHaveBeenCalledTimes(1);
+    expect(upsertSpy).not.toHaveBeenCalled();
+  });
+  it('an incoming message row that is dirty does NOT hit the outgoing-only read_at branch', async () => {
+    const local = makeLocalMessageDoc('msg_dirty_in', 'incoming', '');
+    getDatabaseMock.mockReturnValue({
+      tasks: makeEmptyCollection(),
+      categories: makeEmptyCollection(),
+      diary: makeEmptyCollection(),
+      settings: makeEmptyCollection(),
+      friendships: makeEmptyCollection(),
+      messages: {
+        findOne: () => ({ exec: async () => local }),
+        find: () => ({ exec: async () => [] }),
+        upsert: vi.fn(),
+      },
+    });
+    listRowsMock.mockImplementation(
+      async ({ tableId }: { tableId: string }) => {
+        if (tableId === 'messages') {
+          return { rows: [makeMessageRow('msg_dirty_in', 'incoming')] };
+        }
+        return { rows: [] };
+      }
+    );
+    await syncModule.initializeSync();
+    expect(local.incrementalPatch).not.toHaveBeenCalled();
   });
 });

@@ -417,7 +417,12 @@ async function syncCollection(
         }
         const localLwt = localDoc._meta?.lwt ?? 0;
         const isLocalDirty = localLwt > dirtyBoundaryMs;
-        if (isLocalDirty) continue;
+        // Server-owned read_at on outgoing messages is applied BEFORE the
+        // dirty-skip. The local client never writes read_at on outgoing
+        // rows (see AGENTS §12), so a dirty outgoing row's local edit is
+        // never the source of truth for this field. Without this ordering
+        // the read receipt is deferred until the outgoing row is clean,
+        // which can be indefinitely if a push failure keeps it dirty.
         if (colName === 'messages' && row.direction === 'outgoing') {
           const remoteReadAt = (row.read_at as string) || '';
           const localJson = localDoc.toJSON();
@@ -432,6 +437,7 @@ async function syncCollection(
             }
           }
         }
+        if (isLocalDirty) continue;
         let remoteWins = false;
         if (usesTimestamps) {
           const localUpdatedAt = toMs(localDoc.toJSON().updatedAt);
