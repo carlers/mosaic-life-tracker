@@ -1,5 +1,4 @@
 #!/usr/bin/env node
-
 import {
   readFileSync, writeFileSync, mkdirSync, existsSync,
   rmSync, cpSync, readdirSync, statSync,
@@ -12,6 +11,7 @@ const __filename = fileURLToPath(import.meta.url);
 const ROOT = dirname(__filename);
 const BACKUP_ROOT = join(ROOT, '.mosaic-backup');
 const DIRECTIVE_RE = /^===(FILE|DELETE|COMMIT):(.+)===$/;
+const SELF_MOD_FILE = 'apply-changes.mjs';
 
 function log(...a) {
   console.log(...a);
@@ -20,6 +20,18 @@ function log(...a) {
 function fail(msg, code = 1) {
   console.error(`\n❌ ${msg}\n`);
   process.exit(code);
+}
+
+function warnSelfModification(files) {
+  const selfModifying = files.some((f) => f.path === SELF_MOD_FILE);
+  if (!selfModifying) return;
+  log('');
+  log('⚠️  WARNING: this mega file modifies apply-changes.mjs itself.');
+  log('    The currently-running process uses the OLD in-memory version for');
+  log('    parse, backup, and verify. Subsequent applies will use the NEW version.');
+  log('    If your change affects parse/backup/verify logic, re-run those steps');
+  log('    after this apply completes.');
+  log('');
 }
 
 function parseArgs(argv) {
@@ -47,18 +59,16 @@ function parseMegaFile(content) {
   let text = content;
   const fenceMatch = text.match(/^(~~~+|`{3,})mosaic\s*\n([\s\S]*?)\n\1\s*$/);
   if (fenceMatch) text = fenceMatch[2];
-
   const lines = text.split(/\r?\n/);
 
-  // Pass 1: mark lines that are inside a Markdown fence (``` or ~~~).
+  // Pass 1: mark lines that are inside a Markdown fence (backticks or tildes).
   // Fence-boundary lines are also marked true so they are never treated as
   // directives. This makes the directive examples inside documentation
-  // code blocks inert — critical for PROJECT_CONTEXT.md §5.1, which documents
-  // the mega-file format by showing literal directive lines inside a fence.
+  // code blocks inert — critical for AGENTS.md §5.1, which documents the
+  // mega-file format by showing literal directive lines inside a fence.
   const insideFence = new Array(lines.length).fill(false);
   let fenceChar = null;
   let fenceLen = 0;
-
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
     const m = line.match(/^(`{3,}|~{3,})/);
@@ -85,16 +95,13 @@ function parseMegaFile(content) {
 
   const files = [], deletes = [];
   let commit = null, i = 0;
-
   while (i < lines.length) {
     if (insideFence[i]) { i++; continue; }
     const m = lines[i].match(DIRECTIVE_RE);
     if (!m) { i++; continue; }
     const [, type, value] = m;
-
     if (type === 'COMMIT') { commit = value.trim(); i++; continue; }
     if (type === 'DELETE') { deletes.push(value.trim()); i++; continue; }
-
     const path = value.trim();
     const contentLines = [];
     i++;
@@ -105,7 +112,6 @@ function parseMegaFile(content) {
     }
     files.push({ path, content: contentLines.join('\n') });
   }
-
   return { files, deletes, commit };
 }
 
@@ -158,9 +164,7 @@ function doRollback() {
   const manifestPath = join(latest, 'manifest.json');
   if (!existsSync(manifestPath)) fail(`No manifest in ${latest}`);
   const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
-
   log(`\n⏪ Rolling back from ${relative(ROOT, latest)}`);
-
   for (const p of manifest.created || []) {
     const abs = join(ROOT, p);
     if (existsSync(abs)) {
@@ -177,7 +181,6 @@ function doRollback() {
       log(`  ↺ Restored ${p}`);
     }
   }
-
   log('\n✅ Rollback complete\n');
   process.exit(0);
 }
@@ -203,6 +206,7 @@ function main() {
   if (files.length === 0 && deletes.length === 0) fail('No directives found in input file');
 
   log(`\n📋 Parsed ${files.length} FILE, ${deletes.length} DELETE`);
+  warnSelfModification(files);
   if (commit) log(`📝 Commit: ${commit}`);
 
   const planned = [];
@@ -229,9 +233,7 @@ function main() {
   const backupDir = join(BACKUP_ROOT, timestamp);
   const backupFilesDir = join(backupDir, 'files');
   mkdirSync(backupFilesDir, { recursive: true });
-
   const manifest = { timestamp, created: [], modified: [], deleted: [], commit: commit || null };
-
   for (const p of planned) {
     if (p.kind === 'CREATE') { manifest.created.push(p.path); continue; }
     if (existsSync(p.abs)) {
@@ -241,7 +243,6 @@ function main() {
       (p.kind === 'MODIFY' ? manifest.modified : manifest.deleted).push(p.path);
     }
   }
-
   writeFileSync(join(backupDir, 'manifest.json'), JSON.stringify(manifest, null, 2));
   log(`\n💾 Backup: ${relative(ROOT, backupDir)}`);
 
