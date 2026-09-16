@@ -4,6 +4,7 @@ import { Swiper, SwiperSlide } from 'swiper/react';
 import type { Swiper as SwiperClass } from 'swiper';
 import 'swiper/css';
 import { AnimatePresence } from 'framer-motion';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { BottomSheet } from '../../ui/BottomSheet';
 import { CategorySection } from './CategorySection';
 import { TaskActionSheet } from './TaskActionSheet';
@@ -392,6 +393,42 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
     [slideDates, onDateChange]
   );
 
+  // Prev/next drive the same slideTo path the swipe handler uses, so the
+  // two navigation paths cannot diverge. isProgrammaticMoveRef suppresses
+  // the swipe handler's own onDateChange; the button calls onDateChange
+  // directly once the target date is computed.
+  const handlePrevDay = useCallback(() => {
+    if (isBackgroundLocked) return;
+    const s = swiperRef.current;
+    if (!s) return;
+    const target = Math.max(0, s.activeIndex - 1);
+    if (target === s.activeIndex) return;
+    isProgrammaticMoveRef.current = true;
+    s.slideTo(target, 240);
+    const raf = requestAnimationFrame(() => {
+      isProgrammaticMoveRef.current = false;
+    });
+    const date = slideDates[target];
+    if (date) onDateChange?.(date);
+    return () => cancelAnimationFrame(raf);
+  }, [isBackgroundLocked, slideDates, onDateChange]);
+
+  const handleNextDay = useCallback(() => {
+    if (isBackgroundLocked) return;
+    const s = swiperRef.current;
+    if (!s) return;
+    const target = Math.min(TOTAL_SLIDES - 1, s.activeIndex + 1);
+    if (target === s.activeIndex) return;
+    isProgrammaticMoveRef.current = true;
+    s.slideTo(target, 240);
+    const raf = requestAnimationFrame(() => {
+      isProgrammaticMoveRef.current = false;
+    });
+    const date = slideDates[target];
+    if (date) onDateChange?.(date);
+    return () => cancelAnimationFrame(raf);
+  }, [isBackgroundLocked, slideDates, onDateChange]);
+
   const slides = useMemo(() => {
     return slideDates.map((date, i) => {
       const dateStr = slideDateStrs[i];
@@ -451,6 +488,29 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
             isBackgroundLocked ? 'opacity-50 pointer-events-none select-none' : ''
           }`}
         >
+          <div className="flex items-center justify-between px-4 py-2 border-b border-[#333333] flex-shrink-0">
+            <button
+              type="button"
+              onClick={handlePrevDay}
+              disabled={isBackgroundLocked}
+              className="p-1.5 rounded-lg bg-[#1E1E1E] border border-[#333333] text-gray-400 hover:text-white hover:bg-[#2A2A2A] transition-colors disabled:opacity-40 disabled:cursor-not-allowed focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
+              aria-label="Previous day"
+            >
+              <ChevronLeft size={16} aria-hidden="true" />
+            </button>
+            <span className="text-xs text-gray-500" aria-hidden="true">
+              Swipe or use arrows to change day
+            </span>
+            <button
+              type="button"
+              onClick={handleNextDay}
+              disabled={isBackgroundLocked}
+              className="p-1.5 rounded-lg bg-[#1E1E1E] border border-[#333333] text-gray-400 hover:text-white hover:bg-[#2A2A2A] transition-colors disabled:opacity-40 disabled:cursor-not-allowed focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
+              aria-label="Next day"
+            >
+              <ChevronRight size={16} aria-hidden="true" />
+            </button>
+          </div>
           <Swiper
             className="flex-1 min-h-0 w-full"
             onSwiper={(s) => {
@@ -542,16 +602,18 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
           </p>
           <div className="flex gap-3">
             <button
+              type="button"
               onClick={handleCancelDeletePhoto}
               disabled={isDeletingPhoto}
-              className="flex-1 py-3 bg-[#2A2A2A] rounded-xl text-white font-medium hover:bg-[#333333] transition-colors disabled:opacity-50"
+              className="flex-1 py-3 bg-[#2A2A2A] rounded-xl text-white font-medium hover:bg-[#333333] transition-colors disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
             >
               Cancel
             </button>
             <button
+              type="button"
               onClick={handleConfirmDeletePhoto}
               disabled={isDeletingPhoto}
-              className="flex-1 py-3 bg-red-500 rounded-xl text-white font-medium hover:bg-red-600 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+              className="flex-1 py-3 bg-red-500 rounded-xl text-white font-medium hover:bg-red-600 transition-colors disabled:opacity-50 flex items-center justify-center gap-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
             >
               {isDeletingPhoto ? (
                 <>
@@ -567,7 +629,11 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
       </BottomSheet>
       <AnimatePresence>
         {deleteFeedback && (
-          <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[70] bg-[#2A2A2A] border border-[#444444] text-white text-sm px-5 py-2.5 rounded-full shadow-lg backdrop-blur-md">
+          <div
+            role="status"
+            aria-live="polite"
+            className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[70] bg-[#2A2A2A] border border-[#444444] text-white text-sm px-5 py-2.5 rounded-full shadow-lg backdrop-blur-md"
+          >
             {deleteFeedback}
           </div>
         )}
