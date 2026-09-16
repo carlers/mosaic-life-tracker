@@ -5,6 +5,7 @@ import { Input } from '../ui/Input';
 import { Save } from 'lucide-react';
 import { useMyProfile } from '../../hooks/useMyProfile';
 import { useAuth } from '../../hooks/useAuth';
+import { isOfflineError } from '../../lib/authEvents';
 
 interface SetUsernameSheetProps {
   isOpen: boolean;
@@ -83,7 +84,17 @@ export const SetUsernameSheet: React.FC<SetUsernameSheetProps> = ({
       }
     } catch (err) {
       console.error('[SetUsernameSheet] Save failed:', err);
-      setError('Could not save. Try again.');
+      // Distinguish "we couldn't reach the server" from "the save itself
+      // failed." The outbox has already queued the write, so the profile
+      // will sync once connectivity returns.
+      const offline =
+        isOfflineError(err) ||
+        (typeof navigator !== 'undefined' && navigator.onLine === false);
+      setError(
+        offline
+          ? "You're offline. Your profile will sync when you reconnect."
+          : 'Could not save. Try again.'
+      );
     } finally {
       setIsSaving(false);
     }

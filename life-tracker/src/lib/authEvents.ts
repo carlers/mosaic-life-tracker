@@ -22,6 +22,27 @@ export function dispatchUnauthorized(): void {
   }
 }
 
+/**
+ * Distinguishable error for "we could not determine auth/session state
+ * because the network or device is offline." Never used to mean "no
+ * session" — that case is signalled by a 401 (`isUnauthorizedError`).
+ * See AGENTS.md §10 "Differentiate 'Not Logged In' From 'Couldn't Check'"
+ * and §23.6.
+ */
+export class OfflineError extends Error {
+  readonly code = 'OFFLINE';
+  constructor(message = 'Offline') {
+    super(message);
+    this.name = 'OfflineError';
+  }
+}
+
+export function isOfflineError(err: unknown): boolean {
+  if (err instanceof OfflineError) return true;
+  const code = (err as { code?: unknown } | null)?.code;
+  return code === 'OFFLINE';
+}
+
 export async function guardedCall<T>(fn: () => Promise<T>): Promise<T> {
   try {
     return await fn();

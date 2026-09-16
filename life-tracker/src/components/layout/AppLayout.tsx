@@ -6,6 +6,7 @@ import { FriendsProvider } from '../../hooks/FriendsProvider';
 import { ConversationsProvider } from '../../hooks/ConversationsProvider';
 import { useAuth } from '../../hooks/useAuth';
 import { deliverPendingMessages } from '../../lib/messageDelivery';
+import { flushSocialOutbox } from '../../lib/socialOutbox';
 import type { TabId } from './BottomNav';
 const RETRY_COOLDOWN_MS = 2000;
 export const AppLayout: React.FC = () => {
@@ -32,6 +33,9 @@ export const AppLayout: React.FC = () => {
     const tryDeliver = () => {
       deliverPendingMessages(uid).catch((err) =>
         console.error('[AppLayout] delivery failed:', err)
+      );
+      flushSocialOutbox(uid).catch((err) =>
+        console.error('[AppLayout] social outbox flush failed:', err)
       );
     };
     tryDeliver();

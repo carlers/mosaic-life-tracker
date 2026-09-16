@@ -1,6 +1,11 @@
 import imageCompression from 'browser-image-compression';
 import { Permission, Role } from 'appwrite';
-import { guardedCall, makeUnauthorizedError } from './authEvents';
+import {
+  guardedCall,
+  makeUnauthorizedError,
+  isUnauthorizedError,
+  OfflineError,
+} from './authEvents';
 import { guardedStorage, guardedAccount } from './sdk';
 
 const APPWRITE_CONFIG = {
@@ -45,12 +50,29 @@ function generateFileId(): string {
   return `img_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
 }
 
-async function getCurrentUserId(): Promise<string | null> {
+/**
+ * Returns the current user's id, or `null` if the server says there is no
+ * session (401). A network error / offline state throws `OfflineError` —
+ * "couldn't check" must never be conflated with "definitely not logged in"
+ * (see AGENTS.md §10 and §23.6).
+ *
+ * Exported for tests; `uploadImage` is the only production caller.
+ */
+export async function getCurrentUserId(): Promise<string | null> {
   try {
     const user = await guardedAccount.get();
     return user?.$id || null;
-  } catch {
-    return null;
+  } catch (err) {
+    if (isUnauthorizedError(err)) {
+      // Definitely no session — the global auth redirect is already in flight.
+      return null;
+    }
+    // Network error / offline: we could not check. Surface a distinguishable
+    // Offline error so callers report "you're offline" instead of the
+    // misleading "no authenticated user".
+    throw new OfflineError(
+      "You're offline. Try again when you reconnect."
+    );
   }
 }
 

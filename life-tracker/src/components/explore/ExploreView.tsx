@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Copy, Check, Users, Inbox } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { SearchBar } from './SearchBar';
@@ -10,6 +10,10 @@ import { FriendActionSheet } from './FriendActionSheet';
 import { useFriends } from '../../hooks/useFriends';
 import { useProfileLookup } from '../../hooks/useProfileLookup';
 import { useMyProfile } from '../../hooks/useMyProfile';
+import {
+  subscribeToSocialOutboxFailures,
+  type SocialOutboxAction,
+} from '../../lib/socialOutbox';
 import type { ProfileCard } from '../../lib/social';
 import type { FriendshipDocument } from '../../db/schema';
 
@@ -17,6 +21,13 @@ interface ExploreViewProps {
   onRequestUsername: () => void;
   onFeedback?: (message: string) => void;
 }
+
+const SOCIAL_FAILURE_MESSAGES: Partial<Record<SocialOutboxAction, string>> = {
+  send_request: "Couldn't send request. Try again.",
+  accept_friend_request: "Couldn't accept request. Try again.",
+  delete_friend_pair: "Couldn't remove friend. Try again.",
+  block_friend: "Couldn't block friend. Try again.",
+};
 
 export const ExploreView: React.FC<ExploreViewProps> = ({
   onRequestUsername,
@@ -52,6 +63,16 @@ export const ExploreView: React.FC<ExploreViewProps> = ({
   const [copied, setCopied] = useState(false);
 
   const myUsername = profile?.username || '';
+
+  // Surface permanent outbox failures via the page-level toast. The
+  // revert itself is handled by FriendsProvider (a sibling subscriber).
+  useEffect(() => {
+    const unsubscribe = subscribeToSocialOutboxFailures((event) => {
+      const msg = SOCIAL_FAILURE_MESSAGES[event.action];
+      if (msg) onFeedback?.(msg);
+    });
+    return unsubscribe;
+  }, [onFeedback]);
 
   const relationshipFor = useCallback(
     (p: ProfileCard) => {

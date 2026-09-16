@@ -14,6 +14,7 @@ import {
   blockFriend,
 } from '../lib/social';
 import { clearCachedCalendar } from '../lib/friendCache';
+import { subscribeToSocialOutboxFailures } from '../lib/socialOutbox';
 import {
   FriendsContext,
   type MyProfileSummary,
@@ -78,6 +79,44 @@ export const FriendsProvider: React.FC<FriendsProviderProps> = ({
       if (subscription) subscription.unsubscribe();
     };
   }, [userId]);
+  // Revert-on-permanent-failure hook for the social outbox. When a queued
+  // cross-user write is dropped (5 attempts exhausted, or a permanent
+  // failure), the local RxDB row is un-patched so local and remote state
+  // agree. The outbox entry carries enough revert info for each action.
+  useEffect(() => {
+    const unsubscribe = subscribeToSocialOutboxFailures((event) => {
+      const { action, revert } = event;
+      if (!revert.myRowId) return;
+      void (async () => {
+        try {
+          const db = getDatabase();
+          const doc = await db.friendships
+            .findOne(revert.myRowId)
+            .exec();
+          if (!doc) return;
+          const now = new Date().toISOString();
+          if (action === 'send_request') {
+            // The friend never learned about the request. Soft-delete our
+            // optimistic row so the UI stops showing a phantom request.
+            await doc.patch({ isDeleted: true, updatedAt: now });
+          } else if (
+            action === 'accept_friend_request' ||
+            action === 'block_friend'
+          ) {
+            await doc.patch({
+              status: revert.previousStatus ?? 'pending_incoming',
+              updatedAt: now,
+            });
+          } else if (action === 'delete_friend_pair') {
+            await doc.patch({ isDeleted: false, updatedAt: now });
+          }
+        } catch (err) {
+          console.error('[FriendsProvider] Outbox revert failed:', err);
+        }
+      })();
+    });
+    return unsubscribe;
+  }, []);
   const friends = useMemo(
     () => rows.filter((r) => r.status === 'accepted'),
     [rows]

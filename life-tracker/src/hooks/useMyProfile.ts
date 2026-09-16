@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from './useAuth';
+import { isOfflineError } from '../lib/authEvents';
 import {
   fetchMyProfile,
   createOrUpdateProfile,
@@ -81,6 +82,22 @@ export function useMyProfile(): UseMyProfileReturn {
         return created;
       } catch (err) {
         console.error('[useMyProfile] Create failed:', err);
+        if (isOfflineError(err)) {
+          // The outbox will retry the remote write. Reflect the queued
+          // profile locally so the UI stays consistent and a retry does
+          // not trip the "username taken" branch (a fresh remote check
+          // would find the user's own queued row).
+          const optimistic: ProfileCard = {
+            $id: `profile_${userId}`,
+            user_id: userId,
+            username: input.username.toLowerCase(),
+            display_name: input.displayName || '',
+            avatar_file_id: input.avatarFileId || '',
+            bio: input.bio || '',
+            is_searchable: true,
+          };
+          setProfile(optimistic);
+        }
         throw err;
       }
     },
