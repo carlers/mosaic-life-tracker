@@ -105,6 +105,13 @@ function makeTaskRow(id: string) {
     deleted: false,
   };
 }
+function makeRemoteTaskRow(id: string, updatedAt: string) {
+  return {
+    ...makeTaskRow(id),
+    $updatedAt: updatedAt,
+    updated_at: updatedAt,
+  };
+}
 function makeLocalDoc(id: string) {
   return {
     id,
@@ -122,6 +129,25 @@ function makeLocalDoc(id: string) {
       visibility: '',
     }),
     incrementalPatch: vi.fn(),
+  };
+}
+function makeLocalDocWithLwt(id: string, lwt: number) {
+  return {
+    id,
+    _meta: { lwt },
+    toJSON: () => ({
+      id,
+      userId: 'user_A',
+      title: `title-${id}`,
+      completed: false,
+      categoryId: '',
+      date: '2026-01-01',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+      isDeleted: false,
+      visibility: '',
+    }),
+    incrementalPatch: vi.fn().mockResolvedValue(undefined),
   };
 }
 function makeMessageRow(id: string, direction: 'outgoing' | 'incoming') {
@@ -594,5 +620,136 @@ describe('sync — read_at pull for dirty outgoing messages (F12)', () => {
     );
     await syncModule.initializeSync();
     expect(local.incrementalPatch).not.toHaveBeenCalled();
+  });
+});
+describe('sync — pull upsert race window (F13)', () => {
+  it('a local edit landing between check and upsert is not clobbered', async () => {
+    // Prime per-collection state to obtain a non-zero dirty boundary.
+    await syncModule.initializeSync();
+    const rawPrimed = localStorageMock.getItem('lastSyncTimePerCollection');
+    const dirtyMs = new Date(
+      JSON.parse(rawPrimed!).entries.tasks.dirty
+    ).getTime();
+    const cleanLwt = dirtyMs - 100;
+    const racedLwt = dirtyMs + 100;
+    const upsertSpy = vi.fn().mockResolvedValue(undefined);
+    let findOneCalls = 0;
+    getDatabaseMock.mockReturnValue({
+      tasks: {
+        findOne: () => ({
+          exec: async () => {
+            findOneCalls++;
+            const lwt = findOneCalls === 1 ? cleanLwt : racedLwt;
+            return makeLocalDocWithLwt('task_race', lwt);
+          },
+        }),
+        find: () => ({ exec: async () => [] }),
+        upsert: upsertSpy,
+      },
+      categories: makeEmptyCollection(),
+      diary: makeEmptyCollection(),
+      settings: makeEmptyCollection(),
+      friendships: makeEmptyCollection(),
+      messages: makeEmptyCollection(),
+    });
+    listRowsMock.mockImplementation(
+      async ({ tableId }: { tableId: string }) => {
+        if (tableId === 'tasks') {
+          return {
+            rows: [
+              makeRemoteTaskRow('task_race', '2027-01-01T00:00:00.000Z'),
+            ],
+          };
+        }
+        return { rows: [] };
+      }
+    );
+    await syncModule.initializeSync();
+    // Both findOne calls happened (initial + re-check).
+    expect(findOneCalls).toBeGreaterThanOrEqual(2);
+    // The re-check saw a newer lwt; upsert must have been skipped.
+    expect(upsertSpy).not.toHaveBeenCalled();
+    // A mid-pull race is not a failure: pull boundary must have advanced.
+    const rawAfter = localStorageMock.getItem('lastSyncTimePerCollection');
+    const stateAfter = JSON.parse(rawAfter!);
+    expect(stateAfter.entries.tasks.pull).not.toBe('');
+  });
+  it('RxDB CONFLICT during pull upsert is not classified as a row failure', async () => {
+    await syncModule.initializeSync();
+    const rawPrimed = localStorageMock.getItem('lastSyncTimePerCollection');
+    const dirtyMs = new Date(
+      JSON.parse(rawPrimed!).entries.tasks.dirty
+    ).getTime();
+    const stableLwt = dirtyMs - 100;
+    const conflictErr = Object.assign(new Error('conflict'), {
+      code: 'CONFLICT',
+    });
+    const upsertSpy = vi.fn().mockRejectedValue(conflictErr);
+    getDatabaseMock.mockReturnValue({
+      tasks: {
+        findOne: () => ({
+          exec: async () => makeLocalDocWithLwt('task_cf', stableLwt),
+        }),
+        find: () => ({ exec: async () => [] }),
+        upsert: upsertSpy,
+      },
+      categories: makeEmptyCollection(),
+      diary: makeEmptyCollection(),
+      settings: makeEmptyCollection(),
+      friendships: makeEmptyCollection(),
+      messages: makeEmptyCollection(),
+    });
+    listRowsMock.mockImplementation(
+      async ({ tableId }: { tableId: string }) => {
+        if (tableId === 'tasks') {
+          return {
+            rows: [makeRemoteTaskRow('task_cf', '2027-01-01T00:00:00.000Z')],
+          };
+        }
+        return { rows: [] };
+      }
+    );
+    await syncModule.initializeSync();
+    expect(upsertSpy).toHaveBeenCalledTimes(1);
+    // CONFLICT is a preserved-local-edit, not a failure: pull boundary
+    // must have advanced.
+    const rawAfter = localStorageMock.getItem('lastSyncTimePerCollection');
+    const stateAfter = JSON.parse(rawAfter!);
+    expect(stateAfter.entries.tasks.pull).not.toBe('');
+  });
+  it('a normal pull upsert with no race still succeeds', async () => {
+    await syncModule.initializeSync();
+    const rawPrimed = localStorageMock.getItem('lastSyncTimePerCollection');
+    const dirtyMs = new Date(
+      JSON.parse(rawPrimed!).entries.tasks.dirty
+    ).getTime();
+    const stableLwt = dirtyMs - 100;
+    const upsertSpy = vi.fn().mockResolvedValue(undefined);
+    getDatabaseMock.mockReturnValue({
+      tasks: {
+        findOne: () => ({
+          exec: async () => makeLocalDocWithLwt('task_ok', stableLwt),
+        }),
+        find: () => ({ exec: async () => [] }),
+        upsert: upsertSpy,
+      },
+      categories: makeEmptyCollection(),
+      diary: makeEmptyCollection(),
+      settings: makeEmptyCollection(),
+      friendships: makeEmptyCollection(),
+      messages: makeEmptyCollection(),
+    });
+    listRowsMock.mockImplementation(
+      async ({ tableId }: { tableId: string }) => {
+        if (tableId === 'tasks') {
+          return {
+            rows: [makeRemoteTaskRow('task_ok', '2027-01-01T00:00:00.000Z')],
+          };
+        }
+        return { rows: [] };
+      }
+    );
+    await syncModule.initializeSync();
+    expect(upsertSpy).toHaveBeenCalledTimes(1);
   });
 });

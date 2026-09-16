@@ -178,6 +178,10 @@ function isNotFoundError(err: unknown): boolean {
   const code = (err as { code?: number } | null)?.code;
   return code === 404;
 }
+function isConflictError(err: unknown): boolean {
+  const code = (err as { code?: string } | null)?.code;
+  return code === 'CONFLICT';
+}
 function buildRowPermissions(userId: string) {
   return [
     Permission.read(Role.user(userId)),
@@ -411,8 +415,24 @@ async function syncCollection(
         });
         const localDoc = await collection.findOne(docId).exec();
         if (!localDoc) {
-          await collection.upsert(doc);
-          justPulled.add(docId);
+          // Local doc did not exist when we looked. RxDB may raise
+          // CONFLICT if a local insert landed in the meantime; treat that
+          // as a preserved local edit (AGENTS §10 — CONFLICT is not an
+          // error) rather than a row failure.
+          try {
+            await collection.upsert(doc);
+            justPulled.add(docId);
+          } catch (upsertErr) {
+            if (isConflictError(upsertErr)) {
+              if (DEBUG) {
+                console.log(
+                  `[Sync] Pull insert CONFLICT for ${colName} ${docId}; preserving local`
+                );
+              }
+            } else {
+              throw upsertErr;
+            }
+          }
           continue;
         }
         const localLwt = localDoc._meta?.lwt ?? 0;
@@ -420,9 +440,7 @@ async function syncCollection(
         // Server-owned read_at on outgoing messages is applied BEFORE the
         // dirty-skip. The local client never writes read_at on outgoing
         // rows (see AGENTS §12), so a dirty outgoing row's local edit is
-        // never the source of truth for this field. Without this ordering
-        // the read receipt is deferred until the outgoing row is clean,
-        // which can be indefinitely if a push failure keeps it dirty.
+        // never the source of truth for this field.
         if (colName === 'messages' && row.direction === 'outgoing') {
           const remoteReadAt = (row.read_at as string) || '';
           const localJson = localDoc.toJSON();
@@ -445,9 +463,33 @@ async function syncCollection(
         } else {
           remoteWins = remoteUpdatedAt > localLwt;
         }
-        if (remoteWins) {
+        if (!remoteWins) continue;
+        // Narrow race window (F13): a local edit may have landed between
+        // the initial findOne and this write. Re-read _meta.lwt and abort
+        // if it moved, preserving the local edit for the next push cycle.
+        const recheck = await collection.findOne(docId).exec();
+        const recheckLwt = recheck?._meta?.lwt ?? 0;
+        if (recheckLwt !== localLwt) {
+          if (DEBUG) {
+            console.log(
+              `[Sync] Skipping pull upsert for ${colName} ${docId}; local edit landed mid-pull`
+            );
+          }
+          continue;
+        }
+        try {
           await collection.upsert(doc);
           justPulled.add(docId);
+        } catch (upsertErr) {
+          if (isConflictError(upsertErr)) {
+            if (DEBUG) {
+              console.log(
+                `[Sync] Pull upsert CONFLICT for ${colName} ${docId}; preserving local`
+              );
+            }
+          } else {
+            throw upsertErr;
+          }
         }
       } catch (rowError) {
         console.error(`[Sync] Failed to process ${colName} row:`, rowError);
