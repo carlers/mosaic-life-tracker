@@ -96,18 +96,12 @@ function updateSyncStatus(updates: Partial<SyncStatus>) {
     try {
       localStorage.setItem('lastSyncTime', syncStatus.lastSync);
     } catch {
-      // localStorage may be unavailable (private mode, quota exceeded).
-      // syncStatus is in-memory authoritative; the persisted copy is
-      // best-effort.
     }
   }
   for (const l of listeners) {
     try {
       l(syncStatus);
     } catch (err) {
-      // A throwing subscriber must never propagate into the sync engine.
-      // If it did, an in-flight initializeSync could leave
-      // isSyncInProgress = true forever.
       console.error('[Sync] Status listener threw:', err);
     }
   }
@@ -356,6 +350,7 @@ async function syncCollection(
   const justPulled = new Set<string>();
   let cursor: string | undefined = undefined;
   let pageCount = 0;
+  let pullRowFailed = false;
   for (;;) {
     const queries: unknown[] = [
       Query.equal('user_id', userId),
@@ -427,6 +422,7 @@ async function syncCollection(
         }
       } catch (rowError) {
         console.error(`[Sync] Failed to process ${colName} row:`, rowError);
+        pullRowFailed = true;
       }
     }
     if (rows.length < PAGE_SIZE) break;
@@ -434,11 +430,15 @@ async function syncCollection(
     if (!lastId || lastId === cursor) break;
     cursor = lastId;
   }
+  const nextPullIso = pullRowFailed
+    ? entry?.pull ?? ''
+    : new Date(cycleStartMs).toISOString();
   perCollectionSync[colName as CollectionName] = {
-    pull: new Date(cycleStartMs).toISOString(),
+    pull: nextPullIso,
     dirty: entry?.dirty ?? '',
   };
   savePerCollectionState(userId, perCollectionSync);
+  let pushFailed = 0;
   if (colName !== 'messages') {
     const localDocs = await collection.find().exec();
     for (const doc of localDocs) {
@@ -483,25 +483,37 @@ async function syncCollection(
               `[Sync] Failed to create ${colName} ${docId}:`,
               createErr
             );
-            throw createErr;
+            pushFailed++;
           }
         } else {
           console.error(
             `[Sync] Failed to push ${colName} ${docId}:`,
             updateErr
           );
-          throw updateErr;
+          pushFailed++;
         }
       }
     }
   }
+  const nextDirtyIso =
+    pushFailed > 0
+      ? entry?.dirty ?? ''
+      : new Date(Math.max(cycleStartMs, dirtyBoundaryMs)).toISOString();
   perCollectionSync[colName as CollectionName] = {
-    pull: new Date(cycleStartMs).toISOString(),
-    dirty: new Date().toISOString(),
+    pull: nextPullIso,
+    dirty: nextDirtyIso,
   };
   savePerCollectionState(userId, perCollectionSync);
-  if (DEBUG)
-    console.log(`[Sync] ✅ ${colName} synced (${pageCount} page(s) pulled)`);
+  if (DEBUG) {
+    if (pullRowFailed || pushFailed > 0) {
+      console.warn(
+        `[Sync] ⚠️ ${colName} completed with issues: ` +
+          `pullRowFailed=${pullRowFailed} pushFailed=${pushFailed}`
+      );
+    } else {
+      console.log(`[Sync] ✅ ${colName} synced (${pageCount} page(s) pulled)`);
+    }
+  }
 }
 export async function forceSync() {
   if (DEBUG) console.log('[Sync] Force sync triggered');
