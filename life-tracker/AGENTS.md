@@ -5,12 +5,12 @@
 1. RxDB schemas: never `deleted` — use `isDeleted` (§12)
 2. Never hard-delete; `isDeleted: true` (§7)
 3. Row IDs ≤36 chars, `[a-zA-Z0-9_]+`, no leading `_` (§6, §11)
-4. Existing remote rows: `updateRow`; new rows: `createRow`; 404 fallback on `updateRow`: `createRow`, never `upsertRow` (§6, §18 D8)
+4. Existing remote rows: `updateRow`; new rows: `createRow`; 404 fallback on `updateRow`: `createRow`, never `upsertRow` (§6)
 5. Outgoing messages: `read_at` is server-owned; omit on push (§12)
 6. Message IDs must start with `msg_` — server-enforced (§11)
 7. Cross-user writes go through Appwrite Functions, never direct client writes (§6, §20)
 8. 401 from `account.get()` = "not logged in"; network error = "couldn't check" — never conflate (§10, §23.6)
-9. Mega file: outer fence exactly four tildes + `mosaic`; inner fences ≤3 chars (§5.1)
+9. Mega file: outer fence exactly five tildes + `mosaic`; inner fences ≤3 chars (§5.1)
 
 ## 1. The Vision
 - An offline-first, local-first, self-hostable "Life Tracker" PWA
@@ -55,7 +55,7 @@ For product-spec detail beyond the above (aesthetic descriptions, reference-app 
 
 ## 5.1 Revision Workflow (Mega File + Installer)
 
-All revisions are delivered as a single fenced code block tagged `mosaic`. Outer fence: exactly four tildes + `mosaic` opener; four tildes alone on the closer. Installer regex: `/^(~~~+|`{3,})mosaic\s*\n([\s\S]*?)\n\1\s*$/` — the `\1` backreference requires the closing fence to match character AND length exactly, so a four-tilde opening can only be closed by exactly four tildes and any ≤3-char fence inside is inert. (The regex accepts any length ≥3; four is the convention, not a hard maximum.)
+All revisions are delivered as a single fenced code block tagged `mosaic`. Outer fence: exactly five tildes + `mosaic` opener; five tildes alone on the closer. Installer regex: `/^(~~~+|`{3,})mosaic\s*\n([\s\S]*?)\n\1\s*$/` — the `\1` backreference requires the closing fence to match character AND length exactly, so a five-tilde opening can only be closed by exactly five tildes and any ≤3-char fence inside is inert. (The regex accepts any length ≥3; four is the convention, not a hard maximum.)
 
 Format (illustrative inner example uses three tildes; a real delivery uses four):
 
@@ -70,7 +70,7 @@ Format (illustrative inner example uses three tildes; a real delivery uses four)
 
 **Fence rules:**
 
-1. **OUTER fence** wraps the mega file. Opens with exactly four tildes immediately followed by `mosaic` (no space). Closes with exactly four tildes alone on their own line. Always four tildes — never three, never backticks, never mixed character or length.
+1. **OUTER fence** wraps the mega file. Opens with exactly five tildes immediately followed by `mosaic` (no space). Closes with exactly five tildes alone on their own line. Always five tildes — never three, never backticks, never mixed character or length.
 2. **INNER fences** — anything inside file contents (code examples, Markdown snippets, TypeScript blocks, prose examples). Any fence character and any length up to three characters is fine. The parser treats them as inert because their character and/or length differs from the outer fence. Content inside an inner fence is literal: `===FILE:` / `===DELETE:` / `===COMMIT:` lines inside it are not directives.
 3. The parser strips the outer fence first (regex above), then scans the remaining content line-by-line with CommonMark fence rules, tracking which lines sit inside an inner fence. Only lines not inside an inner fence can be directives.
 
@@ -113,7 +113,7 @@ Without this guard, directive examples inside fenced blocks would truncate the e
 ~~~
 
 Rules:
-- Outer fence is exactly four tildes; inner fences of length ≤3 are inert.
+- Outer fence is exactly five tildes; inner fences of length ≤3 are inert.
 - One fenced block. No prose before or after.
 - Full file contents only — no diffs, no placeholders, no elisions.
 - `===FILE:path===`, `===DELETE:path===`, and `===COMMIT:...===` must be at line start, exactly as shown.
@@ -126,7 +126,7 @@ Rules:
 - **Use TablesDB, NOT Databases:** All SDK calls must use the TablesDB service (e.g., `tablesDB.upsertRow`, `tablesDB.updateRow`), not the deprecated Databases service
 - **Permission String Format:** Use the new format: `create("any")`, `read("any")`, `update("any")`, `delete("any")`. The old `"role:any"` formats are deprecated
 - **Row-Level vs Table-Level Permissions (VERIFIED):** `Permission.create()` **does NOT apply to rows**. Applying it to a row throws an error. Row-level permissions must only ever be `[read, update, delete]`. The **`create` permission belongs on the TABLE-level permissions** in the Appwrite Console (e.g., grant `create("users")` at the table level so authenticated users can insert new rows). If new-row sync fails with 401/403, the fix is in the Console, NOT in `buildRowPermissions`
-- **`updateRow` vs `upsertRow` (CRITICAL, §0 item 4):** `upsertRow` is a **full replace (PUT semantics)** in Appwrite 2.0 — any column omitted from `data` is reset to its column default. `updateRow` is a **PATCH** — omitted columns are left untouched. The sync engine **must** use `updateRow` for rows that already exist remotely, and `createRow` for brand-new rows. Failing to do this caused `read_at` on outgoing messages to be wiped on every sync cycle. **Do NOT use `upsertRow` as a fallback for a 404 on `updateRow`** — `createRow` is a strict insert with no PUT semantics and is the correct choice (see §18, D8).
+- **`updateRow` vs `upsertRow` (CRITICAL, §0 item 4):** `upsertRow` is a **full replace (PUT semantics)** in Appwrite 2.0 — any column omitted from `data` is reset to its column default. `updateRow` is a **PATCH** — omitted columns are left untouched. The sync engine **must** use `updateRow` for rows that already exist remotely, and `createRow` for brand-new rows. Failing to do this caused `read_at` on outgoing messages to be wiped on every sync cycle. **Do NOT use `upsertRow` as a fallback for a 404 on `updateRow`** — `createRow` is a strict insert with no PUT semantics and is the correct choice.
 - **Cross-User Writes Go Through Appwrite Functions (§0 item 7):** A user can only assign permissions they themselves hold. To write a row owned by another user (recipient's message copy, sender's task reaction, sender's read receipt), the write must be performed inside an Appwrite Function using its API key. Direct client writes to another user's row will 401/403 (see §20.3)
 - **REST Endpoints:** Base path for tables is `/v1/tablesdb/{databaseId}/tables/{tableId}`
 - **ID Mapping:** RxDB primary key `id` maps directly to Appwrite's `$id` column
@@ -155,9 +155,10 @@ Rules:
 - **Social graph & friend calendar complete (Phase 3.0):** Explore page (search, requests, accept/decline/cancel, block/remove), `useFriends`/`useProfileLookup`/`useMyProfile`, `SetUsernameSheet`. `FriendCalendarPage` + `FriendCalendarView` (Embla carousel) + `FriendDayViewSheet` + `useFriendCalendar` + `friendData`/`friendCache` (5-min TTL) + `get_friend_calendar`.
 - **Messaging, reactions, chat polish complete (Phases 3.1–3.3):** `messages` collection (v3) two-row pattern, `message-action` function (`deliver`/`mark_read`/`unsend`/`react`/`react_to_task`/`get_friend_calendar`), `useMessages`/`useConversations`/`useUnreadMessages`, `MessagesPage`/`ChatPage` + full chat component set, outbox delivery, deterministic thread/recipient IDs, shared `reactionUtils`. Swipe-to-reply, double-tap ❤️, single-tap timestamp, unified `useBubbleGestures`, read receipts, scroll FAB, chat search. Task reactions via heart button + emoji picker.
 - **Architecture hardening complete:** `AuthProvider` context as single source of truth (single `account.get()` per load; global `auth:unauthorized` dispatch; multi-tab broadcast; offline retry screen). Calendar perf audit (slide windowing, memoized `tasksByDate`, memoized `DayCell`, ref-counted `useTaskImage`). Conversations/unread refactor (single providers, thin selectors, `isUnsent` exclusion). Sync engine audit (13 slices; `createRow` 404 fallback; `messageActionQueue`; drift detection; `updatedAt` on categories/settings). Offline write resilience (`socialOutbox`). See §16, §18, §23 for invariants.
-- **Test suite live:** 303 tests across 31 files in four Vitest projects (`unit`, `handlers`, `react`, `components`). Installer gates every apply on green tests (§5.1). See §24.
+- **Phase 1 audits closed (2026-09-17):** Offline behaviour, realtime subscriptions (all six tables), error boundaries (root + per-route), image-cache consolidation, PWA/SW audit, four-part accessibility sweep. Sole carry-over: OFF-1 (offline auth gate, H1 = Option A), scheduled Phase 2 batch 2.1.
+- **Test suite live:** 347 tests across four Vitest projects (`unit`, `handlers`, `react`, `components`). Installer gates every apply on green tests (§5.1). See §24.
 
-**Next Up:** Phase 3.5 Todo List View; Phase 3.6 Diary View; Phase 3.7 Notifications tab. Full history lives in the Changelog (index rows; see §26 for the row format).
+**Next Up:** Phase 2 refactor audit → refactor (starting with OFF-1 offline auth gate). Then Phase 3.5 Todo List View; Phase 3.6 Diary View; Phase 3.7 Notifications tab. Full history lives in the Changelog (index rows; see §26 for the row format).
 
 ## 9. Hook & State Conventions
 - **Named return object, never array:** `{ <domain>, isLoading, ...mutators }`; mutators `useCallback`-wrapped.
@@ -181,7 +182,7 @@ Rules:
 - **DEBUG gating:** non-error diagnostics wrapped in `if (import.meta.env.DEV)` or a module-level `DEBUG` flag.
 - **Error surfacing:** fixed-position toast (`fixed bottom-24 left-1/2 -translate-x-1/2 z-[70]`) auto-dismissed at 2000ms (see DayViewSheet `deleteFeedback`, ChatPage `feedback`). No `alert()` except placeholder "Coming Soon". Sync-engine failures surface ONLY via `SyncStatusSheet` (Settings → Sync Status).
 - **Invalid rowId recovery:** if sync logs `Invalid rowId` for a local doc it retries forever; the owning hook (`useSettings`) must scan + `remove()` legacy invalid rows in its init phase (§11).
-- **`CONFLICT` is not an error:** `markAllRead`/`toggleReaction`/pull `upsert` paths catch `err.code === 'CONFLICT'`, re-fetch, retry once or skip. Never log it as an error. In the pull loop, `CONFLICT` on `upsert` preserves the local edit and the row is skipped without freezing the pull boundary (§18, F13).
+- **`CONFLICT` is not an error:** `markAllRead`/`toggleReaction`/pull `upsert` paths catch `err.code === 'CONFLICT'`, re-fetch, retry once or skip. Never log it as an error. In the pull loop, `CONFLICT` on `upsert` preserves the local edit and the row is skipped without freezing the pull boundary.
 - **Fire-and-forget cross-user writes:** `markReadOnRemote`, `unsendOnRemote`, `reactOnRemote`, `reactToTaskOnRemote` log and swallow. Local state is source of truth. `mark_read`/`unsend` enqueue into `messageActionQueue` on transient failure; `react`/`react_to_task` do not (they have optimistic-revert + user-visible feedback).
 - **Permanent-failure drop policy (Social Outbox):** `src/lib/socialOutbox.ts` drops after 5 attempts or on a permanent failure (401, or any non-429 4xx). On drop it emits a `SocialOutboxFailureEvent` to `subscribeToSocialOutboxFailures` listeners; `FriendsProvider` reverts the matching local RxDB row; `ExploreView` surfaces the existing toast pattern. Never silently drop — every drop MUST be accompanied by a local revert and (when the originating UI is mounted) a toast.
 - **Differentiate "Not Logged In" from "Couldn't Check" (§0 item 8):** 401 from `account.get()` = definitely not logged in → clear user state. Network error / timeout / offline = couldn't check → `isOffline = true` and `AppLayout` renders a retry screen. Use `OfflineError`/`isOfflineError()` from `src/lib/authEvents.ts`; never construct ad-hoc "offline" strings.
@@ -208,9 +209,9 @@ Rules:
   - All mapping centralized in `src/db/sync.ts` (`toAppwriteFormat`/`fromAppwriteFormat`). Never map ad-hoc in hooks/components.
   - `isDeleted` (local) ↔ `deleted` (remote) — hard rule because `deleted` is a reserved RxDB keyword (§0 item 1).
   - Booleans encoded as booleans, not 0/1.
-  - `updatedAt` (local) ↔ `updated_at` (remote) — every synced collection participating in the `usesTimestamps` pull-winner predicate has it. `categories` and `settings` gained it in the D6 migration (see Changelog; migration script `scripts/add-categories-settings-updated-at-columns.mjs`).
+  - `updatedAt` (local) ↔ `updated_at` (remote) — every synced collection participating in the `usesTimestamps` pull-winner predicate has it. `categories` and `settings` gained it in the 2026-09-16 D6 migration (see Changelog; migration script `scripts/add-categories-settings-updated-at-columns.mjs`).
 - **`messages` field mapping:** `threadId`→`thread_id`; `senderId`→`sender_id`; `recipientId`→`recipient_id`; `direction`→`direction`; `taskRefId`→`task_ref_id`; `taskRefTitle`→`task_ref_title`; `taskRefDate`→`task_ref_date`; `taskRefColor`→`task_ref_color`; `replyToId`→`reply_to_id`; `replyToContent`→`reply_to_content`; `replyToSenderId`→`reply_to_sender_id`; `isUnsent`→`is_unsent`; `originalMessageId`→`original_message_id`; `reactions`→`reactions`; `readAt`→`read_at`; `deliveryStatus`→`delivery_status`.
-- **`read_at` is server-owned on outgoing rows (§0 item 5):** `toAppwriteFormat` for `messages` MUST omit `read_at` when `direction === 'outgoing'` — the client would overwrite the `mark_read` receipt. Applies only to `messages`. On pull, the server-owned `read_at` on an outgoing row is applied BEFORE the dirty-skip so a locally-dirty outgoing message still receives the receipt (§18, F12).
+- **`read_at` is server-owned on outgoing rows (§0 item 5):** `toAppwriteFormat` for `messages` MUST omit `read_at` when `direction === 'outgoing'` — the client would overwrite the `mark_read` receipt. Applies only to `messages`. On pull, the server-owned `read_at` on an outgoing row is applied BEFORE the dirty-skip so a locally-dirty outgoing message still receives the receipt.
 - **Date storage:** day keys `yyyy-MM-dd` via `date-fns.format`; timestamps full ISO 8601 via `.toISOString()`. Compare timestamps with the `toMs()` helper (`Number.isFinite` guard).
 - **Empty-string over null:** optional string fields (`memo`, `image`, `completedAt`, `icon`, `friendBio`, `threadId`, `replyToId`, `replyToContent`, `replyToSenderId`, `originalMessageId`, `reactions`, `readAt`, `updatedAt`) default to `''` — never `null`/`undefined` — so RxDB validation never fails.
 - **Reactions format:** JSON string of `Array<{ emoji: string; userIds: string[] }>`. Serialized as `''` when empty (not `'[]'`). Parse/stringify only via `src/lib/reactionUtils.ts`.
@@ -234,6 +235,10 @@ Rules:
 - **Animation tokens:** entry via `animate-in fade-in duration-300` or `animate-in fade-in slide-in-from-<dir>-1 duration-200`; Framer Motion `whileTap={{ scale: 0.95–0.98 }}` on all tappables.
 - **Spinner primitive:** ALWAYS `<div className="w-N h-N border-2 border-white border-t-transparent rounded-full animate-spin" />`. No SVG/library spinners.
 - **Unified gesture hooks:** any element supporting >1 gesture (swipe + tap + long-press) MUST use a single state-machine hook (`useBubbleGestures`). Do not stack hooks. Refs hold internal gesture state; only `swipeOffset`/`isSwiping` use React state, throttled with `requestAnimationFrame`.
+- **`Button variant="icon"` requires `aria-label`.** Icon-only buttons have no text content; without a label they are silent to screen readers. The label describes the action, not the icon ("Close", not "X"). Documented obligation, not lintable — every new icon-variant button must supply a label.
+- **Interactive `motion.div` MUST be `motion.button`.** A `<div>` with a click handler is not focusable, not keyboard-activatable, and not announced as a control. If an element owns a tap handler, use the semantic element (`<button>` / `motion.button`); if a semantic element is impossible, supply `role`, `tabIndex`, and keyboard handlers.
+- **Primitives carry `focus-visible` rings.** Every focusable primitive (`Button`, `Input`, `SettingsRow`, etc.) has a `focus-visible:ring` so keyboard users can locate focus. Full-width rows use `focus-visible:ring-inset` to prevent clipping.
+- **Label association via `htmlFor`/`useId`.** `<Input label>` binds via `htmlFor` + a `useId()`-generated id. Never rely on `placeholder` as the label — placeholders are invisible to screen readers once the input has value.
 
 ## 15. File Organization Rules
 - `src/components/ui/` — pure, entity-agnostic primitives.
@@ -251,6 +256,8 @@ Rules:
 - `src/lib/appwrite.ts` — the only other file permitted to construct raw `Client`/`Account`. Exports `client` and `account` used by `sdk.ts`.
 - `src/lib/messageActionQueue.ts` — persistent retry queue for `mark_read`/`unsend`. Storage: JSON array under `mosaic_message_action_queue`. Dedup `(userId, dedupKey)`. Cap 100. Retries up to 5 on transient; drops on 401 / non-429 4xx. Single in-flight flush guard. Wired to `sendMessageAction` at module init; flushed by `deliverPendingMessages` (§20.5).
 - `src/lib/socialOutbox.ts` — persistent retry queue for cross-user social writes (`sendFriendRequest`, `acceptFriendRequest`, `deleteFriendPair`, `blockFriend`, `createOrUpdateProfile`). Storage: JSON array under `mosaic_social_outbox`. Dedup `(userId, dedupKey)`. Cap 100. Retries up to 5 on transient; drops on 401 / non-429 4xx. Permanent drops emit `SocialOutboxFailureEvent` to `subscribeToSocialOutboxFailures` — `FriendsProvider` reverts the local row. Wired to `guardedTablesDB` at module init in `social.ts`; flushed by `AppLayout`'s `tryDeliver` alongside `deliverPendingMessages` (§10).
+- `src/lib/imageCache.ts` — **single owner of the IndexedDB blob cache for downloaded image files** (keyed by `fileId`). `storage.ts` and `exportData.ts` consume it via `getCachedImage`/`cacheImage`/`deleteCachedImage`; do not open the cache DB directly elsewhere. No eviction bound (see §18 Accepted Limitations).
+- **Service-worker scope.** `vite-plugin-pwa` owns the SW registration (root scope, `registerType: 'autoUpdate'`). Do not register a second SW, do not expand scope beyond root, and do not precache user-generated content — only the app shell. The SW is production-only; dev mode does not register one (Vite HMR and a live SW would fight each other).
 - `scripts/` — build-time utilities: `dump-files.mjs` (Tier 2 dump, §25.2), `clipboard.mjs` (shared clipboard helper), one-off Appwrite migration scripts.
 - `tests/` — Vitest suite (four projects). See §24.
 - Project root: `apply-changes.mjs` (installer; copies run output to clipboard on exit), `pending-changes.txt` (gitignored input).
@@ -307,9 +314,10 @@ These are documented, deliberate trade-offs after the sync-engine audit. Each wa
 
 - **D1 — Concurrent same-row edits are last-write-wins.** Two devices editing the same row within one sync cycle: the later `updateRow` overwrites the earlier writer's fields. Push has no etag, version column, or compare-and-set. Rejected alternatives: (a) an `updatedAt`-conditional write depends on TablesDB supporting filter-based conditional updates, which was not verified against the live API; (b) a `version` integer column per table requires a schema bump, an Appwrite migration, and a mapper change across every collection; (c) an Appwrite function-mediated CAS reintroduces the same failure modes the sync engine already handles, at higher complexity. For a personal life tracker where the typical case is one device online at a time, the failure is rare. Revisit if the app ever adds real-time collaboration or multi-device active editing.
 - **D3 — Clock-skew tolerance is `PULL_OVERLAP_MS = 30_000`.** The only guard against client-versus-server clock drift. A client clock ahead of the server by more than 30s can skip remote rows permanently, because the pull query's `$updatedAt > sinceIso` filter excludes them and cursor pagination does not re-fetch them after the overlap window passes. Rejected alternatives: fetching server time and applying an offset introduces a new failure mode on login (the offset fetch itself can fail or be skewed by a slow network), and a wider overlap window increases duplicate pulls proportionally. Accepted as a documented constraint; a device with a badly wrong clock will not sync correctly, but modern device clocks are within seconds of truth. If a user reports missing rows after a device clock change, widen the window and revisit this decision.
-- **D7 — Cold sync treats all local rows as dirty.** If `localStorage` is cleared while IndexedDB survives (partial site-data clear, or a manual developer action), `loadPerCollectionState` returns `{}`, both `pullBoundaryMs` and `dirtyBoundaryMs` are 0, every local row satisfies `localLwt > 0`, and the next sync pushes every local row. Rejected alternatives: (a) skipping the push for one cycle is ineffective — the next cycle sees `dirtyBoundaryMs` still `''` and pushes anyway; (b) overriding `dirtyBoundaryMs` to `cycleStartMs` breaks the push of local-only rows (they have no `remoteMeta`, so the non-dirty push predicate never fires) and regresses `categories`/`settings` push (they now participate in `usesTimestamps` post-D6, but only if their `updatedAt` is meaningful — a migrated row with `updatedAt: ''` would be skipped); (c) persisting per-collection state to IndexedDB is D4-adjacent architecture work, not an isolated fix. The current behavior — push local state, last-write-wins — is arguably correct for a local-first app: the user's local data is their data, and pushing it back is the local-first stance. Revisit only if a user reports data loss from a partial storage clear.
-- **F9-backoff — Sync backoff state is per-tab.** `rateLimitUntil`, `rateLimitBackoffMs`, `failureBackoffUntil`, and `failureBackoffMs` are module-level state, not cross-tab. Two tabs can each accumulate their own backoff and hit the endpoint independently. Web Locks (D4) serializes cycles but does not share backoff. Rejected fix: persisting backoff state to localStorage adds a new persisted key, cross-tab read/write coordination, and edge cases around clock changes. Accepted; the risk is a rate-limit stampede in a multi-tab session, bounded by the sync engine's page cap (F17) and per-collection error isolation to non-catastrophic.
+- **D7 — Cold sync treats all local rows as dirty.** If `localStorage` is cleared while IndexedDB survives (partial site-data clear, or a manual developer action), `loadPerCollectionState` returns `{}`, both `pullBoundaryMs` and `dirtyBoundaryMs` are 0, every local row satisfies `localLwt > 0`, and the next sync pushes every local row. Rejected alternatives: (a) skipping the push for one cycle is ineffective — the next cycle sees `dirtyBoundaryMs` still `''` and pushes anyway; (b) overriding `dirtyBoundaryMs` to `cycleStartMs` breaks the push of local-only rows (they have no `remoteMeta`, so the non-dirty push predicate never fires) and regresses `categories`/`settings` push (they now participate in `usesTimestamps` post-D6, but only if their `updatedAt` is meaningful — a migrated row with `updatedAt: ''` would be skipped); (c) persisting per-collection state to IndexedDB requires a new persistence layer, which is out of scope for an isolated fix. The current behavior — push local state, last-write-wins — is arguably correct for a local-first app: the user's local data is their data, and pushing it back is the local-first stance. Revisit only if a user reports data loss from a partial storage clear.
+- **F9-backoff — Sync backoff state is per-tab.** `rateLimitUntil`, `rateLimitBackoffMs`, `failureBackoffUntil`, and `failureBackoffMs` are module-level state, not cross-tab. Two tabs can each accumulate their own backoff and hit the endpoint independently. Web Locks serializes cycles but does not share backoff. Rejected fix: persisting backoff state to localStorage adds a new persisted key, cross-tab read/write coordination, and edge cases around clock changes. Accepted; the risk is a rate-limit stampede in a multi-tab session, bounded by the sync engine's page cap and per-collection error isolation to non-catastrophic.
 - **Social Outbox — no server-side compensation on drop.** When a social outbox entry is dropped (5 attempts exhausted, or a permanent 4xx), the local row is reverted but the remote side may be partially written (e.g. the outbox succeeded in creating the friend's reciprocal row on a previous attempt but the local revert fires on a later permanent failure of a different row). Because both writes in a friendship pair are independent single-row calls, the reconciliation window is bounded to the next sync cycle and the local row is authoritative. A transactional two-row write would require an Appwrite Function and is out of scope for this batch.
+- **Image cache has no eviction bound.** `src/lib/imageCache.ts` stores downloaded image blobs in IndexedDB keyed by `fileId` with no LRU cap or byte budget. `deleteCachedImage` removes a blob when its owning entity is deleted on this device, but orphaned blobs (entities deleted on another device, failed exports, or aborted uploads) accumulate. Rejected fix: an LRU cap needs per-entry access timestamps plus a per-device byte budget; images are ≤150KB post-compression and typical usage is dozens, not thousands. A Phase 3 optimize-batch can add an LRU sweep with a byte budget. Until then, users with very large libraries may see IndexedDB growth over time. Revisit if a user reports quota errors.
 
 ## 19. Bootstrap & Persistence
 1. `main.tsx` order: `navigator.storage.persist()` → `initializeDatabase()` → fire-and-forget `initializeSync()` (never block render on network) → `ReactDOM.createRoot(...).render(<React.StrictMode><AuthProvider><App /></AuthProvider></React.StrictMode>)`.
@@ -462,6 +470,7 @@ Recipient-side `read_at` propagation depends on `markReadOnRemote` eventually su
 - **Any time `navigator.onLine` is false**, `AuthProvider` treats the initial check as "couldn't check"
 - `AppLayout` renders three states: `isLoading` → spinner; `!user && isOffline` → retry screen; `!user` → redirect
 - The `OfflineError` class in `src/lib/authEvents.ts` is the canonical "couldn't check" signal at the SDK-wrapper layer. `storage.getCurrentUserId` returns `null` for a confirmed 401 but throws `OfflineError` for anything else, so `uploadImage` can distinguish "you're offline" from "no authenticated user" (§10)
+- **Offline auth gate (H1 = Option A, scheduled Phase 2 batch 2.1).** On mount-time network error, `AuthProvider` hydrates `user` from a persisted last-known identity, sets `isOffline: true`, and `AppLayout` renders the app tree with the offline banner. Cache is cleared on explicit `logout()` and on confirmed 401 — never on a network error. Network errors throw `OfflineError` and never dispatch `auth:unauthorized`, so the hydrated `user` will not trip the redirect path. Every consumer treating `user` as proof-of-live-session must be audited when this lands.
 
 ### 23.7 Things Not To Do
 - Do not add `account.get()` calls to a hook or component. If you need session state, call `useAuth()`
@@ -474,15 +483,15 @@ Recipient-side `read_at` propagation depends on `markReadOnRemote` eventually su
 ## 24. Test Suite
 
 ### 24.1 Overview
-Vitest 3.x, four projects (`unit`, `handlers`, `react`, `components`), 303 tests across 31 files. Config in `vitest.config.ts`. Run `npm test` (or `npm run test:watch` / `npm run test:ui`). Gated by the installer's verify block (§5.1) — `npm run apply` runs lint → test → build. A failing test blocks a patch from landing.
+Vitest 3.x, four projects (`unit`, `handlers`, `react`, `components`), 347 tests across four projects. Config in `vitest.config.ts`. Run `npm test` (or `npm run test:watch` / `npm run test:ui`). Gated by the installer's verify block (§5.1) — `npm run apply` runs lint → test → build. A failing test blocks a patch from landing.
 
 ### 24.2 Project layout
-| Project | Environment | Include | Tests |
-|---|---|---|---|
-| `unit` | node | `tests/unit/**/*.test.ts` | 143 |
-| `handlers` | node | `tests/handlers/**/*.test.ts` | 49 |
-| `react` | happy-dom | `tests/react/**/*.test.tsx` | 39 |
-| `components` | happy-dom | `tests/components/**/*.test.tsx` | 72 |
+| Project | Environment | Include |
+|---|---|---|
+| `unit` | node | `tests/unit/**/*.test.ts` |
+| `handlers` | node | `tests/handlers/**/*.test.ts` |
+| `react` | happy-dom | `tests/react/**/*.test.tsx` |
+| `components` | happy-dom | `tests/components/**/*.test.tsx` |
 
 The `react` and `components` projects load `tests/setup/react.ts` (jest-dom matchers + `afterEach(cleanup)`) and set `NODE_ENV=test` — required by React 19's `act`. The `unit` and `handlers` projects run in plain node with `globals: true`.
 
@@ -550,7 +559,7 @@ Use the lowest tier that supports the task.
 
 **Rules:**
 - Default context for every chat is `repomix --compress`. Full repomix is the exception, not the baseline.
-- When a chat needs exact file contents, it outputs a single line: `npm run dump -- path/to/file.ts path/to/other.tsx` and waits. Dump output uses repomix's XML `<file path="…">` wrapper, **not** the `===FILE:…===` directive syntax — deliberately distinct so a dump can never be mistaken for (or accidentally parsed as) a mega file.
+- When a chat needs exact file contents, it outputs the request inside a tilde fence (five tildes by default) so the line is copy-pasteable as a single unit. Dump output uses repomix's XML `<file path="…">` wrapper, **not** the `===FILE:…===` directive syntax — deliberately distinct so a dump can never be mistaken for (or accidentally parsed as) a mega file.
 - Compressed repomix does not alter Markdown files (`AGENTS.md`, `SESSION_STATE.md`), so Tier 0 is always delivered in full regardless of the tier chosen.
 
 ### 25.3 Session State
@@ -597,7 +606,7 @@ ROLE: CHAT 1 (Brain). Follow AGENTS.md §25. Read SESSION_STATE.md. The previous
 
 **Start Chat 2 (execution):**
 ```
-ROLE: CHAT 2 (Hands). Follow AGENTS.md §25. Read SESSION_STATE.md. You produce one mega file per §5.1 for the current batch and update SESSION_STATE.md inside it. Do not ask granular questions; follow §25.5. If you need exact file contents, output a single line: npm run dump -- <paths>. Start with NextAction from SESSION_STATE.md. Stay in this session across batches; only OFFBOARD ends it.
+ROLE: CHAT 2 (Hands). Follow AGENTS.md §25. Read SESSION_STATE.md. You produce one mega file per §5.1 for the current batch and update SESSION_STATE.md inside it. Do not ask granular questions; follow §25.5. If you need exact file contents, output a single line: npm run dump -- <paths>. Start with NextAction from SESSION_STATE.md. Stay in this session across batches; only OFFBOARD ends it. DeepThink: OFF.
 ```
 
 **Offboard (ask the current chat to hand off):**
@@ -607,7 +616,7 @@ OFFBOARD. Produce: (1) a one-line onboarding prompt for the next chat per §25.6
 
 **Resume (mid-phase, same role):**
 ```
-ROLE: CHAT <1|2>. Follow AGENTS.md §25. Read SESSION_STATE.md and resume from NextAction. No further context needed.
+ROLE: CHAT <1|2>. Follow AGENTS.md §25. Read SESSION_STATE.md and resume from NextAction. No further context needed. DeepThink: <ON|OFF>.
 ```
 
 **Phase complete (Chat 2 end-of-phase declaration, used once):**
@@ -656,7 +665,7 @@ When a chat is asked to offboard, it produces exactly two things, in this order,
 
    Example:
    ````
-   ROLE: CHAT 2 (Hands). Follow AGENTS.md §25. Read SESSION_STATE.md. Resume from NextAction. Start with the current batch.
+   ROLE: CHAT 2 (Hands). Follow AGENTS.md §25. Read SESSION_STATE.md. Resume from NextAction. Start with the current batch. DeepThink: OFF.
    ````
 
 2. **A `SESSION_STATE.md` update**, emitted as a mosaic mega file per §5.1, **only if the state file is stale**. If it is current, the chat says so in one line and stops.
@@ -678,6 +687,8 @@ No other context is needed. The new chat reads `AGENTS.md §25` and `SESSION_STA
 
 ### 25.8 Post-Batch Instructions (Chat 2 only)
 Chat 2 always appends brief next-step instructions immediately after the mega file's closing fence. The instructions are one to four lines, no preamble. They always begin with the apply command and branch on its outcome.
+
+**Every Chat 2 prompt MUST state DeepThink ON or OFF** (both the initial prompt and any offboarding prompt targeting Chat 2). Defaults follow §25.10.
 
 Mid-phase batch:
 ```
@@ -768,3 +779,4 @@ When Chat 1 closes a phase:
 | 2026-09-17 | AGENTS.md compression | all | §0 hard rules added (10 → 9 on follow-up; grouped by action, dedup 2/10); §26 rules-for-writing-rules added; §8 + Changelog reformatted as index rows; section-level prose compressed throughout; ~25% AGENTS.md reduction | §0, §26 |
 | 2026-09-17 | §0 dedup follow-up | §0 | Merged former rules 2 + 10 into one; §0 is now 9 rules grouped by action (schema → sync → messaging → cross-user → auth → tooling) | §0 |
 | 2026-09-17 | Compression follow-up | §2, §18, §16, §25.3, §25.11 (new) | Restored D1/D3/D7/F9-backoff rationale paragraphs in §18 (non-circular; no pointer-to-changelog loop). Restored behavioral specs for planned views in §2 (Todo List, Diary, Notifications, calendar layout alignment) so Phase 3.5–3.7 has a spec. Dropped F1/F3/F5/F12/F13 IDs from §16 — rule text alone is sufficient for cold readers; IDs were dangling once SESSION_STATE.md trimmed. Added §25.3 migration note (new Chat 1 reads SESSION_STATE.md first, not Changelog). Added §25.11 Phase-Close Protocol to prevent dangling cross-references recurring | §2, §16, §18, §25.3, §25.11 |
+| 2026-09-17 | Phase 1 audits closed; accessibility rules documented | §8, §14, §15, §18, §25.2, §25.4, §25.8, §23.6, §24 | Phase 1 CLOSED. Four accessibility rules added to §14 (icon-variant aria-label; interactive motion.div → motion.button; focus-visible rings on primitives; label association via htmlFor/useId). §18 accepted-limitations gains image-cache no-eviction paragraph. §15 gains imageCache.ts single-owner line and SW-scope line. §25.2 dump requests wrapped in tilde fences. §25.8 requires DeepThink ON/OFF in every Chat 2 prompt. §23.6 adds offline auth gate (H1 = Option A, scheduled Phase 2 batch 2.1). Dangling D8/F12/F13/F17/D4 cross-refs removed. Test count 347 | §25.11, §23.6, §14, §15, §18 |
