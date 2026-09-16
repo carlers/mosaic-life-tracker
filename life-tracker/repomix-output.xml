@@ -73,12 +73,10 @@ src/
       views/
         CalendarBody.tsx
         CalendarHeader.tsx
-        CalendarView.tsx
         CategorySection.tsx
         DatePickerSheet.tsx
         DayCell.tsx
         DayViewSheet.tsx
-        DiaryView.tsx
         EditTaskSheet.tsx
         ImagePickerSheet.tsx
         ImageViewer.tsx
@@ -88,7 +86,6 @@ src/
         TaskBlock.tsx
         TaskItem.tsx
         TaskVisibilitySheet.tsx
-        TodoListView.tsx
         useCalendarState.ts
         ViewToggle.tsx
         WeekView.tsx
@@ -98,7 +95,6 @@ src/
       PersonPane.tsx
       PersonProfileHeader.tsx
       TopBar.tsx
-      ViewContainer.tsx
       ViewSwitcher.tsx
     layout/
       AppLayout.tsx
@@ -2407,21 +2403,28 @@ type CalendarViewMode = 'month' | 'week';
 const SLIDES_EACH_SIDE = 12;
 const TOTAL_SLIDES = SLIDES_EACH_SIDE * 2 + 1;
 const CENTER_INDEX = SLIDES_EACH_SIDE;
+const RENDER_WINDOW = 2;
 interface CalendarSlideProps {
   date: Date;
   viewMode: CalendarViewMode;
   onDayClick: (date: Date) => void;
-  tasks: TaskDocument[];
+  tasksByDate: Map<string, TaskDocument[]>;
   categoriesMap: Record<string, { color: string; name: string }>;
 }
 const CalendarSlide = React.memo(
-  ({ date, viewMode, onDayClick, tasks, categoriesMap }: CalendarSlideProps) => {
+  ({
+    date,
+    viewMode,
+    onDayClick,
+    tasksByDate,
+    categoriesMap,
+  }: CalendarSlideProps) => {
     if (viewMode === 'month') {
       return (
         <MonthView
           focusDate={date}
           onDayClick={onDayClick}
-          tasks={tasks}
+          tasksByDate={tasksByDate}
           categoriesMap={categoriesMap}
         />
       );
@@ -2430,7 +2433,7 @@ const CalendarSlide = React.memo(
       <WeekView
         focusDate={date}
         onDayClick={onDayClick}
-        tasks={tasks}
+        tasksByDate={tasksByDate}
         categoriesMap={categoriesMap}
       />
     );
@@ -2468,6 +2471,18 @@ export const FriendCalendarView: React.FC<FriendCalendarViewProps> = ({
       {}
     );
   }, [categories]);
+  // Single index of all tasks keyed by `yyyy-MM-dd`. Computed once per
+  // `tasks` identity and shared by every slide and DayCell — replaces the
+  // per-day `.filter()` that ran once per cell per slide.
+  const tasksByDate = useMemo(() => {
+    const map = new Map<string, TaskDocument[]>();
+    for (const t of tasks) {
+      const arr = map.get(t.date);
+      if (arr) arr.push(t);
+      else map.set(t.date, [t]);
+    }
+    return map;
+  }, [tasks]);
   const [baseDate, setBaseDate] = useState(focusDate);
   const isInternalSwipeRef = useRef(false);
   const [prevViewMode, setPrevViewMode] = useState(viewMode);
@@ -2481,11 +2496,29 @@ export const FriendCalendarView: React.FC<FriendCalendarViewProps> = ({
       fn(baseDate, i - CENTER_INDEX)
     );
   }, [baseDate, viewMode]);
+  const [emblaActiveIndex, setEmblaActiveIndex] = useState(CENTER_INDEX);
   const [emblaRef, emblaApi] = useEmblaCarousel({
     loop: false,
     align: 'start',
     skipSnaps: false,
+    startIndex: CENTER_INDEX,
   });
+  useEffect(() => {
+    if (!emblaApi) return;
+    const update = () => {
+      const progress = emblaApi.scrollProgress();
+      const raw = Math.round(progress * (TOTAL_SLIDES - 1));
+      const idx = Math.max(0, Math.min(TOTAL_SLIDES - 1, raw));
+      setEmblaActiveIndex((prev) => (prev === idx ? prev : idx));
+    };
+    update();
+    emblaApi.on('scroll', update);
+    emblaApi.on('reInit', update);
+    return () => {
+      emblaApi.off('scroll', update);
+      emblaApi.off('reInit', update);
+    };
+  }, [emblaApi]);
   useEffect(() => {
     if (!emblaApi) return;
     if (isInternalSwipeRef.current) {
@@ -2553,6 +2586,22 @@ export const FriendCalendarView: React.FC<FriendCalendarViewProps> = ({
     setFeedback(msg);
     setTimeout(() => setFeedback(null), 2000);
   }, []);
+  const focusIndex = useMemo(() => {
+    const offset =
+      viewMode === 'month'
+        ? differenceInCalendarMonths(focusDate, baseDate)
+        : differenceInCalendarWeeks(focusDate, baseDate);
+    const raw = CENTER_INDEX + offset;
+    return Math.max(0, Math.min(TOTAL_SLIDES - 1, raw));
+  }, [focusDate, baseDate, viewMode]);
+  const renderStart = Math.max(
+    0,
+    Math.min(emblaActiveIndex, focusIndex) - RENDER_WINDOW
+  );
+  const renderEnd = Math.min(
+    TOTAL_SLIDES - 1,
+    Math.max(emblaActiveIndex, focusIndex) + RENDER_WINDOW
+  );
   return (
     <div className="flex flex-col h-full animate-in fade-in duration-300">
       <div className="px-4 py-3 flex items-center justify-between border-b border-[#333333]">
@@ -2585,13 +2634,15 @@ export const FriendCalendarView: React.FC<FriendCalendarViewProps> = ({
               className="flex-shrink-0 h-full w-full"
               style={{ flex: '0 0 100%', minWidth: 0 }}
             >
-              <CalendarSlide
-                date={date}
-                viewMode={viewMode}
-                onDayClick={handleDayClick}
-                tasks={tasks}
-                categoriesMap={categoriesMap}
-              />
+              {i >= renderStart && i <= renderEnd ? (
+                <CalendarSlide
+                  date={date}
+                  viewMode={viewMode}
+                  onDayClick={handleDayClick}
+                  tasksByDate={tasksByDate}
+                  categoriesMap={categoriesMap}
+                />
+              ) : null}
             </div>
           ))}
         </div>
@@ -2879,7 +2930,7 @@ export const FriendDayViewSheet: React.FC<FriendDayViewSheetProps> = ({
 </file>
 
 <file path="src/components/home/views/CalendarBody.tsx">
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import { MonthView } from './MonthView';
 import { WeekView } from './WeekView';
 import { DayViewSheet } from './DayViewSheet';
@@ -2891,17 +2942,23 @@ interface CalendarSlideProps {
   date: Date;
   viewMode: CalendarViewMode;
   onDayClick: (date: Date) => void;
-  tasks: TaskDocument[];
+  tasksByDate: Map<string, TaskDocument[]>;
   categoriesMap: Record<string, { color: string; name: string }>;
 }
 const CalendarSlide = React.memo(
-  ({ date, viewMode, onDayClick, tasks, categoriesMap }: CalendarSlideProps) => {
+  ({
+    date,
+    viewMode,
+    onDayClick,
+    tasksByDate,
+    categoriesMap,
+  }: CalendarSlideProps) => {
     if (viewMode === 'month') {
       return (
         <MonthView
           focusDate={date}
           onDayClick={onDayClick}
-          tasks={tasks}
+          tasksByDate={tasksByDate}
           categoriesMap={categoriesMap}
         />
       );
@@ -2910,7 +2967,7 @@ const CalendarSlide = React.memo(
       <WeekView
         focusDate={date}
         onDayClick={onDayClick}
-        tasks={tasks}
+        tasksByDate={tasksByDate}
         categoriesMap={categoriesMap}
       />
     );
@@ -2920,6 +2977,8 @@ CalendarSlide.displayName = 'CalendarSlide';
 interface CalendarBodyProps {
   viewMode: CalendarViewMode;
   slides: Date[];
+  renderStart: number;
+  renderEnd: number;
   emblaRef: (node: HTMLElement | null) => void;
   tasks: TaskDocument[];
   categoriesMap: Record<string, { color: string; name: string }>;
@@ -2930,9 +2989,11 @@ interface CalendarBodyProps {
   currentUserId: string;
   onReactToTask?: (task: TaskDocument, emoji: string) => void;
 }
-export const CalendarBody: React.FC<CalendarBodyProps> = ({
+const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
   viewMode,
   slides,
+  renderStart,
+  renderEnd,
   emblaRef,
   tasks,
   categoriesMap,
@@ -2947,6 +3008,18 @@ export const CalendarBody: React.FC<CalendarBodyProps> = ({
   const [replyTask, setReplyTask] = useState<TaskDocument | null>(null);
   const [replyColor, setReplyColor] = useState<string>('');
   const [feedback, setFeedback] = useState<string | null>(null);
+  // Single index of all tasks keyed by their `yyyy-MM-dd` date string.
+  // Computed once per `tasks` array identity (§16 “Grouping is Memoized”)
+  // and shared by every MonthView/WeekView slide and every DayCell.
+  const tasksByDate = useMemo(() => {
+    const map = new Map<string, TaskDocument[]>();
+    for (const t of tasks) {
+      const arr = map.get(t.date);
+      if (arr) arr.push(t);
+      else map.set(t.date, [t]);
+    }
+    return map;
+  }, [tasks]);
   const handleDayClick = useCallback((date: Date) => {
     setSelectedDate(date);
   }, []);
@@ -2974,13 +3047,15 @@ export const CalendarBody: React.FC<CalendarBodyProps> = ({
               className="flex-shrink-0 h-full w-full"
               style={{ flex: '0 0 100%', minWidth: 0 }}
             >
-              <CalendarSlide
-                date={date}
-                viewMode={viewMode}
-                onDayClick={handleDayClick}
-                tasks={tasks}
-                categoriesMap={categoriesMap}
-              />
+              {i >= renderStart && i <= renderEnd ? (
+                <CalendarSlide
+                  date={date}
+                  viewMode={viewMode}
+                  onDayClick={handleDayClick}
+                  tasksByDate={tasksByDate}
+                  categoriesMap={categoriesMap}
+                />
+              ) : null}
             </div>
           ))}
         </div>
@@ -3024,6 +3099,8 @@ export const CalendarBody: React.FC<CalendarBodyProps> = ({
     </>
   );
 };
+export const CalendarBody = React.memo(CalendarBodyComponent);
+CalendarBody.displayName = 'CalendarBody';
 </file>
 
 <file path="src/components/home/views/CalendarHeader.tsx">
@@ -3077,208 +3154,6 @@ export const CalendarHeader: React.FC<CalendarHeaderProps> = ({
           <ChevronRight size={16} />
         </button>
       </div>
-    </div>
-  );
-};
-</file>
-
-<file path="src/components/home/views/CalendarView.tsx">
-import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
-import {
-  format,
-  startOfMonth,
-  startOfWeek,
-  endOfWeek,
-  addMonths,
-  addWeeks,
-  differenceInCalendarMonths,
-  differenceInCalendarWeeks,
-} from 'date-fns';
-import useEmblaCarousel from 'embla-carousel-react';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
-import { MonthView } from './MonthView';
-import { WeekView } from './WeekView';
-import { ViewToggle } from './ViewToggle';
-import { DayViewSheet } from './DayViewSheet';
-import { useTasks } from '../../../hooks/useTasks';
-import { useCategories } from '../../../hooks/useCategories';
-import type { CategoryDocument, TaskDocument } from '../../../db/schema';
-export type CalendarViewMode = 'month' | 'week';
-const SLIDES_EACH_SIDE = 30;
-const TOTAL_SLIDES = SLIDES_EACH_SIDE * 2 + 1;
-const CENTER_INDEX = SLIDES_EACH_SIDE;
-interface CalendarSlideProps {
-  date: Date;
-  viewMode: CalendarViewMode;
-  onDayClick: (date: Date) => void;
-  tasks: TaskDocument[];
-  categoriesMap: Record<string, { color: string; name: string }>;
-}
-const CalendarSlide = React.memo(({
-  date,
-  viewMode,
-  onDayClick,
-  tasks,
-  categoriesMap,
-}: CalendarSlideProps) => {
-  if (viewMode === 'month') {
-    return (
-      <MonthView
-        focusDate={date}
-        onDayClick={onDayClick}
-        tasks={tasks}
-        categoriesMap={categoriesMap}
-      />
-    );
-  }
-  return (
-    <WeekView
-      focusDate={date}
-      onDayClick={onDayClick}
-      tasks={tasks}
-      categoriesMap={categoriesMap}
-    />
-  );
-});
-CalendarSlide.displayName = 'CalendarSlide';
-export const CalendarView: React.FC = () => {
-  const [viewMode, setViewMode] = useState<CalendarViewMode>('month');
-  const [focusDate, setFocusDate] = useState(new Date());
-  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
-  const { tasks } = useTasks();
-  const { categories } = useCategories();
-  const categoriesMap = useMemo(() => {
-    return categories.reduce(
-      (acc: Record<string, { color: string; name: string }>, cat: CategoryDocument) => {
-        acc[cat.id] = { color: cat.color, name: cat.name };
-        return acc;
-      },
-      {}
-    );
-  }, [categories]);
-  const [baseDate, setBaseDate] = useState(focusDate);
-  const isInternalSwipeRef = useRef(false);
-  const [prevViewMode, setPrevViewMode] = useState(viewMode);
-  if (prevViewMode !== viewMode) {
-    setPrevViewMode(viewMode);
-    setBaseDate(focusDate);
-  }
-  const slides = useMemo(() => {
-    const fn = viewMode === 'month' ? addMonths : addWeeks;
-    return Array.from({ length: TOTAL_SLIDES }, (_, i) => fn(baseDate, i - CENTER_INDEX));
-  }, [baseDate, viewMode]);
-  const [emblaRef, emblaApi] = useEmblaCarousel({
-    loop: false,
-    align: 'start',
-    skipSnaps: false,
-  });
-  useEffect(() => {
-    if (!emblaApi) return;
-    if (isInternalSwipeRef.current) {
-      isInternalSwipeRef.current = false;
-      return;
-    }
-    const offset =
-      viewMode === 'month'
-        ? differenceInCalendarMonths(focusDate, baseDate)
-        : differenceInCalendarWeeks(focusDate, baseDate);
-    const targetIndex = CENTER_INDEX + offset;
-    if (targetIndex < 0 || targetIndex >= TOTAL_SLIDES) return;
-    if (emblaApi.selectedScrollSnap() !== targetIndex) {
-      emblaApi.scrollTo(targetIndex, true);
-    }
-  }, [emblaApi, focusDate, baseDate, viewMode]);
-  useEffect(() => {
-    if (!emblaApi) return;
-    const onSelect = () => {
-      const index = emblaApi.selectedScrollSnap();
-      const offset = index - CENTER_INDEX;
-      const fn = viewMode === 'month' ? addMonths : addWeeks;
-      const newDate = fn(baseDate, offset);
-      const same =
-        viewMode === 'month'
-          ? differenceInCalendarMonths(newDate, focusDate) === 0
-          : differenceInCalendarWeeks(newDate, focusDate) === 0;
-      if (!same) {
-        isInternalSwipeRef.current = true;
-        setFocusDate(newDate);
-      }
-    };
-    emblaApi.on('select', onSelect);
-    return () => {
-      emblaApi.off('select', onSelect);
-    };
-  }, [emblaApi, baseDate, focusDate, viewMode]);
-  const handlePrev = () => {
-    emblaApi?.scrollPrev();
-  };
-  const handleNext = () => {
-    emblaApi?.scrollNext();
-  };
-  const handleToggle = () => {
-    if (viewMode === 'month') {
-      setFocusDate(startOfMonth(focusDate));
-      setViewMode('week');
-    } else {
-      setViewMode('month');
-    }
-  };
-  const weekStart = startOfWeek(focusDate, { weekStartsOn: 0 });
-  const weekEnd = endOfWeek(focusDate, { weekStartsOn: 0 });
-  const title =
-    viewMode === 'month'
-      ? format(focusDate, 'MMMM yyyy')
-      : `${format(weekStart, 'MMM d')} - ${format(weekEnd, 'MMM d, yyyy')}`;
-  const handleDayClick = useCallback((date: Date) => {
-    setSelectedDate(date);
-  }, []);
-  return (
-    <div className="flex flex-col h-full animate-in fade-in duration-300">
-      <div className="px-4 py-3 flex items-center justify-between border-b border-[#333333]">
-        <h2 className="text-lg font-bold text-white transition-all duration-200">
-          {title}
-        </h2>
-        <div className="flex items-center gap-2">
-          <ViewToggle activeMode={viewMode} onToggle={handleToggle} />
-          <button
-            onClick={handlePrev}
-            className="p-1.5 rounded-lg bg-[#1E1E1E] border border-[#333333] text-gray-400 hover:text-white hover:bg-[#2A2A2A] transition-colors"
-          >
-            <ChevronLeft size={16} />
-          </button>
-          <button
-            onClick={handleNext}
-            className="p-1.5 rounded-lg bg-[#1E1E1E] border border-[#333333] text-gray-400 hover:text-white hover:bg-[#2A2A2A] transition-colors"
-          >
-            <ChevronRight size={16} />
-          </button>
-        </div>
-      </div>
-      <div className="flex-1 overflow-hidden py-2" ref={emblaRef}>
-        <div className="flex h-full" style={{ touchAction: 'pan-y' }}>
-          {slides.map((date, i) => (
-            <div
-              key={i}
-              className="flex-shrink-0 h-full w-full"
-              style={{ flex: '0 0 100%', minWidth: 0 }}
-            >
-              <CalendarSlide
-                date={date}
-                viewMode={viewMode}
-                onDayClick={handleDayClick}
-                tasks={tasks}
-                categoriesMap={categoriesMap}
-              />
-            </div>
-          ))}
-        </div>
-      </div>
-      <DayViewSheet
-        isOpen={!!selectedDate}
-        onClose={() => setSelectedDate(null)}
-        selectedDate={selectedDate || new Date()}
-        onDateChange={setSelectedDate}
-      />
     </div>
   );
 };
@@ -3489,7 +3364,7 @@ export const DatePickerSheet: React.FC<DatePickerSheetProps> = ({
 </file>
 
 <file path="src/components/home/views/DayCell.tsx">
-import React from 'react';
+import React, { useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { isToday } from 'date-fns';
 import { TaskBlock } from './TaskBlock';
@@ -3499,14 +3374,14 @@ interface DayCellProps {
   tasks: TaskDocument[];
   categories: Record<string, { color: string; name: string }>;
   isCurrentMonth?: boolean;
-  onClick?: () => void;
+  onDayClick?: (date: Date) => void;
 }
-export const DayCell: React.FC<DayCellProps> = ({
+const DayCellComponent: React.FC<DayCellProps> = ({
   date,
   tasks,
   categories,
   isCurrentMonth = true,
-  onClick,
+  onDayClick,
 }) => {
   const dayNumber = date.getDate();
   const dayOfWeek = date.getDay();
@@ -3515,14 +3390,18 @@ export const DayCell: React.FC<DayCellProps> = ({
   if (dayOfWeek === 6) dayColor = 'text-blue-500';
   if (dayOfWeek === 0) dayColor = 'text-red-500';
   if (!isCurrentMonth) dayColor = 'text-gray-600';
-  const sortedTasks = [...tasks].sort((a, b) => {
-    if (a.completed !== b.completed) return a.completed ? -1 : 1;
-    return 0;
-  });
+  const sortedTasks = useMemo(() => {
+    if (tasks.length <= 1) return tasks;
+    return [...tasks].sort((a, b) => {
+      if (a.completed !== b.completed) return a.completed ? -1 : 1;
+      return 0;
+    });
+  }, [tasks]);
+  const handleClick = onDayClick ? () => onDayClick(date) : undefined;
   return (
     <motion.div
-      whileTap={onClick ? { scale: 0.98 } : {}}
-      onClick={onClick}
+      whileTap={onDayClick ? { scale: 0.98 } : {}}
+      onClick={handleClick}
       className={`py-0.5 cursor-pointer flex flex-col h-full rounded-md hover:bg-[#1E1E1E] transition-colors ${
         !isCurrentMonth ? 'opacity-40' : ''
       }`}
@@ -3548,6 +3427,8 @@ export const DayCell: React.FC<DayCellProps> = ({
     </motion.div>
   );
 };
+export const DayCell = React.memo(DayCellComponent);
+DayCell.displayName = 'DayCell';
 </file>
 
 <file path="src/components/home/views/DayViewSheet.tsx">
@@ -4088,24 +3969,6 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
 };
 </file>
 
-<file path="src/components/home/views/DiaryView.tsx">
-import React from 'react';
-import { BookOpen } from 'lucide-react';
-export const DiaryView: React.FC = () => {
-  return (
-    <div className="flex flex-col items-center justify-center h-[60vh] text-center p-6 animate-in fade-in duration-300">
-      <div className="w-16 h-16 bg-[#1E1E1E] rounded-full flex items-center justify-center mb-4 border border-[#333333]">
-        <BookOpen size={32} className="text-gray-400" />
-      </div>
-      <h2 className="text-xl font-bold text-white mb-2">Diary View</h2>
-      <p className="text-gray-500 text-sm max-w-xs">
-        Daily journal editor coming in Batch 5.
-      </p>
-    </div>
-  );
-};
-</file>
-
 <file path="src/components/home/views/EditTaskSheet.tsx">
 import React, { useState, useRef, useEffect } from 'react';
 import { BottomSheet } from '../../ui/BottomSheet';
@@ -4467,47 +4330,65 @@ export const MemoSheet: React.FC<MemoSheetProps> = ({
 </file>
 
 <file path="src/components/home/views/MonthView.tsx">
-import React from 'react';
-import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, eachDayOfInterval, isSameMonth } from 'date-fns';
+import React, { useMemo } from 'react';
+import {
+  format,
+  startOfMonth,
+  endOfMonth,
+  startOfWeek,
+  endOfWeek,
+  eachDayOfInterval,
+  isSameMonth,
+} from 'date-fns';
 import { DayCell } from './DayCell';
 import type { TaskDocument } from '../../../db/schema';
+const EMPTY_TASKS: TaskDocument[] = [];
 interface MonthViewProps {
   focusDate: Date;
   onDayClick?: (date: Date) => void;
-  tasks: TaskDocument[];
+  tasksByDate: Map<string, TaskDocument[]>;
   categoriesMap: Record<string, { color: string; name: string }>;
 }
-export const MonthView: React.FC<MonthViewProps> = ({ focusDate, onDayClick, tasks, categoriesMap }) => {
-  const monthStart = startOfMonth(focusDate);
-  const monthEnd = endOfMonth(monthStart);
-  const startDate = startOfWeek(monthStart);
-  const endDate = endOfWeek(monthEnd);
-  const calendarDays = eachDayOfInterval({ start: startDate, end: endDate });
+export const MonthView: React.FC<MonthViewProps> = ({
+  focusDate,
+  onDayClick,
+  tasksByDate,
+  categoriesMap,
+}) => {
+  const calendarDays = useMemo(() => {
+    const monthStart = startOfMonth(focusDate);
+    const monthEnd = endOfMonth(monthStart);
+    const startDate = startOfWeek(monthStart);
+    const endDate = endOfWeek(monthEnd);
+    return eachDayOfInterval({ start: startDate, end: endDate });
+  }, [focusDate]);
   const weekDays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-  const getTasksForDay = (day: Date) => {
-    const dateStr = format(day, 'yyyy-MM-dd');
-    return tasks.filter((task: TaskDocument) => task.date === dateStr);
-  };
   return (
     <div className="flex flex-col h-full">
       <div className="grid grid-cols-7 gap-1 px-2 mb-1">
-        {weekDays.map(day => (
-          <div key={day} className="text-center text-[10px] font-medium text-gray-500 py-1">
+        {weekDays.map((day) => (
+          <div
+            key={day}
+            className="text-center text-[10px] font-medium text-gray-500 py-1"
+          >
             {day}
           </div>
         ))}
       </div>
       <div className="grid grid-cols-7 gap-1 px-2 flex-1 auto-rows-fr">
-        {calendarDays.map((day, index) => (
-          <DayCell
-            key={index}
-            date={day}
-            tasks={getTasksForDay(day)}
-            categories={categoriesMap}
-            isCurrentMonth={isSameMonth(day, focusDate)}
-            onClick={onDayClick ? () => onDayClick(day) : undefined}
-          />
-        ))}
+        {calendarDays.map((day) => {
+          const dateStr = format(day, 'yyyy-MM-dd');
+          return (
+            <DayCell
+              key={dateStr}
+              date={day}
+              tasks={tasksByDate.get(dateStr) ?? EMPTY_TASKS}
+              categories={categoriesMap}
+              isCurrentMonth={isSameMonth(day, focusDate)}
+              onDayClick={onDayClick}
+            />
+          );
+        })}
       </div>
     </div>
   );
@@ -5064,24 +4945,6 @@ export const TaskVisibilitySheet: React.FC<TaskVisibilitySheetProps> = ({
 };
 </file>
 
-<file path="src/components/home/views/TodoListView.tsx">
-import React from 'react';
-import { ListChecks } from 'lucide-react';
-export const TodoListView: React.FC = () => {
-  return (
-    <div className="flex flex-col items-center justify-center h-[60vh] text-center p-6 animate-in fade-in duration-300">
-      <div className="w-16 h-16 bg-[#1E1E1E] rounded-full flex items-center justify-center mb-4 border border-[#333333]">
-        <ListChecks size={32} className="text-gray-400" />
-      </div>
-      <h2 className="text-xl font-bold text-white mb-2">Todo List View</h2>
-      <p className="text-gray-500 text-sm max-w-xs">
-        Compact color grid and vertical task list coming in Batch 4.
-      </p>
-    </div>
-  );
-};
-</file>
-
 <file path="src/components/home/views/useCalendarState.ts">
 import { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import {
@@ -5099,10 +4962,13 @@ export type CalendarViewMode = 'month' | 'week';
 const SLIDES_EACH_SIDE = 30;
 const TOTAL_SLIDES = SLIDES_EACH_SIDE * 2 + 1;
 const CENTER_INDEX = SLIDES_EACH_SIDE;
+const RENDER_WINDOW = 2;
 export interface CalendarState {
   viewMode: CalendarViewMode;
   focusDate: Date;
   slides: Date[];
+  renderStart: number;
+  renderEnd: number;
   emblaRef: (node: HTMLElement | null) => void;
   title: string;
   handlePrev: () => void;
@@ -5114,6 +4980,7 @@ export function useCalendarState(): CalendarState {
   const [viewMode, setViewMode] = useState<CalendarViewMode>('month');
   const [focusDate, setFocusDate] = useState<Date>(() => new Date());
   const [baseDate, setBaseDate] = useState<Date>(() => new Date());
+  const [emblaActiveIndex, setEmblaActiveIndex] = useState(CENTER_INDEX);
   const isInternalSwipeRef = useRef(false);
   const [prevViewMode, setPrevViewMode] = useState(viewMode);
   if (prevViewMode !== viewMode) {
@@ -5130,7 +4997,24 @@ export function useCalendarState(): CalendarState {
     loop: false,
     align: 'start',
     skipSnaps: false,
+    startIndex: CENTER_INDEX,
   });
+  useEffect(() => {
+    if (!emblaApi) return;
+    const update = () => {
+      const progress = emblaApi.scrollProgress();
+      const raw = Math.round(progress * (TOTAL_SLIDES - 1));
+      const idx = Math.max(0, Math.min(TOTAL_SLIDES - 1, raw));
+      setEmblaActiveIndex((prev) => (prev === idx ? prev : idx));
+    };
+    update();
+    emblaApi.on('scroll', update);
+    emblaApi.on('reInit', update);
+    return () => {
+      emblaApi.off('scroll', update);
+      emblaApi.off('reInit', update);
+    };
+  }, [emblaApi]);
   useEffect(() => {
     if (!emblaApi) return;
     if (isInternalSwipeRef.current) {
@@ -5194,10 +5078,28 @@ export function useCalendarState(): CalendarState {
       ? format(focusDate, 'MMMM yyyy')
       : `${format(weekStart, 'MMM d')} - ${format(weekEnd, 'MMM d, yyyy')}`;
   }, [viewMode, focusDate, weekStart, weekEnd]);
+  const focusIndex = useMemo(() => {
+    const offset =
+      viewMode === 'month'
+        ? differenceInCalendarMonths(focusDate, baseDate)
+        : differenceInCalendarWeeks(focusDate, baseDate);
+    const raw = CENTER_INDEX + offset;
+    return Math.max(0, Math.min(TOTAL_SLIDES - 1, raw));
+  }, [focusDate, baseDate, viewMode]);
+  const renderStart = Math.max(
+    0,
+    Math.min(emblaActiveIndex, focusIndex) - RENDER_WINDOW
+  );
+  const renderEnd = Math.min(
+    TOTAL_SLIDES - 1,
+    Math.max(emblaActiveIndex, focusIndex) + RENDER_WINDOW
+  );
   return {
     viewMode,
     focusDate,
     slides,
+    renderStart,
+    renderEnd,
     emblaRef,
     title,
     handlePrev,
@@ -5227,44 +5129,59 @@ export const ViewToggle: React.FC<ViewToggleProps> = ({ activeMode, onToggle }) 
 </file>
 
 <file path="src/components/home/views/WeekView.tsx">
-import React from 'react';
-import { format, startOfWeek, endOfWeek, eachDayOfInterval } from 'date-fns';
+import React, { useMemo } from 'react';
+import {
+  format,
+  startOfWeek,
+  endOfWeek,
+  eachDayOfInterval,
+} from 'date-fns';
 import { DayCell } from './DayCell';
 import type { TaskDocument } from '../../../db/schema';
+const EMPTY_TASKS: TaskDocument[] = [];
 interface WeekViewProps {
   focusDate: Date;
   onDayClick?: (date: Date) => void;
-  tasks: TaskDocument[];
+  tasksByDate: Map<string, TaskDocument[]>;
   categoriesMap: Record<string, { color: string; name: string }>;
 }
-export const WeekView: React.FC<WeekViewProps> = ({ focusDate, onDayClick, tasks, categoriesMap }) => {
-  const weekStart = startOfWeek(focusDate, { weekStartsOn: 0 });
-  const weekEnd = endOfWeek(focusDate, { weekStartsOn: 0 });
-  const weekDays = eachDayOfInterval({ start: weekStart, end: weekEnd });
-  const getTasksForDay = (day: Date) => {
-    const dateStr = format(day, 'yyyy-MM-dd');
-    return tasks.filter((task: TaskDocument) => task.date === dateStr);
-  };
+export const WeekView: React.FC<WeekViewProps> = ({
+  focusDate,
+  onDayClick,
+  tasksByDate,
+  categoriesMap,
+}) => {
+  const weekDays = useMemo(() => {
+    const weekStart = startOfWeek(focusDate, { weekStartsOn: 0 });
+    const weekEnd = endOfWeek(focusDate, { weekStartsOn: 0 });
+    return eachDayOfInterval({ start: weekStart, end: weekEnd });
+  }, [focusDate]);
   return (
     <div className="flex flex-col h-full">
       <div className="grid grid-cols-7 gap-1 px-2 mb-1">
-        {weekDays.map(day => (
-          <div key={day.toISOString()} className="text-center text-[10px] font-medium text-gray-500 py-1">
+        {weekDays.map((day) => (
+          <div
+            key={day.toISOString()}
+            className="text-center text-[10px] font-medium text-gray-500 py-1"
+          >
             {format(day, 'EEE')}
           </div>
         ))}
       </div>
       <div className="grid grid-cols-7 gap-1 px-2 flex-1 auto-rows-fr">
-        {weekDays.map((day, index) => (
-          <DayCell
-            key={index}
-            date={day}
-            tasks={getTasksForDay(day)}
-            categories={categoriesMap}
-            isCurrentMonth={true}
-            onClick={onDayClick ? () => onDayClick(day) : undefined}
-          />
-        ))}
+        {weekDays.map((day) => {
+          const dateStr = format(day, 'yyyy-MM-dd');
+          return (
+            <DayCell
+              key={dateStr}
+              date={day}
+              tasks={tasksByDate.get(dateStr) ?? EMPTY_TASKS}
+              categories={categoriesMap}
+              isCurrentMonth={true}
+              onDayClick={onDayClick}
+            />
+          );
+        })}
       </div>
     </div>
   );
@@ -5603,7 +5520,7 @@ export const PersonCarousel: React.FC<PersonCarouselProps> = ({
 </file>
 
 <file path="src/components/home/PersonPane.tsx">
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { PersonProfileHeader } from './PersonProfileHeader';
 import { CalendarHeader } from './views/CalendarHeader';
 import { CalendarBody } from './views/CalendarBody';
@@ -5622,6 +5539,7 @@ interface PersonPaneProps {
   isActive: boolean;
 }
 const VIEW_KEY = 'mosaic_activeView';
+const FRIEND_REFETCH_MIN_INTERVAL_MS = 15_000;
 function readMeView(): ViewType {
   const saved = localStorage.getItem(VIEW_KEY);
   if (saved === 'calendar' || saved === 'diary') return saved;
@@ -5655,8 +5573,23 @@ export const PersonPane: React.FC<PersonPaneProps> = ({ person, isActive }) => {
     error: friendError,
     errorKind: friendErrorKind,
     reactToTask,
+    refetch: refetchFriendCalendar,
   } = useFriendCalendar(friendId);
   const { sendTaskReaction } = useMessages(friendId);
+  const lastFriendRefetchRef = useRef(0);
+  useEffect(() => {
+    if (!isActive) return;
+    if (isMe) return;
+    if (!friendId) return;
+    const now = Date.now();
+    if (now - lastFriendRefetchRef.current < FRIEND_REFETCH_MIN_INTERVAL_MS) {
+      return;
+    }
+    lastFriendRefetchRef.current = now;
+    refetchFriendCalendar(true).catch((err) => {
+      console.error('[PersonPane] Friend activation refetch failed:', err);
+    });
+  }, [isActive, isMe, friendId, refetchFriendCalendar]);
   const [feedback, setFeedback] = useState<string | null>(null);
   useEffect(() => {
     if (!feedback) return;
@@ -5733,6 +5666,8 @@ export const PersonPane: React.FC<PersonPaneProps> = ({ person, isActive }) => {
           <CalendarBody
             viewMode={calendarState.viewMode}
             slides={calendarState.slides}
+            renderStart={calendarState.renderStart}
+            renderEnd={calendarState.renderEnd}
             emblaRef={calendarState.emblaRef}
             tasks={tasks}
             categoriesMap={categoriesMap}
@@ -5811,26 +5746,6 @@ export const TopBar: React.FC<TopBarProps> = ({ activeView, onViewChange }) => {
       </div>
     </div>
   );
-};
-</file>
-
-<file path="src/components/home/ViewContainer.tsx">
-import React from 'react';
-import { CalendarView } from './views/CalendarView';
-import { DiaryView } from './views/DiaryView';
-import type { ViewType } from './ViewSwitcher';
-interface ViewContainerProps {
-  activeView: ViewType;
-}
-export const ViewContainer: React.FC<ViewContainerProps> = ({ activeView }) => {
-  switch (activeView) {
-    case 'calendar':
-      return <CalendarView />;
-    case 'diary':
-      return <DiaryView />;
-    default:
-      return <CalendarView />;
-  }
 };
 </file>
 
@@ -12253,31 +12168,87 @@ interface ImageState {
   url: string | null;
   isLoading: boolean;
 }
+interface CacheEntry {
+  url: string | null;
+  promise: Promise<string | null> | null;
+  refCount: number;
+  revokeTimer: ReturnType<typeof setTimeout> | null;
+}
+const objectUrlCache = new Map<string, CacheEntry>();
+const REVOKE_DELAY_MS = 1500;
+function readCachedUrl(fileId: string | undefined): string | null {
+  if (!fileId) return null;
+  return objectUrlCache.get(fileId)?.url ?? null;
+}
+function scheduleEviction(fileId: string, entry: CacheEntry): void {
+  if (entry.revokeTimer) clearTimeout(entry.revokeTimer);
+  entry.revokeTimer = setTimeout(() => {
+    entry.revokeTimer = null;
+    if (entry.refCount > 0) return;
+    if (entry.url) {
+      URL.revokeObjectURL(entry.url);
+    }
+    objectUrlCache.delete(fileId);
+  }, REVOKE_DELAY_MS);
+}
+function acquireObjectUrl(fileId: string): {
+  promise: Promise<string | null>;
+  release: () => void;
+} {
+  let entry = objectUrlCache.get(fileId);
+  if (!entry) {
+    entry = { url: null, promise: null, refCount: 0, revokeTimer: null };
+    objectUrlCache.set(fileId, entry);
+  }
+  const e = entry;
+  if (e.revokeTimer) {
+    clearTimeout(e.revokeTimer);
+    e.revokeTimer = null;
+  }
+  e.refCount++;
+  if (!e.promise) {
+    e.promise = getLocalImageUrl(fileId).then((url) => {
+      if (objectUrlCache.get(fileId) !== e) {
+        if (url) URL.revokeObjectURL(url);
+        return null;
+      }
+      e.url = url;
+      return url;
+    });
+  }
+  const release = () => {
+    e.refCount--;
+    if (e.refCount <= 0) {
+      scheduleEviction(fileId, e);
+    }
+  };
+  return { promise: e.promise, release };
+}
 export function useTaskImage(fileId: string | undefined) {
   const [trackedFileId, setTrackedFileId] = useState<string | undefined>(fileId);
-  const [state, setState] = useState<ImageState>(() => ({
-    url: null,
-    isLoading: !!fileId,
-  }));
+  const [state, setState] = useState<ImageState>(() => {
+    const cached = readCachedUrl(fileId);
+    return { url: cached, isLoading: !cached && !!fileId };
+  });
   if (fileId !== trackedFileId) {
     setTrackedFileId(fileId);
-    setState({ url: null, isLoading: !!fileId });
+    const cached = readCachedUrl(fileId);
+    setState({ url: cached, isLoading: !cached && !!fileId });
   }
   useEffect(() => {
     if (!fileId) return;
     let isMounted = true;
-    let currentUrl: string | null = null;
-    getLocalImageUrl(fileId).then((url) => {
-      if (!isMounted) {
-        if (url) URL.revokeObjectURL(url);
-        return;
-      }
-      currentUrl = url;
-      setState({ url, isLoading: false });
+    const { promise, release } = acquireObjectUrl(fileId);
+    promise.then((url) => {
+      if (!isMounted) return;
+      setState((prev) => {
+        if (prev.url === url && !prev.isLoading) return prev;
+        return { url, isLoading: false };
+      });
     });
     return () => {
       isMounted = false;
-      if (currentUrl) URL.revokeObjectURL(currentUrl);
+      release();
     };
   }, [fileId]);
   return { imageUrl: state.url, isLoading: state.isLoading };

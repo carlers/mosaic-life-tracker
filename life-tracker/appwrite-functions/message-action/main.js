@@ -47,7 +47,6 @@ function validateOptionalIso(value, maxLen) {
   if (Number.isNaN(Date.parse(r.value))) return { ok: false };
   return r;
 }
-// Emoji: non-empty after trim, ≤16 graphemes.
 function validateEmoji(value) {
   if (typeof value !== 'string') return { ok: false };
   const trimmed = value.trim();
@@ -536,9 +535,6 @@ async function cascadeReplyWipe(
   log(`unsend cascade: wiped ${total} reply snapshot(s) for ${senderMessageId}`);
   return total;
 }
-// ---------------------------------------------------------------------------
-// unsend (add messageId/recipientId validation — V3, V8)
-// ---------------------------------------------------------------------------
 async function handleUnsend(tablesDB, callerId, payload, log, error) {
   const p = payload || {};
   if (!isValidRowId(p.messageId)) {
@@ -691,7 +687,7 @@ async function resolveLegacyPeerRowId(tablesDB, myRow, log) {
     const candidates = [];
     let cursor = undefined;
     let pages = 0;
-    const MAX_PAGES = 5; // safety cap: up to 500 rows scanned
+    const MAX_PAGES = 5;
     for (;;) {
       const queries = [
         Query.equal('user_id', senderId),
@@ -800,8 +796,6 @@ async function handleReact(tablesDB, callerId, payload, log, error) {
     }
   }
   const targets = [myRowId, effectivePeerRowId].filter(Boolean);
-  // Pass A: read + compute + validate both rows before any write so a
-  // one-row overflow cannot leave the pair partially committed.
   const prepared = [];
   for (const rowId of targets) {
     try {
@@ -828,9 +822,6 @@ async function handleReact(tablesDB, callerId, payload, log, error) {
       log(`react: row ${rowId} read skipped (${err.message})`);
     }
   }
-  // Pass B: write both prepared rows. If the second write fails after the
-  // first succeeds, we accept partial commit and rely on the next sync
-  // cycle to reconcile (see §20.7).
   for (const { rowId, nextStr } of prepared) {
     try {
       await tablesDB.updateRow({
@@ -1052,7 +1043,7 @@ async function handleGetFriendCalendar(tablesDB, callerId, payload, log, error) 
     },
   };
 }
-module.exports = async ({ req, res, log, error }) => {
+const handler = async ({ req, res, log, error }) => {
   const callerId = req.headers['x-appwrite-user-id'];
   if (!callerId) {
     error('Unauthorized: no x-appwrite-user-id header');
@@ -1115,3 +1106,9 @@ module.exports = async ({ req, res, log, error }) => {
     return res.json({ error: 'An internal error occurred' }, 500);
   }
 };
+handler.sha256Hex = sha256Hex;
+handler.makeRecipientRowId = makeRecipientRowId;
+handler.parseReactions = parseReactions;
+handler.stringifyReactions = stringifyReactions;
+handler.applyReactionDelta = applyReactionDelta;
+module.exports = handler;

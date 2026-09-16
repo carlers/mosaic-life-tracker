@@ -2,14 +2,8 @@ import { useState, useEffect, useCallback } from 'react';
 import { getDatabase } from '../db/database';
 import { useAuth } from './useAuth';
 import type { SettingsDocument } from '../db/schema';
-
 const DEBUG = import.meta.env.DEV;
 const MAX_ROW_ID_LENGTH = 36;
-
-/**
- * Deterministic 64-bit-ish hash (two djb2 variants) → base36.
- * Output is ~12-14 chars, safe for Appwrite row IDs.
- */
 function hashString(str: string): string {
   let h1 = 5381;
   let h2 = 52711;
@@ -20,35 +14,24 @@ function hashString(str: string): string {
   }
   return (h1 >>> 0).toString(36) + (h2 >>> 0).toString(36);
 }
-
-/**
- * Appwrite row IDs must be ≤36 chars, a-z/A-Z/0-9/underscore, no leading underscore.
- * Prefer `${userId}_${key}` when it fits (keeps legacy IDs stable), otherwise
- * fall back to a deterministic `s_${hash}`.
- */
-function makeSettingsRowId(userId: string, key: string): string {
+export function makeSettingsRowId(userId: string, key: string): string {
   const raw = `${userId}_${key}`;
   if (raw.length <= MAX_ROW_ID_LENGTH) return raw;
   return `s_${hashString(raw)}`;
 }
-
 export function useSettings() {
   const { user } = useAuth();
   const userId = user?.$id;
   const [settings, setSettings] = useState<Record<string, unknown>>({});
   const [loadedUserId, setLoadedUserId] = useState<string | null>(null);
-
   useEffect(() => {
     if (!userId) return;
     const uid = userId;
     let subscription: { unsubscribe: () => void } | undefined;
     let isMounted = true;
-
     async function init() {
       try {
         const db = getDatabase();
-
-        // Clean up legacy rows whose IDs are too long to ever sync.
         try {
           const all = await db.settings
             .find({ selector: { userId: uid } })
@@ -69,7 +52,6 @@ export function useSettings() {
             console.warn('[useSettings] Legacy cleanup failed:', cleanupErr);
           }
         }
-
         const query = db.settings.find({
           selector: {
             userId: uid,
@@ -105,7 +87,6 @@ export function useSettings() {
       if (subscription) subscription.unsubscribe();
     };
   }, [userId]);
-
   const setSetting = useCallback(
     async (key: string, value: unknown) => {
       const uid = user?.$id;
@@ -117,7 +98,6 @@ export function useSettings() {
       const id = makeSettingsRowId(uid, key);
       const stringValue =
         typeof value === 'string' ? value : JSON.stringify(value);
-
       const doc = await db.settings.findOne(id).exec();
       if (doc) {
         await doc.patch({ value: stringValue, isDeleted: false });
@@ -134,16 +114,13 @@ export function useSettings() {
     },
     [user?.$id]
   );
-
   const getSetting = useCallback(
     (key: string, defaultValue?: unknown) => {
       return settings[key] !== undefined ? settings[key] : defaultValue;
     },
     [settings]
   );
-
   const visibleSettings = userId && loadedUserId === userId ? settings : {};
   const isLoading = !!userId && loadedUserId !== userId;
-
   return { settings: visibleSettings, isLoading, setSetting, getSetting };
 }
