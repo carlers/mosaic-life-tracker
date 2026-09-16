@@ -20,6 +20,7 @@ const accountGetMock = vi.hoisted(() => vi.fn());
 const listRowsMock = vi.hoisted(() => vi.fn());
 const updateRowMock = vi.hoisted(() => vi.fn());
 const upsertRowMock = vi.hoisted(() => vi.fn());
+const createRowMock = vi.hoisted(() => vi.fn());
 const getDatabaseMock = vi.hoisted(() => vi.fn());
 vi.mock('appwrite', () => ({
   Query: {
@@ -46,6 +47,7 @@ vi.mock('../../src/lib/sdk', () => ({
     listRows: listRowsMock,
     updateRow: updateRowMock,
     upsertRow: upsertRowMock,
+    createRow: createRowMock,
   },
 }));
 vi.mock('../../src/db/database', () => ({
@@ -212,6 +214,25 @@ function makeLocalMessageDoc(
     incrementalPatch: vi.fn().mockResolvedValue(undefined),
   };
 }
+function makeTaskOnlyDb(tasks: {
+  findOne: () => { exec: () => Promise<unknown> };
+  find: () => { exec: () => Promise<unknown[]> };
+  upsert: ReturnType<typeof vi.fn>;
+}) {
+  return {
+    tasks,
+    categories: makeEmptyCollection(),
+    diary: makeEmptyCollection(),
+    settings: makeEmptyCollection(),
+    friendships: makeEmptyCollection(),
+    messages: makeEmptyCollection(),
+  };
+}
+function taskListRowsCalls() {
+  return listRowsMock.mock.calls.filter(
+    (c) => (c[0] as { tableId: string }).tableId === 'tasks'
+  );
+}
 beforeEach(async () => {
   vi.resetModules();
   syncModule = await import('../../src/db/sync');
@@ -220,12 +241,14 @@ beforeEach(async () => {
   listRowsMock.mockReset();
   updateRowMock.mockReset();
   upsertRowMock.mockReset();
+  createRowMock.mockReset();
   getDatabaseMock.mockReset();
   getDatabaseMock.mockReturnValue(makeDb());
   listRowsMock.mockResolvedValue({ rows: [] });
   accountGetMock.mockResolvedValue({ $id: 'user_A' });
   updateRowMock.mockResolvedValue({});
   upsertRowMock.mockResolvedValue({});
+  createRowMock.mockResolvedValue({});
   errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
   warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
   logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
@@ -464,15 +487,9 @@ describe('sync — per-collection state versioning (F15)', () => {
       }
     );
     await syncModule.initializeSync();
-    // The legacy pull boundary was non-zero, so the next pull query must
-    // have included a `$updatedAt > since` filter. If the loader had
-    // rejected the unversioned blob, pullBoundaryMs would be 0 and no
-    // greaterThan query would appear.
-    const tasksCall = listRowsMock.mock.calls.find(
-      (call) => (call[0] as { tableId: string }).tableId === 'tasks'
-    );
+    const tasksCall = taskListRowsCalls()[0];
     expect(tasksCall).toBeDefined();
-    const queries = (tasksCall![0] as { queries: { op?: string }[] }).queries;
+    const queries = (tasksCall[0] as { queries: { op?: string }[] }).queries;
     expect(queries.some((q) => q.op === 'greaterThan')).toBe(true);
     const rawAfter = localStorageMock.getItem('lastSyncTimePerCollection');
     const stateAfter = JSON.parse(rawAfter!);
@@ -494,12 +511,9 @@ describe('sync — per-collection state versioning (F15)', () => {
       JSON.stringify(future)
     );
     await syncModule.initializeSync();
-    // Fresh state: pullBoundaryMs = 0, so no greaterThan query for tasks.
-    const tasksCall = listRowsMock.mock.calls.find(
-      (call) => (call[0] as { tableId: string }).tableId === 'tasks'
-    );
+    const tasksCall = taskListRowsCalls()[0];
     expect(tasksCall).toBeDefined();
-    const queries = (tasksCall![0] as { queries: { op?: string }[] }).queries;
+    const queries = (tasksCall[0] as { queries: { op?: string }[] }).queries;
     expect(queries.some((q) => q.op === 'greaterThan')).toBe(false);
   });
 });
@@ -514,21 +528,15 @@ describe('sync — lastSyncTime is user-scoped (F20)', () => {
     await syncModule.initializeSync();
     const userATimestamp = localStorageMock.getItem('lastSyncTime_user_A');
     expect(userATimestamp).toBeTruthy();
-    // Ensure the second sync writes a strictly later ISO timestamp. Without
-    // this delay both syncs can complete within the same millisecond and
-    // produce identical `new Date().toISOString()` values, which is a
-    // correct-but-coincidental outcome.
     await new Promise((r) => setTimeout(r, 10));
     accountGetMock.mockResolvedValue({ $id: 'user_B' });
     await syncModule.initializeSync();
     const userBTimestamp = localStorageMock.getItem('lastSyncTime_user_B');
     expect(userBTimestamp).toBeTruthy();
-    // user_A's scoped entry is preserved verbatim; user_B's is distinct.
     expect(localStorageMock.getItem('lastSyncTime_user_A')).toBe(
       userATimestamp
     );
     expect(userBTimestamp).not.toBe(userATimestamp);
-    // syncStatus.lastSync tracks the current owner's scoped value.
     const statusAfterB = syncModule.getSyncStatus();
     expect(statusAfterB.lastSync).toBe(userBTimestamp);
   });
@@ -624,7 +632,6 @@ describe('sync — read_at pull for dirty outgoing messages (F12)', () => {
 });
 describe('sync — pull upsert race window (F13)', () => {
   it('a local edit landing between check and upsert is not clobbered', async () => {
-    // Prime per-collection state to obtain a non-zero dirty boundary.
     await syncModule.initializeSync();
     const rawPrimed = localStorageMock.getItem('lastSyncTimePerCollection');
     const dirtyMs = new Date(
@@ -634,8 +641,8 @@ describe('sync — pull upsert race window (F13)', () => {
     const racedLwt = dirtyMs + 100;
     const upsertSpy = vi.fn().mockResolvedValue(undefined);
     let findOneCalls = 0;
-    getDatabaseMock.mockReturnValue({
-      tasks: {
+    getDatabaseMock.mockReturnValue(
+      makeTaskOnlyDb({
         findOne: () => ({
           exec: async () => {
             findOneCalls++;
@@ -645,13 +652,8 @@ describe('sync — pull upsert race window (F13)', () => {
         }),
         find: () => ({ exec: async () => [] }),
         upsert: upsertSpy,
-      },
-      categories: makeEmptyCollection(),
-      diary: makeEmptyCollection(),
-      settings: makeEmptyCollection(),
-      friendships: makeEmptyCollection(),
-      messages: makeEmptyCollection(),
-    });
+      })
+    );
     listRowsMock.mockImplementation(
       async ({ tableId }: { tableId: string }) => {
         if (tableId === 'tasks') {
@@ -665,11 +667,8 @@ describe('sync — pull upsert race window (F13)', () => {
       }
     );
     await syncModule.initializeSync();
-    // Both findOne calls happened (initial + re-check).
     expect(findOneCalls).toBeGreaterThanOrEqual(2);
-    // The re-check saw a newer lwt; upsert must have been skipped.
     expect(upsertSpy).not.toHaveBeenCalled();
-    // A mid-pull race is not a failure: pull boundary must have advanced.
     const rawAfter = localStorageMock.getItem('lastSyncTimePerCollection');
     const stateAfter = JSON.parse(rawAfter!);
     expect(stateAfter.entries.tasks.pull).not.toBe('');
@@ -685,20 +684,15 @@ describe('sync — pull upsert race window (F13)', () => {
       code: 'CONFLICT',
     });
     const upsertSpy = vi.fn().mockRejectedValue(conflictErr);
-    getDatabaseMock.mockReturnValue({
-      tasks: {
+    getDatabaseMock.mockReturnValue(
+      makeTaskOnlyDb({
         findOne: () => ({
           exec: async () => makeLocalDocWithLwt('task_cf', stableLwt),
         }),
         find: () => ({ exec: async () => [] }),
         upsert: upsertSpy,
-      },
-      categories: makeEmptyCollection(),
-      diary: makeEmptyCollection(),
-      settings: makeEmptyCollection(),
-      friendships: makeEmptyCollection(),
-      messages: makeEmptyCollection(),
-    });
+      })
+    );
     listRowsMock.mockImplementation(
       async ({ tableId }: { tableId: string }) => {
         if (tableId === 'tasks') {
@@ -711,8 +705,39 @@ describe('sync — pull upsert race window (F13)', () => {
     );
     await syncModule.initializeSync();
     expect(upsertSpy).toHaveBeenCalledTimes(1);
-    // CONFLICT is a preserved-local-edit, not a failure: pull boundary
-    // must have advanced.
+    const rawAfter = localStorageMock.getItem('lastSyncTimePerCollection');
+    const stateAfter = JSON.parse(rawAfter!);
+    expect(stateAfter.entries.tasks.pull).not.toBe('');
+  });
+  it('RxDB CONFLICT during pull insert (local doc created mid-cycle) is not classified as a row failure', async () => {
+    const conflictErr = Object.assign(new Error('conflict'), {
+      code: 'CONFLICT',
+    });
+    const upsertSpy = vi.fn().mockRejectedValue(conflictErr);
+    getDatabaseMock.mockReturnValue(
+      makeTaskOnlyDb({
+        findOne: () => ({ exec: async () => null }),
+        find: () => ({ exec: async () => [] }),
+        upsert: upsertSpy,
+      })
+    );
+    listRowsMock.mockImplementation(
+      async ({ tableId }: { tableId: string }) => {
+        if (tableId === 'tasks') {
+          return {
+            rows: [
+              makeRemoteTaskRow(
+                'task_insert_cf',
+                '2027-01-01T00:00:00.000Z'
+              ),
+            ],
+          };
+        }
+        return { rows: [] };
+      }
+    );
+    await syncModule.initializeSync();
+    expect(upsertSpy).toHaveBeenCalledTimes(1);
     const rawAfter = localStorageMock.getItem('lastSyncTimePerCollection');
     const stateAfter = JSON.parse(rawAfter!);
     expect(stateAfter.entries.tasks.pull).not.toBe('');
@@ -725,20 +750,15 @@ describe('sync — pull upsert race window (F13)', () => {
     ).getTime();
     const stableLwt = dirtyMs - 100;
     const upsertSpy = vi.fn().mockResolvedValue(undefined);
-    getDatabaseMock.mockReturnValue({
-      tasks: {
+    getDatabaseMock.mockReturnValue(
+      makeTaskOnlyDb({
         findOne: () => ({
           exec: async () => makeLocalDocWithLwt('task_ok', stableLwt),
         }),
         find: () => ({ exec: async () => [] }),
         upsert: upsertSpy,
-      },
-      categories: makeEmptyCollection(),
-      diary: makeEmptyCollection(),
-      settings: makeEmptyCollection(),
-      friendships: makeEmptyCollection(),
-      messages: makeEmptyCollection(),
-    });
+      })
+    );
     listRowsMock.mockImplementation(
       async ({ tableId }: { tableId: string }) => {
         if (tableId === 'tasks') {
@@ -751,5 +771,308 @@ describe('sync — pull upsert race window (F13)', () => {
     );
     await syncModule.initializeSync();
     expect(upsertSpy).toHaveBeenCalledTimes(1);
+  });
+});
+describe('sync — pull pagination (F14)', () => {
+  it('a multi-page pull uses cursorAfter with the previous page last id', async () => {
+    const page1 = Array.from({ length: 100 }, (_, i) =>
+      makeRemoteTaskRow(
+        `task_${String(i).padStart(3, '0')}`,
+        '2026-01-01T00:00:00.000Z'
+      )
+    );
+    const page2 = [
+      makeRemoteTaskRow('task_100', '2026-01-01T00:00:00.000Z'),
+      makeRemoteTaskRow('task_101', '2026-01-01T00:00:00.000Z'),
+      makeRemoteTaskRow('task_102', '2026-01-01T00:00:00.000Z'),
+    ];
+    let taskCallCount = 0;
+    listRowsMock.mockImplementation(
+      async ({ tableId }: { tableId: string }) => {
+        if (tableId !== 'tasks') return { rows: [] };
+        taskCallCount++;
+        if (taskCallCount === 1) return { rows: page1 };
+        if (taskCallCount === 2) return { rows: page2 };
+        return { rows: [] };
+      }
+    );
+    const upsertSpy = vi.fn().mockResolvedValue(undefined);
+    getDatabaseMock.mockReturnValue(
+      makeTaskOnlyDb({
+        findOne: () => ({ exec: async () => null }),
+        find: () => ({ exec: async () => [] }),
+        upsert: upsertSpy,
+      })
+    );
+    await syncModule.initializeSync();
+    const calls = taskListRowsCalls();
+    expect(calls.length).toBe(2);
+    const firstQueries = (
+      calls[0][0] as { queries: { op?: string; id?: string }[] }
+    ).queries;
+    expect(firstQueries.some((q) => q.op === 'cursorAfter')).toBe(false);
+    const secondQueries = (
+      calls[1][0] as { queries: { op?: string; id?: string }[] }
+    ).queries;
+    const cursor = secondQueries.find((q) => q.op === 'cursorAfter');
+    expect(cursor).toBeDefined();
+    expect(cursor?.id).toBe('task_099');
+    expect(upsertSpy).toHaveBeenCalledTimes(103);
+  });
+  it('a short page exits pagination without a second listRows call', async () => {
+    const shortPage = [
+      makeRemoteTaskRow('task_a', '2026-01-01T00:00:00.000Z'),
+      makeRemoteTaskRow('task_b', '2026-01-01T00:00:00.000Z'),
+    ];
+    listRowsMock.mockImplementation(
+      async ({ tableId }: { tableId: string }) => {
+        if (tableId !== 'tasks') return { rows: [] };
+        return { rows: shortPage };
+      }
+    );
+    const upsertSpy = vi.fn().mockResolvedValue(undefined);
+    getDatabaseMock.mockReturnValue(
+      makeTaskOnlyDb({
+        findOne: () => ({ exec: async () => null }),
+        find: () => ({ exec: async () => [] }),
+        upsert: upsertSpy,
+      })
+    );
+    await syncModule.initializeSync();
+    expect(taskListRowsCalls().length).toBe(1);
+    expect(upsertSpy).toHaveBeenCalledTimes(2);
+  });
+  it('a repeated page (last id equals cursor) breaks pagination', async () => {
+    const repeated = Array.from({ length: 100 }, (_, i) =>
+      makeRemoteTaskRow(
+        `task_${String(i).padStart(3, '0')}`,
+        '2026-01-01T00:00:00.000Z'
+      )
+    );
+    listRowsMock.mockImplementation(
+      async ({ tableId }: { tableId: string }) => {
+        if (tableId !== 'tasks') return { rows: [] };
+        return { rows: repeated };
+      }
+    );
+    const upsertSpy = vi.fn().mockResolvedValue(undefined);
+    getDatabaseMock.mockReturnValue(
+      makeTaskOnlyDb({
+        findOne: () => ({ exec: async () => null }),
+        find: () => ({ exec: async () => [] }),
+        upsert: upsertSpy,
+      })
+    );
+    await syncModule.initializeSync();
+    const calls = taskListRowsCalls();
+    expect(calls.length).toBe(2);
+    const secondQueries = (
+      calls[1][0] as { queries: { op?: string; id?: string }[] }
+    ).queries;
+    const cursor = secondQueries.find((q) => q.op === 'cursorAfter');
+    expect(cursor?.id).toBe('task_099');
+  });
+  it('a runaway server hits the page cap', async () => {
+    let counter = 0;
+    listRowsMock.mockImplementation(
+      async ({ tableId }: { tableId: string }) => {
+        if (tableId !== 'tasks') return { rows: [] };
+        counter++;
+        const base = counter * 1000;
+        return {
+          rows: Array.from({ length: 100 }, (_, i) =>
+            makeRemoteTaskRow(
+              `task_${String(base + i).padStart(7, '0')}`,
+              '2026-01-01T00:00:00.000Z'
+            )
+          ),
+        };
+      }
+    );
+    const upsertSpy = vi.fn().mockResolvedValue(undefined);
+    getDatabaseMock.mockReturnValue(
+      makeTaskOnlyDb({
+        findOne: () => ({ exec: async () => null }),
+        find: () => ({ exec: async () => [] }),
+        upsert: upsertSpy,
+      })
+    );
+    await syncModule.initializeSync();
+    expect(taskListRowsCalls().length).toBe(100);
+    const messages = warnSpy.mock.calls.map((args) => String(args[0]));
+    expect(
+      messages.some((m) => m.includes('hit page cap (100)'))
+    ).toBe(true);
+  });
+  it('the pull query uses pullBoundaryMs - 30s as the sinceIso boundary', async () => {
+    await syncModule.initializeSync();
+    const rawPrimed = localStorageMock.getItem('lastSyncTimePerCollection');
+    const pullMs = new Date(
+      JSON.parse(rawPrimed!).entries.tasks.pull
+    ).getTime();
+    const expectedSince = new Date(pullMs - 30_000).toISOString();
+    listRowsMock.mockClear();
+    listRowsMock.mockResolvedValue({ rows: [] });
+    await syncModule.initializeSync();
+    const calls = taskListRowsCalls();
+    expect(calls.length).toBeGreaterThan(0);
+    const queries = (
+      calls[0][0] as { queries: { op?: string; k?: string; v?: string }[] }
+    ).queries;
+    const sinceClause = queries.find(
+      (q) => q.op === 'greaterThan' && q.k === '$updatedAt'
+    );
+    expect(sinceClause).toBeDefined();
+    expect(sinceClause?.v).toBe(expectedSince);
+  });
+  it('the pull query includes a user_id filter matching the current user', async () => {
+    await syncModule.initializeSync();
+    const calls = taskListRowsCalls();
+    expect(calls.length).toBeGreaterThan(0);
+    const queries = (
+      calls[0][0] as { queries: { op?: string; k?: string; v?: unknown }[] }
+    ).queries;
+    const userFilter = queries.find(
+      (q) => q.op === 'equal' && q.k === 'user_id'
+    );
+    expect(userFilter).toBeDefined();
+    expect(userFilter?.v).toBe('user_A');
+  });
+});
+describe('sync — 404 fallback uses createRow (D8)', () => {
+  it('a 404 on updateRow falls back to createRow, not upsertRow', async () => {
+    const docs = [makeLocalDoc('task_new')];
+    getDatabaseMock.mockReturnValue(
+      makeTaskOnlyDb({
+        findOne: () => ({ exec: async () => null }),
+        find: () => ({ exec: async () => docs }),
+        upsert: vi.fn(),
+      })
+    );
+    const notFoundErr = Object.assign(new Error('not found'), { code: 404 });
+    updateRowMock.mockRejectedValueOnce(notFoundErr);
+    await syncModule.initializeSync();
+    expect(updateRowMock).toHaveBeenCalledTimes(1);
+    expect(createRowMock).toHaveBeenCalledTimes(1);
+    expect(upsertRowMock).not.toHaveBeenCalled();
+    const call = createRowMock.mock.calls[0][0] as {
+      tableId: string;
+      rowId: string;
+      data: Record<string, unknown>;
+    };
+    expect(call.tableId).toBe('tasks');
+    expect(call.rowId).toBe('task_new');
+    expect(call.data.user_id).toBe('user_A');
+  });
+  it('a createRow failure on 404 counts as a push failure', async () => {
+    const docs = [makeLocalDoc('task_new')];
+    getDatabaseMock.mockReturnValue(
+      makeTaskOnlyDb({
+        findOne: () => ({ exec: async () => null }),
+        find: () => ({ exec: async () => docs }),
+        upsert: vi.fn(),
+      })
+    );
+    await syncModule.initializeSync();
+    const rawBefore = localStorageMock.getItem('lastSyncTimePerCollection');
+    const dirtyBefore = JSON.parse(rawBefore!).entries.tasks.dirty;
+    expect(dirtyBefore).not.toBe('');
+    const notFoundErr = Object.assign(new Error('not found'), { code: 404 });
+    const conflictErr = Object.assign(new Error('conflict'), { code: 409 });
+    updateRowMock.mockRejectedValueOnce(notFoundErr);
+    createRowMock.mockRejectedValueOnce(conflictErr);
+    await syncModule.initializeSync();
+    const rawAfter = localStorageMock.getItem('lastSyncTimePerCollection');
+    const dirtyAfter = JSON.parse(rawAfter!).entries.tasks.dirty;
+    expect(dirtyAfter).toBe(dirtyBefore);
+  });
+});
+describe('sync — cross-tab mutex and state reload (D4)', () => {
+  it('runs the cycle inside navigator.locks.request when available', async () => {
+    const originalNavigator = (globalThis as { navigator?: unknown }).navigator;
+    const requestMock = vi.fn(
+      async (_name: string, cb: () => Promise<unknown>) => {
+        await cb();
+      }
+    );
+    Object.defineProperty(globalThis, 'navigator', {
+      configurable: true,
+      writable: true,
+      value: { locks: { request: requestMock } },
+    });
+    try {
+      await syncModule.initializeSync();
+      expect(requestMock).toHaveBeenCalledTimes(1);
+      expect(requestMock.mock.calls[0][0]).toBe('mosaic-sync');
+    } finally {
+      Object.defineProperty(globalThis, 'navigator', {
+        configurable: true,
+        writable: true,
+        value: originalNavigator,
+      });
+    }
+  });
+  it('falls back to running the cycle when navigator.locks is unavailable', async () => {
+    const originalNavigator = (globalThis as { navigator?: unknown }).navigator;
+    Object.defineProperty(globalThis, 'navigator', {
+      configurable: true,
+      writable: true,
+      value: { locks: undefined },
+    });
+    try {
+      await syncModule.initializeSync();
+      expect(syncModule.getSyncStatus().isSyncing).toBe(false);
+    } finally {
+      Object.defineProperty(globalThis, 'navigator', {
+        configurable: true,
+        writable: true,
+        value: originalNavigator,
+      });
+    }
+  });
+  it('falls back to running the cycle when navigator.locks.request throws', async () => {
+    const originalNavigator = (globalThis as { navigator?: unknown }).navigator;
+    const requestMock = vi.fn().mockRejectedValue(new Error('lock denied'));
+    Object.defineProperty(globalThis, 'navigator', {
+      configurable: true,
+      writable: true,
+      value: { locks: { request: requestMock } },
+    });
+    try {
+      await syncModule.initializeSync();
+      expect(requestMock).toHaveBeenCalledTimes(1);
+      // The cycle still ran.
+      expect(syncModule.getSyncStatus().isSyncing).toBe(false);
+      // A warning was logged.
+      const warnings = warnSpy.mock.calls.map((args) => String(args[0]));
+      expect(
+        warnings.some((m) => m.includes('Web Locks request failed'))
+      ).toBe(true);
+    } finally {
+      Object.defineProperty(globalThis, 'navigator', {
+        configurable: true,
+        writable: true,
+        value: originalNavigator,
+      });
+    }
+  });
+  it('reloads per-collection state from localStorage at the start of every cycle', async () => {
+    // Prime per-collection state.
+    await syncModule.initializeSync();
+    // Plant a future dirty boundary, simulating what another tab wrote.
+    const raw = localStorageMock.getItem('lastSyncTimePerCollection');
+    const state = JSON.parse(raw!);
+    const future = '2099-01-01T00:00:00.000Z';
+    state.entries.tasks.dirty = future;
+    localStorageMock.setItem(
+      'lastSyncTimePerCollection',
+      JSON.stringify(state)
+    );
+    // Run another cycle. The cycle must observe the planted boundary
+    // and preserve it (Math.max with a 2026 cycle-start keeps 2099).
+    await syncModule.initializeSync();
+    const afterRaw = localStorageMock.getItem('lastSyncTimePerCollection');
+    const after = JSON.parse(afterRaw!);
+    expect(after.entries.tasks.dirty).toBe(future);
   });
 });

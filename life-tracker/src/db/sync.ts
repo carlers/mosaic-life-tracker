@@ -26,6 +26,7 @@ const RATE_LIMIT_MAX_MS = 60_000;
 const FAILURE_BACKOFF_BASE_MS = 5_000;
 const FAILURE_BACKOFF_MAX_MS = 60_000;
 const TRIGGER_DEBOUNCE_MS = 1_500;
+const WEB_LOCKS_NAME = 'mosaic-sync';
 type CollectionName = keyof AppDatabaseCollections;
 const ALL_COLLECTIONS: CollectionName[] = [
   'tasks',
@@ -149,6 +150,7 @@ type LocalCollection = {
   upsert: (doc: Record<string, unknown>) => Promise<unknown>;
 };
 let isSyncInProgress = false;
+let isSyncCycleQueued = false;
 let syncRequestedDuringFlight = false;
 let rateLimitUntil = 0;
 let rateLimitBackoffMs = 0;
@@ -204,7 +206,11 @@ async function resolveAuthenticatedUserId(): Promise<string | null> {
   }
 }
 export async function initializeSync(): Promise<void> {
-  if (isSyncInProgress) {
+  // Same-tab reentry: if a cycle is queued (awaiting or holding the lock)
+  // or running, coalesce into a single follow-up run rather than queueing
+  // a second full cycle. The cross-tab lock below serializes cycles
+  // across tabs; this guard only governs intra-tab coalescing.
+  if (isSyncInProgress || isSyncCycleQueued) {
     if (DEBUG)
       console.log(
         '[Sync] initializeSync requested while in-flight; queueing follow-up'
@@ -239,6 +245,42 @@ export async function initializeSync(): Promise<void> {
     updateSyncStatus({ isSyncing: false });
     return;
   }
+  isSyncCycleQueued = true;
+  try {
+    if (
+      typeof navigator !== 'undefined' &&
+      navigator.locks &&
+      typeof navigator.locks.request === 'function'
+    ) {
+      try {
+        await navigator.locks.request(WEB_LOCKS_NAME, runSyncCycleBody);
+      } catch (lockErr) {
+        // Web Locks API exists but the request failed for some reason.
+        // Fall back to running the cycle without the cross-tab mutex so
+        // the user still gets a sync. Log and continue.
+        console.warn(
+          '[Sync] Web Locks request failed; running without cross-tab mutex:',
+          lockErr
+        );
+        await runSyncCycleBody();
+      }
+    } else {
+      await runSyncCycleBody();
+    }
+  } finally {
+    isSyncCycleQueued = false;
+    if (syncRequestedDuringFlight) {
+      syncRequestedDuringFlight = false;
+      if (DEBUG) console.log('[Sync] Running queued follow-up sync');
+      queueMicrotask(() => {
+        initializeSync().catch((err) => {
+          console.error('[Sync] Queued follow-up sync failed:', err);
+        });
+      });
+    }
+  }
+}
+async function runSyncCycleBody(): Promise<void> {
   isSyncInProgress = true;
   if (DEBUG) console.log('[Sync] Starting sync...');
   updateSyncStatus({ isSyncing: true, errors: [] });
@@ -249,21 +291,24 @@ export async function initializeSync(): Promise<void> {
       updateSyncStatus({ isSyncing: false });
       return;
     }
-    if (perCollectionOwnerId !== userId) {
-      perCollectionSync = loadPerCollectionState(userId);
-      perCollectionOwnerId = userId;
-      let scopedLast: string | null = null;
-      try {
-        scopedLast = localStorage.getItem(`lastSyncTime_${userId}`);
-      } catch {
-      }
-      syncStatus = { ...syncStatus, lastSync: scopedLast };
-      if (DEBUG) {
-        console.log(
-          `[Sync] Loaded per-collection state for user ${userId}:`,
-          Object.keys(perCollectionSync)
-        );
-      }
+    // Unconditional reload: another tab may have written a newer per-
+    // collection state since this tab last loaded it. The cross-tab lock
+    // guarantees mutual exclusion, not that our in-memory copy is
+    // current. Reloading here means the pull/push boundaries reflect the
+    // last writer across all tabs.
+    perCollectionSync = loadPerCollectionState(userId);
+    perCollectionOwnerId = userId;
+    let scopedLast: string | null = null;
+    try {
+      scopedLast = localStorage.getItem(`lastSyncTime_${userId}`);
+    } catch {
+    }
+    syncStatus = { ...syncStatus, lastSync: scopedLast };
+    if (DEBUG) {
+      console.log(
+        `[Sync] Loaded per-collection state for user ${userId}:`,
+        Object.keys(perCollectionSync)
+      );
     }
     const db = getDatabase();
     const collectionErrors: string[] = [];
@@ -346,15 +391,6 @@ export async function initializeSync(): Promise<void> {
     });
   } finally {
     isSyncInProgress = false;
-    if (syncRequestedDuringFlight) {
-      syncRequestedDuringFlight = false;
-      if (DEBUG) console.log('[Sync] Running queued follow-up sync');
-      queueMicrotask(() => {
-        initializeSync().catch((err) => {
-          console.error('[Sync] Queued follow-up sync failed:', err);
-        });
-      });
-    }
   }
 }
 async function syncCollection(
@@ -547,8 +583,13 @@ async function syncCollection(
         });
       } catch (updateErr) {
         if (isNotFoundError(updateErr)) {
+          // createRow is a strict insert (no PUT semantics). If the row
+          // reappeared between our 404 and this call, createRow throws
+          // 409 and we let the next cycle reconcile. Do NOT use
+          // upsertRow here — its PUT semantics would reset any column
+          // the client does not send (see AGENTS §6).
           try {
-            await guardedTablesDB.upsertRow({
+            await guardedTablesDB.createRow({
               databaseId: APPWRITE_CONFIG.databaseId,
               tableId,
               rowId: docId,

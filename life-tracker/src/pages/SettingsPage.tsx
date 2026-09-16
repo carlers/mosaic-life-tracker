@@ -14,6 +14,7 @@ import {
   Database,
   ChevronLeft,
   FileDown,
+  RefreshCw,
 } from 'lucide-react';
 import { BottomSheet } from '../components/ui/BottomSheet';
 import { SettingsRow } from '../components/ui/SettingsRow';
@@ -23,7 +24,7 @@ import { AccountSettingsSheet } from '../components/modals/AccountSettingsSheet'
 import { ChangeEmailSheet } from '../components/modals/ChangeEmailSheet';
 import { ChangePasswordSheet } from '../components/modals/ChangePasswordSheet';
 import { ExportDataSheet } from '../components/modals/ExportDataSheet';
-
+import { SyncStatusSheet } from '../components/modals/SyncStatusSheet';
 export const SettingsPage: React.FC = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
@@ -33,15 +34,13 @@ export const SettingsPage: React.FC = () => {
   const [isChangeEmailOpen, setIsChangeEmailOpen] = useState(false);
   const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
   const [isExportSheetOpen, setIsExportSheetOpen] = useState(false);
+  const [isSyncStatusOpen, setIsSyncStatusOpen] = useState(false);
   const [feedback, setFeedback] = useState<string | null>(null);
-
   const showFeedback = (msg: string) => {
     setFeedback(msg);
     setTimeout(() => setFeedback(null), 2000);
   };
-
   const handleComingSoon = () => showFeedback('Coming soon');
-
   const handleLogout = async () => {
     const ok = await logout();
     if (ok) {
@@ -50,13 +49,9 @@ export const SettingsPage: React.FC = () => {
       showFeedback('Sign out failed. Check your connection and try again.');
     }
   };
-
   const handleClearData = async () => {
     setIsClearingData(true);
     try {
-      // Log out first. If this fails (offline, etc.) we must NOT wipe the
-      // local database, otherwise the user will be left with an empty DB
-      // but a still-valid server session on next load.
       const ok = await logout();
       if (!ok) {
         setIsClearingData(false);
@@ -74,7 +69,6 @@ export const SettingsPage: React.FC = () => {
       setIsClearDataOpen(false);
     }
   };
-
   return (
     <div className="flex flex-col h-full animate-in fade-in duration-300">
       <div className="sticky top-0 z-20 bg-[#111111] px-4 py-3 border-b border-[#333333] flex items-center justify-center relative">
@@ -148,6 +142,11 @@ export const SettingsPage: React.FC = () => {
           />
         </div>
         <div className="border-t border-[#333333] py-2">
+          <SettingsRow
+            icon={<RefreshCw size={18} className="text-blue-500" />}
+            label="Sync Status"
+            onClick={() => setIsSyncStatusOpen(true)}
+          />
           <SettingsRow
             icon={<FileDown size={18} className="text-emerald-500" />}
             label="Export Data"
@@ -238,6 +237,10 @@ export const SettingsPage: React.FC = () => {
         isOpen={isExportSheetOpen}
         onClose={() => setIsExportSheetOpen(false)}
         onSuccess={showFeedback}
+      />
+      <SyncStatusSheet
+        isOpen={isSyncStatusOpen}
+        onClose={() => setIsSyncStatusOpen(false)}
       />
       {feedback && (
         <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[70] bg-[#2A2A2A] border border-[#444444] text-white text-sm px-5 py-2.5 rounded-full shadow-lg backdrop-blur-md animate-in fade-in slide-in-from-bottom-2 duration-200">
