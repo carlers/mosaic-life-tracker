@@ -8,19 +8,19 @@ if (paths.length === 0) {
   process.exit(1);
 }
 
-const chunks = [];
+const blocks = [];
 for (const p of paths) {
   try {
     const content = readFileSync(p, 'utf8');
-    chunks.push(`===FILE:${p}===\n${content}`);
+    const body = content.endsWith('\n') ? content : `${content}\n`;
+    blocks.push(`<file path="${p}">\n${body}</file>`);
   } catch (err) {
-    chunks.push(`===FILE:${p}===\n<<<ERROR: ${err.message}>>>`);
+    blocks.push(`<file path="${p}">\n<<<ERROR: ${err.message}>>>\n</file>`);
   }
 }
-const output = chunks.join('\n\n');
+const output = `${blocks.join('\n\n')}\n`;
 
 process.stdout.write(output);
-if (!output.endsWith('\n')) process.stdout.write('\n');
 
 function tryClipboard() {
   const attempts = [];
