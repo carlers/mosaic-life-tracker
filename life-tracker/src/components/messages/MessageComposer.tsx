@@ -1,6 +1,7 @@
 import React, {
   useEffect,
   useImperativeHandle,
+  useId,
   useRef,
   useState,
   forwardRef,
@@ -29,6 +30,7 @@ export interface MessageComposerHandle {
 }
 
 const MAX_LENGTH = 4000;
+const CHAR_COUNT_THRESHOLD = 200;
 
 export const MessageComposer = forwardRef<
   MessageComposerHandle,
@@ -46,6 +48,7 @@ export const MessageComposer = forwardRef<
   ) => {
     const [value, setValue] = useState('');
     const inputRef = useRef<HTMLTextAreaElement>(null);
+    const counterId = useId();
 
     useEffect(() => {
       const t = setTimeout(() => inputRef.current?.focus(), 120);
@@ -84,6 +87,7 @@ export const MessageComposer = forwardRef<
     };
 
     const remaining = MAX_LENGTH - value.length;
+    const showCounter = remaining < CHAR_COUNT_THRESHOLD;
 
     return (
       <div className="flex flex-col px-3 py-2 border-t border-[#333333] bg-[#111111] flex-shrink-0">
@@ -104,11 +108,17 @@ export const MessageComposer = forwardRef<
               onKeyDown={handleKeyDown}
               placeholder={placeholder}
               rows={1}
-              className="w-full bg-[#1E1E1E] text-white text-sm rounded-2xl px-4 py-2.5 border border-[#333333] focus:border-[#555555] focus:outline-none transition-colors placeholder-gray-600 resize-none max-h-32"
+              aria-label="Message"
+              aria-describedby={showCounter ? counterId : undefined}
+              className="w-full bg-[#1E1E1E] text-white text-sm rounded-2xl px-4 py-2.5 border border-[#333333] focus:border-[#555555] focus-visible:ring-2 focus-visible:ring-emerald-500/60 focus:outline-none transition-colors placeholder-gray-600 resize-none max-h-32"
               style={{ minHeight: '42px' }}
             />
-            {remaining < 200 && (
-              <p className="text-[10px] text-gray-500 text-right mt-0.5 mr-2">
+            {showCounter && (
+              <p
+                id={counterId}
+                className="text-[10px] text-gray-500 text-right mt-0.5 mr-2"
+                aria-live="polite"
+              >
                 {remaining} left
               </p>
             )}
@@ -118,10 +128,10 @@ export const MessageComposer = forwardRef<
             onClick={handleSend}
             onPointerDown={(e) => e.stopPropagation()}
             disabled={!value.trim() || disabled}
-            className="flex-shrink-0 w-10 h-10 rounded-full bg-emerald-500 hover:bg-emerald-600 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center transition-colors"
+            className="flex-shrink-0 w-10 h-10 rounded-full bg-emerald-500 hover:bg-emerald-600 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 focus-visible:ring-offset-2 focus-visible:ring-offset-[#111111]"
             aria-label="Send"
           >
-            <Send size={18} className="text-white" />
+            <Send size={18} className="text-white" aria-hidden="true" />
           </motion.button>
         </div>
       </div>

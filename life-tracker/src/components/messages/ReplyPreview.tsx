@@ -4,10 +4,6 @@ import { X, Ban } from 'lucide-react';
 interface ReplyPreviewProps {
   senderName: string;
   content: string;
-  /**
-   * True when the replied-to message has been unsent. Renders a grey italic
-   * "Message deleted" placeholder instead of the (wiped) content.
-   */
   isDeleted?: boolean;
   onCancel?: () => void;
   variant?: 'composer' | 'bubble';
@@ -33,7 +29,7 @@ export const ReplyPreview: React.FC<ReplyPreviewProps> = ({
         </p>
         {isDeleted ? (
           <p className="text-[11px] italic text-gray-500 line-clamp-2 leading-snug flex items-center gap-1">
-            <Ban size={9} />
+            <Ban size={9} aria-hidden="true" />
             Message deleted
           </p>
         ) : (
@@ -47,10 +43,10 @@ export const ReplyPreview: React.FC<ReplyPreviewProps> = ({
           type="button"
           onClick={onCancel}
           onPointerDown={(e) => e.stopPropagation()}
-          className="flex-shrink-0 p-0.5 text-gray-500 hover:text-white transition-colors"
+          className="flex-shrink-0 p-0.5 text-gray-500 hover:text-white transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 rounded"
           aria-label="Cancel reply"
         >
-          <X size={14} />
+          <X size={14} aria-hidden="true" />
         </button>
       )}
     </div>

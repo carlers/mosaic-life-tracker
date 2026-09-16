@@ -22,12 +22,13 @@ export const TaskRefCard: React.FC<TaskRefCardProps> = ({
       <div
         className="w-1 flex-shrink-0 rounded-full self-stretch"
         style={{ backgroundColor: color || '#6B7280' }}
+        aria-hidden="true"
       />
       <div className="flex-1 min-w-0">
         <p className="text-xs font-medium text-gray-100 truncate">{title}</p>
         {dateLabel && (
           <p className="text-[10px] text-gray-400 flex items-center gap-1 mt-0.5">
-            <Calendar size={9} />
+            <Calendar size={9} aria-hidden="true" />
             {dateLabel}
           </p>
         )}

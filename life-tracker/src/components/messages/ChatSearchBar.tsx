@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useId, useRef } from 'react';
 import { Search, X } from 'lucide-react';
 
 interface ChatSearchBarProps {
@@ -17,6 +17,7 @@ export const ChatSearchBar: React.FC<ChatSearchBarProps> = ({
   onClose,
 }) => {
   const inputRef = useRef<HTMLInputElement>(null);
+  const counterId = useId();
 
   useEffect(() => {
     const t = setTimeout(() => inputRef.current?.focus(), 80);
@@ -29,7 +30,10 @@ export const ChatSearchBar: React.FC<ChatSearchBarProps> = ({
     <div className="flex-shrink-0 px-4 py-2 border-b border-[#333333] bg-[#111111] animate-in fade-in slide-in-from-top-1 duration-200">
       <div className="flex items-center gap-2">
         <div className="flex-1 relative">
-          <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none">
+          <div
+            className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none"
+            aria-hidden="true"
+          >
             <Search size={16} />
           </div>
           <input
@@ -41,11 +45,17 @@ export const ChatSearchBar: React.FC<ChatSearchBarProps> = ({
             autoCapitalize="none"
             autoCorrect="off"
             spellCheck={false}
-            className="w-full bg-[#1E1E1E] text-white text-sm border border-[#333333] rounded-lg pl-9 pr-3 py-2 focus:border-[#555555] focus:outline-none transition-colors placeholder-gray-600"
+            aria-label="Search messages"
+            aria-describedby={showCounter ? counterId : undefined}
+            className="w-full bg-[#1E1E1E] text-white text-sm border border-[#333333] rounded-lg pl-9 pr-3 py-2 focus:border-[#555555] focus-visible:ring-2 focus-visible:ring-emerald-500/60 focus:outline-none transition-colors placeholder-gray-600"
           />
         </div>
         {showCounter && (
-          <span className="text-xs text-gray-500 flex-shrink-0 tabular-nums">
+          <span
+            id={counterId}
+            className="text-xs text-gray-500 flex-shrink-0 tabular-nums"
+            aria-live="polite"
+          >
             {matchCount}/{totalCount}
           </span>
         )}
@@ -53,10 +63,10 @@ export const ChatSearchBar: React.FC<ChatSearchBarProps> = ({
           type="button"
           onClick={onClose}
           onPointerDown={(e) => e.stopPropagation()}
-          className="flex-shrink-0 p-1.5 text-gray-500 hover:text-white transition-colors"
+          className="flex-shrink-0 p-1.5 text-gray-500 hover:text-white transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 rounded"
           aria-label="Close search"
         >
-          <X size={16} />
+          <X size={16} aria-hidden="true" />
         </button>
       </div>
     </div>

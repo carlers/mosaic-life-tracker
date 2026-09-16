@@ -31,6 +31,33 @@ const REVEAL_DURATION_MS = 2500;
 const DOUBLE_TAP_EMOJI = '❤️';
 const STATUS_ROW_MIN_HEIGHT_PX = 14;
 
+// Build the bubble's accessible name from the message's parts. Kept as a
+// helper so the reading order matches what a screen-reader user hears:
+// sender, then task-ref title if present, then content, then reply quote.
+function buildBubbleLabel(
+  message: MessageDocument,
+  isOutgoing: boolean,
+  senderName: string,
+  replySenderName: string
+): string {
+  const parts: string[] = [];
+  parts.push(isOutgoing ? 'You' : senderName);
+  if (message.taskRefTitle) {
+    parts.push(`task ${message.taskRefTitle}`);
+  }
+  if (message.replyToId) {
+    parts.push(
+      `replying to ${replySenderName || 'a message'}: ${
+        message.replyToContent || '(deleted)'
+      }`
+    );
+  }
+  if (message.content) {
+    parts.push(message.content);
+  }
+  return parts.join(', ');
+}
+
 export const MessageBubble: React.FC<MessageBubbleProps> = ({
   message,
   isOutgoing,
@@ -132,9 +159,6 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
   const reactions = parseReactions(message.reactions);
   const showReactions = !isUnsent && reactions.length > 0;
 
-  // Swapped bubble styling:
-  //   outgoing: dark grey surface (was incoming's style)
-  //   incoming: pure black with grey outline
   const bubbleBgClass = isOutgoing
     ? 'bg-[#1E1E1E] text-gray-100 border border-[#333333] rounded-br-md'
     : 'bg-black text-gray-100 border border-[#444444] rounded-bl-md';
@@ -156,7 +180,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
           }`}
         >
           <p className="text-sm italic text-gray-300 flex items-center gap-1.5">
-            <Ban size={12} />
+            <Ban size={12} aria-hidden="true" />
             Message deleted
           </p>
         </div>
@@ -188,15 +212,21 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
     ? 'none'
     : 'transform 220ms cubic-bezier(0.22, 1, 0.36, 1)';
 
+  const senderName = resolveSenderName ? resolveSenderName(message.senderId) : '';
+  const ariaLabel = buildBubbleLabel(
+    message,
+    isOutgoing,
+    senderName,
+    replySenderName
+  );
+
   return (
     <div
       data-message-id={message.id}
-      className={`flex flex-col ${
-        isOutgoing ? 'items-end' : 'items-start'
-      }`}
+      className={`flex flex-col ${isOutgoing ? 'items-end' : 'items-start'}`}
     >
       <div className="relative max-w-[78%]">
-        {/* Reply icon sits behind the bubble; revealed as the bubble slides away */}
+        {/* Reply icon sits behind the bubble; pointer-swipe affordance only */}
         <div
           className={`absolute top-0 bottom-0 flex items-center pointer-events-none ${iconSideClass}`}
           style={{
@@ -204,14 +234,23 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
             transform: `scale(${replyIconScale})`,
             transition: iconTransition,
           }}
-          aria-hidden
+          aria-hidden="true"
         >
           <div className="w-8 h-8 rounded-full bg-emerald-500/25 flex items-center justify-center">
             <Reply size={16} className="text-emerald-400" />
           </div>
         </div>
 
-        <div
+        {/*
+          The bubble is a button, not a div. It carries pointer gestures
+          (swipe-reply, double-tap-react, long-press) AND keyboard
+          activation: Enter/Space opens the action sheet, which contains
+          Reply and the emoji row. That preserves feature parity for
+          keyboard-only users without a second UI. Escape is not handled
+          here — it falls through to the sheet, which owns dismissal.
+        */}
+        <button
+          type="button"
           onPointerDown={gestures.onPointerDown}
           onPointerMove={gestures.onPointerMove}
           onPointerUp={gestures.onPointerUp}
@@ -219,7 +258,14 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
           onContextMenu={gestures.onContextMenu}
           onMouseEnter={() => setHovered(true)}
           onMouseLeave={() => setHovered(false)}
-          className={`rounded-2xl px-3 py-2 cursor-pointer select-none ${bubbleBgClass}`}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              onLongPress?.(message);
+            }
+          }}
+          aria-label={ariaLabel}
+          className={`w-full text-left rounded-2xl px-3 py-2 cursor-pointer select-none focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 ${bubbleBgClass}`}
           style={{
             transform: `translateX(${swipeOffset}px)`,
             transition: bubbleTransition,
@@ -235,7 +281,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                 e.stopPropagation();
                 if (message.replyToId) onQuoteTap?.(message.replyToId);
               }}
-              className="cursor-pointer"
+              aria-hidden="true"
             >
               <ReplyPreview
                 senderName={replySenderName || 'Message'}
@@ -246,19 +292,21 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
             </div>
           )}
           {message.taskRefTitle && (
-            <TaskRefCard
-              taskId={message.taskRefId}
-              title={message.taskRefTitle}
-              date={message.taskRefDate}
-              color={message.taskRefColor}
-            />
+            <div aria-hidden="true">
+              <TaskRefCard
+                taskId={message.taskRefId}
+                title={message.taskRefTitle}
+                date={message.taskRefDate}
+                color={message.taskRefColor}
+              />
+            </div>
           )}
           {message.content && (
             <p className="text-sm whitespace-pre-wrap break-words">
               {message.content}
             </p>
           )}
-        </div>
+        </button>
       </div>
 
       {showReactions && (
@@ -270,13 +318,14 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
         />
       )}
 
-      {/* Status / timestamp row — space is always reserved to prevent hover flicker */}
+      {/* Status / timestamp row */}
       <div
         className="flex items-center gap-1.5 mt-0.5 px-1 text-[10px] text-gray-500 transition-opacity duration-150"
         style={{
           minHeight: `${STATUS_ROW_MIN_HEIGHT_PX}px`,
           opacity: hasRowContent ? 1 : 0,
         }}
+        aria-hidden="true"
       >
         {hasRowContent &&
           items.map((node, i) => (

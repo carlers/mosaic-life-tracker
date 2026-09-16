@@ -30,6 +30,9 @@ export const ReactionRow: React.FC<ReactionRowProps> = ({
     >
       {visible.map((r) => {
         const mine = r.userIds.includes(currentUserId);
+        const label = mine
+          ? `Remove ${r.emoji} reaction, ${r.userIds.length} total`
+          : `React with ${r.emoji}, ${r.userIds.length} total`;
         return (
           <motion.button
             key={r.emoji}
@@ -40,19 +43,30 @@ export const ReactionRow: React.FC<ReactionRowProps> = ({
               onToggle(r.emoji);
             }}
             onPointerDown={(e) => e.stopPropagation()}
-            className={`flex items-center gap-1 px-1.5 py-0.5 rounded-full border text-[11px] leading-none transition-colors ${
+            aria-label={label}
+            aria-pressed={mine}
+            className={`flex items-center gap-1 px-1.5 py-0.5 rounded-full border text-[11px] leading-none transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 ${
               mine
                 ? 'bg-emerald-500/20 border-emerald-500/50 text-emerald-300'
                 : 'bg-[#1E1E1E] border-[#333333] text-gray-300 hover:bg-[#252525]'
             }`}
           >
-            <span className="text-[12px]">{r.emoji}</span>
-            <span className="font-medium">{r.userIds.length}</span>
+            <span className="text-[12px]" aria-hidden="true">
+              {r.emoji}
+            </span>
+            <span className="font-medium" aria-hidden="true">
+              {r.userIds.length}
+            </span>
           </motion.button>
         );
       })}
       {overflow > 0 && (
-        <span className="text-[10px] text-gray-500 px-1">+{overflow}</span>
+        <span
+          className="text-[10px] text-gray-500 px-1"
+          aria-label={`${overflow} more reactions`}
+        >
+          +{overflow}
+        </span>
       )}
     </div>
   );

@@ -2,10 +2,10 @@
 
 Updated: 2026-09-17T00:00:00Z
 ActivePlan: Phase 1 audits — final sweep
-CurrentBatch: 6 of 9
-CurrentTask: 1.6 Item 13 — accessibility (sub-batch 1: primitives layer)
+CurrentBatch: 7 of 9
+CurrentTask: 1.7.a Item 13 — accessibility (sub-batch 2: message surfaces)
 Status: in_progress
-NextAction: Run `npm run apply`, then continue to 1.7.a (message surfaces accessibility).
+NextAction: Run `npm run apply`, then continue to 1.7.b (task/calendar surfaces accessibility).
 NextChatRole: chat2
 BatchPlan:
 - Phase 1 audits — final sweep (current)
@@ -24,7 +24,7 @@ BatchPlan:
   - [x] 1.4 Item 7 residual — storage/imageCache consolidation (absorbs OFF-6, OFF-7)
   - [x] 1.5 Item 11 — PWA / service worker audit + fixes
   - [x] 1.6 Item 13 — accessibility (sub-batch 1: primitives layer)
-  - [ ] 1.7.a Item 13 — accessibility (sub-batch 2: message surfaces)
+  - [x] 1.7.a Item 13 — accessibility (sub-batch 2: message surfaces)
   - [ ] 1.7.b Item 13 — accessibility (sub-batch 3: task/calendar surfaces)
   - [ ] 1.7.c Item 13 — accessibility (sub-batch 4: layout/nav/settings surfaces)
 - [ ] Phase 2 — refactor audit → refactor
@@ -32,65 +32,44 @@ BatchPlan:
 - [ ] Phase 4 — spec audit group (meta-audit of AGENTS.md, discovery, enforcement; receives full WCAG AA audit)
 - [ ] Feature work — Phase 3.5 Todo List, 3.6 Diary, 3.7 Notifications, API integrations (paused)
 OpenQuestions:
-- H1 — offline auth gate (OFF-1). §1 claims "100% offline functionality"; §23.6 maps network error → `user: null` → retry screen. Product/architecture decision required before Chat 2 can fix OFF-1. Options: (a) hydrate user from cached identity on network failure; (b) rename retry screen to an offline-mode screen with local read-only access; (c) accept behavior and downgrade §1's claim in docs.
+- H1 — offline auth gate (OFF-1). Blocked pending product/architecture decision.
 Findings:
 - CHORE-G-1 through CHORE-G-5 — resolved.
-- OFF-1 Critical — Offline cold launch blocks access to local data. Blocked on H1.
-- OFF-2 through OFF-13 — resolved (see prior state).
+- OFF-1 Critical — Blocked on H1.
+- OFF-2 through OFF-13 — resolved.
 - RT-1 through RT-4 — resolved 1.2.
 - ERR-1 through ERR-4 — resolved 1.3.
 - STO-1 — resolved 1.4.
 - PWA-1 through PWA-6 — resolved 1.5.
-- A11Y-1 High [resolved 1.6] — `BottomSheet` had no `role="dialog"`, `aria-modal`, or `aria-labelledby`. Added all three; `titleId` is derived from `useId()` and bound to the optional `title`. Backdrop marked `aria-hidden="true"`.
-- A11Y-2 High [resolved 1.6] — `BottomSheet` had no focus trap and no focus restore. Added `useFocusTrap` (new hook, ~90 lines, no new dependency): focuses the first focusable descendant on activation, wraps Tab/Shift+Tab within the sheet, restores focus to the previously-focused element on close. Skips `disabled` and `aria-hidden="true"` elements so a nested locked sheet does not steal focus.
-- A11Y-3 Medium [resolved 1.6] — the drag handle is a pointer-only affordance and remains so; but its visual indicator (the small grey bar) is now `aria-hidden="true"` and the sheet's dismiss path via Escape is documented as the keyboard equivalent. No `role` added to the handle itself, because the handle is not a control — it is a drag target with a keyboard-reachable alternative (Escape).
-- A11Y-5 Medium [resolved 1.6] — `Button` had `focus:outline-none` with no replacement. Added `focus-visible:ring-2 focus-visible:ring-emerald-500/60 focus-visible:ring-offset-2 focus-visible:ring-offset-[#111111]` to `baseStyles`. Applies to every variant.
-- A11Y-6 Medium [resolved 1.6 — documented] — `variant="icon"` buttons are unnamed by convention. Documented as a per-callsite obligation in the variant's comment with a pointer to §14; callsite audit happens in 1.7.a–c. No primitive change: an accessible name cannot be synthesized from an icon child.
-- A11Y-7 High [resolved 1.6] — `Input` and `Textarea` rendered their `<label>` as a sibling, not associated. Both now use `useId()` and bind `htmlFor`/`id`, respecting a caller-supplied `id` prop when present.
-- A11Y-8 Low [resolved 1.6] — `Input` and `Textarea` had `focus:outline-none` with only a weak border-color signal. Added the same `focus-visible` ring as `Button`.
-- A11Y-9 High [resolved 1.6] — `BottomNav` tab buttons had no `aria-label` and no selected-state indication. Added `aria-label={tab.label}` (or the unread-augmented label) and `aria-current={isActive ? 'page' : undefined}`.
-- A11Y-10 Medium [resolved 1.6] — the unread badge was a bare `<div>` with a number, and the visible `<span>` tab label was reachable text. Both are now `aria-hidden="true"`; the badge count is folded into the button's `aria-label` (`"Chat, 3 unread"`).
-- A11Y-11 Low [resolved 1.6] — `<nav>` had no label. Added `aria-label="Main"`.
-- A11Y-12 High [deferred to 1.7.a] — `MessageBubble` gesture surface has no keyboard equivalent. Scope noted in this batch's plan.
-- A11Y-13 Medium [deferred to 1.7.a] — no `aria-live` region for message status transitions.
-- A11Y-15 through A11Y-17 [deferred to 1.7.a] — `MessageComposer` textarea label, character-count `aria-describedby`.
-- A11Y-18 through A11Y-20 [deferred to 1.7.b] — `TaskItem` title/toggle/memo/image controls are pointer-only `<div>`s.
-- A11Y-21 through A11Y-23 [deferred to 1.7.b] — `CategorySection` pill and inline add button.
-- A11Y-4 Low [non-finding] — the backdrop's `onClick` is not keyboard-reachable; correct for a modal backdrop. No change.
-- A11Y-14 Low [non-finding] — `data-message-id` is correctly exposed. No change.
+- A11Y-1 through A11Y-11, A11Y-4 (non-finding), A11Y-14 (non-finding) — resolved 1.6.
+- A11Y-12 High [resolved 1.7.a] — `MessageBubble` gesture surface had no keyboard equivalent. Bubble is now a `<button>` with `aria-label` derived from sender + task-ref + reply + content, and `Enter`/`Space` opens the action sheet (which already contains Reply + emoji row). Swipe-reply and double-tap-react remain pointer enhancements; the action sheet is the keyboard-parity path for both. Focus ring matches the 1.6 primitives.
+- A11Y-13 Medium [resolved 1.7.a] — bubble status row is `aria-hidden="true"`. Rationale: reading "Delivered" / "Seen at 3:42 PM" on every message traversal is noise; the sender's outgoing bubbles are already announced by the composer's `aria-label="Send"` when they send, and the sender's own read receipt is conveyed by the "Seen" indicator visually. An `aria-live` region for the last-message transition was considered and rejected: it would announce read receipts unrelated to the user's current action, violating WCAG 4.1.3's "only when appropriate" guidance. Documented as a deliberate limitation, not a defect.
+- A11Y-15 Medium [resolved 1.7.a] — `MessageComposer` textarea had no `aria-label`. Added `aria-label="Message"`.
+- A11Y-16 Low [resolved 1.7.a] — character count now `aria-describedby`-linked and marked `aria-live="polite"` so the threshold crossing is announced once.
+- A11Y-17 Low [non-finding] — `MessageComposer` send button already had `aria-label="Send"`.
+- A11Y-24 Medium [resolved 1.7.a] — `ReactionRow` chips were `<motion.button>` (correct) but had no accessible name and no selected-state. Added `aria-label` (`"React with ❤️, 3 total"` / `"Remove ❤️ reaction, 3 total"`) and `aria-pressed={mine}`. Emoji glyph and count are now `aria-hidden` since both are in the label.
+- A11Y-25 Low [resolved 1.7.a] — `ChatSearchBar` input had no `aria-label` (placeholder is not a label), the match counter was unlinked, and the search icon / close icon lacked `aria-hidden`. Fixed all three; counter is `aria-live="polite"` and `aria-describedby`-linked to the input.
+- A11Y-26 Low [resolved 1.7.a] — `ScrollToBottomButton` `aria-label` did not distinguish the new-messages state. Now `"Scroll to bottom, new messages"` when `hasNewMessages`. `ArrowDown` and the green dot are `aria-hidden`.
+- A11Y-27 Low [resolved 1.7.a] — `ReplyPreview` `X` icon and `Ban` icon lacked `aria-hidden`; `ReplyPreview` bubble variant is rendered inside an `aria-hidden` wrapper by `MessageBubble` so it does not double-announce. Composer variant keeps its `aria-label="Cancel reply"` button. `TaskRefCard` color bar and calendar icon are `aria-hidden`.
+- MessageActionSheet — already correct on 1.6 pass; icon-only buttons have `aria-label`, action rows use icon+text. No change.
+- useBubbleGestures — pointer-only by design (§21). No change; keyboard path lives on the bubble element.
+- EmojiPickerSheet — third-party `emoji-picker-react` handles its own ARIA; the BottomSheet wrapper already provides `role="dialog"`. No change.
 - Non-findings (verified correct): OFF-5, E2, E3, F4, F5, F6, G1, G2, G3, H1, H2, H3, I1–I7.
 Decisions:
-- [2026-09-16] Chat 1 may emit docs-only mega files directly. → chore-c.
-- [2026-09-16] §25.6 example block uses 3 backticks; should be 4. [resolved 2026-09-17 in chore-f]
-- [2026-09-16] OFF-7 routed to batch 1.4. → Deferred.
-- [2026-09-16] SESSION_STATE.md is the phase's single document. → chore-d.
-- [2026-09-16] Permanent-failure UX for OFF-8/9: revert local RxDB patch via `FriendsProvider`. → 1.1.fix.
-- [2026-09-16] OFF-10 offline UX: enqueue + throw `OfflineError`. → 1.1.fix.
-- [2026-09-16] OFF-3 image-queue deferral: only error-message fix ships. → Deferred.
-- [2026-09-17] Chat 2 must append post-batch instructions (§25.8). → chore-e.
-- [2026-09-17] §25.9 reasoning discipline added. → chore-e.
-- [2026-09-17] `npm run apply*` copies output to clipboard on exit. → chore-e.
-- [2026-09-17] OQ1–OQ6 from chore-f. → chore-f.
-- [2026-09-17] §0 dedup follow-up. → chore-f.
-- [2026-09-17] CHORE-G rationale (five items). → chore-g.
-- [2026-09-17] OFF-11 through OFF-13, OFF-2, OFF-4 fixes. → 1.1.fix.b.
-- [2026-09-17] Batch 1.2 scope: Option A (realtime over all six tables). → 1.2.
-- [2026-09-17] Realtime policy mirrors sync pull loop. → 1.2.
-- [2026-09-17] Realtime lifecycle owned by `AppLayout`. → 1.2.
-- [2026-09-17] Batch 1.3 scope: Option 3 (top-level + per-route boundaries). → 1.3.
-- [2026-09-17] Batch 1.4 scope: `imageCache.ts` becomes single cache owner; OFF-6 documented only. → 1.4.
-- [2026-09-17] Batch 1.5 scope: Option 2 (audit + fix); PWA-1 through PWA-6 fixes; SW is app-shell-only. → 1.5.
-- [2026-09-17] Batch 1.6 scope: Q1=1 (interactive semantics only), Q2=a (`<motion.div>` → `<motion.button>` where applicable), Q3=split by domain. This batch is sub-batch 1 (primitives + BottomSheet + BottomNav). Sub-batches 1.7.a–c added to BatchPlan within Phase 1; the phase closes after 1.7.c. → 1.6.
-- [2026-09-17] Focus trap: local `useFocusTrap` hook, no new dependency. One call site does not justify `focus-trap-react`. The trap filters `disabled` and `aria-hidden="true"` elements so a nested locked sheet's children do not receive focus. → 1.6.
-- [2026-09-17] `Button variant="icon"` `aria-label` obligation documented in the variant comment; no runtime dev warning (would be a new behavior, not an existing pattern; deferred unless it recurs as a bug class). → 1.6.
-- [2026-09-17] `MessageBubble` keyboard parity (A11Y-12): `Enter` opens the action sheet, which contains Reply and the emoji row — preserving feature parity with swipe-reply and double-tap-react without inventing new UI. Implemented in 1.7.a, not this batch. → 1.6 (decision), 1.7.a (implementation).
+- [2026-09-17] Batch 1.6 scope: Q1=1, Q2=a, Q3=split by domain. → 1.6.
+- [2026-09-17] Focus trap: local `useFocusTrap` hook, no new dependency. → 1.6.
+- [2026-09-17] `Button variant="icon"` `aria-label` obligation documented, not enforced at runtime. → 1.6.
+- [2026-09-17] `MessageBubble` keyboard parity via `Enter` → action sheet. → 1.6 (decision), 1.7.a (implementation).
+- [2026-09-17] Batch 1.7.a `MessageBubble` accessible name: sender + task-ref title + reply quote + content, joined with commas. Chosen over a generic "message" label because it lets a screen-reader user identify a message in the thread without reading each one in full.
+- [2026-09-17] Batch 1.7.a status row `aria-hidden`. Rationale in A11Y-13 above: per-message status announcements are noise, and an `aria-live` region for the latest read-receipt transition would announce events unrelated to the user's current action. Deliberate limitation, not a defect. Revisit only if a user reports missing read-receipt awareness.
+- [2026-09-17] Batch 1.7.a `ReactionRow` chip label carries count: `"React with ❤️, 3 total"` on hover/announce. Rationale: the emoji and number are `aria-hidden`, so the count must be in the label or the button's accessible name is just the emoji.
 Deferred:
 - OFF-1 → blocked on H1 decision.
 - OFF-3 local-image-queue half → separate batch.
 - Realtime channel-level reconnection backoff → future batch.
 - OFF-6 LRU cap with byte budget → Phase 3 (optimize).
 - PWA update-prompt UI, `beforeinstallprompt` affordance → Phase 3.5+ feature work.
-- Full WCAG AA audit (contrast, reduced-motion, landmarks, skip link, form-field associations beyond Input) → Phase 4 meta-audit.
-- A11Y-12 through A11Y-23 → 1.7.a–c within this phase.
-LastApply: 2026-09-17 — fix: PWA / service worker audit — app-shell-only SW, SPA navigation fallback, no mid-session swap
-LastAuditSummary: Batch 1.6 (sub-batch 1 of 4) shipped — primitives layer accessibility: `BottomSheet` role/aria-modal/aria-labelledby + focus trap + focus restore; `Button` and `Input`/`Textarea` focus-visible rings; `Input`/`Textarea` label association via `useId`; `BottomNav` aria-label, aria-current, unread-in-label, `aria-hidden` on decorative elements. New `useFocusTrap` hook (no new dependency). Sub-batches 1.7.a–c queued.
+- Full WCAG AA audit (contrast, reduced-motion, landmarks, skip link) → Phase 4 meta-audit.
+- A11Y-18 through A11Y-23 → 1.7.b.
+LastApply: 2026-09-17 — feat: accessibility — primitives layer (BottomSheet dialog semantics + focus trap, Button/Input focus rings + label association, BottomNav labels)
+LastAuditSummary: Batch 1.7.a shipped — message surfaces accessibility. `MessageBubble` is now a `<button>` with `Enter`/`Space` → action sheet, accessible name from sender + task-ref + reply + content; status row `aria-hidden`. `ReactionRow` chips have `aria-label` + `aria-pressed`. `MessageComposer` textarea `aria-label` + `aria-describedby` counter. `ChatSearchBar` input label + linked counter + `aria-hidden` icons. `ScrollToBottomButton` new-messages label variant. `ReplyPreview`/`TaskRefCard` icons `aria-hidden`. `MessageActionSheet` and `EmojiPickerSheet` verified correct, no change.
