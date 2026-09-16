@@ -141,6 +141,10 @@ src/
   hooks/
     authContext.ts
     AuthProvider.tsx
+    conversationsContext.ts
+    ConversationsProvider.tsx
+    friendsContext.ts
+    FriendsProvider.tsx
     useAuth.ts
     useBubbleGestures.ts
     useCategories.ts
@@ -213,6 +217,8 @@ tests/
     invoke-handler.ts
     testDb.ts
   react/
+    ConversationsProvider.test.tsx
+    FriendsProvider.test.tsx
     useConversations.test.tsx
     useMessages.test.tsx
     useTaskImage.test.tsx
@@ -5852,6 +5858,8 @@ import React, { useEffect, useState } from 'react';
 import { Outlet, useLocation, useNavigate, Navigate } from 'react-router-dom';
 import { WifiOff, UserX } from 'lucide-react';
 import { MainLayout } from './MainLayout';
+import { FriendsProvider } from '../../hooks/FriendsProvider';
+import { ConversationsProvider } from '../../hooks/ConversationsProvider';
 import { useAuth } from '../../hooks/useAuth';
 import { deliverPendingMessages } from '../../lib/messageDelivery';
 import type { TabId } from './BottomNav';
@@ -5964,9 +5972,13 @@ export const AppLayout: React.FC = () => {
     navigate(`/${tab}`);
   };
   return (
-    <MainLayout activeTab={activeTab} onTabChange={handleTabChange}>
-      <Outlet />
-    </MainLayout>
+    <FriendsProvider>
+      <ConversationsProvider>
+        <MainLayout activeTab={activeTab} onTabChange={handleTabChange}>
+          <Outlet />
+        </MainLayout>
+      </ConversationsProvider>
+    </FriendsProvider>
   );
 };
 </file>
@@ -6175,7 +6187,7 @@ function formatRelative(iso: string): string {
   if (diffDay < 7) return `${diffDay}d`;
   return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 }
-export const ConversationRow: React.FC<ConversationRowProps> = ({
+const ConversationRowComponent: React.FC<ConversationRowProps> = ({
   conversation,
 }) => {
   const navigate = useNavigate();
@@ -6240,6 +6252,37 @@ export const ConversationRow: React.FC<ConversationRowProps> = ({
     </motion.div>
   );
 };
+function areConversationRowPropsEqual(
+  prev: ConversationRowProps,
+  next: ConversationRowProps
+): boolean {
+  if (prev.conversation === next.conversation) return true;
+  const a = prev.conversation;
+  const b = next.conversation;
+  if (a.threadId !== b.threadId) return false;
+  if (a.unreadCount !== b.unreadCount) return false;
+  if (a.friend.friendId !== b.friend.friendId) return false;
+  if (a.friend.friendDisplayName !== b.friend.friendDisplayName) return false;
+  if (a.friend.friendUsername !== b.friend.friendUsername) return false;
+  if (a.friend.friendAvatarFileId !== b.friend.friendAvatarFileId) return false;
+  const am = a.lastMessage;
+  const bm = b.lastMessage;
+  if (am === bm) return true;
+  if (!am || !bm) return false;
+  return (
+    am.id === bm.id &&
+    am.content === bm.content &&
+    am.taskRefTitle === bm.taskRefTitle &&
+    am.direction === bm.direction &&
+    am.createdAt === bm.createdAt &&
+    am.isUnsent === bm.isUnsent
+  );
+}
+export const ConversationRow = React.memo(
+  ConversationRowComponent,
+  areConversationRowPropsEqual
+);
+ConversationRow.displayName = 'ConversationRow';
 </file>
 
 <file path="src/components/messages/EmojiPickerSheet.tsx">
@@ -10161,6 +10204,409 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 };
 </file>
 
+<file path="src/hooks/conversationsContext.ts">
+import { createContext } from 'react';
+import type { MessageDocument, FriendshipDocument } from '../db/schema';
+export interface Conversation {
+  threadId: string;
+  friend: FriendshipDocument;
+  lastMessage: MessageDocument | null;
+  unreadCount: number;
+}
+export interface ConversationsContextValue {
+  conversations: Conversation[];
+  totalUnread: number;
+  isLoading: boolean;
+}
+export const ConversationsContext =
+  createContext<ConversationsContextValue | null>(null);
+</file>
+
+<file path="src/hooks/ConversationsProvider.tsx">
+import React, {
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from 'react';
+import { getDatabase } from '../db/database';
+import { useAuth } from './useAuth';
+import { useFriends } from './useFriends';
+import {
+  ConversationsContext,
+  type Conversation,
+  type ConversationsContextValue,
+} from './conversationsContext';
+import type { MessageDocument } from '../db/schema';
+interface ConversationsProviderProps {
+  children: ReactNode;
+}
+export const ConversationsProvider: React.FC<ConversationsProviderProps> = ({
+  children,
+}) => {
+  const { user } = useAuth();
+  const userId = user?.$id;
+  const { friends, isLoading: friendsLoading } = useFriends();
+  const [allMessages, setAllMessages] = useState<MessageDocument[]>([]);
+  const [loadedUserId, setLoadedUserId] = useState<string | null>(null);
+  useEffect(() => {
+    if (!userId) return;
+    const uid = userId;
+    let isMounted = true;
+    let subscription: { unsubscribe: () => void } | undefined;
+    (async () => {
+      try {
+        const db = getDatabase();
+        const query = db.messages.find({
+          selector: { userId: uid, isDeleted: false },
+          sort: [{ createdAt: 'desc' }],
+        });
+        const sub = query.$.subscribe((docs) => {
+          if (!isMounted) return;
+          setAllMessages(docs as MessageDocument[]);
+          setLoadedUserId(uid);
+        });
+        if (!isMounted) {
+          sub.unsubscribe();
+        } else {
+          subscription = sub;
+        }
+      } catch (err) {
+        console.error('[ConversationsProvider] init failed:', err);
+        if (isMounted) setLoadedUserId(uid);
+      }
+    })();
+    return () => {
+      isMounted = false;
+      if (subscription) subscription.unsubscribe();
+    };
+  }, [userId]);
+  const conversations = useMemo<Conversation[]>(() => {
+    if (!userId || loadedUserId !== userId) return [];
+    const byFriend = new Map<string, MessageDocument[]>();
+    for (const m of allMessages) {
+      const otherId = m.senderId === userId ? m.recipientId : m.senderId;
+      const arr = byFriend.get(otherId);
+      if (arr) arr.push(m);
+      else byFriend.set(otherId, [m]);
+    }
+    const list: Conversation[] = [];
+    for (const friend of friends) {
+      const msgs = byFriend.get(friend.friendId) || [];
+      const lastMessage = msgs.length > 0 ? msgs[0] : null;
+      let unreadCount = 0;
+      for (const m of msgs) {
+        if (m.direction === 'incoming' && !m.readAt && !m.isUnsent) {
+          unreadCount++;
+        }
+      }
+      list.push({
+        threadId: lastMessage?.threadId || '',
+        friend,
+        lastMessage,
+        unreadCount,
+      });
+    }
+    list.sort((a, b) => {
+      if (a.lastMessage && b.lastMessage) {
+        return b.lastMessage.createdAt.localeCompare(a.lastMessage.createdAt);
+      }
+      if (a.lastMessage) return -1;
+      if (b.lastMessage) return 1;
+      const an = (
+        a.friend.friendDisplayName ||
+        a.friend.friendUsername ||
+        ''
+      ).toLowerCase();
+      const bn = (
+        b.friend.friendDisplayName ||
+        b.friend.friendUsername ||
+        ''
+      ).toLowerCase();
+      return an.localeCompare(bn);
+    });
+    return list;
+  }, [userId, loadedUserId, allMessages, friends]);
+  const totalUnread = useMemo(
+    () => conversations.reduce((n, c) => n + c.unreadCount, 0),
+    [conversations]
+  );
+  const isLoading = !!userId && (loadedUserId !== userId || friendsLoading);
+  const value = useMemo<ConversationsContextValue>(
+    () => ({ conversations, totalUnread, isLoading }),
+    [conversations, totalUnread, isLoading]
+  );
+  return (
+    <ConversationsContext.Provider value={value}>
+      {children}
+    </ConversationsContext.Provider>
+  );
+};
+</file>
+
+<file path="src/hooks/friendsContext.ts">
+import { createContext } from 'react';
+import type { FriendshipDocument } from '../db/schema';
+import type { ProfileCard } from '../lib/social';
+export interface MyProfileSummary {
+  username: string;
+  displayName: string;
+  avatarFileId?: string;
+  bio?: string;
+}
+export interface UseFriendsReturn {
+  friends: FriendshipDocument[];
+  incomingRequests: FriendshipDocument[];
+  outgoingRequests: FriendshipDocument[];
+  blockedUsers: FriendshipDocument[];
+  isLoading: boolean;
+  sendRequest: (
+    myProfile: MyProfileSummary,
+    friend: ProfileCard
+  ) => Promise<void>;
+  accept: (friendUserId: string) => Promise<void>;
+  decline: (friendUserId: string) => Promise<void>;
+  cancel: (friendUserId: string) => Promise<void>;
+  remove: (friendUserId: string) => Promise<void>;
+  block: (friendUserId: string) => Promise<void>;
+  findFriendship: (friendUserId: string) => FriendshipDocument | undefined;
+}
+export const FriendsContext = createContext<UseFriendsReturn | null>(null);
+</file>
+
+<file path="src/hooks/FriendsProvider.tsx">
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from 'react';
+import { getDatabase } from '../db/database';
+import { useAuth } from './useAuth';
+import {
+  sendFriendRequest,
+  acceptFriendRequest,
+  deleteFriendPair,
+  blockFriend,
+} from '../lib/social';
+import { clearCachedCalendar } from '../lib/friendCache';
+import {
+  FriendsContext,
+  type MyProfileSummary,
+  type UseFriendsReturn,
+} from './friendsContext';
+import type { FriendshipDocument } from '../db/schema';
+import type { ProfileCard } from '../lib/social';
+interface FriendsProviderProps {
+  children: ReactNode;
+}
+export const FriendsProvider: React.FC<FriendsProviderProps> = ({
+  children,
+}) => {
+  const { user } = useAuth();
+  const userId = user?.$id;
+  const [rows, setRows] = useState<FriendshipDocument[]>([]);
+  const [loadedUserId, setLoadedUserId] = useState<string | null>(null);
+  useEffect(() => {
+    if (!userId) return;
+    const uid = userId;
+    let subscription: { unsubscribe: () => void } | undefined;
+    let isMounted = true;
+    async function init() {
+      try {
+        const db = getDatabase();
+        const allMine = await db.friendships
+          .find({ selector: { userId: uid } })
+          .exec();
+        for (const doc of allMine) {
+          if (doc.id.length > 36 && doc.id.includes('_')) {
+            if (import.meta.env.DEV) {
+              console.log(
+                '[FriendsProvider] Removing legacy friendship row:',
+                doc.id
+              );
+            }
+            await doc.remove();
+          }
+        }
+        const query = db.friendships.find({
+          selector: { userId: uid, isDeleted: false },
+          sort: [{ updatedAt: 'desc' }],
+        });
+        const sub = query.$.subscribe((docs) => {
+          if (!isMounted) return;
+          setRows(docs as FriendshipDocument[]);
+          setLoadedUserId(uid);
+        });
+        if (!isMounted) {
+          sub.unsubscribe();
+        } else {
+          subscription = sub;
+        }
+      } catch (error) {
+        console.error('[FriendsProvider] Error loading friendships:', error);
+        if (isMounted) setLoadedUserId(uid);
+      }
+    }
+    init();
+    return () => {
+      isMounted = false;
+      if (subscription) subscription.unsubscribe();
+    };
+  }, [userId]);
+  const friends = useMemo(
+    () => rows.filter((r) => r.status === 'accepted'),
+    [rows]
+  );
+  const incomingRequests = useMemo(
+    () => rows.filter((r) => r.status === 'pending_incoming'),
+    [rows]
+  );
+  const outgoingRequests = useMemo(
+    () => rows.filter((r) => r.status === 'pending_outgoing'),
+    [rows]
+  );
+  const blockedUsers = useMemo(
+    () => rows.filter((r) => r.status === 'blocked'),
+    [rows]
+  );
+  const findFriendship = useCallback(
+    (friendUserId: string) => rows.find((r) => r.friendId === friendUserId),
+    [rows]
+  );
+  const sendRequest = useCallback(
+    async (myProfile: MyProfileSummary, friend: ProfileCard) => {
+      const uid = user?.$id;
+      if (!uid) {
+        console.error(
+          '[FriendsProvider] Cannot send request: User not authenticated'
+        );
+        return;
+      }
+      await sendFriendRequest({
+        myUserId: uid,
+        myUsername: myProfile.username,
+        myDisplayName: myProfile.displayName,
+        myAvatarFileId: myProfile.avatarFileId || '',
+        myBio: myProfile.bio || '',
+        friend,
+      });
+    },
+    [user?.$id]
+  );
+  const accept = useCallback(
+    async (friendUserId: string) => {
+      const uid = user?.$id;
+      if (!uid) {
+        console.error(
+          '[FriendsProvider] Cannot accept: User not authenticated'
+        );
+        return;
+      }
+      await acceptFriendRequest(uid, friendUserId);
+    },
+    [user?.$id]
+  );
+  const decline = useCallback(
+    async (friendUserId: string) => {
+      const uid = user?.$id;
+      if (!uid) {
+        console.error(
+          '[FriendsProvider] Cannot decline: User not authenticated'
+        );
+        return;
+      }
+      await deleteFriendPair(uid, friendUserId);
+      await clearCachedCalendar(friendUserId);
+    },
+    [user?.$id]
+  );
+  const cancel = useCallback(
+    async (friendUserId: string) => {
+      const uid = user?.$id;
+      if (!uid) {
+        console.error(
+          '[FriendsProvider] Cannot cancel: User not authenticated'
+        );
+        return;
+      }
+      await deleteFriendPair(uid, friendUserId);
+      await clearCachedCalendar(friendUserId);
+    },
+    [user?.$id]
+  );
+  const remove = useCallback(
+    async (friendUserId: string) => {
+      const uid = user?.$id;
+      if (!uid) {
+        console.error(
+          '[FriendsProvider] Cannot remove: User not authenticated'
+        );
+        return;
+      }
+      await deleteFriendPair(uid, friendUserId);
+      await clearCachedCalendar(friendUserId);
+    },
+    [user?.$id]
+  );
+  const block = useCallback(
+    async (friendUserId: string) => {
+      const uid = user?.$id;
+      if (!uid) {
+        console.error(
+          '[FriendsProvider] Cannot block: User not authenticated'
+        );
+        return;
+      }
+      await blockFriend(uid, friendUserId);
+      await clearCachedCalendar(friendUserId);
+    },
+    [user?.$id]
+  );
+  const isLoading = !!userId && loadedUserId !== userId;
+  const value = useMemo<UseFriendsReturn>(
+    () => ({
+      friends: userId && loadedUserId === userId ? friends : [],
+      incomingRequests:
+        userId && loadedUserId === userId ? incomingRequests : [],
+      outgoingRequests:
+        userId && loadedUserId === userId ? outgoingRequests : [],
+      blockedUsers: userId && loadedUserId === userId ? blockedUsers : [],
+      isLoading,
+      sendRequest,
+      accept,
+      decline,
+      cancel,
+      remove,
+      block,
+      findFriendship,
+    }),
+    [
+      userId,
+      loadedUserId,
+      friends,
+      incomingRequests,
+      outgoingRequests,
+      blockedUsers,
+      isLoading,
+      sendRequest,
+      accept,
+      decline,
+      cancel,
+      remove,
+      block,
+      findFriendship,
+    ]
+  );
+  return (
+    <FriendsContext.Provider value={value}>
+      {children}
+    </FriendsContext.Provider>
+  );
+};
+</file>
+
 <file path="src/hooks/useAuth.ts">
 import { useContext } from 'react';
 import { AuthContext, type AuthContextValue } from './authContext';
@@ -10536,112 +10982,24 @@ export function useCategories() {
 </file>
 
 <file path="src/hooks/useConversations.ts">
-import { useState, useEffect, useMemo } from 'react';
-import { getDatabase } from '../db/database';
-import { useAuth } from './useAuth';
-import { useFriends } from './useFriends';
-import type { MessageDocument, FriendshipDocument } from '../db/schema';
-export interface Conversation {
-  threadId: string;
-  friend: FriendshipDocument;
-  lastMessage: MessageDocument | null;
-  unreadCount: number;
-}
+import { useContext } from 'react';
+import { ConversationsContext } from './conversationsContext';
+import type { Conversation } from './conversationsContext';
+export type { Conversation } from './conversationsContext';
 export interface UseConversationsReturn {
   conversations: Conversation[];
   totalUnread: number;
   isLoading: boolean;
 }
 export function useConversations(): UseConversationsReturn {
-  const { user } = useAuth();
-  const userId = user?.$id;
-  const { friends, isLoading: friendsLoading } = useFriends();
-  const [allMessages, setAllMessages] = useState<MessageDocument[]>([]);
-  const [loadedUserId, setLoadedUserId] = useState<string | null>(null);
-  useEffect(() => {
-    if (!userId) return;
-    const uid = userId;
-    let isMounted = true;
-    let subscription: { unsubscribe: () => void } | undefined;
-    (async () => {
-      try {
-        const db = getDatabase();
-        const query = db.messages.find({
-          selector: { userId: uid, isDeleted: false },
-          sort: [{ createdAt: 'desc' }],
-        });
-        const sub = query.$.subscribe((docs) => {
-          if (!isMounted) return;
-          setAllMessages(docs as MessageDocument[]);
-          setLoadedUserId(uid);
-        });
-        if (!isMounted) {
-          sub.unsubscribe();
-        } else {
-          subscription = sub;
-        }
-      } catch (err) {
-        console.error('[useConversations] init failed:', err);
-        if (isMounted) setLoadedUserId(uid);
-      }
-    })();
-    return () => {
-      isMounted = false;
-      if (subscription) subscription.unsubscribe();
-    };
-  }, [userId]);
-  const conversations = useMemo<Conversation[]>(() => {
-    if (!userId || loadedUserId !== userId) return [];
-    const byFriend = new Map<string, MessageDocument[]>();
-    for (const m of allMessages) {
-      const otherId = m.senderId === userId ? m.recipientId : m.senderId;
-      const arr = byFriend.get(otherId);
-      if (arr) arr.push(m);
-      else byFriend.set(otherId, [m]);
-    }
-    const list: Conversation[] = [];
-    for (const friend of friends) {
-      const msgs = byFriend.get(friend.friendId) || [];
-      const lastMessage = msgs.length > 0 ? msgs[0] : null;
-      let unreadCount = 0;
-      for (const m of msgs) {
-        if (m.direction === 'incoming' && !m.readAt) unreadCount++;
-      }
-      list.push({
-        threadId: lastMessage?.threadId || '',
-        friend,
-        lastMessage,
-        unreadCount,
-      });
-    }
-    // Sort: chats with messages by newest-first; then chats with no messages
-    // alphabetically by display name.
-    list.sort((a, b) => {
-      if (a.lastMessage && b.lastMessage) {
-        return b.lastMessage.createdAt.localeCompare(a.lastMessage.createdAt);
-      }
-      if (a.lastMessage) return -1;
-      if (b.lastMessage) return 1;
-      const an = (
-        a.friend.friendDisplayName ||
-        a.friend.friendUsername ||
-        ''
-      ).toLowerCase();
-      const bn = (
-        b.friend.friendDisplayName ||
-        b.friend.friendUsername ||
-        ''
-      ).toLowerCase();
-      return an.localeCompare(bn);
-    });
-    return list;
-  }, [userId, loadedUserId, allMessages, friends]);
-  const totalUnread = useMemo(
-    () => conversations.reduce((n, c) => n + c.unreadCount, 0),
-    [conversations]
-  );
-  const isLoading = !!userId && (loadedUserId !== userId || friendsLoading);
-  return { conversations, totalUnread, isLoading };
+  const ctx = useContext(ConversationsContext);
+  if (!ctx) {
+    throw new Error(
+      'useConversations must be used within a <ConversationsProvider>. ' +
+        'Check that <ConversationsProvider> wraps the consuming tree.'
+    );
+  }
+  return ctx;
 }
 </file>
 
@@ -10908,206 +11266,19 @@ export function useFriendCarousel(): UseFriendCarouselReturn {
 </file>
 
 <file path="src/hooks/useFriends.ts">
-import { useState, useEffect, useCallback, useMemo } from 'react';
-import { getDatabase } from '../db/database';
-import { useAuth } from './useAuth';
-import {
-  sendFriendRequest,
-  acceptFriendRequest,
-  deleteFriendPair,
-  blockFriend,
-  type ProfileCard,
-} from '../lib/social';
-import { clearCachedCalendar } from '../lib/friendCache';
-import type { FriendshipDocument } from '../db/schema';
-export interface MyProfileSummary {
-  username: string;
-  displayName: string;
-  avatarFileId?: string;
-  bio?: string;
-}
-export interface UseFriendsReturn {
-  friends: FriendshipDocument[];
-  incomingRequests: FriendshipDocument[];
-  outgoingRequests: FriendshipDocument[];
-  blockedUsers: FriendshipDocument[];
-  isLoading: boolean;
-  sendRequest: (
-    myProfile: MyProfileSummary,
-    friend: ProfileCard
-  ) => Promise<void>;
-  accept: (friendUserId: string) => Promise<void>;
-  decline: (friendUserId: string) => Promise<void>;
-  cancel: (friendUserId: string) => Promise<void>;
-  remove: (friendUserId: string) => Promise<void>;
-  block: (friendUserId: string) => Promise<void>;
-  findFriendship: (friendUserId: string) => FriendshipDocument | undefined;
-}
+import { useContext } from 'react';
+import { FriendsContext } from './friendsContext';
+import type { UseFriendsReturn } from './friendsContext';
+export type { UseFriendsReturn, MyProfileSummary } from './friendsContext';
 export function useFriends(): UseFriendsReturn {
-  const { user } = useAuth();
-  const userId = user?.$id;
-  const [rows, setRows] = useState<FriendshipDocument[]>([]);
-  const [loadedUserId, setLoadedUserId] = useState<string | null>(null);
-  useEffect(() => {
-    if (!userId) return;
-    const uid = userId;
-    let subscription: { unsubscribe: () => void } | undefined;
-    let isMounted = true;
-    async function init() {
-      try {
-        const db = getDatabase();
-        const allMine = await db.friendships
-          .find({ selector: { userId: uid } })
-          .exec();
-        for (const doc of allMine) {
-          if (doc.id.length > 36 && doc.id.includes('_')) {
-            if (import.meta.env.DEV) {
-              console.log('[useFriends] Removing legacy friendship row:', doc.id);
-            }
-            await doc.remove();
-          }
-        }
-        const query = db.friendships.find({
-          selector: { userId: uid, isDeleted: false },
-          sort: [{ updatedAt: 'desc' }],
-        });
-        const sub = query.$.subscribe((docs) => {
-          if (!isMounted) return;
-          setRows(docs as FriendshipDocument[]);
-          setLoadedUserId(uid);
-        });
-        if (!isMounted) {
-          sub.unsubscribe();
-        } else {
-          subscription = sub;
-        }
-      } catch (error) {
-        console.error('[useFriends] Error loading friendships:', error);
-        if (isMounted) setLoadedUserId(uid);
-      }
-    }
-    init();
-    return () => {
-      isMounted = false;
-      if (subscription) subscription.unsubscribe();
-    };
-  }, [userId]);
-  const friends = useMemo(
-    () => rows.filter((r) => r.status === 'accepted'),
-    [rows]
-  );
-  const incomingRequests = useMemo(
-    () => rows.filter((r) => r.status === 'pending_incoming'),
-    [rows]
-  );
-  const outgoingRequests = useMemo(
-    () => rows.filter((r) => r.status === 'pending_outgoing'),
-    [rows]
-  );
-  const blockedUsers = useMemo(
-    () => rows.filter((r) => r.status === 'blocked'),
-    [rows]
-  );
-  const findFriendship = useCallback(
-    (friendUserId: string) => rows.find((r) => r.friendId === friendUserId),
-    [rows]
-  );
-  const sendRequest = useCallback(
-    async (myProfile: MyProfileSummary, friend: ProfileCard) => {
-      const uid = user?.$id;
-      if (!uid) {
-        console.error(
-          '[useFriends] Cannot send request: User not authenticated'
-        );
-        return;
-      }
-      await sendFriendRequest({
-        myUserId: uid,
-        myUsername: myProfile.username,
-        myDisplayName: myProfile.displayName,
-        myAvatarFileId: myProfile.avatarFileId || '',
-        myBio: myProfile.bio || '',
-        friend,
-      });
-    },
-    [user?.$id]
-  );
-  const accept = useCallback(
-    async (friendUserId: string) => {
-      const uid = user?.$id;
-      if (!uid) {
-        console.error('[useFriends] Cannot accept: User not authenticated');
-        return;
-      }
-      await acceptFriendRequest(uid, friendUserId);
-    },
-    [user?.$id]
-  );
-  const decline = useCallback(
-    async (friendUserId: string) => {
-      const uid = user?.$id;
-      if (!uid) {
-        console.error('[useFriends] Cannot decline: User not authenticated');
-        return;
-      }
-      await deleteFriendPair(uid, friendUserId);
-      await clearCachedCalendar(friendUserId);
-    },
-    [user?.$id]
-  );
-  const cancel = useCallback(
-    async (friendUserId: string) => {
-      const uid = user?.$id;
-      if (!uid) {
-        console.error('[useFriends] Cannot cancel: User not authenticated');
-        return;
-      }
-      await deleteFriendPair(uid, friendUserId);
-      await clearCachedCalendar(friendUserId);
-    },
-    [user?.$id]
-  );
-  const remove = useCallback(
-    async (friendUserId: string) => {
-      const uid = user?.$id;
-      if (!uid) {
-        console.error('[useFriends] Cannot remove: User not authenticated');
-        return;
-      }
-      await deleteFriendPair(uid, friendUserId);
-      await clearCachedCalendar(friendUserId);
-    },
-    [user?.$id]
-  );
-  const block = useCallback(
-    async (friendUserId: string) => {
-      const uid = user?.$id;
-      if (!uid) {
-        console.error('[useFriends] Cannot block: User not authenticated');
-        return;
-      }
-      await blockFriend(uid, friendUserId);
-      await clearCachedCalendar(friendUserId);
-    },
-    [user?.$id]
-  );
-  const isLoading = !!userId && loadedUserId !== userId;
-  return {
-    friends: userId && loadedUserId === userId ? friends : [],
-    incomingRequests:
-      userId && loadedUserId === userId ? incomingRequests : [],
-    outgoingRequests:
-      userId && loadedUserId === userId ? outgoingRequests : [],
-    blockedUsers: userId && loadedUserId === userId ? blockedUsers : [],
-    isLoading,
-    sendRequest,
-    accept,
-    decline,
-    cancel,
-    remove,
-    block,
-    findFriendship,
-  };
+  const ctx = useContext(FriendsContext);
+  if (!ctx) {
+    throw new Error(
+      'useFriends must be used within a <FriendsProvider>. ' +
+        'Check that <FriendsProvider> wraps the consuming tree.'
+    );
+  }
+  return ctx;
 }
 </file>
 
@@ -12184,69 +12355,21 @@ export function useTasks() {
 </file>
 
 <file path="src/hooks/useUnreadMessages.ts">
-import { useState, useEffect, useMemo } from 'react';
-import { getDatabase } from '../db/database';
-import { useAuth } from './useAuth';
-import { useFriends } from './useFriends';
-import type { MessageDocument } from '../db/schema';
+import { useContext } from 'react';
+import { ConversationsContext } from './conversationsContext';
 export interface UseUnreadMessagesReturn {
   totalUnread: number;
   isLoading: boolean;
 }
 export function useUnreadMessages(): UseUnreadMessagesReturn {
-  const { user } = useAuth();
-  const userId = user?.$id;
-  const { friends, isLoading: friendsLoading } = useFriends();
-  const [unread, setUnread] = useState<MessageDocument[]>([]);
-  const [loadedUserId, setLoadedUserId] = useState<string | null>(null);
-  useEffect(() => {
-    if (!userId) return;
-    const uid = userId;
-    let isMounted = true;
-    let subscription: { unsubscribe: () => void } | undefined;
-    (async () => {
-      try {
-        const db = getDatabase();
-        const query = db.messages.find({
-          selector: {
-            userId: uid,
-            direction: 'incoming',
-            readAt: '',
-            isDeleted: false,
-          },
-          sort: [{ readAt: 'asc' }],
-        });
-        const sub = query.$.subscribe((docs) => {
-          if (!isMounted) return;
-          setUnread(docs as MessageDocument[]);
-          setLoadedUserId(uid);
-        });
-        if (!isMounted) {
-          sub.unsubscribe();
-        } else {
-          subscription = sub;
-        }
-      } catch (err) {
-        console.error('[useUnreadMessages] init failed:', err);
-        if (isMounted) setLoadedUserId(uid);
-      }
-    })();
-    return () => {
-      isMounted = false;
-      if (subscription) subscription.unsubscribe();
-    };
-  }, [userId]);
-  const totalUnread = useMemo(() => {
-    if (!userId || loadedUserId !== userId) return 0;
-    const friendIds = new Set(friends.map((f) => f.friendId));
-    let n = 0;
-    for (const m of unread) {
-      if (friendIds.has(m.senderId)) n++;
-    }
-    return n;
-  }, [userId, loadedUserId, unread, friends]);
-  const isLoading = !!userId && (loadedUserId !== userId || friendsLoading);
-  return { totalUnread, isLoading };
+  const ctx = useContext(ConversationsContext);
+  if (!ctx) {
+    throw new Error(
+      'useUnreadMessages must be used within a <ConversationsProvider>. ' +
+        'Check that <ConversationsProvider> wraps the consuming tree.'
+    );
+  }
+  return { totalUnread: ctx.totalUnread, isLoading: ctx.isLoading };
 }
 </file>
 
@@ -16834,7 +16957,7 @@ describe('ChatSearchBar', () => {
 </file>
 
 <file path="tests/components/ConversationRow.test.tsx">
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { ConversationRow } from '../../src/components/messages/ConversationRow';
 import type { Conversation } from '../../src/hooks/useConversations';
@@ -16845,11 +16968,11 @@ import type {
 vi.mock('react-router-dom', () => ({
   useNavigate: () => vi.fn(),
 }));
-const mockGetLocalImageUrl = vi.hoisted(() =>
-  vi.fn().mockResolvedValue(null)
+const useTaskImageSpy = vi.hoisted(() =>
+  vi.fn(() => ({ imageUrl: null, isLoading: false }))
 );
-vi.mock('../../src/lib/storage', () => ({
-  getLocalImageUrl: mockGetLocalImageUrl,
+vi.mock('../../src/hooks/useTaskImage', () => ({
+  useTaskImage: useTaskImageSpy,
 }));
 function makeFriend(): FriendshipDocument {
   return {
@@ -16907,6 +17030,9 @@ function makeConversation(
     ...overrides,
   };
 }
+beforeEach(() => {
+  useTaskImageSpy.mockClear();
+});
 describe('ConversationRow', () => {
   it('renders friend display name when set', () => {
     render(<ConversationRow conversation={makeConversation()} />);
@@ -16920,8 +17046,6 @@ describe('ConversationRow', () => {
         })}
       />
     );
-    // The `<p>{friendDisplayName || friendUsername}</p>` fallback renders
-    // the bare username — no `@` prefix. Case-sensitive match on 'b' does
     expect(screen.getByText('b')).toBeInTheDocument();
   });
   it('preview: no last message shows "Tap to start chatting"', () => {
@@ -16986,6 +17110,52 @@ describe('ConversationRow', () => {
     );
     expect(screen.getByText('You:')).toBeInTheDocument();
     expect(screen.getByText('my reply')).toBeInTheDocument();
+  });
+  it('does not re-render on semantically-equal props (regression: F5)', () => {
+    const friend = makeFriend();
+    const lastMessage = makeMessage({ id: 'msg_1', content: 'hello' });
+    const first: Conversation = {
+      threadId: 'th_test',
+      friend,
+      lastMessage,
+      unreadCount: 0,
+    };
+    const second: Conversation = {
+      threadId: 'th_test',
+      friend: { ...friend },
+      lastMessage: { ...lastMessage },
+      unreadCount: 0,
+    };
+    const { rerender } = render(
+      <ConversationRow conversation={first} />
+    );
+    expect(useTaskImageSpy).toHaveBeenCalledTimes(1);
+    rerender(<ConversationRow conversation={second} />);
+    expect(useTaskImageSpy).toHaveBeenCalledTimes(1);
+  });
+  it('re-renders when unreadCount changes (regression: F5)', () => {
+    const first = makeConversation({ unreadCount: 0 });
+    const second = makeConversation({ unreadCount: 2 });
+    const { rerender } = render(
+      <ConversationRow conversation={first} />
+    );
+    expect(useTaskImageSpy).toHaveBeenCalledTimes(1);
+    rerender(<ConversationRow conversation={second} />);
+    expect(useTaskImageSpy).toHaveBeenCalledTimes(2);
+  });
+  it('re-renders when lastMessage id changes (regression: F5)', () => {
+    const first = makeConversation({
+      lastMessage: makeMessage({ id: 'msg_1', content: 'hello' }),
+    });
+    const second = makeConversation({
+      lastMessage: makeMessage({ id: 'msg_2', content: 'hello' }),
+    });
+    const { rerender } = render(
+      <ConversationRow conversation={first} />
+    );
+    expect(useTaskImageSpy).toHaveBeenCalledTimes(1);
+    rerender(<ConversationRow conversation={second} />);
+    expect(useTaskImageSpy).toHaveBeenCalledTimes(2);
   });
 });
 </file>
@@ -19001,11 +19171,460 @@ export async function destroyTestDb(
 }
 </file>
 
+<file path="tests/react/ConversationsProvider.test.tsx">
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { renderHook, waitFor } from '@testing-library/react';
+import { useContext, type ReactNode } from 'react';
+import type { RxDatabase } from 'rxdb';
+import { ConversationsProvider } from '../../src/hooks/ConversationsProvider';
+import {
+  ConversationsContext,
+  type ConversationsContextValue,
+} from '../../src/hooks/conversationsContext';
+import {
+  createTestDb,
+  destroyTestDb,
+  type TestDatabaseCollections,
+} from '../helpers/testDb';
+import type {
+  MessageDocument,
+  FriendshipDocument,
+} from '../../src/db/schema';
+const dbRef = vi.hoisted(() => ({ current: null as unknown }));
+const mockFriendsRef = vi.hoisted(() => ({ current: [] as unknown[] }));
+const mockUserRef = vi.hoisted(() => ({
+  current: { $id: 'user_A' } as { $id: string } | null,
+}));
+vi.mock('../../src/db/database', () => ({
+  getDatabase: () => {
+    if (!dbRef.current) throw new Error('testDb not initialized');
+    return dbRef.current;
+  },
+}));
+vi.mock('../../src/hooks/useAuth', () => ({
+  useAuth: () => ({ user: mockUserRef.current, isLoading: false }),
+}));
+vi.mock('../../src/hooks/useFriends', () => ({
+  useFriends: () => ({
+    friends: mockFriendsRef.current,
+    isLoading: false,
+  }),
+}));
+const wrapper = ({ children }: { children: ReactNode }) => (
+  <ConversationsProvider>{children}</ConversationsProvider>
+);
+function useProviderValue(): ConversationsContextValue {
+  const ctx = useContext(ConversationsContext);
+  if (!ctx) throw new Error('useProviderValue used outside provider');
+  return ctx;
+}
+function makeFriend(
+  overrides: Partial<FriendshipDocument> = {}
+): FriendshipDocument {
+  return {
+    id: `fr_${Math.random().toString(36).slice(2, 8)}`,
+    userId: 'user_A',
+    friendId: 'user_B',
+    friendUsername: 'friend_b',
+    friendDisplayName: 'Friend B',
+    friendAvatarFileId: '',
+    friendBio: '',
+    status: 'accepted',
+    createdAt: '2026-01-01T00:00:00.000Z',
+    updatedAt: '2026-01-01T00:00:00.000Z',
+    isDeleted: false,
+    ...overrides,
+  };
+}
+function makeMessage(overrides: Partial<MessageDocument> = {}): MessageDocument {
+  const id = overrides.id ?? `msg_${Math.random().toString(36).slice(2, 12)}`;
+  return {
+    id,
+    userId: 'user_A',
+    threadId: 'th_test',
+    senderId: 'user_A',
+    recipientId: 'user_B',
+    direction: 'outgoing',
+    content: 'hello',
+    taskRefId: '',
+    taskRefTitle: '',
+    taskRefDate: '',
+    taskRefColor: '',
+    replyToId: '',
+    replyToContent: '',
+    replyToSenderId: '',
+    isUnsent: false,
+    originalMessageId: id,
+    reactions: '',
+    readAt: '',
+    deliveryStatus: 'delivered',
+    createdAt: '2026-01-01T00:00:00.000Z',
+    updatedAt: '2026-01-01T00:00:00.000Z',
+    isDeleted: false,
+    ...overrides,
+  };
+}
+describe('ConversationsProvider', () => {
+  beforeEach(async () => {
+    dbRef.current = await createTestDb();
+    mockFriendsRef.current = [];
+    mockUserRef.current = { $id: 'user_A' };
+  });
+  afterEach(async () => {
+    if (dbRef.current) {
+      await destroyTestDb(
+        dbRef.current as RxDatabase<TestDatabaseCollections>
+      );
+      dbRef.current = null;
+    }
+  });
+  it('exposes empty state when there is no authenticated user', () => {
+    mockUserRef.current = null;
+    const { result } = renderHook(() => useProviderValue(), { wrapper });
+    expect(result.current.isLoading).toBe(false);
+    expect(result.current.conversations).toEqual([]);
+    expect(result.current.totalUnread).toBe(0);
+  });
+  it('exposes empty state when there are no friends and no messages', async () => {
+    const { result } = renderHook(() => useProviderValue(), { wrapper });
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(result.current.conversations).toEqual([]);
+    expect(result.current.totalUnread).toBe(0);
+  });
+  it('builds one conversation per accepted friend, with no messages yet', async () => {
+    mockFriendsRef.current = [
+      makeFriend({ friendId: 'user_B', friendUsername: 'b' }),
+      makeFriend({ friendId: 'user_C', friendUsername: 'c' }),
+    ];
+    const { result } = renderHook(() => useProviderValue(), { wrapper });
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(result.current.conversations).toHaveLength(2);
+    for (const c of result.current.conversations) {
+      expect(c.lastMessage).toBeNull();
+      expect(c.unreadCount).toBe(0);
+    }
+    expect(result.current.totalUnread).toBe(0);
+  });
+  it('counts unread incoming messages from accepted friends', async () => {
+    mockFriendsRef.current = [
+      makeFriend({ friendId: 'user_B', friendUsername: 'b' }),
+    ];
+    const db = dbRef.current as RxDatabase<TestDatabaseCollections>;
+    await db.messages.bulkInsert([
+      makeMessage({
+        id: 'msg_i1',
+        senderId: 'user_B',
+        recipientId: 'user_A',
+        direction: 'incoming',
+        readAt: '',
+        createdAt: '2026-01-01T10:00:00.000Z',
+      }),
+    ]);
+    const { result } = renderHook(() => useProviderValue(), { wrapper });
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(result.current.totalUnread).toBe(1);
+    expect(result.current.conversations[0].unreadCount).toBe(1);
+  });
+  it('excludes unsent incoming messages from unread counts (regression: F3)', async () => {
+    mockFriendsRef.current = [
+      makeFriend({ friendId: 'user_B', friendUsername: 'b' }),
+    ];
+    const db = dbRef.current as RxDatabase<TestDatabaseCollections>;
+    await db.messages.bulkInsert([
+      makeMessage({
+        id: 'msg_unsent',
+        senderId: 'user_B',
+        recipientId: 'user_A',
+        direction: 'incoming',
+        readAt: '',
+        isUnsent: true,
+        createdAt: '2026-01-01T10:00:00.000Z',
+      }),
+    ]);
+    const { result } = renderHook(() => useProviderValue(), { wrapper });
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(result.current.totalUnread).toBe(0);
+    expect(result.current.conversations[0].unreadCount).toBe(0);
+  });
+  it('sorts conversations with messages newest-first, then empty conversations alphabetically', async () => {
+    mockFriendsRef.current = [
+      makeFriend({
+        friendId: 'user_B',
+        friendUsername: 'b',
+        friendDisplayName: 'B',
+      }),
+      makeFriend({
+        friendId: 'user_C',
+        friendUsername: 'c',
+        friendDisplayName: 'C',
+      }),
+      makeFriend({
+        friendId: 'user_D',
+        friendUsername: 'd',
+        friendDisplayName: 'D',
+      }),
+    ];
+    const db = dbRef.current as RxDatabase<TestDatabaseCollections>;
+    await db.messages.bulkInsert([
+      makeMessage({
+        id: 'msg_b1',
+        recipientId: 'user_B',
+        createdAt: '2026-01-01T10:00:00.000Z',
+      }),
+      makeMessage({
+        id: 'msg_c1',
+        recipientId: 'user_C',
+        createdAt: '2026-01-01T12:00:00.000Z',
+      }),
+    ]);
+    const { result } = renderHook(() => useProviderValue(), { wrapper });
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    const order = result.current.conversations.map((c) => c.friend.friendId);
+    expect(order).toEqual(['user_C', 'user_B', 'user_D']);
+  });
+  it('resets conversations and unread on user switch', async () => {
+    mockFriendsRef.current = [
+      makeFriend({ friendId: 'user_B', friendUsername: 'b' }),
+    ];
+    const db = dbRef.current as RxDatabase<TestDatabaseCollections>;
+    await db.messages.bulkInsert([
+      makeMessage({
+        id: 'msg_i1',
+        senderId: 'user_B',
+        recipientId: 'user_A',
+        direction: 'incoming',
+        readAt: '',
+        createdAt: '2026-01-01T10:00:00.000Z',
+      }),
+    ]);
+    const { result, rerender } = renderHook(() => useProviderValue(), {
+      wrapper,
+    });
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(result.current.totalUnread).toBe(1);
+    mockUserRef.current = { $id: 'user_Z' };
+    rerender();
+    await waitFor(() => expect(result.current.totalUnread).toBe(0));
+  });
+});
+</file>
+
+<file path="tests/react/FriendsProvider.test.tsx">
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { renderHook, waitFor } from '@testing-library/react';
+import { useContext, type ReactNode } from 'react';
+import type { RxDatabase } from 'rxdb';
+import { FriendsProvider } from '../../src/hooks/FriendsProvider';
+import {
+  FriendsContext,
+  type UseFriendsReturn,
+} from '../../src/hooks/friendsContext';
+import {
+  createTestDb,
+  destroyTestDb,
+  type TestDatabaseCollections,
+} from '../helpers/testDb';
+import type { FriendshipDocument } from '../../src/db/schema';
+const dbRef = vi.hoisted(() => ({ current: null as unknown }));
+const mockUserRef = vi.hoisted(() => ({
+  current: { $id: 'user_A' } as { $id: string } | null,
+}));
+vi.mock('../../src/db/database', () => ({
+  getDatabase: () => {
+    if (!dbRef.current) throw new Error('testDb not initialized');
+    return dbRef.current;
+  },
+}));
+vi.mock('../../src/hooks/useAuth', () => ({
+  useAuth: () => ({ user: mockUserRef.current, isLoading: false }),
+}));
+const wrapper = ({ children }: { children: ReactNode }) => (
+  <FriendsProvider>{children}</FriendsProvider>
+);
+function useFriendsValue(): UseFriendsReturn {
+  const ctx = useContext(FriendsContext);
+  if (!ctx) throw new Error('useFriendsValue used outside provider');
+  return ctx;
+}
+function makeFriendship(
+  overrides: Partial<FriendshipDocument> = {}
+): FriendshipDocument {
+  return {
+    id: `fr_${Math.random().toString(36).slice(2, 8)}`,
+    userId: 'user_A',
+    friendId: 'user_B',
+    friendUsername: 'friend_b',
+    friendDisplayName: 'Friend B',
+    friendAvatarFileId: '',
+    friendBio: '',
+    status: 'accepted',
+    createdAt: '2026-01-01T00:00:00.000Z',
+    updatedAt: '2026-01-01T00:00:00.000Z',
+    isDeleted: false,
+    ...overrides,
+  };
+}
+describe('FriendsProvider', () => {
+  beforeEach(async () => {
+    dbRef.current = await createTestDb();
+    mockUserRef.current = { $id: 'user_A' };
+  });
+  afterEach(async () => {
+    if (dbRef.current) {
+      await destroyTestDb(
+        dbRef.current as RxDatabase<TestDatabaseCollections>
+      );
+      dbRef.current = null;
+    }
+  });
+  it('exposes empty state and isLoading false when there is no authenticated user', () => {
+    mockUserRef.current = null;
+    const { result } = renderHook(() => useFriendsValue(), { wrapper });
+    expect(result.current.isLoading).toBe(false);
+    expect(result.current.friends).toEqual([]);
+    expect(result.current.incomingRequests).toEqual([]);
+    expect(result.current.outgoingRequests).toEqual([]);
+    expect(result.current.blockedUsers).toEqual([]);
+  });
+  it('exposes empty arrays and transitions isLoading true → false when there are no friendships', async () => {
+    const { result } = renderHook(() => useFriendsValue(), { wrapper });
+    expect(result.current.isLoading).toBe(true);
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(result.current.friends).toEqual([]);
+    expect(result.current.incomingRequests).toEqual([]);
+    expect(result.current.outgoingRequests).toEqual([]);
+    expect(result.current.blockedUsers).toEqual([]);
+  });
+  it('classifies accepted rows as friends only', async () => {
+    const db = dbRef.current as RxDatabase<TestDatabaseCollections>;
+    await db.friendships.insert(
+      makeFriendship({
+        friendId: 'user_B',
+        status: 'accepted',
+      })
+    );
+    const { result } = renderHook(() => useFriendsValue(), { wrapper });
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(result.current.friends).toHaveLength(1);
+    expect(result.current.friends[0].friendId).toBe('user_B');
+    expect(result.current.incomingRequests).toEqual([]);
+    expect(result.current.outgoingRequests).toEqual([]);
+    expect(result.current.blockedUsers).toEqual([]);
+  });
+  it('classifies pending_incoming rows as incomingRequests only', async () => {
+    const db = dbRef.current as RxDatabase<TestDatabaseCollections>;
+    await db.friendships.insert(
+      makeFriendship({
+        friendId: 'user_B',
+        status: 'pending_incoming',
+      })
+    );
+    const { result } = renderHook(() => useFriendsValue(), { wrapper });
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(result.current.friends).toEqual([]);
+    expect(result.current.incomingRequests).toHaveLength(1);
+    expect(result.current.incomingRequests[0].friendId).toBe('user_B');
+    expect(result.current.outgoingRequests).toEqual([]);
+    expect(result.current.blockedUsers).toEqual([]);
+  });
+  it('classifies pending_outgoing rows as outgoingRequests only', async () => {
+    const db = dbRef.current as RxDatabase<TestDatabaseCollections>;
+    await db.friendships.insert(
+      makeFriendship({
+        friendId: 'user_B',
+        status: 'pending_outgoing',
+      })
+    );
+    const { result } = renderHook(() => useFriendsValue(), { wrapper });
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(result.current.friends).toEqual([]);
+    expect(result.current.incomingRequests).toEqual([]);
+    expect(result.current.outgoingRequests).toHaveLength(1);
+    expect(result.current.blockedUsers).toEqual([]);
+  });
+  it('classifies blocked rows as blockedUsers only', async () => {
+    const db = dbRef.current as RxDatabase<TestDatabaseCollections>;
+    await db.friendships.insert(
+      makeFriendship({
+        friendId: 'user_B',
+        status: 'blocked',
+      })
+    );
+    const { result } = renderHook(() => useFriendsValue(), { wrapper });
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(result.current.friends).toEqual([]);
+    expect(result.current.incomingRequests).toEqual([]);
+    expect(result.current.outgoingRequests).toEqual([]);
+    expect(result.current.blockedUsers).toHaveLength(1);
+  });
+  it('excludes soft-deleted rows from every bucket', async () => {
+    const db = dbRef.current as RxDatabase<TestDatabaseCollections>;
+    await db.friendships.bulkInsert([
+      makeFriendship({
+        friendId: 'user_B',
+        status: 'accepted',
+        isDeleted: false,
+      }),
+      makeFriendship({
+        friendId: 'user_C',
+        status: 'accepted',
+        isDeleted: true,
+      }),
+    ]);
+    const { result } = renderHook(() => useFriendsValue(), { wrapper });
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(result.current.friends).toHaveLength(1);
+    expect(result.current.friends[0].friendId).toBe('user_B');
+  });
+  it('exposes mutators and findFriendship; findFriendship locates a row by friendId', async () => {
+    const db = dbRef.current as RxDatabase<TestDatabaseCollections>;
+    await db.friendships.insert(
+      makeFriendship({
+        friendId: 'user_B',
+        status: 'accepted',
+      })
+    );
+    const { result } = renderHook(() => useFriendsValue(), { wrapper });
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(typeof result.current.sendRequest).toBe('function');
+    expect(typeof result.current.accept).toBe('function');
+    expect(typeof result.current.decline).toBe('function');
+    expect(typeof result.current.cancel).toBe('function');
+    expect(typeof result.current.remove).toBe('function');
+    expect(typeof result.current.block).toBe('function');
+    expect(typeof result.current.findFriendship).toBe('function');
+    const found = result.current.findFriendship('user_B');
+    expect(found).toBeDefined();
+    expect(found?.friendId).toBe('user_B');
+    expect(result.current.findFriendship('user_Z')).toBeUndefined();
+  });
+  it('resets rows on user switch', async () => {
+    const db = dbRef.current as RxDatabase<TestDatabaseCollections>;
+    await db.friendships.insert(
+      makeFriendship({
+        friendId: 'user_B',
+        status: 'accepted',
+      })
+    );
+    const { result, rerender } = renderHook(() => useFriendsValue(), {
+      wrapper,
+    });
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(result.current.friends).toHaveLength(1);
+    mockUserRef.current = { $id: 'user_Z' };
+    rerender();
+    await waitFor(() => expect(result.current.friends).toEqual([]));
+  });
+});
+</file>
+
 <file path="tests/react/useConversations.test.tsx">
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { renderHook, waitFor } from '@testing-library/react';
+import type { ReactNode } from 'react';
 import type { RxDatabase } from 'rxdb';
 import { useConversations } from '../../src/hooks/useConversations';
+import { ConversationsProvider } from '../../src/hooks/ConversationsProvider';
 import {
   createTestDb,
   destroyTestDb,
@@ -19032,6 +19651,9 @@ vi.mock('../../src/hooks/useFriends', () => ({
     isLoading: false,
   }),
 }));
+const wrapper = ({ children }: { children: ReactNode }) => (
+  <ConversationsProvider>{children}</ConversationsProvider>
+);
 function makeFriend(
   overrides: Partial<FriendshipDocument> = {}
 ): FriendshipDocument {
@@ -19096,7 +19718,7 @@ describe('useConversations', () => {
       makeFriend({ friendId: 'user_B', friendUsername: 'b' }),
       makeFriend({ friendId: 'user_C', friendUsername: 'c' }),
     ];
-    const { result } = renderHook(() => useConversations());
+    const { result } = renderHook(() => useConversations(), { wrapper });
     await waitFor(() => expect(result.current.isLoading).toBe(false));
     expect(result.current.conversations).toHaveLength(2);
     for (const c of result.current.conversations) {
@@ -19123,7 +19745,7 @@ describe('useConversations', () => {
         createdAt: '2026-01-01T11:00:00.000Z',
       }),
     ]);
-    const { result } = renderHook(() => useConversations());
+    const { result } = renderHook(() => useConversations(), { wrapper });
     await waitFor(() => expect(result.current.isLoading).toBe(false));
     expect(result.current.conversations).toHaveLength(2);
     const byFriend = new Map(
@@ -19151,7 +19773,7 @@ describe('useConversations', () => {
         createdAt: '2026-01-01T12:00:00.000Z',
       }),
     ]);
-    const { result } = renderHook(() => useConversations());
+    const { result } = renderHook(() => useConversations(), { wrapper });
     await waitFor(() => expect(result.current.isLoading).toBe(false));
     const order = result.current.conversations.map((c) => c.friend.friendId);
     expect(order).toEqual(['user_C', 'user_B', 'user_D']);
@@ -19187,12 +19809,34 @@ describe('useConversations', () => {
         createdAt: '2026-01-01T10:20:00.000Z',
       }),
     ]);
-    const { result } = renderHook(() => useConversations());
+    const { result } = renderHook(() => useConversations(), { wrapper });
     await waitFor(() => expect(result.current.isLoading).toBe(false));
     expect(result.current.conversations).toHaveLength(1);
     const convo = result.current.conversations[0];
     expect(convo.unreadCount).toBe(1);
     expect(result.current.totalUnread).toBe(1);
+  });
+  it('unread: incoming unsent message does not count (regression: F3)', async () => {
+    mockFriendsRef.current = [
+      makeFriend({ friendId: 'user_B', friendUsername: 'b' }),
+    ];
+    const db = dbRef.current as RxDatabase<TestDatabaseCollections>;
+    await db.messages.bulkInsert([
+      makeMessage({
+        id: 'msg_unsent',
+        senderId: 'user_B',
+        recipientId: 'user_A',
+        direction: 'incoming',
+        readAt: '',
+        isUnsent: true,
+        createdAt: '2026-01-01T10:00:00.000Z',
+      }),
+    ]);
+    const { result } = renderHook(() => useConversations(), { wrapper });
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(result.current.conversations).toHaveLength(1);
+    expect(result.current.conversations[0].unreadCount).toBe(0);
+    expect(result.current.totalUnread).toBe(0);
   });
   it('last message: the most recent message (any direction) becomes lastMessage', async () => {
     mockFriendsRef.current = [
@@ -19222,12 +19866,12 @@ describe('useConversations', () => {
         createdAt: '2026-01-01T10:30:00.000Z',
       }),
     ]);
-    const { result } = renderHook(() => useConversations());
+    const { result } = renderHook(() => useConversations(), { wrapper });
     await waitFor(() => expect(result.current.isLoading).toBe(false));
     expect(result.current.conversations[0].lastMessage?.id).toBe('msg_i1');
   });
   it('isLoading transition: starts true, becomes false after the subscription emits', async () => {
-    const { result } = renderHook(() => useConversations());
+    const { result } = renderHook(() => useConversations(), { wrapper });
     expect(result.current.isLoading).toBe(true);
     await waitFor(() => expect(result.current.isLoading).toBe(false));
   });
@@ -19557,8 +20201,10 @@ describe('useTaskImage', () => {
 <file path="tests/react/useUnreadMessages.test.tsx">
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { renderHook, waitFor } from '@testing-library/react';
+import type { ReactNode } from 'react';
 import type { RxDatabase } from 'rxdb';
 import { useUnreadMessages } from '../../src/hooks/useUnreadMessages';
+import { ConversationsProvider } from '../../src/hooks/ConversationsProvider';
 import {
   createTestDb,
   destroyTestDb,
@@ -19585,6 +20231,9 @@ vi.mock('../../src/hooks/useFriends', () => ({
     isLoading: false,
   }),
 }));
+const wrapper = ({ children }: { children: ReactNode }) => (
+  <ConversationsProvider>{children}</ConversationsProvider>
+);
 function makeFriend(
   overrides: Partial<FriendshipDocument> = {}
 ): FriendshipDocument {
@@ -19661,7 +20310,7 @@ describe('useUnreadMessages', () => {
         createdAt: '2026-01-01T10:00:00.000Z',
       }),
     ]);
-    const { result } = renderHook(() => useUnreadMessages());
+    const { result } = renderHook(() => useUnreadMessages(), { wrapper });
     await waitFor(() => expect(result.current.isLoading).toBe(false));
     expect(result.current.totalUnread).toBe(1);
   });
@@ -19684,12 +20333,10 @@ describe('useUnreadMessages', () => {
     expect(stored).not.toBeNull();
     expect(stored?.direction).toBe('incoming');
     expect(stored?.readAt).toBe('');
-    const { result } = renderHook(() => useUnreadMessages());
+    const { result } = renderHook(() => useUnreadMessages(), { wrapper });
     await waitFor(() => expect(result.current.isLoading).toBe(false));
     expect(result.current.totalUnread).toBe(0);
   });
-  // Regression: §20.5 (unread badge contract) — read state and direction
-  // filtering. Only incoming rows with an empty readAt contribute.
   it('read incoming and all outgoing do not contribute to totalUnread', async () => {
     mockFriendsRef.current = [
       makeFriend({ friendId: 'user_B', friendUsername: 'b' }),
@@ -19713,12 +20360,32 @@ describe('useUnreadMessages', () => {
         createdAt: '2026-01-01T10:20:00.000Z',
       }),
     ]);
-    const { result } = renderHook(() => useUnreadMessages());
+    const { result } = renderHook(() => useUnreadMessages(), { wrapper });
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(result.current.totalUnread).toBe(0);
+  });
+  it('unsent incoming from an accepted friend does not contribute (regression: F3)', async () => {
+    mockFriendsRef.current = [
+      makeFriend({ friendId: 'user_B', friendUsername: 'b' }),
+    ];
+    const db = dbRef.current as RxDatabase<TestDatabaseCollections>;
+    await db.messages.bulkInsert([
+      makeMessage({
+        id: 'msg_unsent',
+        senderId: 'user_B',
+        recipientId: 'user_A',
+        direction: 'incoming',
+        readAt: '',
+        isUnsent: true,
+        createdAt: '2026-01-01T10:00:00.000Z',
+      }),
+    ]);
+    const { result } = renderHook(() => useUnreadMessages(), { wrapper });
     await waitFor(() => expect(result.current.isLoading).toBe(false));
     expect(result.current.totalUnread).toBe(0);
   });
   it('isLoading transition: starts true, becomes false after the subscription emits', async () => {
-    const { result } = renderHook(() => useUnreadMessages());
+    const { result } = renderHook(() => useUnreadMessages(), { wrapper });
     expect(result.current.isLoading).toBe(true);
     await waitFor(() => expect(result.current.isLoading).toBe(false));
   });
@@ -20860,7 +21527,8 @@ Rules:
 - ✅ **Phase 3.4 – Auth Architecture Hardening Complete:** `AuthProvider` React Context is the single source of truth for session state. Single `account.get()` per app load instead of ~22. Logout now returns `boolean` and callers gate navigation on success. Mid-session 401 from sync, message delivery, friend-data, social reads/writes, image upload/fetch, and export now dispatch a global `auth:unauthorized` event that clears auth state and redirects to `/login`. Multi-tab logout and cross-tab login sync via `localStorage` broadcast. Mount-time network errors no longer redirect to `/login`; `AppLayout` renders a retry screen instead. See §23.
 - ✅ **Backlog Closure 1–7 Complete:** §4 scope annotation, §8 chronological reorder, §9 parenthetical removal, §20.3/20.5 cross-refs, §18 local-dirty-wins documented. `message-action`: `mark_read` returns `{ markedPartner, markedCaller }`, `handleDeliver` rejects empty content (no content/taskRef/replyTo) and enforces `msg_` prefix, `resolveLegacyPeerRowId` cap log includes candidate count, `handleReact` uses two-phase read-then-write (overflow pre-check prevents partial commit). Wrapper polish: `makeUnauthorizedError()` helper in `authEvents.ts`; `friendData` 401 throws `FriendAccessError('forbidden')` with `code = 401`; `isUsernameAvailable` returns `null` for all non-auth failures (network, 5xx, parse) and 401, `false` only for "taken"; `SetUsernameSheet` distinguishes "could not check" from "taken". Delivery/sync polish: `deliverPendingMessages` capped at 5 iterations with `[messageDelivery] delivery loop hit cap` warning; `sync.ts` adds non-429 failure backoff (5s→60s exponential) separate from rate-limit backoff. UX polish: `toggleReaction` returns `'ok' | 'timeout'`; `ChatPage` shows "Couldn't send reaction. Try again." toast on timeout-revert. Enforcement: new `src/lib/sdk.ts` guarded SDK surface; ESLint `no-restricted-imports` blocks raw `TablesDB`/`Storage`/`Functions`/`Account` imports outside `src/lib/sdk.ts` and `src/lib/appwrite.ts`.
 - ✅ **Calendar Perf Audit Complete:** Slide windowing in `useCalendarState`/`CalendarBody`/`FriendCalendarView` (RENDER_WINDOW = 2), memoized `tasksByDate` Map, memoized `DayCell` with stable props, memoized `CalendarBody`, ref-counted object-URL cache in `useTaskImage`, friend-pane activation refetch throttle. Dead code removed: `CalendarView.tsx`, `ViewContainer.tsx`, `DiaryView.tsx`, `TodoListView.tsx`. See §16 "Calendar Rendering Pipeline" for the invariants.
-- ✅ **Test Suite Layers 1–5 Complete:** 211 tests across 26 files in four Vitest projects (`unit`, `handlers`, `react`, `components`). Layers 1 + 3 test pure functions (`reactionUtils`, `syncMapping`, `threads`, `visibility`, `settingsRowId`, `appwriteParity`); Layer 2 tests every `message-action` handler with a mocked `node-appwrite` via `invoke-handler.ts`; Layer 4 tests hook contracts (`useConversations`, `useMessages`, `useTaskImage`, `useUnreadMessages`) against a real in-memory RxDB built by `testDb.ts`; Layer 5 tests component behavior in happy-dom with `@testing-library/react` (`BottomSheet`, `CategorySection`, `ChatSearchBar`, `ConversationRow`, `MessageBubble`, `MessageComposer`, `ReactionRow`, `TaskActionSheet`, `TaskVisibilitySheet`, `UserResultCard`). The installer's verify block now runs `npm test` between lint and build (§5.1), so any test failure gates a patch before it lands. See §24 for layout, philosophy, and the test helper's deliberate divergence from `src/db/database.ts`.
+- ✅ **Conversations / Unread Layer Refactor Complete:** `ConversationsProvider` (mounted in `AppLayout`) is the single owner of the inbox messages subscription, the `useFriends()` call, and the unread math. `FriendsProvider` (also mounted in `AppLayout`, wrapping `ConversationsProvider`) is the single owner of the friendships subscription. `useConversations` and `useUnreadMessages` are thin context selectors preserving their public return shapes per §9. `ConversationRow` is memoized with a custom comparator. Unread math now excludes `isUnsent` to match `ChatPage`'s own unread check (§21) — the badge, the Messages list, and the chat header all agree. Fixed F1 (per-call-site `useFriends`), F3 (unsent unread divergence), F5 (`ConversationRow` re-renders), F7 (duplicated friendships cleanup), and F9 (badge/list transient divergence) from the conversations/unread audit. F6 (per-emit `conversations` memo rebuild) is a documented won't-fix; F11–F13 are documented as inbox contracts in §16.
+- ✅ **Test Suite Layers 1–5 Complete:** 232 tests across 28 files in four Vitest projects (`unit`, `handlers`, `react`, `components`). Layers 1 + 3 test pure functions (`reactionUtils`, `syncMapping`, `threads`, `visibility`, `settingsRowId`, `appwriteParity`); Layer 2 tests every `message-action` handler with a mocked `node-appwrite` via `invoke-handler.ts`; Layer 4 tests hook and provider contracts (`useConversations`, `useUnreadMessages`, `useMessages`, `useTaskImage`, `ConversationsProvider`, `FriendsProvider`) against a real in-memory RxDB built by `testDb.ts`; Layer 5 tests component behavior in happy-dom with `@testing-library/react` (`BottomSheet`, `CategorySection`, `ChatSearchBar`, `ConversationRow`, `MessageBubble`, `MessageComposer`, `ReactionRow`, `TaskActionSheet`, `TaskVisibilitySheet`, `UserResultCard`). The installer's verify block now runs `npm test` between lint and build (§5.1), so any test failure gates a patch before it lands. See §24 for layout, philosophy, and the test helper's deliberate divergence from `src/db/database.ts`.
 - 🔄 **Next Up:** Phase 3.5 — Todo List View; Phase 3.6 — Diary View; Phase 3.7 — Notifications tab (in-app notifications for message/reaction events)
 
 ---
@@ -20987,6 +21655,8 @@ Rules:
 - `src/components/modals/` — account/settings modals (CategoryManagerSheet, AccountSettingsSheet, ChangeEmailSheet, ChangePasswordSheet, EditDescriptionSheet, EditNameSheet, EditProfileImageSheet, ExportDataSheet, SetUsernameSheet)
 - `src/hooks/` — one hook per data domain (useTasks, useCategories, useDiary, useSettings, useFriends, useMessages, useConversations, useUnreadMessages, useFriendCarousel) plus focused utilities (useTaskImage, useImageCompression, useBubbleGestures)
   - Auth trio: `authContext.ts` (context object + types only, no component), `AuthProvider.tsx` (the provider component, no other exports), `useAuth.ts` (consumer hook). This split exists to satisfy `react-refresh/only-export-components` — do not merge
+  - Conversations trio: `conversationsContext.ts` (context object + types only, no component), `ConversationsProvider.tsx` (the provider component, no other exports), `useConversations.ts` (thin context selector). Same fast-refresh split as the auth trio — do not merge
+  - Friends trio: `friendsContext.ts` (context object + types only, no component), `FriendsProvider.tsx` (the provider component, no other exports), `useFriends.ts` (thin context selector). Same fast-refresh split as the auth trio — do not merge. `FriendsProvider` must be mounted above `ConversationsProvider` in the tree; the latter consumes the former
 - `src/lib/` — side-effectful SDK wrappers and pure utilities (appwrite, storage, imageCache, social, friendCache, friendData, useFriendCalendar, messageDelivery, threads, reactionUtils, visibility, exportData, mockData). No React imports allowed here (except `useFriendCalendar.ts` which is a hook living under lib/ for historical reasons — do not move)
   - `authEvents.ts` — pure module: `AUTH_UNAUTHORIZED_EVENT` constant, `isUnauthorizedError(err)` predicate, `makeUnauthorizedError(message?)` helper (creates a synthetic 401-coded `Error`), `dispatchUnauthorized()` helper, `guardedCall<T>(fn)` wrapper. No React. Imported by every SDK wrapper that can receive a 401.
   - `sdk.ts` — **the guarded SDK surface.** Exports `guardedTablesDB`, `guardedStorage`, `guardedFunctions`, `guardedAccount`. Every method internally calls `guardedCall()`. Param shapes are defined explicitly (see §6 re: `Parameters<T>` on overloaded SDK methods). Raw SDK service classes (`TablesDB`, `Storage`, `Functions`, `Account`) may only be imported and constructed here and in `src/lib/appwrite.ts`. Enforced by ESLint `no-restricted-imports` (below). `guardedFunctions.createExecution` additionally normalizes `responseStatusCode === 401` (the SDK returns 401 executions instead of throwing) into a `makeUnauthorizedError()` before guardedCall's dispatch can miss it.
@@ -21020,6 +21690,12 @@ Rules:
   - **Friend-calendar refetch on activation.** `PersonPane` forces `refetchFriendCalendar(true)` when a friend pane becomes active, throttled by `FRIEND_REFETCH_MIN_INTERVAL_MS = 15_000`. Without this, the pane's data is frozen at first mount (panes never remount when swiped away and back) and the 5-minute `friendCache` TTL keeps it stale well past when the friend added a new task. Own pane is exempt — it stays live via the RxDB subscription in `useTasks`.
   - **`useTaskImage` shares object URLs.** Module-level `Map<fileId, { url, refCount, revokeTimer }>` in `src/hooks/useTaskImage.ts` ref-counts object URLs across hook instances, with a 1.5s deferred revoke window so StrictMode double-mounts, `Month↔Week` toggles, and slide re-entry do not tear down and re-read the blob. Do not bypass this hook with a direct `getLocalImageUrl` call in calendar cells.
   - **`DayViewSheet` and `HomePage` (Swiper) use manual windowing.** `DayViewSheet` uses `RENDER_WINDOW = 3`, `HomePage` uses `RENDER_WINDOW = 1`. Do not remove those caps; they are load-bearing for scroll smoothness.
+- **Messaging Inbox Contracts (perf-sensitive — do not regress):**
+  - **One subscription per collection, one provider per collection.** `ConversationsProvider` (mounted in `AppLayout`) is the sole owner of the inbox `db.messages` subscription and the sole caller of `useFriends()` for badge/chat-list purposes. `FriendsProvider` (mounted above it) is the sole owner of the `db.friendships` subscription. `useConversations`, `useUnreadMessages`, and `useFriends` are thin context selectors — they MUST NOT mount their own RxDB subscriptions. The audit that closed F1 established this invariant; the pre-refactor shape had four live subscriptions on the Messages tab (two messages + two friendships) and two on every other tab. Do not reintroduce per-call-site subscriptions.
+  - **Unread math excludes `isUnsent`.** The unread counter is `direction === 'incoming' && !readAt && !isUnsent`. The `isUnsent` term is required for consistency with `ChatPage`'s own unread check (§21); omitting it caused the `BottomNav` badge and the chat header to disagree. Regression tests pinning this: `tests/react/ConversationsProvider.test.tsx`, `tests/react/useConversations.test.tsx`, `tests/react/useUnreadMessages.test.tsx`. (Audit finding F3.)
+  - **Conversation grouping is by counterpart, not thread.** `ConversationsProvider` groups messages by the *other* participant id (`senderId === userId ? recipientId : senderId`), not by `threadId`. This matches `ChatPage`'s scope only because `makeThreadId` is a pure function of the participant pair (§11). If a future feature ever breaks that invariant (e.g., a cross-thread message, a system message with a synthetic thread, a manual row edit), the two views will diverge silently. Do not introduce rows whose `threadId` is not derived from `senderId`/`recipientId`. (Audit finding F12.)
+  - **`lastMessage` depends on RxDB sort order.** The inbox `lastMessage` is `msgs[0]`, which is only correct because the provider queries with `sort: [{ createdAt: 'desc' }]`. Removing or changing that sort silently makes `lastMessage` an arbitrary message rather than the newest. The RxDB sort is load-bearing; do not drop it in favor of client-side sorting. (Audit finding F13.)
+  - **`ConversationRow` is memoized with a custom comparator.** The comparator keys on `threadId`, `unreadCount`, friend identity (`friendId`, `friendDisplayName`, `friendUsername`, `friendAvatarFileId`), and the `lastMessage` fields that affect rendering (`id`, `content`, `taskRefTitle`, `direction`, `createdAt`, `isUnsent`). Any new field that affects the row's rendered output MUST be added to the comparator, or the memo will swallow the update. Note: the comparator does NOT include `threadId === ''` as a special case — empty-thread conversations fall back to friend-identity equality, which is correct. (Audit finding F5.)
 
 ## 17. Native Input Quirks
 - **Dark Theme `<input type="date">`:** MUST include `[color-scheme:dark]` Tailwind arbitrary class, otherwise the native picker renders light-theme
@@ -21212,15 +21888,15 @@ Recipient-side `read_at` propagation depends on `markReadOnRemote` succeeding. I
 ## 24. Test Suite
 
 ### 24.1 Overview
-Vitest 3.x, four projects (`unit`, `handlers`, `react`, `components`), 211 tests across 26 files. Config lives in `vitest.config.ts`. Run with `npm test` (or `npm run test:watch` for TDD, `npm run test:ui` for the browser UI). The suite is gated by the installer's verify block (§5.1) — `npm run apply` runs lint → test → build in that order. A failing test blocks a patch from landing.
+Vitest 3.x, four projects (`unit`, `handlers`, `react`, `components`), 232 tests across 28 files. Config lives in `vitest.config.ts`. Run with `npm test` (or `npm run test:watch` for TDD, `npm run test:ui` for the browser UI). The suite is gated by the installer's verify block (§5.1) — `npm run apply` runs lint → test → build in that order. A failing test blocks a patch from landing.
 
 ### 24.2 Project layout
 | Project | Environment | Include | Tests |
 |---|---|---|---|
 | `unit` | node | `tests/unit/**/*.test.ts` | 86 |
 | `handlers` | node | `tests/handlers/**/*.test.ts` | 49 |
-| `react` | happy-dom | `tests/react/**/*.test.tsx` | 21 |
-| `components` | happy-dom | `tests/components/**/*.test.tsx` | 55 |
+| `react` | happy-dom | `tests/react/**/*.test.tsx` | 39 |
+| `components` | happy-dom | `tests/components/**/*.test.tsx` | 58 |
 
 The `react` and `components` projects load `tests/setup/react.ts` (jest-dom matchers + `afterEach(cleanup)`) and set `NODE_ENV=test` — required by React 19's `act`. The `unit` and `handlers` projects run in plain node with `globals: true`.
 
@@ -21266,6 +21942,7 @@ Lifecycle per hook test file: `beforeEach` → `dbRef.current = await createTest
 - Appwrite Function action → `tests/handlers/<action>.test.ts` using `invoke-handler.ts`; queue mock responses with `mockResolvedValueOnce`
 - Hook → `tests/react/<hookName>.test.tsx` with the mock pattern in §24.6 (skip `testDb.ts` entirely if the hook has no RxDB dependency)
 - Component → `tests/components/<ComponentName>.test.tsx` in the `components` project (happy-dom + `@testing-library/react`). Mock `react-router-dom`'s `useNavigate` for components that navigate (`ConversationRow`), and mock `../../src/lib/storage` for components that render images (`ConversationRow`, `UserResultCard`, `CategorySection`). Prefer asserting on rendered text/labels and firing user events over asserting on internal state.
+- Provider (context-backed hook) → `tests/react/<ProviderName>.test.tsx`. Render a consumer hook via a `wrapper` component that mounts the provider. For providers that consume `useAuth` and/or `useFriends`, mock those dependencies at module level with `vi.hoisted` refs (see §24.6) so the test can drive user/friendship state directly. See `tests/react/ConversationsProvider.test.tsx` and `tests/react/FriendsProvider.test.tsx` for the pattern.
 
 ### 24.8 Regression comments
 Tests that pin behavior documented in this file carry a `// Regression: §<section> (<contract name>)` comment. Examples: `// Regression: §20.5 (unread badge contract)`, `// Regression: §10 (CONFLICT Is Not an Error)`, `// Regression: §16 (conversation list sort)`. When the referenced section changes, the test author is expected to review the test — the comment is a pointer, not enforcement.
@@ -21289,6 +21966,7 @@ Tests that pin behavior documented in this file carry a `// Regression: §<secti
 | 2026-09-16 | §8, §15 | Marked Calendar Perf Audit complete in Current Progress. Removed `CalendarView.tsx`, `ViewContainer.tsx`, `DiaryView.tsx`, `TodoListView.tsx` from the codebase (dead code — no importers, no routes). §15 file-organization list unchanged (never named them). | Calendar perf audit follow-up |
 | 2026-09-16 | §5.1, §8, §10, §12, §15, §24 (new) | Test Suite Layers 1–4 shipped: 152 tests across 15 files in three Vitest projects (`unit`, `handlers`, `react`). Installer verify block now runs `npm test` between lint and build (§5.1), gating every apply on green tests. ESLint `no-empty` relaxed with `allowEmptyCatch: true` to permit intentional silent-catch cleanup (§10, §15). §12 migration checklist now names `tests/helpers/testDb.ts` as a lock-step site. New §24 documents project layout, philosophy (contracts not internals), handler helper, hook helper (including its deliberate divergence from `src/db/database.ts`), the `vi.hoisted` mock pattern, and how to add new tests. | Test Suite Layers 1–4 |
 | 2026-09-16 | §8, §15, §24 | Test Suite Layer 5 shipped: `components` Vitest project (happy-dom + `@testing-library/react`) with 55 tests across 10 component test files (`BottomSheet`, `CategorySection`, `ChatSearchBar`, `ConversationRow`, `MessageBubble`, `MessageComposer`, `ReactionRow`, `TaskActionSheet`, `TaskVisibilitySheet`, `UserResultCard`). Totals now 211 tests across 26 files in four projects (`unit` 86, `handlers` 49, `react` 21, `components` 55). §24.1 overview, §24.2 project table + setup-file note, §24.7 "Adding new tests" (component entry), §8 progress line, and §15 `tests/` annotation all updated to reflect four projects. §24.3 philosophy extended to explicitly cover component tests. | Test Suite Layer 5 |
+| 2026-09-16 | §8, §9, §15, §16, §24 | Conversations / unread layer audit closed. Three code patches shipped: (1) `ConversationsProvider` mounted in `AppLayout` owning the inbox messages subscription and unread math; `useConversations`/`useUnreadMessages` reduced to thin context selectors preserving public return shapes; `ConversationRow` memoized with a custom comparator; (2) `FriendsProvider` mounted above `ConversationsProvider` owning the friendships subscription; `useFriends` reduced to a thin context selector; (3) unread math now excludes `isUnsent`, matching `ChatPage`. §15 adds the Conversations trio and Friends trio to the hooks directory listing. §16 adds "Messaging Inbox Contracts" bullet documenting the F11–F13 invariants: single-subscription-per-collection, `isUnsent` exclusion, grouping by counterpart (not thread), RxDB sort dependence for `lastMessage`, and the comparator's field coverage on `ConversationRow`. §8 adds a progress line. §24.1 and §24.2 test counts updated to 232/28 (react 39, components 58). | Conversations / Unread Audit & Follow-up |
 
 Sections added or rewritten in bulk should be flagged in the changelog with `(new)` and listed on every subsequent edit that touches them.
 </file>

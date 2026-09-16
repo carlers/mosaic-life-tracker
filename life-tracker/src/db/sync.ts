@@ -69,7 +69,6 @@ function savePerCollectionState(
     const state: PerCollectionPersistedState = { ownerId: userId, entries };
     localStorage.setItem(PER_COLLECTION_KEY, JSON.stringify(state));
   } catch {
-    // localStorage write failed (quota, privacy mode); non-fatal.
   }
 }
 let perCollectionSync: Partial<
@@ -94,14 +93,33 @@ const listeners: SyncListener[] = [];
 function updateSyncStatus(updates: Partial<SyncStatus>) {
   syncStatus = { ...syncStatus, ...updates };
   if (syncStatus.lastSync) {
-    localStorage.setItem('lastSyncTime', syncStatus.lastSync);
+    try {
+      localStorage.setItem('lastSyncTime', syncStatus.lastSync);
+    } catch {
+      // localStorage may be unavailable (private mode, quota exceeded).
+      // syncStatus is in-memory authoritative; the persisted copy is
+      // best-effort.
+    }
   }
-  listeners.forEach((l) => l(syncStatus));
+  for (const l of listeners) {
+    try {
+      l(syncStatus);
+    } catch (err) {
+      // A throwing subscriber must never propagate into the sync engine.
+      // If it did, an in-flight initializeSync could leave
+      // isSyncInProgress = true forever.
+      console.error('[Sync] Status listener threw:', err);
+    }
+  }
   if (DEBUG) console.log('[Sync] Status:', syncStatus);
 }
 export function subscribeToSyncStatus(listener: SyncListener): () => void {
   listeners.push(listener);
-  listener(syncStatus);
+  try {
+    listener(syncStatus);
+  } catch (err) {
+    console.error('[Sync] Status listener threw on subscribe:', err);
+  }
   return () => {
     const idx = listeners.indexOf(listener);
     if (idx > -1) listeners.splice(idx, 1);
@@ -120,6 +138,7 @@ type LocalCollection = {
   upsert: (doc: Record<string, unknown>) => Promise<unknown>;
 };
 let isSyncInProgress = false;
+let syncRequestedDuringFlight = false;
 let rateLimitUntil = 0;
 let rateLimitBackoffMs = 0;
 let failureBackoffUntil = 0;
@@ -172,7 +191,10 @@ async function resolveAuthenticatedUserId(): Promise<string | null> {
 export async function initializeSync(): Promise<void> {
   if (isSyncInProgress) {
     if (DEBUG)
-      console.log('[Sync] initializeSync skipped: sync already in progress');
+      console.log(
+        '[Sync] initializeSync requested while in-flight; queueing follow-up'
+      );
+    syncRequestedDuringFlight = true;
     return;
   }
   if (Date.now() < rateLimitUntil) {
@@ -303,6 +325,15 @@ export async function initializeSync(): Promise<void> {
     });
   } finally {
     isSyncInProgress = false;
+    if (syncRequestedDuringFlight) {
+      syncRequestedDuringFlight = false;
+      if (DEBUG) console.log('[Sync] Running queued follow-up sync');
+      queueMicrotask(() => {
+        initializeSync().catch((err) => {
+          console.error('[Sync] Queued follow-up sync failed:', err);
+        });
+      });
+    }
   }
 }
 async function syncCollection(
