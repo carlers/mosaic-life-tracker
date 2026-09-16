@@ -22,6 +22,11 @@ import {
   type FriendshipDocument,
   type MessageDocument,
 } from './schema';
+import {
+  tasksMigrationStrategies,
+  friendshipsMigrationStrategies,
+  messagesMigrationStrategies,
+} from './migrations';
 
 if (import.meta.env.DEV) {
   addRxPlugin(RxDBDevModePlugin);
@@ -64,38 +69,18 @@ export async function initializeDatabase(): Promise<RxDatabase<AppDatabaseCollec
     await database.addCollections({
       tasks: {
         schema: tasksSchema,
-        migrationStrategies: {
-          1: (oldDoc) => oldDoc,
-        },
+        migrationStrategies: tasksMigrationStrategies,
       },
       categories: { schema: categoriesSchema },
       diary: { schema: diarySchema },
       settings: { schema: settingsSchema },
       friendships: {
         schema: friendshipsSchema,
-        migrationStrategies: {
-          1: (oldDoc) => ({ ...oldDoc, friendBio: '' }),
-        },
+        migrationStrategies: friendshipsMigrationStrategies,
       },
       messages: {
         schema: messagesSchema,
-        migrationStrategies: {
-          1: (oldDoc) => ({
-            ...oldDoc,
-            replyToId: '',
-            replyToContent: '',
-            replyToSenderId: '',
-          }),
-          2: (oldDoc) => ({
-            ...oldDoc,
-            isUnsent: false,
-          }),
-          3: (oldDoc) => ({
-            ...oldDoc,
-            originalMessageId: '',
-            reactions: '',
-          }),
-        },
+        migrationStrategies: messagesMigrationStrategies,
       },
     });
 

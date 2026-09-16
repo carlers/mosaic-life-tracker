@@ -21,6 +21,11 @@ import {
   type FriendshipDocument,
   type MessageDocument,
 } from '../../src/db/schema';
+import {
+  tasksMigrationStrategies,
+  friendshipsMigrationStrategies,
+  messagesMigrationStrategies,
+} from '../../src/db/migrations';
 
 export interface TestDatabaseCollections {
   tasks: RxCollection<TaskDocument>;
@@ -54,8 +59,8 @@ export interface TestDatabaseCollections {
 //
 // `RxDBMigrationSchemaPlugin` is retained for production parity: it is
 // required for `migrationStrategies` to be honored at all, and keeping it
-// forces any future schema bump to update both this file and
-// `src/db/database.ts` in lock-step.
+// forces any future schema bump to add a strategy in `src/db/migrations.ts`,
+// which both this file and `src/db/database.ts` import from.
 //
 // The module-level guard prevents `addRxPlugin`'s PL3 ("plugin already
 // added") error when the same worker reuses this module across test files
@@ -70,53 +75,13 @@ function registerRxdbPluginsOnce(): void {
   pluginsRegistered = true;
 }
 
-// ---------------------------------------------------------------------------
-// Migration strategies
-//
-// These MUST stay in lock-step with `src/db/database.ts`. Any version bump in
-// the real database requires the same strategy here. The transformations are
-// pure pass-throughs / empty-default backfills — no real data work happens.
-//
-// Kept even though the test helper never migrates (fresh DBs, `multiInstance:
-// false`), because dropping them would silently drift from production and
-// remove the last guard against schema-version skew between the two sites.
-// ---------------------------------------------------------------------------
-
-const tasksMigrationStrategies = {
-  1: (oldDoc: Record<string, unknown>) => oldDoc,
-};
-
-const friendshipsMigrationStrategies = {
-  1: (oldDoc: Record<string, unknown>) => ({
-    ...oldDoc,
-    friendBio: '',
-  }),
-};
-
-const messagesMigrationStrategies = {
-  1: (oldDoc: Record<string, unknown>) => ({
-    ...oldDoc,
-    replyToId: '',
-    replyToContent: '',
-    replyToSenderId: '',
-  }),
-  2: (oldDoc: Record<string, unknown>) => ({
-    ...oldDoc,
-    isUnsent: false,
-  }),
-  3: (oldDoc: Record<string, unknown>) => ({
-    ...oldDoc,
-    originalMessageId: '',
-    reactions: '',
-  }),
-};
-
 /**
  * Builds a fresh in-memory RxDB instance with the real production schemas.
  *
  * Do NOT import `getDatabase` from `src/db/database.ts` here — that module is
  * mocked by the hook test files and importing it would defeat the mock.
- * Schemas come from `src/db/schema.ts` (source of truth).
+ * Schemas come from `src/db/schema.ts` (source of truth). Migration
+ * strategies come from `src/db/migrations.ts` (shared with production).
  *
  * Each call produces a unique database name so parallel test files (Vitest
  * runs them in separate workers) never collide.
