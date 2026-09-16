@@ -2,7 +2,8 @@ import { getDatabase, type AppDatabaseCollections } from './database';
 import { Permission, Role, Query } from 'appwrite';
 import { isUnauthorizedError } from '../lib/authEvents';
 import { guardedTablesDB, guardedAccount } from '../lib/sdk';
-
+import { toAppwriteFormat, fromAppwriteFormat } from '../lib/syncMapping';
+export { toAppwriteFormat, fromAppwriteFormat };
 const APPWRITE_CONFIG = {
   endpoint: 'https://sgp.cloud.appwrite.io',
   projectId: '6a9703c50016b37110ff',
@@ -16,7 +17,6 @@ const APPWRITE_CONFIG = {
     messages: 'messages',
   },
 } as const;
-
 const DEBUG = import.meta.env.DEV;
 const PAGE_SIZE = 100;
 const PULL_OVERLAP_MS = 30_000;
@@ -25,7 +25,6 @@ const RATE_LIMIT_MAX_MS = 60_000;
 const FAILURE_BACKOFF_BASE_MS = 5_000;
 const FAILURE_BACKOFF_MAX_MS = 60_000;
 const TRIGGER_DEBOUNCE_MS = 1_500;
-
 type CollectionName = keyof AppDatabaseCollections;
 const ALL_COLLECTIONS: CollectionName[] = [
   'tasks',
@@ -35,19 +34,15 @@ const ALL_COLLECTIONS: CollectionName[] = [
   'friendships',
   'messages',
 ];
-
 interface PerCollectionSyncEntry {
   pull: string;
   dirty: string;
 }
-
 interface PerCollectionPersistedState {
   ownerId: string;
   entries: Partial<Record<CollectionName, PerCollectionSyncEntry>>;
 }
-
 const PER_COLLECTION_KEY = 'lastSyncTimePerCollection';
-
 function loadPerCollectionState(
   userId: string
 ): Partial<Record<CollectionName, PerCollectionSyncEntry>> {
@@ -66,7 +61,6 @@ function loadPerCollectionState(
     return {};
   }
 }
-
 function savePerCollectionState(
   userId: string,
   entries: Partial<Record<CollectionName, PerCollectionSyncEntry>>
@@ -75,35 +69,28 @@ function savePerCollectionState(
     const state: PerCollectionPersistedState = { ownerId: userId, entries };
     localStorage.setItem(PER_COLLECTION_KEY, JSON.stringify(state));
   } catch {
-    // Intentionally swallowed: localStorage may be unavailable (private mode,
-    // quota exceeded, disabled storage). Sync state persistence is best-effort.
+    // localStorage write failed (quota, privacy mode); non-fatal.
   }
 }
-
 let perCollectionSync: Partial<
   Record<CollectionName, PerCollectionSyncEntry>
 > = {};
 let perCollectionOwnerId: string | null = null;
-
 export interface SyncStatus {
   isSyncing: boolean;
   lastSync: string | null;
   errors: string[];
 }
-
 let syncStatus: SyncStatus = {
   isSyncing: false,
   lastSync: localStorage.getItem('lastSyncTime') || null,
   errors: [],
 };
-
 export function getSyncStatus(): SyncStatus {
   return syncStatus;
 }
-
 type SyncListener = (status: SyncStatus) => void;
 const listeners: SyncListener[] = [];
-
 function updateSyncStatus(updates: Partial<SyncStatus>) {
   syncStatus = { ...syncStatus, ...updates };
   if (syncStatus.lastSync) {
@@ -112,7 +99,6 @@ function updateSyncStatus(updates: Partial<SyncStatus>) {
   listeners.forEach((l) => l(syncStatus));
   if (DEBUG) console.log('[Sync] Status:', syncStatus);
 }
-
 export function subscribeToSyncStatus(listener: SyncListener): () => void {
   listeners.push(listener);
   listener(syncStatus);
@@ -121,9 +107,7 @@ export function subscribeToSyncStatus(listener: SyncListener): () => void {
     if (idx > -1) listeners.splice(idx, 1);
   };
 }
-
 type AppwriteRow = Record<string, unknown>;
-type AppwritePayload = Record<string, unknown>;
 type LocalDoc = {
   id: string;
   _meta?: { lwt?: number };
@@ -135,20 +119,17 @@ type LocalCollection = {
   find: () => { exec: () => Promise<LocalDoc[]> };
   upsert: (doc: Record<string, unknown>) => Promise<unknown>;
 };
-
 let isSyncInProgress = false;
 let rateLimitUntil = 0;
 let rateLimitBackoffMs = 0;
 let failureBackoffUntil = 0;
 let failureBackoffMs = 0;
 let debounceTimer: ReturnType<typeof setTimeout> | null = null;
-
 declare global {
   interface Window {
     __mosaicFocusSyncAttached?: boolean;
   }
 }
-
 function isTimestampedCollection(collection: string): boolean {
   return (
     collection === 'tasks' ||
@@ -157,237 +138,16 @@ function isTimestampedCollection(collection: string): boolean {
     collection === 'messages'
   );
 }
-
 function isRateLimitError(err: unknown): boolean {
   const code = (err as { code?: number } | null)?.code;
   if (code === 429) return true;
   const msg = err instanceof Error ? err.message : String(err);
   return /rate limit/i.test(msg);
 }
-
 function isNotFoundError(err: unknown): boolean {
   const code = (err as { code?: number } | null)?.code;
   return code === 404;
 }
-
-function toAppwriteFormat(
-  doc: Record<string, unknown>,
-  collection: string,
-  userId: string
-): AppwritePayload {
-  const source: Record<string, unknown> = { ...doc };
-  delete source._meta;
-  delete source._deleted;
-  delete source._rev;
-  const mapped: AppwritePayload = {};
-  if (collection === 'tasks') {
-    mapped.title = source.title || '';
-    mapped.is_completed = source.completed ?? false;
-    mapped.category_id = source.categoryId || '';
-    mapped.tags = source.tags || '';
-    mapped.date = source.date || '';
-    mapped.memo = source.memo || '';
-    mapped.image = source.image || '';
-    mapped.created_at = source.createdAt || new Date().toISOString();
-    mapped.completed_at = source.completedAt || '';
-    mapped.updated_at = source.updatedAt || new Date().toISOString();
-    mapped.user_id = userId;
-    mapped.deleted = source.isDeleted ?? false;
-    mapped.visibility = source.visibility ?? '';
-    mapped.source = source.source || '';
-    mapped.routine_id = source.routineId || '';
-    mapped.reminder_time = source.reminderTime || '';
-    mapped.reactions = source.reactions || '';
-  } else if (collection === 'categories') {
-    mapped.name = source.name || '';
-    mapped.color = source.color || '#3B82F6';
-    mapped.visibility = source.visibility || 'private';
-    mapped.order = source.order ?? 0;
-    mapped.user_id = userId;
-    mapped.deleted = source.isDeleted ?? false;
-    mapped.icon = source.icon || '';
-  } else if (collection === 'diary') {
-    mapped.date = source.date || '';
-    mapped.content = source.content || '';
-    mapped.visibility = source.visibility || 'private';
-    mapped.user_id = userId;
-    mapped.deleted = source.isDeleted ?? false;
-    mapped.created_at = source.createdAt || new Date().toISOString();
-    mapped.updated_at = source.updatedAt || new Date().toISOString();
-  } else if (collection === 'settings') {
-    mapped.user_id = userId;
-    mapped.key = source.key || '';
-    mapped.value = source.value || '';
-    mapped.deleted = source.isDeleted ?? false;
-  } else if (collection === 'friendships') {
-    mapped.user_id = userId;
-    mapped.friend_id = source.friendId || '';
-    mapped.friend_username = source.friendUsername || '';
-    mapped.friend_display_name = source.friendDisplayName || '';
-    mapped.friend_avatar_file_id = source.friendAvatarFileId || '';
-    mapped.friend_bio = source.friendBio || '';
-    mapped.status = source.status || 'pending_outgoing';
-    mapped.created_at = source.createdAt || new Date().toISOString();
-    mapped.updated_at = source.updatedAt || new Date().toISOString();
-    mapped.deleted = source.isDeleted ?? false;
-  } else if (collection === 'messages') {
-    mapped.user_id = userId;
-    mapped.thread_id = source.threadId || '';
-    mapped.sender_id = source.senderId || '';
-    mapped.recipient_id = source.recipientId || '';
-    mapped.direction = source.direction || 'outgoing';
-    mapped.content = source.content || '';
-    mapped.task_ref_id = source.taskRefId || '';
-    mapped.task_ref_title = source.taskRefTitle || '';
-    mapped.task_ref_date = source.taskRefDate || '';
-    mapped.task_ref_color = source.taskRefColor || '';
-    mapped.reply_to_id = source.replyToId || '';
-    mapped.reply_to_content = source.replyToContent || '';
-    mapped.reply_to_sender_id = source.replyToSenderId || '';
-    mapped.is_unsent = source.isUnsent ?? false;
-    mapped.original_message_id = source.originalMessageId || '';
-    mapped.reactions = source.reactions || '';
-    // read_at is server-owned on outgoing rows (§12) — omit it to avoid
-    // overwriting the read receipt written by the mark_read action.
-    if (source.direction !== 'outgoing') {
-      mapped.read_at = source.readAt || '';
-    }
-    mapped.delivery_status = source.deliveryStatus || 'delivered';
-    mapped.created_at = source.createdAt || new Date().toISOString();
-    mapped.updated_at = source.updatedAt || new Date().toISOString();
-    mapped.deleted = source.isDeleted ?? false;
-  }
-  return mapped;
-}
-
-function fromAppwriteFormat(
-  row: AppwriteRow,
-  collection: string
-): Record<string, unknown> {
-  const mapped: Record<string, unknown> = { ...row };
-  delete mapped.$id;
-  delete mapped.$createdAt;
-  delete mapped.$updatedAt;
-  delete mapped.$permissions;
-  delete mapped.$databaseId;
-  delete mapped.$tableId;
-  delete mapped.$sequence;
-  if (collection === 'tasks') {
-    mapped.id = row.$id || mapped.id;
-    mapped.completed = mapped.is_completed ?? false;
-    mapped.categoryId = mapped.category_id || '';
-    mapped.createdAt = mapped.created_at || new Date().toISOString();
-    mapped.completedAt = mapped.completed_at || '';
-    mapped.updatedAt = mapped.updated_at || new Date().toISOString();
-    mapped.userId = mapped.user_id;
-    mapped.isDeleted = mapped.deleted ?? false;
-    mapped.visibility = (row.visibility as string) ?? '';
-    mapped.source = row.source || '';
-    mapped.tags = row.tags || '';
-    mapped.memo = row.memo || '';
-    mapped.image = row.image || '';
-    mapped.routineId = row.routine_id || '';
-    mapped.reminderTime = row.reminder_time || '';
-    mapped.reactions = row.reactions || '';
-    delete mapped.is_completed;
-    delete mapped.category_id;
-    delete mapped.created_at;
-    delete mapped.completed_at;
-    delete mapped.updated_at;
-    delete mapped.user_id;
-    delete mapped.deleted;
-    delete mapped.routine_id;
-    delete mapped.reminder_time;
-  } else if (collection === 'categories') {
-    mapped.id = row.$id || mapped.id;
-    mapped.userId = mapped.user_id;
-    mapped.isDeleted = mapped.deleted ?? false;
-    mapped.icon = row.icon || '';
-    delete mapped.user_id;
-    delete mapped.deleted;
-  } else if (collection === 'diary') {
-    mapped.id = row.$id || mapped.id;
-    mapped.userId = mapped.user_id;
-    mapped.isDeleted = mapped.deleted ?? false;
-    mapped.createdAt = mapped.created_at || new Date().toISOString();
-    mapped.updatedAt = mapped.updated_at || new Date().toISOString();
-    mapped.content = row.content || '';
-    delete mapped.user_id;
-    delete mapped.deleted;
-    delete mapped.created_at;
-    delete mapped.updated_at;
-  } else if (collection === 'settings') {
-    mapped.id = row.$id || mapped.id;
-    mapped.userId = mapped.user_id;
-    mapped.isDeleted = mapped.deleted ?? false;
-    delete mapped.user_id;
-    delete mapped.deleted;
-  } else if (collection === 'friendships') {
-    mapped.id = row.$id || mapped.id;
-    mapped.userId = mapped.user_id;
-    mapped.friendId = mapped.friend_id || '';
-    mapped.friendUsername = mapped.friend_username || '';
-    mapped.friendDisplayName = mapped.friend_display_name || '';
-    mapped.friendAvatarFileId = mapped.friend_avatar_file_id || '';
-    mapped.friendBio = mapped.friend_bio || '';
-    mapped.status = mapped.status || 'pending_outgoing';
-    mapped.createdAt = mapped.created_at || new Date().toISOString();
-    mapped.updatedAt = mapped.updated_at || new Date().toISOString();
-    mapped.isDeleted = mapped.deleted ?? false;
-    delete mapped.user_id;
-    delete mapped.friend_id;
-    delete mapped.friend_username;
-    delete mapped.friend_display_name;
-    delete mapped.friend_avatar_file_id;
-    delete mapped.friend_bio;
-    delete mapped.created_at;
-    delete mapped.updated_at;
-    delete mapped.deleted;
-  } else if (collection === 'messages') {
-    mapped.id = row.$id || mapped.id;
-    mapped.userId = mapped.user_id;
-    mapped.threadId = mapped.thread_id || '';
-    mapped.senderId = mapped.sender_id || '';
-    mapped.recipientId = mapped.recipient_id || '';
-    mapped.direction = mapped.direction || 'outgoing';
-    mapped.content = mapped.content || '';
-    mapped.taskRefId = mapped.task_ref_id || '';
-    mapped.taskRefTitle = mapped.task_ref_title || '';
-    mapped.taskRefDate = mapped.task_ref_date || '';
-    mapped.taskRefColor = mapped.task_ref_color || '';
-    mapped.replyToId = mapped.reply_to_id || '';
-    mapped.replyToContent = mapped.reply_to_content || '';
-    mapped.replyToSenderId = mapped.reply_to_sender_id || '';
-    mapped.isUnsent = mapped.is_unsent ?? false;
-    mapped.originalMessageId = mapped.original_message_id || '';
-    mapped.reactions = mapped.reactions || '';
-    mapped.readAt = mapped.read_at || '';
-    mapped.deliveryStatus = mapped.delivery_status || 'delivered';
-    mapped.createdAt = mapped.created_at || new Date().toISOString();
-    mapped.updatedAt = mapped.updated_at || new Date().toISOString();
-    mapped.isDeleted = mapped.deleted ?? false;
-    delete mapped.user_id;
-    delete mapped.thread_id;
-    delete mapped.sender_id;
-    delete mapped.recipient_id;
-    delete mapped.task_ref_id;
-    delete mapped.task_ref_title;
-    delete mapped.task_ref_date;
-    delete mapped.task_ref_color;
-    delete mapped.reply_to_id;
-    delete mapped.reply_to_content;
-    delete mapped.reply_to_sender_id;
-    delete mapped.is_unsent;
-    delete mapped.original_message_id;
-    delete mapped.read_at;
-    delete mapped.delivery_status;
-    delete mapped.created_at;
-    delete mapped.updated_at;
-    delete mapped.deleted;
-  }
-  return mapped;
-}
-
 function buildRowPermissions(userId: string) {
   return [
     Permission.read(Role.user(userId)),
@@ -395,13 +155,11 @@ function buildRowPermissions(userId: string) {
     Permission.delete(Role.user(userId)),
   ];
 }
-
 function toMs(value: unknown): number {
   if (typeof value !== 'string' || !value) return 0;
   const t = new Date(value).getTime();
   return Number.isFinite(t) ? t : 0;
 }
-
 async function resolveAuthenticatedUserId(): Promise<string | null> {
   try {
     const user = await guardedAccount.get();
@@ -411,7 +169,6 @@ async function resolveAuthenticatedUserId(): Promise<string | null> {
     return null;
   }
 }
-
 export async function initializeSync(): Promise<void> {
   if (isSyncInProgress) {
     if (DEBUG)
@@ -548,7 +305,6 @@ export async function initializeSync(): Promise<void> {
     isSyncInProgress = false;
   }
 }
-
 async function syncCollection(
   collection: LocalCollection,
   colName: string,
@@ -652,8 +408,6 @@ async function syncCollection(
     dirty: entry?.dirty ?? '',
   };
   savePerCollectionState(userId, perCollectionSync);
-  // Messages are excluded from the push loop. Every message row is written
-  // server-side by the `message-action` function.
   if (colName !== 'messages') {
     const localDocs = await collection.find().exec();
     for (const doc of localDocs) {
@@ -718,12 +472,10 @@ async function syncCollection(
   if (DEBUG)
     console.log(`[Sync] ✅ ${colName} synced (${pageCount} page(s) pulled)`);
 }
-
 export async function forceSync() {
   if (DEBUG) console.log('[Sync] Force sync triggered');
   await initializeSync();
 }
-
 function safeForceSync(reason: string) {
   try {
     getDatabase();
@@ -734,7 +486,6 @@ function safeForceSync(reason: string) {
       console.log(`[Sync] ${reason} handler skipped (DB not ready):`, e);
   }
 }
-
 function scheduleSync(reason: string) {
   if (debounceTimer !== null) {
     clearTimeout(debounceTimer);
@@ -744,15 +495,12 @@ function scheduleSync(reason: string) {
     safeForceSync(reason);
   }, TRIGGER_DEBOUNCE_MS);
 }
-
 function handleWindowFocus() {
   scheduleSync('Window focused');
 }
-
 function handleOnline() {
   scheduleSync('Connection restored');
 }
-
 function handleVisibilityChange() {
   if (
     typeof document !== 'undefined' &&
@@ -761,7 +509,6 @@ function handleVisibilityChange() {
     scheduleSync('App became visible');
   }
 }
-
 if (typeof window !== 'undefined' && !window.__mosaicFocusSyncAttached) {
   window.__mosaicFocusSyncAttached = true;
   window.addEventListener('focus', handleWindowFocus);

@@ -1,5 +1,6 @@
+// Layer 1 — pure functions (settingsRowId)
 import { describe, it, expect } from 'vitest';
-import { makeSettingsRowId } from '../../src/hooks/useSettings';
+import { makeSettingsRowId } from '../../src/lib/settingsRowId';
 
 describe('makeSettingsRowId', () => {
   // Regression: §11 — short composite ids stay human-readable
