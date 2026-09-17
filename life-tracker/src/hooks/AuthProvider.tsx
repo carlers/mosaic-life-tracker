@@ -14,6 +14,7 @@ import { AuthContext } from './authContext';
 import type { Models } from 'appwrite';
 
 const AUTH_BROADCAST_KEY = 'mosaic_auth_broadcast';
+const LAST_KNOWN_USER_KEY = 'mosaic_last_known_user';
 
 type AuthBroadcast = { type: 'login' | 'logout'; at: number };
 
@@ -23,6 +24,45 @@ function broadcastAuth(type: 'login' | 'logout') {
     localStorage.setItem(AUTH_BROADCAST_KEY, JSON.stringify(payload));
   } catch {
     // Ignore storage failures (private mode, quota, etc.)
+  }
+}
+
+/**
+ * OFF-1: reads the persisted last-known identity. Returns null on any
+ * parse failure or shape failure — the caller falls back to the retry
+ * screen rather than hydrating a malformed object.
+ */
+function readCachedUser(): Models.User<Models.Preferences> | null {
+  try {
+    const raw = localStorage.getItem(LAST_KNOWN_USER_KEY);
+    if (!raw) return null;
+    const parsed: unknown = JSON.parse(raw);
+    if (!parsed || typeof parsed !== 'object') return null;
+    const candidate = parsed as Partial<Models.User<Models.Preferences>>;
+    if (typeof candidate.$id !== 'string' || candidate.$id.length === 0) {
+      return null;
+    }
+    if (typeof candidate.email !== 'string') return null;
+    if (!candidate.prefs || typeof candidate.prefs !== 'object') return null;
+    return candidate as Models.User<Models.Preferences>;
+  } catch {
+    return null;
+  }
+}
+
+function writeCachedUser(user: Models.User<Models.Preferences>): void {
+  try {
+    localStorage.setItem(LAST_KNOWN_USER_KEY, JSON.stringify(user));
+  } catch {
+    // Ignore storage failures (private mode, quota, etc.)
+  }
+}
+
+function clearCachedUser(): void {
+  try {
+    localStorage.removeItem(LAST_KNOWN_USER_KEY);
+  } catch {
+    // Ignore storage failures.
   }
 }
 
@@ -53,50 +93,74 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const isMountedRef = useRef(true);
   const resolveInFlightRef = useRef(false);
 
-  const resolveInitialUser = useCallback(async () => {
-    if (resolveInFlightRef.current) {
-      if (import.meta.env.DEV) {
-        console.log('[AuthProvider] resolve skipped (in flight)');
+  /**
+   * Runs the session check.
+   *
+   * @param hydrateOnNetworkError OFF-1: when true (mount only), a network
+   *   failure falls back to the persisted last-known identity so the app
+   *   tree renders with the offline banner instead of the retry screen.
+   *   Retry / login-broadcast / online-event callers pass false so a
+   *   transient failure preserves the current in-memory state — the cache
+   *   is cleared only on explicit logout and on a confirmed 401, never on
+   *   a network error.
+   */
+  const resolveInitialUser = useCallback(
+    async (hydrateOnNetworkError: boolean) => {
+      if (resolveInFlightRef.current) {
+        if (import.meta.env.DEV) {
+          console.log('[AuthProvider] resolve skipped (in flight)');
+        }
+        return;
       }
-      return;
-    }
-    resolveInFlightRef.current = true;
-    try {
-      const u = await account.get();
-      if (!isMountedRef.current) return;
-      setUser(u);
-      setError(null);
-      setIsOffline(false);
-    } catch (err) {
-      if (!isMountedRef.current) return;
-      if (isUnauthorizedError(err)) {
-        setUser(null);
+      resolveInFlightRef.current = true;
+      try {
+        const u = await account.get();
+        if (!isMountedRef.current) return;
+        writeCachedUser(u);
+        setUser(u);
         setError(null);
         setIsOffline(false);
-      } else if (isNetworkError(err)) {
-        setUser(null);
-        setError(
-          err instanceof Error ? err.message : 'Could not reach server.'
-        );
-        setIsOffline(true);
-      } else {
-        setUser(null);
-        setError(
-          err instanceof Error ? err.message : 'Could not verify session.'
-        );
-        setIsOffline(true);
+      } catch (err) {
+        if (!isMountedRef.current) return;
+        if (isUnauthorizedError(err)) {
+          clearCachedUser();
+          setUser(null);
+          setError(null);
+          setIsOffline(false);
+        } else if (isNetworkError(err)) {
+          const message =
+            err instanceof Error ? err.message : 'Could not reach server.';
+          if (hydrateOnNetworkError) {
+            const cached = readCachedUser();
+            setUser(cached);
+            setError(message);
+            setIsOffline(true);
+          }
+          // Retry / refresh callers: preserve current state, no change.
+        } else {
+          const message =
+            err instanceof Error
+              ? err.message
+              : 'Could not verify session.';
+          if (hydrateOnNetworkError) {
+            setUser(null);
+            setError(message);
+            setIsOffline(true);
+          }
+        }
+      } finally {
+        resolveInFlightRef.current = false;
+        if (isMountedRef.current) setIsLoading(false);
       }
-    } finally {
-      resolveInFlightRef.current = false;
-      if (isMountedRef.current) setIsLoading(false);
-    }
-  }, []);
+    },
+    []
+  );
 
   useEffect(() => {
     isMountedRef.current = true;
     queueMicrotask(() => {
       if (isMountedRef.current) {
-        resolveInitialUser();
+        resolveInitialUser(true);
       }
     });
     return () => {
@@ -112,14 +176,17 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       try {
         const parsed = JSON.parse(e.newValue) as AuthBroadcast;
         if (parsed.type === 'logout') {
+          clearCachedUser();
           setUser(null);
           setError(null);
           setIsOffline(false);
         } else if (parsed.type === 'login') {
-          // Another tab logged in — re-resolve to pick up the new session.
-          // The in-flight guard makes this idempotent against an ongoing
-          // mount resolution.
-          resolveInitialUser();
+          const online =
+            typeof navigator !== 'undefined' ? navigator.onLine : true;
+          if (online) {
+            resolveInitialUser(false);
+          }
+          // Offline: keep current state (OFF-1 spec).
         }
       } catch {
         // Ignore malformed payloads.
@@ -133,6 +200,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   useEffect(() => {
     const handleUnauthorized = () => {
       if (!isMountedRef.current) return;
+      clearCachedUser();
       setUser(null);
       setError('Your session has expired. Please sign in again.');
       setIsOffline(false);
@@ -142,17 +210,20 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       window.removeEventListener(AUTH_UNAUTHORIZED_EVENT, handleUnauthorized);
   }, []);
 
-  // Retry the initial check when the network comes back and we have no user.
+  // When the network returns, re-resolve if we were in an offline state
+  // (retry screen with no cached user OR hydrated cached user). Success
+  // refreshes the identity and clears isOffline; a transient failure
+  // leaves the current state untouched.
   useEffect(() => {
     const handleOnline = () => {
-      setIsOffline(false);
-      if (!user && isMountedRef.current) {
-        resolveInitialUser();
+      if (!isMountedRef.current) return;
+      if (isOffline) {
+        resolveInitialUser(false);
       }
     };
     window.addEventListener('online', handleOnline);
     return () => window.removeEventListener('online', handleOnline);
-  }, [user, resolveInitialUser]);
+  }, [isOffline, resolveInitialUser]);
 
   const login = useCallback(
     async (email: string, password: string): Promise<boolean> => {
@@ -167,6 +238,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         await account.createEmailPasswordSession(email, password);
         const u = await account.get();
         if (!isMountedRef.current) return true;
+        writeCachedUser(u);
         setUser(u);
         setIsLoading(false);
         setIsOffline(false);
@@ -200,6 +272,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         }
         const u = await account.get();
         if (!isMountedRef.current) return true;
+        writeCachedUser(u);
         setUser(u);
         setIsLoading(false);
         setIsOffline(false);
@@ -222,6 +295,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     try {
       await account.deleteSession('current');
       if (!isMountedRef.current) return true;
+      clearCachedUser();
       setUser(null);
       setIsLoading(false);
       setIsOffline(false);
@@ -243,6 +317,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         await account.updateEmail(newEmail, password);
         const u = await account.get();
         if (!isMountedRef.current) return true;
+        writeCachedUser(u);
         setUser(u);
         return true;
       } catch (err: unknown) {
@@ -273,10 +348,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     []
   );
 
+  // Retry preserves the current error message on failure — the resolve
+  // path itself decides whether to clear or replace it.
   const retry = useCallback(async () => {
     setIsLoading(true);
-    setError(null);
-    await resolveInitialUser();
+    await resolveInitialUser(false);
   }, [resolveInitialUser]);
 
   return (

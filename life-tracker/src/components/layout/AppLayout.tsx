@@ -120,6 +120,12 @@ export const AppLayout: React.FC = () => {
   if (!user) {
     return <Navigate to="/login" replace state={{ from: location }} />;
   }
+  // OFF-1: `user` is non-null here. When `isOffline` is true the identity
+  // was hydrated from `mosaic_last_known_user` at mount time — render the
+  // app tree so local data is reachable; MainLayout shows the
+  // OfflineBanner and the online handler refreshes the session when the
+  // network returns. The `!user && isOffline` gate above only fires when
+  // no cached user was hydrated, so no extra branch is required here.
   const path = location.pathname;
   let activeTab: TabId = 'home';
   if (path.includes('explore')) activeTab = 'explore';
