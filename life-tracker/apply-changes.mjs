@@ -1,105 +1,71 @@
-#!/usr/bin/env node
-import {
-  readFileSync, writeFileSync, mkdirSync, existsSync,
-  rmSync, cpSync, readdirSync, statSync,
-} from 'fs';
-import { dirname, join, resolve, relative, sep } from 'path';
-import { fileURLToPath } from 'url';
-import { spawn } from 'child_process';
-import { copyToClipboard } from './scripts/clipboard.mjs';
+import { execSync, spawnSync } from 'node:child_process';
+import fs from 'node:fs';
+import path from 'node:path';
+import process from 'node:process';
+import { fileURLToPath } from 'node:url';
 
 const __filename = fileURLToPath(import.meta.url);
-const ROOT = dirname(__filename);
-const BACKUP_ROOT = join(ROOT, '.mosaic-backup');
-const DIRECTIVE_RE = /^===(FILE|DELETE|COMMIT):(.+)===$/;
-const SELF_MOD_FILE = 'apply-changes.mjs';
+const __dirname = path.dirname(__filename);
+const ROOT = __dirname;
+const PENDING = path.join(ROOT, 'pending-changes.txt');
+const BACKUP_ROOT = path.join(ROOT, '.mosaic-backup');
 
-// Capture every byte written to stdout so the full run output can be copied
-// to the clipboard on exit (success or failure). The wrapper must be
-// installed before `main()` runs so early logs are captured too.
-const capturedOutput = [];
-const originalStdoutWrite = process.stdout.write.bind(process.stdout);
+const clipboardBuffer = [];
+const origWrite = process.stdout.write.bind(process.stdout);
 process.stdout.write = (chunk, encoding, callback) => {
-  try {
-    if (typeof chunk === 'string') {
-      capturedOutput.push(chunk);
-    } else if (chunk instanceof Uint8Array) {
-      capturedOutput.push(Buffer.from(chunk).toString('utf8'));
-    }
-  } catch {
-    // Capture must never break the underlying write.
-  }
-  return originalStdoutWrite(chunk, encoding, callback);
+  clipboardBuffer.push(typeof chunk === 'string' ? chunk : chunk.toString());
+  return origWrite(chunk, encoding, callback);
 };
-
-process.on('exit', () => {
-  if (capturedOutput.length === 0) return;
-  const text = capturedOutput.join('').slice(-100_000);
-  copyToClipboard(text);
-});
 
 function log(...a) {
   console.log(...a);
 }
 
 function fail(msg, code = 1) {
-  console.error(`\n❌ ${msg}\n`);
+  console.error(`\n✖ ${msg}\n`);
+  copyToClipboardSafe();
   process.exit(code);
 }
 
 function warnSelfModification(files) {
-  const selfModifying = files.some((f) => f.path === SELF_MOD_FILE);
-  if (!selfModifying) return;
-  log('');
-  log('⚠️  WARNING: this mega file modifies apply-changes.mjs itself.');
-  log('    The currently-running process uses the OLD in-memory version for');
-  log('    parse, backup, and verify. Subsequent applies will use the NEW version.');
-  log('    If your change affects parse/backup/verify logic, re-run those steps');
-  log('    after this apply completes.');
-  log('');
+  const self = 'apply-changes.mjs';
+  if (files.includes(self)) {
+    log(`⚠ ${self} is being modified by this patch.`);
+  }
 }
 
 function parseArgs(argv) {
-  const flags = {
-    file: 'pending-changes.txt',
-    dryRun: false,
-    noVerify: false,
-    rollback: false,
-    start: false,
-    verbose: false,
+  const args = argv.slice(2);
+  return {
+    dryRun: args.includes('--dry-run'),
+    noVerify: args.includes('--no-verify'),
+    start: args.includes('--start'),
+    rollback: args.includes('--rollback'),
+    commit: args.includes('--commit'),
+    noCommit: args.includes('--no-commit'),
   };
-  for (const arg of argv) {
-    if (arg === '--dry-run') flags.dryRun = true;
-    else if (arg === '--no-verify') flags.noVerify = true;
-    else if (arg === '--rollback') flags.rollback = true;
-    else if (arg === '--start') flags.start = true;
-    else if (arg === '--verbose') flags.verbose = true;
-    else if (arg.startsWith('--file=')) flags.file = arg.slice('--file='.length);
-    else fail(`Unknown argument: ${arg}`);
-  }
-  return flags;
 }
 
 function parseMegaFile(content) {
-  let text = content;
-  const fenceMatch = text.match(/^(~~~+|`{3,})mosaic\s*\n([\s\S]*?)\n\1\s*$/);
-  if (fenceMatch) text = fenceMatch[2];
-  const lines = text.split(/\r?\n/);
+  const outerRegex = /^(~~~+|`{3,})mosaic\s*\n([\s\S]*?)\n\1\s*$/;
+  const match = content.match(outerRegex);
+  if (!match) {
+    throw new Error('No mosaic block found. Outer fence must be exactly five tildes + mosaic.');
+  }
+  const body = match[2];
 
-  // Pass 1: mark lines that are inside a Markdown fence (backticks or tildes).
-  // Fence-boundary lines are also marked true so they are never treated as
-  // directives. This makes the directive examples inside documentation
-  // code blocks inert — critical for AGENTS.md §5.1, which documents the
-  // mega-file format by showing literal directive lines inside a fence.
+  const lines = body.split('\n');
   const insideFence = new Array(lines.length).fill(false);
   let fenceChar = null;
   let fenceLen = 0;
-  for (let i = 0; i < lines.length; i++) {
+
+  for (let i = 0; i < lines.length; i += 1) {
     const line = lines[i];
-    const m = line.match(/^(`{3,}|~{3,})/);
+    const m = line.match(/^(`{3,}|~{3,})\s*$/);
     if (m) {
-      const ch = m[1][0];
-      const len = m[1].length;
+      const run = m[1];
+      const ch = run[0];
+      const len = run.length;
       if (fenceChar === null) {
         fenceChar = ch;
         fenceLen = len;
@@ -107,51 +73,77 @@ function parseMegaFile(content) {
         continue;
       }
       if (ch === fenceChar && len >= fenceLen) {
+        insideFence[i] = true;
         fenceChar = null;
         fenceLen = 0;
-        insideFence[i] = true;
         continue;
       }
-      insideFence[i] = true;
-      continue;
     }
-    insideFence[i] = fenceChar !== null;
+    if (fenceChar !== null) {
+      insideFence[i] = true;
+    }
   }
 
-  const files = [], deletes = [];
-  let commit = null, i = 0;
-  while (i < lines.length) {
-    if (insideFence[i]) { i++; continue; }
-    const m = lines[i].match(DIRECTIVE_RE);
-    if (!m) { i++; continue; }
-    const [, type, value] = m;
-    if (type === 'COMMIT') { commit = value.trim(); i++; continue; }
-    if (type === 'DELETE') { deletes.push(value.trim()); i++; continue; }
-    const path = value.trim();
-    const contentLines = [];
-    i++;
-    while (i < lines.length) {
-      if (!insideFence[i] && DIRECTIVE_RE.test(lines[i])) break;
-      contentLines.push(lines[i]);
-      i++;
+  const files = [];
+  const deletes = [];
+  let commit = null;
+  let currentFile = null;
+  let currentLines = [];
+
+  const flush = () => {
+    if (currentFile) {
+      files.push({ path: currentFile, content: currentLines.join('\n') });
+      currentFile = null;
+      currentLines = [];
     }
-    files.push({ path, content: contentLines.join('\n') });
+  };
+
+  for (let i = 0; i < lines.length; i += 1) {
+    if (insideFence[i]) {
+      if (currentFile) currentLines.push(lines[i]);
+      continue;
+    }
+    const line = lines[i];
+
+    // Defensive: strip a stray `mosaic`-opener line that Chat 2 sometimes
+    // copies from the §5.1 shape illustration. The literal `mosaic`
+    // appears exactly once in a well-formed mega file; a bare line here
+    // is a bug in the emitter.
+    if (/^(~~~+|`{3,})mosaic\s*$/.test(line) || line.trim() === 'mosaic') {
+      log(`⚠ Ignoring stray mosaic opener inside body (line ${i + 1}).`);
+      continue;
+    }
+
+    if (line.startsWith('===FILE:')) {
+      flush();
+      const p = line.slice('===FILE:'.length).replace(/===\s*$/, '').trim();
+      validatePath(p);
+      currentFile = p;
+    } else if (line.startsWith('===DELETE:')) {
+      flush();
+      const p = line.slice('===DELETE:'.length).replace(/===\s*$/, '').trim();
+      validatePath(p);
+      deletes.push(p);
+    } else if (line.startsWith('===COMMIT:')) {
+      flush();
+      commit = line.slice('===COMMIT:'.length).replace(/===\s*$/, '').trim();
+    } else if (currentFile) {
+      currentLines.push(line);
+    }
   }
+  flush();
+
   return { files, deletes, commit };
 }
 
 function validatePath(p) {
-  if (!p) fail('Empty path in directive');
-  if (p.startsWith('/')) fail(`Absolute path not allowed: ${p}`);
-  if (p.includes('..')) fail(`Path traversal not allowed: ${p}`);
-  const abs = resolve(ROOT, p);
-  const rel = relative(ROOT, abs);
-  if (rel.startsWith('..') || rel === '') fail(`Path escapes project root: ${p}`);
-  return abs;
+  if (!p || p.includes('..') || path.isAbsolute(p)) {
+    throw new Error(`Invalid path in directive: ${p}`);
+  }
 }
 
 function ensureDir(p) {
-  mkdirSync(dirname(p), { recursive: true });
+  fs.mkdirSync(path.dirname(p), { recursive: true });
 }
 
 function formatBytes(n) {
@@ -160,176 +152,230 @@ function formatBytes(n) {
   return `${(n / 1024 / 1024).toFixed(2)} MB`;
 }
 
-/**
- * Run a verify command. Streams stdout/stderr live (via the same
- * `process.stdout.write` wrapper that feeds the clipboard capture) so the
- * user sees lint/test/build output as it happens and it lands in the
- * clipboard buffer. Resolves `true` on exit code 0, `false` otherwise.
- */
 function run(cmd) {
-  log(`\n🔍 Running ${cmd}...`);
   return new Promise((resolve) => {
-    const child = spawn(cmd, [], {
-      stdio: ['inherit', 'pipe', 'pipe'],
-      cwd: ROOT,
-      shell: true,
-    });
-    child.stdout.on('data', (chunk) => process.stdout.write(chunk));
-    child.stderr.on('data', (chunk) => process.stderr.write(chunk));
-    child.on('exit', (code) => {
-      if (code === 0) {
-        log(`  ✓ ${cmd} passed`);
-        resolve(true);
-      } else {
-        log(`  ✗ ${cmd} failed`);
-        resolve(false);
-      }
-    });
-    child.on('error', (err) => {
-      console.error(err);
-      log(`  ✗ ${cmd} failed`);
-      resolve(false);
-    });
+    const child = spawnSync(cmd, { shell: true, stdio: 'inherit' });
+    resolve(child.status === 0);
   });
 }
 
 function findLatestBackup() {
-  if (!existsSync(BACKUP_ROOT)) return null;
-  return readdirSync(BACKUP_ROOT)
-    .map((d) => join(BACKUP_ROOT, d))
-    .filter((d) => {
-      try { return statSync(d).isDirectory(); } catch { return false; }
-    })
-    .sort()
-    .reverse()[0] || null;
+  if (!fs.existsSync(BACKUP_ROOT)) return null;
+  const dirs = fs
+    .readdirSync(BACKUP_ROOT)
+    .map((d) => path.join(BACKUP_ROOT, d))
+    .filter((d) => fs.statSync(d).isDirectory())
+    .sort();
+  return dirs.length ? dirs[dirs.length - 1] : null;
 }
 
 function doRollback() {
   const latest = findLatestBackup();
-  if (!latest) fail('No backups found');
-  const manifestPath = join(latest, 'manifest.json');
-  if (!existsSync(manifestPath)) fail(`No manifest in ${latest}`);
-  const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
-  log(`\n⏪ Rolling back from ${relative(ROOT, latest)}`);
-  for (const p of manifest.created || []) {
-    const abs = join(ROOT, p);
-    if (existsSync(abs)) {
-      rmSync(abs, { force: true });
-      log(`  ✗ Removed ${p}`);
+  if (!latest) fail('No backup found.');
+  log(`Restoring from ${latest} ...`);
+  const entries = fs.readdirSync(latest, { withFileTypes: true });
+  for (const e of entries) {
+    const src = path.join(latest, e.name);
+    const dst = path.join(ROOT, e.name);
+    if (e.isDirectory()) {
+      fs.cpSync(src, dst, { recursive: true });
+    } else {
+      ensureDir(dst);
+      fs.copyFileSync(src, dst);
     }
   }
-  for (const p of [...(manifest.modified || []), ...(manifest.deleted || [])]) {
-    const src = join(latest, 'files', p);
-    if (existsSync(src)) {
-      const dest = join(ROOT, p);
-      ensureDir(dest);
-      cpSync(src, dest);
-      log(`  ↺ Restored ${p}`);
-    }
-  }
-  log('\n✅ Rollback complete\n');
-  process.exit(0);
+  log('✔ Rollback complete.');
 }
 
 function suggestCommitFallback(files, deletes) {
   const paths = [...files.map((f) => f.path), ...deletes];
-  const prefixes = new Set(paths.map((p) => p.split(sep).slice(0, 2).join('/')));
-  if ([...prefixes].every((d) => d.startsWith('appwrite-functions/'))) return 'chore: appwrite function';
-  if ([...prefixes].every((d) => d.startsWith('src/components/ui/'))) return 'ui: primitives';
-  if ([...prefixes].every((d) => d.startsWith('src/lib/'))) return 'lib: utilities';
-  if ([...prefixes].every((d) => d.startsWith('src/hooks/'))) return 'hooks: state';
-  return `chore: apply ${files.length + deletes.length} file change(s)`;
+  if (paths.every((p) => p.endsWith('.md'))) return 'docs: update documentation';
+  if (paths.some((p) => p.startsWith('src/'))) return 'chore: refactor and update source';
+  return 'chore: apply changes';
+}
+
+function truncateCommit(msg, max = 72) {
+  if (!msg) return msg;
+  return msg.length <= max ? msg : msg.slice(0, max - 1) + '…';
+}
+
+function copyToClipboardSafe() {
+  const text = clipboardBuffer.join('');
+  if (!text.trim()) return;
+  try {
+    const platform = process.platform;
+    const cmd =
+      platform === 'darwin'
+        ? 'pbcopy'
+        : platform === 'win32'
+          ? 'clip'
+          : 'wl-copy';
+    const res = spawnSync(cmd, { input: text, shell: true });
+    if (res.status === 0) return;
+    const alt = spawnSync('xclip -selection clipboard', { input: text, shell: true });
+    if (alt.status === 0) return;
+    const alt2 = spawnSync('xsel --clipboard --input', { input: text, shell: true });
+    if (alt2.status === 0) return;
+  } catch {
+    // fall through
+  }
+  origWrite('\n(clipboard copy unavailable — output printed above)\n');
+}
+
+function isTTY() {
+  return Boolean(process.stdin.isTTY && process.stdout.isTTY);
+}
+
+function promptYesNo(question) {
+  const answer = spawnSync(
+    'sh',
+    ['-c', `printf '%s ' "${question}"; read ans; printf '%s' "$ans"`],
+    { stdio: ['inherit', 'pipe', 'inherit'] }
+  );
+  const raw = (answer.stdout || '').toString().trim().toLowerCase();
+  return raw === '' || raw === 'y' || raw === 'yes';
+}
+
+function gitCommit(commitMsg, paths) {
+  if (paths.length === 0) {
+    log('⚠ No touched paths to commit.');
+    return false;
+  }
+  const quoted = paths.map((p) => `'${p.replace(/'/g, "'\\''")}'`).join(' ');
+  try {
+    execSync(`git add -- ${quoted}`, { stdio: 'inherit' });
+    execSync(`git commit -m ${JSON.stringify(commitMsg)}`, { stdio: 'inherit' });
+    const hash = execSync('git rev-parse --short HEAD', { encoding: 'utf8' }).trim();
+    log(`✔ Committed ${hash}: ${commitMsg}`);
+    return true;
+  } catch {
+    log('✖ git commit failed. Files are written; fix the hook/error and commit manually.');
+    return false;
+  }
 }
 
 async function main() {
-  const flags = parseArgs(process.argv.slice(2));
-  if (flags.rollback) doRollback();
+  const args = parseArgs(process.argv);
 
-  const inputPath = resolve(ROOT, flags.file);
-  if (!existsSync(inputPath)) fail(`Input file not found: ${flags.file}`);
-
-  const { files, deletes, commit } = parseMegaFile(readFileSync(inputPath, 'utf8'));
-  if (files.length === 0 && deletes.length === 0) fail('No directives found in input file');
-
-  log(`\n📋 Parsed ${files.length} FILE, ${deletes.length} DELETE`);
-  warnSelfModification(files);
-  if (commit) log(`📝 Commit: ${commit}`);
-
-  const planned = [];
-  for (const f of files) {
-    const abs = validatePath(f.path);
-    planned.push({ kind: existsSync(abs) ? 'MODIFY' : 'CREATE', path: f.path, abs, content: f.content });
-  }
-  for (const p of deletes) {
-    planned.push({ kind: 'DELETE', path: p, abs: validatePath(p) });
+  if (args.rollback) {
+    doRollback();
+    copyToClipboardSafe();
+    return;
   }
 
-  log('\nPlanned operations:');
-  for (const p of planned) {
-    const size = p.content ? ` (${formatBytes(Buffer.byteLength(p.content, 'utf8'))})` : '';
-    log(`  ${p.kind.padEnd(7)} ${p.path}${size}`);
+  if (!fs.existsSync(PENDING)) {
+    fail('pending-changes.txt not found in project root.');
   }
 
-  if (flags.dryRun) {
-    log('\n🧪 Dry run — no files written.\n');
-    process.exit(0);
+  const raw = fs.readFileSync(PENDING, 'utf8');
+  let parsed;
+  try {
+    parsed = parseMegaFile(raw);
+  } catch (err) {
+    fail(`Parse error: ${err.message}`);
+  }
+
+  const { files, deletes, commit } = parsed;
+  const commitMsg = truncateCommit(
+    commit || suggestCommitFallback(files, deletes)
+  );
+
+  log(`Parsed ${files.length} file(s), ${deletes.length} delete(s).`);
+  if (commit) log(`Commit: ${commitMsg}`);
+
+  warnSelfModification(files.map((f) => f.path));
+
+  if (args.dryRun) {
+    log('Dry run — no writes.');
+    for (const f of files) log(`  would write ${f.path} (${formatBytes(f.content.length)})`);
+    for (const d of deletes) log(`  would delete ${d}`);
+    copyToClipboardSafe();
+    return;
   }
 
   const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-  const backupDir = join(BACKUP_ROOT, timestamp);
-  const backupFilesDir = join(backupDir, 'files');
-  mkdirSync(backupFilesDir, { recursive: true });
-  const manifest = { timestamp, created: [], modified: [], deleted: [], commit: commit || null };
-  for (const p of planned) {
-    if (p.kind === 'CREATE') { manifest.created.push(p.path); continue; }
-    if (existsSync(p.abs)) {
-      const dest = join(backupFilesDir, p.path);
-      ensureDir(dest);
-      cpSync(p.abs, dest);
-      (p.kind === 'MODIFY' ? manifest.modified : manifest.deleted).push(p.path);
-    }
-  }
-  writeFileSync(join(backupDir, 'manifest.json'), JSON.stringify(manifest, null, 2));
-  log(`\n💾 Backup: ${relative(ROOT, backupDir)}`);
+  const backupDir = path.join(BACKUP_ROOT, timestamp);
+  fs.mkdirSync(backupDir, { recursive: true });
 
-  log('\n✍️  Writing files...');
-  for (const p of planned) {
-    if (p.kind === 'DELETE') {
-      if (existsSync(p.abs)) {
-        rmSync(p.abs, { force: true });
-        log(`  ✓ Deleted ${p.path}`);
-      } else {
-        log(`  · Skipped (not found) ${p.path}`);
-      }
-    } else {
-      ensureDir(p.abs);
-      let body = p.content;
-      if (!body.endsWith('\n')) body += '\n';
-      writeFileSync(p.abs, body, 'utf8');
-      log(`  ✓ ${p.kind === 'CREATE' ? 'Created' : 'Updated'} ${p.path}`);
+  const touchedPaths = [];
+
+  for (const f of files) {
+    const abs = path.join(ROOT, f.path);
+    if (fs.existsSync(abs)) {
+      const backupPath = path.join(backupDir, f.path);
+      ensureDir(backupPath);
+      fs.copyFileSync(abs, backupPath);
+    }
+    ensureDir(abs);
+    fs.writeFileSync(abs, f.content, 'utf8');
+    touchedPaths.push(f.path);
+    log(`  wrote ${f.path}`);
+  }
+
+  for (const d of deletes) {
+    const abs = path.join(ROOT, d);
+    if (fs.existsSync(abs)) {
+      const backupPath = path.join(backupDir, d);
+      ensureDir(backupPath);
+      fs.copyFileSync(abs, backupPath);
+      fs.unlinkSync(abs);
+      touchedPaths.push(d);
+      log(`  deleted ${d}`);
     }
   }
 
-  if (!flags.noVerify) {
-    if (!(await run('npm run lint'))) fail('Lint failed. Run `npm run apply:rollback` to restore.');
-    if (!(await run('npm test'))) fail('Tests failed. Run `npm run apply:rollback` to restore.');
-    if (!(await run('npm run build'))) fail('Build failed. Run `npm run apply:rollback` to restore.');
+  if (args.noVerify) {
+    log('\n✔ Wrote files (verification skipped).');
+    copyToClipboardSafe();
+    return;
   }
 
-  const commitMsg = commit || suggestCommitFallback(files, deletes);
-  log(`\n✅ ${files.length} file(s) applied, ${deletes.length} deleted.${flags.noVerify ? '' : ' Verified.'}`);
-  log(`\n📝 Suggested commit:\n   ${commitMsg}`);
-  log(`\n💡 git add -A && git commit -m "${commitMsg}"`);
-  log(`\n↩️  To rollback: npm run apply:rollback\n`);
+  const lintOk = await run('npm run lint');
+  if (!lintOk) fail('Lint failed. Run `npm run apply:rollback` to revert.');
 
-  if (flags.start) {
-    log('🚀 Starting dev server...\n');
-    const child = spawn('npm', ['run', 'dev'], { stdio: 'inherit', cwd: ROOT });
-    child.on('exit', (code) => process.exit(code || 0));
+  const testOk = await run('npm test');
+  if (!testOk) fail('Tests failed. Run `npm run apply:rollback` to revert.');
+
+  const buildOk = await run('npm run build');
+  if (!buildOk) fail('Build failed. Run `npm run apply:rollback` to revert.');
+
+  log('\n✔ Lint, test, and build all green.');
+
+  if (args.noCommit) {
+    log('(--no-commit) Skipping commit prompt.');
+    copyToClipboardSafe();
+    return;
+  }
+
+  if (args.commit) {
+    gitCommit(commitMsg, touchedPaths);
+    copyToClipboardSafe();
+    return;
+  }
+
+  if (!isTTY()) {
+    const quoted = touchedPaths.map((p) => `'${p}'`).join(' ');
+    log('\nNot a TTY — copy-paste to commit:');
+    log(`  git add -- ${quoted} && git commit -m ${JSON.stringify(commitMsg)}`);
+    copyToClipboardSafe();
+    return;
+  }
+
+  const shouldCommit = promptYesNo(`\nCommit these changes? [Y/n]`);
+  if (shouldCommit) {
+    gitCommit(commitMsg, touchedPaths);
+  } else {
+    log('Skipped commit.');
+  }
+
+  copyToClipboardSafe();
+
+  if (args.start) {
+    log('\nStarting dev server...');
+    await run('npm run dev');
   }
 }
 
 main().catch((err) => {
-  console.error(err);
-  process.exit(1);
+  fail(`Unexpected error: ${err.message}`);
 });

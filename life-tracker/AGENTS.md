@@ -57,16 +57,20 @@ For product-spec detail beyond the above (aesthetic descriptions, reference-app 
 
 All revisions are delivered as a single fenced code block tagged `mosaic`. Outer fence: exactly five tildes + `mosaic` opener; five tildes alone on the closer. Installer regex: `/^(~~~+|`{3,})mosaic\s*\n([\s\S]*?)\n\1\s*$/` — the `\1` backreference requires the closing fence to match character AND length exactly, so a five-tilde opening can only be closed by exactly five tildes and any ≤3-char fence inside is inert. (The regex accepts any length ≥3; four is the convention, not a hard maximum.)
 
-Format (illustrative inner example uses three tildes; a real delivery uses four):
+**Mega-file shape** (this is a shape illustration only — do NOT copy-paste the opener; the real opener is written exactly once at the top of your output):
 
-~~~mosaic
+```
+<opener: five tildes immediately followed by the literal `mosaic`, nothing else on the line>
 ===FILE:path/to/file.ext===
 <complete file content>
 ===FILE:path/to/other.ext===
 <complete file content>
 ===DELETE:path/to/removed.ext===
 ===COMMIT:audit: auth context and shared lifecycle===
-~~~
+<closer: five tildes alone on their own line>
+```
+
+The literal string `mosaic` appears **exactly once** in a well-formed mega file: immediately after the five-tilde opener. If you find yourself writing it a second time, you have copied the shape illustration into your output — delete that line before emitting.
 
 **Fence rules:**
 
@@ -74,25 +78,28 @@ Format (illustrative inner example uses three tildes; a real delivery uses four)
 2. **INNER fences** — anything inside file contents (code examples, Markdown snippets, TypeScript blocks, prose examples). Any fence character and any length up to three characters is fine. The parser treats them as inert because their character and/or length differs from the outer fence. Content inside an inner fence is literal: `===FILE:` / `===DELETE:` / `===COMMIT:` lines inside it are not directives.
 3. The parser strips the outer fence first (regex above), then scans the remaining content line-by-line with CommonMark fence rules, tracking which lines sit inside an inner fence. Only lines not inside an inner fence can be directives.
 
-**Additional rules (unchanged):**
+**Additional rules:**
 
 - One fenced block per logical change. No prose before or after (aside from a single confirmation line).
 - Full file contents only — no diffs, no placeholders, no elisions.
 - Directives (`===FILE:`, `===DELETE:`, `===COMMIT:`) must be at line start, exactly as shown.
 - Do not escape content. Do not nest `mosaic` blocks.
 - `===COMMIT:...===` is optional. If absent, the installer emits a generic fallback based on the touched paths.
+- **Reasoning discipline before emission:** if the mega file touches ≥2 files, Chat 2 first emits a single `npm run dump -- <paths>` line listing every file whose current content it needs (see §25.5.1). Do not interleave dumps and emission.
 
 The user pastes the block into `pending-changes.txt` (project root, gitignored), then runs one of:
 
 | Command | Purpose |
 |---|---|
 | `npm run apply:dry` | Parse + validate, no writes |
-| `npm run apply` | Write files, lint, test, build |
+| `npm run apply` | Write files, lint, test, build, then prompt to commit |
 | `npm run apply:docs` | Write files, skip lint/test/build |
 | `npm run apply:start` | Write, lint, test, build, start dev server |
 | `npm run apply:rollback` | Restore from the most recent backup |
 
 The installer (`apply-changes.mjs`) backs up every modified or deleted file to `.mosaic-backup/<timestamp>/` before writing. On lint, test, or build failure it exits without restoring; the user runs `npm run apply:rollback` explicitly to revert. `apply-changes.mjs` copies its full run output to the clipboard on exit (all modes, success or failure).
+
+**Git commit prompt (apply only, after green verify).** When `npm run apply` passes lint, test, and build, the installer prompts `Commit these changes? [Y/n]`. On Y it runs `git add` for the touched paths only (never `-A`, so unrelated WIP is not swept in), commits with the `===COMMIT:...===` message (truncated to 72 chars; fallback from touched paths if absent), and prints the resulting hash. On n it stops. Skipped entirely if stdout is not a TTY (piped or CI) — the installer instead prints a copy-pasteable `git add … && git commit -m "…"` line. Flag overrides: `--commit` (skip the prompt, always commit on green) and `--no-commit` (skip the prompt, never commit). A failed `git commit` (e.g. a pre-commit hook rejects) exits non-zero but does **not** trigger rollback — files are already written.
 
 **Parser is fence-aware (CRITICAL).** `parseMegaFile` runs a two-pass scan:
 
@@ -101,25 +108,16 @@ The installer (`apply-changes.mjs`) backs up every modified or deleted file to `
 
 Without this guard, directive examples inside fenced blocks would truncate the enclosing file at the first example directive, create phantom files, and override the outer `===COMMIT:...===`.
 
-**Mega-file emission template (append to every audit/fix prompt):**
+**Mega-file emission checklist (Chat 2, before emitting):**
 
-~~~mosaic
-===FILE:path/to/file.ext===
-<complete file content>
-===FILE:path/to/other.ext===
-<complete file content>
-===DELETE:path/to/removed.ext===
-===COMMIT:<type>: <short description>===
-~~~
+- Outer fence is exactly five tildes + `mosaic` at the top; five tildes alone at the bottom. Nothing before, nothing after.
+- The literal `mosaic` appears exactly once.
+- Every touched file is present as a `===FILE:path===` block with its complete new content. Full contents — no diffs, no placeholders.
+- `===FILE:path===`, `===DELETE:path===`, and `===COMMIT:...===` are at line start, exactly as shown.
+- `SESSION_STATE.md` is updated as the last `===FILE:` block before `===COMMIT:`.
+- No prose, no announcement, no reasoning inside the fence. The mega file contains files only.
 
-Rules:
-- Outer fence is exactly five tildes; inner fences of length ≤3 are inert.
-- One fenced block. No prose before or after.
-- Full file contents only — no diffs, no placeholders, no elisions.
-- `===FILE:path===`, `===DELETE:path===`, and `===COMMIT:...===` must be at line start, exactly as shown.
-- Do not escape content. Do not nest `mosaic` blocks.
-- COMMIT uses the user's convention: `audit:`, `ui:`, `feat:`, `fix:`, `chore:`, `hooks:`, `lib:`, `docs:`.
-- Content inside Markdown fences is literal — the parser will not interpret `===FILE:` examples inside such fences as directives.
+---
 
 ## 6. Appwrite 2.0 Strict Guardrails (CRITICAL)
 - **Regional Endpoint:** Must use the specific regional endpoint found in the project URL (e.g., `https://sgp.cloud.appwrite.io/v1`), NOT the generic `cloud.appwrite.io`
@@ -156,9 +154,10 @@ Rules:
 - **Messaging, reactions, chat polish complete (Phases 3.1–3.3):** `messages` collection (v3) two-row pattern, `message-action` function (`deliver`/`mark_read`/`unsend`/`react`/`react_to_task`/`get_friend_calendar`), `useMessages`/`useConversations`/`useUnreadMessages`, `MessagesPage`/`ChatPage` + full chat component set, outbox delivery, deterministic thread/recipient IDs, shared `reactionUtils`. Swipe-to-reply, double-tap ❤️, single-tap timestamp, unified `useBubbleGestures`, read receipts, scroll FAB, chat search. Task reactions via heart button + emoji picker.
 - **Architecture hardening complete:** `AuthProvider` context as single source of truth (single `account.get()` per load; global `auth:unauthorized` dispatch; multi-tab broadcast; offline retry screen). Calendar perf audit (slide windowing, memoized `tasksByDate`, memoized `DayCell`, ref-counted `useTaskImage`). Conversations/unread refactor (single providers, thin selectors, `isUnsent` exclusion). Sync engine audit (13 slices; `createRow` 404 fallback; `messageActionQueue`; drift detection; `updatedAt` on categories/settings). Offline write resilience (`socialOutbox`). See §16, §18, §23 for invariants.
 - **Phase 1 audits closed (2026-09-17):** Offline behaviour, realtime subscriptions (all six tables), error boundaries (root + per-route), image-cache consolidation, PWA/SW audit, four-part accessibility sweep. Sole carry-over: OFF-1 (offline auth gate, H1 = Option A), scheduled Phase 2 batch 2.1.
-- **Test suite live:** 347 tests across four Vitest projects (`unit`, `handlers`, `react`, `components`). Installer gates every apply on green tests (§5.1). See §24.
+- **Phase 2 refactor audit → refactor closed (2026-09-18):** Batches 2.1–2.10 shipped. OFF-1 offline auth gate (H1 = Option A); duplication sweep (DUP-1…12); component boundary audit (CB-1…14); hook boundary audit (HB-1…12); lib-level extractions; shared React primitives + `useRxCollection`; sheet migrations across 19 files; domain hook extractions (useThreadMessages/useMessageActions/useConversations/useUnreadMessages split); god-component splits (CalendarBody, DayViewSheet, ChatPage, PersonPane); cleanup pass. All findings closed. See SESSION_STATE.md for per-batch decisions.
+- **Test suite live:** 390 tests across four Vitest projects (`unit`, `handlers`, `react`, `components`). Installer gates every apply on green tests (§5.1). See §24.
 
-**Next Up:** Phase 2 refactor audit → refactor (starting with OFF-1 offline auth gate). Then Phase 3.5 Todo List View; Phase 3.6 Diary View; Phase 3.7 Notifications tab. Full history lives in the Changelog (index rows; see §26 for the row format).
+**Next Up:** Phase 3 — optimize audit → optimize (bundle size 1.7 MB, route splitting, lazy images; receives OFF-6 LRU cap). Then Phase 4 spec audit group. Then Phase 3.5–3.7 feature work. Full history lives in the Changelog (index rows; see §26 for the row format).
 
 ## 9. Hook & State Conventions
 - **Named return object, never array:** `{ <domain>, isLoading, ...mutators }`; mutators `useCallback`-wrapped.
@@ -470,7 +469,7 @@ Recipient-side `read_at` propagation depends on `markReadOnRemote` eventually su
 - **Any time `navigator.onLine` is false**, `AuthProvider` treats the initial check as "couldn't check"
 - `AppLayout` renders three states: `isLoading` → spinner; `!user && isOffline` → retry screen; `!user` → redirect
 - The `OfflineError` class in `src/lib/authEvents.ts` is the canonical "couldn't check" signal at the SDK-wrapper layer. `storage.getCurrentUserId` returns `null` for a confirmed 401 but throws `OfflineError` for anything else, so `uploadImage` can distinguish "you're offline" from "no authenticated user" (§10)
-- **Offline auth gate (H1 = Option A, scheduled Phase 2 batch 2.1).** On mount-time network error, `AuthProvider` hydrates `user` from a persisted last-known identity, sets `isOffline: true`, and `AppLayout` renders the app tree with the offline banner. Cache is cleared on explicit `logout()` and on confirmed 401 — never on a network error. Network errors throw `OfflineError` and never dispatch `auth:unauthorized`, so the hydrated `user` will not trip the redirect path. Every consumer treating `user` as proof-of-live-session must be audited when this lands.
+- **Offline auth gate (H1 = Option A, shipped in Phase 2 batch 2.1).** On mount-time network error, `AuthProvider` hydrates `user` from a persisted last-known identity, sets `isOffline: true`, and `AppLayout` renders the app tree with the offline banner. Cache is cleared on explicit `logout()` and on confirmed 401 — never on a network error. Network errors throw `OfflineError` and never dispatch `auth:unauthorized`, so the hydrated `user` will not trip the redirect path. Every consumer treating `user` as proof-of-live-session must be audited when this lands.
 
 ### 23.7 Things Not To Do
 - Do not add `account.get()` calls to a hook or component. If you need session state, call `useAuth()`
@@ -483,7 +482,7 @@ Recipient-side `read_at` propagation depends on `markReadOnRemote` eventually su
 ## 24. Test Suite
 
 ### 24.1 Overview
-Vitest 3.x, four projects (`unit`, `handlers`, `react`, `components`), 347 tests across four projects. Config in `vitest.config.ts`. Run `npm test` (or `npm run test:watch` / `npm run test:ui`). Gated by the installer's verify block (§5.1) — `npm run apply` runs lint → test → build. A failing test blocks a patch from landing.
+Vitest 3.x, four projects (`unit`, `handlers`, `react`, `components`), 390 tests across four projects. Config in `vitest.config.ts`. Run `npm test` (or `npm run test:watch` / `npm run test:ui`). Gated by the installer's verify block (§5.1) — `npm run apply` runs lint → test → build. A failing test blocks a patch from landing.
 
 ### 24.2 Project layout
 | Project | Environment | Include |
@@ -596,22 +595,22 @@ Canonical starts for each role. The user copies one line from a previous chat's 
 
 **Start Chat 1 (new phase or full audit):**
 ```
-ROLE: CHAT 1 (Brain). Follow AGENTS.md §25. Read SESSION_STATE.md. You plan, audit, and generate Chat 2 prompts. You do not write production code. Stay in this session across the full audit cycle; only OFFBOARD ends it. Objective: <one line or "resume from SESSION_STATE.md">.
+ROLE: CHAT 1 (Brain). Follow AGENTS.md §25. Read SESSION_STATE.md. You plan, audit, and generate Chat 2 prompts. You do not write production code. Stay in this session across the full audit cycle; only OFFBOARD ends it. Objective: <one line or "resume from SESSION_STATE.md">. DeepThink: ON.
 ```
 
 **Start Chat 1 (phase-review handoff):**
 ```
-ROLE: CHAT 1 (Brain). Follow AGENTS.md §25. Read SESSION_STATE.md. The previous Chat 2 session completed phase <name>. Review its mega files; approve the phase closed or emit a correction prompt. Do not start the next phase without Chat 0 approval.
+ROLE: CHAT 1 (Brain). Follow AGENTS.md §25. Read SESSION_STATE.md. The previous Chat 2 session completed phase <name>. Review its mega files; approve the phase closed or emit a correction prompt. Do not start the next phase without Chat 0 approval. DeepThink: ON.
 ```
 
 **Start Chat 2 (execution):**
 ```
-ROLE: CHAT 2 (Hands). Follow AGENTS.md §25. Read SESSION_STATE.md. You produce one mega file per §5.1 for the current batch and update SESSION_STATE.md inside it. Do not ask granular questions; follow §25.5. If you need exact file contents, output a single line: npm run dump -- <paths>. Start with NextAction from SESSION_STATE.md. Stay in this session across batches; only OFFBOARD ends it. DeepThink: OFF.
+ROLE: CHAT 2 (Hands). Follow AGENTS.md §25. Read SESSION_STATE.md. You produce one mega file per §5.1 for the current batch and update SESSION_STATE.md inside it. Do not ask granular questions; follow §25.5. If you need exact file contents, output a single line: npm run dump -- <paths>. Plan your dump list once — see §25.5.1. Start with NextAction from SESSION_STATE.md. Stay in this session across batches; only OFFBOARD ends it. DeepThink: OFF.
 ```
 
 **Offboard (ask the current chat to hand off):**
 ```
-OFFBOARD. Produce: (1) a one-line onboarding prompt for the next chat per §25.6, and (2) if SESSION_STATE.md is stale, a mosaic mega file updating it. No other output.
+OFFBOARD. Produce: (1) a one-line onboarding prompt for the next chat per §25.6, and (2) if SESSION_STATE.md is stale, a mosaic mega file updating it. No other output. End with a `Toggle DeepThink: <ON|OFF>` line for the target session.
 ```
 
 **Resume (mid-phase, same role):**
@@ -630,8 +629,9 @@ SESSION_STATE.md updated: yes
 NextChatRole: <chat1 | chat2>
 ```
 
-### 25.5 Question Policy
-Chat 2 must not ask granular questions during execution. It asks **only** when the answer would change one of:
+### 25.5 Question Policy and Reasoning Discipline
+
+**Question policy.** Chat 2 must not ask granular questions during execution. It asks **only** when the answer would change one of:
 - Product scope (a new feature, a removed feature, a change to user-visible behavior)
 - Architecture (data model, sync semantics, auth, or any invariant in §6, §9, §18, §20)
 - External contract (Appwrite schema, function signature, column definition)
@@ -646,6 +646,25 @@ If a decision fits within the current batch's scope and follows an existing patt
 
 **Chat 1** has no question policy restriction — it is expected to surface open questions and record them in `SESSION_STATE.md`'s `OpenQuestions` field.
 
+**Reasoning discipline (all chats).** Over-thinking wastes tokens without improving the artifact. These rules target the observed patterns — decision loops, spec re-reads, inline option enumeration — without reducing reasoning about the task itself.
+
+- **Read dumps once.** Do not re-read a section to re-verify a fact you already extracted.
+- **Do not restate the task or the spec.** Both are in context. Begin at the first non-obvious decision.
+- **Decide once.** No prose iteration on a decision already made. "Actually," "wait," and "hmm, but" are signals to commit or drop in one line — not to re-reason.
+- **Do not enumerate options you will not choose.** If an existing pattern makes the answer obvious, apply it and move on.
+- **Question-policy decisions get decided once** — naming, file placement, styling, which pattern to reuse. Pick, state the choice in the commit line, proceed.
+- **Do not pre-verify the installer.** Lint/test/build run after the mega file. Reasoning about their outcome adds nothing.
+- **Do not resolve hypotheticals the task did not ask about.** Note the edge case in one line; do not design for it.
+- **One plan, one pass.** No mid-implementation redesign unless a dump contradicts the plan.
+- **Do not restate reasoning in the artifact.** The mega file contains files, not commentary.
+- **A second "final" is a spec-gap signal.** If you write "final design" twice, the first pass was incomplete. Close the gap in one line; do not restart.
+- **Your response is the mega file plus §25.8 lines.** No preamble, no post-amble.
+- **Do not announce what you are about to do.** Do it.
+- **Do not narrate decisions the question policy already resolved.**
+- **Mega files contain only files whose content changes.**
+
+**25.5.1 Dump discipline.** Before emitting any mega file that touches ≥2 files, Chat 2 first outputs a single `npm run dump -- <paths>` line listing every file whose current content it needs. One line, one round-trip. If after receiving the dump Chat 2 discovers exactly one more file is needed, a second request is tolerated. A **third** request in one batch is a planning failure: Chat 2 states `planning error — proceeding best-effort` and emits the mega file with whatever context it has, rather than dumping again. For any batch touching ≥3 files, the *plan* step (identifying the dump list) should run with DeepThink ON; the emission step may run with DeepThink OFF.
+
 ### 25.6 Offboarding
 Offboarding has exactly two triggers, with different targets:
 - (a) Phase completion. Chat 2 has just appended the PHASE COMPLETE declaration (§25.4) to its final mega file. Chat 2 emits a handoff prompt targeting Chat 1. Automatic; no user command.
@@ -655,7 +674,7 @@ Offboarding is per-phase, not per-batch. Chat 2 does not produce an offboarding 
 
 When a chat is asked to offboard, it produces exactly two things, in this order, with nothing else:
 
-1. **A one-line onboarding prompt** in the format from §25.4. Target role depends on the trigger: phase completion targets Chat 1, user OFFBOARD targets SESSION_STATE.md's NextChatRole. Objective is "resume from SESSION_STATE.md" unless there is context not yet in the state file, in which case append it after a semicolon.
+1. **A one-line onboarding prompt** in the format from §25.4. Target role depends on the trigger: phase completion targets Chat 1, user OFFBOARD targets SESSION_STATE.md's NextChatRole. Objective is "resume from SESSION_STATE.md" unless there is context not yet in the state file, in which case append it after a semicolon. **The prompt MUST end with a `Toggle DeepThink: <ON|OFF>` line** recommending the target session's initial DeepThink setting.
 
    When the target is Chat 1, the prompt body MUST additionally include: (a) what was done, 2–3 sentences; (b) files touched; (c) review focus; (d) test status. A target-Chat-2 prompt does not need these — SESSION_STATE.md carries the state.
 
@@ -688,13 +707,14 @@ No other context is needed. The new chat reads `AGENTS.md §25` and `SESSION_STA
 ### 25.8 Post-Batch Instructions (Chat 2 only)
 Chat 2 always appends brief next-step instructions immediately after the mega file's closing fence. The instructions are one to four lines, no preamble. They always begin with the apply command and branch on its outcome.
 
-**Every Chat 2 prompt MUST state DeepThink ON or OFF** (both the initial prompt and any offboarding prompt targeting Chat 2). Defaults follow §25.10.
+**Every Chat 2 response ends with a line `Toggle DeepThink: <ON|OFF>`** recommending whether the user should turn DeepThink on or off before their next message to Chat 2. Rationale: DeepThink ON during the *plan* step (dump-list identification, architectural decision) improves the plan; DeepThink ON during mechanical emission just burns cycles. See §25.10 for defaults.
 
 Mid-phase batch:
 ```
 Run `npm run apply`.
 - Pass → reply "continue" and I'll start <next batch>.
 - Fail → paste the error and I'll emit a fix.
+Toggle DeepThink: <ON|OFF>
 ```
 
 Phase-final batch (the mega file contains the PHASE COMPLETE declaration):
@@ -702,33 +722,23 @@ Phase-final batch (the mega file contains the PHASE COMPLETE declaration):
 Run `npm run apply`.
 - Pass → offboard to Chat 1 with the prompt below.
 - Fail → paste the error.
+Toggle DeepThink: OFF
 
 <offboarding prompt, inside a fence with strictly more backticks than any inner run>
 ```
 
 Chat 2 never emits the offboarding prompt for a mid-phase batch, even if the user reports a successful apply. Only a phase-final batch produces it. This is §25.6's "no mid-phase offboarding prompt" rule made concrete.
 
-### 25.9 Reasoning Discipline (all chats)
-Over-thinking wastes tokens without improving the artifact. These rules target the observed patterns — decision loops, spec re-reads, inline option enumeration — without reducing reasoning about the task itself.
-
-- **Read dumps once.** Do not re-read a section to re-verify a fact you already extracted.
-- **Do not restate the task or the spec.** Both are in context. Begin at the first non-obvious decision.
-- **Decide once.** No prose iteration on a decision already made. "Actually," "wait," and "hmm, but" are signals to commit or drop in one line — not to re-reason.
-- **Do not enumerate options you will not choose.** If an existing pattern makes the answer obvious, apply it and move on.
-- **§25.5 decisions get decided once** — naming, file placement, styling, which pattern to reuse. Pick, state the choice in the commit line, proceed.
-- **Do not pre-verify the installer.** Lint/test/build run after the mega file. Reasoning about their outcome adds nothing.
-- **Do not resolve hypotheticals the task did not ask about.** Note the edge case in one line; do not design for it.
-- **One plan, one pass.** No mid-implementation redesign unless a dump contradicts the plan.
-- **Do not restate reasoning in the artifact.** The mega file contains files, not commentary.
-- **A second "final" is a spec-gap signal.** If you write "final design" twice, the first pass was incomplete. Close the gap in one line; do not restart.
-- **Your response is the mega file plus §25.8 lines.** No preamble, no post-amble.
-- **Do not announce what you are about to do.** Do it.
-- **Do not narrate decisions §25.5 already resolved.**
-- **Mega files contain only files whose content changes.**
+### 25.9 Reasoning Discipline (cross-reference)
+Merged into §25.5 (second half). Do not duplicate.
 
 ### 25.10 DeepThink Toggle Defaults
-- **Chat 2:** OFF by default. ON only when the batch contains a §25.5 open question.
+Every chat response that the user will act on ends with a `Toggle DeepThink: <ON|OFF>` line recommending the setting for the user's *next* message to that chat.
+
+- **Chat 2:** OFF by default. ON when the next message's *plan* step is architectural or spans ≥3 files. For a batch with a known plan (single-file edit, one-line answer, mechanical emission), OFF.
 - **Chat 1:** ON for audits and architecture. OFF for prompt generation and doc-only edits.
+- **Offboarding prompts:** MUST carry a `Toggle DeepThink:` line for the target session (§25.6).
+- **Initial prompts (§25.4):** carry a `DeepThink: <ON|OFF>` field on the first line so the user knows what to set on the new chat.
 
 ### 25.11 Phase-Close Protocol (Chat 1)
 When Chat 1 closes a phase:
@@ -780,3 +790,4 @@ When Chat 1 closes a phase:
 | 2026-09-17 | §0 dedup follow-up | §0 | Merged former rules 2 + 10 into one; §0 is now 9 rules grouped by action (schema → sync → messaging → cross-user → auth → tooling) | §0 |
 | 2026-09-17 | Compression follow-up | §2, §18, §16, §25.3, §25.11 (new) | Restored D1/D3/D7/F9-backoff rationale paragraphs in §18 (non-circular; no pointer-to-changelog loop). Restored behavioral specs for planned views in §2 (Todo List, Diary, Notifications, calendar layout alignment) so Phase 3.5–3.7 has a spec. Dropped F1/F3/F5/F12/F13 IDs from §16 — rule text alone is sufficient for cold readers; IDs were dangling once SESSION_STATE.md trimmed. Added §25.3 migration note (new Chat 1 reads SESSION_STATE.md first, not Changelog). Added §25.11 Phase-Close Protocol to prevent dangling cross-references recurring | §2, §16, §18, §25.3, §25.11 |
 | 2026-09-17 | Phase 1 audits closed; accessibility rules documented | §8, §14, §15, §18, §25.2, §25.4, §25.8, §23.6, §24 | Phase 1 CLOSED. Four accessibility rules added to §14 (icon-variant aria-label; interactive motion.div → motion.button; focus-visible rings on primitives; label association via htmlFor/useId). §18 accepted-limitations gains image-cache no-eviction paragraph. §15 gains imageCache.ts single-owner line and SW-scope line. §25.2 dump requests wrapped in tilde fences. §25.8 requires DeepThink ON/OFF in every Chat 2 prompt. §23.6 adds offline auth gate (H1 = Option A, scheduled Phase 2 batch 2.1). Dangling D8/F12/F13/F17/D4 cross-refs removed. Test count 347 | §25.11, §23.6, §14, §15, §18 |
+| 2026-09-18 | Phase 2 refactor audit → refactor closed | §8, §23.6, §25.2, §25.4, §25.5, §25.6, §25.8, §25.10, §5.1, §15 | Phase 2 CLOSED (batches 2.1–2.10). OFF-1 offline auth gate shipped. Duplication sweep (DUP-1…12), component boundary audit (CB-1…14), hook boundary audit (HB-1…12) — all findings closed. §25.5 gains dump discipline subsection 25.5.1 (one-dump rule); §25.9 reasoning discipline folded into §25.5; §25.6 offboarding prompt MUST end with `Toggle DeepThink:` line; §25.10 defines per-response DeepThink recommendation; §25.4 initial prompts carry `DeepThink:` field; §25.8 post-batch block ends with `Toggle DeepThink:` line; §5.1 mega-file shape illustration no longer shows a copy-pasteable opener, adds emission checklist, adds git commit prompt spec; installer `npm run apply` prompts Y/N to commit touched paths on green verify. Test count 390 | §25.11, §5.1, §25.5.1, §25.10 |
