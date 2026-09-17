@@ -1,79 +1,56 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useCallback } from 'react';
 import { getDatabase } from '../db/database';
 import { useAuth } from './useAuth';
+import { useRxCollection } from './useRxCollection';
 import { makeSettingsRowId, MAX_ROW_ID_LENGTH } from '../lib/settingsRowId';
 import { upsertLocalDoc } from '../lib/localUpsert';
 import type { SettingsDocument } from '../db/schema';
+
 export { makeSettingsRowId };
 const DEBUG = import.meta.env.DEV;
+
+function mapSettingsDocs(docs: SettingsDocument[]): Record<string, unknown> {
+  const settingsMap: Record<string, unknown> = {};
+  for (const doc of docs) {
+    try {
+      settingsMap[doc.key] = JSON.parse(doc.value);
+    } catch {
+      settingsMap[doc.key] = doc.value;
+    }
+  }
+  return settingsMap;
+}
+
 export function useSettings() {
   const { user } = useAuth();
-  const userId = user?.$id;
-  const [settings, setSettings] = useState<Record<string, unknown>>({});
-  const [loadedUserId, setLoadedUserId] = useState<string | null>(null);
-  useEffect(() => {
-    if (!userId) return;
-    const uid = userId;
-    let subscription: { unsubscribe: () => void } | undefined;
-    let isMounted = true;
-    async function init() {
-      try {
-        const db = getDatabase();
-        try {
-          const all = await db.settings
-            .find({ selector: { userId: uid } })
-            .exec();
-          for (const doc of all) {
-            if (doc.id.length > MAX_ROW_ID_LENGTH) {
-              if (DEBUG) {
-                console.warn(
-                  '[useSettings] Removing oversized legacy settings row:',
-                  doc.id
-                );
-              }
-              await doc.remove();
-            }
-          }
-        } catch (cleanupErr) {
+
+  const { data: settings, isLoading } = useRxCollection<
+    SettingsDocument,
+    Record<string, unknown>
+  >({
+    collection: 'settings',
+    selector: { userId: user?.$id ?? '', isDeleted: false },
+    map: mapSettingsDocs,
+    logPrefix: '[useSettings]',
+    beforeSubscribe: async (uid) => {
+      // Purge any legacy settings rows whose row id exceeds the §6 cap.
+      const all = await getDatabase()
+        .settings.find({ selector: { userId: uid } })
+        .exec();
+      for (const doc of all) {
+        if (doc.id.length > MAX_ROW_ID_LENGTH) {
           if (DEBUG) {
-            console.warn('[useSettings] Legacy cleanup failed:', cleanupErr);
+            console.warn(
+              '[useSettings] Removing oversized legacy settings row:',
+              doc.id
+            );
           }
+          await doc.remove();
         }
-        const query = db.settings.find({
-          selector: {
-            userId: uid,
-            isDeleted: false,
-          },
-        });
-        const sub = query.$.subscribe((docs) => {
-          if (!isMounted) return;
-          const settingsMap: Record<string, unknown> = {};
-          docs.forEach((doc) => {
-            try {
-              settingsMap[doc.key] = JSON.parse(doc.value);
-            } catch {
-              settingsMap[doc.key] = doc.value;
-            }
-          });
-          setSettings(settingsMap);
-          setLoadedUserId(uid);
-        });
-        if (!isMounted) {
-          sub.unsubscribe();
-        } else {
-          subscription = sub;
-        }
-      } catch (error) {
-        console.error('[useSettings] Error loading settings:', error);
-        if (isMounted) setLoadedUserId(uid);
       }
-    }
-    init();
-    return () => {
-      isMounted = false;
-      if (subscription) subscription.unsubscribe();
-    };
-  }, [userId]);
+    },
+  });
+
   const setSetting = useCallback(
     async (key: string, value: unknown) => {
       const uid = user?.$id;
@@ -106,13 +83,13 @@ export function useSettings() {
     },
     [user?.$id]
   );
+
   const getSetting = useCallback(
     (key: string, defaultValue?: unknown) => {
       return settings[key] !== undefined ? settings[key] : defaultValue;
     },
     [settings]
   );
-  const visibleSettings = userId && loadedUserId === userId ? settings : {};
-  const isLoading = !!userId && loadedUserId !== userId;
-  return { settings: visibleSettings, isLoading, setSetting, getSetting };
+
+  return { settings, isLoading, setSetting, getSetting };
 }

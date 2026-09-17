@@ -1,49 +1,22 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useCallback } from 'react';
 import { getDatabase } from '../db/database';
 import { useAuth } from './useAuth';
+import { useRxCollection } from './useRxCollection';
 import type { CategoryDocument } from '../db/schema';
+
+const DEBUG = import.meta.env.DEV;
 let reorderInProgress = false;
+
 export function useCategories() {
   const { user } = useAuth();
-  const userId = user?.$id;
-  const [categories, setCategories] = useState<CategoryDocument[]>([]);
-  const [loadedUserId, setLoadedUserId] = useState<string | null>(null);
-  useEffect(() => {
-    if (!userId) return;
-    const uid = userId;
-    let subscription: { unsubscribe: () => void } | undefined;
-    let isMounted = true;
-    async function init() {
-      try {
-        const db = getDatabase();
-        const query = db.categories.find({
-          selector: {
-            userId: uid,
-            isDeleted: false,
-          },
-          sort: [{ order: 'asc' }],
-        });
-        const sub = query.$.subscribe((docs) => {
-          if (!isMounted) return;
-          setCategories(docs);
-          setLoadedUserId(uid);
-        });
-        if (!isMounted) {
-          sub.unsubscribe();
-        } else {
-          subscription = sub;
-        }
-      } catch (error) {
-        console.error('[useCategories] Error loading categories:', error);
-        if (isMounted) setLoadedUserId(uid);
-      }
-    }
-    init();
-    return () => {
-      isMounted = false;
-      if (subscription) subscription.unsubscribe();
-    };
-  }, [userId]);
+
+  const { data: categories, isLoading } = useRxCollection<CategoryDocument>({
+    collection: 'categories',
+    selector: { userId: user?.$id ?? '', isDeleted: false },
+    sort: [{ order: 'asc' }],
+    logPrefix: '[useCategories]',
+  });
+
   const addCategory = useCallback(
     async (
       cat: Omit<
@@ -74,6 +47,7 @@ export function useCategories() {
     },
     [user?.$id]
   );
+
   const updateCategory = useCallback(
     async (id: string, updates: Partial<CategoryDocument>) => {
       const db = getDatabase();
@@ -101,15 +75,27 @@ export function useCategories() {
     },
     []
   );
+
   const deleteCategory = useCallback(
     async (id: string) => {
       await updateCategory(id, { isDeleted: true });
     },
     [updateCategory]
   );
+
   const reorderCategories = useCallback(
     async (newOrder: CategoryDocument[]) => {
-      if (reorderInProgress) return;
+      // HB-12: silent guard replaced with a debug log so a debounced
+      // reorder that lands while a previous one is still applying is
+      // visible in dev instead of being dropped without a trace.
+      if (reorderInProgress) {
+        if (DEBUG) {
+          console.warn(
+            '[useCategories] reorder skipped: a previous reorder is still in progress'
+          );
+        }
+        return;
+      }
       reorderInProgress = true;
       try {
         const db = getDatabase();
@@ -136,11 +122,9 @@ export function useCategories() {
     },
     []
   );
-  const visibleCategories =
-    userId && loadedUserId === userId ? categories : [];
-  const isLoading = !!userId && loadedUserId !== userId;
+
   return {
-    categories: visibleCategories,
+    categories,
     isLoading,
     addCategory,
     updateCategory,

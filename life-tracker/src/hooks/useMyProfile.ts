@@ -17,15 +17,15 @@ export interface UseMyProfileReturn {
     input: Omit<MyProfileInput, 'userId'>
   ) => Promise<ProfileCard | null>;
   refetch: () => Promise<void>;
-  /**
-   * Returns:
-   *   true  — username available
-   *   false — taken, or check failed for a non-auth reason
-   *   null  — session expired (401); redirect already in flight
-   */
   checkUsername: (username: string) => Promise<boolean | null>;
 }
 
+/**
+ * Load the caller's own profile. HB-5: the fetch + classify logic was
+ * duplicated between the mount effect and `refetch`. Both now call the
+ * same `runLoad` helper; the effect adds cancellation, `refetch` does
+ * not (it is user-initiated).
+ */
 export function useMyProfile(): UseMyProfileReturn {
   const { user } = useAuth();
   const userId = user?.$id;
@@ -33,7 +33,7 @@ export function useMyProfile(): UseMyProfileReturn {
   const [loadedUserId, setLoadedUserId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const load = useCallback(async () => {
+  const runLoad = useCallback(async (): Promise<void> => {
     if (!userId) return;
     setError(null);
     try {
@@ -83,10 +83,6 @@ export function useMyProfile(): UseMyProfileReturn {
       } catch (err) {
         console.error('[useMyProfile] Create failed:', err);
         if (isOfflineError(err)) {
-          // The outbox will retry the remote write. Reflect the queued
-          // profile locally so the UI stays consistent and a retry does
-          // not trip the "username taken" branch (a fresh remote check
-          // would find the user's own queued row).
           const optimistic: ProfileCard = {
             $id: `profile_${userId}`,
             user_id: userId,
@@ -117,7 +113,7 @@ export function useMyProfile(): UseMyProfileReturn {
     isLoading,
     error,
     createProfile,
-    refetch: load,
+    refetch: runLoad,
     checkUsername,
   };
 }

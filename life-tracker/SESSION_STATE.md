@@ -1,11 +1,11 @@
 # SESSION STATE
 
-Updated: 2026-09-18T06:45:00Z
+Updated: 2026-09-18T07:00:00Z
 ActivePlan: Phase 2 refactor audit → refactor
-CurrentBatch: 7 of 10
-CurrentTask: Batch 2.7 — sheet migrations (DUP-7, DUP-8, primitives)
+CurrentBatch: 8 of 10
+CurrentTask: Batch 2.8 — domain hook extractions
 Status: in_progress
-NextAction: Start Chat 2 for batch 2.8 — domain hook extractions: HB-1, HB-2, HB-4, HB-5, HB-9, HB-10, HB-11, HB-12, and migrate the four data hooks (useTasks/useCategories/useDiary/useSettings) to useRxCollection (HB-3/DUP-2). Prompt must state DeepThink: OFF.
+NextAction: Start Chat 2 for batch 2.9 — god-component splits: CB-1, CB-2, CB-3, CB-4, CB-5, CB-13, CB-14, DUP-3. Prompt must state DeepThink: OFF.
 NextChatRole: chat2
 BatchPlan:
 - Phase 1 audits — CLOSED (all ten batches; sole carry-over OFF-1)
@@ -26,7 +26,7 @@ BatchPlan:
   - [x] 2.5 Lib-level extractions — DUP-1, DUP-9, DUP-10, DUP-12, HB-6, HB-7, HB-8
   - [x] 2.6 Shared React primitives + `useRxCollection` — DUP-2/HB-3, DUP-4, DUP-5, DUP-6, DUP-11
   - [x] 2.7 Sheet migrations — DUP-7, DUP-8, + usePropSync/useFeedback/ConfirmSheet migrations across 19 files
-  - [ ] 2.8 Domain hook extractions — HB-1, HB-2, HB-4, HB-5, HB-9, HB-10, HB-11, HB-12, + migrate data hooks to useRxCollection (HB-3/DUP-2)
+  - [x] 2.8 Domain hook extractions — HB-1, HB-2, HB-4, HB-5, HB-9, HB-10, HB-11, HB-12, + data hooks migrated to useRxCollection (HB-3/DUP-2)
   - [ ] 2.9 God-component splits — CB-1, CB-2, CB-3, CB-4, CB-5, CB-13, CB-14, DUP-3
   - [ ] 2.10 Cleanup pass — CB-6, CB-7, CB-8, CB-9, CB-10, CB-11, CB-12
 - [ ] Phase 3 — optimize audit → optimize (bundle 1.7 MB, route splitting, lazy images; receives OFF-6 LRU cap)
@@ -35,7 +35,7 @@ BatchPlan:
 OpenQuestions: none
 Findings:
 - DUP-3 [Medium] `CalendarBody.tsx` + `FriendCalendarView.tsx` duplicate slide rendering / `tasksByDate` memo / Embla plumbing. → 2.9
-- CB-1 [High] `PersonPane` mounts `useMessages(friendId)` per friend pane solely for `sendTaskReaction`. → 2.9 (structural fix lands in 2.8 with HB-9)
+- CB-1 [High] `PersonPane` mounts `useMessages(friendId)` per friend pane solely for `sendTaskReaction`. → 2.9 (structural fix: migrate to `useMessageActions` — the narrower hook now exists)
 - CB-2 [High] `DayViewSheet.tsx` god component. → 2.9
 - CB-3 [High] `ChatPage.tsx` god page. → 2.9
 - CB-4 [Medium] Stale-document snapshots (`activeTask`, `actionMessage`, `unsendTarget`, `reactionTarget`). → 2.9
@@ -49,14 +49,6 @@ Findings:
 - CB-12 [Low] Owner-side `ReactionRow` toggle with no-op handler. → 2.10
 - CB-13 [Low] `ChatPage` three near-identical `toggleReaction` wrappers. → 2.9
 - CB-14 [Low] Dead cleanup inside `useCallback` in `DayViewSheet` (BUG: RAF never cancelled). → 2.9
-- HB-1 [High] `useMessages` three near-identical outgoing-message builders (~180 LOC). → 2.8
-- HB-2 [High] `useMessages.toggleReaction` ~110 lines mixing 7 concerns. → 2.8
-- HB-4 [Medium] `useFriendCalendar` duplicate fetch+classify paths. → 2.8
-- HB-5 [Medium] `useMyProfile` duplicate fetch paths. → 2.8
-- HB-9 [Medium] `useMessages` couples read (subscription) and write. → 2.8 (structural fix for CB-1)
-- HB-10 [Low] `useProfile` is a thin wrapper over `useSettings`. → 2.8
-- HB-11 [Low] `useFriendCarousel` bio backfill is serial. → 2.8
-- HB-12 [Low] `useCategories.reorderInProgress` guard silent. → 2.8
 Decisions:
 - [2026-09-17] H1 = Option A (offline auth gate). → shipped in 2.1.
 - [2026-09-17] Phase 1 close: all ten batches shipped. §25.11 protocol followed.
@@ -64,9 +56,10 @@ Decisions:
 - [2026-09-17] Duplication sweep (2.2) — findings only, no code changes.
 - [2026-09-17] Component boundary audit (2.3) — findings only. CB-2/CB-3 deferred until DUP-4/5/6 primitives land.
 - [2026-09-18] Hook boundary audit (2.4) — findings only.
-- [2026-09-18] Execution plan (2.5–2.10) locked. Ordering rationale: (a) lib-level first — lowest risk, enables hooks; (b) primitives before their migrations so sheets don't get refactored twice; (c) hook extractions before god-component splits so the extracted hooks are lean at extraction time; (d) cleanup last — some items (CB-6, CB-11) resolve automatically once earlier batches land. Real bug fixes are isolated in 2.5 (HB-6, HB-7), 2.9 (CB-5, CB-14), and 2.10 (CB-7, CB-9) — each is a one-to-three-line change inside a larger refactor, not a batch-defining scope.
-- [2026-09-18] 2.6 primitives are new files only — no migrations to existing hooks/components. `useRxCollection` is designed to accept `useSettings`'s map+cleanup shape via `map` and `beforeSubscribe` options; the four data hooks migrate in 2.8 (HB-3/DUP-2), not here.
-- [2026-09-18] 2.7 merges `EditProfileImageSheet` into `ImagePickerSheet` (variant prop) and extracts `useSheetReset`, `SheetErrorBanner`, `SheetSaveButton` for the five form sheets. The four data hooks and useRxCollection migration are deferred to 2.8 (HB-3/DUP-2) because they are hook-boundary work, not sheet work.
+- [2026-09-18] Execution plan (2.5–2.10) locked.
+- [2026-09-18] 2.6 primitives are new files only — no migrations.
+- [2026-09-18] 2.7 merges EditProfileImageSheet into ImagePickerSheet; extracts form-sheet helpers.
+- [2026-09-18] 2.8 splits useMessages into useThreadMessages (read) + useMessageActions (write) but keeps useMessages as a byte-identical facade so no call sites change. CB-1's migration to the narrower `useMessageActions` in PersonPane/FriendCalendarPage lands in 2.9. `useProfile` kept as a typed wrapper (HB-10 disposition: keep, document). `useFriendCalendar` and `useMyProfile` share a `runFetch`/`runLoad` helper within their own file rather than a new module (the logic is file-local).
 Deferred:
 - OFF-3 local-image-queue half → separate batch.
 - Realtime channel-level reconnection backoff → future batch.
@@ -74,5 +67,5 @@ Deferred:
 - PWA update-prompt UI, `beforeinstallprompt`, `ProfilePage` Share wiring → Phase 3.5+.
 - Full WCAG AA audit → Phase 4.
 - Calendar grid semantics + A11Y-33 → Phase 4.
-LastApply: 2026-09-18 — ui: batch 2.7 sheet migrations (DUP-7, DUP-8, primitives)
-LastAuditSummary: Batch 2.7 shipped. `EditProfileImageSheet` merged into `ImagePickerSheet` (variant prop); `useSheetReset`, `SheetErrorBanner`, `SheetSaveButton` extracted for the five form sheets; `usePropSync` migrated into MemoSheet/EditTaskSheet/DatePickerSheet; `ConfirmSheet` migrated into DayViewSheet; `Spinner` and `useFeedback` migrated into DayViewSheet/ExportDataSheet/form sheets. PersonPane, FriendCalendarPage, ChatPage, CategoryManagerSheet were not migrated — their feedback/confirm migrations land in 2.9/2.10 alongside their structural changes.
+LastApply: 2026-09-18 — hooks: batch 2.8 domain hook extractions
+LastAuditSummary: Batch 2.8 shipped. `useMessages` split into `useThreadMessages` (read) + `useMessageActions` (write) behind a byte-identical facade. Three outgoing-message builders collapsed into `messageComposer.ts` (HB-1). `toggleReaction` extracted to `messageReactions.ts` (HB-2). `useTasks`/`useCategories`/`useDiary`/`useSettings` migrated to `useRxCollection` (HB-3/DUP-2). `useFriendCalendar`/`useMyProfile` deduplicated their fetch paths (HB-4, HB-5). `useFriendCarousel` bio backfill parallelized with concurrency cap (HB-11). `useCategories.reorderInProgress` silent guard now logs (HB-12). `useProfile` kept as documented wrapper (HB-10). CB-1's PersonPane migration deferred to 2.9 as planned.

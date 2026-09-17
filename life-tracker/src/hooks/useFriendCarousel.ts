@@ -10,6 +10,10 @@ import type { FriendshipDocument } from '../db/schema';
 
 const PREFS_KEY = 'friend_carousel_prefs';
 const DEBUG = import.meta.env.DEV;
+// HB-11: bio backfill ran serially, one network round-trip per friend.
+// Cap concurrent fetches so a first-load with many bio-less friends does
+// not issue N sequential requests.
+const BIO_BACKFILL_CONCURRENCY = 4;
 
 export interface CarouselPerson {
   id: string;
@@ -70,24 +74,41 @@ export function useFriendCarousel(): UseFriendCarouselReturn {
     if (missing.length === 0) return;
     let cancelled = false;
     (async () => {
-      for (const f of missing) {
-        attemptedBiosRef.current.add(f.friendId);
-        try {
-          const p = await fetchProfileByUserId(f.friendId);
-          if (cancelled) return;
-          if (p?.bio) {
-            await updateFriendBioLocally(f.id, p.bio);
-          }
-        } catch (err) {
-          if (DEBUG) {
-            console.warn(
-              '[useFriendCarousel] Bio backfill failed for',
-              f.friendId,
-              err
-            );
+      // Mark every candidate as attempted up front so a re-render mid-
+      // flight does not re-queue the same friends.
+      for (const f of missing) attemptedBiosRef.current.add(f.friendId);
+
+      // Chunked parallel backfill: up to BIO_BACKFILL_CONCURRENCY
+      // fetches in flight at once. A failed fetch is logged and
+      // swallowed (its `attemptedBiosRef` entry stays set, so it is not
+      // retried this session).
+      const queue = [...missing];
+      const workers: Promise<void>[] = [];
+      const runOne = async (): Promise<void> => {
+        for (;;) {
+          const f = queue.shift();
+          if (!f || cancelled) return;
+          try {
+            const p = await fetchProfileByUserId(f.friendId);
+            if (cancelled) return;
+            if (p?.bio) {
+              await updateFriendBioLocally(f.id, p.bio);
+            }
+          } catch (err) {
+            if (DEBUG) {
+              console.warn(
+                '[useFriendCarousel] Bio backfill failed for',
+                f.friendId,
+                err
+              );
+            }
           }
         }
+      };
+      for (let i = 0; i < BIO_BACKFILL_CONCURRENCY; i++) {
+        workers.push(runOne());
       }
+      await Promise.all(workers);
     })();
     return () => {
       cancelled = true;

@@ -1,59 +1,20 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useCallback } from 'react';
 import { getDatabase } from '../db/database';
 import { useAuth } from './useAuth';
+import { useRxCollection } from './useRxCollection';
 import { makeDiaryRowId } from '../lib/settingsRowId';
 import { upsertLocalDoc } from '../lib/localUpsert';
 import type { DiaryDocument } from '../db/schema';
 
 export function useDiary() {
   const { user } = useAuth();
-  const userId = user?.$id;
 
-  const [entries, setEntries] = useState<DiaryDocument[]>([]);
-  const [loadedUserId, setLoadedUserId] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!userId) return;
-    const uid = userId;
-
-    let subscription: { unsubscribe: () => void } | undefined;
-    let isMounted = true;
-
-    async function init() {
-      try {
-        const db = getDatabase();
-        const query = db.diary.find({
-          selector: {
-            userId: uid,
-            isDeleted: false,
-          },
-          sort: [{ date: 'desc' }],
-        });
-
-        const sub = query.$.subscribe((docs) => {
-          if (!isMounted) return;
-          setEntries(docs);
-          setLoadedUserId(uid);
-        });
-
-        if (!isMounted) {
-          sub.unsubscribe();
-        } else {
-          subscription = sub;
-        }
-      } catch (error) {
-        console.error('[useDiary] Error loading diary:', error);
-        if (isMounted) setLoadedUserId(uid);
-      }
-    }
-
-    init();
-
-    return () => {
-      isMounted = false;
-      if (subscription) subscription.unsubscribe();
-    };
-  }, [userId]);
+  const { data: entries, isLoading } = useRxCollection<DiaryDocument>({
+    collection: 'diary',
+    selector: { userId: user?.$id ?? '', isDeleted: false },
+    sort: [{ date: 'desc' }],
+    logPrefix: '[useDiary]',
+  });
 
   const saveEntry = useCallback(
     async (
@@ -116,11 +77,8 @@ export function useDiary() {
     [entries]
   );
 
-  const visibleEntries = userId && loadedUserId === userId ? entries : [];
-  const isLoading = !!userId && loadedUserId !== userId;
-
   return {
-    entries: visibleEntries,
+    entries,
     isLoading,
     saveEntry,
     deleteEntry,
