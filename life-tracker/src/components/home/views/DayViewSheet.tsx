@@ -6,6 +6,7 @@ import 'swiper/css';
 import { AnimatePresence } from 'framer-motion';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { BottomSheet } from '../../ui/BottomSheet';
+import { ConfirmSheet } from '../../ui/ConfirmSheet';
 import { CategorySection } from './CategorySection';
 import { TaskActionSheet } from './TaskActionSheet';
 import { MemoSheet } from './MemoSheet';
@@ -17,6 +18,7 @@ import { useTasks } from '../../../hooks/useTasks';
 import { useCategories } from '../../../hooks/useCategories';
 import { useAuth } from '../../../hooks/useAuth';
 import { useTaskImage } from '../../../hooks/useTaskImage';
+import { useFeedback } from '../../../hooks/useFeedback';
 import { deleteImage } from '../../../lib/storage';
 import { EMPTY_TASKS } from '../../../constants/empty';
 import type { CategoryDocument, TaskDocument } from '../../../db/schema';
@@ -209,7 +211,7 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
   const viewingImageUrl = useTaskImage(viewingTask?.image).imageUrl;
   const [isDeletePhotoConfirmOpen, setIsDeletePhotoConfirmOpen] = useState(false);
   const [isDeletingPhoto, setIsDeletingPhoto] = useState(false);
-  const [deleteFeedback, setDeleteFeedback] = useState<string | null>(null);
+  const { message: deleteFeedback, show: showDeleteFeedback } = useFeedback();
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
   const [editValue, setEditValue] = useState('');
 
@@ -217,13 +219,6 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
     if (!activeTask) return null;
     return categories.find((c) => c.id === activeTask.categoryId) || null;
   }, [activeTask, categories]);
-
-  useEffect(() => {
-    if (deleteFeedback) {
-      const timer = setTimeout(() => setDeleteFeedback(null), 2000);
-      return () => clearTimeout(timer);
-    }
-  }, [deleteFeedback]);
 
   // ----- Stable handlers -----
   const handleToggleTask = useCallback(
@@ -336,12 +331,12 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
     try {
       await deleteImage(activeTask.image);
       await updateTask(activeTask.id, { image: '' });
-      setDeleteFeedback('Photo deleted');
+      showDeleteFeedback('Photo deleted');
       setActiveTask((prev) => (prev ? { ...prev, image: '' } : null));
       setIsDeletePhotoConfirmOpen(false);
     } catch (err) {
       console.error('[DayViewSheet] Failed to delete photo:', err);
-      setDeleteFeedback('Failed to delete photo');
+      showDeleteFeedback('Failed to delete photo');
     } finally {
       setIsDeletingPhoto(false);
     }
@@ -393,10 +388,6 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
     [slideDates, onDateChange]
   );
 
-  // Prev/next drive the same slideTo path the swipe handler uses, so the
-  // two navigation paths cannot diverge. isProgrammaticMoveRef suppresses
-  // the swipe handler's own onDateChange; the button calls onDateChange
-  // directly once the target date is computed.
   const handlePrevDay = useCallback(() => {
     if (isBackgroundLocked) return;
     const s = swiperRef.current;
@@ -575,7 +566,9 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
       <ImagePickerSheet
         isOpen={!!imagePickerTask}
         onClose={() => setImagePickerTask(null)}
-        task={imagePickerTask}
+        variant="task"
+        hasExistingImage={!!imagePickerTask?.image}
+        title="Add Photo"
         onSave={handleImageSaved}
         onRemove={handleImageRemoved}
       />
@@ -590,43 +583,17 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
         }
         onClose={() => setViewingTask(null)}
       />
-      <BottomSheet
+      <ConfirmSheet
         isOpen={isDeletePhotoConfirmOpen}
         onClose={handleCancelDeletePhoto}
         title="Delete Photo"
-        height="auto"
-      >
-        <div className="pt-2 pb-8 px-4">
-          <p className="text-gray-300 text-sm text-center mb-6 leading-relaxed">
-            Are you sure you want to delete this photo? This action cannot be undone.
-          </p>
-          <div className="flex gap-3">
-            <button
-              type="button"
-              onClick={handleCancelDeletePhoto}
-              disabled={isDeletingPhoto}
-              className="flex-1 py-3 bg-[#2A2A2A] rounded-xl text-white font-medium hover:bg-[#333333] transition-colors disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
-            >
-              Cancel
-            </button>
-            <button
-              type="button"
-              onClick={handleConfirmDeletePhoto}
-              disabled={isDeletingPhoto}
-              className="flex-1 py-3 bg-red-500 rounded-xl text-white font-medium hover:bg-red-600 transition-colors disabled:opacity-50 flex items-center justify-center gap-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
-            >
-              {isDeletingPhoto ? (
-                <>
-                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  Deleting...
-                </>
-              ) : (
-                'Delete'
-              )}
-            </button>
-          </div>
-        </div>
-      </BottomSheet>
+        message="Are you sure you want to delete this photo? This action cannot be undone."
+        confirmLabel="Delete"
+        destructive
+        isProcessing={isDeletingPhoto}
+        processingLabel="Deleting..."
+        onConfirm={handleConfirmDeletePhoto}
+      />
       <AnimatePresence>
         {deleteFeedback && (
           <div

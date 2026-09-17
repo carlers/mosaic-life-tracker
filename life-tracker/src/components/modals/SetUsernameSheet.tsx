@@ -1,8 +1,9 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import { BottomSheet } from '../ui/BottomSheet';
-import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
-import { Save } from 'lucide-react';
+import { SheetErrorBanner } from '../ui/SheetErrorBanner';
+import { SheetSaveButton } from '../ui/SheetSaveButton';
+import { useSheetReset } from '../../hooks/useSheetReset';
 import { useMyProfile } from '../../hooks/useMyProfile';
 import { useAuth } from '../../hooks/useAuth';
 import { isOfflineError } from '../../lib/authEvents';
@@ -27,22 +28,21 @@ export const SetUsernameSheet: React.FC<SetUsernameSheetProps> = ({
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  const [syncedIsOpen, setSyncedIsOpen] = useState(false);
-  if (isOpen !== syncedIsOpen) {
-    setSyncedIsOpen(isOpen);
-    if (isOpen) {
-      setUsername(profile?.username || '');
-      setDisplayName(profile?.display_name || user?.name || '');
-      setError(null);
-      setIsSaving(false);
-    }
-  }
+
+  useSheetReset(isOpen, () => {
+    setUsername(profile?.username || '');
+    setDisplayName(profile?.display_name || user?.name || '');
+    setError(null);
+    setIsSaving(false);
+  });
+
   useEffect(() => {
     if (isOpen) {
       const timer = setTimeout(() => inputRef.current?.focus(), 300);
       return () => clearTimeout(timer);
     }
   }, [isOpen]);
+
   const handleSave = async () => {
     const trimmed = username.trim().toLowerCase();
     if (!USERNAME_REGEX.test(trimmed)) {
@@ -59,9 +59,6 @@ export const SetUsernameSheet: React.FC<SetUsernameSheetProps> = ({
       if (!profile || profile.username !== trimmed) {
         const available = await checkUsername(trimmed);
         if (available === null) {
-          // Could not determine: session expired, network drop, or server
-          // error. If it was a 401, the global auth redirect is already
-          // in flight. Otherwise, let the user retry.
           setError('Could not check. Try again.');
           setIsSaving(false);
           return;
@@ -84,9 +81,6 @@ export const SetUsernameSheet: React.FC<SetUsernameSheetProps> = ({
       }
     } catch (err) {
       console.error('[SetUsernameSheet] Save failed:', err);
-      // Distinguish "we couldn't reach the server" from "the save itself
-      // failed." The outbox has already queued the write, so the profile
-      // will sync once connectivity returns.
       const offline =
         isOfflineError(err) ||
         (typeof navigator !== 'undefined' && navigator.onLine === false);
@@ -99,7 +93,9 @@ export const SetUsernameSheet: React.FC<SetUsernameSheetProps> = ({
       setIsSaving(false);
     }
   };
+
   const isEditing = !!profile;
+
   return (
     <BottomSheet
       isOpen={isOpen}
@@ -111,11 +107,7 @@ export const SetUsernameSheet: React.FC<SetUsernameSheetProps> = ({
         <p className="text-sm text-gray-400 text-center leading-relaxed">
           Your username is how friends find and add you. It must be unique.
         </p>
-        {error && (
-          <div className="bg-red-900/20 border border-red-500/30 text-red-400 text-sm p-3 rounded-xl">
-            {error}
-          </div>
-        )}
+        <SheetErrorBanner message={error} />
         <div className="w-full">
           <label className="block text-xs text-gray-500 mb-1.5 ml-1">
             Username
@@ -153,25 +145,12 @@ export const SetUsernameSheet: React.FC<SetUsernameSheetProps> = ({
           placeholder="Your Name"
           maxLength={50}
         />
-        <Button
-          variant="primary"
-          className="w-full gap-2 py-3"
+        <SheetSaveButton
           onClick={handleSave}
-          disabled={
-            isSaving ||
-            !username.trim() ||
-            !displayName.trim()
-          }
-        >
-          {isSaving ? (
-            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-          ) : (
-            <>
-              <Save size={18} />
-              {isEditing ? 'Save Profile' : 'Create Profile'}
-            </>
-          )}
-        </Button>
+          disabled={!username.trim() || !displayName.trim()}
+          isSaving={isSaving}
+          label={isEditing ? 'Save Profile' : 'Create Profile'}
+        />
       </div>
     </BottomSheet>
   );

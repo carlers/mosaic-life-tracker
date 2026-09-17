@@ -1,11 +1,11 @@
 # SESSION STATE
 
-Updated: 2026-09-18T06:35:00Z
+Updated: 2026-09-18T06:45:00Z
 ActivePlan: Phase 2 refactor audit → refactor
-CurrentBatch: 6 of 10
-CurrentTask: Batch 2.6 — shared React primitives + useRxCollection
+CurrentBatch: 7 of 10
+CurrentTask: Batch 2.7 — sheet migrations (DUP-7, DUP-8, primitives)
 Status: in_progress
-NextAction: Start Chat 2 for batch 2.7 — sheet migrations: DUP-7 (ImagePickerSheet/EditProfileImageSheet merge), DUP-8 (5 form sheets), plus usePropSync/useFeedback/ConfirmSheet/Spinner migrations across 19 files. Prompt must state DeepThink: OFF.
+NextAction: Start Chat 2 for batch 2.8 — domain hook extractions: HB-1, HB-2, HB-4, HB-5, HB-9, HB-10, HB-11, HB-12, and migrate the four data hooks (useTasks/useCategories/useDiary/useSettings) to useRxCollection (HB-3/DUP-2). Prompt must state DeepThink: OFF.
 NextChatRole: chat2
 BatchPlan:
 - Phase 1 audits — CLOSED (all ten batches; sole carry-over OFF-1)
@@ -25,8 +25,8 @@ BatchPlan:
   - [x] 2.4 Refactor audit — hook boundary audit (12 findings HB-1…HB-12)
   - [x] 2.5 Lib-level extractions — DUP-1, DUP-9, DUP-10, DUP-12, HB-6, HB-7, HB-8
   - [x] 2.6 Shared React primitives + `useRxCollection` — DUP-2/HB-3, DUP-4, DUP-5, DUP-6, DUP-11
-  - [ ] 2.7 Sheet migrations — DUP-7, DUP-8, + usePropSync/useFeedback/ConfirmSheet migrations across 19 files
-  - [ ] 2.8 Domain hook extractions — HB-1, HB-2, HB-4, HB-5, HB-9, HB-10, HB-11, HB-12
+  - [x] 2.7 Sheet migrations — DUP-7, DUP-8, + usePropSync/useFeedback/ConfirmSheet migrations across 19 files
+  - [ ] 2.8 Domain hook extractions — HB-1, HB-2, HB-4, HB-5, HB-9, HB-10, HB-11, HB-12, + migrate data hooks to useRxCollection (HB-3/DUP-2)
   - [ ] 2.9 God-component splits — CB-1, CB-2, CB-3, CB-4, CB-5, CB-13, CB-14, DUP-3
   - [ ] 2.10 Cleanup pass — CB-6, CB-7, CB-8, CB-9, CB-10, CB-11, CB-12
 - [ ] Phase 3 — optimize audit → optimize (bundle 1.7 MB, route splitting, lazy images; receives OFF-6 LRU cap)
@@ -35,8 +35,6 @@ BatchPlan:
 OpenQuestions: none
 Findings:
 - DUP-3 [Medium] `CalendarBody.tsx` + `FriendCalendarView.tsx` duplicate slide rendering / `tasksByDate` memo / Embla plumbing. → 2.9
-- DUP-7 [Medium] `ImagePickerSheet.tsx` + `EditProfileImageSheet.tsx` near-identical. → 2.7
-- DUP-8 [Low] 5 form sheets share shape. → 2.7
 - CB-1 [High] `PersonPane` mounts `useMessages(friendId)` per friend pane solely for `sendTaskReaction`. → 2.9 (structural fix lands in 2.8 with HB-9)
 - CB-2 [High] `DayViewSheet.tsx` god component. → 2.9
 - CB-3 [High] `ChatPage.tsx` god page. → 2.9
@@ -67,7 +65,8 @@ Decisions:
 - [2026-09-17] Component boundary audit (2.3) — findings only. CB-2/CB-3 deferred until DUP-4/5/6 primitives land.
 - [2026-09-18] Hook boundary audit (2.4) — findings only.
 - [2026-09-18] Execution plan (2.5–2.10) locked. Ordering rationale: (a) lib-level first — lowest risk, enables hooks; (b) primitives before their migrations so sheets don't get refactored twice; (c) hook extractions before god-component splits so the extracted hooks are lean at extraction time; (d) cleanup last — some items (CB-6, CB-11) resolve automatically once earlier batches land. Real bug fixes are isolated in 2.5 (HB-6, HB-7), 2.9 (CB-5, CB-14), and 2.10 (CB-7, CB-9) — each is a one-to-three-line change inside a larger refactor, not a batch-defining scope.
-- [2026-09-18] 2.6 primitives are new files only — no migrations to existing hooks/components. `useRxCollection` is designed to accept `useSettings`'s map+cleanup shape via `map` and `beforeSubscribe` options; the four data hooks migrate in 2.8 (HB-3/DUP-2), not here. `usePropSync`, `useFeedback`, `ConfirmSheet`, `Spinner` migration to callsites lands in 2.7.
+- [2026-09-18] 2.6 primitives are new files only — no migrations to existing hooks/components. `useRxCollection` is designed to accept `useSettings`'s map+cleanup shape via `map` and `beforeSubscribe` options; the four data hooks migrate in 2.8 (HB-3/DUP-2), not here.
+- [2026-09-18] 2.7 merges `EditProfileImageSheet` into `ImagePickerSheet` (variant prop) and extracts `useSheetReset`, `SheetErrorBanner`, `SheetSaveButton` for the five form sheets. The four data hooks and useRxCollection migration are deferred to 2.8 (HB-3/DUP-2) because they are hook-boundary work, not sheet work.
 Deferred:
 - OFF-3 local-image-queue half → separate batch.
 - Realtime channel-level reconnection backoff → future batch.
@@ -75,5 +74,5 @@ Deferred:
 - PWA update-prompt UI, `beforeinstallprompt`, `ProfilePage` Share wiring → Phase 3.5+.
 - Full WCAG AA audit → Phase 4.
 - Calendar grid semantics + A11Y-33 → Phase 4.
-LastApply: 2026-09-18 — hooks: batch 2.6 shared React primitives + useRxCollection (DUP-2/HB-3, DUP-4, DUP-5, DUP-6, DUP-11)
-LastAuditSummary: Batch 2.6 shipped. Five new primitives: `useRxCollection` (shared RxDB subscription scaffold for the four per-user data hooks), `usePropSync` (render-body reset pattern), `useFeedback` (2000ms auto-dismiss toast state), `ConfirmSheet` (nested locked destructive-confirm sheet), `Spinner` (canonical inline spinner). No existing hooks/components migrated — migrations land in 2.7 (sheets) and 2.8 (data hooks).
+LastApply: 2026-09-18 — ui: batch 2.7 sheet migrations (DUP-7, DUP-8, primitives)
+LastAuditSummary: Batch 2.7 shipped. `EditProfileImageSheet` merged into `ImagePickerSheet` (variant prop); `useSheetReset`, `SheetErrorBanner`, `SheetSaveButton` extracted for the five form sheets; `usePropSync` migrated into MemoSheet/EditTaskSheet/DatePickerSheet; `ConfirmSheet` migrated into DayViewSheet; `Spinner` and `useFeedback` migrated into DayViewSheet/ExportDataSheet/form sheets. PersonPane, FriendCalendarPage, ChatPage, CategoryManagerSheet were not migrated — their feedback/confirm migrations land in 2.9/2.10 alongside their structural changes.

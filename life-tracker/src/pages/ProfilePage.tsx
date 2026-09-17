@@ -4,7 +4,7 @@ import { ChevronLeft, Share2, ChevronRight, Camera, AtSign } from 'lucide-react'
 import { Avatar } from '../components/ui/Avatar';
 import { EditNameSheet } from '../components/modals/EditNameSheet';
 import { EditDescriptionSheet } from '../components/modals/EditDescriptionSheet';
-import { EditProfileImageSheet } from '../components/modals/EditProfileImageSheet';
+import { ImagePickerSheet } from '../components/home/views/ImagePickerSheet';
 import { SetUsernameSheet } from '../components/modals/SetUsernameSheet';
 import { useProfile } from '../hooks/useProfile';
 import { useMyProfile } from '../hooks/useMyProfile';
@@ -22,141 +22,129 @@ export const ProfilePage: React.FC = () => {
     removeProfileImage,
   } = useProfile();
   const { profile } = useMyProfile();
-  const [isNameSheetOpen, setIsNameSheetOpen] = useState(false);
-  const [isDescSheetOpen, setIsDescSheetOpen] = useState(false);
-  const [isImageSheetOpen, setIsImageSheetOpen] = useState(false);
-  const [isUsernameSheetOpen, setIsUsernameSheetOpen] = useState(false);
   const { imageUrl } = useTaskImage(profileImageId || undefined);
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [isEditingDescription, setIsEditingDescription] = useState(false);
+  const [isEditingImage, setIsEditingImage] = useState(false);
+  const [isEditingUsername, setIsEditingUsername] = useState(false);
+
+  const handleBack = () => navigate(-1);
 
   return (
-    <div className="flex flex-col h-full animate-in fade-in duration-300 bg-[#111111]">
-      <div className="sticky top-0 z-20 bg-[#111111] px-4 py-3 border-b border-[#333333] flex items-center justify-between">
-        <button
-          type="button"
-          onClick={() => navigate(-1)}
-          onPointerDown={(e) => e.stopPropagation()}
-          className="p-2 rounded-lg text-gray-400 hover:text-white hover:bg-[#2A2A2A] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
-          aria-label="Back"
-        >
-          <ChevronLeft size={20} aria-hidden="true" />
-        </button>
-        <h1 className="text-lg font-bold text-white">Profile</h1>
-        <button
-          type="button"
-          onClick={() => {}}
-          onPointerDown={(e) => e.stopPropagation()}
-          className="p-2 rounded-lg text-gray-400 hover:text-white hover:bg-[#2A2A2A] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
-          aria-label="Share"
-        >
-          <Share2 size={20} aria-hidden="true" />
-        </button>
+    <div className="flex flex-col h-full animate-in fade-in duration-300">
+      <div className="sticky top-0 z-20 bg-[#111111] border-b border-[#333333]">
+        <div className="px-4 py-3 flex items-center gap-3">
+          <button
+            onClick={handleBack}
+            onPointerDown={(e) => e.stopPropagation()}
+            className="p-2 -ml-2 rounded-lg text-gray-400 hover:text-white hover:bg-[#2A2A2A] transition-colors flex-shrink-0"
+            aria-label="Back"
+          >
+            <ChevronLeft size={20} />
+          </button>
+          <h1 className="text-lg font-bold text-white flex-1">Profile</h1>
+          <button
+            onPointerDown={(e) => e.stopPropagation()}
+            className="p-2 rounded-lg text-gray-400 hover:text-white hover:bg-[#2A2A2A] transition-colors"
+            aria-label="Share profile"
+          >
+            <Share2 size={18} />
+          </button>
+        </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto pb-24 px-4 pt-8">
-        <div className="flex flex-col items-center mb-10">
+      <div className="flex-1 overflow-y-auto pb-24 px-4 py-6">
+        <div className="flex flex-col items-center mb-8">
           <button
-            type="button"
-            onClick={() => setIsImageSheetOpen(true)}
-            onPointerDown={(e) => e.stopPropagation()}
-            className="relative group focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 rounded-full"
+            onClick={() => setIsEditingImage(true)}
+            className="relative group"
             aria-label="Change profile image"
           >
             <Avatar
               src={imageUrl || undefined}
               alt={displayName || 'Profile'}
               size="lg"
-              className="border-4 border-[#1E1E1E]"
             />
-            <div
-              className="absolute inset-0 rounded-full bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
-              aria-hidden="true"
-            >
-              <Camera size={24} className="text-white" />
+            <div className="absolute inset-0 rounded-full bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+              <Camera size={20} className="text-white" />
             </div>
           </button>
-          <button
-            type="button"
-            onClick={() => setIsImageSheetOpen(true)}
-            onPointerDown={(e) => e.stopPropagation()}
-            className="mt-3 text-blue-500 text-sm font-medium hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 rounded"
-          >
-            Profile image
-          </button>
+          <h2 className="text-xl font-bold text-white mt-4">
+            {displayName || 'Your Name'}
+          </h2>
+          {profile?.username && (
+            <p className="text-sm text-gray-500 mt-1">@{profile.username}</p>
+          )}
         </div>
 
-        <div className="space-y-3">
+        <div className="space-y-2">
           <button
-            type="button"
-            onClick={() => setIsUsernameSheetOpen(true)}
+            onClick={() => setIsEditingName(true)}
             onPointerDown={(e) => e.stopPropagation()}
-            className="w-full bg-[#1E1E1E] border border-[#333333] rounded-xl p-4 flex items-center justify-between hover:bg-[#252525] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
+            className="w-full flex items-center justify-between p-4 bg-[#1E1E1E] border border-[#333333] rounded-xl hover:bg-[#252525] transition-colors"
           >
-            <span className="flex items-center gap-2 text-base text-gray-300">
-              <AtSign size={16} className="text-gray-500" aria-hidden="true" />
-              Username
-            </span>
+            <span className="text-sm text-gray-400">Display Name</span>
             <div className="flex items-center gap-2">
-              <span className="text-base font-medium text-white">
-                {profile?.username ? `@${profile.username}` : 'Not set'}
-              </span>
-              <ChevronRight size={18} className="text-gray-500" aria-hidden="true" />
+              <span className="text-sm text-white">{displayName || 'Not set'}</span>
+              <ChevronRight size={16} className="text-gray-600" />
             </div>
           </button>
 
           <button
-            type="button"
-            onClick={() => setIsNameSheetOpen(true)}
+            onClick={() => setIsEditingDescription(true)}
             onPointerDown={(e) => e.stopPropagation()}
-            className="w-full bg-[#1E1E1E] border border-[#333333] rounded-xl p-4 flex items-center justify-between hover:bg-[#252525] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
+            className="w-full flex items-center justify-between p-4 bg-[#1E1E1E] border border-[#333333] rounded-xl hover:bg-[#252525] transition-colors"
           >
-            <span className="text-base text-gray-300">Name</span>
+            <span className="text-sm text-gray-400">Bio</span>
             <div className="flex items-center gap-2">
-              <span className="text-base font-medium text-white">
-                {displayName || 'Not set'}
-              </span>
-              <ChevronRight size={18} className="text-gray-500" aria-hidden="true" />
-            </div>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setIsDescSheetOpen(true)}
-            onPointerDown={(e) => e.stopPropagation()}
-            className="w-full bg-[#1E1E1E] border border-[#333333] rounded-xl p-4 flex items-center justify-between hover:bg-[#252525] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
-          >
-            <span className="text-base text-gray-300">Description</span>
-            <div className="flex items-center gap-2">
-              <span className="text-base font-medium text-white text-right max-w-[200px] truncate">
+              <span className="text-sm text-white truncate max-w-[160px]">
                 {description || 'Not set'}
               </span>
-              <ChevronRight size={18} className="text-gray-500" aria-hidden="true" />
+              <ChevronRight size={16} className="text-gray-600" />
+            </div>
+          </button>
+
+          <button
+            onClick={() => setIsEditingUsername(true)}
+            onPointerDown={(e) => e.stopPropagation()}
+            className="w-full flex items-center justify-between p-4 bg-[#1E1E1E] border border-[#333333] rounded-xl hover:bg-[#252525] transition-colors"
+          >
+            <span className="text-sm text-gray-400">Username</span>
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-white">
+                {profile?.username ? `@${profile.username}` : 'Not set'}
+              </span>
+              <AtSign size={14} className="text-gray-600" />
             </div>
           </button>
         </div>
       </div>
 
       <EditNameSheet
-        isOpen={isNameSheetOpen}
-        onClose={() => setIsNameSheetOpen(false)}
+        isOpen={isEditingName}
+        onClose={() => setIsEditingName(false)}
         currentName={displayName}
         onSave={updateDisplayName}
       />
       <EditDescriptionSheet
-        isOpen={isDescSheetOpen}
-        onClose={() => setIsDescSheetOpen(false)}
+        isOpen={isEditingDescription}
+        onClose={() => setIsEditingDescription(false)}
         currentDescription={description}
         onSave={updateDescription}
       />
-      <EditProfileImageSheet
-        isOpen={isImageSheetOpen}
-        onClose={() => setIsImageSheetOpen(false)}
-        currentImageId={profileImageId}
+      <ImagePickerSheet
+        isOpen={isEditingImage}
+        onClose={() => setIsEditingImage(false)}
+        variant="profile"
+        hasExistingImage={!!profileImageId}
+        title="Profile Image"
         onSave={updateProfileImage}
         onRemove={removeProfileImage}
       />
       <SetUsernameSheet
-        isOpen={isUsernameSheetOpen}
-        onClose={() => setIsUsernameSheetOpen(false)}
+        isOpen={isEditingUsername}
+        onClose={() => setIsEditingUsername(false)}
+        onSuccess={() => setIsEditingUsername(false)}
       />
     </div>
   );

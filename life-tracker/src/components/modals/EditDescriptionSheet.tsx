@@ -1,7 +1,7 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import { BottomSheet } from '../ui/BottomSheet';
-import { Button } from '../ui/Button';
-import { Save } from 'lucide-react';
+import { SheetSaveButton } from '../ui/SheetSaveButton';
+import { useSheetReset } from '../../hooks/useSheetReset';
 
 interface EditDescriptionSheetProps {
   isOpen: boolean;
@@ -20,13 +20,10 @@ export const EditDescriptionSheet: React.FC<EditDescriptionSheetProps> = ({
   const [isSaving, setIsSaving] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  const [syncedIsOpen, setSyncedIsOpen] = useState(false);
-  if (isOpen !== syncedIsOpen) {
-    setSyncedIsOpen(isOpen);
-    if (isOpen) {
-      setDescription(currentDescription);
-    }
-  }
+  useSheetReset(isOpen, () => {
+    setDescription(currentDescription);
+    setIsSaving(false);
+  });
 
   useEffect(() => {
     if (isOpen) {
@@ -58,21 +55,11 @@ export const EditDescriptionSheet: React.FC<EditDescriptionSheetProps> = ({
           />
           <p className="text-right text-xs text-gray-500 mt-1">{description.length}/200</p>
         </div>
-        <Button
-          variant="primary"
-          className="w-full gap-2 py-3"
+        <SheetSaveButton
           onClick={handleSave}
-          disabled={isSaving}
-        >
-          {isSaving ? (
-            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-          ) : (
-            <>
-              <Save size={18} />
-              Save Description
-            </>
-          )}
-        </Button>
+          isSaving={isSaving}
+          label="Save Description"
+        />
       </div>
     </BottomSheet>
   );

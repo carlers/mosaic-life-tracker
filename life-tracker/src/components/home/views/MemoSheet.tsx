@@ -1,5 +1,6 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useRef, useEffect } from 'react';
 import { BottomSheet } from '../../ui/BottomSheet';
+import { usePropSync } from '../../../hooks/usePropSync';
 import type { TaskDocument } from '../../../db/schema';
 
 interface MemoSheetProps {
@@ -15,15 +16,11 @@ export const MemoSheet: React.FC<MemoSheetProps> = ({
   task,
   onSave,
 }) => {
-  const [syncedTaskId, setSyncedTaskId] = useState<string | null>(null);
-  const [editedMemo, setEditedMemo] = useState<string | null>(null);
+  const [editedMemo, setEditedMemo] = React.useState<string | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const taskId = task?.id ?? null;
 
-  if (taskId !== syncedTaskId) {
-    setSyncedTaskId(taskId);
-    setEditedMemo(null);
-  }
+  usePropSync(taskId, () => setEditedMemo(null));
 
   useEffect(() => {
     if (isOpen && taskId) {
@@ -33,26 +30,19 @@ export const MemoSheet: React.FC<MemoSheetProps> = ({
 
   const memo = editedMemo ?? task?.memo ?? '';
 
+  const safeVisibility = ((): 'private' | 'followers' | 'public' => {
+    const v = task?.visibility;
+    return v === 'private' || v === 'followers' || v === 'public'
+      ? v
+      : 'private';
+  })();
+
   const handleDone = () => {
-    const taskVisibility = task?.visibility;
-    const safeVisibility =
-      taskVisibility === 'private' ||
-      taskVisibility === 'followers' ||
-      taskVisibility === 'public'
-        ? taskVisibility
-        : 'private';
     onSave(memo, safeVisibility);
     onClose();
   };
 
   const handleDelete = () => {
-    const taskVisibility = task?.visibility;
-    const safeVisibility =
-      taskVisibility === 'private' ||
-      taskVisibility === 'followers' ||
-      taskVisibility === 'public'
-        ? taskVisibility
-        : 'private';
     onSave('', safeVisibility);
     onClose();
   };

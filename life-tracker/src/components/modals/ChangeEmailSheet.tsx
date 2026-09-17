@@ -1,8 +1,9 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import { BottomSheet } from '../ui/BottomSheet';
-import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
-import { Save } from 'lucide-react';
+import { SheetErrorBanner } from '../ui/SheetErrorBanner';
+import { SheetSaveButton } from '../ui/SheetSaveButton';
+import { useSheetReset } from '../../hooks/useSheetReset';
 import { useAuth } from '../../hooks/useAuth';
 
 interface ChangeEmailSheetProps {
@@ -22,23 +23,18 @@ export const ChangeEmailSheet: React.FC<ChangeEmailSheetProps> = ({
   const [newEmail, setNewEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  
+
   const emailInputRef = useRef<HTMLInputElement>(null);
   const passwordInputRef = useRef<HTMLInputElement>(null);
 
-  // Render-body reset pattern (React 18/19 compliant, prevents cascading renders)
-  const [syncedIsOpen, setSyncedIsOpen] = useState(false);
-  if (isOpen !== syncedIsOpen) {
-    setSyncedIsOpen(isOpen);
-    if (isOpen) {
-      setNewEmail('');
-      setPassword('');
-    }
-  }
+  useSheetReset(isOpen, () => {
+    setNewEmail('');
+    setPassword('');
+    setIsLoading(false);
+  });
 
   useEffect(() => {
     if (isOpen) {
-      // Focus email input after sheet animation (DOM manipulation is valid in useEffect)
       const timer = setTimeout(() => emailInputRef.current?.focus(), 300);
       return () => clearTimeout(timer);
     }
@@ -63,11 +59,7 @@ export const ChangeEmailSheet: React.FC<ChangeEmailSheetProps> = ({
           <p className="text-sm text-white font-medium break-all">{currentEmail}</p>
         </div>
 
-        {error && (
-          <div className="bg-red-900/20 border border-red-500/30 text-red-400 text-sm p-3 rounded-xl">
-            {error}
-          </div>
-        )}
+        <SheetErrorBanner message={error} />
 
         <Input
           ref={emailInputRef}
@@ -95,21 +87,12 @@ export const ChangeEmailSheet: React.FC<ChangeEmailSheetProps> = ({
           </div>
         </div>
 
-        <Button
-          variant="primary"
-          className="w-full gap-2 py-3"
+        <SheetSaveButton
           onClick={handleSave}
-          disabled={!newEmail.trim() || !password.trim() || isLoading}
-        >
-          {isLoading ? (
-            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-          ) : (
-            <>
-              <Save size={18} />
-              Update Email
-            </>
-          )}
-        </Button>
+          disabled={!newEmail.trim() || !password.trim()}
+          isSaving={isLoading}
+          label="Update Email"
+        />
       </div>
     </BottomSheet>
   );

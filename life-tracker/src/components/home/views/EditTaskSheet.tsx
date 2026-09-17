@@ -1,8 +1,9 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import { BottomSheet } from '../../ui/BottomSheet';
 import { Button } from '../../ui/Button';
 import { Input } from '../../ui/Input';
 import { Save } from 'lucide-react';
+import { usePropSync } from '../../../hooks/usePropSync';
 import type { TaskDocument } from '../../../db/schema';
 
 interface EditTaskSheetProps {
@@ -20,18 +21,16 @@ export const EditTaskSheet: React.FC<EditTaskSheetProps> = ({
   onSave,
   initialFocus = 'title'
 }) => {
-  const [syncedTaskId, setSyncedTaskId] = useState<string | null>(null);
   const [editedTitle, setEditedTitle] = useState<string | null>(null);
   const [editedMemo, setEditedMemo] = useState<string | null>(null);
   const titleInputRef = useRef<HTMLInputElement>(null);
   const memoTextareaRef = useRef<HTMLTextAreaElement>(null);
 
   const taskId = task?.id ?? null;
-  if (taskId !== syncedTaskId) {
-    setSyncedTaskId(taskId);
+  usePropSync(taskId, () => {
     setEditedTitle(null);
     setEditedMemo(null);
-  }
+  });
 
   useEffect(() => {
     if (isOpen && taskId) {

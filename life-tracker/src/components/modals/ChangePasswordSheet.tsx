@@ -1,7 +1,8 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import { BottomSheet } from '../ui/BottomSheet';
-import { Button } from '../ui/Button';
-import { Save } from 'lucide-react';
+import { SheetErrorBanner } from '../ui/SheetErrorBanner';
+import { SheetSaveButton } from '../ui/SheetSaveButton';
+import { useSheetReset } from '../../hooks/useSheetReset';
 import { useAuth } from '../../hooks/useAuth';
 
 interface ChangePasswordSheetProps {
@@ -21,20 +22,16 @@ export const ChangePasswordSheet: React.FC<ChangePasswordSheetProps> = ({
   const [confirmPassword, setConfirmPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
-  
+
   const oldPasswordInputRef = useRef<HTMLInputElement>(null);
 
-  // Render-body reset pattern (React 18/19 compliant, prevents cascading renders)
-  const [syncedIsOpen, setSyncedIsOpen] = useState(false);
-  if (isOpen !== syncedIsOpen) {
-    setSyncedIsOpen(isOpen);
-    if (isOpen) {
-      setOldPassword('');
-      setNewPassword('');
-      setConfirmPassword('');
-      setLocalError(null);
-    }
-  }
+  useSheetReset(isOpen, () => {
+    setOldPassword('');
+    setNewPassword('');
+    setConfirmPassword('');
+    setLocalError(null);
+    setIsLoading(false);
+  });
 
   useEffect(() => {
     if (isOpen) {
@@ -58,7 +55,7 @@ export const ChangePasswordSheet: React.FC<ChangePasswordSheetProps> = ({
     setIsLoading(true);
     const success = await updatePassword(newPassword, oldPassword);
     setIsLoading(false);
-    
+
     if (success) {
       onSuccess();
       onClose();
@@ -70,11 +67,7 @@ export const ChangePasswordSheet: React.FC<ChangePasswordSheetProps> = ({
   return (
     <BottomSheet isOpen={isOpen} onClose={onClose} title="Change Password" height="auto">
       <div className="pt-2 pb-8 px-1 space-y-4">
-        {displayError && (
-          <div className="bg-red-900/20 border border-red-500/30 text-red-400 text-sm p-3 rounded-xl">
-            {displayError}
-          </div>
-        )}
+        <SheetErrorBanner message={displayError} />
 
         <div className="w-full">
           <label className="block text-xs text-gray-500 mb-1.5 ml-1">Current Password</label>
@@ -122,21 +115,16 @@ export const ChangePasswordSheet: React.FC<ChangePasswordSheetProps> = ({
           </div>
         </div>
 
-        <Button
-          variant="primary"
-          className="w-full gap-2 py-3"
+        <SheetSaveButton
           onClick={handleSave}
-          disabled={!oldPassword.trim() || !newPassword.trim() || !confirmPassword.trim() || isLoading}
-        >
-          {isLoading ? (
-            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-          ) : (
-            <>
-              <Save size={18} />
-              Update Password
-            </>
-          )}
-        </Button>
+          disabled={
+            !oldPassword.trim() ||
+            !newPassword.trim() ||
+            !confirmPassword.trim()
+          }
+          isSaving={isLoading}
+          label="Update Password"
+        />
       </div>
     </BottomSheet>
   );

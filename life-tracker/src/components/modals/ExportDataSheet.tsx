@@ -1,6 +1,9 @@
 import React, { useState } from 'react';
 import { BottomSheet } from '../ui/BottomSheet';
 import { Button } from '../ui/Button';
+import { SheetErrorBanner } from '../ui/SheetErrorBanner';
+import { Spinner } from '../ui/Spinner';
+import { useSheetReset } from '../../hooks/useSheetReset';
 import { FileDown, Loader2, Image as ImageIcon } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { exportUserData, triggerDownload } from '../../lib/exportData';
@@ -22,17 +25,12 @@ export const ExportDataSheet: React.FC<ExportDataSheetProps> = ({
   const [progressText, setProgressText] = useState('');
   const [error, setError] = useState<string | null>(null);
 
-  // Render-body reset pattern
-  const [syncedIsOpen, setSyncedIsOpen] = useState(false);
-  if (isOpen !== syncedIsOpen) {
-    setSyncedIsOpen(isOpen);
-    if (isOpen) {
-      setIncludeImages(false);
-      setIsExporting(false);
-      setProgressText('');
-      setError(null);
-    }
-  }
+  useSheetReset(isOpen, () => {
+    setIncludeImages(false);
+    setIsExporting(false);
+    setProgressText('');
+    setError(null);
+  });
 
   const handleExport = async () => {
     if (!user || isExporting) return;
@@ -49,9 +47,6 @@ export const ExportDataSheet: React.FC<ExportDataSheetProps> = ({
       );
       triggerDownload(result.blob, result.filename);
       setIsExporting(false);
-      // OFF-12: surface photos that could not be fetched (offline, missing,
-      // or a failed blob fetch) so the user knows the export is incomplete
-      // and can re-run online.
       const missing = result.counts.missingImages;
       if (missing > 0) {
         onSuccess?.(
@@ -80,11 +75,7 @@ export const ExportDataSheet: React.FC<ExportDataSheetProps> = ({
           contains your personal data — store it safely.
         </p>
 
-        {error && (
-          <div className="bg-red-900/20 border border-red-500/30 text-red-400 text-sm p-3 rounded-xl">
-            {error}
-          </div>
-        )}
+        <SheetErrorBanner message={error} />
 
         <button
           type="button"
@@ -118,7 +109,7 @@ export const ExportDataSheet: React.FC<ExportDataSheetProps> = ({
 
         {isExporting && progressText && (
           <div className="flex items-center gap-3 px-2 py-1">
-            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin flex-shrink-0" />
+            <Spinner size="w-4 h-4" className="flex-shrink-0" />
             <span className="text-sm text-gray-300">{progressText}</span>
           </div>
         )}

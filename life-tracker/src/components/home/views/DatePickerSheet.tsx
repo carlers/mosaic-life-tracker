@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { BottomSheet } from '../../ui/BottomSheet';
 import { Button } from '../../ui/Button';
 import { Calendar } from 'lucide-react';
+import { usePropSync } from '../../../hooks/usePropSync';
 import type { TaskDocument } from '../../../db/schema';
 
 interface DatePickerSheetProps {
@@ -17,14 +18,10 @@ export const DatePickerSheet: React.FC<DatePickerSheetProps> = ({
   task,
   onDateChange
 }) => {
-  const [syncedTaskId, setSyncedTaskId] = useState<string | null>(null);
   const [editedDate, setEditedDate] = useState<string | null>(null);
-
   const taskId = task?.id ?? null;
-  if (taskId !== syncedTaskId) {
-    setSyncedTaskId(taskId);
-    setEditedDate(null);
-  }
+
+  usePropSync(taskId, () => setEditedDate(null));
 
   const selectedDate = editedDate ?? task?.date ?? '';
 

@@ -1,8 +1,8 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import { BottomSheet } from '../ui/BottomSheet';
-import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
-import { Save } from 'lucide-react';
+import { SheetSaveButton } from '../ui/SheetSaveButton';
+import { useSheetReset } from '../../hooks/useSheetReset';
 
 interface EditNameSheetProps {
   isOpen: boolean;
@@ -21,13 +21,10 @@ export const EditNameSheet: React.FC<EditNameSheetProps> = ({
   const [isSaving, setIsSaving] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const [syncedIsOpen, setSyncedIsOpen] = useState(false);
-  if (isOpen !== syncedIsOpen) {
-    setSyncedIsOpen(isOpen);
-    if (isOpen) {
-      setName(currentName);
-    }
-  }
+  useSheetReset(isOpen, () => {
+    setName(currentName);
+    setIsSaving(false);
+  });
 
   useEffect(() => {
     if (isOpen) {
@@ -55,21 +52,12 @@ export const EditNameSheet: React.FC<EditNameSheetProps> = ({
           onChange={(e) => setName(e.target.value)}
           maxLength={50}
         />
-        <Button
-          variant="primary"
-          className="w-full gap-2 py-3"
+        <SheetSaveButton
           onClick={handleSave}
-          disabled={!name.trim() || isSaving}
-        >
-          {isSaving ? (
-            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-          ) : (
-            <>
-              <Save size={18} />
-              Save Name
-            </>
-          )}
-        </Button>
+          disabled={!name.trim()}
+          isSaving={isSaving}
+          label="Save Name"
+        />
       </div>
     </BottomSheet>
   );
