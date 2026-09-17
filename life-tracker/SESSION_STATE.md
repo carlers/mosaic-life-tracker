@@ -1,9 +1,9 @@
 # SESSION STATE
 
-Updated: 2026-09-18T09:00:00Z
+Updated: 2026-09-18T09:55:00Z
 ActivePlan: Phase 2 refactor audit → refactor
-CurrentBatch: 9 of 10
-CurrentTask: Batch 2.9 — god-component splits
+CurrentBatch: 10 of 10
+CurrentTask: Batch 2.10 — cleanup pass
 Status: in_progress
 NextAction: Start Chat 2 for batch 2.10 — cleanup pass: CB-6, CB-7, CB-8, CB-9, CB-10, CB-11, CB-12. Prompt must state DeepThink: OFF.
 NextChatRole: chat2
@@ -53,7 +53,7 @@ Decisions:
 - [2026-09-18] 2.6 primitives are new files only — no migrations.
 - [2026-09-18] 2.7 merges EditProfileImageSheet into ImagePickerSheet; extracts form-sheet helpers.
 - [2026-09-18] 2.8 splits useMessages into useThreadMessages (read) + useMessageActions (write) but keeps useMessages as a byte-identical facade so no call sites change. CB-1's migration to the narrower `useMessageActions` in PersonPane/FriendCalendarPage lands in 2.9. `useProfile` kept as a typed wrapper (HB-10 disposition: keep, document). `useFriendCalendar` and `useMyProfile` share a `runFetch`/`runLoad` helper within their own file rather than a new module (the logic is file-local).
-- [2026-09-18] 2.9 splits: CalendarSlide/CalendarCarousel extracted from CalendarBody + FriendCalendarView; useTasksByDate + useFriendTaskReply shared hooks; DaySlide + useDayViewSwiper extracted from DayViewSheet (CB-14 RAF cleanup via rafRef + unmount effect); ChatPage split into useChatScroll/useChatSearch/useChatReactions + chatRenderItems; myUserId from useAuth (CB-5); document-snapshot state replaced with id + derivation (CB-4). PersonPane/FriendCalendarPage migrated to useMessageActions (CB-1).
+- [2026-09-18] 2.9 splits: CalendarSlide/CalendarCarousel extracted from CalendarBody + FriendCalendarView; useTasksByDate + useFriendTaskReply shared hooks; DaySlide + useDayViewSwiper extracted from DayViewSheet (CB-14 RAF cleanup via rafRef + unmount effect); ChatPage split into useChatScroll/useChatSearch/useChatReactions + chatRenderItems; myUserId from useAuth (CB-5); document-snapshot state replaced with id + derivation (CB-4). PersonPane/FriendCalendarPage migrated to useMessageActions (CB-1). Follow-up fixes: FriendCalendarView embla startIndex + select-driven activeIndex; CarouselPerson uses `userId`; `useTasks` returns `toggleTaskCompletion`; `useFeedback` returns `message`; `useTaskImage` returns `{imageUrl, isLoading}` and takes a single fileId; `addTask` requires `visibility`; DayViewSheet declares `viewingTask` before `useTaskImage`.
 Deferred:
 - OFF-3 local-image-queue half → separate batch.
 - Realtime channel-level reconnection backoff → future batch.
@@ -61,5 +61,5 @@ Deferred:
 - PWA update-prompt UI, `beforeinstallprompt`, `ProfilePage` Share wiring → Phase 3.5+.
 - Full WCAG AA audit → Phase 4.
 - Calendar grid semantics + A11Y-33 → Phase 4.
-LastApply: 2026-09-18T09:00:00Z — refactor: batch 2.9 god-component splits
-LastAuditSummary: CB-1/2/3/4/5/13/14 + DUP-3 shipped. PersonPane/FriendCalendarPage migrated to useMessageActions. DayViewSheet split into DaySlide + useDayViewSwiper (CB-14 RAF cleanup fixed). ChatPage split into useChatScroll/useChatSearch/useChatReactions + chatRenderItems; myUserId now derived from useAuth (CB-5). Stale-doc snapshots replaced with id + derivation. CalendarSlide/CalendarCarousel/useTasksByDate/useFriendTaskReply extracted; CalendarBody + FriendCalendarView share them.
+LastApply: 2026-09-18T09:55:00Z — fix: batch 2.9 build corrections
+LastAuditSummary: Batch 2.9 shipped. CalendarSlide/CalendarCarousel/useTasksByDate/useFriendTaskReply extracted; CalendarBody + FriendCalendarView share them. DayViewSheet split into DaySlide + useDayViewSwiper (CB-14 RAF cleanup fixed). ChatPage split into useChatScroll/useChatSearch/useChatReactions + chatRenderItems; myUserId now derived from useAuth (CB-5). Stale-doc snapshots replaced with id + derivation (CB-4). PersonPane/FriendCalendarPage migrated to useMessageActions (CB-1). Lint, test (390 passing), and build all green.
