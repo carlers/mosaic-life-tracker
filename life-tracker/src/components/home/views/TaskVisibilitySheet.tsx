@@ -1,10 +1,11 @@
 import React from 'react';
 import { BottomSheet } from '../../ui/BottomSheet';
-import { EyeOff, Users, Globe, Check } from 'lucide-react';
+import { Check } from 'lucide-react';
 import {
   resolveVisibility,
   isInheriting,
   labelForVisibility,
+  visibilityOptionIcon,
   type TaskVisibility,
 } from '../../../lib/visibility';
 import type { TaskDocument, CategoryDocument } from '../../../db/schema';
@@ -21,25 +22,21 @@ const OVERRIDE_OPTIONS: {
   value: TaskVisibility;
   label: string;
   desc: string;
-  icon: React.FC<{ size?: number; className?: string }>;
 }[] = [
   {
     value: 'private',
     label: 'Private',
     desc: 'Only visible to you',
-    icon: EyeOff,
   },
   {
     value: 'followers',
     label: 'Friends',
     desc: 'Visible to your accepted friends',
-    icon: Users,
   },
   {
     value: 'public',
     label: 'Public',
     desc: 'Visible to anyone',
-    icon: Globe,
   },
 ];
 
@@ -87,7 +84,7 @@ export const TaskVisibilitySheet: React.FC<TaskVisibilitySheetProps> = ({
             className="w-9 h-9 rounded-full bg-[#2A2A2A] flex items-center justify-center flex-shrink-0"
             aria-hidden="true"
           >
-            <Users size={16} className="text-gray-300" />
+            {visibilityOptionIcon('followers', 16, 'text-gray-300')}
           </div>
           <div className="flex-1 min-w-0 text-left">
             <p className="text-sm font-medium text-white">
@@ -110,7 +107,6 @@ export const TaskVisibilitySheet: React.FC<TaskVisibilitySheetProps> = ({
         {/* Explicit overrides */}
         {OVERRIDE_OPTIONS.map((opt) => {
           const selected = !inheriting && effective === opt.value;
-          const Icon = opt.icon;
           return (
             <button
               key={opt.value}
@@ -128,7 +124,7 @@ export const TaskVisibilitySheet: React.FC<TaskVisibilitySheetProps> = ({
                 className="w-9 h-9 rounded-full bg-[#2A2A2A] flex items-center justify-center flex-shrink-0"
                 aria-hidden="true"
               >
-                <Icon size={16} className="text-gray-300" />
+                {visibilityOptionIcon(opt.value, 16, 'text-gray-300')}
               </div>
               <div className="flex-1 min-w-0 text-left">
                 <p className="text-sm font-medium text-white">{opt.label}</p>

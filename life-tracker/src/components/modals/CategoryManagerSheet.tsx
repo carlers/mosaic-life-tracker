@@ -15,14 +15,12 @@ import {
   Trash2,
   Save,
   X,
-  Eye,
-  EyeOff,
-  Users,
   RotateCcw,
   GripVertical,
 } from 'lucide-react';
 import { useCategories } from '../../hooks/useCategories';
 import { useTasks } from '../../hooks/useTasks';
+import { visibilityIcon } from '../../lib/visibility';
 import type { CategoryDocument } from '../../db/schema';
 
 type Visibility = 'private' | 'followers' | 'public';
@@ -30,9 +28,7 @@ type Visibility = 'private' | 'followers' | 'public';
 const REORDER_DEBOUNCE_MS = 400;
 
 function VisibilityIcon({ v }: { v: Visibility }) {
-  if (v === 'public') return <Eye size={14} className="text-gray-400" />;
-  if (v === 'followers') return <Users size={14} className="text-gray-400" />;
-  return <EyeOff size={14} className="text-gray-400" />;
+  return visibilityIcon(v, 14, 'text-gray-400');
 }
 
 interface CategoryRowProps {

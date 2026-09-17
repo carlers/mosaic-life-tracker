@@ -6,14 +6,12 @@ import {
   Image as ImageIcon,
   MessageSquare,
   Heart,
-  Eye,
-  EyeOff,
-  Users,
 } from 'lucide-react';
 import { BottomSheet } from '../ui/BottomSheet';
 import { ReactionRow } from '../messages/ReactionRow';
 import { EmojiPickerSheet } from '../messages/EmojiPickerSheet';
 import { parseReactions } from '../../lib/reactionUtils';
+import { visibilityIcon } from '../../lib/visibility';
 import type { TaskDocument, CategoryDocument } from '../../db/schema';
 
 type Visibility = 'private' | 'followers' | 'public';
@@ -31,17 +29,6 @@ interface FriendDayViewSheetProps {
 }
 
 const EMPTY_TASKS: TaskDocument[] = [];
-
-function getVisibilityIcon(v: Visibility) {
-  switch (v) {
-    case 'public':
-      return <Eye size={12} className="text-gray-500" />;
-    case 'followers':
-      return <Users size={12} className="text-gray-500" />;
-    case 'private':
-      return <EyeOff size={12} className="text-gray-500" />;
-  }
-}
 
 export const FriendDayViewSheet: React.FC<FriendDayViewSheetProps> = ({
   isOpen,
@@ -123,7 +110,7 @@ export const FriendDayViewSheet: React.FC<FriendDayViewSheetProps> = ({
                       <div key={cat.id}>
                         <div className="flex items-center mb-2">
                           <div className="inline-flex items-center gap-2 bg-black rounded-full pl-3.5 pr-4 py-2">
-                            {getVisibilityIcon(catVisibility)}
+                            {visibilityIcon(catVisibility, 12, 'text-gray-500')}
                             <span
                               className="text-sm font-bold"
                               style={{ color: cat.color }}

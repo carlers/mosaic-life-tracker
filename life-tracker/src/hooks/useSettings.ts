@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { getDatabase } from '../db/database';
 import { useAuth } from './useAuth';
 import { makeSettingsRowId, MAX_ROW_ID_LENGTH } from '../lib/settingsRowId';
+import { upsertLocalDoc } from '../lib/localUpsert';
 import type { SettingsDocument } from '../db/schema';
 export { makeSettingsRowId };
 const DEBUG = import.meta.env.DEV;
@@ -80,14 +81,13 @@ export function useSettings() {
         console.error('[useSettings] Cannot set setting: User not authenticated');
         return;
       }
-      const db = getDatabase();
       const id = makeSettingsRowId(uid, key);
       const stringValue =
         typeof value === 'string' ? value : JSON.stringify(value);
       const now = new Date().toISOString();
-      const doc = await db.settings.findOne(id).exec();
+      const doc = await getDatabase().settings.findOne(id).exec();
       if (doc) {
-        await doc.patch({
+        await upsertLocalDoc('settings', id, {
           value: stringValue,
           isDeleted: false,
           updatedAt: now,
@@ -101,7 +101,7 @@ export function useSettings() {
           isDeleted: false,
           updatedAt: now,
         };
-        await db.settings.insert(newSetting);
+        await upsertLocalDoc('settings', id, newSetting);
       }
     },
     [user?.$id]

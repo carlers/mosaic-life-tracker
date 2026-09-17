@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect, useId } from 'react';
-import { Plus, Eye, EyeOff, Users } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import { TaskItem } from './TaskItem';
+import { visibilityIcon } from '../../../lib/visibility';
 import type { TaskDocument } from '../../../db/schema';
 
 type Visibility = 'private' | 'followers' | 'public';
@@ -68,17 +69,6 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
     }
   };
 
-  const getVisibilityIcon = (v: Visibility) => {
-    switch (v) {
-      case 'public':
-        return <Eye size={12} className="text-gray-500" />;
-      case 'followers':
-        return <Users size={12} className="text-gray-500" />;
-      case 'private':
-        return <EyeOff size={12} className="text-gray-500" />;
-    }
-  };
-
   const visibilityLabel: Record<Visibility, string> = {
     public: 'Public',
     followers: 'Friends',
@@ -103,7 +93,9 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
               : 'hover:bg-[#0D0D0D]'
           }`}
         >
-          <span aria-hidden="true">{getVisibilityIcon(visibility)}</span>
+          <span aria-hidden="true">
+            {visibilityIcon(visibility, 12, 'text-gray-500')}
+          </span>
           <span
             className="text-sm font-bold"
             style={{ color: categoryColor }}

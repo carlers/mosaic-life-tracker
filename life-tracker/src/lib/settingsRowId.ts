@@ -16,3 +16,18 @@ export function makeSettingsRowId(userId: string, key: string): string {
   if (raw.length <= MAX_ROW_ID_LENGTH) return raw;
   return `s_${hashString(raw)}`;
 }
+
+/**
+ * Diary row id. Appwrite rowIds are constrained to `[a-zA-Z0-9_]+`
+ * (AGENTS §0 item 3) — the `yyyy-MM-dd` date contains hyphens, which
+ * cannot appear in a rowId. The date is stripped of non-alphanumeric
+ * characters (yielding `yyyyMMdd`) before the length check, so a short
+ * uid keeps a human-readable id and a long uid falls back to the
+ * deterministic hash.
+ */
+export function makeDiaryRowId(userId: string, date: string): string {
+  const safeDate = date.replace(/[^a-zA-Z0-9]/g, '');
+  const raw = `${userId}_${safeDate}`;
+  if (raw.length <= MAX_ROW_ID_LENGTH) return raw;
+  return `d_${hashString(raw)}`;
+}

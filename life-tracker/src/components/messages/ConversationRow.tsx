@@ -4,23 +4,10 @@ import { ChevronRight } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Avatar } from '../ui/Avatar';
 import { useTaskImage } from '../../hooks/useTaskImage';
+import { formatRelative } from '../../lib/format';
 import type { Conversation } from '../../hooks/useConversations';
 interface ConversationRowProps {
   conversation: Conversation;
-}
-function formatRelative(iso: string): string {
-  if (!iso) return '';
-  const d = new Date(iso);
-  const now = new Date();
-  const diffMs = now.getTime() - d.getTime();
-  const diffMin = Math.floor(diffMs / 60000);
-  if (diffMin < 1) return 'now';
-  if (diffMin < 60) return `${diffMin}m`;
-  const diffHr = Math.floor(diffMin / 60);
-  if (diffHr < 24) return `${diffHr}h`;
-  const diffDay = Math.floor(diffHr / 24);
-  if (diffDay < 7) return `${diffDay}d`;
-  return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 }
 const ConversationRowComponent: React.FC<ConversationRowProps> = ({
   conversation,
@@ -66,7 +53,7 @@ const ConversationRowComponent: React.FC<ConversationRowProps> = ({
           </p>
           {lastMessage && (
             <span className="text-[10px] text-gray-500 flex-shrink-0">
-              {formatRelative(lastMessage.createdAt)}
+              {formatRelative(lastMessage.createdAt, '')}
             </span>
           )}
         </div>

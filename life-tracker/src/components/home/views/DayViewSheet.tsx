@@ -18,6 +18,7 @@ import { useCategories } from '../../../hooks/useCategories';
 import { useAuth } from '../../../hooks/useAuth';
 import { useTaskImage } from '../../../hooks/useTaskImage';
 import { deleteImage } from '../../../lib/storage';
+import { EMPTY_TASKS } from '../../../constants/empty';
 import type { CategoryDocument, TaskDocument } from '../../../db/schema';
 
 interface DayViewSheetProps {
@@ -30,7 +31,6 @@ interface DayViewSheetProps {
 const SWIPE_RANGE = 90;
 const TOTAL_SLIDES = SWIPE_RANGE * 2 + 1;
 const RENDER_WINDOW = 3;
-const EMPTY_TASKS: TaskDocument[] = [];
 
 interface DaySlideProps {
   date: Date;

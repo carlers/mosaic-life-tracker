@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { CheckCircle2, AlertCircle, RefreshCw } from 'lucide-react';
 import { BottomSheet } from '../ui/BottomSheet';
+import { formatRelative } from '../../lib/format';
 import {
   getSyncStatus,
   subscribeToSyncStatus,
@@ -10,21 +11,6 @@ import {
 interface SyncStatusSheetProps {
   isOpen: boolean;
   onClose: () => void;
-}
-function formatRelative(iso: string | null): string {
-  if (!iso) return 'Never';
-  const d = new Date(iso);
-  const diffMs = Date.now() - d.getTime();
-  if (!Number.isFinite(diffMs) || diffMs < 0) return 'just now';
-  const sec = Math.floor(diffMs / 1000);
-  if (sec < 60) return 'just now';
-  const min = Math.floor(sec / 60);
-  if (min < 60) return `${min}m ago`;
-  const hr = Math.floor(min / 60);
-  if (hr < 24) return `${hr}h ago`;
-  const day = Math.floor(hr / 24);
-  if (day < 7) return `${day}d ago`;
-  return d.toLocaleDateString();
 }
 export const SyncStatusSheet: React.FC<SyncStatusSheetProps> = ({
   isOpen,
@@ -81,7 +67,7 @@ export const SyncStatusSheet: React.FC<SyncStatusSheetProps> = ({
                 : `${errorCount} error${errorCount === 1 ? '' : 's'}`}
             </p>
             <p className="text-xs text-gray-500 mt-0.5">
-              Last synced {formatRelative(status.lastSync)}
+              Last synced {formatRelative(status.lastSync, ' ago')}
             </p>
           </div>
         </div>

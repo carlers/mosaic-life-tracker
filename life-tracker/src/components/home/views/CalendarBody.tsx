@@ -6,6 +6,7 @@ import { FriendDayViewSheet } from '../../friend/FriendDayViewSheet';
 import { ReplyComposerSheet } from '../../messages/ReplyComposerSheet';
 import type { TaskDocument, CategoryDocument } from '../../../db/schema';
 import type { CalendarViewMode } from './useCalendarState';
+import { EMPTY_CATEGORIES } from '../../../constants/empty';
 
 interface CalendarSlideProps {
   date: Date;
@@ -112,6 +113,8 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
     setTimeout(() => setFeedback(null), 2000);
   }, []);
 
+  const safeFriendCategories = friendCategories ?? EMPTY_CATEGORIES;
+
   return (
     <>
       <div className="flex-1 min-h-0 overflow-hidden py-2" ref={emblaRef}>
@@ -149,7 +152,7 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
             onClose={handleCloseSheet}
             date={selectedDate}
             tasks={tasks}
-            categories={friendCategories || []}
+            categories={safeFriendCategories}
             friendName={friendName || 'Friend'}
             currentUserId={currentUserId}
             onReplyToTask={handleReplyToTask}

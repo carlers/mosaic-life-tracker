@@ -1,12 +1,10 @@
-import { isUnauthorizedError } from './authEvents';
-const DEBUG = import.meta.env.DEV;
-const STORAGE_KEY = 'mosaic_message_action_queue';
-const MAX_ATTEMPTS = 5;
-const MAX_ENTRIES = 100;
+import { createPersistentOutbox } from './outbox';
+
 export interface MessageActionSender {
   (payload: Record<string, unknown>): Promise<Record<string, unknown>>;
 }
-interface QueuedEntry {
+
+export interface MessageActionQueuedEntry {
   id: string;
   userId: string;
   action: string;
@@ -14,45 +12,56 @@ interface QueuedEntry {
   attempts: number;
   enqueuedAt: string;
 }
+
+const outbox = createPersistentOutbox<
+  Record<string, unknown>,
+  Record<string, unknown>,
+  MessageActionQueuedEntry
+>({
+  storageKey: 'mosaic_message_action_queue',
+  logPrefix: '[MessageActionQueue]',
+  makeEntry: (input, previousAttempts) => ({
+    id: input.dedupKey,
+    userId: input.userId,
+    action: input.action,
+    payload: input.payload,
+    attempts: previousAttempts,
+    enqueuedAt: new Date().toISOString(),
+  }),
+  parseEntry: (raw) => {
+    if (
+      !!raw &&
+      typeof raw === 'object' &&
+      typeof (raw as MessageActionQueuedEntry).id === 'string' &&
+      typeof (raw as MessageActionQueuedEntry).userId === 'string' &&
+      typeof (raw as MessageActionQueuedEntry).action === 'string' &&
+      typeof (raw as MessageActionQueuedEntry).attempts === 'number' &&
+      typeof (raw as MessageActionQueuedEntry).enqueuedAt === 'string' &&
+      typeof (raw as MessageActionQueuedEntry).payload === 'object'
+    ) {
+      return raw as MessageActionQueuedEntry;
+    }
+    return null;
+  },
+  send: async (input) => {
+    await sender?.(input);
+  },
+  toSendInput: (entry) => ({ action: entry.action, ...entry.payload }),
+});
+
 let sender: MessageActionSender | null = null;
+
+outbox.setSender(async (entry) => {
+  if (!sender) {
+    throw new Error('Message action sender not configured');
+  }
+  await sender({ action: entry.action, ...entry.payload });
+});
+
 export function setMessageActionSender(fn: MessageActionSender): void {
   sender = fn;
 }
-let queue: QueuedEntry[] = [];
-let isFlushing = false;
-function load(): void {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) {
-      queue = [];
-      return;
-    }
-    const parsed = JSON.parse(raw) as unknown;
-    if (!Array.isArray(parsed)) {
-      queue = [];
-      return;
-    }
-    queue = parsed.filter(
-      (e): e is QueuedEntry =>
-        !!e &&
-        typeof e === 'object' &&
-        typeof (e as QueuedEntry).id === 'string' &&
-        typeof (e as QueuedEntry).userId === 'string' &&
-        typeof (e as QueuedEntry).action === 'string' &&
-        typeof (e as QueuedEntry).attempts === 'number' &&
-        typeof (e as QueuedEntry).enqueuedAt === 'string' &&
-        typeof (e as QueuedEntry).payload === 'object'
-    );
-  } catch {
-    queue = [];
-  }
-}
-function save(): void {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(queue));
-  } catch {
-  }
-}
+
 export function enqueueMessageAction(
   userId: string,
   input: {
@@ -61,109 +70,23 @@ export function enqueueMessageAction(
     dedupKey: string;
   }
 ): void {
-  load();
-  const existingIdx = queue.findIndex(
-    (e) => e.userId === userId && e.id === input.dedupKey
-  );
-  const entry: QueuedEntry = {
-    id: input.dedupKey,
-    userId,
-    action: input.action,
-    payload: input.payload,
-    attempts:
-      existingIdx >= 0 ? queue[existingIdx].attempts : 0,
-    enqueuedAt: new Date().toISOString(),
-  };
-  if (existingIdx >= 0) {
-    queue[existingIdx] = entry;
-  } else {
-    queue.push(entry);
-  }
-  if (queue.length > MAX_ENTRIES) {
-    queue.sort((a, b) => a.enqueuedAt.localeCompare(b.enqueuedAt));
-    const dropped = queue.slice(0, queue.length - MAX_ENTRIES);
-    for (const entry of dropped) {
-      console.warn(
-        `[MessageActionQueue] Dropping oldest entry ${entry.id} (action=${entry.action}, attempts=${entry.attempts}) — queue cap ${MAX_ENTRIES} reached`
-      );
-    }
-    queue = queue.slice(queue.length - MAX_ENTRIES);
-  }
-  save();
+  outbox.enqueue(userId, input);
 }
-function isPermanentFailure(err: unknown): boolean {
-  const code = (err as { code?: number } | null)?.code;
-  if (typeof code !== 'number') return false;
-  if (code === 429) return false;
-  if (code >= 400 && code < 500) return true;
-  return false;
-}
-function removeEntry(entry: QueuedEntry): void {
-  queue = queue.filter(
-    (e) => !(e.id === entry.id && e.userId === entry.userId)
-  );
-}
+
 export async function flushMessageActionQueue(userId: string): Promise<void> {
-  if (isFlushing) return;
   if (!sender) return;
-  load();
-  const mine = queue.filter((e) => e.userId === userId);
-  if (mine.length === 0) return;
-  isFlushing = true;
-  try {
-    for (const entry of [...mine]) {
-      try {
-        await sender({ action: entry.action, ...entry.payload });
-        removeEntry(entry);
-        save();
-      } catch (err) {
-        if (isUnauthorizedError(err) || isPermanentFailure(err)) {
-          if (DEBUG) {
-            console.log(
-              `[MessageActionQueue] Dropping ${entry.id} after permanent failure`
-            );
-          }
-          removeEntry(entry);
-          save();
-        } else {
-          const next = entry.attempts + 1;
-          if (next >= MAX_ATTEMPTS) {
-            if (DEBUG) {
-              console.log(
-                `[MessageActionQueue] Dropping ${entry.id} after ${next} attempts`
-              );
-            }
-            removeEntry(entry);
-          } else {
-            const idx = queue.findIndex(
-              (e) => e.id === entry.id && e.userId === entry.userId
-            );
-            if (idx >= 0) queue[idx] = { ...queue[idx], attempts: next };
-          }
-          save();
-        }
-      }
-    }
-  } finally {
-    isFlushing = false;
-  }
+  await outbox.flush(userId);
 }
+
 export function clearMessageActionQueue(userId?: string): void {
-  load();
-  if (userId) {
-    queue = queue.filter((e) => e.userId !== userId);
-  } else {
-    queue = [];
-  }
-  save();
+  outbox.clear(userId);
 }
+
 export function getMessageActionQueueSize(userId?: string): number {
-  load();
-  if (userId) return queue.filter((e) => e.userId === userId).length;
-  return queue.length;
+  return outbox.size(userId);
 }
+
 export function __resetQueueForTests(): void {
-  queue = [];
+  outbox.resetForTests();
   sender = null;
-  isFlushing = false;
 }

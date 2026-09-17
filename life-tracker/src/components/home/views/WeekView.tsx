@@ -6,9 +6,8 @@ import {
   eachDayOfInterval,
 } from 'date-fns';
 import { DayCell } from './DayCell';
+import { EMPTY_TASKS } from '../../../constants/empty';
 import type { TaskDocument } from '../../../db/schema';
-
-const EMPTY_TASKS: TaskDocument[] = [];
 
 interface WeekViewProps {
   focusDate: Date;
