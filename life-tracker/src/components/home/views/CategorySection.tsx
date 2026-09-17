@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useId } from 'react';
+import React, { useState, useRef, useId } from 'react';
 import { Plus } from 'lucide-react';
 import { TaskItem } from './TaskItem';
 import { visibilityIcon } from '../../../lib/visibility';
@@ -27,7 +27,7 @@ interface CategorySectionProps {
 export const CategorySection: React.FC<CategorySectionProps> = ({
   categoryName,
   categoryColor,
-  visibility = 'private',
+  visibility,
   currentUserId,
   tasks,
   onToggleTask,
@@ -42,129 +42,111 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
   onEditCancel,
 }) => {
   const [isAdding, setIsAdding] = useState(false);
-  const [newTaskTitle, setNewTaskTitle] = useState('');
+  const [newTitle, setNewTitle] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
   const inputId = useId();
 
-  useEffect(() => {
-    if (isAdding && inputRef.current) {
-      inputRef.current.focus();
+  const setInputRef = (node: HTMLInputElement | null) => {
+    inputRef.current = node;
+    if (node) {
+      node.focus();
     }
-  }, [isAdding]);
+  };
 
-  const handleAdd = () => {
-    if (newTaskTitle.trim()) {
-      onAddTask(newTaskTitle.trim());
-      setNewTaskTitle('');
-      setIsAdding(false);
+  const closeInput = () => {
+    setNewTitle('');
+    setIsAdding(false);
+  };
+
+  const commitAdd = () => {
+    const trimmed = newTitle.trim();
+    if (trimmed) {
+      onAddTask(trimmed);
+      closeInput();
     }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
-      handleAdd();
+      e.preventDefault();
+      commitAdd();
     } else if (e.key === 'Escape') {
-      setIsAdding(false);
-      setNewTaskTitle('');
+      closeInput();
     }
   };
 
-  const visibilityLabel: Record<Visibility, string> = {
-    public: 'Public',
-    followers: 'Friends',
-    private: 'Private',
+  const handleBlur = () => {
+    if (!newTitle.trim()) {
+      closeInput();
+    }
+  };
+
+  const handleOpen = () => {
+    setIsAdding(true);
   };
 
   return (
     <div className="mb-4">
-      <div className="flex items-center mb-2">
-        <button
-          type="button"
-          onClick={() => setIsAdding(!isAdding)}
-          aria-expanded={isAdding}
-          aria-label={
-            isAdding
-              ? `Cancel adding to ${categoryName} (${visibilityLabel[visibility]})`
-              : `Add task to ${categoryName} (${visibilityLabel[visibility]})`
+      <div
+        role="button"
+        tabIndex={0}
+        onClick={handleOpen}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            handleOpen();
           }
-          className={`inline-flex items-center gap-2 bg-black rounded-full pl-3.5 pr-4 py-2 cursor-pointer transition-all active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 ${
-            isAdding
-              ? 'ring-1 ring-[#555555]'
-              : 'hover:bg-[#0D0D0D]'
-          }`}
-        >
-          <span aria-hidden="true">
-            {visibilityIcon(visibility, 12, 'text-gray-500')}
-          </span>
-          <span
-            className="text-sm font-bold"
-            style={{ color: categoryColor }}
-          >
-            {categoryName}
-          </span>
-          <Plus
-            size={16}
-            strokeWidth={2.5}
-            style={{ color: categoryColor }}
-            aria-hidden="true"
+        }}
+        className="flex items-center gap-2 mb-2 cursor-pointer"
+        aria-label={`Add a task to ${categoryName}`}
+      >
+        <div
+          className="w-3 h-3 rounded-full shrink-0"
+          style={{ backgroundColor: categoryColor }}
+        />
+        <span className="text-sm font-medium text-white">{categoryName}</span>
+        {visibility && visibilityIcon(visibility)}
+        <span className="ml-auto p-1 text-gray-400" aria-hidden="true">
+          <Plus size={16} />
+        </span>
+      </div>
+
+      {tasks.map((task) => (
+        <TaskItem
+          key={task.id}
+          task={task}
+          categoryColor={categoryColor}
+          currentUserId={currentUserId}
+          onToggle={() => onToggleTask(task.id, task.completed)}
+          onOpenActions={onOpenActions}
+          onOpenMemo={onOpenMemo}
+          onViewImage={onViewImage}
+          isEditing={editingTaskId === task.id}
+          editValue={editValue}
+          onEditChange={onEditChange}
+          onEditSave={onEditSave}
+          onEditCancel={onEditCancel}
+        />
+      ))}
+
+      {isAdding && (
+        <div className="flex items-center gap-2 py-2">
+          <label htmlFor={inputId} className="sr-only">
+            New task title
+          </label>
+          <input
+            id={inputId}
+            ref={setInputRef}
+            type="text"
+            value={newTitle}
+            onChange={(e) => setNewTitle(e.target.value)}
+            onKeyDown={handleKeyDown}
+            onBlur={handleBlur}
+            placeholder={`Add a task to ${categoryName}...`}
+            className="flex-1 bg-transparent text-white outline-none border-b border-[#4B5563] text-sm"
           />
-        </button>
-      </div>
-
-      <div className="bg-[#1E1E1E] rounded-xl overflow-hidden">
-        {tasks.length > 0 && (
-          <div className="px-3 py-1">
-            {tasks.map((task) => (
-              <TaskItem
-                key={task.id}
-                task={task}
-                categoryColor={categoryColor}
-                currentUserId={currentUserId}
-                onToggle={(id) => onToggleTask(id, task.completed)}
-                onOpenActions={onOpenActions}
-                onOpenMemo={onOpenMemo}
-                onViewImage={onViewImage}
-                isEditing={editingTaskId === task.id}
-                editValue={editValue}
-                onEditChange={onEditChange}
-                onEditSave={onEditSave}
-                onEditCancel={onEditCancel}
-              />
-            ))}
-          </div>
-        )}
-
-        {isAdding && (
-          <div className="flex items-center gap-2 px-3 py-2.5 bg-[#1A1A1A] animate-in fade-in slide-in-from-top-1 duration-200">
-            <button
-              type="button"
-              className="flex-shrink-0 text-gray-500 hover:text-white transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 rounded"
-              onClick={handleAdd}
-              aria-label="Add task"
-            >
-              <Plus size={16} aria-hidden="true" />
-            </button>
-            <label htmlFor={inputId} className="sr-only">
-              New task title
-            </label>
-            <input
-              id={inputId}
-              ref={inputRef}
-              type="text"
-              value={newTaskTitle}
-              onChange={(e) => setNewTaskTitle(e.target.value)}
-              onKeyDown={handleKeyDown}
-              onBlur={() => {
-                if (!newTaskTitle.trim()) {
-                  setIsAdding(false);
-                }
-              }}
-              placeholder={`Add a task to ${categoryName}...`}
-              className="flex-1 bg-transparent text-sm text-white placeholder-gray-600 focus:outline-none"
-            />
-          </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 };

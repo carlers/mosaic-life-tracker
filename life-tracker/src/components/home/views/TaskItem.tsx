@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Check, FileText } from 'lucide-react';
 import { useTaskImage } from '../../../hooks/useTaskImage';
@@ -35,144 +35,128 @@ export const TaskItem: React.FC<TaskItemProps> = ({
   onEditSave,
   onEditCancel,
 }) => {
-  const { imageUrl, isLoading } = useTaskImage(task.image);
-  const reactions = parseReactions(task.reactions);
+  const { imageUrl } = useTaskImage(task.image);
+  const reactions = React.useMemo(
+    () => parseReactions(task.reactions),
+    [task.reactions]
+  );
+
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [syncedTaskId, setSyncedTaskId] = useState<string | null>(null);
+
+  if (isEditing && task.id !== syncedTaskId) {
+    setSyncedTaskId(task.id);
+  } else if (!isEditing && syncedTaskId !== null) {
+    setSyncedTaskId(null);
+  }
+
+  useEffect(() => {
+    if (isEditing) {
+      inputRef.current?.focus();
+    }
+  }, [isEditing]);
+
+  const handleEditSave = () => {
+    onEditSave();
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleEditSave();
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      onEditCancel();
+    }
+  };
+
+  const isCompleted = task.completed;
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 5 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="py-2.5 group"
+      layout
+      className="flex items-start gap-3 py-2"
     >
-      <div className="flex items-start gap-3">
-        <button
-          type="button"
-          onClick={() => onToggle(task.id)}
-          onPointerDown={(e) => e.stopPropagation()}
-          aria-label={task.completed ? 'Mark incomplete' : 'Mark complete'}
-          aria-pressed={task.completed}
-          className="flex-shrink-0 w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all mt-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
-          style={{
-            backgroundColor: task.completed ? categoryColor : 'transparent',
-            borderColor: task.completed ? categoryColor : '#333333',
-          }}
-        >
-          {task.completed && (
-            <Check
-              size={12}
-              className="text-white"
-              strokeWidth={3}
-              aria-hidden="true"
-            />
-          )}
-        </button>
-        <div className="flex-1 min-w-0">
-          {isEditing ? (
-            <input
-              type="text"
-              value={editValue}
-              onChange={(e) => onEditChange(e.target.value)}
-              onBlur={onEditSave}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') onEditSave();
-                if (e.key === 'Escape') onEditCancel();
-              }}
-              autoFocus
-              aria-label="Edit task title"
-              className="w-full bg-transparent text-base text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 border-b border-blue-500 pb-1"
-              onPointerDown={(e) => e.stopPropagation()}
-            />
-          ) : (
-            <>
-              <button
-                type="button"
-                onClick={() => onOpenActions(task)}
-                onPointerDown={(e) => e.stopPropagation()}
-                aria-label={`${task.title}${
-                  task.completed ? ', completed' : ''
-                }`}
-                className="w-full text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 rounded"
-              >
-                <p
-                  className={`text-base ${
-                    task.completed
-                      ? 'text-gray-500 line-through'
-                      : 'text-gray-200'
-                  }`}
-                >
-                  {task.title}
-                </p>
-              </button>
-              {task.memo && (
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onOpenMemo(task);
-                  }}
-                  onPointerDown={(e) => e.stopPropagation()}
-                  aria-label="Open memo"
-                  className="block w-full text-left mt-1 rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
-                >
-                  <span className="text-sm text-gray-400 hover:text-gray-300 transition-colors whitespace-pre-wrap">
-                    {task.memo}
-                  </span>
-                </button>
-              )}
-              {task.image && (
-                <div className="mt-2 w-full">
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onViewImage?.(task);
-                    }}
-                    aria-label="View task photo"
-                    className="w-full h-48 md:h-64 lg:h-80 xl:h-96 rounded-lg overflow-hidden border border-[#333333] bg-[#2A2A2A] cursor-pointer relative group focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
-                  >
-                    {isLoading ? (
-                      <div className="w-full h-full bg-gray-500/30 animate-pulse" />
-                    ) : imageUrl ? (
-                      <img
-                        src={imageUrl}
-                        alt=""
-                        className="w-full h-full object-cover"
-                      />
-                    ) : null}
-                    <div
-                      className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100"
-                      aria-hidden="true"
-                    >
-                      <span className="text-white text-xs font-medium bg-black/50 px-3 py-1 rounded-full backdrop-blur-sm">
-                        View Photo
-                      </span>
-                    </div>
-                  </button>
-                </div>
-              )}
-              {reactions.length > 0 && (
-                <div className="mt-1.5">
-                  <ReactionRow
-                    reactions={reactions}
-                    currentUserId={currentUserId}
-                    isOutgoing={false}
-                    onToggle={() => {
-                      /* Owner cannot toggle others' reactions on their own task */
-                    }}
-                  />
-                </div>
-              )}
-            </>
-          )}
-        </div>
-        {!isEditing && (
-          <div
-            className="flex items-center gap-2 flex-shrink-0 pointer-events-none"
-            aria-hidden="true"
+      <button
+        onClick={() => onToggle(task.id)}
+        onPointerDown={(e) => e.stopPropagation()}
+        className="mt-0.5 shrink-0 w-5 h-5 rounded-full border-2 flex items-center justify-center"
+        style={{
+          borderColor: isCompleted ? categoryColor : '#4B5563',
+          backgroundColor: isCompleted ? categoryColor : 'transparent',
+        }}
+        aria-label={isCompleted ? 'Mark incomplete' : 'Mark complete'}
+      >
+        {isCompleted && <Check size={12} className="text-white" />}
+      </button>
+      <div className="flex-1 min-w-0">
+        {isEditing ? (
+          <input
+            ref={inputRef}
+            type="text"
+            value={editValue}
+            onChange={(e) => onEditChange(e.target.value)}
+            onKeyDown={handleKeyDown}
+            onBlur={handleEditSave}
+            onPointerDown={(e) => e.stopPropagation()}
+            className="w-full bg-transparent text-white outline-none border-b border-[#4B5563]"
+          />
+        ) : (
+          <button
+            onClick={() => onOpenActions(task)}
+            onPointerDown={(e) => e.stopPropagation()}
+            className="w-full text-left"
           >
-            {task.memo && !task.image && (
-              <FileText size={14} className="text-gray-600" />
-            )}
+            <span
+              className={
+                isCompleted
+                  ? 'line-through text-gray-500'
+                  : 'text-white'
+              }
+            >
+              {task.title}
+            </span>
+          </button>
+        )}
+        {task.memo && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onOpenMemo(task);
+            }}
+            onPointerDown={(e) => e.stopPropagation()}
+            className="mt-1 flex items-center gap-1 text-xs text-gray-500"
+            aria-label="Open memo"
+          >
+            <FileText size={12} />
+            <span>Memo</span>
+          </button>
+        )}
+        {task.image && imageUrl && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onViewImage?.(task);
+            }}
+            onPointerDown={(e) => e.stopPropagation()}
+            className="mt-2 block"
+            aria-label="View image"
+          >
+            <img
+              src={imageUrl}
+              alt={task.title}
+              className="w-16 h-16 object-cover rounded-lg"
+            />
+          </button>
+        )}
+        {reactions.length > 0 && (
+          <div className="mt-1">
+            <ReactionRow
+              reactions={reactions}
+              currentUserId={currentUserId}
+              isOutgoing={false}
+              onToggle={() => {}}
+            />
           </div>
         )}
       </div>
