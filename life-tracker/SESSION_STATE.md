@@ -1,12 +1,12 @@
 # SESSION STATE
 
-Updated: 2026-09-18T06:30:00Z
+Updated: 2026-09-18T06:35:00Z
 ActivePlan: Phase 2 refactor audit → refactor
 CurrentBatch: 6 of 10
 CurrentTask: Batch 2.6 — shared React primitives + useRxCollection
 Status: in_progress
-NextAction: User types OFFBOARD to hand off to Chat 1 for batch 2.6 (shared React primitives + useRxCollection).
-NextChatRole: chat1
+NextAction: Start Chat 2 for batch 2.7 — sheet migrations: DUP-7 (ImagePickerSheet/EditProfileImageSheet merge), DUP-8 (5 form sheets), plus usePropSync/useFeedback/ConfirmSheet/Spinner migrations across 19 files. Prompt must state DeepThink: OFF.
+NextChatRole: chat2
 BatchPlan:
 - Phase 1 audits — CLOSED (all ten batches; sole carry-over OFF-1)
   - [x] 1.1 Item 10 — offline behavior audit
@@ -24,7 +24,7 @@ BatchPlan:
   - [x] 2.3 Refactor audit — component boundary audit (14 findings CB-1…CB-14)
   - [x] 2.4 Refactor audit — hook boundary audit (12 findings HB-1…HB-12)
   - [x] 2.5 Lib-level extractions — DUP-1, DUP-9, DUP-10, DUP-12, HB-6, HB-7, HB-8
-  - [ ] 2.6 Shared React primitives + `useRxCollection` — DUP-2/HB-3, DUP-4, DUP-5, DUP-6, DUP-11
+  - [x] 2.6 Shared React primitives + `useRxCollection` — DUP-2/HB-3, DUP-4, DUP-5, DUP-6, DUP-11
   - [ ] 2.7 Sheet migrations — DUP-7, DUP-8, + usePropSync/useFeedback/ConfirmSheet migrations across 19 files
   - [ ] 2.8 Domain hook extractions — HB-1, HB-2, HB-4, HB-5, HB-9, HB-10, HB-11, HB-12
   - [ ] 2.9 God-component splits — CB-1, CB-2, CB-3, CB-4, CB-5, CB-13, CB-14, DUP-3
@@ -34,14 +34,9 @@ BatchPlan:
 - [ ] Feature work — Phase 3.5 Todo List, 3.6 Diary, 3.7 Notifications, API integrations (paused)
 OpenQuestions: none
 Findings:
-- DUP-2 [High] `useTasks`/`useCategories`/`useDiary`/`useSettings` share RxDB subscription scaffold. → 2.6 (with HB-3)
 - DUP-3 [Medium] `CalendarBody.tsx` + `FriendCalendarView.tsx` duplicate slide rendering / `tasksByDate` memo / Embla plumbing. → 2.9
-- DUP-4 [Medium] Render-body reset copy-pasted in 11 files. → 2.6 primitive, 2.7 migrations
-- DUP-5 [Medium] Feedback toast pattern in 5 places. → 2.6 primitive, 2.7 migrations
-- DUP-6 [Medium] Delete-confirm nested `BottomSheet` in 3 places. → 2.6 primitive, 2.7 migrations
 - DUP-7 [Medium] `ImagePickerSheet.tsx` + `EditProfileImageSheet.tsx` near-identical. → 2.7
 - DUP-8 [Low] 5 form sheets share shape. → 2.7
-- DUP-11 [Low] Spinner markup inlined everywhere. → 2.6 primitive, 2.7 migrations
 - CB-1 [High] `PersonPane` mounts `useMessages(friendId)` per friend pane solely for `sendTaskReaction`. → 2.9 (structural fix lands in 2.8 with HB-9)
 - CB-2 [High] `DayViewSheet.tsx` god component. → 2.9
 - CB-3 [High] `ChatPage.tsx` god page. → 2.9
@@ -52,13 +47,12 @@ Findings:
 - CB-8 [Medium] `CategoryManagerSheet` mixes three patterns. → 2.10
 - CB-9 [Medium] `TaskItem` inline edit uses `autoFocus` inside Swiper/AnimatePresence/BottomSheet (BUG: §17 anti-pattern). → 2.10
 - CB-10 [Low] `MessageBubble` duplicates status/timestamp row JSX. → 2.10
-- CB-11 [Low] `CategoryManagerSheet.VisibilityIcon` duplicates DUP-10. → 2.10 (DUP-10 helper lands in 2.5)
+- CB-11 [Low] `CategoryManagerSheet.VisibilityIcon` duplicates DUP-10. → 2.10
 - CB-12 [Low] Owner-side `ReactionRow` toggle with no-op handler. → 2.10
 - CB-13 [Low] `ChatPage` three near-identical `toggleReaction` wrappers. → 2.9
 - CB-14 [Low] Dead cleanup inside `useCallback` in `DayViewSheet` (BUG: RAF never cancelled). → 2.9
 - HB-1 [High] `useMessages` three near-identical outgoing-message builders (~180 LOC). → 2.8
 - HB-2 [High] `useMessages.toggleReaction` ~110 lines mixing 7 concerns. → 2.8
-- HB-3 [High] DUP-2 confirmed at file level. → 2.6
 - HB-4 [Medium] `useFriendCalendar` duplicate fetch+classify paths. → 2.8
 - HB-5 [Medium] `useMyProfile` duplicate fetch paths. → 2.8
 - HB-9 [Medium] `useMessages` couples read (subscription) and write. → 2.8 (structural fix for CB-1)
@@ -73,6 +67,7 @@ Decisions:
 - [2026-09-17] Component boundary audit (2.3) — findings only. CB-2/CB-3 deferred until DUP-4/5/6 primitives land.
 - [2026-09-18] Hook boundary audit (2.4) — findings only.
 - [2026-09-18] Execution plan (2.5–2.10) locked. Ordering rationale: (a) lib-level first — lowest risk, enables hooks; (b) primitives before their migrations so sheets don't get refactored twice; (c) hook extractions before god-component splits so the extracted hooks are lean at extraction time; (d) cleanup last — some items (CB-6, CB-11) resolve automatically once earlier batches land. Real bug fixes are isolated in 2.5 (HB-6, HB-7), 2.9 (CB-5, CB-14), and 2.10 (CB-7, CB-9) — each is a one-to-three-line change inside a larger refactor, not a batch-defining scope.
+- [2026-09-18] 2.6 primitives are new files only — no migrations to existing hooks/components. `useRxCollection` is designed to accept `useSettings`'s map+cleanup shape via `map` and `beforeSubscribe` options; the four data hooks migrate in 2.8 (HB-3/DUP-2), not here. `usePropSync`, `useFeedback`, `ConfirmSheet`, `Spinner` migration to callsites lands in 2.7.
 Deferred:
 - OFF-3 local-image-queue half → separate batch.
 - Realtime channel-level reconnection backoff → future batch.
@@ -80,5 +75,5 @@ Deferred:
 - PWA update-prompt UI, `beforeinstallprompt`, `ProfilePage` Share wiring → Phase 3.5+.
 - Full WCAG AA audit → Phase 4.
 - Calendar grid semantics + A11Y-33 → Phase 4.
-LastApply: 2026-09-18 — lib: batch 2.5 lib-level extractions (DUP-1, DUP-9, DUP-10, DUP-12, HB-6, HB-7, HB-8)
-LastAuditSummary: Batch 2.5 shipped. Outbox factory extracted (DUP-1); formatRelative centralized (DUP-9); visibility icons centralized (DUP-10); empty constants centralized (DUP-12); useDiary/useSettings migrated to upsertLocalDoc (HB-6, HB-8); makeDiaryRowId closes the §6 cap violation on long uids (HB-7). All targeted tests green; 3 new test files added.
+LastApply: 2026-09-18 — hooks: batch 2.6 shared React primitives + useRxCollection (DUP-2/HB-3, DUP-4, DUP-5, DUP-6, DUP-11)
+LastAuditSummary: Batch 2.6 shipped. Five new primitives: `useRxCollection` (shared RxDB subscription scaffold for the four per-user data hooks), `usePropSync` (render-body reset pattern), `useFeedback` (2000ms auto-dismiss toast state), `ConfirmSheet` (nested locked destructive-confirm sheet), `Spinner` (canonical inline spinner). No existing hooks/components migrated — migrations land in 2.7 (sheets) and 2.8 (data hooks).
