@@ -1,10 +1,5 @@
-import React, {
-  useState,
-  useRef,
-  useEffect,
-  useMemo,
-  useCallback,
-} from 'react';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
+import useEmblaCarousel from 'embla-carousel-react';
 import {
   format,
   startOfMonth,
@@ -15,62 +10,17 @@ import {
   differenceInCalendarMonths,
   differenceInCalendarWeeks,
 } from 'date-fns';
-import useEmblaCarousel from 'embla-carousel-react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
-import { MonthView } from '../home/views/MonthView';
-import { WeekView } from '../home/views/WeekView';
 import { ViewToggle } from '../home/views/ViewToggle';
 import { FriendDayViewSheet } from './FriendDayViewSheet';
 import { ReplyComposerSheet } from '../messages/ReplyComposerSheet';
+import { CalendarCarousel } from '../home/views/CalendarCarousel';
+import { useTasksByDate } from '../../hooks/useTasksByDate';
+import { useFriendTaskReply } from '../../hooks/useFriendTaskReply';
 import type { TaskDocument, CategoryDocument } from '../../db/schema';
+import type { CalendarViewMode } from '../home/views/useCalendarState';
 
-type CalendarViewMode = 'month' | 'week';
-
-const SLIDES_EACH_SIDE = 12;
-const TOTAL_SLIDES = SLIDES_EACH_SIDE * 2 + 1;
-const CENTER_INDEX = SLIDES_EACH_SIDE;
-// Slides to render on each side of the active/focus index. Embla mounts
-// every child it receives; without this cap the 25-slide carousel mounts
-// 25 full month grids on cold load.
 const RENDER_WINDOW = 2;
-
-interface CalendarSlideProps {
-  date: Date;
-  viewMode: CalendarViewMode;
-  onDayClick: (date: Date) => void;
-  tasksByDate: Map<string, TaskDocument[]>;
-  categoriesMap: Record<string, { color: string; name: string }>;
-}
-
-const CalendarSlide = React.memo(
-  ({
-    date,
-    viewMode,
-    onDayClick,
-    tasksByDate,
-    categoriesMap,
-  }: CalendarSlideProps) => {
-    if (viewMode === 'month') {
-      return (
-        <MonthView
-          focusDate={date}
-          onDayClick={onDayClick}
-          tasksByDate={tasksByDate}
-          categoriesMap={categoriesMap}
-        />
-      );
-    }
-    return (
-      <WeekView
-        focusDate={date}
-        onDayClick={onDayClick}
-        tasksByDate={tasksByDate}
-        categoriesMap={categoriesMap}
-      />
-    );
-  }
-);
-CalendarSlide.displayName = 'CalendarSlide';
 
 interface FriendCalendarViewProps {
   friendName: string;
@@ -81,6 +31,9 @@ interface FriendCalendarViewProps {
   onReactToTask?: (task: TaskDocument, emoji: string) => void;
 }
 
+const formatDateStr = (date: Date): string =>
+  `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+
 export const FriendCalendarView: React.FC<FriendCalendarViewProps> = ({
   friendName,
   friendUserId,
@@ -90,226 +43,132 @@ export const FriendCalendarView: React.FC<FriendCalendarViewProps> = ({
   onReactToTask,
 }) => {
   const [viewMode, setViewMode] = useState<CalendarViewMode>('month');
-  const [focusDate, setFocusDate] = useState(new Date());
-  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
-  const [replyTask, setReplyTask] = useState<TaskDocument | null>(null);
-  const [replyColor, setReplyColor] = useState<string>('');
-  const [feedback, setFeedback] = useState<string | null>(null);
-
-  const categoriesMap = useMemo(() => {
-    return categories.reduce(
-      (acc: Record<string, { color: string; name: string }>, cat) => {
-        acc[cat.id] = { color: cat.color, name: cat.name };
-        return acc;
-      },
-      {}
-    );
-  }, [categories]);
-
-  // Single index of all tasks keyed by `yyyy-MM-dd`. Computed once per
-  // `tasks` identity and shared by every slide and DayCell — replaces the
-  // per-day `.filter()` that ran once per cell per slide.
-  const tasksByDate = useMemo(() => {
-    const map = new Map<string, TaskDocument[]>();
-    for (const t of tasks) {
-      const arr = map.get(t.date);
-      if (arr) arr.push(t);
-      else map.set(t.date, [t]);
-    }
-    return map;
-  }, [tasks]);
-
-  const [baseDate, setBaseDate] = useState(focusDate);
-  const isInternalSwipeRef = useRef(false);
-  const [prevViewMode, setPrevViewMode] = useState(viewMode);
-
-  if (prevViewMode !== viewMode) {
-    setPrevViewMode(viewMode);
-    setBaseDate(focusDate);
-  }
-
-  const slides = useMemo(() => {
-    const fn = viewMode === 'month' ? addMonths : addWeeks;
-    return Array.from({ length: TOTAL_SLIDES }, (_, i) =>
-      fn(baseDate, i - CENTER_INDEX)
-    );
-  }, [baseDate, viewMode]);
-
-  const [emblaActiveIndex, setEmblaActiveIndex] = useState(CENTER_INDEX);
+  const [focusDate] = useState<Date>(() => new Date());
+  const [activeIndex, setActiveIndex] = useState(30);
+  const [daySheetOpen, setDaySheetOpen] = useState(false);
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
 
   const [emblaRef, emblaApi] = useEmblaCarousel({
-    loop: false,
     align: 'start',
-    skipSnaps: false,
-    startIndex: CENTER_INDEX,
+    containScroll: 'trimSnaps',
+    startIndex: 30,
   });
 
-  // Track Embla's nearest slide index during both drag and programmatic
-  // scrolls so the render window follows the visible slide. Function-form
-  // setState bails out when the index is unchanged.
-  useEffect(() => {
-    if (!emblaApi) return;
-    const update = () => {
-      const progress = emblaApi.scrollProgress();
-      const raw = Math.round(progress * (TOTAL_SLIDES - 1));
-      const idx = Math.max(0, Math.min(TOTAL_SLIDES - 1, raw));
-      setEmblaActiveIndex((prev) => (prev === idx ? prev : idx));
-    };
-    update();
-    emblaApi.on('scroll', update);
-    emblaApi.on('reInit', update);
-    return () => {
-      emblaApi.off('scroll', update);
-      emblaApi.off('reInit', update);
-    };
-  }, [emblaApi]);
+  const isMonth = viewMode === 'month';
 
-  useEffect(() => {
-    if (!emblaApi) return;
-    if (isInternalSwipeRef.current) {
-      isInternalSwipeRef.current = false;
-      return;
+  const slides = useMemo(() => {
+    const base = startOfMonth(focusDate);
+    const result: Date[] = [];
+    for (let i = -30; i <= 30; i++) {
+      result.push(isMonth ? addMonths(base, i) : addWeeks(base, i));
     }
-    const offset =
-      viewMode === 'month'
-        ? differenceInCalendarMonths(focusDate, baseDate)
-        : differenceInCalendarWeeks(focusDate, baseDate);
-    const targetIndex = CENTER_INDEX + offset;
-    if (targetIndex < 0 || targetIndex >= TOTAL_SLIDES) return;
-    if (emblaApi.selectedScrollSnap() !== targetIndex) {
-      emblaApi.scrollTo(targetIndex, true);
+    return result;
+  }, [focusDate, isMonth]);
+
+  const centerIndex = useMemo(() => {
+    const base = startOfMonth(focusDate);
+    if (isMonth) {
+      return 30 + differenceInCalendarMonths(startOfMonth(focusDate), base);
     }
-  }, [emblaApi, focusDate, baseDate, viewMode]);
+    const targetWeek = startOfWeek(focusDate);
+    return 30 + differenceInCalendarWeeks(targetWeek, startOfWeek(base));
+  }, [focusDate, isMonth]);
+
+  const renderStart = Math.max(0, centerIndex - RENDER_WINDOW);
+  const renderEnd = Math.min(slides.length - 1, centerIndex + RENDER_WINDOW);
+
+  const tasksByDate = useTasksByDate(tasks);
+  const {
+    replyTask,
+    replyColor,
+    feedback,
+    handleReplyToTask,
+    handleReplySent,
+    closeReply,
+  } = useFriendTaskReply(tasks);
+
+  const categoriesMap = useMemo(() => {
+    const map: Record<string, { color: string; name: string }> = {};
+    for (const cat of categories) {
+      map[cat.id] = { color: cat.color, name: cat.name };
+    }
+    return map;
+  }, [categories]);
 
   useEffect(() => {
     if (!emblaApi) return;
     const onSelect = () => {
-      const index = emblaApi.selectedScrollSnap();
-      const offset = index - CENTER_INDEX;
-      const fn = viewMode === 'month' ? addMonths : addWeeks;
-      const newDate = fn(baseDate, offset);
-      const same =
-        viewMode === 'month'
-          ? differenceInCalendarMonths(newDate, focusDate) === 0
-          : differenceInCalendarWeeks(newDate, focusDate) === 0;
-      if (!same) {
-        isInternalSwipeRef.current = true;
-        setFocusDate(newDate);
-      }
+      setActiveIndex(emblaApi.selectedScrollSnap());
     };
     emblaApi.on('select', onSelect);
     return () => {
       emblaApi.off('select', onSelect);
     };
-  }, [emblaApi, baseDate, focusDate, viewMode]);
-
-  const handlePrev = () => emblaApi?.scrollPrev();
-  const handleNext = () => emblaApi?.scrollNext();
-
-  const handleToggle = () => {
-    if (viewMode === 'month') {
-      setFocusDate(startOfMonth(focusDate));
-      setViewMode('week');
-    } else {
-      setViewMode('month');
-    }
-  };
-
-  const weekStart = startOfWeek(focusDate, { weekStartsOn: 0 });
-  const weekEnd = endOfWeek(focusDate, { weekStartsOn: 0 });
-  const title =
-    viewMode === 'month'
-      ? format(focusDate, 'MMMM yyyy')
-      : `${format(weekStart, 'MMM d')} - ${format(weekEnd, 'MMM d, yyyy')}`;
+  }, [emblaApi]);
 
   const handleDayClick = useCallback((date: Date) => {
     setSelectedDate(date);
+    setDaySheetOpen(true);
   }, []);
 
-  const handleReplyToTask = useCallback(
-    (task: TaskDocument, color: string) => {
-      setReplyTask(task);
-      setReplyColor(color);
-    },
-    []
-  );
-
-  const handleReplySent = useCallback((msg: string) => {
-    setFeedback(msg);
-    setTimeout(() => setFeedback(null), 2000);
+  const handleCloseDaySheet = useCallback(() => {
+    setDaySheetOpen(false);
   }, []);
 
-  // The index that focusDate maps to. Combined with Embla's active index
-  // so programmatic jumps (view toggle) never render an empty slide for
-  // a frame.
-  const focusIndex = useMemo(() => {
-    const offset =
-      viewMode === 'month'
-        ? differenceInCalendarMonths(focusDate, baseDate)
-        : differenceInCalendarWeeks(focusDate, baseDate);
-    const raw = CENTER_INDEX + offset;
-    return Math.max(0, Math.min(TOTAL_SLIDES - 1, raw));
-  }, [focusDate, baseDate, viewMode]);
+  const handleToggleMode = useCallback(() => {
+    setViewMode((m) => (m === 'month' ? 'week' : 'month'));
+  }, []);
 
-  const renderStart = Math.max(
-    0,
-    Math.min(emblaActiveIndex, focusIndex) - RENDER_WINDOW
-  );
-  const renderEnd = Math.min(
-    TOTAL_SLIDES - 1,
-    Math.max(emblaActiveIndex, focusIndex) + RENDER_WINDOW
-  );
+  const handlePrev = useCallback(() => {
+    if (!emblaApi) return;
+    emblaApi.scrollPrev();
+  }, [emblaApi]);
+
+  const handleNext = useCallback(() => {
+    if (!emblaApi) return;
+    emblaApi.scrollNext();
+  }, [emblaApi]);
+
+  const activeDate = slides[activeIndex] ?? focusDate;
+  const title = isMonth
+    ? format(startOfMonth(activeDate), 'MMMM yyyy')
+    : `${format(startOfWeek(activeDate), 'MMM d')} - ${format(endOfWeek(activeDate), 'MMM d, yyyy')}`;
 
   return (
-    <div className="flex flex-col h-full animate-in fade-in duration-300">
-      <div className="px-4 py-3 flex items-center justify-between border-b border-[#333333]">
-        <h2 className="text-lg font-bold text-white transition-all duration-200">
-          {title}
-        </h2>
-        <div className="flex items-center gap-2">
-          <ViewToggle activeMode={viewMode} onToggle={handleToggle} />
-          <button
-            onClick={handlePrev}
-            className="p-1.5 rounded-lg bg-[#1E1E1E] border border-[#333333] text-gray-400 hover:text-white hover:bg-[#2A2A2A] transition-colors"
-            aria-label="Previous"
-          >
-            <ChevronLeft size={16} />
-          </button>
-          <button
-            onClick={handleNext}
-            className="p-1.5 rounded-lg bg-[#1E1E1E] border border-[#333333] text-gray-400 hover:text-white hover:bg-[#2A2A2A] transition-colors"
-            aria-label="Next"
-          >
-            <ChevronRight size={16} />
-          </button>
-        </div>
+    <div className="flex flex-col h-full">
+      <div className="flex items-center justify-between px-4 py-2">
+        <button
+          onClick={handlePrev}
+          className="p-2 text-gray-400"
+          aria-label="Previous"
+        >
+          <ChevronLeft size={20} />
+        </button>
+        <span className="text-sm font-medium">{title}</span>
+        <ViewToggle activeMode={viewMode} onToggle={handleToggleMode} />
+        <button
+          onClick={handleNext}
+          className="p-2 text-gray-400"
+          aria-label="Next"
+        >
+          <ChevronRight size={20} />
+        </button>
       </div>
-      <div className="flex-1 overflow-hidden py-2" ref={emblaRef}>
-        <div className="flex h-full" style={{ touchAction: 'pan-y' }}>
-          {slides.map((date, i) => (
-            <div
-              key={i}
-              className="flex-shrink-0 h-full w-full"
-              style={{ flex: '0 0 100%', minWidth: 0 }}
-            >
-              {i >= renderStart && i <= renderEnd ? (
-                <CalendarSlide
-                  date={date}
-                  viewMode={viewMode}
-                  onDayClick={handleDayClick}
-                  tasksByDate={tasksByDate}
-                  categoriesMap={categoriesMap}
-                />
-              ) : null}
-            </div>
-          ))}
-        </div>
-      </div>
+      <CalendarCarousel
+        slides={slides}
+        renderStart={renderStart}
+        renderEnd={renderEnd}
+        emblaRef={emblaRef}
+        viewMode={viewMode}
+        onDayClick={handleDayClick}
+        tasksByDate={tasksByDate}
+        categoriesMap={categoriesMap}
+      />
       <FriendDayViewSheet
-        isOpen={!!selectedDate}
-        onClose={() => setSelectedDate(null)}
+        isOpen={daySheetOpen}
+        onClose={handleCloseDaySheet}
         date={selectedDate}
-        tasks={tasks}
+        tasks={tasksByDate.get(formatDateStr(selectedDate)) ?? []}
         categories={categories}
         friendName={friendName}
         currentUserId={currentUserId}
@@ -318,7 +177,7 @@ export const FriendCalendarView: React.FC<FriendCalendarViewProps> = ({
       />
       <ReplyComposerSheet
         isOpen={!!replyTask}
-        onClose={() => setReplyTask(null)}
+        onClose={closeReply}
         task={replyTask}
         categoryColor={replyColor}
         friendId={friendUserId}
@@ -326,7 +185,7 @@ export const FriendCalendarView: React.FC<FriendCalendarViewProps> = ({
         onSent={handleReplySent}
       />
       {feedback && (
-        <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[70] bg-[#2A2A2A] border border-[#444444] text-white text-sm px-5 py-2.5 rounded-full shadow-lg backdrop-blur-md animate-in fade-in slide-in-from-bottom-2 duration-200">
+        <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[70] bg-[#2A2A2A] text-white text-sm px-4 py-2 rounded-lg shadow-lg">
           {feedback}
         </div>
       )}

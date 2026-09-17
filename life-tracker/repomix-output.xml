@@ -125,7 +125,6 @@ src/
       ChangePasswordSheet.tsx
       EditDescriptionSheet.tsx
       EditNameSheet.tsx
-      EditProfileImageSheet.tsx
       ExportDataSheet.tsx
       SetUsernameSheet.tsx
       SyncStatusSheet.tsx
@@ -134,12 +133,17 @@ src/
       BottomSheet.tsx
       Button.tsx
       ColorPalettePicker.tsx
+      ConfirmSheet.tsx
       ErrorBoundary.tsx
       Input.tsx
       OfflineBanner.tsx
       SettingsRow.tsx
+      SheetErrorBanner.tsx
+      SheetSaveButton.tsx
+      Spinner.tsx
   constants/
     colors.ts
+    empty.ts
   db/
     database.ts
     migrations.ts
@@ -158,28 +162,39 @@ src/
     useCategories.ts
     useConversations.ts
     useDiary.ts
+    useFeedback.ts
     useFocusTrap.ts
     useFriendCarousel.ts
     useFriends.ts
     useImageCompression.ts
+    useMessageActions.ts
     useMessages.ts
     useMyProfile.ts
     useProfile.ts
     useProfileLookup.ts
+    usePropSync.ts
+    useRxCollection.ts
     useSettings.ts
+    useSheetReset.ts
     useTaskImage.ts
     useTasks.ts
+    useThreadMessages.ts
     useUnreadMessages.ts
   lib/
     appwrite.ts
     authEvents.ts
     exportData.ts
+    format.ts
     friendCache.ts
     friendData.ts
     imageCache.ts
+    localUpsert.ts
     messageActionQueue.ts
+    messageComposer.ts
     messageDelivery.ts
+    messageReactions.ts
     mockData.ts
+    outbox.ts
     reactionUtils.ts
     sdk.ts
     settingsRowId.ts
@@ -243,8 +258,10 @@ tests/
     react.ts
   unit/
     appwriteParity.test.ts
+    format.test.ts
     imageCache.test.ts
     messageActionQueue.test.ts
+    outbox.test.ts
     reactionUtils.test.ts
     settingsRowId.test.ts
     socialOffline.test.ts
@@ -621,14 +638,12 @@ import {
   Image as ImageIcon,
   MessageSquare,
   Heart,
-  Eye,
-  EyeOff,
-  Users,
 } from 'lucide-react';
 import { BottomSheet } from '../ui/BottomSheet';
 import { ReactionRow } from '../messages/ReactionRow';
 import { EmojiPickerSheet } from '../messages/EmojiPickerSheet';
 import { parseReactions } from '../../lib/reactionUtils';
+import { visibilityIcon } from '../../lib/visibility';
 import type { TaskDocument, CategoryDocument } from '../../db/schema';
 ⋮----
 type Visibility = 'private' | 'followers' | 'public';
@@ -644,8 +659,6 @@ interface FriendDayViewSheetProps {
   onReplyToTask?: (task: TaskDocument, categoryColor: string) => void;
   onReactToTask?: (task: TaskDocument, emoji: string) => void;
 }
-⋮----
-function getVisibilityIcon(v: Visibility)
 ⋮----
 const handlePickEmoji = (emoji: string) =>
 ⋮----
@@ -666,6 +679,7 @@ import { FriendDayViewSheet } from '../../friend/FriendDayViewSheet';
 import { ReplyComposerSheet } from '../../messages/ReplyComposerSheet';
 import type { TaskDocument, CategoryDocument } from '../../../db/schema';
 import type { CalendarViewMode } from './useCalendarState';
+import { EMPTY_CATEGORIES } from '../../../constants/empty';
 ⋮----
 interface CalendarSlideProps {
   date: Date;
@@ -726,8 +740,9 @@ export const CalendarHeader: React.FC<CalendarHeaderProps> = ({
 
 <file path="src/components/home/views/CategorySection.tsx">
 import React, { useState, useRef, useEffect, useId } from 'react';
-import { Plus, Eye, EyeOff, Users } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import { TaskItem } from './TaskItem';
+import { visibilityIcon } from '../../../lib/visibility';
 import type { TaskDocument } from '../../../db/schema';
 ⋮----
 type Visibility = 'private' | 'followers' | 'public';
@@ -754,8 +769,6 @@ const handleAdd = () =>
 ⋮----
 const handleKeyDown = (e: React.KeyboardEvent) =>
 ⋮----
-const getVisibilityIcon = (v: Visibility) =>
-⋮----
 onToggle=
 </file>
 
@@ -764,6 +777,7 @@ import React, { useState } from 'react';
 import { BottomSheet } from '../../ui/BottomSheet';
 import { Button } from '../../ui/Button';
 import { Calendar } from 'lucide-react';
+import { usePropSync } from '../../../hooks/usePropSync';
 import type { TaskDocument } from '../../../db/schema';
 ⋮----
 interface DatePickerSheetProps {
@@ -808,6 +822,7 @@ import type { Swiper as SwiperClass } from 'swiper';
 import { AnimatePresence } from 'framer-motion';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { BottomSheet } from '../../ui/BottomSheet';
+import { ConfirmSheet } from '../../ui/ConfirmSheet';
 import { CategorySection } from './CategorySection';
 import { TaskActionSheet } from './TaskActionSheet';
 import { MemoSheet } from './MemoSheet';
@@ -819,7 +834,9 @@ import { useTasks } from '../../../hooks/useTasks';
 import { useCategories } from '../../../hooks/useCategories';
 import { useAuth } from '../../../hooks/useAuth';
 import { useTaskImage } from '../../../hooks/useTaskImage';
+import { useFeedback } from '../../../hooks/useFeedback';
 import { deleteImage } from '../../../lib/storage';
+import { EMPTY_TASKS } from '../../../constants/empty';
 import type { CategoryDocument, TaskDocument } from '../../../db/schema';
 ⋮----
 interface DayViewSheetProps {
@@ -865,18 +882,15 @@ const handleRequestDeletePhoto = () =>
 const handleConfirmDeletePhoto = async () =>
 ⋮----
 const handleCancelDeletePhoto = () =>
-⋮----
-// Prev/next drive the same slideTo path the swipe handler uses, so the
-// two navigation paths cannot diverge. isProgrammaticMoveRef suppresses
-// the swipe handler's own onDateChange; the button calls onDateChange
 </file>
 
 <file path="src/components/home/views/EditTaskSheet.tsx">
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import { BottomSheet } from '../../ui/BottomSheet';
 import { Button } from '../../ui/Button';
 import { Input } from '../../ui/Input';
 import { Save } from 'lucide-react';
+import { usePropSync } from '../../../hooks/usePropSync';
 import type { TaskDocument } from '../../../db/schema';
 ⋮----
 interface EditTaskSheetProps {
@@ -904,21 +918,22 @@ onChange=
 import React, { useRef, useState } from 'react';
 import { BottomSheet } from '../../ui/BottomSheet';
 import { Button } from '../../ui/Button';
+import { SheetErrorBanner } from '../../ui/SheetErrorBanner';
 import { Upload, X, Loader2 } from 'lucide-react';
 import { uploadImage } from '../../../lib/storage';
-import type { TaskDocument } from '../../../db/schema';
+import { useSheetReset } from '../../../hooks/useSheetReset';
 ⋮----
 interface ImagePickerSheetProps {
   isOpen: boolean;
   onClose: () => void;
-  task: TaskDocument | null;
-  onSave: (imageFileId: string) => void;
-  onRemove?: () => void;
+  variant: 'task' | 'profile';
+  hasExistingImage: boolean;
+  title: string;
+  onSave: (fileId: string) => void;
+  onRemove: () => void;
 }
 ⋮----
 const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) =>
-⋮----
-// Reset input so the same file can be selected again if needed
 ⋮----
 const handleRemove = () =>
 </file>
@@ -941,8 +956,9 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
 </file>
 
 <file path="src/components/home/views/MemoSheet.tsx">
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useRef, useEffect } from 'react';
 import { BottomSheet } from '../../ui/BottomSheet';
+import { usePropSync } from '../../../hooks/usePropSync';
 import type { TaskDocument } from '../../../db/schema';
 ⋮----
 interface MemoSheetProps {
@@ -976,6 +992,7 @@ import {
   isSameMonth,
 } from 'date-fns';
 import { DayCell } from './DayCell';
+import { EMPTY_TASKS } from '../../../constants/empty';
 import type { TaskDocument } from '../../../db/schema';
 ⋮----
 interface MonthViewProps {
@@ -1123,11 +1140,12 @@ onToggle=
 <file path="src/components/home/views/TaskVisibilitySheet.tsx">
 import React from 'react';
 import { BottomSheet } from '../../ui/BottomSheet';
-import { EyeOff, Users, Globe, Check } from 'lucide-react';
+import { Check } from 'lucide-react';
 import {
   resolveVisibility,
   isInheriting,
   labelForVisibility,
+  visibilityOptionIcon,
   type TaskVisibility,
 } from '../../../lib/visibility';
 import type { TaskDocument, CategoryDocument } from '../../../db/schema';
@@ -1206,6 +1224,7 @@ import {
   eachDayOfInterval,
 } from 'date-fns';
 import { DayCell } from './DayCell';
+import { EMPTY_TASKS } from '../../../constants/empty';
 import type { TaskDocument } from '../../../db/schema';
 ⋮----
 interface WeekViewProps {
@@ -1441,11 +1460,11 @@ import { ChevronRight } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Avatar } from '../ui/Avatar';
 import { useTaskImage } from '../../hooks/useTaskImage';
+import { formatRelative } from '../../lib/format';
 import type { Conversation } from '../../hooks/useConversations';
 interface ConversationRowProps {
   conversation: Conversation;
 }
-function formatRelative(iso: string): string
 const ConversationRowComponent: React.FC<ConversationRowProps> = ({
   conversation,
 }) =>
@@ -1712,14 +1731,12 @@ import {
   Trash2,
   Save,
   X,
-  Eye,
-  EyeOff,
-  Users,
   RotateCcw,
   GripVertical,
 } from 'lucide-react';
 import { useCategories } from '../../hooks/useCategories';
 import { useTasks } from '../../hooks/useTasks';
+import { visibilityIcon } from '../../lib/visibility';
 import type { CategoryDocument } from '../../db/schema';
 ⋮----
 type Visibility = 'private' | 'followers' | 'public';
@@ -1758,11 +1775,12 @@ onClick=
 </file>
 
 <file path="src/components/modals/ChangeEmailSheet.tsx">
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import { BottomSheet } from '../ui/BottomSheet';
-import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
-import { Save } from 'lucide-react';
+import { SheetErrorBanner } from '../ui/SheetErrorBanner';
+import { SheetSaveButton } from '../ui/SheetSaveButton';
+import { useSheetReset } from '../../hooks/useSheetReset';
 import { useAuth } from '../../hooks/useAuth';
 ⋮----
 interface ChangeEmailSheetProps {
@@ -1772,16 +1790,24 @@ interface ChangeEmailSheetProps {
   currentEmail: string;
 }
 ⋮----
-// Render-body reset pattern (React 18/19 compliant, prevents cascading renders)
+export const ChangeEmailSheet: React.FC<ChangeEmailSheetProps> = ({
+  isOpen,
+  onClose,
+  onSuccess,
+  currentEmail,
+}) =>
 ⋮----
 const handleSave = async () =>
+⋮----
+onPointerDown=
 </file>
 
 <file path="src/components/modals/ChangePasswordSheet.tsx">
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import { BottomSheet } from '../ui/BottomSheet';
-import { Button } from '../ui/Button';
-import { Save } from 'lucide-react';
+import { SheetErrorBanner } from '../ui/SheetErrorBanner';
+import { SheetSaveButton } from '../ui/SheetSaveButton';
+import { useSheetReset } from '../../hooks/useSheetReset';
 import { useAuth } from '../../hooks/useAuth';
 ⋮----
 interface ChangePasswordSheetProps {
@@ -1790,18 +1816,24 @@ interface ChangePasswordSheetProps {
   onSuccess: () => void;
 }
 ⋮----
-// Render-body reset pattern (React 18/19 compliant, prevents cascading renders)
+export const ChangePasswordSheet: React.FC<ChangePasswordSheetProps> = ({
+  isOpen,
+  onClose,
+  onSuccess,
+}) =>
 ⋮----
 const handleSave = async () =>
+⋮----
+onPointerDown=
 ⋮----
 onChange=
 </file>
 
 <file path="src/components/modals/EditDescriptionSheet.tsx">
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import { BottomSheet } from '../ui/BottomSheet';
-import { Button } from '../ui/Button';
-import { Save } from 'lucide-react';
+import { SheetSaveButton } from '../ui/SheetSaveButton';
+import { useSheetReset } from '../../hooks/useSheetReset';
 ⋮----
 interface EditDescriptionSheetProps {
   isOpen: boolean;
@@ -1810,15 +1842,22 @@ interface EditDescriptionSheetProps {
   onSave: (description: string) => void;
 }
 ⋮----
+export const EditDescriptionSheet: React.FC<EditDescriptionSheetProps> = ({
+  isOpen,
+  onClose,
+  currentDescription,
+  onSave,
+}) =>
+⋮----
 const handleSave = async () =>
 </file>
 
 <file path="src/components/modals/EditNameSheet.tsx">
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import { BottomSheet } from '../ui/BottomSheet';
-import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
-import { Save } from 'lucide-react';
+import { SheetSaveButton } from '../ui/SheetSaveButton';
+import { useSheetReset } from '../../hooks/useSheetReset';
 ⋮----
 interface EditNameSheetProps {
   isOpen: boolean;
@@ -1827,35 +1866,25 @@ interface EditNameSheetProps {
   onSave: (name: string) => void;
 }
 ⋮----
+export const EditNameSheet: React.FC<EditNameSheetProps> = ({
+  isOpen,
+  onClose,
+  currentName,
+  onSave,
+}) =>
+⋮----
 const handleSave = async () =>
 ⋮----
 onChange=
-</file>
-
-<file path="src/components/modals/EditProfileImageSheet.tsx">
-import React, { useRef, useState } from 'react';
-import { BottomSheet } from '../ui/BottomSheet';
-import { Button } from '../ui/Button';
-import { Upload, X, Loader2 } from 'lucide-react';
-import { uploadImage } from '../../lib/storage';
-⋮----
-interface EditProfileImageSheetProps {
-  isOpen: boolean;
-  onClose: () => void;
-  currentImageId: string;
-  onSave: (fileId: string) => void;
-  onRemove: () => void;
-}
-⋮----
-const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) =>
-⋮----
-const handleRemove = () =>
 </file>
 
 <file path="src/components/modals/ExportDataSheet.tsx">
 import React, { useState } from 'react';
 import { BottomSheet } from '../ui/BottomSheet';
 import { Button } from '../ui/Button';
+import { SheetErrorBanner } from '../ui/SheetErrorBanner';
+import { Spinner } from '../ui/Spinner';
+import { useSheetReset } from '../../hooks/useSheetReset';
 import { FileDown, Loader2, Image as ImageIcon } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { exportUserData, triggerDownload } from '../../lib/exportData';
@@ -1866,21 +1895,22 @@ interface ExportDataSheetProps {
   onSuccess?: (message: string) => void;
 }
 ⋮----
-// Render-body reset pattern
+export const ExportDataSheet: React.FC<ExportDataSheetProps> = ({
+  isOpen,
+  onClose,
+  onSuccess,
+}) =>
 ⋮----
 const handleExport = async () =>
-⋮----
-// OFF-12: surface photos that could not be fetched (offline, missing,
-// or a failed blob fetch) so the user knows the export is incomplete
-// and can re-run online.
 </file>
 
 <file path="src/components/modals/SetUsernameSheet.tsx">
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import { BottomSheet } from '../ui/BottomSheet';
-import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
-import { Save } from 'lucide-react';
+import { SheetErrorBanner } from '../ui/SheetErrorBanner';
+import { SheetSaveButton } from '../ui/SheetSaveButton';
+import { useSheetReset } from '../../hooks/useSheetReset';
 import { useMyProfile } from '../../hooks/useMyProfile';
 import { useAuth } from '../../hooks/useAuth';
 import { isOfflineError } from '../../lib/authEvents';
@@ -1891,14 +1921,13 @@ interface SetUsernameSheetProps {
   onSuccess?: (username: string) => void;
 }
 ⋮----
+export const SetUsernameSheet: React.FC<SetUsernameSheetProps> = ({
+  isOpen,
+  onClose,
+  onSuccess,
+}) =>
+⋮----
 const handleSave = async () =>
-⋮----
-// Could not determine: session expired, network drop, or server
-// error. If it was a 401, the global auth redirect is already
-// in flight. Otherwise, let the user retry.
-⋮----
-// Distinguish "we couldn't reach the server" from "the save itself
-// failed." The outbox has already queued the write, so the profile
 ⋮----
 onPointerDown=
 </file>
@@ -1907,6 +1936,7 @@ onPointerDown=
 import React, { useEffect, useState } from 'react';
 import { CheckCircle2, AlertCircle, RefreshCw } from 'lucide-react';
 import { BottomSheet } from '../ui/BottomSheet';
+import { formatRelative } from '../../lib/format';
 import {
   getSyncStatus,
   subscribeToSyncStatus,
@@ -1917,7 +1947,6 @@ interface SyncStatusSheetProps {
   isOpen: boolean;
   onClose: () => void;
 }
-function formatRelative(iso: string | null): string
 ⋮----
 const handleSyncNow = () =>
 </file>
@@ -1983,6 +2012,25 @@ interface ColorPalettePickerProps {
 }
 </file>
 
+<file path="src/components/ui/ConfirmSheet.tsx">
+import React from 'react';
+import { BottomSheet } from './BottomSheet';
+import { Spinner } from './Spinner';
+⋮----
+interface ConfirmSheetProps {
+  isOpen: boolean;
+  onClose: () => void;
+  title: string;
+  message: string;
+  confirmLabel?: string;
+  cancelLabel?: string;
+  destructive?: boolean;
+  isProcessing?: boolean;
+  processingLabel?: string;
+  onConfirm: () => void;
+}
+</file>
+
 <file path="src/components/ui/ErrorBoundary.tsx">
 import { Component, type ErrorInfo, type ReactNode } from 'react';
 import { AlertTriangle } from 'lucide-react';
@@ -2042,6 +2090,48 @@ interface SettingsRowProps {
 }
 </file>
 
+<file path="src/components/ui/SheetErrorBanner.tsx">
+import React from 'react';
+⋮----
+interface SheetErrorBannerProps {
+  message: string | null | undefined;
+}
+⋮----
+export const SheetErrorBanner: React.FC<SheetErrorBannerProps> = ({
+  message,
+}) =>
+</file>
+
+<file path="src/components/ui/SheetSaveButton.tsx">
+import React from 'react';
+import { Save } from 'lucide-react';
+import { Button } from './Button';
+import { Spinner } from './Spinner';
+⋮----
+interface SheetSaveButtonProps {
+  onClick: () => void;
+  disabled?: boolean;
+  isSaving: boolean;
+  label: string;
+}
+</file>
+
+<file path="src/components/ui/Spinner.tsx">
+import React from 'react';
+⋮----
+interface SpinnerProps {
+  size?: string;
+  color?: string;
+  className?: string;
+}
+⋮----
+export const Spinner: React.FC<SpinnerProps> = ({
+  size = 'w-6 h-6',
+  color = 'border-white',
+  className = '',
+}) =>
+</file>
+
 <file path="src/constants/colors.ts">
 export interface ColorPalette {
   id: string;
@@ -2052,6 +2142,16 @@ export interface ColorPalette {
 export const getAllAvailableColors = (): string[] =>
 ⋮----
 export const isValidPredefinedColor = (hex: string): boolean =>
+</file>
+
+<file path="src/constants/empty.ts">
+import type {
+  TaskDocument,
+  CategoryDocument,
+  DiaryDocument,
+  MessageDocument,
+  FriendshipDocument,
+} from '../db/schema';
 </file>
 
 <file path="src/db/database.ts">
@@ -2509,14 +2609,13 @@ export function useBubbleGestures(
 </file>
 
 <file path="src/hooks/useCategories.ts">
-import { useState, useEffect, useCallback } from 'react';
+import { useCallback } from 'react';
 import { getDatabase } from '../db/database';
 import { useAuth } from './useAuth';
+import { useRxCollection } from './useRxCollection';
 import type { CategoryDocument } from '../db/schema';
 ⋮----
 export function useCategories()
-⋮----
-async function init()
 </file>
 
 <file path="src/hooks/useConversations.ts">
@@ -2533,14 +2632,21 @@ export function useConversations(): UseConversationsReturn
 </file>
 
 <file path="src/hooks/useDiary.ts">
-import { useState, useEffect, useCallback } from 'react';
+import { useCallback } from 'react';
 import { getDatabase } from '../db/database';
 import { useAuth } from './useAuth';
+import { useRxCollection } from './useRxCollection';
+import { makeDiaryRowId } from '../lib/settingsRowId';
+import { upsertLocalDoc } from '../lib/localUpsert';
 import type { DiaryDocument } from '../db/schema';
 ⋮----
 export function useDiary()
+</file>
+
+<file path="src/hooks/useFeedback.ts">
+import { useCallback, useEffect, useRef, useState } from 'react';
 ⋮----
-async function init()
+export function useFeedback(durationMs: number = DEFAULT_DURATION_MS)
 </file>
 
 <file path="src/hooks/useFocusTrap.ts">
@@ -2596,6 +2702,16 @@ export interface UseFriendCarouselReturn {
 }
 ⋮----
 export function useFriendCarousel(): UseFriendCarouselReturn
+⋮----
+// Mark every candidate as attempted up front so a re-render mid-
+// flight does not re-queue the same friends.
+⋮----
+// Chunked parallel backfill: up to BIO_BACKFILL_CONCURRENCY
+// fetches in flight at once. A failed fetch is logged and
+// swallowed (its `attemptedBiosRef` entry stays set, so it is not
+// retried this session).
+⋮----
+const runOne = async (): Promise<void> =>
 </file>
 
 <file path="src/hooks/useFriends.ts">
@@ -2619,33 +2735,58 @@ export interface UseImageCompressionReturn {
 export function useImageCompression(): UseImageCompressionReturn
 </file>
 
-<file path="src/hooks/useMessages.ts">
-import { useState, useEffect, useCallback, useRef } from 'react';
+<file path="src/hooks/useMessageActions.ts">
+import { useCallback, useRef } from 'react';
 import { getDatabase } from '../db/database';
 import { useAuth } from './useAuth';
 import { makeThreadId, makeRecipientRowId } from '../lib/threads';
 import {
-  deliverPendingMessages,
   markReadOnRemote,
   unsendOnRemote,
-  reactOnRemote,
 } from '../lib/messageDelivery';
 import {
-  parseReactions,
-  stringifyReactions,
-  applyReactionDelta,
-  hasUserReacted,
-} from '../lib/reactionUtils';
-import type { MessageDocument, TaskDocument } from '../db/schema';
-export interface ReplyContext {
-  id: string;
-  senderId: string;
-  content: string;
+  sendTextMessage,
+  sendTaskReplyMessage,
+  sendTaskReactionMessage,
+  type ReplyContext,
+} from '../lib/messageComposer';
+import {
+  toggleReactionOnMessage,
+  type ToggleReactionResult,
+} from '../lib/messageReactions';
+import type { TaskDocument } from '../db/schema';
+⋮----
+export interface UseMessageActionsReturn {
+  sendMessage: (content: string, replyTo?: ReplyContext) => Promise<void>;
+  sendTaskReply: (
+    task: TaskDocument,
+    content: string,
+    categoryColor: string
+  ) => Promise<void>;
+  sendTaskReaction: (
+    task: TaskDocument,
+    emoji: string,
+    categoryColor: string
+  ) => Promise<void>;
+  markAllRead: () => Promise<void>;
+  unsendMessage: (id: string) => Promise<void>;
+  toggleReaction: (id: string, emoji: string) => Promise<ToggleReactionResult>;
 }
+⋮----
+export function useMessageActions(
+  friendId: string | null
+): UseMessageActionsReturn
+</file>
+
+<file path="src/hooks/useMessages.ts">
+import { useThreadMessages } from './useThreadMessages';
+import { useMessageActions } from './useMessageActions';
+import type { MessageDocument, TaskDocument } from '../db/schema';
+⋮----
 export interface UseMessagesReturn {
   messages: MessageDocument[];
   isLoading: boolean;
-  sendMessage: (content: string, replyTo?: ReplyContext) => Promise<void>;
+  sendMessage: (content: string, replyTo?: import('./useMessageActions').ReplyContext) => Promise<void>;
   sendTaskReply: (
     task: TaskDocument,
     content: string,
@@ -2660,7 +2801,7 @@ export interface UseMessagesReturn {
   unsendMessage: (id: string) => Promise<void>;
   toggleReaction: (id: string, emoji: string) => Promise<'ok' | 'timeout'>;
 }
-function truncateForSnapshot(s: string, max = 100): string
+⋮----
 export function useMessages(friendId: string | null): UseMessagesReturn
 </file>
 
@@ -2720,16 +2861,83 @@ export function useProfileLookup(debounceMs = 300): UseProfileLookupReturn
 // Render-body reset on user switch (canonical pattern from conventions §9)
 </file>
 
-<file path="src/hooks/useSettings.ts">
-import { useState, useEffect, useCallback } from 'react';
+<file path="src/hooks/usePropSync.ts">
+import { useState } from 'react';
+⋮----
+export function usePropSync<T>(propValue: T, onChange: () => void): void
+</file>
+
+<file path="src/hooks/useRxCollection.ts">
+import { useEffect, useState } from 'react';
 import { getDatabase } from '../db/database';
 import { useAuth } from './useAuth';
+import type { AppDatabaseCollections } from '../db/database';
+⋮----
+type CollectionName = keyof AppDatabaseCollections;
+⋮----
+interface UseRxCollectionOptions<TDoc, TData> {
+  collection: CollectionName;
+  selector: Record<string, unknown>;
+  sort?: Array<Record<string, 'asc' | 'desc'>>;
+  map?: (docs: TDoc[]) => TData;
+  beforeSubscribe?: (userId: string) => Promise<void>;
+  logPrefix: string;
+}
+⋮----
+interface UseRxCollectionResult<TData> {
+  data: TData;
+  isLoading: boolean;
+}
+⋮----
+interface LocalQuery {
+  $: {
+    subscribe: (cb: (docs: unknown[]) => void) => {
+      unsubscribe: () => void;
+    };
+  };
+}
+interface LocalCollectionHandle {
+  find: (query: {
+    selector: Record<string, unknown>;
+    sort?: Array<Record<string, 'asc' | 'desc'>>;
+  }) => LocalQuery;
+}
+⋮----
+export function useRxCollection<
+  TDoc,
+  TData = TDoc[]
+>({
+  collection,
+  selector,
+  sort,
+  map,
+  beforeSubscribe,
+  logPrefix,
+}: UseRxCollectionOptions<TDoc, TData>): UseRxCollectionResult<TData>
+⋮----
+async function init()
+</file>
+
+<file path="src/hooks/useSettings.ts">
+import { useCallback } from 'react';
+import { getDatabase } from '../db/database';
+import { useAuth } from './useAuth';
+import { useRxCollection } from './useRxCollection';
 import { makeSettingsRowId, MAX_ROW_ID_LENGTH } from '../lib/settingsRowId';
+import { upsertLocalDoc } from '../lib/localUpsert';
 import type { SettingsDocument } from '../db/schema';
+⋮----
+function mapSettingsDocs(docs: SettingsDocument[]): Record<string, unknown>
 ⋮----
 export function useSettings()
 ⋮----
-async function init()
+// Purge any legacy settings rows whose row id exceeds the §6 cap.
+</file>
+
+<file path="src/hooks/useSheetReset.ts">
+import { usePropSync } from './usePropSync';
+⋮----
+export function useSheetReset(isOpen: boolean, reset: () => void): void
 </file>
 
 <file path="src/hooks/useTaskImage.ts">
@@ -2762,14 +2970,30 @@ export function useTaskImage(fileId: string | undefined)
 </file>
 
 <file path="src/hooks/useTasks.ts">
-import { useState, useEffect, useCallback } from 'react';
+import { useCallback } from 'react';
 import { getDatabase } from '../db/database';
-import type { TaskDocument } from '../db/schema';
 import { useAuth } from './useAuth';
+import { useRxCollection } from './useRxCollection';
+import type { TaskDocument } from '../db/schema';
 ⋮----
 export function useTasks()
+</file>
+
+<file path="src/hooks/useThreadMessages.ts">
+import { useState, useEffect } from 'react';
+import { getDatabase } from '../db/database';
+import { useAuth } from './useAuth';
+import { makeThreadId } from '../lib/threads';
+import type { MessageDocument } from '../db/schema';
 ⋮----
-async function init()
+export interface UseThreadMessagesReturn {
+  messages: MessageDocument[];
+  isLoading: boolean;
+}
+⋮----
+export function useThreadMessages(
+  friendId: string | null
+): UseThreadMessagesReturn
 </file>
 
 <file path="src/hooks/useUnreadMessages.ts">
@@ -2895,6 +3119,10 @@ const report = (msg: string) =>
 export function triggerDownload(blob: Blob, filename: string): void
 </file>
 
+<file path="src/lib/format.ts">
+export function formatRelative(iso: string | null, suffix = ''): string
+</file>
+
 <file path="src/lib/friendCache.ts">
 import type { TaskDocument, CategoryDocument } from '../db/schema';
 ⋮----
@@ -2972,13 +3200,24 @@ export async function cacheImage(fileId: string, blob: Blob): Promise<void>
 export async function deleteCachedImage(fileId: string): Promise<void>
 </file>
 
+<file path="src/lib/localUpsert.ts">
+import { getDatabase } from '../db/database';
+⋮----
+export async function upsertLocalDoc(
+  collectionName: 'tasks' | 'categories' | 'diary' | 'settings' | 'friendships' | 'messages',
+  id: string,
+  doc: object
+): Promise<void>
+</file>
+
 <file path="src/lib/messageActionQueue.ts">
-import { isUnauthorizedError } from './authEvents';
+import { createPersistentOutbox } from './outbox';
 ⋮----
 export interface MessageActionSender {
   (payload: Record<string, unknown>): Promise<Record<string, unknown>>;
 }
-interface QueuedEntry {
+⋮----
+export interface MessageActionQueuedEntry {
   id: string;
   userId: string;
   action: string;
@@ -2989,8 +3228,6 @@ interface QueuedEntry {
 ⋮----
 export function setMessageActionSender(fn: MessageActionSender): void
 ⋮----
-function load(): void
-function save(): void
 export function enqueueMessageAction(
   userId: string,
   input: {
@@ -2999,12 +3236,78 @@ export function enqueueMessageAction(
     dedupKey: string;
   }
 ): void
-function isPermanentFailure(err: unknown): boolean
-function removeEntry(entry: QueuedEntry): void
+⋮----
 export async function flushMessageActionQueue(userId: string): Promise<void>
+⋮----
 export function clearMessageActionQueue(userId?: string): void
+⋮----
 export function getMessageActionQueueSize(userId?: string): number
+⋮----
 export function __resetQueueForTests(): void
+</file>
+
+<file path="src/lib/messageComposer.ts">
+import { getDatabase } from '../db/database';
+import { makeThreadId } from './threads';
+import { deliverPendingMessages } from './messageDelivery';
+import type { MessageDocument, TaskDocument } from '../db/schema';
+⋮----
+export interface ReplyContext {
+  id: string;
+  senderId: string;
+  content: string;
+}
+⋮----
+function truncateForSnapshot(s: string, max = 100): string
+⋮----
+export interface OutgoingMessageInput {
+  userId: string;
+  friendId: string;
+  threadId: string;
+  now: string;
+  localId: string;
+  content: string;
+  taskRefId?: string;
+  taskRefTitle?: string;
+  taskRefDate?: string;
+  taskRefColor?: string;
+  replyTo?: ReplyContext;
+}
+⋮----
+export function buildOutgoingMessage(
+  input: OutgoingMessageInput
+): MessageDocument
+⋮----
+function makeLocalMessageId(): string
+⋮----
+export async function insertAndDeliverOutgoing(
+  userId: string,
+  friendId: string,
+  build: (args: { threadId: string; now: string; localId: string }) => MessageDocument
+): Promise<void>
+⋮----
+export async function sendTextMessage(
+  userId: string,
+  friendId: string,
+  content: string,
+  replyTo?: ReplyContext
+): Promise<void>
+⋮----
+export async function sendTaskReplyMessage(
+  userId: string,
+  friendId: string,
+  task: TaskDocument,
+  content: string,
+  categoryColor: string
+): Promise<void>
+⋮----
+export async function sendTaskReactionMessage(
+  userId: string,
+  friendId: string,
+  task: TaskDocument,
+  emoji: string,
+  categoryColor: string
+): Promise<void>
 </file>
 
 <file path="src/lib/messageDelivery.ts">
@@ -3052,10 +3355,141 @@ export async function reactToTaskOnRemote(
 ): Promise<string>
 </file>
 
+<file path="src/lib/messageReactions.ts">
+import type { RxDatabase } from 'rxdb';
+import { getDatabase, type AppDatabaseCollections } from '../db/database';
+import { makeRecipientRowId } from './threads';
+import { deliverPendingMessages, reactOnRemote } from './messageDelivery';
+import {
+  parseReactions,
+  stringifyReactions,
+  applyReactionDelta,
+  hasUserReacted,
+} from './reactionUtils';
+⋮----
+export type ToggleReactionResult = 'ok' | 'timeout';
+⋮----
+export async function toggleReactionOnMessage(
+  userId: string,
+  messageId: string,
+  emoji: string
+): Promise<ToggleReactionResult>
+⋮----
+async function applyOptimisticPatch(
+  db: RxDatabase<AppDatabaseCollections>,
+  messageId: string,
+  nextStr: string,
+  now: string,
+  emoji: string,
+  userId: string,
+  op: 'add' | 'remove'
+): Promise<boolean>
+⋮----
+async function waitForDelivery(
+  db: RxDatabase<AppDatabaseCollections>,
+  messageId: string
+): Promise<boolean>
+⋮----
+async function revertIfUnchanged(
+  db: RxDatabase<AppDatabaseCollections>,
+  messageId: string,
+  expectedCurrent: string,
+  original: string
+): Promise<boolean>
+</file>
+
 <file path="src/lib/mockData.ts">
 import type { TaskDocument } from '../db/schema';
 ⋮----
 export const generateMockTasks = (): TaskDocument[] =>
+</file>
+
+<file path="src/lib/outbox.ts">
+import { isUnauthorizedError } from './authEvents';
+⋮----
+export interface OutboxEntryBase {
+  id: string;
+  userId: string;
+  action: string;
+  attempts: number;
+  enqueuedAt: string;
+}
+⋮----
+export interface OutboxDropInfo<TEntry extends OutboxEntryBase> {
+  entry: TEntry;
+}
+⋮----
+export interface OutboxConfig<TPayload, TSendInput, TEntry extends OutboxEntryBase> {
+  storageKey: string;
+  logPrefix: string;
+  makeEntry: (
+    input: {
+      userId: string;
+      action: string;
+      payload: TPayload;
+      dedupKey: string;
+      extra?: Record<string, unknown>;
+    },
+    previousAttempts: number
+  ) => TEntry;
+  parseEntry: (raw: unknown) => TEntry | null;
+  send: (input: TSendInput) => Promise<void>;
+  toSendInput: (entry: TEntry) => TSendInput;
+  onDrop?: (info: OutboxDropInfo<TEntry>) => void;
+}
+⋮----
+export interface PersistentOutbox<TPayload, TEntry extends OutboxEntryBase> {
+  setSender: (fn: (entry: TEntry) => Promise<void>) => void;
+  enqueue: (
+    userId: string,
+    input: {
+      action: string;
+      payload: TPayload;
+      dedupKey: string;
+      extra?: Record<string, unknown>;
+    }
+  ) => void;
+  flush: (userId: string) => Promise<void>;
+  clear: (userId?: string) => void;
+  size: (userId?: string) => number;
+  resetForTests: () => void;
+}
+⋮----
+function isPermanentFailure(err: unknown): boolean
+⋮----
+export function createPersistentOutbox<
+  TPayload,
+  TSendInput,
+  TEntry extends OutboxEntryBase
+>(config: OutboxConfig<TPayload, TSendInput, TEntry>): PersistentOutbox<TPayload, TEntry>
+⋮----
+function load(): void
+⋮----
+function save(): void
+⋮----
+function removeEntry(entry: TEntry): void
+⋮----
+function dropEntry(entry: TEntry): void
+⋮----
+function enqueue(
+    userId: string,
+    input: {
+      action: string;
+      payload: TPayload;
+      dedupKey: string;
+      extra?: Record<string, unknown>;
+    }
+): void
+⋮----
+async function flush(userId: string): Promise<void>
+⋮----
+function clear(userId?: string): void
+⋮----
+function size(userId?: string): number
+⋮----
+function setSender(fn: (entry: TEntry) => Promise<void>): void
+⋮----
+function resetForTests(): void
 </file>
 
 <file path="src/lib/reactionUtils.ts">
@@ -3217,6 +3651,8 @@ export type RealtimeUnsubscribe = () => void;
 export function hashString(str: string): string
 ⋮----
 export function makeSettingsRowId(userId: string, key: string): string
+⋮----
+export function makeDiaryRowId(userId: string, date: string): string
 </file>
 
 <file path="src/lib/social.ts">
@@ -3350,7 +3786,7 @@ export async function updateFriendBioLocally(
 </file>
 
 <file path="src/lib/socialOutbox.ts">
-import { isUnauthorizedError } from './authEvents';
+import { createPersistentOutbox } from './outbox';
 import type { FriendshipDocument } from '../db/schema';
 ⋮----
 export type SocialOutboxAction =
@@ -3388,7 +3824,7 @@ export type SocialOutboxFailureListener = (
   event: SocialOutboxFailureEvent
 ) => void;
 ⋮----
-interface QueuedEntry {
+export interface SocialOutboxQueuedEntry {
   id: string;
   userId: string;
   action: SocialOutboxAction;
@@ -3398,8 +3834,6 @@ interface QueuedEntry {
   enqueuedAt: string;
 }
 ⋮----
-export function setSocialOutboxSender(fn: SocialOutboxSender): void
-⋮----
 export function subscribeToSocialOutboxFailures(
   fn: SocialOutboxFailureListener
 ): () => void
@@ -3408,9 +3842,7 @@ export function emitSocialOutboxFailure(
   event: SocialOutboxFailureEvent
 ): void
 ⋮----
-function load(): void
-⋮----
-function save(): void
+export function setSocialOutboxSender(fn: SocialOutboxSender): void
 ⋮----
 export function enqueueSocialOp(
   userId: string,
@@ -3421,12 +3853,6 @@ export function enqueueSocialOp(
     dedupKey: string;
   }
 ): void
-⋮----
-function isPermanentFailure(err: unknown): boolean
-⋮----
-function removeEntry(entry: QueuedEntry): void
-⋮----
-function dropEntry(entry: QueuedEntry): void
 ⋮----
 export async function flushSocialOutbox(userId: string): Promise<void>
 ⋮----
@@ -3517,9 +3943,15 @@ import {
   fetchFriendCalendar,
   FriendAccessError,
 } from '../lib/friendData';
+import type { FriendCalendarBundle } from '../lib/friendCache';
 import { reactToTaskOnRemote } from '../lib/messageDelivery';
 import { patchCachedCalendarTask } from '../lib/friendCache';
-import { parseReactions, stringifyReactions, applyReactionDelta, hasUserReacted } from '../lib/reactionUtils';
+import {
+  parseReactions,
+  stringifyReactions,
+  applyReactionDelta,
+  hasUserReacted,
+} from '../lib/reactionUtils';
 import { useAuth } from '../hooks/useAuth';
 import type { TaskDocument, CategoryDocument } from '../db/schema';
 ⋮----
@@ -3534,17 +3966,24 @@ export interface UseFriendCalendarReturn {
   reactToTask: (taskId: string, emoji: string) => Promise<'add' | 'remove'>;
 }
 ⋮----
+type FetchOutcome =
+  | { ok: true; bundle: FriendCalendarBundle }
+  | { ok: false; message: string; kind: 'forbidden' | 'offline' | 'server' };
+⋮----
+async function runFetch(
+  friendUserId: string,
+  force: boolean
+): Promise<FetchOutcome>
+⋮----
 export function useFriendCalendar(
   friendUserId: string | null
 ): UseFriendCalendarReturn
-⋮----
-// Optimistic local update.
-⋮----
-// Patch the cache with the server-confirmed value (falls back to the
-// optimistic value if the server didn't echo one back).
 </file>
 
 <file path="src/lib/visibility.ts">
+import React from 'react';
+import { Eye, EyeOff, Globe, Users } from 'lucide-react';
+⋮----
 export type TaskVisibility = 'private' | 'followers' | 'public';
 ⋮----
 export function resolveVisibility(
@@ -3555,6 +3994,20 @@ export function resolveVisibility(
 export function isInheriting(taskVisibility: string | undefined): boolean
 ⋮----
 export function labelForVisibility(v: TaskVisibility): string
+⋮----
+export function visibilityIcon(
+  v: TaskVisibility,
+  size = 12,
+  className?: string
+): React.ReactElement
+⋮----
+export function visibilityLabel(v: TaskVisibility): string
+⋮----
+export function visibilityOptionIcon(
+  v: TaskVisibility,
+  size = 16,
+  className?: string
+): React.ReactElement
 </file>
 
 <file path="src/pages/AccountPage.tsx">
@@ -3730,18 +4183,17 @@ import { ChevronLeft, Share2, ChevronRight, Camera, AtSign } from 'lucide-react'
 import { Avatar } from '../components/ui/Avatar';
 import { EditNameSheet } from '../components/modals/EditNameSheet';
 import { EditDescriptionSheet } from '../components/modals/EditDescriptionSheet';
-import { EditProfileImageSheet } from '../components/modals/EditProfileImageSheet';
+import { ImagePickerSheet } from '../components/home/views/ImagePickerSheet';
 import { SetUsernameSheet } from '../components/modals/SetUsernameSheet';
 import { useProfile } from '../hooks/useProfile';
 import { useMyProfile } from '../hooks/useMyProfile';
 import { useTaskImage } from '../hooks/useTaskImage';
 ⋮----
-export const ProfilePage: React.FC = () =>
-onPointerDown=
+const handleBack = ()
 ⋮----
 onClick=
 ⋮----
-onClose=
+onSuccess=
 </file>
 
 <file path="src/pages/SettingsPage.tsx">
@@ -4401,6 +4853,13 @@ import {
 import { makeRecipientRowId as clientMakeRecipient } from '../../src/lib/threads';
 </file>
 
+<file path="tests/unit/format.test.ts">
+import { describe, it, expect, vi, afterEach } from 'vitest';
+import { formatRelative } from '../../src/lib/format';
+⋮----
+function atFixedNow(nowIso: string): void
+</file>
+
 <file path="tests/unit/imageCache.test.ts">
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 ⋮----
@@ -4439,6 +4898,20 @@ import {
 } from '../../src/lib/messageActionQueue';
 </file>
 
+<file path="tests/unit/outbox.test.ts">
+import { describe, it, expect, beforeEach, vi } from 'vitest';
+⋮----
+import { createPersistentOutbox, type OutboxEntryBase } from '../../src/lib/outbox';
+⋮----
+interface TestEntry extends OutboxEntryBase {
+  payload: { n: number };
+}
+⋮----
+function makeOutbox(
+  send = vi.fn<(input: { n: number }) => Promise<void>>().mockResolvedValue(undefined)
+)
+</file>
+
 <file path="tests/unit/reactionUtils.test.ts">
 import { describe, it, expect } from 'vitest';
 import {
@@ -4452,7 +4925,7 @@ import {
 
 <file path="tests/unit/settingsRowId.test.ts">
 import { describe, it, expect } from 'vitest';
-import { makeSettingsRowId } from '../../src/lib/settingsRowId';
+import { makeSettingsRowId, makeDiaryRowId } from '../../src/lib/settingsRowId';
 </file>
 
 <file path="tests/unit/socialOffline.test.ts">
@@ -5616,12 +6089,12 @@ Not yet chosen.
 <file path="SESSION_STATE.md">
 # SESSION STATE
 
-Updated: 2026-09-18T06:00:00Z
+Updated: 2026-09-18T07:00:00Z
 ActivePlan: Phase 2 refactor audit → refactor
-CurrentBatch: 5 of 10
-CurrentTask: Batch 2.5 — lib-level extractions (no React)
+CurrentBatch: 8 of 10
+CurrentTask: Batch 2.8 — domain hook extractions
 Status: in_progress
-NextAction: Start Chat 2 for batch 2.5 — lib-level extractions: DUP-1 (persistent-outbox factory), DUP-9 (formatRelative), DUP-10 (getVisibilityIcon), DUP-12 (empty constants), HB-6 (incrementalPatch standardization), HB-7 (diary row-id cap), HB-8 (RxDB upsert helper). Prompt must state DeepThink: OFF. Do NOT bundle 2.6 into 2.5.
+NextAction: Start Chat 2 for batch 2.9 — god-component splits: CB-1, CB-2, CB-3, CB-4, CB-5, CB-13, CB-14, DUP-3. Prompt must state DeepThink: OFF.
 NextChatRole: chat2
 BatchPlan:
 - Phase 1 audits — CLOSED (all ten batches; sole carry-over OFF-1)
@@ -5639,10 +6112,10 @@ BatchPlan:
   - [x] 2.2 Refactor audit — duplication sweep (12 findings DUP-1…DUP-12)
   - [x] 2.3 Refactor audit — component boundary audit (14 findings CB-1…CB-14)
   - [x] 2.4 Refactor audit — hook boundary audit (12 findings HB-1…HB-12)
-  - [ ] 2.5 Lib-level extractions — DUP-1, DUP-9, DUP-10, DUP-12, HB-6, HB-7, HB-8
-  - [ ] 2.6 Shared React primitives + `useRxCollection` — DUP-2/HB-3, DUP-4, DUP-5, DUP-6, DUP-11
-  - [ ] 2.7 Sheet migrations — DUP-7, DUP-8, + usePropSync/useFeedback/ConfirmSheet migrations across 19 files
-  - [ ] 2.8 Domain hook extractions — HB-1, HB-2, HB-4, HB-5, HB-9, HB-10, HB-11, HB-12
+  - [x] 2.5 Lib-level extractions — DUP-1, DUP-9, DUP-10, DUP-12, HB-6, HB-7, HB-8
+  - [x] 2.6 Shared React primitives + `useRxCollection` — DUP-2/HB-3, DUP-4, DUP-5, DUP-6, DUP-11
+  - [x] 2.7 Sheet migrations — DUP-7, DUP-8, + usePropSync/useFeedback/ConfirmSheet migrations across 19 files
+  - [x] 2.8 Domain hook extractions — HB-1, HB-2, HB-4, HB-5, HB-9, HB-10, HB-11, HB-12, + data hooks migrated to useRxCollection (HB-3/DUP-2)
   - [ ] 2.9 God-component splits — CB-1, CB-2, CB-3, CB-4, CB-5, CB-13, CB-14, DUP-3
   - [ ] 2.10 Cleanup pass — CB-6, CB-7, CB-8, CB-9, CB-10, CB-11, CB-12
 - [ ] Phase 3 — optimize audit → optimize (bundle 1.7 MB, route splitting, lazy images; receives OFF-6 LRU cap)
@@ -5650,19 +6123,8 @@ BatchPlan:
 - [ ] Feature work — Phase 3.5 Todo List, 3.6 Diary, 3.7 Notifications, API integrations (paused)
 OpenQuestions: none
 Findings:
-- DUP-1 [High] `messageActionQueue.ts` + `socialOutbox.ts` near-identical (~250 LOC each). → 2.5
-- DUP-2 [High] `useTasks`/`useCategories`/`useDiary`/`useSettings` share RxDB subscription scaffold. → 2.6 (with HB-3)
 - DUP-3 [Medium] `CalendarBody.tsx` + `FriendCalendarView.tsx` duplicate slide rendering / `tasksByDate` memo / Embla plumbing. → 2.9
-- DUP-4 [Medium] Render-body reset copy-pasted in 11 files. → 2.6 primitive, 2.7 migrations
-- DUP-5 [Medium] Feedback toast pattern in 5 places. → 2.6 primitive, 2.7 migrations
-- DUP-6 [Medium] Delete-confirm nested `BottomSheet` in 3 places. → 2.6 primitive, 2.7 migrations
-- DUP-7 [Medium] `ImagePickerSheet.tsx` + `EditProfileImageSheet.tsx` near-identical. → 2.7
-- DUP-8 [Low] 5 form sheets share shape. → 2.7
-- DUP-9 [Low] `formatRelative` duplicated. → 2.5
-- DUP-10 [Low] `getVisibilityIcon` in 3–5 sites. → 2.5
-- DUP-11 [Low] Spinner markup inlined everywhere. → 2.6 primitive, 2.7 migrations
-- DUP-12 [Low] Empty-array constants not centralized. → 2.5
-- CB-1 [High] `PersonPane` mounts `useMessages(friendId)` per friend pane solely for `sendTaskReaction`. → 2.9 (structural fix lands in 2.8 with HB-9)
+- CB-1 [High] `PersonPane` mounts `useMessages(friendId)` per friend pane solely for `sendTaskReaction`. → 2.9 (structural fix: migrate to `useMessageActions` — the narrower hook now exists)
 - CB-2 [High] `DayViewSheet.tsx` god component. → 2.9
 - CB-3 [High] `ChatPage.tsx` god page. → 2.9
 - CB-4 [Medium] Stale-document snapshots (`activeTask`, `actionMessage`, `unsendTarget`, `reactionTarget`). → 2.9
@@ -5672,22 +6134,10 @@ Findings:
 - CB-8 [Medium] `CategoryManagerSheet` mixes three patterns. → 2.10
 - CB-9 [Medium] `TaskItem` inline edit uses `autoFocus` inside Swiper/AnimatePresence/BottomSheet (BUG: §17 anti-pattern). → 2.10
 - CB-10 [Low] `MessageBubble` duplicates status/timestamp row JSX. → 2.10
-- CB-11 [Low] `CategoryManagerSheet.VisibilityIcon` duplicates DUP-10. → 2.10 (DUP-10 helper lands in 2.5)
+- CB-11 [Low] `CategoryManagerSheet.VisibilityIcon` duplicates DUP-10. → 2.10
 - CB-12 [Low] Owner-side `ReactionRow` toggle with no-op handler. → 2.10
 - CB-13 [Low] `ChatPage` three near-identical `toggleReaction` wrappers. → 2.9
 - CB-14 [Low] Dead cleanup inside `useCallback` in `DayViewSheet` (BUG: RAF never cancelled). → 2.9
-- HB-1 [High] `useMessages` three near-identical outgoing-message builders (~180 LOC). → 2.8
-- HB-2 [High] `useMessages.toggleReaction` ~110 lines mixing 7 concerns. → 2.8
-- HB-3 [High] DUP-2 confirmed at file level. → 2.6
-- HB-4 [Medium] `useFriendCalendar` duplicate fetch+classify paths. → 2.8
-- HB-5 [Medium] `useMyProfile` duplicate fetch paths. → 2.8
-- HB-6 [Medium] `useDiary.saveEntry` / `useSettings.setSetting` use `patch` not `incrementalPatch` (BUG: CONFLICT-loss on sync-cycle races). → 2.5
-- HB-7 [Medium] `useDiary` row id `${uid}_${date}` violates §6 cap when userId > 25 chars (BUG: sync silently drops). → 2.5
-- HB-8 [Medium] Upsert-or-insert pattern duplicated. → 2.5
-- HB-9 [Medium] `useMessages` couples read (subscription) and write. → 2.8 (structural fix for CB-1)
-- HB-10 [Low] `useProfile` is a thin wrapper over `useSettings`. → 2.8
-- HB-11 [Low] `useFriendCarousel` bio backfill is serial. → 2.8
-- HB-12 [Low] `useCategories.reorderInProgress` guard silent. → 2.8
 Decisions:
 - [2026-09-17] H1 = Option A (offline auth gate). → shipped in 2.1.
 - [2026-09-17] Phase 1 close: all ten batches shipped. §25.11 protocol followed.
@@ -5695,7 +6145,10 @@ Decisions:
 - [2026-09-17] Duplication sweep (2.2) — findings only, no code changes.
 - [2026-09-17] Component boundary audit (2.3) — findings only. CB-2/CB-3 deferred until DUP-4/5/6 primitives land.
 - [2026-09-18] Hook boundary audit (2.4) — findings only.
-- [2026-09-18] Execution plan (2.5–2.10) locked. Ordering rationale: (a) lib-level first — lowest risk, enables hooks; (b) primitives before their migrations so sheets don't get refactored twice; (c) hook extractions before god-component splits so the extracted hooks are lean at extraction time; (d) cleanup last — some items (CB-6, CB-11) resolve automatically once earlier batches land. Real bug fixes are isolated in 2.5 (HB-6, HB-7), 2.9 (CB-5, CB-14), and 2.10 (CB-7, CB-9) — each is a one-to-three-line change inside a larger refactor, not a batch-defining scope.
+- [2026-09-18] Execution plan (2.5–2.10) locked.
+- [2026-09-18] 2.6 primitives are new files only — no migrations.
+- [2026-09-18] 2.7 merges EditProfileImageSheet into ImagePickerSheet; extracts form-sheet helpers.
+- [2026-09-18] 2.8 splits useMessages into useThreadMessages (read) + useMessageActions (write) but keeps useMessages as a byte-identical facade so no call sites change. CB-1's migration to the narrower `useMessageActions` in PersonPane/FriendCalendarPage lands in 2.9. `useProfile` kept as a typed wrapper (HB-10 disposition: keep, document). `useFriendCalendar` and `useMyProfile` share a `runFetch`/`runLoad` helper within their own file rather than a new module (the logic is file-local).
 Deferred:
 - OFF-3 local-image-queue half → separate batch.
 - Realtime channel-level reconnection backoff → future batch.
@@ -5703,8 +6156,8 @@ Deferred:
 - PWA update-prompt UI, `beforeinstallprompt`, `ProfilePage` Share wiring → Phase 3.5+.
 - Full WCAG AA audit → Phase 4.
 - Calendar grid semantics + A11Y-33 → Phase 4.
-LastApply: 2026-09-17 — docs: phase 2 batch 2.4 audit — hook boundary findings
-LastAuditSummary: Phase 2 audits CLOSED — 38 findings across 2.2 (duplication, 12), 2.3 (component boundary, 14), 2.4 (hook boundary, 12). Six-batch execution plan (2.5–2.10) locked. Ordering: lib extractions → primitives + useRxCollection → sheet migrations → domain hooks → god-component splits → cleanup.
+LastApply: 2026-09-18 — hooks: batch 2.8 domain hook extractions
+LastAuditSummary: Batch 2.8 shipped. `useMessages` split into `useThreadMessages` (read) + `useMessageActions` (write) behind a byte-identical facade. Three outgoing-message builders collapsed into `messageComposer.ts` (HB-1). `toggleReaction` extracted to `messageReactions.ts` (HB-2). `useTasks`/`useCategories`/`useDiary`/`useSettings` migrated to `useRxCollection` (HB-3/DUP-2). `useFriendCalendar`/`useMyProfile` deduplicated their fetch paths (HB-4, HB-5). `useFriendCarousel` bio backfill parallelized with concurrency cap (HB-11). `useCategories.reorderInProgress` silent guard now logs (HB-12). `useProfile` kept as documented wrapper (HB-10). CB-1's PersonPane migration deferred to 2.9 as planned.
 </file>
 
 <file path="tailwind.config.js">

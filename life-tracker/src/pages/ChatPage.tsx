@@ -1,13 +1,6 @@
-import React, {
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  useCallback,
-} from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ChevronLeft, MessageSquare, Search } from 'lucide-react';
-import { format, isSameDay, subDays } from 'date-fns';
 import { Avatar } from '../components/ui/Avatar';
 import { BottomSheet } from '../components/ui/BottomSheet';
 import {
@@ -22,29 +15,17 @@ import { MessageActionSheet } from '../components/messages/MessageActionSheet';
 import { EmojiPickerSheet } from '../components/messages/EmojiPickerSheet';
 import { ScrollToBottomButton } from '../components/messages/ScrollToBottomButton';
 import { ChatSearchBar } from '../components/messages/ChatSearchBar';
-import { useMessages, type ReplyContext } from '../hooks/useMessages';
+import { useMessages } from '../hooks/useMessages';
 import { useFriends } from '../hooks/useFriends';
-import { useTaskImage } from '../hooks/useTaskImage';
+import { useAuth } from '../hooks/useAuth';
+import { useChatScroll } from '../components/messages/useChatScroll';
+import { useChatSearch } from '../components/messages/useChatSearch';
+import { useChatReactions } from '../components/messages/useChatReactions';
+import {
+  buildRenderItems,
+  messageMatchesQuery,
+} from '../components/messages/chatRenderItems';
 import { forceSync } from '../db/sync';
-import type { MessageDocument } from '../db/schema';
-
-const TIMESTAMP_GAP_MS = 5 * 60 * 1000;
-// Realtime patches RxDB in place, so the poll is now a safety net for
-// missed socket events rather than the primary delivery path. The old
-// 30s cadence existed only to close the 90–120s read-receipt gap (§20.5);
-// that gap is now closed by realtime. 5 minutes is enough to catch a
-// dropped socket without hammering the endpoint.
-const POLL_INTERVAL_MS = 5 * 60 * 1000;
-const SCROLL_FAB_THRESHOLD_PX = 300;
-
-type RenderItem =
-  | { kind: 'divider'; key: string; label: string }
-  | {
-      kind: 'message';
-      key: string;
-      message: MessageDocument;
-      showTimestamp: boolean;
-    };
 
 interface ComposerReplyState {
   id: string;
@@ -53,32 +34,12 @@ interface ComposerReplyState {
   content: string;
 }
 
-function dateDividerLabel(date: Date): string {
-  const today = new Date();
-  if (isSameDay(date, today)) return 'Today';
-  if (isSameDay(date, subDays(today, 1))) return 'Yesterday';
-  return format(date, 'MMMM d, yyyy');
-}
-
-function messageMatchesQuery(m: MessageDocument, query: string): boolean {
-  const q = query.toLowerCase();
-  if (m.content.toLowerCase().includes(q)) return true;
-  if (m.taskRefTitle.toLowerCase().includes(q)) return true;
-  if (m.replyToContent.toLowerCase().includes(q)) return true;
-  return false;
-}
-
 export const ChatPage: React.FC = () => {
   const { friendId } = useParams<{ friendId: string }>();
   const navigate = useNavigate();
-  const { friends, isLoading: friendsLoading } = useFriends();
-  const friend = useMemo(
-    () =>
-      friendId
-        ? friends.find((f) => f.friendId === friendId) || null
-        : null,
-    [friendId, friends]
-  );
+  const { user } = useAuth();
+  const myUserId = user?.$id ?? '';
+
   const {
     messages,
     isLoading,
@@ -86,462 +47,213 @@ export const ChatPage: React.FC = () => {
     markAllRead,
     unsendMessage,
     toggleReaction,
-  } = useMessages(friend ? friend.friendId : null);
-  const { imageUrl } = useTaskImage(friend?.friendAvatarFileId || undefined);
-  const [actionMessage, setActionMessage] = useState<MessageDocument | null>(
-    null
+  } = useMessages(friendId ?? null);
+
+  const { friends } = useFriends();
+  const friend = useMemo(
+    () => friends.find((f) => f.friendId === friendId) ?? null,
+    [friends, friendId]
   );
-  const [isActionSheetOpen, setIsActionSheetOpen] = useState(false);
-  const [composerReply, setComposerReply] =
-    useState<ComposerReplyState | null>(null);
-  const [feedback, setFeedback] = useState<string | null>(null);
-  const [unsendTarget, setUnsendTarget] = useState<MessageDocument | null>(
-    null
-  );
-  const [isUnsendConfirmOpen, setIsUnsendConfirmOpen] = useState(false);
-  const [isUnsending, setIsUnsending] = useState(false);
-  const [reactionTarget, setReactionTarget] = useState<MessageDocument | null>(
-    null
-  );
-  const [isEmojiPickerOpen, setIsEmojiPickerOpen] = useState(false);
-  const [isSearching, setIsSearching] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
-  // Scroll FAB
-  const [showScrollButton, setShowScrollButton] = useState(false);
-  const [lastAcknowledgedId, setLastAcknowledgedId] = useState<string | null>(
-    null
-  );
-  const scrollRef = useRef<HTMLDivElement>(null);
+
   const composerRef = useRef<MessageComposerHandle>(null);
-  // Tracks whether the user was near the bottom *before* the latest render.
-  // Updated synchronously inside the scroll handler so the auto-scroll effect
-  // reads an accurate value for the current scroll position.
-  const isPinnedToBottomRef = useRef(true);
-  const lastMsgId =
-    messages.length > 0 ? messages[messages.length - 1].id : null;
-  const myUserId = useMemo(
-    () => messages.find((m) => m.direction === 'outgoing')?.senderId || '',
-    [messages]
+  const [feedback, setFeedback] = useState<string | null>(null);
+  const [replyTo, setReplyTo] = useState<ComposerReplyState | null>(null);
+  const [actionMessageId, setActionMessageId] = useState<string | null>(null);
+  const [unsendTargetId, setUnsendTargetId] = useState<string | null>(null);
+  const [reactionTargetId, setReactionTargetId] = useState<string | null>(null);
+
+  const actionMessage = useMemo(
+    () => messages.find((m) => m.id === actionMessageId) ?? null,
+    [messages, actionMessageId]
   );
-  const resolveSenderName = useCallback(
-    (senderId: string): string => {
-      if (senderId === myUserId) return 'You';
-      if (friend && senderId === friend.friendId) {
-        return friend.friendDisplayName || friend.friendUsername || 'Them';
+  const unsendTarget = useMemo(
+    () => messages.find((m) => m.id === unsendTargetId) ?? null,
+    [messages, unsendTargetId]
+  );
+  const reactionTarget = useMemo(
+    () => messages.find((m) => m.id === reactionTargetId) ?? null,
+    [messages, reactionTargetId]
+  );
+
+  const {
+    isSearching,
+    searchQuery,
+    openSearch,
+    closeSearch,
+    setSearchQuery,
+  } = useChatSearch();
+
+  const {
+    scrollRef,
+    showScrollButton,
+    hasUnreadBelow,
+    scrollToBottom,
+  } = useChatScroll({ messages, isSearching });
+
+  const { reactToMessage } = useChatReactions({
+    toggleReaction,
+    setFeedback,
+  });
+
+  const statusById = useMemo(() => {
+    const map = new Map<string, MessageStatusKind>();
+    for (const m of messages) {
+      if (m.direction === 'outgoing') {
+        if (m.readAt) {
+          map.set(m.id, 'read');
+        } else if (m.deliveryStatus === 'delivered') {
+          map.set(m.id, 'delivered');
+        } else {
+          map.set(m.id, 'pending');
+        }
       }
-      return 'Unknown';
+    }
+    return map;
+  }, [messages]);
+
+  const resolveSenderName = useMemo(
+    () => (senderId: string): string => {
+      if (senderId === myUserId) return 'You';
+      return friend?.friendDisplayName || friend?.friendUsername || 'Friend';
     },
     [myUserId, friend]
   );
+
+  const trimmedQuery = searchQuery.trim();
+
+  const renderItems = useMemo(
+    () => buildRenderItems(messages, isSearching, trimmedQuery),
+    [messages, isSearching, trimmedQuery]
+  );
+
+  const searchMatchCount = useMemo(
+    () => messages.filter((m) => messageMatchesQuery(m, trimmedQuery)).length,
+    [messages, trimmedQuery]
+  );
+
   useEffect(() => {
-    if (!lastMsgId) return;
-    if (isSearching) return;
-    const el = scrollRef.current;
-    if (!el) return;
-    const lastMessage = messages[messages.length - 1];
-    const isOutgoing = lastMessage?.direction === 'outgoing';
-    const wasPinned = isPinnedToBottomRef.current;
-    if (!isOutgoing && !wasPinned) {
-      return;
-    }
-    requestAnimationFrame(() => {
-      el.scrollTop = el.scrollHeight;
-      isPinnedToBottomRef.current = true;
-      setLastAcknowledgedId(lastMsgId);
-    });
-  }, [lastMsgId, isSearching, messages]);
+    markAllRead();
+  }, [markAllRead]);
+
   useEffect(() => {
-    if (messages.length === 0) return;
-    const hasUnread = messages.some(
-      (m) => m.direction === 'incoming' && !m.readAt && !m.isUnsent
-    );
-    if (hasUnread) {
-      markAllRead().catch((err) =>
-        console.error('[ChatPage] markAllRead failed:', err)
-      );
-    }
-  }, [messages, markAllRead]);
+    const interval = setInterval(() => {
+      if (document.visibilityState !== 'visible') return;
+      if (!navigator.onLine) return;
+      forceSync();
+    }, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
   useEffect(() => {
-    if (!friendId) return;
-    let cancelled = false;
-    const tick = () => {
-      if (cancelled) return;
-      if (
-        typeof document !== 'undefined' &&
-        document.visibilityState !== 'visible'
-      ) {
-        return;
-      }
-      if (typeof navigator !== 'undefined' && navigator.onLine === false) {
-        return;
-      }
-      forceSync().catch((err) => {
-        if (import.meta.env.DEV) {
-          console.warn('[ChatPage] poll sync failed:', err);
-        }
-      });
-    };
-    const interval = setInterval(tick, POLL_INTERVAL_MS);
-    return () => {
-      cancelled = true;
-      clearInterval(interval);
-    };
-  }, [friendId]);
-  useEffect(() => {
-    if (!feedback) return;
-    const t = setTimeout(() => setFeedback(null), 2000);
-    return () => clearTimeout(t);
+    if (feedback === null) return;
+    const timer = setTimeout(() => setFeedback(null), 2000);
+    return () => clearTimeout(timer);
   }, [feedback]);
-  useEffect(() => {
-    const el = scrollRef.current;
-    if (!el) return;
-    let raf: number | null = null;
-    const handleScroll = () => {
-      const distFromBottom =
-        el.scrollHeight - el.scrollTop - el.clientHeight;
-      isPinnedToBottomRef.current =
-        distFromBottom < SCROLL_FAB_THRESHOLD_PX;
-      if (raf !== null) return;
-      raf = requestAnimationFrame(() => {
-        raf = null;
-        const shouldShow = !isPinnedToBottomRef.current;
-        setShowScrollButton(shouldShow);
-        if (!shouldShow && lastMsgId) {
-          setLastAcknowledgedId(lastMsgId);
-        }
-      });
-    };
-    el.addEventListener('scroll', handleScroll, { passive: true });
-    handleScroll();
-    return () => {
-      el.removeEventListener('scroll', handleScroll);
-      if (raf !== null) cancelAnimationFrame(raf);
-    };
-  }, [lastMsgId]);
-  const isOverlayOpen =
-    isActionSheetOpen || isUnsendConfirmOpen || isEmojiPickerOpen;
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (isOverlayOpen) return;
-      if (e.key === 'Escape') {
-        if (isSearching) {
-          setIsSearching(false);
-          setSearchQuery('');
-          return;
-        }
-        if (composerReply) {
-          setComposerReply(null);
-          return;
-        }
-        return;
-      }
       if ((e.metaKey || e.ctrlKey) && (e.key === 'f' || e.key === 'k')) {
         e.preventDefault();
-        setIsSearching(true);
-        return;
+        openSearch();
+      }
+      if (e.key === 'Escape') {
+        if (isSearching) {
+          closeSearch();
+        } else if (replyTo) {
+          setReplyTo(null);
+        }
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOverlayOpen, isSearching, composerReply]);
-  const statusById = useMemo(() => {
-    const map = new Map<string, MessageStatusKind>();
-    let lastOutgoing: MessageDocument | null = null;
-    let lastReadOutgoing: MessageDocument | null = null;
-    for (let i = messages.length - 1; i >= 0; i--) {
-      const m = messages[i];
-      if (m.direction !== 'outgoing') continue;
-      if (m.isUnsent) continue;
-      if (!lastOutgoing) lastOutgoing = m;
-      if (m.readAt && !lastReadOutgoing) lastReadOutgoing = m;
-      if (lastOutgoing && lastReadOutgoing) break;
+  }, [isSearching, replyTo, openSearch, closeSearch]);
+
+  const handleBack = () => {
+    navigate('/messages');
+  };
+
+  const handleSend = async (content: string) => {
+    const reply = replyTo
+      ? {
+          id: replyTo.id,
+          senderId: replyTo.senderId,
+          content: replyTo.content,
+        }
+      : undefined;
+    await sendMessage(content, reply);
+    setReplyTo(null);
+  };
+
+  const handleUnsend = async () => {
+    if (!unsendTarget) return;
+    await unsendMessage(unsendTarget.id);
+    setUnsendTargetId(null);
+  };
+
+  const handleQuoteTap = (targetMessageId: string) => {
+    const el = document.getElementById(`msg-${targetMessageId}`);
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
-    if (lastReadOutgoing) {
-      map.set(lastReadOutgoing.id, 'read');
-    }
-    if (lastOutgoing && lastOutgoing.id !== lastReadOutgoing?.id) {
-      map.set(
-        lastOutgoing.id,
-        lastOutgoing.deliveryStatus === 'pending' ? 'pending' : 'delivered'
-      );
-    }
-    return map;
-  }, [messages]);
-  const searchMatchCount = useMemo(() => {
-    const q = searchQuery.trim();
-    if (!q) return 0;
-    return messages.filter((m) => messageMatchesQuery(m, q)).length;
-  }, [messages, searchQuery]);
-  const renderItems = useMemo<RenderItem[]>(() => {
-    const trimmedQuery = searchQuery.trim();
-    const isFiltering = isSearching && trimmedQuery.length > 0;
-    const filtered = isFiltering
-      ? messages.filter((m) => messageMatchesQuery(m, trimmedQuery))
-      : messages;
-    const items: RenderItem[] = [];
-    let lastDayKey = '';
-    let lastTs = 0;
-    filtered.forEach((m) => {
-      const created = new Date(m.createdAt);
-      const dayKey = format(created, 'yyyy-MM-dd');
-      if (!isFiltering && dayKey !== lastDayKey) {
-        items.push({
-          kind: 'divider',
-          key: `d-${dayKey}`,
-          label: dateDividerLabel(created),
-        });
-        lastDayKey = dayKey;
-        lastTs = 0;
-      }
-      const ts = created.getTime();
-      const showTimestamp = !isFiltering && ts - lastTs > TIMESTAMP_GAP_MS;
-      items.push({
-        kind: 'message',
-        key: m.id,
-        message: m,
-        showTimestamp,
+  };
+
+  const handleReplyFromSheet = () => {
+    if (actionMessage) {
+      setReplyTo({
+        id: actionMessage.id,
+        senderId: actionMessage.senderId,
+        senderName: resolveSenderName(actionMessage.senderId),
+        content: actionMessage.content,
       });
-      lastTs = ts;
-    });
-    return items;
-  }, [messages, isSearching, searchQuery]);
-  const handleOpenActionSheet = useCallback((message: MessageDocument) => {
-    if (message.isUnsent) return;
-    setActionMessage(message);
-    setIsActionSheetOpen(true);
-  }, []);
-  const handleReplyFromSheet = useCallback(() => {
-    if (!actionMessage) return;
-    setComposerReply({
-      id: actionMessage.id,
-      senderId: actionMessage.senderId,
-      senderName: resolveSenderName(actionMessage.senderId),
-      content: actionMessage.content || actionMessage.taskRefTitle || '',
-    });
-  }, [actionMessage, resolveSenderName]);
-  const handleCopyFromSheet = useCallback(async () => {
-    if (!actionMessage) return;
-    const parts: string[] = [];
-    if (actionMessage.content.trim()) {
-      parts.push(actionMessage.content.trim());
-    }
-    if (actionMessage.taskRefTitle.trim()) {
-      const refDate = actionMessage.taskRefDate
-        ? format(
-            new Date(`${actionMessage.taskRefDate}T00:00:00`),
-            'MMM d, yyyy'
-          )
-        : '';
-      parts.push(
-        refDate
-          ? `↳ ${actionMessage.taskRefTitle} (${refDate})`
-          : `↳ ${actionMessage.taskRefTitle}`
-      );
-    }
-    const text = parts.join('\n\n');
-    if (!text) return;
-    try {
-      await navigator.clipboard.writeText(text);
-      setFeedback('Copied');
-    } catch (err) {
-      console.error('[ChatPage] Copy failed:', err);
-      setFeedback('Copy failed');
-    }
-  }, [actionMessage]);
-  const handleUnsendFromSheet = useCallback(() => {
-    if (!actionMessage) return;
-    setUnsendTarget(actionMessage);
-    setIsUnsendConfirmOpen(true);
-  }, [actionMessage]);
-  const handleConfirmUnsend = useCallback(async () => {
-    if (!unsendTarget || isUnsending) return;
-    setIsUnsending(true);
-    try {
-      await unsendMessage(unsendTarget.id);
-      setFeedback('Message unsent');
-      setIsUnsendConfirmOpen(false);
-      setUnsendTarget(null);
-    } catch (err) {
-      console.error('[ChatPage] Unsend failed:', err);
-      setFeedback('Failed to unsend');
-    } finally {
-      setIsUnsending(false);
-    }
-  }, [unsendTarget, isUnsending, unsendMessage]);
-  const handleCancelUnsend = useCallback(() => {
-    setIsUnsendConfirmOpen(false);
-    setUnsendTarget(null);
-  }, []);
-  const handleReactFromSheet = useCallback(
-    (emoji: string) => {
-      if (!actionMessage) return;
-      toggleReaction(actionMessage.id, emoji)
-        .then((result) => {
-          if (result === 'timeout') {
-            setFeedback("Couldn't send reaction. Try again.");
-          }
-        })
-        .catch((err) => console.error('[ChatPage] react failed:', err));
-    },
-    [actionMessage, toggleReaction]
-  );
-  const handleMoreEmojiFromSheet = useCallback(() => {
-    if (!actionMessage) return;
-    setReactionTarget(actionMessage);
-    setIsEmojiPickerOpen(true);
-  }, [actionMessage]);
-  const handleEmojiPicked = useCallback(
-    (emoji: string) => {
-      if (!reactionTarget) return;
-      toggleReaction(reactionTarget.id, emoji)
-        .then((result) => {
-          if (result === 'timeout') {
-            setFeedback("Couldn't send reaction. Try again.");
-          }
-        })
-        .catch((err) => console.error('[ChatPage] react failed:', err));
-      setReactionTarget(null);
-    },
-    [reactionTarget, toggleReaction]
-  );
-  const handleBubbleReact = useCallback(
-    (messageId: string, emoji: string) => {
-      toggleReaction(messageId, emoji)
-        .then((result) => {
-          if (result === 'timeout') {
-            setFeedback("Couldn't send reaction. Try again.");
-          }
-        })
-        .catch((err) => console.error('[ChatPage] react failed:', err));
-    },
-    [toggleReaction]
-  );
-  const handleSwipeReply = useCallback(
-    (message: MessageDocument) => {
-      if (message.isUnsent) return;
-      setComposerReply({
-        id: message.id,
-        senderId: message.senderId,
-        senderName: resolveSenderName(message.senderId),
-        content: message.content || message.taskRefTitle || '',
-      });
+      setActionMessageId(null);
       setTimeout(() => composerRef.current?.focus(), 50);
-    },
-    [resolveSenderName]
-  );
-  const handleQuoteTap = useCallback((targetId: string) => {
-    const el = document.querySelector(
-      `[data-message-id="${targetId}"]`
-    ) as HTMLElement | null;
-    if (!el) return;
-    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    el.animate(
-      [
-        { backgroundColor: 'transparent' },
-        { backgroundColor: 'rgba(16, 185, 129, 0.15)' },
-        { backgroundColor: 'transparent' },
-      ],
-      { duration: 900, easing: 'ease-out' }
-    );
-  }, []);
-  const handleSend = useCallback(
-    (content: string) => {
-      const replyCtx: ReplyContext | undefined = composerReply
-        ? {
-            id: composerReply.id,
-            senderId: composerReply.senderId,
-            content: composerReply.content,
-          }
-        : undefined;
-      sendMessage(content, replyCtx).catch((err) =>
-        console.error('[ChatPage] sendMessage failed:', err)
-      );
-      setComposerReply(null);
-    },
-    [sendMessage, composerReply]
-  );
-  const handleScrollToBottom = useCallback(() => {
-    const el = scrollRef.current;
-    if (!el) return;
-    el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
-  }, []);
-  const handleOpenSearch = useCallback(() => {
-    setIsSearching(true);
-  }, []);
-  const handleCloseSearch = useCallback(() => {
-    setIsSearching(false);
-    setSearchQuery('');
-  }, []);
-  const handleBack = () => navigate(-1);
-  const hasUnreadBelow =
-    !!lastMsgId && lastMsgId !== lastAcknowledgedId;
-  if (friendsLoading) {
-    return (
-      <div className="flex items-center justify-center h-full py-20">
-        <div className="w-8 h-8 border-2 border-white border-t-transparent rounded-full animate-spin" />
-      </div>
-    );
-  }
-  if (!friend) {
-    return (
-      <div className="flex flex-col h-full">
-        <div className="sticky top-0 z-20 bg-[#111111] px-4 py-3 border-b border-[#333333] flex items-center">
-          <button
-            onClick={handleBack}
-            className="p-2 rounded-lg text-gray-400 hover:text-white hover:bg-[#2A2A2A] transition-colors"
-            aria-label="Back"
-          >
-            <ChevronLeft size={20} />
-          </button>
-        </div>
-        <div className="flex-1 flex items-center justify-center px-6 text-center">
-          <div>
-            <p className="text-white font-medium mb-2">Not friends anymore</p>
-            <p className="text-sm text-gray-500">
-              You can no longer message this user.
-            </p>
-          </div>
-        </div>
-      </div>
-    );
-  }
-  const displayName = friend.friendDisplayName || friend.friendUsername;
-  const showEmptyState = messages.length === 0 && !isSearching;
-  const showNoMatches =
-    isSearching &&
-    searchQuery.trim().length > 0 &&
-    renderItems.length === 0;
+    }
+  };
+
+  const handleBubbleReact = (messageId: string, emoji: string) => {
+    reactToMessage(messageId, emoji);
+  };
+
+  const handleEmojiPicked = (emoji: string) => {
+    if (reactionTarget) {
+      reactToMessage(reactionTarget.id, emoji);
+    }
+    setReactionTargetId(null);
+  };
+
+  const handleMoreEmojiFromSheet = () => {
+    if (actionMessage) {
+      setReactionTargetId(actionMessage.id);
+    }
+    setActionMessageId(null);
+  };
+
   return (
-    <div className="flex flex-col h-full animate-in fade-in duration-300 relative">
-      <div className="sticky top-0 z-20 bg-[#111111] border-b border-[#333333] flex-shrink-0">
-        <div className="px-4 py-3 flex items-center gap-3">
+    <div className="flex flex-col h-full bg-[#111111]">
+      <div className="flex items-center gap-3 px-4 py-3 border-b border-[#2A2A2A]">
+        <button
+          onClick={handleBack}
+          className="p-1 text-gray-400"
+          aria-label="Back"
+        >
+          <ChevronLeft size={24} />
+        </button>
+        <Avatar
+          src={friend?.friendAvatarFileId}
+          alt={friend?.friendDisplayName}
+          size="sm"
+        />
+        <span className="font-medium">
+          {friend?.friendDisplayName || friend?.friendUsername || 'Chat'}
+        </span>
+        <div className="ml-auto">
           <button
-            onClick={handleBack}
-            onPointerDown={(e) => e.stopPropagation()}
-            className="p-2 -ml-2 rounded-lg text-gray-400 hover:text-white hover:bg-[#2A2A2A] transition-colors flex-shrink-0"
-            aria-label="Back"
+            onClick={openSearch}
+            className="p-2 text-gray-400"
+            aria-label="Search"
           >
-            <ChevronLeft size={20} />
+            <Search size={20} />
           </button>
-          <Avatar src={imageUrl || undefined} alt={displayName} size="sm" />
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold text-white truncate">
-              {displayName}
-            </p>
-            <p className="text-xs text-gray-500 truncate">
-              @{friend.friendUsername}
-            </p>
-          </div>
-          {!isSearching && (
-            <button
-              onClick={handleOpenSearch}
-              onPointerDown={(e) => e.stopPropagation()}
-              className="p-2 rounded-lg text-gray-400 hover:text-white hover:bg-[#2A2A2A] transition-colors flex-shrink-0"
-              aria-label="Search messages"
-            >
-              <Search size={18} />
-            </button>
-          )}
         </div>
       </div>
       {isSearching && (
@@ -550,139 +262,134 @@ export const ChatPage: React.FC = () => {
           onChange={setSearchQuery}
           matchCount={searchMatchCount}
           totalCount={messages.length}
-          onClose={handleCloseSearch}
+          onClose={closeSearch}
         />
       )}
-      <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-3">
+      <div
+        ref={scrollRef}
+        className="flex-1 overflow-y-auto px-4 py-4 space-y-1"
+      >
         {isLoading ? (
-          <div className="flex justify-center py-10">
+          <div className="flex items-center justify-center h-full">
             <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin" />
           </div>
-        ) : showNoMatches ? (
-          <div className="flex flex-col items-center justify-center py-16 text-center">
-            <div className="w-14 h-14 bg-[#1E1E1E] rounded-full flex items-center justify-center mb-3 border border-[#333333]">
-              <Search size={22} className="text-gray-500" />
-            </div>
-            <p className="text-sm text-gray-500 max-w-xs">
-              No messages match &quot;{searchQuery.trim()}&quot;
-            </p>
-          </div>
-        ) : showEmptyState ? (
-          <div className="flex flex-col items-center justify-center py-16 text-center">
-            <div className="w-14 h-14 bg-[#1E1E1E] rounded-full flex items-center justify-center mb-3 border border-[#333333]">
-              <MessageSquare size={22} className="text-gray-500" />
-            </div>
-            <p className="text-sm text-gray-500 max-w-xs">
-              Say hi to {displayName}. You can also reply to their tasks from
-              their calendar.
+        ) : renderItems.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-full text-gray-500">
+            <MessageSquare size={48} />
+            <p className="mt-2 text-sm">
+              {isSearching ? 'No matches' : 'No messages yet'}
             </p>
           </div>
         ) : (
-          renderItems.map((item) => {
-            if (item.kind === 'divider') {
-              return (
-                <div
-                  key={item.key}
-                  className="flex items-center justify-center my-4"
-                >
-                  <div className="bg-[#1E1E1E] border border-[#333333] rounded-full px-3 py-1">
-                    <span className="text-[10px] text-gray-400 font-medium">
-                      {item.label}
-                    </span>
-                  </div>
-                </div>
-              );
-            }
-            return (
-              <MessageBubble
+          renderItems.map((item) =>
+            item.kind === 'divider' ? (
+              <div
                 key={item.key}
-                message={item.message}
-                isOutgoing={item.message.direction === 'outgoing'}
-                currentUserId={myUserId}
-                showTimestamp={item.showTimestamp}
-                statusKind={statusById.get(item.message.id)}
-                resolveSenderName={resolveSenderName}
-                onLongPress={handleOpenActionSheet}
-                onQuoteTap={handleQuoteTap}
-                onReact={handleBubbleReact}
-                onSwipeReply={handleSwipeReply}
-                gesturesDisabled={isOverlayOpen}
-              />
-            );
-          })
+                className="text-center text-xs text-gray-500 py-2"
+              >
+                {item.label}
+              </div>
+            ) : (
+              <div key={item.key} id={`msg-${item.message.id}`}>
+                <MessageBubble
+                  message={item.message}
+                  isOutgoing={item.message.direction === 'outgoing'}
+                  currentUserId={myUserId}
+                  showTimestamp={item.showTimestamp}
+                  statusKind={statusById.get(item.message.id)}
+                  resolveSenderName={resolveSenderName}
+                  onLongPress={(m) => setActionMessageId(m.id)}
+                  onQuoteTap={handleQuoteTap}
+                  onReact={handleBubbleReact}
+                  onSwipeReply={(m) => {
+                    setReplyTo({
+                      id: m.id,
+                      senderId: m.senderId,
+                      senderName: resolveSenderName(m.senderId),
+                      content: m.content,
+                    });
+                    setTimeout(() => composerRef.current?.focus(), 50);
+                  }}
+                  gesturesDisabled={false}
+                />
+              </div>
+            )
+          )
         )}
       </div>
+      <ScrollToBottomButton
+        visible={showScrollButton}
+        hasNewMessages={hasUnreadBelow}
+        onClick={() => scrollToBottom()}
+      />
       <MessageComposer
         ref={composerRef}
         onSend={handleSend}
-        replyTo={composerReply}
-        onCancelReply={() => setComposerReply(null)}
+        disabled={!friendId}
+        placeholder="Message..."
+        replyTo={replyTo}
+        onCancelReply={() => setReplyTo(null)}
       />
-      {!isSearching && (
-        <ScrollToBottomButton
-          visible={showScrollButton}
-          hasNewMessages={hasUnreadBelow}
-          onClick={handleScrollToBottom}
-        />
-      )}
       <MessageActionSheet
-        isOpen={isActionSheetOpen}
-        onClose={() => setIsActionSheetOpen(false)}
+        isOpen={!!actionMessage}
+        onClose={() => setActionMessageId(null)}
         message={actionMessage}
-        isOwn={actionMessage?.direction === 'outgoing'}
+        isOwn={actionMessage?.senderId === myUserId}
         currentUserId={myUserId}
         onReply={handleReplyFromSheet}
-        onCopy={handleCopyFromSheet}
-        onUnsend={handleUnsendFromSheet}
-        onReact={handleReactFromSheet}
+        onCopy={() => {
+          if (actionMessage) {
+            navigator.clipboard.writeText(actionMessage.content);
+          }
+          setActionMessageId(null);
+        }}
+        onUnsend={() => {
+          if (actionMessage) {
+            setUnsendTargetId(actionMessage.id);
+          }
+          setActionMessageId(null);
+        }}
+        onReact={(emoji) => {
+          if (actionMessage) {
+            reactToMessage(actionMessage.id, emoji);
+          }
+          setActionMessageId(null);
+        }}
         onMoreEmoji={handleMoreEmojiFromSheet}
       />
       <EmojiPickerSheet
-        isOpen={isEmojiPickerOpen}
-        onClose={() => {
-          setIsEmojiPickerOpen(false);
-          setReactionTarget(null);
-        }}
+        isOpen={!!reactionTarget}
+        onClose={() => setReactionTargetId(null)}
         onPick={handleEmojiPicked}
       />
       <BottomSheet
-        isOpen={isUnsendConfirmOpen}
-        onClose={handleCancelUnsend}
+        isOpen={!!unsendTarget}
+        onClose={() => setUnsendTargetId(null)}
         title="Unsend Message"
-        height="auto"
+        isLocked
       >
         <div className="pt-2 pb-8 px-4">
-          <p className="text-gray-300 text-sm text-center mb-6 leading-relaxed">
-            Unsend this message? This will remove it for both of you. This
-            cannot be undone.
+          <p className="text-gray-400 text-sm mb-4">
+            This message will be removed for everyone.
           </p>
-          <div className="flex gap-3">
+          <div className="flex gap-2">
             <button
-              onClick={handleCancelUnsend}
-              disabled={isUnsending}
-              className="flex-1 py-3 bg-[#2A2A2A] rounded-xl text-white font-medium hover:bg-[#333333] transition-colors disabled:opacity-50"
+              onClick={() => setUnsendTargetId(null)}
+              className="flex-1 py-3 rounded-lg bg-[#2A2A2A] text-white"
             >
               Cancel
             </button>
             <button
-              onClick={handleConfirmUnsend}
-              disabled={isUnsending}
-              className="flex-1 py-3 bg-red-500 rounded-xl text-white font-medium hover:bg-red-600 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+              onClick={handleUnsend}
+              className="flex-1 py-3 rounded-lg bg-red-500 text-white"
             >
-              {isUnsending ? (
-                <>
-                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  Unsending…
-                </>
-              ) : (
-                'Unsend'
-              )}
+              Unsend
             </button>
           </div>
         </div>
       </BottomSheet>
       {feedback && (
-        <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[70] bg-[#2A2A2A] border border-[#444444] text-white text-sm px-5 py-2.5 rounded-full shadow-lg backdrop-blur-md animate-in fade-in slide-in-from-bottom-2 duration-200">
+        <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[70] bg-[#2A2A2A] text-white text-sm px-4 py-2 rounded-lg shadow-lg">
           {feedback}
         </div>
       )}

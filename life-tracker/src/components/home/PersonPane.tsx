@@ -6,7 +6,7 @@ import { ComingSoon } from '../layout/ComingSoon';
 import { useCalendarState } from './views/useCalendarState';
 import { useTasks } from '../../hooks/useTasks';
 import { useCategories } from '../../hooks/useCategories';
-import { useMessages } from '../../hooks/useMessages';
+import { useMessageActions } from '../../hooks/useMessageActions';
 import { useAuth } from '../../hooks/useAuth';
 import { useFriendCalendar } from '../../lib/useFriendCalendar';
 import type { CarouselPerson } from '../../hooks/useFriendCarousel';
@@ -18,88 +18,48 @@ interface PersonPaneProps {
   isActive: boolean;
 }
 
-const VIEW_KEY = 'mosaic_activeView';
-
-// Minimum spacing between activation-triggered friend refetches. Prevents
-// a rapid swipe-through from firing one network fetch per intermediate
-// friend pane. Own pane is never subject to this (it does not refetch).
 const FRIEND_REFETCH_MIN_INTERVAL_MS = 15_000;
 
 function readMeView(): ViewType {
-  const saved = localStorage.getItem(VIEW_KEY);
-  if (saved === 'calendar' || saved === 'diary') return saved;
-  return 'calendar';
+  try {
+    const v = localStorage.getItem('mosaic_home_view');
+    return v === 'diary' ? 'diary' : 'calendar';
+  } catch {
+    return 'calendar';
+  }
 }
 
 export const PersonPane: React.FC<PersonPaneProps> = ({ person, isActive }) => {
   const { user } = useAuth();
   const currentUserId = user?.$id ?? '';
-  const isMe = person.kind === 'me';
-  const [activeView, setActiveView] = useState<ViewType>(() =>
-    isMe ? readMeView() : 'calendar'
+
+  const { tasks = [] } = useTasks();
+  const { categories = [] } = useCategories();
+
+  const { sendTaskReaction } = useMessageActions(
+    person.kind === 'friend' ? person.userId : null
   );
 
-  if (!isMe && !isActive && activeView !== 'calendar') {
-    setActiveView('calendar');
-  }
-
-  useEffect(() => {
-    if (isMe) localStorage.setItem(VIEW_KEY, activeView);
-  }, [isMe, activeView]);
+  const [activeView, setActiveView] = useState<ViewType>(readMeView);
 
   const calendarState = useCalendarState();
-  const { resetToToday } = calendarState;
 
-  useEffect(() => {
-    if (!isActive) return;
-    resetToToday();
-  }, [isActive, resetToToday]);
-
-  const { tasks: myTasks } = useTasks();
-  const { categories: myCategories } = useCategories();
-
-  const friendId = !isMe ? person.userId : null;
+  const friendUserId = person.kind === 'friend' ? person.userId : null;
   const {
-    tasks: friendTasks,
-    categories: friendCategories,
-    error: friendError,
-    errorKind: friendErrorKind,
-    reactToTask,
+    tasks: friendTasks = [],
+    categories: friendCategories = [],
     refetch: refetchFriendCalendar,
-  } = useFriendCalendar(friendId);
-  const { sendTaskReaction } = useMessages(friendId);
+  } = useFriendCalendar(friendUserId);
 
-  // Force a fresh pull whenever a friend pane becomes active. Without
-  // this, the pane's data is frozen at the moment it first mounted
-  // (swiping away and back does not remount), and fetchFriendCalendar's
-  // 5-minute TTL cache means the pane can sit on stale data well past
-  // when the friend added a new task. Skipped for the own pane — own
-  // tasks stay live via the RxDB subscription in useTasks.
-  const lastFriendRefetchRef = useRef(0);
+  const lastRefetchRef = useRef<number>(0);
+
   useEffect(() => {
-    if (!isActive) return;
-    if (isMe) return;
-    if (!friendId) return;
+    if (person.kind !== 'friend' || !isActive) return;
     const now = Date.now();
-    if (now - lastFriendRefetchRef.current < FRIEND_REFETCH_MIN_INTERVAL_MS) {
-      return;
-    }
-    lastFriendRefetchRef.current = now;
-    refetchFriendCalendar(true).catch((err) => {
-      console.error('[PersonPane] Friend activation refetch failed:', err);
-    });
-  }, [isActive, isMe, friendId, refetchFriendCalendar]);
-
-  const [feedback, setFeedback] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!feedback) return;
-    const t = setTimeout(() => setFeedback(null), 2000);
-    return () => clearTimeout(t);
-  }, [feedback]);
-
-  const tasks = isMe ? myTasks : friendTasks;
-  const categories = isMe ? myCategories : friendCategories;
+    if (now - lastRefetchRef.current < FRIEND_REFETCH_MIN_INTERVAL_MS) return;
+    lastRefetchRef.current = now;
+    refetchFriendCalendar(true);
+  }, [person.kind, isActive, refetchFriendCalendar]);
 
   const categoriesMap = useMemo(() => {
     const map: Record<string, { color: string; name: string }> = {};
@@ -109,107 +69,87 @@ export const PersonPane: React.FC<PersonPaneProps> = ({ person, isActive }) => {
     return map;
   }, [categories]);
 
+  const friendCategoriesMap = useMemo(() => {
+    const map: Record<string, { color: string; name: string }> = {};
+    for (const cat of friendCategories) {
+      map[cat.id] = { color: cat.color, name: cat.name };
+    }
+    return map;
+  }, [friendCategories]);
+
   const handleReactToTask = useCallback(
-    async (task: TaskDocument, emoji: string) => {
-      if (isMe) return;
-      try {
-        const op = await reactToTask(task.id, emoji);
-        if (op === 'add') {
-          const cat = categories.find((c) => c.id === task.categoryId);
-          await sendTaskReaction(task, emoji, cat?.color || '');
-          setFeedback('Reaction sent');
-        } else {
-          setFeedback('Reaction removed');
-        }
-      } catch (err) {
-        console.error('[PersonPane] reactToTask failed:', err);
-        setFeedback('Reaction failed');
-      }
+    (task: TaskDocument, emoji: string) => {
+      sendTaskReaction(task, emoji, '');
     },
-    [isMe, reactToTask, sendTaskReaction, categories]
+    [sendTaskReaction]
   );
 
-  const showDiary = isMe && activeView === 'diary';
-
-  // OFF-11: when a friend's cached tasks exist, a transient refetch error
-  // (typically offline) must not hide the calendar. The error only wins
-  // when we have nothing to show. When cached data exists we render the
-  // calendar with a small non-blocking offline indicator instead.
-  const friendErrorBlocksRender =
-    !isMe && !!friendError && friendTasks.length === 0;
-  const showOfflineBadge =
-    !isMe && !!friendError && friendTasks.length > 0;
-
-  return (
-    <div className="flex flex-col h-full min-h-0 overflow-hidden">
-      <div className="flex-shrink-0">
+  if (person.kind === 'friend' && friendUserId) {
+    return (
+      <div className="flex flex-col h-full">
         <PersonProfileHeader person={person} />
-      </div>
-      <div className="flex-shrink-0">
-        <CalendarHeader
-          title={calendarState.title}
-          viewMode={calendarState.viewMode}
-          onToggleMode={calendarState.handleToggle}
-          onPrev={calendarState.handlePrev}
-          onNext={calendarState.handleNext}
-          activeView={activeView}
-          onViewChange={setActiveView}
-        />
-      </div>
-      <div className="swiper-no-swiping flex-1 min-h-0 flex flex-col overflow-hidden">
-        {showDiary ? (
-          <div className="flex-1 min-h-0 overflow-hidden">
-            <ComingSoon />
-          </div>
-        ) : friendErrorBlocksRender ? (
-          <div className="flex-1 min-h-0 overflow-hidden flex items-center justify-center px-6 text-center">
-            <div>
-              <div className="w-16 h-16 bg-[#1E1E1E] rounded-full flex items-center justify-center mb-4 border border-[#333333] mx-auto">
-                <span className="text-2xl">🔒</span>
-              </div>
-              <p className="text-white font-medium mb-2">
-                {friendErrorKind === 'forbidden'
-                  ? 'No access'
-                  : friendErrorKind === 'offline'
-                  ? "You're offline"
-                  : "Couldn't load calendar"}
-              </p>
-              <p className="text-sm text-gray-500 max-w-xs">{friendError}</p>
-            </div>
-          </div>
-        ) : (
+        {activeView === 'calendar' ? (
           <>
-            {showOfflineBadge && (
-              <div className="flex-shrink-0 mx-4 mt-2 mb-1 rounded-xl bg-[#1E1E1E] border border-[#333333] px-3 py-2 flex items-center gap-2">
-                <span className="text-xs text-gray-400">
-                  {friendErrorKind === 'offline'
-                    ? "You're offline — showing cached data"
-                    : "Couldn't refresh — showing cached data"}
-                </span>
-              </div>
-            )}
+            <CalendarHeader
+              title={calendarState.title}
+              viewMode={calendarState.viewMode}
+              onToggleMode={calendarState.handleToggle}
+              onPrev={calendarState.handlePrev}
+              onNext={calendarState.handleNext}
+              activeView={activeView}
+              onViewChange={setActiveView}
+            />
             <CalendarBody
               viewMode={calendarState.viewMode}
               slides={calendarState.slides}
               renderStart={calendarState.renderStart}
               renderEnd={calendarState.renderEnd}
               emblaRef={calendarState.emblaRef}
-              tasks={tasks}
-              categoriesMap={categoriesMap}
-              variant={isMe ? 'me' : 'friend'}
+              tasks={friendTasks}
+              categoriesMap={friendCategoriesMap}
+              variant="friend"
               friendCategories={friendCategories}
               friendName={person.displayName}
-              friendUserId={friendId}
+              friendUserId={friendUserId}
               currentUserId={currentUserId}
               onReactToTask={handleReactToTask}
             />
           </>
+        ) : (
+          <ComingSoon />
         )}
       </div>
-      {feedback && (
-        <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[70] bg-[#2A2A2A] border border-[#444444] text-white text-sm px-5 py-2.5 rounded-full shadow-lg backdrop-blur-md animate-in fade-in slide-in-from-bottom-2 duration-200">
-          {feedback}
-        </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col h-full">
+      <PersonProfileHeader person={person} />
+      {activeView === 'calendar' ? (
+        <>
+          <CalendarHeader
+            title={calendarState.title}
+            viewMode={calendarState.viewMode}
+            onToggleMode={calendarState.handleToggle}
+            onPrev={calendarState.handlePrev}
+            onNext={calendarState.handleNext}
+            activeView={activeView}
+            onViewChange={setActiveView}
+          />
+          <CalendarBody
+            viewMode={calendarState.viewMode}
+            slides={calendarState.slides}
+            renderStart={calendarState.renderStart}
+            renderEnd={calendarState.renderEnd}
+            emblaRef={calendarState.emblaRef}
+            tasks={tasks}
+            categoriesMap={categoriesMap}
+            variant="me"
+            currentUserId={currentUserId}
+          />
+        </>
+      ) : (
+        <ComingSoon />
       )}
     </div>
   );

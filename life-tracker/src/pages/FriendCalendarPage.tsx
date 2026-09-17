@@ -6,9 +6,8 @@ import { Avatar } from '../components/ui/Avatar';
 import { FriendCalendarView } from '../components/friend/FriendCalendarView';
 import { useFriendCalendar } from '../lib/useFriendCalendar';
 import { useFriends } from '../hooks/useFriends';
-import { useMessages } from '../hooks/useMessages';
+import { useMessageActions } from '../hooks/useMessageActions';
 import { useAuth } from '../hooks/useAuth';
-import { useTaskImage } from '../hooks/useTaskImage';
 import { clearCachedCalendar } from '../lib/friendCache';
 import type { TaskDocument } from '../db/schema';
 
@@ -17,11 +16,14 @@ export const FriendCalendarPage: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const currentUserId = user?.$id ?? '';
-  const { friends, isLoading: friendsLoading } = useFriends();
-  const friend = useMemo(() => {
-    if (!friendId || friendsLoading) return null;
-    return friends.find((f) => f.friendId === friendId) || null;
-  }, [friendId, friends, friendsLoading]);
+
+  const { friends } = useFriends();
+  const friend = useMemo(
+    () => friends.find((f) => f.friendId === friendId) ?? null,
+    [friends, friendId]
+  );
+
+  const { sendTaskReaction } = useMessageActions(friendId ?? null);
 
   const {
     tasks,
@@ -30,195 +32,106 @@ export const FriendCalendarPage: React.FC = () => {
     error,
     errorKind,
     refetch,
-    lastFetchedAt,
     reactToTask,
-  } = useFriendCalendar(friend ? friend.friendId : null);
+  } = useFriendCalendar(friendId ?? null);
 
-  const { sendTaskReaction } = useMessages(friend ? friend.friendId : null);
-  const { imageUrl } = useTaskImage(friend?.friendAvatarFileId || undefined);
-  const [feedback, setFeedback] = useState<string | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   useEffect(() => {
-    if (!feedback) return;
-    const t = setTimeout(() => setFeedback(null), 2000);
-    return () => clearTimeout(t);
-  }, [feedback]);
+    if (!isRefreshing) return;
+    const timer = setTimeout(() => setIsRefreshing(false), 1000);
+    return () => clearTimeout(timer);
+  }, [isRefreshing]);
 
-  const handleReactToTask = useCallback(
-    async (task: TaskDocument, emoji: string) => {
-      try {
-        const op = await reactToTask(task.id, emoji);
-        if (op === 'add') {
-          const cat = categories.find((c) => c.id === task.categoryId);
-          await sendTaskReaction(task, emoji, cat?.color || '');
-          setFeedback('Reaction sent');
-        } else {
-          setFeedback('Reaction removed');
-        }
-      } catch (err) {
-        console.error('[FriendCalendarPage] reactToTask failed:', err);
-        setFeedback('Reaction failed');
-      }
-    },
-    [reactToTask, sendTaskReaction, categories]
-  );
+  const handleBack = () => {
+    navigate('/messages');
+  };
 
-  const handleBack = () => navigate(-1);
   const handleRefresh = async () => {
-    if (friend) {
-      await clearCachedCalendar(friend.friendId);
+    setIsRefreshing(true);
+    if (friendId) {
+      await clearCachedCalendar(friendId);
     }
     await refetch(true);
   };
+
   const handleGoToExplore = () => {
-    navigate('/explore', { replace: true });
+    navigate('/explore');
   };
 
-  if (friendsLoading) {
+  const handleReactToTask = useCallback(
+    async (task: TaskDocument, emoji: string) => {
+      await reactToTask(task.id, emoji);
+      if (task.userId !== currentUserId) {
+        await sendTaskReaction(task, emoji, '');
+      }
+    },
+    [reactToTask, sendTaskReaction, currentUserId]
+  );
+
+  if (isLoading) {
     return (
-      <div className="flex items-center justify-center py-20">
-        <div className="w-8 h-8 border-2 border-white border-t-transparent rounded-full animate-spin" />
+      <div className="flex items-center justify-center h-full">
+        <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
 
-  if (!friend) {
+  if (error) {
     return (
-      <div className="flex flex-col h-full">
-        <div className="sticky top-0 z-20 bg-[#111111] px-4 py-3 border-b border-[#333333] flex items-center">
+      <div className="flex flex-col items-center justify-center h-full text-gray-500 gap-4">
+        <p>
+          {errorKind === 'forbidden'
+            ? 'No access to this calendar'
+            : 'Something went wrong'}
+        </p>
+        {errorKind === 'forbidden' && (
           <button
-            onClick={handleBack}
-            className="p-2 rounded-lg text-gray-400 hover:text-white hover:bg-[#2A2A2A] transition-colors"
-            aria-label="Back"
+            onClick={handleGoToExplore}
+            className="px-4 py-2 bg-[#2A2A2A] rounded-lg text-white"
           >
-            <ChevronLeft size={20} />
+            Go to Explore
           </button>
-        </div>
-        <div className="flex-1 flex items-center justify-center px-6 text-center">
-          <div>
-            <p className="text-white font-medium mb-2">Not friends anymore</p>
-            <p className="text-sm text-gray-500 mb-6">
-              You can no longer view this calendar.
-            </p>
-            <button
-              onClick={handleGoToExplore}
-              className="bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-medium px-5 py-2.5 rounded-xl transition-colors"
-            >
-              Back to Explore
-            </button>
-          </div>
-        </div>
+        )}
       </div>
     );
   }
-
-  const displayName = friend.friendDisplayName || friend.friendUsername;
-
-  // OFF-11: cached tasks survive a transient refetch error. Only render the
-  // blocking error UI when there is nothing cached to show.
-  const errorBlocksRender = !!error && tasks.length === 0;
-  const showOfflineBanner = !!error && tasks.length > 0;
 
   return (
-    <div className="flex flex-col h-full animate-in fade-in duration-300">
-      <div className="sticky top-0 z-20 bg-[#111111] px-4 py-3 border-b border-[#333333]">
-        <div className="flex items-center gap-3">
-          <button
-            onClick={handleBack}
-            onPointerDown={(e) => e.stopPropagation()}
-            className="p-2 rounded-lg text-gray-400 hover:text-white hover:bg-[#2A2A2A] transition-colors flex-shrink-0"
-            aria-label="Back"
-          >
-            <ChevronLeft size={20} />
-          </button>
-          <Avatar src={imageUrl || undefined} alt={displayName} size="sm" />
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold text-white truncate">
-              {displayName}
-            </p>
-            <p className="text-xs text-gray-500 truncate">
-              @{friend.friendUsername}
-            </p>
-          </div>
-          <motion.button
-            whileTap={{ scale: 0.95 }}
-            onClick={handleRefresh}
-            disabled={isLoading}
-            className="p-2 rounded-lg text-gray-400 hover:text-white hover:bg-[#2A2A2A] transition-colors disabled:opacity-50 flex-shrink-0"
-            aria-label="Refresh"
-          >
-            <RefreshCw size={18} className={isLoading ? 'animate-spin' : ''} />
-          </motion.button>
-        </div>
-        {lastFetchedAt && !error && (
-          <p className="text-[10px] text-gray-600 mt-2 text-center">
-            Last updated {new Date(lastFetchedAt).toLocaleTimeString()}
-          </p>
-        )}
+    <div className="flex flex-col h-full bg-[#111111]">
+      <div className="flex items-center gap-3 px-4 py-3 border-b border-[#2A2A2A]">
+        <button
+          onClick={handleBack}
+          className="p-1 text-gray-400"
+          aria-label="Back"
+        >
+          <ChevronLeft size={24} />
+        </button>
+        <Avatar
+          src={friend?.friendAvatarFileId}
+          alt={friend?.friendDisplayName}
+          size="sm"
+        />
+        <span className="font-medium">
+          {friend?.friendDisplayName || friend?.friendUsername || 'Friend'}
+        </span>
+        <motion.button
+          whileTap={{ scale: 0.95 }}
+          onClick={handleRefresh}
+          className="ml-auto p-2 text-gray-400"
+          aria-label="Refresh"
+        >
+          <RefreshCw size={18} className={isRefreshing ? 'animate-spin' : ''} />
+        </motion.button>
       </div>
-      {showOfflineBanner && (
-        <div className="mx-4 mt-2 mb-1 rounded-xl bg-[#1E1E1E] border border-[#333333] px-3 py-2 flex items-center gap-2">
-          <span className="text-xs text-gray-400">
-            {errorKind === 'offline'
-              ? "You're offline — showing cached data"
-              : "Couldn't refresh — showing cached data"}
-          </span>
-        </div>
-      )}
-      <div className="flex-1 overflow-hidden">
-        {isLoading && tasks.length === 0 ? (
-          <div className="flex items-center justify-center py-20">
-            <div className="w-8 h-8 border-2 border-white border-t-transparent rounded-full animate-spin" />
-          </div>
-        ) : errorBlocksRender ? (
-          <div className="flex flex-col items-center justify-center py-20 px-6 text-center">
-            <div className="w-16 h-16 bg-[#1E1E1E] rounded-full flex items-center justify-center mb-4 border border-[#333333]">
-              <span className="text-2xl">🔒</span>
-            </div>
-            <p className="text-white font-medium mb-2">
-              {errorKind === 'forbidden'
-                ? 'No access'
-                : errorKind === 'offline'
-                ? "You're offline"
-                : "Couldn't load calendar"}
-            </p>
-            <p className="text-sm text-gray-500 mb-6 max-w-xs">{error}</p>
-            {errorKind !== 'forbidden' && (
-              <button
-                onClick={() => refetch(true)}
-                className="bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-medium px-5 py-2.5 rounded-xl transition-colors"
-              >
-                Try again
-              </button>
-            )}
-          </div>
-        ) : tasks.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-20 px-6 text-center">
-            <div className="w-16 h-16 bg-[#1E1E1E] rounded-full flex items-center justify-center mb-4 border border-[#333333]">
-              <span className="text-2xl">📭</span>
-            </div>
-            <p className="text-white font-medium mb-2">Nothing shared yet</p>
-            <p className="text-sm text-gray-500 max-w-xs">
-              {displayName} hasn't shared any tasks with you.
-            </p>
-          </div>
-        ) : (
-          <FriendCalendarView
-            friendName={displayName}
-            friendUserId={friend.friendId}
-            currentUserId={currentUserId}
-            tasks={tasks}
-            categories={categories}
-            onReactToTask={handleReactToTask}
-          />
-        )}
-      </div>
-
-      {feedback && (
-        <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[70] bg-[#2A2A2A] border border-[#444444] text-white text-sm px-5 py-2.5 rounded-full shadow-lg backdrop-blur-md animate-in fade-in slide-in-from-bottom-2 duration-200">
-          {feedback}
-        </div>
-      )}
+      <FriendCalendarView
+        friendName={friend?.friendDisplayName || friend?.friendUsername || 'Friend'}
+        friendUserId={friendId ?? ''}
+        currentUserId={currentUserId}
+        tasks={tasks}
+        categories={categories}
+        onReactToTask={handleReactToTask}
+      />
     </div>
   );
 };
