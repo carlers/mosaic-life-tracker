@@ -9,7 +9,9 @@ supplies background synchronization and cross-device persistence.
 Pre-release. The core calendar, task actions, categories, auth/account settings, social
 graph, friend calendars, messaging, replies, reactions, and offline/sync hardening are
 implemented. Todo List, Diary, and Notifications remain in the feature backlog. The
-next proposed batch is the Phase 3.1 bundle audit in [PLAN.md](PLAN.md).
+[Phase 3.1 bundle audit](docs/BUNDLE_AUDIT.md) is complete. The next proposed batch
+is Phase 3.2 code splitting in [PLAN.md](PLAN.md), with an identified service-worker
+activation prerequisite to resolve before deployment.
 
 ## Stack
 

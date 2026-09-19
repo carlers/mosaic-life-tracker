@@ -270,6 +270,13 @@ Without this guard, directive examples inside fenced blocks would truncate the e
 - `src/lib/socialOutbox.ts` — persistent retry queue for cross-user social writes (`sendFriendRequest`, `acceptFriendRequest`, `deleteFriendPair`, `blockFriend`, `createOrUpdateProfile`). Storage: JSON array under `mosaic_social_outbox`. Dedup `(userId, dedupKey)`. Cap 100. Retries up to 5 on transient; drops on 401 / non-429 4xx. Permanent drops emit `SocialOutboxFailureEvent` to `subscribeToSocialOutboxFailures` — `FriendsProvider` reverts the local row. Wired to `guardedTablesDB` at module init in `social.ts`; flushed by `AppLayout`'s `tryDeliver` alongside `deliverPendingMessages` (§10).
 - `src/lib/imageCache.ts` — **single owner of the IndexedDB blob cache for downloaded image files** (keyed by `fileId`). `storage.ts` and `exportData.ts` consume it via `getCachedImage`/`cacheImage`/`deleteCachedImage`; do not open the cache DB directly elsewhere. No eviction bound (see §18 Accepted Limitations).
 - **Service-worker scope.** `vite-plugin-pwa` owns the SW registration (root scope, `registerType: 'autoUpdate'`). Do not register a second SW, do not expand scope beyond root, and do not precache user-generated content — only the app shell. The SW is production-only; dev mode does not register one (Vite HMR and a live SW would fight each other).
+- **Activation discrepancy (2026-09-19 audit).** The installed PWA plugin overrides
+  `skipWaiting: false` and `clientsClaim: false` under automatic registration with
+  `autoUpdate`; the generated worker calls both methods. The PWA-4 comments in
+  `vite.config.ts` express the intended policy, not actual activation behavior.
+  Resolve this before releasing more lazy chunks. See the
+  [Phase 3.1 bundle audit](BUNDLE_AUDIT.md) for evidence and proposed follow-up;
+  the audit itself changes no runtime policy.
 - `scripts/` — build-time utilities: `dump-files.mjs` (Tier 2 dump, §25.2), `clipboard.mjs` (shared clipboard helper), one-off Appwrite migration scripts.
 - `tests/` — Vitest suite (four projects). See §24.
 - Project root: `apply-changes.mjs` (installer; copies run output to clipboard on exit), `pending-changes.txt` (gitignored input).

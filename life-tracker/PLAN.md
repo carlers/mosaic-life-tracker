@@ -20,14 +20,16 @@ this roadmap. Git history and `docs/PROJECT_REFERENCE.md` retain the implementat
 
 ## Phase 3 — optimize audit and implementation
 
-- [ ] **3.1 Bundle audit:** measure the production build and identify route, vendor,
-  and asset opportunities without changing runtime behavior
-- [ ] **3.2 Route-level code splitting**
-- [ ] **3.3 Lazy image loading**
+- [x] **3.1 Bundle audit:** measured production artifacts and traced route, vendor,
+  and asset opportunities; see [findings and baseline](docs/BUNDLE_AUDIT.md)
+- [ ] **3.2 Route-level code splitting:** agree route/interaction boundaries from
+  the audit; resolve the service-worker activation prerequisite before deployment
+- [ ] **3.3 Lazy image loading:** gate upstream image acquisition, not only `<img>` loading
 - [ ] **3.4 Image-cache LRU sweep:** resolve accepted limitation OFF-6 with an
   access-time policy and byte budget
 - [ ] **3.5 Service-worker precache review:** keep user-generated content out of precache;
-  assess update prompt, `beforeinstallprompt`, and Profile sharing
+  resolve the confirmed `autoUpdate` activation override (recommended prerequisite
+  for releasing 3.2); assess update prompt, `beforeinstallprompt`, and Profile sharing
 - [ ] **3.6 Build-size guard:** add a documented budget check to CI or local verification
 - [ ] **3.7 PostHog foundation:** error tracking and feature flags, with session replay and
   autocapture disabled
@@ -58,4 +60,6 @@ this roadmap. Git history and `docs/PROJECT_REFERENCE.md` retain the implementat
 
 ## Batch boundary
 
-Phase 3.1 is the next proposed batch. Do not begin it as part of the workflow migration.
+Phase 3.1 is complete. Phase 3.2 is the next proposed batch; agree its scope and the
+service-worker prerequisite using the audit before implementation. No Phase 3.2 or
+3.5 runtime changes are included in the audit.
