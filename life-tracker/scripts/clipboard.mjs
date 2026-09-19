@@ -9,9 +9,8 @@ import { spawnSync } from 'child_process';
  * detected). Returns `true` on the first tool that exits 0, `false` if
  * no clipboard tool is available or every attempt fails.
  *
- * Shared by `scripts/dump-files.mjs` (Tier 2 context dump, §25.2) and
- * `apply-changes.mjs` (run-output copy on exit, §5.1). No side effects
- * beyond spawning the clipboard utility.
+ * Shared by the targeted dump, handoff-packet generator, and legacy installer.
+ * No side effects beyond spawning the clipboard utility.
  */
 export function copyToClipboard(text) {
   const attempts = [];

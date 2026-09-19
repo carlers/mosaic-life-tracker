@@ -11,6 +11,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:ui": "vitest --ui",
+    "handoff": "node scripts/create-handoff.mjs",
     "dump": "node scripts/dump-files.mjs",
     "apply": "node apply-changes.mjs",
     "apply:dry": "node apply-changes.mjs --dry-run",

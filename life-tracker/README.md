@@ -34,15 +34,17 @@ npm run build
 Mobile PWA testing requires a Cloudflare Tunnel (`cloudflared tunnel --url
 http://localhost:5173`) and the tunnel URL must be allowed in Appwrite Platforms.
 
-## Codex workflow
+## AI workflows
 
-`AGENTS.md` contains the active project instructions, `PLAN.md` owns the roadmap, and
-`SESSION_STATE.md` is the current handoff. Detailed product and architecture contracts
-live in [docs/PROJECT_REFERENCE.md](docs/PROJECT_REFERENCE.md). See
-[docs/CODEX_WORKFLOW.md](docs/CODEX_WORKFLOW.md) for the editor workflow.
+`AGENTS.md` contains shared project instructions, `PLAN.md` owns the roadmap, and
+`SESSION_STATE.md` is the workflow-neutral checkpoint. Detailed product and architecture
+contracts live in [docs/PROJECT_REFERENCE.md](docs/PROJECT_REFERENCE.md).
 
-The former repomix and mega-file installer remains available as optional legacy tooling;
-see [docs/LEGACY_WORKFLOW.md](docs/LEGACY_WORKFLOW.md).
+- [Codex workflow](docs/CODEX_WORKFLOW.md) — direct VS Code inspection, editing, and checks.
+- [DeepSeek Web workflow](docs/LEGACY_WORKFLOW.md) — compact handoff packets, separate
+  planner/implementer roles, and the retained full-file installer.
+
+Generate a resume prompt or DeepSeek packet with `npm run handoff -- <target>`.
 
 ## License
 

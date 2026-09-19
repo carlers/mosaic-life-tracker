@@ -2,11 +2,10 @@
 
 This document preserves Mosaic's detailed product contracts, architectural
 invariants, implementation rationale, and historical decisions. It is reference
-material, not an instruction file. `AGENTS.md` contains the active Codex rules.
+material, not an instruction file. `AGENTS.md` contains the shared active rules.
 
-Sections 5, 5.1, and 25 describe the retired DeepSeek web workflow for historical
-traceability. They are not active instructions; see `docs/LEGACY_WORKFLOW.md` for
-the supported optional fallback tools.
+Sections 5 and 25 summarize workflow boundaries and history. Active process belongs in
+`docs/CODEX_WORKFLOW.md` and `docs/LEGACY_WORKFLOW.md`.
 
 ## 0. Hard Rules
 
@@ -59,77 +58,26 @@ is authoritative.
   and activation after all old controlled clients close; see §15 and §24.9.
 - **Auth:** React Context (`AuthProvider`) is the single source of truth for the authenticated user. See §23. `useAuth` is a thin consumer shim; no hook mounts its own `account.get()`.
 
-## 5. Retired "Brain Generates, Human Executes" Workflow
+## 5. Portable AI Workflow Boundary
 
-> Historical record only. Codex edits and verifies the workspace directly under the
-> active workflow in `AGENTS.md` and `docs/CODEX_WORKFLOW.md`.
-- **AI Role:** The AI writes 100% of the production-ready code. No local AI agents are used for coding
-- **Human Role:** The user manually creates files, pastes the AI's code, and runs terminal commands
-- **Code Generation Rules:** The AI must output complete, copy-pasteable files (no `// ... rest of code` placeholders). Files should be organized by logical separation, not arbitrary line limits
+Codex and DeepSeek Web share the same project rules, roadmap, workflow-neutral session
+state, files, and Git history. Codex edits the workspace directly. DeepSeek transfers
+compact context through a generated handoff packet and applies complete changed files
+through the retained installer. See `docs/CODEX_WORKFLOW.md` and
+`docs/LEGACY_WORKFLOW.md` for active instructions.
 
-## 5.1 Legacy Revision Workflow (Mega File + Installer)
+Files should be organized by ownership and readability rather than arbitrary line limits.
+Generated changes must be complete and must not contain placeholders or elisions.
 
-All revisions are delivered as a single fenced code block tagged `mosaic`. Outer fence: exactly five tildes + `mosaic` opener; five tildes alone on the closer. Installer regex: `/^(~~~+|`{3,})mosaic\s*\n([\s\S]*?)\n\1\s*$/` — the `\1` backreference requires the closing fence to match character AND length exactly, so a five-tilde opening can only be closed by exactly five tildes and any ≤3-char fence inside is inert. (The regex accepts any length ≥3; four is the convention, not a hard maximum.)
+## 5.1 Legacy Revision Transport
 
-**Mega-file shape** (this is a shape illustration only — do NOT copy-paste the opener; the real opener is written exactly once at the top of your output):
+The retained installer accepts a fence-aware `mosaic` block containing full
+`===FILE:path===`, `===DELETE:path===`, and optional `===COMMIT:message===`
+directives. It validates paths, backs up touched files, runs the requested verification,
+and stages only touched paths when the user approves its commit prompt.
 
-```
-<opener: five tildes immediately followed by the literal `mosaic`, nothing else on the line>
-===FILE:path/to/file.ext===
-<complete file content>
-===FILE:path/to/other.ext===
-<complete file content>
-===DELETE:path/to/removed.ext===
-===COMMIT:audit: auth context and shared lifecycle===
-<closer: five tildes alone on their own line>
-```
-
-The literal string `mosaic` appears **exactly once** in a well-formed mega file: immediately after the five-tilde opener. If you find yourself writing it a second time, you have copied the shape illustration into your output — delete that line before emitting.
-
-**Fence rules:**
-
-1. **OUTER fence** wraps the mega file. Opens with exactly five tildes immediately followed by `mosaic` (no space). Closes with exactly five tildes alone on their own line. Always five tildes — never three, never backticks, never mixed character or length.
-2. **INNER fences** — anything inside file contents (code examples, Markdown snippets, TypeScript blocks, prose examples). Any fence character and any length up to three characters is fine. The parser treats them as inert because their character and/or length differs from the outer fence. Content inside an inner fence is literal: `===FILE:` / `===DELETE:` / `===COMMIT:` lines inside it are not directives.
-3. The parser strips the outer fence first (regex above), then scans the remaining content line-by-line with CommonMark fence rules, tracking which lines sit inside an inner fence. Only lines not inside an inner fence can be directives.
-
-**Additional rules:**
-
-- One fenced block per logical change. No prose before or after (aside from a single confirmation line).
-- Full file contents only — no diffs, no placeholders, no elisions.
-- Directives (`===FILE:`, `===DELETE:`, `===COMMIT:`) must be at line start, exactly as shown.
-- Do not escape content. Do not nest `mosaic` blocks.
-- `===COMMIT:...===` is optional. If absent, the installer emits a generic fallback based on the touched paths.
-- **Reasoning discipline before emission:** if the mega file touches ≥2 files, Chat 2 first emits a single `npm run dump -- <paths>` line listing every file whose current content it needs (see §25.5.1). Do not interleave dumps and emission.
-
-The user pastes the block into `pending-changes.txt` (project root, gitignored), then runs one of:
-
-| Command | Purpose |
-|---|---|
-| `npm run apply:dry` | Parse + validate, no writes |
-| `npm run apply` | Write files, lint, test, build, then prompt to commit |
-| `npm run apply:docs` | Write files, skip lint/test/build |
-| `npm run apply:start` | Write, lint, test, build, start dev server |
-| `npm run apply:rollback` | Restore from the most recent backup |
-
-The installer (`apply-changes.mjs`) backs up every modified or deleted file to `.mosaic-backup/<timestamp>/` before writing. On lint, test, or build failure it exits without restoring; the user runs `npm run apply:rollback` explicitly to revert. `apply-changes.mjs` copies its full run output to the clipboard on exit (all modes, success or failure).
-
-**Git commit prompt (apply only, after green verify).** When `npm run apply` passes lint, test, and build, the installer prompts `Commit these changes? [Y/n]`. On Y it runs `git add` for the touched paths only (never `-A`, so unrelated WIP is not swept in), commits with the `===COMMIT:...===` message (truncated to 72 chars; fallback from touched paths if absent), and prints the resulting hash. On n it stops. Skipped entirely if stdout is not a TTY (piped or CI) — the installer instead prints a copy-pasteable `git add … && git commit -m "…"` line. Flag overrides: `--commit` (skip the prompt, always commit on green) and `--no-commit` (skip the prompt, never commit). A failed `git commit` (e.g. a pre-commit hook rejects) exits non-zero but does **not** trigger rollback — files are already written.
-
-**Parser is fence-aware (CRITICAL).** `parseMegaFile` runs a two-pass scan:
-
-1. Pass 1 marks every line inside a Markdown fence (backticks or tildes; CommonMark rules). Fence-boundary lines are marked "inside".
-2. Pass 2 performs the linear directive scan but refuses to match any directive on a line marked "inside".
-
-Without this guard, directive examples inside fenced blocks would truncate the enclosing file at the first example directive, create phantom files, and override the outer `===COMMIT:...===`.
-
-**Mega-file emission checklist (Chat 2, before emitting):**
-
-- Outer fence is exactly five tildes + `mosaic` at the top; five tildes alone at the bottom. Nothing before, nothing after.
-- The literal `mosaic` appears exactly once.
-- Every touched file is present as a `===FILE:path===` block with its complete new content. Full contents — no diffs, no placeholders.
-- `===FILE:path===`, `===DELETE:path===`, and `===COMMIT:...===` are at line start, exactly as shown.
-- `SESSION_STATE.md` is updated as the last `===FILE:` block before `===COMMIT:`.
-- No prose, no announcement, no reasoning inside the fence. The mega file contains files only.
+The exact output format, commands, checkpoint requirements, and recovery procedure live
+in `docs/LEGACY_WORKFLOW.md`. `apply-changes.mjs` is the executable source of truth.
 
 ---
 
@@ -171,7 +119,7 @@ Without this guard, directive examples inside fenced blocks would truncate the e
 - **Phase 2 refactor audit → refactor closed (2026-09-18):** Batches 2.1–2.10 shipped. OFF-1 offline auth gate (H1 = Option A); duplication sweep (DUP-1…12); component boundary audit (CB-1…14); hook boundary audit (HB-1…12); lib-level extractions; shared React primitives + `useRxCollection`; sheet migrations across 19 files; domain hook extractions (useThreadMessages/useMessageActions/useConversations/useUnreadMessages split); god-component splits (CalendarBody, DayViewSheet, ChatPage, PersonPane); cleanup pass. All findings closed. Git and the changelog below retain the historical decisions.
 - **Test suite live:** The 2026-09-18 baseline was 390 tests across four Vitest projects (`unit`, `handlers`, `react`, `components`). Runtime batches run appropriate focused checks and the full lint/test/build gate when cross-cutting. See §24.
 
-**Next Up:** Phase 3 — optimize audit → optimize (bundle size 1.7 MB, route splitting, lazy images; receives OFF-6 LRU cap). Then Phase 4 spec audit group. Then Phase 3.5–3.7 feature work. Full history lives in the Changelog (index rows; see §26 for the row format).
+**Next Up:** Phase 3.4 image-cache LRU and byte budget, followed by the remaining Phase 3 optimization batches and the Phase 4 specification/accessibility audit. `PLAN.md` is authoritative for ordering.
 
 ## 9. Hook & State Conventions
 - **Named return object, never array:** `{ <domain>, isLoading, ...mutators }`; mutators `useCallback`-wrapped.
@@ -301,7 +249,7 @@ Without this guard, directive examples inside fenced blocks would truncate the e
   original finding. Workbox still emits a conditional `SKIP_WAITING` message handler
   with the corrected policy; a text search for `skipWaiting()` cannot distinguish
   this from immediate activation. Build verification inspects execution (see §24.9).
-- `scripts/` — build-time utilities: `dump-files.mjs` (Tier 2 dump, §25.2), `clipboard.mjs` (shared clipboard helper), one-off Appwrite migration scripts.
+- `scripts/` — build-time and workflow utilities: targeted dumps, compact AI handoffs, shared clipboard support, and one-off Appwrite migration scripts.
 - `tests/` — Vitest suite (four projects). See §24.
 - Project root: `apply-changes.mjs` (installer; copies run output to clipboard on exit), `pending-changes.txt` (gitignored input).
 
@@ -529,7 +477,7 @@ Recipient-side `read_at` propagation depends on `markReadOnRemote` eventually su
 Vitest 3.x uses four projects (`unit`, `handlers`, `react`, `components`). The
 2026-09-18 historical baseline was 390 tests. Config lives in `vitest.config.ts`.
 Run `npm test` (or `npm run test:watch` / `npm run test:ui`). Cross-cutting runtime
-batches must pass lint, tests, and build before completion. The optional legacy
+batches must pass lint, tests, and build before completion. The supported legacy
 installer in §5.1 runs the same gate.
 
 ### 24.2 Project layout
@@ -651,238 +599,30 @@ browser intersection/scroll behavior with cached blobs. It does not replace a li
 Appwrite, mobile/Safari, or production-data trace. Phase 3.4 remains responsible for
 persistent cache eviction and byte budgeting.
 
-## 25. Retired DeepSeek AI Workflow Protocol
+## 25. Workflow Portability and History
 
-> Historical record only. The Chat 1/Chat 2 roles, repomix onboarding, DeepThink
-> toggles, and mandatory mega-file handoffs do not apply to Codex.
+Mosaic originally used mandatory repository exports, persistent Chat 1/Chat 2 sessions,
+and full-file mega patches. The Codex migration moved roadmap state to `PLAN.md`,
+temporary continuity to `SESSION_STATE.md`, and durable technical rules to this
+reference. The portability migration then restored the two DeepSeek roles as a supported
+alternate workflow without restoring full-repository onboarding.
 
-### 25.1 Roles
-Three roles participate. Every chat session is exactly one role.
+The current contract is intentionally small:
 
-- **Chat 0 — User / Arbiter.** The human. Makes product decisions, runs terminal commands, approves plans, is the only party who can change scope. Not a chat session.
-- **Chat 1 — Brain.** Planner, auditor, prompt generator. Reads `AGENTS.md`, `SESSION_STATE.md`, and the attached `repomix --compress` output. Produces prompts for Chat 2 and plan updates. Does NOT write production code. May request exact file contents via `npm run dump -- <paths>`. **A single Chat 1 session spans the full audit cycle** — brief → dumps → findings → Chat 2 fix prompt — without handing off. Only a user-typed `OFFBOARD` triggers a handoff (§25.6); Chat 1 never hands off on its own initiative. **Chat 1 may emit its own mega files for documentation-only changes (§25.6).** All runtime-affecting changes — TypeScript, scripts, configs, `package.json`, anything that could affect runtime behavior — go through Chat 2. Follows §25.9.
-- **Chat 2 — Hands.** Coder, mega-file producer. Reads `AGENTS.md`, `SESSION_STATE.md`, and the attached `repomix --compress` output. Produces exactly one mega file per §5.1 for the current batch. Updates `SESSION_STATE.md` inside every mega file. Requests exact files via `npm run dump -- <paths>`. Follows the question policy (§25.5) and §25.9.
+- the user prompt selects Codex, DeepSeek Chat 1, or DeepSeek Chat 2;
+- session state describes the checkpoint without storing the active workflow or commit
+  status;
+- Git and current files are authoritative;
+- DeepSeek receives only shared rules, state, roadmap, Git metadata, and selected working
+  files unless it requests more context;
+- switches can happen between valid substeps instead of waiting for phase completion.
 
-A session declares its role in its first message (§25.4). If it does not declare a role, it must ask before acting.
-
-### 25.2 Context Tiers
-Use the lowest tier that supports the task.
-
-| Tier | Contents | When |
-|---|---|---|
-| **Tier 0** | `AGENTS.md` + `SESSION_STATE.md` | Always. Both are included in any repomix of the repo, so no separate action is needed if you send any repomix at all |
-| **Tier 1** | `repomix --compress` | **Default for both chats.** ~54k tokens. Compressed file-tree + skeleton view of every file. Sufficient for planning, audits, and most edits |
-| **Tier 2** | `npm run dump -- <paths>` | On demand. Requests exact full-file contents for specific paths. Emits each file wrapped in a repomix-compatible `<file path="…">…</file>` block and copies to clipboard |
-| **Tier 3** | Full `repomix` (uncompressed) | Rare. Only for brand-new Chat 1 onboarding or a full-repo audit that genuinely needs every line. ~200k tokens |
-
-**Rules:**
-- Default context for every chat is `repomix --compress`. Full repomix is the exception, not the baseline.
-- When a chat needs exact file contents, it outputs the request inside a tilde fence (five tildes by default) so the line is copy-pasteable as a single unit. Dump output uses repomix's XML `<file path="…">` wrapper, **not** the `===FILE:…===` directive syntax — deliberately distinct so a dump can never be mistaken for (or accidentally parsed as) a mega file.
-- Compressed repomix does not alter Markdown files (`AGENTS.md`, `SESSION_STATE.md`), so Tier 0 is always delivered in full regardless of the tier chosen.
-
-### 25.3 Session State
-`SESSION_STATE.md` lives in the repo root and is included in every repomix. Single source of truth for "where are we now."
-
-| Field | Meaning |
-|---|---|
-| `Updated` | ISO timestamp of the last real change. Do not bump on re-emission if unchanged |
-| `ActivePlan` | The current phase or major workstream |
-| `CurrentBatch` | The current batch within the plan, as `N of M` |
-| `CurrentTask` | The specific task inside the current batch |
-| `Status` | One of: `not_started`, `in_progress`, `blocked`, `audit_closed` |
-| `NextAction` | One line: what the next chat should do. Chat 1 fills this in when planning; Chat 2 refines it at the end of every mega file |
-| `NextChatRole` | `chat1` or `chat2`. Tells the offboarding prompt which role the next session should assume. Not a directive to start a new session |
-| `BatchPlan` | Checklist of the current plan's batches, `[x]` for done. Kept short — no deeper than one level |
-| `OpenQuestions` | Unresolved questions blocking Chat 2 under §25.5. `none` when clear |
-| `Findings` | (optional) One line per finding: ID, severity, one-sentence description, fix direction. Absent when no open findings |
-| `Decisions` | (optional) One line per non-obvious decision: date, what was decided, rationale, disposition. Absent when nothing worth recording |
-| `Deferred` | (optional) Items routed to other batches/phases, with the target named. Absent when nothing is deferred |
-| `LastApply` | ISO timestamp of the most recent successful `npm run apply` |
-| `LastAuditSummary` | One line: outcome of the last audit or completed batch |
-
-**Who updates it:**
-- **Chat 1** writes the initial `ActivePlan`, `BatchPlan`, and `NextChatRole` when starting a new phase.
-- **Chat 2** updates `CurrentBatch`, `CurrentTask`, `Status`, `NextAction`, and the relevant `[x]` in `BatchPlan` inside every mega file it emits. The update is a `===FILE:SESSION_STATE.md===` block at the end of the mega file, before the `===COMMIT:...===` directive.
-- **Chat 1** updates `LastAuditSummary` and `ActivePlan` when a phase closes or a new phase opens. Chat 1 also owns `Findings`, `Decisions`, and `Deferred` during audit phases.
-
-**Size:** `SESSION_STATE.md` is the phase's single document. It grows during audit phases and shrinks during feature development. No fixed line cap. Do not create separate per-audit files — a separate file risks becoming a dangling pointer if not applied in lock-step. When the phase closes, Chat 1 trims resolved items; the changelog in `AGENTS.md` is the archive.
-
-**Migration note:** A new Chat 1 picking up mid-phase reads `SESSION_STATE.md` first, not the Changelog. The Changelog is a section-touched index (date → sections → one-phrase summary → pointer), not a narrative. If the state file doesn't explain a decision, the Chat 1 requests `npm run dump -- <path>` on the affected file or reads the referenced section. Do not rely on the Changelog alone to reconstruct mid-audit context.
-
-### 25.4 Prompt Templates
-Canonical starts for each role. The user copies one line from a previous chat's onboarding prompt, or types it manually, and pastes it together with the repomix.
-
-**Start Chat 1 (new phase or full audit):**
-```
-ROLE: CHAT 1 (Brain). Follow AGENTS.md §25. Read SESSION_STATE.md. You plan, audit, and generate Chat 2 prompts. You do not write production code. Stay in this session across the full audit cycle; only OFFBOARD ends it. Objective: <one line or "resume from SESSION_STATE.md">. DeepThink: ON.
-```
-
-**Start Chat 1 (phase-review handoff):**
-```
-ROLE: CHAT 1 (Brain). Follow AGENTS.md §25. Read SESSION_STATE.md. The previous Chat 2 session completed phase <name>. Review its mega files; approve the phase closed or emit a correction prompt. Do not start the next phase without Chat 0 approval. DeepThink: ON.
-```
-
-**Start Chat 2 (execution):**
-```
-ROLE: CHAT 2 (Hands). Follow AGENTS.md §25. Read SESSION_STATE.md. You produce one mega file per §5.1 for the current batch and update SESSION_STATE.md inside it. Do not ask granular questions; follow §25.5. If you need exact file contents, output a single line: npm run dump -- <paths>. Plan your dump list once — see §25.5.1. Start with NextAction from SESSION_STATE.md. Stay in this session across batches; only OFFBOARD ends it. DeepThink: OFF.
-```
-
-**Offboard (ask the current chat to hand off):**
-```
-OFFBOARD. Produce: (1) a one-line onboarding prompt for the next chat per §25.6, and (2) if SESSION_STATE.md is stale, a mosaic mega file updating it. No other output. End with a `Toggle DeepThink: <ON|OFF>` line for the target session.
-```
-
-**Resume (mid-phase, same role):**
-```
-ROLE: CHAT <1|2>. Follow AGENTS.md §25. Read SESSION_STATE.md and resume from NextAction. No further context needed. DeepThink: <ON|OFF>.
-```
-
-**Phase complete (Chat 2 end-of-phase declaration, used once):**
-```
-PHASE COMPLETE
-Phase: <name>
-Batches: <N of M>
-Files touched: <list>
-Tests: <pass|fail, count>
-SESSION_STATE.md updated: yes
-NextChatRole: <chat1 | chat2>
-```
-
-### 25.5 Question Policy and Reasoning Discipline
-
-**Question policy.** Chat 2 must not ask granular questions during execution. It asks **only** when the answer would change one of:
-- Product scope (a new feature, a removed feature, a change to user-visible behavior)
-- Architecture (data model, sync semantics, auth, or any invariant in §6, §9, §18, §20)
-- External contract (Appwrite schema, function signature, column definition)
-
-For anything else — naming, file placement, styling choices, which existing pattern to reuse, whether to add a test — Chat 2 picks the option most consistent with `AGENTS.md` and existing code, states the assumption in the `===COMMIT:...===` line, and proceeds.
-
-If a decision fits within the current batch's scope and follows an existing pattern, it is not a question. It is an implementation detail.
-
-**NOT a question:** file placement, variable/file naming, whether to add a test, which existing pattern to reuse, comment inclusion, import order, style choices already covered by lint.
-
-**IS a question:** adding/removing a schema field, changing a §6/§9/§18/§20 invariant, changing user-visible behavior, changing an Appwrite function contract.
-
-**Chat 1** has no question policy restriction — it is expected to surface open questions and record them in `SESSION_STATE.md`'s `OpenQuestions` field.
-
-**Reasoning discipline (all chats).** Over-thinking wastes tokens without improving the artifact. These rules target the observed patterns — decision loops, spec re-reads, inline option enumeration — without reducing reasoning about the task itself.
-
-- **Read dumps once.** Do not re-read a section to re-verify a fact you already extracted.
-- **Do not restate the task or the spec.** Both are in context. Begin at the first non-obvious decision.
-- **Decide once.** No prose iteration on a decision already made. "Actually," "wait," and "hmm, but" are signals to commit or drop in one line — not to re-reason.
-- **Do not enumerate options you will not choose.** If an existing pattern makes the answer obvious, apply it and move on.
-- **Question-policy decisions get decided once** — naming, file placement, styling, which pattern to reuse. Pick, state the choice in the commit line, proceed.
-- **Do not pre-verify the installer.** Lint/test/build run after the mega file. Reasoning about their outcome adds nothing.
-- **Do not resolve hypotheticals the task did not ask about.** Note the edge case in one line; do not design for it.
-- **One plan, one pass.** No mid-implementation redesign unless a dump contradicts the plan.
-- **Do not restate reasoning in the artifact.** The mega file contains files, not commentary.
-- **A second "final" is a spec-gap signal.** If you write "final design" twice, the first pass was incomplete. Close the gap in one line; do not restart.
-- **Your response is the mega file plus §25.8 lines.** No preamble, no post-amble.
-- **Do not announce what you are about to do.** Do it.
-- **Do not narrate decisions the question policy already resolved.**
-- **Mega files contain only files whose content changes.**
-
-**25.5.1 Dump discipline.** Before emitting any mega file that touches ≥2 files, Chat 2 first outputs a single `npm run dump -- <paths>` line listing every file whose current content it needs. One line, one round-trip. If after receiving the dump Chat 2 discovers exactly one more file is needed, a second request is tolerated. A **third** request in one batch is a planning failure: Chat 2 states `planning error — proceeding best-effort` and emits the mega file with whatever context it has, rather than dumping again. For any batch touching ≥3 files, the *plan* step (identifying the dump list) should run with DeepThink ON; the emission step may run with DeepThink OFF.
-
-### 25.6 Offboarding
-Offboarding has exactly two triggers, with different targets:
-- (a) Phase completion. Chat 2 has just appended the PHASE COMPLETE declaration (§25.4) to its final mega file. Chat 2 emits a handoff prompt targeting Chat 1. Automatic; no user command.
-- (b) User-typed OFFBOARD. The current chat emits a handoff prompt targeting NextChatRole from SESSION_STATE.md.
-
-Offboarding is per-phase, not per-batch. Chat 2 does not produce an offboarding prompt mid-phase except on a user-typed OFFBOARD. A mid-phase prompt without one of these two triggers is a spec violation of the same class as Chat 1 emitting a next-session prompt after an audit brief.
-
-When a chat is asked to offboard, it produces exactly two things, in this order, with nothing else:
-
-1. **A one-line onboarding prompt** in the format from §25.4. Target role depends on the trigger: phase completion targets Chat 1, user OFFBOARD targets SESSION_STATE.md's NextChatRole. Objective is "resume from SESSION_STATE.md" unless there is context not yet in the state file, in which case append it after a semicolon. **The prompt MUST end with a `Toggle DeepThink: <ON|OFF>` line** recommending the target session's initial DeepThink setting.
-
-   When the target is Chat 1, the prompt body MUST additionally include: (a) what was done, 2–3 sentences; (b) files touched; (c) review focus; (d) test status. A target-Chat-2 prompt does not need these — SESSION_STATE.md carries the state.
-
-   The summary is the sole review artifact. Chat 1 does not request the mega file, the applied diff, or a git diff. If the summary is insufficient, Chat 1 requests `npm run dump -- <paths>` and reads the affected files directly.
-
-   The prompt is emitted inside a Markdown code fence whose backtick count is strictly greater than the longest backtick run appearing anywhere inside the prompt body. Four backticks is the default; bump to five or more if the prompt body contains a four-backtick run.
-
-   Example:
-   ````
-   ROLE: CHAT 2 (Hands). Follow AGENTS.md §25. Read SESSION_STATE.md. Resume from NextAction. Start with the current batch. DeepThink: OFF.
-   ````
-
-2. **A `SESSION_STATE.md` update**, emitted as a mosaic mega file per §5.1, **only if the state file is stale**. If it is current, the chat says so in one line and stops.
-
-The user then pastes (1) into the next chat and (2), if present, into `pending-changes.txt`. That is the entire handoff.
-
-**The new chat's full input is:**
-- One repomix (`repomix --compress` by default)
-- The one-line prompt from (1)
-
-No other context is needed. The new chat reads `AGENTS.md §25` and `SESSION_STATE.md` from the repomix and knows what to do.
-
-### 25.7 Rate Limit Mitigation
-- Default to Tier 1 (`repomix --compress`, ~54k tokens) for both chats. Never send full repomix unless the task genuinely requires Tier 3.
-- Use `npm run dump -- <paths>` for exact file contents instead of re-sending the whole repo.
-- Keep `SESSION_STATE.md` short so onboarding a new chat is cheap.
-- Start a new chat only when the current one is actually slow, confused, or out of context — not after every batch.
-- The `dump` command copies to the system clipboard automatically (macOS `pbcopy`, Windows `clip`, Linux `wl-copy`/`xclip`/`xsel`). If no clipboard tool is available, the content is still printed to stdout.
-
-### 25.8 Post-Batch Instructions (Chat 2 only)
-Chat 2 always appends brief next-step instructions immediately after the mega file's closing fence. The instructions are one to four lines, no preamble. They always begin with the apply command and branch on its outcome.
-
-**Every Chat 2 response ends with a line `Toggle DeepThink: <ON|OFF>`** recommending whether the user should turn DeepThink on or off before their next message to Chat 2. Rationale: DeepThink ON during the *plan* step (dump-list identification, architectural decision) improves the plan; DeepThink ON during mechanical emission just burns cycles. See §25.10 for defaults.
-
-Mid-phase batch:
-```
-Run `npm run apply`.
-- Pass → reply "continue" and I'll start <next batch>.
-- Fail → paste the error and I'll emit a fix.
-Toggle DeepThink: <ON|OFF>
-```
-
-Phase-final batch (the mega file contains the PHASE COMPLETE declaration):
-```
-Run `npm run apply`.
-- Pass → offboard to Chat 1 with the prompt below.
-- Fail → paste the error.
-Toggle DeepThink: OFF
-
-<offboarding prompt, inside a fence with strictly more backticks than any inner run>
-```
-
-Chat 2 never emits the offboarding prompt for a mid-phase batch, even if the user reports a successful apply. Only a phase-final batch produces it. This is §25.6's "no mid-phase offboarding prompt" rule made concrete.
-
-### 25.9 Reasoning Discipline (cross-reference)
-Merged into §25.5 (second half). Do not duplicate.
-
-### 25.10 DeepThink Toggle Defaults
-Every chat response that the user will act on ends with a `Toggle DeepThink: <ON|OFF>` line recommending the setting for the user's *next* message to that chat.
-
-- **Chat 2:** OFF by default. ON when the next message's *plan* step is architectural or spans ≥3 files. For a batch with a known plan (single-file edit, one-line answer, mechanical emission), OFF.
-- **Chat 1:** ON for audits and architecture. OFF for prompt generation and doc-only edits.
-- **Offboarding prompts:** MUST carry a `Toggle DeepThink:` line for the target session (§25.6).
-- **Initial prompts (§25.4):** carry a `DeepThink: <ON|OFF>` field on the first line so the user knows what to set on the new chat.
-
-### 25.11 Phase-Close Protocol (Chat 1)
-When Chat 1 closes a phase:
-1. Trim SESSION_STATE.md: collapse `Findings`/`Decisions` for closed batches to one line per phase; drop resolved items.
-2. Update `LastAuditSummary` with a one-line outcome; set `ActivePlan` to the next phase or `none`.
-3. Verify no dangling cross-references: any finding ID or decision referenced from AGENTS.md must either still exist in SESSION_STATE.md or be inlined into the changelog row for that phase. Do not leave IDs that point at trimmed state.
-4. Add the final Changelog row with pointer to SESSION_STATE.md for that phase's decisions.
-5. If the phase produced any "Accepted Limitations," confirm the rationale paragraphs in §18 are intact and not reduced to a pointer that loops back to the Changelog.
-
-## 26. Historical rules for the former instruction file
-- Every rule must prevent an error the LLM actually makes without it. Verify against observed fix cycles.
-- One-line imperative first. Rationale elsewhere.
-- Historical context never in the rule.
-- Changelog rows are indexes, not summaries.
-- Cross-reference, don't restate.
-- Before adding a rule: has Chat 2 emitted a fix-cycle mega file because of this exact mistake? If no, don't add.
-- Format for DeepSeek: numbered rules, short imperative sentences, grouped by action (when writing an effect, when patching a row) not by topic.
-- §0 exists and holds the must-not-miss rules.
-- Rationale paragraphs live in the section body, not in the rule.
+Historical DeepThink, context-tier, offboarding, and dump-count rules remain available in
+Git history. Active requirements live only in the workflow documents.
 
 ## Workflow migration note
 
-On 2026-09-19, `life-tracker/` became the Codex working root. Active instructions
-moved to the concise `AGENTS.md`; roadmap and handoff responsibilities moved to
-`PLAN.md` and `SESSION_STATE.md`; the DeepSeek workflow became optional legacy tooling.
+On 2026-09-19, `life-tracker/` became the AI working root. Codex and DeepSeek Web now share `AGENTS.md`, `PLAN.md`, `SESSION_STATE.md`, and Git while using separate transport and execution adapters.
 
 ## Changelog
 
@@ -904,15 +644,7 @@ moved to the concise `AGENTS.md`; roadmap and handoff responsibilities moved to
 | 2026-09-16 | Conversations / unread audit | §8, §9, §15, §16, §24 | `ConversationsProvider` + `FriendsProvider` own subscriptions; thin selectors; `ConversationRow` memo; `isUnsent` excluded; F11–F13 invariants | §16 |
 | 2026-09-16 | Sync engine audit (13 slices) | §6, §8, §10, §12, §15, §18, §20.5, §20.7, §24 | Listener isolation; dirty boundary at cycle-start; state versioning; page cap; user-scoped lastSync; server-owned `read_at` before dirty-skip; `_meta.lwt` re-check; `createRow` 404; Web Locks; `messageActionQueue`; drift detection; D6 `updatedAt`; `SyncStatusSheet`. Accepted limitations D1/D3/D7/F9-backoff | §18 Accepted Limitations, §20.5 |
 | 2026-09-16 | Sync Status UI (F16) | §8, §10, §15, §24 | `SyncStatusSheet` surfaces `SyncStatus.errors` via Settings; only user-visible sync-error surface | §10 |
-| 2026-09-16 | Chat 1 lifecycle clarity | §25.1, §25.4, §25.6 | One Chat 1 session spans full audit cycle; only user `OFFBOARD` hands off; unprompted next-session prompt is a spec violation | §25.6 |
-| 2026-09-16 | Dump XML format | §5.1, §25.2 | `dump-files.mjs` emits repomix `<file path>` XML; distinguishes read vs write formats | §5.1, §25.2 |
-| 2026-09-16 | Offboarding trigger split | §25.3, §25.4, §25.6 | Phase completion → Chat 1; user OFFBOARD → NextChatRole; review payload for Chat 1; PHASE COMPLETE replaces per-batch declaration | §25.6 |
-| 2026-09-16 | Chat 1 docs carve-out | §25.1, §25.6 | Chat 1 may emit docs-only mega files; review is logical, not byte-level; payload is sole artifact | §25.1 |
-| 2026-09-16 | SESSION_STATE.md as phase document | §25.3 | No per-audit files; optional `Findings`/`Decisions`/`Deferred`; phase-scoped growth/trim | §25.3 |
 | 2026-09-16 | Offline write resilience outbox | §10, §15 | `socialOutbox.ts` retries reciprocal friendship + profile writes; permanent drops emit failure events; `getCurrentUserId` distinguishes 401 from offline | §10, §15 |
-| 2026-09-17 | Post-batch + reasoning discipline + apply clipboard | §25.1, §25.8 (new), §25.9 (new), §15 | §25.8 codifies post-batch lines; §25.9 codifies reasoning discipline; `apply-changes.mjs` copies output to clipboard; `clipboard.mjs` extracted | §25.8, §25.9 |
-| 2026-09-17 | AGENTS.md compression | all | §0 hard rules added (10 → 9 on follow-up; grouped by action, dedup 2/10); §26 rules-for-writing-rules added; §8 + Changelog reformatted as index rows; section-level prose compressed throughout; ~25% AGENTS.md reduction | §0, §26 |
+| 2026-09-17 | AGENTS.md compression | all | §0 hard rules and index-style changelog established; section prose compressed by about 25% | §0, Git history |
 | 2026-09-17 | §0 dedup follow-up | §0 | Merged former rules 2 + 10 into one; §0 is now 9 rules grouped by action (schema → sync → messaging → cross-user → auth → tooling) | §0 |
-| 2026-09-17 | Compression follow-up | §2, §18, §16, §25.3, §25.11 (new) | Restored D1/D3/D7/F9-backoff rationale paragraphs in §18 (non-circular; no pointer-to-changelog loop). Restored behavioral specs for planned views in §2 (Todo List, Diary, Notifications, calendar layout alignment) so Phase 3.5–3.7 has a spec. Dropped F1/F3/F5/F12/F13 IDs from §16 — rule text alone is sufficient for cold readers; IDs were dangling once SESSION_STATE.md trimmed. Added §25.3 migration note (new Chat 1 reads SESSION_STATE.md first, not Changelog). Added §25.11 Phase-Close Protocol to prevent dangling cross-references recurring | §2, §16, §18, §25.3, §25.11 |
-| 2026-09-17 | Phase 1 audits closed; accessibility rules documented | §8, §14, §15, §18, §25.2, §25.4, §25.8, §23.6, §24 | Phase 1 CLOSED. Four accessibility rules added to §14 (icon-variant aria-label; interactive motion.div → motion.button; focus-visible rings on primitives; label association via htmlFor/useId). §18 accepted-limitations gains image-cache no-eviction paragraph. §15 gains imageCache.ts single-owner line and SW-scope line. §25.2 dump requests wrapped in tilde fences. §25.8 requires DeepThink ON/OFF in every Chat 2 prompt. §23.6 adds offline auth gate (H1 = Option A, scheduled Phase 2 batch 2.1). Dangling D8/F12/F13/F17/D4 cross-refs removed. Test count 347 | §25.11, §23.6, §14, §15, §18 |
-| 2026-09-18 | Phase 2 refactor audit → refactor closed | §8, §23.6, §25.2, §25.4, §25.5, §25.6, §25.8, §25.10, §5.1, §15 | Phase 2 CLOSED (batches 2.1–2.10). OFF-1 offline auth gate shipped. Duplication sweep (DUP-1…12), component boundary audit (CB-1…14), hook boundary audit (HB-1…12) — all findings closed. §25.5 gains dump discipline subsection 25.5.1 (one-dump rule); §25.9 reasoning discipline folded into §25.5; §25.6 offboarding prompt MUST end with `Toggle DeepThink:` line; §25.10 defines per-response DeepThink recommendation; §25.4 initial prompts carry `DeepThink:` field; §25.8 post-batch block ends with `Toggle DeepThink:` line; §5.1 mega-file shape illustration no longer shows a copy-pasteable opener, adds emission checklist, adds git commit prompt spec; installer `npm run apply` prompts Y/N to commit touched paths on green verify. Test count 390 | §25.11, §5.1, §25.5.1, §25.10 |
+| 2026-09-19 | Portable AI workflows | §5, §25 | Codex and DeepSeek share neutral state; compact role packets replace mandatory repository exports; full-file installer retained | `docs/CODEX_WORKFLOW.md`, `docs/LEGACY_WORKFLOW.md` |

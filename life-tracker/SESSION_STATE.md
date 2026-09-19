@@ -1,37 +1,39 @@
 # Session state
 
-Updated: 2026-09-19
-Current task: Phase 3.3 — visibility-gated image acquisition
-Status: implemented and verified; awaiting commit approval
-Roadmap pointer: `PLAN.md` — Phase 3.3 complete, Phase 3.4 proposed
-Next action: Commit Phase 3.3, then design the Phase 3.4 image-cache LRU and byte budget.
-Blockers: none for local completion.
+Updated: 2026-09-20
+Current task: Portable Codex and DeepSeek workflow migration
+Status: complete
+Roadmap pointer: `PLAN.md` — workflow migration complete; Phase 3.4 next
+Checkpoint: Both workflows share a verified neutral state and compact handoff contract.
+Next action: Design the Phase 3.4 image-cache LRU access-time policy and byte budget.
+Blockers: none
 
-## Findings and temporary decisions
+## Working set
 
-- Scrollable avatars and task thumbnails acquire cached/remote blobs only after entering
-  a 200px preload margin. Selected headers and opened viewers remain eager.
-- The visibility gate latches after enabling. Shared promises, object-URL reference
-  counts, delayed revocation, placeholders, and no-observer fallback remain intact.
-- Persisted avatars use `DeferredAvatar`; chat and friend-calendar headers no longer pass
-  storage IDs directly to `<img>`. Viewer acquisition failure has an explicit close path.
-- Commit confirmation uses the extension's native command-approval buttons when
-  available, with a plain yes/no question retained as the fallback.
-- Phase 3.4 remains separate: no IndexedDB eviction metadata, byte cap, or sweep was added.
+- none
+
+## Completed substeps
+
+- Added explicit Codex, DeepSeek Chat 1, and DeepSeek Chat 2 workflow selection.
+- Added state-driven compact packets with safe path overrides and Git checkpoint data.
+- Retained DeepSeek's full-file installer, verification, rollback, and commit flow.
+- Consolidated active workflow documentation and removed obsolete operational protocols.
+- Untracked the generated Repomix snapshot while retaining Repomix as an audit fallback.
+
+## Remaining substeps
+
+- none for this migration; Phase 3.4 remains the next product batch.
+
+## Temporary decisions
+
+- Git supplies branch, HEAD, worktree, and commit truth; session state does not duplicate it.
+- Dirty mid-batch handoffs are allowed only with complete files and explicit remaining work.
+- Packets warn above an estimated 20,000 tokens and never embed repository exports.
 
 ## Verification
 
-- Lint → 42 files / 407 tests → production build passed, including the SW guard.
-- Bundle audit passed; optional package exclusions remain intact. Initial/Home gain only
-  19/690 gzip bytes from the visibility machinery; see `docs/BUNDLE_AUDIT.md`.
-- Chromium's real IndexedDB path read 3 of 21 initial images, added only the two bottom
-  rows after scrolling, and made no repeat reads on return scroll.
-- No live Appwrite image request, authenticated upload, mobile/Safari, production-data
-  trace, or Phase 3.4 eviction behavior is claimed. The existing large-entry and
-  nested-button warnings remain outside this batch.
-
-## Unfinished changes
-
-- Pending commit: Phase 3.3 runtime, tests, measurements, roadmap/reference, and handoff.
-  No dependencies, database schema, API, push, or deployment changes.
-- Phase 3.4 image-cache LRU and later roadmap work remain queued.
+- Handoff unit coverage: 8 tests passed, including clean/dirty metadata and path safety.
+- Codex, DeepSeek Chat 1, and DeepSeek Chat 2 commands completed successfully.
+- Lint passed; 43 files / 415 tests passed; production build and SW guard passed.
+- Markdown links, stale workflow references, instruction size, and `git diff --check` passed.
+- Existing nested-button test output and large-chunk build warning remain unrelated.

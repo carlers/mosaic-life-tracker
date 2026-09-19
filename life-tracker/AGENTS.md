@@ -1,8 +1,19 @@
 # AGENTS.md — Mosaic
 
-These instructions apply when Codex works in `life-tracker/`. Treat this directory
-as the project root for editor context, commands, paths, and documentation. The Git
-repository remains one directory above it.
+These instructions apply to AI work in `life-tracker/`. Treat this directory as the
+project root for editor context, commands, paths, and documentation. The Git repository
+remains one directory above it.
+
+## Workflow selector
+
+- Codex is the default workflow. Use `docs/CODEX_WORKFLOW.md` when the user identifies
+  the agent as Codex or does not name a workflow.
+- An explicit `DeepSeek Chat 1` or `DeepSeek Chat 2` declaration selects the supported
+  legacy web workflow in `docs/LEGACY_WORKFLOW.md`. The declared role controls process;
+  every architecture, safety, product, and verification rule in this file still applies.
+- `PLAN.md`, `SESSION_STATE.md`, Git, and the current files are shared truth across both
+  workflows. A workflow switch may happen at any valid checkpoint, including with
+  unfinished changes recorded in session state.
 
 ## Start here
 
@@ -14,9 +25,9 @@ repository remains one directory above it.
 - Use the current code as the source of truth when a progress note is stale. Correct
   the documentation in the same batch when the discrepancy is material.
 
-## Model and reasoning recommendation
+## Codex model and reasoning recommendation
 
-At the start of every task, briefly tell the user:
+For Codex tasks, briefly tell the user at task start:
 `Recommended for this task: <model> · <effort> — <one-sentence reason>.`
 
 At completion, tell the user:
@@ -54,13 +65,14 @@ it. Do not change the user's personal Codex configuration.
 - Ask only when a choice materially changes product behavior, architecture, data or
   remote schemas, external contracts, or destructive outcomes. Resolve ordinary
   naming, placement, and pattern choices from the repository.
-- Edit files directly. The repomix/dump/mega-file installer is an optional legacy
-  fallback described in `docs/LEGACY_WORKFLOW.md`; it is never required for normal
-  Codex work.
+- Codex edits files directly. DeepSeek Chat 2 uses the full-file mega-file installer
+  described in `docs/LEGACY_WORKFLOW.md`.
 - Keep components cohesive rather than enforcing arbitrary line limits. Split files
   when it improves ownership, reuse, testing, or readability.
-- Update `SESSION_STATE.md` at meaningful checkpoints and handoffs. Update `PLAN.md`
-  only after the corresponding work is verified.
+- Update `SESSION_STATE.md` at meaningful checkpoints and handoffs, including its
+  working set and completed/remaining substeps. Do not store commit status or the active
+  workflow there; derive commit state from Git and workflow role from the user prompt.
+  Update `PLAN.md` only after the corresponding work is verified.
 - After all required checks pass, recommend one concise conventional commit message.
   When the extension can present native approval buttons for the concrete Git command,
   use that approval prompt as the commit confirmation and end the completion output at
@@ -156,7 +168,7 @@ and Diary views remain backlog work. `PLAN.md` is authoritative for sequencing.
 - `docs/PROJECT_REFERENCE.md` — detailed numbered product and architecture contracts,
   accepted limitations, test patterns, and historical decisions.
 - `docs/CODEX_WORKFLOW.md` — how to run a Codex batch in VS Code.
-- `docs/LEGACY_WORKFLOW.md` — optional retained repomix and installer tooling.
+- `docs/LEGACY_WORKFLOW.md` — supported DeepSeek Web workflow and installer tooling.
 - `PLAN.md` — durable roadmap and completion status.
 - `SESSION_STATE.md` — concise current handoff.
 

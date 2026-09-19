@@ -19,6 +19,15 @@ Current OpenAI guidance recommends using the lowest reasoning effort that reliab
 handles the task, raising it for deeper planning and analysis. See
 [Models](https://learn.chatgpt.com/docs/models).
 
+The canonical resume prompt is:
+
+```text
+You are Codex. Use the Codex workflow and resume from SESSION_STATE.md.
+```
+
+`npm run handoff -- codex` validates the shared state and copies this prompt when a
+clipboard tool is available.
+
 ## During implementation
 
 Codex owns the agreed batch end to end: targeted inspection, direct workspace edits,
@@ -67,6 +76,30 @@ small amount of context that is not obvious from code and the roadmap.
 
 Update `SESSION_STATE.md` at a meaningful checkpoint, before a handoff, or when a
 blocker or temporary decision would otherwise be lost. Do not turn it into a changelog.
+
+The state is workflow neutral. It records the checkpoint, working files, completed and
+remaining substeps, decisions, and verification. It does not record the active agent or
+whether a commit is pending; the prompt selects the workflow and Git supplies commit
+truth.
+
+## Switch workflows
+
+Codex can resume work applied by DeepSeek without an export. Apply any completed legacy
+mega file first, then open the project in VS Code and use the canonical Codex prompt.
+Codex inspects Git and the working files before continuing.
+
+To move from Codex to DeepSeek, first bring `SESSION_STATE.md` to a meaningful checkpoint.
+Valid checkpoints may have a dirty worktree, but source files must be complete on disk
+and the state must identify unfinished work. Generate the smallest role-specific packet:
+
+```bash
+npm run handoff -- deepseek-chat1
+npm run handoff -- deepseek-chat2
+```
+
+The generator reads the state working set. Add unusual files as trailing paths. Attach
+the ignored `.mosaic-handoff.md` to DeepSeek Web and use the prompt printed by the
+command. See `docs/LEGACY_WORKFLOW.md` for role selection.
 
 ## Suggested prompts
 

@@ -25,5 +25,7 @@ dist-ssr
 *.tar.gz
 
 .mosaic-backup/
+.mosaic-handoff.md
 pending-changes.txt
+repomix-output.xml
 *.ext

@@ -14,6 +14,7 @@ contains the current handoff; `AGENTS.md` contains working rules.
 - [x] Phase 1 reliability audits
 - [x] Phase 2 refactor program (batches 2.1–2.10)
 - [x] Codex VS Code workflow migration
+- [x] Portable Codex and DeepSeek workflow with compact mid-batch handoffs
 
 The original milestone checklist predated several shipped features and is superseded by
 this roadmap. Git history and `docs/PROJECT_REFERENCE.md` retain the implementation record.
