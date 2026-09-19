@@ -17,8 +17,9 @@ BatchPlan:
   - [ ] 3.4 Image cache LRU sweep (OFF-6)
   - [ ] 3.5 Service worker precache scope review
   - [ ] 3.6 Build size guard (budget check in CI or install script)
+  - [ ] 3.7 PostHog integration — error tracking and feature-flag infrastructure; session replay and autocapture disabled
 - [ ] Phase 4 — spec audit group (meta-audit of AGENTS.md, discovery, enforcement; receives full WCAG AA audit + calendar grid semantics + DayViewSheet keyboard day-navigation A11Y-33)
-- [ ] Feature work — Phase 3.5 Todo List, 3.6 Diary, 3.7 Notifications, API integrations (paused)
+- [ ] Feature work — Todo List, Diary, Notifications, API integrations 
 OpenQuestions: none
 Decisions:
 - [2026-09-18] Phase 2 close: all batches shipped, all findings closed. §25.11 protocol followed.
