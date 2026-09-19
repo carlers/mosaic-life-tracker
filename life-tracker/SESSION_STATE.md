@@ -1,40 +1,41 @@
 # Session state
 
 Updated: 2026-09-19
-Current task: Service-worker activation prerequisite for Phase 3.2
-Status: complete; committed
-Roadmap pointer: `PLAN.md` — activation prerequisite complete, Phase 3.2 proposed
-Next action: Implement Phase 3.2 using the audit's route/interaction boundaries and rejected-import recovery.
-Blockers: none for this fix; hosting asset retention still needs verification before a split-chunk deployment.
+Current task: Phase 3.2 — route and interaction code splitting
+Status: implemented and verified; awaiting commit approval
+Roadmap pointer: `PLAN.md` — Phase 3.2 complete, Phase 3.3 proposed
+Next action: Commit Phase 3.2, then design Phase 3.3 visibility-gated image acquisition using the audit constraints.
+Blockers: none for local completion; verify real hosting headers on the first split deployment.
 
 ## Findings and temporary decisions
 
-- "Proceed" accepts the most recent concrete recommendation without another approval
-  question. Default to thorough, safer implementation and close related issues within
-  scope; speed takes priority only when explicitly requested. Recorded in `AGENTS.md`.
-- Passive `prompt` registration preserves waiting updates until all old controlled
-  tabs/app windows close. No prompt UI, forced reload, or activation message was added.
-- Production builds check generated activation behavior and offline precache coverage.
-  Conditional `SKIP_WAITING` handling is reported separately from automatic activation.
-- Route splitting, emoji/compressor deferral, and lazy-import recovery remain the next
-  batch. The bundle audit preserves the baseline and dependency paths.
+- Every page is a lazy route. Shared layout, auth/database boot, and provider ownership
+  remain eager. Route Suspense uses the shared Spinner.
+- Emoji picker, image compression, export ZIP, and PhotoSwipe lightbox are demand-loaded.
+  None appears in the initial or Home static dependency closure.
+- Vite preload errors reach the route boundary. Users get an explicit "Reload app"
+  action with an unsaved-work warning; ordinary errors retain in-place retry.
+- Commit confirmation uses the extension's native command-approval buttons when
+  available, with a plain yes/no question retained as the fallback.
+- Initial JS/CSS closure is 994,995 raw / 300,428 gzip bytes, down 43.3% / 40.5%.
+  Initial + Home is 1,226,291 / 375,782, down 30.1% / 25.6%. Full app JS/CSS and
+  offline install grow slightly due to chunk overhead; see `docs/BUNDLE_AUDIT.md`.
 
 ## Verification
 
-- Lint → all 390 tests → production build passed, including the new SW guard.
-- Negative control: the guard rejects the old autoUpdate build. The audit correctly
-  distinguishes its immediate activation from the fixed build's message-only handler.
-- Updated bundle audit passed; app JS/CSS sizes are unchanged. Local links/anchors,
-  instruction size, diff review, and `git diff --check` passed.
-- Isolated Chromium passed old → fixed and subsequent waiting updates, multi-tab
-  refresh/close behavior, an unsaved input, activation after all tabs closed, offline
-  nested-route shell and unopened viewer chunk, a persistence marker, API exclusions,
-  and first-install control behavior. Appwrite requests were blocked; no mobile/Safari
-  or authenticated production sync test is claimed. See reference §24.9.
-- Existing large-bundle and nested-button test warnings remain outside this fix.
+- Lint → 40 files / 398 tests → production build passed, including the SW guard.
+- Bundle audit passed and confirmed the four optional packages stay outside initial/Home.
+- Two-release Chromium simulation removed old origin chunks: every old direct route
+  loaded offline while the update waited; the new split route loaded offline after
+  activation. A no-SW missing chunk showed explicit reload and recovered to the new
+  deployment and requested route.
+- External Appwrite requests were blocked. No authenticated sync, image upload/export,
+  mobile/Safari, or real-host header result is claimed. Existing large-entry and
+  nested-button warnings remain outside this batch.
 
 ## Unfinished changes
 
-- Committed: PWA config, build guard and shared inspector, audit reporting,
-  workflow preference, and documentation/handoff updates. No app dependency changes.
-- Phase 3.2 and broader Phase 3.5 features remain queued. No push or deployment.
+- Pending commit: Phase 3.2 runtime, tests, measurements, workflow preference,
+  roadmap/reference, and handoff.
+  No dependencies, database schema, API, push, or deployment changes.
+- Phase 3.3 image acquisition and later roadmap work remain queued.

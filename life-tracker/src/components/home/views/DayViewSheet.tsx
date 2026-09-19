@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { lazy, Suspense, useCallback, useMemo, useState } from 'react';
 import { format } from 'date-fns';
 import { Swiper, SwiperSlide } from 'swiper/react';
 import { AnimatePresence } from 'framer-motion';
@@ -9,7 +9,6 @@ import { DaySlide } from './DaySlide';
 import { TaskActionSheet } from './TaskActionSheet';
 import { MemoSheet } from './MemoSheet';
 import { DatePickerSheet } from './DatePickerSheet';
-import { ImageViewer } from './ImageViewer';
 import { ImagePickerSheet } from './ImagePickerSheet';
 import { TaskVisibilitySheet } from './TaskVisibilitySheet';
 import { useTasks } from '../../../hooks/useTasks';
@@ -22,6 +21,11 @@ import { useDayViewSwiper } from './useDayViewSwiper';
 import { deleteImage } from '../../../lib/storage';
 import { EMPTY_TASKS } from '../../../constants/empty';
 import type { TaskDocument } from '../../../db/schema';
+import { Spinner } from '../../ui/Spinner';
+
+const ImageViewer = lazy(() =>
+  import('./ImageViewer').then(({ ImageViewer }) => ({ default: ImageViewer }))
+);
 
 interface DayViewSheetProps {
   isOpen: boolean;
@@ -416,14 +420,22 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
         destructive
         onConfirm={handleConfirmDeletePhoto}
       />
-      {viewingTask?.image && (
-        <ImageViewer
-          isOpen={isImageViewerOpen}
-          imageUrl={viewingImageUrl}
-          taskTitle={viewingTask.title}
-          taskDate={viewingTask.date}
-          onClose={handleCloseImageViewer}
-        />
+      {isImageViewerOpen && viewingTask?.image && (
+        <Suspense
+          fallback={
+            <div className="fixed inset-0 z-[80] bg-black flex items-center justify-center">
+              <Spinner size="w-8 h-8" />
+            </div>
+          }
+        >
+          <ImageViewer
+            isOpen
+            imageUrl={viewingImageUrl}
+            taskTitle={viewingTask.title}
+            taskDate={viewingTask.date}
+            onClose={handleCloseImageViewer}
+          />
+        </Suspense>
       )}
       <ImagePickerSheet
         isOpen={!!imagePickerTaskId}

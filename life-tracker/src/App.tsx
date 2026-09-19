@@ -1,95 +1,151 @@
+import { lazy, Suspense, type ReactNode } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AppLayout } from './components/layout/AppLayout';
 import { RouteErrorBoundary } from './components/layout/RouteErrorBoundary';
 import { ErrorBoundary } from './components/ui/ErrorBoundary';
-import { HomePage } from './pages/HomePage';
-import { ComingSoon } from './components/layout/ComingSoon';
-import { AuthPage } from './pages/AuthPage';
-import { AccountPage } from './pages/AccountPage';
-import { SettingsPage } from './pages/SettingsPage';
-import { ProfilePage } from './pages/ProfilePage';
-import { ExplorePage } from './pages/ExplorePage';
-import { FriendCalendarPage } from './pages/FriendCalendarPage';
-import { MessagesPage } from './pages/MessagesPage';
-import { ChatPage } from './pages/ChatPage';
+import { Spinner } from './components/ui/Spinner';
+
+const HomePage = lazy(() =>
+  import('./pages/HomePage').then(({ HomePage }) => ({ default: HomePage }))
+);
+const AuthPage = lazy(() =>
+  import('./pages/AuthPage').then(({ AuthPage }) => ({ default: AuthPage }))
+);
+const AccountPage = lazy(() =>
+  import('./pages/AccountPage').then(({ AccountPage }) => ({ default: AccountPage }))
+);
+const SettingsPage = lazy(() =>
+  import('./pages/SettingsPage').then(({ SettingsPage }) => ({ default: SettingsPage }))
+);
+const ProfilePage = lazy(() =>
+  import('./pages/ProfilePage').then(({ ProfilePage }) => ({ default: ProfilePage }))
+);
+const ExplorePage = lazy(() =>
+  import('./pages/ExplorePage').then(({ ExplorePage }) => ({ default: ExplorePage }))
+);
+const FriendCalendarPage = lazy(() =>
+  import('./pages/FriendCalendarPage').then(({ FriendCalendarPage }) => ({
+    default: FriendCalendarPage,
+  }))
+);
+const MessagesPage = lazy(() =>
+  import('./pages/MessagesPage').then(({ MessagesPage }) => ({ default: MessagesPage }))
+);
+const ChatPage = lazy(() =>
+  import('./pages/ChatPage').then(({ ChatPage }) => ({ default: ChatPage }))
+);
+const ComingSoon = lazy(() =>
+  import('./components/layout/ComingSoon').then(({ ComingSoon }) => ({
+    default: ComingSoon,
+  }))
+);
+
+function RouteContent({
+  label,
+  children,
+}: {
+  label: string;
+  children: ReactNode;
+}) {
+  return (
+    <RouteErrorBoundary label={label}>
+      <Suspense
+        fallback={
+          <div className="min-h-[60vh] flex items-center justify-center">
+            <Spinner size="w-8 h-8" />
+          </div>
+        }
+      >
+        {children}
+      </Suspense>
+    </RouteErrorBoundary>
+  );
+}
 
 function App() {
   return (
     <BrowserRouter>
       <Routes>
-        <Route path="/login" element={<AuthPage />} />
+        <Route
+          path="/login"
+          element={
+            <RouteContent label="AuthPage">
+              <AuthPage />
+            </RouteContent>
+          }
+        />
         <Route element={<AppLayout />}>
           <Route path="/" element={<Navigate to="/home" replace />} />
           <Route
             path="/home"
             element={
-              <RouteErrorBoundary label="HomePage">
+              <RouteContent label="HomePage">
                 <HomePage />
-              </RouteErrorBoundary>
+              </RouteContent>
             }
           />
           <Route
             path="/explore"
             element={
-              <RouteErrorBoundary label="ExplorePage">
+              <RouteContent label="ExplorePage">
                 <ExplorePage />
-              </RouteErrorBoundary>
+              </RouteContent>
             }
           />
           <Route
             path="/friends/:friendId"
             element={
-              <RouteErrorBoundary label="FriendCalendarPage">
+              <RouteContent label="FriendCalendarPage">
                 <FriendCalendarPage />
-              </RouteErrorBoundary>
+              </RouteContent>
             }
           />
           <Route
             path="/notifications"
             element={
-              <RouteErrorBoundary label="Notifications">
+              <RouteContent label="Notifications">
                 <ComingSoon />
-              </RouteErrorBoundary>
+              </RouteContent>
             }
           />
           <Route
             path="/messages"
             element={
-              <RouteErrorBoundary label="MessagesPage">
+              <RouteContent label="MessagesPage">
                 <MessagesPage />
-              </RouteErrorBoundary>
+              </RouteContent>
             }
           />
           <Route
             path="/messages/:friendId"
             element={
-              <RouteErrorBoundary label="ChatPage">
+              <RouteContent label="ChatPage">
                 <ChatPage />
-              </RouteErrorBoundary>
+              </RouteContent>
             }
           />
           <Route
             path="/account"
             element={
-              <RouteErrorBoundary label="AccountPage">
+              <RouteContent label="AccountPage">
                 <AccountPage />
-              </RouteErrorBoundary>
+              </RouteContent>
             }
           />
           <Route
             path="/settings"
             element={
-              <RouteErrorBoundary label="SettingsPage">
+              <RouteContent label="SettingsPage">
                 <SettingsPage />
-              </RouteErrorBoundary>
+              </RouteContent>
             }
           />
           <Route
             path="/profile"
             element={
-              <RouteErrorBoundary label="ProfilePage">
+              <RouteContent label="ProfilePage">
                 <ProfilePage />
-              </RouteErrorBoundary>
+              </RouteContent>
             }
           />
         </Route>

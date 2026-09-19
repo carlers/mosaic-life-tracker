@@ -1,5 +1,4 @@
 import { format } from 'date-fns';
-import { zip } from 'fflate';
 import { getDatabase } from '../db/database';
 import { getCachedImage, cacheImage } from './imageCache';
 import { guardedCall, makeUnauthorizedError } from './authEvents';
@@ -178,7 +177,8 @@ async function fetchImageBlob(fileId: string): Promise<Blob | null> {
   }
 }
 
-function zipAsync(files: Record<string, Uint8Array>): Promise<Uint8Array> {
+async function zipAsync(files: Record<string, Uint8Array>): Promise<Uint8Array> {
+  const { zip } = await import('fflate');
   return new Promise((resolve, reject) => {
     zip(files, { level: 6 }, (err, data) => {
       if (err) reject(err);

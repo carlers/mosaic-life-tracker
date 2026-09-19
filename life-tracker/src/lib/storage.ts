@@ -1,4 +1,3 @@
-import imageCompression from 'browser-image-compression';
 import { Permission, Role } from 'appwrite';
 import {
   guardedCall,
@@ -23,6 +22,7 @@ export async function compressImage(file: File): Promise<Blob> {
     fileType: 'image/webp',
   };
   try {
+    const { default: imageCompression } = await import('browser-image-compression');
     return await imageCompression(file, options);
   } catch (error) {
     console.error('[Storage] Image compression failed:', error);

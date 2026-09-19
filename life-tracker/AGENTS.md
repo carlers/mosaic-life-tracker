@@ -61,10 +61,13 @@ it. Do not change the user's personal Codex configuration.
   when it improves ownership, reuse, testing, or readability.
 - Update `SESSION_STATE.md` at meaningful checkpoints and handoffs. Update `PLAN.md`
   only after the corresponding work is verified.
-- After all required checks pass, recommend one concise conventional commit message and
-  ask one easy question: `Commit these changes with "<message>"? (yes/no)`. Ask only
-  after the result is ready to commit. If the user already authorized the commit in the
-  current request, do not ask again; make the commit after verification.
+- After all required checks pass, recommend one concise conventional commit message.
+  When the extension can present native approval buttons for the concrete Git command,
+  use that approval prompt as the commit confirmation and end the completion output at
+  the prompt. Otherwise ask the text fallback:
+  `Commit these changes with "<message>"? (yes/no)`. Ask only after the result is ready
+  to commit. If the user already authorized the commit in the current request, do not
+  ask again; make the commit after verification.
 - Stage only paths changed for the agreed task, never `git add -A`. Preserve unrelated
   worktree changes. After committing, report the commit hash and subject.
 

@@ -50,9 +50,11 @@ Inspect the in-editor diff before committing. Commits, pushes, deployments, Appw
 Console changes, and the next roadmap batch remain separate actions unless explicitly
 included in the request.
 
-Once verification passes, Codex recommends a concise conventional commit message and
-asks: `Commit these changes with "<message>"? (yes/no)`. A yes authorizes staging only
-the task's changed paths and creating that commit. If the implementation request already
+Once verification passes, Codex recommends a concise conventional commit message. When
+the extension supports native approval buttons for the concrete Git command, that
+approval prompt is the commit confirmation. Otherwise Codex asks:
+`Commit these changes with "<message>"? (yes/no)`. Approval authorizes staging only the
+task's changed paths and creating that commit. If the implementation request already
 explicitly authorized a commit, Codex skips the repeated question and commits after the
 checks pass. Pushes and deployments always remain separate unless explicitly authorized.
 

@@ -1,5 +1,4 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
-import imageCompression from 'browser-image-compression';
 
 export interface UseImageCompressionReturn {
   compressImage: (file: File) => Promise<string>;
@@ -25,6 +24,7 @@ export function useImageCompression(): UseImageCompressionReturn {
       setError(null);
     }
     try {
+      const { default: imageCompression } = await import('browser-image-compression');
       const options = {
         maxSizeMB: 0.15,
         maxWidthOrHeight: 800,

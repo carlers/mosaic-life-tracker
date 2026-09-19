@@ -270,6 +270,15 @@ Without this guard, directive examples inside fenced blocks would truncate the e
 - `src/lib/messageActionQueue.ts` — persistent retry queue for `mark_read`/`unsend`. Storage: JSON array under `mosaic_message_action_queue`. Dedup `(userId, dedupKey)`. Cap 100. Retries up to 5 on transient; drops on 401 / non-429 4xx. Single in-flight flush guard. Wired to `sendMessageAction` at module init; flushed by `deliverPendingMessages` (§20.5).
 - `src/lib/socialOutbox.ts` — persistent retry queue for cross-user social writes (`sendFriendRequest`, `acceptFriendRequest`, `deleteFriendPair`, `blockFriend`, `createOrUpdateProfile`). Storage: JSON array under `mosaic_social_outbox`. Dedup `(userId, dedupKey)`. Cap 100. Retries up to 5 on transient; drops on 401 / non-429 4xx. Permanent drops emit `SocialOutboxFailureEvent` to `subscribeToSocialOutboxFailures` — `FriendsProvider` reverts the local row. Wired to `guardedTablesDB` at module init in `social.ts`; flushed by `AppLayout`'s `tryDeliver` alongside `deliverPendingMessages` (§10).
 - `src/lib/imageCache.ts` — **single owner of the IndexedDB blob cache for downloaded image files** (keyed by `fileId`). `storage.ts` and `exportData.ts` consume it via `getCachedImage`/`cacheImage`/`deleteCachedImage`; do not open the cache DB directly elsewhere. No eviction bound (see §18 Accepted Limitations).
+- **Code-splitting boundaries.** `src/App.tsx` lazily imports every page/route while
+  `AppLayout`, auth/database boot, and the `FriendsProvider` → `ConversationsProvider`
+  ownership chain stay eager. Emoji picker, image compressor, export ZIP code, and
+  PhotoSwipe lightbox load only when their interactions request them. Preserve these
+  boundaries when adding shared imports; `scripts/audit-bundle.mjs` reports the graph.
+- `src/lib/chunkLoadErrors.ts` records Vite's exact `vite:preloadError` payload and
+  recognizes browser fallback messages. Route boundaries offer an explicit full-page
+  reload for failed lazy imports; ordinary render errors keep the in-place retry.
+  Do not automatically reload because a form or other unsaved local UI state may exist.
 - **Service-worker scope.** `vite-plugin-pwa` owns the SW registration at root scope.
   Do not register a second SW or precache user-generated content. Precache the app
   shell including lazy JS/CSS chunks so offline routes remain available. RxDB and
@@ -607,6 +616,20 @@ Waiting activation does not guarantee old assets remain available to uncontrolle
 pages or after cache eviction. Before deploying Phase 3.2, verify hosting headers
 and old-asset availability, plus explicit recovery for rejected lazy imports. The
 repository currently has no hosting configuration to establish those guarantees.
+
+### 24.10 Route and interaction splitting
+
+Phase 3.2 route tests cover the chunk-error classifier and its distinct reload UI.
+Build verification checks that every generated JS/CSS chunk is precached. Bundle
+verification checks static closures: initial and first Home must exclude
+`emoji-picker-react`, `browser-image-compression`, `fflate`, and `photoswipe`.
+
+The 2026-09-19 browser run exercised every direct route offline while a replacement
+deployment waited, then loaded a replacement split route after activation. It also
+reproduced a missing chunk without a service worker and recovered through the explicit
+reload action. See the Phase 3.2 result in [the bundle audit](BUNDLE_AUDIT.md).
+This is not a substitute for checking real hosting headers or mobile/Safari after the
+first split deployment.
 
 ## 25. Retired DeepSeek AI Workflow Protocol
 

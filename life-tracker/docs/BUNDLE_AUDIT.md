@@ -62,6 +62,52 @@ than once; repeated entries do not establish repeated network transfers. Both JS
 chunks are precached. No user images, Appwrite responses, or database contents appear
 in this manifest.
 
+## Phase 3.2 result (2026-09-19)
+
+Phase 3.2 implemented every page as a lazy route while keeping `AppLayout`, auth,
+database boot, and shared providers eager. It also deferred the emoji picker, image
+compression, export ZIP implementation, and PhotoSwipe lightbox until their actions
+request them. The same diagnostic script produced these post-change measurements:
+
+| Static closure | Raw bytes | Gzip bytes | Change from baseline entry JS + CSS |
+|---|---:|---:|---:|
+| Initial app shell | 994,995 | 300,428 | −43.3% raw / −40.5% gzip |
+| Initial shell + first Home route | 1,226,291 | 375,782 | −30.1% raw / −25.6% gzip |
+
+The closures include their statically imported JS chunks and applicable base/route
+CSS. They are bundler-graph artifact totals, not observed network transfers or startup
+time. The initial route also depends on whether auth sends the user to Login or Home;
+the Home row is the conservative authenticated startup comparison.
+
+All app JS/CSS assets together are 1,827,396 raw / 543,120 gzip bytes across 48
+files, compared with 1,812,658 / 521,856 across three baseline files. Splitting adds
+14,738 raw bytes and gzip-per-file overhead while substantially reducing startup
+closures. The unique precache payload rose by 14,884 raw bytes (0.8%) to 1,887,957;
+offline installation still downloads every app chunk by policy.
+
+Verified optional chunks and Node-gzip sizes:
+
+| Boundary | Gzip bytes | In initial or Home static closure? |
+|---|---:|---|
+| Emoji picker | 88,059 | No |
+| Image compressor | 19,746 | No |
+| PhotoSwipe lightbox | 4,964 + 1,400 CSS | No |
+| PhotoSwipe viewer core | 16,923 | No |
+| Export ZIP (`fflate`) | 5,367 | No |
+
+The main emitted entry remains above Vite's 500 kB raw warning because database,
+auth/sync, React, routing, and shared layout startup stay eager by architectural
+contract. The warning remains enabled. Arbitrary vendor grouping was not added.
+
+An isolated two-release Chromium test served version B after removing all version A
+origin assets. While B waited, an open A client loaded every route offline from A's
+precache. After A closed, B activated and loaded a split route offline. A separate
+test with service workers blocked reproduced a deleted lazy chunk: the route boundary
+offered an explicit reload, and that reload recovered to the current deployment and
+requested route. This establishes app/SW behavior under a static-host replacement
+simulation; verify the real host's HTML cache headers and deployment retention on its
+first Phase 3.2 deployment.
+
 ## What contributes to the eager chunk
 
 The following values sum the bundler's `renderedLength` by package. They rank
@@ -203,8 +249,8 @@ For the next implementation batch, require lint → test → build and:
    offline/sync work. Verify the agreed update policy and recovery without losing
    unsaved work. A blind automatic reload is not a sufficient recovery policy.
 
-Next proposed batch: define Phase 3.2 scope using these findings and decide how to
-schedule the activation prerequisite. Phase 3.1 does not authorize that work.
+Phase 3.2 and its activation prerequisite are complete. Phase 3.3 image acquisition
+gating is next; it remains separate from code and native-image lazy loading.
 
 ## Technical sources
 

@@ -24,8 +24,8 @@ this roadmap. Git history and `docs/PROJECT_REFERENCE.md` retain the implementat
   and asset opportunities; see [findings and baseline](docs/BUNDLE_AUDIT.md)
 - [x] **Service-worker activation prerequisite (from 3.5):** wait for old controlled
   clients to close; enforce generated policy during builds; verified in Chromium
-- [ ] **3.2 Route-level code splitting:** use the audit's route/interaction boundaries,
-  preserve offline chunks, and handle rejected imports; verify deployment asset retention
+- [x] **3.2 Route-level code splitting:** lazy routes and major optional interactions,
+  offline chunk precache, explicit failed-import recovery, and two-release browser test
 - [ ] **3.3 Lazy image loading:** gate upstream image acquisition, not only `<img>` loading
 - [ ] **3.4 Image-cache LRU sweep:** resolve accepted limitation OFF-6 with an
   access-time policy and byte budget
@@ -62,6 +62,5 @@ this roadmap. Git history and `docs/PROJECT_REFERENCE.md` retain the implementat
 
 ## Batch boundary
 
-Phase 3.1 and the service-worker activation prerequisite are complete. Phase 3.2 is
-the next proposed batch, guided by the audit. Route/interaction splitting and the
-broader Phase 3.5 UI features have not started.
+Phase 3.2 is complete. Phase 3.3 lazy image acquisition is the next proposed batch.
+The broader Phase 3.5 update/install/share UI features have not started.

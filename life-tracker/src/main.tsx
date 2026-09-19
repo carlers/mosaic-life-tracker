@@ -6,6 +6,9 @@ import { initializeDatabase } from './db/database';
 import { initializeSync } from './db/sync';
 import { AuthProvider } from './hooks/AuthProvider';
 import { ErrorBoundary } from './components/ui/ErrorBoundary';
+import { installChunkLoadErrorTracking } from './lib/chunkLoadErrors';
+
+installChunkLoadErrorTracking();
 
 async function bootstrap() {
   if (navigator.storage && navigator.storage.persist) {
