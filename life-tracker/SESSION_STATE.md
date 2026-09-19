@@ -2,7 +2,7 @@
 
 Updated: 2026-09-19
 Current task: Phase 3.1 — production bundle audit
-Status: complete; awaiting commit approval
+Status: complete; committed as `b1d8a2e` (`chore: complete phase 3.1 bundle audit`)
 Roadmap pointer: `PLAN.md` — Phase 3.1 complete, Phase 3.2 proposed
 Next action: Review `docs/BUNDLE_AUDIT.md`, then agree Phase 3.2 scope and schedule the service-worker activation prerequisite.
 Blockers: none for the audit; activation policy needs agreement before releasing split chunks.
@@ -32,6 +32,6 @@ Blockers: none for the audit; activation policy needs agreement before releasing
 
 ## Unfinished changes
 
-- Pending commit: bundle audit report and reusable diagnostic script, plus roadmap,
-  README, reference note, and this handoff. No dependency or runtime configuration changes.
+- Phase 3.1 bundle audit, reusable diagnostic script, roadmap, README, reference note,
+  and this handoff were committed in `b1d8a2e`. No dependency or runtime configuration changes.
 - Phase 3.2 and later backlog remain in `PLAN.md`; none started by this batch.
