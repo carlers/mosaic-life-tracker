@@ -101,6 +101,23 @@ The generator reads the state working set. Add unusual files as trailing paths. 
 the ignored `.mosaic-handoff.md` to DeepSeek Web and use the prompt printed by the
 command. See `docs/LEGACY_WORKFLOW.md` for role selection.
 
+## Always include the escape hatch
+
+Every final Codex response ends with one command so a new DeepSeek Web session can resume
+without another planning exchange:
+
+```text
+Migration: npm run handoff -- deepseek-chat1
+```
+
+Use `deepseek-chat1` when the next action needs planning, review, audit, or a decision.
+Use `deepseek-chat2` when the state already contains a decision-complete implementation
+step. The line remains last even for short answers and questions. If the extension must
+end on a native commit approval prompt, put the migration line immediately before it.
+
+Update session state first when the response records meaningful progress. The command is
+advisory and generates context; it does not switch agents by itself.
+
 ## Suggested prompts
 
 Planning:

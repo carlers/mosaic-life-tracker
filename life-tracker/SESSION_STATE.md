@@ -1,10 +1,10 @@
 # Session state
 
 Updated: 2026-09-20
-Current task: Portable Codex and DeepSeek workflow migration
+Current task: Always-on migration footer
 Status: complete
-Roadmap pointer: `PLAN.md` — workflow migration complete; Phase 3.4 next
-Checkpoint: Both workflows share a verified neutral state and compact handoff contract.
+Roadmap pointer: `PLAN.md` — workflow portability complete; Phase 3.4 next
+Checkpoint: Every Codex and DeepSeek response now supplies a one-command migration target.
 Next action: Design the Phase 3.4 image-cache LRU access-time policy and byte budget.
 Blockers: none
 
@@ -14,26 +14,22 @@ Blockers: none
 
 ## Completed substeps
 
-- Added explicit Codex, DeepSeek Chat 1, and DeepSeek Chat 2 workflow selection.
-- Added state-driven compact packets with safe path overrides and Git checkpoint data.
-- Retained DeepSeek's full-file installer, verification, rollback, and commit flow.
-- Consolidated active workflow documentation and removed obsolete operational protocols.
-- Untracked the generated Repomix snapshot while retaining Repomix as an audit fallback.
+- Required a final migration command in shared agent instructions.
+- Defined Codex routing to DeepSeek Chat 1 for planning and Chat 2 for ready implementation.
+- Defined the DeepSeek-to-Codex command, including the post-apply mega-file case.
+- Documented the native approval prompt exception without removing the migration command.
 
 ## Remaining substeps
 
-- none for this migration; Phase 3.4 remains the next product batch.
+- none for this workflow refinement; Phase 3.4 remains the next product batch.
 
 ## Temporary decisions
 
-- Git supplies branch, HEAD, worktree, and commit truth; session state does not duplicate it.
-- Dirty mid-batch handoffs are allowed only with complete files and explicit remaining work.
-- Packets warn above an estimated 20,000 tokens and never embed repository exports.
+- Migration footers contain exactly one command to limit output and decision overhead.
+- The source agent must update this checkpoint before recommending a switch after progress.
+- Handoff commands prepare context but never claim to change the active model or workflow.
 
 ## Verification
 
-- Handoff unit coverage: 8 tests passed, including clean/dirty metadata and path safety.
-- Codex, DeepSeek Chat 1, and DeepSeek Chat 2 commands completed successfully.
-- Lint passed; 43 files / 415 tests passed; production build and SW guard passed.
-- Markdown links, stale workflow references, instruction size, and `git diff --check` passed.
-- Existing nested-button test output and large-chunk build warning remain unrelated.
+- Documentation links, workflow references, instruction size, and `git diff --check` passed.
+- No runtime application, dependency, database, API, push, or deployment change.

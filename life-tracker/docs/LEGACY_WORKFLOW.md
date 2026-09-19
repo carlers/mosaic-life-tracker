@@ -97,6 +97,22 @@ Chat 1 returns a concise decision-complete plan or review. Chat 2 returns the me
 then only the apply command, failure instruction, and next DeepThink recommendation.
 When Chat 1 emits a documentation-only update, it uses the same full-file format.
 
+Every final DeepSeek response also ends with the Codex escape hatch:
+
+```text
+Migration: npm run handoff -- codex
+```
+
+If the response contains a mega file, the final line is instead:
+
+```text
+Migration after apply: npm run handoff -- codex
+```
+
+Keep the line last, including on short answers, questions, plans, and reviews. When new
+decisions or progress are not yet represented locally, include an applicable session-state
+update before the line so Codex receives an honest checkpoint.
+
 ## Full-file mega format
 
 Chat 2 emits one fenced block using exactly five tildes and the `mosaic` tag. It contains

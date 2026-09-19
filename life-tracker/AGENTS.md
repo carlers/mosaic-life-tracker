@@ -15,6 +15,20 @@ remains one directory above it.
   workflows. A workflow switch may happen at any valid checkpoint, including with
   unfinished changes recorded in session state.
 
+## Migration footer
+
+- End every final user-facing response with exactly one migration line containing one
+  runnable command: `Migration: npm run handoff -- <target>`.
+- Codex targets `deepseek-chat1` when the next action needs planning, review, audit, or
+  unresolved decisions. It targets `deepseek-chat2` when the next action is already a
+  decision-complete implementation or fix.
+- DeepSeek Chat 1 and Chat 2 target `codex`. If a DeepSeek response contains a mega file,
+  write `Migration after apply: npm run handoff -- codex` instead.
+- Keep the migration line as the last textual line. When a native approval prompt must
+  end the interaction, place the migration line immediately before that prompt.
+- Before recommending migration after meaningful work, make `SESSION_STATE.md` an honest
+  checkpoint. The command prepares a handoff; it never changes workflows automatically.
+
 ## Start here
 
 - Read `SESSION_STATE.md` for the current handoff and `PLAN.md` for the roadmap.

@@ -45,6 +45,7 @@ contracts live in [docs/PROJECT_REFERENCE.md](docs/PROJECT_REFERENCE.md).
   planner/implementer roles, and the retained full-file installer.
 
 Generate a resume prompt or DeepSeek packet with `npm run handoff -- <target>`.
+Both workflows end each response with the recommended one-command migration target.
 
 ## License
 

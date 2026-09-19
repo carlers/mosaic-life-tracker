@@ -616,6 +616,7 @@ The current contract is intentionally small:
 - DeepSeek receives only shared rules, state, roadmap, Git metadata, and selected working
   files unless it requests more context;
 - switches can happen between valid substeps instead of waiting for phase completion.
+- every final agent response supplies one `npm run handoff -- <target>` migration command.
 
 Historical DeepThink, context-tier, offboarding, and dump-count rules remain available in
 Git history. Active requirements live only in the workflow documents.
