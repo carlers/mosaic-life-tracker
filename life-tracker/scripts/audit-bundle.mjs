@@ -6,6 +6,7 @@ import { dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { gzipSync } from 'node:zlib';
 import { build, version as viteVersion } from 'vite';
+import { inspectServiceWorker } from './lib/inspect-service-worker.mjs';
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
 const directory = await mkdtemp(join(tmpdir(), 'mosaic-bundle-audit-'));
@@ -73,9 +74,7 @@ async function measure(folder) {
 
 const files = await measure(outDir);
 const sw = await readFile(join(outDir, 'sw.js'), 'utf8');
-// Match the literal manifest emitted by the installed generateSW version.
-const precacheUrls = [...sw.matchAll(/\{url:"([^"]+)",revision:/g)].map((match) => match[1]);
-if (!precacheUrls.length) throw new Error('No precache entries found; inspect the generated SW format.');
+const { precacheUrls, ...serviceWorker } = await inspectServiceWorker(sw);
 const uniqueUrls = [...new Set(precacheUrls)];
 const fileSizes = new Map(files.map((file) => [file.file, file.bytes]));
 for (const url of uniqueUrls) {
@@ -94,10 +93,7 @@ const summary = {
     uniqueBytes: uniqueUrls.reduce((sum, url) => sum + fileSizes.get(url), 0),
     urls: precacheUrls,
   },
-  serviceWorker: {
-    callsSkipWaiting: /\.skipWaiting\(\)/.test(sw),
-    callsClientsClaim: /\.clientsClaim\(\)/.test(sw),
-  },
+  serviceWorker,
   note: 'Artifact bytes/gzip are measured from emitted files. Module renderedLength is a bundler attribution metric, not compressed transfer size or predicted savings.',
 };
 const report = join(directory, 'report.json');

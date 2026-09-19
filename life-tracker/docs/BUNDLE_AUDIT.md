@@ -4,6 +4,12 @@ Measured 2026-09-19 against `2a07ea6` (`docs: migrate workflow to Codex`).
 This batch adds measurements and recommendations; runtime code, dependencies, and
 build configuration are unchanged.
 
+Follow-up (2026-09-19): the service-worker activation prerequisite below has since
+been fixed using passive `prompt` registration. Production builds now enforce the
+generated policy; see [project reference §24.9](PROJECT_REFERENCE.md#249-generated-service-worker-policy)
+for checks and browser results. The measurements and original findings below remain
+the historical Phase 3.1 baseline.
+
 ## Reproduce
 
 From `life-tracker/`, with the lockfile dependencies installed:
@@ -18,8 +24,9 @@ uses the same Vite configuration, adds an observational bundler plugin, and writ
 artifacts and `report.json` to a unique `mosaic-bundle-audit-*` OS temporary directory.
 It prints that path, emitted sizes, package attribution, and service-worker flags.
 It does not replace `dist/`. The JSON includes the module graph for import tracing.
-The service-worker inspection matches the installed plugin's generated format;
-revisit it after plugin upgrades. Temporary reports are local diagnostics, not
+The service-worker inspector executes generated wiring with Workbox stubs, separating
+immediate activation from an explicit message handler; revisit it after plugin
+upgrades. Temporary reports are local diagnostics, not
 tracked artifacts or a CI size budget.
 
 Measured environment: Node 22.22.2, npm 10.9.7, Vite 8.3.0, Rolldown 1.2.8,

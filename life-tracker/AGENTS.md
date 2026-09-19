@@ -41,6 +41,12 @@ it. Do not change the user's personal Codex configuration.
 
 ## Working agreement
 
+- When the user says "proceed" or "continue", follow the most recent concrete
+  recommendation without asking them to approve it again. This authorizes that
+  scoped next step, not every remaining roadmap batch or an unmentioned external action.
+- Default to thorough verification and the safer implementation. Resolve related
+  issues within the agreed scope instead of creating avoidable follow-up backlog.
+  Favor speed or reduced scope only when the user explicitly asks to ship quickly.
 - Once a batch is agreed, inspect, edit, run proportionate checks, fix failures,
   review the diff, and update project state without waiting between routine steps.
 - Stop after the agreed batch. Do not begin the next roadmap batch, commit, push,

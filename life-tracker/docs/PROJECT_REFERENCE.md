@@ -55,7 +55,8 @@ is authoritative.
 - **Local DB & Sync Engine:** RxDB v17 (`getRxStorageDexie` + `wrappedValidateAjvStorage`). **CRITICAL:** we do NOT use the `replicateAppwrite` plugin. Custom REST sync engine (`src/db/sync.ts`) calls the Appwrite TablesDB API directly.
 - **Backend:** Appwrite TablesDB (SDK v26+).
 - **Backend Functions:** `message-action` (Node.js 18) handles all cross-user writes for messaging and task reactions. Actions enumerated in §20.3. Required scopes: `rows.read`, `rows.write`, `tables.read`. `tables.write` intentionally absent — add only if Appwrite docs/Console require it for cross-user `upsertRow`/`updateRow`.
-- **PWA:** `vite-plugin-pwa` (`registerType: 'autoUpdate'`)
+- **PWA:** `vite-plugin-pwa` (`registerType: 'prompt'`), with passive registration
+  and activation after all old controlled clients close; see §15 and §24.9.
 - **Auth:** React Context (`AuthProvider`) is the single source of truth for the authenticated user. See §23. `useAuth` is a thin consumer shim; no hook mounts its own `account.get()`.
 
 ## 5. Retired "Brain Generates, Human Executes" Workflow
@@ -269,14 +270,23 @@ Without this guard, directive examples inside fenced blocks would truncate the e
 - `src/lib/messageActionQueue.ts` — persistent retry queue for `mark_read`/`unsend`. Storage: JSON array under `mosaic_message_action_queue`. Dedup `(userId, dedupKey)`. Cap 100. Retries up to 5 on transient; drops on 401 / non-429 4xx. Single in-flight flush guard. Wired to `sendMessageAction` at module init; flushed by `deliverPendingMessages` (§20.5).
 - `src/lib/socialOutbox.ts` — persistent retry queue for cross-user social writes (`sendFriendRequest`, `acceptFriendRequest`, `deleteFriendPair`, `blockFriend`, `createOrUpdateProfile`). Storage: JSON array under `mosaic_social_outbox`. Dedup `(userId, dedupKey)`. Cap 100. Retries up to 5 on transient; drops on 401 / non-429 4xx. Permanent drops emit `SocialOutboxFailureEvent` to `subscribeToSocialOutboxFailures` — `FriendsProvider` reverts the local row. Wired to `guardedTablesDB` at module init in `social.ts`; flushed by `AppLayout`'s `tryDeliver` alongside `deliverPendingMessages` (§10).
 - `src/lib/imageCache.ts` — **single owner of the IndexedDB blob cache for downloaded image files** (keyed by `fileId`). `storage.ts` and `exportData.ts` consume it via `getCachedImage`/`cacheImage`/`deleteCachedImage`; do not open the cache DB directly elsewhere. No eviction bound (see §18 Accepted Limitations).
-- **Service-worker scope.** `vite-plugin-pwa` owns the SW registration (root scope, `registerType: 'autoUpdate'`). Do not register a second SW, do not expand scope beyond root, and do not precache user-generated content — only the app shell. The SW is production-only; dev mode does not register one (Vite HMR and a live SW would fight each other).
-- **Activation discrepancy (2026-09-19 audit).** The installed PWA plugin overrides
-  `skipWaiting: false` and `clientsClaim: false` under automatic registration with
-  `autoUpdate`; the generated worker calls both methods. The PWA-4 comments in
-  `vite.config.ts` express the intended policy, not actual activation behavior.
-  Resolve this before releasing more lazy chunks. See the
-  [Phase 3.1 bundle audit](BUNDLE_AUDIT.md) for evidence and proposed follow-up;
-  the audit itself changes no runtime policy.
+- **Service-worker scope.** `vite-plugin-pwa` owns the SW registration at root scope.
+  Do not register a second SW or precache user-generated content. Precache the app
+  shell including lazy JS/CSS chunks so offline routes remain available. RxDB and
+  `imageCache.ts` retain ownership of user data. The SW is production-only.
+- **Update policy (PWA-4, corrected 2026-09-19).** Use `registerType: 'prompt'` with
+  `skipWaiting: false` and `clientsClaim: false`. The injected registration script
+  displays no prompt and sends no activation request. An installed update waits
+  until the existing worker controls zero clients: close all Mosaic tabs and
+  installed-app windows, then reopen. Refreshing one tab may not suffice. On first
+  install, the worker does not claim the already-open page; a subsequent navigation
+  can be controlled. Do not add automatic reloads or activation messages as routine
+  error handling. An explicit update UI remains Phase 3.5 work.
+- **Why `autoUpdate` was removed.** The plugin forced both activation flags to true
+  despite the config's false values. The [bundle audit](BUNDLE_AUDIT.md) records the
+  original finding. Workbox still emits a conditional `SKIP_WAITING` message handler
+  with the corrected policy; a text search for `skipWaiting()` cannot distinguish
+  this from immediate activation. Build verification inspects execution (see §24.9).
 - `scripts/` — build-time utilities: `dump-files.mjs` (Tier 2 dump, §25.2), `clipboard.mjs` (shared clipboard helper), one-off Appwrite migration scripts.
 - `tests/` — Vitest suite (four projects). See §24.
 - Project root: `apply-changes.mjs` (installer; copies run output to clipboard on exit), `pending-changes.txt` (gitignored input).
@@ -558,6 +568,45 @@ Lifecycle per hook test file: `beforeEach` → `dbRef.current = await createTest
 
 ### 24.8 Regression comments
 Tests pinning behavior documented here carry a `// Regression: §<section> (<contract name>)` comment. Examples: `// Regression: §20.5 (unread badge contract)`, `// Regression: §10 (CONFLICT Is Not an Error)`, `// Regression: §16 (conversation list sort)`. When the referenced section changes, review the test — the comment is a pointer, not enforcement.
+
+### 24.9 Generated service-worker policy
+
+`npm run build` runs `scripts/check-service-worker.mjs` after generating production
+assets. It fails on automatic `skipWaiting` during startup/install/activate,
+activation from unrelated messages, client claiming, a missing offline navigation
+fallback/API exclusions, or a JS/CSS app chunk absent from precache. The same
+inspector powers `scripts/audit-bundle.mjs`, which separately reports conditional
+activation on an explicit `SKIP_WAITING` message.
+
+The inspector executes trusted generated worker code against observable Workbox
+stubs. It verifies generated wiring, not actual browser lifecycle or networking;
+unsupported generated APIs fail rather than report a safe result. After upgrades,
+check the emitted worker and adjust the inspector if its format legitimately changes.
+
+Browser verification protocol for changes to this policy:
+
+1. Serve production builds on one origin. Install version A and open two controlled
+   tabs. Use a separate test browser profile; leave DevTools "Update on reload" off.
+2. Serve version B and trigger an update check. Confirm it becomes installed/waiting,
+   the old controller stays active, and an unsaved input in the first tab survives.
+3. Refresh the second tab, then close it. The update must still wait while the first
+   controlled tab remains. Close all controlled tabs/app windows and let B activate.
+4. Reopen offline on a nested route and fetch an app chunk not previously opened.
+   Confirm the cached shell/chunk and persisted local data remain available. API
+   navigation paths `/api/*` and `/v1/*` must not receive the SPA HTML fallback.
+5. Repeat with a fresh profile: first install must not claim the existing page, and
+   the next navigation must be controlled. Exercise subsequent B → C updates too.
+
+The 2026-09-19 fix passed these lifecycle checks in isolated Chromium, including
+the old `autoUpdate` → new `prompt` transition, a subsequent waiting update, a
+localStorage persistence marker, and the unopened PhotoSwipe chunk offline. External
+Appwrite calls were blocked; this was not an authenticated sync or mobile/Safari test.
+The existing 390-test suite supplies separate auth/sync regression coverage.
+
+Waiting activation does not guarantee old assets remain available to uncontrolled
+pages or after cache eviction. Before deploying Phase 3.2, verify hosting headers
+and old-asset availability, plus explicit recovery for rejected lazy imports. The
+repository currently has no hosting configuration to establish those guarantees.
 
 ## 25. Retired DeepSeek AI Workflow Protocol
 

@@ -26,6 +26,12 @@ appropriate tests, failure repair, diff review, and progress updates. You can st
 active task from the same conversation. Routine file placement, naming, and reuse of
 existing patterns do not need checkpoints.
 
+"Proceed" or "continue" accepts Codex's most recent concrete recommendation; it
+should execute that scoped step without another approval question. The default is
+thorough verification and the safer implementation, closing related issues within
+scope rather than adding avoidable backlog. Ask explicitly when speed should take
+priority. This does not authorize unrelated batches or unmentioned external actions.
+
 Codex asks when a decision changes user-visible behavior, architecture, schema or remote
 state, an external contract, or the safety of a destructive action. It stops at the end
 of the batch unless the request already authorizes further work.

@@ -22,14 +22,16 @@ this roadmap. Git history and `docs/PROJECT_REFERENCE.md` retain the implementat
 
 - [x] **3.1 Bundle audit:** measured production artifacts and traced route, vendor,
   and asset opportunities; see [findings and baseline](docs/BUNDLE_AUDIT.md)
-- [ ] **3.2 Route-level code splitting:** agree route/interaction boundaries from
-  the audit; resolve the service-worker activation prerequisite before deployment
+- [x] **Service-worker activation prerequisite (from 3.5):** wait for old controlled
+  clients to close; enforce generated policy during builds; verified in Chromium
+- [ ] **3.2 Route-level code splitting:** use the audit's route/interaction boundaries,
+  preserve offline chunks, and handle rejected imports; verify deployment asset retention
 - [ ] **3.3 Lazy image loading:** gate upstream image acquisition, not only `<img>` loading
 - [ ] **3.4 Image-cache LRU sweep:** resolve accepted limitation OFF-6 with an
   access-time policy and byte budget
 - [ ] **3.5 Service-worker precache review:** keep user-generated content out of precache;
-  resolve the confirmed `autoUpdate` activation override (recommended prerequisite
-  for releasing 3.2); assess update prompt, `beforeinstallprompt`, and Profile sharing
+  activation override fixed in the prerequisite above; assess update prompt,
+  `beforeinstallprompt`, and Profile sharing
 - [ ] **3.6 Build-size guard:** add a documented budget check to CI or local verification
 - [ ] **3.7 PostHog foundation:** error tracking and feature flags, with session replay and
   autocapture disabled
@@ -60,6 +62,6 @@ this roadmap. Git history and `docs/PROJECT_REFERENCE.md` retain the implementat
 
 ## Batch boundary
 
-Phase 3.1 is complete. Phase 3.2 is the next proposed batch; agree its scope and the
-service-worker prerequisite using the audit before implementation. No Phase 3.2 or
-3.5 runtime changes are included in the audit.
+Phase 3.1 and the service-worker activation prerequisite are complete. Phase 3.2 is
+the next proposed batch, guided by the audit. Route/interaction splitting and the
+broader Phase 3.5 UI features have not started.

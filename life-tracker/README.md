@@ -10,8 +10,8 @@ Pre-release. The core calendar, task actions, categories, auth/account settings,
 graph, friend calendars, messaging, replies, reactions, and offline/sync hardening are
 implemented. Todo List, Diary, and Notifications remain in the feature backlog. The
 [Phase 3.1 bundle audit](docs/BUNDLE_AUDIT.md) is complete. The next proposed batch
-is Phase 3.2 code splitting in [PLAN.md](PLAN.md), with an identified service-worker
-activation prerequisite to resolve before deployment.
+is Phase 3.2 code splitting in [PLAN.md](PLAN.md). Its service-worker activation
+prerequisite is complete, with generated-policy checks included in production builds.
 
 ## Stack
 

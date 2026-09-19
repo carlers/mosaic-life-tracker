@@ -8,14 +8,13 @@ export default defineConfig({
     react(),
     basicSsl(),
     VitePWA({
-      // `autoUpdate` is retained, but `skipWaiting` / `clientsClaim` are
-      // disabled below so the new SW does NOT take over mid-session.
-      // Without that, a deploy landing during an in-flight RxDB write can
-      // orphan the transaction (the new bundle and the new SW arrive at
-      // the same time). The new SW waits until the tab is fully closed
-      // and reopened. A "New version available" prompt UI would let us
-      // update sooner, but that is Phase 3.5+ feature work (PWA-4).
-      registerType: 'autoUpdate',
+      // Keep an installed update waiting until the old worker controls no
+      // clients: close all Mosaic tabs and installed-app windows, then reopen.
+      // A refresh alone may leave the old worker active. `autoUpdate` forces
+      // both activation flags below to true, so use `prompt` (PWA-4).
+      // The injected registration script provides no prompt or forced reload;
+      // an explicit update UI remains separate Phase 3.5 work.
+      registerType: 'prompt',
       includeAssets: ['apple-touch-icon.png'],
       manifest: {
         name: 'Life Tracker',
@@ -60,8 +59,8 @@ export default defineConfig({
         // intent and guards against a future same-origin proxy (PWA-3).
         navigateFallback: 'index.html',
         navigateFallbackDenylist: [/^\/v1\//, /^\/api\//],
-        // Do not take over the page mid-session. Applies on next full
-        // relaunch. See registerType comment above (PWA-4).
+        // Preserve the current worker while it still controls open clients.
+        // See the registerType comment above (PWA-4).
         skipWaiting: false,
         clientsClaim: false,
       }
