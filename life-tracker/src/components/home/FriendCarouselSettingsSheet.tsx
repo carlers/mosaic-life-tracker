@@ -2,8 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Reorder, useDragControls } from 'framer-motion';
 import { GripVertical, RotateCcw } from 'lucide-react';
 import { BottomSheet } from '../ui/BottomSheet';
-import { Avatar } from '../ui/Avatar';
-import { useTaskImage } from '../../hooks/useTaskImage';
+import { DeferredAvatar } from '../ui/DeferredAvatar';
 import type { FriendshipDocument } from '../../db/schema';
 
 interface FriendRowProps {
@@ -14,7 +13,6 @@ interface FriendRowProps {
 
 const FriendRow: React.FC<FriendRowProps> = ({ friend, hidden, onToggle }) => {
   const dragControls = useDragControls();
-  const { imageUrl } = useTaskImage(friend.friendAvatarFileId || undefined);
 
   return (
     <Reorder.Item
@@ -34,8 +32,8 @@ const FriendRow: React.FC<FriendRowProps> = ({ friend, hidden, onToggle }) => {
       >
         <GripVertical size={16} />
       </button>
-      <Avatar
-        src={imageUrl || undefined}
+      <DeferredAvatar
+        fileId={friend.friendAvatarFileId || undefined}
         alt={friend.friendDisplayName || friend.friendUsername}
         size="sm"
       />

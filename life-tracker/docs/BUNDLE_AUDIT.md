@@ -108,6 +108,35 @@ requested route. This establishes app/SW behavior under a static-host replacemen
 simulation; verify the real host's HTML cache headers and deployment retention on its
 first Phase 3.2 deployment.
 
+## Phase 3.3 result (2026-09-19)
+
+Image acquisition now waits until a task thumbnail or avatar enters a 200px
+`IntersectionObserver` preload margin. Selected headers and explicitly opened viewers
+remain eager. The gate latches after first enablement, so scrolling away and back does
+not release and reacquire the hook while its component remains mounted. Browsers without
+`IntersectionObserver` retain eager behavior. Native `loading="lazy"` and async decoding
+supplement the upstream gate.
+
+`useTaskImage` accepts an enable flag before it calls `getLocalImageUrl`, while retaining
+the shared promise, reference count, and delayed object-URL revocation. `DeferredAvatar`
+applies that contract across avatar rows. Task calendar blocks and selected-day items use
+the same gate directly. Chat and friend-calendar headers that previously passed storage
+IDs directly to `<img>` now use the guarded cache path.
+
+An isolated Chromium harness used the real hook and IndexedDB cache with one eager header
+and 20 scroll rows. Initial render read only `header`, `row-0`, and `row-1`; scrolling to
+the end added only `row-18` and `row-19`; returning to the top added no reads. Component
+tests separately confirm that a gated uncached item does not call `getLocalImageUrl` until
+intersection and that simultaneous consumers still share one acquisition. No live
+Appwrite image request, mobile/Safari run, or long-list field trace is claimed.
+
+The gate adds a small runtime cost. Compared with the Phase 3.2 artifact snapshot, the
+initial static closure is 995,103 raw / 300,447 gzip bytes (+108 / +19), and initial plus
+Home is 1,228,088 / 376,472 (+1,797 / +690). All app JS/CSS is 1,829,031 raw /
+543,748 gzip across 49 files; the unique precache payload is 1,889,592 raw bytes. The
+four optional dependency exclusions still pass. Phase 3.4 owns cache eviction and byte
+budgeting; Phase 3.3 does not change persistent cache retention.
+
 ## What contributes to the eager chunk
 
 The following values sum the bundler's `renderedLength` by package. They rank
@@ -249,8 +278,8 @@ For the next implementation batch, require lint → test → build and:
    offline/sync work. Verify the agreed update policy and recovery without losing
    unsaved work. A blind automatic reload is not a sufficient recovery policy.
 
-Phase 3.2 and its activation prerequisite are complete. Phase 3.3 image acquisition
-gating is next; it remains separate from code and native-image lazy loading.
+Phases 3.2 and 3.3 and the activation prerequisite are complete. Phase 3.4 image-cache
+LRU policy is next.
 
 ## Technical sources
 

@@ -2,7 +2,7 @@ import React, { useMemo, useState, useEffect, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ChevronLeft, RefreshCw } from 'lucide-react';
 import { motion } from 'framer-motion';
-import { Avatar } from '../components/ui/Avatar';
+import { DeferredAvatar } from '../components/ui/DeferredAvatar';
 import { FriendCalendarView } from '../components/friend/FriendCalendarView';
 import { useFriendCalendar } from '../lib/useFriendCalendar';
 import { useFriends } from '../hooks/useFriends';
@@ -107,8 +107,9 @@ export const FriendCalendarPage: React.FC = () => {
         >
           <ChevronLeft size={24} />
         </button>
-        <Avatar
-          src={friend?.friendAvatarFileId}
+        <DeferredAvatar
+          fileId={friend?.friendAvatarFileId || undefined}
+          eager
           alt={friend?.friendDisplayName}
           size="sm"
         />

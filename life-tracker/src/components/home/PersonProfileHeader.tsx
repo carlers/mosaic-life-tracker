@@ -1,21 +1,21 @@
 import React from 'react';
-import { Avatar } from '../ui/Avatar';
-import { useTaskImage } from '../../hooks/useTaskImage';
+import { DeferredAvatar } from '../ui/DeferredAvatar';
 import type { CarouselPerson } from '../../hooks/useFriendCarousel';
 
 interface PersonProfileHeaderProps {
   person: CarouselPerson;
+  isActive: boolean;
 }
 
 export const PersonProfileHeader: React.FC<PersonProfileHeaderProps> = ({
   person,
+  isActive,
 }) => {
-  const { imageUrl } = useTaskImage(person.avatarFileId || undefined);
-
   return (
     <div className="px-4 py-1.5 flex items-center gap-3">
-      <Avatar
-        src={imageUrl || undefined}
+      <DeferredAvatar
+        fileId={person.avatarFileId || undefined}
+        eager={isActive}
         alt={person.displayName}
         size="md"
       />

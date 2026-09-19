@@ -1,14 +1,13 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ChevronLeft, Share2, ChevronRight, Camera, AtSign } from 'lucide-react';
-import { Avatar } from '../components/ui/Avatar';
+import { DeferredAvatar } from '../components/ui/DeferredAvatar';
 import { EditNameSheet } from '../components/modals/EditNameSheet';
 import { EditDescriptionSheet } from '../components/modals/EditDescriptionSheet';
 import { ImagePickerSheet } from '../components/home/views/ImagePickerSheet';
 import { SetUsernameSheet } from '../components/modals/SetUsernameSheet';
 import { useProfile } from '../hooks/useProfile';
 import { useMyProfile } from '../hooks/useMyProfile';
-import { useTaskImage } from '../hooks/useTaskImage';
 
 export const ProfilePage: React.FC = () => {
   const navigate = useNavigate();
@@ -22,7 +21,6 @@ export const ProfilePage: React.FC = () => {
     removeProfileImage,
   } = useProfile();
   const { profile } = useMyProfile();
-  const { imageUrl } = useTaskImage(profileImageId || undefined);
   const [isEditingName, setIsEditingName] = useState(false);
   const [isEditingDescription, setIsEditingDescription] = useState(false);
   const [isEditingImage, setIsEditingImage] = useState(false);
@@ -60,8 +58,9 @@ export const ProfilePage: React.FC = () => {
             className="relative group"
             aria-label="Change profile image"
           >
-            <Avatar
-              src={imageUrl || undefined}
+            <DeferredAvatar
+              fileId={profileImageId || undefined}
+              eager
               alt={displayName || 'Profile'}
               size="lg"
             />

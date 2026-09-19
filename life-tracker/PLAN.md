@@ -26,7 +26,8 @@ this roadmap. Git history and `docs/PROJECT_REFERENCE.md` retain the implementat
   clients to close; enforce generated policy during builds; verified in Chromium
 - [x] **3.2 Route-level code splitting:** lazy routes and major optional interactions,
   offline chunk precache, explicit failed-import recovery, and two-release browser test
-- [ ] **3.3 Lazy image loading:** gate upstream image acquisition, not only `<img>` loading
+- [x] **3.3 Lazy image loading:** gate upstream image acquisition by proximity, keep
+  selected content eager, and preserve shared object URLs without scroll reacquisition
 - [ ] **3.4 Image-cache LRU sweep:** resolve accepted limitation OFF-6 with an
   access-time policy and byte budget
 - [ ] **3.5 Service-worker precache review:** keep user-generated content out of precache;
@@ -62,5 +63,5 @@ this roadmap. Git history and `docs/PROJECT_REFERENCE.md` retain the implementat
 
 ## Batch boundary
 
-Phase 3.2 is complete. Phase 3.3 lazy image acquisition is the next proposed batch.
+Phase 3.3 is complete. Phase 3.4 image-cache LRU policy is the next proposed batch.
 The broader Phase 3.5 update/install/share UI features have not started.

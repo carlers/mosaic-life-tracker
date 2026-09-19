@@ -1,8 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { Users } from 'lucide-react';
-import { Avatar } from '../ui/Avatar';
-import { useTaskImage } from '../../hooks/useTaskImage';
+import { DeferredAvatar } from '../ui/DeferredAvatar';
 import type { CarouselPerson } from '../../hooks/useFriendCarousel';
 
 interface PersonPillProps {
@@ -13,7 +12,6 @@ interface PersonPillProps {
 
 const PersonPill = React.memo<PersonPillProps>(
   ({ person, isActive, onSelect }) => {
-    const { imageUrl } = useTaskImage(person.avatarFileId || undefined);
     const pillRef = useRef<HTMLButtonElement>(null);
 
     useEffect(() => {
@@ -39,8 +37,9 @@ const PersonPill = React.memo<PersonPillProps>(
             : 'bg-[#1E1E1E] border-[#333333] hover:bg-[#252525]'
         }`}
       >
-        <Avatar
-          src={imageUrl || undefined}
+        <DeferredAvatar
+          fileId={person.avatarFileId || undefined}
+          eager={isActive}
           alt={person.displayName}
           size="sm"
         />

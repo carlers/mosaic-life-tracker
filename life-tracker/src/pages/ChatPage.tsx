@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ChevronLeft, MessageSquare, Search } from 'lucide-react';
-import { Avatar } from '../components/ui/Avatar';
+import { DeferredAvatar } from '../components/ui/DeferredAvatar';
 import { BottomSheet } from '../components/ui/BottomSheet';
 import {
   MessageBubble,
@@ -238,8 +238,9 @@ export const ChatPage: React.FC = () => {
         >
           <ChevronLeft size={24} />
         </button>
-        <Avatar
-          src={friend?.friendAvatarFileId}
+        <DeferredAvatar
+          fileId={friend?.friendAvatarFileId || undefined}
+          eager
           alt={friend?.friendDisplayName}
           size="sm"
         />

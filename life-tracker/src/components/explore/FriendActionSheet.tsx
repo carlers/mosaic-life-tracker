@@ -1,8 +1,7 @@
 import React, { useState } from 'react';
 import { BottomSheet } from '../ui/BottomSheet';
 import { UserMinus, ShieldOff } from 'lucide-react';
-import { Avatar } from '../ui/Avatar';
-import { useTaskImage } from '../../hooks/useTaskImage';
+import { DeferredAvatar } from '../ui/DeferredAvatar';
 import type { FriendshipDocument } from '../../db/schema';
 
 interface FriendActionSheetProps {
@@ -20,9 +19,6 @@ export const FriendActionSheet: React.FC<FriendActionSheetProps> = ({
   onRemove,
   onBlock,
 }) => {
-  const { imageUrl } = useTaskImage(
-    friendship?.friendAvatarFileId || undefined
-  );
   const [isWorking, setIsWorking] = useState(false);
 
   if (!friendship) return null;
@@ -46,8 +42,9 @@ export const FriendActionSheet: React.FC<FriendActionSheetProps> = ({
     >
       <div className="pt-2 pb-8 px-4">
         <div className="flex flex-col items-center mb-6">
-          <Avatar
-            src={imageUrl || undefined}
+          <DeferredAvatar
+            fileId={friendship.friendAvatarFileId || undefined}
+            eager
             alt={friendship.friendDisplayName || friendship.friendUsername}
             size="lg"
           />

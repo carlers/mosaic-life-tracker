@@ -1,8 +1,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { UserPlus, Clock, Check } from 'lucide-react';
-import { Avatar } from '../ui/Avatar';
-import { useTaskImage } from '../../hooks/useTaskImage';
+import { DeferredAvatar } from '../ui/DeferredAvatar';
 import type { ProfileCard } from '../../lib/social';
 
 interface UserResultCardProps {
@@ -18,8 +17,6 @@ export const UserResultCard: React.FC<UserResultCardProps> = ({
   onAdd,
   isSending = false,
 }) => {
-  const { imageUrl } = useTaskImage(profile.avatar_file_id || undefined);
-
   const renderAction = () => {
     switch (relationship) {
       case 'self':
@@ -67,8 +64,8 @@ export const UserResultCard: React.FC<UserResultCardProps> = ({
 
   return (
     <div className="flex items-center gap-3 bg-[#1E1E1E] border border-[#333333] rounded-xl p-3">
-      <Avatar
-        src={imageUrl || undefined}
+      <DeferredAvatar
+        fileId={profile.avatar_file_id || undefined}
         alt={profile.display_name || profile.username}
         size="md"
       />

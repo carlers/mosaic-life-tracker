@@ -2,8 +2,7 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { MoreHorizontal, ChevronRight } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { Avatar } from '../ui/Avatar';
-import { useTaskImage } from '../../hooks/useTaskImage';
+import { DeferredAvatar } from '../ui/DeferredAvatar';
 import type { FriendshipDocument } from '../../db/schema';
 
 interface FriendRowProps {
@@ -15,9 +14,6 @@ export const FriendRow: React.FC<FriendRowProps> = ({
   friendship,
   onOpenActions,
 }) => {
-  const { imageUrl } = useTaskImage(
-    friendship.friendAvatarFileId || undefined
-  );
   const navigate = useNavigate();
 
   const handleOpen = () => {
@@ -30,8 +26,8 @@ export const FriendRow: React.FC<FriendRowProps> = ({
       onClick={handleOpen}
       className="flex items-center gap-3 bg-[#1E1E1E] border border-[#333333] rounded-xl p-3 cursor-pointer hover:bg-[#252525] transition-colors"
     >
-      <Avatar
-        src={imageUrl || undefined}
+      <DeferredAvatar
+        fileId={friendship.friendAvatarFileId || undefined}
         alt={friendship.friendDisplayName || friendship.friendUsername}
         size="md"
       />

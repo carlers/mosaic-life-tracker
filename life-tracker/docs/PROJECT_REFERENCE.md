@@ -279,6 +279,11 @@ Without this guard, directive examples inside fenced blocks would truncate the e
   recognizes browser fallback messages. Route boundaries offer an explicit full-page
   reload for failed lazy imports; ordinary render errors keep the in-place retry.
   Do not automatically reload because a form or other unsaved local UI state may exist.
+- **Image-acquisition boundary.** `useTaskImage(fileId, enabled)` must not call the
+  IndexedDB/Appwrite path while disabled. `useImageLoadGate` enables content within a
+  200px visibility margin and latches after first enablement. `DeferredAvatar` is the
+  standard persisted-avatar renderer. Keep selected headers and opened viewers eager;
+  use the visibility gate for scroll rows, calendar blocks, and selected-day items.
 - **Service-worker scope.** `vite-plugin-pwa` owns the SW registration at root scope.
   Do not register a second SW or precache user-generated content. Precache the app
   shell including lazy JS/CSS chunks so offline routes remain available. RxDB and
@@ -317,7 +322,7 @@ Without this guard, directive examples inside fenced blocks would truncate the e
 7. **`DayCell` is memoized and prop-stable.** Receives `date` (stable), `tasks` (Map slice, `EMPTY_TASKS` for empty days), `categories` (parent `useMemo`), `isCurrentMonth` (primitive), `onDayClick` (parent `useCallback`). Builds its click closure internally. Sorting runs only when `tasks.length > 1` and is memoized on `tasks`.
 8. **`CalendarBody` is memoized.** `PersonPane` re-renders on toast/`activeView` changes; `CalendarBody` bails via `React.memo` unless a stable prop changed.
 9. **Friend-calendar refetch on activation.** `PersonPane` forces `refetchFriendCalendar(true)` when a friend pane becomes active, throttled by `FRIEND_REFETCH_MIN_INTERVAL_MS = 15_000`. Own pane stays live via RxDB subscription. Do not rely on cache TTL alone.
-10. **`useTaskImage` shares object URLs.** Module-level `Map<fileId,{url,refCount,revokeTimer}>` ref-counts URLs across hook instances with a 1.5s deferred revoke so StrictMode double-mounts, Month↔Week toggles, and slide re-entry don't tear down + re-read. Do not bypass with a direct `getLocalImageUrl` in calendar cells.
+10. **`useTaskImage` shares and gates object URLs.** Module-level `Map<fileId,{url,refCount,revokeTimer}>` ref-counts URLs across hook instances with a 1.5s deferred revoke so StrictMode double-mounts, Month↔Week toggles, and slide re-entry don't tear down + re-read. Its `enabled` argument gates the upstream IndexedDB/Appwrite acquisition. `useImageLoadGate` latches after a 200px visibility margin; `DeferredAvatar` composes both hooks. Do not bypass this path in calendar cells or persisted-avatar UI.
 11. **`DayViewSheet`/`HomePage` use manual windowing.** `RENDER_WINDOW = 3` for `DayViewSheet`, `RENDER_WINDOW = 1` for `HomePage`. Load-bearing for scroll smoothness.
 12. **One subscription per collection, one provider per collection.** `ConversationsProvider` (mounted in `AppLayout`) is the sole owner of the inbox `db.messages` subscription and the sole caller of `useFriends()` for badge/chat-list. `FriendsProvider` (mounted above it) owns the `db.friendships` subscription. `useConversations`/`useUnreadMessages`/`useFriends` are thin context selectors — they MUST NOT mount their own RxDB subscriptions.
 13. **Unread math excludes `isUnsent`.** Counter is `direction === 'incoming' && !readAt && !isUnsent` — required for consistency with `ChatPage`'s own unread check. Regression tests pin this.
@@ -630,6 +635,21 @@ reproduced a missing chunk without a service worker and recovered through the ex
 reload action. See the Phase 3.2 result in [the bundle audit](BUNDLE_AUDIT.md).
 This is not a substitute for checking real hosting headers or mobile/Safari after the
 first split deployment.
+
+### 24.11 Visibility-gated image acquisition
+
+Hook tests assert that disabled images issue no acquisition, enabling starts exactly one
+request, shared file IDs deduplicate, and rejected IndexedDB reads clear loading state.
+Observer tests pin the 200px preload margin, eager fallback, unsupported-browser fallback,
+and latch behavior. `DeferredAvatar` component tests count calls at the
+`getLocalImageUrl` boundary.
+
+The 2026-09-19 Chromium harness exercised the real hook and IndexedDB object store. With
+one eager header and 20 scroll rows, the initial read set was `header`, `row-0`, and
+`row-1`; bottom scroll added `row-18` and `row-19`; returning added none. This verifies
+browser intersection/scroll behavior with cached blobs. It does not replace a live
+Appwrite, mobile/Safari, or production-data trace. Phase 3.4 remains responsible for
+persistent cache eviction and byte budgeting.
 
 ## 25. Retired DeepSeek AI Workflow Protocol
 

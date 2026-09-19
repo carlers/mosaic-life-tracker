@@ -87,7 +87,7 @@ export const PersonPane: React.FC<PersonPaneProps> = ({ person, isActive }) => {
   if (person.kind === 'friend' && friendUserId) {
     return (
       <div className="flex flex-col h-full">
-        <PersonProfileHeader person={person} />
+        <PersonProfileHeader person={person} isActive={isActive} />
         {activeView === 'calendar' ? (
           <>
             <CalendarHeader
@@ -124,7 +124,7 @@ export const PersonPane: React.FC<PersonPaneProps> = ({ person, isActive }) => {
 
   return (
     <div className="flex flex-col h-full">
-      <PersonProfileHeader person={person} />
+      <PersonProfileHeader person={person} isActive={isActive} />
       {activeView === 'calendar' ? (
         <>
           <CalendarHeader

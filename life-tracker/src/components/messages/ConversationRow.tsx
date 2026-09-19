@@ -2,8 +2,7 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { ChevronRight } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { Avatar } from '../ui/Avatar';
-import { useTaskImage } from '../../hooks/useTaskImage';
+import { DeferredAvatar } from '../ui/DeferredAvatar';
 import { formatRelative } from '../../lib/format';
 import type { Conversation } from '../../hooks/useConversations';
 interface ConversationRowProps {
@@ -14,7 +13,6 @@ const ConversationRowComponent: React.FC<ConversationRowProps> = ({
 }) => {
   const navigate = useNavigate();
   const { friend, lastMessage, unreadCount } = conversation;
-  const { imageUrl } = useTaskImage(friend.friendAvatarFileId || undefined);
   let preview: string;
   let previewClass: string;
   if (!lastMessage) {
@@ -41,8 +39,8 @@ const ConversationRowComponent: React.FC<ConversationRowProps> = ({
       onClick={handleOpen}
       className="flex items-center gap-3 bg-[#1E1E1E] border border-[#333333] rounded-xl p-3 cursor-pointer hover:bg-[#252525] transition-colors"
     >
-      <Avatar
-        src={imageUrl || undefined}
+      <DeferredAvatar
+        fileId={friend.friendAvatarFileId || undefined}
         alt={friend.friendDisplayName || friend.friendUsername}
         size="md"
       />

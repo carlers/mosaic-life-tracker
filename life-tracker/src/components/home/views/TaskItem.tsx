@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Check, FileText } from 'lucide-react';
+import { useImageLoadGate } from '../../../hooks/useImageLoadGate';
 import { useTaskImage } from '../../../hooks/useTaskImage';
 import { ReactionRow } from '../../messages/ReactionRow';
 import { parseReactions } from '../../../lib/reactionUtils';
@@ -35,7 +36,8 @@ export const TaskItem: React.FC<TaskItemProps> = ({
   onEditSave,
   onEditCancel,
 }) => {
-  const { imageUrl } = useTaskImage(task.image);
+  const { targetRef, shouldLoad } = useImageLoadGate<HTMLDivElement>();
+  const { imageUrl, isLoading } = useTaskImage(task.image, shouldLoad);
   const reactions = React.useMemo(
     () => parseReactions(task.reactions),
     [task.reactions]
@@ -74,6 +76,7 @@ export const TaskItem: React.FC<TaskItemProps> = ({
 
   return (
     <motion.div
+      ref={targetRef}
       layout
       className="flex items-start gap-3 py-2"
     >
@@ -132,22 +135,33 @@ export const TaskItem: React.FC<TaskItemProps> = ({
             <span>Memo</span>
           </button>
         )}
-        {task.image && imageUrl && (
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onViewImage?.(task);
-            }}
-            onPointerDown={(e) => e.stopPropagation()}
-            className="mt-2 block"
-            aria-label="View image"
-          >
-            <img
-              src={imageUrl}
-              alt={task.title}
-              className="w-16 h-16 object-cover rounded-lg"
+        {task.image && (
+          imageUrl ? (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onViewImage?.(task);
+              }}
+              onPointerDown={(e) => e.stopPropagation()}
+              className="mt-2 block w-16 h-16"
+              aria-label="View image"
+            >
+              <img
+                src={imageUrl}
+                alt={task.title}
+                loading="lazy"
+                decoding="async"
+                className="w-full h-full object-cover rounded-lg"
+              />
+            </button>
+          ) : (
+            <div
+              aria-hidden="true"
+              className={`mt-2 w-16 h-16 rounded-lg bg-gray-500/20 ${
+                isLoading ? 'animate-pulse' : ''
+              }`}
             />
-          </button>
+          )
         )}
         {reactions.length > 0 && (
           <div className="mt-1">

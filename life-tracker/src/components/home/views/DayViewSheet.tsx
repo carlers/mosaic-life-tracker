@@ -80,7 +80,10 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
     [tasks, imagePickerTaskId]
   );
 
-  const { imageUrl: viewingImageUrl } = useTaskImage(viewingTask?.image);
+  const {
+    imageUrl: viewingImageUrl,
+    isLoading: isViewingImageLoading,
+  } = useTaskImage(viewingTask?.image, isImageViewerOpen);
 
   const activeTaskCategory = useMemo(
     () =>
@@ -288,6 +291,29 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
     isDeleteConfirmOpen ||
     isImageViewerOpen ||
     deletePhotoConfirmOpen;
+  const imageViewerLoadingFallback = (
+    <div
+      className="fixed inset-0 z-[80] bg-black flex items-center justify-center px-6"
+      role="status"
+      aria-live="polite"
+    >
+      <Spinner size="w-8 h-8" />
+    </div>
+  );
+  const imageViewerUnavailable = (
+    <div className="fixed inset-0 z-[80] bg-black flex items-center justify-center px-6">
+      <div className="text-center">
+        <p className="text-sm text-gray-300 mb-4">Image unavailable</p>
+        <button
+          type="button"
+          onClick={handleCloseImageViewer}
+          className="px-4 py-2 rounded-xl bg-[#2A2A2A] text-white text-sm"
+        >
+          Close
+        </button>
+      </div>
+    </div>
+  );
 
   return (
     <BottomSheet
@@ -421,21 +447,17 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
         onConfirm={handleConfirmDeletePhoto}
       />
       {isImageViewerOpen && viewingTask?.image && (
-        <Suspense
-          fallback={
-            <div className="fixed inset-0 z-[80] bg-black flex items-center justify-center">
-              <Spinner size="w-8 h-8" />
-            </div>
-          }
-        >
-          <ImageViewer
-            isOpen
-            imageUrl={viewingImageUrl}
-            taskTitle={viewingTask.title}
-            taskDate={viewingTask.date}
-            onClose={handleCloseImageViewer}
-          />
-        </Suspense>
+        viewingImageUrl ? (
+          <Suspense fallback={imageViewerLoadingFallback}>
+            <ImageViewer
+              isOpen
+              imageUrl={viewingImageUrl}
+              taskTitle={viewingTask.title}
+              taskDate={viewingTask.date}
+              onClose={handleCloseImageViewer}
+            />
+          </Suspense>
+        ) : isViewingImageLoading ? imageViewerLoadingFallback : imageViewerUnavailable
       )}
       <ImagePickerSheet
         isOpen={!!imagePickerTaskId}

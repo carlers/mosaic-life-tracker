@@ -102,4 +102,34 @@ describe('useTaskImage', () => {
     expect(result.current.isLoading).toBe(false);
     expect(mockGetLocalImageUrl).not.toHaveBeenCalled();
   });
+
+  it('does not acquire a disabled image until it is enabled', async () => {
+    const { result, rerender } = renderHook(
+      ({ enabled }) => useTaskImage('file_gated_test', enabled),
+      { initialProps: { enabled: false } }
+    );
+    expect(result.current).toEqual({ imageUrl: null, isLoading: false });
+    expect(mockGetLocalImageUrl).not.toHaveBeenCalled();
+
+    rerender({ enabled: true });
+    expect(result.current.isLoading).toBe(true);
+    await waitFor(() =>
+      expect(result.current.imageUrl).toBe('blob:fake-file_gated_test')
+    );
+    expect(mockGetLocalImageUrl).toHaveBeenCalledTimes(1);
+  });
+
+  it('finishes loading when image acquisition rejects', async () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    mockGetLocalImageUrl.mockRejectedValueOnce(new Error('IndexedDB unavailable'));
+    const { result } = renderHook(() => useTaskImage('file_error_test'));
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(result.current.imageUrl).toBeNull();
+    expect(errorSpy).toHaveBeenCalledWith(
+      '[useTaskImage] Failed to acquire image:',
+      expect.any(Error)
+    );
+    errorSpy.mockRestore();
+  });
 });
