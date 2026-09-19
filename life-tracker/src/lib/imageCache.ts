@@ -7,7 +7,7 @@ const STORE_NAME = 'blobs';
 // free of Appwrite SDK imports so it can be tested without mocking the
 // SDK, and so the cache logic is one file instead of two diverging copies.
 //
-// Cache is unbounded. See AGENTS.md §18 "Accepted Limitations"
+// Cache is unbounded. See docs/PROJECT_REFERENCE.md §18 "Accepted Limitations"
 // (OFF-6): images are compressed to ≤150KB (§4), so a heavy user with a
 // few hundred images is still in the low tens of MB, well under the
 // IndexedDB quota on iOS (~1GB/origin). An LRU cap with a byte budget

@@ -49,7 +49,7 @@ export default defineConfig({
       workbox: {
         // Precache the app shell only. Data is RxDB + the sync engine;
         // images are `src/lib/imageCache.ts`. The SW is deliberately not
-        // a second cache for either — see PWA-1 and AGENTS.md §15
+        // a second cache for either — see PWA-1 and docs/PROJECT_REFERENCE.md §15
         // (`imageCache.ts` is the single owner of the blob cache).
         globPatterns: ['**/*.{js,css,html,ico,png,svg,webp,woff2,wasm}'],
         // SPA routes: cold-loading `/messages/abc123` offline must serve

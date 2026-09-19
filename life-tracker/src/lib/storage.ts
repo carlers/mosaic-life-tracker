@@ -55,7 +55,7 @@ function generateFileId(): string {
  * Returns the current user's id, or `null` if the server says there is no
  * session (401). A network error / offline state throws `OfflineError` —
  * "couldn't check" must never be conflated with "definitely not logged in"
- * (see AGENTS.md §10 and §23.6).
+ * (see docs/PROJECT_REFERENCE.md §§10 and 23.6).
  *
  * Exported for tests; `uploadImage` is the only production caller.
  */

@@ -5,7 +5,7 @@ import { MessageComposer } from '../../src/components/messages/MessageComposer';
 // ---------------------------------------------------------------------------
 // MessageComposer component tests (Layer 5).
 //
-// Pins the observable contracts documented in AGENTS.md §21:
+// Pins the observable contracts documented in docs/PROJECT_REFERENCE.md §21:
 //   - Send button is disabled while the input is empty.
 //   - Enter with non-whitespace text fires onSend(trimmed) and clears input.
 //   - Shift+Enter does not fire onSend (falls through to newline).

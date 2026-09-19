@@ -6,7 +6,7 @@ import type { MessageDocument } from '../../src/db/schema';
 // ---------------------------------------------------------------------------
 // MessageBubble component tests (Layer 5).
 //
-// These pin the observable contracts documented in AGENTS.md §7 and §21:
+// These pin the observable contracts documented in docs/PROJECT_REFERENCE.md §§7 and 21:
 //   - Unsent messages render the deleted bubble; no gesture-bearing surface.
 //   - Status rows dispatch on `statusKind` (read / delivered / pending).
 //   - Single-tap reveals the timestamp.

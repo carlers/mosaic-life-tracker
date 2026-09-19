@@ -1,43 +1,45 @@
 # LifeTracker (Mosaic)
 
-An offline-first, local-first PWA life tracker. A unified dark-mode calendar that aggregates tasks, categories, a social calendar layer, and 1:1 messaging with friends. Built to work 100% offline with cloud sync as a background concern, not a dependency.
+Mosaic is an offline-first, local-first PWA for tasks, calendars, friend activity, and
+direct messaging. RxDB provides immediate local data access while Appwrite TablesDB
+supplies background synchronization and cross-device persistence.
 
 ## Status
 
-Pre-release. Phase 1 (bug audit hardening) and Phase 3.1–3.4 (messaging, reactions, auth architecture) are complete. Test suite is live (152 tests, Vitest). Phase 3.5–3.7 (Todo List view, Diary view, Notifications) and API integrations are queued.
+Pre-release. The core calendar, task actions, categories, auth/account settings, social
+graph, friend calendars, messaging, replies, reactions, and offline/sync hardening are
+implemented. Todo List, Diary, and Notifications remain in the feature backlog. The
+next proposed batch is the Phase 3.1 bundle audit in [PLAN.md](PLAN.md).
 
 ## Stack
 
-Vite · React 19 · TypeScript · Tailwind CSS v3 · React Router v7 · RxDB v17 (Dexie storage) · Appwrite 2.0 (TablesDB) · vite-plugin-pwa
+Vite · React 19 · TypeScript · Tailwind CSS v3 · React Router v7 · RxDB v17
+(Dexie storage) · Appwrite TablesDB · Vitest · vite-plugin-pwa
 
 ## Development
 
-```
+Open this directory (`life-tracker/`) as the VS Code workspace and run commands here:
+
+```bash
 npm install
-npm run dev          # start dev server (https://localhost:5173)
-npm test             # run the test suite
-npm run lint         # eslint
-npm run build        # production build
+npm run dev
+npm run lint
+npm test
+npm run build
 ```
 
-Mobile PWA testing requires a Cloudflare Tunnel (`cloudflared tunnel --url http://localhost:5173`) plus whitelisting the tunnel URL in Appwrite Platforms. See §3 of AGENTS.md for details.
+Mobile PWA testing requires a Cloudflare Tunnel (`cloudflared tunnel --url
+http://localhost:5173`) and the tunnel URL must be allowed in Appwrite Platforms.
 
-## Revision workflow
+## Codex workflow
 
-All AI-authored revisions are delivered as a single `mosaic` fenced code block and applied via the installer:
+`AGENTS.md` contains the active project instructions, `PLAN.md` owns the roadmap, and
+`SESSION_STATE.md` is the current handoff. Detailed product and architecture contracts
+live in [docs/PROJECT_REFERENCE.md](docs/PROJECT_REFERENCE.md). See
+[docs/CODEX_WORKFLOW.md](docs/CODEX_WORKFLOW.md) for the editor workflow.
 
-```
-npm run apply         # write files, run lint → test → build
-npm run apply:docs    # write files, skip verification (docs-only changes)
-npm run apply:start   # write files, verify, then start dev server
-npm run apply:rollback  # restore from the most recent backup
-```
-
-See §5.1 of AGENTS.md for the mega-file format specification.
-
-## Conventions
-
-**AGENTS.md is the canonical spec.** It documents every architectural rule, naming convention, hook contract, and audit-hardening invariant. Any non-trivial change must conform to it.
+The former repomix and mega-file installer remains available as optional legacy tooling;
+see [docs/LEGACY_WORKFLOW.md](docs/LEGACY_WORKFLOW.md).
 
 ## License
 

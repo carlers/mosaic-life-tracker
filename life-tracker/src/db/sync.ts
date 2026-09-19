@@ -206,7 +206,7 @@ function toMs(value: unknown): number {
 // AuthProvider's resolveInitialUser and intermittently showing a
 // "session expired" banner on a fresh device. Use the raw client so sync
 // never owns session state; AuthProvider is the single source of truth
-// (AGENTS §23).
+// (docs/PROJECT_REFERENCE.md §23).
 async function resolveAuthenticatedUserId(): Promise<string | null> {
   try {
     const user = await account.get();
@@ -464,7 +464,7 @@ async function syncCollection(
         if (!localDoc) {
           // Local doc did not exist when we looked. RxDB may raise
           // CONFLICT if a local insert landed in the meantime; treat that
-          // as a preserved local edit (AGENTS §10 — CONFLICT is not an
+          // as a preserved local edit (docs/PROJECT_REFERENCE.md §10 — CONFLICT is not an
           // error) rather than a row failure.
           try {
             await collection.upsert(doc);
@@ -486,7 +486,7 @@ async function syncCollection(
         const isLocalDirty = localLwt > dirtyBoundaryMs;
         // Server-owned read_at on outgoing messages is applied BEFORE the
         // dirty-skip. The local client never writes read_at on outgoing
-        // rows (see AGENTS §12), so a dirty outgoing row's local edit is
+        // rows (see docs/PROJECT_REFERENCE.md §12), so a dirty outgoing row's local edit is
         // never the source of truth for this field.
         if (colName === 'messages' && row.direction === 'outgoing') {
           const remoteReadAt = (row.read_at as string) || '';
@@ -598,7 +598,7 @@ async function syncCollection(
           // reappeared between our 404 and this call, createRow throws
           // 409 and we let the next cycle reconcile. Do NOT use
           // upsertRow here — its PUT semantics would reset any column
-          // the client does not send (see AGENTS §6).
+          // the client does not send (see docs/PROJECT_REFERENCE.md §6).
           try {
             await guardedTablesDB.createRow({
               databaseId: APPWRITE_CONFIG.databaseId,

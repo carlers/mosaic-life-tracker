@@ -26,7 +26,7 @@ interface ConfirmSheetProps {
 }
 
 /**
- * Canonical destructive-action confirmation sheet (AGENTS §13).
+ * Canonical destructive-action confirmation sheet (docs/PROJECT_REFERENCE.md §13).
  * Replaces the copy-pasted nested locked `BottomSheet` with a
  * `[Cancel | Confirm]` footer that appears in DayViewSheet,
  * CategoryManagerSheet, and ChatPage.

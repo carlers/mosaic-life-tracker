@@ -14,7 +14,7 @@ interface SpinnerProps {
 }
 
 /**
- * The canonical inline spinner markup (AGENTS §14). Replaces the
+ * The canonical inline spinner markup (docs/PROJECT_REFERENCE.md §14). Replaces the
  * copy-pasted `<div className="w-N h-N border-2 border-white
  * border-t-transparent rounded-full animate-spin" />` that appears
  * across sheets, pages, and buttons.

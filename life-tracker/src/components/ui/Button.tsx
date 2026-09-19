@@ -13,7 +13,7 @@ interface ButtonProps extends HTMLMotionProps<'button'> {
  * therefore has no accessible name. Every callsite MUST pass
  * `aria-label`. There is no way to synthesize one from an icon child,
  * so this is a per-callsite obligation, audited in batches 1.7.a–c.
- * See AGENTS.md §14 and the accessibility batch (Item 13).
+ * See docs/PROJECT_REFERENCE.md §14 and the accessibility batch (Item 13).
  *
  * Focus ring: `focus-visible` (keyboard only) rather than `focus`, so
  * pointer users do not see a ring on click. The offset color matches

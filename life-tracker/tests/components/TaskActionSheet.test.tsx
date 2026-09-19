@@ -9,7 +9,7 @@ import type {
 // ---------------------------------------------------------------------------
 // TaskActionSheet component tests (Layer 5).
 //
-// These pin the observable contracts documented in AGENTS.md §7 (bottom
+// These pin the observable contracts documented in docs/PROJECT_REFERENCE.md §7 (bottom
 // sheet standardization, layout-shift reservation) and the visibility
 // composition rules in §2 / §22:
 //   - null task renders nothing (early return in the component).

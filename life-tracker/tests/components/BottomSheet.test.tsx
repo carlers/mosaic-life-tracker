@@ -7,7 +7,7 @@ const noop = () => {};
 // ---------------------------------------------------------------------------
 // BottomSheet component tests (Layer 5).
 //
-// These pin the observable contracts documented in AGENTS.md §7 and §13:
+// These pin the observable contracts documented in docs/PROJECT_REFERENCE.md §§7 and 13:
 //   - Portal to document.body (escapes parent z-index / overflow traps).
 //   - AnimatePresence unmounts cleanly when isOpen flips to false.
 //   - Escape-stack: only the topmost sheet's onClose fires.
