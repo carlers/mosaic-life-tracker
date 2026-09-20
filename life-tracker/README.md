@@ -29,6 +29,7 @@ npm run dev
 npm run lint
 npm test
 npm run build
+npm run verify
 ```
 
 `npm run build` fails if the generated entry, aggregate JS/CSS, or service-worker
