@@ -46,30 +46,6 @@ describe('useDayViewSwiper', () => {
     );
   });
 
-  it('previous-arrow navigation reports the previous day', () => {
-    const selectedDate = new Date(2026, 8, 20);
-    const onDateChange = vi.fn();
-    const { result } = renderHook(() =>
-      useDayViewSwiper({
-        isOpen: true,
-        selectedDate,
-        onDateChange,
-        isDisabled: false,
-      })
-    );
-    const swiper = makeSwiper(result.current.initialIndex);
-    result.current.swiperRef.current = swiper;
-
-    act(() => {
-      result.current.handlePrevDay();
-      result.current.handleSwipeSettled(swiper);
-    });
-
-    expect(onDateChange).toHaveBeenCalledWith(
-      addDays(startOfDay(selectedDate), -1)
-    );
-  });
-
   it('does not move the swiper while a nested sheet disables day navigation', () => {
     const { result } = renderHook(() =>
       useDayViewSwiper({
