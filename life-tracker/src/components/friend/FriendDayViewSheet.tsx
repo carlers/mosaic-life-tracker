@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { format } from 'date-fns';
 import { motion } from 'framer-motion';
 import { Swiper, SwiperSlide } from 'swiper/react';
+import 'swiper/css';
 import {
   Check,
   ChevronLeft,
