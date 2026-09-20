@@ -24,12 +24,10 @@ vi.mock('../../src/lib/appwrite', () => ({
 
 vi.mock('../../src/lib/posthog', () => posthogRef);
 
-import { AUTH_UNAUTHORIZED_EVENT } from '../../src/lib/authEvents';
 import { AuthProvider } from '../../src/hooks/AuthProvider';
 import { useAuth } from '../../src/hooks/useAuth';
 
 const LAST_KNOWN_USER_KEY = 'mosaic_last_known_user';
-const AUTH_BROADCAST_KEY = 'mosaic_auth_broadcast';
 
 function makeUser(
   overrides: Partial<Models.User<Models.Preferences>> = {}
