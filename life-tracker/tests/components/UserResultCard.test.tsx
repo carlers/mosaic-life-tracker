@@ -6,14 +6,8 @@ import type { ProfileCard } from '../../src/lib/social';
 // ---------------------------------------------------------------------------
 // UserResultCard component tests (Layer 5).
 //
-// Pins the five relationship branches:
-//   none     → "Add" button; tap fires onAdd(profile)
-//   friends  → "Friends" label, no Add button
-//   outgoing → "Pending"
-//   incoming → "Respond in requests"
-//   self     → "This is you"
-//
-// Also pins the isSending disabled state on the Add button.
+// Pins the two meaningful contracts: Add dispatches the selected profile,
+// and non-addable relationship states render their relationship outcome.
 //
 // Deliberately NOT tested here:
 //   - Avatar image loading (lib/storage mocked to null).
