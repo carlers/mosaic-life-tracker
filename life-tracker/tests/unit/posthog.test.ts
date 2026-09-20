@@ -134,7 +134,7 @@ describe('PostHog adapter', () => {
     });
   });
 
-  it('fails feature flags closed and reads loaded flags without exposure events', async () => {
+  it('fails feature flags closed, reloads subscribers, and reads without exposure events', async () => {
     let flagsCallback: (() => void) | undefined;
     posthogRef.onFeatureFlags.mockImplementation((callback: () => void) => {
       flagsCallback = callback;
@@ -142,12 +142,15 @@ describe('PostHog adapter', () => {
     });
     posthogRef.isFeatureEnabled.mockReturnValue(true);
     const adapter = await loadAdapter();
+    const listener = vi.fn();
+    const unsubscribe = adapter.subscribePostHogFeatureFlags(listener);
     await adapter.initializePostHog();
 
     expect(adapter.getPostHogFeatureFlagState('new-ui').enabled).toBe(false);
 
     flagsCallback?.();
 
+    expect(listener).toHaveBeenCalled();
     expect(adapter.getPostHogFeatureFlagState('new-ui')).toEqual({
       enabled: true,
       isLoaded: true,
@@ -157,22 +160,6 @@ describe('PostHog adapter', () => {
       send_event: false,
       defaultValue: false,
     });
-  });
-
-  it('notifies subscribers after flag reloads', async () => {
-    let flagsCallback: (() => void) | undefined;
-    posthogRef.onFeatureFlags.mockImplementation((callback: () => void) => {
-      flagsCallback = callback;
-      return () => {};
-    });
-    const adapter = await loadAdapter();
-    const listener = vi.fn();
-    const unsubscribe = adapter.subscribePostHogFeatureFlags(listener);
-    await adapter.initializePostHog();
-
-    flagsCallback?.();
-
-    expect(listener).toHaveBeenCalled();
     unsubscribe();
   });
 
