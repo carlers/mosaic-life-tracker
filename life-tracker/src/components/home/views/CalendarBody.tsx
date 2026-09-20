@@ -24,9 +24,6 @@ interface CalendarBodyProps {
   onReactToTask?: (task: TaskDocument, emoji: string) => void;
 }
 
-const formatDateStr = (date: Date): string =>
-  `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-
 const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
   viewMode,
   slides,
