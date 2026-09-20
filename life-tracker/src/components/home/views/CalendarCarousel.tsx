@@ -25,8 +25,8 @@ const CalendarCarouselComponent: React.FC<CalendarCarouselProps> = ({
   categoriesMap,
 }) => {
   return (
-    <div className="flex-1 min-h-0 overflow-hidden py-2" ref={emblaRef}>
-      <div className="flex h-full">
+    <div className="flex-1 min-h-0 overflow-x-hidden overflow-y-auto overscroll-contain py-2" ref={emblaRef}>
+      <div className="flex min-h-full items-start">
         {slides.map((date, i) => {
           const inWindow = i >= renderStart && i <= renderEnd;
           return (
@@ -35,6 +35,7 @@ const CalendarCarouselComponent: React.FC<CalendarCarouselProps> = ({
               style={{
                 flex: '0 0 100%',
                 minWidth: 0,
+                minHeight: '100%',
                 touchAction: 'pan-y',
               }}
             >
