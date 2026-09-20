@@ -67,5 +67,8 @@ this roadmap. Git history and `docs/PROJECT_REFERENCE.md` retain the implementat
 
 ## Batch boundary
 
-Phase 3.6 build-size guarding is complete. Phase 3.7 PostHog foundation is the next
-proposed batch.
+Phase 3.7 PostHog implementation is present but its final runnable-workspace verification
+and manual staging checks remain pending. The user explicitly authorized starting Phase 4
+before closing that gate. Phase 4.1 (instructions, reference discoverability, and
+enforceable project contracts) is now the active batch; do not mark either Phase 3.7 or
+Phase 4.1 complete until their respective verification requirements are satisfied.
