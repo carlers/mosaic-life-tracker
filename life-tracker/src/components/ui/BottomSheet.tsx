@@ -85,9 +85,9 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            onClick={onClose}
+            onClick={suspendInteraction ? undefined : onClose}
             aria-hidden="true"
-            className={`fixed inset-0 z-[50] bg-black/60 ${backdropBlur ? 'backdrop-blur-sm' : ''}`}
+            className={`fixed inset-0 z-[50] bg-black/60 ${backdropBlur ? 'backdrop-blur-sm' : ''} ${suspendInteraction ? 'pointer-events-none' : ''}`}
           />
           <motion.div
             ref={sheetRef}
