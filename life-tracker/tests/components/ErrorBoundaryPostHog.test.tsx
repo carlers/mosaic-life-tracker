@@ -10,7 +10,6 @@ const posthogRef = vi.hoisted(() => ({
 vi.mock('../../src/lib/posthog', () => posthogRef);
 
 import { RouteErrorBoundary } from '../../src/components/layout/RouteErrorBoundary';
-import { ErrorBoundary } from '../../src/components/ui/ErrorBoundary';
 
 function Bomb() {
   throw new Error('boundary failure');
