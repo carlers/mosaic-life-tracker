@@ -4,7 +4,7 @@ Updated: 2026-09-20
 Current task: Phase 4.1 — instructions, reference discoverability, and enforceable project contracts
 Status: implementation complete; runnable-workspace verification pending
 Roadmap pointer: `PLAN.md` — Phase 4.1 is active by explicit user authorization; Phase 3.7 remains verification-pending and must not be marked complete yet
-Checkpoint: Added a contributor-facing project-contract map, a durable contract-source/enforcement section, and `scripts/check-project-contracts.mjs`. `npm run contracts:check` validates authoritative entry-point existence, required cross-pointers, and local Markdown link targets; `npm run verify` now runs that guard before lint, tests, and build. The UI preservation rule remains active. The regression suite was previously pruned toward behavioral/state coverage.
+Checkpoint: Added a contributor-facing project-contract map, a durable contract-source/enforcement section, and `scripts/check-project-contracts.mjs`. `npm run contracts:check` validates authoritative entry-point existence, required cross-pointers, and local Markdown link targets. `npm run verify` now runs through `scripts/verify.mjs`: contracts check → lint → tests → build, fail-fast, with live terminal output and a sanitized full-run clipboard copy on both success and failure. Clipboard availability is best-effort and does not affect the verification exit status. The UI preservation rule remains active. The regression suite was previously pruned toward behavioral/state coverage.
 Next action: Run `npm run contracts:check` and then `npm run verify` locally. If green, review the Phase 4.1 diff and mark the first Phase 4 checklist item complete. Phase 3.7 still requires its remaining staging/manual verification before its checkbox is closed.
 Blockers: This web environment has repository API access only and cannot execute the checkout's npm commands.
 
@@ -33,6 +33,7 @@ Blockers: This web environment has repository API access only and cannot execute
 - Added `PROJECT_REFERENCE.md §0.1` defining contract sources and the enforcement boundary.
 - Added `npm run contracts:check` to validate authoritative files, required entry-point pointers, and local Markdown targets.
 - Wired `contracts:check` into `npm run verify` before lint/test/build.
+- Added `scripts/verify.mjs` so verify output streams live and is automatically copied to the clipboard on exit; clipboard text strips terminal ANSI/control noise.
 - Updated `AGENTS.md` so documentation-only work runs the contract check and its reference map points contributors to the README index.
 - Recorded the user's explicit authorization to start Phase 4 while Phase 3.7 remains verification-pending.
 
