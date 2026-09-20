@@ -1,4 +1,4 @@
-// Regression: pre-Phase-4 UI bug batch — switching to Diary must not remove the Calendar/Diary toggle.
+// Regression: UIFIX-1 — switching to Diary must not remove the Calendar/Diary toggle.
 import { fireEvent, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
