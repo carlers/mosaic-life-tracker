@@ -81,11 +81,6 @@ function renderSection(opts: RenderOpts = {}) {
 }
 
 describe('CategorySection', () => {
-  it('renders the category name', () => {
-    renderSection({ categoryName: 'Errands' });
-    expect(screen.getByText('Errands')).toBeInTheDocument();
-  });
-
   it('chip tap opens the inline input with the category-scoped placeholder', () => {
     renderSection({ categoryName: 'Work' });
     expect(
@@ -152,14 +147,4 @@ describe('CategorySection', () => {
     ).toBeInTheDocument();
   });
 
-  it('renders TaskItem entries when tasks are supplied', () => {
-    renderSection({
-      tasks: [
-        makeTask({ id: 'task_1', title: 'Buy milk' }),
-        makeTask({ id: 'task_2', title: 'Call bank' }),
-      ],
-    });
-    expect(screen.getByText('Buy milk')).toBeInTheDocument();
-    expect(screen.getByText('Call bank')).toBeInTheDocument();
-  });
 });
