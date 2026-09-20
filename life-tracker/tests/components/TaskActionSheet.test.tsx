@@ -6,29 +6,9 @@ import type {
   CategoryDocument,
 } from '../../src/db/schema';
 
-// ---------------------------------------------------------------------------
-// TaskActionSheet component tests (Layer 5).
-//
-// These pin the observable contracts documented in docs/PROJECT_REFERENCE.md §7 (bottom
-// sheet standardization, layout-shift reservation) and the visibility
-// composition rules in §2 / §22:
-//   - null task renders nothing (early return in the component).
-//   - Photo affordances branch on task.image presence.
-//   - Memo affordances branch on task.memo presence.
-//   - Visibility label reflects inheritance vs explicit override, wiring
-//     resolveVisibility + isInheriting + labelForVisibility at the
-//     component level. The pure helpers are unit-tested separately in
-//     tests/unit/visibility.test.ts; this file pins their composition.
-//   - "Do It Tomorrow" vs "Do It Today" flips on isToday(task.date).
-//   - Top-grid and menu callbacks fire on tap.
-//
-// Deliberately NOT tested here:
-//   - Framer Motion whileTap animations, class strings, or icon rendering.
-//     Internals-coupled and §24.3-non-compliant.
-//   - BottomSheet portal behavior. That contract is pinned in
-//     tests/components/BottomSheet.test.tsx; asserting it again would
-//     double up.
-// ---------------------------------------------------------------------------
+// TaskActionSheet keeps one focused callback-routing test here. Nested-sheet
+// choreography, photo viewing, and task-context retention are covered by
+// DayViewSheetRegression; visibility rules are covered by pure/unit tests.
 
 // Build a `yyyy-MM-dd` string from a Date's *local* parts. Do NOT use
 // `date.toISOString()` or `new Date('yyyy-MM-dd')` — those parse as UTC
