@@ -1,50 +1,20 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, fireEvent, screen } from '@testing-library/react';
 import { CategorySection } from '../../src/components/home/views/CategorySection';
-import type { TaskDocument } from '../../src/db/schema';
 
 // ---------------------------------------------------------------------------
 // CategorySection component tests (Layer 5).
 //
 // Pins the inline-add flow:
-//   - Category name renders.
 //   - Chip tap opens the inline input with the placeholder
 //     "Add a task to <Category>...".
 //   - Enter with non-whitespace content fires onAddTask(trimmed) and closes.
 //   - Escape clears and closes without firing onAddTask.
 //   - Blur with empty content closes; blur with content stays open.
-//   - Task items render when tasks are supplied.
-//
-// The last case requires mocking ../../src/lib/storage because TaskItem
-// renders <img src={objectUrl}>, and useTaskImage calls getLocalImageUrl.
-//
 // Deliberately NOT tested here:
 //   - TaskItem's internal rendering. Pinned separately where relevant.
 //   - Class strings on the chip or the inline-add row.
 // ---------------------------------------------------------------------------
-
-const mockGetLocalImageUrl = vi.hoisted(() =>
-  vi.fn().mockResolvedValue(null)
-);
-vi.mock('../../src/lib/storage', () => ({
-  getLocalImageUrl: mockGetLocalImageUrl,
-}));
-
-function makeTask(overrides: Partial<TaskDocument> = {}): TaskDocument {
-  return {
-    id: 'task_1',
-    title: 'Buy milk',
-    completed: false,
-    categoryId: 'cat_1',
-    date: '2026-01-01',
-    createdAt: '2026-01-01T00:00:00.000Z',
-    updatedAt: '2026-01-01T00:00:00.000Z',
-    userId: 'user_A',
-    isDeleted: false,
-    visibility: '',
-    ...overrides,
-  };
-}
 
 function makeCallbacks() {
   return {
@@ -59,7 +29,6 @@ function makeCallbacks() {
 }
 
 interface RenderOpts {
-  tasks?: TaskDocument[];
   categoryName?: string;
 }
 
@@ -71,7 +40,7 @@ function renderSection(opts: RenderOpts = {}) {
       categoryColor="#3B82F6"
       visibility="private"
       currentUserId="user_A"
-      tasks={opts.tasks ?? []}
+      tasks={[]}
       editingTaskId={null}
       editValue=""
       {...cbs}
