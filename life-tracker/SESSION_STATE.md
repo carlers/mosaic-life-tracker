@@ -5,7 +5,7 @@ Current task: Phase 3.7 — PostHog foundation
 Status: blocked on runnable-workspace verification
 Roadmap pointer: `PLAN.md` — Phase 3.7 remains incomplete until the dependency lockfile and acceptance gate are green
 Checkpoint: Adapter, auth identity wiring, handled-error capture, fail-closed feature flags, credential-gated source maps, focused tests, and durable documentation are implemented.
-Next action: In a runnable checkout, regenerate `package-lock.json`, run focused checks plus test discovery/evidence review, then run the full lint/test/build acceptance gate. Fix failures before marking Phase 3.7 complete.
+Next action: Re-run `npm test` after commit `822b05068c3ed6f79a836396495f852cb1687e14`, then regenerate/verify `package-lock.json`, run test discovery/evidence review, and complete the lint/test/build acceptance gate.
 Blockers: Repository access in the current environment is API-only; the execution sandbox has no mounted checkout and cannot reach the npm registry/GitHub, so the npm lockfile and repository commands cannot be completed here.
 
 ## Working set
@@ -47,5 +47,6 @@ Blockers: Repository access in the current environment is API-only; the executio
 
 ## Verification
 
-- Not executed in this environment.
-- No focused, discovery, lint, test, build, evidence-check, bundle-size, or manual dashboard result is claimed.
+- User-run `npm test` on 2026-09-20: 489 passed, 1 failed. The sole failure was the new offline-retry PostHog assertion expecting a redundant re-identify; production state correctly preserved the existing identity without another effect call.
+- Test-only correction committed as `822b05068c3ed6f79a836396495f852cb1687e14`; re-run is still required.
+- No passing full-suite, discovery, lint, build, evidence-check, bundle-size, or manual dashboard result is claimed.
