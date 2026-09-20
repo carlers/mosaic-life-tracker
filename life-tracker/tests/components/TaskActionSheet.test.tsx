@@ -187,7 +187,7 @@ describe('TaskActionSheet', () => {
     expect(screen.queryByText(/·\s*Default/)).toBeNull();
   });
 
-  it('uses the blurred modal backdrop while open', () => {
+  // Regression: UIFIX-8 — task actions blur the blocked background.\n  it('uses the blurred modal backdrop while open', () => {
     render(
       <TaskActionSheet
         isOpen
