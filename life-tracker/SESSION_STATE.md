@@ -1,52 +1,71 @@
 # Session state
 
 Updated: 2026-09-20
-Current task: Phase 3.7 — PostHog foundation
-Status: blocked on runnable-workspace verification
-Roadmap pointer: `PLAN.md` — Phase 3.7 remains incomplete until the dependency lockfile and acceptance gate are green
-Checkpoint: Adapter, auth identity wiring, handled-error capture, fail-closed feature flags, credential-gated source maps, focused tests, and durable documentation are implemented.
-Next action: Re-run `npm test` after commit `822b05068c3ed6f79a836396495f852cb1687e14`, then regenerate/verify `package-lock.json`, run test discovery/evidence review, and complete the lint/test/build acceptance gate.
-Blockers: Repository access in the current environment is API-only; the execution sandbox has no mounted checkout and cannot reach the npm registry/GitHub, so the npm lockfile and repository commands cannot be completed here.
+Current task: Pre-Phase-4 UI regression batch + Phase 3.7 final verification
+Status: implementation complete; runnable-workspace verification pending
+Roadmap pointer: `PLAN.md` — do not advance to Phase 4 until this regression batch and the Phase 3.7 verification gate are green
+Checkpoint: The 12 user-reported calendar/day-sheet/chat regressions are implemented with direct regression coverage on `chatgpt/phase-3-7-posthog`. `npm run verify` now owns the lint → test → build gate.
+Next action: Run `npm run verify` locally. If green, run `npm run test:discovery`, complete the test-evidence review for PH-1…PH-9 and UIFIX-1…UIFIX-12, perform the remaining PostHog staging checks, then mark Phase 3.7 complete before starting Phase 4.
+Blockers: This web environment has repository API access only and cannot execute the checkout's npm commands.
+
+## Acceptance IDs
+
+- UIFIX-1 — Calendar/Diary switcher remains visible in Diary and can return to Calendar.
+- UIFIX-2 — FriendDayViewSheet supports adjacent-day horizontal swipe/navigation.
+- UIFIX-3 — DayViewSheet task images fill available width with a responsive landscape aspect ratio.
+- UIFIX-4 — Own-day category headers use black pills, colored category text, and an in-pill visibility icon.
+- UIFIX-5 — DayViewSheet date is rendered in the draggable BottomSheet header.
+- UIFIX-6 — Incoming messages are black with a gray outline; outgoing messages use the prior gray incoming treatment.
+- UIFIX-7 — TaskActionSheet View Photo opens the image viewer with retained task context.
+- UIFIX-8 — TaskActionSheet blurs the background and blocks underlying DayViewSheet interaction.
+- UIFIX-9 — Nested task actions open their intended sibling surface without dropping task context.
+- UIFIX-10 — DayViewSheet previous/next arrows actually change the selected date.
+- UIFIX-11 — Calendar month/week content can scroll vertically when task density grows cell height.
+- UIFIX-12 — Chat message scroller clips horizontal overflow above the composer.
 
 ## Working set
 
-- `package.json`
-- `package-lock.json` (requires regeneration)
-- `vite.config.ts`
-- `src/lib/posthog.ts`
-- `src/hooks/useFeatureFlag.ts`
-- `src/hooks/AuthProvider.tsx`
-- `src/components/ui/ErrorBoundary.tsx`
-- `src/main.tsx`
-- `tests/unit/posthog.test.ts`
-- `tests/react/useFeatureFlag.test.tsx`
-- `tests/react/AuthProviderPostHog.test.tsx`
-- `tests/components/ErrorBoundaryPostHog.test.tsx`
-- `docs/PROJECT_REFERENCE.md`
-- `PLAN.md`
+- `src/components/home/PersonPane.tsx`
+- `src/components/home/views/CalendarHeader.tsx`
+- `src/components/home/views/CalendarCarousel.tsx`
+- `src/components/home/views/MonthView.tsx`
+- `src/components/home/views/WeekView.tsx`
+- `src/components/home/views/DayViewSheet.tsx`
+- `src/components/home/views/useDayViewSwiper.ts`
+- `src/components/home/views/CategorySection.tsx`
+- `src/components/home/views/TaskItem.tsx`
+- `src/components/home/views/TaskActionSheet.tsx`
+- `src/components/friend/FriendDayViewSheet.tsx`
+- `src/components/friend/FriendCalendarView.tsx`
+- `src/components/messages/MessageBubble.tsx`
+- `src/components/ui/BottomSheet.tsx`
+- `src/pages/ChatPage.tsx`
+- `tests/react/useDayViewSwiper.test.tsx`
+- `tests/components/PersonPaneViewSwitcher.test.tsx`
+- `tests/components/FriendDayViewSheet.test.tsx`
+- `tests/components/TaskItemLayout.test.tsx`
+- `tests/components/DayViewSheetRegression.test.tsx`
+- `tests/components/CalendarOverflow.test.tsx`
+- `tests/components/ChatPageLayout.test.tsx`
+- existing component tests extended for CategorySection, MessageBubble, BottomSheet, and TaskActionSheet
 
 ## Completed substeps
 
-- Added a single lazy PostHog adapter with explicit privacy-minimal configuration, handled exception capture, ID synchronization/reset, and feature-flag reads that suppress exposure events.
-- Wired resolved `AuthProvider` state to PostHog without adding an auth lookup or changing `AuthContextValue`.
-- Wired current root/route error-boundary handling and fatal database-bootstrap handling to explicit exception capture without converting console logging into analytics.
-- Added a fail-closed React feature-flag hook with load/error state and reload subscriptions.
-- Added credential-gated hidden production source maps with deletion after successful upload.
-- Added focused unit/DOM regression tests for adapter, auth identity transitions, feature flags, and boundaries.
-- Documented the durable PostHog/privacy/feature-flag contract in `docs/PROJECT_REFERENCE.md`.
-- Verified upstream package manifests before selecting `posthog-js ^1.434.2` and `@posthog/rollup-plugin ^1.6.0`.
-
-## Remaining substeps
-
-- Regenerate `package-lock.json` with npm; do not hand-author registry integrity or transitive dependency data.
-- Run the focused adapter/auth/hook/boundary tests and `npm run test:discovery`.
-- Record and validate the PH-1 through PH-9 behavior/evidence map using the repository workflow.
-- Run `npm run lint`, `npm test`, and `npm run build`; confirm the unchanged Phase 3.6 size/precache budgets pass.
-- Perform the documented staging/PostHog dashboard checks.
-- Only after automated completion conditions pass: mark Phase 3.7 complete in `PLAN.md` and advance this state to the Phase 4 specification/accessibility audit.
+- Kept Calendar/Diary chrome outside the active-view content branch so Diary never strands the user.
+- Reused the own-day swiper controller for friend day sheets and passed the complete friend task collection so adjacent dates can render.
+- Fixed arrow navigation by treating arrow moves as user navigation rather than suppressing their date-change callback.
+- Moved the visible date into the BottomSheet drag header.
+- Separated selected-task identity from TaskActionSheet open state; nested Memo, Visibility, Date, Photo Picker, confirmations, and Image Viewer retain task context.
+- Fixed View Photo by assigning the active task to the viewer before opening it.
+- Added BottomSheet suspended-interaction support for stacked sheets and blurred TaskActionSheet backdrops.
+- Changed own-day category metadata to the friend-day black-pill pattern.
+- Changed task images to full-width 16:9 responsive media.
+- Swapped message bubble direction styling and clipped chat horizontal overflow.
+- Made calendar carousel vertical overflow scrollable while preserving horizontally clipped Embla behavior and full-height rows that may grow with content.
+- Added/extended regression tests covering UIFIX-1 through UIFIX-12.
 
 ## Verification
 
-- User-run `npm test` on 2026-09-20: 489 passed, 1 failed. The sole failure was the new offline-retry PostHog assertion expecting a redundant re-identify; production state correctly preserved the existing identity without another effect call.
-- Test-only correction committed as `822b05068c3ed6f79a836396495f852cb1687e14`; re-run is still required.
-- No passing full-suite, discovery, lint, build, evidence-check, bundle-size, or manual dashboard result is claimed.
+- Not executed in this environment.
+- The last user-run suite before this UI batch was 489 passing / 1 failing; that sole PostHog test expectation was subsequently corrected.
+- No green result is claimed yet for the current UI batch, lint, full test suite, build, discovery, evidence validation, bundle-size guard, or manual browser checks.
