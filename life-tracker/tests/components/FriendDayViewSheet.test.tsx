@@ -1,4 +1,5 @@
 // Regression: pre-Phase-4 UI bug batch — friend day sheets must navigate adjacent days by swipe.
+import type { ReactNode } from 'react';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { addDays, startOfDay } from 'date-fns';
 import { describe, expect, it, vi } from 'vitest';
@@ -11,7 +12,7 @@ vi.mock('swiper/react', () => ({
     onSlideChange,
     initialSlide = 0,
   }: {
-    children: React.ReactNode;
+    children: ReactNode;
     onSwiper?: (swiper: unknown) => void;
     onSlideChange?: (swiper: unknown) => void;
     initialSlide?: number;
@@ -46,7 +47,7 @@ vi.mock('swiper/react', () => ({
       </div>
     );
   },
-  SwiperSlide: ({ children }: { children: React.ReactNode }) => (
+  SwiperSlide: ({ children }: { children: ReactNode }) => (
     <div>{children}</div>
   ),
 }));
