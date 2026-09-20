@@ -1,4 +1,4 @@
-// Regression: pre-Phase-4 UI bug batch — task actions must transition to sibling sheets without losing task context.
+// Regression: UIFIX-5/UIFIX-7/UIFIX-8/UIFIX-9 — day-sheet header and nested task surfaces retain context.
 import type { ReactNode } from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
