@@ -1,6 +1,7 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react';
 import { AlertTriangle } from 'lucide-react';
 import { isChunkLoadError } from '../../lib/chunkLoadErrors';
+import { captureHandledException } from '../../lib/posthog';
 
 interface ErrorBoundaryProps {
   children: ReactNode;
@@ -56,6 +57,10 @@ export class ErrorBoundary extends Component<
       error,
       info.componentStack
     );
+    captureHandledException(error, {
+      boundary: label,
+      componentStack: info.componentStack ?? '',
+    });
   }
 
   componentDidUpdate(prevProps: ErrorBoundaryProps): void {
