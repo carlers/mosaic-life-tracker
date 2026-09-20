@@ -2,9 +2,10 @@ import { mkdtempSync, mkdirSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
-  buildDeepSeekPacket,
+  buildWebChatPacket,
   estimateTokens,
   HANDOFF_TOKEN_WARNING,
+  normalizeHandoffTarget,
   parseWorkingSet,
   promptForTarget,
   resolveWorkingSet,
@@ -66,9 +67,20 @@ describe('handoff state', () => {
 });
 
 describe('handoff targets and paths', () => {
-  it('validates targets', () => {
-    expect(promptForTarget('codex')).toContain('You are Codex');
-    expect(promptForTarget('deepseek-chat1')).toContain('DeepSeek Chat 1');
+  it('validates canonical targets and normalizes compatibility aliases', () => {
+    expect(promptForTarget('agent')).toContain('workspace-agent workflow');
+    expect(promptForTarget('chat-plan')).toContain('Planner/Reviewer');
+    expect(promptForTarget('chat-implement')).toContain('Implementer');
+    expect(normalizeHandoffTarget('codex')).toEqual({ target: 'agent', alias: 'codex' });
+    expect(normalizeHandoffTarget('chat')).toEqual({ target: 'chat-plan', alias: 'chat' });
+    expect(normalizeHandoffTarget('deepseek-chat1')).toEqual({
+      target: 'chat-plan',
+      alias: 'deepseek-chat1',
+    });
+    expect(normalizeHandoffTarget('chatgpt-implementer')).toEqual({
+      target: 'chat-implement',
+      alias: 'chatgpt-implementer',
+    });
     expect(() => promptForTarget('unknown')).toThrow(/Unknown handoff target/);
   });
 
@@ -91,17 +103,18 @@ describe('handoff targets and paths', () => {
   });
 });
 
-describe('DeepSeek packet', () => {
+describe('web-chat packet', () => {
   it('includes checkpoint data, dirty Git data, and exact selected files', () => {
     const root = fixture();
-    const packet = buildDeepSeekPacket({
-      target: 'deepseek-chat2',
+    const packet = buildWebChatPacket({
+      target: 'chat-implement',
       projectRoot: root,
       sessionState: validState,
       plan: '# Plan\n',
       agents: '# Rules\n',
-      legacyWorkflow: '# Legacy\n',
+      webChatWorkflow: '# Web chat\n',
       workingSet: ['src/a.ts'],
+      metricsSummary: '**Run:** task=test · gate=green@1',
       git: {
         branch: 'test-branch',
         head: 'abc1234',
@@ -111,9 +124,12 @@ describe('DeepSeek packet', () => {
       },
     });
 
-    expect(packet).toContain('You are DeepSeek Chat 2');
+    expect(packet).toContain('Mosaic web-chat Implementer');
+    expect(packet).toContain('<file path="docs/WEB_CHAT_WORKFLOW.md">');
+    expect(packet).not.toMatch(/ChatGPT|DeepSeek/);
     expect(packet).toContain('Branch: test-branch');
     expect(packet).toContain('### Unstaged diff');
+    expect(packet).toContain('**Run:** task=test · gate=green@1');
     expect(packet).toContain('<file path="src/a.ts">');
     expect(packet).toContain('export const a = 1;');
     expect(packet).not.toContain('repomix-output.xml');
@@ -121,13 +137,13 @@ describe('DeepSeek packet', () => {
 
   it('represents a clean checkpoint without diff sections or selected files', () => {
     const root = fixture();
-    const packet = buildDeepSeekPacket({
-      target: 'deepseek-chat1',
+    const packet = buildWebChatPacket({
+      target: 'chat-plan',
       projectRoot: root,
       sessionState: validState,
       plan: '# Plan\n',
       agents: '# Rules\n',
-      legacyWorkflow: '# Legacy\n',
+      webChatWorkflow: '# Web chat\n',
       workingSet: [],
       git: {
         branch: '',
@@ -141,8 +157,38 @@ describe('DeepSeek packet', () => {
     expect(packet).toContain('Branch: (detached HEAD)');
     expect(packet).toContain('(clean worktree)');
     expect(packet).toContain('No implementation files are selected');
+    expect(packet).toContain('**Run:** telemetry=off');
     expect(packet).not.toContain('### Unstaged diff');
     expect(packet).not.toContain('### Staged diff');
+  });
+
+  it('normalizes provider aliases to identical provider-neutral packets', () => {
+    const root = fixture();
+    const input = {
+      projectRoot: root,
+      sessionState: validState,
+      plan: '# Plan\n',
+      agents: '# Rules\n',
+      webChatWorkflow: '# Web chat\n',
+      workingSet: [],
+      git: {
+        branch: 'work',
+        head: 'abc1234',
+        status: '',
+        unstagedDiff: '',
+        stagedDiff: '',
+      },
+    };
+
+    expect(buildWebChatPacket({ ...input, target: 'chat-plan' })).toBe(
+      buildWebChatPacket({ ...input, target: 'deepseek-chat1' })
+    );
+    expect(buildWebChatPacket({ ...input, target: 'chat-implement' })).toBe(
+      buildWebChatPacket({ ...input, target: 'chatgpt-implementer' })
+    );
+    expect(() => buildWebChatPacket({ ...input, target: 'agent' })).toThrow(
+      /invalid target/
+    );
   });
 
   it('reports estimates above the warning threshold without enforcing a hard limit', () => {

@@ -1,125 +1,121 @@
-# Codex workflow for Mosaic
+# Workspace-agent workflow for Mosaic
 
-Open `life-tracker/` as the VS Code workspace and run commands from that directory.
-The parent directory remains the Git root, but it contains no Codex instruction file.
-`life-tracker/AGENTS.md` is therefore the project's sole `AGENTS.md`.
+This is the direct-workspace workflow for an AI agent that can inspect files, edit the
+repository, run commands, and use Git. Codex local/IDE and Codex Cloud are current
+examples. Run project commands from `life-tracker/`, the directory containing
+`package.json`, `AGENTS.md`, `PLAN.md`, and `SESSION_STATE.md`; its absolute path may vary.
 
 ## Start a task
 
-1. Choose a roadmap batch or describe a focused outcome.
-2. Ask Codex to inspect the relevant code, `AGENTS.md`, `SESSION_STATE.md`, and the
-   matching part of `PLAN.md` before it edits.
-3. Review the model and reasoning recommendation at the start of the response. Select
-   it in the model control beneath the Codex composer if you want to switch. The
-   recommendation does not pause or alter the active session by itself.
-4. For an ambiguous or architectural batch, agree on a plan before requesting
-   implementation. For a well-defined fix, ask Codex to implement and verify it directly.
+1. Choose a focused outcome or roadmap batch.
+2. Inspect `AGENTS.md`, `SESSION_STATE.md`, the relevant `PLAN.md` batch, current files,
+   and `git status` before editing.
+3. Review the opening task-complexity profile. If the active surface exposes model or
+   reasoning controls, its optional recommendation may be used. If it does not, continue
+   with the platform-selected configuration without pausing or treating it as a blocker.
+4. Plan first for ambiguous architecture; implement a defined fix directly.
 
-Current OpenAI guidance recommends using the lowest reasoning effort that reliably
-handles the task, raising it for deeper planning and analysis. See
-[Models](https://learn.chatgpt.com/docs/models).
-
-The canonical resume prompt is:
+Canonical start:
 
 ```text
-You are Codex. Use the Codex workflow and resume from SESSION_STATE.md.
+Use the Mosaic workspace-agent workflow. Inspect AGENTS.md, SESSION_STATE.md, PLAN.md,
+Git, and the current files; verify the checkpoint, then continue from Next action.
 ```
 
-`npm run handoff -- codex` validates the shared state and copies this prompt when a
-clipboard tool is available.
+`npm run handoff -- agent` validates state and prints this prompt.
 
-## During implementation
+## Own the batch
 
-Codex owns the agreed batch end to end: targeted inspection, direct workspace edits,
-appropriate tests, failure repair, diff review, and progress updates. You can steer the
-active task from the same conversation. Routine file placement, naming, and reuse of
-existing patterns do not need checkpoints.
+The agent owns targeted inspection, direct edits, tests, failure repair, diff review, and
+state updates. Ask only when a decision changes product behavior, architecture, schema or
+remote state, an external contract, or destructive safety. Stop at the agreed boundary.
 
-"Proceed" or "continue" accepts Codex's most recent concrete recommendation; it
-should execute that scoped step without another approval question. The default is
-thorough verification and the safer implementation, closing related issues within
-scope rather than adding avoidable backlog. Ask explicitly when speed should take
-priority. This does not authorize unrelated batches or unmentioned external actions.
+Model availability is not part of the workflow contract. On a fixed-model surface such as
+Codex Cloud, complexity changes planning depth, batch size, and verification—not the
+underlying model. Prompt text cannot change model or reasoning settings.
 
-Codex asks when a decision changes user-visible behavior, architecture, schema or remote
-state, an external contract, or the safety of a destructive action. It stops at the end
-of the batch unless the request already authorizes further work.
+## Local and cloud continuity
 
-## Review the result
+A local session may resume from the same checkout, including complete dirty files. A new
+cloud task or unrelated workspace must not be assumed to share uncommitted state. For a
+cross-container handoff, put the checkpoint on a GitHub-visible task branch and identify
+the branch and commit in the handoff. Git carries exact files; `SESSION_STATE.md` carries
+non-obvious intent and the next action.
 
-The completion response should give you:
-
-- the behavior or documentation changed;
-- checks run and their results;
-- material risks or remaining manual checks;
-- a short verification protocol for user-visible work;
-- the recommended model and reasoning effort for the next task.
-
-Inspect the in-editor diff before committing. Commits, pushes, deployments, Appwrite
-Console changes, and the next roadmap batch remain separate actions unless explicitly
-included in the request.
-
-Once verification passes, Codex recommends a concise conventional commit message. When
-the extension supports native approval buttons for the concrete Git command, that
-approval prompt is the commit confirmation. Otherwise Codex asks:
-`Commit these changes with "<message>"? (yes/no)`. Approval authorizes staging only the
-task's changed paths and creating that commit. If the implementation request already
-explicitly authorized a commit, Codex skips the repeated question and commits after the
-checks pass. Pushes and deployments always remain separate unless explicitly authorized.
-
-## Resume in a new chat
-
-Start a fresh chat from the `life-tracker/` workspace and ask Codex to read
-`AGENTS.md`, `SESSION_STATE.md`, and the current item in `PLAN.md`, then resume from
-`Next action`. Git holds the actual change history; the session file only carries the
-small amount of context that is not obvious from code and the roadmap.
-
-Update `SESSION_STATE.md` at a meaningful checkpoint, before a handoff, or when a
-blocker or temporary decision would otherwise be lost. Do not turn it into a changelog.
-
-The state is workflow neutral. It records the checkpoint, working files, completed and
-remaining substeps, decisions, and verification. It does not record the active agent or
-whether a commit is pending; the prompt selects the workflow and Git supplies commit
-truth.
+A safe mid-task checkpoint has complete files, an accurate working set, explicit completed
+and remaining substeps, and honest verification status. Do not begin another substep after
+preparing a requested handoff. Never imply that a local-only checkpoint is portable.
 
 ## Switch workflows
 
-Codex can resume work applied by DeepSeek without an export. Apply any completed legacy
-mega file first, then open the project in VS Code and use the canonical Codex prompt.
-Codex inspects Git and the working files before continuing.
-
-To move from Codex to DeepSeek, first bring `SESSION_STATE.md` to a meaningful checkpoint.
-Valid checkpoints may have a dirty worktree, but source files must be complete on disk
-and the state must identify unfinished work. Generate the smallest role-specific packet:
-
-```bash
-npm run handoff -- deepseek-chat1
-npm run handoff -- deepseek-chat2
-```
-
-The generator reads the state working set. Add unusual files as trailing paths. Attach
-the ignored `.mosaic-handoff.md` to DeepSeek Web and use the prompt printed by the
-command. See `docs/LEGACY_WORKFLOW.md` for role selection.
-
-## Suggested prompts
-
-Planning:
+The user may say:
 
 ```text
-Read AGENTS.md, SESSION_STATE.md, and the current PLAN.md batch. Inspect the relevant
-code, then propose a decision-complete implementation plan. Do not edit yet.
+Prepare an agent handoff.
+Prepare a planning-chat handoff.
+Prepare an implementation-chat handoff.
 ```
 
-Implementation:
+Finish the current atomic operation, update `SESSION_STATE.md` when material state changed,
+run the smallest useful check, and provide the transport:
+
+| Destination | Transport |
+|---|---|
+| Same checkout | Current files, Git, and `SESSION_STATE.md` |
+| Another workspace/cloud task | Pushed task branch and checkpoint commit |
+| Web/mobile planning chat | `npm run handoff -- chat-plan` |
+| Web/mobile implementation chat | `npm run handoff -- chat-implement` |
+
+To resume in a workspace agent, use `npm run handoff -- agent`. To generate a packet in an
+environment without file transfer, append `--stdout`. The destination verifies the
+checkpoint before editing and continues from `Next action`; it does not repeat completed
+work merely because the provider changed.
+
+## Rate and context-limit recovery
+
+Every completed turn is a recovery boundary. Before a limit becomes critical, stop starting
+new work, finish or unwind the current atomic operation, leave complete files, update state,
+and emit the handoff footer. If interruption occurs mid-turn, recover from the previous
+completed response and inspect actual Git/files; no process can preserve uncheckpointed
+edits held only by an interrupted agent.
+
+Cross-container recovery additionally requires a pushed checkpoint or a verified external
+artifact. An ignored file that exists only in an expired cloud container is not portable.
+
+## Review and completion
+
+Report behavior changed, exact checks and results, material risks/manual verification,
+commit status, PR status when applicable, and the next-task complexity profile. A model or
+reasoning recommendation is optional and only actionable where controls exist.
+
+Before the acceptance gate, follow `docs/TEST_WORKFLOW.md`: inventory behavioral changes,
+map each to direct, indirect, red-green, manual, skipped, or not-applicable evidence, run
+`npm run metrics -- evidence-check --task <id>`, and emit its one-paragraph factual
+summary. Capture red during focused development when possible. The isolated `test:red`
+worktree command is a fallback, not a reason to rewrite history or disturb the active
+checkout. Do not make an adequacy judgment. If the gate leads to more code changes, update
+the evidence review before the next gate attempt.
+
+Stage only task paths and preserve unrelated changes. Follow higher-priority task
+instructions for commit and PR behavior. Otherwise commits, pushes, deployments, remote
+Console actions, and the next roadmap batch remain separate actions.
+
+Update `SESSION_STATE.md` at meaningful checkpoints, not merely to record a response. Git
+holds branch, commit, and worktree truth. `PLAN.md` changes only after verified delivery.
+
+## Rolling emergency handoff
+
+End every turn-ending response with the compact metrics line defined in
+`docs/WORKFLOW_TELEMETRY.md`, followed by the recovery footer. Use the local metrics CLI
+when available and use `?` rather than guessing unavailable usage. Unchanged state without
+initialized telemetry uses:
 
 ```text
-Implement the agreed batch. Inspect the current worktree, edit directly, run the
-appropriate checks, fix failures, review the diff, and update project state. Stop
-before the next batch or any commit/push/deploy.
+**Run:** task=<id> · telemetry=off
+**Handoff:** Agent: resume from `SESSION_STATE.md` + Git · Chat: `npm run handoff -- chat-plan`
 ```
 
-Resume:
-
-```text
-Read AGENTS.md, SESSION_STATE.md, and PLAN.md. Resume the current task from Next action.
-```
+After material work, use no more than three short lines: checkpoint, agent resume, and the
+appropriate `chat-plan` or `chat-implement` command. For a portable cloud checkpoint, name
+the pushed branch/commit; otherwise label it local-only. Keep full prompts in the generator
+so the footer remains token-efficient.

@@ -103,7 +103,7 @@ function makeMessage(overrides: Partial<MessageDocument> = {}): MessageDocument 
 
 describe('useMessages', () => {
   beforeEach(async () => {
-    dbRef.current = await createTestDb();
+    dbRef.current = await createTestDb('messages');
     vi.clearAllMocks();
   });
 

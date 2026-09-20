@@ -6,14 +6,19 @@ remains one directory above it.
 
 ## Workflow selector
 
-- Codex is the default workflow. Use `docs/CODEX_WORKFLOW.md` when the user identifies
-  the agent as Codex or does not name a workflow.
-- An explicit `DeepSeek Chat 1` or `DeepSeek Chat 2` declaration selects the supported
-  legacy web workflow in `docs/LEGACY_WORKFLOW.md`. The declared role controls process;
-  every architecture, safety, product, and verification rule in this file still applies.
-- `PLAN.md`, `SESSION_STATE.md`, Git, and the current files are shared truth across both
-  workflows. A workflow switch may happen at any valid checkpoint, including with
-  unfinished changes recorded in session state.
+Select by capability, not provider:
+
+- A **workspace agent** can inspect/edit this repository, run commands, and use Git. Use
+  `docs/CODEX_WORKFLOW.md`; Codex local/IDE and Codex Cloud are current examples.
+- A **web chat** has no assumed repository or shell access. Use
+  `docs/WEB_CHAT_WORKFLOW.md` with the Planner/Reviewer or Implementer role.
+- An explicit user instruction selects the workflow and role. Otherwise, a Codex session
+  with repository tools defaults to the workspace-agent workflow. Provider and model names
+  never change architecture, safety, output, or verification rules.
+- `PLAN.md`, `SESSION_STATE.md`, Git, and current files are shared truth. Switch at any safe
+  checkpoint, including mid-task or mid-batch. Git transports exact files across separate
+  workspaces; packets transport context to web chat; complete `mosaic` bundles return web
+  chat changes to a workspace.
 
 ## Start here
 
@@ -22,36 +27,55 @@ remains one directory above it.
   documented product or architecture contract.
 - Inspect the current implementation and `git status` before editing. Existing user
   changes must be preserved.
-- Use the current code as the source of truth when a progress note is stale. Correct
-  the documentation in the same batch when the discrepancy is material.
+- Use current code as source of truth when progress prose is stale. Correct documentation
+  in the same batch when the discrepancy is material.
 
-## Codex model and reasoning recommendation
+## Task complexity and model guidance
 
-For Codex tasks, briefly tell the user at task start:
-`Recommended for this task: <model> · <effort> — <one-sentence reason>.`
+At task start, say `Task profile: <profile> — <one-sentence reason>.` At completion, say
+`Next-task profile: <profile> — <one-sentence reason>.` Profiles are Routine, Standard,
+Complex, and Exceptional.
 
-At completion, tell the user:
-`For <next task>, select <model> · <effort> before your next prompt.`
+The model column below is optional guidance only when the active surface exposes controls.
+Codex Cloud may assign model and reasoning without user controls; continue with that active
+configuration, never ask the user to select an unavailable setting, and never claim prompt
+text changed the model. Complexity always informs planning depth, batch size, and checks.
 
-These are advisory recommendations. Continue authorized work with the active model
-unless the user intervenes, and never claim that text instructions changed the model
-or reasoning setting. Use the choices available in the Codex extension. Reserve Max
-for exceptional problems where depth matters more than speed and usage.
-
-| Task | Model | Reasoning |
+| Task | Profile | Optional configuration |
 |---|---|---|
-| Mechanical edits and simple documentation | GPT-5.6 Sol | Light / Low |
-| Scoped features, ordinary fixes, tests | GPT-5.6 Sol | Medium |
-| Defined cross-file refactors and this migration | GPT-5.6 Sol | High |
-| Architecture, broad audits, unclear debugging | GPT-6 Astra | High |
-| Difficult sync/auth races and migration design | GPT-6 Astra | Extra High |
+| Mechanical edits and simple documentation | Routine | GPT-5.6 Sol · Low |
+| Scoped features, ordinary fixes, tests | Standard | GPT-5.6 Sol · Medium |
+| Defined cross-file refactors and migrations | Complex | GPT-5.6 Sol · High |
+| Architecture, broad audits, unclear debugging | Complex | GPT-6 Astra · High |
+| Difficult sync/auth races and migration design | Exceptional | GPT-6 Astra · Extra High |
 
-Default to one agent. Use subagents only when the user explicitly requests delegation
-or the task has clearly independent workstreams and the active environment authorizes
-it. Do not change the user's personal Codex configuration.
+## Rolling handoff
+
+Every turn-ending response is a recovery boundary and ends with a token-efficient
+`**Run:**` telemetry line followed by a `**Handoff:**` footer. Initialize and update the
+local ledger with `npm run metrics -- ...` when the surface has workspace access; never
+invent unavailable token or cache values. The detailed contract and commands are in
+`docs/WORKFLOW_TELEMETRY.md`. When telemetry is not initialized and state is unchanged use:
+
+`**Run:** task=<id> · telemetry=off`
+`**Handoff:** Agent: resume from SESSION_STATE.md + Git · Chat: npm run handoff -- chat-plan`
+
+After material work, use at most three short lines naming the checkpoint, agent resume, and
+`chat-plan` or `chat-implement`. Full prompts belong in generated handoffs. Before replying,
+finish or unwind the current atomic operation, leave complete files, and update
+`SESSION_STATE.md` when task state, decisions, working files, or verification changed.
+
+The user instructions `Prepare an agent handoff`, `Prepare a planning-chat handoff`, and
+`Prepare an implementation-chat handoff` authorize that checkpoint only. Stop new work,
+run the smallest useful check, produce the correct Git or packet transport, and stop. A new
+workspace/cloud task needs a pushed branch/commit; never call local-only edits portable.
+Recovery is guaranteed from the last completed response, not a later turn interrupted
+before it could write or checkpoint.
 
 ## Working agreement
 
+- Default to one agent. Use subagents only when the user explicitly requests delegation
+  or the task has clearly independent workstreams and the environment authorizes it.
 - When the user says "proceed" or "continue", follow the most recent concrete
   recommendation without asking them to approve it again. This authorizes that
   scoped next step, not every remaining roadmap batch or an unmentioned external action.
@@ -65,8 +89,8 @@ it. Do not change the user's personal Codex configuration.
 - Ask only when a choice materially changes product behavior, architecture, data or
   remote schemas, external contracts, or destructive outcomes. Resolve ordinary
   naming, placement, and pattern choices from the repository.
-- Codex edits files directly. DeepSeek Chat 2 uses the full-file mega-file installer
-  described in `docs/LEGACY_WORKFLOW.md`.
+- Workspace agents edit files directly. Web-chat Implementers use the full-file `mosaic`
+  installer described in `docs/WEB_CHAT_WORKFLOW.md`.
 - Keep components cohesive rather than enforcing arbitrary line limits. Split files
   when it improves ownership, reuse, testing, or readability.
 - Update `SESSION_STATE.md` at meaningful checkpoints and handoffs, including its
@@ -74,9 +98,8 @@ it. Do not change the user's personal Codex configuration.
   workflow there; derive commit state from Git and workflow role from the user prompt.
   Update `PLAN.md` only after the corresponding work is verified.
 - After all required checks pass, recommend one concise conventional commit message.
-  When the extension can present native approval buttons for the concrete Git command,
-  use that approval prompt as the commit confirmation and end the completion output at
-  the prompt. Otherwise ask the text fallback:
+  When the active surface can present native approval buttons for the concrete Git command,
+  use that approval prompt as commit confirmation. Otherwise ask the text fallback:
   `Commit these changes with "<message>"? (yes/no)`. Ask only after the result is ready
   to commit. If the user already authorized the commit in the current request, do not
   ask again; make the commit after verification.
@@ -89,15 +112,28 @@ Run checks from this directory. Choose the smallest sufficient set, then broaden
 risk or failures justify it:
 
 - Documentation-only: check links/references, `git diff --check`, and inspect the diff.
-- Focused logic or component change: run the relevant Vitest project or test file,
-  then lint and build when shared types or production paths changed.
+- Focused logic or component change: run the relevant test file during iteration, then
+  its `test:unit`, `test:handlers`, or `test:dom` project; broaden when shared paths changed.
 - Cross-cutting/runtime batch: `npm run lint`, `npm test`, and `npm run build`.
 - Appwrite function or schema change: add/update handler, mapping, migration, and
   regression coverage as applicable; document any required Console operation.
 
-Every completion report states what changed, automated checks and results, commit status,
-material risks or manual checks, and the recommended next model/effort. Include a short
-manual verification protocol for user-visible behavior.
+Before the acceptance gate, run a test-evidence review. List the batch's behavioral
+changes and map each to `existing-direct`, `existing-indirect`, `added-red-green`,
+`manual`, `skipped`, or `not-applicable` evidence as defined in
+`docs/TEST_WORKFLOW.md`. New regression tests cite the governing `AGENTS.md` heading,
+project-reference section, or task acceptance ID. Capture behavioral red→green evidence
+during development; use the isolated `npm run test:red` fallback only when it is safe and
+useful. A structural red is labeled separately, and unrelated failures are never evidence.
+The evidence check validates report completeness but does not decide adequacy. If code
+changes after this review, update it before rerunning the acceptance gate.
+
+Every completion report states what changed, automated checks and results, material risks
+or manual checks, commit/PR status when applicable, and the next-task
+complexity profile. Include a short manual verification protocol for user-visible behavior.
+It also includes exactly one factual test-evidence paragraph with coverage-status counts,
+red classifications, focused/acceptance results, and manual/skipped reasons, ending:
+`No judgment of overall suite sufficiency is made here.`
 
 ## Non-negotiable data and sync rules
 
@@ -167,8 +203,9 @@ and Diary views remain backlog work. `PLAN.md` is authoritative for sequencing.
 
 - `docs/PROJECT_REFERENCE.md` — detailed numbered product and architecture contracts,
   accepted limitations, test patterns, and historical decisions.
-- `docs/CODEX_WORKFLOW.md` — how to run a Codex batch in VS Code.
-- `docs/LEGACY_WORKFLOW.md` — supported DeepSeek Web workflow and installer tooling.
+- `docs/CODEX_WORKFLOW.md` — direct-workspace workflow for local and cloud agents.
+- `docs/WORKFLOW_TELEMETRY.md` — local task, verification-loop, cadence, and usage metrics.
+- `docs/WEB_CHAT_WORKFLOW.md` — provider-neutral packet and installer workflow.
 - `PLAN.md` — durable roadmap and completion status.
 - `SESSION_STATE.md` — concise current handoff.
 

@@ -150,6 +150,22 @@ describe('MessageBubble', () => {
     expect(container.textContent ?? '').toMatch(timeRegex);
   });
 
+  it('keyboard activation reveals the timestamp', () => {
+    const { container } = render(
+      <MessageBubble
+        message={makeMessage()}
+        isOutgoing
+        currentUserId="user_A"
+      />
+    );
+    const timeRegex = /\d{1,2}:\d{2}\s?(AM|PM)/i;
+    const surface = getGestureSurface(container);
+    expect(surface.getAttribute('role')).toBe('button');
+    expect(surface.getAttribute('tabindex')).toBe('0');
+    fireEvent.keyDown(surface, { key: 'Enter' });
+    expect(container.textContent ?? '').toMatch(timeRegex);
+  });
+
   it('double-tap fires onReact with the fixed heart emoji', () => {
     vi.useFakeTimers();
     const onReact = vi.fn();
@@ -202,8 +218,7 @@ describe('MessageBubble', () => {
     // (TaskRefCard uses `border border-white/10` without a left-only variant).
     const replyPreview = container.querySelector('.border-l-2');
     expect(replyPreview).not.toBeNull();
-    // fireEvent.click bubbles; the wrapper div that owns the onClick handler
-    // catches it and forwards the message's replyToId to onQuoteTap.
+    expect(container.querySelector('button button')).toBeNull();
     fireEvent.click(replyPreview as Element);
     expect(onQuoteTap).toHaveBeenCalledWith('msg_prev');
   });

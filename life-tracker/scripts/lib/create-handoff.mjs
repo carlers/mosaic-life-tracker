@@ -2,19 +2,26 @@ import { existsSync, readFileSync, realpathSync, statSync } from 'node:fs';
 import { isAbsolute, relative, resolve, sep } from 'node:path';
 
 export const HANDOFF_TOKEN_WARNING = 20_000;
-export const HANDOFF_TARGETS = [
-  'codex',
-  'deepseek-chat1',
-  'deepseek-chat2',
-];
+export const HANDOFF_TARGETS = ['agent', 'chat-plan', 'chat-implement'];
+
+const TARGET_ALIASES = {
+  codex: 'agent',
+  chat: 'chat-plan',
+  'deepseek-chat1': 'chat-plan',
+  'deepseek-chat2': 'chat-implement',
+  'chatgpt-planner': 'chat-plan',
+  'chatgpt-implementer': 'chat-implement',
+  'deepseek-planner': 'chat-plan',
+  'deepseek-implementer': 'chat-implement',
+};
 
 const PROMPTS = {
-  codex:
-    'You are Codex. Use the Codex workflow and resume from SESSION_STATE.md.',
-  'deepseek-chat1':
-    'You are DeepSeek Chat 1. Use the legacy workflow and resume from the attached handoff packet.',
-  'deepseek-chat2':
-    'You are DeepSeek Chat 2. Use the legacy workflow and resume from the attached handoff packet.',
+  agent:
+    'Use the Mosaic workspace-agent workflow. Inspect AGENTS.md, SESSION_STATE.md, PLAN.md, Git, and the current files; verify the checkpoint, then continue from Next action.',
+  'chat-plan':
+    'You are the Mosaic web-chat Planner/Reviewer. Use the attached handoff packet as exact repository context, produce a decision-complete plan or review, and do not emit runtime changes.',
+  'chat-implement':
+    'You are the Mosaic web-chat Implementer. Use the attached handoff packet as exact repository context, request missing files together, and return only a complete installer-compatible mosaic bundle plus the prescribed apply guidance.',
 };
 
 const RESERVED_GENERATED_PATHS = new Set([
@@ -22,14 +29,21 @@ const RESERVED_GENERATED_PATHS = new Set([
   'repomix-output.xml',
 ]);
 
-export function promptForTarget(target) {
-  const prompt = PROMPTS[target];
-  if (!prompt) {
+export function normalizeHandoffTarget(target) {
+  const canonical = TARGET_ALIASES[target] || target;
+  if (!HANDOFF_TARGETS.includes(canonical)) {
     throw new Error(
       `Unknown handoff target "${target}". Expected one of: ${HANDOFF_TARGETS.join(', ')}.`
     );
   }
-  return prompt;
+  return {
+    target: canonical,
+    alias: canonical === target ? null : target,
+  };
+}
+
+export function promptForTarget(target) {
+  return PROMPTS[normalizeHandoffTarget(target).target];
 }
 
 export function validateSessionState(content) {
@@ -138,32 +152,37 @@ export function estimateTokens(content) {
   return Math.ceil(content.length / 4);
 }
 
-export function buildDeepSeekPacket({
+export function buildWebChatPacket({
   target,
   projectRoot,
   sessionState,
   plan,
   agents,
-  legacyWorkflow,
+  webChatWorkflow,
   git,
   workingSet,
+  metricsSummary = null,
 }) {
-  if (target !== 'deepseek-chat1' && target !== 'deepseek-chat2') {
-    throw new Error(`DeepSeek packet requested for invalid target: ${target}`);
+  const canonical = normalizeHandoffTarget(target).target;
+  if (canonical === 'agent') {
+    throw new Error(`Web-chat packet requested for invalid target: ${target}`);
   }
   const dirtyParts = [
     git.unstagedDiff && `### Unstaged diff\n\n\`\`\`diff\n${git.unstagedDiff.trimEnd()}\n\`\`\``,
     git.stagedDiff && `### Staged diff\n\n\`\`\`diff\n${git.stagedDiff.trimEnd()}\n\`\`\``,
   ].filter(Boolean);
   const selectedFiles = exactFileBlocks(projectRoot, workingSet);
+  const emptyInstruction = canonical === 'chat-plan'
+    ? 'No implementation files are selected. Plan from the checkpoint and request exact files only when needed.'
+    : 'No implementation files are selected. Request the exact files needed before emitting changes.';
 
   return `# Mosaic handoff packet
 
-${promptForTarget(target)}
+${PROMPTS[canonical]}
 
-This generated packet is the complete starting context for this handoff. Follow the
-declared role and request a targeted \`npm run dump -- <paths>\` only when required
-content is absent. Git and the current files override stale prose.
+This packet is the complete starting context for this handoff. Follow the declared role,
+request targeted \`npm run dump -- <paths>\` content only when required, and treat Git
+and current files as authoritative over stale prose.
 
 ## Git checkpoint
 
@@ -174,16 +193,20 @@ content is absent. Git and the current files override stale prose.
 ${git.status || '(clean worktree)'}
 \`\`\`
 
+## Workflow telemetry
+
+${metricsSummary || '**Run:** telemetry=off'}
+
 ${dirtyParts.length > 0 ? `${dirtyParts.join('\n\n')}\n\n` : ''}## Project instructions
 
 <file path="AGENTS.md">
 ${agents.trimEnd()}
 </file>
 
-## Legacy workflow
+## Web-chat workflow
 
-<file path="docs/LEGACY_WORKFLOW.md">
-${legacyWorkflow.trimEnd()}
+<file path="docs/WEB_CHAT_WORKFLOW.md">
+${webChatWorkflow.trimEnd()}
 </file>
 
 ## Session state
@@ -200,6 +223,6 @@ ${plan.trimEnd()}
 
 ## Working files
 
-${selectedFiles || '(No implementation files are selected. Chat 1 should plan the next task; Chat 2 should request the exact files it needs before emitting changes.)'}
+${selectedFiles || `(${emptyInstruction})`}
 `;
 }

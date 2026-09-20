@@ -54,7 +54,7 @@ function makeFriendship(
 }
 describe('FriendsProvider', () => {
   beforeEach(async () => {
-    dbRef.current = await createTestDb();
+    dbRef.current = await createTestDb('friendships');
     mockUserRef.current = { $id: 'user_A' };
   });
   afterEach(async () => {

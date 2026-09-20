@@ -1,4 +1,5 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { silenceExpectedConsole } from '../helpers/expectedConsole';
 
 const localStorageMock = vi.hoisted(() => {
   const store = new Map<string, string>();
@@ -46,10 +47,13 @@ function makeOp(
   };
 }
 
+let restoreConsole: () => void;
 beforeEach(() => {
+  restoreConsole = silenceExpectedConsole(['[socialOutbox]']);
   localStorageMock.clear();
   __resetSocialOutboxForTests();
 });
+afterEach(() => restoreConsole());
 
 describe('socialOutbox — enqueue', () => {
   it('adds an entry and persists it to localStorage', () => {

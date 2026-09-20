@@ -83,7 +83,7 @@ function makeMessage(
 }
 describe('useUnreadMessages', () => {
   beforeEach(async () => {
-    dbRef.current = await createTestDb();
+    dbRef.current = await createTestDb('messages');
     mockFriendsRef.current = [];
   });
   afterEach(async () => {

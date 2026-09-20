@@ -12,9 +12,12 @@ export default defineConfig({
       // clients: close all Mosaic tabs and installed-app windows, then reopen.
       // A refresh alone may leave the old worker active. `autoUpdate` forces
       // both activation flags below to true, so use `prompt` (PWA-4).
-      // The injected registration script provides no prompt or forced reload;
-      // an explicit update UI remains separate Phase 3.5 work.
+      // The explicit lifecycle below surfaces the waiting worker and only
+      // requests activation after the user chooses Update now.
       registerType: 'prompt',
+      // Registration is owned by src/lib/pwaLifecycle.ts so Mosaic can show
+      // explicit install/update UI instead of injecting a second registrar.
+      injectRegister: false,
       includeAssets: ['apple-touch-icon.png'],
       manifest: {
         name: 'Life Tracker',
@@ -24,8 +27,10 @@ export default defineConfig({
         background_color: '#111111',
         display: 'standalone',
         orientation: 'portrait',
+        id: '/',
         scope: '/',
         start_url: '/',
+        categories: ['productivity', 'lifestyle'],
         icons: [
           {
             src: 'pwa-192x192.png',

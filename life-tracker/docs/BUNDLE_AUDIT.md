@@ -220,7 +220,7 @@ Gate acquisition by visibility where useful, preserving placeholders, existing
 calendar windowing, shared requests, cancellation, blob-URL reference counts and
 delayed revocation. Avoid delaying visible avatars or selected-day content. Native
 lazy loading/async decoding can supplement that work. Measure actual requests and
-scroll behavior; implement the separate memory/byte-budget LRU policy in Phase 3.4.
+scroll behavior. Phase 3.4 added the separate persistent 50 MiB LRU byte budget.
 
 Static icons are much smaller than the JS entry (largest PNG: 25,877 raw bytes).
 Icon compression and duplicate manifest cleanup are lower priority than optional
@@ -278,8 +278,38 @@ For the next implementation batch, require lint → test → build and:
    offline/sync work. Verify the agreed update policy and recovery without losing
    unsaved work. A blind automatic reload is not a sufficient recovery policy.
 
-Phases 3.2 and 3.3 and the activation prerequisite are complete. Phase 3.4 image-cache
-LRU policy is next.
+## Phase 3.6 result (2026-09-20)
+
+Every `npm run build` now checks `config/build-size-budget.json` after the production and
+service-worker policy checks. The guard measures the module entry named by `index.html`,
+all emitted `assets/*.js` and `assets/*.css`, and the unique files named by the generated
+service-worker precache. Raw and Node-gzip entry/aggregate sizes catch both startup-shell
+and deferred-code growth; unique raw precache size catches offline-install growth.
+
+The reviewed baseline at `6fa2014` and limits are:
+
+| Metric | Baseline bytes | Limit bytes | Headroom |
+|---|---:|---:|---:|
+| Entry JavaScript raw | 856,191 | 900,000 | 5.1% |
+| Entry JavaScript gzip | 265,231 | 280,000 | 5.6% |
+| All app JavaScript/CSS raw | 1,842,369 | 1,935,000 | 5.0% |
+| All app JavaScript/CSS gzip | 548,796 | 577,000 | 5.1% |
+| Unique precache payload raw | 1,902,776 | 2,000,000 | 5.1% |
+
+The guard uses exact bytes rather than hashed filenames or Vite's formatted reporter.
+It is a regression threshold, not a performance target and not evidence that a build is
+fast. It does not measure network protocol compression, runtime evaluation, cache reuse,
+Lighthouse, or a particular route's full static dependency closure. Continue using
+`scripts/audit-bundle.mjs` for graph and closure investigations.
+
+Do not raise a limit merely to turn a failed build green. First inspect the emitted graph
+and explain the intended product/dependency change. If the growth is accepted, rebuild
+the production assets, update both the measured baseline and the affected limit in the
+budget file, retain deliberate headroom, and record the decision here. The
+`npm run build:size` command rechecks an existing `dist/` and prints every actual/limit pair.
+
+Phases 3.2–3.6 and the activation prerequisite are complete. Phase 3.7 PostHog foundation
+is next.
 
 ## Technical sources
 

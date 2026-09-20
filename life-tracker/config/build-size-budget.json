@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "baseline": {
+    "measuredAt": "2026-09-20",
+    "commit": "6fa2014",
+    "metrics": {
+      "entryRawBytes": 856191,
+      "entryGzipBytes": 265231,
+      "appAssetsRawBytes": 1842369,
+      "appAssetsGzipBytes": 548796,
+      "precacheUniqueBytes": 1902776
+    }
+  },
+  "limits": {
+    "entryRawBytes": 900000,
+    "entryGzipBytes": 280000,
+    "appAssetsRawBytes": 1935000,
+    "appAssetsGzipBytes": 577000,
+    "precacheUniqueBytes": 2000000
+  }
+}

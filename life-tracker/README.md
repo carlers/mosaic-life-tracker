@@ -9,10 +9,10 @@ supplies background synchronization and cross-device persistence.
 Pre-release. The core calendar, task actions, categories, auth/account settings, social
 graph, friend calendars, messaging, replies, reactions, and offline/sync hardening are
 implemented. Todo List, Diary, and Notifications remain in the feature backlog. The
-[Phase 3.1 bundle audit](docs/BUNDLE_AUDIT.md), Phase 3.2 code splitting, and Phase 3.3
-visibility-gated image acquisition are complete. The next proposed batch is the Phase
-3.4 image-cache LRU policy in
-[PLAN.md](PLAN.md).
+[Phase 3.1 bundle audit](docs/BUNDLE_AUDIT.md), Phase 3.2 code splitting, Phase 3.3
+visibility-gated image acquisition, Phase 3.4 bounded image-cache LRU, Phase 3.5 PWA
+precache/update/install/share review, and Phase 3.6 production build-size guard are complete.
+See [the bundle audit](docs/BUNDLE_AUDIT.md) for the measured budgets and update policy.
 
 ## Stack
 
@@ -31,20 +31,44 @@ npm test
 npm run build
 ```
 
+`npm run build` fails if the generated entry, aggregate JS/CSS, or service-worker
+precache payload exceeds its reviewed byte budget. To recheck an existing `dist/`
+without rebuilding, run `npm run build:size`.
+
+For faster edit/test loops, use the scoped commands in
+[the test workflow](docs/TEST_WORKFLOW.md); full verification remains the completion gate.
+Local, privacy-preserving task and repair-loop metrics are documented in
+[the workflow telemetry guide](docs/WORKFLOW_TELEMETRY.md). Before an acceptance gate,
+the [test workflow](docs/TEST_WORKFLOW.md) maps every behavioral change to explicit
+automated, red-green, manual, skipped, or not-applicable evidence without judging adequacy.
+
 Mobile PWA testing requires a Cloudflare Tunnel (`cloudflared tunnel --url
 http://localhost:5173`) and the tunnel URL must be allowed in Appwrite Platforms.
 
 ## AI workflows
 
-`AGENTS.md` contains shared project instructions, `PLAN.md` owns the roadmap, and
-`SESSION_STATE.md` is the workflow-neutral checkpoint. Detailed product and architecture
-contracts live in [docs/PROJECT_REFERENCE.md](docs/PROJECT_REFERENCE.md).
+Mosaic supports two provider-neutral execution adapters:
 
-- [Codex workflow](docs/CODEX_WORKFLOW.md) — direct VS Code inspection, editing, and checks.
-- [DeepSeek Web workflow](docs/LEGACY_WORKFLOW.md) — compact handoff packets, separate
-  planner/implementer roles, and the retained full-file installer.
+- [Workspace-agent workflow](docs/CODEX_WORKFLOW.md) — Codex local/IDE, Codex Cloud,
+  or another agent with direct repository, shell, and Git access.
+- [Web-chat workflow](docs/WEB_CHAT_WORKFLOW.md) — ChatGPT, DeepSeek, or another web/mobile
+  chat using compact packets and the retained full-file installer.
 
-Generate a resume prompt or DeepSeek packet with `npm run handoff -- <target>`.
+`AGENTS.md` contains shared rules, `PLAN.md` owns the roadmap, and `SESSION_STATE.md`
+records the workflow-neutral checkpoint. Every completed AI response includes a compact
+handoff footer so a rate or context limit can be recovered without another reply from the
+current agent. Git transfers exact files between separate workspaces; packets transfer
+context into web chat; complete `mosaic` bundles transfer changes back.
+
+Generate a resume prompt or packet with:
+
+```bash
+npm run handoff -- agent
+npm run handoff -- chat-plan
+npm run handoff -- chat-implement
+```
+
+A task may switch workflows at any safe checkpoint, including mid-task or mid-batch.
 
 ## License
 

@@ -5,7 +5,7 @@ invariants, implementation rationale, and historical decisions. It is reference
 material, not an instruction file. `AGENTS.md` contains the shared active rules.
 
 Sections 5 and 25 summarize workflow boundaries and history. Active process belongs in
-`docs/CODEX_WORKFLOW.md` and `docs/LEGACY_WORKFLOW.md`.
+`docs/CODEX_WORKFLOW.md` and `docs/WEB_CHAT_WORKFLOW.md`.
 
 ## 0. Hard Rules
 
@@ -60,16 +60,16 @@ is authoritative.
 
 ## 5. Portable AI Workflow Boundary
 
-Codex and DeepSeek Web share the same project rules, roadmap, workflow-neutral session
-state, files, and Git history. Codex edits the workspace directly. DeepSeek transfers
-compact context through a generated handoff packet and applies complete changed files
-through the retained installer. See `docs/CODEX_WORKFLOW.md` and
-`docs/LEGACY_WORKFLOW.md` for active instructions.
+Workspace agents and web chats share the same project rules, roadmap, workflow-neutral
+session state, exact files, and Git history. Workspace agents (currently Codex local/IDE
+and Codex Cloud) edit a checkout directly. Provider-neutral web/mobile chats transfer
+compact context through a generated packet and apply complete changed files through the
+retained installer. See `docs/CODEX_WORKFLOW.md` and `docs/WEB_CHAT_WORKFLOW.md`.
 
 Files should be organized by ownership and readability rather than arbitrary line limits.
 Generated changes must be complete and must not contain placeholders or elisions.
 
-## 5.1 Legacy Revision Transport
+## 5.1 Full-file Revision Transport
 
 The retained installer accepts a fence-aware `mosaic` block containing full
 `===FILE:path===`, `===DELETE:path===`, and optional `===COMMIT:message===`
@@ -77,7 +77,7 @@ directives. It validates paths, backs up touched files, runs the requested verif
 and stages only touched paths when the user approves its commit prompt.
 
 The exact output format, commands, checkpoint requirements, and recovery procedure live
-in `docs/LEGACY_WORKFLOW.md`. `apply-changes.mjs` is the executable source of truth.
+in `docs/WEB_CHAT_WORKFLOW.md`. `apply-changes.mjs` is the executable source of truth.
 
 ---
 
@@ -117,9 +117,9 @@ in `docs/LEGACY_WORKFLOW.md`. `apply-changes.mjs` is the executable source of tr
 - **Architecture hardening complete:** `AuthProvider` context as single source of truth (single `account.get()` per load; global `auth:unauthorized` dispatch; multi-tab broadcast; offline retry screen). Calendar perf audit (slide windowing, memoized `tasksByDate`, memoized `DayCell`, ref-counted `useTaskImage`). Conversations/unread refactor (single providers, thin selectors, `isUnsent` exclusion). Sync engine audit (13 slices; `createRow` 404 fallback; `messageActionQueue`; drift detection; `updatedAt` on categories/settings). Offline write resilience (`socialOutbox`). See §16, §18, §23 for invariants.
 - **Phase 1 audits closed (2026-09-17):** Offline behaviour, realtime subscriptions (all six tables), error boundaries (root + per-route), image-cache consolidation, PWA/SW audit, four-part accessibility sweep. Sole carry-over: OFF-1 (offline auth gate, H1 = Option A), scheduled Phase 2 batch 2.1.
 - **Phase 2 refactor audit → refactor closed (2026-09-18):** Batches 2.1–2.10 shipped. OFF-1 offline auth gate (H1 = Option A); duplication sweep (DUP-1…12); component boundary audit (CB-1…14); hook boundary audit (HB-1…12); lib-level extractions; shared React primitives + `useRxCollection`; sheet migrations across 19 files; domain hook extractions (useThreadMessages/useMessageActions/useConversations/useUnreadMessages split); god-component splits (CalendarBody, DayViewSheet, ChatPage, PersonPane); cleanup pass. All findings closed. Git and the changelog below retain the historical decisions.
-- **Test suite live:** The 2026-09-18 baseline was 390 tests across four Vitest projects (`unit`, `handlers`, `react`, `components`). Runtime batches run appropriate focused checks and the full lint/test/build gate when cross-cutting. See §24.
+- **Test suite live:** The current suite has 467 tests across three Vitest projects (`unit`, `handlers`, `dom`); the 2026-09-18 historical baseline was 390 tests across four projects. Runtime batches use focused checks during iteration and the full lint/test/build gate when cross-cutting. See §24.
 
-**Next Up:** Phase 3.4 image-cache LRU and byte budget, followed by the remaining Phase 3 optimization batches and the Phase 4 specification/accessibility audit. `PLAN.md` is authoritative for ordering.
+**Next Up:** Phase 3.7 PostHog foundation, followed by the Phase 4 specification/accessibility audit. `PLAN.md` is authoritative for ordering.
 
 ## 9. Hook & State Conventions
 - **Named return object, never array:** `{ <domain>, isLoading, ...mutators }`; mutators `useCallback`-wrapped.
@@ -217,7 +217,7 @@ in `docs/LEGACY_WORKFLOW.md`. `apply-changes.mjs` is the executable source of tr
 - `src/lib/appwrite.ts` — the only other file permitted to construct raw `Client`/`Account`. Exports `client` and `account` used by `sdk.ts`.
 - `src/lib/messageActionQueue.ts` — persistent retry queue for `mark_read`/`unsend`. Storage: JSON array under `mosaic_message_action_queue`. Dedup `(userId, dedupKey)`. Cap 100. Retries up to 5 on transient; drops on 401 / non-429 4xx. Single in-flight flush guard. Wired to `sendMessageAction` at module init; flushed by `deliverPendingMessages` (§20.5).
 - `src/lib/socialOutbox.ts` — persistent retry queue for cross-user social writes (`sendFriendRequest`, `acceptFriendRequest`, `deleteFriendPair`, `blockFriend`, `createOrUpdateProfile`). Storage: JSON array under `mosaic_social_outbox`. Dedup `(userId, dedupKey)`. Cap 100. Retries up to 5 on transient; drops on 401 / non-429 4xx. Permanent drops emit `SocialOutboxFailureEvent` to `subscribeToSocialOutboxFailures` — `FriendsProvider` reverts the local row. Wired to `guardedTablesDB` at module init in `social.ts`; flushed by `AppLayout`'s `tryDeliver` alongside `deliverPendingMessages` (§10).
-- `src/lib/imageCache.ts` — **single owner of the IndexedDB blob cache for downloaded image files** (keyed by `fileId`). `storage.ts` and `exportData.ts` consume it via `getCachedImage`/`cacheImage`/`deleteCachedImage`; do not open the cache DB directly elsewhere. No eviction bound (see §18 Accepted Limitations).
+- `src/lib/imageCache.ts` — **single owner of the IndexedDB blob cache for downloaded image files** (keyed by `fileId`). `storage.ts` and `exportData.ts` consume it via `getCachedImage`/`cacheImage`/`deleteCachedImage`; do not open the cache DB directly elsewhere. Version 2 adds a separate metadata store and a 50 MiB LRU budget; see §24.12.
 - **Code-splitting boundaries.** `src/App.tsx` lazily imports every page/route while
   `AppLayout`, auth/database boot, and the `FriendsProvider` → `ConversationsProvider`
   ownership chain stay eager. Emoji picker, image compressor, export ZIP code, and
@@ -236,21 +236,21 @@ in `docs/LEGACY_WORKFLOW.md`. `apply-changes.mjs` is the executable source of tr
   Do not register a second SW or precache user-generated content. Precache the app
   shell including lazy JS/CSS chunks so offline routes remain available. RxDB and
   `imageCache.ts` retain ownership of user data. The SW is production-only.
-- **Update policy (PWA-4, corrected 2026-09-19).** Use `registerType: 'prompt'` with
-  `skipWaiting: false` and `clientsClaim: false`. The injected registration script
-  displays no prompt and sends no activation request. An installed update waits
-  until the existing worker controls zero clients: close all Mosaic tabs and
-  installed-app windows, then reopen. Refreshing one tab may not suffice. On first
-  install, the worker does not claim the already-open page; a subsequent navigation
-  can be controlled. Do not add automatic reloads or activation messages as routine
-  error handling. An explicit update UI remains Phase 3.5 work.
+- **Update policy (PWA-4, completed 2026-09-20).** Use `registerType: 'prompt'` with
+  `injectRegister: false`, `skipWaiting: false`, and `clientsClaim: false`.
+  `pwaLifecycle.ts` is the single registrar. A downloaded update remains waiting until
+  the user chooses **Update now** or all controlled clients close. Only that explicit
+  action sends `SKIP_WAITING`; takeover then reloads the page. **Later** leaves the old
+  worker active and preserves unsaved state. On first install, the worker does not claim
+  the already-open page; a subsequent navigation can be controlled. Never add an
+  automatic reload or activation request as routine error handling.
 - **Why `autoUpdate` was removed.** The plugin forced both activation flags to true
   despite the config's false values. The [bundle audit](BUNDLE_AUDIT.md) records the
   original finding. Workbox still emits a conditional `SKIP_WAITING` message handler
   with the corrected policy; a text search for `skipWaiting()` cannot distinguish
   this from immediate activation. Build verification inspects execution (see §24.9).
 - `scripts/` — build-time and workflow utilities: targeted dumps, compact AI handoffs, shared clipboard support, and one-off Appwrite migration scripts.
-- `tests/` — Vitest suite (four projects). See §24.
+- `tests/` — Vitest suite (three projects) plus discovery and benchmark tooling. See §24.
 - Project root: `apply-changes.mjs` (installer; copies run output to clipboard on exit), `pending-changes.txt` (gitignored input).
 
 **ESLint enforcement of the SDK surface (`eslint.config.js`):**
@@ -308,11 +308,10 @@ These are documented, deliberate trade-offs after the sync-engine audit. Each wa
 - **D7 — Cold sync treats all local rows as dirty.** If `localStorage` is cleared while IndexedDB survives (partial site-data clear, or a manual developer action), `loadPerCollectionState` returns `{}`, both `pullBoundaryMs` and `dirtyBoundaryMs` are 0, every local row satisfies `localLwt > 0`, and the next sync pushes every local row. Rejected alternatives: (a) skipping the push for one cycle is ineffective — the next cycle sees `dirtyBoundaryMs` still `''` and pushes anyway; (b) overriding `dirtyBoundaryMs` to `cycleStartMs` breaks the push of local-only rows (they have no `remoteMeta`, so the non-dirty push predicate never fires) and regresses `categories`/`settings` push (they now participate in `usesTimestamps` post-D6, but only if their `updatedAt` is meaningful — a migrated row with `updatedAt: ''` would be skipped); (c) persisting per-collection state to IndexedDB requires a new persistence layer, which is out of scope for an isolated fix. The current behavior — push local state, last-write-wins — is arguably correct for a local-first app: the user's local data is their data, and pushing it back is the local-first stance. Revisit only if a user reports data loss from a partial storage clear.
 - **F9-backoff — Sync backoff state is per-tab.** `rateLimitUntil`, `rateLimitBackoffMs`, `failureBackoffUntil`, and `failureBackoffMs` are module-level state, not cross-tab. Two tabs can each accumulate their own backoff and hit the endpoint independently. Web Locks serializes cycles but does not share backoff. Rejected fix: persisting backoff state to localStorage adds a new persisted key, cross-tab read/write coordination, and edge cases around clock changes. Accepted; the risk is a rate-limit stampede in a multi-tab session, bounded by the sync engine's page cap and per-collection error isolation to non-catastrophic.
 - **Social Outbox — no server-side compensation on drop.** When a social outbox entry is dropped (5 attempts exhausted, or a permanent 4xx), the local row is reverted but the remote side may be partially written (e.g. the outbox succeeded in creating the friend's reciprocal row on a previous attempt but the local revert fires on a later permanent failure of a different row). Because both writes in a friendship pair are independent single-row calls, the reconciliation window is bounded to the next sync cycle and the local row is authoritative. A transactional two-row write would require an Appwrite Function and is out of scope for this batch.
-- **Image cache has no eviction bound.** `src/lib/imageCache.ts` stores downloaded image blobs in IndexedDB keyed by `fileId` with no LRU cap or byte budget. `deleteCachedImage` removes a blob when its owning entity is deleted on this device, but orphaned blobs (entities deleted on another device, failed exports, or aborted uploads) accumulate. Rejected fix: an LRU cap needs per-entry access timestamps plus a per-device byte budget; images are ≤150KB post-compression and typical usage is dozens, not thousands. A Phase 3 optimize-batch can add an LRU sweep with a byte budget. Until then, users with very large libraries may see IndexedDB growth over time. Revisit if a user reports quota errors.
 
 ## 19. Bootstrap & Persistence
-1. `main.tsx` order: `navigator.storage.persist()` → `initializeDatabase()` → fire-and-forget `initializeSync()` (never block render on network) → `ReactDOM.createRoot(...).render(<React.StrictMode><AuthProvider><App /></AuthProvider></React.StrictMode>)`.
-2. `initializeSync()` is always `.catch()`-wrapped — a sync failure must never prevent mount.
+1. `main.tsx` order: `navigator.storage.persist()` → `initializeDatabase()` → fire-and-forget `initializeSync()` and a lazy image-cache budget sweep → `ReactDOM.createRoot(...).render(<React.StrictMode><AuthProvider><App /></AuthProvider></React.StrictMode>)`. Neither background operation blocks render.
+2. Initial sync and image-cache sweep are always rejection-handled — either failure must never prevent mount.
 3. Auth resolution happens in `AuthProvider`, not `main.tsx`: single `account.get()` on mount (deferred via `queueMicrotask`), broadcast via context.
 4. Login-triggered sync: because cold-load `initializeSync()` may run before any session exists, `AuthPage.handleSubmit` calls `initializeSync()` after a successful `login`/`signup` and before navigating to `/home`.
 5. `ignoreDuplicate: true` on `createRxDatabase` + a singleton `dbInstance` module variable are required for React StrictMode double-invocations.
@@ -474,21 +473,25 @@ Recipient-side `read_at` propagation depends on `markReadOnRemote` eventually su
 ## 24. Test Suite
 
 ### 24.1 Overview
-Vitest 3.x uses four projects (`unit`, `handlers`, `react`, `components`). The
-2026-09-18 historical baseline was 390 tests. Config lives in `vitest.config.ts`.
-Run `npm test` (or `npm run test:watch` / `npm run test:ui`). Cross-cutting runtime
-batches must pass lint, tests, and build before completion. The supported legacy
-installer in §5.1 runs the same gate.
+Vitest 3.x uses three projects (`unit`, `handlers`, `dom`). The current suite has
+463 tests across 53 files; the 2026-09-18 historical baseline was 390 tests. Config lives
+in `vitest.config.ts`, while shared project patterns live in
+`scripts/lib/test-projects.mjs`. Run the narrow file/project commands in
+`docs/TEST_WORKFLOW.md` during iteration. Cross-cutting runtime batches still pass lint,
+full tests, and build; the installer in §5.1 runs the same gate.
 
 ### 24.2 Project layout
 | Project | Environment | Include |
 |---|---|---|
 | `unit` | node | `tests/unit/**/*.test.ts` |
 | `handlers` | node | `tests/handlers/**/*.test.ts` |
-| `react` | happy-dom | `tests/react/**/*.test.tsx` |
-| `components` | happy-dom | `tests/components/**/*.test.tsx` |
+| `dom` | happy-dom | `tests/{react,components,hooks}/**/*.test.tsx` |
 
-The `react` and `components` projects load `tests/setup/react.ts` (jest-dom matchers + `afterEach(cleanup)`) and set `NODE_ENV=test` — required by React 19's `act`. The `unit` and `handlers` projects run in plain node with `globals: true`.
+The `dom` project loads `tests/setup/react.ts` (jest-dom matchers +
+`afterEach(cleanup)`) and sets `NODE_ENV=test` — required by React 19's `act`. The `unit`
+and `handlers` projects run in plain node with `globals: true`. `npm run test:discovery`
+fails if a test belongs to zero or multiple projects; all projects use a conservative
+four-worker cap. See `docs/TEST_WORKFLOW.md` for scoped and benchmark commands.
 
 ### 24.3 Test philosophy — contracts, not internals
 Tests assert observable behavior: what a pure function returns, what a hook exposes through its public surface, what side effects a handler triggers on the mock DB, what a component renders for a given prop combination. They do NOT assert subscription counts, re-render counts, memoization bail-outs, effect re-fire counts, or RxDB document identity. If a test would break from a pure refactor that preserves external behavior, it is a liability — propose deleting it rather than patching it. Rationale and two documented examples (`useMessages` CONFLICT-retry not written; `useTaskImage` deferred-revoke written + flagged) live in the Changelog.
@@ -501,6 +504,9 @@ Injects a mocked `node-appwrite` module into `require.cache` via `createRequire`
 - **No `RxDBDevModePlugin`** — dev-mode loads a remote iframe from `rxdb.info` on first DB creation; its `BroadcastChannel` is unimplemented in happy-dom and the unhandled `ReferenceError` fails the run even when assertions pass. Dev-mode's checks are dev-mode-only and catch nothing real in a fresh, unique-named, never-migrated test DB.
 - **Storage:** `wrappedValidateAjvStorage({ storage: getRxStorageMemory() })` — same validator production uses; Ajv is the meaningful safety net, dev-mode is not.
 - **Migration strategies for `tasks` (v1), `friendships` (v1), `messages` (v3), `categories` (v1), `settings` (v1)**, mirroring `database.ts`. Strategies are pure pass-throughs / empty-default backfills. **These MUST stay in lock-step with production** — any version bump there requires the same change here, and the §12 migration checklist calls this out.
+- **Collection profiles:** RxDB-backed React tests request only `messages` or `friendships`
+  when that is all they exercise. The default `all` profile retains full-schema coverage for
+  tests that need it.
 - **`multiInstance: false`**, unique DB name per `createTestDb()` call. Parallel test files in separate workers never collide.
 
 Do not add a "test-mode" branch to `src/db/database.ts`. The `vi.mock` pattern in each hook test file is the mechanism.
@@ -536,7 +542,8 @@ Tests pinning behavior documented here carry a `// Regression: §<section> (<con
 `npm run build` runs `scripts/check-service-worker.mjs` after generating production
 assets. It fails on automatic `skipWaiting` during startup/install/activate,
 activation from unrelated messages, client claiming, a missing offline navigation
-fallback/API exclusions, or a JS/CSS app chunk absent from precache. The same
+fallback/API exclusions, a JS/CSS app chunk absent from precache, a precache URL that
+is not a same-origin emitted file, or invalid manifest identity/install metadata. The same
 inspector powers `scripts/audit-bundle.mjs`, which separately reports conditional
 activation on an explicit `SKIP_WAITING` message.
 
@@ -596,33 +603,114 @@ The 2026-09-19 Chromium harness exercised the real hook and IndexedDB object sto
 one eager header and 20 scroll rows, the initial read set was `header`, `row-0`, and
 `row-1`; bottom scroll added `row-18` and `row-19`; returning added none. This verifies
 browser intersection/scroll behavior with cached blobs. It does not replace a live
-Appwrite, mobile/Safari, or production-data trace. Phase 3.4 remains responsible for
-persistent cache eviction and byte budgeting.
+Appwrite, mobile/Safari, or production-data trace.
+
+### 24.12 Bounded image-cache LRU
+
+Phase 3.4 upgraded `mosaic_image_cache` to version 2 while leaving blob values and keys
+unchanged. A separate `metadata` store records actual blob size and last successful access.
+The cache budget is 50 MiB—enough for roughly 340 maximum-size 150KB compressed images—so
+normal offline libraries remain warm without allowing unbounded origin growth.
+
+A successful cache read refreshes access time. Startup runs a lazy, non-blocking sweep;
+each cache write sweeps before and after insertion. Sweeps total actual `Blob.size`, remove
+stale metadata, then evict oldest access times with `fileId` as the deterministic tie-break.
+Legacy blobs have no metadata and therefore start at access time 0: they remain readable,
+receive metadata when retained/read, and are evicted before known recently-used entries.
+Deleting an image removes both records. Access-metadata write failure is fail-soft—the
+already-read blob is still returned. Cross-tab access-versus-sweep timing is approximate;
+the worst case is an unnecessary refetch, never loss of the Appwrite source file.
+
+Unit coverage pins byte accounting, access refresh, deterministic legacy handling, stale
+metadata cleanup, overwrite/delete behavior, and fail-soft cache hits. A real-browser
+quota/eviction trace remains a manual check because the unit IndexedDB stub cannot emulate
+browser quota pressure.
+
+### 24.13 PWA update, install, precache, and sharing
+
+Phase 3.5 replaced the plugin-injected registrar with `pwaLifecycle.ts`, which captures
+`beforeinstallprompt` and registers the worker exactly once through
+`virtual:pwa-register`. `PwaPrompt` gives waiting updates priority over installation.
+Updates activate and reload only after **Update now**; **Later** leaves the waiting worker
+untouched. Installation calls the saved browser prompt only after the user chooses
+**Install**. Browsers that do not emit `beforeinstallprompt` show no custom install UI;
+iOS users continue to use Safari's Add to Home Screen command.
+
+The generated manifest has stable `id`, root scope/start URL, standalone display, and
+192/512 icons. Build verification proves each precache entry resolves to a same-origin
+file emitted in `dist`; all JS/CSS chunks and the offline navigation shell remain required.
+RxDB rows, Appwrite responses, and downloaded user images are not emitted build files and
+therefore cannot enter this precache. The inspector still rejects unexpected runtime
+routes, so the worker remains an app-shell cache rather than a second data cache.
+
+The Profile share action sends only a Mosaic invitation, username/display-name label, and
+the public app root through Web Share. It never includes the bio, email, user ID, cached
+image, or other local data. When Web Share is unavailable or fails, it copies the same
+invitation; cancellation does not copy unexpectedly. Mosaic has no public-profile deep
+link yet, so the shared URL deliberately opens the app root rather than the private
+`/profile` settings route.
+
+Automated coverage pins prompt capture/dismissal, explicit update activation, post-takeover
+reload, share cancellation/fallback, prompt UI controls, static-only precache validation,
+and manifest identity. Browser release verification still requires:
+
+1. Install from a fresh Chromium profile and confirm the captured prompt appears only when
+   the browser declares the app installable; dismiss and accept it on separate runs.
+2. With version A controlling two tabs, serve version B. Confirm **Later** preserves A and
+   unsaved input in both tabs. Choose **Update now**, confirm B takes control, and confirm
+   the approved reload occurs once.
+3. Relaunch the installed app offline into Home and a nested route that was not opened
+   before disconnecting. Confirm the shell, lazy chunk, cached identity, and local data.
+4. Verify Safari/iOS shows no broken custom install control, then install through Share →
+   Add to Home Screen. Repeat update/offline checks on an installed Android PWA.
+5. Exercise Profile sharing with native Web Share, cancellation, clipboard fallback, and
+   denied clipboard permission. Confirm the payload contains no private profile data.
+
+### 24.14 Production build-size guard
+
+`npm run build` runs `scripts/check-build-size.mjs` only after TypeScript, Vite, and the
+generated service-worker policy pass. The guard reads the emitted module entry from
+`index.html`, totals every emitted JavaScript/CSS asset, and totals unique precache files
+from the generated worker. It enforces raw and Node-gzip entry/aggregate values plus the
+unique raw precache value in `config/build-size-budget.json`.
+
+These are regression ceilings with about five percent reviewed headroom over the
+2026-09-20 baseline, not performance goals. Hashed output names are intentionally ignored.
+A budget failure requires graph inspection and either a size fix or a documented decision
+to accept the growth before changing the baseline/limit. Never raise a threshold solely
+to make verification pass. `npm run build:size` checks an existing `dist/`; the diagnostic
+`scripts/audit-bundle.mjs` remains the source for static-closure and package attribution.
+The exact baseline, limits, exclusions, and refresh protocol live in
+`docs/BUNDLE_AUDIT.md`.
 
 ## 25. Workflow Portability and History
 
-Mosaic originally used mandatory repository exports, persistent Chat 1/Chat 2 sessions,
-and full-file mega patches. The Codex migration moved roadmap state to `PLAN.md`,
-temporary continuity to `SESSION_STATE.md`, and durable technical rules to this
-reference. The portability migration then restored the two DeepSeek roles as a supported
-alternate workflow without restoring full-repository onboarding.
+Mosaic originally used mandatory repository exports, persistent provider-specific chats,
+and full-file mega patches. The active workflow now separates transport by capability:
+workspace agents edit a checkout directly, while web chats use compact packets and the
+retained full-file installer.
 
-The current contract is intentionally small:
+The portability contract is intentionally small:
 
-- the user prompt selects Codex, DeepSeek Chat 1, or DeepSeek Chat 2;
-- session state describes the checkpoint without storing the active workflow or commit
-  status;
+- the user or available tools select workspace-agent, web-chat Planner, or web-chat
+  Implementer behavior;
+- `SESSION_STATE.md` describes the checkpoint without storing provider, model, reasoning,
+  active workflow, or commit status;
 - Git and current files are authoritative;
-- DeepSeek receives only shared rules, state, roadmap, Git metadata, and selected working
-  files unless it requests more context;
-- switches can happen between valid substeps instead of waiting for phase completion.
+- separate workspaces exchange exact files through a pushed branch/commit;
+- web chats receive shared rules, state, roadmap, Git metadata, and selected exact files;
+- every completed AI turn is a potential workflow boundary and carries a compact handoff;
+- switches can happen at safe checkpoints inside a task or batch; and
+- provider/model changes never alter architecture, safety, or verification requirements.
 
-Historical DeepThink, context-tier, offboarding, and dump-count rules remain available in
-Git history. Active requirements live only in the workflow documents.
+A seamless handoff requires both the checkpoint description and exact current file
+contents. The rolling footer guarantees recovery from the last completed response, not
+from a later turn interrupted before it could checkpoint. Historical provider-specific
+rules remain in Git history; active requirements live in the workflow documents.
 
 ## Workflow migration note
 
-On 2026-09-19, `life-tracker/` became the AI working root. Codex and DeepSeek Web now share `AGENTS.md`, `PLAN.md`, `SESSION_STATE.md`, and Git while using separate transport and execution adapters.
+On 2026-09-19, `life-tracker/` became the AI working root. Workspace agents and web chats now share `AGENTS.md`, `PLAN.md`, `SESSION_STATE.md`, and Git while using direct-workspace or packet-and-installer adapters.
 
 ## Changelog
 
@@ -647,4 +735,5 @@ On 2026-09-19, `life-tracker/` became the AI working root. Codex and DeepSeek We
 | 2026-09-16 | Offline write resilience outbox | §10, §15 | `socialOutbox.ts` retries reciprocal friendship + profile writes; permanent drops emit failure events; `getCurrentUserId` distinguishes 401 from offline | §10, §15 |
 | 2026-09-17 | AGENTS.md compression | all | §0 hard rules and index-style changelog established; section prose compressed by about 25% | §0, Git history |
 | 2026-09-17 | §0 dedup follow-up | §0 | Merged former rules 2 + 10 into one; §0 is now 9 rules grouped by action (schema → sync → messaging → cross-user → auth → tooling) | §0 |
-| 2026-09-19 | Portable AI workflows | §5, §25 | Codex and DeepSeek share neutral state; compact role packets replace mandatory repository exports; full-file installer retained | `docs/CODEX_WORKFLOW.md`, `docs/LEGACY_WORKFLOW.md` |
+| 2026-09-19 | Portable AI workflows | §5, §25 | Codex and DeepSeek shared neutral state; compact role packets replaced mandatory repository exports; full-file installer retained | Git history |
+| 2026-09-20 | Capability-based AI workflows | §5, §25 | Workspace agents and provider-neutral web chats share rolling checkpoints, generic handoffs, and mid-batch recovery | `docs/CODEX_WORKFLOW.md`, `docs/WEB_CHAT_WORKFLOW.md` |

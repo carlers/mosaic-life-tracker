@@ -4,6 +4,7 @@ import { AppLayout } from './components/layout/AppLayout';
 import { RouteErrorBoundary } from './components/layout/RouteErrorBoundary';
 import { ErrorBoundary } from './components/ui/ErrorBoundary';
 import { Spinner } from './components/ui/Spinner';
+import { PwaPrompt } from './components/ui/PwaPrompt';
 
 const HomePage = lazy(() =>
   import('./pages/HomePage').then(({ HomePage }) => ({ default: HomePage }))
@@ -158,6 +159,7 @@ export function AppWithErrorBoundary() {
   return (
     <ErrorBoundary label="root">
       <App />
+      <PwaPrompt />
     </ErrorBoundary>
   );
 }

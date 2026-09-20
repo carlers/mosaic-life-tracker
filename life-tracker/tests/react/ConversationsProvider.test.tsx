@@ -92,7 +92,7 @@ function makeMessage(overrides: Partial<MessageDocument> = {}): MessageDocument 
 }
 describe('ConversationsProvider', () => {
   beforeEach(async () => {
-    dbRef.current = await createTestDb();
+    dbRef.current = await createTestDb('messages');
     mockFriendsRef.current = [];
     mockUserRef.current = { $id: 'user_A' };
   });

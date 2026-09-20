@@ -8,6 +8,7 @@ import { ImagePickerSheet } from '../components/home/views/ImagePickerSheet';
 import { SetUsernameSheet } from '../components/modals/SetUsernameSheet';
 import { useProfile } from '../hooks/useProfile';
 import { useMyProfile } from '../hooks/useMyProfile';
+import { buildProfileShareData, shareProfile } from '../lib/profileShare';
 
 export const ProfilePage: React.FC = () => {
   const navigate = useNavigate();
@@ -25,8 +26,20 @@ export const ProfilePage: React.FC = () => {
   const [isEditingDescription, setIsEditingDescription] = useState(false);
   const [isEditingImage, setIsEditingImage] = useState(false);
   const [isEditingUsername, setIsEditingUsername] = useState(false);
+  const [shareFeedback, setShareFeedback] = useState<string | null>(null);
 
   const handleBack = () => navigate(-1);
+  const handleShare = async () => {
+    const result = await shareProfile(buildProfileShareData(
+      window.location.origin,
+      profile?.username,
+      displayName
+    ));
+    if (result === 'copied') setShareFeedback('Profile invitation copied');
+    else if (result === 'unavailable') setShareFeedback('Sharing is not available on this device');
+    else return;
+    window.setTimeout(() => setShareFeedback(null), 2500);
+  };
 
   return (
     <div className="flex flex-col h-full animate-in fade-in duration-300">
@@ -42,6 +55,8 @@ export const ProfilePage: React.FC = () => {
           </button>
           <h1 className="text-lg font-bold text-white flex-1">Profile</h1>
           <button
+            type="button"
+            onClick={handleShare}
             onPointerDown={(e) => e.stopPropagation()}
             className="p-2 rounded-lg text-gray-400 hover:text-white hover:bg-[#2A2A2A] transition-colors"
             aria-label="Share profile"
@@ -145,6 +160,15 @@ export const ProfilePage: React.FC = () => {
         onClose={() => setIsEditingUsername(false)}
         onSuccess={() => setIsEditingUsername(false)}
       />
+      {shareFeedback && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="fixed bottom-24 left-1/2 z-[70] -translate-x-1/2 rounded-full border border-[#444444] bg-[#2A2A2A] px-5 py-2.5 text-sm text-white shadow-lg"
+        >
+          {shareFeedback}
+        </div>
+      )}
     </div>
   );
 };

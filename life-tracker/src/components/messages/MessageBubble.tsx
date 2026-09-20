@@ -136,7 +136,7 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
     return () => clearTimeout(timer);
   }, [showTimestampLocal]);
 
-  const bubbleRef = useRef<HTMLButtonElement>(null);
+  const bubbleRef = useRef<HTMLDivElement>(null);
 
   const swipeDirection: SwipeDirection = isOutgoing ? 'left' : 'right';
 
@@ -185,14 +185,20 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
         >
           <Reply size={18} className="text-gray-500" />
         </div>
-        <button
+        <div
           ref={bubbleRef}
-          type="button"
+          role="button"
+          tabIndex={0}
           onPointerDown={onPointerDown}
           onPointerMove={onPointerMove}
           onPointerUp={onPointerUp}
           onPointerCancel={onPointerCancel}
           onContextMenu={onContextMenu}
+          onKeyDown={(event) => {
+            if (event.key !== 'Enter' && event.key !== ' ') return;
+            event.preventDefault();
+            setShowTimestampLocal((visible) => !visible);
+          }}
           style={{
             transform: `translateX(${swipeOffset}px)`,
             touchAction: 'pan-y',
@@ -255,7 +261,7 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
               createdAt={message.createdAt}
             />
           )}
-        </button>
+        </div>
       </div>
     </div>
   );

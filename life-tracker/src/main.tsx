@@ -7,8 +7,11 @@ import { initializeSync } from './db/sync';
 import { AuthProvider } from './hooks/AuthProvider';
 import { ErrorBoundary } from './components/ui/ErrorBoundary';
 import { installChunkLoadErrorTracking } from './lib/chunkLoadErrors';
+import { initializePwaLifecycle } from './lib/pwaLifecycle';
+import { registerSW } from 'virtual:pwa-register';
 
 installChunkLoadErrorTracking();
+initializePwaLifecycle(window, registerSW);
 
 async function bootstrap() {
   if (navigator.storage && navigator.storage.persist) {
@@ -22,6 +25,9 @@ async function bootstrap() {
     initializeSync().catch((err) =>
       console.error('[Bootstrap] Initial sync failed:', err)
     );
+    import('./lib/imageCache')
+      .then(({ enforceImageCacheBudget }) => enforceImageCacheBudget())
+      .catch((err) => console.warn('[Bootstrap] Image-cache sweep failed:', err));
   } catch (error) {
     console.error('[Bootstrap] FATAL: Database initialization failed', error);
   }
