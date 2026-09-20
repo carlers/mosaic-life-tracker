@@ -6,24 +6,8 @@ import type {
   CategoryDocument,
 } from '../../src/db/schema';
 
-// ---------------------------------------------------------------------------
-// TaskVisibilitySheet component tests (Layer 5).
-//
-// Pins the observable contract of the visibility picker:
-//   - Four options render: Default (inherit), Private, Friends, Public.
-//   - Inherit label reflects the category's visibility with a "· Default"
-//     suffix when the task is inheriting (task.visibility === '').
-//   - "Follows the "<category>" category" renders the category name.
-//   - Tapping an override fires onSave with the concrete value.
-//   - Tapping Default fires onSave with ''.
-//
-// Deliberately NOT tested here:
-//   - The Check icon that indicates the selected option. Lucide icons are
-//     SVG-only; asserting on them means asserting on class strings.
-//   - The BottomSheet title / portal behavior. Pinned in
-//     tests/components/BottomSheet.test.tsx.
-//   - The exact className strings on the selected/unselected button.
-// ---------------------------------------------------------------------------
+// TaskVisibilitySheet keeps only save semantics: an explicit override emits
+// its value and Default emits the empty-string inheritance sentinel.
 
 function makeTask(overrides: Partial<TaskDocument> = {}): TaskDocument {
   return {
