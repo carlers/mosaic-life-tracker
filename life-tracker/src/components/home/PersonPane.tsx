@@ -88,33 +88,31 @@ export const PersonPane: React.FC<PersonPaneProps> = ({ person, isActive }) => {
     return (
       <div className="flex flex-col h-full">
         <PersonProfileHeader person={person} isActive={isActive} />
+        <CalendarHeader
+          title={calendarState.title}
+          viewMode={calendarState.viewMode}
+          onToggleMode={calendarState.handleToggle}
+          onPrev={calendarState.handlePrev}
+          onNext={calendarState.handleNext}
+          activeView={activeView}
+          onViewChange={setActiveView}
+        />
         {activeView === 'calendar' ? (
-          <>
-            <CalendarHeader
-              title={calendarState.title}
-              viewMode={calendarState.viewMode}
-              onToggleMode={calendarState.handleToggle}
-              onPrev={calendarState.handlePrev}
-              onNext={calendarState.handleNext}
-              activeView={activeView}
-              onViewChange={setActiveView}
-            />
-            <CalendarBody
-              viewMode={calendarState.viewMode}
-              slides={calendarState.slides}
-              renderStart={calendarState.renderStart}
-              renderEnd={calendarState.renderEnd}
-              emblaRef={calendarState.emblaRef}
-              tasks={friendTasks}
-              categoriesMap={friendCategoriesMap}
-              variant="friend"
-              friendCategories={friendCategories}
-              friendName={person.displayName}
-              friendUserId={friendUserId}
-              currentUserId={currentUserId}
-              onReactToTask={handleReactToTask}
-            />
-          </>
+          <CalendarBody
+            viewMode={calendarState.viewMode}
+            slides={calendarState.slides}
+            renderStart={calendarState.renderStart}
+            renderEnd={calendarState.renderEnd}
+            emblaRef={calendarState.emblaRef}
+            tasks={friendTasks}
+            categoriesMap={friendCategoriesMap}
+            variant="friend"
+            friendCategories={friendCategories}
+            friendName={person.displayName}
+            friendUserId={friendUserId}
+            currentUserId={currentUserId}
+            onReactToTask={handleReactToTask}
+          />
         ) : (
           <ComingSoon />
         )}
@@ -125,29 +123,27 @@ export const PersonPane: React.FC<PersonPaneProps> = ({ person, isActive }) => {
   return (
     <div className="flex flex-col h-full">
       <PersonProfileHeader person={person} isActive={isActive} />
+      <CalendarHeader
+        title={calendarState.title}
+        viewMode={calendarState.viewMode}
+        onToggleMode={calendarState.handleToggle}
+        onPrev={calendarState.handlePrev}
+        onNext={calendarState.handleNext}
+        activeView={activeView}
+        onViewChange={setActiveView}
+      />
       {activeView === 'calendar' ? (
-        <>
-          <CalendarHeader
-            title={calendarState.title}
-            viewMode={calendarState.viewMode}
-            onToggleMode={calendarState.handleToggle}
-            onPrev={calendarState.handlePrev}
-            onNext={calendarState.handleNext}
-            activeView={activeView}
-            onViewChange={setActiveView}
-          />
-          <CalendarBody
-            viewMode={calendarState.viewMode}
-            slides={calendarState.slides}
-            renderStart={calendarState.renderStart}
-            renderEnd={calendarState.renderEnd}
-            emblaRef={calendarState.emblaRef}
-            tasks={tasks}
-            categoriesMap={categoriesMap}
-            variant="me"
-            currentUserId={currentUserId}
-          />
-        </>
+        <CalendarBody
+          viewMode={calendarState.viewMode}
+          slides={calendarState.slides}
+          renderStart={calendarState.renderStart}
+          renderEnd={calendarState.renderEnd}
+          emblaRef={calendarState.emblaRef}
+          tasks={tasks}
+          categoriesMap={categoriesMap}
+          variant="me"
+          currentUserId={currentUserId}
+        />
       ) : (
         <ComingSoon />
       )}
