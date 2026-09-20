@@ -1,4 +1,4 @@
-// Regression: pre-Phase-4 UI bug batch — day-view task images stay responsive and rectangular.
+// Regression: UIFIX-3 — day-view task images stay responsive and rectangular.
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import type { TaskDocument } from '../../src/db/schema';
