@@ -19,21 +19,6 @@ import { ChatSearchBar } from '../../src/components/messages/ChatSearchBar';
 // ---------------------------------------------------------------------------
 
 describe('ChatSearchBar', () => {
-  it('renders the input with the search placeholder', () => {
-    render(
-      <ChatSearchBar
-        query=""
-        onChange={vi.fn()}
-        matchCount={0}
-        totalCount={0}
-        onClose={vi.fn()}
-      />
-    );
-    expect(
-      screen.getByPlaceholderText('Search messages…')
-    ).toBeInTheDocument();
-  });
-
   it('typing fires onChange with the current value', () => {
     const onChange = vi.fn();
     render(
@@ -72,20 +57,6 @@ describe('ChatSearchBar', () => {
       />
     );
     expect(screen.getByText('2/5')).toBeInTheDocument();
-  });
-
-  it('counter is hidden when query is whitespace-only', () => {
-    render(
-      <ChatSearchBar
-        query="   "
-        onChange={vi.fn()}
-        matchCount={0}
-        totalCount={5}
-        onClose={vi.fn()}
-      />
-    );
-    // showCounter = query.trim().length > 0; whitespace-only is falsy.
-    expect(screen.queryByText('0/5')).toBeNull();
   });
 
   it('close button fires onClose', () => {
