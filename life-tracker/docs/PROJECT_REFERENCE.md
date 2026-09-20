@@ -18,6 +18,21 @@ Sections 5 and 25 summarize workflow boundaries and history. Active process belo
 7. Cross-user writes go through Appwrite Functions, never direct client writes (§6, §20)
 8. 401 from `account.get()` = "not logged in"; network error = "couldn't check" — never conflate (§10, §23.6)
 
+### 0.1 Contract sources and enforcement
+
+Mosaic separates project truth by concern. `AGENTS.md` owns active implementation rules;
+this reference owns durable product/architecture contracts; `PLAN.md` owns roadmap
+sequencing and verified completion; `SESSION_STATE.md` owns the current checkpoint and
+pending verification; the workflow/test/telemetry documents own their named processes.
+`README.md` provides the contributor-facing contract index.
+
+`npm run contracts:check` is the structural guard for this documentation surface. It
+verifies that the authoritative entry-point files exist, that required cross-pointers remain
+discoverable, and that local Markdown links in those files resolve. `npm run verify`
+executes that guard before lint, tests, and the production build. This checker validates
+reference integrity and discoverability; it does not claim to prove that prose is
+semantically complete or that implementation behavior matches every contract.
+
 ## 1. The Vision
 - An offline-first, local-first, self-hostable "Life Tracker" PWA
 - **Phase 1:** A pixel-perfect, highly polished clone of "Todo Mate" (tasks, categories, social calendar, diary) to replace an ad-filled app
