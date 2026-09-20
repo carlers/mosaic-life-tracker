@@ -9,7 +9,9 @@ import { ErrorBoundary } from './components/ui/ErrorBoundary';
 import { installChunkLoadErrorTracking } from './lib/chunkLoadErrors';
 import { initializePwaLifecycle } from './lib/pwaLifecycle';
 import { registerSW } from 'virtual:pwa-register';
+import { captureHandledException, initializePostHog } from './lib/posthog';
 
+void initializePostHog();
 installChunkLoadErrorTracking();
 initializePwaLifecycle(window, registerSW);
 
@@ -30,6 +32,7 @@ async function bootstrap() {
       .catch((err) => console.warn('[Bootstrap] Image-cache sweep failed:', err));
   } catch (error) {
     console.error('[Bootstrap] FATAL: Database initialization failed', error);
+    captureHandledException(error, { source: 'database-bootstrap' });
   }
   ReactDOM.createRoot(document.getElementById('root')!).render(
     <React.StrictMode>
