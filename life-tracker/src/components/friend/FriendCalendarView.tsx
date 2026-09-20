@@ -115,6 +115,10 @@ export const FriendCalendarView: React.FC<FriendCalendarViewProps> = ({
     setDaySheetOpen(false);
   }, []);
 
+  const handleDaySheetDateChange = useCallback((nextDate: Date) => {
+    setSelectedDate(nextDate);
+  }, []);
+
   const handleToggleMode = useCallback(() => {
     setViewMode((m) => (m === 'month' ? 'week' : 'month'));
   }, []);
@@ -168,7 +172,8 @@ export const FriendCalendarView: React.FC<FriendCalendarViewProps> = ({
         isOpen={daySheetOpen}
         onClose={handleCloseDaySheet}
         date={selectedDate}
-        tasks={tasksByDate.get(formatDateStr(selectedDate)) ?? []}
+        onDateChange={handleDaySheetDateChange}
+        tasks={tasks}
         categories={categories}
         friendName={friendName}
         currentUserId={currentUserId}
