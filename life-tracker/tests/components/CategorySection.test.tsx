@@ -87,7 +87,7 @@ describe('CategorySection', () => {
     expect(screen.getByText('Errands')).toBeInTheDocument();
   });
 
-  it('renders category metadata inside a black pill with colored text and no color dot', () => {
+  // Regression: UIFIX-4 — own-day category metadata matches friend-day black pills.\n  it('renders category metadata inside a black pill with colored text and no color dot', () => {
     const { container } = renderSection({ categoryName: 'Work' });
     const label = screen.getByText('Work');
     const pill = label.parentElement;
