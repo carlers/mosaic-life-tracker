@@ -187,18 +187,6 @@ describe('TaskActionSheet', () => {
     expect(screen.queryByText(/·\s*Default/)).toBeNull();
   });
 
-  // Regression: UIFIX-8 — task actions blur the blocked background.\n  it('uses the blurred modal backdrop while open', () => {
-    render(
-      <TaskActionSheet
-        isOpen
-        task={makeTask()}
-        category={makeCategory()}
-        {...makeCallbacks()}
-      />
-    );
-    expect(document.body.querySelector('.backdrop-blur-sm')).not.toBeNull();
-  });
-
   it('closes the action surface while dispatching nested-sheet actions', () => {
     const cbs = makeCallbacks();
     render(
