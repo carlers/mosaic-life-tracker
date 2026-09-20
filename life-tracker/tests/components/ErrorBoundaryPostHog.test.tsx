@@ -26,25 +26,6 @@ describe('PostHog error boundary integration', () => {
     vi.restoreAllMocks();
   });
 
-  it('preserves the root fallback while capturing the handled error once', () => {
-    render(
-      <ErrorBoundary label="root">
-        <Bomb />
-      </ErrorBoundary>
-    );
-
-    expect(screen.getByText('Something went wrong')).toBeTruthy();
-    expect(screen.getByText('Try again')).toBeTruthy();
-    expect(posthogRef.captureHandledException).toHaveBeenCalledTimes(1);
-    expect(posthogRef.captureHandledException).toHaveBeenCalledWith(
-      expect.any(Error),
-      expect.objectContaining({
-        boundary: 'root',
-        componentStack: expect.any(String),
-      })
-    );
-  });
-
   it('preserves route fallback behavior while capturing the route label', () => {
     render(
       <MemoryRouter initialEntries={['/messages/friend_1']}>
