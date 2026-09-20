@@ -1,7 +1,7 @@
 // Regression: pre-Phase-4 UI bug batch — task actions must transition to sibling sheets without losing task context.
 import type { ReactNode } from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { CategoryDocument, TaskDocument } from '../../src/db/schema';
 
 const fixture = vi.hoisted(() => ({
@@ -133,14 +133,27 @@ function renderSheet() {
 }
 
 describe('DayViewSheet nested task actions', () => {
+  beforeEach(() => {
+    fixture.task.image = 'image_1';
+  });
+
+  it('renders the selected date in the draggable sheet header', () => {
+    renderSheet();
+    const dialog = screen.getByRole('dialog');
+    const labelledBy = dialog.getAttribute('aria-labelledby');
+    expect(labelledBy).toBeTruthy();
+    expect(document.getElementById(labelledBy as string)).toHaveTextContent(
+      'Sunday, September 20, 2026'
+    );
+  });
+
   it.each([
     ['Memo', 'memo-sheet'],
     ['Add Photo', 'image-picker-sheet'],
     ['Change Date', 'date-sheet'],
     ['Visibility', 'visibility-sheet'],
   ])('opens %s without falling back to the bare day sheet', (label, testId) => {
-    const task = { ...fixture.task, image: label === 'Add Photo' ? '' : 'image_1' };
-    fixture.task.image = task.image;
+    fixture.task.image = label === 'Add Photo' ? '' : 'image_1';
 
     renderSheet();
     fireEvent.click(screen.getByText('Open actions'));
