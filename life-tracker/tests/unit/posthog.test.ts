@@ -1,3 +1,4 @@
+// Regression: Phase 3.7 PH-1/PH-2/PH-4/PH-5/PH-6.
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const posthogRef = vi.hoisted(() => ({
