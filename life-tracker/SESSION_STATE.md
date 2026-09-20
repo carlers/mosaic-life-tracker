@@ -1,71 +1,43 @@
 # Session state
 
 Updated: 2026-09-20
-Current task: Pre-Phase-4 UI regression batch + Phase 3.7 final verification
+Current task: Phase 4.1 — instructions, reference discoverability, and enforceable project contracts
 Status: implementation complete; runnable-workspace verification pending
-Roadmap pointer: `PLAN.md` — do not advance to Phase 4 until this regression batch and the Phase 3.7 verification gate are green
-Checkpoint: The 12 user-reported calendar/day-sheet/chat regressions are implemented on `chatgpt/phase-3-7-posthog`. A repository-level UI preservation rule is now active in `AGENTS.md` and mirrored in `docs/PROJECT_REFERENCE.md`: visual/interaction changes require explicit task scope; unrelated fixes/refactors must preserve shipped UI. The suite has been pruned toward behavioral/state coverage: 38 low-value, styling-only, symmetric, duplicate, or superseded cases were removed across the two pruning passes. Projected current suite size is ~473 tests / 62 files pending local discovery. `npm run verify` owns the lint → test → build gate.
-Next action: Run `npm run verify` locally. If green, run `npm run test:discovery`, complete the test-evidence review for PH-1…PH-9 and UIFIX-1…UIFIX-12, perform the remaining PostHog staging checks, then mark Phase 3.7 complete before starting Phase 4.
+Roadmap pointer: `PLAN.md` — Phase 4.1 is active by explicit user authorization; Phase 3.7 remains verification-pending and must not be marked complete yet
+Checkpoint: Added a contributor-facing project-contract map, a durable contract-source/enforcement section, and `scripts/check-project-contracts.mjs`. `npm run contracts:check` validates authoritative entry-point existence, required cross-pointers, and local Markdown link targets; `npm run verify` now runs that guard before lint, tests, and build. The UI preservation rule remains active. The regression suite was previously pruned toward behavioral/state coverage.
+Next action: Run `npm run contracts:check` and then `npm run verify` locally. If green, review the Phase 4.1 diff and mark the first Phase 4 checklist item complete. Phase 3.7 still requires its remaining staging/manual verification before its checkbox is closed.
 Blockers: This web environment has repository API access only and cannot execute the checkout's npm commands.
 
-## Acceptance IDs
+## Phase 4.1 acceptance
 
-- UIFIX-1 — Calendar/Diary switcher remains visible in Diary and can return to Calendar.
-- UIFIX-2 — FriendDayViewSheet supports adjacent-day horizontal swipe/navigation.
-- UIFIX-3 — DayViewSheet task images fill available width with a responsive landscape aspect ratio.
-- UIFIX-4 — Own-day category headers use black pills, colored category text, and an in-pill visibility icon.
-- UIFIX-5 — DayViewSheet date is rendered in the draggable BottomSheet header.
-- UIFIX-6 — Incoming messages are black with a gray outline; outgoing messages use the prior gray incoming treatment.
-- UIFIX-7 — TaskActionSheet View Photo opens the image viewer with retained task context.
-- UIFIX-8 — TaskActionSheet blurs the background and blocks underlying DayViewSheet interaction.
-- UIFIX-9 — Nested task actions open their intended sibling surface without dropping task context.
-- UIFIX-10 — DayViewSheet previous/next arrows actually change the selected date.
-- UIFIX-11 — Calendar month/week content can scroll vertically when task density grows cell height.
-- UIFIX-12 — Chat message scroller clips horizontal overflow above the composer.
+- P4-1 — A contributor can identify the authoritative source for active rules, durable product/architecture contracts, roadmap state, current checkpoint, execution workflows, test workflow, telemetry, and bundle budgets from `README.md`.
+- P4-2 — Documentation-only work has an explicit structural verification command.
+- P4-3 — Normal `npm run verify` fails early when authoritative contract entry points or their local Markdown references drift.
+- P4-4 — The checker is structural only and does not claim semantic completeness or implementation conformance.
+- P4-5 — Existing Phase 3.7 verification status remains honest while Phase 4.1 proceeds by explicit sequencing override.
 
 ## Working set
 
-- `src/components/home/PersonPane.tsx`
-- `src/components/home/views/CalendarHeader.tsx`
-- `src/components/home/views/CalendarCarousel.tsx`
-- `src/components/home/views/MonthView.tsx`
-- `src/components/home/views/WeekView.tsx`
-- `src/components/home/views/DayViewSheet.tsx`
-- `src/components/home/views/useDayViewSwiper.ts`
-- `src/components/home/views/CategorySection.tsx`
-- `src/components/home/views/TaskItem.tsx`
-- `src/components/home/views/TaskActionSheet.tsx`
-- `src/components/friend/FriendDayViewSheet.tsx`
-- `src/components/friend/FriendCalendarView.tsx`
-- `src/components/messages/MessageBubble.tsx`
-- `src/components/ui/BottomSheet.tsx`
-- `src/pages/ChatPage.tsx`
-- `tests/react/useDayViewSwiper.test.tsx`
-- `tests/components/PersonPaneViewSwitcher.test.tsx`
-- `tests/components/FriendDayViewSheet.test.tsx`
-- `tests/components/DayViewSheetRegression.test.tsx`
-- `tests/components/CalendarOverflow.test.tsx`
-- `tests/components/ChatPageLayout.test.tsx`
-- existing component tests extended only where they protect interaction/state behavior
+- `AGENTS.md`
+- `README.md`
+- `PLAN.md`
+- `SESSION_STATE.md`
+- `docs/PROJECT_REFERENCE.md`
+- `package.json`
+- `scripts/check-project-contracts.mjs`
 
 ## Completed substeps
 
-- Kept Calendar/Diary chrome outside the active-view content branch so Diary never strands the user.
-- Reused the own-day swiper controller for friend day sheets and passed the complete friend task collection so adjacent dates can render.
-- Fixed arrow navigation by treating arrow moves as user navigation rather than suppressing their date-change callback.
-- Moved the visible date into the BottomSheet drag header.
-- Separated selected-task identity from TaskActionSheet open state; nested Memo, Visibility, Date, Photo Picker, confirmations, and Image Viewer retain task context.
-- Fixed View Photo by assigning the active task to the viewer before opening it.
-- Added BottomSheet suspended-interaction support for stacked sheets and blurred TaskActionSheet backdrops.
-- Changed own-day category metadata to the friend-day black-pill pattern.
-- Changed task images to full-width 16:9 responsive media.
-- Swapped message bubble direction styling and clipped chat horizontal overflow.
-- Made calendar carousel vertical overflow scrollable while preserving horizontally clipped Embla behavior and full-height rows that may grow with content.
-- Added focused regression coverage for behavior/state failures; removed 38 low-value cases across two pruning passes. Removed categories include styling-only assertions, render-only smoke checks, symmetric arrow cases, duplicate nested-action checks, redundant PostHog state transitions, duplicate component branch checks, and two superseded one-off workflow red fixtures. UIFIX-3/UIFIX-4/UIFIX-6 and the blur appearance portion of UIFIX-8 remain manual visual checks.
+- Audited the active instruction/reference entry points and identified split discoverability plus missing structural enforcement.
+- Added a Project contracts map to `README.md` with ownership by concern.
+- Added `PROJECT_REFERENCE.md §0.1` defining contract sources and the enforcement boundary.
+- Added `npm run contracts:check` to validate authoritative files, required entry-point pointers, and local Markdown targets.
+- Wired `contracts:check` into `npm run verify` before lint/test/build.
+- Updated `AGENTS.md` so documentation-only work runs the contract check and its reference map points contributors to the README index.
+- Recorded the user's explicit authorization to start Phase 4 while Phase 3.7 remains verification-pending.
 
 ## Verification
 
 - Not executed in this environment.
-- The last user-run suite before this UI batch was 489 passing / 1 failing; that sole PostHog test expectation was subsequently corrected.
-- No green result is claimed yet for the current UI batch, lint, full test suite, build, discovery, evidence validation, bundle-size guard, or manual browser checks.
-- Test policy for this batch: prefer observable behavior/state transitions; avoid pinning Tailwind class strings for cosmetic details unless the class is the only practical guard for a functional overflow/interaction regression. Preserve auth/offline/sync/outbox/destructive-action and performance-regression coverage.
+- `contracts:check`, lint, full tests, build, test discovery, and Phase 3.7 staging/manual checks remain unverified.
+- Phase 4.1 is not marked complete in `PLAN.md` until the structural checker and required gate pass.
