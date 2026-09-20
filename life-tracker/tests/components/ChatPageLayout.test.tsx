@@ -1,4 +1,4 @@
-// Regression: pre-Phase-4 UI bug batch — chat content must not expose a horizontal scrollbar above the composer.
+// Regression: UIFIX-12 — chat content must not expose a horizontal scrollbar above the composer.
 import { render, screen } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { describe, expect, it, vi } from 'vitest';
