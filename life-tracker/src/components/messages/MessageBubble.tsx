@@ -205,8 +205,8 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
           }}
           className={`select-none block w-full text-left rounded-2xl px-3 py-2 ${
             isOutgoing
-              ? 'bg-[#2563EB] text-white'
-              : 'bg-[#2A2A2A] text-white'
+              ? 'bg-[#2A2A2A] text-white'
+              : 'bg-black border border-[#3A3A3A] text-white'
           }`}
           aria-label={buildBubbleLabel(
             message,
@@ -220,7 +220,7 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
               onClick={() => onQuoteTap?.(message.replyToId)}
               onPointerDown={(e) => e.stopPropagation()}
               className={`w-full text-left mb-1.5 rounded-lg px-2 py-1 ${
-                isOutgoing ? 'bg-[#1E40AF]' : 'bg-[#1A1A1A]'
+                isOutgoing ? 'bg-[#1A1A1A]' : 'bg-[#2A2A2A]'
               }`}
             >
               <ReplyPreview
