@@ -4,7 +4,7 @@ Updated: 2026-09-20
 Current task: Pre-Phase-4 UI regression batch + Phase 3.7 final verification
 Status: implementation complete; runnable-workspace verification pending
 Roadmap pointer: `PLAN.md` — do not advance to Phase 4 until this regression batch and the Phase 3.7 verification gate are green
-Checkpoint: The 12 user-reported calendar/day-sheet/chat regressions are implemented on `chatgpt/phase-3-7-posthog`. Automated coverage is intentionally focused on behavioral/state regressions; purely visual presentation checks are manual. `npm run verify` owns the lint → test → build gate.
+Checkpoint: The 12 user-reported calendar/day-sheet/chat regressions are implemented on `chatgpt/phase-3-7-posthog`. The suite has been pruned toward behavioral/state coverage: 38 low-value, styling-only, symmetric, duplicate, or superseded cases were removed across the two pruning passes. Projected current suite size is ~473 tests / 62 files pending local discovery. `npm run verify` owns the lint → test → build gate.
 Next action: Run `npm run verify` locally. If green, run `npm run test:discovery`, complete the test-evidence review for PH-1…PH-9 and UIFIX-1…UIFIX-12, perform the remaining PostHog staging checks, then mark Phase 3.7 complete before starting Phase 4.
 Blockers: This web environment has repository API access only and cannot execute the checkout's npm commands.
 
@@ -61,11 +61,11 @@ Blockers: This web environment has repository API access only and cannot execute
 - Changed task images to full-width 16:9 responsive media.
 - Swapped message bubble direction styling and clipped chat horizontal overflow.
 - Made calendar carousel vertical overflow scrollable while preserving horizontally clipped Embla behavior and full-height rows that may grow with content.
-- Added focused regression coverage for behavior/state failures; removed eight styling-only, symmetric, or duplicate cases (including category-pill, image-layout, message-color, blur-style, duplicate arrow, and duplicate nested-action assertions). UIFIX-3/UIFIX-4/UIFIX-6 and the blur appearance portion of UIFIX-8 remain manual visual checks.
+- Added focused regression coverage for behavior/state failures; removed 38 low-value cases across two pruning passes. Removed categories include styling-only assertions, render-only smoke checks, symmetric arrow cases, duplicate nested-action checks, redundant PostHog state transitions, duplicate component branch checks, and two superseded one-off workflow red fixtures. UIFIX-3/UIFIX-4/UIFIX-6 and the blur appearance portion of UIFIX-8 remain manual visual checks.
 
 ## Verification
 
 - Not executed in this environment.
 - The last user-run suite before this UI batch was 489 passing / 1 failing; that sole PostHog test expectation was subsequently corrected.
 - No green result is claimed yet for the current UI batch, lint, full test suite, build, discovery, evidence validation, bundle-size guard, or manual browser checks.
-- Test policy for this batch: prefer observable behavior/state transitions; avoid pinning Tailwind class strings for cosmetic details unless the class is the only practical guard for a functional overflow/interaction regression.
+- Test policy for this batch: prefer observable behavior/state transitions; avoid pinning Tailwind class strings for cosmetic details unless the class is the only practical guard for a functional overflow/interaction regression. Preserve auth/offline/sync/outbox/destructive-action and performance-regression coverage.
