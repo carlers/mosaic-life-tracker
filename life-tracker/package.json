@@ -41,6 +41,7 @@
     "framer-motion": "^13.2.0",
     "lucide-react": "^1.39.0",
     "photoswipe": "^5.4.4",
+    "posthog-js": "^1.434.2",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "react-router-dom": "^7.18.3",
@@ -52,6 +53,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@posthog/rollup-plugin": "^1.6.0",
     "@testing-library/jest-dom": "^6.6.3",
     "@testing-library/react": "^16.1.0",
     "@types/node": "^24.13.3",
