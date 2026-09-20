@@ -51,7 +51,10 @@ try {
 }
 
 const output = chunks.join('');
-if (copyToClipboard(output)) {
+const clipboardOutput = output
+  .replace(/\u001B\[[0-?]*[ -/]*[@-~]/g, '')
+  .replace(/\r(?!\n)/g, '\n');
+if (copyToClipboard(clipboardOutput)) {
   process.stderr.write('📋 Verify output copied to clipboard.\n');
 } else {
   process.stderr.write(
