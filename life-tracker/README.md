@@ -36,7 +36,7 @@ npm run verify
 precache payload exceeds its reviewed byte budget. To recheck an existing `dist/`
 without rebuilding, run `npm run build:size`.
 
-`npm run verify` runs the project-contract check, lint, full test suite, and production build in fail-fast order. Its terminal output is streamed normally and the complete captured run is copied to the system clipboard on exit, including failed runs. Clipboard availability is best-effort and never changes the verification exit status.
+`npm run verify` runs the project-contract check, lint, full test suite, and production build in fail-fast order. Locally, its terminal output is streamed normally and the complete captured run is copied to the system clipboard on exit, including failed runs. In CI, clipboard handling is skipped and the streamed output stays in the GitHub Actions log. Clipboard availability never changes the verification exit status.
 
 For faster edit/test loops, use the scoped commands in
 [the test workflow](docs/TEST_WORKFLOW.md); full verification remains the completion gate.
@@ -59,7 +59,8 @@ Use this map before changing behavior or project process. Each file owns a disti
 | Roadmap sequencing and verified completion state | [PLAN.md](PLAN.md) |
 | Current checkpoint, pending verification, and next action | [SESSION_STATE.md](SESSION_STATE.md) |
 | Workspace-agent execution | [Workspace-agent workflow](docs/CODEX_WORKFLOW.md) |
-| Web/mobile chat execution | [Web-chat workflow](docs/WEB_CHAT_WORKFLOW.md) |
+| GitHub-connected chat and remote verification | [Remote verification workflow](docs/REMOTE_VERIFY.md) |
+| Web/mobile chat without repository access | [Web-chat workflow](docs/WEB_CHAT_WORKFLOW.md) |
 | Test evidence and discovery | [Test workflow](docs/TEST_WORKFLOW.md) |
 | Local workflow telemetry | [Workflow telemetry](docs/WORKFLOW_TELEMETRY.md) |
 | Production bundle budgets and audit history | [Bundle audit](docs/BUNDLE_AUDIT.md) |
@@ -68,12 +69,13 @@ Run `npm run contracts:check` after documentation/reference changes. It verifies
 
 ## AI workflows
 
-Mosaic supports two provider-neutral execution adapters:
+Mosaic supports three capability-based execution adapters:
 
-- [Workspace-agent workflow](docs/CODEX_WORKFLOW.md) — Codex local/IDE, Codex Cloud,
-  or another agent with direct repository, shell, and Git access.
-- [Web-chat workflow](docs/WEB_CHAT_WORKFLOW.md) — ChatGPT, DeepSeek, or another web/mobile
-  chat using compact packets and the retained full-file installer.
+- [Workspace-agent workflow](docs/CODEX_WORKFLOW.md) — direct repository, shell, and Git.
+- [GitHub-connected chat](docs/REMOTE_VERIFY.md) — direct GitHub repository access plus
+  GitHub Actions as the remote verification environment; designed for phone-only work.
+- [Web-chat workflow](docs/WEB_CHAT_WORKFLOW.md) — no repository access; compact packets
+  and the retained full-file installer.
 
 `AGENTS.md` contains shared rules, `PLAN.md` owns the roadmap, and `SESSION_STATE.md`
 records the workflow-neutral checkpoint. Every completed AI response includes a compact

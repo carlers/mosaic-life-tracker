@@ -12,18 +12,22 @@ const authoritativeFiles = [
   'SESSION_STATE.md',
   'docs/PROJECT_REFERENCE.md',
   'docs/CODEX_WORKFLOW.md',
+  'docs/REMOTE_VERIFY.md',
   'docs/WEB_CHAT_WORKFLOW.md',
   'docs/TEST_WORKFLOW.md',
   'docs/WORKFLOW_TELEMETRY.md',
   'docs/BUNDLE_AUDIT.md',
+  '../.github/workflows/verify.yml',
 ];
 
 const requiredContractPointers = [
   ['README.md', 'AGENTS.md'],
   ['README.md', 'PLAN.md'],
   ['README.md', 'SESSION_STATE.md'],
+  ['README.md', 'docs/REMOTE_VERIFY.md'],
   ['AGENTS.md', 'docs/PROJECT_REFERENCE.md'],
   ['AGENTS.md', 'docs/CODEX_WORKFLOW.md'],
+  ['AGENTS.md', 'docs/REMOTE_VERIFY.md'],
   ['AGENTS.md', 'docs/WEB_CHAT_WORKFLOW.md'],
   ['AGENTS.md', 'docs/WORKFLOW_TELEMETRY.md'],
   ['AGENTS.md', 'PLAN.md'],

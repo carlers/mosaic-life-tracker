@@ -4,11 +4,12 @@ import { copyToClipboard } from './clipboard.mjs';
 
 const npmCommand = process.platform === 'win32' ? 'npm.cmd' : 'npm';
 const stages = ['contracts:check', 'lint', 'test', 'build'];
+const shouldCopyToClipboard = process.env.CI !== 'true';
 const chunks = [];
 
 function emit(stream, chunk) {
   const text = chunk.toString();
-  chunks.push(text);
+  if (shouldCopyToClipboard) chunks.push(text);
   stream.write(text);
 }
 
@@ -50,16 +51,18 @@ try {
   exitCode = 1;
 }
 
-const output = chunks.join('');
-const clipboardOutput = output
-  .replace(/\u001B\[[0-?]*[ -/]*[@-~]/g, '')
-  .replace(/\r(?!\n)/g, '\n');
-if (copyToClipboard(clipboardOutput)) {
-  process.stderr.write('📋 Verify output copied to clipboard.\n');
-} else {
-  process.stderr.write(
-    '⚠️  Verify finished, but no clipboard tool was available. Output remains in the terminal.\n'
-  );
+if (shouldCopyToClipboard) {
+  const output = chunks.join('');
+  const clipboardOutput = output
+    .replace(/\u001B\[[0-?]*[ -/]*[@-~]/g, '')
+    .replace(/\r(?!\n)/g, '\n');
+  if (copyToClipboard(clipboardOutput)) {
+    process.stderr.write('📋 Verify output copied to clipboard.\n');
+  } else {
+    process.stderr.write(
+      '⚠️  Verify finished, but no clipboard tool was available. Output remains in the terminal.\n'
+    );
+  }
 }
 
 process.exitCode = exitCode;

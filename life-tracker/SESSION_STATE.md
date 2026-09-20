@@ -1,12 +1,12 @@
 # Session state
 
 Updated: 2026-09-20
-Current task: Phase 4.1 — instructions, reference discoverability, and enforceable project contracts
-Status: implementation complete; runnable-workspace verification pending
+Current task: Phase 4.1 + GitHub remote verification workflow
+Status: remote verification workflow implemented; GitHub Actions verification pending
 Roadmap pointer: `PLAN.md` — Phase 4.1 is active by explicit user authorization; Phase 3.7 remains verification-pending and must not be marked complete yet
-Checkpoint: Added a contributor-facing project-contract map, a durable contract-source/enforcement section, and `scripts/check-project-contracts.mjs`. `npm run contracts:check` validates authoritative entry-point existence, required cross-pointers, and local Markdown link targets. `npm run verify` now runs through `scripts/verify.mjs`: contracts check → lint → tests → build, fail-fast, with live terminal output and a sanitized full-run clipboard copy on both success and failure. Clipboard availability is best-effort and does not affect the verification exit status. The UI preservation rule remains active. The regression suite was previously pruned toward behavioral/state coverage.
-Next action: Run `npm run contracts:check` and then `npm run verify` locally. If green, review the Phase 4.1 diff and mark the first Phase 4 checklist item complete. Phase 3.7 still requires its remaining staging/manual verification before its checkbox is closed.
-Blockers: This web environment has repository API access only and cannot execute the checkout's npm commands.
+Checkpoint: Phase 4.1 contract discovery remains implemented. Added a GitHub-connected-chat execution path: `.github/workflows/verify.yml` runs `npm ci` + the canonical `npm run verify` on `chatgpt/**` pushes, pull requests, or manual dispatch; stale runs cancel. Local verify still auto-copies output, while CI skips clipboard handling and retains logs in Actions. `docs/REMOTE_VERIFY.md` documents the phone-only loop and the one-commit-per-task history rule. AGENTS.md now prohibits micro-commit churn by default.
+Next action: Inspect the automatically triggered GitHub Actions `Verify` run for this task commit. If red, repair from the Actions log without requiring user terminal relay; if green, use that result as the automated acceptance gate, then complete any remaining manual Phase 3.7 / UI checks before closing their roadmap items.
+Blockers: Browser/device/live-service checks remain manual. Repository verification can now run through GitHub Actions.
 
 ## Phase 4.1 acceptance
 
@@ -25,6 +25,9 @@ Blockers: This web environment has repository API access only and cannot execute
 - `docs/PROJECT_REFERENCE.md`
 - `package.json`
 - `scripts/check-project-contracts.mjs`
+- `scripts/verify.mjs`
+- `docs/REMOTE_VERIFY.md`
+- `.github/workflows/verify.yml`
 
 ## Completed substeps
 
@@ -36,9 +39,11 @@ Blockers: This web environment has repository API access only and cannot execute
 - Added `scripts/verify.mjs` so verify output streams live and is automatically copied to the clipboard on exit; clipboard text strips terminal ANSI/control noise.
 - Updated `AGENTS.md` so documentation-only work runs the contract check and its reference map points contributors to the README index.
 - Recorded the user's explicit authorization to start Phase 4 while Phase 3.7 remains verification-pending.
+- Added the GitHub Actions remote verification path for phone-only work.
+- Added the one-commit-per-task rule and documented how remote CI fits that history contract.
 
 ## Verification
 
-- Not executed in this environment.
-- `contracts:check`, lint, full tests, build, test discovery, and Phase 3.7 staging/manual checks remain unverified.
+- The prior local verify reached `contracts:check` green, then failed lint on a malformed `BottomSheet.test.tsx` comment; that syntax defect was repaired before this task.
+- The new GitHub Actions verification run for this commit is pending.
 - Phase 4.1 is not marked complete in `PLAN.md` until the structural checker and required gate pass.

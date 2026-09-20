@@ -10,8 +10,11 @@ Select by capability, not provider:
 
 - A **workspace agent** can inspect/edit this repository, run commands, and use Git. Use
   `docs/CODEX_WORKFLOW.md`; Codex local/IDE and Codex Cloud are current examples.
-- A **web chat** has no assumed repository or shell access. Use
-  `docs/WEB_CHAT_WORKFLOW.md` with the Planner/Reviewer or Implementer role.
+- A **GitHub-connected chat** can inspect/edit the repository through GitHub and inspect
+  GitHub Actions, but has no local shell. Use `docs/REMOTE_VERIFY.md`; GitHub Actions is
+  its remote execution environment for `npm run verify`.
+- A **web chat without repository access** uses `docs/WEB_CHAT_WORKFLOW.md` with the
+  Planner/Reviewer or Implementer role.
 - An explicit user instruction selects the workflow and role. Otherwise, a Codex session
   with repository tools defaults to the workspace-agent workflow. Provider and model names
   never change architecture, safety, output, or verification rules.
@@ -98,6 +101,13 @@ before it could write or checkpoint.
   Favor speed or reduced scope only when the user explicitly asks to ship quickly.
 - Once a batch is agreed, inspect, edit, run proportionate checks, fix failures,
   review the diff, and update project state without waiting between routine steps.
+- **One commit per task:** default to exactly one visible commit for each user-scoped
+  task or agreed batch. Accumulate implementation, tests, documentation, checkpoint
+  updates, and routine fixes before committing. Do not create intermediate commits for
+  micro-steps, commentary, lint cleanup, or state-file churn. Remote verification may
+  require the task commit before the gate can run; on an AI-owned disposable task branch,
+  repair that unhanded-off task commit by replacement/amendment rather than stacking
+  "fix CI" commits. Never rewrite user-owned/shared history without explicit approval.
 - Stop after the agreed batch. Do not begin the next roadmap batch, commit, push,
   deploy, publish, or change a remote service unless the user authorized it.
 - Ask only when a choice materially changes product behavior, architecture, data or
@@ -119,6 +129,18 @@ before it could write or checkpoint.
   ask again; make the commit after verification.
 - Stage only paths changed for the agreed task, never `git add -A`. Preserve unrelated
   worktree changes. After committing, report the commit hash and subject.
+
+## Remote verification
+
+- `.github/workflows/verify.yml` is the shared remote execution path for AI-owned
+  `chatgpt/**` branches, pull requests, and manual workflow dispatches. It installs with
+  `npm ci` and runs the same `npm run verify` command used locally.
+- When the active chat has GitHub Actions access, inspect workflow status, jobs, and logs
+  directly instead of asking the user to run terminal commands or paste verify output.
+- GitHub Actions does not replace browser/device/remote-service checks that are explicitly
+  manual. Record those separately.
+- Local `npm run verify` copies its output to the clipboard; CI skips clipboard handling
+  and keeps the streamed output in the Actions log.
 
 ## Definition of done
 
@@ -222,6 +244,7 @@ The table in `README.md` is the contributor-facing contract index. The map below
 - `docs/PROJECT_REFERENCE.md` — detailed numbered product and architecture contracts,
   accepted limitations, test patterns, and historical decisions.
 - `docs/CODEX_WORKFLOW.md` — direct-workspace workflow for local and cloud agents.
+- `docs/REMOTE_VERIFY.md` — GitHub-connected chat workflow and remote verification loop.
 - `docs/WORKFLOW_TELEMETRY.md` — local task, verification-loop, cadence, and usage metrics.
 - `docs/WEB_CHAT_WORKFLOW.md` — provider-neutral packet and installer workflow.
 - `PLAN.md` — durable roadmap and completion status.
