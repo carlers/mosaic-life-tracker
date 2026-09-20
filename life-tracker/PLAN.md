@@ -43,7 +43,7 @@ this roadmap. Git history and `docs/PROJECT_REFERENCE.md` retain the implementat
 
 ## Phase 4 — specification and accessibility audit
 
-- [ ] Audit instructions, reference discoverability, and enforceable project contracts
+- [x] Audit instructions, reference discoverability, and enforceable project contracts
 - [ ] Complete a WCAG AA review
 - [ ] Add calendar-grid semantics
 - [ ] Add keyboard day navigation to `DayViewSheet` (A11Y-33)
@@ -67,8 +67,7 @@ this roadmap. Git history and `docs/PROJECT_REFERENCE.md` retain the implementat
 
 ## Batch boundary
 
-Phase 3.7 PostHog implementation is present but its final runnable-workspace verification
-and manual staging checks remain pending. The user explicitly authorized starting Phase 4
-before closing that gate. Phase 4.1 (instructions, reference discoverability, and
-enforceable project contracts) is now the active batch; do not mark either Phase 3.7 or
-Phase 4.1 complete until their respective verification requirements are satisfied.
+Phase 4.1 (instructions, reference discoverability, and enforceable project contracts) is
+verified complete. Phase 3.7's automated gate is now green after replacing the oversized
+runtime PostHog SDK with the minimal direct transport, but its live staging/manual checks
+remain pending. Do not mark Phase 3.7 complete until those checks are recorded.

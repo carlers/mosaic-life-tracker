@@ -1,33 +1,41 @@
 // Regression: Phase 3.7 PH-1/PH-2/PH-4/PH-5/PH-6.
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-const posthogRef = vi.hoisted(() => ({
-  init: vi.fn(),
-  identify: vi.fn(),
-  reset: vi.fn(),
-  captureException: vi.fn(),
-  isFeatureEnabled: vi.fn(),
-  onFeatureFlags: vi.fn(),
-}));
+const fetchMock = vi.fn();
 
-vi.mock('posthog-js', () => ({ default: posthogRef }));
+function jsonResponse(
+  body: unknown,
+  options: { ok?: boolean; status?: number } = {}
+): Response {
+  return {
+    ok: options.ok ?? true,
+    status: options.status ?? 200,
+    json: vi.fn().mockResolvedValue(body),
+  } as unknown as Response;
+}
 
 async function loadAdapter(configured = true) {
   vi.resetModules();
   vi.stubEnv('VITE_POSTHOG_TOKEN', configured ? 'phc_test' : '');
-  vi.stubEnv('VITE_POSTHOG_HOST', configured ? 'https://example.posthog.test' : '');
+  vi.stubEnv('VITE_POSTHOG_HOST', configured ? 'https://example.posthog.test/' : '');
   return import('../../src/lib/posthog');
+}
+
+function requestBody(callIndex: number): Record<string, unknown> {
+  const options = fetchMock.mock.calls[callIndex]?.[1] as RequestInit | undefined;
+  return JSON.parse(String(options?.body)) as Record<string, unknown>;
 }
 
 describe('PostHog adapter', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
-    posthogRef.onFeatureFlags.mockReturnValue(() => {});
-    posthogRef.isFeatureEnabled.mockReturnValue(false);
+    fetchMock.mockReset();
+    fetchMock.mockResolvedValue(jsonResponse({ flags: {} }));
+    vi.stubGlobal('fetch', fetchMock);
   });
 
   afterEach(() => {
     vi.unstubAllEnvs();
+    vi.unstubAllGlobals();
     vi.restoreAllMocks();
   });
 
@@ -37,10 +45,9 @@ describe('PostHog adapter', () => {
     adapter.syncPostHogIdentity('user_1');
     adapter.captureHandledException(new Error('ignored'));
     await adapter.initializePostHog();
+    await Promise.resolve();
 
-    expect(posthogRef.init).not.toHaveBeenCalled();
-    expect(posthogRef.identify).not.toHaveBeenCalled();
-    expect(posthogRef.captureException).not.toHaveBeenCalled();
+    expect(fetchMock).not.toHaveBeenCalled();
     expect(adapter.getPostHogFeatureFlagState('flag')).toEqual({
       enabled: false,
       isLoaded: false,
@@ -48,134 +55,158 @@ describe('PostHog adapter', () => {
     });
   });
 
-  it('initializes with privacy-minimal exception tracking configuration', async () => {
+  it('loads flags with only the public token and current distinct id', async () => {
     const adapter = await loadAdapter();
-    await adapter.initializePostHog();
 
-    expect(posthogRef.init).toHaveBeenCalledWith(
-      'phc_test',
-      expect.objectContaining({
-        api_host: 'https://example.posthog.test',
-        autocapture: false,
-        capture_pageview: false,
-        capture_pageleave: false,
-        capture_dead_clicks: false,
-        capture_heatmaps: false,
-        capture_performance: false,
-        disable_session_recording: true,
-        disable_surveys: true,
-        rageclick: false,
-        save_campaign_params: false,
-        save_referrer: false,
-        disableDeviceModel: true,
-        disable_scroll_properties: true,
-        enable_recording_console_log: false,
-        persistence: 'memory',
-        capture_exceptions: {
-          capture_unhandled_errors: true,
-          capture_unhandled_rejections: true,
-          capture_console_errors: false,
-        },
-      })
+    await adapter.initializePostHog();
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      'https://example.posthog.test/flags/?v=2'
     );
+    const body = requestBody(0);
+    expect(body.token).toBe('phc_test');
+    expect(String(body.distinct_id)).toMatch(/^mosaic_anon_/);
+    expect(Object.keys(body).sort()).toEqual(['distinct_id', 'token']);
   });
 
-  it('contains initialization failure and keeps callers fail-closed', async () => {
-    const warning = vi.spyOn(console, 'warn').mockImplementation(() => {});
-    posthogRef.init.mockImplementationOnce(() => {
-      throw new Error('init failed');
-    });
-    const adapter = await loadAdapter();
-
-    await expect(adapter.initializePostHog()).resolves.toBeUndefined();
-
-    expect(adapter.getPostHogFeatureFlagState('flag')).toEqual({
-      enabled: false,
-      isLoaded: false,
-      hasError: true,
-    });
-    expect(warning).toHaveBeenCalled();
-  });
-
-  it('applies identity requested before async initialization completes', async () => {
+  it('uses the requested Appwrite id, suppresses duplicates, and resets to a fresh anonymous id', async () => {
     const adapter = await loadAdapter();
 
     adapter.syncPostHogIdentity('user_1');
-    await adapter.initializePostHog();
-    await Promise.resolve();
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    expect(requestBody(0).distinct_id).toBe('user_1');
 
-    expect(posthogRef.identify).toHaveBeenCalledWith('user_1');
-  });
-
-  it('suppresses duplicate identify and resets an identified session on null', async () => {
-    const adapter = await loadAdapter();
-    await adapter.initializePostHog();
-
-    adapter.syncPostHogIdentity('user_1');
     adapter.syncPostHogIdentity('user_1');
     await Promise.resolve();
-    expect(posthogRef.identify).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
 
     adapter.syncPostHogIdentity(null);
-    await Promise.resolve();
-    expect(posthogRef.reset).toHaveBeenCalledTimes(1);
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+    const anonymousId = String(requestBody(1).distinct_id);
+    expect(anonymousId).toMatch(/^mosaic_anon_/);
+    expect(anonymousId).not.toBe('user_1');
   });
 
-  it('captures handled exceptions with only caller-supplied diagnostic context', async () => {
+  it('captures handled exceptions through the minimal PostHog event endpoint with raw stack frames', async () => {
     const adapter = await loadAdapter();
     await adapter.initializePostHog();
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    fetchMock.mockClear();
+
     const error = new Error('boundary failed');
-
+    error.stack =
+      'Error: boundary failed\n    at render (https://app.test/assets/index.js:10:20)';
     adapter.captureHandledException(error, { boundary: 'HomePage' });
-    await Promise.resolve();
 
-    expect(posthogRef.captureException).toHaveBeenCalledWith(error, {
-      boundary: 'HomePage',
-    });
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      'https://example.posthog.test/i/v0/e/'
+    );
+
+    const body = requestBody(0);
+    expect(body.api_key).toBe('phc_test');
+    expect(body.event).toBe('$exception');
+    const properties = body.properties as Record<string, unknown>;
+    expect(properties.boundary).toBe('HomePage');
+    expect(properties.$exception_level).toBe('error');
+    expect(properties.$exception_list).toEqual([
+      expect.objectContaining({
+        type: 'Error',
+        value: 'boundary failed',
+        mechanism: expect.objectContaining({ handled: true }),
+        stacktrace: {
+          type: 'raw',
+          frames: [
+            expect.objectContaining({
+              filename: 'https://app.test/assets/index.js',
+              function: 'render',
+              lineno: 10,
+              colno: 20,
+              platform: 'web:javascript',
+            }),
+          ],
+        },
+      }),
+    ]);
   });
 
-  it('fails feature flags closed, reloads subscribers, and reads without exposure events', async () => {
-    let flagsCallback: (() => void) | undefined;
-    posthogRef.onFeatureFlags.mockImplementation((callback: () => void) => {
-      flagsCallback = callback;
-      return () => {};
-    });
-    posthogRef.isFeatureEnabled.mockReturnValue(true);
+  it('fails flags closed, parses v2 variants, and notifies subscribers after identity reload', async () => {
+    fetchMock
+      .mockResolvedValueOnce(
+        jsonResponse({
+          flags: {
+            enabled: { enabled: true, variant: null },
+            variant: { enabled: true, variant: 'treatment' },
+          },
+        })
+      )
+      .mockResolvedValueOnce(
+        jsonResponse({ flags: { enabled: { enabled: false, variant: null } } })
+      );
+
     const adapter = await loadAdapter();
     const listener = vi.fn();
     const unsubscribe = adapter.subscribePostHogFeatureFlags(listener);
-    await adapter.initializePostHog();
 
-    expect(adapter.getPostHogFeatureFlagState('new-ui').enabled).toBe(false);
+    expect(adapter.getPostHogFeatureFlagState('enabled').enabled).toBe(false);
+    await vi.waitFor(() =>
+      expect(adapter.getPostHogFeatureFlagState('enabled')).toEqual({
+        enabled: true,
+        isLoaded: true,
+        hasError: false,
+      })
+    );
+    expect(adapter.getPostHogFeatureFlagState('variant').enabled).toBe(true);
 
-    flagsCallback?.();
-
+    listener.mockClear();
+    adapter.syncPostHogIdentity('user_2');
+    await vi.waitFor(() =>
+      expect(adapter.getPostHogFeatureFlagState('enabled')).toEqual({
+        enabled: false,
+        isLoaded: true,
+        hasError: false,
+      })
+    );
     expect(listener).toHaveBeenCalled();
-    expect(adapter.getPostHogFeatureFlagState('new-ui')).toEqual({
-      enabled: true,
-      isLoaded: true,
-      hasError: false,
-    });
-    expect(posthogRef.isFeatureEnabled).toHaveBeenCalledWith('new-ui', {
-      send_event: false,
-      defaultValue: false,
-    });
     unsubscribe();
   });
 
   it('keeps flags disabled and reports a load error after a request failure', async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse({}, { ok: false, status: 503 }));
+    const adapter = await loadAdapter();
+
+    await adapter.initializePostHog();
+    await vi.waitFor(() =>
+      expect(adapter.getPostHogFeatureFlagState('new-ui')).toEqual({
+        enabled: false,
+        isLoaded: false,
+        hasError: true,
+      })
+    );
+  });
+
+  it('installs only browser error, rejection, and reconnect listeners', async () => {
+    const addEventListener = vi.fn();
+    const removeEventListener = vi.fn();
+    const setInterval = vi.fn(() => 7);
+    const clearInterval = vi.fn();
+    vi.stubGlobal('window', {
+      addEventListener,
+      removeEventListener,
+      setInterval,
+      clearInterval,
+    });
+
     const adapter = await loadAdapter();
     await adapter.initializePostHog();
-    const config = posthogRef.init.mock.calls[0][1] as {
-      on_request_error: () => void;
-    };
 
-    config.on_request_error();
-
-    expect(adapter.getPostHogFeatureFlagState('new-ui')).toEqual({
-      enabled: false,
-      isLoaded: false,
-      hasError: true,
-    });
+    expect(addEventListener.mock.calls.map(([name]) => name)).toEqual([
+      'error',
+      'unhandledrejection',
+      'online',
+    ]);
+    adapter.disposePostHog();
+    expect(clearInterval).toHaveBeenCalledWith(7);
   });
 });

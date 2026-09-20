@@ -1,12 +1,12 @@
 # Session state
 
 Updated: 2026-09-20
-Current task: Phase 4.1 + GitHub remote verification workflow
-Status: remote verification workflow implemented; GitHub Actions verification pending
+Current task: Phase 3.7 build-size repair — minimal PostHog transport
+Status: minimal PostHog transport verified; live PostHog/browser checks pending
 Roadmap pointer: `PLAN.md` — Phase 4.1 is active by explicit user authorization; Phase 3.7 remains verification-pending and must not be marked complete yet
 Checkpoint: Phase 4.1 contract discovery remains implemented. Added a GitHub-connected-chat execution path: `.github/workflows/verify.yml` runs `npm ci` + the canonical `npm run verify` on `chatgpt/**` pushes, pull requests, or manual dispatch; stale runs cancel. Local verify still auto-copies output, while CI skips clipboard handling and retains logs in Actions. `docs/REMOTE_VERIFY.md` documents the phone-only loop and the one-commit-per-task history rule. AGENTS.md now prohibits micro-commit churn by default.
 Next action: Inspect the automatically triggered GitHub Actions `Verify` run for this task commit. If red, repair from the Actions log without requiring user terminal relay; if green, use that result as the automated acceptance gate, then complete any remaining manual Phase 3.7 / UI checks before closing their roadmap items.
-Blockers: Browser/device/live-service checks remain manual. Repository verification can now run through GitHub Actions.
+Blockers: Live PostHog dashboard/source-map verification and browser/device visual checks remain manual.
 
 ## Phase 4.1 acceptance
 
@@ -25,7 +25,7 @@ Blockers: Browser/device/live-service checks remain manual. Repository verificat
 - `docs/PROJECT_REFERENCE.md`
 - `package.json`
 - `scripts/check-project-contracts.mjs`
-- `scripts/verify.mjs`
+- `scripts/verify.mjs`\n- `src/lib/posthog.ts`\n- `tests/unit/posthog.test.ts`\n- `package.json`\n- `package-lock.json`
 - `docs/REMOTE_VERIFY.md`
 - `.github/workflows/verify.yml`
 
@@ -40,7 +40,7 @@ Blockers: Browser/device/live-service checks remain manual. Repository verificat
 - Updated `AGENTS.md` so documentation-only work runs the contract check and its reference map points contributors to the README index.
 - Recorded the user's explicit authorization to start Phase 4 while Phase 3.7 remains verification-pending.
 - Added the GitHub Actions remote verification path for phone-only work.
-- Added the one-commit-per-task rule and documented how remote CI fits that history contract.
+- Added the one-commit-per-task rule and documented how remote CI fits that history contract.\n- Attributed the aggregate/precache regression to the PostHog browser runtime bundle.\n- Replaced runtime SDK usage with privacy-minimal direct flag/exception transport; source-map upload remains build-time through `@posthog/rollup-plugin`.
 
 ## Verification
 

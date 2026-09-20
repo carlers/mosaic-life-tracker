@@ -4,36 +4,67 @@ type FeatureFlagState = {
   hasError: boolean;
 };
 
-type PostHogClient = {
-  init: (token: string, config: Record<string, unknown>) => unknown;
-  identify: (distinctId: string) => void;
-  reset: () => void;
-  captureException: (
-    error: unknown,
-    additionalProperties?: Record<string, unknown>
-  ) => unknown;
-  isFeatureEnabled: (
-    key: string,
-    options?: { send_event?: boolean; defaultValue?: boolean }
-  ) => boolean | undefined;
-  onFeatureFlags: (callback: () => void) => () => void;
+type PostHogConfig = {
+  token: string;
+  host: string;
 };
 
-let client: PostHogClient | null = null;
-let initializePromise: Promise<void> | null = null;
-let configured = true;
-let initializationFailed = false;
-let flagsLoaded = false;
-let flagsFailed = false;
-let desiredUserId: string | null = null;
-let identifiedUserId: string | null = null;
-let unsubscribeFlags: (() => void) | null = null;
+type FlagValue = boolean | string;
+
+type StackFrame = {
+  platform: 'web:javascript';
+  filename?: string;
+  function?: string;
+  lineno?: number;
+  colno?: number;
+};
+
+type ExceptionMechanism = {
+  type: string;
+  handled: boolean;
+};
+
+type FallbackFrame = {
+  filename?: string;
+  lineno?: number;
+  colno?: number;
+};
+
+const FLAG_REFRESH_MS = 5 * 60 * 1000;
 const flagListeners = new Set<() => void>();
 
-function getConfig() {
+let config: PostHogConfig | null = null;
+let configured = true;
+let initializePromise: Promise<void> | null = null;
+let desiredUserId: string | null = null;
+let anonymousDistinctId = createAnonymousId();
+let flags: Record<string, FlagValue> = {};
+let flagsLoaded = false;
+let flagsFailed = false;
+let flagRequestGeneration = 0;
+let errorHandler: ((event: ErrorEvent) => void) | null = null;
+let rejectionHandler: ((event: PromiseRejectionEvent) => void) | null = null;
+let onlineHandler: (() => void) | null = null;
+let refreshTimer: number | null = null;
+
+function createAnonymousId(): string {
+  const randomId = globalThis.crypto?.randomUUID?.();
+  if (randomId) return `mosaic_anon_${randomId}`;
+  return `mosaic_anon_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+}
+
+function getConfig(): PostHogConfig | null {
   const token = import.meta.env.VITE_POSTHOG_TOKEN?.trim();
-  const host = import.meta.env.VITE_POSTHOG_HOST?.trim();
-  return token && host ? { token, host } : null;
+  const rawHost = import.meta.env.VITE_POSTHOG_HOST?.trim();
+  if (!token || !rawHost) return null;
+  return {
+    token,
+    host: rawHost.replace(/\/+$/, ''),
+  };
+}
+
+function currentDistinctId(): string {
+  return desiredUserId ?? anonymousDistinctId;
 }
 
 function notifyFlags(): void {
@@ -41,33 +72,267 @@ function notifyFlags(): void {
 }
 
 function markFlagsPending(): void {
+  flags = {};
   flagsLoaded = false;
   flagsFailed = false;
   notifyFlags();
 }
 
-function applyDesiredIdentity(): void {
-  if (!client) return;
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
 
-  if (desiredUserId) {
-    if (identifiedUserId === desiredUserId) return;
-    markFlagsPending();
-    client.identify(desiredUserId);
-    identifiedUserId = desiredUserId;
-    return;
+function parseFlagValues(payload: unknown): Record<string, FlagValue> {
+  if (!isRecord(payload)) return {};
+
+  const result: Record<string, FlagValue> = {};
+  const v2Flags = payload.flags;
+  if (isRecord(v2Flags)) {
+    for (const [key, detail] of Object.entries(v2Flags)) {
+      if (typeof detail === 'boolean' || typeof detail === 'string') {
+        result[key] = detail;
+        continue;
+      }
+      if (!isRecord(detail)) continue;
+      const variant = detail.variant;
+      const enabled = detail.enabled;
+      if (typeof variant === 'string') {
+        result[key] = variant;
+      } else if (typeof enabled === 'boolean') {
+        result[key] = enabled;
+      }
+    }
+    return result;
   }
 
-  if (identifiedUserId !== null) {
-    markFlagsPending();
-    client.reset();
-    identifiedUserId = null;
+  const legacyFlags = payload.featureFlags;
+  if (Array.isArray(legacyFlags)) {
+    for (const key of legacyFlags) {
+      if (typeof key === 'string') result[key] = true;
+    }
+  } else if (isRecord(legacyFlags)) {
+    for (const [key, value] of Object.entries(legacyFlags)) {
+      if (typeof value === 'boolean' || typeof value === 'string') {
+        result[key] = value;
+      }
+    }
   }
+
+  return result;
+}
+
+async function reloadFeatureFlags(): Promise<void> {
+  const activeConfig = config;
+  if (!activeConfig) return;
+
+  const generation = ++flagRequestGeneration;
+  markFlagsPending();
+
+  try {
+    const response = await fetch(`${activeConfig.host}/flags/?v=2`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        token: activeConfig.token,
+        distinct_id: currentDistinctId(),
+      }),
+    });
+    if (!response.ok) throw new Error(`PostHog flags request failed: ${response.status}`);
+    const payload: unknown = await response.json();
+    if (generation !== flagRequestGeneration) return;
+
+    flags = parseFlagValues(payload);
+    flagsLoaded = true;
+    flagsFailed = false;
+    notifyFlags();
+  } catch {
+    if (generation !== flagRequestGeneration) return;
+    flags = {};
+    flagsLoaded = false;
+    flagsFailed = true;
+    notifyFlags();
+  }
+}
+
+function parseStack(stack: string | undefined): StackFrame[] {
+  if (!stack) return [];
+
+  const frames: StackFrame[] = [];
+  for (const rawLine of stack.split('\n')) {
+    const line = rawLine.trim();
+    let match = /^at\s+(?:(.*?)\s+\()?(.+?):(\d+):(\d+)\)?$/.exec(line);
+    if (!match) {
+      match = /^(.*?)@(.+?):(\d+):(\d+)$/.exec(line);
+    }
+    if (!match) continue;
+
+    const [, functionName, filename, lineNumber, columnNumber] = match;
+    frames.push({
+      platform: 'web:javascript',
+      filename,
+      function: functionName?.trim() || '?',
+      lineno: Number(lineNumber),
+      colno: Number(columnNumber),
+    });
+    if (frames.length >= 50) break;
+  }
+
+  return frames.reverse();
+}
+
+function describeThrown(value: unknown): {
+  type: string;
+  message: string;
+  stack?: string;
+} {
+  if (value instanceof Error) {
+    return {
+      type: value.name || 'Error',
+      message: value.message || value.name || 'Error',
+      stack: value.stack,
+    };
+  }
+
+  if (isRecord(value)) {
+    const type = typeof value.name === 'string' ? value.name : 'Error';
+    const message =
+      typeof value.message === 'string' ? value.message : String(value);
+    const stack = typeof value.stack === 'string' ? value.stack : undefined;
+    return { type, message, stack };
+  }
+
+  return {
+    type: 'Error',
+    message: typeof value === 'string' ? value : String(value),
+  };
+}
+
+function buildExceptionProperties(
+  value: unknown,
+  mechanism: ExceptionMechanism,
+  context?: Record<string, unknown>,
+  fallbackFrame?: FallbackFrame
+): Record<string, unknown> {
+  const described = describeThrown(value);
+  const frames = parseStack(described.stack);
+
+  if (frames.length === 0 && fallbackFrame?.filename) {
+    frames.push({
+      platform: 'web:javascript',
+      filename: fallbackFrame.filename,
+      function: '?',
+      lineno: fallbackFrame.lineno,
+      colno: fallbackFrame.colno,
+    });
+  }
+
+  return {
+    ...context,
+    $lib: 'mosaic',
+    $lib_version: 'web',
+    $exception_level: 'error',
+    $exception_list: [
+      {
+        type: described.type,
+        value: described.message,
+        mechanism: {
+          type: mechanism.type,
+          handled: mechanism.handled,
+          synthetic: false,
+          exception_id: 0,
+        },
+        ...(frames.length > 0
+          ? { stacktrace: { type: 'raw', frames } }
+          : {}),
+      },
+    ],
+  };
+}
+
+async function sendException(
+  value: unknown,
+  mechanism: ExceptionMechanism,
+  context?: Record<string, unknown>,
+  fallbackFrame?: FallbackFrame
+): Promise<void> {
+  const activeConfig = config;
+  if (!activeConfig) return;
+
+  try {
+    await fetch(`${activeConfig.host}/i/v0/e/`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      keepalive: true,
+      body: JSON.stringify({
+        api_key: activeConfig.token,
+        event: '$exception',
+        distinct_id: currentDistinctId(),
+        properties: buildExceptionProperties(
+          value,
+          mechanism,
+          context,
+          fallbackFrame
+        ),
+      }),
+    });
+  } catch {
+    // Error reporting must never affect application behavior.
+  }
+}
+
+function installBrowserHandlers(): void {
+  if (typeof window === 'undefined' || errorHandler || rejectionHandler) return;
+
+  errorHandler = (event: ErrorEvent) => {
+    const value = event.error ?? new Error(event.message || 'Unhandled browser error');
+    void sendException(
+      value,
+      { type: 'generic', handled: false },
+      undefined,
+      {
+        filename: event.filename,
+        lineno: event.lineno,
+        colno: event.colno,
+      }
+    );
+  };
+
+  rejectionHandler = (event: PromiseRejectionEvent) => {
+    void sendException(event.reason, { type: 'generic', handled: false });
+  };
+
+  onlineHandler = () => {
+    void reloadFeatureFlags();
+  };
+
+  window.addEventListener('error', errorHandler);
+  window.addEventListener('unhandledrejection', rejectionHandler);
+  window.addEventListener('online', onlineHandler);
+  refreshTimer = window.setInterval(() => {
+    void reloadFeatureFlags();
+  }, FLAG_REFRESH_MS);
+}
+
+function uninstallBrowserHandlers(): void {
+  if (typeof window === 'undefined') return;
+
+  if (errorHandler) window.removeEventListener('error', errorHandler);
+  if (rejectionHandler) {
+    window.removeEventListener('unhandledrejection', rejectionHandler);
+  }
+  if (onlineHandler) window.removeEventListener('online', onlineHandler);
+  if (refreshTimer !== null) window.clearInterval(refreshTimer);
+
+  errorHandler = null;
+  rejectionHandler = null;
+  onlineHandler = null;
+  refreshTimer = null;
 }
 
 export function initializePostHog(): Promise<void> {
   if (initializePromise) return initializePromise;
 
-  const config = getConfig();
+  config = getConfig();
   if (!config) {
     configured = false;
     initializePromise = Promise.resolve();
@@ -75,91 +340,49 @@ export function initializePostHog(): Promise<void> {
   }
 
   configured = true;
-  initializePromise = import('posthog-js')
-    .then((module) => {
-      const posthog = module.default as unknown as PostHogClient;
-      posthog.init(config.token, {
-        api_host: config.host,
-        autocapture: false,
-        capture_pageview: false,
-        capture_pageleave: false,
-        capture_dead_clicks: false,
-        capture_heatmaps: false,
-        capture_performance: false,
-        disable_session_recording: true,
-        disable_surveys: true,
-        rageclick: false,
-        save_campaign_params: false,
-        save_referrer: false,
-        disableDeviceModel: true,
-        disable_scroll_properties: true,
-        enable_recording_console_log: false,
-        persistence: 'memory',
-        capture_exceptions: {
-          capture_unhandled_errors: true,
-          capture_unhandled_rejections: true,
-          capture_console_errors: false,
-        },
-        on_request_error: () => {
-          if (!flagsLoaded) {
-            flagsFailed = true;
-            notifyFlags();
-          }
-        },
-      });
-      client = posthog;
-      unsubscribeFlags = posthog.onFeatureFlags(() => {
-        flagsLoaded = true;
-        flagsFailed = false;
-        notifyFlags();
-      });
-      applyDesiredIdentity();
-    })
-    .catch((error) => {
-      initializationFailed = true;
-      flagsFailed = true;
-      notifyFlags();
-      console.warn('[PostHog] Initialization failed:', error);
-    });
-
+  installBrowserHandlers();
+  initializePromise = Promise.resolve();
+  void reloadFeatureFlags();
   return initializePromise;
 }
 
 export function syncPostHogIdentity(userId: string | null): void {
+  if (desiredUserId === userId) return;
+
+  const wasIdentified = desiredUserId !== null;
   desiredUserId = userId;
-  void initializePostHog().then(applyDesiredIdentity);
+  if (userId === null && wasIdentified) {
+    anonymousDistinctId = createAnonymousId();
+  }
+
+  if (initializePromise) {
+    void initializePromise.then(reloadFeatureFlags);
+  } else {
+    void initializePostHog();
+  }
 }
 
 export function captureHandledException(
   error: unknown,
   context?: Record<string, unknown>
 ): void {
-  void initializePostHog().then(() => {
-    client?.captureException(error, context);
-  });
+  void initializePostHog().then(() =>
+    sendException(error, { type: 'generic', handled: true }, context)
+  );
 }
 
 export function getPostHogFeatureFlagState(flagKey: string): FeatureFlagState {
-  if (
-    !configured ||
-    initializationFailed ||
-    flagsFailed ||
-    !flagsLoaded ||
-    !client
-  ) {
+  if (!configured || !config || flagsFailed || !flagsLoaded) {
     return {
       enabled: false,
       isLoaded: flagsLoaded && !flagsFailed,
-      hasError: initializationFailed || flagsFailed,
+      hasError: flagsFailed,
     };
   }
 
+  const value = flags[flagKey];
   return {
-    enabled:
-      client.isFeatureEnabled(flagKey, {
-        send_event: false,
-        defaultValue: false,
-      }) === true,
+    enabled: value === true || (typeof value === 'string' && value.length > 0),
     isLoaded: true,
     hasError: false,
   };
@@ -174,6 +397,6 @@ export function subscribePostHogFeatureFlags(listener: () => void): () => void {
 }
 
 export function disposePostHog(): void {
-  unsubscribeFlags?.();
-  unsubscribeFlags = null;
+  flagRequestGeneration += 1;
+  uninstallBrowserHandlers();
 }

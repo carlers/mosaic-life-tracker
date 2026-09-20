@@ -704,38 +704,42 @@ The exact baseline, limits, exclusions, and refresh protocol live in
 ### 24.15 PostHog error tracking and feature flags
 
 Phase 3.7 establishes a single PostHog ownership boundary in `src/lib/posthog.ts`.
-Application components and hooks do not import `posthog-js` directly. Initialization is
-lazy and non-blocking; missing `VITE_POSTHOG_TOKEN` or `VITE_POSTHOG_HOST` makes the
-adapter a clean no-op so bootstrap, RxDB, auth resolution, rendering, and offline startup
-remain independent of PostHog.
+Mosaic deliberately does not ship the PostHog browser SDK: the Phase 3.6 aggregate/precache
+budgets do not have room for its runtime bundle. The adapter uses PostHog's browser-facing
+HTTP contracts directly: `POST /flags/?v=2` for remote flag evaluation and
+`POST /i/v0/e/` for `$exception` ingestion. Initialization is lazy and non-blocking;
+missing `VITE_POSTHOG_TOKEN` or `VITE_POSTHOG_HOST` makes the adapter a clean no-op so
+bootstrap, RxDB, auth resolution, rendering, and offline startup remain independent of
+PostHog.
 
-The browser configuration is privacy-minimal: autocapture, pageview/pageleave capture,
-dead clicks, heatmaps, performance capture, session recording, surveys, rage clicks,
-campaign/referrer persistence, device-model collection, scroll properties, and console-log
-capture are disabled. Persistence is memory-only. Exception autocapture is limited to
-uncaught browser errors and unhandled promise rejections; console errors are not
-autocaptured. Mosaic does not emit ordinary product analytics in this phase.
+Privacy-minimal behavior is structural rather than configuration-based: there is no
+autocapture, pageview/pageleave capture, dead-click tracking, heatmaps, performance
+capture, session recording, surveys, rage-click tracking, campaign/referrer persistence,
+device-model collection, scroll capture, console capture, or ordinary product analytics.
+The adapter installs only browser error, unhandled-rejection, and online listeners plus a
+five-minute flag refresh timer. Identity and flag state are memory-only.
 
 `AuthProvider` remains the only session-state owner. Once auth resolution finishes it
 passes only the resolved Appwrite `user.$id` (including the OFF-1 cached identity) to the
 adapter. Email, display name, preferences, bio, and other person properties are not sent.
-The adapter suppresses repeated identification of the same ID and resets only after a
-confirmed transition to unauthenticated state. Network/offline failures preserve the
-resolved identity and therefore do not trigger reset.
+The adapter suppresses repeated identification of the same ID. Logout creates a fresh
+memory-only anonymous distinct ID; network/offline failures preserve the resolved identity
+and therefore do not trigger reset.
 
 Root and route error boundaries keep their existing fallback, retry, navigation, and
-chunk-load recovery behavior while reporting handled exceptions with only boundary labels
-and the React component stack. The already-caught fatal database-bootstrap failure is also
-reported. Existing expected retry/network/auth/outbox/sync logging is not promoted into
-PostHog events.
+chunk-load recovery behavior while reporting handled exceptions with only caller-supplied
+diagnostic context. Browser errors and unhandled rejections are reported as unhandled.
+Events use PostHog's standard `$exception_list` / raw stack-frame shape so uploaded source
+maps can symbolicate production frames. Existing expected retry/network/auth/outbox/sync
+logging and `console.error` calls are not promoted into PostHog events.
 
 `useFeatureFlag` is the React consumption boundary. Its public state is
-`{ enabled, isLoaded, hasError }`; flags fail closed and remain disabled until PostHog
-has successfully supplied flag state. Reload notifications update consumers. Reads use
-`send_event: false`, so flag consumption does not intentionally emit
-`$feature_flag_called` exposure analytics. Flags must never gate migrations, auth or sync
-correctness, destructive operations, offline-data invariants, or any behavior required for
-Mosaic to work offline.
+`{ enabled, isLoaded, hasError }`; flags fail closed and remain disabled until a successful
+`/flags/?v=2` response. Flag reads emit no `$feature_flag_called` exposure analytics
+because the adapter has no product-event capture path. Flags reload after identity changes,
+browser reconnect, and on a five-minute timer. Flags must never gate migrations, auth or
+sync correctness, destructive operations, offline-data invariants, or any behavior required
+for Mosaic to work offline.
 
 Production source-map upload uses `@posthog/rollup-plugin` only when all three build-only
 variables are present: `POSTHOG_PERSONAL_API_KEY`, `POSTHOG_PROJECT_ID`, and

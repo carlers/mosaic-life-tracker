@@ -321,3 +321,28 @@ is next.
   generated asset globs and automatic manifest-icon inclusion.
 - [Rolldown output metadata](https://rolldown.rs/reference/Interface.OutputChunk):
   emitted chunk and module attribution fields.
+
+### 2026-09-20 Phase 3.7 PostHog bundle repair
+
+The first Phase 3.7 production build exposed a runtime-SDK regression that the Phase 3.6
+guard correctly rejected. The full PostHog browser import produced an approximately 288 kB
+raw dynamic chunk and pushed aggregate app assets to 2,133,464 B raw / 644,514 B gzip and
+unique precache to 2,193,871 B. A slim-browser-SDK experiment still exceeded the locked
+budget, so the limits were not changed.
+
+Mosaic now keeps the build-time PostHog source-map plugin but implements the narrow runtime
+Phase 3.7 contract directly in `src/lib/posthog.ts`: remote flags use `/flags/?v=2` and
+exceptions use `/i/v0/e/` with PostHog's standard exception-list/raw-frame shape. GitHub
+Actions run 35522367810 then passed the existing guard without a budget update:
+
+| Metric | Phase 3.7 verified | Existing limit |
+|---|---:|---:|
+| Entry raw | 859,609 B | 900,000 B |
+| Entry gzip | 266,572 B | 280,000 B |
+| Aggregate app assets raw | 1,847,510 B | 1,935,000 B |
+| Aggregate app assets gzip | 550,524 B | 577,000 B |
+| Unique precache | 1,907,917 B | 2,000,000 B |
+
+This keeps Phase 3.6's regression ceilings intact while adding the Phase 3.7 capabilities.
+Live PostHog ingestion, flags, privacy settings, and source-map symbolication remain staging
+checks rather than build-size evidence.
