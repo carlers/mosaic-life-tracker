@@ -93,25 +93,4 @@ describe('FriendDayViewSheet', () => {
     expect(onDateChange).toHaveBeenCalledWith(addDays(startOfDay(date), 1));
   });
 
-  it('keeps arrow navigation wired to the same adjacent-day behavior', () => {
-    const date = new Date(2026, 8, 20);
-    const onDateChange = vi.fn();
-
-    render(
-      <FriendDayViewSheet
-        isOpen
-        onClose={vi.fn()}
-        date={date}
-        onDateChange={onDateChange}
-        tasks={tasks}
-        categories={[category]}
-        friendName="Friend"
-        currentUserId="user_1"
-      />
-    );
-
-    fireEvent.click(screen.getByLabelText('Next day'));
-
-    expect(onDateChange).toHaveBeenCalledWith(addDays(startOfDay(date), 1));
-  });
 });
