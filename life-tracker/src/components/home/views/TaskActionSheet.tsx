@@ -64,7 +64,13 @@ export const TaskActionSheet: React.FC<TaskActionSheetProps> = ({
     : labelForVisibility(effective as TaskVisibility);
 
   return (
-    <BottomSheet isOpen={isOpen} onClose={onClose} title={task.title} height="auto">
+    <BottomSheet
+      isOpen={isOpen}
+      onClose={onClose}
+      title={task.title}
+      height="auto"
+      backdropBlur
+    >
       <div className="pt-2 pb-8 px-4">
         {/* Grid */}
         <div className="grid grid-cols-2 gap-3 mb-6">
