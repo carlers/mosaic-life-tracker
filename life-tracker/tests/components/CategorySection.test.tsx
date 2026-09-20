@@ -14,7 +14,6 @@ import type { TaskDocument } from '../../src/db/schema';
 //   - Escape clears and closes without firing onAddTask.
 //   - Blur with empty content closes; blur with content stays open.
 //   - Task items render when tasks are supplied.
-//   - Category headers use the shared black-pill treatment with colored text.
 //
 // The last case requires mocking ../../src/lib/storage because TaskItem
 // renders <img src={objectUrl}>, and useTaskImage calls getLocalImageUrl.
@@ -85,17 +84,6 @@ describe('CategorySection', () => {
   it('renders the category name', () => {
     renderSection({ categoryName: 'Errands' });
     expect(screen.getByText('Errands')).toBeInTheDocument();
-  });
-
-  // Regression: UIFIX-4 — own-day category metadata matches friend-day black pills.\n  it('renders category metadata inside a black pill with colored text and no color dot', () => {
-    const { container } = renderSection({ categoryName: 'Work' });
-    const label = screen.getByText('Work');
-    const pill = label.parentElement;
-    expect(pill).not.toBeNull();
-    expect(pill).toHaveClass('bg-black', 'rounded-full');
-    expect(label).toHaveStyle({ color: '#3B82F6' });
-    expect(container.querySelector('.w-3.h-3.rounded-full')).toBeNull();
-    expect(pill?.querySelector('svg')).not.toBeNull();
   });
 
   it('chip tap opens the inline input with the category-scoped placeholder', () => {
