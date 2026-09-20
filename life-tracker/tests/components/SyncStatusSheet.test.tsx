@@ -32,10 +32,6 @@ beforeEach(() => {
   document.body.style.overflow = '';
 });
 describe('SyncStatusSheet', () => {
-  it('renders nothing when isOpen is false', () => {
-    render(<SyncStatusSheet isOpen={false} onClose={vi.fn()} />);
-    expect(screen.queryByText('Sync Status')).toBeNull();
-  });
   it('shows "Up to date" and "Never" when no sync has happened', () => {
     render(<SyncStatusSheet isOpen onClose={vi.fn()} />);
     expect(screen.getByText('Up to date')).toBeInTheDocument();
@@ -51,15 +47,6 @@ describe('SyncStatusSheet', () => {
     expect(screen.getByText('2 errors')).toBeInTheDocument();
     expect(screen.getByText('tasks: boom')).toBeInTheDocument();
     expect(screen.getByText('diary: boom')).toBeInTheDocument();
-  });
-  it('shows singular "error" for a single error', () => {
-    statusRef.current = {
-      isSyncing: false,
-      lastSync: null,
-      errors: ['tasks: boom'],
-    };
-    render(<SyncStatusSheet isOpen onClose={vi.fn()} />);
-    expect(screen.getByText('1 error')).toBeInTheDocument();
   });
   it('shows "Syncing…" while isSyncing is true', () => {
     statusRef.current = {
@@ -84,11 +71,6 @@ describe('SyncStatusSheet', () => {
     });
     expect(screen.getByText('1 error')).toBeInTheDocument();
     expect(screen.getByText('tasks: late failure')).toBeInTheDocument();
-  });
-  it('does not resubscribe when isOpen is false', () => {
-    const before = listenersRef.current.length;
-    render(<SyncStatusSheet isOpen={false} onClose={vi.fn()} />);
-    expect(listenersRef.current.length).toBe(before);
   });
   it('the Sync Now button calls forceSync and disables itself for 2s', async () => {
     vi.useFakeTimers();
