@@ -95,7 +95,11 @@ export function initializePostHog(): Promise<void> {
         disable_scroll_properties: true,
         enable_recording_console_log: false,
         persistence: 'memory',
-        capture_exceptions: true,
+        capture_exceptions: {
+          capture_unhandled_errors: true,
+          capture_unhandled_rejections: true,
+          capture_console_errors: false,
+        },
         on_request_error: () => {
           if (!flagsLoaded) {
             flagsFailed = true;
