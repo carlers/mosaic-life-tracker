@@ -187,6 +187,46 @@ describe('TaskActionSheet', () => {
     expect(screen.queryByText(/·\s*Default/)).toBeNull();
   });
 
+  it('uses the blurred modal backdrop while open', () => {
+    render(
+      <TaskActionSheet
+        isOpen
+        task={makeTask()}
+        category={makeCategory()}
+        {...makeCallbacks()}
+      />
+    );
+    expect(document.body.querySelector('.backdrop-blur-sm')).not.toBeNull();
+  });
+
+  it('closes the action surface while dispatching nested-sheet actions', () => {
+    const cbs = makeCallbacks();
+    render(
+      <TaskActionSheet
+        isOpen
+        task={makeTask({ image: '' })}
+        category={makeCategory()}
+        {...cbs}
+      />
+    );
+
+    fireEvent.click(screen.getByText('Visibility'));
+    expect(cbs.onVisibility).toHaveBeenCalledTimes(1);
+    expect(cbs.onClose).toHaveBeenCalledTimes(1);
+
+    fireEvent.click(screen.getByText('Memo'));
+    expect(cbs.onMemo).toHaveBeenCalledTimes(1);
+    expect(cbs.onClose).toHaveBeenCalledTimes(2);
+
+    fireEvent.click(screen.getByText('Add Photo'));
+    expect(cbs.onAddPhoto).toHaveBeenCalledTimes(1);
+    expect(cbs.onClose).toHaveBeenCalledTimes(3);
+
+    fireEvent.click(screen.getByText('Change Date'));
+    expect(cbs.onChangeDate).toHaveBeenCalledTimes(1);
+    expect(cbs.onClose).toHaveBeenCalledTimes(4);
+  });
+
   it('"Do It Tomorrow" vs "Do It Today" label depends on the task date', () => {
     const { rerender } = render(
       <TaskActionSheet
