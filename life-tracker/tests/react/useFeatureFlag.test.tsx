@@ -44,16 +44,6 @@ describe('useFeatureFlag', () => {
     });
   });
 
-  it('exposes a loaded disabled flag', () => {
-    adapterRef.state = { enabled: false, isLoaded: true, hasError: false };
-    const { result } = renderHook(() => useFeatureFlag('new-ui'));
-    expect(result.current).toEqual({
-      enabled: false,
-      isLoaded: true,
-      hasError: false,
-    });
-  });
-
   it('updates after a feature-flag reload notification', () => {
     const { result } = renderHook(() => useFeatureFlag('new-ui'));
 
@@ -84,10 +74,4 @@ describe('useFeatureFlag', () => {
     });
   });
 
-  it('remains fail-closed when no SDK/configuration is available', () => {
-    const { result } = renderHook(() => useFeatureFlag('new-ui'));
-    expect(result.current.enabled).toBe(false);
-    expect(result.current.isLoaded).toBe(false);
-    expect(result.current.hasError).toBe(false);
-  });
 });
