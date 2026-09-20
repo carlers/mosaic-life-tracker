@@ -1,4 +1,4 @@
-// Regression: pre-Phase-4 UI bug batch — day arrows must behave like user navigation.
+// Regression: UIFIX-10 — day arrows must behave like user navigation.
 import { act, renderHook } from '@testing-library/react';
 import { addDays, startOfDay } from 'date-fns';
 import { describe, expect, it, vi } from 'vitest';
