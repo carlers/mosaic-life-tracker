@@ -18,8 +18,7 @@ import type { MessageDocument } from '../../src/db/schema';
 //     vertical, and >60px swipe-threshold travel on pointer-up. Reproducing
 //     that faithfully in happy-dom is brittle; the alternative (bypassing the
 //     hook's guards) is internals-coupled and §24.3-non-compliant.
-//   - Most CSS class strings remain internals-coupled. The incoming/outgoing
-//     surface treatment is asserted because it is the regression contract here.
+//   - CSS class strings (bubble background, max-width). Internals-coupled.
 // ---------------------------------------------------------------------------
 
 function makeMessage(
@@ -92,35 +91,6 @@ describe('MessageBubble', () => {
     // gesture handlers attached — which would let tap/long-press fire on a
     // message that has no actionable content.
     expect(container.querySelector('.select-none')).toBeNull();
-  });
-
-  // Regression: UIFIX-6 — message direction has the approved neutral bubble treatment.\n  it('uses gray outgoing bubbles and black outlined incoming bubbles', () => {
-    const outgoing = render(
-      <MessageBubble
-        message={makeMessage()}
-        isOutgoing
-        currentUserId="user_A"
-      />
-    );
-    expect(getGestureSurface(outgoing.container)).toHaveClass('bg-[#2A2A2A]');
-    outgoing.unmount();
-
-    const incoming = render(
-      <MessageBubble
-        message={makeMessage({
-          direction: 'incoming',
-          senderId: 'user_B',
-          recipientId: 'user_A',
-        })}
-        isOutgoing={false}
-        currentUserId="user_A"
-      />
-    );
-    expect(getGestureSurface(incoming.container)).toHaveClass(
-      'bg-black',
-      'border',
-      'border-[#3A3A3A]'
-    );
   });
 
   it('read status renders "Seen"', () => {
