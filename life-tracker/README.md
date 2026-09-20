@@ -36,6 +36,8 @@ npm run verify
 precache payload exceeds its reviewed byte budget. To recheck an existing `dist/`
 without rebuilding, run `npm run build:size`.
 
+`npm run verify` runs the project-contract check, lint, full test suite, and production build in fail-fast order. Its terminal output is streamed normally and the complete captured run is copied to the system clipboard on exit, including failed runs. Clipboard availability is best-effort and never changes the verification exit status.
+
 For faster edit/test loops, use the scoped commands in
 [the test workflow](docs/TEST_WORKFLOW.md); full verification remains the completion gate.
 Local, privacy-preserving task and repair-loop metrics are documented in
