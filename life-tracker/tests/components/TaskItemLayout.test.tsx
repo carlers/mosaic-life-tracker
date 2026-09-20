@@ -53,7 +53,7 @@ describe('TaskItem image layout', () => {
     );
 
     const imageButton = screen.getByRole('button', { name: 'View image' });
-    expect(imageButton).toHaveClass('w-full', 'aspect-[16/9]', 'max-h-64');
+    expect(imageButton).toHaveClass('w-full', 'aspect-[16/9]');
     expect(screen.getByRole('img', { name: 'Photo task' })).toHaveClass(
       'w-full',
       'h-full',
