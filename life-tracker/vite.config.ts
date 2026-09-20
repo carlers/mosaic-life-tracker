@@ -2,11 +2,31 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
 import basicSsl from '@vitejs/plugin-basic-ssl';
+import posthog from '@posthog/rollup-plugin';
+
+const posthogSourceMapsEnabled = Boolean(
+  process.env.POSTHOG_PERSONAL_API_KEY &&
+    process.env.POSTHOG_PROJECT_ID &&
+    process.env.POSTHOG_HOST
+);
+
+const posthogSourceMapPlugin = posthogSourceMapsEnabled
+  ? posthog({
+      personalApiKey: process.env.POSTHOG_PERSONAL_API_KEY!,
+      projectId: process.env.POSTHOG_PROJECT_ID!,
+      host: process.env.POSTHOG_HOST!,
+      sourcemaps: {
+        enabled: true,
+        deleteAfterUpload: true,
+      },
+    })
+  : null;
 
 export default defineConfig({
   plugins: [
     react(),
     basicSsl(),
+    ...(posthogSourceMapPlugin ? [posthogSourceMapPlugin] : []),
     VitePWA({
       // Keep an installed update waiting until the old worker controls no
       // clients: close all Mosaic tabs and installed-app windows, then reopen.
@@ -71,4 +91,7 @@ export default defineConfig({
       }
     })
   ],
+  build: {
+    sourcemap: posthogSourceMapsEnabled ? 'hidden' : false,
+  },
 });
