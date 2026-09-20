@@ -56,6 +56,7 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
   const tasksByDate = useTasksByDate(tasks);
 
   const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
+  const [isActionSheetOpen, setIsActionSheetOpen] = useState(false);
   const [viewingTaskId, setViewingTaskId] = useState<string | null>(null);
   const [imagePickerTaskId, setImagePickerTaskId] = useState<string | null>(null);
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
@@ -107,7 +108,15 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
     isOpen,
     selectedDate,
     onDateChange,
-    isDisabled: isMemoOpen || isDatePickerOpen || isDeleteConfirmOpen,
+    isDisabled:
+      isActionSheetOpen ||
+      isMemoOpen ||
+      isDatePickerOpen ||
+      isVisibilityOpen ||
+      isDeleteConfirmOpen ||
+      isImageViewerOpen ||
+      deletePhotoConfirmOpen ||
+      !!imagePickerTaskId,
   });
 
   const handleToggleTask = useCallback(
@@ -132,10 +141,11 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
 
   const handleOpenActions = useCallback((task: TaskDocument) => {
     setActiveTaskId(task.id);
+    setIsActionSheetOpen(true);
   }, []);
 
   const handleCloseActions = useCallback(() => {
-    setActiveTaskId(null);
+    setIsActionSheetOpen(false);
   }, []);
 
   const handleOpenMemo = useCallback((task: TaskDocument) => {
@@ -200,6 +210,7 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
 
   const handleRequestDeletePhoto = () => {
     setDeletePhotoConfirmOpen(true);
+    setIsActionSheetOpen(false);
   };
 
   const handleConfirmDeletePhoto = async () => {
@@ -212,6 +223,7 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
 
   const handleCancelDeletePhoto = () => {
     setDeletePhotoConfirmOpen(false);
+    setActiveTaskId(null);
   };
 
   const handleImagePickerSave = useCallback(
@@ -232,6 +244,7 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
 
   const handleCloseImagePicker = useCallback(() => {
     setImagePickerTaskId(null);
+    setActiveTaskId(null);
   }, []);
 
   const handleVisibilitySave = useCallback(
@@ -261,19 +274,25 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
 
   const handleOpenDatePicker = useCallback(() => {
     setIsDatePickerOpen(true);
+    setIsActionSheetOpen(false);
   }, []);
 
   const handleOpenVisibility = useCallback(() => {
     setIsVisibilityOpen(true);
+    setIsActionSheetOpen(false);
   }, []);
 
   const handleOpenDeleteConfirm = useCallback(() => {
     setIsDeleteConfirmOpen(true);
+    setIsActionSheetOpen(false);
   }, []);
 
   const handleOpenImageViewer = useCallback(() => {
+    if (!activeTask) return;
+    setViewingTaskId(activeTask.id);
     setIsImageViewerOpen(true);
-  }, []);
+    setIsActionSheetOpen(false);
+  }, [activeTask]);
 
   const handleCloseImageViewer = useCallback(() => {
     setIsImageViewerOpen(false);
@@ -281,16 +300,20 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
   }, []);
 
   const handleOpenImagePicker = useCallback(() => {
-    setImagePickerTaskId(activeTask?.id ?? null);
+    if (!activeTask) return;
+    setImagePickerTaskId(activeTask.id);
+    setIsActionSheetOpen(false);
   }, [activeTask]);
 
   const isBackgroundLocked =
+    isActionSheetOpen ||
     isMemoOpen ||
     isDatePickerOpen ||
     isVisibilityOpen ||
     isDeleteConfirmOpen ||
     isImageViewerOpen ||
-    deletePhotoConfirmOpen;
+    deletePhotoConfirmOpen ||
+    !!imagePickerTaskId;
   const imageViewerLoadingFallback = (
     <div
       className="fixed inset-0 z-[80] bg-black flex items-center justify-center px-6"
@@ -319,8 +342,10 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
     <BottomSheet
       isOpen={isOpen}
       onClose={onClose}
-      title={format(selectedDate, 'EEEE, MMM d')}
+      title={format(selectedDate, 'EEEE, MMMM d, yyyy')}
       height="full"
+      isLocked={isBackgroundLocked}
+      suspendInteraction={isBackgroundLocked}
     >
       <div className="flex items-center justify-between px-4 py-2">
         <button
@@ -330,8 +355,8 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
         >
           <ChevronLeft size={20} />
         </button>
-        <span className="text-sm text-gray-400">
-          {format(selectedDate, 'MMM d, yyyy')}
+        <span className="sr-only" aria-live="polite">
+          {format(selectedDate, 'EEEE, MMMM d, yyyy')}
         </span>
         <button
           onClick={handleNextDay}
@@ -379,7 +404,7 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
         })}
       </Swiper>
       <TaskActionSheet
-        isOpen={!!activeTask}
+        isOpen={isActionSheetOpen && !!activeTask}
         onClose={handleCloseActions}
         task={activeTask}
         category={activeTaskCategory}
@@ -388,11 +413,13 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
             setEditingTaskId(activeTask.id);
             setEditValue(activeTask.title);
           }
-          handleCloseActions();
+          setIsActionSheetOpen(false);
+          setActiveTaskId(null);
         }}
         onDelete={handleOpenDeleteConfirm}
         onMemo={() => {
-          handleCloseActions();
+          setIsMemoOpen(true);
+          setIsActionSheetOpen(false);
         }}
         onChangeDate={handleOpenDatePicker}
         onVisibility={handleOpenVisibility}
@@ -430,7 +457,10 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
       </AnimatePresence>
       <ConfirmSheet
         isOpen={isDeleteConfirmOpen}
-        onClose={() => setIsDeleteConfirmOpen(false)}
+        onClose={() => {
+          setIsDeleteConfirmOpen(false);
+          setActiveTaskId(null);
+        }}
         title="Delete Task"
         message="This task will be permanently removed."
         confirmLabel="Delete"
@@ -468,7 +498,6 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
         onSave={handleImagePickerSave}
         onRemove={handleImagePickerRemove}
       />
-      {isBackgroundLocked && null}
       {deleteFeedback && (
         <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[70] bg-[#2A2A2A] text-white text-sm px-4 py-2 rounded-lg shadow-lg">
           {deleteFeedback}
