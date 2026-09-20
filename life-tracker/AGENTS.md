@@ -191,6 +191,8 @@ red classifications, focused/acceptance results, and manual/skipped reasons, end
 
 ## UI rules
 
+- **UI preservation rule:** unless the agreed task explicitly requests a visual or interaction-design change, treat the existing UI as an acceptance constraint. Preserve layout, typography, colors, spacing, sizing, positioning, responsive behavior, visible controls, interaction chrome, and established visual hierarchy. Do not opportunistically restyle, simplify, modernize, rename, move, hide, or replace adjacent UI while fixing unrelated behavior.
+- Keep UI diffs scoped to the requested surface. Refactors and bug fixes must preserve existing rendered appearance and interaction affordances unless a visual change is necessary to satisfy the stated task or an existing documented product contract. When a broader visual change would be required, surface that as a product decision instead of silently expanding scope.
 - Reuse established components and interaction patterns. For genuinely new UX with no
   applicable product spec or repository precedent, obtain a product decision before coding.
 - All modals and slide-ups use the shared `BottomSheet`; destructive confirmations use
