@@ -12,6 +12,7 @@ import {
 } from '../lib/authEvents';
 import { AuthContext } from './authContext';
 import type { Models } from 'appwrite';
+import { syncPostHogIdentity } from '../lib/posthog';
 
 const AUTH_BROADCAST_KEY = 'mosaic_auth_broadcast';
 const LAST_KNOWN_USER_KEY = 'mosaic_last_known_user';
@@ -92,6 +93,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [isOffline, setIsOffline] = useState(false);
   const isMountedRef = useRef(true);
   const resolveInFlightRef = useRef(false);
+  const userId = user?.$id ?? null;
+
+  useEffect(() => {
+    if (!isLoading) syncPostHogIdentity(userId);
+  }, [isLoading, userId]);
 
   /**
    * Runs the session check.
