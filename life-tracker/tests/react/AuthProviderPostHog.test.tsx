@@ -142,6 +142,6 @@ describe('AuthProvider PostHog identity integration', () => {
 
     expect(result.current.user?.$id).toBe('user_1');
     expect(posthogRef.syncPostHogIdentity).not.toHaveBeenCalledWith(null);
-    expect(posthogRef.syncPostHogIdentity).toHaveBeenCalledWith('user_1');
+    expect(posthogRef.syncPostHogIdentity).not.toHaveBeenCalled();
   });
 });
