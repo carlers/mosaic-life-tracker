@@ -10,6 +10,8 @@ interface BottomSheetProps {
   title?: string;
   height?: 'auto' | 'full';
   isLocked?: boolean;
+  suspendInteraction?: boolean;
+  backdropBlur?: boolean;
 }
 
 let openSheetCount = 0;
@@ -22,13 +24,15 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
   title,
   height = 'auto',
   isLocked = false,
+  suspendInteraction = false,
+  backdropBlur = false,
 }) => {
   const sheetRef = useRef<HTMLDivElement>(null);
   const dragControls = useDragControls();
   const sheetId = React.useId();
   const titleId = React.useId();
 
-  useFocusTrap(sheetRef, isOpen);
+  useFocusTrap(sheetRef, isOpen && !suspendInteraction);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -83,12 +87,13 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
             exit={{ opacity: 0 }}
             onClick={onClose}
             aria-hidden="true"
-            className="fixed inset-0 z-[50] bg-black/60"
+            className={`fixed inset-0 z-[50] bg-black/60 ${backdropBlur ? 'backdrop-blur-sm' : ''}`}
           />
           <motion.div
             ref={sheetRef}
             role="dialog"
             aria-modal="true"
+            aria-hidden={suspendInteraction ? true : undefined}
             aria-labelledby={title ? titleId : undefined}
             initial={{ y: '100%' }}
             animate={{ y: 0 }}
@@ -103,7 +108,7 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
             onDragEnd={(_, info) => {
               if (info.offset.y > 100 || info.velocity.y > 500) onClose();
             }}
-            className={`fixed bottom-0 left-0 right-0 z-[60] bg-[#1E1E1E] text-white shadow-2xl flex flex-col overflow-hidden ${heightClass}`}
+            className={`fixed bottom-0 left-0 right-0 z-[60] bg-[#1E1E1E] text-white shadow-2xl flex flex-col overflow-hidden ${heightClass} ${suspendInteraction ? 'pointer-events-none select-none' : ''}`}
           >
             <div
               className={`flex-shrink-0 pt-3 pb-2 px-4 flex flex-col items-center transition-all duration-300 ${
