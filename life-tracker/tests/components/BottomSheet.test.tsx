@@ -91,6 +91,7 @@ describe('BottomSheet', () => {
     expect(dialog).not.toBeNull();
     expect(dialog).toHaveAttribute('aria-hidden', 'true');
     expect(dialog).toHaveClass('pointer-events-none', 'select-none');
+    expect(dialog?.previousElementSibling).toHaveClass('pointer-events-none');
   });
 
   it('adds backdrop blur only when requested', () => {
