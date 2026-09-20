@@ -125,7 +125,7 @@ before it could write or checkpoint.
 Run checks from this directory. Choose the smallest sufficient set, then broaden when
 risk or failures justify it:
 
-- Documentation-only: check links/references, `git diff --check`, and inspect the diff.
+- Documentation-only: run `npm run contracts:check`, check `git diff --check`, and inspect the diff.
 - Focused logic or component change: run the relevant test file during iteration, then
   its `test:unit`, `test:handlers`, or `test:dom` project; broaden when shared paths changed.
 - Cross-cutting/runtime batch: `npm run lint`, `npm test`, and `npm run build`.
@@ -216,6 +216,8 @@ support, and sync/error hardening. Notifications remains a Coming Soon route. To
 and Diary views remain backlog work. `PLAN.md` is authoritative for sequencing.
 
 ## Reference map
+
+The table in `README.md` is the contributor-facing contract index. The map below is the compact agent lookup. `npm run contracts:check` verifies these authoritative entry points and their local Markdown links remain discoverable.
 
 - `docs/PROJECT_REFERENCE.md` — detailed numbered product and architecture contracts,
   accepted limitations, test patterns, and historical decisions.
