@@ -45,6 +45,24 @@ automated, red-green, manual, skipped, or not-applicable evidence without judgin
 Mobile PWA testing requires a Cloudflare Tunnel (`cloudflared tunnel --url
 http://localhost:5173`) and the tunnel URL must be allowed in Appwrite Platforms.
 
+## Project contracts
+
+Use this map before changing behavior or project process. Each file owns a distinct kind of truth rather than forming one global precedence stack:
+
+| Concern | Authoritative source |
+|---|---|
+| Active implementation rules and non-negotiable constraints | [AGENTS.md](AGENTS.md) |
+| Durable product and architecture contracts | [Project reference](docs/PROJECT_REFERENCE.md) |
+| Roadmap sequencing and verified completion state | [PLAN.md](PLAN.md) |
+| Current checkpoint, pending verification, and next action | [SESSION_STATE.md](SESSION_STATE.md) |
+| Workspace-agent execution | [Workspace-agent workflow](docs/CODEX_WORKFLOW.md) |
+| Web/mobile chat execution | [Web-chat workflow](docs/WEB_CHAT_WORKFLOW.md) |
+| Test evidence and discovery | [Test workflow](docs/TEST_WORKFLOW.md) |
+| Local workflow telemetry | [Workflow telemetry](docs/WORKFLOW_TELEMETRY.md) |
+| Production bundle budgets and audit history | [Bundle audit](docs/BUNDLE_AUDIT.md) |
+
+Run `npm run contracts:check` after documentation/reference changes. It verifies that the authoritative files exist, required entry-point pointers remain discoverable, and local Markdown links in those files resolve. `npm run verify` runs this check before lint, tests, and build.
+
 ## AI workflows
 
 Mosaic supports two provider-neutral execution adapters:
