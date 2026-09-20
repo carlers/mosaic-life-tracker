@@ -683,6 +683,58 @@ to make verification pass. `npm run build:size` checks an existing `dist/`; the 
 The exact baseline, limits, exclusions, and refresh protocol live in
 `docs/BUNDLE_AUDIT.md`.
 
+
+### 24.15 PostHog error tracking and feature flags
+
+Phase 3.7 establishes a single PostHog ownership boundary in `src/lib/posthog.ts`.
+Application components and hooks do not import `posthog-js` directly. Initialization is
+lazy and non-blocking; missing `VITE_POSTHOG_TOKEN` or `VITE_POSTHOG_HOST` makes the
+adapter a clean no-op so bootstrap, RxDB, auth resolution, rendering, and offline startup
+remain independent of PostHog.
+
+The browser configuration is privacy-minimal: autocapture, pageview/pageleave capture,
+dead clicks, heatmaps, performance capture, session recording, surveys, rage clicks,
+campaign/referrer persistence, device-model collection, scroll properties, and console-log
+capture are disabled. Persistence is memory-only. Exception autocapture is limited to
+uncaught browser errors and unhandled promise rejections; console errors are not
+autocaptured. Mosaic does not emit ordinary product analytics in this phase.
+
+`AuthProvider` remains the only session-state owner. Once auth resolution finishes it
+passes only the resolved Appwrite `user.$id` (including the OFF-1 cached identity) to the
+adapter. Email, display name, preferences, bio, and other person properties are not sent.
+The adapter suppresses repeated identification of the same ID and resets only after a
+confirmed transition to unauthenticated state. Network/offline failures preserve the
+resolved identity and therefore do not trigger reset.
+
+Root and route error boundaries keep their existing fallback, retry, navigation, and
+chunk-load recovery behavior while reporting handled exceptions with only boundary labels
+and the React component stack. The already-caught fatal database-bootstrap failure is also
+reported. Existing expected retry/network/auth/outbox/sync logging is not promoted into
+PostHog events.
+
+`useFeatureFlag` is the React consumption boundary. Its public state is
+`{ enabled, isLoaded, hasError }`; flags fail closed and remain disabled until PostHog
+has successfully supplied flag state. Reload notifications update consumers. Reads use
+`send_event: false`, so flag consumption does not intentionally emit
+`$feature_flag_called` exposure analytics. Flags must never gate migrations, auth or sync
+correctness, destructive operations, offline-data invariants, or any behavior required for
+Mosaic to work offline.
+
+Production source-map upload uses `@posthog/rollup-plugin` only when all three build-only
+variables are present: `POSTHOG_PERSONAL_API_KEY`, `POSTHOG_PROJECT_ID`, and
+`POSTHOG_HOST`. Those names are deliberately not `VITE_` variables and are unavailable
+to browser code. Credentialed builds use hidden source maps and request deletion after a
+successful upload; ordinary builds create no source maps for this integration. Client
+configuration continues to use only `VITE_POSTHOG_TOKEN` and `VITE_POSTHOG_HOST`.
+The host is never assumed.
+
+IP-discarding is not represented as a client-side setting. If Mosaic requires IP discard,
+configure and verify it in the PostHog project. Live dashboard verification must also
+confirm replay/autocapture/console capture are absent, authenticated distinct IDs equal
+Appwrite `$id` with no profile properties, logout creates a fresh anonymous identity,
+test flags refresh after identify, intentional exceptions arrive, and uploaded production
+source maps symbolicate stacks.
+
 ## 25. Workflow Portability and History
 
 Mosaic originally used mandatory repository exports, persistent provider-specific chats,
