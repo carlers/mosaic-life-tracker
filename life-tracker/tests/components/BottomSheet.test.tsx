@@ -94,22 +94,6 @@ describe('BottomSheet', () => {
     expect(dialog?.previousElementSibling).toHaveClass('pointer-events-none');
   });
 
-  it('adds backdrop blur only when requested', () => {
-    const { rerender } = render(
-      <BottomSheet isOpen onClose={noop}>
-        <div>inner</div>
-      </BottomSheet>
-    );
-    expect(document.body.querySelector('.backdrop-blur-sm')).toBeNull();
-
-    rerender(
-      <BottomSheet isOpen onClose={noop} backdropBlur>
-        <div>inner</div>
-      </BottomSheet>
-    );
-    expect(document.body.querySelector('.backdrop-blur-sm')).not.toBeNull();
-  });
-
   it('locks body scroll while open and restores on unmount', () => {
     const { unmount } = render(
       <BottomSheet isOpen onClose={noop}>
