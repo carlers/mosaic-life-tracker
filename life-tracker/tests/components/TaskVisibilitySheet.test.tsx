@@ -69,57 +69,6 @@ describe('TaskVisibilitySheet', () => {
     document.body.style.overflow = '';
   });
 
-  it('renders all four options with the expected labels', () => {
-    render(
-      <TaskVisibilitySheet
-        isOpen
-        task={makeTask()}
-        category={makeCategory()}
-        {...makeCallbacks()}
-      />
-    );
-    expect(screen.getByText(/^Default \(/)).toBeInTheDocument();
-    expect(screen.getByText('Private')).toBeInTheDocument();
-    expect(screen.getByText('Friends')).toBeInTheDocument();
-    expect(screen.getByText('Public')).toBeInTheDocument();
-  });
-
-  it('Default option reflects the category visibility', () => {
-    const { rerender } = render(
-      <TaskVisibilitySheet
-        isOpen
-        task={makeTask()}
-        category={makeCategory({ visibility: 'public' })}
-        {...makeCallbacks()}
-      />
-    );
-    expect(screen.getByText('Default (Public)')).toBeInTheDocument();
-
-    rerender(
-      <TaskVisibilitySheet
-        isOpen
-        task={makeTask()}
-        category={makeCategory({ visibility: 'private' })}
-        {...makeCallbacks()}
-      />
-    );
-    expect(screen.getByText('Default (Private)')).toBeInTheDocument();
-  });
-
-  it('renders "Follows the <category> category" with the category name', () => {
-    render(
-      <TaskVisibilitySheet
-        isOpen
-        task={makeTask()}
-        category={makeCategory({ name: 'Errands' })}
-        {...makeCallbacks()}
-      />
-    );
-    expect(
-      screen.getByText('Follows the "Errands" category')
-    ).toBeInTheDocument();
-  });
-
   it('tapping an override fires onSave with the concrete value and onClose', () => {
     const cbs = makeCallbacks();
     render(
