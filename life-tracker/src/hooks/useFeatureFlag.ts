@@ -10,10 +10,27 @@ export interface FeatureFlagState {
   hasError: boolean;
 }
 
+const SERVER_SNAPSHOT = '0:0:0';
+
+function serializeState(flagKey: string): string {
+  const state = getPostHogFeatureFlagState(flagKey);
+  return `${state.enabled ? 1 : 0}:${state.isLoaded ? 1 : 0}:${state.hasError ? 1 : 0}`;
+}
+
+function deserializeState(snapshot: string): FeatureFlagState {
+  const [enabled, isLoaded, hasError] = snapshot.split(':');
+  return {
+    enabled: enabled === '1',
+    isLoaded: isLoaded === '1',
+    hasError: hasError === '1',
+  };
+}
+
 export function useFeatureFlag(flagKey: string): FeatureFlagState {
-  return useSyncExternalStore(
+  const snapshot = useSyncExternalStore(
     subscribePostHogFeatureFlags,
-    () => getPostHogFeatureFlagState(flagKey),
-    () => ({ enabled: false, isLoaded: false, hasError: false })
+    () => serializeState(flagKey),
+    () => SERVER_SNAPSHOT
   );
+  return deserializeState(snapshot);
 }
