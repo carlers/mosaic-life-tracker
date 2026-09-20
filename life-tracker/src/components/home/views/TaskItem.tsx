@@ -143,7 +143,7 @@ export const TaskItem: React.FC<TaskItemProps> = ({
                 onViewImage?.(task);
               }}
               onPointerDown={(e) => e.stopPropagation()}
-              className="mt-2 block w-full aspect-[16/9] max-h-64"
+              className="mt-2 block w-full aspect-[16/9]"
               aria-label="View image"
             >
               <img
@@ -157,7 +157,7 @@ export const TaskItem: React.FC<TaskItemProps> = ({
           ) : (
             <div
               aria-hidden="true"
-              className={`mt-2 w-full aspect-[16/9] max-h-64 rounded-xl bg-gray-500/20 ${
+              className={`mt-2 w-full aspect-[16/9] rounded-xl bg-gray-500/20 ${
                 isLoading ? 'animate-pulse' : ''
               }`}
             />
