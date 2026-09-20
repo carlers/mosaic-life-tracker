@@ -119,28 +119,12 @@ export function useDayViewSwiper({
 
   const handlePrevDay = useCallback(() => {
     if (isDisabled) return;
-    const swiper = swiperRef.current;
-    if (!swiper) return;
-    isProgrammaticMoveRef.current = true;
-    swiper.slidePrev();
-    if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
-    rafRef.current = requestAnimationFrame(() => {
-      rafRef.current = null;
-      isProgrammaticMoveRef.current = false;
-    });
+    swiperRef.current?.slidePrev();
   }, [isDisabled]);
 
   const handleNextDay = useCallback(() => {
     if (isDisabled) return;
-    const swiper = swiperRef.current;
-    if (!swiper) return;
-    isProgrammaticMoveRef.current = true;
-    swiper.slideNext();
-    if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
-    rafRef.current = requestAnimationFrame(() => {
-      rafRef.current = null;
-      isProgrammaticMoveRef.current = false;
-    });
+    swiperRef.current?.slideNext();
   }, [isDisabled]);
 
   return {
