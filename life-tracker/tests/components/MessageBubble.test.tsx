@@ -94,7 +94,7 @@ describe('MessageBubble', () => {
     expect(container.querySelector('.select-none')).toBeNull();
   });
 
-  it('uses gray outgoing bubbles and black outlined incoming bubbles', () => {
+  // Regression: UIFIX-6 — message direction has the approved neutral bubble treatment.\n  it('uses gray outgoing bubbles and black outlined incoming bubbles', () => {
     const outgoing = render(
       <MessageBubble
         message={makeMessage()}
