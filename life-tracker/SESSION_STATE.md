@@ -4,7 +4,7 @@ Updated: 2026-09-20
 Current task: Pre-Phase-4 UI regression batch + Phase 3.7 final verification
 Status: implementation complete; runnable-workspace verification pending
 Roadmap pointer: `PLAN.md` — do not advance to Phase 4 until this regression batch and the Phase 3.7 verification gate are green
-Checkpoint: The 12 user-reported calendar/day-sheet/chat regressions are implemented on `chatgpt/phase-3-7-posthog`. The suite has been pruned toward behavioral/state coverage: 38 low-value, styling-only, symmetric, duplicate, or superseded cases were removed across the two pruning passes. Projected current suite size is ~473 tests / 62 files pending local discovery. `npm run verify` owns the lint → test → build gate.
+Checkpoint: The 12 user-reported calendar/day-sheet/chat regressions are implemented on `chatgpt/phase-3-7-posthog`. A repository-level UI preservation rule is now active in `AGENTS.md` and mirrored in `docs/PROJECT_REFERENCE.md`: visual/interaction changes require explicit task scope; unrelated fixes/refactors must preserve shipped UI. The suite has been pruned toward behavioral/state coverage: 38 low-value, styling-only, symmetric, duplicate, or superseded cases were removed across the two pruning passes. Projected current suite size is ~473 tests / 62 files pending local discovery. `npm run verify` owns the lint → test → build gate.
 Next action: Run `npm run verify` locally. If green, run `npm run test:discovery`, complete the test-evidence review for PH-1…PH-9 and UIFIX-1…UIFIX-12, perform the remaining PostHog staging checks, then mark Phase 3.7 complete before starting Phase 4.
 Blockers: This web environment has repository API access only and cannot execute the checkout's npm commands.
 
