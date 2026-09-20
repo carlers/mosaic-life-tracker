@@ -18,9 +18,8 @@ const noop = () => {};
 //   - Drag-to-close. Framer Motion's onDragEnd fires from synthetic pointer
 //     sequences that happy-dom does not reproduce faithfully. A passing test
 //     would validate the framer-motion binding, not the sheet's behavior.
-//   - The `isLocked` visual treatment (opacity / pointer-events-none). That
-//     would require asserting on className strings — internals-coupled and
-//     §24.3-non-compliant.
+//   - Most visual treatment remains internals-coupled. The suspended-sheet
+//     interaction state is asserted because stacked modal safety depends on it.
 // ---------------------------------------------------------------------------
 
 describe('BottomSheet', () => {
@@ -79,6 +78,35 @@ describe('BottomSheet', () => {
     fireEvent.keyDown(window, { key: 'Escape' });
     expect(onCloseB).toHaveBeenCalledTimes(1);
     expect(onCloseA).not.toHaveBeenCalled();
+  });
+
+  it('can suspend an underlying stacked sheet so it is hidden from accessibility and pointer interaction', () => {
+    render(
+      <BottomSheet isOpen onClose={noop} suspendInteraction>
+        <button type="button">Underlying action</button>
+      </BottomSheet>
+    );
+
+    const dialog = document.body.querySelector('[role="dialog"]');
+    expect(dialog).not.toBeNull();
+    expect(dialog).toHaveAttribute('aria-hidden', 'true');
+    expect(dialog).toHaveClass('pointer-events-none', 'select-none');
+  });
+
+  it('adds backdrop blur only when requested', () => {
+    const { rerender } = render(
+      <BottomSheet isOpen onClose={noop}>
+        <div>inner</div>
+      </BottomSheet>
+    );
+    expect(document.body.querySelector('.backdrop-blur-sm')).toBeNull();
+
+    rerender(
+      <BottomSheet isOpen onClose={noop} backdropBlur>
+        <div>inner</div>
+      </BottomSheet>
+    );
+    expect(document.body.querySelector('.backdrop-blur-sm')).not.toBeNull();
   });
 
   it('locks body scroll while open and restores on unmount', () => {
