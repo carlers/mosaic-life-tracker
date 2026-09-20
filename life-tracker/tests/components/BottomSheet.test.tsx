@@ -80,7 +80,7 @@ describe('BottomSheet', () => {
     expect(onCloseA).not.toHaveBeenCalled();
   });
 
-  it('can suspend an underlying stacked sheet so it is hidden from accessibility and pointer interaction', () => {
+  // Regression: UIFIX-8/UIFIX-9 — stacked sheets suspend underlying interaction.\n  it('can suspend an underlying stacked sheet so it is hidden from accessibility and pointer interaction', () => {
     render(
       <BottomSheet isOpen onClose={noop} suspendInteraction>
         <button type="button">Underlying action</button>
