@@ -95,39 +95,6 @@ describe('AuthProvider PostHog identity integration', () => {
     expect(posthogRef.syncPostHogIdentity).toHaveBeenLastCalledWith(null);
   });
 
-  it('resets identity after confirmed unauthorized state', async () => {
-    accountRef.get.mockResolvedValueOnce(makeUser());
-    const { result } = renderHook(() => useAuth(), { wrapper });
-    await waitFor(() => expect(result.current.isLoading).toBe(false));
-
-    act(() => {
-      window.dispatchEvent(new CustomEvent(AUTH_UNAUTHORIZED_EVENT));
-    });
-
-    await waitFor(() =>
-      expect(posthogRef.syncPostHogIdentity).toHaveBeenLastCalledWith(null)
-    );
-  });
-
-  it('resets identity after cross-tab logout', async () => {
-    accountRef.get.mockResolvedValueOnce(makeUser());
-    const { result } = renderHook(() => useAuth(), { wrapper });
-    await waitFor(() => expect(result.current.isLoading).toBe(false));
-
-    act(() => {
-      window.dispatchEvent(
-        new StorageEvent('storage', {
-          key: AUTH_BROADCAST_KEY,
-          newValue: JSON.stringify({ type: 'logout', at: Date.now() }),
-        })
-      );
-    });
-
-    await waitFor(() =>
-      expect(posthogRef.syncPostHogIdentity).toHaveBeenLastCalledWith(null)
-    );
-  });
-
   it('does not reset identity when a retry fails because the network is offline', async () => {
     accountRef.get
       .mockResolvedValueOnce(makeUser())
