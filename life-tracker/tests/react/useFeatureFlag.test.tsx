@@ -1,3 +1,4 @@
+// Regression: Phase 3.7 PH-5/PH-6.
 import { act, renderHook } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
