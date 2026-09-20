@@ -42,7 +42,7 @@ export const MonthView: React.FC<MonthViewProps> = ({
   const weekDays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col min-h-full">
       <div
         className="grid grid-cols-7 gap-1 px-2 mb-1"
         aria-hidden="true"
@@ -56,7 +56,7 @@ export const MonthView: React.FC<MonthViewProps> = ({
           </div>
         ))}
       </div>
-      <div className="grid grid-cols-7 gap-1 px-2 flex-1 auto-rows-fr">
+      <div className="grid grid-cols-7 gap-1 px-2 auto-rows-min">
         {calendarDays.map((day) => {
           const dateStr = format(day, 'yyyy-MM-dd');
           return (
