@@ -41,6 +41,8 @@ For product-spec detail beyond the above (aesthetic descriptions and reference-a
 parity notes), inspect `PRODUCT_NOTES.md` if that file exists; otherwise this section
 is authoritative.
 
+**UI preservation contract:** Existing shipped UI is part of the product contract even when a task is primarily behavioral. Unless a task explicitly requests a visual or interaction-design change, preserve the current layout, typography, colors, spacing, sizing, positioning, responsive behavior, visible controls, interaction chrome, and visual hierarchy. Bug fixes and refactors must not opportunistically restyle or rearrange neighboring UI. If satisfying a task would require a broader visual change, treat that as a separate product decision rather than silently widening scope.
+
 ## 3. Strict Constraints
 - **Platform budget:** $0 for Apple while relying on PWA "Add to Home Screen"; $25
   one-time for Google Play if native distribution enters scope
