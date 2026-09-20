@@ -268,7 +268,7 @@ export const ChatPage: React.FC = () => {
       )}
       <div
         ref={scrollRef}
-        className="flex-1 overflow-y-auto px-4 py-4 space-y-1"
+        className="flex-1 min-w-0 overflow-y-auto overflow-x-hidden px-4 py-4 space-y-1"
       >
         {isLoading ? (
           <div className="flex items-center justify-center h-full">
