@@ -806,3 +806,4 @@ On 2026-09-19, `life-tracker/` became the AI working root. Workspace agents and 
 | 2026-09-17 | §0 dedup follow-up | §0 | Merged former rules 2 + 10 into one; §0 is now 9 rules grouped by action (schema → sync → messaging → cross-user → auth → tooling) | §0 |
 | 2026-09-19 | Portable AI workflows | §5, §25 | Codex and DeepSeek shared neutral state; compact role packets replaced mandatory repository exports; full-file installer retained | Git history |
 | 2026-09-20 | Capability-based AI workflows | §5, §25 | Workspace agents and provider-neutral web chats share rolling checkpoints, generic handoffs, and mid-batch recovery | `docs/CODEX_WORKFLOW.md`, `docs/WEB_CHAT_WORKFLOW.md` |
+| 2026-09-20 | Phase 4 contract discoverability | §0.1, README, AGENTS | Added concern-based contract index, structural reference checker, and verify-gate enforcement for authoritative project docs | `scripts/check-project-contracts.mjs` |
