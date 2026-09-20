@@ -1,4 +1,5 @@
 // Regression: pre-Phase-4 UI bug batch — task actions must transition to sibling sheets without losing task context.
+import type { ReactNode } from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import type { CategoryDocument, TaskDocument } from '../../src/db/schema';
@@ -34,7 +35,7 @@ vi.mock('swiper/react', () => ({
     children,
     onSwiper,
   }: {
-    children: React.ReactNode;
+    children: ReactNode;
     onSwiper?: (swiper: unknown) => void;
   }) => {
     onSwiper?.({
@@ -45,7 +46,7 @@ vi.mock('swiper/react', () => ({
     });
     return <div data-testid="day-swiper">{children}</div>;
   },
-  SwiperSlide: ({ children }: { children: React.ReactNode }) => (
+  SwiperSlide: ({ children }: { children: ReactNode }) => (
     <div>{children}</div>
   ),
 }));
