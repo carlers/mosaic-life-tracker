@@ -6,7 +6,7 @@ const USER_ID = 'e2e_appwrite_user';
 
 test.use({ ignoreHTTPSErrors: true });
 
-test('PostHog probe survives redirect and stays privacy-minimal', async ({ page }) => {
+test('PostHog browser contract stays privacy-minimal across identity changes', async ({ page }) => {
   const posthogRequests = [];
 
   await page.addInitScript(
@@ -75,13 +75,86 @@ test('PostHog probe survives redirect and stays privacy-minimal', async ({ page 
     });
   });
 
-  await page.goto(
-    `${BASE_URL}/?__mosaic_posthog_probe=phase-3-7-exception`,
-    { waitUntil: 'domcontentloaded' }
-  );
-
+  await page.goto(BASE_URL, { waitUntil: 'domcontentloaded' });
   await expect.poll(() => new URL(page.url()).pathname).toBe('/home');
-  await expect.poll(() => new URL(page.url()).search).toBe('');
+
+  await expect
+    .poll(
+      () =>
+        posthogRequests.filter(
+          (request) => new URL(request.url).pathname === '/flags/'
+        ).length
+    )
+    .toBeGreaterThanOrEqual(2);
+
+  const initialFlagRequests = posthogRequests.filter(
+    (request) => new URL(request.url).pathname === '/flags/'
+  );
+  const initialAnonymous = initialFlagRequests.find((request) =>
+    String(request.body?.distinct_id).startsWith('mosaic_anon_')
+  )?.body?.distinct_id;
+
+  expect(initialAnonymous).toBeTruthy();
+  expect(
+    initialFlagRequests.some((request) => request.body?.distinct_id === USER_ID)
+  ).toBe(true);
+  for (const request of initialFlagRequests) {
+    expect(Object.keys(request.body ?? {}).sort()).toEqual(['distinct_id', 'token']);
+  }
+
+  await page.evaluate(async () => {
+    const adapter = await import('/src/lib/posthog.ts');
+    adapter.syncPostHogIdentity(null);
+  });
+
+  await expect
+    .poll(() =>
+      posthogRequests
+        .filter((request) => new URL(request.url).pathname === '/flags/')
+        .map((request) => request.body?.distinct_id)
+        .find(
+          (distinctId) =>
+            String(distinctId).startsWith('mosaic_anon_') &&
+            distinctId !== initialAnonymous
+        )
+    )
+    .toBeTruthy();
+
+  const freshAnonymous = posthogRequests
+    .filter((request) => new URL(request.url).pathname === '/flags/')
+    .map((request) => request.body?.distinct_id)
+    .find(
+      (distinctId) =>
+        String(distinctId).startsWith('mosaic_anon_') &&
+        distinctId !== initialAnonymous
+    );
+
+  expect(freshAnonymous).not.toBe(USER_ID);
+
+  await page.evaluate(async (userId) => {
+    const adapter = await import('/src/lib/posthog.ts');
+    adapter.syncPostHogIdentity(userId);
+  }, USER_ID);
+
+  await expect
+    .poll(
+      () =>
+        posthogRequests.filter(
+          (request) =>
+            new URL(request.url).pathname === '/flags/' &&
+            request.body?.distinct_id === USER_ID
+        ).length
+    )
+    .toBeGreaterThanOrEqual(2);
+
+  await page.evaluate(async () => {
+    const adapter = await import('/src/lib/posthog.ts');
+    const error = new Error('Playwright PostHog browser contract exception');
+    error.stack =
+      `Error: Playwright PostHog browser contract exception\n    at contract (${window.location.origin}/src/lib/posthog.ts:10:20)`;
+    adapter.captureHandledException(error, { source: 'playwright-browser-contract' });
+  });
+
   await expect
     .poll(
       () =>
@@ -91,12 +164,6 @@ test('PostHog probe survives redirect and stays privacy-minimal', async ({ page 
     )
     .toBe(1);
 
-  const flagRequests = posthogRequests.filter(
-    (request) => new URL(request.url).pathname === '/flags/'
-  );
-  expect(flagRequests.some((request) => String(request.body?.distinct_id).startsWith('mosaic_anon_'))).toBe(true);
-  expect(flagRequests.some((request) => request.body?.distinct_id === USER_ID)).toBe(true);
-
   const exceptionRequest = posthogRequests.find(
     (request) => new URL(request.url).pathname === '/i/v0/e/'
   );
@@ -105,7 +172,7 @@ test('PostHog probe survives redirect and stays privacy-minimal', async ({ page 
       event: '$exception',
       distinct_id: USER_ID,
       properties: expect.objectContaining({
-        source: 'phase-3-7-live-probe',
+        source: 'playwright-browser-contract',
         $exception_level: 'error',
         $release_id: 'release_e2e',
       }),
@@ -123,6 +190,8 @@ test('PostHog probe survives redirect and stays privacy-minimal', async ({ page 
     )
   ).toBe(true);
 
-  const paths = [...new Set(posthogRequests.map((request) => new URL(request.url).pathname))].sort();
+  const paths = [
+    ...new Set(posthogRequests.map((request) => new URL(request.url).pathname)),
+  ].sort();
   expect(paths).toEqual(['/flags/', '/i/v0/e/']);
 });

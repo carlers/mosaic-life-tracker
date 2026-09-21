@@ -10,13 +10,11 @@ import { installChunkLoadErrorTracking } from './lib/chunkLoadErrors';
 import { initializePwaLifecycle } from './lib/pwaLifecycle';
 import { registerSW } from 'virtual:pwa-register';
 import {
-  armPostHogLiveExceptionProbe,
   captureHandledException,
   initializePostHog,
 } from './lib/posthog';
 
 void initializePostHog();
-armPostHogLiveExceptionProbe(window.location.search);
 installChunkLoadErrorTracking();
 initializePwaLifecycle(window, registerSW);
 

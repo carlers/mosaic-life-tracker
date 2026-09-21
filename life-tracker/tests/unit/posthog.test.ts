@@ -162,52 +162,6 @@ describe('PostHog adapter', () => {
     );
   });
 
-  it('runs the explicit live exception probe once and only after authenticated identity resolves', async () => {
-    const adapter = await loadAdapter();
-
-    expect(adapter.armPostHogLiveExceptionProbe('')).toBe(false);
-    expect(
-      adapter.armPostHogLiveExceptionProbe(
-        '?__mosaic_posthog_probe=phase-3-7-exception'
-      )
-    ).toBe(true);
-
-    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
-    expect(fetchMock.mock.calls[0]?.[0]).toBe(
-      'https://example.posthog.test/flags/?v=2'
-    );
-
-    adapter.syncPostHogIdentity('user_probe');
-    await vi.waitFor(() =>
-      expect(
-        fetchMock.mock.calls.filter(
-          ([url]) => url === 'https://example.posthog.test/i/v0/e/'
-        )
-      ).toHaveLength(1)
-    );
-
-    const exceptionIndex = fetchMock.mock.calls.findIndex(
-      ([url]) => url === 'https://example.posthog.test/i/v0/e/'
-    );
-    const body = requestBody(exceptionIndex);
-    expect(body.event).toBe('$exception');
-    expect(body.distinct_id).toBe('user_probe');
-    expect(body.properties).toEqual(
-      expect.objectContaining({
-        source: 'phase-3-7-live-probe',
-        $exception_level: 'error',
-      })
-    );
-
-    adapter.syncPostHogIdentity('user_probe');
-    await Promise.resolve();
-    expect(
-      fetchMock.mock.calls.filter(
-        ([url]) => url === 'https://example.posthog.test/i/v0/e/'
-      )
-    ).toHaveLength(1);
-  });
-
   it('fails flags closed, parses v2 variants, and notifies subscribers after identity reload', async () => {
     fetchMock
       .mockResolvedValueOnce(

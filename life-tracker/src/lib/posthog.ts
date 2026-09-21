@@ -37,8 +37,6 @@ type InjectedPostHogGlobals = typeof globalThis & {
 };
 
 const FLAG_REFRESH_MS = 5 * 60 * 1000;
-const LIVE_EXCEPTION_PROBE_PARAM = '__mosaic_posthog_probe';
-const LIVE_EXCEPTION_PROBE_VALUE = 'phase-3-7-exception';
 const flagListeners = new Set<() => void>();
 
 let config: PostHogConfig | null = null;
@@ -54,8 +52,6 @@ let errorHandler: ((event: ErrorEvent) => void) | null = null;
 let rejectionHandler: ((event: PromiseRejectionEvent) => void) | null = null;
 let onlineHandler: (() => void) | null = null;
 let refreshTimer: number | null = null;
-let liveExceptionProbeArmed = false;
-let liveExceptionProbeSent = false;
 
 function createAnonymousId(): string {
   const randomId = globalThis.crypto?.randomUUID?.();
@@ -327,24 +323,6 @@ async function sendException(
   }
 }
 
-function maybeSendLiveExceptionProbe(): void {
-  if (
-    !liveExceptionProbeArmed ||
-    liveExceptionProbeSent ||
-    desiredUserId === null ||
-    !config
-  ) {
-    return;
-  }
-
-  liveExceptionProbeSent = true;
-  void sendException(
-    new Error('Mosaic Phase 3.7 live PostHog exception probe'),
-    { type: 'generic', handled: true },
-    { source: 'phase-3-7-live-probe' }
-  );
-}
-
 function installBrowserHandlers(): void {
   if (typeof window === 'undefined' || errorHandler || rejectionHandler) return;
 
@@ -423,25 +401,10 @@ export function syncPostHogIdentity(userId: string | null): void {
   if (initializePromise) {
     void initializePromise.then(() => {
       void reloadFeatureFlags();
-      maybeSendLiveExceptionProbe();
     });
   } else {
-    void initializePostHog().then(maybeSendLiveExceptionProbe);
+    void initializePostHog();
   }
-}
-
-export function armPostHogLiveExceptionProbe(search: string): boolean {
-  const params = new URLSearchParams(search);
-  liveExceptionProbeArmed =
-    params.get(LIVE_EXCEPTION_PROBE_PARAM) === LIVE_EXCEPTION_PROBE_VALUE;
-  if (!liveExceptionProbeArmed) return false;
-
-  if (initializePromise) {
-    void initializePromise.then(maybeSendLiveExceptionProbe);
-  } else {
-    void initializePostHog().then(maybeSendLiveExceptionProbe);
-  }
-  return true;
 }
 
 export function captureHandledException(
