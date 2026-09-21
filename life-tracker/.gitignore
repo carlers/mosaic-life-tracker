@@ -30,3 +30,6 @@ dist-ssr
 pending-changes.txt
 repomix-output.xml
 *.ext
+
+# Vercel local project metadata
+.vercel/

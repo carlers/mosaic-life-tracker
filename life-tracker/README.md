@@ -45,8 +45,10 @@ Local, privacy-preserving task and repair-loop metrics are documented in
 the [test workflow](docs/TEST_WORKFLOW.md) maps every behavioral change to explicit
 automated, red-green, manual, skipped, or not-applicable evidence without judging adequacy.
 
-Mobile PWA testing requires a Cloudflare Tunnel (`cloudflared tunnel --url
-http://localhost:5173`) and the tunnel URL must be allowed in Appwrite Platforms.
+For phone/browser review, prefer the stable hosted preview documented in
+[the preview deployment guide](docs/PREVIEW_DEPLOYMENT.md). Appwrite requires that preview
+hostname to be registered as a Web platform. A Cloudflare Tunnel remains the fallback for
+uncommitted local work.
 
 ## Project contracts
 
@@ -60,6 +62,7 @@ Use this map before changing behavior or project process. Each file owns a disti
 | Current checkpoint, pending verification, and next action | [SESSION_STATE.md](SESSION_STATE.md) |
 | Workspace-agent execution | [Workspace-agent workflow](docs/CODEX_WORKFLOW.md) |
 | GitHub-connected chat and remote verification | [Remote verification workflow](docs/REMOTE_VERIFY.md) |
+| Hosted phone/browser preview | [Preview deployment](docs/PREVIEW_DEPLOYMENT.md) |
 | Web/mobile chat without repository access | [Web-chat workflow](docs/WEB_CHAT_WORKFLOW.md) |
 | Test evidence and discovery | [Test workflow](docs/TEST_WORKFLOW.md) |
 | Local workflow telemetry | [Workflow telemetry](docs/WORKFLOW_TELEMETRY.md) |

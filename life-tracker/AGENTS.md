@@ -141,6 +141,10 @@ before it could write or checkpoint.
   manual. Record those separately.
 - Local `npm run verify` copies its output to the clipboard; CI skips clipboard handling
   and keeps the streamed output in the Actions log.
+- Hosted phone/browser review uses the deployment-only `preview` branch and
+  `docs/PREVIEW_DEPLOYMENT.md`. Move `preview` only to an exact green verified commit
+  and only when deployment/browser review is user-authorized. The preview branch is never
+  a merge or source-development branch.
 
 ## Definition of done
 
@@ -245,6 +249,7 @@ The table in `README.md` is the contributor-facing contract index. The map below
   accepted limitations, test patterns, and historical decisions.
 - `docs/CODEX_WORKFLOW.md` — direct-workspace workflow for local and cloud agents.
 - `docs/REMOTE_VERIFY.md` — GitHub-connected chat workflow and remote verification loop.
+- `docs/PREVIEW_DEPLOYMENT.md` — stable hosted phone/browser preview workflow.
 - `docs/ACCESSIBILITY_AUDIT.md` — current Phase 4 WCAG review findings and manual evidence protocol.
 - `docs/WORKFLOW_TELEMETRY.md` — local task, verification-loop, cadence, and usage metrics.
 - `docs/WEB_CHAT_WORKFLOW.md` — provider-neutral packet and installer workflow.

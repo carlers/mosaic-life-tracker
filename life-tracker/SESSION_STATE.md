@@ -1,51 +1,34 @@
 # Session state
 
 Updated: 2026-09-21
-Current task: Phase 4 WCAG AA review
-Status: source-level remediation verified; browser/manual WCAG evidence pending
-Roadmap pointer: `PLAN.md` — Phase 4 WCAG checkbox remains open until the manual protocol in `docs/ACCESSIBILITY_AUDIT.md` is recorded
-Checkpoint: GitHub Actions run 35551590886 passed the canonical verify gate after the WCAG remediation: contracts and lint green, 63 test files / 476 tests green, production build and PWA policy green, and all Phase 3.6 build-size budgets green. Source-level fixes cover semantic controls, form labels/names, visible focus, dark-theme text contrast, data-driven category/task contrast, selected live status announcements, and the 24px task-completion target. Calendar-grid semantics and A11Y-33 are explicitly out of this batch. Phase 3.7 remains automated-green but live PostHog staging checks are still pending.
-Next action: Complete and record the browser/manual accessibility protocol in `docs/ACCESSIBILITY_AUDIT.md`. Once it passes, mark the WCAG review complete in `PLAN.md`; then proceed to calendar-grid semantics as the next Phase 4 implementation batch.
-Blockers: This GitHub-connected chat cannot supply trustworthy physical-device/browser screen-reader, zoom/reflow, or touch evidence. Live PostHog dashboard/source-map verification also remains manual.
+Current task: stable hosted phone/browser preview
+Status: repository-side Vercel preview setup implemented; provider project/link and Appwrite hostname registration pending
+Roadmap pointer: Phase 4 WCAG source remediation is verified; its browser/manual evidence can use the hosted preview once live
+Checkpoint: Added `life-tracker/vercel.json` with explicit BrowserRouter SPA rewrites, `docs/PREVIEW_DEPLOYMENT.md`, Vercel metadata ignore rules, and preview-workflow contracts. The intended deployment topology is one Vercel project rooted at `life-tracker/` with production branch `preview`. A stable hostname is deliberate because Appwrite requires browser origins to be registered as Web platforms.
+Next action: Connect/create the Vercel project, set Root Directory=`life-tracker` and Production Branch=`preview`, obtain the stable Vercel hostname, then register that hostname once in Appwrite as `Mosaic Preview`. After that, hosted phone review becomes part of the GitHub-connected workflow.
+Blockers: Vercel account connection is user-authorized but still requires the user to connect the Vercel ChatGPT plugin/account. Appwrite currently has no ChatGPT connector, so registering the final hostname may require one short Console action by the user after the hostname exists.
 
-## Phase 4 WCAG source-review acceptance
+## Preview acceptance
 
-- A11Y-R1 — interactive regressions found in shipped surfaces use native semantics or retain keyboard equivalents.
-- A11Y-R2 — audited form fields have associated labels or persistent accessible names.
-- A11Y-R3 — audited dark-theme normal text and predefined dynamic category/task text meet the intended 4.5:1 threshold by implementation/test.
-- A11Y-R4 — selected visual-only loading/feedback states expose status semantics.
-- A11Y-R5 — compact task completion target is at least 24 CSS pixels.
-- A11Y-R6 — canonical remote verification is green after remediation.
-- A11Y-R7 — remaining browser/manual evidence and the two separate calendar accessibility roadmap items are explicitly documented rather than silently claimed complete.
+- PREVIEW-1 — Vercel can build from `life-tracker/` using the canonical production build.
+- PREVIEW-2 — Direct loads of Mosaic BrowserRouter routes resolve to `index.html` without rewriting emitted static assets.
+- PREVIEW-3 — A dedicated `preview` branch carries only an exact verified commit selected for hosted review.
+- PREVIEW-4 — The stable Vercel production hostname is the canonical phone-test origin and is registered once with Appwrite.
+- PREVIEW-5 — Dynamic Vercel branch URLs are not assumed to have Appwrite access.
+- PREVIEW-6 — No deployment secrets are committed; PostHog remains optional and no-op without config.
 
 ## Working set
 
-- `docs/ACCESSIBILITY_AUDIT.md`
+- `life-tracker/vercel.json`
+- `docs/PREVIEW_DEPLOYMENT.md`
+- `README.md`
 - `AGENTS.md`
-- `PLAN.md`
+- `scripts/check-project-contracts.mjs`
+- `.gitignore`
 - `SESSION_STATE.md`
-- audited files under `src/components/` and `src/pages/`
-- `src/constants/colors.ts`
-- `tests/components/ConversationRow.test.tsx`
-- `tests/components/CategorySection.test.tsx`
-- `tests/unit/colors.test.ts`
-
-## Completed substeps
-
-- Replaced pointer-only conversation/category affordances with native button semantics.
-- Added or restored visible focus treatment on audited custom task/search/message controls.
-- Associated auth/settings/task form labels and added persistent accessible names where needed.
-- Raised failing gray normal-text foregrounds on audited dark surfaces.
-- Added dynamic category/task contrast helpers and direct palette regression tests.
-- Corrected bright CTA/destructive foreground/background combinations found in the review.
-- Added status semantics for selected loading and transient feedback surfaces.
-- Increased the task completion interaction target to 24 CSS pixels.
-- Verified the complete repository gate remotely after the remediation.
 
 ## Verification
 
-- Run 35550087809: semantic-control sub-batch passed the canonical verify gate.
-- Run 35551491279: implementation reached 62 passing files / 474 passing tests plus 2 newly-authored contrast-test failures caused by an incorrect test constant shape; this is classified as a test-authoring/structural red, not behavioral red evidence.
-- Run 35551590886: full gate green — contracts, lint, 63/63 test files, 476/476 tests, production build, PWA policy, and build-size guard.
-- Manual WCAG browser/device evidence remains pending and is listed in `docs/ACCESSIBILITY_AUDIT.md`.
-- Phase 3.7 live PostHog checks remain pending.
+- Repository-side configuration is pending the canonical GitHub Actions gate for this task commit.
+- Actual Vercel deployment and Appwrite-origin behavior remain external/manual until the provider project is linked.
+- The last WCAG checkpoint head was fully green in GitHub Actions run 35551770730.
