@@ -58,7 +58,7 @@ async function createDatabaseInstance(): Promise<RxDatabase<AppDatabaseCollectio
       }),
       multiInstance: true,
       eventReduce: true,
-      ignoreDuplicate: true,
+      ignoreDuplicate: import.meta.env.DEV,
     });
     if (DEBUG) console.log('[RxDB] Database created successfully');
     await database.addCollections({
