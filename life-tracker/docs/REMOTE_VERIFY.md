@@ -18,8 +18,8 @@ job log.
 
 1. Work on an AI-owned `chatgpt/**` task branch.
 2. Inspect the current checkpoint and relevant files through GitHub.
-3. Accumulate the complete user-scoped task: implementation, tests, docs, and checkpoint.
-4. Create one task commit.
+3. Group the task into a small number of meaningful sub-batches.
+4. Use no more than 3–5 visible commits for the entire task; small tasks should use fewer.
 5. The `Verify` workflow starts automatically for pushes to `chatgpt/**`. Pull requests
    also run it, and `workflow_dispatch` allows a manual rerun.
 6. A GitHub-connected chat reads the workflow run, job status, and job logs directly.
@@ -29,18 +29,18 @@ job log.
 
 Newer pushes cancel stale runs for the same ref.
 
-## One commit per task
+## Commit discipline
 
-The default history contract is one visible commit per user-scoped task or agreed batch.
-Do not make commits for intermediate edits, each file, lint cleanup, documentation updates,
-or checkpoint churn. Build the full task first, then commit it once.
+A user-scoped task or agreed batch may use at most 3–5 visible commits. Each commit must
+represent a coherent sub-batch that is useful in the history on its own, such as a focused
+implementation slice, its regression coverage, or a verified documentation/checkpoint
+update. Do not create commits for individual files, tiny cleanup steps, lint fixes,
+commentary, or state-file churn. Small tasks should use fewer than three when appropriate.
 
-Remote CI creates a timing constraint because it can only verify committed repository
-state. On an AI-owned disposable task branch, a failed pre-handoff task commit may be
-replaced/amended on the same parent so the final visible history still contains one task
-commit. Never rewrite user-owned/shared history, and never force-update a branch the user
-may have based work on without explicit approval. If safe replacement is unavailable,
-surface the exception instead of silently creating a stack of repair commits.
+Remote CI can verify each meaningful sub-batch after it lands. If a sub-batch fails, fix
+that sub-batch before starting the next one rather than stacking unrelated repair commits.
+Never rewrite user-owned/shared history or force-update a branch the user may have based
+work on without explicit approval.
 
 ## What remote verification can and cannot replace
 

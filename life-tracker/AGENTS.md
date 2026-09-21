@@ -101,13 +101,13 @@ before it could write or checkpoint.
   Favor speed or reduced scope only when the user explicitly asks to ship quickly.
 - Once a batch is agreed, inspect, edit, run proportionate checks, fix failures,
   review the diff, and update project state without waiting between routine steps.
-- **One commit per task:** default to exactly one visible commit for each user-scoped
-  task or agreed batch. Accumulate implementation, tests, documentation, checkpoint
-  updates, and routine fixes before committing. Do not create intermediate commits for
-  micro-steps, commentary, lint cleanup, or state-file churn. Remote verification may
-  require the task commit before the gate can run; on an AI-owned disposable task branch,
-  repair that unhanded-off task commit by replacement/amendment rather than stacking
-  "fix CI" commits. Never rewrite user-owned/shared history without explicit approval.
+- **Commit cap per task:** use at most 3–5 visible commits for each user-scoped task or
+  agreed batch. Each commit must represent a meaningful sub-batch (for example:
+  implementation, regression coverage, or verified documentation/checkpoint), not an
+  individual file, lint cleanup, commentary, or state-file churn. Prefer fewer commits
+  when the task is small. Remote verification may run after each meaningful sub-batch;
+  repair the current sub-batch before starting another. Never rewrite user-owned/shared
+  history without explicit approval.
 - Stop after the agreed batch. Do not begin the next roadmap batch, commit, push,
   deploy, publish, or change a remote service unless the user authorized it.
 - Ask only when a choice materially changes product behavior, architecture, data or
