@@ -14,12 +14,29 @@ test.use({
 async function drag(page, locator, deltaX) {
   const box = await locator.boundingBox();
   if (!box) throw new Error('Missing drag target bounds');
-  const startX = deltaX < 0 ? box.x + box.width * 0.8 : box.x + box.width * 0.2;
-  const startY = box.y + box.height * 0.5;
-  await page.mouse.move(startX, startY);
-  await page.mouse.down();
-  await page.mouse.move(startX + deltaX, startY, { steps: 12 });
-  await page.mouse.up();
+  const startX = deltaX < 0 ? box.x + box.width * 0.82 : box.x + box.width * 0.18;
+  const startY = box.y + Math.min(box.height * 0.35, 180);
+  const session = await page.context().newCDPSession(page);
+
+  await session.send('Input.dispatchTouchEvent', {
+    type: 'touchStart',
+    touchPoints: [{ x: startX, y: startY }],
+  });
+  for (let step = 1; step <= 12; step += 1) {
+    await session.send('Input.dispatchTouchEvent', {
+      type: 'touchMove',
+      touchPoints: [
+        {
+          x: startX + (deltaX * step) / 12,
+          y: startY,
+        },
+      ],
+    });
+  }
+  await session.send('Input.dispatchTouchEvent', {
+    type: 'touchEnd',
+    touchPoints: [],
+  });
 }
 
 test('calendar swipe moves the calendar without advancing the friend carousel', async ({ page }) => {
