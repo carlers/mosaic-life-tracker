@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useLayoutEffect, useRef } from 'react';
 import { motion, AnimatePresence, useDragControls } from 'framer-motion';
 import ReactDOM from 'react-dom';
 import { useFocusTrap } from '../../hooks/useFocusTrap';
@@ -123,7 +123,9 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
   const sheetId = React.useId();
   const titleId = React.useId();
 
-  onCloseRef.current = onClose;
+  useLayoutEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
 
   useFocusTrap(sheetRef, isOpen && !suspendInteraction);
 
