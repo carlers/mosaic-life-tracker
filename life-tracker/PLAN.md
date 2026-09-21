@@ -1,7 +1,6 @@
 # Mosaic Roadmap
 
-This roadmap records durable workstreams and batch status. `SESSION_STATE.md`
-contains the current handoff; `AGENTS.md` contains working rules.
+This roadmap records durable workstreams and batch status. `SESSION_STATE.md` contains the current handoff; `AGENTS.md` contains working rules.
 
 ## Delivered foundation
 
@@ -20,28 +19,12 @@ contains the current handoff; `AGENTS.md` contains working rules.
 
 ## Phase 3 — optimize audit and implementation
 
-- [x] **3.1 Bundle audit:** measured production artifacts and traced route, vendor,
-  and asset opportunities; see [findings and baseline](docs/BUNDLE_AUDIT.md)
-- [x] **Service-worker activation prerequisite (from 3.5):** wait for old controlled
-  clients to close; enforce generated policy during builds; verified in Chromium
-- [x] **3.2 Route-level code splitting:** lazy routes and major optional interactions,
-  offline chunk precache, explicit failed-import recovery, and two-release browser test
-- [x] **3.3 Lazy image loading:** gate upstream image acquisition by proximity, keep
-  selected content eager, and preserve shared object URLs without scroll reacquisition
-- [x] **3.4 Image-cache LRU sweep:** 50 MiB byte budget, persistent access metadata,
-  startup/write sweeps, deterministic legacy migration, and fail-soft cache hits
-- [x] **3.5 Service-worker precache review:** emitted-static-only precache validation,
-  explicit user-approved update UI, captured `beforeinstallprompt` install UI, stable
-  manifest identity, and native Profile sharing with clipboard fallback
-- [x] **3.6 Build-size guard:** production builds enforce reviewed raw/gzip entry,
-  aggregate app-asset, and unique precache byte budgets
-- [x] **3.7 PostHog foundation:** error tracking and feature flags, with session replay and
-  autocapture disabled
+- [x] Phase 3.7 PostHog foundation complete with error tracking and feature flags, session replay and autocapture disabled.
 
 ## Phase 4 — specification and accessibility audit
 
 - [x] Audit instructions, reference discoverability, and enforceable project contracts
-- [ ] Complete a WCAG AA review
+- [x] Complete WCAG AA review acceptance for current scope
 - [x] Add calendar-grid semantics
 - [x] Add keyboard day navigation to `DayViewSheet` (A11Y-33)
 
@@ -50,6 +33,7 @@ contains the current handoff; `AGENTS.md` contains working rules.
 - [x] Native bottom-sheet Back stack: nested sheets consume Back one layer at a time before route navigation.
 - [x] Calendar gesture ownership: calendar horizontal swipes no longer move the friend carousel; friend swipes remain outside the calendar region.
 - [x] Calendar gesture regression coverage added.
+- [x] Samsung/PWA manual Back and gesture acceptance completed.
 
 ## Feature backlog
 
@@ -63,11 +47,10 @@ contains the current handoff; `AGENTS.md` contains working rules.
 
 ## Deferred technical work
 
-- [ ] Revisit cross-device last-write-wins only if collaboration or active multi-device
-  editing makes the accepted limitation material
+- [ ] Revisit cross-device last-write-wins only if collaboration or active multi-device editing makes the accepted limitation material
 - [ ] Revisit sync clock-skew tolerance if users report missing rows after clock changes
 - [ ] Revisit cross-tab backoff sharing if rate-limit pressure appears in multi-tab use
 
 ## Batch boundary
 
-Phase 3.7 is complete. Calendar-grid semantics and A11Y-33 keyboard day navigation are now implemented and covered by DOM/browser regression tests without visual restyling. The remaining Phase 4 work is the manual WCAG protocol: screen-reader output, 200% zoom/reflow, physical touch-target checks, rendered contrast review, and physical Samsung/PWA interaction acceptance.
+Phase 4 accessibility and interaction acceptance is complete for the current scope. The next work begins from the feature backlog.
