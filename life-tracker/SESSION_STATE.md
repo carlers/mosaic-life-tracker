@@ -1,12 +1,12 @@
 # Session state
 
 Updated: 2026-09-21
-Current task: stable hosted phone/browser preview
-Status: repository-side Vercel preview setup verified and `preview` branch created; provider project/link and Appwrite hostname registration pending
-Roadmap pointer: Phase 4 WCAG source remediation is verified; its browser/manual evidence can use the hosted preview once live
-Checkpoint: Added `life-tracker/vercel.json` with explicit BrowserRouter SPA rewrites, `docs/PREVIEW_DEPLOYMENT.md`, Vercel metadata ignore rules, and preview-workflow contracts. GitHub Actions run 35552394883 passed the canonical gate, and the deployment-only `preview` branch now points to verified commit `53e4fcdb3bf22e5a03965e4a449aabeab8790e77`. The intended deployment topology is one Vercel project rooted at `life-tracker/` with production branch `preview`. A stable hostname is deliberate because Appwrite requires browser origins to be registered as Web platforms.
-Next action: Connect/create the Vercel project, set Root Directory=`life-tracker` and Production Branch=`preview`, obtain the stable Vercel hostname, then register that hostname once in Appwrite as `Mosaic Preview`. After that, hosted phone review becomes part of the GitHub-connected workflow.
-Blockers: Vercel account connection is user-authorized but still requires the user to connect the Vercel ChatGPT plugin/account. Appwrite currently has no ChatGPT connector, so registering the final hostname may require one short Console action by the user after the hostname exists.
+Current task: Phase 3.7 live PostHog staging/manual verification
+Status: hosted preview is live on the deployment-only `preview` branch; Appwrite preview-origin registration is reported complete; live PostHog dashboard checks remain pending
+Roadmap pointer: Phase 3.7's automated gate is green; close it only after the live requirements in `docs/PROJECT_REFERENCE.md` §24.15 are verified. Phase 4 WCAG browser/manual evidence follows.
+Checkpoint: The `preview` branch was advanced to verified commit `ade41cf0fd248a9e1c0d6ec540b1608f8c40c5cb` (`fix: disable RxDB ignoreDuplicate in production`). GitHub Actions run 35556402435 passed the canonical verify gate. Vercel deployment `dpl_DjjQTX9cfGqD4aGg5RZCEHn3BowE` is READY and carries the stable branch alias `mosaic-life-tracker-git-preview-carls-projects-72516fde.vercel.app`. The user reports the Vercel/Appwrite preview setup is complete. The Vercel connector still reports the older `main` deployment as the project's `production` target, so current phone verification should use the registered `preview` alias unless the provider UI later reflects a production-branch change.
+Next action: Verify the Phase 3.7 live PostHog contract: client configuration is active; a test flag evaluates and refreshes after identify; intentional handled/unhandled exceptions arrive; authenticated distinct IDs equal Appwrite `$id` without profile properties; logout yields a fresh anonymous identity; autocapture/session replay/console capture remain absent; and credentialed production source maps symbolicate an exception.
+Blockers: The PostHog ChatGPT integration is not connected yet, and the current Vercel connector does not expose project environment variables. Dashboard-level assertions therefore require either the PostHog integration or a short manual PostHog dashboard pass.
 
 ## Preview acceptance
 
@@ -19,16 +19,18 @@ Blockers: Vercel account connection is user-authorized but still requires the us
 
 ## Working set
 
-- `life-tracker/vercel.json`
+- `src/lib/posthog.ts`
+- `src/hooks/useFeatureFlag.ts`
+- `src/hooks/AuthProvider.tsx`
+- `vite.config.ts`
+- `docs/PROJECT_REFERENCE.md`
 - `docs/PREVIEW_DEPLOYMENT.md`
-- `README.md`
-- `AGENTS.md`
-- `scripts/check-project-contracts.mjs`
-- `.gitignore`
+- `PLAN.md`
 - `SESSION_STATE.md`
 
 ## Verification
 
-- GitHub Actions run 35552394883: canonical verify gate passed for the preview configuration commit.
-- Actual Vercel deployment and Appwrite-origin behavior remain external/manual until the provider project is linked.
-- The last WCAG checkpoint head was fully green in GitHub Actions run 35551770730.
+- GitHub Actions run 35556402435: canonical verify gate passed for commit `ade41cf0fd248a9e1c0d6ec540b1608f8c40c5cb`.
+- Vercel deployment `dpl_DjjQTX9cfGqD4aGg5RZCEHn3BowE`: READY on the `preview` branch.
+- Appwrite preview-origin registration: reported complete by the user.
+- Phase 3.7 live PostHog dashboard/source-map verification: pending.
