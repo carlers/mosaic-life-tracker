@@ -2,11 +2,11 @@
 
 Updated: 2026-09-21
 Current task: Phase 3.7 live PostHog staging/manual verification
-Status: hosted preview is live on the deployment-only `preview` branch; Appwrite preview-origin registration is reported complete; live PostHog dashboard checks remain pending
+Status: hosted preview is live; PostHog project connection is verified and a smoke-test flag exists, but the deployed app is still not ingesting PostHog traffic because Vercel client/build variables are not yet active
 Roadmap pointer: Phase 3.7's automated gate is green; close it only after the live requirements in `docs/PROJECT_REFERENCE.md` §24.15 are verified. Phase 4 WCAG browser/manual evidence follows.
 Checkpoint: The `preview` branch was advanced to verified commit `ade41cf0fd248a9e1c0d6ec540b1608f8c40c5cb` (`fix: disable RxDB ignoreDuplicate in production`). GitHub Actions run 35556402435 passed the canonical verify gate. Vercel deployment `dpl_DjjQTX9cfGqD4aGg5RZCEHn3BowE` is READY and carries the stable branch alias `mosaic-life-tracker-git-preview-carls-projects-72516fde.vercel.app`. The user reports the Vercel/Appwrite preview setup is complete. The Vercel connector still reports the older `main` deployment as the project's `production` target, so current phone verification should use the registered `preview` alias unless the provider UI later reflects a production-branch change.
-Next action: Verify the Phase 3.7 live PostHog contract: client configuration is active; a test flag evaluates and refreshes after identify; intentional handled/unhandled exceptions arrive; authenticated distinct IDs equal Appwrite `$id` without profile properties; logout yields a fresh anonymous identity; autocapture/session replay/console capture remain absent; and credentialed production source maps symbolicate an exception.
-Blockers: The PostHog ChatGPT integration is not connected yet, and the current Vercel connector does not expose project environment variables. Dashboard-level assertions therefore require either the PostHog integration or a short manual PostHog dashboard pass.
+Next action: Configure Vercel with the Mosaic PostHog project values (`VITE_POSTHOG_TOKEN`, `VITE_POSTHOG_HOST=https://us.i.posthog.com`, plus source-map upload variables), redeploy `preview`, then verify the smoke flag `mosaic-phase-3-7-smoke`, exception ingestion, identity/privacy behavior, replay/autocapture absence, and source-map symbolication.
+Blockers: The PostHog connector is connected to Mosaic project 619969, but the current Vercel connector does not expose environment-variable writes/reads. The user must add the required Vercel variables in the provider UI before live browser verification can proceed.
 
 ## Preview acceptance
 
@@ -33,4 +33,6 @@ Blockers: The PostHog ChatGPT integration is not connected yet, and the current 
 - GitHub Actions run 35556402435: canonical verify gate passed for commit `ade41cf0fd248a9e1c0d6ec540b1608f8c40c5cb`.
 - Vercel deployment `dpl_DjjQTX9cfGqD4aGg5RZCEHn3BowE`: READY on the `preview` branch.
 - Appwrite preview-origin registration: reported complete by the user.
-- Phase 3.7 live PostHog dashboard/source-map verification: pending.
+- PostHog project 619969: connected; no events ingested yet; zero errors/recordings before deployment configuration.
+- Smoke flag `mosaic-phase-3-7-smoke` (ID 898417): created active, client-only, 100% rollout for live verification.
+- Phase 3.7 live PostHog dashboard/source-map verification: blocked on Vercel PostHog environment variables.
