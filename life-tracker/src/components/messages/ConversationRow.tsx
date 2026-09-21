@@ -34,10 +34,11 @@ const ConversationRowComponent: React.FC<ConversationRowProps> = ({
     navigate(`/messages/${friend.friendId}`);
   };
   return (
-    <motion.div
+    <motion.button
+      type="button"
       whileTap={{ scale: 0.98 }}
       onClick={handleOpen}
-      className="flex items-center gap-3 bg-[#1E1E1E] border border-[#333333] rounded-xl p-3 cursor-pointer hover:bg-[#252525] transition-colors"
+      className="w-full flex items-center gap-3 bg-[#1E1E1E] border border-[#333333] rounded-xl p-3 cursor-pointer hover:bg-[#252525] transition-colors text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald-500/60"
     >
       <DeferredAvatar
         fileId={friend.friendAvatarFileId || undefined}
@@ -69,7 +70,7 @@ const ConversationRowComponent: React.FC<ConversationRowProps> = ({
       ) : (
         <ChevronRight size={16} className="text-gray-600 flex-shrink-0" />
       )}
-    </motion.div>
+    </motion.button>
   );
 };
 function areConversationRowPropsEqual(

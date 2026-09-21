@@ -83,7 +83,7 @@ export const TaskItem: React.FC<TaskItemProps> = ({
       <button
         onClick={() => onToggle(task.id)}
         onPointerDown={(e) => e.stopPropagation()}
-        className="mt-0.5 shrink-0 w-5 h-5 rounded-full border-2 flex items-center justify-center"
+        className="mt-0.5 shrink-0 w-5 h-5 rounded-full border-2 flex items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
         style={{
           borderColor: isCompleted ? categoryColor : '#4B5563',
           backgroundColor: isCompleted ? categoryColor : 'transparent',
@@ -102,13 +102,14 @@ export const TaskItem: React.FC<TaskItemProps> = ({
             onKeyDown={handleKeyDown}
             onBlur={handleEditSave}
             onPointerDown={(e) => e.stopPropagation()}
-            className="w-full bg-transparent text-white outline-none border-b border-[#4B5563]"
+            className="w-full bg-transparent text-white outline-none border-b border-[#4B5563] focus-visible:ring-2 focus-visible:ring-emerald-500/60"
+            aria-label="Task title"
           />
         ) : (
           <button
             onClick={() => onOpenActions(task)}
             onPointerDown={(e) => e.stopPropagation()}
-            className="w-full text-left"
+            className="w-full text-left rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
           >
             <span
               className={
@@ -128,7 +129,7 @@ export const TaskItem: React.FC<TaskItemProps> = ({
               onOpenMemo(task);
             }}
             onPointerDown={(e) => e.stopPropagation()}
-            className="mt-1 flex items-center gap-1 text-xs text-gray-500"
+            className="mt-1 flex items-center gap-1 text-xs text-gray-500 rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
             aria-label="Open memo"
           >
             <FileText size={12} />
@@ -143,7 +144,7 @@ export const TaskItem: React.FC<TaskItemProps> = ({
                 onViewImage?.(task);
               }}
               onPointerDown={(e) => e.stopPropagation()}
-              className="mt-2 block w-full aspect-[16/9]"
+              className="mt-2 block w-full aspect-[16/9] rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
               aria-label="View image"
             >
               <img

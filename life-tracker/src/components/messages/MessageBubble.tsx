@@ -203,7 +203,7 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
             transform: `translateX(${swipeOffset}px)`,
             touchAction: 'pan-y',
           }}
-          className={`select-none block w-full text-left rounded-2xl px-3 py-2 ${
+          className={`select-none block w-full text-left rounded-2xl px-3 py-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 ${
             isOutgoing
               ? 'bg-[#2A2A2A] text-white'
               : 'bg-black border border-[#3A3A3A] text-white'

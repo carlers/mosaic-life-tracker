@@ -50,6 +50,14 @@ function renderSection(opts: RenderOpts = {}) {
 }
 
 describe('CategorySection', () => {
+  // Regression: AGENTS.md UI rules — interactive elements use semantic controls.
+  it('uses a named button for the add-task category pill', () => {
+    renderSection({ categoryName: 'Work' });
+    expect(
+      screen.getByRole('button', { name: 'Add a task to Work' })
+    ).toBeInTheDocument();
+  });
+
   it('chip tap opens the inline input with the category-scoped placeholder', () => {
     renderSection({ categoryName: 'Work' });
     expect(

@@ -19,7 +19,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({
   return (
     <div className="relative">
       <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none">
-        <Search size={18} />
+        <Search size={18} aria-hidden="true" />
       </div>
       <input
         type="text"
@@ -30,17 +30,18 @@ export const SearchBar: React.FC<SearchBarProps> = ({
         autoCapitalize="none"
         autoCorrect="off"
         spellCheck={false}
-        className="w-full bg-[#1E1E1E] text-white border border-[#333333] rounded-xl pl-10 pr-10 py-3 text-sm focus:border-[#555555] focus:outline-none transition-colors placeholder-gray-600 disabled:opacity-50"
+        aria-label="Search users"
+        className="w-full bg-[#1E1E1E] text-white border border-[#333333] rounded-xl pl-10 pr-10 py-3 text-sm focus:border-[#555555] focus-visible:ring-2 focus-visible:ring-emerald-500/60 focus:outline-none transition-colors placeholder-gray-600 disabled:opacity-50"
       />
       {value && (
         <button
           type="button"
           onClick={onClear}
           onPointerDown={(e) => e.stopPropagation()}
-          className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white transition-colors p-1 rounded-md"
+          className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white transition-colors p-1 rounded-md focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
           aria-label="Clear search"
         >
-          <X size={16} />
+          <X size={16} aria-hidden="true" />
         </button>
       )}
     </div>

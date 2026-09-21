@@ -75,6 +75,11 @@ beforeEach(() => {
   useTaskImageSpy.mockClear();
 });
 describe('ConversationRow', () => {
+  // Regression: AGENTS.md UI rules — interactive rows use semantic controls.
+  it('exposes the conversation row as a named button', () => {
+    render(<ConversationRow conversation={makeConversation()} />);
+    expect(screen.getByRole('button', { name: /Friend B/i })).toBeInTheDocument();
+  });
   it('falls back to friendUsername when display name is empty', () => {
     render(
       <ConversationRow

@@ -88,16 +88,9 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
   return (
     <div className="mb-4">
       <div className="flex items-center mb-2">
-        <div
-          role="button"
-          tabIndex={0}
+        <button
+          type="button"
           onClick={handleOpen}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' || e.key === ' ') {
-              e.preventDefault();
-              handleOpen();
-            }
-          }}
           className="inline-flex items-center gap-2 bg-black rounded-full pl-3.5 pr-3 py-2 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
           aria-label={`Add a task to ${categoryName}`}
         >
@@ -111,7 +104,7 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
           <span className="text-gray-500" aria-hidden="true">
             <Plus size={14} />
           </span>
-        </div>
+        </button>
       </div>
 
       {tasks.map((task) => (
@@ -146,7 +139,7 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
             onKeyDown={handleKeyDown}
             onBlur={handleBlur}
             placeholder={`Add a task to ${categoryName}...`}
-            className="flex-1 bg-transparent text-white outline-none border-b border-[#4B5563] text-sm"
+            className="flex-1 bg-transparent text-white outline-none border-b border-[#4B5563] text-sm focus-visible:ring-2 focus-visible:ring-emerald-500/60"
           />
         </div>
       )}
