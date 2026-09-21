@@ -18,9 +18,6 @@ contains the current handoff; `AGENTS.md` contains working rules.
 - [x] Codex VS Code workflow migration
 - [x] Provider-neutral workspace-agent and web-chat workflow with rolling mid-batch handoffs
 
-The original milestone checklist predated several shipped features and is superseded by
-this roadmap. Git history and `docs/PROJECT_REFERENCE.md` retain the implementation record.
-
 ## Phase 3 — optimize audit and implementation
 
 - [x] **3.1 Bundle audit:** measured production artifacts and traced route, vendor,
@@ -48,6 +45,12 @@ this roadmap. Git history and `docs/PROJECT_REFERENCE.md` retain the implementat
 - [ ] Add calendar-grid semantics
 - [ ] Add keyboard day navigation to `DayViewSheet` (A11Y-33)
 
+## Interaction fixes after audit work
+
+- [x] Native bottom-sheet Back stack: nested sheets consume Back one layer at a time before route navigation.
+- [x] Calendar gesture ownership: calendar horizontal swipes no longer move the friend carousel; friend swipes remain outside the calendar region.
+- [x] Calendar gesture regression coverage added.
+
 ## Feature backlog
 
 - [ ] Todo List view: compact color-only calendar with a selected-day task list
@@ -67,7 +70,4 @@ this roadmap. Git history and `docs/PROJECT_REFERENCE.md` retain the implementat
 
 ## Batch boundary
 
-Phase 4.1 is verified complete. The source-level Phase 4 WCAG review and remediation are
-also automated-gate green, with the roadmap checkbox intentionally left open until the
-manual browser protocol in `docs/ACCESSIBILITY_AUDIT.md` is recorded. Calendar-grid
-semantics and A11Y-33 remain separate next batches. Phase 3.7 is complete: hosted exception ingestion/source-map symbolication and live privacy checks passed, and a Playwright browser contract now covers identity rotation and flag refresh behavior.
+Phase 3.7 is complete: hosted exception ingestion/source-map symbolication and live privacy checks passed, and a Playwright browser contract covers identity rotation and flag refresh behavior. Current interaction fixes preserve the existing UI appearance while improving native Back behavior and gesture ownership. Next work returns to the Phase 4 manual accessibility protocol.
