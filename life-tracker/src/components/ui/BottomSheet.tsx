@@ -89,21 +89,22 @@ function scheduleHistoryGuardRelease(): void {
   }, 0);
 }
 
-function handleBottomSheetPopState(event: PopStateEvent): void {
+function handleBottomSheetPopState(): void {
   const token = historyGuardToken;
+  const currentGuardToken = readHistoryGuardToken(window.history.state);
 
   if (!token) {
     // A stale same-URL sheet guard can remain if the app route changed while a
     // sheet was mounted. Skip that inert entry rather than making Back appear
     // to do nothing on a later visit.
-    if (sheetStack.length === 0 && readHistoryGuardToken(event.state)) {
+    if (sheetStack.length === 0 && currentGuardToken) {
       window.history.back();
     }
     return;
   }
 
   // Forward navigation onto the current guard is not a dismissal.
-  if (readHistoryGuardToken(event.state) === token) return;
+  if (currentGuardToken === token) return;
 
   historyGuardToken = null;
   const top = sheetStack.pop();

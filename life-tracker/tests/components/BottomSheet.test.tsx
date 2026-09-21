@@ -106,12 +106,17 @@ describe('BottomSheet', () => {
     expect(screen.getByText('First sheet')).toBeInTheDocument();
     expect(screen.getByText('Second sheet')).toBeInTheDocument();
 
-    fireEvent.popState(window, { state: {} });
+    // A real Back traversal lands on the pre-guard same-URL entry before
+    // dispatching popstate. happy-dom does not perform that traversal for a
+    // synthetic popstate, so mirror the resulting history state explicitly.
+    window.history.replaceState({}, '', startUrl);
+    fireEvent.popState(window);
     expect(screen.getByText('First sheet')).toBeInTheDocument();
     expect(screen.queryByText('Second sheet')).toBeNull();
     expect(window.location.href).toBe(startUrl);
 
-    fireEvent.popState(window, { state: {} });
+    window.history.replaceState({}, '', startUrl);
+    fireEvent.popState(window);
     expect(screen.queryByText('First sheet')).toBeNull();
     expect(window.location.href).toBe(startUrl);
   });
