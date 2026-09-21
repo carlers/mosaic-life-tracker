@@ -2,6 +2,7 @@ import React from 'react';
 import { useImageLoadGate } from '../../../hooks/useImageLoadGate';
 import { useTaskImage } from '../../../hooks/useTaskImage';
 import type { TaskDocument } from '../../../db/schema';
+import { getReadableTextColor } from '../../../constants/colors';
 
 interface TaskBlockProps {
   task: TaskDocument;
@@ -16,13 +17,13 @@ export const TaskBlock: React.FC<TaskBlockProps> = ({ task, categoryColor }) => 
   const { targetRef, shouldLoad } = useImageLoadGate<HTMLDivElement>();
   const { imageUrl, isLoading } = useTaskImage(task.image, shouldLoad);
   const bgColor = task.completed ? categoryColor : '#374151';
-  const textColor = task.completed ? 'text-white' : 'text-gray-400';
+  const textColor = task.completed ? getReadableTextColor(categoryColor) : '#D1D5DB';
 
   return (
     <div
       ref={targetRef}
-      className={`text-[9px] px-1 py-0.5 w-full font-medium rounded-[3px] overflow-hidden ${textColor}`}
-      style={{ backgroundColor: bgColor }}
+      className="text-[9px] px-1 py-0.5 w-full font-medium rounded-[3px] overflow-hidden"
+      style={{ backgroundColor: bgColor, color: textColor }}
       title={task.title}
     >
       <div className="flex flex-col gap-0.5">

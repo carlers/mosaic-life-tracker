@@ -97,7 +97,7 @@ const UnsentBubble: React.FC<UnsentBubbleProps> = ({ isOutgoing }) => {
         <div className="block w-full text-left rounded-2xl px-3 py-2 bg-[#2A2A2A] text-gray-400">
           <span className="italic text-gray-400 text-sm">Message deleted</span>
         </div>
-        <div className="mt-1 flex items-center gap-1 text-[10px] text-gray-500 min-h-[14px]">
+        <div className="mt-1 flex items-center gap-1 text-[10px] text-gray-400 min-h-[14px]">
           <Ban size={12} />
           <span>Unsent</span>
         </div>
@@ -183,7 +183,7 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
             opacity: isSwiping ? Math.min(Math.abs(swipeOffset) / 60, 1) : 0,
           }}
         >
-          <Reply size={18} className="text-gray-500" />
+          <Reply size={18} className="text-gray-400" />
         </div>
         <div
           ref={bubbleRef}

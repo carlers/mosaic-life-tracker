@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useState } from 'react';
+import React, { useRef, useEffect, useId, useState } from 'react';
 import { BottomSheet } from '../ui/BottomSheet';
 import { Input } from '../ui/Input';
 import { SheetErrorBanner } from '../ui/SheetErrorBanner';
@@ -28,6 +28,8 @@ export const SetUsernameSheet: React.FC<SetUsernameSheetProps> = ({
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const usernameId = useId();
+  const usernameHelpId = useId();
 
   useSheetReset(isOpen, () => {
     setUsername(profile?.username || '');
@@ -109,14 +111,15 @@ export const SetUsernameSheet: React.FC<SetUsernameSheetProps> = ({
         </p>
         <SheetErrorBanner message={error} />
         <div className="w-full">
-          <label className="block text-xs text-gray-500 mb-1.5 ml-1">
+          <label htmlFor={usernameId} className="block text-xs text-gray-400 mb-1.5 ml-1">
             Username
           </label>
           <div className="relative">
-            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm pointer-events-none">
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm pointer-events-none">
               @
             </span>
             <input
+              id={usernameId}
               ref={inputRef}
               type="text"
               value={username}
@@ -130,11 +133,12 @@ export const SetUsernameSheet: React.FC<SetUsernameSheetProps> = ({
               autoCapitalize="none"
               autoCorrect="off"
               spellCheck={false}
-              className="w-full bg-[#1E1E1E] text-white border border-[#333333] rounded-lg pl-8 pr-4 py-2.5 focus:border-[#555555] focus:outline-none transition-colors placeholder-gray-600"
+              aria-describedby={usernameHelpId}
+              className="w-full bg-[#1E1E1E] text-white border border-[#333333] rounded-lg pl-8 pr-4 py-2.5 focus:border-[#555555] focus-visible:ring-2 focus-visible:ring-emerald-500/60 focus:outline-none transition-colors placeholder-gray-400"
               onPointerDown={(e) => e.stopPropagation()}
             />
           </div>
-          <p className="text-xs text-gray-600 mt-1.5 ml-1">
+          <p id={usernameHelpId} className="text-xs text-gray-400 mt-1.5 ml-1">
             3–20 characters · a–z, 0–9, underscore
           </p>
         </div>

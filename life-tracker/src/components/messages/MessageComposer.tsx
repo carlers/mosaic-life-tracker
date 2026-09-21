@@ -110,13 +110,13 @@ export const MessageComposer = forwardRef<
               rows={1}
               aria-label="Message"
               aria-describedby={showCounter ? counterId : undefined}
-              className="w-full bg-[#1E1E1E] text-white text-sm rounded-2xl px-4 py-2.5 border border-[#333333] focus:border-[#555555] focus-visible:ring-2 focus-visible:ring-emerald-500/60 focus:outline-none transition-colors placeholder-gray-600 resize-none max-h-32"
+              className="w-full bg-[#1E1E1E] text-white text-sm rounded-2xl px-4 py-2.5 border border-[#333333] focus:border-[#555555] focus-visible:ring-2 focus-visible:ring-emerald-500/60 focus:outline-none transition-colors placeholder-gray-400 resize-none max-h-32"
               style={{ minHeight: '42px' }}
             />
             {showCounter && (
               <p
                 id={counterId}
-                className="text-[10px] text-gray-500 text-right mt-0.5 mr-2"
+                className="text-[10px] text-gray-400 text-right mt-0.5 mr-2"
                 aria-live="polite"
               >
                 {remaining} left
@@ -131,7 +131,7 @@ export const MessageComposer = forwardRef<
             className="flex-shrink-0 w-10 h-10 rounded-full bg-emerald-500 hover:bg-emerald-600 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 focus-visible:ring-offset-2 focus-visible:ring-offset-[#111111]"
             aria-label="Send"
           >
-            <Send size={18} className="text-white" aria-hidden="true" />
+            <Send size={18} className="text-black" aria-hidden="true" />
           </motion.button>
         </div>
       </div>

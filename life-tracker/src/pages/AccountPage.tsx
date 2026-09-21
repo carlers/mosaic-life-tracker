@@ -51,7 +51,7 @@ export const AccountPage: React.FC = () => {
             <h2 className="text-xl font-bold text-white">
               {user?.name || 'User'}
             </h2>
-            <p className="text-sm text-gray-500">{user?.email}</p>
+            <p className="text-sm text-gray-400">{user?.email}</p>
           </div>
           <div className="flex items-center gap-6 text-sm text-gray-400">
             <div className="flex flex-col items-center">
@@ -79,7 +79,7 @@ export const AccountPage: React.FC = () => {
             <h3 className="text-base font-bold text-white">Backlog</h3>
             <p className="text-sm text-gray-400">{backlogCount} tasks</p>
           </div>
-          <ListTodo size={24} className="text-gray-500" aria-hidden="true" />
+          <ListTodo size={24} className="text-gray-400" aria-hidden="true" />
         </div>
         <div className="bg-[#1E1E1E] border border-[#333333] rounded-xl p-4 flex items-center justify-between">
           <div>
@@ -92,10 +92,10 @@ export const AccountPage: React.FC = () => {
           />
         </div>
         <div className="text-center py-4">
-          <p className="text-sm text-gray-500 italic">
+          <p className="text-sm text-gray-400 italic">
             "Tact is the ability to describe others as they see themselves."
           </p>
-          <p className="text-xs text-gray-600 mt-1">Eleanor Chaffee</p>
+          <p className="text-xs text-gray-400 mt-1">Eleanor Chaffee</p>
         </div>
       </div>
       <div className="px-4 pb-8">

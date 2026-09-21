@@ -24,7 +24,7 @@ export const PersonProfileHeader: React.FC<PersonProfileHeaderProps> = ({
           {person.displayName}
         </p>
         {person.username && (
-          <p className="text-xs text-gray-500 truncate">
+          <p className="text-xs text-gray-400 truncate">
             @{person.username}
           </p>
         )}

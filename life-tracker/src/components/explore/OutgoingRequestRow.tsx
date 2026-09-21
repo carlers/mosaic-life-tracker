@@ -36,7 +36,7 @@ export const OutgoingRequestRow: React.FC<OutgoingRequestRowProps> = ({
         <p className="text-sm font-medium text-white truncate">
           {friendship.friendDisplayName || friendship.friendUsername}
         </p>
-        <p className="text-xs text-gray-500 truncate">
+        <p className="text-xs text-gray-400 truncate">
           @{friendship.friendUsername}
         </p>
       </div>

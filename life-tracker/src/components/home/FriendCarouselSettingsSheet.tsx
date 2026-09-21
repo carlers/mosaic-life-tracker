@@ -27,7 +27,7 @@ const FriendRow: React.FC<FriendRowProps> = ({ friend, hidden, onToggle }) => {
           e.stopPropagation();
           dragControls.start(e);
         }}
-        className="p-1 -ml-1 text-gray-500 hover:text-white touch-none cursor-grab active:cursor-grabbing"
+        className="p-1 -ml-1 text-gray-400 hover:text-white touch-none cursor-grab active:cursor-grabbing"
         aria-label="Drag to reorder"
       >
         <GripVertical size={16} />
@@ -41,7 +41,7 @@ const FriendRow: React.FC<FriendRowProps> = ({ friend, hidden, onToggle }) => {
         <p className="text-sm font-medium text-white truncate">
           {friend.friendDisplayName || friend.friendUsername}
         </p>
-        <p className="text-xs text-gray-500 truncate">
+        <p className="text-xs text-gray-400 truncate">
           @{friend.friendUsername}
         </p>
       </div>
@@ -136,12 +136,12 @@ export const FriendCarouselSettingsSheet: React.FC<
       height="auto"
     >
       <div className="pt-2 pb-8 px-1">
-        <p className="text-xs text-gray-500 text-center mb-4 leading-relaxed px-3">
+        <p className="text-xs text-gray-400 text-center mb-4 leading-relaxed px-3">
           Drag to reorder. Toggle to show or hide a friend from the top carousel.
         </p>
         {friends.length === 0 ? (
           <div className="text-center py-10 px-4">
-            <p className="text-sm text-gray-500">No friends yet.</p>
+            <p className="text-sm text-gray-400">No friends yet.</p>
           </div>
         ) : (
           <Reorder.Group

@@ -50,7 +50,7 @@ export const FriendRequestRow: React.FC<FriendRequestRowProps> = ({
         <p className="text-sm font-medium text-white truncate">
           {friendship.friendDisplayName || friendship.friendUsername}
         </p>
-        <p className="text-xs text-gray-500 truncate">
+        <p className="text-xs text-gray-400 truncate">
           @{friendship.friendUsername}
         </p>
       </div>
@@ -60,7 +60,7 @@ export const FriendRequestRow: React.FC<FriendRequestRowProps> = ({
           onClick={handleAccept}
           onPointerDown={(e) => e.stopPropagation()}
           disabled={busy}
-          className="flex items-center justify-center w-8 h-8 rounded-full bg-emerald-500 hover:bg-emerald-600 text-white transition-colors disabled:opacity-50"
+          className="flex items-center justify-center w-8 h-8 rounded-full bg-emerald-500 hover:bg-emerald-600 text-black transition-colors disabled:opacity-50"
           aria-label="Accept"
         >
           {pendingAction === 'accept' ? (

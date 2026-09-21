@@ -38,7 +38,7 @@ export const ColorPalettePicker: React.FC<ColorPalettePickerProps> = ({
               aria-selected={isActive}
               onClick={() => setActivePaletteId(palette.id)}
               className={`flex-1 py-1.5 text-xs font-medium rounded-md transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 ${
-                isActive ? 'bg-[#2A2A2A] text-white' : 'text-gray-500'
+                isActive ? 'bg-[#2A2A2A] text-white' : 'text-gray-400'
               }`}
             >
               {palette.name}

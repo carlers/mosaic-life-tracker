@@ -79,3 +79,37 @@ export const getAllAvailableColors = (): string[] => {
 export const isValidPredefinedColor = (hex: string): boolean => {
   return getAllAvailableColors().includes(hex);
 };
+const relativeLuminance = (hex: string): number | null => {
+  const normalized = hex.trim().toUpperCase();
+  if (!/^#[0-9A-F]{6}$/.test(normalized)) return null;
+  const channels = [1, 3, 5].map((index) => {
+    const value = Number.parseInt(normalized.slice(index, index + 2), 16) / 255;
+    return value <= 0.04045
+      ? value / 12.92
+      : Math.pow((value + 0.055) / 1.055, 2.4);
+  });
+  return 0.2126 * channels[0] + 0.7152 * channels[1] + 0.0722 * channels[2];
+};
+
+export const getContrastRatio = (
+  foreground: string,
+  background: string
+): number => {
+  const foregroundLuminance = relativeLuminance(foreground);
+  const backgroundLuminance = relativeLuminance(background);
+  if (foregroundLuminance === null || backgroundLuminance === null) return 1;
+  const lighter = Math.max(foregroundLuminance, backgroundLuminance);
+  const darker = Math.min(foregroundLuminance, backgroundLuminance);
+  return (lighter + 0.05) / (darker + 0.05);
+};
+
+export const getReadableTextColor = (
+  background: string
+): '#000000' | '#FFFFFF' =>
+  getContrastRatio('#000000', background) >=
+  getContrastRatio('#FFFFFF', background)
+    ? '#000000'
+    : '#FFFFFF';
+
+export const getCategoryLabelColor = (categoryColor: string): string =>
+  categoryColor.toUpperCase() === '#8338EC' ? '#A78BFA' : categoryColor;

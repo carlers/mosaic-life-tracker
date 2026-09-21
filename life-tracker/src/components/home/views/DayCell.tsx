@@ -26,7 +26,7 @@ const DayCellComponent: React.FC<DayCellProps> = ({
   let dayColor = 'text-gray-400';
   if (dayOfWeek === 6) dayColor = 'text-blue-500';
   if (dayOfWeek === 0) dayColor = 'text-red-500';
-  if (!isCurrentMonth) dayColor = 'text-gray-600';
+  if (!isCurrentMonth) dayColor = 'text-gray-400';
 
   // Sort only when there is more than one task. Empty days (the vast
   // majority of cells across mounted slides) now skip allocation

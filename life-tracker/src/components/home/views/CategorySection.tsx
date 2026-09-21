@@ -2,6 +2,7 @@ import React, { useState, useRef, useId } from 'react';
 import { Plus } from 'lucide-react';
 import { TaskItem } from './TaskItem';
 import { visibilityIcon } from '../../../lib/visibility';
+import { getCategoryLabelColor } from '../../../constants/colors';
 import type { TaskDocument } from '../../../db/schema';
 
 type Visibility = 'private' | 'followers' | 'public';
@@ -94,14 +95,14 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
           className="inline-flex items-center gap-2 bg-black rounded-full pl-3.5 pr-3 py-2 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
           aria-label={`Add a task to ${categoryName}`}
         >
-          {visibility && visibilityIcon(visibility, 12, 'text-gray-500')}
+          {visibility && visibilityIcon(visibility, 12, 'text-gray-400')}
           <span
             className="text-sm font-bold"
-            style={{ color: categoryColor }}
+            style={{ color: getCategoryLabelColor(categoryColor) }}
           >
             {categoryName}
           </span>
-          <span className="text-gray-500" aria-hidden="true">
+          <span className="text-gray-400" aria-hidden="true">
             <Plus size={14} />
           </span>
         </button>

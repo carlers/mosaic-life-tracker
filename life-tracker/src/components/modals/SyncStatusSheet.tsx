@@ -66,14 +66,14 @@ export const SyncStatusSheet: React.FC<SyncStatusSheetProps> = ({
                 ? 'Up to date'
                 : `${errorCount} error${errorCount === 1 ? '' : 's'}`}
             </p>
-            <p className="text-xs text-gray-500 mt-0.5">
+            <p className="text-xs text-gray-400 mt-0.5">
               Last synced {formatRelative(status.lastSync, ' ago')}
             </p>
           </div>
         </div>
         {errorCount > 0 && (
           <div className="space-y-2">
-            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider px-1">
+            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider px-1">
               Errors
             </p>
             {status.errors.map((err, i) => (

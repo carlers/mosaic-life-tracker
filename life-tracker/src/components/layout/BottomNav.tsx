@@ -64,13 +64,13 @@ export const BottomNav: React.FC<BottomNavProps> = ({
                 <Icon
                   size={22}
                   className={`transition-colors duration-200 ${
-                    isActive ? 'text-white' : 'text-gray-500'
+                    isActive ? 'text-white' : 'text-gray-400'
                   }`}
                   aria-hidden="true"
                 />
                 {showBadge && (
                   <div
-                    className="absolute -top-1 -right-2 min-w-[16px] h-4 rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center px-1 leading-none"
+                    className="absolute -top-1 -right-2 min-w-[16px] h-4 rounded-full bg-red-600 text-white text-[9px] font-bold flex items-center justify-center px-1 leading-none"
                     aria-hidden="true"
                   >
                     {totalUnread > 9 ? '9+' : totalUnread}
@@ -79,7 +79,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({
               </div>
               <span
                 className={`text-[10px] mt-1 font-medium transition-colors duration-200 ${
-                  isActive ? 'text-white' : 'text-gray-500'
+                  isActive ? 'text-white' : 'text-gray-400'
                 }`}
                 aria-hidden="true"
               >

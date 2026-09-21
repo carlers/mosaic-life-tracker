@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useState } from 'react';
+import React, { useRef, useEffect, useId, useState } from 'react';
 import { BottomSheet } from '../ui/BottomSheet';
 import { Input } from '../ui/Input';
 import { SheetErrorBanner } from '../ui/SheetErrorBanner';
@@ -26,6 +26,7 @@ export const ChangeEmailSheet: React.FC<ChangeEmailSheetProps> = ({
 
   const emailInputRef = useRef<HTMLInputElement>(null);
   const passwordInputRef = useRef<HTMLInputElement>(null);
+  const passwordId = useId();
 
   useSheetReset(isOpen, () => {
     setNewEmail('');
@@ -55,7 +56,7 @@ export const ChangeEmailSheet: React.FC<ChangeEmailSheetProps> = ({
     <BottomSheet isOpen={isOpen} onClose={onClose} title="Change Email" height="auto">
       <div className="pt-2 pb-8 px-1 space-y-4">
         <div className="bg-[#111111] rounded-xl p-3 mb-2 border border-[#333333]">
-          <p className="text-xs text-gray-500 mb-1">Current Email</p>
+          <p className="text-xs text-gray-400 mb-1">Current Email</p>
           <p className="text-sm text-white font-medium break-all">{currentEmail}</p>
         </div>
 
@@ -72,16 +73,17 @@ export const ChangeEmailSheet: React.FC<ChangeEmailSheetProps> = ({
         />
 
         <div className="w-full">
-          <label className="block text-xs text-gray-500 mb-1.5 ml-1">Current Password</label>
+          <label htmlFor={passwordId} className="block text-xs text-gray-400 mb-1.5 ml-1">Current Password</label>
           <div className="relative">
             <input
+              id={passwordId}
               ref={passwordInputRef}
               type="password"
               placeholder="••••••••"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               autoComplete="current-password"
-              className="w-full bg-[#1E1E1E] text-white border border-[#333333] rounded-lg px-4 py-2.5 focus:border-[#555555] focus:outline-none transition-colors placeholder-gray-600"
+              className="w-full bg-[#1E1E1E] text-white border border-[#333333] rounded-lg px-4 py-2.5 focus:border-[#555555] focus-visible:ring-2 focus-visible:ring-emerald-500/60 focus:outline-none transition-colors placeholder-gray-400"
               onPointerDown={(e) => e.stopPropagation()}
             />
           </div>

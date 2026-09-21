@@ -64,8 +64,9 @@ export const AppLayout: React.FC = () => {
   }, [user?.$id]);
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-[#111111] flex items-center justify-center">
+      <div className="min-h-screen bg-[#111111] flex items-center justify-center" role="status" aria-live="polite">
         <div className="w-8 h-8 border-2 border-white border-t-transparent rounded-full animate-spin" />
+        <span className="sr-only">Loading Mosaic</span>
       </div>
     );
   }
@@ -95,7 +96,7 @@ export const AppLayout: React.FC = () => {
             <WifiOff size={28} className="text-gray-400" />
           </div>
           <h2 className="text-lg font-bold text-white mb-2">{headline}</h2>
-          <p className="text-sm text-gray-500 mb-6 leading-relaxed">{body}</p>
+          <p className="text-sm text-gray-400 mb-6 leading-relaxed">{body}</p>
           <div className="flex flex-col gap-3">
             <button
               onClick={handleRetry}

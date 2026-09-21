@@ -18,6 +18,7 @@ import { useTasksByDate } from '../../hooks/useTasksByDate';
 import { useDayViewSwiper } from '../home/views/useDayViewSwiper';
 import { parseReactions } from '../../lib/reactionUtils';
 import { visibilityIcon } from '../../lib/visibility';
+import { getCategoryLabelColor, getReadableTextColor } from '../../constants/colors';
 import type { TaskDocument, CategoryDocument } from '../../db/schema';
 
 type Visibility = 'private' | 'followers' | 'public';
@@ -80,15 +81,15 @@ const FriendDaySlide: React.FC<FriendDaySlideProps> = ({
   if (tasks.length === 0) {
     return (
       <div className="text-center py-10 px-4">
-        <p className="text-xs text-gray-500 mb-5">{friendName} · 0 tasks</p>
-        <p className="text-sm text-gray-500">Nothing shared on this day.</p>
+        <p className="text-xs text-gray-400 mb-5">{friendName} · 0 tasks</p>
+        <p className="text-sm text-gray-400">Nothing shared on this day.</p>
       </div>
     );
   }
 
   return (
     <div className="h-full overflow-y-auto px-4 pb-8">
-      <p className="text-xs text-gray-500 text-center mb-5">
+      <p className="text-xs text-gray-400 text-center mb-5">
         {friendName} · {tasks.length} {tasks.length === 1 ? 'task' : 'tasks'}
       </p>
       <div className="space-y-4">
@@ -101,14 +102,14 @@ const FriendDaySlide: React.FC<FriendDaySlideProps> = ({
             <div key={cat.id}>
               <div className="flex items-center mb-2">
                 <div className="inline-flex items-center gap-2 bg-black rounded-full pl-3.5 pr-4 py-2">
-                  {visibilityIcon(catVisibility, 12, 'text-gray-500')}
+                  {visibilityIcon(catVisibility, 12, 'text-gray-400')}
                   <span
                     className="text-sm font-bold"
-                    style={{ color: cat.color }}
+                    style={{ color: getCategoryLabelColor(cat.color) }}
                   >
                     {cat.name}
                   </span>
-                  <span className="text-sm font-bold text-gray-500">
+                  <span className="text-sm font-bold text-gray-400">
                     {catTasks.length}
                   </span>
                 </div>
@@ -138,8 +139,9 @@ const FriendDaySlide: React.FC<FriendDaySlideProps> = ({
                         {task.completed && (
                           <Check
                             size={9}
-                            className="text-white"
+                            style={{ color: getReadableTextColor(cat.color) }}
                             strokeWidth={3.5}
+                            aria-hidden="true"
                           />
                         )}
                       </div>
@@ -147,19 +149,19 @@ const FriendDaySlide: React.FC<FriendDaySlideProps> = ({
                         <p
                           className={`text-sm ${
                             task.completed
-                              ? 'text-gray-500 line-through'
+                              ? 'text-gray-400 line-through'
                               : 'text-gray-200'
                           }`}
                         >
                           {task.title}
                         </p>
                         {task.memo && (
-                          <p className="text-xs text-gray-500 mt-0.5 whitespace-pre-wrap">
+                          <p className="text-xs text-gray-400 mt-0.5 whitespace-pre-wrap">
                             {task.memo}
                           </p>
                         )}
                         {task.image && (
-                          <div className="flex items-center gap-1 mt-1 text-xs text-gray-600">
+                          <div className="flex items-center gap-1 mt-1 text-xs text-gray-400">
                             <ImageIcon size={11} />
                             <span>Photo attached</span>
                           </div>
@@ -186,7 +188,7 @@ const FriendDaySlide: React.FC<FriendDaySlideProps> = ({
                                 onReplyToTask(task, cat.color);
                               }}
                               onPointerDown={(event) => event.stopPropagation()}
-                              className="p-1.5 rounded-lg text-gray-500 hover:text-white hover:bg-[#252525] transition-colors"
+                              className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-[#252525] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
                               aria-label="Reply to task"
                             >
                               <MessageSquare size={14} />
@@ -201,7 +203,7 @@ const FriendDaySlide: React.FC<FriendDaySlideProps> = ({
                                 onOpenReactions(task);
                               }}
                               onPointerDown={(event) => event.stopPropagation()}
-                              className="p-1.5 rounded-lg text-gray-500 hover:text-pink-400 hover:bg-[#252525] transition-colors"
+                              className="p-1.5 rounded-lg text-gray-400 hover:text-pink-400 hover:bg-[#252525] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
                               aria-label="React to task"
                             >
                               <Heart size={14} />

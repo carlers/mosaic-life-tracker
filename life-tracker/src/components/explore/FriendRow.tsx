@@ -35,18 +35,18 @@ export const FriendRow: React.FC<FriendRowProps> = ({
         <p className="text-sm font-medium text-white truncate">
           {friendship.friendDisplayName || friendship.friendUsername}
         </p>
-        <p className="text-xs text-gray-500 truncate">
+        <p className="text-xs text-gray-400 truncate">
           @{friendship.friendUsername}
         </p>
       </div>
-      <ChevronRight size={16} className="text-gray-600 flex-shrink-0" />
+      <ChevronRight size={16} className="text-gray-400 flex-shrink-0" />
       <button
         onClick={(e) => {
           e.stopPropagation();
           onOpenActions(friendship);
         }}
         onPointerDown={(e) => e.stopPropagation()}
-        className="p-2 rounded-lg text-gray-500 hover:text-white hover:bg-[#2A2A2A] transition-colors flex-shrink-0"
+        className="p-2 rounded-lg text-gray-400 hover:text-white hover:bg-[#2A2A2A] transition-colors flex-shrink-0"
         aria-label="Friend options"
       >
         <MoreHorizontal size={18} />

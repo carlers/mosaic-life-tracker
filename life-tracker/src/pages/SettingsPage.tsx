@@ -175,7 +175,7 @@ export const SettingsPage: React.FC = () => {
         <div className="border-t border-[#333333] py-2">
           <div className="px-4 py-3.5 flex items-center justify-between text-white">
             <span className="text-base font-medium">Version</span>
-            <span className="text-sm text-gray-500">0.0.0</span>
+            <span className="text-sm text-gray-400">0.0.0</span>
           </div>
         </div>
         <div className="px-4 pt-4 pb-8">

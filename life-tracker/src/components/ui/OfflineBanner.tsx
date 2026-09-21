@@ -53,7 +53,7 @@ export const OfflineBanner: React.FC = () => {
           <button
             type="button"
             onClick={handleDismiss}
-            className="text-gray-500 hover:text-gray-300 transition-colors p-1 rounded-md hover:bg-[#333333] focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
+            className="text-gray-400 hover:text-gray-300 transition-colors p-1 rounded-md hover:bg-[#333333] focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
             aria-label="Dismiss offline banner"
           >
             <X size={14} aria-hidden="true" />

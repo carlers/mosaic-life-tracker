@@ -89,7 +89,7 @@ export const ExportDataSheet: React.FC<ExportDataSheetProps> = ({
             </div>
             <div>
               <p className="text-sm font-medium text-white">Include photos</p>
-              <p className="text-xs text-gray-500 mt-0.5">
+              <p className="text-xs text-gray-400 mt-0.5">
                 Larger ZIP file. Requires internet for uncached photos.
               </p>
             </div>

@@ -48,7 +48,7 @@ export const FriendActionSheet: React.FC<FriendActionSheetProps> = ({
             alt={friendship.friendDisplayName || friendship.friendUsername}
             size="lg"
           />
-          <p className="text-xs text-gray-500 mt-3">
+          <p className="text-xs text-gray-400 mt-3">
             @{friendship.friendUsername}
           </p>
         </div>

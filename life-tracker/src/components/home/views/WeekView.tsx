@@ -39,7 +39,7 @@ export const WeekView: React.FC<WeekViewProps> = ({
         {weekDays.map((day) => (
           <div
             key={day.toISOString()}
-            className="text-center text-[10px] font-medium text-gray-500 py-1"
+            className="text-center text-[10px] font-medium text-gray-400 py-1"
           >
             {format(day, 'EEE')}
           </div>

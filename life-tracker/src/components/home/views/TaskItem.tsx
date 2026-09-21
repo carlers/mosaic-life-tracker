@@ -5,6 +5,7 @@ import { useImageLoadGate } from '../../../hooks/useImageLoadGate';
 import { useTaskImage } from '../../../hooks/useTaskImage';
 import { ReactionRow } from '../../messages/ReactionRow';
 import { parseReactions } from '../../../lib/reactionUtils';
+import { getReadableTextColor } from '../../../constants/colors';
 import type { TaskDocument } from '../../../db/schema';
 
 interface TaskItemProps {
@@ -83,14 +84,14 @@ export const TaskItem: React.FC<TaskItemProps> = ({
       <button
         onClick={() => onToggle(task.id)}
         onPointerDown={(e) => e.stopPropagation()}
-        className="mt-0.5 shrink-0 w-5 h-5 rounded-full border-2 flex items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
+        className="mt-0.5 shrink-0 w-6 h-6 rounded-full border-2 flex items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
         style={{
           borderColor: isCompleted ? categoryColor : '#4B5563',
           backgroundColor: isCompleted ? categoryColor : 'transparent',
         }}
         aria-label={isCompleted ? 'Mark incomplete' : 'Mark complete'}
       >
-        {isCompleted && <Check size={12} className="text-white" />}
+        {isCompleted && <Check size={12} style={{ color: getReadableTextColor(categoryColor) }} aria-hidden="true" />}
       </button>
       <div className="flex-1 min-w-0">
         {isEditing ? (
@@ -114,7 +115,7 @@ export const TaskItem: React.FC<TaskItemProps> = ({
             <span
               className={
                 isCompleted
-                  ? 'line-through text-gray-500'
+                  ? 'line-through text-gray-400'
                   : 'text-white'
               }
             >
@@ -129,7 +130,7 @@ export const TaskItem: React.FC<TaskItemProps> = ({
               onOpenMemo(task);
             }}
             onPointerDown={(e) => e.stopPropagation()}
-            className="mt-1 flex items-center gap-1 text-xs text-gray-500 rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
+            className="mt-1 flex items-center gap-1 text-xs text-gray-400 rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
             aria-label="Open memo"
           >
             <FileText size={12} />

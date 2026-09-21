@@ -41,10 +41,10 @@ export const SettingsRow: React.FC<SettingsRowProps> = ({
         <span className="text-base font-medium">{label}</span>
       </div>
       <div className="flex items-center gap-2">
-        {value && <span className="text-sm text-gray-500">{value}</span>}
+        {value && <span className="text-sm text-gray-400">{value}</span>}
         {rightElement}
         {showChevron && (
-          <ChevronRight size={18} className="text-gray-500" aria-hidden="true" />
+          <ChevronRight size={18} className="text-gray-400" aria-hidden="true" />
         )}
       </div>
     </button>

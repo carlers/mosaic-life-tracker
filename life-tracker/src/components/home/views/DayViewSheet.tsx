@@ -499,7 +499,7 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
         onRemove={handleImagePickerRemove}
       />
       {deleteFeedback && (
-        <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[70] bg-[#2A2A2A] text-white text-sm px-4 py-2 rounded-lg shadow-lg">
+        <div role="status" aria-live="polite" className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[70] bg-[#2A2A2A] text-white text-sm px-4 py-2 rounded-lg shadow-lg">
           {deleteFeedback}
         </div>
       )}

@@ -108,7 +108,7 @@ export const TaskActionSheet: React.FC<TaskActionSheetProps> = ({
             <Eye size={16} className="text-black" />
           </div>
           <span className="text-base font-medium flex-1 text-left">Visibility</span>
-          <span className="text-xs text-gray-500">{visibilityLabel}</span>
+          <span className="text-xs text-gray-400">{visibilityLabel}</span>
         </button>
 
         {/* Memo section */}

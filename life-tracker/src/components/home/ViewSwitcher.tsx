@@ -49,7 +49,7 @@ export const ViewSwitcher: React.FC<ViewSwitcherProps> = ({
             )}
             <span
               className={`relative z-10 transition-colors ${
-                isActive ? 'text-black' : 'text-gray-500 group-hover:text-gray-300'
+                isActive ? 'text-black' : 'text-gray-400 group-hover:text-gray-300'
               }`}
               aria-hidden="true"
             >

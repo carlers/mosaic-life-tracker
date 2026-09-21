@@ -64,7 +64,7 @@ export const TaskVisibilitySheet: React.FC<TaskVisibilitySheetProps> = ({
   return (
     <BottomSheet isOpen={isOpen} onClose={onClose} title="Visibility" height="auto">
       <div className="pt-2 pb-8 px-4">
-        <p className="text-xs text-gray-500 text-center mb-5 leading-relaxed">
+        <p className="text-xs text-gray-400 text-center mb-5 leading-relaxed">
           Control who can see this task on your shared calendar.
         </p>
 
@@ -90,7 +90,7 @@ export const TaskVisibilitySheet: React.FC<TaskVisibilitySheetProps> = ({
             <p className="text-sm font-medium text-white">
               Default ({inheritedVisibilityLabel})
             </p>
-            <p className="text-xs text-gray-500 mt-0.5 truncate">
+            <p className="text-xs text-gray-400 mt-0.5 truncate">
               Follows the &quot;{categoryLabel}&quot; category
             </p>
           </div>
@@ -128,7 +128,7 @@ export const TaskVisibilitySheet: React.FC<TaskVisibilitySheetProps> = ({
               </div>
               <div className="flex-1 min-w-0 text-left">
                 <p className="text-sm font-medium text-white">{opt.label}</p>
-                <p className="text-xs text-gray-500 mt-0.5">{opt.desc}</p>
+                <p className="text-xs text-gray-400 mt-0.5">{opt.desc}</p>
               </div>
               {selected && (
                 <Check

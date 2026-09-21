@@ -21,7 +21,7 @@ export const UserResultCard: React.FC<UserResultCardProps> = ({
     switch (relationship) {
       case 'self':
         return (
-          <span className="text-xs text-gray-500 font-medium px-3 py-1.5">
+          <span className="text-xs text-gray-400 font-medium px-3 py-1.5">
             This is you
           </span>
         );
@@ -53,7 +53,7 @@ export const UserResultCard: React.FC<UserResultCardProps> = ({
             onClick={() => onAdd(profile)}
             onPointerDown={(e) => e.stopPropagation()}
             disabled={isSending}
-            className="flex items-center gap-1.5 bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-medium px-3 py-1.5 rounded-full transition-colors disabled:opacity-50"
+            className="flex items-center gap-1.5 bg-emerald-500 hover:bg-emerald-600 text-black text-xs font-medium px-3 py-1.5 rounded-full transition-colors disabled:opacity-50"
           >
             <UserPlus size={12} />
             {isSending ? 'Sending…' : 'Add'}
@@ -73,7 +73,7 @@ export const UserResultCard: React.FC<UserResultCardProps> = ({
         <p className="text-sm font-medium text-white truncate">
           {profile.display_name || profile.username}
         </p>
-        <p className="text-xs text-gray-500 truncate">@{profile.username}</p>
+        <p className="text-xs text-gray-400 truncate">@{profile.username}</p>
       </div>
       {renderAction()}
     </div>

@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useState } from 'react';
+import React, { useRef, useEffect, useId, useState } from 'react';
 import { BottomSheet } from '../../ui/BottomSheet';
 import { Button } from '../../ui/Button';
 import { Input } from '../../ui/Input';
@@ -25,6 +25,7 @@ export const EditTaskSheet: React.FC<EditTaskSheetProps> = ({
   const [editedMemo, setEditedMemo] = useState<string | null>(null);
   const titleInputRef = useRef<HTMLInputElement>(null);
   const memoTextareaRef = useRef<HTMLTextAreaElement>(null);
+  const memoId = useId();
 
   const taskId = task?.id ?? null;
   usePropSync(taskId, () => {
@@ -64,13 +65,14 @@ export const EditTaskSheet: React.FC<EditTaskSheetProps> = ({
           onChange={(e) => setEditedTitle(e.target.value)}
         />
         <div>
-          <label className="block text-xs text-gray-500 mb-2 ml-1">Memo / Notes</label>
+          <label htmlFor={memoId} className="block text-xs text-gray-400 mb-2 ml-1">Memo / Notes</label>
           <textarea
+            id={memoId}
             ref={memoTextareaRef}
             value={memo}
             onChange={(e) => setEditedMemo(e.target.value)}
             placeholder="Add details to this task..."
-            className="w-full bg-[#1E1E1E] border border-[#333333] rounded-xl p-3 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-[#555555] transition-colors min-h-[100px] resize-none"
+            className="w-full bg-[#1E1E1E] border border-[#333333] rounded-xl p-3 text-sm text-white placeholder-gray-400 focus:outline-none focus:border-[#555555] focus-visible:ring-2 focus-visible:ring-emerald-500/60 transition-colors min-h-[100px] resize-none"
           />
         </div>
         <Button variant="primary" className="w-full gap-2 py-3" onClick={handleSave} disabled={!title.trim()}>

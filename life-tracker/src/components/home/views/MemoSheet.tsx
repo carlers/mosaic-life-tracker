@@ -76,7 +76,8 @@ export const MemoSheet: React.FC<MemoSheetProps> = ({
           value={memo}
           onChange={(e) => setEditedMemo(e.target.value)}
           placeholder="Enter a memo"
-          className="w-full bg-[#1A1A1A] rounded-xl p-4 text-base text-white placeholder-gray-500 focus:outline-none min-h-[200px] resize-none"
+          aria-label="Memo"
+          className="w-full bg-[#1A1A1A] rounded-xl p-4 text-base text-white placeholder-gray-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 min-h-[200px] resize-none"
         />
       </div>
     </BottomSheet>

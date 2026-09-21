@@ -87,7 +87,7 @@ export const ProfilePage: React.FC = () => {
             {displayName || 'Your Name'}
           </h2>
           {profile?.username && (
-            <p className="text-sm text-gray-500 mt-1">@{profile.username}</p>
+            <p className="text-sm text-gray-400 mt-1">@{profile.username}</p>
           )}
         </div>
 
@@ -100,7 +100,7 @@ export const ProfilePage: React.FC = () => {
             <span className="text-sm text-gray-400">Display Name</span>
             <div className="flex items-center gap-2">
               <span className="text-sm text-white">{displayName || 'Not set'}</span>
-              <ChevronRight size={16} className="text-gray-600" />
+              <ChevronRight size={16} className="text-gray-400" />
             </div>
           </button>
 
@@ -114,7 +114,7 @@ export const ProfilePage: React.FC = () => {
               <span className="text-sm text-white truncate max-w-[160px]">
                 {description || 'Not set'}
               </span>
-              <ChevronRight size={16} className="text-gray-600" />
+              <ChevronRight size={16} className="text-gray-400" />
             </div>
           </button>
 
@@ -128,7 +128,7 @@ export const ProfilePage: React.FC = () => {
               <span className="text-sm text-white">
                 {profile?.username ? `@${profile.username}` : 'Not set'}
               </span>
-              <AtSign size={14} className="text-gray-600" />
+              <AtSign size={14} className="text-gray-400" />
             </div>
           </button>
         </div>

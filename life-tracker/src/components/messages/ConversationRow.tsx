@@ -17,18 +17,18 @@ const ConversationRowComponent: React.FC<ConversationRowProps> = ({
   let previewClass: string;
   if (!lastMessage) {
     preview = 'Tap to start chatting';
-    previewClass = 'text-gray-600 italic';
+    previewClass = 'text-gray-400 italic';
   } else if (lastMessage.content) {
     preview = lastMessage.content;
     previewClass =
-      unreadCount > 0 ? 'text-gray-200 font-medium' : 'text-gray-500';
+      unreadCount > 0 ? 'text-gray-200 font-medium' : 'text-gray-400';
   } else if (lastMessage.taskRefTitle) {
     preview = `Re: ${lastMessage.taskRefTitle}`;
     previewClass =
-      unreadCount > 0 ? 'text-gray-200 font-medium' : 'text-gray-500';
+      unreadCount > 0 ? 'text-gray-200 font-medium' : 'text-gray-400';
   } else {
     preview = '(empty)';
-    previewClass = 'text-gray-600 italic';
+    previewClass = 'text-gray-400 italic';
   }
   const handleOpen = () => {
     navigate(`/messages/${friend.friendId}`);
@@ -51,14 +51,14 @@ const ConversationRowComponent: React.FC<ConversationRowProps> = ({
             {friend.friendDisplayName || friend.friendUsername}
           </p>
           {lastMessage && (
-            <span className="text-[10px] text-gray-500 flex-shrink-0">
+            <span className="text-[10px] text-gray-400 flex-shrink-0">
               {formatRelative(lastMessage.createdAt, '')}
             </span>
           )}
         </div>
         <p className={`text-xs truncate mt-0.5 ${previewClass}`}>
           {lastMessage?.direction === 'outgoing' && (
-            <span className="text-gray-600">You: </span>
+            <span className="text-gray-400">You: </span>
           )}
           {preview}
         </p>
@@ -68,7 +68,7 @@ const ConversationRowComponent: React.FC<ConversationRowProps> = ({
           {unreadCount > 99 ? '99+' : unreadCount}
         </div>
       ) : (
-        <ChevronRight size={16} className="text-gray-600 flex-shrink-0" />
+        <ChevronRight size={16} className="text-gray-400 flex-shrink-0" />
       )}
     </motion.button>
   );

@@ -98,7 +98,7 @@ export class ErrorBoundary extends Component<
           <h2 className="text-lg font-bold text-white mb-2">
             Something went wrong
           </h2>
-          <p className="text-sm text-gray-500 mb-6 leading-relaxed">
+          <p className="text-sm text-gray-400 mb-6 leading-relaxed">
             {needsReload
               ? 'This screen could not finish loading. Reloading may discard unfinished form input.'
               : 'This screen hit an unexpected error. Your data is safe.'}
@@ -106,7 +106,7 @@ export class ErrorBoundary extends Component<
           <div className="flex flex-col gap-3">
             <button
               onClick={this.handleReset}
-              className="bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-medium px-5 py-2.5 rounded-xl transition-colors"
+              className="bg-emerald-500 hover:bg-emerald-600 text-black text-sm font-medium px-5 py-2.5 rounded-xl transition-colors"
             >
               {needsReload ? 'Reload app' : 'Try again'}
             </button>

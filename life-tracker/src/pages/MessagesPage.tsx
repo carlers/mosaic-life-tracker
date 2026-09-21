@@ -29,14 +29,14 @@ export const MessagesPage: React.FC = () => {
               <MessageCircle size={28} className="text-gray-400" />
             </div>
             <h2 className="text-lg font-bold text-white mb-2">No friends yet</h2>
-            <p className="text-sm text-gray-500 mb-6 max-w-xs">
+            <p className="text-sm text-gray-400 mb-6 max-w-xs">
               Add friends to start chatting. You can also reply to their tasks
               from their calendar.
             </p>
             <motion.button
               whileTap={{ scale: 0.95 }}
               onClick={() => navigate('/explore')}
-              className="flex items-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-medium px-5 py-2.5 rounded-xl transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 focus-visible:ring-offset-2 focus-visible:ring-offset-[#111111]"
+              className="flex items-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-black text-sm font-medium px-5 py-2.5 rounded-xl transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 focus-visible:ring-offset-2 focus-visible:ring-offset-[#111111]"
             >
               <Users size={16} aria-hidden="true" />
               Find Friends

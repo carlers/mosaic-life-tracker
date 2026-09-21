@@ -51,7 +51,7 @@ const DaySlideComponent: React.FC<DaySlideProps> = ({
 
   if (categories.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center h-full text-gray-500">
+      <div className="flex flex-col items-center justify-center h-full text-gray-400">
         <p className="text-sm">No categories yet</p>
       </div>
     );
