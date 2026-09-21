@@ -2,11 +2,11 @@
 
 Updated: 2026-09-21
 Current task: Phase 3.7 live PostHog staging/manual verification
-Status: the deployment-only `preview` branch now points to verified commit `4a39732696da24978f428f4ff710919c3cab0fc2`, and the stable preview deployment is READY with the corrected PostHog credentials; a fresh phone/browser reload is now required before live PostHog traffic can be rechecked
+Status: the stable `preview` deployment is READY on verified commit `4a39732`, but a fresh phone/browser reload still produced no PostHog flag call; the leading remaining configuration risk is Vercel branch-specific Preview env scoping
 Roadmap pointer: Phase 3.7's automated gate is green; close it only after the live requirements in `docs/PROJECT_REFERENCE.md` §24.15 are verified. Phase 4 WCAG browser/manual evidence follows.
 Checkpoint: The `preview` branch was advanced to verified commit `4a39732696da24978f428f4ff710919c3cab0fc2` after GitHub Actions run 35559281361 passed the canonical verify gate. Vercel deployment `dpl_6r2X7nwauZDavAVHekcYtqQmfLj1` is READY and carries the stable branch alias `mosaic-life-tracker-git-preview-carls-projects-72516fde.vercel.app`. This deployment was built after the PostHog personal API key was corrected. The user reports the Appwrite preview-origin setup is complete. The Vercel connector still reports the older `main` deployment as the project's `production` target, so phone verification should continue to use the registered `preview` alias.
-Next action: Fully reload the stable `preview` alias on the phone/browser, exercise the app once while logged in, then re-check PostHog project 619969 for smoke-flag `last_called_at`, exceptions, identity/privacy behavior, and replay/autocapture absence.
-Blockers: No deployment blocker remains. The stable preview is now rebuilt from verified commit `4a39732` with the corrected PostHog credentials. Live PostHog verification remains pending until the browser loads this deployment and produces fresh traffic.
+Next action: In Vercel Settings → Environment Variables, verify `VITE_POSTHOG_TOKEN`, `VITE_POSTHOG_HOST`, `POSTHOG_PERSONAL_API_KEY`, `POSTHOG_PROJECT_ID`, and `POSTHOG_HOST` are available to the general Preview environment or specifically to the `preview` branch, not only `chatgpt/phase-3-7-posthog`. Redeploy `preview`, reload once, then re-check PostHog.
+Blockers: The stable preview was loaded after redeploy, but PostHog project 619969 still reports `ingested_event: false`, smoke flag 898417 still has `last_called_at: null`, and there are zero errors/recordings. Vercel supports branch-specific Preview variables, so variables scoped only to `chatgpt/phase-3-7-posthog` would not be present on the deployment-only `preview` branch. The connected Vercel tool cannot list env values/scopes directly.
 
 ## Preview acceptance
 
@@ -37,4 +37,5 @@ Blockers: No deployment blocker remains. The stable preview is now rebuilt from 
 - Smoke flag `mosaic-phase-3-7-smoke` (ID 898417): active, client-only, 100% rollout; `last_called_at` remains null.
 - Source maps: 47 valid symbol sets uploaded at 2026-09-21 03:43 UTC, confirming build-time PostHog credentials.
 - Stable `preview` deployment `dpl_6r2X7nwauZDavAVHekcYtqQmfLj1`: READY on commit `4a39732696da24978f428f4ff710919c3cab0fc2` after the PostHog personal API key correction.
-- Phase 3.7 live browser verification: pending one fresh reload/use of the updated stable preview before re-querying PostHog.
+- Fresh stable-preview reload after deployment `dpl_6r2X7nwauZDavAVHekcYtqQmfLj1`: no PostHog flag call (`last_called_at` still null), no ingested events, zero errors, zero recordings.
+- Phase 3.7 live browser verification: blocked on verifying Preview environment-variable scope for the `preview` branch.
