@@ -2,11 +2,11 @@
 
 Updated: 2026-09-21
 Current task: Phase 3.7 live PostHog staging/manual verification
-Status: corrected Preview client PostHog configuration is deployed, but the latest authenticated probe still produced no PostHog event; the user reports the probe link opened a logged-in Mosaic calendar with no visible data, so data-context/sync safety now takes precedence over further analytics changes
+Status: PostHog verification is paused. The user reports that opening the stable Mosaic link from ChatGPT shows `Database not initialized`; because Mosaic is local-first and the link may be opening in a separate in-app browser/webview storage context, the immediate priority is to verify the app in the user's normal external browser/PWA before treating this as a repository database regression.
 Roadmap pointer: Phase 3.7's automated gate is green; close it only after the live requirements in `docs/PROJECT_REFERENCE.md` §24.15 are verified. Phase 4 WCAG browser/manual evidence follows.
 Checkpoint: Probe commit `d0885fa818cba0216b5e50f1aff4a95ec85bec44` passed GitHub Actions Verify run 35562106729 and is deployed READY on stable `preview` alias via Vercel deployment `dpl_6cD2boBgugucsge3bzaSPprbGdF3`. The user opened the explicit authenticated probe URL, but PostHog project 619969 still shows `ingested_event: false`, zero exception events/issues, and therefore no live identity or symbolication evidence. Fresh valid source-map upload still proves the build-only PostHog credentials are working.
-Next action: Have the user return to the normal stable Mosaic URL in the same browser/PWA context where their data usually appears. If data is present there, retry the probe by pasting the query URL into that same browser context. If normal Mosaic is also blank, stop PostHog work and investigate local RxDB/Appwrite sync/data visibility before any further probe attempts.
-Blockers: The latest probe still produced zero PostHog events. The user also reported a blank logged-in calendar when opening the probe link, which may indicate a separate browser/storage context or a data/sync issue. Do not close Phase 3.7 or remove/advance further analytics state until normal-data visibility is confirmed.
+Next action: Have the user copy the stable preview URL and paste it into the same external browser/PWA context where Mosaic was previously used (Brave/Chrome, not the ChatGPT in-app browser). If the database/data appears there, resume Phase 3.7 from that context. If `Database not initialized` reproduces in the normal browser/PWA, investigate RxDB bootstrap immediately and keep PostHog paused.
+Blockers: Browser/storage context is not yet confirmed. Do not clear IndexedDB or create/edit data in the blank instance. PostHog remains secondary until normal Mosaic data visibility is confirmed.
 
 ## Preview acceptance
 
