@@ -2,11 +2,11 @@
 
 Updated: 2026-09-21
 Current task: Phase 3.7 live PostHog staging/manual verification
-Status: the gated Phase 3.7 live exception probe is verified and deployed on the stable `preview` alias; one authenticated browser visit to the explicit probe URL is now required to generate the controlled `$exception`
+Status: the deployed one-shot exception probe was opened in an authenticated browser, but PostHog project 619969 still reports no ingested events and no `$exception`; client-side ingestion configuration remains the blocker
 Roadmap pointer: Phase 3.7's automated gate is green; close it only after the live requirements in `docs/PROJECT_REFERENCE.md` §24.15 are verified. Phase 4 WCAG browser/manual evidence follows.
-Checkpoint: Commit `d0885fa818cba0216b5e50f1aff4a95ec85bec44` adds a one-shot, query-gated handled exception probe that remains inactive on normal URLs and sends only after authenticated Appwrite identity resolves. GitHub Actions Verify run 35562106729 passed. The deployment-only `preview` branch now points to that exact verified commit, and Vercel deployment `dpl_6cD2boBgugucsge3bzaSPprbGdF3` is READY on the stable alias `mosaic-life-tracker-git-preview-carls-projects-72516fde.vercel.app`. PostHog also reports a fresh valid uploaded symbol set from the probe build.
-Next action: While logged in, open `https://mosaic-life-tracker-git-preview-carls-projects-72516fde.vercel.app/?__mosaic_posthog_probe=phase-3-7-exception` once. After auth resolves, re-query PostHog for the new exception and verify authenticated distinct ID, minimal properties, source-map symbolication, and continued absence of recordings/autocapture data.
-Blockers: User browser interaction is required to trigger the deployed one-shot probe. Normal URLs do not trigger it. After evidence is captured, remove the temporary runtime probe, verify the clean commit, and redeploy `preview` before closing Phase 3.7.
+Checkpoint: Probe commit `d0885fa818cba0216b5e50f1aff4a95ec85bec44` passed GitHub Actions Verify run 35562106729 and is deployed READY on stable `preview` alias via Vercel deployment `dpl_6cD2boBgugucsge3bzaSPprbGdF3`. The user opened the explicit authenticated probe URL, but PostHog project 619969 still shows `ingested_event: false`, zero exception events/issues, and therefore no live identity or symbolication evidence. Fresh valid source-map upload still proves the build-only PostHog credentials are working.
+Next action: Verify the Vercel Preview client variables specifically: `VITE_POSTHOG_HOST` must use the US public ingestion host `https://us.i.posthog.com`, and `VITE_POSTHOG_TOKEN` must be the Project API key for PostHog project 619969. Keep the build-only `POSTHOG_HOST` separate for private/API source-map upload. Redeploy Preview after any correction, then reopen the one-shot probe URL.
+Blockers: The PostHog connector cannot read Vercel environment-variable values, so the actual `VITE_POSTHOG_HOST` and `VITE_POSTHOG_TOKEN` values cannot be verified remotely here. Live Phase 3.7 closure remains blocked until a browser exception reaches PostHog.
 
 ## Preview acceptance
 
@@ -29,6 +29,8 @@ Blockers: User browser interaction is required to trigger the deployed one-shot 
 - `SESSION_STATE.md`
 
 ## Verification
+
+- Live authenticated probe visit: no event ingested; PostHog project 619969 remains `ingested_event: false` with zero `$exception` events/issues.
 
 - GitHub Actions run 35562106729: canonical verify gate passed for probe commit `d0885fa818cba0216b5e50f1aff4a95ec85bec44`.
 - Vercel deployment `dpl_6cD2boBgugucsge3bzaSPprbGdF3`: READY on deployment-only `preview`, stable alias attached, same verified probe commit.
