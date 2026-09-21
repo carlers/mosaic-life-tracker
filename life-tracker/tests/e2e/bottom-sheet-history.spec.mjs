@@ -12,24 +12,24 @@ test('nested sheets consume Back one layer at a time before route history', asyn
   const baselineLength = await page.evaluate(() => window.history.length);
 
   await page.getByRole('button', { name: 'Open parent sheet' }).click();
-  await expect(page.getByText('Parent sheet')).toBeVisible();
+  await expect(page.getByText('Parent sheet', { exact: true })).toBeVisible();
   await expect
     .poll(() => page.evaluate(() => window.history.length))
     .toBe(baselineLength + 1);
 
   await page.getByRole('button', { name: 'Open nested sheet' }).click();
-  await expect(page.getByText('Nested sheet')).toBeVisible();
+  await expect(page.getByText('Nested sheet', { exact: true })).toBeVisible();
   await expect
     .poll(() => page.evaluate(() => window.history.length))
     .toBe(baselineLength + 2);
 
   await page.evaluate(() => window.history.back());
-  await expect(page.getByText('Nested sheet')).toBeHidden();
-  await expect(page.getByText('Parent sheet')).toBeVisible();
+  await expect(page.getByText('Nested sheet', { exact: true })).toBeHidden();
+  await expect(page.getByText('Parent sheet', { exact: true })).toBeVisible();
   expect(page.url()).toBe(sheetRoute);
 
   await page.evaluate(() => window.history.back());
-  await expect(page.getByText('Parent sheet')).toBeHidden();
+  await expect(page.getByText('Parent sheet', { exact: true })).toBeHidden();
   expect(page.url()).toBe(sheetRoute);
 
   await page.evaluate(() => window.history.back());
