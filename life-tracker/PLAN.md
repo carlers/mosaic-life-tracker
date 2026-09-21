@@ -42,8 +42,8 @@ contains the current handoff; `AGENTS.md` contains working rules.
 
 - [x] Audit instructions, reference discoverability, and enforceable project contracts
 - [ ] Complete a WCAG AA review
-- [ ] Add calendar-grid semantics
-- [ ] Add keyboard day navigation to `DayViewSheet` (A11Y-33)
+- [x] Add calendar-grid semantics
+- [x] Add keyboard day navigation to `DayViewSheet` (A11Y-33)
 
 ## Interaction fixes after audit work
 
@@ -70,4 +70,4 @@ contains the current handoff; `AGENTS.md` contains working rules.
 
 ## Batch boundary
 
-Phase 3.7 is complete: hosted exception ingestion/source-map symbolication and live privacy checks passed, and a Playwright browser contract covers identity rotation and flag refresh behavior. Current interaction fixes preserve the existing UI appearance while improving native Back behavior and gesture ownership. Next work returns to the Phase 4 manual accessibility protocol.
+Phase 3.7 is complete. Calendar-grid semantics and A11Y-33 keyboard day navigation are now implemented and covered by DOM/browser regression tests without visual restyling. The remaining Phase 4 work is the manual WCAG protocol: screen-reader output, 200% zoom/reflow, physical touch-target checks, rendered contrast review, and physical Samsung/PWA interaction acceptance.

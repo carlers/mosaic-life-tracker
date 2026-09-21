@@ -1,12 +1,12 @@
 # Session state
 
 Updated: 2026-09-21
-Current task: Automated browser acceptance for native Back, nested carousel gesture ownership, and horizontal keyboard navigation
-Status: The repeatable interaction checks now have a Playwright browser contract. Chromium with Samsung/Android-style mobile settings verifies a three-layer bottom-sheet Back stack, focus restoration, independent calendar/friend swipe regions, horizontal arrow navigation with editable-field protection, and 320 CSS px reflow. The canonical repository verification gate is green. No visual styling changes were made.
-Roadmap pointer: Phase 3.7 remains complete. Phase 4 accessibility remains open because screen-reader, rendered-contrast, touch-target, 200% zoom, and physical-device acceptance still require manual evidence. Calendar-grid semantics also remains a separate Phase 4 item.
-Checkpoint: Calendar gesture isolation now uses Swiper's explicit no-swiping region rather than capture-phase pointer cancellation, so the parent friend Swiper yields while Embla retains its full pointer lifecycle. HomePage explicitly enables the matching no-swiping class. The BottomSheet browser contract covers three nested modal history layers and opener focus restoration. The interaction contract uses Chromium CDP touch events rather than mouse-only drags.
-Next action: On the stable Preview in the normal Samsung browser/PWA, confirm hardware Back closes nested sheets top-first and confirm a real finger swipe on the calendar changes only the calendar. Then finish the remaining Phase 4 manual accessibility protocol.
-Blockers: No automated-gate blockers. Physical Samsung/PWA and broader manual WCAG acceptance remain pending.
+Current task: Phase 4 calendar semantics and accessibility automation
+Status: Calendar month/week views now expose explicit grid, row, rowgroup, columnheader, and gridcell semantics while keeping the existing visual layout. Day cells expose full accessible date/task names, today's date via `aria-current="date"`, and disabled state when no day action exists. A11Y-33 is pinned at the actual `DayViewSheet` surface, and the interaction browser contract now includes calendar semantics plus a non-visual WCAG A/AA axe scan. No palette, typography, spacing, or visual treatment changed.
+Roadmap pointer: Calendar-grid semantics and A11Y-33 are complete. The overall Phase 4 WCAG AA review remains open because screen-reader output, 200% zoom/reflow, physical touch-target judgment, rendered contrast, and physical Samsung/PWA acceptance still require manual evidence.
+Checkpoint: The calendar keeps its existing CSS grid layout; semantic row wrappers use `contents` so no new visible box is introduced. Month and week headers expose full weekday names to assistive technology. Browser automation verifies the active calendar grid and current-date state, while axe is intentionally run with `color-contrast` disabled because visual-color remediation requires explicit product approval.
+Next action: Complete the remaining manual Phase 4 protocol on the stable Preview, including Samsung/PWA hardware Back + real-touch calendar ownership, screen-reader checks, 200% zoom, touch-target checks, and rendered contrast inspection.
+Blockers: No automated-gate blockers. Remaining acceptance is manual/device evidence.
 
 ## Preview acceptance
 
@@ -19,24 +19,23 @@ Blockers: No automated-gate blockers. Physical Samsung/PWA and broader manual WC
 
 ## Working set
 
-- `src/components/ui/BottomSheet.tsx`
-- `src/components/home/views/CalendarCarousel.tsx`
-- `src/pages/HomePage.tsx`
-- `src/hooks/useHorizontalArrowNavigation.ts`
-- `tests/components/CalendarCarousel.test.tsx`
-- `tests/e2e/bottom-sheet-history.tsx`
-- `tests/e2e/bottom-sheet-history.spec.mjs`
-- `tests/e2e/interaction-contract.html`
-- `tests/e2e/interaction-contract.tsx`
+- `src/components/home/views/DayCell.tsx`
+- `src/components/home/views/MonthView.tsx`
+- `src/components/home/views/WeekView.tsx`
+- `tests/components/CalendarSemantics.test.tsx`
+- `tests/components/CalendarOverflow.test.tsx`
+- `tests/components/DayViewSheetRegression.test.tsx`
 - `tests/e2e/interaction-contract.spec.mjs`
 - `.github/workflows/playwright.yml`
 - `docs/ACCESSIBILITY_AUDIT.md`
+- `docs/CHATGPT_GITHUB_CONNECTOR_WORKFLOW.md`
+- `PLAN.md`
 - `SESSION_STATE.md`
 
 ## Verification
 
-- Interaction Browser Contract run `35607368142`: success on implementation commit `08d526559698b3daf72b722892e55ae87ce22ad4`; 6/6 Playwright checks passed in Chromium with Samsung/Android-style mobile settings.
-- The browser contract verifies three nested sheet Back traversals before route history, final-sheet focus restoration, calendar-only touch swiping, friend-carousel touch swiping outside the calendar, ArrowLeft/ArrowRight calendar navigation without stealing editable caret keys, and no horizontal page overflow at 320 CSS px.
-- Canonical GitHub Verify run `35607725909`: success on commit `66b4373ce98bd61165469fdfc86c3013376a05ed`; project contracts passed, 66/66 Vitest files and 487/487 tests passed, TypeScript/Vite production build passed, service-worker policy passed, and build-size budget passed.
-- Commit `66b4373c...` differs from the browser-tested implementation only by aligning the DOM regression assertion with the Swiper no-swiping architecture; production interaction code is unchanged from the green browser run.
-- Physical Samsung hardware Back and installed-PWA behavior remain manual acceptance items; automated Chromium history/touch emulation does not claim to replace OS-level evidence.
+- Interaction Browser Contract run `35620577757`: success for `feat: complete calendar grid accessibility semantics`; browser checks include nested Back/focus behavior, calendar/friend touch ownership, arrow-key parity, 320 CSS px reflow, active calendar grid semantics, and the non-visual WCAG A/AA axe scan.
+- The first canonical Verify run for that implementation exposed one stale regression in `CalendarOverflow.test.tsx`: the test located the calendar body through the old `aria-hidden` weekday-header structure. Production behavior was not the failure.
+- Follow-up commit `test: align calendar overflow regression with grid semantics` updated that regression to target the semantic `rowgroup`.
+- Canonical GitHub Verify run `35620914559`: success after the regression update.
+- Physical Samsung hardware Back, installed-PWA behavior, screen-reader output, physical touch targets, 200% zoom, and rendered contrast remain manual acceptance items.
