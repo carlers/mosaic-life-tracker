@@ -1,8 +1,25 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, fireEvent } from '@testing-library/react';
+import { render, fireEvent, screen } from '@testing-library/react';
+import React, { useState } from 'react';
 import { BottomSheet } from '../../src/components/ui/BottomSheet';
 
 const noop = () => {};
+
+function NativeBackStackHarness() {
+  const [firstOpen, setFirstOpen] = useState(true);
+  const [secondOpen, setSecondOpen] = useState(true);
+
+  return (
+    <>
+      <BottomSheet isOpen={firstOpen} onClose={() => setFirstOpen(false)}>
+        <div>First sheet</div>
+      </BottomSheet>
+      <BottomSheet isOpen={secondOpen} onClose={() => setSecondOpen(false)}>
+        <div>Second sheet</div>
+      </BottomSheet>
+    </>
+  );
+}
 
 // ---------------------------------------------------------------------------
 // BottomSheet component tests (Layer 5).
@@ -28,6 +45,7 @@ describe('BottomSheet', () => {
     // triggers the component's effect cleanup and restores body overflow.
     // This line guards against a future test that forgets to clean up.
     document.body.style.overflow = '';
+    window.history.replaceState({}, '', window.location.href);
   });
 
   it('portals children into document.body, not the render container', () => {
@@ -78,6 +96,24 @@ describe('BottomSheet', () => {
     fireEvent.keyDown(window, { key: 'Escape' });
     expect(onCloseB).toHaveBeenCalledTimes(1);
     expect(onCloseA).not.toHaveBeenCalled();
+  });
+
+  // Regression: native Android/Samsung Back closes one modal layer at a time.
+  it('uses popstate Back to close stacked sheets one at a time without changing the route', () => {
+    const startUrl = window.location.href;
+    render(<NativeBackStackHarness />);
+
+    expect(screen.getByText('First sheet')).toBeInTheDocument();
+    expect(screen.getByText('Second sheet')).toBeInTheDocument();
+
+    fireEvent.popState(window, { state: {} });
+    expect(screen.getByText('First sheet')).toBeInTheDocument();
+    expect(screen.queryByText('Second sheet')).toBeNull();
+    expect(window.location.href).toBe(startUrl);
+
+    fireEvent.popState(window, { state: {} });
+    expect(screen.queryByText('First sheet')).toBeNull();
+    expect(window.location.href).toBe(startUrl);
   });
 
   // Regression: UIFIX-8/UIFIX-9 — stacked sheets suspend underlying interaction.

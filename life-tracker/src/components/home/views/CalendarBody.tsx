@@ -5,6 +5,7 @@ import { ReplyComposerSheet } from '../../messages/ReplyComposerSheet';
 import { CalendarCarousel } from './CalendarCarousel';
 import { useTasksByDate } from '../../../hooks/useTasksByDate';
 import { useFriendTaskReply } from '../../../hooks/useFriendTaskReply';
+import { useHorizontalArrowNavigation } from '../../../hooks/useHorizontalArrowNavigation';
 import type { TaskDocument, CategoryDocument } from '../../../db/schema';
 import type { CalendarViewMode } from './useCalendarState';
 
@@ -21,6 +22,9 @@ interface CalendarBodyProps {
   friendName?: string;
   friendUserId?: string | null;
   currentUserId: string;
+  isActive: boolean;
+  onPrev: () => void;
+  onNext: () => void;
   onReactToTask?: (task: TaskDocument, emoji: string) => void;
 }
 
@@ -37,6 +41,9 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
   friendName,
   friendUserId,
   currentUserId,
+  isActive,
+  onPrev,
+  onNext,
   onReactToTask,
 }) => {
   const [daySheetOpen, setDaySheetOpen] = useState(false);
@@ -64,6 +71,15 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
   const handleDateChange = useCallback((date: Date) => {
     setSelectedDate(date);
   }, []);
+
+  // Keyboard arrows mirror the existing horizontal calendar swipe/header
+  // controls. The calendar yields while a day sheet (or nested reply flow)
+  // is open so only the active modal layer responds.
+  useHorizontalArrowNavigation({
+    enabled: isActive && !daySheetOpen && !replyTask,
+    onLeft: onPrev,
+    onRight: onNext,
+  });
 
   const carousel = (
     <CalendarCarousel

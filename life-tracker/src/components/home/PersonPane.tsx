@@ -111,6 +111,12 @@ export const PersonPane: React.FC<PersonPaneProps> = ({ person, isActive }) => {
             friendName={person.displayName}
             friendUserId={friendUserId}
             currentUserId={currentUserId}
+          isActive={isActive}
+          onPrev={calendarState.handlePrev}
+          onNext={calendarState.handleNext}
+            isActive={isActive}
+            onPrev={calendarState.handlePrev}
+            onNext={calendarState.handleNext}
             onReactToTask={handleReactToTask}
           />
         ) : (
@@ -143,6 +149,9 @@ export const PersonPane: React.FC<PersonPaneProps> = ({ person, isActive }) => {
           categoriesMap={categoriesMap}
           variant="me"
           currentUserId={currentUserId}
+          isActive={isActive}
+          onPrev={calendarState.handlePrev}
+          onNext={calendarState.handleNext}
         />
       ) : (
         <ComingSoon />

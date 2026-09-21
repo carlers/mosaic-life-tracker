@@ -7,6 +7,12 @@ interfaces. It is a review and remediation record, not a claim of WCAG certifica
 The roadmap keeps this item open until the browser/manual protocol below is completed and
 recorded.
 
+Visual-preservation constraint (2026-09-21): future accessibility remediation must preserve
+Mosaic's existing palette and visual treatment unless the user explicitly approves a visual
+change. Semantic, keyboard, focus, naming, and announcement fixes can proceed without
+restyling; a visual compliance conflict is reported for product decision rather than silently
+changing colors or appearance.
+
 ## Scope
 
 This pass covered the current auth, account/settings, home/task/day, friend, explore, and

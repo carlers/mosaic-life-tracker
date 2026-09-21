@@ -22,6 +22,7 @@ import { deleteImage } from '../../../lib/storage';
 import { EMPTY_TASKS } from '../../../constants/empty';
 import type { TaskDocument } from '../../../db/schema';
 import { Spinner } from '../../ui/Spinner';
+import { useHorizontalArrowNavigation } from '../../../hooks/useHorizontalArrowNavigation';
 
 const ImageViewer = lazy(() =>
   import('./ImageViewer').then(({ ImageViewer }) => ({ default: ImageViewer }))
@@ -314,6 +315,14 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
     isImageViewerOpen ||
     deletePhotoConfirmOpen ||
     !!imagePickerTaskId;
+  // A11Y-33: keyboard arrows mirror the existing swipe/chevron day navigation.
+  // Nested sheets and text editing retain their own keyboard behavior.
+  useHorizontalArrowNavigation({
+    enabled: isOpen && !isBackgroundLocked,
+    onLeft: handlePrevDay,
+    onRight: handleNextDay,
+  });
+
   const imageViewerLoadingFallback = (
     <div
       className="fixed inset-0 z-[80] bg-black flex items-center justify-center px-6"

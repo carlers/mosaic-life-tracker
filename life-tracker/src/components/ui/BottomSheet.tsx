@@ -15,7 +15,97 @@ interface BottomSheetProps {
 }
 
 let openSheetCount = 0;
-const escapeStack: { id: string; onClose: () => void }[] = [];
+
+type SheetStackEntry = {
+  id: string;
+  onClose: () => void;
+};
+
+const sheetStack: SheetStackEntry[] = [];
+const HISTORY_GUARD_KEY = '__mosaicBottomSheetGuard';
+let historyGuardToken: string | null = null;
+let historyGuardSequence = 0;
+let historyBackHandlerInstalled = false;
+
+function readHistoryGuardToken(state: unknown): string | null {
+  if (typeof state !== 'object' || state === null || Array.isArray(state)) {
+    return null;
+  }
+  const value = (state as Record<string, unknown>)[HISTORY_GUARD_KEY];
+  return typeof value === 'string' ? value : null;
+}
+
+function ensureHistoryGuard(): void {
+  if (typeof window === 'undefined') return;
+
+  if (
+    historyGuardToken &&
+    readHistoryGuardToken(window.history.state) === historyGuardToken
+  ) {
+    return;
+  }
+
+  const currentState =
+    typeof window.history.state === 'object' &&
+    window.history.state !== null &&
+    !Array.isArray(window.history.state)
+      ? (window.history.state as Record<string, unknown>)
+      : {};
+  const token = `mosaic-sheet-${++historyGuardSequence}`;
+
+  window.history.pushState(
+    { ...currentState, [HISTORY_GUARD_KEY]: token },
+    '',
+    window.location.href
+  );
+  historyGuardToken = token;
+}
+
+function releaseHistoryGuardIfCurrent(): void {
+  if (typeof window === 'undefined') return;
+
+  const token = historyGuardToken;
+  historyGuardToken = null;
+  if (token && readHistoryGuardToken(window.history.state) === token) {
+    window.history.back();
+  }
+}
+
+function handleBottomSheetPopState(event: PopStateEvent): void {
+  const token = historyGuardToken;
+
+  if (!token) {
+    // A stale same-URL sheet guard can remain if the app route changed while a
+    // sheet was mounted. Skip that inert entry rather than making Back appear
+    // to do nothing on a later visit.
+    if (sheetStack.length === 0 && readHistoryGuardToken(event.state)) {
+      window.history.back();
+    }
+    return;
+  }
+
+  // Forward navigation onto the current guard is not a dismissal.
+  if (readHistoryGuardToken(event.state) === token) return;
+
+  historyGuardToken = null;
+  const top = sheetStack.pop();
+  if (!top) return;
+
+  // One same-URL guard is enough for any stack depth. After Back consumes it,
+  // immediately re-arm when an underlying sheet remains so the next Back
+  // closes that sheet instead of leaving the current route.
+  if (sheetStack.length > 0) {
+    ensureHistoryGuard();
+  }
+
+  top.onClose();
+}
+
+function ensureHistoryBackHandler(): void {
+  if (typeof window === 'undefined' || historyBackHandlerInstalled) return;
+  window.addEventListener('popstate', handleBottomSheetPopState);
+  historyBackHandlerInstalled = true;
+}
 
 export const BottomSheet: React.FC<BottomSheetProps> = ({
   isOpen,
@@ -28,9 +118,12 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
   backdropBlur = false,
 }) => {
   const sheetRef = useRef<HTMLDivElement>(null);
+  const onCloseRef = useRef(onClose);
   const dragControls = useDragControls();
   const sheetId = React.useId();
   const titleId = React.useId();
+
+  onCloseRef.current = onClose;
 
   useFocusTrap(sheetRef, isOpen && !suspendInteraction);
 
@@ -48,22 +141,35 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
 
   useEffect(() => {
     if (!isOpen) return;
-    const entry = { id: sheetId, onClose };
-    escapeStack.push(entry);
+
+    const entry: SheetStackEntry = {
+      id: sheetId,
+      onClose: () => onCloseRef.current(),
+    };
+    sheetStack.push(entry);
+    ensureHistoryBackHandler();
+    if (sheetStack.length === 1) {
+      ensureHistoryGuard();
+    }
+
     const handleEsc = (e: KeyboardEvent) => {
       if (e.key !== 'Escape') return;
-      const top = escapeStack[escapeStack.length - 1];
+      const top = sheetStack[sheetStack.length - 1];
       if (top && top.id === sheetId) {
-        onClose();
+        top.onClose();
       }
     };
+
     window.addEventListener('keydown', handleEsc);
     return () => {
       window.removeEventListener('keydown', handleEsc);
-      const idx = escapeStack.findIndex((s) => s.id === sheetId);
-      if (idx > -1) escapeStack.splice(idx, 1);
+      const idx = sheetStack.findIndex((sheet) => sheet.id === sheetId);
+      if (idx > -1) sheetStack.splice(idx, 1);
+      if (sheetStack.length === 0) {
+        releaseHistoryGuardIfCurrent();
+      }
     };
-  }, [isOpen, sheetId, onClose]);
+  }, [isOpen, sheetId]);
 
   const heightClass =
     height === 'full'
