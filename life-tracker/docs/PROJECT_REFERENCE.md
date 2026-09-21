@@ -750,11 +750,19 @@ configuration continues to use only `VITE_POSTHOG_TOKEN` and `VITE_POSTHOG_HOST`
 The host is never assumed.
 
 IP-discarding is not represented as a client-side setting. If Mosaic requires IP discard,
-configure and verify it in the PostHog project. Live dashboard verification must also
-confirm replay/autocapture/console capture are absent, authenticated distinct IDs equal
-Appwrite `$id` with no profile properties, logout creates a fresh anonymous identity,
-test flags refresh after identify, intentional exceptions arrive, and uploaded production
-source maps symbolicate stacks.
+configure and verify it in the PostHog project. Live verification must also confirm
+replay/autocapture/console capture are absent, authenticated distinct IDs equal Appwrite
+`$id` with no profile properties, logout creates a fresh anonymous identity, test flags
+refresh after identify, intentional exceptions arrive, and uploaded production source maps
+symbolicate stacks.
+
+The repository's `PostHog Browser Contract` GitHub Actions workflow runs Chromium against
+the real Mosaic browser adapter with Appwrite/PostHog network interception. It verifies the
+anonymous → authenticated → fresh-anonymous identity lifecycle, flag reloads after identity
+changes, minimal request bodies, handled exception shape, injected chunk/release metadata,
+and that Mosaic makes no replay/autocapture request paths. Hosted PostHog checks remain the
+authority for actual ingestion, person properties, recordings, project IP discard, and
+production source-map symbolication.
 
 ## 25. Workflow Portability and History
 

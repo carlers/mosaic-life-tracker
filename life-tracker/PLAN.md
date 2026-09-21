@@ -38,7 +38,7 @@ this roadmap. Git history and `docs/PROJECT_REFERENCE.md` retain the implementat
   manifest identity, and native Profile sharing with clipboard fallback
 - [x] **3.6 Build-size guard:** production builds enforce reviewed raw/gzip entry,
   aggregate app-asset, and unique precache byte budgets
-- [ ] **3.7 PostHog foundation:** error tracking and feature flags, with session replay and
+- [x] **3.7 PostHog foundation:** error tracking and feature flags, with session replay and
   autocapture disabled
 
 ## Phase 4 — specification and accessibility audit
@@ -70,5 +70,4 @@ this roadmap. Git history and `docs/PROJECT_REFERENCE.md` retain the implementat
 Phase 4.1 is verified complete. The source-level Phase 4 WCAG review and remediation are
 also automated-gate green, with the roadmap checkbox intentionally left open until the
 manual browser protocol in `docs/ACCESSIBILITY_AUDIT.md` is recorded. Calendar-grid
-semantics and A11Y-33 remain separate next batches. Phase 3.7's automated gate is green,
-but its live PostHog staging/manual checks remain pending.
+semantics and A11Y-33 remain separate next batches. Phase 3.7 is complete: hosted exception ingestion/source-map symbolication and live privacy checks passed, and a Playwright browser contract now covers identity rotation and flag refresh behavior.
