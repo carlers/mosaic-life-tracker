@@ -19,7 +19,7 @@ describe('CalendarCarousel gesture ownership', () => {
     categoriesMap: {},
   };
 
-  it('blocks parent carousel propagation while allowing calendar pointer lifecycle', () => {
+  it('marks the calendar as a parent-Swiper no-swiping region without intercepting its pointer lifecycle', () => {
     const parentPointerDown = vi.fn();
     const { container } = render(
       <div onPointerDown={parentPointerDown}>
@@ -29,12 +29,16 @@ describe('CalendarCarousel gesture ownership', () => {
 
     const viewport = container.querySelector('.flex-1');
     expect(viewport).not.toBeNull();
+    expect(viewport).toHaveClass('swiper-no-swiping');
 
     fireEvent.pointerDown(viewport!);
     fireEvent.pointerMove(viewport!);
     fireEvent.pointerUp(viewport!);
 
-    expect(parentPointerDown).not.toHaveBeenCalled();
+    // The calendar no longer cancels DOM propagation itself. Swiper's
+    // no-swiping selector owns parent isolation, leaving Embla's pointer
+    // sequence intact; the real nested behavior is pinned by Playwright.
+    expect(parentPointerDown).toHaveBeenCalledTimes(1);
   });
 
   it('keeps the calendar carousel swipe target mounted for Embla', () => {
