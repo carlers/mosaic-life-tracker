@@ -115,6 +115,22 @@ describe('BottomSheet', () => {
     expect(window.location.href).toBe(startUrl);
   });
 
+  // Regression: native Android/Samsung Back needs one browser-history slot per
+  // open sheet so a nested stack cannot fall through to route/app history.
+  it('reserves one same-route history entry for every open sheet layer', () => {
+    const baselineLength = window.history.length;
+
+    render(
+      <>
+        <BottomSheet isOpen onClose={noop}>A</BottomSheet>
+        <BottomSheet isOpen onClose={noop}>B</BottomSheet>
+        <BottomSheet isOpen onClose={noop}>C</BottomSheet>
+      </>
+    );
+
+    expect(window.history.length).toBe(baselineLength + 3);
+  });
+
   // Regression: UIFIX-8/UIFIX-9 — stacked sheets suspend underlying interaction.
   it('can suspend an underlying stacked sheet so it is hidden from accessibility and pointer interaction', () => {
     render(
