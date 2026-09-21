@@ -66,6 +66,8 @@ const DayCellComponent: React.FC<DayCellProps> = ({
       onClick={handleClick}
       disabled={!onDayClick}
       aria-label={ariaLabel}
+      aria-current={isTodayDate ? 'date' : undefined}
+      aria-disabled={!onDayClick}
       className={`py-0.5 flex flex-col h-full w-full rounded-md text-left transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 ${
         onDayClick ? 'cursor-pointer hover:bg-[#1E1E1E]' : 'cursor-default'
       } ${!isCurrentMonth ? 'opacity-40' : ''}`}

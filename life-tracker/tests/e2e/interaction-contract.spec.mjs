@@ -1,3 +1,4 @@
+import AxeBuilder from '@axe-core/playwright';
 import { expect, test } from '@playwright/test';
 
 const BASE_URL = process.env.MOSAIC_E2E_BASE_URL ?? 'https://127.0.0.1:4173';
@@ -95,4 +96,29 @@ test('interaction harness reflows without horizontal page overflow at 320 CSS px
     () => document.documentElement.scrollWidth - document.documentElement.clientWidth
   );
   expect(overflow).toBeLessThanOrEqual(1);
+});
+
+
+test('active calendar exposes labelled grid, row, header, cell, and current-date semantics', async ({ page }) => {
+  await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html`);
+
+  const title = (await page.getByTestId('calendar-title').textContent())?.trim();
+  expect(title).toBeTruthy();
+
+  const grid = page.getByRole('grid', { name: `${title} calendar` });
+  await expect(grid).toBeVisible();
+  await expect(grid.getByRole('columnheader')).toHaveCount(7);
+  expect(await grid.getByRole('gridcell').count()).toBeGreaterThanOrEqual(28);
+  await expect(grid.locator('[aria-current="date"]')).toHaveCount(1);
+});
+
+test('interaction harness has no detectable non-visual WCAG A/AA axe violations', async ({ page }) => {
+  await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html`);
+
+  const results = await new AxeBuilder({ page })
+    .withTags(['wcag2a', 'wcag2aa'])
+    .disableRules(['color-contrast'])
+    .analyze();
+
+  expect(results.violations).toEqual([]);
 });

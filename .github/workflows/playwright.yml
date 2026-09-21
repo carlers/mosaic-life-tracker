@@ -8,6 +8,14 @@ on:
     paths:
       - 'life-tracker/src/components/ui/BottomSheet.tsx'
       - 'life-tracker/src/components/home/views/CalendarCarousel.tsx'
+      - 'life-tracker/src/components/home/views/DayCell.tsx'
+      - 'life-tracker/src/components/home/views/MonthView.tsx'
+      - 'life-tracker/src/components/home/views/WeekView.tsx'
+      - 'life-tracker/src/components/home/views/DayViewSheet.tsx'
+      - 'life-tracker/src/components/home/views/DayCell.tsx'
+      - 'life-tracker/src/components/home/views/MonthView.tsx'
+      - 'life-tracker/src/components/home/views/WeekView.tsx'
+      - 'life-tracker/src/components/home/views/DayViewSheet.tsx'
       - 'life-tracker/src/pages/HomePage.tsx'
       - 'life-tracker/src/hooks/useHorizontalArrowNavigation.ts'
       - 'life-tracker/tests/e2e/**'
@@ -51,8 +59,8 @@ jobs:
       - name: Install repository dependencies
         run: npm ci
 
-      - name: Install pinned Playwright runner
-        run: npm install --no-save --package-lock=false @playwright/test@1.58.2
+      - name: Install pinned browser test dependencies
+        run: npm install --no-save --package-lock=false @playwright/test@1.58.2 @axe-core/playwright@4.10.2
 
       - name: Install Chromium
         run: npx playwright install --with-deps chromium

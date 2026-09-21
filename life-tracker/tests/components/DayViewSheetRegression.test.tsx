@@ -4,6 +4,12 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { CategoryDocument, TaskDocument } from '../../src/db/schema';
 
+const swiperFixture = vi.hoisted(() => ({
+  slidePrev: vi.fn(),
+  slideNext: vi.fn(),
+  slideTo: vi.fn(),
+}));
+
 const fixture = vi.hoisted(() => ({
   task: {
     id: 'task_1',
@@ -40,9 +46,9 @@ vi.mock('swiper/react', () => ({
   }) => {
     onSwiper?.({
       activeIndex: 90,
-      slideTo: vi.fn(),
-      slidePrev: vi.fn(),
-      slideNext: vi.fn(),
+      slideTo: swiperFixture.slideTo,
+      slidePrev: swiperFixture.slidePrev,
+      slideNext: swiperFixture.slideNext,
     });
     return <div data-testid="day-swiper">{children}</div>;
   },
@@ -135,6 +141,19 @@ function renderSheet() {
 describe('DayViewSheet nested task actions', () => {
   beforeEach(() => {
     fixture.task.image = 'image_1';
+    swiperFixture.slidePrev.mockClear();
+    swiperFixture.slideNext.mockClear();
+    swiperFixture.slideTo.mockClear();
+  });
+
+  it('maps unmodified horizontal arrow keys to day navigation while open', () => {
+    renderSheet();
+
+    fireEvent.keyDown(window, { key: 'ArrowLeft' });
+    fireEvent.keyDown(window, { key: 'ArrowRight' });
+
+    expect(swiperFixture.slidePrev).toHaveBeenCalledTimes(1);
+    expect(swiperFixture.slideNext).toHaveBeenCalledTimes(1);
   });
 
   it('renders the selected date in the draggable sheet header', () => {
