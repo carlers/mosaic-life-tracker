@@ -28,26 +28,6 @@ Blockers: One final browser-triggered live event is needed to validate the repai
 - `PLAN.md`
 - `SESSION_STATE.md`
 
-## Preview acceptance
-
-- PREVIEW-1 — Vercel can build from `life-tracker/` using the canonical production build.
-- PREVIEW-2 — Direct loads of Mosaic BrowserRouter routes resolve to `index.html` without rewriting emitted static assets.
-- PREVIEW-3 — A dedicated `preview` branch carries only an exact verified commit selected for hosted review.
-- PREVIEW-4 — The stable Vercel production hostname is the canonical phone-test origin and is registered once with Appwrite.
-- PREVIEW-5 — Dynamic Vercel branch URLs are not assumed to have Appwrite access.
-- PREVIEW-6 — No deployment secrets are committed; PostHog remains optional and no-op without config.
-
-## Working set
-
-- `src/lib/posthog.ts`
-- `src/hooks/useFeatureFlag.ts`
-- `src/hooks/AuthProvider.tsx`
-- `vite.config.ts`
-- `docs/PROJECT_REFERENCE.md`
-- `docs/PREVIEW_DEPLOYMENT.md`
-- `PLAN.md`
-- `SESSION_STATE.md`
-
 ## Verification
 
 - GitHub Actions Verify run 35564506345: success for commit `a115b48bb68e6fe11e3d10c5d2952394d04cedba`.
