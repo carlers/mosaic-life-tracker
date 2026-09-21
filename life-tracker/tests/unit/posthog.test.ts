@@ -133,7 +133,7 @@ describe('PostHog adapter', () => {
 
   it('attaches injected chunk and release metadata for source-map symbolication', async () => {
     vi.stubGlobal('_posthogChunkIds', {
-      'Error\\n    at chunk (https://app.test/assets/index.js:1:1)': 'chunk_123',
+      'Error\n    at chunk (https://app.test/assets/index.js:1:1)': 'chunk_123',
     });
     vi.stubGlobal('_posthogReleaseId', 'release_456');
 
@@ -144,7 +144,7 @@ describe('PostHog adapter', () => {
 
     const error = new Error('symbolicate me');
     error.stack =
-      'Error: symbolicate me\\n    at render (https://app.test/assets/index.js:10:20)';
+      'Error: symbolicate me\n    at render (https://app.test/assets/index.js:10:20)';
     adapter.captureHandledException(error);
 
     await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));

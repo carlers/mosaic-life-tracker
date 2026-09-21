@@ -26,7 +26,7 @@ test('PostHog probe survives redirect and stays privacy-minimal', async ({ page 
       );
       globalThis._posthogReleaseId = 'release_e2e';
       globalThis._posthogChunkIds = {
-        [`Error\\n    at chunk (${baseUrl}/src/lib/posthog.ts:1:1)`]: 'chunk_e2e',
+        [`Error\n    at chunk (${baseUrl}/src/lib/posthog.ts:1:1)`]: 'chunk_e2e',
       };
     },
     { userId: USER_ID, baseUrl: BASE_URL }
