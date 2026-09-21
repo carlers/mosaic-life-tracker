@@ -2,7 +2,7 @@ import React, { StrictMode, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { BottomSheet } from '../../src/components/ui/BottomSheet';
 
-function Harness() {
+export function Harness() {
   const [parentOpen, setParentOpen] = useState(false);
   const [nestedOpen, setNestedOpen] = useState(false);
 
