@@ -2,7 +2,14 @@ import { expect, test } from '@playwright/test';
 
 const BASE_URL = process.env.MOSAIC_E2E_BASE_URL ?? 'https://127.0.0.1:4173';
 
-test.use({ ignoreHTTPSErrors: true });
+test.use({
+  ignoreHTTPSErrors: true,
+  hasTouch: true,
+  isMobile: true,
+  viewport: { width: 412, height: 915 },
+  userAgent:
+    'Mozilla/5.0 (Linux; Android 15; SM-S928B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Mobile Safari/537.36 SamsungBrowser/28.0',
+});
 
 test('nested sheets consume Back one layer at a time before route history', async ({ page }) => {
   await page.goto(`${BASE_URL}/tests/e2e/history-base.html`);

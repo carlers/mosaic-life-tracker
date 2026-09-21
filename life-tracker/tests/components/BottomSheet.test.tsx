@@ -82,41 +82,37 @@ describe('BottomSheet', () => {
   });
 
   // Regression: native Android/Samsung Back closes one modal layer at a time.
-  it('uses popstate Back to dismiss stacked sheets top-first without changing the route', () => {
-    const startUrl = window.location.href;
+  it('maps real popstate targets to a three-sheet stack top-first', () => {
     const onCloseA = vi.fn();
     const onCloseB = vi.fn();
+    const onCloseC = vi.fn();
+    const pushState = vi.spyOn(window.history, 'pushState');
 
     render(
       <>
-        <BottomSheet isOpen onClose={onCloseA}>
-          <div>First sheet</div>
-        </BottomSheet>
-        <BottomSheet isOpen onClose={onCloseB}>
-          <div>Second sheet</div>
-        </BottomSheet>
+        <BottomSheet isOpen onClose={onCloseA}>A</BottomSheet>
+        <BottomSheet isOpen onClose={onCloseB}>B</BottomSheet>
+        <BottomSheet isOpen onClose={onCloseC}>C</BottomSheet>
       </>
     );
 
-    // A real Back traversal lands on the pre-guard same-URL entry before
-    // dispatching popstate. happy-dom does not perform that traversal for a
-    // synthetic popstate, so mirror the resulting history state explicitly.
-    window.history.replaceState({}, '', startUrl);
-    fireEvent.popState(window);
+    expect(pushState).toHaveBeenCalledTimes(3);
+    const stateA = pushState.mock.calls[0]?.[0];
+    const stateB = pushState.mock.calls[1]?.[0];
+
+    fireEvent.popState(window, { state: stateB });
+    expect(onCloseC).toHaveBeenCalledTimes(1);
+    expect(onCloseB).not.toHaveBeenCalled();
+    expect(onCloseA).not.toHaveBeenCalled();
+
+    fireEvent.popState(window, { state: stateA });
     expect(onCloseB).toHaveBeenCalledTimes(1);
     expect(onCloseA).not.toHaveBeenCalled();
-    expect(window.location.href).toBe(startUrl);
 
-    // The handler has re-armed a same-URL guard for the remaining sheet.
-    window.history.replaceState({}, '', startUrl);
-    fireEvent.popState(window);
+    fireEvent.popState(window, { state: {} });
     expect(onCloseA).toHaveBeenCalledTimes(1);
-    expect(onCloseB).toHaveBeenCalledTimes(1);
-    expect(window.location.href).toBe(startUrl);
   });
 
-  // Regression: native Android/Samsung Back needs one browser-history slot per
-  // open sheet so a nested stack cannot fall through to route/app history.
   it('reserves one same-route history entry for every open sheet layer', () => {
     const baselineLength = window.history.length;
 
@@ -129,6 +125,19 @@ describe('BottomSheet', () => {
     );
 
     expect(window.history.length).toBe(baselineLength + 3);
+  });
+
+  it('does not allocate another history slot when an onClose callback rerenders', () => {
+    const baselineLength = window.history.length;
+    const { rerender } = render(
+      <BottomSheet isOpen onClose={() => undefined}>A</BottomSheet>
+    );
+    expect(window.history.length).toBe(baselineLength + 1);
+
+    rerender(
+      <BottomSheet isOpen onClose={() => undefined}>A updated</BottomSheet>
+    );
+    expect(window.history.length).toBe(baselineLength + 1);
   });
 
   // Regression: UIFIX-8/UIFIX-9 — stacked sheets suspend underlying interaction.

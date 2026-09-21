@@ -14,19 +14,19 @@ interface BottomSheetProps {
   backdropBlur?: boolean;
 }
 
-let openSheetCount = 0;
-
 type SheetStackEntry = {
   id: string;
+  historyId: string;
   onClose: () => void;
 };
 
+let openSheetCount = 0;
 const sheetStack: SheetStackEntry[] = [];
+const issuedHistoryIds = new Set<string>();
+const pendingCleanupTimers = new Map<string, number>();
 const HISTORY_GUARD_KEY = '__mosaicBottomSheetGuard';
-let historyGuardToken: string | null = null;
 let historyGuardSequence = 0;
 let historyBackHandlerInstalled = false;
-let historyGuardReleaseTimer: number | null = null;
 
 function readHistoryGuardToken(state: unknown): string | null {
   if (typeof state !== 'object' || state === null || Array.isArray(state)) {
@@ -36,94 +36,137 @@ function readHistoryGuardToken(state: unknown): string | null {
   return typeof value === 'string' ? value : null;
 }
 
-function ensureHistoryGuard(): void {
-  if (typeof window === 'undefined') return;
-
+function getCurrentHistoryState(): Record<string, unknown> {
   if (
-    historyGuardToken &&
-    readHistoryGuardToken(window.history.state) === historyGuardToken
-  ) {
-    return;
-  }
-
-  const currentState =
     typeof window.history.state === 'object' &&
     window.history.state !== null &&
     !Array.isArray(window.history.state)
-      ? (window.history.state as Record<string, unknown>)
-      : {};
-  const token = `mosaic-sheet-${++historyGuardSequence}`;
+  ) {
+    return window.history.state as Record<string, unknown>;
+  }
+  return {};
+}
 
+function pushSheetHistory(entry: SheetStackEntry): void {
+  const currentState = getCurrentHistoryState();
   window.history.pushState(
-    { ...currentState, [HISTORY_GUARD_KEY]: token },
+    { ...currentState, [HISTORY_GUARD_KEY]: entry.historyId },
     '',
     window.location.href
   );
-  historyGuardToken = token;
+  issuedHistoryIds.add(entry.historyId);
 }
 
-function cancelScheduledHistoryGuardRelease(): void {
-  if (typeof window === 'undefined' || historyGuardReleaseTimer === null) return;
-  window.clearTimeout(historyGuardReleaseTimer);
-  historyGuardReleaseTimer = null;
+function cancelPendingCleanup(sheetId: string): void {
+  const timer = pendingCleanupTimers.get(sheetId);
+  if (timer === undefined) return;
+  window.clearTimeout(timer);
+  pendingCleanupTimers.delete(sheetId);
 }
 
-function releaseHistoryGuardIfCurrent(): void {
-  if (typeof window === 'undefined') return;
+function registerSheet(sheetId: string, onClose: () => void): void {
+  cancelPendingCleanup(sheetId);
 
-  const token = historyGuardToken;
-  historyGuardToken = null;
-  if (token && readHistoryGuardToken(window.history.state) === token) {
-    window.history.back();
+  const existing = sheetStack.find((sheet) => sheet.id === sheetId);
+  if (existing) {
+    existing.onClose = onClose;
+    return;
   }
+
+  const entry: SheetStackEntry = {
+    id: sheetId,
+    historyId: `mosaic-sheet-${++historyGuardSequence}`,
+    onClose,
+  };
+  sheetStack.push(entry);
+  pushSheetHistory(entry);
 }
 
-function scheduleHistoryGuardRelease(): void {
-  if (typeof window === 'undefined') return;
-  cancelScheduledHistoryGuardRelease();
-  historyGuardReleaseTimer = window.setTimeout(() => {
-    historyGuardReleaseTimer = null;
-    if (sheetStack.length === 0) {
-      releaseHistoryGuardIfCurrent();
+function scheduleSheetCleanup(sheetId: string): void {
+  cancelPendingCleanup(sheetId);
+  const timer = window.setTimeout(() => {
+    pendingCleanupTimers.delete(sheetId);
+    const index = sheetStack.findIndex((sheet) => sheet.id === sheetId);
+    if (index < 0) return;
+
+    const [entry] = sheetStack.splice(index, 1);
+    if (
+      entry &&
+      readHistoryGuardToken(window.history.state) === entry.historyId
+    ) {
+      // Programmatic closes (save buttons, parent state changes, etc.) must
+      // consume the sheet's browser-history slot too. Popstate then lands on
+      // the next active sheet guard or the underlying route state.
+      window.history.back();
     }
   }, 0);
+  pendingCleanupTimers.set(sheetId, timer);
 }
 
-function handleBottomSheetPopState(): void {
-  const token = historyGuardToken;
-  const currentGuardToken = readHistoryGuardToken(window.history.state);
+function handleBottomSheetPopState(event: PopStateEvent): void {
+  const targetHistoryId = readHistoryGuardToken(event.state);
 
-  if (!token) {
-    // A stale same-URL sheet guard can remain if the app route changed while a
-    // sheet was mounted. Skip that inert entry rather than making Back appear
-    // to do nothing on a later visit.
-    if (sheetStack.length === 0 && currentGuardToken) {
+  if (sheetStack.length === 0) {
+    // If a programmatic close retired a sheet while an older sheet-history
+    // entry remained behind it, skip that inert entry instead of making Back
+    // appear to do nothing or trapping Forward on a dead modal state.
+    if (targetHistoryId && issuedHistoryIds.has(targetHistoryId)) {
       window.history.back();
     }
     return;
   }
 
-  // Forward navigation onto the current guard is not a dismissal.
-  if (currentGuardToken === token) return;
+  const targetIndex = targetHistoryId
+    ? sheetStack.findIndex((sheet) => sheet.historyId === targetHistoryId)
+    : -1;
 
-  historyGuardToken = null;
-  const top = sheetStack.pop();
-  if (!top) return;
-
-  // One same-URL guard is enough for any stack depth. After Back consumes it,
-  // immediately re-arm when an underlying sheet remains so the next Back
-  // closes that sheet instead of leaving the current route.
-  if (sheetStack.length > 0) {
-    ensureHistoryGuard();
+  if (
+    targetHistoryId &&
+    targetIndex < 0 &&
+    issuedHistoryIds.has(targetHistoryId)
+  ) {
+    // This is a stale history slot for a sheet that was closed
+    // programmatically while another sheet remained. Keep traversing through
+    // sheet-only history until reaching an active guard or the real route.
+    window.history.back();
+    return;
   }
 
-  top.onClose();
+  // The browser has already moved to the target history entry. Close every
+  // sheet above that target; a route/base entry has no guard and therefore
+  // closes the whole active modal stack. No pushState occurs during popstate,
+  // which avoids the Samsung/PWA race seen with re-arming one shared guard.
+  const firstClosingIndex = targetIndex + 1;
+  if (firstClosingIndex >= sheetStack.length) return;
+
+  const closingEntries = sheetStack.splice(firstClosingIndex);
+  for (let index = closingEntries.length - 1; index >= 0; index -= 1) {
+    closingEntries[index]?.onClose();
+  }
 }
 
 function ensureHistoryBackHandler(): void {
-  if (typeof window === 'undefined' || historyBackHandlerInstalled) return;
+  if (historyBackHandlerInstalled || typeof window === 'undefined') return;
   window.addEventListener('popstate', handleBottomSheetPopState);
   historyBackHandlerInstalled = true;
+}
+
+function requestSheetClose(sheetId: string): void {
+  const entry = sheetStack.find((sheet) => sheet.id === sheetId);
+  if (!entry) return;
+
+  const top = sheetStack[sheetStack.length - 1];
+  if (
+    top?.id === sheetId &&
+    readHistoryGuardToken(window.history.state) === entry.historyId
+  ) {
+    // Drive visible dismissals through browser history so pointer, Escape,
+    // Android Back, and programmatic cleanup all agree on the active layer.
+    window.history.back();
+    return;
+  }
+
+  entry.onClose();
 }
 
 export const BottomSheet: React.FC<BottomSheetProps> = ({
@@ -163,35 +206,24 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
   useEffect(() => {
     if (!isOpen) return;
 
-    const entry: SheetStackEntry = {
-      id: sheetId,
-      onClose: () => onCloseRef.current(),
-    };
-    sheetStack.push(entry);
-    cancelScheduledHistoryGuardRelease();
     ensureHistoryBackHandler();
-    if (sheetStack.length === 1) {
-      ensureHistoryGuard();
-    }
+    registerSheet(sheetId, () => onCloseRef.current());
 
-    const handleEsc = (e: KeyboardEvent) => {
-      if (e.key !== 'Escape') return;
+    const handleEsc = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
       const top = sheetStack[sheetStack.length - 1];
-      if (top && top.id === sheetId) {
-        top.onClose();
+      if (top?.id === sheetId) {
+        requestSheetClose(sheetId);
       }
     };
 
     window.addEventListener('keydown', handleEsc);
     return () => {
       window.removeEventListener('keydown', handleEsc);
-      const idx = sheetStack.findIndex((sheet) => sheet.id === sheetId);
-      if (idx > -1) sheetStack.splice(idx, 1);
-      if (sheetStack.length === 0) {
-        // Defer by one tick so React StrictMode's setup→cleanup→setup probe
-        // and same-commit sheet handoffs do not consume browser history.
-        scheduleHistoryGuardRelease();
-      }
+      // Delay removal by one task. React StrictMode intentionally runs an
+      // effect setup→cleanup→setup probe; the second setup cancels this timer,
+      // preserving exactly one history entry for the real mounted sheet.
+      scheduleSheetCleanup(sheetId);
     };
   }, [isOpen, sheetId]);
 
@@ -215,7 +247,11 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            onClick={suspendInteraction ? undefined : onClose}
+            onClick={
+              suspendInteraction
+                ? undefined
+                : () => requestSheetClose(sheetId)
+            }
             aria-hidden="true"
             className={`fixed inset-0 z-[50] bg-black/60 ${backdropBlur ? 'backdrop-blur-sm' : ''} ${suspendInteraction ? 'pointer-events-none' : ''}`}
           />
@@ -236,7 +272,9 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
             dragElastic={0.1}
             dragSnapToOrigin
             onDragEnd={(_, info) => {
-              if (info.offset.y > 100 || info.velocity.y > 500) onClose();
+              if (info.offset.y > 100 || info.velocity.y > 500) {
+                requestSheetClose(sheetId);
+              }
             }}
             className={`fixed bottom-0 left-0 right-0 z-[60] bg-[#1E1E1E] text-white shadow-2xl flex flex-col overflow-hidden ${heightClass} ${suspendInteraction ? 'pointer-events-none select-none' : ''}`}
           >
@@ -246,9 +284,9 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
                   ? 'cursor-default opacity-50 blur-sm pointer-events-none'
                   : 'cursor-grab active:cursor-grabbing touch-none'
               }`}
-              onPointerDown={(e) => {
+              onPointerDown={(event) => {
                 if (!isLocked) {
-                  dragControls.start(e);
+                  dragControls.start(event);
                 }
               }}
             >
