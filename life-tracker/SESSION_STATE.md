@@ -2,11 +2,11 @@
 
 Updated: 2026-09-21
 Current task: Phase 3.7 live PostHog staging/manual verification
-Status: the deployed one-shot exception probe was opened in an authenticated browser, but PostHog project 619969 still reports no ingested events and no `$exception`; client-side ingestion configuration remains the blocker
+Status: the user reports the Preview client PostHog host/token values are corrected; deployment-only `preview` was advanced to verified commit `520de9d6778d1c7221687cd4dfefe4c00109c71c`, and Vercel deployment `dpl_8m7Jx1JxuhtWWmuuyvtcCitT2xyX` is READY on the stable alias; one fresh authenticated probe visit is required
 Roadmap pointer: Phase 3.7's automated gate is green; close it only after the live requirements in `docs/PROJECT_REFERENCE.md` §24.15 are verified. Phase 4 WCAG browser/manual evidence follows.
 Checkpoint: Probe commit `d0885fa818cba0216b5e50f1aff4a95ec85bec44` passed GitHub Actions Verify run 35562106729 and is deployed READY on stable `preview` alias via Vercel deployment `dpl_6cD2boBgugucsge3bzaSPprbGdF3`. The user opened the explicit authenticated probe URL, but PostHog project 619969 still shows `ingested_event: false`, zero exception events/issues, and therefore no live identity or symbolication evidence. Fresh valid source-map upload still proves the build-only PostHog credentials are working.
-Next action: Verify the Vercel Preview client variables specifically: `VITE_POSTHOG_HOST` must use the US public ingestion host `https://us.i.posthog.com`, and `VITE_POSTHOG_TOKEN` must be the Project API key for PostHog project 619969. Keep the build-only `POSTHOG_HOST` separate for private/API source-map upload. Redeploy Preview after any correction, then reopen the one-shot probe URL.
-Blockers: The PostHog connector cannot read Vercel environment-variable values, so the actual `VITE_POSTHOG_HOST` and `VITE_POSTHOG_TOKEN` values cannot be verified remotely here. Live Phase 3.7 closure remains blocked until a browser exception reaches PostHog.
+Next action: While logged in, reopen `https://mosaic-life-tracker-git-preview-carls-projects-72516fde.vercel.app/?__mosaic_posthog_probe=phase-3-7-exception` once against deployment `dpl_8m7Jx1JxuhtWWmuuyvtcCitT2xyX`, then re-query PostHog project 619969 for the controlled `$exception`, authenticated distinct ID, minimal properties, source-map symbolication, and replay absence.
+Blockers: Live browser interaction is the only immediate blocker. If the corrected-host redeploy still produces no `$exception`, inspect browser network/CORS for `/flags/?v=2` and `/i/v0/e/` rather than changing Vercel scope again.
 
 ## Preview acceptance
 
