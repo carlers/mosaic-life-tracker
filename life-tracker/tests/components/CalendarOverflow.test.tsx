@@ -36,10 +36,8 @@ describe('Calendar overflow layout', () => {
     const viewport = container.firstElementChild;
     expect(viewport).toHaveClass('overflow-x-hidden', 'overflow-y-auto');
 
-    const weekdayHeader = container.querySelector('[aria-hidden="true"]');
-    const calendarGrid = weekdayHeader?.nextElementSibling;
-    expect(calendarGrid?.className).toContain(
-      'auto-rows-[minmax(min-content,1fr)]'
-    );
+    const calendarGrid = container.querySelector('[role="rowgroup"]');
+    expect(calendarGrid).not.toBeNull();
+    expect(calendarGrid).toHaveClass('auto-rows-[minmax(min-content,1fr)]');
   });
 });
