@@ -1,7 +1,9 @@
 # Web-chat workflow for Mosaic
 
-This workflow is for an AI chat that cannot directly inspect or edit the repository. It
-is provider-neutral and works through compact input packets and complete-file output.
+This workflow applies to provider-neutral web chats. Some web chats only use compact input
+packets and complete-file output, while GitHub-connected chats can inspect repository files,
+edit through GitHub, and inspect remote verification results. The active capability determines
+the transport method; the project contracts and verification rules remain the same.
 ChatGPT, DeepSeek, and similar web or mobile chats are examples; provider and model names
 do not change the contract.
 
