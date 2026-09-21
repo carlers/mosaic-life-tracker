@@ -26,6 +26,7 @@ const HISTORY_GUARD_KEY = '__mosaicBottomSheetGuard';
 let historyGuardToken: string | null = null;
 let historyGuardSequence = 0;
 let historyBackHandlerInstalled = false;
+let historyGuardReleaseTimer: number | null = null;
 
 function readHistoryGuardToken(state: unknown): string | null {
   if (typeof state !== 'object' || state === null || Array.isArray(state)) {
@@ -61,6 +62,12 @@ function ensureHistoryGuard(): void {
   historyGuardToken = token;
 }
 
+function cancelScheduledHistoryGuardRelease(): void {
+  if (typeof window === 'undefined' || historyGuardReleaseTimer === null) return;
+  window.clearTimeout(historyGuardReleaseTimer);
+  historyGuardReleaseTimer = null;
+}
+
 function releaseHistoryGuardIfCurrent(): void {
   if (typeof window === 'undefined') return;
 
@@ -69,6 +76,17 @@ function releaseHistoryGuardIfCurrent(): void {
   if (token && readHistoryGuardToken(window.history.state) === token) {
     window.history.back();
   }
+}
+
+function scheduleHistoryGuardRelease(): void {
+  if (typeof window === 'undefined') return;
+  cancelScheduledHistoryGuardRelease();
+  historyGuardReleaseTimer = window.setTimeout(() => {
+    historyGuardReleaseTimer = null;
+    if (sheetStack.length === 0) {
+      releaseHistoryGuardIfCurrent();
+    }
+  }, 0);
 }
 
 function handleBottomSheetPopState(event: PopStateEvent): void {
@@ -149,6 +167,7 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
       onClose: () => onCloseRef.current(),
     };
     sheetStack.push(entry);
+    cancelScheduledHistoryGuardRelease();
     ensureHistoryBackHandler();
     if (sheetStack.length === 1) {
       ensureHistoryGuard();
@@ -168,7 +187,9 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
       const idx = sheetStack.findIndex((sheet) => sheet.id === sheetId);
       if (idx > -1) sheetStack.splice(idx, 1);
       if (sheetStack.length === 0) {
-        releaseHistoryGuardIfCurrent();
+        // Defer by one tick so React StrictMode's setup→cleanup→setup probe
+        // and same-commit sheet handoffs do not consume browser history.
+        scheduleHistoryGuardRelease();
       }
     };
   }, [isOpen, sheetId]);
