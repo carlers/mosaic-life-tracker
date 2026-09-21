@@ -2,11 +2,11 @@
 
 Updated: 2026-09-21
 Current task: Phase 3.7 live PostHog staging/manual verification
-Status: the user reports the Preview client PostHog host/token values are corrected; deployment-only `preview` was advanced to verified commit `520de9d6778d1c7221687cd4dfefe4c00109c71c`, and Vercel deployment `dpl_8m7Jx1JxuhtWWmuuyvtcCitT2xyX` is READY on the stable alias; one fresh authenticated probe visit is required
+Status: corrected Preview client PostHog configuration is deployed, but the latest authenticated probe still produced no PostHog event; the user reports the probe link opened a logged-in Mosaic calendar with no visible data, so data-context/sync safety now takes precedence over further analytics changes
 Roadmap pointer: Phase 3.7's automated gate is green; close it only after the live requirements in `docs/PROJECT_REFERENCE.md` §24.15 are verified. Phase 4 WCAG browser/manual evidence follows.
 Checkpoint: Probe commit `d0885fa818cba0216b5e50f1aff4a95ec85bec44` passed GitHub Actions Verify run 35562106729 and is deployed READY on stable `preview` alias via Vercel deployment `dpl_6cD2boBgugucsge3bzaSPprbGdF3`. The user opened the explicit authenticated probe URL, but PostHog project 619969 still shows `ingested_event: false`, zero exception events/issues, and therefore no live identity or symbolication evidence. Fresh valid source-map upload still proves the build-only PostHog credentials are working.
-Next action: While logged in, reopen `https://mosaic-life-tracker-git-preview-carls-projects-72516fde.vercel.app/?__mosaic_posthog_probe=phase-3-7-exception` once against deployment `dpl_8m7Jx1JxuhtWWmuuyvtcCitT2xyX`, then re-query PostHog project 619969 for the controlled `$exception`, authenticated distinct ID, minimal properties, source-map symbolication, and replay absence.
-Blockers: Live browser interaction is the only immediate blocker. If the corrected-host redeploy still produces no `$exception`, inspect browser network/CORS for `/flags/?v=2` and `/i/v0/e/` rather than changing Vercel scope again.
+Next action: Have the user return to the normal stable Mosaic URL in the same browser/PWA context where their data usually appears. If data is present there, retry the probe by pasting the query URL into that same browser context. If normal Mosaic is also blank, stop PostHog work and investigate local RxDB/Appwrite sync/data visibility before any further probe attempts.
+Blockers: The latest probe still produced zero PostHog events. The user also reported a blank logged-in calendar when opening the probe link, which may indicate a separate browser/storage context or a data/sync issue. Do not close Phase 3.7 or remove/advance further analytics state until normal-data visibility is confirmed.
 
 ## Preview acceptance
 
