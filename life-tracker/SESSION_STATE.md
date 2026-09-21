@@ -2,11 +2,31 @@
 
 Updated: 2026-09-21
 Current task: Phase 3.7 live PostHog staging/manual verification
-Status: Phase 3.7 live ingestion is now proven from the user's normal Mosaic browser context. The one-shot probe produced two handled `$exception` events for the authenticated distinct ID; the attached PostHog person has no profile properties, no session recordings were created, and no ordinary analytics events were emitted for that identity. Phase 3.7 remains open because both stack frames failed source-map resolution and project-level IP anonymization is currently disabled.
+Status: Phase 3.7 live ingestion/identity/replay checks are proven. PostHog project 619969 now has `anonymize_ips: true`. Commit `a115b48bb68e6fe11e3d10c5d2952394d04cedba` adds the missing runtime source-map metadata (`chunk_id` / `$release_id`) plus a deterministic Playwright browser contract; canonical Verify and the browser contract both pass, and that exact commit is READY on the stable `preview` alias. One final live probe is required to verify symbolication and absence of IP/GeoIP enrichment on a newly ingested event.
 Roadmap pointer: Phase 3.7's automated gate is green; close it only after the live requirements in `docs/PROJECT_REFERENCE.md` §24.15 are verified. Phase 4 WCAG browser/manual evidence follows.
-Checkpoint: Probe commit `d0885fa818cba0216b5e50f1aff4a95ec85bec44` passed GitHub Actions Verify run 35562106729 and is deployed READY on stable `preview` alias via Vercel deployment `dpl_6cD2boBgugucsge3bzaSPprbGdF3`. The user opened the explicit authenticated probe URL, but PostHog project 619969 still shows `ingested_event: false`, zero exception events/issues, and therefore no live identity or symbolication evidence. Fresh valid source-map upload still proves the build-only PostHog credentials are working.
-Next action: Fix the two remaining live blockers: (1) enable PostHog project 619969 `anonymize_ips` so server-side IP/GeoIP enrichment is dropped, and (2) repair source-map symbolication for the manually constructed `$exception` stack. After those fixes, rebuild Preview and rerun the one-shot probe, then remove the temporary probe and close Phase 3.7 only if symbolication/privacy checks pass.
-Blockers: PostHog ingestion/identity/replay checks pass, but source-map resolution fails for `/assets/index-D5AfOyYK.js` with `Invalid source map: bad json: expected value at line 1 column 1`; both sampled app frames are unresolved. PostHog project 619969 reports `anonymize_ips: false`, and the received exception was enriched server-side with IP/GeoIP properties. Remote PostHog setting changes require explicit user approval.
+Checkpoint: Source-map root cause was the custom SDK-free `$exception` serializer: the Rollup plugin injected PostHog chunk/release metadata into the browser bundle, but Mosaic did not copy it onto manually constructed exception events. `src/lib/posthog.ts` now mirrors PostHog core by mapping `_posthogChunkIds` to frame `chunk_id` and `_posthogReleaseId` to `$release_id`; `vite.config.ts` explicitly uses source-map `releaseMode: 'event'`. GitHub Actions Verify run 35564506345 and PostHog Browser Contract run 35564506825 both passed for `a115b48...`. Vercel deployment `dpl_9E5dkBu6vxokMc4TZrMgoWSc6qR9` is READY on deployment-only `preview` with the stable alias attached. PostHog reports a valid uploaded symbol set from the repaired build path.
+Next action: In the normal external Mosaic browser/PWA where data is visible, open `https://mosaic-life-tracker-git-preview-carls-projects-72516fde.vercel.app/?__mosaic_posthog_probe=phase-3-7-exception` once while logged in. Then inspect only the new event for resolved source frames, `chunk_id`, `$release_id`, no `$ip`/`$geoip_*`, empty person profile properties, no ordinary analytics, and zero replay. If those pass, remove the temporary live probe, verify/redeploy the clean build, and evaluate the remaining Phase 3.7 live contract items before closing.
+Blockers: One final browser-triggered live event is needed to validate the repaired source-map association and the newly enabled IP anonymization against PostHog's real ingestion pipeline. The Playwright workflow covers the browser/network contract deterministically but does not replace PostHog's hosted symbolication service.
+
+## Preview acceptance
+
+- PREVIEW-1 — Vercel can build from `life-tracker/` using the canonical production build.
+- PREVIEW-2 — Direct loads of Mosaic BrowserRouter routes resolve to `index.html` without rewriting emitted static assets.
+- PREVIEW-3 — A dedicated `preview` branch carries only an exact verified commit selected for hosted review.
+- PREVIEW-4 — The stable Vercel production hostname is the canonical phone-test origin and is registered once with Appwrite.
+- PREVIEW-5 — Dynamic Vercel branch URLs are not assumed to have Appwrite access.
+- PREVIEW-6 — No deployment secrets are committed; PostHog remains optional and no-op without config.
+
+## Working set
+
+- `src/lib/posthog.ts`
+- `src/hooks/useFeatureFlag.ts`
+- `src/hooks/AuthProvider.tsx`
+- `vite.config.ts`
+- `docs/PROJECT_REFERENCE.md`
+- `docs/PREVIEW_DEPLOYMENT.md`
+- `PLAN.md`
+- `SESSION_STATE.md`
 
 ## Preview acceptance
 
@@ -30,24 +50,10 @@ Blockers: PostHog ingestion/identity/replay checks pass, but source-map resoluti
 
 ## Verification
 
-- Live PostHog probe from the normal Mosaic browser succeeded at 2026-09-21 05:10:30Z and 05:10:51Z, producing two handled `$exception` events under authenticated distinct ID `6a9bc9316412bceaa5ba`.
-- Privacy/identity evidence: the PostHog person properties object is `{}`; only the intended `$exception` events were present for that identity in the probe window; session recordings query returned zero results.
-- Source-map evidence: both app frames in `/assets/index-D5AfOyYK.js` remained unresolved with `Invalid source map: bad json: expected value at line 1 column 1` despite valid uploaded symbol-set metadata.
-- Project privacy setting: `anonymize_ips` is currently false, so PostHog added server-side IP/GeoIP enrichment to the exception event.
+- GitHub Actions Verify run 35564506345: success for commit `a115b48bb68e6fe11e3d10c5d2952394d04cedba`.
+- PostHog Browser Contract run 35564506825: success; Chromium verified probe-before-redirect behavior, anonymous→authenticated flag requests, one authenticated handled exception, no profile fields, injected source-map metadata, and no replay/autocapture endpoints in the browser contract.
+- PostHog project 619969: `anonymize_ips: true` as of 2026-09-21 05:17 UTC.
+- Vercel deployment `dpl_9E5dkBu6vxokMc4TZrMgoWSc6qR9`: READY on deployment-only `preview`, commit `a115b48...`, stable alias attached, no alias error.
+- PostHog source maps: valid uploaded symbol-set metadata exists for the repaired build path; final hosted symbolication remains pending one new live exception.
+- Prior live probe evidence (before the repair): two handled authenticated `$exception` events arrived; person properties were `{}`; only intended exception events were present for that identity in the probe window; session recordings were zero. Those prior frames were unresolved and were enriched with IP/GeoIP because anonymization was not yet enabled.
 
-- Live authenticated probe visit: no event ingested; PostHog project 619969 remains `ingested_event: false` with zero `$exception` events/issues.
-
-- GitHub Actions run 35562106729: canonical verify gate passed for probe commit `d0885fa818cba0216b5e50f1aff4a95ec85bec44`.
-- Vercel deployment `dpl_6cD2boBgugucsge3bzaSPprbGdF3`: READY on deployment-only `preview`, stable alias attached, same verified probe commit.
-- PostHog source maps: fresh valid symbol set uploaded from the probe build at 2026-09-21 04:45 UTC.
-
-- GitHub Actions run 35559281361: canonical verify gate passed for commit `4a39732696da24978f428f4ff710919c3cab0fc2`.
-- Vercel deployment `dpl_6r2X7nwauZDavAVHekcYtqQmfLj1`: READY on the `preview` branch and stable branch alias.
-- Appwrite preview-origin registration: reported complete by the user.
-- PostHog project 619969: connected; still no ingested events after a logged-in phone session; zero errors and zero recordings.
-- Smoke flag `mosaic-phase-3-7-smoke` (ID 898417): active, client-only, 100% rollout; `last_called_at` remains null.
-- Source maps: 47 valid symbol sets uploaded at 2026-09-21 03:43 UTC, confirming build-time PostHog credentials.
-- Stable `preview` deployment `dpl_6r2X7nwauZDavAVHekcYtqQmfLj1`: READY on commit `4a39732696da24978f428f4ff710919c3cab0fc2` after the PostHog personal API key correction.
-- Fresh stable-preview reload after deployment `dpl_6r2X7nwauZDavAVHekcYtqQmfLj1`: PostHog still shows `last_called_at: null`, `ingested_event: false`, zero errors, and zero recordings; these fields do not by themselves prove `/flags` was not called because Mosaic emits no `$feature_flag_called` or ordinary analytics events.
-- User screenshot: all five PostHog variables are configured for Vercel Preview; branch-scope hypothesis ruled out.
-- Phase 3.7 live browser verification: controlled `$exception` probe is deployed and awaiting one authenticated browser visit; PostHog ingestion/symbolication/identity evidence remains pending.
