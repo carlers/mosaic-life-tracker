@@ -2,11 +2,11 @@
 
 Updated: 2026-09-21
 Current task: Phase 3.7 live PostHog staging/manual verification
-Status: the corrected PostHog personal API key now allows the feature-branch Vercel build to complete, but the stable `preview` branch still points to older commit `7b96149`; browser flag traffic remains unverified on a build that includes the corrected environment
+Status: the deployment-only `preview` branch now points to verified commit `4a39732696da24978f428f4ff710919c3cab0fc2`, and the stable preview deployment is READY with the corrected PostHog credentials; a fresh phone/browser reload is now required before live PostHog traffic can be rechecked
 Roadmap pointer: Phase 3.7's automated gate is green; close it only after the live requirements in `docs/PROJECT_REFERENCE.md` §24.15 are verified. Phase 4 WCAG browser/manual evidence follows.
-Checkpoint: The `preview` branch was advanced to verified commit `ade41cf0fd248a9e1c0d6ec540b1608f8c40c5cb` (`fix: disable RxDB ignoreDuplicate in production`). GitHub Actions run 35556402435 passed the canonical verify gate. Vercel deployment `dpl_DjjQTX9cfGqD4aGg5RZCEHn3BowE` is READY and carries the stable branch alias `mosaic-life-tracker-git-preview-carls-projects-72516fde.vercel.app`. The user reports the Vercel/Appwrite preview setup is complete. The Vercel connector still reports the older `main` deployment as the project's `production` target, so current phone verification should use the registered `preview` alias unless the provider UI later reflects a production-branch change.
-Next action: Advance the deployment-only `preview` branch from `7b9614953639596dfc2eb1b3ea7c96c920daeae9` to verified commit `4a39732696da24978f428f4ff710919c3cab0fc2`, wait for the stable preview alias to redeploy with the corrected PostHog environment, then reload and re-check flag `mosaic-phase-3-7-smoke`.
-Blockers: The feature-branch Vercel deployment `dpl_BHiU4xr2NtEUY4djvw4jPG42tiW8` is READY on commit `4a39732`, confirming the corrected personal API key no longer breaks the build. PostHog still shows no client traffic, but the stable `preview` ref is still on `7b96149`, so the canonical phone-test alias has not yet been rebuilt from the verified corrected-env commit. The Vercel connector still cannot expose client environment values directly.
+Checkpoint: The `preview` branch was advanced to verified commit `4a39732696da24978f428f4ff710919c3cab0fc2` after GitHub Actions run 35559281361 passed the canonical verify gate. Vercel deployment `dpl_6r2X7nwauZDavAVHekcYtqQmfLj1` is READY and carries the stable branch alias `mosaic-life-tracker-git-preview-carls-projects-72516fde.vercel.app`. This deployment was built after the PostHog personal API key was corrected. The user reports the Appwrite preview-origin setup is complete. The Vercel connector still reports the older `main` deployment as the project's `production` target, so phone verification should continue to use the registered `preview` alias.
+Next action: Fully reload the stable `preview` alias on the phone/browser, exercise the app once while logged in, then re-check PostHog project 619969 for smoke-flag `last_called_at`, exceptions, identity/privacy behavior, and replay/autocapture absence.
+Blockers: No deployment blocker remains. The stable preview is now rebuilt from verified commit `4a39732` with the corrected PostHog credentials. Live PostHog verification remains pending until the browser loads this deployment and produces fresh traffic.
 
 ## Preview acceptance
 
@@ -30,11 +30,11 @@ Blockers: The feature-branch Vercel deployment `dpl_BHiU4xr2NtEUY4djvw4jPG42tiW8
 
 ## Verification
 
-- GitHub Actions run 35556402435: canonical verify gate passed for commit `ade41cf0fd248a9e1c0d6ec540b1608f8c40c5cb`.
-- Vercel deployment `dpl_DjjQTX9cfGqD4aGg5RZCEHn3BowE`: READY on the `preview` branch.
+- GitHub Actions run 35559281361: canonical verify gate passed for commit `4a39732696da24978f428f4ff710919c3cab0fc2`.
+- Vercel deployment `dpl_6r2X7nwauZDavAVHekcYtqQmfLj1`: READY on the `preview` branch and stable branch alias.
 - Appwrite preview-origin registration: reported complete by the user.
 - PostHog project 619969: connected; still no ingested events after a logged-in phone session; zero errors and zero recordings.
 - Smoke flag `mosaic-phase-3-7-smoke` (ID 898417): active, client-only, 100% rollout; `last_called_at` remains null.
 - Source maps: 47 valid symbol sets uploaded at 2026-09-21 03:43 UTC, confirming build-time PostHog credentials.
-- Stable `preview` deployment `dpl_12Ro3CTQr6B4Vuy9wRVHBUAptdwN`: READY on commit `7b9614953639596dfc2eb1b3ea7c96c920daeae9`.
-- Phase 3.7 live browser verification: blocked on distinguishing Brave/content blocking from missing client `VITE_*` embedding.
+- Stable `preview` deployment `dpl_6r2X7nwauZDavAVHekcYtqQmfLj1`: READY on commit `4a39732696da24978f428f4ff710919c3cab0fc2` after the PostHog personal API key correction.
+- Phase 3.7 live browser verification: pending one fresh reload/use of the updated stable preview before re-querying PostHog.
