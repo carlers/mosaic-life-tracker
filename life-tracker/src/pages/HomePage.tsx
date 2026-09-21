@@ -119,6 +119,8 @@ export const HomePage: React.FC = () => {
             longSwipesRatio={0.25}
             longSwipesMs={250}
             shortSwipes
+            noSwiping
+            noSwipingClass="swiper-no-swiping"
             allowTouchMove={!isSettingsOpen}
             onSlideChange={handleSlideChange}
             observer

@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import React from 'react';
 import { CalendarSlide } from './CalendarSlide';
 import type { TaskDocument } from '../../../db/schema';
 import type { CalendarViewMode } from './useCalendarState';
@@ -24,30 +24,10 @@ const CalendarCarouselComponent: React.FC<CalendarCarouselProps> = ({
   tasksByDate,
   categoriesMap,
 }) => {
-  const gestureStartedInsideCalendar = useRef(false);
-
-  const handlePointerDown = (event: React.PointerEvent) => {
-    gestureStartedInsideCalendar.current = true;
-    event.stopPropagation();
-  };
-
-  const handlePointerMove = (event: React.PointerEvent) => {
-    if (!gestureStartedInsideCalendar.current) return;
-    event.stopPropagation();
-  };
-
-  const handlePointerUp = () => {
-    gestureStartedInsideCalendar.current = false;
-  };
-
   return (
     <div
-      className="flex-1 min-h-0 overflow-x-hidden overflow-y-auto overscroll-contain py-2"
+      className="swiper-no-swiping flex-1 min-h-0 overflow-x-hidden overflow-y-auto overscroll-contain py-2"
       ref={emblaRef}
-      onPointerDownCapture={handlePointerDown}
-      onPointerMoveCapture={handlePointerMove}
-      onPointerUpCapture={handlePointerUp}
-      onPointerCancelCapture={handlePointerUp}
     >
       <div className="flex min-h-full items-start">
         {slides.map((date, i) => {
