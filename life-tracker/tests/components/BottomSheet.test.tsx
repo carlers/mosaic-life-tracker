@@ -76,10 +76,9 @@ describe('BottomSheet', () => {
     expect(document.body.style.overflow).not.toBe('hidden');
   });
 
-  it('Escape consumes only the topmost sheet history slot', () => {
+  it('Escape requests Back for the topmost sheet history slot', () => {
     const onCloseA = vi.fn();
     const onCloseB = vi.fn();
-    const pushState = vi.spyOn(window.history, 'pushState');
     const historyBack = vi.mocked(window.history.back);
 
     render(
@@ -89,51 +88,15 @@ describe('BottomSheet', () => {
       </>
     );
 
-    const stateA = pushState.mock.calls[0]?.[0];
     fireEvent.keyDown(window, { key: 'Escape' });
 
     expect(historyBack).toHaveBeenCalledTimes(1);
     expect(onCloseA).not.toHaveBeenCalled();
     expect(onCloseB).not.toHaveBeenCalled();
-
-    // Browser Back lands on A's guard, then popstate dismisses B.
-    fireEvent.popState(window, { state: stateA });
-    expect(onCloseB).toHaveBeenCalledTimes(1);
-    expect(onCloseA).not.toHaveBeenCalled();
   });
 
-  // Regression: native Android/Samsung Back closes one modal layer at a time.
-  it('maps real popstate targets to a three-sheet stack top-first', () => {
-    const onCloseA = vi.fn();
-    const onCloseB = vi.fn();
-    const onCloseC = vi.fn();
-    const pushState = vi.spyOn(window.history, 'pushState');
-
-    render(
-      <>
-        <BottomSheet isOpen onClose={onCloseA}>A</BottomSheet>
-        <BottomSheet isOpen onClose={onCloseB}>B</BottomSheet>
-        <BottomSheet isOpen onClose={onCloseC}>C</BottomSheet>
-      </>
-    );
-
-    expect(pushState).toHaveBeenCalledTimes(3);
-    const stateA = pushState.mock.calls[0]?.[0];
-    const stateB = pushState.mock.calls[1]?.[0];
-
-    fireEvent.popState(window, { state: stateB });
-    expect(onCloseC).toHaveBeenCalledTimes(1);
-    expect(onCloseB).not.toHaveBeenCalled();
-    expect(onCloseA).not.toHaveBeenCalled();
-
-    fireEvent.popState(window, { state: stateA });
-    expect(onCloseB).toHaveBeenCalledTimes(1);
-    expect(onCloseA).not.toHaveBeenCalled();
-
-    fireEvent.popState(window, { state: {} });
-    expect(onCloseA).toHaveBeenCalledTimes(1);
-  });
-
+  // Regression: native Android/Samsung Back needs one browser-history slot per
+  // open sheet so nested Back presses cannot fall through to route/app history.
   it('reserves one same-route history entry for every open sheet layer', () => {
     const baselineLength = window.history.length;
 
