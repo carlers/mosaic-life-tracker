@@ -1,12 +1,12 @@
 # Session state
 
 Updated: 2026-09-21
-Current task: Phase 3.7 PostHog foundation complete; next is Phase 4 manual accessibility verification
-Status: Phase 3.7 is complete. Hosted PostHog ingestion is proven, the repaired production exception resolved both frames back to `src/lib/posthog.ts`, authenticated events carry no person profile properties, no ordinary product analytics or session recordings were produced, and project IP discard is enabled. The temporary live exception probe has been removed. Commit `8d03923d36bf17b009667b4f8f036d0d0de8693e` is the clean application checkpoint and is READY on the stable `preview` alias.
-Roadmap pointer: Phase 3.7 is checked complete. Next is the manual/browser WCAG protocol in `docs/ACCESSIBILITY_AUDIT.md`; calendar-grid semantics and A11Y-33 remain separate later batches.
-Checkpoint: The source-map failure was caused by Mosaic's SDK-free exception serializer omitting PostHog's injected chunk/release metadata. `src/lib/posthog.ts` now attaches frame `chunk_id` and event `$release_id`; `vite.config.ts` uses PostHog event release mode. A hosted event from app commit `a115b48...` resolved both frames to `../../src/lib/posthog.ts`. The clean no-probe commit `8d03923...` passed canonical Verify run 35568141824 and PostHog Browser Contract run 35568141909, and Vercel deployment `dpl_2NEUwTifcrWqpg8t2mDnA7rqvjbX` is READY on deployment-only `preview`. A fresh valid source-map symbol set uploaded at 2026-09-21 06:24:57Z for the clean build.
-Next action: Run the manual accessibility protocol in `docs/ACCESSIBILITY_AUDIT.md`: keyboard-only traversal, screen-reader names/roles/states/live announcements, 200% zoom/~320 CSS px reflow, phone touch targets, rendered contrast, and non-gesture alternatives. Close the WCAG roadmap checkbox only after those browser checks are recorded.
-Blockers: None for Phase 3.7.
+Current task: Native mobile Back behavior for bottom sheets plus keyboard parity for calendar/day horizontal navigation
+Status: The current behavior batch keeps Mosaic's rendered look unchanged. Shared `BottomSheet` now uses a same-URL browser-history guard so Android/Samsung Back dismisses the topmost open sheet before route history. Calendar month/week navigation and `DayViewSheet` day navigation now accept unmodified ArrowLeft/ArrowRight while preserving text-field cursor keys and nested-sheet priority. Accessibility guidance now explicitly forbids silent palette/look changes without user approval.
+Roadmap pointer: Phase 3.7 remains complete. This batch implements the source-level A11Y-33 keyboard day-navigation behavior and extends it to calendar month/week navigation; roadmap closure still requires successful verification and the appropriate browser/device checks. The broader manual WCAG protocol remains next after this fix batch.
+Checkpoint: Native-back handling is centralized in `src/components/ui/BottomSheet.tsx` so every shared sheet participates in one top-first stack. A single history guard covers the active sheet stack and is re-armed after one Back dismissal when an underlying sheet remains. Guard cleanup is deferred one tick to survive React StrictMode's setup/cleanup probe and same-commit sheet handoffs. Keyboard swipe parity is centralized in `src/hooks/useHorizontalArrowNavigation.ts` and wired into `CalendarBody` and `DayViewSheet` without visual class/style changes.
+Next action: Pass the canonical GitHub Verify gate, then move the deployment-only `preview` branch to the exact green application commit and manually verify on a Samsung/Android browser or installed PWA: nested Back closes one sheet at a time, final Back resumes normal app navigation, calendar arrows change month/week, day-sheet arrows change day, and arrows still move the caret inside editable fields.
+Blockers: Device-level Android/Samsung Back semantics cannot be fully proven by happy-dom; they require hosted phone/PWA verification before this behavior is considered device-accepted.
 
 ## Preview acceptance
 
@@ -19,22 +19,20 @@ Blockers: None for Phase 3.7.
 
 ## Working set
 
-- `src/lib/posthog.ts`
-- `src/hooks/useFeatureFlag.ts`
-- `src/hooks/AuthProvider.tsx`
-- `vite.config.ts`
-- `tests/e2e/posthog-browser.spec.mjs`
-- `.github/workflows/posthog-browser-contract.yml`
-- `docs/PROJECT_REFERENCE.md`
-- `PLAN.md`
+- `src/components/ui/BottomSheet.tsx`
+- `src/hooks/useHorizontalArrowNavigation.ts`
+- `src/components/home/views/DayViewSheet.tsx`
+- `src/components/home/views/CalendarBody.tsx`
+- `src/components/home/PersonPane.tsx`
+- `tests/components/BottomSheet.test.tsx`
+- `tests/hooks/useHorizontalArrowNavigation.test.tsx`
+- `AGENTS.md`
+- `docs/ACCESSIBILITY_AUDIT.md`
 - `SESSION_STATE.md`
 
 ## Verification
 
-- Hosted source-map evidence: event `01a0c29d-a89b-7e83-b103-f72d70a0d384` carried release `01a0c26d-9254-0000-5ac2-f15cc532199c`; both app frames were `resolved: true` to `../../src/lib/posthog.ts`.
-- Live identity/privacy evidence: the authenticated PostHog person properties object is `{}`; recent events for that distinct ID were only the intentional `$exception` probes; session-recordings query returned zero results.
-- IP discard: PostHog project 619969 has `anonymize_ips: true`; the post-change live events contain no raw `$ip` property. GeoIP-derived fields can still appear and are distinct from retained raw IP.
-- Browser behavior: PostHog Browser Contract run 35568141909 passed and verifies anonymous → authenticated flag refresh, fresh anonymous identity after logout/reset, re-identification refresh, minimal flag request bodies, exception metadata, and absence of replay/autocapture request paths.
-- Canonical application gate: GitHub Actions Verify run 35568141824 passed for clean commit `8d03923d36bf17b009667b4f8f036d0d0de8693e`.
-- Hosted clean checkpoint: Vercel deployment `dpl_2NEUwTifcrWqpg8t2mDnA7rqvjbX` is READY on `preview`, exact commit `8d03923...`, stable alias attached, no alias error.
-- Clean source-map upload: PostHog symbol set `01a0c2a3-9cb8-0000-6926-9f576fc32044` is valid and was uploaded at 2026-09-21 06:24:57Z.
+- Regression coverage directly exercises top-first native-Back stack callbacks while preserving the route URL.
+- Horizontal-arrow hook coverage exercises left/right navigation, editable-field exclusion, modified-key exclusion, and disabled ownership.
+- Existing `DayViewSheetRegression.test.tsx`, `useDayViewSwiper.test.tsx`, and calendar overflow coverage remain in the canonical suite.
+- Physical Samsung/Android Back behavior remains a manual hosted-preview check because the DOM test environment cannot reproduce the operating system/browser history gesture itself.

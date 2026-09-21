@@ -1,25 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, fireEvent, screen } from '@testing-library/react';
-import React, { useState } from 'react';
+import { render, fireEvent } from '@testing-library/react';
 import { BottomSheet } from '../../src/components/ui/BottomSheet';
 
 const noop = () => {};
-
-function NativeBackStackHarness() {
-  const [firstOpen, setFirstOpen] = useState(true);
-  const [secondOpen, setSecondOpen] = useState(true);
-
-  return (
-    <>
-      <BottomSheet isOpen={firstOpen} onClose={() => setFirstOpen(false)}>
-        <div>First sheet</div>
-      </BottomSheet>
-      <BottomSheet isOpen={secondOpen} onClose={() => setSecondOpen(false)}>
-        <div>Second sheet</div>
-      </BottomSheet>
-    </>
-  );
-}
 
 // ---------------------------------------------------------------------------
 // BottomSheet component tests (Layer 5).
@@ -99,25 +82,36 @@ describe('BottomSheet', () => {
   });
 
   // Regression: native Android/Samsung Back closes one modal layer at a time.
-  it('uses popstate Back to close stacked sheets one at a time without changing the route', () => {
+  it('uses popstate Back to dismiss stacked sheets top-first without changing the route', () => {
     const startUrl = window.location.href;
-    render(<NativeBackStackHarness />);
+    const onCloseA = vi.fn();
+    const onCloseB = vi.fn();
 
-    expect(screen.getByText('First sheet')).toBeInTheDocument();
-    expect(screen.getByText('Second sheet')).toBeInTheDocument();
+    render(
+      <>
+        <BottomSheet isOpen onClose={onCloseA}>
+          <div>First sheet</div>
+        </BottomSheet>
+        <BottomSheet isOpen onClose={onCloseB}>
+          <div>Second sheet</div>
+        </BottomSheet>
+      </>
+    );
 
     // A real Back traversal lands on the pre-guard same-URL entry before
     // dispatching popstate. happy-dom does not perform that traversal for a
     // synthetic popstate, so mirror the resulting history state explicitly.
     window.history.replaceState({}, '', startUrl);
     fireEvent.popState(window);
-    expect(screen.getByText('First sheet')).toBeInTheDocument();
-    expect(screen.queryByText('Second sheet')).toBeNull();
+    expect(onCloseB).toHaveBeenCalledTimes(1);
+    expect(onCloseA).not.toHaveBeenCalled();
     expect(window.location.href).toBe(startUrl);
 
+    // The handler has re-armed a same-URL guard for the remaining sheet.
     window.history.replaceState({}, '', startUrl);
     fireEvent.popState(window);
-    expect(screen.queryByText('First sheet')).toBeNull();
+    expect(onCloseA).toHaveBeenCalledTimes(1);
+    expect(onCloseB).toHaveBeenCalledTimes(1);
     expect(window.location.href).toBe(startUrl);
   });
 

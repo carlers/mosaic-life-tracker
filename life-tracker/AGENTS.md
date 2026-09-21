@@ -49,9 +49,12 @@ Select by capability, not provider:
 
 ## Task complexity and model guidance
 
-At task start, say `Task profile: <profile> — <one-sentence reason>.` At completion, say
-`Next-task profile: <profile> — <one-sentence reason>.` Profiles are Routine, Standard,
-Complex, and Exceptional.
+At task start, say `Task profile: <profile> — <difficulty>/10 · ETA <time> — <one-sentence reason>.`
+At completion, say `Next-task profile: <profile> — <difficulty>/10 · ETA <time> — <one-sentence reason>.`
+Profiles are Routine, Standard, Complex, and Exceptional. Difficulty is an integer from 1–10.
+ETA is a best-effort wall-clock estimate that includes likely remote-tool/CI wait time; update
+it when new evidence materially changes the estimate rather than pretending the original ETA
+is still accurate.
 
 The model column below is optional guidance only when the active surface exposes controls.
 Codex Cloud may assign model and reasoning without user controls; continue with that active
@@ -137,6 +140,11 @@ before it could write or checkpoint.
   `npm ci` and runs the same `npm run verify` command used locally.
 - When the active chat has GitHub Actions access, inspect workflow status, jobs, and logs
   directly instead of asking the user to run terminal commands or paste verify output.
+- Treat remote verification as asynchronous work, not a reason to busy-poll. While CI or a
+  deployment is running, do any independent deterministic review/documentation work first;
+  otherwise wait for a meaningful interval before the next status check. Fetch detailed job
+  logs only after a failure, an unusual stall, or when step-level state is needed to choose
+  the next action. Avoid repeated near-identical status calls that waste time and tokens.
 - GitHub Actions does not replace browser/device/remote-service checks that are explicitly
   manual. Record those separately.
 - Local `npm run verify` copies its output to the clipboard; CI skips clipboard handling
