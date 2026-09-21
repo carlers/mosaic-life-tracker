@@ -110,6 +110,22 @@ ends with: `No judgment of overall suite sufficiency is made here.`
 If the acceptance gate reveals a defect and code changes, revise the behavior/evidence map
 and rerun the evidence check before the next acceptance attempt.
 
+## Interaction regression coverage
+
+Interaction changes that depend on nested modal or carousel ownership need focused regression
+coverage in addition to the canonical gate.
+
+- Bottom-sheet Back tests should cover one, two, and three open layers, assert top-first
+  dismissal, preserve the route while any sheet remains, and verify that normal navigation
+  resumes only after the stack is empty. Include rapid/repeated Back sequences where the
+  implementation is sensitive to animation or effect cleanup.
+- Nested carousel tests should assert both sides of ownership: a swipe beginning in the
+  calendar changes the calendar without advancing the friend/person carousel, while a swipe
+  outside the calendar can still advance the friend/person carousel.
+- DOM tests establish application event/history behavior, but Samsung/Android OS Back and
+  real touch recognizers remain manual hosted-Preview evidence; do not relabel them as fully
+  automated merely because synthetic popstate or pointer tests pass.
+
 ## Discovery guard
 
 Run `npm run test:discovery` after adding or moving a test. The guard fails when any

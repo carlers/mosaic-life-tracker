@@ -63,6 +63,13 @@ Vercel Preview/Production variables separately; do not commit secrets.
 6. The user opens that URL on the phone and performs any manual/browser protocol.
 7. Record manual evidence separately from automated CI evidence.
 
+For interaction-heavy changes, the hosted device check is part of acceptance even when DOM
+regressions are green. In particular, verify Android/Samsung Back against nested bottom
+sheets and verify nested horizontal carousels with real touch input: swiping the calendar
+must move only the calendar, while swiping outside it may move the friend/person carousel.
+OS history and real touch-recognizer behavior are not fully represented by synthetic DOM
+events.
+
 The hosted preview supplements GitHub Actions. It does not replace manual checks involving
 touch behavior, screen readers, installed-PWA lifecycle, live PostHog dashboards, or other
 external service state.

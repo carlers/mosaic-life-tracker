@@ -20,7 +20,13 @@ messaging interfaces plus shared bottom-sheet/form primitives. The following roa
 remain intentionally separate and were not folded into this batch:
 
 - calendar-grid semantics;
-- keyboard day navigation in `DayViewSheet` (A11Y-33).
+- calendar-grid semantics.
+
+A11Y-33 source behavior is now implemented: unmodified ArrowLeft/ArrowRight mirrors the
+existing horizontal day navigation in `DayViewSheet`, and the calendar period navigation
+has the same keyboard parity. Editable fields retain their normal cursor keys, and nested
+modal ownership takes priority. Roadmap closure still depends on the manual/browser protocol
+below rather than source implementation alone.
 
 ## Source-level findings remediated
 
@@ -85,7 +91,10 @@ representative mobile viewport and a desktop browser:
    especially dynamic category/task colors, emerald actions, destructive actions, muted
    helper text, and disabled states.
 6. **Gestures/alternatives:** confirm swipe-driven interactions retain an equivalent
-   non-gesture path where required.
+   non-gesture path where required. Specifically verify ArrowLeft/ArrowRight changes the
+   active day/calendar period when focus is not editing text, does not steal caret movement
+   from editable controls, and calendar touch swipes do not advance the friend carousel.
 
-After this protocol passes, the roadmap checkbox can be closed. Calendar-grid semantics and
-A11Y-33 then proceed as their own Phase 4 batches.
+After this protocol passes, the roadmap checkbox can be closed. Calendar-grid semantics
+remains a separate Phase 4 batch; A11Y-33 can be closed only when its keyboard behavior is
+confirmed in the manual/browser protocol.
