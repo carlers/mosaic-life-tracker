@@ -32,6 +32,10 @@ describe('BottomSheet', () => {
     // This line guards against a future test that forgets to clean up.
     document.body.style.overflow = '';
     window.history.replaceState({}, '', window.location.href);
+    // happy-dom's asynchronous history traversal can bleed popstate events
+    // into the next case. Unit tests assert that the controller requests Back;
+    // Playwright covers the real browser traversal end-to-end.
+    vi.spyOn(window.history, 'back').mockImplementation(() => undefined);
   });
 
   afterEach(async () => {
@@ -74,9 +78,7 @@ describe('BottomSheet', () => {
     const onCloseA = vi.fn();
     const onCloseB = vi.fn();
     const pushState = vi.spyOn(window.history, 'pushState');
-    const historyBack = vi
-      .spyOn(window.history, 'back')
-      .mockImplementation(() => undefined);
+    const historyBack = vi.mocked(window.history.back);
 
     render(
       <>
