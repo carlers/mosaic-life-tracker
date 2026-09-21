@@ -85,11 +85,11 @@ async function createDatabaseInstance(): Promise<RxDatabase<AppDatabaseCollectio
       },
     });
     if (DEBUG) console.log('[RxDB] Collections added successfully');
-    dbInstance = database;
     if (DEBUG) {
       const stats = await getDatabaseStats(database);
       console.log('[RxDB] Initial stats:', stats);
     }
+    dbInstance = database;
     return database;
   } catch (error) {
     if (database) {
