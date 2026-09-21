@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import { CalendarSlide } from './CalendarSlide';
 import type { TaskDocument } from '../../../db/schema';
 import type { CalendarViewMode } from './useCalendarState';
@@ -24,19 +24,30 @@ const CalendarCarouselComponent: React.FC<CalendarCarouselProps> = ({
   tasksByDate,
   categoriesMap,
 }) => {
-  const stopParentCarouselGesture = (event: React.PointerEvent) => {
-    // Calendar owns horizontal gestures inside its viewport. Without this,
-    // the parent friend Swiper can also receive the same pointer stream and
-    // change friends instead of dates.
+  const gestureStartedInsideCalendar = useRef(false);
+
+  const handlePointerDown = (event: React.PointerEvent) => {
+    gestureStartedInsideCalendar.current = true;
     event.stopPropagation();
+  };
+
+  const handlePointerMove = (event: React.PointerEvent) => {
+    if (!gestureStartedInsideCalendar.current) return;
+    event.stopPropagation();
+  };
+
+  const handlePointerUp = () => {
+    gestureStartedInsideCalendar.current = false;
   };
 
   return (
     <div
       className="flex-1 min-h-0 overflow-x-hidden overflow-y-auto overscroll-contain py-2"
       ref={emblaRef}
-      onPointerDownCapture={stopParentCarouselGesture}
-      onTouchStartCapture={(event) => event.stopPropagation()}
+      onPointerDownCapture={handlePointerDown}
+      onPointerMoveCapture={handlePointerMove}
+      onPointerUpCapture={handlePointerUp}
+      onPointerCancelCapture={handlePointerUp}
     >
       <div className="flex min-h-full items-start">
         {slides.map((date, i) => {
