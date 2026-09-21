@@ -1,12 +1,12 @@
 # Session state
 
 Updated: 2026-09-21
-Current task: Native mobile Back behavior for bottom sheets plus keyboard parity for calendar/day horizontal navigation
-Status: The current behavior batch keeps Mosaic's rendered look unchanged. Shared `BottomSheet` now uses a same-URL browser-history guard so Android/Samsung Back dismisses the topmost open sheet before route history. Calendar month/week navigation and `DayViewSheet` day navigation now accept unmodified ArrowLeft/ArrowRight while preserving text-field cursor keys and nested-sheet priority. Accessibility guidance now explicitly forbids silent palette/look changes without user approval.
-Roadmap pointer: Phase 3.7 remains complete. This batch implements the source-level A11Y-33 keyboard day-navigation behavior and extends it to calendar month/week navigation; roadmap closure still requires successful verification and the appropriate browser/device checks. The broader manual WCAG protocol remains next after this fix batch.
-Checkpoint: Native-back handling is centralized in `src/components/ui/BottomSheet.tsx` so every shared sheet participates in one top-first stack. A single history guard covers the active sheet stack and is re-armed after one Back dismissal when an underlying sheet remains. Guard cleanup is deferred one tick to survive React StrictMode's setup/cleanup probe and same-commit sheet handoffs. Keyboard swipe parity is centralized in `src/hooks/useHorizontalArrowNavigation.ts` and wired into `CalendarBody` and `DayViewSheet` without visual class/style changes.
-Next action: Pass the canonical GitHub Verify gate, then move the deployment-only `preview` branch to the exact green application commit and manually verify on a Samsung/Android browser or installed PWA: nested Back closes one sheet at a time, final Back resumes normal app navigation, calendar arrows change month/week, day-sheet arrows change day, and arrows still move the caret inside editable fields.
-Blockers: Device-level Android/Samsung Back semantics cannot be fully proven by happy-dom; they require hosted phone/PWA verification before this behavior is considered device-accepted.
+Current task: Native mobile Back behavior for nested bottom sheets plus keyboard parity for calendar/day horizontal navigation
+Status: The native Back implementation now uses one browser-history entry per open `BottomSheet` instead of one shared re-armed guard. A real Chromium mobile-history contract verifies parent + nested sheets consume Back one layer at a time before route history, and the canonical verification gate is green. The rendered UI remains unchanged. Stable Preview is READY on exact app commit `0f7a5436b9fed1b68db3a9bef3d34166e5c93adb`.
+Roadmap pointer: Phase 3.7 remains complete. Source-level A11Y-33 keyboard day navigation and calendar horizontal arrow parity remain implemented; broader Phase 4 manual WCAG verification is still pending after this device-behavior fix.
+Checkpoint: `BottomSheet` now assigns a distinct same-URL history token to every mounted sheet layer. Back traversal lands on the underlying sheet token and closes only entries above it; traversal to the unguarded route state closes the final sheet. Visible dismissals (Escape, backdrop, drag) route through browser history, while deferred unregister cleanup handles programmatic closes and survives React StrictMode setup/cleanup probes. The old single-guard approach was rejected by Samsung device evidence because the second Back could fall through to route/app history.
+Next action: On the stable Preview in the normal Samsung browser/PWA, open a parent sheet, open one nested sheet, press Back once (nested only closes), press Back again (parent only closes), then press Back once more (normal app/browser navigation resumes). If this device check passes, record the native-Back behavior as accepted and return to the Phase 4 accessibility protocol.
+Blockers: Physical Samsung/PWA acceptance remains pending. Automated browser behavior is green, but the OS-level Back gesture itself still requires this final device check.
 
 ## Preview acceptance
 
@@ -26,13 +26,18 @@ Blockers: Device-level Android/Samsung Back semantics cannot be fully proven by 
 - `src/components/home/PersonPane.tsx`
 - `tests/components/BottomSheet.test.tsx`
 - `tests/hooks/useHorizontalArrowNavigation.test.tsx`
+- `tests/e2e/bottom-sheet-history.html`
+- `tests/e2e/bottom-sheet-history.tsx`
+- `tests/e2e/bottom-sheet-history.spec.mjs`
+- `.github/workflows/bottom-sheet-browser-contract.yml`
 - `AGENTS.md`
 - `docs/ACCESSIBILITY_AUDIT.md`
 - `SESSION_STATE.md`
 
 ## Verification
 
-- Regression coverage directly exercises top-first native-Back stack callbacks while preserving the route URL.
-- Horizontal-arrow hook coverage exercises left/right navigation, editable-field exclusion, modified-key exclusion, and disabled ownership.
-- Existing `DayViewSheetRegression.test.tsx`, `useDayViewSwiper.test.tsx`, and calendar overflow coverage remain in the canonical suite.
-- Physical Samsung/Android Back behavior remains a manual hosted-preview check because the DOM test environment cannot reproduce the operating system/browser history gesture itself.
+- Canonical GitHub Verify run `35578671846`: success for app commit `0f7a5436b9fed1b68db3a9bef3d34166e5c93adb`.
+- Bottom Sheet Browser Contract run `35578671892`: success in Chromium with Samsung/Android-style mobile emulation; verifies one history slot per sheet, nested Back closes only the nested sheet, second Back closes only the parent, and the following Back resumes underlying page navigation.
+- DOM coverage verifies one history slot per open sheet, no duplicate slot on `onClose` rerender, and Escape requests exactly one browser Back for the top layer. Real history traversal is intentionally left to Playwright rather than happy-dom.
+- Stable Vercel Preview deployment `dpl_EazYhBNN5PhzxSN3MjaksjJts9rB`: READY on deployment-only `preview`, exact app commit `0f7a5436...`, stable alias attached, no alias error.
+- Manual pre-fix Samsung evidence: first Back could close the nested sheet, but the next Back exited/navigated away instead of closing the remaining sheet. Final post-fix Samsung acceptance is pending.
