@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, fireEvent } from '@testing-library/react';
 import { BottomSheet } from '../../src/components/ui/BottomSheet';
 
@@ -23,12 +23,22 @@ const noop = () => {};
 // ---------------------------------------------------------------------------
 
 describe('BottomSheet', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
+    // Let deferred sheet cleanup from the prior RTL root settle before the
+    // next case inspects the module-level history stack.
+    await new Promise((resolve) => window.setTimeout(resolve, 0));
     // Defensive reset. RTL's afterEach(cleanup) unmounts every root, which
     // triggers the component's effect cleanup and restores body overflow.
     // This line guards against a future test that forgets to clean up.
     document.body.style.overflow = '';
     window.history.replaceState({}, '', window.location.href);
+  });
+
+  afterEach(async () => {
+    // RTL unmounts roots automatically; BottomSheet intentionally defers its
+    // unregister by one task to survive React StrictMode's effect probe.
+    await new Promise((resolve) => window.setTimeout(resolve, 0));
+    vi.restoreAllMocks();
   });
 
   it('portals children into document.body, not the render container', () => {
@@ -60,23 +70,30 @@ describe('BottomSheet', () => {
     expect(document.body.style.overflow).not.toBe('hidden');
   });
 
-  it('Escape calls onClose of the topmost sheet only', () => {
+  it('Escape consumes only the topmost sheet history slot', () => {
     const onCloseA = vi.fn();
     const onCloseB = vi.fn();
-    // Two sheets mounted in the same commit. React fires sibling effects
-    // in tree order, so A pushes onto the escape stack before B does.
-    // The stack is therefore [A, B] and B is the top.
+    const pushState = vi.spyOn(window.history, 'pushState');
+    const historyBack = vi
+      .spyOn(window.history, 'back')
+      .mockImplementation(() => undefined);
+
     render(
       <>
-        <BottomSheet isOpen onClose={onCloseA}>
-          <div data-marker="sheet-a">A</div>
-        </BottomSheet>
-        <BottomSheet isOpen onClose={onCloseB}>
-          <div data-marker="sheet-b">B</div>
-        </BottomSheet>
+        <BottomSheet isOpen onClose={onCloseA}>A</BottomSheet>
+        <BottomSheet isOpen onClose={onCloseB}>B</BottomSheet>
       </>
     );
+
+    const stateA = pushState.mock.calls[0]?.[0];
     fireEvent.keyDown(window, { key: 'Escape' });
+
+    expect(historyBack).toHaveBeenCalledTimes(1);
+    expect(onCloseA).not.toHaveBeenCalled();
+    expect(onCloseB).not.toHaveBeenCalled();
+
+    // Browser Back lands on A's guard, then popstate dismisses B.
+    fireEvent.popState(window, { state: stateA });
     expect(onCloseB).toHaveBeenCalledTimes(1);
     expect(onCloseA).not.toHaveBeenCalled();
   });
