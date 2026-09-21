@@ -42,6 +42,25 @@ that sub-batch before starting the next one rather than stacking unrelated repai
 Never rewrite user-owned/shared history or force-update a branch the user may have based
 work on without explicit approval.
 
+## Interaction/device verification additions
+
+Remote verification must be supplemented with device checks for behaviors owned by the
+browser or operating system.
+
+Required manual checks after interaction changes:
+
+- Android/Samsung Back behavior:
+  - nested bottom sheets close from the top layer downward
+  - route navigation resumes only after sheets are closed
+  - final Back behavior is verified on the hosted Preview build
+- Nested carousel gesture ownership:
+  - calendar swipe changes the calendar view only
+  - friend/profile carousel swipe changes friends only
+  - pointer ownership changes must not disable the child carousel
+
+These checks cannot be fully replaced by DOM tests because OS history handling and touch
+recognition are browser/device behaviors.
+
 ## What remote verification can and cannot replace
 
 GitHub Actions can replace local execution of the repository gate: project-contract checks,
