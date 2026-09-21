@@ -1,49 +1,51 @@
 # Session state
 
-Updated: 2026-09-20
-Current task: Phase 3.7 build-size repair — minimal PostHog transport
-Status: minimal PostHog transport verified; live PostHog/browser checks pending
-Roadmap pointer: `PLAN.md` — Phase 4.1 is active by explicit user authorization; Phase 3.7 remains verification-pending and must not be marked complete yet
-Checkpoint: Phase 4.1 contract discovery remains implemented. Added a GitHub-connected-chat execution path: `.github/workflows/verify.yml` runs `npm ci` + the canonical `npm run verify` on `chatgpt/**` pushes, pull requests, or manual dispatch; stale runs cancel. Local verify still auto-copies output, while CI skips clipboard handling and retains logs in Actions. `docs/REMOTE_VERIFY.md` documents the phone-only loop and the one-commit-per-task history rule. AGENTS.md now prohibits micro-commit churn by default.
-Next action: Inspect the automatically triggered GitHub Actions `Verify` run for this task commit. If red, repair from the Actions log without requiring user terminal relay; if green, use that result as the automated acceptance gate, then complete any remaining manual Phase 3.7 / UI checks before closing their roadmap items.
-Blockers: Live PostHog dashboard/source-map verification and browser/device visual checks remain manual.
+Updated: 2026-09-21
+Current task: Phase 4 WCAG AA review
+Status: source-level remediation verified; browser/manual WCAG evidence pending
+Roadmap pointer: `PLAN.md` — Phase 4 WCAG checkbox remains open until the manual protocol in `docs/ACCESSIBILITY_AUDIT.md` is recorded
+Checkpoint: GitHub Actions run 35551590886 passed the canonical verify gate after the WCAG remediation: contracts and lint green, 63 test files / 476 tests green, production build and PWA policy green, and all Phase 3.6 build-size budgets green. Source-level fixes cover semantic controls, form labels/names, visible focus, dark-theme text contrast, data-driven category/task contrast, selected live status announcements, and the 24px task-completion target. Calendar-grid semantics and A11Y-33 are explicitly out of this batch. Phase 3.7 remains automated-green but live PostHog staging checks are still pending.
+Next action: Complete and record the browser/manual accessibility protocol in `docs/ACCESSIBILITY_AUDIT.md`. Once it passes, mark the WCAG review complete in `PLAN.md`; then proceed to calendar-grid semantics as the next Phase 4 implementation batch.
+Blockers: This GitHub-connected chat cannot supply trustworthy physical-device/browser screen-reader, zoom/reflow, or touch evidence. Live PostHog dashboard/source-map verification also remains manual.
 
-## Phase 4.1 acceptance
+## Phase 4 WCAG source-review acceptance
 
-- P4-1 — A contributor can identify the authoritative source for active rules, durable product/architecture contracts, roadmap state, current checkpoint, execution workflows, test workflow, telemetry, and bundle budgets from `README.md`.
-- P4-2 — Documentation-only work has an explicit structural verification command.
-- P4-3 — Normal `npm run verify` fails early when authoritative contract entry points or their local Markdown references drift.
-- P4-4 — The checker is structural only and does not claim semantic completeness or implementation conformance.
-- P4-5 — Existing Phase 3.7 verification status remains honest while Phase 4.1 proceeds by explicit sequencing override.
+- A11Y-R1 — interactive regressions found in shipped surfaces use native semantics or retain keyboard equivalents.
+- A11Y-R2 — audited form fields have associated labels or persistent accessible names.
+- A11Y-R3 — audited dark-theme normal text and predefined dynamic category/task text meet the intended 4.5:1 threshold by implementation/test.
+- A11Y-R4 — selected visual-only loading/feedback states expose status semantics.
+- A11Y-R5 — compact task completion target is at least 24 CSS pixels.
+- A11Y-R6 — canonical remote verification is green after remediation.
+- A11Y-R7 — remaining browser/manual evidence and the two separate calendar accessibility roadmap items are explicitly documented rather than silently claimed complete.
 
 ## Working set
 
+- `docs/ACCESSIBILITY_AUDIT.md`
 - `AGENTS.md`
-- `README.md`
 - `PLAN.md`
 - `SESSION_STATE.md`
-- `docs/PROJECT_REFERENCE.md`
-- `package.json`
-- `scripts/check-project-contracts.mjs`
-- `scripts/verify.mjs`\n- `src/lib/posthog.ts`\n- `tests/unit/posthog.test.ts`\n- `package.json`\n- `package-lock.json`
-- `docs/REMOTE_VERIFY.md`
-- `.github/workflows/verify.yml`
+- audited files under `src/components/` and `src/pages/`
+- `src/constants/colors.ts`
+- `tests/components/ConversationRow.test.tsx`
+- `tests/components/CategorySection.test.tsx`
+- `tests/unit/colors.test.ts`
 
 ## Completed substeps
 
-- Audited the active instruction/reference entry points and identified split discoverability plus missing structural enforcement.
-- Added a Project contracts map to `README.md` with ownership by concern.
-- Added `PROJECT_REFERENCE.md §0.1` defining contract sources and the enforcement boundary.
-- Added `npm run contracts:check` to validate authoritative files, required entry-point pointers, and local Markdown targets.
-- Wired `contracts:check` into `npm run verify` before lint/test/build.
-- Added `scripts/verify.mjs` so verify output streams live and is automatically copied to the clipboard on exit; clipboard text strips terminal ANSI/control noise.
-- Updated `AGENTS.md` so documentation-only work runs the contract check and its reference map points contributors to the README index.
-- Recorded the user's explicit authorization to start Phase 4 while Phase 3.7 remains verification-pending.
-- Added the GitHub Actions remote verification path for phone-only work.
-- Added the one-commit-per-task rule and documented how remote CI fits that history contract.\n- Attributed the aggregate/precache regression to the PostHog browser runtime bundle.\n- Replaced runtime SDK usage with privacy-minimal direct flag/exception transport; source-map upload remains build-time through `@posthog/rollup-plugin`.
+- Replaced pointer-only conversation/category affordances with native button semantics.
+- Added or restored visible focus treatment on audited custom task/search/message controls.
+- Associated auth/settings/task form labels and added persistent accessible names where needed.
+- Raised failing gray normal-text foregrounds on audited dark surfaces.
+- Added dynamic category/task contrast helpers and direct palette regression tests.
+- Corrected bright CTA/destructive foreground/background combinations found in the review.
+- Added status semantics for selected loading and transient feedback surfaces.
+- Increased the task completion interaction target to 24 CSS pixels.
+- Verified the complete repository gate remotely after the remediation.
 
 ## Verification
 
-- The prior local verify reached `contracts:check` green, then failed lint on a malformed `BottomSheet.test.tsx` comment; that syntax defect was repaired before this task.
-- The new GitHub Actions verification run for this commit is pending.
-- Phase 4.1 is not marked complete in `PLAN.md` until the structural checker and required gate pass.
+- Run 35550087809: semantic-control sub-batch passed the canonical verify gate.
+- Run 35551491279: implementation reached 62 passing files / 474 passing tests plus 2 newly-authored contrast-test failures caused by an incorrect test constant shape; this is classified as a test-authoring/structural red, not behavioral red evidence.
+- Run 35551590886: full gate green — contracts, lint, 63/63 test files, 476/476 tests, production build, PWA policy, and build-size guard.
+- Manual WCAG browser/device evidence remains pending and is listed in `docs/ACCESSIBILITY_AUDIT.md`.
+- Phase 3.7 live PostHog checks remain pending.

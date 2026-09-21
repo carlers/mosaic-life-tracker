@@ -67,7 +67,8 @@ this roadmap. Git history and `docs/PROJECT_REFERENCE.md` retain the implementat
 
 ## Batch boundary
 
-Phase 4.1 (instructions, reference discoverability, and enforceable project contracts) is
-verified complete. Phase 3.7's automated gate is now green after replacing the oversized
-runtime PostHog SDK with the minimal direct transport, but its live staging/manual checks
-remain pending. Do not mark Phase 3.7 complete until those checks are recorded.
+Phase 4.1 is verified complete. The source-level Phase 4 WCAG review and remediation are
+also automated-gate green, with the roadmap checkbox intentionally left open until the
+manual browser protocol in `docs/ACCESSIBILITY_AUDIT.md` is recorded. Calendar-grid
+semantics and A11Y-33 remain separate next batches. Phase 3.7's automated gate is green,
+but its live PostHog staging/manual checks remain pending.

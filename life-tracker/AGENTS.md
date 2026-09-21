@@ -245,6 +245,7 @@ The table in `README.md` is the contributor-facing contract index. The map below
   accepted limitations, test patterns, and historical decisions.
 - `docs/CODEX_WORKFLOW.md` — direct-workspace workflow for local and cloud agents.
 - `docs/REMOTE_VERIFY.md` — GitHub-connected chat workflow and remote verification loop.
+- `docs/ACCESSIBILITY_AUDIT.md` — current Phase 4 WCAG review findings and manual evidence protocol.
 - `docs/WORKFLOW_TELEMETRY.md` — local task, verification-loop, cadence, and usage metrics.
 - `docs/WEB_CHAT_WORKFLOW.md` — provider-neutral packet and installer workflow.
 - `PLAN.md` — durable roadmap and completion status.
