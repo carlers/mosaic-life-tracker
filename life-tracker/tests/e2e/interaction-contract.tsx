@@ -8,7 +8,7 @@ import { CalendarCarousel } from '../../src/components/home/views/CalendarCarous
 import { useCalendarState } from '../../src/components/home/views/useCalendarState';
 import { useHorizontalArrowNavigation } from '../../src/hooks/useHorizontalArrowNavigation';
 
-function InteractionHarness() {
+export function InteractionHarness() {
   const calendar = useCalendarState();
   const [friendIndex, setFriendIndex] = useState(0);
 
