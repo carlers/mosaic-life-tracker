@@ -13,6 +13,7 @@ import {
 import { AuthContext } from './authContext';
 import type { Models } from 'appwrite';
 import { syncPostHogIdentity } from '../lib/posthog';
+import { initializeSync } from '../db/sync';
 
 const AUTH_BROADCAST_KEY = 'mosaic_auth_broadcast';
 const LAST_KNOWN_USER_KEY = 'mosaic_last_known_user';
@@ -98,6 +99,17 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   useEffect(() => {
     if (!isLoading) syncPostHogIdentity(userId);
   }, [isLoading, userId]);
+
+  // AUTH-SYNC-1: bootstrap sync can run before a fresh-origin login and
+  // correctly exit with no authenticated user. Once auth resolves online,
+  // immediately trigger another cycle so an empty local RxDB is hydrated
+  // from Appwrite without waiting for focus/online events.
+  useEffect(() => {
+    if (isLoading || isOffline || !userId) return;
+    initializeSync().catch((err) => {
+      console.error('[AuthProvider] Post-auth sync failed:', err);
+    });
+  }, [isLoading, isOffline, userId]);
 
   /**
    * Runs the session check.
