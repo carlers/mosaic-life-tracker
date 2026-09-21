@@ -131,6 +131,37 @@ describe('PostHog adapter', () => {
     ]);
   });
 
+  it('attaches injected chunk and release metadata for source-map symbolication', async () => {
+    vi.stubGlobal('_posthogChunkIds', {
+      'Error\\n    at chunk (https://app.test/assets/index.js:1:1)': 'chunk_123',
+    });
+    vi.stubGlobal('_posthogReleaseId', 'release_456');
+
+    const adapter = await loadAdapter();
+    await adapter.initializePostHog();
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    fetchMock.mockClear();
+
+    const error = new Error('symbolicate me');
+    error.stack =
+      'Error: symbolicate me\\n    at render (https://app.test/assets/index.js:10:20)';
+    adapter.captureHandledException(error);
+
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    const body = requestBody(0);
+    const properties = body.properties as Record<string, unknown>;
+    expect(properties.$release_id).toBe('release_456');
+    const exceptionList = properties.$exception_list as Array<{
+      stacktrace?: { frames?: Array<Record<string, unknown>> };
+    }>;
+    expect(exceptionList[0]?.stacktrace?.frames?.[0]).toEqual(
+      expect.objectContaining({
+        filename: 'https://app.test/assets/index.js',
+        chunk_id: 'chunk_123',
+      })
+    );
+  });
+
   it('runs the explicit live exception probe once and only after authenticated identity resolves', async () => {
     const adapter = await loadAdapter();
 

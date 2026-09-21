@@ -17,6 +17,7 @@ type StackFrame = {
   function?: string;
   lineno?: number;
   colno?: number;
+  chunk_id?: string;
 };
 
 type ExceptionMechanism = {
@@ -28,6 +29,11 @@ type FallbackFrame = {
   filename?: string;
   lineno?: number;
   colno?: number;
+};
+
+type InjectedPostHogGlobals = typeof globalThis & {
+  _posthogChunkIds?: Record<string, string>;
+  _posthogReleaseId?: string;
 };
 
 const FLAG_REFRESH_MS = 5 * 60 * 1000;
@@ -184,6 +190,39 @@ function parseStack(stack: string | undefined): StackFrame[] {
   return frames.reverse();
 }
 
+function getInjectedReleaseId(): string | undefined {
+  const value = (globalThis as InjectedPostHogGlobals)._posthogReleaseId;
+  return typeof value === 'string' && value.length > 0 ? value : undefined;
+}
+
+function getFilenameToChunkIdMap(): Record<string, string> {
+  const chunkIds = (globalThis as InjectedPostHogGlobals)._posthogChunkIds;
+  if (!chunkIds) return {};
+
+  const result: Record<string, string> = {};
+  for (const [stack, chunkId] of Object.entries(chunkIds)) {
+    if (typeof chunkId !== 'string' || chunkId.length === 0) continue;
+    const injectedFrames = parseStack(stack);
+    for (let index = injectedFrames.length - 1; index >= 0; index -= 1) {
+      const filename = injectedFrames[index]?.filename;
+      if (!filename) continue;
+      result[filename] = chunkId;
+      break;
+    }
+  }
+  return result;
+}
+
+function attachInjectedChunkIds(frames: StackFrame[]): StackFrame[] {
+  const chunkIdsByFilename = getFilenameToChunkIdMap();
+  return frames.map((frame) => {
+    const chunkId = frame.filename
+      ? chunkIdsByFilename[frame.filename]
+      : undefined;
+    return chunkId ? { ...frame, chunk_id: chunkId } : frame;
+  });
+}
+
 function describeThrown(value: unknown): {
   type: string;
   message: string;
@@ -230,11 +269,15 @@ function buildExceptionProperties(
     });
   }
 
+  const framesWithChunkIds = attachInjectedChunkIds(frames);
+  const releaseId = getInjectedReleaseId();
+
   return {
     ...context,
     $lib: 'mosaic',
     $lib_version: 'web',
     $exception_level: 'error',
+    ...(releaseId ? { $release_id: releaseId } : {}),
     $exception_list: [
       {
         type: described.type,
@@ -245,8 +288,8 @@ function buildExceptionProperties(
           synthetic: false,
           exception_id: 0,
         },
-        ...(frames.length > 0
-          ? { stacktrace: { type: 'raw', frames } }
+        ...(framesWithChunkIds.length > 0
+          ? { stacktrace: { type: 'raw', frames: framesWithChunkIds } }
           : {}),
       },
     ],

@@ -17,6 +17,7 @@ const posthogSourceMapPlugin = posthogSourceMapsEnabled
       host: process.env.POSTHOG_HOST!,
       sourcemaps: {
         enabled: true,
+        releaseMode: 'event',
         deleteAfterUpload: true,
       },
     })
