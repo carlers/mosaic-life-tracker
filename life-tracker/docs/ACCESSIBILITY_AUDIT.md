@@ -20,7 +20,6 @@ messaging interfaces plus shared bottom-sheet/form primitives. The following roa
 remain intentionally separate and were not folded into this batch:
 
 - calendar-grid semantics;
-- calendar-grid semantics.
 
 A11Y-33 source behavior is now implemented: unmodified ArrowLeft/ArrowRight mirrors the
 existing horizontal day navigation in `DayViewSheet`, and the calendar period navigation
@@ -72,6 +71,30 @@ GitHub Actions run `35551590886` on commit
 The preceding run `35551491279` failed only because the newly added contrast test used an
 incorrect constant name/shape (`CATEGORY_COLORS` instead of
 `getAllAvailableColors()`). That was a test-authoring defect, not behavioral red evidence.
+
+### Automated interaction evidence
+
+Interaction Browser Contract run `35607368142` passed 6/6 Playwright checks in Chromium
+with Samsung/Android-style mobile settings. The contract now covers:
+
+- three nested bottom-sheet history layers closing top-first before route navigation;
+- focus restoration to the sheet opener after the final Back dismissal;
+- CDP touch-drag verification that calendar swipes change the calendar without advancing
+  the friend/person carousel;
+- reciprocal verification that a touch drag outside the calendar can still advance the
+  friend/person carousel;
+- ArrowLeft/ArrowRight calendar navigation while editable controls retain their native caret
+  behavior; and
+- no horizontal page overflow at a 320 CSS px viewport.
+
+Canonical GitHub Verify run `35607725909` then passed on
+`66b4373ce98bd61165469fdfc86c3013376a05ed`: project contracts passed, 66/66
+Vitest files and 487/487 tests passed, and the TypeScript/Vite production build,
+service-worker policy, and build-size budget all passed.
+
+These checks reduce the manual protocol but do not replace physical Samsung/PWA Back,
+screen-reader output, rendered contrast inspection, physical touch-target judgment, or
+200% zoom review.
 
 ## Manual/browser evidence still required
 
