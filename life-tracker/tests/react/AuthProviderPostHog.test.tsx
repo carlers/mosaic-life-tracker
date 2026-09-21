@@ -17,12 +17,18 @@ const posthogRef = vi.hoisted(() => ({
   syncPostHogIdentity: vi.fn(),
 }));
 
+const initializeSyncMock = vi.hoisted(() => vi.fn());
+
 vi.mock('../../src/lib/appwrite', () => ({
   account: accountRef,
   client: {},
 }));
 
 vi.mock('../../src/lib/posthog', () => posthogRef);
+
+vi.mock('../../src/db/sync', () => ({
+  initializeSync: initializeSyncMock,
+}));
 
 import { AuthProvider } from '../../src/hooks/AuthProvider';
 import { useAuth } from '../../src/hooks/useAuth';
@@ -53,6 +59,7 @@ describe('AuthProvider PostHog identity integration', () => {
   beforeEach(() => {
     localStorage.clear();
     vi.clearAllMocks();
+    initializeSyncMock.mockResolvedValue(undefined);
   });
 
   it('identifies resolved authenticated state using only the Appwrite user id', async () => {
