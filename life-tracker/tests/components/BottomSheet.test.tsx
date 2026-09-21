@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, fireEvent } from '@testing-library/react';
+import { render, fireEvent, cleanup } from '@testing-library/react';
 import { BottomSheet } from '../../src/components/ui/BottomSheet';
 
 const noop = () => {};
@@ -39,8 +39,10 @@ describe('BottomSheet', () => {
   });
 
   afterEach(async () => {
-    // RTL unmounts roots automatically; BottomSheet intentionally defers its
-    // unregister by one task to survive React StrictMode's effect probe.
+    // Unmount before flushing the deferred unregister. Relying on RTL's
+    // automatic cleanup ordering lets that zero-delay task bleed into the
+    // following case in happy-dom.
+    cleanup();
     await new Promise((resolve) => window.setTimeout(resolve, 0));
     vi.restoreAllMocks();
   });
