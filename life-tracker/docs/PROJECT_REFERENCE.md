@@ -10,7 +10,7 @@ Sections 5 and 25 summarize workflow boundaries and history. Active process belo
 ## 0. Hard Rules
 
 1. RxDB schemas: never `deleted` — use `isDeleted` (§12)
-2. Never hard-delete; `isDeleted: true` (§7)
+2. Synced deletes use `isDeleted: true` tombstones during the retention window; permanent deletion is only performed by the synchronization-safe tombstone GC (§7, `docs/TOMBSTONE_RETENTION.md`)
 3. Row IDs ≤36 chars, `[a-zA-Z0-9_]+`, no leading `_` (§6, §11)
 4. Existing remote rows: `updateRow`; new rows: `createRow`; 404 fallback on `updateRow`: `createRow`, never `upsertRow` (§6)
 5. Outgoing messages: `read_at` is server-owned; omit on push (§12)
@@ -122,7 +122,7 @@ in `docs/WEB_CHAT_WORKFLOW.md`. `apply-changes.mjs` is the executable source of 
 - **Gesture Priority on Interactive Elements:** swipe > long-press > double-tap > single-tap. Single-tap is deferred ~300ms to distinguish from double-tap. Any tap on the same pointer sequence as a swipe or long-press MUST be suppressed via a flag on the gesture hook (see §21).
 - **Nested Carousel Gesture Ownership:** horizontal swipes that begin inside the calendar carousel belong to the calendar and MUST NOT advance the outer friend/person carousel. Horizontal swipes outside the calendar may advance the friend/person carousel. Parent isolation must not cancel the child calendar's own pointer lifecycle.
 - **RxDB Reserved Keywords:** NEVER use `deleted` as a field name in RxDB schemas (see §12).
-- **Soft Deletes:** Never hard delete. Always `isDeleted: true` for RxDB tombstones (§0 item 2).
+- **Soft Deletes:** Synchronized deletes are represented by `isDeleted: true` tombstones. Tombstones are retained for 90 days by default; clients with an older incremental cursor perform a full pull, and the privileged tombstone GC may permanently delete tombstones older than the retention window. See `docs/TOMBSTONE_RETENTION.md`.
 - **Strict ISO Dates:** All date fields MUST be ISO 8601 strings (`yyyy-MM-dd` for day keys, full `.toISOString()` for timestamps).
 - **iOS Storage:** Must call `navigator.storage.persist()` on launch to prevent WebKit from purging IndexedDB.
 - **Coming Soon:** Bottom nav has 5 tabs: Home, Explore, Notifications, Messages, Account. Notifications renders a full `<ComingSoon />` page.
