@@ -67,6 +67,7 @@ Use this map before changing behavior or project process. Each file owns a disti
 | Test evidence and discovery | [Test workflow](docs/TEST_WORKFLOW.md) |
 | Local workflow telemetry | [Workflow telemetry](docs/WORKFLOW_TELEMETRY.md) |
 | Production bundle budgets and audit history | [Bundle audit](docs/BUNDLE_AUDIT.md) |
+| Tombstone retention and stale-client recovery | [Tombstone retention](docs/TOMBSTONE_RETENTION.md) |
 
 Run `npm run contracts:check` after documentation/reference changes. It verifies that the authoritative files exist, required entry-point pointers remain discoverable, and local Markdown links in those files resolve. `npm run verify` runs this check before lint, tests, and build.
 

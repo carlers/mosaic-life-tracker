@@ -193,7 +193,10 @@ red classifications, focused/acceptance results, and manual/skipped reasons, end
   include versioning and migrations, sync mapping and known-field updates, mirrored
   test-database migrations, remote schema steps, and regression tests as applicable.
 - RxDB uses `isDeleted`; Appwrite uses `deleted`. Deletes are tombstones
-  (`isDeleted: true`), never hard deletes.
+  (`isDeleted: true`) during the sync-retention window. Permanent deletion is allowed only
+  through the synchronization-safe tombstone GC described in `docs/TOMBSTONE_RETENTION.md`.
+  The default retention window is 90 days; clients whose per-collection cursor is older than
+  that window perform a full pull before treating missing remote rows as absent.
 - Appwrite row IDs are at most 36 characters, match `[a-zA-Z0-9_]+`, and do not start
   with `_`. Use the established deterministic hash helpers when composite IDs exceed it.
 - Existing remote rows use `updateRow`; new rows use `createRow`. A 404 fallback from

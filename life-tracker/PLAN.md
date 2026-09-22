@@ -16,6 +16,7 @@ This roadmap records durable workstreams and batch status. `SESSION_STATE.md` co
 - [x] Phase 2 refactor program (batches 2.1–2.10)
 - [x] Codex VS Code workflow migration
 - [x] Provider-neutral workspace-agent and web-chat workflow with rolling mid-batch handoffs
+- [x] Strategy B tombstone retention: 90-day stale-cursor recovery and scheduled garbage-collection function
 
 ## Phase 3 — optimize audit and implementation
 
@@ -53,4 +54,4 @@ This roadmap records durable workstreams and batch status. `SESSION_STATE.md` co
 
 ## Batch boundary
 
-Phase 4 accessibility and interaction acceptance is complete for the current scope. The next work begins from the feature backlog.
+Strategy B tombstone retention implementation is complete and verified. Appwrite Console deployment/scheduling remains an operational setup step; feature backlog work resumes after that setup.
