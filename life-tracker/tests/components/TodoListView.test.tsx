@@ -107,6 +107,16 @@ describe('TodoListView', () => {
     expect(screen.getByText('Work')).toBeInTheDocument();
   });
 
+  // Regression: PROJECT_REFERENCE.md §2 — Todo polish keeps the calendar transparent and close to Day View.
+  it('uses a transparent compact calendar surface with a compact Day View gap', () => {
+    render(<TodoListView {...props} />);
+
+    expect(screen.getByRole('grid', { name: 'September 2026 todo calendar' })).toHaveClass(
+      'bg-transparent'
+    );
+    expect(screen.getByTestId('todo-day-section')).toHaveClass('mt-1');
+  });
+
   // Regression: PROJECT_REFERENCE.md §2 — the compact month grid shows the whole month before task content.
   it('keeps a six-week month at natural height instead of letting the page flex layout clip calendar rows', () => {
     render(<TodoListView {...props} focusDate={new Date(2026, 7, 15)} />);

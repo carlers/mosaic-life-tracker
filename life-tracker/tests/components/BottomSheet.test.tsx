@@ -76,6 +76,36 @@ describe('BottomSheet', () => {
     expect(document.body.style.overflow).not.toBe('hidden');
   });
 
+  // Regression: PROJECT_REFERENCE.md §2 — exposed backdrop is a dismissal target.
+  it('tapping the backdrop requests closing the topmost sheet', () => {
+    render(
+      <BottomSheet isOpen onClose={noop}>
+        Inner
+      </BottomSheet>
+    );
+
+    const dialog = document.body.querySelector('[role="dialog"]');
+    const backdrop = dialog?.previousElementSibling;
+    expect(backdrop).not.toBeNull();
+    fireEvent.click(backdrop as Element);
+
+    expect(window.history.back).toHaveBeenCalledTimes(1);
+  });
+
+  // Regression: PROJECT_REFERENCE.md §2 — phones leave backdrop space; tablets can use full height.
+  it('uses responsive full-sheet height instead of covering the entire phone viewport', () => {
+    render(
+      <BottomSheet isOpen onClose={noop} height="full">
+        Inner
+      </BottomSheet>
+    );
+
+    expect(document.body.querySelector('[role="dialog"]')).toHaveClass(
+      'h-[92dvh]',
+      'md:h-[100dvh]'
+    );
+  });
+
   it('Escape requests Back for the topmost sheet history slot', () => {
     const onCloseA = vi.fn();
     const onCloseB = vi.fn();

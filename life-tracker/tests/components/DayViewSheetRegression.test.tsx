@@ -186,6 +186,7 @@ describe('DayViewSheet nested task actions', () => {
     expect(row).not.toBeNull();
     expect(within(row as HTMLElement).getByRole('button', { name: 'Previous day' })).toBeInTheDocument();
     expect(within(row as HTMLElement).getByRole('button', { name: 'Next day' })).toBeInTheDocument();
+    expect(row).toHaveAttribute('data-bottom-sheet-drag-handle');
 
     const dialog = screen.getByRole('dialog');
     expect(dialog).toHaveAttribute('aria-label', 'Sunday, September 20, 2026');
