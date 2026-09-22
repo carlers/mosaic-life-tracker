@@ -16,7 +16,7 @@ This roadmap records durable workstreams and batch status. `SESSION_STATE.md` co
 - [x] Phase 2 refactor program (batches 2.1–2.10)
 - [x] Codex VS Code workflow migration
 - [x] Provider-neutral workspace-agent and web-chat workflow with rolling mid-batch handoffs
-- [x] Strategy B tombstone retention: 90-day stale-cursor recovery and scheduled garbage-collection function
+- [x] Strategy B tombstone retention: 90-day stale-cursor recovery and scheduled garbage collection through the existing `message-action` Function
 
 ## Phase 3 — optimize audit and implementation
 
@@ -54,4 +54,4 @@ This roadmap records durable workstreams and batch status. `SESSION_STATE.md` co
 
 ## Batch boundary
 
-Strategy B tombstone retention implementation is complete. To preserve the Appwrite Free-plan function budget, garbage collection shares the existing `message-action` Function through its trusted schedule-trigger path; Appwrite Console deployment/scheduling on that existing Function remains the operational setup step. Feature backlog work resumes after that setup.
+Strategy B tombstone retention and its Appwrite rollout are complete. Garbage collection shares the existing `message-action` Function through its trusted schedule-trigger path, `TOMBSTONE_RETENTION_DAYS=90` is configured, and the daily schedule is live. The second Appwrite Function slot remains free. Resume the feature backlog with Todo List browser acceptance.
