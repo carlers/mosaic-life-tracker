@@ -116,7 +116,11 @@ export const TaskItem: React.FC<TaskItemProps> = ({
         ) : (
           <button
             type="button"
-            {...titleGestures}
+            onPointerDown={titleGestures.onPointerDown}
+            onPointerMove={titleGestures.onPointerMove}
+            onPointerUp={titleGestures.onPointerUp}
+            onPointerCancel={titleGestures.onPointerCancel}
+            onContextMenu={titleGestures.onContextMenu}
             onClick={(event) => {
               event.stopPropagation();
               if (event.detail === 0) onOpenActions(task);
@@ -132,7 +136,11 @@ export const TaskItem: React.FC<TaskItemProps> = ({
         {task.memo && (
           <button
             type="button"
-            {...memoGestures}
+            onPointerDown={memoGestures.onPointerDown}
+            onPointerMove={memoGestures.onPointerMove}
+            onPointerUp={memoGestures.onPointerUp}
+            onPointerCancel={memoGestures.onPointerCancel}
+            onContextMenu={memoGestures.onContextMenu}
             onClick={(event) => {
               event.stopPropagation();
               if (event.detail === 0) onOpenMemo(task, 'view');

@@ -21,7 +21,6 @@ import { BottomSheet } from '../components/ui/BottomSheet';
 import { SettingsRow } from '../components/ui/SettingsRow';
 import { useAuth } from '../hooks/useAuth';
 import { destroyDatabase } from '../db/database';
-import { deleteAllUserData } from '../lib/deleteUserData';
 import { AccountSettingsSheet } from '../components/modals/AccountSettingsSheet';
 import { ChangeEmailSheet } from '../components/modals/ChangeEmailSheet';
 import { ChangePasswordSheet } from '../components/modals/ChangePasswordSheet';
@@ -63,6 +62,7 @@ export const SettingsPage: React.FC = () => {
     if (!userId) return;
     setIsDeletingAllData(true);
     try {
+      const { deleteAllUserData } = await import('../lib/deleteUserData');
       await deleteAllUserData(userId);
       const ok = await logout();
       if (!ok) {
