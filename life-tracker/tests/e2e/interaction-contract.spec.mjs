@@ -64,6 +64,18 @@ test('swiping outside the calendar still advances the friend carousel', async ({
   await expect(page.getByTestId('friend-index')).toHaveText('1');
 });
 
+test('todo day swipe advances the nested day view without advancing the friend carousel', async ({ page }) => {
+  await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html`);
+
+  await expect(page.getByTestId('friend-index')).toHaveText('0');
+  await expect(page.getByTestId('todo-day-index')).toHaveText('0');
+
+  await drag(page, page.getByTestId('todo-region'), -260);
+
+  await expect(page.getByTestId('todo-day-index')).toHaveText('1');
+  await expect(page.getByTestId('friend-index')).toHaveText('0');
+});
+
 test('ArrowLeft and ArrowRight navigate the calendar but preserve text caret keys', async ({ page }) => {
   await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html`);
 
