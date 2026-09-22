@@ -31,7 +31,6 @@ function cutoffIso(now = new Date()) {
 }
 
 async function purgeTable(tablesDB, tableId, cutoff, log) {
-  let cursor;
   let pages = 0;
   let scanned = 0;
   let purged = 0;
@@ -43,7 +42,6 @@ async function purgeTable(tablesDB, tableId, cutoff, log) {
       Query.limit(PAGE_SIZE),
       Query.orderAsc('$id'),
     ];
-    if (cursor) queries.push(Query.cursorAfter(cursor));
 
     const response = await tablesDB.listRows({
       databaseId: DATABASE_ID,
@@ -67,13 +65,8 @@ async function purgeTable(tablesDB, tableId, cutoff, log) {
     pages++;
     if (rows.length < PAGE_SIZE) break;
 
-    const lastId = rows[rows.length - 1].$id;
-    if (!lastId || lastId === cursor) {
-      log(`tombstone-gc: stopping ${tableId}; cursor did not advance`);
-      break;
-    }
-    cursor = lastId;
-
+    // Re-query the first page after deleting it. A cursor that points at the
+    // just-deleted last row is not a stable pagination anchor.
     if (pages >= MAX_PAGES_PER_TABLE) {
       log(
         `tombstone-gc: hit page cap ${MAX_PAGES_PER_TABLE} for ${tableId}`

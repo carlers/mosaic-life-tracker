@@ -83,6 +83,36 @@ describe('message-action / scheduled tombstone GC', () => {
   });
 
   // Regression: docs/TOMBSTONE_RETENTION.md — Garbage collection.
+  it('re-queries after deleting a full page instead of using a deleted cursor', async () => {
+    const firstPage = Array.from({ length: 100 }, (_, index) => ({
+      $id: `old_${String(index).padStart(3, '0')}`,
+    }));
+    const listRows = vi
+      .fn()
+      .mockResolvedValueOnce({ rows: firstPage })
+      .mockResolvedValueOnce({ rows: [{ $id: 'old_100' }] });
+    const deleteRow = vi.fn().mockResolvedValue(undefined);
+
+    const result = await tombstoneGc.purgeTable(
+      { listRows, deleteRow },
+      'tasks',
+      '2026-06-24T00:00:00.000Z',
+      vi.fn()
+    );
+
+    expect(result).toEqual({ scanned: 101, purged: 101 });
+    expect(listRows).toHaveBeenCalledTimes(2);
+    expect(deleteRow).toHaveBeenCalledTimes(101);
+    for (const call of listRows.mock.calls) {
+      expect(
+        call[0].queries.some(
+          (query: { op?: string }) => query.op === 'cursorAfter'
+        )
+      ).toBe(false);
+    }
+  });
+
+  // Regression: docs/TOMBSTONE_RETENTION.md — Garbage collection.
   it('runs GC for a schedule trigger without requiring a user session', async () => {
     const mockDb = makeMockDb();
     mockDb.listRows.mockResolvedValue({ rows: [] });
