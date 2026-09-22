@@ -183,7 +183,6 @@ export const TodoCalendarGrid: React.FC<TodoCalendarGridProps> = ({
     if (emblaApi.selectedScrollSnap() !== targetIndex) {
       emblaApi.scrollTo(targetIndex, true);
     }
-    setActiveIndex(targetIndex);
   }, [baseDate, emblaApi, focusDate]);
 
   useEffect(() => {
