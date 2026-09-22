@@ -8,6 +8,7 @@ import { format } from 'date-fns';
 import { CalendarCarousel } from '../../src/components/home/views/CalendarCarousel';
 import { TodoCalendarGrid } from '../../src/components/home/views/TodoCalendarGrid';
 import { DaySlide } from '../../src/components/home/views/DaySlide';
+import { BottomSheet } from '../../src/components/ui/BottomSheet';
 import type { CategoryDocument, TaskDocument } from '../../src/db/schema';
 import { useCalendarState } from '../../src/components/home/views/useCalendarState';
 import { useHorizontalArrowNavigation } from '../../src/hooks/useHorizontalArrowNavigation';
@@ -16,6 +17,8 @@ export function InteractionHarness() {
   const calendar = useCalendarState();
   const [friendIndex, setFriendIndex] = useState(0);
   const [todoDayIndex, setTodoDayIndex] = useState(0);
+  const [todoGesture, setTodoGesture] = useState('idle');
+  const [fullSheetOpen, setFullSheetOpen] = useState(false);
   const [todoMonth, setTodoMonth] = useState(() => new Date(2026, 8, 15));
   const [todoSelectedDate, setTodoSelectedDate] = useState(
     () => new Date(2026, 8, 15)
@@ -43,6 +46,7 @@ export function InteractionHarness() {
       userId: 'user_1',
       isDeleted: false,
       visibility: 'private',
+      memo: categoryIndex === 0 && taskIndex === 0 ? 'Browser memo content' : '',
     }))
   );
 
@@ -59,6 +63,7 @@ export function InteractionHarness() {
         <span>Todo day: <output data-testid="todo-day-index">{todoDayIndex}</output></span>
         <span>Todo month: <output data-testid="todo-month">{format(todoMonth, 'MMMM yyyy')}</output></span>
         <span>Todo selected: <output data-testid="todo-selected-date">{format(todoSelectedDate, 'yyyy-MM-dd')}</output></span>
+        <span>Todo gesture: <output data-testid="todo-gesture">{todoGesture}</output></span>
         <span>Calendar: <output data-testid="calendar-title">{calendar.title}</output></span>
       </div>
 
@@ -189,14 +194,35 @@ export function InteractionHarness() {
           editValue=""
           onToggleTask={() => {}}
           onAddTask={() => {}}
-          onOpenActions={() => {}}
-          onOpenMemo={() => {}}
+          onOpenActions={() => setTodoGesture('actions')}
+          onOpenMemo={(_, mode) => setTodoGesture(`memo-${mode}`)}
+          onEditTask={() => setTodoGesture('edit')}
           onViewImage={() => {}}
           onEditChange={() => {}}
           onEditSave={() => {}}
           onEditCancel={() => {}}
         />
       </div>
+
+      <button
+        type="button"
+        data-testid="open-full-sheet"
+        onClick={() => setFullSheetOpen(true)}
+        className="px-3 py-2"
+      >
+        Open full sheet
+      </button>
+      <BottomSheet
+        isOpen={fullSheetOpen}
+        onClose={() => setFullSheetOpen(false)}
+        ariaLabel="Responsive test sheet"
+        height="full"
+      >
+        <div data-bottom-sheet-drag-handle className="p-4">
+          Sheet date drag area
+        </div>
+        <p>Sheet body</p>
+      </BottomSheet>
     </main>
   );
 }

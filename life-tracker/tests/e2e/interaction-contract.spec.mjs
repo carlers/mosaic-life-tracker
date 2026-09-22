@@ -131,6 +131,58 @@ test('todo calendar follows the finger before snapping months', async ({ page })
   await expect(page.getByTestId('friend-index')).toHaveText('0');
 });
 
+// Regression: PROJECT_REFERENCE.md §2 — Todo calendar card is visually transparent.
+test('todo compact calendar has no gray card fill', async ({ page }) => {
+  await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html`);
+
+  const grid = page.getByRole('grid', { name: 'September 2026 todo calendar' });
+  expect(await grid.evaluate((element) => getComputedStyle(element).backgroundColor)).toBe(
+    'rgba(0, 0, 0, 0)'
+  );
+});
+
+// Regression: PROJECT_REFERENCE.md §2 — real DaySlide exposes memo text and owner multi-tap shortcuts.
+test('owner task memo is visible and double/triple tap shortcuts reach edit surfaces', async ({ page }) => {
+  await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html`);
+
+  await expect(page.getByText('Browser memo content')).toBeVisible();
+  const title = page.getByRole('button', { name: 'Task 1.1' });
+  await title.dblclick();
+  await expect(page.getByTestId('todo-gesture')).toHaveText('edit');
+
+  await page.reload();
+  const memo = page.getByRole('button', { name: 'Open memo' }).first();
+  await memo.dblclick();
+  await expect(page.getByTestId('todo-gesture')).toHaveText('memo-edit');
+
+  await page.reload();
+  await page.getByRole('button', { name: 'Task 1.1' }).click({ clickCount: 3 });
+  await expect(page.getByTestId('todo-gesture')).toHaveText('memo-edit');
+});
+
+// Regression: PROJECT_REFERENCE.md §2 — phones expose backdrop dismissal; tablet full sheets use full height.
+test('full sheet leaves a phone backdrop, closes from it, and fills tablet height', async ({ page }) => {
+  await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html`);
+  await page.getByTestId('open-full-sheet').click();
+
+  let dialog = page.getByRole('dialog', { name: 'Responsive test sheet' });
+  let box = await dialog.boundingBox();
+  if (!box) throw new Error('Missing phone sheet bounds');
+  expect(box.height).toBeGreaterThan(830);
+  expect(box.height).toBeLessThan(850);
+  expect(box.y).toBeGreaterThan(50);
+
+  await page.mouse.click(10, 10);
+  await expect(dialog).toHaveCount(0);
+
+  await page.setViewportSize({ width: 1024, height: 768 });
+  await page.getByTestId('open-full-sheet').click();
+  dialog = page.getByRole('dialog', { name: 'Responsive test sheet' });
+  box = await dialog.boundingBox();
+  if (!box) throw new Error('Missing tablet sheet bounds');
+  expect(box.height).toBeGreaterThanOrEqual(767);
+});
+
 test('todo calendar day tap selects the day without changing friend or month', async ({ page }) => {
   await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html`);
 

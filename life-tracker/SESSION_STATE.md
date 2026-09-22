@@ -1,12 +1,12 @@
 # Session state
 
 Updated: 2026-09-23
-Current task: Todo List cohesive-scroll/full-month/Day View header repair plus GitHub Verify latency reduction
-Status: The repair is implemented on the active task branch. Todo now keeps one natural-height vertical content flow, prevents the compact calendar from flex-shrinking/clipping lower rows, moves Previous/date/Next into the horizontal Day View swiper surface, and explicitly hands vertical touch to the enclosing page scroller. GitHub Verify now starts repository and browser jobs in parallel, caches the pinned Chromium payload, and no longer carries the completed one-time hygiene job.
-Roadmap pointer: Todo List remains the active feature-backlog item and stays unchecked in `PLAN.md` until the repaired hosted build passes real-device acceptance.
-Checkpoint: Spec-first acceptance was committed before implementation. Verify #131 produced behavioral/contract red evidence for the clipped-calendar layout guard, date-header swipe ownership, vertical touch handoff, parallel browser verification, and removal of the stale hygiene job. The implementation is awaiting the consolidated green task-branch gate before preview promotion.
-Next action: Require the task-branch Verify and Vercel deployment to be green, move that exact checkpoint to `preview`, require preview Verify/Vercel green, then repeat Samsung/Android Todo acceptance for one-page vertical scrolling, full-month visibility, date-header day swiping, and calendar/day gesture ownership.
-Blockers: Automated Chromium covers layout bounds and synthetic touch contracts; real Samsung/Android touch feel and authenticated hosted task data remain manual product acceptance.
+Current task: Todo/Day View polish, destructive data controls, bottom-nav inset, and responsive orientation
+Status: Implementation is complete on the task branch. Todo calendar chrome is transparent with tighter Day View spacing; the global bottom-nav inset no longer leaves the extra dark strip; Account logout lives inside normal scroll flow; owner Day View exposes memo text and multi-tap shortcuts; Memo has read/edit modes; Day View date header delegates sheet drag; phone full sheets expose backdrop while tablet full sheets use full height; and Settings has a distinct Delete All User Data flow.
+Roadmap pointer: Todo List remains unchecked in `PLAN.md` until this UI-polish batch passes hosted real-device acceptance.
+Checkpoint: Spec-first Verify #135 produced behavioral red evidence across the new Todo, sheet-height, Day View drag-handle, memo/gesture, layout, orientation, and destructive-data contracts. Verify #136 turned all 525 Vitest assertions green but exposed a build-size regression caused by eagerly importing destructive-data dependencies. The delete path is now lazy-loaded; Verify #137 is green with 525/525 Vitest, 15/15 Playwright, PWA policy, and build-size budgets. A final browser-acceptance checkpoint now adds computed Todo background, real DaySlide multi-tap/memo behavior, and responsive BottomSheet geometry/backdrop dismissal.
+Next action: Require the final task-branch Verify and Vercel deployment green, fast-forward that exact commit to `preview`, require preview Verify/Vercel green, then perform phone/tablet acceptance.
+Blockers: Automated browser checks cannot replace real Samsung/iPad touch feel, orientation behavior in installed-PWA contexts, or intentional live execution of the destructive Delete All User Data action.
 
 ## Preview acceptance
 
@@ -19,10 +19,11 @@ Blockers: Automated Chromium covers layout bounds and synthetic touch contracts;
 
 ## Verification
 
-- TDD red evidence: Verify #131 failed the new contracts before implementation: compact calendar lacked the non-shrinking layout guarantee; the date header lived outside the day swiper; inline Swiper did not explicitly hand vertical touch to page scrolling; browser verification serialized behind `verify`; and the completed hygiene job was still present.
-- Todo full-month layout: DOM and browser acceptance require a six-week August 2026 grid to expose all 42 cells and keep August 31 inside the visible grid bounds while the enclosing Todo page is scrollable.
-- Todo Day View header: DOM coverage requires Previous/date/Next to share one row inside the day Swiper and the sheet dialog to retain a full-date accessible label.
-- Todo scroll ownership: inline Day View remains natural-height with no nested task scroller; Swiper touch configuration preserves horizontal day navigation while handing vertical-dominant gestures to the Todo page scroller.
-- CI latency: repository and browser jobs run concurrently; the browser job reuses a version-keyed Playwright Chromium cache and installs the browser only on a cache miss.
-- Existing full regression layers remain required: repository contracts, discovery, lint, all Vitest projects, production build/PWA/build-size checks, and all Playwright browser contracts.
-- Todo List Samsung/real-device acceptance remains pending and is the final product gate before checking the roadmap item.
+- TDD behavioral red: Verify #135 failed the new pre-implementation contracts for Todo visual spacing, responsive full-sheet height, date-header drag ownership, memo rendering/editing, task multi-tap shortcuts, global nav inset, Account logout flow, responsive orientation, and Delete All User Data.
+- Destructive-data unit coverage requires local+remote tombstones across synced user-owned rows, profile hiding/tombstoning, and referenced image cleanup; the UI confirmation explicitly distinguishes this from deleting the Appwrite login account.
+- Owner Day View DOM coverage requires memo content inline, single/double/triple tap dispatch, read-first memo behavior, edit controls, and the private-only toggle.
+- BottomSheet DOM/browser coverage requires backdrop dismissal plus phone/tablet responsive full-sheet geometry; Day View DOM coverage binds the date/navigation row to the shared drag-handle contract.
+- Todo/browser coverage retains carousel/day selection/overflow/scroll ownership and adds computed transparent calendar chrome.
+- Responsive orientation unit coverage requires tablet unlock and best-effort phone portrait lock; the manifest no longer globally forces portrait.
+- Verify #137: 76 Vitest files / 525 tests green; 15 Playwright contracts green; production build, PWA policy, and build-size budgets green after lazy-loading destructive-data dependencies.
+- Manual acceptance remains required for real phone/tablet gestures, installed-PWA orientation, and the destructive live-data path.

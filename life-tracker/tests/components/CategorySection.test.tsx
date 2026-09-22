@@ -22,6 +22,7 @@ function makeCallbacks() {
     onAddTask: vi.fn(),
     onOpenActions: vi.fn(),
     onOpenMemo: vi.fn(),
+    onEditTask: vi.fn(),
     onEditChange: vi.fn(),
     onEditSave: vi.fn(),
     onEditCancel: vi.fn(),
