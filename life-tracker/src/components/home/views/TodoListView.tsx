@@ -1,5 +1,6 @@
-import React, { useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
 import {
+  addMonths,
   eachDayOfInterval,
   endOfMonth,
   endOfWeek,
@@ -11,11 +12,12 @@ import {
   startOfWeek,
 } from 'date-fns';
 import { DayViewSheet } from './DayViewSheet';
-import type { TaskDocument } from '../../../db/schema';
+import type { CategoryDocument, TaskDocument } from '../../../db/schema';
 
 interface TodoListViewProps {
   focusDate: Date;
   tasks: TaskDocument[];
+  categories: CategoryDocument[];
   categoriesMap: Record<string, { color: string; name: string }>;
   onFocusDateChange: (date: Date) => void;
 }
@@ -25,12 +27,19 @@ const WEEKDAY_LABELS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 export const TodoListView: React.FC<TodoListViewProps> = ({
   focusDate,
   tasks,
+  categories,
   categoriesMap,
   onFocusDateChange,
 }) => {
   const [selectedDate, setSelectedDate] = useState(() => new Date(focusDate));
   const focusMonthKey = format(focusDate, 'yyyy-MM');
   const [syncedFocusMonthKey, setSyncedFocusMonthKey] = useState(focusMonthKey);
+  const calendarSwipeStartRef = useRef<{
+    x: number;
+    y: number;
+    pointerId: number;
+  } | null>(null);
+  const suppressCalendarClickUntilRef = useRef(0);
 
   if (focusMonthKey !== syncedFocusMonthKey) {
     setSyncedFocusMonthKey(focusMonthKey);
@@ -58,19 +67,85 @@ export const TodoListView: React.FC<TodoListViewProps> = ({
     return grouped;
   }, [tasks]);
 
-  const handleDateChange = (date: Date) => {
-    setSelectedDate(date);
-    if (!isSameMonth(date, focusDate)) {
-      onFocusDateChange(date);
-    }
-  };
+  const handleDateChange = useCallback(
+    (date: Date) => {
+      setSelectedDate(date);
+      if (!isSameMonth(date, focusDate)) {
+        onFocusDateChange(date);
+      }
+    },
+    [focusDate, onFocusDateChange]
+  );
+
+  const handleCalendarPointerDown = useCallback(
+    (event: React.PointerEvent<HTMLDivElement>) => {
+      calendarSwipeStartRef.current = {
+        x: event.clientX,
+        y: event.clientY,
+        pointerId: event.pointerId,
+      };
+      if (event.currentTarget.setPointerCapture) {
+        event.currentTarget.setPointerCapture(event.pointerId);
+      }
+    },
+    []
+  );
+
+  const handleCalendarPointerUp = useCallback(
+    (event: React.PointerEvent<HTMLDivElement>) => {
+      const start = calendarSwipeStartRef.current;
+      calendarSwipeStartRef.current = null;
+      if (!start || start.pointerId !== event.pointerId) return;
+
+      if (
+        event.currentTarget.hasPointerCapture?.(event.pointerId) &&
+        event.currentTarget.releasePointerCapture
+      ) {
+        event.currentTarget.releasePointerCapture(event.pointerId);
+      }
+
+      const deltaX = event.clientX - start.x;
+      const deltaY = event.clientY - start.y;
+      const horizontalDistance = Math.abs(deltaX);
+      const verticalDistance = Math.abs(deltaY);
+
+      if (
+        horizontalDistance < 48 ||
+        horizontalDistance <= verticalDistance * 1.2
+      ) {
+        return;
+      }
+
+      suppressCalendarClickUntilRef.current = Date.now() + 350;
+      onFocusDateChange(addMonths(focusDate, deltaX < 0 ? 1 : -1));
+    },
+    [focusDate, onFocusDateChange]
+  );
+
+  const handleCalendarPointerCancel = useCallback(() => {
+    calendarSwipeStartRef.current = null;
+  }, []);
+
+  const handleCalendarClickCapture = useCallback(
+    (event: React.MouseEvent<HTMLDivElement>) => {
+      if (Date.now() >= suppressCalendarClickUntilRef.current) return;
+      event.preventDefault();
+      event.stopPropagation();
+    },
+    []
+  );
 
   return (
-    <section className="swiper-no-swiping flex min-h-0 flex-1 flex-col overflow-y-auto px-4 pb-8 pt-4 animate-in fade-in duration-300">
+    <section className="swiper-no-swiping flex min-h-0 min-w-0 w-full max-w-full flex-1 flex-col overflow-x-hidden overflow-y-auto px-4 pb-8 pt-4 animate-in fade-in duration-300">
       <div
-        className="rounded-xl border border-[#333333] bg-[#1E1E1E] p-3"
+        className="w-full min-w-0 max-w-full touch-pan-y rounded-xl border border-[#333333] bg-[#1E1E1E] p-3"
         role="grid"
         aria-label={`${format(focusDate, 'MMMM yyyy')} todo calendar`}
+        data-testid="todo-calendar-grid"
+        onPointerDown={handleCalendarPointerDown}
+        onPointerUp={handleCalendarPointerUp}
+        onPointerCancel={handleCalendarPointerCancel}
+        onClickCapture={handleCalendarClickCapture}
       >
         <div className="mb-2 grid grid-cols-7" role="row">
           {WEEKDAY_LABELS.map((label, index) => (
@@ -120,7 +195,7 @@ export const TodoListView: React.FC<TodoListViewProps> = ({
         {format(selectedDate, 'EEEE, MMMM d')}
       </h3>
 
-      <div className="mt-2 flex min-h-[22rem] flex-1 flex-col">
+      <div className="mt-2 flex min-h-[22rem] min-w-0 w-full max-w-full flex-1 flex-col overflow-x-hidden">
         <DayViewSheet
           key={focusMonthKey}
           isOpen
@@ -128,6 +203,8 @@ export const TodoListView: React.FC<TodoListViewProps> = ({
           selectedDate={selectedDate}
           onDateChange={handleDateChange}
           renderMode="inline"
+          tasks={tasks}
+          categories={categories}
         />
       </div>
     </section>

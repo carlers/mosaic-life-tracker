@@ -1,16 +1,20 @@
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
-import type { TaskDocument } from '../../src/db/schema';
+import type { CategoryDocument, TaskDocument } from '../../src/db/schema';
 
 vi.mock('../../src/components/home/views/DayViewSheet', () => ({
   DayViewSheet: ({
     selectedDate,
     onDateChange,
     renderMode,
+    tasks,
+    categories,
   }: {
     selectedDate: Date;
     onDateChange?: (date: Date) => void;
     renderMode?: 'sheet' | 'inline';
+    tasks?: TaskDocument[];
+    categories?: CategoryDocument[];
   }) => (
     <div
       data-testid="inline-day-view-mock"
@@ -19,6 +23,8 @@ vi.mock('../../src/components/home/views/DayViewSheet', () => ({
         selectedDate.getMonth() + 1
       ).padStart(2, '0')}-${String(selectedDate.getDate()).padStart(2, '0')}`}
     >
+      <span>{tasks?.[0]?.title ?? 'No passed task'}</span>
+      <span>{categories?.[0]?.name ?? 'No passed category'}</span>
       <button
         type="button"
         onClick={() => onDateChange?.(new Date(2026, 9, 1))}
@@ -47,17 +53,30 @@ const tasks: TaskDocument[] = [
   },
 ];
 
+const categories: CategoryDocument[] = [
+  {
+    id: 'work',
+    name: 'Work',
+    color: '#3B82F6',
+    order: 0,
+    visibility: 'private',
+    userId: 'user_1',
+    isDeleted: false,
+  },
+];
+
+const props = {
+  focusDate: new Date(2026, 8, 15),
+  tasks,
+  categories,
+  categoriesMap: { work: { color: '#3B82F6', name: 'Work' } },
+  onFocusDateChange: vi.fn(),
+};
+
 describe('TodoListView', () => {
   // Regression: PROJECT_REFERENCE.md §2 — Todo List view.
-  it('keeps the compact calendar color-only and renders the selected day through the inline DayView surface', () => {
-    render(
-      <TodoListView
-        focusDate={new Date(2026, 8, 15)}
-        tasks={tasks}
-        categoriesMap={{ work: { color: '#3B82F6', name: 'Work' } }}
-        onFocusDateChange={() => {}}
-      />
-    );
+  it('keeps the compact calendar color-only and passes the selected-day data into the inline Day View surface', () => {
+    render(<TodoListView {...props} />);
 
     const grid = screen.getByRole('grid', {
       name: 'September 2026 todo calendar',
@@ -80,38 +99,52 @@ describe('TodoListView', () => {
       'data-selected-date',
       '2026-09-15'
     );
+    expect(screen.getByText('Plan release')).toBeInTheDocument();
+    expect(screen.getByText('Work')).toBeInTheDocument();
   });
 
   // Regression: PROJECT_REFERENCE.md §7 — nested carousel gesture ownership.
-  it('marks the whole Todo List as a parent-Swiper no-swiping region', () => {
-    const { container } = render(
+  it('contains horizontal overflow and marks the Todo surface as a parent-Swiper no-swiping region', () => {
+    const { container } = render(<TodoListView {...props} />);
+
+    const root = container.firstElementChild;
+    expect(root).toHaveClass('swiper-no-swiping');
+    expect(root).toHaveClass('min-w-0');
+    expect(root).toHaveClass('overflow-x-hidden');
+  });
+
+  // Regression: PROJECT_REFERENCE.md §2/§7 — the compact grid owns Todo month swipes.
+  it('swipes the compact calendar grid between months without selecting a day', () => {
+    const onFocusDateChange = vi.fn();
+    render(
       <TodoListView
-        focusDate={new Date(2026, 8, 15)}
-        tasks={tasks}
-        categoriesMap={{ work: { color: '#3B82F6', name: 'Work' } }}
-        onFocusDateChange={() => {}}
+        {...props}
+        onFocusDateChange={onFocusDateChange}
       />
     );
 
-    expect(container.firstElementChild).toHaveClass('swiper-no-swiping');
+    const grid = screen.getByTestId('todo-calendar-grid');
+    fireEvent.pointerDown(grid, {
+      pointerId: 1,
+      clientX: 320,
+      clientY: 120,
+    });
+    fireEvent.pointerUp(grid, {
+      pointerId: 1,
+      clientX: 100,
+      clientY: 126,
+    });
+
+    expect(onFocusDateChange).toHaveBeenCalledWith(new Date(2026, 9, 15));
   });
 
   it('moves the selected day into the displayed month after month navigation', () => {
-    const { rerender } = render(
-      <TodoListView
-        focusDate={new Date(2026, 8, 15)}
-        tasks={tasks}
-        categoriesMap={{ work: { color: '#3B82F6', name: 'Work' } }}
-        onFocusDateChange={() => {}}
-      />
-    );
+    const { rerender } = render(<TodoListView {...props} />);
 
     rerender(
       <TodoListView
+        {...props}
         focusDate={new Date(2026, 9, 15)}
-        tasks={tasks}
-        categoriesMap={{ work: { color: '#3B82F6', name: 'Work' } }}
-        onFocusDateChange={() => {}}
       />
     );
 
@@ -129,9 +162,8 @@ describe('TodoListView', () => {
     const onFocusDateChange = vi.fn();
     render(
       <TodoListView
+        {...props}
         focusDate={new Date(2026, 8, 30)}
-        tasks={tasks}
-        categoriesMap={{ work: { color: '#3B82F6', name: 'Work' } }}
         onFocusDateChange={onFocusDateChange}
       />
     );

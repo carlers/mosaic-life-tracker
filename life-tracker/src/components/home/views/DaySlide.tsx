@@ -58,7 +58,7 @@ const DaySlideComponent: React.FC<DaySlideProps> = ({
   }
 
   return (
-    <div className="h-full overflow-y-auto px-4 pb-8">
+    <div className="h-full w-full min-w-0 overflow-y-auto px-4 pb-8">
       {categories.map((cat) => (
         <CategorySection
           key={cat.id}

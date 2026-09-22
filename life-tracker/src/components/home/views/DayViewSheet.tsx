@@ -20,7 +20,7 @@ import { useTasksByDate } from '../../../hooks/useTasksByDate';
 import { useDayViewSwiper } from './useDayViewSwiper';
 import { deleteImage } from '../../../lib/storage';
 import { EMPTY_TASKS } from '../../../constants/empty';
-import type { TaskDocument } from '../../../db/schema';
+import type { CategoryDocument, TaskDocument } from '../../../db/schema';
 import { Spinner } from '../../ui/Spinner';
 import { useHorizontalArrowNavigation } from '../../../hooks/useHorizontalArrowNavigation';
 
@@ -34,6 +34,8 @@ interface DayViewSheetProps {
   selectedDate: Date;
   onDateChange?: (date: Date) => void;
   renderMode?: 'sheet' | 'inline';
+  tasks?: TaskDocument[];
+  categories?: CategoryDocument[];
 }
 
 export const DayViewSheet: React.FC<DayViewSheetProps> = ({
@@ -42,20 +44,24 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
   selectedDate,
   onDateChange,
   renderMode = 'sheet',
+  tasks: tasksOverride,
+  categories: categoriesOverride,
 }) => {
   const { user } = useAuth();
   const currentUserId = user?.$id ?? '';
 
+  const taskStore = useTasks();
   const {
-    tasks = EMPTY_TASKS,
     addTask,
     toggleTaskCompletion,
     updateTask,
     deleteTask,
-  } = useTasks();
-  const { categories = [] } = useCategories();
+  } = taskStore;
+  const { categories: hookCategories = [] } = useCategories();
   const { message: deleteFeedback } = useFeedback();
 
+  const tasks = tasksOverride ?? taskStore.tasks ?? EMPTY_TASKS;
+  const categories = categoriesOverride ?? hookCategories;
   const tasksByDate = useTasksByDate(tasks);
 
   const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
@@ -378,14 +384,15 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
         }}
         initialSlide={initialIndex}
         onSlideChange={handleSwipeSettled}
-        className="flex-1"
+        className="min-w-0 w-full max-w-full flex-1 overflow-hidden"
+        style={{ width: '100%', maxWidth: '100%' }}
       >
         {slideDates.map((date, i) => {
           const inWindow = Math.abs(i - activeIndex) <= renderWindow;
           const dateStr = slideDateStrs[i];
           const dayTasks = tasksByDate.get(dateStr) ?? EMPTY_TASKS;
           return (
-            <SwiperSlide key={date.toISOString()}>
+            <SwiperSlide key={date.toISOString()} className="min-w-0">
               {inWindow && (
                 <DaySlide
                   date={date}
@@ -515,7 +522,7 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
   if (renderMode === 'inline') {
     return (
       <div
-        className={`flex min-h-0 flex-1 flex-col ${isBackgroundLocked ? 'pointer-events-none' : ''}`}
+        className={`flex min-h-0 min-w-0 w-full max-w-full flex-1 flex-col overflow-x-hidden ${isBackgroundLocked ? 'pointer-events-none' : ''}`}
         aria-hidden={isBackgroundLocked || undefined}
         data-testid="inline-day-view"
       >

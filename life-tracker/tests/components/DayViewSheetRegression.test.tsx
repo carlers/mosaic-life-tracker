@@ -177,7 +177,7 @@ describe('DayViewSheet nested task actions', () => {
   });
 
   // Regression: PROJECT_REFERENCE.md §2/§7 — Todo reuses DayView inline while owning nested swipes.
-  it('supports the same day workspace inline with nested swipe ownership', () => {
+  it('supports the same day workspace inline with nested swipe ownership and bounded width', () => {
     render(
       <DayViewSheet
         isOpen
@@ -189,12 +189,43 @@ describe('DayViewSheet nested task actions', () => {
     );
 
     expect(screen.queryByRole('dialog')).toBeNull();
-    expect(screen.getByTestId('inline-day-view')).toBeInTheDocument();
+    expect(screen.getByTestId('inline-day-view')).toHaveClass('min-w-0');
+    expect(screen.getByTestId('inline-day-view')).toHaveClass('overflow-x-hidden');
+    expect(screen.getByTestId('day-swiper')).toBeInTheDocument();
     expect(swiperFixture.nested).toBe(true);
     expect(swiperFixture.noSwiping).toBe(false);
 
     fireEvent.click(screen.getByText('Open actions'));
     expect(screen.getByText('Visibility')).toBeInTheDocument();
+  });
+
+  // Regression: PROJECT_REFERENCE.md §2 — Todo can supply its already-loaded task/category data.
+  it('prefers supplied inline task and category data over a second display subscription', () => {
+    const suppliedTask = {
+      ...fixture.task,
+      id: 'task_override',
+      title: 'Supplied Todo task',
+    };
+    const suppliedCategory = {
+      ...fixture.category,
+      id: 'cat_override',
+      name: 'Supplied category',
+    };
+    suppliedTask.categoryId = suppliedCategory.id;
+
+    render(
+      <DayViewSheet
+        isOpen
+        onClose={vi.fn()}
+        selectedDate={new Date(2026, 8, 20)}
+        onDateChange={vi.fn()}
+        renderMode="inline"
+        tasks={[suppliedTask]}
+        categories={[suppliedCategory]}
+      />
+    );
+
+    expect(screen.getByText('Open actions')).toBeInTheDocument();
   });
 
   it.each([

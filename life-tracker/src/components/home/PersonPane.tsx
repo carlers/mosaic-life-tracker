@@ -165,6 +165,7 @@ export const PersonPane: React.FC<PersonPaneProps> = ({ person, isActive }) => {
         <TodoListView
           focusDate={todoFocusDate}
           tasks={tasks}
+          categories={categories}
           categoriesMap={categoriesMap}
           onFocusDateChange={setTodoFocusDate}
         />
