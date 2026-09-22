@@ -1,5 +1,6 @@
 const crypto = require('crypto');
 const { Client, TablesDB, Query, Permission, Role } = require('node-appwrite');
+const { handleScheduledTombstoneGc } = require('./tombstone-gc');
 const DATABASE_ID = 'life_tracker';
 const MESSAGES_TABLE = 'messages';
 const FRIENDSHIPS_TABLE = 'friendships';
@@ -1044,6 +1045,10 @@ async function handleGetFriendCalendar(tablesDB, callerId, payload, log, error) 
   };
 }
 const handler = async ({ req, res, log, error }) => {
+  if (req.headers['x-appwrite-trigger'] === 'schedule') {
+    return handleScheduledTombstoneGc({ req, res, log, error });
+  }
+
   const callerId = req.headers['x-appwrite-user-id'];
   if (!callerId) {
     error('Unauthorized: no x-appwrite-user-id header');

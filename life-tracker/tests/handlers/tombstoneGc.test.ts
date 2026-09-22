@@ -1,46 +1,15 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createRequire } from 'node:module';
+import { invoke, makeMockDb } from '../helpers/invoke-handler';
 
 const requireCjs = createRequire(import.meta.url);
-const appwritePath = requireCjs.resolve('node-appwrite');
-let mockTablesDb: {
-  listRows: ReturnType<typeof vi.fn>;
-  deleteRow: ReturnType<typeof vi.fn>;
-} | null = null;
-(requireCjs as unknown as { cache: Record<string, unknown> }).cache[appwritePath] = {
-  id: appwritePath,
-  path: appwritePath,
-  filename: appwritePath,
-  loaded: true,
-  parent: null,
-  children: [],
-  paths: [],
-  exports: {
-    Client: class Client {
-      setEndpoint() { return this; }
-      setProject() { return this; }
-      setKey() { return this; }
-    },
-    TablesDB: class TablesDB {
-      constructor() {
-        if (!mockTablesDb) throw new Error('Missing TablesDB mock');
-        return mockTablesDb;
-      }
-    },
-    Query: {
-      equal: (key: string, value: unknown) => ({ op: 'equal', key, value }),
-      lessThan: (key: string, value: unknown) => ({ op: 'lessThan', key, value }),
-      limit: (n: number) => ({ op: 'limit', n }),
-      orderAsc: (field: string) => ({ op: 'orderAsc', field }),
-      cursorAfter: (id: string) => ({ op: 'cursorAfter', id }),
-    },
-  },
-};
-const handler: any = requireCjs('../../appwrite-functions/tombstone-gc/main.js');
+const tombstoneGc: any = requireCjs(
+  '../../appwrite-functions/message-action/tombstone-gc.js'
+);
 
 const fixedNow = new Date('2026-09-22T00:00:00.000Z');
 
-describe('tombstone-gc', () => {
+describe('message-action / scheduled tombstone GC', () => {
   const originalRetention = process.env.TOMBSTONE_RETENTION_DAYS;
 
   beforeEach(() => {
@@ -48,7 +17,6 @@ describe('tombstone-gc', () => {
   });
 
   afterEach(() => {
-    mockTablesDb = null;
     if (originalRetention === undefined) {
       delete process.env.TOMBSTONE_RETENTION_DAYS;
     } else {
@@ -56,8 +24,8 @@ describe('tombstone-gc', () => {
     }
   });
 
-  it('uses a 90-day retention cutoff by default', async () => {
-    const cutoff = handler.__test.cutoffIso(fixedNow);
+  it('uses a 90-day retention cutoff by default', () => {
+    const cutoff = tombstoneGc.cutoffIso(fixedNow);
     expect(cutoff).toBe('2026-06-24T00:00:00.000Z');
   });
 
@@ -66,10 +34,9 @@ describe('tombstone-gc', () => {
       rows: [{ $id: 'old_deleted' }],
     });
     const deleteRow = vi.fn().mockResolvedValue(undefined);
-    const tablesDB = { listRows, deleteRow };
 
-    const result = await handler.__test.purgeTable(
-      tablesDB,
+    const result = await tombstoneGc.purgeTable(
+      { listRows, deleteRow },
       'tasks',
       '2026-06-24T00:00:00.000Z',
       vi.fn()
@@ -81,6 +48,7 @@ describe('tombstone-gc', () => {
       tableId: 'tasks',
       rowId: 'old_deleted',
     });
+
     const request = listRows.mock.calls[0][0];
     expect(request.queries).toEqual(
       expect.arrayContaining([
@@ -96,10 +64,9 @@ describe('tombstone-gc', () => {
 
   it('applies the GC to every synced collection', async () => {
     const listRows = vi.fn().mockResolvedValue({ rows: [] });
-    const tablesDB = { listRows, deleteRow: vi.fn() };
 
-    const results = await handler.__test.runGc(
-      tablesDB,
+    const results = await tombstoneGc.runGc(
+      { listRows, deleteRow: vi.fn() },
       '2026-06-24T00:00:00.000Z',
       vi.fn()
     );
@@ -115,28 +82,22 @@ describe('tombstone-gc', () => {
     expect(listRows).toHaveBeenCalledTimes(6);
   });
 
-  // Regression: AGENTS.md — Non-negotiable data and sync rules.
-  it('runs the deployed handler path and reports an empty manual execution', async () => {
-    const listRows = vi.fn().mockResolvedValue({ rows: [] });
-    mockTablesDb = { listRows, deleteRow: vi.fn() };
-    const json = vi.fn().mockImplementation((body, status = 200) => ({ body, status }));
-    const log = vi.fn();
-    const error = vi.fn();
+  // Regression: docs/TOMBSTONE_RETENTION.md — Garbage collection.
+  it('runs GC for a schedule trigger without requiring a user session', async () => {
+    const mockDb = makeMockDb();
+    mockDb.listRows.mockResolvedValue({ rows: [] });
 
-    const response = await handler({
-      req: { headers: { 'x-appwrite-key': 'test-service-key' } },
-      res: { json },
-      log,
-      error,
+    const response = await invoke({
+      mockDb,
+      body: {},
+      trigger: 'schedule',
     });
 
-    expect(response).toMatchObject({
-      status: 200,
-      body: {
-        ok: true,
-        retentionDays: 90,
-        totals: { scanned: 0, purged: 0 },
-      },
+    expect(response.status).toBe(200);
+    expect(response.body).toMatchObject({
+      ok: true,
+      retentionDays: 90,
+      totals: { scanned: 0, purged: 0 },
     });
     expect(response.body.cutoff).toEqual(expect.any(String));
     expect(Object.keys(response.body.results)).toEqual([
@@ -147,8 +108,26 @@ describe('tombstone-gc', () => {
       'friendships',
       'messages',
     ]);
-    expect(listRows).toHaveBeenCalledTimes(6);
-    expect(log).toHaveBeenLastCalledWith('tombstone-gc: complete scanned=0 purged=0');
-    expect(error).not.toHaveBeenCalled();
+    expect(mockDb.listRows).toHaveBeenCalledTimes(6);
+    expect(response.logs.at(-1)).toBe(
+      'tombstone-gc: complete scanned=0 purged=0'
+    );
+    expect(response.errors).toEqual([]);
+  });
+
+  // Regression: docs/TOMBSTONE_RETENTION.md — GC is not browser-callable.
+  it('keeps non-scheduled unauthenticated executions behind normal auth', async () => {
+    const mockDb = makeMockDb();
+
+    const response = await invoke({
+      mockDb,
+      body: { action: 'tombstone_gc' },
+      trigger: 'http',
+    });
+
+    expect(response.status).toBe(401);
+    expect(response.body).toEqual({ error: 'Unauthorized' });
+    expect(mockDb.listRows).not.toHaveBeenCalled();
+    expect(mockDb.deleteRow).not.toHaveBeenCalled();
   });
 });

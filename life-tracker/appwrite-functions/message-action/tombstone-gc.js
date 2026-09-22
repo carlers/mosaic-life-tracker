@@ -14,7 +14,9 @@ const PAGE_SIZE = 100;
 const MAX_PAGES_PER_TABLE = 100;
 
 function retentionDays() {
-  const raw = Number(process.env.TOMBSTONE_RETENTION_DAYS || DEFAULT_RETENTION_DAYS);
+  const raw = Number(
+    process.env.TOMBSTONE_RETENTION_DAYS || DEFAULT_RETENTION_DAYS
+  );
   if (!Number.isFinite(raw) || raw < 1 || raw > 3650) {
     throw new Error('TOMBSTONE_RETENTION_DAYS must be between 1 and 3650');
   }
@@ -91,8 +93,9 @@ async function runGc(tablesDB, cutoff, log) {
   return results;
 }
 
-const handler = async ({ req, res, log, error }) => {
+async function handleScheduledTombstoneGc({ req, res, log, error }) {
   try {
+    const days = retentionDays();
     const cutoff = cutoffIso();
     const client = new Client()
       .setEndpoint(process.env.APPWRITE_FUNCTION_API_ENDPOINT)
@@ -100,10 +103,15 @@ const handler = async ({ req, res, log, error }) => {
       .setKey(req.headers['x-appwrite-key']);
     const tablesDB = new TablesDB(client);
 
-    log(
-      `tombstone-gc: starting with retentionDays=${retentionDays()} cutoff=${cutoff}`
-    );
+    log(`tombstone-gc: starting retentionDays=${days} cutoff=${cutoff}`);
     const results = await runGc(tablesDB, cutoff, log);
+
+    for (const [tableId, value] of Object.entries(results)) {
+      log(
+        `tombstone-gc: table=${tableId} scanned=${value.scanned} purged=${value.purged}`
+      );
+    }
+
     const totals = Object.values(results).reduce(
       (acc, value) => ({
         scanned: acc.scanned + value.scanned,
@@ -117,7 +125,7 @@ const handler = async ({ req, res, log, error }) => {
     );
     return res.json({
       ok: true,
-      retentionDays: retentionDays(),
+      retentionDays: days,
       cutoff,
       results,
       totals,
@@ -126,7 +134,12 @@ const handler = async ({ req, res, log, error }) => {
     error(`tombstone-gc failed: ${err.message}`);
     return res.json({ error: 'Tombstone garbage collection failed' }, 500);
   }
-};
+}
 
-handler.__test = { cutoffIso, purgeTable, runGc, retentionDays };
-module.exports = handler;
+module.exports = {
+  cutoffIso,
+  handleScheduledTombstoneGc,
+  purgeTable,
+  retentionDays,
+  runGc,
+};

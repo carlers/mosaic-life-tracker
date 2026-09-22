@@ -54,4 +54,4 @@ This roadmap records durable workstreams and batch status. `SESSION_STATE.md` co
 
 ## Batch boundary
 
-Strategy B tombstone retention implementation is complete and verified. Appwrite Console deployment/scheduling remains an operational setup step; feature backlog work resumes after that setup.
+Strategy B tombstone retention implementation is complete. To preserve the Appwrite Free-plan function budget, garbage collection shares the existing `message-action` Function through its trusted schedule-trigger path; Appwrite Console deployment/scheduling on that existing Function remains the operational setup step. Feature backlog work resumes after that setup.

@@ -1,12 +1,12 @@
 # Session state
 
 Updated: 2026-09-22
-Current task: Todo List view
-Status: The first independent feature-backlog step is implemented: Mosaic now has a compact color-only month grid that selects a day and shows its task list with completion actions. The Appwrite tombstone GC deployment remains an independent manual operational step.
-Roadmap pointer: Todo List is the first feature-backlog item. Do not mark it complete in `PLAN.md` until the full acceptance gate and browser review are green.
-Checkpoint: The focused Todo List DOM test and lint pass. The production build is green again: the PostHog source-map plugin now loads only when its explicit upload credentials are configured, so normal builds do not require that optional plugin package.
-Next action: Run the full DOM suite and browser review, then update `PLAN.md` and this checkpoint if all results are green. The separate Appwrite Console deployment may be completed whenever credentials are available.
-Blockers: Appwrite Console deployment/schedule requires manual access. `npm ci` remains unable to download `@posthog/cli` (HTTP 403), but it no longer blocks normal production builds without PostHog upload credentials.
+Current task: Appwrite tombstone GC function-budget consolidation
+Status: The tombstone garbage collector has been consolidated into the existing `message-action` Appwrite Function so Mosaic keeps its second Free-plan Function slot available for future integrations. The new maintenance path is selected only by Appwrite's trusted `x-appwrite-trigger: schedule` metadata; normal user executions still require authentication and cannot select GC through an action payload.
+Roadmap pointer: Strategy B remains the active operational prerequisite before feature-backlog acceptance continues. Todo List implementation is still awaiting its full DOM/browser acceptance gate and remains unchecked in `PLAN.md`.
+Checkpoint: Implementation, regression coverage, and deployment documentation are prepared on `chatgpt/appwrite-shared-maintenance`. Canonical GitHub verification is pending for this checkpoint.
+Next action: Require the canonical Verify workflow to pass. If green, move `preview` to that exact verified commit, confirm the Vercel deployment is healthy, then update the existing Appwrite `message-action` deployment and enable its daily schedule per `docs/TOMBSTONE_RETENTION.md`.
+Blockers: Appwrite Console deployment/environment/schedule changes still require manual access. No separate `tombstone-gc` Function should be created.
 
 ## Preview acceptance
 
@@ -19,7 +19,7 @@ Blockers: Appwrite Console deployment/schedule requires manual access. `npm ci` 
 
 ## Verification
 
-- GitHub Verify workflow: green for the tombstone-retention implementation.
-- Unit/handler regression coverage: 496 tests passed across 68 test files in the prior acceptance run; the subsequent local full-handler empty-run test is green.
-- Browser/device manual checks: unchanged from the prior Phase 4 checkpoint; no new UI behavior was introduced.
-- Appwrite tombstone GC deployment/schedule: pending manual Console setup.
+- Shared-maintenance implementation: pending canonical GitHub Verify workflow.
+- Tombstone GC regression coverage: scheduled trigger, 90-day cutoff, all six synced tables, destructive-query filter, and non-scheduled auth isolation are covered in `tests/handlers/tombstoneGc.test.ts`.
+- Appwrite live execution: pending manual deployment of the updated existing `message-action` Function and inspection of its first scheduled execution.
+- Todo List browser/device acceptance: still pending from the previous checkpoint.

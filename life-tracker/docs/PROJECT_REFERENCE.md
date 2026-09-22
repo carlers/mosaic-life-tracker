@@ -70,7 +70,7 @@ is authoritative.
 - **Media & UI:** `browser-image-compression` (max 150KB base64), `emoji-picker-react` (used by message + task emoji pickers)
 - **Local DB & Sync Engine:** RxDB v17 (`getRxStorageDexie` + `wrappedValidateAjvStorage`). **CRITICAL:** we do NOT use the `replicateAppwrite` plugin. Custom REST sync engine (`src/db/sync.ts`) calls the Appwrite TablesDB API directly.
 - **Backend:** Appwrite TablesDB (SDK v26+).
-- **Backend Functions:** `message-action` (Node.js 18) handles all cross-user writes for messaging and task reactions. Actions enumerated in §20.3. Required scopes: `rows.read`, `rows.write`, `tables.read`. `tables.write` intentionally absent — add only if Appwrite docs/Console require it for cross-user `upsertRow`/`updateRow`.
+- **Backend Functions:** `message-action` (Node.js 18) handles all cross-user writes for messaging and task reactions, and its trusted `x-appwrite-trigger: schedule` path performs 90-day tombstone garbage collection. Browser/user executions cannot select the maintenance path through an action payload. Actions are enumerated in §20.3; maintenance is specified in `docs/TOMBSTONE_RETENTION.md`. Required scopes remain `rows.read`, `rows.write`, `tables.read`. `tables.write` intentionally absent — add only if Appwrite docs/Console require it for cross-user `upsertRow`/`updateRow`.
 - **PWA:** `vite-plugin-pwa` (`registerType: 'prompt'`), with passive registration
   and activation after all old controlled clients close; see §15 and §24.9.
 - **Auth:** React Context (`AuthProvider`) is the single source of truth for the authenticated user. See §23. `useAuth` is a thin consumer shim; no hook mounts its own `account.get()`.
