@@ -64,6 +64,21 @@ test('swiping outside the calendar still advances the friend carousel', async ({
   await expect(page.getByTestId('friend-index')).toHaveText('1');
 });
 
+test('todo calendar-grid swipe advances the month without advancing the friend carousel', async ({ page }) => {
+  await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html`);
+
+  const friendIndex = page.getByTestId('friend-index');
+  const todoMonth = page.getByTestId('todo-month');
+
+  await expect(friendIndex).toHaveText('0');
+  await expect(todoMonth).toHaveText('September 2026');
+
+  await drag(page, page.getByTestId('todo-calendar-region'), -260);
+
+  await expect(todoMonth).toHaveText('October 2026');
+  await expect(friendIndex).toHaveText('0');
+});
+
 test('todo day swipe advances the nested day view without advancing the friend carousel', async ({ page }) => {
   await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html`);
 

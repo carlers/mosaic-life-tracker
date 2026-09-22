@@ -4,7 +4,9 @@ import { Swiper, SwiperSlide } from 'swiper/react';
 import type { Swiper as SwiperClass } from 'swiper';
 import 'swiper/css';
 import '../../src/index.css';
+import { format } from 'date-fns';
 import { CalendarCarousel } from '../../src/components/home/views/CalendarCarousel';
+import { TodoCalendarGrid } from '../../src/components/home/views/TodoCalendarGrid';
 import { useCalendarState } from '../../src/components/home/views/useCalendarState';
 import { useHorizontalArrowNavigation } from '../../src/hooks/useHorizontalArrowNavigation';
 
@@ -12,6 +14,10 @@ export function InteractionHarness() {
   const calendar = useCalendarState();
   const [friendIndex, setFriendIndex] = useState(0);
   const [todoDayIndex, setTodoDayIndex] = useState(0);
+  const [todoMonth, setTodoMonth] = useState(() => new Date(2026, 8, 15));
+  const [todoSelectedDate, setTodoSelectedDate] = useState(
+    () => new Date(2026, 8, 15)
+  );
 
   useHorizontalArrowNavigation({
     enabled: friendIndex === 0,
@@ -24,6 +30,7 @@ export function InteractionHarness() {
       <div className="flex gap-4 text-sm mb-2" aria-live="polite">
         <span>Friend index: <output data-testid="friend-index">{friendIndex}</output></span>
         <span>Todo day: <output data-testid="todo-day-index">{todoDayIndex}</output></span>
+        <span>Todo month: <output data-testid="todo-month">{format(todoMonth, 'MMMM yyyy')}</output></span>
         <span>Calendar: <output data-testid="calendar-title">{calendar.title}</output></span>
       </div>
 
@@ -53,7 +60,7 @@ export function InteractionHarness() {
             <div
               data-testid="friend-swipe-zone"
               style={{
-                height: 90,
+                height: 80,
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -63,9 +70,25 @@ export function InteractionHarness() {
               Swipe here to change friend
             </div>
             <div
+              data-testid="todo-calendar-region"
+              style={{ height: 250, overflow: 'hidden' }}
+            >
+              <TodoCalendarGrid
+                focusDate={todoMonth}
+                selectedDate={todoSelectedDate}
+                tasks={[]}
+                categoriesMap={{}}
+                onDateSelect={setTodoSelectedDate}
+                onMonthChange={(date) => {
+                  setTodoMonth(date);
+                  setTodoSelectedDate(date);
+                }}
+              />
+            </div>
+            <div
               data-testid="todo-region"
               className="swiper-no-swiping"
-              style={{ height: 120, overflow: 'hidden', border: '1px solid #444' }}
+              style={{ height: 100, overflow: 'hidden', border: '1px solid #444' }}
             >
               <Swiper
                 nested
@@ -89,7 +112,7 @@ export function InteractionHarness() {
                 </SwiperSlide>
               </Swiper>
             </div>
-            <div data-testid="calendar-region" style={{ height: 480, overflow: 'hidden' }}>
+            <div data-testid="calendar-region" style={{ height: 280, overflow: 'hidden' }}>
               <CalendarCarousel
                 slides={calendar.slides}
                 renderStart={calendar.renderStart}

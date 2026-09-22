@@ -75,6 +75,9 @@ jobs:
         run: npx playwright install --with-deps chromium
 
       - name: Start local Mosaic
+        env:
+          VITE_POSTHOG_TOKEN: browser-contract-token
+          VITE_POSTHOG_HOST: https://posthog.test
         run: |
           npm run dev -- --host 127.0.0.1 --port 4173 > /tmp/mosaic-vite.log 2>&1 &
           for attempt in {1..30}; do
