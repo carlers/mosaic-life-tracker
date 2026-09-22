@@ -115,8 +115,8 @@ describe('TodoListView', () => {
     expect(root).toHaveClass('overflow-x-hidden');
   });
 
-  // Regression: PROJECT_REFERENCE.md §2/§7 — the compact grid owns Todo month swipes.
-  it('swipes the compact calendar grid between months without selecting a day', () => {
+  // Regression: PROJECT_REFERENCE.md §2 — a day tap remains a day selection, including spillover days.
+  it('selects a tapped spillover day and requests its month', () => {
     const onFocusDateChange = vi.fn();
     render(
       <TodoListView
@@ -125,19 +125,19 @@ describe('TodoListView', () => {
       />
     );
 
-    const grid = screen.getByTestId('todo-calendar-grid');
-    fireEvent.pointerDown(grid, {
-      pointerId: 1,
-      clientX: 320,
-      clientY: 120,
+    const grid = screen.getByRole('grid', {
+      name: 'September 2026 todo calendar',
     });
-    fireEvent.pointerUp(grid, {
-      pointerId: 1,
-      clientX: 100,
-      clientY: 126,
-    });
+    fireEvent.click(
+      within(grid).getByRole('gridcell', {
+        name: 'Thursday, October 1, 2026, 0 tasks',
+      })
+    );
 
-    expect(onFocusDateChange).toHaveBeenCalledWith(new Date(2026, 9, 15));
+    expect(onFocusDateChange).toHaveBeenCalledWith(new Date(2026, 9, 1));
+    expect(
+      screen.getByRole('heading', { name: 'Thursday, October 1' })
+    ).toBeInTheDocument();
   });
 
   it('moves the selected day into the displayed month after month navigation', () => {

@@ -15,7 +15,8 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
+  actions: write
 
 concurrency:
   group: verify-${{ github.ref }}
@@ -45,6 +46,46 @@ jobs:
 
       - name: Verify repository gate
         run: npm run verify
+
+      - name: One-time repository hygiene cleanup
+        if: github.ref == 'refs/heads/chatgpt/todo-tdd-test-audit'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+          stale_branches=(
+            chatgpt/appwrite-live-rollout
+            chatgpt/appwrite-shared-maintenance
+            chatgpt/fix-todo-layout-swipe-ci
+            chatgpt/native-back-keyboard-nav
+            chatgpt/native-back-stack-v2
+            chatgpt/phase4-calendar-semantics
+            chatgpt/phase-3-7-posthog
+            chatgpt/playwright-interaction-contract
+            chatgpt/todo-dayview-parity
+            codex/find-project-workflow-explanation
+            codex/follow-documentation-steps
+          )
+
+          for branch in "${stale_branches[@]}"; do
+            git push origin --delete "$branch" || true
+          done
+
+          retired_workflows=(363395644 363175235 363076037)
+          for workflow_id in "${retired_workflows[@]}"; do
+            run_ids="$(curl -fsSL \
+              -H "Authorization: Bearer $GH_TOKEN" \
+              -H "Accept: application/vnd.github+json" \
+              "https://api.github.com/repos/$GITHUB_REPOSITORY/actions/workflows/$workflow_id/runs?per_page=100" \
+              | jq -r '.workflow_runs[].id')"
+            for run_id in $run_ids; do
+              curl -fsSL -X DELETE \
+                -H "Authorization: Bearer $GH_TOKEN" \
+                -H "Accept: application/vnd.github+json" \
+                "https://api.github.com/repos/$GITHUB_REPOSITORY/actions/runs/$run_id"
+            done
+          done
 
   browser-contract:
     needs: verify

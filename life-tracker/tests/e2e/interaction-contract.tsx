@@ -113,25 +113,6 @@ export function InteractionHarness() {
                 }}
               />
             </div>
-            <div data-testid="todo-day-content" className="swiper-no-swiping">
-              <DaySlide
-                date={todoSelectedDate}
-                dateStr={format(todoSelectedDate, 'yyyy-MM-dd')}
-                tasks={todoTasks}
-                categories={todoCategories}
-                currentUserId="user_1"
-                editingTaskId={null}
-                editValue=""
-                onToggleTask={() => {}}
-                onAddTask={() => {}}
-                onOpenActions={() => {}}
-                onOpenMemo={() => {}}
-                onViewImage={() => {}}
-                onEditChange={() => {}}
-                onEditSave={() => {}}
-                onEditCancel={() => {}}
-              />
-            </div>
             <div
               data-testid="todo-region"
               className="swiper-no-swiping"
@@ -176,6 +157,29 @@ export function InteractionHarness() {
             <div className="h-full flex items-center justify-center">Friend 2</div>
           </SwiperSlide>
         </Swiper>
+      </div>
+
+      <div
+        data-testid="todo-day-content"
+        className="swiper-no-swiping w-full max-w-full overflow-x-hidden"
+      >
+        <DaySlide
+          date={todoSelectedDate}
+          dateStr={format(todoSelectedDate, 'yyyy-MM-dd')}
+          tasks={todoTasks}
+          categories={todoCategories}
+          currentUserId="user_1"
+          editingTaskId={null}
+          editValue=""
+          onToggleTask={() => {}}
+          onAddTask={() => {}}
+          onOpenActions={() => {}}
+          onOpenMemo={() => {}}
+          onViewImage={() => {}}
+          onEditChange={() => {}}
+          onEditSave={() => {}}
+          onEditCancel={() => {}}
+        />
       </div>
     </main>
   );

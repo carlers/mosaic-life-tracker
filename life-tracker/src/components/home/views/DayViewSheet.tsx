@@ -379,24 +379,34 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
       <Swiper
         nested={renderMode === 'inline'}
         noSwiping={renderMode === 'inline' ? false : undefined}
+        autoHeight={renderMode === 'inline'}
         onSwiper={(swiper) => {
           swiperRef.current = swiper;
         }}
         initialSlide={initialIndex}
         onSlideChange={handleSwipeSettled}
-        className="min-w-0 w-full max-w-full flex-1 overflow-hidden"
-        style={{ width: '100%', maxWidth: '100%' }}
+        className={`min-w-0 w-full max-w-full overflow-hidden ${renderMode === 'inline' ? '' : 'flex-1'}`}
+        style={{
+          width: '100%',
+          maxWidth: '100%',
+          height: renderMode === 'inline' ? 'auto' : undefined,
+        }}
       >
         {slideDates.map((date, i) => {
           const inWindow = Math.abs(i - activeIndex) <= renderWindow;
           const dateStr = slideDateStrs[i];
           const dayTasks = tasksByDate.get(dateStr) ?? EMPTY_TASKS;
           return (
-            <SwiperSlide key={date.toISOString()} className="min-w-0">
+            <SwiperSlide
+              key={date.toISOString()}
+              className="min-w-0"
+              style={{ height: renderMode === 'inline' ? 'auto' : undefined }}
+            >
               {inWindow && (
                 <DaySlide
                   date={date}
                   dateStr={dateStr}
+                  scrollMode={renderMode === 'inline' ? 'page' : 'contained'}
                   tasks={dayTasks}
                   categories={categories}
                   currentUserId={currentUserId}
@@ -522,7 +532,7 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
   if (renderMode === 'inline') {
     return (
       <div
-        className={`flex min-h-0 min-w-0 w-full max-w-full flex-1 flex-col overflow-x-hidden ${isBackgroundLocked ? 'pointer-events-none' : ''}`}
+        className={`flex min-h-0 min-w-0 w-full max-w-full flex-col overflow-x-hidden ${isBackgroundLocked ? 'pointer-events-none' : ''}`}
         aria-hidden={isBackgroundLocked || undefined}
         data-testid="inline-day-view"
       >

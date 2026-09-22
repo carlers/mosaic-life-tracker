@@ -4,6 +4,7 @@ import type { CategoryDocument, TaskDocument } from '../../../db/schema';
 
 interface DaySlideProps {
   date: Date;
+  scrollMode?: 'page' | 'contained';
   dateStr: string;
   tasks: TaskDocument[];
   categories: CategoryDocument[];
@@ -22,6 +23,7 @@ interface DaySlideProps {
 
 const DaySlideComponent: React.FC<DaySlideProps> = ({
   dateStr,
+  scrollMode = 'page',
   tasks,
   categories,
   currentUserId,
@@ -58,7 +60,14 @@ const DaySlideComponent: React.FC<DaySlideProps> = ({
   }
 
   return (
-    <div className="h-full w-full min-w-0 overflow-y-auto px-4 pb-8">
+    <div
+      className={
+        scrollMode === 'contained'
+          ? 'h-full w-full min-w-0 overflow-y-auto px-4 pb-8'
+          : 'w-full min-w-0 px-4 pb-8'
+      }
+      data-testid="day-slide"
+    >
       {categories.map((cat) => (
         <CategorySection
           key={cat.id}

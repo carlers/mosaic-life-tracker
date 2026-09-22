@@ -1,6 +1,7 @@
-import React, { useCallback, useMemo, useRef } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   addMonths,
+  differenceInCalendarMonths,
   eachDayOfInterval,
   endOfMonth,
   endOfWeek,
@@ -11,6 +12,7 @@ import {
   startOfMonth,
   startOfWeek,
 } from 'date-fns';
+import useEmblaCarousel from 'embla-carousel-react';
 import type { TaskDocument } from '../../../db/schema';
 
 interface TodoCalendarGridProps {
@@ -22,32 +24,33 @@ interface TodoCalendarGridProps {
   onMonthChange: (date: Date) => void;
 }
 
-const WEEKDAY_LABELS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
-const SWIPE_THRESHOLD_PX = 48;
-const SWIPE_AXIS_RATIO = 1.2;
+interface TodoMonthGridProps extends Omit<TodoCalendarGridProps, 'tasks' | 'onMonthChange'> {
+  monthDate: Date;
+  tasksByDate: Map<string, TaskDocument[]>;
+  isActive: boolean;
+}
 
-export const TodoCalendarGrid: React.FC<TodoCalendarGridProps> = ({
-  focusDate,
+const WEEKDAY_LABELS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+const SLIDES_EACH_SIDE = 30;
+const CENTER_INDEX = SLIDES_EACH_SIDE;
+const TOTAL_SLIDES = SLIDES_EACH_SIDE * 2 + 1;
+const RENDER_WINDOW = 2;
+
+const TodoMonthGrid: React.FC<TodoMonthGridProps> = ({
+  monthDate,
   selectedDate,
-  tasks,
+  tasksByDate,
   categoriesMap,
   onDateSelect,
-  onMonthChange,
+  isActive,
 }) => {
-  const swipeStartRef = useRef<{
-    x: number;
-    y: number;
-    pointerId: number;
-  } | null>(null);
-  const suppressClickUntilRef = useRef(0);
-
   const calendarDays = useMemo(() => {
-    const monthStart = startOfMonth(focusDate);
+    const monthStart = startOfMonth(monthDate);
     return eachDayOfInterval({
       start: startOfWeek(monthStart),
       end: endOfWeek(endOfMonth(monthStart)),
     });
-  }, [focusDate]);
+  }, [monthDate]);
 
   const calendarWeeks = useMemo(() => {
     const weeks: Date[][] = [];
@@ -57,118 +60,46 @@ export const TodoCalendarGrid: React.FC<TodoCalendarGridProps> = ({
     return weeks;
   }, [calendarDays]);
 
-  const tasksByDate = useMemo(() => {
-    const grouped = new Map<string, TaskDocument[]>();
-    for (const task of tasks) {
-      const dayTasks = grouped.get(task.date);
-      if (dayTasks) {
-        dayTasks.push(task);
-      } else {
-        grouped.set(task.date, [task]);
-      }
-    }
-    return grouped;
-  }, [tasks]);
-
-  const handlePointerDown = useCallback(
-    (event: React.PointerEvent<HTMLDivElement>) => {
-      swipeStartRef.current = {
-        x: event.clientX,
-        y: event.clientY,
-        pointerId: event.pointerId,
-      };
-      event.currentTarget.setPointerCapture?.(event.pointerId);
-    },
-    []
-  );
-
-  const handlePointerUp = useCallback(
-    (event: React.PointerEvent<HTMLDivElement>) => {
-      const start = swipeStartRef.current;
-      swipeStartRef.current = null;
-      if (!start || start.pointerId !== event.pointerId) return;
-
-      if (event.currentTarget.hasPointerCapture?.(event.pointerId)) {
-        event.currentTarget.releasePointerCapture?.(event.pointerId);
-      }
-
-      const deltaX = event.clientX - start.x;
-      const deltaY = event.clientY - start.y;
-      const horizontalDistance = Math.abs(deltaX);
-      const verticalDistance = Math.abs(deltaY);
-
-      if (
-        horizontalDistance < SWIPE_THRESHOLD_PX ||
-        horizontalDistance <= verticalDistance * SWIPE_AXIS_RATIO
-      ) {
-        return;
-      }
-
-      suppressClickUntilRef.current = Date.now() + 350;
-      onMonthChange(addMonths(focusDate, deltaX < 0 ? 1 : -1));
-    },
-    [focusDate, onMonthChange]
-  );
-
-  const handlePointerCancel = useCallback(() => {
-    swipeStartRef.current = null;
-  }, []);
-
-  const handleClickCapture = useCallback(
-    (event: React.MouseEvent<HTMLDivElement>) => {
-      if (Date.now() >= suppressClickUntilRef.current) return;
-      event.preventDefault();
-      event.stopPropagation();
-    },
-    []
-  );
-
   return (
     <div
-      className="swiper-no-swiping w-full min-w-0 max-w-full touch-pan-y rounded-xl border border-[#333333] bg-[#1E1E1E] p-3"
-      role="grid"
-      aria-label={`${format(focusDate, 'MMMM yyyy')} todo calendar`}
-      data-testid="todo-calendar-grid"
-      onPointerDown={handlePointerDown}
-      onPointerUp={handlePointerUp}
-      onPointerCancel={handlePointerCancel}
-      onClickCapture={handleClickCapture}
+      role={isActive ? 'grid' : undefined}
+      aria-label={isActive ? `${format(monthDate, 'MMMM yyyy')} todo calendar` : undefined}
+      className="w-full rounded-xl border border-[#333333] bg-[#1E1E1E] p-3"
     >
-      <div className="mb-2 grid grid-cols-7" role="row">
+      <div className="mb-2 grid grid-cols-7" role={isActive ? 'row' : undefined}>
         {WEEKDAY_LABELS.map((label, index) => (
           <div
             key={`${label}-${index}`}
-            role="columnheader"
+            role={isActive ? 'columnheader' : undefined}
             className="text-center text-[10px] font-medium text-gray-500"
           >
             {label}
           </div>
         ))}
       </div>
-      <div className="grid gap-y-2" role="rowgroup">
+      <div className="grid gap-y-2" role={isActive ? 'rowgroup' : undefined}>
         {calendarWeeks.map((week) => (
           <div
             key={format(week[0], 'yyyy-MM-dd')}
             className="grid grid-cols-7"
-            role="row"
+            role={isActive ? 'row' : undefined}
           >
             {week.map((day) => {
               const dateKey = format(day, 'yyyy-MM-dd');
               const dayTasks = tasksByDate.get(dateKey) ?? [];
               const selected = isSameDay(day, selectedDate);
-              const currentMonth = isSameMonth(day, focusDate);
+              const currentMonth = isSameMonth(day, monthDate);
               const dateLabel = format(day, 'EEEE, MMMM d, yyyy');
 
               return (
                 <button
                   key={dateKey}
                   type="button"
-                  role="gridcell"
-                  aria-label={`${dateLabel}, ${dayTasks.length} task${
-                    dayTasks.length === 1 ? '' : 's'
-                  }`}
-                  aria-selected={selected}
-                  aria-current={isToday(day) ? 'date' : undefined}
+                  role={isActive ? 'gridcell' : undefined}
+                  tabIndex={isActive ? 0 : -1}
+                  aria-label={`${dateLabel}, ${dayTasks.length} task${dayTasks.length === 1 ? '' : 's'}`}
+                  aria-selected={isActive ? selected : undefined}
+                  aria-current={isActive && isToday(day) ? 'date' : undefined}
                   onClick={() => onDateSelect(day)}
                   className={`mx-auto flex min-h-10 w-9 flex-col items-center rounded-lg pt-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 ${
                     selected
@@ -197,6 +128,128 @@ export const TodoCalendarGrid: React.FC<TodoCalendarGridProps> = ({
                 </button>
               );
             })}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+export const TodoCalendarGrid: React.FC<TodoCalendarGridProps> = ({
+  focusDate,
+  selectedDate,
+  tasks,
+  categoriesMap,
+  onDateSelect,
+  onMonthChange,
+}) => {
+  const [baseDate] = useState(() => new Date(focusDate));
+  const [activeIndex, setActiveIndex] = useState(CENTER_INDEX);
+  const slides = useMemo(
+    () =>
+      Array.from({ length: TOTAL_SLIDES }, (_, index) =>
+        addMonths(baseDate, index - CENTER_INDEX)
+      ),
+    [baseDate]
+  );
+
+  const tasksByDate = useMemo(() => {
+    const grouped = new Map<string, TaskDocument[]>();
+    for (const task of tasks) {
+      const dayTasks = grouped.get(task.date);
+      if (dayTasks) {
+        dayTasks.push(task);
+      } else {
+        grouped.set(task.date, [task]);
+      }
+    }
+    return grouped;
+  }, [tasks]);
+
+  const [emblaRef, emblaApi] = useEmblaCarousel({
+    loop: false,
+    align: 'start',
+    skipSnaps: false,
+    startIndex: CENTER_INDEX,
+  });
+
+  useEffect(() => {
+    if (!emblaApi) return;
+
+    const targetIndex =
+      CENTER_INDEX + differenceInCalendarMonths(focusDate, baseDate);
+    if (targetIndex < 0 || targetIndex >= TOTAL_SLIDES) return;
+
+    if (emblaApi.selectedScrollSnap() !== targetIndex) {
+      emblaApi.scrollTo(targetIndex, true);
+    }
+    setActiveIndex(targetIndex);
+  }, [baseDate, emblaApi, focusDate]);
+
+  useEffect(() => {
+    if (!emblaApi) return;
+
+    const handleSelect = () => {
+      const index = emblaApi.selectedScrollSnap();
+      setActiveIndex(index);
+      const nextDate = slides[index];
+      if (differenceInCalendarMonths(nextDate, focusDate) !== 0) {
+        onMonthChange(nextDate);
+      }
+    };
+
+    emblaApi.on('select', handleSelect);
+    return () => {
+      emblaApi.off('select', handleSelect);
+    };
+  }, [emblaApi, focusDate, onMonthChange, slides]);
+
+  const renderSlide = useCallback(
+    (monthDate: Date, index: number) => {
+      const inWindow = Math.abs(index - activeIndex) <= RENDER_WINDOW;
+      if (!inWindow) return null;
+
+      const isActive = index === activeIndex;
+      return (
+        <TodoMonthGrid
+          monthDate={monthDate}
+          focusDate={focusDate}
+          selectedDate={selectedDate}
+          tasksByDate={tasksByDate}
+          categoriesMap={categoriesMap}
+          onDateSelect={onDateSelect}
+          isActive={isActive}
+        />
+      );
+    },
+    [
+      activeIndex,
+      categoriesMap,
+      focusDate,
+      onDateSelect,
+      selectedDate,
+      tasksByDate,
+    ]
+  );
+
+  return (
+    <div
+      ref={emblaRef}
+      className="swiper-no-swiping w-full min-w-0 max-w-full overflow-hidden touch-pan-y"
+      data-testid="todo-calendar-grid"
+    >
+      <div className="flex">
+        {slides.map((monthDate, index) => (
+          <div
+            key={monthDate.toISOString()}
+            aria-hidden={index === activeIndex ? undefined : true}
+            style={{
+              flex: '0 0 100%',
+              minWidth: 0,
+              touchAction: 'pan-y',
+            }}
+          >
+            {renderSlide(monthDate, index)}
           </div>
         ))}
       </div>

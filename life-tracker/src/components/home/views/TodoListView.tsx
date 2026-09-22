@@ -56,7 +56,7 @@ export const TodoListView: React.FC<TodoListViewProps> = ({
         {format(selectedDate, 'EEEE, MMMM d')}
       </h3>
 
-      <div className="mt-2 flex min-h-[22rem] min-w-0 w-full max-w-full flex-1 flex-col overflow-x-hidden">
+      <div className="mt-2 min-w-0 w-full max-w-full overflow-x-hidden">
         <DayViewSheet
           key={focusMonthKey}
           isOpen
