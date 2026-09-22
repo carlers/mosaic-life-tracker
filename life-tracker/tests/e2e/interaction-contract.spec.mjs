@@ -40,6 +40,51 @@ async function drag(page, locator, deltaX) {
   });
 }
 
+async function startDrag(page, locator, deltaX) {
+  const box = await locator.boundingBox();
+  if (!box) throw new Error('Missing drag target bounds');
+  const startX = deltaX < 0 ? box.x + box.width * 0.82 : box.x + box.width * 0.18;
+  const startY = box.y + Math.min(box.height * 0.35, 180);
+  const session = await page.context().newCDPSession(page);
+
+  await session.send('Input.dispatchTouchEvent', {
+    type: 'touchStart',
+    touchPoints: [{ x: startX, y: startY }],
+  });
+  for (let step = 1; step <= 6; step += 1) {
+    await session.send('Input.dispatchTouchEvent', {
+      type: 'touchMove',
+      touchPoints: [
+        {
+          x: startX + (deltaX * step) / 12,
+          y: startY,
+        },
+      ],
+    });
+  }
+
+  return {
+    session,
+    finish: async () => {
+      for (let step = 7; step <= 12; step += 1) {
+        await session.send('Input.dispatchTouchEvent', {
+          type: 'touchMove',
+          touchPoints: [
+            {
+              x: startX + (deltaX * step) / 12,
+              y: startY,
+            },
+          ],
+        });
+      }
+      await session.send('Input.dispatchTouchEvent', {
+        type: 'touchEnd',
+        touchPoints: [],
+      });
+    },
+  };
+}
+
 test('calendar swipe moves the calendar without advancing the friend carousel', async ({ page }) => {
   await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html`);
 
@@ -62,6 +107,54 @@ test('swiping outside the calendar still advances the friend carousel', async ({
   await drag(page, page.getByTestId('friend-swipe-zone'), -260);
 
   await expect(page.getByTestId('friend-index')).toHaveText('1');
+});
+
+// Regression: PROJECT_REFERENCE.md §2 — Todo calendar is direct-manipulation, tappable, and owns its gesture.
+test('todo calendar follows the finger before snapping months', async ({ page }) => {
+  await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html`);
+
+  const region = page.getByTestId('todo-calendar-region');
+  const day = page.getByRole('gridcell', {
+    name: 'Tuesday, September 15, 2026, 0 tasks',
+  });
+  const before = await day.boundingBox();
+  if (!before) throw new Error('Missing Todo day bounds');
+
+  const gesture = await startDrag(page, region, -260);
+  const during = await day.boundingBox();
+  if (!during) throw new Error('Missing Todo day bounds during drag');
+
+  expect(during.x).toBeLessThan(before.x - 20);
+  await gesture.finish();
+
+  await expect(page.getByTestId('todo-month')).toHaveText('October 2026');
+  await expect(page.getByTestId('friend-index')).toHaveText('0');
+});
+
+test('todo calendar day tap selects the day without changing friend or month', async ({ page }) => {
+  await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html`);
+
+  await page.getByRole('gridcell', {
+    name: 'Thursday, September 17, 2026, 0 tasks',
+  }).tap();
+
+  await expect(page.getByTestId('todo-selected-date')).toHaveText('2026-09-17');
+  await expect(page.getByTestId('todo-month')).toHaveText('September 2026');
+  await expect(page.getByTestId('friend-index')).toHaveText('0');
+});
+
+// Regression: PROJECT_REFERENCE.md §2 — Todo owns one vertical page scroll.
+test('todo selected-day task content does not create a nested vertical scroller', async ({ page }) => {
+  await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html`);
+
+  const nestedScrollOwners = await page.getByTestId('todo-day-content').evaluate((root) =>
+    Array.from(root.querySelectorAll('*')).filter((element) => {
+      const style = getComputedStyle(element);
+      return style.overflowY === 'auto' || style.overflowY === 'scroll';
+    }).length
+  );
+
+  expect(nestedScrollOwners).toBe(0);
 });
 
 test('todo calendar-grid swipe advances the month without advancing the friend carousel', async ({ page }) => {
