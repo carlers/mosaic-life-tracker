@@ -4,8 +4,8 @@ Updated: 2026-09-22
 Current task: Appwrite tombstone GC function-budget consolidation
 Status: The tombstone garbage collector has been consolidated into the existing `message-action` Appwrite Function so Mosaic keeps its second Free-plan Function slot available for future integrations. The new maintenance path is selected only by Appwrite's trusted `x-appwrite-trigger: schedule` metadata; normal user executions still require authentication and cannot select GC through an action payload.
 Roadmap pointer: Strategy B remains the active operational prerequisite before feature-backlog acceptance continues. Todo List implementation is still awaiting its full DOM/browser acceptance gate and remains unchecked in `PLAN.md`.
-Checkpoint: Implementation, regression coverage, and deployment documentation are prepared on `chatgpt/appwrite-shared-maintenance`. Canonical GitHub verification is pending for this checkpoint.
-Next action: Require the canonical Verify workflow to pass. If green, move `preview` to that exact verified commit, confirm the Vercel deployment is healthy, then update the existing Appwrite `message-action` deployment and enable its daily schedule per `docs/TOMBSTONE_RETENTION.md`.
+Checkpoint: The shared-maintenance implementation, regression coverage, and deployment documentation are complete, and the canonical GitHub Verify gate is green. The verified checkpoint is ready for the hosted `preview` promotion; live Appwrite configuration remains a separate manual operation.
+Next action: Keep the exact verified checkpoint on `preview` and confirm its Vercel deployment is healthy, then update the existing Appwrite `message-action` deployment and enable its daily schedule per `docs/TOMBSTONE_RETENTION.md`. After the first scheduled execution is accepted, resume the Todo List full DOM/browser acceptance gate.
 Blockers: Appwrite Console deployment/environment/schedule changes still require manual access. No separate `tombstone-gc` Function should be created.
 
 ## Preview acceptance
@@ -19,7 +19,8 @@ Blockers: Appwrite Console deployment/environment/schedule changes still require
 
 ## Verification
 
-- Shared-maintenance implementation: pending canonical GitHub Verify workflow.
+- Shared-maintenance implementation: canonical GitHub Verify is green.
 - Tombstone GC regression coverage: scheduled trigger, 90-day cutoff, all six synced tables, destructive-query filter, and non-scheduled auth isolation are covered in `tests/handlers/tombstoneGc.test.ts`.
+- Hosted task-branch deployment: Vercel build is READY for the verified shared-maintenance implementation.
 - Appwrite live execution: pending manual deployment of the updated existing `message-action` Function and inspection of its first scheduled execution.
 - Todo List browser/device acceptance: still pending from the previous checkpoint.
