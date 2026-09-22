@@ -36,7 +36,13 @@ npm run verify
 precache payload exceeds its reviewed byte budget. To recheck an existing `dist/`
 without rebuilding, run `npm run build:size`.
 
-`npm run verify` runs the project-contract check, lint, full test suite, and production build in fail-fast order. Locally, its terminal output is streamed normally and the complete captured run is copied to the system clipboard on exit, including failed runs. In CI, clipboard handling is skipped and the streamed output stays in the GitHub Actions log. Clipboard availability never changes the verification exit status.
+`npm run verify` runs the project-contract check, Vitest discovery guard, lint, full Vitest suite, and production build in fail-fast order. Locally, its terminal output is streamed normally and the complete captured run is copied to the system clipboard on exit, including failed runs. In CI, clipboard handling is skipped and the streamed output stays in the GitHub Actions log. Clipboard availability never changes the verification exit status.
+
+GitHub Actions has one verification workflow, `Verify`. Its repository-gate job runs
+`npm run verify`; after that passes, its dependent browser-contract job runs every
+repository-owned Playwright spec under `tests/e2e/` through
+`npm run test:browser-contract`. Browser-backed contracts stay in the repository test
+tree without being misclassified as Vitest tests.
 
 For faster edit/test loops, use the scoped commands in
 [the test workflow](docs/TEST_WORKFLOW.md); full verification remains the completion gate.
@@ -69,7 +75,7 @@ Use this map before changing behavior or project process. Each file owns a disti
 | Production bundle budgets and audit history | [Bundle audit](docs/BUNDLE_AUDIT.md) |
 | Tombstone retention and stale-client recovery | [Tombstone retention](docs/TOMBSTONE_RETENTION.md) |
 
-Run `npm run contracts:check` after documentation/reference changes. It verifies that the authoritative files exist, required entry-point pointers remain discoverable, and local Markdown links in those files resolve. `npm run verify` runs this check before lint, tests, and build.
+Run `npm run contracts:check` after documentation/reference changes. It verifies that the authoritative files exist, required entry-point pointers remain discoverable, and local Markdown links in those files resolve. `npm run verify` runs this check and `npm run test:discovery` before lint, tests, and build.
 
 ## AI workflows
 

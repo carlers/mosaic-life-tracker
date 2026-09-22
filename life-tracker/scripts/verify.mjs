@@ -3,7 +3,7 @@ import { spawn } from 'node:child_process';
 import { copyToClipboard } from './clipboard.mjs';
 
 const npmCommand = process.platform === 'win32' ? 'npm.cmd' : 'npm';
-const stages = ['contracts:check', 'lint', 'test', 'build'];
+const stages = ['contracts:check', 'test:discovery', 'lint', 'test', 'build'];
 const shouldCopyToClipboard = process.env.CI !== 'true';
 const chunks = [];
 

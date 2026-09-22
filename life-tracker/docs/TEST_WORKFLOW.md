@@ -131,7 +131,8 @@ create a separate Actions workflow for them.
 
 ## Discovery guard
 
-Run `npm run test:discovery` after adding or moving a test. The guard fails when any
+`npm run verify` runs `npm run test:discovery` before lint/test/build, and the focused
+command remains useful immediately after adding or moving a test. The guard fails when any
 `tests/**/*.test.ts` or `tests/**/*.test.tsx` file belongs to zero or multiple Vitest
 projects. Playwright contracts use the separate `tests/e2e/**/*.spec.mjs` convention and
 are directory-discovered by `npm run test:browser-contract`.

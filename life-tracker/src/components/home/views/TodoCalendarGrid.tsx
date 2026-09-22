@@ -49,6 +49,14 @@ export const TodoCalendarGrid: React.FC<TodoCalendarGridProps> = ({
     });
   }, [focusDate]);
 
+  const calendarWeeks = useMemo(() => {
+    const weeks: Date[][] = [];
+    for (let index = 0; index < calendarDays.length; index += 7) {
+      weeks.push(calendarDays.slice(index, index + 7));
+    }
+    return weeks;
+  }, [calendarDays]);
+
   const tasksByDate = useMemo(() => {
     const grouped = new Map<string, TaskDocument[]>();
     for (const task of tasks) {
@@ -137,52 +145,60 @@ export const TodoCalendarGrid: React.FC<TodoCalendarGridProps> = ({
           </div>
         ))}
       </div>
-      <div className="grid grid-cols-7 gap-y-2" role="rowgroup">
-        {calendarDays.map((day) => {
-          const dateKey = format(day, 'yyyy-MM-dd');
-          const dayTasks = tasksByDate.get(dateKey) ?? [];
-          const selected = isSameDay(day, selectedDate);
-          const currentMonth = isSameMonth(day, focusDate);
-          const dateLabel = format(day, 'EEEE, MMMM d, yyyy');
+      <div className="grid gap-y-2" role="rowgroup">
+        {calendarWeeks.map((week) => (
+          <div
+            key={format(week[0], 'yyyy-MM-dd')}
+            className="grid grid-cols-7"
+            role="row"
+          >
+            {week.map((day) => {
+              const dateKey = format(day, 'yyyy-MM-dd');
+              const dayTasks = tasksByDate.get(dateKey) ?? [];
+              const selected = isSameDay(day, selectedDate);
+              const currentMonth = isSameMonth(day, focusDate);
+              const dateLabel = format(day, 'EEEE, MMMM d, yyyy');
 
-          return (
-            <button
-              key={dateKey}
-              type="button"
-              role="gridcell"
-              aria-label={`${dateLabel}, ${dayTasks.length} task${
-                dayTasks.length === 1 ? '' : 's'
-              }`}
-              aria-selected={selected}
-              aria-current={isToday(day) ? 'date' : undefined}
-              onClick={() => onDateSelect(day)}
-              className={`mx-auto flex min-h-10 w-9 flex-col items-center rounded-lg pt-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 ${
-                selected
-                  ? 'bg-white text-black'
-                  : currentMonth
-                    ? 'text-gray-300 hover:bg-[#2A2A2A]'
-                    : 'text-gray-600'
-              }`}
-            >
-              <span className="text-xs font-semibold">{format(day, 'd')}</span>
-              <span
-                className="mt-1 flex max-w-7 flex-wrap justify-center gap-0.5"
-                aria-hidden="true"
-              >
-                {dayTasks.slice(0, 4).map((task) => (
+              return (
+                <button
+                  key={dateKey}
+                  type="button"
+                  role="gridcell"
+                  aria-label={`${dateLabel}, ${dayTasks.length} task${
+                    dayTasks.length === 1 ? '' : 's'
+                  }`}
+                  aria-selected={selected}
+                  aria-current={isToday(day) ? 'date' : undefined}
+                  onClick={() => onDateSelect(day)}
+                  className={`mx-auto flex min-h-10 w-9 flex-col items-center rounded-lg pt-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 ${
+                    selected
+                      ? 'bg-white text-black'
+                      : currentMonth
+                        ? 'text-gray-300 hover:bg-[#2A2A2A]'
+                        : 'text-gray-600'
+                  }`}
+                >
+                  <span className="text-xs font-semibold">{format(day, 'd')}</span>
                   <span
-                    key={task.id}
-                    className="h-1.5 w-1.5 rounded-full"
-                    style={{
-                      backgroundColor:
-                        categoriesMap[task.categoryId]?.color ?? '#6B7280',
-                    }}
-                  />
-                ))}
-              </span>
-            </button>
-          );
-        })}
+                    className="mt-1 flex max-w-7 flex-wrap justify-center gap-0.5"
+                    aria-hidden="true"
+                  >
+                    {dayTasks.slice(0, 4).map((task) => (
+                      <span
+                        key={task.id}
+                        className="h-1.5 w-1.5 rounded-full"
+                        style={{
+                          backgroundColor:
+                            categoriesMap[task.categoryId]?.color ?? '#6B7280',
+                        }}
+                      />
+                    ))}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        ))}
       </div>
     </div>
   );

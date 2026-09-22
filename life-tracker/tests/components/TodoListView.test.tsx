@@ -84,6 +84,8 @@ describe('TodoListView', () => {
     const selectedDay = within(grid).getByRole('gridcell', {
       name: 'Tuesday, September 15, 2026, 1 task',
     });
+    expect(within(grid).getAllByRole('row')).toHaveLength(6);
+    expect(within(grid).getAllByRole('gridcell')).toHaveLength(35);
     expect(within(selectedDay).queryByText('Plan release')).toBeNull();
 
     fireEvent.click(selectedDay);

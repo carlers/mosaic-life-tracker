@@ -8,8 +8,8 @@ user to run verification commands or paste terminal logs.
 
 `.github/workflows/verify.yml` is the only GitHub Actions verification workflow. Its
 `verify` job checks out the ref, runs `npm ci`, and executes the same `npm run verify`
-repository gate used locally: project-contract checks, ESLint, Vitest, and the production
-build. Its dependent `browser-contract` job installs the pinned Playwright tooling and
+repository gate used locally: project-contract checks, the Vitest discovery guard, ESLint,
+Vitest, and the production build. Its dependent `browser-contract` job installs the pinned Playwright tooling and
 runs `npm run test:browser-contract`, which discovers the repository-owned
 `tests/e2e/**/*.spec.mjs` contracts.
 
@@ -73,8 +73,8 @@ recognition are browser/device behaviors.
 ## What remote verification can and cannot replace
 
 GitHub Actions can replace local execution of the repository gate: project-contract checks,
-ESLint, Vitest, TypeScript/Vite build, service-worker checks, and build-size guards that are
-already part of `npm run verify`. The same `Verify` workflow also runs repository-owned
+Vitest discovery validation, ESLint, Vitest, TypeScript/Vite build, service-worker checks,
+and build-size guards that are already part of `npm run verify`. The same `Verify` workflow also runs repository-owned
 Playwright interaction contracts from `tests/e2e/` in its browser-contract job.
 
 It does not replace checks that genuinely need a browser, device, deployment, authenticated
