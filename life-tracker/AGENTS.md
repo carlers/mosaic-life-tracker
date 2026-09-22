@@ -188,7 +188,8 @@ changes after this review, update it before rerunning the acceptance gate.
 
 Every completion report states what changed, automated checks and results, material risks
 or manual checks, commit/PR status when applicable, and the next-task
-complexity profile. Include a short manual verification protocol for user-visible behavior.
+complexity profile. Keep post-task reports concise and bullet-pointed unless the user asks for
+another format. Include a short manual verification protocol for user-visible behavior.
 It also includes exactly one factual test-evidence paragraph with coverage-status counts,
 red classifications, focused/acceptance results, and manual/skipped reasons, ending:
 `No judgment of overall suite sufficiency is made here.`

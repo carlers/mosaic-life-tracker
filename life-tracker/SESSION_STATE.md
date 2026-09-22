@@ -25,12 +25,12 @@ Latest continuation/process instruction:
 2. **Done — implementation.** Todo calendar chrome is transparent with tighter Day View spacing; bottom-nav inset no longer leaves the extra dark strip; Account logout is inside normal page flow; memo text is visible inline; single/double/triple task/memo gestures are implemented; Memo read/edit modes and private toggle are implemented; the Day View date row delegates sheet drag; phone full sheets expose backdrop while tablet full sheets use full height; manifest-wide portrait locking is removed with best-effort phone orientation handling; and Settings has a distinct Delete All User Data flow.
 3. **Done — build regression repair.** Verify #136 exposed a build-size regression from eagerly importing destructive-data dependencies. The delete path was lazy-loaded; Verify #137 passed build/PWA/size budgets.
 4. **Done — browser acceptance coverage.** Added computed Todo background, real DaySlide multi-tap/memo behavior, and responsive BottomSheet geometry/backdrop dismissal. Verify #138 passed on commit `e08847da98f6a75d5e55e0bab9bb531c50d8439f`; Vercel task-branch deployment is READY.
-5. **In progress — durable recovery process.** Add repository guidance requiring the exact active user prompt and numbered progress/remaining steps in `SESSION_STATE.md` so an interrupted agent can resume from the checkpoint without chat reconstruction.
-6. **Pending — final remote gate after recovery-doc change.** Require the resulting task-branch Verify and Vercel deployment green.
-7. **Pending — preview promotion.** Fast-forward the exact green checkpoint to `preview`, then require preview Verify and Vercel green.
+5. **Done — durable recovery process.** `AGENTS.md` now requires the exact active user prompt plus numbered Done/In progress/Pending/Blocked progress in `SESSION_STATE.md`; completion reports are also recorded as concise bullet-pointed output by default.
+6. **Done — task-branch final gate.** Verify #139 passed 76/76 Vitest files, 525/525 tests, and 18/18 Playwright browser contracts; the task-branch Vercel deployment is READY.
+7. **In progress — preview verification repair.** `preview` was fast-forwarded to the exact green task checkpoint and its Vercel deployment is READY. Preview Verify #140 exposed one timing-sensitive DOM test: the lazy ImageViewer mock sometimes missed Testing Library's 1s default wait under the loaded preview run even though the same commit passed Verify #139. The regression assertion is being made deterministic with an explicit 5s lazy-load allowance, then the repaired checkpoint will be reverified and promoted.
 8. **Pending — manual acceptance.** Real Samsung/iPad touch feel, installed-PWA orientation, and intentional live execution of Delete All User Data remain manual checks.
 
-Status: Implementation and final browser acceptance are green on the task branch; only the newly requested recovery-documentation checkpoint, final remote gate, preview promotion, and manual device acceptance remain.
+Status: Product implementation is complete. The only automated blocker is the preview-only timing flake in `DayViewSheetRegression.test.tsx`; repair and final re-verification are in progress.
 Roadmap pointer: Todo List remains unchecked in `PLAN.md` until this UI-polish batch passes hosted real-device acceptance.
 Blockers: Automated browser checks cannot replace real Samsung/iPad touch feel, orientation behavior in installed-PWA contexts, or intentional live execution of the destructive Delete All User Data action.
 
@@ -53,4 +53,6 @@ Blockers: Automated browser checks cannot replace real Samsung/iPad touch feel, 
 - Responsive orientation unit coverage requires tablet unlock and best-effort phone portrait lock; the manifest no longer globally forces portrait.
 - Verify #137: 76 Vitest files / 525 tests green; 15 Playwright contracts green; production build, PWA policy, and build-size budgets green after lazy-loading destructive-data dependencies.
 - Verify #138: final task-branch browser-acceptance checkpoint green; Vercel task-branch deployment READY.
+- Verify #139: recovery-documentation checkpoint green with 76/76 Vitest files, 525/525 tests, and 18/18 Playwright contracts.
+- Preview Verify #140: product/browser behavior remained green, but the repository gate failed 1/525 on the lazy ImageViewer DOM assertion because its default asynchronous wait expired under CI load. This is classified as a timing-test repair, not behavioral red evidence.
 - Manual acceptance remains required for real phone/tablet gestures, installed-PWA orientation, and the destructive live-data path.

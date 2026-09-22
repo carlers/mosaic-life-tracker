@@ -271,8 +271,9 @@ describe('DayViewSheet nested task actions', () => {
     fireEvent.click(screen.getByText('Open actions'));
     fireEvent.click(screen.getByText('View Photo'));
 
-    await waitFor(() =>
-      expect(screen.getByTestId('image-viewer')).toBeInTheDocument()
+    await waitFor(
+      () => expect(screen.getByTestId('image-viewer')).toBeInTheDocument(),
+      { timeout: 5000 }
     );
   });
 });
