@@ -54,7 +54,7 @@ export function InteractionHarness() {
 
   return (
     <main className="min-h-screen bg-[#111111] text-white p-2">
-      <div className="flex gap-4 text-sm mb-2" aria-live="polite">
+      <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm mb-2" aria-live="polite">
         <span>Friend index: <output data-testid="friend-index">{friendIndex}</output></span>
         <span>Todo day: <output data-testid="todo-day-index">{todoDayIndex}</output></span>
         <span>Todo month: <output data-testid="todo-month">{format(todoMonth, 'MMMM yyyy')}</output></span>

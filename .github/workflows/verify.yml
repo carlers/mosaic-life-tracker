@@ -64,6 +64,10 @@ jobs:
             chatgpt/phase-3-7-posthog
             chatgpt/playwright-interaction-contract
             chatgpt/todo-dayview-parity
+            chatgpt/fix-nested-sheet-back-stack
+            chatgpt/tombstone-retention
+            chatgpt/tombstone-retention-v2
+            experiment/codex-workflow
             codex/find-project-workflow-explanation
             codex/follow-documentation-steps
           )

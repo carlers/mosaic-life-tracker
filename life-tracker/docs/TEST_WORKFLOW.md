@@ -28,6 +28,38 @@ Before completing a shared or production-path batch, run the full required gate 
 `AGENTS.md`: lint, `npm test`, and build as applicable. Targeted commands accelerate
 iteration; they do not replace final verification.
 
+## Spec-first TDD rule
+
+For a new feature, changed product behavior, or bug regression, start from the governing
+product/architecture requirement rather than the current implementation. When practical:
+
+1. Write or strengthen the narrowest acceptance/regression test **before** the product
+   implementation.
+2. Run it against the incomplete/broken behavior and capture a `behavioral-red` failure
+   that proves the assertion can detect the defect. A wholly new surface may begin with a
+   `structural-red`.
+3. Implement only enough product behavior to satisfy that requirement.
+4. Run the focused test green, then run the broader repository gate as the regression
+   check.
+
+A test is not a useful TDD acceptance test merely because it executes new code. Its
+decisive assertion must describe an externally observable contract from
+`PROJECT_REFERENCE.md`, `AGENTS.md`, another authoritative spec, or an explicit
+task-acceptance requirement. Avoid assertions that simply mirror private state, current
+component structure, implementation-specific class lists, or helper algorithms unless
+that structure is itself the documented contract.
+
+For cross-component UI behavior, at least one acceptance layer must cross the component
+boundary being validated. A component test that mocks the child responsible for the
+behavior is useful wiring coverage, but it cannot by itself prove that the integrated UI
+renders, scrolls, or gestures correctly. Use a real integration DOM test or a browser
+contract for that requirement.
+
+Focused spec-first tests are the implementation loop. The full Vitest/build/browser suite
+is the regression gate after the focused behavior is green. If writing the test first is
+not practical, record the reason in the evidence review rather than manufacturing a red
+state afterward.
+
 ## Test-evidence review
 
 After focused implementation checks are green and before the acceptance gate, inventory
