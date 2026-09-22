@@ -4,15 +4,23 @@ This workflow is for a chat with direct GitHub repository access and GitHub Acti
 but no local shell. It lets Mosaic development continue from a phone without requiring the
 user to run verification commands or paste terminal logs.
 
-## Single verification source
+## Single verification workflow
 
-`npm run verify` remains the only verification definition. GitHub Actions does not
-reimplement lint, test, build, or contract rules. `.github/workflows/verify.yml` checks out
-the task branch, runs `npm ci`, then runs `npm run verify` from `life-tracker/`.
+`.github/workflows/verify.yml` is the only GitHub Actions verification workflow. Its
+`verify` job checks out the ref, runs `npm ci`, and executes the same `npm run verify`
+repository gate used locally: project-contract checks, ESLint, Vitest, and the production
+build. Its dependent `browser-contract` job installs the pinned Playwright tooling and
+runs `npm run test:browser-contract`, which discovers the repository-owned
+`tests/e2e/**/*.spec.mjs` contracts.
 
-Local runs stream output and copy the complete run to the clipboard. GitHub Actions sets
-`CI=true`, so clipboard handling is skipped and the same streamed output remains in the
-job log.
+This keeps browser contracts in the test tree and under the same GitHub `Verify` result
+without pretending a DOM runner can replace a real browser. Local `npm run verify`
+remains the offline-capable canonical gate; browser contracts are the additional
+browser-backed job of the same remote workflow.
+
+Local repository-gate runs stream output and copy the complete run to the clipboard.
+GitHub Actions sets `CI=true`, so clipboard handling is skipped and the streamed output
+remains in the job log.
 
 ## Phone-only loop
 
@@ -20,8 +28,9 @@ job log.
 2. Inspect the current checkpoint and relevant files through GitHub.
 3. Group the task into a small number of meaningful sub-batches.
 4. Use no more than 3–5 visible commits for the entire task; small tasks should use fewer.
-5. The `Verify` workflow starts automatically for pushes to `chatgpt/**`. Pull requests
-   also run it, and `workflow_dispatch` allows a manual rerun.
+5. The `Verify` workflow starts automatically for pushes to `chatgpt/**` and
+   `preview`. Pull requests also run it, and `workflow_dispatch` allows a manual rerun.
+   A green run means both the repository gate and the dependent browser-contract job passed.
 6. A GitHub-connected chat reads the workflow run, job status, and job logs directly.
 7. If verification is green, report the result and continue to any required manual checks.
    If verification is red, diagnose the log and repair the same task without asking the
@@ -65,7 +74,8 @@ recognition are browser/device behaviors.
 
 GitHub Actions can replace local execution of the repository gate: project-contract checks,
 ESLint, Vitest, TypeScript/Vite build, service-worker checks, and build-size guards that are
-already part of `npm run verify`.
+already part of `npm run verify`. The same `Verify` workflow also runs repository-owned
+Playwright interaction contracts from `tests/e2e/` in its browser-contract job.
 
 It does not replace checks that genuinely need a browser, device, deployment, authenticated
 third-party service, or visual judgment. Examples include touch/gesture feel, installed-PWA

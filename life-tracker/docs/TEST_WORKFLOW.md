@@ -113,7 +113,10 @@ and rerun the evidence check before the next acceptance attempt.
 ## Interaction regression coverage
 
 Interaction changes that depend on nested modal or carousel ownership need focused regression
-coverage in addition to the canonical gate.
+coverage in addition to the canonical Vitest/build gate. Browser-backed contracts live in
+`tests/e2e/**/*.spec.mjs`, are discovered by `npm run test:browser-contract`, and run as
+the dependent `browser-contract` job inside the single GitHub `Verify` workflow. Do not
+create a separate Actions workflow for them.
 
 - Bottom-sheet Back tests should cover one, two, and three open layers, assert top-first
   dismissal, preserve the route while any sheet remains, and verify that normal navigation
@@ -129,7 +132,9 @@ coverage in addition to the canonical gate.
 ## Discovery guard
 
 Run `npm run test:discovery` after adding or moving a test. The guard fails when any
-`tests/**/*.test.ts` or `tests/**/*.test.tsx` file belongs to zero or multiple projects.
+`tests/**/*.test.ts` or `tests/**/*.test.tsx` file belongs to zero or multiple Vitest
+projects. Playwright contracts use the separate `tests/e2e/**/*.spec.mjs` convention and
+are directory-discovered by `npm run test:browser-contract`.
 The project patterns and Vitest configuration share `scripts/lib/test-projects.mjs` so
 the guard cannot silently drift from the runner.
 

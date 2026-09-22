@@ -3,6 +3,7 @@ name: Verify
 on:
   push:
     branches:
+      - preview
       - 'chatgpt/**'
     paths:
       - 'life-tracker/**'
@@ -42,5 +43,50 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Verify
+      - name: Verify repository gate
         run: npm run verify
+
+  browser-contract:
+    needs: verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: life-tracker
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: life-tracker/package-lock.json
+
+      - name: Install repository dependencies
+        run: npm ci
+
+      - name: Install pinned browser-test dependencies
+        run: npm install --no-save --package-lock=false @playwright/test@1.58.2 @axe-core/playwright@4.10.2
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Start local Mosaic
+        run: |
+          npm run dev -- --host 127.0.0.1 --port 4173 > /tmp/mosaic-vite.log 2>&1 &
+          for attempt in {1..30}; do
+            if curl -kfsS https://127.0.0.1:4173/tests/e2e/interaction-contract.html >/dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          cat /tmp/mosaic-vite.log
+          exit 1
+
+      - name: Run repository browser contracts
+        env:
+          MOSAIC_E2E_BASE_URL: https://127.0.0.1:4173
+        run: npm run test:browser-contract

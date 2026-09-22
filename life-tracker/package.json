@@ -13,6 +13,7 @@
     "test:unit": "vitest run --project unit",
     "test:handlers": "vitest run --project handlers",
     "test:dom": "vitest run --project dom",
+    "test:browser-contract": "playwright test tests/e2e --reporter=line",
     "test:discovery": "node scripts/check-test-discovery.mjs",
     "test:benchmark": "node scripts/benchmark-tests.mjs",
     "test:red": "node scripts/check-test-red.mjs",
