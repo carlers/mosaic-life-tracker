@@ -8,6 +8,8 @@ const swiperFixture = vi.hoisted(() => ({
   slidePrev: vi.fn(),
   slideNext: vi.fn(),
   slideTo: vi.fn(),
+  nested: undefined as boolean | undefined,
+  noSwiping: undefined as boolean | undefined,
 }));
 
 const fixture = vi.hoisted(() => ({
@@ -40,10 +42,16 @@ vi.mock('swiper/react', () => ({
   Swiper: ({
     children,
     onSwiper,
+    nested,
+    noSwiping,
   }: {
     children: ReactNode;
     onSwiper?: (swiper: unknown) => void;
+    nested?: boolean;
+    noSwiping?: boolean;
   }) => {
+    swiperFixture.nested = nested;
+    swiperFixture.noSwiping = noSwiping;
     onSwiper?.({
       activeIndex: 90,
       slideTo: swiperFixture.slideTo,
@@ -144,6 +152,8 @@ describe('DayViewSheet nested task actions', () => {
     swiperFixture.slidePrev.mockClear();
     swiperFixture.slideNext.mockClear();
     swiperFixture.slideTo.mockClear();
+    swiperFixture.nested = undefined;
+    swiperFixture.noSwiping = undefined;
   });
 
   it('maps unmodified horizontal arrow keys to day navigation while open', () => {
@@ -164,6 +174,27 @@ describe('DayViewSheet nested task actions', () => {
     expect(document.getElementById(labelledBy as string)).toHaveTextContent(
       'Sunday, September 20, 2026'
     );
+  });
+
+  // Regression: PROJECT_REFERENCE.md §2/§7 — Todo reuses DayView inline while owning nested swipes.
+  it('supports the same day workspace inline with nested swipe ownership', () => {
+    render(
+      <DayViewSheet
+        isOpen
+        onClose={vi.fn()}
+        selectedDate={new Date(2026, 8, 20)}
+        onDateChange={vi.fn()}
+        renderMode="inline"
+      />
+    );
+
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(screen.getByTestId('inline-day-view')).toBeInTheDocument();
+    expect(swiperFixture.nested).toBe(true);
+    expect(swiperFixture.noSwiping).toBe(false);
+
+    fireEvent.click(screen.getByText('Open actions'));
+    expect(screen.getByText('Visibility')).toBeInTheDocument();
   });
 
   it.each([
