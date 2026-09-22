@@ -10,15 +10,14 @@ import {
   startOfMonth,
   startOfWeek,
 } from 'date-fns';
-import { Check } from 'lucide-react';
-import { getReadableTextColor } from '../../../constants/colors';
+import { DayViewSheet } from './DayViewSheet';
 import type { TaskDocument } from '../../../db/schema';
 
 interface TodoListViewProps {
   focusDate: Date;
   tasks: TaskDocument[];
   categoriesMap: Record<string, { color: string; name: string }>;
-  onToggleTask: (task: TaskDocument) => void;
+  onFocusDateChange: (date: Date) => void;
 }
 
 const WEEKDAY_LABELS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
@@ -27,9 +26,17 @@ export const TodoListView: React.FC<TodoListViewProps> = ({
   focusDate,
   tasks,
   categoriesMap,
-  onToggleTask,
+  onFocusDateChange,
 }) => {
-  const [selectedDate, setSelectedDate] = useState(() => new Date());
+  const [selectedDate, setSelectedDate] = useState(() => new Date(focusDate));
+  const focusMonthKey = format(focusDate, 'yyyy-MM');
+  const [syncedFocusMonthKey, setSyncedFocusMonthKey] = useState(focusMonthKey);
+
+  if (focusMonthKey !== syncedFocusMonthKey) {
+    setSyncedFocusMonthKey(focusMonthKey);
+    setSelectedDate(new Date(focusDate));
+  }
+
   const calendarDays = useMemo(() => {
     const monthStart = startOfMonth(focusDate);
     return eachDayOfInterval({
@@ -37,6 +44,7 @@ export const TodoListView: React.FC<TodoListViewProps> = ({
       end: endOfWeek(endOfMonth(monthStart)),
     });
   }, [focusDate]);
+
   const tasksByDate = useMemo(() => {
     const grouped = new Map<string, TaskDocument[]>();
     for (const task of tasks) {
@@ -50,17 +58,15 @@ export const TodoListView: React.FC<TodoListViewProps> = ({
     return grouped;
   }, [tasks]);
 
-  const visibleSelectedDate = isSameMonth(selectedDate, focusDate)
-    ? selectedDate
-    : focusDate;
-
-  const selectedTasks = useMemo(() => {
-    const tasksForDay = tasksByDate.get(format(visibleSelectedDate, 'yyyy-MM-dd')) ?? [];
-    return [...tasksForDay].sort((a, b) => Number(a.completed) - Number(b.completed));
-  }, [tasksByDate, visibleSelectedDate]);
+  const handleDateChange = (date: Date) => {
+    setSelectedDate(date);
+    if (!isSameMonth(date, focusDate)) {
+      onFocusDateChange(date);
+    }
+  };
 
   return (
-    <section className="flex min-h-0 flex-1 flex-col overflow-y-auto px-4 pb-8 pt-4 animate-in fade-in duration-300">
+    <section className="swiper-no-swiping flex min-h-0 flex-1 flex-col overflow-y-auto px-4 pb-8 pt-4 animate-in fade-in duration-300">
       <div
         className="rounded-xl border border-[#333333] bg-[#1E1E1E] p-3"
         role="grid"
@@ -77,7 +83,7 @@ export const TodoListView: React.FC<TodoListViewProps> = ({
           {calendarDays.map((day) => {
             const dateKey = format(day, 'yyyy-MM-dd');
             const dayTasks = tasksByDate.get(dateKey) ?? [];
-            const selected = isSameDay(day, visibleSelectedDate);
+            const selected = isSameDay(day, selectedDate);
             const currentMonth = isSameMonth(day, focusDate);
             const dateLabel = format(day, 'EEEE, MMMM d, yyyy');
 
@@ -89,7 +95,7 @@ export const TodoListView: React.FC<TodoListViewProps> = ({
                 aria-label={`${dateLabel}, ${dayTasks.length} task${dayTasks.length === 1 ? '' : 's'}`}
                 aria-selected={selected}
                 aria-current={isToday(day) ? 'date' : undefined}
-                onClick={() => setSelectedDate(day)}
+                onClick={() => handleDateChange(day)}
                 className={`mx-auto flex min-h-10 w-9 flex-col items-center rounded-lg pt-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 ${
                   selected ? 'bg-white text-black' : currentMonth ? 'text-gray-300 hover:bg-[#2A2A2A]' : 'text-gray-600'
                 }`}
@@ -110,42 +116,18 @@ export const TodoListView: React.FC<TodoListViewProps> = ({
         </div>
       </div>
 
-      <div className="mt-6">
-        <h3 className="text-base font-bold text-white">{format(visibleSelectedDate, 'EEEE, MMMM d')}</h3>
-        {selectedTasks.length === 0 ? (
-          <p className="mt-3 text-sm text-gray-500">No tasks for this day.</p>
-        ) : (
-          <ul className="mt-3 space-y-2" aria-label={`Tasks for ${format(visibleSelectedDate, 'MMMM d')}`}>
-            {selectedTasks.map((task) => {
-              const color = categoriesMap[task.categoryId]?.color ?? '#6B7280';
-              return (
-                <li
-                  key={task.id}
-                  className="flex items-center gap-3 rounded-xl border border-[#333333] bg-[#1E1E1E] px-3 py-3"
-                  style={{ borderLeftColor: color, borderLeftWidth: 3 }}
-                >
-                  <button
-                    type="button"
-                    onClick={() => onToggleTask(task)}
-                    className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
-                    style={{ borderColor: task.completed ? color : '#4B5563', backgroundColor: task.completed ? color : 'transparent' }}
-                    aria-label={task.completed ? `Mark ${task.title} incomplete` : `Mark ${task.title} complete`}
-                  >
-                    {task.completed && <Check size={12} color={getReadableTextColor(color)} aria-hidden="true" />}
-                  </button>
-                  <span className="min-w-0 flex-1">
-                    <span className={task.completed ? 'block text-sm text-gray-400 line-through' : 'block text-sm text-white'}>{task.title}</span>
-                    {categoriesMap[task.categoryId]?.name && (
-                      <span className="mt-0.5 block text-xs text-gray-500">
-                        {categoriesMap[task.categoryId].name}
-                      </span>
-                    )}
-                  </span>
-                </li>
-              );
-            })}
-          </ul>
-        )}
+      <h3 className="mt-6 px-1 text-base font-bold text-white">
+        {format(selectedDate, 'EEEE, MMMM d')}
+      </h3>
+
+      <div className="mt-2 flex min-h-[22rem] flex-1 flex-col">
+        <DayViewSheet
+          isOpen
+          onClose={() => {}}
+          selectedDate={selectedDate}
+          onDateChange={handleDateChange}
+          renderMode="inline"
+        />
       </div>
     </section>
   );

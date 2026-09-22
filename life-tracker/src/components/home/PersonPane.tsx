@@ -35,7 +35,7 @@ export const PersonPane: React.FC<PersonPaneProps> = ({ person, isActive }) => {
   const { user } = useAuth();
   const currentUserId = user?.$id ?? '';
 
-  const { tasks = [], toggleTaskCompletion } = useTasks();
+  const { tasks = [] } = useTasks();
   const { categories = [] } = useCategories();
 
   const { sendTaskReaction } = useMessageActions(
@@ -94,13 +94,6 @@ export const PersonPane: React.FC<PersonPaneProps> = ({ person, isActive }) => {
   const handleTodoNext = useCallback(() => {
     setTodoFocusDate((date) => addMonths(date, 1));
   }, []);
-
-  const handleToggleTodoTask = useCallback(
-    (task: TaskDocument) => {
-      void toggleTaskCompletion(task.id, !task.completed);
-    },
-    [toggleTaskCompletion]
-  );
 
   if (person.kind === 'friend' && friendUserId) {
     return (
@@ -173,7 +166,7 @@ export const PersonPane: React.FC<PersonPaneProps> = ({ person, isActive }) => {
           focusDate={todoFocusDate}
           tasks={tasks}
           categoriesMap={categoriesMap}
-          onToggleTask={handleToggleTodoTask}
+          onFocusDateChange={setTodoFocusDate}
         />
       ) : (
         <ComingSoon />

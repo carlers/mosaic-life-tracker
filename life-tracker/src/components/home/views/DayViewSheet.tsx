@@ -33,6 +33,7 @@ interface DayViewSheetProps {
   onClose: () => void;
   selectedDate: Date;
   onDateChange?: (date: Date) => void;
+  renderMode?: 'sheet' | 'inline';
 }
 
 export const DayViewSheet: React.FC<DayViewSheetProps> = ({
@@ -40,6 +41,7 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
   onClose,
   selectedDate,
   onDateChange,
+  renderMode = 'sheet',
 }) => {
   const { user } = useAuth();
   const currentUserId = user?.$id ?? '';
@@ -347,15 +349,8 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
     </div>
   );
 
-  return (
-    <BottomSheet
-      isOpen={isOpen}
-      onClose={onClose}
-      title={format(selectedDate, 'EEEE, MMMM d, yyyy')}
-      height="full"
-      isLocked={isBackgroundLocked}
-      suspendInteraction={isBackgroundLocked}
-    >
+  const content = (
+    <>
       <div className="flex items-center justify-between px-4 py-2">
         <button
           onClick={handlePrevDay}
@@ -376,6 +371,8 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
         </button>
       </div>
       <Swiper
+        nested={renderMode === 'inline'}
+        noSwiping={renderMode === 'inline' ? false : undefined}
         onSwiper={(swiper) => {
           swiperRef.current = swiper;
         }}
@@ -512,6 +509,31 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
           {deleteFeedback}
         </div>
       )}
+    </>
+  );
+
+  if (renderMode === 'inline') {
+    return (
+      <div
+        className={`flex min-h-0 flex-1 flex-col ${isBackgroundLocked ? 'pointer-events-none' : ''}`}
+        aria-hidden={isBackgroundLocked || undefined}
+        data-testid="inline-day-view"
+      >
+        {content}
+      </div>
+    );
+  }
+
+  return (
+    <BottomSheet
+      isOpen={isOpen}
+      onClose={onClose}
+      title={format(selectedDate, 'EEEE, MMMM d, yyyy')}
+      height="full"
+      isLocked={isBackgroundLocked}
+      suspendInteraction={isBackgroundLocked}
+    >
+      {content}
     </BottomSheet>
   );
 };
