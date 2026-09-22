@@ -160,6 +160,22 @@ export function InteractionHarness() {
       </div>
 
       <div
+        data-testid="todo-full-month-scroll"
+        className="swiper-no-swiping w-full max-w-full overflow-y-auto"
+        style={{ height: 280, display: 'flex', flexDirection: 'column' }}
+      >
+        <TodoCalendarGrid
+          focusDate={new Date(2026, 7, 15)}
+          selectedDate={new Date(2026, 7, 15)}
+          tasks={[]}
+          categoriesMap={{}}
+          onDateSelect={() => {}}
+          onMonthChange={() => {}}
+        />
+        <div style={{ height: 420, flexShrink: 0 }} aria-hidden="true" />
+      </div>
+
+      <div
         data-testid="todo-day-content"
         className="swiper-no-swiping w-full max-w-full overflow-x-hidden"
       >

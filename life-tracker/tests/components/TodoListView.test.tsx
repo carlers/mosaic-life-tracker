@@ -105,6 +105,20 @@ describe('TodoListView', () => {
     expect(screen.getByText('Work')).toBeInTheDocument();
   });
 
+  // Regression: PROJECT_REFERENCE.md §2 — the compact month grid shows the whole month before task content.
+  it('keeps a six-week month at natural height instead of letting the page flex layout clip calendar rows', () => {
+    render(<TodoListView {...props} focusDate={new Date(2026, 7, 15)} />);
+
+    const grid = screen.getByRole('grid', { name: 'August 2026 todo calendar' });
+    expect(within(grid).getAllByRole('gridcell')).toHaveLength(42);
+    expect(
+      within(grid).getByRole('gridcell', {
+        name: 'Monday, August 31, 2026, 0 tasks',
+      })
+    ).toBeInTheDocument();
+    expect(screen.getByTestId('todo-calendar-grid')).toHaveClass('shrink-0');
+  });
+
   // Regression: PROJECT_REFERENCE.md §7 — nested carousel gesture ownership.
   it('contains horizontal overflow and marks the Todo surface as a parent-Swiper no-swiping region', () => {
     const { container } = render(<TodoListView {...props} />);

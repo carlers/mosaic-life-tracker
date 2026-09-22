@@ -157,6 +157,27 @@ test('todo selected-day task content does not create a nested vertical scroller'
   expect(nestedScrollOwners).toBe(0);
 });
 
+// Regression: PROJECT_REFERENCE.md §2 — full compact month remains visible above task content.
+test('todo page keeps every row of a six-week month visible instead of flex-clipping the calendar', async ({ page }) => {
+  await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html`);
+
+  const scroll = page.getByTestId('todo-full-month-scroll');
+  const grid = scroll.getByRole('grid', { name: 'August 2026 todo calendar' });
+  await expect(grid.getByRole('gridcell')).toHaveCount(42);
+
+  const lastDay = grid.getByRole('gridcell', {
+    name: 'Monday, August 31, 2026, 0 tasks',
+  });
+  const gridBox = await grid.boundingBox();
+  const dayBox = await lastDay.boundingBox();
+  if (!gridBox || !dayBox) throw new Error('Missing Todo full-month bounds');
+
+  expect(dayBox.y + dayBox.height).toBeLessThanOrEqual(gridBox.y + gridBox.height + 1);
+  expect(await scroll.evaluate((element) => element.scrollHeight)).toBeGreaterThan(
+    await scroll.evaluate((element) => element.clientHeight)
+  );
+});
+
 test('todo calendar-grid swipe advances the month without advancing the friend carousel', async ({ page }) => {
   await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html`);
 

@@ -1,6 +1,6 @@
 // Regression: UIFIX-5/UIFIX-7/UIFIX-8/UIFIX-9 — day-sheet header and nested task surfaces retain context.
 import type { ReactNode } from 'react';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { CategoryDocument, TaskDocument } from '../../src/db/schema';
 
@@ -10,6 +10,8 @@ const swiperFixture = vi.hoisted(() => ({
   slideTo: vi.fn(),
   nested: undefined as boolean | undefined,
   noSwiping: undefined as boolean | undefined,
+  touchStartPreventDefault: undefined as boolean | undefined,
+  touchMoveStopPropagation: undefined as boolean | undefined,
 }));
 
 const fixture = vi.hoisted(() => ({
@@ -44,14 +46,20 @@ vi.mock('swiper/react', () => ({
     onSwiper,
     nested,
     noSwiping,
+    touchStartPreventDefault,
+    touchMoveStopPropagation,
   }: {
     children: ReactNode;
     onSwiper?: (swiper: unknown) => void;
     nested?: boolean;
     noSwiping?: boolean;
+    touchStartPreventDefault?: boolean;
+    touchMoveStopPropagation?: boolean;
   }) => {
     swiperFixture.nested = nested;
     swiperFixture.noSwiping = noSwiping;
+    swiperFixture.touchStartPreventDefault = touchStartPreventDefault;
+    swiperFixture.touchMoveStopPropagation = touchMoveStopPropagation;
     onSwiper?.({
       activeIndex: 90,
       slideTo: swiperFixture.slideTo,
@@ -154,6 +162,8 @@ describe('DayViewSheet nested task actions', () => {
     swiperFixture.slideTo.mockClear();
     swiperFixture.nested = undefined;
     swiperFixture.noSwiping = undefined;
+    swiperFixture.touchStartPreventDefault = undefined;
+    swiperFixture.touchMoveStopPropagation = undefined;
   });
 
   it('maps unmodified horizontal arrow keys to day navigation while open', () => {
@@ -166,14 +176,19 @@ describe('DayViewSheet nested task actions', () => {
     expect(swiperFixture.slideNext).toHaveBeenCalledTimes(1);
   });
 
-  it('renders the selected date in the draggable sheet header', () => {
+  // Regression: task acceptance — date + arrows share the horizontal day-swipe surface.
+  it('places the selected date between the arrows inside the day swiper', () => {
     renderSheet();
+
+    const swiper = screen.getByTestId('day-swiper');
+    const date = within(swiper).getByText('Sunday, September 20, 2026');
+    const row = date.parentElement;
+    expect(row).not.toBeNull();
+    expect(within(row as HTMLElement).getByRole('button', { name: 'Previous day' })).toBeInTheDocument();
+    expect(within(row as HTMLElement).getByRole('button', { name: 'Next day' })).toBeInTheDocument();
+
     const dialog = screen.getByRole('dialog');
-    const labelledBy = dialog.getAttribute('aria-labelledby');
-    expect(labelledBy).toBeTruthy();
-    expect(document.getElementById(labelledBy as string)).toHaveTextContent(
-      'Sunday, September 20, 2026'
-    );
+    expect(dialog).toHaveAttribute('aria-label', 'Sunday, September 20, 2026');
   });
 
   // Regression: PROJECT_REFERENCE.md §2/§7 — Todo reuses DayView inline while owning nested swipes.
@@ -194,6 +209,8 @@ describe('DayViewSheet nested task actions', () => {
     expect(screen.getByTestId('day-swiper')).toBeInTheDocument();
     expect(swiperFixture.nested).toBe(true);
     expect(swiperFixture.noSwiping).toBe(false);
+    expect(swiperFixture.touchStartPreventDefault).toBe(false);
+    expect(swiperFixture.touchMoveStopPropagation).toBe(false);
 
     fireEvent.click(screen.getByText('Open actions'));
     expect(screen.getByText('Visibility')).toBeInTheDocument();
