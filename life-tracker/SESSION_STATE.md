@@ -1,12 +1,12 @@
 # Session state
 
 Updated: 2026-09-22
-Current task: Todo List acceptance
-Status: Appwrite tombstone maintenance is live on the existing `message-action` Function, preserving the second Free-plan Function slot for future integrations. The deployed maintenance path is selected only by Appwrite's trusted `x-appwrite-trigger: schedule` metadata; normal user executions still require authentication and cannot select GC through an action payload.
-Roadmap pointer: Strategy B tombstone retention and its Appwrite operational rollout are complete. Todo List implementation is now the active roadmap item and is still awaiting its full browser acceptance gate before `PLAN.md` is checked.
-Checkpoint: The verified shared-maintenance code is on `preview`, the existing Appwrite `message-action` Function is running deployment `6ab2a068c69c76a08610`, `TOMBSTONE_RETENTION_DAYS=90` is configured, and a one-time scheduled execution completed successfully across all six synced tables with `purged=0`. The daily `0 0 * * *` schedule is enabled.
-Next action: Resume the Todo List full browser acceptance gate on the hosted `preview` build, then update `PLAN.md` if acceptance is green.
-Blockers: None for tombstone retention. Do not create a separate `tombstone-gc` Function; the second Appwrite Function slot remains free.
+Current task: Todo List hosted/device acceptance
+Status: Todo List now keeps horizontal gestures inside the Todo surface instead of leaking them to the outer friend/person carousel. Its selected-day area reuses the existing Day View workspace inline: category pills, task add/toggle/edit behavior, Task Action Sheet, and the existing memo/date/visibility/photo nested surfaces are shared rather than reimplemented.
+Roadmap pointer: Strategy B tombstone retention and its Appwrite rollout remain complete. Todo List is the active feature-backlog item and remains unchecked in `PLAN.md` until hosted real-device acceptance is green.
+Checkpoint: The implementation checkpoint passed canonical Verify #112, the nested-carousel Interaction Browser Contract #10, and a task-branch Vercel build. The browser contract directly checks that a nested Todo day swipe changes the inner day while the friend/person index stays fixed. This final checkpoint also makes Todo List source changes trigger that browser contract automatically.
+Next action: Promote the exact final green checkpoint to `preview`, then perform hosted phone acceptance: Todo day swipes must change only the selected day, crossing a month boundary must update the Todo month, the inline task area must match Day View behavior, and task/nested action sheets must still behave correctly.
+Blockers: Automated verification does not replace Samsung/Android real-touch recognition. Todo List completion is blocked only on that hosted manual interaction check.
 
 ## Preview acceptance
 
@@ -19,8 +19,10 @@ Blockers: None for tombstone retention. Do not create a separate `tombstone-gc` 
 
 ## Verification
 
-- Shared-maintenance implementation: canonical GitHub Verify is green.
-- Tombstone GC regression coverage: scheduled trigger, 90-day cutoff, all six synced tables, destructive-query filter, and non-scheduled auth isolation are covered in `tests/handlers/tombstoneGc.test.ts`.
-- Hosted task-branch deployment: Vercel build is READY for the verified shared-maintenance implementation.
-- Appwrite live execution: green — scheduled execution completed with `retentionDays=90`, all six synced tables logged, `scanned=0`, `purged=0`, and no errors; daily `0 0 * * *` schedule enabled.
-- Todo List browser/device acceptance: still pending from the previous checkpoint.
+- Appwrite tombstone maintenance: live and green on the existing `message-action` Function; the second Function slot remains free.
+- Todo List DOM regressions: cover the color-only month grid, inline Day View reuse, parent-Swiper isolation, month navigation, and cross-month inline day navigation.
+- Day View regression coverage: inline mode preserves the shared task-action surface and configures its Swiper for nested gesture ownership.
+- Interaction Browser Contract #10: green for nested Todo swipe ownership in a mobile/touch Chromium harness; calendar/outside-carousel contracts remain green in the same suite.
+- Canonical Verify #112: green for the implementation checkpoint.
+- Task-branch Vercel deployment for the implementation checkpoint: READY.
+- Todo List Samsung/real-device acceptance: pending; this remains the final acceptance gate before checking the roadmap item.
