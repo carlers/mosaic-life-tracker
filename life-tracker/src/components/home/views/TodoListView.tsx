@@ -122,6 +122,7 @@ export const TodoListView: React.FC<TodoListViewProps> = ({
 
       <div className="mt-2 flex min-h-[22rem] flex-1 flex-col">
         <DayViewSheet
+          key={focusMonthKey}
           isOpen
           onClose={() => {}}
           selectedDate={selectedDate}
