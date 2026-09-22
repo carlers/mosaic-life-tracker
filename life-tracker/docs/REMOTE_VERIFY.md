@@ -9,7 +9,7 @@ user to run verification commands or paste terminal logs.
 `.github/workflows/verify.yml` is the only GitHub Actions verification workflow. Its
 `verify` job checks out the ref, runs `npm ci`, and executes the same `npm run verify`
 repository gate used locally: project-contract checks, the Vitest discovery guard, ESLint,
-Vitest, and the production build. Its dependent `browser-contract` job installs the pinned Playwright tooling and
+Vitest, and the production build. Its parallel `browser-contract` job installs the pinned Playwright tooling and
 runs `npm run test:browser-contract`, which discovers the repository-owned
 `tests/e2e/**/*.spec.mjs` contracts.
 
@@ -30,13 +30,18 @@ remains in the job log.
 4. Use no more than 3–5 visible commits for the entire task; small tasks should use fewer.
 5. The `Verify` workflow starts automatically for pushes to `chatgpt/**` and
    `preview`. Pull requests also run it, and `workflow_dispatch` allows a manual rerun.
-   A green run means both the repository gate and the dependent browser-contract job passed.
+   A green run means both the repository gate and the parallel browser-contract job passed.
 6. A GitHub-connected chat reads the workflow run, job status, and job logs directly.
 7. If verification is green, report the result and continue to any required manual checks.
    If verification is red, diagnose the log and repair the same task without asking the
    user to relay terminal output.
 
 Newer pushes cancel stale runs for the same ref.
+
+Treat remote verification as a multi-minute asynchronous gate. The repository and browser
+jobs start together so their wall times overlap, and the browser job caches its pinned
+Chromium payload between runs. During an active run, finish independent deterministic
+review/documentation work before checking status again; do not busy-poll Actions.
 
 ## Commit discipline
 

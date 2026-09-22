@@ -147,7 +147,7 @@ and rerun the evidence check before the next acceptance attempt.
 Interaction changes that depend on nested modal or carousel ownership need focused regression
 coverage in addition to the canonical Vitest/build gate. Browser-backed contracts live in
 `tests/e2e/**/*.spec.mjs`, are discovered by `npm run test:browser-contract`, and run as
-the dependent `browser-contract` job inside the single GitHub `Verify` workflow. Do not
+the parallel `browser-contract` job inside the single GitHub `Verify` workflow. Do not
 create a separate Actions workflow for them.
 
 - Bottom-sheet Back tests should cover one, two, and three open layers, assert top-first

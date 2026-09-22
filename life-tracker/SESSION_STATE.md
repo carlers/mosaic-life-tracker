@@ -1,12 +1,12 @@
 # Session state
 
-Updated: 2026-09-22
-Current task: Todo List hosted/device acceptance after spec-first TDD/test audit
-Status: Todo List interaction repair is implemented: the compact calendar uses direct-manipulation Embla month swiping, day buttons remain tappable, the selected-day workspace uses the real Day View content with loaded Todo data, and the Todo surface owns one cohesive vertical scroll without a nested task scroller.
-Roadmap pointer: Strategy B tombstone retention and its Appwrite rollout remain complete. Todo List remains the active feature-backlog item and stays unchecked in `PLAN.md` until hosted real-device acceptance is green.
-Checkpoint: The Todo repair was driven by spec-first browser acceptance tests committed before implementation. Their initial run produced behavioral-red evidence for smooth calendar movement, nested scrolling, and narrow-width containment. The implementation now passes the focused interaction assertions in the latest completed browser attempt; the final consolidated Verify run for this checkpoint remains the gate before preview promotion. A repository-wide test audit is recorded in `docs/TEST_AUDIT_2026-09-22.md`, and `docs/TEST_WORKFLOW.md` now requires spec-first TDD when practical plus a non-mocked integration/browser layer for cross-component UI contracts.
-Next action: Require the current single `Verify` workflow (repository gate + browser-contract job) to pass, confirm the task deployment, fast-forward that exact checkpoint to `preview`, confirm preview Verify/Vercel, then perform Samsung/Android Todo acceptance.
-Blockers: Automated Chromium can verify direct manipulation, tapping, scroll ownership, and overflow contracts, but real Samsung/Android touch feel and authenticated hosted task data remain the final manual product acceptance.
+Updated: 2026-09-23
+Current task: Todo List cohesive-scroll/full-month/Day View header repair plus GitHub Verify latency reduction
+Status: The repair is implemented on the active task branch. Todo now keeps one natural-height vertical content flow, prevents the compact calendar from flex-shrinking/clipping lower rows, moves Previous/date/Next into the horizontal Day View swiper surface, and explicitly hands vertical touch to the enclosing page scroller. GitHub Verify now starts repository and browser jobs in parallel, caches the pinned Chromium payload, and no longer carries the completed one-time hygiene job.
+Roadmap pointer: Todo List remains the active feature-backlog item and stays unchecked in `PLAN.md` until the repaired hosted build passes real-device acceptance.
+Checkpoint: Spec-first acceptance was committed before implementation. Verify #131 produced behavioral/contract red evidence for the clipped-calendar layout guard, date-header swipe ownership, vertical touch handoff, parallel browser verification, and removal of the stale hygiene job. The implementation is awaiting the consolidated green task-branch gate before preview promotion.
+Next action: Require the task-branch Verify and Vercel deployment to be green, move that exact checkpoint to `preview`, require preview Verify/Vercel green, then repeat Samsung/Android Todo acceptance for one-page vertical scrolling, full-month visibility, date-header day swiping, and calendar/day gesture ownership.
+Blockers: Automated Chromium covers layout bounds and synthetic touch contracts; real Samsung/Android touch feel and authenticated hosted task data remain manual product acceptance.
 
 ## Preview acceptance
 
@@ -19,12 +19,10 @@ Blockers: Automated Chromium can verify direct manipulation, tapping, scroll own
 
 ## Verification
 
-- TDD red evidence: the pre-implementation browser run failed the spec assertions for Todo calendar follow-finger behavior, cohesive vertical scrolling, and horizontal containment.
-- Todo calendar direct manipulation: production `TodoCalendarGrid` is exercised inside the outer person Swiper; browser acceptance requires follow-finger movement, adjacent-month snap, and no friend change.
-- Todo day activation: browser acceptance taps a real gridcell and requires selected-date change without month/friend drift.
-- Todo selected-day integration: a DOM integration test crosses the real `TodoListView -> DayViewSheet -> DaySlide` boundary and requires loaded category/task content plus page-scroll mode.
-- Todo scroll/overflow ownership: browser acceptance requires no nested vertical task scroller and <=1 CSS px page overflow at 320 CSS px.
-- CI contract: `.github/workflows/verify.yml` is the only repository workflow file on the working branch; its read-only default gate runs Vitest/build then a dependent Playwright browser-contract job. A task-branch-only hygiene job has narrowly scoped write permissions for the explicitly authorized one-time stale branch/workflow-history purge.
-- Test audit: no snapshot-test pattern was found; the main identified weakness was UI mock-boundary blindness, now addressed by the integration-layer rule and Todo integration test.
-- Appwrite tombstone maintenance remains live and green on the existing `message-action` Function; the second Function slot remains free.
+- TDD red evidence: Verify #131 failed the new contracts before implementation: compact calendar lacked the non-shrinking layout guarantee; the date header lived outside the day swiper; inline Swiper did not explicitly hand vertical touch to page scrolling; browser verification serialized behind `verify`; and the completed hygiene job was still present.
+- Todo full-month layout: DOM and browser acceptance require a six-week August 2026 grid to expose all 42 cells and keep August 31 inside the visible grid bounds while the enclosing Todo page is scrollable.
+- Todo Day View header: DOM coverage requires Previous/date/Next to share one row inside the day Swiper and the sheet dialog to retain a full-date accessible label.
+- Todo scroll ownership: inline Day View remains natural-height with no nested task scroller; Swiper touch configuration preserves horizontal day navigation while handing vertical-dominant gestures to the Todo page scroller.
+- CI latency: repository and browser jobs run concurrently; the browser job reuses a version-keyed Playwright Chromium cache and installs the browser only on a cache miss.
+- Existing full regression layers remain required: repository contracts, discovery, lint, all Vitest projects, production build/PWA/build-size checks, and all Playwright browser contracts.
 - Todo List Samsung/real-device acceptance remains pending and is the final product gate before checking the roadmap item.

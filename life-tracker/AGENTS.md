@@ -138,8 +138,8 @@ before it could write or checkpoint.
 - `.github/workflows/verify.yml` is the single shared remote verification workflow for
   `preview`, AI-owned `chatgpt/**` branches, pull requests, and manual dispatches. Its
   `verify` job installs with `npm ci` and runs the same `npm run verify` command used
-  locally; its dependent `browser-contract` job runs the repository-owned Playwright
-  contracts in `tests/e2e/` after the canonical gate is green.
+  locally; its parallel `browser-contract` job runs the repository-owned Playwright
+  contracts in `tests/e2e/`. The workflow is green only when both jobs pass.
 - When the active chat has GitHub Actions access, inspect workflow status, jobs, and logs
   directly instead of asking the user to run terminal commands or paste verify output.
 - Treat remote verification as asynchronous work, not a reason to busy-poll. While CI or a
