@@ -757,7 +757,7 @@ replay/autocapture/console capture are absent, authenticated distinct IDs equal 
 refresh after identify, intentional exceptions arrive, and uploaded production source maps
 symbolicate stacks.
 
-The repository's `PostHog Browser Contract` GitHub Actions workflow runs Chromium against
+The single GitHub `Verify` workflow's dependent `browser-contract` job runs Chromium against
 the real Mosaic browser adapter with Appwrite/PostHog network interception. It verifies the
 anonymous → authenticated → fresh-anonymous identity lifecycle, flag reloads after identity
 changes, minimal request bodies, handled exception shape, injected chunk/release metadata,

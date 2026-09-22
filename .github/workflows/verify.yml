@@ -15,8 +15,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
-  actions: write
+  contents: read
 
 concurrency:
   group: verify-${{ github.ref }}
@@ -47,8 +46,19 @@ jobs:
       - name: Verify repository gate
         run: npm run verify
 
-      - name: One-time repository hygiene cleanup
-        if: github.ref == 'refs/heads/chatgpt/todo-tdd-test-audit'
+
+  hygiene:
+    needs: [verify, browser-contract]
+    if: github.ref == 'refs/heads/chatgpt/todo-tdd-test-audit'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      actions: write
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Purge stale branches and retired workflow history
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -70,24 +80,31 @@ jobs:
             experiment/codex-workflow
             codex/find-project-workflow-explanation
             codex/follow-documentation-steps
+            chatgpt/todo-tdd-test-audit
           )
 
           for branch in "${stale_branches[@]}"; do
-            git push origin --delete "$branch" || true
+            git push "https://x-access-token:$GH_TOKEN@github.com/$GITHUB_REPOSITORY.git"               --delete "$branch" || true
           done
 
           retired_workflows=(363395644 363175235 363076037)
           for workflow_id in "${retired_workflows[@]}"; do
-            run_ids="$(curl -fsSL \
+            curl -fsSL -X PUT \
+              -H "Authorization: Bearer $GH_TOKEN" \
+              -H "Accept: application/vnd.github+json" \
+              "https://api.github.com/repos/$GITHUB_REPOSITORY/actions/workflows/$workflow_id/disable" \
+              || true
+            run_ids="$(curl -sSL \
               -H "Authorization: Bearer $GH_TOKEN" \
               -H "Accept: application/vnd.github+json" \
               "https://api.github.com/repos/$GITHUB_REPOSITORY/actions/workflows/$workflow_id/runs?per_page=100" \
-              | jq -r '.workflow_runs[].id')"
+              | jq -r '.workflow_runs[]?.id')"
             for run_id in $run_ids; do
-              curl -fsSL -X DELETE \
+              curl -sSL -o /dev/null -X DELETE \
                 -H "Authorization: Bearer $GH_TOKEN" \
                 -H "Accept: application/vnd.github+json" \
-                "https://api.github.com/repos/$GITHUB_REPOSITORY/actions/runs/$run_id"
+                "https://api.github.com/repos/$GITHUB_REPOSITORY/actions/runs/$run_id" \
+                || true
             done
           done
 

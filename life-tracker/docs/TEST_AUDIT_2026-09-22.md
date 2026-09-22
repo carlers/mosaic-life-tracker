@@ -1,8 +1,9 @@
 # Test suite audit — 2026-09-22
 
 Scope: all repository tests under `life-tracker/tests/**` on the Todo TDD repair
-checkpoint: 69 Vitest test files plus the repository Playwright contracts and their
-browser harnesses/helpers.
+checkpoint: the 69-file Vitest baseline plus the repository Playwright contracts and
+their browser harnesses/helpers. The audit then added one Todo integration test file to
+close the identified mock-boundary gap.
 
 ## Audit standard
 
