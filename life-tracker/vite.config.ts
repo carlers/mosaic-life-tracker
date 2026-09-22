@@ -2,7 +2,6 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
 import basicSsl from '@vitejs/plugin-basic-ssl';
-import posthog from '@posthog/rollup-plugin';
 
 const posthogSourceMapsEnabled = Boolean(
   process.env.POSTHOG_PERSONAL_API_KEY &&
@@ -10,7 +9,12 @@ const posthogSourceMapsEnabled = Boolean(
     process.env.POSTHOG_HOST
 );
 
-const posthogSourceMapPlugin = posthogSourceMapsEnabled
+const posthogPluginPackage = ['@posthog', 'rollup-plugin'].join('/');
+const posthog = posthogSourceMapsEnabled
+  ? (await import(posthogPluginPackage)).default
+  : null;
+
+const posthogSourceMapPlugin = posthog
   ? posthog({
       personalApiKey: process.env.POSTHOG_PERSONAL_API_KEY!,
       projectId: process.env.POSTHOG_PROJECT_ID!,

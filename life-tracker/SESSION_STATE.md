@@ -1,12 +1,12 @@
 # Session state
 
 Updated: 2026-09-22
-Current task: Strategy B tombstone retention and stale-client recovery
-Status: Implementation and automated verification are complete. Mosaic now uses a 90-day tombstone retention window, stale-cursor full pulls, missing-row reconciliation, and a privileged Appwrite tombstone GC function.
-Roadmap pointer: Tombstone retention is implemented as a synchronization-safe technical foundation. Feature backlog remains next after deployment setup is completed.
-Checkpoint: GitHub Verify is green on the implementation commit. The tombstone GC function is committed but has not yet been deployed/scheduled in the Appwrite Console.
-Next action: Deploy `appwrite-functions/tombstone-gc` in Appwrite with `TOMBSTONE_RETENTION_DAYS=90`, run it once manually, then configure the periodic schedule. Do not move `preview` until the deployment/manual check is user-authorized.
-Blockers: Appwrite Console deployment and scheduled-trigger setup require manual access; no Appwrite connector is available in this chat.
+Current task: Todo List view
+Status: The first independent feature-backlog step is implemented: Mosaic now has a compact color-only month grid that selects a day and shows its task list with completion actions. The Appwrite tombstone GC deployment remains an independent manual operational step.
+Roadmap pointer: Todo List is the first feature-backlog item. Do not mark it complete in `PLAN.md` until the full acceptance gate and browser review are green.
+Checkpoint: The focused Todo List DOM test and lint pass. The production build is green again: the PostHog source-map plugin now loads only when its explicit upload credentials are configured, so normal builds do not require that optional plugin package.
+Next action: Run the full DOM suite and browser review, then update `PLAN.md` and this checkpoint if all results are green. The separate Appwrite Console deployment may be completed whenever credentials are available.
+Blockers: Appwrite Console deployment/schedule requires manual access. `npm ci` remains unable to download `@posthog/cli` (HTTP 403), but it no longer blocks normal production builds without PostHog upload credentials.
 
 ## Preview acceptance
 
@@ -20,6 +20,6 @@ Blockers: Appwrite Console deployment and scheduled-trigger setup require manual
 ## Verification
 
 - GitHub Verify workflow: green for the tombstone-retention implementation.
-- Unit/handler regression coverage: 496 tests passed across 68 test files in the acceptance run.
+- Unit/handler regression coverage: 496 tests passed across 68 test files in the prior acceptance run; the subsequent local full-handler empty-run test is green.
 - Browser/device manual checks: unchanged from the prior Phase 4 checkpoint; no new UI behavior was introduced.
 - Appwrite tombstone GC deployment/schedule: pending manual Console setup.

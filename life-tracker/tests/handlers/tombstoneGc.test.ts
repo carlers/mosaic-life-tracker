@@ -3,6 +3,10 @@ import { createRequire } from 'node:module';
 
 const requireCjs = createRequire(import.meta.url);
 const appwritePath = requireCjs.resolve('node-appwrite');
+let mockTablesDb: {
+  listRows: ReturnType<typeof vi.fn>;
+  deleteRow: ReturnType<typeof vi.fn>;
+} | null = null;
 (requireCjs as unknown as { cache: Record<string, unknown> }).cache[appwritePath] = {
   id: appwritePath,
   path: appwritePath,
@@ -17,7 +21,12 @@ const appwritePath = requireCjs.resolve('node-appwrite');
       setProject() { return this; }
       setKey() { return this; }
     },
-    TablesDB: class TablesDB {},
+    TablesDB: class TablesDB {
+      constructor() {
+        if (!mockTablesDb) throw new Error('Missing TablesDB mock');
+        return mockTablesDb;
+      }
+    },
     Query: {
       equal: (key: string, value: unknown) => ({ op: 'equal', key, value }),
       lessThan: (key: string, value: unknown) => ({ op: 'lessThan', key, value }),
@@ -39,6 +48,7 @@ describe('tombstone-gc', () => {
   });
 
   afterEach(() => {
+    mockTablesDb = null;
     if (originalRetention === undefined) {
       delete process.env.TOMBSTONE_RETENTION_DAYS;
     } else {
@@ -103,5 +113,42 @@ describe('tombstone-gc', () => {
       'messages',
     ]);
     expect(listRows).toHaveBeenCalledTimes(6);
+  });
+
+  // Regression: AGENTS.md — Non-negotiable data and sync rules.
+  it('runs the deployed handler path and reports an empty manual execution', async () => {
+    const listRows = vi.fn().mockResolvedValue({ rows: [] });
+    mockTablesDb = { listRows, deleteRow: vi.fn() };
+    const json = vi.fn().mockImplementation((body, status = 200) => ({ body, status }));
+    const log = vi.fn();
+    const error = vi.fn();
+
+    const response = await handler({
+      req: { headers: { 'x-appwrite-key': 'test-service-key' } },
+      res: { json },
+      log,
+      error,
+    });
+
+    expect(response).toMatchObject({
+      status: 200,
+      body: {
+        ok: true,
+        retentionDays: 90,
+        totals: { scanned: 0, purged: 0 },
+      },
+    });
+    expect(response.body.cutoff).toEqual(expect.any(String));
+    expect(Object.keys(response.body.results)).toEqual([
+      'tasks',
+      'categories',
+      'diary',
+      'settings',
+      'friendships',
+      'messages',
+    ]);
+    expect(listRows).toHaveBeenCalledTimes(6);
+    expect(log).toHaveBeenLastCalledWith('tombstone-gc: complete scanned=0 purged=0');
+    expect(error).not.toHaveBeenCalled();
   });
 });

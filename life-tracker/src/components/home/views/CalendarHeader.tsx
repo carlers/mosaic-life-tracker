@@ -30,11 +30,13 @@ export const CalendarHeader: React.FC<CalendarHeaderProps> = ({
         className="text-base font-bold text-white flex-1 truncate transition-all duration-200"
         aria-live="polite"
       >
-        {activeView === 'calendar' ? title : 'Diary'}
+        {activeView === 'diary' ? 'Diary' : title}
       </h2>
-      {activeView === 'calendar' && (
+      {activeView !== 'diary' && (
         <div className="flex items-center gap-2 flex-shrink-0">
-          <ViewToggle activeMode={viewMode} onToggle={onToggleMode} />
+          {activeView === 'calendar' && (
+            <ViewToggle activeMode={viewMode} onToggle={onToggleMode} />
+          )}
           <button
             type="button"
             onClick={onPrev}

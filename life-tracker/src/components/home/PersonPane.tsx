@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { addMonths, format } from 'date-fns';
 import { PersonProfileHeader } from './PersonProfileHeader';
 import { CalendarHeader } from './views/CalendarHeader';
 import { CalendarBody } from './views/CalendarBody';
+import { TodoListView } from './views/TodoListView';
 import { ComingSoon } from '../layout/ComingSoon';
 import { useCalendarState } from './views/useCalendarState';
 import { useTasks } from '../../hooks/useTasks';
@@ -23,7 +25,7 @@ const FRIEND_REFETCH_MIN_INTERVAL_MS = 15_000;
 function readMeView(): ViewType {
   try {
     const v = localStorage.getItem('mosaic_home_view');
-    return v === 'diary' ? 'diary' : 'calendar';
+    return v === 'diary' || v === 'todo' ? v : 'calendar';
   } catch {
     return 'calendar';
   }
@@ -33,7 +35,7 @@ export const PersonPane: React.FC<PersonPaneProps> = ({ person, isActive }) => {
   const { user } = useAuth();
   const currentUserId = user?.$id ?? '';
 
-  const { tasks = [] } = useTasks();
+  const { tasks = [], toggleTaskCompletion } = useTasks();
   const { categories = [] } = useCategories();
 
   const { sendTaskReaction } = useMessageActions(
@@ -41,6 +43,7 @@ export const PersonPane: React.FC<PersonPaneProps> = ({ person, isActive }) => {
   );
 
   const [activeView, setActiveView] = useState<ViewType>(readMeView);
+  const [todoFocusDate, setTodoFocusDate] = useState(() => new Date());
 
   const calendarState = useCalendarState();
 
@@ -84,16 +87,31 @@ export const PersonPane: React.FC<PersonPaneProps> = ({ person, isActive }) => {
     [sendTaskReaction]
   );
 
+  const handleTodoPrev = useCallback(() => {
+    setTodoFocusDate((date) => addMonths(date, -1));
+  }, []);
+
+  const handleTodoNext = useCallback(() => {
+    setTodoFocusDate((date) => addMonths(date, 1));
+  }, []);
+
+  const handleToggleTodoTask = useCallback(
+    (task: TaskDocument) => {
+      void toggleTaskCompletion(task.id, !task.completed);
+    },
+    [toggleTaskCompletion]
+  );
+
   if (person.kind === 'friend' && friendUserId) {
     return (
       <div className="flex flex-col h-full">
         <PersonProfileHeader person={person} isActive={isActive} />
         <CalendarHeader
-          title={calendarState.title}
+          title={activeView === 'todo' ? format(todoFocusDate, 'MMMM yyyy') : calendarState.title}
           viewMode={calendarState.viewMode}
           onToggleMode={calendarState.handleToggle}
-          onPrev={calendarState.handlePrev}
-          onNext={calendarState.handleNext}
+          onPrev={activeView === 'todo' ? handleTodoPrev : calendarState.handlePrev}
+          onNext={activeView === 'todo' ? handleTodoNext : calendarState.handleNext}
           activeView={activeView}
           onViewChange={setActiveView}
         />
@@ -127,11 +145,11 @@ export const PersonPane: React.FC<PersonPaneProps> = ({ person, isActive }) => {
     <div className="flex flex-col h-full">
       <PersonProfileHeader person={person} isActive={isActive} />
       <CalendarHeader
-        title={calendarState.title}
+        title={activeView === 'todo' ? format(todoFocusDate, 'MMMM yyyy') : calendarState.title}
         viewMode={calendarState.viewMode}
         onToggleMode={calendarState.handleToggle}
-        onPrev={calendarState.handlePrev}
-        onNext={calendarState.handleNext}
+        onPrev={activeView === 'todo' ? handleTodoPrev : calendarState.handlePrev}
+        onNext={activeView === 'todo' ? handleTodoNext : calendarState.handleNext}
         activeView={activeView}
         onViewChange={setActiveView}
       />
@@ -149,6 +167,13 @@ export const PersonPane: React.FC<PersonPaneProps> = ({ person, isActive }) => {
           isActive={isActive}
           onPrev={calendarState.handlePrev}
           onNext={calendarState.handleNext}
+        />
+      ) : activeView === 'todo' ? (
+        <TodoListView
+          focusDate={todoFocusDate}
+          tasks={tasks}
+          categoriesMap={categoriesMap}
+          onToggleTask={handleToggleTodoTask}
         />
       ) : (
         <ComingSoon />
