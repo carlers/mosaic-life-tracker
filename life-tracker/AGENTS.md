@@ -121,9 +121,17 @@ before it could write or checkpoint.
 - Keep components cohesive rather than enforcing arbitrary line limits. Split files
   when it improves ownership, reuse, testing, or readability.
 - Update `SESSION_STATE.md` at meaningful checkpoints and handoffs, including its
-  working set and completed/remaining substeps. Do not store commit status or the active
-  workflow there; derive commit state from Git and workflow role from the user prompt.
+  working set and completed/remaining substeps. Do not store branch/working-tree status or
+  the active workflow there; derive those from Git and the user prompt. It may record exact
+  verified commit IDs or run numbers when they are needed to identify a recovery checkpoint.
   Update `PLAN.md` only after the corresponding work is verified.
+- **Interrupted-task recovery:** at the start of every user-scoped task or continuation,
+  write the active user prompt verbatim into `SESSION_STATE.md` before material work.
+  Keep a numbered `Progress` section whose steps are explicitly marked Done, In progress,
+  Pending, or Blocked. Update those steps after every meaningful implementation,
+  verification, deployment, or decision checkpoint. The file must always make the next
+  unfinished action obvious enough that a fresh agent can resume without reconstructing
+  the task from chat history.
 - After all required checks pass, recommend one concise conventional commit message.
   When the active surface can present native approval buttons for the concrete Git command,
   use that approval prompt as commit confirmation. Otherwise ask the text fallback:
