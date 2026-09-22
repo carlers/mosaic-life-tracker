@@ -14,7 +14,8 @@ interface DaySlideProps {
   onToggleTask: (taskId: string, currentStatus: boolean) => void;
   onAddTask: (title: string, categoryId: string, dateStr: string) => void;
   onOpenActions: (task: TaskDocument) => void;
-  onOpenMemo: (task: TaskDocument) => void;
+  onOpenMemo: (task: TaskDocument, mode: 'view' | 'edit') => void;
+  onEditTask: (task: TaskDocument) => void;
   onViewImage: (task: TaskDocument) => void;
   onEditChange: (val: string) => void;
   onEditSave: () => void;
@@ -33,6 +34,7 @@ const DaySlideComponent: React.FC<DaySlideProps> = ({
   onAddTask,
   onOpenActions,
   onOpenMemo,
+  onEditTask,
   onViewImage,
   onEditChange,
   onEditSave,
@@ -80,6 +82,7 @@ const DaySlideComponent: React.FC<DaySlideProps> = ({
           onAddTask={(title) => onAddTask(title, cat.id, dateStr)}
           onOpenActions={onOpenActions}
           onOpenMemo={onOpenMemo}
+          onEditTask={onEditTask}
           onViewImage={onViewImage}
           editingTaskId={editingTaskId}
           editValue={editValue}

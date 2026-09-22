@@ -231,7 +231,7 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
 
   const heightClass =
     height === 'full'
-      ? 'h-[100dvh] rounded-t-3xl'
+      ? 'h-[92dvh] md:h-[100dvh] rounded-t-3xl'
       : 'max-h-[90vh] rounded-t-3xl';
 
   const sheetContent = (
@@ -274,6 +274,13 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
             dragConstraints={{ top: 0 }}
             dragElastic={0.1}
             dragSnapToOrigin
+            onPointerDownCapture={(event) => {
+              if (isLocked) return;
+              const target = event.target as Element;
+              if (target.closest('[data-bottom-sheet-drag-handle]')) {
+                dragControls.start(event);
+              }
+            }}
             onDragEnd={(_, info) => {
               if (info.offset.y > 100 || info.velocity.y > 500) {
                 requestSheetClose(sheetId);

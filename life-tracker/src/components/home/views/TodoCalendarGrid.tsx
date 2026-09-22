@@ -64,7 +64,7 @@ const TodoMonthGrid: React.FC<TodoMonthGridProps> = ({
     <div
       role={isActive ? 'grid' : undefined}
       aria-label={isActive ? `${format(monthDate, 'MMMM yyyy')} todo calendar` : undefined}
-      className="w-full rounded-xl border border-[#333333] bg-[#1E1E1E] p-3"
+      className="w-full rounded-xl border border-[#333333] bg-transparent p-3"
     >
       <div className="mb-2 grid grid-cols-7" role={isActive ? 'row' : undefined}>
         {WEEKDAY_LABELS.map((label, index) => (

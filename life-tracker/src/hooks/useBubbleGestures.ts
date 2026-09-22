@@ -3,19 +3,13 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 export type SwipeDirection = 'left' | 'right';
 
 export interface UseBubbleGesturesOptions {
-  /** Which direction is a valid "reply" swipe. */
   swipeDirection?: SwipeDirection;
-  /** Fires on tap when no double-tap follows within the window. */
   onSingleTap?: () => void;
-  /** Fires when two taps occur within the double-tap window. */
   onDoubleTap?: () => void;
-  /** Fires after holding still for `longPressThreshold` ms. */
+  onTripleTap?: () => void;
   onLongPress?: () => void;
-  /** Fires when a valid reply swipe is released past threshold. */
   onSwipeReply?: () => void;
-  /** Desktop right-click handler. */
   onContextMenu?: (e: React.MouseEvent) => void;
-  /** When true, all gestures are disabled. */
   disabled?: boolean;
   longPressThreshold?: number;
   doubleTapWindow?: number;
@@ -29,9 +23,7 @@ export interface UseBubbleGesturesReturn {
   onPointerUp: (e: React.PointerEvent) => void;
   onPointerCancel: (e: React.PointerEvent) => void;
   onContextMenu: (e: React.MouseEvent) => void;
-  /** Signed offset of the current swipe (0 when idle). */
   swipeOffset: number;
-  /** True while the user is actively swiping horizontally. */
   isSwiping: boolean;
 }
 
@@ -42,6 +34,7 @@ export function useBubbleGestures(
     swipeDirection = 'right',
     onSingleTap,
     onDoubleTap,
+    onTripleTap,
     onLongPress,
     onSwipeReply,
     onContextMenu,
@@ -53,15 +46,14 @@ export function useBubbleGestures(
   } = options;
 
   const swipeSign = swipeDirection === 'right' ? 1 : -1;
-
   const [swipeOffset, setSwipeOffset] = useState(0);
   const [isSwiping, setIsSwiping] = useState(false);
-
   const startPosRef = useRef<{ x: number; y: number } | null>(null);
   const activePointerIdRef = useRef<number | null>(null);
   const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const tapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastTapRef = useRef(0);
+  const tapCountRef = useRef(0);
   const isSwipingRef = useRef(false);
   const swipeOffsetRef = useRef(0);
   const rafRef = useRef<number | null>(null);
@@ -80,6 +72,12 @@ export function useBubbleGestures(
       tapTimerRef.current = null;
     }
   }, []);
+
+  const resetTapSequence = useCallback(() => {
+    clearTapTimer();
+    lastTapRef.current = 0;
+    tapCountRef.current = 0;
+  }, [clearTapTimer]);
 
   const resetSwipe = useCallback(() => {
     isSwipingRef.current = false;
@@ -106,58 +104,47 @@ export function useBubbleGestures(
       if (disabled) return;
       if (e.pointerType === 'mouse' && e.button !== 0) return;
       if (activePointerIdRef.current !== null) return;
-
       activePointerIdRef.current = e.pointerId;
       startPosRef.current = { x: e.clientX, y: e.clientY };
       clearLongPress();
-
       try {
         (e.currentTarget as Element).setPointerCapture?.(e.pointerId);
       } catch {
-        /* ignore */
+        // Pointer capture is optional.
       }
-
       longPressTimerRef.current = setTimeout(() => {
         longPressTimerRef.current = null;
         startPosRef.current = null;
+        resetTapSequence();
         onLongPress?.();
       }, longPressThreshold);
     },
-    [disabled, clearLongPress, longPressThreshold, onLongPress]
+    [disabled, clearLongPress, longPressThreshold, onLongPress, resetTapSequence]
   );
 
   const onPointerMove = useCallback(
     (e: React.PointerEvent) => {
-      if (disabled) return;
-      if (activePointerIdRef.current !== e.pointerId) return;
+      if (disabled || activePointerIdRef.current !== e.pointerId) return;
       const start = startPosRef.current;
       if (!start) return;
-
       const dx = e.clientX - start.x;
       const dy = e.clientY - start.y;
 
-      // Vertical dominant: hand off to native scroll.
       if (Math.abs(dy) > 30 && Math.abs(dy) > Math.abs(dx)) {
         clearLongPress();
         resetSwipe();
         startPosRef.current = null;
         return;
       }
-
-      // Any meaningful horizontal movement kills the long-press.
       if (Math.abs(dx) > 8) clearLongPress();
-
-      // Wrong direction: abort.
       if (Math.abs(dx) > 8 && Math.sign(dx) !== swipeSign) {
         resetSwipe();
+        startPosRef.current = null;
         return;
       }
-
-      // Correct direction: enter swipe.
       if (dx * swipeSign > 8) {
         isSwipingRef.current = true;
-        const magnitude = Math.min(Math.abs(dx), swipeMaxDistance);
-        const nextOffset = magnitude * swipeSign;
+        const nextOffset = Math.min(Math.abs(dx), swipeMaxDistance) * swipeSign;
         swipeOffsetRef.current = nextOffset;
         pendingOffsetRef.current = nextOffset;
         setIsSwiping(true);
@@ -175,24 +162,68 @@ export function useBubbleGestures(
     [disabled, clearLongPress, resetSwipe, swipeSign, swipeMaxDistance]
   );
 
+  const dispatchTap = useCallback(() => {
+    const now = Date.now();
+    if (onTripleTap) {
+      tapCountRef.current =
+        lastTapRef.current && now - lastTapRef.current < doubleTapWindow
+          ? tapCountRef.current + 1
+          : 1;
+      lastTapRef.current = now;
+      clearTapTimer();
+      if (tapCountRef.current >= 3) {
+        resetTapSequence();
+        onTripleTap();
+        return;
+      }
+      tapTimerRef.current = setTimeout(() => {
+        const count = tapCountRef.current;
+        resetTapSequence();
+        if (count === 2) onDoubleTap?.();
+        else onSingleTap?.();
+      }, doubleTapWindow);
+      return;
+    }
+
+    if (now - lastTapRef.current < doubleTapWindow) {
+      clearTapTimer();
+      lastTapRef.current = 0;
+      onDoubleTap?.();
+    } else {
+      lastTapRef.current = now;
+      clearTapTimer();
+      tapTimerRef.current = setTimeout(() => {
+        tapTimerRef.current = null;
+        lastTapRef.current = 0;
+        onSingleTap?.();
+      }, doubleTapWindow);
+    }
+  }, [
+    clearTapTimer,
+    doubleTapWindow,
+    onDoubleTap,
+    onSingleTap,
+    onTripleTap,
+    resetTapSequence,
+  ]);
+
   const onPointerUp = useCallback(
     (e: React.PointerEvent) => {
       if (activePointerIdRef.current !== e.pointerId) return;
       activePointerIdRef.current = null;
       clearLongPress();
-
       try {
         (e.currentTarget as Element).releasePointerCapture?.(e.pointerId);
       } catch {
-        /* ignore */
+        // Ignore unsupported pointer capture.
       }
-
       const wasSwiping = isSwipingRef.current;
       const finalOffset = swipeOffsetRef.current;
       const hadStart = startPosRef.current !== null;
       startPosRef.current = null;
 
       if (wasSwiping) {
+        resetTapSequence();
         if (Math.abs(finalOffset) >= swipeThreshold) {
           resetSwipe();
           onSwipeReply?.();
@@ -201,33 +232,16 @@ export function useBubbleGestures(
         resetSwipe();
         return;
       }
-
       if (!hadStart) return;
-
-      const now = Date.now();
-      if (now - lastTapRef.current < doubleTapWindow) {
-        clearTapTimer();
-        lastTapRef.current = 0;
-        onDoubleTap?.();
-      } else {
-        lastTapRef.current = now;
-        clearTapTimer();
-        tapTimerRef.current = setTimeout(() => {
-          tapTimerRef.current = null;
-          lastTapRef.current = 0;
-          onSingleTap?.();
-        }, doubleTapWindow);
-      }
+      dispatchTap();
     },
     [
       clearLongPress,
-      clearTapTimer,
-      resetSwipe,
-      swipeThreshold,
-      doubleTapWindow,
+      dispatchTap,
       onSwipeReply,
-      onDoubleTap,
-      onSingleTap,
+      resetSwipe,
+      resetTapSequence,
+      swipeThreshold,
     ]
   );
 
@@ -237,9 +251,10 @@ export function useBubbleGestures(
       activePointerIdRef.current = null;
       clearLongPress();
       resetSwipe();
+      resetTapSequence();
       startPosRef.current = null;
     },
-    [clearLongPress, resetSwipe]
+    [clearLongPress, resetSwipe, resetTapSequence]
   );
 
   const handleContextMenu = useCallback(

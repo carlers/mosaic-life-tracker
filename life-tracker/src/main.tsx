@@ -9,6 +9,7 @@ import { ErrorBoundary } from './components/ui/ErrorBoundary';
 import { installChunkLoadErrorTracking } from './lib/chunkLoadErrors';
 import { initializePwaLifecycle } from './lib/pwaLifecycle';
 import { registerSW } from 'virtual:pwa-register';
+import { configureResponsiveOrientation } from './lib/orientation';
 import {
   captureHandledException,
   initializePostHog,
@@ -17,6 +18,7 @@ import {
 void initializePostHog();
 installChunkLoadErrorTracking();
 initializePwaLifecycle(window, registerSW);
+void configureResponsiveOrientation();
 
 function databaseErrorMessage(error: unknown): string {
   if (error instanceof Error && error.message.trim()) return error.message;

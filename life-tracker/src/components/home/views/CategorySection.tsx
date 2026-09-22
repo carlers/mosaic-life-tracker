@@ -16,7 +16,8 @@ interface CategorySectionProps {
   onToggleTask: (taskId: string, currentStatus: boolean) => void;
   onAddTask: (title: string) => void;
   onOpenActions: (task: TaskDocument) => void;
-  onOpenMemo: (task: TaskDocument) => void;
+  onOpenMemo: (task: TaskDocument, mode: 'view' | 'edit') => void;
+  onEditTask: (task: TaskDocument) => void;
   onViewImage?: (task: TaskDocument) => void;
   editingTaskId: string | null;
   editValue: string;
@@ -35,6 +36,7 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
   onAddTask,
   onOpenActions,
   onOpenMemo,
+  onEditTask,
   onViewImage,
   editingTaskId,
   editValue,
@@ -117,6 +119,7 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
           onToggle={() => onToggleTask(task.id, task.completed)}
           onOpenActions={onOpenActions}
           onOpenMemo={onOpenMemo}
+          onEditStart={onEditTask}
           onViewImage={onViewImage}
           isEditing={editingTaskId === task.id}
           editValue={editValue}

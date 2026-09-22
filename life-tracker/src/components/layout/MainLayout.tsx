@@ -16,7 +16,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children, activeTab, onT
       <OfflineBanner />
       
       {/* FIX: flex-1 now correctly fills remaining space. overflow-y-auto makes THIS the scroll container. */}
-      <main className="flex-1 overflow-y-auto pb-24">
+      <main className="flex-1 overflow-y-auto pb-[calc(4rem+env(safe-area-inset-bottom))]">
         {children}
       </main>
       

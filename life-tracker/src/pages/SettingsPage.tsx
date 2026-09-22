@@ -12,6 +12,7 @@ import {
   HelpCircle,
   LogOut,
   Database,
+  Trash2,
   ChevronLeft,
   FileDown,
   RefreshCw,
@@ -20,6 +21,7 @@ import { BottomSheet } from '../components/ui/BottomSheet';
 import { SettingsRow } from '../components/ui/SettingsRow';
 import { useAuth } from '../hooks/useAuth';
 import { destroyDatabase } from '../db/database';
+import { deleteAllUserData } from '../lib/deleteUserData';
 import { AccountSettingsSheet } from '../components/modals/AccountSettingsSheet';
 import { ChangeEmailSheet } from '../components/modals/ChangeEmailSheet';
 import { ChangePasswordSheet } from '../components/modals/ChangePasswordSheet';
@@ -30,7 +32,9 @@ export const SettingsPage: React.FC = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const [isClearDataOpen, setIsClearDataOpen] = useState(false);
+  const [isDeleteAllDataOpen, setIsDeleteAllDataOpen] = useState(false);
   const [isClearingData, setIsClearingData] = useState(false);
+  const [isDeletingAllData, setIsDeletingAllData] = useState(false);
   const [isAccountSettingsOpen, setIsAccountSettingsOpen] = useState(false);
   const [isChangeEmailOpen, setIsChangeEmailOpen] = useState(false);
   const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
@@ -51,6 +55,29 @@ export const SettingsPage: React.FC = () => {
       navigate('/login', { replace: true });
     } else {
       showFeedback('Sign out failed. Check your connection and try again.');
+    }
+  };
+
+  const handleDeleteAllData = async () => {
+    const userId = user?.$id;
+    if (!userId) return;
+    setIsDeletingAllData(true);
+    try {
+      await deleteAllUserData(userId);
+      const ok = await logout();
+      if (!ok) {
+        setIsDeletingAllData(false);
+        setIsDeleteAllDataOpen(false);
+        showFeedback('Data deleted, but sign out failed. Try signing out again.');
+        return;
+      }
+      await destroyDatabase();
+      window.location.reload();
+    } catch (error) {
+      console.error('[SettingsPage] Failed to delete all user data:', error);
+      setIsDeletingAllData(false);
+      setIsDeleteAllDataOpen(false);
+      showFeedback('Delete failed. Check your connection and try again.');
     }
   };
 
@@ -165,6 +192,13 @@ export const SettingsPage: React.FC = () => {
         </div>
         <div className="border-t border-[#333333] py-2">
           <SettingsRow
+            icon={<Trash2 size={18} className="text-red-500" aria-hidden="true" />}
+            label="Delete All User Data"
+            isDestructive={true}
+            showChevron={false}
+            onClick={() => setIsDeleteAllDataOpen(true)}
+          />
+          <SettingsRow
             icon={<Database size={18} className="text-red-500" aria-hidden="true" />}
             label="Clear Local Data"
             isDestructive={true}
@@ -190,6 +224,38 @@ export const SettingsPage: React.FC = () => {
           </button>
         </div>
       </div>
+      <BottomSheet
+        isOpen={isDeleteAllDataOpen}
+        onClose={() => setIsDeleteAllDataOpen(false)}
+        title="Delete All User Data"
+        height="auto"
+      >
+        <div className="pt-2 pb-8 px-4">
+          <p className="text-gray-300 text-sm text-center mb-6 leading-relaxed">
+            Delete all Mosaic data you own from sync, including tasks, categories,
+            diary entries, settings, friendships, messages, profile visibility,
+            and referenced images. This does not delete your login account.
+          </p>
+          <div className="flex gap-3">
+            <button
+              type="button"
+              onClick={() => setIsDeleteAllDataOpen(false)}
+              disabled={isDeletingAllData}
+              className="flex-1 py-3 bg-[#2A2A2A] rounded-xl text-white font-medium disabled:opacity-50"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={handleDeleteAllData}
+              disabled={isDeletingAllData}
+              className="flex-1 py-3 bg-red-500 rounded-xl text-white font-medium disabled:opacity-50"
+            >
+              {isDeletingAllData ? 'Deleting...' : 'Delete All'}
+            </button>
+          </div>
+        </div>
+      </BottomSheet>
       <BottomSheet
         isOpen={isClearDataOpen}
         onClose={() => setIsClearDataOpen(false)}

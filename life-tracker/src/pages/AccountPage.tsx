@@ -44,7 +44,7 @@ export const AccountPage: React.FC = () => {
           <Settings size={20} aria-hidden="true" />
         </button>
       </div>
-      <div className="flex-1 overflow-y-auto pb-24 px-4 pt-6 space-y-6">
+      <div className="flex-1 overflow-y-auto px-4 pt-6 pb-4 space-y-6" data-testid="account-scroll">
         <div className="flex flex-col items-center text-center space-y-3">
           <Avatar size="lg" alt={user?.name || user?.email || 'User'} />
           <div>
@@ -97,16 +97,16 @@ export const AccountPage: React.FC = () => {
           </p>
           <p className="text-xs text-gray-400 mt-1">Eleanor Chaffee</p>
         </div>
-      </div>
-      <div className="px-4 pb-8">
-        <Button
+        <div className="pb-4">
+          <Button
           variant="danger"
           className="w-full gap-2 py-3"
           onClick={handleLogout}
         >
           <LogOut size={18} aria-hidden="true" />
           Logout
-        </Button>
+          </Button>
+        </div>
       </div>
       {feedback && (
         <div

@@ -55,7 +55,7 @@ export const TodoListView: React.FC<TodoListViewProps> = ({
         onMonthChange={onFocusDateChange}
       />
 
-      <div className="mt-4 min-w-0 w-full max-w-full overflow-x-hidden">
+      <div className="mt-1 min-w-0 w-full max-w-full overflow-x-hidden" data-testid="todo-day-section">
         <DayViewSheet
           key={focusMonthKey}
           isOpen

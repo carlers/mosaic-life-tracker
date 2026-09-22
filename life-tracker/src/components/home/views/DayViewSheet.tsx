@@ -71,6 +71,7 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
   const [editValue, setEditValue] = useState('');
   const [isMemoOpen, setIsMemoOpen] = useState(false);
+  const [memoInitialMode, setMemoInitialMode] = useState<'view' | 'edit'>('edit');
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
   const [isVisibilityOpen, setIsVisibilityOpen] = useState(false);
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
@@ -157,9 +158,18 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
     setIsActionSheetOpen(false);
   }, []);
 
-  const handleOpenMemo = useCallback((task: TaskDocument) => {
-    setActiveTaskId(task.id);
-    setIsMemoOpen(true);
+  const handleOpenMemo = useCallback(
+    (task: TaskDocument, mode: 'view' | 'edit' = 'view') => {
+      setActiveTaskId(task.id);
+      setMemoInitialMode(mode);
+      setIsMemoOpen(true);
+    },
+    []
+  );
+
+  const handleEditTask = useCallback((task: TaskDocument) => {
+    setEditingTaskId(task.id);
+    setEditValue(task.title);
   }, []);
 
   const handleViewImage = useCallback((task: TaskDocument) => {
@@ -193,7 +203,7 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
 
   const handleMemoSave = async (
     memo: string,
-    visibility: 'private' | 'followers' | 'public'
+    visibility: '' | 'private' | 'followers' | 'public'
   ) => {
     if (!activeTask) return;
     await updateTask(activeTask.id, { memo, visibility });
@@ -391,7 +401,10 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
               <div
                 className={renderMode === 'inline' ? 'w-full min-w-0' : 'flex h-full min-h-0 w-full min-w-0 flex-col'}
               >
-                <div className="flex shrink-0 items-center justify-between gap-2 px-4 py-2">
+                <div
+                  className={`flex shrink-0 items-center justify-between gap-2 px-4 py-2 ${renderMode === 'sheet' ? 'touch-none' : ''}`}
+                  data-bottom-sheet-drag-handle={renderMode === 'sheet' ? 'true' : undefined}
+                >
                   <button
                     type="button"
                     onClick={handlePrevDay}
@@ -431,6 +444,7 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
                     onAddTask={handleAddTask}
                     onOpenActions={handleOpenActions}
                     onOpenMemo={handleOpenMemo}
+                    onEditTask={handleEditTask}
                     onViewImage={handleViewImage}
                     onEditChange={handleEditChange}
                     onEditSave={handleEditSave}
@@ -448,16 +462,13 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
         task={activeTask}
         category={activeTaskCategory}
         onEdit={() => {
-          if (activeTask) {
-            setEditingTaskId(activeTask.id);
-            setEditValue(activeTask.title);
-          }
+          if (activeTask) handleEditTask(activeTask);
           setIsActionSheetOpen(false);
           setActiveTaskId(null);
         }}
         onDelete={handleOpenDeleteConfirm}
         onMemo={() => {
-          setIsMemoOpen(true);
+          if (activeTask) handleOpenMemo(activeTask, 'edit');
           setIsActionSheetOpen(false);
         }}
         onChangeDate={handleOpenDatePicker}
@@ -474,6 +485,7 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
             onClose={handleCloseMemo}
             task={activeTask}
             onSave={handleMemoSave}
+            initialMode={memoInitialMode}
           />
         )}
         {isDatePickerOpen && activeTask && (
