@@ -234,7 +234,7 @@ export const TodoCalendarGrid: React.FC<TodoCalendarGridProps> = ({
   return (
     <div
       ref={emblaRef}
-      className="swiper-no-swiping w-full min-w-0 max-w-full overflow-hidden touch-pan-y"
+      className="swiper-no-swiping w-full min-w-0 max-w-full shrink-0 overflow-hidden touch-pan-y"
       data-testid="todo-calendar-grid"
     >
       <div className="flex">

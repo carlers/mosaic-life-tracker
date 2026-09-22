@@ -63,7 +63,7 @@ const DaySlideComponent: React.FC<DaySlideProps> = ({
     <div
       className={
         scrollMode === 'contained'
-          ? 'h-full w-full min-w-0 overflow-y-auto px-4 pb-8'
+          ? 'min-h-0 w-full min-w-0 flex-1 overflow-y-auto px-4 pb-8'
           : 'w-full min-w-0 px-4 pb-8'
       }
       data-testid="day-slide"

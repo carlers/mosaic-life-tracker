@@ -46,70 +46,7 @@ jobs:
       - name: Verify repository gate
         run: npm run verify
 
-
-  hygiene:
-    needs: [verify, browser-contract]
-    if: github.ref == 'refs/heads/chatgpt/todo-tdd-test-audit'
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-      actions: write
-    steps:
-      - name: Check out repository
-        uses: actions/checkout@v4
-
-      - name: Purge stale branches and retired workflow history
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
-
-          stale_branches=(
-            chatgpt/appwrite-live-rollout
-            chatgpt/appwrite-shared-maintenance
-            chatgpt/fix-todo-layout-swipe-ci
-            chatgpt/native-back-keyboard-nav
-            chatgpt/native-back-stack-v2
-            chatgpt/phase4-calendar-semantics
-            chatgpt/phase-3-7-posthog
-            chatgpt/playwright-interaction-contract
-            chatgpt/todo-dayview-parity
-            chatgpt/fix-nested-sheet-back-stack
-            chatgpt/tombstone-retention
-            chatgpt/tombstone-retention-v2
-            experiment/codex-workflow
-            codex/find-project-workflow-explanation
-            codex/follow-documentation-steps
-            chatgpt/todo-tdd-test-audit
-          )
-
-          for branch in "${stale_branches[@]}"; do
-            git push "https://x-access-token:$GH_TOKEN@github.com/$GITHUB_REPOSITORY.git"               --delete "$branch" || true
-          done
-
-          retired_workflows=(363395644 363175235 363076037)
-          for workflow_id in "${retired_workflows[@]}"; do
-            curl -fsSL -X PUT \
-              -H "Authorization: Bearer $GH_TOKEN" \
-              -H "Accept: application/vnd.github+json" \
-              "https://api.github.com/repos/$GITHUB_REPOSITORY/actions/workflows/$workflow_id/disable" \
-              || true
-            run_ids="$(curl -sSL \
-              -H "Authorization: Bearer $GH_TOKEN" \
-              -H "Accept: application/vnd.github+json" \
-              "https://api.github.com/repos/$GITHUB_REPOSITORY/actions/workflows/$workflow_id/runs?per_page=100" \
-              | jq -r '.workflow_runs[]?.id')"
-            for run_id in $run_ids; do
-              curl -sSL -o /dev/null -X DELETE \
-                -H "Authorization: Bearer $GH_TOKEN" \
-                -H "Accept: application/vnd.github+json" \
-                "https://api.github.com/repos/$GITHUB_REPOSITORY/actions/runs/$run_id" \
-                || true
-            done
-          done
-
   browser-contract:
-    needs: verify
     runs-on: ubuntu-latest
     timeout-minutes: 15
     defaults:
@@ -133,8 +70,16 @@ jobs:
       - name: Install pinned browser-test dependencies
         run: npm install --no-save --package-lock=false @playwright/test@1.58.2 @axe-core/playwright@4.10.2
 
-      - name: Install Chromium
-        run: npx playwright install --with-deps chromium
+      - name: Cache Playwright Chromium
+        id: playwright-browser-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-chromium-1.58.2
+
+      - name: Install Chromium on cache miss
+        if: steps.playwright-browser-cache.outputs.cache-hit != 'true'
+        run: npx playwright install chromium
 
       - name: Start local Mosaic
         env:

@@ -42,7 +42,10 @@ export const TodoListView: React.FC<TodoListViewProps> = ({
   );
 
   return (
-    <section className="swiper-no-swiping flex min-h-0 min-w-0 w-full max-w-full flex-1 flex-col overflow-x-hidden overflow-y-auto px-4 pb-8 pt-4 animate-in fade-in duration-300">
+    <section
+      className="swiper-no-swiping min-h-0 min-w-0 w-full max-w-full flex-1 overflow-x-hidden overflow-y-auto px-4 pb-8 pt-4 animate-in fade-in duration-300"
+      data-testid="todo-scroll-region"
+    >
       <TodoCalendarGrid
         focusDate={focusDate}
         selectedDate={selectedDate}
@@ -52,11 +55,7 @@ export const TodoListView: React.FC<TodoListViewProps> = ({
         onMonthChange={onFocusDateChange}
       />
 
-      <h3 className="mt-6 px-1 text-base font-bold text-white">
-        {format(selectedDate, 'EEEE, MMMM d')}
-      </h3>
-
-      <div className="mt-2 min-w-0 w-full max-w-full overflow-x-hidden">
+      <div className="mt-4 min-w-0 w-full max-w-full overflow-x-hidden">
         <DayViewSheet
           key={focusMonthKey}
           isOpen

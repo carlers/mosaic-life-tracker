@@ -8,6 +8,7 @@ interface BottomSheetProps {
   onClose: () => void;
   children: React.ReactNode;
   title?: string;
+  ariaLabel?: string;
   height?: 'auto' | 'full';
   isLocked?: boolean;
   suspendInteraction?: boolean;
@@ -174,6 +175,7 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
   onClose,
   children,
   title,
+  ariaLabel,
   height = 'auto',
   isLocked = false,
   suspendInteraction = false,
@@ -261,6 +263,7 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
             aria-modal="true"
             aria-hidden={suspendInteraction ? true : undefined}
             aria-labelledby={title ? titleId : undefined}
+            aria-label={!title ? ariaLabel : undefined}
             initial={{ y: '100%' }}
             animate={{ y: 0 }}
             exit={{ y: '100%' }}

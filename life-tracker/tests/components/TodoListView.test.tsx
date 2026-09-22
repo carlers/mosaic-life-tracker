@@ -1,3 +1,4 @@
+import { format } from 'date-fns';
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import type { CategoryDocument, TaskDocument } from '../../src/db/schema';
@@ -23,6 +24,7 @@ vi.mock('../../src/components/home/views/DayViewSheet', () => ({
         selectedDate.getMonth() + 1
       ).padStart(2, '0')}-${String(selectedDate.getDate()).padStart(2, '0')}`}
     >
+      <h3>{format(selectedDate, 'EEEE, MMMM d')}</h3>
       <span>{tasks?.[0]?.title ?? 'No passed task'}</span>
       <span>{categories?.[0]?.name ?? 'No passed category'}</span>
       <button

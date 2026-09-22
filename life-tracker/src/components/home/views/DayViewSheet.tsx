@@ -357,39 +357,24 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
 
   const content = (
     <>
-      <div className="flex items-center justify-between px-4 py-2">
-        <button
-          onClick={handlePrevDay}
-          className="p-2 text-gray-400"
-          aria-label="Previous day"
-        >
-          <ChevronLeft size={20} />
-        </button>
-        <span className="sr-only" aria-live="polite">
-          {format(selectedDate, 'EEEE, MMMM d, yyyy')}
-        </span>
-        <button
-          onClick={handleNextDay}
-          className="p-2 text-gray-400"
-          aria-label="Next day"
-        >
-          <ChevronRight size={20} />
-        </button>
-      </div>
       <Swiper
         nested={renderMode === 'inline'}
         noSwiping={renderMode === 'inline' ? false : undefined}
+        touchStartPreventDefault={false}
+        touchMoveStopPropagation={false}
         autoHeight={renderMode === 'inline'}
         onSwiper={(swiper) => {
           swiperRef.current = swiper;
         }}
         initialSlide={initialIndex}
         onSlideChange={handleSwipeSettled}
+        data-testid="day-swiper"
         className={`min-w-0 w-full max-w-full overflow-hidden ${renderMode === 'inline' ? '' : 'flex-1'}`}
         style={{
           width: '100%',
           maxWidth: '100%',
           height: renderMode === 'inline' ? 'auto' : undefined,
+          touchAction: 'pan-y',
         }}
       >
         {slideDates.map((date, i) => {
@@ -400,28 +385,59 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
             <SwiperSlide
               key={date.toISOString()}
               className="min-w-0"
-              style={{ height: renderMode === 'inline' ? 'auto' : undefined }}
+              aria-hidden={i === activeIndex ? undefined : true}
+              style={{ height: renderMode === 'inline' ? 'auto' : '100%' }}
             >
-              {inWindow && (
-                <DaySlide
-                  date={date}
-                  dateStr={dateStr}
-                  scrollMode={renderMode === 'inline' ? 'page' : 'contained'}
-                  tasks={dayTasks}
-                  categories={categories}
-                  currentUserId={currentUserId}
-                  editingTaskId={editingTaskId}
-                  editValue={editValue}
-                  onToggleTask={handleToggleTask}
-                  onAddTask={handleAddTask}
-                  onOpenActions={handleOpenActions}
-                  onOpenMemo={handleOpenMemo}
-                  onViewImage={handleViewImage}
-                  onEditChange={handleEditChange}
-                  onEditSave={handleEditSave}
-                  onEditCancel={handleEditCancel}
-                />
-              )}
+              <div
+                className={renderMode === 'inline' ? 'w-full min-w-0' : 'flex h-full min-h-0 w-full min-w-0 flex-col'}
+              >
+                <div className="flex shrink-0 items-center justify-between gap-2 px-4 py-2">
+                  <button
+                    type="button"
+                    onClick={handlePrevDay}
+                    tabIndex={i === activeIndex ? 0 : -1}
+                    className="p-2 text-gray-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
+                    aria-label="Previous day"
+                  >
+                    <ChevronLeft size={20} />
+                  </button>
+                  <h3
+                    className="min-w-0 flex-1 text-center text-sm font-semibold text-white"
+                    aria-live={i === activeIndex ? 'polite' : undefined}
+                  >
+                    {format(date, 'EEEE, MMMM d, yyyy')}
+                  </h3>
+                  <button
+                    type="button"
+                    onClick={handleNextDay}
+                    tabIndex={i === activeIndex ? 0 : -1}
+                    className="p-2 text-gray-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
+                    aria-label="Next day"
+                  >
+                    <ChevronRight size={20} />
+                  </button>
+                </div>
+                {inWindow && (
+                  <DaySlide
+                    date={date}
+                    dateStr={dateStr}
+                    scrollMode={renderMode === 'inline' ? 'page' : 'contained'}
+                    tasks={dayTasks}
+                    categories={categories}
+                    currentUserId={currentUserId}
+                    editingTaskId={editingTaskId}
+                    editValue={editValue}
+                    onToggleTask={handleToggleTask}
+                    onAddTask={handleAddTask}
+                    onOpenActions={handleOpenActions}
+                    onOpenMemo={handleOpenMemo}
+                    onViewImage={handleViewImage}
+                    onEditChange={handleEditChange}
+                    onEditSave={handleEditSave}
+                    onEditCancel={handleEditCancel}
+                  />
+                )}
+              </div>
             </SwiperSlide>
           );
         })}
@@ -545,7 +561,7 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
     <BottomSheet
       isOpen={isOpen}
       onClose={onClose}
-      title={format(selectedDate, 'EEEE, MMMM d, yyyy')}
+      ariaLabel={format(selectedDate, 'EEEE, MMMM d, yyyy')}
       height="full"
       isLocked={isBackgroundLocked}
       suspendInteraction={isBackgroundLocked}
