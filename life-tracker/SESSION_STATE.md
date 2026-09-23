@@ -1,42 +1,33 @@
 # Session state
 
 Updated: 2026-09-23
-Current task: cross-browser manual PWA update-check compatibility
+Current task: focused app performance optimization pass — continuation
 
 ## Active user prompt
 
-> continue and ensure all browsers will work including ios safari
+> go on
 
 ## Parent prompt
 
-> update checking umavailable for this browser (brave) when i click check for updates
+> do a focused optimization pass to speed up performance of this app
 
 ## Progress
 
-1. **Done — recovery/base selection.** Read repository guidance, current PWA lifecycle code, Settings update UI, existing PWA tests, and current Preview state.
-2. **Done — root cause.** Manual update checks returned `unavailable` whenever vite-plugin-pwa's registration callback did not leave a captured `ServiceWorkerRegistration`, even if the browser still had a valid registration.
-3. **Done — Brave regression red.** Verify #161 (`35814608455`) failed the new recovery contract: callback-missing/browser-registration-present returned `unavailable` and never consulted the browser registration API.
-4. **Done — first compatibility fix.** Added the standard `navigator.serviceWorker.getRegistration()` recovery path. Verify #162 (`35814831101`) passed 78/78 Vitest files, 534/534 tests, and 20/20 browser contracts.
-5. **Done — cross-browser/Safari compatibility review.** MDN marks `ServiceWorkerContainer.getRegistration()`, `ServiceWorkerContainer.ready`, and `ServiceWorkerRegistration.update()` as widely available secure-context APIs. WebKit documents Service Worker support in Safari/iOS web apps. The implementation therefore uses feature detection and standards-only fallbacks, not user-agent sniffing.
-6. **Done — Safari/WebKit regression red.** Verify #164 (`35815255117`) failed exactly because a controlled page whose direct registration lookup yielded none did not fall back to `serviceWorker.ready`: expected `up-to-date`, received `unavailable`.
-7. **Done — final cross-browser implementation.** Registration resolution is now: captured registration → `getRegistration()` → controlled-page `serviceWorker.ready`. Browsers without Service Worker support, pages with no matching registration, and uncontrolled pages still return `unavailable` immediately rather than waiting indefinitely.
-8. **Done — green implementation gate.** Verify #166 (`35815413162`) passed 78/78 Vitest files, 535/535 tests, 20/20 Playwright browser contracts, contracts/discovery/lint/build/PWA/build-size checks. Task-branch Vercel deployment `dpl_EfRzV1RMhnywpMSBcr8L2EyPGqrd` is READY.
-9. **Done — final rollout.** Consolidated commit `92493ab61ecbb39882a64445bfb9ad33503a8ebe` passed task-branch Verify #168 (`35815715398`), was fast-forwarded to `preview`, then passed Preview Verify #169 (`35815903230`). Preview Vercel deployment `dpl_Bd9ffvBuCZCtNrfShZ21dadYkPfL` is READY and owns the stable preview alias. Product code rollout is complete; only real-browser smoke confirmation remains.
+1. **Done — recovery/base selection.** Read `AGENTS.md`, the latest session state, roadmap/workflow docs, current Preview source, recent performance-pass history, and the latest Verify build output. The prior pass is already complete on Preview; this continuation starts from current Preview head `91ddb80576df52f13a70c5c775a5752f867a1148`.
+2. **In progress — profile the next runtime/startup bottlenecks.** Re-check global providers, eager startup modules, route chunking, conversation/unread aggregation, animation ownership, and current entry/precache measurements. Select only behavior-preserving changes with a measurable or directly testable reduction in work.
+3. **Pending — write spec/performance regression contracts first.** Add focused contracts for the selected hot paths before implementation and capture meaningful red where practical.
+4. **Pending — implement measured wins.** Apply only changes that reduce startup parse/load, subscription work, render work, or repeated allocations without changing UI/product behavior.
+5. **Pending — focused green checks + build measurement.** Use the relevant remote Verify run(s) to compare runtime/bundle contracts against the current baseline.
+6. **Pending — full acceptance gate.** Require repository + browser jobs green and review test evidence.
+7. **Pending — Preview rollout.** Fast-forward `preview` only to the exact green verified commit, confirm Vercel READY, then update this state with final run/deployment IDs.
+8. **Pending — concise user handoff.** Report bullet-pointed performance wins, verification, deployment, and any remaining manual frame-smoothness check.
 
-Status: Cross-browser update-check compatibility is implemented, verified, and deployed to Preview. Brave and iOS Safari/Home Screen manual smoke checks remain acceptance-only; there is no code blocker.
-Roadmap pointer: Todo List hosted/manual acceptance remains independent; this is a scoped PWA update-check compatibility fix.
-Blockers: No code blocker. Real iOS Safari/Home Screen behavior requires device/browser acceptance because CI currently runs Chromium browser contracts.
+Status: Performance continuation is active; no product behavior or visual change is intended.
+Roadmap pointer: This is a behavior-preserving optimization batch. Existing Todo/PWA manual acceptance remains independent.
+Blockers: None currently.
 
 ## Verification
 
-- Behavioral red: Verify #161 captured the missing direct-registration fallback.
-- Behavioral red: Verify #164 captured the missing controlled-page `ready` fallback.
-- Green implementation: Verify #166 passed 78/78 Vitest files, 535/535 tests, 20/20 Playwright browser contracts, plus production build/PWA/build-size checks.
-- Consolidated task checkpoint: Verify #168 (`35815715398`) passed the same 78/78 files, 535/535 tests, and 20/20 browser contracts.
-- Preview rollout: Verify #169 (`35815903230`) passed 78/78 files, 535/535 tests, 20/20 browser contracts; Vercel deployment `dpl_Bd9ffvBuCZCtNrfShZ21dadYkPfL` is READY on the stable preview alias.
-- Standards basis: only Service Worker APIs standardized across current browser families are used; no browser-specific UA branch exists.
-- Manual remaining: Brave + iOS Safari/Home Screen **Check for Updates** smoke test after Preview promotion.
-
-## Prior completed checkpoint
-
-The preceding focused performance optimization pass is complete on Preview. Final state checkpoint `e01dc7d624d8293b1a3ca29840bade3bab7327dd` passed Verify `35811333257`, with its Vercel deployment READY.
+- Current baseline Preview Verify: latest green Verify on `91ddb80576df52f13a70c5c775a5752f867a1148`.
+- Latest production build observed before this continuation: entry ~864.17 kB raw / 270.57 kB gzip; app-assets gzip ~558.8 kB; precache ~1.934 MB.
+- Prior performance pass already reduced calendar mounted grids, stabilized mapped RxDB identity, removed redundant Home Swiper observers, reduced person-carousel animation/controller work, and made conversation aggregation single-pass.
