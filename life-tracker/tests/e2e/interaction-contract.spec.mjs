@@ -132,13 +132,29 @@ test('todo calendar follows the finger before snapping months', async ({ page })
 });
 
 // Regression: PROJECT_REFERENCE.md §2 — Todo calendar card is visually transparent.
-test('todo compact calendar has no gray card fill', async ({ page }) => {
+test('todo compact calendar has no gray card fill or border', async ({ page }) => {
   await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html`);
 
   const grid = page.getByRole('grid', { name: 'September 2026 todo calendar' });
   expect(await grid.evaluate((element) => getComputedStyle(element).backgroundColor)).toBe(
     'rgba(0, 0, 0, 0)'
   );
+  expect(await grid.evaluate((element) => getComputedStyle(element).borderTopWidth)).toBe(
+    '0px'
+  );
+});
+
+// Regression: PROJECT_REFERENCE.md §21 — a Send tap must not blur the active textarea.
+test('message send keeps composer focus without an intermediate blur', async ({ page }) => {
+  await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html`);
+
+  const composer = page.getByRole('textbox', { name: 'Message' });
+  await composer.fill('keep keyboard open');
+  await composer.focus();
+  await page.getByRole('button', { name: 'Send' }).click();
+
+  await expect(composer).toBeFocused();
+  await expect(page.getByTestId('composer-blur-count')).toHaveText('0');
 });
 
 // Regression: PROJECT_REFERENCE.md §2 — real DaySlide exposes memo text and owner multi-tap shortcuts.

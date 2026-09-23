@@ -9,6 +9,7 @@ import { CalendarCarousel } from '../../src/components/home/views/CalendarCarous
 import { TodoCalendarGrid } from '../../src/components/home/views/TodoCalendarGrid';
 import { DaySlide } from '../../src/components/home/views/DaySlide';
 import { BottomSheet } from '../../src/components/ui/BottomSheet';
+import { MessageComposer } from '../../src/components/messages/MessageComposer';
 import type { CategoryDocument, TaskDocument } from '../../src/db/schema';
 import { useCalendarState } from '../../src/components/home/views/useCalendarState';
 import { useHorizontalArrowNavigation } from '../../src/hooks/useHorizontalArrowNavigation';
@@ -23,6 +24,7 @@ export function InteractionHarness() {
   const [todoSelectedDate, setTodoSelectedDate] = useState(
     () => new Date(2026, 8, 15)
   );
+  const [composerBlurCount, setComposerBlurCount] = useState(0);
 
   const todoCategories: CategoryDocument[] = Array.from({ length: 5 }, (_, index) => ({
     id: `cat_${index}`,
@@ -65,6 +67,18 @@ export function InteractionHarness() {
         <span>Todo selected: <output data-testid="todo-selected-date">{format(todoSelectedDate, 'yyyy-MM-dd')}</output></span>
         <span>Todo gesture: <output data-testid="todo-gesture">{todoGesture}</output></span>
         <span>Calendar: <output data-testid="calendar-title">{calendar.title}</output></span>
+      </div>
+
+      <div
+        className="mb-2"
+        onBlurCapture={(event) => {
+          if ((event.target as HTMLElement).getAttribute('aria-label') === 'Message') {
+            setComposerBlurCount((count) => count + 1);
+          }
+        }}
+      >
+        <MessageComposer onSend={() => {}} placeholder="Browser message" />
+        <output data-testid="composer-blur-count">{composerBlurCount}</output>
       </div>
 
       <button type="button" data-testid="keyboard-target" className="px-3 py-2 mb-2">

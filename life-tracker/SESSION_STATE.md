@@ -12,10 +12,10 @@ Current task: Todo List calendar spacing/border polish, message composer focus r
 1. **Done — repository/status recovery.** Read `AGENTS.md`, `PLAN.md`, `SESSION_STATE.md`, and `docs/REMOTE_VERIFY.md`; confirmed the prior preview-only timing flake was repaired.
 2. **Done — prior checkpoint verification.** `preview` is at `be00b93a7992a24c4a91de07ca4be3bd6c5663ce` and Verify #142 passed.
 3. **Done — safe task branch.** Created `chatgpt/todo-message-polish-20260923` from the exact green preview checkpoint so `preview` remains deployment-only until this batch is verified.
-4. **In progress — specification/code inspection.** Read the relevant product/workflow contracts and locate the Todo List calendar wrapper/date-header spacing, message send/focus flow, Calendar View task image rendering, and their current tests.
+4. **Done — specification/code inspection.** Read `PROJECT_REFERENCE.md` §2/§21 and the Todo calendar, Day View, TaskBlock, MessageComposer, ChatPage, and existing regression/browser-contract paths.
 5. **Pending — implementation.** Remove the Todo List calendar border, tighten the calendar-to-Day View date-header gap, preserve message-composer focus/keyboard placement after send, and make Calendar View image thumbnails fill the task block width without horizontal padding.
-6. **Pending — regression coverage.** Add or update automated coverage for each behavior where practical, preserving existing UI outside the requested surfaces.
-7. **Pending — verification/repair.** Run the repository-owned focused checks and remote Verify workflow, inspect any failure, repair it, and rerun until green.
+6. **In progress — regression coverage.** Added spec-first unit/browser contracts for borderless/no-gap Todo chrome, Send pointer-down focus retention, and TaskBlock image/title padding separation. Awaiting the expected pre-implementation red Verify result.
+7. **Pending — verification/repair.** Capture the behavioral red result, implement the scoped fixes, rerun remote Verify, inspect any failure, repair it, and rerun until green.
 8. **Pending — final checkpoint.** Update this file with exact verification evidence and remaining manual checks. Do not move `preview` unless separately authorized for hosted review.
 
 Status: Prior batch is green on preview. Current batch is in code/spec inspection on an AI-owned task branch.
@@ -34,4 +34,4 @@ Blockers: None known.
 ## Verification
 
 - Prior preview checkpoint `be00b93a7992a24c4a91de07ca4be3bd6c5663ce`: Verify #142 completed successfully.
-- Current batch verification has not started yet.
+- Current batch spec/regression commit is prepared to capture pre-implementation behavioral red evidence.

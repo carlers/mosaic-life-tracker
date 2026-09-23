@@ -45,6 +45,34 @@ describe('MessageComposer', () => {
     await waitFor(() => expect(textarea.value).toBe(''));
   });
 
+  // Regression: PROJECT_REFERENCE.md §21 — Send must not steal textarea focus and dismiss the mobile keyboard.
+  it('prevents send pointer-down from taking focus away from the textarea', () => {
+    const onSend = vi.fn();
+    render(<MessageComposer onSend={onSend} />);
+
+    const textarea = screen.getByRole('textbox', {
+      name: 'Message',
+    }) as HTMLTextAreaElement;
+    const button = screen.getByRole('button', { name: 'Send' });
+
+    fireEvent.change(textarea, { target: { value: 'keep keyboard open' } });
+    textarea.focus();
+    expect(document.activeElement).toBe(textarea);
+
+    const pointerDown = new Event('pointerdown', {
+      bubbles: true,
+      cancelable: true,
+    });
+    button.dispatchEvent(pointerDown);
+
+    expect(pointerDown.defaultPrevented).toBe(true);
+    expect(document.activeElement).toBe(textarea);
+
+    fireEvent.click(button);
+    expect(onSend).toHaveBeenCalledWith('keep keyboard open');
+    expect(document.activeElement).toBe(textarea);
+  });
+
   it('Shift+Enter does not fire onSend', () => {
     const onSend = vi.fn();
     render(<MessageComposer onSend={onSend} />);
