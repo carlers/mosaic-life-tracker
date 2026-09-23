@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { getDatabase } from '../db/database';
 import { useAuth } from './useAuth';
 import type { AppDatabaseCollections } from '../db/database';
@@ -155,9 +155,16 @@ export function useRxCollection<
   }, [userId, collection, selectorKey, sortKey, enabled]);
 
   const isEmpty = !enabled || !userId || loadedUserId !== userId;
-  const data = isEmpty
-    ? ((map ? map(EMPTY_ARRAY as unknown as TDoc[]) : EMPTY_ARRAY) as TData)
-    : ((map ? map(docs) : (docs as unknown as TData)) as TData);
+  const visibleDocs = isEmpty
+    ? (EMPTY_ARRAY as unknown as TDoc[])
+    : docs;
+  const data = useMemo(
+    () =>
+      (map
+        ? map(visibleDocs)
+        : (visibleDocs as unknown as TData)),
+    [map, visibleDocs]
+  );
   const isLoading = enabled && !!userId && loadedUserId !== userId;
 
   return { data, isLoading };

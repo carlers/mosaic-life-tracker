@@ -5,7 +5,6 @@ import {
   type RxCollection,
 } from 'rxdb';
 import { getRxStorageDexie } from 'rxdb/plugins/storage-dexie';
-import { RxDBDevModePlugin } from 'rxdb/plugins/dev-mode';
 import { RxDBMigrationSchemaPlugin } from 'rxdb/plugins/migration-schema';
 import { wrappedValidateAjvStorage } from 'rxdb/plugins/validate-ajv';
 import {
@@ -29,10 +28,21 @@ import {
   categoriesMigrationStrategies,
   settingsMigrationStrategies,
 } from './migrations';
-if (import.meta.env.DEV) {
-  addRxPlugin(RxDBDevModePlugin);
-  console.log('[RxDB] Dev Mode Plugin enabled (v17)');
+let devModePluginPromise: Promise<void> | null = null;
+
+async function ensureDevModePlugin(): Promise<void> {
+  if (!import.meta.env.DEV) return;
+  if (!devModePluginPromise) {
+    devModePluginPromise = import('rxdb/plugins/dev-mode').then(
+      ({ RxDBDevModePlugin }) => {
+        addRxPlugin(RxDBDevModePlugin);
+        console.log('[RxDB] Dev Mode Plugin enabled (v17)');
+      }
+    );
+  }
+  await devModePluginPromise;
 }
+
 addRxPlugin(RxDBMigrationSchemaPlugin);
 const DB_NAME = 'life_tracker_db';
 const DEBUG = import.meta.env.DEV;
@@ -50,6 +60,7 @@ let dbInitPromise: Promise<RxDatabase<AppDatabaseCollections>> | null = null;
 async function createDatabaseInstance(): Promise<RxDatabase<AppDatabaseCollections>> {
   let database: RxDatabase<AppDatabaseCollections> | null = null;
   try {
+    await ensureDevModePlugin();
     if (DEBUG) console.log('[RxDB] Initializing database:', DB_NAME);
     database = await createRxDatabase<AppDatabaseCollections>({
       name: DB_NAME,

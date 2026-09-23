@@ -83,6 +83,14 @@ export const HomePage: React.FC = () => {
     setActivePersonId((current) => (current === personId ? current : personId));
   }, []);
 
+  const handleOpenSettings = useCallback(() => {
+    setIsSettingsOpen(true);
+  }, []);
+
+  const handleCloseSettings = useCallback(() => {
+    setIsSettingsOpen(false);
+  }, []);
+
   return (
     <>
       <div className="h-full flex flex-col min-h-0">
@@ -96,7 +104,7 @@ export const HomePage: React.FC = () => {
             persons={persons}
             activePersonId={activePersonId}
             onSelect={handlePillSelect}
-            onOpenSettings={() => setIsSettingsOpen(true)}
+            onOpenSettings={handleOpenSettings}
           />
         </div>
 
@@ -118,9 +126,7 @@ export const HomePage: React.FC = () => {
             noSwiping
             noSwipingClass="swiper-no-swiping"
             allowTouchMove={!isSettingsOpen}
-            onSlideChange={handleSlideChange}
-            observer
-            observeParents
+            onSlideChange={handleSlideChange} 
             style={{
               position: 'absolute',
               top: 0,
@@ -142,7 +148,7 @@ export const HomePage: React.FC = () => {
 
       <FriendCarouselSettingsSheet
         isOpen={isSettingsOpen}
-        onClose={() => setIsSettingsOpen(false)}
+        onClose={handleCloseSettings}
         friends={rawFriends}
         order={order}
         hidden={hidden}

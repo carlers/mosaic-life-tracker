@@ -19,7 +19,7 @@ const CENTER_INDEX = SLIDES_EACH_SIDE;
 // Slides to render on each side of the active/focus index. Embla mounts
 // every child it receives; without this cap the 61-slide carousel mounts
 // 61 full month grids on cold load (~2.5k DayCells).
-const RENDER_WINDOW = 2;
+const RENDER_WINDOW = 1;
 
 export interface CalendarState {
   viewMode: CalendarViewMode;

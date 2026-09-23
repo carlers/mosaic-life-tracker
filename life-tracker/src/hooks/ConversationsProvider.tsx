@@ -58,28 +58,36 @@ export const ConversationsProvider: React.FC<ConversationsProviderProps> = ({
   }, [userId]);
   const conversations = useMemo<Conversation[]>(() => {
     if (!userId || loadedUserId !== userId) return [];
-    const byFriend = new Map<string, MessageDocument[]>();
+    const byFriend = new Map<
+      string,
+      { lastMessage: MessageDocument; unreadCount: number }
+    >();
+    // The RxDB query is newest-first, so the first row seen for a counterpart
+    // is its lastMessage. Count unread in the same pass to avoid allocating
+    // per-friend message arrays and scanning them a second time.
     for (const m of allMessages) {
       const otherId = m.senderId === userId ? m.recipientId : m.senderId;
-      const arr = byFriend.get(otherId);
-      if (arr) arr.push(m);
-      else byFriend.set(otherId, [m]);
+      const existing = byFriend.get(otherId);
+      const unreadDelta =
+        m.direction === 'incoming' && !m.readAt && !m.isUnsent ? 1 : 0;
+      if (existing) {
+        existing.unreadCount += unreadDelta;
+      } else {
+        byFriend.set(otherId, {
+          lastMessage: m,
+          unreadCount: unreadDelta,
+        });
+      }
     }
     const list: Conversation[] = [];
     for (const friend of friends) {
-      const msgs = byFriend.get(friend.friendId) || [];
-      const lastMessage = msgs.length > 0 ? msgs[0] : null;
-      let unreadCount = 0;
-      for (const m of msgs) {
-        if (m.direction === 'incoming' && !m.readAt && !m.isUnsent) {
-          unreadCount++;
-        }
-      }
+      const summary = byFriend.get(friend.friendId);
+      const lastMessage = summary?.lastMessage ?? null;
       list.push({
         threadId: lastMessage?.threadId || '',
         friend,
         lastMessage,
-        unreadCount,
+        unreadCount: summary?.unreadCount ?? 0,
       });
     }
     list.sort((a, b) => {

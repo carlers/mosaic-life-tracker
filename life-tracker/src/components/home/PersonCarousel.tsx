@@ -1,5 +1,4 @@
 import React, { useEffect, useRef } from 'react';
-import { motion } from 'framer-motion';
 import { Users } from 'lucide-react';
 import { DeferredAvatar } from '../ui/DeferredAvatar';
 import type { CarouselPerson } from '../../hooks/useFriendCarousel';
@@ -25,13 +24,12 @@ const PersonPill = React.memo<PersonPillProps>(
     }, [isActive]);
 
     return (
-      <motion.button
+      <button
         ref={pillRef}
         type="button"
-        whileTap={{ scale: 0.95 }}
         onClick={() => onSelect(person.id)}
         onPointerDown={(e) => e.stopPropagation()}
-        className={`flex-shrink-0 flex items-center gap-2 pl-1 pr-3 py-1 rounded-full border transition-colors ${
+        className={`flex-shrink-0 flex items-center gap-2 pl-1 pr-3 py-1 rounded-full border transition-[color,background-color,transform] active:scale-95 ${
           isActive
             ? 'bg-white border-white'
             : 'bg-[#1E1E1E] border-[#333333] hover:bg-[#252525]'
@@ -50,7 +48,7 @@ const PersonPill = React.memo<PersonPillProps>(
         >
           {person.kind === 'me' ? 'Me' : person.displayName}
         </span>
-      </motion.button>
+      </button>
     );
   }
 );
@@ -63,7 +61,7 @@ interface PersonCarouselProps {
   onOpenSettings: () => void;
 }
 
-export const PersonCarousel: React.FC<PersonCarouselProps> = ({
+const PersonCarouselComponent: React.FC<PersonCarouselProps> = ({
   persons,
   activePersonId,
   onSelect,
@@ -83,17 +81,19 @@ export const PersonCarousel: React.FC<PersonCarouselProps> = ({
             onSelect={onSelect}
           />
         ))}
-        <motion.button
+        <button
           type="button"
-          whileTap={{ scale: 0.95 }}
           onClick={onOpenSettings}
           onPointerDown={(e) => e.stopPropagation()}
-          className="flex-shrink-0 flex items-center justify-center w-8 h-8 rounded-full bg-[#1E1E1E] border border-[#333333] text-gray-400 hover:text-white hover:bg-[#252525] transition-colors"
+          className="flex-shrink-0 flex items-center justify-center w-8 h-8 rounded-full bg-[#1E1E1E] border border-[#333333] text-gray-400 hover:text-white hover:bg-[#252525] transition-[color,background-color,transform] active:scale-95"
           aria-label="Friend preferences"
         >
           <Users size={14} />
-        </motion.button>
+        </button>
       </div>
     </div>
   );
 };
+
+export const PersonCarousel = React.memo(PersonCarouselComponent);
+PersonCarousel.displayName = 'PersonCarousel';
