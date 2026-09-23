@@ -28,9 +28,19 @@ vi.mock('../../src/lib/deleteUserData', () => ({
   deleteAllUserData: vi.fn().mockResolvedValue({ totalRows: 0 }),
 }));
 
+const pwaMocks = vi.hoisted(() => ({
+  checkForUpdate: vi.fn().mockResolvedValue('up-to-date'),
+}));
+
+vi.mock('../../src/hooks/usePwaLifecycle', () => ({
+  usePwaLifecycle: () => ({
+    checkForUpdate: pwaMocks.checkForUpdate,
+  }),
+}));
+
 import { SettingsPage } from '../../src/pages/SettingsPage';
 
-describe('SettingsPage data deletion', () => {
+describe('SettingsPage data deletion and updates', () => {
   it('offers Delete All User Data as a separate destructive confirmation', () => {
     render(
       <MemoryRouter>
@@ -42,5 +52,21 @@ describe('SettingsPage data deletion', () => {
 
     expect(screen.getByRole('region', { name: 'Delete All User Data' })).toBeInTheDocument();
     expect(screen.getByText(/does not delete your login account/i)).toBeInTheDocument();
+  });
+
+  // Regression: PROJECT_REFERENCE.md §24.13 — update checks are service-worker checks, not data sync.
+  it('offers a dedicated update check and reports an up-to-date result', async () => {
+    render(
+      <MemoryRouter>
+        <SettingsPage />
+      </MemoryRouter>
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Check for Updates' }));
+
+    expect(pwaMocks.checkForUpdate).toHaveBeenCalledOnce();
+    expect(await screen.findByRole('status')).toHaveTextContent(
+      'Mosaic is up to date.'
+    );
   });
 });

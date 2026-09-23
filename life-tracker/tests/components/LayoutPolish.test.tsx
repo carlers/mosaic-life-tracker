@@ -49,4 +49,18 @@ describe('layout polish', () => {
     const scroll = screen.getByTestId('account-scroll');
     expect(scroll).toContainElement(screen.getByRole('button', { name: 'Logout' }));
   });
+
+  // Regression: PROJECT_REFERENCE.md §2 — Me no longer shows a decorative quote/author block.
+  it('does not render the decorative Me-page quote', () => {
+    render(
+      <MemoryRouter>
+        <AccountPage />
+      </MemoryRouter>
+    );
+
+    expect(
+      screen.queryByText(/Tact is the ability to describe others/i)
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText('Eleanor Chaffee')).not.toBeInTheDocument();
+  });
 });
