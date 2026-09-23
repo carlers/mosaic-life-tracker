@@ -87,7 +87,7 @@ describe('TodoListView', () => {
       name: 'Tuesday, September 15, 2026, 1 task',
     });
     expect(within(grid).getAllByRole('row')).toHaveLength(6);
-    expect(within(grid).getAllByRole('gridcell')).toHaveLength(35);
+    expect(within(grid).getAllByRole('gridcell')).toHaveLength(42);
     expect(within(selectedDay).queryByText('Plan release')).toBeNull();
 
     fireEvent.click(selectedDay);
@@ -114,7 +114,7 @@ describe('TodoListView', () => {
     const grid = screen.getByRole('grid', {
       name: 'September 2026 todo calendar',
     });
-    expect(grid).toHaveClass('bg-transparent', 'px-3', 'pt-3', 'pb-0');
+    expect(grid).toHaveClass('mx-auto', 'bg-transparent', 'px-0', 'pt-3', 'pb-0');
     expect(grid).not.toHaveClass('border', 'border-[#333333]', 'p-3');
     expect(screen.getByTestId('todo-day-section')).toHaveClass('mt-0');
   });
@@ -131,6 +131,72 @@ describe('TodoListView', () => {
       })
     ).toBeInTheDocument();
     expect(screen.getByTestId('todo-calendar-grid')).toHaveClass('shrink-0');
+  });
+
+  // Regression: PROJECT_REFERENCE.md §2 — fixed four-circle marker uses completed category order and incomplete count.
+  it('uses the fixed four-circle completion marker with category-order colors', () => {
+    const markerTasks: TaskDocument[] = [
+      { ...tasks[0], id: 'done_a', completed: true, categoryId: 'alpha' },
+      { ...tasks[0], id: 'done_b', completed: true, categoryId: 'beta' },
+      { ...tasks[0], id: 'open_c', completed: false, categoryId: 'gamma' },
+    ];
+    const markerCategories: CategoryDocument[] = [
+      { ...categories[0], id: 'alpha', name: 'Alpha', color: '#EF4444', order: 0 },
+      { ...categories[0], id: 'beta', name: 'Beta', color: '#3B82F6', order: 1 },
+      { ...categories[0], id: 'gamma', name: 'Gamma', color: '#10B981', order: 2 },
+    ];
+
+    render(
+      <TodoListView
+        {...props}
+        tasks={markerTasks}
+        categories={markerCategories}
+        categoriesMap={{
+          alpha: { color: '#EF4444', name: 'Alpha' },
+          beta: { color: '#3B82F6', name: 'Beta' },
+          gamma: { color: '#10B981', name: 'Gamma' },
+        }}
+      />
+    );
+
+    const marker = screen.getByTestId('todo-status-marker-2026-09-15');
+    const circles = within(marker).getAllByTestId('todo-status-circle');
+    expect(circles).toHaveLength(4);
+    expect(circles[0]).toHaveStyle({ backgroundColor: '#EF4444' });
+    expect(circles[1]).toHaveStyle({ backgroundColor: '#EF4444' });
+    expect(circles[2]).toHaveStyle({ backgroundColor: '#3B82F6' });
+    expect(circles[3]).toHaveStyle({ backgroundColor: '#3B82F6' });
+    expect(within(marker).getByText('1')).toBeInTheDocument();
+  });
+
+  // Regression: PROJECT_REFERENCE.md §2 — all-complete days show a check over the same four-circle marker.
+  it('shows a check when every task on the day is complete', () => {
+    render(
+      <TodoListView
+        {...props}
+        tasks={[{ ...tasks[0], completed: true }]}
+      />
+    );
+    expect(
+      within(screen.getByTestId('todo-status-marker-2026-09-15')).getByTestId(
+        'todo-status-complete'
+      )
+    ).toBeInTheDocument();
+  });
+
+  // Regression: PROJECT_REFERENCE.md §2 — Todo grid supports arrow-key day/week selection.
+  it('moves the selected Todo day with arrow keys', () => {
+    render(<TodoListView {...props} />);
+    const grid = screen.getByRole('grid', { name: 'September 2026 todo calendar' });
+    const selectedDay = within(grid).getByRole('gridcell', {
+      name: 'Tuesday, September 15, 2026, 1 task',
+    });
+
+    fireEvent.keyDown(selectedDay, { key: 'ArrowRight' });
+
+    expect(
+      screen.getByRole('heading', { name: 'Wednesday, September 16' })
+    ).toBeInTheDocument();
   });
 
   // Regression: PROJECT_REFERENCE.md §16 — compact month swipes keep only active + one neighbor per side mounted.

@@ -36,6 +36,7 @@ describe('calendar accessibility semantics', () => {
     const day = within(grid).getByRole('button', {
       name: 'Tuesday, September 15, 2026, no tasks',
     });
+    expect(within(day).getByText('15')).toHaveClass('text-sm');
     fireEvent.click(day);
     expect(onDayClick).toHaveBeenCalledWith(new Date(2026, 8, 15));
   });

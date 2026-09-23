@@ -14,6 +14,12 @@ vi.mock('../../src/components/layout/ComingSoon', () => ({
   ComingSoon: () => <div data-testid="diary-body">Diary body</div>,
 }));
 
+vi.mock('../../src/components/home/views/TodoListView', () => ({
+  TodoListView: ({ variant = 'me', tasks = [] }: { variant?: string; tasks?: unknown[] }) => (
+    <div data-testid="todo-list-view" data-variant={variant} data-task-count={tasks.length} />
+  ),
+}));
+
 vi.mock('../../src/components/home/views/useCalendarState', () => ({
   useCalendarState: () => ({
     title: 'September 2026',
@@ -55,6 +61,16 @@ vi.mock('../../src/lib/useFriendCalendar', () => ({
 import { PersonPane } from '../../src/components/home/PersonPane';
 import type { CarouselPerson } from '../../src/hooks/useFriendCarousel';
 
+const friend: CarouselPerson = {
+  id: 'friend_1',
+  kind: 'friend',
+  userId: 'friend_1',
+  username: 'friend',
+  displayName: 'Friend',
+  avatarFileId: '',
+  bio: '',
+};
+
 const me: CarouselPerson = {
   id: 'me',
   kind: 'me',
@@ -68,6 +84,16 @@ const me: CarouselPerson = {
 describe('PersonPane view switcher', () => {
   beforeEach(() => {
     localStorage.clear();
+  });
+
+  // Regression: PROJECT_REFERENCE.md §2 — friends expose shared Todo List instead of Coming Soon.
+  it('renders Todo List for a friend in friend mode', () => {
+    render(<PersonPane person={friend} isActive />);
+
+    fireEvent.click(screen.getByLabelText('Todo list'));
+
+    expect(screen.getByTestId('todo-list-view')).toHaveAttribute('data-variant', 'friend');
+    expect(screen.queryByTestId('diary-body')).toBeNull();
   });
 
   it('keeps the toggle visible in Diary and lets the user switch back to Calendar', () => {

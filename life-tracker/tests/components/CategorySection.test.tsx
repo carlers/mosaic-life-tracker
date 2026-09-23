@@ -1,3 +1,4 @@
+import type React from 'react';
 import { describe, it, expect, vi } from 'vitest';
 import { render, fireEvent, screen } from '@testing-library/react';
 import { CategorySection } from '../../src/components/home/views/CategorySection';
@@ -31,6 +32,7 @@ function makeCallbacks() {
 
 interface RenderOpts {
   categoryName?: string;
+  tasks?: React.ComponentProps<typeof CategorySection>['tasks'];
 }
 
 function renderSection(opts: RenderOpts = {}) {
@@ -41,7 +43,7 @@ function renderSection(opts: RenderOpts = {}) {
       categoryColor="#3B82F6"
       visibility="private"
       currentUserId="user_A"
-      tasks={[]}
+      tasks={opts.tasks ?? []}
       editingTaskId={null}
       editValue=""
       {...cbs}
@@ -70,6 +72,35 @@ describe('CategorySection', () => {
     expect(
       screen.getByPlaceholderText('Add a task to Work...')
     ).toBeInTheDocument();
+  });
+
+  // Regression: PROJECT_REFERENCE.md §2 — pending row sits under the category pill before existing tasks.
+  it('shows the pending checkbox above existing tasks and uses the category color on the input', () => {
+    renderSection({
+      tasks: [{
+        id: 'task_existing',
+        title: 'Existing task',
+        completed: false,
+        categoryId: 'work',
+        date: '2026-09-23',
+        createdAt: '2026-09-23T00:00:00.000Z',
+        updatedAt: '2026-09-23T00:00:00.000Z',
+        userId: 'user_A',
+        isDeleted: false,
+        visibility: 'private',
+      }],
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Add a task to Work' }));
+
+    const row = screen.getByTestId('pending-task-row');
+    const input = screen.getByPlaceholderText('Add a task to Work...');
+    const checkbox = screen.getByTestId('pending-task-checkbox');
+    const existing = screen.getByText('Existing task');
+
+    expect(checkbox).toBeInTheDocument();
+    expect(input).toHaveStyle({ borderBottomColor: '#3B82F6' });
+    expect(row.compareDocumentPosition(existing) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.getByTestId('category-add-icon')).toHaveAttribute('width', '18');
   });
 
   it('Enter with non-whitespace content fires onAddTask(trimmed) and closes the input', () => {

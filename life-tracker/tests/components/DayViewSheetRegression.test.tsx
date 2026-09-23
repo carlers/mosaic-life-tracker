@@ -187,6 +187,7 @@ describe('DayViewSheet nested task actions', () => {
     expect(within(row as HTMLElement).getByRole('button', { name: 'Previous day' })).toBeInTheDocument();
     expect(within(row as HTMLElement).getByRole('button', { name: 'Next day' })).toBeInTheDocument();
     expect(row).toHaveAttribute('data-bottom-sheet-directional-drag-handle');
+    expect(date).toHaveClass('text-base');
     expect(row).not.toHaveClass('swiper-no-swiping');
 
     const dialog = screen.getByRole('dialog');
@@ -229,6 +230,19 @@ describe('DayViewSheet nested task actions', () => {
     // Playwright interaction contract.
     expect(dateRow).not.toHaveClass('touch-none');
     expect(swiperFixture.slideNext).not.toHaveBeenCalled();
+  });
+
+  // Regression: PROJECT_REFERENCE.md §2 — sheet-mode Swiper fills the fixed content body so blank lower space stays swipeable.
+  it('fills the sheet content height with the native day swipe surface', () => {
+    renderSheet();
+
+    expect(screen.getByTestId('day-sheet-swipe-surface')).toHaveClass(
+      'flex',
+      'h-full',
+      'min-h-0',
+      'flex-col'
+    );
+    expect(screen.getByTestId('day-swiper')).toHaveClass('flex-1');
   });
 
   // Regression: PROJECT_REFERENCE.md §2/§7 — Todo reuses DayView inline while owning nested swipes.
