@@ -40,6 +40,12 @@ type HorizontalSwipeStart = {
   y: number;
 };
 
+type TouchSwipeStart = {
+  identifier: number;
+  x: number;
+  y: number;
+};
+
 function readHistoryGuardToken(state: unknown): string | null {
   if (typeof state !== 'object' || state === null || Array.isArray(state)) {
     return null;
@@ -197,6 +203,7 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
   const onCloseRef = useRef(onClose);
   const horizontalSwipeStartRef = useRef<HorizontalSwipeStart | null>(null);
   const directionalDragStartRef = useRef<HorizontalSwipeStart | null>(null);
+  const directionalTouchStartRef = useRef<TouchSwipeStart | null>(null);
   const dragControls = useDragControls();
   const sheetId = React.useId();
   const titleId = React.useId();
@@ -339,9 +346,13 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
               }
 
               if (distanceY > distanceX * DIRECTIONAL_DRAG_AXIS_RATIO) {
-                // Claim only clearly vertical movement for sheet dismissal.
-                directionalDragStartRef.current = null;
-                dragControls.start(event);
+                // Touch keeps native carousel ownership until release so
+                // horizontal movement remains direct-manipulation. Mouse/pen
+                // can hand the clearly vertical gesture to Framer immediately.
+                if (event.pointerType !== 'touch') {
+                  directionalDragStartRef.current = null;
+                  dragControls.start(event);
+                }
               }
             }}
             onPointerUpCapture={(event) => {
@@ -373,6 +384,46 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
             onPointerCancelCapture={() => {
               horizontalSwipeStartRef.current = null;
               directionalDragStartRef.current = null;
+            }}
+            onTouchStartCapture={(event) => {
+              if (isLocked) return;
+              const target = event.target as Element;
+              if (
+                !target.closest('[data-bottom-sheet-directional-drag-handle]')
+              ) {
+                directionalTouchStartRef.current = null;
+                return;
+              }
+              const touch = event.changedTouches[0];
+              directionalTouchStartRef.current = touch
+                ? {
+                    identifier: touch.identifier,
+                    x: touch.clientX,
+                    y: touch.clientY,
+                  }
+                : null;
+            }}
+            onTouchEndCapture={(event) => {
+              const start = directionalTouchStartRef.current;
+              directionalTouchStartRef.current = null;
+              if (isLocked || !start) return;
+
+              const touch = Array.from(event.changedTouches).find(
+                (candidate) => candidate.identifier === start.identifier
+              );
+              if (!touch) return;
+
+              const deltaX = touch.clientX - start.x;
+              const deltaY = touch.clientY - start.y;
+              if (
+                deltaY > 100 &&
+                deltaY > Math.abs(deltaX) * DIRECTIONAL_DRAG_AXIS_RATIO
+              ) {
+                requestSheetClose(sheetId);
+              }
+            }}
+            onTouchCancelCapture={() => {
+              directionalTouchStartRef.current = null;
             }}
             onDragEnd={(_, info) => {
               if (info.offset.y > 100 || info.velocity.y > 500) {

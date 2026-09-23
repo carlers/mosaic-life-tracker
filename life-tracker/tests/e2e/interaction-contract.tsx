@@ -257,7 +257,7 @@ export function InteractionHarness() {
             <div
               data-testid="sheet-date-row-1"
               data-bottom-sheet-directional-drag-handle
-              className="touch-none p-4"
+              className="p-4"
             >
               Sheet day 1 date row
             </div>
@@ -267,7 +267,7 @@ export function InteractionHarness() {
             <div
               data-testid="sheet-date-row-2"
               data-bottom-sheet-directional-drag-handle
-              className="touch-none p-4"
+              className="p-4"
             >
               Sheet day 2 date row
             </div>
