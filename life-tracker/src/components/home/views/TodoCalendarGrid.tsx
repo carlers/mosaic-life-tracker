@@ -4,6 +4,9 @@ import {
   addDays,
   addMonths,
   differenceInCalendarMonths,
+  eachDayOfInterval,
+  endOfMonth,
+  endOfWeek,
   format,
   isSameDay,
   isSameMonth,
@@ -46,15 +49,16 @@ const TodoMonthGrid: React.FC<TodoMonthGridProps> = ({
   isActive,
 }) => {
   const calendarDays = useMemo(() => {
-    const gridStart = startOfWeek(startOfMonth(monthDate));
-    return Array.from({ length: 42 }, (_, index) =>
-      addDays(gridStart, index)
-    );
+    const monthStart = startOfMonth(monthDate);
+    return eachDayOfInterval({
+      start: startOfWeek(monthStart),
+      end: endOfWeek(endOfMonth(monthStart)),
+    });
   }, [monthDate]);
 
   const calendarWeeks = useMemo(() => {
     const weeks: Date[][] = [];
-    for (let index = 0; index < 42; index += 7) {
+    for (let index = 0; index < calendarDays.length; index += 7) {
       weeks.push(calendarDays.slice(index, index + 7));
     }
     return weeks;
@@ -79,7 +83,7 @@ const TodoMonthGrid: React.FC<TodoMonthGridProps> = ({
     <div
       role={isActive ? 'grid' : undefined}
       aria-label={isActive ? `${format(monthDate, 'MMMM yyyy')} todo calendar` : undefined}
-      className="mx-auto w-full max-w-md rounded-xl bg-transparent px-0 pt-3 pb-0"
+      className="mx-auto w-full max-w-sm rounded-xl bg-transparent px-2 pt-3 pb-0"
     >
       <div className="mb-2 grid grid-cols-7" role={isActive ? 'row' : undefined}>
         {WEEKDAY_LABELS.map((label, index) => (
@@ -161,13 +165,7 @@ const TodoMonthGrid: React.FC<TodoMonthGridProps> = ({
                   aria-current={isActive && isToday(day) ? 'date' : undefined}
                   onClick={() => onDateSelect(day)}
                   onKeyDown={handleKeyDown}
-                  className={`mx-auto flex h-14 w-10 flex-col items-center justify-center rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 ${
-                    selected
-                      ? 'bg-white text-black'
-                      : currentMonth
-                        ? 'text-gray-300 hover:bg-[#2A2A2A]'
-                        : 'text-gray-600'
-                  }`}
+                  className="mx-auto flex h-14 w-10 flex-col items-center justify-center rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 hover:bg-[#2A2A2A]"
                 >
                   <span
                     data-testid={`todo-status-marker-${dateKey}`}
@@ -203,7 +201,16 @@ const TodoMonthGrid: React.FC<TodoMonthGridProps> = ({
                       </span>
                     ) : null}
                   </span>
-                  <span className="mt-1 text-base font-semibold leading-none">
+                  <span
+                    data-testid={`todo-day-number-${dateKey}`}
+                    className={`mt-1 flex h-7 w-7 items-center justify-center rounded-full text-base font-semibold leading-none ${
+                      selected
+                        ? 'bg-white text-black'
+                        : currentMonth
+                          ? 'text-gray-300'
+                          : 'text-gray-600'
+                    }`}
+                  >
                     {format(day, 'd')}
                   </span>
                 </button>
@@ -326,6 +333,7 @@ export const TodoCalendarGrid: React.FC<TodoCalendarGridProps> = ({
           <div
             key={monthDate.toISOString()}
             aria-hidden={index === activeIndex ? undefined : true}
+            className="overflow-hidden"
             style={{
               flex: '0 0 100%',
               minWidth: 0,

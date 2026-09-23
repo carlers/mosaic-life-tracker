@@ -140,6 +140,68 @@ async function startDrag(page, locator, deltaX) {
   };
 }
 
+
+// Regression: PROJECT_REFERENCE.md §2 — primary page swipes visibly track the finger,
+// Home only starts from its hamburger layer, and Me right-swipe opens Settings.
+test('primary route swipe is direct-manipulation with Home and Me ownership rules', async ({ page }) => {
+  await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html`);
+
+  const routeHarness = page.getByTestId('primary-route-harness');
+  await routeHarness.scrollIntoViewIfNeeded();
+
+  await drag(page, page.getByTestId('primary-page-body'), -220);
+  await expect(page.getByTestId('primary-route')).toHaveText('home');
+
+  const menuLayer = page.getByTestId('primary-home-menu-layer');
+  const before = await menuLayer.boundingBox();
+  if (!before) throw new Error('Missing primary route menu-layer bounds');
+
+  const gesture = await startDrag(page, menuLayer, -220);
+  await expect
+    .poll(async () => {
+      const during = await menuLayer.boundingBox();
+      return during?.x ?? before.x;
+    })
+    .toBeLessThan(before.x - 20);
+  await gesture.finish();
+  await expect(page.getByTestId('primary-route')).toHaveText('explore');
+
+  await page.getByTestId('set-primary-account').click();
+  await drag(page, page.getByTestId('primary-page-body'), 220);
+  await expect(page.getByTestId('primary-route')).toHaveText('settings');
+});
+
+// Regression: PROJECT_REFERENCE.md §2 — Todo active month is centered/natural-height
+// and selection is a numeral-only white circle.
+test('todo compact calendar centers the active month and rings only the selected numeral', async ({ page }) => {
+  await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html`);
+
+  const region = page.getByTestId('todo-calendar-region');
+  const grid = region.getByRole('grid', { name: 'September 2026 todo calendar' });
+  await expect(grid.getByRole('gridcell')).toHaveCount(35);
+
+  const regionBox = await region.boundingBox();
+  const gridBox = await grid.boundingBox();
+  if (!regionBox || !gridBox) throw new Error('Missing Todo calendar bounds');
+
+  const regionCenter = regionBox.x + regionBox.width / 2;
+  const gridCenter = gridBox.x + gridBox.width / 2;
+  expect(Math.abs(regionCenter - gridCenter)).toBeLessThanOrEqual(1);
+
+  const selectedCell = grid.getByRole('gridcell', {
+    name: 'Tuesday, September 15, 2026, 0 tasks',
+  });
+  const selectedNumber = selectedCell.getByTestId(
+    'todo-day-number-2026-09-15'
+  );
+  expect(
+    await selectedCell.evaluate((element) => getComputedStyle(element).backgroundColor)
+  ).toBe('rgba(0, 0, 0, 0)');
+  expect(
+    await selectedNumber.evaluate((element) => getComputedStyle(element).backgroundColor)
+  ).toBe('rgb(255, 255, 255)');
+});
+
 // Regression: PROJECT_REFERENCE.md §16 — calendar windowing keeps only active + one neighbor each side rendered.
 test('calendar keeps at most three full grids mounted while preserving carousel geometry', async ({ page }) => {
   await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html`);

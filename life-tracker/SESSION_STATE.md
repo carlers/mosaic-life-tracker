@@ -2,7 +2,7 @@
 
 Updated: 2026-09-23
 Current task: Todo calendar layout correction and top-level page swipe navigation
-Status: in progress.
+Status: final verification.
 
 ## Active user prompt
 
@@ -12,10 +12,10 @@ Status: in progress.
 
 1. **Done — recover Preview baseline and rules.** Confirmed Preview at `b05676e2c661e86c84f9b8e9b43562d43051652a`; read current agent, session, roadmap, product, remote verification, and test workflow guidance.
 2. **Done — inspect navigation and calendar implementation.** Todo currently forces 42 cells and fills the whole selected cell; the screenshot's edge bleed is consistent with neighboring Embla slide content not being paint-contained. Primary routes are owned by AppLayout/MainLayout; Home already has nested person/calendar swipers, so the route gesture must be restricted to its top menu row. Individual chats must remain outside route swiping.
-3. **In progress — spec-first regression coverage.** Updated §2 to natural month rows, number-only selection, centered/no-bleed Todo geometry, and primary route swipe ownership. Added focused tests for September's five-week grid, selected-number ring, route mapping, Home hamburger-layer-only gesture, and Me right-swipe. Next checkpoint is the expected red focused run before implementation.
-4. **Pending — implement calendar/layout corrections and shared route swiper.** Preserve bottom-nav semantics and OS/browser navigation; keep editable controls/nested carousels from leaking gestures to route navigation.
-5. **Pending — focused browser verification.** Use focused Vitest plus browser contracts during iteration; fix any regressions without paying the full gate on each repair.
-6. **Pending — final acceptance and Preview rollout.** Run one `[verify:full]` exact-commit gate, move Preview only after green, and confirm hosted deployment.
+3. **Done — spec-first regression coverage.** Focused Verify #224 (`35844559330`) captured the intended reds: September still rendered seven total rows instead of six (weekday + five weeks), Home/Me swipe callbacks never fired, and the new route mapping module was structurally absent.
+4. **In progress — implement calendar/layout corrections and shared route swiper.** Restored natural 5/6-week Todo month intervals, moved selection to the numeral-only white circle, centered the active grid with slide paint clipping, added exact primary-route mapping, and introduced a compositor-only route swipe surface that batches custom transform writes with requestAnimationFrame. Home route swiping is restricted to the hamburger row; Me right-swipe maps to Settings; individual chats/secondary routes are excluded. Focused Verify #225 reached the implementation but exposed a happy-dom PointerEvent fixture mismatch (default `isPrimary=false`) plus one stale padding assertion; the surface now accepts the single tracked pointer without relying on that browser-only flag, preserves definite full-height page layout, and the regression assertion reflects the new centering inset. Preserve bottom-nav semantics and OS/browser navigation; keep editable controls/nested carousels from leaking gestures to route navigation.
+5. **Done — focused browser verification.** Verify #229 (`35846513216`) is green: focused repository verification passed and all 24 browser contracts passed. The route contract proves the Home hamburger layer follows the held finger before navigation, Home body swipes do not steal nested navigation, and Me right-swipe reaches Settings. The Todo contract proves September uses five week rows, the active compact grid is horizontally centered, and only the selected numeral receives the white circle.
+6. **In progress — final acceptance and Preview rollout.** Promote this exact tree to a `[verify:full]` task-branch commit, require the canonical repository + browser gate to pass, then move Preview to that exact SHA and confirm the Vercel deployment.
 7. **Pending — handoff closeout.** Report commits, verification, deployment, and remaining physical-device swipe/visual checks.
 
 Roadmap pointer: navigation interaction follow-up + Todo List visual correction.

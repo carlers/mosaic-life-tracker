@@ -1,5 +1,7 @@
 import React, { lazy, Suspense, useEffect, useState } from 'react';
 import { BottomNav, type TabId } from './BottomNav';
+import { PrimaryRouteSwipeSurface } from './PrimaryRouteSwipeSurface';
+import type { PrimarySwipeDirection } from '../../lib/primarySwipeNavigation';
 
 const OfflineBanner = lazy(() =>
   import('../ui/OfflineBanner').then(({ OfflineBanner }) => ({
@@ -11,12 +13,18 @@ interface MainLayoutProps {
   children: React.ReactNode;
   activeTab: TabId;
   onTabChange: (tab: TabId) => void;
+  canSwipeLeft?: boolean;
+  canSwipeRight?: boolean;
+  onRouteSwipe?: (direction: PrimarySwipeDirection) => void;
 }
 
 export const MainLayout: React.FC<MainLayoutProps> = ({
   children,
   activeTab,
   onTabChange,
+  canSwipeLeft = false,
+  canSwipeRight = false,
+  onRouteSwipe = () => {},
 }) => {
   const [isOnline, setIsOnline] = useState(
     typeof navigator !== 'undefined' ? navigator.onLine : true
@@ -42,7 +50,15 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
       )}
 
       <main className="flex-1 overflow-y-auto pb-[calc(4rem+env(safe-area-inset-bottom))]">
-        {children}
+        <PrimaryRouteSwipeSurface
+          activeKey={activeTab}
+          homeZoneOnly={activeTab === 'home'}
+          canSwipeLeft={canSwipeLeft}
+          canSwipeRight={canSwipeRight}
+          onSwipe={onRouteSwipe}
+        >
+          {children}
+        </PrimaryRouteSwipeSurface>
       </main>
 
       <BottomNav activeTab={activeTab} onTabChange={onTabChange} />

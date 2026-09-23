@@ -6,6 +6,10 @@ import { FriendsProvider } from '../../hooks/FriendsProvider';
 import { ConversationsProvider } from '../../hooks/ConversationsProvider';
 import { useAuth } from '../../hooks/useAuth';
 import type { TabId } from './BottomNav';
+import {
+  resolvePrimarySwipeDestination,
+  type PrimarySwipeDirection,
+} from '../../lib/primarySwipeNavigation';
 
 const RETRY_COOLDOWN_MS = 2000;
 
@@ -199,12 +203,24 @@ export const AppLayout: React.FC = () => {
   const handleTabChange = (tab: TabId) => {
     navigate(`/${tab}`);
   };
+  const leftSwipeDestination = resolvePrimarySwipeDestination(path, 'left');
+  const rightSwipeDestination = resolvePrimarySwipeDestination(path, 'right');
+  const handleRouteSwipe = (direction: PrimarySwipeDirection) => {
+    const destination = resolvePrimarySwipeDestination(path, direction);
+    if (destination) navigate(destination);
+  };
   const includeConversations = path.includes('/messages');
 
   return (
     <FriendsProvider>
       <ConversationsProvider includeConversations={includeConversations}>
-        <MainLayout activeTab={activeTab} onTabChange={handleTabChange}>
+        <MainLayout
+          activeTab={activeTab}
+          onTabChange={handleTabChange}
+          canSwipeLeft={Boolean(leftSwipeDestination)}
+          canSwipeRight={Boolean(rightSwipeDestination)}
+          onRouteSwipe={handleRouteSwipe}
+        >
           <Outlet />
         </MainLayout>
       </ConversationsProvider>

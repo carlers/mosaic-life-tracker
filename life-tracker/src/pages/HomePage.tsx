@@ -95,7 +95,10 @@ export const HomePage: React.FC = () => {
     <>
       <div className="h-full flex flex-col min-h-0">
         {/* Topmost row: hamburger on the right, no border under it */}
-        <div className="bg-[#111111] px-4 pt-3 pb-1 flex justify-end flex-shrink-0">
+        <div
+          data-route-swipe-zone="home-to-explore"
+          className="bg-[#111111] px-4 pt-3 pb-1 flex justify-end flex-shrink-0 touch-pan-y"
+        >
           <HamburgerMenu />
         </div>
 

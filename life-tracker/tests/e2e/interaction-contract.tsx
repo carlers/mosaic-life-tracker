@@ -13,6 +13,7 @@ import { MessageComposer } from '../../src/components/messages/MessageComposer';
 import type { CategoryDocument, TaskDocument } from '../../src/db/schema';
 import { useCalendarState } from '../../src/components/home/views/useCalendarState';
 import { useHorizontalArrowNavigation } from '../../src/hooks/useHorizontalArrowNavigation';
+import { PrimaryRouteSwipeSurface } from '../../src/components/layout/PrimaryRouteSwipeSurface';
 
 export function InteractionHarness() {
   const calendar = useCalendarState();
@@ -27,6 +28,7 @@ export function InteractionHarness() {
     () => new Date(2026, 8, 15)
   );
   const [composerBlurCount, setComposerBlurCount] = useState(0);
+  const [primaryRoute, setPrimaryRoute] = useState<'home' | 'explore' | 'account' | 'settings'>('home');
 
   const todoCategories: CategoryDocument[] = Array.from({ length: 5 }, (_, index) => ({
     id: `cat_${index}`,
@@ -70,6 +72,7 @@ export function InteractionHarness() {
         <span>Todo gesture: <output data-testid="todo-gesture">{todoGesture}</output></span>
         <span>Calendar: <output data-testid="calendar-title">{calendar.title}</output></span>
         <span>Sheet day: <output data-testid="sheet-day-index">{sheetDayIndex}</output></span>
+        <span>Primary route: <output data-testid="primary-route">{primaryRoute}</output></span>
       </div>
 
       <div
@@ -288,6 +291,46 @@ export function InteractionHarness() {
           </SwiperSlide>
         </Swiper>
       </BottomSheet>
+
+      <div
+        className="mt-2 h-40 overflow-hidden border border-[#333333]"
+        data-testid="primary-route-harness"
+      >
+        <PrimaryRouteSwipeSurface
+          activeKey={primaryRoute}
+          homeZoneOnly={primaryRoute === 'home'}
+          canSwipeLeft={primaryRoute === 'home'}
+          canSwipeRight={primaryRoute === 'account'}
+          onSwipe={(direction) => {
+            if (primaryRoute === 'home' && direction === 'left') {
+              setPrimaryRoute('explore');
+            } else if (primaryRoute === 'account' && direction === 'right') {
+              setPrimaryRoute('settings');
+            }
+          }}
+        >
+          <div className="flex h-40 flex-col">
+            <div
+              data-testid="primary-home-menu-layer"
+              data-route-swipe-zone="home-to-explore"
+              className="h-12 shrink-0 touch-pan-y px-3 py-2"
+            >
+              Home menu layer
+            </div>
+            <div data-testid="primary-page-body" className="flex-1 px-3 py-2">
+              {primaryRoute}
+            </div>
+          </div>
+        </PrimaryRouteSwipeSurface>
+      </div>
+      <button
+        type="button"
+        data-testid="set-primary-account"
+        className="mb-2 px-3 py-2"
+        onClick={() => setPrimaryRoute('account')}
+      >
+        Set Me route
+      </button>
     </main>
   );
 }

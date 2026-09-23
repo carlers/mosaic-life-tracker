@@ -120,7 +120,7 @@ describe('TodoListView', () => {
     const grid = screen.getByRole('grid', {
       name: 'September 2026 todo calendar',
     });
-    expect(grid).toHaveClass('mx-auto', 'bg-transparent', 'px-0', 'pt-3', 'pb-0');
+    expect(grid).toHaveClass('mx-auto', 'bg-transparent', 'px-2', 'pt-3', 'pb-0');
     expect(grid).not.toHaveClass('border', 'border-[#333333]', 'p-3');
     expect(screen.getByTestId('todo-day-section')).toHaveClass('mt-0');
   });
