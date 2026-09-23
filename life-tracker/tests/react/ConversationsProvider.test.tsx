@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { act, render, renderHook, screen, waitFor } from '@testing-library/react';
-import { useContext, type ReactNode } from 'react';
+import { Profiler, useContext, type ReactNode } from 'react';
 import { useConversations } from '../../src/hooks/useConversations';
 import { useUnreadMessages } from '../../src/hooks/useUnreadMessages';
 import type { RxDatabase } from 'rxdb';
@@ -216,10 +216,9 @@ describe('ConversationsProvider', () => {
       makeFriend({ friendId: 'user_B', friendUsername: 'b' }),
     ];
     const db = dbRef.current as RxDatabase<TestDatabaseCollections>;
-    const unreadRenderCount = { current: 0 };
+    const unreadCommits = vi.fn();
 
     function UnreadProbe() {
-      unreadRenderCount.current += 1;
       const { totalUnread, isLoading } = useUnreadMessages();
       return (
         <output data-testid="unread-probe">
@@ -239,7 +238,9 @@ describe('ConversationsProvider', () => {
 
     render(
       <ConversationsProvider>
-        <UnreadProbe />
+        <Profiler id="unread" onRender={unreadCommits}>
+          <UnreadProbe />
+        </Profiler>
         <ConversationProbe />
       </ConversationsProvider>
     );
@@ -247,7 +248,7 @@ describe('ConversationsProvider', () => {
     await waitFor(() =>
       expect(screen.getByTestId('unread-probe')).toHaveTextContent('ready:0')
     );
-    const settledUnreadRenders = unreadRenderCount.current;
+    unreadCommits.mockClear();
 
     await act(async () => {
       await db.messages.insert(
@@ -267,7 +268,7 @@ describe('ConversationsProvider', () => {
       )
     );
     expect(screen.getByTestId('unread-probe')).toHaveTextContent('ready:0');
-    expect(unreadRenderCount.current).toBe(settledUnreadRenders);
+    expect(unreadCommits).not.toHaveBeenCalled();
   });
 
   it('resets conversations and unread on user switch', async () => {
