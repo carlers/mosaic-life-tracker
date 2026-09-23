@@ -2,7 +2,7 @@
 
 Updated: 2026-09-23
 Current task: Full-page primary swipes and functional appearance modes
-Status: in progress.
+Status: implementation complete; final acceptance gate pending.
 
 ## Active user prompt
 
@@ -15,8 +15,18 @@ Status: in progress.
 3. **Done — durable contracts and spec-first coverage.** Focused Verify #236 (`35864596171`) produced the intended red evidence: corrected Me direction/full-page assertions failed, new appearance modules were structurally absent, and Screen still opened the existing Coming Soon feedback instead of appearance controls.
 4. **Done — implement gesture corrections.** Me now maps left→Settings and right→Chat. The bottom-nav inset is inside the draggable content; the gesture owner can grow with the entire non-Home scroll surface while Home remains hamburger-layer-only.
 5. **Done — implement appearance system.** Added startup cache restoration, synced/local AppearanceProvider, live System preference listening, functional Screen → Appearance controls for System/Dark/Light/Black, theme-aware date controls, and palette-only CSS remapping of the shipped dark tokens. React lint-driven repair derives synced mode without effect state mirroring and keeps the consumer hook/context separate from the provider component. Light-mode semantic/category-colored surfaces explicitly retain white text contrast.
-6. **In progress — focused/browser verification.** Verify #240 (`35865787521`) passed focused verification (11 files / 45 tests) and all 25 browser contracts, including the lower-page route gesture and computed Light/Black palette contract. Final review hardens System-mode media-query listening with the legacy listener fallback and limits palette remapping to Light/Black so explicit Dark/System-dark preserve the exact shipped charcoal utility colors; re-run the focused/browser checkpoint before final acceptance.
-7. **Pending — final acceptance and Preview rollout.** Run exact-commit `[verify:full]`, move Preview only after green, confirm Vercel READY, and record manual device/visual checks.
+6. **Done — focused/browser verification.** Verify #241 (`35866188175`) passed focused verification (11 related files / 45 tests) and all 25 browser contracts after final review hardening. System mode supports modern and legacy media-query listeners; Dark/System-dark leave the shipped charcoal utility palette untouched while Light/Black remap the semantic palette.
+7. **In progress — final acceptance and Preview rollout.** This docs-only closure commit contains the same product/config tree as the focused/browser-green implementation. It must pass the canonical `[verify:full]` repository + browser gate before `preview` moves to it; then confirm the exact-SHA Vercel deployment is READY. No further product changes are planned.
 
 Roadmap pointer: settings appearance + primary-navigation interaction correction.
 Blockers: None.
+
+
+## Test evidence review
+
+- `SWIPE-FULL-PAGE` — **added-red-green**. Verify #236 captured failure before implementation; focused DOM + real-browser contracts now prove non-Home gesture ownership reaches lower-page content while Home remains hamburger-layer-only.
+- `SWIPE-ME-SETTINGS` — **added-red-green**. Verify #236 captured the old rightward Settings mapping; unit/DOM/browser coverage now pins Me left → Settings and Me right → Chat.
+- `APPEARANCE-SETTINGS` — **added-red-green**. Verify #236 showed Screen still opened Coming Soon; Settings DOM coverage now pins System/Dark/Light/Black and selection wiring.
+- `APPEARANCE-STATE` — **structural-red** for the wholly new appearance module/provider surface, then green unit/DOM coverage for mode resolution, startup cache, synced persistence, immediate application, and live System preference changes.
+- `APPEARANCE-PALETTE` — **existing-direct** final-state browser evidence verifies computed Light and Black primary/surface colors plus semantic white-text contrast. That specific visual-computation assertion was added during implementation, so there is no separate captured red for it.
+- Manual-only acceptance remains for whole-app aesthetic inspection across representative screens and physical-device gesture feel; automated contracts verify computed core palette/gesture behavior, not subjective visual quality.
