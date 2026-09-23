@@ -2,7 +2,7 @@
 
 Updated: 2026-09-23
 Current task: Full-page primary swipes and functional appearance modes
-Status: implementation complete; final acceptance gate pending.
+Status: complete.
 
 ## Active user prompt
 
@@ -16,10 +16,12 @@ Status: implementation complete; final acceptance gate pending.
 4. **Done — implement gesture corrections.** Me now maps left→Settings and right→Chat. The bottom-nav inset is inside the draggable content; the gesture owner can grow with the entire non-Home scroll surface while Home remains hamburger-layer-only.
 5. **Done — implement appearance system.** Added startup cache restoration, synced/local AppearanceProvider, live System preference listening, functional Screen → Appearance controls for System/Dark/Light/Black, theme-aware date controls, and palette-only CSS remapping of the shipped dark tokens. React lint-driven repair derives synced mode without effect state mirroring and keeps the consumer hook/context separate from the provider component. Light-mode semantic/category-colored surfaces explicitly retain white text contrast.
 6. **Done — focused/browser verification.** Verify #241 (`35866188175`) passed focused verification (11 related files / 45 tests) and all 25 browser contracts after final review hardening. System mode supports modern and legacy media-query listeners; Dark/System-dark leave the shipped charcoal utility palette untouched while Light/Black remap the semantic palette.
-7. **In progress — final acceptance and Preview rollout.** This docs-only closure commit contains the same product/config tree as the focused/browser-green implementation. It must pass the canonical `[verify:full]` repository + browser gate before `preview` moves to it; then confirm the exact-SHA Vercel deployment is READY. No further product changes are planned.
+7. **Done — final acceptance and Preview rollout.** Exact functional commit `11307edb610d960aa5ac3f54343498821faf3bc9` passed the canonical full repository gate (86 files / 563 tests + production build) and all 25 Playwright browser contracts on the task branch and again after `preview` moved to that SHA. Vercel deployment `dpl_BW4nBj6ojeCbFQ3h2LcGnDhsw5XP` reached READY for that exact SHA. This final state-only commit changes `SESSION_STATE.md` wording only and reruns the standard full gate before Preview is advanced once more.
 
 Roadmap pointer: settings appearance + primary-navigation interaction correction.
 Blockers: None.
+
+Remaining manual acceptance: whole-app Light/Black aesthetic inspection on the hosted Preview build and physical-device swipe feel across long non-Home pages. Automated browser contracts cover the core palette computation, 320px reflow, accessibility scan, lower-page gesture ownership, and Me swipe directions; no physical-device check was claimed.
 
 
 ## Test evidence review
