@@ -1,4 +1,4 @@
-import React, { StrictMode, useState } from 'react';
+import React, { StrictMode, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { Swiper, SwiperSlide } from 'swiper/react';
 import type { Swiper as SwiperClass } from 'swiper';
@@ -20,6 +20,8 @@ export function InteractionHarness() {
   const [todoDayIndex, setTodoDayIndex] = useState(0);
   const [todoGesture, setTodoGesture] = useState('idle');
   const [fullSheetOpen, setFullSheetOpen] = useState(false);
+  const [sheetDayIndex, setSheetDayIndex] = useState(0);
+  const sheetSwiperRef = useRef<SwiperClass | null>(null);
   const [todoMonth, setTodoMonth] = useState(() => new Date(2026, 8, 15));
   const [todoSelectedDate, setTodoSelectedDate] = useState(
     () => new Date(2026, 8, 15)
@@ -67,6 +69,7 @@ export function InteractionHarness() {
         <span>Todo selected: <output data-testid="todo-selected-date">{format(todoSelectedDate, 'yyyy-MM-dd')}</output></span>
         <span>Todo gesture: <output data-testid="todo-gesture">{todoGesture}</output></span>
         <span>Calendar: <output data-testid="calendar-title">{calendar.title}</output></span>
+        <span>Sheet day: <output data-testid="sheet-day-index">{sheetDayIndex}</output></span>
       </div>
 
       <div
@@ -231,11 +234,46 @@ export function InteractionHarness() {
         onClose={() => setFullSheetOpen(false)}
         ariaLabel="Responsive test sheet"
         height="full"
+        onHorizontalSwipe={(direction) => {
+          if (direction === 'left') {
+            sheetSwiperRef.current?.slideNext();
+          } else {
+            sheetSwiperRef.current?.slidePrev();
+          }
+        }}
       >
-        <div data-bottom-sheet-drag-handle className="p-4">
-          Sheet date drag area
-        </div>
-        <p>Sheet body</p>
+        <Swiper
+          noSwiping
+          touchStartPreventDefault={false}
+          touchMoveStopPropagation={false}
+          onSwiper={(swiper) => {
+            sheetSwiperRef.current = swiper;
+          }}
+          onSlideChange={(swiper) => setSheetDayIndex(swiper.activeIndex)}
+          data-bottom-sheet-native-horizontal-swipe="true"
+          style={{ height: 180, touchAction: 'pan-y' }}
+        >
+          <SwiperSlide>
+            <div
+              data-testid="sheet-date-row-1"
+              data-bottom-sheet-drag-handle
+              className="swiper-no-swiping touch-none p-4"
+            >
+              Sheet day 1 date row
+            </div>
+            <p className="px-4">Sheet day 1 body</p>
+          </SwiperSlide>
+          <SwiperSlide>
+            <div
+              data-testid="sheet-date-row-2"
+              data-bottom-sheet-drag-handle
+              className="swiper-no-swiping touch-none p-4"
+            >
+              Sheet day 2 date row
+            </div>
+            <p className="px-4">Sheet day 2 body</p>
+          </SwiperSlide>
+        </Swiper>
       </BottomSheet>
     </main>
   );

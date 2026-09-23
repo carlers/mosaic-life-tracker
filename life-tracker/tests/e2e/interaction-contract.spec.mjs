@@ -40,6 +40,34 @@ async function drag(page, locator, deltaX) {
   });
 }
 
+async function dragVertical(page, locator, deltaY) {
+  const box = await locator.boundingBox();
+  if (!box) throw new Error('Missing vertical drag target bounds');
+  const startX = box.x + box.width * 0.5;
+  const startY = box.y + Math.min(box.height * 0.35, 24);
+  const session = await page.context().newCDPSession(page);
+
+  await session.send('Input.dispatchTouchEvent', {
+    type: 'touchStart',
+    touchPoints: [{ x: startX, y: startY }],
+  });
+  for (let step = 1; step <= 12; step += 1) {
+    await session.send('Input.dispatchTouchEvent', {
+      type: 'touchMove',
+      touchPoints: [
+        {
+          x: startX,
+          y: startY + (deltaY * step) / 12,
+        },
+      ],
+    });
+  }
+  await session.send('Input.dispatchTouchEvent', {
+    type: 'touchEnd',
+    touchPoints: [],
+  });
+}
+
 async function startDrag(page, locator, deltaX) {
   const box = await locator.boundingBox();
   if (!box) throw new Error('Missing drag target bounds');
@@ -182,6 +210,28 @@ test('owner task memo is visible and double/triple tap shortcuts reach edit surf
   await page.reload();
   await page.getByRole('button', { name: 'Task 1.1' }).click({ clickCount: 3 });
   await expect(page.getByTestId('todo-gesture')).toHaveText('memo-edit');
+});
+
+
+// Regression: PROJECT_REFERENCE.md §2 — the shared Day View date row is direct-manipulation horizontally while remaining a vertical close handle.
+test('sheet date row follows the finger horizontally and still supports vertical drag-to-close', async ({ page }) => {
+  await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html`);
+  await page.getByTestId('open-full-sheet').click();
+
+  const firstRow = page.getByTestId('sheet-date-row-1');
+  const before = await firstRow.boundingBox();
+  if (!before) throw new Error('Missing sheet date row bounds');
+
+  const gesture = await startDrag(page, firstRow, -220);
+  const during = await firstRow.boundingBox();
+  if (!during) throw new Error('Missing sheet date row bounds during drag');
+
+  expect(during.x).toBeLessThan(before.x - 20);
+  await gesture.finish();
+  await expect(page.getByTestId('sheet-day-index')).toHaveText('1');
+
+  await dragVertical(page, page.getByTestId('sheet-date-row-2'), 180);
+  await expect(page.getByRole('dialog', { name: 'Responsive test sheet' })).toHaveCount(0);
 });
 
 // Regression: PROJECT_REFERENCE.md §2 — phones expose backdrop dismissal; tablet full sheets use full height.
