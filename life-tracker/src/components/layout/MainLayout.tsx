@@ -49,7 +49,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
         </Suspense>
       )}
 
-      <main className="flex-1 overflow-y-auto pb-[calc(4rem+env(safe-area-inset-bottom))]">
+      <main className="flex-1 min-h-0 overflow-y-auto">
         <PrimaryRouteSwipeSurface
           activeKey={activeTab}
           homeZoneOnly={activeTab === 'home'}
@@ -57,7 +57,12 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
           canSwipeRight={canSwipeRight}
           onSwipe={onRouteSwipe}
         >
-          {children}
+          <div
+            data-testid="primary-route-content"
+            className="min-h-full pb-[calc(4rem+env(safe-area-inset-bottom))]"
+          >
+            {children}
+          </div>
         </PrimaryRouteSwipeSurface>
       </main>
 

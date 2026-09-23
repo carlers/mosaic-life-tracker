@@ -214,6 +214,49 @@ test('todo compact calendar centers the active month and rings only the selected
   ).toBe('rgb(255, 255, 255)');
 });
 
+
+// Regression: PROJECT_REFERENCE.md §2 — Light and Black change the actual rendered palette
+// while semantic colored controls retain their contrast treatment.
+test('appearance modes update computed app surfaces without changing semantic fills', async ({ page }) => {
+  await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html`);
+
+  await page.getByTestId('set-appearance-light').click();
+  await expect
+    .poll(() =>
+      page.evaluate(() => document.documentElement.dataset.theme)
+    )
+    .toBe('light');
+
+  const sample = page.getByTestId('appearance-sample');
+  const surface = page.getByTestId('appearance-surface-sample');
+  const semantic = page.getByTestId('appearance-semantic-sample');
+  expect(
+    await sample.evaluate((element) => getComputedStyle(element).backgroundColor)
+  ).toBe('rgb(247, 247, 248)');
+  expect(
+    await sample.evaluate((element) => getComputedStyle(element).color)
+  ).toBe('rgb(17, 24, 39)');
+  expect(
+    await surface.evaluate((element) => getComputedStyle(element).backgroundColor)
+  ).toBe('rgb(255, 255, 255)');
+  expect(
+    await semantic.evaluate((element) => getComputedStyle(element).color)
+  ).toBe('rgb(255, 255, 255)');
+
+  await page.getByTestId('set-appearance-black').click();
+  await expect
+    .poll(() =>
+      page.evaluate(() => document.documentElement.dataset.theme)
+    )
+    .toBe('black');
+  expect(
+    await sample.evaluate((element) => getComputedStyle(element).backgroundColor)
+  ).toBe('rgb(0, 0, 0)');
+  expect(
+    await surface.evaluate((element) => getComputedStyle(element).backgroundColor)
+  ).toBe('rgb(9, 9, 9)');
+});
+
 // Regression: PROJECT_REFERENCE.md §16 — calendar windowing keeps only active + one neighbor each side rendered.
 test('calendar keeps at most three full grids mounted while preserving carousel geometry', async ({ page }) => {
   await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html`);

@@ -34,10 +34,10 @@ describe('layout polish', () => {
         <div>Page</div>
       </MainLayout>
     );
-    expect(screen.getByRole('main')).toHaveClass(
+    expect(screen.getByRole('main')).not.toHaveClass('pb-24');
+    expect(screen.getByTestId('primary-route-content')).toHaveClass(
       'pb-[calc(4rem+env(safe-area-inset-bottom))]'
     );
-    expect(screen.getByRole('main')).not.toHaveClass('pb-24');
   });
 
   it('keeps Account logout inside the normal account scroll flow', () => {

@@ -27,10 +27,13 @@ import { ChangeEmailSheet } from '../components/modals/ChangeEmailSheet';
 import { ChangePasswordSheet } from '../components/modals/ChangePasswordSheet';
 import { ExportDataSheet } from '../components/modals/ExportDataSheet';
 import { SyncStatusSheet } from '../components/modals/SyncStatusSheet';
+import { AppearanceSettingsSheet } from '../components/settings/AppearanceSettingsSheet';
+import { useAppearance } from '../hooks/useAppearance';
 
 export const SettingsPage: React.FC = () => {
   const { user, logout } = useAuth();
   const { checkForUpdate } = usePwaLifecycle();
+  const { mode: appearanceMode, setAppearanceMode } = useAppearance();
   const navigate = useNavigate();
   const [isClearDataOpen, setIsClearDataOpen] = useState(false);
   const [isDeleteAllDataOpen, setIsDeleteAllDataOpen] = useState(false);
@@ -41,6 +44,7 @@ export const SettingsPage: React.FC = () => {
   const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
   const [isExportSheetOpen, setIsExportSheetOpen] = useState(false);
   const [isSyncStatusOpen, setIsSyncStatusOpen] = useState(false);
+  const [isAppearanceOpen, setIsAppearanceOpen] = useState(false);
   const [isCheckingUpdate, setIsCheckingUpdate] = useState(false);
   const [feedback, setFeedback] = useState<string | null>(null);
 
@@ -165,7 +169,16 @@ export const SettingsPage: React.FC = () => {
           <SettingsRow
             icon={<Monitor size={18} className="text-gray-400" aria-hidden="true" />}
             label="Screen"
-            onClick={handleComingSoon}
+            value={
+              appearanceMode === 'system'
+                ? 'System'
+                : appearanceMode === 'dark'
+                  ? 'Dark'
+                  : appearanceMode === 'light'
+                    ? 'Light'
+                    : 'Black'
+            }
+            onClick={() => setIsAppearanceOpen(true)}
           />
           <SettingsRow
             icon={<Bell size={18} className="text-gray-400" aria-hidden="true" />}
@@ -350,6 +363,12 @@ export const SettingsPage: React.FC = () => {
       <SyncStatusSheet
         isOpen={isSyncStatusOpen}
         onClose={() => setIsSyncStatusOpen(false)}
+      />
+      <AppearanceSettingsSheet
+        isOpen={isAppearanceOpen}
+        onClose={() => setIsAppearanceOpen(false)}
+        mode={appearanceMode}
+        onChange={setAppearanceMode}
       />
       {feedback && (
         <div

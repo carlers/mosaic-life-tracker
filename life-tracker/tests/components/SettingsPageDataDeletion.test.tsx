@@ -37,7 +37,7 @@ vi.mock('../../src/hooks/usePwaLifecycle', () => ({
     checkForUpdate: pwaMocks.checkForUpdate,
   }),
 }));
-vi.mock('../../src/hooks/AppearanceProvider', () => ({
+vi.mock('../../src/hooks/useAppearance', () => ({
   useAppearance: () => ({
     mode: 'system',
     resolvedTheme: 'dark',

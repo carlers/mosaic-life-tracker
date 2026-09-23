@@ -260,25 +260,25 @@ export const PrimaryRouteSwipeSurface: React.FC<
   const customHorizontalOwner = (canSwipeLeft || canSwipeRight) && !homeZoneOnly;
 
   return (
-    <div className="h-full min-h-0 w-full overflow-x-hidden">
+    <div
+      className="min-h-full w-full overflow-x-hidden"
+      style={{ touchAction: customHorizontalOwner ? 'pan-y' : undefined }}
+      onPointerDownCapture={handlePointerDown}
+      onPointerMoveCapture={handlePointerMove}
+      onPointerUpCapture={(event) => finishGesture(event)}
+      onPointerCancelCapture={(event) => finishGesture(event, true)}
+      onClickCapture={(event) => {
+        if (!suppressClickRef.current) return;
+        event.preventDefault();
+        event.stopPropagation();
+        suppressClickRef.current = false;
+      }}
+    >
       <div
         ref={surfaceRef}
         data-testid="primary-route-swipe-surface"
-        className="h-full min-h-0 w-full will-change-transform"
-        style={{
-          touchAction: customHorizontalOwner ? 'pan-y' : undefined,
-          transform: 'translate3d(0, 0, 0)',
-        }}
-        onPointerDownCapture={handlePointerDown}
-        onPointerMoveCapture={handlePointerMove}
-        onPointerUpCapture={(event) => finishGesture(event)}
-        onPointerCancelCapture={(event) => finishGesture(event, true)}
-        onClickCapture={(event) => {
-          if (!suppressClickRef.current) return;
-          event.preventDefault();
-          event.stopPropagation();
-          suppressClickRef.current = false;
-        }}
+        className="min-h-full w-full will-change-transform"
+        style={{ transform: 'translate3d(0, 0, 0)' }}
       >
         {children}
       </div>

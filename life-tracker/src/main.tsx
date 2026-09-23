@@ -13,7 +13,9 @@ import {
   captureHandledException,
   initializePostHog,
 } from './lib/posthog';
+import { initializeAppearance } from './lib/appearance';
 
+initializeAppearance();
 void initializePostHog();
 installChunkLoadErrorTracking();
 initializePwaLifecycle(window, registerSW);

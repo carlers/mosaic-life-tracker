@@ -17,10 +17,8 @@ vi.mock('../../src/hooks/useSettings', () => ({
   }),
 }));
 
-import {
-  AppearanceProvider,
-  useAppearance,
-} from '../../src/hooks/AppearanceProvider';
+import { AppearanceProvider } from '../../src/hooks/AppearanceProvider';
+import { useAppearance } from '../../src/hooks/useAppearance';
 
 function Consumer() {
   const { mode, resolvedTheme, setAppearanceMode } = useAppearance();

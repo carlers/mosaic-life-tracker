@@ -5,6 +5,7 @@ import { MainLayout } from './MainLayout';
 import { FriendsProvider } from '../../hooks/FriendsProvider';
 import { ConversationsProvider } from '../../hooks/ConversationsProvider';
 import { useAuth } from '../../hooks/useAuth';
+import { AppearanceProvider } from '../../hooks/AppearanceProvider';
 import type { TabId } from './BottomNav';
 import {
   resolvePrimarySwipeDestination,
@@ -212,18 +213,20 @@ export const AppLayout: React.FC = () => {
   const includeConversations = path.includes('/messages');
 
   return (
-    <FriendsProvider>
-      <ConversationsProvider includeConversations={includeConversations}>
-        <MainLayout
-          activeTab={activeTab}
-          onTabChange={handleTabChange}
-          canSwipeLeft={Boolean(leftSwipeDestination)}
-          canSwipeRight={Boolean(rightSwipeDestination)}
-          onRouteSwipe={handleRouteSwipe}
-        >
-          <Outlet />
-        </MainLayout>
-      </ConversationsProvider>
-    </FriendsProvider>
+    <AppearanceProvider>
+      <FriendsProvider>
+        <ConversationsProvider includeConversations={includeConversations}>
+          <MainLayout
+            activeTab={activeTab}
+            onTabChange={handleTabChange}
+            canSwipeLeft={Boolean(leftSwipeDestination)}
+            canSwipeRight={Boolean(rightSwipeDestination)}
+            onRouteSwipe={handleRouteSwipe}
+          >
+            <Outlet />
+          </MainLayout>
+        </ConversationsProvider>
+      </FriendsProvider>
+    </AppearanceProvider>
   );
 };

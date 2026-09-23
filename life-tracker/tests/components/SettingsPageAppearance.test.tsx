@@ -16,7 +16,7 @@ vi.mock('../../src/hooks/useAuth', () => ({
 vi.mock('../../src/hooks/usePwaLifecycle', () => ({
   usePwaLifecycle: () => ({ checkForUpdate: vi.fn().mockResolvedValue('up-to-date') }),
 }));
-vi.mock('../../src/hooks/AppearanceProvider', () => ({
+vi.mock('../../src/hooks/useAppearance', () => ({
   useAppearance: () => ({
     mode: 'system',
     resolvedTheme: 'dark',
@@ -36,7 +36,7 @@ import { SettingsPage } from '../../src/pages/SettingsPage';
 
 describe('SettingsPage appearance', () => {
   // Regression: PROJECT_REFERENCE.md §2 — Settings exposes all four functional appearance choices.
-  it('opens Screen appearance controls and applies the selected mode', () => {
+  it('opens Screen appearance controls and applies the selected mode', async () => {
     render(
       <MemoryRouter>
         <SettingsPage />
@@ -46,12 +46,12 @@ describe('SettingsPage appearance', () => {
     fireEvent.click(screen.getByRole('button', { name: /Screen/i }));
 
     expect(screen.getByRole('dialog', { name: 'Appearance' })).toBeInTheDocument();
-    expect(screen.getByRole('radio', { name: 'System' })).toBeInTheDocument();
-    expect(screen.getByRole('radio', { name: 'Dark' })).toBeInTheDocument();
-    expect(screen.getByRole('radio', { name: 'Light' })).toBeInTheDocument();
-    expect(screen.getByRole('radio', { name: 'Black' })).toBeInTheDocument();
+    expect(await screen.findByRole('radio', { name: /^System/ })).toBeInTheDocument();
+    expect(screen.getByRole('radio', { name: /^Dark/ })).toBeInTheDocument();
+    expect(screen.getByRole('radio', { name: /^Light/ })).toBeInTheDocument();
+    expect(screen.getByRole('radio', { name: /^Black/ })).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('radio', { name: 'Light' }));
+    fireEvent.click(screen.getByRole('radio', { name: /^Light/ }));
     expect(appearanceMocks.setAppearanceMode).toHaveBeenCalledWith('light');
   });
 });

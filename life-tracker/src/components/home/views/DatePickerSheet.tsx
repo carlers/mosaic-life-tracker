@@ -44,7 +44,7 @@ export const DatePickerSheet: React.FC<DatePickerSheetProps> = ({
             type="date"
             value={selectedDate}
             onChange={(e) => setEditedDate(e.target.value)}
-            className="w-full bg-[#1E1E1E] border border-[#333333] rounded-xl p-3 text-sm text-white focus:outline-none focus:border-[#555555] focus-visible:ring-2 focus-visible:ring-emerald-500/60 transition-colors [color-scheme:dark]"
+            className="mosaic-native-color-scheme w-full bg-[#1E1E1E] border border-[#333333] rounded-xl p-3 text-sm text-white focus:outline-none focus:border-[#555555] focus-visible:ring-2 focus-visible:ring-emerald-500/60 transition-colors"
           />
         </div>
         <Button variant="primary" className="w-full gap-2 py-3" onClick={handleConfirm} disabled={!selectedDate}>

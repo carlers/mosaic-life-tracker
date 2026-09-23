@@ -40,7 +40,10 @@ describe('appearance mode', () => {
   ] satisfies Array<[AppearanceMode, boolean, string]>)(
     'applies %s immediately to the document palette',
     (mode, prefersDark, expectedTheme) => {
-      const root = document.documentElement;
+      const root = {
+        dataset: {} as DOMStringMap,
+        style: { colorScheme: '' },
+      } as unknown as HTMLElement;
       applyAppearanceMode(mode, { root, prefersDark });
       expect(root.dataset.appearanceMode).toBe(mode);
       expect(root.dataset.theme).toBe(expectedTheme);

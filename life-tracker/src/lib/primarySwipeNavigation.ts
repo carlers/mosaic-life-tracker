@@ -14,7 +14,7 @@ export function resolvePrimarySwipeDestination(
     case '/messages':
       return direction === 'left' ? '/account' : '/notifications';
     case '/account':
-      return direction === 'right' ? '/settings' : null;
+      return direction === 'left' ? '/settings' : '/messages';
     default:
       return null;
   }

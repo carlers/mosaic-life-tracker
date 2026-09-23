@@ -14,6 +14,7 @@ import type { CategoryDocument, TaskDocument } from '../../src/db/schema';
 import { useCalendarState } from '../../src/components/home/views/useCalendarState';
 import { useHorizontalArrowNavigation } from '../../src/hooks/useHorizontalArrowNavigation';
 import { PrimaryRouteSwipeSurface } from '../../src/components/layout/PrimaryRouteSwipeSurface';
+import { applyAppearanceMode } from '../../src/lib/appearance';
 
 export function InteractionHarness() {
   const calendar = useCalendarState();
@@ -353,6 +354,38 @@ export function InteractionHarness() {
           onClick={() => setPrimaryRoute('account')}
         >
           Set Me route
+        </button>
+      </div>
+
+      <div
+        data-testid="appearance-sample"
+        className="bg-[#111111] text-white border border-[#333333] p-2"
+      >
+        Appearance sample
+        <div
+          data-testid="appearance-surface-sample"
+          className="bg-[#1E1E1E] text-gray-400 border border-[#333333] p-1"
+        >
+          Surface
+        </div>
+        <div data-testid="appearance-semantic-sample" className="bg-red-500 text-white p-1">
+          Semantic
+        </div>
+      </div>
+      <div className="flex gap-2">
+        <button
+          type="button"
+          data-testid="set-appearance-light"
+          onClick={() => applyAppearanceMode('light')}
+        >
+          Light appearance
+        </button>
+        <button
+          type="button"
+          data-testid="set-appearance-black"
+          onClick={() => applyAppearanceMode('black')}
+        >
+          Black appearance
         </button>
       </div>
     </main>
