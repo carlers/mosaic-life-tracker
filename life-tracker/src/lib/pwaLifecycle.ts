@@ -33,6 +33,7 @@ let snapshot: PwaLifecycleSnapshot = {
 let installPrompt: InstallPromptEvent | null = null;
 let updateServiceWorker: (() => Promise<void>) | null = null;
 let serviceWorkerRegistration: ServiceWorkerRegistration | null = null;
+let serviceWorkerContainer: ServiceWorkerContainer | null = null;
 let initialized = false;
 const listeners = new Set<() => void>();
 
@@ -56,6 +57,7 @@ export function initializePwaLifecycle(
 ): void {
   if (initialized) return;
   initialized = true;
+  serviceWorkerContainer = target.navigator?.serviceWorker ?? null;
 
   target.addEventListener('beforeinstallprompt', ((event: InstallPromptEvent) => {
     event.preventDefault();
@@ -99,8 +101,39 @@ export function dismissPwaInstall(): void {
   publish({ installAvailable: false });
 }
 
+async function resolveServiceWorkerRegistration(): Promise<ServiceWorkerRegistration | null> {
+  if (serviceWorkerRegistration) return serviceWorkerRegistration;
+  const container = serviceWorkerContainer;
+  if (!container) return null;
+
+  try {
+    if (typeof container.getRegistration === 'function') {
+      const registration = await container.getRegistration();
+      if (registration) {
+        serviceWorkerRegistration = registration;
+        return registration;
+      }
+    }
+  } catch (error) {
+    console.warn('[PWA] Direct service-worker registration lookup failed:', error);
+  }
+
+  // Standards-only fallback for controlled pages. This covers browser-specific
+  // registration timing/lookup differences (including WebKit/Safari) without
+  // user-agent sniffing. `ready` should already be resolved for a controlled page.
+  if (!container.controller) return null;
+  try {
+    const registration = await container.ready;
+    serviceWorkerRegistration = registration;
+    return registration;
+  } catch (error) {
+    console.warn('[PWA] Active service-worker registration lookup failed:', error);
+    return null;
+  }
+}
+
 export async function checkForPwaUpdate(): Promise<PwaUpdateCheckResult> {
-  const registration = serviceWorkerRegistration;
+  const registration = await resolveServiceWorkerRegistration();
   if (!registration) return 'unavailable';
 
   if (registration.waiting) {
@@ -134,6 +167,7 @@ export function resetPwaLifecycleForTests(): void {
   installPrompt = null;
   updateServiceWorker = null;
   serviceWorkerRegistration = null;
+  serviceWorkerContainer = null;
   initialized = false;
   listeners.clear();
 }

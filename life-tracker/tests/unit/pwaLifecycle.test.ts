@@ -13,6 +13,13 @@ import {
 
 interface FakeWindow extends EventTarget {
   location: { reload: ReturnType<typeof vi.fn> };
+  navigator?: {
+    serviceWorker?: {
+      getRegistration?: ReturnType<typeof vi.fn>;
+      controller?: ServiceWorker | null;
+      ready?: Promise<ServiceWorkerRegistration>;
+    };
+  };
 }
 
 interface FakeRegisterOptions {
@@ -25,7 +32,15 @@ interface FakeRegisterOptions {
   onRegisterError?: (error: unknown) => void;
 }
 
-function fixture() {
+function fixture({
+  callbackRegistration = true,
+  browserRegistration = true,
+  readyFallback = false,
+}: {
+  callbackRegistration?: boolean;
+  browserRegistration?: boolean;
+  readyFallback?: boolean;
+} = {}) {
   const target = new EventTarget() as FakeWindow;
   target.location = { reload: vi.fn() };
   let options: FakeRegisterOptions = {};
@@ -34,9 +49,25 @@ function fixture() {
     waiting: null,
     update: vi.fn().mockResolvedValue(undefined),
   } as unknown as ServiceWorkerRegistration;
+  const getRegistration = vi
+    .fn()
+    .mockResolvedValue(
+      readyFallback ? undefined : browserRegistration ? registration : undefined
+    );
+  target.navigator = {
+    serviceWorker: {
+      getRegistration,
+      controller:
+        readyFallback && browserRegistration ? ({} as ServiceWorker) : null,
+      ready: Promise.resolve(registration),
+    },
+  };
   const register = vi.fn((next: FakeRegisterOptions = {}) => {
     options = next;
-    next.onRegisteredSW?.('/sw.js', registration);
+    next.onRegisteredSW?.(
+      '/sw.js',
+      callbackRegistration ? registration : undefined
+    );
     return update;
   });
   initializePwaLifecycle(target as unknown as Window, register);
@@ -45,6 +76,7 @@ function fixture() {
     register,
     update,
     registration,
+    getRegistration,
     get options() {
       return options;
     },
@@ -75,6 +107,38 @@ describe('PWA lifecycle', () => {
 
     await expect(checkForPwaUpdate()).resolves.toBe('up-to-date');
     expect(setup.registration.update).toHaveBeenCalledOnce();
+  });
+
+  // Regression: PROJECT_REFERENCE.md §24.13 — manual checks must recover a valid browser registration.
+  it('recovers the service-worker registration when the registration callback omits it', async () => {
+    const setup = fixture({ callbackRegistration: false });
+
+    await expect(checkForPwaUpdate()).resolves.toBe('up-to-date');
+    expect(setup.getRegistration).toHaveBeenCalledOnce();
+    expect(setup.registration.update).toHaveBeenCalledOnce();
+  });
+
+  // Regression: PROJECT_REFERENCE.md §24.13 — WebKit/Safari-compatible recovery uses only standard SW APIs.
+  it('falls back to the active ready registration when direct lookup yields no registration', async () => {
+    const setup = fixture({
+      callbackRegistration: false,
+      browserRegistration: true,
+      readyFallback: true,
+    });
+
+    await expect(checkForPwaUpdate()).resolves.toBe('up-to-date');
+    expect(setup.getRegistration).toHaveBeenCalledOnce();
+    expect(setup.registration.update).toHaveBeenCalledOnce();
+  });
+
+  it('still reports unavailable when the browser has no matching service-worker registration', async () => {
+    const setup = fixture({
+      callbackRegistration: false,
+      browserRegistration: false,
+    });
+
+    await expect(checkForPwaUpdate()).resolves.toBe('unavailable');
+    expect(setup.getRegistration).toHaveBeenCalledOnce();
   });
 
   it('re-surfaces an already-waiting update without another network check', async () => {

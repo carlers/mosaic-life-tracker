@@ -1,41 +1,40 @@
 # Session state
 
 Updated: 2026-09-23
-Current task: focused app performance optimization pass
+Current task: cross-browser manual PWA update-check compatibility
 
 ## Active user prompt
 
-> do a focused optimization pass to speed up performance of this app
+> continue and ensure all browsers will work including ios safari
+
+## Parent prompt
+
+> update checking umavailable for this browser (brave) when i click check for updates
 
 ## Progress
 
-1. **Done — recovery/base selection.** Read `AGENTS.md`, prior `SESSION_STATE.md`, `PLAN.md`, remote/test workflows, current Preview source, and performance contracts. The task branch was cut from Preview state commit `9b449d30edf9b90887520427a90c2840ea216f0a`; its product-code baseline was `5d29755a0bc34875097ff85b7bf476a358345c78`.
-2. **Done — profile current runtime/bundle hot paths.** Baseline Preview Verify #150: production entry 863,688 B raw / 267,772 B gzip; total app assets 1,872,668 B raw / 558,599 B gzip. Selected concrete runtime costs: five mounted calendar grids, mapped RxDB objects recreated on parent renders, Home Swiper mutation observers despite an explicit update path, Framer Motion controllers on every person pill, and two-pass inbox grouping with transient per-friend arrays. A dev-only dynamic RxDB import was also measured as an experiment, then rejected because it slightly increased total emitted/precache bytes.
-3. **Done — spec/performance regression coverage.** Verify #154 captured behavioral red exactly as intended: mapped RxDB data changed object identity on a parent rerender, and the calendar mounted 5 full grids instead of the new ≤3 contract.
-4. **Done — implementation.** Reduced calendar render window 5→3 grids, memoized mapped RxDB outputs, removed redundant Home Swiper MutationObservers, replaced person-pill motion controllers with CSS press feedback + memoized carousel callbacks/component, and changed inbox aggregation to one pass. Reverted the RxDB dynamic-import experiment after #155 measurement showed +875 B total app raw / +481 B gzip / +958 B precache despite a ~1 KB entry reduction.
-5. **Done — first green implementation gate + measurement.** Verify #155 passed 78/78 Vitest files, 532/532 tests, and 20/20 Playwright contracts. Runtime contracts are green. Build measurement exposed the net-negative dynamic-import size tradeoff, so that experiment was reverted before the final acceptance gate.
-6. **Done — final task-branch acceptance gate.** Verify #156 passed 78/78 Vitest files, 532/532 tests, and 20/20 Playwright contracts after the measurement-driven cleanup. Final build remained effectively bundle-neutral versus baseline: entry +26 B raw/+3 B gzip; total app assets +817 B raw/+50 B gzip; precache +817 B (<0.05%), while the intended wins are runtime render/allocation reductions.
-7. **Done — Preview promotion/deployment.** Fast-forwarded `preview` to verified product commit `f56d2d71ced357c36074fce30ebbfb279997487d`; Vercel Preview deployment `dpl_FisGGx5cD1FgheuL7ZDp9uxSkmHY` is READY and owns the stable preview alias. This state-only rollout commit is the final GitHub verification target.
-8. **Done — final handoff gate.** Preview state commit `e01dc7d624d8293b1a3ca29840bade3bab7327dd` passed Verify run `35811333257`; Vercel deployment `dpl_EtSRE4WY9edGV4gfo1oRZJNS1oEE` is READY. The focused performance pass is complete; only optional hosted-device frame-smoothness observation remains.
+1. **Done — recovery/base selection.** Read repository guidance, current PWA lifecycle code, Settings update UI, existing PWA tests, and current Preview state.
+2. **Done — root cause.** Manual update checks returned `unavailable` whenever vite-plugin-pwa's registration callback did not leave a captured `ServiceWorkerRegistration`, even if the browser still had a valid registration.
+3. **Done — Brave regression red.** Verify #161 (`35814608455`) failed the new recovery contract: callback-missing/browser-registration-present returned `unavailable` and never consulted the browser registration API.
+4. **Done — first compatibility fix.** Added the standard `navigator.serviceWorker.getRegistration()` recovery path. Verify #162 (`35814831101`) passed 78/78 Vitest files, 534/534 tests, and 20/20 browser contracts.
+5. **Done — cross-browser/Safari compatibility review.** MDN marks `ServiceWorkerContainer.getRegistration()`, `ServiceWorkerContainer.ready`, and `ServiceWorkerRegistration.update()` as widely available secure-context APIs. WebKit documents Service Worker support in Safari/iOS web apps. The implementation therefore uses feature detection and standards-only fallbacks, not user-agent sniffing.
+6. **Done — Safari/WebKit regression red.** Verify #164 (`35815255117`) failed exactly because a controlled page whose direct registration lookup yielded none did not fall back to `serviceWorker.ready`: expected `up-to-date`, received `unavailable`.
+7. **Done — final cross-browser implementation.** Registration resolution is now: captured registration → `getRegistration()` → controlled-page `serviceWorker.ready`. Browsers without Service Worker support, pages with no matching registration, and uncontrolled pages still return `unavailable` immediately rather than waiting indefinitely.
+8. **Done — green implementation gate.** Verify #166 (`35815413162`) passed 78/78 Vitest files, 535/535 tests, 20/20 Playwright browser contracts, contracts/discovery/lint/build/PWA/build-size checks. Task-branch Vercel deployment `dpl_EfRzV1RMhnywpMSBcr8L2EyPGqrd` is READY.
+9. **In progress — final rollout.** This branch is consolidated to the exact net task diff. Require this consolidated checkpoint to pass Verify, fast-forward `preview`, then require Preview Verify and Vercel READY. After deployment, manually confirm **Check for Updates** in Brave and iOS Safari/Home Screen mode.
 
-Status: Focused performance implementation is complete, verified, and promoted to Preview. No product behavior or visual changes were intended.
-Roadmap pointer: Todo List still awaits hosted/manual acceptance; this task is a behavior-preserving performance pass across the current app.
-Blockers: None currently. Old merged task branches remain undeletable from this GitHub connector because it exposes no delete-ref operation.
+Status: Cross-browser update-check logic is implemented and green before consolidation; final consolidated verification and Preview rollout remain.
+Roadmap pointer: Todo List hosted/manual acceptance remains independent; this is a scoped PWA update-check compatibility fix.
+Blockers: No code blocker. Real iOS Safari/Home Screen behavior requires device/browser acceptance because CI currently runs Chromium browser contracts.
 
 ## Verification
 
-- Baseline Preview checkpoint before this task: `5d29755a0bc34875097ff85b7bf476a358345c78`; Preview Verify #150 passed and its Vercel deployment is READY.
-- Verify #154 intentional red: mapped RxDB identity contract failed and calendar browser contract observed 5 grids vs the required ≤3.
-- Verify #155 first green implementation gate: 78/78 Vitest files, 532/532 tests, 20/20 Playwright contracts; repository and browser jobs passed. Build measurement: entry 862,628 B raw / 267,431 B gzip, but total app assets 1,873,543 B raw / 559,080 B gzip and precache 1,934,113 B, revealing the RxDB dynamic-import experiment as a net total-size regression.
-- Final post-cleanup task-branch Verify #156: green — 78/78 Vitest files, 532/532 tests, 20/20 Playwright browser contracts; production build/PWA/build-size checks passed.
-- Final build versus baseline: entry 863,714 B raw / 267,775 B gzip (+26/+3 B); app assets 1,873,485 B raw / 558,649 B gzip (+817/+50 B); precache 1,933,972 B (+817 B). Bundle size is effectively flat (<0.05% change); optimization value is runtime work avoided rather than transfer-size reduction.
-- Preview product deployment: `f56d2d71ced357c36074fce30ebbfb279997487d`, Vercel `dpl_FisGGx5cD1FgheuL7ZDp9uxSkmHY` READY on the stable preview alias.
-- Final state-only rollout checkpoint: `e01dc7d624d8293b1a3ca29840bade3bab7327dd`; Verify `35811333257` succeeded and Vercel `dpl_EtSRE4WY9edGV4gfo1oRZJNS1oEE` is READY.
+- Behavioral red: Verify #161 captured the missing direct-registration fallback.
+- Behavioral red: Verify #164 captured the missing controlled-page `ready` fallback.
+- Green implementation: Verify #166 passed 78/78 Vitest files, 535/535 tests, 20/20 Playwright browser contracts, plus production build/PWA/build-size checks.
+- Standards basis: only Service Worker APIs standardized across current browser families are used; no browser-specific UA branch exists.
+- Manual remaining: Brave + iOS Safari/Home Screen **Check for Updates** smoke test after Preview promotion.
 
-## Test-evidence review
+## Prior completed checkpoint
 
-- PERF-CALENDAR-1 — at most active + one adjacent full calendar grid each side — `added-red-green`: Playwright contract failed with 5 in Verify #154 and passed with ≤3 in #155.
-- PERF-RXMAP-1 — mapped RxDB public data keeps object identity between emissions — `added-red-green`: `tests/react/useRxCollection.test.tsx` failed Object.is in #154 and passed in #155.
-- PERF-HOME-1 — redundant Home Swiper MutationObservers removed; stable/memoized person-carousel callbacks and CSS press feedback replace repeated motion controllers — `existing-indirect + manual`: full Home/browser regressions remain green; real frame pacing needs hosted-device observation.
-- PERF-INBOX-1 — conversation newest-message/unread aggregation is one pass without per-friend message arrays — `existing-direct`: ConversationsProvider sort/unread/user-switch tests pass.
-- Manual acceptance: compare Home friend/calendar swipes and inbox navigation on the hosted Preview build for visible jank/frame pacing; no visual/interaction change is intended.
+The preceding focused performance optimization pass is complete on Preview. Final state checkpoint `e01dc7d624d8293b1a3ca29840bade3bab7327dd` passed Verify `35811333257`, with its Vercel deployment READY.
