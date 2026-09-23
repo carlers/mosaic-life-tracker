@@ -4,6 +4,7 @@ import {
   dismissPwaInstall,
   dismissPwaUpdate,
   getPwaLifecycleSnapshot,
+  checkForPwaUpdate,
   requestPwaInstall,
   subscribeToPwaLifecycle,
 } from '../lib/pwaLifecycle';
@@ -18,6 +19,7 @@ export function usePwaLifecycle() {
   return {
     ...snapshot,
     applyUpdate: applyPwaUpdate,
+    checkForUpdate: checkForPwaUpdate,
     dismissInstall: dismissPwaInstall,
     dismissUpdate: dismissPwaUpdate,
     requestInstall: requestPwaInstall,

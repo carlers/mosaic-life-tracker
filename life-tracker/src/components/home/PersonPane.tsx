@@ -34,9 +34,10 @@ function readMeView(): ViewType {
 export const PersonPane: React.FC<PersonPaneProps> = ({ person, isActive }) => {
   const { user } = useAuth();
   const currentUserId = user?.$id ?? '';
+  const isMe = person.kind === 'me';
 
-  const { tasks = [] } = useTasks();
-  const { categories = [] } = useCategories();
+  const { tasks = [] } = useTasks(isMe);
+  const { categories = [] } = useCategories(isMe);
 
   const { sendTaskReaction } = useMessageActions(
     person.kind === 'friend' ? person.userId : null

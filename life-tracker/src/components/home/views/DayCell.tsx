@@ -1,5 +1,4 @@
 import React, { useMemo } from 'react';
-import { motion } from 'framer-motion';
 import { isToday, format } from 'date-fns';
 import { TaskBlock } from './TaskBlock';
 import type { TaskDocument } from '../../../db/schema';
@@ -60,16 +59,15 @@ const DayCellComponent: React.FC<DayCellProps> = ({
   const handleClick = onDayClick ? () => onDayClick(date) : undefined;
 
   return (
-    <motion.button
+    <button
       type="button"
-      whileTap={onDayClick ? { scale: 0.98 } : {}}
       onClick={handleClick}
       disabled={!onDayClick}
       aria-label={ariaLabel}
       aria-current={isTodayDate ? 'date' : undefined}
       aria-disabled={!onDayClick}
       className={`py-0.5 flex flex-col h-full w-full rounded-md text-left transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 ${
-        onDayClick ? 'cursor-pointer hover:bg-[#1E1E1E]' : 'cursor-default'
+        onDayClick ? 'cursor-pointer hover:bg-[#1E1E1E] active:scale-[0.98]' : 'cursor-default'
       } ${!isCurrentMonth ? 'opacity-40' : ''}`}
     >
       <div className="flex justify-center mb-1">
@@ -91,7 +89,7 @@ const DayCellComponent: React.FC<DayCellProps> = ({
           />
         ))}
       </div>
-    </motion.button>
+    </button>
   );
 };
 

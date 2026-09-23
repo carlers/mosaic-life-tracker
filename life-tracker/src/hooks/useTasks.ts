@@ -4,7 +4,7 @@ import { useAuth } from './useAuth';
 import { useRxCollection } from './useRxCollection';
 import type { TaskDocument } from '../db/schema';
 
-export function useTasks() {
+export function useTasks(enabled = true) {
   const { user } = useAuth();
 
   const { data: tasks, isLoading } = useRxCollection<TaskDocument>({
@@ -12,6 +12,7 @@ export function useTasks() {
     selector: { userId: user?.$id ?? '', isDeleted: false },
     sort: [{ date: 'asc' }, { createdAt: 'desc' }],
     logPrefix: '[useTasks]',
+    enabled,
   });
 
   const addTask = useCallback(

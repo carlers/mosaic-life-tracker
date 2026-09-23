@@ -7,7 +7,7 @@ import type { CarouselPerson } from '../../hooks/useFriendCarousel';
 interface PersonPillProps {
   person: CarouselPerson;
   isActive: boolean;
-  onSelect: () => void;
+  onSelect: (personId: string) => void;
 }
 
 const PersonPill = React.memo<PersonPillProps>(
@@ -29,7 +29,7 @@ const PersonPill = React.memo<PersonPillProps>(
         ref={pillRef}
         type="button"
         whileTap={{ scale: 0.95 }}
-        onClick={onSelect}
+        onClick={() => onSelect(person.id)}
         onPointerDown={(e) => e.stopPropagation()}
         className={`flex-shrink-0 flex items-center gap-2 pl-1 pr-3 py-1 rounded-full border transition-colors ${
           isActive
@@ -80,9 +80,7 @@ export const PersonCarousel: React.FC<PersonCarouselProps> = ({
             key={p.id}
             person={p}
             isActive={p.id === activePersonId}
-            onSelect={() => {
-              if (p.id !== activePersonId) onSelect(p.id);
-            }}
+            onSelect={onSelect}
           />
         ))}
         <motion.button

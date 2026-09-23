@@ -34,6 +34,8 @@ interface UseRxCollectionOptions<TDoc, TData> {
   beforeSubscribe?: (userId: string) => Promise<void>;
   /** Log prefix for the error path, e.g. `[useTasks]`. */
   logPrefix: string;
+  /** Skip the subscription while preserving the hook call order. */
+  enabled?: boolean;
 }
 
 interface UseRxCollectionResult<TData> {
@@ -87,6 +89,7 @@ export function useRxCollection<
   map,
   beforeSubscribe,
   logPrefix,
+  enabled = true,
 }: UseRxCollectionOptions<TDoc, TData>): UseRxCollectionResult<TData> {
   const { user } = useAuth();
   const userId = user?.$id;
@@ -98,7 +101,7 @@ export function useRxCollection<
   const sortKey = sort ? JSON.stringify(sort) : '';
 
   useEffect(() => {
-    if (!userId) return;
+    if (!enabled || !userId) return;
     const uid = userId;
 
     let subscription: { unsubscribe: () => void } | undefined;
@@ -149,13 +152,13 @@ export function useRxCollection<
     // literals; including the raw objects would re-subscribe on every
     // render (new identity each time).
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userId, collection, selectorKey, sortKey]);
+  }, [userId, collection, selectorKey, sortKey, enabled]);
 
-  const isEmpty = !userId || loadedUserId !== userId;
+  const isEmpty = !enabled || !userId || loadedUserId !== userId;
   const data = isEmpty
     ? ((map ? map(EMPTY_ARRAY as unknown as TDoc[]) : EMPTY_ARRAY) as TData)
     : ((map ? map(docs) : (docs as unknown as TData)) as TData);
-  const isLoading = !!userId && loadedUserId !== userId;
+  const isLoading = enabled && !!userId && loadedUserId !== userId;
 
   return { data, isLoading };
 }

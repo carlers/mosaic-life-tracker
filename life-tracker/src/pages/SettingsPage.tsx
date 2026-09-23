@@ -20,6 +20,7 @@ import {
 import { BottomSheet } from '../components/ui/BottomSheet';
 import { SettingsRow } from '../components/ui/SettingsRow';
 import { useAuth } from '../hooks/useAuth';
+import { usePwaLifecycle } from '../hooks/usePwaLifecycle';
 import { destroyDatabase } from '../db/database';
 import { AccountSettingsSheet } from '../components/modals/AccountSettingsSheet';
 import { ChangeEmailSheet } from '../components/modals/ChangeEmailSheet';
@@ -29,6 +30,7 @@ import { SyncStatusSheet } from '../components/modals/SyncStatusSheet';
 
 export const SettingsPage: React.FC = () => {
   const { user, logout } = useAuth();
+  const { checkForUpdate } = usePwaLifecycle();
   const navigate = useNavigate();
   const [isClearDataOpen, setIsClearDataOpen] = useState(false);
   const [isDeleteAllDataOpen, setIsDeleteAllDataOpen] = useState(false);
@@ -39,6 +41,7 @@ export const SettingsPage: React.FC = () => {
   const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
   const [isExportSheetOpen, setIsExportSheetOpen] = useState(false);
   const [isSyncStatusOpen, setIsSyncStatusOpen] = useState(false);
+  const [isCheckingUpdate, setIsCheckingUpdate] = useState(false);
   const [feedback, setFeedback] = useState<string | null>(null);
 
   const showFeedback = (msg: string) => {
@@ -47,6 +50,26 @@ export const SettingsPage: React.FC = () => {
   };
 
   const handleComingSoon = () => showFeedback('Coming soon');
+
+  const handleCheckForUpdates = async () => {
+    if (isCheckingUpdate) return;
+    setIsCheckingUpdate(true);
+    try {
+      const result = await checkForUpdate();
+      if (result === 'update-available') {
+        showFeedback('Update found. Use Update now to install it.');
+      } else if (result === 'up-to-date') {
+        showFeedback('Mosaic is up to date.');
+      } else {
+        showFeedback('Update checking is unavailable in this browser.');
+      }
+    } catch (error) {
+      console.error('[SettingsPage] Update check failed:', error);
+      showFeedback('Could not check for updates. Try again.');
+    } finally {
+      setIsCheckingUpdate(false);
+    }
+  };
 
   const handleLogout = async () => {
     const ok = await logout();
@@ -211,6 +234,13 @@ export const SettingsPage: React.FC = () => {
             <span className="text-base font-medium">Version</span>
             <span className="text-sm text-gray-400">0.0.0</span>
           </div>
+          <SettingsRow
+            icon={<RefreshCw size={18} className="text-emerald-500" aria-hidden="true" />}
+            label="Check for Updates"
+            value={isCheckingUpdate ? 'Checking…' : undefined}
+            showChevron={false}
+            onClick={handleCheckForUpdates}
+          />
         </div>
         <div className="px-4 pt-4 pb-8">
           <button

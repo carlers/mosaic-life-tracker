@@ -8,11 +8,20 @@ export interface PwaLifecycleSnapshot {
   updateAvailable: boolean;
 }
 
+export type PwaUpdateCheckResult =
+  | 'update-available'
+  | 'up-to-date'
+  | 'unavailable';
+
 type RegisterServiceWorker = (
   options?: {
     immediate?: boolean;
     onNeedRefresh?: () => void;
     onNeedReload?: () => void;
+    onRegisteredSW?: (
+      swUrl: string,
+      registration: ServiceWorkerRegistration | undefined
+    ) => void;
     onRegisterError?: (error: unknown) => void;
   }
 ) => (reloadPage?: boolean) => Promise<void>;
@@ -23,6 +32,7 @@ let snapshot: PwaLifecycleSnapshot = {
 };
 let installPrompt: InstallPromptEvent | null = null;
 let updateServiceWorker: (() => Promise<void>) | null = null;
+let serviceWorkerRegistration: ServiceWorkerRegistration | null = null;
 let initialized = false;
 const listeners = new Set<() => void>();
 
@@ -60,6 +70,9 @@ export function initializePwaLifecycle(
   updateServiceWorker = register({
     immediate: true,
     onNeedRefresh: () => publish({ updateAvailable: true }),
+    onRegisteredSW: (_swUrl, registration) => {
+      serviceWorkerRegistration = registration ?? null;
+    },
     // The generated worker only takes over after applyPwaUpdate sends the
     // explicit SKIP_WAITING request, so a reload here is always user-approved.
     onNeedReload: () => target.location.reload(),
@@ -86,6 +99,25 @@ export function dismissPwaInstall(): void {
   publish({ installAvailable: false });
 }
 
+export async function checkForPwaUpdate(): Promise<PwaUpdateCheckResult> {
+  const registration = serviceWorkerRegistration;
+  if (!registration) return 'unavailable';
+
+  if (registration.waiting) {
+    publish({ updateAvailable: true });
+    return 'update-available';
+  }
+
+  await registration.update();
+
+  if (registration.waiting || snapshot.updateAvailable) {
+    publish({ updateAvailable: true });
+    return 'update-available';
+  }
+
+  return 'up-to-date';
+}
+
 export async function applyPwaUpdate(): Promise<boolean> {
   if (!updateServiceWorker) return false;
   await updateServiceWorker();
@@ -101,6 +133,7 @@ export function resetPwaLifecycleForTests(): void {
   snapshot = { installAvailable: false, updateAvailable: false };
   installPrompt = null;
   updateServiceWorker = null;
+  serviceWorkerRegistration = null;
   initialized = false;
   listeners.clear();
 }

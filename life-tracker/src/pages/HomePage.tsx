@@ -79,13 +79,9 @@ export const HomePage: React.FC = () => {
     [persons, activePersonId]
   );
 
-  const handlePillSelect = useCallback(
-    (personId: string) => {
-      if (personId === activePersonId) return;
-      setActivePersonId(personId);
-    },
-    [activePersonId]
-  );
+  const handlePillSelect = useCallback((personId: string) => {
+    setActivePersonId((current) => (current === personId ? current : personId));
+  }, []);
 
   return (
     <>

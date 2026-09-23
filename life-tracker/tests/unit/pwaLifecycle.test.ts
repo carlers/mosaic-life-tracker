@@ -1,5 +1,6 @@
 import {
   applyPwaUpdate,
+  checkForPwaUpdate,
   dismissPwaInstall,
   dismissPwaUpdate,
   getPwaLifecycleSnapshot,
@@ -14,17 +15,40 @@ interface FakeWindow extends EventTarget {
   location: { reload: ReturnType<typeof vi.fn> };
 }
 
+interface FakeRegisterOptions {
+  onNeedRefresh?: () => void;
+  onNeedReload?: () => void;
+  onRegisteredSW?: (
+    swUrl: string,
+    registration: ServiceWorkerRegistration | undefined
+  ) => void;
+  onRegisterError?: (error: unknown) => void;
+}
+
 function fixture() {
   const target = new EventTarget() as FakeWindow;
   target.location = { reload: vi.fn() };
-  let options: Record<string, (...args: never[]) => void> = {};
+  let options: FakeRegisterOptions = {};
   const update = vi.fn().mockResolvedValue(undefined);
-  const register = vi.fn((next: typeof options) => {
+  const registration = {
+    waiting: null,
+    update: vi.fn().mockResolvedValue(undefined),
+  } as unknown as ServiceWorkerRegistration;
+  const register = vi.fn((next: FakeRegisterOptions = {}) => {
     options = next;
+    next.onRegisteredSW?.('/sw.js', registration);
     return update;
   });
   initializePwaLifecycle(target as unknown as Window, register);
-  return { target, register, update, get options() { return options; } };
+  return {
+    target,
+    register,
+    update,
+    registration,
+    get options() {
+      return options;
+    },
+  };
 }
 
 describe('PWA lifecycle', () => {
@@ -44,6 +68,23 @@ describe('PWA lifecycle', () => {
     await expect(requestPwaInstall()).resolves.toBe('accepted');
     expect(prompt).toHaveBeenCalledOnce();
     expect(getPwaLifecycleSnapshot().installAvailable).toBe(false);
+  });
+
+  it('checks the captured service-worker registration on demand', async () => {
+    const setup = fixture();
+
+    await expect(checkForPwaUpdate()).resolves.toBe('up-to-date');
+    expect(setup.registration.update).toHaveBeenCalledOnce();
+  });
+
+  it('re-surfaces an already-waiting update without another network check', async () => {
+    const setup = fixture();
+    (setup.registration as unknown as { waiting: ServiceWorker | null }).waiting =
+      {} as ServiceWorker;
+
+    await expect(checkForPwaUpdate()).resolves.toBe('update-available');
+    expect(getPwaLifecycleSnapshot().updateAvailable).toBe(true);
+    expect(setup.registration.update).not.toHaveBeenCalled();
   });
 
   it('publishes explicit update availability and applies only on request', async () => {

@@ -91,12 +91,6 @@ export const AccountPage: React.FC = () => {
             aria-hidden="true"
           />
         </div>
-        <div className="text-center py-4">
-          <p className="text-sm text-gray-400 italic">
-            "Tact is the ability to describe others as they see themselves."
-          </p>
-          <p className="text-xs text-gray-400 mt-1">Eleanor Chaffee</p>
-        </div>
         <div className="pb-4">
           <Button
           variant="danger"

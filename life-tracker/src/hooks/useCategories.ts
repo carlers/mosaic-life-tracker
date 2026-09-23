@@ -7,7 +7,7 @@ import type { CategoryDocument } from '../db/schema';
 const DEBUG = import.meta.env.DEV;
 let reorderInProgress = false;
 
-export function useCategories() {
+export function useCategories(enabled = true) {
   const { user } = useAuth();
 
   const { data: categories, isLoading } = useRxCollection<CategoryDocument>({
@@ -15,6 +15,7 @@ export function useCategories() {
     selector: { userId: user?.$id ?? '', isDeleted: false },
     sort: [{ order: 'asc' }],
     logPrefix: '[useCategories]',
+    enabled,
   });
 
   const addCategory = useCallback(
