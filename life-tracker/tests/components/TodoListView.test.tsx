@@ -133,6 +133,14 @@ describe('TodoListView', () => {
     expect(screen.getByTestId('todo-calendar-grid')).toHaveClass('shrink-0');
   });
 
+  // Regression: PROJECT_REFERENCE.md §16 — compact month swipes keep only active + one neighbor per side mounted.
+  it('mounts at most three compact month grids worth of day buttons', () => {
+    render(<TodoListView {...props} />);
+
+    const carousel = screen.getByTestId('todo-calendar-grid');
+    expect(within(carousel).getAllByRole('button', { hidden: true }).length).toBeLessThanOrEqual(126);
+  });
+
   // Regression: PROJECT_REFERENCE.md §7 — nested carousel gesture ownership.
   it('contains horizontal overflow and marks the Todo surface as a parent-Swiper no-swiping region', () => {
     const { container } = render(<TodoListView {...props} />);

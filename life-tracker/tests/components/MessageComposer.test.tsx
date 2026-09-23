@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { render, fireEvent, screen, waitFor } from '@testing-library/react';
+import { act, render, fireEvent, screen, waitFor } from '@testing-library/react';
 import { MessageComposer } from '../../src/components/messages/MessageComposer';
 
 // ---------------------------------------------------------------------------
@@ -13,14 +13,27 @@ import { MessageComposer } from '../../src/components/messages/MessageComposer';
 //   - Input is capped at MAX_LENGTH (4000).
 //
 // Deliberately NOT tested here:
-//   - The initial-focus timer (120ms setTimeout on mount). Focus behavior
-//     under happy-dom is unreliable and asserting it would couple to timing.
 //   - Class strings on the send button or the textarea.
 // ---------------------------------------------------------------------------
 
 describe('MessageComposer', () => {
   afterEach(() => {
     vi.useRealTimers();
+  });
+
+  // Regression: task acceptance — opening a chat must not summon the phone keyboard.
+  it('does not autofocus the textarea when the composer first mounts', () => {
+    vi.useFakeTimers();
+    render(<MessageComposer onSend={vi.fn()} />);
+
+    const textarea = screen.getByRole('textbox', { name: 'Message' });
+    expect(document.activeElement).not.toBe(textarea);
+
+    act(() => {
+      vi.advanceTimersByTime(200);
+    });
+
+    expect(document.activeElement).not.toBe(textarea);
   });
 
   it('send button is disabled when input is empty', () => {

@@ -11,8 +11,8 @@ Status: in progress.
 ## Progress
 
 1. **Done — recover Preview baseline and project rules.** Confirmed Preview at `68895f6a40e0b11b4df6d2cf2dcde6fe3773388c`; read `AGENTS.md`, `PLAN.md`, `SESSION_STATE.md`, remote verification, test workflow, preview deployment guidance, and package scripts.
-2. **In progress — inspect governing contracts and current implementation.** Trace `DayViewSheet` gesture ownership, chat initial focus, Todo/Calendar month swipe rendering/animation paths, and existing regression coverage.
-3. **Pending — add spec-first regression coverage.** Add or strengthen focused tests for full-sheet swipe ownership, no chat autofocus on open, and month-swipe performance-sensitive contracts where a stable automated contract is practical; capture red evidence before implementation.
+2. **Done — inspect governing contracts and current implementation.** Found BottomSheet drag ownership competing with Day View's date-row swipe, an explicit 120 ms composer autofocus timer, five mounted Todo month grids, and a per-frame Embla `scroll` subscription driving calendar render-window state.
+3. **In progress — spec-first regression coverage.** Added task/spec contracts for full-sheet day swipes, no initial chat autofocus, three-grid Todo windowing, and no per-frame calendar render-window state. Next checkpoint is the expected failing Verify run before implementation.
 4. **Pending — implement scoped fixes/optimization.** Preserve existing UI while expanding DayViewSheet gesture capture, preventing initial chat keyboard focus, and removing avoidable per-frame/month-transition work.
 5. **Pending — focused verification and evidence review.** Run relevant DOM/browser checks via GitHub Actions, map behavioral changes to evidence, and fix any failures.
 6. **Pending — acceptance gate and hosted Preview rollout.** Require the canonical Verify workflow green; then fast-forward `preview` to the exact green commit and verify the Vercel Preview deployment for device testing.

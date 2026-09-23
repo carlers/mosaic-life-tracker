@@ -192,6 +192,46 @@ describe('DayViewSheet nested task actions', () => {
     expect(dialog).toHaveAttribute('aria-label', 'Sunday, September 20, 2026');
   });
 
+  // Regression: task acceptance + PROJECT_REFERENCE.md §2 — every exposed Day View sheet area can navigate days horizontally.
+  it('accepts horizontal day swipes from both the sheet handle and date drag header', () => {
+    renderSheet();
+
+    const dialog = screen.getByRole('dialog');
+    const sheetHandle = dialog.firstElementChild as HTMLElement | null;
+    expect(sheetHandle).not.toBeNull();
+
+    fireEvent.pointerDown(sheetHandle as HTMLElement, {
+      pointerId: 1,
+      clientX: 300,
+      clientY: 20,
+    });
+    fireEvent.pointerUp(sheetHandle as HTMLElement, {
+      pointerId: 1,
+      clientX: 80,
+      clientY: 24,
+    });
+    expect(swiperFixture.slideNext).toHaveBeenCalledTimes(1);
+
+    swiperFixture.slideNext.mockClear();
+    const date = within(screen.getByTestId('day-swiper')).getByText(
+      'Sunday, September 20, 2026'
+    );
+    const dateRow = date.parentElement as HTMLElement | null;
+    expect(dateRow).not.toBeNull();
+
+    fireEvent.pointerDown(dateRow as HTMLElement, {
+      pointerId: 2,
+      clientX: 300,
+      clientY: 120,
+    });
+    fireEvent.pointerUp(dateRow as HTMLElement, {
+      pointerId: 2,
+      clientX: 80,
+      clientY: 124,
+    });
+    expect(swiperFixture.slideNext).toHaveBeenCalledTimes(1);
+  });
+
   // Regression: PROJECT_REFERENCE.md §2/§7 — Todo reuses DayView inline while owning nested swipes.
   it('supports the same day workspace inline with nested swipe ownership and bounded width', () => {
     render(
