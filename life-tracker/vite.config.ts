@@ -3,11 +3,13 @@ import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
 import basicSsl from '@vitejs/plugin-basic-ssl';
 
-const posthogSourceMapsEnabled = Boolean(
-  process.env.POSTHOG_PERSONAL_API_KEY &&
-    process.env.POSTHOG_PROJECT_ID &&
-    process.env.POSTHOG_HOST
-);
+const posthogSourceMapsEnabled =
+  process.env.POSTHOG_SOURCE_MAPS_ENABLED === 'true' &&
+  Boolean(
+    process.env.POSTHOG_PERSONAL_API_KEY &&
+      process.env.POSTHOG_PROJECT_ID &&
+      process.env.POSTHOG_HOST
+  );
 
 const posthogPluginPackage = ['@posthog', 'rollup-plugin'].join('/');
 const posthog = posthogSourceMapsEnabled

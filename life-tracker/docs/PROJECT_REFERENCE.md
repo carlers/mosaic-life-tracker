@@ -767,13 +767,15 @@ browser reconnect, and on a five-minute timer. Flags must never gate migrations,
 sync correctness, destructive operations, offline-data invariants, or any behavior required
 for Mosaic to work offline.
 
-Production source-map upload uses `@posthog/rollup-plugin` only when all three build-only
-variables are present: `POSTHOG_PERSONAL_API_KEY`, `POSTHOG_PROJECT_ID`, and
-`POSTHOG_HOST`. Those names are deliberately not `VITE_` variables and are unavailable
-to browser code. Credentialed builds use hidden source maps and request deletion after a
-successful upload; ordinary builds create no source maps for this integration. Client
-configuration continues to use only `VITE_POSTHOG_TOKEN` and `VITE_POSTHOG_HOST`.
-The host is never assumed.
+Production source-map upload uses `@posthog/rollup-plugin` only when the explicit
+`POSTHOG_SOURCE_MAPS_ENABLED=true` build flag is present together with all three build-only
+variables: `POSTHOG_PERSONAL_API_KEY`, `POSTHOG_PROJECT_ID`, and `POSTHOG_HOST`. Those
+names are deliberately not `VITE_` variables and are unavailable to browser code. The
+three credentials alone do not activate upload; optional source-map delivery must never
+make an otherwise valid Preview/production build depend on stale external credentials.
+Opted-in builds use hidden source maps and request deletion after a successful upload;
+ordinary builds create no source maps for this integration. Client configuration continues
+to use only `VITE_POSTHOG_TOKEN` and `VITE_POSTHOG_HOST`. The host is never assumed.
 
 IP-discarding is not represented as a client-side setting. If Mosaic requires IP discard,
 configure and verify it in the PostHog project. Live verification must also confirm

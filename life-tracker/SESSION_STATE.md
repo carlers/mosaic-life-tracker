@@ -2,7 +2,7 @@
 
 Updated: 2026-09-23
 Current task: Todo/DayView/Friend parity and prompt-to-green workflow optimization
-Status: in progress.
+Status: complete.
 
 ## Active user prompt
 
@@ -15,8 +15,8 @@ Status: in progress.
 3. **Done — spec-first regression coverage.** Focused Verify #209 (`35834467757`) failed on the intended new Todo/DayView/Friend assertions while skipping the browser job; this captured behavioral/structural red evidence without paying the full gate. Focused Verify #208 proved the new fast-loop workflow itself executes successfully.
 4. **Done — implement UI/refactor changes.** Implemented fixed 42-cell Todo months, four-circle category-completion markers, keyboard day/week navigation, centered/larger calendar numerals, top-positioned category-colored add row, full-height DayView swipe surface, larger date header, and shared Friend Todo surface with read-only friend Day UI plus existing reply/reaction actions. Focused Verify #211 reduced execution to 17 related test files and exposed two test-harness expectations plus a static friend-reply import; repair forwards Swiper classes in the mock, updates the six-week row count, and lazy-loads the reply composer only when a friend reply is actually opened. Focused/browser dependency caches now save even when a later test fails so red loops can still warm the next run.
 5. **Done — optimize verification workflow.** Focused Verify #212 is green on 17 related files / 67 tests while skipping full build/unrelated tests/browser setup. The focused dependency cache is now populated and subsequent focused pushes can skip npm ci. Added a real-browser contract for horizontal swiping from the blank lower sheet area; this browser preflight also primes the prepared Playwright dependency cache.
-6. **In progress — browser preflight, final acceptance, and rollout.** Keep the full canonical gate for final acceptance while reducing intermediate CI cost and browser dependency setup time without weakening final coverage, safety, or security.
-7. **Pending — documentation/handoff closeout.** Record exact commits/runs/deployment status, test evidence, workflow timing impact, and remaining manual checks.
+6. **Done — final acceptance and rollout.** Browser-sensitive Verify #213 (`35835711410`) passed. The final implementation/config tree passed full task-branch Verify #219 (`35839718078`), then Preview Verify #220 (`35839953102`) on `678bf200fbc34cec2c9778567b477a002b838c67`. Vercel deployment `dpl_kMLwLvKywDpY7RnxwdTkp1ugzu4V` reached READY on that Preview SHA. The prior Vercel-only `BUILD_UTILS_SPAWN_1` blocker was isolated to optional PostHog source-map upload; `POSTHOG_SOURCE_MAPS_ENABLED=true` is now required in addition to the three build credentials, and this contract is documented and regression-tested.
+7. **Done — handoff closeout.** This closure checkpoint preserves the same verified app/config tree and records the final evidence. Before reporting completion, require the exact closure SHA to pass the canonical full Verify and Vercel build, then move `preview` to that exact SHA. Remaining acceptance is physical-device/manual only: real phone touch/gesture feel, Android/Samsung Back stack behavior, and visual review of the Todo markers/spacing/type.
 
 Roadmap pointer: Todo List feature backlog + shared friend/owner view parity + development workflow optimization.
 Blockers: None.

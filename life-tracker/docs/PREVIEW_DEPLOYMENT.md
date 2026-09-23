@@ -49,9 +49,14 @@ with Appwrite.
 Core Mosaic currently needs no Vercel secret to reach Appwrite because the browser endpoint
 and project ID are part of the checked-in client configuration.
 
-PostHog is optional for preview deployment. Without its environment variables the adapter is
-a clean no-op. If live Phase 3.7 staging verification is desired, configure the appropriate
-Vercel Preview/Production variables separately; do not commit secrets.
+PostHog is optional for preview deployment. Without its browser environment variables the
+adapter is a clean no-op. Production source-map upload is separately opt-in: set
+`POSTHOG_SOURCE_MAPS_ENABLED=true` together with valid `POSTHOG_PERSONAL_API_KEY`,
+`POSTHOG_PROJECT_ID`, and `POSTHOG_HOST`. The three build credentials alone MUST NOT
+activate source-map upload, so an expired or unavailable optional PostHog upload cannot
+break an otherwise valid Vercel build. If live Phase 3.7 staging verification is desired,
+configure the appropriate Vercel Preview/Production variables separately; do not commit
+secrets.
 
 ## Phone-review loop
 
