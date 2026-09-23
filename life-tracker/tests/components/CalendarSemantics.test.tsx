@@ -41,6 +41,9 @@ describe('calendar accessibility semantics', () => {
   });
 
   it('exposes week view as one labelled row with full weekday header names', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(2026, 0, 1, 12, 0, 0));
+
     render(
       <WeekView
         focusDate={new Date(2026, 8, 23)}

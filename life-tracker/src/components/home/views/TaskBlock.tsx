@@ -22,12 +22,12 @@ export const TaskBlock: React.FC<TaskBlockProps> = ({ task, categoryColor }) => 
   return (
     <div
       ref={targetRef}
-      className="text-[9px] px-1 py-0.5 w-full font-medium rounded-[3px] overflow-hidden"
+      className="text-[9px] py-0.5 w-full font-medium rounded-[3px] overflow-hidden"
       style={{ backgroundColor: bgColor, color: textColor }}
       title={task.title}
     >
       <div className="flex flex-col gap-0.5">
-        <span className="block overflow-hidden whitespace-nowrap">{task.title}</span>
+        <span className="block overflow-hidden whitespace-nowrap px-1">{task.title}</span>
         {task.image && (
           <div className="w-full h-10 mt-0.5 rounded-[2px] overflow-hidden bg-black/20">
             {isLoading ? (

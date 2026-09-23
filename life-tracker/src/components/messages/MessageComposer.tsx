@@ -76,7 +76,7 @@ export const MessageComposer = forwardRef<
       if (!trimmed || disabled) return;
       onSend(trimmed);
       setValue('');
-      setTimeout(() => inputRef.current?.focus(), 30);
+      inputRef.current?.focus({ preventScroll: true });
     };
 
     const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -126,7 +126,10 @@ export const MessageComposer = forwardRef<
           <motion.button
             whileTap={{ scale: 0.92 }}
             onClick={handleSend}
-            onPointerDown={(e) => e.stopPropagation()}
+            onPointerDown={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+            }}
             disabled={!value.trim() || disabled}
             className="flex-shrink-0 w-10 h-10 rounded-full bg-emerald-500 hover:bg-emerald-600 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 focus-visible:ring-offset-2 focus-visible:ring-offset-[#111111]"
             aria-label="Send"
