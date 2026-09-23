@@ -16,9 +16,9 @@ Current task: focused app performance optimization pass
 5. **Done — first green implementation gate + measurement.** Verify #155 passed 78/78 Vitest files, 532/532 tests, and 20/20 Playwright contracts. Runtime contracts are green. Build measurement exposed the net-negative dynamic-import size tradeoff, so that experiment was reverted before the final acceptance gate.
 6. **Done — final task-branch acceptance gate.** Verify #156 passed 78/78 Vitest files, 532/532 tests, and 20/20 Playwright contracts after the measurement-driven cleanup. Final build remained effectively bundle-neutral versus baseline: entry +26 B raw/+3 B gzip; total app assets +817 B raw/+50 B gzip; precache +817 B (<0.05%), while the intended wins are runtime render/allocation reductions.
 7. **Done — Preview promotion/deployment.** Fast-forwarded `preview` to verified product commit `f56d2d71ced357c36074fce30ebbfb279997487d`; Vercel Preview deployment `dpl_FisGGx5cD1FgheuL7ZDp9uxSkmHY` is READY and owns the stable preview alias. This state-only rollout commit is the final GitHub verification target.
-8. **In progress — final handoff.** Require the Verify run for this state-only rollout commit to pass, confirm its Vercel deployment is READY, then report concise bullet-point results and the remaining hosted-device frame-smoothness check.
+8. **Done — final handoff gate.** Preview state commit `e01dc7d624d8293b1a3ca29840bade3bab7327dd` passed Verify run `35811333257`; Vercel deployment `dpl_EtSRE4WY9edGV4gfo1oRZJNS1oEE` is READY. The focused performance pass is complete; only optional hosted-device frame-smoothness observation remains.
 
-Status: Focused performance implementation is complete and promoted to Preview; only the final state-commit Verify/Vercel check and user handoff remain. No product behavior or visual changes were intended.
+Status: Focused performance implementation is complete, verified, and promoted to Preview. No product behavior or visual changes were intended.
 Roadmap pointer: Todo List still awaits hosted/manual acceptance; this task is a behavior-preserving performance pass across the current app.
 Blockers: None currently. Old merged task branches remain undeletable from this GitHub connector because it exposes no delete-ref operation.
 
@@ -30,7 +30,7 @@ Blockers: None currently. Old merged task branches remain undeletable from this 
 - Final post-cleanup task-branch Verify #156: green — 78/78 Vitest files, 532/532 tests, 20/20 Playwright browser contracts; production build/PWA/build-size checks passed.
 - Final build versus baseline: entry 863,714 B raw / 267,775 B gzip (+26/+3 B); app assets 1,873,485 B raw / 558,649 B gzip (+817/+50 B); precache 1,933,972 B (+817 B). Bundle size is effectively flat (<0.05% change); optimization value is runtime work avoided rather than transfer-size reduction.
 - Preview product deployment: `f56d2d71ced357c36074fce30ebbfb279997487d`, Vercel `dpl_FisGGx5cD1FgheuL7ZDp9uxSkmHY` READY on the stable preview alias.
-- Final state-only rollout commit Verify/Vercel: pending at commit creation; handoff must check it before reporting completion.
+- Final state-only rollout checkpoint: `e01dc7d624d8293b1a3ca29840bade3bab7327dd`; Verify `35811333257` succeeded and Vercel `dpl_EtSRE4WY9edGV4gfo1oRZJNS1oEE` is READY.
 
 ## Test-evidence review
 
