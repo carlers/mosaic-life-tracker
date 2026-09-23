@@ -256,8 +256,8 @@ export function InteractionHarness() {
           <SwiperSlide>
             <div
               data-testid="sheet-date-row-1"
-              data-bottom-sheet-drag-handle
-              className="swiper-no-swiping touch-none p-4"
+              data-bottom-sheet-directional-drag-handle
+              className="touch-none p-4"
             >
               Sheet day 1 date row
             </div>
@@ -266,8 +266,8 @@ export function InteractionHarness() {
           <SwiperSlide>
             <div
               data-testid="sheet-date-row-2"
-              data-bottom-sheet-drag-handle
-              className="swiper-no-swiping touch-none p-4"
+              data-bottom-sheet-directional-drag-handle
+              className="touch-none p-4"
             >
               Sheet day 2 date row
             </div>

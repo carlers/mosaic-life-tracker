@@ -414,8 +414,10 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
                 className={renderMode === 'inline' ? 'w-full min-w-0' : 'flex h-full min-h-0 w-full min-w-0 flex-col'}
               >
                 <div
-                  className={`flex shrink-0 items-center justify-between gap-2 px-4 py-2 ${renderMode === 'sheet' ? 'swiper-no-swiping touch-none' : ''}`}
-                  data-bottom-sheet-drag-handle={renderMode === 'sheet' ? 'true' : undefined}
+                  className={`flex shrink-0 items-center justify-between gap-2 px-4 py-2 ${renderMode === 'sheet' ? 'touch-none' : ''}`}
+                  data-bottom-sheet-directional-drag-handle={
+                    renderMode === 'sheet' ? 'true' : undefined
+                  }
                 >
                   <button
                     type="button"

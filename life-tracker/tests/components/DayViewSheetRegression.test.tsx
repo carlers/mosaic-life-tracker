@@ -186,14 +186,15 @@ describe('DayViewSheet nested task actions', () => {
     expect(row).not.toBeNull();
     expect(within(row as HTMLElement).getByRole('button', { name: 'Previous day' })).toBeInTheDocument();
     expect(within(row as HTMLElement).getByRole('button', { name: 'Next day' })).toBeInTheDocument();
-    expect(row).toHaveAttribute('data-bottom-sheet-drag-handle');
+    expect(row).toHaveAttribute('data-bottom-sheet-directional-drag-handle');
+    expect(row).not.toHaveClass('swiper-no-swiping');
 
     const dialog = screen.getByRole('dialog');
     expect(dialog).toHaveAttribute('aria-label', 'Sunday, September 20, 2026');
   });
 
-  // Regression: task acceptance + PROJECT_REFERENCE.md §2 — every exposed Day View sheet area can navigate days horizontally.
-  it('accepts horizontal day swipes from both the sheet handle and date drag header', () => {
+  // Regression: PROJECT_REFERENCE.md §2 — non-Swiper sheet chrome keeps the release fallback, while the date row stays native direct-manipulation.
+  it('keeps the sheet-handle fallback without double-driving the Swiper-owned date row', () => {
     renderSheet();
 
     const dialog = screen.getByRole('dialog');
@@ -218,6 +219,10 @@ describe('DayViewSheet nested task actions', () => {
     );
     const dateRow = date.parentElement as HTMLElement | null;
     expect(dateRow).not.toBeNull();
+    expect(dateRow).toHaveAttribute(
+      'data-bottom-sheet-directional-drag-handle'
+    );
+    expect(dateRow).not.toHaveClass('swiper-no-swiping');
 
     fireEvent.pointerDown(dateRow as HTMLElement, {
       pointerId: 2,
@@ -229,7 +234,7 @@ describe('DayViewSheet nested task actions', () => {
       clientX: 80,
       clientY: 124,
     });
-    expect(swiperFixture.slideNext).toHaveBeenCalledTimes(1);
+    expect(swiperFixture.slideNext).not.toHaveBeenCalled();
   });
 
   // Regression: PROJECT_REFERENCE.md §2/§7 — Todo reuses DayView inline while owning nested swipes.

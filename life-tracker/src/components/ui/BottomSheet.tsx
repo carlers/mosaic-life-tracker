@@ -31,6 +31,8 @@ let historyGuardSequence = 0;
 let historyBackHandlerInstalled = false;
 const HORIZONTAL_SWIPE_MIN_DISTANCE = 48;
 const HORIZONTAL_SWIPE_AXIS_RATIO = 1.2;
+const DIRECTIONAL_DRAG_MIN_DISTANCE = 8;
+const DIRECTIONAL_DRAG_AXIS_RATIO = 1.15;
 
 type HorizontalSwipeStart = {
   pointerId: number;
@@ -194,6 +196,7 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
   const sheetRef = useRef<HTMLDivElement>(null);
   const onCloseRef = useRef(onClose);
   const horizontalSwipeStartRef = useRef<HorizontalSwipeStart | null>(null);
+  const directionalDragStartRef = useRef<HorizontalSwipeStart | null>(null);
   const dragControls = useDragControls();
   const sheetId = React.useId();
   const titleId = React.useId();
@@ -289,24 +292,60 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
               if (isLocked) return;
               const target = event.target as Element;
               const dragHandle = target.closest('[data-bottom-sheet-drag-handle]');
+              const directionalDragHandle = target.closest(
+                '[data-bottom-sheet-directional-drag-handle]'
+              );
               const nativeHorizontalSwipe = target.closest(
                 '[data-bottom-sheet-native-horizontal-swipe]'
               );
+              const start = {
+                pointerId: event.pointerId,
+                x: event.clientX,
+                y: event.clientY,
+              };
 
+              // Native horizontal surfaces (Swiper/Embla) must own the pointer
+              // from pointer-down so their content can follow the finger.
               horizontalSwipeStartRef.current =
-                onHorizontalSwipe && (!nativeHorizontalSwipe || dragHandle)
-                  ? {
-                      pointerId: event.pointerId,
-                      x: event.clientX,
-                      y: event.clientY,
-                    }
-                  : null;
+                onHorizontalSwipe && !nativeHorizontalSwipe ? start : null;
+              directionalDragStartRef.current = directionalDragHandle
+                ? start
+                : null;
 
-              if (dragHandle) {
+              if (dragHandle && !directionalDragHandle) {
+                dragControls.start(event);
+              }
+            }}
+            onPointerMoveCapture={(event) => {
+              const start = directionalDragStartRef.current;
+              if (!start || start.pointerId !== event.pointerId || isLocked) {
+                return;
+              }
+
+              const deltaX = event.clientX - start.x;
+              const deltaY = event.clientY - start.y;
+              const distanceX = Math.abs(deltaX);
+              const distanceY = Math.abs(deltaY);
+              if (
+                Math.max(distanceX, distanceY) < DIRECTIONAL_DRAG_MIN_DISTANCE
+              ) {
+                return;
+              }
+
+              if (distanceX > distanceY * DIRECTIONAL_DRAG_AXIS_RATIO) {
+                // Horizontal intent stays with the nested native carousel.
+                directionalDragStartRef.current = null;
+                return;
+              }
+
+              if (distanceY > distanceX * DIRECTIONAL_DRAG_AXIS_RATIO) {
+                // Claim only clearly vertical movement for sheet dismissal.
+                directionalDragStartRef.current = null;
                 dragControls.start(event);
               }
             }}
             onPointerUpCapture={(event) => {
+              directionalDragStartRef.current = null;
               const start = horizontalSwipeStartRef.current;
               horizontalSwipeStartRef.current = null;
               if (
@@ -333,6 +372,7 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
             }}
             onPointerCancelCapture={() => {
               horizontalSwipeStartRef.current = null;
+              directionalDragStartRef.current = null;
             }}
             onDragEnd={(_, info) => {
               if (info.offset.y > 100 || info.velocity.y > 500) {
