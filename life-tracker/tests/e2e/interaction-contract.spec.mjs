@@ -142,7 +142,7 @@ async function startDrag(page, locator, deltaX) {
 
 
 // Regression: PROJECT_REFERENCE.md §2 — primary page swipes visibly track the finger,
-// Home only starts from its hamburger layer, and Me right-swipe opens Settings.
+// Home only starts from its hamburger layer, non-Home owns the full page, and Me left-swipe opens Settings.
 test('primary route swipe is direct-manipulation with Home and Me ownership rules', async ({ page }) => {
   await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html`);
 
@@ -166,8 +166,20 @@ test('primary route swipe is direct-manipulation with Home and Me ownership rule
   await gesture.finish();
   await expect(page.getByTestId('primary-route')).toHaveText('explore');
 
-  await page.getByTestId('set-primary-account').click();
-  await drag(page, page.getByTestId('primary-page-body'), 220);
+  await page.getByTestId('set-primary-explore').click();
+  const lowerZone = page.getByTestId('primary-page-lower-swipe-zone');
+  await lowerZone.scrollIntoViewIfNeeded();
+  const surface = page.getByTestId('primary-route-swipe-surface');
+  const surfaceBox = await surface.boundingBox();
+  const lowerBox = await lowerZone.boundingBox();
+  if (!surfaceBox || !lowerBox) throw new Error('Missing full-page route swipe bounds');
+  expect(surfaceBox.y + surfaceBox.height).toBeGreaterThanOrEqual(
+    lowerBox.y + lowerBox.height
+  );
+  await drag(page, lowerZone, -220);
+  await expect(page.getByTestId('primary-route')).toHaveText('account');
+
+  await drag(page, page.getByTestId('primary-page-lower-swipe-zone'), -220);
   await expect(page.getByTestId('primary-route')).toHaveText('settings');
 });
 

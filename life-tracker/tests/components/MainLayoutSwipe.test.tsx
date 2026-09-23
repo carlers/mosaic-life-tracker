@@ -31,7 +31,7 @@ function drag(target: Element, fromX: number, toX: number) {
 }
 
 // Regression: PROJECT_REFERENCE.md §2 — primary route swipes are direct page gestures,
-// with Home restricted to its hamburger layer and Me right-swipe opening Settings.
+// with Home restricted to its hamburger layer and Me left-swipe opening Settings.
 describe('MainLayout primary route swipes', () => {
   it('ignores Home body swipes but accepts a left swipe from the hamburger layer', () => {
     vi.useFakeTimers();
@@ -61,14 +61,14 @@ describe('MainLayout primary route swipes', () => {
     expect(onRouteSwipe).toHaveBeenCalledWith('left');
   });
 
-  it('accepts a rightward full-page swipe on Me', () => {
+  it('accepts a leftward full-page swipe on Me', () => {
     vi.useFakeTimers();
     const onRouteSwipe = vi.fn();
     render(
       <MainLayout
         activeTab="account"
         onTabChange={() => {}}
-        canSwipeLeft={false}
+        canSwipeLeft
         canSwipeRight
         onRouteSwipe={onRouteSwipe}
       >
@@ -76,8 +76,30 @@ describe('MainLayout primary route swipes', () => {
       </MainLayout>
     );
 
-    drag(screen.getByTestId('me-body'), 80, 300);
+    drag(screen.getByTestId('me-body'), 300, 80);
     act(() => vi.runAllTimers());
-    expect(onRouteSwipe).toHaveBeenCalledWith('right');
+    expect(onRouteSwipe).toHaveBeenCalledWith('left');
+  });
+
+  // Regression: PROJECT_REFERENCE.md §2 — non-Home swipe ownership includes the bottom inset/content wrapper.
+  it('keeps the bottom navigation inset inside the draggable route surface', () => {
+    render(
+      <MainLayout
+        activeTab="explore"
+        onTabChange={() => {}}
+        canSwipeLeft
+        canSwipeRight
+        onRouteSwipe={() => {}}
+      >
+        <div>Explore body</div>
+      </MainLayout>
+    );
+
+    const surface = screen.getByTestId('primary-route-swipe-surface');
+    const content = screen.getByTestId('primary-route-content');
+    expect(surface).toContainElement(content);
+    expect(content).toHaveClass(
+      'pb-[calc(4rem+env(safe-area-inset-bottom))]'
+    );
   });
 });

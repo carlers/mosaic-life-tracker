@@ -299,17 +299,23 @@ export function InteractionHarness() {
         <PrimaryRouteSwipeSurface
           activeKey={primaryRoute}
           homeZoneOnly={primaryRoute === 'home'}
-          canSwipeLeft={primaryRoute === 'home'}
-          canSwipeRight={primaryRoute === 'account'}
+          canSwipeLeft={primaryRoute === 'home' || primaryRoute === 'explore' || primaryRoute === 'account'}
+          canSwipeRight={primaryRoute === 'explore' || primaryRoute === 'account'}
           onSwipe={(direction) => {
             if (primaryRoute === 'home' && direction === 'left') {
               setPrimaryRoute('explore');
-            } else if (primaryRoute === 'account' && direction === 'right') {
+            } else if (primaryRoute === 'explore' && direction === 'right') {
+              setPrimaryRoute('home');
+            } else if (primaryRoute === 'explore' && direction === 'left') {
+              setPrimaryRoute('account');
+            } else if (primaryRoute === 'account' && direction === 'left') {
               setPrimaryRoute('settings');
+            } else if (primaryRoute === 'account' && direction === 'right') {
+              setPrimaryRoute('explore');
             }
           }}
         >
-          <div className="flex h-40 flex-col">
+          <div className={primaryRoute === 'home' ? 'flex h-40 flex-col' : 'flex min-h-[32rem] flex-col'}>
             <div
               data-testid="primary-home-menu-layer"
               data-route-swipe-zone="home-to-explore"
@@ -319,18 +325,36 @@ export function InteractionHarness() {
             </div>
             <div data-testid="primary-page-body" className="flex-1 px-3 py-2">
               {primaryRoute}
+              {primaryRoute !== 'home' && (
+                <div
+                  data-testid="primary-page-lower-swipe-zone"
+                  className="mt-[22rem] h-16"
+                >
+                  Lower page swipe zone
+                </div>
+              )}
             </div>
           </div>
         </PrimaryRouteSwipeSurface>
       </div>
-      <button
-        type="button"
-        data-testid="set-primary-account"
-        className="mb-2 px-3 py-2"
-        onClick={() => setPrimaryRoute('account')}
-      >
-        Set Me route
-      </button>
+      <div className="flex gap-2">
+        <button
+          type="button"
+          data-testid="set-primary-explore"
+          className="mb-2 px-3 py-2"
+          onClick={() => setPrimaryRoute('explore')}
+        >
+          Set Explore route
+        </button>
+        <button
+          type="button"
+          data-testid="set-primary-account"
+          className="mb-2 px-3 py-2"
+          onClick={() => setPrimaryRoute('account')}
+        >
+          Set Me route
+        </button>
+      </div>
     </main>
   );
 }

@@ -37,6 +37,13 @@ vi.mock('../../src/hooks/usePwaLifecycle', () => ({
     checkForUpdate: pwaMocks.checkForUpdate,
   }),
 }));
+vi.mock('../../src/hooks/AppearanceProvider', () => ({
+  useAppearance: () => ({
+    mode: 'system',
+    resolvedTheme: 'dark',
+    setAppearanceMode: vi.fn().mockResolvedValue(undefined),
+  }),
+}));
 
 import { SettingsPage } from '../../src/pages/SettingsPage';
 
