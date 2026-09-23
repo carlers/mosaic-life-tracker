@@ -1,37 +1,22 @@
 # Session state
 
 Updated: 2026-09-23
-Current task: Day View direct-manipulation follow-up and animation scheduling review
-Status: complete; direct-manipulation runtime is verified and deployed to Preview.
+Current task: Todo/DayView/Friend parity and prompt-to-green workflow optimization
+Status: in progress.
 
 ## Active user prompt
 
-> are we using requestanimationframe to make things smooth? this applies to all animations. tell me if we shuold or not or if its worth doing. also the date header can be swiped horizontally but it doenst get dragged horizontally during the drag gesture
-
-## Parent prompt
-
-> check repo for cureent state on preview branch. next task: swipe area should be entire dayviewsheet, not js the part with categories and tasks. opening a chat shouldnt autoopen the keyboard of a phone. in todolist view and calrndar view swiping through months feels a little low fps, feels like animations are capped at 60fps or smth even tho my phone is at 120 fps, can we optimize.
+> the area below the categories in dayviewsheet should still be part of the horizontal drag/swipe area, basically meaning the entire dayviewsheet should be swipable. also make the date header larger font, and the day numbers in the calendarview and todolist view as well. also todolistview calendar is off center horizontally fix that.  also so that the container of the calendar in todolist view never changes in size (specifically vertically) lets make the circules into this 4 circle formation as shown in the screenshot example, with number of uncompleted tasks on  top and a check mark on top if all tasks done for that day. if only 1 category has a completed task, all 4 circles will have that one color, if 2 categories then itll be 2 top 2 bottom, etc. if more than 4 categories, use the top 4 categories sorted by the order it appears in dayviewsheet. this calendar should also be arrow key navigable. friends should also have thier own todolistview, a possible refactor here is to consolidate the components and pass props differentiating between friend and me, that way changing code will be easier. basically the only difference between the friend UI and Me UI is just that u cant edit ur friends stuff but u can react and message and stuff. also when adding a task the input field should be on the top of the task list under the category pill, not at the bottom, and the checkbox should already be there beside the input field before confirmation, and the border color of the input field should match the category color. increase plus size icon in cateogyr pill. dayviewsheet should also be able to swipe thorugh using keyboard arrow keys. also do an audit of our workflow to speed up the development process, i think the verify gate is the main bottleneck with the test suite taking over 60 secs to finish. maybe we should only run the full verify for the final thing but only run the necessary tests during the process. install pinned browser dependencies in browser contract workflow takes 40 secs so thats also a bottleneck. optimize our workflow further so u can finish tasks as quickly as possible. lets minimize the prompt to green time without sacrificing quality, safety or security.
 
 ## Progress
 
-1. **Done — recover deployed baseline.** Confirmed Preview and the prior task branch at `f80927eb4490f5e7dc2e557e910e9aa2e0bed9a6`; prior Verify/Preview rollout is complete.
-2. **Done — animation scheduling assessment.** No blanket app-level rAF layer is warranted: browser/CSS compositor animation, Swiper, Embla, and Framer already schedule frame work. Continue reducing React/state work on frame-critical paths instead of double-scheduling animation callbacks.
-3. **Done — direct-manipulation regression.** The prior Day View date row was inside Swiper but marked `swiper-no-swiping` and handed pointer-down to BottomSheet vertical drag; the sheet-wide fallback therefore changed day only after release instead of visibly following the finger.
-4. **Done — spec-first browser coverage.** Verify #198 (`35829026537`) produced the intended behavioral red: during the in-progress horizontal drag the date row remained at x=16 instead of moving left; the other 20 browser contracts passed and the repository-gate job was green.
-5. **Done — implementation/repair.** Verify #199 (`35829386438`) exposed one mock-specific DOM assertion plus the original horizontal direct-motion failure. The next repair removed the row's `touch-action:none`; Verify #200 (`35830009165`) then passed the repository gate and passed the browser assertions that the date row follows the finger horizontally and advances the day, leaving only vertical touch dismissal red. Final repair keeps touch horizontal ownership entirely with Swiper, closes a clearly downward date-row touch gesture from its start/end geometry, and retains Framer's live drag handoff for mouse/pen. The DOM test remains structural because its mocked Swiper has no touch engine. Blanket app-level rAF remains rejected in favor of native/compositor scheduling.
-6. **Done — acceptance and Preview rollout.** Final task Verify #201 (`35830415174`) passed the repository gate and all 21 browser contracts. Preview fast-forwarded to runtime commit `6ec375507d12ee51a89bd953d11a14acf31bc253`; Preview Verify #202 (`35830710622`) had one transient browser-contract failure on attempt 1, then passed the unchanged commit on attempt 2 with both jobs green. Vercel Preview deployment `dpl_66UB9b5CwvwsULTQdxffs8BgVdsv` is READY.
+1. **Done — recover Preview baseline and project rules.** Confirmed Preview at `9d4b2a62717433581fdad01f0f5272656d7472a5`; read `AGENTS.md`, `PLAN.md`, `SESSION_STATE.md`, remote/test/preview workflow docs, and relevant §2/§16/§21 product contracts.
+2. **In progress — inspect implementation and workflow bottlenecks.** Trace DayView gesture ownership and task-entry layout, Calendar/Todo day-cell typography and compact markers, Me/Friend view composition and editability boundaries, keyboard navigation, plus `.github/workflows/verify.yml` and test/dependency scripts.
+3. **Pending — update durable contracts and add focused regression coverage.** Pin full-sheet horizontal swipe coverage, fixed-size four-circle Todo markers, typography/centering, top-positioned add-task row, Friend Todo read-only parity, keyboard navigation, and workflow fast-loop behavior where automated contracts are practical.
+4. **Pending — implement UI/refactor changes.** Consolidate shared Todo presentation where appropriate without changing friend permissions/data ownership; preserve owner editing and friend reaction/message affordances.
+5. **Pending — optimize verification workflow.** Keep the full canonical gate for final acceptance while reducing intermediate CI cost and browser dependency setup time without weakening final coverage, safety, or security.
+6. **Pending — focused verification, acceptance, and rollout.** Use narrow tests during iteration, run one final canonical Verify, fix any failures, and deploy the exact green checkpoint to Preview for device review.
+7. **Pending — documentation/handoff closeout.** Record exact commits/runs/deployment status, test evidence, workflow timing impact, and remaining manual checks.
 
-7. **Done — documentation/handoff.** §2 records direct horizontal finger tracking with vertical date-row dismissal; §16 records the animation scheduling rule: no blanket application-level requestAnimationFrame wrapper, keep CSS/Swiper/Embla/Framer on their native/compositor scheduling and remove React/layout work from frame-critical paths first. Remaining acceptance is subjective real-device high-refresh feel only.
-
-Roadmap pointer: scoped interaction follow-up; no roadmap checkbox changes.
+Roadmap pointer: Todo List feature backlog + shared friend/owner view parity + development workflow optimization.
 Blockers: None.
-
-## Verification
-
-- Starting Preview: `f80927eb4490f5e7dc2e557e910e9aa2e0bed9a6`.
-- Behavioral-red evidence: Verify #198 / `35829026537` — new browser contract showed the date row stayed at x=16 during an in-progress horizontal drag while the other 20 browser contracts passed.
-- Intermediate repair: Verify #200 / `35830009165` proved horizontal follow + day advance, leaving only vertical touch dismissal red.
-- Final runtime checkpoint: `6ec375507d12ee51a89bd953d11a14acf31bc253`.
-- Acceptance: task Verify #201 / `35830415174` green; Preview Verify #202 / `35830710622` green on attempt 2 after one transient first-attempt browser assertion failure. The browser direct-manipulation harness waits for the sheet entrance position to settle before injecting the held-finger gesture, avoiding a CI-only race with Framer's opening animation while still asserting movement before touch release.
-- Deployment: Preview Vercel `dpl_66UB9b5CwvwsULTQdxffs8BgVdsv` READY.
-- Manual device protocol: on the target phone, open Day View and drag horizontally from the date/navigation row; verify the row visibly tracks the finger and snaps to the next/previous day. Drag downward on the same row and verify the sheet dismisses. Repeat month swipes in Calendar/Todo at 120 Hz and judge frame pacing; CI can verify behavior but not the panel's actual refresh cadence.
