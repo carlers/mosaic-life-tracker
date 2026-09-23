@@ -68,6 +68,33 @@ async function dragVertical(page, locator, deltaY) {
   });
 }
 
+async function waitForStableVerticalPosition(locator) {
+  let previousY = null;
+  let stableSamples = 0;
+
+  await expect
+    .poll(
+      async () => {
+        const box = await locator.boundingBox();
+        if (!box) {
+          previousY = null;
+          stableSamples = 0;
+          return stableSamples;
+        }
+
+        if (previousY !== null && Math.abs(box.y - previousY) <= 0.5) {
+          stableSamples += 1;
+        } else {
+          stableSamples = 0;
+        }
+        previousY = box.y;
+        return stableSamples;
+      },
+      { timeout: 2500, intervals: [50, 50, 75, 100, 100, 150] }
+    )
+    .toBeGreaterThanOrEqual(2);
+}
+
 async function startDrag(page, locator, deltaX) {
   const box = await locator.boundingBox();
   if (!box) throw new Error('Missing drag target bounds');
@@ -218,15 +245,23 @@ test('sheet date row follows the finger horizontally and still supports vertical
   await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html`);
   await page.getByTestId('open-full-sheet').click();
 
+  const dialog = page.getByRole('dialog', { name: 'Responsive test sheet' });
+  await waitForStableVerticalPosition(dialog);
+
   const firstRow = page.getByTestId('sheet-date-row-1');
   const before = await firstRow.boundingBox();
   if (!before) throw new Error('Missing sheet date row bounds');
 
   const gesture = await startDrag(page, firstRow, -220);
-  const during = await firstRow.boundingBox();
-  if (!during) throw new Error('Missing sheet date row bounds during drag');
-
-  expect(during.x).toBeLessThan(before.x - 20);
+  await expect
+    .poll(
+      async () => {
+        const during = await firstRow.boundingBox();
+        return during?.x ?? before.x;
+      },
+      { timeout: 1500 }
+    )
+    .toBeLessThan(before.x - 20);
   await gesture.finish();
   await expect(page.getByTestId('sheet-day-index')).toHaveText('1');
 
