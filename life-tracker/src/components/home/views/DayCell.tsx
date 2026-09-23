@@ -72,7 +72,7 @@ const DayCellComponent: React.FC<DayCellProps> = ({
     >
       <div className="flex justify-center mb-1">
         <div
-          className={`text-xs font-bold flex items-center justify-center w-6 h-6 rounded-full ${dayColor} ${
+          className={`text-sm font-bold flex items-center justify-center w-7 h-7 rounded-full ${dayColor} ${
             isTodayDate ? 'border border-blue-500' : ''
           }`}
           aria-hidden="true"

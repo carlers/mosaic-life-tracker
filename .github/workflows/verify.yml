@@ -39,7 +39,16 @@ jobs:
           node-version: 22
           cache: npm
           cache-dependency-path: life-tracker/package-lock.json
+      - name: Cache focused task dependencies
+        if: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/heads/chatgpt/') && !contains(github.event.head_commit.message, '[verify:full]') }}
+        id: focused-node-modules-cache
+        uses: actions/cache@v4
+        with:
+          path: life-tracker/node_modules
+          key: ${{ runner.os }}-node22-focused-modules-${{ hashFiles('life-tracker/package-lock.json') }}
+          save-always: true
       - name: Install dependencies
+        if: ${{ github.event_name != 'push' || github.ref == 'refs/heads/preview' || contains(github.event.head_commit.message, '[verify:full]') || steps.focused-node-modules-cache.outputs.cache-hit != 'true' }}
         run: npm ci
       - name: Verify repository gate
         if: ${{ github.event_name != 'push' || github.ref == 'refs/heads/preview' || contains(github.event.head_commit.message, '[verify:full]') }}
@@ -70,6 +79,7 @@ jobs:
         with:
           path: life-tracker/node_modules
           key: ${{ runner.os }}-node22-browser-modules-${{ hashFiles('life-tracker/package-lock.json') }}-pw1.58.2-axe4.10.2
+          save-always: true
       - name: Prepare pinned browser-test dependencies on cache miss
         if: steps.browser-node-modules-cache.outputs.cache-hit != 'true'
         run: |

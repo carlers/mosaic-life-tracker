@@ -429,7 +429,7 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
                     <ChevronLeft size={20} />
                   </button>
                   <h3
-                    className="min-w-0 flex-1 text-center text-sm font-semibold text-white"
+                    className="min-w-0 flex-1 text-center text-base font-semibold text-white"
                     aria-live={i === activeIndex ? 'polite' : undefined}
                   >
                     {format(date, 'EEEE, MMMM d, yyyy')}
@@ -591,9 +591,15 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
       height="full"
       isLocked={isBackgroundLocked}
       suspendInteraction={isBackgroundLocked}
+      contentMode="fixed"
       onHorizontalSwipe={handleSheetHorizontalSwipe}
     >
-      {content}
+      <div
+        data-testid="day-sheet-swipe-surface"
+        className="flex h-full min-h-0 flex-col"
+      >
+        {content}
+      </div>
     </BottomSheet>
   );
 };

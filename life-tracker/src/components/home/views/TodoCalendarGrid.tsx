@@ -1,10 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { Check } from 'lucide-react';
 import {
+  addDays,
   addMonths,
   differenceInCalendarMonths,
-  eachDayOfInterval,
-  endOfMonth,
-  endOfWeek,
   format,
   isSameDay,
   isSameMonth,
@@ -13,18 +12,20 @@ import {
   startOfWeek,
 } from 'date-fns';
 import useEmblaCarousel from 'embla-carousel-react';
-import type { TaskDocument } from '../../../db/schema';
+import type { CategoryDocument, TaskDocument } from '../../../db/schema';
 
 interface TodoCalendarGridProps {
   focusDate: Date;
   selectedDate: Date;
   tasks: TaskDocument[];
+  categories: CategoryDocument[];
   categoriesMap: Record<string, { color: string; name: string }>;
   onDateSelect: (date: Date) => void;
   onMonthChange: (date: Date) => void;
 }
 
-interface TodoMonthGridProps extends Omit<TodoCalendarGridProps, 'tasks' | 'onMonthChange'> {
+interface TodoMonthGridProps
+  extends Omit<TodoCalendarGridProps, 'tasks' | 'onMonthChange'> {
   monthDate: Date;
   tasksByDate: Map<string, TaskDocument[]>;
   isActive: boolean;
@@ -40,31 +41,45 @@ const TodoMonthGrid: React.FC<TodoMonthGridProps> = ({
   monthDate,
   selectedDate,
   tasksByDate,
-  categoriesMap,
+  categories,
   onDateSelect,
   isActive,
 }) => {
   const calendarDays = useMemo(() => {
-    const monthStart = startOfMonth(monthDate);
-    return eachDayOfInterval({
-      start: startOfWeek(monthStart),
-      end: endOfWeek(endOfMonth(monthStart)),
-    });
+    const gridStart = startOfWeek(startOfMonth(monthDate));
+    return Array.from({ length: 42 }, (_, index) =>
+      addDays(gridStart, index)
+    );
   }, [monthDate]);
 
   const calendarWeeks = useMemo(() => {
     const weeks: Date[][] = [];
-    for (let index = 0; index < calendarDays.length; index += 7) {
+    for (let index = 0; index < 42; index += 7) {
       weeks.push(calendarDays.slice(index, index + 7));
     }
     return weeks;
   }, [calendarDays]);
 
+  const orderedCategories = useMemo(
+    () => [...categories].sort((a, b) => a.order - b.order),
+    [categories]
+  );
+
+  const focusDateButton = useCallback((date: Date) => {
+    const dateKey = format(date, 'yyyy-MM-dd');
+    window.setTimeout(() => {
+      const target = document.querySelector<HTMLElement>(
+        `[data-todo-date="${dateKey}"]`
+      );
+      target?.focus();
+    }, 0);
+  }, []);
+
   return (
     <div
       role={isActive ? 'grid' : undefined}
       aria-label={isActive ? `${format(monthDate, 'MMMM yyyy')} todo calendar` : undefined}
-      className="w-full rounded-xl bg-transparent px-3 pt-3 pb-0"
+      className="mx-auto w-full max-w-md rounded-xl bg-transparent px-0 pt-3 pb-0"
     >
       <div className="mb-2 grid grid-cols-7" role={isActive ? 'row' : undefined}>
         {WEEKDAY_LABELS.map((label, index) => (
@@ -90,18 +105,63 @@ const TodoMonthGrid: React.FC<TodoMonthGridProps> = ({
               const selected = isSameDay(day, selectedDate);
               const currentMonth = isSameMonth(day, monthDate);
               const dateLabel = format(day, 'EEEE, MMMM d, yyyy');
+              const incompleteCount = dayTasks.reduce(
+                (count, task) => count + (task.completed ? 0 : 1),
+                0
+              );
+              const completedCategoryIds = new Set(
+                dayTasks
+                  .filter((task) => task.completed)
+                  .map((task) => task.categoryId)
+              );
+              const completedColors = orderedCategories
+                .filter((category) => completedCategoryIds.has(category.id))
+                .slice(0, 4)
+                .map((category) => category.color);
+              const markerColors = Array.from({ length: 4 }, (_, index) => {
+                if (completedColors.length === 0) return '#333333';
+                const colorIndex = Math.min(
+                  completedColors.length - 1,
+                  Math.floor((index * completedColors.length) / 4)
+                );
+                return completedColors[colorIndex] ?? '#333333';
+              });
+              const allComplete =
+                dayTasks.length > 0 && incompleteCount === 0;
+
+              const handleKeyDown = (
+                event: React.KeyboardEvent<HTMLButtonElement>
+              ) => {
+                const dayOffset =
+                  event.key === 'ArrowLeft'
+                    ? -1
+                    : event.key === 'ArrowRight'
+                      ? 1
+                      : event.key === 'ArrowUp'
+                        ? -7
+                        : event.key === 'ArrowDown'
+                          ? 7
+                          : 0;
+                if (dayOffset === 0) return;
+                event.preventDefault();
+                const nextDate = addDays(day, dayOffset);
+                onDateSelect(nextDate);
+                focusDateButton(nextDate);
+              };
 
               return (
                 <button
                   key={dateKey}
                   type="button"
                   role={isActive ? 'gridcell' : undefined}
-                  tabIndex={isActive ? 0 : -1}
+                  tabIndex={isActive && selected ? 0 : -1}
+                  data-todo-date={dateKey}
                   aria-label={`${dateLabel}, ${dayTasks.length} task${dayTasks.length === 1 ? '' : 's'}`}
                   aria-selected={isActive ? selected : undefined}
                   aria-current={isActive && isToday(day) ? 'date' : undefined}
                   onClick={() => onDateSelect(day)}
-                  className={`mx-auto flex min-h-10 w-9 flex-col items-center rounded-lg pt-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 ${
+                  onKeyDown={handleKeyDown}
+                  className={`mx-auto flex h-14 w-10 flex-col items-center justify-center rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 ${
                     selected
                       ? 'bg-white text-black'
                       : currentMonth
@@ -109,21 +169,42 @@ const TodoMonthGrid: React.FC<TodoMonthGridProps> = ({
                         : 'text-gray-600'
                   }`}
                 >
-                  <span className="text-xs font-semibold">{format(day, 'd')}</span>
                   <span
-                    className="mt-1 flex max-w-7 flex-wrap justify-center gap-0.5"
+                    data-testid={`todo-status-marker-${dateKey}`}
+                    className="relative h-7 w-7 shrink-0"
                     aria-hidden="true"
                   >
-                    {dayTasks.slice(0, 4).map((task) => (
+                    {markerColors.map((color, index) => (
                       <span
-                        key={task.id}
-                        className="h-1.5 w-1.5 rounded-full"
-                        style={{
-                          backgroundColor:
-                            categoriesMap[task.categoryId]?.color ?? '#6B7280',
-                        }}
+                        key={index}
+                        data-testid="todo-status-circle"
+                        className={`absolute h-4 w-4 rounded-full ${
+                          index === 0
+                            ? 'left-0 top-0'
+                            : index === 1
+                              ? 'right-0 top-0'
+                              : index === 2
+                                ? 'bottom-0 left-0'
+                                : 'bottom-0 right-0'
+                        }`}
+                        style={{ backgroundColor: color }}
                       />
                     ))}
+                    {allComplete ? (
+                      <Check
+                        data-testid="todo-status-complete"
+                        size={18}
+                        strokeWidth={3}
+                        className="absolute inset-0 m-auto text-white drop-shadow"
+                      />
+                    ) : incompleteCount > 0 ? (
+                      <span className="absolute inset-0 flex items-center justify-center text-[11px] font-bold text-white drop-shadow">
+                        {incompleteCount}
+                      </span>
+                    ) : null}
+                  </span>
+                  <span className="mt-1 text-base font-semibold leading-none">
+                    {format(day, 'd')}
                   </span>
                 </button>
               );
@@ -139,6 +220,7 @@ export const TodoCalendarGrid: React.FC<TodoCalendarGridProps> = ({
   focusDate,
   selectedDate,
   tasks,
+  categories,
   categoriesMap,
   onDateSelect,
   onMonthChange,
@@ -215,6 +297,7 @@ export const TodoCalendarGrid: React.FC<TodoCalendarGridProps> = ({
           focusDate={focusDate}
           selectedDate={selectedDate}
           tasksByDate={tasksByDate}
+          categories={categories}
           categoriesMap={categoriesMap}
           onDateSelect={onDateSelect}
           isActive={isActive}
@@ -223,6 +306,7 @@ export const TodoCalendarGrid: React.FC<TodoCalendarGridProps> = ({
     },
     [
       activeIndex,
+      categories,
       categoriesMap,
       focusDate,
       onDateSelect,

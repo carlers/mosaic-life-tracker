@@ -127,6 +127,7 @@ export function InteractionHarness() {
                 focusDate={todoMonth}
                 selectedDate={todoSelectedDate}
                 tasks={[]}
+                categories={todoCategories}
                 categoriesMap={{}}
                 onDateSelect={setTodoSelectedDate}
                 onMonthChange={(date) => {
@@ -190,6 +191,7 @@ export function InteractionHarness() {
           focusDate={new Date(2026, 7, 15)}
           selectedDate={new Date(2026, 7, 15)}
           tasks={[]}
+          categories={[]}
           categoriesMap={{}}
           onDateSelect={() => {}}
           onMonthChange={() => {}}
@@ -234,6 +236,7 @@ export function InteractionHarness() {
         onClose={() => setFullSheetOpen(false)}
         ariaLabel="Responsive test sheet"
         height="full"
+        contentMode="fixed"
         onHorizontalSwipe={(direction) => {
           if (direction === 'left') {
             sheetSwiperRef.current?.slideNext();
@@ -251,27 +254,37 @@ export function InteractionHarness() {
           }}
           onSlideChange={(swiper) => setSheetDayIndex(swiper.activeIndex)}
           data-bottom-sheet-native-horizontal-swipe="true"
-          style={{ height: 180, touchAction: 'pan-y' }}
+          style={{ height: '100%', touchAction: 'pan-y' }}
         >
-          <SwiperSlide>
-            <div
-              data-testid="sheet-date-row-1"
-              data-bottom-sheet-directional-drag-handle
-              className="p-4"
-            >
-              Sheet day 1 date row
+          <SwiperSlide style={{ height: '100%' }}>
+            <div className="flex h-full min-h-0 flex-col">
+              <div
+                data-testid="sheet-date-row-1"
+                data-bottom-sheet-directional-drag-handle
+                className="p-4"
+              >
+                Sheet day 1 date row
+              </div>
+              <p className="px-4">Sheet day 1 body</p>
+              <div
+                data-testid="sheet-blank-swipe-zone-1"
+                className="flex-1"
+                aria-hidden="true"
+              />
             </div>
-            <p className="px-4">Sheet day 1 body</p>
           </SwiperSlide>
-          <SwiperSlide>
-            <div
-              data-testid="sheet-date-row-2"
-              data-bottom-sheet-directional-drag-handle
-              className="p-4"
-            >
-              Sheet day 2 date row
+          <SwiperSlide style={{ height: '100%' }}>
+            <div className="flex h-full min-h-0 flex-col">
+              <div
+                data-testid="sheet-date-row-2"
+                data-bottom-sheet-directional-drag-handle
+                className="p-4"
+              >
+                Sheet day 2 date row
+              </div>
+              <p className="px-4">Sheet day 2 body</p>
+              <div className="flex-1" aria-hidden="true" />
             </div>
-            <p className="px-4">Sheet day 2 body</p>
           </SwiperSlide>
         </Swiper>
       </BottomSheet>

@@ -128,6 +128,19 @@ export const PersonPane: React.FC<PersonPaneProps> = ({ person, isActive }) => {
             onNext={calendarState.handleNext}
             onReactToTask={handleReactToTask}
           />
+        ) : activeView === 'todo' ? (
+          <TodoListView
+            variant="friend"
+            focusDate={todoFocusDate}
+            tasks={friendTasks}
+            categories={friendCategories}
+            categoriesMap={friendCategoriesMap}
+            onFocusDateChange={setTodoFocusDate}
+            friendName={person.displayName}
+            friendUserId={friendUserId}
+            currentUserId={currentUserId}
+            onReactToTask={handleReactToTask}
+          />
         ) : (
           <ComingSoon />
         )}

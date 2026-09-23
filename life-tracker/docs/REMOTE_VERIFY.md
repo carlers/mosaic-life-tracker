@@ -16,8 +16,9 @@ acceptance.
   with the complete Playwright browser-contract job in parallel.
 - Ordinary `chatgpt/**` pushes run `scripts/verify-focused.mjs HEAD^`: contracts and
   discovery always run, ESLint receives only changed source/script files, and Vitest uses
-  its Git-aware `--changed` selection. They intentionally skip the production build and
-  unrelated test projects. Add `[verify:browser]` to an intermediate commit when the
+  its Git-aware `--changed` selection. A lockfile-keyed Node 22 `node_modules` cache
+  skips repeated `npm ci` on cache hits. They intentionally skip the production build
+  and unrelated test projects. Add `[verify:browser]` to an intermediate commit when the
   browser job is specifically needed.
 - A focused green run is never acceptance. The exact final task commit must get a green
   `[verify:full]` run before `preview` can move to it.

@@ -269,6 +269,19 @@ test('sheet date row follows the finger horizontally and still supports vertical
   await expect(page.getByRole('dialog', { name: 'Responsive test sheet' })).toHaveCount(0);
 });
 
+
+// Regression: PROJECT_REFERENCE.md §2 — blank lower Day View sheet space remains part of the native horizontal day surface.
+test('blank lower sheet area swipes to the adjacent day', async ({ page }) => {
+  await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html`);
+  await page.getByTestId('open-full-sheet').click();
+
+  const dialog = page.getByRole('dialog', { name: 'Responsive test sheet' });
+  await waitForStableVerticalPosition(dialog);
+  await drag(page, page.getByTestId('sheet-blank-swipe-zone-1'), -220);
+
+  await expect(page.getByTestId('sheet-day-index')).toHaveText('1');
+});
+
 // Regression: PROJECT_REFERENCE.md §2 — phones expose backdrop dismissal; tablet full sheets use full height.
 test('full sheet leaves a phone backdrop, closes from it, and fills tablet height', async ({ page }) => {
   await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html`);

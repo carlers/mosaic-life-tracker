@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { format } from 'date-fns';
 import { motion } from 'framer-motion';
 import { Swiper, SwiperSlide } from 'swiper/react';
@@ -16,6 +16,7 @@ import { ReactionRow } from '../messages/ReactionRow';
 import { EmojiPickerSheet } from '../messages/EmojiPickerSheet';
 import { useTasksByDate } from '../../hooks/useTasksByDate';
 import { useDayViewSwiper } from '../home/views/useDayViewSwiper';
+import { useHorizontalArrowNavigation } from '../../hooks/useHorizontalArrowNavigation';
 import { parseReactions } from '../../lib/reactionUtils';
 import { visibilityIcon } from '../../lib/visibility';
 import { getCategoryLabelColor, getReadableTextColor } from '../../constants/colors';
@@ -34,6 +35,7 @@ interface FriendDayViewSheetProps {
   currentUserId: string;
   onReplyToTask?: (task: TaskDocument, categoryColor: string) => void;
   onReactToTask?: (task: TaskDocument, emoji: string) => void;
+  renderMode?: 'sheet' | 'inline';
 }
 
 interface FriendDaySlideProps {
@@ -44,6 +46,7 @@ interface FriendDaySlideProps {
   onReplyToTask?: (task: TaskDocument, categoryColor: string) => void;
   onReactToTask?: (task: TaskDocument, emoji: string) => void;
   onOpenReactions: (task: TaskDocument) => void;
+  scrollMode?: 'page' | 'contained';
 }
 
 const EMPTY_TASKS: TaskDocument[] = [];
@@ -56,6 +59,7 @@ const FriendDaySlide: React.FC<FriendDaySlideProps> = ({
   onReplyToTask,
   onReactToTask,
   onOpenReactions,
+  scrollMode = 'contained',
 }) => {
   const tasksByCategory = useMemo(() => {
     const map = new Map<string, TaskDocument[]>();
@@ -88,7 +92,13 @@ const FriendDaySlide: React.FC<FriendDaySlideProps> = ({
   }
 
   return (
-    <div className="h-full overflow-y-auto px-4 pb-8">
+    <div
+      className={
+        scrollMode === 'contained'
+          ? 'min-h-0 w-full min-w-0 flex-1 overflow-y-auto px-4 pb-8'
+          : 'w-full min-w-0 px-4 pb-8'
+      }
+    >
       <p className="text-xs text-gray-400 text-center mb-5">
         {friendName} · {tasks.length} {tasks.length === 1 ? 'task' : 'tasks'}
       </p>
@@ -234,6 +244,7 @@ export const FriendDayViewSheet: React.FC<FriendDayViewSheetProps> = ({
   currentUserId,
   onReplyToTask,
   onReactToTask,
+  renderMode = 'sheet',
 }) => {
   const [reactionTask, setReactionTask] = useState<TaskDocument | null>(null);
   const tasksByDate = useTasksByDate(tasks);
@@ -261,70 +272,135 @@ export const FriendDayViewSheet: React.FC<FriendDayViewSheetProps> = ({
     setReactionTask(null);
   };
 
-  return (
-    <>
+  const handleSheetHorizontalSwipe = useCallback(
+    (direction: 'left' | 'right') => {
+      if (direction === 'left') handleNextDay();
+      else handlePrevDay();
+    },
+    [handleNextDay, handlePrevDay]
+  );
+
+  useHorizontalArrowNavigation({
+    enabled: isOpen && !reactionTask,
+    onLeft: handlePrevDay,
+    onRight: handleNextDay,
+  });
+
+  const content = (
+    <Swiper
+      nested={renderMode === 'inline'}
+      noSwiping={renderMode === 'sheet'}
+      touchStartPreventDefault={false}
+      touchMoveStopPropagation={false}
+      onSwiper={(swiper) => {
+        swiperRef.current = swiper;
+      }}
+      initialSlide={initialIndex}
+      onSlideChange={handleSwipeSettled}
+      data-bottom-sheet-native-horizontal-swipe={
+        renderMode === 'sheet' ? 'true' : undefined
+      }
+      className={`min-w-0 w-full max-w-full overflow-hidden ${
+        renderMode === 'sheet' ? 'flex-1' : ''
+      }`}
+      style={{
+        width: '100%',
+        maxWidth: '100%',
+        height: renderMode === 'sheet' ? '100%' : 'auto',
+        touchAction: 'pan-y',
+      }}
+    >
+      {slideDates.map((slideDate, index) => {
+        const inWindow = Math.abs(index - activeIndex) <= renderWindow;
+        const dayTasks = tasksByDate.get(slideDateStrs[index]) ?? EMPTY_TASKS;
+        return (
+          <SwiperSlide
+            key={slideDate.toISOString()}
+            style={{ height: renderMode === 'sheet' ? '100%' : 'auto' }}
+          >
+            <div
+              className={
+                renderMode === 'sheet'
+                  ? 'flex h-full min-h-0 w-full min-w-0 flex-col'
+                  : 'w-full min-w-0'
+              }
+            >
+              <div
+                className="flex shrink-0 items-center justify-between gap-2 px-4 py-2"
+                data-bottom-sheet-directional-drag-handle={
+                  renderMode === 'sheet' ? 'true' : undefined
+                }
+              >
+                <button
+                  type="button"
+                  onClick={handlePrevDay}
+                  tabIndex={index === activeIndex ? 0 : -1}
+                  className="p-2 text-gray-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
+                  aria-label="Previous day"
+                >
+                  <ChevronLeft size={20} />
+                </button>
+                <h3
+                  className="min-w-0 flex-1 text-center text-base font-semibold text-white"
+                  aria-live={index === activeIndex ? 'polite' : undefined}
+                >
+                  {format(slideDate, 'EEEE, MMMM d, yyyy')}
+                </h3>
+                <button
+                  type="button"
+                  onClick={handleNextDay}
+                  tabIndex={index === activeIndex ? 0 : -1}
+                  className="p-2 text-gray-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
+                  aria-label="Next day"
+                >
+                  <ChevronRight size={20} />
+                </button>
+              </div>
+              {inWindow && (
+                <FriendDaySlide
+                  tasks={dayTasks}
+                  categories={categories}
+                  friendName={friendName}
+                  currentUserId={currentUserId}
+                  onReplyToTask={onReplyToTask}
+                  onReactToTask={onReactToTask}
+                  onOpenReactions={setReactionTask}
+                  scrollMode={renderMode === 'sheet' ? 'contained' : 'page'}
+                />
+              )}
+            </div>
+          </SwiperSlide>
+        );
+      })}
+    </Swiper>
+  );
+
+  const surface =
+    renderMode === 'inline' ? (
+      <div
+        data-testid="inline-friend-day-view"
+        className="flex min-h-0 min-w-0 w-full max-w-full flex-col overflow-x-hidden"
+      >
+        {content}
+      </div>
+    ) : (
       <BottomSheet
         isOpen={isOpen}
         onClose={onClose}
-        title={format(date, 'EEEE, MMMM d, yyyy')}
+        ariaLabel={format(date, 'EEEE, MMMM d, yyyy')}
         height="full"
         isLocked={!!reactionTask}
         suspendInteraction={!!reactionTask}
+        contentMode="fixed"
+        onHorizontalSwipe={handleSheetHorizontalSwipe}
       >
-        <div className="flex items-center justify-between px-4 py-2">
-          <button
-            type="button"
-            onClick={handlePrevDay}
-            className="p-2 text-gray-400"
-            aria-label="Previous day"
-          >
-            <ChevronLeft size={20} />
-          </button>
-          <span className="sr-only" aria-live="polite">
-            {format(date, 'EEEE, MMMM d, yyyy')}
-          </span>
-          <button
-            type="button"
-            onClick={handleNextDay}
-            className="p-2 text-gray-400"
-            aria-label="Next day"
-          >
-            <ChevronRight size={20} />
-          </button>
-        </div>
-
-        <Swiper
-          onSwiper={(swiper) => {
-            swiperRef.current = swiper;
-          }}
-          initialSlide={initialIndex}
-          onSlideChange={handleSwipeSettled}
-          className="flex-1"
-        >
-          {slideDates.map((slideDate, index) => {
-            const inWindow = Math.abs(index - activeIndex) <= renderWindow;
-            const dayTasks =
-              tasksByDate.get(slideDateStrs[index]) ?? EMPTY_TASKS;
-
-            return (
-              <SwiperSlide key={slideDate.toISOString()}>
-                {inWindow && (
-                  <FriendDaySlide
-                    tasks={dayTasks}
-                    categories={categories}
-                    friendName={friendName}
-                    currentUserId={currentUserId}
-                    onReplyToTask={onReplyToTask}
-                    onReactToTask={onReactToTask}
-                    onOpenReactions={setReactionTask}
-                  />
-                )}
-              </SwiperSlide>
-            );
-          })}
-        </Swiper>
+        <div className="flex h-full min-h-0 flex-col">{content}</div>
       </BottomSheet>
+    );
 
+  return (
+    <>
+      {surface}
       <EmojiPickerSheet
         isOpen={!!reactionTask}
         onClose={() => setReactionTask(null)}

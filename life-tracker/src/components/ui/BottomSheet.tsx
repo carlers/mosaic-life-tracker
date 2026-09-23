@@ -13,6 +13,7 @@ interface BottomSheetProps {
   isLocked?: boolean;
   suspendInteraction?: boolean;
   backdropBlur?: boolean;
+  contentMode?: 'scroll' | 'fixed';
   onHorizontalSwipe?: (direction: 'left' | 'right') => void;
 }
 
@@ -197,6 +198,7 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
   isLocked = false,
   suspendInteraction = false,
   backdropBlur = false,
+  contentMode = 'scroll',
   onHorizontalSwipe,
 }) => {
   const sheetRef = useRef<HTMLDivElement>(null);
@@ -254,6 +256,10 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
     height === 'full'
       ? 'h-[92dvh] md:h-[100dvh] rounded-t-3xl'
       : 'max-h-[90vh] rounded-t-3xl';
+  const contentClass =
+    contentMode === 'fixed'
+      ? 'flex-1 min-h-0 px-4'
+      : 'flex-1 overflow-y-auto px-4 pb-8 overscroll-contain';
 
   const sheetContent = (
     <AnimatePresence>
@@ -457,9 +463,7 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
                 </h3>
               )}
             </div>
-            <div className="flex-1 overflow-y-auto px-4 pb-8 overscroll-contain">
-              {children}
-            </div>
+            <div className={contentClass}>{children}</div>
           </motion.div>
         </>
       )}

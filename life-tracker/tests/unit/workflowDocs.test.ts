@@ -47,6 +47,7 @@ describe('GitHub verification latency contract', () => {
 
   it('keeps focused chatgpt pushes separate from final full verification', () => {
     const verify = read('../.github/workflows/verify.yml');
+    expect(verify).toContain('Cache focused task dependencies');
     expect(verify).toContain('node scripts/verify-focused.mjs HEAD^');
     expect(verify).toContain('[verify:full]');
     expect(verify).toContain('[verify:browser]');

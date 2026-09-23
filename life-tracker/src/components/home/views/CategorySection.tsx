@@ -105,10 +105,39 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
             {categoryName}
           </span>
           <span className="text-gray-400" aria-hidden="true">
-            <Plus size={14} />
+            <Plus data-testid="category-add-icon" size={18} />
           </span>
         </button>
       </div>
+
+      {isAdding && (
+        <div
+          data-testid="pending-task-row"
+          className="flex items-center gap-3 py-2"
+        >
+          <span
+            data-testid="pending-task-checkbox"
+            aria-hidden="true"
+            className="shrink-0 h-6 w-6 rounded-full border-2"
+            style={{ borderColor: categoryColor }}
+          />
+          <label htmlFor={inputId} className="sr-only">
+            New task title
+          </label>
+          <input
+            id={inputId}
+            ref={setInputRef}
+            type="text"
+            value={newTitle}
+            onChange={(e) => setNewTitle(e.target.value)}
+            onKeyDown={handleKeyDown}
+            onBlur={handleBlur}
+            placeholder={`Add a task to ${categoryName}...`}
+            className="min-w-0 flex-1 bg-transparent text-white outline-none border-b text-sm focus-visible:ring-2 focus-visible:ring-emerald-500/60"
+            style={{ borderBottomColor: categoryColor }}
+          />
+        </div>
+      )}
 
       {tasks.map((task) => (
         <TaskItem
@@ -128,25 +157,6 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
           onEditCancel={onEditCancel}
         />
       ))}
-
-      {isAdding && (
-        <div className="flex items-center gap-2 py-2">
-          <label htmlFor={inputId} className="sr-only">
-            New task title
-          </label>
-          <input
-            id={inputId}
-            ref={setInputRef}
-            type="text"
-            value={newTitle}
-            onChange={(e) => setNewTitle(e.target.value)}
-            onKeyDown={handleKeyDown}
-            onBlur={handleBlur}
-            placeholder={`Add a task to ${categoryName}...`}
-            className="flex-1 bg-transparent text-white outline-none border-b border-[#4B5563] text-sm focus-visible:ring-2 focus-visible:ring-emerald-500/60"
-          />
-        </div>
-      )}
     </div>
   );
 };

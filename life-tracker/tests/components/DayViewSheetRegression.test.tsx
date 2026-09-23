@@ -48,6 +48,7 @@ vi.mock('swiper/react', () => ({
     noSwiping,
     touchStartPreventDefault,
     touchMoveStopPropagation,
+    className,
   }: {
     children: ReactNode;
     onSwiper?: (swiper: unknown) => void;
@@ -55,6 +56,7 @@ vi.mock('swiper/react', () => ({
     noSwiping?: boolean;
     touchStartPreventDefault?: boolean;
     touchMoveStopPropagation?: boolean;
+    className?: string;
   }) => {
     swiperFixture.nested = nested;
     swiperFixture.noSwiping = noSwiping;
@@ -66,7 +68,11 @@ vi.mock('swiper/react', () => ({
       slidePrev: swiperFixture.slidePrev,
       slideNext: swiperFixture.slideNext,
     });
-    return <div data-testid="day-swiper">{children}</div>;
+    return (
+      <div data-testid="day-swiper" className={className}>
+        {children}
+      </div>
+    );
   },
   SwiperSlide: ({ children }: { children: ReactNode }) => (
     <div>{children}</div>
