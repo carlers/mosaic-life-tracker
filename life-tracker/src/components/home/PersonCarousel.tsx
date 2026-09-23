@@ -29,7 +29,7 @@ const PersonPill = React.memo<PersonPillProps>(
         type="button"
         onClick={() => onSelect(person.id)}
         onPointerDown={(e) => e.stopPropagation()}
-        className={`flex-shrink-0 flex items-center gap-2 pl-1 pr-3 py-1 rounded-full border transition-[color,background-color,transform] active:scale-95 ${
+        className={`flex-shrink-0 flex items-center gap-2 pl-1 pr-3 py-1 rounded-full border transition-[color,background-color,border-color,transform] active:scale-95 ${
           isActive
             ? 'bg-white border-white'
             : 'bg-[#1E1E1E] border-[#333333] hover:bg-[#252525]'

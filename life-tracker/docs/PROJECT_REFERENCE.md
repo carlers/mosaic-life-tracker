@@ -305,9 +305,8 @@ in `docs/WEB_CHAT_WORKFLOW.md`. `apply-changes.mjs` is the executable source of 
 18. **Person-pill memoization requires stable action props.** `PersonCarousel` passes one stable `onSelect(personId)` callback into memoized pills instead of allocating a new closure prop for every pill on every active-person render.
 19. **Calendar day-cell tap feedback is CSS-owned.** Month/week grids can mount hundreds of day cells across the render window; `DayCell` uses CSS active-scale feedback rather than a Framer Motion controller per cell.
 20. **Mapped RxDB hook data preserves identity between emissions.** `useRxCollection` memoizes its public mapped value from the current document array; parent renders that do not receive a new RxDB emission MUST reuse the same mapped object/array reference so downstream `useMemo`/memoized consumers can bail.
-21. **Production excludes RxDB dev-mode code.** The `rxdb/plugins/dev-mode` package is loaded only behind the development-only database initialization path; production builds must not pay its parse/download cost.
-22. **Home Swiper avoids DOM observers.** Person-list changes already call the explicit Swiper update path; do not enable Swiper `observer`/`observeParents` mutation observers on the Home carousel.
-23. **Inbox aggregation is single-pass.** `ConversationsProvider` derives each counterpart's newest message and unread count in one pass over the already newest-first message stream; do not allocate per-friend message arrays only to scan them again.
+21. **Home Swiper avoids DOM observers.** Person-list changes already call the explicit Swiper update path; do not enable Swiper `observer`/`observeParents` mutation observers on the Home carousel.
+22. **Inbox aggregation is single-pass.** `ConversationsProvider` derives each counterpart's newest message and unread count in one pass over the already newest-first message stream; do not allocate per-friend message arrays only to scan them again.
 
 
 ## 17. Native Input Quirks
