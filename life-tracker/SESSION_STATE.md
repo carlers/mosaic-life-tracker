@@ -21,9 +21,9 @@ Current task: cross-browser manual PWA update-check compatibility
 6. **Done — Safari/WebKit regression red.** Verify #164 (`35815255117`) failed exactly because a controlled page whose direct registration lookup yielded none did not fall back to `serviceWorker.ready`: expected `up-to-date`, received `unavailable`.
 7. **Done — final cross-browser implementation.** Registration resolution is now: captured registration → `getRegistration()` → controlled-page `serviceWorker.ready`. Browsers without Service Worker support, pages with no matching registration, and uncontrolled pages still return `unavailable` immediately rather than waiting indefinitely.
 8. **Done — green implementation gate.** Verify #166 (`35815413162`) passed 78/78 Vitest files, 535/535 tests, 20/20 Playwright browser contracts, contracts/discovery/lint/build/PWA/build-size checks. Task-branch Vercel deployment `dpl_EfRzV1RMhnywpMSBcr8L2EyPGqrd` is READY.
-9. **In progress — final rollout.** This branch is consolidated to the exact net task diff. Require this consolidated checkpoint to pass Verify, fast-forward `preview`, then require Preview Verify and Vercel READY. After deployment, manually confirm **Check for Updates** in Brave and iOS Safari/Home Screen mode.
+9. **Done — final rollout.** Consolidated commit `92493ab61ecbb39882a64445bfb9ad33503a8ebe` passed task-branch Verify #168 (`35815715398`), was fast-forwarded to `preview`, then passed Preview Verify #169 (`35815903230`). Preview Vercel deployment `dpl_Bd9ffvBuCZCtNrfShZ21dadYkPfL` is READY and owns the stable preview alias. Product code rollout is complete; only real-browser smoke confirmation remains.
 
-Status: Cross-browser update-check logic is implemented and green before consolidation; final consolidated verification and Preview rollout remain.
+Status: Cross-browser update-check compatibility is implemented, verified, and deployed to Preview. Brave and iOS Safari/Home Screen manual smoke checks remain acceptance-only; there is no code blocker.
 Roadmap pointer: Todo List hosted/manual acceptance remains independent; this is a scoped PWA update-check compatibility fix.
 Blockers: No code blocker. Real iOS Safari/Home Screen behavior requires device/browser acceptance because CI currently runs Chromium browser contracts.
 
@@ -32,6 +32,8 @@ Blockers: No code blocker. Real iOS Safari/Home Screen behavior requires device/
 - Behavioral red: Verify #161 captured the missing direct-registration fallback.
 - Behavioral red: Verify #164 captured the missing controlled-page `ready` fallback.
 - Green implementation: Verify #166 passed 78/78 Vitest files, 535/535 tests, 20/20 Playwright browser contracts, plus production build/PWA/build-size checks.
+- Consolidated task checkpoint: Verify #168 (`35815715398`) passed the same 78/78 files, 535/535 tests, and 20/20 browser contracts.
+- Preview rollout: Verify #169 (`35815903230`) passed 78/78 files, 535/535 tests, 20/20 browser contracts; Vercel deployment `dpl_Bd9ffvBuCZCtNrfShZ21dadYkPfL` is READY on the stable preview alias.
 - Standards basis: only Service Worker APIs standardized across current browser families are used; no browser-specific UA branch exists.
 - Manual remaining: Brave + iOS Safari/Home Screen **Check for Updates** smoke test after Preview promotion.
 
