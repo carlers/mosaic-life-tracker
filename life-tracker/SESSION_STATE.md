@@ -6,7 +6,7 @@ Status: complete; optimized runtime checkpoint is verified and deployed to Previ
 
 ## Active user prompt
 
-> go on
+> continue pls
 
 ## Parent prompt
 
@@ -22,6 +22,7 @@ Status: complete; optimized runtime checkpoint is verified and deployed to Previ
 6. **Done — hosted checkpoint.** Task-branch Vercel deployment `dpl_FAyEP4ieEeinkDcXRv7MQfH3v22n` is READY.
 7. **Done — Preview rollout.** Preview fast-forwarded to runtime checkpoint `8587d756d15622050f7f264483928b6a0e24d2b4`. Preview Verify #186 (`35819684374`) passed both repository and browser jobs; Preview Vercel deployment `dpl_AUTSX6bFZvGznquSpniWNo2eN2ve` is READY.
 8. **Done — documentation/handoff.** Bundle trade-offs and architecture contracts are recorded. Remaining verification is optional real-device subjective smoothness/startup observation, not a blocker for the behavior-preserving optimization batch.
+9. **Done — continuation closeout.** Re-checked the completed Preview checkpoint: repository verification and browser contracts are green, and the current Vercel Preview deployment is READY.
 
 Roadmap pointer: This is a behavior-preserving optimization batch; no roadmap feature checkbox changes.
 Blockers: None.
