@@ -2,7 +2,7 @@
 
 Updated: 2026-09-23
 Current task: DayViewSheet swipe coverage, chat focus behavior, and 120 Hz month-swipe smoothness
-Status: in progress.
+Status: complete; runtime checkpoint is verified and deployed to Preview. Remaining acceptance is real-device subjective interaction/frame-pacing review.
 
 ## Active user prompt
 
@@ -10,13 +10,22 @@ Status: in progress.
 
 ## Progress
 
-1. **Done — recover Preview baseline and project rules.** Confirmed Preview at `68895f6a40e0b11b4df6d2cf2dcde6fe3773388c`; read `AGENTS.md`, `PLAN.md`, `SESSION_STATE.md`, remote verification, test workflow, preview deployment guidance, and package scripts.
-2. **Done — inspect governing contracts and current implementation.** Found BottomSheet drag ownership competing with Day View's date-row swipe, an explicit 120 ms composer autofocus timer, five mounted Todo month grids, and a per-frame Embla `scroll` subscription driving calendar render-window state.
-3. **Done — spec-first regression coverage.** Verify #35824995846 produced four behavioral-red failures matching the target contracts: sheet-handle/date-row horizontal navigation stayed at 0 calls, chat mount autofocus focused the textarea, Todo mounted 147 day buttons (>126), and the calendar render window advanced from end index 31 to 32 during an Embla `scroll` event. Its browser-contract job stayed green.
-4. **In progress — implement scoped fixes/optimization.** Removed initial composer autofocus; added sheet-level horizontal gesture fallback outside native Swiper zones while keeping the date row's vertical drag handle; reduced Todo compact-month windowing to active ±1; moved calendar window tracking from per-frame `scroll` to settled `select`/`reInit`; added compositor hints to month tracks.
-5. **Pending — focused verification and evidence review.** Run relevant DOM/browser checks via GitHub Actions, map behavioral changes to evidence, and fix any failures.
-6. **Pending — acceptance gate and hosted Preview rollout.** Require the canonical Verify workflow green; then fast-forward `preview` to the exact green commit and verify the Vercel Preview deployment for device testing.
-7. **Pending — documentation/handoff closeout.** Record exact commits/runs/deployment status and remaining real-device checks.
+1. **Done — recover Preview baseline and project rules.** Started from Preview `68895f6a40e0b11b4df6d2cf2dcde6fe3773388c`; read `AGENTS.md`, `PLAN.md`, `SESSION_STATE.md`, remote verification, test workflow, preview deployment guidance, governing product contracts, and relevant implementation/tests.
+2. **Done — isolate causes.** Found the Day View date row sharing BottomSheet vertical-drag ownership without a sheet-wide horizontal fallback, an explicit 120 ms composer mount-autofocus timer, Todo mounting active ±2 full compact month grids, and Calendar dispatching React render-window state from Embla's high-frequency `scroll` event. No explicit 60 Hz animation cap was present.
+3. **Done — spec-first regression coverage.** Added durable §16/§21 contracts plus focused tests. Verify #192 (`35824995846`) produced four behavioral-red failures matching the target behaviors: full-sheet horizontal day navigation, no chat mount autofocus, compact Todo three-grid windowing, and stable Calendar render-window state during per-frame scroll.
+4. **Done — implementation.** Removed initial composer autofocus while preserving reply/send focus behavior; added direction-aware BottomSheet horizontal swipe fallback for exposed Day View sheet areas while leaving native Swiper ownership for task/body content and preserving vertical drag-to-close on the date row; reduced Todo compact-month rendering to active ±1; moved Calendar render-window tracking from Embla `scroll` to `select`/`reInit`; added compositor hints to month tracks.
+5. **Done — focused/acceptance verification.** Task Verify #193 (`35825615870`) passed project contracts, discovery, lint/build/PWA/size gates, 80 Vitest files / 541 tests, and 20/20 Playwright browser contracts.
+6. **Done — Preview rollout.** Preview fast-forwarded to runtime checkpoint `31a3a22f7106bc2db8d6ddd717e65dfb65bcc1be`. Preview Verify #194 (`35825874086`) passed, and Vercel deployment `dpl_5LPdmGxBSxNk2hHh58XGT9t2Apmp` is READY with the Preview branch alias.
+7. **Done — documentation/handoff.** Product contracts record the no-autofocus and month-swipe workload rules. Remaining verification is manual: confirm sheet-wide day swipes/vertical drag arbitration, chat keyboard behavior, and subjective high-refresh month-swipe smoothness on the target phone.
 
-Roadmap pointer: scoped interaction/performance follow-up on the existing Todo List and Calendar surfaces.
+Roadmap pointer: scoped interaction/performance follow-up on existing Todo List, Calendar, Day View, and Chat surfaces; no roadmap checkbox changes.
 Blockers: None.
+
+## Verification
+
+- Baseline Preview: `68895f6a40e0b11b4df6d2cf2dcde6fe3773388c`.
+- Behavioral-red evidence: Verify #192 / `35824995846` — 4 intended behavioral failures; browser-contract job green.
+- Runtime checkpoint: `31a3a22f7106bc2db8d6ddd717e65dfb65bcc1be`.
+- Acceptance: task Verify #193 green (80 files / 541 tests; 20/20 browser), Preview Verify #194 green.
+- Deployment: Preview Vercel `dpl_5LPdmGxBSxNk2hHh58XGT9t2Apmp` READY.
+- Manual device protocol: open a Day View sheet and swipe horizontally from the top handle, date row, and task/body area; verify each changes day while a vertical drag from the date row closes without a day jump. Open a chat from Messages; verify the keyboard stays closed until the composer is explicitly tapped, then remains open after Send. On the 120 Hz target phone, swipe months repeatedly in Todo and Calendar; verify direct finger tracking, no blank neighboring month, and no outer person-carousel movement.
