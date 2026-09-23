@@ -6,21 +6,26 @@ user to run verification commands or paste terminal logs.
 
 ## Single verification workflow
 
-`.github/workflows/verify.yml` is the only GitHub Actions verification workflow. Its
-`verify` job checks out the ref, runs `npm ci`, and executes the same `npm run verify`
-repository gate used locally: project-contract checks, the Vitest discovery guard, ESLint,
-Vitest, and the production build. Its parallel `browser-contract` job installs the pinned Playwright tooling and
-runs `npm run test:browser-contract`, which discovers the repository-owned
-`tests/e2e/**/*.spec.mjs` contracts.
+`.github/workflows/verify.yml` remains the only GitHub Actions verification workflow, but
+it has two execution modes to minimize prompt-to-green latency without weakening final
+acceptance.
 
-This keeps browser contracts in the test tree and under the same GitHub `Verify` result
-without pretending a DOM runner can replace a real browser. Local `npm run verify`
-remains the offline-capable canonical gate; browser contracts are the additional
-browser-backed job of the same remote workflow.
+- Pull requests, `preview`, manual dispatches, and a `chatgpt/**` push whose commit
+  message contains `[verify:full]` run the canonical gate: fresh `npm ci`, then
+  `npm run verify` (contracts, discovery, lint, all Vitest projects, production build),
+  with the complete Playwright browser-contract job in parallel.
+- Ordinary `chatgpt/**` pushes run `scripts/verify-focused.mjs HEAD^`: contracts and
+  discovery always run, ESLint receives only changed source/script files, and Vitest uses
+  its Git-aware `--changed` selection. They intentionally skip the production build and
+  unrelated test projects. Add `[verify:browser]` to an intermediate commit when the
+  browser job is specifically needed.
+- A focused green run is never acceptance. The exact final task commit must get a green
+  `[verify:full]` run before `preview` can move to it.
 
-Local repository-gate runs stream output and copy the complete run to the clipboard.
-GitHub Actions sets `CI=true`, so clipboard handling is skipped and the streamed output
-remains in the job log.
+The browser job caches a prepared `node_modules` tree keyed by the repository lockfile,
+Node version, and exact Playwright/Axe versions, then separately caches Chromium. On a cache
+hit it avoids the prior second dependency-resolution/install pass; the canonical verify job
+still performs fresh `npm ci`, so final dependency/lockfile verification is unchanged.
 
 ## Phone-only loop
 
@@ -28,13 +33,13 @@ remains in the job log.
 2. Inspect the current checkpoint and relevant files through GitHub.
 3. Group the task into a small number of meaningful sub-batches.
 4. Use no more than 3–5 visible commits for the entire task; small tasks should use fewer.
-5. The `Verify` workflow starts automatically for pushes to `chatgpt/**` and
-   `preview`. Pull requests also run it, and `workflow_dispatch` allows a manual rerun.
-   A green run means both the repository gate and the parallel browser-contract job passed.
-6. A GitHub-connected chat reads the workflow run, job status, and job logs directly.
-7. If verification is green, report the result and continue to any required manual checks.
-   If verification is red, diagnose the log and repair the same task without asking the
-   user to relay terminal output.
+5. Each ordinary `chatgpt/**` push receives focused verification. Use
+   `[verify:browser]` only for an intermediate browser-sensitive checkpoint.
+6. When the batch is implementation-complete, put `[verify:full]` in that exact commit's
+   message. That push runs the complete repository and browser acceptance gate. `preview`,
+   pull requests, and manual dispatches are always full mode.
+7. Read workflow status/logs directly, repair failures on the same task branch, and only
+   move `preview` after the exact final task commit is full-green.
 
 Newer pushes cancel stale runs for the same ref.
 

@@ -28,59 +28,62 @@ jobs:
     defaults:
       run:
         working-directory: life-tracker
-
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
-
+        with:
+          fetch-depth: 2
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
           cache-dependency-path: life-tracker/package-lock.json
-
       - name: Install dependencies
         run: npm ci
-
       - name: Verify repository gate
+        if: ${{ github.event_name != 'push' || github.ref == 'refs/heads/preview' || contains(github.event.head_commit.message, '[verify:full]') }}
         run: npm run verify
+      - name: Verify focused change set
+        if: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/heads/chatgpt/') && !contains(github.event.head_commit.message, '[verify:full]') }}
+        run: node scripts/verify-focused.mjs HEAD^
 
   browser-contract:
+    if: ${{ github.event_name != 'push' || github.ref == 'refs/heads/preview' || contains(github.event.head_commit.message, '[verify:full]') || contains(github.event.head_commit.message, '[verify:browser]') }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     defaults:
       run:
         working-directory: life-tracker
-
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
-
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
           cache-dependency-path: life-tracker/package-lock.json
-
-      - name: Install repository dependencies
-        run: npm ci
-
-      - name: Install pinned browser-test dependencies
-        run: npm install --no-save --package-lock=false @playwright/test@1.58.2 @axe-core/playwright@4.10.2
-
+      - name: Cache prepared browser test dependencies
+        id: browser-node-modules-cache
+        uses: actions/cache@v4
+        with:
+          path: life-tracker/node_modules
+          key: ${{ runner.os }}-node22-browser-modules-${{ hashFiles('life-tracker/package-lock.json') }}-pw1.58.2-axe4.10.2
+      - name: Prepare pinned browser-test dependencies on cache miss
+        if: steps.browser-node-modules-cache.outputs.cache-hit != 'true'
+        run: |
+          npm ci
+          npm install --no-save --package-lock=false @playwright/test@1.58.2 @axe-core/playwright@4.10.2
       - name: Cache Playwright Chromium
         id: playwright-browser-cache
         uses: actions/cache@v4
         with:
           path: ~/.cache/ms-playwright
           key: ${{ runner.os }}-playwright-chromium-1.58.2
-
       - name: Install Chromium on cache miss
         if: steps.playwright-browser-cache.outputs.cache-hit != 'true'
         run: npx playwright install chromium
-
       - name: Start local Mosaic
         env:
           VITE_POSTHOG_TOKEN: browser-contract-token
@@ -95,7 +98,6 @@ jobs:
           done
           cat /tmp/mosaic-vite.log
           exit 1
-
       - name: Run repository browser contracts
         env:
           MOSAIC_E2E_BASE_URL: https://127.0.0.1:4173

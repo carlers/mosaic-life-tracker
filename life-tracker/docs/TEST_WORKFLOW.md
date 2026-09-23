@@ -24,6 +24,15 @@ Use `test:unit` for pure helpers and local libraries, `test:handlers` for Appwri
 Function handlers, and `test:dom` for React hooks, providers, and components. Watch-mode
 variants are `test:watch:unit`, `test:watch:handlers`, and `test:watch:dom`.
 
+### GitHub-connected fast loop
+
+Ordinary pushes to an AI-owned `chatgpt/**` branch run the same narrow-loop principle
+remotely: `scripts/verify-focused.mjs HEAD^` always checks contracts/discovery, lints only
+changed code files, and asks Vitest for tests related to the changed files. This result is
+development feedback only. Use `[verify:browser]` in an intermediate commit message when
+the change needs real-browser feedback. Use `[verify:full]` on the exact final task commit
+to run the complete repository + browser acceptance gate before Preview rollout.
+
 Before completing a shared or production-path batch, run the full required gate from
 `AGENTS.md`: lint, `npm test`, and build as applicable. Targeted commands accelerate
 iteration; they do not replace final verification.

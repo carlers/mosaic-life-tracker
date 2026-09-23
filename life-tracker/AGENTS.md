@@ -143,11 +143,15 @@ before it could write or checkpoint.
 
 ## Remote verification
 
-- `.github/workflows/verify.yml` is the single shared remote verification workflow for
-  `preview`, AI-owned `chatgpt/**` branches, pull requests, and manual dispatches. Its
-  `verify` job installs with `npm ci` and runs the same `npm run verify` command used
-  locally; its parallel `browser-contract` job runs the repository-owned Playwright
-  contracts in `tests/e2e/`. The workflow is green only when both jobs pass.
+- `.github/workflows/verify.yml` is the single shared remote verification workflow. Pull
+  requests, `preview`, manual dispatches, and AI task commits whose message contains
+  `[verify:full]` run the canonical `npm run verify` gate plus the parallel browser
+  contract job. Ordinary `chatgpt/**` pushes run the changed-file focused gate instead;
+  add `[verify:browser]` only when an intermediate browser contract is needed. A focused
+  green run is development feedback, not acceptance. Before moving `preview`, the exact
+  task commit must have a green `[verify:full]` run. The browser job caches its fully
+  prepared pinned test `node_modules` plus Chromium payload; the canonical repository
+  gate still performs a fresh `npm ci`, preserving lockfile/reproducibility coverage.
 - When the active chat has GitHub Actions access, inspect workflow status, jobs, and logs
   directly instead of asking the user to run terminal commands or paste verify output.
 - Treat remote verification as asynchronous work, not a reason to busy-poll. While CI or a
