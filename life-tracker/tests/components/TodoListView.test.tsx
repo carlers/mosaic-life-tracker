@@ -86,9 +86,15 @@ describe('TodoListView', () => {
     const selectedDay = within(grid).getByRole('gridcell', {
       name: 'Tuesday, September 15, 2026, 1 task',
     });
-    expect(within(grid).getAllByRole('row')).toHaveLength(7);
-    expect(within(grid).getAllByRole('gridcell')).toHaveLength(42);
+    expect(within(grid).getAllByRole('row')).toHaveLength(6);
+    expect(within(grid).getAllByRole('gridcell')).toHaveLength(35);
     expect(within(selectedDay).queryByText('Plan release')).toBeNull();
+    expect(selectedDay).not.toHaveClass('bg-white');
+    expect(within(selectedDay).getByText('15')).toHaveClass(
+      'rounded-full',
+      'bg-white',
+      'text-black'
+    );
 
     fireEvent.click(selectedDay);
 
@@ -119,8 +125,8 @@ describe('TodoListView', () => {
     expect(screen.getByTestId('todo-day-section')).toHaveClass('mt-0');
   });
 
-  // Regression: PROJECT_REFERENCE.md §2 — the compact month grid shows the whole month before task content.
-  it('keeps a six-week month at natural height instead of letting the page flex layout clip calendar rows', () => {
+  // Regression: PROJECT_REFERENCE.md §2 — only months that need six weeks render six week rows.
+  it('keeps a required six-week month visible without forcing six weeks on shorter months', () => {
     render(<TodoListView {...props} focusDate={new Date(2026, 7, 15)} />);
 
     const grid = screen.getByRole('grid', { name: 'August 2026 todo calendar' });

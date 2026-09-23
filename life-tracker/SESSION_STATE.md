@@ -11,8 +11,8 @@ Status: in progress.
 ## Progress
 
 1. **Done — recover Preview baseline and rules.** Confirmed Preview at `b05676e2c661e86c84f9b8e9b43562d43051652a`; read current agent, session, roadmap, product, remote verification, and test workflow guidance.
-2. **In progress — inspect navigation and calendar implementation.** Trace Todo calendar sizing/centering/selection, app route shell and bottom nav, hamburger overlay ownership, Settings route, and existing gesture/browser contracts.
-3. **Pending — update durable contracts and add focused regression coverage.** Pin natural 5/6-week Todo months, centered grid geometry, number-only selected ring, direct-manipulation route swipes, Home hamburger-layer ownership, and Me→Settings right swipe.
+2. **Done — inspect navigation and calendar implementation.** Todo currently forces 42 cells and fills the whole selected cell; the screenshot's edge bleed is consistent with neighboring Embla slide content not being paint-contained. Primary routes are owned by AppLayout/MainLayout; Home already has nested person/calendar swipers, so the route gesture must be restricted to its top menu row. Individual chats must remain outside route swiping.
+3. **In progress — spec-first regression coverage.** Updated §2 to natural month rows, number-only selection, centered/no-bleed Todo geometry, and primary route swipe ownership. Added focused tests for September's five-week grid, selected-number ring, route mapping, Home hamburger-layer-only gesture, and Me right-swipe. Next checkpoint is the expected red focused run before implementation.
 4. **Pending — implement calendar/layout corrections and shared route swiper.** Preserve bottom-nav semantics and OS/browser navigation; keep editable controls/nested carousels from leaking gestures to route navigation.
 5. **Pending — focused browser verification.** Use focused Vitest plus browser contracts during iteration; fix any regressions without paying the full gate on each repair.
 6. **Pending — final acceptance and Preview rollout.** Run one `[verify:full]` exact-commit gate, move Preview only after green, and confirm hosted deployment.
