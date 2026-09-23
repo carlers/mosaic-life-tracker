@@ -246,9 +246,11 @@ in `docs/WEB_CHAT_WORKFLOW.md`. `apply-changes.mjs` is the executable source of 
   `AppLayout`, auth/database boot, and the `FriendsProvider` → `ConversationsProvider`
   ownership chain stay eager. Emoji picker, image compressor, export ZIP code, and
   PhotoSwipe lightbox load only when their interactions request them. Authenticated
-  background work that is not required to paint the shell—sync, realtime, pending-message
-  delivery, and social-outbox flush—must stay behind dynamic imports/effects so those
-  modules do not inflate synchronous startup parse/evaluation. Preserve these boundaries
+  background work that is not required to paint the shell—sync, realtime, and pending-message
+  delivery—must stay behind dynamic imports/effects so those modules do not inflate
+  synchronous startup parse/evaluation. Social-outbox flushing also stays post-render;
+  its failure-subscription module may remain eager because optimistic-revert ownership
+  depends on that listener. Preserve these boundaries
   when adding shared imports; `scripts/audit-bundle.mjs` reports the graph.
 - `src/lib/chunkLoadErrors.ts` records Vite's exact `vite:preloadError` payload and
   recognizes browser fallback messages. Route boundaries offer an explicit full-page

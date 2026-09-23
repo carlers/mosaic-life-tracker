@@ -346,3 +346,30 @@ Actions run 35522367810 then passed the existing guard without a budget update:
 This keeps Phase 3.6's regression ceilings intact while adding the Phase 3.7 capabilities.
 Live PostHog ingestion, flags, privacy settings, and source-map symbolication remain staging
 checks rather than build-size evidence.
+
+
+### 2026-09-23 focused runtime performance continuation
+
+The continuation checkpoint `8587d756d15622050f7f264483928b6a0e24d2b4`
+keeps product behavior unchanged while moving authenticated background work away
+from the synchronous shell and reducing global rerender work. The measured baseline
+is Preview `91ddb80576df52f13a70c5c775a5752f867a1148`; both measurements use
+`scripts/check-build-size.mjs`'s exact-byte metrics from GitHub Verify.
+
+| Metric | Baseline | Optimized | Change |
+|---|---:|---:|---:|
+| Entry raw (Vite reporter) | 864.17 kB | 828.49 kB | -35.68 kB (-4.1%) |
+| Entry gzip | 267,894 B | 249,870 B | -18,024 B (-6.7%) |
+| Aggregate app assets gzip | 558,808 B | 563,687 B | +4,879 B (+0.9%) |
+| Unique precache raw | 1,934,430 B | 1,939,538 B | +5,108 B (+0.3%) |
+
+The small aggregate/precache increase is the expected per-chunk overhead from moving
+sync, realtime, pending-message delivery, and the offline banner behind demand/post-render
+boundaries; the offline-first policy still precaches emitted application chunks. The pass
+also route-gates conversation-list allocation/sorting, isolates the unread-badge context,
+and replaces the BottomNav Framer controller with one CSS-transformed persistent indicator.
+
+These emitted-artifact numbers do not claim a specific startup-time or FPS improvement.
+The code-level boundaries prove that the named background modules are no longer part of
+the synchronous entry path; use `scripts/audit-bundle.mjs` when an exact initial/Home
+static-closure comparison is required.

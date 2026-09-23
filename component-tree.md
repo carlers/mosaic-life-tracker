@@ -12,8 +12,8 @@
 ## 2. Layout & Navigation
 - `App.tsx` (React Router v6 setup, Auth route protection, redirects unauthenticated users to `/login`)
 - `MainLayout.tsx`
-  - **CRITICAL Layout Rule:** Root is `h-screen w-full overflow-hidden`. The `<main>` tag is `flex-1 overflow-y-auto pb-24`. This strict context is required for `position: sticky` to work correctly inside child components.
-- `BottomNav.tsx` (5 tabs: Home, Explore, Notifications, Messages, Account. Uses Framer Motion `layoutId` for smooth sliding active indicator)
+  - **CRITICAL Layout Rule:** Root is `h-screen w-full overflow-hidden`. The `<main>` tag is `flex-1 overflow-y-auto` with only the bottom-nav + safe-area inset reserved.
+- `BottomNav.tsx` (5 tabs: Home, Explore, Notifications, Messages, Account. Uses one persistent CSS-transformed active indicator)
 - `ComingSoon.tsx` (Full-page placeholder for tabs 2-4)
 
 ## 3. Home Page (The Core Experience)
