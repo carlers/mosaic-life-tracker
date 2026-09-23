@@ -1,5 +1,4 @@
 import React from 'react';
-import { motion } from 'framer-motion';
 import { Home, Compass, Bell, MessageCircle, User } from 'lucide-react';
 import { useUnreadMessages } from '../../hooks/useUnreadMessages';
 
@@ -29,13 +28,26 @@ export const BottomNav: React.FC<BottomNavProps> = ({
   onTabChange,
 }) => {
   const { totalUnread } = useUnreadMessages();
+  const activeIndex = Math.max(
+    0,
+    tabs.findIndex((tab) => tab.id === activeTab)
+  );
 
   return (
     <nav
       aria-label="Main"
       className="fixed bottom-0 left-0 right-0 z-30 bg-[#1E1E1E] border-t border-[#333333]"
     >
-      <div className="flex justify-around items-center h-[calc(4rem+env(safe-area-inset-bottom))] max-w-lg mx-auto pb-[env(safe-area-inset-bottom)]">
+      <div className="relative flex justify-around items-center h-[calc(4rem+env(safe-area-inset-bottom))] max-w-lg mx-auto pb-[env(safe-area-inset-bottom)]">
+        <div
+          data-testid="active-tab-indicator"
+          className="pointer-events-none absolute left-0 top-2 flex w-1/5 justify-center transition-transform duration-200 ease-out motion-reduce:transition-none"
+          style={{ transform: `translateX(${activeIndex * 100}%)` }}
+          aria-hidden="true"
+        >
+          <div className="w-1 h-1 bg-white rounded-full" />
+        </div>
+
         {tabs.map((tab) => {
           const isActive = activeTab === tab.id;
           const Icon = tab.icon;
@@ -52,14 +64,6 @@ export const BottomNav: React.FC<BottomNavProps> = ({
               aria-current={isActive ? 'page' : undefined}
               className="relative flex flex-col items-center justify-center w-full h-full focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald-500/60"
             >
-              {isActive && (
-                <motion.div
-                  layoutId="activeTabIndicator"
-                  className="absolute top-2 w-1 h-1 bg-white rounded-full"
-                  transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-                  aria-hidden="true"
-                />
-              )}
               <div className="relative">
                 <Icon
                   size={22}

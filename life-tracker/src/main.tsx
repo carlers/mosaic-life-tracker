@@ -3,7 +3,6 @@ import ReactDOM from 'react-dom/client';
 import App from './App.tsx';
 import './index.css';
 import { initializeDatabaseWithRetry } from './db/database';
-import { initializeSync } from './db/sync';
 import { AuthProvider } from './hooks/AuthProvider';
 import { ErrorBoundary } from './components/ui/ErrorBoundary';
 import { installChunkLoadErrorTracking } from './lib/chunkLoadErrors';
@@ -72,13 +71,6 @@ async function bootstrap() {
     return;
   }
 
-  initializeSync().catch((err) =>
-    console.error('[Bootstrap] Initial sync failed:', err)
-  );
-  import('./lib/imageCache')
-    .then(({ enforceImageCacheBudget }) => enforceImageCacheBudget())
-    .catch((err) => console.warn('[Bootstrap] Image-cache sweep failed:', err));
-
   ReactDOM.createRoot(document.getElementById('root')!).render(
     <React.StrictMode>
       <ErrorBoundary label="auth">
@@ -88,5 +80,27 @@ async function bootstrap() {
       </ErrorBoundary>
     </React.StrictMode>
   );
+
+  const startBackgroundWork = () => {
+    void import('./db/sync')
+      .then(({ initializeSync }) => initializeSync())
+      .catch((err) =>
+        console.error('[Bootstrap] Initial sync failed:', err)
+      );
+    void import('./lib/imageCache')
+      .then(({ enforceImageCacheBudget }) => enforceImageCacheBudget())
+      .catch((err) =>
+        console.warn('[Bootstrap] Image-cache sweep failed:', err)
+      );
+  };
+
+  // Let the local-first shell commit before starting network/sweep work.
+  if (typeof window.requestAnimationFrame === 'function') {
+    window.requestAnimationFrame(() => {
+      window.setTimeout(startBackgroundWork, 0);
+    });
+  } else {
+    window.setTimeout(startBackgroundWork, 0);
+  }
 }
 bootstrap();

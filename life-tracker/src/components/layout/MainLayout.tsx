@@ -1,6 +1,11 @@
-import React from 'react';
+import React, { lazy, Suspense, useEffect, useState } from 'react';
 import { BottomNav, type TabId } from './BottomNav';
-import { OfflineBanner } from '../ui/OfflineBanner';
+
+const OfflineBanner = lazy(() =>
+  import('../ui/OfflineBanner').then(({ OfflineBanner }) => ({
+    default: OfflineBanner,
+  }))
+);
 
 interface MainLayoutProps {
   children: React.ReactNode;
@@ -8,18 +13,38 @@ interface MainLayoutProps {
   onTabChange: (tab: TabId) => void;
 }
 
-export const MainLayout: React.FC<MainLayoutProps> = ({ children, activeTab, onTabChange }) => {
+export const MainLayout: React.FC<MainLayoutProps> = ({
+  children,
+  activeTab,
+  onTabChange,
+}) => {
+  const [isOnline, setIsOnline] = useState(
+    typeof navigator !== 'undefined' ? navigator.onLine : true
+  );
+
+  useEffect(() => {
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
+
   return (
-    // FIX: Changed min-h-screen to h-screen and added overflow-hidden.
-    // This creates a strict viewport-bound container.
     <div className="h-screen w-full bg-[#111111] text-white relative flex flex-col overflow-hidden">
-      <OfflineBanner />
-      
-      {/* FIX: flex-1 now correctly fills remaining space. overflow-y-auto makes THIS the scroll container. */}
+      {!isOnline && (
+        <Suspense fallback={null}>
+          <OfflineBanner />
+        </Suspense>
+      )}
+
       <main className="flex-1 overflow-y-auto pb-[calc(4rem+env(safe-area-inset-bottom))]">
         {children}
       </main>
-      
+
       <BottomNav activeTab={activeTab} onTabChange={onTabChange} />
     </div>
   );

@@ -5,11 +5,40 @@ import { MainLayout } from './MainLayout';
 import { FriendsProvider } from '../../hooks/FriendsProvider';
 import { ConversationsProvider } from '../../hooks/ConversationsProvider';
 import { useAuth } from '../../hooks/useAuth';
-import { deliverPendingMessages } from '../../lib/messageDelivery';
-import { flushSocialOutbox } from '../../lib/socialOutbox';
-import { startRealtime, stopRealtime } from '../../db/realtime';
 import type { TabId } from './BottomNav';
+
 const RETRY_COOLDOWN_MS = 2000;
+
+let realtimeModulePromise: Promise<typeof import('../../db/realtime')> | null =
+  null;
+let deliveryModulesPromise:
+  | Promise<
+      readonly [
+        typeof import('../../lib/messageDelivery'),
+        typeof import('../../lib/socialOutbox'),
+      ]
+    >
+  | null = null;
+
+function loadRealtimeModule() {
+  realtimeModulePromise ??= import('../../db/realtime').catch((error) => {
+    realtimeModulePromise = null;
+    throw error;
+  });
+  return realtimeModulePromise;
+}
+
+function loadDeliveryModules() {
+  deliveryModulesPromise ??= Promise.all([
+    import('../../lib/messageDelivery'),
+    import('../../lib/socialOutbox'),
+  ] as const).catch((error) => {
+    deliveryModulesPromise = null;
+    throw error;
+  });
+  return deliveryModulesPromise;
+}
+
 export const AppLayout: React.FC = () => {
   const { user, isLoading, isOffline, error, retry } = useAuth();
   const location = useLocation();
@@ -18,6 +47,7 @@ export const AppLayout: React.FC = () => {
   const [isOnline, setIsOnline] = useState(
     typeof navigator !== 'undefined' ? navigator.onLine : true
   );
+
   useEffect(() => {
     const onOnline = () => setIsOnline(true);
     const onOffline = () => setIsOnline(false);
@@ -28,40 +58,64 @@ export const AppLayout: React.FC = () => {
       window.removeEventListener('offline', onOffline);
     };
   }, []);
-  // Open the realtime layer for the signed-in user. Closed on sign-out
-  // and on tab teardown. The layer patches RxDB in place, so the same
-  // subscriptions (useMessages, ConversationsProvider, useTasks) react
-  // without any additional wiring. Polling/focus sync stays as the
-  // safety net for anything realtime drops.
+
+  // Realtime is background infrastructure, not shell-rendering code. Load it
+  // after React commits the authenticated layout instead of pulling it into
+  // the synchronous startup graph.
   useEffect(() => {
-    if (!user?.$id) {
-      stopRealtime();
-      return;
-    }
-    startRealtime(user.$id);
+    const uid = user?.$id;
+    if (!uid) return;
+
+    let active = true;
+    let stopRealtime: (() => void) | null = null;
+
+    void loadRealtimeModule()
+      .then((realtime) => {
+        if (!active) return;
+        realtime.startRealtime(uid);
+        stopRealtime = realtime.stopRealtime;
+      })
+      .catch((err) =>
+        console.error('[AppLayout] realtime module failed:', err)
+      );
+
     return () => {
-      stopRealtime();
+      active = false;
+      stopRealtime?.();
     };
   }, [user?.$id]);
+
   useEffect(() => {
-    if (!user?.$id) return;
-    const uid = user.$id;
+    const uid = user?.$id;
+    if (!uid) return;
+
+    let active = true;
     const tryDeliver = () => {
-      deliverPendingMessages(uid).catch((err) =>
-        console.error('[AppLayout] delivery failed:', err)
-      );
-      flushSocialOutbox(uid).catch((err) =>
-        console.error('[AppLayout] social outbox flush failed:', err)
-      );
+      void loadDeliveryModules()
+        .then(([messageDelivery, socialOutbox]) => {
+          if (!active) return;
+          messageDelivery.deliverPendingMessages(uid).catch((err) =>
+            console.error('[AppLayout] delivery failed:', err)
+          );
+          socialOutbox.flushSocialOutbox(uid).catch((err) =>
+            console.error('[AppLayout] social outbox flush failed:', err)
+          );
+        })
+        .catch((err) =>
+          console.error('[AppLayout] delivery modules failed:', err)
+        );
     };
+
     tryDeliver();
     window.addEventListener('focus', tryDeliver);
     window.addEventListener('online', tryDeliver);
     return () => {
+      active = false;
       window.removeEventListener('focus', tryDeliver);
       window.removeEventListener('online', tryDeliver);
     };
   }, [user?.$id]);
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-[#111111] flex items-center justify-center" role="status" aria-live="polite">
@@ -70,6 +124,7 @@ export const AppLayout: React.FC = () => {
       </div>
     );
   }
+
   if (!user && isOffline) {
     const headline = isOnline
       ? "We couldn't reach the server"
@@ -118,15 +173,16 @@ export const AppLayout: React.FC = () => {
       </div>
     );
   }
+
   if (!user) {
     return <Navigate to="/login" replace state={{ from: location }} />;
   }
+
   // OFF-1: `user` is non-null here. When `isOffline` is true the identity
   // was hydrated from `mosaic_last_known_user` at mount time — render the
   // app tree so local data is reachable; MainLayout shows the
   // OfflineBanner and the online handler refreshes the session when the
-  // network returns. The `!user && isOffline` gate above only fires when
-  // no cached user was hydrated, so no extra branch is required here.
+  // network returns.
   const path = location.pathname;
   let activeTab: TabId = 'home';
   if (path.includes('explore')) activeTab = 'explore';
@@ -139,12 +195,15 @@ export const AppLayout: React.FC = () => {
   ) {
     activeTab = 'account';
   }
+
   const handleTabChange = (tab: TabId) => {
     navigate(`/${tab}`);
   };
+  const includeConversations = path.includes('/messages');
+
   return (
     <FriendsProvider>
-      <ConversationsProvider>
+      <ConversationsProvider includeConversations={includeConversations}>
         <MainLayout activeTab={activeTab} onTabChange={handleTabChange}>
           <Outlet />
         </MainLayout>

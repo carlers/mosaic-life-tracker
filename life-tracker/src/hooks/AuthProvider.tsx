@@ -13,7 +13,6 @@ import {
 import { AuthContext } from './authContext';
 import type { Models } from 'appwrite';
 import { syncPostHogIdentity } from '../lib/posthog';
-import { initializeSync } from '../db/sync';
 
 const AUTH_BROADCAST_KEY = 'mosaic_auth_broadcast';
 const LAST_KNOWN_USER_KEY = 'mosaic_last_known_user';
@@ -106,9 +105,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   // from Appwrite without waiting for focus/online events.
   useEffect(() => {
     if (isLoading || isOffline || !userId) return;
-    initializeSync().catch((err) => {
-      console.error('[AuthProvider] Post-auth sync failed:', err);
-    });
+    void import('../db/sync')
+      .then(({ initializeSync }) => initializeSync())
+      .catch((err) => {
+        console.error('[AuthProvider] Post-auth sync failed:', err);
+      });
   }, [isLoading, isOffline, userId]);
 
   /**

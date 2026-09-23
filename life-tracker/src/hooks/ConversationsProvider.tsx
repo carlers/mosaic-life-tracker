@@ -12,23 +12,35 @@ import {
   type Conversation,
   type ConversationsContextValue,
 } from './conversationsContext';
+import {
+  UnreadMessagesContext,
+  type UnreadMessagesContextValue,
+} from './unreadMessagesContext';
 import type { MessageDocument } from '../db/schema';
+
+const EMPTY_CONVERSATIONS: Conversation[] = [];
+
 interface ConversationsProviderProps {
   children: ReactNode;
+  includeConversations?: boolean;
 }
+
 export const ConversationsProvider: React.FC<ConversationsProviderProps> = ({
   children,
+  includeConversations = true,
 }) => {
   const { user } = useAuth();
   const userId = user?.$id;
   const { friends, isLoading: friendsLoading } = useFriends();
   const [allMessages, setAllMessages] = useState<MessageDocument[]>([]);
   const [loadedUserId, setLoadedUserId] = useState<string | null>(null);
+
   useEffect(() => {
     if (!userId) return;
     const uid = userId;
     let isMounted = true;
     let subscription: { unsubscribe: () => void } | undefined;
+
     (async () => {
       try {
         const db = getDatabase();
@@ -51,34 +63,74 @@ export const ConversationsProvider: React.FC<ConversationsProviderProps> = ({
         if (isMounted) setLoadedUserId(uid);
       }
     })();
+
     return () => {
       isMounted = false;
       if (subscription) subscription.unsubscribe();
     };
   }, [userId]);
-  const conversations = useMemo<Conversation[]>(() => {
-    if (!userId || loadedUserId !== userId) return [];
-    const byFriend = new Map<
-      string,
-      { lastMessage: MessageDocument; unreadCount: number }
-    >();
-    // The RxDB query is newest-first, so the first row seen for a counterpart
-    // is its lastMessage. Count unread in the same pass to avoid allocating
-    // per-friend message arrays and scanning them a second time.
-    for (const m of allMessages) {
-      const otherId = m.senderId === userId ? m.recipientId : m.senderId;
-      const existing = byFriend.get(otherId);
+
+  const aggregation = useMemo(() => {
+    if (!userId || loadedUserId !== userId) {
+      return {
+        totalUnread: 0,
+        byFriend: null as Map<
+          string,
+          { lastMessage: MessageDocument; unreadCount: number }
+        > | null,
+      };
+    }
+
+    const acceptedFriendIds = new Set(friends.map((friend) => friend.friendId));
+    const byFriend = includeConversations
+      ? new Map<
+          string,
+          { lastMessage: MessageDocument; unreadCount: number }
+        >()
+      : null;
+    let totalUnread = 0;
+
+    // The RxDB query is newest-first. Outside Messages/Chat routes we only
+    // maintain the nav badge; avoid allocating the per-friend map and sorting
+    // a conversation list that has no consumer.
+    for (const message of allMessages) {
+      const otherId =
+        message.senderId === userId ? message.recipientId : message.senderId;
+      if (!acceptedFriendIds.has(otherId)) continue;
+
       const unreadDelta =
-        m.direction === 'incoming' && !m.readAt && !m.isUnsent ? 1 : 0;
+        message.direction === 'incoming' &&
+        !message.readAt &&
+        !message.isUnsent
+          ? 1
+          : 0;
+      totalUnread += unreadDelta;
+
+      if (!byFriend) continue;
+      const existing = byFriend.get(otherId);
       if (existing) {
         existing.unreadCount += unreadDelta;
       } else {
         byFriend.set(otherId, {
-          lastMessage: m,
+          lastMessage: message,
           unreadCount: unreadDelta,
         });
       }
     }
+
+    return { totalUnread, byFriend };
+  }, [
+    allMessages,
+    friends,
+    includeConversations,
+    loadedUserId,
+    userId,
+  ]);
+
+  const conversations = useMemo<Conversation[]>(() => {
+    const byFriend = aggregation.byFriend;
+    if (!includeConversations || !byFriend) return EMPTY_CONVERSATIONS;
+
     const list: Conversation[] = [];
     for (const friend of friends) {
       const summary = byFriend.get(friend.friendId);
@@ -90,6 +142,7 @@ export const ConversationsProvider: React.FC<ConversationsProviderProps> = ({
         unreadCount: summary?.unreadCount ?? 0,
       });
     }
+
     list.sort((a, b) => {
       if (a.lastMessage && b.lastMessage) {
         return b.lastMessage.createdAt.localeCompare(a.lastMessage.createdAt);
@@ -108,20 +161,27 @@ export const ConversationsProvider: React.FC<ConversationsProviderProps> = ({
       ).toLowerCase();
       return an.localeCompare(bn);
     });
+
     return list;
-  }, [userId, loadedUserId, allMessages, friends]);
-  const totalUnread = useMemo(
-    () => conversations.reduce((n, c) => n + c.unreadCount, 0),
-    [conversations]
-  );
+  }, [aggregation.byFriend, friends, includeConversations]);
+
+  const totalUnread = aggregation.totalUnread;
   const isLoading = !!userId && (loadedUserId !== userId || friendsLoading);
-  const value = useMemo<ConversationsContextValue>(
+
+  const conversationValue = useMemo<ConversationsContextValue>(
     () => ({ conversations, totalUnread, isLoading }),
     [conversations, totalUnread, isLoading]
   );
+  const unreadValue = useMemo<UnreadMessagesContextValue>(
+    () => ({ totalUnread, isLoading }),
+    [totalUnread, isLoading]
+  );
+
   return (
-    <ConversationsContext.Provider value={value}>
-      {children}
-    </ConversationsContext.Provider>
+    <UnreadMessagesContext.Provider value={unreadValue}>
+      <ConversationsContext.Provider value={conversationValue}>
+        {children}
+      </ConversationsContext.Provider>
+    </UnreadMessagesContext.Provider>
   );
 };
