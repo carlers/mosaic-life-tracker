@@ -245,8 +245,11 @@ in `docs/WEB_CHAT_WORKFLOW.md`. `apply-changes.mjs` is the executable source of 
 - **Code-splitting boundaries.** `src/App.tsx` lazily imports every page/route while
   `AppLayout`, auth/database boot, and the `FriendsProvider` → `ConversationsProvider`
   ownership chain stay eager. Emoji picker, image compressor, export ZIP code, and
-  PhotoSwipe lightbox load only when their interactions request them. Preserve these
-  boundaries when adding shared imports; `scripts/audit-bundle.mjs` reports the graph.
+  PhotoSwipe lightbox load only when their interactions request them. Authenticated
+  background work that is not required to paint the shell—sync, realtime, pending-message
+  delivery, and social-outbox flush—must stay behind dynamic imports/effects so those
+  modules do not inflate synchronous startup parse/evaluation. Preserve these boundaries
+  when adding shared imports; `scripts/audit-bundle.mjs` reports the graph.
 - `src/lib/chunkLoadErrors.ts` records Vite's exact `vite:preloadError` payload and
   recognizes browser fallback messages. Route boundaries offer an explicit full-page
   reload for failed lazy imports; ordinary render errors keep the in-place retry.
@@ -307,6 +310,9 @@ in `docs/WEB_CHAT_WORKFLOW.md`. `apply-changes.mjs` is the executable source of 
 20. **Mapped RxDB hook data preserves identity between emissions.** `useRxCollection` memoizes its public mapped value from the current document array; parent renders that do not receive a new RxDB emission MUST reuse the same mapped object/array reference so downstream `useMemo`/memoized consumers can bail.
 21. **Home Swiper avoids DOM observers.** Person-list changes already call the explicit Swiper update path; do not enable Swiper `observer`/`observeParents` mutation observers on the Home carousel.
 22. **Inbox aggregation is single-pass.** `ConversationsProvider` derives each counterpart's newest message and unread count in one pass over the already newest-first message stream; do not allocate per-friend message arrays only to scan them again.
+23. **Unread badge updates are context-isolated.** `useUnreadMessages` consumes a dedicated unread summary value owned by `ConversationsProvider`; conversation-list changes that leave `totalUnread`/loading unchanged must not rerender the global BottomNav badge consumer.
+24. **Conversation-detail aggregation is route-gated.** Outside the Messages/Chat routes, the provider still maintains the correct accepted-friend unread total but skips allocating/sorting the per-friend conversation list. Entering a Messages route derives the list from the latest subscribed rows without adding another RxDB subscription.
+25. **Bottom-nav indicator is CSS-owned.** Keep one persistent indicator and move it by transform between the five tab slots. Do not make the global shell import Framer Motion solely for the active-tab dot; route/sheet motion can remain lazy with the feature chunks that use it.
 
 
 ## 17. Native Input Quirks

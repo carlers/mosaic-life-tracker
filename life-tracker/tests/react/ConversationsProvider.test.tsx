@@ -1,6 +1,8 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { renderHook, waitFor } from '@testing-library/react';
+import { act, render, renderHook, screen, waitFor } from '@testing-library/react';
 import { useContext, type ReactNode } from 'react';
+import { useConversations } from '../../src/hooks/useConversations';
+import { useUnreadMessages } from '../../src/hooks/useUnreadMessages';
 import type { RxDatabase } from 'rxdb';
 import { ConversationsProvider } from '../../src/hooks/ConversationsProvider';
 import {
@@ -208,6 +210,66 @@ describe('ConversationsProvider', () => {
     const order = result.current.conversations.map((c) => c.friend.friendId);
     expect(order).toEqual(['user_C', 'user_B', 'user_D']);
   });
+  // Regression: PROJECT_REFERENCE.md §16 — unread badge consumers stay isolated from conversation-detail churn.
+  it('does not rerender an unread-only consumer when an outgoing message changes conversations but not unread count', async () => {
+    mockFriendsRef.current = [
+      makeFriend({ friendId: 'user_B', friendUsername: 'b' }),
+    ];
+    const db = dbRef.current as RxDatabase<TestDatabaseCollections>;
+    const unreadRenderCount = { current: 0 };
+
+    function UnreadProbe() {
+      unreadRenderCount.current += 1;
+      const { totalUnread, isLoading } = useUnreadMessages();
+      return (
+        <output data-testid="unread-probe">
+          {isLoading ? 'loading' : `ready:${totalUnread}`}
+        </output>
+      );
+    }
+
+    function ConversationProbe() {
+      const { conversations } = useConversations();
+      return (
+        <output data-testid="conversation-probe">
+          {conversations[0]?.lastMessage?.id ?? 'none'}
+        </output>
+      );
+    }
+
+    render(
+      <ConversationsProvider>
+        <UnreadProbe />
+        <ConversationProbe />
+      </ConversationsProvider>
+    );
+
+    await waitFor(() =>
+      expect(screen.getByTestId('unread-probe')).toHaveTextContent('ready:0')
+    );
+    const settledUnreadRenders = unreadRenderCount.current;
+
+    await act(async () => {
+      await db.messages.insert(
+        makeMessage({
+          id: 'msg_outgoing_perf',
+          senderId: 'user_A',
+          recipientId: 'user_B',
+          direction: 'outgoing',
+          createdAt: '2026-01-01T12:00:00.000Z',
+        })
+      );
+    });
+
+    await waitFor(() =>
+      expect(screen.getByTestId('conversation-probe')).toHaveTextContent(
+        'msg_outgoing_perf'
+      )
+    );
+    expect(screen.getByTestId('unread-probe')).toHaveTextContent('ready:0');
+    expect(unreadRenderCount.current).toBe(settledUnreadRenders);
+  });
+
   it('resets conversations and unread on user switch', async () => {
     mockFriendsRef.current = [
       makeFriend({ friendId: 'user_B', friendUsername: 'b' }),
