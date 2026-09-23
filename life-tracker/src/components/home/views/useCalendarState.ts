@@ -62,25 +62,21 @@ export function useCalendarState(): CalendarState {
     startIndex: CENTER_INDEX,
   });
 
-  // Track Embla's scroll position as the nearest slide index. Using
-  // `scroll` (not just `select`) keeps the render window following the
-  // finger during a drag, so adjacent slides are mounted before they
-  // become visible. `setEmblaActiveIndex` bails out when the value is
-  // unchanged, so this only re-renders when the nearest slide changes.
+  // Keep the active render window aligned to settled snaps. The active slide
+  // already has both immediate neighbors mounted, so a one-step drag never
+  // needs React state work on Embla's high-frequency `scroll` event.
   useEffect(() => {
     if (!emblaApi) return;
-    const update = () => {
-      const progress = emblaApi.scrollProgress();
-      const raw = Math.round(progress * (TOTAL_SLIDES - 1));
-      const idx = Math.max(0, Math.min(TOTAL_SLIDES - 1, raw));
-      setEmblaActiveIndex((prev) => (prev === idx ? prev : idx));
+    const syncSelectedIndex = () => {
+      const index = emblaApi.selectedScrollSnap();
+      setEmblaActiveIndex((prev) => (prev === index ? prev : index));
     };
-    update();
-    emblaApi.on('scroll', update);
-    emblaApi.on('reInit', update);
+    syncSelectedIndex();
+    emblaApi.on('select', syncSelectedIndex);
+    emblaApi.on('reInit', syncSelectedIndex);
     return () => {
-      emblaApi.off('scroll', update);
-      emblaApi.off('reInit', update);
+      emblaApi.off('select', syncSelectedIndex);
+      emblaApi.off('reInit', syncSelectedIndex);
     };
   }, [emblaApi]);
 

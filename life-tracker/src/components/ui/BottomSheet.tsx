@@ -13,6 +13,7 @@ interface BottomSheetProps {
   isLocked?: boolean;
   suspendInteraction?: boolean;
   backdropBlur?: boolean;
+  onHorizontalSwipe?: (direction: 'left' | 'right') => void;
 }
 
 type SheetStackEntry = {
@@ -28,6 +29,14 @@ const pendingCleanupTimers = new Map<string, number>();
 const HISTORY_GUARD_KEY = '__mosaicBottomSheetGuard';
 let historyGuardSequence = 0;
 let historyBackHandlerInstalled = false;
+const HORIZONTAL_SWIPE_MIN_DISTANCE = 48;
+const HORIZONTAL_SWIPE_AXIS_RATIO = 1.2;
+
+type HorizontalSwipeStart = {
+  pointerId: number;
+  x: number;
+  y: number;
+};
 
 function readHistoryGuardToken(state: unknown): string | null {
   if (typeof state !== 'object' || state === null || Array.isArray(state)) {
@@ -180,9 +189,11 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
   isLocked = false,
   suspendInteraction = false,
   backdropBlur = false,
+  onHorizontalSwipe,
 }) => {
   const sheetRef = useRef<HTMLDivElement>(null);
   const onCloseRef = useRef(onClose);
+  const horizontalSwipeStartRef = useRef<HorizontalSwipeStart | null>(null);
   const dragControls = useDragControls();
   const sheetId = React.useId();
   const titleId = React.useId();
@@ -277,9 +288,51 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
             onPointerDownCapture={(event) => {
               if (isLocked) return;
               const target = event.target as Element;
-              if (target.closest('[data-bottom-sheet-drag-handle]')) {
+              const dragHandle = target.closest('[data-bottom-sheet-drag-handle]');
+              const nativeHorizontalSwipe = target.closest(
+                '[data-bottom-sheet-native-horizontal-swipe]'
+              );
+
+              horizontalSwipeStartRef.current =
+                onHorizontalSwipe && (!nativeHorizontalSwipe || dragHandle)
+                  ? {
+                      pointerId: event.pointerId,
+                      x: event.clientX,
+                      y: event.clientY,
+                    }
+                  : null;
+
+              if (dragHandle) {
                 dragControls.start(event);
               }
+            }}
+            onPointerUpCapture={(event) => {
+              const start = horizontalSwipeStartRef.current;
+              horizontalSwipeStartRef.current = null;
+              if (
+                isLocked ||
+                !onHorizontalSwipe ||
+                !start ||
+                start.pointerId !== event.pointerId
+              ) {
+                return;
+              }
+
+              const deltaX = event.clientX - start.x;
+              const deltaY = event.clientY - start.y;
+              const distanceX = Math.abs(deltaX);
+              const distanceY = Math.abs(deltaY);
+              if (
+                distanceX < HORIZONTAL_SWIPE_MIN_DISTANCE ||
+                distanceX <= distanceY * HORIZONTAL_SWIPE_AXIS_RATIO
+              ) {
+                return;
+              }
+
+              onHorizontalSwipe(deltaX < 0 ? 'left' : 'right');
+            }}
+            onPointerCancelCapture={() => {
+              horizontalSwipeStartRef.current = null;
             }}
             onDragEnd={(_, info) => {
               if (info.offset.y > 100 || info.velocity.y > 500) {

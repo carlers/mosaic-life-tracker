@@ -34,7 +34,7 @@ const WEEKDAY_LABELS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 const SLIDES_EACH_SIDE = 30;
 const CENTER_INDEX = SLIDES_EACH_SIDE;
 const TOTAL_SLIDES = SLIDES_EACH_SIDE * 2 + 1;
-const RENDER_WINDOW = 2;
+const RENDER_WINDOW = 1;
 
 const TodoMonthGrid: React.FC<TodoMonthGridProps> = ({
   monthDate,
@@ -237,7 +237,7 @@ export const TodoCalendarGrid: React.FC<TodoCalendarGridProps> = ({
       className="swiper-no-swiping w-full min-w-0 max-w-full shrink-0 overflow-hidden touch-pan-y"
       data-testid="todo-calendar-grid"
     >
-      <div className="flex">
+      <div className="flex will-change-transform">
         {slides.map((monthDate, index) => (
           <div
             key={monthDate.toISOString()}

@@ -129,6 +129,17 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
       !!imagePickerTaskId,
   });
 
+  const handleSheetHorizontalSwipe = useCallback(
+    (direction: 'left' | 'right') => {
+      if (direction === 'left') {
+        handleNextDay();
+      } else {
+        handlePrevDay();
+      }
+    },
+    [handleNextDay, handlePrevDay]
+  );
+
   const handleToggleTask = useCallback(
     (taskId: string, currentStatus: boolean) => {
       toggleTaskCompletion(taskId, !currentStatus);
@@ -369,7 +380,7 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
     <>
       <Swiper
         nested={renderMode === 'inline'}
-        noSwiping={renderMode === 'inline' ? false : undefined}
+        noSwiping={renderMode === 'sheet'}
         touchStartPreventDefault={false}
         touchMoveStopPropagation={false}
         autoHeight={renderMode === 'inline'}
@@ -379,6 +390,7 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
         initialSlide={initialIndex}
         onSlideChange={handleSwipeSettled}
         data-testid="day-swiper"
+        data-bottom-sheet-native-horizontal-swipe={renderMode === 'sheet' ? 'true' : undefined}
         className={`min-w-0 w-full max-w-full overflow-hidden ${renderMode === 'inline' ? '' : 'flex-1'}`}
         style={{
           width: '100%',
@@ -402,7 +414,7 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
                 className={renderMode === 'inline' ? 'w-full min-w-0' : 'flex h-full min-h-0 w-full min-w-0 flex-col'}
               >
                 <div
-                  className={`flex shrink-0 items-center justify-between gap-2 px-4 py-2 ${renderMode === 'sheet' ? 'touch-none' : ''}`}
+                  className={`flex shrink-0 items-center justify-between gap-2 px-4 py-2 ${renderMode === 'sheet' ? 'swiper-no-swiping touch-none' : ''}`}
                   data-bottom-sheet-drag-handle={renderMode === 'sheet' ? 'true' : undefined}
                 >
                   <button
@@ -577,6 +589,7 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
       height="full"
       isLocked={isBackgroundLocked}
       suspendInteraction={isBackgroundLocked}
+      onHorizontalSwipe={handleSheetHorizontalSwipe}
     >
       {content}
     </BottomSheet>

@@ -51,11 +51,6 @@ export const MessageComposer = forwardRef<
     const counterId = useId();
 
     useEffect(() => {
-      const t = setTimeout(() => inputRef.current?.focus(), 120);
-      return () => clearTimeout(t);
-    }, []);
-
-    useEffect(() => {
       if (replyTo) {
         setTimeout(() => inputRef.current?.focus(), 30);
       }

@@ -29,7 +29,7 @@ const CalendarCarouselComponent: React.FC<CalendarCarouselProps> = ({
       className="swiper-no-swiping flex-1 min-h-0 overflow-x-hidden overflow-y-auto overscroll-contain py-2"
       ref={emblaRef}
     >
-      <div className="flex min-h-full items-start">
+      <div className="flex min-h-full items-start will-change-transform">
         {slides.map((date, i) => {
           const inWindow = i >= renderStart && i <= renderEnd;
           return (
