@@ -85,6 +85,14 @@ async function startDrag(page, locator, deltaX) {
   };
 }
 
+// Regression: PROJECT_REFERENCE.md §16 — calendar windowing keeps only active + one neighbor each side rendered.
+test('calendar keeps at most three full grids mounted while preserving carousel geometry', async ({ page }) => {
+  await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html`);
+
+  const grids = page.getByTestId('calendar-region').getByRole('grid');
+  expect(await grids.count()).toBeLessThanOrEqual(3);
+});
+
 test('calendar swipe moves the calendar without advancing the friend carousel', async ({ page }) => {
   await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html`);
 
