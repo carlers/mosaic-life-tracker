@@ -6,18 +6,18 @@ import { CalendarBody } from './views/CalendarBody';
 import { TodoListView } from './views/TodoListView';
 import { ComingSoon } from '../layout/ComingSoon';
 import { useCalendarState } from './views/useCalendarState';
-import { useTasks } from '../../hooks/useTasks';
-import { useCategories } from '../../hooks/useCategories';
 import { useMessageActions } from '../../hooks/useMessageActions';
 import { useAuth } from '../../hooks/useAuth';
 import { useFriendCalendar } from '../../lib/useFriendCalendar';
 import type { CarouselPerson } from '../../hooks/useFriendCarousel';
 import type { ViewType } from './ViewSwitcher';
-import type { TaskDocument } from '../../db/schema';
+import type { CategoryDocument, TaskDocument } from '../../db/schema';
 
 interface PersonPaneProps {
   person: CarouselPerson;
   isActive: boolean;
+  ownerTasks: TaskDocument[];
+  ownerCategories: CategoryDocument[];
 }
 
 const FRIEND_REFETCH_MIN_INTERVAL_MS = 15_000;
@@ -31,13 +31,16 @@ function readMeView(): ViewType {
   }
 }
 
-export const PersonPane: React.FC<PersonPaneProps> = ({ person, isActive }) => {
+export const PersonPane: React.FC<PersonPaneProps> = ({
+  person,
+  isActive,
+  ownerTasks,
+  ownerCategories,
+}) => {
   const { user } = useAuth();
   const currentUserId = user?.$id ?? '';
-  const isMe = person.kind === 'me';
-
-  const { tasks = [] } = useTasks(isMe);
-  const { categories = [] } = useCategories(isMe);
+  const tasks = ownerTasks;
+  const categories = ownerCategories;
 
   const { sendTaskReaction } = useMessageActions(
     person.kind === 'friend' ? person.userId : null
@@ -168,6 +171,7 @@ export const PersonPane: React.FC<PersonPaneProps> = ({ person, isActive }) => {
           renderEnd={calendarState.renderEnd}
           emblaRef={calendarState.emblaRef}
           tasks={tasks}
+          categories={categories}
           categoriesMap={categoriesMap}
           variant="me"
           currentUserId={currentUserId}

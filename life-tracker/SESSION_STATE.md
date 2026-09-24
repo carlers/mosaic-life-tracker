@@ -27,11 +27,14 @@ Status: planning approved; implementation starting on `chatgpt/home-task-search`
 1. **Done — recover current Preview state and governing guidance.** Read AGENTS.md, SESSION_STATE.md, PLAN.md, REMOTE_VERIFY.md, relevant PROJECT_REFERENCE sections, and inspected Home/PersonPane/DayViewSheet/BottomSheet/route-swipe/task/category architecture.
 2. **Done — product alignment.** User approved the proposed UX/performance plan and added memo/image indicators to search results.
 3. **Done — add governing contract + regression specifications.** PROJECT_REFERENCE now pins owner-only local search, filters/ranking, bounded rendering, memo/image metadata icons, Day View return-state behavior, gesture exclusion, and motion/performance constraints. New unit/component regressions target those behaviors and are intentionally red before implementation.
-4. **In progress — capture pre-implementation red verification, then implement shared owner data + Home search surface.**
-5. **Pending — DayView deep-link/focus integration.**
-6. **Pending — test-evidence review, focused verification, full acceptance gate, and repair failures.**
-7. **Pending — move Preview to the exact full-green task commit and verify deployment/status.**
-8. **Pending — concise completion checkpoint.**
+4. **Done — pre-implementation regression checkpoint.** Commit `1dc3c5d475b54be17ed812900905ff5afc716710` contains the new contract and tests before implementation; the new module imports are intentionally unresolved at that checkpoint (structural red).
+5. **Done — implement optimized Home search + shared owner data.** Home owns the single live owner task/category subscriptions and passes them into PersonPane/Calendar DayView/Todo/search DayView. Search uses deferred in-memory title matching, multi-category/date filters, deterministic ranking, a 50-row render cap, lightweight memo/image metadata icons, loading/empty/result feedback, route-gesture exclusion, and reduced-motion-aware header/panel motion.
+6. **Done — DayView deep-link/focus integration.** Search selection opens a freshly anchored DayViewSheet for arbitrary task dates using the shared arrays; DayView read subscriptions are disabled when overrides are supplied. The matched task scrolls into view and receives a temporary non-layout-shifting highlight. Back/downward dismissal leaves the search component mounted with query/filter/result-scroll state intact.
+7. **In progress — full verification and failure repair.**
+8. **Pending — move Preview to the exact full-green task commit and verify deployment/status.**
+9. **Pending — concise completion checkpoint.**
+8. **Pending — move Preview to the exact full-green task commit and verify deployment/status.**
+9. **Pending — concise completion checkpoint.**
 
 Roadmap pointer: Home interaction/search enhancement.
 Blockers: none for this task. Historical GitHub branch deletion remains blocked by connector capability.

@@ -84,7 +84,12 @@ export const TaskItem: React.FC<TaskItemProps> = ({
   const isCompleted = task.completed;
 
   return (
-    <motion.div ref={targetRef} layout className="flex items-start gap-3 py-2">
+    <motion.div
+      ref={targetRef}
+      layout
+      data-task-id={task.id}
+      className="flex scroll-mt-16 items-start gap-3 rounded-lg py-2 transition-[background-color,box-shadow] duration-300 data-[search-focused=true]:bg-emerald-400/10 data-[search-focused=true]:ring-1 data-[search-focused=true]:ring-emerald-400/60"
+    >
       <button
         type="button"
         onClick={() => onToggle(task.id)}

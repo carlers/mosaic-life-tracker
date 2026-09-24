@@ -1,3 +1,4 @@
+import type React from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import { HomeTaskSearch } from '../../src/components/home/HomeTaskSearch';
@@ -85,7 +86,7 @@ describe('HomeTaskSearch', () => {
     expect(onOpen).toHaveBeenCalledTimes(1);
   });
 
-  it('shows guidance until a query/filter exists, then renders metadata icons and selects the task', () => {
+  it('shows guidance until a query/filter exists, then renders metadata icons and selects the task', async () => {
     const onSelectTask = vi.fn();
     renderSearch({ onSelectTask });
 
@@ -97,7 +98,7 @@ describe('HomeTaskSearch', () => {
       target: { value: 'plan' },
     });
 
-    const launch = screen.getByRole('button', { name: /Open task Plan launch/i });
+    const launch = await screen.findByRole('button', { name: /Open task Plan launch/i });
     expect(within(launch).getByText('Work')).toBeInTheDocument();
     expect(within(launch).getByRole('img', { name: 'Has memo' })).toBeInTheDocument();
     expect(within(launch).getByRole('img', { name: 'Has image' })).toBeInTheDocument();
@@ -108,14 +109,14 @@ describe('HomeTaskSearch', () => {
     );
   });
 
-  it('supports category and date filtering without requiring a text query', () => {
+  it('supports category and date filtering without requiring a text query', async () => {
     renderSearch();
 
     fireEvent.click(screen.getByRole('button', { name: 'Life' }));
     fireEvent.click(screen.getByRole('button', { name: 'Today' }));
 
     expect(
-      screen.getByRole('button', { name: /Open task Evening walk/i })
+      await screen.findByRole('button', { name: /Open task Evening walk/i })
     ).toBeInTheDocument();
     expect(
       screen.queryByRole('button', { name: /Open task Plan launch/i })

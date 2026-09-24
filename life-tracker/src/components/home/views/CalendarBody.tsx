@@ -16,6 +16,7 @@ interface CalendarBodyProps {
   renderEnd: number;
   emblaRef: (node: HTMLElement | null) => void;
   tasks: TaskDocument[];
+  categories?: CategoryDocument[];
   categoriesMap: Record<string, { color: string; name: string }>;
   variant: 'me' | 'friend';
   friendCategories?: CategoryDocument[];
@@ -35,6 +36,7 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
   renderEnd,
   emblaRef,
   tasks,
+  categories,
   categoriesMap,
   variant,
   friendCategories,
@@ -72,9 +74,6 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
     setSelectedDate(date);
   }, []);
 
-  // Keyboard arrows mirror the existing horizontal calendar swipe/header
-  // controls. The calendar yields while a day sheet (or nested reply flow)
-  // is open so only the active modal layer responds.
   useHorizontalArrowNavigation({
     enabled: isActive && !daySheetOpen && !replyTask,
     onLeft: onPrev,
@@ -136,6 +135,8 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
         onClose={handleCloseDaySheet}
         selectedDate={selectedDate}
         onDateChange={handleDateChange}
+        tasks={tasks}
+        categories={categories ?? []}
       />
     </>
   );

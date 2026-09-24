@@ -1,4 +1,4 @@
-import React, { lazy, Suspense, useCallback, useMemo, useState } from 'react';
+import React, { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import { format } from 'date-fns';
 import { Swiper, SwiperSlide } from 'swiper/react';
 import { AnimatePresence } from 'framer-motion';
@@ -36,6 +36,7 @@ interface DayViewSheetProps {
   renderMode?: 'sheet' | 'inline';
   tasks?: TaskDocument[];
   categories?: CategoryDocument[];
+  focusTaskId?: string | null;
 }
 
 export const DayViewSheet: React.FC<DayViewSheetProps> = ({
@@ -46,18 +47,21 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
   renderMode = 'sheet',
   tasks: tasksOverride,
   categories: categoriesOverride,
+  focusTaskId = null,
 }) => {
   const { user } = useAuth();
   const currentUserId = user?.$id ?? '';
 
-  const taskStore = useTasks();
+  const taskStore = useTasks(tasksOverride === undefined);
   const {
     addTask,
     toggleTaskCompletion,
     updateTask,
     deleteTask,
   } = taskStore;
-  const { categories: hookCategories = [] } = useCategories();
+  const { categories: hookCategories = [] } = useCategories(
+    categoriesOverride === undefined
+  );
   const { message: deleteFeedback } = useFeedback();
 
   const tasks = tasksOverride ?? taskStore.tasks ?? EMPTY_TASKS;
@@ -128,6 +132,42 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
       deletePhotoConfirmOpen ||
       !!imagePickerTaskId,
   });
+
+  useEffect(() => {
+    if (!isOpen || renderMode !== 'sheet' || !focusTaskId) return;
+
+    let clearTimer: number | null = null;
+    const frame = requestAnimationFrame(() => {
+      const scope = document.querySelector(
+        '[data-day-view-focus-scope="true"]'
+      );
+      const target = scope?.querySelector<HTMLElement>(
+        `[data-task-id="${focusTaskId}"]`
+      );
+      if (!target) return;
+
+      const reduceMotion =
+        window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ??
+        false;
+      target.scrollIntoView({
+        block: 'center',
+        behavior: reduceMotion ? 'auto' : 'smooth',
+      });
+      target.setAttribute('data-search-focused', 'true');
+      clearTimer = window.setTimeout(
+        () => target.removeAttribute('data-search-focused'),
+        reduceMotion ? 700 : 1600
+      );
+    });
+
+    return () => {
+      cancelAnimationFrame(frame);
+      if (clearTimer !== null) window.clearTimeout(clearTimer);
+      document
+        .querySelector('[data-day-view-focus-scope="true"] [data-search-focused="true"]')
+        ?.removeAttribute('data-search-focused');
+    };
+  }, [focusTaskId, isOpen, renderMode, selectedDate]);
 
   const handleSheetHorizontalSwipe = useCallback(
     (direction: 'left' | 'right') => {
@@ -596,6 +636,7 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
     >
       <div
         data-testid="day-sheet-swipe-surface"
+        data-day-view-focus-scope={focusTaskId ? 'true' : undefined}
         className="flex h-full min-h-0 flex-col"
       >
         {content}

@@ -1,12 +1,18 @@
 import React, { useState, useMemo, useCallback, useRef, useEffect } from 'react';
+import { isValid, parseISO } from 'date-fns';
 import { Swiper, SwiperSlide } from 'swiper/react';
 import type { Swiper as SwiperClass } from 'swiper';
 import 'swiper/css';
 import { HamburgerMenu } from '../components/home/HamburgerMenu';
+import { HomeTaskSearch } from '../components/home/HomeTaskSearch';
 import { PersonCarousel } from '../components/home/PersonCarousel';
 import { PersonPane } from '../components/home/PersonPane';
 import { FriendCarouselSettingsSheet } from '../components/home/FriendCarouselSettingsSheet';
+import { DayViewSheet } from '../components/home/views/DayViewSheet';
 import { useFriendCarousel } from '../hooks/useFriendCarousel';
+import { useTasks } from '../hooks/useTasks';
+import { useCategories } from '../hooks/useCategories';
+import type { TaskDocument } from '../db/schema';
 
 const RENDER_WINDOW = 1;
 
@@ -20,16 +26,27 @@ export const HomePage: React.FC = () => {
     order,
     hidden,
   } = useFriendCarousel();
+  const { tasks: ownerTasks = [], isLoading: tasksLoading } = useTasks();
+  const {
+    categories: ownerCategories = [],
+    isLoading: categoriesLoading,
+  } = useCategories();
 
   const [activePersonId, setActivePersonId] = useState<string>('me');
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [searchDaySheetOpen, setSearchDaySheetOpen] = useState(false);
+  const [searchSelectedDate, setSearchSelectedDate] = useState<Date | null>(
+    null
+  );
+  const [searchFocusTaskId, setSearchFocusTaskId] = useState<string | null>(
+    null
+  );
+  const [searchSheetKey, setSearchSheetKey] = useState(0);
 
   const swiperRef = useRef<SwiperClass | null>(null);
   const isProgrammaticMoveRef = useRef(false);
 
-  // Render-body reset: if the active person disappears (removed/hidden),
-  // fall back to Me. React will immediately re-render with the new value,
-  // no effect or cascading render needed.
   if (persons.length > 0 && !persons.some((p) => p.id === activePersonId)) {
     setActivePersonId('me');
   }
@@ -91,16 +108,47 @@ export const HomePage: React.FC = () => {
     setIsSettingsOpen(false);
   }, []);
 
+  const handleOpenSearch = useCallback(() => {
+    setActivePersonId('me');
+    setIsSearchOpen(true);
+  }, []);
+
+  const handleCloseSearch = useCallback(() => {
+    setIsSearchOpen(false);
+  }, []);
+
+  const handleSelectSearchTask = useCallback((task: TaskDocument) => {
+    const date = parseISO(task.date);
+    if (!isValid(date)) return;
+    setSearchSelectedDate(date);
+    setSearchFocusTaskId(task.id);
+    setSearchSheetKey((current) => current + 1);
+    setSearchDaySheetOpen(true);
+  }, []);
+
+  const handleCloseSearchDaySheet = useCallback(() => {
+    setSearchDaySheetOpen(false);
+    setSearchFocusTaskId(null);
+  }, []);
+
+  const handleSearchDateChange = useCallback((date: Date) => {
+    setSearchSelectedDate(date);
+    setSearchFocusTaskId(null);
+  }, []);
+
   return (
     <>
       <div className="h-full flex flex-col min-h-0">
-        {/* Topmost row: hamburger on the right, no border under it */}
-        <div
-          data-route-swipe-zone="home-to-explore"
-          className="bg-[#111111] px-4 pt-3 pb-1 flex justify-end flex-shrink-0 touch-pan-y"
-        >
-          <HamburgerMenu />
-        </div>
+        <HomeTaskSearch
+          isOpen={isSearchOpen}
+          tasks={ownerTasks}
+          categories={ownerCategories}
+          isLoading={tasksLoading || categoriesLoading}
+          onOpen={handleOpenSearch}
+          onClose={handleCloseSearch}
+          onSelectTask={handleSelectSearchTask}
+          trailing={<HamburgerMenu />}
+        />
 
         <div className="flex-shrink-0">
           <PersonCarousel
@@ -128,8 +176,8 @@ export const HomePage: React.FC = () => {
             shortSwipes
             noSwiping
             noSwipingClass="swiper-no-swiping"
-            allowTouchMove={!isSettingsOpen}
-            onSlideChange={handleSlideChange} 
+            allowTouchMove={!isSettingsOpen && !isSearchOpen}
+            onSlideChange={handleSlideChange}
             style={{
               position: 'absolute',
               top: 0,
@@ -141,7 +189,12 @@ export const HomePage: React.FC = () => {
             {persons.map((p, i) => (
               <SwiperSlide key={p.id} style={{ height: '100%' }}>
                 {Math.abs(i - activeIndex) <= RENDER_WINDOW ? (
-                  <PersonPane person={p} isActive={i === activeIndex} />
+                  <PersonPane
+                    person={p}
+                    isActive={i === activeIndex}
+                    ownerTasks={ownerTasks}
+                    ownerCategories={ownerCategories}
+                  />
                 ) : null}
               </SwiperSlide>
             ))}
@@ -159,6 +212,19 @@ export const HomePage: React.FC = () => {
         onToggleVisibility={toggleVisibility}
         onReset={resetOrder}
       />
+
+      {searchSelectedDate && (
+        <DayViewSheet
+          key={searchSheetKey}
+          isOpen={searchDaySheetOpen}
+          onClose={handleCloseSearchDaySheet}
+          selectedDate={searchSelectedDate}
+          onDateChange={handleSearchDateChange}
+          tasks={ownerTasks}
+          categories={ownerCategories}
+          focusTaskId={searchFocusTaskId}
+        />
+      )}
     </>
   );
 };
