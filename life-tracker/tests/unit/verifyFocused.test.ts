@@ -19,7 +19,7 @@ function plan(changed: string[]) {
 
 describe('focused verification selection', () => {
   it('lints existing project code and ignores documentation and outside paths', () => {
-    expect(plan(['life-tracker/tests/current.test.ts', 'life-tracker/README.md', '.github/workflows/verify.yml']))
+    expect(plan(['life-tracker/tests/current.test.ts', 'life-tracker/README.md', '.github/workflows/quality-gate.yml']))
       .toEqual({ lintable: ['tests/current.test.ts'], broad: false });
   });
 

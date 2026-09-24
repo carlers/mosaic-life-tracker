@@ -7,7 +7,7 @@ function read(path: string) {
 describe('GitHub verification latency contract', () => {
   // Regression: task acceptance — browser contracts must fan out with the other canonical gates.
   it('runs browser verification in parallel and reuses app dependencies while isolating browser packages', () => {
-    const verify = read('../.github/workflows/verify.yml');
+    const verify = read('../.github/workflows/quality-gate.yml');
     const browserJob = (verify.split('  browser_contract:')[1] ?? '')
       .split('  canonical_acceptance:')[0];
 
@@ -24,7 +24,7 @@ describe('GitHub verification latency contract', () => {
   });
 
   it('keeps docs, focused, and exact-SHA full verification distinct', () => {
-    const verify = read('../.github/workflows/verify.yml');
+    const verify = read('../.github/workflows/quality-gate.yml');
     const classifier = read('scripts/ci-classify.mjs');
 
     expect(verify).toContain("needs.classify.outputs.mode == 'docs'");
@@ -40,7 +40,7 @@ describe('GitHub verification latency contract', () => {
   });
 
   it('fans canonical work out and aggregates it into one acceptance check', () => {
-    const verify = read('../.github/workflows/verify.yml');
+    const verify = read('../.github/workflows/quality-gate.yml');
     for (const job of [
       'checks',
       'dom_tests',
@@ -63,20 +63,33 @@ describe('GitHub verification latency contract', () => {
     expect(acceptance).toContain('name: canonical-acceptance');
   });
 
-  it('guards Preview with prior exact-SHA canonical acceptance instead of rerunning it', () => {
-    const verify = read('../.github/workflows/verify.yml');
-    const previewJob = (verify.split('  preview_verified:')[1] ?? '')
-      .split('  docs_checks:')[0];
+  it('uses the new branch model for workflow triggers and classification', () => {
+    const verify = read('../.github/workflows/quality-gate.yml');
+    const classifier = read('scripts/ci-classify.mjs');
 
-    expect(previewJob).toContain("github.ref == 'refs/heads/preview'");
-    expect(previewJob).toContain('check-runs?filter=all');
-    expect(previewJob).toContain('.name == "canonical-acceptance"');
-    expect(previewJob).not.toContain('npm ci');
-    expect(previewJob).not.toContain('npm run build');
+    expect(verify).toContain("      - main");
+    expect(verify).toContain("      - dev");
+    expect(verify).toContain("      - 'feature/**'");
+    expect(verify).toContain("      - 'chatgpt/**'");
+    expect(verify).toContain("      - 'codex/**'");
+    expect(verify).not.toContain("refs/heads/preview");
+    expect(classifier).toContain("branch.startsWith('codex/')");
+    expect(classifier).toContain("branch.startsWith('feature/')");
+  });
+
+  it('keeps Vercel deployment deny-by-default with explicit stable branch allows', () => {
+    const vercel = JSON.parse(read('../vercel.json'));
+
+    expect(vercel.git.deploymentEnabled['*']).toBe(false);
+    expect(vercel.git.deploymentEnabled.main).toBe(true);
+    expect(vercel.git.deploymentEnabled.dev).toBe(true);
+    expect(vercel.git.deploymentEnabled['feature/*']).toBe(true);
+    expect(vercel.git.deploymentEnabled['chatgpt/*']).toBe(false);
+    expect(vercel.git.deploymentEnabled['codex/*']).toBe(false);
   });
 
   it('does not retain the completed one-time hygiene job in the steady-state workflow', () => {
-    const verify = read('../.github/workflows/verify.yml');
+    const verify = read('../.github/workflows/quality-gate.yml');
     expect(verify).not.toContain('\n  hygiene:');
   });
 });
@@ -85,7 +98,7 @@ describe('GitHub verification latency contract', () => {
 describe('DOM and browser runtime optimization contract', () => {
   // Regression: task acceptance — preserve the complete DOM suite while splitting its CI wall time.
   it('runs the DOM project as two canonical Vitest shards', () => {
-    const verify = read('../.github/workflows/verify.yml');
+    const verify = read('../.github/workflows/quality-gate.yml');
     const domJob = (verify.split('  dom_tests:')[1] ?? '')
       .split('  build_check:')[0];
 
@@ -100,7 +113,7 @@ describe('DOM and browser runtime optimization contract', () => {
   // but the worker pool stays bounded so Vite/Chromium do not oversubscribe the CI host.
   it('runs Playwright tests fully parallel across two one-worker CI shards', () => {
     const config = read('playwright.config.mjs');
-    const verify = read('../.github/workflows/verify.yml');
+    const verify = read('../.github/workflows/quality-gate.yml');
     const browserJob = (verify.split('  browser_contract:')[1] ?? '')
       .split('  canonical_acceptance:')[0];
 
@@ -111,7 +124,7 @@ describe('DOM and browser runtime optimization contract', () => {
   });
 
   it('combines short static and logic gates so DOM/browser shards are not runner-starved', () => {
-    const verify = read('../.github/workflows/verify.yml');
+    const verify = read('../.github/workflows/quality-gate.yml');
     const checksJob = (verify.split('\n  checks:\n')[1] ?? '')
       .split('\n  dom_tests:')[0];
 
@@ -129,9 +142,9 @@ describe('canonical startup optimization contract', () => {
   // Regression: task acceptance — exact full commits should avoid the repository
   // checkout inside the classifier when their verification intent is already explicit.
   it('short-circuits classifier checkout for explicit full verification intent', () => {
-    const verify = read('../.github/workflows/verify.yml');
+    const verify = read('../.github/workflows/quality-gate.yml');
     const classifyJob = (verify.split('\n  classify:\n')[1] ?? '')
-      .split('\n  preview_verified:')[0];
+      .split('\n  docs_checks:')[0];
 
     expect(classifyJob).toContain('Detect immediate verification intent');
     expect(classifyJob).toContain("steps.immediate.outputs.immediate != 'true'");
@@ -141,7 +154,7 @@ describe('canonical startup optimization contract', () => {
   // Regression: task acceptance — only one canonical job needs to prove a fresh
   // lockfile install. The build owns that proof while checks/DOM reuse the exact tree.
   it('keeps one fresh npm install while checks and DOM restore app dependencies', () => {
-    const verify = read('../.github/workflows/verify.yml');
+    const verify = read('../.github/workflows/quality-gate.yml');
     const checksJob = (verify.split('\n  checks:\n')[1] ?? '')
       .split('\n  dom_tests:')[0];
     const domJob = (verify.split('\n  dom_tests:\n')[1] ?? '')
@@ -162,7 +175,7 @@ describe('canonical startup optimization contract', () => {
   });
 
   it('avoids restoring the npm download cache when node_modules is already restored', () => {
-    const verify = read('../.github/workflows/verify.yml');
+    const verify = read('../.github/workflows/quality-gate.yml');
     const checksJob = (verify.split('\n  checks:\n')[1] ?? '')
       .split('\n  dom_tests:')[0];
     const domJob = (verify.split('\n  dom_tests:\n')[1] ?? '')

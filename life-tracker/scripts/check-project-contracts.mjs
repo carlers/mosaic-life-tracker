@@ -41,7 +41,7 @@ function markdownFiles(directory) {
 
 export function checkContracts(projectRoot = root) {
   const errors = [];
-  for (const path of [...entrypoints, '../.github/workflows/verify.yml']) {
+  for (const path of [...entrypoints, '../.github/workflows/quality-gate.yml']) {
     if (!existsSync(resolve(projectRoot, path))) errors.push(`Missing project entrypoint: ${path}`);
   }
   const docsRoot = resolve(projectRoot, 'docs');
