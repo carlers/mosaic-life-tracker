@@ -1,9 +1,10 @@
 {
   "git": {
     "deploymentEnabled": {
-      "main": true,
-      "preview": true,
-      "*": false
+      "feature-*": false,
+      "dev-*": false,
+      "chatgpt": false,
+      "codex": false,
     }
   }
 }
