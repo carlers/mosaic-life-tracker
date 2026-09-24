@@ -49,7 +49,8 @@ The preferred provider is Vercel. Configure one Vercel project from
 - **Production Branch:** `preview`
 
 `life-tracker/vercel.json` contains explicit SPA rewrites for Mosaic's BrowserRouter
-routes. Static assets are not catch-all rewritten.
+routes and disables automatic Git deployments for `chatgpt/*` and `codex/*` branches.
+Static assets are not catch-all rewritten.
 
 The Git branch `preview` is deployment-only. The user has authorized it to advance after
 every completed task. Once the exact final task commit has a successful
