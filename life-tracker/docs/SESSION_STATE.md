@@ -2,9 +2,9 @@
 
 Updated: 2026-09-24
 Current task: Migrate CI/CD from the legacy preview branch model to main/dev/feature plus AI task branches
-Status: implementation complete; final local and remote verification is required.
-Next action: run syntax, focused classifier tests, project contracts, lint, unit/handler/DOM tests, build, and inspect the committed diff; then commit with [verify:full] and wait for canonical acceptance.
-Blockers: Vercel deployment status for main/dev/feature must be verified externally after the accepted SHA is deployed.
+Status: implementation complete; exact-SHA canonical acceptance passed on the migration tip.
+Next action: verify Vercel project settings/deployments for main, dev, and feature/*; then perform any required manual browser/device checks.
+Blockers: Vercel project settings and resulting deployment status are external and require dashboard/service access.
 
 ## Constraints
 
@@ -37,5 +37,5 @@ Blockers: Vercel deployment status for main/dev/feature must be verified externa
 
 ## Verification
 
-- Automated: the latest full run exposed one legacy preview assertion in ciClassify.test.ts; fixed in the follow-up. The next commit requests another full canonical verification with [verify:full].
+- Automated: canonical acceptance passed for the exact migration SHA. Focused classifier regression coverage and the full canonical suite are green.
 - Browser/device acceptance: manual Vercel branch deployment checks remain pending.
