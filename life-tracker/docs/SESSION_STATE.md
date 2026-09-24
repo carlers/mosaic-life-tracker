@@ -1,9 +1,9 @@
 # Session checkpoint
 
 Updated: 2026-09-24
-Current task: Prune docs/archive/ and repair the dangling bundle-audit reference
-Status: implementation complete; PROJECT_REFERENCE.md §24.14 manual edit still required; prior docs consolidation delivery still pending.
-Next action: manually update docs/PROJECT_REFERENCE.md §24.14 to drop the archive pointer, run `npm run contracts:check`, then publish the docs consolidation commit and advance Preview.
+Current task: Complete docs consolidation verification and Preview acceptance
+Status: implementation complete; stale archive references and Preview CI ordering have been repaired; canonical acceptance is pending on the final tagged Preview push.
+Next action: run the final `[verify:full]` Preview workflow, inspect canonical acceptance, then verify Preview deployment.
 Blockers: none.
 
 ## Constraints
@@ -25,9 +25,9 @@ Blockers: none.
 
 ## Remaining substeps
 
-- Manually replace the `docs/archive/BUNDLE_AUDIT.md` pointer in docs/PROJECT_REFERENCE.md §24.14 with `config/build-size-budget.json`. The compressed Repomix view cannot supply a safe full-file rewrite for PROJECT_REFERENCE.md, so this one-line change is manual. Suggested replacement text for the final sentence of §24.14: `The baseline, limits, and refresh protocol are authoritative in config/build-size-budget.json and scripts/check-build-size.mjs.`
-- Run `npm run contracts:check` to confirm no remaining references to docs/archive/ survive.
-- Publish the docs consolidation task commit; inspect canonical acceptance; advance Preview.
+- Confirm `npm run contracts:check` passes with no remaining stale archive links.
+- Confirm the Preview guard waits for same-run canonical acceptance when `[verify:full]` is requested, rather than failing before the canonical gates finish.
+- Inspect canonical acceptance and deployment for the final exact SHA.
 
 ## Working set
 
@@ -40,4 +40,4 @@ Blockers: none.
 
 - Docs-only change. After the PROJECT_REFERENCE.md edit, run `npm run contracts:check` and `git diff --check`.
 - Manual: `grep -r "docs/archive" docs/ README.md AGENTS.md` should return nothing.
-- Final remote canonical acceptance and deployment pending from the prior consolidation task.
+- Final remote canonical acceptance and deployment pending.
