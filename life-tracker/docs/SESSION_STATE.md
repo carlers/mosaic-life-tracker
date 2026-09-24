@@ -1,10 +1,10 @@
 # Session checkpoint
 
 Updated: 2026-09-24
-Current task: Establish Mosaic release-version and build-identity protocol
-Status: implementation complete; final canonical verification is required after the build-metadata cleanup.
-Next action: run focused tests/contracts and diff checks, then commit with [verify:full], wait for canonical acceptance, fast-forward Preview, and verify deployment.
-Blockers: none.
+Current task: Correct Vercel automatic-deployment configuration
+Status: implementation complete; final canonical verification is required.
+Next action: run focused contract/diff checks, commit with [verify:full], wait for canonical acceptance, fast-forward Preview, and verify deployment.
+Blockers: Vercel deployment status must be verified externally after the accepted SHA is published.
 
 ## Constraints
 
@@ -23,13 +23,15 @@ Blockers: none.
 
 ## Remaining substeps
 
-- Run focused version/build and Settings tests.
+- Verify the effective Vercel config is under the configured `life-tracker` Root Directory.
 - Run `npm run contracts:check` and `git diff --check`.
 - Run final [verify:full] acceptance and publish the exact accepted SHA to Preview.
 - Verify the resulting Vercel deployment.
 
 ## Working set
 
+- life-tracker/vercel.json
+- docs/DELIVERY.md
 - package.json
 - package-lock.json
 - src/lib/appVersion.ts
