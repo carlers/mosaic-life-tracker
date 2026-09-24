@@ -34,7 +34,7 @@ describe('screen layout preferences', () => {
   });
 
   it('applies layout mode data to the root element', () => {
-    const root = document.createElement('html');
+    const root = { dataset: {} } as unknown as HTMLElement;
 
     applyScreenLayoutModes('comfortable', 'compact', root);
 
