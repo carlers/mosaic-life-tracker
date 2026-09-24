@@ -139,8 +139,8 @@ describe('DOM and browser runtime optimization contract', () => {
 
   it('combines short static and logic gates so DOM/browser shards are not runner-starved', () => {
     const verify = read('../.github/workflows/verify.yml');
-    const checksJob = (verify.split('  checks:')[1] ?? '')
-      .split('  dom_tests:')[0];
+    const checksJob = (verify.split('\n  checks:\n')[1] ?? '')
+      .split('\n  dom_tests:')[0];
 
     expect(checksJob).toContain('npm run lint');
     expect(checksJob).toContain('npm run test:unit');
