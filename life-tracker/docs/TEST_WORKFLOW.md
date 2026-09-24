@@ -26,7 +26,7 @@ variants are `test:watch:unit`, `test:watch:handlers`, and `test:watch:dom`.
 
 ### GitHub-connected fast loop
 
-Ordinary pushes to an AI-owned `chatgpt/**` branch use the least expensive safe remote
+Ordinary pushes to AI-owned `chatgpt/**` and `codex/**` branches use the least expensive safe remote
 loop. Changes limited to project Markdown/`docs/**` run contract/link and diff checks only.
 Other ordinary pushes run `scripts/verify-focused.mjs` against the push's real before-SHA:
 contracts/discovery always run, ESLint receives changed code files, and Vitest selects tests

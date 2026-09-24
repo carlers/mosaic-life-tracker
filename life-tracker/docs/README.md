@@ -8,7 +8,7 @@ behavior.
 | Active task and next action | [Session checkpoint](SESSION_STATE.md) |
 | Delivered work and backlog | [Roadmap](PLAN.md) |
 | Local, cloud, connected chat, offline chat | [AI workflow](AI_WORKFLOW.md) |
-| CI, commits, Preview, device acceptance | [Delivery](DELIVERY.md) |
+| CI, branch delivery, Preview/device acceptance | [Delivery](DELIVERY.md) |
 | Focused tests and regression strategy | [Test workflow](TEST_WORKFLOW.md) |
 | Product and architecture contracts | [Project reference](PROJECT_REFERENCE.md) |
 | Release versions and build identity | [Versioning protocol](VERSIONING.md) |
