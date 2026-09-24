@@ -6,7 +6,7 @@ Status: final full-gate repair in progress; workflow fan-out is healthy and one 
 
 ## Active user prompt
 
-> ok go do it
+> continue
 
 ## Approved scope
 
