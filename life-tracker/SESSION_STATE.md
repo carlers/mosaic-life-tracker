@@ -2,7 +2,7 @@
 
 Updated: 2026-09-24
 Current task: CI workflow optimization + automatic Preview advancement
-Status: full-gate repair in progress after the first parallel acceptance run exposed an over-narrow unit sparse checkout.
+Status: final full-gate repair in progress; workflow fan-out is healthy and one stale regression assertion remains.
 
 ## Active user prompt
 
@@ -26,7 +26,7 @@ Status: full-gate repair in progress after the first parallel acceptance run exp
 3. **Done — establish the previous Home-search SHA as Preview baseline.** `preview` was fast-forwarded from `aad2355…` to the already full-green Home-search commit `551b706e6fdcb9a06c3489e5fa8dfd02e9efa46e`.
 4. **Done — implement CI optimization + focused validation.** Verify #274 (`35970512577`) used the new workflow on implementation commit `864b291137b381ca747edbb2678f555c5510af0a`: classifier chose focused mode, all unrelated full/Preview jobs skipped, project contracts and 96-file discovery passed, and the changed-test run passed 1/1 file with 6/6 CI-classifier tests. Focused verification covered 8 changed files.
 5. **Done — validate the live docs-only path.** Verify #275 (`35970646318`) classified the state-only checkpoint as docs mode; `docs-checks` passed while focused/full/browser/Preview jobs were skipped. No application dependency install, Vitest, production build, or browser contract ran.
-6. **In progress — repair and rerun canonical full parallel acceptance.** Verify #276 (`35970792199`) proved the fan-out: handler, static/lint, build/PWA/size, and DOM jobs passed independently; unit failed because its sparse checkout omitted `.github/workflows/verify.yml`, which an existing workflow contract test reads. The repair includes `.github` in the unit shard and updates that contract test from the retired serial workflow shape to the new docs/focused/full/parallel/Preview-guard contract. The superseded browser shard is allowed to cancel under same-ref concurrency; the repair run must revalidate every canonical shard.
+6. **In progress — final repair and canonical rerun.** Verify #276 (`35970792199`) exposed the over-narrow unit sparse checkout. Verify #277 (`35971150874`) confirmed that repair: handler, static/lint, build/PWA/size, DOM, and browser all passed; unit could read `.github/workflows/verify.yml` and its only failure was one stale regression assertion still looking for `[verify:full]` in workflow YAML even though marker parsing intentionally lives in `scripts/ci-classify.mjs`. The regression now asserts markers at the classifier boundary. A new exact `[verify:full]` run must pass every shard and `canonical-acceptance`.
 7. **Pending — fast-forward Preview to that exact green SHA and verify its prior-acceptance guard plus Vercel deployment.**
 8. **Pending — report measured/structural CI improvements.**
 
@@ -35,7 +35,7 @@ Status: full-gate repair in progress after the first parallel acceptance run exp
 - `CI-MODE-CLASSIFICATION` — **skipped red-state capture; current direct automated coverage**: `tests/unit/ciClassify.test.ts` pins docs-only, focused, explicit full, pull-request, Preview-guard, and explicit browser classification. Focused Verify #274 passed 6/6 classifier tests; no pre-implementation red was captured because the classifier and its first tests landed in the same implementation commit.
 - `CI-FOCUSED-PATH` — **operational workflow evidence**: Verify #274 selected `focused-checks` for the implementation push and skipped every unrelated canonical/Preview job.
 - `CI-DOCS-PATH` — **operational workflow evidence**: Verify #275 selected only `docs-checks` for a documentation-only push and passed project-contract + diff checks without dependency/test/build/browser work.
-- `CI-FULL-PARALLEL` — **behavioral failure captured, repair pending**: Verify #276 fanned out all required jobs; handlers, static/lint, build/PWA/size, and DOM passed, while unit failed with `ENOENT .../.github/workflows/verify.yml` because that shard's sparse checkout excluded a file read by an existing workflow regression. The repaired unit checkout restores only `.github` plus `life-tracker`, not full history/worktree scope.
+- `CI-FULL-PARALLEL` — **behavioral failures captured, final repair pending**: Verify #276 fanned out all required jobs and exposed the unit sparse-checkout `ENOENT`; Verify #277 then passed handlers, static/lint, build/PWA/size, DOM, and browser, while unit's sole failure was the stale marker-location assertion. The unit checkout stays sparse to `.github` + `life-tracker`, and the regression now checks commit-message markers in `scripts/ci-classify.mjs`, their actual owner.
 - `CI-PREVIEW-GUARD` — **pending deployment evidence** after full-green acceptance; Preview must run only classifier + `preview-verified` and reuse the prior exact-SHA `canonical-acceptance` result.
 - No user-visible app behavior changed; real-device manual acceptance is not applicable to this workflow-only task.
 

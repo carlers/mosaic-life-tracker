@@ -50,13 +50,15 @@ describe('GitHub verification latency contract', () => {
 
   it('keeps docs, focused, and exact-SHA full verification distinct', () => {
     const verify = read('../.github/workflows/verify.yml');
+    const classifier = read('scripts/ci-classify.mjs');
+
     expect(verify).toContain("needs.classify.outputs.mode == 'docs'");
     expect(verify).toContain("needs.classify.outputs.mode == 'focused'");
     expect(verify).toContain("needs.classify.outputs.mode == 'full'");
     expect(verify).toContain('Cache focused task dependencies');
     expect(verify).toContain('node scripts/verify-focused.mjs "$BASE"');
-    expect(verify).toContain('[verify:full]');
-    expect(verify).toContain('[verify:browser]');
+    expect(classifier).toContain('[verify:full]');
+    expect(classifier).toContain('[verify:browser]');
     expect(read('docs/REMOTE_VERIFY.md')).toContain(
       'A focused or docs-only green run is never acceptance'
     );
