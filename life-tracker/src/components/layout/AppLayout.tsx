@@ -6,10 +6,8 @@ import { FriendsProvider } from '../../hooks/FriendsProvider';
 import { ConversationsProvider } from '../../hooks/ConversationsProvider';
 import { useAuth } from '../../hooks/useAuth';
 import { AppearanceProvider } from '../../hooks/AppearanceProvider';
-import {
-  PrimaryRoutePreview,
-  preloadPrimaryRoute,
-} from './PrimaryRoutePreview';
+import { PrimaryRoutePreview } from './PrimaryRoutePreview';
+import { preloadPrimaryRoute } from './primaryRoutePreload';
 import type { TabId } from './BottomNav';
 import {
   resolvePrimarySwipeDestination,
@@ -237,12 +235,20 @@ export const AppLayout: React.FC = () => {
   };
   const handleRouteSwipe = (direction: PrimarySwipeDirection) => {
     const destination = resolvePrimarySwipeDestination(path, direction);
-    if (destination) navigate(destination);
+    if (!destination) return;
+
+    if (path === '/settings' && direction === 'right') {
+      if (location.key === 'default') {
+        navigate('/account', { replace: true });
+      } else {
+        navigate(-1);
+      }
+      return;
+    }
+
+    navigate(destination);
   };
-  const includeConversations =
-    path.includes('/messages') ||
-    leftSwipeDestination === '/messages' ||
-    rightSwipeDestination === '/messages';
+  const includeConversations = path.includes('/messages');
 
   return (
     <AppearanceProvider>
@@ -250,6 +256,7 @@ export const AppLayout: React.FC = () => {
         <ConversationsProvider includeConversations={includeConversations}>
           <MainLayout
             activeTab={activeTab}
+            routeKey={path}
             onTabChange={handleTabChange}
             canSwipeLeft={Boolean(leftSwipeDestination)}
             canSwipeRight={Boolean(rightSwipeDestination)}

@@ -298,7 +298,7 @@ export function InteractionHarness() {
         data-testid="primary-route-harness"
       >
         <PrimaryRouteSwipeSurface
-          activeKey={primaryRoute}
+          key={primaryRoute}
           homeZoneOnly={primaryRoute === 'home'}
           canSwipeLeft={primaryRoute === 'home' || primaryRoute === 'explore' || primaryRoute === 'account'}
           canSwipeRight={

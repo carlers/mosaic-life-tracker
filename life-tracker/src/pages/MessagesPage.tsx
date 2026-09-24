@@ -10,7 +10,7 @@ export const MessagesPage: React.FC = () => {
   const { conversations, isLoading } = useConversations();
 
   return (
-    <div className="flex min-h-full flex-col animate-in fade-in duration-300">
+    <div className="flex min-h-full flex-col">
       <div className="sticky top-0 z-20 bg-[#111111] px-4 py-3 border-b border-[#333333]">
         <h1 className="text-lg font-bold text-white">Messages</h1>
       </div>

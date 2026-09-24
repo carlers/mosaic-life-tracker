@@ -24,7 +24,6 @@ interface GestureState {
 
 interface PrimaryRouteSwipeSurfaceProps {
   children: React.ReactNode;
-  activeKey: string;
   homeZoneOnly?: boolean;
   canSwipeLeft: boolean;
   canSwipeRight: boolean;
@@ -37,7 +36,6 @@ export const PrimaryRouteSwipeSurface: React.FC<
   PrimaryRouteSwipeSurfaceProps
 > = ({
   children,
-  activeKey,
   homeZoneOnly = false,
   canSwipeLeft,
   canSwipeRight,
@@ -120,12 +118,6 @@ export const PrimaryRouteSwipeSurface: React.FC<
     },
     [cancelFrame, clearReleaseTimer, hidePreview, setTransition]
   );
-
-  useEffect(() => {
-    gestureRef.current = null;
-    suppressClickRef.current = false;
-    resetSurface(true);
-  }, [activeKey, resetSurface]);
 
   useEffect(
     () => () => {
@@ -311,7 +303,7 @@ export const PrimaryRouteSwipeSurface: React.FC<
   return (
     <div
       ref={trackRef}
-      className={`relative w-full overflow-x-hidden ${heightClass}`}
+      className={`relative w-full overflow-x-clip ${heightClass}`}
       style={{
         touchAction: customHorizontalOwner ? 'pan-y' : undefined,
         '--route-swipe-x': '0px',
@@ -345,9 +337,9 @@ export const PrimaryRouteSwipeSurface: React.FC<
           aria-hidden="true"
           inert
           className="pointer-events-none absolute inset-y-0 left-0 w-full will-change-transform"
-          style={{ transform: previewTransform }}
+          style={{ transform: previewTransform, contain: 'layout paint' }}
         >
-          <div className="sticky top-0 h-[calc(100dvh-4rem-env(safe-area-inset-bottom))] overflow-hidden bg-[#111111]">
+          <div className="sticky top-0 h-[calc(100dvh_-_4rem_-_env(safe-area-inset-bottom))] overflow-hidden bg-[#111111]">
             {previewNode}
           </div>
         </div>

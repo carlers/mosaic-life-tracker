@@ -31,7 +31,7 @@ export const AccountPage: React.FC = () => {
   const backlogCount = tasks.filter((t) => !t.completed).length;
 
   return (
-    <div className="flex min-h-full flex-col animate-in fade-in duration-300">
+    <div className="flex min-h-full flex-col">
       <div className="sticky top-0 z-20 bg-[#111111] px-4 py-3 border-b border-[#333333] flex items-center justify-between">
         <h1 className="text-lg font-bold text-white">Me</h1>
         <button
