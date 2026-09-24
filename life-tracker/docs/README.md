@@ -11,6 +11,7 @@ behavior.
 | CI, commits, Preview, device acceptance | [Delivery](DELIVERY.md) |
 | Focused tests and regression strategy | [Test workflow](TEST_WORKFLOW.md) |
 | Product and architecture contracts | [Project reference](PROJECT_REFERENCE.md) |
+| Release versions and build identity | [Versioning protocol](VERSIONING.md) |
 | Accessibility evidence and manual protocol | [Accessibility review](ACCESSIBILITY_AUDIT.md) |
 | Tombstones and scheduled maintenance | [Retention procedure](TOMBSTONE_RETENTION.md) |
 | Optional measurements/evidence ledger | [Telemetry](WORKFLOW_TELEMETRY.md) |
