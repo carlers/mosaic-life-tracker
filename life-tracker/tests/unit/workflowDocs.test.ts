@@ -35,7 +35,7 @@ describe('GitHub verification latency contract', () => {
     expect(classifier).toContain('[verify:full]');
     expect(classifier).toContain('[verify:browser]');
     expect(read('docs/DELIVERY.md')).toContain(
-      'A focused or docs-only green run is never acceptance'
+      'A focused or docs-only green run is never canonical acceptance'
     );
   });
 
@@ -78,7 +78,7 @@ describe('GitHub verification latency contract', () => {
   });
 
   it('keeps Vercel deployment deny-by-default with explicit stable branch allows', () => {
-    const vercel = JSON.parse(read('../vercel.json'));
+    const vercel = JSON.parse(read('vercel.json'));
 
     expect(vercel.git.deploymentEnabled['*']).toBe(false);
     expect(vercel.git.deploymentEnabled.main).toBe(true);

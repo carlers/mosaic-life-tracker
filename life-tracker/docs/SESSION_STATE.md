@@ -37,5 +37,5 @@ Blockers: Vercel deployment status for main/dev/feature must be verified externa
 
 ## Verification
 
-- Automated: docs-only CI exposed one stale contract reference; fixed in the follow-up. The next commit requests full canonical verification with [verify:full].
+- Automated: the first full run exposed two stale workflow-documentation assertions; fixed in the follow-up. The next commit requests another full canonical verification with [verify:full].
 - Browser/device acceptance: manual Vercel branch deployment checks remain pending.
