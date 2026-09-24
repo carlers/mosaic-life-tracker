@@ -26,16 +26,21 @@ variants are `test:watch:unit`, `test:watch:handlers`, and `test:watch:dom`.
 
 ### GitHub-connected fast loop
 
-Ordinary pushes to an AI-owned `chatgpt/**` branch run the same narrow-loop principle
-remotely: `scripts/verify-focused.mjs HEAD^` always checks contracts/discovery, lints only
-changed code files, and asks Vitest for tests related to the changed files. This result is
-development feedback only. Use `[verify:browser]` in an intermediate commit message when
-the change needs real-browser feedback. Use `[verify:full]` on the exact final task commit
-to run the complete repository + browser acceptance gate before Preview rollout.
+Ordinary pushes to an AI-owned `chatgpt/**` branch use the least expensive safe remote
+loop. Changes limited to project Markdown/`docs/**` run contract/link and diff checks only.
+Other ordinary pushes run `scripts/verify-focused.mjs` against the push's real before-SHA:
+contracts/discovery always run, ESLint receives changed code files, and Vitest selects tests
+related to those changes. Use `[verify:browser]` on an intermediate commit only when the
+change needs real-browser feedback.
+
+Use `[verify:full]` on the exact final task commit. The remote canonical gate then runs
+static/lint, unit, handler, DOM, production build/PWA/size, and browser contracts as
+parallel jobs and emits `canonical-acceptance` only when all pass. That exact green SHA is
+fast-forwarded to Preview; Preview checks prior acceptance instead of repeating the suite.
 
 Before completing a shared or production-path batch, run the full required gate from
-`AGENTS.md`: lint, `npm test`, and build as applicable. Targeted commands accelerate
-iteration; they do not replace final verification.
+`AGENTS.md`: lint, all Vitest projects, and build as applicable. Targeted commands
+accelerate iteration; they do not replace final verification.
 
 ## Spec-first TDD rule
 

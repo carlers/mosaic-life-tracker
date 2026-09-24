@@ -143,15 +143,26 @@ before it could write or checkpoint.
 
 ## Remote verification
 
-- `.github/workflows/verify.yml` is the single shared remote verification workflow. Pull
-  requests, `preview`, manual dispatches, and AI task commits whose message contains
-  `[verify:full]` run the canonical `npm run verify` gate plus the parallel browser
-  contract job. Ordinary `chatgpt/**` pushes run the changed-file focused gate instead;
-  add `[verify:browser]` only when an intermediate browser contract is needed. A focused
-  green run is development feedback, not acceptance. Before moving `preview`, the exact
-  task commit must have a green `[verify:full]` run. The browser job caches its fully
-  prepared pinned test `node_modules` plus Chromium payload; the canonical repository
-  gate still performs a fresh `npm ci`, preserving lockfile/reproducibility coverage.
+- `.github/workflows/verify.yml` is the single shared remote verification workflow. It
+  classifies each run as docs-only, focused, full, or Preview-guard mode. Ordinary
+  documentation-only changes run project-contract and diff checks without installing the
+  application dependency tree. Ordinary `chatgpt/**` runtime pushes run the changed-file
+  focused gate; add `[verify:browser]` only when an intermediate browser contract is
+  needed. Pull requests with runtime changes, manual dispatches, and exact task commits
+  containing `[verify:full]` run the canonical gate as parallel static/lint, unit,
+  handler, DOM, production-build, and browser jobs. Each full job performs a fresh
+  lockfile-driven `npm ci`; npm downloads and the prepared browser dependency/Chromium
+  payloads remain cached.
+- A full run produces one `canonical-acceptance` check only when every required parallel
+  gate succeeds. A focused or docs-only green run is development feedback, not acceptance.
+  The exact final task commit must have a green `canonical-acceptance` check before
+  `preview` moves to it.
+- `preview` is deployment-only and must not repeat the canonical suite for an immutable
+  SHA that already passed it. Its Verify run is a lightweight guard that requires a prior
+  successful `canonical-acceptance` check on that exact SHA. At the end of every completed
+  user task, fast-forward `preview` to the exact full-green task commit and verify the
+  deployment. This standing authorization replaces the older per-task hosted-review prompt;
+  never merge feature work through `preview` or force-update it across divergence.
 - When the active chat has GitHub Actions access, inspect workflow status, jobs, and logs
   directly instead of asking the user to run terminal commands or paste verify output.
 - Treat remote verification as asynchronous work, not a reason to busy-poll. While CI or a
@@ -164,9 +175,10 @@ before it could write or checkpoint.
 - Local `npm run verify` copies its output to the clipboard; CI skips clipboard handling
   and keeps the streamed output in the Actions log.
 - Hosted phone/browser review uses the deployment-only `preview` branch and
-  `docs/PREVIEW_DEPLOYMENT.md`. Move `preview` only to an exact green verified commit
-  and only when deployment/browser review is user-authorized. The preview branch is never
-  a merge or source-development branch.
+  `docs/PREVIEW_DEPLOYMENT.md`. The user has authorized automatic Preview advancement
+  after every completed task: move it only by fast-forward to that task's exact
+  `canonical-acceptance`-green commit, verify the deployment, and keep source development
+  on task branches or `main`.
 
 ## Definition of done
 

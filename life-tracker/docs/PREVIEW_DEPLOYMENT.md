@@ -17,11 +17,13 @@ The preferred provider is Vercel. Configure one Vercel project from
 `life-tracker/vercel.json` contains explicit SPA rewrites for Mosaic's BrowserRouter
 routes. Static assets are not catch-all rewritten.
 
-The Git branch `preview` is deployment-only. After a user-authorized task is verified
-green, a GitHub-connected chat may move `preview` to that exact verified commit when a
-phone/browser review is requested. Vercel then redeploys the stable production alias. Do
-not merge feature work through `preview`; source development continues on normal task
-branches and `main`.
+The Git branch `preview` is deployment-only. The user has authorized it to advance after
+every completed task. Once the exact final task commit has a successful
+`canonical-acceptance` check, fast-forward `preview` to that immutable SHA and verify
+the Vercel deployment. The Preview Verify run only confirms that prior exact-SHA acceptance
+exists; it does not repeat the canonical test/build/browser suite. Do not merge feature work
+through `preview`, create Preview-only code commits, or force-update it across divergence;
+source development continues on normal task branches and `main`.
 
 ## Why a stable hostname
 
@@ -60,13 +62,21 @@ secrets.
 
 ## Phone-review loop
 
-1. Finish a task on its normal task branch.
-2. Require the canonical GitHub Actions `Verify` run to pass.
-3. When the user wants a hosted review, move `preview` to that exact verified commit.
-4. Wait for the Vercel deployment to become ready.
-5. Share the stable preview URL in the completion report.
-6. The user opens that URL on the phone and performs any manual/browser protocol.
+1. Finish a task on its normal task branch and include the durable session/doc checkpoint
+   before the final acceptance commit.
+2. Put `[verify:full]` on the exact final task commit and require its
+   `canonical-acceptance` check to pass.
+3. Fast-forward `preview` to that exact verified commit as part of task completion.
+4. Confirm the lightweight Preview prior-acceptance guard passes and the Vercel deployment
+   becomes ready.
+5. Share the stable preview URL when a manual/browser protocol is relevant.
+6. The user performs any required phone/browser protocol.
 7. Record manual evidence separately from automated CI evidence.
+
+Do not add a state-only closure commit after canonical acceptance merely to record a run
+number; derive completed workflow/deployment status from GitHub and Vercel. If repository
+state truly needs another committed change, that new exact SHA becomes the task tip and
+must receive its own required acceptance before Preview advances.
 
 For interaction-heavy changes, the hosted device check is part of acceptance even when DOM
 regressions are green. In particular, verify Android/Samsung Back against nested bottom
