@@ -102,10 +102,14 @@ describe('PWA lifecycle', () => {
     expect(getPwaLifecycleSnapshot().installAvailable).toBe(false);
   });
 
-  it('checks the captured service-worker registration on demand', async () => {
+  it('checks the captured service-worker registration on demand with staged progress', async () => {
     const setup = fixture();
+    const stages: string[] = [];
 
-    await expect(checkForPwaUpdate()).resolves.toBe('up-to-date');
+    await expect(
+      checkForPwaUpdate((stage) => stages.push(stage))
+    ).resolves.toBe('up-to-date');
+    expect(stages).toEqual(['preparing', 'checking', 'up-to-date']);
     expect(setup.registration.update).toHaveBeenCalledOnce();
   });
 
@@ -143,10 +147,14 @@ describe('PWA lifecycle', () => {
 
   it('re-surfaces an already-waiting update without another network check', async () => {
     const setup = fixture();
+    const stages: string[] = [];
     (setup.registration as unknown as { waiting: ServiceWorker | null }).waiting =
       {} as ServiceWorker;
 
-    await expect(checkForPwaUpdate()).resolves.toBe('update-available');
+    await expect(
+      checkForPwaUpdate((stage) => stages.push(stage))
+    ).resolves.toBe('update-available');
+    expect(stages).toEqual(['preparing', 'ready']);
     expect(getPwaLifecycleSnapshot().updateAvailable).toBe(true);
     expect(setup.registration.update).not.toHaveBeenCalled();
   });
