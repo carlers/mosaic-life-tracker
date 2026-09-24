@@ -5,12 +5,12 @@ function read(path: string) {
 }
 
 describe('PostHog production source-map build contract', () => {
-  // Regression: PROJECT_REFERENCE.md §24.15 / PREVIEW_DEPLOYMENT.md — optional
+  // Regression: PROJECT_REFERENCE.md §24.15 / DELIVERY.md — optional
   // source-map upload must not make ordinary Vercel builds depend on stale
   // external PostHog credentials.
   it('requires an explicit source-map opt-in in addition to the three build credentials', () => {
     const vite = read('vite.config.ts');
-    const deployment = read('docs/PREVIEW_DEPLOYMENT.md');
+    const deployment = read('docs/DELIVERY.md');
 
     expect(vite).toContain("process.env.POSTHOG_SOURCE_MAPS_ENABLED === 'true'");
     expect(vite).toContain('process.env.POSTHOG_PERSONAL_API_KEY');

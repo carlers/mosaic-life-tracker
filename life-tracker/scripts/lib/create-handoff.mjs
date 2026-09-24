@@ -17,11 +17,11 @@ const TARGET_ALIASES = {
 
 const PROMPTS = {
   agent:
-    'Use the Mosaic workspace-agent workflow. Inspect AGENTS.md, SESSION_STATE.md, PLAN.md, Git, and the current files; verify the checkpoint, then continue from Next action.',
+    'Use the Mosaic workspace-agent workflow. Inspect AGENTS.md, docs/SESSION_STATE.md, Git, and relevant files; verify the checkpoint, then continue from Next action.',
   'chat-plan':
     'You are the Mosaic web-chat Planner/Reviewer. Use the attached handoff packet as exact repository context, produce a decision-complete plan or review, and do not emit runtime changes.',
   'chat-implement':
-    'You are the Mosaic web-chat Implementer. Use the attached handoff packet as exact repository context, request missing files together, and return only a complete installer-compatible mosaic bundle plus the prescribed apply guidance.',
+    'You are the Mosaic web-chat Implementer. Use the attached handoff packet as exact repository context, request missing files together, and return only a complete installer-compatible mosaic bundle plus concise apply guidance.',
 };
 
 const RESERVED_GENERATED_PATHS = new Set([
@@ -51,8 +51,6 @@ export function validateSessionState(content) {
     'Updated:',
     'Current task:',
     'Status:',
-    'Roadmap pointer:',
-    'Checkpoint:',
     'Next action:',
     'Blockers:',
   ];
@@ -60,7 +58,7 @@ export function validateSessionState(content) {
     'Working set',
     'Completed substeps',
     'Remaining substeps',
-    'Temporary decisions',
+    'Constraints',
     'Verification',
   ];
   const missing = [
@@ -152,77 +150,59 @@ export function estimateTokens(content) {
   return Math.ceil(content.length / 4);
 }
 
+export function assertGithubCheckpoint(git, remoteHead) {
+  if (git.status || !git.branch || !git.repository || remoteHead !== git.head) {
+    throw new Error('GitHub transport requires a clean, named branch published at the exact SHA. Use the default file packet for local-only work.');
+  }
+}
+
 export function buildWebChatPacket({
-  target,
-  projectRoot,
-  sessionState,
-  plan,
-  agents,
-  webChatWorkflow,
-  git,
-  workingSet,
-  metricsSummary = null,
+  target, projectRoot, sessionState, agents, workingSet, git,
+  transport = 'files', metricsSummary = null,
 }) {
   const canonical = normalizeHandoffTarget(target).target;
-  if (canonical === 'agent') {
-    throw new Error(`Web-chat packet requested for invalid target: ${target}`);
-  }
-  const dirtyParts = [
-    git.unstagedDiff && `### Unstaged diff\n\n\`\`\`diff\n${git.unstagedDiff.trimEnd()}\n\`\`\``,
-    git.stagedDiff && `### Staged diff\n\n\`\`\`diff\n${git.stagedDiff.trimEnd()}\n\`\`\``,
-  ].filter(Boolean);
-  const selectedFiles = exactFileBlocks(projectRoot, workingSet);
-  const emptyInstruction = canonical === 'chat-plan'
-    ? 'No implementation files are selected. Plan from the checkpoint and request exact files only when needed.'
-    : 'No implementation files are selected. Request the exact files needed before emitting changes.';
-
+  if (canonical === 'agent') throw new Error('Web-chat packet requested for invalid target: agent');
+  if (!['files', 'github'].includes(transport)) throw new Error(`Unknown transport: ${transport}`);
+  if (transport === 'github') assertGithubCheckpoint(git, git.remoteHead);
+  const embedded = new Set(['AGENTS.md', 'docs/SESSION_STATE.md']);
+  const selected = [...new Set(workingSet)].filter((path) => !embedded.has(path));
+  const files = transport === 'github'
+    ? `Retrieve these project-relative paths at the exact SHA above: AGENTS.md, docs/SESSION_STATE.md${selected.length ? ', ' + selected.join(', ') : ''}. Read docs/AI_WORKFLOW.md if transport guidance is needed.`
+    : exactFileBlocks(projectRoot, selected) || 'No implementation files are selected. Request exact files before making changes.';
   return `# Mosaic handoff packet
 
 ${PROMPTS[canonical]}
 
-This packet is the complete starting context for this handoff. Follow the declared role,
-request targeted \`npm run dump -- <paths>\` content only when required, and treat Git
-and current files as authoritative over stale prose.
-
 ## Git checkpoint
 
+- Repository: ${git.repository || '(local checkout)'}
 - Branch: ${git.branch || '(detached HEAD)'}
 - HEAD: ${git.head}
+- Transport: ${transport === 'github' ? 'verified GitHub reference' : 'exact files; local-only changes included when selected'}
 
-\`\`\`text
 ${git.status || '(clean worktree)'}
-\`\`\`
-
-## Workflow telemetry
-
-${metricsSummary || '**Run:** telemetry=off'}
-
-${dirtyParts.length > 0 ? `${dirtyParts.join('\n\n')}\n\n` : ''}## Project instructions
+${metricsSummary ? '\n' + metricsSummary + '\n' : ''}
+## Essential instructions
 
 <file path="AGENTS.md">
 ${agents.trimEnd()}
 </file>
 
-## Web-chat workflow
+## Checkpoint
 
-<file path="docs/WEB_CHAT_WORKFLOW.md">
-${webChatWorkflow.trimEnd()}
-</file>
-
-## Session state
-
-<file path="SESSION_STATE.md">
+<file path="docs/SESSION_STATE.md">
 ${sessionState.trimEnd()}
-</file>
-
-## Roadmap
-
-<file path="PLAN.md">
-${plan.trimEnd()}
 </file>
 
 ## Working files
 
-${selectedFiles || `(${emptyInstruction})`}
+${files}
+
+${canonical === 'chat-implement' ? `For offline implementation, return changed complete files in one five-tilde mosaic block.
+Use ===FILE:project/relative/path===, optional ===DELETE:path===, then the complete
+===FILE:docs/SESSION_STATE.md=== last and ===COMMIT:type: subject===.
+Never invent missing source or return truncated files. Apply with npm run apply:dry,
+then npm run apply -- --commit. A connected writer may edit the task branch directly
+and follow docs/DELIVERY.md using the tools actually available.` : 'Review/plan only; request missing exact files together.'}
 `;
 }

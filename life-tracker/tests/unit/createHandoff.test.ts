@@ -2,6 +2,7 @@ import { mkdtempSync, mkdirSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
+  assertGithubCheckpoint,
   buildWebChatPacket,
   estimateTokens,
   HANDOFF_TOKEN_WARNING,
@@ -35,7 +36,7 @@ Blockers: none
 
 - verification
 
-## Temporary decisions
+## Constraints
 
 - none
 
@@ -125,10 +126,10 @@ describe('web-chat packet', () => {
     });
 
     expect(packet).toContain('Mosaic web-chat Implementer');
-    expect(packet).toContain('<file path="docs/WEB_CHAT_WORKFLOW.md">');
+    expect(packet).toContain('<file path="docs/SESSION_STATE.md">');
     expect(packet).not.toMatch(/ChatGPT|DeepSeek/);
     expect(packet).toContain('Branch: test-branch');
-    expect(packet).toContain('### Unstaged diff');
+    expect(packet).not.toContain('### Unstaged diff');
     expect(packet).toContain('**Run:** task=test · gate=green@1');
     expect(packet).toContain('<file path="src/a.ts">');
     expect(packet).toContain('export const a = 1;');
@@ -157,7 +158,7 @@ describe('web-chat packet', () => {
     expect(packet).toContain('Branch: (detached HEAD)');
     expect(packet).toContain('(clean worktree)');
     expect(packet).toContain('No implementation files are selected');
-    expect(packet).toContain('**Run:** telemetry=off');
+    expect(packet).not.toContain('**Run:**');
     expect(packet).not.toContain('### Unstaged diff');
     expect(packet).not.toContain('### Staged diff');
   });
@@ -194,5 +195,29 @@ describe('web-chat packet', () => {
   it('reports estimates above the warning threshold without enforcing a hard limit', () => {
     const content = 'x'.repeat(HANDOFF_TOKEN_WARNING * 4 + 1);
     expect(estimateTokens(content)).toBe(HANDOFF_TOKEN_WARNING + 1);
+  });
+});
+
+// Regression: task acceptance — portable references must identify exact retrievable content.
+describe('GitHub handoff transport', () => {
+  const git = { branch: 'task', repository: 'https://github.com/example/project.git', head: 'a'.repeat(40), status: '', remoteHead: 'a'.repeat(40) };
+  it('rejects dirty, detached, unpublished, and unavailable checkpoints', () => {
+    for (const patch of [{ status: ' M src/a.ts' }, { status: ' D src/a.ts' }, { status: 'R  src/a.ts -> src/b.ts' }, { branch: '' }, { repository: '' }, { head: 'b'.repeat(40) }]) {
+      expect(() => assertGithubCheckpoint({ ...git, ...patch }, git.remoteHead)).toThrow(/file packet/);
+    }
+    expect(() => assertGithubCheckpoint(git, '')).toThrow(/file packet/);
+  });
+  it('references exact files without duplicating source, instructions, or state', () => {
+    const root = fixture();
+    const common = { target: 'chat-plan', projectRoot: root, agents: '# Rules', sessionState: validState, git, workingSet: ['AGENTS.md', 'docs/SESSION_STATE.md', 'src/a.ts', 'src/a.ts'] };
+    const reference = buildWebChatPacket({ ...common, transport: 'github' });
+    expect(reference).toContain(git.head);
+    expect(reference).toContain(git.repository);
+    expect(reference).toContain('src/a.ts');
+    expect(reference).not.toContain('export const a');
+    const packet = buildWebChatPacket(common);
+    expect(packet.match(/<file path="AGENTS.md">/g)).toHaveLength(1);
+    expect(packet.match(/<file path="docs\/SESSION_STATE.md">/g)).toHaveLength(1);
+    expect(packet.match(/export const a/g)).toHaveLength(1);
   });
 });

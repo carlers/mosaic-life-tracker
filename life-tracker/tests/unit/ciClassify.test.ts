@@ -6,9 +6,10 @@ import {
 
 describe('CI verification mode classifier', () => {
   it('treats project markdown and docs tree changes as documentation-only', () => {
+    expect(isDocsOnlyPath('AGENTS.md')).toBe(true);
     expect(isDocsOnlyPath('life-tracker/AGENTS.md')).toBe(true);
-    expect(isDocsOnlyPath('life-tracker/SESSION_STATE.md')).toBe(true);
-    expect(isDocsOnlyPath('life-tracker/docs/REMOTE_VERIFY.md')).toBe(true);
+    expect(isDocsOnlyPath('life-tracker/docs/SESSION_STATE.md')).toBe(true);
+    expect(isDocsOnlyPath('life-tracker/docs/DELIVERY.md')).toBe(true);
     expect(isDocsOnlyPath('life-tracker/src/App.tsx')).toBe(false);
     expect(isDocsOnlyPath('.github/workflows/verify.yml')).toBe(false);
   });
@@ -20,7 +21,7 @@ describe('CI verification mode classifier', () => {
         ref: 'refs/heads/chatgpt/docs',
         changedFiles: [
           'life-tracker/AGENTS.md',
-          'life-tracker/docs/REMOTE_VERIFY.md',
+          'life-tracker/docs/DELIVERY.md',
         ],
       })
     ).toEqual({ mode: 'docs', browser: false });
@@ -42,7 +43,7 @@ describe('CI verification mode classifier', () => {
         eventName: 'push',
         ref: 'refs/heads/chatgpt/docs',
         commitMessage: 'docs: close task [verify:full]',
-        changedFiles: ['life-tracker/SESSION_STATE.md'],
+        changedFiles: ['life-tracker/docs/SESSION_STATE.md'],
       })
     ).toEqual({ mode: 'full', browser: true });
   });

@@ -2,10 +2,10 @@
 
 This document preserves Mosaic's detailed product contracts, architectural
 invariants, implementation rationale, and historical decisions. It is reference
-material, not an instruction file. `AGENTS.md` contains the shared active rules.
+material, not an instruction file. `../AGENTS.md` contains the shared active rules.
 
 Sections 5 and 25 summarize workflow boundaries and history. Active process belongs in
-`docs/CODEX_WORKFLOW.md` and `docs/WEB_CHAT_WORKFLOW.md`.
+[AI workflow](AI_WORKFLOW.md).
 
 ## 0. Hard Rules
 
@@ -20,11 +20,11 @@ Sections 5 and 25 summarize workflow boundaries and history. Active process belo
 
 ### 0.1 Contract sources and enforcement
 
-Mosaic separates project truth by concern. `AGENTS.md` owns active implementation rules;
+Mosaic separates project truth by concern. `../AGENTS.md` owns active implementation rules;
 this reference owns durable product/architecture contracts; `PLAN.md` owns roadmap
 sequencing and verified completion; `SESSION_STATE.md` owns the current checkpoint and
 pending verification; the workflow/test/telemetry documents own their named processes.
-`README.md` provides the contributor-facing contract index.
+`docs/README.md` provides the contributor-facing contract index.
 
 `npm run contracts:check` is the structural guard for this documentation surface. It
 verifies that the authoritative entry-point files exist, that required cross-pointers remain
@@ -42,7 +42,7 @@ semantically complete or that implementation behavior matches every contract.
 
 ## 2. Product Reference: The "Todo Mate" Clone (Phase 1)
 
-A dark-mode calendar clone of Todo Mate. Shipped: tasks, categories, month/week calendar, day sheet, person carousel, social calendar, 1:1 messaging, message + task reactions. Planned: Todo List view, Diary view, Notifications tab. Messaging/reactions are a Mosaic addition, not in the reference app (see §20).
+A dark-mode calendar clone of Todo Mate. Shipped: tasks, categories, month/week calendar, day sheet, person carousel, social calendar, 1:1 messaging, message + task reactions. Todo List view is implemented. Planned: Diary view and Notifications tab. Messaging/reactions are a Mosaic addition, not in the reference app (see §20).
 
 **ARCHITECTURAL RULE:** every Category and Diary document carries a `visibility` field (`public`, `followers`, `private`). Appwrite RLS is avoided by server-mediated reads (`get_friend_calendar`) and server-mediated cross-user writes (`message-action`). See §6 and §20.
 
@@ -87,26 +87,11 @@ is authoritative.
 
 ## 5. Portable AI Workflow Boundary
 
-Workspace agents and web chats share the same project rules, roadmap, workflow-neutral
-session state, exact files, and Git history. Workspace agents (currently Codex local/IDE
-and Codex Cloud) edit a checkout directly. Provider-neutral web/mobile chats transfer
-compact context through a generated packet and apply complete changed files through the
-retained installer. See `docs/CODEX_WORKFLOW.md` and `docs/WEB_CHAT_WORKFLOW.md`.
-
-Files should be organized by ownership and readability rather than arbitrary line limits.
-Generated changes must be complete and must not contain placeholders or elisions.
+See [AI workflow](AI_WORKFLOW.md) for capability-based execution and checkpoints.
 
 ## 5.1 Full-file Revision Transport
 
-The retained installer accepts a fence-aware `mosaic` block containing full
-`===FILE:path===`, `===DELETE:path===`, and optional `===COMMIT:message===`
-directives. It validates paths, backs up touched files, runs the requested verification,
-and stages only touched paths when the user approves its commit prompt.
-
-The exact output format, commands, checkpoint requirements, and recovery procedure live
-in `docs/WEB_CHAT_WORKFLOW.md`. `apply-changes.mjs` is the executable source of truth.
-
----
+See [offline implementation output](AI_WORKFLOW.md#offline-implementation-output).
 
 ## 6. Appwrite 2.0 Strict Guardrails (CRITICAL)
 - **Regional Endpoint:** Must use the specific regional endpoint found in the project URL (e.g., `https://sgp.cloud.appwrite.io/v1`), NOT the generic `cloud.appwrite.io`
@@ -137,17 +122,10 @@ in `docs/WEB_CHAT_WORKFLOW.md`. `apply-changes.mjs` is the executable source of 
 - **iOS Storage:** Must call `navigator.storage.persist()` on launch to prevent WebKit from purging IndexedDB.
 - **Coming Soon:** Bottom nav has 5 tabs: Home, Explore, Notifications, Messages, Account. Notifications renders a full `<ComingSoon />` page.
 
-## 8. Current Progress & State (As of Latest Build)
+## 8. Current Progress & State
 
-- **Foundation & primitives complete (Phases 1.1–2.6):** App layout, primitives, `BottomSheet` (Portal + drag controls), auth flow, PWA config, React Router, Home shell, view memory, month/week calendar, day sheet + task CRUD, category manager, `useCategories`. Conventions hardened (`window.confirm` eliminated, iOS focus fixed, row-permission correctness verified, `updateRow` vs `upsertRow` semantics enforced).
-- **Social graph & friend calendar complete (Phase 3.0):** Explore page (search, requests, accept/decline/cancel, block/remove), `useFriends`/`useProfileLookup`/`useMyProfile`, `SetUsernameSheet`. `FriendCalendarPage` + `FriendCalendarView` (Embla carousel) + `FriendDayViewSheet` + `useFriendCalendar` + `friendData`/`friendCache` (5-min TTL) + `get_friend_calendar`.
-- **Messaging, reactions, chat polish complete (Phases 3.1–3.3):** `messages` collection (v3) two-row pattern, `message-action` function (`deliver`/`mark_read`/`unsend`/`react`/`react_to_task`/`get_friend_calendar`), `useMessages`/`useConversations`/`useUnreadMessages`, `MessagesPage`/`ChatPage` + full chat component set, outbox delivery, deterministic thread/recipient IDs, shared `reactionUtils`. Swipe-to-reply, double-tap ❤️, single-tap timestamp, unified `useBubbleGestures`, read receipts, scroll FAB, chat search. Task reactions via heart button + emoji picker.
-- **Architecture hardening complete:** `AuthProvider` context as single source of truth (single `account.get()` per load; global `auth:unauthorized` dispatch; multi-tab broadcast; offline retry screen). Calendar perf audit (slide windowing, memoized `tasksByDate`, memoized `DayCell`, ref-counted `useTaskImage`). Conversations/unread refactor (single providers, thin selectors, `isUnsent` exclusion). Sync engine audit (13 slices; `createRow` 404 fallback; `messageActionQueue`; drift detection; `updatedAt` on categories/settings). Offline write resilience (`socialOutbox`). See §16, §18, §23 for invariants.
-- **Phase 1 audits closed (2026-09-17):** Offline behaviour, realtime subscriptions (all six tables), error boundaries (root + per-route), image-cache consolidation, PWA/SW audit, four-part accessibility sweep. Sole carry-over: OFF-1 (offline auth gate, H1 = Option A), scheduled Phase 2 batch 2.1.
-- **Phase 2 refactor audit → refactor closed (2026-09-18):** Batches 2.1–2.10 shipped. OFF-1 offline auth gate (H1 = Option A); duplication sweep (DUP-1…12); component boundary audit (CB-1…14); hook boundary audit (HB-1…12); lib-level extractions; shared React primitives + `useRxCollection`; sheet migrations across 19 files; domain hook extractions (useThreadMessages/useMessageActions/useConversations/useUnreadMessages split); god-component splits (CalendarBody, DayViewSheet, ChatPage, PersonPane); cleanup pass. All findings closed. Git and the changelog below retain the historical decisions.
-- **Test suite live:** The current suite has 467 tests across three Vitest projects (`unit`, `handlers`, `dom`); the 2026-09-18 historical baseline was 390 tests across four projects. Runtime batches use focused checks during iteration and the full lint/test/build gate when cross-cutting. See §24.
-
-**Next Up:** Phase 3.7 PostHog foundation, followed by the Phase 4 specification/accessibility audit. `PLAN.md` is authoritative for ordering.
+See [roadmap](PLAN.md) for delivered work and backlog, [checkpoint](SESSION_STATE.md)
+for the active task, and [test workflow](TEST_WORKFLOW.md) for verification commands.
 
 ## 9. Hook & State Conventions
 - **Named return object, never array:** `{ <domain>, isLoading, ...mutators }`; mutators `useCallback`-wrapped.
@@ -278,7 +256,7 @@ in `docs/WEB_CHAT_WORKFLOW.md`. `apply-changes.mjs` is the executable source of 
   the already-open page; a subsequent navigation can be controlled. Never add an
   automatic reload or activation request as routine error handling.
 - **Why `autoUpdate` was removed.** The plugin forced both activation flags to true
-  despite the config's false values. The [bundle audit](BUNDLE_AUDIT.md) records the
+  despite the config's false values. The [bundle audit](archive/BUNDLE_AUDIT.md) records the
   original finding. Workbox still emits a conditional `SKIP_WAITING` message handler
   with the corrected policy; a text search for `skipWaiting()` cannot distinguish
   this from immediate activation. Build verification inspects execution (see §24.9).
@@ -520,8 +498,8 @@ Recipient-side `read_at` propagation depends on `markReadOnRemote` eventually su
 ## 24. Test Suite
 
 ### 24.1 Overview
-Vitest 3.x uses three projects (`unit`, `handlers`, `dom`). The current suite has
-463 tests across 53 files; the 2026-09-18 historical baseline was 390 tests. Config lives
+Vitest 3.x uses three projects (`unit`, `handlers`, `dom`); current counts come
+from discovery and runner output. Config lives
 in `vitest.config.ts`, while shared project patterns live in
 `scripts/lib/test-projects.mjs`. Run the narrow file/project commands in
 `docs/TEST_WORKFLOW.md` during iteration. Cross-cutting runtime batches still pass lint,
@@ -541,7 +519,7 @@ fails if a test belongs to zero or multiple projects; all projects use a conserv
 four-worker cap. See `docs/TEST_WORKFLOW.md` for scoped and benchmark commands.
 
 ### 24.3 Test philosophy — contracts, not internals
-Tests assert observable behavior: what a pure function returns, what a hook exposes through its public surface, what side effects a handler triggers on the mock DB, what a component renders for a given prop combination. They do NOT assert subscription counts, re-render counts, memoization bail-outs, effect re-fire counts, or RxDB document identity. If a test would break from a pure refactor that preserves external behavior, it is a liability — propose deleting it rather than patching it. Rationale and two documented examples (`useMessages` CONFLICT-retry not written; `useTaskImage` deferred-revoke written + flagged) live in the Changelog.
+Tests assert observable behavior: what a pure function returns, what a hook exposes through its public surface, what side effects a handler triggers on the mock DB, what a component renders for a given prop combination. They do NOT assert subscription counts, re-render counts, memoization bail-outs, effect re-fire counts, or RxDB document identity. If a test would break from a pure refactor that preserves external behavior, it is a liability — propose deleting it rather than patching it. Rationale and two documented examples (`useMessages` CONFLICT-retry not written; `useTaskImage` deferred-revoke written + flagged) live in the archived project history.
 
 ### 24.4 Handler helper — `tests/helpers/invoke-handler.ts`
 Injects a mocked `node-appwrite` module into `require.cache` via `createRequire`, then `require`s the real `appwrite-functions/message-action/main.js`. The mock provides `Client`, `TablesDB`, `Query`, `Permission`, and `Role`. `makeMockDb()` returns four `vi.fn()` spies (`listRows`, `getRow`, `upsertRow`, `updateRow`); each test queues specific `mockResolvedValueOnce`/`mockRejectedValueOnce` responses per call. `invoke({ userId, body, mockDb })` constructs a synthetic `req` (with the `x-appwrite-user-id` header) and captures `res.json` calls to return `{ body, status, logs, errors }`. Every handler action is tested end-to-end without a live Appwrite.
@@ -634,7 +612,7 @@ verification checks static closures: initial and first Home must exclude
 The 2026-09-19 browser run exercised every direct route offline while a replacement
 deployment waited, then loaded a replacement split route after activation. It also
 reproduced a missing chunk without a service worker and recovered through the explicit
-reload action. See the Phase 3.2 result in [the bundle audit](BUNDLE_AUDIT.md).
+reload action. See the Phase 3.2 result in [the bundle audit](archive/BUNDLE_AUDIT.md).
 This is not a substitute for checking real hosting headers or mobile/Safari after the
 first split deployment.
 
@@ -728,7 +706,7 @@ to accept the growth before changing the baseline/limit. Never raise a threshold
 to make verification pass. `npm run build:size` checks an existing `dist/`; the diagnostic
 `scripts/audit-bundle.mjs` remains the source for static-closure and package attribution.
 The exact baseline, limits, exclusions, and refresh protocol live in
-`docs/BUNDLE_AUDIT.md`.
+`docs/archive/BUNDLE_AUDIT.md`.
 
 
 ### 24.15 PostHog error tracking and feature flags
@@ -798,56 +776,5 @@ production source-map symbolication.
 
 ## 25. Workflow Portability and History
 
-Mosaic originally used mandatory repository exports, persistent provider-specific chats,
-and full-file mega patches. The active workflow now separates transport by capability:
-workspace agents edit a checkout directly, while web chats use compact packets and the
-retained full-file installer.
-
-The portability contract is intentionally small:
-
-- the user or available tools select workspace-agent, web-chat Planner, or web-chat
-  Implementer behavior;
-- `SESSION_STATE.md` describes the checkpoint without storing provider, model, reasoning,
-  active workflow, or commit status;
-- Git and current files are authoritative;
-- separate workspaces exchange exact files through a pushed branch/commit;
-- web chats receive shared rules, state, roadmap, Git metadata, and selected exact files;
-- every completed AI turn is a potential workflow boundary and carries a compact handoff;
-- switches can happen at safe checkpoints inside a task or batch; and
-- provider/model changes never alter architecture, safety, or verification requirements.
-
-A seamless handoff requires both the checkpoint description and exact current file
-contents. The rolling footer guarantees recovery from the last completed response, not
-from a later turn interrupted before it could checkpoint. Historical provider-specific
-rules remain in Git history; active requirements live in the workflow documents.
-
-## Workflow migration note
-
-On 2026-09-19, `life-tracker/` became the AI working root. Workspace agents and web chats now share `AGENTS.md`, `PLAN.md`, `SESSION_STATE.md`, and Git while using direct-workspace or packet-and-installer adapters.
-
-## Changelog
-
-| Date | Title | Sections | Summary | Pointer |
-|---|---|---|---|---|
-| 2026-09-15 | Auth context single source of truth | §4, §8, §9, §10, §15, §18, §19, §23 | `AuthProvider` owns session; `useAuth` shim; `logout()` returns boolean; global 401 event; multi-tab broadcast; offline retry screen; sync after login | §23 |
-| 2026-09-15 | Auth lifecycle closure | §9, §10, §15, §18, §23.4–23.7 | `guardedCall` centralizes 401 dispatch; `isUsernameAvailable` returns null on 401; retry + backoff; changelog added | §23.4 |
-| 2026-09-15 | Revision workflow tooling | §5.1 (new), §15 | Mega-file + `apply-changes.mjs` installer with backup/lint/build/rollback | §5.1 |
-| 2026-09-15 | Tilde outer fence + local-dirty-wins | §5.1, §18 | Outer fence switched to tildes; length-matched closing; inner backticks inert; local-dirty-wins documented | §5.1, §18 |
-| 2026-09-15 | Backlog cleanup | §4, §8, §9, §20.3, §20.5 | Scope annotation; phase reorder; legacy peer cross-ref; read-receipt cadence | §20.5 |
-| 2026-09-16 | Backlog closure follow-up | §6, §8, §10, §11, §15, §18, §20.3, §20.7, §21, §23.4, §23.7 | Fence-aware parser; `Parameters<T>` trap; `msg_` guard; `makeUnauthorizedError`; `sdk.ts` guarded surface + ESLint; bounded loops; two-phase read-then-write; reaction timeout toast; ChatPage poll 30s | §5.1, §6, §18 |
-| 2026-09-16 | Read-receipt worst-case correction | §20.5 | Corrected to 90–120s (30s poll + 60s backoff cap); keep code, fix doc | §20.5 |
-| 2026-09-16 | Calendar rendering pipeline | §16 | Slide windowing; `tasksByDate` Map; memoized day arrays/`DayCell`/`CalendarBody`; friend refetch throttle; ref-counted `useTaskImage`; manual windowing | §16 |
-| 2026-09-16 | Fence-rule rewrite | §5.1 | 4-tilde outer vs ≤3 inner; pitfalls subsection | §5.1 |
-| 2026-09-16 | Mounted pane freshness | §18 | Refetch on activation with minimum interval; `PersonPane` reference | §18 |
-| 2026-09-16 | Calendar perf dead-code removal | §8, §15 | Marked complete; removed `CalendarView`/`ViewContainer`/`DiaryView`/`TodoListView` | §8 |
-| 2026-09-16 | Test Suite Layers 1–4 | §5.1, §8, §10, §12, §15, §24 (new) | 152 tests, 3 projects; installer runs `npm test`; `allowEmptyCatch`; §24 layout/philosophy/helpers | §24 |
-| 2026-09-16 | Test Suite Layer 5 | §8, §15, §24 | Components project (happy-dom + RTL); totals 211/26/4 projects | §24.2 |
-| 2026-09-16 | Conversations / unread audit | §8, §9, §15, §16, §24 | `ConversationsProvider` + `FriendsProvider` own subscriptions; thin selectors; `ConversationRow` memo; `isUnsent` excluded; F11–F13 invariants | §16 |
-| 2026-09-16 | Sync engine audit (13 slices) | §6, §8, §10, §12, §15, §18, §20.5, §20.7, §24 | Listener isolation; dirty boundary at cycle-start; state versioning; page cap; user-scoped lastSync; server-owned `read_at` before dirty-skip; `_meta.lwt` re-check; `createRow` 404; Web Locks; `messageActionQueue`; drift detection; D6 `updatedAt`; `SyncStatusSheet`. Accepted limitations D1/D3/D7/F9-backoff | §18 Accepted Limitations, §20.5 |
-| 2026-09-16 | Sync Status UI (F16) | §8, §10, §15, §24 | `SyncStatusSheet` surfaces `SyncStatus.errors` via Settings; only user-visible sync-error surface | §10 |
-| 2026-09-16 | Offline write resilience outbox | §10, §15 | `socialOutbox.ts` retries reciprocal friendship + profile writes; permanent drops emit failure events; `getCurrentUserId` distinguishes 401 from offline | §10, §15 |
-| 2026-09-17 | AGENTS.md compression | all | §0 hard rules and index-style changelog established; section prose compressed by about 25% | §0, Git history |
-| 2026-09-17 | §0 dedup follow-up | §0 | Merged former rules 2 + 10 into one; §0 is now 9 rules grouped by action (schema → sync → messaging → cross-user → auth → tooling) | §0 |
-| 2026-09-19 | Portable AI workflows | §5, §25 | Codex and DeepSeek shared neutral state; compact role packets replaced mandatory repository exports; full-file installer retained | Git history |
-| 2026-09-20 | Capability-based AI workflows | §5, §25 | Workspace agents and provider-neutral web chats share rolling checkpoints, generic handoffs, and mid-batch recovery | `docs/CODEX_WORKFLOW.md`, `docs/WEB_CHAT_WORKFLOW.md` |
-| 2026-09-20 | Phase 4 contract discoverability | §0.1, README, AGENTS | Added concern-based contract index, structural reference checker, and verify-gate enforcement for authoritative project docs | `scripts/check-project-contracts.mjs` |
+[AI workflow](AI_WORKFLOW.md) owns the current process. Historical decisions are in
+[project history](archive/PROJECT_HISTORY.md); Git retains earlier instruction versions.

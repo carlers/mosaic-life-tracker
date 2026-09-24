@@ -4,8 +4,8 @@ Updated: 2026-09-21
 
 This document records the Phase 4 accessibility review of Mosaic's current shipped
 interfaces. It is a review and remediation record, not a claim of WCAG certification.
-The roadmap keeps this item open until the browser/manual protocol below is completed and
-recorded.
+The roadmap records this review as completed. The dated evidence below applies to the
+audited scope; reuse its protocol when later changes affect accessibility.
 
 Visual-preservation constraint (2026-09-21): future accessibility remediation must preserve
 Mosaic's existing palette and visual treatment unless the user explicitly approves a visual
@@ -108,10 +108,11 @@ These checks reduce the manual protocol but do not replace physical Samsung/PWA 
 screen-reader output, rendered contrast inspection, physical touch-target judgment, or
 200% zoom review.
 
-## Manual/browser evidence still required
+## Manual/browser regression protocol
 
-Do not mark the Phase 4 WCAG AA roadmap item complete until these checks are recorded on a
-representative mobile viewport and a desktop browser:
+The roadmap records prior acceptance, but this report does not retain a complete per-device
+manual results log. Do not infer new manual results from it. For changes affecting these
+behaviors, record checks on a representative mobile viewport and a desktop browser:
 
 1. **Keyboard-only traversal:** traverse auth, bottom navigation, settings/account, explore,
    messages/chat, task/day sheets, confirmations, and nested sheets. Confirm logical focus
@@ -130,5 +131,5 @@ representative mobile viewport and a desktop browser:
    ownership and keyboard alternatives. On the physical Samsung/PWA target, confirm hardware
    Back and real-finger calendar ownership still match the automated browser contract.
 
-After this protocol passes, the overall Phase 4 WCAG AA roadmap checkbox can be closed.
-Calendar-grid semantics and A11Y-33 are already complete.
+Record device/browser, date, result, and limitations when rerunning this protocol.
+Calendar-grid semantics and A11Y-33 are implemented.

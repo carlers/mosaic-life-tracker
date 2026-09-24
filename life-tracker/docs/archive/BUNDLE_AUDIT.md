@@ -6,7 +6,7 @@ build configuration are unchanged.
 
 Follow-up (2026-09-19): the service-worker activation prerequisite below has since
 been fixed using passive `prompt` registration. Production builds now enforce the
-generated policy; see [project reference §24.9](PROJECT_REFERENCE.md#249-generated-service-worker-policy)
+generated policy; see [project reference §24.9](../PROJECT_REFERENCE.md#249-generated-service-worker-policy)
 for checks and browser results. The measurements and original findings below remain
 the historical Phase 3.1 baseline.
 
@@ -170,7 +170,7 @@ only on this ranking.
 
 ### 1. Split routes, then check what Home still imports — Phase 3.2
 
-Start with page boundaries in [App.tsx](../src/App.tsx), keeping the shared layout,
+Start with page boundaries in [App.tsx](../../src/App.tsx), keeping the shared layout,
 auth ownership, and `FriendsProvider` → `ConversationsProvider` order intact. Pages
 use named exports, so a `React.lazy` adapter must supply a default export. Keep a
 local Suspense loading state and the existing route/root error boundaries; import
@@ -211,7 +211,7 @@ Phase 3.6 budget. Do not raise the warning threshold to claim improvement.
 
 ### 3. Defer actual image acquisition — Phase 3.3 / 3.4
 
-Avatar and task images use [useTaskImage.ts](../src/hooks/useTaskImage.ts). Its effect
+Avatar and task images use [useTaskImage.ts](../../src/hooks/useTaskImage.ts). Its effect
 acquires cached blobs or starts a storage fetch when mounted, before an `<img>`
 receives its blob URL. Adding `loading="lazy"` alone therefore does not prevent
 those upstream requests.
@@ -228,7 +228,7 @@ code loading. There are no emitted font files in this baseline.
 
 ### 4. Resolve the service-worker activation mismatch before releasing splits
 
-[vite.config.ts](../vite.config.ts) says `autoUpdate` is retained while
+[vite.config.ts](../../vite.config.ts) says `autoUpdate` is retained while
 `skipWaiting: false` and `clientsClaim: false` prevent mid-session takeover. The
 **generated worker contradicts that intent**: it calls both `self.skipWaiting()` and
 `clientsClaim()`.

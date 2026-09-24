@@ -1,6 +1,6 @@
 # Mosaic Roadmap
 
-This roadmap records durable workstreams and batch status. `SESSION_STATE.md` contains the current handoff; `AGENTS.md` contains working rules.
+This roadmap records durable workstreams and batch status. `SESSION_STATE.md` contains the current handoff; `../AGENTS.md` contains working rules.
 
 ## Delivered foundation
 
@@ -38,7 +38,7 @@ This roadmap records durable workstreams and batch status. `SESSION_STATE.md` co
 
 ## Feature backlog
 
-- [ ] Todo List view: compact color-only calendar with a selected-day task list
+- [x] Todo List view: compact color-only calendar with a selected-day task list
 - [ ] Diary view: per-day text entries with `public`, `followers`, or `private` visibility
 - [ ] Notifications tab
 - [ ] Routines and reminders
@@ -54,4 +54,4 @@ This roadmap records durable workstreams and batch status. `SESSION_STATE.md` co
 
 ## Batch boundary
 
-Strategy B tombstone retention and its Appwrite rollout are complete. Garbage collection shares the existing `message-action` Function through its trusted schedule-trigger path, `TOMBSTONE_RETENTION_DAYS=90` is configured, and the daily schedule is live. The second Appwrite Function slot remains free. Resume the feature backlog with Todo List browser acceptance.
+Strategy B tombstone retention and its Appwrite rollout are complete. Garbage collection shares the existing `message-action` Function through its trusted schedule-trigger path, `TOMBSTONE_RETENTION_DAYS=90` is configured, and the daily schedule is live. The second Appwrite Function slot remains free. Todo List implementation and automated browser coverage are present. Select the next feature only when requested; current task details live in SESSION_STATE.md.

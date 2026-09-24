@@ -97,7 +97,7 @@ providers or workflow versions into a single headline cache rate.
 
 ## CLI
 
-Initialize a task before material work:
+Only when measurement is requested, initialize a task:
 
 ```bash
 npm run metrics -- start phase-3.5 --profile complex --surface workspace-agent
@@ -113,8 +113,8 @@ npm run metrics -- gate --task phase-3.5 --scope acceptance --result pass --comm
 ```
 
 Optional usage, review, environment, and handoff events use `turn`, `review`,
-`environment`, and `handoff`. The normal `npm run handoff -- <target>` command records a
-handoff automatically when a telemetry task is active. Finish and summarize with:
+`environment`, and `handoff`. Only `npm run handoff -- <target> --telemetry` records a handoff for an active task;
+existing ledger files do not opt future handoffs in. Finish and summarize with:
 
 ```bash
 npm run metrics -- end phase-3.5 --result solved
@@ -126,7 +126,7 @@ A solved task requires a recorded passing acceptance gate. When an acceptance ch
 genuinely unavailable, `end` also accepts `--exception "reason"`; use that auditable escape
 hatch rather than silently treating an incomplete gate as green.
 
-Before the acceptance gate, record behavior/evidence rows and run:
+For an optional evidence audit, record behavior/evidence rows and run:
 
 ```bash
 npm run metrics -- evidence-check --task phase-3.5
@@ -136,18 +136,11 @@ The check enforces complete status-specific fields without deciding whether indi
 manual, or skipped evidence is acceptable. When behaviors exist, the compact Run line and
 handoff packet include `evidence=<documented>/<declared>`.
 
-## Compact response line
+## Optional summaries
 
-Every turn-ending response places one deterministic line above the handoff:
-
-```text
-**Run:** task=phase-3.5 · gate=green@1 · loops=v0/i0 · retry=f0/u0 · cadence=4f/144Δ · tok=? · cache=?
-**Handoff:** Agent: resume from `SESSION_STATE.md` + Git · Chat: `npm run handoff -- chat-plan`
-```
-
-`?` means unavailable and `~` marks an estimate. If a task has not initialized telemetry,
-use `**Run:** task=<id> · telemetry=off`. Detailed event history stays in the local ledger;
-the handoff packet carries only the current compact summary.
+Use `npm run metrics -- summary --task <id>` when requested. No metrics or handoff
+footer is required in ordinary responses. Estimates must remain labeled; unavailable
+provider usage is not inferred from prose length.
 
 ## Review cycle
 

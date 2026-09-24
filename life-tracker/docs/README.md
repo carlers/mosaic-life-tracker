@@ -1,0 +1,19 @@
+# Documentation
+
+Read only the material needed for the current task. Code/configuration define current
+behavior; archived reports describe evidence at their recorded dates.
+
+| Concern | Source |
+|---|---|
+| Active task and next action | [Session checkpoint](SESSION_STATE.md) |
+| Delivered work and backlog | [Roadmap](PLAN.md) |
+| Local, cloud, connected chat, offline chat | [AI workflow](AI_WORKFLOW.md) |
+| CI, commits, Preview, device acceptance | [Delivery](DELIVERY.md) |
+| Focused tests and regression strategy | [Test workflow](TEST_WORKFLOW.md) |
+| Product and architecture contracts | [Project reference](PROJECT_REFERENCE.md) |
+| Accessibility evidence and manual protocol | [Accessibility review](ACCESSIBILITY_AUDIT.md) |
+| Tombstones and scheduled maintenance | [Retention procedure](TOMBSTONE_RETENTION.md) |
+| Optional measurements/evidence ledger | [Telemetry](WORKFLOW_TELEMETRY.md) |
+| Dated audit evidence and migrations | [Archive](archive/README.md) |
+
+[Project instructions](../AGENTS.md) remain the small agent entrypoint.

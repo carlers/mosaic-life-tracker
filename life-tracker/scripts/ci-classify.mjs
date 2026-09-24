@@ -6,6 +6,7 @@ const ZERO_SHA = /^0+$/;
 
 export function isDocsOnlyPath(file) {
   return (
+    file === 'AGENTS.md' ||
     /^life-tracker\/[^/]+\.md$/.test(file) ||
     file.startsWith('life-tracker/docs/')
   );

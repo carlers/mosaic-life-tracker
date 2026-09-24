@@ -6,10 +6,12 @@ on:
       - preview
       - 'chatgpt/**'
     paths:
+      - 'AGENTS.md'
       - 'life-tracker/**'
       - '.github/workflows/verify.yml'
   pull_request:
     paths:
+      - 'AGENTS.md'
       - 'life-tracker/**'
       - '.github/workflows/verify.yml'
   workflow_dispatch:

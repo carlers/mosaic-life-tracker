@@ -1,7 +1,41 @@
-# Preview deployment
+# Verification and Preview delivery
 
-Mosaic uses a stable hosted preview so phone testing does not depend on a developer laptop
-or a changing tunnel URL.
+## Authorized completion
+
+Commit only task paths (never blanket-stage unrelated edits), use a `chatgpt/**` task
+branch, and push after focused checks and diff review. Prefer one coherent commit; repair
+commits are appropriate when CI exposes a defect. Include `[verify:full]` on the final
+commit. Wait for that exact SHA's `canonical-acceptance`, then fast-forward `preview`
+to it and verify the Preview guard and Vercel deployment. No force push across divergence,
+no automatic main merge, and no unrelated remote service changes.
+
+If tools/network prevent a step, complete independent work and report the exact blocker.
+Do not ask for authorization already granted. Include commit SHA/subject, checks, and
+Preview status in the final result. Do not commit status-only prose after acceptance.
+
+## One CI workflow
+
+`.github/workflows/verify.yml` selects:
+
+| Mode | Trigger and work |
+|---|---|
+| Docs | Ordinary Markdown-only changes: contracts and diff checks, no dependency install |
+| Focused | Ordinary runtime pushes to `chatgpt/**`: contracts/discovery, changed existing-file ESLint, Git-aware related tests |
+| Full | Runtime PR, manual dispatch, or `[verify:full]`: checks (contracts/discovery/lint/unit/handlers), two DOM shards, build, two browser shards |
+| Preview guard | Preview push: requires prior successful canonical acceptance on the same SHA |
+
+A focused or docs-only green run is never acceptance for Preview. `[verify:browser]`
+requests intermediate browser coverage. Canonical jobs overlap; the build retains a fresh
+lockfile-driven npm ci. Other jobs reuse lockfile-keyed app dependencies with install
+fallback. Browser packages and Chromium are cached separately. Shards use one browser
+worker each. Preserve these gates and bounded concurrency settings.
+
+Run focused checks during edits. Use CI for final full acceptance when available; do not
+repeat a complete local suite just to duplicate the same gate. Without remote execution,
+`npm run verify` plus prepared browser contracts provides local evidence, but cannot
+authorize Preview without its canonical check. Manual device evidence remains separate.
+While CI runs, finish independent review; otherwise wait between status requests. Read
+full logs for failures or unusual stalls, not on every poll. Fix the actual failing layer.
 
 ## Provider and branch
 
