@@ -1,34 +1,37 @@
 # Session state
 
 Updated: 2026-09-24
-Current task: Adjacent-route content preload + Settings version/update progress + Me friends count + branch cleanup
-Status: implementation/deployment complete; GitHub branch deletion blocked by connector capability.
+Current task: Home task search with category/date filters and Day View navigation
+Status: planning approved; implementation starting on `chatgpt/home-task-search`.
 
 ## Active user prompt
 
-> ok good. next task: maybe we can lazy pre load either side of the mounted route so that u can see the content even while dragging. keep it optimized tho. also lets add version numbers in settings page, this one will be version 0.0.1. make check for updates loading state show more feedback instead of js showing the word "checking", so the user knows what stage it's in, if it found an update, is pulling it, downloading it, etc. and put the button above the delete user data  buttons. and change followers to friends in me page and actually reflect the number of freidns u have. cleanup github branches after,
+> put icons for tasks with memo or image so user can differentiate in the search. everything else approved. now go impelment it and be smart
+
+## Approved behavior
+
+- Add a Search icon beside the Home hamburger; tapping expands/focuses a Home-owned search bar.
+- Search stays on Home and covers the signed-in user's tasks only.
+- Search is local/offline over the existing live task/category data; do not add server search or a duplicate always-on subscription.
+- Match task titles case-insensitively; support multi-category filtering plus Any date / Today / This week / This month / custom range.
+- Results show task title, category/color, date, completion state, plus memo/image indicators when present.
+- No query + no filter renders a prompt instead of every task. Filters alone may return results.
+- Rank prefix matches before substring matches, with today/future dates ascending then past dates newest-first. Bound rendered results.
+- Tapping a result opens the existing DayViewSheet on that date and focuses/highlights that task.
+- Closing DayViewSheet by Back or downward header drag returns to the preserved search state.
+- Search close clears query/filters. DayView open/close preserves query, filters, and result scroll position.
+- Keep animations smooth, reduced-motion aware, and avoid per-keystroke DB/network work or per-frame React state.
 
 ## Progress
 
-1. **Done — recover Preview baseline and rules.** Started from Preview `591ad28745b2f1f91f329936aa56c2d7536137e4`; read current agent/session/roadmap/product/verification/deployment guidance.
-2. **Done — inspect route preview, PWA lifecycle, Settings, version metadata, and Me social stats.** Confirmed route code already had idle chunk prefetch but drag rendered shells; Settings used hard-coded `0.0.0` and generic `Checking…`; Me hard-coded Following/Followers counts.
-3. **Done — durable contracts + red regressions.** Verify #257 (`35958477790`) captured the intended pre-implementation failures: actual adjacent content was absent, release `0.0.1` was absent, Followers remained hard-coded, and new preload/version/progress contracts were missing.
-4. **Done — optimized adjacent content preload.** Both reachable neighbor chunks are selected and prefetched after idle (750ms delayed fallback when requestIdleCallback is unavailable). Hidden neighbor route trees are not mounted at startup. After gesture direction lock, only the directional React.lazy route mounts; Suspense keeps the lightweight shell as fallback. Chat conversation aggregation is warmed only after idle when Chat is an adjacent route. The existing swipe loop remains transform/CSS-variable based with no per-frame React state.
-5. **Done — Settings/version/update progress.** Package/app release metadata is `0.0.1`. Version + Check for Updates now appear before destructive data controls. Manual checks expose preparing → checking → update found/downloading → ready/current/unavailable stages; worker state listeners/timeouts clean themselves up and explicit **Update now** activation remains unchanged.
-6. **Done — Me friends statistic.** Followers is now Friends and reports accepted `friends.length` from the existing shared FriendsProvider, with no extra friendship subscription.
-7. **Done — focused/browser repair and evidence review.** Verify #258 (`35958675592`) passed browser contracts and every new task test; its only repository failure was two legacy LayoutPolish fixtures missing the newly consumed Friends hook. The repaired exact functional commit `7a6d04c271cf9448c10d6be277fcfcb40de3ca56` passed full task Verify #259 (`35958965813`): 92/92 Vitest files, 572/572 tests, production build/PWA/size guard, and 26/26 Playwright contracts.
-8. **Done — Preview rollout.** Preview moved to `7a6d04c271cf9448c10d6be277fcfcb40de3ca56`; Preview Verify #260 (`35959235074`) passed both full jobs and Vercel deployment `dpl_E512E9W2KDj6ncKSXqSquu7o2sS8` reached READY. This state-only closure commit changes no runtime files and receives one final full gate before Preview advances to the closure SHA.
-9. **Blocked — GitHub branch cleanup.** The connected GitHub toolset exposes branch create/search/move and GET-only REST fetches, but no delete-ref/delete-branch mutation, so it cannot actually remove branches. The cleanup scan found 17 AI-owned `chatgpt/**` branches: 14 are ancestors of/identical to current Preview and 3 are diverged abandoned branches. User authorization to clean them exists; the missing capability is the sole blocker. Required next: a GitHub surface with branch/ref deletion permission (for example the GitHub branch UI or an environment/tool exposing delete-ref). Preserve `main`, `preview`, and non-`chatgpt/**` branches.
+1. **Done — recover current Preview state and governing guidance.** Read AGENTS.md, SESSION_STATE.md, PLAN.md, REMOTE_VERIFY.md, relevant PROJECT_REFERENCE sections, and inspected Home/PersonPane/DayViewSheet/BottomSheet/route-swipe/task/category architecture.
+2. **Done — product alignment.** User approved the proposed UX/performance plan and added memo/image indicators to search results.
+3. **In progress — implement shared owner data + Home search surface.** Next: add search/filter/ranking helpers and Home UI without duplicate task/category subscriptions.
+4. **Pending — DayView deep-link/focus integration.**
+5. **Pending — regression tests and test-evidence review.**
+6. **Pending — focused verification, full acceptance gate, repair failures.**
+7. **Pending — move Preview to the exact full-green task commit and verify deployment/status.**
+8. **Pending — concise completion checkpoint.**
 
-## Test evidence review
-
-- `ROUTE-NEIGHBOR-CONTENT` — **added-red-green** via `tests/components/PrimaryRoutePreview.test.tsx`: #257 rendered the route shell instead of mocked actual Me content; #259 passes actual directional route content.
-- `ROUTE-TWO-SIDED-PREFETCH` — **structural-red → green** via `tests/unit/primaryRoutePreload.test.ts`: the preload-target helper did not exist at #257; #259 pins both reachable sides and one-sided edges.
-- `RELEASE-VERSION-001` — **structural/behavioral red → green** via `tests/unit/appVersion.test.ts` and `tests/components/SettingsPageRelease.test.tsx`: the version module was absent and Settings showed `0.0.0`; #259 aligns package/display metadata at `0.0.1`.
-- `UPDATE-PROGRESS` — **added-red-green** via `tests/unit/pwaLifecycle.test.ts` and `tests/components/SettingsPageRelease.test.tsx`: the old API had no progress stages; #259 pins preparing/checking/update-found/downloading/ready and visible Settings feedback.
-- `FRIENDS-STAT` — **added-red-green** via `tests/components/AccountPageSocialStats.test.tsx`: #257 still rendered Followers/0; #259 renders Friends from the shared accepted-friends list.
-- `UPDATE-PLACEMENT` — **added-red-green** via `tests/components/SettingsPageRelease.test.tsx`: #257 had version/update below destructive controls; #259 pins update controls before Delete All User Data.
-- Manual acceptance remains for subjective real-phone route-drag smoothness and confirming adjacent live route content appears promptly after idle prefetch. Automated contracts verify mount ownership and route interaction, not perceived device frame pacing.
-
-Roadmap pointer: primary-route performance/interaction + Settings release UX.
-Blockers: GitHub branch deletion capability only.
+Roadmap pointer: Home interaction/search enhancement.
+Blockers: none for this task. Historical GitHub branch deletion remains blocked by connector capability.
