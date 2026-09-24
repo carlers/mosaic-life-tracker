@@ -22,18 +22,21 @@ commit intent:
 - **Full:** runtime pull requests, manual dispatches, and an exact task commit whose message
   contains `[verify:full]` fan out after classification into six runner slots: one combined
   contracts/discovery/lint/unit/handler check, two Vitest DOM shards, the production
-  build/PWA/size gate, and two Playwright shards. The checks/build/DOM jobs use fresh
-  lockfile-driven `npm ci --prefer-offline --no-audit`. Browser shards reuse the task
-  branch's focused app `node_modules` cache when present, install/cache only pinned
-  Playwright/Axe packages under `tests/e2e`, and cache Chromium separately. Playwright
+  build/PWA/size gate, and two Playwright shards. The combined checks job performs the
+  one mandatory fresh lockfile-driven `npm ci --prefer-offline --no-audit`. DOM, build,
+  browser, and focused jobs restore the same lockfile-keyed app `node_modules` cache and
+  fall back to `npm ci` only on a miss, avoiding a redundant npm download-cache restore on
+  normal hits. Browser shards install/cache only pinned Playwright/Axe packages under
+  `tests/e2e` and cache Chromium separately. Playwright
   uses one worker per runner and `fullyParallel` test distribution across the two shards.
   A final `canonical-acceptance` job succeeds only when every required matrix job passed.
 - **Preview guard:** a `preview` push does not repeat those immutable-SHA tests. It checks
   GitHub's check runs and succeeds only when that exact SHA already has a successful
   `canonical-acceptance` check.
 
-All checkout jobs cap history at two commits; jobs that need an older push base fetch only
-that exact commit on demand. Sparse checkout limits the working tree to the workflow/project
+For explicit Preview, manual-dispatch, and `[verify:full]` events, the classifier resolves
+intent before checkout so canonical runners are released sooner. Other classification paths
+checkout at depth two; jobs that need an older push base fetch only that exact commit on demand. Sparse checkout limits the working tree to the workflow/project
 paths each job needs. Same-ref concurrency cancellation remains enabled, so a newer push
 kills superseded work.
 

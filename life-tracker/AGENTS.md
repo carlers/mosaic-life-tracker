@@ -151,9 +151,11 @@ before it could write or checkpoint.
   needed. Pull requests with runtime changes, manual dispatches, and exact task commits
   containing `[verify:full]` run the canonical gate as parallel checks
   (contracts/discovery/lint/unit/handlers), two DOM shards, production build, and two
-  browser-contract shards. Fresh lockfile-driven `npm ci` remains in the checks/build/DOM
-  jobs. Browser shards reuse the task branch's focused app-dependency cache when available,
-  keep their pinned Playwright/Axe packages isolated under `tests/e2e`, and cache Chromium.
+  browser-contract shards. The combined `checks` job retains a fresh lockfile-driven `npm ci` as the
+  reproducibility proof. Focused, DOM, build, and browser jobs restore the same immutable
+  lockfile-keyed app `node_modules` cache and fall back to `npm ci` on a miss; cache-hit jobs
+  do not also restore the npm download cache. Browser shards keep their pinned Playwright/Axe
+  packages isolated under `tests/e2e` and cache Chromium.
 - A full run produces one `canonical-acceptance` check only when every required parallel
   gate succeeds. A focused or docs-only green run is development feedback, not acceptance.
   The exact final task commit must have a green `canonical-acceptance` check before
