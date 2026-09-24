@@ -1,7 +1,23 @@
+import { readFileSync } from 'node:fs';
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
 import basicSsl from '@vitejs/plugin-basic-ssl';
+
+const packageJson = JSON.parse(
+  readFileSync(new URL('./package.json', import.meta.url), 'utf8')
+) as { version: string };
+
+const buildCommit = process.env.VERCEL_GIT_COMMIT_SHA?.trim() || '';
+const buildMessage = process.env.VERCEL_GIT_COMMIT_MESSAGE?.trim() || '';
+const buildRef = process.env.VERCEL_GIT_COMMIT_REF?.trim() || '';
+const vercelEnvironment = process.env.VERCEL_ENV?.trim() || '';
+const buildChannel =
+  buildRef === 'preview' || vercelEnvironment === 'preview'
+    ? 'Preview'
+    : vercelEnvironment === 'production'
+      ? 'Production'
+      : 'Local';
 
 const posthogSourceMapsEnabled =
   process.env.POSTHOG_SOURCE_MAPS_ENABLED === 'true' &&
@@ -30,6 +46,13 @@ const posthogSourceMapPlugin = posthog
   : null;
 
 export default defineConfig({
+  define: {
+    'import.meta.env.VITE_APP_BUILD_COMMIT': JSON.stringify(buildCommit),
+    'import.meta.env.VITE_APP_BUILD_MESSAGE': JSON.stringify(buildMessage),
+    'import.meta.env.VITE_APP_BUILD_TIME': JSON.stringify(new Date().toISOString()),
+    'import.meta.env.VITE_APP_BUILD_CHANNEL': JSON.stringify(buildChannel),
+    'import.meta.env.VITE_APP_VERSION': JSON.stringify(packageJson.version),
+  },
   plugins: [
     react(),
     basicSsl(),
