@@ -19,7 +19,8 @@
       "*.lock",
       "*.log",
       ".env*",
-      "repomix-output.xml"
+      "repomix-output.xml",
+      "docs/archive/**"
     ]
   }
 }
