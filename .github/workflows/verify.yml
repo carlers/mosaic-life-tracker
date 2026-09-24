@@ -195,7 +195,9 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 2
-          sparse-checkout: life-tracker
+          sparse-checkout: |
+            .github
+            life-tracker
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:

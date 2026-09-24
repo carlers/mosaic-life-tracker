@@ -2,7 +2,7 @@
 
 Updated: 2026-09-24
 Current task: CI workflow optimization + automatic Preview advancement
-Status: implementation and intermediate workflow validation complete; exact final commit is entering canonical acceptance.
+Status: full-gate repair in progress after the first parallel acceptance run exposed an over-narrow unit sparse checkout.
 
 ## Active user prompt
 
@@ -26,7 +26,7 @@ Status: implementation and intermediate workflow validation complete; exact fina
 3. **Done — establish the previous Home-search SHA as Preview baseline.** `preview` was fast-forwarded from `aad2355…` to the already full-green Home-search commit `551b706e6fdcb9a06c3489e5fa8dfd02e9efa46e`.
 4. **Done — implement CI optimization + focused validation.** Verify #274 (`35970512577`) used the new workflow on implementation commit `864b291137b381ca747edbb2678f555c5510af0a`: classifier chose focused mode, all unrelated full/Preview jobs skipped, project contracts and 96-file discovery passed, and the changed-test run passed 1/1 file with 6/6 CI-classifier tests. Focused verification covered 8 changed files.
 5. **Done — validate the live docs-only path.** Verify #275 (`35970646318`) classified the state-only checkpoint as docs mode; `docs-checks` passed while focused/full/browser/Preview jobs were skipped. No application dependency install, Vitest, production build, or browser contract ran.
-6. **In progress — run canonical full parallel acceptance.** This exact final commit removes the deprecated cache `save-always` inputs, keeps the successful cache behavior, and carries the final task checkpoint before `[verify:full]` acceptance.
+6. **In progress — repair and rerun canonical full parallel acceptance.** Verify #276 (`35970792199`) proved the fan-out: handler, static/lint, build/PWA/size, and DOM jobs passed independently; unit failed because its sparse checkout omitted `.github/workflows/verify.yml`, which an existing workflow contract test reads. The repair includes `.github` in the unit shard and updates that contract test from the retired serial workflow shape to the new docs/focused/full/parallel/Preview-guard contract. The superseded browser shard is allowed to cancel under same-ref concurrency; the repair run must revalidate every canonical shard.
 7. **Pending — fast-forward Preview to that exact green SHA and verify its prior-acceptance guard plus Vercel deployment.**
 8. **Pending — report measured/structural CI improvements.**
 
@@ -35,7 +35,7 @@ Status: implementation and intermediate workflow validation complete; exact fina
 - `CI-MODE-CLASSIFICATION` — **skipped red-state capture; current direct automated coverage**: `tests/unit/ciClassify.test.ts` pins docs-only, focused, explicit full, pull-request, Preview-guard, and explicit browser classification. Focused Verify #274 passed 6/6 classifier tests; no pre-implementation red was captured because the classifier and its first tests landed in the same implementation commit.
 - `CI-FOCUSED-PATH` — **operational workflow evidence**: Verify #274 selected `focused-checks` for the implementation push and skipped every unrelated canonical/Preview job.
 - `CI-DOCS-PATH` — **operational workflow evidence**: Verify #275 selected only `docs-checks` for a documentation-only push and passed project-contract + diff checks without dependency/test/build/browser work.
-- `CI-FULL-PARALLEL` — **pending acceptance** on this exact `[verify:full]` commit; expected required checks are static/lint, unit, handlers, DOM, build/PWA/size, browser, then `canonical-acceptance`.
+- `CI-FULL-PARALLEL` — **behavioral failure captured, repair pending**: Verify #276 fanned out all required jobs; handlers, static/lint, build/PWA/size, and DOM passed, while unit failed with `ENOENT .../.github/workflows/verify.yml` because that shard's sparse checkout excluded a file read by an existing workflow regression. The repaired unit checkout restores only `.github` plus `life-tracker`, not full history/worktree scope.
 - `CI-PREVIEW-GUARD` — **pending deployment evidence** after full-green acceptance; Preview must run only classifier + `preview-verified` and reuse the prior exact-SHA `canonical-acceptance` result.
 - No user-visible app behavior changed; real-device manual acceptance is not applicable to this workflow-only task.
 

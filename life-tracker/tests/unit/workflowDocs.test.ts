@@ -31,27 +31,75 @@ describe('test-evidence workflow documentation', () => {
   });
 });
 
-
 describe('GitHub verification latency contract', () => {
-  // Regression: task acceptance — browser contracts must not serialize behind the canonical gate.
+  // Regression: task acceptance — browser contracts must fan out with the other canonical gates.
   it('runs browser verification in parallel and caches prepared browser dependencies plus Chromium', () => {
     const verify = read('../.github/workflows/verify.yml');
-    const browserJob = verify.split('  browser-contract:')[1] ?? '';
+    const browserJob = (verify.split('  browser_contract:')[1] ?? '')
+      .split('  canonical_acceptance:')[0];
 
-    expect(browserJob).not.toMatch(/^\s+needs:\s*verify/m);
+    expect(browserJob).toContain('needs: classify');
+    expect(browserJob).not.toContain('static_checks');
+    expect(browserJob).not.toContain('unit_tests');
+    expect(browserJob).not.toContain('dom_tests');
     expect(browserJob).toContain('Cache prepared browser test dependencies');
     expect(browserJob).toContain('life-tracker/node_modules');
     expect(browserJob).toContain('~/.cache/ms-playwright');
     expect(browserJob).not.toContain('playwright install --with-deps chromium');
   });
 
-  it('keeps focused chatgpt pushes separate from final full verification', () => {
+  it('keeps docs, focused, and exact-SHA full verification distinct', () => {
     const verify = read('../.github/workflows/verify.yml');
+    expect(verify).toContain("needs.classify.outputs.mode == 'docs'");
+    expect(verify).toContain("needs.classify.outputs.mode == 'focused'");
+    expect(verify).toContain("needs.classify.outputs.mode == 'full'");
     expect(verify).toContain('Cache focused task dependencies');
-    expect(verify).toContain('node scripts/verify-focused.mjs HEAD^');
+    expect(verify).toContain('node scripts/verify-focused.mjs "$BASE"');
     expect(verify).toContain('[verify:full]');
     expect(verify).toContain('[verify:browser]');
-    expect(read('docs/REMOTE_VERIFY.md')).toContain('A focused green run is never acceptance');
+    expect(read('docs/REMOTE_VERIFY.md')).toContain(
+      'A focused or docs-only green run is never acceptance'
+    );
+  });
+
+  it('fans canonical work out and aggregates it into one acceptance check', () => {
+    const verify = read('../.github/workflows/verify.yml');
+    for (const job of [
+      'static_checks',
+      'unit_tests',
+      'handler_tests',
+      'dom_tests',
+      'build_check',
+      'browser_contract',
+    ]) {
+      const section = verify.split(`  ${job}:`)[1] ?? '';
+      expect(section).toContain('needs: classify');
+    }
+
+    const acceptance = verify.split('  canonical_acceptance:')[1] ?? '';
+    for (const dependency of [
+      'static_checks',
+      'unit_tests',
+      'handler_tests',
+      'dom_tests',
+      'build_check',
+      'browser_contract',
+    ]) {
+      expect(acceptance).toContain(`- ${dependency}`);
+    }
+    expect(acceptance).toContain('name: canonical-acceptance');
+  });
+
+  it('guards Preview with prior exact-SHA canonical acceptance instead of rerunning it', () => {
+    const verify = read('../.github/workflows/verify.yml');
+    const previewJob = (verify.split('  preview_verified:')[1] ?? '')
+      .split('  docs_checks:')[0];
+
+    expect(previewJob).toContain("github.ref == 'refs/heads/preview'");
+    expect(previewJob).toContain('check-runs?filter=all');
+    expect(previewJob).toContain('.name == "canonical-acceptance"');
+    expect(previewJob).not.toContain('npm ci');
+    expect(previewJob).not.toContain('npm run build');
   });
 
   it('does not retain the completed one-time hygiene job in the steady-state workflow', () => {
