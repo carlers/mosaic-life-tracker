@@ -44,15 +44,15 @@ jobs:
         run: |
           mode=""
           browser=""
-          if [[ "$CI_EVENT_NAME" == "push" && "$CI_REF" == "refs/heads/preview" ]]; then
-            mode="preview"
-            browser="false"
-          elif [[ "$CI_EVENT_NAME" == "workflow_dispatch" ]]; then
+          if [[ "$CI_EVENT_NAME" == "workflow_dispatch" ]]; then
             mode="full"
             browser="true"
           elif [[ "$CI_COMMIT_MESSAGE" == *"[verify:full]"* ]]; then
             mode="full"
             browser="true"
+          elif [[ "$CI_EVENT_NAME" == "push" && "$CI_REF" == "refs/heads/preview" ]]; then
+            mode="preview"
+            browser="false"
           fi
 
           if [[ -n "$mode" ]]; then
