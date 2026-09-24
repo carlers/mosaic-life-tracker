@@ -62,7 +62,11 @@ jobs:
           SHA: ${{ github.sha }}
         run: |
           count="$(
-            gh api               -H "Accept: application/vnd.github+json"               -H "X-GitHub-Api-Version: 2022-11-28"               "/repos/$REPO/commits/$SHA/check-runs?filter=all&per_page=100"               --jq '[.check_runs[] | select(.name == "canonical-acceptance" and .conclusion == "success")] | length'
+            gh api \
+              -H "Accept: application/vnd.github+json" \
+              -H "X-GitHub-Api-Version: 2022-11-28" \
+              "/repos/$REPO/commits/$SHA/check-runs?filter=all&per_page=100" \
+              --jq '[.check_runs[] | select(.name == "canonical-acceptance" and .conclusion == "success")] | length'
           )"
           if [ "$count" -lt 1 ]; then
             echo "Preview SHA $SHA has no successful canonical-acceptance check."
@@ -137,7 +141,6 @@ jobs:
         with:
           path: life-tracker/node_modules
           key: ${{ runner.os }}-node22-focused-modules-${{ hashFiles('life-tracker/package-lock.json') }}
-          save-always: true
       - name: Install dependencies on cache miss
         if: steps.focused-node-modules-cache.outputs.cache-hit != 'true'
         run: npm ci --prefer-offline --no-audit
@@ -309,7 +312,6 @@ jobs:
         with:
           path: life-tracker/node_modules
           key: ${{ runner.os }}-node22-browser-modules-${{ hashFiles('life-tracker/package-lock.json') }}-pw1.58.2-axe4.10.2
-          save-always: true
       - name: Prepare pinned browser-test dependencies on cache miss
         if: steps.browser-node-modules-cache.outputs.cache-hit != 'true'
         run: |
