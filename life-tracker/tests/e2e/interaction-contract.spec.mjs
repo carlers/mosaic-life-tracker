@@ -163,6 +163,12 @@ test('primary route swipe is direct-manipulation with Home and Me ownership rule
       return during?.x ?? before.x;
     })
     .toBeLessThan(before.x - 20);
+  await expect(page.getByTestId('primary-left-preview')).toBeVisible();
+  const previewBox = await page.getByTestId('primary-left-preview').boundingBox();
+  const harnessBox = await routeHarness.boundingBox();
+  if (!previewBox || !harnessBox) throw new Error('Missing adjacent route preview bounds');
+  expect(previewBox.x).toBeLessThan(harnessBox.x + harnessBox.width);
+  expect(previewBox.x + previewBox.width).toBeGreaterThan(harnessBox.x);
   await gesture.finish();
   await expect(page.getByTestId('primary-route')).toHaveText('explore');
 
@@ -181,6 +187,27 @@ test('primary route swipe is direct-manipulation with Home and Me ownership rule
 
   await drag(page, page.getByTestId('primary-page-lower-swipe-zone'), -220);
   await expect(page.getByTestId('primary-route')).toHaveText('settings');
+});
+
+
+
+// Regression: PROJECT_REFERENCE.md §2 — phone-sized Me owns horizontal gestures
+// throughout its content and Settings swipes right back to Me.
+test('phone route deck supports lower-page Me swipe and Settings right-back', async ({ page }) => {
+  await page.setViewportSize({ width: 360, height: 740 });
+  await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html`);
+
+  const routeHarness = page.getByTestId('primary-route-harness');
+  await routeHarness.scrollIntoViewIfNeeded();
+  await page.getByTestId('set-primary-account').click();
+
+  const lowerZone = page.getByTestId('primary-page-lower-swipe-zone');
+  await lowerZone.scrollIntoViewIfNeeded();
+  await drag(page, lowerZone, -220);
+  await expect(page.getByTestId('primary-route')).toHaveText('settings');
+
+  await drag(page, page.getByTestId('primary-page-lower-swipe-zone'), 220);
+  await expect(page.getByTestId('primary-route')).toHaveText('account');
 });
 
 // Regression: PROJECT_REFERENCE.md §2 — Todo active month is centered/natural-height

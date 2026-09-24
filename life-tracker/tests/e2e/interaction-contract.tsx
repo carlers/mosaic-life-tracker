@@ -302,6 +302,28 @@ export function InteractionHarness() {
           homeZoneOnly={primaryRoute === 'home'}
           canSwipeLeft={primaryRoute === 'home' || primaryRoute === 'explore' || primaryRoute === 'account'}
           canSwipeRight={primaryRoute === 'explore' || primaryRoute === 'account'}
+          leftPreview={
+            primaryRoute === 'home' ? (
+              <div data-testid="primary-left-preview" className="h-full bg-[#181818] p-4">
+                Explore preview
+              </div>
+            ) : primaryRoute === 'explore' ? (
+              <div data-testid="primary-left-preview" className="h-full bg-[#181818] p-4">
+                Me preview
+              </div>
+            ) : primaryRoute === 'account' ? (
+              <div data-testid="primary-left-preview" className="h-full bg-[#181818] p-4">
+                Settings preview
+              </div>
+            ) : null
+          }
+          rightPreview={
+            primaryRoute === 'explore' || primaryRoute === 'account' ? (
+              <div data-testid="primary-right-preview" className="h-full bg-[#181818] p-4">
+                Previous preview
+              </div>
+            ) : null
+          }
           onSwipe={(direction) => {
             if (primaryRoute === 'home' && direction === 'left') {
               setPrimaryRoute('explore');

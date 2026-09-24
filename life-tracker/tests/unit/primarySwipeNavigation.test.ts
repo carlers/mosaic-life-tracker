@@ -13,9 +13,10 @@ describe('resolvePrimarySwipeDestination', () => {
     expect(resolvePrimarySwipeDestination('/account', 'right')).toBe('/messages');
   });
 
-  it('does not route-swipe individual chats or secondary account pages', () => {
+  it('lets Settings swipe right back to Me but excludes other secondary/detail routes', () => {
+    expect(resolvePrimarySwipeDestination('/settings', 'right')).toBe('/account');
+    expect(resolvePrimarySwipeDestination('/settings', 'left')).toBeNull();
     expect(resolvePrimarySwipeDestination('/messages/friend_1', 'left')).toBeNull();
-    expect(resolvePrimarySwipeDestination('/settings', 'right')).toBeNull();
     expect(resolvePrimarySwipeDestination('/profile', 'left')).toBeNull();
   });
 });

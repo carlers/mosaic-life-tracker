@@ -33,7 +33,7 @@ function drag(target: Element, fromX: number, toX: number) {
 // Regression: PROJECT_REFERENCE.md §2 — primary route swipes are direct page gestures,
 // with Home restricted to its hamburger layer and Me left-swipe opening Settings.
 describe('MainLayout primary route swipes', () => {
-  it('ignores Home body swipes but accepts a left swipe from the hamburger layer', () => {
+  it('keeps Home full-height, ignores body swipes, and accepts the hamburger-layer swipe', () => {
     vi.useFakeTimers();
     const onRouteSwipe = vi.fn();
     render(
@@ -50,6 +50,11 @@ describe('MainLayout primary route swipes', () => {
           </div>
         </div>
       </MainLayout>
+    );
+
+    expect(screen.getByTestId('primary-route-swipe-surface')).toHaveClass(
+      'h-full',
+      'min-h-0'
     );
 
     drag(screen.getByTestId('home-body'), 300, 80);
@@ -102,4 +107,50 @@ describe('MainLayout primary route swipes', () => {
       'pb-[calc(4rem+env(safe-area-inset-bottom))]'
     );
   });
+
+  // Regression: PROJECT_REFERENCE.md §2 — an adjacent route becomes visible only for
+  // the active gesture; it must not mount during the initial critical render.
+  it('mounts only the directional destination preview during a live drag', () => {
+    vi.useFakeTimers();
+    const Preview = vi.fn(() => (
+      <div data-testid="left-route-preview">Next page</div>
+    ));
+
+    render(
+      <MainLayout
+        activeTab="explore"
+        onTabChange={() => {}}
+        canSwipeLeft
+        canSwipeRight
+        onRouteSwipe={() => {}}
+        leftPreview={<Preview />}
+        rightPreview={<div data-testid="right-route-preview">Previous page</div>}
+      >
+        <div data-testid="explore-body">Explore</div>
+      </MainLayout>
+    );
+
+    expect(screen.queryByTestId('left-route-preview')).toBeNull();
+    expect(screen.queryByTestId('right-route-preview')).toBeNull();
+    expect(Preview).not.toHaveBeenCalled();
+
+    fireEvent.pointerDown(screen.getByTestId('explore-body'), {
+      pointerId: 1,
+      pointerType: 'touch',
+      clientX: 300,
+      clientY: 100,
+      button: 0,
+    });
+    fireEvent.pointerMove(screen.getByTestId('explore-body'), {
+      pointerId: 1,
+      pointerType: 'touch',
+      clientX: 220,
+      clientY: 102,
+    });
+
+    expect(screen.getByTestId('left-route-preview')).toBeInTheDocument();
+    expect(screen.queryByTestId('right-route-preview')).toBeNull();
+    expect(Preview).toHaveBeenCalledTimes(1);
+  });
+
 });
