@@ -2,7 +2,7 @@
 
 Updated: 2026-09-24
 Current task: Home content regression + route swipe visual deck + Settings back swipe
-Status: in progress.
+Status: implementation complete; final acceptance gate pending.
 
 ## Active user prompt
 
@@ -19,10 +19,22 @@ Status: in progress.
 1. **Done — recover Preview baseline and current contracts.** Preview is `4258abd30a356be398901dec7cf13dc74c5eaccc`. Read current agent/session/roadmap/product/test workflow plus route-shell, Home, Me, Settings, and swipe implementation.
 2. **Done — root-cause pass.** Home lost a definite-height ancestor when the route swipe wrapper changed from `h-full` to `min-h-full`, so Home's absolutely-sized friend swiper can collapse below the friend carousel. Non-Home primary pages still own nested vertical scrollers, which keeps phone touch handling inside child scroll containers and contradicts whole-page gesture ownership. Current swipe code only translates the active page over an empty background, so no destination page can be visible during drag.
 3. **Done — update contracts + red regression coverage.** Verify #247 (`35953985241`) captured the intended reds: Home route surface lacked the definite `h-full/min-h-0` chain, the directional preview never mounted, Me still owned a nested full-page vertical scroller, and Settings right→Me was not mapped.
-4. **In progress — implement route swipe deck.** Added a compositor-only current/neighbor deck: per-move work is one rAF-batched CSS-variable write, React state changes only when the active drag direction changes, and a route-specific destination preview is attached to the exposed edge. Performance review tightened this further: the live preview is a lightweight noninteractive shell rather than another route tree; actual destination chunks are prefetched after first paint/idle and the real page mounts only after navigation. Focused Verify #249 caught one architecture lint issue because the preview component file also exported the preload helper; preload ownership is now split into a non-component module. Verify #251 then exposed the existing reset effect calling preview setState synchronously; route changes now key/remount the gesture surface by the exact pathname instead, eliminating that effect and correctly resetting Account↔Settings even though both share the Me tab. Horizontal clipping uses `overflow-x-clip` so the gesture wrapper does not become an accidental vertical scroll container, the preview paint/layout is contained with an explicit viewport-height preview frame, and primary-page entry fades were removed to avoid post-swipe/mount animation work. Because the live neighbor is now a shell, ConversationsProvider aggregation stays route-local instead of precomputing Chat conversations on Me/Alerts mount. Settings right→Me is mapped as history-back when possible, with a deep-link replace fallback.
-5. **In progress — fix Home/page scroll ownership.** Restored a definite Home height chain through MainLayout + PrimaryRouteSwipeSurface. Removed nested full-page vertical scrollers from Explore, Chat list, Me, and Settings so MainLayout owns mobile vertical scrolling and the horizontal route recognizer receives the full page.
-6. **Pending — focused/browser verification and performance review.** Verify held-finger adjacent-page visibility, mobile-sized lower-page Me swipe, Settings right→Me, Home body height/content visibility, no route-preview mount on initial render, and no new frame-loop React state.
-7. **Pending — final acceptance + Preview rollout.** Run exact-commit `[verify:full]`, move Preview only after green, confirm Vercel READY, and record remaining physical-device checks.
+4. **Done — implement route swipe deck.** The current page and a lightweight route-specific neighbor preview move together using compositor transforms. Per-move work is one rAF-batched CSS-variable write; React state changes only when the drag direction first locks or changes, never every frame. Destination chunks preload only after first paint/idle and the real destination page is not mounted during drag. Horizontal clipping avoids a second vertical scroll owner, preview paint/layout is contained, primary-page entry fades were removed, and Chat conversation aggregation remains route-local. Settings right→Me uses browser history when available with a deep-link replace fallback.
+5. **Done — fix Home/page scroll ownership.** Restored the definite full-height chain through MainLayout + PrimaryRouteSwipeSurface so Home content below the friend carousel has usable height again. Removed nested full-page vertical scrollers from Explore, Chat list, Me, and Settings so MainLayout owns mobile vertical scrolling and the horizontal recognizer receives the whole page.
+6. **Done — focused/browser verification and performance review.** Verify #253 (`35955113312`) passed focused verification (5 files / 11 tests) and all 26 Playwright browser contracts. Browser coverage includes held-drag neighbor visibility, phone-sized lower-page Me swipe, Settings right→Me, Home full-height gesture surface, 320px reflow, accessibility, and the pre-existing interaction contracts.
+7. **In progress — final acceptance + Preview rollout.** Run this docs-only closure commit through exact-commit `[verify:full]`; after green, move `preview` to that exact SHA, require Preview CI green again, and confirm the matching Vercel deployment is READY.
 
 Roadmap pointer: primary navigation interaction correction.
 Blockers: None.
+
+
+## Test evidence review
+
+- `HOME-CONTENT-HEIGHT` — **added-red-green**. Verify #247 captured the missing definite-height route surface; DOM coverage now pins Home's `h-full/min-h-0` chain, with browser coverage exercising the Home route gesture surface.
+- `ROUTE-DRAG-NEIGHBOR` — **added-red-green**. Verify #247 captured the absent directional neighbor; DOM and real-browser coverage now require the destination preview to remain unmounted before a gesture and become visibly attached while the finger is held.
+- `ME-PHONE-FULL-PAGE-SWIPE` — **added-red-green**. Verify #247 captured Me's nested `overflow-y-auto`; DOM coverage removes that nested owner and the 360×740 browser contract swipes from the lower Me page into Settings.
+- `SETTINGS-RIGHT-BACK` — **added-red-green**. Verify #247 captured the missing Settings mapping; unit/browser coverage now pins Settings right → Me.
+- `ROUTE-GESTURE-PERFORMANCE` — **existing-direct + structural checks**. The frame-critical path uses rAF only for a single CSS-variable write, transform-only motion, one lightweight preview shell, no per-frame React state, no full destination route mount during drag, and idle/fallback-delayed chunk preloading. Focused lint/tests and browser contracts are green; subjective 120 Hz smoothness still requires physical-device acceptance.
+- Manual-only acceptance remains for visual confirmation that Home content is restored on the hosted app and for physical-phone 120 Hz gesture feel across Home/Me/Settings. Automated browser contracts cannot establish subjective frame smoothness on the user's device.
+
+No judgment of overall suite sufficiency is made here.
