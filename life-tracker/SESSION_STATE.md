@@ -2,7 +2,7 @@
 
 Updated: 2026-09-24
 Current task: Large-screen content/sheet width settings and Settings child-page navigation
-Status: implementation started on `chatgpt/large-screen-layout-settings`.
+Status: implementation complete; exact final full acceptance in progress.
 
 ## Active user prompt
 
@@ -27,12 +27,25 @@ The user approved the immediately preceding design discussion:
 ## Progress
 
 1. **Done — recover rules and current implementation.** Read AGENTS.md, SESSION_STATE.md, PLAN.md, remote/test/preview workflow docs, PROJECT_REFERENCE §2/§7/§13, and current AppLayout/MainLayout/BottomSheet/Settings/Profile/appearance/swipe implementation.
-2. **In progress — add red regression coverage for Screen route, layout preferences, compact sheets, and Settings-child swipe navigation.**
-3. **Pending — implement synced display-width preferences and Screen page.**
-4. **Pending — implement global content-width and BottomSheet-width behavior.**
-5. **Pending — generalize parent-route swipe-back with live preview for Screen/Profile while preserving Settings→Me.**
-6. **Pending — focused verification, repair, evidence review, exact final full acceptance.**
+2. **Done — capture acceptance red.** Verify #304 (`35979312205`) failed exactly the new contracts: structural reds for missing ScreenSettingsPage/screenLayout modules plus behavioral reds for Screen routing, Comfortable route-frame width, Compact sheet width, and Profile/Screen right-swipe destinations. Existing assertions in those touched test files otherwise remained green.
+3. **Done — implement synced display-width preferences and Screen page.** Width modes share the existing AppearanceProvider/useSettings subscription, cache before bootstrap, and persist as settings keys.
+4. **Done — implement global content-width and BottomSheet-width behavior.** Comfortable constrains the entire route-swipe frame at `md:min(70vw,960px)`; Compact constrains the shared BottomSheet to 540px at `md`+ while phones remain full width.
+5. **Done — generalize parent-route swipe-back with live preview for Screen/Profile while preserving Settings→Me.** Parent navigation state uses history Back when a child was opened from its parent and replace-to-parent fallback for deep links. Existing primary sequence assertions are preserved.
+6. **In progress — exact final full acceptance.** Focused Verify #306 was an unrelated red before tests: the focused linter received the intentionally deleted legacy AppearanceSettingsSheet path and ESLint rejected the missing file. The dormant unreferenced file is restored so verification can proceed without widening this task into CI-tooling changes.
 7. **Pending — fast-forward Preview and verify Preview guard + Vercel; provide manual iPad/desktop/touch protocol.**
 
 Roadmap pointer: responsive layout / settings UX.
 Blockers: none.
+
+
+## Test evidence review
+
+- `SCREEN-PAGE` — **added-red-green pending final green**: #304 structural-red because `ScreenSettingsPage` did not exist; final implementation adds `/settings/screen` with Appearance, Content width, and Bottom sheets choices.
+- `SCREEN-LAYOUT-CACHE` — **added-red-green pending final green**: #304 structural-red because `screenLayout` did not exist; final implementation validates/caches both width modes and applies root layout data before React bootstrap.
+- `CONTENT-WIDTH` — **added-red-green pending final green**: #304 behavioral-red could not find the shared route width frame; Comfortable now centers that entire frame at `min(70vw,960px)` from `md` upward.
+- `SHEET-WIDTH` — **added-red-green pending final green**: #304 behavioral-red found no Compact classes; shared BottomSheet now centers at up to 540px from `md` upward while mobile stays full width.
+- `SCREEN-ROUTE` — **added-red-green pending final green**: #304 behavioral-red kept Screen in the old appearance dialog; Settings now navigates to the Screen child route.
+- `SETTINGS-CHILD-SWIPE` — **added-red-green pending final green**: #304 behavioral-red resolved Profile/Screen right swipes to null; both now resolve to Settings while left remains disabled.
+- `PRIMARY-SWIPE-SEQUENCE` — **existing-direct**: the original Home→Explore→Alerts→Chat→Me and Me↔Settings route assertions remain in `tests/unit/primarySwipeNavigation.test.ts`.
+- `LARGE-SCREEN-VISUAL-TOUCH` — **manual**: actual iPad/desktop centering, gutter feel, compact-sheet geometry, and real touch right-swipe direct manipulation require hosted Preview/device review.
+- Focused #306 is `unrelated-red`: no product assertion ran because ESLint rejected a deleted path supplied by the focused verifier. Final canonical acceptance is pending.
