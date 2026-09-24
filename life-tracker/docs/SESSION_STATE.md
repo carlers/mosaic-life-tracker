@@ -2,7 +2,7 @@
 
 Updated: 2026-09-24
 Current task: Establish Mosaic release-version and build-identity protocol
-Status: implementation complete; focused verification pending; Preview delivery follows the normal canonical gate.
+Status: implementation complete; final canonical verification is required after the build-metadata cleanup.
 Next action: run focused tests/contracts and diff checks, then commit with [verify:full], wait for canonical acceptance, fast-forward Preview, and verify deployment.
 Blockers: none.
 
