@@ -13,7 +13,7 @@
     "test:unit": "vitest run --project unit",
     "test:handlers": "vitest run --project handlers",
     "test:dom": "vitest run --project dom",
-    "test:browser-contract": "playwright test tests/e2e --reporter=line",
+    "test:browser-contract": "tests/e2e/node_modules/.bin/playwright test tests/e2e --config=playwright.config.mjs --reporter=line",
     "test:discovery": "node scripts/check-test-discovery.mjs",
     "test:benchmark": "node scripts/benchmark-tests.mjs",
     "test:red": "node scripts/check-test-red.mjs",
@@ -31,7 +31,8 @@
     "apply:start": "node apply-changes.mjs --start",
     "apply:rollback": "node apply-changes.mjs --rollback",
     "verify": "node scripts/verify.mjs",
-    "contracts:check": "node scripts/check-project-contracts.mjs"
+    "contracts:check": "node scripts/check-project-contracts.mjs",
+    "test:browser:prepare": "npm install --prefix tests/e2e --package-lock=false --no-audit --no-fund"
   },
   "dependencies": {
     "ajv": "^8.20.0",

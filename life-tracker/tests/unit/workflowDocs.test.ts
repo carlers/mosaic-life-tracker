@@ -33,18 +33,20 @@ describe('test-evidence workflow documentation', () => {
 
 describe('GitHub verification latency contract', () => {
   // Regression: task acceptance — browser contracts must fan out with the other canonical gates.
-  it('runs browser verification in parallel and caches prepared browser dependencies plus Chromium', () => {
+  it('runs browser verification in parallel and reuses app dependencies while isolating browser packages', () => {
     const verify = read('../.github/workflows/verify.yml');
     const browserJob = (verify.split('  browser_contract:')[1] ?? '')
       .split('  canonical_acceptance:')[0];
 
     expect(browserJob).toContain('needs: classify');
-    expect(browserJob).not.toContain('static_checks');
-    expect(browserJob).not.toContain('unit_tests');
-    expect(browserJob).not.toContain('dom_tests');
-    expect(browserJob).toContain('Cache prepared browser test dependencies');
-    expect(browserJob).toContain('life-tracker/node_modules');
+    expect(browserJob).toContain('shard:');
+    expect(browserJob).toContain('1/2');
+    expect(browserJob).toContain('2/2');
+    expect(browserJob).toContain('Restore app dependencies from focused cache');
+    expect(browserJob).toContain('focused-modules-');
+    expect(browserJob).toContain('life-tracker/tests/e2e/node_modules');
     expect(browserJob).toContain('~/.cache/ms-playwright');
+    expect(browserJob).toContain('npm run test:browser-contract -- --shard=');
     expect(browserJob).not.toContain('playwright install --with-deps chromium');
   });
 
@@ -67,9 +69,7 @@ describe('GitHub verification latency contract', () => {
   it('fans canonical work out and aggregates it into one acceptance check', () => {
     const verify = read('../.github/workflows/verify.yml');
     for (const job of [
-      'static_checks',
-      'unit_tests',
-      'handler_tests',
+      'checks',
       'dom_tests',
       'build_check',
       'browser_contract',
@@ -80,9 +80,7 @@ describe('GitHub verification latency contract', () => {
 
     const acceptance = verify.split('  canonical_acceptance:')[1] ?? '';
     for (const dependency of [
-      'static_checks',
-      'unit_tests',
-      'handler_tests',
+      'checks',
       'dom_tests',
       'build_check',
       'browser_contract',
@@ -127,10 +125,28 @@ describe('DOM and browser runtime optimization contract', () => {
 
   // Regression: task acceptance — browser contracts are isolated and may run concurrently,
   // but the worker pool stays bounded so Vite/Chromium do not oversubscribe the CI host.
-  it('runs Playwright tests fully parallel with a bounded CI worker pool', () => {
+  it('runs Playwright tests fully parallel across two one-worker CI shards', () => {
     const config = read('playwright.config.mjs');
+    const verify = read('../.github/workflows/verify.yml');
+    const browserJob = (verify.split('  browser_contract:')[1] ?? '')
+      .split('  canonical_acceptance:')[0];
 
     expect(config).toContain('fullyParallel: true');
-    expect(config).toContain('workers: process.env.CI ? 2 : undefined');
+    expect(config).toContain('workers: process.env.CI ? 1 : undefined');
+    expect(browserJob).toContain('1/2');
+    expect(browserJob).toContain('2/2');
+  });
+
+  it('combines short static and logic gates so DOM/browser shards are not runner-starved', () => {
+    const verify = read('../.github/workflows/verify.yml');
+    const checksJob = (verify.split('  checks:')[1] ?? '')
+      .split('  dom_tests:')[0];
+
+    expect(checksJob).toContain('npm run lint');
+    expect(checksJob).toContain('npm run test:unit');
+    expect(checksJob).toContain('npm run test:handlers');
+    expect(verify).not.toContain('\n  static_checks:');
+    expect(verify).not.toContain('\n  unit_tests:');
+    expect(verify).not.toContain('\n  handler_tests:');
   });
 });

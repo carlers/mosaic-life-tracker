@@ -240,9 +240,17 @@ critical-path wall time in two ways:
   `--shard=1/2` and `--shard=2/2`. Both matrix jobs must pass before
   `canonical-acceptance` can succeed. Vitest sharding partitions test files; it does not
   skip tests from the combined canonical run.
-- Playwright uses `fullyParallel: true` so independent tests inside the large interaction
-  contract file can run concurrently. CI is capped at two workers to match the two-core
-  GitHub-hosted runner class rather than oversubscribing Chromium and the Vite harness.
+- Playwright uses `fullyParallel: true` plus two GitHub Actions shards. Each shard uses
+  one Playwright worker, so browser parallelism comes from separate runners rather than
+  contending Chromium instances on the same two-core machine. The browser job restores the
+  task branch's focused app dependency cache when available and keeps the small pinned
+  Playwright/Axe dependency tree in `tests/e2e/node_modules`.
+- The formerly separate static/lint, unit, and handler jobs are one `checks` job. Their
+  combined runtime remains below the previous critical path while freeing runner capacity
+  so both DOM and browser shard pairs can start without starving one another.
+
+For a local browser-contract run, prepare the isolated browser packages once with
+`npm run test:browser:prepare`, then run `npm run test:browser-contract`.
 
 Keep these as bounded concurrency settings. If the hosted runner class or suite shape
 changes materially, benchmark before increasing shard/worker counts.

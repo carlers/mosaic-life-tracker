@@ -149,10 +149,11 @@ before it could write or checkpoint.
   application dependency tree. Ordinary `chatgpt/**` runtime pushes run the changed-file
   focused gate; add `[verify:browser]` only when an intermediate browser contract is
   needed. Pull requests with runtime changes, manual dispatches, and exact task commits
-  containing `[verify:full]` run the canonical gate as parallel static/lint, unit,
-  handler, DOM, production-build, and browser jobs. Each full job performs a fresh
-  lockfile-driven `npm ci`; npm downloads and the prepared browser dependency/Chromium
-  payloads remain cached.
+  containing `[verify:full]` run the canonical gate as parallel checks
+  (contracts/discovery/lint/unit/handlers), two DOM shards, production build, and two
+  browser-contract shards. Fresh lockfile-driven `npm ci` remains in the checks/build/DOM
+  jobs. Browser shards reuse the task branch's focused app-dependency cache when available,
+  keep their pinned Playwright/Axe packages isolated under `tests/e2e`, and cache Chromium.
 - A full run produces one `canonical-acceptance` check only when every required parallel
   gate succeeds. A focused or docs-only green run is development feedback, not acceptance.
   The exact final task commit must have a green `canonical-acceptance` check before

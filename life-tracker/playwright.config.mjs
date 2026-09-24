@@ -1,10 +1,8 @@
-import { defineConfig } from '@playwright/test';
-
-export default defineConfig({
-  // Browser contracts are isolated per test/page. Run tests within the large
-  // interaction-contract file concurrently instead of serializing the whole file.
+export default {
+  // Fully parallel mode lets Playwright distribute individual tests evenly between
+  // CI shards instead of being constrained by the large interaction-contract file.
   fullyParallel: true,
-  // GitHub's medium hosted runner exposes two cores. Using both cuts wall time
-  // without oversubscribing Chromium/Vite on CI; local runs keep Playwright's default.
-  workers: process.env.CI ? 2 : undefined,
-});
+  // Each browser shard gets its own GitHub runner; keep one worker per runner for
+  // deterministic CPU/memory use and let CI-level sharding provide the parallelism.
+  workers: process.env.CI ? 1 : undefined,
+};

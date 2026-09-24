@@ -149,12 +149,12 @@ jobs:
           BASE: ${{ needs.classify.outputs.base }}
         run: node scripts/verify-focused.mjs "$BASE"
 
-  static_checks:
-    name: static-checks
+  checks:
+    name: checks
     needs: classify
     if: ${{ needs.classify.outputs.mode == 'full' }}
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     defaults:
       run:
         working-directory: life-tracker
@@ -180,58 +180,8 @@ jobs:
         run: npm run test:discovery
       - name: Lint
         run: npm run lint
-
-  unit_tests:
-    name: unit-tests
-    needs: classify
-    if: ${{ needs.classify.outputs.mode == 'full' }}
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    defaults:
-      run:
-        working-directory: life-tracker
-    steps:
-      - name: Check out repository
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 2
-          sparse-checkout: |
-            .github
-            life-tracker
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-          cache-dependency-path: life-tracker/package-lock.json
-      - name: Install dependencies
-        run: npm ci --prefer-offline --no-audit
       - name: Run unit tests
         run: npm run test:unit
-
-  handler_tests:
-    name: handler-tests
-    needs: classify
-    if: ${{ needs.classify.outputs.mode == 'full' }}
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    defaults:
-      run:
-        working-directory: life-tracker
-    steps:
-      - name: Check out repository
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 2
-          sparse-checkout: life-tracker
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-          cache-dependency-path: life-tracker/package-lock.json
-      - name: Install dependencies
-        run: npm ci --prefer-offline --no-audit
       - name: Run handler tests
         run: npm run test:handlers
 
@@ -294,9 +244,15 @@ jobs:
         run: npm run build
 
   browser_contract:
-    name: browser-contract
+    name: browser-contract (${{ matrix.shard }})
     needs: classify
     if: ${{ needs.classify.outputs.mode == 'full' || needs.classify.outputs.browser == 'true' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        shard:
+          - 1/2
+          - 2/2
     runs-on: ubuntu-latest
     timeout-minutes: 15
     defaults:
@@ -314,17 +270,24 @@ jobs:
           node-version: 22
           cache: npm
           cache-dependency-path: life-tracker/package-lock.json
-      - name: Cache prepared browser test dependencies
-        id: browser-node-modules-cache
+      - name: Restore app dependencies from focused cache
+        id: browser-app-modules-cache
         uses: actions/cache@v4
         with:
           path: life-tracker/node_modules
-          key: ${{ runner.os }}-node22-browser-modules-${{ hashFiles('life-tracker/package-lock.json') }}-pw1.58.2-axe4.10.2
-      - name: Prepare pinned browser-test dependencies on cache miss
-        if: steps.browser-node-modules-cache.outputs.cache-hit != 'true'
-        run: |
-          npm ci --prefer-offline --no-audit
-          npm install --no-save --package-lock=false --no-audit @playwright/test@1.58.2 @axe-core/playwright@4.10.2
+          key: ${{ runner.os }}-node22-focused-modules-${{ hashFiles('life-tracker/package-lock.json') }}
+      - name: Install app dependencies on cache miss
+        if: steps.browser-app-modules-cache.outputs.cache-hit != 'true'
+        run: npm ci --prefer-offline --no-audit
+      - name: Cache pinned browser-test packages
+        id: browser-test-modules-cache
+        uses: actions/cache@v4
+        with:
+          path: life-tracker/tests/e2e/node_modules
+          key: ${{ runner.os }}-browser-test-modules-pw1.58.2-axe4.10.2
+      - name: Install pinned browser-test packages on cache miss
+        if: steps.browser-test-modules-cache.outputs.cache-hit != 'true'
+        run: npm run test:browser:prepare
       - name: Cache Playwright Chromium
         id: playwright-browser-cache
         uses: actions/cache@v4
@@ -333,7 +296,7 @@ jobs:
           key: ${{ runner.os }}-playwright-chromium-1.58.2
       - name: Install Chromium on cache miss
         if: steps.playwright-browser-cache.outputs.cache-hit != 'true'
-        run: npx playwright install chromium
+        run: tests/e2e/node_modules/.bin/playwright install chromium
       - name: Start local Mosaic
         env:
           VITE_POSTHOG_TOKEN: browser-contract-token
@@ -351,15 +314,13 @@ jobs:
       - name: Run repository browser contracts
         env:
           MOSAIC_E2E_BASE_URL: https://127.0.0.1:4173
-        run: npm run test:browser-contract
+        run: npm run test:browser-contract -- --shard="${{ matrix.shard }}"
 
   canonical_acceptance:
     name: canonical-acceptance
     needs:
       - classify
-      - static_checks
-      - unit_tests
-      - handler_tests
+      - checks
       - dom_tests
       - build_check
       - browser_contract
@@ -369,15 +330,13 @@ jobs:
     steps:
       - name: Confirm every canonical gate passed
         env:
-          STATIC_RESULT: ${{ needs.static_checks.result }}
-          UNIT_RESULT: ${{ needs.unit_tests.result }}
-          HANDLER_RESULT: ${{ needs.handler_tests.result }}
+          CHECKS_RESULT: ${{ needs.checks.result }}
           DOM_RESULT: ${{ needs.dom_tests.result }}
           BUILD_RESULT: ${{ needs.build_check.result }}
           BROWSER_RESULT: ${{ needs.browser_contract.result }}
         run: |
           failed=0
-          for result in "$STATIC_RESULT" "$UNIT_RESULT" "$HANDLER_RESULT" "$DOM_RESULT" "$BUILD_RESULT" "$BROWSER_RESULT"; do
+          for result in "$CHECKS_RESULT" "$DOM_RESULT" "$BUILD_RESULT" "$BROWSER_RESULT"; do
             if [ "$result" != "success" ]; then
               failed=1
             fi

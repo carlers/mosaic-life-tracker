@@ -20,11 +20,14 @@ commit intent:
   remains in place. Add `[verify:browser]` only when an intermediate real-browser check is
   specifically needed.
 - **Full:** runtime pull requests, manual dispatches, and an exact task commit whose message
-  contains `[verify:full]` fan out after classification into independent static/lint,
-  unit, handler, DOM, production build/PWA/size, and Playwright jobs. The non-browser jobs
-  each use a fresh lockfile-driven `npm ci --prefer-offline --no-audit` with the built-in
-  npm download cache; the browser job retains its prepared dependency and Chromium caches.
-  A final `canonical-acceptance` job succeeds only when every required parallel job passed.
+  contains `[verify:full]` fan out after classification into six runner slots: one combined
+  contracts/discovery/lint/unit/handler check, two Vitest DOM shards, the production
+  build/PWA/size gate, and two Playwright shards. The checks/build/DOM jobs use fresh
+  lockfile-driven `npm ci --prefer-offline --no-audit`. Browser shards reuse the task
+  branch's focused app `node_modules` cache when present, install/cache only pinned
+  Playwright/Axe packages under `tests/e2e`, and cache Chromium separately. Playwright
+  uses one worker per runner and `fullyParallel` test distribution across the two shards.
+  A final `canonical-acceptance` job succeeds only when every required matrix job passed.
 - **Preview guard:** a `preview` push does not repeat those immutable-SHA tests. It checks
   GitHub's check runs and succeeds only when that exact SHA already has a successful
   `canonical-acceptance` check.
