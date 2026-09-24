@@ -28,9 +28,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     outputs:
-      mode: ${{ steps.immediate.outputs.mode || steps.classify.outputs.mode }}
-      browser: ${{ steps.immediate.outputs.browser || steps.classify.outputs.browser }}
-      base: ${{ steps.classify.outputs.base }}
+      mode: ${{ steps.resolve.outputs.mode }}
+      browser: ${{ steps.resolve.outputs.browser }}
+      base: ${{ steps.resolve.outputs.base }}
     steps:
       - name: Detect immediate verification intent
         id: immediate
@@ -78,125 +78,19 @@ jobs:
           CI_BEFORE_SHA: ${{ github.event.before }}
           CI_PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
         run: node life-tracker/scripts/ci-classify.mjs
-
-  preview_verified:
-    name: preview-verified
-    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/preview' }}
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    steps:
-      - name: Require prior canonical acceptance for exact SHA
-        env:
-          GH_TOKEN: ${{ github.token }}
-          REPO: ${{ github.repository }}
-          SHA: ${{ github.sha }}
-        run: |
-          count="$(
-            gh api \
-              -H "Accept: application/vnd.github+json" \
-              -H "X-GitHub-Api-Version: 2022-11-28" \
-              "/repos/$REPO/commits/$SHA/check-runs?filter=all&per_page=100" \
-              --jq '[.check_runs[] | select(.name == "canonical-acceptance" and .conclusion == "success")] | length'
-          )"
-          if [ "$count" -lt 1 ]; then
-            echo "Preview SHA $SHA has no successful canonical-acceptance check."
-            exit 1
-          fi
-          echo "Preview SHA $SHA already passed canonical acceptance; duplicate full verification skipped."
-
-  docs_checks:
-    name: docs-checks
-    needs: classify
-    if: ${{ needs.classify.outputs.mode == 'docs' }}
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    defaults:
-      run:
-        working-directory: life-tracker
-    steps:
-      - name: Check out repository
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 2
-          sparse-checkout: |
-            .github
-            life-tracker
-      - name: Ensure diff base is available
-        env:
-          BASE: ${{ needs.classify.outputs.base }}
-        run: |
-          if ! git -C .. cat-file -e "$BASE^{commit}" 2>/dev/null; then
-            git -C .. fetch --no-tags --depth=1 origin "$BASE"
-          fi
-      - name: Check project contracts
-        run: npm run contracts:check
-      - name: Check documentation diff
-        env:
-          BASE: ${{ needs.classify.outputs.base }}
-        run: git -C .. diff --check "$BASE" HEAD
-
-  checks: read
-
-concurrency:
-  group: verify-${{ github.ref }}
-  cancel-in-progress: true
-
-jobs:
-  classify:
-    name: classify
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    outputs:
-      mode: ${{ steps.immediate.outputs.mode || steps.classify.outputs.mode }}
-      browser: ${{ steps.immediate.outputs.browser || steps.classify.outputs.browser }}
-      base: ${{ steps.classify.outputs.base }}
-    steps:
-      - name: Detect immediate verification intent
-        id: immediate
+      - name: Resolve classification outputs
+        id: resolve
         shell: bash
         env:
-          CI_EVENT_NAME: ${{ github.event_name }}
-          CI_REF: ${{ github.ref }}
-          CI_COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
+          IMMEDIATE_MODE: ${{ steps.immediate.outputs.mode }}
+          IMMEDIATE_BROWSER: ${{ steps.immediate.outputs.browser }}
+          CLASSIFIED_MODE: ${{ steps.classify.outputs.mode }}
+          CLASSIFIED_BROWSER: ${{ steps.classify.outputs.browser }}
+          CLASSIFIED_BASE: ${{ steps.classify.outputs.base }}
         run: |
-          mode=""
-          browser=""
-          if [[ "$CI_EVENT_NAME" == "push" && "$CI_REF" == "refs/heads/preview" ]]; then
-            mode="preview"
-            browser="false"
-          elif [[ "$CI_EVENT_NAME" == "workflow_dispatch" ]]; then
-            mode="full"
-            browser="true"
-          elif [[ "$CI_COMMIT_MESSAGE" == *"[verify:full]"* ]]; then
-            mode="full"
-            browser="true"
-          fi
-
-          if [[ -n "$mode" ]]; then
-            echo "immediate=true" >> "$GITHUB_OUTPUT"
-            echo "mode=$mode" >> "$GITHUB_OUTPUT"
-            echo "browser=$browser" >> "$GITHUB_OUTPUT"
-          else
-            echo "immediate=false" >> "$GITHUB_OUTPUT"
-          fi
-      - name: Check out repository
-        if: ${{ steps.immediate.outputs.immediate != 'true' }}
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 2
-          sparse-checkout: |
-            .github
-            life-tracker
-      - name: Classify verification mode
-        if: ${{ steps.immediate.outputs.immediate != 'true' }}
-        id: classify
-        env:
-          CI_EVENT_NAME: ${{ github.event_name }}
-          CI_REF: ${{ github.ref }}
-          CI_COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
-          CI_BEFORE_SHA: ${{ github.event.before }}
-          CI_PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
-        run: node life-tracker/scripts/ci-classify.mjs
+          echo "mode=${IMMEDIATE_MODE:-$CLASSIFIED_MODE}" >> "$GITHUB_OUTPUT"
+          echo "browser=${IMMEDIATE_BROWSER:-$CLASSIFIED_BROWSER}" >> "$GITHUB_OUTPUT"
+          echo "base=$CLASSIFIED_BASE" >> "$GITHUB_OUTPUT"
 
   preview_verified:
     name: preview-verified
@@ -282,8 +176,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: npm
-          cache-dependency-path: life-tracker/package-lock.json
       - name: Cache focused task dependencies
         id: focused-node-modules-cache
         uses: actions/cache@v4
