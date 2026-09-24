@@ -26,10 +26,10 @@ Status: planning approved; implementation starting on `chatgpt/home-task-search`
 
 1. **Done — recover current Preview state and governing guidance.** Read AGENTS.md, SESSION_STATE.md, PLAN.md, REMOTE_VERIFY.md, relevant PROJECT_REFERENCE sections, and inspected Home/PersonPane/DayViewSheet/BottomSheet/route-swipe/task/category architecture.
 2. **Done — product alignment.** User approved the proposed UX/performance plan and added memo/image indicators to search results.
-3. **In progress — implement shared owner data + Home search surface.** Next: add search/filter/ranking helpers and Home UI without duplicate task/category subscriptions.
-4. **Pending — DayView deep-link/focus integration.**
-5. **Pending — regression tests and test-evidence review.**
-6. **Pending — focused verification, full acceptance gate, repair failures.**
+3. **Done — add governing contract + regression specifications.** PROJECT_REFERENCE now pins owner-only local search, filters/ranking, bounded rendering, memo/image metadata icons, Day View return-state behavior, gesture exclusion, and motion/performance constraints. New unit/component regressions target those behaviors and are intentionally red before implementation.
+4. **In progress — capture pre-implementation red verification, then implement shared owner data + Home search surface.**
+5. **Pending — DayView deep-link/focus integration.**
+6. **Pending — test-evidence review, focused verification, full acceptance gate, and repair failures.**
 7. **Pending — move Preview to the exact full-green task commit and verify deployment/status.**
 8. **Pending — concise completion checkpoint.**
 
