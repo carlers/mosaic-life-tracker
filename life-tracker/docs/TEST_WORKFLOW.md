@@ -229,3 +229,20 @@ non-nested controls, removing the prior React warning.
 Three follow-up full runs covered 423 tests and measured 44.02s, 43.21s, and 43.00s wall
 time (43.21s median). The small timing gain is secondary to quieter output, complete
 coverage, and preserving per-test database isolation.
+
+
+### 2026-09-24 canonical DOM/browser parallelism
+
+The canonical remote gate keeps the same DOM and browser assertions while reducing their
+critical-path wall time in two ways:
+
+- The `dom` Vitest project is split into two GitHub Actions shards with
+  `--shard=1/2` and `--shard=2/2`. Both matrix jobs must pass before
+  `canonical-acceptance` can succeed. Vitest sharding partitions test files; it does not
+  skip tests from the combined canonical run.
+- Playwright uses `fullyParallel: true` so independent tests inside the large interaction
+  contract file can run concurrently. CI is capped at two workers to match the two-core
+  GitHub-hosted runner class rather than oversubscribing Chromium and the Vite harness.
+
+Keep these as bounded concurrency settings. If the hosted runner class or suite shape
+changes materially, benchmark before increasing shard/worker counts.

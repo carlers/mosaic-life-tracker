@@ -19,10 +19,10 @@ Status: profiling and optimization in progress on `chatgpt/optimize-dom-browser-
 ## Progress
 
 1. **Done — recover current Preview baseline and governing workflow rules.** Read AGENTS.md, SESSION_STATE.md, PLAN.md, REMOTE_VERIFY.md, TEST_WORKFLOW.md, PREVIEW_DEPLOYMENT.md, Verify workflow, Vitest project config, and package scripts.
-2. **In progress — profile DOM and browser execution to locate the real hot spots and safe parallelism opportunities.**
-3. **Pending — add/adjust regression contracts for runner configuration where needed.**
-4. **Pending — implement the smallest safe runtime optimizations and run focused measurements.**
-5. **Pending — run exact final `[verify:full]`, compare shard/full wall times to baseline, repair any failures.**
+2. **Done — profile DOM and browser execution.** Baseline final Verify #281 showed the DOM project at 54 files / 209 tests / 50.98s Vitest duration; the heaviest files included `DayViewSheetRegression` (~9.6s) and `TodoListView` (~5.4s). Playwright ran 27 tests on one worker in 57.7s. All browser specs use isolated Playwright pages/contexts and no shared mutable backend fixture.
+3. **Done — capture regression red.** Focused Verify #284 (`35973206325`) failed only the two new workflow-performance assertions: DOM lacked a matrix `strategy`, and `playwright.config.mjs` was absent. The other 7 workflow-contract assertions remained green.
+4. **Done — implement bounded parallelism.** Canonical DOM is split across two Vitest file shards; Playwright uses `fullyParallel: true` with two CI workers. Two workers matches Playwright's documented two-core GitHub Actions medium runner guidance; local runs keep the default worker count. No application/runtime code or test assertions were removed.
+5. **In progress — exact final `[verify:full]` benchmark/acceptance.** Compare both DOM shard times, Playwright duration, and overall gate wall time against Verify #281; repair any isolation/flakiness or imbalance before Preview moves.
 6. **Pending — fast-forward Preview to the exact canonical-green SHA and verify deployment/Preview guard.**
 
 Roadmap pointer: developer workflow / CI latency.

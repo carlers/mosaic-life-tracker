@@ -236,9 +236,15 @@ jobs:
         run: npm run test:handlers
 
   dom_tests:
-    name: dom-tests
+    name: dom-tests (${{ matrix.shard }})
     needs: classify
     if: ${{ needs.classify.outputs.mode == 'full' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        shard:
+          - 1/2
+          - 2/2
     runs-on: ubuntu-latest
     timeout-minutes: 20
     defaults:
@@ -259,7 +265,7 @@ jobs:
       - name: Install dependencies
         run: npm ci --prefer-offline --no-audit
       - name: Run DOM tests
-        run: npm run test:dom
+        run: npm run test:dom -- --shard="${{ matrix.shard }}"
 
   build_check:
     name: build

@@ -131,6 +131,6 @@ describe('DOM and browser runtime optimization contract', () => {
     const config = read('playwright.config.mjs');
 
     expect(config).toContain('fullyParallel: true');
-    expect(config).toContain('workers: process.env.CI ? 4 : undefined');
+    expect(config).toContain('workers: process.env.CI ? 2 : undefined');
   });
 });
