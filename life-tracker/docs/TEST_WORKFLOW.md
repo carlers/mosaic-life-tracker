@@ -191,6 +191,6 @@ Use at least three runs for decisions; a one-run command is only a smoke test. G
 results are console output and are not committed.
 
 
-Historical timings and assertion maps are in the [archive](archive/README.md).
+Historical timings and assertion maps remain available in Git history.
 The 2026-09-24 test consolidation delivered 594 Vitest cases / 93 files and 23 browser
 contracts; tooling changes may add cases. Use discovery and runner output for current totals.
