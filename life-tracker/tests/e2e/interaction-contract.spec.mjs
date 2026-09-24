@@ -364,6 +364,39 @@ test('message send keeps composer focus without an intermediate blur', async ({ 
   await expect(page.getByTestId('composer-blur-count')).toHaveText('0');
 });
 
+// Regression: PROJECT_REFERENCE.md §2 — Home task search stays mounted beneath
+// Day View so native Back restores the exact query/filter state. The existing
+// Day View browser contract below separately verifies downward drag-to-close.
+test('home task search survives result-sheet Back with state preserved', async ({ page }) => {
+  await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html`);
+
+  const harness = page.getByTestId('home-search-harness');
+  await harness.scrollIntoViewIfNeeded();
+  await harness.getByRole('button', { name: 'Search tasks' }).click();
+
+  const input = harness.getByRole('searchbox', { name: 'Search my tasks' });
+  await input.fill('Task 1');
+  await harness.getByRole('button', { name: 'Category 1' }).click();
+  await harness.getByRole('button', { name: 'Today' }).click();
+
+  const result = harness.getByRole('button', { name: 'Open task Task 1.1 on Tue, Sep 15, 2026' });
+  await expect(result).toBeVisible();
+  await result.click();
+
+  const dialog = page.getByRole('dialog', { name: 'Search result day' });
+  await expect(dialog).toBeVisible();
+  await page.goBack();
+  await expect(dialog).toHaveCount(0);
+  await expect(input).toHaveValue('Task 1');
+  await expect(
+    harness.getByRole('button', { name: 'Category 1' })
+  ).toHaveAttribute('aria-pressed', 'true');
+  await expect(
+    harness.getByRole('button', { name: 'Today' })
+  ).toHaveAttribute('aria-pressed', 'true');
+  await expect(result).toBeVisible();
+});
+
 // Regression: PROJECT_REFERENCE.md §2 — real DaySlide exposes memo text and owner multi-tap shortcuts.
 test('owner task memo is visible and double/triple tap shortcuts reach edit surfaces', async ({ page }) => {
   await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html`);

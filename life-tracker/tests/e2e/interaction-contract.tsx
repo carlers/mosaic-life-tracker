@@ -9,6 +9,7 @@ import { CalendarCarousel } from '../../src/components/home/views/CalendarCarous
 import { TodoCalendarGrid } from '../../src/components/home/views/TodoCalendarGrid';
 import { DaySlide } from '../../src/components/home/views/DaySlide';
 import { BottomSheet } from '../../src/components/ui/BottomSheet';
+import { HomeTaskSearch } from '../../src/components/home/HomeTaskSearch';
 import { MessageComposer } from '../../src/components/messages/MessageComposer';
 import type { CategoryDocument, TaskDocument } from '../../src/db/schema';
 import { useCalendarState } from '../../src/components/home/views/useCalendarState';
@@ -22,6 +23,9 @@ export function InteractionHarness() {
   const [todoDayIndex, setTodoDayIndex] = useState(0);
   const [todoGesture, setTodoGesture] = useState('idle');
   const [fullSheetOpen, setFullSheetOpen] = useState(false);
+  const [homeSearchOpen, setHomeSearchOpen] = useState(false);
+  const [searchResultSheetOpen, setSearchResultSheetOpen] = useState(false);
+  const [selectedSearchTask, setSelectedSearchTask] = useState<TaskDocument | null>(null);
   const [sheetDayIndex, setSheetDayIndex] = useState(0);
   const sheetSwiperRef = useRef<SwiperClass | null>(null);
   const [todoMonth, setTodoMonth] = useState(() => new Date(2026, 8, 15));
@@ -226,6 +230,41 @@ export function InteractionHarness() {
           onEditCancel={() => {}}
         />
       </div>
+
+      <div
+        data-testid="home-search-harness"
+        className="relative mb-3 min-h-14 border border-[#333333]"
+      >
+        <HomeTaskSearch
+          isOpen={homeSearchOpen}
+          tasks={todoTasks}
+          categories={todoCategories}
+          now={new Date(2026, 8, 15, 12)}
+          onOpen={() => setHomeSearchOpen(true)}
+          onClose={() => setHomeSearchOpen(false)}
+          onSelectTask={(task) => {
+            setSelectedSearchTask(task);
+            setSearchResultSheetOpen(true);
+          }}
+          trailing={<button type="button" className="px-2 py-1">Menu</button>}
+        />
+      </div>
+      <BottomSheet
+        isOpen={searchResultSheetOpen}
+        onClose={() => setSearchResultSheetOpen(false)}
+        ariaLabel="Search result day"
+        height="full"
+        contentMode="fixed"
+      >
+        <div className="flex h-full flex-col">
+          <div className="shrink-0 p-4 text-center">
+            Search result day
+          </div>
+          <div className="px-4">
+            {selectedSearchTask?.title ?? 'No task selected'}
+          </div>
+        </div>
+      </BottomSheet>
 
       <button
         type="button"
