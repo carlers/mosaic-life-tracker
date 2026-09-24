@@ -705,8 +705,7 @@ A budget failure requires graph inspection and either a size fix or a documented
 to accept the growth before changing the baseline/limit. Never raise a threshold solely
 to make verification pass. `npm run build:size` checks an existing `dist/`; the diagnostic
 `scripts/audit-bundle.mjs` remains the source for static-closure and package attribution.
-The exact baseline, limits, exclusions, and refresh protocol live in
-`docs/archive/BUNDLE_AUDIT.md`.
+The current baseline and limits live in `config/build-size-budget.json`; historical audit details remain available in Git history.
 
 
 ### 24.15 PostHog error tracking and feature flags
@@ -777,4 +776,4 @@ production source-map symbolication.
 ## 25. Workflow Portability and History
 
 [AI workflow](AI_WORKFLOW.md) owns the current process. Historical decisions are in
-[project history](archive/PROJECT_HISTORY.md); Git retains earlier instruction versions.
+Git retains the historical project decisions and earlier instruction versions.
