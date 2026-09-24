@@ -2,7 +2,7 @@
 
 Updated: 2026-09-24
 Current task: Correct Vercel automatic-deployment configuration
-Status: implementation complete; final canonical verification is required.
+Status: implementation complete; final canonical verification is required via the `[verify:full]` gate.
 Next action: run focused contract/diff checks, commit with [verify:full], wait for canonical acceptance, fast-forward Preview, and verify deployment.
 Blockers: Vercel deployment status must be verified externally after the accepted SHA is published.
 
