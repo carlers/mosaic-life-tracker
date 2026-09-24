@@ -11,7 +11,7 @@ describe('CI verification mode classifier', () => {
     expect(isDocsOnlyPath('life-tracker/docs/SESSION_STATE.md')).toBe(true);
     expect(isDocsOnlyPath('life-tracker/docs/DELIVERY.md')).toBe(true);
     expect(isDocsOnlyPath('life-tracker/src/App.tsx')).toBe(false);
-    expect(isDocsOnlyPath('.github/workflows/verify.yml')).toBe(false);
+    expect(isDocsOnlyPath('.github/workflows/quality-gate.yml')).toBe(false);
   });
 
   it('uses the lightweight docs gate for ordinary docs-only task pushes', () => {
@@ -48,32 +48,26 @@ describe('CI verification mode classifier', () => {
     ).toEqual({ mode: 'full', browser: true });
   });
 
-  it('keeps pull requests full unless every changed path is documentation-only', () => {
+  it('keeps stable branch pull requests on the full canonical gate', () => {
     expect(
       classifyVerifyMode({
         eventName: 'pull_request',
         ref: 'refs/pull/1/merge',
+        headRef: 'feature/calendar',
         changedFiles: ['life-tracker/src/App.tsx'],
       })
     ).toEqual({ mode: 'full', browser: true });
+  });
 
+  it('keeps docs-only optimization and browser overrides on AI branches', () => {
     expect(
       classifyVerifyMode({
         eventName: 'pull_request',
         ref: 'refs/pull/1/merge',
+        headRef: 'chatgpt/docs',
         changedFiles: ['life-tracker/docs/TEST_WORKFLOW.md'],
       })
     ).toEqual({ mode: 'docs', browser: false });
-  });
-
-  it('turns preview pushes into a guard-only run and preserves explicit browser checks', () => {
-    expect(
-      classifyVerifyMode({
-        eventName: 'push',
-        ref: 'refs/heads/preview',
-        changedFiles: ['life-tracker/src/App.tsx'],
-      })
-    ).toEqual({ mode: 'preview', browser: false });
 
     expect(
       classifyVerifyMode({
@@ -83,5 +77,15 @@ describe('CI verification mode classifier', () => {
         changedFiles: ['life-tracker/src/App.tsx'],
       })
     ).toEqual({ mode: 'focused', browser: true });
+  });
+
+  it('uses focused verification for both AI branch families', () => {
+    expect(
+      classifyVerifyMode({
+        eventName: 'push',
+        ref: 'refs/heads/codex/runtime',
+        changedFiles: ['life-tracker/src/App.tsx'],
+      })
+    ).toEqual({ mode: 'focused', browser: false });
   });
 });
