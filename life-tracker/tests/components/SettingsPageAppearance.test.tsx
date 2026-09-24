@@ -1,11 +1,7 @@
 import React from 'react';
 import { fireEvent, render, screen } from '@testing-library/react';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { describe, expect, it, vi } from 'vitest';
-
-const appearanceMocks = vi.hoisted(() => ({
-  setAppearanceMode: vi.fn().mockResolvedValue(undefined),
-}));
 
 vi.mock('../../src/hooks/useAuth', () => ({
   useAuth: () => ({
@@ -20,7 +16,11 @@ vi.mock('../../src/hooks/useAppearance', () => ({
   useAppearance: () => ({
     mode: 'system',
     resolvedTheme: 'dark',
-    setAppearanceMode: appearanceMocks.setAppearanceMode,
+    setAppearanceMode: vi.fn().mockResolvedValue(undefined),
+    contentWidthMode: 'full',
+    sheetWidthMode: 'full',
+    setContentWidthMode: vi.fn().mockResolvedValue(undefined),
+    setSheetWidthMode: vi.fn().mockResolvedValue(undefined),
   }),
 }));
 vi.mock('../../src/db/database', () => ({
@@ -34,24 +34,21 @@ vi.mock('../../src/components/modals/SyncStatusSheet', () => ({ SyncStatusSheet:
 
 import { SettingsPage } from '../../src/pages/SettingsPage';
 
-describe('SettingsPage appearance', () => {
-  // Regression: PROJECT_REFERENCE.md §2 — Settings exposes all four functional appearance choices.
-  it('opens Screen appearance controls and applies the selected mode', async () => {
+describe('SettingsPage screen navigation', () => {
+  // Regression: task acceptance — Screen is a real Settings child page, not a BottomSheet.
+  it('opens the Screen route instead of an appearance dialog', () => {
     render(
-      <MemoryRouter>
-        <SettingsPage />
+      <MemoryRouter initialEntries={['/settings']}>
+        <Routes>
+          <Route path="/settings" element={<SettingsPage />} />
+          <Route path="/settings/screen" element={<div>Screen settings route</div>} />
+        </Routes>
       </MemoryRouter>
     );
 
     fireEvent.click(screen.getByRole('button', { name: /Screen/i }));
 
-    expect(screen.getByRole('dialog', { name: 'Appearance' })).toBeInTheDocument();
-    expect(await screen.findByRole('radio', { name: /^System/ })).toBeInTheDocument();
-    expect(screen.getByRole('radio', { name: /^Dark/ })).toBeInTheDocument();
-    expect(screen.getByRole('radio', { name: /^Light/ })).toBeInTheDocument();
-    expect(screen.getByRole('radio', { name: /^Black/ })).toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole('radio', { name: /^Light/ }));
-    expect(appearanceMocks.setAppearanceMode).toHaveBeenCalledWith('light');
+    expect(screen.getByText('Screen settings route')).toBeInTheDocument();
+    expect(screen.queryByRole('dialog', { name: 'Appearance' })).toBeNull();
   });
 });

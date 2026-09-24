@@ -7,6 +7,7 @@ vi.mock('../../src/components/layout/BottomNav', () => ({
 }));
 
 import { MainLayout } from '../../src/components/layout/MainLayout';
+import { AppearanceContext } from '../../src/hooks/appearanceContext';
 
 function drag(target: Element, fromX: number, toX: number) {
   fireEvent.pointerDown(target, {
@@ -151,6 +152,40 @@ describe('MainLayout primary route swipes', () => {
     expect(screen.getByTestId('left-route-preview')).toBeInTheDocument();
     expect(screen.queryByTestId('right-route-preview')).toBeNull();
     expect(Preview).toHaveBeenCalledTimes(1);
+  });
+
+  // Regression: task acceptance — Comfortable content width constrains the shared route surface,
+  // not individual pages, so live swipe previews stay attached inside the same centered frame.
+  it('constrains the shared route frame in Comfortable mode on larger screens', () => {
+    render(
+      <AppearanceContext.Provider
+        value={{
+          mode: 'system',
+          resolvedTheme: 'dark',
+          setAppearanceMode: vi.fn().mockResolvedValue(undefined),
+          contentWidthMode: 'comfortable',
+          sheetWidthMode: 'full',
+          setContentWidthMode: vi.fn().mockResolvedValue(undefined),
+          setSheetWidthMode: vi.fn().mockResolvedValue(undefined),
+        }}
+      >
+        <MainLayout
+          activeTab="explore"
+          onTabChange={() => {}}
+          canSwipeLeft
+          canSwipeRight
+          onRouteSwipe={() => {}}
+        >
+          <div>Explore body</div>
+        </MainLayout>
+      </AppearanceContext.Provider>
+    );
+
+    expect(screen.getByTestId('primary-route-width-frame')).toHaveClass(
+      'w-full',
+      'md:w-[min(70vw,960px)]',
+      'md:mx-auto'
+    );
   });
 
 });
