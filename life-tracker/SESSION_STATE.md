@@ -30,9 +30,7 @@ Status: planning approved; implementation starting on `chatgpt/home-task-search`
 4. **Done — pre-implementation regression checkpoint.** Commit `1dc3c5d475b54be17ed812900905ff5afc716710` contains the new contract and tests before implementation; the new module imports are intentionally unresolved at that checkpoint (structural red).
 5. **Done — implement optimized Home search + shared owner data.** Home owns the single live owner task/category subscriptions and passes them into PersonPane/Calendar DayView/Todo/search DayView. Search uses deferred in-memory title matching, multi-category/date filters, deterministic ranking, a 50-row render cap, lightweight memo/image metadata icons, loading/empty/result feedback, route-gesture exclusion, and reduced-motion-aware header/panel motion.
 6. **Done — DayView deep-link/focus integration.** Search selection opens a freshly anchored DayViewSheet for arbitrary task dates using the shared arrays; DayView read subscriptions are disabled when overrides are supplied. The matched task scrolls into view and receives a temporary non-layout-shifting highlight. Back/downward dismissal leaves the search component mounted with query/filter/result-scroll state intact.
-7. **In progress — full verification and failure repair.**
-8. **Pending — move Preview to the exact full-green task commit and verify deployment/status.**
-9. **Pending — concise completion checkpoint.**
+7. **In progress — full verification and failure repair.** Full Verify #265 (`35965872293`) passed browser-contract but repository verify failed only in two legacy `PersonPaneViewSwitcher` cases because direct test renders omitted the new owner-array props. The boundary is repaired by making those shared-array props optional with empty defaults; existing direct component consumers remain valid while Home still supplies the live owner arrays.
 8. **Pending — move Preview to the exact full-green task commit and verify deployment/status.**
 9. **Pending — concise completion checkpoint.**
 

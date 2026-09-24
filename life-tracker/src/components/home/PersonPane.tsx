@@ -16,8 +16,8 @@ import type { CategoryDocument, TaskDocument } from '../../db/schema';
 interface PersonPaneProps {
   person: CarouselPerson;
   isActive: boolean;
-  ownerTasks: TaskDocument[];
-  ownerCategories: CategoryDocument[];
+  ownerTasks?: TaskDocument[];
+  ownerCategories?: CategoryDocument[];
 }
 
 const FRIEND_REFETCH_MIN_INTERVAL_MS = 15_000;
@@ -34,8 +34,8 @@ function readMeView(): ViewType {
 export const PersonPane: React.FC<PersonPaneProps> = ({
   person,
   isActive,
-  ownerTasks,
-  ownerCategories,
+  ownerTasks = [],
+  ownerCategories = [],
 }) => {
   const { user } = useAuth();
   const currentUserId = user?.$id ?? '';
