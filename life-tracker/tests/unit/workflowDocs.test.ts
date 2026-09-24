@@ -150,3 +150,54 @@ describe('DOM and browser runtime optimization contract', () => {
     expect(verify).not.toContain('\n  handler_tests:');
   });
 });
+
+
+describe('canonical startup optimization contract', () => {
+  // Regression: task acceptance — exact full commits should avoid the repository
+  // checkout inside the classifier when their verification intent is already explicit.
+  it('short-circuits classifier checkout for explicit full verification intent', () => {
+    const verify = read('../.github/workflows/verify.yml');
+    const classifyJob = (verify.split('\n  classify:\n')[1] ?? '')
+      .split('\n  preview_verified:')[0];
+
+    expect(classifyJob).toContain('Detect immediate verification intent');
+    expect(classifyJob).toContain("steps.immediate.outputs.immediate != 'true'");
+    expect(classifyJob).toContain('[verify:full]');
+  });
+
+  // Regression: task acceptance — only one canonical job needs to prove a fresh
+  // lockfile install. Parallel DOM/build jobs may reuse the exact lockfile-keyed tree.
+  it('keeps one fresh npm install while DOM and build restore app dependencies', () => {
+    const verify = read('../.github/workflows/verify.yml');
+    const checksJob = (verify.split('\n  checks:\n')[1] ?? '')
+      .split('\n  dom_tests:')[0];
+    const domJob = (verify.split('\n  dom_tests:\n')[1] ?? '')
+      .split('\n  build_check:')[0];
+    const buildJob = (verify.split('\n  build_check:\n')[1] ?? '')
+      .split('\n  browser_contract:')[0];
+
+    expect(checksJob).toContain('Install dependencies');
+    expect(checksJob).toContain('npm ci --prefer-offline --no-audit');
+
+    for (const job of [domJob, buildJob]) {
+      expect(job).toContain('Restore app dependencies from focused cache');
+      expect(job).toContain('focused-modules-');
+      expect(job).toContain('Install app dependencies on cache miss');
+      expect(job).toContain("outputs.cache-hit != 'true'");
+    }
+  });
+
+  it('avoids restoring the npm download cache when node_modules is already restored', () => {
+    const verify = read('../.github/workflows/verify.yml');
+    const domJob = (verify.split('\n  dom_tests:\n')[1] ?? '')
+      .split('\n  build_check:')[0];
+    const buildJob = (verify.split('\n  build_check:\n')[1] ?? '')
+      .split('\n  browser_contract:')[0];
+    const browserJob = (verify.split('\n  browser_contract:\n')[1] ?? '')
+      .split('\n  canonical_acceptance:')[0];
+
+    for (const job of [domJob, buildJob, browserJob]) {
+      expect(job).not.toContain('cache: npm');
+    }
+  });
+});
