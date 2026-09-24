@@ -22,7 +22,7 @@ Preview status in the final result. Do not commit status-only prose after accept
 | Docs | Ordinary Markdown-only changes: contracts and diff checks, no dependency install |
 | Focused | Ordinary runtime pushes to `chatgpt/**`: contracts/discovery, changed existing-file ESLint, Git-aware related tests |
 | Full | Runtime PR, manual dispatch, or `[verify:full]`: checks (contracts/discovery/lint/unit/handlers), two DOM shards, build, two browser shards |
-| Preview guard | Preview push: requires prior successful canonical acceptance on the same SHA |
+| Preview guard | Preview push: waits for same-run canonical acceptance when the push requests full verification; otherwise requires prior successful canonical acceptance on the same SHA |
 
 A focused or docs-only green run is never acceptance for Preview. `[verify:browser]`
 requests intermediate browser coverage. Canonical jobs overlap; the build retains a fresh
@@ -54,8 +54,7 @@ routes. Static assets are not catch-all rewritten.
 The Git branch `preview` is deployment-only. The user has authorized it to advance after
 every completed task. Once the exact final task commit has a successful
 `canonical-acceptance` check, fast-forward `preview` to that immutable SHA and verify
-the Vercel deployment. The Preview Verify run only confirms that prior exact-SHA acceptance
-exists; it does not repeat the canonical test/build/browser suite. Do not merge feature work
+the Vercel deployment. The Preview Verify run confirms exact-SHA canonical acceptance. When a Preview push itself requests full verification, it waits for that run's canonical acceptance rather than racing it; otherwise it accepts an existing prior exact-SHA canonical check. Do not merge feature work
 through `preview`, create Preview-only code commits, or force-update it across divergence;
 source development continues on normal task branches and `main`.
 
