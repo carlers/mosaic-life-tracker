@@ -24,10 +24,11 @@ Status: implementation authorized on `chatgpt/ci-workflow-optimization`.
 1. **Done — recover governing rules and current workflow.** Read AGENTS.md, SESSION_STATE.md, PLAN.md, REMOTE_VERIFY.md, TEST_WORKFLOW.md, PREVIEW_DEPLOYMENT.md, package scripts, focused verifier, Vitest project config, and `.github/workflows/verify.yml`.
 2. **Done — workflow diagnosis/alignment.** Confirmed main Verify already uses `fetch-depth: 2`, same-ref `cancel-in-progress: true`, npm caching, focused `node_modules` caching, prepared browser dependency caching, and Chromium caching. Main remaining latency is the serial full repository gate plus duplicate Preview verification.
 3. **Done — establish the previous Home-search SHA as Preview baseline.** `preview` was fast-forwarded from `aad2355…` to the already full-green Home-search commit `551b706e6fdcb9a06c3489e5fa8dfd02e9efa46e`.
-4. **In progress — implement and validate the CI optimization.** Added docs/focused/full/Preview-guard classification, parallel canonical jobs, exact-SHA acceptance aggregation, shallow+sparse checkout, and workflow policy updates. A unit regression pins classifier behavior.
-5. **Pending — run the canonical full acceptance gate on the exact final task SHA.**
-6. **Pending — fast-forward Preview to that exact green SHA and verify deployment without a duplicate canonical test run.**
-7. **Pending — close session state and report measured/structural CI improvements.**
+4. **Done — implement CI optimization + focused validation.** Verify #274 (`35970512577`) used the new workflow on implementation commit `864b291137b381ca747edbb2678f555c5510af0a`: classifier chose focused mode, all unrelated full/Preview jobs skipped, project contracts and 96-file discovery passed, and the changed-test run passed 1/1 file with 6/6 CI-classifier tests. Focused verification covered 8 changed files.
+5. **In progress — validate the live docs-only path.** This documentation-only checkpoint should run only classifier + `docs-checks`, with no dependency install, Vitest, build, or browser job.
+6. **Pending — run the canonical full parallel acceptance gate on the exact final task SHA.**
+7. **Pending — fast-forward Preview to that exact green SHA and verify its prior-acceptance guard plus Vercel deployment.**
+8. **Pending — report measured/structural CI improvements.**
 
 Roadmap pointer: developer workflow / CI latency.
 Blockers: none.
