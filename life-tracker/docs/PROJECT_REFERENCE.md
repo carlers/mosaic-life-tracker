@@ -256,7 +256,7 @@ for the active task, and [test workflow](TEST_WORKFLOW.md) for verification comm
   the already-open page; a subsequent navigation can be controlled. Never add an
   automatic reload or activation request as routine error handling.
 - **Why `autoUpdate` was removed.** The plugin forced both activation flags to true
-  despite the config's false values. The [bundle audit](archive/BUNDLE_AUDIT.md) records the
+  despite the config's false values. The the bundle-size budget and Git history records the
   original finding. Workbox still emits a conditional `SKIP_WAITING` message handler
   with the corrected policy; a text search for `skipWaiting()` cannot distinguish
   this from immediate activation. Build verification inspects execution (see §24.9).
@@ -612,7 +612,7 @@ verification checks static closures: initial and first Home must exclude
 The 2026-09-19 browser run exercised every direct route offline while a replacement
 deployment waited, then loaded a replacement split route after activation. It also
 reproduced a missing chunk without a service worker and recovered through the explicit
-reload action. See the Phase 3.2 result in [the bundle audit](archive/BUNDLE_AUDIT.md).
+reload action. See the Phase 3.2 result in the bundle-size budget and Git history.
 This is not a substitute for checking real hosting headers or mobile/Safari after the
 first split deployment.
 
