@@ -31,7 +31,7 @@ export const AccountPage: React.FC = () => {
   const backlogCount = tasks.filter((t) => !t.completed).length;
 
   return (
-    <div className="flex flex-col h-full animate-in fade-in duration-300">
+    <div className="flex min-h-full flex-col animate-in fade-in duration-300">
       <div className="sticky top-0 z-20 bg-[#111111] px-4 py-3 border-b border-[#333333] flex items-center justify-between">
         <h1 className="text-lg font-bold text-white">Me</h1>
         <button
@@ -44,7 +44,7 @@ export const AccountPage: React.FC = () => {
           <Settings size={20} aria-hidden="true" />
         </button>
       </div>
-      <div className="flex-1 overflow-y-auto px-4 pt-6 pb-4 space-y-6" data-testid="account-scroll">
+      <div className="flex-1 px-4 pt-6 pb-4 space-y-6" data-testid="account-scroll">
         <div className="flex flex-col items-center text-center space-y-3">
           <Avatar size="lg" alt={user?.name || user?.email || 'User'} />
           <div>

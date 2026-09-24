@@ -170,12 +170,12 @@ export const ExploreView: React.FC<ExploreViewProps> = ({
   }
 
   return (
-    <div className="flex flex-col h-full animate-in fade-in duration-300">
+    <div className="flex min-h-full flex-col animate-in fade-in duration-300">
       <div className="sticky top-0 z-20 bg-[#111111] px-4 py-3 border-b border-[#333333]">
         <h1 className="text-lg font-bold text-white">Explore</h1>
       </div>
 
-      <div className="flex-1 overflow-y-auto pb-24 px-4 pt-4 space-y-6">
+      <div className="flex-1 pb-24 px-4 pt-4 space-y-6">
         <SearchBar
           value={query}
           onChange={setQuery}

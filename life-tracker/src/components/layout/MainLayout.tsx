@@ -15,6 +15,8 @@ interface MainLayoutProps {
   onTabChange: (tab: TabId) => void;
   canSwipeLeft?: boolean;
   canSwipeRight?: boolean;
+  leftPreview?: React.ReactNode;
+  rightPreview?: React.ReactNode;
   onRouteSwipe?: (direction: PrimarySwipeDirection) => void;
 }
 
@@ -24,6 +26,8 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
   onTabChange,
   canSwipeLeft = false,
   canSwipeRight = false,
+  leftPreview = null,
+  rightPreview = null,
   onRouteSwipe = () => {},
 }) => {
   const [isOnline, setIsOnline] = useState(
@@ -55,11 +59,17 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
           homeZoneOnly={activeTab === 'home'}
           canSwipeLeft={canSwipeLeft}
           canSwipeRight={canSwipeRight}
+          leftPreview={leftPreview}
+          rightPreview={rightPreview}
           onSwipe={onRouteSwipe}
         >
           <div
             data-testid="primary-route-content"
-            className="min-h-full pb-[calc(4rem+env(safe-area-inset-bottom))]"
+            className={
+              activeTab === 'home'
+                ? 'h-full min-h-0 pb-[calc(4rem+env(safe-area-inset-bottom))]'
+                : 'min-h-full pb-[calc(4rem+env(safe-area-inset-bottom))]'
+            }
           >
             {children}
           </div>

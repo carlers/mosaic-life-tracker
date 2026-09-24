@@ -6,6 +6,10 @@ import { FriendsProvider } from '../../hooks/FriendsProvider';
 import { ConversationsProvider } from '../../hooks/ConversationsProvider';
 import { useAuth } from '../../hooks/useAuth';
 import { AppearanceProvider } from '../../hooks/AppearanceProvider';
+import {
+  PrimaryRoutePreview,
+  preloadPrimaryRoute,
+} from './PrimaryRoutePreview';
 import type { TabId } from './BottomNav';
 import {
   resolvePrimarySwipeDestination,
@@ -48,6 +52,9 @@ export const AppLayout: React.FC = () => {
   const { user, isLoading, isOffline, error, retry } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
+  const path = location.pathname;
+  const leftSwipeDestination = resolvePrimarySwipeDestination(path, 'left');
+  const rightSwipeDestination = resolvePrimarySwipeDestination(path, 'right');
   const [retryDisabled, setRetryDisabled] = useState(false);
   const [isOnline, setIsOnline] = useState(
     typeof navigator !== 'undefined' ? navigator.onLine : true
@@ -121,6 +128,31 @@ export const AppLayout: React.FC = () => {
     };
   }, [user?.$id]);
 
+
+  useEffect(() => {
+    if (!user?.$id) return;
+
+    const destinations = [
+      leftSwipeDestination,
+      rightSwipeDestination,
+    ].filter((value): value is string => Boolean(value));
+    if (destinations.length === 0) return;
+
+    const preload = () => {
+      for (const destination of destinations) {
+        preloadPrimaryRoute(destination);
+      }
+    };
+
+    if (typeof window.requestIdleCallback === 'function') {
+      const idleId = window.requestIdleCallback(preload, { timeout: 1800 });
+      return () => window.cancelIdleCallback(idleId);
+    }
+
+    const timer = window.setTimeout(preload, 400);
+    return () => window.clearTimeout(timer);
+  }, [leftSwipeDestination, rightSwipeDestination, user?.$id]);
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-[#111111] flex items-center justify-center" role="status" aria-live="polite">
@@ -188,7 +220,6 @@ export const AppLayout: React.FC = () => {
   // app tree so local data is reachable; MainLayout shows the
   // OfflineBanner and the online handler refreshes the session when the
   // network returns.
-  const path = location.pathname;
   let activeTab: TabId = 'home';
   if (path.includes('explore')) activeTab = 'explore';
   else if (path.includes('notifications')) activeTab = 'notifications';
@@ -204,13 +235,14 @@ export const AppLayout: React.FC = () => {
   const handleTabChange = (tab: TabId) => {
     navigate(`/${tab}`);
   };
-  const leftSwipeDestination = resolvePrimarySwipeDestination(path, 'left');
-  const rightSwipeDestination = resolvePrimarySwipeDestination(path, 'right');
   const handleRouteSwipe = (direction: PrimarySwipeDirection) => {
     const destination = resolvePrimarySwipeDestination(path, direction);
     if (destination) navigate(destination);
   };
-  const includeConversations = path.includes('/messages');
+  const includeConversations =
+    path.includes('/messages') ||
+    leftSwipeDestination === '/messages' ||
+    rightSwipeDestination === '/messages';
 
   return (
     <AppearanceProvider>
@@ -221,6 +253,16 @@ export const AppLayout: React.FC = () => {
             onTabChange={handleTabChange}
             canSwipeLeft={Boolean(leftSwipeDestination)}
             canSwipeRight={Boolean(rightSwipeDestination)}
+            leftPreview={
+              leftSwipeDestination ? (
+                <PrimaryRoutePreview pathname={leftSwipeDestination} />
+              ) : null
+            }
+            rightPreview={
+              rightSwipeDestination ? (
+                <PrimaryRoutePreview pathname={rightSwipeDestination} />
+              ) : null
+            }
             onRouteSwipe={handleRouteSwipe}
           >
             <Outlet />

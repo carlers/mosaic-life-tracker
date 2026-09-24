@@ -301,7 +301,11 @@ export function InteractionHarness() {
           activeKey={primaryRoute}
           homeZoneOnly={primaryRoute === 'home'}
           canSwipeLeft={primaryRoute === 'home' || primaryRoute === 'explore' || primaryRoute === 'account'}
-          canSwipeRight={primaryRoute === 'explore' || primaryRoute === 'account'}
+          canSwipeRight={
+            primaryRoute === 'explore' ||
+            primaryRoute === 'account' ||
+            primaryRoute === 'settings'
+          }
           leftPreview={
             primaryRoute === 'home' ? (
               <div data-testid="primary-left-preview" className="h-full bg-[#181818] p-4">
@@ -318,7 +322,9 @@ export function InteractionHarness() {
             ) : null
           }
           rightPreview={
-            primaryRoute === 'explore' || primaryRoute === 'account' ? (
+            primaryRoute === 'explore' ||
+            primaryRoute === 'account' ||
+            primaryRoute === 'settings' ? (
               <div data-testid="primary-right-preview" className="h-full bg-[#181818] p-4">
                 Previous preview
               </div>
@@ -335,6 +341,8 @@ export function InteractionHarness() {
               setPrimaryRoute('settings');
             } else if (primaryRoute === 'account' && direction === 'right') {
               setPrimaryRoute('explore');
+            } else if (primaryRoute === 'settings' && direction === 'right') {
+              setPrimaryRoute('account');
             }
           }}
         >

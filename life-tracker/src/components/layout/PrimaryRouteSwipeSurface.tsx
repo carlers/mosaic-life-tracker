@@ -2,6 +2,7 @@ import React, {
   useCallback,
   useEffect,
   useRef,
+  useState,
   type PointerEvent as ReactPointerEvent,
 } from 'react';
 import type { PrimarySwipeDirection } from '../../lib/primarySwipeNavigation';
@@ -27,6 +28,8 @@ interface PrimaryRouteSwipeSurfaceProps {
   homeZoneOnly?: boolean;
   canSwipeLeft: boolean;
   canSwipeRight: boolean;
+  leftPreview?: React.ReactNode;
+  rightPreview?: React.ReactNode;
   onSwipe: (direction: PrimarySwipeDirection) => void;
 }
 
@@ -38,15 +41,22 @@ export const PrimaryRouteSwipeSurface: React.FC<
   homeZoneOnly = false,
   canSwipeLeft,
   canSwipeRight,
+  leftPreview = null,
+  rightPreview = null,
   onSwipe,
 }) => {
-  const surfaceRef = useRef<HTMLDivElement | null>(null);
+  const trackRef = useRef<HTMLDivElement | null>(null);
+  const currentPanelRef = useRef<HTMLDivElement | null>(null);
+  const previewPanelRef = useRef<HTMLDivElement | null>(null);
   const gestureRef = useRef<GestureState | null>(null);
   const frameRef = useRef<number | null>(null);
   const pendingXRef = useRef(0);
   const releaseTimerRef = useRef<number | null>(null);
   const clickResetTimerRef = useRef<number | null>(null);
   const suppressClickRef = useRef(false);
+  const previewDirectionRef = useRef<PrimarySwipeDirection | null>(null);
+  const [previewDirection, setPreviewDirection] =
+    useState<PrimarySwipeDirection | null>(null);
 
   const cancelFrame = useCallback(() => {
     if (frameRef.current !== null) {
@@ -55,16 +65,23 @@ export const PrimaryRouteSwipeSurface: React.FC<
     }
   }, []);
 
-  const applyTransform = useCallback((x: number) => {
+  const applyOffset = useCallback((x: number) => {
     pendingXRef.current = x;
     if (frameRef.current !== null) return;
 
     frameRef.current = requestAnimationFrame(() => {
       frameRef.current = null;
-      const surface = surfaceRef.current;
-      if (!surface) return;
-      surface.style.transform = `translate3d(${pendingXRef.current}px, 0, 0)`;
+      trackRef.current?.style.setProperty('--route-swipe-x', `${pendingXRef.current}px`);
     });
+  }, []);
+
+  const setTransition = useCallback((value: string) => {
+    if (currentPanelRef.current) {
+      currentPanelRef.current.style.transition = value;
+    }
+    if (previewPanelRef.current) {
+      previewPanelRef.current.style.transition = value;
+    }
   }, []);
 
   const clearReleaseTimer = useCallback(() => {
@@ -74,23 +91,35 @@ export const PrimaryRouteSwipeSurface: React.FC<
     }
   }, []);
 
-  const resetSurface = useCallback((immediate = false) => {
-    cancelFrame();
-    clearReleaseTimer();
-    const surface = surfaceRef.current;
-    if (!surface) return;
-    surface.style.transition = immediate
-      ? 'none'
-      : `transform ${RELEASE_DURATION_MS}ms cubic-bezier(0.22, 1, 0.36, 1)`;
-    surface.style.transform = 'translate3d(0, 0, 0)';
-    if (!immediate) {
+  const hidePreview = useCallback(() => {
+    previewDirectionRef.current = null;
+    setPreviewDirection(null);
+  }, []);
+
+  const resetSurface = useCallback(
+    (immediate = false) => {
+      cancelFrame();
+      clearReleaseTimer();
+      const transition = immediate
+        ? 'none'
+        : `transform ${RELEASE_DURATION_MS}ms cubic-bezier(0.22, 1, 0.36, 1)`;
+      setTransition(transition);
+      trackRef.current?.style.setProperty('--route-swipe-x', '0px');
+      pendingXRef.current = 0;
+
+      if (immediate) {
+        hidePreview();
+        return;
+      }
+
       releaseTimerRef.current = window.setTimeout(() => {
-        const current = surfaceRef.current;
-        if (current) current.style.transition = 'none';
+        setTransition('none');
+        hidePreview();
         releaseTimerRef.current = null;
       }, RELEASE_DURATION_MS);
-    }
-  }, [cancelFrame, clearReleaseTimer]);
+    },
+    [cancelFrame, clearReleaseTimer, hidePreview, setTransition]
+  );
 
   useEffect(() => {
     gestureRef.current = null;
@@ -115,6 +144,24 @@ export const PrimaryRouteSwipeSurface: React.FC<
     [canSwipeLeft, canSwipeRight]
   );
 
+  const previewForDirection = useCallback(
+    (direction: PrimarySwipeDirection) =>
+      direction === 'left' ? leftPreview : rightPreview,
+    [leftPreview, rightPreview]
+  );
+
+  const showPreviewForDirection = useCallback(
+    (direction: PrimarySwipeDirection) => {
+      if (!directionAllowed(direction) || !previewForDirection(direction)) {
+        return;
+      }
+      if (previewDirectionRef.current === direction) return;
+      previewDirectionRef.current = direction;
+      setPreviewDirection(direction);
+    },
+    [directionAllowed, previewForDirection]
+  );
+
   const isEligibleStart = useCallback(
     (target: Element) => {
       if (!canSwipeLeft && !canSwipeRight) return false;
@@ -135,20 +182,15 @@ export const PrimaryRouteSwipeSurface: React.FC<
     [canSwipeLeft, canSwipeRight, homeZoneOnly]
   );
 
-  const handlePointerDown = (
-    event: ReactPointerEvent<HTMLDivElement>
-  ) => {
-    if (
-      event.button !== 0 ||
-      !isEligibleStart(event.target as Element)
-    ) {
+  const handlePointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (event.button !== 0 || !isEligibleStart(event.target as Element)) {
       gestureRef.current = null;
       return;
     }
 
     clearReleaseTimer();
-    const surface = surfaceRef.current;
-    if (surface) surface.style.transition = 'none';
+    setTransition('none');
+    if (previewDirectionRef.current) hidePreview();
 
     gestureRef.current = {
       pointerId: event.pointerId,
@@ -159,9 +201,7 @@ export const PrimaryRouteSwipeSurface: React.FC<
     };
   };
 
-  const handlePointerMove = (
-    event: ReactPointerEvent<HTMLDivElement>
-  ) => {
+  const handlePointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
     const gesture = gestureRef.current;
     if (!gesture || gesture.pointerId !== event.pointerId) return;
 
@@ -191,10 +231,14 @@ export const PrimaryRouteSwipeSurface: React.FC<
     }
 
     const direction: PrimarySwipeDirection = deltaX < 0 ? 'left' : 'right';
+    if (directionAllowed(direction)) {
+      showPreviewForDirection(direction);
+    }
+
     const resistedDelta = directionAllowed(direction)
       ? deltaX
       : deltaX * EDGE_RESISTANCE;
-    applyTransform(resistedDelta);
+    applyOffset(resistedDelta);
   };
 
   const finishGesture = (
@@ -220,8 +264,8 @@ export const PrimaryRouteSwipeSurface: React.FC<
 
     const deltaX = event.clientX - gesture.startX;
     const direction: PrimarySwipeDirection = deltaX < 0 ? 'left' : 'right';
-    const surface = surfaceRef.current;
-    const width = surface?.getBoundingClientRect().width || 360;
+    const currentPanel = currentPanelRef.current;
+    const width = currentPanel?.getBoundingClientRect().width || 360;
     const threshold = Math.max(
       MIN_COMMIT_DISTANCE,
       Math.min(96, width * COMMIT_VIEWPORT_RATIO)
@@ -229,21 +273,18 @@ export const PrimaryRouteSwipeSurface: React.FC<
 
     if (!directionAllowed(direction) || Math.abs(deltaX) < threshold) {
       resetSurface();
-    } else if (surface) {
+    } else {
       cancelFrame();
       clearReleaseTimer();
-      surface.style.transition =
+      const transition =
         `transform ${RELEASE_DURATION_MS}ms cubic-bezier(0.22, 1, 0.36, 1)`;
-      surface.style.transform = `translate3d(${
-        direction === 'left' ? -width : width
-      }px, 0, 0)`;
+      setTransition(transition);
+      const targetX = direction === 'left' ? -width : width;
+      trackRef.current?.style.setProperty('--route-swipe-x', `${targetX}px`);
+      pendingXRef.current = targetX;
+
       releaseTimerRef.current = window.setTimeout(() => {
         onSwipe(direction);
-        const current = surfaceRef.current;
-        if (current) {
-          current.style.transition = 'none';
-          current.style.transform = 'translate3d(0, 0, 0)';
-        }
         releaseTimerRef.current = null;
       }, RELEASE_DURATION_MS);
     }
@@ -257,12 +298,24 @@ export const PrimaryRouteSwipeSurface: React.FC<
     }, 300);
   };
 
-  const customHorizontalOwner = (canSwipeLeft || canSwipeRight) && !homeZoneOnly;
+  const customHorizontalOwner =
+    (canSwipeLeft || canSwipeRight) && !homeZoneOnly;
+  const heightClass = homeZoneOnly ? 'h-full min-h-0' : 'min-h-full';
+  const previewNode =
+    previewDirection === 'left' ? leftPreview : rightPreview;
+  const previewTransform =
+    previewDirection === 'left'
+      ? 'translate3d(calc(100% + var(--route-swipe-x, 0px)), 0, 0)'
+      : 'translate3d(calc(-100% + var(--route-swipe-x, 0px)), 0, 0)';
 
   return (
     <div
-      className="min-h-full w-full overflow-x-hidden"
-      style={{ touchAction: customHorizontalOwner ? 'pan-y' : undefined }}
+      ref={trackRef}
+      className={`relative w-full overflow-x-hidden ${heightClass}`}
+      style={{
+        touchAction: customHorizontalOwner ? 'pan-y' : undefined,
+        '--route-swipe-x': '0px',
+      } as React.CSSProperties}
       onPointerDownCapture={handlePointerDown}
       onPointerMoveCapture={handlePointerMove}
       onPointerUpCapture={(event) => finishGesture(event)}
@@ -275,13 +328,30 @@ export const PrimaryRouteSwipeSurface: React.FC<
       }}
     >
       <div
-        ref={surfaceRef}
+        ref={currentPanelRef}
         data-testid="primary-route-swipe-surface"
-        className="min-h-full w-full will-change-transform"
-        style={{ transform: 'translate3d(0, 0, 0)' }}
+        className={`w-full will-change-transform ${heightClass}`}
+        style={{
+          transform: 'translate3d(var(--route-swipe-x, 0px), 0, 0)',
+        }}
       >
         {children}
       </div>
+
+      {previewDirection && previewNode ? (
+        <div
+          ref={previewPanelRef}
+          data-testid="primary-route-neighbor-preview"
+          aria-hidden="true"
+          inert
+          className="pointer-events-none absolute inset-y-0 left-0 w-full will-change-transform"
+          style={{ transform: previewTransform }}
+        >
+          <div className="sticky top-0 h-[calc(100dvh-4rem-env(safe-area-inset-bottom))] overflow-hidden bg-[#111111]">
+            {previewNode}
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 };

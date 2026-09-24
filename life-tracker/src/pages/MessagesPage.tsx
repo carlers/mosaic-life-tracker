@@ -10,11 +10,11 @@ export const MessagesPage: React.FC = () => {
   const { conversations, isLoading } = useConversations();
 
   return (
-    <div className="flex flex-col h-full animate-in fade-in duration-300">
+    <div className="flex min-h-full flex-col animate-in fade-in duration-300">
       <div className="sticky top-0 z-20 bg-[#111111] px-4 py-3 border-b border-[#333333]">
         <h1 className="text-lg font-bold text-white">Messages</h1>
       </div>
-      <div className="flex-1 overflow-y-auto pb-24 px-4 pt-4">
+      <div className="flex-1 pb-24 px-4 pt-4">
         {isLoading ? (
           <div className="flex justify-center py-10" role="status" aria-live="polite">
             <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin" />
