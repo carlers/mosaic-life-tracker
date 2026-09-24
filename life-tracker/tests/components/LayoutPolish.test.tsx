@@ -17,6 +17,7 @@ vi.mock('../../src/hooks/useAuth', () => ({
 }));
 vi.mock('../../src/hooks/useTasks', () => ({ useTasks: () => ({ tasks: [] }) }));
 vi.mock('../../src/hooks/useCategories', () => ({ useCategories: () => ({ categories: [] }) }));
+vi.mock('../../src/hooks/useFriends', () => ({ useFriends: () => ({ friends: [] }) }));
 vi.mock('../../src/components/ui/Avatar', () => ({ Avatar: () => <div>Avatar</div> }));
 vi.mock('../../src/components/ui/Button', () => ({
   Button: ({ children, ...props }: React.ButtonHTMLAttributes<HTMLButtonElement>) => (

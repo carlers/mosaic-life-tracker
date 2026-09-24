@@ -45,10 +45,11 @@ function fixture({
   target.location = { reload: vi.fn() };
   let options: FakeRegisterOptions = {};
   const update = vi.fn().mockResolvedValue(undefined);
-  const registration = {
-    waiting: null,
+  const registration = Object.assign(new EventTarget(), {
+    waiting: null as ServiceWorker | null,
+    installing: null as ServiceWorker | null,
     update: vi.fn().mockResolvedValue(undefined),
-  } as unknown as ServiceWorkerRegistration;
+  }) as unknown as ServiceWorkerRegistration;
   const getRegistration = vi
     .fn()
     .mockResolvedValue(
@@ -157,6 +158,41 @@ describe('PWA lifecycle', () => {
     expect(stages).toEqual(['preparing', 'ready']);
     expect(getPwaLifecycleSnapshot().updateAvailable).toBe(true);
     expect(setup.registration.update).not.toHaveBeenCalled();
+  });
+
+  // Regression: PROJECT_REFERENCE.md §24.13 — a found worker reports the
+  // download stage before becoming ready to install.
+  it('reports update-found and downloading while the new worker installs', async () => {
+    const setup = fixture();
+    const stages: string[] = [];
+    let workerState: ServiceWorkerState = 'installing';
+    const worker = Object.assign(new EventTarget(), {
+      get state() {
+        return workerState;
+      },
+    }) as unknown as ServiceWorker;
+
+    setup.registration.update = vi.fn().mockImplementation(async () => {
+      Object.assign(setup.registration, { installing: worker });
+      setup.registration.dispatchEvent(new Event('updatefound'));
+      workerState = 'installed';
+      Object.assign(setup.registration, {
+        waiting: worker,
+        installing: null,
+      });
+      worker.dispatchEvent(new Event('statechange'));
+    });
+
+    await expect(
+      checkForPwaUpdate((stage) => stages.push(stage))
+    ).resolves.toBe('update-available');
+    expect(stages).toEqual([
+      'preparing',
+      'checking',
+      'update-found',
+      'downloading',
+      'ready',
+    ]);
   });
 
   it('publishes explicit update availability and applies only on request', async () => {

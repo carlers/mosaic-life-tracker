@@ -57,6 +57,8 @@ export const AppLayout: React.FC = () => {
   const leftSwipeDestination = resolvePrimarySwipeDestination(path, 'left');
   const rightSwipeDestination = resolvePrimarySwipeDestination(path, 'right');
   const [retryDisabled, setRetryDisabled] = useState(false);
+  const [conversationNeighborReadyFor, setConversationNeighborReadyFor] =
+    useState<string | null>(null);
   const [isOnline, setIsOnline] = useState(
     typeof navigator !== 'undefined' ? navigator.onLine : true
   );
@@ -140,6 +142,9 @@ export const AppLayout: React.FC = () => {
       for (const destination of destinations) {
         preloadPrimaryRoute(destination);
       }
+      if (destinations.includes('/messages')) {
+        setConversationNeighborReadyFor(path);
+      }
     };
 
     if (typeof window.requestIdleCallback === 'function') {
@@ -147,7 +152,7 @@ export const AppLayout: React.FC = () => {
       return () => window.cancelIdleCallback(idleId);
     }
 
-    const timer = window.setTimeout(preload, 400);
+    const timer = window.setTimeout(preload, 750);
     return () => window.clearTimeout(timer);
   }, [path, user?.$id]);
 
@@ -248,7 +253,8 @@ export const AppLayout: React.FC = () => {
 
     navigate(destination);
   };
-  const includeConversations = path.includes('/messages');
+  const includeConversations =
+    path.includes('/messages') || conversationNeighborReadyFor === path;
 
   return (
     <AppearanceProvider>

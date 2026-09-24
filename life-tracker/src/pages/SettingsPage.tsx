@@ -89,7 +89,7 @@ export const SettingsPage: React.FC = () => {
         : updateStage === 'update-found'
           ? 'Update found. Preparing download…'
           : updateStage === 'downloading'
-            ? 'Downloading update…'
+            ? 'Update found — downloading…'
             : updateStage === 'ready'
               ? 'Update downloaded. Ready to install.'
               : updateStage === 'up-to-date'
@@ -259,7 +259,6 @@ export const SettingsPage: React.FC = () => {
           <SettingsRow
             icon={<RefreshCw size={18} className="text-emerald-500" aria-hidden="true" />}
             label="Check for Updates"
-            value={isCheckingUpdate ? undefined : undefined}
             showChevron={false}
             onClick={handleCheckForUpdates}
           />

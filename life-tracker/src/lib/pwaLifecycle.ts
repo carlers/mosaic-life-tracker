@@ -155,19 +155,27 @@ function waitForInstallingWorker(
   }
 
   return new Promise((resolve) => {
-    const timeout = window.setTimeout(resolve, 15_000);
+    let settled = false;
+    let timeout = 0;
+    const finish = () => {
+      if (settled) return;
+      settled = true;
+      window.clearTimeout(timeout);
+      worker.removeEventListener('statechange', handleStateChange);
+      resolve();
+    };
     const handleStateChange = () => {
       if (
         worker.state === 'installed' ||
         worker.state === 'activated' ||
         worker.state === 'redundant'
       ) {
-        window.clearTimeout(timeout);
-        worker.removeEventListener('statechange', handleStateChange);
-        resolve();
+        finish();
       }
     };
+
     worker.addEventListener('statechange', handleStateChange);
+    timeout = window.setTimeout(finish, 15_000);
   });
 }
 
@@ -191,10 +199,14 @@ export async function checkForPwaUpdate(
 
   report('checking');
   let updateFound = false;
+  let downloadReported = false;
   const handleUpdateFound = () => {
     updateFound = true;
     report('update-found');
-    if (registration.installing) report('downloading');
+    if (registration.installing) {
+      downloadReported = true;
+      report('downloading');
+    }
   };
   registration.addEventListener?.('updatefound', handleUpdateFound);
 
@@ -203,7 +215,7 @@ export async function checkForPwaUpdate(
 
     if (registration.installing) {
       if (!updateFound) report('update-found');
-      report('downloading');
+      if (!downloadReported) report('downloading');
       await waitForInstallingWorker(registration.installing);
     }
 
