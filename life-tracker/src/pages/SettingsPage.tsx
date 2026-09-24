@@ -23,6 +23,7 @@ import { useAuth } from '../hooks/useAuth';
 import { usePwaLifecycle } from '../hooks/usePwaLifecycle';
 import type { PwaUpdateCheckStage } from '../lib/pwaLifecycle';
 import { APP_VERSION } from '../lib/appVersion';
+import { APP_BUILD_INFO } from '../lib/buildInfo';
 import { destroyDatabase } from '../db/database';
 import { AccountSettingsSheet } from '../components/modals/AccountSettingsSheet';
 import { ChangeEmailSheet } from '../components/modals/ChangeEmailSheet';
@@ -260,9 +261,18 @@ export const SettingsPage: React.FC = () => {
           />
         </div>
         <div className="border-t border-[#333333] py-2">
-          <div className="px-4 py-3.5 flex items-center justify-between text-white">
-            <span className="text-base font-medium">Version</span>
-            <span className="text-sm text-gray-400">{APP_VERSION}</span>
+          <div className="px-4 py-3.5 text-white">
+            <div className="flex items-center justify-between">
+              <span className="text-base font-medium">Version</span>
+              <span className="text-sm text-gray-400">{APP_VERSION}</span>
+            </div>
+            <div
+              data-testid="app-build-info"
+              className="mt-1 text-xs text-gray-500"
+            >
+              {APP_BUILD_INFO.channel} · build{' '}
+              {APP_BUILD_INFO.commitShort ?? APP_BUILD_INFO.buildId}
+            </div>
           </div>
           <SettingsRow
             icon={<RefreshCw size={18} className="text-emerald-500" aria-hidden="true" />}
