@@ -96,16 +96,26 @@ jobs:
 
   preview_verified:
     name: preview-verified
-    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/preview' }}
+    needs:
+      - classify
+      - canonical_acceptance
+    if: ${{ always() && github.event_name == 'push' && github.ref == 'refs/heads/preview' }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - name: Require prior canonical acceptance for exact SHA
+      - name: Require canonical acceptance for exact SHA
         env:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
           SHA: ${{ github.sha }}
+          MODE: ${{ needs.classify.outputs.mode }}
+          CANONICAL_RESULT: ${{ needs.canonical_acceptance.result }}
         run: |
+          if [ "$CANONICAL_RESULT" = "success" ]; then
+            echo "Preview SHA $SHA passed canonical acceptance in this workflow run."
+            exit 0
+          fi
+
           count="$(
             gh api \
               -H "Accept: application/vnd.github+json" \
@@ -114,7 +124,7 @@ jobs:
               --jq '[.check_runs[] | select(.name == "canonical-acceptance" and .conclusion == "success")] | length'
           )"
           if [ "$count" -lt 1 ]; then
-            echo "Preview SHA $SHA has no successful canonical-acceptance check."
+            echo "Preview SHA $SHA has no successful canonical-acceptance check. Mode=$MODE canonical_result=$CANONICAL_RESULT"
             exit 1
           fi
           echo "Preview SHA $SHA already passed canonical acceptance; duplicate full verification skipped."
