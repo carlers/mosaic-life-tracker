@@ -248,10 +248,13 @@ critical-path wall time in two ways:
 - The formerly separate static/lint, unit, and handler jobs are one `checks` job. Their
   combined runtime remains below the previous critical path while freeing runner capacity
   so both DOM and browser shard pairs can start without starving one another.
-- Canonical startup keeps one fresh `npm ci` in `checks` for lockfile reproducibility. DOM,
-  build, browser, and focused jobs restore the immutable lockfile-keyed app dependency tree
+- Canonical startup keeps one fresh `npm ci` in `build` for lockfile reproducibility. Checks,
+  DOM, browser, and focused jobs restore the immutable lockfile-keyed app dependency tree
   with an install fallback, and skip the separate npm download-cache restore on normal hits.
   Explicit full/Preview intent is also resolved before classifier checkout.
+- GitHub caches are branch-scoped. A task branch with no earlier successful focused/full run
+  uses the install fallback once; that successful run seeds the branch cache. Normal later
+  full acceptance on the same task branch uses the warm immutable dependency/browser caches.
 
 For a local browser-contract run, prepare the isolated browser packages once with
 `npm run test:browser:prepare`, then run `npm run test:browser-contract`.

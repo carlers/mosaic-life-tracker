@@ -22,8 +22,8 @@ commit intent:
 - **Full:** runtime pull requests, manual dispatches, and an exact task commit whose message
   contains `[verify:full]` fan out after classification into six runner slots: one combined
   contracts/discovery/lint/unit/handler check, two Vitest DOM shards, the production
-  build/PWA/size gate, and two Playwright shards. The combined checks job performs the
-  one mandatory fresh lockfile-driven `npm ci --prefer-offline --no-audit`. DOM, build,
+  build/PWA/size gate, and two Playwright shards. The production build job performs the
+  one mandatory fresh lockfile-driven `npm ci --prefer-offline --no-audit`. Checks, DOM,
   browser, and focused jobs restore the same lockfile-keyed app `node_modules` cache and
   fall back to `npm ci` only on a miss, avoiding a redundant npm download-cache restore on
   normal hits. Browser shards install/cache only pinned Playwright/Axe packages under

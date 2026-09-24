@@ -166,8 +166,8 @@ describe('canonical startup optimization contract', () => {
   });
 
   // Regression: task acceptance — only one canonical job needs to prove a fresh
-  // lockfile install. Parallel DOM/build jobs may reuse the exact lockfile-keyed tree.
-  it('keeps one fresh npm install while DOM and build restore app dependencies', () => {
+  // lockfile install. The build owns that proof while checks/DOM reuse the exact tree.
+  it('keeps one fresh npm install while checks and DOM restore app dependencies', () => {
     const verify = read('../.github/workflows/verify.yml');
     const checksJob = (verify.split('\n  checks:\n')[1] ?? '')
       .split('\n  dom_tests:')[0];
@@ -176,10 +176,11 @@ describe('canonical startup optimization contract', () => {
     const buildJob = (verify.split('\n  build_check:\n')[1] ?? '')
       .split('\n  browser_contract:')[0];
 
-    expect(checksJob).toContain('Install dependencies');
-    expect(checksJob).toContain('npm ci --prefer-offline --no-audit');
+    expect(buildJob).toContain('Install dependencies');
+    expect(buildJob).toContain('npm ci --prefer-offline --no-audit');
+    expect(buildJob).not.toContain('Restore app dependencies from focused cache');
 
-    for (const job of [domJob, buildJob]) {
+    for (const job of [checksJob, domJob]) {
       expect(job).toContain('Restore app dependencies from focused cache');
       expect(job).toContain('focused-modules-');
       expect(job).toContain('Install app dependencies on cache miss');
@@ -189,6 +190,8 @@ describe('canonical startup optimization contract', () => {
 
   it('avoids restoring the npm download cache when node_modules is already restored', () => {
     const verify = read('../.github/workflows/verify.yml');
+    const checksJob = (verify.split('\n  checks:\n')[1] ?? '')
+      .split('\n  dom_tests:')[0];
     const domJob = (verify.split('\n  dom_tests:\n')[1] ?? '')
       .split('\n  build_check:')[0];
     const buildJob = (verify.split('\n  build_check:\n')[1] ?? '')
@@ -196,7 +199,7 @@ describe('canonical startup optimization contract', () => {
     const browserJob = (verify.split('\n  browser_contract:\n')[1] ?? '')
       .split('\n  canonical_acceptance:')[0];
 
-    for (const job of [domJob, buildJob, browserJob]) {
+    for (const job of [checksJob, domJob, browserJob]) {
       expect(job).not.toContain('cache: npm');
     }
   });

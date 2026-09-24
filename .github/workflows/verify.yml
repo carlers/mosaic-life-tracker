@@ -211,9 +211,14 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: npm
-          cache-dependency-path: life-tracker/package-lock.json
-      - name: Install dependencies
+      - name: Restore app dependencies from focused cache
+        id: app-modules-cache
+        uses: actions/cache@v4
+        with:
+          path: life-tracker/node_modules
+          key: ${{ runner.os }}-node22-focused-modules-${{ hashFiles('life-tracker/package-lock.json') }}
+      - name: Install app dependencies on cache miss
+        if: ${{ steps.app-modules-cache.outputs.cache-hit != 'true' }}
         run: npm ci --prefer-offline --no-audit
       - name: Check project contracts
         run: npm run contracts:check
@@ -282,14 +287,9 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
-      - name: Restore app dependencies from focused cache
-        id: app-modules-cache
-        uses: actions/cache@v4
-        with:
-          path: life-tracker/node_modules
-          key: ${{ runner.os }}-node22-focused-modules-${{ hashFiles('life-tracker/package-lock.json') }}
-      - name: Install app dependencies on cache miss
-        if: ${{ steps.app-modules-cache.outputs.cache-hit != 'true' }}
+          cache: npm
+          cache-dependency-path: life-tracker/package-lock.json
+      - name: Install dependencies
         run: npm ci --prefer-offline --no-audit
       - name: Build production app
         run: npm run build
