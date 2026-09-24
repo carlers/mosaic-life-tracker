@@ -13,7 +13,10 @@ import {
 } from './primaryRoutePreload';
 import type { TabId } from './BottomNav';
 import {
+  hasExpectedRouteParent,
+  makeRouteParentState,
   resolvePrimarySwipeDestination,
+  resolveRouteParent,
   type PrimarySwipeDirection,
 } from '../../lib/primarySwipeNavigation';
 
@@ -242,16 +245,23 @@ export const AppLayout: React.FC = () => {
     const destination = resolvePrimarySwipeDestination(path, direction);
     if (!destination) return;
 
-    if (path === '/settings' && direction === 'right') {
-      if (location.key === 'default') {
-        navigate('/account', { replace: true });
-      } else {
+    const parent = resolveRouteParent(path);
+    if (direction === 'right' && parent) {
+      if (hasExpectedRouteParent(location.key, location.state, parent)) {
         navigate(-1);
+      } else {
+        navigate(parent, { replace: true });
       }
       return;
     }
 
-    navigate(destination);
+    const destinationParent = resolveRouteParent(destination);
+    navigate(
+      destination,
+      destinationParent === path
+        ? { state: makeRouteParentState(path) }
+        : undefined
+    );
   };
   const includeConversations =
     path.includes('/messages') || conversationNeighborReadyFor === path;

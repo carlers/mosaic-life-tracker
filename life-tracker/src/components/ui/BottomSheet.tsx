@@ -1,7 +1,8 @@
-import React, { useEffect, useLayoutEffect, useRef } from 'react';
+import React, { useContext, useEffect, useLayoutEffect, useRef } from 'react';
 import { motion, AnimatePresence, useDragControls } from 'framer-motion';
 import ReactDOM from 'react-dom';
 import { useFocusTrap } from '../../hooks/useFocusTrap';
+import { AppearanceContext } from '../../hooks/appearanceContext';
 
 interface BottomSheetProps {
   isOpen: boolean;
@@ -201,6 +202,8 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
   contentMode = 'scroll',
   onHorizontalSwipe,
 }) => {
+  const appearance = useContext(AppearanceContext);
+  const sheetWidthMode = appearance?.sheetWidthMode ?? 'full';
   const sheetRef = useRef<HTMLDivElement>(null);
   const onCloseRef = useRef(onClose);
   const horizontalSwipeStartRef = useRef<HorizontalSwipeStart | null>(null);
@@ -256,6 +259,10 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
     height === 'full'
       ? 'h-[92dvh] md:h-[100dvh] rounded-t-3xl'
       : 'max-h-[90vh] rounded-t-3xl';
+  const widthClass =
+    sheetWidthMode === 'compact'
+      ? 'md:left-1/2 md:right-auto md:w-[min(540px,calc(100vw-2rem))] md:[translate:-50%_0]'
+      : '';
   const contentClass =
     contentMode === 'fixed'
       ? 'flex-1 min-h-0 px-4'
@@ -436,7 +443,7 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
                 requestSheetClose(sheetId);
               }
             }}
-            className={`fixed bottom-0 left-0 right-0 z-[60] bg-[#1E1E1E] text-white shadow-2xl flex flex-col overflow-hidden ${heightClass} ${suspendInteraction ? 'pointer-events-none select-none' : ''}`}
+            className={`fixed bottom-0 left-0 right-0 z-[60] bg-[#1E1E1E] text-white shadow-2xl flex flex-col overflow-hidden ${heightClass} ${widthClass} ${suspendInteraction ? 'pointer-events-none select-none' : ''}`}
           >
             <div
               className={`flex-shrink-0 pt-3 pb-2 px-4 flex flex-col items-center transition-all duration-300 ${

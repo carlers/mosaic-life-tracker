@@ -13,10 +13,17 @@ describe('resolvePrimarySwipeDestination', () => {
     expect(resolvePrimarySwipeDestination('/account', 'right')).toBe('/messages');
   });
 
-  it('lets Settings swipe right back to Me but excludes other secondary/detail routes', () => {
+  it('keeps Settings as the Me detail edge and excludes individual chats', () => {
     expect(resolvePrimarySwipeDestination('/settings', 'right')).toBe('/account');
     expect(resolvePrimarySwipeDestination('/settings', 'left')).toBeNull();
     expect(resolvePrimarySwipeDestination('/messages/friend_1', 'left')).toBeNull();
+  });
+
+  // Regression: PROJECT_REFERENCE.md §2 — Settings child pages are right-swipe-only details.
+  it('returns Settings from Profile and Screen on a right swipe', () => {
+    expect(resolvePrimarySwipeDestination('/profile', 'right')).toBe('/settings');
+    expect(resolvePrimarySwipeDestination('/settings/screen', 'right')).toBe('/settings');
     expect(resolvePrimarySwipeDestination('/profile', 'left')).toBeNull();
+    expect(resolvePrimarySwipeDestination('/settings/screen', 'left')).toBeNull();
   });
 });

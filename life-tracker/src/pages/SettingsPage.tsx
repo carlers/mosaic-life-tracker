@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import {
   User,
   Shield,
@@ -29,14 +29,15 @@ import { ChangeEmailSheet } from '../components/modals/ChangeEmailSheet';
 import { ChangePasswordSheet } from '../components/modals/ChangePasswordSheet';
 import { ExportDataSheet } from '../components/modals/ExportDataSheet';
 import { SyncStatusSheet } from '../components/modals/SyncStatusSheet';
-import { AppearanceSettingsSheet } from '../components/settings/AppearanceSettingsSheet';
 import { useAppearance } from '../hooks/useAppearance';
+import { hasExpectedRouteParent, makeRouteParentState } from '../lib/primarySwipeNavigation';
 
 export const SettingsPage: React.FC = () => {
   const { user, logout } = useAuth();
   const { checkForUpdate } = usePwaLifecycle();
-  const { mode: appearanceMode, setAppearanceMode } = useAppearance();
+  const { mode: appearanceMode } = useAppearance();
   const navigate = useNavigate();
+  const location = useLocation();
   const [isClearDataOpen, setIsClearDataOpen] = useState(false);
   const [isDeleteAllDataOpen, setIsDeleteAllDataOpen] = useState(false);
   const [isClearingData, setIsClearingData] = useState(false);
@@ -46,7 +47,6 @@ export const SettingsPage: React.FC = () => {
   const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
   const [isExportSheetOpen, setIsExportSheetOpen] = useState(false);
   const [isSyncStatusOpen, setIsSyncStatusOpen] = useState(false);
-  const [isAppearanceOpen, setIsAppearanceOpen] = useState(false);
   const [isCheckingUpdate, setIsCheckingUpdate] = useState(false);
   const [updateStage, setUpdateStage] = useState<
     PwaUpdateCheckStage | 'error' | null
@@ -59,6 +59,14 @@ export const SettingsPage: React.FC = () => {
   };
 
   const handleComingSoon = () => showFeedback('Coming soon');
+  const handleBack = () => {
+    const parent = '/account';
+    if (hasExpectedRouteParent(location.key, location.state, parent)) {
+      navigate(-1);
+    } else {
+      navigate(parent, { replace: true });
+    }
+  };
 
   const handleCheckForUpdates = async () => {
     if (isCheckingUpdate) return;
@@ -159,7 +167,7 @@ export const SettingsPage: React.FC = () => {
       <div className="sticky top-0 z-20 bg-[#111111] px-4 py-3 border-b border-[#333333] flex items-center justify-center relative">
         <button
           type="button"
-          onClick={() => navigate(-1)}
+          onClick={handleBack}
           onPointerDown={(e) => e.stopPropagation()}
           className="absolute left-4 p-2 rounded-lg text-gray-400 hover:text-white hover:bg-[#2A2A2A] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
           aria-label="Back"
@@ -173,7 +181,7 @@ export const SettingsPage: React.FC = () => {
           <SettingsRow
             icon={<User size={18} className="text-blue-500" aria-hidden="true" />}
             label="Profile"
-            onClick={() => navigate('/profile')}
+            onClick={() => navigate('/profile', { state: makeRouteParentState('/settings') })}
           />
           <SettingsRow
             icon={<Shield size={18} className="text-gray-400" aria-hidden="true" />}
@@ -203,7 +211,7 @@ export const SettingsPage: React.FC = () => {
                     ? 'Light'
                     : 'Black'
             }
-            onClick={() => setIsAppearanceOpen(true)}
+            onClick={() => navigate('/settings/screen', { state: makeRouteParentState('/settings') })}
           />
           <SettingsRow
             icon={<Bell size={18} className="text-gray-400" aria-hidden="true" />}
@@ -405,12 +413,6 @@ export const SettingsPage: React.FC = () => {
       <SyncStatusSheet
         isOpen={isSyncStatusOpen}
         onClose={() => setIsSyncStatusOpen(false)}
-      />
-      <AppearanceSettingsSheet
-        isOpen={isAppearanceOpen}
-        onClose={() => setIsAppearanceOpen(false)}
-        mode={appearanceMode}
-        onChange={setAppearanceMode}
       />
       {feedback && (
         <div

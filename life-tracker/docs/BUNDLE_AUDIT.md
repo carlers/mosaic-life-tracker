@@ -373,3 +373,17 @@ These emitted-artifact numbers do not claim a specific startup-time or FPS impro
 The code-level boundaries prove that the named background modules are no longer part of
 the synchronous entry path; use `scripts/audit-bundle.mjs` when an exact initial/Home
 static-closure comparison is required.
+
+### 2026-09-24 responsive settings baseline
+
+The responsive Screen settings and Settings-child navigation batch intentionally adds a
+lazy Screen route, shared content/sheet-width preferences, and route-preview navigation.
+The production build at `5e27747` measured 1,926,070 B raw / 577,206 B gzip across all
+application assets and 1,986,792 B of unique precache payload. The aggregate gzip total
+exceeded the 2026-09-20 ceiling by 206 B; inspection confirmed the growth belongs to the
+approved product surface rather than an accidentally eager dependency.
+
+The measured baseline now records that build. Aggregate raw, aggregate gzip, and unique
+precache limits retain approximately 5% headroom at 2,022,400 B, 606,100 B, and 2,086,200 B
+respectively. Entry limits remain unchanged because route splitting reduced the measured
+entry to 425,768 B raw / 126,784 B gzip.
