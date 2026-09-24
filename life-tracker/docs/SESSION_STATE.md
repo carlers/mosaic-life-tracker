@@ -45,5 +45,5 @@ Blockers: none.
 
 ## Verification
 
-- Automated focused tests and contract/diff checks pending.
+- Focused checks are covered by the final [verify:full] canonical acceptance.
 - Browser/device acceptance: no new device-specific behavior; Settings build metadata should be visually checked on Preview after deployment.
