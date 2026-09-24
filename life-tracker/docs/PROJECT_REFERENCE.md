@@ -4,7 +4,7 @@ This document preserves Mosaic's detailed product contracts, architectural
 invariants, implementation rationale, and historical decisions. It is reference
 material, not an instruction file. `../AGENTS.md` contains the shared active rules.
 
-Sections 5 and 25 summarize workflow boundaries and history. Active process belongs in
+Sections 5 and 25 summarize workflow boundaries and history. The current deployment branch model is `main` for production, `dev` for staging, and `feature/*` for stable previews; `chatgpt/*`, `codex/*`, `temp/*`, and other branches do not auto-deploy. Active process belongs in
 [AI workflow](AI_WORKFLOW.md).
 
 ## 0. Hard Rules
@@ -765,7 +765,7 @@ replay/autocapture/console capture are absent, authenticated distinct IDs equal 
 refresh after identify, intentional exceptions arrive, and uploaded production source maps
 symbolicate stacks.
 
-The single GitHub `Verify` workflow's parallel `browser-contract` job runs Chromium against
+The single GitHub `Quality Gate` workflow's parallel `browser-contract` job runs Chromium against
 the real Mosaic browser adapter with Appwrite/PostHog network interception. It verifies the
 anonymous → authenticated → fresh-anonymous identity lifecycle, flag reloads after identity
 changes, minimal request bodies, handled exception shape, injected chunk/release metadata,

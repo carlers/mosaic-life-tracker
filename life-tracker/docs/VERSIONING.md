@@ -56,17 +56,19 @@ The Settings page displays the release version plus the deployment channel and s
 build identity. This lets a user report an exact build without treating the Git SHA as
 the product version.
 
-## Preview and production
+## Branch deployment channels
 
-The deployment channel is derived from the deployment context:
+Build identity remains independent from the Semantic Versioning release version. Vercel supplies
+the deployment Git SHA, branch, and commit message through its system environment variables.
 
-- the `preview` Git branch is always labeled **Preview**
-- Vercel production deployments are labeled **Production**
-- local development/builds are labeled **Local**
+- `main` is the Production deployment channel.
+- `dev` is the integration/staging Preview deployment channel.
+- `feature/*` branches are stable Preview deployment channels.
+- `chatgpt/*` and `codex/*` branches do not receive automatic Vercel deployments.
+- Other branches do not receive automatic Vercel deployments.
 
-The `preview` branch remains deployment-only under `docs/DELIVERY.md`. The Git SHA shown
-in the app identifies the exact commit that produced the deployed artifact; it does not
-mean that GitHub branch HEAD is necessarily what is deployed.
+The legacy `preview` deployment-only branch is no longer part of the deployment model.
+See `docs/DELIVERY.md` for the current branch and CI policy.
 
 ## PWA relationship
 

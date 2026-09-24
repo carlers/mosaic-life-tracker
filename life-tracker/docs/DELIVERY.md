@@ -1,12 +1,10 @@
-# Verification and Preview delivery
+# Verification and branch delivery
 
 ## Authorized completion
 
 Commit only task paths (never blanket-stage unrelated edits), use a `chatgpt/**` task
 branch, and push after focused checks and diff review. Prefer one coherent commit; repair
-commits are appropriate when CI exposes a defect. Include `[verify:full]` on the final
-commit. Wait for that exact SHA's `canonical-acceptance`, then fast-forward `preview`
-to it and verify the Preview guard and Vercel deployment. No force push across divergence,
+commits are appropriate when CI exposes a defect. Include `[verify:full]` on the final commit when full canonical acceptance is required. Wait for that exact SHA's `canonical-acceptance` before treating the implementation as remotely accepted. No force push across divergence,
 no automatic main merge, and no unrelated remote service changes.
 
 If tools/network prevent a step, complete independent work and report the exact blocker.
@@ -15,25 +13,16 @@ Preview status in the final result. Do not commit status-only prose after accept
 
 ## One CI workflow
 
-`.github/workflows/verify.yml` selects:
+`.github/workflows/quality-gate.yml` selects:
 
 | Mode | Trigger and work |
 |---|---|
 | Docs | Ordinary Markdown-only changes: contracts and diff checks, no dependency install |
-| Focused | Ordinary runtime pushes to `chatgpt/**`: contracts/discovery, changed existing-file ESLint, Git-aware related tests |
-| Full | Runtime PR, manual dispatch, or `[verify:full]`: checks (contracts/discovery/lint/unit/handlers), two DOM shards, build, two browser shards |
-| Preview guard | Preview push: waits for same-run canonical acceptance when the push requests full verification; otherwise requires prior successful canonical acceptance on the same SHA |
+| Focused | Ordinary runtime pushes to `chatgpt/**` and `codex/**`: contracts/discovery, changed existing-file ESLint, Git-aware related tests |
+| Full | `main`, `dev`, `feature/**`, stable-branch PRs, manual dispatch, or `[verify:full]`: checks (contracts/discovery/lint/unit/handlers), two DOM shards, build, two browser shards |
+| Branch delivery | Vercel deploys `main` to Production and `dev`/`feature/*` to Preview; `chatgpt/*`, `codex/*`, `temp/*`, and other branches are blocked |
 
-A focused or docs-only green run is never acceptance for Preview. `[verify:browser]`
-requests intermediate browser coverage. Canonical jobs overlap; the build retains a fresh
-lockfile-driven npm ci. Other jobs reuse lockfile-keyed app dependencies with install
-fallback. Browser packages and Chromium are cached separately. Shards use one browser
-worker each. Preserve these gates and bounded concurrency settings.
-
-Run focused checks during edits. Use CI for final full acceptance when available; do not
-repeat a complete local suite just to duplicate the same gate. Without remote execution,
-`npm run verify` plus prepared browser contracts provides local evidence, but cannot
-authorize Preview without its canonical check. Manual device evidence remains separate.
+A focused or docs-only green run is never canonical acceptance. `[verify:browser]` requests intermediate browser coverage. Manual device evidence remains separate.
 While CI runs, finish independent review; otherwise wait between status requests. Read
 full logs for failures or unusual stalls, not on every poll. Fix the actual failing layer.
 
@@ -46,18 +35,12 @@ The preferred provider is Vercel. Configure one Vercel project from
 - **Framework Preset:** Vite
 - **Build Command:** `npm run build`
 - **Output Directory:** `dist`
-- **Production Branch:** `preview`
+- **Production Branch:** `main`
 
-`life-tracker/vercel.json` contains explicit SPA rewrites for Mosaic's BrowserRouter
-routes and disables automatic Git deployments for `chatgpt/*` and `codex/*` branches.
+`life-tracker/vercel.json` contains explicit SPA rewrites for Mosaic's BrowserRouter routes and uses a deny-by-default `git.deploymentEnabled` policy: `main`, `dev`, and `feature/*` are allowed; `chatgpt/*`, `codex/*`, `temp/*`, and all other unlisted branches are blocked.
 Static assets are not catch-all rewritten.
 
-The Git branch `preview` is deployment-only. The user has authorized it to advance after
-every completed task. Once the exact final task commit has a successful
-`canonical-acceptance` check, fast-forward `preview` to that immutable SHA and verify
-the Vercel deployment. The Preview Verify run confirms exact-SHA canonical acceptance. When a Preview push itself requests full verification, it waits for that run's canonical acceptance rather than racing it; otherwise it accepts an existing prior exact-SHA canonical check. Do not merge feature work
-through `preview`, create Preview-only code commits, or force-update it across divergence;
-source development continues on normal task branches and `main`.
+`main` is the production branch, `dev` is the integration/staging branch, and `feature/*` branches are stable preview branches. There is no deployment-only `preview` branch. Source development continues on these branches and AI task branches.
 
 ## Why a stable hostname
 

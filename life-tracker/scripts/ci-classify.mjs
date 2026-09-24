@@ -15,12 +15,11 @@ export function isDocsOnlyPath(file) {
 export function classifyVerifyMode({
   eventName,
   ref,
+  headRef = '',
   commitMessage = '',
   changedFiles = [],
 }) {
-  if (eventName === 'push' && ref === 'refs/heads/preview') {
-    return { mode: 'preview', browser: false };
-  }
+  const branch = headRef || ref.replace(/^refs\/heads\//, '');
 
   if (eventName === 'workflow_dispatch') {
     return { mode: 'full', browser: true };
@@ -30,25 +29,28 @@ export function classifyVerifyMode({
     return { mode: 'full', browser: true };
   }
 
+  const browserRequested = commitMessage.includes('[verify:browser]');
+  const isCanonicalBranch =
+    branch === 'main' ||
+    branch === 'dev' ||
+    branch.startsWith('feature/');
+  const isAiBranch =
+    branch.startsWith('chatgpt/') ||
+    branch.startsWith('codex/');
+
+  if (isCanonicalBranch) {
+    return { mode: 'full', browser: true };
+  }
+
   const docsOnly =
     changedFiles.length > 0 && changedFiles.every((file) => isDocsOnlyPath(file));
 
   if (docsOnly) {
-    return {
-      mode: 'docs',
-      browser: commitMessage.includes('[verify:browser]'),
-    };
+    return { mode: 'docs', browser: browserRequested };
   }
 
-  if (eventName === 'pull_request') {
-    return { mode: 'full', browser: true };
-  }
-
-  if (eventName === 'push' && ref.startsWith('refs/heads/chatgpt/')) {
-    return {
-      mode: 'focused',
-      browser: commitMessage.includes('[verify:browser]'),
-    };
+  if (isAiBranch) {
+    return { mode: 'focused', browser: browserRequested };
   }
 
   return { mode: 'full', browser: true };
@@ -123,12 +125,12 @@ function main() {
   const immediate = classifyVerifyMode({
     eventName,
     ref,
+    headRef: process.env.CI_HEAD_REF ?? '',
     commitMessage,
     changedFiles: [],
   });
 
   if (
-    immediate.mode === 'preview' ||
     eventName === 'workflow_dispatch' ||
     commitMessage.includes('[verify:full]')
   ) {

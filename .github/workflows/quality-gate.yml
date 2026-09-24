@@ -1,19 +1,22 @@
-name: Verify
+name: Quality Gate
 
 on:
   push:
     branches:
-      - preview
+      - main
+      - dev
+      - 'feature/**'
       - 'chatgpt/**'
+      - 'codex/**'
     paths:
       - 'AGENTS.md'
       - 'life-tracker/**'
-      - '.github/workflows/verify.yml'
+      - '.github/workflows/quality-gate.yml'
   pull_request:
     paths:
       - 'AGENTS.md'
       - 'life-tracker/**'
-      - '.github/workflows/verify.yml'
+      - '.github/workflows/quality-gate.yml'
   workflow_dispatch:
 
 permissions:
@@ -21,7 +24,7 @@ permissions:
   checks: read
 
 concurrency:
-  group: verify-${{ github.ref }}
+  group: quality-gate-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -40,7 +43,8 @@ jobs:
         env:
           CI_EVENT_NAME: ${{ github.event_name }}
           CI_REF: ${{ github.ref }}
-          CI_COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
+          CI_COMMIT_MESSAGE: ${{ github.event.head_commit.message || github.event.pull_request.title }}
+          CI_HEAD_REF: ${{ github.head_ref }}
         run: |
           mode=""
           browser=""
@@ -76,7 +80,8 @@ jobs:
         env:
           CI_EVENT_NAME: ${{ github.event_name }}
           CI_REF: ${{ github.ref }}
-          CI_COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
+          CI_COMMIT_MESSAGE: ${{ github.event.head_commit.message || github.event.pull_request.title }}
+          CI_HEAD_REF: ${{ github.head_ref }}
           CI_BEFORE_SHA: ${{ github.event.before }}
           CI_PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
         run: node life-tracker/scripts/ci-classify.mjs
@@ -93,41 +98,6 @@ jobs:
           echo "mode=${IMMEDIATE_MODE:-$CLASSIFIED_MODE}" >> "$GITHUB_OUTPUT"
           echo "browser=${IMMEDIATE_BROWSER:-$CLASSIFIED_BROWSER}" >> "$GITHUB_OUTPUT"
           echo "base=$CLASSIFIED_BASE" >> "$GITHUB_OUTPUT"
-
-  preview_verified:
-    name: preview-verified
-    needs:
-      - classify
-      - canonical_acceptance
-    if: ${{ always() && github.event_name == 'push' && github.ref == 'refs/heads/preview' }}
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    steps:
-      - name: Require canonical acceptance for exact SHA
-        env:
-          GH_TOKEN: ${{ github.token }}
-          REPO: ${{ github.repository }}
-          SHA: ${{ github.sha }}
-          MODE: ${{ needs.classify.outputs.mode }}
-          CANONICAL_RESULT: ${{ needs.canonical_acceptance.result }}
-        run: |
-          if [ "$CANONICAL_RESULT" = "success" ]; then
-            echo "Preview SHA $SHA passed canonical acceptance in this workflow run."
-            exit 0
-          fi
-
-          count="$(
-            gh api \
-              -H "Accept: application/vnd.github+json" \
-              -H "X-GitHub-Api-Version: 2022-11-28" \
-              "/repos/$REPO/commits/$SHA/check-runs?filter=all&per_page=100" \
-              --jq '[.check_runs[] | select(.name == "canonical-acceptance" and .conclusion == "success")] | length'
-          )"
-          if [ "$count" -lt 1 ]; then
-            echo "Preview SHA $SHA has no successful canonical-acceptance check. Mode=$MODE canonical_result=$CANONICAL_RESULT"
-            exit 1
-          fi
-          echo "Preview SHA $SHA already passed canonical acceptance; duplicate full verification skipped."
 
   docs_checks:
     name: docs-checks

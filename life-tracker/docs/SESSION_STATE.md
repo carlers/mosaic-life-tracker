@@ -1,51 +1,41 @@
 # Session checkpoint
 
 Updated: 2026-09-24
-Current task: Correct Vercel automatic-deployment configuration
-Status: implementation complete; final canonical verification is required via the `[verify:full]` gate.
-Next action: run focused contract/diff checks, commit with [verify:full], wait for canonical acceptance, fast-forward Preview, and verify deployment.
-Blockers: Vercel deployment status must be verified externally after the accepted SHA is published.
+Current task: Migrate CI/CD from the legacy preview branch model to main/dev/feature plus AI task branches
+Status: implementation complete; final local and remote verification is required.
+Next action: run syntax, focused classifier tests, project contracts, lint, unit/handler/DOM tests, build, and inspect the committed diff; then commit with [verify:full] and wait for canonical acceptance.
+Blockers: Vercel deployment status for main/dev/feature must be verified externally after the accepted SHA is deployed.
 
 ## Constraints
 
-- Release versions are deliberate Semantic Versioning product releases, not commit/deployment counters.
-- Build identity is separate from release version and uses the exact deployment Git SHA when available.
-- Preview remains deployment-only; the exact SHA deployed is the build identity shown by the app.
-- Preserve existing PWA lifecycle behavior and update-check contract.
+- `main` is production and receives full canonical verification plus Vercel production deployment.
+- `dev` is integration/staging and receives full canonical verification plus Vercel preview deployment.
+- `feature/*` receives full canonical verification plus Vercel preview deployment.
+- `chatgpt/*` and `codex/*` are temporary AI implementation branches with focused CI and no automatic Vercel deployment.
+- Other branches receive no automatic Vercel deployment.
+- Preserve the existing canonical checks, caches, concurrency, shards, and acceptance gate.
 
 ## Completed substeps
 
-- Adopted `0.1.0` as Mosaic's initial development release version.
-- Added a documented release-version protocol in `docs/VERSIONING.md`.
-- Added build metadata injection from Vercel Git environment values with local fallbacks.
-- Exposed channel and short build identity in Settings.
-- Updated version/build regression coverage and project-reference documentation.
-
-## Remaining substeps
-
-- Verify the effective Vercel config is under the configured `life-tracker` Root Directory.
-- Run `npm run contracts:check` and `git diff --check`.
-- Run final [verify:full] acceptance and publish the exact accepted SHA to Preview.
-- Verify the resulting Vercel deployment.
+- Renamed the verification workflow to `.github/workflows/quality-gate.yml` and migrated its branch triggers.
+- Replaced preview classification with canonical and AI branch classification.
+- Added regression coverage for CI branch classification.
+- Changed Vercel deployment configuration to an explicit deny-by-default branch policy.
+- Updated delivery, testing, versioning, and project-reference documentation to remove the deployment-only preview model.
 
 ## Working set
 
+- .github/workflows/quality-gate.yml
+- life-tracker/scripts/ci-classify.mjs
+- life-tracker/tests/unit/ci-classify.test.ts
 - life-tracker/vercel.json
-- docs/DELIVERY.md
-- package.json
-- package-lock.json
-- src/lib/appVersion.ts
-- src/lib/buildInfo.ts
-- vite.config.ts
-- src/pages/SettingsPage.tsx
-- tests/unit/appVersion.test.ts
-- tests/components/SettingsPage.test.tsx
-- docs/VERSIONING.md
-- docs/README.md
-- docs/PROJECT_REFERENCE.md
-- docs/SESSION_STATE.md
+- life-tracker/docs/DELIVERY.md
+- life-tracker/docs/TEST_WORKFLOW.md
+- life-tracker/docs/VERSIONING.md
+- life-tracker/docs/PROJECT_REFERENCE.md
+- life-tracker/docs/SESSION_STATE.md
 
 ## Verification
 
-- Focused checks are covered by the final [verify:full] canonical acceptance.
-- Browser/device acceptance: no new device-specific behavior; Settings build metadata should be visually checked on Preview after deployment.
+- Automated: pending for this migration.
+- Browser/device acceptance: manual Vercel branch deployment checks remain pending.

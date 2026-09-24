@@ -36,7 +36,7 @@ change needs real-browser feedback.
 Use `[verify:full]` on the exact final task commit. The remote canonical gate then runs
 static/lint, unit, handler, DOM, production build/PWA/size, and browser contracts as
 parallel jobs and emits `canonical-acceptance` only when all pass. That exact green SHA is
-fast-forwarded to Preview; Preview checks prior acceptance instead of repeating the suite.
+accepted on the source branch after canonical acceptance; Vercel deploys only the configured stable branches.
 
 Use the remote canonical gate for final acceptance when available; do not duplicate the
 whole suite locally. See [delivery](DELIVERY.md).
@@ -154,7 +154,7 @@ Detailed evidence reporting is opt-in; ordinary completion reports state checks 
 Interaction changes that depend on nested modal or carousel ownership need focused regression
 coverage in addition to the canonical Vitest/build gate. Browser-backed contracts live in
 `tests/e2e/**/*.spec.mjs`, are discovered by `npm run test:browser-contract`, and run as
-the parallel `browser-contract` job inside the single GitHub `Verify` workflow. Do not
+the parallel `browser-contract` job inside the single GitHub `Quality Gate` workflow. Do not
 create a separate Actions workflow for them.
 
 - Bottom-sheet Back tests should cover one, two, and three open layers, assert top-first
