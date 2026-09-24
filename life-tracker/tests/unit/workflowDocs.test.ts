@@ -109,3 +109,28 @@ describe('GitHub verification latency contract', () => {
     expect(verify).not.toContain('\n  hygiene:');
   });
 });
+
+
+describe('DOM and browser runtime optimization contract', () => {
+  // Regression: task acceptance — preserve the complete DOM suite while splitting its CI wall time.
+  it('runs the DOM project as two canonical Vitest shards', () => {
+    const verify = read('../.github/workflows/verify.yml');
+    const domJob = (verify.split('  dom_tests:')[1] ?? '')
+      .split('  build_check:')[0];
+
+    expect(domJob).toContain('strategy:');
+    expect(domJob).toContain('shard:');
+    expect(domJob).toContain('1/2');
+    expect(domJob).toContain('2/2');
+    expect(domJob).toContain('npm run test:dom -- --shard="${{ matrix.shard }}"');
+  });
+
+  // Regression: task acceptance — browser contracts are isolated and may run concurrently,
+  // but the worker pool stays bounded so Vite/Chromium do not oversubscribe the CI host.
+  it('runs Playwright tests fully parallel with a bounded CI worker pool', () => {
+    const config = read('playwright.config.mjs');
+
+    expect(config).toContain('fullyParallel: true');
+    expect(config).toContain('workers: process.env.CI ? 4 : undefined');
+  });
+});
