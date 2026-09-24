@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { ChevronLeft, Share2, ChevronRight, Camera, AtSign } from 'lucide-react';
 import { DeferredAvatar } from '../components/ui/DeferredAvatar';
 import { EditNameSheet } from '../components/modals/EditNameSheet';
@@ -9,9 +9,11 @@ import { SetUsernameSheet } from '../components/modals/SetUsernameSheet';
 import { useProfile } from '../hooks/useProfile';
 import { useMyProfile } from '../hooks/useMyProfile';
 import { buildProfileShareData, shareProfile } from '../lib/profileShare';
+import { hasExpectedRouteParent } from '../lib/primarySwipeNavigation';
 
 export const ProfilePage: React.FC = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const {
     displayName,
     description,
@@ -28,7 +30,14 @@ export const ProfilePage: React.FC = () => {
   const [isEditingUsername, setIsEditingUsername] = useState(false);
   const [shareFeedback, setShareFeedback] = useState<string | null>(null);
 
-  const handleBack = () => navigate(-1);
+  const handleBack = () => {
+    const parent = '/settings';
+    if (hasExpectedRouteParent(location.key, location.state, parent)) {
+      navigate(-1);
+    } else {
+      navigate(parent, { replace: true });
+    }
+  };
   const handleShare = async () => {
     const result = await shareProfile(buildProfileShareData(
       window.location.origin,

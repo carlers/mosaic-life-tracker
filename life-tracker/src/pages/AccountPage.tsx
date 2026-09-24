@@ -7,6 +7,7 @@ import { useAuth } from '../hooks/useAuth';
 import { useTasks } from '../hooks/useTasks';
 import { useCategories } from '../hooks/useCategories';
 import { useFriends } from '../hooks/useFriends';
+import { makeRouteParentState } from '../lib/primarySwipeNavigation';
 
 export const AccountPage: React.FC = () => {
   const { user, logout } = useAuth();
@@ -38,7 +39,7 @@ export const AccountPage: React.FC = () => {
         <h1 className="text-lg font-bold text-white">Me</h1>
         <button
           type="button"
-          onClick={() => navigate('/settings')}
+          onClick={() => navigate('/settings', { state: makeRouteParentState('/account') })}
           onPointerDown={(e) => e.stopPropagation()}
           className="p-2 rounded-lg bg-[#1E1E1E] border border-[#333333] text-gray-400 hover:text-white hover:bg-[#2A2A2A] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
           aria-label="Settings"

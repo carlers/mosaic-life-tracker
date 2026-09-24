@@ -1,7 +1,8 @@
-import React, { lazy, Suspense, useEffect, useState } from 'react';
+import React, { lazy, Suspense, useContext, useEffect, useState } from 'react';
 import { BottomNav, type TabId } from './BottomNav';
 import { PrimaryRouteSwipeSurface } from './PrimaryRouteSwipeSurface';
 import type { PrimarySwipeDirection } from '../../lib/primarySwipeNavigation';
+import { AppearanceContext } from '../../hooks/appearanceContext';
 
 const OfflineBanner = lazy(() =>
   import('../ui/OfflineBanner').then(({ OfflineBanner }) => ({
@@ -32,6 +33,8 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
   rightPreview = null,
   onRouteSwipe = () => {},
 }) => {
+  const appearance = useContext(AppearanceContext);
+  const contentWidthMode = appearance?.contentWidthMode ?? 'full';
   const [isOnline, setIsOnline] = useState(
     typeof navigator !== 'undefined' ? navigator.onLine : true
   );
@@ -56,7 +59,18 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
       )}
 
       <main className="flex-1 min-h-0 overflow-y-auto">
-        <PrimaryRouteSwipeSurface
+        <div
+          data-testid="primary-route-width-frame"
+          data-content-width-mode={contentWidthMode}
+          className={`w-full ${
+            activeTab === 'home' ? 'h-full min-h-0' : 'min-h-full'
+          } ${
+            contentWidthMode === 'comfortable'
+              ? 'md:w-[min(70vw,960px)] md:mx-auto'
+              : ''
+          }`}
+        >
+          <PrimaryRouteSwipeSurface
           key={routeKey}
           homeZoneOnly={activeTab === 'home'}
           canSwipeLeft={canSwipeLeft}
@@ -75,7 +89,8 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
           >
             {children}
           </div>
-        </PrimaryRouteSwipeSurface>
+          </PrimaryRouteSwipeSurface>
+        </div>
       </main>
 
       <BottomNav activeTab={activeTab} onTabChange={onTabChange} />
