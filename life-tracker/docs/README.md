@@ -1,7 +1,7 @@
 # Documentation
 
 Read only the material needed for the current task. Code/configuration define current
-behavior; archived reports describe evidence at their recorded dates.
+behavior.
 
 | Concern | Source |
 |---|---|
@@ -14,6 +14,5 @@ behavior; archived reports describe evidence at their recorded dates.
 | Accessibility evidence and manual protocol | [Accessibility review](ACCESSIBILITY_AUDIT.md) |
 | Tombstones and scheduled maintenance | [Retention procedure](TOMBSTONE_RETENTION.md) |
 | Optional measurements/evidence ledger | [Telemetry](WORKFLOW_TELEMETRY.md) |
-| Dated audit evidence and migrations | [Archive](archive/README.md) |
 
 [Project instructions](../AGENTS.md) remain the small agent entrypoint.
