@@ -1,43 +1,29 @@
 # Session state
 
 Updated: 2026-09-24
-Current task: CI workflow optimization + automatic Preview advancement
-Status: implementation and repair complete; exact final acceptance/deployment checkpoint in progress.
+Current task: Optimize DOM tests and browser contracts for CI runtime
+Status: profiling and optimization in progress on `chatgpt/optimize-dom-browser-ci`.
 
 ## Active user prompt
 
-> continue
+> dom tests and browser contract are still the slowest ones, can u optimize them further for run time
 
 ## Approved scope
 
-- Preserve exact-final-SHA full acceptance before deployment.
-- Keep the existing shallow diff checkout and same-ref concurrency cancellation.
-- Add a lightweight docs-only verification path rather than running full test/build/browser CI for ordinary documentation-only changes.
-- Parallelize the canonical full gate into independent static checks/lint, unit tests, handler tests, DOM tests, production build/PWA/size guard, and browser contracts.
-- Retain reproducible final dependency verification with fresh `npm ci`; keep existing npm/browser caches and only add extra cache layers when they have a clear payoff.
-- Avoid re-running the same canonical gate solely because an already full-green SHA is advanced to `preview`.
-- After every completed task, automatically fast-forward `preview` to the exact full-green task SHA and verify deployment.
-- Update repository workflow/process documentation to make this the new default.
+- Reduce canonical CI wall time by optimizing the DOM Vitest shard and Playwright browser-contract shard.
+- Preserve test coverage/behavioral assertions; do not remove meaningful coverage just to make CI faster.
+- Prefer evidence-driven runner/config/test-harness changes over broad product refactors.
+- Keep exact-final-SHA canonical acceptance and automatic Preview advancement unchanged.
+- Benchmark/compare against the current successful full-gate baseline before closing the task.
 
 ## Progress
 
-1. **Done — recover governing rules and current workflow.** Read AGENTS.md, SESSION_STATE.md, PLAN.md, REMOTE_VERIFY.md, TEST_WORKFLOW.md, PREVIEW_DEPLOYMENT.md, package scripts, focused verifier, Vitest project config, and `.github/workflows/verify.yml`.
-2. **Done — workflow diagnosis/alignment.** Confirmed main Verify already uses `fetch-depth: 2`, same-ref `cancel-in-progress: true`, npm caching, focused `node_modules` caching, prepared browser dependency caching, and Chromium caching. Main remaining latency is the serial full repository gate plus duplicate Preview verification.
-3. **Done — establish the previous Home-search SHA as Preview baseline.** `preview` was fast-forwarded from `aad2355…` to the already full-green Home-search commit `551b706e6fdcb9a06c3489e5fa8dfd02e9efa46e`.
-4. **Done — implement CI optimization + focused validation.** Verify #274 (`35970512577`) used the new workflow on implementation commit `864b291137b381ca747edbb2678f555c5510af0a`: classifier chose focused mode, all unrelated full/Preview jobs skipped, project contracts and 96-file discovery passed, and the changed-test run passed 1/1 file with 6/6 CI-classifier tests. Focused verification covered 8 changed files.
-5. **Done — validate the live docs-only path.** Verify #275 (`35970646318`) classified the state-only checkpoint as docs mode; `docs-checks` passed while focused/full/browser/Preview jobs were skipped. No application dependency install, Vitest, production build, or browser contract ran.
-6. **Done — final repair + canonical parallel validation.** Verify #276 (`35970792199`) exposed the over-narrow unit sparse checkout. Verify #277 (`35971150874`) confirmed that repair and isolated one stale workflow-contract assertion. Verify #278 (`35971472503`) then passed every required shard plus `canonical-acceptance`: static/lint, unit, handlers, DOM, production build/PWA/size, and browser contracts. Its wall clock was about 103s versus about 134s for pre-refactor full Verify #271, a ~31s (~23%) reduction on this runner sample.
-7. **In progress — exact final task acceptance + Preview rollout.** This checkpoint commit requests `[verify:full]`; after its exact SHA is canonical-green, fast-forward `preview` to it and verify that Preview runs only the prior-acceptance guard while Vercel deploys the same SHA.
-8. **Pending — report measured/structural CI improvements.**
-
-## Test evidence review
-
-- `CI-MODE-CLASSIFICATION` — **skipped red-state capture; current direct automated coverage**: `tests/unit/ciClassify.test.ts` pins docs-only, focused, explicit full, pull-request, Preview-guard, and explicit browser classification. Focused Verify #274 passed 6/6 classifier tests; no pre-implementation red was captured because the classifier and its first tests landed in the same implementation commit.
-- `CI-FOCUSED-PATH` — **operational workflow evidence**: Verify #274 selected `focused-checks` for the implementation push and skipped every unrelated canonical/Preview job.
-- `CI-DOCS-PATH` — **operational workflow evidence**: Verify #275 selected only `docs-checks` for a documentation-only push and passed project-contract + diff checks without dependency/test/build/browser work.
-- `CI-FULL-PARALLEL` — **behavioral failures captured, green operational evidence**: Verify #276 fanned out all required jobs and exposed the unit sparse-checkout `ENOENT`; Verify #277 passed handlers, static/lint, build/PWA/size, DOM, and browser while isolating one stale marker-location assertion; Verify #278 passed every parallel shard plus `canonical-acceptance`. The unit checkout stays sparse to `.github` + `life-tracker`, and the regression checks commit-message markers in `scripts/ci-classify.mjs`, their actual owner.
-- `CI-PREVIEW-GUARD` — **pending deployment evidence** after full-green acceptance; Preview must run only classifier + `preview-verified` and reuse the prior exact-SHA `canonical-acceptance` result.
-- No user-visible app behavior changed; real-device manual acceptance is not applicable to this workflow-only task.
+1. **Done — recover current Preview baseline and governing workflow rules.** Read AGENTS.md, SESSION_STATE.md, PLAN.md, REMOTE_VERIFY.md, TEST_WORKFLOW.md, PREVIEW_DEPLOYMENT.md, Verify workflow, Vitest project config, and package scripts.
+2. **In progress — profile DOM and browser execution to locate the real hot spots and safe parallelism opportunities.**
+3. **Pending — add/adjust regression contracts for runner configuration where needed.**
+4. **Pending — implement the smallest safe runtime optimizations and run focused measurements.**
+5. **Pending — run exact final `[verify:full]`, compare shard/full wall times to baseline, repair any failures.**
+6. **Pending — fast-forward Preview to the exact canonical-green SHA and verify deployment/Preview guard.**
 
 Roadmap pointer: developer workflow / CI latency.
 Blockers: none.
