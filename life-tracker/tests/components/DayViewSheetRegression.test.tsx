@@ -276,34 +276,9 @@ describe('DayViewSheet nested task actions', () => {
     expect(screen.getByText('Visibility')).toBeInTheDocument();
   });
 
-  // Regression: PROJECT_REFERENCE.md §2 — Todo can supply its already-loaded task/category data.
-  it('prefers supplied inline task and category data over a second display subscription', () => {
-    const suppliedTask = {
-      ...fixture.task,
-      id: 'task_override',
-      title: 'Supplied Todo task',
-    };
-    const suppliedCategory = {
-      ...fixture.category,
-      id: 'cat_override',
-      name: 'Supplied category',
-    };
-    suppliedTask.categoryId = suppliedCategory.id;
-
-    render(
-      <DayViewSheet
-        isOpen
-        onClose={vi.fn()}
-        selectedDate={new Date(2026, 8, 20)}
-        onDateChange={vi.fn()}
-        renderMode="inline"
-        tasks={[suppliedTask]}
-        categories={[suppliedCategory]}
-      />
-    );
-
-    expect(screen.getByText('Open actions')).toBeInTheDocument();
-  });
+  // Supplied task/category rendering is covered through the real DaySlide in
+  // TodoListIntegration.test.tsx; an "Open actions" smoke assertion here could
+  // also pass with fallback hook data and did not establish that contract.
 
   it.each([
     ['Memo', 'memo-sheet'],

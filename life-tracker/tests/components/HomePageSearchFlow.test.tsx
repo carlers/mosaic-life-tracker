@@ -1,3 +1,4 @@
+import { format } from 'date-fns';
 import { describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { HomePage } from '../../src/pages/HomePage';
@@ -87,7 +88,7 @@ vi.mock('../../src/components/home/views/DayViewSheet', () => ({
   }) =>
     isOpen ? (
       <div data-testid="search-day-view">
-        <span>{selectedDate.toISOString().slice(0, 10)}</span>
+        <span>{format(selectedDate, 'yyyy-MM-dd')}</span>
         <span>{focusTaskId}</span>
         <span>{tasks?.length}</span>
         <span>{categories?.length}</span>

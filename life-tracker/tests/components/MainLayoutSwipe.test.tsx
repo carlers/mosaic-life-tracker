@@ -53,6 +53,10 @@ describe('MainLayout primary route swipes', () => {
       </MainLayout>
     );
 
+    expect(screen.getByRole('main')).not.toHaveClass('pb-24');
+    expect(screen.getByTestId('primary-route-content')).toHaveClass(
+      'pb-[calc(4rem+env(safe-area-inset-bottom))]'
+    );
     expect(screen.getByTestId('primary-route-swipe-surface')).toHaveClass(
       'h-full',
       'min-h-0'

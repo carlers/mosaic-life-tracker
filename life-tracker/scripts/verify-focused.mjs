@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { spawn } from 'node:child_process';
+import { planFocusedVerification } from './lib/focused-verification.mjs';
 
 const npm = process.platform === 'win32' ? 'npm.cmd' : 'npm';
 const npx = process.platform === 'win32' ? 'npx.cmd' : 'npx';
@@ -27,22 +28,11 @@ await run(npm, ['run', 'test:discovery']);
 
 const diff = await run('git', ['-C', '..', 'diff', '--name-only', base, 'HEAD'], true);
 const changed = diff.split(/\r?\n/).map((value) => value.trim()).filter(Boolean);
-const projectFiles = changed
-  .filter((path) => path.startsWith('life-tracker/'))
-  .map((path) => path.slice('life-tracker/'.length));
-const lintable = projectFiles.filter((path) => /\.(?:[cm]?[jt]sx?)$/.test(path));
+const { lintable, broad } = planFocusedVerification(changed);
 
 if (lintable.length > 0) {
   await run(npx, ['--no-install', 'eslint', ...lintable]);
 }
-
-const broad = projectFiles.some((path) =>
-  path === 'package.json' ||
-  path === 'package-lock.json' ||
-  path.startsWith('vitest.') ||
-  path.startsWith('vite.config') ||
-  path.startsWith('scripts/lib/test-projects.')
-);
 
 if (broad) {
   await run(npm, ['test', '--', '--passWithNoTests']);

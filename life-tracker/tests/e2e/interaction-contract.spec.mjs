@@ -140,7 +140,6 @@ async function startDrag(page, locator, deltaX) {
   };
 }
 
-
 // Regression: PROJECT_REFERENCE.md §2 — primary page swipes visibly track the finger,
 // Home only starts from its hamburger layer, non-Home owns the full page, and Me left-swipe opens Settings.
 test('primary route swipe is direct-manipulation with Home and Me ownership rules', async ({ page }) => {
@@ -189,8 +188,6 @@ test('primary route swipe is direct-manipulation with Home and Me ownership rule
   await expect(page.getByTestId('primary-route')).toHaveText('settings');
 });
 
-
-
 // Regression: PROJECT_REFERENCE.md §2 — phone-sized Me owns horizontal gestures
 // throughout its content and Settings swipes right back to Me.
 test('phone route deck supports lower-page Me swipe and Settings right-back', async ({ page }) => {
@@ -217,6 +214,12 @@ test('todo compact calendar centers the active month and rings only the selected
 
   const region = page.getByTestId('todo-calendar-region');
   const grid = region.getByRole('grid', { name: 'September 2026 todo calendar' });
+  expect(await grid.evaluate((element) => getComputedStyle(element).backgroundColor)).toBe(
+    'rgba(0, 0, 0, 0)'
+  );
+  expect(await grid.evaluate((element) => getComputedStyle(element).borderTopWidth)).toBe(
+    '0px'
+  );
   await expect(grid.getByRole('gridcell')).toHaveCount(35);
 
   const regionBox = await region.boundingBox();
@@ -240,7 +243,6 @@ test('todo compact calendar centers the active month and rings only the selected
     await selectedNumber.evaluate((element) => getComputedStyle(element).backgroundColor)
   ).toBe('rgb(255, 255, 255)');
 });
-
 
 // Regression: PROJECT_REFERENCE.md §2 — Light and Black change the actual rendered palette
 // while semantic colored controls retain their contrast treatment.
@@ -284,20 +286,23 @@ test('appearance modes update computed app surfaces without changing semantic fi
   ).toBe('rgb(9, 9, 9)');
 });
 
-// Regression: PROJECT_REFERENCE.md §16 — calendar windowing keeps only active + one neighbor each side rendered.
-test('calendar keeps at most three full grids mounted while preserving carousel geometry', async ({ page }) => {
-  await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html`);
-
-  const grids = page.getByTestId('calendar-region').getByRole('grid');
-  expect(await grids.count()).toBeLessThanOrEqual(3);
-});
-
 test('calendar swipe moves the calendar without advancing the friend carousel', async ({ page }) => {
   await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html`);
 
   const friendIndex = page.getByTestId('friend-index');
   const calendarTitle = page.getByTestId('calendar-title');
   const calendarRegion = page.getByTestId('calendar-region');
+
+  // PROJECT_REFERENCE.md §16 / calendar accessibility: check initial rendering
+  // before the swipe moves away from the month containing today's marker.
+  expect(await calendarRegion.getByRole('grid').count()).toBeLessThanOrEqual(3);
+  const title = (await calendarTitle.textContent())?.trim();
+  expect(title).toBeTruthy();
+  const grid = page.getByRole('grid', { name: `${title} calendar` });
+  await expect(grid).toBeVisible();
+  await expect(grid.getByRole('columnheader')).toHaveCount(7);
+  expect(await grid.getByRole('gridcell').count()).toBeGreaterThanOrEqual(28);
+  await expect(grid.locator('[aria-current="date"]')).toHaveCount(1);
 
   await expect(friendIndex).toHaveText('0');
   const before = await calendarTitle.textContent();
@@ -319,6 +324,8 @@ test('swiping outside the calendar still advances the friend carousel', async ({
 // Regression: PROJECT_REFERENCE.md §2 — Todo calendar is direct-manipulation, tappable, and owns its gesture.
 test('todo calendar follows the finger before snapping months', async ({ page }) => {
   await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html`);
+  await expect(page.getByTestId('friend-index')).toHaveText('0');
+  await expect(page.getByTestId('todo-month')).toHaveText('September 2026');
 
   const region = page.getByTestId('todo-calendar-region');
   const day = page.getByRole('gridcell', {
@@ -336,19 +343,6 @@ test('todo calendar follows the finger before snapping months', async ({ page })
 
   await expect(page.getByTestId('todo-month')).toHaveText('October 2026');
   await expect(page.getByTestId('friend-index')).toHaveText('0');
-});
-
-// Regression: PROJECT_REFERENCE.md §2 — Todo calendar card is visually transparent.
-test('todo compact calendar has no gray card fill or border', async ({ page }) => {
-  await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html`);
-
-  const grid = page.getByRole('grid', { name: 'September 2026 todo calendar' });
-  expect(await grid.evaluate((element) => getComputedStyle(element).backgroundColor)).toBe(
-    'rgba(0, 0, 0, 0)'
-  );
-  expect(await grid.evaluate((element) => getComputedStyle(element).borderTopWidth)).toBe(
-    '0px'
-  );
 });
 
 // Regression: PROJECT_REFERENCE.md §21 — a Send tap must not blur the active textarea.
@@ -416,7 +410,6 @@ test('owner task memo is visible and double/triple tap shortcuts reach edit surf
   await expect(page.getByTestId('todo-gesture')).toHaveText('memo-edit');
 });
 
-
 // Regression: PROJECT_REFERENCE.md §2 — the shared Day View date row is direct-manipulation horizontally while remaining a vertical close handle.
 test('sheet date row follows the finger horizontally and still supports vertical drag-to-close', async ({ page }) => {
   await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html`);
@@ -445,7 +438,6 @@ test('sheet date row follows the finger horizontally and still supports vertical
   await dragVertical(page, page.getByTestId('sheet-date-row-2'), 180);
   await expect(page.getByRole('dialog', { name: 'Responsive test sheet' })).toHaveCount(0);
 });
-
 
 // Regression: PROJECT_REFERENCE.md §2 — blank lower Day View sheet space remains part of the native horizontal day surface.
 test('blank lower sheet area swipes to the adjacent day', async ({ page }) => {
@@ -529,21 +521,6 @@ test('todo page keeps every row of a six-week month visible instead of flex-clip
   );
 });
 
-test('todo calendar-grid swipe advances the month without advancing the friend carousel', async ({ page }) => {
-  await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html`);
-
-  const friendIndex = page.getByTestId('friend-index');
-  const todoMonth = page.getByTestId('todo-month');
-
-  await expect(friendIndex).toHaveText('0');
-  await expect(todoMonth).toHaveText('September 2026');
-
-  await drag(page, page.getByTestId('todo-calendar-region'), -260);
-
-  await expect(todoMonth).toHaveText('October 2026');
-  await expect(friendIndex).toHaveText('0');
-});
-
 test('todo day swipe advances the nested day view without advancing the friend carousel', async ({ page }) => {
   await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html`);
 
@@ -588,20 +565,6 @@ test('interaction harness reflows without horizontal page overflow at 320 CSS px
     () => document.documentElement.scrollWidth - document.documentElement.clientWidth
   );
   expect(overflow).toBeLessThanOrEqual(1);
-});
-
-
-test('active calendar exposes labelled grid, row, header, cell, and current-date semantics', async ({ page }) => {
-  await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html`);
-
-  const title = (await page.getByTestId('calendar-title').textContent())?.trim();
-  expect(title).toBeTruthy();
-
-  const grid = page.getByRole('grid', { name: `${title} calendar` });
-  await expect(grid).toBeVisible();
-  await expect(grid.getByRole('columnheader')).toHaveCount(7);
-  expect(await grid.getByRole('gridcell').count()).toBeGreaterThanOrEqual(28);
-  await expect(grid.locator('[aria-current="date"]')).toHaveCount(1);
 });
 
 test('interaction harness has no detectable non-visual WCAG A/AA axe violations', async ({ page }) => {

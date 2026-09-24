@@ -261,3 +261,20 @@ For a local browser-contract run, prepare the isolated browser packages once wit
 
 Keep these as bounded concurrency settings. If the hosted runner class or suite shape
 changes materially, benchmark before increasing shard/worker counts.
+
+### 2026-09-24 assertion-preserving consolidation
+
+The suite now has 93 Vitest files / 594 cases (335 unit, 55 handler, 204 DOM),
+including three new focused-verifier path regressions, and 23 browser contracts.
+Six DOM modules were eliminated by combining Settings, Account layout, and messaging
+fixtures. The messaging suite retains 14 distinct scenarios through both public hooks;
+each still creates and removes its own RxDB database. Four browser cases now share an
+existing scenario's page load while retaining their assertions. Required CI gates and
+parallelism are unchanged.
+
+The [assertion survival map and measured results](TEST_SUITE_TRIM.md) identify every
+removed case's replacement. Keep real gesture/layout checks in Playwright; DOM class
+assertions are not substitutes for them. Focused verification now filters deleted paths
+only from ESLint arguments, preserving the full diff base for test selection and broad
+verification intent. The Home search wiring test uses a local calendar date so UTC and
+Asia/Manila agree without forcing all tests into UTC.
