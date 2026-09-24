@@ -148,6 +148,7 @@ function main() {
   const result = classifyVerifyMode({
     eventName,
     ref,
+    headRef: process.env.CI_HEAD_REF ?? '',
     commitMessage,
     changedFiles,
   });

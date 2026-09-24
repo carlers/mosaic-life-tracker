@@ -9,7 +9,7 @@ no automatic main merge, and no unrelated remote service changes.
 
 If tools/network prevent a step, complete independent work and report the exact blocker.
 Do not ask for authorization already granted. Include commit SHA/subject, checks, and
-Preview status in the final result. Do not commit status-only prose after acceptance.
+Deployment status in the final result. Do not commit status-only prose after acceptance.
 
 ## One CI workflow
 
@@ -77,23 +77,24 @@ break an otherwise valid Vercel build. If live Phase 3.7 staging verification is
 configure the appropriate Vercel Preview/Production variables separately; do not commit
 secrets.
 
-## Phone-review loop
+## Branch deployment review loop
 
 1. Finish a task on its normal task branch and include the durable session/doc checkpoint
    before the final acceptance commit.
-2. Put `[verify:full]` on the exact final task commit and require its
-   `canonical-acceptance` check to pass.
-3. Fast-forward `preview` to that exact verified commit as part of task completion.
-4. Confirm the lightweight Preview prior-acceptance guard passes and the Vercel deployment
-   becomes ready.
-5. Share the stable preview URL when a manual/browser protocol is relevant.
+2. Put `[verify:full]` on the exact final task commit when full canonical acceptance is
+   required.
+3. Wait for that exact SHA's `canonical-acceptance` check to pass.
+4. Verify the Vercel deployment for the intended `main`, `dev`, or `feature/*`
+   branch is ready.
+5. Share the relevant stable or per-branch preview URL when a manual/browser protocol is
+   relevant.
 6. The user performs any required phone/browser protocol.
 7. Record manual evidence separately from automated CI evidence.
 
 Do not add a state-only closure commit after canonical acceptance merely to record a run
-number; derive completed workflow/deployment status from GitHub and Vercel. If repository
-state truly needs another committed change, that new exact SHA becomes the task tip and
-must receive its own required acceptance before Preview advances.
+number; derive completed verification/deployment status from GitHub and Vercel. If repository
+state truly needs another committed change, that new exact SHA becomes the task tip and must
+receive its own required acceptance.
 
 For interaction-heavy changes, the hosted device check is part of acceptance even when DOM
 regressions are green. In particular, verify Android/Samsung Back against nested bottom
