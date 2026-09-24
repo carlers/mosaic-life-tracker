@@ -2,7 +2,7 @@
   "git": {
     "deploymentEnabled": {
       "chatgpt/*": false,
-      "codex/*": false,
+      "codex/*": false
     }
   }
 }
