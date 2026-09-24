@@ -1,34 +1,28 @@
 # Session state
 
-Updated: 2026-09-23
-Current task: Full-page primary swipes and functional appearance modes
-Status: complete.
+Updated: 2026-09-24
+Current task: Home content regression + route swipe visual deck + Settings back swipe
+Status: in progress.
 
 ## Active user prompt
 
-> Swipe area for the other pages other than Home should be the entire page, not just the upper region. The swiping on the Me page should lead to settings when you swipe to the left, not the right. I was mistaken. Add a dark mode, light mode, system mode, and black mode in settings and make it functional.
+> issues: 
+> -home page doesnt even show anything under the friend carousel anymore. 
+> - u cant even see the other pages while dragging the screen, it has to be smooth
+> - u should be able to swipe right to go from settings back to me page
+> - swiping on me page works on laptop but not on phone (it only works when u swipe under the logout button)
+>
+> now when u implement these fixes make sure it's still optimized and lag free, especially on mount.
 
 ## Progress
 
-1. **Done — recover Preview baseline and rules.** Confirmed Preview at `2f4f13bcade1f38c0bc3a0325bed352ca65f48ba`; read current agent/session/roadmap/product/verification/deployment guidance.
-2. **Done — inspect gesture/theme architecture.** Primary route gestures live in `PrimaryRouteSwipeSurface` under `MainLayout`; the bottom inset currently sits outside that surface. Me currently maps right→Settings. Settings has a placeholder Screen row and an existing synced `useSettings` store; app colors are predominantly the current dark hard-coded palette.
-3. **Done — durable contracts and spec-first coverage.** Focused Verify #236 (`35864596171`) produced the intended red evidence: corrected Me direction/full-page assertions failed, new appearance modules were structurally absent, and Screen still opened the existing Coming Soon feedback instead of appearance controls.
-4. **Done — implement gesture corrections.** Me now maps left→Settings and right→Chat. The bottom-nav inset is inside the draggable content; the gesture owner can grow with the entire non-Home scroll surface while Home remains hamburger-layer-only.
-5. **Done — implement appearance system.** Added startup cache restoration, synced/local AppearanceProvider, live System preference listening, functional Screen → Appearance controls for System/Dark/Light/Black, theme-aware date controls, and palette-only CSS remapping of the shipped dark tokens. React lint-driven repair derives synced mode without effect state mirroring and keeps the consumer hook/context separate from the provider component. Light-mode semantic/category-colored surfaces explicitly retain white text contrast.
-6. **Done — focused/browser verification.** Verify #241 (`35866188175`) passed focused verification (11 related files / 45 tests) and all 25 browser contracts after final review hardening. System mode supports modern and legacy media-query listeners; Dark/System-dark leave the shipped charcoal utility palette untouched while Light/Black remap the semantic palette.
-7. **Done — final acceptance and Preview rollout.** Exact functional commit `11307edb610d960aa5ac3f54343498821faf3bc9` passed the canonical full repository gate (86 files / 563 tests + production build) and all 25 Playwright browser contracts on the task branch and again after `preview` moved to that SHA. Vercel deployment `dpl_BW4nBj6ojeCbFQ3h2LcGnDhsw5XP` reached READY for that exact SHA. This final state-only commit changes `SESSION_STATE.md` wording only and reruns the standard full gate before Preview is advanced once more.
+1. **Done — recover Preview baseline and current contracts.** Preview is `4258abd30a356be398901dec7cf13dc74c5eaccc`. Read current agent/session/roadmap/product/test workflow plus route-shell, Home, Me, Settings, and swipe implementation.
+2. **Done — root-cause pass.** Home lost a definite-height ancestor when the route swipe wrapper changed from `h-full` to `min-h-full`, so Home's absolutely-sized friend swiper can collapse below the friend carousel. Non-Home primary pages still own nested vertical scrollers, which keeps phone touch handling inside child scroll containers and contradicts whole-page gesture ownership. Current swipe code only translates the active page over an empty background, so no destination page can be visible during drag.
+3. **In progress — update contracts + red regression coverage.** Pin Home definite-height preservation, whole-page mobile gesture ownership without nested route scrollers, visible destination-page drag previews, Settings right→Me, and preview code preloading without mounting neighbor pages during initial app mount.
+4. **Pending — implement route swipe deck.** Keep Home hamburger-only ownership; use compositor transforms/rAF for the active + destination page, render only the directional preview during a live gesture, preload neighbor chunks after first paint/idle, and keep the bottom nav stationary.
+5. **Pending — fix Home/page scroll ownership.** Restore Home's full-height chain; move Explore/Alerts/Chat/Me/Settings vertical scrolling to MainLayout so route gestures work across the full phone page.
+6. **Pending — focused/browser verification and performance review.** Verify held-finger adjacent-page visibility, mobile-sized lower-page Me swipe, Settings right→Me, Home body height/content visibility, no route-preview mount on initial render, and no new frame-loop React state.
+7. **Pending — final acceptance + Preview rollout.** Run exact-commit `[verify:full]`, move Preview only after green, confirm Vercel READY, and record remaining physical-device checks.
 
-Roadmap pointer: settings appearance + primary-navigation interaction correction.
+Roadmap pointer: primary navigation interaction correction.
 Blockers: None.
-
-Remaining manual acceptance: whole-app Light/Black aesthetic inspection on the hosted Preview build and physical-device swipe feel across long non-Home pages. Automated browser contracts cover the core palette computation, 320px reflow, accessibility scan, lower-page gesture ownership, and Me swipe directions; no physical-device check was claimed.
-
-
-## Test evidence review
-
-- `SWIPE-FULL-PAGE` — **added-red-green**. Verify #236 captured failure before implementation; focused DOM + real-browser contracts now prove non-Home gesture ownership reaches lower-page content while Home remains hamburger-layer-only.
-- `SWIPE-ME-SETTINGS` — **added-red-green**. Verify #236 captured the old rightward Settings mapping; unit/DOM/browser coverage now pins Me left → Settings and Me right → Chat.
-- `APPEARANCE-SETTINGS` — **added-red-green**. Verify #236 showed Screen still opened Coming Soon; Settings DOM coverage now pins System/Dark/Light/Black and selection wiring.
-- `APPEARANCE-STATE` — **structural-red** for the wholly new appearance module/provider surface, then green unit/DOM coverage for mode resolution, startup cache, synced persistence, immediate application, and live System preference changes.
-- `APPEARANCE-PALETTE` — **existing-direct** final-state browser evidence verifies computed Light and Black primary/surface colors plus semantic white-text contrast. That specific visual-computation assertion was added during implementation, so there is no separate captured red for it.
-- Manual-only acceptance remains for whole-app aesthetic inspection across representative screens and physical-device gesture feel; automated contracts verify computed core palette/gesture behavior, not subjective visual quality.
