@@ -7,7 +7,10 @@ import { ConversationsProvider } from '../../hooks/ConversationsProvider';
 import { useAuth } from '../../hooks/useAuth';
 import { AppearanceProvider } from '../../hooks/AppearanceProvider';
 import { PrimaryRoutePreview } from './PrimaryRoutePreview';
-import { preloadPrimaryRoute } from './primaryRoutePreload';
+import {
+  getPrimaryRoutePreloadTargets,
+  preloadPrimaryRoute,
+} from './primaryRoutePreload';
 import type { TabId } from './BottomNav';
 import {
   resolvePrimarySwipeDestination,
@@ -130,10 +133,7 @@ export const AppLayout: React.FC = () => {
   useEffect(() => {
     if (!user?.$id) return;
 
-    const destinations = [
-      leftSwipeDestination,
-      rightSwipeDestination,
-    ].filter((value): value is string => Boolean(value));
+    const destinations = getPrimaryRoutePreloadTargets(path);
     if (destinations.length === 0) return;
 
     const preload = () => {
@@ -149,7 +149,7 @@ export const AppLayout: React.FC = () => {
 
     const timer = window.setTimeout(preload, 400);
     return () => window.clearTimeout(timer);
-  }, [leftSwipeDestination, rightSwipeDestination, user?.$id]);
+  }, [path, user?.$id]);
 
   if (isLoading) {
     return (

@@ -15,6 +15,9 @@ vi.mock('../../src/hooks/useTasks', () => ({
 vi.mock('../../src/hooks/useCategories', () => ({
   useCategories: () => ({ categories: [] }),
 }));
+vi.mock('../../src/hooks/useFriends', () => ({
+  useFriends: () => ({ friends: [] }),
+}));
 
 import { AccountPage } from '../../src/pages/AccountPage';
 

@@ -21,6 +21,8 @@ import { BottomSheet } from '../components/ui/BottomSheet';
 import { SettingsRow } from '../components/ui/SettingsRow';
 import { useAuth } from '../hooks/useAuth';
 import { usePwaLifecycle } from '../hooks/usePwaLifecycle';
+import type { PwaUpdateCheckStage } from '../lib/pwaLifecycle';
+import { APP_VERSION } from '../lib/appVersion';
 import { destroyDatabase } from '../db/database';
 import { AccountSettingsSheet } from '../components/modals/AccountSettingsSheet';
 import { ChangeEmailSheet } from '../components/modals/ChangeEmailSheet';
@@ -46,6 +48,9 @@ export const SettingsPage: React.FC = () => {
   const [isSyncStatusOpen, setIsSyncStatusOpen] = useState(false);
   const [isAppearanceOpen, setIsAppearanceOpen] = useState(false);
   const [isCheckingUpdate, setIsCheckingUpdate] = useState(false);
+  const [updateStage, setUpdateStage] = useState<
+    PwaUpdateCheckStage | 'error' | null
+  >(null);
   const [feedback, setFeedback] = useState<string | null>(null);
 
   const showFeedback = (msg: string) => {
@@ -58,22 +63,42 @@ export const SettingsPage: React.FC = () => {
   const handleCheckForUpdates = async () => {
     if (isCheckingUpdate) return;
     setIsCheckingUpdate(true);
+    setUpdateStage('preparing');
     try {
-      const result = await checkForUpdate();
+      const result = await checkForUpdate(setUpdateStage);
       if (result === 'update-available') {
-        showFeedback('Update found. Use Update now to install it.');
+        setUpdateStage('ready');
       } else if (result === 'up-to-date') {
-        showFeedback('Mosaic is up to date.');
+        setUpdateStage('up-to-date');
       } else {
-        showFeedback('Update checking is unavailable in this browser.');
+        setUpdateStage('unavailable');
       }
     } catch (error) {
       console.error('[SettingsPage] Update check failed:', error);
-      showFeedback('Could not check for updates. Try again.');
+      setUpdateStage('error');
     } finally {
       setIsCheckingUpdate(false);
     }
   };
+
+  const updateStatusMessage =
+    updateStage === 'preparing'
+      ? 'Preparing update check…'
+      : updateStage === 'checking'
+        ? 'Checking for a new version…'
+        : updateStage === 'update-found'
+          ? 'Update found. Preparing download…'
+          : updateStage === 'downloading'
+            ? 'Downloading update…'
+            : updateStage === 'ready'
+              ? 'Update downloaded. Ready to install.'
+              : updateStage === 'up-to-date'
+                ? 'Mosaic is up to date.'
+                : updateStage === 'unavailable'
+                  ? 'Update checking is unavailable in this browser.'
+                  : updateStage === 'error'
+                    ? 'Could not check for updates. Try again.'
+                    : null;
 
   const handleLogout = async () => {
     const ok = await logout();
@@ -227,6 +252,37 @@ export const SettingsPage: React.FC = () => {
           />
         </div>
         <div className="border-t border-[#333333] py-2">
+          <div className="px-4 py-3.5 flex items-center justify-between text-white">
+            <span className="text-base font-medium">Version</span>
+            <span className="text-sm text-gray-400">{APP_VERSION}</span>
+          </div>
+          <SettingsRow
+            icon={<RefreshCw size={18} className="text-emerald-500" aria-hidden="true" />}
+            label="Check for Updates"
+            value={isCheckingUpdate ? undefined : undefined}
+            showChevron={false}
+            onClick={handleCheckForUpdates}
+          />
+          {updateStatusMessage && (
+            <div
+              role="status"
+              aria-live="polite"
+              data-testid="update-check-status"
+              className="px-4 pb-3 text-sm text-gray-400"
+            >
+              <div className="flex items-center gap-2">
+                {isCheckingUpdate && (
+                  <span
+                    className="h-3.5 w-3.5 shrink-0 rounded-full border-2 border-gray-500 border-t-transparent animate-spin"
+                    aria-hidden="true"
+                  />
+                )}
+                <span>{updateStatusMessage}</span>
+              </div>
+            </div>
+          )}
+        </div>
+        <div className="border-t border-[#333333] py-2">
           <SettingsRow
             icon={<Trash2 size={18} className="text-red-500" aria-hidden="true" />}
             label="Delete All User Data"
@@ -240,19 +296,6 @@ export const SettingsPage: React.FC = () => {
             isDestructive={true}
             showChevron={false}
             onClick={() => setIsClearDataOpen(true)}
-          />
-        </div>
-        <div className="border-t border-[#333333] py-2">
-          <div className="px-4 py-3.5 flex items-center justify-between text-white">
-            <span className="text-base font-medium">Version</span>
-            <span className="text-sm text-gray-400">0.0.0</span>
-          </div>
-          <SettingsRow
-            icon={<RefreshCw size={18} className="text-emerald-500" aria-hidden="true" />}
-            label="Check for Updates"
-            value={isCheckingUpdate ? 'Checking…' : undefined}
-            showChevron={false}
-            onClick={handleCheckForUpdates}
           />
         </div>
         <div className="px-4 pt-4 pb-8">

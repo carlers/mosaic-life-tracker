@@ -6,11 +6,13 @@ import { Button } from '../components/ui/Button';
 import { useAuth } from '../hooks/useAuth';
 import { useTasks } from '../hooks/useTasks';
 import { useCategories } from '../hooks/useCategories';
+import { useFriends } from '../hooks/useFriends';
 
 export const AccountPage: React.FC = () => {
   const { user, logout } = useAuth();
   const { tasks } = useTasks();
   const { categories } = useCategories();
+  const { friends } = useFriends();
   const navigate = useNavigate();
   const [feedback, setFeedback] = useState<string | null>(null);
 
@@ -59,8 +61,8 @@ export const AccountPage: React.FC = () => {
               <span>Following</span>
             </div>
             <div className="flex flex-col items-center">
-              <span className="font-bold text-white">0</span>
-              <span>Followers</span>
+              <span className="font-bold text-white">{friends.length}</span>
+              <span>Friends</span>
             </div>
           </div>
         </div>
