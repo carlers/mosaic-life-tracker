@@ -18,6 +18,11 @@ const AccountPage = lazy(() =>
 const SettingsPage = lazy(() =>
   import('./pages/SettingsPage').then(({ SettingsPage }) => ({ default: SettingsPage }))
 );
+const ScreenSettingsPage = lazy(() =>
+  import('./pages/ScreenSettingsPage').then(({ ScreenSettingsPage }) => ({
+    default: ScreenSettingsPage,
+  }))
+);
 const ProfilePage = lazy(() =>
   import('./pages/ProfilePage').then(({ ProfilePage }) => ({ default: ProfilePage }))
 );
@@ -138,6 +143,14 @@ function App() {
             element={
               <RouteContent label="SettingsPage">
                 <SettingsPage />
+              </RouteContent>
+            }
+          />
+          <Route
+            path="/settings/screen"
+            element={
+              <RouteContent label="ScreenSettingsPage">
+                <ScreenSettingsPage />
               </RouteContent>
             }
           />

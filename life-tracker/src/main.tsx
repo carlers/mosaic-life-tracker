@@ -14,8 +14,10 @@ import {
   initializePostHog,
 } from './lib/posthog';
 import { initializeAppearance } from './lib/appearance';
+import { initializeScreenLayout } from './lib/screenLayout';
 
 initializeAppearance();
+initializeScreenLayout();
 void initializePostHog();
 installChunkLoadErrorTracking();
 initializePwaLifecycle(window, registerSW);
