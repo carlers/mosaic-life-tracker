@@ -1,10 +1,8 @@
 {
   "git": {
     "deploymentEnabled": {
-      "feature-*": false,
-      "dev-*": false,
-      "chatgpt": false,
-      "codex": false,
+      "chatgpt/*": false,
+      "codex/*": false,
     }
   }
 }
