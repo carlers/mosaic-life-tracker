@@ -67,17 +67,6 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
   const tasks = tasksOverride ?? taskStore.tasks ?? EMPTY_TASKS;
   const categories = categoriesOverride ?? hookCategories;
   const tasksByDate = useTasksByDate(tasks);
-  const [deferredRenderWindow, setDeferredRenderWindow] = useState(0);
-
-  useEffect(() => {
-    if (!isOpen) {
-      setDeferredRenderWindow(0);
-    }
-  }, [isOpen]);
-
-  const handleSheetAnimationComplete = useCallback(() => {
-    if (isOpen) setDeferredRenderWindow(renderWindow);
-  }, [isOpen, renderWindow]);
 
   const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
   const [isActionSheetOpen, setIsActionSheetOpen] = useState(false);
