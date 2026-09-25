@@ -101,7 +101,7 @@ async function swipe(page, selector, fromX = 620, toX = 180, y = 420) {
 }
 
 test('interaction performance probe', async ({ page }) => {
-  await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html`);
+  await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html?perf=heavy`);
   await page.waitForLoadState('domcontentloaded');
 
   const results = [];
