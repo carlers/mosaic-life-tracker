@@ -45,6 +45,7 @@ Every production build embeds:
 | `commit` | Full Git commit SHA, or absent for local builds |
 | `commitShort` | First 8 characters of the commit SHA for compact UI |
 | `commitMessage` | Git commit message supplied by the deployment provider, when available |
+| `branch` | Git branch name supplied by the deployment provider; `local` for local builds |
 | `builtAt` | UTC build timestamp |
 | `channel` | `Preview`, `Production`, or `Local` |
 
@@ -52,9 +53,9 @@ Vercel supplies the deployment Git SHA, branch, and commit message through its s
 environment variables; the Vite build injects those values into the client bundle.
 The build metadata is diagnostic information, not a secret.
 
-The Settings page displays the release version plus the deployment channel and short
-build identity. This lets a user report an exact build without treating the Git SHA as
-the product version.
+The Settings page displays the release version plus the Git branch, short build identity,
+and deployment commit message. This lets a user report an exact build without treating
+the Git SHA as the product version.
 
 ## Branch deployment channels
 

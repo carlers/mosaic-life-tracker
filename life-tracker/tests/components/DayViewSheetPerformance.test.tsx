@@ -110,8 +110,14 @@ import { DayViewSheet } from '../../src/components/home/views/DayViewSheet';
 
 // Regression: task acceptance — sheet animation gets the first frame before non-active day trees mount.
 describe('DayViewSheet mount scheduling', () => {
-  it('mounts only the active day during sheet animation, then restores the full render window', () => {
+  it('mounts only the active day during sheet animation, then lets virtual Swiper mount nearby days', () => {
     fixture.onAnimationComplete = null;
+    const width = vi
+      .spyOn(HTMLElement.prototype, 'clientWidth', 'get')
+      .mockReturnValue(390);
+    const height = vi
+      .spyOn(HTMLElement.prototype, 'clientHeight', 'get')
+      .mockReturnValue(844);
 
     render(
       <DayViewSheet
@@ -122,6 +128,10 @@ describe('DayViewSheet mount scheduling', () => {
     );
 
     expect(screen.getAllByTestId('day-slide')).toHaveLength(1);
+    // Swiper's virtual module must keep the 181-day range out of the DOM. On
+    // phones, measuring all 181 slide wrappers was the remaining synchronous
+    // sheet-open bottleneck even after expensive day content was windowed.
+    expect(document.querySelectorAll('.swiper-slide').length).toBeLessThan(20);
     expect(
       document.querySelectorAll('[data-day-view-navigation="true"]')
     ).toHaveLength(1);
@@ -131,10 +141,10 @@ describe('DayViewSheet mount scheduling', () => {
       fixture.onAnimationComplete?.();
     });
 
-    expect(screen.getAllByTestId('day-slide')).toHaveLength(7);
+    expect(screen.getAllByTestId('day-slide')).toHaveLength(3);
     expect(
       document.querySelectorAll('[data-day-view-navigation="true"]')
-    ).toHaveLength(7);
+    ).toHaveLength(3);
 
     act(() => {
       fixture.onClose?.();
@@ -144,5 +154,8 @@ describe('DayViewSheet mount scheduling', () => {
     expect(
       document.querySelectorAll('[data-day-view-navigation="true"]')
     ).toHaveLength(1);
+
+    width.mockRestore();
+    height.mockRestore();
   });
 });

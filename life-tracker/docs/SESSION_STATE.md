@@ -2,6 +2,17 @@
 
 Updated: 2026-09-25
 
+Current task: Remove the remaining phone-visible delay when opening DayView and improve
+the Settings build label. The root cause was the sheet Swiper still mounting and measuring
+all 181 slide wrappers synchronously even though expensive slide contents were windowed.
+DayView sheet mode now uses Swiper's virtual module, retaining the full 181-day logical
+range while mounting only nearby slide wrappers. Inline mode retains its non-virtual
+auto-height behavior. Settings now shows the deployment Git branch in place of the generic
+deployment category and adds the provider-supplied commit message. Focused DOM/unit tests,
+ESLint, production build, service-worker policy, bundle budgets, and diff checks pass.
+The local browser probe is blocked because the Playwright Chromium download endpoint
+returns HTTP 403; canonical browser acceptance remains remote.
+
 Performance phase checkpoint: mount-content scheduling implemented; rendering/compositing audit completed without an evidence-backed CSS change; focused verification and canonical acceptance remain.
 Current task: Performance audit and optimization of interaction animations (bottom sheets, calendar month swipes, and day swipes). The measured DayView sheet-open optimization is now merged.
 Status: The implementation pass is complete on `perf/animation-optimization`. DayView now keeps the 181-slide geometry but mounts expensive navigation/content trees only in the existing seven-slide render window; Calendar keeps its existing 61-slide Embla geometry but only rendered month slides are vertical scroll containers. A CI-hosted Chromium probe was added for repeatable frame/long-task baselines. On the heavy interaction fixture, the browser-contract run passed and measured: bottom-sheet open average 17.15ms/frame, p95 16.8ms, 1.45% frames over 20ms, one 64ms long task; calendar month swipe 16.67ms average, p95 16.7ms, 0% over 20ms, no long tasks; day swipe 16.67ms average, p95 16.7ms, 0% over 20ms, no long tasks; heavy day-content scroll 16.67ms average, p95 16.8ms, 0% over 20ms, no long tasks. A pre-windowing control run on the same CI fixture measured bottom-sheet open at 17.93ms/frame average, 16.8ms p95, 1.41% frames over 20ms, with one 111ms long task; calendar month swipe at 16.90ms/frame average, 16.8ms p95, 1.41% over 20ms; day swipe and heavy day-content scroll remained ~16.67ms/frame with 0% over 20ms. The post-windowing run therefore shows a measurable reduction in the calendar fixture's dropped-frame ratio and the sheet-open long-task maximum, while day-swipe results were unchanged in this simplified harness. These are CI-runner baselines, not device guarantees. The measurements do not justify an additional blind animation-library or CSS optimization. Phase 4 rendering/compositing review also found no evidence-backed target: DayView inactive slides are already unmounted outside the seven-slide window, Calendar mounts only its five-slide window, and the shared BottomSheet uses transform/opacity without default backdrop blur. `content-visibility`/containment would therefore be speculative without a paint/layout trace, and `will-change` is not being added preemptively. BottomSheet remains unchanged because its shared animation is transform/opacity based, has no default backdrop blur, and the observed remaining sheet-open cost is a mount-time long task rather than sustained animation jank.

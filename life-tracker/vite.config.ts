@@ -9,12 +9,12 @@ const buildCommit = process.env.VERCEL_GIT_COMMIT_SHA?.trim() || '';
 const buildMessage = process.env.VERCEL_GIT_COMMIT_MESSAGE?.trim() || '';
 const buildRef = process.env.VERCEL_GIT_COMMIT_REF?.trim() || '';
 const vercelEnvironment = process.env.VERCEL_ENV?.trim() || '';
-const buildChannel =
-  buildRef === 'preview' || vercelEnvironment === 'preview'
+const buildChannel = vercelEnvironment === 'production'
+  ? 'Production'
+  : vercelEnvironment === 'preview'
     ? 'Preview'
-    : vercelEnvironment === 'production'
-      ? 'Production'
-      : 'Local';
+    : 'Local';
+const buildBranch = buildRef || 'local';
 
 const posthogSourceMapsEnabled =
   process.env.POSTHOG_SOURCE_MAPS_ENABLED === 'true' &&
@@ -48,6 +48,7 @@ export default defineConfig({
     'import.meta.env.VITE_APP_BUILD_MESSAGE': JSON.stringify(buildMessage),
     'import.meta.env.VITE_APP_BUILD_TIME': JSON.stringify(new Date().toISOString()),
     'import.meta.env.VITE_APP_BUILD_CHANNEL': JSON.stringify(buildChannel),
+    'import.meta.env.VITE_APP_BUILD_BRANCH': JSON.stringify(buildBranch),
   },
   plugins: [
     react(),

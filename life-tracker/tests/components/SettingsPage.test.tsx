@@ -38,6 +38,14 @@ vi.mock('../../src/components/modals/SyncStatusSheet', () => ({ SyncStatusSheet:
 vi.mock('../../src/lib/deleteUserData', () => ({
   deleteAllUserData: vi.fn().mockResolvedValue({ totalRows: 0 }),
 }));
+vi.mock('../../src/lib/buildInfo', () => ({
+  APP_BUILD_INFO: {
+    branch: 'feature/smooth-day-view',
+    buildId: '1234567890abcdef',
+    commitShort: '12345678',
+    commitMessage: 'perf: make DayView open smoothly',
+  },
+}));
 
 import { SettingsPage } from '../../src/pages/SettingsPage';
 
@@ -52,7 +60,10 @@ describe('SettingsPage navigation, updates, and data controls', () => {
     );
 
     expect(screen.getByText('0.1.0')).toBeInTheDocument();
-    expect(screen.getByTestId('app-build-info')).toHaveTextContent(/Local · build local/);
+    expect(screen.getByTestId('app-build-info')).toHaveTextContent(
+      /feature\/smooth-day-view · build 12345678/
+    );
+    expect(screen.getByText('perf: make DayView open smoothly')).toBeInTheDocument();
     const check = screen.getByRole('button', { name: /Check for Updates/i });
     const deletion = screen.getByRole('button', { name: 'Delete All User Data' });
     expect(

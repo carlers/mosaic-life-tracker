@@ -20,5 +20,6 @@ describe('app version and build identity', () => {
     expect(APP_BUILD_INFO.channel).toBe('Local');
     expect(APP_BUILD_INFO.buildId).toBe('local');
     expect(APP_BUILD_INFO.commit).toBeNull();
+    expect(APP_BUILD_INFO.branch).toBe('local');
   });
 });

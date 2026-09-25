@@ -270,9 +270,14 @@ export const SettingsPage: React.FC = () => {
               data-testid="app-build-info"
               className="mt-1 text-xs text-gray-500"
             >
-              {APP_BUILD_INFO.channel} · build{' '}
+              {APP_BUILD_INFO.branch} · build{' '}
               {APP_BUILD_INFO.commitShort ?? APP_BUILD_INFO.buildId}
             </div>
+            {APP_BUILD_INFO.commitMessage && (
+              <div className="mt-1 truncate text-xs text-gray-500">
+                {APP_BUILD_INFO.commitMessage}
+              </div>
+            )}
           </div>
           <SettingsRow
             icon={<RefreshCw size={18} className="text-emerald-500" aria-hidden="true" />}
