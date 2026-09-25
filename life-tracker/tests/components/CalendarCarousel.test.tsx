@@ -56,4 +56,24 @@ describe('CalendarCarousel gesture ownership', () => {
     expect(viewport).not.toBeNull();
     expect(viewport).toContainElement(container.querySelector('.flex.h-full.min-h-full.items-start'));
   });
+
+  // Regression: PROJECT_REFERENCE.md §16 — empty geometry slides must not
+  // create dozens of unnecessary vertical scroll containers.
+  it('makes only rendered calendar slides vertically scrollable', () => {
+    const slides = Array.from(
+      { length: 5 },
+      (_, index) => new Date(2026, index, 1)
+    );
+    const { container } = render(
+      <CalendarCarousel
+        {...props}
+        slides={slides}
+        renderStart={1}
+        renderEnd={3}
+      />
+    );
+
+    expect(container.querySelectorAll('.overflow-y-scroll')).toHaveLength(3);
+    expect(container.querySelectorAll('.overflow-y-hidden')).toHaveLength(2);
+  });
 });
