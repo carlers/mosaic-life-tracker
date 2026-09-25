@@ -34,7 +34,11 @@ describe('Calendar overflow layout', () => {
     );
 
     const viewport = container.firstElementChild;
-    expect(viewport).toHaveClass('overflow-x-hidden', 'overflow-y-auto');
+    expect(viewport).toHaveClass('overflow-x-hidden', 'overflow-y-scroll');
+
+    const emblaViewport = container.querySelector('.swiper-no-swiping');
+    expect(emblaViewport).not.toBeNull();
+    expect(emblaViewport).toHaveClass('overflow-hidden');
 
     const calendarGrid = container.querySelector('[role="rowgroup"]');
     expect(calendarGrid).not.toBeNull();
