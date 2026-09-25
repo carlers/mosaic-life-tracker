@@ -2,9 +2,10 @@
 
 Updated: 2026-09-25
 Current task: Fix calendar month scrolling and horizontal transition stability.
-Status: Implemented a bounded flex column around the calendar carousel so the vertical scroll viewport remains stable when months have different content heights; regression coverage added.
-Next action: exact-SHA canonical acceptance, then Preview delivery and merge to dev.
-Blockers: Local runtime execution is unavailable; remote CI is the executable verification path. Hosted touch acceptance remains separate and must not be inferred from automated tests.
+Status: The first viewport wrapper fix was insufficient because the same DOM node still served as Embla's horizontal viewport and the vertical scroll container. The follow-up separates those responsibilities: a stable outer vertical scroll region contains a dedicated overflow-hidden Embla viewport. Regression coverage now pins that contract.
+Next action: exact-SHA canonical acceptance, Preview delivery, and merge to dev.
+Blockers: Local runtime execution is unavailable; remote CI is the executable verification path. Real touch/scroll acceptance remains separate and must not be inferred from automated tests.
+
 
 ## Phase 1 findings
 
