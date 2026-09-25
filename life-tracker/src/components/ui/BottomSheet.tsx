@@ -322,10 +322,22 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
                 isOpen &&
                 (latest.y === 0 || latest.y === '0%')
               ) {
-                React.startTransition(() => {
-                  setChildrenReady(true);
-                  onChildrenReady?.();
-                });
+                const releaseChildren = () => {
+                  React.startTransition(() => {
+                    setChildrenReady(true);
+                    onChildrenReady?.();
+                  });
+                };
+                const requestIdle = (
+                  window as Window & {
+                    requestIdleCallback?: (callback: () => void) => number;
+                  }
+                ).requestIdleCallback;
+                if (requestIdle) {
+                  requestIdle(releaseChildren);
+                } else {
+                  requestAnimationFrame(releaseChildren);
+                }
               }
             }}
             transition={{ type: 'tween', duration: 0.32, ease: 'easeOut' }}
