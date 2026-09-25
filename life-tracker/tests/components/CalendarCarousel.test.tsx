@@ -27,9 +27,12 @@ describe('CalendarCarousel gesture ownership', () => {
       </div>
     );
 
-    const viewport = container.querySelector('.flex-1');
+    const scrollRegion = container.firstElementChild;
+    const viewport = container.querySelector('.swiper-no-swiping');
+    expect(scrollRegion).not.toBeNull();
     expect(viewport).not.toBeNull();
-    expect(viewport).toHaveClass('swiper-no-swiping');
+    expect(scrollRegion).toHaveClass('overflow-y-scroll', 'flex-1', 'min-h-0');
+    expect(viewport).toHaveClass('swiper-no-swiping', 'overflow-hidden');
 
     fireEvent.pointerDown(viewport!);
     fireEvent.pointerMove(viewport!);
@@ -43,7 +46,7 @@ describe('CalendarCarousel gesture ownership', () => {
 
   it('keeps the calendar carousel swipe target mounted for Embla', () => {
     const { container } = render(<CalendarCarousel {...props} />);
-    const viewport = container.querySelector('.flex-1');
+    const viewport = container.querySelector('.swiper-no-swiping');
 
     expect(viewport).not.toBeNull();
     expect(viewport).toContainElement(container.querySelector('.flex.min-h-full.items-start'));
