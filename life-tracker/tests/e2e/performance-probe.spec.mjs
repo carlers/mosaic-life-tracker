@@ -22,7 +22,6 @@ async function measureInteraction(page, name, action) {
       longAnimationFrames: [],
       eventTimings: [],
       intersectionObserverCreations: 0,
-      intersectionObserverObserves: 0,
       mutations: 0,
       layoutReads: {},
       layoutReadStacks: [],
