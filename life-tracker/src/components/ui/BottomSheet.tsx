@@ -322,8 +322,10 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
                 isOpen &&
                 (latest.y === 0 || latest.y === '0%')
               ) {
-                setChildrenReady(true);
-                onChildrenReady?.();
+                React.startTransition(() => {
+                  setChildrenReady(true);
+                  onChildrenReady?.();
+                });
               }
             }}
             transition={{ type: 'tween', duration: 0.32, ease: 'easeOut' }}
