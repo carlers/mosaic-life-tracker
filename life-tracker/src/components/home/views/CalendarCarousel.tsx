@@ -25,7 +25,7 @@ const CalendarCarouselComponent: React.FC<CalendarCarouselProps> = ({
   categoriesMap,
 }) => {
   return (
-    <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-scroll overscroll-contain py-2">
+    <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-x-hidden overflow-y-scroll overscroll-contain py-2">
       <div
         className="swiper-no-swiping min-h-0 min-w-0 flex-1 overflow-hidden"
         ref={emblaRef}
