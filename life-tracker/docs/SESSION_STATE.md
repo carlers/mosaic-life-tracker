@@ -1,10 +1,10 @@
 # Session checkpoint
 
 Updated: 2026-09-25
-Current task: Activate the new `dev` integration branch after the CI/CD branch-model migration
-Status: `dev` now exists at the accepted migration tip; this commit activates a new push event so branch-triggered CI/deployment behavior can be verified.
-Next action: verify the GitHub Quality Gate run for `dev` and then verify the resulting Vercel Preview deployment.
-Blockers: Vercel project settings and resulting deployment status are external and require dashboard/service access.
+Current task: Expand primary route swipe navigation to the full route viewport
+Status: Fixed the non-Home route swipe surface so it covers the full viewport area above the fixed bottom navigation, including pages with short content.
+Next action: verify the focused regression and exact-SHA Quality Gate acceptance, then deliver the fix to `dev`.
+Blockers: Local runtime execution is unavailable in this environment; remote CI is the executable verification path.
 
 ## Constraints
 
@@ -24,6 +24,8 @@ Blockers: Vercel project settings and resulting deployment status are external a
 - Updated delivery, testing, versioning, and project-reference documentation to remove the deployment-only preview model.
 - Created `dev` from the accepted CI/CD migration tip.
 - Added this documentation checkpoint commit on `dev` to trigger branch-based CI.
+- Updated `PrimaryRouteSwipeSurface` to reserve the full route viewport height on non-Home pages.
+- Added regression coverage asserting the non-Home swipe surface spans the route viewport even when page content is short.
 
 ## Working set
 
@@ -39,6 +41,6 @@ Blockers: Vercel project settings and resulting deployment status are external a
 
 ## Verification
 
-- Automated: canonical acceptance passed for the exact migration SHA before `dev` activation.
-- Browser/device acceptance: manual Vercel branch deployment checks remain pending.
-- `dev` activation CI: pending verification after this push.
+- Automated: regression test added; focused execution is pending remote CI because local repository execution is unavailable.
+- Browser/device acceptance: real touch swipe verification remains required after deployment.
+- Canonical acceptance: pending for the final fix SHA.
