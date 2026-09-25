@@ -25,6 +25,7 @@ interface TaskItemProps {
   onEditChange: (value: string) => void;
   onEditSave: () => void;
   onEditCancel: () => void;
+  disableLayoutAnimation?: boolean;
 }
 
 export const TaskItem: React.FC<TaskItemProps> = ({
@@ -41,6 +42,7 @@ export const TaskItem: React.FC<TaskItemProps> = ({
   onEditChange,
   onEditSave,
   onEditCancel,
+  disableLayoutAnimation = false,
 }) => {
   const { targetRef, shouldLoad } = useImageLoadGate<HTMLDivElement>();
   const { imageUrl, isLoading } = useTaskImage(task.image, shouldLoad);
