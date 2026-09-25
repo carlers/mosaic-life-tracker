@@ -141,7 +141,7 @@ async function measureInteraction(page, name, action) {
 
     try {
       window.__mosaicPerf.mutationObserver = new MutationObserver((records) => {
-        perf.mutations += records.length;
+        window.__mosaicPerf.mutations += records.length;
       });
       window.__mosaicPerf.mutationObserver.observe(document.body, {
         subtree: true,
