@@ -102,7 +102,7 @@ async function swipe(page, selector, fromX = 620, toX = 180, y = 420) {
 
 test('interaction performance probe', async ({ page }) => {
   await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html`);
-  await page.waitForLoadState('networkidle');
+  await page.waitForLoadState('domcontentloaded');
 
   await measureInteraction(page, 'bottom-sheet-open', async () => {
     await page.getByTestId('open-full-sheet').click();
