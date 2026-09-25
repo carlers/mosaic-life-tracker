@@ -22,28 +22,20 @@ Current production optimization on chatgpt/interaction-perf-trace: suppress Task
 
 ## Interaction INP deep-dive checkpoint — 2026-09-26
 
-Vercel Interaction Timing from the deployed stable build shows the DayView open/close interaction is still close to the 200ms INP boundary; the supplied trace reports a 190.2ms interaction and the slowest listed DayView interaction shows about 132.4ms of render work. Vercel's toolbar decomposes INP into input delay, processing, and rendering/presentation phases, so the next browser probe adds Event Timing entries to the existing Long Animation Frame/layout diagnostics.
+Vercel Interaction Timing showed DayView open/close at 190.2ms INP, with the supplied slow interaction showing ~132.4ms render work. The browser probe now captures Event Timing, Long Animation Frames, React render/commit timing, DOM mutations, and layout-read stacks.
 
-The current task branch also changes Settings build identity to expose the deployment branch and commit message alongside the short commit SHA. Performance-wise, TaskItem was audited for work that runs even when a task has no image or memo. Image loading/visibility hooks and memo gesture hooks are now isolated in child components so those hooks are only instantiated when the corresponding content exists. This is a targeted render-cost reduction; browser evidence is still required before treating it as an accepted optimization.
+Current branch: `chatgpt/dayview-inp-deep-dive`. Stable integration branch: `perf/animation-optimization`.
 
-Working branch: `chatgpt/dayview-inp-deep-dive`
-Stable integration branch: `perf/animation-optimization`
-Next action: inspect the browser probe's Event Timing and observer counts, then keep or revert the TaskItem split based on measured sheet-open INP/render cost. If the probe identifies a remaining presentation bottleneck, test only the corresponding layer. Real-device acceptance remains separate.
+Accepted candidate changes on this branch:
+- Settings build identity shows deployment branch, short commit SHA, and commit message.
+- TaskItem optional image/memo work is moved into conditional child components.
+- DayView content is deferred behind the sheet shell.
+- Swiper Virtual keeps the 181-day logical range while mounting only three slides before/after the active index.
 
+Representative Chromium result for the same sheet-open interaction:
+- click processing: ~154.3ms -> ~50.8ms after Swiper virtualization
+- max action Long Animation Frame: ~175.2ms -> ~69.6ms
+- DOM: ~5,139 -> ~4,795 elements
+- calendar/day swipe and content scroll remain ~16.7ms/frame with no action long tasks
 
-Browser verification request is now encoded in PR #34 title `[verify:browser]` so the pull-request Quality Gate executes the browser shards on the next head commit.
-
-
-### DayView virtual-slide checkpoint — 2026-09-26
-
-Browser verification on the representative DayView fixture identified the remaining open-path cost as Swiper mounting the full 181-slide logical deck even though only the active render window contains day content. Enabling Swiper's Virtual module with three slides before/after the active index preserves the 181-day logical range while materially shrinking the mounted slide surface.
-
-Measured on the same Chromium CI probe:
-- before virtual slides: click processing ~154.3ms, max action Long Animation Frame ~175.2ms, DOM ~5,139 elements
-- after virtual slides: click processing ~50.8ms, max action Long Animation Frame ~69.6ms, DOM ~4,795 elements
-- layout reads remained only 3 Swiper width/height reads plus 3 Framer Motion geometry reads; no repeated TaskItem projection reads returned
-- calendar swipe, day swipe, and content scroll remained approximately 16.7ms/frame with no action long tasks
-
-This is the first measured change in this deep-dive that materially reduces the actual open interaction rather than only moving the work to another frame. The shell-first deferred content remains enabled as a separate responsiveness improvement. The TaskItem optional-hook split remains in the branch as a smaller supporting optimization.
-
-The browser result is still lab/CI evidence, not real-device acceptance. Next: run the full canonical gate on the exact candidate SHA, merge to the stable integration branch, verify the new Vercel deployment, then perform the user's real-device DayView open/close check.
+Browser and focused checks pass on the current candidate. This is lab/CI evidence; real-device acceptance remains required. Next: canonical full gate, merge to stable, verify Vercel deployment, then repeat the user's real-device open/close check.
