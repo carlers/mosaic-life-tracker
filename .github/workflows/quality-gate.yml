@@ -6,6 +6,9 @@ on:
       - main
       - dev
       - 'feature/**'
+      - 'perf/**'
+      - 'security/**'
+      - 'refactor/**'
       - 'chatgpt/**'
       - 'codex/**'
     paths:
