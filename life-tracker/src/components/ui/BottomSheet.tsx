@@ -16,6 +16,7 @@ interface BottomSheetProps {
   backdropBlur?: boolean;
   contentMode?: 'scroll' | 'fixed';
   onHorizontalSwipe?: (direction: 'left' | 'right') => void;
+  onAnimationComplete?: () => void;
 }
 
 type SheetStackEntry = {
@@ -201,6 +202,7 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
   backdropBlur = false,
   contentMode = 'scroll',
   onHorizontalSwipe,
+  onAnimationComplete,
 }) => {
   const appearance = useContext(AppearanceContext);
   const sheetWidthMode = appearance?.sheetWidthMode ?? 'full';
@@ -301,6 +303,7 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
             initial={{ y: '100%' }}
             animate={{ y: 0 }}
             exit={{ y: '100%' }}
+            onAnimationComplete={onAnimationComplete}
             transition={{ type: 'spring', damping: 30, stiffness: 280 }}
             drag="y"
             dragControls={dragControls}
