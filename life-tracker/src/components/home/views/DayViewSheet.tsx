@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import { format } from 'date-fns';
 import { Swiper, SwiperSlide } from 'swiper/react';
 import { AnimatePresence } from 'framer-motion';
@@ -9,7 +9,6 @@ import { DaySlide } from './DaySlide';
 import { TaskActionSheet } from './TaskActionSheet';
 import { MemoSheet } from './MemoSheet';
 import { DatePickerSheet } from './DatePickerSheet';
-import { ImageViewer } from './ImageViewer';
 import { ImagePickerSheet } from './ImagePickerSheet';
 import { TaskVisibilitySheet } from './TaskVisibilitySheet';
 import { useTasks } from '../../../hooks/useTasks';
@@ -21,13 +20,23 @@ import { useTasksByDate } from '../../../hooks/useTasksByDate';
 import { useDayViewSwiper } from './useDayViewSwiper';
 import { deleteImage } from '../../../lib/storage';
 import { EMPTY_TASKS } from '../../../constants/empty';
-import type { TaskDocument } from '../../../db/schema';
+import type { CategoryDocument, TaskDocument } from '../../../db/schema';
+import { Spinner } from '../../ui/Spinner';
+import { useHorizontalArrowNavigation } from '../../../hooks/useHorizontalArrowNavigation';
+
+const ImageViewer = lazy(() =>
+  import('./ImageViewer').then(({ ImageViewer }) => ({ default: ImageViewer }))
+);
 
 interface DayViewSheetProps {
   isOpen: boolean;
   onClose: () => void;
   selectedDate: Date;
   onDateChange?: (date: Date) => void;
+  renderMode?: 'sheet' | 'inline';
+  tasks?: TaskDocument[];
+  categories?: CategoryDocument[];
+  focusTaskId?: string | null;
 }
 
 export const DayViewSheet: React.FC<DayViewSheetProps> = ({
@@ -35,28 +44,38 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
   onClose,
   selectedDate,
   onDateChange,
+  renderMode = 'sheet',
+  tasks: tasksOverride,
+  categories: categoriesOverride,
+  focusTaskId = null,
 }) => {
   const { user } = useAuth();
   const currentUserId = user?.$id ?? '';
 
+  const taskStore = useTasks(tasksOverride === undefined);
   const {
-    tasks = EMPTY_TASKS,
     addTask,
     toggleTaskCompletion,
     updateTask,
     deleteTask,
-  } = useTasks();
-  const { categories = [] } = useCategories();
+  } = taskStore;
+  const { categories: hookCategories = [] } = useCategories(
+    categoriesOverride === undefined
+  );
   const { message: deleteFeedback } = useFeedback();
 
+  const tasks = tasksOverride ?? taskStore.tasks ?? EMPTY_TASKS;
+  const categories = categoriesOverride ?? hookCategories;
   const tasksByDate = useTasksByDate(tasks);
 
   const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
+  const [isActionSheetOpen, setIsActionSheetOpen] = useState(false);
   const [viewingTaskId, setViewingTaskId] = useState<string | null>(null);
   const [imagePickerTaskId, setImagePickerTaskId] = useState<string | null>(null);
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
   const [editValue, setEditValue] = useState('');
   const [isMemoOpen, setIsMemoOpen] = useState(false);
+  const [memoInitialMode, setMemoInitialMode] = useState<'view' | 'edit'>('edit');
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
   const [isVisibilityOpen, setIsVisibilityOpen] = useState(false);
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
@@ -76,7 +95,10 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
     [tasks, imagePickerTaskId]
   );
 
-  const { imageUrl: viewingImageUrl } = useTaskImage(viewingTask?.image);
+  const {
+    imageUrl: viewingImageUrl,
+    isLoading: isViewingImageLoading,
+  } = useTaskImage(viewingTask?.image, isImageViewerOpen);
 
   const activeTaskCategory = useMemo(
     () =>
@@ -100,8 +122,63 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
     isOpen,
     selectedDate,
     onDateChange,
-    isDisabled: isMemoOpen || isDatePickerOpen || isDeleteConfirmOpen,
+    isDisabled:
+      isActionSheetOpen ||
+      isMemoOpen ||
+      isDatePickerOpen ||
+      isVisibilityOpen ||
+      isDeleteConfirmOpen ||
+      isImageViewerOpen ||
+      deletePhotoConfirmOpen ||
+      !!imagePickerTaskId,
   });
+
+  useEffect(() => {
+    if (!isOpen || renderMode !== 'sheet' || !focusTaskId) return;
+
+    let clearTimer: number | null = null;
+    const frame = requestAnimationFrame(() => {
+      const scope = document.querySelector(
+        '[data-day-view-focus-scope="true"]'
+      );
+      const target = scope?.querySelector<HTMLElement>(
+        `[data-task-id="${focusTaskId}"]`
+      );
+      if (!target) return;
+
+      const reduceMotion =
+        window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ??
+        false;
+      target.scrollIntoView({
+        block: 'center',
+        behavior: reduceMotion ? 'auto' : 'smooth',
+      });
+      target.setAttribute('data-search-focused', 'true');
+      clearTimer = window.setTimeout(
+        () => target.removeAttribute('data-search-focused'),
+        reduceMotion ? 700 : 1600
+      );
+    });
+
+    return () => {
+      cancelAnimationFrame(frame);
+      if (clearTimer !== null) window.clearTimeout(clearTimer);
+      document
+        .querySelector('[data-day-view-focus-scope="true"] [data-search-focused="true"]')
+        ?.removeAttribute('data-search-focused');
+    };
+  }, [focusTaskId, isOpen, renderMode, selectedDate]);
+
+  const handleSheetHorizontalSwipe = useCallback(
+    (direction: 'left' | 'right') => {
+      if (direction === 'left') {
+        handleNextDay();
+      } else {
+        handlePrevDay();
+      }
+    },
+    [handleNextDay, handlePrevDay]
+  );
 
   const handleToggleTask = useCallback(
     (taskId: string, currentStatus: boolean) => {
@@ -125,15 +202,25 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
 
   const handleOpenActions = useCallback((task: TaskDocument) => {
     setActiveTaskId(task.id);
+    setIsActionSheetOpen(true);
   }, []);
 
   const handleCloseActions = useCallback(() => {
-    setActiveTaskId(null);
+    setIsActionSheetOpen(false);
   }, []);
 
-  const handleOpenMemo = useCallback((task: TaskDocument) => {
-    setActiveTaskId(task.id);
-    setIsMemoOpen(true);
+  const handleOpenMemo = useCallback(
+    (task: TaskDocument, mode: 'view' | 'edit' = 'view') => {
+      setActiveTaskId(task.id);
+      setMemoInitialMode(mode);
+      setIsMemoOpen(true);
+    },
+    []
+  );
+
+  const handleEditTask = useCallback((task: TaskDocument) => {
+    setEditingTaskId(task.id);
+    setEditValue(task.title);
   }, []);
 
   const handleViewImage = useCallback((task: TaskDocument) => {
@@ -167,7 +254,7 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
 
   const handleMemoSave = async (
     memo: string,
-    visibility: 'private' | 'followers' | 'public'
+    visibility: '' | 'private' | 'followers' | 'public'
   ) => {
     if (!activeTask) return;
     await updateTask(activeTask.id, { memo, visibility });
@@ -193,6 +280,7 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
 
   const handleRequestDeletePhoto = () => {
     setDeletePhotoConfirmOpen(true);
+    setIsActionSheetOpen(false);
   };
 
   const handleConfirmDeletePhoto = async () => {
@@ -205,6 +293,7 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
 
   const handleCancelDeletePhoto = () => {
     setDeletePhotoConfirmOpen(false);
+    setActiveTaskId(null);
   };
 
   const handleImagePickerSave = useCallback(
@@ -225,6 +314,7 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
 
   const handleCloseImagePicker = useCallback(() => {
     setImagePickerTaskId(null);
+    setActiveTaskId(null);
   }, []);
 
   const handleVisibilitySave = useCallback(
@@ -254,19 +344,25 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
 
   const handleOpenDatePicker = useCallback(() => {
     setIsDatePickerOpen(true);
+    setIsActionSheetOpen(false);
   }, []);
 
   const handleOpenVisibility = useCallback(() => {
     setIsVisibilityOpen(true);
+    setIsActionSheetOpen(false);
   }, []);
 
   const handleOpenDeleteConfirm = useCallback(() => {
     setIsDeleteConfirmOpen(true);
+    setIsActionSheetOpen(false);
   }, []);
 
   const handleOpenImageViewer = useCallback(() => {
+    if (!activeTask) return;
+    setViewingTaskId(activeTask.id);
     setIsImageViewerOpen(true);
-  }, []);
+    setIsActionSheetOpen(false);
+  }, [activeTask]);
 
   const handleCloseImageViewer = useCallback(() => {
     setIsImageViewerOpen(false);
@@ -274,95 +370,160 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
   }, []);
 
   const handleOpenImagePicker = useCallback(() => {
-    setImagePickerTaskId(activeTask?.id ?? null);
+    if (!activeTask) return;
+    setImagePickerTaskId(activeTask.id);
+    setIsActionSheetOpen(false);
   }, [activeTask]);
 
   const isBackgroundLocked =
+    isActionSheetOpen ||
     isMemoOpen ||
     isDatePickerOpen ||
     isVisibilityOpen ||
     isDeleteConfirmOpen ||
     isImageViewerOpen ||
-    deletePhotoConfirmOpen;
+    deletePhotoConfirmOpen ||
+    !!imagePickerTaskId;
+  // A11Y-33: keyboard arrows mirror the existing swipe/chevron day navigation.
+  // Nested sheets and text editing retain their own keyboard behavior.
+  useHorizontalArrowNavigation({
+    enabled: isOpen && !isBackgroundLocked,
+    onLeft: handlePrevDay,
+    onRight: handleNextDay,
+  });
 
-  return (
-    <BottomSheet
-      isOpen={isOpen}
-      onClose={onClose}
-      title={format(selectedDate, 'EEEE, MMM d')}
-      height="full"
+  const imageViewerLoadingFallback = (
+    <div
+      className="fixed inset-0 z-[80] bg-black flex items-center justify-center px-6"
+      role="status"
+      aria-live="polite"
     >
-      <div className="flex items-center justify-between px-4 py-2">
+      <Spinner size="w-8 h-8" />
+    </div>
+  );
+  const imageViewerUnavailable = (
+    <div className="fixed inset-0 z-[80] bg-black flex items-center justify-center px-6">
+      <div className="text-center">
+        <p className="text-sm text-gray-300 mb-4">Image unavailable</p>
         <button
-          onClick={handlePrevDay}
-          className="p-2 text-gray-400"
-          aria-label="Previous day"
+          type="button"
+          onClick={handleCloseImageViewer}
+          className="px-4 py-2 rounded-xl bg-[#2A2A2A] text-white text-sm"
         >
-          <ChevronLeft size={20} />
-        </button>
-        <span className="text-sm text-gray-400">
-          {format(selectedDate, 'MMM d, yyyy')}
-        </span>
-        <button
-          onClick={handleNextDay}
-          className="p-2 text-gray-400"
-          aria-label="Next day"
-        >
-          <ChevronRight size={20} />
+          Close
         </button>
       </div>
+    </div>
+  );
+
+  const content = (
+    <>
       <Swiper
+        nested={renderMode === 'inline'}
+        noSwiping={renderMode === 'sheet'}
+        touchStartPreventDefault={false}
+        touchMoveStopPropagation={false}
+        autoHeight={renderMode === 'inline'}
         onSwiper={(swiper) => {
           swiperRef.current = swiper;
         }}
         initialSlide={initialIndex}
         onSlideChange={handleSwipeSettled}
-        className="flex-1"
+        data-testid="day-swiper"
+        data-bottom-sheet-native-horizontal-swipe={renderMode === 'sheet' ? 'true' : undefined}
+        className={`min-w-0 w-full max-w-full overflow-hidden ${renderMode === 'inline' ? '' : 'flex-1'}`}
+        style={{
+          width: '100%',
+          maxWidth: '100%',
+          height: renderMode === 'inline' ? 'auto' : undefined,
+          touchAction: 'pan-y',
+        }}
       >
         {slideDates.map((date, i) => {
           const inWindow = Math.abs(i - activeIndex) <= renderWindow;
           const dateStr = slideDateStrs[i];
           const dayTasks = tasksByDate.get(dateStr) ?? EMPTY_TASKS;
           return (
-            <SwiperSlide key={date.toISOString()}>
-              {inWindow && (
-                <DaySlide
-                  date={date}
-                  dateStr={dateStr}
-                  tasks={dayTasks}
-                  categories={categories}
-                  currentUserId={currentUserId}
-                  editingTaskId={editingTaskId}
-                  editValue={editValue}
-                  onToggleTask={handleToggleTask}
-                  onAddTask={handleAddTask}
-                  onOpenActions={handleOpenActions}
-                  onOpenMemo={handleOpenMemo}
-                  onViewImage={handleViewImage}
-                  onEditChange={handleEditChange}
-                  onEditSave={handleEditSave}
-                  onEditCancel={handleEditCancel}
-                />
-              )}
+            <SwiperSlide
+              key={date.toISOString()}
+              className="min-w-0"
+              aria-hidden={i === activeIndex ? undefined : true}
+              style={{ height: renderMode === 'inline' ? 'auto' : '100%' }}
+            >
+              <div
+                className={renderMode === 'inline' ? 'w-full min-w-0' : 'flex h-full min-h-0 w-full min-w-0 flex-col'}
+              >
+                <div
+                  className="flex shrink-0 items-center justify-between gap-2 px-4 py-2"
+                  data-bottom-sheet-directional-drag-handle={
+                    renderMode === 'sheet' ? 'true' : undefined
+                  }
+                >
+                  <button
+                    type="button"
+                    onClick={handlePrevDay}
+                    tabIndex={i === activeIndex ? 0 : -1}
+                    className="p-2 text-gray-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
+                    aria-label="Previous day"
+                  >
+                    <ChevronLeft size={20} />
+                  </button>
+                  <h3
+                    className="min-w-0 flex-1 text-center text-base font-semibold text-white"
+                    aria-live={i === activeIndex ? 'polite' : undefined}
+                  >
+                    {format(date, 'EEEE, MMMM d, yyyy')}
+                  </h3>
+                  <button
+                    type="button"
+                    onClick={handleNextDay}
+                    tabIndex={i === activeIndex ? 0 : -1}
+                    className="p-2 text-gray-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
+                    aria-label="Next day"
+                  >
+                    <ChevronRight size={20} />
+                  </button>
+                </div>
+                {inWindow && (
+                  <DaySlide
+                    date={date}
+                    dateStr={dateStr}
+                    scrollMode={renderMode === 'inline' ? 'page' : 'contained'}
+                    tasks={dayTasks}
+                    categories={categories}
+                    currentUserId={currentUserId}
+                    editingTaskId={editingTaskId}
+                    editValue={editValue}
+                    onToggleTask={handleToggleTask}
+                    onAddTask={handleAddTask}
+                    onOpenActions={handleOpenActions}
+                    onOpenMemo={handleOpenMemo}
+                    onEditTask={handleEditTask}
+                    onViewImage={handleViewImage}
+                    onEditChange={handleEditChange}
+                    onEditSave={handleEditSave}
+                    onEditCancel={handleEditCancel}
+                  />
+                )}
+              </div>
             </SwiperSlide>
           );
         })}
       </Swiper>
       <TaskActionSheet
-        isOpen={!!activeTask}
+        isOpen={isActionSheetOpen && !!activeTask}
         onClose={handleCloseActions}
         task={activeTask}
         category={activeTaskCategory}
         onEdit={() => {
-          if (activeTask) {
-            setEditingTaskId(activeTask.id);
-            setEditValue(activeTask.title);
-          }
-          handleCloseActions();
+          if (activeTask) handleEditTask(activeTask);
+          setIsActionSheetOpen(false);
+          setActiveTaskId(null);
         }}
         onDelete={handleOpenDeleteConfirm}
         onMemo={() => {
-          handleCloseActions();
+          if (activeTask) handleOpenMemo(activeTask, 'edit');
+          setIsActionSheetOpen(false);
         }}
         onChangeDate={handleOpenDatePicker}
         onVisibility={handleOpenVisibility}
@@ -378,6 +539,7 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
             onClose={handleCloseMemo}
             task={activeTask}
             onSave={handleMemoSave}
+            initialMode={memoInitialMode}
           />
         )}
         {isDatePickerOpen && activeTask && (
@@ -400,7 +562,10 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
       </AnimatePresence>
       <ConfirmSheet
         isOpen={isDeleteConfirmOpen}
-        onClose={() => setIsDeleteConfirmOpen(false)}
+        onClose={() => {
+          setIsDeleteConfirmOpen(false);
+          setActiveTaskId(null);
+        }}
         title="Delete Task"
         message="This task will be permanently removed."
         confirmLabel="Delete"
@@ -416,14 +581,18 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
         destructive
         onConfirm={handleConfirmDeletePhoto}
       />
-      {viewingTask?.image && (
-        <ImageViewer
-          isOpen={isImageViewerOpen}
-          imageUrl={viewingImageUrl}
-          taskTitle={viewingTask.title}
-          taskDate={viewingTask.date}
-          onClose={handleCloseImageViewer}
-        />
+      {isImageViewerOpen && viewingTask?.image && (
+        viewingImageUrl ? (
+          <Suspense fallback={imageViewerLoadingFallback}>
+            <ImageViewer
+              isOpen
+              imageUrl={viewingImageUrl}
+              taskTitle={viewingTask.title}
+              taskDate={viewingTask.date}
+              onClose={handleCloseImageViewer}
+            />
+          </Suspense>
+        ) : isViewingImageLoading ? imageViewerLoadingFallback : imageViewerUnavailable
       )}
       <ImagePickerSheet
         isOpen={!!imagePickerTaskId}
@@ -434,12 +603,44 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
         onSave={handleImagePickerSave}
         onRemove={handleImagePickerRemove}
       />
-      {isBackgroundLocked && null}
       {deleteFeedback && (
-        <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[70] bg-[#2A2A2A] text-white text-sm px-4 py-2 rounded-lg shadow-lg">
+        <div role="status" aria-live="polite" className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[70] bg-[#2A2A2A] text-white text-sm px-4 py-2 rounded-lg shadow-lg">
           {deleteFeedback}
         </div>
       )}
+    </>
+  );
+
+  if (renderMode === 'inline') {
+    return (
+      <div
+        className={`flex min-h-0 min-w-0 w-full max-w-full flex-col overflow-x-hidden ${isBackgroundLocked ? 'pointer-events-none' : ''}`}
+        aria-hidden={isBackgroundLocked || undefined}
+        data-testid="inline-day-view"
+      >
+        {content}
+      </div>
+    );
+  }
+
+  return (
+    <BottomSheet
+      isOpen={isOpen}
+      onClose={onClose}
+      ariaLabel={format(selectedDate, 'EEEE, MMMM d, yyyy')}
+      height="full"
+      isLocked={isBackgroundLocked}
+      suspendInteraction={isBackgroundLocked}
+      contentMode="fixed"
+      onHorizontalSwipe={handleSheetHorizontalSwipe}
+    >
+      <div
+        data-testid="day-sheet-swipe-surface"
+        data-day-view-focus-scope={focusTaskId ? 'true' : undefined}
+        className="flex h-full min-h-0 flex-col"
+      >
+        {content}
+      </div>
     </BottomSheet>
   );
 };

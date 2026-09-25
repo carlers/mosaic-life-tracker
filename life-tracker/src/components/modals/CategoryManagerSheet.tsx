@@ -39,7 +39,7 @@ const CategoryRow: React.FC<CategoryRowProps> = ({
           e.stopPropagation();
           dragControls.start(e);
         }}
-        className="text-gray-500 cursor-grab"
+        className="text-gray-400 cursor-grab"
         aria-label="Drag to reorder"
       >
         <GripVertical size={18} />
@@ -54,7 +54,7 @@ const CategoryRow: React.FC<CategoryRowProps> = ({
           {visibilityIcon(cat.visibility)}
         </div>
         {overriddenCount > 0 && (
-          <span className="text-xs text-gray-500">
+          <span className="text-xs text-gray-400">
             {overriddenCount} task{overriddenCount === 1 ? '' : 's'} override
             visibility
           </span>

@@ -2,9 +2,10 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, fireEvent, screen } from '@testing-library/react';
 import React from 'react';
 import { ErrorBoundary } from '../../src/components/ui/ErrorBoundary';
+import { installChunkLoadErrorTracking } from '../../src/lib/chunkLoadErrors';
 
-function Bomb({ shouldThrow }: { shouldThrow: boolean }) {
-  if (shouldThrow) throw new Error('bomb');
+function Bomb({ shouldThrow, error }: { shouldThrow: boolean; error?: Error }) {
+  if (shouldThrow) throw error ?? new Error('bomb');
   return <div>safe</div>;
 }
 
@@ -36,6 +37,34 @@ describe('ErrorBoundary', () => {
     );
     expect(screen.getByText('Something went wrong')).toBeTruthy();
     expect(screen.getByText('Try again')).toBeTruthy();
+  });
+
+  it('offers an explicit reload when a lazy route chunk fails', () => {
+    render(
+      <ErrorBoundary label="route" reloadOnChunkError>
+        <Bomb
+          shouldThrow
+          error={new Error('Failed to fetch dynamically imported module')}
+        />
+      </ErrorBoundary>
+    );
+    expect(screen.getByText('Reload app')).toBeTruthy();
+    expect(screen.getByText(/may discard unfinished form input/)).toBeTruthy();
+    expect(screen.queryByText('Try again')).toBeNull();
+  });
+
+  it('uses the exact error payload from Vite preload events', () => {
+    const opaqueError = new Error('opaque browser import failure');
+    installChunkLoadErrorTracking();
+    const event = new Event('vite:preloadError');
+    Object.defineProperty(event, 'payload', { value: opaqueError });
+    window.dispatchEvent(event);
+    render(
+      <ErrorBoundary label="route" reloadOnChunkError>
+        <Bomb shouldThrow error={opaqueError} />
+      </ErrorBoundary>
+    );
+    expect(screen.getByText('Reload app')).toBeTruthy();
   });
 
   it('logs with the [ErrorBoundary:<label>] prefix', () => {

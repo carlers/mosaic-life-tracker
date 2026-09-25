@@ -26,7 +26,7 @@ interface ConfirmSheetProps {
 }
 
 /**
- * Canonical destructive-action confirmation sheet (AGENTS §13).
+ * Canonical destructive-action confirmation sheet (docs/PROJECT_REFERENCE.md §13).
  * Replaces the copy-pasted nested locked `BottomSheet` with a
  * `[Cancel | Confirm]` footer that appears in DayViewSheet,
  * CategoryManagerSheet, and ChatPage.
@@ -68,10 +68,10 @@ export const ConfirmSheet: React.FC<ConfirmSheetProps> = ({
             type="button"
             onClick={onConfirm}
             disabled={isProcessing}
-            className={`flex-1 py-3 rounded-xl text-white font-medium transition-colors disabled:opacity-50 flex items-center justify-center gap-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 ${
+            className={`flex-1 py-3 rounded-xl font-medium transition-colors disabled:opacity-50 flex items-center justify-center gap-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 ${
               destructive
-                ? 'bg-red-500 hover:bg-red-600'
-                : 'bg-emerald-500 hover:bg-emerald-600'
+                ? 'bg-red-600 hover:bg-red-700 text-white'
+                : 'bg-emerald-500 hover:bg-emerald-600 text-black'
             }`}
           >
             {isProcessing ? (

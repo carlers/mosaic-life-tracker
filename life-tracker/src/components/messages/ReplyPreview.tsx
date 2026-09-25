@@ -28,7 +28,7 @@ export const ReplyPreview: React.FC<ReplyPreviewProps> = ({
           {senderName}
         </p>
         {isDeleted ? (
-          <p className="text-[11px] italic text-gray-500 line-clamp-2 leading-snug flex items-center gap-1">
+          <p className="text-[11px] italic text-gray-400 line-clamp-2 leading-snug flex items-center gap-1">
             <Ban size={9} aria-hidden="true" />
             Message deleted
           </p>
@@ -43,7 +43,7 @@ export const ReplyPreview: React.FC<ReplyPreviewProps> = ({
           type="button"
           onClick={onCancel}
           onPointerDown={(e) => e.stopPropagation()}
-          className="flex-shrink-0 p-0.5 text-gray-500 hover:text-white transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 rounded"
+          className="flex-shrink-0 p-0.5 text-gray-400 hover:text-white transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 rounded"
           aria-label="Cancel reply"
         >
           <X size={14} aria-hidden="true" />

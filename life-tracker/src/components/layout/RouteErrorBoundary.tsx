@@ -40,6 +40,7 @@ export const RouteErrorBoundary: React.FC<RouteErrorBoundaryProps> = ({
       resetKey={location.pathname}
       onBack={handleBack}
       label={label}
+      reloadOnChunkError
     >
       {children}
     </ErrorBoundary>

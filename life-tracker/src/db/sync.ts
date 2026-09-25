@@ -27,6 +27,11 @@ const RATE_LIMIT_MAX_MS = 60_000;
 const FAILURE_BACKOFF_BASE_MS = 5_000;
 const FAILURE_BACKOFF_MAX_MS = 60_000;
 const TRIGGER_DEBOUNCE_MS = 1_500;
+// Tombstones are retained remotely for this long. A client whose incremental
+// pull cursor is older than the retention window performs a full pull so it
+// never assumes that a missing row means the row still exists.
+export const TOMBSTONE_RETENTION_DAYS = 90;
+const TOMBSTONE_RETENTION_MS = TOMBSTONE_RETENTION_DAYS * 24 * 60 * 60 * 1000;
 const WEB_LOCKS_NAME = 'mosaic-sync';
 type CollectionName = keyof AppDatabaseCollections;
 const ALL_COLLECTIONS: CollectionName[] = [
@@ -47,6 +52,7 @@ interface PerCollectionPersistedState {
   entries: Partial<Record<CollectionName, PerCollectionSyncEntry>>;
 }
 const PER_COLLECTION_KEY = 'lastSyncTimePerCollection';
+const RECONCILED_MISSING_KEY = 'reconciledMissingRows';
 const PER_COLLECTION_STATE_VERSION = 1;
 function loadPerCollectionState(
   userId: string
@@ -87,6 +93,45 @@ function savePerCollectionState(
   } catch {
   }
 }
+function loadReconciledMissingRows(
+  userId: string
+): Record<string, string> {
+  try {
+    const raw = localStorage.getItem(RECONCILED_MISSING_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw) as unknown;
+    if (!parsed || typeof parsed !== 'object') return {};
+    const state = parsed as {
+      version?: number;
+      ownerId?: string;
+      entries?: Record<string, string>;
+    };
+    if (state.version !== 1 || state.ownerId !== userId || !state.entries) {
+      return {};
+    }
+    return state.entries;
+  } catch {
+    return {};
+  }
+}
+
+function saveReconciledMissingRows(
+  userId: string,
+  entries: Record<string, string>
+): void {
+  try {
+    localStorage.setItem(
+      RECONCILED_MISSING_KEY,
+      JSON.stringify({ version: 1, ownerId: userId, entries })
+    );
+  } catch {
+  }
+}
+
+function reconciliationKey(collection: string, rowId: string): string {
+  return `${collection}::${rowId}`;
+}
+
 let perCollectionSync: Partial<
   Record<CollectionName, PerCollectionSyncEntry>
 > = {};
@@ -206,7 +251,7 @@ function toMs(value: unknown): number {
 // AuthProvider's resolveInitialUser and intermittently showing a
 // "session expired" banner on a fresh device. Use the raw client so sync
 // never owns session state; AuthProvider is the single source of truth
-// (AGENTS §23).
+// (docs/PROJECT_REFERENCE.md §23).
 async function resolveAuthenticatedUserId(): Promise<string | null> {
   try {
     const user = await account.get();
@@ -416,12 +461,21 @@ async function syncCollection(
   const entry = perCollectionSync[colName as CollectionName];
   const pullBoundaryMs = entry?.pull ? new Date(entry.pull).getTime() : 0;
   const dirtyBoundaryMs = entry?.dirty ? new Date(entry.dirty).getTime() : 0;
+  const incrementalCursorExpired =
+    pullBoundaryMs > 0 && Date.now() - pullBoundaryMs > TOMBSTONE_RETENTION_MS;
+  const effectivePullBoundaryMs = incrementalCursorExpired ? 0 : pullBoundaryMs;
+  if (incrementalCursorExpired && DEBUG) {
+    console.log(
+      `[Sync] ${colName} incremental cursor expired; performing full pull`
+    );
+  }
   const usesTimestamps = isTimestampedCollection(colName);
   const remoteIndex = new Map<
     string,
     { updatedAt: number; isDeleted: boolean }
   >();
   const justPulled = new Set<string>();
+  const reconciledMissing = loadReconciledMissingRows(userId);
   let cursor: string | undefined = undefined;
   let pageCount = 0;
   let pullRowFailed = false;
@@ -431,9 +485,9 @@ async function syncCollection(
       Query.limit(PAGE_SIZE),
       Query.orderAsc('$id'),
     ];
-    if (pullBoundaryMs > 0) {
+    if (effectivePullBoundaryMs > 0) {
       const sinceIso = new Date(
-        pullBoundaryMs - PULL_OVERLAP_MS
+        effectivePullBoundaryMs - PULL_OVERLAP_MS
       ).toISOString();
       queries.push(Query.greaterThan('$updatedAt', sinceIso));
     }
@@ -460,11 +514,14 @@ async function syncCollection(
           updatedAt: remoteUpdatedAt,
           isDeleted: (doc.isDeleted as boolean) ?? false,
         });
+        if (incrementalCursorExpired) {
+          delete reconciledMissing[reconciliationKey(colName, docId)];
+        }
         const localDoc = await collection.findOne(docId).exec();
         if (!localDoc) {
           // Local doc did not exist when we looked. RxDB may raise
           // CONFLICT if a local insert landed in the meantime; treat that
-          // as a preserved local edit (AGENTS §10 — CONFLICT is not an
+          // as a preserved local edit (docs/PROJECT_REFERENCE.md §10 — CONFLICT is not an
           // error) rather than a row failure.
           try {
             await collection.upsert(doc);
@@ -486,7 +543,7 @@ async function syncCollection(
         const isLocalDirty = localLwt > dirtyBoundaryMs;
         // Server-owned read_at on outgoing messages is applied BEFORE the
         // dirty-skip. The local client never writes read_at on outgoing
-        // rows (see AGENTS §12), so a dirty outgoing row's local edit is
+        // rows (see docs/PROJECT_REFERENCE.md §12), so a dirty outgoing row's local edit is
         // never the source of truth for this field.
         if (colName === 'messages' && row.direction === 'outgoing') {
           const remoteReadAt = (row.read_at as string) || '';
@@ -563,6 +620,10 @@ async function syncCollection(
   };
   savePerCollectionState(userId, perCollectionSync);
   let pushFailed = 0;
+  // A stale cursor forces a complete remote reconciliation, but it does not
+  // discard edits made locally since the last successful push. Clean local
+  // rows that disappeared from the remote full pull are intentionally not
+  // recreated; only genuinely dirty local rows remain eligible to push.
   if (colName !== 'messages') {
     const localDocs = await collection.find().exec();
     for (const doc of localDocs) {
@@ -575,6 +636,13 @@ async function syncCollection(
       const remoteMeta = remoteIndex.get(docId);
       const localLwt = doc._meta?.lwt ?? 0;
       const isLocalDirty = localLwt > dirtyBoundaryMs;
+      const reconciliationStamp = reconciledMissing[reconciliationKey(colName, docId)];
+      const isReconciledMissing =
+        !remoteMeta &&
+        json.isDeleted === true &&
+        !!reconciliationStamp &&
+        toMs(json.updatedAt) <= toMs(reconciliationStamp);
+      if (isReconciledMissing) continue;
       let shouldPush = false;
       if (isLocalDirty) {
         shouldPush = true;
@@ -598,7 +666,7 @@ async function syncCollection(
           // reappeared between our 404 and this call, createRow throws
           // 409 and we let the next cycle reconcile. Do NOT use
           // upsertRow here — its PUT semantics would reset any column
-          // the client does not send (see AGENTS §6).
+          // the client does not send (see docs/PROJECT_REFERENCE.md §6).
           try {
             await guardedTablesDB.createRow({
               databaseId: APPWRITE_CONFIG.databaseId,
@@ -624,6 +692,33 @@ async function syncCollection(
       }
     }
   }
+  if (incrementalCursorExpired) {
+    const localDocsAfterPull = await collection.find().exec();
+    const reconciliationNow = new Date().toISOString();
+    for (const doc of localDocsAfterPull) {
+      const json = doc.toJSON();
+      const docUserId = json.userId as string | undefined;
+      if (docUserId !== userId) continue;
+      const docId = (json.id as string) || doc.id;
+      if (!docId || remoteIndex.has(docId)) continue;
+      const localLwt = doc._meta?.lwt ?? 0;
+      if (localLwt > dirtyBoundaryMs || json.isDeleted === true) continue;
+      try {
+        await doc.incrementalPatch({
+          isDeleted: true,
+          updatedAt: reconciliationNow,
+        });
+        reconciledMissing[reconciliationKey(colName, docId)] = reconciliationNow;
+      } catch (reconcileErr) {
+        console.error(
+          `[Sync] Failed to reconcile missing ${colName} ${docId}:`,
+          reconcileErr
+        );
+        pushFailed++;
+      }
+    }
+    saveReconciledMissingRows(userId, reconciledMissing);
+  }
   const nextDirtyIso =
     pushFailed > 0
       ? entry?.dirty ?? ''
@@ -632,6 +727,7 @@ async function syncCollection(
     pull: nextPullIso,
     dirty: nextDirtyIso,
   };
+  saveReconciledMissingRows(userId, reconciledMissing);
   savePerCollectionState(userId, perCollectionSync);
   if (DEBUG) {
     if (pullRowFailed || pushFailed > 0) {

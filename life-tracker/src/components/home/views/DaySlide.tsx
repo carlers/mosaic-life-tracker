@@ -4,6 +4,7 @@ import type { CategoryDocument, TaskDocument } from '../../../db/schema';
 
 interface DaySlideProps {
   date: Date;
+  scrollMode?: 'page' | 'contained';
   dateStr: string;
   tasks: TaskDocument[];
   categories: CategoryDocument[];
@@ -13,7 +14,8 @@ interface DaySlideProps {
   onToggleTask: (taskId: string, currentStatus: boolean) => void;
   onAddTask: (title: string, categoryId: string, dateStr: string) => void;
   onOpenActions: (task: TaskDocument) => void;
-  onOpenMemo: (task: TaskDocument) => void;
+  onOpenMemo: (task: TaskDocument, mode: 'view' | 'edit') => void;
+  onEditTask: (task: TaskDocument) => void;
   onViewImage: (task: TaskDocument) => void;
   onEditChange: (val: string) => void;
   onEditSave: () => void;
@@ -22,6 +24,7 @@ interface DaySlideProps {
 
 const DaySlideComponent: React.FC<DaySlideProps> = ({
   dateStr,
+  scrollMode = 'page',
   tasks,
   categories,
   currentUserId,
@@ -31,6 +34,7 @@ const DaySlideComponent: React.FC<DaySlideProps> = ({
   onAddTask,
   onOpenActions,
   onOpenMemo,
+  onEditTask,
   onViewImage,
   onEditChange,
   onEditSave,
@@ -51,14 +55,21 @@ const DaySlideComponent: React.FC<DaySlideProps> = ({
 
   if (categories.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center h-full text-gray-500">
+      <div className="flex flex-col items-center justify-center h-full text-gray-400">
         <p className="text-sm">No categories yet</p>
       </div>
     );
   }
 
   return (
-    <div className="h-full overflow-y-auto px-4 pb-8">
+    <div
+      className={
+        scrollMode === 'contained'
+          ? 'min-h-0 w-full min-w-0 flex-1 overflow-y-auto px-4 pb-8'
+          : 'w-full min-w-0 px-4 pb-8'
+      }
+      data-testid="day-slide"
+    >
       {categories.map((cat) => (
         <CategorySection
           key={cat.id}
@@ -71,6 +82,7 @@ const DaySlideComponent: React.FC<DaySlideProps> = ({
           onAddTask={(title) => onAddTask(title, cat.id, dateStr)}
           onOpenActions={onOpenActions}
           onOpenMemo={onOpenMemo}
+          onEditTask={onEditTask}
           onViewImage={onViewImage}
           editingTaskId={editingTaskId}
           editValue={editValue}

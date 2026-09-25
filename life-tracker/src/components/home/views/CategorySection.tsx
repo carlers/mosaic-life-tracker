@@ -2,6 +2,7 @@ import React, { useState, useRef, useId } from 'react';
 import { Plus } from 'lucide-react';
 import { TaskItem } from './TaskItem';
 import { visibilityIcon } from '../../../lib/visibility';
+import { getCategoryLabelColor } from '../../../constants/colors';
 import type { TaskDocument } from '../../../db/schema';
 
 type Visibility = 'private' | 'followers' | 'public';
@@ -15,7 +16,8 @@ interface CategorySectionProps {
   onToggleTask: (taskId: string, currentStatus: boolean) => void;
   onAddTask: (title: string) => void;
   onOpenActions: (task: TaskDocument) => void;
-  onOpenMemo: (task: TaskDocument) => void;
+  onOpenMemo: (task: TaskDocument, mode: 'view' | 'edit') => void;
+  onEditTask: (task: TaskDocument) => void;
   onViewImage?: (task: TaskDocument) => void;
   editingTaskId: string | null;
   editValue: string;
@@ -34,6 +36,7 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
   onAddTask,
   onOpenActions,
   onOpenMemo,
+  onEditTask,
   onViewImage,
   editingTaskId,
   editValue,
@@ -87,50 +90,37 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
 
   return (
     <div className="mb-4">
-      <div
-        role="button"
-        tabIndex={0}
-        onClick={handleOpen}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter' || e.key === ' ') {
-            e.preventDefault();
-            handleOpen();
-          }
-        }}
-        className="flex items-center gap-2 mb-2 cursor-pointer"
-        aria-label={`Add a task to ${categoryName}`}
-      >
-        <div
-          className="w-3 h-3 rounded-full shrink-0"
-          style={{ backgroundColor: categoryColor }}
-        />
-        <span className="text-sm font-medium text-white">{categoryName}</span>
-        {visibility && visibilityIcon(visibility)}
-        <span className="ml-auto p-1 text-gray-400" aria-hidden="true">
-          <Plus size={16} />
-        </span>
+      <div className="flex items-center mb-2">
+        <button
+          type="button"
+          onClick={handleOpen}
+          className="inline-flex items-center gap-2 bg-black rounded-full pl-3.5 pr-3 py-2 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
+          aria-label={`Add a task to ${categoryName}`}
+        >
+          {visibility && visibilityIcon(visibility, 12, 'text-gray-400')}
+          <span
+            className="text-sm font-bold"
+            style={{ color: getCategoryLabelColor(categoryColor) }}
+          >
+            {categoryName}
+          </span>
+          <span className="text-gray-400" aria-hidden="true">
+            <Plus data-testid="category-add-icon" size={18} />
+          </span>
+        </button>
       </div>
 
-      {tasks.map((task) => (
-        <TaskItem
-          key={task.id}
-          task={task}
-          categoryColor={categoryColor}
-          currentUserId={currentUserId}
-          onToggle={() => onToggleTask(task.id, task.completed)}
-          onOpenActions={onOpenActions}
-          onOpenMemo={onOpenMemo}
-          onViewImage={onViewImage}
-          isEditing={editingTaskId === task.id}
-          editValue={editValue}
-          onEditChange={onEditChange}
-          onEditSave={onEditSave}
-          onEditCancel={onEditCancel}
-        />
-      ))}
-
       {isAdding && (
-        <div className="flex items-center gap-2 py-2">
+        <div
+          data-testid="pending-task-row"
+          className="flex items-center gap-3 py-2"
+        >
+          <span
+            data-testid="pending-task-checkbox"
+            aria-hidden="true"
+            className="shrink-0 h-6 w-6 rounded-full border-2"
+            style={{ borderColor: categoryColor }}
+          />
           <label htmlFor={inputId} className="sr-only">
             New task title
           </label>
@@ -143,10 +133,30 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
             onKeyDown={handleKeyDown}
             onBlur={handleBlur}
             placeholder={`Add a task to ${categoryName}...`}
-            className="flex-1 bg-transparent text-white outline-none border-b border-[#4B5563] text-sm"
+            className="min-w-0 flex-1 bg-transparent text-white outline-none border-b text-sm focus-visible:ring-2 focus-visible:ring-emerald-500/60"
+            style={{ borderBottomColor: categoryColor }}
           />
         </div>
       )}
+
+      {tasks.map((task) => (
+        <TaskItem
+          key={task.id}
+          task={task}
+          categoryColor={categoryColor}
+          currentUserId={currentUserId}
+          onToggle={() => onToggleTask(task.id, task.completed)}
+          onOpenActions={onOpenActions}
+          onOpenMemo={onOpenMemo}
+          onEditStart={onEditTask}
+          onViewImage={onViewImage}
+          isEditing={editingTaskId === task.id}
+          editValue={editValue}
+          onEditChange={onEditChange}
+          onEditSave={onEditSave}
+          onEditCancel={onEditCancel}
+        />
+      ))}
     </div>
   );
 };

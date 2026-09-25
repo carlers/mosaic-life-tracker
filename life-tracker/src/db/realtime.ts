@@ -67,7 +67,7 @@ function stripRxMeta(
 
 // Apply one incoming row payload to the local collection.
 //
-// Semantics mirror the sync engine's pull loop (AGENTS §18):
+// Semantics mirror the sync engine's pull loop (docs/PROJECT_REFERENCE.md §18):
 //   - Incoming update: read the local doc. If it is locally dirty
 //     (its `_meta.lwt` is newer than the last sync's dirty boundary),
 //     skip the apply EXCEPT for `messages.read_at` on outgoing rows —

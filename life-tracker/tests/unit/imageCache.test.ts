@@ -1,129 +1,205 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import {
+  __resetImageCacheForTests,
+  cacheImage,
+  deleteCachedImage,
+  enforceImageCacheBudget,
+  getCachedImage,
+} from '../../src/lib/imageCache';
 
-// Minimal in-memory IndexedDB stub. Only the surface imageCache.ts uses:
-// open / onupgradeneeded / createObjectStore / transaction / objectStore /
-// get / put / delete, each with onsuccess / onerror. This is enough to
-// exercise the module's read/write/delete paths without a full IDB
-// polyfill. Not a general-purpose fake — do not extend beyond what the
-// module under test needs.
-type Store = Map<string, unknown>;
+type Store = Map<IDBValidKey, unknown>;
 
 function makeIdbStub() {
   const stores = new Map<string, Store>();
+  const failNextPutFor = new Set<string>();
+
   class FakeRequest<T> {
     onsuccess: (() => void) | null = null;
     onerror: (() => void) | null = null;
+    onupgradeneeded: ((event: { target: FakeRequest<T> }) => void) | null = null;
     result!: T;
-    error: unknown = null;
+    error: DOMException | null = null;
   }
+
   class FakeObjectStore {
-    constructor(private store: Store) {}
-    get(key: string) {
-      const req = new FakeRequest<unknown>();
-      queueMicrotask(() => {
-        req.result = this.store.get(key);
-        req.onsuccess?.();
-      });
-      return req;
+    constructor(private name: string, private store: Store) {}
+
+    get(key: IDBValidKey) {
+      return complete(this.store.get(key));
     }
-    put(value: unknown, key: string) {
-      const req = new FakeRequest<void>();
-      queueMicrotask(() => {
-        this.store.set(key, value);
-        req.onsuccess?.();
-      });
-      return req;
+
+    getAll() {
+      return complete([...this.store.entries()]
+        .sort(([a], [b]) => String(a).localeCompare(String(b)))
+        .map(([, value]) => value));
     }
-    delete(key: string) {
-      const req = new FakeRequest<void>();
-      queueMicrotask(() => {
-        this.store.delete(key);
-        req.onsuccess?.();
-      });
-      return req;
+
+    getAllKeys() {
+      return complete([...this.store.keys()].sort((a, b) =>
+        String(a).localeCompare(String(b))
+      ));
+    }
+
+    put(value: unknown, key: IDBValidKey) {
+      if (failNextPutFor.delete(this.name)) {
+        return fail(new DOMException('Injected write failure'));
+      }
+      this.store.set(key, value);
+      return complete(undefined);
+    }
+
+    delete(key: IDBValidKey) {
+      this.store.delete(key);
+      return complete(undefined);
     }
   }
+
   class FakeTransaction {
-    constructor(private store: Store) {}
-    objectStore(_name: string) {
-      return new FakeObjectStore(this.store);
+    objectStore(name: string) {
+      const store = stores.get(name);
+      if (!store) throw new Error(`Missing object store: ${name}`);
+      return new FakeObjectStore(name, store);
     }
   }
+
   class FakeDb {
     objectStoreNames = {
       contains: (name: string) => stores.has(name),
     };
+
     createObjectStore(name: string) {
-      stores.set(name, new Map());
-      return new FakeObjectStore(stores.get(name)!);
+      const store = new Map<IDBValidKey, unknown>();
+      stores.set(name, store);
+      return new FakeObjectStore(name, store);
     }
-    transaction(_name: string, _mode: string) {
-      const store = stores.get('blobs') ?? new Map();
-      stores.set('blobs', store);
-      return new FakeTransaction(store);
+
+    transaction(_names: string | string[], _mode: IDBTransactionMode) {
+      return new FakeTransaction();
     }
   }
+
+  function complete<T>(result: T): FakeRequest<T> {
+    const request = new FakeRequest<T>();
+    request.result = result;
+    queueMicrotask(() => request.onsuccess?.());
+    return request;
+  }
+
+  function fail<T>(error: DOMException): FakeRequest<T> {
+    const request = new FakeRequest<T>();
+    request.error = error;
+    queueMicrotask(() => request.onerror?.());
+    return request;
+  }
+
   return {
     open: (_name: string, _version: number) => {
-      const req = new FakeRequest<FakeDb>();
+      const request = new FakeRequest<FakeDb>();
       queueMicrotask(() => {
-        req.result = new FakeDb();
-        req.onsuccess?.();
+        request.result = new FakeDb();
+        request.onupgradeneeded?.({ target: request });
+        request.onsuccess?.();
       });
-      return req;
+      return request;
     },
     __stores: stores,
+    __failNextPut: (storeName: string) => failNextPutFor.add(storeName),
   };
 }
 
-const idbStub = makeIdbStub();
+let idbStub: ReturnType<typeof makeIdbStub>;
 
 beforeEach(() => {
+  idbStub = makeIdbStub();
   vi.stubGlobal('indexedDB', idbStub);
-  idbStub.__stores.clear();
+  __resetImageCacheForTests();
 });
 
 afterEach(() => {
+  vi.restoreAllMocks();
   vi.unstubAllGlobals();
 });
 
-describe('imageCache — single source of truth for the blob cache', () => {
-  it('round-trips a blob through cacheImage + getCachedImage', async () => {
-    const { cacheImage, getCachedImage } = await import(
-      '../../src/lib/imageCache'
+describe('imageCache — bounded IndexedDB blob cache', () => {
+  it('round-trips, overwrites, and deletes a blob plus metadata', async () => {
+    const first = new Blob(['one'], { type: 'image/webp' });
+    const second = new Blob(['second'], { type: 'image/webp' });
+    await cacheImage('img_a', first);
+    expect(await getCachedImage('img_a')).toBe(first);
+    await cacheImage('img_a', second);
+    expect(await getCachedImage('img_a')).toBe(second);
+    await deleteCachedImage('img_a');
+    expect(await getCachedImage('img_a')).toBeUndefined();
+    expect(idbStub.__stores.get('metadata')?.has('img_a')).toBe(false);
+  });
+
+  it('evicts least-recently-used blobs until the byte budget is met', async () => {
+    vi.spyOn(Date, 'now')
+      .mockReturnValueOnce(100)
+      .mockReturnValueOnce(200)
+      .mockReturnValueOnce(300);
+    await cacheImage('img_old', new Blob(['1234']));
+    await cacheImage('img_new', new Blob(['5678']));
+
+    const result = await enforceImageCacheBudget(4);
+
+    expect(result).toEqual({ totalBytes: 4, evictedIds: ['img_old'] });
+    expect(await getCachedImage('img_old')).toBeUndefined();
+    expect(await getCachedImage('img_new')).toBeInstanceOf(Blob);
+  });
+
+  it('refreshes access time so a recently-read blob survives the next sweep', async () => {
+    vi.spyOn(Date, 'now')
+      .mockReturnValueOnce(100)
+      .mockReturnValueOnce(200)
+      .mockReturnValueOnce(300)
+      .mockReturnValueOnce(400);
+    await cacheImage('img_first', new Blob(['1234']));
+    await cacheImage('img_second', new Blob(['5678']));
+    await getCachedImage('img_first');
+
+    const result = await enforceImageCacheBudget(4);
+
+    expect(result.evictedIds).toEqual(['img_second']);
+    expect(await getCachedImage('img_first')).toBeInstanceOf(Blob);
+  });
+
+  it('migrates metadata-less legacy blobs and evicts them deterministically', async () => {
+    await enforceImageCacheBudget();
+    idbStub.__stores.get('blobs')?.set('legacy_b', new Blob(['bb']));
+    idbStub.__stores.get('blobs')?.set('legacy_a', new Blob(['aa']));
+    idbStub.__stores.get('metadata')?.set('orphan', {
+      fileId: 'orphan',
+      size: 10,
+      lastAccessedAt: 50,
+    });
+
+    const result = await enforceImageCacheBudget(2);
+
+    expect(result).toEqual({ totalBytes: 2, evictedIds: ['legacy_a'] });
+    expect(idbStub.__stores.get('metadata')?.get('legacy_b')).toMatchObject({
+      fileId: 'legacy_b',
+      size: 2,
+      lastAccessedAt: 0,
+    });
+    expect(idbStub.__stores.get('metadata')?.has('orphan')).toBe(false);
+  });
+
+  it('returns a cached blob when refreshing access metadata fails', async () => {
+    const blob = new Blob(['safe']);
+    await cacheImage('img_safe', blob);
+    idbStub.__failNextPut('metadata');
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+
+    expect(await getCachedImage('img_safe')).toBe(blob);
+    expect(warn).toHaveBeenCalledWith(
+      '[ImageCache] Failed to refresh access metadata:',
+      'img_safe',
+      expect.any(DOMException)
     );
-    const blob = new Blob(['hello'], { type: 'image/webp' });
-    await cacheImage('img_a', blob);
-    const got = await getCachedImage('img_a');
-    expect(got).toBe(blob);
   });
 
   it('returns undefined for an uncached fileId', async () => {
-    const { getCachedImage } = await import('../../src/lib/imageCache');
-    const got = await getCachedImage('img_missing');
-    expect(got).toBeUndefined();
-  });
-
-  it('deleteCachedImage removes the entry', async () => {
-    const { cacheImage, getCachedImage, deleteCachedImage } = await import(
-      '../../src/lib/imageCache'
-    );
-    const blob = new Blob(['x'], { type: 'image/webp' });
-    await cacheImage('img_b', blob);
-    await deleteCachedImage('img_b');
-    const got = await getCachedImage('img_b');
-    expect(got).toBeUndefined();
-  });
-
-  it('overwrites an existing entry on re-cache', async () => {
-    const { cacheImage, getCachedImage } = await import(
-      '../../src/lib/imageCache'
-    );
-    const first = new Blob(['one'], { type: 'image/webp' });
-    const second = new Blob(['two'], { type: 'image/webp' });
-    await cacheImage('img_c', first);
-    await cacheImage('img_c', second);
-    const got = await getCachedImage('img_c');
-    expect(got).toBe(second);
+    expect(await getCachedImage('img_missing')).toBeUndefined();
   });
 });

@@ -1,8 +1,7 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Check, X } from 'lucide-react';
-import { Avatar } from '../ui/Avatar';
-import { useTaskImage } from '../../hooks/useTaskImage';
+import { DeferredAvatar } from '../ui/DeferredAvatar';
 import type { FriendshipDocument } from '../../db/schema';
 
 interface FriendRequestRowProps {
@@ -16,7 +15,6 @@ export const FriendRequestRow: React.FC<FriendRequestRowProps> = ({
   onAccept,
   onDecline,
 }) => {
-  const { imageUrl } = useTaskImage(friendship.friendAvatarFileId || undefined);
   const [pendingAction, setPendingAction] = useState<'accept' | 'decline' | null>(
     null
   );
@@ -43,8 +41,8 @@ export const FriendRequestRow: React.FC<FriendRequestRowProps> = ({
 
   return (
     <div className="flex items-center gap-3 bg-[#1E1E1E] border border-[#333333] rounded-xl p-3">
-      <Avatar
-        src={imageUrl || undefined}
+      <DeferredAvatar
+        fileId={friendship.friendAvatarFileId || undefined}
         alt={friendship.friendDisplayName || friendship.friendUsername}
         size="md"
       />
@@ -52,7 +50,7 @@ export const FriendRequestRow: React.FC<FriendRequestRowProps> = ({
         <p className="text-sm font-medium text-white truncate">
           {friendship.friendDisplayName || friendship.friendUsername}
         </p>
-        <p className="text-xs text-gray-500 truncate">
+        <p className="text-xs text-gray-400 truncate">
           @{friendship.friendUsername}
         </p>
       </div>
@@ -62,7 +60,7 @@ export const FriendRequestRow: React.FC<FriendRequestRowProps> = ({
           onClick={handleAccept}
           onPointerDown={(e) => e.stopPropagation()}
           disabled={busy}
-          className="flex items-center justify-center w-8 h-8 rounded-full bg-emerald-500 hover:bg-emerald-600 text-white transition-colors disabled:opacity-50"
+          className="flex items-center justify-center w-8 h-8 rounded-full bg-emerald-500 hover:bg-emerald-600 text-black transition-colors disabled:opacity-50"
           aria-label="Accept"
         >
           {pendingAction === 'accept' ? (

@@ -2,7 +2,7 @@ import React, { useMemo, useState, useEffect, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ChevronLeft, RefreshCw } from 'lucide-react';
 import { motion } from 'framer-motion';
-import { Avatar } from '../components/ui/Avatar';
+import { DeferredAvatar } from '../components/ui/DeferredAvatar';
 import { FriendCalendarView } from '../components/friend/FriendCalendarView';
 import { useFriendCalendar } from '../lib/useFriendCalendar';
 import { useFriends } from '../hooks/useFriends';
@@ -71,15 +71,16 @@ export const FriendCalendarPage: React.FC = () => {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-full">
+      <div className="flex items-center justify-center h-full" role="status" aria-live="polite">
         <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin" />
+        <span className="sr-only">Loading friend calendar</span>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="flex flex-col items-center justify-center h-full text-gray-500 gap-4">
+      <div className="flex flex-col items-center justify-center h-full text-gray-400 gap-4">
         <p>
           {errorKind === 'forbidden'
             ? 'No access to this calendar'
@@ -107,8 +108,9 @@ export const FriendCalendarPage: React.FC = () => {
         >
           <ChevronLeft size={24} />
         </button>
-        <Avatar
-          src={friend?.friendAvatarFileId}
+        <DeferredAvatar
+          fileId={friend?.friendAvatarFileId || undefined}
+          eager
           alt={friend?.friendDisplayName}
           size="sm"
         />

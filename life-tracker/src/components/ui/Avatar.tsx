@@ -1,6 +1,6 @@
 import React from 'react';
 
-interface AvatarProps {
+export interface AvatarProps {
   src?: string;
   alt?: string;
   size?: 'sm' | 'md' | 'lg';
@@ -24,6 +24,8 @@ export const Avatar: React.FC<AvatarProps> = ({
       <img
         src={src}
         alt={alt}
+        loading="lazy"
+        decoding="async"
         className={`${sizeClasses[size]} rounded-full object-cover border-2 border-[#1E1E1E] ${className}`}
       />
     );

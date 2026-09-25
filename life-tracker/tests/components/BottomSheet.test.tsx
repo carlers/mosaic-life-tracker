@@ -1,13 +1,14 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, fireEvent } from '@testing-library/react';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { render, fireEvent, cleanup } from '@testing-library/react';
 import { BottomSheet } from '../../src/components/ui/BottomSheet';
+import { AppearanceContext } from '../../src/hooks/appearanceContext';
 
 const noop = () => {};
 
 // ---------------------------------------------------------------------------
 // BottomSheet component tests (Layer 5).
 //
-// These pin the observable contracts documented in AGENTS.md §7 and §13:
+// These pin the observable contracts documented in docs/PROJECT_REFERENCE.md §§7 and 13:
 //   - Portal to document.body (escapes parent z-index / overflow traps).
 //   - AnimatePresence unmounts cleanly when isOpen flips to false.
 //   - Escape-stack: only the topmost sheet's onClose fires.
@@ -18,17 +19,33 @@ const noop = () => {};
 //   - Drag-to-close. Framer Motion's onDragEnd fires from synthetic pointer
 //     sequences that happy-dom does not reproduce faithfully. A passing test
 //     would validate the framer-motion binding, not the sheet's behavior.
-//   - The `isLocked` visual treatment (opacity / pointer-events-none). That
-//     would require asserting on className strings — internals-coupled and
-//     §24.3-non-compliant.
+//   - Most visual treatment remains internals-coupled. The suspended-sheet
+//     interaction state is asserted because stacked modal safety depends on it.
 // ---------------------------------------------------------------------------
 
 describe('BottomSheet', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
+    // Let deferred sheet cleanup from the prior RTL root settle before the
+    // next case inspects the module-level history stack.
+    await new Promise((resolve) => window.setTimeout(resolve, 0));
     // Defensive reset. RTL's afterEach(cleanup) unmounts every root, which
     // triggers the component's effect cleanup and restores body overflow.
     // This line guards against a future test that forgets to clean up.
     document.body.style.overflow = '';
+    window.history.replaceState({}, '', window.location.href);
+    // happy-dom's asynchronous history traversal can bleed popstate events
+    // into the next case. Unit tests assert that the controller requests Back;
+    // Playwright covers the real browser traversal end-to-end.
+    vi.spyOn(window.history, 'back').mockImplementation(() => undefined);
+  });
+
+  afterEach(async () => {
+    // Unmount before flushing the deferred unregister. Relying on RTL's
+    // automatic cleanup ordering lets that zero-delay task bleed into the
+    // following case in happy-dom.
+    cleanup();
+    await new Promise((resolve) => window.setTimeout(resolve, 0));
+    vi.restoreAllMocks();
   });
 
   it('portals children into document.body, not the render container', () => {
@@ -60,25 +77,126 @@ describe('BottomSheet', () => {
     expect(document.body.style.overflow).not.toBe('hidden');
   });
 
-  it('Escape calls onClose of the topmost sheet only', () => {
+  // Regression: PROJECT_REFERENCE.md §2 — exposed backdrop is a dismissal target.
+  it('tapping the backdrop requests closing the topmost sheet', () => {
+    render(
+      <BottomSheet isOpen onClose={noop}>
+        Inner
+      </BottomSheet>
+    );
+
+    const dialog = document.body.querySelector('[role="dialog"]');
+    const backdrop = dialog?.previousElementSibling;
+    expect(backdrop).not.toBeNull();
+    fireEvent.click(backdrop as Element);
+
+    expect(window.history.back).toHaveBeenCalledTimes(1);
+  });
+
+  // Regression: PROJECT_REFERENCE.md §2 — phones leave backdrop space; tablets can use full height.
+  it('uses responsive full-sheet height instead of covering the entire phone viewport', () => {
+    render(
+      <BottomSheet isOpen onClose={noop} height="full">
+        Inner
+      </BottomSheet>
+    );
+
+    expect(document.body.querySelector('[role="dialog"]')).toHaveClass(
+      'h-[92dvh]',
+      'md:h-[100dvh]'
+    );
+  });
+
+  // Regression: task acceptance — Compact sheets remain phone-width on phones but
+  // become a centered, slightly-wider-than-phone surface on tablet/desktop.
+  it('centers compact sheets at a 540px maximum on larger screens', () => {
+    render(
+      <AppearanceContext.Provider
+        value={{
+          mode: 'system',
+          resolvedTheme: 'dark',
+          setAppearanceMode: vi.fn().mockResolvedValue(undefined),
+          contentWidthMode: 'full',
+          sheetWidthMode: 'compact',
+          setContentWidthMode: vi.fn().mockResolvedValue(undefined),
+          setSheetWidthMode: vi.fn().mockResolvedValue(undefined),
+        }}
+      >
+        <BottomSheet isOpen onClose={noop}>
+          Inner
+        </BottomSheet>
+      </AppearanceContext.Provider>
+    );
+
+    expect(document.body.querySelector('[role="dialog"]')).toHaveClass(
+      'md:left-1/2',
+      'md:right-auto',
+      'md:w-[min(540px,calc(100vw-2rem))]',
+      'md:[translate:-50%_0]'
+    );
+  });
+
+  it('Escape requests Back for the topmost sheet history slot', () => {
     const onCloseA = vi.fn();
     const onCloseB = vi.fn();
-    // Two sheets mounted in the same commit. React fires sibling effects
-    // in tree order, so A pushes onto the escape stack before B does.
-    // The stack is therefore [A, B] and B is the top.
+    const historyBack = vi.mocked(window.history.back);
+
     render(
       <>
-        <BottomSheet isOpen onClose={onCloseA}>
-          <div data-marker="sheet-a">A</div>
-        </BottomSheet>
-        <BottomSheet isOpen onClose={onCloseB}>
-          <div data-marker="sheet-b">B</div>
-        </BottomSheet>
+        <BottomSheet isOpen onClose={onCloseA}>A</BottomSheet>
+        <BottomSheet isOpen onClose={onCloseB}>B</BottomSheet>
       </>
     );
+
     fireEvent.keyDown(window, { key: 'Escape' });
-    expect(onCloseB).toHaveBeenCalledTimes(1);
+
+    expect(historyBack).toHaveBeenCalledTimes(1);
     expect(onCloseA).not.toHaveBeenCalled();
+    expect(onCloseB).not.toHaveBeenCalled();
+  });
+
+  // Regression: native Android/Samsung Back needs one browser-history slot per
+  // open sheet so nested Back presses cannot fall through to route/app history.
+  it('reserves one same-route history entry for every open sheet layer', () => {
+    const baselineLength = window.history.length;
+
+    render(
+      <>
+        <BottomSheet isOpen onClose={noop}>A</BottomSheet>
+        <BottomSheet isOpen onClose={noop}>B</BottomSheet>
+        <BottomSheet isOpen onClose={noop}>C</BottomSheet>
+      </>
+    );
+
+    expect(window.history.length).toBe(baselineLength + 3);
+  });
+
+  it('does not allocate another history slot when an onClose callback rerenders', () => {
+    const baselineLength = window.history.length;
+    const { rerender } = render(
+      <BottomSheet isOpen onClose={() => undefined}>A</BottomSheet>
+    );
+    expect(window.history.length).toBe(baselineLength + 1);
+
+    rerender(
+      <BottomSheet isOpen onClose={() => undefined}>A updated</BottomSheet>
+    );
+    expect(window.history.length).toBe(baselineLength + 1);
+  });
+
+  // Regression: UIFIX-8/UIFIX-9 — stacked sheets suspend underlying interaction.
+  it('can suspend an underlying stacked sheet so it is hidden from accessibility and pointer interaction', () => {
+    render(
+      <BottomSheet isOpen onClose={noop} suspendInteraction>
+        <button type="button">Underlying action</button>
+      </BottomSheet>
+    );
+
+    const dialog = document.body.querySelector('[role="dialog"]');
+    expect(dialog).not.toBeNull();
+    expect(dialog).toHaveAttribute('aria-hidden', 'true');
+    expect(dialog).toHaveClass('pointer-events-none', 'select-none');
+    expect(dialog?.previousElementSibling).toHaveClass('pointer-events-none');
   });
 
   it('locks body scroll while open and restores on unmount', () => {

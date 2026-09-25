@@ -26,7 +26,7 @@ export function dispatchUnauthorized(): void {
  * Distinguishable error for "we could not determine auth/session state
  * because the network or device is offline." Never used to mean "no
  * session" — that case is signalled by a 401 (`isUnauthorizedError`).
- * See AGENTS.md §10 "Differentiate 'Not Logged In' From 'Couldn't Check'"
+ * See docs/PROJECT_REFERENCE.md §10 "Differentiate 'Not Logged In' From 'Couldn't Check'"
  * and §23.6.
  */
 export class OfflineError extends Error {

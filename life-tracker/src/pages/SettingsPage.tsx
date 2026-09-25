@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import {
   User,
   Shield,
@@ -12,6 +12,7 @@ import {
   HelpCircle,
   LogOut,
   Database,
+  Trash2,
   ChevronLeft,
   FileDown,
   RefreshCw,
@@ -19,23 +20,38 @@ import {
 import { BottomSheet } from '../components/ui/BottomSheet';
 import { SettingsRow } from '../components/ui/SettingsRow';
 import { useAuth } from '../hooks/useAuth';
+import { usePwaLifecycle } from '../hooks/usePwaLifecycle';
+import type { PwaUpdateCheckStage } from '../lib/pwaLifecycle';
+import { APP_VERSION } from '../lib/appVersion';
+import { APP_BUILD_INFO } from '../lib/buildInfo';
 import { destroyDatabase } from '../db/database';
 import { AccountSettingsSheet } from '../components/modals/AccountSettingsSheet';
 import { ChangeEmailSheet } from '../components/modals/ChangeEmailSheet';
 import { ChangePasswordSheet } from '../components/modals/ChangePasswordSheet';
 import { ExportDataSheet } from '../components/modals/ExportDataSheet';
 import { SyncStatusSheet } from '../components/modals/SyncStatusSheet';
+import { useAppearance } from '../hooks/useAppearance';
+import { hasExpectedRouteParent, makeRouteParentState } from '../lib/primarySwipeNavigation';
 
 export const SettingsPage: React.FC = () => {
   const { user, logout } = useAuth();
+  const { checkForUpdate } = usePwaLifecycle();
+  const { mode: appearanceMode } = useAppearance();
   const navigate = useNavigate();
+  const location = useLocation();
   const [isClearDataOpen, setIsClearDataOpen] = useState(false);
+  const [isDeleteAllDataOpen, setIsDeleteAllDataOpen] = useState(false);
   const [isClearingData, setIsClearingData] = useState(false);
+  const [isDeletingAllData, setIsDeletingAllData] = useState(false);
   const [isAccountSettingsOpen, setIsAccountSettingsOpen] = useState(false);
   const [isChangeEmailOpen, setIsChangeEmailOpen] = useState(false);
   const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
   const [isExportSheetOpen, setIsExportSheetOpen] = useState(false);
   const [isSyncStatusOpen, setIsSyncStatusOpen] = useState(false);
+  const [isCheckingUpdate, setIsCheckingUpdate] = useState(false);
+  const [updateStage, setUpdateStage] = useState<
+    PwaUpdateCheckStage | 'error' | null
+  >(null);
   const [feedback, setFeedback] = useState<string | null>(null);
 
   const showFeedback = (msg: string) => {
@@ -44,6 +60,54 @@ export const SettingsPage: React.FC = () => {
   };
 
   const handleComingSoon = () => showFeedback('Coming soon');
+  const handleBack = () => {
+    const parent = '/account';
+    if (hasExpectedRouteParent(location.key, location.state, parent)) {
+      navigate(-1);
+    } else {
+      navigate(parent, { replace: true });
+    }
+  };
+
+  const handleCheckForUpdates = async () => {
+    if (isCheckingUpdate) return;
+    setIsCheckingUpdate(true);
+    setUpdateStage('preparing');
+    try {
+      const result = await checkForUpdate(setUpdateStage);
+      if (result === 'update-available') {
+        setUpdateStage('ready');
+      } else if (result === 'up-to-date') {
+        setUpdateStage('up-to-date');
+      } else {
+        setUpdateStage('unavailable');
+      }
+    } catch (error) {
+      console.error('[SettingsPage] Update check failed:', error);
+      setUpdateStage('error');
+    } finally {
+      setIsCheckingUpdate(false);
+    }
+  };
+
+  const updateStatusMessage =
+    updateStage === 'preparing'
+      ? 'Preparing update check…'
+      : updateStage === 'checking'
+        ? 'Checking for a new version…'
+        : updateStage === 'update-found'
+          ? 'Update found. Preparing download…'
+          : updateStage === 'downloading'
+            ? 'Update found — downloading…'
+            : updateStage === 'ready'
+              ? 'Update downloaded. Ready to install.'
+              : updateStage === 'up-to-date'
+                ? 'Mosaic is up to date.'
+                : updateStage === 'unavailable'
+                  ? 'Update checking is unavailable in this browser.'
+                  : updateStage === 'error'
+                    ? 'Could not check for updates. Try again.'
+                    : null;
 
   const handleLogout = async () => {
     const ok = await logout();
@@ -51,6 +115,30 @@ export const SettingsPage: React.FC = () => {
       navigate('/login', { replace: true });
     } else {
       showFeedback('Sign out failed. Check your connection and try again.');
+    }
+  };
+
+  const handleDeleteAllData = async () => {
+    const userId = user?.$id;
+    if (!userId) return;
+    setIsDeletingAllData(true);
+    try {
+      const { deleteAllUserData } = await import('../lib/deleteUserData');
+      await deleteAllUserData(userId);
+      const ok = await logout();
+      if (!ok) {
+        setIsDeletingAllData(false);
+        setIsDeleteAllDataOpen(false);
+        showFeedback('Data deleted, but sign out failed. Try signing out again.');
+        return;
+      }
+      await destroyDatabase();
+      window.location.reload();
+    } catch (error) {
+      console.error('[SettingsPage] Failed to delete all user data:', error);
+      setIsDeletingAllData(false);
+      setIsDeleteAllDataOpen(false);
+      showFeedback('Delete failed. Check your connection and try again.');
     }
   };
 
@@ -76,11 +164,11 @@ export const SettingsPage: React.FC = () => {
   };
 
   return (
-    <div className="flex flex-col h-full animate-in fade-in duration-300">
+    <div className="flex min-h-full flex-col">
       <div className="sticky top-0 z-20 bg-[#111111] px-4 py-3 border-b border-[#333333] flex items-center justify-center relative">
         <button
           type="button"
-          onClick={() => navigate(-1)}
+          onClick={handleBack}
           onPointerDown={(e) => e.stopPropagation()}
           className="absolute left-4 p-2 rounded-lg text-gray-400 hover:text-white hover:bg-[#2A2A2A] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
           aria-label="Back"
@@ -89,12 +177,12 @@ export const SettingsPage: React.FC = () => {
         </button>
         <h1 className="text-lg font-bold text-white">Settings</h1>
       </div>
-      <div className="flex-1 overflow-y-auto pb-24">
+      <div className="flex-1 pb-24">
         <div className="py-2">
           <SettingsRow
             icon={<User size={18} className="text-blue-500" aria-hidden="true" />}
             label="Profile"
-            onClick={() => navigate('/profile')}
+            onClick={() => navigate('/profile', { state: makeRouteParentState('/settings') })}
           />
           <SettingsRow
             icon={<Shield size={18} className="text-gray-400" aria-hidden="true" />}
@@ -115,7 +203,16 @@ export const SettingsPage: React.FC = () => {
           <SettingsRow
             icon={<Monitor size={18} className="text-gray-400" aria-hidden="true" />}
             label="Screen"
-            onClick={handleComingSoon}
+            value={
+              appearanceMode === 'system'
+                ? 'System'
+                : appearanceMode === 'dark'
+                  ? 'Dark'
+                  : appearanceMode === 'light'
+                    ? 'Light'
+                    : 'Black'
+            }
+            onClick={() => navigate('/settings/screen', { state: makeRouteParentState('/settings') })}
           />
           <SettingsRow
             icon={<Bell size={18} className="text-gray-400" aria-hidden="true" />}
@@ -164,6 +261,52 @@ export const SettingsPage: React.FC = () => {
           />
         </div>
         <div className="border-t border-[#333333] py-2">
+          <div className="px-4 py-3.5 text-white">
+            <div className="flex items-center justify-between">
+              <span className="text-base font-medium">Version</span>
+              <span className="text-sm text-gray-400">{APP_VERSION}</span>
+            </div>
+            <div
+              data-testid="app-build-info"
+              className="mt-1 text-xs text-gray-500"
+            >
+              {APP_BUILD_INFO.channel} · build{' '}
+              {APP_BUILD_INFO.commitShort ?? APP_BUILD_INFO.buildId}
+            </div>
+          </div>
+          <SettingsRow
+            icon={<RefreshCw size={18} className="text-emerald-500" aria-hidden="true" />}
+            label="Check for Updates"
+            showChevron={false}
+            onClick={handleCheckForUpdates}
+          />
+          {updateStatusMessage && (
+            <div
+              role="status"
+              aria-live="polite"
+              data-testid="update-check-status"
+              className="px-4 pb-3 text-sm text-gray-400"
+            >
+              <div className="flex items-center gap-2">
+                {isCheckingUpdate && (
+                  <span
+                    className="h-3.5 w-3.5 shrink-0 rounded-full border-2 border-gray-500 border-t-transparent animate-spin"
+                    aria-hidden="true"
+                  />
+                )}
+                <span>{updateStatusMessage}</span>
+              </div>
+            </div>
+          )}
+        </div>
+        <div className="border-t border-[#333333] py-2">
+          <SettingsRow
+            icon={<Trash2 size={18} className="text-red-500" aria-hidden="true" />}
+            label="Delete All User Data"
+            isDestructive={true}
+            showChevron={false}
+            onClick={() => setIsDeleteAllDataOpen(true)}
+          />
           <SettingsRow
             icon={<Database size={18} className="text-red-500" aria-hidden="true" />}
             label="Clear Local Data"
@@ -171,12 +314,6 @@ export const SettingsPage: React.FC = () => {
             showChevron={false}
             onClick={() => setIsClearDataOpen(true)}
           />
-        </div>
-        <div className="border-t border-[#333333] py-2">
-          <div className="px-4 py-3.5 flex items-center justify-between text-white">
-            <span className="text-base font-medium">Version</span>
-            <span className="text-sm text-gray-500">0.0.0</span>
-          </div>
         </div>
         <div className="px-4 pt-4 pb-8">
           <button
@@ -190,6 +327,38 @@ export const SettingsPage: React.FC = () => {
           </button>
         </div>
       </div>
+      <BottomSheet
+        isOpen={isDeleteAllDataOpen}
+        onClose={() => setIsDeleteAllDataOpen(false)}
+        title="Delete All User Data"
+        height="auto"
+      >
+        <div className="pt-2 pb-8 px-4">
+          <p className="text-gray-300 text-sm text-center mb-6 leading-relaxed">
+            Delete all Mosaic data you own from sync, including tasks, categories,
+            diary entries, settings, friendships, messages, profile visibility,
+            and referenced images. This does not delete your login account.
+          </p>
+          <div className="flex gap-3">
+            <button
+              type="button"
+              onClick={() => setIsDeleteAllDataOpen(false)}
+              disabled={isDeletingAllData}
+              className="flex-1 py-3 bg-[#2A2A2A] rounded-xl text-white font-medium disabled:opacity-50"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={handleDeleteAllData}
+              disabled={isDeletingAllData}
+              className="flex-1 py-3 bg-red-500 rounded-xl text-white font-medium disabled:opacity-50"
+            >
+              {isDeletingAllData ? 'Deleting...' : 'Delete All'}
+            </button>
+          </div>
+        </div>
+      </BottomSheet>
       <BottomSheet
         isOpen={isClearDataOpen}
         onClose={() => setIsClearDataOpen(false)}

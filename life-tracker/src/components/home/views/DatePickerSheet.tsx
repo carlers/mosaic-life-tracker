@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useId, useState } from 'react';
 import { BottomSheet } from '../../ui/BottomSheet';
 import { Button } from '../../ui/Button';
 import { Calendar } from 'lucide-react';
@@ -19,6 +19,7 @@ export const DatePickerSheet: React.FC<DatePickerSheetProps> = ({
   onDateChange
 }) => {
   const [editedDate, setEditedDate] = useState<string | null>(null);
+  const dateInputId = useId();
   const taskId = task?.id ?? null;
 
   usePropSync(taskId, () => setEditedDate(null));
@@ -37,12 +38,13 @@ export const DatePickerSheet: React.FC<DatePickerSheetProps> = ({
     <BottomSheet isOpen={isOpen} onClose={onClose} title="Change Date" height="auto">
       <div className="pt-2 pb-8 px-4 space-y-4">
         <div>
-          <label className="block text-xs text-gray-500 mb-2 ml-1">Select Date</label>
+          <label htmlFor={dateInputId} className="block text-xs text-gray-400 mb-2 ml-1">Select Date</label>
           <input
+            id={dateInputId}
             type="date"
             value={selectedDate}
             onChange={(e) => setEditedDate(e.target.value)}
-            className="w-full bg-[#1E1E1E] border border-[#333333] rounded-xl p-3 text-sm text-white focus:outline-none focus:border-[#555555] transition-colors [color-scheme:dark]"
+            className="mosaic-native-color-scheme w-full bg-[#1E1E1E] border border-[#333333] rounded-xl p-3 text-sm text-white focus:outline-none focus:border-[#555555] focus-visible:ring-2 focus-visible:ring-emerald-500/60 transition-colors"
           />
         </div>
         <Button variant="primary" className="w-full gap-2 py-3" onClick={handleConfirm} disabled={!selectedDate}>

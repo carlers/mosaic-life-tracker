@@ -45,21 +45,20 @@ export interface AppDatabaseCollections {
   messages: RxCollection<MessageDocument>;
 }
 let dbInstance: RxDatabase<AppDatabaseCollections> | null = null;
-export async function initializeDatabase(): Promise<RxDatabase<AppDatabaseCollections>> {
-  if (dbInstance) {
-    if (DEBUG) console.log('[RxDB] Using existing database instance');
-    return dbInstance;
-  }
+let dbInitPromise: Promise<RxDatabase<AppDatabaseCollections>> | null = null;
+
+async function createDatabaseInstance(): Promise<RxDatabase<AppDatabaseCollections>> {
+  let database: RxDatabase<AppDatabaseCollections> | null = null;
   try {
     if (DEBUG) console.log('[RxDB] Initializing database:', DB_NAME);
-    const database = await createRxDatabase<AppDatabaseCollections>({
+    database = await createRxDatabase<AppDatabaseCollections>({
       name: DB_NAME,
       storage: wrappedValidateAjvStorage({
         storage: getRxStorageDexie(),
       }),
       multiInstance: true,
       eventReduce: true,
-      ignoreDuplicate: true,
+      ignoreDuplicate: import.meta.env.DEV,
     });
     if (DEBUG) console.log('[RxDB] Database created successfully');
     await database.addCollections({
@@ -85,18 +84,72 @@ export async function initializeDatabase(): Promise<RxDatabase<AppDatabaseCollec
         migrationStrategies: messagesMigrationStrategies,
       },
     });
+    if (DEBUG) console.log('[RxDB] Collections added successfully');
     if (DEBUG) {
-      console.log('[RxDB] Collections added successfully');
       const stats = await getDatabaseStats(database);
       console.log('[RxDB] Initial stats:', stats);
     }
     dbInstance = database;
-    return dbInstance;
+    return database;
   } catch (error) {
+    if (database) {
+      try {
+        await database.close();
+      } catch (closeError) {
+        console.warn('[RxDB] Failed to close partial database instance', closeError);
+      }
+    }
     console.error('[RxDB] FATAL: Database initialization failed', error);
     throw error;
   }
 }
+
+export async function initializeDatabase(): Promise<RxDatabase<AppDatabaseCollections>> {
+  if (dbInstance) {
+    if (DEBUG) console.log('[RxDB] Using existing database instance');
+    return dbInstance;
+  }
+  if (dbInitPromise) return dbInitPromise;
+
+  dbInitPromise = createDatabaseInstance();
+  try {
+    return await dbInitPromise;
+  } finally {
+    dbInitPromise = null;
+  }
+}
+
+interface DatabaseRetryOptions {
+  attempts?: number;
+  delayMs?: number;
+  initialize?: () => Promise<RxDatabase<AppDatabaseCollections>>;
+  sleep?: (ms: number) => Promise<void>;
+}
+
+export async function initializeDatabaseWithRetry({
+  attempts = 3,
+  delayMs = 300,
+  initialize = initializeDatabase,
+  sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
+}: DatabaseRetryOptions = {}): Promise<RxDatabase<AppDatabaseCollections>> {
+  let lastError: unknown;
+  const maxAttempts = Math.max(1, attempts);
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      return await initialize();
+    } catch (error) {
+      lastError = error;
+      if (attempt >= maxAttempts) break;
+      await sleep(delayMs * attempt);
+    }
+  }
+
+  throw lastError instanceof Error
+    ? lastError
+    : new Error('Database initialization failed');
+}
+
 export function getDatabase(): RxDatabase<AppDatabaseCollections> {
   if (!dbInstance) {
     throw new Error('Database not initialized! Call initializeDatabase() first.');

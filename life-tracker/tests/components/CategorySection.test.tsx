@@ -1,50 +1,21 @@
+import type React from 'react';
 import { describe, it, expect, vi } from 'vitest';
 import { render, fireEvent, screen } from '@testing-library/react';
 import { CategorySection } from '../../src/components/home/views/CategorySection';
-import type { TaskDocument } from '../../src/db/schema';
 
 // ---------------------------------------------------------------------------
 // CategorySection component tests (Layer 5).
 //
 // Pins the inline-add flow:
-//   - Category name renders.
 //   - Chip tap opens the inline input with the placeholder
 //     "Add a task to <Category>...".
 //   - Enter with non-whitespace content fires onAddTask(trimmed) and closes.
 //   - Escape clears and closes without firing onAddTask.
 //   - Blur with empty content closes; blur with content stays open.
-//   - Task items render when tasks are supplied.
-//
-// The last case requires mocking ../../src/lib/storage because TaskItem
-// renders <img src={objectUrl}>, and useTaskImage calls getLocalImageUrl.
-//
 // Deliberately NOT tested here:
 //   - TaskItem's internal rendering. Pinned separately where relevant.
 //   - Class strings on the chip or the inline-add row.
 // ---------------------------------------------------------------------------
-
-const mockGetLocalImageUrl = vi.hoisted(() =>
-  vi.fn().mockResolvedValue(null)
-);
-vi.mock('../../src/lib/storage', () => ({
-  getLocalImageUrl: mockGetLocalImageUrl,
-}));
-
-function makeTask(overrides: Partial<TaskDocument> = {}): TaskDocument {
-  return {
-    id: 'task_1',
-    title: 'Buy milk',
-    completed: false,
-    categoryId: 'cat_1',
-    date: '2026-01-01',
-    createdAt: '2026-01-01T00:00:00.000Z',
-    updatedAt: '2026-01-01T00:00:00.000Z',
-    userId: 'user_A',
-    isDeleted: false,
-    visibility: '',
-    ...overrides,
-  };
-}
 
 function makeCallbacks() {
   return {
@@ -52,6 +23,7 @@ function makeCallbacks() {
     onAddTask: vi.fn(),
     onOpenActions: vi.fn(),
     onOpenMemo: vi.fn(),
+    onEditTask: vi.fn(),
     onEditChange: vi.fn(),
     onEditSave: vi.fn(),
     onEditCancel: vi.fn(),
@@ -59,8 +31,8 @@ function makeCallbacks() {
 }
 
 interface RenderOpts {
-  tasks?: TaskDocument[];
   categoryName?: string;
+  tasks?: React.ComponentProps<typeof CategorySection>['tasks'];
 }
 
 function renderSection(opts: RenderOpts = {}) {
@@ -81,9 +53,12 @@ function renderSection(opts: RenderOpts = {}) {
 }
 
 describe('CategorySection', () => {
-  it('renders the category name', () => {
-    renderSection({ categoryName: 'Errands' });
-    expect(screen.getByText('Errands')).toBeInTheDocument();
+  // Regression: AGENTS.md UI rules — interactive elements use semantic controls.
+  it('uses a named button for the add-task category pill', () => {
+    renderSection({ categoryName: 'Work' });
+    expect(
+      screen.getByRole('button', { name: 'Add a task to Work' })
+    ).toBeInTheDocument();
   });
 
   it('chip tap opens the inline input with the category-scoped placeholder', () => {
@@ -97,6 +72,35 @@ describe('CategorySection', () => {
     expect(
       screen.getByPlaceholderText('Add a task to Work...')
     ).toBeInTheDocument();
+  });
+
+  // Regression: PROJECT_REFERENCE.md §2 — pending row sits under the category pill before existing tasks.
+  it('shows the pending checkbox above existing tasks and uses the category color on the input', () => {
+    renderSection({
+      tasks: [{
+        id: 'task_existing',
+        title: 'Existing task',
+        completed: false,
+        categoryId: 'work',
+        date: '2026-09-23',
+        createdAt: '2026-09-23T00:00:00.000Z',
+        updatedAt: '2026-09-23T00:00:00.000Z',
+        userId: 'user_A',
+        isDeleted: false,
+        visibility: 'private',
+      }],
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Add a task to Work' }));
+
+    const row = screen.getByTestId('pending-task-row');
+    const input = screen.getByPlaceholderText('Add a task to Work...');
+    const checkbox = screen.getByTestId('pending-task-checkbox');
+    const existing = screen.getByText('Existing task');
+
+    expect(checkbox).toBeInTheDocument();
+    expect(input).toHaveStyle({ borderBottomColor: '#3B82F6' });
+    expect(row.compareDocumentPosition(existing) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.getByTestId('category-add-icon')).toHaveAttribute('width', '18');
   });
 
   it('Enter with non-whitespace content fires onAddTask(trimmed) and closes the input', () => {
@@ -152,14 +156,4 @@ describe('CategorySection', () => {
     ).toBeInTheDocument();
   });
 
-  it('renders TaskItem entries when tasks are supplied', () => {
-    renderSection({
-      tasks: [
-        makeTask({ id: 'task_1', title: 'Buy milk' }),
-        makeTask({ id: 'task_2', title: 'Call bank' }),
-      ],
-    });
-    expect(screen.getByText('Buy milk')).toBeInTheDocument();
-    expect(screen.getByText('Call bank')).toBeInTheDocument();
-  });
 });

@@ -1,5 +1,4 @@
 import React, { useMemo } from 'react';
-import { motion } from 'framer-motion';
 import { isToday, format } from 'date-fns';
 import { TaskBlock } from './TaskBlock';
 import type { TaskDocument } from '../../../db/schema';
@@ -26,7 +25,7 @@ const DayCellComponent: React.FC<DayCellProps> = ({
   let dayColor = 'text-gray-400';
   if (dayOfWeek === 6) dayColor = 'text-blue-500';
   if (dayOfWeek === 0) dayColor = 'text-red-500';
-  if (!isCurrentMonth) dayColor = 'text-gray-600';
+  if (!isCurrentMonth) dayColor = 'text-gray-400';
 
   // Sort only when there is more than one task. Empty days (the vast
   // majority of cells across mounted slides) now skip allocation
@@ -60,19 +59,20 @@ const DayCellComponent: React.FC<DayCellProps> = ({
   const handleClick = onDayClick ? () => onDayClick(date) : undefined;
 
   return (
-    <motion.button
+    <button
       type="button"
-      whileTap={onDayClick ? { scale: 0.98 } : {}}
       onClick={handleClick}
       disabled={!onDayClick}
       aria-label={ariaLabel}
+      aria-current={isTodayDate ? 'date' : undefined}
+      aria-disabled={!onDayClick}
       className={`py-0.5 flex flex-col h-full w-full rounded-md text-left transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 ${
-        onDayClick ? 'cursor-pointer hover:bg-[#1E1E1E]' : 'cursor-default'
+        onDayClick ? 'cursor-pointer hover:bg-[#1E1E1E] active:scale-[0.98]' : 'cursor-default'
       } ${!isCurrentMonth ? 'opacity-40' : ''}`}
     >
       <div className="flex justify-center mb-1">
         <div
-          className={`text-xs font-bold flex items-center justify-center w-6 h-6 rounded-full ${dayColor} ${
+          className={`text-sm font-bold flex items-center justify-center w-7 h-7 rounded-full ${dayColor} ${
             isTodayDate ? 'border border-blue-500' : ''
           }`}
           aria-hidden="true"
@@ -89,7 +89,7 @@ const DayCellComponent: React.FC<DayCellProps> = ({
           />
         ))}
       </div>
-    </motion.button>
+    </button>
   );
 };
 

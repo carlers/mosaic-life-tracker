@@ -1,25 +1,98 @@
-import React from 'react';
+import React, { lazy, Suspense, useContext, useEffect, useState } from 'react';
 import { BottomNav, type TabId } from './BottomNav';
-import { OfflineBanner } from '../ui/OfflineBanner';
+import { PrimaryRouteSwipeSurface } from './PrimaryRouteSwipeSurface';
+import type { PrimarySwipeDirection } from '../../lib/primarySwipeNavigation';
+import { AppearanceContext } from '../../hooks/appearanceContext';
+
+const OfflineBanner = lazy(() =>
+  import('../ui/OfflineBanner').then(({ OfflineBanner }) => ({
+    default: OfflineBanner,
+  }))
+);
 
 interface MainLayoutProps {
   children: React.ReactNode;
   activeTab: TabId;
+  routeKey?: string;
   onTabChange: (tab: TabId) => void;
+  canSwipeLeft?: boolean;
+  canSwipeRight?: boolean;
+  leftPreview?: React.ReactNode;
+  rightPreview?: React.ReactNode;
+  onRouteSwipe?: (direction: PrimarySwipeDirection) => void;
 }
 
-export const MainLayout: React.FC<MainLayoutProps> = ({ children, activeTab, onTabChange }) => {
+export const MainLayout: React.FC<MainLayoutProps> = ({
+  children,
+  activeTab,
+  routeKey = activeTab,
+  onTabChange,
+  canSwipeLeft = false,
+  canSwipeRight = false,
+  leftPreview = null,
+  rightPreview = null,
+  onRouteSwipe = () => {},
+}) => {
+  const appearance = useContext(AppearanceContext);
+  const contentWidthMode = appearance?.contentWidthMode ?? 'full';
+  const [isOnline, setIsOnline] = useState(
+    typeof navigator !== 'undefined' ? navigator.onLine : true
+  );
+
+  useEffect(() => {
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
+
   return (
-    // FIX: Changed min-h-screen to h-screen and added overflow-hidden.
-    // This creates a strict viewport-bound container.
     <div className="h-screen w-full bg-[#111111] text-white relative flex flex-col overflow-hidden">
-      <OfflineBanner />
-      
-      {/* FIX: flex-1 now correctly fills remaining space. overflow-y-auto makes THIS the scroll container. */}
-      <main className="flex-1 overflow-y-auto pb-24">
-        {children}
+      {!isOnline && (
+        <Suspense fallback={null}>
+          <OfflineBanner />
+        </Suspense>
+      )}
+
+      <main className="flex-1 min-h-0 overflow-y-auto">
+        <div
+          data-testid="primary-route-width-frame"
+          data-content-width-mode={contentWidthMode}
+          className={`w-full ${
+            activeTab === 'home' ? 'h-full min-h-0' : 'min-h-full'
+          } ${
+            contentWidthMode === 'comfortable'
+              ? 'md:w-[min(70vw,960px)] md:mx-auto'
+              : ''
+          }`}
+        >
+          <PrimaryRouteSwipeSurface
+          key={routeKey}
+          homeZoneOnly={activeTab === 'home'}
+          canSwipeLeft={canSwipeLeft}
+          canSwipeRight={canSwipeRight}
+          leftPreview={leftPreview}
+          rightPreview={rightPreview}
+          onSwipe={onRouteSwipe}
+        >
+          <div
+            data-testid="primary-route-content"
+            className={
+              activeTab === 'home'
+                ? 'h-full min-h-0 pb-[calc(4rem+env(safe-area-inset-bottom))]'
+                : 'min-h-full pb-[calc(4rem+env(safe-area-inset-bottom))]'
+            }
+          >
+            {children}
+          </div>
+          </PrimaryRouteSwipeSurface>
+        </div>
       </main>
-      
+
       <BottomNav activeTab={activeTab} onTabChange={onTabChange} />
     </div>
   );

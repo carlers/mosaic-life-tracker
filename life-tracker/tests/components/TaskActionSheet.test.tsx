@@ -6,29 +6,9 @@ import type {
   CategoryDocument,
 } from '../../src/db/schema';
 
-// ---------------------------------------------------------------------------
-// TaskActionSheet component tests (Layer 5).
-//
-// These pin the observable contracts documented in AGENTS.md §7 (bottom
-// sheet standardization, layout-shift reservation) and the visibility
-// composition rules in §2 / §22:
-//   - null task renders nothing (early return in the component).
-//   - Photo affordances branch on task.image presence.
-//   - Memo affordances branch on task.memo presence.
-//   - Visibility label reflects inheritance vs explicit override, wiring
-//     resolveVisibility + isInheriting + labelForVisibility at the
-//     component level. The pure helpers are unit-tested separately in
-//     tests/unit/visibility.test.ts; this file pins their composition.
-//   - "Do It Tomorrow" vs "Do It Today" flips on isToday(task.date).
-//   - Top-grid and menu callbacks fire on tap.
-//
-// Deliberately NOT tested here:
-//   - Framer Motion whileTap animations, class strings, or icon rendering.
-//     Internals-coupled and §24.3-non-compliant.
-//   - BottomSheet portal behavior. That contract is pinned in
-//     tests/components/BottomSheet.test.tsx; asserting it again would
-//     double up.
-// ---------------------------------------------------------------------------
+// TaskActionSheet keeps one focused callback-routing test here. Nested-sheet
+// choreography, photo viewing, and task-context retention are covered by
+// DayViewSheetRegression; visibility rules are covered by pure/unit tests.
 
 // Build a `yyyy-MM-dd` string from a Date's *local* parts. Do NOT use
 // `date.toISOString()` or `new Date('yyyy-MM-dd')` — those parse as UTC
@@ -95,118 +75,6 @@ describe('TaskActionSheet', () => {
     // Defensive reset for the openSheetCount counter's side effect on body
     // overflow, in case a prior test failed before its cleanup ran.
     document.body.style.overflow = '';
-  });
-
-  it('renders nothing when task is null', () => {
-    render(
-      <TaskActionSheet
-        isOpen
-        task={null}
-        category={null}
-        {...makeCallbacks()}
-      />
-    );
-    // If the early return in the component ever regresses, 'Edit' would
-    // appear (it is rendered unconditionally once task is truthy).
-    expect(screen.queryByText('Edit')).toBeNull();
-  });
-
-  it('shows "Add Photo" when there is no image; "View Photo" + "Delete Photo" when there is', () => {
-    const { rerender } = render(
-      <TaskActionSheet
-        isOpen
-        task={makeTask({ image: '' })}
-        category={makeCategory()}
-        {...makeCallbacks()}
-      />
-    );
-    expect(screen.queryByText('Add Photo')).not.toBeNull();
-    expect(screen.queryByText('View Photo')).toBeNull();
-    expect(screen.queryByText('Delete Photo')).toBeNull();
-
-    rerender(
-      <TaskActionSheet
-        isOpen
-        task={makeTask({ image: 'img_abc' })}
-        category={makeCategory()}
-        {...makeCallbacks()}
-      />
-    );
-    expect(screen.queryByText('Add Photo')).toBeNull();
-    expect(screen.queryByText('View Photo')).not.toBeNull();
-    expect(screen.queryByText('Delete Photo')).not.toBeNull();
-  });
-
-  it('shows the "Memo" button when there is no memo; renders the memo text when there is', () => {
-    const { rerender } = render(
-      <TaskActionSheet
-        isOpen
-        task={makeTask({ memo: '' })}
-        category={makeCategory()}
-        {...makeCallbacks()}
-      />
-    );
-    // No memo → the "Memo" action button renders.
-    expect(screen.queryByText('Memo')).not.toBeNull();
-
-    rerender(
-      <TaskActionSheet
-        isOpen
-        task={makeTask({ memo: 'A note to self' })}
-        category={makeCategory()}
-        {...makeCallbacks()}
-      />
-    );
-    // Memo present → its text renders, and the plain button is gone.
-    expect(screen.queryByText('A note to self')).not.toBeNull();
-  });
-
-  it('visibility label reflects inheritance vs explicit override', () => {
-    // Inheriting: task.visibility === '', category.visibility === 'public'.
-    const { rerender } = render(
-      <TaskActionSheet
-        isOpen
-        task={makeTask({ visibility: '' })}
-        category={makeCategory({ visibility: 'public' })}
-        {...makeCallbacks()}
-      />
-    );
-    expect(screen.queryByText('Public · Default')).not.toBeNull();
-
-    // Override: task.visibility === 'private' wins over the category.
-    rerender(
-      <TaskActionSheet
-        isOpen
-        task={makeTask({ visibility: 'private' })}
-        category={makeCategory({ visibility: 'public' })}
-        {...makeCallbacks()}
-      />
-    );
-    expect(screen.queryByText('Private')).not.toBeNull();
-    // The "· Default" suffix must NOT appear when overriding.
-    expect(screen.queryByText(/·\s*Default/)).toBeNull();
-  });
-
-  it('"Do It Tomorrow" vs "Do It Today" label depends on the task date', () => {
-    const { rerender } = render(
-      <TaskActionSheet
-        isOpen
-        task={makeTask({ date: TODAY_STR })}
-        category={makeCategory()}
-        {...makeCallbacks()}
-      />
-    );
-    expect(screen.queryByText('Do It Tomorrow')).not.toBeNull();
-
-    rerender(
-      <TaskActionSheet
-        isOpen
-        task={makeTask({ date: TOMORROW_STR })}
-        category={makeCategory()}
-        {...makeCallbacks()}
-      />
-    );
-    expect(screen.queryByText('Do It Today')).not.toBeNull();
   });
 
   it('fires the top-grid and menu callbacks on tap', () => {

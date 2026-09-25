@@ -493,12 +493,13 @@ describe('sync — per-collection state versioning (F15)', () => {
     expect(state.version).toBe(1);
   });
   it('accepts a legacy unversioned blob without discarding its entries', async () => {
+    const recent = new Date(Date.now() - 1_000).toISOString();
     const legacy = {
       ownerId: 'user_A',
       entries: {
         tasks: {
-          pull: '2026-01-01T00:00:00.000Z',
-          dirty: '2026-01-01T00:00:00.000Z',
+          pull: recent,
+          dirty: recent,
         },
       },
     };
@@ -967,6 +968,95 @@ describe('sync — pull pagination (F14)', () => {
     expect(userFilter?.v).toBe('user_A');
   });
 });
+describe('sync — tombstone retention cursor expiry', () => {
+  it('performs a full pull when the incremental cursor is older than the retention window', async () => {
+    const oldPull = new Date(
+      Date.now() - syncModule.TOMBSTONE_RETENTION_DAYS * 24 * 60 * 60 * 1000 - 1
+    ).toISOString();
+    localStorageMock.setItem(
+      'lastSyncTimePerCollection',
+      JSON.stringify({
+        version: 1,
+        ownerId: 'user_A',
+        entries: {
+          tasks: { pull: oldPull, dirty: oldPull },
+        },
+      })
+    );
+
+    const upsertSpy = vi.fn().mockResolvedValue(undefined);
+    getDatabaseMock.mockReturnValue(
+      makeTaskOnlyDb({
+        findOne: () => ({ exec: async () => null }),
+        find: () => ({ exec: async () => [] }),
+        upsert: upsertSpy,
+      })
+    );
+    listRowsMock.mockImplementation(
+      async ({ tableId }: { tableId: string }) => {
+        if (tableId === 'tasks') {
+          return {
+            rows: [makeRemoteTaskRow('task_tombstone', new Date().toISOString())],
+          };
+        }
+        return { rows: [] };
+      }
+    );
+
+    await syncModule.initializeSync();
+
+    const calls = taskListRowsCalls();
+    expect(calls.length).toBeGreaterThan(0);
+    const queries = (
+      calls[0][0] as { queries: { op?: string; k?: string }[] }
+    ).queries;
+    expect(
+      queries.some((q) => q.op === 'greaterThan' && q.k === '$updatedAt')
+    ).toBe(false);
+  });
+  it('soft-deletes clean local rows missing from a stale full pull without pushing them back', async () => {
+    const oldPull = new Date(
+      Date.now() - syncModule.TOMBSTONE_RETENTION_DAYS * 24 * 60 * 60 * 1000 - 1
+    ).toISOString();
+    const missingDoc = makeLocalDocWithLwt(
+      'task_missing_after_gc',
+      new Date(oldPull).getTime() - 1
+    );
+    const upsertSpy = vi.fn().mockResolvedValue(undefined);
+    getDatabaseMock.mockReturnValue(
+      makeTaskOnlyDb({
+        findOne: () => ({ exec: async () => null }),
+        find: () => ({ exec: async () => [missingDoc] }),
+        upsert: upsertSpy,
+      })
+    );
+    localStorageMock.setItem(
+      'lastSyncTimePerCollection',
+      JSON.stringify({
+        version: 1,
+        ownerId: 'user_A',
+        entries: {
+          tasks: { pull: oldPull, dirty: oldPull },
+        },
+      })
+    );
+    listRowsMock.mockResolvedValue({ rows: [] });
+
+    await syncModule.initializeSync();
+
+    expect(missingDoc.incrementalPatch).toHaveBeenCalledWith(
+      expect.objectContaining({ isDeleted: true })
+    );
+    expect(updateRowMock).not.toHaveBeenCalled();
+    expect(createRowMock).not.toHaveBeenCalled();
+    const suppression = JSON.parse(
+      localStorageMock.getItem('reconciledMissingRows')!
+    );
+    expect(suppression.entries['tasks::task_missing_after_gc']).toBeTruthy();
+  });
+
+});
+
 describe('sync — 404 fallback uses createRow (D8)', () => {
   it('a 404 on updateRow falls back to createRow, not upsertRow', async () => {
     const docs = [makeLocalDoc('task_new')];

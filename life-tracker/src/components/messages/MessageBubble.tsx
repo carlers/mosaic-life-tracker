@@ -97,7 +97,7 @@ const UnsentBubble: React.FC<UnsentBubbleProps> = ({ isOutgoing }) => {
         <div className="block w-full text-left rounded-2xl px-3 py-2 bg-[#2A2A2A] text-gray-400">
           <span className="italic text-gray-400 text-sm">Message deleted</span>
         </div>
-        <div className="mt-1 flex items-center gap-1 text-[10px] text-gray-500 min-h-[14px]">
+        <div className="mt-1 flex items-center gap-1 text-[10px] text-gray-400 min-h-[14px]">
           <Ban size={12} />
           <span>Unsent</span>
         </div>
@@ -136,7 +136,7 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
     return () => clearTimeout(timer);
   }, [showTimestampLocal]);
 
-  const bubbleRef = useRef<HTMLButtonElement>(null);
+  const bubbleRef = useRef<HTMLDivElement>(null);
 
   const swipeDirection: SwipeDirection = isOutgoing ? 'left' : 'right';
 
@@ -183,24 +183,30 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
             opacity: isSwiping ? Math.min(Math.abs(swipeOffset) / 60, 1) : 0,
           }}
         >
-          <Reply size={18} className="text-gray-500" />
+          <Reply size={18} className="text-gray-400" />
         </div>
-        <button
+        <div
           ref={bubbleRef}
-          type="button"
+          role="button"
+          tabIndex={0}
           onPointerDown={onPointerDown}
           onPointerMove={onPointerMove}
           onPointerUp={onPointerUp}
           onPointerCancel={onPointerCancel}
           onContextMenu={onContextMenu}
+          onKeyDown={(event) => {
+            if (event.key !== 'Enter' && event.key !== ' ') return;
+            event.preventDefault();
+            setShowTimestampLocal((visible) => !visible);
+          }}
           style={{
             transform: `translateX(${swipeOffset}px)`,
             touchAction: 'pan-y',
           }}
-          className={`select-none block w-full text-left rounded-2xl px-3 py-2 ${
+          className={`select-none block w-full text-left rounded-2xl px-3 py-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 ${
             isOutgoing
-              ? 'bg-[#2563EB] text-white'
-              : 'bg-[#2A2A2A] text-white'
+              ? 'bg-[#2A2A2A] text-white'
+              : 'bg-black border border-[#3A3A3A] text-white'
           }`}
           aria-label={buildBubbleLabel(
             message,
@@ -214,7 +220,7 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
               onClick={() => onQuoteTap?.(message.replyToId)}
               onPointerDown={(e) => e.stopPropagation()}
               className={`w-full text-left mb-1.5 rounded-lg px-2 py-1 ${
-                isOutgoing ? 'bg-[#1E40AF]' : 'bg-[#1A1A1A]'
+                isOutgoing ? 'bg-[#1A1A1A]' : 'bg-[#2A2A2A]'
               }`}
             >
               <ReplyPreview
@@ -255,7 +261,7 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
               createdAt={message.createdAt}
             />
           )}
-        </button>
+        </div>
       </div>
     </div>
   );

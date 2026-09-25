@@ -10,11 +10,11 @@ export const MessagesPage: React.FC = () => {
   const { conversations, isLoading } = useConversations();
 
   return (
-    <div className="flex flex-col h-full animate-in fade-in duration-300">
+    <div className="flex min-h-full flex-col">
       <div className="sticky top-0 z-20 bg-[#111111] px-4 py-3 border-b border-[#333333]">
         <h1 className="text-lg font-bold text-white">Messages</h1>
       </div>
-      <div className="flex-1 overflow-y-auto pb-24 px-4 pt-4">
+      <div className="flex-1 pb-24 px-4 pt-4">
         {isLoading ? (
           <div className="flex justify-center py-10" role="status" aria-live="polite">
             <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin" />
@@ -29,14 +29,14 @@ export const MessagesPage: React.FC = () => {
               <MessageCircle size={28} className="text-gray-400" />
             </div>
             <h2 className="text-lg font-bold text-white mb-2">No friends yet</h2>
-            <p className="text-sm text-gray-500 mb-6 max-w-xs">
+            <p className="text-sm text-gray-400 mb-6 max-w-xs">
               Add friends to start chatting. You can also reply to their tasks
               from their calendar.
             </p>
             <motion.button
               whileTap={{ scale: 0.95 }}
               onClick={() => navigate('/explore')}
-              className="flex items-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-medium px-5 py-2.5 rounded-xl transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 focus-visible:ring-offset-2 focus-visible:ring-offset-[#111111]"
+              className="flex items-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-black text-sm font-medium px-5 py-2.5 rounded-xl transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 focus-visible:ring-offset-2 focus-visible:ring-offset-[#111111]"
             >
               <Users size={16} aria-hidden="true" />
               Find Friends

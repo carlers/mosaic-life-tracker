@@ -19,18 +19,22 @@ interface MonthViewProps {
   categoriesMap: Record<string, { color: string; name: string }>;
 }
 
+const WEEKDAY_LABELS = [
+  ['Sun', 'Sunday'],
+  ['Mon', 'Monday'],
+  ['Tue', 'Tuesday'],
+  ['Wed', 'Wednesday'],
+  ['Thu', 'Thursday'],
+  ['Fri', 'Friday'],
+  ['Sat', 'Saturday'],
+] as const;
+
 export const MonthView: React.FC<MonthViewProps> = ({
   focusDate,
   onDayClick,
   tasksByDate,
   categoriesMap,
 }) => {
-  // Memoized on `focusDate` so the array of Date objects (and therefore
-  // the `date` prop to every DayCell) stays referentially stable across
-  // renders. Without this, eachDayOfInterval would return new Date
-  // objects every render and DayCell's React.memo would never bail out.
-  // `focusDate` itself is stable per slide — it comes from the memoized
-  // `slides` array in useCalendarState / FriendCalendarView.
   const calendarDays = useMemo(() => {
     const monthStart = startOfMonth(focusDate);
     const monthEnd = endOfMonth(monthStart);
@@ -39,37 +43,62 @@ export const MonthView: React.FC<MonthViewProps> = ({
     return eachDayOfInterval({ start: startDate, end: endDate });
   }, [focusDate]);
 
-  const weekDays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  const calendarWeeks = useMemo(() => {
+    const weeks: Date[][] = [];
+    for (let index = 0; index < calendarDays.length; index += 7) {
+      weeks.push(calendarDays.slice(index, index + 7));
+    }
+    return weeks;
+  }, [calendarDays]);
 
   return (
-    <div className="flex flex-col h-full">
-      <div
-        className="grid grid-cols-7 gap-1 px-2 mb-1"
-        aria-hidden="true"
-      >
-        {weekDays.map((day) => (
+    <div
+      className="flex flex-col min-h-full"
+      role="grid"
+      aria-label={`${format(focusDate, 'MMMM yyyy')} calendar`}
+    >
+      <div className="grid grid-cols-7 gap-1 px-2 mb-1" role="row">
+        {WEEKDAY_LABELS.map(([shortLabel, fullLabel]) => (
           <div
-            key={day}
-            className="text-center text-[10px] font-medium text-gray-500 py-1"
+            key={shortLabel}
+            role="columnheader"
+            aria-label={fullLabel}
+            className="text-center text-[10px] font-medium text-gray-400 py-1"
           >
-            {day}
+            {shortLabel}
           </div>
         ))}
       </div>
-      <div className="grid grid-cols-7 gap-1 px-2 flex-1 auto-rows-fr">
-        {calendarDays.map((day) => {
-          const dateStr = format(day, 'yyyy-MM-dd');
-          return (
-            <DayCell
-              key={dateStr}
-              date={day}
-              tasks={tasksByDate.get(dateStr) ?? EMPTY_TASKS}
-              categories={categoriesMap}
-              isCurrentMonth={isSameMonth(day, focusDate)}
-              onDayClick={onDayClick}
-            />
-          );
-        })}
+      <div
+        className="grid grid-cols-7 gap-1 px-2 flex-1 auto-rows-[minmax(min-content,1fr)]"
+        role="rowgroup"
+      >
+        {calendarWeeks.map((week) => (
+          <div
+            key={format(week[0], 'yyyy-MM-dd')}
+            role="row"
+            className="contents"
+          >
+            {week.map((day) => {
+              const dateStr = format(day, 'yyyy-MM-dd');
+              return (
+                <div
+                  key={dateStr}
+                  role="gridcell"
+                  className="min-w-0 min-h-0 h-full"
+                >
+                  <DayCell
+                    date={day}
+                    tasks={tasksByDate.get(dateStr) ?? EMPTY_TASKS}
+                    categories={categoriesMap}
+                    isCurrentMonth={isSameMonth(day, focusDate)}
+                    onDayClick={onDayClick}
+                  />
+                </div>
+              );
+            })}
+          </div>
+        ))}
       </div>
     </div>
   );

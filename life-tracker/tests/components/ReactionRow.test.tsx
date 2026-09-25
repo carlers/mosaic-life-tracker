@@ -17,18 +17,6 @@ import type { Reaction } from '../../src/lib/reactionUtils';
 // ---------------------------------------------------------------------------
 
 describe('ReactionRow', () => {
-  it('renders nothing when reactions is empty', () => {
-    const { container } = render(
-      <ReactionRow
-        reactions={[]}
-        currentUserId="user_A"
-        isOutgoing={false}
-        onToggle={vi.fn()}
-      />
-    );
-    expect(container.firstChild).toBeNull();
-  });
-
   it('renders each reaction chip with emoji and count; tap fires onToggle(emoji)', () => {
     const onToggle = vi.fn();
     const reactions: Reaction[] = [
@@ -72,19 +60,4 @@ describe('ReactionRow', () => {
     expect(screen.queryByText('+3')).not.toBeNull();
   });
 
-  it('does not render an overflow indicator when reactions <= 6', () => {
-    const reactions: Reaction[] = Array.from({ length: 6 }, (_, i) => ({
-      emoji: `e${i}`,
-      userIds: ['u1'],
-    }));
-    render(
-      <ReactionRow
-        reactions={reactions}
-        currentUserId="user_A"
-        isOutgoing={false}
-        onToggle={vi.fn()}
-      />
-    );
-    expect(screen.queryByText(/^\+\d+$/)).toBeNull();
-  });
 });

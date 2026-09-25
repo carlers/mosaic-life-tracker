@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useState } from 'react';
+import React, { useRef, useEffect, useId, useState } from 'react';
 import { BottomSheet } from '../ui/BottomSheet';
 import { SheetErrorBanner } from '../ui/SheetErrorBanner';
 import { SheetSaveButton } from '../ui/SheetSaveButton';
@@ -24,6 +24,9 @@ export const ChangePasswordSheet: React.FC<ChangePasswordSheetProps> = ({
   const [localError, setLocalError] = useState<string | null>(null);
 
   const oldPasswordInputRef = useRef<HTMLInputElement>(null);
+  const oldPasswordId = useId();
+  const newPasswordId = useId();
+  const confirmPasswordId = useId();
 
   useSheetReset(isOpen, () => {
     setOldPassword('');
@@ -70,46 +73,49 @@ export const ChangePasswordSheet: React.FC<ChangePasswordSheetProps> = ({
         <SheetErrorBanner message={displayError} />
 
         <div className="w-full">
-          <label className="block text-xs text-gray-500 mb-1.5 ml-1">Current Password</label>
+          <label htmlFor={oldPasswordId} className="block text-xs text-gray-400 mb-1.5 ml-1">Current Password</label>
           <div className="relative">
             <input
+              id={oldPasswordId}
               ref={oldPasswordInputRef}
               type="password"
               placeholder="••••••••"
               value={oldPassword}
               onChange={(e) => setOldPassword(e.target.value)}
               autoComplete="current-password"
-              className="w-full bg-[#1E1E1E] text-white border border-[#333333] rounded-lg px-4 py-2.5 focus:border-[#555555] focus:outline-none transition-colors placeholder-gray-600"
+              className="w-full bg-[#1E1E1E] text-white border border-[#333333] rounded-lg px-4 py-2.5 focus:border-[#555555] focus-visible:ring-2 focus-visible:ring-emerald-500/60 focus:outline-none transition-colors placeholder-gray-400"
               onPointerDown={(e) => e.stopPropagation()}
             />
           </div>
         </div>
 
         <div className="w-full">
-          <label className="block text-xs text-gray-500 mb-1.5 ml-1">New Password</label>
+          <label htmlFor={newPasswordId} className="block text-xs text-gray-400 mb-1.5 ml-1">New Password</label>
           <div className="relative">
             <input
+              id={newPasswordId}
               type="password"
               placeholder="Minimum 8 characters"
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
               autoComplete="new-password"
-              className="w-full bg-[#1E1E1E] text-white border border-[#333333] rounded-lg px-4 py-2.5 focus:border-[#555555] focus:outline-none transition-colors placeholder-gray-600"
+              className="w-full bg-[#1E1E1E] text-white border border-[#333333] rounded-lg px-4 py-2.5 focus:border-[#555555] focus-visible:ring-2 focus-visible:ring-emerald-500/60 focus:outline-none transition-colors placeholder-gray-400"
               onPointerDown={(e) => e.stopPropagation()}
             />
           </div>
         </div>
 
         <div className="w-full">
-          <label className="block text-xs text-gray-500 mb-1.5 ml-1">Confirm New Password</label>
+          <label htmlFor={confirmPasswordId} className="block text-xs text-gray-400 mb-1.5 ml-1">Confirm New Password</label>
           <div className="relative">
             <input
+              id={confirmPasswordId}
               type="password"
               placeholder="••••••••"
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
               autoComplete="new-password"
-              className="w-full bg-[#1E1E1E] text-white border border-[#333333] rounded-lg px-4 py-2.5 focus:border-[#555555] focus:outline-none transition-colors placeholder-gray-600"
+              className="w-full bg-[#1E1E1E] text-white border border-[#333333] rounded-lg px-4 py-2.5 focus:border-[#555555] focus-visible:ring-2 focus-visible:ring-emerald-500/60 focus:outline-none transition-colors placeholder-gray-400"
               onPointerDown={(e) => e.stopPropagation()}
             />
           </div>

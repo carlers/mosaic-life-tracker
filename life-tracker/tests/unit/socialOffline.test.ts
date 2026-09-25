@@ -1,4 +1,5 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { silenceExpectedConsole } from '../helpers/expectedConsole';
 
 const localStorageMock = vi.hoisted(() => {
   const store = new Map<string, string>();
@@ -77,7 +78,9 @@ const FRIEND: ProfileCard = {
   is_searchable: true,
 };
 
+let restoreConsole: () => void;
 beforeEach(() => {
+  restoreConsole = silenceExpectedConsole(['[social]']);
   localStorageMock.clear();
   __resetSocialOutboxForTests();
   sdkRef.upsertRow.mockReset();
@@ -87,6 +90,7 @@ beforeEach(() => {
   dbRef.findOne.mockReset();
   dbRef.findOne.mockResolvedValue(null);
 });
+afterEach(() => restoreConsole());
 
 describe('social.sendFriendRequest — offline resilience (OFF-8)', () => {
   it('local write happens first, remote failure enqueues into the outbox', async () => {

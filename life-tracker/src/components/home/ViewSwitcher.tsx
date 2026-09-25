@@ -1,7 +1,7 @@
 import React from 'react';
-import { Calendar, BookOpen } from 'lucide-react';
+import { Calendar, BookOpen, ListChecks } from 'lucide-react';
 
-export type ViewType = 'calendar' | 'diary';
+export type ViewType = 'calendar' | 'todo' | 'diary';
 
 interface ViewSwitcherProps {
   activeView: ViewType;
@@ -14,6 +14,7 @@ const views: {
   icon: React.FC<{ size?: number }>;
 }[] = [
   { id: 'calendar', label: 'Calendar', icon: Calendar },
+  { id: 'todo', label: 'Todo list', icon: ListChecks },
   { id: 'diary', label: 'Diary', icon: BookOpen },
 ];
 
@@ -49,7 +50,7 @@ export const ViewSwitcher: React.FC<ViewSwitcherProps> = ({
             )}
             <span
               className={`relative z-10 transition-colors ${
-                isActive ? 'text-black' : 'text-gray-500 group-hover:text-gray-300'
+                isActive ? 'text-black' : 'text-gray-400 group-hover:text-gray-300'
               }`}
               aria-hidden="true"
             >

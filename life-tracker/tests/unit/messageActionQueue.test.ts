@@ -1,4 +1,5 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { silenceExpectedConsole } from '../helpers/expectedConsole';
 const localStorageMock = vi.hoisted(() => {
   const store = new Map<string, string>();
   const mock = {
@@ -25,10 +26,13 @@ import {
   __resetQueueForTests,
 } from '../../src/lib/messageActionQueue';
 const STORAGE_KEY = 'mosaic_message_action_queue';
+let restoreConsole: () => void;
 beforeEach(() => {
+  restoreConsole = silenceExpectedConsole(['[MessageActionQueue]']);
   localStorageMock.clear();
   __resetQueueForTests();
 });
+afterEach(() => restoreConsole());
 describe('messageActionQueue — enqueue', () => {
   it('adds an entry and persists it to localStorage', () => {
     enqueueMessageAction('user_A', {

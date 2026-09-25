@@ -1,0 +1,400 @@
+name: Quality Gate
+
+on:
+  push:
+    branches:
+      - main
+      - dev
+      - 'feature/**'
+      - 'chatgpt/**'
+      - 'codex/**'
+    paths:
+      - 'AGENTS.md'
+      - 'life-tracker/**'
+      - '.github/workflows/quality-gate.yml'
+  pull_request:
+    paths:
+      - 'AGENTS.md'
+      - 'life-tracker/**'
+      - '.github/workflows/quality-gate.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  checks: read
+
+concurrency:
+  group: quality-gate-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  classify:
+    name: classify
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      mode: ${{ steps.resolve.outputs.mode }}
+      browser: ${{ steps.resolve.outputs.browser }}
+      base: ${{ steps.resolve.outputs.base }}
+    steps:
+      - name: Detect immediate verification intent
+        id: immediate
+        shell: bash
+        env:
+          CI_EVENT_NAME: ${{ github.event_name }}
+          CI_REF: ${{ github.ref }}
+          CI_COMMIT_MESSAGE: ${{ github.event.head_commit.message || github.event.pull_request.title }}
+          CI_HEAD_REF: ${{ github.head_ref }}
+        run: |
+          mode=""
+          browser=""
+          if [[ "$CI_EVENT_NAME" == "workflow_dispatch" ]]; then
+            mode="full"
+            browser="true"
+          elif [[ "$CI_COMMIT_MESSAGE" == *"[verify:full]"* ]]; then
+            mode="full"
+            browser="true"
+          fi
+
+          if [[ -n "$mode" ]]; then
+            echo "immediate=true" >> "$GITHUB_OUTPUT"
+            echo "mode=$mode" >> "$GITHUB_OUTPUT"
+            echo "browser=$browser" >> "$GITHUB_OUTPUT"
+          else
+            echo "immediate=false" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Check out repository
+        if: ${{ steps.immediate.outputs.immediate != 'true' }}
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+          sparse-checkout: |
+            .github
+            life-tracker
+      - name: Classify verification mode
+        if: ${{ steps.immediate.outputs.immediate != 'true' }}
+        id: classify
+        env:
+          CI_EVENT_NAME: ${{ github.event_name }}
+          CI_REF: ${{ github.ref }}
+          CI_COMMIT_MESSAGE: ${{ github.event.head_commit.message || github.event.pull_request.title }}
+          CI_HEAD_REF: ${{ github.head_ref }}
+          CI_BEFORE_SHA: ${{ github.event.before }}
+          CI_PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: node life-tracker/scripts/ci-classify.mjs
+      - name: Resolve classification outputs
+        id: resolve
+        shell: bash
+        env:
+          IMMEDIATE_MODE: ${{ steps.immediate.outputs.mode }}
+          IMMEDIATE_BROWSER: ${{ steps.immediate.outputs.browser }}
+          CLASSIFIED_MODE: ${{ steps.classify.outputs.mode }}
+          CLASSIFIED_BROWSER: ${{ steps.classify.outputs.browser }}
+          CLASSIFIED_BASE: ${{ steps.classify.outputs.base }}
+        run: |
+          echo "mode=${IMMEDIATE_MODE:-$CLASSIFIED_MODE}" >> "$GITHUB_OUTPUT"
+          echo "browser=${IMMEDIATE_BROWSER:-$CLASSIFIED_BROWSER}" >> "$GITHUB_OUTPUT"
+          echo "base=$CLASSIFIED_BASE" >> "$GITHUB_OUTPUT"
+
+  docs_checks:
+    name: docs-checks
+    needs: classify
+    if: ${{ needs.classify.outputs.mode == 'docs' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    defaults:
+      run:
+        working-directory: life-tracker
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+          sparse-checkout: |
+            .github
+            life-tracker
+      - name: Ensure diff base is available
+        env:
+          BASE: ${{ needs.classify.outputs.base }}
+        run: |
+          if ! git -C .. cat-file -e "$BASE^{commit}" 2>/dev/null; then
+            git -C .. fetch --no-tags --depth=1 origin "$BASE"
+          fi
+      - name: Check project contracts
+        run: npm run contracts:check
+      - name: Check documentation diff
+        env:
+          BASE: ${{ needs.classify.outputs.base }}
+        run: git -C .. diff --check "$BASE" HEAD
+
+  focused_checks:
+    name: focused-checks
+    needs: classify
+    if: ${{ needs.classify.outputs.mode == 'focused' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: life-tracker
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+          sparse-checkout: |
+            .github
+            life-tracker
+      - name: Ensure diff base is available
+        env:
+          BASE: ${{ needs.classify.outputs.base }}
+        run: |
+          if ! git -C .. cat-file -e "$BASE^{commit}" 2>/dev/null; then
+            git -C .. fetch --no-tags --depth=1 origin "$BASE"
+          fi
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Cache focused task dependencies
+        id: focused-node-modules-cache
+        uses: actions/cache@v4
+        with:
+          path: life-tracker/node_modules
+          key: ${{ runner.os }}-node22-focused-modules-${{ hashFiles('life-tracker/package-lock.json') }}
+      - name: Install dependencies on cache miss
+        if: steps.focused-node-modules-cache.outputs.cache-hit != 'true'
+        run: npm ci --prefer-offline --no-audit
+      - name: Verify focused change set
+        env:
+          BASE: ${{ needs.classify.outputs.base }}
+        run: node scripts/verify-focused.mjs "$BASE"
+
+  checks:
+    name: checks
+    needs: classify
+    if: ${{ needs.classify.outputs.mode == 'full' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: life-tracker
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+          sparse-checkout: |
+            .github
+            life-tracker
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Restore app dependencies from focused cache
+        id: app-modules-cache
+        uses: actions/cache@v4
+        with:
+          path: life-tracker/node_modules
+          key: ${{ runner.os }}-node22-focused-modules-${{ hashFiles('life-tracker/package-lock.json') }}
+      - name: Install app dependencies on cache miss
+        if: steps.app-modules-cache.outputs.cache-hit != 'true'
+        run: npm ci --prefer-offline --no-audit
+      - name: Check project contracts
+        run: npm run contracts:check
+      - name: Check test discovery
+        run: npm run test:discovery
+      - name: Lint
+        run: npm run lint
+      - name: Run unit tests
+        run: npm run test:unit
+      - name: Run handler tests
+        run: npm run test:handlers
+
+  dependency_audit:
+    name: dependency-audit
+    needs: classify
+    if: ${{ needs.classify.outputs.mode == 'full' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: life-tracker
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+          sparse-checkout: life-tracker
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Audit production dependencies
+        run: npm audit --omit=dev --audit-level=high
+
+  dom_tests:
+    name: dom-tests (${{ matrix.shard }})
+    needs: classify
+    if: ${{ needs.classify.outputs.mode == 'full' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        shard:
+          - 1/2
+          - 2/2
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: life-tracker
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+          sparse-checkout: life-tracker
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Restore app dependencies from focused cache
+        id: app-modules-cache
+        uses: actions/cache@v4
+        with:
+          path: life-tracker/node_modules
+          key: ${{ runner.os }}-node22-focused-modules-${{ hashFiles('life-tracker/package-lock.json') }}
+      - name: Install app dependencies on cache miss
+        if: steps.app-modules-cache.outputs.cache-hit != 'true'
+        run: npm ci --prefer-offline --no-audit
+      - name: Run DOM tests
+        run: npm run test:dom -- --shard="${{ matrix.shard }}"
+
+  build_check:
+    name: build
+    needs: classify
+    if: ${{ needs.classify.outputs.mode == 'full' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: life-tracker
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+          sparse-checkout: life-tracker
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: life-tracker/package-lock.json
+      - name: Install dependencies
+        run: npm ci --prefer-offline --no-audit
+      - name: Build production app
+        run: npm run build
+
+  browser_contract:
+    name: browser-contract (${{ matrix.shard }})
+    needs: classify
+    if: ${{ needs.classify.outputs.mode == 'full' || needs.classify.outputs.browser == 'true' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        shard:
+          - 1/2
+          - 2/2
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: life-tracker
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+          sparse-checkout: life-tracker
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Restore app dependencies from focused cache
+        id: browser-app-modules-cache
+        uses: actions/cache@v4
+        with:
+          path: life-tracker/node_modules
+          key: ${{ runner.os }}-node22-focused-modules-${{ hashFiles('life-tracker/package-lock.json') }}
+      - name: Install app dependencies on cache miss
+        if: steps.browser-app-modules-cache.outputs.cache-hit != 'true'
+        run: npm ci --prefer-offline --no-audit
+      - name: Cache pinned browser-test packages
+        id: browser-test-modules-cache
+        uses: actions/cache@v4
+        with:
+          path: life-tracker/tests/e2e/node_modules
+          key: ${{ runner.os }}-browser-test-modules-pw1.58.2-axe4.10.2
+      - name: Install pinned browser-test packages on cache miss
+        if: steps.browser-test-modules-cache.outputs.cache-hit != 'true'
+        run: npm run test:browser:prepare
+      - name: Cache Playwright Chromium
+        id: playwright-browser-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-chromium-1.58.2
+      - name: Install Chromium on cache miss
+        if: steps.playwright-browser-cache.outputs.cache-hit != 'true'
+        run: tests/e2e/node_modules/.bin/playwright install chromium
+      - name: Start local Mosaic
+        env:
+          VITE_POSTHOG_TOKEN: browser-contract-token
+          VITE_POSTHOG_HOST: https://posthog.test
+        run: |
+          npm run dev -- --host 127.0.0.1 --port 4173 > /tmp/mosaic-vite.log 2>&1 &
+          for attempt in {1..30}; do
+            if curl -kfsS https://127.0.0.1:4173/tests/e2e/interaction-contract.html >/dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          cat /tmp/mosaic-vite.log
+          exit 1
+      - name: Run repository browser contracts
+        env:
+          MOSAIC_E2E_BASE_URL: https://127.0.0.1:4173
+        run: npm run test:browser-contract -- --shard="${{ matrix.shard }}"
+
+  canonical_acceptance:
+    name: canonical-acceptance
+    needs:
+      - classify
+      - checks
+      - dependency_audit
+      - dom_tests
+      - build_check
+      - browser_contract
+    if: ${{ always() && needs.classify.outputs.mode == 'full' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Confirm every canonical gate passed
+        env:
+          CHECKS_RESULT: ${{ needs.checks.result }}
+          AUDIT_RESULT: ${{ needs.dependency_audit.result }}
+          DOM_RESULT: ${{ needs.dom_tests.result }}
+          BUILD_RESULT: ${{ needs.build_check.result }}
+          BROWSER_RESULT: ${{ needs.browser_contract.result }}
+        run: |
+          failed=0
+          for result in "$CHECKS_RESULT" "$AUDIT_RESULT" "$DOM_RESULT" "$BUILD_RESULT" "$BROWSER_RESULT"; do
+            if [ "$result" != "success" ]; then
+              failed=1
+            fi
+          done
+          if [ "$failed" -ne 0 ]; then
+            echo "Canonical acceptance failed because at least one required parallel gate did not succeed."
+            exit 1
+          fi
+          echo "Canonical acceptance passed for exact SHA ${{ github.sha }}."

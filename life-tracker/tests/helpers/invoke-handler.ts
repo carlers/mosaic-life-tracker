@@ -6,12 +6,14 @@ export interface MockDb {
   getRow: any;
   upsertRow: any;
   updateRow: any;
+  deleteRow: any;
 }
 
 export interface InvokeInput {
-  userId: string;
+  userId?: string;
   body: Record<string, unknown>;
   mockDb: MockDb;
+  trigger?: 'http' | 'schedule' | 'event';
 }
 
 export interface InvokeResult {
@@ -44,6 +46,7 @@ class MockTablesDB {
   getRow: any;
   upsertRow: any;
   updateRow: any;
+  deleteRow: any;
 
   constructor(_client: unknown) {
     const m = state.current;
@@ -56,11 +59,13 @@ class MockTablesDB {
     this.getRow = m.getRow;
     this.upsertRow = m.upsertRow;
     this.updateRow = m.updateRow;
+    this.deleteRow = m.deleteRow;
   }
 }
 
 const MockQuery = {
   equal: (key: string, value: unknown) => ({ op: 'equal', key, value }),
+  lessThan: (key: string, value: unknown) => ({ op: 'lessThan', key, value }),
   limit: (n: number) => ({ op: 'limit', n }),
   orderAsc: (field: string) => ({ op: 'orderAsc', field }),
   orderDesc: (field: string) => ({ op: 'orderDesc', field }),
@@ -125,6 +130,7 @@ export function makeMockDb(): MockDb {
     getRow: vi.fn().mockRejectedValue(notFound),
     upsertRow: vi.fn().mockResolvedValue({}),
     updateRow: vi.fn().mockResolvedValue({}),
+    deleteRow: vi.fn().mockResolvedValue({}),
   };
 }
 
@@ -145,11 +151,16 @@ export async function invoke(input: InvokeInput): Promise<InvokeResult> {
     },
   };
 
+  const headers: Record<string, string> = {
+    'x-appwrite-key': 'test-key',
+    'x-appwrite-trigger': input.trigger || 'http',
+  };
+  if (input.userId) {
+    headers['x-appwrite-user-id'] = input.userId;
+  }
+
   const req = {
-    headers: {
-      'x-appwrite-user-id': input.userId,
-      'x-appwrite-key': 'test-key',
-    },
+    headers,
     body: JSON.stringify(input.body),
   };
 

@@ -5,6 +5,7 @@ import { ReplyComposerSheet } from '../../messages/ReplyComposerSheet';
 import { CalendarCarousel } from './CalendarCarousel';
 import { useTasksByDate } from '../../../hooks/useTasksByDate';
 import { useFriendTaskReply } from '../../../hooks/useFriendTaskReply';
+import { useHorizontalArrowNavigation } from '../../../hooks/useHorizontalArrowNavigation';
 import type { TaskDocument, CategoryDocument } from '../../../db/schema';
 import type { CalendarViewMode } from './useCalendarState';
 
@@ -15,17 +16,18 @@ interface CalendarBodyProps {
   renderEnd: number;
   emblaRef: (node: HTMLElement | null) => void;
   tasks: TaskDocument[];
+  categories?: CategoryDocument[];
   categoriesMap: Record<string, { color: string; name: string }>;
   variant: 'me' | 'friend';
   friendCategories?: CategoryDocument[];
   friendName?: string;
   friendUserId?: string | null;
   currentUserId: string;
+  isActive: boolean;
+  onPrev: () => void;
+  onNext: () => void;
   onReactToTask?: (task: TaskDocument, emoji: string) => void;
 }
-
-const formatDateStr = (date: Date): string =>
-  `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 
 const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
   viewMode,
@@ -34,12 +36,16 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
   renderEnd,
   emblaRef,
   tasks,
+  categories,
   categoriesMap,
   variant,
   friendCategories,
   friendName,
   friendUserId,
   currentUserId,
+  isActive,
+  onPrev,
+  onNext,
   onReactToTask,
 }) => {
   const [daySheetOpen, setDaySheetOpen] = useState(false);
@@ -68,6 +74,12 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
     setSelectedDate(date);
   }, []);
 
+  useHorizontalArrowNavigation({
+    enabled: isActive && !daySheetOpen && !replyTask,
+    onLeft: onPrev,
+    onRight: onNext,
+  });
+
   const carousel = (
     <CalendarCarousel
       slides={slides}
@@ -89,7 +101,8 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
           isOpen={daySheetOpen}
           onClose={handleCloseDaySheet}
           date={selectedDate}
-          tasks={tasksByDate.get(formatDateStr(selectedDate)) ?? []}
+          onDateChange={handleDateChange}
+          tasks={tasks}
           categories={friendCategories ?? []}
           friendName={friendName}
           currentUserId={currentUserId}
@@ -106,7 +119,7 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
           onSent={handleReplySent}
         />
         {feedback && (
-          <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[70] bg-[#2A2A2A] text-white text-sm px-4 py-2 rounded-lg shadow-lg">
+          <div role="status" aria-live="polite" className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[70] bg-[#2A2A2A] text-white text-sm px-4 py-2 rounded-lg shadow-lg">
             {feedback}
           </div>
         )}
@@ -122,6 +135,8 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
         onClose={handleCloseDaySheet}
         selectedDate={selectedDate}
         onDateChange={handleDateChange}
+        tasks={tasks}
+        categories={categories ?? []}
       />
     </>
   );

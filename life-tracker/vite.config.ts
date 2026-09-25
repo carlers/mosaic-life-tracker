@@ -3,19 +3,67 @@ import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
 import basicSsl from '@vitejs/plugin-basic-ssl';
 
+const isLocalBuild = !process.env.VERCEL_ENV;
+
+const buildCommit = process.env.VERCEL_GIT_COMMIT_SHA?.trim() || '';
+const buildMessage = process.env.VERCEL_GIT_COMMIT_MESSAGE?.trim() || '';
+const buildRef = process.env.VERCEL_GIT_COMMIT_REF?.trim() || '';
+const vercelEnvironment = process.env.VERCEL_ENV?.trim() || '';
+const buildChannel =
+  buildRef === 'preview' || vercelEnvironment === 'preview'
+    ? 'Preview'
+    : vercelEnvironment === 'production'
+      ? 'Production'
+      : 'Local';
+
+const posthogSourceMapsEnabled =
+  process.env.POSTHOG_SOURCE_MAPS_ENABLED === 'true' &&
+  Boolean(
+    process.env.POSTHOG_PERSONAL_API_KEY &&
+      process.env.POSTHOG_PROJECT_ID &&
+      process.env.POSTHOG_HOST
+  );
+
+const posthogPluginPackage = ['@posthog', 'rollup-plugin'].join('/');
+const posthog = posthogSourceMapsEnabled
+  ? (await import(posthogPluginPackage)).default
+  : null;
+
+const posthogSourceMapPlugin = posthog
+  ? posthog({
+      personalApiKey: process.env.POSTHOG_PERSONAL_API_KEY!,
+      projectId: process.env.POSTHOG_PROJECT_ID!,
+      host: process.env.POSTHOG_HOST!,
+      sourcemaps: {
+        enabled: true,
+        releaseMode: 'event',
+        deleteAfterUpload: true,
+      },
+    })
+  : null;
+
 export default defineConfig({
+  define: {
+    'import.meta.env.VITE_APP_BUILD_COMMIT': JSON.stringify(buildCommit),
+    'import.meta.env.VITE_APP_BUILD_MESSAGE': JSON.stringify(buildMessage),
+    'import.meta.env.VITE_APP_BUILD_TIME': JSON.stringify(new Date().toISOString()),
+    'import.meta.env.VITE_APP_BUILD_CHANNEL': JSON.stringify(buildChannel),
+  },
   plugins: [
     react(),
-    basicSsl(),
+    ...(isLocalBuild ? [basicSsl()] : []),
+    ...(posthogSourceMapPlugin ? [posthogSourceMapPlugin] : []),
     VitePWA({
-      // `autoUpdate` is retained, but `skipWaiting` / `clientsClaim` are
-      // disabled below so the new SW does NOT take over mid-session.
-      // Without that, a deploy landing during an in-flight RxDB write can
-      // orphan the transaction (the new bundle and the new SW arrive at
-      // the same time). The new SW waits until the tab is fully closed
-      // and reopened. A "New version available" prompt UI would let us
-      // update sooner, but that is Phase 3.5+ feature work (PWA-4).
-      registerType: 'autoUpdate',
+      // Keep an installed update waiting until the old worker controls no
+      // clients: close all Mosaic tabs and installed-app windows, then reopen.
+      // A refresh alone may leave the old worker active. `autoUpdate` forces
+      // both activation flags below to true, so use `prompt` (PWA-4).
+      // The explicit lifecycle below surfaces the waiting worker and only
+      // requests activation after the user chooses Update now.
+      registerType: 'prompt',
+      // Registration is owned by src/lib/pwaLifecycle.ts so Mosaic can show
+      // explicit install/update UI instead of injecting a second registrar.
+      injectRegister: false,
       includeAssets: ['apple-touch-icon.png'],
       manifest: {
         name: 'Life Tracker',
@@ -24,9 +72,11 @@ export default defineConfig({
         theme_color: '#111111',
         background_color: '#111111',
         display: 'standalone',
-        orientation: 'portrait',
+        orientation: 'any',
+        id: '/',
         scope: '/',
         start_url: '/',
+        categories: ['productivity', 'lifestyle'],
         icons: [
           {
             src: 'pwa-192x192.png',
@@ -49,7 +99,7 @@ export default defineConfig({
       workbox: {
         // Precache the app shell only. Data is RxDB + the sync engine;
         // images are `src/lib/imageCache.ts`. The SW is deliberately not
-        // a second cache for either — see PWA-1 and AGENTS.md §15
+        // a second cache for either — see PWA-1 and docs/PROJECT_REFERENCE.md §15
         // (`imageCache.ts` is the single owner of the blob cache).
         globPatterns: ['**/*.{js,css,html,ico,png,svg,webp,woff2,wasm}'],
         // SPA routes: cold-loading `/messages/abc123` offline must serve
@@ -60,11 +110,14 @@ export default defineConfig({
         // intent and guards against a future same-origin proxy (PWA-3).
         navigateFallback: 'index.html',
         navigateFallbackDenylist: [/^\/v1\//, /^\/api\//],
-        // Do not take over the page mid-session. Applies on next full
-        // relaunch. See registerType comment above (PWA-4).
+        // Preserve the current worker while it still controls open clients.
+        // See the registerType comment above (PWA-4).
         skipWaiting: false,
         clientsClaim: false,
       }
     })
   ],
+  build: {
+    sourcemap: posthogSourceMapsEnabled ? 'hidden' : false,
+  },
 });

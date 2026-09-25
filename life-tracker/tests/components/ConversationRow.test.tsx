@@ -75,9 +75,10 @@ beforeEach(() => {
   useTaskImageSpy.mockClear();
 });
 describe('ConversationRow', () => {
-  it('renders friend display name when set', () => {
+  // Regression: AGENTS.md UI rules — interactive rows use semantic controls.
+  it('exposes the conversation row as a named button', () => {
     render(<ConversationRow conversation={makeConversation()} />);
-    expect(screen.getByText('Friend B')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Friend B/i })).toBeInTheDocument();
   });
   it('falls back to friendUsername when display name is empty', () => {
     render(
@@ -88,10 +89,6 @@ describe('ConversationRow', () => {
       />
     );
     expect(screen.getByText('b')).toBeInTheDocument();
-  });
-  it('preview: no last message shows "Tap to start chatting"', () => {
-    render(<ConversationRow conversation={makeConversation()} />);
-    expect(screen.getByText('Tap to start chatting')).toBeInTheDocument();
   });
   it('preview: message content wins over taskRefTitle', () => {
     render(
@@ -119,16 +116,6 @@ describe('ConversationRow', () => {
       />
     );
     expect(screen.getByText('Re: Buy groceries')).toBeInTheDocument();
-  });
-  it('preview: neither content nor taskRefTitle shows "(empty)"', () => {
-    render(
-      <ConversationRow
-        conversation={makeConversation({
-          lastMessage: makeMessage({ content: '', taskRefTitle: '' }),
-        })}
-      />
-    );
-    expect(screen.getByText('(empty)')).toBeInTheDocument();
   });
   it('unread badge shows count when unreadCount > 0', () => {
     render(

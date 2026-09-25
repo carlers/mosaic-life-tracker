@@ -1,17 +1,19 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { ChevronLeft, Share2, ChevronRight, Camera, AtSign } from 'lucide-react';
-import { Avatar } from '../components/ui/Avatar';
+import { DeferredAvatar } from '../components/ui/DeferredAvatar';
 import { EditNameSheet } from '../components/modals/EditNameSheet';
 import { EditDescriptionSheet } from '../components/modals/EditDescriptionSheet';
 import { ImagePickerSheet } from '../components/home/views/ImagePickerSheet';
 import { SetUsernameSheet } from '../components/modals/SetUsernameSheet';
 import { useProfile } from '../hooks/useProfile';
 import { useMyProfile } from '../hooks/useMyProfile';
-import { useTaskImage } from '../hooks/useTaskImage';
+import { buildProfileShareData, shareProfile } from '../lib/profileShare';
+import { hasExpectedRouteParent } from '../lib/primarySwipeNavigation';
 
 export const ProfilePage: React.FC = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const {
     displayName,
     description,
@@ -22,13 +24,31 @@ export const ProfilePage: React.FC = () => {
     removeProfileImage,
   } = useProfile();
   const { profile } = useMyProfile();
-  const { imageUrl } = useTaskImage(profileImageId || undefined);
   const [isEditingName, setIsEditingName] = useState(false);
   const [isEditingDescription, setIsEditingDescription] = useState(false);
   const [isEditingImage, setIsEditingImage] = useState(false);
   const [isEditingUsername, setIsEditingUsername] = useState(false);
+  const [shareFeedback, setShareFeedback] = useState<string | null>(null);
 
-  const handleBack = () => navigate(-1);
+  const handleBack = () => {
+    const parent = '/settings';
+    if (hasExpectedRouteParent(location.key, location.state, parent)) {
+      navigate(-1);
+    } else {
+      navigate(parent, { replace: true });
+    }
+  };
+  const handleShare = async () => {
+    const result = await shareProfile(buildProfileShareData(
+      window.location.origin,
+      profile?.username,
+      displayName
+    ));
+    if (result === 'copied') setShareFeedback('Profile invitation copied');
+    else if (result === 'unavailable') setShareFeedback('Sharing is not available on this device');
+    else return;
+    window.setTimeout(() => setShareFeedback(null), 2500);
+  };
 
   return (
     <div className="flex flex-col h-full animate-in fade-in duration-300">
@@ -44,6 +64,8 @@ export const ProfilePage: React.FC = () => {
           </button>
           <h1 className="text-lg font-bold text-white flex-1">Profile</h1>
           <button
+            type="button"
+            onClick={handleShare}
             onPointerDown={(e) => e.stopPropagation()}
             className="p-2 rounded-lg text-gray-400 hover:text-white hover:bg-[#2A2A2A] transition-colors"
             aria-label="Share profile"
@@ -60,8 +82,9 @@ export const ProfilePage: React.FC = () => {
             className="relative group"
             aria-label="Change profile image"
           >
-            <Avatar
-              src={imageUrl || undefined}
+            <DeferredAvatar
+              fileId={profileImageId || undefined}
+              eager
               alt={displayName || 'Profile'}
               size="lg"
             />
@@ -73,7 +96,7 @@ export const ProfilePage: React.FC = () => {
             {displayName || 'Your Name'}
           </h2>
           {profile?.username && (
-            <p className="text-sm text-gray-500 mt-1">@{profile.username}</p>
+            <p className="text-sm text-gray-400 mt-1">@{profile.username}</p>
           )}
         </div>
 
@@ -86,7 +109,7 @@ export const ProfilePage: React.FC = () => {
             <span className="text-sm text-gray-400">Display Name</span>
             <div className="flex items-center gap-2">
               <span className="text-sm text-white">{displayName || 'Not set'}</span>
-              <ChevronRight size={16} className="text-gray-600" />
+              <ChevronRight size={16} className="text-gray-400" />
             </div>
           </button>
 
@@ -100,7 +123,7 @@ export const ProfilePage: React.FC = () => {
               <span className="text-sm text-white truncate max-w-[160px]">
                 {description || 'Not set'}
               </span>
-              <ChevronRight size={16} className="text-gray-600" />
+              <ChevronRight size={16} className="text-gray-400" />
             </div>
           </button>
 
@@ -114,7 +137,7 @@ export const ProfilePage: React.FC = () => {
               <span className="text-sm text-white">
                 {profile?.username ? `@${profile.username}` : 'Not set'}
               </span>
-              <AtSign size={14} className="text-gray-600" />
+              <AtSign size={14} className="text-gray-400" />
             </div>
           </button>
         </div>
@@ -146,6 +169,15 @@ export const ProfilePage: React.FC = () => {
         onClose={() => setIsEditingUsername(false)}
         onSuccess={() => setIsEditingUsername(false)}
       />
+      {shareFeedback && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="fixed bottom-24 left-1/2 z-[70] -translate-x-1/2 rounded-full border border-[#444444] bg-[#2A2A2A] px-5 py-2.5 text-sm text-white shadow-lg"
+        >
+          {shareFeedback}
+        </div>
+      )}
     </div>
   );
 };

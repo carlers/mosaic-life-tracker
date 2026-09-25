@@ -45,7 +45,7 @@ export const MessageActionSheet: React.FC<MessageActionSheetProps> = ({
         height="auto"
       >
         <div className="pt-2 pb-8 px-4">
-          <p className="text-sm text-gray-500 text-center italic">
+          <p className="text-sm text-gray-400 text-center italic">
             This message has been deleted.
           </p>
         </div>

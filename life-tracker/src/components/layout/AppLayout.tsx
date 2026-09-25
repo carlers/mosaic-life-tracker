@@ -5,19 +5,62 @@ import { MainLayout } from './MainLayout';
 import { FriendsProvider } from '../../hooks/FriendsProvider';
 import { ConversationsProvider } from '../../hooks/ConversationsProvider';
 import { useAuth } from '../../hooks/useAuth';
-import { deliverPendingMessages } from '../../lib/messageDelivery';
+import { AppearanceProvider } from '../../hooks/AppearanceProvider';
 import { flushSocialOutbox } from '../../lib/socialOutbox';
-import { startRealtime, stopRealtime } from '../../db/realtime';
+import { PrimaryRoutePreview } from './PrimaryRoutePreview';
+import {
+  getPrimaryRoutePreloadTargets,
+  preloadPrimaryRoute,
+} from './primaryRoutePreload';
 import type { TabId } from './BottomNav';
+import {
+  hasExpectedRouteParent,
+  makeRouteParentState,
+  resolvePrimarySwipeDestination,
+  resolveRouteParent,
+  type PrimarySwipeDirection,
+} from '../../lib/primarySwipeNavigation';
+
 const RETRY_COOLDOWN_MS = 2000;
+
+let realtimeModulePromise: Promise<typeof import('../../db/realtime')> | null =
+  null;
+let messageDeliveryModulePromise:
+  | Promise<typeof import('../../lib/messageDelivery')>
+  | null = null;
+
+function loadRealtimeModule() {
+  realtimeModulePromise ??= import('../../db/realtime').catch((error) => {
+    realtimeModulePromise = null;
+    throw error;
+  });
+  return realtimeModulePromise;
+}
+
+function loadMessageDeliveryModule() {
+  messageDeliveryModulePromise ??= import('../../lib/messageDelivery').catch(
+    (error) => {
+      messageDeliveryModulePromise = null;
+      throw error;
+    }
+  );
+  return messageDeliveryModulePromise;
+}
+
 export const AppLayout: React.FC = () => {
   const { user, isLoading, isOffline, error, retry } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
+  const path = location.pathname;
+  const leftSwipeDestination = resolvePrimarySwipeDestination(path, 'left');
+  const rightSwipeDestination = resolvePrimarySwipeDestination(path, 'right');
   const [retryDisabled, setRetryDisabled] = useState(false);
+  const [conversationNeighborReadyFor, setConversationNeighborReadyFor] =
+    useState<string | null>(null);
   const [isOnline, setIsOnline] = useState(
     typeof navigator !== 'undefined' ? navigator.onLine : true
   );
+
   useEffect(() => {
     const onOnline = () => setIsOnline(true);
     const onOffline = () => setIsOnline(false);
@@ -28,47 +71,98 @@ export const AppLayout: React.FC = () => {
       window.removeEventListener('offline', onOffline);
     };
   }, []);
-  // Open the realtime layer for the signed-in user. Closed on sign-out
-  // and on tab teardown. The layer patches RxDB in place, so the same
-  // subscriptions (useMessages, ConversationsProvider, useTasks) react
-  // without any additional wiring. Polling/focus sync stays as the
-  // safety net for anything realtime drops.
+
+  // Realtime is background infrastructure, not shell-rendering code. Load it
+  // after React commits the authenticated layout instead of pulling it into
+  // the synchronous startup graph.
   useEffect(() => {
-    if (!user?.$id) {
-      stopRealtime();
-      return;
-    }
-    startRealtime(user.$id);
+    const uid = user?.$id;
+    if (!uid) return;
+
+    let active = true;
+    let stopRealtime: (() => void) | null = null;
+
+    void loadRealtimeModule()
+      .then((realtime) => {
+        if (!active) return;
+        realtime.startRealtime(uid);
+        stopRealtime = realtime.stopRealtime;
+      })
+      .catch((err) =>
+        console.error('[AppLayout] realtime module failed:', err)
+      );
+
     return () => {
-      stopRealtime();
+      active = false;
+      stopRealtime?.();
     };
   }, [user?.$id]);
+
   useEffect(() => {
-    if (!user?.$id) return;
-    const uid = user.$id;
+    const uid = user?.$id;
+    if (!uid) return;
+
+    let active = true;
     const tryDeliver = () => {
-      deliverPendingMessages(uid).catch((err) =>
-        console.error('[AppLayout] delivery failed:', err)
-      );
-      flushSocialOutbox(uid).catch((err) =>
-        console.error('[AppLayout] social outbox flush failed:', err)
-      );
+      void loadMessageDeliveryModule()
+        .then((messageDelivery) => {
+          if (!active) return;
+          messageDelivery.deliverPendingMessages(uid).catch((err) =>
+            console.error('[AppLayout] delivery failed:', err)
+          );
+          flushSocialOutbox(uid).catch((err) =>
+            console.error('[AppLayout] social outbox flush failed:', err)
+          );
+        })
+        .catch((err) =>
+          console.error('[AppLayout] delivery modules failed:', err)
+        );
     };
+
     tryDeliver();
     window.addEventListener('focus', tryDeliver);
     window.addEventListener('online', tryDeliver);
     return () => {
+      active = false;
       window.removeEventListener('focus', tryDeliver);
       window.removeEventListener('online', tryDeliver);
     };
   }, [user?.$id]);
+
+
+  useEffect(() => {
+    if (!user?.$id) return;
+
+    const destinations = getPrimaryRoutePreloadTargets(path);
+    if (destinations.length === 0) return;
+
+    const preload = () => {
+      for (const destination of destinations) {
+        preloadPrimaryRoute(destination);
+      }
+      if (destinations.includes('/messages')) {
+        setConversationNeighborReadyFor(path);
+      }
+    };
+
+    if (typeof window.requestIdleCallback === 'function') {
+      const idleId = window.requestIdleCallback(preload, { timeout: 1800 });
+      return () => window.cancelIdleCallback(idleId);
+    }
+
+    const timer = window.setTimeout(preload, 750);
+    return () => window.clearTimeout(timer);
+  }, [path, user?.$id]);
+
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-[#111111] flex items-center justify-center">
+      <div className="min-h-screen bg-[#111111] flex items-center justify-center" role="status" aria-live="polite">
         <div className="w-8 h-8 border-2 border-white border-t-transparent rounded-full animate-spin" />
+        <span className="sr-only">Loading Mosaic</span>
       </div>
     );
   }
+
   if (!user && isOffline) {
     const headline = isOnline
       ? "We couldn't reach the server"
@@ -95,7 +189,7 @@ export const AppLayout: React.FC = () => {
             <WifiOff size={28} className="text-gray-400" />
           </div>
           <h2 className="text-lg font-bold text-white mb-2">{headline}</h2>
-          <p className="text-sm text-gray-500 mb-6 leading-relaxed">{body}</p>
+          <p className="text-sm text-gray-400 mb-6 leading-relaxed">{body}</p>
           <div className="flex flex-col gap-3">
             <button
               onClick={handleRetry}
@@ -117,16 +211,16 @@ export const AppLayout: React.FC = () => {
       </div>
     );
   }
+
   if (!user) {
     return <Navigate to="/login" replace state={{ from: location }} />;
   }
+
   // OFF-1: `user` is non-null here. When `isOffline` is true the identity
   // was hydrated from `mosaic_last_known_user` at mount time — render the
   // app tree so local data is reachable; MainLayout shows the
   // OfflineBanner and the online handler refreshes the session when the
-  // network returns. The `!user && isOffline` gate above only fires when
-  // no cached user was hydrated, so no extra branch is required here.
-  const path = location.pathname;
+  // network returns.
   let activeTab: TabId = 'home';
   if (path.includes('explore')) activeTab = 'explore';
   else if (path.includes('notifications')) activeTab = 'notifications';
@@ -138,16 +232,61 @@ export const AppLayout: React.FC = () => {
   ) {
     activeTab = 'account';
   }
+
   const handleTabChange = (tab: TabId) => {
     navigate(`/${tab}`);
   };
+  const handleRouteSwipe = (direction: PrimarySwipeDirection) => {
+    const destination = resolvePrimarySwipeDestination(path, direction);
+    if (!destination) return;
+
+    const parent = resolveRouteParent(path);
+    if (direction === 'right' && parent) {
+      if (hasExpectedRouteParent(location.key, location.state, parent)) {
+        navigate(-1);
+      } else {
+        navigate(parent, { replace: true });
+      }
+      return;
+    }
+
+    const destinationParent = resolveRouteParent(destination);
+    navigate(
+      destination,
+      destinationParent === path
+        ? { state: makeRouteParentState(path) }
+        : undefined
+    );
+  };
+  const includeConversations =
+    path.includes('/messages') || conversationNeighborReadyFor === path;
+
   return (
-    <FriendsProvider>
-      <ConversationsProvider>
-        <MainLayout activeTab={activeTab} onTabChange={handleTabChange}>
-          <Outlet />
-        </MainLayout>
-      </ConversationsProvider>
-    </FriendsProvider>
+    <AppearanceProvider>
+      <FriendsProvider>
+        <ConversationsProvider includeConversations={includeConversations}>
+          <MainLayout
+            activeTab={activeTab}
+            routeKey={path}
+            onTabChange={handleTabChange}
+            canSwipeLeft={Boolean(leftSwipeDestination)}
+            canSwipeRight={Boolean(rightSwipeDestination)}
+            leftPreview={
+              leftSwipeDestination ? (
+                <PrimaryRoutePreview pathname={leftSwipeDestination} />
+              ) : null
+            }
+            rightPreview={
+              rightSwipeDestination ? (
+                <PrimaryRoutePreview pathname={rightSwipeDestination} />
+              ) : null
+            }
+            onRouteSwipe={handleRouteSwipe}
+          >
+            <Outlet />
+          </MainLayout>
+        </ConversationsProvider>
+      </FriendsProvider>
+    </AppearanceProvider>
   );
 };

@@ -31,9 +31,6 @@ interface FriendCalendarViewProps {
   onReactToTask?: (task: TaskDocument, emoji: string) => void;
 }
 
-const formatDateStr = (date: Date): string =>
-  `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-
 export const FriendCalendarView: React.FC<FriendCalendarViewProps> = ({
   friendName,
   friendUserId,
@@ -115,6 +112,10 @@ export const FriendCalendarView: React.FC<FriendCalendarViewProps> = ({
     setDaySheetOpen(false);
   }, []);
 
+  const handleDaySheetDateChange = useCallback((nextDate: Date) => {
+    setSelectedDate(nextDate);
+  }, []);
+
   const handleToggleMode = useCallback(() => {
     setViewMode((m) => (m === 'month' ? 'week' : 'month'));
   }, []);
@@ -168,7 +169,8 @@ export const FriendCalendarView: React.FC<FriendCalendarViewProps> = ({
         isOpen={daySheetOpen}
         onClose={handleCloseDaySheet}
         date={selectedDate}
-        tasks={tasksByDate.get(formatDateStr(selectedDate)) ?? []}
+        onDateChange={handleDaySheetDateChange}
+        tasks={tasks}
         categories={categories}
         friendName={friendName}
         currentUserId={currentUserId}
@@ -185,7 +187,7 @@ export const FriendCalendarView: React.FC<FriendCalendarViewProps> = ({
         onSent={handleReplySent}
       />
       {feedback && (
-        <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[70] bg-[#2A2A2A] text-white text-sm px-4 py-2 rounded-lg shadow-lg">
+        <div role="status" aria-live="polite" className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[70] bg-[#2A2A2A] text-white text-sm px-4 py-2 rounded-lg shadow-lg">
           {feedback}
         </div>
       )}

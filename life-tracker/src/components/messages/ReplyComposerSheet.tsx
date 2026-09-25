@@ -72,7 +72,7 @@ export const ReplyComposerSheet: React.FC<ReplyComposerSheetProps> = ({
             <p className="text-sm font-medium text-white break-words">
               {task.title}
             </p>
-            <p className="text-xs text-gray-500 mt-0.5">
+            <p className="text-xs text-gray-400 mt-0.5">
               {format(new Date(`${task.date}T00:00:00`), 'EEEE, MMM d')}
             </p>
           </div>
@@ -82,7 +82,7 @@ export const ReplyComposerSheet: React.FC<ReplyComposerSheetProps> = ({
           value={content}
           onChange={(e) => setContent(e.target.value)}
           placeholder="Write your reply…"
-          className="w-full bg-[#1A1A1A] rounded-xl p-4 text-sm text-white placeholder-gray-500 focus:outline-none min-h-[120px] resize-none border border-[#2A2A2A] focus:border-[#555555] transition-colors"
+          className="w-full bg-[#1A1A1A] rounded-xl p-4 text-sm text-white placeholder-gray-400 focus:outline-none min-h-[120px] resize-none border border-[#2A2A2A] focus:border-[#555555] transition-colors"
           onPointerDown={(e) => e.stopPropagation()}
         />
 

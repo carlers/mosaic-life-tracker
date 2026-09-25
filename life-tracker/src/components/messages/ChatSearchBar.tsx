@@ -31,7 +31,7 @@ export const ChatSearchBar: React.FC<ChatSearchBarProps> = ({
       <div className="flex items-center gap-2">
         <div className="flex-1 relative">
           <div
-            className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none"
+            className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"
             aria-hidden="true"
           >
             <Search size={16} />
@@ -47,13 +47,13 @@ export const ChatSearchBar: React.FC<ChatSearchBarProps> = ({
             spellCheck={false}
             aria-label="Search messages"
             aria-describedby={showCounter ? counterId : undefined}
-            className="w-full bg-[#1E1E1E] text-white text-sm border border-[#333333] rounded-lg pl-9 pr-3 py-2 focus:border-[#555555] focus-visible:ring-2 focus-visible:ring-emerald-500/60 focus:outline-none transition-colors placeholder-gray-600"
+            className="w-full bg-[#1E1E1E] text-white text-sm border border-[#333333] rounded-lg pl-9 pr-3 py-2 focus:border-[#555555] focus-visible:ring-2 focus-visible:ring-emerald-500/60 focus:outline-none transition-colors placeholder-gray-400"
           />
         </div>
         {showCounter && (
           <span
             id={counterId}
-            className="text-xs text-gray-500 flex-shrink-0 tabular-nums"
+            className="text-xs text-gray-400 flex-shrink-0 tabular-nums"
             aria-live="polite"
           >
             {matchCount}/{totalCount}
@@ -63,7 +63,7 @@ export const ChatSearchBar: React.FC<ChatSearchBarProps> = ({
           type="button"
           onClick={onClose}
           onPointerDown={(e) => e.stopPropagation()}
-          className="flex-shrink-0 p-1.5 text-gray-500 hover:text-white transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 rounded"
+          className="flex-shrink-0 p-1.5 text-gray-400 hover:text-white transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 rounded"
           aria-label="Close search"
         >
           <X size={16} aria-hidden="true" />

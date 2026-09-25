@@ -37,12 +37,46 @@ export interface TestDatabaseCollections {
   messages: RxCollection<MessageDocument>;
 }
 let pluginsRegistered = false;
+export type TestDbProfile = 'all' | 'messages' | 'friendships';
+
+const collectionDefinitions = {
+  tasks: {
+    schema: tasksSchema,
+    migrationStrategies: tasksMigrationStrategies,
+  },
+  categories: {
+    schema: categoriesSchema,
+    migrationStrategies: categoriesMigrationStrategies,
+  },
+  diary: { schema: diarySchema },
+  settings: {
+    schema: settingsSchema,
+    migrationStrategies: settingsMigrationStrategies,
+  },
+  friendships: {
+    schema: friendshipsSchema,
+    migrationStrategies: friendshipsMigrationStrategies,
+  },
+  messages: {
+    schema: messagesSchema,
+    migrationStrategies: messagesMigrationStrategies,
+  },
+};
+
+const profileCollections: Record<TestDbProfile, Array<keyof TestDatabaseCollections>> = {
+  all: ['tasks', 'categories', 'diary', 'settings', 'friendships', 'messages'],
+  messages: ['messages'],
+  friendships: ['friendships'],
+};
+
 function registerRxdbPluginsOnce(): void {
   if (pluginsRegistered) return;
   addRxPlugin(RxDBMigrationSchemaPlugin);
   pluginsRegistered = true;
 }
-export async function createTestDb(): Promise<RxDatabase<TestDatabaseCollections>> {
+export async function createTestDb(
+  profile: TestDbProfile = 'all'
+): Promise<RxDatabase<TestDatabaseCollections>> {
   registerRxdbPluginsOnce();
   const name = `test_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
   const db = await createRxDatabase<TestDatabaseCollections>({
@@ -52,29 +86,10 @@ export async function createTestDb(): Promise<RxDatabase<TestDatabaseCollections
     }),
     multiInstance: false,
   });
-  await db.addCollections({
-    tasks: {
-      schema: tasksSchema,
-      migrationStrategies: tasksMigrationStrategies,
-    },
-    categories: {
-      schema: categoriesSchema,
-      migrationStrategies: categoriesMigrationStrategies,
-    },
-    diary: { schema: diarySchema },
-    settings: {
-      schema: settingsSchema,
-      migrationStrategies: settingsMigrationStrategies,
-    },
-    friendships: {
-      schema: friendshipsSchema,
-      migrationStrategies: friendshipsMigrationStrategies,
-    },
-    messages: {
-      schema: messagesSchema,
-      migrationStrategies: messagesMigrationStrategies,
-    },
-  });
+  const selectedCollections = Object.fromEntries(
+    profileCollections[profile].map((name) => [name, collectionDefinitions[name]])
+  );
+  await db.addCollections(selectedCollections);
   return db;
 }
 export async function destroyTestDb(

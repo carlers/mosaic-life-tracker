@@ -97,6 +97,10 @@ function warnUnknownFields(row: AppwriteRow, collection: string): void {
 export function __resetDriftWarningsForTests(): void {
   warnedDriftFields.clear();
 }
+export function toAppwriteDeletePatch(updatedAt: string): AppwritePayload {
+  return { deleted: true, updated_at: updatedAt };
+}
+
 export function toAppwriteFormat(
   doc: Record<string, unknown>,
   collection: string,

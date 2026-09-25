@@ -22,7 +22,7 @@ export const AccountSettingsSheet: React.FC<AccountSettingsSheetProps> = ({
     <BottomSheet isOpen={isOpen} onClose={onClose} title="Account Settings" height="auto">
       <div className="pt-2 pb-8 px-1 space-y-3">
         <div className="bg-[#111111] rounded-xl p-4 mb-4 border border-[#333333] text-center">
-          <p className="text-xs text-gray-500 mb-1">Current Email</p>
+          <p className="text-xs text-gray-400 mb-1">Current Email</p>
           <p className="text-sm text-white font-medium break-all">{currentEmail}</p>
         </div>
 

@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ChevronLeft, MessageSquare, Search } from 'lucide-react';
-import { Avatar } from '../components/ui/Avatar';
+import { DeferredAvatar } from '../components/ui/DeferredAvatar';
 import { BottomSheet } from '../components/ui/BottomSheet';
 import {
   MessageBubble,
@@ -238,8 +238,9 @@ export const ChatPage: React.FC = () => {
         >
           <ChevronLeft size={24} />
         </button>
-        <Avatar
-          src={friend?.friendAvatarFileId}
+        <DeferredAvatar
+          fileId={friend?.friendAvatarFileId || undefined}
+          eager
           alt={friend?.friendDisplayName}
           size="sm"
         />
@@ -267,14 +268,15 @@ export const ChatPage: React.FC = () => {
       )}
       <div
         ref={scrollRef}
-        className="flex-1 overflow-y-auto px-4 py-4 space-y-1"
+        className="flex-1 min-w-0 overflow-y-auto overflow-x-hidden px-4 py-4 space-y-1"
       >
         {isLoading ? (
-          <div className="flex items-center justify-center h-full">
+          <div className="flex items-center justify-center h-full" role="status" aria-live="polite">
             <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin" />
+            <span className="sr-only">Loading messages</span>
           </div>
         ) : renderItems.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full text-gray-500">
+          <div className="flex flex-col items-center justify-center h-full text-gray-400">
             <MessageSquare size={48} />
             <p className="mt-2 text-sm">
               {isSearching ? 'No matches' : 'No messages yet'}
@@ -285,7 +287,7 @@ export const ChatPage: React.FC = () => {
             item.kind === 'divider' ? (
               <div
                 key={item.key}
-                className="text-center text-xs text-gray-500 py-2"
+                className="text-center text-xs text-gray-400 py-2"
               >
                 {item.label}
               </div>
@@ -381,7 +383,7 @@ export const ChatPage: React.FC = () => {
             </button>
             <button
               onClick={handleUnsend}
-              className="flex-1 py-3 rounded-lg bg-red-500 text-white"
+              className="flex-1 py-3 rounded-lg bg-red-600 text-white"
             >
               Unsend
             </button>
@@ -389,7 +391,7 @@ export const ChatPage: React.FC = () => {
         </div>
       </BottomSheet>
       {feedback && (
-        <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[70] bg-[#2A2A2A] text-white text-sm px-4 py-2 rounded-lg shadow-lg">
+        <div role="status" aria-live="polite" className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[70] bg-[#2A2A2A] text-white text-sm px-4 py-2 rounded-lg shadow-lg">
           {feedback}
         </div>
       )}

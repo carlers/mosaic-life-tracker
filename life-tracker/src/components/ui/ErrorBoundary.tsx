@@ -1,5 +1,7 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react';
 import { AlertTriangle } from 'lucide-react';
+import { isChunkLoadError } from '../../lib/chunkLoadErrors';
+import { captureHandledException } from '../../lib/posthog';
 
 interface ErrorBoundaryProps {
   children: ReactNode;
@@ -20,6 +22,8 @@ interface ErrorBoundaryProps {
    * `root`.
    */
   label?: string;
+  /** Offer an explicit full reload when Vite reports a failed lazy import. */
+  reloadOnChunkError?: boolean;
 }
 
 interface ErrorBoundaryState {
@@ -53,6 +57,10 @@ export class ErrorBoundary extends Component<
       error,
       info.componentStack
     );
+    captureHandledException(error, {
+      boundary: label,
+      componentStack: info.componentStack ?? '',
+    });
   }
 
   componentDidUpdate(prevProps: ErrorBoundaryProps): void {
@@ -65,12 +73,22 @@ export class ErrorBoundary extends Component<
   }
 
   handleReset = (): void => {
+    if (
+      this.props.reloadOnChunkError &&
+      this.state.error &&
+      isChunkLoadError(this.state.error)
+    ) {
+      window.location.reload();
+      return;
+    }
     this.setState({ error: null });
   };
 
   render(): ReactNode {
     if (this.state.error === null) return this.props.children;
     const { onBack } = this.props;
+    const needsReload =
+      this.props.reloadOnChunkError && isChunkLoadError(this.state.error);
     return (
       <div className="min-h-screen bg-[#111111] flex items-center justify-center px-6">
         <div className="text-center max-w-sm w-full">
@@ -80,15 +98,17 @@ export class ErrorBoundary extends Component<
           <h2 className="text-lg font-bold text-white mb-2">
             Something went wrong
           </h2>
-          <p className="text-sm text-gray-500 mb-6 leading-relaxed">
-            This screen hit an unexpected error. Your data is safe.
+          <p className="text-sm text-gray-400 mb-6 leading-relaxed">
+            {needsReload
+              ? 'This screen could not finish loading. Reloading may discard unfinished form input.'
+              : 'This screen hit an unexpected error. Your data is safe.'}
           </p>
           <div className="flex flex-col gap-3">
             <button
               onClick={this.handleReset}
-              className="bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-medium px-5 py-2.5 rounded-xl transition-colors"
+              className="bg-emerald-500 hover:bg-emerald-600 text-black text-sm font-medium px-5 py-2.5 rounded-xl transition-colors"
             >
-              Try again
+              {needsReload ? 'Reload app' : 'Try again'}
             </button>
             {onBack && (
               <button

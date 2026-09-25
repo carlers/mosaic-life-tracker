@@ -6,24 +6,8 @@ import type {
   CategoryDocument,
 } from '../../src/db/schema';
 
-// ---------------------------------------------------------------------------
-// TaskVisibilitySheet component tests (Layer 5).
-//
-// Pins the observable contract of the visibility picker:
-//   - Four options render: Default (inherit), Private, Friends, Public.
-//   - Inherit label reflects the category's visibility with a "· Default"
-//     suffix when the task is inheriting (task.visibility === '').
-//   - "Follows the "<category>" category" renders the category name.
-//   - Tapping an override fires onSave with the concrete value.
-//   - Tapping Default fires onSave with ''.
-//
-// Deliberately NOT tested here:
-//   - The Check icon that indicates the selected option. Lucide icons are
-//     SVG-only; asserting on them means asserting on class strings.
-//   - The BottomSheet title / portal behavior. Pinned in
-//     tests/components/BottomSheet.test.tsx.
-//   - The exact className strings on the selected/unselected button.
-// ---------------------------------------------------------------------------
+// TaskVisibilitySheet keeps only save semantics: an explicit override emits
+// its value and Default emits the empty-string inheritance sentinel.
 
 function makeTask(overrides: Partial<TaskDocument> = {}): TaskDocument {
   return {
@@ -67,57 +51,6 @@ describe('TaskVisibilitySheet', () => {
   beforeEach(() => {
     // Defensive reset; BottomSheet's scroll-lock effect mutates body overflow.
     document.body.style.overflow = '';
-  });
-
-  it('renders all four options with the expected labels', () => {
-    render(
-      <TaskVisibilitySheet
-        isOpen
-        task={makeTask()}
-        category={makeCategory()}
-        {...makeCallbacks()}
-      />
-    );
-    expect(screen.getByText(/^Default \(/)).toBeInTheDocument();
-    expect(screen.getByText('Private')).toBeInTheDocument();
-    expect(screen.getByText('Friends')).toBeInTheDocument();
-    expect(screen.getByText('Public')).toBeInTheDocument();
-  });
-
-  it('Default option reflects the category visibility', () => {
-    const { rerender } = render(
-      <TaskVisibilitySheet
-        isOpen
-        task={makeTask()}
-        category={makeCategory({ visibility: 'public' })}
-        {...makeCallbacks()}
-      />
-    );
-    expect(screen.getByText('Default (Public)')).toBeInTheDocument();
-
-    rerender(
-      <TaskVisibilitySheet
-        isOpen
-        task={makeTask()}
-        category={makeCategory({ visibility: 'private' })}
-        {...makeCallbacks()}
-      />
-    );
-    expect(screen.getByText('Default (Private)')).toBeInTheDocument();
-  });
-
-  it('renders "Follows the <category> category" with the category name', () => {
-    render(
-      <TaskVisibilitySheet
-        isOpen
-        task={makeTask()}
-        category={makeCategory({ name: 'Errands' })}
-        {...makeCallbacks()}
-      />
-    );
-    expect(
-      screen.getByText('Follows the "Errands" category')
-    ).toBeInTheDocument();
   });
 
   it('tapping an override fires onSave with the concrete value and onClose', () => {

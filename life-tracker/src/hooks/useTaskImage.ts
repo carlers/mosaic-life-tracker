@@ -49,14 +49,19 @@ function acquireObjectUrl(fileId: string): {
   }
   e.refCount++;
   if (!e.promise) {
-    e.promise = getLocalImageUrl(fileId).then((url) => {
-      if (objectUrlCache.get(fileId) !== e) {
-        if (url) URL.revokeObjectURL(url);
+    e.promise = getLocalImageUrl(fileId)
+      .catch((error) => {
+        console.error('[useTaskImage] Failed to acquire image:', error);
         return null;
-      }
-      e.url = url;
-      return url;
-    });
+      })
+      .then((url) => {
+        if (objectUrlCache.get(fileId) !== e) {
+          if (url) URL.revokeObjectURL(url);
+          return null;
+        }
+        e.url = url;
+        return url;
+      });
   }
   const release = () => {
     e.refCount--;
@@ -84,21 +89,23 @@ export function resetTaskImageCacheForTests(): void {
   objectUrlCache.clear();
 }
 
-export function useTaskImage(fileId: string | undefined) {
+export function useTaskImage(fileId: string | undefined, enabled = true) {
   const [trackedFileId, setTrackedFileId] = useState<string | undefined>(fileId);
+  const [trackedEnabled, setTrackedEnabled] = useState(enabled);
   const [state, setState] = useState<ImageState>(() => {
     const cached = readCachedUrl(fileId);
-    return { url: cached, isLoading: !cached && !!fileId };
+    return { url: cached, isLoading: enabled && !cached && !!fileId };
   });
 
-  if (fileId !== trackedFileId) {
+  if (fileId !== trackedFileId || enabled !== trackedEnabled) {
     setTrackedFileId(fileId);
+    setTrackedEnabled(enabled);
     const cached = readCachedUrl(fileId);
-    setState({ url: cached, isLoading: !cached && !!fileId });
+    setState({ url: cached, isLoading: enabled && !cached && !!fileId });
   }
 
   useEffect(() => {
-    if (!fileId) return;
+    if (!fileId || !enabled) return;
     let isMounted = true;
     const { promise, release } = acquireObjectUrl(fileId);
     promise.then((url) => {
@@ -112,7 +119,7 @@ export function useTaskImage(fileId: string | undefined) {
       isMounted = false;
       release();
     };
-  }, [fileId]);
+  }, [fileId, enabled]);
 
   return { imageUrl: state.url, isLoading: state.isLoading };
 }

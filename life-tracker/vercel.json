@@ -1,0 +1,39 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "git": {
+    "deploymentEnabled": {
+      "*": false,
+      "main": true,
+      "dev": true,
+      "feature/*": true,
+      "chatgpt/*": false,
+      "codex/*": false
+    }
+  },
+  "framework": "vite",
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist",
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        { "key": "X-Content-Type-Options", "value": "nosniff" },
+        { "key": "X-Frame-Options", "value": "DENY" },
+        { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" },
+        { "key": "Permissions-Policy", "value": "camera=(), microphone=(), geolocation=()" }
+      ]
+    }
+  ],
+  "rewrites": [
+    { "source": "/login", "destination": "/index.html" },
+    { "source": "/home", "destination": "/index.html" },
+    { "source": "/explore", "destination": "/index.html" },
+    { "source": "/friends/:path*", "destination": "/index.html" },
+    { "source": "/notifications", "destination": "/index.html" },
+    { "source": "/messages", "destination": "/index.html" },
+    { "source": "/messages/:path*", "destination": "/index.html" },
+    { "source": "/account", "destination": "/index.html" },
+    { "source": "/settings", "destination": "/index.html" },
+    { "source": "/profile", "destination": "/index.html" }
+  ]
+}

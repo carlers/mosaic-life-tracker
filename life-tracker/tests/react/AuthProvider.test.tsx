@@ -8,6 +8,8 @@ import type { Models } from 'appwrite';
 // network error, and must clear that cache only on explicit logout or a
 // confirmed 401 — never on a network error.
 
+const initializeSyncMock = vi.hoisted(() => vi.fn());
+
 const accountRef = vi.hoisted(() => ({
   get: vi.fn(),
   deleteSession: vi.fn(),
@@ -20,6 +22,10 @@ const accountRef = vi.hoisted(() => ({
 vi.mock('../../src/lib/appwrite', () => ({
   account: accountRef,
   client: {},
+}));
+
+vi.mock('../../src/db/sync', () => ({
+  initializeSync: initializeSyncMock,
 }));
 
 import { AuthProvider } from '../../src/hooks/AuthProvider';
@@ -67,10 +73,35 @@ describe('AuthProvider — OFF-1 offline auth gate', () => {
     accountRef.create.mockReset();
     accountRef.updateEmail.mockReset();
     accountRef.updatePassword.mockReset();
+    initializeSyncMock.mockReset();
+    initializeSyncMock.mockResolvedValue(undefined);
   });
 
   afterEach(() => {
     localStorage.clear();
+  });
+
+  // Regression: AUTH-SYNC-1 — a fresh origin has no RxDB cache, so a
+  // successful login must trigger sync immediately after auth resolves.
+  it('starts sync after login establishes an authenticated session', async () => {
+    accountRef.get.mockRejectedValueOnce(makeUnauthorizedError());
+    accountRef.deleteSession.mockResolvedValueOnce(undefined);
+    accountRef.createEmailPasswordSession.mockResolvedValueOnce(undefined);
+
+    const { result } = renderHook(() => useAuth(), { wrapper });
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(result.current.user).toBeNull();
+    expect(initializeSyncMock).not.toHaveBeenCalled();
+
+    const fresh = makeUser({ $id: 'user_fresh' });
+    accountRef.get.mockResolvedValueOnce(fresh);
+
+    await act(async () => {
+      await result.current.login('user@example.com', 'password123');
+    });
+
+    await waitFor(() => expect(result.current.user?.$id).toBe('user_fresh'));
+    await waitFor(() => expect(initializeSyncMock).toHaveBeenCalledTimes(1));
   });
 
   it('hydrates user from the last-known-user cache on mount-time network error', async () => {

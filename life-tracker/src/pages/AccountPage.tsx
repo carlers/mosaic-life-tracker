@@ -6,11 +6,14 @@ import { Button } from '../components/ui/Button';
 import { useAuth } from '../hooks/useAuth';
 import { useTasks } from '../hooks/useTasks';
 import { useCategories } from '../hooks/useCategories';
+import { useFriends } from '../hooks/useFriends';
+import { makeRouteParentState } from '../lib/primarySwipeNavigation';
 
 export const AccountPage: React.FC = () => {
   const { user, logout } = useAuth();
   const { tasks } = useTasks();
   const { categories } = useCategories();
+  const { friends } = useFriends();
   const navigate = useNavigate();
   const [feedback, setFeedback] = useState<string | null>(null);
 
@@ -31,12 +34,12 @@ export const AccountPage: React.FC = () => {
   const backlogCount = tasks.filter((t) => !t.completed).length;
 
   return (
-    <div className="flex flex-col h-full animate-in fade-in duration-300">
+    <div className="flex min-h-full flex-col">
       <div className="sticky top-0 z-20 bg-[#111111] px-4 py-3 border-b border-[#333333] flex items-center justify-between">
         <h1 className="text-lg font-bold text-white">Me</h1>
         <button
           type="button"
-          onClick={() => navigate('/settings')}
+          onClick={() => navigate('/settings', { state: makeRouteParentState('/account') })}
           onPointerDown={(e) => e.stopPropagation()}
           className="p-2 rounded-lg bg-[#1E1E1E] border border-[#333333] text-gray-400 hover:text-white hover:bg-[#2A2A2A] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
           aria-label="Settings"
@@ -44,14 +47,14 @@ export const AccountPage: React.FC = () => {
           <Settings size={20} aria-hidden="true" />
         </button>
       </div>
-      <div className="flex-1 overflow-y-auto pb-24 px-4 pt-6 space-y-6">
+      <div className="flex-1 px-4 pt-6 pb-4 space-y-6" data-testid="account-scroll">
         <div className="flex flex-col items-center text-center space-y-3">
           <Avatar size="lg" alt={user?.name || user?.email || 'User'} />
           <div>
             <h2 className="text-xl font-bold text-white">
               {user?.name || 'User'}
             </h2>
-            <p className="text-sm text-gray-500">{user?.email}</p>
+            <p className="text-sm text-gray-400">{user?.email}</p>
           </div>
           <div className="flex items-center gap-6 text-sm text-gray-400">
             <div className="flex flex-col items-center">
@@ -59,8 +62,8 @@ export const AccountPage: React.FC = () => {
               <span>Following</span>
             </div>
             <div className="flex flex-col items-center">
-              <span className="font-bold text-white">0</span>
-              <span>Followers</span>
+              <span className="font-bold text-white">{friends.length}</span>
+              <span>Friends</span>
             </div>
           </div>
         </div>
@@ -79,7 +82,7 @@ export const AccountPage: React.FC = () => {
             <h3 className="text-base font-bold text-white">Backlog</h3>
             <p className="text-sm text-gray-400">{backlogCount} tasks</p>
           </div>
-          <ListTodo size={24} className="text-gray-500" aria-hidden="true" />
+          <ListTodo size={24} className="text-gray-400" aria-hidden="true" />
         </div>
         <div className="bg-[#1E1E1E] border border-[#333333] rounded-xl p-4 flex items-center justify-between">
           <div>
@@ -91,22 +94,16 @@ export const AccountPage: React.FC = () => {
             aria-hidden="true"
           />
         </div>
-        <div className="text-center py-4">
-          <p className="text-sm text-gray-500 italic">
-            "Tact is the ability to describe others as they see themselves."
-          </p>
-          <p className="text-xs text-gray-600 mt-1">Eleanor Chaffee</p>
-        </div>
-      </div>
-      <div className="px-4 pb-8">
-        <Button
+        <div className="pb-4">
+          <Button
           variant="danger"
           className="w-full gap-2 py-3"
           onClick={handleLogout}
         >
           <LogOut size={18} aria-hidden="true" />
           Logout
-        </Button>
+          </Button>
+        </div>
       </div>
       {feedback && (
         <div
