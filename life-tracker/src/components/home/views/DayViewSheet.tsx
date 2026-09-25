@@ -133,6 +133,17 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
       !!imagePickerTaskId,
   });
 
+  const [deferredRenderWindow, setDeferredRenderWindow] = useState(0);
+
+  const handleSheetAnimationComplete = useCallback(() => {
+    if (isOpen) setDeferredRenderWindow(renderWindow);
+  }, [isOpen, renderWindow]);
+
+  const handleSheetClose = useCallback(() => {
+    setDeferredRenderWindow(0);
+    onClose();
+  }, [onClose]);
+
   useEffect(() => {
     if (!isOpen || renderMode !== 'sheet' || !focusTaskId) return;
 
@@ -629,7 +640,7 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
   return (
     <BottomSheet
       isOpen={isOpen}
-      onClose={onClose}
+      onClose={handleSheetClose}
       ariaLabel={format(selectedDate, 'EEEE, MMMM d, yyyy')}
       height="full"
       isLocked={isBackgroundLocked}
