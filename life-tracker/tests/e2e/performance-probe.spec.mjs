@@ -28,10 +28,10 @@ async function measureInteraction(page, name, action) {
     };
 
     const recordLayoutRead = (kind) => {
-      const perf = window.__mosaicPerf;
-      perf.layoutReads[kind] = (perf.layoutReads[kind] ?? 0) + 1;
-      if (perf.layoutReadStacks.length < 40) {
-        perf.layoutReadStacks.push({
+      const metrics = window.__mosaicPerf;
+      metrics.layoutReads[kind] = (metrics.layoutReads[kind] ?? 0) + 1;
+      if (metrics.layoutReadStacks.length < 40) {
+        metrics.layoutReadStacks.push({
           kind,
           stack: new Error().stack?.split('\n').slice(2, 8).join('\n') ?? '',
         });
@@ -95,7 +95,7 @@ async function measureInteraction(page, name, action) {
       try {
         const observer = new PerformanceObserver((list) => {
           for (const entry of list.getEntries()) {
-            perf.longTasks.push({
+            window.__mosaicPerf.longTasks.push({
               duration: entry.duration,
               startTime: entry.startTime,
               name: entry.name,
@@ -105,7 +105,7 @@ async function measureInteraction(page, name, action) {
           }
         });
         observer.observe({ type: 'longtask', buffered: false });
-        perf.observer = observer;
+        window.__mosaicPerf.observer = observer;
       } catch {
         // Optional diagnostic.
       }
@@ -113,7 +113,7 @@ async function measureInteraction(page, name, action) {
       try {
         const observer = new PerformanceObserver((list) => {
           for (const entry of list.getEntries()) {
-            perf.longAnimationFrames.push({
+            window.__mosaicPerf.longAnimationFrames.push({
               duration: entry.duration,
               startTime: entry.startTime,
               renderStart: entry.renderStart ?? null,
@@ -133,17 +133,17 @@ async function measureInteraction(page, name, action) {
           }
         });
         observer.observe({ type: 'long-animation-frame', buffered: false });
-        perf.longAnimationFrameObserver = observer;
+        window.__mosaicPerf.longAnimationFrameObserver = observer;
       } catch {
         // Optional diagnostic.
       }
     }
 
     try {
-      perf.mutationObserver = new MutationObserver((records) => {
+      window.__mosaicPerf.mutationObserver = new MutationObserver((records) => {
         perf.mutations += records.length;
       });
-      perf.mutationObserver.observe(document.body, {
+      window.__mosaicPerf.mutationObserver.observe(document.body, {
         subtree: true,
         childList: true,
         attributes: true,
@@ -153,10 +153,10 @@ async function measureInteraction(page, name, action) {
     }
 
     const start = performance.now();
-    perf.actionStartedAt = start;
+    window.__mosaicPerf.actionStartedAt = start;
     const sample = (now) => {
       if (now - start < 700) {
-        perf.frames.push(now);
+        window.__mosaicPerf.frames.push(now);
         requestAnimationFrame(sample);
       }
     };
