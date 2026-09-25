@@ -93,10 +93,16 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
     />
   );
 
+  const calendarContent = (content: React.ReactNode) => (
+    <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+      {content}
+    </div>
+  );
+
   if (variant === 'friend' && friendName && friendUserId) {
     return (
       <>
-        {carousel}
+        {calendarContent(carousel)}
         <FriendDayViewSheet
           isOpen={daySheetOpen}
           onClose={handleCloseDaySheet}
@@ -129,7 +135,7 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
 
   return (
     <>
-      {carousel}
+      {calendarContent(carousel)}
       <DayViewSheet
         isOpen={daySheetOpen}
         onClose={handleCloseDaySheet}
