@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { startTransition, useCallback, useState } from 'react';
 import { DayViewSheet } from './DayViewSheet';
 import { FriendDayViewSheet } from '../../friend/FriendDayViewSheet';
 import { ReplyComposerSheet } from '../../messages/ReplyComposerSheet';
@@ -62,8 +62,10 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
   } = useFriendTaskReply(tasks);
 
   const handleDayClick = useCallback((date: Date) => {
-    setSelectedDate(date);
-    setDaySheetOpen(true);
+    startTransition(() => {
+      setSelectedDate(date);
+      setDaySheetOpen(true);
+    });
   }, []);
 
   const handleCloseDaySheet = useCallback(() => {
