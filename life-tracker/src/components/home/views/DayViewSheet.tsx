@@ -134,17 +134,12 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
   });
 
   const [deferredRenderWindow, setDeferredRenderWindow] = useState(0);
-  const [deferredContentReady, setDeferredContentReady] = useState(false);
 
   const handleSheetAnimationComplete = useCallback(() => {
-    if (isOpen) {
-      setDeferredContentReady(true);
-      setDeferredRenderWindow(renderWindow);
-    }
+    if (isOpen) setDeferredRenderWindow(renderWindow);
   }, [isOpen, renderWindow]);
 
   const handleSheetClose = useCallback(() => {
-    setDeferredContentReady(false);
     setDeferredRenderWindow(0);
     onClose();
   }, [onClose]);
@@ -469,7 +464,7 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
               <div
                 className={renderMode === 'inline' ? 'w-full min-w-0' : 'flex h-full min-h-0 w-full min-w-0 flex-col'}
               >
-                {inWindow && (deferredContentReady || renderMode !== 'sheet') && (
+                {inWindow && (
                   <>
                     <div
                       className="flex shrink-0 items-center justify-between gap-2 px-4 py-2"
