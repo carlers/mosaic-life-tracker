@@ -155,7 +155,7 @@ test('interaction performance probe', async ({ page }) => {
 
   results.push(
     await measureInteraction(page, 'bottom-sheet-open', async () => {
-      await page.getByTestId('open-full-sheet').click();
+      await page.getByTestId('open-day-view-sheet').click();
     })
   );
 
