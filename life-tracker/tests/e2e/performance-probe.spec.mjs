@@ -152,7 +152,25 @@ async function measureInteraction(page, name, action) {
       } catch {
         // Optional diagnostic.
       }
-\n      try {\n        const observer = new PerformanceObserver((list) => {\n          for (const entry of list.getEntries()) {\n            window.__mosaicPerf.eventTimings.push({\n              name: entry.name,\n              startTime: entry.startTime,\n              duration: entry.duration,\n              processingStart: entry.processingStart ?? null,\n              processingEnd: entry.processingEnd ?? null,\n              interactionId: entry.interactionId ?? null,\n            });\n          }\n        });\n        observer.observe({ type: 'event', durationThreshold: 16, buffered: false });\n        window.__mosaicPerf.eventTimingObserver = observer;\n      } catch {\n        // Optional diagnostic.\n      }\n    }
+      try {
+        const observer = new PerformanceObserver((list) => {
+          for (const entry of list.getEntries()) {
+            window.__mosaicPerf.eventTimings.push({
+              name: entry.name,
+              startTime: entry.startTime,
+              duration: entry.duration,
+              processingStart: entry.processingStart ?? null,
+              processingEnd: entry.processingEnd ?? null,
+              interactionId: entry.interactionId ?? null,
+            });
+          }
+        });
+        observer.observe({ type: 'event', durationThreshold: 16, buffered: false });
+        window.__mosaicPerf.eventTimingObserver = observer;
+      } catch {
+        // Optional diagnostic.
+      }
+    }
 
     try {
       window.__mosaicPerf.mutationObserver = new MutationObserver((records) => {
