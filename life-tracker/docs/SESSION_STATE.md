@@ -1,9 +1,9 @@
 # Session checkpoint
 
 Updated: 2026-09-25
-Current task: Make Home task search consume Android Back and isolate the underlying Home UI while search is open.
-Status: Search open now owns a same-route history entry so Android/browser Back closes the search before route navigation. The underlying Home content is inert and covered by a blurred dismissal backdrop; tapping the backdrop closes search.
-Next action: verify focused checks and exact-SHA Quality Gate acceptance, then deliver the fix to `dev`.
+Current task: Preserve Home search state while opening and closing a task bottom sheet from search results.
+Status: Selecting a search result opens the existing Day View bottom sheet without losing the search query/filter state. The sheet's own history layer now consumes Android/browser Back first; closing the sheet returns to the still-open search panel.
+Next action: perform the hosted Android/PWA interaction check for search → task sheet → Back/close → preserved search state.
 Blockers: Local runtime execution is unavailable in this environment; remote CI is the executable verification path.
 
 ## Constraints
@@ -22,6 +22,8 @@ Blockers: Local runtime execution is unavailable in this environment; remote CI 
 - Added a fixed blurred backdrop below the search header that closes search when tapped.
 - Marked the Home content below the search as inert while search is open, preventing focus and interaction from reaching it.
 - Added component and Home wiring regression coverage for backdrop dismissal, Android/browser Back behavior, and inert underlying content.
+- Preserved search state when the nested Day View sheet closes by ignoring the sheet's intermediate popstate while the sheet is open.
+- Added regression coverage that closes the selected-task sheet and confirms the search panel remains open.
 
 ## Working set
 
@@ -33,6 +35,7 @@ Blockers: Local runtime execution is unavailable in this environment; remote CI 
 
 ## Verification
 
-- Automated: pending remote Quality Gate for the final fix SHA.
-- Browser/device acceptance: Android Back and real touch tap on the blurred area remain required hosted-preview checks.
-- Canonical acceptance: pending for the final fix SHA.
+- Automated: PR #11 focused checks passed after fixing the regression-test mock; `dev` Quality Gate run 36090247767 passed all canonical jobs, including DOM, browser contracts, build, and `canonical-acceptance`.
+- Deployment: Vercel status for `dev` merge SHA `11a09aeee22dbdc273261baefa0859c4108da9ae` is success.
+- Browser/device acceptance: Android/PWA Back and real touch dismissal/return-to-search behavior remain required hosted-preview checks.
+- Canonical acceptance: passed for the current `dev` merge SHA.
