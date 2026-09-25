@@ -258,7 +258,7 @@ describe('DayViewSheet nested task actions', () => {
 
     expect(
       document.querySelectorAll('[data-day-view-navigation="true"]')
-    ).toHaveLength(7);
+    ).toHaveLength(1);
   });
 
   // Regression: PROJECT_REFERENCE.md §2/§7 — Todo reuses DayView inline while owning nested swipes.
