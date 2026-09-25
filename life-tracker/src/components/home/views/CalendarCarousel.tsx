@@ -36,7 +36,11 @@ const CalendarCarouselComponent: React.FC<CalendarCarouselProps> = ({
             return (
               <div
                 key={date.toISOString()}
-                className="h-full min-h-0 overflow-x-hidden overflow-y-scroll [scrollbar-gutter:stable]"
+                className={`h-full min-h-0 overflow-x-hidden ${
+                  inWindow
+                    ? 'overflow-y-scroll [scrollbar-gutter:stable]'
+                    : 'overflow-y-hidden'
+                }`}
                 style={{
                   flex: '0 0 100%',
                   minWidth: 0,

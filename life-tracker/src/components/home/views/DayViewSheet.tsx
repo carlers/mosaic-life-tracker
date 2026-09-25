@@ -453,57 +453,60 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
               <div
                 className={renderMode === 'inline' ? 'w-full min-w-0' : 'flex h-full min-h-0 w-full min-w-0 flex-col'}
               >
-                <div
-                  className="flex shrink-0 items-center justify-between gap-2 px-4 py-2"
-                  data-bottom-sheet-directional-drag-handle={
-                    renderMode === 'sheet' ? 'true' : undefined
-                  }
-                >
-                  <button
-                    type="button"
-                    onClick={handlePrevDay}
-                    tabIndex={i === activeIndex ? 0 : -1}
-                    className="p-2 text-gray-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
-                    aria-label="Previous day"
-                  >
-                    <ChevronLeft size={20} />
-                  </button>
-                  <h3
-                    className="min-w-0 flex-1 text-center text-base font-semibold text-white"
-                    aria-live={i === activeIndex ? 'polite' : undefined}
-                  >
-                    {format(date, 'EEEE, MMMM d, yyyy')}
-                  </h3>
-                  <button
-                    type="button"
-                    onClick={handleNextDay}
-                    tabIndex={i === activeIndex ? 0 : -1}
-                    className="p-2 text-gray-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
-                    aria-label="Next day"
-                  >
-                    <ChevronRight size={20} />
-                  </button>
-                </div>
                 {inWindow && (
-                  <DaySlide
-                    date={date}
-                    dateStr={dateStr}
-                    scrollMode={renderMode === 'inline' ? 'page' : 'contained'}
-                    tasks={dayTasks}
-                    categories={categories}
-                    currentUserId={currentUserId}
-                    editingTaskId={editingTaskId}
-                    editValue={editValue}
-                    onToggleTask={handleToggleTask}
-                    onAddTask={handleAddTask}
-                    onOpenActions={handleOpenActions}
-                    onOpenMemo={handleOpenMemo}
-                    onEditTask={handleEditTask}
-                    onViewImage={handleViewImage}
-                    onEditChange={handleEditChange}
-                    onEditSave={handleEditSave}
-                    onEditCancel={handleEditCancel}
-                  />
+                  <>
+                    <div
+                      className="flex shrink-0 items-center justify-between gap-2 px-4 py-2"
+                      data-day-view-navigation="true"
+                      data-bottom-sheet-directional-drag-handle={
+                        renderMode === 'sheet' ? 'true' : undefined
+                      }
+                    >
+                      <button
+                        type="button"
+                        onClick={handlePrevDay}
+                        tabIndex={i === activeIndex ? 0 : -1}
+                        className="p-2 text-gray-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
+                        aria-label="Previous day"
+                      >
+                        <ChevronLeft size={20} />
+                      </button>
+                      <h3
+                        className="min-w-0 flex-1 text-center text-base font-semibold text-white"
+                        aria-live={i === activeIndex ? 'polite' : undefined}
+                      >
+                        {format(date, 'EEEE, MMMM d, yyyy')}
+                      </h3>
+                      <button
+                        type="button"
+                        onClick={handleNextDay}
+                        tabIndex={i === activeIndex ? 0 : -1}
+                        className="p-2 text-gray-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
+                        aria-label="Next day"
+                      >
+                        <ChevronRight size={20} />
+                      </button>
+                    </div>
+                    <DaySlide
+                      date={date}
+                      dateStr={dateStr}
+                      scrollMode={renderMode === 'inline' ? 'page' : 'contained'}
+                      tasks={dayTasks}
+                      categories={categories}
+                      currentUserId={currentUserId}
+                      editingTaskId={editingTaskId}
+                      editValue={editValue}
+                      onToggleTask={handleToggleTask}
+                      onAddTask={handleAddTask}
+                      onOpenActions={handleOpenActions}
+                      onOpenMemo={handleOpenMemo}
+                      onEditTask={handleEditTask}
+                      onViewImage={handleViewImage}
+                      onEditChange={handleEditChange}
+                      onEditSave={handleEditSave}
+                      onEditCancel={handleEditCancel}
+                    />
+                  </>
                 )}
               </div>
             </SwiperSlide>

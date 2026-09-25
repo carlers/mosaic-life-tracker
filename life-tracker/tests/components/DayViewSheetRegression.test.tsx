@@ -251,6 +251,16 @@ describe('DayViewSheet nested task actions', () => {
     expect(screen.getByTestId('day-swiper')).toHaveClass('flex-1');
   });
 
+  // Regression: PROJECT_REFERENCE.md §16 — keep Swiper geometry while avoiding
+  // navigation/button trees for the 174 dates outside the seven-slide window.
+  it('mounts day navigation only inside the rendered swipe window', () => {
+    renderSheet();
+
+    expect(
+      document.querySelectorAll('[data-day-view-navigation="true"]')
+    ).toHaveLength(7);
+  });
+
   // Regression: PROJECT_REFERENCE.md §2/§7 — Todo reuses DayView inline while owning nested swipes.
   it('supports the same day workspace inline with nested swipe ownership and bounded width', () => {
     render(
