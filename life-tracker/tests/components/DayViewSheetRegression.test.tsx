@@ -4,6 +4,11 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/rea
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { CategoryDocument, TaskDocument } from '../../src/db/schema';
 
+const bottomSheetFixture = vi.hoisted(() => ({
+  onAnimationComplete: null as (() => void) | null,
+  onClose: null as (() => void) | null,
+}));
+
 const swiperFixture = vi.hoisted(() => ({
   slidePrev: vi.fn(),
   slideNext: vi.fn(),
@@ -38,6 +43,24 @@ const fixture = vi.hoisted(() => ({
     userId: 'user_1',
     isDeleted: false,
   } as CategoryDocument,
+}));
+
+vi.mock('../../src/components/ui/BottomSheet', () => ({
+  BottomSheet: ({
+    children,
+    isOpen,
+    onAnimationComplete,
+    onClose,
+  }: {
+    children: ReactNode;
+    isOpen: boolean;
+    onAnimationComplete?: () => void;
+    onClose: () => void;
+  }) => {
+    bottomSheetFixture.onAnimationComplete = onAnimationComplete ?? null;
+    bottomSheetFixture.onClose = onClose;
+    return isOpen ? <div>{children}</div> : null;
+  },
 }));
 
 vi.mock('swiper/react', () => ({
@@ -163,6 +186,8 @@ function renderSheet() {
 describe('DayViewSheet nested task actions', () => {
   beforeEach(() => {
     fixture.task.image = 'image_1';
+    bottomSheetFixture.onAnimationComplete = null;
+    bottomSheetFixture.onClose = null;
     swiperFixture.slidePrev.mockClear();
     swiperFixture.slideNext.mockClear();
     swiperFixture.slideTo.mockClear();
@@ -255,6 +280,13 @@ describe('DayViewSheet nested task actions', () => {
   // navigation/button trees for the 174 dates outside the seven-slide window.
   it('mounts day navigation only inside the rendered swipe window', () => {
     renderSheet();
+
+    expect(
+      document.querySelectorAll('[data-day-view-navigation="true"]')
+    ).toHaveLength(1);
+    expect(bottomSheetFixture.onAnimationComplete).toEqual(expect.any(Function));
+
+    bottomSheetFixture.onAnimationComplete?.();
 
     expect(
       document.querySelectorAll('[data-day-view-navigation="true"]')
