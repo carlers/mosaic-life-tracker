@@ -71,6 +71,24 @@ describe('MainLayout primary route swipes', () => {
     expect(onRouteSwipe).toHaveBeenCalledWith('left');
   });
 
+  it('keeps the non-Home swipe surface at least as tall as the full route viewport', () => {
+    render(
+      <MainLayout
+        activeTab="explore"
+        onTabChange={() => {}}
+        canSwipeLeft
+        canSwipeRight
+        onRouteSwipe={() => {}}
+      >
+        <div>Short Explore content</div>
+      </MainLayout>
+    );
+
+    expect(screen.getByTestId('primary-route-swipe-surface')).toHaveClass(
+      'min-h-[calc(100dvh-4rem-env(safe-area-inset-bottom))]'
+    );
+  });
+
   it('accepts a leftward full-page swipe on Me', () => {
     vi.useFakeTimers();
     const onRouteSwipe = vi.fn();
