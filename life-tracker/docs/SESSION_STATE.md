@@ -18,3 +18,14 @@ The representative DayView sheet probe was upgraded to mount the real DayViewShe
 The post-change CI Chromium probe recorded 2 getBoundingClientRect reads from Framer Motion instead of 52, with Swiper still accounting for 3 clientWidth, 3 clientHeight, and 1 offsetWidth read. The measured sheet-open sample was ~235ms long task / ~245ms Long Animation Frame, with calendar-month swipe, day swipe, and day-content scroll remaining at ~16.7ms/frame with no action-scoped long tasks. A follow-up experiment that also disabled BottomSheet drag during entrance regressed to ~286ms long task / ~294ms Long Animation Frame, so that experiment was reverted. Deferred whole-sheet child mounting was also rejected because it moved a large mount onto the end of the entrance animation and produced worse timing; it is not retained.
 
 Current production optimization on chatgpt/interaction-perf-trace: suppress TaskItem Framer Motion layout projection only during the sheet entrance. Diagnostic layout-read/LOAF instrumentation remains in the performance probe for this phase. Browser contract and focused checks passed on the successful measurement run. The change is merged into perf/animation-optimization. Exact-SHA canonical verification passed, and the stable Preview deployment is READY. Final exact-SHA verification is requested on the next task checkpoint commit. Real-device/manual smoothness acceptance remains separate.
+
+
+## Interaction INP deep-dive checkpoint — 2026-09-26
+
+Vercel Interaction Timing from the deployed stable build shows the DayView open/close interaction is still close to the 200ms INP boundary; the supplied trace reports a 190.2ms interaction and the slowest listed DayView interaction shows about 132.4ms of render work. Vercel's toolbar decomposes INP into input delay, processing, and rendering/presentation phases, so the next browser probe adds Event Timing entries to the existing Long Animation Frame/layout diagnostics.
+
+The current task branch also changes Settings build identity to expose the deployment branch and commit message alongside the short commit SHA. Performance-wise, TaskItem was audited for work that runs even when a task has no image or memo. Image loading/visibility hooks and memo gesture hooks are now isolated in child components so those hooks are only instantiated when the corresponding content exists. This is a targeted render-cost reduction; browser evidence is still required before treating it as an accepted optimization.
+
+Working branch: `chatgpt/dayview-inp-deep-dive`
+Stable integration branch: `perf/animation-optimization`
+Next action: inspect the browser probe's Event Timing and observer counts, then keep or revert the TaskItem split based on measured sheet-open INP/render cost. If the probe identifies a remaining presentation bottleneck, test only the corresponding layer. Real-device acceptance remains separate.
