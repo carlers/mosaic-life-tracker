@@ -498,7 +498,7 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
                         <ChevronRight size={20} />
                       </button>
                     </div>
-                    {deferredRenderWindow > 0 && (
+                    {(deferredRenderWindow > 0 || renderMode === 'inline') && (
                       <DaySlide
                       date={date}
                       dateStr={dateStr}
