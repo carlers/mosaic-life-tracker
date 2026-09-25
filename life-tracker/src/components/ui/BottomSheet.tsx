@@ -17,8 +17,6 @@ interface BottomSheetProps {
   contentMode?: 'scroll' | 'fixed';
   onHorizontalSwipe?: (direction: 'left' | 'right') => void;
   onAnimationComplete?: () => void;
-  deferChildrenUntilAnimationComplete?: boolean;
-  onChildrenReady?: () => void;
 }
 
 type SheetStackEntry = {
@@ -206,7 +204,6 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
   onHorizontalSwipe,
   onAnimationComplete,
   deferChildrenUntilAnimationComplete = false,
-  onChildrenReady,
 }) => {
   const appearance = useContext(AppearanceContext);
   const sheetWidthMode = appearance?.sheetWidthMode ?? 'full';
@@ -218,9 +215,6 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
   const dragControls = useDragControls();
   const sheetId = React.useId();
   const titleId = React.useId();
-  const [childrenReady, setChildrenReady] = React.useState(
-    !deferChildrenUntilAnimationComplete
-  );
 
   useLayoutEffect(() => {
     onCloseRef.current = onClose;
@@ -310,12 +304,7 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
             initial={{ y: '100%' }}
             animate={{ y: 0 }}
             exit={{ y: '100%' }}
-            onAnimationComplete={() => {
-              if (deferChildrenUntilAnimationComplete && !isOpen) {
-                setChildrenReady(false);
-              }
-              onAnimationComplete?.();
-            }}
+            onAnimationComplete={onAnimationComplete}
             onUpdate={(latest) => {
               if (
                 deferChildrenUntilAnimationComplete &&
