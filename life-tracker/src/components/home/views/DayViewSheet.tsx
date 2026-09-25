@@ -439,7 +439,7 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
           swiperRef.current = swiper;
         }}
         initialSlide={initialIndex}
-        virtual={{ addSlidesBefore: 3, addSlidesAfter: 3 }}
+        virtual={renderMode === 'sheet'}
         modules={[Virtual]}
         onSlideChange={handleSwipeSettled}
         data-testid="day-swiper"
