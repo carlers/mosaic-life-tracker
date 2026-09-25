@@ -134,12 +134,21 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
   });
 
   const [deferredRenderWindow, setDeferredRenderWindow] = useState(0);
+  const [deferredTaskContentReady, setDeferredTaskContentReady] = useState(false);
 
-  const handleSheetAnimationComplete = useCallback(() => {
-    if (isOpen) setDeferredRenderWindow(renderWindow);
-  }, [isOpen, renderWindow]);
+  const handleSheetAnimationUpdate = useCallback(
+    (latest: { y?: number | string }) => {
+      if (!isOpen || deferredTaskContentReady) return;
+      if (latest.y === 0 || latest.y === '0%') {
+        setDeferredTaskContentReady(true);
+        setDeferredRenderWindow(renderWindow);
+      }
+    },
+    [deferredTaskContentReady, isOpen, renderWindow]
+  );
 
   const handleSheetClose = useCallback(() => {
+    setDeferredTaskContentReady(false);
     setDeferredRenderWindow(0);
     onClose();
   }, [onClose]);
@@ -502,7 +511,7 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
                       date={date}
                       dateStr={dateStr}
                       scrollMode={renderMode === 'inline' ? 'page' : 'contained'}
-                      tasks={dayTasks}
+                      tasks={deferredTaskContentReady || renderMode !== 'sheet' ? dayTasks : EMPTY_TASKS}
                       categories={categories}
                       currentUserId={currentUserId}
                       editingTaskId={editingTaskId}
