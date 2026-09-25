@@ -79,7 +79,7 @@ async function measureInteraction(page, name, action) {
 
   await page.waitForTimeout(750);
 
-  return page.evaluate(({ name, startedAt, actionFinishedAt }) => {
+  return page.evaluate(({ name, startedAt, actionFinishedAt, reactProfile }) => {
     const perf = window.__mosaicPerf;
     perf.observer?.disconnect();
     perf.mutationObserver?.disconnect();
