@@ -29,3 +29,6 @@ The current task branch also changes Settings build identity to expose the deplo
 Working branch: `chatgpt/dayview-inp-deep-dive`
 Stable integration branch: `perf/animation-optimization`
 Next action: inspect the browser probe's Event Timing and observer counts, then keep or revert the TaskItem split based on measured sheet-open INP/render cost. If the probe identifies a remaining presentation bottleneck, test only the corresponding layer. Real-device acceptance remains separate.
+
+
+Browser verification request is now encoded in PR #34 title `[verify:browser]` so the pull-request Quality Gate executes the browser shards on the next head commit.
