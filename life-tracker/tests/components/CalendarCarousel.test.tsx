@@ -28,8 +28,8 @@ describe('CalendarCarousel gesture ownership', () => {
       </div>
     );
 
-    const scrollRegion = container.firstElementChild;
     const viewport = container.querySelector('.swiper-no-swiping');
+    const scrollRegion = viewport?.parentElement;
     expect(scrollRegion).not.toBeNull();
     expect(viewport).not.toBeNull();
     expect(scrollRegion).toHaveClass('overflow-x-hidden', 'overflow-y-scroll', 'flex-1', 'min-h-0');
