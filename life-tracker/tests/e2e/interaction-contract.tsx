@@ -347,6 +347,7 @@ export function InteractionHarness() {
                 const profile = {
                   id,
                   phase,
+                  timestamp: Number(performance.now().toFixed(2)),
                   actualDuration: Number(actualDuration.toFixed(2)),
                   baseDuration: Number(baseDuration.toFixed(2)),
                 };
