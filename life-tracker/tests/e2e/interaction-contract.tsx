@@ -19,6 +19,28 @@ import { useHorizontalArrowNavigation } from '../../src/hooks/useHorizontalArrow
 import { PrimaryRouteSwipeSurface } from '../../src/components/layout/PrimaryRouteSwipeSurface';
 import { applyAppearanceMode } from '../../src/lib/appearance';
 
+class DayViewProbeBoundary extends React.Component<
+  { children: React.ReactNode },
+  { error: Error | null }
+> {
+  state = { error: null as Error | null };
+
+  static getDerivedStateFromError(error: Error) {
+    return { error };
+  }
+
+  render() {
+    if (this.state.error) {
+      return (
+        <div data-testid="day-view-probe-error">
+          {this.state.error.message}
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 export function InteractionHarness() {
   const calendar = useCalendarState();
   const performanceHeavy = new URLSearchParams(window.location.search).get('perf') === 'heavy';
@@ -304,23 +326,23 @@ export function InteractionHarness() {
 
       {performanceHeavy && (
         <>
-                <button
-                  type="button"
-                  data-testid="open-day-view-sheet"
-                  onClick={() => setDayViewSheetOpen(true)}
-                  className="px-3 py-2"
-                >
-                  Open day view sheet
-                </button>
-                <DayViewSheet
-                  isOpen={dayViewSheetOpen}
-                  onClose={() => setDayViewSheetOpen(false)}
-                  selectedDate={new Date(2026, 8, 15)}
-                  tasks={todoTasks}
-                  categories={todoCategories}
-                />
-          
-          
+          <button
+            type="button"
+            data-testid="open-day-view-sheet"
+            onClick={() => setDayViewSheetOpen(true)}
+            className="px-3 py-2"
+          >
+            Open day view sheet
+          </button>
+          <DayViewProbeBoundary>
+            <DayViewSheet
+              isOpen={dayViewSheetOpen}
+              onClose={() => setDayViewSheetOpen(false)}
+              selectedDate={new Date(2026, 8, 15)}
+              tasks={todoTasks}
+              categories={todoCategories}
+            />
+          </DayViewProbeBoundary>
         </>
       )}
       <button
