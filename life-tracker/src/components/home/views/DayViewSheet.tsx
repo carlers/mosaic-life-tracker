@@ -667,7 +667,7 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
       suspendInteraction={isBackgroundLocked}
       contentMode="fixed"
       onHorizontalSwipe={handleSheetHorizontalSwipe}
-      onChildrenReady={handleSheetChildrenReady}
+      onAnimationComplete={handleSheetAnimationComplete}
     >
       <div
         data-testid="day-sheet-swipe-surface"
