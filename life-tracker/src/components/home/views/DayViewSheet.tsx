@@ -144,21 +144,6 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
   }, [onClose]);
 
   useEffect(() => {
-    if (
-      !sheetContentReleased ||
-      renderMode !== 'sheet' ||
-      deferredRenderWindow !== 0
-    ) {
-      return;
-    }
-
-    const frame = requestAnimationFrame(() => {
-      setDeferredRenderWindow(renderWindow);
-    });
-    return () => cancelAnimationFrame(frame);
-  }, [deferredRenderWindow, renderMode, renderWindow, sheetContentReleased]);
-
-  useEffect(() => {
     if (!isOpen || renderMode !== 'sheet' || !focusTaskId) return;
 
     let clearTimer: number | null = null;
