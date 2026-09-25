@@ -102,6 +102,7 @@ vi.mock('../../src/components/home/views/DayViewSheet', () => ({
     focusTaskId?: string | null;
     tasks?: Array<typeof ownerTask>;
     categories?: Array<typeof ownerCategory>;
+    onClose: () => void;
   }) =>
     isOpen ? (
       <div data-testid="search-day-view">
@@ -109,6 +110,7 @@ vi.mock('../../src/components/home/views/DayViewSheet', () => ({
         <span>{focusTaskId}</span>
         <span>{tasks?.length}</span>
         <span>{categories?.length}</span>
+        <button type="button" onClick={onClose}>Close day view</button>
       </div>
     ) : null,
 }));
@@ -136,6 +138,21 @@ describe('HomePage task-search wiring', () => {
 
     const carousel = screen.getByText('Carousel');
     expect(carousel.parentElement?.parentElement).toHaveAttribute('inert');
+  });
+
+  it('keeps Home search open when the selected task sheet closes', () => {
+    render(<HomePage />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Open search' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Select search task' }));
+    expect(screen.getByTestId('search-day-view')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Close day view' }));
+
+    expect(screen.getByRole('button', { name: 'Close search' })).toBeInTheDocument();
+
+    fireEvent(window, new PopStateEvent('popstate'));
+    expect(screen.getByRole('button', { name: 'Open search' })).toBeInTheDocument();
   });
 
   it('opens Day View for the selected result without creating another data source', () => {
