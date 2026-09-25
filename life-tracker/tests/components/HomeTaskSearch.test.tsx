@@ -86,6 +86,15 @@ describe('HomeTaskSearch', () => {
     expect(onOpen).toHaveBeenCalledTimes(1);
   });
 
+  it('closes when the blurred backdrop is tapped', () => {
+    const onClose = vi.fn();
+    renderSearch({ onClose });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Dismiss search overlay' }));
+
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
   it('shows guidance until a query/filter exists, then renders metadata icons and selects the task', async () => {
     const onSelectTask = vi.fn();
     renderSearch({ onSelectTask });
