@@ -135,7 +135,7 @@ async function measureInteraction(page, name, action) {
 
     console.log(`MOSAIC_PERF ${JSON.stringify(result)}`);
     return result;
-  }, { name, startedAt, actionFinishedAt });
+  }, { name, startedAt, actionFinishedAt, reactProfile });
 }
 
 async function swipe(page, selector, fromX = 620, toX = 180, y = 420) {
