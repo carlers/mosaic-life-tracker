@@ -48,6 +48,7 @@ export function InteractionHarness() {
   const [todoDayIndex, setTodoDayIndex] = useState(0);
   const [todoGesture, setTodoGesture] = useState('idle');
   const [fullSheetOpen, setFullSheetOpen] = useState(false);
+  const [dayViewSheetOpen, setDayViewSheetOpen] = useState(false);
   const [homeSearchOpen, setHomeSearchOpen] = useState(false);
   const [searchResultSheetOpen, setSearchResultSheetOpen] = useState(false);
   const [selectedSearchTask, setSelectedSearchTask] = useState<TaskDocument | null>(null);
