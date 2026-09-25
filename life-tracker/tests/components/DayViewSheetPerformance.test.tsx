@@ -1,11 +1,11 @@
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { render, screen, act } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import type { CategoryDocument, TaskDocument } from '../../src/db/schema';
 
 const fixture = vi.hoisted(() => ({
   onAnimationComplete: null as (() => void) | null,
-  onAnimationUpdate: null as ((latest: { y?: number | string }) => void) | null,
+  onChildrenReady: null as (() => void) | null,
   onClose: null as (() => void) | null,
 }));
 
@@ -14,18 +14,29 @@ vi.mock('../../src/components/ui/BottomSheet', () => ({
     children,
     isOpen,
     onAnimationComplete,
-    onAnimationUpdate,
+    onChildrenReady,
     onClose,
+    deferChildrenUntilAnimationComplete,
   }: {
     children: ReactNode;
     isOpen: boolean;
     onAnimationComplete?: () => void;
-    onAnimationUpdate?: (latest: { y?: number | string }) => void;
+    onChildrenReady?: () => void;
+    deferChildrenUntilAnimationComplete?: boolean;
   }) => {
     fixture.onAnimationComplete = onAnimationComplete ?? null;
-    fixture.onAnimationUpdate = onAnimationUpdate ?? null;
+    fixture.onChildrenReady = onChildrenReady ?? null;
     fixture.onClose = onClose;
-    return isOpen ? <div>{children}</div> : null;
+    const [ready, setReady] = useState(!deferChildrenUntilAnimationComplete);
+    if (!isOpen) return null;
+    if (!ready) {
+      fixture.onChildrenReady = () => {
+        setReady(true);
+        onChildrenReady?.();
+      };
+      return <div />;
+    }
+    return <div>{children}</div>;
   },
 }));
 
@@ -116,7 +127,7 @@ import { DayViewSheet } from '../../src/components/home/views/DayViewSheet';
 describe('DayViewSheet mount scheduling', () => {
   it('mounts only the active day during sheet animation, then restores the full render window', () => {
     fixture.onAnimationComplete = null;
-    fixture.onAnimationUpdate = null;
+    fixture.onChildrenReady = null;
 
     render(
       <DayViewSheet
@@ -126,14 +137,14 @@ describe('DayViewSheet mount scheduling', () => {
       />
     );
 
-    expect(screen.getAllByTestId('day-slide')).toHaveLength(1);
+    expect(screen.getAllByTestId('day-slide')).toHaveLength(0);
     expect(
       document.querySelectorAll('[data-day-view-navigation="true"]')
     ).toHaveLength(1);
-    expect(fixture.onAnimationUpdate).toEqual(expect.any(Function));
+    expect(fixture.onChildrenReady).toEqual(expect.any(Function));
 
     act(() => {
-      fixture.onAnimationUpdate?.({ y: 0 });
+      fixture.onChildrenReady?.();
     });
 
     expect(screen.getAllByTestId('day-slide')).toHaveLength(7);
