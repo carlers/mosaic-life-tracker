@@ -212,6 +212,7 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
   const directionalDragStartRef = useRef<HorizontalSwipeStart | null>(null);
   const directionalTouchStartRef = useRef<TouchSwipeStart | null>(null);
   const dragControls = useDragControls();
+  const [isEntering, setIsEntering] = React.useState(isOpen);
   const sheetId = React.useId();
   const titleId = React.useId();
 
@@ -223,6 +224,7 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
 
   useEffect(() => {
     if (!isOpen) return;
+    setIsEntering(true);
     openSheetCount++;
     document.body.style.overflow = 'hidden';
     return () => {
@@ -303,9 +305,12 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
             initial={{ y: '100%' }}
             animate={{ y: 0 }}
             exit={{ y: '100%' }}
-            onAnimationComplete={onAnimationComplete}
+            onAnimationComplete={() => {
+              setIsEntering(false);
+              onAnimationComplete?.();
+            }}
             transition={{ type: 'tween', duration: 0.32, ease: 'easeOut' }}
-            drag="y"
+            drag={isEntering ? false : 'y'}
             dragControls={dragControls}
             dragListener={false}
             dragConstraints={{ top: 0 }}
@@ -335,7 +340,7 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
                 ? start
                 : null;
 
-              if (dragHandle && !directionalDragHandle) {
+              if (dragHandle && !directionalDragHandle && !isEntering) {
                 dragControls.start(event);
               }
             }}
@@ -455,7 +460,7 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
                   : 'cursor-grab active:cursor-grabbing touch-none'
               }`}
               onPointerDown={(event) => {
-                if (!isLocked) {
+                if (!isLocked && !isEntering) {
                   dragControls.start(event);
                 }
               }}

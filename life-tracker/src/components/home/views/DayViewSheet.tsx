@@ -502,7 +502,6 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
                       date={date}
                       dateStr={dateStr}
                       scrollMode={renderMode === 'inline' ? 'page' : 'contained'}
-                      deferRender={renderMode === 'sheet' && deferredRenderWindow === 0}
                       tasks={dayTasks}
                       categories={categories}
                       currentUserId={currentUserId}

@@ -20,7 +20,6 @@ interface DaySlideProps {
   onEditChange: (val: string) => void;
   onEditSave: () => void;
   onEditCancel: () => void;
-  deferRender?: boolean;
 }
 
 const DaySlideComponent: React.FC<DaySlideProps> = ({
@@ -40,7 +39,6 @@ const DaySlideComponent: React.FC<DaySlideProps> = ({
   onEditChange,
   onEditSave,
   onEditCancel,
-  deferRender = false,
 }) => {
   const tasksByCategory = React.useMemo(() => {
     const map = new Map<string, TaskDocument[]>();
@@ -71,7 +69,6 @@ const DaySlideComponent: React.FC<DaySlideProps> = ({
           : 'w-full min-w-0 px-4 pb-8'
       }
       data-testid="day-slide"
-      style={{ contentVisibility: deferRender ? 'hidden' : 'visible' }}
     >
       {categories.map((cat) => (
         <CategorySection
