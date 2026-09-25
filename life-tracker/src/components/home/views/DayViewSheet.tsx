@@ -67,6 +67,17 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
   const tasks = tasksOverride ?? taskStore.tasks ?? EMPTY_TASKS;
   const categories = categoriesOverride ?? hookCategories;
   const tasksByDate = useTasksByDate(tasks);
+  const [deferredRenderWindow, setDeferredRenderWindow] = useState(0);
+
+  useEffect(() => {
+    if (!isOpen) {
+      setDeferredRenderWindow(0);
+    }
+  }, [isOpen]);
+
+  const handleSheetAnimationComplete = useCallback(() => {
+    if (isOpen) setDeferredRenderWindow(renderWindow);
+  }, [isOpen, renderWindow]);
 
   const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
   const [isActionSheetOpen, setIsActionSheetOpen] = useState(false);
@@ -440,7 +451,7 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
         }}
       >
         {slideDates.map((date, i) => {
-          const inWindow = Math.abs(i - activeIndex) <= renderWindow;
+          const inWindow = Math.abs(i - activeIndex) <= deferredRenderWindow;
           const dateStr = slideDateStrs[i];
           const dayTasks = tasksByDate.get(dateStr) ?? EMPTY_TASKS;
           return (
@@ -636,6 +647,7 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
       suspendInteraction={isBackgroundLocked}
       contentMode="fixed"
       onHorizontalSwipe={handleSheetHorizontalSwipe}
+      onAnimationComplete={handleSheetAnimationComplete}
     >
       <div
         data-testid="day-sheet-swipe-surface"
