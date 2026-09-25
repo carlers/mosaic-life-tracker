@@ -343,6 +343,8 @@ async function measureInteraction(page, name, action) {
       layoutReadStacks: perf.layoutReadStacks,
       mutationRecords: perf.mutations,
       elementCount: document.querySelectorAll('*').length,
+      swiperSlideCount: document.querySelectorAll('[data-testid="day-swiper"] .swiper-slide').length,
+      renderedDaySlideCount: document.querySelectorAll('[data-testid="day-swiper"] [data-day-view-navigation="true"]').length,
       reactProfile,
     };
 
