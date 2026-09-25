@@ -87,6 +87,7 @@ export const TaskItem: React.FC<TaskItemProps> = ({
     <motion.div
       ref={targetRef}
       layout
+      layoutDependency={`${task.updatedAt}:${isEditing}`}
       data-task-id={task.id}
       className="flex scroll-mt-16 items-start gap-3 rounded-lg py-2 transition-[background-color,box-shadow] duration-300 data-[search-focused=true]:bg-emerald-400/10 data-[search-focused=true]:ring-1 data-[search-focused=true]:ring-emerald-400/60"
     >
