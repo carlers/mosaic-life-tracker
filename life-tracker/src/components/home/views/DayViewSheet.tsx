@@ -650,6 +650,7 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
       contentMode="fixed"
       onHorizontalSwipe={handleSheetHorizontalSwipe}
       onAnimationComplete={handleSheetAnimationComplete}
+      suspendEntranceDrag={renderMode === 'sheet' && deferredRenderWindow === 0}
     >
       <div
         data-testid="day-sheet-swipe-surface"
