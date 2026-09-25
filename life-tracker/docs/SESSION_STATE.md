@@ -1,9 +1,9 @@
 # Session checkpoint
 
 Updated: 2026-09-25
-Current task: Production launch hardening — Phase 1 security and service configuration audit.
-Status: Phase 1 Appwrite security corrections are live, PostHog has been audited, and the full canonical Quality Gate now includes a blocking production dependency vulnerability audit. The dependency-audit and all existing canonical gates passed on the Phase 1 hardening commit.
-Next action: close the remaining production-origin configuration gap, then move into release preparation and the final exact-SHA main-branch acceptance.
+Current task: Production launch hardening — repository-side release hardening.
+Status: Phase 1 Appwrite security corrections are live, PostHog has been audited, the full canonical Quality Gate includes a blocking production dependency vulnerability audit, and Phase 2 adds baseline hosted response headers plus keeps the local HTTPS helper out of hosted builds.
+Next action: verify Phase 2 on the exact task SHA, then close the production-origin configuration gap and move into final release preparation and exact-SHA main-branch acceptance.
 Blockers: The exact production hostname is not established in repository-visible configuration, so the Appwrite Web platform allowlist cannot safely be narrowed to the production origin yet. Local runtime execution is unavailable; remote CI is the executable verification path.
 
 ## Phase 1 findings
