@@ -32,10 +32,10 @@ describe('CalendarCarousel gesture ownership', () => {
     const scrollRegion = viewport?.parentElement;
     expect(scrollRegion).not.toBeNull();
     expect(viewport).not.toBeNull();
-    expect(scrollRegion).toHaveClass('overflow-x-hidden', 'overflow-y-scroll', 'flex-1', 'min-h-0');
+    expect(scrollRegion).toHaveClass('overflow-hidden', 'flex-1', 'min-h-0');
     expect(viewport).toHaveClass('swiper-no-swiping', 'overflow-hidden');
 
-    const slide = viewport?.querySelector('[style*="flex: 0 0 100%"]');
+    const slide = viewport?.querySelector('div.h-full');
     expect(slide).not.toBeNull();
     expect(slide).toHaveClass('h-full', 'overflow-x-hidden', 'overflow-y-scroll', '[scrollbar-gutter:stable]');
 
