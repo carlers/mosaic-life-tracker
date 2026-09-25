@@ -1,9 +1,9 @@
 # Session checkpoint
 
 Updated: 2026-09-25
-Current task: Fix Home search close animation that visually stretches the search icon.
-Status: Removed the layout-size animation around the collapsed search button; the search field now animates independently while the closed state uses a fixed-size button container.
-Next action: verify the focused checks and exact-SHA Quality Gate acceptance, then deliver the fix to `dev`.
+Current task: Make Home task search consume Android Back and isolate the underlying Home UI while search is open.
+Status: Search open now owns a same-route history entry so Android/browser Back closes the search before route navigation. The underlying Home content is inert and covered by a blurred dismissal backdrop; tapping the backdrop closes search.
+Next action: verify focused checks and exact-SHA Quality Gate acceptance, then deliver the fix to `dev`.
 Blockers: Local runtime execution is unavailable in this environment; remote CI is the executable verification path.
 
 ## Constraints
@@ -17,19 +17,22 @@ Blockers: Local runtime execution is unavailable in this environment; remote CI 
 
 ## Completed substeps
 
-- Inspected the Home search component, tests, and delivery/testing contracts.
-- Reworked `HomeTaskSearch` so the collapsed Search button is not a child of a layout-resizing motion element.
-- Kept a lightweight enter animation for the expanded search field.
-- Retained the existing Home search open/close coverage; the added close-state test was removed because the motion test harness does not model parent state updates reliably.
+- Inspected the current Home search, Home page wiring, routing shell, interaction-test guidance, and existing search-flow tests.
+- Added a same-URL history entry when Home search opens and consume the next `popstate` to close search instead of changing routes.
+- Added a fixed blurred backdrop below the search header that closes search when tapped.
+- Marked the Home content below the search as inert while search is open, preventing focus and interaction from reaching it.
+- Added component and Home wiring regression coverage for backdrop dismissal, Android/browser Back behavior, and inert underlying content.
 
 ## Working set
 
 - life-tracker/src/components/home/HomeTaskSearch.tsx
+- life-tracker/src/pages/HomePage.tsx
 - life-tracker/tests/components/HomeTaskSearch.test.tsx
+- life-tracker/tests/components/HomePageSearchFlow.test.tsx
 - life-tracker/docs/SESSION_STATE.md
 
 ## Verification
 
-- Automated: focused regression is pending remote CI because local repository execution is unavailable.
-- Browser/device acceptance: visual confirmation of the Home search open/close animation remains required after deployment.
+- Automated: pending remote Quality Gate for the final fix SHA.
+- Browser/device acceptance: Android Back and real touch tap on the blurred area remain required hosted-preview checks.
 - Canonical acceptance: pending for the final fix SHA.
