@@ -20,6 +20,7 @@ interface DaySlideProps {
   onEditChange: (val: string) => void;
   onEditSave: () => void;
   onEditCancel: () => void;
+  disableTaskLayoutAnimation?: boolean;
 }
 
 const DaySlideComponent: React.FC<DaySlideProps> = ({
@@ -39,6 +40,7 @@ const DaySlideComponent: React.FC<DaySlideProps> = ({
   onEditChange,
   onEditSave,
   onEditCancel,
+  disableTaskLayoutAnimation = false,
 }) => {
   const tasksByCategory = React.useMemo(() => {
     const map = new Map<string, TaskDocument[]>();
@@ -89,6 +91,7 @@ const DaySlideComponent: React.FC<DaySlideProps> = ({
           onEditChange={onEditChange}
           onEditSave={onEditSave}
           onEditCancel={onEditCancel}
+          disableTaskLayoutAnimation={disableTaskLayoutAnimation}
         />
       ))}
     </div>
