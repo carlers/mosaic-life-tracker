@@ -105,6 +105,7 @@ vi.mock('../../src/components/home/views/useDayViewSwiper', () => ({
 
 import { DayViewSheet } from '../../src/components/home/views/DayViewSheet';
 
+// Regression: task acceptance — sheet animation gets the first frame before non-active day trees mount.
 describe('DayViewSheet mount scheduling', () => {
   it('mounts only the active day during sheet animation, then restores the full render window', () => {
     fixture.onAnimationComplete = null;
