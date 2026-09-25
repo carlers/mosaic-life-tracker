@@ -1,10 +1,12 @@
 import { test } from '@playwright/test';
 
-// This probe intentionally reports measurements instead of asserting a performance budget.\n// Thresholds should be added only after CI baselines are stable across runners.\nconst BASE_URL =
+// This probe intentionally reports measurements instead of asserting a performance budget.
+// Thresholds should be added only after CI baselines are stable across runners.
+const BASE_URL =
   process.env.MOSAIC_E2E_BASE_URL ?? 'https://127.0.0.1:4173';
 
 async function measureInteraction(page, name, action) {
-  await page.evaluate(() => {
+  const startedAt = await page.evaluate(() => {
     window.__mosaicPerf = {
       frames: [],
       longTasks: [],
@@ -18,29 +20,26 @@ async function measureInteraction(page, name, action) {
             perf.longTasks.push(entry.duration);
           }
         });
-        observer.observe({ type: 'longtask', buffered: true });
+        observer.observe({ type: 'longtask', buffered: false });
         perf.observer = observer;
       } catch {
         // Long-task entries are optional; frame timing remains useful.
       }
     }
-  });
 
-  const startedAt = await page.evaluate(() => performance.now());
-  await page.evaluate(() => {
-    const perf = window.__mosaicPerf;
     const start = performance.now();
+    perf.start = start;
     const sample = (now) => {
-      perf.frames.push(now - start);
       if (now - start < 1200) {
+        perf.frames.push(now);
         requestAnimationFrame(sample);
       }
     };
     requestAnimationFrame(sample);
+    return start;
   });
 
   await action();
-
   await page.waitForTimeout(1200);
 
   return page.evaluate(({ name, startedAt }) => {
@@ -109,7 +108,11 @@ test('interaction performance probe', async ({ page }) => {
     await swipe(page, '[data-testid="calendar-region"]');
   });
 
-  await measureInteraction(page, 'day-content-render', async () => {
+  await measureInteraction(page, 'day-swipe', async () => {
+    await swipe(page, '[data-testid="todo-region"]', 140, 40, 450);
+  });
+
+  await measureInteraction(page, 'day-content-scroll', async () => {
     await page.locator('[data-testid="todo-day-content"]').scrollIntoViewIfNeeded();
   });
 });
