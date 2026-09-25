@@ -44,7 +44,6 @@ export const HomePage: React.FC = () => {
   );
   const [searchSheetKey, setSearchSheetKey] = useState(0);
   const searchHistoryEntryRef = useRef(false);
-  const closingSearchFromHistoryRef = useRef(false);
 
   const swiperRef = useRef<SwiperClass | null>(null);
   const isProgrammaticMoveRef = useRef(false);
@@ -125,7 +124,6 @@ export const HomePage: React.FC = () => {
 
   const handleCloseSearch = useCallback(() => {
     if (searchHistoryEntryRef.current) {
-      closingSearchFromHistoryRef.current = true;
       window.history.back();
       return;
     }
@@ -138,18 +136,11 @@ export const HomePage: React.FC = () => {
     const handlePopState = () => {
       if (!searchHistoryEntryRef.current) return;
       searchHistoryEntryRef.current = false;
-      closingSearchFromHistoryRef.current = false;
       setIsSearchOpen(false);
     };
 
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
-  }, [isSearchOpen]);
-
-  useEffect(() => {
-    if (!isSearchOpen && closingSearchFromHistoryRef.current) {
-      closingSearchFromHistoryRef.current = false;
-    }
   }, [isSearchOpen]);
 
   const handleSelectSearchTask = useCallback((task: TaskDocument) => {
