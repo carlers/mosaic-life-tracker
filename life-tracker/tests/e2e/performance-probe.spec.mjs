@@ -19,6 +19,7 @@ async function measureInteraction(page, name, action) {
     window.__mosaicPerf = {
       frames: [],
       longTasks: [],
+      longAnimationFrames: [],
       mutations: 0,
       actionStartedAt: performance.now(),
       actionFinishedAt: null,
@@ -42,6 +43,34 @@ async function measureInteraction(page, name, action) {
         perf.observer = observer;
       } catch {
         // Long-task entries are optional; frame timing remains useful.
+      }
+
+      try {
+        const observer = new PerformanceObserver((list) => {
+          for (const entry of list.getEntries()) {
+            perf.longAnimationFrames.push({
+              duration: entry.duration,
+              startTime: entry.startTime,
+              renderStart: entry.renderStart ?? null,
+              styleAndLayoutStart: entry.styleAndLayoutStart ?? null,
+              blockingDuration: entry.blockingDuration ?? null,
+              firstUIEventTimestamp: entry.firstUIEventTimestamp ?? null,
+              scripts: Array.isArray(entry.scripts)
+                ? entry.scripts.map((script) => ({
+                    duration: script.duration ?? null,
+                    sourceURL: script.sourceURL ?? '',
+                    functionName: script.functionName ?? '',
+                    invoker: script.invoker ?? '',
+                    invokerType: script.invokerType ?? '',
+                  }))
+                : [],
+            });
+          }
+        });
+        observer.observe({ type: 'long-animation-frame', buffered: false });
+        perf.longAnimationFrameObserver = observer;
+      } catch {
+        // Long-animation-frame entries are optional; long-task timing remains useful.
       }
     }
 
@@ -87,6 +116,7 @@ async function measureInteraction(page, name, action) {
   return page.evaluate(({ name, startedAt, actionFinishedAt, reactProfile }) => {
     const perf = window.__mosaicPerf;
     perf.observer?.disconnect();
+    perf.longAnimationFrameObserver?.disconnect();
     perf.mutationObserver?.disconnect();
 
     const deltas = [];
@@ -105,6 +135,34 @@ async function measureInteraction(page, name, action) {
         entry.startTime < actionFinishedAt &&
         entry.startTime + entry.duration > startedAt
     );
+
+    const actionLongAnimationFrames = perf.longAnimationFrames.filter(
+      (entry) =>
+        entry.startTime < actionFinishedAt &&
+        entry.startTime + entry.duration > startedAt
+    );
+
+    const loafMetrics = actionLongAnimationFrames.flatMap((entry) => {
+      const scriptDuration = entry.scripts.reduce(
+        (sum, script) => sum + (script.duration ?? 0),
+        0
+      );
+      const styleAndLayoutDelay =
+        entry.styleAndLayoutStart == null
+          ? null
+          : entry.styleAndLayoutStart - entry.startTime;
+      const renderDelay =
+        entry.renderStart == null
+          ? null
+          : entry.renderStart - entry.startTime;
+      return [{
+        duration: entry.duration,
+        blockingDuration: entry.blockingDuration,
+        styleAndLayoutDelay,
+        renderDelay,
+        scriptDuration,
+      }];
+    });
 
     const result = {
       name,
@@ -132,6 +190,35 @@ async function measureInteraction(page, name, action) {
         startOffsetMs: Number((entry.startTime - startedAt).toFixed(2)),
         containerType: entry.containerType,
         containerName: entry.containerName,
+      })),
+      longAnimationFrameCount: perf.longAnimationFrames.length,
+      actionLongAnimationFrameCount: actionLongAnimationFrames.length,
+      maxLongAnimationFrameMs: actionLongAnimationFrames.length
+        ? Math.max(...actionLongAnimationFrames.map((entry) => entry.duration))
+        : 0,
+      maxStyleAndLayoutDelayMs: loafMetrics.some((entry) => entry.styleAndLayoutDelay != null)
+        ? Math.max(...loafMetrics.map((entry) => entry.styleAndLayoutDelay ?? 0))
+        : 0,
+      maxRenderDelayMs: loafMetrics.some((entry) => entry.renderDelay != null)
+        ? Math.max(...loafMetrics.map((entry) => entry.renderDelay ?? 0))
+        : 0,
+      maxLoafScriptDurationMs: loafMetrics.length
+        ? Math.max(...loafMetrics.map((entry) => entry.scriptDuration))
+        : 0,
+      actionLongAnimationFrames: actionLongAnimationFrames.map((entry, index) => ({
+        duration: Number(entry.duration.toFixed(2)),
+        startOffsetMs: Number((entry.startTime - startedAt).toFixed(2)),
+        blockingDuration: entry.blockingDuration == null
+          ? null
+          : Number(entry.blockingDuration.toFixed(2)),
+        styleAndLayoutDelay: loafMetrics[index].styleAndLayoutDelay == null
+          ? null
+          : Number(loafMetrics[index].styleAndLayoutDelay.toFixed(2)),
+        renderDelay: loafMetrics[index].renderDelay == null
+          ? null
+          : Number(loafMetrics[index].renderDelay.toFixed(2)),
+        scriptDuration: Number(loafMetrics[index].scriptDuration.toFixed(2)),
+        scripts: entry.scripts,
       })),
       mutationRecords: perf.mutations,
       elementCount: document.querySelectorAll('*').length,
