@@ -126,6 +126,7 @@ describe('DayViewSheet mount scheduling', () => {
       document.querySelectorAll('[data-day-view-navigation="true"]')
     ).toHaveLength(1);
     expect(fixture.onAnimationComplete).toEqual(expect.any(Function));
+    expect(fixture.deferChildrenUntilPaint).toBe(true);
 
     act(() => {
       fixture.onAnimationComplete?.();
