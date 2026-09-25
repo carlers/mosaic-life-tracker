@@ -2,7 +2,7 @@
 
 Updated: 2026-09-25
 Current task: Fix calendar month scrolling and horizontal transition stability.
-Status: The first viewport wrapper fix was insufficient because the same DOM node still served as Embla's horizontal viewport and the vertical scroll container. The follow-up separates those responsibilities: a stable outer vertical scroll region contains a dedicated overflow-hidden Embla viewport. Regression coverage now pins that contract.
+Status: The prior split made the Embla viewport non-scrollable, which prevented vertical scrolling. The current fix keeps the horizontal Embla viewport fixed and moves vertical scrolling onto each month/slide, with a stable scrollbar gutter so month-to-month scrollbar presence cannot resize the horizontal viewport. Regression coverage pins the per-slide scroll contract.
 Next action: exact-SHA canonical acceptance, Preview delivery, and merge to dev.
 Blockers: Local runtime execution is unavailable; remote CI is the executable verification path. Real touch/scroll acceptance remains separate and must not be inferred from automated tests.
 

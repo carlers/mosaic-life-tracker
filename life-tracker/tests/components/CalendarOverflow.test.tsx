@@ -1,4 +1,4 @@
-// Regression: UIFIX-11 — expanded calendar cells must remain vertically reachable; [verify:full].
+// Regression: UIFIX-11 — expanded calendar cells must remain vertically reachable; stable per-slide scrolling also prevents horizontal viewport resize. [verify:full].
 import { render } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import type { TaskDocument } from '../../src/db/schema';
@@ -33,8 +33,12 @@ describe('Calendar overflow layout', () => {
       />
     );
 
-    const viewport = container.firstElementChild;
-    expect(viewport).toHaveClass('overflow-x-hidden', 'overflow-y-scroll');
+    const viewport = container.querySelector('.swiper-no-swiping')?.parentElement;
+    expect(viewport).toHaveClass('overflow-hidden');
+
+    const slide = container.querySelector('.h-full.min-h-0');
+    expect(slide).not.toBeNull();
+    expect(slide).toHaveClass('h-full', 'overflow-x-hidden', 'overflow-y-scroll', '[scrollbar-gutter:stable]');
 
     const emblaViewport = container.querySelector('.swiper-no-swiping');
     expect(emblaViewport).not.toBeNull();
