@@ -35,6 +35,10 @@ describe('CalendarCarousel gesture ownership', () => {
     expect(scrollRegion).toHaveClass('overflow-x-hidden', 'overflow-y-scroll', 'flex-1', 'min-h-0');
     expect(viewport).toHaveClass('swiper-no-swiping', 'overflow-hidden');
 
+    const slide = viewport?.querySelector('[style*="flex: 0 0 100%"]');
+    expect(slide).not.toBeNull();
+    expect(slide).toHaveClass('h-full', 'overflow-x-hidden', 'overflow-y-scroll', '[scrollbar-gutter:stable]');
+
     fireEvent.pointerDown(viewport!);
     fireEvent.pointerMove(viewport!);
     fireEvent.pointerUp(viewport!);
@@ -50,6 +54,6 @@ describe('CalendarCarousel gesture ownership', () => {
     const viewport = container.querySelector('.swiper-no-swiping');
 
     expect(viewport).not.toBeNull();
-    expect(viewport).toContainElement(container.querySelector('.flex.min-h-full.items-start'));
+    expect(viewport).toContainElement(container.querySelector('.flex.h-full.min-h-full.items-start'));
   });
 });
