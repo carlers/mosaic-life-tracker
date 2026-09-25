@@ -3,7 +3,7 @@
 Updated: 2026-09-25
 Current task: Production launch hardening — repository-side release hardening.
 Status: Phase 1 Appwrite security corrections are live, PostHog has been audited, the full canonical Quality Gate includes a blocking production dependency vulnerability audit, and Phase 2 adds baseline hosted response headers plus keeps the local HTTPS helper out of hosted builds.
-Next action: verify Phase 2 on the exact task SHA, then close the production-origin configuration gap and move into final release preparation and exact-SHA main-branch acceptance.
+Next action: complete canonical verification for Phase 2, merge it into dev if green, then close the production-origin configuration gap and move into final release preparation and exact-SHA main-branch acceptance.
 Blockers: The exact production hostname is not established in repository-visible configuration, so the Appwrite Web platform allowlist cannot safely be narrowed to the production origin yet. Local runtime execution is unavailable; remote CI is the executable verification path.
 
 ## Phase 1 findings
@@ -32,3 +32,4 @@ Blockers: The exact production hostname is not established in repository-visible
 - PR #14 dependency-audit plus the existing canonical suite passed on exact SHA 04b38bc3c9a7005fa3a6f01c4dd51c021e2a2396 (Quality Gate run 36092048112).
 - PR #14 merged into dev as merge SHA 625948dbcd0d66ccec1501746e6d023971951815.
 - Manual hosted production/device acceptance: pending.
+- Phase 2 release hardening commit is ready for canonical verification; hosted Vercel/Appwrite origin validation remains pending until the stable production hostname is established.
