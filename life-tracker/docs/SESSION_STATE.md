@@ -6,3 +6,4 @@ Status: The animation/performance audit implementation pass is complete on `chat
 Next action: Run/inspect exact-SHA canonical acceptance, then perform a hosted real-browser trace if quantitative frame/long-task/paint evidence is required; do not merge to `dev` before acceptance.
 Blockers: Quantitative browser profiling remains unavailable locally because no browser binary is installed and Playwright's Chromium download endpoint returned HTTP 403. Real-device/browser smoothness and DevTools trace acceptance therefore remain manual; automated DOM and repository verification do not substitute for those measurements.
 Working branch: `chatgpt/performance-animation-audit`
+Stable Preview/integration branch: `perf/animation-optimization` (purpose-specific stable branch; `chatgpt/*` remains for temporary implementation/checkpoints)
