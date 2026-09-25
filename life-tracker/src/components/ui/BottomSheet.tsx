@@ -212,7 +212,17 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
   const directionalDragStartRef = useRef<HorizontalSwipeStart | null>(null);
   const directionalTouchStartRef = useRef<TouchSwipeStart | null>(null);
   const dragControls = useDragControls();
-  const [isEntering, setIsEntering] = React.useState(isOpen);
+  const wasOpenRef = useRef(isOpen);
+  const animationCompleteRef = useRef(false);
+  const [, forceAnimationRender] = React.useState(0);
+  if (isOpen && !wasOpenRef.current) {
+    wasOpenRef.current = true;
+    animationCompleteRef.current = false;
+  } else if (!isOpen && wasOpenRef.current) {
+    wasOpenRef.current = false;
+    animationCompleteRef.current = false;
+  }
+  const isEntering = isOpen && !animationCompleteRef.current;
   const sheetId = React.useId();
   const titleId = React.useId();
 
@@ -224,7 +234,6 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
 
   useEffect(() => {
     if (!isOpen) return;
-    setIsEntering(true);
     openSheetCount++;
     document.body.style.overflow = 'hidden';
     return () => {
@@ -306,7 +315,8 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
             animate={{ y: 0 }}
             exit={{ y: '100%' }}
             onAnimationComplete={() => {
-              setIsEntering(false);
+              animationCompleteRef.current = true;
+              forceAnimationRender((value) => value + 1);
               onAnimationComplete?.();
             }}
             transition={{ type: 'tween', duration: 0.32, ease: 'easeOut' }}
