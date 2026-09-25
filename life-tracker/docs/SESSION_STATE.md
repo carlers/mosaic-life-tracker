@@ -2,9 +2,9 @@
 
 Updated: 2026-09-25
 Current task: Production launch hardening — Phase 1 security and service configuration audit.
-Status: Live Appwrite production configuration was audited and the highest-confidence access-control issues were corrected. The CI canonical gate now includes a production dependency vulnerability audit. PostHog was inspected live and confirmed to have no recent Mosaic application telemetry.
-Next action: verify the dependency audit on the task SHA, then continue repository-side production configuration and release preparation.
-Blockers: Production hostname is not yet established in repository-visible configuration; local runtime execution is unavailable, so remote CI remains the executable verification path.
+Status: Phase 1 Appwrite security corrections are live, PostHog has been audited, and the full canonical Quality Gate now includes a blocking production dependency vulnerability audit. The dependency-audit and all existing canonical gates passed on the Phase 1 hardening commit.
+Next action: close the remaining production-origin configuration gap, then move into release preparation and the final exact-SHA main-branch acceptance.
+Blockers: The exact production hostname is not established in repository-visible configuration, so the Appwrite Web platform allowlist cannot safely be narrowed to the production origin yet. Local runtime execution is unavailable; remote CI is the executable verification path.
 
 ## Phase 1 findings
 
@@ -15,18 +15,20 @@ Blockers: Production hostname is not yet established in repository-visible confi
 - Unused Appwrite auth methods (anonymous, phone, JWT, invites, email OTP) are disabled; email/password and magic-link remain enabled.
 - message-action Function execution is restricted to authenticated users; existing backend scopes and daily schedule remain configured.
 - Existing data tables otherwise use row security with user-scoped permissions, with profiles intentionally readable to authenticated users for social search.
-- Appwrite Web platforms currently include the laptop development host and *.vercel.app; production should receive a dedicated stable hostname platform before launch.
+- Appwrite Web platforms currently include the laptop development host and *.vercel.app. This wildcard should be replaced or supplemented with the exact stable production origin before launch.
 - PostHog project is configured but currently reports no ingested events and no event activity in the last 30 days. Repository search found no PostHog SDK runtime integration; the existing PostHog Rollup plugin is only configured for optional source-map upload when explicitly enabled by build secrets.
 - CI previously used `npm ci --no-audit`; the full canonical workflow now adds a blocking `npm audit --omit=dev --audit-level=high` job for production dependencies.
 
 ## Working set
 
+- Appwrite live configuration
 - .github/workflows/quality-gate.yml
 - life-tracker/docs/SESSION_STATE.md
 
 ## Verification
 
 - Appwrite live configuration reads and writes completed successfully.
-- PostHog project and event-schema reads completed successfully; no application telemetry is being inferred beyond the returned project data.
-- Automated repository verification: dependency-audit plus the existing canonical suite pending on the new commit.
+- PostHog project and event-schema reads completed successfully.
+- PR #14 dependency-audit plus the existing canonical suite passed on exact SHA 04b38bc3c9a7005fa3a6f01c4dd51c021e2a2396 (Quality Gate run 36092048112).
+- PR #14 merged into dev as merge SHA 625948dbcd0d66ccec1501746e6d023971951815.
 - Manual hosted production/device acceptance: pending.
