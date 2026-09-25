@@ -446,6 +446,7 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
                 requestSheetClose(sheetId);
               }
             }}
+            style={{ willChange: 'transform' }}
             className={`fixed bottom-0 left-0 right-0 z-[60] bg-[#1E1E1E] text-white shadow-2xl flex flex-col overflow-hidden ${heightClass} ${widthClass} ${suspendInteraction ? 'pointer-events-none select-none' : ''}`}
           >
             <div
