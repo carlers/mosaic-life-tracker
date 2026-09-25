@@ -220,10 +220,6 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
     onCloseRef.current = onClose;
   }, [onClose]);
 
-  useEffect(() => {
-    if (!isOpen) setHasEnteredAnimation(false);
-  }, [isOpen]);
-
   useFocusTrap(
     sheetRef,
     isOpen && !suspendInteraction && hasEnteredAnimation,
@@ -312,8 +308,12 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
             animate={{ y: 0 }}
             exit={{ y: '100%' }}
             onAnimationComplete={() => {
-              setHasEnteredAnimation(true);
-              onAnimationComplete?.();
+              if (isOpen) {
+                setHasEnteredAnimation(true);
+                onAnimationComplete?.();
+              } else {
+                setHasEnteredAnimation(false);
+              }
             }}
             transition={{ type: 'tween', duration: 0.32, ease: 'easeOut' }}
             drag="y"
