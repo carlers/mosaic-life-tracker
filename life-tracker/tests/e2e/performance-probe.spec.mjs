@@ -21,11 +21,76 @@ async function measureInteraction(page, name, action) {
       longTasks: [],
       longAnimationFrames: [],
       mutations: 0,
+      layoutReads: {},
+      layoutReadStacks: [],
       actionStartedAt: performance.now(),
       actionFinishedAt: null,
     };
 
-    const perf = window.__mosaicPerf;
+    const recordLayoutRead = (kind) => {
+      const perf = window.__mosaicPerf;
+      perf.layoutReads[kind] = (perf.layoutReads[kind] ?? 0) + 1;
+      if (perf.layoutReadStacks.length < 40) {
+        perf.layoutReadStacks.push({
+          kind,
+          stack: new Error().stack?.split('\n').slice(2, 8).join('\n') ?? '',
+        });
+      }
+    };
+
+    const rect = Element.prototype.getBoundingClientRect;
+    const rectWrapper = function (...args) {
+      recordLayoutRead('getBoundingClientRect');
+      return rect.apply(this, args);
+    };
+    Element.prototype.getBoundingClientRect = rectWrapper;
+
+    const descriptors = [
+      ['offsetParent', Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'offsetParent')],
+      ['offsetWidth', Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'offsetWidth')],
+      ['offsetHeight', Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'offsetHeight')],
+      ['clientWidth', Object.getOwnPropertyDescriptor(Element.prototype, 'clientWidth')],
+      ['clientHeight', Object.getOwnPropertyDescriptor(Element.prototype, 'clientHeight')],
+      ['scrollWidth', Object.getOwnPropertyDescriptor(Element.prototype, 'scrollWidth')],
+      ['scrollHeight', Object.getOwnPropertyDescriptor(Element.prototype, 'scrollHeight')],
+    ];
+
+    const restoredDescriptors = [];
+    for (const [kind, descriptor] of descriptors) {
+      if (!descriptor?.get) continue;
+      const getter = descriptor.get;
+      const wrapper = {
+        configurable: descriptor.configurable,
+        enumerable: descriptor.enumerable,
+        get() {
+          recordLayoutRead(kind);
+          return getter.call(this);
+        },
+        set: descriptor.set,
+      };
+      Object.defineProperty(
+        kind === 'offsetParent' || kind === 'offsetWidth' || kind === 'offsetHeight'
+          ? HTMLElement.prototype
+          : Element.prototype,
+        kind,
+        wrapper,
+      );
+      restoredDescriptors.push([
+        kind === 'offsetParent' || kind === 'offsetWidth' || kind === 'offsetHeight'
+          ? HTMLElement.prototype
+          : Element.prototype,
+        kind,
+        descriptor,
+      ]);
+    }
+
+    window.__mosaicPerf.restoreLayoutProbe = () => {
+      Element.prototype.getBoundingClientRect = rect;
+      for (const [prototype, kind, descriptor] of restoredDescriptors) {
+        Object.defineProperty(prototype, kind, descriptor);
+      }
+    };
+
     if ('PerformanceObserver' in window) {
       try {
         const observer = new PerformanceObserver((list) => {
@@ -42,7 +107,7 @@ async function measureInteraction(page, name, action) {
         observer.observe({ type: 'longtask', buffered: false });
         perf.observer = observer;
       } catch {
-        // Long-task entries are optional; frame timing remains useful.
+        // Optional diagnostic.
       }
 
       try {
@@ -70,7 +135,7 @@ async function measureInteraction(page, name, action) {
         observer.observe({ type: 'long-animation-frame', buffered: false });
         perf.longAnimationFrameObserver = observer;
       } catch {
-        // Long-animation-frame entries are optional; long-task timing remains useful.
+        // Optional diagnostic.
       }
     }
 
@@ -84,7 +149,7 @@ async function measureInteraction(page, name, action) {
         attributes: true,
       });
     } catch {
-      // Mutation timing is diagnostic only.
+      // Optional diagnostic.
     }
 
     const start = performance.now();
@@ -118,6 +183,7 @@ async function measureInteraction(page, name, action) {
     perf.observer?.disconnect();
     perf.longAnimationFrameObserver?.disconnect();
     perf.mutationObserver?.disconnect();
+    perf.restoreLayoutProbe?.();
 
     const deltas = [];
     for (let i = 1; i < perf.frames.length; i += 1) {
@@ -220,6 +286,8 @@ async function measureInteraction(page, name, action) {
         scriptDuration: Number(loafMetrics[index].scriptDuration.toFixed(2)),
         scripts: entry.scripts,
       })),
+      layoutReads: perf.layoutReads,
+      layoutReadStacks: perf.layoutReadStacks,
       mutationRecords: perf.mutations,
       elementCount: document.querySelectorAll('*').length,
       reactProfile,
