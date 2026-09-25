@@ -197,7 +197,7 @@ jobs:
           path: life-tracker/node_modules
           key: ${{ runner.os }}-node22-focused-modules-${{ hashFiles('life-tracker/package-lock.json') }}
       - name: Install app dependencies on cache miss
-        if: ${{ steps.app-modules-cache.outputs.cache-hit != 'true' }}
+        if: steps.app-modules-cache.outputs.cache-hit != 'true'
         run: npm ci --prefer-offline --no-audit
       - name: Check project contracts
         run: npm run contracts:check
@@ -209,6 +209,28 @@ jobs:
         run: npm run test:unit
       - name: Run handler tests
         run: npm run test:handlers
+
+  dependency_audit:
+    name: dependency-audit
+    needs: classify
+    if: ${{ needs.classify.outputs.mode == 'full' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: life-tracker
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+          sparse-checkout: life-tracker
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Audit production dependencies
+        run: npm audit --omit=dev --audit-level=high
 
   dom_tests:
     name: dom-tests (${{ matrix.shard }})
@@ -242,7 +264,7 @@ jobs:
           path: life-tracker/node_modules
           key: ${{ runner.os }}-node22-focused-modules-${{ hashFiles('life-tracker/package-lock.json') }}
       - name: Install app dependencies on cache miss
-        if: ${{ steps.app-modules-cache.outputs.cache-hit != 'true' }}
+        if: steps.app-modules-cache.outputs.cache-hit != 'true'
         run: npm ci --prefer-offline --no-audit
       - name: Run DOM tests
         run: npm run test:dom -- --shard="${{ matrix.shard }}"
@@ -349,6 +371,7 @@ jobs:
     needs:
       - classify
       - checks
+      - dependency_audit
       - dom_tests
       - build_check
       - browser_contract
@@ -359,12 +382,13 @@ jobs:
       - name: Confirm every canonical gate passed
         env:
           CHECKS_RESULT: ${{ needs.checks.result }}
+          AUDIT_RESULT: ${{ needs.dependency_audit.result }}
           DOM_RESULT: ${{ needs.dom_tests.result }}
           BUILD_RESULT: ${{ needs.build_check.result }}
           BROWSER_RESULT: ${{ needs.browser_contract.result }}
         run: |
           failed=0
-          for result in "$CHECKS_RESULT" "$DOM_RESULT" "$BUILD_RESULT" "$BROWSER_RESULT"; do
+          for result in "$CHECKS_RESULT" "$AUDIT_RESULT" "$DOM_RESULT" "$BUILD_RESULT" "$BROWSER_RESULT"; do
             if [ "$result" != "success" ]; then
               failed=1
             fi
