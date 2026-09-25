@@ -59,15 +59,19 @@ async function bootstrap() {
     if (navigator.storage && navigator.storage.persist) {
       try {
         const isPersisted = await navigator.storage.persist();
-        console.log(`[Bootstrap] Storage persisted: ${isPersisted}`);
+        if (import.meta.env.DEV) {
+          console.log(`[Bootstrap] Storage persisted: ${isPersisted}`);
+        }
       } catch (error) {
         console.warn('[Bootstrap] Storage persistence request failed', error);
       }
     }
 
-    console.log('[Bootstrap] Initializing database...');
+    if (import.meta.env.DEV) console.log('[Bootstrap] Initializing database...');
     await initializeDatabaseWithRetry();
-    console.log('[Bootstrap] ✅ Database initialized successfully.');
+    if (import.meta.env.DEV) {
+      console.log('[Bootstrap] ✅ Database initialized successfully.');
+    }
   } catch (error) {
     console.error('[Bootstrap] FATAL: Database initialization failed', error);
     captureHandledException(error, { source: 'database-bootstrap' });

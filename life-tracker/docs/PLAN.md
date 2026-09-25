@@ -36,6 +36,13 @@ This roadmap records durable workstreams and batch status. `SESSION_STATE.md` co
 - [x] Calendar gesture regression coverage added.
 - [x] Samsung/PWA manual Back and gesture acceptance completed.
 
+## Launch hardening workstreams
+
+- [x] Phase 1 — Appwrite security/configuration and blocking production dependency audit
+- [x] Phase 2 — hosted response headers and local-only HTTPS build isolation
+- [ ] Phase 3 — code hygiene and performance review
+- [ ] Phase 4 — final production acceptance and main release
+
 ## Feature backlog
 
 - [x] Todo List view: compact color-only calendar with a selected-day task list
