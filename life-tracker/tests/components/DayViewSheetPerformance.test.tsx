@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react';
-import { render, screen, act } from '@testing-library/react';
+import { render, screen, act, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import type { CategoryDocument, TaskDocument } from '../../src/db/schema';
 
@@ -147,10 +147,17 @@ describe('DayViewSheet mount scheduling', () => {
       fixture.onChildrenReady?.();
     });
 
-    expect(screen.getAllByTestId('day-slide')).toHaveLength(7);
+    expect(screen.getAllByTestId('day-slide')).toHaveLength(1);
     expect(
       document.querySelectorAll('[data-day-view-navigation="true"]')
-    ).toHaveLength(7);
+    ).toHaveLength(1);
+
+    await waitFor(() => {
+      expect(screen.getAllByTestId('day-slide')).toHaveLength(7);
+      expect(
+        document.querySelectorAll('[data-day-view-navigation="true"]')
+      ).toHaveLength(7);
+    });
 
     act(() => {
       fixture.onClose?.();
