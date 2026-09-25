@@ -498,7 +498,8 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
                         <ChevronRight size={20} />
                       </button>
                     </div>
-                    <DaySlide
+                    {deferredRenderWindow > 0 && (
+                      <DaySlide
                       date={date}
                       dateStr={dateStr}
                       scrollMode={renderMode === 'inline' ? 'page' : 'contained'}
@@ -516,7 +517,8 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
                       onEditChange={handleEditChange}
                       onEditSave={handleEditSave}
                       onEditCancel={handleEditCancel}
-                    />
+                      />
+                    )}
                   </>
                 )}
               </div>

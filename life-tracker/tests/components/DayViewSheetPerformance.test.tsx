@@ -121,7 +121,7 @@ describe('DayViewSheet mount scheduling', () => {
       />
     );
 
-    expect(screen.getAllByTestId('day-slide')).toHaveLength(1);
+    expect(screen.queryAllByTestId('day-slide')).toHaveLength(0);
     expect(
       document.querySelectorAll('[data-day-view-navigation="true"]')
     ).toHaveLength(1);
@@ -140,7 +140,7 @@ describe('DayViewSheet mount scheduling', () => {
       fixture.onClose?.();
     });
 
-    expect(screen.getAllByTestId('day-slide')).toHaveLength(1);
+    expect(screen.queryAllByTestId('day-slide')).toHaveLength(0);
     expect(
       document.querySelectorAll('[data-day-view-navigation="true"]')
     ).toHaveLength(1);
