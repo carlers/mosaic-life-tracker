@@ -1,4 +1,4 @@
-import React, { StrictMode, useRef, useState } from 'react';
+import React, { Profiler, StrictMode, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { Swiper, SwiperSlide } from 'swiper/react';
 import type { Swiper as SwiperClass } from 'swiper';
@@ -336,13 +336,32 @@ export function InteractionHarness() {
             Open day view sheet
           </button>
           <DayViewProbeBoundary>
-            <DayViewSheet
-              isOpen={dayViewSheetOpen}
-              onClose={() => setDayViewSheetOpen(false)}
-              selectedDate={new Date(2026, 8, 15)}
-              tasks={todoTasks}
-              categories={todoCategories}
-            />
+            <Profiler
+              id="DayViewSheet"
+              onRender={(
+                id,
+                phase,
+                actualDuration,
+                baseDuration,
+              ) => {
+                console.log(
+                  `MOSAIC_REACT_PROFILE ${JSON.stringify({
+                    id,
+                    phase,
+                    actualDuration: Number(actualDuration.toFixed(2)),
+                    baseDuration: Number(baseDuration.toFixed(2)),
+                  })}`,
+                );
+              }}
+            >
+              <DayViewSheet
+                isOpen={dayViewSheetOpen}
+                onClose={() => setDayViewSheetOpen(false)}
+                selectedDate={new Date(2026, 8, 15)}
+                tasks={todoTasks}
+                categories={todoCategories}
+              />
+            </Profiler>
           </DayViewProbeBoundary>
         </>
       )}
