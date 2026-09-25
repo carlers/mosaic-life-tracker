@@ -61,3 +61,6 @@ PR #34 is merged as `133e7199dd17d32f1797d15cc66c60dca9a90241`. The retained cha
 Canonical Quality Gate run #421 passed build, dependency audit, lint/unit/handler checks, DOM shards, browser shards, and canonical acceptance. Stable Vercel deployment `dpl_5qtqXCJPLFcC8w8XWtNCfvDNEisS` is READY on `perf/animation-optimization` at https://mosaic-life-tracker-9t1kuueo8-carls-projects-72516fde.vercel.app, with alias https://mosaic-life-tracker-git-perf-ani-28e96f-carls-projects-72516fde.vercel.app.
 
 Remaining acceptance: real-device DayView open/close smoothness. If the device still shows a meaningful hitch, capture a real-device trace before further code changes.
+
+
+Final verification checkpoint: the boolean/default Swiper Virtual experiment was reverted after the browser probe regressed the sheet-open path; the performance probe now isolates both open and close interactions. The remaining candidate is the stable explicit virtual buffer configuration plus the existing TaskItem layout-projection suppression. [verify:full]
