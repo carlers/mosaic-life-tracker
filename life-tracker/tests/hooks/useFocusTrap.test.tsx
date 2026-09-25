@@ -105,6 +105,19 @@ describe('useFocusTrap', () => {
     expect(document.activeElement).toBe(outside);
   });
 
+  it('skips focusable descendants of an aria-hidden subtree', async () => {
+    const { getByTestId } = render(
+      <Trap isActive>
+        <div aria-hidden="true">
+          <button data-testid="hidden-descendant">hidden</button>
+        </div>
+        <button data-testid="real">real</button>
+      </Trap>
+    );
+    await new Promise((r) => requestAnimationFrame(() => r(null)));
+    expect(document.activeElement).toBe(getByTestId('real'));
+  });
+
   it('skips disabled and aria-hidden elements', async () => {
     const { getByTestId } = render(
       <Trap isActive>
