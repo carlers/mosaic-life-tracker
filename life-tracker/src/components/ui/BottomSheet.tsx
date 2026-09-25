@@ -17,6 +17,7 @@ interface BottomSheetProps {
   contentMode?: 'scroll' | 'fixed';
   onHorizontalSwipe?: (direction: 'left' | 'right') => void;
   onAnimationComplete?: () => void;
+  onAnimationUpdate?: (latest: { y?: number | string }) => void;
 }
 
 type SheetStackEntry = {
@@ -304,8 +305,9 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
             animate={{ y: 0 }}
             exit={{ y: '100%' }}
             onAnimationComplete={onAnimationComplete}
+            onUpdate={onAnimationUpdate}
             transition={{ type: 'tween', duration: 0.32, ease: 'easeOut' }}
-            drag={false}
+            drag="y"
             dragControls={dragControls}
             dragListener={false}
             dragConstraints={{ top: 0 }}
