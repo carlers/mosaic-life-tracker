@@ -39,3 +39,12 @@ Representative Chromium result for the same sheet-open interaction:
 - calendar/day swipe and content scroll remain ~16.7ms/frame with no action long tasks
 
 Browser and focused checks pass on the current candidate. This is lab/CI evidence; real-device acceptance remains required. Next: canonical full gate, merge to stable, verify Vercel deployment, then repeat the user's real-device open/close check.
+
+
+## DayView INP deep-dive merged — 2026-09-26
+
+PR #34 is merged as `133e7199dd17d32f1797d15cc66c60dca9a90241`. The retained changes are: deployment branch/commit metadata in Settings, conditional TaskItem optional work, shell-first DayView content deferral, and Swiper Virtual with three slides before/after the active index. The representative browser probe improved sheet-open click processing from ~154.3ms to ~50.8ms and max action Long Animation Frame from ~175.2ms to ~69.6ms after virtualization; swipe/scroll interactions remained ~16.7ms/frame.
+
+Canonical Quality Gate run #421 passed build, dependency audit, lint/unit/handler checks, DOM shards, browser shards, and canonical acceptance. Stable Vercel deployment `dpl_5qtqXCJPLFcC8w8XWtNCfvDNEisS` is READY on `perf/animation-optimization` at https://mosaic-life-tracker-9t1kuueo8-carls-projects-72516fde.vercel.app, with alias https://mosaic-life-tracker-git-perf-ani-28e96f-carls-projects-72516fde.vercel.app.
+
+Remaining acceptance: real-device DayView open/close smoothness. If the device still shows a meaningful hitch, capture a real-device trace before further code changes.
