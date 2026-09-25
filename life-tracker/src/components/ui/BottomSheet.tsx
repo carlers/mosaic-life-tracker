@@ -18,6 +18,7 @@ interface BottomSheetProps {
   onHorizontalSwipe?: (direction: 'left' | 'right') => void;
   onAnimationComplete?: () => void;
   deferChildrenUntilAnimationComplete?: boolean;
+  onChildrenReady?: () => void;
 }
 
 type SheetStackEntry = {
@@ -205,6 +206,7 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
   onHorizontalSwipe,
   onAnimationComplete,
   deferChildrenUntilAnimationComplete = false,
+  onChildrenReady,
 }) => {
   const appearance = useContext(AppearanceContext);
   const sheetWidthMode = appearance?.sheetWidthMode ?? 'full';
@@ -324,6 +326,7 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
                 (latest.y === 0 || latest.y === '0%')
               ) {
                 setChildrenReady(true);
+                onChildrenReady?.();
               }
             }}
             transition={{ type: 'tween', duration: 0.32, ease: 'easeOut' }}
