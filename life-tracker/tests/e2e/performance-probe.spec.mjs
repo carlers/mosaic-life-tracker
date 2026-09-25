@@ -1,7 +1,27 @@
 import { test } from '@playwright/test';
 
-// This probe intentionally reports measurements instead of asserting a performance budget.
-// Thresholds should be added only after CI baselines are stable across runners.
+type MosaicPerf = {
+  frames: number[];
+  longTasks: Array<{
+    duration: number;
+    startTime: number;
+    name: string;
+    containerType: string;
+    containerName: string;
+  }>;
+  mutations: number;
+  actionStartedAt: number;
+  actionFinishedAt: number | null;
+  observer?: PerformanceObserver;
+  mutationObserver?: MutationObserver;
+};
+
+declare global {
+  interface Window {
+    __mosaicPerf: MosaicPerf;
+  }
+}
+
 const BASE_URL =
   process.env.MOSAIC_E2E_BASE_URL ?? 'https://127.0.0.1:4173';
 
@@ -17,6 +37,9 @@ async function measureInteraction(page, name, action) {
     window.__mosaicPerf = {
       frames: [],
       longTasks: [],
+      mutations: 0,
+      actionStartedAt: performance.now(),
+      actionFinishedAt: null,
     };
 
     const perf = window.__mosaicPerf;
@@ -24,7 +47,13 @@ async function measureInteraction(page, name, action) {
       try {
         const observer = new PerformanceObserver((list) => {
           for (const entry of list.getEntries()) {
-            perf.longTasks.push(entry.duration);
+            perf.longTasks.push({
+              duration: entry.duration,
+              startTime: entry.startTime,
+              name: entry.name,
+              containerType: entry.attribution?.[0]?.containerType ?? '',
+              containerName: entry.attribution?.[0]?.containerName ?? '',
+            });
           }
         });
         observer.observe({ type: 'longtask', buffered: false });
@@ -34,10 +63,23 @@ async function measureInteraction(page, name, action) {
       }
     }
 
+    try {
+      perf.mutationObserver = new MutationObserver((records) => {
+        perf.mutations += records.length;
+      });
+      perf.mutationObserver.observe(document.body, {
+        subtree: true,
+        childList: true,
+        attributes: true,
+      });
+    } catch {
+      // Mutation timing is diagnostic only.
+    }
+
     const start = performance.now();
-    perf.start = start;
+    perf.actionStartedAt = start;
     const sample = (now) => {
-      if (now - start < 1200) {
+      if (now - start < 700) {
         perf.frames.push(now);
         requestAnimationFrame(sample);
       }
@@ -47,11 +89,18 @@ async function measureInteraction(page, name, action) {
   });
 
   await action();
-  await page.waitForTimeout(1200);
 
-  return page.evaluate(({ name, startedAt }) => {
+  const actionFinishedAt = await page.evaluate(() => {
+    window.__mosaicPerf.actionFinishedAt = performance.now();
+    return window.__mosaicPerf.actionFinishedAt;
+  });
+
+  await page.waitForTimeout(750);
+
+  return page.evaluate(({ name, startedAt, actionFinishedAt }) => {
     const perf = window.__mosaicPerf;
     perf.observer?.disconnect();
+    perf.mutationObserver?.disconnect();
 
     const deltas = [];
     for (let i = 1; i < perf.frames.length; i += 1) {
@@ -64,9 +113,16 @@ async function measureInteraction(page, name, action) {
       return sorted[Math.min(sorted.length - 1, Math.floor(sorted.length * p))];
     };
 
+    const actionLongTasks = perf.longTasks.filter(
+      (entry) =>
+        entry.startTime < actionFinishedAt &&
+        entry.startTime + entry.duration > startedAt
+    );
+
     const result = {
       name,
       startedAt,
+      actionDurationMs: actionFinishedAt - startedAt,
       frameCount: deltas.length,
       avgFrameMs: deltas.length
         ? deltas.reduce((sum, value) => sum + value, 0) / deltas.length
@@ -77,14 +133,26 @@ async function measureInteraction(page, name, action) {
         ? deltas.filter((value) => value > 20).length / deltas.length
         : null,
       longTaskCount: perf.longTasks.length,
+      actionLongTaskCount: actionLongTasks.length,
       maxLongTaskMs: perf.longTasks.length
-        ? Math.max(...perf.longTasks)
+        ? Math.max(...perf.longTasks.map((entry) => entry.duration))
         : 0,
+      actionMaxLongTaskMs: actionLongTasks.length
+        ? Math.max(...actionLongTasks.map((entry) => entry.duration))
+        : 0,
+      actionLongTasks: actionLongTasks.map((entry) => ({
+        duration: Number(entry.duration.toFixed(2)),
+        startOffsetMs: Number((entry.startTime - startedAt).toFixed(2)),
+        containerType: entry.containerType,
+        containerName: entry.containerName,
+      })),
+      mutationRecords: perf.mutations,
+      elementCount: document.querySelectorAll('*').length,
     };
 
     console.log(`MOSAIC_PERF ${JSON.stringify(result)}`);
     return result;
-  }, { name, startedAt });
+  }, { name, startedAt, actionFinishedAt });
 }
 
 async function swipe(page, selector, fromX = 620, toX = 180, y = 420) {
