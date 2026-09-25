@@ -302,22 +302,27 @@ export function InteractionHarness() {
         </div>
       </BottomSheet>
 
-      <button
-        type="button"
-        data-testid="open-day-view-sheet"
-        onClick={() => setDayViewSheetOpen(true)}
-        className="px-3 py-2"
-      >
-        Open day view sheet
-      </button>
-      <DayViewSheet
-        isOpen={dayViewSheetOpen}
-        onClose={() => setDayViewSheetOpen(false)}
-        selectedDate={new Date(2026, 8, 15)}
-        tasks={todoTasks}
-        categories={todoCategories}
-      />
-
+      {performanceHeavy && (
+        <>
+                <button
+                  type="button"
+                  data-testid="open-day-view-sheet"
+                  onClick={() => setDayViewSheetOpen(true)}
+                  className="px-3 py-2"
+                >
+                  Open day view sheet
+                </button>
+                <DayViewSheet
+                  isOpen={dayViewSheetOpen}
+                  onClose={() => setDayViewSheetOpen(false)}
+                  selectedDate={new Date(2026, 8, 15)}
+                  tasks={todoTasks}
+                  categories={todoCategories}
+                />
+          
+          
+        </>
+      )}
       <button
         type="button"
         data-testid="open-full-sheet"
