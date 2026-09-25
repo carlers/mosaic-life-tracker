@@ -52,8 +52,8 @@ describe('SettingsPage navigation, updates, and data controls', () => {
     );
 
     expect(screen.getByText('0.1.0')).toBeInTheDocument();
-    expect(screen.getByTestId('app-build-info')).toHaveTextContent(/Local · local/);
-    expect(screen.getByTestId('app-build-info')).toHaveTextContent(/commit local/);
+    expect(screen.getByTestId('app-build-info')).toHaveTextContent(/branch: local/);
+    expect(screen.getByTestId('app-build-info')).toHaveTextContent(/commit: local/);
     const check = screen.getByRole('button', { name: /Check for Updates/i });
     const deletion = screen.getByRole('button', { name: 'Delete All User Data' });
     expect(
