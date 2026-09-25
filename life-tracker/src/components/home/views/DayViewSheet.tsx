@@ -140,6 +140,10 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
     onClose();
   }, [onClose]);
 
+  const handleSheetChildrenReady = useCallback(() => {
+    setDeferredRenderWindow(renderWindow);
+  }, [renderWindow]);
+
   useEffect(() => {
     if (!isOpen || renderMode !== 'sheet' || !focusTaskId) return;
 
@@ -644,7 +648,7 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
       contentMode="fixed"
       deferChildrenUntilAnimationComplete={renderMode === 'sheet'}
       onHorizontalSwipe={handleSheetHorizontalSwipe}
-      onAnimationComplete={handleSheetAnimationComplete}
+      onChildrenReady={handleSheetChildrenReady}
     >
       <div
         data-testid="day-sheet-swipe-surface"
