@@ -5,6 +5,7 @@ import type { CategoryDocument, TaskDocument } from '../../src/db/schema';
 
 const fixture = vi.hoisted(() => ({
   onAnimationComplete: null as (() => void) | null,
+  onClose: null as (() => void) | null,
 }));
 
 vi.mock('../../src/components/ui/BottomSheet', () => ({
@@ -12,12 +13,14 @@ vi.mock('../../src/components/ui/BottomSheet', () => ({
     children,
     isOpen,
     onAnimationComplete,
+    onClose,
   }: {
     children: ReactNode;
     isOpen: boolean;
     onAnimationComplete?: () => void;
   }) => {
     fixture.onAnimationComplete = onAnimationComplete ?? null;
+    fixture.onClose = onClose;
     return isOpen ? <div>{children}</div> : null;
   },
 }));
@@ -132,5 +135,14 @@ describe('DayViewSheet mount scheduling', () => {
     expect(
       document.querySelectorAll('[data-day-view-navigation="true"]')
     ).toHaveLength(7);
+
+    act(() => {
+      fixture.onClose?.();
+    });
+
+    expect(screen.getAllByTestId('day-slide')).toHaveLength(1);
+    expect(
+      document.querySelectorAll('[data-day-view-navigation="true"]')
+    ).toHaveLength(1);
   });
 });
