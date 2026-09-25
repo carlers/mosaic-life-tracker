@@ -12,7 +12,7 @@ const FOCUSABLE_SELECTOR = [
 /**
  * Minimal focus trap for modal containers.
  *
- * On mount: captures the currently-focused element, then focuses the
+ * On activation: captures the currently-focused element, then focuses the
  * first focusable descendant of `containerRef`. Tab / Shift+Tab wrap
  * within the container. On unmount: restores focus to the captured
  * element.
