@@ -156,6 +156,7 @@ function renderSheet() {
       onClose={vi.fn()}
       selectedDate={new Date(2026, 8, 20)}
       onDateChange={vi.fn()}
+      deferContentUntilAnimationComplete={false}
     />
   );
 }

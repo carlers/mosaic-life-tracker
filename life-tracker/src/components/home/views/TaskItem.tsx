@@ -25,6 +25,7 @@ interface TaskItemProps {
   onEditChange: (value: string) => void;
   onEditSave: () => void;
   onEditCancel: () => void;
+  disableLayoutAnimation?: boolean;
 }
 
 export const TaskItem: React.FC<TaskItemProps> = ({
@@ -41,6 +42,7 @@ export const TaskItem: React.FC<TaskItemProps> = ({
   onEditChange,
   onEditSave,
   onEditCancel,
+  disableLayoutAnimation = false,
 }) => {
   const { targetRef, shouldLoad } = useImageLoadGate<HTMLDivElement>();
   const { imageUrl, isLoading } = useTaskImage(task.image, shouldLoad);
@@ -86,7 +88,8 @@ export const TaskItem: React.FC<TaskItemProps> = ({
   return (
     <motion.div
       ref={targetRef}
-      layout
+      layout={!disableLayoutAnimation}
+      layoutDependency={`${task.updatedAt}:${isEditing}`}
       data-task-id={task.id}
       className="flex scroll-mt-16 items-start gap-3 rounded-lg py-2 transition-[background-color,box-shadow] duration-300 data-[search-focused=true]:bg-emerald-400/10 data-[search-focused=true]:ring-1 data-[search-focused=true]:ring-emerald-400/60"
     >

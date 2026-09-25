@@ -134,7 +134,6 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
   });
 
   const [deferredRenderWindow, setDeferredRenderWindow] = useState(0);
-
   const handleSheetAnimationComplete = useCallback(() => {
     if (isOpen) setDeferredRenderWindow(renderWindow);
   }, [isOpen, renderWindow]);
@@ -516,6 +515,9 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
                       onEditChange={handleEditChange}
                       onEditSave={handleEditSave}
                       onEditCancel={handleEditCancel}
+                      disableTaskLayoutAnimation={
+                        renderMode === 'sheet' && deferredRenderWindow === 0
+                      }
                     />
                   </>
                 )}

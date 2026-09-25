@@ -1,7 +1,5 @@
 import { test } from '@playwright/test';
 
-// This probe intentionally reports measurements instead of asserting a performance budget.
-// Thresholds should be added only after CI baselines are stable across runners.
 const BASE_URL =
   process.env.MOSAIC_E2E_BASE_URL ?? 'https://127.0.0.1:4173';
 
@@ -13,32 +11,152 @@ test.use({
 });
 
 async function measureInteraction(page, name, action) {
+  const profileStart = await page.evaluate(
+    () => (window.__mosaicReactProfile ?? []).length,
+  );
+
   const startedAt = await page.evaluate(() => {
     window.__mosaicPerf = {
       frames: [],
       longTasks: [],
+      longAnimationFrames: [],
+      mutations: 0,
+      layoutReads: {},
+      layoutReadStacks: [],
+      actionStartedAt: performance.now(),
+      actionFinishedAt: null,
     };
 
-    const perf = window.__mosaicPerf;
+    const recordLayoutRead = (kind) => {
+      const metrics = window.__mosaicPerf;
+      metrics.layoutReads[kind] = (metrics.layoutReads[kind] ?? 0) + 1;
+      if (metrics.layoutReadStacks.length < 40) {
+        metrics.layoutReadStacks.push({
+          kind,
+          stack: new Error().stack?.split('\n').slice(2, 8).join('\n') ?? '',
+        });
+      }
+    };
+
+    const rect = Element.prototype.getBoundingClientRect;
+    const rectWrapper = function (...args) {
+      recordLayoutRead('getBoundingClientRect');
+      return rect.apply(this, args);
+    };
+    Element.prototype.getBoundingClientRect = rectWrapper;
+
+    const descriptors = [
+      ['offsetParent', Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'offsetParent')],
+      ['offsetWidth', Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'offsetWidth')],
+      ['offsetHeight', Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'offsetHeight')],
+      ['clientWidth', Object.getOwnPropertyDescriptor(Element.prototype, 'clientWidth')],
+      ['clientHeight', Object.getOwnPropertyDescriptor(Element.prototype, 'clientHeight')],
+      ['scrollWidth', Object.getOwnPropertyDescriptor(Element.prototype, 'scrollWidth')],
+      ['scrollHeight', Object.getOwnPropertyDescriptor(Element.prototype, 'scrollHeight')],
+    ];
+
+    const restoredDescriptors = [];
+    for (const [kind, descriptor] of descriptors) {
+      if (!descriptor?.get) continue;
+      const getter = descriptor.get;
+      const wrapper = {
+        configurable: descriptor.configurable,
+        enumerable: descriptor.enumerable,
+        get() {
+          recordLayoutRead(kind);
+          return getter.call(this);
+        },
+        set: descriptor.set,
+      };
+      Object.defineProperty(
+        kind === 'offsetParent' || kind === 'offsetWidth' || kind === 'offsetHeight'
+          ? HTMLElement.prototype
+          : Element.prototype,
+        kind,
+        wrapper,
+      );
+      restoredDescriptors.push([
+        kind === 'offsetParent' || kind === 'offsetWidth' || kind === 'offsetHeight'
+          ? HTMLElement.prototype
+          : Element.prototype,
+        kind,
+        descriptor,
+      ]);
+    }
+
+    window.__mosaicPerf.restoreLayoutProbe = () => {
+      Element.prototype.getBoundingClientRect = rect;
+      for (const [prototype, kind, descriptor] of restoredDescriptors) {
+        Object.defineProperty(prototype, kind, descriptor);
+      }
+    };
+
     if ('PerformanceObserver' in window) {
       try {
         const observer = new PerformanceObserver((list) => {
           for (const entry of list.getEntries()) {
-            perf.longTasks.push(entry.duration);
+            window.__mosaicPerf.longTasks.push({
+              duration: entry.duration,
+              startTime: entry.startTime,
+              name: entry.name,
+              containerType: entry.attribution?.[0]?.containerType ?? '',
+              containerName: entry.attribution?.[0]?.containerName ?? '',
+            });
           }
         });
         observer.observe({ type: 'longtask', buffered: false });
-        perf.observer = observer;
+        window.__mosaicPerf.observer = observer;
       } catch {
-        // Long-task entries are optional; frame timing remains useful.
+        // Optional diagnostic.
+      }
+
+      try {
+        const observer = new PerformanceObserver((list) => {
+          for (const entry of list.getEntries()) {
+            window.__mosaicPerf.longAnimationFrames.push({
+              duration: entry.duration,
+              startTime: entry.startTime,
+              renderStart: entry.renderStart ?? null,
+              styleAndLayoutStart: entry.styleAndLayoutStart ?? null,
+              blockingDuration: entry.blockingDuration ?? null,
+              firstUIEventTimestamp: entry.firstUIEventTimestamp ?? null,
+              scripts: Array.isArray(entry.scripts)
+                ? entry.scripts.map((script) => ({
+                    duration: script.duration ?? null,
+                    sourceURL: script.sourceURL ?? '',
+                    functionName: script.functionName ?? '',
+                    invoker: script.invoker ?? '',
+                    invokerType: script.invokerType ?? '',
+                  }))
+                : [],
+            });
+          }
+        });
+        observer.observe({ type: 'long-animation-frame', buffered: false });
+        window.__mosaicPerf.longAnimationFrameObserver = observer;
+      } catch {
+        // Optional diagnostic.
       }
     }
 
+    try {
+      window.__mosaicPerf.mutationObserver = new MutationObserver((records) => {
+        window.__mosaicPerf.mutations += records.length;
+      });
+      window.__mosaicPerf.mutationObserver.observe(document.body, {
+        subtree: true,
+        childList: true,
+        attributes: true,
+      });
+    } catch {
+      // Optional diagnostic.
+    }
+
     const start = performance.now();
-    perf.start = start;
+    window.__mosaicPerf.actionStartedAt = start;
     const sample = (now) => {
-      if (now - start < 1200) {
-        perf.frames.push(now);
+      if (now - start < 700) {
+        window.__mosaicPerf.frames.push(now);
         requestAnimationFrame(sample);
       }
     };
@@ -47,11 +165,25 @@ async function measureInteraction(page, name, action) {
   });
 
   await action();
-  await page.waitForTimeout(1200);
 
-  return page.evaluate(({ name, startedAt }) => {
+  const actionFinishedAt = await page.evaluate(() => {
+    window.__mosaicPerf.actionFinishedAt = performance.now();
+    return window.__mosaicPerf.actionFinishedAt;
+  });
+
+  const reactProfile = await page.evaluate(
+    (start) => (window.__mosaicReactProfile ?? []).slice(start),
+    profileStart,
+  );
+
+  await page.waitForTimeout(750);
+
+  return page.evaluate(({ name, startedAt, actionFinishedAt, reactProfile }) => {
     const perf = window.__mosaicPerf;
     perf.observer?.disconnect();
+    perf.longAnimationFrameObserver?.disconnect();
+    perf.mutationObserver?.disconnect();
+    perf.restoreLayoutProbe?.();
 
     const deltas = [];
     for (let i = 1; i < perf.frames.length; i += 1) {
@@ -64,9 +196,44 @@ async function measureInteraction(page, name, action) {
       return sorted[Math.min(sorted.length - 1, Math.floor(sorted.length * p))];
     };
 
+    const actionLongTasks = perf.longTasks.filter(
+      (entry) =>
+        entry.startTime < actionFinishedAt &&
+        entry.startTime + entry.duration > startedAt
+    );
+
+    const actionLongAnimationFrames = perf.longAnimationFrames.filter(
+      (entry) =>
+        entry.startTime < actionFinishedAt &&
+        entry.startTime + entry.duration > startedAt
+    );
+
+    const loafMetrics = actionLongAnimationFrames.flatMap((entry) => {
+      const scriptDuration = entry.scripts.reduce(
+        (sum, script) => sum + (script.duration ?? 0),
+        0
+      );
+      const styleAndLayoutDelay =
+        entry.styleAndLayoutStart == null
+          ? null
+          : entry.styleAndLayoutStart - entry.startTime;
+      const renderDelay =
+        entry.renderStart == null
+          ? null
+          : entry.renderStart - entry.startTime;
+      return [{
+        duration: entry.duration,
+        blockingDuration: entry.blockingDuration,
+        styleAndLayoutDelay,
+        renderDelay,
+        scriptDuration,
+      }];
+    });
+
     const result = {
       name,
       startedAt,
+      actionDurationMs: actionFinishedAt - startedAt,
       frameCount: deltas.length,
       avgFrameMs: deltas.length
         ? deltas.reduce((sum, value) => sum + value, 0) / deltas.length
@@ -77,14 +244,58 @@ async function measureInteraction(page, name, action) {
         ? deltas.filter((value) => value > 20).length / deltas.length
         : null,
       longTaskCount: perf.longTasks.length,
+      actionLongTaskCount: actionLongTasks.length,
       maxLongTaskMs: perf.longTasks.length
-        ? Math.max(...perf.longTasks)
+        ? Math.max(...perf.longTasks.map((entry) => entry.duration))
         : 0,
+      actionMaxLongTaskMs: actionLongTasks.length
+        ? Math.max(...actionLongTasks.map((entry) => entry.duration))
+        : 0,
+      actionLongTasks: actionLongTasks.map((entry) => ({
+        duration: Number(entry.duration.toFixed(2)),
+        startOffsetMs: Number((entry.startTime - startedAt).toFixed(2)),
+        containerType: entry.containerType,
+        containerName: entry.containerName,
+      })),
+      longAnimationFrameCount: perf.longAnimationFrames.length,
+      actionLongAnimationFrameCount: actionLongAnimationFrames.length,
+      maxLongAnimationFrameMs: actionLongAnimationFrames.length
+        ? Math.max(...actionLongAnimationFrames.map((entry) => entry.duration))
+        : 0,
+      maxStyleAndLayoutDelayMs: loafMetrics.some((entry) => entry.styleAndLayoutDelay != null)
+        ? Math.max(...loafMetrics.map((entry) => entry.styleAndLayoutDelay ?? 0))
+        : 0,
+      maxRenderDelayMs: loafMetrics.some((entry) => entry.renderDelay != null)
+        ? Math.max(...loafMetrics.map((entry) => entry.renderDelay ?? 0))
+        : 0,
+      maxLoafScriptDurationMs: loafMetrics.length
+        ? Math.max(...loafMetrics.map((entry) => entry.scriptDuration))
+        : 0,
+      actionLongAnimationFrames: actionLongAnimationFrames.map((entry, index) => ({
+        duration: Number(entry.duration.toFixed(2)),
+        startOffsetMs: Number((entry.startTime - startedAt).toFixed(2)),
+        blockingDuration: entry.blockingDuration == null
+          ? null
+          : Number(entry.blockingDuration.toFixed(2)),
+        styleAndLayoutDelay: loafMetrics[index].styleAndLayoutDelay == null
+          ? null
+          : Number(loafMetrics[index].styleAndLayoutDelay.toFixed(2)),
+        renderDelay: loafMetrics[index].renderDelay == null
+          ? null
+          : Number(loafMetrics[index].renderDelay.toFixed(2)),
+        scriptDuration: Number(loafMetrics[index].scriptDuration.toFixed(2)),
+        scripts: entry.scripts,
+      })),
+      layoutReads: perf.layoutReads,
+      layoutReadStacks: perf.layoutReadStacks,
+      mutationRecords: perf.mutations,
+      elementCount: document.querySelectorAll('*').length,
+      reactProfile,
     };
 
     console.log(`MOSAIC_PERF ${JSON.stringify(result)}`);
     return result;
-  }, { name, startedAt });
+  }, { name, startedAt, actionFinishedAt, reactProfile });
 }
 
 async function swipe(page, selector, fromX = 620, toX = 180, y = 420) {
@@ -105,11 +316,16 @@ test('interaction performance probe', async ({ page }) => {
   await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html?perf=heavy`);
   await page.waitForLoadState('domcontentloaded');
 
+  const probeError = page.getByTestId('day-view-probe-error');
+  if (await probeError.count()) {
+    throw new Error(`DayView probe render failed: ${await probeError.textContent()}`);
+  }
+
   const results = [];
 
   results.push(
     await measureInteraction(page, 'bottom-sheet-open', async () => {
-      await page.getByTestId('open-full-sheet').click();
+      await page.getByTestId('open-day-view-sheet').click();
     })
   );
 
