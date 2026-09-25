@@ -48,18 +48,15 @@ export function useFocusTrap(
       });
     };
 
-    // Keep the initial focus scan out of the synchronous open/update path.
-    // querySelectorAll + visibility checks can force style/layout on the full
-    // sheet subtree, which is especially expensive for large day views.
-    // Framer Motion's enter animation has also started by the next frame.
-    let focusTrapRaf: number | null = null;
-    focusTrapRaf = requestAnimationFrame(() => {
-      const focusables = getFocusable();
-      if (focusables.length > 0) {
+    const focusables = getFocusable();
+    if (focusables.length > 0) {
+      // Defer one frame so Framer Motion's enter animation has started
+      // and the element is not display:none mid-transition.
+      const raf = requestAnimationFrame(() => {
         focusables[0].focus({ preventScroll: true });
-      }
-      focusTrapRaf = null;
-    });
+      });
+      container.dataset.focusTrapRaf = String(raf);
+    }
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key !== 'Tab') return;
@@ -88,9 +85,10 @@ export function useFocusTrap(
 
     return () => {
       document.removeEventListener('keydown', handleKeyDown);
-      if (focusTrapRaf !== null) {
-        cancelAnimationFrame(focusTrapRaf);
-        focusTrapRaf = null;
+      const raf = container.dataset.focusTrapRaf;
+      if (raf) {
+        cancelAnimationFrame(Number(raf));
+        delete container.dataset.focusTrapRaf;
       }
       if (previouslyFocused && document.contains(previouslyFocused)) {
         previouslyFocused.focus({ preventScroll: true });
