@@ -224,13 +224,11 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
   useEffect(() => {
     if (!isOpen) return;
     openSheetCount++;
-    // PERF DIAGNOSTIC: body scroll locking can force a root layout pass when a
-    // large page is present. Keep the cleanup shape intact while benchmarking.
-    document.body.dataset.mosaicSheetOpen = 'true';
+    document.body.style.overflow = 'hidden';
     return () => {
       openSheetCount = Math.max(0, openSheetCount - 1);
       if (openSheetCount === 0) {
-        delete document.body.dataset.mosaicSheetOpen;
+        document.body.style.overflow = 'unset';
       }
     };
   }, [isOpen]);
