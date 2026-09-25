@@ -292,7 +292,9 @@ export const PrimaryRouteSwipeSurface: React.FC<
 
   const customHorizontalOwner =
     (canSwipeLeft || canSwipeRight) && !homeZoneOnly;
-  const heightClass = homeZoneOnly ? 'h-full min-h-0' : 'min-h-full';
+  const heightClass = homeZoneOnly
+    ? 'h-full min-h-0'
+    : 'min-h-[calc(100dvh-4rem-env(safe-area-inset-bottom))]';
   const previewNode =
     previewDirection === 'left' ? leftPreview : rightPreview;
   const previewTransform =
