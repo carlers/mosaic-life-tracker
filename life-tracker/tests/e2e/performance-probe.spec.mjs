@@ -5,6 +5,13 @@ import { test } from '@playwright/test';
 const BASE_URL =
   process.env.MOSAIC_E2E_BASE_URL ?? 'https://127.0.0.1:4173';
 
+test.use({
+  ignoreHTTPSErrors: true,
+  hasTouch: true,
+  isMobile: true,
+  viewport: { width: 412, height: 915 },
+});
+
 async function measureInteraction(page, name, action) {
   const startedAt = await page.evaluate(() => {
     window.__mosaicPerf = {
