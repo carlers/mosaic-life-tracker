@@ -19,6 +19,7 @@ import { applyAppearanceMode } from '../../src/lib/appearance';
 
 export function InteractionHarness() {
   const calendar = useCalendarState();
+  const performanceHeavy = new URLSearchParams(window.location.search).get('perf') === 'heavy';
   const [friendIndex, setFriendIndex] = useState(0);
   const [todoDayIndex, setTodoDayIndex] = useState(0);
   const [todoGesture, setTodoGesture] = useState('idle');
@@ -45,7 +46,7 @@ export function InteractionHarness() {
     isDeleted: false,
   }));
   const todoTasks: TaskDocument[] = todoCategories.flatMap((category, categoryIndex) =>
-    Array.from({ length: 3 }, (_, taskIndex) => ({
+    Array.from({ length: performanceHeavy ? 10 : 3 }, (_, taskIndex) => ({
       id: `task_${categoryIndex}_${taskIndex}`,
       title: `Task ${categoryIndex + 1}.${taskIndex + 1}`,
       completed: false,
@@ -59,6 +60,11 @@ export function InteractionHarness() {
       visibility: 'private',
       memo: categoryIndex === 0 && taskIndex === 0 ? 'Browser memo content' : '',
     }))
+  );
+
+  const calendarTasksByDate = React.useMemo(
+    () => new Map([[format(todoSelectedDate, 'yyyy-MM-dd'), todoTasks]]),
+    [todoSelectedDate, todoTasks]
   );
 
   useHorizontalArrowNavigation({
@@ -179,7 +185,7 @@ export function InteractionHarness() {
                 emblaRef={calendar.emblaRef}
                 viewMode={calendar.viewMode}
                 onDayClick={() => {}}
-                tasksByDate={new Map()}
+                tasksByDate={performanceHeavy ? calendarTasksByDate : new Map()}
                 categoriesMap={{}}
               />
             </div>
