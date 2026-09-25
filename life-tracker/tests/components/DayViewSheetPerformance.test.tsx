@@ -140,7 +140,7 @@ describe('DayViewSheet mount scheduling', () => {
     expect(screen.queryAllByTestId('day-slide')).toHaveLength(0);
     expect(
       document.querySelectorAll('[data-day-view-navigation="true"]')
-    ).toHaveLength(1);
+    ).toHaveLength(0);
     expect(fixture.onChildrenReady).toEqual(expect.any(Function));
 
     act(() => {
