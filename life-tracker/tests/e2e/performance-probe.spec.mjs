@@ -72,6 +72,7 @@ async function measureInteraction(page, name, action) {
         ? deltas.reduce((sum, value) => sum + value, 0) / deltas.length
         : null,
       p95FrameMs: percentile(0.95),
+      maxFrameMs: deltas.length ? Math.max(...deltas) : null,
       droppedFrameRatio: deltas.length
         ? deltas.filter((value) => value > 20).length / deltas.length
         : null,
