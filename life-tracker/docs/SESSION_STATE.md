@@ -1,9 +1,9 @@
 # Session checkpoint
 
 Updated: 2026-09-25
-Current task: Production launch hardening — repository-side release hardening.
-Status: Phase 1 Appwrite security corrections are live, PostHog has been audited, the full canonical Quality Gate includes a blocking production dependency vulnerability audit, and Phase 2 adds baseline hosted response headers plus keeps the local HTTPS helper out of hosted builds.
-Next action: complete canonical verification for Phase 2, merge it into dev if green, then finish code-hygiene/performance review and move into final release preparation and exact-SHA main-branch acceptance.
+Current task: Production launch hardening — code hygiene and performance review.
+Status: Phase 1 Appwrite security corrections are live, Phase 2 release hardening is merged to dev and remotely accepted, and Phase 3 code-hygiene/performance review has removed an ineffective dynamic import and production bootstrap info logging. Vercel production is identified and Appwrite now uses the exact production origin.
+Next action: complete canonical verification for Phase 3, merge it into dev if green, review measured build/performance results, then prepare the final release candidate and exact-SHA main-branch acceptance.
 Blockers: No known launch blocker remains in hosted configuration. Vercel production hostname is `mosaic-life-tracker.vercel.app` and Appwrite now uses that exact Web platform origin. Local runtime execution is unavailable; remote CI is the executable verification path.
 
 ## Phase 1 findings
@@ -32,4 +32,8 @@ Blockers: No known launch blocker remains in hosted configuration. Vercel produc
 - PR #14 dependency-audit plus the existing canonical suite passed on exact SHA 04b38bc3c9a7005fa3a6f01c4dd51c021e2a2396 (Quality Gate run 36092048112).
 - PR #14 merged into dev as merge SHA 625948dbcd0d66ccec1501746e6d023971951815.
 - Manual hosted production/device acceptance: pending.
-- Phase 2 release hardening is ready for canonical verification; Vercel production hostname discovery and Appwrite origin configuration are complete.
+- Phase 2 release hardening passed canonical acceptance on exact SHA b2c08ab22b0a3820ca2221d0f4cc5071d1eaa6ff (Quality Gate run 36094432195) and merged into dev as ecf7a8767c3bac5dd2a1cb9739fdf5c5e154e041; Vercel dev deployment is READY.
+- Vercel build measurement: entry 425,915 B raw / 126,874 B gzip; all app assets 1,927,766 B raw / 577,915 B gzip; precache 1,988,488 B; build-size budget passed but app-assets and precache budgets are close to their configured ceilings.
+- Vercel build reported an ineffective dynamic import for socialOutbox because the module is also statically imported; Phase 3 removes that redundant dynamic import without changing behavior.
+- Phase 3 also gates bootstrap informational console logs behind DEV; warnings/errors remain available for production diagnostics.
+- Manual hosted/device acceptance remains pending.
