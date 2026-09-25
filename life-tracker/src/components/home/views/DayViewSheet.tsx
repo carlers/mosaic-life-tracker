@@ -134,30 +134,20 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
   });
 
   const [deferredRenderWindow, setDeferredRenderWindow] = useState(0);
+  const [deferredContentReady, setDeferredContentReady] = useState(false);
 
   const handleSheetAnimationComplete = useCallback(() => {
-    if (isOpen) setDeferredRenderWindow(renderWindow);
+    if (isOpen) {
+      setDeferredContentReady(true);
+      setDeferredRenderWindow(renderWindow);
+    }
   }, [isOpen, renderWindow]);
 
   const handleSheetClose = useCallback(() => {
+    setDeferredContentReady(false);
     setDeferredRenderWindow(0);
     onClose();
   }, [onClose]);
-
-  useEffect(() => {
-    if (
-      !isOpen ||
-      renderMode !== 'sheet' ||
-      deferredRenderWindow === 0
-    ) {
-      return;
-    }
-
-    const swiper = swiperRef.current;
-    if (swiper && !swiper.initialized) {
-      swiper.init();
-    }
-  }, [deferredRenderWindow, isOpen, renderMode, swiperRef]);
 
   useEffect(() => {
     if (!isOpen || renderMode !== 'sheet' || !focusTaskId) return;
@@ -453,7 +443,6 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
         onSwiper={(swiper) => {
           swiperRef.current = swiper;
         }}
-        init={renderMode !== 'sheet' || deferredRenderWindow !== 0}
         initialSlide={initialIndex}
         onSlideChange={handleSwipeSettled}
         data-testid="day-swiper"
@@ -480,7 +469,7 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
               <div
                 className={renderMode === 'inline' ? 'w-full min-w-0' : 'flex h-full min-h-0 w-full min-w-0 flex-col'}
               >
-                {inWindow && (
+                {inWindow && (deferredContentReady || renderMode !== 'sheet') && (
                   <>
                     <div
                       className="flex shrink-0 items-center justify-between gap-2 px-4 py-2"
