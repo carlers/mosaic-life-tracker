@@ -104,22 +104,36 @@ test('interaction performance probe', async ({ page }) => {
   await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html`);
   await page.waitForLoadState('domcontentloaded');
 
-  const results = [];\n\n  results.push(await measureInteraction(page, 'bottom-sheet-open', async () => {
-    await page.getByTestId('open-full-sheet').click();
-  });
+  const results = [];
+
+  results.push(
+    await measureInteraction(page, 'bottom-sheet-open', async () => {
+      await page.getByTestId('open-full-sheet').click();
+    })
+  );
 
   await page.keyboard.press('Escape');
   await page.waitForTimeout(100);
 
-  results.push(await measureInteraction(page, 'calendar-month-swipe', async () => {
-    await swipe(page, '[data-testid="calendar-region"]');
-  });
+  results.push(
+    await measureInteraction(page, 'calendar-month-swipe', async () => {
+      await swipe(page, '[data-testid="calendar-region"]');
+    })
+  );
 
-  results.push(await measureInteraction(page, 'day-swipe', async () => {
-    await swipe(page, '[data-testid="todo-region"]', 140, 40, 450);
-  });
+  results.push(
+    await measureInteraction(page, 'day-swipe', async () => {
+      await swipe(page, '[data-testid="todo-region"]', 140, 40, 450);
+    })
+  );
 
-  results.push(await measureInteraction(page, 'day-content-scroll', async () => {
-    await page.locator('[data-testid="todo-day-content"]').scrollIntoViewIfNeeded();
-  });
+  results.push(
+    await measureInteraction(page, 'day-content-scroll', async () => {
+      await page.locator('[data-testid="todo-day-content"]').scrollIntoViewIfNeeded();
+    })
+  );
+
+  for (const result of results) {
+    console.log(`MOSAIC_PERF ${JSON.stringify(result)}`);
+  }
 });
