@@ -20,6 +20,19 @@ The post-change CI Chromium probe recorded 2 getBoundingClientRect reads from Fr
 Current production optimization on chatgpt/interaction-perf-trace: suppress TaskItem Framer Motion layout projection only during the sheet entrance. Diagnostic layout-read/LOAF instrumentation remains in the performance probe for this phase. Browser contract and focused checks passed on the successful measurement run. The change is merged into perf/animation-optimization. Exact-SHA canonical verification passed, and the stable Preview deployment is READY. Final exact-SHA verification is requested on the next task checkpoint commit. Real-device/manual smoothness acceptance remains separate.
 
 
+## Swiper virtual-window follow-up — 2026-09-26
+
+The user's Vercel Interaction Timing capture still shows a DayView bottom-sheet interaction around 190ms INP, so the previous CI improvements did not eliminate the real-device hitch. The Codex branch `codex/fix-lag-in-dayview-bottom-sheet` was inspected against the stable branch. Its material performance change is to replace the sheet's explicit Swiper Virtual `addSlidesBefore: 3 / addSlidesAfter: 3` configuration with `virtual={true}`; Swiper documents boolean virtual mode as using the default zero pre-render buffers, which is specifically intended to keep only the required slide DOM. citeturn2search0turn2search2 The Codex branch's version/build metadata work was also reviewed; stable already had the underlying branch/commit metadata plumbing, so this follow-up only makes the Settings display more explicit.
+
+Current follow-up branch: `chatgpt/dayview-sheet-virtual-window`, based directly on `perf/animation-optimization`.
+Changes under verification:
+- DayView sheet mode now uses Swiper Virtual with default buffers; inline DayView keeps its existing non-virtual behavior.
+- The browser performance probe reports both Swiper slide-wrapper count and rendered DayView navigation count so the DOM reduction is directly observable in CI.
+- Settings now labels the deployment branch, short commit SHA, and commit message explicitly.
+- Regression coverage asserts that sheet mode enables Swiper Virtual.
+
+Do not merge this follow-up until browser verification confirms the real DayView sheet interaction improves without regressing day/calendar swipe behavior. Real-device acceptance remains required.
+
 ## Interaction INP deep-dive checkpoint — 2026-09-26
 
 Vercel Interaction Timing showed DayView open/close at 190.2ms INP, with the supplied slow interaction showing ~132.4ms render work. The browser probe now captures Event Timing, Long Animation Frames, React render/commit timing, DOM mutations, and layout-read stacks.
