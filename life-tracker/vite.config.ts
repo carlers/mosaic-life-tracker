@@ -45,6 +45,7 @@ const posthogSourceMapPlugin = posthog
 export default defineConfig({
   define: {
     'import.meta.env.VITE_APP_BUILD_COMMIT': JSON.stringify(buildCommit),
+    'import.meta.env.VITE_APP_BUILD_BRANCH': JSON.stringify(buildRef),
     'import.meta.env.VITE_APP_BUILD_MESSAGE': JSON.stringify(buildMessage),
     'import.meta.env.VITE_APP_BUILD_TIME': JSON.stringify(new Date().toISOString()),
     'import.meta.env.VITE_APP_BUILD_CHANNEL': JSON.stringify(buildChannel),
