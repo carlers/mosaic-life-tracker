@@ -54,13 +54,30 @@ vi.mock('../../src/hooks/useCategories', () => ({
 
 vi.mock('../../src/components/home/HomeTaskSearch', () => ({
   HomeTaskSearch: ({
+    isOpen,
+    onOpen,
+    onClose,
     onSelectTask,
   }: {
+    isOpen: boolean;
+    onOpen: () => void;
+    onClose: () => void;
     onSelectTask: (task: typeof ownerTask) => void;
   }) => (
-    <button type="button" onClick={() => onSelectTask(ownerTask)}>
-      Select search task
-    </button>
+    <div>
+      <button type="button" onClick={() => onSelectTask(ownerTask)}>
+        Select search task
+      </button>
+      {isOpen ? (
+        <button type="button" onClick={onClose}>
+          Close search
+        </button>
+      ) : (
+        <button type="button" onClick={onOpen}>
+          Open search
+        </button>
+      )}
+    </div>
   ),
 }));
 vi.mock('../../src/components/home/PersonCarousel', () => ({
@@ -99,6 +116,28 @@ vi.mock('../../src/components/home/views/DayViewSheet', () => ({
 describe('HomePage task-search wiring', () => {
   // Regression: docs/PROJECT_REFERENCE.md §2 — selecting a local search result
   // opens the existing owner Day View for that exact date/task using the shared arrays.
+  it('uses a history entry for Home search so Android Back closes search before route navigation', () => {
+    render(<HomePage />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Open search' }));
+    expect(window.history.state).toEqual(
+      expect.objectContaining({ mosaicHomeSearch: true })
+    );
+
+    fireEvent(window, new PopStateEvent('popstate'));
+
+    expect(screen.getByRole('button', { name: 'Open search' })).toBeInTheDocument();
+  });
+
+  it('makes the Home content inert while search is open', () => {
+    render(<HomePage />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Open search' }));
+
+    const carousel = screen.getByText('Carousel');
+    expect(carousel.parentElement?.parentElement).toHaveAttribute('inert');
+  });
+
   it('opens Day View for the selected result without creating another data source', () => {
     render(<HomePage />);
 
