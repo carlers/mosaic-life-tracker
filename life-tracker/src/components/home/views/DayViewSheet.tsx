@@ -37,7 +37,6 @@ interface DayViewSheetProps {
   tasks?: TaskDocument[];
   categories?: CategoryDocument[];
   focusTaskId?: string | null;
-  deferContentUntilAnimationComplete?: boolean;
 }
 
 export const DayViewSheet: React.FC<DayViewSheetProps> = ({
@@ -49,7 +48,6 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
   tasks: tasksOverride,
   categories: categoriesOverride,
   focusTaskId = null,
-  deferContentUntilAnimationComplete = true,
 }) => {
   const { user } = useAuth();
   const currentUserId = user?.$id ?? '';
@@ -665,9 +663,6 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
       isLocked={isBackgroundLocked}
       suspendInteraction={isBackgroundLocked}
       contentMode="fixed"
-      deferChildrenUntilAnimationComplete={
-        renderMode === 'sheet' && deferContentUntilAnimationComplete
-      }
       onHorizontalSwipe={handleSheetHorizontalSwipe}
       onChildrenReady={handleSheetChildrenReady}
     >
