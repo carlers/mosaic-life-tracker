@@ -1,9 +1,9 @@
 # Session checkpoint
 
-Updated: 2026-09-24
-Current task: Migrate CI/CD from the legacy preview branch model to main/dev/feature plus AI task branches
-Status: implementation complete; exact-SHA canonical acceptance passed on the migration tip.
-Next action: verify Vercel project settings/deployments for main, dev, and feature/*; then perform any required manual browser/device checks.
+Updated: 2026-09-25
+Current task: Activate the new `dev` integration branch after the CI/CD branch-model migration
+Status: `dev` now exists at the accepted migration tip; this commit activates a new push event so branch-triggered CI/deployment behavior can be verified.
+Next action: verify the GitHub Quality Gate run for `dev` and then verify the resulting Vercel Preview deployment.
 Blockers: Vercel project settings and resulting deployment status are external and require dashboard/service access.
 
 ## Constraints
@@ -22,6 +22,8 @@ Blockers: Vercel project settings and resulting deployment status are external a
 - Added regression coverage for CI branch classification.
 - Changed Vercel deployment configuration to an explicit deny-by-default branch policy.
 - Updated delivery, testing, versioning, and project-reference documentation to remove the deployment-only preview model.
+- Created `dev` from the accepted CI/CD migration tip.
+- Added this documentation checkpoint commit on `dev` to trigger branch-based CI.
 
 ## Working set
 
@@ -37,5 +39,6 @@ Blockers: Vercel project settings and resulting deployment status are external a
 
 ## Verification
 
-- Automated: canonical acceptance passed for the exact migration SHA. Focused classifier regression coverage and the full canonical suite are green.
+- Automated: canonical acceptance passed for the exact migration SHA before `dev` activation.
 - Browser/device acceptance: manual Vercel branch deployment checks remain pending.
+- `dev` activation CI: pending verification after this push.
