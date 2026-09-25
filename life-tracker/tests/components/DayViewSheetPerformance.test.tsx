@@ -25,6 +25,14 @@ vi.mock('../../src/components/ui/BottomSheet', () => ({
   },
 }));
 
+vi.mock('swiper/react', () => ({
+  Swiper: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+  SwiperSlide: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+}));
+vi.mock('swiper/modules', () => ({
+  Virtual: {},
+}));
+
 vi.mock('../../src/components/home/views/DaySlide', () => ({
   DaySlide: () => <div data-testid="day-slide">Day content</div>,
 }));
