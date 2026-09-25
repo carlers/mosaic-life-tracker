@@ -773,6 +773,21 @@ and that Mosaic makes no replay/autocapture request paths. Hosted PostHog checks
 authority for actual ingestion, person properties, recordings, project IP discard, and
 production source-map symbolication.
 
+
+### 24.16 Animation performance audit baseline
+
+The stable `perf/animation-optimization` branch contains measured interaction hardening for
+DayView and Calendar. DayView preserves all 181 Swiper geometry slides while mounting only
+the existing seven-slide expensive render window. Calendar preserves its 61-slide Embla
+geometry while limiting vertical scrolling to the rendered three-slide window. A CI-hosted
+Chromium performance probe exercises a heavy fixture and reports requestAnimationFrame
+timing plus PerformanceObserver long tasks without enforcing a budget. The 2026-09-25
+baseline recorded approximately 60 FPS for calendar month swipe, day swipe, and heavy
+day-content scroll; bottom-sheet open had one 64ms long task and a small 1.45% frame-over-
+20ms ratio. These runner measurements are diagnostic baselines, not device guarantees.
+No additional BottomSheet animation/CSS change is justified without a device trace or
+stronger production-equivalent evidence.
+
 ## 25. Workflow Portability and History
 
 [AI workflow](AI_WORKFLOW.md) owns the current process. Historical decisions are in
