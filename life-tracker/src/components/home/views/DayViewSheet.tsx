@@ -136,6 +136,10 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
   const [deferredRenderWindow, setDeferredRenderWindow] = useState(0);
   const [sheetContentReleased, setSheetContentReleased] = useState(false);
 
+  const handleSheetAnimationComplete = useCallback(() => {
+    if (isOpen) setDeferredRenderWindow(renderWindow);
+  }, [isOpen, renderWindow]);
+
   const handleSheetClose = useCallback(() => {
     setSheetContentReleased(false);
     setDeferredRenderWindow(0);
