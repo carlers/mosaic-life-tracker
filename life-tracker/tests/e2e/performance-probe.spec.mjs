@@ -1,6 +1,6 @@
 import { test } from '@playwright/test';
 
-const BASE_URL =
+// This probe intentionally reports measurements instead of asserting a performance budget.\n// Thresholds should be added only after CI baselines are stable across runners.\nconst BASE_URL =
   process.env.MOSAIC_E2E_BASE_URL ?? 'https://127.0.0.1:4173';
 
 async function measureInteraction(page, name, action) {
