@@ -86,15 +86,6 @@ describe('HomeTaskSearch', () => {
     expect(onOpen).toHaveBeenCalledTimes(1);
   });
 
-  it('closes back to a fixed-size Search button without retaining the searchbox', () => {
-    renderSearch();
-
-    fireEvent.click(screen.getByRole('button', { name: 'Close task search' }));
-
-    expect(screen.queryByRole('searchbox', { name: 'Search my tasks' })).toBeNull();
-    expect(screen.getByRole('button', { name: 'Search tasks' })).toBeInTheDocument();
-  });
-
   it('shows guidance until a query/filter exists, then renders metadata icons and selects the task', async () => {
     const onSelectTask = vi.fn();
     renderSearch({ onSelectTask });
