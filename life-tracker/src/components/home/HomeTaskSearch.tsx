@@ -208,6 +208,16 @@ export const HomeTaskSearch: React.FC<HomeTaskSearchProps> = ({
       </div>
 
       {isOpen && (
+        <button
+          type="button"
+          data-route-swipe-ignore="true"
+          aria-label="Close task search"
+          onClick={handleClose}
+          className="fixed inset-x-0 bottom-0 top-16 z-30 border-0 bg-black/20 p-0 backdrop-blur-sm focus:outline-none"
+        />
+      )}
+
+      {isOpen && (
         <motion.div
           data-route-swipe-ignore="true"
           initial={
