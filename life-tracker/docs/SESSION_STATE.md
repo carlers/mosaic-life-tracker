@@ -31,7 +31,7 @@ Changes under verification:
 - Settings now labels the deployment branch, short commit SHA, and commit message explicitly.
 - Regression coverage asserts that sheet mode enables Swiper Virtual.
 
-Do not merge this follow-up until browser verification confirms the real DayView sheet interaction improves without regressing day/calendar swipe behavior. Real-device acceptance remains required.
+The first browser verification of boolean/default virtual mode was rejected. Although it reduced the observed DayView DOM to 4,487 elements and 3 Swiper slide wrappers, it regressed sheet-open processing to ~391ms React-DOM script / ~423ms long task / ~436ms Long Animation Frame, versus the prior ~50.8ms click-processing / ~69.6ms max action LOAF candidate. The virtual-mode change and its regression test were reverted; the explicit ±3 virtual buffers remain the current production configuration. The probe now also measures the sheet-close interaction separately, because the user's device trace shows both open and close interactions and the previous probe did not isolate close. Real-device acceptance remains required.
 
 ## Interaction INP deep-dive checkpoint — 2026-09-26
 
