@@ -1,4 +1,4 @@
-import React, { startTransition, useContext, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import React, { useContext, useDeferredValue, useEffect, useLayoutEffect, useRef } from 'react';
 import { motion, AnimatePresence, useDragControls } from 'framer-motion';
 import ReactDOM from 'react-dom';
 import { useFocusTrap } from '../../hooks/useFocusTrap';
@@ -216,23 +216,11 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
   const dragControls = useDragControls();
   const sheetId = React.useId();
   const titleId = React.useId();
-  const [childrenReady, setChildrenReady] = useState(
-    () => !deferChildrenUntilPaint && isOpen
+  const deferredContentOpen = useDeferredValue(
+    deferChildrenUntilPaint ? isOpen : true
   );
-
-  useEffect(() => {
-    if (!deferChildrenUntilPaint) {
-      setChildrenReady(isOpen);
-      return;
-    }
-    if (!isOpen) {
-      setChildrenReady(false);
-      return;
-    }
-    startTransition(() => {
-      setChildrenReady(true);
-    });
-  }, [deferChildrenUntilPaint, isOpen]);
+  const shouldRenderChildren =
+    !deferChildrenUntilPaint ? isOpen : deferredContentOpen && isOpen;
 
   useLayoutEffect(() => {
     onCloseRef.current = onClose;
@@ -493,7 +481,7 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
               )}
             </div>
             <div className={contentClass}>
-              {childrenReady ? children : null}
+              {shouldRenderChildren ? children : null}
             </div>
           </motion.div>
         </>
