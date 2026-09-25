@@ -44,6 +44,7 @@ export const HomePage: React.FC = () => {
   );
   const [searchSheetKey, setSearchSheetKey] = useState(0);
   const searchHistoryEntryRef = useRef(false);
+  const searchDaySheetOpenRef = useRef(false);
 
   const swiperRef = useRef<SwiperClass | null>(null);
   const isProgrammaticMoveRef = useRef(false);
@@ -134,7 +135,7 @@ export const HomePage: React.FC = () => {
     if (!isSearchOpen) return;
 
     const handlePopState = () => {
-      if (!searchHistoryEntryRef.current) return;
+      if (!searchHistoryEntryRef.current || searchDaySheetOpenRef.current) return;
       searchHistoryEntryRef.current = false;
       setIsSearchOpen(false);
     };
@@ -149,10 +150,12 @@ export const HomePage: React.FC = () => {
     setSearchSelectedDate(date);
     setSearchFocusTaskId(task.id);
     setSearchSheetKey((current) => current + 1);
+    searchDaySheetOpenRef.current = true;
     setSearchDaySheetOpen(true);
   }, []);
 
   const handleCloseSearchDaySheet = useCallback(() => {
+    searchDaySheetOpenRef.current = false;
     setSearchDaySheetOpen(false);
     setSearchFocusTaskId(null);
   }, []);
