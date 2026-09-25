@@ -11,6 +11,10 @@ test.use({
 });
 
 async function measureInteraction(page, name, action) {
+  const profileStart = await page.evaluate(
+    () => (window.__mosaicReactProfile ?? []).length,
+  );
+
   const startedAt = await page.evaluate(() => {
     window.__mosaicPerf = {
       frames: [],
@@ -74,7 +78,8 @@ async function measureInteraction(page, name, action) {
   });
 
   const reactProfile = await page.evaluate(
-    () => (window.__mosaicReactProfile ?? []).slice(),
+    (start) => (window.__mosaicReactProfile ?? []).slice(start),
+    profileStart,
   );
 
   await page.waitForTimeout(750);
