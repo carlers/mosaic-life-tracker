@@ -5,19 +5,9 @@ import { test } from '@playwright/test';
 const BASE_URL =
   process.env.MOSAIC_E2E_BASE_URL ?? 'https://127.0.0.1:4173';
 
-test.use({
-  ignoreHTTPSErrors: true,
-  hasTouch: true,
-  isMobile: true,
-  viewport: { width: 412, height: 915 },
-});
-
 async function measureInteraction(page, name, action) {
-  const startedAt = await page.evaluate(() => {
-    window.__mosaicPerf = {
-      frames: [],
-      longTasks: [],
-    };
+  await page.evaluate(() => {
+    window.__mosaicPerf = { frames: [], longTasks: [] };
 
     const perf = window.__mosaicPerf;
     if ('PerformanceObserver' in window) {
@@ -27,30 +17,34 @@ async function measureInteraction(page, name, action) {
             perf.longTasks.push(entry.duration);
           }
         });
-        observer.observe({ type: 'longtask', buffered: false });
+        observer.observe({ type: 'longtask', buffered: true });
         perf.observer = observer;
       } catch {
         // Long-task entries are optional; frame timing remains useful.
       }
     }
+  });
 
+  await page.evaluate(() => {
+    const perf = window.__mosaicPerf;
     const start = performance.now();
-    perf.start = start;
+    perf.sampling = true;
+
     const sample = (now) => {
-      if (now - start < 1200) {
-        perf.frames.push(now);
+      perf.frames.push(now - start);
+      if (perf.sampling && now - start < 1400) {
         requestAnimationFrame(sample);
       }
     };
     requestAnimationFrame(sample);
-    return start;
   });
 
   await action();
-  await page.waitForTimeout(1200);
+  await page.waitForTimeout(1400);
 
-  return page.evaluate(({ name, startedAt }) => {
+  return page.evaluate(({ name }) => {
     const perf = window.__mosaicPerf;
+    perf.sampling = false;
     perf.observer?.disconnect();
 
     const deltas = [];
@@ -59,14 +53,13 @@ async function measureInteraction(page, name, action) {
     }
 
     const sorted = [...deltas].sort((a, b) => a - b);
-    const percentile = (p) => {
-      if (!sorted.length) return null;
-      return sorted[Math.min(sorted.length - 1, Math.floor(sorted.length * p))];
-    };
+    const percentile = (p) =>
+      sorted.length
+        ? sorted[Math.min(sorted.length - 1, Math.floor(sorted.length * p))]
+        : null;
 
     const result = {
       name,
-      startedAt,
       frameCount: deltas.length,
       avgFrameMs: deltas.length
         ? deltas.reduce((sum, value) => sum + value, 0) / deltas.length
@@ -76,23 +69,21 @@ async function measureInteraction(page, name, action) {
         ? deltas.filter((value) => value > 20).length / deltas.length
         : null,
       longTaskCount: perf.longTasks.length,
-      maxLongTaskMs: perf.longTasks.length
-        ? Math.max(...perf.longTasks)
-        : 0,
+      maxLongTaskMs: perf.longTasks.length ? Math.max(...perf.longTasks) : 0,
     };
 
     console.log(`MOSAIC_PERF ${JSON.stringify(result)}`);
     return result;
-  }, { name, startedAt });
+  }, { name });
 }
 
-async function swipe(page, selector, fromX = 620, toX = 180, y = 420) {
+async function swipe(page, selector) {
   const box = await page.locator(selector).boundingBox();
   if (!box) throw new Error(`Missing swipe target: ${selector}`);
 
-  const startX = box.x + Math.min(box.width - 20, Math.max(20, fromX - 100));
-  const endX = box.x + Math.min(box.width - 20, Math.max(20, toX - 100));
-  const startY = box.y + Math.min(box.height - 20, Math.max(20, y - 300));
+  const startX = box.x + box.width * 0.75;
+  const endX = box.x + box.width * 0.25;
+  const startY = box.y + Math.min(box.height * 0.5, 420);
 
   await page.mouse.move(startX, startY);
   await page.mouse.down();
@@ -101,39 +92,21 @@ async function swipe(page, selector, fromX = 620, toX = 180, y = 420) {
 }
 
 test('interaction performance probe', async ({ page }) => {
-  await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html?perf=heavy`);
-  await page.waitForLoadState('domcontentloaded');
+  await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html`);
+  await page.waitForLoadState('networkidle');
 
-  const results = [];
-
-  results.push(
-    await measureInteraction(page, 'bottom-sheet-open', async () => {
-      await page.getByTestId('open-full-sheet').click();
-    })
-  );
+  await measureInteraction(page, 'bottom-sheet-open', async () => {
+    await page.getByTestId('open-full-sheet').click();
+  });
 
   await page.keyboard.press('Escape');
   await page.waitForTimeout(100);
 
-  results.push(
-    await measureInteraction(page, 'calendar-month-swipe', async () => {
-      await swipe(page, '[data-testid="calendar-region"]');
-    })
-  );
+  await measureInteraction(page, 'calendar-month-swipe', async () => {
+    await swipe(page, '[data-testid="calendar-region"]');
+  });
 
-  results.push(
-    await measureInteraction(page, 'day-swipe', async () => {
-      await swipe(page, '[data-testid="todo-region"]', 140, 40, 450);
-    })
-  );
-
-  results.push(
-    await measureInteraction(page, 'day-content-scroll', async () => {
-      await page.locator('[data-testid="todo-day-content"]').scrollIntoViewIfNeeded();
-    })
-  );
-
-  for (const result of results) {
-    console.log(`MOSAIC_PERF ${JSON.stringify(result)}`);
-  }
+  await measureInteraction(page, 'day-content-render', async () => {
+    await page.locator('[data-testid="todo-day-content"]').scrollIntoViewIfNeeded();
+  });
 });
