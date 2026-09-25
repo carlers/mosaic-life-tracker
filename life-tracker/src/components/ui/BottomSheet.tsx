@@ -214,12 +214,20 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
   const dragControls = useDragControls();
   const sheetId = React.useId();
   const titleId = React.useId();
+  const [hasEnteredAnimation, setHasEnteredAnimation] = React.useState(false);
 
   useLayoutEffect(() => {
     onCloseRef.current = onClose;
   }, [onClose]);
 
-  useFocusTrap(sheetRef, isOpen && !suspendInteraction);
+  useEffect(() => {
+    if (!isOpen) setHasEnteredAnimation(false);
+  }, [isOpen]);
+
+  useFocusTrap(
+    sheetRef,
+    isOpen && !suspendInteraction && hasEnteredAnimation,
+  );
 
   useEffect(() => {
     if (!isOpen) return;
@@ -303,7 +311,10 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
             initial={{ y: '100%' }}
             animate={{ y: 0 }}
             exit={{ y: '100%' }}
-            onAnimationComplete={onAnimationComplete}
+            onAnimationComplete={() => {
+              setHasEnteredAnimation(true);
+              onAnimationComplete?.();
+            }}
             transition={{ type: 'tween', duration: 0.32, ease: 'easeOut' }}
             drag="y"
             dragControls={dragControls}
