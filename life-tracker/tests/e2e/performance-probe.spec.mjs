@@ -384,7 +384,12 @@ test('interaction performance probe', async ({ page }) => {
     })
   );
 
-  await page.keyboard.press('Escape');
+  results.push(
+    await measureInteraction(page, 'bottom-sheet-close', async () => {
+      await page.keyboard.press('Escape');
+    })
+  );
+
   await page.waitForTimeout(100);
 
   results.push(
