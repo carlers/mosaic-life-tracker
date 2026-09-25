@@ -8,6 +8,8 @@ import { format } from 'date-fns';
 import { CalendarCarousel } from '../../src/components/home/views/CalendarCarousel';
 import { TodoCalendarGrid } from '../../src/components/home/views/TodoCalendarGrid';
 import { DaySlide } from '../../src/components/home/views/DaySlide';
+import { DayViewSheet } from '../../src/components/home/views/DayViewSheet';
+import { AuthContext } from '../../src/hooks/authContext';
 import { BottomSheet } from '../../src/components/ui/BottomSheet';
 import { HomeTaskSearch } from '../../src/components/home/HomeTaskSearch';
 import { MessageComposer } from '../../src/components/messages/MessageComposer';
@@ -299,6 +301,22 @@ export function InteractionHarness() {
           </div>
         </div>
       </BottomSheet>
+
+      <button
+        type="button"
+        data-testid="open-day-view-sheet"
+        onClick={() => setDayViewSheetOpen(true)}
+        className="px-3 py-2"
+      >
+        Open day view sheet
+      </button>
+      <DayViewSheet
+        isOpen={dayViewSheetOpen}
+        onClose={() => setDayViewSheetOpen(false)}
+        selectedDate={new Date(2026, 8, 15)}
+        tasks={todoTasks}
+        categories={todoCategories}
+      />
 
       <button
         type="button"
