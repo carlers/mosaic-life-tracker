@@ -49,12 +49,7 @@ export function useFocusTrap(
 
     const focusables = getFocusable();
     if (focusables.length > 0) {
-      // Defer one frame so Framer Motion's enter animation has started
-      // and the element is not display:none mid-transition.
-      const raf = requestAnimationFrame(() => {
-        focusables[0].focus({ preventScroll: true });
-      });
-      container.dataset.focusTrapRaf = String(raf);
+      focusables[0].focus({ preventScroll: true });
     }
 
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -84,11 +79,6 @@ export function useFocusTrap(
 
     return () => {
       document.removeEventListener('keydown', handleKeyDown);
-      const raf = container.dataset.focusTrapRaf;
-      if (raf) {
-        cancelAnimationFrame(Number(raf));
-        delete container.dataset.focusTrapRaf;
-      }
       if (previouslyFocused && document.contains(previouslyFocused)) {
         previouslyFocused.focus({ preventScroll: true });
       }
