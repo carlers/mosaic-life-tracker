@@ -212,17 +212,6 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
   const directionalDragStartRef = useRef<HorizontalSwipeStart | null>(null);
   const directionalTouchStartRef = useRef<TouchSwipeStart | null>(null);
   const dragControls = useDragControls();
-  const wasOpenRef = useRef(isOpen);
-  const animationCompleteRef = useRef(false);
-  const [, forceAnimationRender] = React.useState(0);
-  if (isOpen && !wasOpenRef.current) {
-    wasOpenRef.current = true;
-    animationCompleteRef.current = false;
-  } else if (!isOpen && wasOpenRef.current) {
-    wasOpenRef.current = false;
-    animationCompleteRef.current = false;
-  }
-  const isEntering = isOpen && !animationCompleteRef.current;
   const sheetId = React.useId();
   const titleId = React.useId();
 
@@ -314,13 +303,9 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
             initial={{ y: '100%' }}
             animate={{ y: 0 }}
             exit={{ y: '100%' }}
-            onAnimationComplete={() => {
-              animationCompleteRef.current = true;
-              forceAnimationRender((value) => value + 1);
-              onAnimationComplete?.();
-            }}
+            onAnimationComplete={onAnimationComplete}
             transition={{ type: 'tween', duration: 0.32, ease: 'easeOut' }}
-            drag={isEntering ? false : 'y'}
+            drag="y"
             dragControls={dragControls}
             dragListener={false}
             dragConstraints={{ top: 0 }}
@@ -350,7 +335,7 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
                 ? start
                 : null;
 
-              if (dragHandle && !directionalDragHandle && !isEntering) {
+              if (dragHandle && !directionalDragHandle) {
                 dragControls.start(event);
               }
             }}
@@ -470,7 +455,7 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
                   : 'cursor-grab active:cursor-grabbing touch-none'
               }`}
               onPointerDown={(event) => {
-                if (!isLocked && !isEntering) {
+                if (!isLocked) {
                   dragControls.start(event);
                 }
               }}
