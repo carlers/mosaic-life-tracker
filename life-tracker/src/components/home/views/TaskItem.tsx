@@ -34,7 +34,7 @@ interface TaskImageProps {
 }
 
 const TaskImage: React.FC<TaskImageProps> = ({ task, onViewImage }) => {
-  const { targetRef, shouldLoad } = useImageLoadGate<HTMLDivElement>();
+  const { targetRef, shouldLoad } = useImageLoadGate<HTMLElement>();
   const { imageUrl, isLoading } = useTaskImage(task.image, shouldLoad);
 
   if (imageUrl) {
@@ -73,11 +73,10 @@ const TaskImage: React.FC<TaskImageProps> = ({ task, onViewImage }) => {
 const TaskMemo: React.FC<{
   task: TaskDocument;
   onOpenMemo: (task: TaskDocument, mode: MemoOpenMode) => void;
-  onEditStart: (task: TaskDocument) => void;
-}> = ({ task, onOpenMemo, onEditStart }) => {
+}> = ({ task, onOpenMemo }) => {
   const memoGestures = useBubbleGestures({
     onSingleTap: () => onOpenMemo(task, 'view'),
-    onDoubleTap: () => onEditStart(task),
+    onDoubleTap: () => onOpenMemo(task, 'edit'),
   });
 
   return (
