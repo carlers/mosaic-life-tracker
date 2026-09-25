@@ -326,18 +326,6 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
                   setChildrenReady(true);
                   onChildrenReady?.();
                 });
-);
-                };
-                const requestIdle = (
-                  window as Window & {
-                    requestIdleCallback?: (callback: () => void) => number;
-                  }
-                ).requestIdleCallback;
-                if (requestIdle) {
-                  requestIdle(releaseChildren);
-                } else {
-                  requestAnimationFrame(releaseChildren);
-                }
               }
             }}
             transition={{ type: 'tween', duration: 0.32, ease: 'easeOut' }}
