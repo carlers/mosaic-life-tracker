@@ -24,6 +24,7 @@ interface CategorySectionProps {
   onEditChange: (value: string) => void;
   onEditSave: () => void;
   onEditCancel: () => void;
+  disableTaskLayoutAnimation?: boolean;
 }
 
 export const CategorySection: React.FC<CategorySectionProps> = ({
@@ -43,6 +44,7 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
   onEditChange,
   onEditSave,
   onEditCancel,
+  disableTaskLayoutAnimation = false,
 }) => {
   const [isAdding, setIsAdding] = useState(false);
   const [newTitle, setNewTitle] = useState('');
@@ -155,6 +157,7 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
           onEditChange={onEditChange}
           onEditSave={onEditSave}
           onEditCancel={onEditCancel}
+          disableLayoutAnimation={disableTaskLayoutAnimation}
         />
       ))}
     </div>
