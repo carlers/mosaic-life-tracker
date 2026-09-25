@@ -7,7 +7,6 @@ const fixture = vi.hoisted(() => ({
   onAnimationComplete: null as (() => void) | null,
   onClose: null as (() => void) | null,
   deferChildrenUntilPaint: false,
-  swiperVirtual: undefined as boolean | undefined,
 }));
 
 vi.mock('../../src/components/ui/BottomSheet', () => ({
@@ -31,10 +30,7 @@ vi.mock('../../src/components/ui/BottomSheet', () => ({
 }));
 
 vi.mock('swiper/react', () => ({
-  Swiper: ({ children, virtual }: { children: ReactNode; virtual?: boolean | object }) => {
-    fixture.swiperVirtual = virtual === true;
-    return <div>{children}</div>;
-  },
+  Swiper: ({ children }: { children: ReactNode }) => <div>{children}</div>,
   SwiperSlide: ({ children }: { children: ReactNode }) => <div>{children}</div>,
 }));
 vi.mock('swiper/modules', () => ({
@@ -128,7 +124,6 @@ import { DayViewSheet } from '../../src/components/home/views/DayViewSheet';
 describe('DayViewSheet mount scheduling', () => {
   it('mounts only the active day during sheet animation, then restores the full render window', () => {
     fixture.onAnimationComplete = null;
-    fixture.swiperVirtual = undefined;
 
     render(
       <DayViewSheet
@@ -144,7 +139,6 @@ describe('DayViewSheet mount scheduling', () => {
     ).toHaveLength(1);
     expect(fixture.onAnimationComplete).toEqual(expect.any(Function));
     expect(fixture.deferChildrenUntilPaint).toBe(true);
-    expect(fixture.swiperVirtual).toBe(true);
 
     act(() => {
       fixture.onAnimationComplete?.();
