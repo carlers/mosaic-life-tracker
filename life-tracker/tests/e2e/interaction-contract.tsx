@@ -517,6 +517,21 @@ const root = document.getElementById('root');
 if (!root) throw new Error('Missing interaction harness root');
 createRoot(root).render(
   <StrictMode>
-    <InteractionHarness />
+    <AuthContext.Provider
+      value={{
+        user: { $id: 'user_1' } as never,
+        isLoading: false,
+        error: null,
+        isOffline: false,
+        login: async () => true,
+        signup: async () => true,
+        logout: async () => true,
+        updateEmail: async () => true,
+        updatePassword: async () => true,
+        retry: async () => {},
+      }}
+    >
+      <InteractionHarness />
+    </AuthContext.Provider>
   </StrictMode>
 );
