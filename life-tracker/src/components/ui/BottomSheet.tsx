@@ -322,11 +322,11 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
                 isOpen &&
                 (latest.y === 0 || latest.y === '0%')
               ) {
-                const releaseChildren = () => {
-                  React.startTransition(() => {
-                    setChildrenReady(true);
-                    onChildrenReady?.();
-                  });
+                React.startTransition(() => {
+                  setChildrenReady(true);
+                  onChildrenReady?.();
+                });
+);
                 };
                 const requestIdle = (
                   window as Window & {
