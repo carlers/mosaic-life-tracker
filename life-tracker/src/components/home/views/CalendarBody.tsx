@@ -62,6 +62,7 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
   } = useFriendTaskReply(tasks);
 
   const handleDayClick = useCallback((date: Date) => {
+    // Keep the tap responsive; sheet rendering is non-urgent work.
     startTransition(() => {
       setSelectedDate(date);
       setDaySheetOpen(true);
