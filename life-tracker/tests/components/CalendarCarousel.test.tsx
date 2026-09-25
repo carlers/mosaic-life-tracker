@@ -7,7 +7,7 @@ vi.mock('../../src/components/home/views/CalendarSlide', () => ({
   CalendarSlide: () => <div>calendar-slide</div>,
 }));
 
-// Regression: stable calendar scrolling requires separate vertical scroll and Embla horizontal viewport containers; [verify:full].
+// Regression: stable calendar scrolling uses per-slide vertical scrolling with a fixed Embla viewport; [verify:full].
 describe('CalendarCarousel gesture ownership', () => {
   const props = {
     slides: [new Date('2026-01-01')],
