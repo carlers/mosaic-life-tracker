@@ -37,14 +37,13 @@ export function useFocusTrap(
       const nodes = container.querySelectorAll<HTMLElement>(
         FOCUSABLE_SELECTOR
       );
-      // Filter out elements that are not actually reachable — the sheet
-      // can contain a `pointer-events-none`/`opacity-50` locked region
-      // (TaskActionSheet's nested choreography) whose children should
-      // not receive focus.
+      // Avoid geometry reads here: opening a large sheet can contain
+      // thousands of nodes, and offsetParent would synchronously flush layout.
+      // Suspended modal layers are marked aria-hidden on their root, so exclude
+      // any focusable descendant of an aria-hidden subtree without measuring it.
       return Array.from(nodes).filter((el) => {
         if (el.hasAttribute('disabled')) return false;
-        if (el.getAttribute('aria-hidden') === 'true') return false;
-        return el.offsetParent !== null || el === document.activeElement;
+        return !el.closest('[aria-hidden="true"]');
       });
     };
 
