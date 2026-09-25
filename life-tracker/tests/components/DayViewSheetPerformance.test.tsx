@@ -6,6 +6,7 @@ import type { CategoryDocument, TaskDocument } from '../../src/db/schema';
 const fixture = vi.hoisted(() => ({
   onAnimationComplete: null as (() => void) | null,
   onClose: null as (() => void) | null,
+  deferChildrenUntilPaint: false,
 }));
 
 vi.mock('../../src/components/ui/BottomSheet', () => ({
@@ -14,15 +15,26 @@ vi.mock('../../src/components/ui/BottomSheet', () => ({
     isOpen,
     onAnimationComplete,
     onClose,
+    deferChildrenUntilPaint,
   }: {
     children: ReactNode;
     isOpen: boolean;
     onAnimationComplete?: () => void;
+    deferChildrenUntilPaint?: boolean;
   }) => {
     fixture.onAnimationComplete = onAnimationComplete ?? null;
     fixture.onClose = onClose;
+    fixture.deferChildrenUntilPaint = deferChildrenUntilPaint ?? false;
     return isOpen ? <div>{children}</div> : null;
   },
+}));
+
+vi.mock('swiper/react', () => ({
+  Swiper: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+  SwiperSlide: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+}));
+vi.mock('swiper/modules', () => ({
+  Virtual: {},
 }));
 
 vi.mock('../../src/components/home/views/DaySlide', () => ({
@@ -126,6 +138,7 @@ describe('DayViewSheet mount scheduling', () => {
       document.querySelectorAll('[data-day-view-navigation="true"]')
     ).toHaveLength(1);
     expect(fixture.onAnimationComplete).toEqual(expect.any(Function));
+    expect(fixture.deferChildrenUntilPaint).toBe(true);
 
     act(() => {
       fixture.onAnimationComplete?.();

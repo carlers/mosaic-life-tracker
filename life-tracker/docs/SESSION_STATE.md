@@ -18,3 +18,24 @@ The representative DayView sheet probe was upgraded to mount the real DayViewShe
 The post-change CI Chromium probe recorded 2 getBoundingClientRect reads from Framer Motion instead of 52, with Swiper still accounting for 3 clientWidth, 3 clientHeight, and 1 offsetWidth read. The measured sheet-open sample was ~235ms long task / ~245ms Long Animation Frame, with calendar-month swipe, day swipe, and day-content scroll remaining at ~16.7ms/frame with no action-scoped long tasks. A follow-up experiment that also disabled BottomSheet drag during entrance regressed to ~286ms long task / ~294ms Long Animation Frame, so that experiment was reverted. Deferred whole-sheet child mounting was also rejected because it moved a large mount onto the end of the entrance animation and produced worse timing; it is not retained.
 
 Current production optimization on chatgpt/interaction-perf-trace: suppress TaskItem Framer Motion layout projection only during the sheet entrance. Diagnostic layout-read/LOAF instrumentation remains in the performance probe for this phase. Browser contract and focused checks passed on the successful measurement run. The change is merged into perf/animation-optimization. Exact-SHA canonical verification passed, and the stable Preview deployment is READY. Final exact-SHA verification is requested on the next task checkpoint commit. Real-device/manual smoothness acceptance remains separate.
+
+
+## Interaction INP deep-dive checkpoint — 2026-09-26
+
+Vercel Interaction Timing showed DayView open/close at 190.2ms INP, with the supplied slow interaction showing ~132.4ms render work. The browser probe now captures Event Timing, Long Animation Frames, React render/commit timing, DOM mutations, and layout-read stacks.
+
+Current branch: `chatgpt/dayview-inp-deep-dive`. Stable integration branch: `perf/animation-optimization`.
+
+Accepted candidate changes on this branch:
+- Settings build identity shows deployment branch, short commit SHA, and commit message.
+- TaskItem optional image/memo work is moved into conditional child components.
+- DayView content is deferred behind the sheet shell.
+- Swiper Virtual keeps the 181-day logical range while mounting only three slides before/after the active index.
+
+Representative Chromium result for the same sheet-open interaction:
+- click processing: ~154.3ms -> ~50.8ms after Swiper virtualization
+- max action Long Animation Frame: ~175.2ms -> ~69.6ms
+- DOM: ~5,139 -> ~4,795 elements
+- calendar/day swipe and content scroll remain ~16.7ms/frame with no action long tasks
+
+Browser and focused checks pass on the current candidate. This is lab/CI evidence; real-device acceptance remains required. Next: canonical full gate, merge to stable, verify Vercel deployment, then repeat the user's real-device open/close check.

@@ -20,6 +20,8 @@ async function measureInteraction(page, name, action) {
       frames: [],
       longTasks: [],
       longAnimationFrames: [],
+      eventTimings: [],
+      intersectionObserverCreations: 0,
       mutations: 0,
       layoutReads: {},
       layoutReadStacks: [],
@@ -37,6 +39,19 @@ async function measureInteraction(page, name, action) {
         });
       }
     };
+
+    const OriginalIntersectionObserver = window.IntersectionObserver;
+    if (OriginalIntersectionObserver) {
+      const ProbeIntersectionObserver = function (...args) {
+        window.__mosaicPerf.intersectionObserverCreations += 1;
+        return new OriginalIntersectionObserver(...args);
+      };
+      ProbeIntersectionObserver.prototype = OriginalIntersectionObserver.prototype;
+      window.IntersectionObserver = ProbeIntersectionObserver;
+      window.__mosaicPerf.restoreIntersectionObserver = () => {
+        window.IntersectionObserver = OriginalIntersectionObserver;
+      };
+    }
 
     const rect = Element.prototype.getBoundingClientRect;
     const rectWrapper = function (...args) {
@@ -137,6 +152,24 @@ async function measureInteraction(page, name, action) {
       } catch {
         // Optional diagnostic.
       }
+      try {
+        const observer = new PerformanceObserver((list) => {
+          for (const entry of list.getEntries()) {
+            window.__mosaicPerf.eventTimings.push({
+              name: entry.name,
+              startTime: entry.startTime,
+              duration: entry.duration,
+              processingStart: entry.processingStart ?? null,
+              processingEnd: entry.processingEnd ?? null,
+              interactionId: entry.interactionId ?? null,
+            });
+          }
+        });
+        observer.observe({ type: 'event', durationThreshold: 16, buffered: false });
+        window.__mosaicPerf.eventTimingObserver = observer;
+      } catch {
+        // Optional diagnostic.
+      }
     }
 
     try {
@@ -183,7 +216,9 @@ async function measureInteraction(page, name, action) {
     perf.observer?.disconnect();
     perf.longAnimationFrameObserver?.disconnect();
     perf.mutationObserver?.disconnect();
+    perf.eventTimingObserver?.disconnect();
     perf.restoreLayoutProbe?.();
+    perf.restoreIntersectionObserver?.();
 
     const deltas = [];
     for (let i = 1; i < perf.frames.length; i += 1) {
@@ -197,6 +232,12 @@ async function measureInteraction(page, name, action) {
     };
 
     const actionLongTasks = perf.longTasks.filter(
+      (entry) =>
+        entry.startTime < actionFinishedAt &&
+        entry.startTime + entry.duration > startedAt
+    );
+
+    const actionEventTimings = perf.eventTimings.filter(
       (entry) =>
         entry.startTime < actionFinishedAt &&
         entry.startTime + entry.duration > startedAt
@@ -251,6 +292,18 @@ async function measureInteraction(page, name, action) {
       actionMaxLongTaskMs: actionLongTasks.length
         ? Math.max(...actionLongTasks.map((entry) => entry.duration))
         : 0,
+      actionEventTimings: actionEventTimings.map((entry) => ({
+        name: entry.name,
+        duration: Number(entry.duration.toFixed(2)),
+        inputDelay: entry.processingStart == null
+          ? null
+          : Number((entry.processingStart - entry.startTime).toFixed(2)),
+        processingDuration: entry.processingStart == null || entry.processingEnd == null
+          ? null
+          : Number((entry.processingEnd - entry.processingStart).toFixed(2)),
+        interactionId: entry.interactionId,
+      })),
+      intersectionObserverCreations: perf.intersectionObserverCreations,
       actionLongTasks: actionLongTasks.map((entry) => ({
         duration: Number(entry.duration.toFixed(2)),
         startOffsetMs: Number((entry.startTime - startedAt).toFixed(2)),

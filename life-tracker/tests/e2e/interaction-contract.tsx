@@ -343,6 +343,8 @@ export function InteractionHarness() {
                 phase,
                 actualDuration,
                 baseDuration,
+                startTime,
+                commitTime,
               ) => {
                 const profile = {
                   id,
@@ -350,6 +352,9 @@ export function InteractionHarness() {
                   timestamp: Number(performance.now().toFixed(2)),
                   actualDuration: Number(actualDuration.toFixed(2)),
                   baseDuration: Number(baseDuration.toFixed(2)),
+                  startTime: Number(startTime.toFixed(2)),
+                  commitTime: Number(commitTime.toFixed(2)),
+                  renderToCommitMs: Number((commitTime - startTime).toFixed(2)),
                 };
                 const profileWindow = window as typeof window & {
                   __mosaicReactProfile?: typeof profile[];
