@@ -6,6 +6,7 @@ import type { CategoryDocument, TaskDocument } from '../../src/db/schema';
 const fixture = vi.hoisted(() => ({
   onAnimationComplete: null as (() => void) | null,
   onClose: null as (() => void) | null,
+  deferChildrenUntilPaint: false,
 }));
 
 vi.mock('../../src/components/ui/BottomSheet', () => ({
@@ -14,13 +15,16 @@ vi.mock('../../src/components/ui/BottomSheet', () => ({
     isOpen,
     onAnimationComplete,
     onClose,
+    deferChildrenUntilPaint,
   }: {
     children: ReactNode;
     isOpen: boolean;
     onAnimationComplete?: () => void;
+    deferChildrenUntilPaint?: boolean;
   }) => {
     fixture.onAnimationComplete = onAnimationComplete ?? null;
     fixture.onClose = onClose;
+    fixture.deferChildrenUntilPaint = deferChildrenUntilPaint ?? false;
     return isOpen ? <div>{children}</div> : null;
   },
 }));
