@@ -149,16 +149,14 @@ export const HomeTaskSearch: React.FC<HomeTaskSearchProps> = ({
       className="relative z-40 flex-shrink-0 bg-[#111111] px-4 pt-3 pb-1 touch-pan-y"
     >
       <div className="flex items-center justify-end gap-2">
-        <motion.div
-          layout
-          data-route-swipe-ignore="true"
-          className={isOpen ? 'min-w-0 flex-1' : 'shrink-0'}
-          transition={{
-            duration: shouldReduceMotion ? 0 : 0.18,
-            ease: 'easeOut',
-          }}
-        >
-          {isOpen ? (
+        {isOpen ? (
+          <motion.div
+            initial={shouldReduceMotion ? false : { opacity: 0, y: -2 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: shouldReduceMotion ? 0 : 0.18, ease: 'easeOut' }}
+            data-route-swipe-ignore="true"
+            className="min-w-0 flex-1"
+          >
             <div className="relative flex min-w-0 items-center">
               <Search
                 size={18}
@@ -190,7 +188,9 @@ export const HomeTaskSearch: React.FC<HomeTaskSearchProps> = ({
                 <X size={16} aria-hidden="true" />
               </button>
             </div>
-          ) : (
+          </motion.div>
+        ) : (
+          <div data-route-swipe-ignore="true" className="shrink-0">
             <button
               type="button"
               onClick={onOpen}
@@ -199,8 +199,8 @@ export const HomeTaskSearch: React.FC<HomeTaskSearchProps> = ({
             >
               <Search size={20} aria-hidden="true" />
             </button>
-          )}
-        </motion.div>
+          </div>
+        )}
 
         <div data-route-swipe-ignore="true" className="shrink-0">
           {trailing}
