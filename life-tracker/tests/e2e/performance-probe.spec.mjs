@@ -1,27 +1,5 @@
 import { test } from '@playwright/test';
 
-type MosaicPerf = {
-  frames: number[];
-  longTasks: Array<{
-    duration: number;
-    startTime: number;
-    name: string;
-    containerType: string;
-    containerName: string;
-  }>;
-  mutations: number;
-  actionStartedAt: number;
-  actionFinishedAt: number | null;
-  observer?: PerformanceObserver;
-  mutationObserver?: MutationObserver;
-};
-
-declare global {
-  interface Window {
-    __mosaicPerf: MosaicPerf;
-  }
-}
-
 const BASE_URL =
   process.env.MOSAIC_E2E_BASE_URL ?? 'https://127.0.0.1:4173';
 
