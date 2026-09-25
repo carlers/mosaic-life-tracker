@@ -151,6 +151,11 @@ test('interaction performance probe', async ({ page }) => {
   await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html?perf=heavy`);
   await page.waitForLoadState('domcontentloaded');
 
+  const probeError = page.getByTestId('day-view-probe-error');
+  if (await probeError.count()) {
+    throw new Error(`DayView probe render failed: ${await probeError.textContent()}`);
+  }
+
   const results = [];
 
   results.push(
