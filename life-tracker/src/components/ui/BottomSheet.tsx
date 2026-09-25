@@ -1,4 +1,4 @@
-import React, { useContext, useEffect, useLayoutEffect, useRef } from 'react';
+import React, { startTransition, useContext, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence, useDragControls } from 'framer-motion';
 import ReactDOM from 'react-dom';
 import { useFocusTrap } from '../../hooks/useFocusTrap';
@@ -17,6 +17,7 @@ interface BottomSheetProps {
   contentMode?: 'scroll' | 'fixed';
   onHorizontalSwipe?: (direction: 'left' | 'right') => void;
   onAnimationComplete?: () => void;
+  deferChildrenUntilPaint?: boolean;
 }
 
 type SheetStackEntry = {
@@ -203,6 +204,7 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
   contentMode = 'scroll',
   onHorizontalSwipe,
   onAnimationComplete,
+  deferChildrenUntilPaint = false,
 }) => {
   const appearance = useContext(AppearanceContext);
   const sheetWidthMode = appearance?.sheetWidthMode ?? 'full';
@@ -214,6 +216,23 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
   const dragControls = useDragControls();
   const sheetId = React.useId();
   const titleId = React.useId();
+  const [childrenReady, setChildrenReady] = useState(
+    () => !deferChildrenUntilPaint && isOpen
+  );
+
+  useEffect(() => {
+    if (!deferChildrenUntilPaint) {
+      setChildrenReady(isOpen);
+      return;
+    }
+    if (!isOpen) {
+      setChildrenReady(false);
+      return;
+    }
+    startTransition(() => {
+      setChildrenReady(true);
+    });
+  }, [deferChildrenUntilPaint, isOpen]);
 
   useLayoutEffect(() => {
     onCloseRef.current = onClose;
@@ -473,7 +492,9 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
                 </h3>
               )}
             </div>
-            <div className={contentClass}>{children}</div>
+            <div className={contentClass}>
+              {childrenReady ? children : null}
+            </div>
           </motion.div>
         </>
       )}
