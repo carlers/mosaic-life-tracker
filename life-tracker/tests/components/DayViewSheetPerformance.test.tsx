@@ -5,6 +5,7 @@ import type { CategoryDocument, TaskDocument } from '../../src/db/schema';
 
 const fixture = vi.hoisted(() => ({
   onAnimationComplete: null as (() => void) | null,
+  onAnimationUpdate: null as ((latest: { y?: number | string }) => void) | null,
   onClose: null as (() => void) | null,
 }));
 
@@ -13,13 +14,16 @@ vi.mock('../../src/components/ui/BottomSheet', () => ({
     children,
     isOpen,
     onAnimationComplete,
+    onAnimationUpdate,
     onClose,
   }: {
     children: ReactNode;
     isOpen: boolean;
     onAnimationComplete?: () => void;
+    onAnimationUpdate?: (latest: { y?: number | string }) => void;
   }) => {
     fixture.onAnimationComplete = onAnimationComplete ?? null;
+    fixture.onAnimationUpdate = onAnimationUpdate ?? null;
     fixture.onClose = onClose;
     return isOpen ? <div>{children}</div> : null;
   },
@@ -112,6 +116,7 @@ import { DayViewSheet } from '../../src/components/home/views/DayViewSheet';
 describe('DayViewSheet mount scheduling', () => {
   it('mounts only the active day during sheet animation, then restores the full render window', () => {
     fixture.onAnimationComplete = null;
+    fixture.onAnimationUpdate = null;
 
     render(
       <DayViewSheet
@@ -125,10 +130,10 @@ describe('DayViewSheet mount scheduling', () => {
     expect(
       document.querySelectorAll('[data-day-view-navigation="true"]')
     ).toHaveLength(1);
-    expect(fixture.onAnimationComplete).toEqual(expect.any(Function));
+    expect(fixture.onAnimationUpdate).toEqual(expect.any(Function));
 
     act(() => {
-      fixture.onAnimationComplete?.();
+      fixture.onAnimationUpdate?.({ y: 0 });
     });
 
     expect(screen.getAllByTestId('day-slide')).toHaveLength(7);
