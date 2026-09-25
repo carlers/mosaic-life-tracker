@@ -36,7 +36,7 @@ export function InteractionHarness() {
   const [composerBlurCount, setComposerBlurCount] = useState(0);
   const [primaryRoute, setPrimaryRoute] = useState<'home' | 'explore' | 'account' | 'settings'>('home');
 
-  const todoCategories: CategoryDocument[] = Array.from({ length: 5 }, (_, index) => ({
+  const todoCategories: CategoryDocument[] = React.useMemo(() => Array.from({ length: 5 }, (_, index) => ({
     id: `cat_${index}`,
     name: `Category ${index + 1}`,
     color: ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6'][index],
@@ -44,8 +44,8 @@ export function InteractionHarness() {
     visibility: 'private',
     userId: 'user_1',
     isDeleted: false,
-  }));
-  const todoTasks: TaskDocument[] = todoCategories.flatMap((category, categoryIndex) =>
+  })), []);
+  const todoTasks: TaskDocument[] = React.useMemo(() => todoCategories.flatMap((category, categoryIndex) =>
     Array.from({ length: performanceHeavy ? 10 : 3 }, (_, taskIndex) => ({
       id: `task_${categoryIndex}_${taskIndex}`,
       title: `Task ${categoryIndex + 1}.${taskIndex + 1}`,
@@ -59,8 +59,12 @@ export function InteractionHarness() {
       isDeleted: false,
       visibility: 'private',
       memo: categoryIndex === 0 && taskIndex === 0 ? 'Browser memo content' : '',
-    }))
-  );
+    })), [todoCategories, performanceHeavy]);
+
+  const daySwipeDates = React.useMemo(() => [-1, 0, 1].map((offset) => {
+    const date = new Date(2026, 8, 15 + offset);
+    return { date, dateStr: format(date, 'yyyy-MM-dd') };
+  }), []);
 
   const calendarTasksByDate = React.useMemo(
     () => new Map([[format(todoSelectedDate, 'yyyy-MM-dd'), todoTasks]]),
@@ -169,12 +173,32 @@ export function InteractionHarness() {
                 }
                 style={{ height: '100%' }}
               >
-                <SwiperSlide>
-                  <div className="h-full flex items-center justify-center">Todo day 1</div>
-                </SwiperSlide>
-                <SwiperSlide>
-                  <div className="h-full flex items-center justify-center">Todo day 2</div>
-                </SwiperSlide>
+                {daySwipeDates.map(({ date, dateStr }) => (
+                  <SwiperSlide key={dateStr}>
+                    {performanceHeavy ? (
+                      <DaySlide
+                        date={date}
+                        dateStr={dateStr}
+                        tasks={todoTasks}
+                        categories={todoCategories}
+                        currentUserId="user_1"
+                        editingTaskId={null}
+                        editValue=""
+                        onToggleTask={() => {}}
+                        onAddTask={() => {}}
+                        onOpenActions={() => setTodoGesture('actions')}
+                        onOpenMemo={(_, mode) => setTodoGesture(`memo-${mode}`)}
+                        onEditTask={() => setTodoGesture('edit')}
+                        onViewImage={() => {}}
+                        onEditChange={() => {}}
+                        onEditSave={() => {}}
+                        onEditCancel={() => {}}
+                      />
+                    ) : (
+                      <div className="h-full flex items-center justify-center">Todo day</div>
+                    )}
+                  </SwiperSlide>
+                ))}
               </Swiper>
             </div>
             <div data-testid="calendar-region" style={{ height: 280, overflow: 'hidden' }}>
