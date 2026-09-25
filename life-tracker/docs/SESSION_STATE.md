@@ -63,4 +63,4 @@ Canonical Quality Gate run #421 passed build, dependency audit, lint/unit/handle
 Remaining acceptance: real-device DayView open/close smoothness. If the device still shows a meaningful hitch, capture a real-device trace before further code changes.
 
 
-Final verification checkpoint: the boolean/default Swiper Virtual experiment was reverted after the browser probe regressed the sheet-open path; the performance probe now isolates both open and close interactions. The remaining candidate is the stable explicit virtual buffer configuration plus the existing TaskItem layout-projection suppression. [verify:full]
+Final verification checkpoint: the boolean/default Swiper Virtual experiment was reverted after the browser probe regressed the sheet-open path; the performance probe now isolates both open and close interactions. The remaining candidate is the stable explicit virtual buffer configuration plus the existing TaskItem layout-projection suppression. The PR verification intent is now full-gate. [verify:full]
