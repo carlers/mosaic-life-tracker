@@ -17,7 +17,7 @@ interface BottomSheetProps {
   contentMode?: 'scroll' | 'fixed';
   onHorizontalSwipe?: (direction: 'left' | 'right') => void;
   onAnimationComplete?: () => void;
-  onAnimationUpdate?: (latest: { y?: number | string }) => void;
+  deferChildrenUntilAnimationComplete?: boolean;
 }
 
 type SheetStackEntry = {
@@ -204,7 +204,7 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
   contentMode = 'scroll',
   onHorizontalSwipe,
   onAnimationComplete,
-  onAnimationUpdate,
+  deferChildrenUntilAnimationComplete = false,
 }) => {
   const appearance = useContext(AppearanceContext);
   const sheetWidthMode = appearance?.sheetWidthMode ?? 'full';
@@ -216,10 +216,21 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
   const dragControls = useDragControls();
   const sheetId = React.useId();
   const titleId = React.useId();
+  const [childrenReady, setChildrenReady] = React.useState(
+    !deferChildrenUntilAnimationComplete
+  );
 
   useLayoutEffect(() => {
     onCloseRef.current = onClose;
   }, [onClose]);
+
+  useEffect(() => {
+    if (!deferChildrenUntilAnimationComplete) {
+      setChildrenReady(true);
+    } else if (!isOpen) {
+      setChildrenReady(false);
+    }
+  }, [deferChildrenUntilAnimationComplete, isOpen]);
 
   useFocusTrap(sheetRef, isOpen && !suspendInteraction);
 
@@ -306,7 +317,15 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
             animate={{ y: 0 }}
             exit={{ y: '100%' }}
             onAnimationComplete={onAnimationComplete}
-            onUpdate={onAnimationUpdate}
+            onUpdate={(latest) => {
+              if (
+                deferChildrenUntilAnimationComplete &&
+                isOpen &&
+                (latest.y === 0 || latest.y === '0%')
+              ) {
+                setChildrenReady(true);
+              }
+            }}
             transition={{ type: 'tween', duration: 0.32, ease: 'easeOut' }}
             drag="y"
             dragControls={dragControls}
