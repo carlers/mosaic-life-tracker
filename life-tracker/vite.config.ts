@@ -3,6 +3,8 @@ import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
 import basicSsl from '@vitejs/plugin-basic-ssl';
 
+const isLocalBuild = !process.env.VERCEL_ENV;
+
 const buildCommit = process.env.VERCEL_GIT_COMMIT_SHA?.trim() || '';
 const buildMessage = process.env.VERCEL_GIT_COMMIT_MESSAGE?.trim() || '';
 const buildRef = process.env.VERCEL_GIT_COMMIT_REF?.trim() || '';
@@ -49,7 +51,7 @@ export default defineConfig({
   },
   plugins: [
     react(),
-    basicSsl(),
+    ...(isLocalBuild ? [basicSsl()] : []),
     ...(posthogSourceMapPlugin ? [posthogSourceMapPlugin] : []),
     VitePWA({
       // Keep an installed update waiting until the old worker controls no
