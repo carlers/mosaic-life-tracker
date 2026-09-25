@@ -642,6 +642,7 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
       isLocked={isBackgroundLocked}
       suspendInteraction={isBackgroundLocked}
       contentMode="fixed"
+      deferChildrenUntilAnimationComplete={renderMode === 'sheet'}
       onHorizontalSwipe={handleSheetHorizontalSwipe}
       onAnimationComplete={handleSheetAnimationComplete}
     >
