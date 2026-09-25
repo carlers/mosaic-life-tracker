@@ -96,6 +96,7 @@ vi.mock('../../src/components/home/views/DayViewSheet', () => ({
     focusTaskId,
     tasks,
     categories,
+    onClose,
   }: {
     isOpen: boolean;
     selectedDate: Date;
@@ -110,7 +111,9 @@ vi.mock('../../src/components/home/views/DayViewSheet', () => ({
         <span>{focusTaskId}</span>
         <span>{tasks?.length}</span>
         <span>{categories?.length}</span>
-        <button type="button" onClick={onClose}>Close day view</button>
+        <button type="button" onClick={onClose}>
+          Close day view
+        </button>
       </div>
     ) : null,
 }));
