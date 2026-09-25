@@ -43,6 +43,8 @@ export const HomePage: React.FC = () => {
     null
   );
   const [searchSheetKey, setSearchSheetKey] = useState(0);
+  const searchHistoryEntryRef = useRef(false);
+  const closingSearchFromHistoryRef = useRef(false);
 
   const swiperRef = useRef<SwiperClass | null>(null);
   const isProgrammaticMoveRef = useRef(false);
@@ -110,12 +112,45 @@ export const HomePage: React.FC = () => {
 
   const handleOpenSearch = useCallback(() => {
     setActivePersonId('me');
+    if (!searchHistoryEntryRef.current) {
+      window.history.pushState(
+        { ...window.history.state, mosaicHomeSearch: true },
+        '',
+        window.location.href
+      );
+      searchHistoryEntryRef.current = true;
+    }
     setIsSearchOpen(true);
   }, []);
 
   const handleCloseSearch = useCallback(() => {
+    if (searchHistoryEntryRef.current) {
+      closingSearchFromHistoryRef.current = true;
+      window.history.back();
+      return;
+    }
     setIsSearchOpen(false);
   }, []);
+
+  useEffect(() => {
+    if (!isSearchOpen) return;
+
+    const handlePopState = () => {
+      if (!searchHistoryEntryRef.current) return;
+      searchHistoryEntryRef.current = false;
+      closingSearchFromHistoryRef.current = false;
+      setIsSearchOpen(false);
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, [isSearchOpen]);
+
+  useEffect(() => {
+    if (!isSearchOpen && closingSearchFromHistoryRef.current) {
+      closingSearchFromHistoryRef.current = false;
+    }
+  }, [isSearchOpen]);
 
   const handleSelectSearchTask = useCallback((task: TaskDocument) => {
     const date = parseISO(task.date);
@@ -150,16 +185,17 @@ export const HomePage: React.FC = () => {
           trailing={<HamburgerMenu />}
         />
 
-        <div className="flex-shrink-0">
-          <PersonCarousel
-            persons={persons}
-            activePersonId={activePersonId}
-            onSelect={handlePillSelect}
-            onOpenSettings={handleOpenSettings}
-          />
-        </div>
+        <div inert={isSearchOpen ? true : undefined} className="flex-1 min-h-0 flex flex-col relative">
+          <div className="flex-shrink-0">
+            <PersonCarousel
+              persons={persons}
+              activePersonId={activePersonId}
+              onSelect={handlePillSelect}
+              onOpenSettings={handleOpenSettings}
+            />
+          </div>
 
-        <div className="flex-1 min-h-0 relative">
+          <div className="flex-1 min-h-0 relative">
           <Swiper
             onSwiper={(s) => {
               swiperRef.current = s;
@@ -199,6 +235,7 @@ export const HomePage: React.FC = () => {
               </SwiperSlide>
             ))}
           </Swiper>
+          </div>
         </div>
       </div>
 
