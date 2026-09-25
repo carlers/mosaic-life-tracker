@@ -203,7 +203,6 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
   contentMode = 'scroll',
   onHorizontalSwipe,
   onAnimationComplete,
-  deferChildrenUntilAnimationComplete = false,
 }) => {
   const appearance = useContext(AppearanceContext);
   const sheetWidthMode = appearance?.sheetWidthMode ?? 'full';
@@ -305,18 +304,6 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
             animate={{ y: 0 }}
             exit={{ y: '100%' }}
             onAnimationComplete={onAnimationComplete}
-            onUpdate={(latest) => {
-              if (
-                deferChildrenUntilAnimationComplete &&
-                isOpen &&
-                (latest.y === 0 || latest.y === '0%')
-              ) {
-                React.startTransition(() => {
-                  setChildrenReady(true);
-                  onChildrenReady?.();
-                });
-              }
-            }}
             transition={{ type: 'tween', duration: 0.32, ease: 'easeOut' }}
             drag="y"
             dragControls={dragControls}
