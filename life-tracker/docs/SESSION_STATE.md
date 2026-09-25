@@ -32,3 +32,18 @@ Next action: inspect the browser probe's Event Timing and observer counts, then 
 
 
 Browser verification request is now encoded in PR #34 title `[verify:browser]` so the pull-request Quality Gate executes the browser shards on the next head commit.
+
+
+### DayView virtual-slide checkpoint — 2026-09-26
+
+Browser verification on the representative DayView fixture identified the remaining open-path cost as Swiper mounting the full 181-slide logical deck even though only the active render window contains day content. Enabling Swiper's Virtual module with three slides before/after the active index preserves the 181-day logical range while materially shrinking the mounted slide surface.
+
+Measured on the same Chromium CI probe:
+- before virtual slides: click processing ~154.3ms, max action Long Animation Frame ~175.2ms, DOM ~5,139 elements
+- after virtual slides: click processing ~50.8ms, max action Long Animation Frame ~69.6ms, DOM ~4,795 elements
+- layout reads remained only 3 Swiper width/height reads plus 3 Framer Motion geometry reads; no repeated TaskItem projection reads returned
+- calendar swipe, day swipe, and content scroll remained approximately 16.7ms/frame with no action long tasks
+
+This is the first measured change in this deep-dive that materially reduces the actual open interaction rather than only moving the work to another frame. The shell-first deferred content remains enabled as a separate responsiveness improvement. The TaskItem optional-hook split remains in the branch as a smaller supporting optimization.
+
+The browser result is still lab/CI evidence, not real-device acceptance. Next: run the full canonical gate on the exact candidate SHA, merge to the stable integration branch, verify the new Vercel deployment, then perform the user's real-device DayView open/close check.
