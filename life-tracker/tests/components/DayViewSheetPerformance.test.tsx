@@ -1,11 +1,10 @@
-import { useState, type ReactNode } from 'react';
-import { render, screen, act, waitFor } from '@testing-library/react';
+import type { ReactNode } from 'react';
+import { render, screen, act } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import type { CategoryDocument, TaskDocument } from '../../src/db/schema';
 
 const fixture = vi.hoisted(() => ({
   onAnimationComplete: null as (() => void) | null,
-  onChildrenReady: null as (() => void) | null,
   onClose: null as (() => void) | null,
 }));
 
@@ -14,29 +13,15 @@ vi.mock('../../src/components/ui/BottomSheet', () => ({
     children,
     isOpen,
     onAnimationComplete,
-    onChildrenReady,
     onClose,
-    deferChildrenUntilAnimationComplete,
   }: {
     children: ReactNode;
     isOpen: boolean;
     onAnimationComplete?: () => void;
-    onChildrenReady?: () => void;
-    deferChildrenUntilAnimationComplete?: boolean;
   }) => {
     fixture.onAnimationComplete = onAnimationComplete ?? null;
-    fixture.onChildrenReady = onChildrenReady ?? null;
     fixture.onClose = onClose;
-    const [ready, setReady] = useState(!deferChildrenUntilAnimationComplete);
-    if (!isOpen) return null;
-    if (!ready) {
-      fixture.onChildrenReady = () => {
-        setReady(true);
-        onChildrenReady?.();
-      };
-      return <div />;
-    }
-    return <div>{children}</div>;
+    return isOpen ? <div>{children}</div> : null;
   },
 }));
 
@@ -127,7 +112,6 @@ import { DayViewSheet } from '../../src/components/home/views/DayViewSheet';
 describe('DayViewSheet mount scheduling', () => {
   it('mounts only the active day during sheet animation, then restores the full render window', () => {
     fixture.onAnimationComplete = null;
-    fixture.onChildrenReady = null;
 
     render(
       <DayViewSheet
@@ -137,27 +121,20 @@ describe('DayViewSheet mount scheduling', () => {
       />
     );
 
-    expect(screen.queryAllByTestId('day-slide')).toHaveLength(0);
-    expect(
-      document.querySelectorAll('[data-day-view-navigation="true"]')
-    ).toHaveLength(0);
-    expect(fixture.onChildrenReady).toEqual(expect.any(Function));
-
-    act(() => {
-      fixture.onChildrenReady?.();
-    });
-
     expect(screen.getAllByTestId('day-slide')).toHaveLength(1);
     expect(
       document.querySelectorAll('[data-day-view-navigation="true"]')
     ).toHaveLength(1);
+    expect(fixture.onAnimationComplete).toEqual(expect.any(Function));
 
-    await waitFor(() => {
-      expect(screen.getAllByTestId('day-slide')).toHaveLength(7);
-      expect(
-        document.querySelectorAll('[data-day-view-navigation="true"]')
-      ).toHaveLength(7);
+    act(() => {
+      fixture.onAnimationComplete?.();
     });
+
+    expect(screen.getAllByTestId('day-slide')).toHaveLength(7);
+    expect(
+      document.querySelectorAll('[data-day-view-navigation="true"]')
+    ).toHaveLength(7);
 
     act(() => {
       fixture.onClose?.();
