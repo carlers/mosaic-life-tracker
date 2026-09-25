@@ -270,8 +270,11 @@ export const SettingsPage: React.FC = () => {
               data-testid="app-build-info"
               className="mt-1 text-xs text-gray-500"
             >
-              {APP_BUILD_INFO.channel} · build{' '}
-              {APP_BUILD_INFO.commitShort ?? APP_BUILD_INFO.buildId}
+              <div>{APP_BUILD_INFO.channel} · {APP_BUILD_INFO.branch ?? 'local'}</div>
+              <div>
+                commit {APP_BUILD_INFO.commitShort ?? APP_BUILD_INFO.buildId}
+                {APP_BUILD_INFO.commitMessage ? ` · ${APP_BUILD_INFO.commitMessage}` : ''}
+              </div>
             </div>
           </div>
           <SettingsRow
