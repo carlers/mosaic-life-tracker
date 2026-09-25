@@ -134,21 +134,14 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
   });
 
   const [deferredRenderWindow, setDeferredRenderWindow] = useState(0);
-  const [sheetContentReleased, setSheetContentReleased] = useState(false);
-
   const handleSheetAnimationComplete = useCallback(() => {
     if (isOpen) setDeferredRenderWindow(renderWindow);
   }, [isOpen, renderWindow]);
 
   const handleSheetClose = useCallback(() => {
-    setSheetContentReleased(false);
     setDeferredRenderWindow(0);
     onClose();
   }, [onClose]);
-
-  const handleSheetChildrenReady = useCallback(() => {
-    setSheetContentReleased(true);
-  }, []);
 
   useEffect(() => {
     if (
@@ -537,9 +530,6 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
                       onEditChange={handleEditChange}
                       onEditSave={handleEditSave}
                       onEditCancel={handleEditCancel}
-                      disableTaskLayoutAnimation={
-                        renderMode === 'sheet' && deferredRenderWindow === 0
-                      }
                     />
                   </>
                 )}
