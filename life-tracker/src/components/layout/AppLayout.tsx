@@ -6,6 +6,7 @@ import { FriendsProvider } from '../../hooks/FriendsProvider';
 import { ConversationsProvider } from '../../hooks/ConversationsProvider';
 import { useAuth } from '../../hooks/useAuth';
 import { AppearanceProvider } from '../../hooks/AppearanceProvider';
+import { flushSocialOutbox } from '../../lib/socialOutbox';
 import { PrimaryRoutePreview } from './PrimaryRoutePreview';
 import {
   getPrimaryRoutePreloadTargets,
@@ -24,13 +25,8 @@ const RETRY_COOLDOWN_MS = 2000;
 
 let realtimeModulePromise: Promise<typeof import('../../db/realtime')> | null =
   null;
-let deliveryModulesPromise:
-  | Promise<
-      readonly [
-        typeof import('../../lib/messageDelivery'),
-        typeof import('../../lib/socialOutbox'),
-      ]
-    >
+let messageDeliveryModulePromise:
+  | Promise<typeof import('../../lib/messageDelivery')>
   | null = null;
 
 function loadRealtimeModule() {
@@ -41,15 +37,14 @@ function loadRealtimeModule() {
   return realtimeModulePromise;
 }
 
-function loadDeliveryModules() {
-  deliveryModulesPromise ??= Promise.all([
-    import('../../lib/messageDelivery'),
-    import('../../lib/socialOutbox'),
-  ] as const).catch((error) => {
-    deliveryModulesPromise = null;
-    throw error;
-  });
-  return deliveryModulesPromise;
+function loadMessageDeliveryModule() {
+  messageDeliveryModulePromise ??= import('../../lib/messageDelivery').catch(
+    (error) => {
+      messageDeliveryModulePromise = null;
+      throw error;
+    }
+  );
+  return messageDeliveryModulePromise;
 }
 
 export const AppLayout: React.FC = () => {
@@ -109,13 +104,13 @@ export const AppLayout: React.FC = () => {
 
     let active = true;
     const tryDeliver = () => {
-      void loadDeliveryModules()
-        .then(([messageDelivery, socialOutbox]) => {
+      void loadMessageDeliveryModule()
+        .then((messageDelivery) => {
           if (!active) return;
           messageDelivery.deliverPendingMessages(uid).catch((err) =>
             console.error('[AppLayout] delivery failed:', err)
           );
-          socialOutbox.flushSocialOutbox(uid).catch((err) =>
+          flushSocialOutbox(uid).catch((err) =>
             console.error('[AppLayout] social outbox flush failed:', err)
           );
         })
