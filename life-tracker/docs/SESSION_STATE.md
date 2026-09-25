@@ -1,9 +1,9 @@
 # Session checkpoint
 
 Updated: 2026-09-25
-Current task: Production launch hardening — code hygiene and performance review.
-Status: Phase 1 Appwrite security corrections are live, Phase 2 release hardening is merged to dev and remotely accepted, and Phase 3 code-hygiene/performance review has removed an ineffective dynamic import and production bootstrap info logging. Vercel production is identified and Appwrite now uses the exact production origin.
-Next action: complete canonical verification for Phase 3, merge it into dev if green, then prepare the final release candidate and exact-SHA main-branch acceptance.
+Current task: Production launch hardening — final production acceptance.
+Status: Phase 1 Appwrite security corrections are live, Phase 2 release hardening is merged to dev and remotely accepted, and Phase 3 code-hygiene/performance review is merged to dev and remotely accepted. Vercel production is identified and Appwrite uses the exact production origin.
+Next action: prepare the final release candidate from the accepted dev tip and perform exact-SHA main-branch acceptance.
 Blockers: No known launch blocker remains in hosted configuration. Vercel production hostname is `mosaic-life-tracker.vercel.app` and Appwrite now uses that exact Web platform origin. Local runtime execution is unavailable; remote CI is the executable verification path.
 
 ## Phase 1 findings
