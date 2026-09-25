@@ -102,10 +102,8 @@ test('interaction performance probe', async ({ page }) => {
     await page.getByTestId('open-full-sheet').click();
   });
 
-  await page.getByTestId('open-full-sheet').press('Escape').catch(() => {});
-  await page.evaluate(() => {
-    document.querySelector('[aria-label="Responsive test sheet"]')?.querySelector('button')?.click();
-  }).catch(() => {});
+  await page.keyboard.press('Escape');
+  await page.waitForTimeout(100);
 
   await measureInteraction(page, 'calendar-month-swipe', async () => {
     await swipe(page, '[data-testid="calendar-region"]');
