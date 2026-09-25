@@ -73,6 +73,10 @@ async function measureInteraction(page, name, action) {
     return window.__mosaicPerf.actionFinishedAt;
   });
 
+  const reactProfile = await page.evaluate(
+    () => (window.__mosaicReactProfile ?? []).slice(),
+  );
+
   await page.waitForTimeout(750);
 
   return page.evaluate(({ name, startedAt, actionFinishedAt }) => {
@@ -126,6 +130,7 @@ async function measureInteraction(page, name, action) {
       })),
       mutationRecords: perf.mutations,
       elementCount: document.querySelectorAll('*').length,
+      reactProfile,
     };
 
     console.log(`MOSAIC_PERF ${JSON.stringify(result)}`);
