@@ -1,10 +1,10 @@
 # Session checkpoint
 
 Updated: 2026-09-25
-Current task: Production launch hardening — final production acceptance.
-Status: Phase 1 Appwrite security corrections are live, Phase 2 release hardening is merged to dev and remotely accepted, and Phase 3 code-hygiene/performance review is merged to dev and remotely accepted. Vercel production is identified and Appwrite uses the exact production origin.
-Next action: prepare the final release candidate from the accepted dev tip and perform exact-SHA main-branch acceptance.
-Blockers: No known launch blocker remains in hosted configuration. Vercel production hostname is `mosaic-life-tracker.vercel.app` and Appwrite now uses that exact Web platform origin. Local runtime execution is unavailable; remote CI is the executable verification path.
+Current task: Fix calendar month scrolling and horizontal transition stability.
+Status: Implemented a bounded flex column around the calendar carousel so the vertical scroll viewport remains stable when months have different content heights; regression coverage added.
+Next action: exact-SHA canonical acceptance, then Preview delivery and merge to dev.
+Blockers: Local runtime execution is unavailable; remote CI is the executable verification path. Hosted touch acceptance remains separate and must not be inferred from automated tests.
 
 ## Phase 1 findings
 
