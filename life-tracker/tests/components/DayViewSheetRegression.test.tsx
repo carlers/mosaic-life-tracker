@@ -57,8 +57,8 @@ vi.mock('../../src/components/ui/BottomSheet', () => ({
     onAnimationComplete?: () => void;
     onClose: () => void;
   }) => {
-    bottomSheetFixture.onAnimationComplete = onAnimationComplete ?? null;
-    bottomSheetFixture.onClose = onClose;
+    if (onAnimationComplete) bottomSheetFixture.onAnimationComplete = onAnimationComplete;
+    if (isOpen) bottomSheetFixture.onClose = onClose;
     return isOpen ? <div>{children}</div> : null;
   },
 }));
