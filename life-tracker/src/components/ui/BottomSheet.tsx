@@ -473,7 +473,7 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
                 </h3>
               )}
             </div>
-            <div className={contentClass}>{childrenReady && children}</div>
+            <div className={contentClass}>{children}</div>
           </motion.div>
         </>
       )}
