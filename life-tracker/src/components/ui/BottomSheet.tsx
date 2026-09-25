@@ -226,14 +226,6 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
     onCloseRef.current = onClose;
   }, [onClose]);
 
-  useEffect(() => {
-    if (!deferChildrenUntilAnimationComplete) {
-      setChildrenReady(true);
-    } else if (!isOpen) {
-      setChildrenReady(false);
-    }
-  }, [deferChildrenUntilAnimationComplete, isOpen]);
-
   useFocusTrap(sheetRef, isOpen && !suspendInteraction);
 
   useEffect(() => {
@@ -318,7 +310,12 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
             initial={{ y: '100%' }}
             animate={{ y: 0 }}
             exit={{ y: '100%' }}
-            onAnimationComplete={onAnimationComplete}
+            onAnimationComplete={(definition) => {
+              if (deferChildrenUntilAnimationComplete && !isOpen) {
+                setChildrenReady(false);
+              }
+              onAnimationComplete?.();
+            }}
             onUpdate={(latest) => {
               if (
                 deferChildrenUntilAnimationComplete &&
@@ -498,7 +495,7 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
                 </h3>
               )}
             </div>
-            <div className={contentClass}>{children}</div>
+            <div className={contentClass}>{childrenReady && children}</div>
           </motion.div>
         </>
       )}
