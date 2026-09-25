@@ -344,14 +344,18 @@ export function InteractionHarness() {
                 actualDuration,
                 baseDuration,
               ) => {
-                console.log(
-                  `MOSAIC_REACT_PROFILE ${JSON.stringify({
-                    id,
-                    phase,
-                    actualDuration: Number(actualDuration.toFixed(2)),
-                    baseDuration: Number(baseDuration.toFixed(2)),
-                  })}`,
-                );
+                const profile = {
+                  id,
+                  phase,
+                  actualDuration: Number(actualDuration.toFixed(2)),
+                  baseDuration: Number(baseDuration.toFixed(2)),
+                };
+                const profileWindow = window as typeof window & {
+                  __mosaicReactProfile?: typeof profile[];
+                };
+                profileWindow.__mosaicReactProfile ??= [];
+                profileWindow.__mosaicReactProfile.push(profile);
+                console.log(`MOSAIC_REACT_PROFILE ${JSON.stringify(profile)}`);
               }}
             >
               <DayViewSheet
