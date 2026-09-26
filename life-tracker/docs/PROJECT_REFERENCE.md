@@ -781,14 +781,48 @@ production source-map symbolication.
 The stable `perf/animation-optimization` branch contains measured interaction hardening for
 DayView and Calendar. DayView preserves all 181 Swiper geometry slides while mounting only
 the existing seven-slide expensive render window. Calendar preserves its 61-slide Embla
-geometry while limiting vertical scrolling to the rendered three-slide window. A CI-hosted
-Chromium performance probe exercises a heavy fixture and reports requestAnimationFrame
-timing plus PerformanceObserver long tasks without enforcing a budget. The 2026-09-25
-baseline recorded approximately 60 FPS for calendar month swipe, day swipe, and heavy
-day-content scroll; bottom-sheet open had one 64ms long task and a small 1.45% frame-over-
-20ms ratio. These runner measurements are diagnostic baselines, not device guarantees.
-No additional BottomSheet animation/CSS change is justified without a device trace or
-stronger production-equivalent evidence.
+geometry while limiting vertical scrolling to the rendered three-slide window. The Chromium
+performance probe exercises a heavy fixture and reports requestAnimationFrame timing plus
+PerformanceObserver long tasks without enforcing a budget. Run it explicitly with
+`npm run test:performance`; it is diagnostic and is not part of canonical correctness
+acceptance. The 2026-09-25 baseline recorded approximately 60 FPS for calendar month swipe,
+day swipe, and heavy day-content scroll; bottom-sheet open had one 64ms long task and a
+small 1.45% frame-over-20ms ratio. These runner measurements are diagnostic baselines, not
+device guarantees. No additional BottomSheet animation/CSS change is justified without a
+device trace or stronger production-equivalent evidence.
+
+### 24.17 Test architecture and UI-contract boundaries
+
+Automated tests protect durable behavior, data safety, accessibility, and browser-only
+interaction invariants; they do not freeze incidental implementation. The authoritative
+testing rules live in [TEST_WORKFLOW.md](TEST_WORKFLOW.md).
+
+UI tests normally assert semantic/user-observable results: roles, labels, state, content,
+focus, navigation, callbacks, domain state, and browser-measured behavior. Tailwind classes,
+exact DOM ancestry, decorative transforms, exact colors, spacing, borders, font sizes, and
+wrapper ownership are current design choices rather than regression contracts. Detailed
+aesthetic/reference-app descriptions elsewhere in this document guide the current product
+design but do not automatically require automated presentation assertions. Prefer manual
+visual acceptance for those descriptions. Automated geometry assertions are reserved for
+observable interaction/accessibility failures such as clipping, overflow, gesture ownership,
+or a control escaping its usable bounds.
+
+Where presentation is behavior, tests assert the outcome rather than the mechanism when
+possible. Examples include a switch thumb remaining inside its track, no page-level
+horizontal overflow at a supported viewport, and a required calendar row remaining visible.
+A harmless JSX/CSS refactor that preserves the documented behavior should not require
+production changes merely to satisfy a historical test.
+
+Playwright is reserved for failure modes that need a browser engine: gesture arbitration,
+scroll/overflow geometry, focus/history, browser APIs, accessibility scans, and browser
+network/privacy contracts. Do not mirror every DOM regression in Playwright. Diagnostic
+performance probes stay outside canonical acceptance unless a reviewed numeric performance
+budget is explicitly adopted.
+
+Strong direct coverage remains mandatory for sync and mappings, account isolation/auth,
+offline identity, tombstones and destructive deletion, Appwrite Function authorization,
+cross-user writes, queues/outboxes, row-ID/schema parity, and privacy-minimal analytics.
+Those protections take precedence over reducing raw test counts.
 
 ## 25. Workflow Portability and History
 

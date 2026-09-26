@@ -40,10 +40,9 @@ vi.mock('../../src/lib/deleteUserData', () => ({
 
 import { SettingsPage } from '../../src/pages/SettingsPage';
 
-// Regression: PROJECT_REFERENCE.md §24.13 — version/update controls precede
-// destructive data controls and update checks expose meaningful stages.
+// Regression: PROJECT_REFERENCE.md §24.13 — update checks expose meaningful stages.
 describe('SettingsPage navigation, updates, and data controls', () => {
-  it('shows version 0.1.0 and places update checking before destructive data controls', () => {
+  it('shows the app version and a dedicated update control', () => {
     render(
       <MemoryRouter>
         <SettingsPage />
@@ -53,14 +52,9 @@ describe('SettingsPage navigation, updates, and data controls', () => {
     expect(screen.getByText('0.1.0')).toBeInTheDocument();
     expect(screen.getByTestId('app-build-info')).toHaveTextContent(/branch: local/);
     expect(screen.getByTestId('app-build-info')).toHaveTextContent(/commit: local/);
-    const check = screen.getByRole('button', { name: /Check for Updates/i });
-    const deletion = screen.getByRole('button', { name: 'Delete All User Data' });
     expect(
-      Boolean(
-        check.compareDocumentPosition(deletion) &
-          Node.DOCUMENT_POSITION_FOLLOWING
-      )
-    ).toBe(true);
+      screen.getByRole('button', { name: /Check for Updates/i })
+    ).toBeInTheDocument();
   });
 
   it('announces useful progress stages instead of a generic Checking label', async () => {

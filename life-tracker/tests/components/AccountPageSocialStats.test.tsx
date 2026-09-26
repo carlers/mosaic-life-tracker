@@ -60,16 +60,4 @@ describe('AccountPage content and scroll ownership', () => {
     expect(screen.queryByText('Eleanor Chaffee')).not.toBeInTheDocument();
   });
 
-  // Regression: PROJECT_REFERENCE.md §2 — MainLayout owns the page scroller.
-  it('does not create a nested full-page vertical scroller on Me', () => {
-    render(
-      <MemoryRouter>
-        <AccountPage />
-      </MemoryRouter>
-    );
-
-    expect(screen.getByTestId('account-scroll')).not.toHaveClass(
-      'overflow-y-auto'
-    );
-  });
 });

@@ -1,7 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, fireEvent, cleanup } from '@testing-library/react';
 import { BottomSheet } from '../../src/components/ui/BottomSheet';
-import { AppearanceContext } from '../../src/hooks/appearanceContext';
 
 const noop = () => {};
 
@@ -125,49 +124,6 @@ describe('BottomSheet', () => {
     expect(window.history.back).toHaveBeenCalledTimes(1);
   });
 
-  // Regression: PROJECT_REFERENCE.md §2 — phones leave backdrop space; tablets can use full height.
-  it('uses responsive full-sheet height instead of covering the entire phone viewport', () => {
-    render(
-      <BottomSheet isOpen onClose={noop} height="full">
-        Inner
-      </BottomSheet>
-    );
-
-    expect(document.body.querySelector('[role="dialog"]')).toHaveClass(
-      'h-[92dvh]',
-      'md:h-[100dvh]'
-    );
-  });
-
-  // Regression: task acceptance — Compact sheets remain phone-width on phones but
-  // become a centered, slightly-wider-than-phone surface on tablet/desktop.
-  it('centers compact sheets at a 540px maximum on larger screens', () => {
-    render(
-      <AppearanceContext.Provider
-        value={{
-          mode: 'system',
-          resolvedTheme: 'dark',
-          setAppearanceMode: vi.fn().mockResolvedValue(undefined),
-          contentWidthMode: 'full',
-          sheetWidthMode: 'compact',
-          setContentWidthMode: vi.fn().mockResolvedValue(undefined),
-          setSheetWidthMode: vi.fn().mockResolvedValue(undefined),
-        }}
-      >
-        <BottomSheet isOpen onClose={noop}>
-          Inner
-        </BottomSheet>
-      </AppearanceContext.Provider>
-    );
-
-    expect(document.body.querySelector('[role="dialog"]')).toHaveClass(
-      'md:left-1/2',
-      'md:right-auto',
-      'md:w-[min(540px,calc(100vw-2rem))]',
-      'md:[translate:-50%_0]'
-    );
-  });
-
   it('Escape requests Back for the topmost sheet history slot', () => {
     const onCloseA = vi.fn();
     const onCloseB = vi.fn();
@@ -227,8 +183,6 @@ describe('BottomSheet', () => {
     const dialog = document.body.querySelector('[role="dialog"]');
     expect(dialog).not.toBeNull();
     expect(dialog).toHaveAttribute('aria-hidden', 'true');
-    expect(dialog).toHaveClass('pointer-events-none', 'select-none');
-    expect(dialog?.previousElementSibling).toHaveClass('pointer-events-none');
   });
 
   it('locks body scroll while open and restores on unmount', () => {

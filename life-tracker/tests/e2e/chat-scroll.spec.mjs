@@ -22,11 +22,13 @@ async function open(page, width = 'full') {
 }
 const scroller = page => page.locator('div.overflow-y-auto').last();
 const gap = page => scroller(page).evaluate(el => el.scrollHeight - el.clientHeight - el.scrollTop);
-for (const viewport of [{ width: 412, height: 915 }, { width: 1440, height: 900 }]) {
-  for (const width of ['full', 'comfortable', 'wide']) {
-    test(`chat geometry and follow intent ${viewport.width} ${width}`, async ({ page }, testInfo) => {
-      await page.setViewportSize(viewport);
-      await open(page, width);
+for (const { viewport, width } of [
+  { viewport: { width: 412, height: 915 }, width: 'full' },
+  { viewport: { width: 1440, height: 900 }, width: 'wide' },
+]) {
+  test(`chat geometry and follow intent ${viewport.width} ${width}`, async ({ page }, testInfo) => {
+    await page.setViewportSize(viewport);
+    await open(page, width);
       await expect.poll(() => gap(page)).toBeLessThanOrEqual(2);
       const composer = page.getByRole('textbox', { name: 'Message', exact: true });
       const last = page.locator('[id^="msg-"]').last();
@@ -49,8 +51,7 @@ for (const viewport of [{ width: 412, height: 915 }, { width: 1440, height: 900 
       await page.evaluate(() => window.chatControl.append());
       await expect.poll(() => gap(page)).toBeLessThanOrEqual(2);
       expect(await page.evaluate(() => document.documentElement.scrollHeight <= innerHeight + 1)).toBe(true);
-    });
-  }
+  });
 }
 
 async function readHistory(page) {

@@ -41,7 +41,7 @@ vi.mock('../../src/hooks/useHorizontalArrowNavigation', () => ({
   useHorizontalArrowNavigation: vi.fn(),
 }));
 
-describe('CalendarBody layout', () => {
+describe('CalendarBody behavior', () => {
   it('opens the DayView sheet immediately from a day tap', () => {
     daySheetState.mockClear();
     const { getByTestId } = render(
@@ -68,29 +68,5 @@ describe('CalendarBody layout', () => {
       isOpen: true,
       selectedDate: new Date('2026-01-05'),
     });
-  });
-
-  it('gives the calendar carousel a bounded flex viewport so month height cannot resize the horizontal carousel', () => {
-    const { getByTestId } = render(
-      <CalendarBody
-        viewMode="month"
-        slides={[new Date('2026-01-01')]}
-        renderStart={0}
-        renderEnd={0}
-        emblaRef={vi.fn()}
-        tasks={[]}
-        categoriesMap={{}}
-        variant="me"
-        currentUserId="user_1"
-        isActive
-        onPrev={vi.fn()}
-        onNext={vi.fn()}
-      />
-    );
-
-    const carousel = getByTestId('calendar-carousel');
-    const viewport = carousel.parentElement;
-
-    expect(viewport).toHaveClass('flex', 'min-h-0', 'flex-1', 'flex-col');
   });
 });
