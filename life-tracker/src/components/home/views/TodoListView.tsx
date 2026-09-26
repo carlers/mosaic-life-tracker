@@ -8,6 +8,7 @@ import { FriendDayViewSheet } from '../../friend/FriendDayViewSheet';
 import { useFriendTaskReply } from '../../../hooks/useFriendTaskReply';
 import { TodoCalendarGrid } from './TodoCalendarGrid';
 import type { CategoryDocument, TaskDocument } from '../../../db/schema';
+import type { WeekStartsOn } from '../../../lib/preferences';
 
 const ReplyComposerSheet = lazy(() =>
   import('../../messages/ReplyComposerSheet').then(({ ReplyComposerSheet }) => ({
@@ -26,6 +27,7 @@ interface TodoListViewProps {
   friendUserId?: string;
   currentUserId?: string;
   onReactToTask?: (task: TaskDocument, emoji: string) => void;
+  weekStartsOn?: WeekStartsOn;
 }
 
 export const TodoListView: React.FC<TodoListViewProps> = ({
@@ -39,6 +41,7 @@ export const TodoListView: React.FC<TodoListViewProps> = ({
   friendUserId = '',
   currentUserId = '',
   onReactToTask,
+  weekStartsOn = 0,
 }) => {
   const [selectedDate, setSelectedDate] = useState(() => new Date(focusDate));
   const {
@@ -85,6 +88,7 @@ export const TodoListView: React.FC<TodoListViewProps> = ({
           categoriesMap={categoriesMap}
           onDateSelect={handleDateChange}
           onMonthChange={onFocusDateChange}
+          weekStartsOn={weekStartsOn}
         />
       </div>
 

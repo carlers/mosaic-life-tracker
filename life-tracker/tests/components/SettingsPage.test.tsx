@@ -6,15 +6,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const updateMocks = vi.hoisted(() => ({
   checkForUpdate: vi.fn<(onProgress?: (stage: string) => void) => Promise<'up-to-date' | 'update-available'>>(),
 }));
-const settingsMocks = vi.hoisted(() => ({
-  getSetting: vi.fn(),
-  setSetting: vi.fn(),
-}));
-
 beforeEach(() => {
   updateMocks.checkForUpdate.mockReset().mockResolvedValue('up-to-date');
-  settingsMocks.getSetting.mockReset().mockReturnValue(false);
-  settingsMocks.setSetting.mockReset().mockResolvedValue(undefined);
 });
 
 vi.mock('../../src/hooks/useAuth', () => ({
@@ -33,12 +26,6 @@ vi.mock('../../src/hooks/useAppearance', () => ({
     setAppearanceMode: vi.fn().mockResolvedValue(undefined),
   }),
 }));
-vi.mock('../../src/hooks/useSettings', () => ({
-  useSettings: () => ({
-    getSetting: settingsMocks.getSetting,
-    setSetting: settingsMocks.setSetting,
-  }),
-}));
 vi.mock('../../src/db/database', () => ({
   destroyDatabase: vi.fn().mockResolvedValue(undefined),
 }));
@@ -52,7 +39,6 @@ vi.mock('../../src/lib/deleteUserData', () => ({
 }));
 
 import { SettingsPage } from '../../src/pages/SettingsPage';
-import { CONTINUE_ADDING_TASKS_SETTING_KEY } from '../../src/lib/taskCreationPreferences';
 
 // Regression: PROJECT_REFERENCE.md §24.13 — version/update controls precede
 // destructive data controls and update checks expose meaningful stages.
@@ -75,27 +61,6 @@ describe('SettingsPage navigation, updates, and data controls', () => {
           Node.DOCUMENT_POSITION_FOLLOWING
       )
     ).toBe(true);
-  });
-
-  // Regression: PROJECT_REFERENCE.md §2 — continuous task entry is a synced Settings toggle.
-  it('toggles continuous task entry for the same category', () => {
-    render(
-      <MemoryRouter>
-        <SettingsPage />
-      </MemoryRouter>
-    );
-
-    const toggle = screen.getByRole('switch', {
-      name: 'Keep adding in same category',
-    });
-    expect(toggle).toHaveAttribute('aria-checked', 'false');
-
-    fireEvent.click(toggle);
-
-    expect(settingsMocks.setSetting).toHaveBeenCalledWith(
-      CONTINUE_ADDING_TASKS_SETTING_KEY,
-      true
-    );
   });
 
   it('announces useful progress stages instead of a generic Checking label', async () => {
@@ -157,20 +122,22 @@ describe('SettingsPage navigation, updates, and data controls', () => {
     );
   });
 
-  // Regression: task acceptance — Screen is a Settings child route, not an appearance sheet.
-  it('opens the Screen route instead of an appearance dialog', () => {
+  // Regression: PROJECT_REFERENCE.md §2 — Preferences is the Settings child route for app behavior and display choices.
+  it('opens the Preferences route instead of exposing behavior toggles on Settings', () => {
     render(
       <MemoryRouter initialEntries={['/settings']}>
         <Routes>
           <Route path="/settings" element={<SettingsPage />} />
-          <Route path="/settings/screen" element={<div>Screen settings route</div>} />
+          <Route path="/settings/preferences" element={<div>Preferences route</div>} />
         </Routes>
       </MemoryRouter>
     );
 
-    fireEvent.click(screen.getByRole('button', { name: /Screen/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Preferences/i }));
 
-    expect(screen.getByText('Screen settings route')).toBeInTheDocument();
-    expect(screen.queryByRole('dialog', { name: 'Appearance' })).toBeNull();
+    expect(screen.getByText('Preferences route')).toBeInTheDocument();
+    expect(
+      screen.queryByRole('switch', { name: 'Keep adding in same category' })
+    ).toBeNull();
   });
 });

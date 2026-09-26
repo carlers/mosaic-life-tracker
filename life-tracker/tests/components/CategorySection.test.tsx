@@ -34,6 +34,7 @@ interface RenderOpts {
   categoryName?: string;
   tasks?: React.ComponentProps<typeof CategorySection>['tasks'];
   continueAddingAfterSubmit?: boolean;
+  showCollapseButton?: boolean;
 }
 
 function renderSection(opts: RenderOpts = {}) {
@@ -48,6 +49,7 @@ function renderSection(opts: RenderOpts = {}) {
       editingTaskId={null}
       editValue=""
       continueAddingAfterSubmit={opts.continueAddingAfterSubmit}
+      showCollapseButton={opts.showCollapseButton}
       {...cbs}
     />
   );
@@ -137,6 +139,49 @@ describe('CategorySection', () => {
     ) as HTMLInputElement;
     expect(nextInput).toHaveValue('');
     expect(nextInput).toHaveFocus();
+  });
+
+  // Regression: PROJECT_REFERENCE.md §2 — category collapse is opt-in UI chrome.
+  it('shows an accessible collapse control only when enabled and hides category contents', () => {
+    const task = {
+      id: 'task_existing',
+      title: 'Existing task',
+      completed: false,
+      categoryId: 'work',
+      date: '2026-09-23',
+      createdAt: '2026-09-23T00:00:00.000Z',
+      updatedAt: '2026-09-23T00:00:00.000Z',
+      userId: 'user_A',
+      isDeleted: false,
+      visibility: 'private',
+    };
+
+    const { rerender, cbs } = renderSection({ tasks: [task] });
+    expect(screen.queryByRole('button', { name: 'Collapse Work' })).toBeNull();
+
+    rerender(
+      <CategorySection
+        categoryName="Work"
+        categoryColor="#3B82F6"
+        visibility="private"
+        currentUserId="user_A"
+        tasks={[task]}
+        editingTaskId={null}
+        editValue=""
+        showCollapseButton
+        {...cbs}
+      />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Collapse Work' }));
+    expect(screen.queryByText('Existing task')).toBeNull();
+    expect(screen.getByRole('button', { name: 'Expand Work' })).toHaveAttribute(
+      'aria-expanded',
+      'false'
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Expand Work' }));
+    expect(screen.getByText('Existing task')).toBeInTheDocument();
   });
 
   it('Escape closes the input without firing onAddTask', () => {

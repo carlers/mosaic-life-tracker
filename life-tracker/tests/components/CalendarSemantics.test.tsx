@@ -3,6 +3,11 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { DayCell } from '../../src/components/home/views/DayCell';
 import { MonthView } from '../../src/components/home/views/MonthView';
 import { WeekView } from '../../src/components/home/views/WeekView';
+import { TodoCalendarGrid } from '../../src/components/home/views/TodoCalendarGrid';
+
+vi.mock('embla-carousel-react', () => ({
+  default: () => [vi.fn(), null],
+}));
 
 const emptyTasks = new Map();
 
@@ -76,6 +81,65 @@ describe('calendar accessibility semantics', () => {
         name: 'Wednesday, September 23, 2026, no tasks',
       })
     ).toBeEnabled();
+  });
+
+  // Regression: PROJECT_REFERENCE.md §2 — week-start preference applies to Calendar and Todo grids.
+  it('starts month, week, and Todo calendars on Monday when Sunday-start is disabled', () => {
+    const month = render(
+      <MonthView
+        focusDate={new Date(2026, 8, 15)}
+        onDayClick={() => {}}
+        tasksByDate={emptyTasks}
+        categoriesMap={{}}
+        weekStartsOn={1}
+      />
+    );
+    let grid = screen.getByRole('grid', { name: 'September 2026 calendar' });
+    let headers = within(grid).getAllByRole('columnheader');
+    expect(headers[0]).toHaveAccessibleName('Monday');
+    expect(headers[6]).toHaveAccessibleName('Sunday');
+    month.unmount();
+
+    const week = render(
+      <WeekView
+        focusDate={new Date(2026, 8, 23)}
+        onDayClick={() => {}}
+        tasksByDate={emptyTasks}
+        categoriesMap={{}}
+        weekStartsOn={1}
+      />
+    );
+    grid = screen.getByRole('grid', {
+      name: 'Week of September 21, 2026',
+    });
+    headers = within(grid).getAllByRole('columnheader');
+    expect(headers[0]).toHaveAccessibleName('Monday');
+    expect(headers[6]).toHaveAccessibleName('Sunday');
+    week.unmount();
+
+    render(
+      <TodoCalendarGrid
+        focusDate={new Date(2026, 8, 15)}
+        selectedDate={new Date(2026, 8, 15)}
+        tasks={[]}
+        categories={[]}
+        categoriesMap={{}}
+        onDateSelect={() => {}}
+        onMonthChange={() => {}}
+        weekStartsOn={1}
+      />
+    );
+    grid = screen.getByRole('grid', {
+      name: 'September 2026 todo calendar',
+    });
+    headers = within(grid).getAllByRole('columnheader');
+    expect(headers[0]).toHaveTextContent('M');
+    expect(headers[6]).toHaveTextContent('S');
+    expect(
+      within(grid).getByRole('gridcell', {
+        name: 'Monday, August 31, 2026, 0 tasks',
+      })
+    ).toBeInTheDocument();
   });
 
   it('marks today as the current date and noninteractive days as disabled', () => {

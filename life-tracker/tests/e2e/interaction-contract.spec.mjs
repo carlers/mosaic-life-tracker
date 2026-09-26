@@ -286,6 +286,38 @@ test('appearance modes update computed app surfaces without changing semantic fi
   ).toBe('rgb(9, 9, 9)');
 });
 
+// Regression: task acceptance — switch thumb stays inside its track in both states.
+test('settings switches keep the thumb bounded and move it from left to right', async ({ page }) => {
+  await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html`);
+
+  const off = page.getByRole('switch', { name: 'Switch off' });
+  const on = page.getByRole('switch', { name: 'Switch on' });
+  const offTrack = off.getByTestId('settings-switch-track');
+  const offThumb = off.getByTestId('settings-switch-thumb');
+  const onTrack = on.getByTestId('settings-switch-track');
+  const onThumb = on.getByTestId('settings-switch-thumb');
+
+  const [offTrackBox, offThumbBox, onTrackBox, onThumbBox] = await Promise.all([
+    offTrack.boundingBox(),
+    offThumb.boundingBox(),
+    onTrack.boundingBox(),
+    onThumb.boundingBox(),
+  ]);
+  if (!offTrackBox || !offThumbBox || !onTrackBox || !onThumbBox) {
+    throw new Error('Missing settings switch bounds');
+  }
+
+  expect(offThumbBox.x).toBeGreaterThanOrEqual(offTrackBox.x);
+  expect(offThumbBox.x + offThumbBox.width).toBeLessThanOrEqual(
+    offTrackBox.x + offTrackBox.width
+  );
+  expect(onThumbBox.x).toBeGreaterThanOrEqual(onTrackBox.x);
+  expect(onThumbBox.x + onThumbBox.width).toBeLessThanOrEqual(
+    onTrackBox.x + onTrackBox.width
+  );
+  expect(offThumbBox.x).toBeLessThan(onThumbBox.x);
+});
+
 test('calendar swipe moves the calendar without advancing the friend carousel', async ({ page }) => {
   await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html`);
 

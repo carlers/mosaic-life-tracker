@@ -1,5 +1,5 @@
 import React, { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
-import { format } from 'date-fns';
+import { format, isToday } from 'date-fns';
 import { Swiper, SwiperSlide } from 'swiper/react';
 import { AnimatePresence } from 'framer-motion';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
@@ -24,7 +24,11 @@ import type { CategoryDocument, TaskDocument } from '../../../db/schema';
 import { Spinner } from '../../ui/Spinner';
 import { useHorizontalArrowNavigation } from '../../../hooks/useHorizontalArrowNavigation';
 import { useSettings } from '../../../hooks/useSettings';
-import { CONTINUE_ADDING_TASKS_SETTING_KEY } from '../../../lib/taskCreationPreferences';
+import {
+  CONTINUE_ADDING_TASKS_SETTING_KEY,
+  SHOW_CATEGORY_COLLAPSE_SETTING_KEY,
+  SHOW_DAY_VIEW_TODAY_TAG_SETTING_KEY,
+} from '../../../lib/preferences';
 
 const ImageViewer = lazy(() =>
   import('./ImageViewer').then(({ ImageViewer }) => ({ default: ImageViewer }))
@@ -80,6 +84,10 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
   const { getSetting } = useSettings();
   const continueAddingTasks =
     getSetting(CONTINUE_ADDING_TASKS_SETTING_KEY, false) === true;
+  const showCategoryCollapseButton =
+    getSetting(SHOW_CATEGORY_COLLAPSE_SETTING_KEY, false) === true;
+  const showDayViewTodayTag =
+    getSetting(SHOW_DAY_VIEW_TODAY_TAG_SETTING_KEY, false) === true;
 
   const tasks = tasksOverride ?? taskStore.tasks ?? EMPTY_TASKS;
   const categories = categoriesOverride ?? hookCategories;
@@ -521,10 +529,15 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
                         <ChevronLeft size={20} />
                       </button>
                       <h3
-                        className="min-w-0 flex-1 text-center text-base font-semibold text-white"
+                        className="flex min-w-0 flex-1 items-center justify-center gap-2 text-center text-base font-semibold text-white"
                         aria-live={i === activeIndex ? 'polite' : undefined}
                       >
-                        {slideDateLabels[i]}
+                        <span className="truncate">{slideDateLabels[i]}</span>
+                        {showDayViewTodayTag && isToday(date) && (
+                          <span className="shrink-0 rounded-full bg-emerald-500/15 px-2 py-0.5 text-[11px] font-semibold text-emerald-400">
+                            Today
+                          </span>
+                        )}
                       </h3>
                       <button
                         type="button"
@@ -556,6 +569,7 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
                       onEditCancel={handleEditCancel}
                       disableTaskLayoutAnimation={renderMode === 'sheet'}
                       continueAddingTasks={continueAddingTasks}
+                      showCategoryCollapseButton={showCategoryCollapseButton}
                     />
                   </>
                 )}
