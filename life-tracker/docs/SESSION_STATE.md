@@ -18,11 +18,13 @@ Representative lab evidence: sheet-open click processing improved from about 154
 
 Close-path evidence so far:
 - Rejected deferred-child exit retention by itself: close measured about 335ms LOAF with 52 Framer Motion layout reads.
-- Reverted to the stable teardown path: close measured about 337ms LOAF with the same 52 reads.
-- Disabled TaskItem layout projection for the entire sheet lifecycle: layout reads fell from 52 to 2, but close still measured about 342ms LOAF, so projection was not the whole cost.
-- Combined projection suppression + deferred-child retention: close measured about 332ms LOAF with 2 reads. This was only a small improvement.
-- The layer-promotion hint did not materially improve the browser probe and is rejected. A full direct-transform rewrite reduced close from about 347ms to 253ms but broke sheet drag interaction. The exit-only transform variant preserved drag but did not improve close materially. Current candidate separates the drag shell from the animated sheet surface: the outer shell owns drag/focus behavior, while an inner surface uses direct `transform`. The sheet surface now has its own AnimatePresence boundary so Motion `usePresence` can delay removal until the inner transform completes; the helper implementation is now present in `BottomSheet.tsx`. Browser verification must confirm close performance, drag behavior, history/focus cleanup, and exit cleanup.
-- Focused regression coverage pins sheet-mode TaskItem layout suppression and the deferred-child exit contract.
+- Disabled TaskItem layout projection for the sheet lifecycle: layout reads fell from 52 to 2, but close stayed around 342ms LOAF, so projection was not the whole cost.
+- A direct-transform sheet rewrite reduced the probe substantially but broke sheet drag interaction; the exit-only variant preserved drag without a material improvement.
+- Native CSS transition was rejected because browser contracts did not observe transition-end cleanup and the close probe stayed around 325ms.
+- Shadow/overflow paint experiments were noisy and did not explain the remaining cost.
+- The stable candidate is contain: paint on the fixed sheet surface. With the same 0.32s Framer exit duration, the tap-driven close probe fell from roughly 325ms action duration / 315ms LOAF to roughly 192ms / 184ms, across repeated browser runs. Layout reads remain at 2. The improvement is therefore tied to paint containment rather than shortening the animation.
+- The performance probe now closes by tapping the documented exposed backdrop strip, matching the real phone dismissal contract rather than measuring Escape.
+- Focused regression coverage pins deferred-child exit retention and BottomSheet dialog semantics.
 Working set:
 - `life-tracker/src/components/ui/BottomSheet.tsx`
 - `life-tracker/tests/components/BottomSheet.test.tsx`
@@ -36,9 +38,9 @@ Completed substeps:
 - Investigated and repaired two React lint failures exposed by CI.
 
 Remaining substeps:
-- Run browser verification for the current layer-promotion experiment and inspect `bottom-sheet-close`.
-- If the trace improves materially, run the canonical full gate, publish the stable Preview, and perform real-device open/close acceptance.
-- If it does not, revert the hint and continue from the trace's render/style evidence; do not add blind animation/CSS changes.
+- Run the canonical full gate on the final task SHA.
+- After exact-SHA canonical acceptance, publish the stable Preview branch and perform the required real-device open/close acceptance.
+- If device evidence shows remaining hitching, continue from a device trace; do not revert the paint-containment candidate without evidence.
 Constraints:
 - Do not claim real-device acceptance without an actual device check.
 - Do not replace the accepted explicit Swiper virtual buffers without new evidence.
@@ -47,11 +49,11 @@ Constraints:
 - Vercel Preview is only considered delivered after the exact final SHA receives canonical acceptance.
 
 Verification:
-- Quality Gate runner allocation now assigns real hosted runners (current successful jobs show named `ubuntu-latest` runners).
-- Latest run before the state-file condensation: build, dependency audit, both DOM shards, both browser shards, and classify passed; checks failed only on the handoff token-budget assertion.
-- Manual/device close smoothness remains unverified.
-- Vercel deployment for the stable `perf/animation-optimization` branch was previously READY; the new task branch is intentionally not a deployable stable branch.
-
-Next action: push the layout-projection candidate with `[verify:browser]` and inspect `bottom-sheet-close`. If the 52 layout reads disappear and the close LOAF drops materially, promote the same code to a final `[verify:full]` commit.
+- Focused Quality Gate passed on the implementation.
+- Browser contracts passed with contain: paint; the tap-driven close probe measured about 192ms action duration and 184ms max Long Animation Frame on the latest repeated run, with 2 layout reads.
+- The canonical full gate has not yet run on the final SHA.
+- Real-device close smoothness remains unverified.
+- Vercel Preview remains pending exact-SHA canonical acceptance.
+Next action: wait for the final [verify:full] canonical gate, then deliver the stable Preview and perform the real-device close protocol.
 
 Blockers: none currently. The previous hosted-runner allocation blocker is no longer reproducing; the remaining blocker to completion is verification of the close-path performance candidate and real-device acceptance.
