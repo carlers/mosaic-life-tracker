@@ -5,7 +5,13 @@
 Commit only task paths (never blanket-stage unrelated edits), use a `chatgpt/**` task
 branch, and push after focused checks and diff review. Prefer one coherent commit; repair
 commits are appropriate when CI exposes a defect. Include `[verify:full]` on the final commit when full canonical acceptance is required. Wait for that exact SHA's `canonical-acceptance` before treating the implementation as remotely accepted. No force push across divergence,
-no automatic main merge, and no unrelated remote service changes.
+no automatic `dev` merge, and no unrelated remote service changes.
+
+AI task branches are never merged directly into `dev` as part of ordinary task delivery.
+The task branch enters its named stable Preview branch (`fix/*`, `feature/*`, `perf/*`,
+`security/*`, `refactor/*`, or another explicitly configured Preview category) through
+a pull request and squash merge. Promotion from a stable Preview branch to `dev` requires
+explicit user instruction.
 
 If tools/network prevent a step, complete independent work and report the exact blocker.
 Do not ask for authorization already granted. Include commit SHA/subject, checks, and
@@ -19,8 +25,8 @@ Deployment status in the final result. Do not commit status-only prose after acc
 |---|---|
 | Docs | Ordinary Markdown-only changes: contracts and diff checks, no dependency install |
 | Focused | Ordinary runtime pushes to `chatgpt/**` and `codex/**`: contracts/discovery, changed existing-file ESLint, Git-aware related tests |
-| Full | `main`, `dev`, `feature/**`, manual dispatch, or `[verify:full]`: checks (contracts/discovery/lint/unit/handlers), two DOM shards, build, two browser shards |
-| Branch delivery | Vercel deploys `main` to Production and `dev`/`feature/*` to Preview; `chatgpt/*`, `codex/*`, `temp/*`, and other branches are blocked |
+| Full | `main`, `dev`, stable Preview branches, manual dispatch, or `[verify:full]`: checks (contracts/discovery/lint/unit/handlers), two DOM shards, build, two browser shards |
+| Branch delivery | Vercel deploys `main` to Production and configured stable Preview categories to Preview; AI task branches remain blocked |
 
 Quality Gate is intentionally push-driven: the workflow does not also run on `pull_request`, avoiding duplicate runner allocation for the same commit. PRs still receive the checks attached to the pushed head SHA. A focused or docs-only green run is never canonical acceptance. `[verify:browser]` requests intermediate browser coverage. Manual device evidence remains separate.
 While CI runs, finish independent review; otherwise wait between status requests. Read
@@ -37,27 +43,31 @@ The preferred provider is Vercel. Configure one Vercel project from
 - **Output Directory:** `dist`
 - **Production Branch:** `main`
 
-`life-tracker/vercel.json` contains explicit SPA rewrites for Mosaic's BrowserRouter routes and uses a deny-by-default `git.deploymentEnabled` policy: `main`, `dev`, and `feature/*` are allowed; `chatgpt/*`, `codex/*`, `temp/*`, and all other unlisted branches are blocked.
+`life-tracker/vercel.json` contains explicit SPA rewrites for Mosaic's BrowserRouter routes and uses a deny-by-default `git.deploymentEnabled` policy. Stable Preview categories are enabled explicitly (currently `fix/*`, `feature/*`, `perf/*`, `security/*`, and `refactor/*)); `chatgpt/*`, `codex/*`, `temp/*`, and all other unlisted branches are blocked.
 Static assets are not catch-all rewritten.
 
-`main` is the production branch, `dev` is the integration/staging branch, and `feature/*` branches are stable preview branches. There is no deployment-only `preview` branch. Source development continues on these branches and AI task branches.
+`main` is the production branch, `dev` is the integration/staging branch, and
+category branches such as `fix/*`, `feature/*`, and `perf/*` are stable Preview
+branches. There is no deployment-only `preview` branch. Source development continues on
+these branches and AI task branches.
 
-## Preview merge policy
+## Preview branch promotion policy
 
-Individual development branches such as `chatgpt/*` and `codex/*` should enter stable Preview
-branches such as `feature/*` through **Squash and merge**. This keeps experimental
-development commits out of the durable Preview history while preserving the detailed
-development history in the pull request.
+Individual development branches such as `chatgpt/*` and `codex/*` should enter the active stable Preview branch through **Squash and merge**. This keeps experimental development commits out of the durable Preview history while preserving the detailed development history in the pull request.
 
-This is a **GitHub repository ruleset**, not a CI convention. The ruleset should target
-`feature/*` and require:
+Stable Preview branches are direct children of `dev` for feature work and are the only
+destination for ordinary AI task delivery. Never merge the task branch directly to `dev`
+unless the user explicitly requests that promotion.
+
+This is a **GitHub repository ruleset**, not a CI convention. The ruleset should target the
+stable Preview categories and require:
 
 1. Pull requests before merging.
 2. The Preview merge-policy status check(s) required by the repository, once present.
 3. **Merge type: Squash**.
 4. No bypass for ordinary repository contributors.
 
-Do **not** globally disable merge commits or rebase merges: `feature/*` → `dev` and
+Do **not** globally disable merge commits or rebase merges: stable Preview → `dev` and
 `dev` → `main` intentionally retain their separate promotion policy.
 
 The connected GitHub integration available to this environment can read repository rules
@@ -108,12 +118,12 @@ secrets.
 2. Put `[verify:full]` on the exact final task commit when full canonical acceptance is
    required.
 3. Wait for that exact SHA's `canonical-acceptance` check to pass.
-4. Verify the Vercel deployment for the intended `main`, `dev`, or `feature/*`
-   branch is ready.
-5. Share the relevant stable or per-branch preview URL when a manual/browser protocol is
-   relevant.
-6. The user performs any required phone/browser protocol.
-7. Record manual evidence separately from automated CI evidence.
+4. Squash-merge the accepted task PR into the intended stable Preview branch only; do not
+   promote to `dev` unless explicitly requested.
+5. Verify the Vercel deployment for the stable Preview branch is ready.
+6. Share the relevant stable Preview URL when a manual/browser protocol is relevant.
+7. The user performs any required phone/browser protocol.
+8. Record manual evidence separately from automated CI evidence.
 
 Do not add a state-only closure commit after canonical acceptance merely to record a run
 number; derive completed verification/deployment status from GitHub and Vercel. If repository

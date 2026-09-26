@@ -71,6 +71,23 @@ describe('MainLayout primary route swipes', () => {
     expect(onRouteSwipe).toHaveBeenCalledWith('left');
   });
 
+  it('can render a detail route without bottom navigation or its content inset', () => {
+    render(
+      <MainLayout
+        activeTab="messages"
+        onTabChange={() => {}}
+        hideBottomNav
+      >
+        <div>Chat detail</div>
+      </MainLayout>
+    );
+
+    expect(screen.queryByTestId('bottom-nav')).toBeNull();
+    expect(screen.getByTestId('primary-route-content')).not.toHaveClass(
+      'pb-[calc(4rem+env(safe-area-inset-bottom))]'
+    );
+  });
+
   it('keeps the non-Home swipe surface at least as tall as the full route viewport', () => {
     render(
       <MainLayout

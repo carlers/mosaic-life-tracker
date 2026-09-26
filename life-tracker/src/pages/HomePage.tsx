@@ -15,6 +15,7 @@ import { useCategories } from '../hooks/useCategories';
 import type { TaskDocument } from '../db/schema';
 
 const RENDER_WINDOW = 1;
+const INITIAL_RENDER_WINDOW = 0;
 
 export const HomePage: React.FC = () => {
   const {
@@ -33,6 +34,7 @@ export const HomePage: React.FC = () => {
   } = useCategories();
 
   const [activePersonId, setActivePersonId] = useState<string>('me');
+  const [renderWindow, setRenderWindow] = useState(INITIAL_RENDER_WINDOW);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [searchDaySheetOpen, setSearchDaySheetOpen] = useState(false);
@@ -57,6 +59,20 @@ export const HomePage: React.FC = () => {
     const idx = persons.findIndex((p) => p.id === activePersonId);
     return idx >= 0 ? idx : 0;
   }, [persons, activePersonId]);
+
+  useEffect(() => {
+    const schedule = () => setRenderWindow(RENDER_WINDOW);
+    if (typeof window.requestIdleCallback === 'function') {
+      const idleId = window.requestIdleCallback(schedule, { timeout: 1200 });
+      return () => {
+        if (typeof window.cancelIdleCallback === 'function') {
+          window.cancelIdleCallback(idleId);
+        }
+      };
+    }
+    const timer = window.setTimeout(schedule, 400);
+    return () => window.clearTimeout(timer);
+  }, []);
 
   useEffect(() => {
     const s = swiperRef.current;
@@ -218,7 +234,7 @@ export const HomePage: React.FC = () => {
           >
             {persons.map((p, i) => (
               <SwiperSlide key={p.id} style={{ height: '100%' }}>
-                {Math.abs(i - activeIndex) <= RENDER_WINDOW ? (
+                {Math.abs(i - activeIndex) <= renderWindow ? (
                   <PersonPane
                     person={p}
                     isActive={i === activeIndex}
