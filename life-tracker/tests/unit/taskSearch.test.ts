@@ -2,8 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { filterAndRankTasks } from '../../src/lib/taskSearch';
 import type { TaskDocument } from '../../src/db/schema';
 
-// Regression: §2 (Home task search is local,
-// title-based, filterable, deterministically ranked, and DOM-bounded.
+// Regression: §2 (Home task search is local, filtered, ranked, and DOM-bounded).
 
 function task(
   id: string,
