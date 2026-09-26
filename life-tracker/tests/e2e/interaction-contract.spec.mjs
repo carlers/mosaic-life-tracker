@@ -419,12 +419,25 @@ test('full sheet leaves a phone backdrop, closes from it, and fills tablet heigh
   await page.getByTestId('open-full-sheet').click();
 
   let dialog = page.getByRole('dialog', { name: 'Responsive test sheet' });
-  let box = await dialog.boundingBox();
   const phoneViewport = page.viewportSize();
-  if (!box || !phoneViewport) throw new Error('Missing phone sheet bounds');
-  expect(box.y).toBeGreaterThan(0);
-  expect(box.height).toBeLessThan(phoneViewport.height);
-  expect(Math.abs(box.y + box.height - phoneViewport.height)).toBeLessThanOrEqual(1);
+  if (!phoneViewport) throw new Error('Missing phone viewport');
+
+  await expect.poll(async () => {
+    const box = await dialog.boundingBox();
+    if (!box) return null;
+    return {
+      leavesBackdrop: box.y > 0 && box.height < phoneViewport.height,
+      bottomGap: Math.abs(box.y + box.height - phoneViewport.height),
+    };
+  }).toEqual({
+    leavesBackdrop: true,
+    bottomGap: expect.any(Number),
+  });
+
+  await expect.poll(async () => {
+    const box = await dialog.boundingBox();
+    return box ? Math.abs(box.y + box.height - phoneViewport.height) : Infinity;
+  }).toBeLessThanOrEqual(1);
 
   await page.mouse.click(10, 10);
   await expect(dialog).toHaveCount(0);
@@ -432,11 +445,17 @@ test('full sheet leaves a phone backdrop, closes from it, and fills tablet heigh
   await page.setViewportSize({ width: 1024, height: 768 });
   await page.getByTestId('open-full-sheet').click();
   dialog = page.getByRole('dialog', { name: 'Responsive test sheet' });
-  box = await dialog.boundingBox();
   const tabletViewport = page.viewportSize();
-  if (!box || !tabletViewport) throw new Error('Missing tablet sheet bounds');
-  expect(box.y).toBeLessThanOrEqual(1);
-  expect(box.height).toBeGreaterThanOrEqual(tabletViewport.height - 1);
+  if (!tabletViewport) throw new Error('Missing tablet viewport');
+
+  await expect.poll(async () => {
+    const box = await dialog.boundingBox();
+    if (!box) return false;
+    return (
+      box.y <= 1 &&
+      box.height >= tabletViewport.height - 1
+    );
+  }).toBe(true);
 });
 
 test('todo calendar day tap selects the day without changing friend or month', async ({ page }) => {
