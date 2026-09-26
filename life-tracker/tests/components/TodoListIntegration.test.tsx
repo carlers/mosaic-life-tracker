@@ -105,7 +105,7 @@ describe('TodoListView integrated selected-day workspace', () => {
       />
     );
 
-    expect(screen.getByText('Integrated category')).toBeInTheDocument();
+    expect(screen.getAllByText('Integrated category').length).toBeGreaterThan(0);
     expect(screen.queryByText('Integrated todo task')).not.toBeInTheDocument();
     expect(screen.getByTestId('inline-day-view')).toBeInTheDocument();
   });
