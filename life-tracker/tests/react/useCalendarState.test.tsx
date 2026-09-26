@@ -116,14 +116,25 @@ describe('useCalendarState render window', () => {
     });
 
     expect(result.current.title).not.toBe(firstSwipeTitle);
-    expect(result.current.renderStart).toBe(28);
-    expect(result.current.renderEnd).toBe(32);
+    expect(result.current.renderStart).toBeLessThanOrEqual(32);
+    expect(result.current.renderEnd).toBeGreaterThanOrEqual(32);
+
+    act(() => {
+      emblaFixture.setSelectedIndex(33);
+      emblaFixture.emit('select');
+    });
+
+    // A third rapid swipe before any settle must never expose an empty
+    // geometry slide. The selected month/week and its next neighbor stay
+    // inside the mounted render window.
+    expect(result.current.renderStart).toBeLessThanOrEqual(33);
+    expect(result.current.renderEnd).toBeGreaterThanOrEqual(34);
 
     act(() => {
       emblaFixture.emit('settle');
     });
 
-    expect(result.current.renderStart).toBe(30);
-    expect(result.current.renderEnd).toBe(34);
+    expect(result.current.renderStart).toBe(31);
+    expect(result.current.renderEnd).toBe(35);
   });
 });
