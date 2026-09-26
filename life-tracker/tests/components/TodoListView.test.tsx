@@ -121,8 +121,10 @@ describe('TodoListView', () => {
       name: 'September 2026 todo calendar',
     });
     expect(grid).toHaveClass('mx-auto', 'bg-transparent', 'px-2', 'pt-3', 'pb-0');
-    expect(within(grid).getAllByRole('row')[0]).toHaveClass('justify-items-center');
-    expect(within(grid).getAllByRole('row')[1]).toHaveClass('justify-items-center');
+    const rows = within(grid).getAllByRole('row');
+    expect(rows[0]).toHaveClass('grid-cols-[repeat(7,2.5rem)]', 'justify-center');
+    expect(rows[1]).toHaveClass('grid-cols-[repeat(7,2.5rem)]', 'justify-center');
+    expect(grid).not.toHaveClass('text-center');
     expect(grid).not.toHaveClass('border', 'border-[#333333]', 'p-3');
     expect(screen.getByTestId('todo-day-section')).toHaveClass('mt-0');
   });
