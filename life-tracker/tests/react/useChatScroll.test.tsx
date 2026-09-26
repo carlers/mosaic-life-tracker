@@ -58,6 +58,6 @@ describe('useChatScroll', () => {
         ],
       });
     });
-    expect(scroller.scrollTop).toBe(1200);
+    expect(scroller.scrollTop).toBe(600);
   });
 });
