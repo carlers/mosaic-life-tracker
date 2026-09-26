@@ -344,7 +344,12 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
         {isOpen && (
           <SheetPresenceSurface
             sheetRef={sheetRef}
-            onAnimationComplete={onAnimationComplete}
+            onAnimationComplete={() => {
+              onAnimationComplete?.();
+              if (!isOpen) {
+                setChildrenMounted(false);
+              }
+            }}
             drag="y"
             dragControls={dragControls}
             dragListener={false}
