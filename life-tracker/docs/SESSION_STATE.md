@@ -2,51 +2,39 @@
 
 Updated: 2026-09-27
 
-Current task: expand `feature/settings-ux-improvements` with a dedicated Settings → Preferences page, fix the shared switch geometry, and add the requested task/calendar behavior preferences.
+Current task: comprehensively refactor Mosaic's automated test suite so it protects durable behavior and data-safety contracts without enforcing incidental UI implementation details, while reducing canonical CI cost.
 
-Status: implementation is complete on `chatgpt/preferences-settings`, based on stable Preview commit `0035751c5163a2301c937010d5d956a591b67f30`. The existing generic synced settings collection stores all new behavior choices; no schema or Appwrite migration is required.
+Status: audit complete; implementation is starting on `chatgpt/test-suite-cleanup`, based on stable Preview branch `refactor/test-suite` created from `dev` commit `bbace774345ddedb0d92a73e006e4d208f77a463`.
 
 ## Working set
-- `src/pages/PreferencesPage.tsx`, `src/pages/SettingsPage.tsx`, `src/App.tsx`
-- `src/components/ui/SettingsRow.tsx`
-- calendar/Day View/category components under `src/components/home/**`
-- `src/lib/preferences.ts`, `src/lib/primarySwipeNavigation.ts`
-- focused DOM/unit/browser regression coverage
-- `docs/PROJECT_REFERENCE.md`
+- `docs/TEST_WORKFLOW.md`, `docs/PROJECT_REFERENCE.md`, delivery/testing guidance as needed
+- Vitest projects under `tests/unit/**`, `tests/react/**`, `tests/components/**`, `tests/hooks/**`, `tests/handlers/**`
+- Playwright contracts under `tests/e2e/**`
+- `.github/workflows/quality-gate.yml`, test project/verification scripts where required
 
 ## Completed substeps
-- Replaced the Screen child page with Preferences while keeping `/settings/screen` as a redirect.
-- Moved appearance/layout choices and continuous same-category entry into Preferences.
-- Added synced toggles for Sunday week start, category collapse controls, the Day View Today tag, and calendar-title jump-to-today.
-- Preserved shipped defaults: Sunday-first is on; all newly optional UI behaviors are off.
-- Fixed the shared switch thumb with explicit left anchoring and bounded on-state translation.
-- Applied week-start consistently to Month, Week, Todo, and week-range calculations.
-- Added local category expand/collapse behavior without persisting each category's collapsed state.
-- Added/updated unit, DOM, integration, and browser geometry regression coverage.
-- Captured a behavioral-red on the Monday-start acceptance test before implementation (Quality Gate run 742), then reached focused green on runtime tip `e269688` (run 768).
-- Full run 770 exposed two stale Day View DOM assertions that assumed the date text was the direct navigation-row child; the tests now target the existing `data-day-view-navigation` contract marker so the optional Today wrapper does not invalidate them.
-- Full run 772 then exposed one remaining stale presentation assertion that expected the `text-base` class on the raw date text node; it now asserts the containing date heading, which remains the element that owns the header typography.
-- Updated PROJECT_REFERENCE §2 with the durable Preferences contracts.
+- Audited the current suite: 99 Vitest files / 653 cases plus 36 Playwright cases.
+- Identified presentation-coupled UI assertions (Tailwind/class/DOM-parent/exact-color enforcement), overlapping calendar/Todo/Day View coverage, duplicated CI-classification tests, and workflow-shape tests that overfit YAML structure.
+- Measured the latest green dev gate: unit ~7.4s, handlers ~1.3s, DOM shards ~16.7s/~17.3s, browser shards ~23.7s/~41.6s.
+- Identified the zero-assertion Playwright performance probe as diagnostic work that should not be part of canonical correctness acceptance.
 
 ## Remaining substeps
-- Run full canonical acceptance on the repaired final task SHA.
-- Fix any remaining full-gate failures and rerun until canonical acceptance passes.
-- Squash-merge the accepted task PR into `feature/settings-ux-improvements`.
-- Verify the stable Preview branch Quality Gate and Vercel deployment.
-- Manual/device acceptance remains separate and must not be claimed unless performed.
+- Rewrite testing doctrine so future agents test durable behavior/invariants rather than incidental presentation or component structure.
+- Remove or rewrite brittle UI assertions and consolidate overlapping DOM/browser coverage without weakening data-safety, authorization, sync, offline, deletion, or accessibility contracts.
+- Move diagnostic performance probing out of the mandatory browser correctness gate.
+- Simplify duplicated workflow/tooling tests and test-project routing where beneficial.
+- Run focused verification, then exact-SHA full canonical acceptance; repair failures until green.
+- Benchmark before/after using CI evidence, squash-merge into `refactor/test-suite`, then verify stable Preview Quality Gate and Vercel deployment.
 
 ## Constraints
-- Do not promote `feature/settings-ux-improvements` to `dev` without explicit user instruction.
-- Preserve existing appearance/layout behavior and existing one-shot task entry when their preferences are unchanged.
-- Preference switches persist through the existing synced settings collection only.
+- No product/runtime behavior changes in this task.
+- Preserve strong coverage for sync, mappings, auth/account isolation, handlers, tombstones, destructive data flows, offline queues/outboxes, accessibility semantics, and real browser-only interaction invariants.
+- Stable Preview promotion stops at `refactor/test-suite`; do not merge to `dev` without explicit user instruction.
 
 ## Verification
-- Behavioral red: run 742, Monday-start test failed against pre-implementation Sunday-first behavior.
-- Focused runtime verification: run 768 passed on `e269688ad6b4a6330a93c99820661f98947e7d1f`.
-- Full canonical acceptance: runs 770 and 772 failed only on stale Day View DOM assertions caused by the new optional Today wrapper; both selector/typography assertions are repaired and the new final SHA is pending acceptance.
-- Stable Preview deployment: pending delivery.
-- Manual/device acceptance: not performed.
+- Baseline: dev Quality Gate run 776 passed on `bbace774345ddedb0d92a73e006e4d208f77a463`.
+- Manual/device acceptance: not required for test-only behavior unless later changes alter runtime code.
 
-Next action: run exact-SHA full canonical acceptance on the selector repair, fix any remaining failures, then deliver by squash PR to the stable feature branch.
+Next action: update the durable testing rules, then refactor the highest-maintenance UI/browser suites and CI gate.
 
 Blockers: none.
