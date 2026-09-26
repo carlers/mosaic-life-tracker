@@ -504,7 +504,7 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
                 requestSheetClose(sheetId);
               }
             }}
-            className={`fixed bottom-0 left-0 right-0 z-[60] bg-[#1E1E1E] text-white flex flex-col ${heightClass} ${widthClass} ${suspendInteraction ? 'pointer-events-none select-none' : ''}`}
+            className={`fixed bottom-0 left-0 right-0 z-[60] bg-[#1E1E1E] text-white ${isOpen ? 'shadow-2xl' : 'shadow-none'} flex flex-col overflow-hidden ${heightClass} ${widthClass} ${suspendInteraction ? 'pointer-events-none select-none' : ''}`}
           >
             <div
               className={`flex-shrink-0 pt-3 pb-2 px-4 flex flex-col items-center transition-all duration-300 ${
