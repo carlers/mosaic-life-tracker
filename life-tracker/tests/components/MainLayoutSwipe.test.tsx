@@ -54,8 +54,7 @@ function drag(target: Element, fromX: number, toX: number) {
   });
 }
 
-// Regression: §2/§7 (primary-route swipes are direct page gestures,
-// with Home restricted to its hamburger layer and Me left-swipe opening Settings.
+// Regression: §2/§7 (primary-route swipe ownership and direct manipulation).
 describe('MainLayout primary route swipes', () => {
   it('keeps Home full-height, ignores body swipes, and accepts the hamburger-layer swipe', () => {
     vi.useFakeTimers();
