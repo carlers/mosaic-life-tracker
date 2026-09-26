@@ -282,7 +282,7 @@ for the active task, and [test workflow](TEST_WORKFLOW.md) for verification comm
 8. **`CalendarBody` is memoized.** `PersonPane` re-renders on toast/`activeView` changes; `CalendarBody` bails via `React.memo` unless a stable prop changed.
 9. **Friend-calendar refetch on activation.** `PersonPane` forces `refetchFriendCalendar(true)` when a friend pane becomes active, throttled by `FRIEND_REFETCH_MIN_INTERVAL_MS = 15_000`. Own pane stays live via RxDB subscription. Do not rely on cache TTL alone.
 10. **`useTaskImage` shares and gates object URLs.** Module-level `Map<fileId,{url,refCount,revokeTimer}>` ref-counts URLs across hook instances with a 1.5s deferred revoke so StrictMode double-mounts, Month↔Week toggles, and slide re-entry don't tear down + re-read. Its `enabled` argument gates the upstream IndexedDB/Appwrite acquisition. `useImageLoadGate` latches after a 200px visibility margin; `DeferredAvatar` composes both hooks. Do not bypass this path in calendar cells or persisted-avatar UI.
-11. **`DayViewSheet`/`HomePage` use manual windowing.** `RENDER_WINDOW = 3` for `DayViewSheet`, `RENDER_WINDOW = 1` for `HomePage`. Load-bearing for scroll smoothness.
+11. **`DayViewSheet`/`HomePage` use manual windowing.** `RENDER_WINDOW = 3` for `DayViewSheet`, `RENDER_WINDOW = 1` for `HomePage`. Day View keeps all Swiper slide containers for geometry but mounts the date-navigation and task trees only inside that seven-slide window. Load-bearing for scroll smoothness.
 12. **One subscription per collection, one provider per collection.** `ConversationsProvider` (mounted in `AppLayout`) is the sole owner of the inbox `db.messages` subscription and the sole caller of `useFriends()` for badge/chat-list. `FriendsProvider` (mounted above it) owns the `db.friendships` subscription. `useConversations`/`useUnreadMessages`/`useFriends` are thin context selectors — they MUST NOT mount their own RxDB subscriptions.
 13. **Unread math excludes `isUnsent`.** Counter is `direction === 'incoming' && !readAt && !isUnsent` — required for consistency with `ChatPage`'s own unread check. Regression tests pin this.
 14. **Conversation grouping is by counterpart, not thread.** Groups by the other participant id (`senderId === userId ? recipientId : senderId`). Relies on `makeThreadId` being a pure function of the participant pair. Do not introduce rows whose `threadId` is not derived from `senderId`/`recipientId`.
@@ -297,7 +297,7 @@ for the active task, and [test workflow](TEST_WORKFLOW.md) for verification comm
 23. **Unread badge updates are context-isolated.** `useUnreadMessages` consumes a dedicated unread summary value owned by `ConversationsProvider`; conversation-list changes that leave `totalUnread`/loading unchanged must not rerender the global BottomNav badge consumer.
 24. **Conversation-detail aggregation is route-gated.** Outside the Messages/Chat routes, the provider still maintains the correct accepted-friend unread total but skips allocating/sorting the per-friend conversation list. Entering a Messages route derives the list from the latest subscribed rows without adding another RxDB subscription.
 25. **Bottom-nav indicator is CSS-owned.** Keep one persistent indicator and move it by transform between the five tab slots. Do not make the global shell import Framer Motion solely for the active-tab dot; route/sheet motion can remain lazy with the feature chunks that use it.
-26. **Todo compact-month rendering is windowed.** `TodoCalendarGrid` mounts only the active compact month plus one immediate neighbor on each side (`RENDER_WINDOW = 1`); the remaining slide containers stay empty so Embla geometry is stable. Calendar carousel tracks should remain compositor-friendly rather than adding per-frame React rendering work.
+26. **Todo compact-month rendering is windowed.** `TodoCalendarGrid` mounts only the active compact month plus one immediate neighbor on each side (`RENDER_WINDOW = 1`); the remaining slide containers stay empty so Embla geometry is stable. The primary Calendar likewise makes only its rendered three-slide window vertically scrollable; empty geometry slides remain non-scrolling. Calendar carousel tracks should remain compositor-friendly rather than adding per-frame React rendering work.
 27. **Animation scheduling stays owner-native.** Do not wrap all animations in an application-level `requestAnimationFrame` loop. CSS/compositor transitions and Swiper, Embla, or Framer motion should keep their native frame scheduling; use custom rAF only for a genuinely custom JavaScript visual loop or frame-batched DOM measurement/write path. Performance work should first remove React state, layout, allocation, and paint pressure from frame-critical gesture paths.
 
 
@@ -772,6 +772,21 @@ changes, minimal request bodies, handled exception shape, injected chunk/release
 and that Mosaic makes no replay/autocapture request paths. Hosted PostHog checks remain the
 authority for actual ingestion, person properties, recordings, project IP discard, and
 production source-map symbolication.
+
+
+### 24.16 Animation performance audit baseline
+
+The stable `perf/animation-optimization` branch contains measured interaction hardening for
+DayView and Calendar. DayView preserves all 181 Swiper geometry slides while mounting only
+the existing seven-slide expensive render window. Calendar preserves its 61-slide Embla
+geometry while limiting vertical scrolling to the rendered three-slide window. A CI-hosted
+Chromium performance probe exercises a heavy fixture and reports requestAnimationFrame
+timing plus PerformanceObserver long tasks without enforcing a budget. The 2026-09-25
+baseline recorded approximately 60 FPS for calendar month swipe, day swipe, and heavy
+day-content scroll; bottom-sheet open had one 64ms long task and a small 1.45% frame-over-
+20ms ratio. These runner measurements are diagnostic baselines, not device guarantees.
+No additional BottomSheet animation/CSS change is justified without a device trace or
+stronger production-equivalent evidence.
 
 ## 25. Workflow Portability and History
 

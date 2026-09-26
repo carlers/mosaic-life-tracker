@@ -25,7 +25,80 @@ interface TaskItemProps {
   onEditChange: (value: string) => void;
   onEditSave: () => void;
   onEditCancel: () => void;
+  disableLayoutAnimation?: boolean;
 }
+
+interface TaskImageProps {
+  task: TaskDocument;
+  onViewImage?: (task: TaskDocument) => void;
+}
+
+const TaskImage: React.FC<TaskImageProps> = ({ task, onViewImage }) => {
+  const { targetRef, shouldLoad } = useImageLoadGate<HTMLElement>();
+  const { imageUrl, isLoading } = useTaskImage(task.image, shouldLoad);
+
+  if (imageUrl) {
+    return (
+      <button
+        ref={targetRef}
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          onViewImage?.(task);
+        }}
+        onPointerDown={(e) => e.stopPropagation()}
+        className="mt-2 block w-full aspect-[16/9] rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
+        aria-label="View image"
+      >
+        <img
+          src={imageUrl}
+          alt={task.title}
+          loading="lazy"
+          decoding="async"
+          className="w-full h-full object-cover rounded-xl"
+        />
+      </button>
+    );
+  }
+
+  return (
+    <div
+      ref={targetRef}
+      aria-hidden="true"
+      className={`mt-2 w-full aspect-[16/9] rounded-xl bg-gray-500/20 ${isLoading ? 'animate-pulse' : ''}`}
+    />
+  );
+};
+
+const TaskMemo: React.FC<{
+  task: TaskDocument;
+  onOpenMemo: (task: TaskDocument, mode: MemoOpenMode) => void;
+}> = ({ task, onOpenMemo }) => {
+  const memoGestures = useBubbleGestures({
+    onSingleTap: () => onOpenMemo(task, 'view'),
+    onDoubleTap: () => onOpenMemo(task, 'edit'),
+  });
+
+  return (
+    <button
+      type="button"
+      onPointerDown={memoGestures.onPointerDown}
+      onPointerMove={memoGestures.onPointerMove}
+      onPointerUp={memoGestures.onPointerUp}
+      onPointerCancel={memoGestures.onPointerCancel}
+      onContextMenu={memoGestures.onContextMenu}
+      onClick={(event) => {
+        event.stopPropagation();
+        if (event.detail === 0) onOpenMemo(task, 'view');
+      }}
+      className="mt-1 flex w-full touch-pan-y items-start gap-1 text-left text-xs text-gray-400 rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
+      aria-label="Open memo"
+    >
+      <FileText size={12} className="mt-0.5 shrink-0" aria-hidden="true" />
+      <span className="whitespace-pre-wrap break-words">{task.memo}</span>
+    </button>
+  );
+};
 
 export const TaskItem: React.FC<TaskItemProps> = ({
   task,
@@ -41,9 +114,8 @@ export const TaskItem: React.FC<TaskItemProps> = ({
   onEditChange,
   onEditSave,
   onEditCancel,
+  disableLayoutAnimation = false,
 }) => {
-  const { targetRef, shouldLoad } = useImageLoadGate<HTMLDivElement>();
-  const { imageUrl, isLoading } = useTaskImage(task.image, shouldLoad);
   const reactions = React.useMemo(
     () => parseReactions(task.reactions),
     [task.reactions]
@@ -67,10 +139,6 @@ export const TaskItem: React.FC<TaskItemProps> = ({
     onDoubleTap: () => onEditStart(task),
     onTripleTap: () => onOpenMemo(task, 'edit'),
   });
-  const memoGestures = useBubbleGestures({
-    onSingleTap: () => onOpenMemo(task, 'view'),
-    onDoubleTap: () => onOpenMemo(task, 'edit'),
-  });
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
@@ -85,8 +153,8 @@ export const TaskItem: React.FC<TaskItemProps> = ({
 
   return (
     <motion.div
-      ref={targetRef}
-      layout
+      layout={!disableLayoutAnimation}
+      layoutDependency={`${task.updatedAt}:${isEditing}`}
       data-task-id={task.id}
       className="flex scroll-mt-16 items-start gap-3 rounded-lg py-2 transition-[background-color,box-shadow] duration-300 data-[search-focused=true]:bg-emerald-400/10 data-[search-focused=true]:ring-1 data-[search-focused=true]:ring-emerald-400/60"
     >
@@ -139,41 +207,11 @@ export const TaskItem: React.FC<TaskItemProps> = ({
           </button>
         )}
         {task.memo && (
-          <button
-            type="button"
-            onPointerDown={memoGestures.onPointerDown}
-            onPointerMove={memoGestures.onPointerMove}
-            onPointerUp={memoGestures.onPointerUp}
-            onPointerCancel={memoGestures.onPointerCancel}
-            onContextMenu={memoGestures.onContextMenu}
-            onClick={(event) => {
-              event.stopPropagation();
-              if (event.detail === 0) onOpenMemo(task, 'view');
-            }}
-            className="mt-1 flex w-full touch-pan-y items-start gap-1 text-left text-xs text-gray-400 rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
-            aria-label="Open memo"
-          >
-            <FileText size={12} className="mt-0.5 shrink-0" aria-hidden="true" />
-            <span className="whitespace-pre-wrap break-words">{task.memo}</span>
-          </button>
+          <TaskMemo task={task} onOpenMemo={onOpenMemo} />
         )}
-        {task.image &&
-          (imageUrl ? (
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                onViewImage?.(task);
-              }}
-              onPointerDown={(e) => e.stopPropagation()}
-              className="mt-2 block w-full aspect-[16/9] rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
-              aria-label="View image"
-            >
-              <img src={imageUrl} alt={task.title} loading="lazy" decoding="async" className="w-full h-full object-cover rounded-xl" />
-            </button>
-          ) : (
-            <div aria-hidden="true" className={`mt-2 w-full aspect-[16/9] rounded-xl bg-gray-500/20 ${isLoading ? 'animate-pulse' : ''}`} />
-          ))}
+        {task.image && (
+          <TaskImage task={task} onViewImage={onViewImage} />
+        )}
         {reactions.length > 0 && (
           <div className="mt-1">
             <ReactionRow reactions={reactions} currentUserId={currentUserId} isOutgoing={false} onToggle={() => {}} />

@@ -156,6 +156,7 @@ function renderSheet() {
       onClose={vi.fn()}
       selectedDate={new Date(2026, 8, 20)}
       onDateChange={vi.fn()}
+      deferContentUntilAnimationComplete={false}
     />
   );
 }
@@ -249,6 +250,16 @@ describe('DayViewSheet nested task actions', () => {
       'flex-col'
     );
     expect(screen.getByTestId('day-swiper')).toHaveClass('flex-1');
+  });
+
+  // Regression: PROJECT_REFERENCE.md §16 — keep Swiper geometry while avoiding
+  // navigation/button trees for the 174 dates outside the seven-slide window.
+  it('mounts day navigation only inside the rendered swipe window', () => {
+    renderSheet();
+
+    expect(
+      document.querySelectorAll('[data-day-view-navigation="true"]')
+    ).toHaveLength(1);
   });
 
   // Regression: PROJECT_REFERENCE.md §2/§7 — Todo reuses DayView inline while owning nested swipes.

@@ -6,6 +6,9 @@
       "main": true,
       "dev": true,
       "feature/*": true,
+      "perf/*": true,
+      "security/*": true,
+      "refactor/*": true,
       "chatgpt/*": false,
       "codex/*": false
     }

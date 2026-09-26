@@ -33,7 +33,10 @@ export function classifyVerifyMode({
   const isCanonicalBranch =
     branch === 'main' ||
     branch === 'dev' ||
-    branch.startsWith('feature/');
+    branch.startsWith('feature/') ||
+    branch.startsWith('perf/') ||
+    branch.startsWith('security/') ||
+    branch.startsWith('refactor/');
   const isAiBranch =
     branch.startsWith('chatgpt/') ||
     branch.startsWith('codex/');

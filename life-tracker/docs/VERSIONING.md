@@ -52,9 +52,9 @@ Vercel supplies the deployment Git SHA, branch, and commit message through its s
 environment variables; the Vite build injects those values into the client bundle.
 The build metadata is diagnostic information, not a secret.
 
-The Settings page displays the release version plus the deployment channel and short
-build identity. This lets a user report an exact build without treating the Git SHA as
-the product version.
+The Settings page displays the release version plus the deployment channel, branch, short
+commit identity, and commit message when available. This lets a user report an exact build
+without treating the Git SHA as the product version.
 
 ## Branch deployment channels
 

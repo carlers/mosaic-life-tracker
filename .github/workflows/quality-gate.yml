@@ -6,13 +6,11 @@ on:
       - main
       - dev
       - 'feature/**'
+      - 'perf/**'
+      - 'security/**'
+      - 'refactor/**'
       - 'chatgpt/**'
       - 'codex/**'
-    paths:
-      - 'AGENTS.md'
-      - 'life-tracker/**'
-      - '.github/workflows/quality-gate.yml'
-  pull_request:
     paths:
       - 'AGENTS.md'
       - 'life-tracker/**'
