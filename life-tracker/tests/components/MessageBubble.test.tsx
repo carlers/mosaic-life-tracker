@@ -55,7 +55,7 @@ function makeMessage(
 function getGestureSurface(container: HTMLElement): HTMLElement {
   const wrapper = container.querySelector('[data-message-id]');
   if (!wrapper) throw new Error('bubble wrapper not found');
-  const bubble = wrapper.querySelector('.select-none');
+  const bubble = wrapper.querySelector('[role="button"]');
   if (!bubble) throw new Error('gesture surface not found');
   return bubble as HTMLElement;
 }
@@ -90,7 +90,7 @@ describe('MessageBubble', () => {
     // If this assertion ever fails, the branch was refactored to keep the
     // gesture handlers attached — which would let tap/long-press fire on a
     // message that has no actionable content.
-    expect(container.querySelector('.select-none')).toBeNull();
+    expect(container.querySelector('[data-message-id]')).toBeNull();
   });
 
   it('read status renders "Seen"', () => {
@@ -214,12 +214,11 @@ describe('MessageBubble', () => {
     );
     expect(container.textContent).toContain('Friend B');
     expect(container.textContent).toContain('quoted text');
-    // `border-l-2` is unique to ReplyPreview's root in this render tree
-    // (TaskRefCard uses `border border-white/10` without a left-only variant).
-    const replyPreview = container.querySelector('.border-l-2');
-    expect(replyPreview).not.toBeNull();
-    expect(container.querySelector('button button')).toBeNull();
-    fireEvent.click(replyPreview as Element);
+    const replyButton = container.querySelector(
+      '[data-message-id] > [role="button"] > button'
+    );
+    expect(replyButton).not.toBeNull();
+    fireEvent.click(replyButton as Element);
     expect(onQuoteTap).toHaveBeenCalledWith('msg_prev');
   });
 });
