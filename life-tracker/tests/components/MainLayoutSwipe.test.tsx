@@ -6,7 +6,27 @@ vi.mock('../../src/components/layout/BottomNav', () => ({
   BottomNav: () => <nav data-testid="bottom-nav">Bottom nav</nav>,
 }));
 
+vi.mock('../../src/pages/AccountPage', () => ({
+  AccountPage: () => <div>Actual Me neighbor content</div>,
+}));
+vi.mock('../../src/pages/ExplorePage', () => ({
+  ExplorePage: () => <div>Actual Explore neighbor content</div>,
+}));
+vi.mock('../../src/pages/HomePage', () => ({
+  HomePage: () => <div>Actual Home neighbor content</div>,
+}));
+vi.mock('../../src/pages/MessagesPage', () => ({
+  MessagesPage: () => <div>Actual Chat neighbor content</div>,
+}));
+vi.mock('../../src/pages/SettingsPage', () => ({
+  SettingsPage: () => <div>Actual Settings neighbor content</div>,
+}));
+vi.mock('../../src/components/layout/ComingSoon', () => ({
+  ComingSoon: () => <div>Actual Alerts neighbor content</div>,
+}));
+
 import { MainLayout } from '../../src/components/layout/MainLayout';
+import { PrimaryRoutePreview } from '../../src/components/layout/PrimaryRoutePreview';
 
 function drag(target: Element, fromX: number, toX: number) {
   fireEvent.pointerDown(target, {
@@ -141,4 +161,11 @@ describe('MainLayout primary route swipes', () => {
     expect(Preview).toHaveBeenCalledTimes(1);
   });
 
+
+  it('renders the prefetched adjacent route content when its chunk is ready', async () => {
+    render(<PrimaryRoutePreview pathname="/account" />);
+    expect(
+      await screen.findByText('Actual Me neighbor content')
+    ).toBeInTheDocument();
+  });
 });
