@@ -2,99 +2,55 @@
 
 Updated: 2026-09-26
 
-## Current checkpoint — CI mitigation merged; close-path investigation active
+Current task: isolate and optimize the remaining real-device DayView bottom-sheet close hitch on `chatgpt/dayview-close-smoothness`.
 
-PR #41 (`ci: reduce duplicate Quality Gate runner demand`) was merged into `perf/animation-optimization` as merge commit `2e033313a51171f5305e53cac4b995b1af609b67`. The repository is now public by the user's explicit decision after the push-only Quality Gate successfully received a hosted runner. GitHub's connector still cannot enumerate push-triggered workflow runs, so that hosted-runner success is based on the user's observed Actions result rather than connector-visible run metadata. The public-visibility change is operational evidence that correlates with runner recovery, not proof of GitHub's internal allocation cause.
+Status: CI runner allocation is operational again on the public repository. PR #41 (`ci: reduce duplicate Quality Gate runner demand`) was merged into `perf/animation-optimization` as `2e033313a51171f5305e53cac4b995b1af609b67`. The Quality Gate is push-driven only, so PRs receive checks from their pushed head SHA without a duplicate pull_request run. The repository was made public by the user after hosted-runner execution recovered; this is operational evidence, not proof of an internal GitHub throttle/quota cause.
 
-Current task branch: `chatgpt/dayview-close-smoothness`, based directly on the merged stable commit above. The remaining performance target is the user's real-device DayView bottom-sheet close hitch. Code inspection found a concrete lifecycle candidate in `BottomSheet`: `deferChildrenUntilPaint` previously removed the entire sheet child tree as soon as `isOpen` became false, while `AnimatePresence` was still running the exit transform. The candidate fix keeps deferred children mounted for the exit animation and releases them from `onAnimationComplete` after the close transition. Focused regression coverage was added in `tests/components/BottomSheet.test.tsx`.
+The interaction-performance phase already retained:
+- Settings deployment branch/short SHA/commit message metadata.
+- Conditional TaskItem optional work.
+- Shell-first DayView content deferral.
+- Swiper Virtual with explicit `addSlidesBefore: 3` / `addSlidesAfter: 3`.
+- TaskItem Framer Motion layout-projection suppression during sheet entrance.
+- CI Chromium instrumentation for Event Timing, Long Animation Frames, React render/commit timing, mutations, and synchronous layout reads.
 
-The candidate implementation is now at `bbab0a9dd8de5c3cb38e9dead3e2e9f9ada0cdfb`; two remote lint passes exposed React render/effect state-management constraints, and the implementation now keeps exit state in React state without synchronous effect updates or render-time ref access. The corrected candidate has not yet received final remote verification. Next: run the focused BottomSheet/DayView tests through the remote gate and use the existing performance probe to compare `bottom-sheet-close` before/after. Do not claim the close hitch is fixed until the trace shows improvement and the required manual/device check is performed.
+Representative lab evidence: sheet-open click processing improved from about 154ms to 51ms and max action Long Animation Frame from about 175ms to 70ms after the accepted virtualization changes. A separate trace reduced Framer Motion `getBoundingClientRect` reads from 52 to 2 during sheet entrance. These are CI/lab measurements, not device guarantees. A boolean/default Swiper Virtual experiment and BottomSheet drag-suppression experiment were both reverted after measurable regressions.
 
+Close-path investigation found a concrete lifecycle candidate in `BottomSheet`: with `deferChildrenUntilPaint`, the child tree was removed as soon as `isOpen` became false even while `AnimatePresence` was still running the exit transform. The current candidate keeps deferred children mounted through the exit animation and clears them from `onAnimationComplete`. Regression coverage was added in `tests/components/BottomSheet.test.tsx`.
 
-Performance phase checkpoint: mount-content scheduling implemented; rendering/compositing audit completed without an evidence-backed CSS change; the DayView INP follow-up has now been merged into `perf/animation-optimization`.
+The candidate passed the browser-contract, DOM, dependency-audit, and build jobs on the latest canonical run, but the unit/checks job failed because the handoff token-budget regression test saw this session file exceed its 3000-token fixture budget. The oversized state file was documentation debt from duplicated historical checkpoints, not a product/test failure. The state file is now being condensed to restore that contract before the next canonical run.
 
-Current task: Performance audit and optimization of interaction animations (bottom sheets, calendar month swipes, and day swipes).
+Working set:
+- `life-tracker/src/components/ui/BottomSheet.tsx`
+- `life-tracker/tests/components/BottomSheet.test.tsx`
+- `life-tracker/docs/SESSION_STATE.md`
 
-Status: The implementation pass is complete on `perf/animation-optimization`. DayView now keeps the 181-slide geometry but mounts expensive navigation/content trees only in the existing seven-slide render window; Calendar keeps its existing 61-slide Embla geometry but only rendered month slides are vertical scroll containers. A CI-hosted Chromium probe was added for repeatable frame/long-task baselines. The retained DayView optimization set includes deployment branch/commit metadata in Settings, conditional TaskItem optional work, shell-first DayView content deferral, and Swiper Virtual with three slides before/after the active index. The latest follow-up additionally wraps DayView sheet-open state updates in React `startTransition` so the tap can yield before non-urgent sheet rendering. No visual behavior change was intended.
+Completed substeps:
+- Merged PR #41 CI runner-demand mitigation.
+- Created `chatgpt/dayview-close-smoothness` from the merged stable commit.
+- Identified the exit-teardown candidate.
+- Added the exit-teardown regression test.
+- Investigated and repaired two React lint failures exposed by CI.
 
-The representative Chromium evidence before the follow-up showed sheet-open click processing improving from ~154.3ms to ~50.8ms and max action Long Animation Frame from ~175.2ms to ~69.6ms after virtualization; calendar/day swipe and content scroll remained ~16.7ms/frame with no action long tasks. A separate trace showed TaskItem Framer Motion layout projection as a dominant repeated layout-read source during sheet open: the targeted suppression reduced Framer Motion getBoundingClientRect reads from 52 to 2 in the CI probe. These are lab/CI measurements, not real-device guarantees.
+Remaining substeps:
+- Pass the focused BottomSheet/DayView tests and canonical Quality Gate on the condensed state.
+- Inspect the performance-probe `bottom-sheet-close` metrics on the candidate versus the stable baseline.
+- If the trace improves, publish the stable Preview and perform the required real-device open/close acceptance.
+- If the close trace does not improve, use the trace's React/layout/LOAF evidence for the next targeted change; do not add blind animation/CSS tweaks.
 
-The explicit ±3 Swiper virtual buffers remain the accepted configuration. A boolean/default Virtual experiment was rejected because it regressed sheet-open processing to ~391ms React-DOM script / ~423ms long task / ~436ms Long Animation Frame, so that experiment and its regression test were reverted. A BottomSheet drag suppression experiment was also reverted after regressing timing. Deferred whole-sheet child mounting was rejected because it moved a large mount to the end of the entrance animation and produced worse timing.
+Constraints:
+- Do not claim real-device acceptance without an actual device check.
+- Do not replace the accepted explicit Swiper virtual buffers without new evidence.
+- Preserve BottomSheet history/Back-stack behavior and existing visual behavior.
+- Use a coherent `chatgpt/**` task branch and include `[verify:full]` on the final acceptance commit.
+- Vercel Preview is only considered delivered after the exact final SHA receives canonical acceptance.
 
-DayView INP follow-up PR #39 (`feature/dayview-inp-followup`) was merged into `perf/animation-optimization` as merge commit `e08b4eeaf8ccdaaef34c22a59f833f404c960f51`. The exact feature SHA was `1bee448f055cb96c1d5ce6f9676ee80990a887b6`. Vercel deployment for the merged stable branch commit is READY.
+Verification:
+- Quality Gate runner allocation now assigns real hosted runners (current successful jobs show named `ubuntu-latest` runners).
+- Latest run before the state-file condensation: build, dependency audit, both DOM shards, both browser shards, and classify passed; checks failed only on the handoff token-budget assertion.
+- Manual/device close smoothness remains unverified.
+- Vercel deployment for the stable `perf/animation-optimization` branch was previously READY; the new task branch is intentionally not a deployable stable branch.
 
-Verification limitation: GitHub Actions Quality Gate run #454 was retried twice after runner-allocation failures. Both attempts failed in the `classify` job before any workflow step ran (`runner_id: 0`, empty runner name, zero executed steps), and all downstream checks were skipped. This is an external hosted-runner blocker, not an application/test failure. Vercel build/deployment for the merged commit is READY. Real-device/manual DayView open/close smoothness remains separate acceptance; if the device still shows a meaningful hitch, capture a device DevTools trace before making another optimization change.
+Next action: push this condensed checkpoint as the final `[verify:full]` task commit, wait for the exact SHA's canonical acceptance, then review the `bottom-sheet-close` performance result before deciding whether another code change is justified.
 
-Working branch: `feature/dayview-inp-followup` (merged; PR #39)
-Stable integration branch: `perf/animation-optimization`
-Next action: perform the user's real-device open/close check on the stable Preview/integration deployment; if the hitch persists, capture a device trace before further code changes. Do not add blind animation/CSS optimizations without trace evidence.
-
-
-## Interaction performance trace checkpoint — 2026-09-26
-
-The representative DayView sheet probe was upgraded to mount the real DayViewSheet and capture Long Animation Frame phases plus synchronous geometry reads. The trace identified TaskItem Framer Motion layout projection as the dominant repeated layout-read source during sheet open: the pre-change run recorded 52 getBoundingClientRect reads from Framer Motion projection, alongside a ~434ms React-DOM script / ~481ms Long Animation Frame. The targeted change disables TaskItem layout measurement only while the sheet is entering (renderMode === 'sheet' && deferredRenderWindow === 0); normal TaskItem layout animation is restored once the existing seven-slide render window is restored.
-
-The post-change CI Chromium probe recorded 2 getBoundingClientRect reads from Framer Motion instead of 52, with Swiper still accounting for 3 clientWidth, 3 clientHeight, and 1 offsetWidth read. The measured sheet-open sample was ~235ms long task / ~245ms Long Animation Frame, with calendar-month swipe, day swipe, and day-content scroll remaining at ~16.7ms/frame with no action-scoped long tasks. A follow-up experiment that also disabled BottomSheet drag during entrance regressed to ~286ms long task / ~294ms Long Animation Frame, so that experiment was reverted. Deferred whole-sheet child mounting was also rejected because it moved a large mount onto the end of the entrance animation and produced worse timing; it is not retained.
-
-Current production optimization on chatgpt/interaction-perf-trace: suppress TaskItem Framer Motion layout projection only during the sheet entrance. Diagnostic layout-read/LOAF instrumentation remains in the performance probe for this phase. Browser contract and focused checks passed on the successful measurement run. The change is merged into perf/animation-optimization. Exact-SHA canonical verification passed, and the stable Preview deployment is READY. Final exact-SHA verification is requested on the next task checkpoint commit. Real-device/manual smoothness acceptance remains separate.
-
-
-## Swiper virtual-window follow-up — 2026-09-26
-
-The user's Vercel Interaction Timing capture still shows a DayView bottom-sheet interaction around 190ms INP, so the previous CI improvements did not eliminate the real-device hitch. The Codex branch `codex/fix-lag-in-dayview-bottom-sheet` was inspected against the stable branch. Its material performance change is to replace the sheet's explicit Swiper Virtual `addSlidesBefore: 3 / addSlidesAfter: 3` configuration with `virtual={true}`; Swiper documents boolean virtual mode as using the default zero pre-render buffers, which is specifically intended to keep only the required slide DOM. The Codex branch's version/build metadata work was also reviewed; stable already had the underlying branch/commit metadata plumbing, so this follow-up only makes the Settings display more explicit.
-
-Current follow-up branch: `chatgpt/dayview-sheet-virtual-window`, based directly on `perf/animation-optimization`.
-Changes under verification:
-- DayView sheet mode now uses Swiper Virtual with default buffers; inline DayView keeps its existing non-virtual behavior.
-- The browser performance probe reports both Swiper slide-wrapper count and rendered DayView navigation count so the DOM reduction is directly observable in CI.
-- Settings now labels the deployment branch, short commit SHA, and commit message explicitly.
-- Regression coverage asserts that sheet mode enables Swiper Virtual.
-
-The first browser verification of boolean/default virtual mode was rejected. Although it reduced the observed DayView DOM to 4,487 elements and 3 Swiper slide wrappers, it regressed sheet-open processing to ~391ms React-DOM script / ~423ms long task / ~436ms Long Animation Frame, versus the prior ~50.8ms click-processing / ~69.6ms max action LOAF candidate. The virtual-mode change and its regression test were reverted; the explicit ±3 virtual buffers remain the current production configuration. The probe now also measures the sheet-close interaction separately, because the user's device trace shows both open and close interactions and the previous probe did not isolate close. Real-device acceptance remains required.
-
-## Interaction INP deep-dive checkpoint — 2026-09-26
-
-Vercel Interaction Timing showed DayView open/close at 190.2ms INP, with the supplied slow interaction showing ~132.4ms render work. The browser probe now captures Event Timing, Long Animation Frames, React render/commit timing, DOM mutations, and layout-read stacks.
-
-Current branch: `chatgpt/dayview-inp-deep-dive`. Stable integration branch: `perf/animation-optimization`.
-
-Accepted candidate changes on this branch:
-- Settings build identity shows deployment branch, short commit SHA, and commit message.
-- TaskItem optional image/memo work is moved into conditional child components.
-- DayView content is deferred behind the sheet shell.
-- Swiper Virtual keeps the 181-day logical range while mounting only three slides before/after the active index.
-
-Representative Chromium result for the same sheet-open interaction:
-- click processing: ~154.3ms -> ~50.8ms after Swiper virtualization
-- max action Long Animation Frame: ~175.2ms -> ~69.6ms
-- DOM: ~5,139 -> ~4,795 elements
-- calendar/day swipe and content scroll remain ~16.7ms/frame with no action long tasks
-
-Browser and focused checks pass on the current candidate. This is lab/CI evidence; real-device acceptance remains required. Next: canonical full gate, merge to stable, verify Vercel deployment, then repeat the user's real-device open/close check.
-
-
-## DayView INP deep-dive merged — 2026-09-26
-
-PR #34 is merged as `133e7199dd17d32f1797d15cc66c60dca9a90241`. The retained changes are: deployment branch/commit metadata in Settings, conditional TaskItem optional work, shell-first DayView content deferral, and Swiper Virtual with three slides before/after the active index. The representative browser probe improved sheet-open click processing from ~154.3ms to ~50.8ms and max action Long Animation Frame from ~175.2ms to ~69.6ms after virtualization; swipe/scroll interactions remained ~16.7ms/frame.
-
-Canonical Quality Gate run #421 passed build, dependency audit, lint/unit/handler checks, DOM shards, browser shards, and canonical acceptance. Stable Vercel deployment `dpl_5qtqXCJPLFcC8w8XWtNCfvDNEisS` is READY on `perf/animation-optimization`, with its stable branch alias.
-
-Remaining acceptance: real-device DayView open/close smoothness. If the device still shows a meaningful hitch, capture a real-device trace before further code changes.
-
-
-Final verification checkpoint: the boolean/default Swiper Virtual experiment was reverted after the browser probe regressed the sheet-open path; the performance probe now isolates both open and close interactions. The remaining candidate is the stable explicit virtual buffer configuration plus the existing TaskItem layout-projection suppression. PR #39's verification intent was full-gate, but the hosted GitHub runner failed before executing any Quality Gate step on two retries. The feature was merged after the external runner blocker was confirmed; the merged stable deployment is READY.
-
-## CI runner-pressure mitigation — 2026-09-26
-
-Actions audit confirmed an unusually high run volume before the hosted-runner allocation failures: roughly 453 Quality Gate runs were created during the Sep 25–26 window, including a burst of roughly 100 commits on `chatgpt/interaction-perf-trace` in under an hour. The workflow previously triggered on both `push` and `pull_request`, allowing the same commit stream to create duplicate verification runs.
-
-The Quality Gate workflow was changed to be push-driven only. This preserves the existing focused/full classification and exact-SHA `[verify:full]` acceptance model while removing duplicate PR-triggered runner demand. Delivery/test workflow docs now record that PRs receive the checks attached to their pushed head SHA rather than a second PR-triggered workflow.
-
-This is a CI load reduction, not proof that GitHub throttled the repository. The observed `runner_id: 0` failures began after a successful run and occurred before any workflow step executed, so the external runner-allocation issue remains a separate limitation. Next: verify the mitigation on the task branch and observe whether a fresh Quality Gate run receives a runner normally.
-
-
-## Hosted-runner corroboration — 2026-09-26
-
-A contemporaneous GitHub Community Actions report on Sep 25 describes the same runner-allocation symptom on standard `ubuntu-latest`: jobs remain queued with no executed steps while GitHub reports all hosted runners busy despite zero active jobs and unused quota. The report also says the same symptom affected a private repository. The discussion did not establish a root cause; suggestions about anti-abuse or billing restrictions were explicitly left unverified after a payment-method change did not clear the queue. GitHub Status currently reports Actions operational and no Sep 25 incident, so this remains corroborating evidence of a broader runner-assignment problem rather than proof of a repository-specific throttle.
-
-Historical CI action before the user's visibility decision: the repository was kept private while the runner-allocation blocker was investigated. The subsequent user-directed move to public and observed successful hosted-runner execution superseded that interim recommendation. Do not infer a specific GitHub throttle or quota mechanism without evidence.
+Blockers: none currently. The previous hosted-runner allocation blocker is no longer reproducing; the remaining blocker to completion is verification of the close-path performance candidate and real-device acceptance.
