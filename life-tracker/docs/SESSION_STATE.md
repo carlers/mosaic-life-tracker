@@ -74,3 +74,18 @@ Remaining acceptance: real-device DayView open/close smoothness. If the device s
 
 
 Final verification checkpoint: the boolean/default Swiper Virtual experiment was reverted after the browser probe regressed the sheet-open path; the performance probe now isolates both open and close interactions. The remaining candidate is the stable explicit virtual buffer configuration plus the existing TaskItem layout-projection suppression. PR #39's verification intent was full-gate, but the hosted GitHub runner failed before executing any Quality Gate step on two retries. The feature was merged after the external runner blocker was confirmed; the merged stable deployment is READY.
+
+## CI runner-pressure mitigation — 2026-09-26
+
+Actions audit confirmed an unusually high run volume before the hosted-runner allocation failures: roughly 453 Quality Gate runs were created during the Sep 25–26 window, including a burst of roughly 100 commits on `chatgpt/interaction-perf-trace` in under an hour. The workflow previously triggered on both `push` and `pull_request`, allowing the same commit stream to create duplicate verification runs.
+
+The Quality Gate workflow was changed to be push-driven only. This preserves the existing focused/full classification and exact-SHA `[verify:full]` acceptance model while removing duplicate PR-triggered runner demand. Delivery/test workflow docs now record that PRs receive the checks attached to their pushed head SHA rather than a second PR-triggered workflow.
+
+This is a CI load reduction, not proof that GitHub throttled the repository. The observed `runner_id: 0` failures began after a successful run and occurred before any workflow step executed, so the external runner-allocation issue remains a separate limitation. Next: verify the mitigation on the task branch and observe whether a fresh Quality Gate run receives a runner normally.
+
+
+## Hosted-runner corroboration — 2026-09-26
+
+A contemporaneous GitHub Community Actions report on Sep 25 describes the same runner-allocation symptom on standard `ubuntu-latest`: jobs remain queued with no executed steps while GitHub reports all hosted runners busy despite zero active jobs and unused quota. The report also says the same symptom affected a private repository. The discussion did not establish a root cause; suggestions about anti-abuse or billing restrictions were explicitly left unverified after a payment-method change did not clear the queue. GitHub Status currently reports Actions operational and no Sep 25 incident, so this remains corroborating evidence of a broader runner-assignment problem rather than proof of a repository-specific throttle.
+
+Current CI action: keep the repository private and do not change workflow runner labels speculatively. Push one final task commit with `[verify:full]` so the push-only Quality Gate gets a fresh allocation attempt after the mitigation. If that run again fails before its first step, treat hosted runner allocation as the blocker and escalate through GitHub's available support/community path rather than changing application code or making the repository public.

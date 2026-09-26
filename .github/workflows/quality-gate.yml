@@ -15,11 +15,6 @@ on:
       - 'AGENTS.md'
       - 'life-tracker/**'
       - '.github/workflows/quality-gate.yml'
-  pull_request:
-    paths:
-      - 'AGENTS.md'
-      - 'life-tracker/**'
-      - '.github/workflows/quality-gate.yml'
   workflow_dispatch:
 
 permissions:

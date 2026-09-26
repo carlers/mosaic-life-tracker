@@ -19,10 +19,10 @@ Deployment status in the final result. Do not commit status-only prose after acc
 |---|---|
 | Docs | Ordinary Markdown-only changes: contracts and diff checks, no dependency install |
 | Focused | Ordinary runtime pushes to `chatgpt/**` and `codex/**`: contracts/discovery, changed existing-file ESLint, Git-aware related tests |
-| Full | `main`, `dev`, `feature/**`, stable-branch PRs, manual dispatch, or `[verify:full]`: checks (contracts/discovery/lint/unit/handlers), two DOM shards, build, two browser shards |
+| Full | `main`, `dev`, `feature/**`, manual dispatch, or `[verify:full]`: checks (contracts/discovery/lint/unit/handlers), two DOM shards, build, two browser shards |
 | Branch delivery | Vercel deploys `main` to Production and `dev`/`feature/*` to Preview; `chatgpt/*`, `codex/*`, `temp/*`, and other branches are blocked |
 
-A focused or docs-only green run is never canonical acceptance. `[verify:browser]` requests intermediate browser coverage. Manual device evidence remains separate.
+Quality Gate is intentionally push-driven: the workflow does not also run on `pull_request`, avoiding duplicate runner allocation for the same commit. PRs still receive the checks attached to the pushed head SHA. A focused or docs-only green run is never canonical acceptance. `[verify:browser]` requests intermediate browser coverage. Manual device evidence remains separate.
 While CI runs, finish independent review; otherwise wait between status requests. Read
 full logs for failures or unusual stalls, not on every poll. Fix the actual failing layer.
 
