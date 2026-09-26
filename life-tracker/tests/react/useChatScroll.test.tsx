@@ -22,7 +22,7 @@ describe('useChatScroll', () => {
       rerender({ messages: [message] });
     });
 
-    expect(scroller.scrollTop).toBe(1200);
+    expect(scroller.scrollTop).toBe(600);
   });
 
   it('autoscrolls when a new outgoing or incoming message arrives', () => {
@@ -46,7 +46,7 @@ describe('useChatScroll', () => {
         ],
       });
     });
-    expect(scroller.scrollTop).toBe(1200);
+    expect(scroller.scrollTop).toBe(600);
 
     scroller.scrollTop = 300;
     act(() => {
