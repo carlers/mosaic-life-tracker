@@ -70,8 +70,7 @@ The accepted task SHA `bc78a220c87ff6c086ab51236bc442e2e79a0cbf` was copied to `
 
 ## Chat detail chrome and autoscroll — 2026-09-26
 
-Chat detail routes use the full viewport without bottom navigation; the composer is absolutely
-bottom-anchored and new outgoing/incoming messages autoscroll to the latest message.
+Chat detail uses the full viewport; composer stays bottom-anchored and new messages autoscroll.
 
 ## Wide content width follow-up — 2026-09-26
 
