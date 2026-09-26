@@ -160,8 +160,7 @@ describe('PWA lifecycle', () => {
     expect(setup.registration.update).not.toHaveBeenCalled();
   });
 
-  // Regression: §24.13 (a found worker reports the
-  // download stage before becoming ready to install.
+  // Regression: §24.13 (worker discovery reports meaningful update stages).
   it('reports update-found and downloading while the new worker installs', async () => {
     const setup = fixture();
     const stages: string[] = [];
