@@ -1,7 +1,6 @@
 import React, { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import { format } from 'date-fns';
 import { Swiper, SwiperSlide } from 'swiper/react';
-import { Virtual } from 'swiper/modules';
 import { AnimatePresence } from 'framer-motion';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { BottomSheet } from '../../ui/BottomSheet';
@@ -444,8 +443,6 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
           swiperRef.current = swiper;
         }}
         initialSlide={initialIndex}
-        virtual={{ addSlidesBefore: 3, addSlidesAfter: 3 }}
-        modules={[Virtual]}
         onSlideChange={handleSwipeSettled}
         data-testid="day-swiper"
         data-bottom-sheet-native-horizontal-swipe={renderMode === 'sheet' ? 'true' : undefined}
@@ -464,7 +461,6 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
           return (
             <SwiperSlide
               key={date.toISOString()}
-              virtualIndex={i}
               className="min-w-0"
               aria-hidden={i === activeIndex ? undefined : true}
               style={{ height: renderMode === 'inline' ? 'auto' : '100%' }}
