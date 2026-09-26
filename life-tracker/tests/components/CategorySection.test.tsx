@@ -93,8 +93,7 @@ describe('CategorySection', () => {
     ).toBeNull();
   });
 
-  // Regression: §2 (continuous category entry clears the submitted title
-  // while preserving the active same-category input and keyboard focus.
+  // Regression: §2 (continuous entry preserves same-category input focus).
   it('keeps the same-category input open and focused after Enter when enabled', () => {
     const { cbs } = renderSection({ continueAddingAfterSubmit: true });
     fireEvent.click(screen.getByRole('button', { name: 'Add a task to Work' }));
