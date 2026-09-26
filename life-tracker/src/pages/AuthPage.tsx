@@ -5,7 +5,6 @@ import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { motion } from 'framer-motion';
 import { Eye, EyeOff } from 'lucide-react';
-import { initializeSync } from '../db/sync';
 
 export const AuthPage: React.FC = () => {
   const [isLogin, setIsLogin] = useState(true);
@@ -34,11 +33,6 @@ export const AuthPage: React.FC = () => {
       ? await login(email, password)
       : await signup(email, password, name);
     if (success) {
-      // Kick off sync now that a session exists. Fire-and-forget — the
-      // user should not wait on network for navigation.
-      initializeSync().catch((err) =>
-        console.error('[AuthPage] initial sync failed:', err)
-      );
       navigate('/home', { replace: true });
     }
   };
