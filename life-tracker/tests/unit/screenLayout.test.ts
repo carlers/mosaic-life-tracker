@@ -10,8 +10,7 @@ import {
 } from '../../src/lib/screenLayout';
 
 describe('screen layout preferences', () => {
-  // Regression: task acceptance — width preferences are validated, locally cached,
-  // and applied before/while the synced setting hydrates.
+  // Regression: §2 (layout preferences validate and hydrate from the local cache).
   it('validates and round-trips the two layout modes', () => {
     expect(isContentWidthMode('full')).toBe(true);
     expect(isContentWidthMode('comfortable')).toBe(true);
