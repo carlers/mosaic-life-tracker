@@ -76,7 +76,6 @@ Verification: focused unit/component checks are required on the final task SHA. 
 
 ## Todo month grid centering follow-up — 2026-09-26
 
-The first centering attempt was reverted because it did not correct the visual offset. The replacement uses seven fixed 40px columns with `justify-center` for the weekday header and each week row, matching the existing day-button width so the visible month grid has an explicit 280px geometry centered inside the responsive calendar surface. The day buttons no longer add auto margins that could introduce a second centering rule. Regression coverage locks the fixed column geometry.
+The fixed-column centering attempt was reverted after visual review showed the visible grid was still offset. The current correction targets the parent surface instead: the Todo calendar is made full-bleed across the Todo view's horizontal padding, while the month grid returns to the existing flexible seven-column layout and centers within that full content surface. This removes the padded scroll region as a separate horizontal reference frame. Regression coverage verifies the restored grid geometry and centered day cells.
 
 Verification: final task commit requests full canonical acceptance before Preview delivery.
-
