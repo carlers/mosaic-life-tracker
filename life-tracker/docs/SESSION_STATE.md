@@ -69,7 +69,7 @@ Verification is running on the feature branch. Real-device visual acceptance rem
 The accepted task SHA `bc78a220c87ff6c086ab51236bc442e2e79a0cbf` was copied to `feature/dayview-close-paint-containment` for the configured Vercel Preview delivery path. This branch adds no runtime changes; its own canonical gate is required before treating the feature Preview as delivered.
 
 
-## Calendar swipe speed follow-up — 2026-09-26
+## Calendar swipe speed follow-up — 2026-09-26 [verify:full]
 
 Current task: make CalendarView month/week swipe animations slightly faster without changing gesture ownership, rendering windows, or calendar layout.
 
