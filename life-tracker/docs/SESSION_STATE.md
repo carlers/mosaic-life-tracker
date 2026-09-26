@@ -21,7 +21,7 @@ Close-path evidence so far:
 - Reverted to the stable teardown path: close measured about 337ms LOAF with the same 52 reads.
 - Disabled TaskItem layout projection for the entire sheet lifecycle: layout reads fell from 52 to 2, but close still measured about 342ms LOAF, so projection was not the whole cost.
 - Combined projection suppression + deferred-child retention: close measured about 332ms LOAF with 2 reads. This was only a small improvement.
-- The layer-promotion hint did not materially improve the browser probe and is rejected. A full direct-transform rewrite reduced close from about 347ms to 253ms but broke sheet drag interaction. Current candidate keeps the existing `y` animation for open/drag and uses direct `transform` only for the exit animation, targeting the measured bottleneck without changing the drag path. Browser verification must confirm both close performance and all drag contracts.
+- The layer-promotion hint did not materially improve the browser probe and is rejected. A full direct-transform rewrite reduced close from about 347ms to 253ms but broke sheet drag interaction. The exit-only transform variant preserved drag but did not improve close materially. Current candidate separates the drag shell from the animated sheet surface: the outer shell owns drag/focus behavior, while an inner surface uses direct `transform` and Motion `usePresence` to delay removal until the animation completes. Browser verification must confirm close performance, drag behavior, and exit cleanup.
 - Focused regression coverage pins sheet-mode TaskItem layout suppression and the deferred-child exit contract.
 Working set:
 - `life-tracker/src/components/ui/BottomSheet.tsx`
