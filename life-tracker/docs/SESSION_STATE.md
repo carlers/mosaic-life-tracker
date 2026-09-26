@@ -25,6 +25,7 @@ Status: implementation is complete on `chatgpt/preferences-settings`, based on s
 - Added/updated unit, DOM, integration, and browser geometry regression coverage.
 - Captured a behavioral-red on the Monday-start acceptance test before implementation (Quality Gate run 742), then reached focused green on runtime tip `e269688` (run 768).
 - Full run 770 exposed two stale Day View DOM assertions that assumed the date text was the direct navigation-row child; the tests now target the existing `data-day-view-navigation` contract marker so the optional Today wrapper does not invalidate them.
+- Full run 772 then exposed one remaining stale presentation assertion that expected the `text-base` class on the raw date text node; it now asserts the containing date heading, which remains the element that owns the header typography.
 - Updated PROJECT_REFERENCE §2 with the durable Preferences contracts.
 
 ## Remaining substeps
@@ -42,7 +43,7 @@ Status: implementation is complete on `chatgpt/preferences-settings`, based on s
 ## Verification
 - Behavioral red: run 742, Monday-start test failed against pre-implementation Sunday-first behavior.
 - Focused runtime verification: run 768 passed on `e269688ad6b4a6330a93c99820661f98947e7d1f`.
-- Full canonical acceptance: run 770 failed only on the stale Day View test selectors; repaired final SHA pending acceptance.
+- Full canonical acceptance: runs 770 and 772 failed only on stale Day View DOM assertions caused by the new optional Today wrapper; both selector/typography assertions are repaired and the new final SHA is pending acceptance.
 - Stable Preview deployment: pending delivery.
 - Manual/device acceptance: not performed.
 
