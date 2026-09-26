@@ -58,6 +58,12 @@ Next action: wait for this final [verify:full] documentation checkpoint to recei
 
 Blockers: none currently. The previous hosted-runner allocation blocker is no longer reproducing; the remaining blocker to completion is verification of the close-path performance candidate and real-device acceptance.
 
+## Close animation cohesion follow-up — 2026-09-26
+
+The first paint-containment fix exposed a visual synchronization issue: the fixed sheet container remained stationary while a nested motion wrapper translated its contents, making the background/shadow appear detached from the content. The fix moves the same 0.32s transform animation onto the draggable fixed dialog surface itself, so the container, shadow, clipping, header, and content share one compositor transform. The nested motion wrapper was removed; drag and history behavior remain on the animated surface.
+
+Verification is running on the feature branch. Real-device visual acceptance remains required.
+
 ## Stable Preview handoff — 2026-09-26
 
 The accepted task SHA `bc78a220c87ff6c086ab51236bc442e2e79a0cbf` was copied to `feature/dayview-close-paint-containment` for the configured Vercel Preview delivery path. This branch adds no runtime changes; its own canonical gate is required before treating the feature Preview as delivered.
