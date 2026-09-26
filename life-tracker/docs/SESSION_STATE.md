@@ -2,6 +2,15 @@
 
 Updated: 2026-09-26
 
+## Current checkpoint — CI mitigation merged; close-path investigation active
+
+PR #41 (`ci: reduce duplicate Quality Gate runner demand`) was merged into `perf/animation-optimization` as merge commit `2e033313a51171f5305e53cac4b995b1af609b67`. The repository is now public by the user's explicit decision after the push-only Quality Gate successfully received a hosted runner. GitHub's connector still cannot enumerate push-triggered workflow runs, so that hosted-runner success is based on the user's observed Actions result rather than connector-visible run metadata. The public-visibility change is operational evidence that correlates with runner recovery, not proof of GitHub's internal allocation cause.
+
+Current task branch: `chatgpt/dayview-close-smoothness`, based directly on the merged stable commit above. The remaining performance target is the user's real-device DayView bottom-sheet close hitch. Code inspection found a concrete lifecycle candidate in `BottomSheet`: `deferChildrenUntilPaint` previously removed the entire sheet child tree as soon as `isOpen` became false, while `AnimatePresence` was still running the exit transform. The candidate fix keeps deferred children mounted for the exit animation and releases them from `onAnimationComplete` after the close transition. Focused regression coverage was added in `tests/components/BottomSheet.test.tsx`.
+
+The candidate has not yet received local/browser/remote verification. Next: run the focused BottomSheet/DayView tests and remote focused Quality Gate, then use the existing performance probe to compare `bottom-sheet-close` before/after. Do not claim the close hitch is fixed until the trace shows improvement and the required manual/device check is performed.
+
+
 Performance phase checkpoint: mount-content scheduling implemented; rendering/compositing audit completed without an evidence-backed CSS change; the DayView INP follow-up has now been merged into `perf/animation-optimization`.
 
 Current task: Performance audit and optimization of interaction animations (bottom sheets, calendar month swipes, and day swipes).
@@ -88,4 +97,4 @@ This is a CI load reduction, not proof that GitHub throttled the repository. The
 
 A contemporaneous GitHub Community Actions report on Sep 25 describes the same runner-allocation symptom on standard `ubuntu-latest`: jobs remain queued with no executed steps while GitHub reports all hosted runners busy despite zero active jobs and unused quota. The report also says the same symptom affected a private repository. The discussion did not establish a root cause; suggestions about anti-abuse or billing restrictions were explicitly left unverified after a payment-method change did not clear the queue. GitHub Status currently reports Actions operational and no Sep 25 incident, so this remains corroborating evidence of a broader runner-assignment problem rather than proof of a repository-specific throttle.
 
-Current CI action: keep the repository private and do not change workflow runner labels speculatively. Push one final task commit with `[verify:full]` so the push-only Quality Gate gets a fresh allocation attempt after the mitigation. If that run again fails before its first step, treat hosted runner allocation as the blocker and escalate through GitHub's available support/community path rather than changing application code or making the repository public.
+Historical CI action before the user's visibility decision: the repository was kept private while the runner-allocation blocker was investigated. The subsequent user-directed move to public and observed successful hosted-runner execution superseded that interim recommendation. Do not infer a specific GitHub throttle or quota mechanism without evidence.
