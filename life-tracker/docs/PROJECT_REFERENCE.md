@@ -800,8 +800,12 @@ testing rules live in [TEST_WORKFLOW.md](TEST_WORKFLOW.md).
 UI tests normally assert semantic/user-observable results: roles, labels, state, content,
 focus, navigation, callbacks, domain state, and browser-measured behavior. Tailwind classes,
 exact DOM ancestry, decorative transforms, exact colors, spacing, borders, font sizes, and
-wrapper ownership are current design choices rather than regression contracts unless this
-reference explicitly makes the presentation itself part of the product behavior.
+wrapper ownership are current design choices rather than regression contracts. Detailed
+aesthetic/reference-app descriptions elsewhere in this document guide the current product
+design but do not automatically require automated presentation assertions. Prefer manual
+visual acceptance for those descriptions. Automated geometry assertions are reserved for
+observable interaction/accessibility failures such as clipping, overflow, gesture ownership,
+or a control escaping its usable bounds.
 
 Where presentation is behavior, tests assert the outcome rather than the mechanism when
 possible. Examples include a switch thumb remaining inside its track, no page-level
