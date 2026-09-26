@@ -41,8 +41,8 @@ describe('useChatScroll', () => {
     act(() => {
       rerender({
         messages: [
-          { id: 'message_2', direction: 'outgoing' } as MessageDocument,
           message,
+          { id: 'message_2', direction: 'outgoing' } as MessageDocument,
         ],
       });
     });
@@ -52,9 +52,9 @@ describe('useChatScroll', () => {
     act(() => {
       rerender({
         messages: [
-          { id: 'message_3', direction: 'incoming' } as MessageDocument,
-          { id: 'message_2', direction: 'outgoing' } as MessageDocument,
           message,
+          { id: 'message_2', direction: 'outgoing' } as MessageDocument,
+          { id: 'message_3', direction: 'incoming' } as MessageDocument,
         ],
       });
     });
