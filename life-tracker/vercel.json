@@ -6,6 +6,7 @@
       "main": true,
       "dev": true,
       "feature/*": true,
+      "fix/*": true,
       "perf/*": true,
       "security/*": true,
       "refactor/*": true,

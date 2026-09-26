@@ -21,6 +21,7 @@ import { useAuth } from '../hooks/useAuth';
 import { useChatScroll } from '../components/messages/useChatScroll';
 import { useChatSearch } from '../components/messages/useChatSearch';
 import { useChatReactions } from '../components/messages/useChatReactions';
+import { useKeyboardInset } from '../components/messages/useKeyboardInset';
 import {
   buildRenderItems,
   messageMatchesQuery,
@@ -56,11 +57,13 @@ export const ChatPage: React.FC = () => {
   );
 
   const composerRef = useRef<MessageComposerHandle>(null);
+  const [composerHeight, setComposerHeight] = useState(76);
   const [feedback, setFeedback] = useState<string | null>(null);
   const [replyTo, setReplyTo] = useState<ComposerReplyState | null>(null);
   const [actionMessageId, setActionMessageId] = useState<string | null>(null);
   const [unsendTargetId, setUnsendTargetId] = useState<string | null>(null);
   const [reactionTargetId, setReactionTargetId] = useState<string | null>(null);
+  const keyboardInset = useKeyboardInset();
 
   const actionMessage = useMemo(
     () => messages.find((m) => m.id === actionMessageId) ?? null,
@@ -85,6 +88,7 @@ export const ChatPage: React.FC = () => {
 
   const {
     scrollRef,
+    contentRef,
     showScrollButton,
     hasUnreadBelow,
     scrollToBottom,
@@ -268,70 +272,87 @@ export const ChatPage: React.FC = () => {
       )}
       <div
         ref={scrollRef}
-        className="flex-1 min-h-0 min-w-0 overflow-y-auto overflow-x-hidden px-4 pt-4 pb-28 space-y-1"
+        className="flex-1 min-h-0 min-w-0 overflow-y-auto overflow-x-hidden overscroll-contain"
+        style={{
+          paddingBottom: `${composerHeight + keyboardInset + 12}px`,
+        }}
       >
-        {isLoading ? (
-          <div className="flex items-center justify-center h-full" role="status" aria-live="polite">
-            <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin" />
-            <span className="sr-only">Loading messages</span>
-          </div>
-        ) : renderItems.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full text-gray-400">
-            <MessageSquare size={48} />
-            <p className="mt-2 text-sm">
-              {isSearching ? 'No matches' : 'No messages yet'}
-            </p>
-          </div>
-        ) : (
-          renderItems.map((item) =>
-            item.kind === 'divider' ? (
-              <div
-                key={item.key}
-                className="text-center text-xs text-gray-400 py-2"
-              >
-                {item.label}
-              </div>
-            ) : (
-              <div key={item.key} id={`msg-${item.message.id}`}>
-                <MessageBubble
-                  message={item.message}
-                  isOutgoing={item.message.direction === 'outgoing'}
-                  currentUserId={myUserId}
-                  showTimestamp={item.showTimestamp}
-                  statusKind={statusById.get(item.message.id)}
-                  resolveSenderName={resolveSenderName}
-                  onLongPress={(m) => setActionMessageId(m.id)}
-                  onQuoteTap={handleQuoteTap}
-                  onReact={handleBubbleReact}
-                  onSwipeReply={(m) => {
-                    setReplyTo({
-                      id: m.id,
-                      senderId: m.senderId,
-                      senderName: resolveSenderName(m.senderId),
-                      content: m.content,
-                    });
-                    setTimeout(() => composerRef.current?.focus(), 50);
-                  }}
-                  gesturesDisabled={false}
-                />
-              </div>
+        <div
+          ref={contentRef}
+          className="min-h-full px-4 pt-4 pb-3 space-y-1"
+        >
+          {isLoading ? (
+            <div className="flex items-center justify-center h-full" role="status" aria-live="polite">
+              <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              <span className="sr-only">Loading messages</span>
+            </div>
+          ) : renderItems.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-full text-gray-400">
+              <MessageSquare size={48} />
+              <p className="mt-2 text-sm">
+                {isSearching ? 'No matches' : 'No messages yet'}
+              </p>
+            </div>
+          ) : (
+            renderItems.map((item) =>
+              item.kind === 'divider' ? (
+                <div
+                  key={item.key}
+                  className="text-center text-xs text-gray-400 py-2"
+                >
+                  {item.label}
+                </div>
+              ) : (
+                <div key={item.key} id={`msg-${item.message.id}`}>
+                  <MessageBubble
+                    message={item.message}
+                    isOutgoing={item.message.direction === 'outgoing'}
+                    currentUserId={myUserId}
+                    showTimestamp={item.showTimestamp}
+                    statusKind={statusById.get(item.message.id)}
+                    resolveSenderName={resolveSenderName}
+                    onLongPress={(m) => setActionMessageId(m.id)}
+                    onQuoteTap={handleQuoteTap}
+                    onReact={handleBubbleReact}
+                    onSwipeReply={(m) => {
+                      setReplyTo({
+                        id: m.id,
+                        senderId: m.senderId,
+                        senderName: resolveSenderName(m.senderId),
+                        content: m.content,
+                      });
+                      setTimeout(() => composerRef.current?.focus(), 50);
+                    }}
+                    gesturesDisabled={false}
+                  />
+                </div>
+              )
             )
-          )
-        )}
+          )}
+        </div>
       </div>
-      <ScrollToBottomButton
-        visible={showScrollButton}
-        hasNewMessages={hasUnreadBelow}
-        onClick={() => scrollToBottom()}
-      />
-      <MessageComposer
-        ref={composerRef}
-        onSend={handleSend}
-        disabled={!friendId}
-        placeholder="Message..."
-        replyTo={replyTo}
-        onCancelReply={() => setReplyTo(null)}
-      />
+
+      <div
+        className="pointer-events-none fixed inset-x-0 bottom-0 z-30"
+        style={{ bottom: keyboardInset }}
+      >
+        <ScrollToBottomButton
+          visible={showScrollButton}
+          hasNewMessages={hasUnreadBelow}
+          onClick={() => scrollToBottom()}
+          className="pointer-events-auto bottom-[calc(100%+0.5rem)]"
+        />
+        <MessageComposer
+          ref={composerRef}
+          onSend={handleSend}
+          onHeightChange={setComposerHeight}
+          disabled={!friendId}
+          placeholder="Message..."
+          replyTo={replyTo}
+          onCancelReply={() => setReplyTo(null)}
+        />
+      </div>
+
       <MessageActionSheet
         isOpen={!!actionMessage}
         onClose={() => setActionMessageId(null)}
