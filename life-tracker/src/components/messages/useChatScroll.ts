@@ -20,7 +20,6 @@ export function useChatScroll({
   isSearching,
 }: UseChatScrollOptions): UseChatScrollReturn {
   const scrollRef = useRef<HTMLDivElement | null>(null);
-  const isPinnedToBottomRef = useRef(true);
   const [showScrollButton, setShowScrollButton] = useState(false);
   const lastMsg = messages[messages.length - 1];
   const lastMsgId = lastMsg?.id ?? null;
@@ -34,7 +33,6 @@ export function useChatScroll({
     // Every newly appended message (outgoing or incoming) keeps the conversation
     // anchored to the latest message. This is the chat route's explicit product contract.
     el.scrollTop = el.scrollHeight;
-    isPinnedToBottomRef.current = true;
   }, [lastMsgId, isSearching]);
 
   useEffect(() => {
@@ -55,8 +53,7 @@ export function useChatScroll({
     const el = scrollRef.current;
     if (!el) return;
     el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
-    isPinnedToBottomRef.current = true;
-  }, [lastMsgId]);
+  }, []);
 
   const hasUnreadBelow = false;
 
