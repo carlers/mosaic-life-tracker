@@ -49,7 +49,23 @@ export const SettingsRow: React.FC<SettingsRowProps> = ({
       <div className="flex items-center gap-2">
         {value && <span className="text-sm text-gray-400">{value}</span>}
         {rightElement}
-        {showChevron && (
+        {isToggle && (
+          <span
+            data-testid="settings-switch-track"
+            aria-hidden="true"
+            className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${
+              checked ? 'bg-emerald-500' : 'bg-[#444444]'
+            }`}
+          >
+            <span
+              data-testid="settings-switch-thumb"
+              className={`absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white transition-transform ${
+                checked ? 'translate-x-5' : 'translate-x-0'
+              }`}
+            />
+          </span>
+        )}
+        {showChevron && !isToggle && (
           <ChevronRight size={18} className="text-gray-400" aria-hidden="true" />
         )}
       </div>
