@@ -23,6 +23,8 @@ import { EMPTY_TASKS } from '../../../constants/empty';
 import type { CategoryDocument, TaskDocument } from '../../../db/schema';
 import { Spinner } from '../../ui/Spinner';
 import { useHorizontalArrowNavigation } from '../../../hooks/useHorizontalArrowNavigation';
+import { useSettings } from '../../../hooks/useSettings';
+import { CONTINUE_ADDING_TASKS_SETTING_KEY } from '../../../lib/taskCreationPreferences';
 
 const ImageViewer = lazy(() =>
   import('./ImageViewer').then(({ ImageViewer }) => ({ default: ImageViewer }))
@@ -75,6 +77,9 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
     categoriesOverride === undefined
   );
   const { message: deleteFeedback } = useFeedback();
+  const { getSetting } = useSettings();
+  const continueAddingTasks =
+    getSetting(CONTINUE_ADDING_TASKS_SETTING_KEY, false) === true;
 
   const tasks = tasksOverride ?? taskStore.tasks ?? EMPTY_TASKS;
   const categories = categoriesOverride ?? hookCategories;
@@ -550,6 +555,7 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
                       onEditSave={handleEditSave}
                       onEditCancel={handleEditCancel}
                       disableTaskLayoutAnimation={renderMode === 'sheet'}
+                      continueAddingTasks={continueAddingTasks}
                     />
                   </>
                 )}
