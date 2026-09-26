@@ -7,6 +7,7 @@ export function resolveRouteParent(pathname: string): string | null {
     case '/settings':
       return '/account';
     case '/profile':
+    case '/settings/preferences':
     case '/settings/screen':
       return '/settings';
     default:

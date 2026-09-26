@@ -6,7 +6,6 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const updateMocks = vi.hoisted(() => ({
   checkForUpdate: vi.fn<(onProgress?: (stage: string) => void) => Promise<'up-to-date' | 'update-available'>>(),
 }));
-
 beforeEach(() => {
   updateMocks.checkForUpdate.mockReset().mockResolvedValue('up-to-date');
 });
@@ -123,20 +122,22 @@ describe('SettingsPage navigation, updates, and data controls', () => {
     );
   });
 
-  // Regression: task acceptance — Screen is a Settings child route, not an appearance sheet.
-  it('opens the Screen route instead of an appearance dialog', () => {
+  // Regression: PROJECT_REFERENCE.md §2 — Preferences is the Settings child route for app behavior and display choices.
+  it('opens the Preferences route instead of exposing behavior toggles on Settings', () => {
     render(
       <MemoryRouter initialEntries={['/settings']}>
         <Routes>
           <Route path="/settings" element={<SettingsPage />} />
-          <Route path="/settings/screen" element={<div>Screen settings route</div>} />
+          <Route path="/settings/preferences" element={<div>Preferences route</div>} />
         </Routes>
       </MemoryRouter>
     );
 
-    fireEvent.click(screen.getByRole('button', { name: /Screen/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Preferences/i }));
 
-    expect(screen.getByText('Screen settings route')).toBeInTheDocument();
-    expect(screen.queryByRole('dialog', { name: 'Appearance' })).toBeNull();
+    expect(screen.getByText('Preferences route')).toBeInTheDocument();
+    expect(
+      screen.queryByRole('switch', { name: 'Keep adding in same category' })
+    ).toBeNull();
   });
 });

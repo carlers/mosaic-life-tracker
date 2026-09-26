@@ -1,7 +1,7 @@
 // Regression: UIFIX-5/UIFIX-7/UIFIX-8/UIFIX-9 — day-sheet header and nested task surfaces retain context.
 import type { ReactNode } from 'react';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { CategoryDocument, TaskDocument } from '../../src/db/schema';
 
 const swiperFixture = vi.hoisted(() => ({
@@ -12,6 +12,10 @@ const swiperFixture = vi.hoisted(() => ({
   noSwiping: undefined as boolean | undefined,
   touchStartPreventDefault: undefined as boolean | undefined,
   touchMoveStopPropagation: undefined as boolean | undefined,
+}));
+
+const settingsFixture = vi.hoisted(() => ({
+  values: {} as Record<string, unknown>,
 }));
 
 const fixture = vi.hoisted(() => ({
@@ -139,6 +143,14 @@ vi.mock('../../src/hooks/useFeedback', () => ({
   useFeedback: () => ({ message: null }),
 }));
 
+vi.mock('../../src/hooks/useSettings', () => ({
+  useSettings: () => ({
+    getSetting: (key: string, defaultValue?: unknown) =>
+      key in settingsFixture.values ? settingsFixture.values[key] : defaultValue,
+    setSetting: vi.fn(),
+  }),
+}));
+
 vi.mock('../../src/hooks/useTaskImage', () => ({
   useTaskImage: () => ({ imageUrl: 'blob:image_1', isLoading: false }),
 }));
@@ -163,6 +175,7 @@ function renderSheet() {
 
 describe('DayViewSheet nested task actions', () => {
   beforeEach(() => {
+    settingsFixture.values = {};
     fixture.task.image = 'image_1';
     swiperFixture.slidePrev.mockClear();
     swiperFixture.slideNext.mockClear();
@@ -171,6 +184,32 @@ describe('DayViewSheet nested task actions', () => {
     swiperFixture.noSwiping = undefined;
     swiperFixture.touchStartPreventDefault = undefined;
     swiperFixture.touchMoveStopPropagation = undefined;
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  // Regression: PROJECT_REFERENCE.md §2 — Day View can opt into a compact Today marker beside its date.
+  it('shows a Today tag beside the active date only when the preference is enabled', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(2026, 8, 20, 12));
+    settingsFixture.values = { showDayViewTodayTag: true };
+
+    render(
+      <DayViewSheet
+        isOpen
+        onClose={vi.fn()}
+        selectedDate={new Date(2026, 8, 20)}
+        onDateChange={vi.fn()}
+        renderMode="inline"
+      />
+    );
+
+    expect(screen.getByText('Today')).toBeInTheDocument();
+    expect(
+      screen.getByText('Sunday, September 20, 2026').parentElement
+    ).toHaveTextContent('Today');
   });
 
   it('maps unmodified horizontal arrow keys to day navigation while open', () => {
@@ -189,12 +228,12 @@ describe('DayViewSheet nested task actions', () => {
 
     const swiper = screen.getByTestId('day-swiper');
     const date = within(swiper).getByText('Sunday, September 20, 2026');
-    const row = date.parentElement;
+    const row = date.closest<HTMLElement>('[data-day-view-navigation="true"]');
     expect(row).not.toBeNull();
     expect(within(row as HTMLElement).getByRole('button', { name: 'Previous day' })).toBeInTheDocument();
     expect(within(row as HTMLElement).getByRole('button', { name: 'Next day' })).toBeInTheDocument();
     expect(row).toHaveAttribute('data-bottom-sheet-directional-drag-handle');
-    expect(date).toHaveClass('text-base');
+    expect(date.closest('h3')).toHaveClass('text-base');
     expect(row).not.toHaveClass('swiper-no-swiping');
 
     const dialog = screen.getByRole('dialog');
@@ -225,7 +264,7 @@ describe('DayViewSheet nested task actions', () => {
     const date = within(screen.getByTestId('day-swiper')).getByText(
       'Sunday, September 20, 2026'
     );
-    const dateRow = date.parentElement as HTMLElement | null;
+    const dateRow = date.closest<HTMLElement>('[data-day-view-navigation="true"]');
     expect(dateRow).not.toBeNull();
     expect(dateRow).toHaveAttribute(
       'data-bottom-sheet-directional-drag-handle'

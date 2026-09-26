@@ -4,7 +4,7 @@ import {
   User,
   Shield,
   Lock,
-  Monitor,
+  SlidersHorizontal,
   Bell,
   Megaphone,
   Smile,
@@ -201,8 +201,8 @@ export const SettingsPage: React.FC = () => {
             onClick={handleComingSoon}
           />
           <SettingsRow
-            icon={<Monitor size={18} className="text-gray-400" aria-hidden="true" />}
-            label="Screen"
+            icon={<SlidersHorizontal size={18} className="text-gray-400" aria-hidden="true" />}
+            label="Preferences"
             value={
               appearanceMode === 'system'
                 ? 'System'
@@ -212,7 +212,11 @@ export const SettingsPage: React.FC = () => {
                     ? 'Light'
                     : 'Black'
             }
-            onClick={() => navigate('/settings/screen', { state: makeRouteParentState('/settings') })}
+            onClick={() =>
+              navigate('/settings/preferences', {
+                state: makeRouteParentState('/settings'),
+              })
+            }
           />
           <SettingsRow
             icon={<Bell size={18} className="text-gray-400" aria-hidden="true" />}

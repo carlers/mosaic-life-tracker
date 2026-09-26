@@ -18,9 +18,9 @@ const AccountPage = lazy(() =>
 const SettingsPage = lazy(() =>
   import('./pages/SettingsPage').then(({ SettingsPage }) => ({ default: SettingsPage }))
 );
-const ScreenSettingsPage = lazy(() =>
-  import('./pages/ScreenSettingsPage').then(({ ScreenSettingsPage }) => ({
-    default: ScreenSettingsPage,
+const PreferencesPage = lazy(() =>
+  import('./pages/PreferencesPage').then(({ PreferencesPage }) => ({
+    default: PreferencesPage,
   }))
 );
 const ProfilePage = lazy(() =>
@@ -147,12 +147,16 @@ function App() {
             }
           />
           <Route
-            path="/settings/screen"
+            path="/settings/preferences"
             element={
-              <RouteContent label="ScreenSettingsPage">
-                <ScreenSettingsPage />
+              <RouteContent label="PreferencesPage">
+                <PreferencesPage />
               </RouteContent>
             }
+          />
+          <Route
+            path="/settings/screen"
+            element={<Navigate to="/settings/preferences" replace />}
           />
           <Route
             path="/profile"

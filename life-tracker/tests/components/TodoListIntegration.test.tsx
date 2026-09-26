@@ -1,8 +1,12 @@
 // Regression: PROJECT_REFERENCE.md §2 — Todo List selected-day workspace is real Day View UI, not a mocked substitute.
 import type { ReactNode } from 'react';
-import { render, screen } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { fireEvent, render, screen } from '@testing-library/react';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { CategoryDocument, TaskDocument } from '../../src/db/schema';
+
+const taskMocks = vi.hoisted(() => ({
+  addTask: vi.fn(),
+}));
 
 const fixture = vi.hoisted(() => ({
   task: {
@@ -57,7 +61,7 @@ vi.mock('swiper/react', () => ({
 vi.mock('../../src/hooks/useTasks', () => ({
   useTasks: () => ({
     tasks: [],
-    addTask: vi.fn(),
+    addTask: taskMocks.addTask,
     toggleTaskCompletion: vi.fn(),
     updateTask: vi.fn(),
     deleteTask: vi.fn(),
@@ -76,6 +80,13 @@ vi.mock('../../src/hooks/useFeedback', () => ({
   useFeedback: () => ({ message: null }),
 }));
 
+vi.mock('../../src/hooks/useSettings', () => ({
+  useSettings: () => ({
+    getSetting: () => true,
+    setSetting: vi.fn(),
+  }),
+}));
+
 vi.mock('../../src/hooks/useTaskImage', () => ({
   useTaskImage: () => ({ imageUrl: null, isLoading: false }),
 }));
@@ -87,6 +98,10 @@ vi.mock('../../src/lib/storage', () => ({
 import { TodoListView } from '../../src/components/home/views/TodoListView';
 
 describe('TodoListView integrated selected-day workspace', () => {
+  beforeEach(() => {
+    taskMocks.addTask.mockReset();
+  });
+
   // Regression: an inline Todo day with no tasks must still mount its Day View surface.
   // The inline mode has no BottomSheet animation-complete callback to release deferred rendering.
   it('renders an unloaded selected day instead of leaving the Day View blank', () => {
@@ -130,6 +145,49 @@ describe('TodoListView integrated selected-day workspace', () => {
     expect(screen.getAllByText('Integrated category').length).toBeGreaterThan(0);
     expect(screen.getByText('Integrated todo task')).toBeInTheDocument();
     expect(screen.getByTestId('inline-day-view')).toBeInTheDocument();
+  });
+
+  // Regression: PROJECT_REFERENCE.md §2 — the synced continuous-entry preference
+  // reaches the real Todo -> DayView -> CategorySection task creator.
+  it('keeps the real same-category task input active after adding when the setting is enabled', () => {
+    render(
+      <TodoListView
+        focusDate={new Date(2026, 8, 15)}
+        tasks={[fixture.task]}
+        categories={[fixture.category]}
+        categoriesMap={{
+          [fixture.category.id]: {
+            color: fixture.category.color,
+            name: fixture.category.name,
+          },
+        }}
+        onFocusDateChange={vi.fn()}
+      />
+    );
+
+    const addButtons = screen.getAllByRole('button', {
+      name: 'Add a task to Integrated category',
+    });
+    fireEvent.click(addButtons[Math.floor(addButtons.length / 2)]);
+    const input = screen.getByPlaceholderText(
+      'Add a task to Integrated category...'
+    ) as HTMLInputElement;
+    fireEvent.change(input, { target: { value: 'Another task' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+
+    expect(taskMocks.addTask).toHaveBeenCalledWith({
+      title: 'Another task',
+      categoryId: 'cat_real',
+      date: '2026-09-15',
+      completed: false,
+      visibility: '',
+    });
+    expect(
+      screen.getByPlaceholderText('Add a task to Integrated category...')
+    ).toHaveValue('');
+    expect(
+      screen.getByPlaceholderText('Add a task to Integrated category...')
+    ).toHaveFocus();
   });
 
   // Regression: PROJECT_REFERENCE.md §2 — Todo owns one cohesive vertical page scroll.

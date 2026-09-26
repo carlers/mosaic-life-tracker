@@ -18,6 +18,7 @@ import { useCalendarState } from '../../src/components/home/views/useCalendarSta
 import { useHorizontalArrowNavigation } from '../../src/hooks/useHorizontalArrowNavigation';
 import { PrimaryRouteSwipeSurface } from '../../src/components/layout/PrimaryRouteSwipeSurface';
 import { applyAppearanceMode } from '../../src/lib/appearance';
+import { SettingsRow } from '../../src/components/ui/SettingsRow';
 
 class DayViewProbeBoundary extends React.Component<
   { children: React.ReactNode },
@@ -579,6 +580,24 @@ export function InteractionHarness() {
         >
           Black appearance
         </button>
+      </div>
+      <div data-testid="settings-switch-geometry" className="mt-3 max-w-sm">
+        <SettingsRow
+          icon={<span />}
+          label="Switch off"
+          showChevron={false}
+          isToggle
+          checked={false}
+          onClick={() => {}}
+        />
+        <SettingsRow
+          icon={<span />}
+          label="Switch on"
+          showChevron={false}
+          isToggle
+          checked
+          onClick={() => {}}
+        />
       </div>
     </main>
   );
