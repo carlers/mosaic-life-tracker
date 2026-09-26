@@ -1,4 +1,4 @@
-// Regression: PROJECT_REFERENCE.md §2 — Delete All User Data tombstones all owned Mosaic collections.
+// Regression: §2 (Delete All User Data tombstones every owned Mosaic collection).
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const docs = vi.hoisted(() => ({
