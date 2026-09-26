@@ -1,7 +1,9 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { render, fireEvent, act } from '@testing-library/react';
+import { render, fireEvent, act, screen } from '@testing-library/react';
 import { MessageBubble } from '../../src/components/messages/MessageBubble';
 import type { MessageDocument } from '../../src/db/schema';
+import { ReactionRow } from '../../src/components/messages/ReactionRow';
+import type { Reaction } from '../../src/lib/reactionUtils';
 
 // ---------------------------------------------------------------------------
 // MessageBubble component tests (Layer 5).
@@ -220,5 +222,48 @@ describe('MessageBubble', () => {
     expect(replyButton).not.toBeNull();
     fireEvent.click(replyButton as Element);
     expect(onQuoteTap).toHaveBeenCalledWith('msg_prev');
+  });
+});
+
+
+describe('ReactionRow', () => {
+  it('renders reaction counts and dispatches the selected emoji', () => {
+    const onToggle = vi.fn();
+    const reactions: Reaction[] = [
+      { emoji: '👍', userIds: ['u1', 'u2'] },
+      { emoji: '❤️', userIds: ['u1'] },
+    ];
+
+    render(
+      <ReactionRow
+        reactions={reactions}
+        currentUserId="user_A"
+        isOutgoing={false}
+        onToggle={onToggle}
+      />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /👍.*2/ }));
+    expect(screen.getByRole('button', { name: /❤️.*1/ })).toBeInTheDocument();
+    expect(onToggle).toHaveBeenCalledWith('👍');
+  });
+
+  it('caps visible reaction chips and reports the remainder', () => {
+    const reactions: Reaction[] = Array.from({ length: 9 }, (_, index) => ({
+      emoji: `e${index}`,
+      userIds: ['u1'],
+    }));
+
+    render(
+      <ReactionRow
+        reactions={reactions}
+        currentUserId="user_A"
+        isOutgoing={false}
+        onToggle={vi.fn()}
+      />
+    );
+
+    expect(screen.getByText('+3')).toBeInTheDocument();
+    expect(screen.queryByText('e6')).toBeNull();
   });
 });
