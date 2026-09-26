@@ -243,8 +243,12 @@ describe('ReactionRow', () => {
       />
     );
 
-    fireEvent.click(screen.getByRole('button', { name: /👍.*2/ }));
-    expect(screen.getByRole('button', { name: /❤️.*1/ })).toBeInTheDocument();
+    const thumbsUp = screen.getByRole('button', { name: 'React with 👍' });
+    const heart = screen.getByRole('button', { name: 'React with ❤️' });
+
+    expect(thumbsUp).toHaveTextContent('2');
+    expect(heart).toHaveTextContent('1');
+    fireEvent.click(thumbsUp);
     expect(onToggle).toHaveBeenCalledWith('👍');
   });
 
