@@ -70,32 +70,18 @@ The accepted task SHA `bc78a220c87ff6c086ab51236bc442e2e79a0cbf` was copied to `
 
 ## Chat detail chrome and autoscroll — 2026-09-26
 
-Changed the individual conversation route so it owns the full viewport: the global bottom
-navigation and its reserved inset are removed, the conversation shell fills the available
-height, and the composer is absolutely anchored to the viewport bottom (including the safe
-area). The message list reserves space for the composer and the scroll control remains above
-it. Every newly appended outgoing or incoming message now anchors the message scroller to
-the latest message; opening a conversation still starts at the bottom.
+Individual chat routes now consume the full viewport without the global bottom navigation or
+its reserved inset. The composer is absolutely anchored to the bottom safe area, the message
+list reserves composer space, and the scroll control stays above it. Opening a chat and every
+new outgoing or incoming message both anchor the scroller to the latest message.
 
-Verification:
-- Focused hook and MainLayout regression coverage added for initial/new-message autoscroll
-  and detail-route chrome removal.
-- Canonical full acceptance and Preview deployment remain pending.
+Regression coverage covers initial/new-message autoscroll and detail-route chrome removal.
+Canonical acceptance is being rerun after fixing the task-specific test/lint issues.
+User browser verification is still required for final visual/send/receive acceptance.
 
-Working set:
-- `life-tracker/src/components/layout/AppLayout.tsx`
-- `life-tracker/src/components/layout/MainLayout.tsx`
-- `life-tracker/src/components/layout/PrimaryRouteSwipeSurface.tsx`
-- `life-tracker/src/pages/ChatPage.tsx`
-- `life-tracker/src/components/messages/MessageComposer.tsx`
-- `life-tracker/src/components/messages/ScrollToBottomButton.tsx`
-- `life-tracker/src/components/messages/useChatScroll.ts`
-- `life-tracker/tests/react/useChatScroll.test.tsx`
-- `life-tracker/tests/components/MainLayoutSwipe.test.tsx`
-
-Next action: run canonical full acceptance on the final task SHA and publish the stable
-Preview branch after acceptance. User manual/browser verification remains required for the
-actual chat viewport, composer anchoring, and live send/receive behavior.
+Next action: finish canonical acceptance, then squash-merge the task into
+`fix/chat-scroll-to-bottom-v2` and verify its Preview deployment. Do not promote to
+`dev` without explicit user authorization.
 
 ## Wide content width follow-up — 2026-09-26
 
