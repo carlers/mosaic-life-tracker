@@ -41,9 +41,9 @@ export function useCalendarState(isActive = true): CalendarState {
   const [focusDate, setFocusDate] = useState<Date>(() => new Date());
   const [baseDate, setBaseDate] = useState<Date>(() => new Date());
   const [emblaActiveIndex, setEmblaActiveIndex] = useState(CENTER_INDEX);
-  const [renderWindow, setRenderWindow] = useState(INITIAL_RENDER_WINDOW);
+  const [isPrewarmed, setIsPrewarmed] = useState(false);
+  const [isSwipeInFlight, setIsSwipeInFlight] = useState(false);
   const isInternalSwipeRef = useRef(false);
-  const isSwipeInFlightRef = useRef(false);
   const [prevViewMode, setPrevViewMode] = useState(viewMode);
 
   if (prevViewMode !== viewMode) {
@@ -70,12 +70,9 @@ export function useCalendarState(isActive = true): CalendarState {
   // each side only for the active person once the browser is idle. This keeps
   // a second quick swipe populated without pushing that work into the snap.
   useEffect(() => {
-    if (!isActive) {
-      setRenderWindow(INITIAL_RENDER_WINDOW);
-      return;
-    }
+    if (!isActive || isPrewarmed) return;
 
-    const prewarm = () => setRenderWindow(RAPID_RENDER_WINDOW);
+    const prewarm = () => setIsPrewarmed(true);
     if (typeof window.requestIdleCallback === 'function') {
       const idleId = window.requestIdleCallback(prewarm, { timeout: 1200 });
       return () => {
@@ -87,7 +84,7 @@ export function useCalendarState(isActive = true): CalendarState {
 
     const timer = window.setTimeout(prewarm, 400);
     return () => window.clearTimeout(timer);
-  }, [isActive]);
+  }, [isActive, isPrewarmed]);
 
   // Keep the heavy render window pinned while Embla is animating to a snap.
   // The active slide already has both immediate neighbors mounted, so the
@@ -96,8 +93,8 @@ export function useCalendarState(isActive = true): CalendarState {
   useEffect(() => {
     if (!emblaApi) return;
     const syncSettledIndex = () => {
-      isSwipeInFlightRef.current = false;
       const index = emblaApi.selectedScrollSnap();
+      setIsSwipeInFlight(false);
       setEmblaActiveIndex((prev) => (prev === index ? prev : index));
     };
     syncSettledIndex();
@@ -138,7 +135,7 @@ export function useCalendarState(isActive = true): CalendarState {
           ? differenceInCalendarMonths(newDate, focusDate) === 0
           : differenceInCalendarWeeks(newDate, focusDate) === 0;
 
-      isSwipeInFlightRef.current = true;
+      setIsSwipeInFlight(true);
       if (!same) {
         // Update the lightweight date/header state as soon as Embla selects
         // the next snap so another quick swipe can build on the new target.
@@ -196,9 +193,9 @@ export function useCalendarState(isActive = true): CalendarState {
     return Math.max(0, Math.min(TOTAL_SLIDES - 1, raw));
   }, [focusDate, baseDate, viewMode]);
 
-  const renderFocusIndex = isSwipeInFlightRef.current
-    ? emblaActiveIndex
-    : focusIndex;
+  const renderWindow =
+    isActive && isPrewarmed ? RAPID_RENDER_WINDOW : INITIAL_RENDER_WINDOW;
+  const renderFocusIndex = isSwipeInFlight ? emblaActiveIndex : focusIndex;
   const renderStart = Math.max(
     0,
     Math.min(emblaActiveIndex, renderFocusIndex) - renderWindow
