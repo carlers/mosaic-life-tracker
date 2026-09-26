@@ -25,7 +25,7 @@ describe('useChatScroll', () => {
     expect(scroller.scrollTop).toBe(1200);
   });
 
-  it('does not force the user back down after they scroll upward', () => {
+  it('autoscrolls when a new outgoing or incoming message arrives', () => {
     const { result, rerender } = renderHook(
       ({ messages }: { messages: MessageDocument[] }) =>
         useChatScroll({ messages, isSearching: false }),
@@ -39,9 +39,25 @@ describe('useChatScroll', () => {
     scroller.dispatchEvent(new Event('scroll'));
 
     act(() => {
-      rerender({ messages: [{ id: 'message_2' } as MessageDocument, message] });
+      rerender({
+        messages: [
+          { id: 'message_2', direction: 'outgoing' } as MessageDocument,
+          message,
+        ],
+      });
     });
+    expect(scroller.scrollTop).toBe(1200);
 
-    expect(scroller.scrollTop).toBe(500);
+    scroller.scrollTop = 300;
+    act(() => {
+      rerender({
+        messages: [
+          { id: 'message_3', direction: 'incoming' } as MessageDocument,
+          { id: 'message_2', direction: 'outgoing' } as MessageDocument,
+          message,
+        ],
+      });
+    });
+    expect(scroller.scrollTop).toBe(1200);
   });
 });
