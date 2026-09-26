@@ -4,37 +4,43 @@ Updated: 2026-09-27
 
 Current task: comprehensively refactor Mosaic's automated test suite so it protects durable behavior and data-safety contracts without enforcing incidental UI implementation details, while reducing canonical CI cost.
 
-Status: audit complete; implementation is starting on `chatgpt/test-suite-cleanup`, based on stable Preview branch `refactor/test-suite` created from `dev` commit `bbace774345ddedb0d92a73e006e4d208f77a463`.
+Status: implementation is complete on `chatgpt/test-suite-cleanup`, targeting stable Preview `refactor/test-suite` from `dev` commit `bbace774345ddedb0d92a73e006e4d208f77a463`. No product/runtime source behavior was changed; the task changes tests, test commands, and testing documentation.
 
 ## Working set
-- `docs/TEST_WORKFLOW.md`, `docs/PROJECT_REFERENCE.md`, delivery/testing guidance as needed
-- Vitest projects under `tests/unit/**`, `tests/react/**`, `tests/components/**`, `tests/hooks/**`, `tests/handlers/**`
-- Playwright contracts under `tests/e2e/**`
-- `.github/workflows/quality-gate.yml`, test project/verification scripts where required
+- `AGENTS.md`, `docs/TEST_WORKFLOW.md`, `docs/PROJECT_REFERENCE.md`, `docs/PLAN.md`
+- Vitest component/workflow suites under `tests/**`
+- Playwright correctness/diagnostic suites under `tests/e2e/**`
+- `package.json` test commands
 
 ## Completed substeps
-- Audited the current suite: 99 Vitest files / 653 cases plus 36 Playwright cases.
-- Identified presentation-coupled UI assertions (Tailwind/class/DOM-parent/exact-color enforcement), overlapping calendar/Todo/Day View coverage, duplicated CI-classification tests, and workflow-shape tests that overfit YAML structure.
-- Measured the latest green dev gate: unit ~7.4s, handlers ~1.3s, DOM shards ~16.7s/~17.3s, browser shards ~23.7s/~41.6s.
-- Identified the zero-assertion Playwright performance probe as diagnostic work that should not be part of canonical correctness acceptance.
+- Audited the baseline: 99 Vitest files / 653 cases plus 36 Playwright executions; dev run 776 measured unit ~7.4s, handlers ~1.3s, DOM shards ~16.7s/~17.3s, browser shards ~23.7s/~41.6s.
+- Codified a behavior-first test architecture in AGENTS, TEST_WORKFLOW, and PROJECT_REFERENCE §24.17. Visual/reference-app prose no longer implies CSS/class/RGB tests; browser geometry is reserved for interaction, accessibility, clipping, overflow, and usable-bound invariants.
+- Preserved strong direct coverage for sync/mappings, account isolation/auth/offline behavior, destructive deletion/tombstones, Appwrite Function authorization/cross-user writes, queues/outboxes, row/schema parity, and privacy-minimal analytics.
+- Removed presentation-only or duplicate suites for BottomNav styling, TaskBlock padding, Calendar overflow classes, duplicate CI classification, and folded PrimaryRoutePreview/ReactionRow coverage into related behavioral suites.
+- Rewrote Calendar, Day View, Todo, MainLayout, BottomSheet, Settings, Category, message, reaction, and user-card tests to assert semantics/interactions instead of Tailwind classes, exact DOM ancestry, exact colors, or decorative layout implementation.
+- Reduced the chat browser geometry matrix to representative phone/full and desktop/wide extremes; consolidated route and calendar ownership cases; removed pure appearance/Todo styling browser cases while retaining browser-only gesture, history, focus, overflow, accessibility, and geometry regressions.
+- Tagged the zero-assertion performance probe `@performance`, excluded it from `test:browser-contract`, and added explicit `npm run test:performance`.
+- Simplified workflow tests to durable verification invariants instead of exact YAML/cache-step shape.
+- Focused run 808 passed after the test-file consolidation; discovery reported 93 Vitest files (unit 39, handlers 7, DOM 47).
 
 ## Remaining substeps
-- Rewrite testing doctrine so future agents test durable behavior/invariants rather than incidental presentation or component structure.
-- Remove or rewrite brittle UI assertions and consolidate overlapping DOM/browser coverage without weakening data-safety, authorization, sync, offline, deletion, or accessibility contracts.
-- Move diagnostic performance probing out of the mandatory browser correctness gate.
-- Simplify duplicated workflow/tooling tests and test-project routing where beneficial.
-- Run focused verification, then exact-SHA full canonical acceptance; repair failures until green.
-- Benchmark before/after using CI evidence, squash-merge into `refactor/test-suite`, then verify stable Preview Quality Gate and Vercel deployment.
+- Run exact-SHA full canonical acceptance on the final task checkpoint; fix any failures and rerun until green.
+- Record final Vitest/browser case counts and CI wall times from that full gate against the dev run 776 baseline.
+- Squash-merge the accepted task PR into `refactor/test-suite`.
+- Verify the stable Preview branch Quality Gate and Vercel Preview deployment.
 
 ## Constraints
 - No product/runtime behavior changes in this task.
-- Preserve strong coverage for sync, mappings, auth/account isolation, handlers, tombstones, destructive data flows, offline queues/outboxes, accessibility semantics, and real browser-only interaction invariants.
+- Do not weaken distinct data-safety, authorization, sync, offline, deletion, accessibility, or browser-only interaction failure coverage merely to reduce test counts.
 - Stable Preview promotion stops at `refactor/test-suite`; do not merge to `dev` without explicit user instruction.
 
 ## Verification
 - Baseline: dev Quality Gate run 776 passed on `bbace774345ddedb0d92a73e006e4d208f77a463`.
-- Manual/device acceptance: not required for test-only behavior unless later changes alter runtime code.
+- Focused verification: run 808 passed; test discovery = 93 files (unit 39, handlers 7, DOM 47).
+- Focused browser consolidation evidence: run 798 passed on `627ceb5d6de57866b86058860f4ef7926cbaf935`.
+- Full canonical acceptance: pending on the final task SHA.
+- Manual/device acceptance: not required because runtime product code was not changed.
 
-Next action: update the durable testing rules, then refactor the highest-maintenance UI/browser suites and CI gate.
+Next action: run exact-SHA full canonical acceptance, repair any failures, then deliver by squash PR to `refactor/test-suite` and verify its Preview.
 
 Blockers: none.
