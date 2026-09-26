@@ -51,8 +51,9 @@ export function useChatScroll({
   useEffect(() => {
     if (isSearching) return;
 
+    const el = scrollRef.current;
     const content = contentRef.current;
-    if (!content) return;
+    if (!el || !content) return;
 
     let frame = 0;
     const handleResize = () => {
@@ -63,6 +64,9 @@ export function useChatScroll({
     };
 
     const observer = new ResizeObserver(handleResize);
+    // The scroll container's padding changes with the measured composer and
+    // keyboard inset, so observe both the rendered content and its viewport.
+    observer.observe(el);
     observer.observe(content);
 
     return () => {
