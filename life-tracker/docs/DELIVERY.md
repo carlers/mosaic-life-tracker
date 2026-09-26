@@ -26,6 +26,12 @@ Quality Gate is intentionally push-driven: the workflow does not also run on `pu
 While CI runs, finish independent review; otherwise wait between status requests. Read
 full logs for failures or unusual stalls, not on every poll. Fix the actual failing layer.
 
+## Branch hierarchy
+
+All new work starts from `dev`. Create one stable Preview branch using a category prefix such as `feature/*`, `security/*`, `refactor/*`, or `perf/*`. Use that Preview branch as the parent for `chatgpt/*` mini-task branches only when a separate task branch is genuinely useful; minimize mini-task branches and prefer one coherent `chatgpt/*` branch for the work when practical. Never push directly to `main`, `dev`, or a Preview branch. Changes reach those branches only through pull requests and the repository's documented merge/promotion flow.
+
+The required flow is: `dev` → Preview (`feature/*`, `security/*`, `refactor/*`, `perf/*`, etc.) → optional `chatgpt/*` mini-task branch. A `chatgpt/*` branch must never be based directly on `main` or `dev`.
+
 ## Provider and branch
 
 The preferred provider is Vercel. Configure one Vercel project from
