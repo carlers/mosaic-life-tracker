@@ -1,6 +1,6 @@
 import React from 'react';
 import { act, fireEvent, render, screen } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('../../src/components/layout/BottomNav', () => ({
   BottomNav: () => <nav data-testid="bottom-nav">Bottom nav</nav>,
@@ -27,6 +27,10 @@ vi.mock('../../src/components/layout/ComingSoon', () => ({
 
 import { MainLayout } from '../../src/components/layout/MainLayout';
 import { PrimaryRoutePreview } from '../../src/components/layout/PrimaryRoutePreview';
+
+afterEach(() => {
+  vi.useRealTimers();
+});
 
 function drag(target: Element, fromX: number, toX: number) {
   fireEvent.pointerDown(target, {
