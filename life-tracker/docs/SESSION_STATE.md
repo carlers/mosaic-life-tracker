@@ -72,8 +72,6 @@ The accepted task SHA `bc78a220c87ff6c086ab51236bc442e2e79a0cbf` was copied to `
 
 Chat detail routes use the full viewport without bottom navigation; the composer is absolutely
 bottom-anchored and new outgoing/incoming messages autoscroll to the latest message.
-Regression coverage is in place. Canonical acceptance is pending after the handoff-size fix.
-Do not promote to `dev` without explicit user authorization.
 
 ## Wide content width follow-up — 2026-09-26
 
