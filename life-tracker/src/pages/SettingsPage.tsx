@@ -16,6 +16,7 @@ import {
   ChevronLeft,
   FileDown,
   RefreshCw,
+  ListPlus,
 } from 'lucide-react';
 import { BottomSheet } from '../components/ui/BottomSheet';
 import { SettingsRow } from '../components/ui/SettingsRow';
@@ -31,12 +32,17 @@ import { ChangePasswordSheet } from '../components/modals/ChangePasswordSheet';
 import { ExportDataSheet } from '../components/modals/ExportDataSheet';
 import { SyncStatusSheet } from '../components/modals/SyncStatusSheet';
 import { useAppearance } from '../hooks/useAppearance';
+import { useSettings } from '../hooks/useSettings';
+import { CONTINUE_ADDING_TASKS_SETTING_KEY } from '../lib/taskCreationPreferences';
 import { hasExpectedRouteParent, makeRouteParentState } from '../lib/primarySwipeNavigation';
 
 export const SettingsPage: React.FC = () => {
   const { user, logout } = useAuth();
   const { checkForUpdate } = usePwaLifecycle();
   const { mode: appearanceMode } = useAppearance();
+  const { getSetting, setSetting } = useSettings();
+  const continueAddingTasks =
+    getSetting(CONTINUE_ADDING_TASKS_SETTING_KEY, false) === true;
   const navigate = useNavigate();
   const location = useLocation();
   const [isClearDataOpen, setIsClearDataOpen] = useState(false);
@@ -60,6 +66,9 @@ export const SettingsPage: React.FC = () => {
   };
 
   const handleComingSoon = () => showFeedback('Coming soon');
+  const handleToggleContinueAddingTasks = () => {
+    void setSetting(CONTINUE_ADDING_TASKS_SETTING_KEY, !continueAddingTasks);
+  };
   const handleBack = () => {
     const parent = '/account';
     if (hasExpectedRouteParent(location.key, location.state, parent)) {
@@ -213,6 +222,28 @@ export const SettingsPage: React.FC = () => {
                     : 'Black'
             }
             onClick={() => navigate('/settings/screen', { state: makeRouteParentState('/settings') })}
+          />
+          <SettingsRow
+            icon={<ListPlus size={18} className="text-emerald-500" aria-hidden="true" />}
+            label="Keep adding in same category"
+            showChevron={false}
+            isToggle
+            checked={continueAddingTasks}
+            rightElement={
+              <span
+                aria-hidden="true"
+                className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${
+                  continueAddingTasks ? 'bg-emerald-500' : 'bg-[#444444]'
+                }`}
+              >
+                <span
+                  className={`absolute top-0.5 h-5 w-5 rounded-full bg-white transition-transform ${
+                    continueAddingTasks ? 'translate-x-5' : 'translate-x-0.5'
+                  }`}
+                />
+              </span>
+            }
+            onClick={handleToggleContinueAddingTasks}
           />
           <SettingsRow
             icon={<Bell size={18} className="text-gray-400" aria-hidden="true" />}
