@@ -27,7 +27,8 @@ variants are `test:watch:unit`, `test:watch:handlers`, and `test:watch:dom`.
 ### GitHub-connected fast loop
 
 Ordinary pushes to AI-owned `chatgpt/**` and `codex/**` branches use the least expensive safe remote
-loop. Changes limited to project Markdown/`docs/**` run contract/link and diff checks only.
+loop. Quality Gate is push-driven rather than duplicated on `pull_request`, so each pushed commit gets one
+classification/verification run instead of a separate push and PR run. Changes limited to project Markdown/`docs/**` run contract/link and diff checks only.
 Other ordinary pushes run `scripts/verify-focused.mjs` against the push's real before-SHA:
 contracts/discovery always run, ESLint receives changed code files, and Vitest selects tests
 related to those changes. Use `[verify:browser]` on an intermediate commit only when the
