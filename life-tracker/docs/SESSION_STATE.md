@@ -33,8 +33,8 @@ Completed substeps:
 - Investigated and repaired two React lint failures exposed by CI.
 
 Remaining substeps:
-- Pass the focused BottomSheet/DayView tests and canonical Quality Gate on the condensed state.
-- Inspect the performance-probe `bottom-sheet-close` metrics on the candidate versus the stable baseline.
+- Pass the focused BottomSheet/DayView tests and a browser-verification Quality Gate on the reverted baseline.
+- Inspect the performance-probe `bottom-sheet-close` metrics on the reverted baseline.
 - If the trace improves, publish the stable Preview and perform the required real-device open/close acceptance.
 - If the close trace does not improve, use the trace's React/layout/LOAF evidence for the next targeted change; do not add blind animation/CSS tweaks.
 
@@ -51,6 +51,6 @@ Verification:
 - Manual/device close smoothness remains unverified.
 - Vercel deployment for the stable `perf/animation-optimization` branch was previously READY; the new task branch is intentionally not a deployable stable branch.
 
-Next action: push this condensed checkpoint as the final `[verify:full]` task commit, wait for the exact SHA's canonical acceptance, then review the `bottom-sheet-close` performance result before deciding whether another code change is justified.
+Next action: push this checkpoint with `[verify:browser]`, inspect the reverted baseline's `bottom-sheet-close` trace, then make only a trace-backed close-path change. The eventual implementation commit must carry `[verify:full]`.
 
 Blockers: none currently. The previous hosted-runner allocation blocker is no longer reproducing; the remaining blocker to completion is verification of the close-path performance candidate and real-device acceptance.
