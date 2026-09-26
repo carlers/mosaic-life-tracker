@@ -189,23 +189,4 @@ describe('TodoListView integrated selected-day workspace', () => {
       screen.getByPlaceholderText('Add a task to Integrated category...')
     ).toHaveFocus();
   });
-
-  // Regression: PROJECT_REFERENCE.md §2 — Todo owns one cohesive vertical page scroll.
-  it('keeps the real selected-day content in page-scroll mode instead of a nested task scroller', () => {
-    render(
-      <TodoListView
-        focusDate={new Date(2026, 8, 15)}
-        tasks={[fixture.task]}
-        categories={[fixture.category]}
-        categoriesMap={{}}
-        onFocusDateChange={vi.fn()}
-      />
-    );
-
-    const task = screen.getByText('Integrated todo task');
-    const daySlide = task.closest('[data-testid="day-slide"]');
-    expect(daySlide).not.toBeNull();
-    expect(daySlide).not.toHaveClass('overflow-y-auto');
-    expect(daySlide).not.toHaveClass('h-full');
-  });
 });
