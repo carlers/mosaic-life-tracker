@@ -147,8 +147,7 @@ describe('TodoListView integrated selected-day workspace', () => {
     expect(screen.getByTestId('inline-day-view')).toBeInTheDocument();
   });
 
-  // Regression: §2 (the synced continuous-entry preference
-  // reaches the real Todo -> DayView -> CategorySection task creator.
+  // Regression: §2 (synced continuous-entry preference reaches Todo Day View).
   it('keeps the real same-category task input active after adding when the setting is enabled', () => {
     render(
       <TodoListView
