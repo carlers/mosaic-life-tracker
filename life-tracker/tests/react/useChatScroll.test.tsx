@@ -22,6 +22,7 @@ describe('useChatScroll', () => {
       rerender({ messages: [message] });
     });
 
+    // Browser scrollTop is clamped to scrollHeight - clientHeight.
     expect(scroller.scrollTop).toBe(600);
   });
 
