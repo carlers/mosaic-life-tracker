@@ -11,6 +11,10 @@ additional reading. Current code and Git override stale progress prose.
 - Resolve routine choices and complete authorized work without repeated confirmation.
 - Use focused tests during edits; broaden for shared behavior or failures. Report actual
   results and unresolved limitations. Do not manufacture red evidence or add trivial tests.
+- Tests protect durable behavior/invariants, not incidental JSX/CSS. Do not assert Tailwind
+  classes, DOM ancestry, decorative styling, or exact geometry unless that presentation is
+  itself a documented contract; reserve Playwright for browser-only failure modes. Follow
+  [test workflow](docs/TEST_WORKFLOW.md).
 - Commit scoped task changes automatically, push a `chatgpt/**` task branch, and publish
   Preview after exact-SHA canonical acceptance. Follow [delivery](docs/DELIVERY.md).
   Never force-update shared history or divergent Preview. No unrelated service changes.
