@@ -89,9 +89,3 @@ Verification: focused regression coverage updated for direct large jumps. Final 
 
 MonthView/WeekView use real seven-column week rows with max-content sizing, so each row follows its own tallest cell. DayCell now reserves 4.25rem, equivalent to a day label plus two standard text-only task blocks, while taller content can still expand the row.
 
-
-## Chat open-at-bottom fix — 2026-09-26
-
-Chat scroller now pins to the latest message before paint and uses an explicit min-h-0 flex constraint.
-
-Canonical task SHA `3e8d06bc55373351d7a407091fe8ebb8b212c7c7` passed; PRs #63/#64 merged the fix into `dev`, and the dev Preview is READY. Manual phone/browser acceptance remains unverified.
