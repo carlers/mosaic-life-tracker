@@ -2,7 +2,7 @@
 
 Updated: 2026-09-26
 
-Current task: initial mounting performance on login and Home in `chatgpt/initial-mount-performance`.
+Current task: chat scroll-to-bottom fix in `fix/chat-scroll-to-bottom`.
 
 Status: CI runner allocation is operational again on the public repository. PR #41 (`ci: reduce duplicate Quality Gate runner demand`) was merged into `perf/animation-optimization` as `2e033313a51171f5305e53cac4b995b1af609b67`. The Quality Gate is push-driven only, so PRs receive checks from their pushed head SHA without a duplicate pull_request run. The repository was made public by the user after hosted-runner execution recovered; this is operational evidence, not proof of an internal GitHub throttle/quota cause.
 
@@ -54,7 +54,7 @@ Verification:
 - The canonical full gate passed on the code checkpoint immediately before this documentation-only finalization; the exact final SHA below still needs its own canonical acceptance.
 - Real-device close smoothness remains unverified.
 - Vercel Preview remains pending exact-SHA canonical acceptance.
-Next action: measure and optimize login → Home initial mount, then run canonical acceptance and promote the performance branch.
+Next action: manual browser/device acceptance of the chat open-at-bottom behavior; no further code changes are planned unless that check finds a regression.
 
 Blockers: none currently. The previous hosted-runner allocation blocker is no longer reproducing; the remaining blocker to completion is verification of the close-path performance candidate and real-device acceptance.
 
