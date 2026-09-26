@@ -20,18 +20,34 @@ vi.mock('../../src/components/home/views/TodoListView', () => ({
   ),
 }));
 
+const calendarFixture = vi.hoisted(() => ({
+  resetToToday: vi.fn(),
+  options: undefined as { weekStartsOn?: 0 | 1 } | undefined,
+}));
+
+const settingsFixture = vi.hoisted(() => ({
+  values: {
+    weekStartsOnSunday: true,
+    tapCalendarDateToToday: false,
+  } as Record<string, unknown>,
+}));
+
 vi.mock('../../src/components/home/views/useCalendarState', () => ({
-  useCalendarState: () => ({
-    title: 'September 2026',
-    viewMode: 'month',
-    handleToggle: vi.fn(),
-    handlePrev: vi.fn(),
-    handleNext: vi.fn(),
-    slides: [new Date(2026, 8, 1)],
-    renderStart: 0,
-    renderEnd: 0,
-    emblaRef: vi.fn(),
-  }),
+  useCalendarState: (options?: { weekStartsOn?: 0 | 1 }) => {
+    calendarFixture.options = options;
+    return {
+      title: 'September 2026',
+      viewMode: 'month',
+      handleToggle: vi.fn(),
+      handlePrev: vi.fn(),
+      handleNext: vi.fn(),
+      resetToToday: calendarFixture.resetToToday,
+      slides: [new Date(2026, 8, 1)],
+      renderStart: 0,
+      renderEnd: 0,
+      emblaRef: vi.fn(),
+    };
+  },
 }));
 
 vi.mock('../../src/hooks/useTasks', () => ({
@@ -48,6 +64,14 @@ vi.mock('../../src/hooks/useMessageActions', () => ({
 
 vi.mock('../../src/hooks/useAuth', () => ({
   useAuth: () => ({ user: { $id: 'user_1' } }),
+}));
+
+vi.mock('../../src/hooks/useSettings', () => ({
+  useSettings: () => ({
+    getSetting: (key: string, defaultValue?: unknown) =>
+      key in settingsFixture.values ? settingsFixture.values[key] : defaultValue,
+    setSetting: vi.fn(),
+  }),
 }));
 
 vi.mock('../../src/lib/useFriendCalendar', () => ({
@@ -84,6 +108,12 @@ const me: CarouselPerson = {
 describe('PersonPane view switcher', () => {
   beforeEach(() => {
     localStorage.clear();
+    calendarFixture.resetToToday.mockClear();
+    calendarFixture.options = undefined;
+    settingsFixture.values = {
+      weekStartsOnSunday: true,
+      tapCalendarDateToToday: false,
+    };
   });
 
   // Regression: PROJECT_REFERENCE.md §2 — friends expose shared Todo List instead of Coming Soon.
@@ -94,6 +124,20 @@ describe('PersonPane view switcher', () => {
 
     expect(screen.getByTestId('todo-list-view')).toHaveAttribute('data-variant', 'friend');
     expect(screen.queryByTestId('diary-body')).toBeNull();
+  });
+
+  // Regression: PROJECT_REFERENCE.md §2 — calendar behavior preferences are wired at the person-pane boundary.
+  it('uses Monday week start and lets the calendar date header jump to today when enabled', () => {
+    settingsFixture.values = {
+      weekStartsOnSunday: false,
+      tapCalendarDateToToday: true,
+    };
+
+    render(<PersonPane person={me} isActive />);
+
+    expect(calendarFixture.options).toEqual({ weekStartsOn: 1 });
+    fireEvent.click(screen.getByRole('button', { name: 'Go to today' }));
+    expect(calendarFixture.resetToToday).toHaveBeenCalledOnce();
   });
 
   it('keeps the toggle visible in Diary and lets the user switch back to Calendar', () => {
