@@ -22,7 +22,7 @@ const updateRowMock = vi.hoisted(() => vi.fn());
 const upsertRowMock = vi.hoisted(() => vi.fn());
 const createRowMock = vi.hoisted(() => vi.fn());
 const getDatabaseMock = vi.hoisted(() => vi.fn());
-// OFF-2: sync.ts now reads `account` directly from '../../src/lib/appwrite'
+// Test fixture note: sync.ts reads `account` directly from '../../src/lib/appwrite'
 // instead of going through guardedAccount. The appwrite SDK mock must
 // therefore provide `Client` and `Account` so the real appwrite.ts module
 // can construct them at import time. Query/Permission/Role stay because
@@ -1060,7 +1060,8 @@ describe('sync — tombstone retention cursor expiry', () => {
 
 });
 
-describe('sync — 404 fallback uses createRow (D8)', () => {
+// Regression: §6 (update-404 fallback uses createRow, never upsertRow).
+describe('sync — 404 fallback uses createRow', () => {
   it('a 404 on updateRow falls back to createRow, not upsertRow', async () => {
     const docs = [makeLocalDoc('task_new')];
     getDatabaseMock.mockReturnValue(
@@ -1108,7 +1109,8 @@ describe('sync — 404 fallback uses createRow (D8)', () => {
     expect(dirtyAfter).toBe(dirtyBefore);
   });
 });
-describe('sync — cross-tab mutex and state reload (D4)', () => {
+// Regression: §18 (cross-tab sync cycles serialize and reload shared state).
+describe('sync — cross-tab mutex and state reload', () => {
   it('runs the cycle inside navigator.locks.request when available', async () => {
     const originalNavigator = (globalThis as { navigator?: unknown }).navigator;
     const requestMock = vi.fn(
