@@ -139,6 +139,11 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
     if (isOpen) setDeferredRenderWindow(renderWindow);
   }, [isOpen, renderWindow]);
 
+  // Inline Todo Day View has no sheet entrance animation, so its initial render
+  // window must not wait for BottomSheet's animation-complete callback.
+  const effectiveRenderWindow =
+    renderMode === 'inline' ? renderWindow : deferredRenderWindow;
+
   const handleSheetClose = useCallback(() => {
     setDeferredRenderWindow(0);
     onClose();
@@ -453,7 +458,7 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
         }}
       >
         {slideDates.map((date, i) => {
-          const inWindow = Math.abs(i - activeIndex) <= deferredRenderWindow;
+          const inWindow = Math.abs(i - activeIndex) <= effectiveRenderWindow;
           const dateStr = slideDateStrs[i];
           const dayTasks = tasksByDate.get(dateStr) ?? EMPTY_TASKS;
           return (
