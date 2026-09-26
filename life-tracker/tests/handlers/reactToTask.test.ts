@@ -168,7 +168,7 @@ describe('message-action / react_to_task', () => {
     expect(res.body.error).toBe('Task not found');
   });
 
-  // Regression: A4 — private tasks must not leak to friends via reactions.
+  // Regression: §20.8/§22 (private tasks cannot be reacted to by friends).
   it('returns 403 when task visibility is private', async () => {
     mockDb.listRows
       .mockResolvedValueOnce({ rows: [friendshipRow()] })
@@ -196,7 +196,7 @@ describe('message-action / react_to_task', () => {
     expect(res.body.error).toBe('Task is not visible to you');
   });
 
-  // Regression: A4 / §22 — a task with no category must fall back to
+  // Regression: §22 (task-reaction visibility falls back correctly without a category).
   // 'private', matching get_friend_calendar's behavior.
   it('falls back to private when the task has no category', async () => {
     mockDb.listRows
