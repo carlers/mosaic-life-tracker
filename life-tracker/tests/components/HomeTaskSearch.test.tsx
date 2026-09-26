@@ -4,7 +4,7 @@ import { fireEvent, render, screen, within } from '@testing-library/react';
 import { HomeTaskSearch } from '../../src/components/home/HomeTaskSearch';
 import type { CategoryDocument, TaskDocument } from '../../src/db/schema';
 
-// Regression: docs/PROJECT_REFERENCE.md §2 — Home search exposes owner-only
+// Regression: §2 (Home search exposes owner-only
 // local task filtering, lightweight memo/image indicators, and result selection.
 
 const categories: CategoryDocument[] = [
