@@ -125,6 +125,7 @@ describe('TodoListView', () => {
     expect(rows[0]).toHaveClass('grid-cols-[repeat(7,2.5rem)]', 'justify-center');
     expect(rows[1]).toHaveClass('grid-cols-[repeat(7,2.5rem)]', 'justify-center');
     expect(grid).not.toHaveClass('text-center');
+    expect(within(grid).getAllByRole('gridcell')[0]).not.toHaveClass('mx-auto');
     expect(grid).not.toHaveClass('border', 'border-[#333333]', 'p-3');
     expect(screen.getByTestId('todo-day-section')).toHaveClass('mt-0');
   });
