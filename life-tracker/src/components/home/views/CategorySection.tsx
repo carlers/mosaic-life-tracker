@@ -1,5 +1,5 @@
 import React, { useState, useRef, useId } from 'react';
-import { Plus } from 'lucide-react';
+import { ChevronDown, Plus } from 'lucide-react';
 import { TaskItem } from './TaskItem';
 import { visibilityIcon } from '../../../lib/visibility';
 import { getCategoryLabelColor } from '../../../constants/colors';
@@ -26,6 +26,7 @@ interface CategorySectionProps {
   onEditCancel: () => void;
   disableTaskLayoutAnimation?: boolean;
   continueAddingAfterSubmit?: boolean;
+  showCollapseButton?: boolean;
 }
 
 export const CategorySection: React.FC<CategorySectionProps> = ({
@@ -47,8 +48,10 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
   onEditCancel,
   disableTaskLayoutAnimation = false,
   continueAddingAfterSubmit = false,
+  showCollapseButton = false,
 }) => {
   const [isAdding, setIsAdding] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(false);
   const [newTitle, setNewTitle] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
   const inputId = useId();
@@ -93,12 +96,22 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
   };
 
   const handleOpen = () => {
+    setIsCollapsed(false);
     setIsAdding(true);
+  };
+
+  const categoryCollapsed = showCollapseButton && isCollapsed;
+
+  const handleToggleCollapse = () => {
+    if (!categoryCollapsed) {
+      closeInput();
+    }
+    setIsCollapsed((current) => !current);
   };
 
   return (
     <div className="mb-4">
-      <div className="flex items-center mb-2">
+      <div className="mb-2 flex items-center gap-2">
         <button
           type="button"
           onClick={handleOpen}
@@ -116,9 +129,24 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
             <Plus data-testid="category-add-icon" size={18} />
           </span>
         </button>
+        {showCollapseButton && (
+          <button
+            type="button"
+            onClick={handleToggleCollapse}
+            aria-label={categoryCollapsed ? `Expand ${categoryName}` : `Collapse ${categoryName}`}
+            aria-expanded={!categoryCollapsed}
+            className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 transition-colors hover:bg-[#2A2A2A] hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
+          >
+            <ChevronDown
+              size={17}
+              aria-hidden="true"
+              className={`transition-transform ${categoryCollapsed ? '-rotate-90' : ''}`}
+            />
+          </button>
+        )}
       </div>
 
-      {isAdding && (
+      {!categoryCollapsed && isAdding && (
         <div
           data-testid="pending-task-row"
           className="flex items-center gap-3 py-2"
@@ -147,7 +175,7 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
         </div>
       )}
 
-      {tasks.map((task) => (
+      {!categoryCollapsed && tasks.map((task) => (
         <TaskItem
           key={task.id}
           task={task}
