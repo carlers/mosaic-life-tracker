@@ -42,6 +42,30 @@ Static assets are not catch-all rewritten.
 
 `main` is the production branch, `dev` is the integration/staging branch, and `feature/*` branches are stable preview branches. There is no deployment-only `preview` branch. Source development continues on these branches and AI task branches.
 
+## Preview merge policy
+
+Individual development branches such as `chatgpt/*` and `codex/*` should enter stable Preview
+branches such as `feature/*` through **Squash and merge**. This keeps experimental
+development commits out of the durable Preview history while preserving the detailed
+development history in the pull request.
+
+This is a **GitHub repository ruleset**, not a CI convention. The ruleset should target
+`feature/*` and require:
+
+1. Pull requests before merging.
+2. The Preview merge-policy status check(s) required by the repository, once present.
+3. **Merge type: Squash**.
+4. No bypass for ordinary repository contributors.
+
+Do **not** globally disable merge commits or rebase merges: `feature/*` → `dev` and
+`dev` → `main` intentionally retain their separate promotion policy.
+
+The connected GitHub integration available to this environment can read repository rules
+but does not have permission to create or edit them. Therefore the final enforcement step
+is a repository-admin setting in GitHub; it cannot safely be represented as a source-file
+change. Until that ruleset is active, the convention is documented but not technically
+enforced.
+
 ## Why a stable hostname
 
 Appwrite rejects browser origins that are not registered as Web platforms. A stable preview
