@@ -386,7 +386,8 @@ test('interaction performance probe', async ({ page }) => {
 
   results.push(
     await measureInteraction(page, 'bottom-sheet-close', async () => {
-      await page.keyboard.press('Escape');
+      // Match the documented phone dismissal path: tap the exposed backdrop strip.
+      await page.mouse.click(10, 10);
     })
   );
 
