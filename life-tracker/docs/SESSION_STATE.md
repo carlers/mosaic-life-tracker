@@ -2,61 +2,43 @@
 
 Updated: 2026-09-26
 
-Current task: chat scroll-to-bottom fix in `fix/chat-scroll-to-bottom`.
+Current task: promote the accepted `feature/ui-improvements` Preview into `dev`.
 
-Status: CI runner allocation is operational again on the public repository. PR #41 (`ci: reduce duplicate Quality Gate runner demand`) was merged into `perf/animation-optimization` as `2e033313a51171f5305e53cac4b995b1af609b67`. The Quality Gate is push-driven only, so PRs receive checks from their pushed head SHA without a duplicate pull_request run. The repository was made public by the user after hosted-runner execution recovered; this is operational evidence, not proof of an internal GitHub throttle/quota cause.
+Status: the latest Preview head `9847b28ecaa8861d675237c97c921c5aa0cda7eb` includes the DayView reopen repair plus PR #78 BottomSheet/DayView optimization tweaks. Quality Gate run 698 and the Vercel Preview are green. Direct PR #79 conflicts only because the branch histories diverged after an earlier content-level sync; the synced feature commit `b161d1cdc58decb08f04b863b0cc552b7107ab99` and current `dev` head `8e01bec9adde69d05d9acf2a8d6935ca47a1480b` have the exact same Git tree. The promotion integration branch therefore reconciles both histories with a two-parent merge commit while retaining the accepted feature tree and all current dev content.
 
-The interaction-performance phase already retained:
-- Settings deployment branch/short SHA/commit message metadata.
-- Conditional TaskItem optional work.
-- Shell-first DayView content deferral.
-- Swiper Virtual with explicit `addSlidesBefore: 3` / `addSlidesAfter: 3`.
-- TaskItem Framer Motion layout-projection suppression during sheet entrance.
-- CI Chromium instrumentation for Event Timing, Long Animation Frames, React render/commit timing, mutations, and synchronous layout reads.
-
-Representative lab evidence: sheet-open click processing improved from about 154ms to 51ms and max action Long Animation Frame from about 175ms to 70ms after the accepted virtualization changes. A separate trace reduced Framer Motion `getBoundingClientRect` reads from 52 to 2 during sheet entrance. These are CI/lab measurements, not device guarantees. A boolean/default Swiper Virtual experiment and BottomSheet drag-suppression experiment were both reverted after measurable regressions.
-
-Close-path evidence so far:
-- Rejected deferred-child exit retention by itself: close measured about 335ms LOAF with 52 Framer Motion layout reads.
-- Disabled TaskItem layout projection for the sheet lifecycle: layout reads fell from 52 to 2, but close stayed around 342ms LOAF, so projection was not the whole cost.
-- A direct-transform sheet rewrite reduced the probe substantially but broke sheet drag interaction; the exit-only variant preserved drag without a material improvement.
-- Native CSS transition was rejected because browser contracts did not observe transition-end cleanup and the close probe stayed around 325ms.
-- Shadow/overflow paint experiments were noisy and did not explain the remaining cost.
-- The stable candidate is contain: paint on the fixed sheet surface. With the same 0.32s Framer exit duration, the tap-driven close probe fell from roughly 325ms action duration / 315ms LOAF to roughly 192ms / 184ms, across repeated browser runs. Layout reads remain at 2. The improvement is therefore tied to paint containment rather than shortening the animation.
-- The performance probe now closes by tapping the documented exposed backdrop strip, matching the real phone dismissal contract rather than measuring Escape.
-- Focused regression coverage pins deferred-child exit retention and BottomSheet dialog semantics.
-Working set:
-- `life-tracker/src/components/ui/BottomSheet.tsx`
-- `life-tracker/tests/components/BottomSheet.test.tsx`
+## Working set
 - `life-tracker/docs/SESSION_STATE.md`
+- promotion integration history only; no new runtime behavior is introduced beyond accepted `feature/ui-improvements`
 
-Completed substeps:
-- Merged PR #41 CI runner-demand mitigation.
-- Created `chatgpt/dayview-close-smoothness` from the merged stable commit.
-- Identified the exit-teardown candidate.
-- Added the exit-teardown regression test.
-- Investigated and repaired two React lint failures exposed by CI.
+## Completed substeps
+- Confirmed `feature/ui-improvements` head `9847b28` passed full canonical Quality Gate run 698.
+- Confirmed its Vercel Preview deployment succeeded.
+- Confirmed the earlier feature/dev sync tree is byte-for-byte identical to current dev before the later UI commits.
+- Opened PR #79 and confirmed ordinary promotion is blocked by Git ancestry conflicts, not by missing accepted runtime content.
+- Created `chatgpt/promote-ui-to-dev` with a two-parent reconciliation commit whose first parent is current dev and whose second parent is the accepted feature head.
 
-Remaining substeps:
-- Run the canonical full gate on the final task SHA.
-- After exact-SHA canonical acceptance, publish the stable Preview branch and perform the required real-device open/close acceptance.
-- If device evidence shows remaining hitching, continue from a device trace; do not revert the paint-containment candidate without evidence.
-Constraints:
-- Do not claim real-device acceptance without an actual device check.
-- Do not replace the accepted explicit Swiper virtual buffers without new evidence.
-- Preserve BottomSheet history/Back-stack behavior and existing visual behavior.
-- Use a coherent `chatgpt/**` task branch and include `[verify:full]` on the final acceptance commit.
-- Vercel Preview is only considered delivered after the exact final SHA receives canonical acceptance.
+## Remaining substeps
+- Run canonical full acceptance on the exact final promotion-integration SHA.
+- Replace/close conflicted PR #79 with the accepted integration PR and merge it into `dev`.
+- Verify the resulting `dev` Quality Gate and Vercel Preview deployment.
+- Real-device DayView reopen acceptance remains separate and must not be claimed unless performed.
 
-Verification:
-- Focused Quality Gate passed on the implementation.
-- Browser contracts passed with contain: paint; the tap-driven close probe measured about 192ms action duration and 184ms max Long Animation Frame on the latest repeated run, with 2 layout reads.
-- The canonical full gate passed on the code checkpoint immediately before this documentation-only finalization; the exact final SHA below still needs its own canonical acceptance.
-- Real-device close smoothness remains unverified.
-- Vercel Preview remains pending exact-SHA canonical acceptance.
-Next action: manual browser/device acceptance of the chat open-at-bottom behavior; no further code changes are planned unless that check finds a regression.
+## Constraints
+- Preserve all current dev chat-scroll/viewport work.
+- Preserve the accepted UI/DayView/BottomSheet behavior from `feature/ui-improvements`.
+- Use a merge-style promotion into `dev`; do not squash away the stable Preview lineage.
+- Do not promote `dev` to `main` without separate explicit instruction.
 
-Blockers: none currently. The previous hosted-runner allocation blocker is no longer reproducing; the remaining blocker to completion is verification of the close-path performance candidate and real-device acceptance.
+## Verification
+- Stable feature canonical acceptance: Quality Gate run 698 passed.
+- Stable feature Vercel Preview: green.
+- Promotion integration canonical acceptance: pending exact final SHA.
+- Dev post-merge canonical acceptance and deployment: pending.
+- Manual/device acceptance: pending where applicable.
+
+Next action: run the full gate on the final promotion-integration SHA, then merge the accepted integration PR into `dev` and verify dev.
+
+Blockers: none; PR #79's ancestry conflict is resolved by the integration branch.
 
 ## Close animation cohesion follow-up — 2026-09-26
 

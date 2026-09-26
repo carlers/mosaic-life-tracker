@@ -37,6 +37,8 @@ const HORIZONTAL_SWIPE_MIN_DISTANCE = 48;
 const HORIZONTAL_SWIPE_AXIS_RATIO = 1.2;
 const DIRECTIONAL_DRAG_MIN_DISTANCE = 8;
 const DIRECTIONAL_DRAG_AXIS_RATIO = 1.15;
+// #9: hoisted so React sees a stable reference and skips re-diffing the style prop.
+const SHEET_SURFACE_STYLE: React.CSSProperties = { contain: 'paint' };
 
 type HorizontalSwipeStart = {
   pointerId: number;
@@ -318,19 +320,21 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
       ? 'flex-1 min-h-0 px-4'
       : 'flex-1 overflow-y-auto px-4 pb-8 overscroll-contain';
 
+  // #14: skip building the portal tree entirely once the sheet is fully
+  // gone. We still render while `childrenMounted` is true so AnimatePresence
+  // can play the exit animation.
+  if (!isOpen && !childrenMounted) {
+    return null;
+  }
+
   const sheetContent = (
     <>
       <AnimatePresence>
         {isOpen && (
-          <>
-          {/*
-            Backdrop. `aria-hidden` is correct — a modal backdrop is
-            decorative and must not be reachable by keyboard or
-            announced by a screen reader. Dismissal is via Escape, via
-            the drag handle (pointer), or via a close button in the
-            sheet content.
-          */}
+          // #8: keyed, no wrapper fragment — AnimatePresence tracks direct
+          // motion children.
           <motion.div
+            key="backdrop"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -342,12 +346,12 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
             aria-hidden="true"
             className={`fixed inset-0 z-[50] bg-black/60 ${backdropBlur ? 'backdrop-blur-sm' : ''} ${suspendInteraction ? 'pointer-events-none' : ''}`}
           />
-          </>
         )}
       </AnimatePresence>
       <AnimatePresence>
         {isOpen && (
           <SheetPresenceSurface
+            key="sheet"
             sheetRef={sheetRef}
             aria-hidden={suspendInteraction ? true : undefined}
             aria-labelledby={title ? titleId : undefined}
@@ -499,7 +503,7 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
                 requestSheetClose(sheetId);
               }
             }}
-            style={{ contain: 'paint' }}
+            style={SHEET_SURFACE_STYLE}
             className={`fixed bottom-0 left-0 right-0 z-[60] bg-[#1E1E1E] text-white shadow-2xl flex flex-col overflow-hidden ${heightClass} ${widthClass} ${suspendInteraction ? 'pointer-events-none select-none' : ''}`}
           >
             <div
