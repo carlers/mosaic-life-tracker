@@ -90,12 +90,9 @@ export function useDayViewSwiper({
 
     isProgrammaticMoveRef.current = true;
 
-    // A large programmatic jump (e.g. Sep 11 -> Sep 30) changes Swiper's
-    // virtual window before React has rendered the newly active slide. Force
-    // the virtual module to recalculate first, then move the swiper. Without
-    // this ordering the correct five-slide window can exist in the DOM while
-    // the old slide remains the visible translate target until another swipe.
-    swiper.virtual?.update?.(true);
+    // Keep Swiper responsible only for the 181 lightweight geometry slides.
+    // The expensive DaySlide content is windowed by React below, so a large
+    // selected-date jump cannot leave Swiper Virtual's internal window stale.
     swiper.slideTo(initialIndex, 0);
     swiper.updateSlides?.();
 
