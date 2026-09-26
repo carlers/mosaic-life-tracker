@@ -1,5 +1,5 @@
-import React, { useContext, useEffect, useLayoutEffect, useRef } from 'react';
-import { motion, AnimatePresence, useDragControls } from 'framer-motion';
+import React, { useContext, useDeferredValue, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { motion, AnimatePresence, useDragControls, usePresence } from 'framer-motion';
 import ReactDOM from 'react-dom';
 import { useFocusTrap } from '../../hooks/useFocusTrap';
 import { AppearanceContext } from '../../hooks/appearanceContext';
@@ -16,6 +16,8 @@ interface BottomSheetProps {
   backdropBlur?: boolean;
   contentMode?: 'scroll' | 'fixed';
   onHorizontalSwipe?: (direction: 'left' | 'right') => void;
+  onAnimationComplete?: () => void;
+  deferChildrenUntilPaint?: boolean;
 }
 
 type SheetStackEntry = {
@@ -189,6 +191,43 @@ function requestSheetClose(sheetId: string): void {
   entry.onClose();
 }
 
+function SheetPresenceSurface({
+  sheetRef,
+  onAnimationComplete,
+  children,
+  ...outerProps
+}: React.ComponentProps<typeof motion.div> & {
+  sheetRef: React.RefObject<HTMLDivElement | null>;
+  onAnimationComplete?: () => void;
+}) {
+  const [isPresent, safeToRemove] = usePresence();
+
+  return (
+    <motion.div
+      ref={sheetRef}
+      {...outerProps}
+      initial={{ transform: 'translate3d(0, 100%, 0)' }}
+      animate={{
+        transform: isPresent
+          ? 'translate3d(0, 0, 0)'
+          : 'translate3d(0, 100%, 0)',
+      }}
+      transition={{
+        duration: 0.32,
+        ease: [0.32, 0.72, 0, 1],
+      }}
+      onAnimationComplete={() => {
+        onAnimationComplete?.();
+        if (!isPresent) safeToRemove?.();
+      }}
+      role="dialog"
+      aria-modal="true"
+    >
+      {children}
+    </motion.div>
+  );
+}
+
 export const BottomSheet: React.FC<BottomSheetProps> = ({
   isOpen,
   onClose,
@@ -201,6 +240,8 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
   backdropBlur = false,
   contentMode = 'scroll',
   onHorizontalSwipe,
+  onAnimationComplete,
+  deferChildrenUntilPaint = false,
 }) => {
   const appearance = useContext(AppearanceContext);
   const sheetWidthMode = appearance?.sheetWidthMode ?? 'full';
@@ -212,6 +253,15 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
   const dragControls = useDragControls();
   const sheetId = React.useId();
   const titleId = React.useId();
+  const deferredContentOpen = useDeferredValue(
+    deferChildrenUntilPaint ? isOpen : true
+  );
+  const [childrenMounted, setChildrenMounted] = useState(true);
+  const shouldRenderChildren = deferChildrenUntilPaint
+    ? isOpen
+      ? deferredContentOpen
+      : childrenMounted
+    : isOpen;
 
   useLayoutEffect(() => {
     onCloseRef.current = onClose;
@@ -269,9 +319,10 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
       : 'flex-1 overflow-y-auto px-4 pb-8 overscroll-contain';
 
   const sheetContent = (
-    <AnimatePresence>
-      {isOpen && (
-        <>
+    <>
+      <AnimatePresence>
+        {isOpen && (
+          <>
           {/*
             Backdrop. `aria-hidden` is correct — a modal backdrop is
             decorative and must not be reachable by keyboard or
@@ -291,17 +342,22 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
             aria-hidden="true"
             className={`fixed inset-0 z-[50] bg-black/60 ${backdropBlur ? 'backdrop-blur-sm' : ''} ${suspendInteraction ? 'pointer-events-none' : ''}`}
           />
-          <motion.div
-            ref={sheetRef}
-            role="dialog"
-            aria-modal="true"
+          </>
+        )}
+      </AnimatePresence>
+      <AnimatePresence>
+        {isOpen && (
+          <SheetPresenceSurface
+            sheetRef={sheetRef}
             aria-hidden={suspendInteraction ? true : undefined}
             aria-labelledby={title ? titleId : undefined}
             aria-label={!title ? ariaLabel : undefined}
-            initial={{ y: '100%' }}
-            animate={{ y: 0 }}
-            exit={{ y: '100%' }}
-            transition={{ type: 'spring', damping: 30, stiffness: 280 }}
+            onAnimationComplete={() => {
+              onAnimationComplete?.();
+              if (!isOpen) {
+                setChildrenMounted(false);
+              }
+            }}
             drag="y"
             dragControls={dragControls}
             dragListener={false}
@@ -443,6 +499,7 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
                 requestSheetClose(sheetId);
               }
             }}
+            style={{ contain: 'paint' }}
             className={`fixed bottom-0 left-0 right-0 z-[60] bg-[#1E1E1E] text-white shadow-2xl flex flex-col overflow-hidden ${heightClass} ${widthClass} ${suspendInteraction ? 'pointer-events-none select-none' : ''}`}
           >
             <div
@@ -470,11 +527,13 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
                 </h3>
               )}
             </div>
-            <div className={contentClass}>{children}</div>
-          </motion.div>
-        </>
-      )}
-    </AnimatePresence>
+            <div className={contentClass}>
+              {shouldRenderChildren ? children : null}
+            </div>
+          </SheetPresenceSurface>
+        )}
+      </AnimatePresence>
+    </>
   );
 
   return ReactDOM.createPortal(sheetContent, document.body);

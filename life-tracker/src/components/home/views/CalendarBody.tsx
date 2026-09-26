@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { startTransition, useCallback, useState } from 'react';
 import { DayViewSheet } from './DayViewSheet';
 import { FriendDayViewSheet } from '../../friend/FriendDayViewSheet';
 import { ReplyComposerSheet } from '../../messages/ReplyComposerSheet';
@@ -62,8 +62,11 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
   } = useFriendTaskReply(tasks);
 
   const handleDayClick = useCallback((date: Date) => {
-    setSelectedDate(date);
-    setDaySheetOpen(true);
+    // Keep the tap responsive; sheet rendering is non-urgent work. [verify:full]
+    startTransition(() => {
+      setSelectedDate(date);
+      setDaySheetOpen(true);
+    });
   }, []);
 
   const handleCloseDaySheet = useCallback(() => {
@@ -93,10 +96,16 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
     />
   );
 
+  const calendarContent = (content: React.ReactNode) => (
+    <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+      {content}
+    </div>
+  );
+
   if (variant === 'friend' && friendName && friendUserId) {
     return (
       <>
-        {carousel}
+        {calendarContent(carousel)}
         <FriendDayViewSheet
           isOpen={daySheetOpen}
           onClose={handleCloseDaySheet}
@@ -129,7 +138,7 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
 
   return (
     <>
-      {carousel}
+      {calendarContent(carousel)}
       <DayViewSheet
         isOpen={daySheetOpen}
         onClose={handleCloseDaySheet}

@@ -7,6 +7,7 @@ vi.mock('../../src/components/home/views/CalendarSlide', () => ({
   CalendarSlide: () => <div>calendar-slide</div>,
 }));
 
+// Regression: stable calendar scrolling uses per-slide vertical scrolling with a fixed Embla viewport; [verify:full].
 describe('CalendarCarousel gesture ownership', () => {
   const props = {
     slides: [new Date('2026-01-01')],
@@ -27,9 +28,16 @@ describe('CalendarCarousel gesture ownership', () => {
       </div>
     );
 
-    const viewport = container.querySelector('.flex-1');
+    const viewport = container.querySelector('.swiper-no-swiping');
+    const scrollRegion = viewport?.parentElement;
+    expect(scrollRegion).not.toBeNull();
     expect(viewport).not.toBeNull();
-    expect(viewport).toHaveClass('swiper-no-swiping');
+    expect(scrollRegion).toHaveClass('overflow-hidden', 'flex-1', 'min-h-0');
+    expect(viewport).toHaveClass('swiper-no-swiping', 'overflow-hidden');
+
+    const slide = viewport?.querySelector('.h-full.min-h-0');
+    expect(slide).not.toBeNull();
+    expect(slide).toHaveClass('h-full', 'overflow-x-hidden', 'overflow-y-scroll', '[scrollbar-gutter:stable]');
 
     fireEvent.pointerDown(viewport!);
     fireEvent.pointerMove(viewport!);
@@ -43,9 +51,29 @@ describe('CalendarCarousel gesture ownership', () => {
 
   it('keeps the calendar carousel swipe target mounted for Embla', () => {
     const { container } = render(<CalendarCarousel {...props} />);
-    const viewport = container.querySelector('.flex-1');
+    const viewport = container.querySelector('.swiper-no-swiping');
 
     expect(viewport).not.toBeNull();
-    expect(viewport).toContainElement(container.querySelector('.flex.min-h-full.items-start'));
+    expect(viewport).toContainElement(container.querySelector('.flex.h-full.min-h-full.items-start'));
+  });
+
+  // Regression: PROJECT_REFERENCE.md §16 — empty geometry slides must not
+  // create dozens of unnecessary vertical scroll containers.
+  it('makes only rendered calendar slides vertically scrollable', () => {
+    const slides = Array.from(
+      { length: 5 },
+      (_, index) => new Date(2026, index, 1)
+    );
+    const { container } = render(
+      <CalendarCarousel
+        {...props}
+        slides={slides}
+        renderStart={1}
+        renderEnd={3}
+      />
+    );
+
+    expect(container.querySelectorAll('.overflow-y-scroll')).toHaveLength(3);
+    expect(container.querySelectorAll('.overflow-y-hidden')).toHaveLength(2);
   });
 });

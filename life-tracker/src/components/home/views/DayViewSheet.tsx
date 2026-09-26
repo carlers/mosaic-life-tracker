@@ -1,6 +1,7 @@
 import React, { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import { format } from 'date-fns';
 import { Swiper, SwiperSlide } from 'swiper/react';
+import { Virtual } from 'swiper/modules';
 import { AnimatePresence } from 'framer-motion';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { BottomSheet } from '../../ui/BottomSheet';
@@ -132,6 +133,16 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
       deletePhotoConfirmOpen ||
       !!imagePickerTaskId,
   });
+
+  const [deferredRenderWindow, setDeferredRenderWindow] = useState(0);
+  const handleSheetAnimationComplete = useCallback(() => {
+    if (isOpen) setDeferredRenderWindow(renderWindow);
+  }, [isOpen, renderWindow]);
+
+  const handleSheetClose = useCallback(() => {
+    setDeferredRenderWindow(0);
+    onClose();
+  }, [onClose]);
 
   useEffect(() => {
     if (!isOpen || renderMode !== 'sheet' || !focusTaskId) return;
@@ -428,6 +439,8 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
           swiperRef.current = swiper;
         }}
         initialSlide={initialIndex}
+        virtual={{ addSlidesBefore: 3, addSlidesAfter: 3 }}
+        modules={[Virtual]}
         onSlideChange={handleSwipeSettled}
         data-testid="day-swiper"
         data-bottom-sheet-native-horizontal-swipe={renderMode === 'sheet' ? 'true' : undefined}
@@ -440,12 +453,13 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
         }}
       >
         {slideDates.map((date, i) => {
-          const inWindow = Math.abs(i - activeIndex) <= renderWindow;
+          const inWindow = Math.abs(i - activeIndex) <= deferredRenderWindow;
           const dateStr = slideDateStrs[i];
           const dayTasks = tasksByDate.get(dateStr) ?? EMPTY_TASKS;
           return (
             <SwiperSlide
               key={date.toISOString()}
+              virtualIndex={i}
               className="min-w-0"
               aria-hidden={i === activeIndex ? undefined : true}
               style={{ height: renderMode === 'inline' ? 'auto' : '100%' }}
@@ -453,57 +467,61 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
               <div
                 className={renderMode === 'inline' ? 'w-full min-w-0' : 'flex h-full min-h-0 w-full min-w-0 flex-col'}
               >
-                <div
-                  className="flex shrink-0 items-center justify-between gap-2 px-4 py-2"
-                  data-bottom-sheet-directional-drag-handle={
-                    renderMode === 'sheet' ? 'true' : undefined
-                  }
-                >
-                  <button
-                    type="button"
-                    onClick={handlePrevDay}
-                    tabIndex={i === activeIndex ? 0 : -1}
-                    className="p-2 text-gray-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
-                    aria-label="Previous day"
-                  >
-                    <ChevronLeft size={20} />
-                  </button>
-                  <h3
-                    className="min-w-0 flex-1 text-center text-base font-semibold text-white"
-                    aria-live={i === activeIndex ? 'polite' : undefined}
-                  >
-                    {format(date, 'EEEE, MMMM d, yyyy')}
-                  </h3>
-                  <button
-                    type="button"
-                    onClick={handleNextDay}
-                    tabIndex={i === activeIndex ? 0 : -1}
-                    className="p-2 text-gray-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
-                    aria-label="Next day"
-                  >
-                    <ChevronRight size={20} />
-                  </button>
-                </div>
                 {inWindow && (
-                  <DaySlide
-                    date={date}
-                    dateStr={dateStr}
-                    scrollMode={renderMode === 'inline' ? 'page' : 'contained'}
-                    tasks={dayTasks}
-                    categories={categories}
-                    currentUserId={currentUserId}
-                    editingTaskId={editingTaskId}
-                    editValue={editValue}
-                    onToggleTask={handleToggleTask}
-                    onAddTask={handleAddTask}
-                    onOpenActions={handleOpenActions}
-                    onOpenMemo={handleOpenMemo}
-                    onEditTask={handleEditTask}
-                    onViewImage={handleViewImage}
-                    onEditChange={handleEditChange}
-                    onEditSave={handleEditSave}
-                    onEditCancel={handleEditCancel}
-                  />
+                  <>
+                    <div
+                      className="flex shrink-0 items-center justify-between gap-2 px-4 py-2"
+                      data-day-view-navigation="true"
+                      data-bottom-sheet-directional-drag-handle={
+                        renderMode === 'sheet' ? 'true' : undefined
+                      }
+                    >
+                      <button
+                        type="button"
+                        onClick={handlePrevDay}
+                        tabIndex={i === activeIndex ? 0 : -1}
+                        className="p-2 text-gray-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
+                        aria-label="Previous day"
+                      >
+                        <ChevronLeft size={20} />
+                      </button>
+                      <h3
+                        className="min-w-0 flex-1 text-center text-base font-semibold text-white"
+                        aria-live={i === activeIndex ? 'polite' : undefined}
+                      >
+                        {format(date, 'EEEE, MMMM d, yyyy')}
+                      </h3>
+                      <button
+                        type="button"
+                        onClick={handleNextDay}
+                        tabIndex={i === activeIndex ? 0 : -1}
+                        className="p-2 text-gray-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
+                        aria-label="Next day"
+                      >
+                        <ChevronRight size={20} />
+                      </button>
+                    </div>
+                    <DaySlide
+                      date={date}
+                      dateStr={dateStr}
+                      scrollMode={renderMode === 'inline' ? 'page' : 'contained'}
+                      tasks={dayTasks}
+                      categories={categories}
+                      currentUserId={currentUserId}
+                      editingTaskId={editingTaskId}
+                      editValue={editValue}
+                      onToggleTask={handleToggleTask}
+                      onAddTask={handleAddTask}
+                      onOpenActions={handleOpenActions}
+                      onOpenMemo={handleOpenMemo}
+                      onEditTask={handleEditTask}
+                      onViewImage={handleViewImage}
+                      onEditChange={handleEditChange}
+                      onEditSave={handleEditSave}
+                      onEditCancel={handleEditCancel}
+                      disableTaskLayoutAnimation={renderMode === 'sheet'}
+                    />
+                  </>
                 )}
               </div>
             </SwiperSlide>
@@ -626,13 +644,15 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
   return (
     <BottomSheet
       isOpen={isOpen}
-      onClose={onClose}
+      onClose={handleSheetClose}
       ariaLabel={format(selectedDate, 'EEEE, MMMM d, yyyy')}
       height="full"
       isLocked={isBackgroundLocked}
       suspendInteraction={isBackgroundLocked}
       contentMode="fixed"
       onHorizontalSwipe={handleSheetHorizontalSwipe}
+      onAnimationComplete={handleSheetAnimationComplete}
+      deferChildrenUntilPaint
     >
       <div
         data-testid="day-sheet-swipe-surface"

@@ -12,7 +12,7 @@ const FOCUSABLE_SELECTOR = [
 /**
  * Minimal focus trap for modal containers.
  *
- * On mount: captures the currently-focused element, then focuses the
+ * On activation: captures the currently-focused element, then focuses the
  * first focusable descendant of `containerRef`. Tab / Shift+Tab wrap
  * within the container. On unmount: restores focus to the captured
  * element.
@@ -37,25 +37,19 @@ export function useFocusTrap(
       const nodes = container.querySelectorAll<HTMLElement>(
         FOCUSABLE_SELECTOR
       );
-      // Filter out elements that are not actually reachable — the sheet
-      // can contain a `pointer-events-none`/`opacity-50` locked region
-      // (TaskActionSheet's nested choreography) whose children should
-      // not receive focus.
+      // Avoid geometry reads here: opening a large sheet can contain
+      // thousands of nodes, and offsetParent would synchronously flush layout.
+      // Suspended modal layers are marked aria-hidden on their root, so exclude
+      // any focusable descendant of an aria-hidden subtree without measuring it.
       return Array.from(nodes).filter((el) => {
         if (el.hasAttribute('disabled')) return false;
-        if (el.getAttribute('aria-hidden') === 'true') return false;
-        return el.offsetParent !== null || el === document.activeElement;
+        return !el.closest('[aria-hidden="true"]');
       });
     };
 
     const focusables = getFocusable();
     if (focusables.length > 0) {
-      // Defer one frame so Framer Motion's enter animation has started
-      // and the element is not display:none mid-transition.
-      const raf = requestAnimationFrame(() => {
-        focusables[0].focus({ preventScroll: true });
-      });
-      container.dataset.focusTrapRaf = String(raf);
+      focusables[0].focus({ preventScroll: true });
     }
 
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -85,11 +79,6 @@ export function useFocusTrap(
 
     return () => {
       document.removeEventListener('keydown', handleKeyDown);
-      const raf = container.dataset.focusTrapRaf;
-      if (raf) {
-        cancelAnimationFrame(Number(raf));
-        delete container.dataset.focusTrapRaf;
-      }
       if (previouslyFocused && document.contains(previouslyFocused)) {
         previouslyFocused.focus({ preventScroll: true });
       }

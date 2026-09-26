@@ -19,10 +19,10 @@ Deployment status in the final result. Do not commit status-only prose after acc
 |---|---|
 | Docs | Ordinary Markdown-only changes: contracts and diff checks, no dependency install |
 | Focused | Ordinary runtime pushes to `chatgpt/**` and `codex/**`: contracts/discovery, changed existing-file ESLint, Git-aware related tests |
-| Full | `main`, `dev`, `feature/**`, stable-branch PRs, manual dispatch, or `[verify:full]`: checks (contracts/discovery/lint/unit/handlers), two DOM shards, build, two browser shards |
+| Full | `main`, `dev`, `feature/**`, manual dispatch, or `[verify:full]`: checks (contracts/discovery/lint/unit/handlers), two DOM shards, build, two browser shards |
 | Branch delivery | Vercel deploys `main` to Production and `dev`/`feature/*` to Preview; `chatgpt/*`, `codex/*`, `temp/*`, and other branches are blocked |
 
-A focused or docs-only green run is never canonical acceptance. `[verify:browser]` requests intermediate browser coverage. Manual device evidence remains separate.
+Quality Gate is intentionally push-driven: the workflow does not also run on `pull_request`, avoiding duplicate runner allocation for the same commit. PRs still receive the checks attached to the pushed head SHA. A focused or docs-only green run is never canonical acceptance. `[verify:browser]` requests intermediate browser coverage. Manual device evidence remains separate.
 While CI runs, finish independent review; otherwise wait between status requests. Read
 full logs for failures or unusual stalls, not on every poll. Fix the actual failing layer.
 
@@ -41,6 +41,30 @@ The preferred provider is Vercel. Configure one Vercel project from
 Static assets are not catch-all rewritten.
 
 `main` is the production branch, `dev` is the integration/staging branch, and `feature/*` branches are stable preview branches. There is no deployment-only `preview` branch. Source development continues on these branches and AI task branches.
+
+## Preview merge policy
+
+Individual development branches such as `chatgpt/*` and `codex/*` should enter stable Preview
+branches such as `feature/*` through **Squash and merge**. This keeps experimental
+development commits out of the durable Preview history while preserving the detailed
+development history in the pull request.
+
+This is a **GitHub repository ruleset**, not a CI convention. The ruleset should target
+`feature/*` and require:
+
+1. Pull requests before merging.
+2. The Preview merge-policy status check(s) required by the repository, once present.
+3. **Merge type: Squash**.
+4. No bypass for ordinary repository contributors.
+
+Do **not** globally disable merge commits or rebase merges: `feature/*` → `dev` and
+`dev` → `main` intentionally retain their separate promotion policy.
+
+The connected GitHub integration available to this environment can read repository rules
+but does not have permission to create or edit them. Therefore the final enforcement step
+is a repository-admin setting in GitHub; it cannot safely be represented as a source-file
+change. Until that ruleset is active, the convention is documented but not technically
+enforced.
 
 ## Why a stable hostname
 

@@ -63,6 +63,38 @@ describe('BottomSheet', () => {
     ).not.toBeNull();
   });
 
+  // Regression: task acceptance — deferred sheet content stays mounted for the exit transition.
+  it('keeps deferred children mounted during the exit transition', () => {
+    const { rerender } = render(
+      <BottomSheet isOpen onClose={noop} deferChildrenUntilPaint>
+        <div data-marker="sheet-child">inner</div>
+      </BottomSheet>
+    );
+
+    rerender(
+      <BottomSheet isOpen={false} onClose={noop} deferChildrenUntilPaint>
+        <div data-marker="sheet-child">inner</div>
+      </BottomSheet>
+    );
+
+    // happy-dom does not run compositor CSS transitions, so the browser
+    // contract owns the eventual transitionend/removal assertion. This test
+    // pins the important React contract: exit starts with children still mounted.
+    expect(document.body.querySelector('[data-marker="sheet-child"]')).not.toBeNull();
+  });
+
+  it('preserves dialog semantics on the draggable sheet surface', () => {
+    render(
+      <BottomSheet isOpen onClose={noop} ariaLabel="Day view">
+        Inner
+      </BottomSheet>
+    );
+
+    const dialog = document.body.querySelector('[role="dialog"]');
+    expect(dialog).toHaveAttribute('aria-modal', 'true');
+    expect(dialog).toHaveAttribute('aria-label', 'Day view');
+  });
+
   it('renders nothing when isOpen is false', () => {
     render(
       <BottomSheet isOpen={false} onClose={noop}>

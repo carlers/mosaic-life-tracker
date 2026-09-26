@@ -1,4 +1,4 @@
-import React, { StrictMode, useRef, useState } from 'react';
+import React, { Profiler, StrictMode, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { Swiper, SwiperSlide } from 'swiper/react';
 import type { Swiper as SwiperClass } from 'swiper';
@@ -8,6 +8,8 @@ import { format } from 'date-fns';
 import { CalendarCarousel } from '../../src/components/home/views/CalendarCarousel';
 import { TodoCalendarGrid } from '../../src/components/home/views/TodoCalendarGrid';
 import { DaySlide } from '../../src/components/home/views/DaySlide';
+import { DayViewSheet } from '../../src/components/home/views/DayViewSheet';
+import { AuthContext } from '../../src/hooks/authContext';
 import { BottomSheet } from '../../src/components/ui/BottomSheet';
 import { HomeTaskSearch } from '../../src/components/home/HomeTaskSearch';
 import { MessageComposer } from '../../src/components/messages/MessageComposer';
@@ -17,12 +19,36 @@ import { useHorizontalArrowNavigation } from '../../src/hooks/useHorizontalArrow
 import { PrimaryRouteSwipeSurface } from '../../src/components/layout/PrimaryRouteSwipeSurface';
 import { applyAppearanceMode } from '../../src/lib/appearance';
 
+class DayViewProbeBoundary extends React.Component<
+  { children: React.ReactNode },
+  { error: Error | null }
+> {
+  state = { error: null as Error | null };
+
+  static getDerivedStateFromError(error: Error) {
+    return { error };
+  }
+
+  render() {
+    if (this.state.error) {
+      return (
+        <div data-testid="day-view-probe-error">
+          {this.state.error.message}
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 export function InteractionHarness() {
   const calendar = useCalendarState();
+  const performanceHeavy = new URLSearchParams(window.location.search).get('perf') === 'heavy';
   const [friendIndex, setFriendIndex] = useState(0);
   const [todoDayIndex, setTodoDayIndex] = useState(0);
   const [todoGesture, setTodoGesture] = useState('idle');
   const [fullSheetOpen, setFullSheetOpen] = useState(false);
+  const [dayViewSheetOpen, setDayViewSheetOpen] = useState(false);
   const [homeSearchOpen, setHomeSearchOpen] = useState(false);
   const [searchResultSheetOpen, setSearchResultSheetOpen] = useState(false);
   const [selectedSearchTask, setSelectedSearchTask] = useState<TaskDocument | null>(null);
@@ -35,7 +61,7 @@ export function InteractionHarness() {
   const [composerBlurCount, setComposerBlurCount] = useState(0);
   const [primaryRoute, setPrimaryRoute] = useState<'home' | 'explore' | 'account' | 'settings'>('home');
 
-  const todoCategories: CategoryDocument[] = Array.from({ length: 5 }, (_, index) => ({
+  const todoCategories: CategoryDocument[] = React.useMemo(() => Array.from({ length: 5 }, (_, index) => ({
     id: `cat_${index}`,
     name: `Category ${index + 1}`,
     color: ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6'][index],
@@ -43,22 +69,35 @@ export function InteractionHarness() {
     visibility: 'private',
     userId: 'user_1',
     isDeleted: false,
-  }));
-  const todoTasks: TaskDocument[] = todoCategories.flatMap((category, categoryIndex) =>
-    Array.from({ length: 3 }, (_, taskIndex) => ({
-      id: `task_${categoryIndex}_${taskIndex}`,
-      title: `Task ${categoryIndex + 1}.${taskIndex + 1}`,
-      completed: false,
-      categoryId: category.id,
-      date: '2026-09-15',
-      createdAt: '2026-09-01T00:00:00.000Z',
-      completedAt: '',
-      updatedAt: '2026-09-01T00:00:00.000Z',
-      userId: 'user_1',
-      isDeleted: false,
-      visibility: 'private',
-      memo: categoryIndex === 0 && taskIndex === 0 ? 'Browser memo content' : '',
-    }))
+  })), []);
+  const todoTasks: TaskDocument[] = React.useMemo(
+    () => todoCategories.flatMap((category, categoryIndex) =>
+      Array.from({ length: performanceHeavy ? 10 : 3 }, (_, taskIndex) => ({
+        id: `task_${categoryIndex}_${taskIndex}`,
+        title: `Task ${categoryIndex + 1}.${taskIndex + 1}`,
+        completed: false,
+        categoryId: category.id,
+        date: '2026-09-15',
+        createdAt: '2026-09-01T00:00:00.000Z',
+        completedAt: '',
+        updatedAt: '2026-09-01T00:00:00.000Z',
+        userId: 'user_1',
+        isDeleted: false,
+        visibility: 'private',
+        memo: categoryIndex === 0 && taskIndex === 0 ? 'Browser memo content' : '',
+      }))
+    ),
+    [todoCategories, performanceHeavy]
+  );
+
+  const daySwipeDates = React.useMemo(() => [-1, 0, 1].map((offset) => {
+    const date = new Date(2026, 8, 15 + offset);
+    return { date, dateStr: format(date, 'yyyy-MM-dd') };
+  }), []);
+
+  const calendarTasksByDate = React.useMemo(
+    () => new Map([[format(todoSelectedDate, 'yyyy-MM-dd'), todoTasks]]),
+    [todoSelectedDate, todoTasks]
   );
 
   useHorizontalArrowNavigation({
@@ -163,12 +202,32 @@ export function InteractionHarness() {
                 }
                 style={{ height: '100%' }}
               >
-                <SwiperSlide>
-                  <div className="h-full flex items-center justify-center">Todo day 1</div>
-                </SwiperSlide>
-                <SwiperSlide>
-                  <div className="h-full flex items-center justify-center">Todo day 2</div>
-                </SwiperSlide>
+                {daySwipeDates.map(({ date, dateStr }) => (
+                  <SwiperSlide key={dateStr}>
+                    {performanceHeavy ? (
+                      <DaySlide
+                        date={date}
+                        dateStr={dateStr}
+                        tasks={todoTasks}
+                        categories={todoCategories}
+                        currentUserId="user_1"
+                        editingTaskId={null}
+                        editValue=""
+                        onToggleTask={() => {}}
+                        onAddTask={() => {}}
+                        onOpenActions={() => setTodoGesture('actions')}
+                        onOpenMemo={(_, mode) => setTodoGesture(`memo-${mode}`)}
+                        onEditTask={() => setTodoGesture('edit')}
+                        onViewImage={() => {}}
+                        onEditChange={() => {}}
+                        onEditSave={() => {}}
+                        onEditCancel={() => {}}
+                      />
+                    ) : (
+                      <div className="h-full flex items-center justify-center">Todo day</div>
+                    )}
+                  </SwiperSlide>
+                ))}
               </Swiper>
             </div>
             <div data-testid="calendar-region" style={{ height: 280, overflow: 'hidden' }}>
@@ -179,7 +238,7 @@ export function InteractionHarness() {
                 emblaRef={calendar.emblaRef}
                 viewMode={calendar.viewMode}
                 onDayClick={() => {}}
-                tasksByDate={new Map()}
+                tasksByDate={performanceHeavy ? calendarTasksByDate : new Map()}
                 categoriesMap={{}}
               />
             </div>
@@ -266,6 +325,56 @@ export function InteractionHarness() {
         </div>
       </BottomSheet>
 
+      {performanceHeavy && (
+        <>
+          <button
+            type="button"
+            data-testid="open-day-view-sheet"
+            onClick={() => setDayViewSheetOpen(true)}
+            className="px-3 py-2"
+          >
+            Open day view sheet
+          </button>
+          <DayViewProbeBoundary>
+            <Profiler
+              id="DayViewSheet"
+              onRender={(
+                id,
+                phase,
+                actualDuration,
+                baseDuration,
+                startTime,
+                commitTime,
+              ) => {
+                const profile = {
+                  id,
+                  phase,
+                  timestamp: Number(performance.now().toFixed(2)),
+                  actualDuration: Number(actualDuration.toFixed(2)),
+                  baseDuration: Number(baseDuration.toFixed(2)),
+                  startTime: Number(startTime.toFixed(2)),
+                  commitTime: Number(commitTime.toFixed(2)),
+                  renderToCommitMs: Number((commitTime - startTime).toFixed(2)),
+                };
+                const profileWindow = window as typeof window & {
+                  __mosaicReactProfile?: typeof profile[];
+                };
+                profileWindow.__mosaicReactProfile ??= [];
+                profileWindow.__mosaicReactProfile.push(profile);
+                console.log(`MOSAIC_REACT_PROFILE ${JSON.stringify(profile)}`);
+              }}
+            >
+              <DayViewSheet
+                isOpen={dayViewSheetOpen}
+                onClose={() => setDayViewSheetOpen(false)}
+                selectedDate={new Date(2026, 8, 15)}
+                tasks={todoTasks}
+                categories={todoCategories}
+              />
+            </Profiler>
+          </DayViewProbeBoundary>
+        </>
+      )}
       <button
         type="button"
         data-testid="open-full-sheet"
@@ -465,6 +574,21 @@ const root = document.getElementById('root');
 if (!root) throw new Error('Missing interaction harness root');
 createRoot(root).render(
   <StrictMode>
-    <InteractionHarness />
+    <AuthContext.Provider
+      value={{
+        user: { $id: 'user_1' } as never,
+        isLoading: false,
+        error: null,
+        isOffline: false,
+        login: async () => true,
+        signup: async () => true,
+        logout: async () => true,
+        updateEmail: async () => true,
+        updatePassword: async () => true,
+        retry: async () => {},
+      }}
+    >
+      <InteractionHarness />
+    </AuthContext.Provider>
   </StrictMode>
 );
