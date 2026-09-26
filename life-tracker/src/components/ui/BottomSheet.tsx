@@ -304,23 +304,9 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
             aria-hidden="true"
             className={`fixed inset-0 z-[50] bg-black/60 ${backdropBlur ? 'backdrop-blur-sm' : ''} ${suspendInteraction ? 'pointer-events-none' : ''}`}
           />
-          <motion.div
-            ref={sheetRef}
-            role="dialog"
-            aria-modal="true"
-            aria-hidden={suspendInteraction ? true : undefined}
-            aria-labelledby={title ? titleId : undefined}
-            aria-label={!title ? ariaLabel : undefined}
-            initial={{ y: '100%' }}
-            animate={{ y: 0 }}
-            exit={{ transform: 'translate3d(0, 100%, 0)' }}
-            onAnimationComplete={() => {
-              onAnimationComplete?.();
-              if (!isOpen) {
-                setChildrenMounted(false);
-              }
-            }}
-            transition={{ type: 'tween', duration: 0.32, ease: 'easeOut' }}
+          <SheetPresenceSurface
+            sheetRef={sheetRef}
+            onAnimationComplete={onAnimationComplete}
             drag="y"
             dragControls={dragControls}
             dragListener={false}
@@ -492,7 +478,7 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
             <div className={contentClass}>
               {shouldRenderChildren ? children : null}
             </div>
-          </motion.div>
+          </SheetPresenceSurface>
         </>
       )}
     </AnimatePresence>
