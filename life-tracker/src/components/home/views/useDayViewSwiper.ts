@@ -85,7 +85,7 @@ export function useDayViewSwiper({
   useEffect(() => {
     if (!isOpen) return;
     const swiper = swiperRef.current;
-    if (!swiper) return;
+    if (!swiper || swiper.destroyed) return;
     if (swiper.activeIndex === initialIndex) return;
 
     isProgrammaticMoveRef.current = true;
@@ -126,12 +126,16 @@ export function useDayViewSwiper({
 
   const handlePrevDay = useCallback(() => {
     if (isDisabled) return;
-    swiperRef.current?.slidePrev();
+    const swiper = swiperRef.current;
+    if (!swiper || swiper.destroyed) return;
+    swiper.slidePrev();
   }, [isDisabled]);
 
   const handleNextDay = useCallback(() => {
     if (isDisabled) return;
-    swiperRef.current?.slideNext();
+    const swiper = swiperRef.current;
+    if (!swiper || swiper.destroyed) return;
+    swiper.slideNext();
   }, [isDisabled]);
 
   return {
