@@ -1,4 +1,4 @@
-// Regression: UIFIX-10 — day arrows must behave like user navigation.
+// Regression: §2 (Day View arrow navigation behaves like user navigation).
 import { act, renderHook } from '@testing-library/react';
 import { addDays, startOfDay } from 'date-fns';
 import { describe, expect, it, vi } from 'vitest';
@@ -71,7 +71,7 @@ describe('useDayViewSwiper', () => {
     expect(swiper.updateSlides).toHaveBeenCalled();
   });
 
-  // Regression: PROJECT_REFERENCE.md §2 — closing and reopening Day View must not
+  // Regression: §2 (closing and reopening Day View must not
   // drive an already-destroyed Swiper instance left behind by deferred remounting.
   it('ignores a destroyed swiper while reopening on another day', () => {
     const initialDate = new Date(2026, 8, 20);
