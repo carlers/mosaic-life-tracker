@@ -8,7 +8,13 @@ import { ComingSoon } from '../layout/ComingSoon';
 import { useCalendarState } from './views/useCalendarState';
 import { useMessageActions } from '../../hooks/useMessageActions';
 import { useAuth } from '../../hooks/useAuth';
+import { useSettings } from '../../hooks/useSettings';
 import { useFriendCalendar } from '../../lib/useFriendCalendar';
+import {
+  TAP_CALENDAR_DATE_TO_TODAY_SETTING_KEY,
+  WEEK_STARTS_ON_SUNDAY_SETTING_KEY,
+  resolveWeekStartsOn,
+} from '../../lib/preferences';
 import type { CarouselPerson } from '../../hooks/useFriendCarousel';
 import type { ViewType } from './ViewSwitcher';
 import type { CategoryDocument, TaskDocument } from '../../db/schema';
@@ -39,6 +45,12 @@ export const PersonPane: React.FC<PersonPaneProps> = ({
 }) => {
   const { user } = useAuth();
   const currentUserId = user?.$id ?? '';
+  const { getSetting } = useSettings();
+  const weekStartsOn = resolveWeekStartsOn(
+    getSetting(WEEK_STARTS_ON_SUNDAY_SETTING_KEY, true) === true
+  );
+  const tapCalendarDateToToday =
+    getSetting(TAP_CALENDAR_DATE_TO_TODAY_SETTING_KEY, false) === true;
   const tasks = ownerTasks;
   const categories = ownerCategories;
 
@@ -49,7 +61,7 @@ export const PersonPane: React.FC<PersonPaneProps> = ({
   const [activeView, setActiveView] = useState<ViewType>(readMeView);
   const [todoFocusDate, setTodoFocusDate] = useState(() => new Date());
 
-  const calendarState = useCalendarState();
+  const calendarState = useCalendarState({ weekStartsOn });
 
   const friendUserId = person.kind === 'friend' ? person.userId : null;
   const {
@@ -111,6 +123,11 @@ export const PersonPane: React.FC<PersonPaneProps> = ({
           onNext={activeView === 'todo' ? handleTodoNext : calendarState.handleNext}
           activeView={activeView}
           onViewChange={setActiveView}
+          onTitleClick={
+            activeView === 'calendar' && tapCalendarDateToToday
+              ? calendarState.resetToToday
+              : undefined
+          }
         />
         {activeView === 'calendar' ? (
           <CalendarBody
@@ -130,6 +147,7 @@ export const PersonPane: React.FC<PersonPaneProps> = ({
             onPrev={calendarState.handlePrev}
             onNext={calendarState.handleNext}
             onReactToTask={handleReactToTask}
+            weekStartsOn={weekStartsOn}
           />
         ) : activeView === 'todo' ? (
           <TodoListView
@@ -143,6 +161,7 @@ export const PersonPane: React.FC<PersonPaneProps> = ({
             friendUserId={friendUserId}
             currentUserId={currentUserId}
             onReactToTask={handleReactToTask}
+            weekStartsOn={weekStartsOn}
           />
         ) : (
           <ComingSoon />
@@ -162,6 +181,11 @@ export const PersonPane: React.FC<PersonPaneProps> = ({
         onNext={activeView === 'todo' ? handleTodoNext : calendarState.handleNext}
         activeView={activeView}
         onViewChange={setActiveView}
+        onTitleClick={
+          activeView === 'calendar' && tapCalendarDateToToday
+            ? calendarState.resetToToday
+            : undefined
+        }
       />
       {activeView === 'calendar' ? (
         <CalendarBody
@@ -178,6 +202,7 @@ export const PersonPane: React.FC<PersonPaneProps> = ({
           isActive={isActive}
           onPrev={calendarState.handlePrev}
           onNext={calendarState.handleNext}
+          weekStartsOn={weekStartsOn}
         />
       ) : activeView === 'todo' ? (
         <TodoListView
@@ -186,6 +211,7 @@ export const PersonPane: React.FC<PersonPaneProps> = ({
           categories={categories}
           categoriesMap={categoriesMap}
           onFocusDateChange={setTodoFocusDate}
+          weekStartsOn={weekStartsOn}
         />
       ) : (
         <ComingSoon />
