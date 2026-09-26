@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { MessageDocument } from '../../db/schema';
 
 const SCROLL_FAB_THRESHOLD_PX = 300;
@@ -29,7 +29,7 @@ export function useChatScroll({
   const lastMsg = messages[messages.length - 1];
   const lastMsgId = lastMsg?.id ?? null;
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (isSearching) return;
     const el = scrollRef.current;
     if (!el) return;
