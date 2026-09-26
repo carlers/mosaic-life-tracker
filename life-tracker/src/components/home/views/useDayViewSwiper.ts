@@ -87,8 +87,18 @@ export function useDayViewSwiper({
     const swiper = swiperRef.current;
     if (!swiper) return;
     if (swiper.activeIndex === initialIndex) return;
+
     isProgrammaticMoveRef.current = true;
+
+    // A large programmatic jump (e.g. Sep 11 -> Sep 30) changes Swiper's
+    // virtual window before React has rendered the newly active slide. Force
+    // the virtual module to recalculate first, then move the swiper. Without
+    // this ordering the correct five-slide window can exist in the DOM while
+    // the old slide remains the visible translate target until another swipe.
+    swiper.virtual?.update?.(true);
     swiper.slideTo(initialIndex, 0);
+    swiper.updateSlides?.();
+
     if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
     rafRef.current = requestAnimationFrame(() => {
       rafRef.current = null;
