@@ -3,6 +3,7 @@ import { getDatabase } from '../db/database';
 import { getCachedImage, cacheImage } from './imageCache';
 import { guardedCall, makeUnauthorizedError } from './authEvents';
 import { guardedStorage } from './sdk';
+import { APP_VERSION } from './appVersion';
 import type {
   TaskDocument,
   CategoryDocument,
@@ -18,8 +19,7 @@ const APPWRITE_CONFIG = {
 
 const DEBUG = import.meta.env.DEV;
 const APP_NAME = 'Mosaic';
-const APP_VERSION = '0.0.0';
-const EXPORT_VERSION = 1;
+const EXPORT_VERSION = 2;
 
 export interface ExportUser {
   id: string;
@@ -43,6 +43,7 @@ export interface ExportCounts {
 }
 
 export interface ExportPayload {
+  format: 'mosaic-user-backup';
   app: { name: string; version: string };
   version: number;
   exportedAt: string;
@@ -52,8 +53,13 @@ export interface ExportPayload {
     tasks: TaskDocument[];
     categories: CategoryDocument[];
     diary: DiaryDocument[];
-    settings: Record<string, unknown>;
+    settings: SettingsDocument[];
     friendships: FriendshipDocument[];
+  };
+  restore: {
+    restorable: ['tasks', 'categories', 'diary', 'settings'];
+    referenceOnly: ['friendships'];
+    excluded: ['messages'];
   };
   images: {
     included: boolean;
@@ -189,7 +195,7 @@ async function zipAsync(files: Record<string, Uint8Array>): Promise<Uint8Array> 
 
 function makeFilename(ext: 'json' | 'zip'): string {
   const ts = format(new Date(), 'yyyy-MM-dd-HHmmss');
-  return `mosaic-export-${ts}.${ext}`;
+  return `mosaic-backup-${ts}.${ext}`;
 }
 
 export async function exportUserData(
@@ -215,6 +221,7 @@ export async function exportUserData(
   const referencedArray = Array.from(referencedImages);
   const exportedAt = new Date().toISOString();
   const payload: ExportPayload = {
+    format: 'mosaic-user-backup',
     app: { name: APP_NAME, version: APP_VERSION },
     version: EXPORT_VERSION,
     exportedAt,
@@ -223,7 +230,7 @@ export async function exportUserData(
       tasks: raw.tasks.length,
       categories: raw.categories.length,
       diary: raw.diary.length,
-      settings: Object.keys(parsedSettings).length,
+      settings: raw.settings.length,
       friendships: raw.friendships.length,
       images: 0,
       missingImages: 0,
@@ -232,8 +239,13 @@ export async function exportUserData(
       tasks: raw.tasks,
       categories: raw.categories,
       diary: raw.diary,
-      settings: parsedSettings,
+      settings: raw.settings,
       friendships: raw.friendships,
+    },
+    restore: {
+      restorable: ['tasks', 'categories', 'diary', 'settings'],
+      referenceOnly: ['friendships'],
+      excluded: ['messages'],
     },
     images: {
       included: includeImages,
@@ -281,7 +293,7 @@ export async function exportUserData(
     JSON.stringify(raw.diary, null, 2)
   );
   files['data/settings.json'] = encoder.encode(
-    JSON.stringify(parsedSettings, null, 2)
+    JSON.stringify(raw.settings, null, 2)
   );
   files['data/friendships.json'] = encoder.encode(
     JSON.stringify(raw.friendships, null, 2)
