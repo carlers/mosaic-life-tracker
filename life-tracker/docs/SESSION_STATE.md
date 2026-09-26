@@ -68,6 +68,35 @@ Verification is running on the feature branch. Real-device visual acceptance rem
 
 The accepted task SHA `bc78a220c87ff6c086ab51236bc442e2e79a0cbf` was copied to `feature/dayview-close-paint-containment` for the configured Vercel Preview delivery path. This branch adds no runtime changes; its own canonical gate is required before treating the feature Preview as delivered.
 
+## Chat detail chrome and autoscroll — 2026-09-26
+
+Changed the individual conversation route so it owns the full viewport: the global bottom
+navigation and its reserved inset are removed, the conversation shell fills the available
+height, and the composer is absolutely anchored to the viewport bottom (including the safe
+area). The message list reserves space for the composer and the scroll control remains above
+it. Every newly appended outgoing or incoming message now anchors the message scroller to
+the latest message; opening a conversation still starts at the bottom.
+
+Verification:
+- Focused hook and MainLayout regression coverage added for initial/new-message autoscroll
+  and detail-route chrome removal.
+- Canonical full acceptance and Preview deployment remain pending.
+
+Working set:
+- `life-tracker/src/components/layout/AppLayout.tsx`
+- `life-tracker/src/components/layout/MainLayout.tsx`
+- `life-tracker/src/components/layout/PrimaryRouteSwipeSurface.tsx`
+- `life-tracker/src/pages/ChatPage.tsx`
+- `life-tracker/src/components/messages/MessageComposer.tsx`
+- `life-tracker/src/components/messages/ScrollToBottomButton.tsx`
+- `life-tracker/src/components/messages/useChatScroll.ts`
+- `life-tracker/tests/react/useChatScroll.test.tsx`
+- `life-tracker/tests/components/MainLayoutSwipe.test.tsx`
+
+Next action: run canonical full acceptance on the final task SHA and publish the stable
+Preview branch after acceptance. User manual/browser verification remains required for the
+actual chat viewport, composer anchoring, and live send/receive behavior.
+
 ## Wide content width follow-up — 2026-09-26
 
 Added a third large-screen Content width option, Wide, alongside Full screen and Comfortable. Wide centers the shared primary route-swipe surface at 85vw from the tablet breakpoint upward; phone layouts remain full width. Added settings, layout, and regression coverage.
