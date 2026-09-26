@@ -39,9 +39,10 @@ Status: implementation is complete on `chatgpt/backup-restore`, targeting stable
 ## Verification
 - Baseline: `dev` commit `d1535b76092b8a9878f5cc52cd5f61c521376d63`, Quality Gate 894 green per prior handoff.
 - Focused feature verification: Quality Gate run 903 passed.
-- Full canonical acceptance: requested by this checkpoint commit.
+- Full canonical acceptance run 905 reached green checks/DOM/dependency gates but failed production build on a TypeScript BlobPart mismatch in restored image bytes; the image path now materializes an ArrayBuffer before constructing File.
+- New full canonical acceptance: requested by this checkpoint commit.
 - Manual/device acceptance: not yet performed.
 
-Next action: complete full canonical acceptance, repair failures if any, then squash-deliver to the stable feature branch and verify Preview.
+Next action: complete the repaired full canonical acceptance, repair any remaining failure, then squash-deliver to the stable feature branch and verify Preview.
 
 Blockers: none.
