@@ -81,6 +81,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
           <PrimaryRouteSwipeSurface
           key={routeKey}
           homeZoneOnly={activeTab === 'home' && !hideBottomNav}
+          fullHeight={hideBottomNav}
           canSwipeLeft={canSwipeLeft}
           canSwipeRight={canSwipeRight}
           leftPreview={leftPreview}
