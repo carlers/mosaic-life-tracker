@@ -23,7 +23,6 @@ interface MessageComposerProps {
   placeholder?: string;
   replyTo?: ReplyToContext | null;
   onCancelReply?: () => void;
-  onHeightChange?: (height: number) => void;
 }
 
 export interface MessageComposerHandle {
@@ -44,13 +43,11 @@ export const MessageComposer = forwardRef<
       placeholder = 'Message…',
       replyTo = null,
       onCancelReply,
-      onHeightChange,
     },
     ref
   ) => {
     const [value, setValue] = useState('');
     const inputRef = useRef<HTMLTextAreaElement>(null);
-    const composerRef = useRef<HTMLDivElement>(null);
     const counterId = useId();
 
     useEffect(() => {
@@ -58,20 +55,6 @@ export const MessageComposer = forwardRef<
         setTimeout(() => inputRef.current?.focus(), 30);
       }
     }, [replyTo]);
-
-    useEffect(() => {
-      const element = composerRef.current;
-      if (!element || !onHeightChange) return;
-
-      const reportHeight = () => {
-        onHeightChange(Math.ceil(element.getBoundingClientRect().height));
-      };
-
-      reportHeight();
-      const observer = new ResizeObserver(reportHeight);
-      observer.observe(element);
-      return () => observer.disconnect();
-    }, [onHeightChange]);
 
     useImperativeHandle(
       ref,
@@ -103,7 +86,6 @@ export const MessageComposer = forwardRef<
 
     return (
       <div
-        ref={composerRef}
         className="relative z-30 flex w-full flex-col px-3 pt-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] border-t border-[#333333] bg-[#111111] pointer-events-auto"
       >
         {replyTo && (

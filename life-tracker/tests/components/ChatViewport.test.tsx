@@ -1,8 +1,8 @@
 import { renderHook, act } from '@testing-library/react';
 import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest';
-import { useKeyboardInset } from '../../src/components/messages/useKeyboardInset';
+import { useChatViewport } from '../../src/components/messages/useChatViewport';
 
-describe('useKeyboardInset', () => {
+describe('useChatViewport', () => {
   let listeners: Record<string, () => void>;
   let viewport: {
     height: number;
@@ -44,24 +44,35 @@ describe('useKeyboardInset', () => {
     vi.restoreAllMocks();
   });
 
-  it('returns zero with a closed keyboard', () => {
-    const { result } = renderHook(() => useKeyboardInset());
-    expect(result.current).toBe(0);
+  it('uses visible height with a closed keyboard', () => {
+    const { result } = renderHook(() => useChatViewport(true));
+    expect(result.current).toEqual({ height: 844, top: 0 });
   });
 
   it('tracks the visible viewport above an open keyboard', () => {
-    const { result } = renderHook(() => useKeyboardInset());
+    const { result } = renderHook(() => useChatViewport(true));
 
     viewport.height = 500;
     act(() => {
       listeners.resize?.();
     });
 
-    expect(result.current).toBe(344);
+    expect(result.current).toEqual({ height: 500, top: 0 });
+  });
+
+  it('ignores pinch zoom', () => {
+    viewport.scale = 2;
+    const { result } = renderHook(() => useChatViewport(true));
+    expect(result.current).toBeUndefined();
+  });
+
+  it('leaves other routes unchanged', () => {
+    const { result } = renderHook(() => useChatViewport(false));
+    expect(result.current).toBeUndefined();
   });
 
   it('accounts for Safari visual viewport offset', () => {
-    const { result } = renderHook(() => useKeyboardInset());
+    const { result } = renderHook(() => useChatViewport(true));
 
     viewport.height = 520;
     viewport.offsetTop = 24;
@@ -69,6 +80,6 @@ describe('useKeyboardInset', () => {
       listeners.scroll?.();
     });
 
-    expect(result.current).toBe(300);
+    expect(result.current).toEqual({ height: 520, top: 24 });
   });
 });
