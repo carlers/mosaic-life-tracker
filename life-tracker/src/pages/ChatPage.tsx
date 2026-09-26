@@ -229,7 +229,7 @@ export const ChatPage: React.FC = () => {
   };
 
   return (
-    <div className="relative flex flex-col h-[calc(100dvh-4rem-env(safe-area-inset-bottom))] min-h-0 overflow-hidden bg-[#111111]">
+    <div className="relative flex flex-col h-full min-h-0 overflow-hidden bg-[#111111]">
       <div className="flex items-center gap-3 px-4 py-3 border-b border-[#2A2A2A]">
         <button
           onClick={handleBack}
@@ -268,7 +268,7 @@ export const ChatPage: React.FC = () => {
       )}
       <div
         ref={scrollRef}
-        className="flex-1 min-h-0 min-w-0 overflow-y-auto overflow-x-hidden px-4 py-4 space-y-1"
+        className="flex-1 min-h-0 min-w-0 overflow-y-auto overflow-x-hidden px-4 pt-4 pb-28 space-y-1"
       >
         {isLoading ? (
           <div className="flex items-center justify-center h-full" role="status" aria-live="polite">

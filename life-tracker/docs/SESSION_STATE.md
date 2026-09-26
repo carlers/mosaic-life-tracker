@@ -68,6 +68,10 @@ Verification is running on the feature branch. Real-device visual acceptance rem
 
 The accepted task SHA `bc78a220c87ff6c086ab51236bc442e2e79a0cbf` was copied to `feature/dayview-close-paint-containment` for the configured Vercel Preview delivery path. This branch adds no runtime changes; its own canonical gate is required before treating the feature Preview as delivered.
 
+## Chat detail chrome and autoscroll — 2026-09-26
+
+Chat detail uses the full viewport; composer stays bottom-anchored and new messages autoscroll.
+
 ## Wide content width follow-up — 2026-09-26
 
 Added a third large-screen Content width option, Wide, alongside Full screen and Comfortable. Wide centers the shared primary route-swipe surface at 85vw from the tablet breakpoint upward; phone layouts remain full width. Added settings, layout, and regression coverage.

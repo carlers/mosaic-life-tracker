@@ -20,6 +20,8 @@ interface MainLayoutProps {
   leftPreview?: React.ReactNode;
   rightPreview?: React.ReactNode;
   onRouteSwipe?: (direction: PrimarySwipeDirection) => void;
+  /** Detail routes can consume the full viewport without global bottom chrome. */
+  hideBottomNav?: boolean;
 }
 
 export const MainLayout: React.FC<MainLayoutProps> = ({
@@ -32,6 +34,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
   leftPreview = null,
   rightPreview = null,
   onRouteSwipe = () => {},
+  hideBottomNav = false,
 }) => {
   const appearance = useContext(AppearanceContext);
   const contentWidthMode = appearance?.contentWidthMode ?? 'full';
@@ -50,6 +53,10 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
     };
   }, []);
 
+  const contentInsetClass = hideBottomNav
+    ? ''
+    : 'pb-[calc(4rem+env(safe-area-inset-bottom))]';
+
   return (
     <div className="h-screen w-full bg-[#111111] text-white relative flex flex-col overflow-hidden">
       {!isOnline && (
@@ -63,7 +70,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
           data-testid="primary-route-width-frame"
           data-content-width-mode={contentWidthMode}
           className={`w-full ${
-            activeTab === 'home' ? 'h-full min-h-0' : 'min-h-full'
+            activeTab === 'home' && !hideBottomNav ? 'h-full min-h-0' : 'min-h-full'
           } ${
             contentWidthMode === 'comfortable'
               ? 'md:w-[min(70vw,960px)] md:mx-auto'
@@ -74,7 +81,8 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
         >
           <PrimaryRouteSwipeSurface
           key={routeKey}
-          homeZoneOnly={activeTab === 'home'}
+          homeZoneOnly={activeTab === 'home' && !hideBottomNav}
+          fullHeight={hideBottomNav}
           canSwipeLeft={canSwipeLeft}
           canSwipeRight={canSwipeRight}
           leftPreview={leftPreview}
@@ -84,9 +92,9 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
           <div
             data-testid="primary-route-content"
             className={
-              activeTab === 'home'
-                ? 'h-full min-h-0 pb-[calc(4rem+env(safe-area-inset-bottom))]'
-                : 'min-h-full pb-[calc(4rem+env(safe-area-inset-bottom))]'
+              activeTab === 'home' && !hideBottomNav
+                ? 'h-full min-h-0 ' + contentInsetClass
+                : 'min-h-full ' + contentInsetClass
             }
           >
             {children}
@@ -95,7 +103,9 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
         </div>
       </main>
 
-      <BottomNav activeTab={activeTab} onTabChange={onTabChange} />
+      {!hideBottomNav && (
+        <BottomNav activeTab={activeTab} onTabChange={onTabChange} />
+      )}
     </div>
   );
 };

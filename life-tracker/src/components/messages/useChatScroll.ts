@@ -20,12 +20,7 @@ export function useChatScroll({
   isSearching,
 }: UseChatScrollOptions): UseChatScrollReturn {
   const scrollRef = useRef<HTMLDivElement | null>(null);
-  const isPinnedToBottomRef = useRef(true);
   const [showScrollButton, setShowScrollButton] = useState(false);
-  const [lastAcknowledgedId, setLastAcknowledgedId] = useState<string | null>(
-    null
-  );
-
   const lastMsg = messages[messages.length - 1];
   const lastMsgId = lastMsg?.id ?? null;
 
@@ -33,9 +28,11 @@ export function useChatScroll({
     if (isSearching) return;
     const el = scrollRef.current;
     if (!el) return;
-    if (!isPinnedToBottomRef.current) return;
+    if (!lastMsgId) return;
+
+    // Every newly appended message (outgoing or incoming) keeps the conversation
+    // anchored to the latest message. This is the chat route's explicit product contract.
     el.scrollTop = el.scrollHeight;
-    setLastAcknowledgedId(lastMsgId);
   }, [lastMsgId, isSearching]);
 
   useEffect(() => {
@@ -44,12 +41,7 @@ export function useChatScroll({
     const handleScroll = () => {
       const distanceFromBottom =
         el.scrollHeight - el.scrollTop - el.clientHeight;
-      const pinned = distanceFromBottom < 80;
-      isPinnedToBottomRef.current = pinned;
       setShowScrollButton(distanceFromBottom > SCROLL_FAB_THRESHOLD_PX);
-      if (pinned) {
-        setLastAcknowledgedId(lastMsgId);
-      }
     };
     el.addEventListener('scroll', handleScroll, { passive: true });
     return () => el.removeEventListener('scroll', handleScroll);
@@ -59,11 +51,9 @@ export function useChatScroll({
     const el = scrollRef.current;
     if (!el) return;
     el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
-    isPinnedToBottomRef.current = true;
-    setLastAcknowledgedId(lastMsgId);
-  }, [lastMsgId]);
+  }, []);
 
-  const hasUnreadBelow = !!lastMsgId && lastMsgId !== lastAcknowledgedId;
+  const hasUnreadBelow = false;
 
   return {
     scrollRef,

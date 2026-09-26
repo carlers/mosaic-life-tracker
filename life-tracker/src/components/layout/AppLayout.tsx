@@ -260,6 +260,7 @@ export const AppLayout: React.FC = () => {
   };
   const includeConversations =
     path.includes('/messages') || conversationNeighborReadyFor === path;
+  const isChatDetail = /^\/messages\/[^/]+$/.test(path);
 
   return (
     <AppearanceProvider>
@@ -282,6 +283,7 @@ export const AppLayout: React.FC = () => {
               ) : null
             }
             onRouteSwipe={handleRouteSwipe}
+            hideBottomNav={isChatDetail}
           >
             <Outlet />
           </MainLayout>
