@@ -233,7 +233,7 @@ describe('DayViewSheet nested task actions', () => {
     expect(within(row as HTMLElement).getByRole('button', { name: 'Previous day' })).toBeInTheDocument();
     expect(within(row as HTMLElement).getByRole('button', { name: 'Next day' })).toBeInTheDocument();
     expect(row).toHaveAttribute('data-bottom-sheet-directional-drag-handle');
-    expect(date).toHaveClass('text-base');
+    expect(date.closest('h3')).toHaveClass('text-base');
     expect(row).not.toHaveClass('swiper-no-swiping');
 
     const dialog = screen.getByRole('dialog');
