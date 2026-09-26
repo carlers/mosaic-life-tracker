@@ -115,6 +115,25 @@ describe('ConversationsProvider', () => {
     expect(result.current.conversations).toEqual([]);
     expectUnread(result.current, 0);
   });
+  it('uses an unread-only message query outside conversation routes', async () => {
+    const db = dbRef.current as RxDatabase<TestDatabaseCollections>;
+    const findSpy = vi.spyOn(db.messages, 'find');
+    function UnreadOnlyWrapper({ children }: { children: ReactNode }) {
+      return <ConversationsProvider includeConversations={false}>{children}</ConversationsProvider>;
+    }
+    const { result } = renderHook(() => useProviderValue(), { wrapper: UnreadOnlyWrapper });
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(findSpy).toHaveBeenCalledWith({
+      selector: {
+        userId: 'user_A',
+        isDeleted: false,
+        direction: 'incoming',
+        readAt: '',
+        isUnsent: false,
+      },
+    });
+  });
+
   it('exposes empty state when there are no friends and no messages', async () => {
     const { result } = renderHook(() => useProviderValue(), { wrapper });
     await waitFor(() => expect(result.current.isLoading).toBe(false));
