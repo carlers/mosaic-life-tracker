@@ -3,7 +3,7 @@ import { renderHook, waitFor, act } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import type { Models } from 'appwrite';
 
-// Regression: §23.6 (offline auth gate, H1 = Option A). The provider must
+// Regression: §23.6 (offline auth gate). The provider must
 // hydrate `user` from the persisted last-known identity on a mount-time
 // network error, and must clear that cache only on explicit logout or a
 // confirmed 401 — never on a network error.
@@ -64,7 +64,7 @@ const wrapper = ({ children }: { children: ReactNode }) => (
   <AuthProvider>{children}</AuthProvider>
 );
 
-describe('AuthProvider — OFF-1 offline auth gate', () => {
+describe('AuthProvider offline auth gate', () => {
   beforeEach(() => {
     localStorage.clear();
     accountRef.get.mockReset();
@@ -81,8 +81,7 @@ describe('AuthProvider — OFF-1 offline auth gate', () => {
     localStorage.clear();
   });
 
-  // Regression: AUTH-SYNC-1 — a fresh origin has no RxDB cache, so a
-  // successful login must trigger sync immediately after auth resolves.
+  // Regression: §19 (successful login triggers sync after auth resolves).
   it('starts sync after login establishes an authenticated session', async () => {
     accountRef.get.mockRejectedValueOnce(makeUnauthorizedError());
     accountRef.deleteSession.mockResolvedValueOnce(undefined);
