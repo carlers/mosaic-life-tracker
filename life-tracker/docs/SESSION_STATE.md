@@ -74,3 +74,9 @@ Added a third large-screen Content width option, Wide, alongside Full screen and
 
 Verification: focused unit/component checks are required on the final task SHA. Preview delivery follows the existing chatgpt task branch → feature/ui-improvements squash-merge flow.
 
+## Todo month grid centering follow-up — 2026-09-26
+
+Centered the compact Todo month grid's weekday and week rows explicitly with grid item alignment, preserving the existing max-width and responsive layout. Added regression coverage for the centering classes.
+
+Verification: final task commit requests full canonical acceptance before Preview delivery.
+
