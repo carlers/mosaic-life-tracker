@@ -81,6 +81,6 @@ The fixed-column centering attempt was reverted after visual review showed the v
 
 ## Todo unloaded-day rendering fix — 2026-09-26
 
-Fixed the inline Todo Day View so its initial day slide renders immediately. The sheet-only deferred render window was previously held at zero because inline mode has no BottomSheet animation-complete callback; tapping a day whose content was not already mounted could therefore leave the inline day surface blank. Inline mode now uses the normal Day View render window directly, while sheet mode keeps the existing entrance deferral. Added an integration regression covering a selected day with no tasks. Large direct date jumps now refresh Swiper Virtual before selection; covered by a hook regression.
+Fixed the inline Todo Day View so its initial day slide renders immediately. The sheet-only deferred render window was previously held at zero because inline mode has no BottomSheet animation-complete callback; tapping a day whose content was not already mounted could therefore leave the inline day surface blank. Inline mode now uses the normal Day View render window directly, while sheet mode keeps the existing entrance deferral. Added an integration regression covering a selected day with no tasks.
 
 Verification: the first canonical run exposed stale test expectations only; those assertions were repaired without changing runtime behavior. The final task commit requests full canonical acceptance before Preview delivery.
