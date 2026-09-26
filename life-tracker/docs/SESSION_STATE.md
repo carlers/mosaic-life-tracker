@@ -2,7 +2,7 @@
 
 Updated: 2026-09-26
 
-Current task: fix Todo DayView large selected-date jumps on `chatgpt/todo-day-navigation-stable`.
+Current task: calendar row heights in `chatgpt/calendar-row-height`.
 
 Status: CI runner allocation is operational again on the public repository. PR #41 (`ci: reduce duplicate Quality Gate runner demand`) was merged into `perf/animation-optimization` as `2e033313a51171f5305e53cac4b995b1af609b67`. The Quality Gate is push-driven only, so PRs receive checks from their pushed head SHA without a duplicate pull_request run. The repository was made public by the user after hosted-runner execution recovered; this is operational evidence, not proof of an internal GitHub throttle/quota cause.
 
@@ -84,3 +84,7 @@ The fixed-column centering attempt was reverted after visual review showed the v
 Removed Swiper Virtual from DayView. Swiper now owns all 181 lightweight geometry slides, while React keeps the existing seven-slide expensive-content render window. This removes the competing Swiper/React virtualization state that left direct jumps (for example Sep 11 → Sep 30) visually stale until a one-day swipe reconciled Swiper.
 
 Verification: focused regression coverage updated for direct large jumps. Final commit requires canonical full acceptance before Preview delivery.
+
+## Calendar row-height fix — 2026-09-26
+
+Changed MonthView and WeekView so each calendar week is its own seven-column grid row. The row-group uses max-content tracks, so each row is sized by its tallest cell instead of sharing a height derived from the entire grid. Added calendar semantics regression coverage for real row containers and independent row sizing.
