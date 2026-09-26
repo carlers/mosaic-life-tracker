@@ -12,9 +12,11 @@ additional reading. Current code and Git override stale progress prose.
 - Use focused tests during edits; broaden for shared behavior or failures. Report actual
   results and unresolved limitations. Do not manufacture red evidence or add trivial tests.
 - Tests protect durable behavior/invariants, not incidental JSX/CSS. Do not assert Tailwind
-  classes, DOM ancestry, decorative styling, or exact geometry unless that presentation is
-  itself a documented contract; reserve Playwright for browser-only failure modes. Follow
-  [test workflow](docs/TEST_WORKFLOW.md).
+  classes, DOM ancestry, decorative styling, exact colors, or pixel geometry. A visual
+  product description does not by itself justify an automated styling assertion; use
+  semantic/behavioral checks or manual visual acceptance unless the observable geometry is
+  required for interaction, accessibility, clipping, or overflow correctness. Reserve
+  Playwright for browser-only failure modes. Follow [test workflow](docs/TEST_WORKFLOW.md).
 - Commit scoped task changes automatically, push a `chatgpt/**` task branch, and publish
   Preview after exact-SHA canonical acceptance. Follow [delivery](docs/DELIVERY.md).
   Never force-update shared history or divergent Preview. No unrelated service changes.
