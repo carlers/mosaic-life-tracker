@@ -7,9 +7,11 @@ const daySheetState = vi.fn();
 
 vi.mock('../../src/components/home/views/CalendarCarousel', () => ({
   CalendarCarousel: ({ onDayClick }: { onDayClick: (date: Date) => void }) => (
-    <button data-testid="calendar-day" onClick={() => onDayClick(new Date('2026-01-05'))}>
-      day
-    </button>
+    <div data-testid="calendar-carousel">
+      <button data-testid="calendar-day" onClick={() => onDayClick(new Date('2026-01-05'))}>
+        day
+      </button>
+    </div>
   ),
 }));
 
