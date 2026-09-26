@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { resolvePrimarySwipeDestination } from '../../src/lib/primarySwipeNavigation';
 
 describe('resolvePrimarySwipeDestination', () => {
-  // Regression: PROJECT_REFERENCE.md §2 — Home → Explore → Alerts → Chat → Me, then Me left → Settings.
+  // Regression: §2 (primary route order and Me → Settings swipe).
   it('maps the primary sequence and the corrected Me swipe directions', () => {
     expect(resolvePrimarySwipeDestination('/home', 'left')).toBe('/explore');
     expect(resolvePrimarySwipeDestination('/explore', 'right')).toBe('/home');
@@ -19,7 +19,7 @@ describe('resolvePrimarySwipeDestination', () => {
     expect(resolvePrimarySwipeDestination('/messages/friend_1', 'left')).toBeNull();
   });
 
-  // Regression: PROJECT_REFERENCE.md §2 — Settings child pages are right-swipe-only details.
+  // Regression: §2 (Settings child pages are right-swipe detail routes).
   it('returns Settings from Profile and Preferences on a right swipe', () => {
     expect(resolvePrimarySwipeDestination('/profile', 'right')).toBe('/settings');
     expect(resolvePrimarySwipeDestination('/settings/preferences', 'right')).toBe('/settings');
