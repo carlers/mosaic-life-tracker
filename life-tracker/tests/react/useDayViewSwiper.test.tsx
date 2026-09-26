@@ -8,6 +8,7 @@ import { useDayViewSwiper } from '../../src/components/home/views/useDayViewSwip
 function makeSwiper(initialIndex: number) {
   const swiper = {
     activeIndex: initialIndex,
+    destroyed: false,
     slideTo: vi.fn((index: number) => {
       swiper.activeIndex = index;
     }),
@@ -68,6 +69,40 @@ describe('useDayViewSwiper', () => {
 
     expect(swiper.slideTo).toHaveBeenCalledWith(result.current.initialIndex, 0);
     expect(swiper.updateSlides).toHaveBeenCalled();
+  });
+
+  // Regression: PROJECT_REFERENCE.md §2 — closing and reopening Day View must not
+  // drive an already-destroyed Swiper instance left behind by deferred remounting.
+  it('ignores a destroyed swiper while reopening on another day', () => {
+    const initialDate = new Date(2026, 8, 20);
+    const reopenedDate = new Date(2026, 8, 21);
+    const { result, rerender } = renderHook(
+      ({ isOpen, date }) =>
+        useDayViewSwiper({
+          isOpen,
+          selectedDate: date,
+          isDisabled: false,
+        }),
+      { initialProps: { isOpen: false, date: initialDate } }
+    );
+    const staleSwiper = makeSwiper(result.current.initialIndex);
+    staleSwiper.destroyed = true;
+    result.current.swiperRef.current = staleSwiper;
+
+    act(() => {
+      rerender({ isOpen: true, date: reopenedDate });
+    });
+
+    expect(staleSwiper.slideTo).not.toHaveBeenCalled();
+    expect(staleSwiper.updateSlides).not.toHaveBeenCalled();
+
+    act(() => {
+      result.current.handlePrevDay();
+      result.current.handleNextDay();
+    });
+
+    expect(staleSwiper.slidePrev).not.toHaveBeenCalled();
+    expect(staleSwiper.slideNext).not.toHaveBeenCalled();
   });
 
   it('does not move the swiper while a nested sheet disables day navigation', () => {
