@@ -92,8 +92,6 @@ MonthView/WeekView use real seven-column week rows with max-content sizing, so e
 
 ## Chat open-at-bottom fix — 2026-09-26
 
-Opening a conversation now pins the message scroller to its latest message before paint. The scroll container also has an explicit min-h-0 flex constraint so its vertical overflow region is bounded correctly.
+Chat scroller now pins to the latest message before paint and uses an explicit min-h-0 flex constraint.
 
-Verification: task SHA `3e8d06bc55373351d7a407091fe8ebb8b212c7c7` passed the full canonical Quality Gate (run 36228810812). PR #63 was squash-merged into `fix/chat-scroll-to-bottom`, then PR #64 was squash-merged into `dev` as `f712731d7fc1c633d1f4f2a619a3005fdeb817a0`. Vercel Preview for `dev` is READY at `https://mosaic-life-tracker-lxsqnznka-carls-projects-72516fde.vercel.app`. Automated coverage includes a regression test for the initial bottom position.
-
-Manual phone/browser acceptance remains unverified.
+Canonical task SHA `3e8d06bc55373351d7a407091fe8ebb8b212c7c7` passed; PRs #63/#64 merged the fix into `dev`, and the dev Preview is READY. Manual phone/browser acceptance remains unverified.
