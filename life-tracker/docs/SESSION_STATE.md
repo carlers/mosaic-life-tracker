@@ -70,18 +70,10 @@ The accepted task SHA `bc78a220c87ff6c086ab51236bc442e2e79a0cbf` was copied to `
 
 ## Chat detail chrome and autoscroll — 2026-09-26
 
-Individual chat routes now consume the full viewport without the global bottom navigation or
-its reserved inset. The composer is absolutely anchored to the bottom safe area, the message
-list reserves composer space, and the scroll control stays above it. Opening a chat and every
-new outgoing or incoming message both anchor the scroller to the latest message.
-
-Regression coverage covers initial/new-message autoscroll and detail-route chrome removal.
-Canonical acceptance is being rerun after fixing the task-specific test/lint issues.
-User browser verification is still required for final visual/send/receive acceptance.
-
-Next action: finish canonical acceptance, then squash-merge the task into
-`fix/chat-scroll-to-bottom-v2` and verify its Preview deployment. Do not promote to
-`dev` without explicit user authorization.
+Chat detail routes use the full viewport without bottom navigation; the composer is absolutely
+bottom-anchored and new outgoing/incoming messages autoscroll to the latest message.
+Regression coverage is in place. Canonical acceptance is pending after the handoff-size fix.
+Do not promote to `dev` without explicit user authorization.
 
 ## Wide content width follow-up — 2026-09-26
 
