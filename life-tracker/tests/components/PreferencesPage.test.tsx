@@ -44,7 +44,7 @@ vi.mock('../../src/hooks/useSettings', () => ({
 import { PreferencesPage } from '../../src/pages/PreferencesPage';
 
 describe('PreferencesPage', () => {
-  // Regression: PROJECT_REFERENCE.md §2 — Preferences owns display/layout plus synced app-behavior switches.
+  // Regression: §2 (Preferences owns display/layout and synced behavior controls).
   it('exposes existing screen choices and the requested behavior preferences', () => {
     render(
       <MemoryRouter>
