@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ChevronLeft, MessageSquare, Search } from 'lucide-react';
 import { DeferredAvatar } from '../components/ui/DeferredAvatar';
@@ -21,7 +21,6 @@ import { useAuth } from '../hooks/useAuth';
 import { useChatScroll } from '../components/messages/useChatScroll';
 import { useChatSearch } from '../components/messages/useChatSearch';
 import { useChatReactions } from '../components/messages/useChatReactions';
-import { useKeyboardInset } from '../components/messages/useKeyboardInset';
 import {
   buildRenderItems,
   messageMatchesQuery,
@@ -57,13 +56,11 @@ export const ChatPage: React.FC = () => {
   );
 
   const composerRef = useRef<MessageComposerHandle>(null);
-  const [composerHeight, setComposerHeight] = useState(76);
   const [feedback, setFeedback] = useState<string | null>(null);
   const [replyTo, setReplyTo] = useState<ComposerReplyState | null>(null);
   const [actionMessageId, setActionMessageId] = useState<string | null>(null);
   const [unsendTargetId, setUnsendTargetId] = useState<string | null>(null);
   const [reactionTargetId, setReactionTargetId] = useState<string | null>(null);
-  const keyboardInset = useKeyboardInset();
 
   const actionMessage = useMemo(
     () => messages.find((m) => m.id === actionMessageId) ?? null,
@@ -81,7 +78,7 @@ export const ChatPage: React.FC = () => {
   const {
     isSearching,
     searchQuery,
-    openSearch,
+    openSearch: startSearch,
     closeSearch,
     setSearchQuery,
   } = useChatSearch();
@@ -92,7 +89,19 @@ export const ChatPage: React.FC = () => {
     showScrollButton,
     hasUnreadBelow,
     scrollToBottom,
-  } = useChatScroll({ messages, isSearching });
+    suspendFollowing,
+    captureSearchPosition,
+  } = useChatScroll({
+    messages,
+    isSearching,
+    conversationKey: `${myUserId}:${friendId}`,
+    isLoading,
+  });
+
+  const openSearch = useCallback(() => {
+    captureSearchPosition();
+    startSearch();
+  }, [captureSearchPosition, startSearch]);
 
   const { reactToMessage } = useChatReactions({
     toggleReaction,
@@ -177,6 +186,7 @@ export const ChatPage: React.FC = () => {
   };
 
   const handleSend = async (content: string) => {
+    closeSearch();
     const reply = replyTo
       ? {
           id: replyTo.id,
@@ -197,6 +207,7 @@ export const ChatPage: React.FC = () => {
   const handleQuoteTap = (targetMessageId: string) => {
     const el = document.getElementById(`msg-${targetMessageId}`);
     if (el) {
+      suspendFollowing();
       el.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
   };
@@ -234,7 +245,7 @@ export const ChatPage: React.FC = () => {
 
   return (
     <div className="relative flex flex-col h-full min-h-0 overflow-hidden bg-[#111111]">
-      <div className="flex items-center gap-3 px-4 py-3 border-b border-[#2A2A2A]">
+      <div className="shrink-0 flex items-center gap-3 px-4 py-3 border-b border-[#2A2A2A]">
         <button
           onClick={handleBack}
           className="p-1 text-gray-400"
@@ -273,9 +284,7 @@ export const ChatPage: React.FC = () => {
       <div
         ref={scrollRef}
         className="flex-1 min-h-0 min-w-0 overflow-y-auto overflow-x-hidden overscroll-contain"
-        style={{
-          paddingBottom: `${composerHeight + keyboardInset + 12}px`,
-        }}
+        data-testid="chat-scroller"
       >
         <div
           ref={contentRef}
@@ -333,8 +342,8 @@ export const ChatPage: React.FC = () => {
       </div>
 
       <div
-        className="pointer-events-none fixed inset-x-0 bottom-0 z-30"
-        style={{ bottom: keyboardInset }}
+        className="relative shrink-0 z-30"
+        data-testid="chat-dock"
       >
         <ScrollToBottomButton
           visible={showScrollButton}
@@ -345,7 +354,6 @@ export const ChatPage: React.FC = () => {
         <MessageComposer
           ref={composerRef}
           onSend={handleSend}
-          onHeightChange={setComposerHeight}
           disabled={!friendId}
           placeholder="Message..."
           replyTo={replyTo}
