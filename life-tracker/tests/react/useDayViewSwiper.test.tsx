@@ -17,6 +17,10 @@ function makeSwiper(initialIndex: number) {
     slideNext: vi.fn(() => {
       swiper.activeIndex += 1;
     }),
+    virtual: {
+      update: vi.fn(),
+    },
+    updateSlides: vi.fn(),
   };
   return swiper as unknown as SwiperClass;
 }
@@ -43,6 +47,33 @@ describe('useDayViewSwiper', () => {
 
     expect(onDateChange).toHaveBeenCalledWith(
       addDays(startOfDay(selectedDate), 1)
+    );
+  });
+
+  it('refreshes virtual slides before a large selected-date jump', () => {
+    const initialDate = new Date(2026, 8, 11);
+    const selectedDate = new Date(2026, 8, 30);
+    const { result, rerender } = renderHook(
+      ({ date }) =>
+        useDayViewSwiper({
+          isOpen: true,
+          selectedDate: date,
+          isDisabled: false,
+        }),
+      { initialProps: { date: initialDate } }
+    );
+    const swiper = makeSwiper(result.current.initialIndex);
+    result.current.swiperRef.current = swiper;
+
+    act(() => {
+      rerender({ date: selectedDate });
+    });
+
+    expect(swiper.virtual?.update).toHaveBeenCalledWith(true);
+    expect(swiper.slideTo).toHaveBeenCalledWith(result.current.initialIndex, 0);
+    expect(swiper.updateSlides).toHaveBeenCalled();
+    expect(swiper.virtual!.update.mock.invocationCallOrder[0]).toBeLessThan(
+      swiper.slideTo.mock.invocationCallOrder[0]
     );
   });
 
