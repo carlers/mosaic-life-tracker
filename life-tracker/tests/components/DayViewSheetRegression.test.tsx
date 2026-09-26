@@ -1,7 +1,7 @@
 // Regression: UIFIX-5/UIFIX-7/UIFIX-8/UIFIX-9 — day-sheet header and nested task surfaces retain context.
 import type { ReactNode } from 'react';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { CategoryDocument, TaskDocument } from '../../src/db/schema';
 
 const swiperFixture = vi.hoisted(() => ({
@@ -12,6 +12,10 @@ const swiperFixture = vi.hoisted(() => ({
   noSwiping: undefined as boolean | undefined,
   touchStartPreventDefault: undefined as boolean | undefined,
   touchMoveStopPropagation: undefined as boolean | undefined,
+}));
+
+const settingsFixture = vi.hoisted(() => ({
+  values: {} as Record<string, unknown>,
 }));
 
 const fixture = vi.hoisted(() => ({
@@ -141,7 +145,8 @@ vi.mock('../../src/hooks/useFeedback', () => ({
 
 vi.mock('../../src/hooks/useSettings', () => ({
   useSettings: () => ({
-    getSetting: () => false,
+    getSetting: (key: string, defaultValue?: unknown) =>
+      key in settingsFixture.values ? settingsFixture.values[key] : defaultValue,
     setSetting: vi.fn(),
   }),
 }));
@@ -170,6 +175,7 @@ function renderSheet() {
 
 describe('DayViewSheet nested task actions', () => {
   beforeEach(() => {
+    settingsFixture.values = {};
     fixture.task.image = 'image_1';
     swiperFixture.slidePrev.mockClear();
     swiperFixture.slideNext.mockClear();
@@ -178,6 +184,32 @@ describe('DayViewSheet nested task actions', () => {
     swiperFixture.noSwiping = undefined;
     swiperFixture.touchStartPreventDefault = undefined;
     swiperFixture.touchMoveStopPropagation = undefined;
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  // Regression: PROJECT_REFERENCE.md §2 — Day View can opt into a compact Today marker beside its date.
+  it('shows a Today tag beside the active date only when the preference is enabled', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(2026, 8, 20, 12));
+    settingsFixture.values = { showDayViewTodayTag: true };
+
+    render(
+      <DayViewSheet
+        isOpen
+        onClose={vi.fn()}
+        selectedDate={new Date(2026, 8, 20)}
+        onDateChange={vi.fn()}
+        renderMode="inline"
+      />
+    );
+
+    expect(screen.getByText('Today')).toBeInTheDocument();
+    expect(
+      screen.getByText('Sunday, September 20, 2026').parentElement
+    ).toHaveTextContent('Today');
   });
 
   it('maps unmodified horizontal arrow keys to day navigation while open', () => {
