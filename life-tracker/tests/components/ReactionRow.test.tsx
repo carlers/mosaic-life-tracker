@@ -31,12 +31,9 @@ describe('ReactionRow', () => {
         onToggle={onToggle}
       />
     );
-    const thumbsUp = screen.getByText('👍').closest('button');
-    expect(thumbsUp).not.toBeNull();
-    expect(thumbsUp?.textContent).toContain('2');
-    const heart = screen.getByText('❤️').closest('button');
-    expect(heart?.textContent).toContain('1');
-    fireEvent.click(thumbsUp as Element);
+    const thumbsUp = screen.getByRole('button', { name: /👍.*2/ });
+    const heart = screen.getByRole('button', { name: /❤️.*1/ });
+    fireEvent.click(thumbsUp);
     expect(onToggle).toHaveBeenCalledWith('👍');
   });
 
