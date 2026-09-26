@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, fireEvent, cleanup } from '@testing-library/react';
+import { render, fireEvent, cleanup, waitFor } from '@testing-library/react';
 import { BottomSheet } from '../../src/components/ui/BottomSheet';
 import { AppearanceContext } from '../../src/hooks/appearanceContext';
 
@@ -61,6 +61,33 @@ describe('BottomSheet', () => {
     expect(
       document.body.querySelector('[data-marker="sheet-child"]')
     ).not.toBeNull();
+  });
+
+  // Regression: sheet exit must keep expensive children mounted until the
+  // transform animation completes, so React teardown cannot compete with the
+  // close animation's compositor work.
+  it('keeps deferred children mounted during the exit animation', async () => {
+    const { rerender } = render(
+      <BottomSheet isOpen onClose={noop} deferChildrenUntilPaint>
+        <div data-marker="sheet-child">inner</div>
+      </BottomSheet>
+    );
+
+    expect(document.body.querySelector('[data-marker="sheet-child"]')).not.toBeNull();
+
+    rerender(
+      <BottomSheet isOpen={false} onClose={noop} deferChildrenUntilPaint>
+        <div data-marker="sheet-child">inner</div>
+      </BottomSheet>
+    );
+
+    // AnimatePresence owns the exit window; the child must remain available to
+    // the exiting sheet instead of being synchronously torn down.
+    expect(document.body.querySelector('[data-marker="sheet-child"]')).not.toBeNull();
+
+    await waitFor(() => {
+      expect(document.body.querySelector('[data-marker="sheet-child"]')).toBeNull();
+    }, { timeout: 1000 });
   });
 
   it('renders nothing when isOpen is false', () => {
