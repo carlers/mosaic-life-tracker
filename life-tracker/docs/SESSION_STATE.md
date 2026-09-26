@@ -87,6 +87,6 @@ Fixed the inline Todo Day View so its initial day slide renders immediately. The
 Verification: the first canonical run exposed stale test expectations only; those assertions were repaired without changing runtime behavior. The final task commit requests full canonical acceptance before Preview delivery.
 ## Todo large date-jump fix — 2026-09-26
 
-Fixed large selected-day jumps in the Todo inline Day View (for example September 11 → September 30). The Day View uses Swiper Virtual with a five-slide neighborhood; when the selected date changed by a large distance, the virtual window could be populated around the new index while Swiper retained the old visible translate until another swipe forced an update. The selection effect now refreshes Swiper's virtual slides before moving to the new index, then updates slide geometry. Added a hook regression covering the large-date jump ordering.
+Fixed direct large-date jumps (for example Sep 11 → Sep 30) by refreshing Swiper Virtual before the programmatic slide change and updating slide geometry afterward. Added a hook regression for the update ordering.
 
 Verification: final task commit requests full canonical acceptance before Preview delivery.
