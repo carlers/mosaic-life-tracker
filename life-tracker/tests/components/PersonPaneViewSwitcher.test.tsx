@@ -1,4 +1,4 @@
-// Regression: UIFIX-1 — switching to Diary must not remove the Calendar/Diary toggle.
+// Regression: §2 (Calendar/Diary view switching remains reachable).
 import { fireEvent, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -116,7 +116,7 @@ describe('PersonPane view switcher', () => {
     };
   });
 
-  // Regression: PROJECT_REFERENCE.md §2 — friends expose shared Todo List instead of Coming Soon.
+  // Regression: §2 (friends expose the shared Todo List).
   it('renders Todo List for a friend in friend mode', () => {
     render(<PersonPane person={friend} isActive />);
 
@@ -126,7 +126,7 @@ describe('PersonPane view switcher', () => {
     expect(screen.queryByTestId('diary-body')).toBeNull();
   });
 
-  // Regression: PROJECT_REFERENCE.md §2 — calendar behavior preferences are wired at the person-pane boundary.
+  // Regression: §2 (calendar preferences apply through the person pane).
   it('uses Monday week start and lets the calendar date header jump to today when enabled', () => {
     settingsFixture.values = {
       weekStartsOnSunday: false,
