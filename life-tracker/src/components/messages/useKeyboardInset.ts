@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 
 const DEFAULT_KEYBOARD_INSET = 0;
+const ZOOM_SCALE_THRESHOLD = 1.01;
 
 function getKeyboardInset(): number {
   if (typeof window === 'undefined') return DEFAULT_KEYBOARD_INSET;
@@ -11,7 +12,7 @@ function getKeyboardInset(): number {
   // Fixed-position elements attach to the layout viewport while the OSK
   // normally shrinks only the visual viewport. Account for iOS Safari moving
   // the visual viewport vertically while it reveals the focused field.
-  if (viewport.scale > 1.01) return DEFAULT_KEYBOARD_INSET;
+  if (viewport.scale > ZOOM_SCALE_THRESHOLD) return DEFAULT_KEYBOARD_INSET;
 
   const layoutHeight = document.documentElement.clientHeight;
   return Math.max(
