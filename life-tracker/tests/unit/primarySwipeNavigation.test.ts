@@ -20,10 +20,10 @@ describe('resolvePrimarySwipeDestination', () => {
   });
 
   // Regression: PROJECT_REFERENCE.md §2 — Settings child pages are right-swipe-only details.
-  it('returns Settings from Profile and Screen on a right swipe', () => {
+  it('returns Settings from Profile and Preferences on a right swipe', () => {
     expect(resolvePrimarySwipeDestination('/profile', 'right')).toBe('/settings');
-    expect(resolvePrimarySwipeDestination('/settings/screen', 'right')).toBe('/settings');
+    expect(resolvePrimarySwipeDestination('/settings/preferences', 'right')).toBe('/settings');
     expect(resolvePrimarySwipeDestination('/profile', 'left')).toBeNull();
-    expect(resolvePrimarySwipeDestination('/settings/screen', 'left')).toBeNull();
+    expect(resolvePrimarySwipeDestination('/settings/preferences', 'left')).toBeNull();
   });
 });
