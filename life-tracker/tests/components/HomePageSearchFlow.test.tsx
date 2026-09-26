@@ -6,7 +6,7 @@ const mockPersons = [
   { id: 'me', kind: 'me', displayName: 'Me' },
   { id: 'friend_1', kind: 'friend', displayName: 'Friend' },
 ];
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, act } from '@testing-library/react';
 import { HomePage } from '../../src/pages/HomePage';
 
 const ownerTask = {
@@ -138,7 +138,9 @@ describe('HomePage task-search wiring', () => {
   it('keeps adjacent person panes out of the initial mount until idle', () => {
     render(<HomePage />);
     expect(screen.getAllByText('Pane')).toHaveLength(1);
-    idleCallback?.({ didTimeout: false, timeRemaining: () => 50 } as IdleDeadline);
+    act(() => {
+      idleCallback?.({ didTimeout: false, timeRemaining: () => 50 } as IdleDeadline);
+    });
     expect(screen.getAllByText('Pane')).toHaveLength(2);
   });
 
