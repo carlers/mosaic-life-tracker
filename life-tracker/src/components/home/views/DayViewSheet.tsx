@@ -1,7 +1,6 @@
 import React, { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import { format } from 'date-fns';
 import { Swiper, SwiperSlide } from 'swiper/react';
-import { Virtual } from 'swiper/modules';
 import { AnimatePresence } from 'framer-motion';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { BottomSheet } from '../../ui/BottomSheet';
@@ -138,6 +137,11 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
   const handleSheetAnimationComplete = useCallback(() => {
     if (isOpen) setDeferredRenderWindow(renderWindow);
   }, [isOpen, renderWindow]);
+
+  // Inline Todo Day View has no sheet entrance animation, so its initial render
+  // window must not wait for BottomSheet's animation-complete callback.
+  const effectiveRenderWindow =
+    renderMode === 'inline' ? renderWindow : deferredRenderWindow;
 
   const handleSheetClose = useCallback(() => {
     setDeferredRenderWindow(0);
@@ -439,8 +443,6 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
           swiperRef.current = swiper;
         }}
         initialSlide={initialIndex}
-        virtual={{ addSlidesBefore: 3, addSlidesAfter: 3 }}
-        modules={[Virtual]}
         onSlideChange={handleSwipeSettled}
         data-testid="day-swiper"
         data-bottom-sheet-native-horizontal-swipe={renderMode === 'sheet' ? 'true' : undefined}
@@ -453,13 +455,12 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
         }}
       >
         {slideDates.map((date, i) => {
-          const inWindow = Math.abs(i - activeIndex) <= deferredRenderWindow;
+          const inWindow = Math.abs(i - activeIndex) <= effectiveRenderWindow;
           const dateStr = slideDateStrs[i];
           const dayTasks = tasksByDate.get(dateStr) ?? EMPTY_TASKS;
           return (
             <SwiperSlide
               key={date.toISOString()}
-              virtualIndex={i}
               className="min-w-0"
               aria-hidden={i === activeIndex ? undefined : true}
               style={{ height: renderMode === 'inline' ? 'auto' : '100%' }}

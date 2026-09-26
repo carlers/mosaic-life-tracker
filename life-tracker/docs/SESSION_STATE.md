@@ -2,7 +2,7 @@
 
 Updated: 2026-09-26
 
-Current task: isolate and optimize the remaining real-device DayView bottom-sheet close hitch on `chatgpt/dayview-close-smoothness`.
+Current task: calendar row minimum height in `chatgpt/calendar-row-min-height`.
 
 Status: CI runner allocation is operational again on the public repository. PR #41 (`ci: reduce duplicate Quality Gate runner demand`) was merged into `perf/animation-optimization` as `2e033313a51171f5305e53cac4b995b1af609b67`. The Quality Gate is push-driven only, so PRs receive checks from their pushed head SHA without a duplicate pull_request run. The repository was made public by the user after hosted-runner execution recovered; this is operational evidence, not proof of an internal GitHub throttle/quota cause.
 
@@ -67,3 +67,25 @@ Verification is running on the feature branch. Real-device visual acceptance rem
 ## Stable Preview handoff — 2026-09-26
 
 The accepted task SHA `bc78a220c87ff6c086ab51236bc442e2e79a0cbf` was copied to `feature/dayview-close-paint-containment` for the configured Vercel Preview delivery path. This branch adds no runtime changes; its own canonical gate is required before treating the feature Preview as delivered.
+
+## Wide content width follow-up — 2026-09-26
+
+Added a third large-screen Content width option, Wide, alongside Full screen and Comfortable. Wide centers the shared primary route-swipe surface at 85vw from the tablet breakpoint upward; phone layouts remain full width. Added settings, layout, and regression coverage.
+
+Verification: focused unit/component checks are required on the final task SHA. Preview delivery follows the existing chatgpt task branch → feature/ui-improvements squash-merge flow.
+
+## Todo month grid centering follow-up — 2026-09-26
+
+The fixed-column centering attempt was reverted after visual review showed the visible grid was still offset. The current correction targets the parent surface instead: the Todo calendar is made full-bleed across the Todo view's horizontal padding, while the month grid returns to the existing flexible seven-column layout and centers within that full content surface. This removes the padded scroll region as a separate horizontal reference frame. Regression coverage verifies the restored grid geometry and centered day cells.
+
+
+## Todo DayView large-jump fix — 2026-09-26
+
+Removed Swiper Virtual from DayView. Swiper now owns all 181 lightweight geometry slides, while React keeps the existing seven-slide expensive-content render window. This removes the competing Swiper/React virtualization state that left direct jumps (for example Sep 11 → Sep 30) visually stale until a one-day swipe reconciled Swiper.
+
+Verification: focused regression coverage updated for direct large jumps. Final commit requires canonical full acceptance before Preview delivery.
+
+## Calendar row sizing — 2026-09-26
+
+MonthView/WeekView use real seven-column week rows with max-content sizing, so each row follows its own tallest cell. DayCell now reserves 4.25rem, equivalent to a day label plus two standard text-only task blocks, while taller content can still expand the row.
+

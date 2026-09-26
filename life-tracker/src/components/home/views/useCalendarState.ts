@@ -60,6 +60,7 @@ export function useCalendarState(): CalendarState {
     align: 'start',
     skipSnaps: false,
     startIndex: CENTER_INDEX,
+    duration: 22,
   });
 
   // Keep the active render window aligned to settled snaps. The active slide

@@ -43,8 +43,6 @@ const DayCellComponent: React.FC<DayCellProps> = ({
   // Accessible name includes the full date and a task count so a
   // screen-reader user gets the same information the visual grid
   // conveys (day-of-week coloring, today's border, task density).
-  // Rebuilt each render but cheap — the string is small and this
-  // component already recomputes `dayColor` unconditionally.
   const ariaLabel = useMemo(() => {
     const dateLabel = format(date, 'EEEE, MMMM d, yyyy');
     const n = tasks.length;
@@ -66,7 +64,10 @@ const DayCellComponent: React.FC<DayCellProps> = ({
       aria-label={ariaLabel}
       aria-current={isTodayDate ? 'date' : undefined}
       aria-disabled={!onDayClick}
-      className={`py-0.5 flex flex-col h-full w-full rounded-md text-left transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 ${
+      // Keep sparse calendar rows readable: reserve the height of the
+      // day label plus two standard (text-only) task blocks. Rows can
+      // still grow when their tallest cell contains more content.
+      className={`py-0.5 flex flex-col h-full min-h-[4.25rem] w-full rounded-md text-left transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 ${
         onDayClick ? 'cursor-pointer hover:bg-[#1E1E1E] active:scale-[0.98]' : 'cursor-default'
       } ${!isCurrentMonth ? 'opacity-40' : ''}`}
     >

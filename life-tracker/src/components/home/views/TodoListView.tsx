@@ -73,15 +73,20 @@ export const TodoListView: React.FC<TodoListViewProps> = ({
       className="swiper-no-swiping min-h-0 min-w-0 w-full max-w-full flex-1 overflow-x-hidden overflow-y-auto px-4 pb-8 pt-4 animate-in fade-in duration-300"
       data-testid="todo-scroll-region"
     >
-      <TodoCalendarGrid
-        focusDate={focusDate}
-        selectedDate={selectedDate}
-        tasks={tasks}
-        categories={categories}
-        categoriesMap={categoriesMap}
-        onDateSelect={handleDateChange}
-        onMonthChange={onFocusDateChange}
-      />
+      <div
+        className="-mx-4 w-[calc(100%+2rem)]"
+        data-testid="todo-calendar-surface"
+      >
+        <TodoCalendarGrid
+          focusDate={focusDate}
+          selectedDate={selectedDate}
+          tasks={tasks}
+          categories={categories}
+          categoriesMap={categoriesMap}
+          onDateSelect={handleDateChange}
+          onMonthChange={onFocusDateChange}
+        />
+      </div>
 
       <div className="mt-0 min-w-0 w-full max-w-full overflow-x-hidden" data-testid="todo-day-section">
         {variant === 'friend' && friendUserId ? (

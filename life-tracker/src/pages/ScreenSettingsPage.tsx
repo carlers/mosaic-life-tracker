@@ -36,6 +36,10 @@ const CONTENT_WIDTH_COPY: Record<ContentWidthMode, ChoiceCopy> = {
     description:
       'Center app content at 70% of the screen, capped at 960px, on tablets and larger.',
   },
+  wide: {
+    label: 'Wide',
+    description: 'Center app content at 85% of the screen on tablets and larger.',
+  },
 };
 
 const SHEET_WIDTH_COPY: Record<SheetWidthMode, ChoiceCopy> = {
@@ -81,7 +85,7 @@ function ChoiceGroup<T extends string>({
               role="radio"
               aria-checked={selected}
               onClick={() => void onChange(option)}
-              className="flex w-full items-center justify-between gap-3 rounded-xl px-3 py-3 text-left transition-colors hover:bg-[#2A2A2A] focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
+              className="flex w-full items-center justify-between gap-3 rounded-xl px-3 py-2.5 text-left transition-colors hover:bg-[#2A2A2A] focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
             >
               <span className="min-w-0">
                 <span className="block text-sm font-semibold text-white">

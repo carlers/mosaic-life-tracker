@@ -210,4 +210,36 @@ describe('MainLayout primary route swipes', () => {
     );
   });
 
+  it('constrains the shared route frame to 85vw in Wide mode on larger screens', () => {
+    render(
+      <AppearanceContext.Provider
+        value={{
+          mode: 'system',
+          resolvedTheme: 'dark',
+          setAppearanceMode: vi.fn().mockResolvedValue(undefined),
+          contentWidthMode: 'wide',
+          sheetWidthMode: 'full',
+          setContentWidthMode: vi.fn().mockResolvedValue(undefined),
+          setSheetWidthMode: vi.fn().mockResolvedValue(undefined),
+        }}
+      >
+        <MainLayout
+          activeTab="explore"
+          onTabChange={() => {}}
+          canSwipeLeft
+          canSwipeRight
+          onRouteSwipe={() => {}}
+        >
+          <div>Explore body</div>
+        </MainLayout>
+      </AppearanceContext.Provider>
+    );
+
+    expect(screen.getByTestId('primary-route-width-frame')).toHaveClass(
+      'w-full',
+      'md:w-[85vw]',
+      'md:mx-auto'
+    );
+  });
+
 });

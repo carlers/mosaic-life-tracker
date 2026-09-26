@@ -17,6 +17,7 @@ function makeSwiper(initialIndex: number) {
     slideNext: vi.fn(() => {
       swiper.activeIndex += 1;
     }),
+    updateSlides: vi.fn(),
   };
   return swiper as unknown as SwiperClass;
 }
@@ -44,6 +45,29 @@ describe('useDayViewSwiper', () => {
     expect(onDateChange).toHaveBeenCalledWith(
       addDays(startOfDay(selectedDate), 1)
     );
+  });
+
+  it('moves the swiper directly for a large selected-date jump', () => {
+    const initialDate = new Date(2026, 8, 11);
+    const selectedDate = new Date(2026, 8, 30);
+    const { result, rerender } = renderHook(
+      ({ date }) =>
+        useDayViewSwiper({
+          isOpen: true,
+          selectedDate: date,
+          isDisabled: false,
+        }),
+      { initialProps: { date: initialDate } }
+    );
+    const swiper = makeSwiper(result.current.initialIndex);
+    result.current.swiperRef.current = swiper;
+
+    act(() => {
+      rerender({ date: selectedDate });
+    });
+
+    expect(swiper.slideTo).toHaveBeenCalledWith(result.current.initialIndex, 0);
+    expect(swiper.updateSlides).toHaveBeenCalled();
   });
 
   it('does not move the swiper while a nested sheet disables day navigation', () => {
