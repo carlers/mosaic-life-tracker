@@ -15,7 +15,8 @@ describe('screen layout preferences', () => {
   it('validates and round-trips the two layout modes', () => {
     expect(isContentWidthMode('full')).toBe(true);
     expect(isContentWidthMode('comfortable')).toBe(true);
-    expect(isContentWidthMode('wide')).toBe(false);
+    expect(isContentWidthMode('wide')).toBe(true);
+    expect(isContentWidthMode('unknown')).toBe(false);
     expect(isSheetWidthMode('full')).toBe(true);
     expect(isSheetWidthMode('compact')).toBe(true);
     expect(isSheetWidthMode('phone')).toBe(false);
