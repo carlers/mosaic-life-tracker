@@ -314,6 +314,26 @@ test('calendar swipe moves the calendar without advancing the friend carousel', 
   await expect(friendIndex).toHaveText('0');
 });
 
+// Regression: PROJECT_REFERENCE.md §16 — rapid Calendar selections must never outrun mounted grids.
+test('rapid calendar swipes keep every newly selected month mounted', async ({ page }) => {
+  await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html`);
+
+  const calendarTitle = page.getByTestId('calendar-title');
+  const calendarRegion = page.getByTestId('calendar-region');
+
+  for (let swipe = 0; swipe < 3; swipe += 1) {
+    const before = await calendarTitle.textContent();
+    await drag(page, calendarRegion, -260);
+    await expect.poll(async () => calendarTitle.textContent()).not.toBe(before);
+
+    const selectedTitle = (await calendarTitle.textContent())?.trim();
+    expect(selectedTitle).toBeTruthy();
+    await expect(
+      calendarRegion.getByRole('grid', { name: `${selectedTitle} calendar` })
+    ).toBeVisible();
+  }
+});
+
 test('swiping outside the calendar still advances the friend carousel', async ({ page }) => {
   await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html`);
 
