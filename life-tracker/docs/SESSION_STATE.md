@@ -57,3 +57,7 @@ Verification:
 Next action: wait for this final [verify:full] documentation checkpoint to receive canonical acceptance, then create the stable feature Preview branch from the accepted SHA and perform the real-device close protocol.
 
 Blockers: none currently. The previous hosted-runner allocation blocker is no longer reproducing; the remaining blocker to completion is verification of the close-path performance candidate and real-device acceptance.
+
+## Stable Preview handoff — 2026-09-26
+
+The accepted task SHA `bc78a220c87ff6c086ab51236bc442e2e79a0cbf` was copied to `feature/dayview-close-paint-containment` for the configured Vercel Preview delivery path. This branch adds no runtime changes; its own canonical gate is required before treating the feature Preview as delivered.
