@@ -27,8 +27,6 @@ type SheetStackEntry = {
 };
 
 let openSheetCount = 0;
-// #3: remember whatever the host page had before we took over overflow.
-let savedBodyOverflow: string | null = null;
 const sheetStack: SheetStackEntry[] = [];
 const issuedHistoryIds = new Set<string>();
 const pendingCleanupTimers = new Map<string, number>();
@@ -217,7 +215,7 @@ function SheetPresenceSurface({
           : 'translate3d(0, 100%, 0)',
       }}
       transition={{
-        duration: 0.40,
+        duration: 0.32,
         ease: [0.32, 0.72, 0, 1],
       }}
       onAnimationComplete={() => {
@@ -276,18 +274,11 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
   useEffect(() => {
     if (!isOpen) return;
     openSheetCount++;
-    // #3: only capture/apply the lock on the first open so nested sheets
-    // don't clobber the saved value, and restore the host's original
-    // overflow instead of hardcoding 'unset'.
-    if (openSheetCount === 1) {
-      savedBodyOverflow = document.body.style.overflow;
-      document.body.style.overflow = 'hidden';
-    }
+    document.body.style.overflow = 'hidden';
     return () => {
       openSheetCount = Math.max(0, openSheetCount - 1);
       if (openSheetCount === 0) {
-        document.body.style.overflow = savedBodyOverflow ?? '';
-        savedBodyOverflow = null;
+        document.body.style.overflow = 'unset';
       }
     };
   }, [isOpen]);
