@@ -139,7 +139,7 @@ export function useChatScroll({
       updateControls();
     };
     const onWheel = (event: WheelEvent) => {
-      if (event.deltaY < 0) suspendFollowing();
+      if (event.deltaY < 0 && el.scrollTop > 0) suspendFollowing();
     };
     let touchY = 0;
     const onTouchStart = (event: TouchEvent) => {
@@ -147,7 +147,7 @@ export function useChatScroll({
     };
     const onTouchMove = (event: TouchEvent) => {
       const y = event.touches[0]?.clientY ?? touchY;
-      if (y > touchY) suspendFollowing();
+      if (y > touchY && el.scrollTop > 0) suspendFollowing();
       touchY = y;
     };
     el.addEventListener('scroll', onScroll, { passive: true });

@@ -89,6 +89,16 @@ describe('chat scroll intent with mounted elements', () => {
     const view = render(<Harness />); const el = view.getByTestId('scroll'); viewportHeight = 300; resize(); flush(); expect(el.scrollTop).toBe(900);
     up(el); viewportHeight = 500; resize(); flush(); expect(el.scrollTop).toBe(200);
   });
+  it('keeps following when upward input cannot scroll a short conversation', () => {
+    height = 600;
+    const view = render(<Harness />);
+    const el = view.getByTestId('scroll');
+    fireEvent.wheel(el, { deltaY: -100 });
+    height = 900;
+    view.rerender(<Harness messages={[message('a'), message('b')]} />);
+    flush();
+    expect(el.scrollTop).toBe(300);
+  });
   it('cancels pending callbacks on unmount', () => {
     const view = render(<Harness />); resize(); view.unmount(); expect(frames.size).toBe(0); expect(observers.size).toBe(0);
   });

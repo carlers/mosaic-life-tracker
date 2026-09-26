@@ -26,7 +26,8 @@ No promotion to `dev` or production is authorized.
 - Before production edits, Chromium reproduced the height-chain defect with 60 messages:
   the message list had no internal overflow (`scrollHeight === clientHeight`).
 - All 34 browser contracts passed, including 10 chat cases. Desktop/mobile screenshots
-  were inspected. All 235 DOM tests passed, including 22 focused chat/layout tests.
+  were inspected. All 235 DOM tests passed before a final short-conversation input guard;
+  its added regression and the 23 focused chat/layout tests passed afterward.
 - Production build, PWA policy, size budgets, changed-file lint, project contracts,
   test discovery, and whitespace checks passed.
 - Remaining delivery: commit/push, exact-SHA canonical acceptance, squash PR to the
