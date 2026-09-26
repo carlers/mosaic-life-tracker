@@ -67,7 +67,9 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
           } ${
             contentWidthMode === 'comfortable'
               ? 'md:w-[min(70vw,960px)] md:mx-auto'
-              : ''
+              : contentWidthMode === 'wide'
+                ? 'md:w-[85vw] md:mx-auto'
+                : ''
           }`}
         >
           <PrimaryRouteSwipeSurface

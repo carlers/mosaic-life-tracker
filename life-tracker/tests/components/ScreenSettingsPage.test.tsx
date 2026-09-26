@@ -36,12 +36,15 @@ describe('ScreenSettingsPage', () => {
 
     fireEvent.click(screen.getByRole('radio', { name: /^Light/ }));
     fireEvent.click(screen.getByRole('radio', { name: /^Comfortable/ }));
+    fireEvent.click(screen.getByRole('radio', { name: /^Wide/ }));
     fireEvent.click(screen.getByRole('radio', { name: /^Compact/ }));
 
     expect(mocks.setAppearanceMode).toHaveBeenCalledWith('light');
     expect(mocks.setContentWidthMode).toHaveBeenCalledWith('comfortable');
+    expect(mocks.setContentWidthMode).toHaveBeenCalledWith('wide');
     expect(mocks.setSheetWidthMode).toHaveBeenCalledWith('compact');
     expect(screen.getByText(/70%/i)).toBeInTheDocument();
+    expect(screen.getByText(/85%/i)).toBeInTheDocument();
     expect(screen.getByText(/540px/i)).toBeInTheDocument();
   });
 });

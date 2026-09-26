@@ -36,6 +36,10 @@ const CONTENT_WIDTH_COPY: Record<ContentWidthMode, ChoiceCopy> = {
     description:
       'Center app content at 70% of the screen, capped at 960px, on tablets and larger.',
   },
+  wide: {
+    label: 'Wide',
+    description: 'Center app content at 85% of the screen on tablets and larger.',
+  },
 };
 
 const SHEET_WIDTH_COPY: Record<SheetWidthMode, ChoiceCopy> = {
