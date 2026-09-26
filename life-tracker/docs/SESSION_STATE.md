@@ -89,7 +89,3 @@ Verification: focused regression coverage updated for direct large jumps. Final 
 
 MonthView/WeekView use real seven-column week rows with max-content sizing, so each row follows its own tallest cell. DayCell now reserves 4.25rem, equivalent to a day label plus two standard text-only task blocks, while taller content can still expand the row.
 
-
-## Settings button spacing — 2026-09-26
-
-Reduced vertical padding on settings choice buttons slightly, consistently across the Screen settings page and Appearance settings sheet.
