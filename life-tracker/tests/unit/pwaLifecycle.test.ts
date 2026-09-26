@@ -114,7 +114,7 @@ describe('PWA lifecycle', () => {
     expect(setup.registration.update).toHaveBeenCalledOnce();
   });
 
-  // Regression: PROJECT_REFERENCE.md §24.13 — manual checks must recover a valid browser registration.
+  // Regression: §24.13 (manual update checks recover a valid browser registration).
   it('recovers the service-worker registration when the registration callback omits it', async () => {
     const setup = fixture({ callbackRegistration: false });
 
@@ -123,7 +123,7 @@ describe('PWA lifecycle', () => {
     expect(setup.registration.update).toHaveBeenCalledOnce();
   });
 
-  // Regression: PROJECT_REFERENCE.md §24.13 — WebKit/Safari-compatible recovery uses only standard SW APIs.
+  // Regression: §24.13 (WebKit/Safari recovery uses standard service-worker APIs).
   it('falls back to the active ready registration when direct lookup yields no registration', async () => {
     const setup = fixture({
       callbackRegistration: false,
@@ -160,7 +160,7 @@ describe('PWA lifecycle', () => {
     expect(setup.registration.update).not.toHaveBeenCalled();
   });
 
-  // Regression: PROJECT_REFERENCE.md §24.13 — a found worker reports the
+  // Regression: §24.13 (a found worker reports the
   // download stage before becoming ready to install.
   it('reports update-found and downloading while the new worker installs', async () => {
     const setup = fixture();
