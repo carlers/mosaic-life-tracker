@@ -410,6 +410,40 @@ test('owner task memo is visible and double/triple tap shortcuts reach edit surf
   await expect(page.getByTestId('todo-gesture')).toHaveText('memo-edit');
 });
 
+// Regression: PROJECT_REFERENCE.md §2 — Day View can close fully and reopen
+// without invoking the destroyed Swiper from the previous sheet lifecycle.
+test('DayView reopens on another and the same date after teardown', async ({ page }) => {
+  await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html?perf=heavy`);
+
+  await page.getByTestId('open-day-view-sheet').click();
+  let dialog = page.getByRole('dialog', {
+    name: 'Tuesday, September 15, 2026',
+  });
+  await expect(dialog).toBeVisible();
+  await waitForStableVerticalPosition(dialog);
+
+  await page.keyboard.press('Escape');
+  await expect(dialog).toHaveCount(0);
+
+  await page.getByTestId('open-next-day-view-sheet').click();
+  dialog = page.getByRole('dialog', {
+    name: 'Wednesday, September 16, 2026',
+  });
+  await expect(dialog).toBeVisible();
+  await expect(page.getByTestId('day-view-probe-error')).toHaveCount(0);
+  await waitForStableVerticalPosition(dialog);
+
+  await page.keyboard.press('Escape');
+  await expect(dialog).toHaveCount(0);
+
+  await page.getByTestId('open-day-view-sheet').click();
+  dialog = page.getByRole('dialog', {
+    name: 'Wednesday, September 16, 2026',
+  });
+  await expect(dialog).toBeVisible();
+  await expect(page.getByTestId('day-view-probe-error')).toHaveCount(0);
+});
+
 // Regression: PROJECT_REFERENCE.md §2 — the shared Day View date row is direct-manipulation horizontally while remaining a vertical close handle.
 test('sheet date row follows the finger horizontally and still supports vertical drag-to-close', async ({ page }) => {
   await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html`);
