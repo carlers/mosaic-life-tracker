@@ -201,18 +201,6 @@ function SheetPresenceSurface({
   onAnimationComplete?: () => void;
 }) {
   const [isPresent, safeToRemove] = usePresence();
-  const [entered, setEntered] = useState(false);
-
-  useLayoutEffect(() => {
-    const frame = window.requestAnimationFrame(() => {
-      setEntered(isPresent);
-    });
-    return () => window.cancelAnimationFrame(frame);
-  }, [isPresent]);
-
-  const transform = isPresent && entered
-    ? 'translate3d(0, 0, 0)'
-    : 'translate3d(0, 100%, 0)';
 
   return (
     <motion.div
@@ -221,23 +209,28 @@ function SheetPresenceSurface({
       role="dialog"
       aria-modal="true"
     >
-      <div
-        style={{
-          transform,
-          transition: 'transform 0.32s cubic-bezier(0.32, 0.72, 0, 1)',
+      <motion.div
+        initial={{ transform: 'translate3d(0, 100%, 0)' }}
+        animate={{
+          transform: isPresent
+            ? 'translate3d(0, 0, 0)'
+            : 'translate3d(0, 100%, 0)',
         }}
-        onTransitionEnd={(event) => {
-          if (!isPresent && event.propertyName === 'transform') {
-            onAnimationComplete?.();
-            safeToRemove?.();
-          }
+        transition={{
+          duration: isPresent ? 0.32 : 0.2,
+          ease: [0.32, 0.72, 0, 1],
+        }}
+        onAnimationComplete={() => {
+          onAnimationComplete?.();
+          if (!isPresent) safeToRemove?.();
         }}
         className="flex h-full min-h-0 w-full flex-col"
       >
         {children}
-      </div>
+      </motion.div>
     </motion.div>
   );
+
 }
 
 export const BottomSheet: React.FC<BottomSheetProps> = ({
