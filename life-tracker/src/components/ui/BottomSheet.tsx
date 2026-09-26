@@ -216,7 +216,10 @@ function SheetPresenceSurface({
             ? 'translate3d(0, 0, 0)'
             : 'translate3d(0, 100%, 0)',
         }}
-        transition={{ duration: 0.32, ease: [0.32, 0.72, 0, 1] }}
+        transition={{
+          duration: isPresent ? 0.32 : 0.2,
+          ease: [0.32, 0.72, 0, 1],
+        }}
         onAnimationComplete={() => {
           onAnimationComplete?.();
           if (!isPresent) safeToRemove?.();
