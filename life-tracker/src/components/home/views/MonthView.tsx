@@ -70,14 +70,14 @@ export const MonthView: React.FC<MonthViewProps> = ({
         ))}
       </div>
       <div
-        className="grid grid-cols-7 gap-1 px-2 flex-1 auto-rows-[minmax(min-content,1fr)]"
+        className="grid grid-cols-7 gap-1 px-2 auto-rows-max"
         role="rowgroup"
       >
         {calendarWeeks.map((week) => (
           <div
             key={format(week[0], 'yyyy-MM-dd')}
             role="row"
-            className="contents"
+            className="col-span-7 grid grid-cols-7 gap-1"
           >
             {week.map((day) => {
               const dateStr = format(day, 'yyyy-MM-dd');
