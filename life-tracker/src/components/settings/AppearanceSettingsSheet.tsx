@@ -45,7 +45,7 @@ export const AppearanceSettingsSheet: React.FC<
             aria-checked={selected}
             onClick={() => void onChange(option)}
             onPointerDown={(event) => event.stopPropagation()}
-            className="flex w-full items-center justify-between gap-3 rounded-xl px-3 py-3 text-left transition-colors hover:bg-[#2A2A2A] focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
+            className="flex w-full items-center justify-between gap-3 rounded-xl px-3 py-2.5 text-left transition-colors hover:bg-[#2A2A2A] focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
           >
             <span className="min-w-0">
               <span className="block text-sm font-semibold text-white">
