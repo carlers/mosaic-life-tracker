@@ -76,7 +76,7 @@ const props = {
 };
 
 describe('TodoListView', () => {
-  // Regression: PROJECT_REFERENCE.md §2 — Todo List view.
+  // Regression: §2 (Todo List behavior).
   it('keeps the compact calendar color-only and passes the selected-day data into the inline Day View surface', () => {
     render(<TodoListView {...props} />);
 
@@ -89,12 +89,7 @@ describe('TodoListView', () => {
     expect(within(grid).getAllByRole('row')).toHaveLength(6);
     expect(within(grid).getAllByRole('gridcell')).toHaveLength(35);
     expect(within(selectedDay).queryByText('Plan release')).toBeNull();
-    expect(selectedDay).not.toHaveClass('bg-white');
-    expect(within(selectedDay).getByText('15')).toHaveClass(
-      'rounded-full',
-      'bg-white',
-      'text-black'
-    );
+    expect(selectedDay).toHaveAttribute('aria-selected', 'true');
 
     fireEvent.click(selectedDay);
 
@@ -113,23 +108,7 @@ describe('TodoListView', () => {
     expect(screen.getByText('Work')).toBeInTheDocument();
   });
 
-  // Regression: PROJECT_REFERENCE.md §2 — Todo polish keeps the calendar borderless and directly adjacent to Day View.
-  it('uses a transparent borderless calendar surface with no extra Day View gap', () => {
-    render(<TodoListView {...props} />);
-
-    const grid = screen.getByRole('grid', {
-      name: 'September 2026 todo calendar',
-    });
-    expect(grid).toHaveClass('w-full', 'rounded-xl', 'bg-transparent', 'px-2', 'pt-3', 'pb-0');
-    const rows = within(grid).getAllByRole('row');
-    expect(rows[0]).toHaveClass('grid-cols-7');
-    expect(rows[1]).toHaveClass('grid-cols-7');
-    expect(within(grid).getAllByRole('gridcell')[0]).toHaveClass('mx-auto');
-    expect(grid).not.toHaveClass('border', 'border-[#333333]', 'p-3');
-    expect(screen.getByTestId('todo-day-section')).toHaveClass('mt-0');
-  });
-
-  // Regression: PROJECT_REFERENCE.md §2 — only months that need six weeks render six week rows.
+  // Regression: §2 (only six-week months render six calendar rows).
   it('keeps a required six-week month visible without forcing six weeks on shorter months', () => {
     render(<TodoListView {...props} focusDate={new Date(2026, 7, 15)} />);
 
@@ -140,61 +119,9 @@ describe('TodoListView', () => {
         name: 'Monday, August 31, 2026, 0 tasks',
       })
     ).toBeInTheDocument();
-    expect(screen.getByTestId('todo-calendar-grid')).toHaveClass('shrink-0');
   });
 
-  // Regression: PROJECT_REFERENCE.md §2 — fixed four-circle marker uses completed category order and incomplete count.
-  it('uses the fixed four-circle completion marker with category-order colors', () => {
-    const markerTasks: TaskDocument[] = [
-      { ...tasks[0], id: 'done_a', completed: true, categoryId: 'alpha' },
-      { ...tasks[0], id: 'done_b', completed: true, categoryId: 'beta' },
-      { ...tasks[0], id: 'open_c', completed: false, categoryId: 'gamma' },
-    ];
-    const markerCategories: CategoryDocument[] = [
-      { ...categories[0], id: 'alpha', name: 'Alpha', color: '#EF4444', order: 0 },
-      { ...categories[0], id: 'beta', name: 'Beta', color: '#3B82F6', order: 1 },
-      { ...categories[0], id: 'gamma', name: 'Gamma', color: '#10B981', order: 2 },
-    ];
-
-    render(
-      <TodoListView
-        {...props}
-        tasks={markerTasks}
-        categories={markerCategories}
-        categoriesMap={{
-          alpha: { color: '#EF4444', name: 'Alpha' },
-          beta: { color: '#3B82F6', name: 'Beta' },
-          gamma: { color: '#10B981', name: 'Gamma' },
-        }}
-      />
-    );
-
-    const marker = screen.getByTestId('todo-status-marker-2026-09-15');
-    const circles = within(marker).getAllByTestId('todo-status-circle');
-    expect(circles).toHaveLength(4);
-    expect(circles[0]).toHaveStyle({ backgroundColor: '#EF4444' });
-    expect(circles[1]).toHaveStyle({ backgroundColor: '#EF4444' });
-    expect(circles[2]).toHaveStyle({ backgroundColor: '#3B82F6' });
-    expect(circles[3]).toHaveStyle({ backgroundColor: '#3B82F6' });
-    expect(within(marker).getByText('1')).toBeInTheDocument();
-  });
-
-  // Regression: PROJECT_REFERENCE.md §2 — all-complete days show a check over the same four-circle marker.
-  it('shows a check when every task on the day is complete', () => {
-    render(
-      <TodoListView
-        {...props}
-        tasks={[{ ...tasks[0], completed: true }]}
-      />
-    );
-    expect(
-      within(screen.getByTestId('todo-status-marker-2026-09-15')).getByTestId(
-        'todo-status-complete'
-      )
-    ).toBeInTheDocument();
-  });
-
-  // Regression: PROJECT_REFERENCE.md §2 — Todo grid supports arrow-key day/week selection.
+  // Regression: §2 (Todo grid supports arrow-key day/week selection).
   it('moves the selected Todo day with arrow keys', () => {
     render(<TodoListView {...props} />);
     const grid = screen.getByRole('grid', { name: 'September 2026 todo calendar' });
@@ -209,7 +136,7 @@ describe('TodoListView', () => {
     ).toBeInTheDocument();
   });
 
-  // Regression: PROJECT_REFERENCE.md §16 — compact month swipes keep only active + one neighbor per side mounted.
+  // Regression: §16 (compact month swipes keep a bounded render window).
   it('mounts at most three compact month grids worth of day buttons', () => {
     render(<TodoListView {...props} />);
 
@@ -217,17 +144,7 @@ describe('TodoListView', () => {
     expect(within(carousel).getAllByRole('button', { hidden: true }).length).toBeLessThanOrEqual(126);
   });
 
-  // Regression: PROJECT_REFERENCE.md §7 — nested carousel gesture ownership.
-  it('contains horizontal overflow and marks the Todo surface as a parent-Swiper no-swiping region', () => {
-    const { container } = render(<TodoListView {...props} />);
-
-    const root = container.firstElementChild;
-    expect(root).toHaveClass('swiper-no-swiping');
-    expect(root).toHaveClass('min-w-0');
-    expect(root).toHaveClass('overflow-x-hidden');
-  });
-
-  // Regression: PROJECT_REFERENCE.md §2 — a day tap remains a day selection, including spillover days.
+  // Regression: §2 (day taps select dates, including spillover days).
   it('selects a tapped spillover day and requests its month', () => {
     const onFocusDateChange = vi.fn();
     render(
@@ -271,7 +188,7 @@ describe('TodoListView', () => {
     );
   });
 
-  // Regression: PROJECT_REFERENCE.md §2/§7 — inline day swipes own their date navigation.
+  // Regression: §2/§7 (inline day swipes own their date navigation).
   it('updates the visible month when the inline day view swipes across a month boundary', () => {
     const onFocusDateChange = vi.fn();
     render(

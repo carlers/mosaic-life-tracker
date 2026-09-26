@@ -8,7 +8,7 @@ import {
 } from '../../src/lib/appearance';
 
 describe('appearance mode', () => {
-  // Regression: PROJECT_REFERENCE.md §2 — System/Dark/Light/Black resolve to the documented palettes.
+  // Regression: §2 (System/Dark/Light/Black appearance-mode resolution).
   it('resolves explicit modes and follows the system preference only for System', () => {
     expect(resolveAppearanceMode('dark', false)).toBe('dark');
     expect(resolveAppearanceMode('dark', true)).toBe('dark');

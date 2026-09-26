@@ -21,7 +21,7 @@ describe('MessageComposer', () => {
     vi.useRealTimers();
   });
 
-  // Regression: task acceptance — opening a chat must not summon the phone keyboard.
+  // Regression: §21 (initial chat composer stays unfocused).
   it('does not autofocus the textarea when the composer first mounts', () => {
     vi.useFakeTimers();
     render(<MessageComposer onSend={vi.fn()} />);
@@ -58,7 +58,7 @@ describe('MessageComposer', () => {
     await waitFor(() => expect(textarea.value).toBe(''));
   });
 
-  // Regression: PROJECT_REFERENCE.md §21 — Send must not steal textarea focus and dismiss the mobile keyboard.
+  // Regression: §21 (Send preserves composer focus).
   it('prevents send pointer-down from taking focus away from the textarea', () => {
     const onSend = vi.fn();
     render(<MessageComposer onSend={onSend} />);

@@ -3,8 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { APP_VERSION } from '../../src/lib/appVersion';
 import { APP_BUILD_INFO } from '../../src/lib/buildInfo';
 
-// Regression: PROJECT_REFERENCE.md §24.13 — displayed release version and package
-// metadata stay aligned; build identity remains separate from the release number.
+// Regression: §24.13 (release version and package metadata stay aligned).
 describe('app version and build identity', () => {
   it('publishes release 0.1.0 consistently', () => {
     const packageJson = JSON.parse(

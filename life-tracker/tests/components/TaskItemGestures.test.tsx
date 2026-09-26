@@ -1,4 +1,4 @@
-// Regression: PROJECT_REFERENCE.md §2 — owner Day View gesture and memo contracts.
+// Regression: §2 (owner Day View gesture and memo contracts).
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { TaskDocument } from '../../src/db/schema';

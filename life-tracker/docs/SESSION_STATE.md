@@ -2,51 +2,48 @@
 
 Updated: 2026-09-27
 
-Current task: expand `feature/settings-ux-improvements` with a dedicated Settings → Preferences page, fix the shared switch geometry, and add the requested task/calendar behavior preferences.
+Current task: polish the accepted behavior-first test suite so spec traceability is durable and remaining assertions avoid unnecessary implementation or pixel coupling.
 
-Status: implementation is complete on `chatgpt/preferences-settings`, based on stable Preview commit `0035751c5163a2301c937010d5d956a591b67f30`. The existing generic synced settings collection stores all new behavior choices; no schema or Appwrite migration is required.
+Status: implementation is complete on `chatgpt/test-suite-polish`, targeting stable Preview `refactor/test-suite` at baseline commit `59075467e861b20d7d73c8ed6bd411f96726816a`. No runtime `src/**` product code changed.
 
 ## Working set
-- `src/pages/PreferencesPage.tsx`, `src/pages/SettingsPage.tsx`, `src/App.tsx`
-- `src/components/ui/SettingsRow.tsx`
-- calendar/Day View/category components under `src/components/home/**`
-- `src/lib/preferences.ts`, `src/lib/primarySwipeNavigation.ts`
-- focused DOM/unit/browser regression coverage
-- `docs/PROJECT_REFERENCE.md`
+- `docs/TEST_WORKFLOW.md`, `docs/PROJECT_REFERENCE.md`
+- product, sync/auth, handler, workflow, and browser regression tests
+- no application-runtime source changes
 
 ## Completed substeps
-- Replaced the Screen child page with Preferences while keeping `/settings/screen` as a redirect.
-- Moved appearance/layout choices and continuous same-category entry into Preferences.
-- Added synced toggles for Sunday week start, category collapse controls, the Day View Today tag, and calendar-title jump-to-today.
-- Preserved shipped defaults: Sunday-first is on; all newly optional UI behaviors are off.
-- Fixed the shared switch thumb with explicit left anchoring and bounded on-state translation.
-- Applied week-start consistently to Month, Week, Todo, and week-range calculations.
-- Added local category expand/collapse behavior without persisting each category's collapsed state.
-- Added/updated unit, DOM, integration, and browser geometry regression coverage.
-- Captured a behavioral-red on the Monday-start acceptance test before implementation (Quality Gate run 742), then reached focused green on runtime tip `e269688` (run 768).
-- Full run 770 exposed two stale Day View DOM assertions that assumed the date text was the direct navigation-row child; the tests now target the existing `data-day-view-navigation` contract marker so the optional Today wrapper does not invalidate them.
-- Full run 772 then exposed one remaining stale presentation assertion that expected the `text-base` class on the raw date text node; it now asserts the containing date heading, which remains the element that owns the header typography.
-- Updated PROJECT_REFERENCE §2 with the durable Preferences contracts.
+- Added durable traceability guidance: regression comments point to canonical requirements, not historical task/audit IDs; test titles remain understandable without old ticket context.
+- Replaced stale `UIFIX-*`, `PH-*`, `OFF-*`, `F*`, `D*`, `A*`, `P*`, `R1-*`, `AUTH-*`, `DB-BOOT-*`, `A11Y-*`, and task-only pointers where canonical repository requirements now exist.
+- Normalized product regression pointers to the concise `§<section> (contract)` form.
+- Removed three ConversationRow tests that asserted React memoization through mock call counts rather than a product contract.
+- Removed redundant happy-dom backdrop-dismissal and Day View synthetic pointer-ownership cases; real browser contracts remain the authority for those behaviors.
+- Rewrote full-sheet browser geometry from fixed ~830–850px/767px bands to viewport-relative assertions: phone full sheets remain bottom-aligned with visible backdrop; tablet full sheets fill the viewport.
+- Removed remaining class/style and exact DOM-parent/sibling assertions from the active component suite.
+- Final audit found no stale requirement IDs, old PROJECT_REFERENCE comment forms, class/style assertions, DOM-parent traversal, or hard-coded sheet-height bands in active product tests. One `task acceptance EVIDENCE-3` string remains intentionally as parser fixture data in `workflowEvidence.test.ts`.
+- Focused Quality Gate run 888 passed; test discovery remains 93 Vitest files (unit 39, handlers 7, DOM 47).
+- Full run 889 exposed one browser-test defect: the new viewport-relative BottomSheet assertion measured geometry while the opening transform was still in flight. All non-browser gates passed.
+- Repaired the browser contract to poll until the sheet settles before evaluating bottom alignment/full-height geometry; fixed-pixel bands were not restored.
+- Diff review against stable baseline remains docs/tests only; no runtime `src/**` changes.
 
 ## Remaining substeps
-- Run full canonical acceptance on the repaired final task SHA.
-- Fix any remaining full-gate failures and rerun until canonical acceptance passes.
-- Squash-merge the accepted task PR into `feature/settings-ux-improvements`.
-- Verify the stable Preview branch Quality Gate and Vercel deployment.
-- Manual/device acceptance remains separate and must not be claimed unless performed.
+- Run exact-SHA full canonical acceptance on the settled-geometry repair; repair any failures until green.
+- Record final test counts/timing from the accepted run.
+- Squash-merge the accepted task PR into `refactor/test-suite`.
+- Verify stable Preview Quality Gate and Vercel deployment.
 
 ## Constraints
-- Do not promote `feature/settings-ux-improvements` to `dev` without explicit user instruction.
-- Preserve existing appearance/layout behavior and existing one-shot task entry when their preferences are unchanged.
-- Preference switches persist through the existing synced settings collection only.
+- No product/runtime behavior changes.
+- Preserve distinct data-safety, authorization, sync, offline, deletion, accessibility, and browser-only interaction coverage.
+- Do not add meta-tests that rigidly police comment formatting; documentation owns the convention.
+- Do not promote `refactor/test-suite` to `dev` without explicit user instruction.
 
 ## Verification
-- Behavioral red: run 742, Monday-start test failed against pre-implementation Sunday-first behavior.
-- Focused runtime verification: run 768 passed on `e269688ad6b4a6330a93c99820661f98947e7d1f`.
-- Full canonical acceptance: runs 770 and 772 failed only on stale Day View DOM assertions caused by the new optional Today wrapper; both selector/typography assertions are repaired and the new final SHA is pending acceptance.
-- Stable Preview deployment: pending delivery.
-- Manual/device acceptance: not performed.
+- Stable starting baseline: `refactor/test-suite` Quality Gate run 817 passed on `59075467e861b20d7d73c8ed6bd411f96726816a`.
+- Focused verification: run 888 passed; follow-up run 890 passed on the settled-geometry repair.
+- Full canonical acceptance: run 889 failed only in browser-contract (2/2) because the test sampled mid-animation geometry; repaired in `aa79ce753d7edad03a52ef9bf2625a5163913e46`.
+- Final full canonical acceptance: requested on this checkpoint SHA.
+- Manual/device acceptance: not required because runtime behavior is unchanged.
 
-Next action: run exact-SHA full canonical acceptance on the selector repair, fix any remaining failures, then deliver by squash PR to the stable feature branch.
+Next action: complete exact-SHA full canonical acceptance; repair any failure, then deliver the accepted squash to `refactor/test-suite` and verify its Preview.
 
 Blockers: none.

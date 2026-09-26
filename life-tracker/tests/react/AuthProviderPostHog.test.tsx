@@ -1,4 +1,4 @@
-// Regression: Phase 3.7 PH-3/PH-8.
+// Regression: §24.15 (PostHog identity follows resolved auth state only).
 import { act, renderHook, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import type { Models } from 'appwrite';
@@ -72,7 +72,7 @@ describe('AuthProvider PostHog identity integration', () => {
     expect(accountRef.get).toHaveBeenCalledTimes(1);
   });
 
-  it('uses the cached OFF-1 identity after a mount-time network failure', async () => {
+  it('uses the cached offline identity after a mount-time network failure', async () => {
     localStorage.setItem(
       LAST_KNOWN_USER_KEY,
       JSON.stringify(makeUser({ $id: 'user_cached' }))

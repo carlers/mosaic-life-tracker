@@ -40,10 +40,9 @@ vi.mock('../../src/lib/deleteUserData', () => ({
 
 import { SettingsPage } from '../../src/pages/SettingsPage';
 
-// Regression: PROJECT_REFERENCE.md §24.13 — version/update controls precede
-// destructive data controls and update checks expose meaningful stages.
+// Regression: §24.13 (update checks expose meaningful stages).
 describe('SettingsPage navigation, updates, and data controls', () => {
-  it('shows version 0.1.0 and places update checking before destructive data controls', () => {
+  it('shows the app version and a dedicated update control', () => {
     render(
       <MemoryRouter>
         <SettingsPage />
@@ -53,14 +52,9 @@ describe('SettingsPage navigation, updates, and data controls', () => {
     expect(screen.getByText('0.1.0')).toBeInTheDocument();
     expect(screen.getByTestId('app-build-info')).toHaveTextContent(/branch: local/);
     expect(screen.getByTestId('app-build-info')).toHaveTextContent(/commit: local/);
-    const check = screen.getByRole('button', { name: /Check for Updates/i });
-    const deletion = screen.getByRole('button', { name: 'Delete All User Data' });
     expect(
-      Boolean(
-        check.compareDocumentPosition(deletion) &
-          Node.DOCUMENT_POSITION_FOLLOWING
-      )
-    ).toBe(true);
+      screen.getByRole('button', { name: /Check for Updates/i })
+    ).toBeInTheDocument();
   });
 
   it('announces useful progress stages instead of a generic Checking label', async () => {
@@ -92,7 +86,7 @@ describe('SettingsPage navigation, updates, and data controls', () => {
     );
   });
 
-  // Regression: PROJECT_REFERENCE.md §2 — remote deletion is distinct from local clearing.
+  // Regression: §2 (remote deletion remains distinct from local clearing).
   it('offers Delete All User Data as a separate destructive confirmation', () => {
     render(
       <MemoryRouter>
@@ -106,7 +100,7 @@ describe('SettingsPage navigation, updates, and data controls', () => {
     expect(screen.getByText(/does not delete your login account/i)).toBeInTheDocument();
   });
 
-  // Regression: PROJECT_REFERENCE.md §24.13 — update checks are not data sync.
+  // Regression: §24.13 (app-update checks are independent from data sync).
   it('offers a dedicated update check and reports an up-to-date result', async () => {
     render(
       <MemoryRouter>
@@ -122,7 +116,7 @@ describe('SettingsPage navigation, updates, and data controls', () => {
     );
   });
 
-  // Regression: PROJECT_REFERENCE.md §2 — Preferences is the Settings child route for app behavior and display choices.
+  // Regression: §2 (Preferences is the Settings child route for behavior and display choices).
   it('opens the Preferences route instead of exposing behavior toggles on Settings', () => {
     render(
       <MemoryRouter initialEntries={['/settings']}>

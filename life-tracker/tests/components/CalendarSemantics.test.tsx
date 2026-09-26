@@ -37,19 +37,9 @@ describe('calendar accessibility semantics', () => {
     expect(headers[6]).toHaveAccessibleName('Saturday');
     expect(cells).toHaveLength(35);
     expect(rows).toHaveLength(6);
-    // Regression: calendar row height is based on the tallest cell in that row,
-    // rather than a single shared grid track height.
-    const monthRows = rows.slice(1);
-    expect(monthRows).toHaveLength(5);
-    expect(monthRows.every((row) => row.classList.contains('grid'))).toBe(true);
-    expect(monthRows.every((row) => row.classList.contains('grid-cols-7'))).toBe(true);
-    expect(monthRows.every((row) => row.classList.contains('contents'))).toBe(false);
-
     const day = within(grid).getByRole('button', {
       name: 'Tuesday, September 15, 2026, no tasks',
     });
-    expect(within(day).getByText('15')).toHaveClass('text-sm');
-    expect(day).toHaveClass('min-h-[4.25rem]');
     fireEvent.click(day);
     expect(onDayClick).toHaveBeenCalledWith(new Date(2026, 8, 15));
   });
@@ -73,9 +63,6 @@ describe('calendar accessibility semantics', () => {
     expect(within(grid).getAllByRole('columnheader')).toHaveLength(7);
     expect(within(grid).getAllByRole('gridcell')).toHaveLength(7);
     expect(within(grid).getAllByRole('row')).toHaveLength(2);
-    const weekRow = within(grid).getAllByRole('row')[1];
-    expect(weekRow).toHaveClass('grid', 'grid-cols-7');
-    expect(weekRow).not.toHaveClass('contents');
     expect(
       within(grid).getByRole('button', {
         name: 'Wednesday, September 23, 2026, no tasks',
@@ -83,7 +70,7 @@ describe('calendar accessibility semantics', () => {
     ).toBeEnabled();
   });
 
-  // Regression: PROJECT_REFERENCE.md §2 — week-start preference applies to Calendar and Todo grids.
+  // Regression: §2 (week-start preference applies to Calendar and Todo grids).
   it('starts month, week, and Todo calendars on Monday when Sunday-start is disabled', () => {
     const month = render(
       <MonthView

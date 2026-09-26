@@ -14,7 +14,7 @@ describe('message-action / deliver', () => {
     mockDb = makeMockDb();
   });
 
-  // Regression: A1 — server must reject any messageId that is not a valid
+  // Regression: §11/§20.3 (delivery rejects invalid message row IDs).
   // row id, including missing values.
   it('returns 400 when messageId is missing', async () => {
     const res = await invoke({
@@ -36,7 +36,7 @@ describe('message-action / deliver', () => {
     expect(res.body.error).toBe('Invalid recipientId');
   });
 
-  // Regression: B3.4 — server enforces the msg_ prefix even if callers
+  // Regression: §11/§20.3 (delivery enforces the msg_ sender-row prefix).
   // bypass the client-side generator.
   it('returns 400 with "Invalid messageId format" when msg_ prefix is missing', async () => {
     const res = await invoke({
@@ -68,7 +68,7 @@ describe('message-action / deliver', () => {
     expect(res.body.error).toBe('Cannot message yourself');
   });
 
-  // Regression: B3.5 — empty message (no content, no task ref, no reply)
+  // Regression: §20.3 (delivery rejects messages with no content or reference).
   // must not be delivered.
   it('returns 400 "Message has no content" when content and refs are all empty', async () => {
     const res = await invoke({
@@ -85,7 +85,7 @@ describe('message-action / deliver', () => {
     expect(res.body.error).toBe('Message has no content');
   });
 
-  // Regression: R1-1 — friendship must be verified before any write.
+  // Regression: §20.3 (friendship is verified before cross-user delivery).
   it('returns 403 when the caller is not friends with the recipient', async () => {
     // Default listRows returns { rows: [] }, so verifyFriendship fails.
     const res = await invoke({
@@ -103,7 +103,7 @@ describe('message-action / deliver', () => {
     expect(mockDb.upsertRow).not.toHaveBeenCalled();
   });
 
-  // Regression: R1-1 — bidirectional friendship is required; a one-way
+  // Regression: §20.3 (cross-user delivery requires an accepted friendship).
   // accepted row must not be enough.
   it('returns 403 when only the forward friendship is accepted', async () => {
     mockDb.listRows
@@ -125,7 +125,7 @@ describe('message-action / deliver', () => {
     expect(mockDb.upsertRow).not.toHaveBeenCalled();
   });
 
-  // Regression: A1 — the happy path must produce two rows: recipient
+  // Regression: §20.4 (delivery creates the recipient-owned peer row).
   // (incoming, recipient-owned) and sender (outgoing, sender-owned).
   it('successfully delivers: recipient row first, sender row second', async () => {
     mockDb.listRows
@@ -170,7 +170,7 @@ describe('message-action / deliver', () => {
     expect(senderCall.permissions).toContain(`delete("user:${CALLER}")`);
   });
 
-  // Regression: A1 — re-delivering an existing message must be idempotent:
+  // Regression: §20.4 (re-delivery is idempotent).
   // the recipient row is not overwritten and the function returns 200.
   it('hijack guard: skips recipient upsert when the row already exists', async () => {
     mockDb.listRows

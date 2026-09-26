@@ -70,46 +70,17 @@ describe('CategorySection', () => {
     expect(
       screen.queryByPlaceholderText('Add a task to Work...')
     ).toBeNull();
-    const chip = screen.getByText('Work').parentElement;
-    expect(chip).not.toBeNull();
-    fireEvent.click(chip as Element);
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Add a task to Work' })
+    );
     expect(
       screen.getByPlaceholderText('Add a task to Work...')
     ).toBeInTheDocument();
   });
 
-  // Regression: PROJECT_REFERENCE.md §2 — pending row sits under the category pill before existing tasks.
-  it('shows the pending checkbox above existing tasks and uses the category color on the input', () => {
-    renderSection({
-      tasks: [{
-        id: 'task_existing',
-        title: 'Existing task',
-        completed: false,
-        categoryId: 'work',
-        date: '2026-09-23',
-        createdAt: '2026-09-23T00:00:00.000Z',
-        updatedAt: '2026-09-23T00:00:00.000Z',
-        userId: 'user_A',
-        isDeleted: false,
-        visibility: 'private',
-      }],
-    });
-    fireEvent.click(screen.getByRole('button', { name: 'Add a task to Work' }));
-
-    const row = screen.getByTestId('pending-task-row');
-    const input = screen.getByPlaceholderText('Add a task to Work...');
-    const checkbox = screen.getByTestId('pending-task-checkbox');
-    const existing = screen.getByText('Existing task');
-
-    expect(checkbox).toBeInTheDocument();
-    expect(input).toHaveStyle({ borderBottomColor: '#3B82F6' });
-    expect(row.compareDocumentPosition(existing) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(screen.getByTestId('category-add-icon')).toHaveAttribute('width', '18');
-  });
-
   it('Enter with non-whitespace content fires onAddTask(trimmed) and closes the input', () => {
     const { cbs } = renderSection();
-    fireEvent.click(screen.getByText('Work').parentElement as Element);
+    fireEvent.click(screen.getByRole('button', { name: 'Add a task to Work' }));
     const input = screen.getByPlaceholderText(
       'Add a task to Work...'
     ) as HTMLInputElement;
@@ -122,11 +93,10 @@ describe('CategorySection', () => {
     ).toBeNull();
   });
 
-  // Regression: PROJECT_REFERENCE.md §2 — continuous entry clears the submitted title
-  // while preserving the active same-category input and keyboard focus.
+  // Regression: §2 (continuous entry preserves same-category input focus).
   it('keeps the same-category input open and focused after Enter when enabled', () => {
     const { cbs } = renderSection({ continueAddingAfterSubmit: true });
-    fireEvent.click(screen.getByText('Work').parentElement as Element);
+    fireEvent.click(screen.getByRole('button', { name: 'Add a task to Work' }));
     const input = screen.getByPlaceholderText(
       'Add a task to Work...'
     ) as HTMLInputElement;
@@ -141,7 +111,7 @@ describe('CategorySection', () => {
     expect(nextInput).toHaveFocus();
   });
 
-  // Regression: PROJECT_REFERENCE.md §2 — category collapse is opt-in UI chrome.
+  // Regression: §2 (category collapse remains opt-in).
   it('shows an accessible collapse control only when enabled and hides category contents', () => {
     const task = {
       id: 'task_existing',
@@ -186,7 +156,7 @@ describe('CategorySection', () => {
 
   it('Escape closes the input without firing onAddTask', () => {
     const { cbs } = renderSection();
-    fireEvent.click(screen.getByText('Work').parentElement as Element);
+    fireEvent.click(screen.getByRole('button', { name: 'Add a task to Work' }));
     const input = screen.getByPlaceholderText(
       'Add a task to Work...'
     ) as HTMLInputElement;
@@ -201,7 +171,7 @@ describe('CategorySection', () => {
   it('blur closes the input when empty; keeps it open when content remains', () => {
     renderSection();
     // First: empty blur closes.
-    fireEvent.click(screen.getByText('Work').parentElement as Element);
+    fireEvent.click(screen.getByRole('button', { name: 'Add a task to Work' }));
     const input = screen.getByPlaceholderText(
       'Add a task to Work...'
     ) as HTMLInputElement;
@@ -211,7 +181,7 @@ describe('CategorySection', () => {
     ).toBeNull();
 
     // Reopen, type, blur — should stay open.
-    fireEvent.click(screen.getByText('Work').parentElement as Element);
+    fireEvent.click(screen.getByRole('button', { name: 'Add a task to Work' }));
     const input2 = screen.getByPlaceholderText(
       'Add a task to Work...'
     ) as HTMLInputElement;

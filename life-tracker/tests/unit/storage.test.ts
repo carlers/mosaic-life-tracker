@@ -36,7 +36,8 @@ beforeEach(() => {
   sdkRef.guardedStorageCreateFile.mockReset();
 });
 
-describe('storage.getCurrentUserId — 401 vs network (OFF-3)', () => {
+// Regression: §23.6 (confirmed 401 differs from network/offline uncertainty).
+describe('storage.getCurrentUserId — 401 vs network', () => {
   it('returns null when the server returns 401', async () => {
     sdkRef.guardedAccountGet.mockRejectedValueOnce(
       Object.assign(new Error('Unauthorized'), { code: 401 })

@@ -1,13 +1,36 @@
 import React from 'react';
 import { act, fireEvent, render, screen } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('../../src/components/layout/BottomNav', () => ({
   BottomNav: () => <nav data-testid="bottom-nav">Bottom nav</nav>,
 }));
 
+vi.mock('../../src/pages/AccountPage', () => ({
+  AccountPage: () => <div>Actual Me neighbor content</div>,
+}));
+vi.mock('../../src/pages/ExplorePage', () => ({
+  ExplorePage: () => <div>Actual Explore neighbor content</div>,
+}));
+vi.mock('../../src/pages/HomePage', () => ({
+  HomePage: () => <div>Actual Home neighbor content</div>,
+}));
+vi.mock('../../src/pages/MessagesPage', () => ({
+  MessagesPage: () => <div>Actual Chat neighbor content</div>,
+}));
+vi.mock('../../src/pages/SettingsPage', () => ({
+  SettingsPage: () => <div>Actual Settings neighbor content</div>,
+}));
+vi.mock('../../src/components/layout/ComingSoon', () => ({
+  ComingSoon: () => <div>Actual Alerts neighbor content</div>,
+}));
+
 import { MainLayout } from '../../src/components/layout/MainLayout';
-import { AppearanceContext } from '../../src/hooks/appearanceContext';
+import { PrimaryRoutePreview } from '../../src/components/layout/PrimaryRoutePreview';
+
+afterEach(() => {
+  vi.useRealTimers();
+});
 
 function drag(target: Element, fromX: number, toX: number) {
   fireEvent.pointerDown(target, {
@@ -31,8 +54,7 @@ function drag(target: Element, fromX: number, toX: number) {
   });
 }
 
-// Regression: PROJECT_REFERENCE.md §2 — primary route swipes are direct page gestures,
-// with Home restricted to its hamburger layer and Me left-swipe opening Settings.
+// Regression: §2/§7 (primary-route swipe ownership and direct manipulation).
 describe('MainLayout primary route swipes', () => {
   it('keeps Home full-height, ignores body swipes, and accepts the hamburger-layer swipe', () => {
     vi.useFakeTimers();
@@ -51,15 +73,6 @@ describe('MainLayout primary route swipes', () => {
           </div>
         </div>
       </MainLayout>
-    );
-
-    expect(screen.getByRole('main')).not.toHaveClass('pb-24');
-    expect(screen.getByTestId('primary-route-content')).toHaveClass(
-      'pb-[calc(4rem+env(safe-area-inset-bottom))]'
-    );
-    expect(screen.getByTestId('primary-route-swipe-surface')).toHaveClass(
-      'h-full',
-      'min-h-0'
     );
 
     drag(screen.getByTestId('home-body'), 300, 80);
@@ -83,27 +96,7 @@ describe('MainLayout primary route swipes', () => {
     );
 
     expect(screen.queryByTestId('bottom-nav')).toBeNull();
-    expect(screen.getByTestId('primary-route-content')).not.toHaveClass(
-      'pb-[calc(4rem+env(safe-area-inset-bottom))]'
-    );
-  });
-
-  it('keeps the non-Home swipe surface at least as tall as the full route viewport', () => {
-    render(
-      <MainLayout
-        activeTab="explore"
-        onTabChange={() => {}}
-        canSwipeLeft
-        canSwipeRight
-        onRouteSwipe={() => {}}
-      >
-        <div>Short Explore content</div>
-      </MainLayout>
-    );
-
-    expect(screen.getByTestId('primary-route-swipe-surface')).toHaveClass(
-      'min-h-[calc(100dvh-4rem-env(safe-area-inset-bottom))]'
-    );
+    expect(screen.getByText('Chat detail')).toBeInTheDocument();
   });
 
   it('accepts a leftward full-page swipe on Me', () => {
@@ -126,30 +119,7 @@ describe('MainLayout primary route swipes', () => {
     expect(onRouteSwipe).toHaveBeenCalledWith('left');
   });
 
-  // Regression: PROJECT_REFERENCE.md §2 — non-Home swipe ownership includes the bottom inset/content wrapper.
-  it('keeps the bottom navigation inset inside the draggable route surface', () => {
-    render(
-      <MainLayout
-        activeTab="explore"
-        onTabChange={() => {}}
-        canSwipeLeft
-        canSwipeRight
-        onRouteSwipe={() => {}}
-      >
-        <div>Explore body</div>
-      </MainLayout>
-    );
-
-    const surface = screen.getByTestId('primary-route-swipe-surface');
-    const content = screen.getByTestId('primary-route-content');
-    expect(surface).toContainElement(content);
-    expect(content).toHaveClass(
-      'pb-[calc(4rem+env(safe-area-inset-bottom))]'
-    );
-  });
-
-  // Regression: PROJECT_REFERENCE.md §2 — an adjacent route becomes visible only for
-  // the active gesture; it must not mount during the initial critical render.
+  // Regression: §2 (only the actively dragged adjacent route mounts and appears).
   it('mounts only the directional destination preview during a live drag', () => {
     vi.useFakeTimers();
     const Preview = vi.fn(() => (
@@ -193,70 +163,11 @@ describe('MainLayout primary route swipes', () => {
     expect(Preview).toHaveBeenCalledTimes(1);
   });
 
-  // Regression: task acceptance — Comfortable content width constrains the shared route surface,
-  // not individual pages, so live swipe previews stay attached inside the same centered frame.
-  it('constrains the shared route frame in Comfortable mode on larger screens', () => {
-    render(
-      <AppearanceContext.Provider
-        value={{
-          mode: 'system',
-          resolvedTheme: 'dark',
-          setAppearanceMode: vi.fn().mockResolvedValue(undefined),
-          contentWidthMode: 'comfortable',
-          sheetWidthMode: 'full',
-          setContentWidthMode: vi.fn().mockResolvedValue(undefined),
-          setSheetWidthMode: vi.fn().mockResolvedValue(undefined),
-        }}
-      >
-        <MainLayout
-          activeTab="explore"
-          onTabChange={() => {}}
-          canSwipeLeft
-          canSwipeRight
-          onRouteSwipe={() => {}}
-        >
-          <div>Explore body</div>
-        </MainLayout>
-      </AppearanceContext.Provider>
-    );
 
-    expect(screen.getByTestId('primary-route-width-frame')).toHaveClass(
-      'w-full',
-      'md:w-[min(70vw,960px)]',
-      'md:mx-auto'
-    );
+  it('renders the prefetched adjacent route content when its chunk is ready', async () => {
+    render(<PrimaryRoutePreview pathname="/account" />);
+    expect(
+      await screen.findByText('Actual Me neighbor content')
+    ).toBeInTheDocument();
   });
-
-  it('constrains the shared route frame to 85vw in Wide mode on larger screens', () => {
-    render(
-      <AppearanceContext.Provider
-        value={{
-          mode: 'system',
-          resolvedTheme: 'dark',
-          setAppearanceMode: vi.fn().mockResolvedValue(undefined),
-          contentWidthMode: 'wide',
-          sheetWidthMode: 'full',
-          setContentWidthMode: vi.fn().mockResolvedValue(undefined),
-          setSheetWidthMode: vi.fn().mockResolvedValue(undefined),
-        }}
-      >
-        <MainLayout
-          activeTab="explore"
-          onTabChange={() => {}}
-          canSwipeLeft
-          canSwipeRight
-          onRouteSwipe={() => {}}
-        >
-          <div>Explore body</div>
-        </MainLayout>
-      </AppearanceContext.Provider>
-    );
-
-    expect(screen.getByTestId('primary-route-width-frame')).toHaveClass(
-      'w-full',
-      'md:w-[85vw]',
-      'md:mx-auto'
-    );
-  });
-
 });

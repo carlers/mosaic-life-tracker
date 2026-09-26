@@ -1,4 +1,4 @@
-// Regression: PROJECT_REFERENCE.md §2 — Todo List selected-day workspace is real Day View UI, not a mocked substitute.
+// Regression: §2 (Todo selected-day workspace uses the real Day View integration).
 import type { ReactNode } from 'react';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -125,7 +125,7 @@ describe('TodoListView integrated selected-day workspace', () => {
     expect(screen.getByTestId('inline-day-view')).toBeInTheDocument();
   });
 
-  // Regression: PROJECT_REFERENCE.md §2 — supplied Todo data must render through actual DayViewSheet/DaySlide.
+  // Regression: §2 (Todo data renders through the shared Day View).
   it('renders the loaded category and task through the real inline Day View surface', () => {
     render(
       <TodoListView
@@ -147,8 +147,7 @@ describe('TodoListView integrated selected-day workspace', () => {
     expect(screen.getByTestId('inline-day-view')).toBeInTheDocument();
   });
 
-  // Regression: PROJECT_REFERENCE.md §2 — the synced continuous-entry preference
-  // reaches the real Todo -> DayView -> CategorySection task creator.
+  // Regression: §2 (synced continuous-entry preference reaches Todo Day View).
   it('keeps the real same-category task input active after adding when the setting is enabled', () => {
     render(
       <TodoListView
@@ -188,24 +187,5 @@ describe('TodoListView integrated selected-day workspace', () => {
     expect(
       screen.getByPlaceholderText('Add a task to Integrated category...')
     ).toHaveFocus();
-  });
-
-  // Regression: PROJECT_REFERENCE.md §2 — Todo owns one cohesive vertical page scroll.
-  it('keeps the real selected-day content in page-scroll mode instead of a nested task scroller', () => {
-    render(
-      <TodoListView
-        focusDate={new Date(2026, 8, 15)}
-        tasks={[fixture.task]}
-        categories={[fixture.category]}
-        categoriesMap={{}}
-        onFocusDateChange={vi.fn()}
-      />
-    );
-
-    const task = screen.getByText('Integrated todo task');
-    const daySlide = task.closest('[data-testid="day-slide"]');
-    expect(daySlide).not.toBeNull();
-    expect(daySlide).not.toHaveClass('overflow-y-auto');
-    expect(daySlide).not.toHaveClass('h-full');
   });
 });

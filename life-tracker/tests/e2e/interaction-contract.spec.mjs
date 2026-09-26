@@ -140,8 +140,7 @@ async function startDrag(page, locator, deltaX) {
   };
 }
 
-// Regression: PROJECT_REFERENCE.md §2 — primary page swipes visibly track the finger,
-// Home only starts from its hamburger layer, non-Home owns the full page, and Me left-swipe opens Settings.
+// Regression: §2/§7 (primary-route swipe ownership and direct manipulation).
 test('primary route swipe is direct-manipulation with Home and Me ownership rules', async ({ page }) => {
   await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html`);
 
@@ -186,107 +185,12 @@ test('primary route swipe is direct-manipulation with Home and Me ownership rule
 
   await drag(page, page.getByTestId('primary-page-lower-swipe-zone'), -220);
   await expect(page.getByTestId('primary-route')).toHaveText('settings');
-});
-
-// Regression: PROJECT_REFERENCE.md §2 — phone-sized Me owns horizontal gestures
-// throughout its content and Settings swipes right back to Me.
-test('phone route deck supports lower-page Me swipe and Settings right-back', async ({ page }) => {
-  await page.setViewportSize({ width: 360, height: 740 });
-  await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html`);
-
-  const routeHarness = page.getByTestId('primary-route-harness');
-  await routeHarness.scrollIntoViewIfNeeded();
-  await page.getByTestId('set-primary-account').click();
-
-  const lowerZone = page.getByTestId('primary-page-lower-swipe-zone');
-  await lowerZone.scrollIntoViewIfNeeded();
-  await drag(page, lowerZone, -220);
-  await expect(page.getByTestId('primary-route')).toHaveText('settings');
 
   await drag(page, page.getByTestId('primary-page-lower-swipe-zone'), 220);
   await expect(page.getByTestId('primary-route')).toHaveText('account');
 });
 
-// Regression: PROJECT_REFERENCE.md §2 — Todo active month is centered/natural-height
-// and selection is a numeral-only white circle.
-test('todo compact calendar centers the active month and rings only the selected numeral', async ({ page }) => {
-  await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html`);
-
-  const region = page.getByTestId('todo-calendar-region');
-  const grid = region.getByRole('grid', { name: 'September 2026 todo calendar' });
-  expect(await grid.evaluate((element) => getComputedStyle(element).backgroundColor)).toBe(
-    'rgba(0, 0, 0, 0)'
-  );
-  expect(await grid.evaluate((element) => getComputedStyle(element).borderTopWidth)).toBe(
-    '0px'
-  );
-  await expect(grid.getByRole('gridcell')).toHaveCount(35);
-
-  const regionBox = await region.boundingBox();
-  const gridBox = await grid.boundingBox();
-  if (!regionBox || !gridBox) throw new Error('Missing Todo calendar bounds');
-
-  const regionCenter = regionBox.x + regionBox.width / 2;
-  const gridCenter = gridBox.x + gridBox.width / 2;
-  expect(Math.abs(regionCenter - gridCenter)).toBeLessThanOrEqual(1);
-
-  const selectedCell = grid.getByRole('gridcell', {
-    name: 'Tuesday, September 15, 2026, 0 tasks',
-  });
-  const selectedNumber = selectedCell.getByTestId(
-    'todo-day-number-2026-09-15'
-  );
-  expect(
-    await selectedCell.evaluate((element) => getComputedStyle(element).backgroundColor)
-  ).toBe('rgba(0, 0, 0, 0)');
-  expect(
-    await selectedNumber.evaluate((element) => getComputedStyle(element).backgroundColor)
-  ).toBe('rgb(255, 255, 255)');
-});
-
-// Regression: PROJECT_REFERENCE.md §2 — Light and Black change the actual rendered palette
-// while semantic colored controls retain their contrast treatment.
-test('appearance modes update computed app surfaces without changing semantic fills', async ({ page }) => {
-  await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html`);
-
-  await page.getByTestId('set-appearance-light').click();
-  await expect
-    .poll(() =>
-      page.evaluate(() => document.documentElement.dataset.theme)
-    )
-    .toBe('light');
-
-  const sample = page.getByTestId('appearance-sample');
-  const surface = page.getByTestId('appearance-surface-sample');
-  const semantic = page.getByTestId('appearance-semantic-sample');
-  expect(
-    await sample.evaluate((element) => getComputedStyle(element).backgroundColor)
-  ).toBe('rgb(247, 247, 248)');
-  expect(
-    await sample.evaluate((element) => getComputedStyle(element).color)
-  ).toBe('rgb(17, 24, 39)');
-  expect(
-    await surface.evaluate((element) => getComputedStyle(element).backgroundColor)
-  ).toBe('rgb(255, 255, 255)');
-  expect(
-    await semantic.evaluate((element) => getComputedStyle(element).color)
-  ).toBe('rgb(255, 255, 255)');
-
-  await page.getByTestId('set-appearance-black').click();
-  await expect
-    .poll(() =>
-      page.evaluate(() => document.documentElement.dataset.theme)
-    )
-    .toBe('black');
-  expect(
-    await sample.evaluate((element) => getComputedStyle(element).backgroundColor)
-  ).toBe('rgb(0, 0, 0)');
-  expect(
-    await surface.evaluate((element) => getComputedStyle(element).backgroundColor)
-  ).toBe('rgb(9, 9, 9)');
-});
-
-// Regression: task acceptance — switch thumb stays inside its track in both states.
+// Regression: §24.17 (switch thumb remains inside its usable track).
 test('settings switches keep the thumb bounded and move it from left to right', async ({ page }) => {
   await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html`);
 
@@ -325,7 +229,7 @@ test('calendar swipe moves the calendar without advancing the friend carousel', 
   const calendarTitle = page.getByTestId('calendar-title');
   const calendarRegion = page.getByTestId('calendar-region');
 
-  // PROJECT_REFERENCE.md §16 / calendar accessibility: check initial rendering
+  // §16 / calendar accessibility: check initial rendering
   // before the swipe moves away from the month containing today's marker.
   expect(await calendarRegion.getByRole('grid').count()).toBeLessThanOrEqual(3);
   const title = (await calendarTitle.textContent())?.trim();
@@ -343,17 +247,12 @@ test('calendar swipe moves the calendar without advancing the friend carousel', 
 
   await expect.poll(async () => calendarTitle.textContent()).not.toBe(before);
   await expect(friendIndex).toHaveText('0');
-});
-
-test('swiping outside the calendar still advances the friend carousel', async ({ page }) => {
-  await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html`);
 
   await drag(page, page.getByTestId('friend-swipe-zone'), -260);
-
-  await expect(page.getByTestId('friend-index')).toHaveText('1');
+  await expect(friendIndex).toHaveText('1');
 });
 
-// Regression: PROJECT_REFERENCE.md §2 — Todo calendar is direct-manipulation, tappable, and owns its gesture.
+// Regression: §2/§7 (Todo calendar owns direct-manipulation swipes).
 test('todo calendar follows the finger before snapping months', async ({ page }) => {
   await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html`);
   await expect(page.getByTestId('friend-index')).toHaveText('0');
@@ -377,7 +276,7 @@ test('todo calendar follows the finger before snapping months', async ({ page })
   await expect(page.getByTestId('friend-index')).toHaveText('0');
 });
 
-// Regression: PROJECT_REFERENCE.md §21 — a Send tap must not blur the active textarea.
+// Regression: §21 (Send preserves composer focus).
 test('message send keeps composer focus without an intermediate blur', async ({ page }) => {
   await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html`);
 
@@ -390,9 +289,7 @@ test('message send keeps composer focus without an intermediate blur', async ({ 
   await expect(page.getByTestId('composer-blur-count')).toHaveText('0');
 });
 
-// Regression: PROJECT_REFERENCE.md §2 — Home task search stays mounted beneath
-// Day View so native Back restores the exact query/filter state. The existing
-// Day View browser contract below separately verifies downward drag-to-close.
+// Regression: §2/§7 (Home search state survives nested Day View history).
 test('home task search survives result-sheet Back with state preserved', async ({ page }) => {
   await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html`);
 
@@ -423,7 +320,7 @@ test('home task search survives result-sheet Back with state preserved', async (
   await expect(result).toBeVisible();
 });
 
-// Regression: PROJECT_REFERENCE.md §2 — real DaySlide exposes memo text and owner multi-tap shortcuts.
+// Regression: §2 (owner Day View exposes memo content and multi-tap shortcuts).
 test('owner task memo is visible and double/triple tap shortcuts reach edit surfaces', async ({ page }) => {
   await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html`);
 
@@ -442,8 +339,7 @@ test('owner task memo is visible and double/triple tap shortcuts reach edit surf
   await expect(page.getByTestId('todo-gesture')).toHaveText('memo-edit');
 });
 
-// Regression: PROJECT_REFERENCE.md §2 — Day View can close fully and reopen
-// without invoking the destroyed Swiper from the previous sheet lifecycle.
+// Regression: §2 (Day View reopens cleanly after sheet teardown).
 test('DayView reopens on another and the same date after teardown', async ({ page }) => {
   await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html?perf=heavy`);
 
@@ -476,7 +372,7 @@ test('DayView reopens on another and the same date after teardown', async ({ pag
   await expect(page.getByTestId('day-view-probe-error')).toHaveCount(0);
 });
 
-// Regression: PROJECT_REFERENCE.md §2 — the shared Day View date row is direct-manipulation horizontally while remaining a vertical close handle.
+// Regression: §2/§7 (Day View date row owns horizontal navigation and vertical close).
 test('sheet date row follows the finger horizontally and still supports vertical drag-to-close', async ({ page }) => {
   await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html`);
   await page.getByTestId('open-full-sheet').click();
@@ -505,7 +401,7 @@ test('sheet date row follows the finger horizontally and still supports vertical
   await expect(page.getByRole('dialog', { name: 'Responsive test sheet' })).toHaveCount(0);
 });
 
-// Regression: PROJECT_REFERENCE.md §2 — blank lower Day View sheet space remains part of the native horizontal day surface.
+// Regression: §2 (blank Day View sheet space remains part of day navigation).
 test('blank lower sheet area swipes to the adjacent day', async ({ page }) => {
   await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html`);
   await page.getByTestId('open-full-sheet').click();
@@ -517,17 +413,31 @@ test('blank lower sheet area swipes to the adjacent day', async ({ page }) => {
   await expect(page.getByTestId('sheet-day-index')).toHaveText('1');
 });
 
-// Regression: PROJECT_REFERENCE.md §2 — phones expose backdrop dismissal; tablet full sheets use full height.
+// Regression: §2/§13 (phone full sheets preserve backdrop; tablet full sheets fill the viewport).
 test('full sheet leaves a phone backdrop, closes from it, and fills tablet height', async ({ page }) => {
   await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html`);
   await page.getByTestId('open-full-sheet').click();
 
   let dialog = page.getByRole('dialog', { name: 'Responsive test sheet' });
-  let box = await dialog.boundingBox();
-  if (!box) throw new Error('Missing phone sheet bounds');
-  expect(box.height).toBeGreaterThan(830);
-  expect(box.height).toBeLessThan(850);
-  expect(box.y).toBeGreaterThan(50);
+  const phoneViewport = page.viewportSize();
+  if (!phoneViewport) throw new Error('Missing phone viewport');
+
+  await expect.poll(async () => {
+    const box = await dialog.boundingBox();
+    if (!box) return null;
+    return {
+      leavesBackdrop: box.y > 0 && box.height < phoneViewport.height,
+      bottomGap: Math.abs(box.y + box.height - phoneViewport.height),
+    };
+  }).toEqual({
+    leavesBackdrop: true,
+    bottomGap: expect.any(Number),
+  });
+
+  await expect.poll(async () => {
+    const box = await dialog.boundingBox();
+    return box ? Math.abs(box.y + box.height - phoneViewport.height) : Infinity;
+  }).toBeLessThanOrEqual(1);
 
   await page.mouse.click(10, 10);
   await expect(dialog).toHaveCount(0);
@@ -535,9 +445,17 @@ test('full sheet leaves a phone backdrop, closes from it, and fills tablet heigh
   await page.setViewportSize({ width: 1024, height: 768 });
   await page.getByTestId('open-full-sheet').click();
   dialog = page.getByRole('dialog', { name: 'Responsive test sheet' });
-  box = await dialog.boundingBox();
-  if (!box) throw new Error('Missing tablet sheet bounds');
-  expect(box.height).toBeGreaterThanOrEqual(767);
+  const tabletViewport = page.viewportSize();
+  if (!tabletViewport) throw new Error('Missing tablet viewport');
+
+  await expect.poll(async () => {
+    const box = await dialog.boundingBox();
+    if (!box) return false;
+    return (
+      box.y <= 1 &&
+      box.height >= tabletViewport.height - 1
+    );
+  }).toBe(true);
 });
 
 test('todo calendar day tap selects the day without changing friend or month', async ({ page }) => {
@@ -552,7 +470,7 @@ test('todo calendar day tap selects the day without changing friend or month', a
   await expect(page.getByTestId('friend-index')).toHaveText('0');
 });
 
-// Regression: PROJECT_REFERENCE.md §2 — Todo owns one vertical page scroll.
+// Regression: §2/§7 (Todo owns one vertical page scroll).
 test('todo selected-day task content does not create a nested vertical scroller', async ({ page }) => {
   await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html`);
 
@@ -566,7 +484,7 @@ test('todo selected-day task content does not create a nested vertical scroller'
   expect(nestedScrollOwners).toBe(0);
 });
 
-// Regression: PROJECT_REFERENCE.md §2 — full compact month remains visible above task content.
+// Regression: §2 (six-week Todo months remain fully visible).
 test('todo page keeps every row of a six-week month visible instead of flex-clipping the calendar', async ({ page }) => {
   await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html`);
 

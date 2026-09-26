@@ -52,7 +52,7 @@ describe('message-action / react', () => {
     expect(res.body.error).toBe('Invalid recipientId');
   });
 
-  // Regression: A2 — emoji validation.
+  // Regression: §20.7 (message reactions validate emoji input).
   it('returns 400 for an empty emoji', async () => {
     const res = await invoke({
       userId: CALLER,
@@ -150,7 +150,7 @@ describe('message-action / react', () => {
     expect(res.body.error).toBe('Not friends with this user');
   });
 
-  // Regression: A2 / §18 — the two-phase Pass A must validate BOTH rows
+  // Regression: §18/§20.7 (reaction validation completes before either row is written).
   // before Pass B writes. If the second row would overflow, no write may
   // happen at all.
   it('two-phase: overflow on the second row prevents any write', async () => {
@@ -197,7 +197,7 @@ describe('message-action / react', () => {
     expect(mockDb.updateRow).not.toHaveBeenCalled();
   });
 
-  // Regression: A2 — the happy path patches both rows with the same delta.
+  // Regression: §20.7 (message reactions patch both participant rows).
   it('successful: patches both rows with the new reactions JSON', async () => {
     mockDb.listRows
       .mockResolvedValueOnce({ rows: [friendshipRow()] })
