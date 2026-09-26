@@ -42,7 +42,6 @@ export function useCalendarState(isActive = true): CalendarState {
   const [baseDate, setBaseDate] = useState<Date>(() => new Date());
   const [emblaActiveIndex, setEmblaActiveIndex] = useState(CENTER_INDEX);
   const [isPrewarmed, setIsPrewarmed] = useState(false);
-  const [isSwipeInFlight, setIsSwipeInFlight] = useState(false);
   const isInternalSwipeRef = useRef(false);
   const [prevViewMode, setPrevViewMode] = useState(viewMode);
 
@@ -86,15 +85,13 @@ export function useCalendarState(isActive = true): CalendarState {
     return () => window.clearTimeout(timer);
   }, [isActive, isPrewarmed]);
 
-  // Keep the heavy render window pinned while Embla is animating to a snap.
-  // The active slide already has both immediate neighbors mounted, so the
-  // destination remains visible without mounting the next full calendar grid
-  // during the compositor-owned settling animation.
+  // Keep the settled-side window mounted through the snap. Selection can
+  // advance again before Embla settles, so the render bounds below retain this
+  // window while also extending toward the newest selected month/week.
   useEffect(() => {
     if (!emblaApi) return;
     const syncSettledIndex = () => {
       const index = emblaApi.selectedScrollSnap();
-      setIsSwipeInFlight(false);
       setEmblaActiveIndex((prev) => (prev === index ? prev : index));
     };
     syncSettledIndex();
@@ -135,7 +132,6 @@ export function useCalendarState(isActive = true): CalendarState {
           ? differenceInCalendarMonths(newDate, focusDate) === 0
           : differenceInCalendarWeeks(newDate, focusDate) === 0;
 
-      setIsSwipeInFlight(true);
       if (!same) {
         // Update the lightweight date/header state as soon as Embla selects
         // the next snap so another quick swipe can build on the new target.
@@ -193,16 +189,27 @@ export function useCalendarState(isActive = true): CalendarState {
     return Math.max(0, Math.min(TOTAL_SLIDES - 1, raw));
   }, [focusDate, baseDate, viewMode]);
 
-  const renderWindow =
+  const settledRenderWindow =
     isActive && isPrewarmed ? RAPID_RENDER_WINDOW : INITIAL_RENDER_WINDOW;
-  const renderFocusIndex = isSwipeInFlight ? emblaActiveIndex : focusIndex;
+
+  // Never let rapid repeated selections outrun mounted content. Keep the
+  // settled/prewarmed window in place for smoothness, but extend only the
+  // selected edge by one neighbor as focusDate advances. That preserves a real
+  // next slide for another immediate swipe without shifting/unmounting the
+  // settled grids until Embla actually settles.
   const renderStart = Math.max(
     0,
-    Math.min(emblaActiveIndex, renderFocusIndex) - renderWindow
+    Math.min(
+      emblaActiveIndex - settledRenderWindow,
+      focusIndex - INITIAL_RENDER_WINDOW
+    )
   );
   const renderEnd = Math.min(
     TOTAL_SLIDES - 1,
-    Math.max(emblaActiveIndex, renderFocusIndex) + renderWindow
+    Math.max(
+      emblaActiveIndex + settledRenderWindow,
+      focusIndex + INITIAL_RENDER_WINDOW
+    )
   );
 
   return {
