@@ -68,10 +68,6 @@ Verification is running on the feature branch. Real-device visual acceptance rem
 
 The accepted task SHA `bc78a220c87ff6c086ab51236bc442e2e79a0cbf` was copied to `feature/dayview-close-paint-containment` for the configured Vercel Preview delivery path. This branch adds no runtime changes; its own canonical gate is required before treating the feature Preview as delivered.
 
-## Chat detail chrome and autoscroll — 2026-09-26
-
-Chat detail uses the full viewport; composer stays bottom-anchored and new messages autoscroll.
-
 ## Wide content width follow-up — 2026-09-26
 
 Added a third large-screen Content width option, Wide, alongside Full screen and Comfortable. Wide centers the shared primary route-swipe surface at 85vw from the tablet breakpoint upward; phone layouts remain full width. Added settings, layout, and regression coverage.
@@ -93,3 +89,36 @@ Verification: focused regression coverage updated for direct large jumps. Final 
 
 MonthView/WeekView use real seven-column week rows with max-content sizing, so each row follows its own tallest cell. DayCell now reserves 4.25rem, equivalent to a day label plus two standard text-only task blocks, while taller content can still expand the row.
 
+
+
+## Chat scroll-to-bottom v2 — 2026-09-26
+
+Current task: `chatgpt/chat-scroll-to-bottom-v2` → `fix/chat-scroll-to-bottom-v2`.
+
+Root causes identified in the prior chat implementation:
+- The autoscroll effect only ran when the latest message ID changed and performed a single `scrollTop = scrollHeight` during the React layout phase. Variable-height message layout can continue after that assignment, leaving the viewport above the real bottom.
+- The scroll container owned bottom padding while the composer was an independent absolute overlay. The fixed clearance was not tied to the composer's actual height, so replies/counters and keyboard movement could cover the newest message.
+- The composer used `position:absolute; bottom:0`, so it was anchored to the layout container rather than the mobile visual viewport when the software keyboard overlaid it.
+- The scroll FAB used its own fixed bottom offset, so it was not geometrically attached to the composer when the composer moved.
+
+Implementation in progress:
+- Re-anchor on mount and every newly appended message, then re-anchor again in the next animation frame.
+- Observe the rendered message content with `ResizeObserver` so late layout changes re-pin the conversation.
+- Measure the actual composer height and reserve that clearance plus the keyboard inset in the message scroller.
+- Keep composer and scroll FAB in one fixed bottom dock.
+- Track the mobile visual viewport with `resize` + `scroll` events and rAF; use the layout/visual viewport difference to lift the dock above the keyboard. The viewport meta also opts into `interactive-widget=resizes-content` where supported.
+- Enable Vercel Preview deployment for `fix/*` stable branches.
+- Formalize the rule that AI task branches enter stable Preview branches only and are not merged directly to `dev` without explicit user instruction.
+
+Reference basis: MDN VisualViewport/ResizeObserver and current web chat implementations use the visual viewport for keyboard-safe fixed chrome and post-layout observation for variable-height chat content.
+
+Verification still required:
+- Focused tests for chat scroll and keyboard inset.
+- Full canonical acceptance on the final task SHA.
+- Squash-merge the accepted task PR into `fix/chat-scroll-to-bottom-v2`.
+- Verify the fix branch Vercel Preview is ready.
+- Real phone keyboard/open/send/receive acceptance remains a separate manual check; do not claim it until performed.
+
+Constraints:
+- Never merge this task directly to `dev`.
+- Do not treat the AI task branch as the Preview deployment branch; Preview delivery is through `fix/chat-scroll-to-bottom-v2`.
