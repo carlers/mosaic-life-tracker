@@ -55,6 +55,9 @@ describe('SettingsPage navigation, updates, and data controls', () => {
     expect(
       screen.getByRole('button', { name: /Check for Updates/i })
     ).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Backup & Restore' })
+    ).toBeInTheDocument();
   });
 
   it('announces useful progress stages instead of a generic Checking label', async () => {
