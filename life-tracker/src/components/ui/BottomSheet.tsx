@@ -208,7 +208,6 @@ function SheetPresenceSurface({
       {...outerProps}
       role="dialog"
       aria-modal="true"
-      aria-hidden={outerProps['aria-hidden'] ?? undefined}
     >
       <motion.div
         initial={{ transform: 'translate3d(0, 100%, 0)' }}
