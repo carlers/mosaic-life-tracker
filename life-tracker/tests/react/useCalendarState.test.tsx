@@ -1,6 +1,6 @@
 // Regression: PROJECT_REFERENCE.md §16 — calendar swipes must not dispatch React state work from Embla's per-frame scroll event.
 import { act, renderHook } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const emblaFixture = vi.hoisted(() => {
   const handlers = new Map<string, Set<() => void>>();
@@ -58,8 +58,20 @@ vi.mock('embla-carousel-react', () => ({
 import { useCalendarState } from '../../src/components/home/views/useCalendarState';
 
 describe('useCalendarState render window', () => {
+  let idleCallback: IdleRequestCallback | null = null;
+
   beforeEach(() => {
     emblaFixture.reset();
+    idleCallback = null;
+    vi.stubGlobal('requestIdleCallback', (callback: IdleRequestCallback) => {
+      idleCallback = callback;
+      return 1;
+    });
+    vi.stubGlobal('cancelIdleCallback', vi.fn());
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
   });
 
   it('keeps the three-slide render window stable during per-frame scroll events', () => {
@@ -77,25 +89,41 @@ describe('useCalendarState render window', () => {
     expect(result.current.renderEnd).toBe(31);
   });
 
-  it('defers calendar state and neighbor mounting until the swipe has settled', () => {
+  it('updates fast consecutive swipe targets immediately while deferring heavy window shifts until settle', () => {
     const { result } = renderHook(() => useCalendarState());
     const initialTitle = result.current.title;
+
+    act(() => {
+      idleCallback?.({ didTimeout: false, timeRemaining: () => 50 } as IdleDeadline);
+    });
+
+    expect(result.current.renderStart).toBe(28);
+    expect(result.current.renderEnd).toBe(32);
 
     act(() => {
       emblaFixture.setSelectedIndex(31);
       emblaFixture.emit('select');
     });
 
-    expect(result.current.title).toBe(initialTitle);
-    expect(result.current.renderStart).toBe(29);
-    expect(result.current.renderEnd).toBe(31);
+    const firstSwipeTitle = result.current.title;
+    expect(firstSwipeTitle).not.toBe(initialTitle);
+    expect(result.current.renderStart).toBe(28);
+    expect(result.current.renderEnd).toBe(32);
+
+    act(() => {
+      emblaFixture.setSelectedIndex(32);
+      emblaFixture.emit('select');
+    });
+
+    expect(result.current.title).not.toBe(firstSwipeTitle);
+    expect(result.current.renderStart).toBe(28);
+    expect(result.current.renderEnd).toBe(32);
 
     act(() => {
       emblaFixture.emit('settle');
     });
 
-    expect(result.current.title).not.toBe(initialTitle);
     expect(result.current.renderStart).toBe(30);
-    expect(result.current.renderEnd).toBe(32);
+    expect(result.current.renderEnd).toBe(34);
   });
 });

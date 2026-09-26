@@ -293,9 +293,10 @@ test('calendar swipe moves the calendar without advancing the friend carousel', 
   const calendarTitle = page.getByTestId('calendar-title');
   const calendarRegion = page.getByTestId('calendar-region');
 
-  // PROJECT_REFERENCE.md §16 / calendar accessibility: check initial rendering
-  // before the swipe moves away from the month containing today's marker.
-  expect(await calendarRegion.getByRole('grid').count()).toBeLessThanOrEqual(3);
+  // PROJECT_REFERENCE.md §16 / calendar accessibility: cold mount stays at
+  // three grids (unit-covered), while the active calendar may idle-prewarm to
+  // five so rapid repeat swipes have real neighboring content ready.
+  expect(await calendarRegion.getByRole('grid').count()).toBeLessThanOrEqual(5);
   const title = (await calendarTitle.textContent())?.trim();
   expect(title).toBeTruthy();
   const grid = page.getByRole('grid', { name: `${title} calendar` });

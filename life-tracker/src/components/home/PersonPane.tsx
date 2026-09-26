@@ -49,7 +49,7 @@ export const PersonPane: React.FC<PersonPaneProps> = ({
   const [activeView, setActiveView] = useState<ViewType>(readMeView);
   const [todoFocusDate, setTodoFocusDate] = useState(() => new Date());
 
-  const calendarState = useCalendarState();
+  const calendarState = useCalendarState(isActive);
 
   const friendUserId = person.kind === 'friend' ? person.userId : null;
   const {

@@ -19,7 +19,8 @@ const CENTER_INDEX = SLIDES_EACH_SIDE;
 // Slides to render on each side of the active/focus index. Embla mounts
 // every child it receives; without this cap the 61-slide carousel mounts
 // 61 full month grids on cold load (~2.5k DayCells).
-const RENDER_WINDOW = 1;
+const INITIAL_RENDER_WINDOW = 1;
+const RAPID_RENDER_WINDOW = 2;
 
 export interface CalendarState {
   viewMode: CalendarViewMode;
@@ -35,11 +36,13 @@ export interface CalendarState {
   resetToToday: () => void;
 }
 
-export function useCalendarState(): CalendarState {
+export function useCalendarState(isActive = true): CalendarState {
   const [viewMode, setViewMode] = useState<CalendarViewMode>('month');
   const [focusDate, setFocusDate] = useState<Date>(() => new Date());
   const [baseDate, setBaseDate] = useState<Date>(() => new Date());
   const [emblaActiveIndex, setEmblaActiveIndex] = useState(CENTER_INDEX);
+  const [isPrewarmed, setIsPrewarmed] = useState(false);
+  const [isSwipeInFlight, setIsSwipeInFlight] = useState(false);
   const isInternalSwipeRef = useRef(false);
   const [prevViewMode, setPrevViewMode] = useState(viewMode);
 
@@ -63,6 +66,26 @@ export function useCalendarState(): CalendarState {
     duration: 22,
   });
 
+  // Preserve the three-grid cold mount, then prewarm one extra calendar on
+  // each side only for the active person once the browser is idle. This keeps
+  // a second quick swipe populated without pushing that work into the snap.
+  useEffect(() => {
+    if (!isActive || isPrewarmed) return;
+
+    const prewarm = () => setIsPrewarmed(true);
+    if (typeof window.requestIdleCallback === 'function') {
+      const idleId = window.requestIdleCallback(prewarm, { timeout: 1200 });
+      return () => {
+        if (typeof window.cancelIdleCallback === 'function') {
+          window.cancelIdleCallback(idleId);
+        }
+      };
+    }
+
+    const timer = window.setTimeout(prewarm, 400);
+    return () => window.clearTimeout(timer);
+  }, [isActive, isPrewarmed]);
+
   // Keep the heavy render window pinned while Embla is animating to a snap.
   // The active slide already has both immediate neighbors mounted, so the
   // destination remains visible without mounting the next full calendar grid
@@ -71,6 +94,7 @@ export function useCalendarState(): CalendarState {
     if (!emblaApi) return;
     const syncSettledIndex = () => {
       const index = emblaApi.selectedScrollSnap();
+      setIsSwipeInFlight(false);
       setEmblaActiveIndex((prev) => (prev === index ? prev : index));
     };
     syncSettledIndex();
@@ -101,7 +125,7 @@ export function useCalendarState(): CalendarState {
 
   useEffect(() => {
     if (!emblaApi) return;
-    const onSettle = () => {
+    const onSelect = () => {
       const index = emblaApi.selectedScrollSnap();
       const offset = index - CENTER_INDEX;
       const fn = viewMode === 'month' ? addMonths : addWeeks;
@@ -110,14 +134,19 @@ export function useCalendarState(): CalendarState {
         viewMode === 'month'
           ? differenceInCalendarMonths(newDate, focusDate) === 0
           : differenceInCalendarWeeks(newDate, focusDate) === 0;
+
+      setIsSwipeInFlight(true);
       if (!same) {
+        // Update the lightweight date/header state as soon as Embla selects
+        // the next snap so another quick swipe can build on the new target.
+        // The heavy calendar render window stays pinned until settle below.
         isInternalSwipeRef.current = true;
         setFocusDate(newDate);
       }
     };
-    emblaApi.on('settle', onSettle);
+    emblaApi.on('select', onSelect);
     return () => {
-      emblaApi.off('settle', onSettle);
+      emblaApi.off('select', onSelect);
     };
   }, [emblaApi, baseDate, focusDate, viewMode]);
 
@@ -164,13 +193,16 @@ export function useCalendarState(): CalendarState {
     return Math.max(0, Math.min(TOTAL_SLIDES - 1, raw));
   }, [focusDate, baseDate, viewMode]);
 
+  const renderWindow =
+    isActive && isPrewarmed ? RAPID_RENDER_WINDOW : INITIAL_RENDER_WINDOW;
+  const renderFocusIndex = isSwipeInFlight ? emblaActiveIndex : focusIndex;
   const renderStart = Math.max(
     0,
-    Math.min(emblaActiveIndex, focusIndex) - RENDER_WINDOW
+    Math.min(emblaActiveIndex, renderFocusIndex) - renderWindow
   );
   const renderEnd = Math.min(
     TOTAL_SLIDES - 1,
-    Math.max(emblaActiveIndex, focusIndex) + RENDER_WINDOW
+    Math.max(emblaActiveIndex, renderFocusIndex) + renderWindow
   );
 
   return {
