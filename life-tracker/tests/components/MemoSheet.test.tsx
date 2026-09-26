@@ -1,4 +1,4 @@
-// Regression: PROJECT_REFERENCE.md §2 — memo opens read-first, then explicit edit controls.
+// Regression: §2 (memo opens read-first, then exposes explicit edit controls).
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import type { TaskDocument } from '../../src/db/schema';
