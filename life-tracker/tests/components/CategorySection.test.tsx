@@ -33,6 +33,7 @@ function makeCallbacks() {
 interface RenderOpts {
   categoryName?: string;
   tasks?: React.ComponentProps<typeof CategorySection>['tasks'];
+  continueAddingAfterSubmit?: boolean;
 }
 
 function renderSection(opts: RenderOpts = {}) {
@@ -46,6 +47,7 @@ function renderSection(opts: RenderOpts = {}) {
       tasks={opts.tasks ?? []}
       editingTaskId={null}
       editValue=""
+      continueAddingAfterSubmit={opts.continueAddingAfterSubmit}
       {...cbs}
     />
   );
@@ -116,6 +118,25 @@ describe('CategorySection', () => {
     expect(
       screen.queryByPlaceholderText('Add a task to Work...')
     ).toBeNull();
+  });
+
+  // Regression: PROJECT_REFERENCE.md §2 — continuous entry clears the submitted title
+  // while preserving the active same-category input and keyboard focus.
+  it('keeps the same-category input open and focused after Enter when enabled', () => {
+    const { cbs } = renderSection({ continueAddingAfterSubmit: true });
+    fireEvent.click(screen.getByText('Work').parentElement as Element);
+    const input = screen.getByPlaceholderText(
+      'Add a task to Work...'
+    ) as HTMLInputElement;
+    fireEvent.change(input, { target: { value: 'First task' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+
+    expect(cbs.onAddTask).toHaveBeenCalledWith('First task');
+    const nextInput = screen.getByPlaceholderText(
+      'Add a task to Work...'
+    ) as HTMLInputElement;
+    expect(nextInput).toHaveValue('');
+    expect(nextInput).toHaveFocus();
   });
 
   it('Escape closes the input without firing onAddTask', () => {
