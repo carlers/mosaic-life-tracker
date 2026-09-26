@@ -6,12 +6,14 @@ interface ScrollToBottomButtonProps {
   visible: boolean;
   hasNewMessages?: boolean;
   onClick: () => void;
+  className?: string;
 }
 
 export const ScrollToBottomButton: React.FC<ScrollToBottomButtonProps> = ({
   visible,
   hasNewMessages = false,
   onClick,
+  className = '',
 }) => {
   return (
     <AnimatePresence>
@@ -28,7 +30,7 @@ export const ScrollToBottomButton: React.FC<ScrollToBottomButtonProps> = ({
           aria-label={
             hasNewMessages ? 'Scroll to bottom, new messages' : 'Scroll to bottom'
           }
-          className="absolute bottom-24 right-4 z-20 w-10 h-10 rounded-full bg-[#2A2A2A] border border-[#444444] shadow-lg flex items-center justify-center text-gray-300 hover:text-white hover:bg-[#333333] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
+          className={`absolute right-4 z-20 w-10 h-10 rounded-full bg-[#2A2A2A] border border-[#444444] shadow-lg flex items-center justify-center text-gray-300 hover:text-white hover:bg-[#333333] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 ${className}`}
         >
           <ArrowDown size={18} aria-hidden="true" />
           {hasNewMessages && (
