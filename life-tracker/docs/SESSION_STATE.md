@@ -20,6 +20,9 @@ Status: the first perf candidate was manually reported smoother, but its decisio
 - Restored `focusDate`/header synchronization on `select` while tracking the in-flight swipe separately so `focusIndex` does not widen the heavy render window mid-animation.
 - Kept the three-grid cold mount, then idle-prewarmed the active person's calendar to five grids (current ±2). Inactive person panes stay at the smaller ±1 window.
 - Focused Quality Gate run 708 passed.
+- First full run 709 exposed two React lint violations in the follow-up implementation: synchronous state reset inside an effect and reading a ref during render.
+- Reworked those mechanics without changing the candidate behavior: prewarm is now derived from active/prewarmed state, and in-flight swipe ownership is React state rather than render-time ref access.
+- Repair Quality Gate run 710 passed focused checks.
 
 ## Constraints
 - Preserve direct-manipulation dragging, calendar gesture ownership, Month/Week visuals, and the smoother no-heavy-mount settling behavior from the first perf candidate.
@@ -33,7 +36,9 @@ Status: the first perf candidate was manually reported smoother, but its decisio
 - Manual feedback on first perf Preview: settling was smoother, but rapid repeat swipe responsiveness regressed and perceived settling was too long.
 - Follow-up behavioral red: run 706.
 - Follow-up focused green: run 708.
-- Exact final follow-up canonical acceptance: pending.
+- First full run 709: failed checks on two React lint errors; no runtime/test failure was accepted.
+- Repair focused green: run 710.
+- Exact final follow-up canonical acceptance: pending on the post-repair documentation checkpoint.
 - Updated stable perf Preview: pending.
 - Real-device Month/Week acceptance: pending after updated Preview.
 
