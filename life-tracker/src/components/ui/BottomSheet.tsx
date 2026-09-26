@@ -282,9 +282,10 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
       : 'flex-1 overflow-y-auto px-4 pb-8 overscroll-contain';
 
   const sheetContent = (
-    <AnimatePresence>
-      {isOpen && (
-        <>
+    <>
+      <AnimatePresence>
+        {isOpen && (
+          <>
           {/*
             Backdrop. `aria-hidden` is correct — a modal backdrop is
             decorative and must not be reachable by keyboard or
@@ -304,6 +305,10 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
             aria-hidden="true"
             className={`fixed inset-0 z-[50] bg-black/60 ${backdropBlur ? 'backdrop-blur-sm' : ''} ${suspendInteraction ? 'pointer-events-none' : ''}`}
           />
+        )}
+      </AnimatePresence>
+      <AnimatePresence>
+        {isOpen && (
           <SheetPresenceSurface
             sheetRef={sheetRef}
             onAnimationComplete={onAnimationComplete}
@@ -479,9 +484,9 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
               {shouldRenderChildren ? children : null}
             </div>
           </SheetPresenceSurface>
-        </>
-      )}
-    </AnimatePresence>
+        )}
+      </AnimatePresence>
+    </>
   );
 
   return ReactDOM.createPortal(sheetContent, document.body);
