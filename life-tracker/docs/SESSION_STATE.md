@@ -85,3 +85,8 @@ Verification: final task commit requests full canonical acceptance before Previe
 Fixed the inline Todo Day View so its initial day slide renders immediately. The sheet-only deferred render window was previously held at zero because inline mode has no BottomSheet animation-complete callback; tapping a day whose content was not already mounted could therefore leave the inline day surface blank. Inline mode now uses the normal Day View render window directly, while sheet mode keeps the existing entrance deferral. Added an integration regression covering a selected day with no tasks.
 
 Verification: the first canonical run exposed stale test expectations only; those assertions were repaired without changing runtime behavior. The final task commit requests full canonical acceptance before Preview delivery.
+## Todo large date-jump fix — 2026-09-26
+
+Fixed large selected-day jumps in the Todo inline Day View (for example September 11 → September 30). The Day View uses Swiper Virtual with a five-slide neighborhood; when the selected date changed by a large distance, the virtual window could be populated around the new index while Swiper retained the old visible translate until another swipe forced an update. The selection effect now refreshes Swiper's virtual slides before moving to the new index, then updates slide geometry. Added a hook regression covering the large-date jump ordering.
+
+Verification: final task commit requests full canonical acceptance before Preview delivery.
