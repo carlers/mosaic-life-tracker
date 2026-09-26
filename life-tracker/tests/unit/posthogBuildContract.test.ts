@@ -5,7 +5,7 @@ function read(path: string) {
 }
 
 describe('PostHog production source-map build contract', () => {
-  // Regression: PROJECT_REFERENCE.md §24.15 / DELIVERY.md — optional
+  // Regression: §24.15 / DELIVERY.md (optional
   // source-map upload must not make ordinary Vercel builds depend on stale
   // external PostHog credentials.
   it('requires an explicit source-map opt-in in addition to the three build credentials', () => {
