@@ -442,6 +442,11 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
         onSwiper={(swiper) => {
           swiperRef.current = swiper;
         }}
+        onBeforeDestroy={(swiper) => {
+          if (swiperRef.current === swiper) {
+            swiperRef.current = null;
+          }
+        }}
         initialSlide={initialIndex}
         onSlideChange={handleSwipeSettled}
         data-testid="day-swiper"
