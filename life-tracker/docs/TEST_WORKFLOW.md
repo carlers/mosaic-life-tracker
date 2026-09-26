@@ -140,6 +140,20 @@ another authoritative spec, or an explicit task-acceptance requirement. Assertio
 mirror private state, component structure, class lists, or helper implementation are not
 acceptance evidence unless that exact structure is the documented contract.
 
+### Traceability hygiene
+
+Regression pointers should survive the task that created them. Once behavior has a canonical
+repository requirement, point the test at that requirement rather than a temporary audit,
+ticket, or task label. Prefer `// Regression: §<section> (<contract>)` for
+`PROJECT_REFERENCE.md` and an explicit document name for other specs. Do not keep
+`task acceptance`, `UIFIX-*`, `F*`, `A*`, `PH-*`, or similar historical IDs as the
+sole requirement source after the behavior is formalized.
+
+Do not add a citation comment to every test. Ordinary unit cases can stand on a descriptive
+test name. Add a pointer where it explains *why the behavior must remain true* or connects a
+non-obvious regression to a durable contract. Test titles themselves should remain readable
+without knowing an old issue number.
+
 For cross-component UI behavior, at least one acceptance layer must cross the boundary
 being validated. A component test that mocks the child responsible for the behavior is
 wiring coverage only; it cannot by itself prove that the integrated UI renders, scrolls,
