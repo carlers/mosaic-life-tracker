@@ -239,8 +239,7 @@ describe('DayViewSheet nested task actions', () => {
   });
 
 
-  // Regression: §16 — keep Swiper geometry while avoiding
-  // navigation/button trees for the 174 dates outside the seven-slide window.
+  // Regression: §16 (Day View keeps Swiper geometry with a bounded render window).
   it('mounts day navigation only inside the rendered swipe window', () => {
     renderSheet();
 
