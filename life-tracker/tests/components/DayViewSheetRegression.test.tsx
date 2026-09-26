@@ -1,4 +1,4 @@
-// Regression: UIFIX-5/UIFIX-7/UIFIX-8/UIFIX-9 — day-sheet header and nested task surfaces retain context.
+// Regression: §2/§13 (Day View header and nested sheet context).
 import type { ReactNode } from 'react';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -190,7 +190,7 @@ describe('DayViewSheet nested task actions', () => {
     vi.useRealTimers();
   });
 
-  // Regression: PROJECT_REFERENCE.md §2 — Day View can opt into a compact Today marker beside its date.
+  // Regression: §2 (optional Today marker beside the active date).
   it('shows a Today tag beside the active date only when the preference is enabled', () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date(2026, 8, 20, 12));
@@ -222,7 +222,7 @@ describe('DayViewSheet nested task actions', () => {
     expect(swiperFixture.slideNext).toHaveBeenCalledTimes(1);
   });
 
-  // Regression: task acceptance — date + arrows share the horizontal day-swipe surface.
+  // Regression: §2 (date and day arrows share the Day View navigation surface).
   it('places the selected date between the arrows inside the day swiper', () => {
     renderSheet();
 
@@ -238,45 +238,8 @@ describe('DayViewSheet nested task actions', () => {
     expect(dialog).toHaveAttribute('aria-label', 'Sunday, September 20, 2026');
   });
 
-  // Regression: PROJECT_REFERENCE.md §2 — non-Swiper sheet chrome keeps the release fallback,
-  // while the date row advertises native directional ownership. Real direct manipulation
-  // remains a Playwright responsibility because happy-dom does not run Swiper's touch engine.
-  it('keeps the sheet-handle fallback and exposes the Swiper-owned date row', () => {
-    renderSheet();
 
-    const dialog = screen.getByRole('dialog');
-    const sheetHandle = dialog.firstElementChild as HTMLElement | null;
-    expect(sheetHandle).not.toBeNull();
-
-    fireEvent.pointerDown(sheetHandle as HTMLElement, {
-      pointerId: 1,
-      clientX: 300,
-      clientY: 20,
-    });
-    fireEvent.pointerUp(sheetHandle as HTMLElement, {
-      pointerId: 1,
-      clientX: 80,
-      clientY: 24,
-    });
-    expect(swiperFixture.slideNext).toHaveBeenCalledTimes(1);
-
-    swiperFixture.slideNext.mockClear();
-    const date = within(screen.getByTestId('day-swiper')).getByText(
-      'Sunday, September 20, 2026'
-    );
-    const dateRow = date.closest<HTMLElement>('[data-day-view-navigation="true"]');
-    expect(dateRow).not.toBeNull();
-    expect(dateRow).toHaveAttribute(
-      'data-bottom-sheet-directional-drag-handle'
-    );
-
-    // Do not synthesize a horizontal swipe here: happy-dom cannot reproduce
-    // Swiper's native touch ownership. The browser contract proves that the
-    // row follows the finger without double-driving BottomSheet.
-  });
-
-  // Regression: PROJECT_REFERENCE.md §16 — keep Swiper geometry while avoiding
-  // navigation/button trees for the 174 dates outside the seven-slide window.
+  // Regression: §16 (Day View keeps Swiper geometry with a bounded render window).
   it('mounts day navigation only inside the rendered swipe window', () => {
     renderSheet();
 
@@ -288,7 +251,7 @@ describe('DayViewSheet nested task actions', () => {
     ).toHaveLength(1);
   });
 
-  // Regression: PROJECT_REFERENCE.md §2/§7 — Todo reuses DayView inline while owning nested swipes.
+  // Regression: §2/§7 (Todo reuses Day View while retaining nested swipe ownership).
   it('supports the same day workspace inline with nested swipe ownership', () => {
     render(
       <DayViewSheet

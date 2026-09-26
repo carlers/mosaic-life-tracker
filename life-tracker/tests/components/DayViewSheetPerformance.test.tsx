@@ -168,7 +168,7 @@ vi.mock('../../src/components/home/views/useDayViewSwiper', () => ({
 
 import { DayViewSheet } from '../../src/components/home/views/DayViewSheet';
 
-// Regression: task acceptance — sheet animation gets the first frame before non-active day trees mount.
+// Regression: §24.16 (Day View keeps expensive rendering outside the opening frame).
 describe('DayViewSheet mount scheduling', () => {
   beforeEach(() => {
     fixture.onAnimationComplete = null;
@@ -216,7 +216,7 @@ describe('DayViewSheet mount scheduling', () => {
     ).toHaveLength(1);
   });
 
-  // Regression: PROJECT_REFERENCE.md §2 — deferred sheet teardown must release
+  // Regression: §2 (Day View teardown releases stale Swiper ownership before reopen).
   // the old Swiper before a later Day View open can synchronize another date.
   it('releases the current swiper ref before the swiper is destroyed', () => {
     render(

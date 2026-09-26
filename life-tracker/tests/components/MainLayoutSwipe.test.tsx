@@ -54,8 +54,7 @@ function drag(target: Element, fromX: number, toX: number) {
   });
 }
 
-// Regression: PROJECT_REFERENCE.md §2 — primary route swipes are direct page gestures,
-// with Home restricted to its hamburger layer and Me left-swipe opening Settings.
+// Regression: §2/§7 (primary-route swipe ownership and direct manipulation).
 describe('MainLayout primary route swipes', () => {
   it('keeps Home full-height, ignores body swipes, and accepts the hamburger-layer swipe', () => {
     vi.useFakeTimers();
@@ -120,8 +119,7 @@ describe('MainLayout primary route swipes', () => {
     expect(onRouteSwipe).toHaveBeenCalledWith('left');
   });
 
-  // Regression: PROJECT_REFERENCE.md §2 — an adjacent route becomes visible only for
-  // the active gesture; it must not mount during the initial critical render.
+  // Regression: §2 (only the actively dragged adjacent route mounts and appears).
   it('mounts only the directional destination preview during a live drag', () => {
     vi.useFakeTimers();
     const Preview = vi.fn(() => (

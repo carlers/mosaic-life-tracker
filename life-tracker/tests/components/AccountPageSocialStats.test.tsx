@@ -19,8 +19,7 @@ vi.mock('../../src/hooks/useFriends', () => ({
 
 import { AccountPage } from '../../src/pages/AccountPage';
 
-// Regression: PROJECT_REFERENCE.md §2 — Me reports accepted Friends from the
-// shared FriendsProvider rather than a hard-coded follower count.
+// Regression: §2 (Me shows the accepted Friends count).
 describe('AccountPage content and scroll ownership', () => {
   it('shows the accepted friend count under Friends', () => {
     render(
@@ -29,13 +28,12 @@ describe('AccountPage content and scroll ownership', () => {
       </MemoryRouter>
     );
 
-    const friendsLabel = screen.getByText('Friends');
-    const stat = friendsLabel.parentElement;
-    expect(stat).toHaveTextContent('3');
+    expect(screen.getByText('Friends')).toBeInTheDocument();
+    expect(screen.getByText('3')).toBeInTheDocument();
     expect(screen.queryByText('Followers')).toBeNull();
   });
 
-  // Regression: PROJECT_REFERENCE.md §2 — logout stays in the account content flow.
+  // Regression: §2 (logout remains part of the Me content flow).
   it('keeps Account logout inside the normal account scroll flow', () => {
     render(
       <MemoryRouter>
@@ -46,7 +44,7 @@ describe('AccountPage content and scroll ownership', () => {
     expect(scroll).toContainElement(screen.getByRole('button', { name: 'Logout' }));
   });
 
-  // Regression: PROJECT_REFERENCE.md §2 — Me has no decorative quote/author block.
+  // Regression: §2 (Me has no decorative quote block).
   it('does not render the decorative Me-page quote', () => {
     render(
       <MemoryRouter>

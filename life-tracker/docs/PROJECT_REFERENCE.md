@@ -562,7 +562,20 @@ Lifecycle per hook test file: `beforeEach` → `dbRef.current = await createTest
 - Sync engine → `tests/unit/sync.test.ts`. The module has module-level state; each test uses `vi.resetModules()` in `beforeEach` followed by a dynamic `await import('../../src/db/sync')`. `guardedTablesDB` and `guardedAccount` are mocked with `vi.hoisted` spies. Per-collection state assertions read `localStorageMock.getItem('lastSyncTimePerCollection')`.
 
 ### 24.8 Regression comments
-Tests pinning behavior documented here carry a `// Regression: §<section> (<contract name>)` comment. Examples: `// Regression: §20.5 (unread badge contract)`, `// Regression: §10 (CONFLICT Is Not an Error)`, `// Regression: §16 (conversation list sort)`. When the referenced section changes, review the test — the comment is a pointer, not enforcement.
+Use a regression comment when a durable requirement pointer materially helps future
+maintenance. For this reference, use `// Regression: §<section> (<contract name>)`;
+for another authoritative document, name that document and contract explicitly. Examples:
+`// Regression: §20.5 (read-receipt retry flow)`,
+`// Regression: §10 (CONFLICT is not an error)`, and
+`// Regression: TOMBSTONE_RETENTION.md (90-day garbage collection)`.
+
+Regression comments point to the current canonical requirement; they do not preserve
+historical implementation tickets. Once a requirement is formalized, do not leave
+`task acceptance`, `UIFIX-*`, `F*`, `A*`, `PH-*`, or similar audit/task IDs as the
+only source. Test names describe the behavior being protected, not the old issue ID. If no
+durable source exists and the test is still valuable as ordinary unit coverage, omit the
+regression comment rather than inventing permanent traceability. When a referenced contract
+changes, review the test — the comment is a pointer, not enforcement.
 
 ### 24.9 Generated service-worker policy
 

@@ -174,7 +174,8 @@ describe('ConversationsProvider', () => {
     expectUnread(result.current, 1);
     expect(result.current.conversations[0].unreadCount).toBe(1);
   });
-  it('excludes unsent incoming messages from unread counts (regression: F3)', async () => {
+  // Regression: §20.5/§21 (unsent messages do not contribute to unread state).
+  it('excludes unsent incoming messages from unread counts', async () => {
     mockFriendsRef.current = [
       makeFriend({ friendId: 'user_B', friendUsername: 'b' }),
     ];
@@ -231,7 +232,7 @@ describe('ConversationsProvider', () => {
     const order = result.current.conversations.map((c) => c.friend.friendId);
     expect(order).toEqual(['user_C', 'user_B', 'user_D']);
   });
-  // Regression: PROJECT_REFERENCE.md §16 — unread badge consumers stay isolated from conversation-detail churn.
+  // Regression: §16 (unread consumers stay isolated from conversation-detail churn).
   it('does not rerender an unread-only consumer when an outgoing message changes conversations but not unread count', async () => {
     mockFriendsRef.current = [
       makeFriend({ friendId: 'user_B', friendUsername: 'b' }),

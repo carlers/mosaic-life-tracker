@@ -2,45 +2,48 @@
 
 Updated: 2026-09-27
 
-Current task: comprehensively refactor Mosaic's automated test suite so it protects durable behavior and data-safety contracts without enforcing incidental UI implementation details, while reducing canonical CI cost.
+Current task: polish the accepted behavior-first test suite so spec traceability is durable and remaining assertions avoid unnecessary implementation or pixel coupling.
 
-Status: implementation is complete on `chatgpt/test-suite-cleanup`, targeting stable Preview `refactor/test-suite` from `dev` commit `bbace774345ddedb0d92a73e006e4d208f77a463`. No product/runtime source behavior was changed; the task changes tests, test commands, and testing documentation.
+Status: implementation is complete on `chatgpt/test-suite-polish`, targeting stable Preview `refactor/test-suite` at baseline commit `59075467e861b20d7d73c8ed6bd411f96726816a`. No runtime `src/**` product code changed.
 
 ## Working set
-- `AGENTS.md`, `docs/TEST_WORKFLOW.md`, `docs/PROJECT_REFERENCE.md`, `docs/PLAN.md`
-- Vitest component/workflow suites under `tests/**`
-- Playwright correctness/diagnostic suites under `tests/e2e/**`
-- `package.json` test commands
+- `docs/TEST_WORKFLOW.md`, `docs/PROJECT_REFERENCE.md`
+- product, sync/auth, handler, workflow, and browser regression tests
+- no application-runtime source changes
 
 ## Completed substeps
-- Audited the baseline: 99 Vitest files / 653 cases plus 36 Playwright executions; dev run 776 measured unit ~7.4s, handlers ~1.3s, DOM shards ~16.7s/~17.3s, browser shards ~23.7s/~41.6s.
-- Codified a behavior-first test architecture in AGENTS, TEST_WORKFLOW, and PROJECT_REFERENCE §24.17. Visual/reference-app prose no longer implies CSS/class/RGB tests; browser geometry is reserved for interaction, accessibility, clipping, overflow, and usable-bound invariants.
-- Preserved strong direct coverage for sync/mappings, account isolation/auth/offline behavior, destructive deletion/tombstones, Appwrite Function authorization/cross-user writes, queues/outboxes, row/schema parity, and privacy-minimal analytics.
-- Removed presentation-only or duplicate suites for BottomNav styling, TaskBlock padding, Calendar overflow classes, duplicate CI classification, and folded PrimaryRoutePreview/ReactionRow coverage into related behavioral suites.
-- Rewrote Calendar, Day View, Todo, MainLayout, BottomSheet, Settings, Category, message, reaction, and user-card tests to assert semantics/interactions instead of Tailwind classes, exact DOM ancestry, exact colors, or decorative layout implementation.
-- Reduced the chat browser geometry matrix to representative phone/full and desktop/wide extremes; consolidated route and calendar ownership cases; removed pure appearance/Todo styling browser cases while retaining browser-only gesture, history, focus, overflow, accessibility, and geometry regressions.
-- Tagged the zero-assertion performance probe `@performance`, excluded it from `test:browser-contract`, and added explicit `npm run test:performance`.
-- Simplified workflow tests to durable verification invariants instead of exact YAML/cache-step shape.
-- Focused run 808 passed after the test-file consolidation; discovery reported 93 Vitest files (unit 39, handlers 7, DOM 47).
+- Added durable traceability guidance: regression comments point to canonical requirements, not historical task/audit IDs; test titles remain understandable without old ticket context.
+- Replaced stale `UIFIX-*`, `PH-*`, `OFF-*`, `F*`, `D*`, `A*`, `P*`, `R1-*`, `AUTH-*`, `DB-BOOT-*`, `A11Y-*`, and task-only pointers where canonical repository requirements now exist.
+- Normalized product regression pointers to the concise `§<section> (contract)` form.
+- Removed three ConversationRow tests that asserted React memoization through mock call counts rather than a product contract.
+- Removed redundant happy-dom backdrop-dismissal and Day View synthetic pointer-ownership cases; real browser contracts remain the authority for those behaviors.
+- Rewrote full-sheet browser geometry from fixed ~830–850px/767px bands to viewport-relative assertions: phone full sheets remain bottom-aligned with visible backdrop; tablet full sheets fill the viewport.
+- Removed remaining class/style and exact DOM-parent/sibling assertions from the active component suite.
+- Final audit found no stale requirement IDs, old PROJECT_REFERENCE comment forms, class/style assertions, DOM-parent traversal, or hard-coded sheet-height bands in active product tests. One `task acceptance EVIDENCE-3` string remains intentionally as parser fixture data in `workflowEvidence.test.ts`.
+- Focused Quality Gate run 888 passed; test discovery remains 93 Vitest files (unit 39, handlers 7, DOM 47).
+- Full run 889 exposed one browser-test defect: the new viewport-relative BottomSheet assertion measured geometry while the opening transform was still in flight. All non-browser gates passed.
+- Repaired the browser contract to poll until the sheet settles before evaluating bottom alignment/full-height geometry; fixed-pixel bands were not restored.
+- Diff review against stable baseline remains docs/tests only; no runtime `src/**` changes.
 
 ## Remaining substeps
-- Run exact-SHA full canonical acceptance on the final task checkpoint; fix any failures and rerun until green.
-- Record final Vitest/browser case counts and CI wall times from that full gate against the dev run 776 baseline.
+- Run exact-SHA full canonical acceptance on the settled-geometry repair; repair any failures until green.
+- Record final test counts/timing from the accepted run.
 - Squash-merge the accepted task PR into `refactor/test-suite`.
-- Verify the stable Preview branch Quality Gate and Vercel Preview deployment.
+- Verify stable Preview Quality Gate and Vercel deployment.
 
 ## Constraints
-- No product/runtime behavior changes in this task.
-- Do not weaken distinct data-safety, authorization, sync, offline, deletion, accessibility, or browser-only interaction failure coverage merely to reduce test counts.
-- Stable Preview promotion stops at `refactor/test-suite`; do not merge to `dev` without explicit user instruction.
+- No product/runtime behavior changes.
+- Preserve distinct data-safety, authorization, sync, offline, deletion, accessibility, and browser-only interaction coverage.
+- Do not add meta-tests that rigidly police comment formatting; documentation owns the convention.
+- Do not promote `refactor/test-suite` to `dev` without explicit user instruction.
 
 ## Verification
-- Baseline: dev Quality Gate run 776 passed on `bbace774345ddedb0d92a73e006e4d208f77a463`.
-- Focused verification: run 808 passed; test discovery = 93 files (unit 39, handlers 7, DOM 47).
-- Focused browser consolidation evidence: run 798 passed on `627ceb5d6de57866b86058860f4ef7926cbaf935`.
-- Full canonical acceptance: pending on the final task SHA.
-- Manual/device acceptance: not required because runtime product code was not changed.
+- Stable starting baseline: `refactor/test-suite` Quality Gate run 817 passed on `59075467e861b20d7d73c8ed6bd411f96726816a`.
+- Focused verification: run 888 passed; follow-up run 890 passed on the settled-geometry repair.
+- Full canonical acceptance: run 889 failed only in browser-contract (2/2) because the test sampled mid-animation geometry; repaired in `aa79ce753d7edad03a52ef9bf2625a5163913e46`.
+- Final full canonical acceptance: requested on this checkpoint SHA.
+- Manual/device acceptance: not required because runtime behavior is unchanged.
 
-Next action: run exact-SHA full canonical acceptance, repair any failures, then deliver by squash PR to `refactor/test-suite` and verify its Preview.
+Next action: complete exact-SHA full canonical acceptance; repair any failure, then deliver the accepted squash to `refactor/test-suite` and verify its Preview.
 
 Blockers: none.

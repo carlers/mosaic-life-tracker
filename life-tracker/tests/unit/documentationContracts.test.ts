@@ -16,7 +16,7 @@ describe('documentation entrypoints and links', () => {
   });
 });
 
-// Regression: task acceptance — source-independent context stays within the agreed budget.
+// Regression: AI_WORKFLOW.md (source-independent handoff context stays within its budget).
 it('keeps the default fixed handoff below 3000 estimated tokens', () => {
   const root = new URL('../../', import.meta.url);
   const read = (path: string) => readFileSync(new URL(path, root), 'utf8');

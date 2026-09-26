@@ -581,7 +581,8 @@ describe('round-trip', () => {
     expect({ ...back, readAt: '2026-01-15T20:00:00.000Z' }).toEqual(doc);
   });
 });
-describe('fromAppwriteFormat — schema drift detection (D5)', () => {
+// Regression: §12 (remote schema drift fails visibly instead of silently dropping fields).
+describe('fromAppwriteFormat — schema drift detection', () => {
   const baseCategoryRow = {
     $id: 'cat_1',
     name: 'Work',

@@ -70,7 +70,7 @@ describe('calendar accessibility semantics', () => {
     ).toBeEnabled();
   });
 
-  // Regression: PROJECT_REFERENCE.md §2 — week-start preference applies to Calendar and Todo grids.
+  // Regression: §2 (week-start preference applies to Calendar and Todo grids).
   it('starts month, week, and Todo calendars on Monday when Sunday-start is disabled', () => {
     const month = render(
       <MonthView

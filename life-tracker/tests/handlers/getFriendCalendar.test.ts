@@ -33,7 +33,7 @@ describe('message-action / get_friend_calendar', () => {
     expect(res.body.error).toBe('Cannot query your own calendar');
   });
 
-  // Regression: P1 — friendship gate before any read.
+  // Regression: §20.3 (friend-calendar reads require accepted friendship).
   it('returns 403 when the caller is not friends with the target', async () => {
     const res = await invoke({
       userId: CALLER,
@@ -44,7 +44,7 @@ describe('message-action / get_friend_calendar', () => {
     expect(res.body.error).toBe('Not friends with this user');
   });
 
-  // Regression: P1 — tasks with visibility 'private' are not returned.
+  // Regression: §20.3 (private tasks are excluded from friend calendars).
   it('filters out private tasks', async () => {
     mockDb.listRows
       .mockResolvedValueOnce({ rows: [friendshipRow()] })
@@ -91,7 +91,7 @@ describe('message-action / get_friend_calendar', () => {
     expect(res.body.tasks.map((t: { $id: string }) => t.$id)).toEqual(['t1']);
   });
 
-  // Regression: P2 — private categories are filtered out of the response.
+  // Regression: §20.3 (private categories are excluded from friend calendars).
   it('filters out private categories', async () => {
     mockDb.listRows
       .mockResolvedValueOnce({ rows: [friendshipRow()] })
@@ -139,7 +139,7 @@ describe('message-action / get_friend_calendar', () => {
     ]);
   });
 
-  // Regression: P2 — a task with a public override on a private category is
+  // Regression: §20.3 (task visibility overrides category visibility when sharing).
   // included. The category's OWN visibility still governs whether the
   // category itself is returned: private categories are excluded even when
   // they host a visible task, and non-private categories are included.
@@ -203,7 +203,7 @@ describe('message-action / get_friend_calendar', () => {
     expect(categoryIds).not.toContain('cat_priv');
   });
 
-  // Regression: P1 — the tasks fetch must paginate past 100 rows.
+  // Regression: §20.3 (friend-calendar reads paginate through all visible tasks).
   it('pagination: >100 tasks triggers a second listRows with cursorAfter', async () => {
     const hundredTasks = Array.from({ length: 100 }, (_, i) => ({
       $id: `t${String(i).padStart(3, '0')}`,

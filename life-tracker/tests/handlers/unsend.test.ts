@@ -14,7 +14,7 @@ describe('message-action / unsend', () => {
     mockDb = makeMockDb();
   });
 
-  // Regression: A1 — messageId must be present and valid.
+  // Regression: §11/§20.6 (unsend validates the sender message row ID).
   it('returns 400 when messageId is missing', async () => {
     const res = await invoke({
       userId: CALLER,
@@ -35,7 +35,7 @@ describe('message-action / unsend', () => {
     expect(res.body.error).toBe('Invalid recipientId');
   });
 
-  // Regression: R1-2 — a caller cannot unsend another user's message.
+  // Regression: §20.3/§20.6 (only the sender can unsend a message).
   it('returns 403 when the caller does not own the row', async () => {
     mockDb.listRows
       .mockResolvedValueOnce({ rows: [friendshipRow()] })
@@ -58,7 +58,7 @@ describe('message-action / unsend', () => {
     expect(mockDb.updateRow).not.toHaveBeenCalled();
   });
 
-  // Regression: A1 — successful unsend must wipe both the caller's row and
+  // Regression: §20.6 (unsend wipes both participant rows).
   // the deterministic recipient row, and cascade reply-wipes must run.
   it('successful: wipes both rows and runs the cascade', async () => {
     mockDb.listRows
@@ -105,7 +105,7 @@ describe('message-action / unsend', () => {
     expect(recipientUpdate.data.content).toBe('');
   });
 
-  // Regression: R1-2 — the cascade must paginate past 100 reply rows.
+  // Regression: §20.6 (unsend cascade paginates through all replies).
   it('cascade pagination: >100 replies trigger a second listRows with cursorAfter', async () => {
     const hundredReplies = Array.from({ length: 100 }, (_, i) => ({
       $id: `rep${String(i).padStart(3, '0')}`,

@@ -76,7 +76,7 @@ const props = {
 };
 
 describe('TodoListView', () => {
-  // Regression: PROJECT_REFERENCE.md §2 — Todo List view.
+  // Regression: §2 (Todo List behavior).
   it('keeps the compact calendar color-only and passes the selected-day data into the inline Day View surface', () => {
     render(<TodoListView {...props} />);
 
@@ -108,7 +108,7 @@ describe('TodoListView', () => {
     expect(screen.getByText('Work')).toBeInTheDocument();
   });
 
-  // Regression: PROJECT_REFERENCE.md §2 — only months that need six weeks render six week rows.
+  // Regression: §2 (only six-week months render six calendar rows).
   it('keeps a required six-week month visible without forcing six weeks on shorter months', () => {
     render(<TodoListView {...props} focusDate={new Date(2026, 7, 15)} />);
 
@@ -121,7 +121,7 @@ describe('TodoListView', () => {
     ).toBeInTheDocument();
   });
 
-  // Regression: PROJECT_REFERENCE.md §2 — Todo grid supports arrow-key day/week selection.
+  // Regression: §2 (Todo grid supports arrow-key day/week selection).
   it('moves the selected Todo day with arrow keys', () => {
     render(<TodoListView {...props} />);
     const grid = screen.getByRole('grid', { name: 'September 2026 todo calendar' });
@@ -136,7 +136,7 @@ describe('TodoListView', () => {
     ).toBeInTheDocument();
   });
 
-  // Regression: PROJECT_REFERENCE.md §16 — compact month swipes keep only active + one neighbor per side mounted.
+  // Regression: §16 (compact month swipes keep a bounded render window).
   it('mounts at most three compact month grids worth of day buttons', () => {
     render(<TodoListView {...props} />);
 
@@ -144,7 +144,7 @@ describe('TodoListView', () => {
     expect(within(carousel).getAllByRole('button', { hidden: true }).length).toBeLessThanOrEqual(126);
   });
 
-  // Regression: PROJECT_REFERENCE.md §2 — a day tap remains a day selection, including spillover days.
+  // Regression: §2 (day taps select dates, including spillover days).
   it('selects a tapped spillover day and requests its month', () => {
     const onFocusDateChange = vi.fn();
     render(
@@ -188,7 +188,7 @@ describe('TodoListView', () => {
     );
   });
 
-  // Regression: PROJECT_REFERENCE.md §2/§7 — inline day swipes own their date navigation.
+  // Regression: §2/§7 (inline day swipes own their date navigation).
   it('updates the visible month when the inline day view swipes across a month boundary', () => {
     const onFocusDateChange = vi.fn();
     render(

@@ -93,8 +93,7 @@ describe('CategorySection', () => {
     ).toBeNull();
   });
 
-  // Regression: PROJECT_REFERENCE.md §2 — continuous entry clears the submitted title
-  // while preserving the active same-category input and keyboard focus.
+  // Regression: §2 (continuous entry preserves same-category input focus).
   it('keeps the same-category input open and focused after Enter when enabled', () => {
     const { cbs } = renderSection({ continueAddingAfterSubmit: true });
     fireEvent.click(screen.getByRole('button', { name: 'Add a task to Work' }));
@@ -112,7 +111,7 @@ describe('CategorySection', () => {
     expect(nextInput).toHaveFocus();
   });
 
-  // Regression: PROJECT_REFERENCE.md §2 — category collapse is opt-in UI chrome.
+  // Regression: §2 (category collapse remains opt-in).
   it('shows an accessible collapse control only when enabled and hides category contents', () => {
     const task = {
       id: 'task_existing',

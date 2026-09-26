@@ -198,7 +198,7 @@ describe('web-chat packet', () => {
   });
 });
 
-// Regression: task acceptance — portable references must identify exact retrievable content.
+// Regression: AI_WORKFLOW.md (portable handoff references identify exact retrievable content).
 describe('GitHub handoff transport', () => {
   const git = { branch: 'task', repository: 'https://github.com/example/project.git', head: 'a'.repeat(40), status: '', remoteHead: 'a'.repeat(40) };
   it('rejects dirty, detached, unpublished, and unavailable checkpoints', () => {

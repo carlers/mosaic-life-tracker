@@ -15,9 +15,8 @@ const noop = () => {};
 //     sheet unmounts.
 //
 // Deliberately NOT tested here:
-//   - Drag-to-close. Framer Motion's onDragEnd fires from synthetic pointer
-//     sequences that happy-dom does not reproduce faithfully. A passing test
-//     would validate the framer-motion binding, not the sheet's behavior.
+//   - Backdrop dismissal and drag-to-close. Real browser contracts own these
+//     pointer/geometry behaviors; happy-dom would only validate bindings.
 //   - Most visual treatment remains internals-coupled. The suspended-sheet
 //     interaction state is asserted because stacked modal safety depends on it.
 // ---------------------------------------------------------------------------
@@ -62,7 +61,6 @@ describe('BottomSheet', () => {
     ).not.toBeNull();
   });
 
-  // Regression: task acceptance — deferred sheet content stays mounted for the exit transition.
   it('keeps deferred children mounted during the exit transition', () => {
     const { rerender } = render(
       <BottomSheet isOpen onClose={noop} deferChildrenUntilPaint>
@@ -108,22 +106,6 @@ describe('BottomSheet', () => {
     expect(document.body.style.overflow).not.toBe('hidden');
   });
 
-  // Regression: PROJECT_REFERENCE.md §2 — exposed backdrop is a dismissal target.
-  it('tapping the backdrop requests closing the topmost sheet', () => {
-    render(
-      <BottomSheet isOpen onClose={noop}>
-        Inner
-      </BottomSheet>
-    );
-
-    const dialog = document.body.querySelector('[role="dialog"]');
-    const backdrop = dialog?.previousElementSibling;
-    expect(backdrop).not.toBeNull();
-    fireEvent.click(backdrop as Element);
-
-    expect(window.history.back).toHaveBeenCalledTimes(1);
-  });
-
   it('Escape requests Back for the topmost sheet history slot', () => {
     const onCloseA = vi.fn();
     const onCloseB = vi.fn();
@@ -143,8 +125,7 @@ describe('BottomSheet', () => {
     expect(onCloseB).not.toHaveBeenCalled();
   });
 
-  // Regression: native Android/Samsung Back needs one browser-history slot per
-  // open sheet so nested Back presses cannot fall through to route/app history.
+  // Regression: §7 (nested sheets reserve modal browser-history layers).
   it('reserves one same-route history entry for every open sheet layer', () => {
     const baselineLength = window.history.length;
 
@@ -172,7 +153,6 @@ describe('BottomSheet', () => {
     expect(window.history.length).toBe(baselineLength + 1);
   });
 
-  // Regression: UIFIX-8/UIFIX-9 — stacked sheets suspend underlying interaction.
   it('can suspend an underlying stacked sheet so it is hidden from accessibility and pointer interaction', () => {
     render(
       <BottomSheet isOpen onClose={noop} suspendInteraction>

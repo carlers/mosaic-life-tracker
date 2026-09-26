@@ -1,4 +1,4 @@
-// Regression: PROJECT_REFERENCE.md §2 — large screens can rotate; phone portrait is best-effort.
+// Regression: §2 (large screens can rotate; phone portrait is best-effort).
 import { describe, expect, it, vi } from 'vitest';
 import { configureResponsiveOrientation } from '../../src/lib/orientation';
 
