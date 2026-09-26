@@ -33,9 +33,9 @@ Completed substeps:
 - Investigated and repaired two React lint failures exposed by CI.
 
 Remaining substeps:
-- Pass the focused BottomSheet/DayView tests and a browser-verification Quality Gate on the reverted baseline.
-- Inspect the performance-probe `bottom-sheet-close` metrics on the reverted baseline.
-- If the trace improves, publish the stable Preview and perform the required real-device open/close acceptance.
+- Pass the focused BottomSheet/DayView tests and a browser-verification Quality Gate on the layout-projection candidate.
+- Inspect the performance-probe `bottom-sheet-close` metrics on the candidate.
+- If the trace improves, run the canonical full gate, publish the stable Preview, and perform the required real-device open/close acceptance.
 - If the close trace does not improve, use the trace's React/layout/LOAF evidence for the next targeted change; do not add blind animation/CSS tweaks.
 
 Constraints:
@@ -51,6 +51,6 @@ Verification:
 - Manual/device close smoothness remains unverified.
 - Vercel deployment for the stable `perf/animation-optimization` branch was previously READY; the new task branch is intentionally not a deployable stable branch.
 
-Next action: push this checkpoint with `[verify:browser]`, inspect the reverted baseline's `bottom-sheet-close` trace, then make only a trace-backed close-path change. The eventual implementation commit must carry `[verify:full]`.
+Next action: push the layout-projection candidate with `[verify:browser]` and inspect `bottom-sheet-close`. If the 52 layout reads disappear and the close LOAF drops materially, promote the same code to a final `[verify:full]` commit.
 
 Blockers: none currently. The previous hosted-runner allocation blocker is no longer reproducing; the remaining blocker to completion is verification of the close-path performance candidate and real-device acceptance.
