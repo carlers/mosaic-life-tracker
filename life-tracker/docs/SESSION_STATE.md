@@ -2,7 +2,7 @@
 
 Updated: 2026-09-26
 
-Current task: calendar row heights in `chatgpt/calendar-row-height`.
+Current task: calendar row minimum height in `chatgpt/calendar-row-min-height`.
 
 Status: CI runner allocation is operational again on the public repository. PR #41 (`ci: reduce duplicate Quality Gate runner demand`) was merged into `perf/animation-optimization` as `2e033313a51171f5305e53cac4b995b1af609b67`. The Quality Gate is push-driven only, so PRs receive checks from their pushed head SHA without a duplicate pull_request run. The repository was made public by the user after hosted-runner execution recovered; this is operational evidence, not proof of an internal GitHub throttle/quota cause.
 
@@ -88,3 +88,8 @@ Verification: focused regression coverage updated for direct large jumps. Final 
 ## Calendar row-height fix — 2026-09-26
 
 Changed MonthView and WeekView so each calendar week is its own seven-column grid row. The row-group uses max-content tracks, so each row is sized by its tallest cell instead of sharing a height derived from the entire grid. Added calendar semantics regression coverage for real row containers and independent row sizing.
+
+
+## Calendar row minimum height — 2026-09-26
+
+Calendar day cells now reserve a 4.25rem minimum, matching the visual height of a day label plus two standard text-only task blocks. Rows still grow independently when a taller cell needs more space. Added a semantic regression assertion for the minimum-height contract.
