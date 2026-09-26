@@ -144,8 +144,7 @@ describe('HomePage task-search wiring', () => {
     expect(screen.getAllByText('Pane')).toHaveLength(2);
   });
 
-  // Regression: docs/PROJECT_REFERENCE.md §2 — selecting a local search result
-  // opens the existing owner Day View for that exact date/task using the shared arrays.
+  // Regression: §2 (Home task-search history and owner Day View integration).
   it('uses a history entry for Home search so Android Back closes search before route navigation', () => {
     render(<HomePage />);
 
@@ -164,8 +163,9 @@ describe('HomePage task-search wiring', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Open search' }));
 
-    const carousel = screen.getByText('Carousel');
-    expect(carousel.parentElement?.parentElement).toHaveAttribute('inert');
+    const inertRegion = document.querySelector('[inert]');
+    expect(inertRegion).not.toBeNull();
+    expect(inertRegion).toHaveTextContent('Carousel');
   });
 
   it('keeps Home search open when the selected task sheet closes', () => {
