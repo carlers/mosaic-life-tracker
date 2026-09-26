@@ -2,7 +2,7 @@
 
 Updated: 2026-09-26
 
-Current task: initial mounting performance on login and Home in `chatgpt/initial-mount-performance`.
+Current task: chat scroll-to-bottom fix in `fix/chat-scroll-to-bottom`.
 
 Status: CI runner allocation is operational again on the public repository. PR #41 (`ci: reduce duplicate Quality Gate runner demand`) was merged into `perf/animation-optimization` as `2e033313a51171f5305e53cac4b995b1af609b67`. The Quality Gate is push-driven only, so PRs receive checks from their pushed head SHA without a duplicate pull_request run. The repository was made public by the user after hosted-runner execution recovered; this is operational evidence, not proof of an internal GitHub throttle/quota cause.
 
@@ -54,7 +54,7 @@ Verification:
 - The canonical full gate passed on the code checkpoint immediately before this documentation-only finalization; the exact final SHA below still needs its own canonical acceptance.
 - Real-device close smoothness remains unverified.
 - Vercel Preview remains pending exact-SHA canonical acceptance.
-Next action: measure and optimize login → Home initial mount, then run canonical acceptance and promote the performance branch.
+Next action: manual browser/device acceptance of the chat open-at-bottom behavior; no further code changes are planned unless that check finds a regression.
 
 Blockers: none currently. The previous hosted-runner allocation blocker is no longer reproducing; the remaining blocker to completion is verification of the close-path performance candidate and real-device acceptance.
 
@@ -89,3 +89,11 @@ Verification: focused regression coverage updated for direct large jumps. Final 
 
 MonthView/WeekView use real seven-column week rows with max-content sizing, so each row follows its own tallest cell. DayCell now reserves 4.25rem, equivalent to a day label plus two standard text-only task blocks, while taller content can still expand the row.
 
+
+## Chat open-at-bottom fix — 2026-09-26
+
+Opening a conversation now pins the message scroller to its latest message before paint. The scroll container also has an explicit min-h-0 flex constraint so its vertical overflow region is bounded correctly.
+
+Verification: task SHA `3e8d06bc55373351d7a407091fe8ebb8b212c7c7` passed the full canonical Quality Gate (run 36228810812). PR #63 was squash-merged into `fix/chat-scroll-to-bottom`, then PR #64 was squash-merged into `dev` as `f712731d7fc1c633d1f4f2a619a3005fdeb817a0`. Vercel Preview for `dev` is READY at `https://mosaic-life-tracker-lxsqnznka-carls-projects-72516fde.vercel.app`. Automated coverage includes a regression test for the initial bottom position.
+
+Manual phone/browser acceptance remains unverified.
