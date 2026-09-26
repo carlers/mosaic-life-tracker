@@ -39,11 +39,11 @@ Status: implementation is complete on `chatgpt/test-suite-polish`, targeting sta
 
 ## Verification
 - Stable starting baseline: `refactor/test-suite` Quality Gate run 817 passed on `59075467e861b20d7d73c8ed6bd411f96726816a`.
-- Focused verification: run 888 passed; follow-up run 890 covers the browser-test repair.
+- Focused verification: run 888 passed; follow-up run 890 passed on the settled-geometry repair.
 - Full canonical acceptance: run 889 failed only in browser-contract (2/2) because the test sampled mid-animation geometry; repaired in `aa79ce753d7edad03a52ef9bf2625a5163913e46`.
-- Full canonical acceptance: pending on the new final task SHA.
+- Final full canonical acceptance: requested on this checkpoint SHA.
 - Manual/device acceptance: not required because runtime behavior is unchanged.
 
-Next action: run exact-SHA full canonical acceptance on the repaired browser contract, then deliver the accepted squash to `refactor/test-suite` and verify its Preview.
+Next action: complete exact-SHA full canonical acceptance; repair any failure, then deliver the accepted squash to `refactor/test-suite` and verify its Preview.
 
 Blockers: none.
