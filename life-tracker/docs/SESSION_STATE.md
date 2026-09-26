@@ -67,3 +67,21 @@ Verification is running on the feature branch. Real-device visual acceptance rem
 ## Stable Preview handoff — 2026-09-26
 
 The accepted task SHA `bc78a220c87ff6c086ab51236bc442e2e79a0cbf` was copied to `feature/dayview-close-paint-containment` for the configured Vercel Preview delivery path. This branch adds no runtime changes; its own canonical gate is required before treating the feature Preview as delivered.
+
+
+## Calendar swipe speed follow-up — 2026-09-26
+
+Current task: make CalendarView month/week swipe animations slightly faster without changing gesture ownership, rendering windows, or calendar layout.
+
+Implementation:
+- Created Preview branch `feature/calendar-swipe-speed` from `dev`, then task branch `chatgpt/calendar-swipe-speed` from that Preview branch.
+- Set the shared Home CalendarView Embla animation duration from the default 25 to 22 in `life-tracker/src/components/home/views/useCalendarState.ts`.
+- Kept the change scoped to the CalendarView carousel; no render-window or per-frame React behavior was changed.
+
+Remaining:
+- Run focused checks and review the diff.
+- Complete the task PR into `feature/calendar-swipe-speed`, merge it before Preview review, then wait for exact-SHA canonical acceptance and Preview deployment.
+
+Constraints:
+- Preserve the existing direct-manipulation swipe behavior and windowed calendar rendering.
+- Do not ask for Preview review until the PR has been merged into the Preview branch and its deployment is ready.
