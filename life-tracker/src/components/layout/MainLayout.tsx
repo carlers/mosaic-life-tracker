@@ -20,6 +20,7 @@ interface MainLayoutProps {
   leftPreview?: React.ReactNode;
   rightPreview?: React.ReactNode;
   onRouteSwipe?: (direction: PrimarySwipeDirection) => void;
+  /** Detail routes can consume the full viewport without global bottom chrome. */
   hideBottomNav?: boolean;
 }
 
