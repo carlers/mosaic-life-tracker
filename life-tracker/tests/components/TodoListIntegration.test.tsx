@@ -165,11 +165,10 @@ describe('TodoListView integrated selected-day workspace', () => {
       />
     );
 
-    fireEvent.click(
-      screen.getByRole('button', {
-        name: 'Add a task to Integrated category',
-      })
-    );
+    const addButtons = screen.getAllByRole('button', {
+      name: 'Add a task to Integrated category',
+    });
+    fireEvent.click(addButtons[Math.floor(addButtons.length / 2)]);
     const input = screen.getByPlaceholderText(
       'Add a task to Integrated category...'
     ) as HTMLInputElement;
