@@ -36,7 +36,7 @@ export function useChatScroll({
     if (!isPinnedToBottomRef.current) return;
     el.scrollTop = el.scrollHeight;
     setLastAcknowledgedId(lastMsgId);
-  }, [lastMsgId, isSearching, messages]);
+  }, [lastMsgId, isSearching]);
 
   useEffect(() => {
     const el = scrollRef.current;

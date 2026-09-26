@@ -229,7 +229,7 @@ export const ChatPage: React.FC = () => {
   };
 
   return (
-    <div className="flex flex-col h-full bg-[#111111]">
+    <div className="relative flex flex-col h-full min-h-0 overflow-hidden bg-[#111111]">
       <div className="flex items-center gap-3 px-4 py-3 border-b border-[#2A2A2A]">
         <button
           onClick={handleBack}
