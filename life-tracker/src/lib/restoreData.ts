@@ -168,7 +168,7 @@ function portableRowId(
   if (currentUserId === sourceUserId && isValidRowId(sourceId)) {
     return sourceId;
   }
-  return `bk_${prefix}_${hashString(`${currentUserId}:${sourceId}`)}`;
+  return `bk_${prefix}_${hashString(`${currentUserId}:${sourceUserId}:${sourceId}`)}`;
 }
 
 function textFromBytes(bytes: Uint8Array): string {
