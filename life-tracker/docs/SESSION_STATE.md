@@ -24,11 +24,12 @@ Status: implementation is complete on `chatgpt/preferences-settings`, based on s
 - Added local category expand/collapse behavior without persisting each category's collapsed state.
 - Added/updated unit, DOM, integration, and browser geometry regression coverage.
 - Captured a behavioral-red on the Monday-start acceptance test before implementation (Quality Gate run 742), then reached focused green on runtime tip `e269688` (run 768).
+- Full run 770 exposed two stale Day View DOM assertions that assumed the date text was the direct navigation-row child; the tests now target the existing `data-day-view-navigation` contract marker so the optional Today wrapper does not invalidate them.
 - Updated PROJECT_REFERENCE §2 with the durable Preferences contracts.
 
 ## Remaining substeps
-- Run full canonical acceptance on this final documented task SHA.
-- Fix any full-gate failures and rerun until canonical acceptance passes.
+- Run full canonical acceptance on the repaired final task SHA.
+- Fix any remaining full-gate failures and rerun until canonical acceptance passes.
 - Squash-merge the accepted task PR into `feature/settings-ux-improvements`.
 - Verify the stable Preview branch Quality Gate and Vercel deployment.
 - Manual/device acceptance remains separate and must not be claimed unless performed.
@@ -41,10 +42,10 @@ Status: implementation is complete on `chatgpt/preferences-settings`, based on s
 ## Verification
 - Behavioral red: run 742, Monday-start test failed against pre-implementation Sunday-first behavior.
 - Focused runtime verification: run 768 passed on `e269688ad6b4a6330a93c99820661f98947e7d1f`.
-- Full canonical acceptance: pending final SHA.
+- Full canonical acceptance: run 770 failed only on the stale Day View test selectors; repaired final SHA pending acceptance.
 - Stable Preview deployment: pending delivery.
 - Manual/device acceptance: not performed.
 
-Next action: run exact-SHA full canonical acceptance, repair failures if any, then deliver by squash PR to the stable feature branch.
+Next action: run exact-SHA full canonical acceptance on the selector repair, fix any remaining failures, then deliver by squash PR to the stable feature branch.
 
 Blockers: none.
