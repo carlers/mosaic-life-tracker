@@ -93,7 +93,7 @@ describe('TodoListView integrated selected-day workspace', () => {
     render(
       <TodoListView
         focusDate={new Date(2026, 8, 16)}
-        tasks={[fixture.task]}
+        tasks={[{ ...fixture.task, date: '2026-09-01' }]}
         categories={[fixture.category]}
         categoriesMap={{
           [fixture.category.id]: {
