@@ -2,8 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { initializeDatabaseWithRetry } from '../../src/db/database';
 
 describe('database bootstrap retry', () => {
-  // Regression: DB-BOOT-1 — transient mobile IndexedDB failures must not
-  // leave Mosaic permanently mounted without an RxDB instance.
+  // Regression: §19 (transient IndexedDB failures must not permanently block bootstrap).
   it('retries transient initialization failures and returns the recovered database', async () => {
     const recovered = { name: 'db' } as never;
     const initialize = vi
