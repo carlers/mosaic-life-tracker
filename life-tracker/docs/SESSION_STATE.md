@@ -33,8 +33,8 @@ Completed substeps:
 - Investigated and repaired two React lint failures exposed by CI.
 
 Remaining substeps:
-- Pass the focused BottomSheet/DayView tests and a browser-verification Quality Gate on the layout-projection candidate.
-- Inspect the performance-probe `bottom-sheet-close` metrics on the candidate.
+- Pass the focused BottomSheet/DayView tests and a browser-verification Quality Gate on the combined close candidate.
+- Inspect the performance-probe `bottom-sheet-close` metrics on the combined candidate.
 - If the trace improves, run the canonical full gate, publish the stable Preview, and perform the required real-device open/close acceptance.
 - If the close trace does not improve, use the trace's React/layout/LOAF evidence for the next targeted change; do not add blind animation/CSS tweaks.
 
