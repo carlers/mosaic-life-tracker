@@ -338,6 +338,7 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
             aria-hidden="true"
             className={`fixed inset-0 z-[50] bg-black/60 ${backdropBlur ? 'backdrop-blur-sm' : ''} ${suspendInteraction ? 'pointer-events-none' : ''}`}
           />
+          </>
         )}
       </AnimatePresence>
       <AnimatePresence>
