@@ -2,49 +2,43 @@
 
 Updated: 2026-09-26
 
-Current task: fix DayView sheet reopen crash on `chatgpt/dayview-reopen-lifecycle`, targeting stable Preview branch `feature/ui-improvements`.
+Current task: promote the accepted `feature/ui-improvements` Preview into `dev`.
 
-Status: implementation and regression coverage are complete. The regression was exposed after PR #76 removed `startTransition` from calendar-day sheet opening. Synchronous opening is retained; the fix now clears the DayView Swiper ref before Swiper destruction and refuses imperative navigation/synchronization through a destroyed Swiper instance.
+Status: the latest Preview head `9847b28ecaa8861d675237c97c921c5aa0cda7eb` includes the DayView reopen repair plus PR #78 BottomSheet/DayView optimization tweaks. Quality Gate run 698 and the Vercel Preview are green. Direct PR #79 conflicts only because the branch histories diverged after an earlier content-level sync; the synced feature commit `b161d1cdc58decb08f04b863b0cc552b7107ab99` and current `dev` head `8e01bec9adde69d05d9acf2a8d6935ca47a1480b` have the exact same Git tree. The promotion integration branch therefore reconciles both histories with a two-parent merge commit while retaining the accepted feature tree and all current dev content.
 
 ## Working set
-- `life-tracker/src/components/home/views/DayViewSheet.tsx`
-- `life-tracker/src/components/home/views/useDayViewSwiper.ts`
-- `life-tracker/tests/react/useDayViewSwiper.test.tsx`
-- `life-tracker/tests/components/DayViewSheetPerformance.test.tsx`
-- `life-tracker/tests/e2e/interaction-contract.tsx`
-- `life-tracker/tests/e2e/interaction-contract.spec.mjs`
 - `life-tracker/docs/SESSION_STATE.md`
+- promotion integration history only; no new runtime behavior is introduced beyond accepted `feature/ui-improvements`
 
 ## Completed substeps
-- Reproduced the stale-destroyed-Swiper path with a focused hook regression.
-- Confirmed behavioral red on Quality Gate run 688: the destroyed Swiper received one imperative call.
-- Added destroyed-instance guards for date synchronization and previous/next navigation.
-- Added `onBeforeDestroy` ownership cleanup so the current Swiper ref is cleared before teardown.
-- Added component coverage for ref release and a real-Chromium reopen contract covering another-date and same-date reopen sequences.
-- Focused Quality Gate run 693 passed on implementation + regression coverage.
+- Confirmed `feature/ui-improvements` head `9847b28` passed full canonical Quality Gate run 698.
+- Confirmed its Vercel Preview deployment succeeded.
+- Confirmed the earlier feature/dev sync tree is byte-for-byte identical to current dev before the later UI commits.
+- Opened PR #79 and confirmed ordinary promotion is blocked by Git ancestry conflicts, not by missing accepted runtime content.
+- Created `chatgpt/promote-ui-to-dev` with a two-parent reconciliation commit whose first parent is current dev and whose second parent is the accepted feature head.
 
 ## Remaining substeps
-- Run canonical full acceptance on the exact final task SHA.
-- Squash-merge PR #77 into `feature/ui-improvements` only after canonical acceptance.
-- Verify the stable Preview branch Quality Gate and Vercel deployment.
-- User performs the real-device sequence: open a calendar day, close DayView, reopen another day, close, reopen the same day.
+- Run canonical full acceptance on the exact final promotion-integration SHA.
+- Replace/close conflicted PR #79 with the accepted integration PR and merge it into `dev`.
+- Verify the resulting `dev` Quality Gate and Vercel Preview deployment.
+- Real-device DayView reopen acceptance remains separate and must not be claimed unless performed.
 
 ## Constraints
-- Preserve PR #76 synchronous DayView opening; do not restore `startTransition`.
-- Preserve PR #55's 181 lightweight geometry slides with React's seven-slide expensive-content window; do not reintroduce Swiper Virtual.
-- Preserve BottomSheet history/back behavior, entrance/exit animation, gesture ownership, and visual behavior.
-- Do not claim device acceptance without an actual device check.
+- Preserve all current dev chat-scroll/viewport work.
+- Preserve the accepted UI/DayView/BottomSheet behavior from `feature/ui-improvements`.
+- Use a merge-style promotion into `dev`; do not squash away the stable Preview lineage.
+- Do not promote `dev` to `main` without separate explicit instruction.
 
 ## Verification
-- Behavioral red: run 688 failed only the new `useDayViewSwiper > ignores a destroyed swiper while reopening on another day` assertion; expected no stale call, observed one.
-- Focused green: run 693 completed successfully after the implementation and browser-contract fixture were added.
-- Canonical full acceptance: pending exact final SHA.
-- Stable Preview deployment: pending accepted squash merge.
-- Real-device acceptance: pending.
+- Stable feature canonical acceptance: Quality Gate run 698 passed.
+- Stable feature Vercel Preview: green.
+- Promotion integration canonical acceptance: pending exact final SHA.
+- Dev post-merge canonical acceptance and deployment: pending.
+- Manual/device acceptance: pending where applicable.
 
-Next action: run the exact final SHA through canonical full acceptance, then deliver the accepted squash to `feature/ui-improvements` and verify its Preview deployment.
+Next action: run the full gate on the final promotion-integration SHA, then merge the accepted integration PR into `dev` and verify dev.
 
-Blockers: none.
+Blockers: none; PR #79's ancestry conflict is resolved by the integration branch.
 
 ## Close animation cohesion follow-up — 2026-09-26
 
