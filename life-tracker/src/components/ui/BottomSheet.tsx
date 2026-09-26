@@ -219,8 +219,17 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
   const deferredContentOpen = useDeferredValue(
     deferChildrenUntilPaint ? isOpen : true
   );
-  const shouldRenderChildren =
-    !deferChildrenUntilPaint ? isOpen : deferredContentOpen && isOpen;
+  const [childrenMounted, setChildrenMounted] = React.useState(isOpen);
+
+  useEffect(() => {
+    if (isOpen && (!deferChildrenUntilPaint || deferredContentOpen)) {
+      setChildrenMounted(true);
+    }
+  }, [deferChildrenUntilPaint, deferredContentOpen, isOpen]);
+
+  const shouldRenderChildren = deferChildrenUntilPaint
+    ? childrenMounted && (isOpen || deferredContentOpen)
+    : childrenMounted;
 
   useLayoutEffect(() => {
     onCloseRef.current = onClose;
@@ -310,7 +319,16 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
             initial={{ y: '100%' }}
             animate={{ y: 0 }}
             exit={{ y: '100%' }}
-            onAnimationComplete={onAnimationComplete}
+            onAnimationComplete={() => {
+              onAnimationComplete?.();
+              if (!isOpen) {
+                // Keep the DayView subtree mounted for the exit transform.
+                // Removing hundreds of nodes at animation start can compete
+                // with the compositor/main-thread work that is drawing the
+                // sheet, producing a visible hitch on close.
+                setChildrenMounted(false);
+              }
+            }}
             transition={{ type: 'tween', duration: 0.32, ease: 'easeOut' }}
             drag="y"
             dragControls={dragControls}
