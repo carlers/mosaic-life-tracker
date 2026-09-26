@@ -1,4 +1,4 @@
-// Regression: Phase 3.7 PH-3/PH-8.
+// Regression: §24.15 (PostHog identity follows resolved auth state only).
 import { act, renderHook, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import type { Models } from 'appwrite';
