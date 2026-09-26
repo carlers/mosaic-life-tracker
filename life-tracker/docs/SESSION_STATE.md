@@ -23,6 +23,8 @@ Status: the first perf candidate was manually reported smoother, but its decisio
 - First full run 709 exposed two React lint violations in the follow-up implementation: synchronous state reset inside an effect and reading a ref during render.
 - Reworked those mechanics without changing the candidate behavior: prewarm is now derived from active/prewarmed state, and in-flight swipe ownership is React state rather than render-time ref access.
 - Repair Quality Gate run 710 passed focused checks.
+- Full run 711 passed checks/build/DOM but browser shard 1 caught a stale performance assertion that capped the post-idle active Calendar at three rendered grids. The implementation intentionally prewarms that active window to five; the cold three-grid bound remains covered by the hook regression.
+- Updated the browser contract to allow the documented post-idle five-grid active window and updated PROJECT_REFERENCE.md §16 to make the two-stage three→five Calendar window authoritative. The intermediate [verify:browser] run was superseded/cancelled by the immediate documentation commit, so the exact final SHA still needs full browser acceptance.
 
 ## Constraints
 - Preserve direct-manipulation dragging, calendar gesture ownership, Month/Week visuals, and the smoother no-heavy-mount settling behavior from the first perf candidate.
@@ -38,7 +40,9 @@ Status: the first perf candidate was manually reported smoother, but its decisio
 - Follow-up focused green: run 708.
 - First full run 709: failed checks on two React lint errors; no runtime/test failure was accepted.
 - Repair focused green: run 710.
-- Exact final follow-up canonical acceptance: pending on the post-repair documentation checkpoint.
+- Full run 711: runtime/static/DOM/build passed; browser shard 1 failed only the stale <=3 post-idle grid-count assertion.
+- Browser-contract assertion and durable §16 architecture contract updated for cold three-grid / active idle-prewarmed five-grid behavior.
+- Exact final follow-up canonical acceptance: pending on this final checkpoint.
 - Updated stable perf Preview: pending.
 - Real-device Month/Week acceptance: pending after updated Preview.
 
