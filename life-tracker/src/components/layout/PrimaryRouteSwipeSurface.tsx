@@ -30,6 +30,7 @@ interface PrimaryRouteSwipeSurfaceProps {
   leftPreview?: React.ReactNode;
   rightPreview?: React.ReactNode;
   onSwipe: (direction: PrimarySwipeDirection) => void;
+  fullHeight?: boolean;
 }
 
 export const PrimaryRouteSwipeSurface: React.FC<
@@ -42,6 +43,7 @@ export const PrimaryRouteSwipeSurface: React.FC<
   leftPreview = null,
   rightPreview = null,
   onSwipe,
+  fullHeight = false,
 }) => {
   const trackRef = useRef<HTMLDivElement | null>(null);
   const currentPanelRef = useRef<HTMLDivElement | null>(null);
@@ -292,7 +294,7 @@ export const PrimaryRouteSwipeSurface: React.FC<
 
   const customHorizontalOwner =
     (canSwipeLeft || canSwipeRight) && !homeZoneOnly;
-  const heightClass = homeZoneOnly
+  const heightClass = fullHeight || homeZoneOnly
     ? 'h-full min-h-0'
     : 'min-h-[calc(100dvh-4rem-env(safe-area-inset-bottom))]';
   const previewNode =
