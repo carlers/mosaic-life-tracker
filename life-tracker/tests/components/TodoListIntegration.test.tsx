@@ -87,6 +87,29 @@ vi.mock('../../src/lib/storage', () => ({
 import { TodoListView } from '../../src/components/home/views/TodoListView';
 
 describe('TodoListView integrated selected-day workspace', () => {
+  // Regression: an inline Todo day with no tasks must still mount its Day View surface.
+  // The inline mode has no BottomSheet animation-complete callback to release deferred rendering.
+  it('renders an unloaded selected day instead of leaving the Day View blank', () => {
+    render(
+      <TodoListView
+        focusDate={new Date(2026, 8, 16)}
+        tasks={[fixture.task]}
+        categories={[fixture.category]}
+        categoriesMap={{
+          [fixture.category.id]: {
+            color: fixture.category.color,
+            name: fixture.category.name,
+          },
+        }}
+        onFocusDateChange={vi.fn()}
+      />
+    );
+
+    expect(screen.getByText('Integrated category')).toBeInTheDocument();
+    expect(screen.queryByText('Integrated todo task')).not.toBeInTheDocument();
+    expect(screen.getByTestId('inline-day-view')).toBeInTheDocument();
+  });
+
   // Regression: PROJECT_REFERENCE.md §2 — supplied Todo data must render through actual DayViewSheet/DaySlide.
   it('renders the loaded category and task through the real inline Day View surface', () => {
     render(
