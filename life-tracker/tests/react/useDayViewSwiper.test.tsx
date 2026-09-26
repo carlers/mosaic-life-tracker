@@ -17,9 +17,6 @@ function makeSwiper(initialIndex: number) {
     slideNext: vi.fn(() => {
       swiper.activeIndex += 1;
     }),
-    virtual: {
-      update: vi.fn(),
-    },
     updateSlides: vi.fn(),
   };
   return swiper as unknown as SwiperClass;
@@ -50,7 +47,7 @@ describe('useDayViewSwiper', () => {
     );
   });
 
-  it('refreshes virtual slides before a large selected-date jump', () => {
+  it('moves the swiper directly for a large selected-date jump', () => {
     const initialDate = new Date(2026, 8, 11);
     const selectedDate = new Date(2026, 8, 30);
     const { result, rerender } = renderHook(
@@ -69,12 +66,8 @@ describe('useDayViewSwiper', () => {
       rerender({ date: selectedDate });
     });
 
-    expect(swiper.virtual?.update).toHaveBeenCalledWith(true);
     expect(swiper.slideTo).toHaveBeenCalledWith(result.current.initialIndex, 0);
     expect(swiper.updateSlides).toHaveBeenCalled();
-    expect(swiper.virtual!.update.mock.invocationCallOrder[0]).toBeLessThan(
-      swiper.slideTo.mock.invocationCallOrder[0]
-    );
   });
 
   it('does not move the swiper while a nested sheet disables day navigation', () => {

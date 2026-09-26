@@ -2,7 +2,7 @@
 
 Updated: 2026-09-26
 
-Current task: isolate and optimize the remaining real-device DayView bottom-sheet close hitch on `chatgpt/dayview-close-smoothness`.
+Current task: fix Todo DayView large selected-date jumps on `chatgpt/todo-day-navigation-stable`.
 
 Status: CI runner allocation is operational again on the public repository. PR #41 (`ci: reduce duplicate Quality Gate runner demand`) was merged into `perf/animation-optimization` as `2e033313a51171f5305e53cac4b995b1af609b67`. The Quality Gate is push-driven only, so PRs receive checks from their pushed head SHA without a duplicate pull_request run. The repository was made public by the user after hosted-runner execution recovered; this is operational evidence, not proof of an internal GitHub throttle/quota cause.
 
@@ -79,8 +79,8 @@ Verification: focused unit/component checks are required on the final task SHA. 
 The fixed-column centering attempt was reverted after visual review showed the visible grid was still offset. The current correction targets the parent surface instead: the Todo calendar is made full-bleed across the Todo view's horizontal padding, while the month grid returns to the existing flexible seven-column layout and centers within that full content surface. This removes the padded scroll region as a separate horizontal reference frame. Regression coverage verifies the restored grid geometry and centered day cells.
 
 
-## Todo unloaded-day rendering fix — 2026-09-26
+## Todo DayView large-jump fix — 2026-09-26
 
-Fixed the inline Todo Day View so its initial day slide renders immediately. The sheet-only deferred render window was previously held at zero because inline mode has no BottomSheet animation-complete callback; tapping a day whose content was not already mounted could therefore leave the inline day surface blank. Inline mode now uses the normal Day View render window directly, while sheet mode keeps the existing entrance deferral. Added an integration regression covering a selected day with no tasks.
+Removed Swiper Virtual from DayView. Swiper now owns all 181 lightweight geometry slides, while React keeps the existing seven-slide expensive-content render window. This removes the competing Swiper/React virtualization state that left direct jumps (for example Sep 11 → Sep 30) visually stale until a one-day swipe reconciled Swiper.
 
-Verification: the first canonical run exposed stale test expectations only; those assertions were repaired without changing runtime behavior. The final task commit requests full canonical acceptance before Preview delivery.
+Verification: focused regression coverage updated for direct large jumps. Final commit requires canonical full acceptance before Preview delivery.
