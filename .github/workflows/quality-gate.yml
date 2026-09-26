@@ -12,6 +12,7 @@ on:
       - 'refactor/**'
       - 'chatgpt/**'
       - 'codex/**'
+      - 'task/**'
     paths:
       - 'AGENTS.md'
       - 'life-tracker/**'

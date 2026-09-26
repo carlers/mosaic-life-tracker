@@ -28,6 +28,18 @@ const ImageViewer = lazy(() =>
   import('./ImageViewer').then(({ ImageViewer }) => ({ default: ImageViewer }))
 );
 
+// #11a: hoisted — closes over nothing, so building this once avoids
+// re-allocating the JSX tree on every DayViewSheet render.
+const ImageViewerLoadingFallback: React.FC = () => (
+  <div
+    className="fixed inset-0 z-[80] bg-black flex items-center justify-center px-6"
+    role="status"
+    aria-live="polite"
+  >
+    <Spinner size="w-8 h-8" />
+  </div>
+);
+
 interface DayViewSheetProps {
   isOpen: boolean;
   onClose: () => void;
@@ -133,8 +145,20 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
       !!imagePickerTaskId,
   });
 
+  // #10: precompute the header label per slide so the render loop doesn't
+  // re-run date-fns' format() on every render for every in-window slide.
+  // Effectiveness depends on slideDates identity being stable across
+  // renders — if the hook returns a fresh array each time this is a
+  // no-op, never a regression.
+  const slideDateLabels = useMemo(
+    () => slideDates.map((d) => format(d, 'EEEE, MMMM d, yyyy')),
+    [slideDates]
+  );
+
   const [deferredRenderWindow, setDeferredRenderWindow] = useState(0);
-  const handleSheetAnimationComplete = useCallback(() => {
+  // #7: this fires on any BottomSheet animation completion (entrance and
+  // drag snap-back), so "settled" is more accurate than "complete".
+  const handleSheetSettled = useCallback(() => {
     if (isOpen) setDeferredRenderWindow(renderWindow);
   }, [isOpen, renderWindow]);
 
@@ -260,56 +284,65 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
     setEditValue('');
   }, []);
 
-  const handleDelete = async () => {
+  // #12: these were plain functions rebuilding on every render. Wrapping in
+  // useCallback keeps prop identities stable for any downstream memoized
+  // children. No behavior change with current consumers.
+  const handleDelete = useCallback(async () => {
     if (!activeTask) return;
     await deleteTask(activeTask.id);
     setIsDeleteConfirmOpen(false);
     setActiveTaskId(null);
-  };
+  }, [activeTask, deleteTask]);
 
-  const handleMemoSave = async (
-    memo: string,
-    visibility: '' | 'private' | 'followers' | 'public'
-  ) => {
-    if (!activeTask) return;
-    await updateTask(activeTask.id, { memo, visibility });
-    setIsMemoOpen(false);
-    setActiveTaskId(null);
-  };
+  const handleMemoSave = useCallback(
+    async (
+      memo: string,
+      visibility: '' | 'private' | 'followers' | 'public'
+    ) => {
+      if (!activeTask) return;
+      await updateTask(activeTask.id, { memo, visibility });
+      setIsMemoOpen(false);
+      setActiveTaskId(null);
+    },
+    [activeTask, updateTask]
+  );
 
-  const handleDateChange = async (newDate: string) => {
-    if (!activeTask) return;
-    await updateTask(activeTask.id, { date: newDate });
-    setIsDatePickerOpen(false);
-    setActiveTaskId(null);
-  };
+  const handleDateChange = useCallback(
+    async (newDate: string) => {
+      if (!activeTask) return;
+      await updateTask(activeTask.id, { date: newDate });
+      setIsDatePickerOpen(false);
+      setActiveTaskId(null);
+    },
+    [activeTask, updateTask]
+  );
 
-  const handleDoItTomorrowOrToday = async () => {
+  const handleDoItTomorrowOrToday = useCallback(async () => {
     if (!activeTask) return;
     const today = format(new Date(), 'yyyy-MM-dd');
     const tomorrow = format(new Date(Date.now() + 86400000), 'yyyy-MM-dd');
     const newDate = activeTask.date === today ? tomorrow : today;
     await updateTask(activeTask.id, { date: newDate });
     setActiveTaskId(null);
-  };
+  }, [activeTask, updateTask]);
 
-  const handleRequestDeletePhoto = () => {
+  const handleRequestDeletePhoto = useCallback(() => {
     setDeletePhotoConfirmOpen(true);
     setIsActionSheetOpen(false);
-  };
+  }, []);
 
-  const handleConfirmDeletePhoto = async () => {
+  const handleConfirmDeletePhoto = useCallback(async () => {
     if (!activeTask?.image) return;
     await deleteImage(activeTask.image);
     await updateTask(activeTask.id, { image: '' });
     setDeletePhotoConfirmOpen(false);
     setActiveTaskId(null);
-  };
+  }, [activeTask, updateTask]);
 
-  const handleCancelDeletePhoto = () => {
+  const handleCancelDeletePhoto = useCallback(() => {
     setDeletePhotoConfirmOpen(false);
     setActiveTaskId(null);
-  };
+  }, []);
 
   const handleImagePickerSave = useCallback(
     async (fileId: string) => {
@@ -407,15 +440,6 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
     onRight: handleNextDay,
   });
 
-  const imageViewerLoadingFallback = (
-    <div
-      className="fixed inset-0 z-[80] bg-black flex items-center justify-center px-6"
-      role="status"
-      aria-live="polite"
-    >
-      <Spinner size="w-8 h-8" />
-    </div>
-  );
   const imageViewerUnavailable = (
     <div className="fixed inset-0 z-[80] bg-black flex items-center justify-center px-6">
       <div className="text-center">
@@ -495,7 +519,7 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
                         className="min-w-0 flex-1 text-center text-base font-semibold text-white"
                         aria-live={i === activeIndex ? 'polite' : undefined}
                       >
-                        {format(date, 'EEEE, MMMM d, yyyy')}
+                        {slideDateLabels[i]}
                       </h3>
                       <button
                         type="button"
@@ -607,7 +631,7 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
       />
       {isImageViewerOpen && viewingTask?.image && (
         viewingImageUrl ? (
-          <Suspense fallback={imageViewerLoadingFallback}>
+          <Suspense fallback={<ImageViewerLoadingFallback />}>
             <ImageViewer
               isOpen
               imageUrl={viewingImageUrl}
@@ -616,7 +640,7 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
               onClose={handleCloseImageViewer}
             />
           </Suspense>
-        ) : isViewingImageLoading ? imageViewerLoadingFallback : imageViewerUnavailable
+        ) : isViewingImageLoading ? <ImageViewerLoadingFallback /> : imageViewerUnavailable
       )}
       <ImagePickerSheet
         isOpen={!!imagePickerTaskId}
@@ -657,7 +681,7 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
       suspendInteraction={isBackgroundLocked}
       contentMode="fixed"
       onHorizontalSwipe={handleSheetHorizontalSwipe}
-      onAnimationComplete={handleSheetAnimationComplete}
+      onAnimationComplete={handleSheetSettled}
       deferChildrenUntilPaint
     >
       <div
