@@ -33,8 +33,12 @@ export function useChatScroll({
     if (isSearching) return;
     const el = scrollRef.current;
     if (!el) return;
-    if (!isPinnedToBottomRef.current) return;
+    if (!lastMsgId) return;
+
+    // Every newly appended message (outgoing or incoming) keeps the conversation
+    // anchored to the latest message. This is the chat route's explicit product contract.
     el.scrollTop = el.scrollHeight;
+    isPinnedToBottomRef.current = true;
     setLastAcknowledgedId(lastMsgId);
   }, [lastMsgId, isSearching]);
 
