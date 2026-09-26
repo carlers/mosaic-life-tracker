@@ -1,5 +1,11 @@
 import { format } from 'date-fns';
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
+
+let idleCallback: IdleRequestCallback | null = null;
+const mockPersons = [
+  { id: 'me', kind: 'me', displayName: 'Me' },
+  { id: 'friend_1', kind: 'friend', displayName: 'Friend' },
+];
 import { fireEvent, render, screen } from '@testing-library/react';
 import { HomePage } from '../../src/pages/HomePage';
 
@@ -35,7 +41,7 @@ vi.mock('swiper/css', () => ({}));
 
 vi.mock('../../src/hooks/useFriendCarousel', () => ({
   useFriendCarousel: () => ({
-    persons: [{ id: 'me', kind: 'me', displayName: 'Me' }],
+    persons: mockPersons,
     reorder: vi.fn(),
     toggleVisibility: vi.fn(),
     resetOrder: vi.fn(),
@@ -120,23 +126,22 @@ vi.mock('../../src/components/home/views/DayViewSheet', () => ({
 
 describe('HomePage task-search wiring', () => {
   beforeEach(() => {
+    idleCallback = null;
     vi.stubGlobal('requestIdleCallback', (cb: IdleRequestCallback) => {
-      cb({ didTimeout: false, timeRemaining: () => 50 } as IdleDeadline);
+      idleCallback = cb;
       return 1;
     });
     vi.stubGlobal('cancelIdleCallback', vi.fn());
   });
   afterEach(() => vi.unstubAllGlobals());
 
-  it('keeps adjacent person panes out of the initial mount until idle', async () => {
-    const persons = [
-      { id: 'me', kind: 'me', displayName: 'Me' },
-      { id: 'friend_1', kind: 'friend', displayName: 'Friend' },
-    ];
-    vi.mocked(vi.importMock);
-    // This test is intentionally covered by the render-window contract in HomePage.
-    expect(persons).toHaveLength(2);
+  it('keeps adjacent person panes out of the initial mount until idle', () => {
+    render(<HomePage />);
+    expect(screen.getAllByText('Pane')).toHaveLength(1);
+    idleCallback?.({ didTimeout: false, timeRemaining: () => 50 } as IdleDeadline);
+    expect(screen.getAllByText('Pane')).toHaveLength(2);
   });
+
   // Regression: docs/PROJECT_REFERENCE.md §2 — selecting a local search result
   // opens the existing owner Day View for that exact date/task using the shared arrays.
   it('uses a history entry for Home search so Android Back closes search before route navigation', () => {
