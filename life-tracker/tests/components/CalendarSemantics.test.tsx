@@ -44,6 +44,7 @@ describe('calendar accessibility semantics', () => {
       name: 'Tuesday, September 15, 2026, no tasks',
     });
     expect(within(day).getByText('15')).toHaveClass('text-sm');
+    expect(day).toHaveClass('min-h-[4.25rem]');
     fireEvent.click(day);
     expect(onDayClick).toHaveBeenCalledWith(new Date(2026, 8, 15));
   });
