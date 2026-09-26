@@ -1,6 +1,6 @@
 // Regression: PROJECT_REFERENCE.md §2 — Todo List selected-day workspace is real Day View UI, not a mocked substitute.
 import type { ReactNode } from 'react';
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { CategoryDocument, TaskDocument } from '../../src/db/schema';
 
