@@ -85,7 +85,7 @@ export const MessageComposer = forwardRef<
     const showCounter = remaining < CHAR_COUNT_THRESHOLD;
 
     return (
-      <div className="flex flex-col px-3 py-2 border-t border-[#333333] bg-[#111111] flex-shrink-0">
+      <div className="sticky bottom-0 z-30 flex flex-col px-3 py-2 border-t border-[#333333] bg-[#111111] flex-shrink-0">
         {replyTo && (
           <ReplyPreview
             senderName={replyTo.senderName}
