@@ -203,7 +203,13 @@ function SheetPresenceSurface({
   const [isPresent, safeToRemove] = usePresence();
 
   return (
-    <motion.div ref={sheetRef} {...outerProps}>
+    <motion.div
+      ref={sheetRef}
+      {...outerProps}
+      role="dialog"
+      aria-modal="true"
+      aria-hidden={outerProps['aria-hidden'] ?? undefined}
+    >
       <motion.div
         initial={{ transform: 'translate3d(0, 100%, 0)' }}
         animate={{
@@ -345,6 +351,9 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
         {isOpen && (
           <SheetPresenceSurface
             sheetRef={sheetRef}
+            aria-hidden={suspendInteraction ? true : undefined}
+            aria-labelledby={title ? titleId : undefined}
+            aria-label={!title ? ariaLabel : undefined}
             onAnimationComplete={() => {
               onAnimationComplete?.();
               if (!isOpen) {
