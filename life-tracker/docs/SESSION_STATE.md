@@ -79,3 +79,8 @@ Verification: focused unit/component checks are required on the final task SHA. 
 The fixed-column centering attempt was reverted after visual review showed the visible grid was still offset. The current correction targets the parent surface instead: the Todo calendar is made full-bleed across the Todo view's horizontal padding, while the month grid returns to the existing flexible seven-column layout and centers within that full content surface. This removes the padded scroll region as a separate horizontal reference frame. Regression coverage verifies the restored grid geometry and centered day cells.
 
 Verification: final task commit requests full canonical acceptance before Preview delivery.
+## Todo unloaded-day rendering fix — 2026-09-26
+
+Fixed the inline Todo Day View so its initial day slide renders immediately. The sheet-only deferred render window was previously held at zero because inline mode has no BottomSheet animation-complete callback; tapping a day whose content was not already mounted could therefore leave the inline day surface blank. Inline mode now uses the normal Day View render window directly, while sheet mode keeps the existing entrance deferral. Added an integration regression covering a selected day with no tasks.
+
+Verification: final task commit requests full canonical acceptance before Preview delivery.
