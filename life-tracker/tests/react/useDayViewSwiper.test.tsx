@@ -71,8 +71,7 @@ describe('useDayViewSwiper', () => {
     expect(swiper.updateSlides).toHaveBeenCalled();
   });
 
-  // Regression: §2 (closing and reopening Day View must not
-  // drive an already-destroyed Swiper instance left behind by deferred remounting.
+  // Regression: §2 (Day View reopen ignores a destroyed Swiper from the prior sheet).
   it('ignores a destroyed swiper while reopening on another day', () => {
     const initialDate = new Date(2026, 8, 20);
     const reopenedDate = new Date(2026, 8, 21);
