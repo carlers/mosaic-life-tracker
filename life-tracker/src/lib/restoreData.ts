@@ -517,7 +517,8 @@ async function restoreImages(
     }
     onProgress?.(`Restoring photos (${index + 1}/${ids.length})…`);
     try {
-      const file = new File([bytes], `${oldId}.webp`, {
+      const imageBuffer = bytes.slice().buffer as ArrayBuffer;
+      const file = new File([imageBuffer], `${oldId}.webp`, {
         type: 'image/webp',
       });
       const newId = await uploadImage(file);
