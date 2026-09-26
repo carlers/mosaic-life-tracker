@@ -228,7 +228,7 @@ describe('DayViewSheet nested task actions', () => {
 
     const swiper = screen.getByTestId('day-swiper');
     const date = within(swiper).getByText('Sunday, September 20, 2026');
-    const row = date.parentElement;
+    const row = date.closest<HTMLElement>('[data-day-view-navigation="true"]');
     expect(row).not.toBeNull();
     expect(within(row as HTMLElement).getByRole('button', { name: 'Previous day' })).toBeInTheDocument();
     expect(within(row as HTMLElement).getByRole('button', { name: 'Next day' })).toBeInTheDocument();
@@ -264,7 +264,7 @@ describe('DayViewSheet nested task actions', () => {
     const date = within(screen.getByTestId('day-swiper')).getByText(
       'Sunday, September 20, 2026'
     );
-    const dateRow = date.parentElement as HTMLElement | null;
+    const dateRow = date.closest<HTMLElement>('[data-day-view-navigation="true"]');
     expect(dateRow).not.toBeNull();
     expect(dateRow).toHaveAttribute(
       'data-bottom-sheet-directional-drag-handle'
