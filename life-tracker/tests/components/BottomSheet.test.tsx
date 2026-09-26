@@ -83,6 +83,18 @@ describe('BottomSheet', () => {
     }, { timeout: 1000 });
   });
 
+  it('preserves dialog semantics on the draggable sheet surface', () => {
+    render(
+      <BottomSheet isOpen onClose={noop} ariaLabel="Day view">
+        Inner
+      </BottomSheet>
+    );
+
+    const dialog = document.body.querySelector('[role="dialog"]');
+    expect(dialog).toHaveAttribute('aria-modal', 'true');
+    expect(dialog).toHaveAttribute('aria-label', 'Day view');
+  });
+
   it('renders nothing when isOpen is false', () => {
     render(
       <BottomSheet isOpen={false} onClose={noop}>
