@@ -519,9 +519,7 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
                       onEditChange={handleEditChange}
                       onEditSave={handleEditSave}
                       onEditCancel={handleEditCancel}
-                      disableTaskLayoutAnimation={
-                        renderMode === 'sheet' && deferredRenderWindow === 0
-                      }
+                      disableTaskLayoutAnimation={renderMode === 'sheet'}
                     />
                   </>
                 )}
