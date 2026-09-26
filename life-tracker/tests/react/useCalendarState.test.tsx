@@ -42,6 +42,9 @@ const emblaFixture = vi.hoisted(() => {
     setProgress(value: number) {
       progress = value;
     },
+    setSelectedIndex(value: number) {
+      selectedIndex = value;
+    },
     emit(event: string) {
       for (const handler of handlers.get(event) ?? []) handler();
     },
@@ -72,5 +75,27 @@ describe('useCalendarState render window', () => {
 
     expect(result.current.renderStart).toBe(29);
     expect(result.current.renderEnd).toBe(31);
+  });
+
+  it('defers calendar state and neighbor mounting until the swipe has settled', () => {
+    const { result } = renderHook(() => useCalendarState());
+    const initialTitle = result.current.title;
+
+    act(() => {
+      emblaFixture.setSelectedIndex(31);
+      emblaFixture.emit('select');
+    });
+
+    expect(result.current.title).toBe(initialTitle);
+    expect(result.current.renderStart).toBe(29);
+    expect(result.current.renderEnd).toBe(31);
+
+    act(() => {
+      emblaFixture.emit('settle');
+    });
+
+    expect(result.current.title).not.toBe(initialTitle);
+    expect(result.current.renderStart).toBe(30);
+    expect(result.current.renderEnd).toBe(32);
   });
 });
