@@ -311,9 +311,9 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
             aria-hidden={suspendInteraction ? true : undefined}
             aria-labelledby={title ? titleId : undefined}
             aria-label={!title ? ariaLabel : undefined}
-            initial={{ y: '100%' }}
+            initial={{ transform: 'translate3d(0, 100%, 0)' }}
             animate={{ y: 0 }}
-            exit={{ y: '100%' }}
+            exit={{ transform: 'translate3d(0, 100%, 0)' }}
             onAnimationComplete={() => {
               onAnimationComplete?.();
               if (!isOpen) {
