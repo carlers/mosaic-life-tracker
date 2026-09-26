@@ -24,4 +24,24 @@ describe('useChatScroll', () => {
 
     expect(scroller.scrollTop).toBe(1200);
   });
+
+  it('does not force the user back down after they scroll upward', () => {
+    const { result, rerender } = renderHook(
+      ({ messages }: { messages: MessageDocument[] }) =>
+        useChatScroll({ messages, isSearching: false }),
+      { initialProps: { messages: [message] } }
+    );
+    const scroller = document.createElement('div');
+    Object.defineProperty(scroller, 'scrollHeight', { configurable: true, value: 1200 });
+    Object.defineProperty(scroller, 'clientHeight', { configurable: true, value: 600 });
+    scroller.scrollTop = 500;
+    result.current.scrollRef.current = scroller;
+    scroller.dispatchEvent(new Event('scroll'));
+
+    act(() => {
+      rerender({ messages: [{ id: 'message_2' } as MessageDocument, message] });
+    });
+
+    expect(scroller.scrollTop).toBe(500);
+  });
 });
