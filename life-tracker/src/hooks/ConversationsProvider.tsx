@@ -44,10 +44,24 @@ export const ConversationsProvider: React.FC<ConversationsProviderProps> = ({
     (async () => {
       try {
         const db = getDatabase();
-        const query = db.messages.find({
-          selector: { userId: uid, isDeleted: false },
-          sort: [{ createdAt: 'desc' }],
-        });
+        // Home only needs the unread nav badge. Avoid hydrating the entire
+        // message history until a conversation route is actually active.
+        const query = db.messages.find(
+          includeConversations
+            ? {
+                selector: { userId: uid, isDeleted: false },
+                sort: [{ createdAt: 'desc' }],
+              }
+            : {
+                selector: {
+                  userId: uid,
+                  isDeleted: false,
+                  direction: 'incoming',
+                  readAt: '',
+                  isUnsent: false,
+                },
+              }
+        );
         const sub = query.$.subscribe((docs) => {
           if (!isMounted) return;
           setAllMessages(docs as MessageDocument[]);
@@ -68,7 +82,7 @@ export const ConversationsProvider: React.FC<ConversationsProviderProps> = ({
       isMounted = false;
       if (subscription) subscription.unsubscribe();
     };
-  }, [userId]);
+  }, [userId, includeConversations]);
 
   const aggregation = useMemo(() => {
     if (!userId || loadedUserId !== userId) {
