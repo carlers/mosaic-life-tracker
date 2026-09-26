@@ -1,4 +1,4 @@
-import React, { useContext, useDeferredValue, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import React, { useContext, useDeferredValue, useEffect, useLayoutEffect, useRef } from 'react';
 import { motion, AnimatePresence, useDragControls } from 'framer-motion';
 import ReactDOM from 'react-dom';
 import { useFocusTrap } from '../../hooks/useFocusTrap';
@@ -219,13 +219,8 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
   const deferredContentOpen = useDeferredValue(
     deferChildrenUntilPaint ? isOpen : true
   );
-  const [childrenMounted, setChildrenMounted] = useState(true);
-
-  const shouldRenderChildren = deferChildrenUntilPaint
-    ? isOpen
-      ? deferredContentOpen
-      : childrenMounted
-    : isOpen;
+  const shouldRenderChildren =
+    !deferChildrenUntilPaint ? isOpen : deferredContentOpen && isOpen;
 
   useLayoutEffect(() => {
     onCloseRef.current = onClose;
@@ -315,12 +310,7 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
             initial={{ y: '100%' }}
             animate={{ y: 0 }}
             exit={{ y: '100%' }}
-            onAnimationComplete={() => {
-              onAnimationComplete?.();
-              if (!isOpen) {
-                setChildrenMounted(false);
-              }
-            }}
+            onAnimationComplete={onAnimationComplete}
             transition={{ type: 'tween', duration: 0.32, ease: 'easeOut' }}
             drag="y"
             dragControls={dragControls}
