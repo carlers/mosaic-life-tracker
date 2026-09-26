@@ -21,7 +21,7 @@ Close-path evidence so far:
 - Reverted to the stable teardown path: close measured about 337ms LOAF with the same 52 reads.
 - Disabled TaskItem layout projection for the entire sheet lifecycle: layout reads fell from 52 to 2, but close still measured about 342ms LOAF, so projection was not the whole cost.
 - Combined projection suppression + deferred-child retention: close measured about 332ms LOAF with 2 reads. This was only a small improvement.
-- Current experiment: add `will-change: transform` only to the fixed BottomSheet surface. Motion's current guidance identifies transform/opacity as the compositor-safe animation path and documents `will-change: transform` as a targeted layer-promotion hint. Browser verification is required before accepting or reverting it.
+- The layer-promotion hint did not materially improve the browser probe and is rejected. Current experiment: use Motion's documented direct `transform` animation instead of the sheet's individual `y` transform. Motion documents direct `transform` as the hardware-accelerated path while noting individual transforms can lose acceleration; browser verification must also preserve drag behavior.
 - Focused regression coverage pins sheet-mode TaskItem layout suppression and the deferred-child exit contract.
 Working set:
 - `life-tracker/src/components/ui/BottomSheet.tsx`
