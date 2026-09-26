@@ -7,6 +7,7 @@ const fixture = vi.hoisted(() => ({
   onAnimationComplete: null as (() => void) | null,
   onClose: null as (() => void) | null,
   deferChildrenUntilPaint: false,
+  disableTaskLayoutAnimation: false,
 }));
 
 vi.mock('../../src/components/ui/BottomSheet', () => ({
@@ -38,7 +39,14 @@ vi.mock('swiper/modules', () => ({
 }));
 
 vi.mock('../../src/components/home/views/DaySlide', () => ({
-  DaySlide: () => <div data-testid="day-slide">Day content</div>,
+  DaySlide: ({
+    disableTaskLayoutAnimation,
+  }: {
+    disableTaskLayoutAnimation?: boolean;
+  }) => {
+    fixture.disableTaskLayoutAnimation = disableTaskLayoutAnimation ?? false;
+    return <div data-testid="day-slide">Day content</div>;
+  },
 }));
 
 vi.mock('../../src/components/home/views/MemoSheet', () => ({
@@ -139,6 +147,7 @@ describe('DayViewSheet mount scheduling', () => {
     ).toHaveLength(1);
     expect(fixture.onAnimationComplete).toEqual(expect.any(Function));
     expect(fixture.deferChildrenUntilPaint).toBe(true);
+    expect(fixture.disableTaskLayoutAnimation).toBe(true);
 
     act(() => {
       fixture.onAnimationComplete?.();
