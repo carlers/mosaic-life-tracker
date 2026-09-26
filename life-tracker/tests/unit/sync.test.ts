@@ -347,8 +347,9 @@ describe('sync — forceSync follow-up queueing', () => {
     expect(accountGetMock).not.toHaveBeenCalled();
   });
 });
-describe('sync — boundary advancement (F1, F3, F5)', () => {
-  it('F1: after a successful cycle, dirty boundary equals cycle-start, not cycle-end', async () => {
+// Regression: §18 (sync failure isolation and boundary safety).
+describe('sync — boundary advancement', () => {
+  it('after a successful cycle, dirty boundary equals cycle-start, not cycle-end', async () => {
     const observedFirstListRowsAt = { value: 0 };
     listRowsMock.mockImplementation(async () => {
       if (observedFirstListRowsAt.value === 0) {
@@ -365,7 +366,7 @@ describe('sync — boundary advancement (F1, F3, F5)', () => {
     expect(dirtyMs).toBe(pullMs);
     expect(dirtyMs).toBeLessThanOrEqual(observedFirstListRowsAt.value);
   });
-  it('F3: pull boundary is not advanced when a pull row fails to apply', async () => {
+  it('pull boundary is not advanced when a pull row fails to apply', async () => {
     const failingUpsert = vi.fn().mockRejectedValue(new Error('upsert boom'));
     getDatabaseMock.mockReturnValue({
       tasks: {
@@ -393,7 +394,7 @@ describe('sync — boundary advancement (F1, F3, F5)', () => {
     const state = JSON.parse(raw!);
     expect(state.entries.tasks.pull).toBe('');
   });
-  it('F3: pull boundary is not advanced when a row-level error is thrown during apply', async () => {
+  it('pull boundary is not advanced when a row-level error is thrown during apply', async () => {
     const findOneThrows = vi.fn().mockImplementation(() => ({
       exec: async () => {
         throw new Error('findOne boom');
@@ -424,7 +425,7 @@ describe('sync — boundary advancement (F1, F3, F5)', () => {
     const state = JSON.parse(raw!);
     expect(state.entries.tasks.pull).toBe('');
   });
-  it('F5: a push failure on one row does not prevent later rows from being attempted', async () => {
+  it('a push failure on one row does not prevent later rows from being attempted', async () => {
     const docs = [makeLocalDoc('d1'), makeLocalDoc('d2'), makeLocalDoc('d3')];
     getDatabaseMock.mockReturnValue({
       tasks: {
@@ -446,7 +447,7 @@ describe('sync — boundary advancement (F1, F3, F5)', () => {
     await syncModule.initializeSync();
     expect(updateRowMock).toHaveBeenCalledTimes(3);
   });
-  it('F5: a push failure leaves the dirty boundary at its previous value', async () => {
+  it('a push failure leaves the dirty boundary at its previous value', async () => {
     await syncModule.initializeSync();
     const rawBefore = localStorageMock.getItem('lastSyncTimePerCollection');
     const dirtyBefore = JSON.parse(rawBefore!).entries.tasks.dirty;
@@ -471,7 +472,7 @@ describe('sync — boundary advancement (F1, F3, F5)', () => {
     const dirtyAfter = JSON.parse(rawAfter!).entries.tasks.dirty;
     expect(dirtyAfter).toBe(dirtyBefore);
   });
-  it('F5: a clean cycle still advances the dirty boundary', async () => {
+  it('a clean cycle still advances the dirty boundary', async () => {
     await syncModule.initializeSync();
     const rawBefore = localStorageMock.getItem('lastSyncTimePerCollection');
     const dirtyBefore = JSON.parse(rawBefore!).entries.tasks.dirty;
@@ -484,7 +485,7 @@ describe('sync — boundary advancement (F1, F3, F5)', () => {
     );
   });
 });
-describe('sync — per-collection state versioning (F15)', () => {
+describe('sync — per-collection state versioning', () => {
   it('writes version: 1 on the per-collection state blob', async () => {
     await syncModule.initializeSync();
     const raw = localStorageMock.getItem('lastSyncTimePerCollection');
@@ -546,7 +547,7 @@ describe('sync — per-collection state versioning (F15)', () => {
     expect(queries.some((q) => q.op === 'greaterThan')).toBe(false);
   });
 });
-describe('sync — lastSyncTime is user-scoped (F20)', () => {
+describe('sync — lastSyncTime is user-scoped', () => {
   it('writes lastSyncTime_<userId> and does not write the bare key', async () => {
     await syncModule.initializeSync();
     const scoped = localStorageMock.getItem('lastSyncTime_user_A');
@@ -570,7 +571,8 @@ describe('sync — lastSyncTime is user-scoped (F20)', () => {
     expect(statusAfterB.lastSync).toBe(userBTimestamp);
   });
 });
-describe('sync — read_at pull for dirty outgoing messages (F12)', () => {
+// Regression: §12 (server-owned outgoing read_at survives local dirtiness).
+describe('sync — read_at pull for dirty outgoing messages', () => {
   it('an outgoing message row that is dirty still receives the remote read_at', async () => {
     const local = makeLocalMessageDoc('msg_dirty_out', 'outgoing', '');
     getDatabaseMock.mockReturnValue({
@@ -659,7 +661,8 @@ describe('sync — read_at pull for dirty outgoing messages (F12)', () => {
     expect(local.incrementalPatch).not.toHaveBeenCalled();
   });
 });
-describe('sync — pull upsert race window (F13)', () => {
+// Regression: §10/§18 (pull conflicts preserve local edits without freezing sync).
+describe('sync — pull upsert race window', () => {
   it('a local edit landing between check and upsert is not clobbered', async () => {
     await syncModule.initializeSync();
     const rawPrimed = localStorageMock.getItem('lastSyncTimePerCollection');
@@ -802,7 +805,7 @@ describe('sync — pull upsert race window (F13)', () => {
     expect(upsertSpy).toHaveBeenCalledTimes(1);
   });
 });
-describe('sync — pull pagination (F14)', () => {
+describe('sync — pull pagination', () => {
   it('a multi-page pull uses cursorAfter with the previous page last id', async () => {
     const page1 = Array.from({ length: 100 }, (_, i) =>
       makeRemoteTaskRow(
