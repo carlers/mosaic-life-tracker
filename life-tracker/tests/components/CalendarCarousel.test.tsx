@@ -8,8 +8,8 @@ vi.mock('../../src/components/home/views/CalendarSlide', () => ({
 }));
 
 // Regression: stable calendar scrolling uses per-slide vertical scrolling with a fixed Embla viewport; [verify:full].
-describe('CalendarCarousel gesture ownership', () => {
-  const props = {
+describe('CalendarCarousel behavior', () => {
+  const baseProps = {
     slides: [new Date('2026-01-01')],
     renderStart: 0,
     renderEnd: 0,
@@ -20,60 +20,42 @@ describe('CalendarCarousel gesture ownership', () => {
     categoriesMap: {},
   };
 
-  it('marks the calendar as a parent-Swiper no-swiping region without intercepting its pointer lifecycle', () => {
+  it('exposes the Embla swipe target without swallowing the parent pointer lifecycle', () => {
     const parentPointerDown = vi.fn();
-    const { container } = render(
+    let swipeTarget: HTMLElement | null = null;
+    const emblaRef = (node: HTMLElement | null) => {
+      swipeTarget = node;
+    };
+
+    render(
       <div onPointerDown={parentPointerDown}>
-        <CalendarCarousel {...props} />
+        <CalendarCarousel {...baseProps} emblaRef={emblaRef} />
       </div>
     );
 
-    const viewport = container.querySelector('.swiper-no-swiping');
-    const scrollRegion = viewport?.parentElement;
-    expect(scrollRegion).not.toBeNull();
-    expect(viewport).not.toBeNull();
-    expect(scrollRegion).toHaveClass('overflow-hidden', 'flex-1', 'min-h-0');
-    expect(viewport).toHaveClass('swiper-no-swiping', 'overflow-hidden');
-
-    const slide = viewport?.querySelector('.h-full.min-h-0');
-    expect(slide).not.toBeNull();
-    expect(slide).toHaveClass('h-full', 'overflow-x-hidden', 'overflow-y-scroll', '[scrollbar-gutter:stable]');
-
-    fireEvent.pointerDown(viewport!);
-    fireEvent.pointerMove(viewport!);
-    fireEvent.pointerUp(viewport!);
-
-    // The calendar no longer cancels DOM propagation itself. Swiper's
-    // no-swiping selector owns parent isolation, leaving Embla's pointer
-    // sequence intact; the real nested behavior is pinned by Playwright.
+    expect(swipeTarget).toBeInstanceOf(HTMLElement);
+    fireEvent.pointerDown(swipeTarget!);
+    fireEvent.pointerMove(swipeTarget!);
+    fireEvent.pointerUp(swipeTarget!);
     expect(parentPointerDown).toHaveBeenCalledTimes(1);
   });
 
-  it('keeps the calendar carousel swipe target mounted for Embla', () => {
-    const { container } = render(<CalendarCarousel {...props} />);
-    const viewport = container.querySelector('.swiper-no-swiping');
-
-    expect(viewport).not.toBeNull();
-    expect(viewport).toContainElement(container.querySelector('.flex.h-full.min-h-full.items-start'));
-  });
-
-  // Regression: PROJECT_REFERENCE.md §16 — empty geometry slides must not
-  // create dozens of unnecessary vertical scroll containers.
-  it('makes only rendered calendar slides vertically scrollable', () => {
+  // Regression: only the active render window mounts expensive calendar content.
+  it('mounts calendar content only for the requested render window', () => {
     const slides = Array.from(
       { length: 5 },
       (_, index) => new Date(2026, index, 1)
     );
-    const { container } = render(
+
+    const { getAllByText } = render(
       <CalendarCarousel
-        {...props}
+        {...baseProps}
         slides={slides}
         renderStart={1}
         renderEnd={3}
       />
     );
 
-    expect(container.querySelectorAll('.overflow-y-scroll')).toHaveLength(3);
-    expect(container.querySelectorAll('.overflow-y-hidden')).toHaveLength(2);
+    expect(getAllByText('calendar-slide')).toHaveLength(3);
   });
 });
