@@ -63,21 +63,22 @@ export function useCalendarState(): CalendarState {
     duration: 22,
   });
 
-  // Keep the active render window aligned to settled snaps. The active slide
-  // already has both immediate neighbors mounted, so a one-step drag never
-  // needs React state work on Embla's high-frequency `scroll` event.
+  // Keep the heavy render window pinned while Embla is animating to a snap.
+  // The active slide already has both immediate neighbors mounted, so the
+  // destination remains visible without mounting the next full calendar grid
+  // during the compositor-owned settling animation.
   useEffect(() => {
     if (!emblaApi) return;
-    const syncSelectedIndex = () => {
+    const syncSettledIndex = () => {
       const index = emblaApi.selectedScrollSnap();
       setEmblaActiveIndex((prev) => (prev === index ? prev : index));
     };
-    syncSelectedIndex();
-    emblaApi.on('select', syncSelectedIndex);
-    emblaApi.on('reInit', syncSelectedIndex);
+    syncSettledIndex();
+    emblaApi.on('settle', syncSettledIndex);
+    emblaApi.on('reInit', syncSettledIndex);
     return () => {
-      emblaApi.off('select', syncSelectedIndex);
-      emblaApi.off('reInit', syncSelectedIndex);
+      emblaApi.off('settle', syncSettledIndex);
+      emblaApi.off('reInit', syncSettledIndex);
     };
   }, [emblaApi]);
 
@@ -100,7 +101,7 @@ export function useCalendarState(): CalendarState {
 
   useEffect(() => {
     if (!emblaApi) return;
-    const onSelect = () => {
+    const onSettle = () => {
       const index = emblaApi.selectedScrollSnap();
       const offset = index - CENTER_INDEX;
       const fn = viewMode === 'month' ? addMonths : addWeeks;
@@ -114,9 +115,9 @@ export function useCalendarState(): CalendarState {
         setFocusDate(newDate);
       }
     };
-    emblaApi.on('select', onSelect);
+    emblaApi.on('settle', onSettle);
     return () => {
-      emblaApi.off('select', onSelect);
+      emblaApi.off('settle', onSettle);
     };
   }, [emblaApi, baseDate, focusDate, viewMode]);
 
