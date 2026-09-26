@@ -76,7 +76,7 @@ Verification: focused unit/component checks are required on the final task SHA. 
 
 ## Todo month grid centering follow-up — 2026-09-26
 
-Centered the compact Todo month grid's weekday and week rows explicitly with grid item alignment, preserving the existing max-width and responsive layout. Added regression coverage for the centering classes.
+The first centering attempt was reverted because it did not correct the visual offset. The replacement uses seven fixed 40px columns with `justify-center` for the weekday header and each week row, matching the existing day-button width so the visible month grid has an explicit 280px geometry centered inside the responsive calendar surface. The day buttons no longer add auto margins that could introduce a second centering rule. Regression coverage locks the fixed column geometry.
 
 Verification: final task commit requests full canonical acceptance before Preview delivery.
 
