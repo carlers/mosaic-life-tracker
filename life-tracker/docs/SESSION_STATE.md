@@ -2,123 +2,74 @@
 
 Updated: 2026-09-26
 
-Current task: initial mounting performance on login and Home in `chatgpt/initial-mount-performance`.
+Current task: chat bottom anchoring and mobile keyboard behavior on `fix/chat-scroll-to-bottom-v2`.
 
-Status: CI runner allocation is operational again on the public repository. PR #41 (`ci: reduce duplicate Quality Gate runner demand`) was merged into `perf/animation-optimization` as `2e033313a51171f5305e53cac4b995b1af609b67`. The Quality Gate is push-driven only, so PRs receive checks from their pushed head SHA without a duplicate pull_request run. The repository was made public by the user after hosted-runner execution recovered; this is operational evidence, not proof of an internal GitHub throttle/quota cause.
+## Repository state
 
-The interaction-performance phase already retained:
-- Settings deployment branch/short SHA/commit message metadata.
-- Conditional TaskItem optional work.
-- Shell-first DayView content deferral.
-- Swiper Virtual with explicit `addSlidesBefore: 3` / `addSlidesAfter: 3`.
-- TaskItem Framer Motion layout-projection suppression during sheet entrance.
-- CI Chromium instrumentation for Event Timing, Long Animation Frames, React render/commit timing, mutations, and synchronous layout reads.
+- `main`: production.
+- `dev`: integration/staging.
+- Stable Preview branches are direct children of `dev`, including `fix/*`, `feature/*`, `perf/*`, `security/*`, and `refactor/*`.
+- AI task work uses `chatgpt/**` or `codex/**` branches and is squash-merged into the named stable Preview branch.
+- Never merge an AI task directly to `dev` unless the user explicitly requests promotion.
+- Vercel deploys configured stable Preview categories; AI task branches remain blocked.
+- The repository is public. Quality Gate is push-driven only.
 
-Representative lab evidence: sheet-open click processing improved from about 154ms to 51ms and max action Long Animation Frame from about 175ms to 70ms after the accepted virtualization changes. A separate trace reduced Framer Motion `getBoundingClientRect` reads from 52 to 2 during sheet entrance. These are CI/lab measurements, not device guarantees. A boolean/default Swiper Virtual experiment and BottomSheet drag-suppression experiment were both reverted after measurable regressions.
+## Current implementation
 
-Close-path evidence so far:
-- Rejected deferred-child exit retention by itself: close measured about 335ms LOAF with 52 Framer Motion layout reads.
-- Disabled TaskItem layout projection for the sheet lifecycle: layout reads fell from 52 to 2, but close stayed around 342ms LOAF, so projection was not the whole cost.
-- A direct-transform sheet rewrite reduced the probe substantially but broke sheet drag interaction; the exit-only variant preserved drag without a material improvement.
-- Native CSS transition was rejected because browser contracts did not observe transition-end cleanup and the close probe stayed around 325ms.
-- Shadow/overflow paint experiments were noisy and did not explain the remaining cost.
-- The stable candidate is contain: paint on the fixed sheet surface. With the same 0.32s Framer exit duration, the tap-driven close probe fell from roughly 325ms action duration / 315ms LOAF to roughly 192ms / 184ms, across repeated browser runs. Layout reads remain at 2. The improvement is therefore tied to paint containment rather than shortening the animation.
-- The performance probe now closes by tapping the documented exposed backdrop strip, matching the real phone dismissal contract rather than measuring Escape.
-- Focused regression coverage pins deferred-child exit retention and BottomSheet dialog semantics.
-Working set:
-- `life-tracker/src/components/ui/BottomSheet.tsx`
-- `life-tracker/tests/components/BottomSheet.test.tsx`
-- `life-tracker/docs/SESSION_STATE.md`
+Task branch: `chatgpt/chat-scroll-to-bottom-v2-clean`.
 
-Completed substeps:
-- Merged PR #41 CI runner-demand mitigation.
-- Created `chatgpt/dayview-close-smoothness` from the merged stable commit.
-- Identified the exit-teardown candidate.
-- Added the exit-teardown regression test.
-- Investigated and repaired two React lint failures exposed by CI.
+PR: #70 → `fix/chat-scroll-to-bottom-v2`.
 
-Remaining substeps:
-- Run the canonical full gate on the final task SHA.
-- After exact-SHA canonical acceptance, publish the stable Preview branch and perform the required real-device open/close acceptance.
-- If device evidence shows remaining hitching, continue from a device trace; do not revert the paint-containment candidate without evidence.
-Constraints:
-- Do not claim real-device acceptance without an actual device check.
-- Do not replace the accepted explicit Swiper virtual buffers without new evidence.
-- Preserve BottomSheet history/Back-stack behavior and existing visual behavior.
-- Use a coherent `chatgpt/**` task branch and include `[verify:full]` on the final acceptance commit.
-- Vercel Preview is only considered delivered after the exact final SHA receives canonical acceptance.
+Relevant files:
+- `src/pages/ChatPage.tsx`
+- `src/components/messages/useChatScroll.ts`
+- `src/components/messages/MessageComposer.tsx`
+- `src/components/messages/ScrollToBottomButton.tsx`
+- `src/components/messages/useKeyboardInset.ts`
+- `tests/react/useChatScroll.test.tsx`
+- `tests/components/ChatScroll.test.tsx`
+- `tests/components/KeyboardInset.test.tsx`
+- `index.html`
+- `vercel.json`
 
-Verification:
-- Focused Quality Gate passed on the implementation.
-- Browser contracts passed with contain: paint; the tap-driven close probe measured about 192ms action duration and 184ms max Long Animation Frame on the latest repeated run, with 2 layout reads.
-- The canonical full gate passed on the code checkpoint immediately before this documentation-only finalization; the exact final SHA below still needs its own canonical acceptance.
-- Real-device close smoothness remains unverified.
-- Vercel Preview remains pending exact-SHA canonical acceptance.
-Next action: measure and optimize login → Home initial mount, then run canonical acceptance and promote the performance branch.
+## Root causes
 
-Blockers: none currently. The previous hosted-runner allocation blocker is no longer reproducing; the remaining blocker to completion is verification of the close-path performance candidate and real-device acceptance.
+1. The old autoscroll performed one `scrollTop = scrollHeight` during the React layout phase. Variable-height message layout can continue after that point, so the viewport can stop short of the real bottom.
+2. Bottom clearance was a fixed padding value while the composer was an independent overlay. Reply previews, the character counter, and keyboard movement could therefore cover the newest message.
+3. The composer was anchored to the layout viewport. Mobile keyboards can shrink/offset the visual viewport without moving layout-viewport fixed/absolute elements.
+4. The scroll FAB had an independent bottom anchor instead of being attached to the composer.
 
-## Close animation cohesion follow-up — 2026-09-26
+## Implementation
 
-The first paint-containment fix exposed a visual synchronization issue: the fixed sheet container remained stationary while a nested motion wrapper translated its contents, making the background/shadow appear detached from the content. The fix moves the same 0.32s transform animation onto the draggable fixed dialog surface itself, so the container, shadow, clipping, header, and content share one compositor transform. The nested motion wrapper was removed; drag and history behavior remain on the animated surface.
-
-Verification is running on the feature branch. Real-device visual acceptance remains required.
-
-## Stable Preview handoff — 2026-09-26
-
-The accepted task SHA `bc78a220c87ff6c086ab51236bc442e2e79a0cbf` was copied to `feature/dayview-close-paint-containment` for the configured Vercel Preview delivery path. This branch adds no runtime changes; its own canonical gate is required before treating the feature Preview as delivered.
-
-## Wide content width follow-up — 2026-09-26
-
-Added a third large-screen Content width option, Wide, alongside Full screen and Comfortable. Wide centers the shared primary route-swipe surface at 85vw from the tablet breakpoint upward; phone layouts remain full width. Added settings, layout, and regression coverage.
-
-Verification: focused unit/component checks are required on the final task SHA. Preview delivery follows the existing chatgpt task branch → feature/ui-improvements squash-merge flow.
-
-## Todo month grid centering follow-up — 2026-09-26
-
-The fixed-column centering attempt was reverted after visual review showed the visible grid was still offset. The current correction targets the parent surface instead: the Todo calendar is made full-bleed across the Todo view's horizontal padding, while the month grid returns to the existing flexible seven-column layout and centers within that full content surface. This removes the padded scroll region as a separate horizontal reference frame. Regression coverage verifies the restored grid geometry and centered day cells.
-
-
-## Todo DayView large-jump fix — 2026-09-26
-
-Removed Swiper Virtual from DayView. Swiper now owns all 181 lightweight geometry slides, while React keeps the existing seven-slide expensive-content render window. This removes the competing Swiper/React virtualization state that left direct jumps (for example Sep 11 → Sep 30) visually stale until a one-day swipe reconciled Swiper.
-
-Verification: focused regression coverage updated for direct large jumps. Final commit requires canonical full acceptance before Preview delivery.
-
-## Calendar row sizing — 2026-09-26
-
-MonthView/WeekView use real seven-column week rows with max-content sizing, so each row follows its own tallest cell. DayCell now reserves 4.25rem, equivalent to a day label plus two standard text-only task blocks, while taller content can still expand the row.
-
-
-
-## Chat scroll-to-bottom v2 — 2026-09-26
-
-Current task: `chatgpt/chat-scroll-to-bottom-v2` → `fix/chat-scroll-to-bottom-v2`.
-
-Root causes identified in the prior chat implementation:
-- The autoscroll effect only ran when the latest message ID changed and performed a single `scrollTop = scrollHeight` during the React layout phase. Variable-height message layout can continue after that assignment, leaving the viewport above the real bottom.
-- The scroll container owned bottom padding while the composer was an independent absolute overlay. The fixed clearance was not tied to the composer's actual height, so replies/counters and keyboard movement could cover the newest message.
-- The composer used `position:absolute; bottom:0`, so it was anchored to the layout container rather than the mobile visual viewport when the software keyboard overlaid it.
-- The scroll FAB used its own fixed bottom offset, so it was not geometrically attached to the composer when the composer moved.
-
-Implementation in progress:
-- Re-anchor on mount and every newly appended message, then re-anchor again in the next animation frame.
-- Observe the rendered message content with `ResizeObserver` so late layout changes re-pin the conversation.
-- Measure the actual composer height and reserve that clearance plus the keyboard inset in the message scroller.
+- Scroll to the latest message on chat mount and whenever the latest message ID changes.
+- Re-run the scroll in the next animation frame.
+- Observe both rendered message content and the scroll container with `ResizeObserver`, so late content layout and keyboard/composer clearance changes re-pin the bottom.
+- Measure the composer with `ResizeObserver` and reserve its actual height in the message scroller.
 - Keep composer and scroll FAB in one fixed bottom dock.
-- Track the mobile visual viewport with `resize` + `scroll` events and rAF; use the layout/visual viewport difference to lift the dock above the keyboard. The viewport meta also opts into `interactive-widget=resizes-content` where supported.
-- Enable Vercel Preview deployment for `fix/*` stable branches.
-- Formalize the rule that AI task branches enter stable Preview branches only and are not merged directly to `dev` without explicit user instruction.
+- Track `visualViewport.resize` and `visualViewport.scroll` with rAF; compute keyboard inset as layout viewport height minus visual viewport height and offset.
+- Ignore visual-viewport keyboard math while pinch-zoomed.
+- Keep safe-area padding in the composer.
+- Add `interactive-widget=resizes-content` as an additional browser hint; VisualViewport remains the fallback for browsers that do not resize the layout viewport.
+- Enable Vercel Preview for `fix/*`.
 
-Reference basis: MDN VisualViewport/ResizeObserver and current web chat implementations use the visual viewport for keyboard-safe fixed chrome and post-layout observation for variable-height chat content.
+## Verification
 
-Verification still required:
-- Focused tests for chat scroll and keyboard inset.
-- Full canonical acceptance on the final task SHA.
-- Squash-merge the accepted task PR into `fix/chat-scroll-to-bottom-v2`.
-- Verify the fix branch Vercel Preview is ready.
-- Real phone keyboard/open/send/receive acceptance remains a separate manual check; do not claim it until performed.
+Latest full Quality Gate run before the current repair:
+- Build: passed.
+- Dependency audit: passed.
+- Browser contracts: passed.
+- DOM shard 2: passed.
+- DOM shard 1 initially failed only because the existing `useChatScroll` regression expected an impossible `scrollTop === scrollHeight`; browser scrollTop clamps to `scrollHeight - clientHeight`. The test was corrected to assert the actual browser contract.
+- Keyboard inset tests passed.
+- The current final SHA is `0dffe464cbc7fb64a13925c6614a5b9c2a427a2c` and includes `[verify:full]`; its canonical gate is still pending.
 
-Constraints:
-- Never merge this task directly to `dev`.
-- Do not treat the AI task branch as the Preview deployment branch; Preview delivery is through `fix/chat-scroll-to-bottom-v2`.
+## Delivery
+
+After exact-SHA canonical acceptance:
+1. Squash-merge PR #70 into `fix/chat-scroll-to-bottom-v2`.
+2. Wait for the fix-branch Vercel deployment to reach READY.
+3. Verify the resulting Preview URL.
+4. Perform the real-phone protocol: open an existing chat, confirm latest message is visible; send; receive; focus the composer; confirm composer and FAB sit above the keyboard; dismiss keyboard and confirm they return to the bottom.
+5. Record manual/device evidence separately. Do not claim device acceptance without actually performing it.
+
+No `dev` merge is authorized for this task.
