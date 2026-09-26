@@ -139,6 +139,13 @@ vi.mock('../../src/hooks/useFeedback', () => ({
   useFeedback: () => ({ message: null }),
 }));
 
+vi.mock('../../src/hooks/useSettings', () => ({
+  useSettings: () => ({
+    getSetting: () => false,
+    setSetting: vi.fn(),
+  }),
+}));
+
 vi.mock('../../src/hooks/useTaskImage', () => ({
   useTaskImage: () => ({ imageUrl: 'blob:image_1', isLoading: false }),
 }));
