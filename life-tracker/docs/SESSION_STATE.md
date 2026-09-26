@@ -51,9 +51,9 @@ Constraints:
 Verification:
 - Focused Quality Gate passed on the implementation.
 - Browser contracts passed with contain: paint; the tap-driven close probe measured about 192ms action duration and 184ms max Long Animation Frame on the latest repeated run, with 2 layout reads.
-- The canonical full gate has not yet run on the final SHA.
+- The canonical full gate passed on the code checkpoint immediately before this documentation-only finalization; the exact final SHA below still needs its own canonical acceptance.
 - Real-device close smoothness remains unverified.
 - Vercel Preview remains pending exact-SHA canonical acceptance.
-Next action: wait for the final [verify:full] canonical gate, then deliver the stable Preview and perform the real-device close protocol.
+Next action: wait for this final [verify:full] documentation checkpoint to receive canonical acceptance, then create the stable feature Preview branch from the accepted SHA and perform the real-device close protocol.
 
 Blockers: none currently. The previous hosted-runner allocation blocker is no longer reproducing; the remaining blocker to completion is verification of the close-path performance candidate and real-device acceptance.
