@@ -18,7 +18,12 @@ Verification limitation: GitHub Actions Quality Gate run #454 was retried twice 
 
 Working branch: `feature/dayview-inp-followup` (merged; PR #39)
 Stable integration branch: `perf/animation-optimization`
-Next action: perform the user's real-device open/close check on the stable Preview/integration deployment; if the hitch persists, capture a device trace before further code changes. Do not add blind animation/CSS optimizations without trace evidence.
+Next action: validate the close-path teardown candidate below on Preview/device; if the hitch persists, capture a device trace before further code changes. Do not add blind animation/CSS optimizations without trace evidence.
+
+## Bottom-sheet close smoothness follow-up — 2026-09-26
+The audit found a concrete gap in the prior work: sheet-open content mounting was optimized, but the close path still synchronously removed the entire DayView subtree at the start of the exit transform (`isOpen` immediately forced `shouldRenderChildren` false). That teardown can compete with the exit animation and was not isolated in the earlier probe. A focused candidate on `chatgpt/bottom-sheet-close-smoothness` keeps already-mounted BottomSheet children alive through the exit animation and tears them down from the sheet's animation-complete callback. This changes no visual styling or interaction contract and targets close smoothness specifically. The candidate is committed as `30bbc07cb2833ed637ce7272c721d21165483cf7`.
+
+Verification blocker: Quality Gate run #459 failed in `classify` before executing any step; rerun attempt #2 hit the same hosted-runner allocation failure. No automated result exists yet for this candidate. The candidate must not be merged to stable or treated as accepted until focused/browser verification and the real-device open/close check are available.
 
 
 ## Interaction performance trace checkpoint — 2026-09-26
