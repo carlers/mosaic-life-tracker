@@ -25,6 +25,7 @@ interface CategorySectionProps {
   onEditSave: () => void;
   onEditCancel: () => void;
   disableTaskLayoutAnimation?: boolean;
+  continueAddingAfterSubmit?: boolean;
 }
 
 export const CategorySection: React.FC<CategorySectionProps> = ({
@@ -45,6 +46,7 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
   onEditSave,
   onEditCancel,
   disableTaskLayoutAnimation = false,
+  continueAddingAfterSubmit = false,
 }) => {
   const [isAdding, setIsAdding] = useState(false);
   const [newTitle, setNewTitle] = useState('');
@@ -67,7 +69,11 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
     const trimmed = newTitle.trim();
     if (trimmed) {
       onAddTask(trimmed);
-      closeInput();
+      if (continueAddingAfterSubmit) {
+        setNewTitle('');
+      } else {
+        closeInput();
+      }
     }
   };
 
