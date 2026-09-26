@@ -8,6 +8,7 @@ additional reading. Current code and Git override stale progress prose.
 ## Work and delivery
 
 - Follow the requested scope. Preserve unrelated edits. Default to one agent.
+- Branch from `dev` only: create a category-prefixed Preview branch first (`feature/*`, `security/*`, `refactor/*`, `perf/*`, etc.), then create `chatgpt/*` mini-task branches from that Preview branch only when needed. Minimize mini-task branches. Never push directly to `main`, `dev`, or a Preview branch; use pull requests for all promotion.
 - Resolve routine choices and complete authorized work without repeated confirmation.
 - Use focused tests during edits; broaden for shared behavior or failures. Report actual
   results and unresolved limitations. Do not manufacture red evidence or add trivial tests.
