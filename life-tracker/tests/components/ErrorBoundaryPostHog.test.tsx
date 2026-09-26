@@ -1,4 +1,4 @@
-// Regression: Phase 3.7 PH-4/PH-8.
+// Regression: §24.15 (handled error boundaries report privacy-minimal diagnostics).
 import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
