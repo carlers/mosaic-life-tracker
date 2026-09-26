@@ -1,4 +1,4 @@
-// Regression: PROJECT_REFERENCE.md §16 — calendar swipes must not dispatch React state work from Embla's per-frame scroll event.
+// Regression: §16 (calendar swipes avoid React state work on Embla's per-frame scroll event).
 import { act, renderHook } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
