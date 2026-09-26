@@ -42,12 +42,9 @@ Static assets are not catch-all rewritten.
 
 `main` is the production branch, `dev` is the integration/staging branch, and `feature/*` branches are stable preview branches. There is no deployment-only `preview` branch. Source development continues on these branches and AI task branches.
 
-## Preview merge policy
+## Preview branch promotion policy
 
-Individual development branches such as `chatgpt/*` and `codex/*` should enter stable Preview
-branches such as `feature/*` through **Squash and merge**. This keeps experimental
-development commits out of the durable Preview history while preserving the detailed
-development history in the pull request.
+Individual development branches such as `chatgpt/*` and `codex/*` should enter the active stable Preview branch (for example `fix/*`, `feature/*`, `perf/*`) through **Squash and merge**. This keeps experimental development commits out of the durable Preview history while preserving the detailed development history in the pull request.
 
 This is a **GitHub repository ruleset**, not a CI convention. The ruleset should target
 `feature/*` and require:
@@ -108,8 +105,7 @@ secrets.
 2. Put `[verify:full]` on the exact final task commit when full canonical acceptance is
    required.
 3. Wait for that exact SHA's `canonical-acceptance` check to pass.
-4. Verify the Vercel deployment for the intended `main`, `dev`, or `feature/*`
-   branch is ready.
+4. Verify the Vercel deployment for the intended `main`, `dev`, or category Preview branch (`fix/*`, `feature/*`, `perf/*`, etc.) is ready.
 5. Share the relevant stable or per-branch preview URL when a manual/browser protocol is
    relevant.
 6. The user performs any required phone/browser protocol.
