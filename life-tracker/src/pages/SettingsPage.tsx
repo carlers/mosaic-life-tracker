@@ -260,7 +260,7 @@ export const SettingsPage: React.FC = () => {
           />
           <SettingsRow
             icon={<FileDown size={18} className="text-emerald-500" aria-hidden="true" />}
-            label="Export Data"
+            label="Backup & Restore"
             onClick={() => setIsExportSheetOpen(true)}
           />
         </div>
