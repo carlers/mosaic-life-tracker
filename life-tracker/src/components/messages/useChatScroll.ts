@@ -41,7 +41,6 @@ export function useChatScroll({
     const handleScroll = () => {
       const distanceFromBottom =
         el.scrollHeight - el.scrollTop - el.clientHeight;
-      const pinned = distanceFromBottom < 80;
       setShowScrollButton(distanceFromBottom > SCROLL_FAB_THRESHOLD_PX);
     };
     el.addEventListener('scroll', handleScroll, { passive: true });
