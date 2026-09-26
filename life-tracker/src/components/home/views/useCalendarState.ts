@@ -60,6 +60,9 @@ export function useCalendarState(): CalendarState {
     align: 'start',
     skipSnaps: false,
     startIndex: CENTER_INDEX,
+    // Embla's default is 25; a modest reduction makes month/week swipes
+    // finish a little sooner without making the gesture feel abrupt.
+    duration: 22,
   });
 
   // Keep the active render window aligned to settled snaps. The active slide
