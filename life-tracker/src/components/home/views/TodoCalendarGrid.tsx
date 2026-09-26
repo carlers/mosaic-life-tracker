@@ -83,9 +83,9 @@ const TodoMonthGrid: React.FC<TodoMonthGridProps> = ({
     <div
       role={isActive ? 'grid' : undefined}
       aria-label={isActive ? `${format(monthDate, 'MMMM yyyy')} todo calendar` : undefined}
-      className="mx-auto w-full max-w-sm rounded-xl bg-transparent px-2 pt-3 pb-0"
+      className="w-full rounded-xl bg-transparent px-2 pt-3 pb-0"
     >
-      <div className="mb-2 grid grid-cols-[repeat(7,2.5rem)] justify-center" role={isActive ? 'row' : undefined}>
+      <div className="mb-2 grid grid-cols-7" role={isActive ? 'row' : undefined}>
         {WEEKDAY_LABELS.map((label, index) => (
           <div
             key={`${label}-${index}`}
@@ -100,7 +100,7 @@ const TodoMonthGrid: React.FC<TodoMonthGridProps> = ({
         {calendarWeeks.map((week) => (
           <div
             key={format(week[0], 'yyyy-MM-dd')}
-            className="grid grid-cols-[repeat(7,2.5rem)] justify-center"
+            className="grid grid-cols-7"
             role={isActive ? 'row' : undefined}
           >
             {week.map((day) => {
@@ -165,7 +165,7 @@ const TodoMonthGrid: React.FC<TodoMonthGridProps> = ({
                   aria-current={isActive && isToday(day) ? 'date' : undefined}
                   onClick={() => onDateSelect(day)}
                   onKeyDown={handleKeyDown}
-                  className="flex h-14 w-10 flex-col items-center justify-center rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 hover:bg-[#2A2A2A]"
+                  className="mx-auto flex h-14 w-10 flex-col items-center justify-center rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 hover:bg-[#2A2A2A]"
                 >
                   <span
                     data-testid={`todo-status-marker-${dateKey}`}
