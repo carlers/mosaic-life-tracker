@@ -46,11 +46,13 @@ Do **not** add or preserve assertions solely for:
 - `data-testid` existence when a semantic query can prove the requirement
 - snapshots of broad component markup
 
-Exceptions require a durable requirement that makes the presentation itself behavior.
-Even then, assert the observable invariant rather than the implementation when possible.
-Examples: a switch thumb remains inside its track; a page has no horizontal overflow at a
-supported viewport; a six-week calendar does not clip its last row. Do not assert the
-specific utility classes used to achieve those outcomes.
+A visual or parity description in the product reference does not by itself require an
+automated styling assertion. Treat it as design/manual-acceptance guidance unless the
+observable geometry affects interaction, accessibility, clipping, overflow, or control
+usability. In those cases assert the outcome, not the implementation. Examples: a switch
+thumb remains inside its track; a page has no horizontal overflow at a supported viewport;
+a six-week calendar does not clip its last row. Do not assert the specific utility classes
+used to achieve those outcomes.
 
 `data-testid` is acceptable for otherwise non-semantic gesture/scroll/measurement surfaces
 and test harness outputs. It is a locator, not a reason to test implementation structure.
