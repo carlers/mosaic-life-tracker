@@ -3,7 +3,7 @@ export const SHEET_WIDTH_STORAGE_KEY = 'mosaic_sheet_width_mode';
 export const CONTENT_WIDTH_SETTING_KEY = 'contentWidthMode';
 export const SHEET_WIDTH_SETTING_KEY = 'sheetWidthMode';
 
-export const CONTENT_WIDTH_MODES = ['full', 'comfortable'] as const;
+export const CONTENT_WIDTH_MODES = ['full', 'comfortable', 'wide'] as const;
 export const SHEET_WIDTH_MODES = ['full', 'compact'] as const;
 
 export type ContentWidthMode = (typeof CONTENT_WIDTH_MODES)[number];
