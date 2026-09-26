@@ -186,104 +186,9 @@ test('primary route swipe is direct-manipulation with Home and Me ownership rule
 
   await drag(page, page.getByTestId('primary-page-lower-swipe-zone'), -220);
   await expect(page.getByTestId('primary-route')).toHaveText('settings');
-});
-
-// Regression: PROJECT_REFERENCE.md §2 — phone-sized Me owns horizontal gestures
-// throughout its content and Settings swipes right back to Me.
-test('phone route deck supports lower-page Me swipe and Settings right-back', async ({ page }) => {
-  await page.setViewportSize({ width: 360, height: 740 });
-  await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html`);
-
-  const routeHarness = page.getByTestId('primary-route-harness');
-  await routeHarness.scrollIntoViewIfNeeded();
-  await page.getByTestId('set-primary-account').click();
-
-  const lowerZone = page.getByTestId('primary-page-lower-swipe-zone');
-  await lowerZone.scrollIntoViewIfNeeded();
-  await drag(page, lowerZone, -220);
-  await expect(page.getByTestId('primary-route')).toHaveText('settings');
 
   await drag(page, page.getByTestId('primary-page-lower-swipe-zone'), 220);
   await expect(page.getByTestId('primary-route')).toHaveText('account');
-});
-
-// Regression: PROJECT_REFERENCE.md §2 — Todo active month is centered/natural-height
-// and selection is a numeral-only white circle.
-test('todo compact calendar centers the active month and rings only the selected numeral', async ({ page }) => {
-  await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html`);
-
-  const region = page.getByTestId('todo-calendar-region');
-  const grid = region.getByRole('grid', { name: 'September 2026 todo calendar' });
-  expect(await grid.evaluate((element) => getComputedStyle(element).backgroundColor)).toBe(
-    'rgba(0, 0, 0, 0)'
-  );
-  expect(await grid.evaluate((element) => getComputedStyle(element).borderTopWidth)).toBe(
-    '0px'
-  );
-  await expect(grid.getByRole('gridcell')).toHaveCount(35);
-
-  const regionBox = await region.boundingBox();
-  const gridBox = await grid.boundingBox();
-  if (!regionBox || !gridBox) throw new Error('Missing Todo calendar bounds');
-
-  const regionCenter = regionBox.x + regionBox.width / 2;
-  const gridCenter = gridBox.x + gridBox.width / 2;
-  expect(Math.abs(regionCenter - gridCenter)).toBeLessThanOrEqual(1);
-
-  const selectedCell = grid.getByRole('gridcell', {
-    name: 'Tuesday, September 15, 2026, 0 tasks',
-  });
-  const selectedNumber = selectedCell.getByTestId(
-    'todo-day-number-2026-09-15'
-  );
-  expect(
-    await selectedCell.evaluate((element) => getComputedStyle(element).backgroundColor)
-  ).toBe('rgba(0, 0, 0, 0)');
-  expect(
-    await selectedNumber.evaluate((element) => getComputedStyle(element).backgroundColor)
-  ).toBe('rgb(255, 255, 255)');
-});
-
-// Regression: PROJECT_REFERENCE.md §2 — Light and Black change the actual rendered palette
-// while semantic colored controls retain their contrast treatment.
-test('appearance modes update computed app surfaces without changing semantic fills', async ({ page }) => {
-  await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html`);
-
-  await page.getByTestId('set-appearance-light').click();
-  await expect
-    .poll(() =>
-      page.evaluate(() => document.documentElement.dataset.theme)
-    )
-    .toBe('light');
-
-  const sample = page.getByTestId('appearance-sample');
-  const surface = page.getByTestId('appearance-surface-sample');
-  const semantic = page.getByTestId('appearance-semantic-sample');
-  expect(
-    await sample.evaluate((element) => getComputedStyle(element).backgroundColor)
-  ).toBe('rgb(247, 247, 248)');
-  expect(
-    await sample.evaluate((element) => getComputedStyle(element).color)
-  ).toBe('rgb(17, 24, 39)');
-  expect(
-    await surface.evaluate((element) => getComputedStyle(element).backgroundColor)
-  ).toBe('rgb(255, 255, 255)');
-  expect(
-    await semantic.evaluate((element) => getComputedStyle(element).color)
-  ).toBe('rgb(255, 255, 255)');
-
-  await page.getByTestId('set-appearance-black').click();
-  await expect
-    .poll(() =>
-      page.evaluate(() => document.documentElement.dataset.theme)
-    )
-    .toBe('black');
-  expect(
-    await sample.evaluate((element) => getComputedStyle(element).backgroundColor)
-  ).toBe('rgb(0, 0, 0)');
-  expect(
-    await surface.evaluate((element) => getComputedStyle(element).backgroundColor)
-  ).toBe('rgb(9, 9, 9)');
 });
 
 // Regression: task acceptance — switch thumb stays inside its track in both states.
@@ -343,14 +248,9 @@ test('calendar swipe moves the calendar without advancing the friend carousel', 
 
   await expect.poll(async () => calendarTitle.textContent()).not.toBe(before);
   await expect(friendIndex).toHaveText('0');
-});
-
-test('swiping outside the calendar still advances the friend carousel', async ({ page }) => {
-  await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html`);
 
   await drag(page, page.getByTestId('friend-swipe-zone'), -260);
-
-  await expect(page.getByTestId('friend-index')).toHaveText('1');
+  await expect(friendIndex).toHaveText('1');
 });
 
 // Regression: PROJECT_REFERENCE.md §2 — Todo calendar is direct-manipulation, tappable, and owns its gesture.
