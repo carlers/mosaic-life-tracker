@@ -16,10 +16,13 @@ The interaction-performance phase already retained:
 
 Representative lab evidence: sheet-open click processing improved from about 154ms to 51ms and max action Long Animation Frame from about 175ms to 70ms after the accepted virtualization changes. A separate trace reduced Framer Motion `getBoundingClientRect` reads from 52 to 2 during sheet entrance. These are CI/lab measurements, not device guarantees. A boolean/default Swiper Virtual experiment and BottomSheet drag-suppression experiment were both reverted after measurable regressions.
 
-Close-path investigation found a concrete lifecycle candidate in `BottomSheet`: with `deferChildrenUntilPaint`, the child tree was removed as soon as `isOpen` became false even while `AnimatePresence` was still running the exit transform. The current candidate keeps deferred children mounted through the exit animation and clears them from `onAnimationComplete`. Regression coverage was added in `tests/components/BottomSheet.test.tsx`.
-
-The candidate passed the browser-contract, DOM, dependency-audit, and build jobs on the latest canonical run, but the unit/checks job failed because the handoff token-budget regression test saw this session file exceed its 3000-token fixture budget. The oversized state file was documentation debt from duplicated historical checkpoints, not a product/test failure. The state file is now being condensed to restore that contract before the next canonical run.
-
+Close-path evidence so far:
+- Rejected deferred-child exit retention by itself: close measured about 335ms LOAF with 52 Framer Motion layout reads.
+- Reverted to the stable teardown path: close measured about 337ms LOAF with the same 52 reads.
+- Disabled TaskItem layout projection for the entire sheet lifecycle: layout reads fell from 52 to 2, but close still measured about 342ms LOAF, so projection was not the whole cost.
+- Combined projection suppression + deferred-child retention: close measured about 332ms LOAF with 2 reads. This was only a small improvement.
+- Current experiment: add `will-change: transform` only to the fixed BottomSheet surface. Motion's current guidance identifies transform/opacity as the compositor-safe animation path and documents `will-change: transform` as a targeted layer-promotion hint. Browser verification is required before accepting or reverting it.
+- Focused regression coverage pins sheet-mode TaskItem layout suppression and the deferred-child exit contract.
 Working set:
 - `life-tracker/src/components/ui/BottomSheet.tsx`
 - `life-tracker/tests/components/BottomSheet.test.tsx`
@@ -33,11 +36,9 @@ Completed substeps:
 - Investigated and repaired two React lint failures exposed by CI.
 
 Remaining substeps:
-- Pass the focused BottomSheet/DayView tests and a browser-verification Quality Gate on the combined close candidate.
-- Inspect the performance-probe `bottom-sheet-close` metrics on the combined candidate.
-- If the trace improves, run the canonical full gate, publish the stable Preview, and perform the required real-device open/close acceptance.
-- If the close trace does not improve, use the trace's React/layout/LOAF evidence for the next targeted change; do not add blind animation/CSS tweaks.
-
+- Run browser verification for the current layer-promotion experiment and inspect `bottom-sheet-close`.
+- If the trace improves materially, run the canonical full gate, publish the stable Preview, and perform real-device open/close acceptance.
+- If it does not, revert the hint and continue from the trace's render/style evidence; do not add blind animation/CSS changes.
 Constraints:
 - Do not claim real-device acceptance without an actual device check.
 - Do not replace the accepted explicit Swiper virtual buffers without new evidence.
