@@ -64,7 +64,11 @@ export const HomePage: React.FC = () => {
     const schedule = () => setRenderWindow(RENDER_WINDOW);
     if (typeof window.requestIdleCallback === 'function') {
       const idleId = window.requestIdleCallback(schedule, { timeout: 1200 });
-      return () => window.cancelIdleCallback(idleId);
+      return () => {
+        if (typeof window.cancelIdleCallback === 'function') {
+          window.cancelIdleCallback(idleId);
+        }
+      };
     }
     const timer = window.setTimeout(schedule, 400);
     return () => window.clearTimeout(timer);
