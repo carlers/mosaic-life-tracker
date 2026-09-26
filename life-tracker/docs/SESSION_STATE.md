@@ -85,11 +85,6 @@ Removed Swiper Virtual from DayView. Swiper now owns all 181 lightweight geometr
 
 Verification: focused regression coverage updated for direct large jumps. Final commit requires canonical full acceptance before Preview delivery.
 
-## Calendar row-height fix — 2026-09-26
+## Calendar row sizing — 2026-09-26
 
-Changed MonthView and WeekView so each calendar week is its own seven-column grid row. The row-group uses max-content tracks, so each row is sized by its tallest cell instead of sharing a height derived from the entire grid. Added calendar semantics regression coverage for real row containers and independent row sizing.
-
-
-## Calendar row minimum height — 2026-09-26
-
-Calendar day cells now reserve a 4.25rem minimum, matching the visual height of a day label plus two standard text-only task blocks. Rows still grow independently when a taller cell needs more space. Added a semantic regression assertion for the minimum-height contract.
+MonthView/WeekView use real seven-column week rows with max-content sizing, so each row follows its own tallest cell. DayCell now reserves 4.25rem, equivalent to a day label plus two standard text-only task blocks, while taller content can still expand the row.
