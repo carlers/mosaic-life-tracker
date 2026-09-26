@@ -88,3 +88,9 @@ Verification: focused regression coverage updated for direct large jumps. Final 
 ## Calendar row sizing — 2026-09-26
 
 MonthView/WeekView use real seven-column week rows with max-content sizing, so each row follows its own tallest cell. DayCell now reserves 4.25rem, equivalent to a day label plus two standard text-only task blocks, while taller content can still expand the row.
+
+
+## DayView sheet tap latency audit — 2026-09-26
+- Root cause: `handleDayClick` wrapped the sheet-opening state update in `startTransition`, delaying the urgent `isOpen` commit that starts the BottomSheet entrance animation.
+- Fix: make `selectedDate` and `daySheetOpen` synchronous; preserve existing DayView content deferral/windowing.
+- Regression coverage: CalendarBody interaction test asserts the sheet opens immediately from a day tap.
