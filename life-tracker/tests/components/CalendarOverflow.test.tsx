@@ -46,6 +46,6 @@ describe('Calendar overflow layout', () => {
 
     const calendarGrid = container.querySelector('[role="rowgroup"]');
     expect(calendarGrid).not.toBeNull();
-    expect(calendarGrid).toHaveClass('auto-rows-[minmax(min-content,1fr)]');
+    expect(calendarGrid).toHaveClass('auto-rows-max');
   });
 });
