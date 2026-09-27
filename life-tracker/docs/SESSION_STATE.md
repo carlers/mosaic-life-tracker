@@ -28,7 +28,7 @@ has been enabled.
   users/databases/tables/columns/indexes/rows/buckets/files read scopes.
 - Live HTTP smoke test returned 403 while `DR_ALLOW_MANUAL_EXECUTION=false`, confirming
   the deployed manual-execution boundary.
-- Production `dr_backup` schedule remains blank.\n- Added an external daily GitHub Actions stale-backup watcher that uses only a separate R2 Object Read token and stays disabled behind `DR_BACKUP_WATCH_ENABLED` until rollout. It does not store or require the backup encryption key.
+- Production `dr_backup` schedule remains blank.\n- Added an external daily GitHub Actions stale-backup watcher that uses only a separate R2 Object Read token and stays disabled behind `DR_BACKUP_WATCH_ENABLED` until rollout. It does not store or require the backup encryption key.\n- Added validated `R2_ENDPOINT` support across backup, restore, authenticated health checks, and the external watcher so Cloudflare jurisdiction endpoints work without allowing arbitrary credential destinations.
 
 ## Verification
 - Structural-red run 1117 failed only because the specified DR modules did not exist yet.
@@ -67,7 +67,7 @@ has been enabled.
 - Do not enable the production backup schedule before the isolated restore drill passes.
 - Do not promote `security/disaster-backups` to `dev` without explicit user instruction.
 
-Next action: run full canonical acceptance and squash-deliver the external watchdog to `security/disaster-backups`. After that, stop at the external R2/escrow/isolated-restore-drill blocker until recovery credentials and an independently escrowed encryption key are available.
+Next action: run full canonical acceptance, deploy the accepted endpoint-compatible `dr_backup` source, and squash-deliver to `security/disaster-backups`. After that, stop at the external R2/escrow/isolated-restore-drill blocker until recovery credentials and an independently escrowed encryption key are available.
 
 Blocker: Cloudflare R2 bucket/credentials and independently escrowed encryption material are
 not available through the connected tools. A Cloudflare plugin search returned no Cloudflare

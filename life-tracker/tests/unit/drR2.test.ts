@@ -49,6 +49,43 @@ function client(fetchImpl: any) {
 }
 
 describe('R2 disaster-backup transport', () => {
+  it('uses an explicitly configured Cloudflare jurisdiction endpoint', async () => {
+    const fetchImpl = vi.fn(async () => response(''));
+    const r2 = createR2Client(
+      {
+        accountId: 'account',
+        accessKeyId: 'access',
+        secretAccessKey: 'secret',
+        bucket: 'mosaic-backups',
+        endpoint: 'https://account.eu.r2.cloudflarestorage.com',
+      },
+      {
+        fetchImpl,
+        now: () => new Date('2026-09-27T01:02:03.000Z'),
+      }
+    );
+
+    await r2.getObject('snapshot.enc');
+
+    const [url, init] = fetchImpl.mock.calls[0];
+    expect(url).toBe(
+      'https://account.eu.r2.cloudflarestorage.com/mosaic-backups/snapshot.enc'
+    );
+    expect(init.headers.host).toBe('account.eu.r2.cloudflarestorage.com');
+  });
+
+  it('rejects arbitrary R2 endpoint overrides', () => {
+    expect(() =>
+      createR2Client({
+        accountId: 'account',
+        accessKeyId: 'access',
+        secretAccessKey: 'secret',
+        bucket: 'mosaic-backups',
+        endpoint: 'https://example.com',
+      })
+    ).toThrow(/Invalid R2 endpoint/);
+  });
+
   it('signs object writes and authenticates metadata', async () => {
     const fetchImpl = vi.fn(async () =>
       response('', {
