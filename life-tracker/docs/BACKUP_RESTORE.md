@@ -43,14 +43,15 @@ Settings and diary IDs are regenerated from the current user plus their logical 
 - Matching backup records are restored even when the snapshot is older.
 - Current active personal records absent from the backup are tombstoned with the restore time so sync propagates the deletion safely.
 - Friendships, messages, login/account state, and reciprocal profile/social state are never part of this replacement.
-- Before applying Replace, Mosaic automatically downloads a safety backup of the current personal snapshot. Existing remote image files are not deleted by Replace.
+- Before applying Replace, Mosaic shows a destructive confirmation that explains the scope, then automatically downloads a safety backup of the current personal snapshot. Existing remote image files are not deleted by Replace.
+- Replace preflights the backup first, applies all backup rows successfully, and only then tombstones current-only personal rows. A failed backup-row write must not begin destructive tombstoning.
 
 ## Images
 
-When a ZIP contains image blobs, restore uploads them for the current account and rewrites restored references to the new file IDs. Missing or failed image recovery never blocks task/category/diary/settings recovery. If a backup belongs to another account and does not contain a referenced image blob, that inaccessible source-account image reference is cleared.
+When a ZIP contains image blobs, restore ensures the needed images exist for the current account and rewrites restored references when cross-account portability requires it. Image recovery is idempotent: repeated restores reuse the same destination file where possible, and Merge does not upload images for rows it will skip as newer/equal current data. Missing or failed image recovery never blocks task/category/diary/settings recovery. If a backup belongs to another account and does not contain a referenced image blob, that inaccessible source-account image reference is cleared.
 
 ## Sync and failure behavior
 
 Restore applies through Mosaic's local-first database and then requests the normal sync engine. Offline restore is allowed; normal sync sends the changes when connectivity returns.
 
-Validation completes before writes begin. Data application is idempotent by logical/deterministic IDs. Image upload is best-effort and may be partial; data restore still completes and reports missing images. Replace uses tombstones rather than permanent row deletion.
+Validation and restore planning complete before writes begin. v2 files must carry the Mosaic backup format marker, duplicate logical IDs are rejected, and normalized records must satisfy the local schema constraints before application. Data application is idempotent by logical/deterministic IDs. Image upload is best-effort and may be partial; data restore still completes and reports missing images. Replace uses tombstones rather than permanent row deletion.
