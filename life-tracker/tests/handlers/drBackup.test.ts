@@ -115,6 +115,33 @@ describe('dr-backup Function authorization', () => {
     }
   });
 
+  it('classifies Appwrite status codes without returning provider error text', async () => {
+    process.env.DR_ALLOW_MANUAL_EXECUTION = 'true';
+    const failure = Object.assign(
+      new Error('Appwrite response contained private diagnostics'),
+      {
+        code: 401,
+        backupStage: 'tables_list_rows',
+      }
+    );
+    const runBackup = vi.fn().mockRejectedValue(failure);
+    const handler = createHandler({ runBackup });
+    const ctx = makeContext({ trigger: 'http', key: 'dynamic-key' });
+
+    const response = await handler(ctx as any);
+
+    expect(response.status).toBe(500);
+    expect(response.body).toEqual({
+      error: 'Disaster backup failed',
+      stage: 'tables_list_rows',
+      code: 'appwrite_http_401',
+    });
+    expect(JSON.stringify(response.body)).not.toContain('private diagnostics');
+    expect(ctx.error).not.toHaveBeenCalledWith(
+      expect.stringContaining('private diagnostics')
+    );
+  });
+
   it('classifies invalid encryption material without echoing it', async () => {
     process.env.DR_ALLOW_MANUAL_EXECUTION = 'true';
     const runBackup = vi
