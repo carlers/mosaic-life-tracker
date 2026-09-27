@@ -24,6 +24,7 @@ type SheetStackEntry = {
   id: string;
   historyId: string;
   onClose: () => void;
+  isLocked: () => boolean;
 };
 
 let openSheetCount = 0;
@@ -88,12 +89,17 @@ function cancelPendingCleanup(sheetId: string): void {
   pendingCleanupTimers.delete(sheetId);
 }
 
-function registerSheet(sheetId: string, onClose: () => void): void {
+function registerSheet(
+  sheetId: string,
+  onClose: () => void,
+  isLocked: () => boolean
+): void {
   cancelPendingCleanup(sheetId);
 
   const existing = sheetStack.find((sheet) => sheet.id === sheetId);
   if (existing) {
     existing.onClose = onClose;
+    existing.isLocked = isLocked;
     return;
   }
 
@@ -101,6 +107,7 @@ function registerSheet(sheetId: string, onClose: () => void): void {
     id: sheetId,
     historyId: `mosaic-sheet-${++historyGuardSequence}`,
     onClose,
+    isLocked,
   };
   sheetStack.push(entry);
   pushSheetHistory(entry);
@@ -129,6 +136,17 @@ function scheduleSheetCleanup(sheetId: string): void {
 
 function handleBottomSheetPopState(event: PopStateEvent): void {
   const targetHistoryId = readHistoryGuardToken(event.state);
+  const top = sheetStack[sheetStack.length - 1];
+
+  if (top?.isLocked()) {
+    // Back already moved the browser below this sheet's guard. Re-arm the
+    // same guard without closing the locked sheet; pushState discards the
+    // just-created forward entry rather than growing history indefinitely.
+    if (targetHistoryId !== top.historyId) {
+      pushSheetHistory(top);
+    }
+    return;
+  }
 
   if (sheetStack.length === 0) {
     // If a programmatic close retired a sheet while an older sheet-history
@@ -177,7 +195,7 @@ function ensureHistoryBackHandler(): void {
 
 function requestSheetClose(sheetId: string): void {
   const entry = sheetStack.find((sheet) => sheet.id === sheetId);
-  if (!entry) return;
+  if (!entry || entry.isLocked()) return;
 
   const top = sheetStack[sheetStack.length - 1];
   if (
@@ -249,6 +267,7 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
   const sheetWidthMode = appearance?.sheetWidthMode ?? 'full';
   const sheetRef = useRef<HTMLDivElement>(null);
   const onCloseRef = useRef(onClose);
+  const isLockedRef = useRef(isLocked);
   const horizontalSwipeStartRef = useRef<HorizontalSwipeStart | null>(null);
   const directionalDragStartRef = useRef<HorizontalSwipeStart | null>(null);
   const directionalTouchStartRef = useRef<TouchSwipeStart | null>(null);
@@ -267,7 +286,8 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
 
   useLayoutEffect(() => {
     onCloseRef.current = onClose;
-  }, [onClose]);
+    isLockedRef.current = isLocked;
+  }, [isLocked, onClose]);
 
   useFocusTrap(sheetRef, isOpen && !suspendInteraction);
 
@@ -287,7 +307,11 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
     if (!isOpen) return;
 
     ensureHistoryBackHandler();
-    registerSheet(sheetId, () => onCloseRef.current());
+    registerSheet(
+      sheetId,
+      () => onCloseRef.current(),
+      () => isLockedRef.current
+    );
 
     const handleEsc = (event: KeyboardEvent) => {
       if (event.key !== 'Escape') return;
@@ -339,7 +363,7 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={
-              suspendInteraction
+              suspendInteraction || isLocked
                 ? undefined
                 : () => requestSheetClose(sheetId)
             }
@@ -499,7 +523,10 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
               directionalTouchStartRef.current = null;
             }}
             onDragEnd={(_, info) => {
-              if (info.offset.y > 100 || info.velocity.y > 500) {
+              if (
+                !isLocked &&
+                (info.offset.y > 100 || info.velocity.y > 500)
+              ) {
                 requestSheetClose(sheetId);
               }
             }}
