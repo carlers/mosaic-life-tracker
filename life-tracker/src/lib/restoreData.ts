@@ -943,7 +943,7 @@ export async function restoreUserData(
 
   report('Refreshing current data…');
   const refreshStartedAt = Date.now();
-  await initializeSync();
+  await initializeSync(currentUser.id);
 
   const syncStatus = getSyncStatus();
   const lastSyncMs = syncStatus.lastSync
@@ -1018,7 +1018,7 @@ export async function restoreUserData(
   }
 
   report('Syncing restored data…');
-  await initializeSync();
+  await initializeSync(currentUser.id);
 
   return {
     mode: options.mode,
