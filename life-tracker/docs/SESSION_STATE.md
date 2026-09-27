@@ -4,7 +4,7 @@ Updated: 2026-09-27
 
 Current task: add compact last-backup/last-restore dates below Settings → Backup & Restore and slightly reduce the vertical height of Settings buttons.
 
-Status: implementation complete on `chatgpt/backup-restore-activity-ui`, based on stable Preview `feature/backup-restore` commit `ef0905c8148ad69bc7806a53bde9dea34a67ac74`. Full verification exposed and repaired one React lint issue and one strict TypeScript narrowing issue; focused run 969 is green. Final exact-SHA canonical acceptance is requested by this checkpoint commit.
+Status: implementation complete on `chatgpt/backup-restore-activity-ui`, based on stable Preview `feature/backup-restore` commit `ef0905c8148ad69bc7806a53bde9dea34a67ac74`. Verification repairs are complete: React lint, strict TypeScript narrowing, and browser-storage test placement/discovery were corrected. Final exact-SHA canonical acceptance is requested by this checkpoint commit.
 
 ## Working set
 - `src/pages/SettingsPage.tsx`, `src/components/ui/SettingsRow.tsx`
@@ -30,10 +30,11 @@ Status: implementation complete on `chatgpt/backup-restore-activity-ui`, based o
 
 ## Verification
 - Stable baseline: `feature/backup-restore` commit `ef0905c8148ad69bc7806a53bde9dea34a67ac74`; Quality Gate run 957 canonical acceptance passed.
-- Focused runtime verification: run 969 passed after both verification repairs.
+- Focused runtime verification: run 969 passed after the React/TypeScript implementation repairs.
 - Full run 966 exposed `react-hooks/set-state-in-effect`; the implementation now derives current-account persisted activity without an effect.
-- Full run 968 then exposed strict TypeScript null narrowing in that derived override; the condition now narrows the nullable override explicitly. Both failures were verification-only implementation issues, not changes to the requested UI behavior.
-- Full exact-SHA canonical acceptance: requested by this checkpoint commit.
+- Full run 968 exposed strict TypeScript null narrowing; the condition now narrows the nullable override explicitly.
+- Full run 970 exposed that the localStorage helper test was incorrectly placed in the Node-only unit project. Coverage was moved to the DOM project and renamed to `.test.tsx` to satisfy the repository discovery contract.
+- Final full exact-SHA canonical acceptance: requested by this checkpoint commit.
 - Stable Preview deployment after squash delivery: pending.
 - Manual visual acceptance of compact spacing/activity text: pending.
 
