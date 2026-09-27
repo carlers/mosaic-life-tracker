@@ -12,7 +12,7 @@ A user backup is a portable snapshot of the signed-in user's personal Mosaic dat
 - synced settings/preferences
 - optional referenced task/profile images
 
-Friendships may remain present in exported files for portability/reference, but personal restore never creates, deletes, or rewrites friendships. Messages, login/account state, and reciprocal social/profile state are outside personal restore. Whole-system disaster recovery is a separate backend concern.
+Friendships may remain present in exported files for portability/reference, but personal restore never creates, deletes, or rewrites friendships. Messages, login/account state, and reciprocal social/profile state are outside personal restore. On cross-account restore, friendship-bound preferences such as friend-carousel ordering/hidden IDs are also preserved from the destination account rather than imported or replaced. Whole-system disaster recovery is a separate backend concern.
 
 ## Format
 
