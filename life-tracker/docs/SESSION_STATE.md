@@ -2,53 +2,55 @@
 
 Updated: 2026-09-27
 
-Current task: make Mosaic independently forkable on `chatgpt/mosaic-bootstrap`, targeting
-stable Preview `security/disaster-backups`.
+Current task: finish the first production DR backup after the user configured Cloudflare R2
+and the encryption key. Work is on `chatgpt/dr-backup-safe-diagnostics`, targeting stable
+Preview `security/disaster-backups`.
 
-Status: implementation is complete pending canonical verification and stable delivery. The
-bootstrap has not been run against any live Appwrite project; production Mosaic and the
-unrelated empty Appwrite project were not mutated.
+Status: the required R2/encryption variables are present on live `dr_backup`, the three
+sensitive variables are secret, and the accepted deployment was rebuilt so the variables
+take effect. The first controlled manual backup attempt failed before producing a trusted
+restore point. Manual execution has already been returned to false and the active Function
+is locked down again.
 
-## Completed
-- Added `infrastructure/mosaic-backend.mjs` as the versioned fresh-project manifest for the
-  seven active TablesDB tables, indexes/permissions, and `task_images` Storage bucket.
-- Added `npm run mosaic:bootstrap`. Given an explicitly selected empty Appwrite project,
-  endpoint, and temporary API key, it refuses non-empty targets, creates the backend, deploys
-  `message-action`, registers Web platforms, and writes fork-specific `.env.local`.
-- Added optional `--with-dr` provisioning for the schedule-disabled DR Function when R2 and
-  encryption secrets are deliberately supplied. R2 remains unnecessary for ordinary forks.
-- Added `--platform-only` for adding later hosting domains without touching backend data.
-- Added fork safety: unconfigured non-official builds resolve to a deliberately invalid
-  Appwrite endpoint/project rather than the original Mosaic production backend. Official
-  GitHub/Vercel builds retain the existing production fallback through build identity.
-- Added manifest/bootstrap regression coverage and a maintainer-continuity runbook in
-  `docs/FORKING.md`.
-- Updated README, documentation index, delivery guidance, and environment example for the
-  fork workflow.
+## Live safety state
+- `dr_backup` execute roles: none.
+- Appwrite scopes remain read-only: users/databases/tables/columns/indexes/rows/buckets/files.
+- Schedule remains blank.
+- `DR_ALLOW_MANUAL_EXECUTION=false` is active on deployment `6ab92d6406c515120068`.
+- Required variables exist: `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`,
+  `R2_SECRET_ACCESS_KEY`, `R2_BUCKET`, and `DR_ENCRYPTION_KEY_B64`.
+- Secret values were not read or exposed through tooling.
+- Non-secret account ID and bucket values pass structural validation.
+
+## First backup attempt
+- Source baseline immediately before execution: 2 users, 1 database, 10 tables, 559 rows,
+  1 Storage bucket, 6 files, 615334 file bytes.
+- One manual execution was enabled through the existing server-only gate, deployed, invoked,
+  and then disabled/redeployed immediately after the result.
+- Execution `6ab92d4715ca6ba29c96` failed with HTTP 500 after about 0.8s inside the Function's
+  intentionally generic error boundary. No successful `COMPLETED` restore point is claimed.
+- Because the handler intentionally discarded the underlying error message, the existing
+  logs were not sufficient to distinguish invalid encryption/configuration from R2 auth,
+  R2 endpoint/bucket, or Appwrite-read failures.
+
+## Diagnostic repair
+- Added secret-safe DR failure diagnostics: only a coarse export stage and allowlisted code
+  such as `config_encryption_key`, `r2_http_403`, `r2_verification`, or
+  `appwrite_pagination` may reach logs/response. Raw provider errors remain suppressed.
+- Added stage tagging for auth export, table export, storage export, commit, and retention.
+- Handler regression coverage proves fake credential text embedded in an R2 error is never
+  returned or logged.
+- Focused Quality Gate run 1172 passed.
 
 ## Constraints
-- Fresh bootstrap is not an in-place migration tool and must never overwrite an existing
-  community.
-- A failed partially-created bootstrap should be discarded by recreating the disposable
-  empty project rather than force-resuming into uncertain state.
-- Provisioning keys are temporary administrator credentials and must never be committed or
-  exposed through `VITE_*`.
-- Personal user backups restore personal data but not reciprocal friendships/messages/login
-  identity; full-community continuity still requires the administrator DR package.
-- Do not enable the production `dr_backup` schedule before the isolated DR restore drill.
+- Do not expose R2 credentials, encryption material, user content, password hashes, or raw
+  provider error bodies.
+- Do not leave `DR_ALLOW_MANUAL_EXECUTION=true` outside the short controlled execution
+  window.
+- Do not enable the production schedule until a full isolated restore drill passes.
 - Do not promote `security/disaster-backups` to `dev` without explicit user instruction.
 
-## Verification
-- Focused Quality Gate run 1166 passed the implementation-related checks.
-- Repository scan confirmed there is currently no explicit LICENSE file; this does not block
-  the technical bootstrap, but formal third-party reuse rights remain a maintainer decision.
-
-## Remaining verification
-1. Run the exact final full canonical gate.
-2. Put `[verify:full]` on the exact final task SHA and wait for canonical acceptance.
-3. Squash-deliver to `security/disaster-backups`, then verify stable Quality Gate and
-   Vercel Preview.
-4. Keep the existing external DR blocker separate: R2 credentials/encryption escrow and the
-   restore drill are still required before automated disaster backups can be enabled.
-
-Next action: complete verification and repair any SDK/schema incompatibility found by CI.
+Next action: obtain canonical acceptance for the safe diagnostics patch, squash it to
+`security/disaster-backups`, deploy that accepted source to live `dr_backup`, repeat one
+controlled manual backup, use the safe stage/code to resolve any remaining configuration
+failure, and continue until a valid `COMPLETED` snapshot exists.
