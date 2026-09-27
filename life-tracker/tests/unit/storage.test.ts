@@ -141,4 +141,16 @@ describe('storage.ensureRestoredImage — idempotent backup recovery', () => {
       ensureRestoredImage(makeFile(), 'bk_i_race')
     ).resolves.toEqual({ fileId: 'bk_i_race', uploaded: false });
   });
+
+
+  it('refuses restore-image writes if the authenticated account changed', async () => {
+    sdkRef.guardedAccountGet.mockResolvedValueOnce({ $id: 'user_B' });
+
+    await expect(
+      ensureRestoredImage(makeFile(), 'bk_i_account_guard', 'user_A')
+    ).rejects.toThrow(/authenticated user changed/i);
+
+    expect(sdkRef.guardedStorageGetFile).not.toHaveBeenCalled();
+    expect(sdkRef.guardedStorageCreateFile).not.toHaveBeenCalled();
+  });
 });
