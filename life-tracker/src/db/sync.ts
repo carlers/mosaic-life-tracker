@@ -6,7 +6,6 @@ import { toAppwriteFormat, fromAppwriteFormat } from '../lib/syncMapping';
 import {
   getSyncStatus,
   publishSyncStatus,
-  subscribeToSyncStatus,
   type SyncStatus,
 } from '../lib/syncStatus';
 import { markOfflineDataReady } from '../lib/offlineReadiness';
