@@ -77,6 +77,11 @@ type DeleteFileParams = {
   fileId: string;
 };
 
+type GetFileParams = {
+  bucketId: string;
+  fileId: string;
+};
+
 type GetFileViewParams = {
   bucketId: string;
   fileId: string;
@@ -119,6 +124,7 @@ type DeleteRowResult = Awaited<ReturnType<typeof rawTablesDB.deleteRow>>;
 
 type CreateFileResult = Awaited<ReturnType<typeof rawStorage.createFile>>;
 type DeleteFileResult = Awaited<ReturnType<typeof rawStorage.deleteFile>>;
+type GetFileResult = Awaited<ReturnType<typeof rawStorage.getFile>>;
 type GetFileViewResult = ReturnType<typeof rawStorage.getFileView>;
 type GetFilePreviewResult = ReturnType<typeof rawStorage.getFilePreview>;
 
@@ -148,6 +154,8 @@ export const guardedStorage = {
     guardedCall(() => rawStorage.createFile(params as never)),
   deleteFile: (params: DeleteFileParams): Promise<DeleteFileResult> =>
     guardedCall(() => rawStorage.deleteFile(params as never)),
+  getFile: (params: GetFileParams): Promise<GetFileResult> =>
+    guardedCall(() => rawStorage.getFile(params as never)),
   // URL builders are synchronous — no network call, no guardedCall needed.
   getFileView: (params: GetFileViewParams): GetFileViewResult =>
     rawStorage.getFileView(params as never),
