@@ -9,12 +9,34 @@ let status: SyncStatus = {
   lastSync: null,
   errors: [],
 };
+let ownerId: string | null = null;
 
 type SyncListener = (status: SyncStatus) => void;
 const listeners = new Set<SyncListener>();
 
 export function getSyncStatus(): SyncStatus {
   return status;
+}
+
+export function scopeSyncStatusToUser(userId: string | null): void {
+  if (ownerId === userId) return;
+  ownerId = userId;
+  let lastSync: string | null = null;
+  if (userId && typeof localStorage !== 'undefined') {
+    try {
+      lastSync = localStorage.getItem(`lastSyncTime_${userId}`);
+    } catch {
+      lastSync = null;
+    }
+  }
+  status = { isSyncing: false, lastSync, errors: [] };
+  for (const listener of listeners) {
+    try {
+      listener(status);
+    } catch (error) {
+      console.error('[Sync] Status listener threw:', error);
+    }
+  }
 }
 
 export function publishSyncStatus(updates: Partial<SyncStatus>): SyncStatus {
@@ -40,6 +62,7 @@ export function subscribeToSyncStatus(listener: SyncListener): () => void {
 }
 
 export function resetSyncStatusForTests(): void {
+  ownerId = null;
   status = { isSyncing: false, lastSync: null, errors: [] };
   listeners.clear();
 }
