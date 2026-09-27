@@ -226,4 +226,31 @@ describe('AuthProvider offline auth gate', () => {
     expect(cachedRaw).not.toBeNull();
     expect(JSON.parse(cachedRaw as string).$id).toBe('user_fresh');
   });
+
+
+  it('waits for local database readiness before starting post-auth sync', async () => {
+    accountRef.get.mockRejectedValueOnce(makeUnauthorizedError());
+    let releaseDatabase!: () => void;
+    const databaseReady = new Promise<void>((resolve) => {
+      releaseDatabase = resolve;
+    });
+    waitForDatabaseReadyMock.mockReturnValueOnce(databaseReady);
+
+    const { result } = renderHook(() => useAuth(), { wrapper });
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    accountRef.deleteSession.mockResolvedValueOnce(undefined);
+    accountRef.createEmailPasswordSession.mockResolvedValueOnce(undefined);
+    accountRef.get.mockResolvedValueOnce(makeUser({ $id: 'user_db_wait' }));
+
+    await act(async () => {
+      await result.current.login('user@example.com', 'test-pass');
+    });
+
+    expect(initializeSyncMock).not.toHaveBeenCalled();
+    releaseDatabase();
+    await waitFor(() =>
+      expect(initializeSyncMock).toHaveBeenCalledWith('user_db_wait')
+    );
+  });
 });
