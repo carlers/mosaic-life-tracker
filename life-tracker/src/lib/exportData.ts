@@ -5,6 +5,7 @@ import { getPendingImage, isPendingImageId } from './pendingImages';
 import { guardedCall, makeUnauthorizedError } from './authEvents';
 import { guardedStorage } from './sdk';
 import { APP_VERSION } from './appVersion';
+import { getConnectivitySnapshot } from './connectivity';
 import type {
   TaskDocument,
   CategoryDocument,
@@ -156,7 +157,7 @@ async function fetchImageBlob(
   }
   const cached = await getCachedImage(fileId);
   if (cached) return cached;
-  if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+  if (getConnectivitySnapshot().status !== 'online') {
     if (DEBUG)
       console.log(`[Export] Skipping uncached image (offline): ${fileId}`);
     return null;
