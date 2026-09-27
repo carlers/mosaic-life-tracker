@@ -37,6 +37,7 @@ type RestorableDocument =
   | SettingsDocument;
 
 const ROW_ID_PATTERN = /^[a-zA-Z0-9_]+$/;
+const FILE_ID_PATTERN = /^[a-zA-Z0-9][a-zA-Z0-9._-]*$/;
 const MAX_ROW_ID_LENGTH = 36;
 const SUPPORTED_BACKUP_VERSIONS = new Set([1, 2]);
 
@@ -177,12 +178,16 @@ function portableRowId(
   return `bk_${prefix}_${hashString(`${currentUserId}:${sourceUserId}:${sourceId}`)}`;
 }
 
+function isValidFileId(id: string): boolean {
+  return id.length > 0 && id.length <= 36 && FILE_ID_PATTERN.test(id);
+}
+
 function portableImageId(
   currentUserId: string,
   sourceUserId: string,
   sourceImageId: string
 ): string {
-  if (currentUserId === sourceUserId && isValidRowId(sourceImageId)) {
+  if (currentUserId === sourceUserId && isValidFileId(sourceImageId)) {
     return sourceImageId;
   }
   return `bk_i_${hashString(`${currentUserId}:${sourceUserId}:${sourceImageId}`)}`;
@@ -605,7 +610,11 @@ async function restoreImages(
         loaded.payload.user.id,
         oldId
       );
-      const ensured = await ensureRestoredImage(file, preferredFileId);
+      const ensured = await ensureRestoredImage(
+        file,
+        preferredFileId,
+        currentUserId
+      );
       remapped.set(oldId, ensured.fileId);
       if (ensured.uploaded) restored += 1;
     } catch (error) {
@@ -815,14 +824,19 @@ export async function restoreUserData(
   }
 
   report('Refreshing current data…');
+  const refreshStartedAt = Date.now();
   await initializeSync();
 
   if (options.mode === 'replace') {
     const syncStatus = getSyncStatus();
+    const lastSyncMs = syncStatus.lastSync
+      ? Date.parse(syncStatus.lastSync)
+      : Number.NaN;
     if (
       syncStatus.isSyncing ||
       syncStatus.errors.length > 0 ||
-      !syncStatus.lastSync
+      !Number.isFinite(lastSyncMs) ||
+      lastSyncMs < refreshStartedAt - 5_000
     ) {
       throw new Error(
         'Mosaic could not fully refresh synced data. Try Replace again after sync succeeds.'
