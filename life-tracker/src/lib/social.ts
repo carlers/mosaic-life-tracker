@@ -217,7 +217,7 @@ export async function createOrUpdateProfile(
       // Distinguishable error — SetUsernameSheet branches on it to show an
       // "offline" message instead of a generic "could not save".
       throw new OfflineError(
-        "You're offline. Your profile will sync when you reconnect."
+        "You're offline. Reconnect to save your profile."
       );
     }
     throw err;
