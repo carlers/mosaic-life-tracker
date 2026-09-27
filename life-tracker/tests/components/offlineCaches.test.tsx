@@ -16,6 +16,12 @@ import {
   writeCachedOwnProfile,
 } from '../../src/lib/profileCache';
 import type { ProfileCard } from '../../src/lib/social';
+import {
+  getSyncStatus,
+  publishSyncStatus,
+  resetSyncStatusForTests,
+  scopeSyncStatusToUser,
+} from '../../src/lib/syncStatus';
 
 type StoredDb = {
   version: number;
@@ -185,6 +191,7 @@ describe('offline auxiliary caches', () => {
     localStorage.clear();
     vi.stubGlobal('indexedDB', makeIndexedDbStub());
     resetPendingImagesForTests();
+    resetSyncStatusForTests();
   });
 
   afterEach(() => {
@@ -233,6 +240,27 @@ describe('offline auxiliary caches', () => {
     expect(
       await getCachedCalendar('user_A', 'friend_1', { allowStale: true })
     ).toMatchObject({ friendUserId: 'friend_1' });
+  });
+
+  // Regression: §24.18 (sync UI must not carry status across accounts).
+  it('resets last-sync and errors when the active account changes', () => {
+    localStorage.setItem(
+      'lastSyncTime_user_B',
+      '2026-09-27T02:00:00.000Z'
+    );
+    scopeSyncStatusToUser('user_A');
+    publishSyncStatus({
+      lastSync: '2026-09-27T01:00:00.000Z',
+      errors: ['user A error'],
+    });
+
+    scopeSyncStatusToUser('user_B');
+
+    expect(getSyncStatus()).toEqual({
+      isSyncing: false,
+      lastSync: '2026-09-27T02:00:00.000Z',
+      errors: [],
+    });
   });
 
   it('keeps own-profile cache keyed to its owner', () => {
