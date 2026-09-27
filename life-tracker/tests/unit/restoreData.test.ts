@@ -740,11 +740,11 @@ describe('backup restore', () => {
     });
     vi.clearAllMocks();
     state.sync.mockResolvedValue(undefined);
-    state.getSyncStatus.mockReturnValue({
+    state.getSyncStatus.mockImplementation(() => ({
       isSyncing: false,
       lastSync: new Date().toISOString(),
       errors: [],
-    });
+    }));
     state.getCurrentUserId.mockResolvedValue('user_A');
 
     const result = await restoreUserData(file, currentUser, { mode: 'merge' });
