@@ -18,6 +18,11 @@ const state = vi.hoisted(() => {
   return {
     rows,
     sync: vi.fn().mockResolvedValue(undefined),
+    getSyncStatus: vi.fn().mockReturnValue({
+      isSyncing: false,
+      lastSync: '2026-09-27T00:00:00.000Z',
+      errors: [],
+    }),
     exportUserData: vi.fn().mockResolvedValue({
       blob: new Blob(['safety'], { type: 'application/json' }),
       filename: 'mosaic-safety.json',
@@ -83,7 +88,10 @@ vi.mock('../../src/lib/localUpsert', () => ({
   upsertLocalDoc: state.upsertLocalDoc,
 }));
 
-vi.mock('../../src/db/sync', () => ({ initializeSync: state.sync }));
+vi.mock('../../src/db/sync', () => ({
+  initializeSync: state.sync,
+  getSyncStatus: state.getSyncStatus,
+}));
 vi.mock('../../src/lib/exportData', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../../src/lib/exportData')>();
   return {
@@ -160,6 +168,11 @@ describe('backup restore', () => {
     resetRows();
     vi.clearAllMocks();
     state.sync.mockResolvedValue(undefined);
+    state.getSyncStatus.mockReturnValue({
+      isSyncing: false,
+      lastSync: '2026-09-27T00:00:00.000Z',
+      errors: [],
+    });
     state.upsertLocalDoc.mockImplementation(
       async (collection: CollectionName, id: string, doc: Stored) => {
         const map = state.rows[collection];
@@ -467,5 +480,23 @@ describe('backup restore', () => {
     expect(result.skippedNewer).toBe(1);
     expect(state.ensureRestoredImage).not.toHaveBeenCalled();
     expect(state.rows.tasks.get('task_keep')?.title).toBe('Current');
+  });
+
+
+  it('refuses Replace when the pre-restore sync did not fully succeed', async () => {
+    state.getSyncStatus.mockReturnValue({
+      isSyncing: false,
+      lastSync: '2026-09-26T23:00:00.000Z',
+      errors: ['tasks: network failed'],
+    });
+    const file = jsonBackup();
+
+    await expect(
+      restoreUserData(file, currentUser, { mode: 'replace' })
+    ).rejects.toThrow(/could not fully refresh synced data/i);
+
+    expect(state.exportUserData).not.toHaveBeenCalled();
+    expect(state.triggerDownload).not.toHaveBeenCalled();
+    expect(state.upsertLocalDoc).not.toHaveBeenCalled();
   });
 });
