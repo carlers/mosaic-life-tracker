@@ -154,7 +154,10 @@ export const ExportDataSheet: React.FC<ExportDataSheetProps> = ({
         result.imagesMissing > 0 ? `${result.imagesMissing} photos missing` : '',
       ].filter(Boolean);
       onSuccess?.(`Restore complete · ${notes.join(' · ')}`);
+      setIsRestoring(false);
       setIsReplaceConfirmOpen(false);
+      setRestoreProgress('');
+      restoreInFlightRef.current = false;
       onClose();
     } catch (err) {
       console.error('[BackupRestoreSheet] Restore failed:', err);
