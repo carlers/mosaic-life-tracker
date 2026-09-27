@@ -205,7 +205,7 @@ describe('DR restore CLI', () => {
             id: 'file_1',
             blobKey: 'mosaic-dr/v1/blobs/v1/hash.enc',
             sha256: sha256Hex(Buffer.from('file bytes')),
-          }) + '\\n'
+          }) + '\n'
         );
       }
       return Buffer.from('{}');
