@@ -18,6 +18,7 @@ import { ChatSearchBar } from '../components/messages/ChatSearchBar';
 import { useMessages } from '../hooks/useMessages';
 import { useFriends } from '../hooks/useFriends';
 import { useAuth } from '../hooks/useAuth';
+import { useConnectivity } from '../hooks/useConnectivity';
 import { useChatScroll } from '../components/messages/useChatScroll';
 import { useChatSearch } from '../components/messages/useChatSearch';
 import { useChatReactions } from '../components/messages/useChatReactions';
@@ -37,6 +38,7 @@ export const ChatPage: React.FC = () => {
   const { friendId } = useParams<{ friendId: string }>();
   const navigate = useNavigate();
   const { user } = useAuth();
+  const connectivity = useConnectivity();
   const myUserId = user?.$id ?? '';
 
   const {
@@ -150,7 +152,7 @@ export const ChatPage: React.FC = () => {
   useEffect(() => {
     const interval = setInterval(() => {
       if (document.visibilityState !== 'visible') return;
-      if (!navigator.onLine) return;
+      if (connectivity.status !== 'online') return;
       if (!myUserId) return;
       void import('../db/sync')
         .then(({ forceSync }) => forceSync(myUserId))
@@ -159,7 +161,7 @@ export const ChatPage: React.FC = () => {
         );
     }, 30000);
     return () => clearInterval(interval);
-  }, [myUserId]);
+  }, [connectivity.status, myUserId]);
 
   useEffect(() => {
     if (feedback === null) return;
