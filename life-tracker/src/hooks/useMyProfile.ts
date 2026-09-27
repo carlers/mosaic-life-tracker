@@ -26,8 +26,9 @@ export interface UseMyProfileReturn {
 }
 
 export function useMyProfile(): UseMyProfileReturn {
-  const { user } = useAuth();
+  const { user, isOffline } = useAuth();
   const isOnline = useConnectivity();
+  const canUseNetwork = isOnline && !isOffline;
   const userId = user?.$id;
   const cachedProfile = useMemo(
     () => (userId ? readCachedOwnProfile(userId) : null),
@@ -51,7 +52,7 @@ export function useMyProfile(): UseMyProfileReturn {
 
   const runLoad = useCallback(async (): Promise<void> => {
     if (!userId) return;
-    if (!isOnline) {
+    if (!canUseNetwork) {
       return;
     }
     setError(null);
@@ -66,12 +67,12 @@ export function useMyProfile(): UseMyProfileReturn {
       setError(cachedProfile ? null : 'Could not load profile.');
       setLoadedUserId(userId);
     }
-  }, [cachedProfile, isOnline, userId]);
+  }, [cachedProfile, canUseNetwork, userId]);
 
   useEffect(() => {
     if (!userId) return;
     let active = true;
-    if (!isOnline) return;
+    if (!canUseNetwork) return;
     void fetchMyProfile(userId)
       .then((profile) => {
         if (!active) return;
@@ -90,7 +91,7 @@ export function useMyProfile(): UseMyProfileReturn {
     return () => {
       active = false;
     };
-  }, [cachedProfile, isOnline, userId]);
+  }, [cachedProfile, canUseNetwork, userId]);
 
   const createProfile = useCallback(
     async (input: Omit<MyProfileInput, 'userId'>) => {
@@ -114,17 +115,17 @@ export function useMyProfile(): UseMyProfileReturn {
 
   const checkUsername = useCallback(
     async (username: string): Promise<boolean | null> => {
-      if (!isOnline) {
+      if (!canUseNetwork) {
         return null;
       }
       return isUsernameAvailable(username);
     },
-    [isOnline]
+    [canUseNetwork]
   );
 
   const isLoading =
     !!userId &&
-    isOnline &&
+    canUseNetwork &&
     !cachedProfile &&
     loadedUserId !== userId;
   const visibleError =
