@@ -8,13 +8,21 @@ import {
 export function useOfflineReadiness(
   userId?: string | null
 ): OfflineReadiness {
+  const [trackedUserId, setTrackedUserId] = useState(userId);
   const [state, setState] = useState(() => getOfflineReadiness(userId));
 
-  useEffect(() => {
-    const refresh = () => setState(getOfflineReadiness(userId));
-    refresh();
-    return subscribeToOfflineReadiness(refresh);
-  }, [userId]);
+  if (trackedUserId !== userId) {
+    setTrackedUserId(userId);
+    setState(getOfflineReadiness(userId));
+  }
+
+  useEffect(
+    () =>
+      subscribeToOfflineReadiness(() => {
+        setState(getOfflineReadiness(userId));
+      }),
+    [userId]
+  );
 
   return state;
 }
