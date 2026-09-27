@@ -90,6 +90,13 @@ vi.mock('../../src/lib/pendingImages', () => ({
   isPendingImageId: (fileId: string) => fileId.startsWith('localimg_'),
   deletePendingImage: deletePendingImageMock,
 }));
+vi.mock('../../src/lib/connectivity', () => ({
+  getConnectivitySnapshot: () => ({
+    status: 'online',
+    reason: 'sync-unit-test',
+    lastConfirmedAt: '2026-01-01T00:00:00.000Z',
+  }),
+}));
 type SyncModule = typeof import('../../src/db/sync');
 let syncModule!: SyncModule;
 let errorSpy: ReturnType<typeof vi.spyOn>;
