@@ -54,7 +54,9 @@ This roadmap records durable workstreams and batch status. `SESSION_STATE.md` co
 - [x] Start with 7 daily + 4 weekly + 6 monthly restore points and a recent-object lock window; never prune valid older snapshots after a failed/incomplete run. Escrow the backup encryption key and R2 recovery credentials outside Appwrite, with key-version metadata for rotation.
 - [x] Build restore as a separate admin CLI requiring target-project write credentials. Restore into a fresh isolated DR project, preserve IDs/password hashes/permissions where Appwrite supports it, verify schemas/row IDs/counts/checksums/file hashes/permissions, then run a temporary Mosaic build against the restored project for manual login/tasks/diary/settings/social/messages/photos acceptance.
 - [x] Make Appwrite project/function/resource identifiers environment-configurable and keep non-secret infrastructure definitions in the repository so recovery does not depend on Console memory.
-- [x] Add stale-backup detection and an external GitHub Actions watcher that uses a separate read-only R2 credential and stays disabled until rollout.\n- [ ] Enable the production backup schedule only after the isolated restore drill passes. User-facing Backup & Restore remains a separate feature and is not the DR mechanism.
+- [x] Make Mosaic independently forkable: version the active Appwrite backend manifest, provide a fresh-project bootstrap command that deploys schema/Storage/messaging infrastructure and browser config, refuse non-empty targets, and prevent unconfigured forks from falling back to the original production backend.
+- [x] Add stale-backup detection and an external GitHub Actions watcher that uses a separate read-only R2 credential and stays disabled until rollout.
+- [ ] Enable the production backup schedule only after the isolated restore drill passes. User-facing Backup & Restore remains a separate feature and is not the DR mechanism.
 
 ## Feature backlog
 
