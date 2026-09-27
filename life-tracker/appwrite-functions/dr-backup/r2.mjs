@@ -60,7 +60,7 @@ function parseListXml(xml) {
 }
 
 export function createR2Client(
-  { accountId, accessKeyId, secretAccessKey, bucket },
+  { accountId, accessKeyId, secretAccessKey, bucket, endpoint },
   { fetchImpl = globalThis.fetch, now = () => new Date() } = {}
 ) {
   for (const [name, value] of Object.entries({
@@ -75,8 +75,29 @@ export function createR2Client(
     throw new Error('R2 client requires fetch');
   }
 
-  const host = `${accountId}.r2.cloudflarestorage.com`;
-  const origin = `https://${host}`;
+  const endpointUrl = new URL(
+    endpoint || `https://${accountId}.r2.cloudflarestorage.com`
+  );
+  const allowedHosts = new Set([
+    `${accountId}.r2.cloudflarestorage.com`,
+    `${accountId}.eu.r2.cloudflarestorage.com`,
+    `${accountId}.us.r2.cloudflarestorage.com`,
+    `${accountId}.fedramp.r2.cloudflarestorage.com`,
+    `${accountId}.fedramp-high.r2.cloudflarestorage.com`,
+  ]);
+  if (
+    endpointUrl.protocol !== 'https:' ||
+    endpointUrl.username ||
+    endpointUrl.password ||
+    endpointUrl.search ||
+    endpointUrl.hash ||
+    (endpointUrl.pathname && endpointUrl.pathname !== '/') ||
+    !allowedHosts.has(endpointUrl.host)
+  ) {
+    throw new Error('Invalid R2 endpoint for configured account');
+  }
+  const host = endpointUrl.host;
+  const origin = endpointUrl.origin;
 
   async function request(
     method,
