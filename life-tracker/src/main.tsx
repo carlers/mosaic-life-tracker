@@ -38,14 +38,14 @@ if (navigator.storage?.persist) {
     });
 }
 
-// Begin local database acquisition immediately, but never hold React/Login
-// hostage while RxDB and its validators are downloaded, parsed, and opened.
-void startDatabaseBootstrap()
-  .then(() => markStartup('database:ready'))
-  .catch((error) => {
-    console.error('[Bootstrap] Database initialization failed', error);
-    captureHandledException(error, { source: 'database-bootstrap' });
-  });
+const beginDatabaseBootstrap = () => {
+  void startDatabaseBootstrap()
+    .then(() => markStartup('database:ready'))
+    .catch((error) => {
+      console.error('[Bootstrap] Database initialization failed', error);
+      captureHandledException(error, { source: 'database-bootstrap' });
+    });
+};
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
@@ -57,6 +57,16 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
   </React.StrictMode>
 );
 markStartup('react:mounted');
+
+// Login gets the first paint before RxDB downloads/evaluates. Protected paths
+// start DB work immediately because they cannot mount their data tree without it.
+if (window.location.pathname === '/login') {
+  window.requestAnimationFrame(() => {
+    window.setTimeout(beginDatabaseBootstrap, 0);
+  });
+} else {
+  beginDatabaseBootstrap();
+}
 
 const startBackgroundMaintenance = () => {
   void import('./lib/imageCache')
