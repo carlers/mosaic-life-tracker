@@ -172,11 +172,11 @@ describe('backup restore', () => {
     resetRows();
     vi.clearAllMocks();
     state.sync.mockResolvedValue(undefined);
-    state.getSyncStatus.mockReturnValue({
+    state.getSyncStatus.mockImplementation(() => ({
       isSyncing: false,
       lastSync: new Date().toISOString(),
       errors: [],
-    });
+    }));
     state.upsertLocalDoc.mockImplementation(
       async (collection: CollectionName, id: string, doc: Stored) => {
         const map = state.rows[collection];
