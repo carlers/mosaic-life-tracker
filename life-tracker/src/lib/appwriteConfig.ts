@@ -1,14 +1,26 @@
 const OFFICIAL_BUILD =
   import.meta.env.VITE_MOSAIC_OFFICIAL_BUILD === 'true';
 
+export function resolveAppwriteEnvValue(
+  value: unknown,
+  officialFallback: string,
+  forkFallback = officialFallback,
+  officialBuild = OFFICIAL_BUILD
+): string {
+  if (typeof value === 'string' && value.trim()) return value.trim();
+  return officialBuild ? officialFallback : forkFallback;
+}
+
 function envValue(
   name: string,
   officialFallback: string,
   forkFallback = officialFallback
 ): string {
-  const value = import.meta.env[name];
-  if (typeof value === 'string' && value.trim()) return value.trim();
-  return OFFICIAL_BUILD ? officialFallback : forkFallback;
+  return resolveAppwriteEnvValue(
+    import.meta.env[name],
+    officialFallback,
+    forkFallback
+  );
 }
 
 export const APPWRITE_ENDPOINT = envValue(
