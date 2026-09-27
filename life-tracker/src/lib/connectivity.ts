@@ -143,9 +143,35 @@ export function initializeConnectivity(target: Window): void {
     }
   };
 
+  const connection = (
+    target.navigator as Navigator & {
+      connection?: {
+        addEventListener?: (type: 'change', listener: () => void) => void;
+      };
+    }
+  ).connection;
+  const handleConnectionChange = () => {
+    if (target.navigator.onLine === false) {
+      handleOffline();
+    } else {
+      markConnectivityChecking('network-information-change');
+    }
+  };
+  const handleVisibility = () => {
+    if (
+      target.document.visibilityState === 'visible' &&
+      target.navigator.onLine !== false &&
+      snapshot.status !== 'online'
+    ) {
+      markConnectivityChecking('visibility');
+    }
+  };
+
   target.addEventListener('offline', handleOffline);
   target.addEventListener('online', handleOnline);
   target.addEventListener('focus', handleFocus);
+  target.document.addEventListener('visibilitychange', handleVisibility);
+  connection?.addEventListener?.('change', handleConnectionChange);
 
   if (target.navigator.onLine === false) {
     handleOffline();
