@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAuth } from './useAuth';
+import { useConnectivity } from './useConnectivity';
 import { isOfflineError } from '../lib/authEvents';
 import {
   fetchMyProfile,
@@ -27,6 +28,7 @@ export interface UseMyProfileReturn {
 
 export function useMyProfile(): UseMyProfileReturn {
   const { user } = useAuth();
+  const isOnline = useConnectivity();
   const userId = user?.$id;
   const cachedProfile = useMemo(
     () => (userId ? readCachedOwnProfile(userId) : null),
@@ -50,7 +52,7 @@ export function useMyProfile(): UseMyProfileReturn {
 
   const runLoad = useCallback(async (): Promise<void> => {
     if (!userId) return;
-    if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+    if (!isOnline) {
       return;
     }
     setError(null);
@@ -65,12 +67,12 @@ export function useMyProfile(): UseMyProfileReturn {
       setError(cachedProfile ? null : 'Could not load profile.');
       setLoadedUserId(userId);
     }
-  }, [cachedProfile, userId]);
+  }, [cachedProfile, isOnline, userId]);
 
   useEffect(() => {
     if (!userId) return;
     let active = true;
-    if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+    if (!isOnline) {
       setLoadedUserId(userId);
       setError(null);
       return;
@@ -93,7 +95,7 @@ export function useMyProfile(): UseMyProfileReturn {
     return () => {
       active = false;
     };
-  }, [cachedProfile, userId]);
+  }, [cachedProfile, isOnline, userId]);
 
   const createProfile = useCallback(
     async (input: Omit<MyProfileInput, 'userId'>) => {
@@ -131,19 +133,17 @@ export function useMyProfile(): UseMyProfileReturn {
 
   const checkUsername = useCallback(
     async (username: string): Promise<boolean | null> => {
-      if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+      if (!isOnline) {
         return null;
       }
       return isUsernameAvailable(username);
     },
-    []
+    [isOnline]
   );
 
-  const isDefinitelyOffline =
-    typeof navigator !== 'undefined' && navigator.onLine === false;
   const isLoading =
     !!userId &&
-    !isDefinitelyOffline &&
+    isOnline &&
     !cachedProfile &&
     loadedUserId !== userId;
   const visibleError =
