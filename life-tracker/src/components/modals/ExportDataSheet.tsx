@@ -186,6 +186,7 @@ export const ExportDataSheet: React.FC<ExportDataSheetProps> = ({
         title="Backup & Restore"
         height="full"
         isLocked={isReplaceConfirmOpen || isRestoring}
+        preventDismiss={isRestoring}
         suspendInteraction={isReplaceConfirmOpen}
       >
       <div className="px-4 pt-2 pb-8 space-y-6">
