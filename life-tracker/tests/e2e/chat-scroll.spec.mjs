@@ -95,8 +95,12 @@ test('loading, short conversations, late growth and viewport resize', async ({ p
   await expect.poll(() => gap(page)).toBeLessThanOrEqual(2);
   await page.setViewportSize({ width: 412, height: 500 });
   await expect.poll(() => gap(page)).toBeLessThanOrEqual(2);
-  const dock = await page.getByTestId('chat-dock').boundingBox();
-  expect(dock.y + dock.height).toBeCloseTo(500, 0);
+  await expect
+    .poll(async () => {
+      const dock = await page.getByTestId('chat-dock').boundingBox();
+      return dock.y + dock.height;
+    })
+    .toBeCloseTo(500, 0);
   const before = await readHistory(page);
   await page.locator('[id^="msg-"]').last().evaluate(el => { el.style.minHeight = '700px'; });
   await page.setViewportSize({ width: 412, height: 650 });

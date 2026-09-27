@@ -35,7 +35,16 @@ has been enabled.
 - Structural-red run 1117 failed only because the specified DR modules did not exist yet.
 - Focused run 1125 passed after the core implementation/config refactor.
 - Focused run 1131 passed after R2 signing/schema-pagination hardening and DR health checks.
-- Final exact-SHA canonical acceptance still must run after this state/config checkpoint.
+- Exact task SHA `67d85a233ac70cb628c654709f5a4fcb67b95efd` passed full Quality Gate run 1132,
+  including canonical acceptance.
+- That exact accepted source is active in Appwrite as `dr_backup` deployment
+  `6ab8f15b57dcf17dac72`; execute roles remain empty, scopes remain read-only, and the
+  production schedule remains blank.
+- PR #98 was squash-delivered to stable Preview `security/disaster-backups` as
+  `40ba7d8286b25c4bd2c59c7aed4dad112a1f7f38`; Vercel built that commit READY.
+- Stable Quality Gate run 1133 exposed a nondeterministic browser-contract timing defect:
+  the chat dock was sampled immediately after a Playwright viewport resize and occasionally
+  retained the prior 915px geometry. This repair waits for the dock to settle at 500px.
 - No restore drill, R2 upload, bucket-lock verification, or manual restored-app acceptance is
   claimed yet.
 
@@ -60,9 +69,9 @@ has been enabled.
 - Do not enable the production backup schedule before the isolated restore drill passes.
 - Do not promote `security/disaster-backups` to `dev` without explicit user instruction.
 
-Next action: run full canonical acceptance, deploy the exact accepted DR source to
-`dr_backup`, squash-deliver PR #98 to `security/disaster-backups`, then stop at the
-external R2/escrow/isolated-drill blocker.
+Next action: finish the full gate and stable delivery for the browser-contract timing repair.
+After that, stop at the external R2/escrow/isolated-restore-drill blocker until recovery
+credentials and an independently escrowed encryption key are available.
 
 Blocker: Cloudflare R2 bucket/credentials and independently escrowed encryption material are
 not available through the connected tools. A Cloudflare plugin search returned no Cloudflare
