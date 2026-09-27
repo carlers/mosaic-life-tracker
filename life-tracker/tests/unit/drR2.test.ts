@@ -129,6 +129,40 @@ describe('R2 disaster-backup transport', () => {
     expect(url).not.toContain('snap+shots');
   });
 
+  it('sanitizes S3 errors to the provider code without leaking the provider message', async () => {
+    const fetchImpl = vi.fn(async () =>
+      response(
+        '<?xml version="1.0"?><Error><Code>SignatureDoesNotMatch</Code><Message>secret=do-not-log-me</Message></Error>',
+        { status: 403 }
+      )
+    );
+    const r2 = client(fetchImpl);
+
+    await expect(
+      r2.putObject('snapshots/test/object.enc', Buffer.from('cipher'))
+    ).rejects.toThrow(
+      'R2 PUT failed with HTTP 403 code=SignatureDoesNotMatch'
+    );
+
+    try {
+      await r2.putObject('snapshots/test/object.enc', Buffer.from('cipher'));
+    } catch (error) {
+      expect(String(error)).not.toContain('do-not-log-me');
+      expect(String(error)).not.toContain('secret=');
+    }
+  });
+
+  it('falls back to status-only errors when the provider body is not parseable XML', async () => {
+    const fetchImpl = vi.fn(async () =>
+      response('credential=do-not-log-me', { status: 403 })
+    );
+    const r2 = client(fetchImpl);
+
+    await expect(
+      r2.putObject('snapshots/test/object.enc', Buffer.from('cipher'))
+    ).rejects.toThrow('R2 PUT failed with HTTP 403');
+  });
+
   it('returns null for a missing HEAD and exposes R2 metadata otherwise', async () => {
     const fetchImpl = vi
       .fn()
