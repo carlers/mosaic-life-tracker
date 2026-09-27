@@ -9,6 +9,7 @@ import type { Models } from 'appwrite';
 // confirmed 401 — never on a network error.
 
 const initializeSyncMock = vi.hoisted(() => vi.fn());
+const waitForDatabaseReadyMock = vi.hoisted(() => vi.fn());
 
 const accountRef = vi.hoisted(() => ({
   get: vi.fn(),
@@ -26,6 +27,9 @@ vi.mock('../../src/lib/appwrite', () => ({
 
 vi.mock('../../src/db/sync', () => ({
   initializeSync: initializeSyncMock,
+}));
+vi.mock('../../src/lib/databaseBootstrap', () => ({
+  waitForDatabaseReady: waitForDatabaseReadyMock,
 }));
 
 import { AuthProvider } from '../../src/hooks/AuthProvider';
@@ -75,6 +79,12 @@ describe('AuthProvider offline auth gate', () => {
     accountRef.updatePassword.mockReset();
     initializeSyncMock.mockReset();
     initializeSyncMock.mockResolvedValue(undefined);
+    waitForDatabaseReadyMock.mockReset();
+    waitForDatabaseReadyMock.mockResolvedValue(undefined);
+    Object.defineProperty(navigator, 'onLine', {
+      configurable: true,
+      value: true,
+    });
   });
 
   afterEach(() => {
