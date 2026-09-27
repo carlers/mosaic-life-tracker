@@ -2,7 +2,11 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const state = vi.hoisted(() => ({
-  online: true,
+  connectivity: {
+    status: 'online' as 'checking' | 'online' | 'offline',
+    reason: 'test',
+    lastConfirmedAt: '2026-09-27T01:00:00.000Z' as string | null,
+  },
   sync: {
     isSyncing: false,
     lastSync: '2026-09-27T01:00:00.000Z' as string | null,
@@ -19,7 +23,7 @@ vi.mock('../../src/hooks/useAuth', () => ({
   useAuth: () => ({ user: { $id: 'user_A' } }),
 }));
 vi.mock('../../src/hooks/useConnectivity', () => ({
-  useConnectivity: () => state.online,
+  useConnectivity: () => state.connectivity,
 }));
 vi.mock('../../src/hooks/useSyncStatus', () => ({
   useSyncStatus: () => state.sync,
@@ -40,7 +44,11 @@ import { HomeStatusIndicators } from '../../src/components/home/HomeStatusIndica
 
 describe('HomeStatusIndicators', () => {
   beforeEach(() => {
-    state.online = true;
+    state.connectivity = {
+      status: 'online',
+      reason: 'test',
+      lastConfirmedAt: '2026-09-27T01:00:00.000Z',
+    };
     state.sync = {
       isSyncing: false,
       lastSync: '2026-09-27T01:00:00.000Z',
@@ -66,7 +74,11 @@ describe('HomeStatusIndicators', () => {
   });
 
   it('never presents an active sync while the device is offline', () => {
-    state.online = false;
+    state.connectivity = {
+      status: 'offline',
+      reason: 'test',
+      lastConfirmedAt: '2026-09-27T01:00:00.000Z',
+    };
     state.sync = {
       isSyncing: true,
       lastSync: '2026-09-27T01:00:00.000Z',
@@ -82,6 +94,21 @@ describe('HomeStatusIndicators', () => {
       screen.getByRole('button', { name: 'Sync paused while offline' })
     ).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Syncing' })).toBeNull();
+  });
+
+  it('does not claim online while reachability is still being checked', () => {
+    state.connectivity = {
+      status: 'checking',
+      reason: 'startup',
+      lastConfirmedAt: null,
+    };
+
+    render(<HomeStatusIndicators />);
+
+    expect(
+      screen.getAllByRole('button', { name: 'Checking connection' })
+    ).toHaveLength(2);
+    expect(screen.queryByRole('button', { name: 'Online' })).toBeNull();
   });
 
   it('opens the shared sync-status surface from the connectivity control', async () => {
