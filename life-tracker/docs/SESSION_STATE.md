@@ -31,10 +31,12 @@ and external stale-backup monitoring remain disabled until that drill passes.
 - Stable Quality Gate run 1214 passed the BigInt-safe DR snapshot/restore repair.
 
 ## Spare DR target
-- Appwrite project `My first project` (`6a96e82d000d1310b3be`, region `fra`) is still
-  empty: 0 TablesDB databases, 0 users, 0 Storage buckets, and 0 Functions.
-- Do not mutate/re-purpose that project until the user explicitly authorizes using it for
-  the isolated restore drill.
+- The user explicitly authorized Appwrite project `My first project`
+  (`6a96e82d000d1310b3be`, region `fra`) for the isolated DR restore drill.
+- Rechecked after authorization: it is still empty with 0 TablesDB databases, 0 users,
+  0 Storage buckets, and 0 Functions.
+- It is now reserved for restoring snapshot `20260927T171742476Z`; never use production
+  Mosaic as a restore target.
 
 ## Remaining rollout
 1. Restore snapshot `20260927T171742476Z` into the isolated DR project.
@@ -53,5 +55,7 @@ and external stale-backup monitoring remain disabled until that drill passes.
 - Never restore into the production Mosaic project.
 - Do not promote `security/disaster-backups` to `dev` without explicit user instruction.
 
-Next action: obtain explicit authorization to use `My first project` as the isolated DR
-restore target, then prepare the target write credential and execute the restore drill.
+Next action: create a short-lived write API key in `My first project` and execute
+`dr:restore` locally using the escrowed read-only R2 recovery credential plus DR encryption
+key. Appwrite correctly does not reveal those secret Function variables through the admin
+API, so the restore command must receive them locally from the user's escrow/password manager.
