@@ -169,7 +169,20 @@ export async function uploadPendingImage(
   if (!blob) {
     throw new Error('Pending image is missing or belongs to another account.');
   }
-  return uploadCompressedBlobWithId(blob, generateFileId(), userId);
+
+  // The pending id already contains 26 random hex chars. Reusing those bytes
+  // makes retry after "uploaded but local patch failed" idempotent.
+  const remoteFileId = `img_${fileId.slice('localimg_'.length)}`;
+  try {
+    return await uploadCompressedBlobWithId(blob, remoteFileId, userId);
+  } catch (error) {
+    const cause = (error as Error & { cause?: unknown }).cause;
+    if (isConflictError(cause)) {
+      await cacheImage(remoteFileId, blob).catch(() => {});
+      return remoteFileId;
+    }
+    throw error;
+  }
 }
 
 export async function uploadImage(file: File): Promise<string> {
