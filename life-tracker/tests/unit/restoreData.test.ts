@@ -170,7 +170,7 @@ describe('backup restore', () => {
     state.sync.mockResolvedValue(undefined);
     state.getSyncStatus.mockReturnValue({
       isSyncing: false,
-      lastSync: '2026-09-27T00:00:00.000Z',
+      lastSync: new Date().toISOString(),
       errors: [],
     });
     state.upsertLocalDoc.mockImplementation(
@@ -497,6 +497,23 @@ describe('backup restore', () => {
 
     expect(state.exportUserData).not.toHaveBeenCalled();
     expect(state.triggerDownload).not.toHaveBeenCalled();
+    expect(state.upsertLocalDoc).not.toHaveBeenCalled();
+  });
+
+
+  it('refuses Replace when sync status is successful but stale', async () => {
+    state.getSyncStatus.mockReturnValue({
+      isSyncing: false,
+      lastSync: '2026-01-01T00:00:00.000Z',
+      errors: [],
+    });
+    const file = jsonBackup();
+
+    await expect(
+      restoreUserData(file, currentUser, { mode: 'replace' })
+    ).rejects.toThrow(/could not fully refresh synced data/i);
+
+    expect(state.exportUserData).not.toHaveBeenCalled();
     expect(state.upsertLocalDoc).not.toHaveBeenCalled();
   });
 });
