@@ -174,15 +174,15 @@ export function createR2Client(
     });
     if (allowNotFound && response.status === 404) return null;
     if (!response.ok) {
-      let detail = '';
+      let s3Code = '';
       try {
-        detail = (await response.text()).slice(0, 300);
+        s3Code = parseS3ErrorCode(await response.text());
       } catch {
-        detail = '';
+        s3Code = '';
       }
       throw new Error(
         `R2 ${method} failed with HTTP ${response.status}${
-          detail ? `: ${detail}` : ''
+          s3Code ? ` code=${s3Code}` : ''
         }`
       );
     }
