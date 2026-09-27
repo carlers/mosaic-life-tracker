@@ -603,4 +603,55 @@ describe('backup restore', () => {
     expect(result.imagesMissing).toBe(1);
     expect(Array.from(state.rows.tasks.values())[0].image).toBe('');
   });
+
+
+  it('rejects invalid calendar day keys during preview', async () => {
+    const file = jsonBackup({
+      data: {
+        tasks: [{
+          id: 'task_bad_date',
+          title: 'Bad date',
+          completed: false,
+          categoryId: '',
+          date: '2026-02-31',
+          createdAt: '2026-09-20T00:00:00.000Z',
+          updatedAt: '2026-09-20T00:00:00.000Z',
+          userId: 'user_A',
+          isDeleted: false,
+          visibility: 'private',
+        }],
+        categories: [],
+        diary: [],
+        settings: [],
+        friendships: [],
+      },
+    });
+
+    await expect(inspectBackupFile(file, currentUser.id)).rejects.toThrow(
+      /invalid date/i
+    );
+  });
+
+  it('rejects prototype-polluting setting keys during preview', async () => {
+    const file = new File(
+      [
+        JSON.stringify({
+          ...backupPayload(),
+          data: {
+            tasks: [],
+            categories: [],
+            diary: [],
+            settings: JSON.parse('{"__proto__":"pollute"}'),
+            friendships: [],
+          },
+        }),
+      ],
+      'unsafe-setting.json',
+      { type: 'application/json' }
+    );
+
+    await expect(inspectBackupFile(file, currentUser.id)).rejects.toThrow(
+      /unsafe setting key/i
+    );
+  });
 });
