@@ -1,4 +1,5 @@
 import { Client, Query, Storage, TablesDB, Users } from 'node-appwrite';
+import JSONbigModule from 'json-bigint';
 import { decodeMasterKey, encryptBuffer, sha256Hex } from './crypto.mjs';
 import { createR2Client } from './r2.mjs';
 import {
@@ -7,6 +8,15 @@ import {
 } from './retention.mjs';
 
 const PAGE_SIZE = 100;
+const DR_JSON = JSONbigModule({ useNativeBigInt: true });
+
+export function stringifyBackupJson(value) {
+  return DR_JSON.stringify(value);
+}
+
+export function parseBackupJson(value) {
+  return DR_JSON.parse(String(value));
+}
 
 export function buildBackupId(date = new Date()) {
   return date.toISOString().replace(/[-:.]/g, '');
@@ -65,11 +75,11 @@ export function serializeRowRecord(row) {
 }
 
 function jsonBuffer(value) {
-  return Buffer.from(JSON.stringify(value), 'utf8');
+  return Buffer.from(stringifyBackupJson(value), 'utf8');
 }
 
 function jsonlBuffer(values) {
-  const lines = values.map((value) => JSON.stringify(value));
+  const lines = values.map((value) => stringifyBackupJson(value));
   return Buffer.from(lines.length ? `${lines.join('\n')}\n` : '', 'utf8');
 }
 
