@@ -22,6 +22,11 @@ import {
   resetSyncStatusForTests,
   scopeSyncStatusToUser,
 } from '../../src/lib/syncStatus';
+import {
+  getOfflineReadiness,
+  markOfflineDataReady,
+  markOfflineShellReady,
+} from '../../src/lib/offlineReadiness';
 
 type StoredDb = {
   version: number;
@@ -240,6 +245,25 @@ describe('offline auxiliary caches', () => {
     expect(
       await getCachedCalendar('user_A', 'friend_1', { allowStale: true })
     ).toMatchObject({ friendUserId: 'friend_1' });
+  });
+
+  // Regression: §24.18 (offline readiness requires both data and shell).
+  it('does not claim offline readiness until both milestones exist', () => {
+    markOfflineDataReady('user_A', '2026-09-27T01:00:00.000Z');
+    expect(getOfflineReadiness('user_A')).toMatchObject({
+      dataReadyAt: '2026-09-27T01:00:00.000Z',
+      shellReadyAt: null,
+      isReady: false,
+    });
+
+    markOfflineShellReady('2026-09-27T01:05:00.000Z');
+
+    expect(getOfflineReadiness('user_A')).toEqual({
+      dataReadyAt: '2026-09-27T01:00:00.000Z',
+      shellReadyAt: '2026-09-27T01:05:00.000Z',
+      isReady: true,
+    });
+    expect(getOfflineReadiness('user_B').isReady).toBe(false);
   });
 
   // Regression: §24.18 (sync UI must not carry status across accounts).
