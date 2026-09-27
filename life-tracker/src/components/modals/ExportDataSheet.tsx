@@ -3,6 +3,7 @@ import { BottomSheet } from '../ui/BottomSheet';
 import { Button } from '../ui/Button';
 import { SheetErrorBanner } from '../ui/SheetErrorBanner';
 import { Spinner } from '../ui/Spinner';
+import { ConfirmSheet } from '../ui/ConfirmSheet';
 import { useSheetReset } from '../../hooks/useSheetReset';
 import { FileDown, Loader2, Image as ImageIcon } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
@@ -35,6 +36,7 @@ export const ExportDataSheet: React.FC<ExportDataSheetProps> = ({
   const [restoreMode, setRestoreMode] = useState<RestoreMode>('merge');
   const [isInspecting, setIsInspecting] = useState(false);
   const [isRestoring, setIsRestoring] = useState(false);
+  const [isReplaceConfirmOpen, setIsReplaceConfirmOpen] = useState(false);
   const [restoreProgress, setRestoreProgress] = useState('');
   const [error, setError] = useState<string | null>(null);
 
@@ -47,6 +49,7 @@ export const ExportDataSheet: React.FC<ExportDataSheetProps> = ({
     setRestoreMode('merge');
     setIsInspecting(false);
     setIsRestoring(false);
+    setIsReplaceConfirmOpen(false);
     setRestoreProgress('');
     setError(null);
     if (fileInputRef.current) fileInputRef.current.value = '';
@@ -94,13 +97,15 @@ export const ExportDataSheet: React.FC<ExportDataSheetProps> = ({
     const file = event.target.files?.[0] ?? null;
     setRestoreFile(null);
     setRestorePreview(null);
+    setRestoreMode('merge');
+    setIsReplaceConfirmOpen(false);
     setError(null);
     if (!file) return;
 
     setIsInspecting(true);
     setRestoreProgress('Validating backup…');
     try {
-      const preview = await inspectBackupFile(file);
+      const preview = await inspectBackupFile(file, currentUser?.id);
       setRestoreFile(file);
       setRestorePreview(preview);
       setRestoreProgress('');
@@ -145,6 +150,7 @@ export const ExportDataSheet: React.FC<ExportDataSheetProps> = ({
         result.imagesMissing > 0 ? `${result.imagesMissing} photos missing` : '',
       ].filter(Boolean);
       onSuccess?.(`Restore complete · ${notes.join(' · ')}`);
+      setIsReplaceConfirmOpen(false);
       onClose();
     } catch (err) {
       console.error('[BackupRestoreSheet] Restore failed:', err);
@@ -152,6 +158,7 @@ export const ExportDataSheet: React.FC<ExportDataSheetProps> = ({
         err instanceof Error ? err.message : 'Restore failed. Please try again.'
       );
       setIsRestoring(false);
+      setIsReplaceConfirmOpen(false);
       setRestoreProgress('');
     }
   };
@@ -164,12 +171,15 @@ export const ExportDataSheet: React.FC<ExportDataSheetProps> = ({
     '';
 
   return (
-    <BottomSheet
-      isOpen={isOpen}
-      onClose={onClose}
-      title="Backup & Restore"
-      height="full"
-    >
+    <>
+      <BottomSheet
+        isOpen={isOpen}
+        onClose={onClose}
+        title="Backup & Restore"
+        height="full"
+        isLocked={isReplaceConfirmOpen || isRestoring}
+        suspendInteraction={isReplaceConfirmOpen || isRestoring}
+      >
       <div className="px-4 pt-2 pb-8 space-y-6">
         <SheetErrorBanner message={error} />
 
@@ -374,7 +384,13 @@ export const ExportDataSheet: React.FC<ExportDataSheetProps> = ({
             <Button
               variant={restoreMode === 'replace' ? 'danger' : 'primary'}
               className="w-full py-3"
-              onClick={handleRestore}
+              onClick={() => {
+                if (restoreMode === 'replace') {
+                  setIsReplaceConfirmOpen(true);
+                  return;
+                }
+                void handleRestore();
+              }}
               disabled={busy || !currentUser}
             >
               {isRestoring
@@ -386,6 +402,21 @@ export const ExportDataSheet: React.FC<ExportDataSheetProps> = ({
           )}
         </section>
       </div>
-    </BottomSheet>
+      </BottomSheet>
+
+      <ConfirmSheet
+        isOpen={isReplaceConfirmOpen}
+        onClose={() => setIsReplaceConfirmOpen(false)}
+        title="Replace personal data?"
+        message="This will make your tasks, categories, diary, and preferences match this backup. Current-only personal data will be deleted from sync. Friends, messages, and your login account are not affected. Mosaic downloads a safety backup first."
+        confirmLabel="Replace Data"
+        destructive
+        isProcessing={isRestoring}
+        processingLabel="Replacing…"
+        onConfirm={() => {
+          void handleRestore();
+        }}
+      />
+    </>
   );
 };
