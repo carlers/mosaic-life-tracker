@@ -103,6 +103,12 @@ export async function deletePendingImage(
   await requestResult(tx.objectStore(STORE_NAME).delete(fileId));
 }
 
+export async function clearAllPendingImages(): Promise<void> {
+  const db = await openDB();
+  const tx = db.transaction(STORE_NAME, 'readwrite');
+  await requestResult(tx.objectStore(STORE_NAME).clear());
+}
+
 export async function clearPendingImagesForUser(
   ownerUserId: string
 ): Promise<void> {
