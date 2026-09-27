@@ -16,8 +16,10 @@ import { initializeAppearance } from './lib/appearance';
 import { initializeScreenLayout } from './lib/screenLayout';
 import { startDatabaseBootstrap } from './lib/databaseBootstrap';
 import { markStartup } from './lib/startupMetrics';
+import { initializeConnectivity } from './lib/connectivity';
 
 markStartup('bootstrap:start');
+initializeConnectivity(window);
 initializeAppearance();
 initializeScreenLayout();
 installChunkLoadErrorTracking();
