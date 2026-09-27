@@ -63,17 +63,22 @@ export interface FetchFriendOptions {
   forceRefresh?: boolean;
 }
 export async function fetchFriendCalendar(
+  ownerUserId: string,
   friendUserId: string,
   options: FetchFriendOptions = {}
 ): Promise<FriendCalendarBundle> {
+  const offline =
+    typeof navigator !== 'undefined' && navigator.onLine === false;
   if (!options.forceRefresh) {
-    const cached = await getCachedCalendar(friendUserId);
+    const cached = await getCachedCalendar(ownerUserId, friendUserId, {
+      allowStale: offline,
+    });
     if (cached) {
       if (DEBUG) console.log('[friendData] cache hit for', friendUserId);
       return cached;
     }
   }
-  if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+  if (offline) {
     throw new FriendAccessError(
       "You need to be online to view a friend's calendar.",
       'offline'
@@ -136,7 +141,7 @@ export async function fetchFriendCalendar(
     categories: (parsed.categories || []).map(mapCategoryRow),
     fetchedAt: parsed.fetchedAt || new Date().toISOString(),
   };
-  await setCachedCalendar(bundle);
+  await setCachedCalendar(ownerUserId, bundle);
   if (DEBUG) {
     console.log(
       `[friendData] fetched for ${friendUserId}:`,
