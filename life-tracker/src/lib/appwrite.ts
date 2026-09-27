@@ -1,13 +1,6 @@
 import { Client, Account } from 'appwrite';
 import { APPWRITE_ENDPOINT, APPWRITE_PROJECT_ID } from './appwriteConfig';
 
-export const APPWRITE_ENDPOINT =
-  import.meta.env.VITE_APPWRITE_ENDPOINT?.trim() ||
-  'https://sgp.cloud.appwrite.io/v1';
-export const APPWRITE_PROJECT_ID =
-  import.meta.env.VITE_APPWRITE_PROJECT_ID?.trim() ||
-  '6a9703c50016b37110ff';
-
 const client = new Client();
 client.setEndpoint(APPWRITE_ENDPOINT).setProject(APPWRITE_PROJECT_ID);
 
