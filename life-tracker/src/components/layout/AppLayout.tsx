@@ -157,7 +157,7 @@ export const AppLayout: React.FC = () => {
 
     let active = true;
     const tryDeliver = () => {
-      if (typeof navigator !== 'undefined' && navigator.onLine === false) return;
+      if (connectivity.status !== 'online') return;
       void loadMessageDeliveryModule()
         .then((messageDelivery) => {
           if (!active) return;
@@ -220,7 +220,7 @@ export const AppLayout: React.FC = () => {
       window.removeEventListener('online', onOnline);
       document.removeEventListener('visibilitychange', onVisibility);
     };
-  }, [database.state, isOffline, user?.$id]);
+  }, [connectivity.status, database.state, isOffline, user?.$id]);
 
   useEffect(() => {
     if (!user?.$id) return;
