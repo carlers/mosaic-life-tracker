@@ -38,6 +38,8 @@ type RestorableDocument =
 
 const ROW_ID_PATTERN = /^[a-zA-Z0-9_]+$/;
 const FILE_ID_PATTERN = /^[a-zA-Z0-9][a-zA-Z0-9._-]*$/;
+const DATE_KEY_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+const FORBIDDEN_SETTING_KEYS = new Set(['__proto__', 'prototype', 'constructor']);
 const MAX_ROW_ID_LENGTH = 36;
 const SUPPORTED_BACKUP_VERSIONS = new Set([1, 2]);
 
@@ -180,6 +182,17 @@ function portableRowId(
 
 function isValidFileId(id: string): boolean {
   return id.length > 0 && id.length <= 36 && FILE_ID_PATTERN.test(id);
+}
+
+function isValidDateKey(value: string): boolean {
+  if (!DATE_KEY_PATTERN.test(value)) return false;
+  const [year, month, day] = value.split('-').map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  return (
+    date.getUTCFullYear() === year &&
+    date.getUTCMonth() === month - 1 &&
+    date.getUTCDate() === day
+  );
 }
 
 function portableImageId(
@@ -413,6 +426,9 @@ function normalizeBackup(
     const title = asString(raw.title);
     const date = asString(raw.date);
     if (!title || !date) throw new Error('Backup task is missing required data.');
+    if (!isValidDateKey(date)) {
+      throw new Error('Backup task has an invalid date.');
+    }
     const sourceCategoryId = asString(raw.categoryId);
     tasks.push({
       id,
@@ -443,6 +459,9 @@ function normalizeBackup(
     if (!isRecord(raw) || raw.isDeleted === true) continue;
     const date = asString(raw.date);
     if (!date) throw new Error('Backup diary entry is missing a date.');
+    if (!isValidDateKey(date)) {
+      throw new Error('Backup diary entry has an invalid date.');
+    }
     diary.push({
       id: makeDiaryRowId(currentUserId, date),
       date,
@@ -468,6 +487,9 @@ function normalizeBackup(
       if (!isRecord(raw) || raw.isDeleted === true) continue;
       const key = asString(raw.key);
       if (!key) throw new Error('Backup setting is missing a key.');
+      if (FORBIDDEN_SETTING_KEYS.has(key)) {
+        throw new Error('Backup contains an unsafe setting key.');
+      }
       const rawValue = raw.value;
       const value =
         typeof rawValue === 'string' ? rawValue : JSON.stringify(rawValue ?? null);
@@ -482,6 +504,9 @@ function normalizeBackup(
     }
   } else {
     for (const [key, rawValue] of Object.entries(payload.data.settings)) {
+      if (FORBIDDEN_SETTING_KEYS.has(key)) {
+        throw new Error('Backup contains an unsafe setting key.');
+      }
       settings.push({
         id: makeSettingsRowId(currentUserId, key),
         userId: currentUserId,
@@ -519,6 +544,9 @@ function validateNormalizedBackup(data: NormalizedBackup): void {
     assertMaxLength('task date', task.date, 50);
     assertMaxLength('task memo', task.memo, 2000);
     assertMaxLength('task image reference', task.image, 1_000_000);
+    if (task.image && !isValidFileId(task.image)) {
+      throw new Error('Backup task has an invalid image reference.');
+    }
     assertMaxLength('task created time', task.createdAt, 50);
     assertMaxLength('task completed time', task.completedAt, 50);
     assertMaxLength('task updated time', task.updatedAt, 50);
@@ -547,6 +575,13 @@ function validateNormalizedBackup(data: NormalizedBackup): void {
   for (const setting of data.settings) {
     assertMaxLength('setting key', setting.key, 100);
     assertMaxLength('setting value', setting.value, 10000);
+    if (
+      setting.key === 'profileImageId' &&
+      setting.value &&
+      !isValidFileId(setting.value)
+    ) {
+      throw new Error('Backup profile image reference is invalid.');
+    }
     assertMaxLength('setting updated time', setting.updatedAt, 50);
   }
 }
