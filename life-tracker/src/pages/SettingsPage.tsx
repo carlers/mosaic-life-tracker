@@ -143,6 +143,26 @@ export const SettingsPage: React.FC = () => {
                     ? 'Could not check for updates. Try again.'
                     : null;
 
+  const clearAuxiliaryOfflineData = async () => {
+    const [
+      { clearAllPendingImages },
+      { clearAllFriendCaches },
+      { clearAllCachedOwnProfiles },
+      { clearOfflineDataReadiness },
+    ] = await Promise.all([
+      import('../lib/pendingImages'),
+      import('../lib/friendCache'),
+      import('../lib/profileCache'),
+      import('../lib/offlineReadiness'),
+    ]);
+    await Promise.all([
+      clearAllPendingImages(),
+      clearAllFriendCaches(),
+    ]);
+    clearAllCachedOwnProfiles();
+    clearOfflineDataReadiness();
+  };
+
   const handleLogout = async () => {
     const ok = await logout();
     if (ok) {
@@ -166,6 +186,8 @@ export const SettingsPage: React.FC = () => {
         showFeedback('Data deleted, but sign out failed. Try signing out again.');
         return;
       }
+      await clearAuxiliaryOfflineData();
+      await clearAuxiliaryOfflineData();
       await destroyDatabase();
       window.location.reload();
     } catch (error) {
