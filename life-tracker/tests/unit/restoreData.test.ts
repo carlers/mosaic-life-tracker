@@ -516,4 +516,91 @@ describe('backup restore', () => {
     expect(state.exportUserData).not.toHaveBeenCalled();
     expect(state.upsertLocalDoc).not.toHaveBeenCalled();
   });
+
+
+  it('retries an equal-version cross-account row when its portable image was previously missing', async () => {
+    const sourceUser = {
+      id: 'source_user',
+      email: 'source@example.com',
+      name: 'Source',
+    };
+    const backupTask = {
+      id: 'task_source_photo',
+      title: 'Portable photo task',
+      completed: false,
+      categoryId: '',
+      date: '2026-09-20',
+      image: 'img_source',
+      createdAt: '2026-09-20T00:00:00.000Z',
+      updatedAt: '2026-09-20T00:00:00.000Z',
+      userId: 'source_user',
+      isDeleted: false,
+      visibility: 'private',
+    };
+    const file = zipBackup(
+      {
+        user: sourceUser,
+        data: {
+          tasks: [backupTask],
+          categories: [],
+          diary: [],
+          settings: [],
+          friendships: [],
+        },
+        images: {
+          included: true,
+          referenced: ['img_source'],
+          missingImages: [],
+          note: 'bundled',
+        },
+      },
+      { img_source: 'image-bytes' }
+    );
+
+    state.ensureRestoredImage.mockRejectedValueOnce(new Error('temporary upload failure'));
+    const first = await restoreUserData(file, currentUser, { mode: 'merge' });
+    expect(first.imagesMissing).toBe(1);
+
+    const restoredTask = Array.from(state.rows.tasks.values())[0];
+    expect(restoredTask.image).toBe('');
+
+    state.ensureRestoredImage.mockResolvedValueOnce({
+      fileId: 'bk_i_recovered',
+      uploaded: true,
+    });
+    const second = await restoreUserData(file, currentUser, { mode: 'merge' });
+
+    expect(second.restored.tasks).toBe(1);
+    expect(Array.from(state.rows.tasks.values())[0].image).toBe('bk_i_recovered');
+  });
+
+  it('reports cross-account image loss when a backup has no bundled photo bytes', async () => {
+    const file = jsonBackup({
+      user: { id: 'source_user', email: 'source@example.com', name: 'Source' },
+      data: {
+        tasks: [{
+          id: 'task_source_missing_photo',
+          title: 'No bundled photo',
+          completed: false,
+          categoryId: '',
+          date: '2026-09-20',
+          image: 'img_unavailable',
+          createdAt: '2026-09-20T00:00:00.000Z',
+          updatedAt: '2026-09-20T00:00:00.000Z',
+          userId: 'source_user',
+          isDeleted: false,
+          visibility: 'private',
+        }],
+        categories: [],
+        diary: [],
+        settings: [],
+        friendships: [],
+      },
+    });
+
+    const result = await restoreUserData(file, currentUser, { mode: 'merge' });
+
+    expect(result.imagesMissing).toBe(1);
+    expect(Array.from(state.rows.tasks.values())[0].image).toBe('');
+  });
 });
