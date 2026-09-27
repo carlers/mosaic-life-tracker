@@ -72,8 +72,7 @@ pruner does not intentionally fight the R2 lock window. A failed or incomplete b
 causes pruning. Snapshot pruning never deletes content-addressed blobs automatically; blob
 garbage collection requires a separate reference-safe process.
 
-R2 bucket lock for the recent recovery window is configured at the provider. The Function
-does not attempt to weaken or bypass provider retention.
+R2 bucket lock for the recent recovery window is configured at the provider. Lock the full `mosaic-dr/v1/` prefix, not only `snapshots/`, so content-addressed file blobs cannot be deleted while a locked snapshot still references them. The Function does not attempt to weaken or bypass provider retention.
 
 ## Secrets and escrow
 
@@ -127,9 +126,7 @@ Function remains schedule-disabled until the entire isolated drill passes.
   verifies a committed snapshot in a fresh target project.
 - `npm run dr:restore -- --snapshot <backupId> --target-project <projectId> --verify-only`
   re-runs verification against an already restored target.
-- `npm run dr:check` verifies the newest committed manifest and exits non-zero when it is
-  missing, tampered, or older than `DR_MAX_AGE_HOURS` (default 36). This command is a
-  health-check primitive, not an active alert transport by itself.
+- `npm run dr:check` performs the authenticated operator check: it decrypts/verifies the newest committed manifest and exits non-zero when it is missing, tampered, or older than `DR_MAX_AGE_HOURS` (default 36).\n- `npm run dr:watch` is the external metadata-only stale-backup check. It needs only bucket-scoped R2 Object Read credentials, validates the newest `COMPLETED` marker plus manifest object/hash metadata, and never needs `DR_ENCRYPTION_KEY_B64`. It does not replace the authenticated `dr:check`.\n- `.github/workflows/dr-backup-watch.yml` runs `dr:watch` daily at 00:15 UTC when repository variable `DR_BACKUP_WATCH_ENABLED=true`. Keep it disabled until the first restore drill passes and a completed production backup exists. Configure GitHub Actions secrets `DR_R2_ACCOUNT_ID`, `DR_R2_RECOVERY_ACCESS_KEY_ID`, `DR_R2_RECOVERY_SECRET_ACCESS_KEY`, and `DR_R2_BUCKET` using a separate bucket-scoped **Object Read only** R2 token. A failed workflow is the external stale-backup signal.
 - `appwrite-functions/dr-backup/function.config.json` is the non-secret source of truth for
   the dedicated backup Function boundary. Its checked-in production schedule is blank.
 - `appwrite-functions/message-action/function.config.json` records the existing general
