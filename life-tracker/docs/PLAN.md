@@ -46,7 +46,7 @@ This roadmap records durable workstreams and batch status. `SESSION_STATE.md` co
 
 ## Disaster recovery and backend capacity
 
-- [ ] Complete provider-independent disaster-backup rollout on `security/disaster-backups`: exporter/restore/health-check code and the schedule-disabled Appwrite Function are implemented; R2 secrets, escrow, isolated restore drill, and schedule enablement remain.
+- [ ] Complete provider-independent disaster-backup rollout on `security/disaster-backups`: exporter/restore/health-check code, R2 secrets/key escrow, and the first verified production `COMPLETED` snapshot are in place; isolated restore drill, schedule enablement, and external watcher activation remain.
 - [x] Reserve the two Appwrite Function slots by responsibility, not provider: the existing `message-action` Function evolves into the general trusted `app-api` surface for messaging/social operations, tombstone GC, future external API routes/webhooks, and one coordinated maintenance/integration schedule; the second Function is dedicated to privileged `dr-backup` work only.
 - [ ] Treat Strava, Spotify, Garmin, Hevy, Letterboxd, YouTube, and later integrations as isolated modules/routes inside `app-api`, with provider secrets and OAuth tokens kept server-side. Do not consume one Appwrite Function per integration.
 - [x] Export the whole recoverable Appwrite backend dynamically rather than hardcoding today's synced tables: Auth users and password-hash metadata, TablesDB table schema/columns/indexes/permissions/rows, Storage bucket configuration/files/permissions/raw bytes, plus non-secret infrastructure/function definitions from Git/IaC.
