@@ -10,6 +10,8 @@ import {
   type SyncStatus,
 } from '../lib/syncStatus';
 import { markOfflineDataReady } from '../lib/offlineReadiness';
+import { isPendingImageId, deletePendingImage } from '../lib/pendingImages';
+import { uploadPendingImage } from '../lib/storage';
 export { toAppwriteFormat, fromAppwriteFormat };
 export { getSyncStatus, subscribeToSyncStatus } from '../lib/syncStatus';
 const APPWRITE_CONFIG = {
@@ -33,7 +35,6 @@ const RATE_LIMIT_BASE_MS = 5_000;
 const RATE_LIMIT_MAX_MS = 60_000;
 const FAILURE_BACKOFF_BASE_MS = 5_000;
 const FAILURE_BACKOFF_MAX_MS = 60_000;
-const TRIGGER_DEBOUNCE_MS = 1_500;
 // Tombstones are retained remotely for this long. A client whose incremental
 // pull cursor is older than the retention window performs a full pull so it
 // never assumes that a missing row means the row still exists.
@@ -178,12 +179,6 @@ let rateLimitUntil = 0;
 let rateLimitBackoffMs = 0;
 let failureBackoffUntil = 0;
 let failureBackoffMs = 0;
-let debounceTimer: ReturnType<typeof setTimeout> | null = null;
-declare global {
-  interface Window {
-    __mosaicFocusSyncAttached?: boolean;
-  }
-}
 function isTimestampedCollection(collection: string): boolean {
   return (
     collection === 'tasks' ||
@@ -219,6 +214,35 @@ function toMs(value: unknown): number {
   if (typeof value !== 'string' || !value) return 0;
   const t = new Date(value).getTime();
   return Number.isFinite(t) ? t : 0;
+}
+
+async function resolvePendingImageForPush(
+  doc: LocalDoc,
+  json: Record<string, unknown>,
+  collection: string,
+  userId: string
+): Promise<Record<string, unknown>> {
+  const field =
+    collection === 'tasks'
+      ? 'image'
+      : collection === 'settings' && json.key === 'profileImageId'
+        ? 'value'
+        : null;
+  if (!field) return json;
+
+  const pendingId = typeof json[field] === 'string' ? (json[field] as string) : '';
+  if (!pendingId || !isPendingImageId(pendingId)) return json;
+
+  if (json.isDeleted === true) {
+    await doc.incrementalPatch({ [field]: '' });
+    await deletePendingImage(pendingId, userId);
+    return { ...json, [field]: '' };
+  }
+
+  const remoteFileId = await uploadPendingImage(pendingId, userId);
+  await doc.incrementalPatch({ [field]: remoteFileId });
+  await deletePendingImage(pendingId, userId);
+  return { ...json, [field]: remoteFileId };
 }
 export async function initializeSync(userId: string): Promise<void> {
   if (!userId) return;
@@ -593,7 +617,7 @@ async function syncCollection(
   if (colName !== 'messages') {
     const localDocs = await collection.find().exec();
     for (const doc of localDocs) {
-      const json = doc.toJSON();
+      let json = doc.toJSON();
       const docUserId = json.userId as string | undefined;
       if (docUserId !== userId) continue;
       const docId = (json.id as string) || doc.id;
@@ -617,6 +641,16 @@ async function syncCollection(
         shouldPush = localUpdatedAt > remoteMeta.updatedAt;
       }
       if (!shouldPush) continue;
+      try {
+        json = await resolvePendingImageForPush(doc, json, colName, userId);
+      } catch (imageError) {
+        console.error(
+          `[Sync] Failed to reconcile pending image for ${colName} ${docId}:`,
+          imageError
+        );
+        pushFailed++;
+        continue;
+      }
       const rowData = toAppwriteFormat(json, colName, userId);
       if (DEBUG) console.log(`[Sync] Pushing ${colName} ${docId}`);
       try {
