@@ -147,9 +147,12 @@ function parseSettings(raw: SettingsDocument[]): Record<string, unknown> {
   return map;
 }
 
-async function fetchImageBlob(fileId: string): Promise<Blob | null> {
+async function fetchImageBlob(
+  fileId: string,
+  ownerUserId: string
+): Promise<Blob | null> {
   if (isPendingImageId(fileId)) {
-    return getPendingImage(fileId);
+    return getPendingImage(fileId, ownerUserId);
   }
   const cached = await getCachedImage(fileId);
   if (cached) return cached;
@@ -276,7 +279,7 @@ export async function exportUserData(
   for (const fileId of referencedArray) {
     index++;
     report(`Fetching photos (${index}/${referencedArray.length})…`);
-    const blob = await fetchImageBlob(fileId);
+    const blob = await fetchImageBlob(fileId, user.id);
     if (blob) imageBlobs.set(fileId, blob);
     else missing.push(fileId);
   }
