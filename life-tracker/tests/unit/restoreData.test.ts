@@ -753,4 +753,46 @@ describe('backup restore', () => {
     expect(state.ensureRestoredImage).not.toHaveBeenCalled();
     expect(state.rows.tasks.get(currentId)?.isDeleted).toBe(true);
   });
+
+
+  it('preserves destination friendship preferences during cross-account Replace', async () => {
+    const friendPrefsId = 'user_A_friend_carousel_prefs';
+    state.rows.settings.set(friendPrefsId, {
+      id: friendPrefsId,
+      userId: 'user_A',
+      key: 'friend_carousel_prefs',
+      value: '{"order":["friend_target"],"hidden":[]}',
+      isDeleted: false,
+      updatedAt: '2026-09-25T00:00:00.000Z',
+    });
+    const file = jsonBackup({
+      user: { id: 'source_user', email: 'source@example.com', name: 'Source' },
+      data: {
+        tasks: [],
+        categories: [],
+        diary: [],
+        settings: [{
+          id: 'source_friend_prefs',
+          userId: 'source_user',
+          key: 'friend_carousel_prefs',
+          value: '{"order":["friend_source"],"hidden":["friend_source"]}',
+          isDeleted: false,
+          updatedAt: '2026-09-20T00:00:00.000Z',
+        }],
+        friendships: [],
+      },
+    });
+
+    await restoreUserData(file, currentUser, { mode: 'replace' });
+
+    expect(state.rows.settings.get(friendPrefsId)).toMatchObject({
+      isDeleted: false,
+      value: '{"order":["friend_target"],"hidden":[]}',
+    });
+    expect(
+      Array.from(state.rows.settings.values()).some(
+        (row) => row.value === '{"order":["friend_source"],"hidden":["friend_source"]}'
+      )
+    ).toBe(false);
+  });
 });
