@@ -105,10 +105,7 @@ function getInitialAuthState(): InitialAuthState {
 }
 
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
-  const initialStateRef = useRef<InitialAuthState | null>(null);
-  initialStateRef.current ??= getInitialAuthState();
-  const initial = initialStateRef.current;
-
+  const [initial] = useState<InitialAuthState>(getInitialAuthState);
   const [user, setUser] = useState<Models.User<Models.Preferences> | null>(
     initial.user
   );
