@@ -32,9 +32,10 @@ Status: implementation complete on `chatgpt/reachability-startup-fix`, targeting
 
 ## Verification
 - Baseline stable Preview before this repair: `34e0656cfffdb2bcee27535a02eebc9435cd3a34`, Vercel READY.
-- Focused verification for this repair: runs 1103 and 1108 passed.
-- Full run 1104 failed on two lint leftovers plus stale AuthProvider/PostHog and message-reaction test assumptions; each failure was investigated and repaired without weakening the new reachability behavior.
-- Replacement exact-SHA full canonical acceptance: requested by this checkpoint commit.
+- Focused verification for this repair: runs 1103, 1108, and 1111 passed.
+- Full run 1104 failed on two lint leftovers plus stale AuthProvider/PostHog and message-reaction test assumptions; repaired without weakening behavior.
+- Full run 1109 passed build and both DOM shards; checks failed because the sync unit suite never established an Online reachability fixture, and browser shard 1 showed that component-only consumers needed to initialize connectivity listeners themselves. Both were repaired; browser shard 2 had already passed.
+- Final replacement exact-SHA full canonical acceptance: requested by this checkpoint commit.
 - Stable Preview Quality Gate + Vercel deployment after squash: pending.
 - Required manual check: Samsung/Android installed PWA, Wi-Fi/network loss while open and cold offline relaunch.
 
