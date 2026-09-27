@@ -22,6 +22,7 @@ export function Harness() {
         isOpen={lockedOpen}
         onClose={() => setLockedOpen(false)}
         isLocked
+        preventDismiss
         title="Locked sheet"
       >
         <p>Locked content</p>
