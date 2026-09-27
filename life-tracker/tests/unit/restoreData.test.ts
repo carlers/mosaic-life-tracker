@@ -483,7 +483,7 @@ describe('backup restore', () => {
   });
 
 
-  it('refuses Replace when the pre-restore sync did not fully succeed', async () => {
+  it('refuses restore when the pre-restore sync did not fully succeed', async () => {
     state.getSyncStatus.mockReturnValue({
       isSyncing: false,
       lastSync: '2026-09-26T23:00:00.000Z',
@@ -492,7 +492,7 @@ describe('backup restore', () => {
     const file = jsonBackup();
 
     await expect(
-      restoreUserData(file, currentUser, { mode: 'replace' })
+      restoreUserData(file, currentUser, { mode: 'merge' })
     ).rejects.toThrow(/could not fully refresh synced data/i);
 
     expect(state.exportUserData).not.toHaveBeenCalled();
@@ -501,7 +501,7 @@ describe('backup restore', () => {
   });
 
 
-  it('refuses Replace when sync status is successful but stale', async () => {
+  it('refuses restore when sync status is successful but stale', async () => {
     state.getSyncStatus.mockReturnValue({
       isSyncing: false,
       lastSync: '2026-01-01T00:00:00.000Z',
@@ -510,7 +510,7 @@ describe('backup restore', () => {
     const file = jsonBackup();
 
     await expect(
-      restoreUserData(file, currentUser, { mode: 'replace' })
+      restoreUserData(file, currentUser, { mode: 'merge' })
     ).rejects.toThrow(/could not fully refresh synced data/i);
 
     expect(state.exportUserData).not.toHaveBeenCalled();
