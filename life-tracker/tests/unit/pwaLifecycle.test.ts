@@ -87,6 +87,28 @@ function fixture({
 describe('PWA lifecycle', () => {
   beforeEach(() => resetPwaLifecycleForTests());
 
+  // Regression: §24.18 (controlled service worker marks shell offline-ready).
+  it('marks the app shell ready when the page is already service-worker controlled', () => {
+    const values = new Map<string, string>();
+    vi.stubGlobal('localStorage', {
+      getItem: (key: string) => values.get(key) ?? null,
+      setItem: (key: string, value: string) => values.set(key, value),
+      removeItem: (key: string) => values.delete(key),
+      clear: () => values.clear(),
+      key: (index: number) => [...values.keys()][index] ?? null,
+      get length() {
+        return values.size;
+      },
+    });
+
+    fixture({ readyFallback: true });
+
+    expect(values.get('mosaic_offline_shell_ready')).toMatch(
+      /^\d{4}-\d{2}-\d{2}T/
+    );
+    vi.unstubAllGlobals();
+  });
+
   it('captures and resolves the browser install prompt', async () => {
     const { target } = fixture();
     const prompt = vi.fn().mockResolvedValue(undefined);
