@@ -48,3 +48,17 @@ export function clearCachedOwnProfile(userId: string): void {
     // Best effort.
   }
 }
+
+
+export function clearAllCachedOwnProfiles(): void {
+  try {
+    const keys: string[] = [];
+    for (let index = 0; index < localStorage.length; index += 1) {
+      const key = localStorage.key(index);
+      if (key?.startsWith(PROFILE_CACHE_PREFIX)) keys.push(key);
+    }
+    for (const key of keys) localStorage.removeItem(key);
+  } catch {
+    // Best effort.
+  }
+}
