@@ -72,7 +72,13 @@ describe('Mosaic bootstrap configuration', () => {
   it('requires all recovery secrets before optional DR provisioning', () => {
     expect(() =>
       parseBootstrapArgs(
-        ['--project', 'fork_project', '--with-dr'],
+        [
+          '--project',
+          'fork_project',
+          '--endpoint',
+          'https://fra.cloud.appwrite.io/v1',
+          '--with-dr',
+        ],
         { APPWRITE_API_KEY: 'temporary-key' }
       )
     ).toThrow(/R2_ACCOUNT_ID/);
@@ -92,7 +98,12 @@ describe('Mosaic bootstrap configuration', () => {
 
   it('writes browser env only when the destination file is absent unless overwrite is explicit', async () => {
     const config = parseBootstrapArgs(
-      ['--project', 'fork_project'],
+      [
+        '--project',
+        'fork_project',
+        '--endpoint',
+        'https://fra.cloud.appwrite.io/v1',
+      ],
       { APPWRITE_API_KEY: 'temporary-key' }
     );
     await expect(
@@ -205,6 +216,8 @@ describe('Mosaic bootstrap operations', () => {
       [
         '--project',
         'existing_project',
+        '--endpoint',
+        'https://fra.cloud.appwrite.io/v1',
         '--platform-only',
         '--web-hostname',
         'mosaic.example.com',
