@@ -32,7 +32,9 @@ describe('databaseBootstrap', () => {
 
     expect(first).toBe(second);
     expect(getDatabaseBootstrapSnapshot().state).toBe('loading');
-    expect(initializeDatabaseWithRetryMock).toHaveBeenCalledTimes(1);
+    await vi.waitFor(() =>
+      expect(initializeDatabaseWithRetryMock).toHaveBeenCalledTimes(1)
+    );
 
     resolve();
     await first;
