@@ -85,7 +85,7 @@ Required runtime secrets are:
 - `R2_BUCKET`
 - `DR_ENCRYPTION_KEY_B64`
 
-`DR_KEY_VERSION`, `DR_PREFIX`, and retention values are non-secret configuration.
+`DR_KEY_VERSION`, `DR_PREFIX`, retention values, and an optional `R2_ENDPOINT` are non-secret configuration. The default R2 endpoint is the standard account endpoint; a jurisdiction-specific bucket must supply its matching endpoint.
 
 The encryption key and R2 recovery credentials must have an independent copy outside the
 Appwrite project (password manager/offline recovery record). An Appwrite-only copy is not a
@@ -110,9 +110,30 @@ Restore order is:
    file SHA-256 values, and permissions;
 7. deploy/configure the repository-owned application Functions against the target project.
 
-The restore command refuses to target the same project ID recorded in the snapshot unless
-an explicit destructive override exists in a future reviewed change. Production restore is
-never automatic.
+The restore command refuses to target the same project ID recorded in the snapshot and
+refuses a non-empty target. It fails closed for unsupported password-hash types or MFA-enabled
+accounts rather than silently resetting credentials. Sessions are intentionally not restored.
+Production restore is never automatic.
+
+Repository-owned Function configuration is recorded in
+`appwrite-functions/*/function.config.json`. The data restore/verification CLI performs the
+Auth/TablesDB/Storage recovery; after it verifies those resources, deploy the two Function
+source directories using those checked-in configs before application acceptance. The DR
+Function remains schedule-disabled until the entire isolated drill passes.
+
+## Operations
+
+- `npm run dr:restore -- --snapshot <backupId> --target-project <projectId>` restores and
+  verifies a committed snapshot in a fresh target project.
+- `npm run dr:restore -- --snapshot <backupId> --target-project <projectId> --verify-only`
+  re-runs verification against an already restored target.
+- `npm run dr:check` verifies the newest committed manifest and exits non-zero when it is
+  missing, tampered, or older than `DR_MAX_AGE_HOURS` (default 36). This command is a
+  health-check primitive, not an active alert transport by itself.
+- `appwrite-functions/dr-backup/function.config.json` is the non-secret source of truth for
+  the dedicated backup Function boundary. Its checked-in production schedule is blank.
+- `appwrite-functions/message-action/function.config.json` records the existing general
+  trusted Function configuration needed during recovery.
 
 ## Acceptance and rollout
 

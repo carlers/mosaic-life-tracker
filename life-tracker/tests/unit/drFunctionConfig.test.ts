@@ -27,3 +27,23 @@ describe('DR Function least-privilege configuration', () => {
     expect(config).not.toHaveProperty('secrets');
   });
 });
+
+describe('recoverable two-Function configuration', () => {
+  const dr = JSON.parse(
+    readFileSync(resolve('appwrite-functions/dr-backup/function.config.json'), 'utf8')
+  );
+  const appApi = JSON.parse(
+    readFileSync(resolve('appwrite-functions/message-action/function.config.json'), 'utf8')
+  );
+
+  it('records exactly two distinct Function responsibilities', () => {
+    expect(dr.$id).not.toBe(appApi.$id);
+    expect(dr.execute).toEqual([]);
+    expect(appApi.execute).toEqual(['users']);
+  });
+
+  it('keeps source DR scopes read-only while allowing app-api row writes', () => {
+    expect(dr.scopes.every((scope: string) => scope.endsWith('.read'))).toBe(true);
+    expect(appApi.scopes).toContain('rows.write');
+  });
+});

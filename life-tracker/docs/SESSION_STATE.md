@@ -2,39 +2,69 @@
 
 Updated: 2026-09-27
 
-Current task: prepare Mosaic's provider-independent disaster-recovery backup workstream before implementation.
+Current task: implement Mosaic disaster recovery on `chatgpt/disaster-backups`, targeting
+stable Preview `security/disaster-backups`.
 
-Status: planning/preparation complete on `chatgpt/disaster-backups`, targeting stable Preview `security/disaster-backups`. The stable branch was created directly from merged `dev` commit `800bc4cbd01e6a68c14d46a7a05dff16c229c9c5`. No disaster-backup runtime code or Appwrite/Cloudflare configuration has been changed yet.
+Status: implementation is complete as far as repository/Appwrite work can proceed without
+Cloudflare recovery credentials. The dedicated `dr_backup` Function is deployed live but
+schedule-disabled; no R2/encryption secrets have been added and no production backup schedule
+has been enabled.
 
-## Working set
-- `docs/PLAN.md`: durable DR roadmap and two-Appwrite-Function capacity architecture
-- forthcoming dedicated Appwrite disaster-backup Function
-- forthcoming admin restore/verification CLI
-- forthcoming non-secret Appwrite infrastructure/resource definitions and environment-configurable identifiers
-- handler/unit coverage for backup format, encryption/integrity, retention, discovery, and restore verification
-
-## Prepared architecture
-- Function slot 1 remains the existing `message-action` implementation for now and is planned to evolve into the general trusted `app-api` surface. Future Strava/Spotify/Garmin/Hevy/Letterboxd/YouTube integrations are modules/routes/webhooks within that Function rather than separate Appwrite Functions.
-- Function slot 2 is reserved for a dedicated privileged `dr-backup` Function. Do not merge its broad read-only backup privileges into the normal trusted app API.
-- Disaster snapshots cover the recoverable backend, not only the client-synced tables: Auth user metadata/password hashes where supported, dynamically discovered TablesDB resources/permissions/rows, Storage configuration/files/permissions/bytes, and repository-owned infrastructure/function definitions.
-- Snapshot format is versioned, compressed, independently authenticated-encrypted, integrity-verified, and commit-marked. Storage blobs are content-addressed/deduplicated.
-- Restore is an explicit admin CLI into a separate target project. Production scheduling is blocked until an isolated restore drill verifies IDs, schemas, rows, permissions, files, and login/application behavior.
-- Backup encryption keys and R2 recovery credentials must be escrowed outside Appwrite so an Appwrite-loss event does not destroy the recovery path.
-- User-facing Backup & Restore remains separate from disaster recovery.
-
-## Constraints
-- Preserve the two-function Free-plan architecture: one general trusted app API Function plus one isolated DR Function.
-- Apply least privilege. The DR Function is read-only against Appwrite source data; restore write credentials belong only to the separate admin restore path.
-- Do not log user content, secrets, password hashes, file bytes, or decrypted backup payloads.
-- Do not hardcode today's table list into the exporter. Resource discovery must protect future backend additions.
-- Do not enable a production backup schedule until an isolated restore drill passes.
-- Do not promote `security/disaster-backups` to `dev` without explicit user instruction.
+## Completed in this task
+- Added the `mosaic-dr/v1` encrypted snapshot format with AES-256-GCM, per-object nonces/AAD,
+  SHA-256 integrity metadata, content-addressed Storage blobs, encrypted manifests, and a
+  final `COMPLETED` commit marker.
+- Added dynamic Appwrite discovery for users, databases, tables, columns, indexes, rows,
+  buckets, files, permissions, and file bytes; schema endpoints without row-style IDs use
+  offset pagination.
+- Added 7 daily + 4 weekly + 6 monthly retention selection while retaining the configured
+  recent lock window and never pruning after an incomplete backup.
+- Added the explicit administrator restore/verification CLI and fail-closed handling for
+  unsupported auth recovery state.
+- Added `npm run dr:check` stale/tamper detection for the newest completed snapshot.
+- Made browser Appwrite project/database/bucket/table/function IDs environment-configurable
+  so a temporary Mosaic build can target an isolated restored project.
+- Added checked-in non-secret Function configs for both Appwrite Function slots.
+- Deployed live `dr_backup` with zero client execute roles and only
+  users/databases/tables/columns/indexes/rows/buckets/files read scopes.
+- Live HTTP smoke test returned 403 while `DR_ALLOW_MANUAL_EXECUTION=false`, confirming
+  the deployed manual-execution boundary.
+- Production `dr_backup` schedule remains blank.
 
 ## Verification
-- Baseline: `dev` commit `800bc4cbd01e6a68c14d46a7a05dff16c229c9c5` (offline-startup work already merged and accepted before this task).
-- This preparation changes documentation only; repository docs-mode CI is the applicable verification.
-- No live Appwrite/R2 changes have been made, so no deployment or restore verification is claimed yet.
+- Structural-red run 1117 failed only because the specified DR modules did not exist yet.
+- Focused run 1125 passed after the core implementation/config refactor.
+- Focused run 1131 passed after R2 signing/schema-pagination hardening and DR health checks.
+- Final exact-SHA canonical acceptance still must run after this state/config checkpoint.
+- No restore drill, R2 upload, bucket-lock verification, or manual restored-app acceptance is
+  claimed yet.
 
-Next action: implement the DR specification/tests and dedicated backup Function on `chatgpt/disaster-backups`, then build the admin restore CLI, perform canonical acceptance, squash-deliver to `security/disaster-backups`, configure an isolated DR test project/R2 target, and complete the restore drill before enabling production scheduling.
+## External acceptance still required
+1. Create/select a private Cloudflare R2 bucket and bucket-scoped S3 read/write credentials.
+2. Configure a provider bucket-lock rule for the recent recovery prefix/window.
+3. Create a 32-byte backup encryption key and escrow that key plus R2 recovery credentials
+   outside Appwrite.
+4. Add the R2/encryption secrets to `dr_backup`, temporarily permit a controlled manual
+   execution, and obtain a valid `COMPLETED` restore point.
+5. Restore that snapshot into a fresh isolated Appwrite DR-test project; do not reuse the
+   unrelated existing empty project without explicit scope.
+6. Deploy the two repository-owned Functions to the DR project, point a temporary Mosaic
+   build at it, and complete login/tasks/diary/settings/social/messages/photos acceptance.
+7. Only after the drill passes, enable a non-overlapping daily `dr_backup` schedule and
+   configure an external runner/alert path for `npm run dr:check`.
 
-Blockers: none.
+## Constraints
+- Preserve the two-Function Free-plan architecture.
+- Do not add Appwrite write scopes to `dr_backup`.
+- Do not log user content, password hashes, decrypted payloads, or file bytes.
+- Do not enable the production backup schedule before the isolated restore drill passes.
+- Do not promote `security/disaster-backups` to `dev` without explicit user instruction.
+
+Next action: run full canonical acceptance, deploy the exact accepted DR source to
+`dr_backup`, squash-deliver PR #98 to `security/disaster-backups`, then stop at the
+external R2/escrow/isolated-drill blocker.
+
+Blocker: Cloudflare R2 bucket/credentials and independently escrowed encryption material are
+not available through the connected tools. A Cloudflare plugin search returned no Cloudflare
+integration, so the R2/restore drill cannot be completed from this environment without those
+external recovery inputs.
