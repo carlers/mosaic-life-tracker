@@ -146,7 +146,8 @@ export function createR2Client(
       method,
       path,
       queryString,
-      canonicalHeaders + signedHeaders,
+      canonicalHeaders,
+      signedHeaders,
       payloadHash,
     ].join('\n');
     const stringToSign = [

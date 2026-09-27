@@ -106,8 +106,11 @@ describe('R2 disaster-backup transport', () => {
       'https://account.r2.cloudflarestorage.com/mosaic-backups/snapshots/a%20b/object.enc'
     );
     expect(init.method).toBe('PUT');
-    expect(init.headers.authorization).toMatch(
-      /^AWS4-HMAC-SHA256 Credential=access\//
+    expect(init.headers.authorization).toBe(
+      'AWS4-HMAC-SHA256 Credential=access/20260927/auto/s3/aws4_request, ' +
+        'SignedHeaders=content-type;host;x-amz-content-sha256;x-amz-date;' +
+        'x-amz-meta-cipher-sha256;x-amz-meta-plain-sha256, ' +
+        'Signature=4a42ce36f3559c1863dd06ab49de2a97a4f347bf2f3dda8eed06f9b5ae5fc302'
     );
     expect(init.headers['x-amz-meta-plain-sha256']).toBe('plain');
     expect(init.headers['x-amz-meta-cipher-sha256']).toBe('cipher');
