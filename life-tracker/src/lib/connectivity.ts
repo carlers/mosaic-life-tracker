@@ -112,8 +112,17 @@ export function reportConnectivityResult(error?: unknown): void {
   }
   if (isNetworkFailure(error)) {
     markConnectivityOffline();
-  } else {
-    // A 4xx/5xx still proves Appwrite is reachable.
+    return;
+  }
+
+  const code = (error as { code?: unknown } | null)?.code;
+  const status = (error as { responseStatusCode?: unknown } | null)
+    ?.responseStatusCode;
+  if (
+    (typeof code === 'number' && code >= 400 && code < 600) ||
+    (typeof status === 'number' && status >= 400 && status < 600)
+  ) {
+    // A real HTTP/Appwrite error still proves reachability.
     markConnectivityOnline('appwrite-error-response');
   }
 }
@@ -125,8 +134,18 @@ export function initializeConnectivity(target: Window): void {
   const handleOffline = () => markConnectivityOffline('browser-offline');
   const handleOnline = () => markConnectivityChecking('browser-online-event');
 
+  const handleFocus = () => {
+    if (
+      target.navigator.onLine !== false &&
+      snapshot.status === 'offline'
+    ) {
+      markConnectivityChecking('window-focus');
+    }
+  };
+
   target.addEventListener('offline', handleOffline);
   target.addEventListener('online', handleOnline);
+  target.addEventListener('focus', handleFocus);
 
   if (target.navigator.onLine === false) {
     handleOffline();
