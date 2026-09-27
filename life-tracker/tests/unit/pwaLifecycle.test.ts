@@ -86,6 +86,7 @@ function fixture({
 
 describe('PWA lifecycle', () => {
   beforeEach(() => resetPwaLifecycleForTests());
+  afterEach(() => vi.unstubAllGlobals());
 
   // Regression: §24.18 (controlled service worker marks shell offline-ready).
   it('marks the app shell ready when the page is already service-worker controlled', () => {
@@ -106,7 +107,7 @@ describe('PWA lifecycle', () => {
     expect(values.get('mosaic_offline_shell_ready')).toMatch(
       /^\d{4}-\d{2}-\d{2}T/
     );
-    vi.unstubAllGlobals();
+
   });
 
   it('captures and resolves the browser install prompt', async () => {
