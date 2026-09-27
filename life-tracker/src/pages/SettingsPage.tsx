@@ -64,7 +64,7 @@ export const SettingsPage: React.FC = () => {
   } | null>(null);
   const storedBackupActivity = getBackupActivity(user?.$id);
   const backupActivity =
-    backupActivityOverride?.userId === user?.$id
+    backupActivityOverride && backupActivityOverride.userId === user?.$id
       ? backupActivityOverride.activity
       : storedBackupActivity;
 
