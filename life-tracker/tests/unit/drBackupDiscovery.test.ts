@@ -1,5 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
-import { listAll } from '../../appwrite-functions/dr-backup/backup.mjs';
+import {
+  listAll,
+  withBackupStage,
+} from '../../appwrite-functions/dr-backup/backup.mjs';
 
 describe('DR Appwrite discovery pagination', () => {
   it('offset-paginates schema metadata that has no row-style ID cursor', async () => {
@@ -23,5 +26,34 @@ describe('DR Appwrite discovery pagination', () => {
         (query) => query.includes('"method":"offset"') && query.includes('100')
       )
     ).toBe(true);
+  });
+
+  it('adds the narrowest stage to provider errors without overwriting an existing stage', async () => {
+    const providerError = Object.assign(
+      new Error('provider detail must stay internal'),
+      { code: 401 }
+    );
+
+    await expect(
+      withBackupStage('tables_list_rows', async () => {
+        throw providerError;
+      })
+    ).rejects.toBe(providerError);
+
+    expect(
+      (providerError as Error & { backupStage?: string }).backupStage
+    ).toBe('tables_list_rows');
+
+    const alreadyTagged = Object.assign(new Error('already tagged'), {
+      backupStage: 'tables_list_columns',
+    });
+
+    await expect(
+      withBackupStage('tables_export', async () => {
+        throw alreadyTagged;
+      })
+    ).rejects.toBe(alreadyTagged);
+
+    expect(alreadyTagged.backupStage).toBe('tables_list_columns');
   });
 });

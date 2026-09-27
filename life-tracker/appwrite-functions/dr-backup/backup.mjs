@@ -107,6 +107,25 @@ export async function listAll(
   return all;
 }
 
+export async function withBackupStage(stage, operation) {
+  try {
+    return await operation();
+  } catch (err) {
+    if (err && typeof err === 'object' && !err.backupStage) {
+      try {
+        Object.defineProperty(err, 'backupStage', {
+          value: stage,
+          enumerable: false,
+          configurable: true,
+        });
+      } catch {
+        // Preserve the original error when the thrown value cannot be annotated.
+      }
+    }
+    throw err;
+  }
+}
+
 function appwriteClients({ endpoint, projectId, appwriteKey }) {
   const client = new Client()
     .setEndpoint(endpoint)
@@ -362,77 +381,97 @@ export async function runBackup({
 
   let backupStage = 'auth_export';
   try {
-    const listedUsers = await listAll(
-    (queries) => users.list({ queries, total: false }),
-    'users'
-  );
+    const listedUsers = await withBackupStage('auth_list_users', () =>
+      listAll(
+        (queries) => users.list({ queries, total: false }),
+        'users'
+      )
+    );
   const fullUsers = [];
   for (const user of listedUsers) {
-    fullUsers.push(normalizedUser(await users.get({ userId: user.$id })));
+    fullUsers.push(
+      normalizedUser(
+        await withBackupStage('auth_get_user', () =>
+          users.get({ userId: user.$id })
+        )
+      )
+    );
   }
   counts.users = fullUsers.length;
   const usersKey = `${snapshotPrefix}/auth/users.jsonl.enc`;
   objects.push(
-    await putEncrypted(r2, usersKey, jsonlBuffer(fullUsers), {
-      encryptionKey: config.encryptionKey,
-      keyVersion: config.keyVersion,
-      compress: true,
-    })
+    await withBackupStage('auth_write_users', () =>
+      putEncrypted(r2, usersKey, jsonlBuffer(fullUsers), {
+        encryptionKey: config.encryptionKey,
+        keyVersion: config.keyVersion,
+        compress: true,
+      })
+    )
   );
 
     backupStage = 'tables_export';
     const manifestDatabases = [];
-    const databases = await listAll(
-    (queries) => tablesDB.list({ queries, total: false }),
-    'databases'
-  );
+    const databases = await withBackupStage('tables_list_databases', () =>
+      listAll(
+        (queries) => tablesDB.list({ queries, total: false }),
+        'databases'
+      )
+    );
   for (const database of databases) {
     counts.databases += 1;
     const tableManifests = [];
-    const tables = await listAll(
-      (queries) =>
-        tablesDB.listTables({
-          databaseId: database.$id,
-          queries,
-          total: false,
-        }),
-      'tables'
+    const tables = await withBackupStage('tables_list_tables', () =>
+      listAll(
+        (queries) =>
+          tablesDB.listTables({
+            databaseId: database.$id,
+            queries,
+            total: false,
+          }),
+        'tables'
+      )
     );
     for (const table of tables) {
       counts.tables += 1;
       const [columns, indexes, rows] = await Promise.all([
-        listAll(
-          (queries) =>
-            tablesDB.listColumns({
-              databaseId: database.$id,
-              tableId: table.$id,
-              queries,
-              total: false,
-            }),
-          'columns',
-          { cursorField: null }
+        withBackupStage('tables_list_columns', () =>
+          listAll(
+            (queries) =>
+              tablesDB.listColumns({
+                databaseId: database.$id,
+                tableId: table.$id,
+                queries,
+                total: false,
+              }),
+            'columns',
+            { cursorField: null }
+          )
         ),
-        listAll(
-          (queries) =>
-            tablesDB.listIndexes({
-              databaseId: database.$id,
-              tableId: table.$id,
-              queries,
-              total: false,
-            }),
-          'indexes',
-          { cursorField: null }
+        withBackupStage('tables_list_indexes', () =>
+          listAll(
+            (queries) =>
+              tablesDB.listIndexes({
+                databaseId: database.$id,
+                tableId: table.$id,
+                queries,
+                total: false,
+              }),
+            'indexes',
+            { cursorField: null }
+          )
         ),
-        listAll(
-          (queries) =>
-            tablesDB.listRows({
-              databaseId: database.$id,
-              tableId: table.$id,
-              queries,
-              total: false,
-              ttl: 0,
-            }),
-          'rows'
+        withBackupStage('tables_list_rows', () =>
+          listAll(
+            (queries) =>
+              tablesDB.listRows({
+                databaseId: database.$id,
+                tableId: table.$id,
+                queries,
+                total: false,
+                ttl: 0,
+              }),
+            'rows'
+          )
         ),
       ]);
       const records = rows.map(serializeRowRecord);
@@ -441,18 +480,22 @@ export async function runBackup({
       const schemaKey = `${snapshotPrefix}/tables/${database.$id}/${table.$id}/schema.json.enc`;
       const rowsKey = `${snapshotPrefix}/tables/${database.$id}/${table.$id}/rows.jsonl.enc`;
       objects.push(
-        await putEncrypted(r2, schemaKey, jsonBuffer(schema), {
-          encryptionKey: config.encryptionKey,
-          keyVersion: config.keyVersion,
-          compress: true,
-        })
+        await withBackupStage('tables_write_schema', () =>
+          putEncrypted(r2, schemaKey, jsonBuffer(schema), {
+            encryptionKey: config.encryptionKey,
+            keyVersion: config.keyVersion,
+            compress: true,
+          })
+        )
       );
       objects.push(
-        await putEncrypted(r2, rowsKey, jsonlBuffer(records), {
-          encryptionKey: config.encryptionKey,
-          keyVersion: config.keyVersion,
-          compress: true,
-        })
+        await withBackupStage('tables_write_rows', () =>
+          putEncrypted(r2, rowsKey, jsonlBuffer(records), {
+            encryptionKey: config.encryptionKey,
+            keyVersion: config.keyVersion,
+            compress: true,
+          })
+        )
       );
       tableManifests.push({
         id: table.$id,
@@ -470,45 +513,55 @@ export async function runBackup({
 
     backupStage = 'storage_export';
     const manifestBuckets = [];
-    const buckets = await listAll(
-    (queries) => storage.listBuckets({ queries, total: false }),
-    'buckets'
-  );
+    const buckets = await withBackupStage('storage_list_buckets', () =>
+      listAll(
+        (queries) => storage.listBuckets({ queries, total: false }),
+        'buckets'
+      )
+    );
   for (const bucket of buckets) {
     counts.buckets += 1;
     const bucketConfig = normalizedBucket(bucket);
     const bucketKey = `${snapshotPrefix}/storage/${bucket.$id}/bucket.json.enc`;
     objects.push(
-      await putEncrypted(r2, bucketKey, jsonBuffer(bucketConfig), {
-        encryptionKey: config.encryptionKey,
-        keyVersion: config.keyVersion,
-        compress: true,
-      })
+      await withBackupStage('storage_write_bucket', () =>
+        putEncrypted(r2, bucketKey, jsonBuffer(bucketConfig), {
+          encryptionKey: config.encryptionKey,
+          keyVersion: config.keyVersion,
+          compress: true,
+        })
+      )
     );
 
-    const files = await listAll(
-      (queries) =>
-        storage.listFiles({
-          bucketId: bucket.$id,
-          queries,
-          total: false,
-        }),
-      'files'
+    const files = await withBackupStage('storage_list_files', () =>
+      listAll(
+        (queries) =>
+          storage.listFiles({
+            bucketId: bucket.$id,
+            queries,
+            total: false,
+          }),
+        'files'
+      )
     );
     const fileRecords = [];
     for (const file of files) {
       const raw = Buffer.from(
-        await storage.getFileDownload({
-          bucketId: bucket.$id,
-          fileId: file.$id,
-        })
+        await withBackupStage('storage_read_file', () =>
+          storage.getFileDownload({
+            bucketId: bucket.$id,
+            fileId: file.$id,
+          })
+        )
       );
       const hash = sha256Hex(raw);
       const blobKey = `${config.prefix}/blobs/${config.keyVersion}/${hash}.enc`;
-      const blob = await ensureBlob(r2, blobKey, raw, {
-        encryptionKey: config.encryptionKey,
-        keyVersion: config.keyVersion,
-      });
+      const blob = await withBackupStage('storage_write_blob', () =>
+        ensureBlob(r2, blobKey, raw, {
+          encryptionKey: config.encryptionKey,
+          keyVersion: config.keyVersion,
+        })
+      );
       counts.files += 1;
       counts.fileBytes += raw.length;
       counts[blob.reused ? 'reusedBlobs' : 'newBlobs'] += 1;
@@ -516,11 +569,13 @@ export async function runBackup({
     }
     const filesKey = `${snapshotPrefix}/storage/${bucket.$id}/files.jsonl.enc`;
     objects.push(
-      await putEncrypted(r2, filesKey, jsonlBuffer(fileRecords), {
-        encryptionKey: config.encryptionKey,
-        keyVersion: config.keyVersion,
-        compress: true,
-      })
+      await withBackupStage('storage_write_files_index', () =>
+        putEncrypted(r2, filesKey, jsonlBuffer(fileRecords), {
+          encryptionKey: config.encryptionKey,
+          keyVersion: config.keyVersion,
+          compress: true,
+        })
+      )
     );
     manifestBuckets.push({
       id: bucket.$id,
@@ -550,15 +605,17 @@ export async function runBackup({
     objects,
   };
   const manifestKey = `${snapshotPrefix}/manifest.json.enc`;
-  const manifestObject = await putEncrypted(
-    r2,
-    manifestKey,
-    jsonBuffer(manifest),
-    {
-      encryptionKey: config.encryptionKey,
-      keyVersion: config.keyVersion,
-      compress: true,
-    }
+  const manifestObject = await withBackupStage('commit_write_manifest', () =>
+    putEncrypted(
+      r2,
+      manifestKey,
+      jsonBuffer(manifest),
+      {
+        encryptionKey: config.encryptionKey,
+        keyVersion: config.keyVersion,
+        compress: true,
+      }
+    )
   );
   const markerKey = `${snapshotPrefix}/COMPLETED`;
   const marker = {
@@ -570,21 +627,27 @@ export async function runBackup({
     manifestKey,
     manifestCipherSha256: manifestObject.cipherSha256,
   };
-  await r2.putObject(markerKey, jsonBuffer(marker), {
-    contentType: 'application/json',
-    metadata: { 'backup-id': backupId },
-  });
-  const markerHead = await r2.headObject(markerKey);
+  await withBackupStage('commit_write_marker', () =>
+    r2.putObject(markerKey, jsonBuffer(marker), {
+      contentType: 'application/json',
+      metadata: { 'backup-id': backupId },
+    })
+  );
+  const markerHead = await withBackupStage('commit_verify_marker', () =>
+    r2.headObject(markerKey)
+  );
   if (!markerHead) {
     throw new Error('R2 verification failed for COMPLETED marker');
   }
 
     backupStage = 'retention';
-    const retention = await pruneCompletedSnapshots(
-      r2,
-      config.prefix,
-      backupId,
-      { ...config.retention, now: new Date(completedAt) }
+    const retention = await withBackupStage('retention_prune', () =>
+      pruneCompletedSnapshots(
+        r2,
+        config.prefix,
+        backupId,
+        { ...config.retention, now: new Date(completedAt) }
+      )
     );
     return { backupId, counts, retention };
   } catch (err) {

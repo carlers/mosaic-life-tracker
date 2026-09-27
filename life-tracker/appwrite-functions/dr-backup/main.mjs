@@ -50,6 +50,16 @@ function safeFailureDetails(err) {
       code = 'appwrite_key';
     } else if (/Appwrite pagination stalled/i.test(message)) {
       code = 'appwrite_pagination';
+    } else {
+      const appwriteHttpCode =
+        err &&
+        typeof err === 'object' &&
+        Number.isInteger(Number(err.code)) &&
+        Number(err.code) >= 400 &&
+        Number(err.code) <= 599
+          ? Number(err.code)
+          : null;
+      if (appwriteHttpCode) code = `appwrite_http_${appwriteHttpCode}`;
     }
   }
 
