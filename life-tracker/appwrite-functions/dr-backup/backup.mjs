@@ -318,6 +318,7 @@ export function readBackupConfig(env = process.env) {
       accessKeyId: env.R2_ACCESS_KEY_ID,
       secretAccessKey: env.R2_SECRET_ACCESS_KEY,
       bucket: env.R2_BUCKET,
+      endpoint: env.R2_ENDPOINT || undefined,
     },
     encryptionKey: decodeMasterKey(env.DR_ENCRYPTION_KEY_B64),
     keyVersion: env.DR_KEY_VERSION || 'v1',
