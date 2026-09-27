@@ -1,0 +1,45 @@
+export interface SyncStatus {
+  isSyncing: boolean;
+  lastSync: string | null;
+  errors: string[];
+}
+
+let status: SyncStatus = {
+  isSyncing: false,
+  lastSync: null,
+  errors: [],
+};
+
+type SyncListener = (status: SyncStatus) => void;
+const listeners = new Set<SyncListener>();
+
+export function getSyncStatus(): SyncStatus {
+  return status;
+}
+
+export function publishSyncStatus(updates: Partial<SyncStatus>): SyncStatus {
+  status = { ...status, ...updates };
+  for (const listener of listeners) {
+    try {
+      listener(status);
+    } catch (error) {
+      console.error('[Sync] Status listener threw:', error);
+    }
+  }
+  return status;
+}
+
+export function subscribeToSyncStatus(listener: SyncListener): () => void {
+  listeners.add(listener);
+  try {
+    listener(status);
+  } catch (error) {
+    console.error('[Sync] Status listener threw on subscribe:', error);
+  }
+  return () => listeners.delete(listener);
+}
+
+export function resetSyncStatusForTests(): void {
+  status = { isSyncing: false, lastSync: null, errors: [] };
+  listeners.clear();
+}
