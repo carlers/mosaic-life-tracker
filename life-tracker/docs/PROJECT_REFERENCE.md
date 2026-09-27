@@ -188,6 +188,7 @@ for the active task, and [test workflow](TEST_WORKFLOW.md) for verification comm
 ## 13. Modal & Bottom Sheet Structure
 - **One sheet = one file.** Props `{ isOpen, onClose, <entity>, onSave/onConfirm }`. No context-based orchestration. Primitive rules: §7.
 - **Nested sheet choreography:** when one sheet opens another (TaskActionSheet → MemoSheet), parent passes `isLocked={isBackgroundLocked}` down. `isBackgroundLocked` is a single boolean OR of all child-sheet open states.
+- **Sheet locking semantics:** `isLocked` disables drag/swipe interaction but preserves ordinary dismissal semantics. `preventDismiss` is the stronger in-flight guard: backdrop, Escape, and browser/Android Back must not dismiss the sheet while it is true. Use `preventDismiss` only while an operation must finish without the modal disappearing.
 - **Action sheets close themselves before opening a sibling:** `onClick={() => { onX(); onClose(); }}` — the action sheet must visually dismiss first.
 - **Sheet content padding:** `pt-2 pb-8 px-4` (or `px-1` for full-width lists). No extra wrappers.
 - **Delete confirmations:** destructive flows open a nested `BottomSheet` with `isLocked={true}` and a two-button `[Cancel | Delete]` row (`bg-[#2A2A2A]` / `bg-red-500`). `window.confirm` is BANNED in sheets. References: DayViewSheet "Delete Photo", CategoryManagerSheet "Delete Category", ChatPage "Unsend Message".

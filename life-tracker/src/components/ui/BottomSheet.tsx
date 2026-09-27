@@ -12,6 +12,7 @@ interface BottomSheetProps {
   ariaLabel?: string;
   height?: 'auto' | 'full';
   isLocked?: boolean;
+  preventDismiss?: boolean;
   suspendInteraction?: boolean;
   backdropBlur?: boolean;
   contentMode?: 'scroll' | 'fixed';
@@ -24,6 +25,7 @@ type SheetStackEntry = {
   id: string;
   historyId: string;
   onClose: () => void;
+  preventDismiss: () => boolean;
 };
 
 let openSheetCount = 0;
@@ -88,12 +90,17 @@ function cancelPendingCleanup(sheetId: string): void {
   pendingCleanupTimers.delete(sheetId);
 }
 
-function registerSheet(sheetId: string, onClose: () => void): void {
+function registerSheet(
+  sheetId: string,
+  onClose: () => void,
+  preventDismiss: () => boolean
+): void {
   cancelPendingCleanup(sheetId);
 
   const existing = sheetStack.find((sheet) => sheet.id === sheetId);
   if (existing) {
     existing.onClose = onClose;
+    existing.preventDismiss = preventDismiss;
     return;
   }
 
@@ -101,6 +108,7 @@ function registerSheet(sheetId: string, onClose: () => void): void {
     id: sheetId,
     historyId: `mosaic-sheet-${++historyGuardSequence}`,
     onClose,
+    preventDismiss,
   };
   sheetStack.push(entry);
   pushSheetHistory(entry);
@@ -129,6 +137,18 @@ function scheduleSheetCleanup(sheetId: string): void {
 
 function handleBottomSheetPopState(event: PopStateEvent): void {
   const targetHistoryId = readHistoryGuardToken(event.state);
+  const top = sheetStack[sheetStack.length - 1];
+
+  if (top?.preventDismiss()) {
+    // Browser Back has already moved below this sheet's guard. Re-arm the
+    // same guard so processing/non-dismissible sheets remain the active layer.
+    // pushState replaces the just-created forward path rather than adding
+    // unbounded history entries across repeated Back presses.
+    if (targetHistoryId !== top.historyId) {
+      pushSheetHistory(top);
+    }
+    return;
+  }
 
   if (sheetStack.length === 0) {
     // If a programmatic close retired a sheet while an older sheet-history
@@ -177,7 +197,7 @@ function ensureHistoryBackHandler(): void {
 
 function requestSheetClose(sheetId: string): void {
   const entry = sheetStack.find((sheet) => sheet.id === sheetId);
-  if (!entry) return;
+  if (!entry || entry.preventDismiss()) return;
 
   const top = sheetStack[sheetStack.length - 1];
   if (
@@ -238,6 +258,7 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
   ariaLabel,
   height = 'auto',
   isLocked = false,
+  preventDismiss = false,
   suspendInteraction = false,
   backdropBlur = false,
   contentMode = 'scroll',
@@ -249,6 +270,7 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
   const sheetWidthMode = appearance?.sheetWidthMode ?? 'full';
   const sheetRef = useRef<HTMLDivElement>(null);
   const onCloseRef = useRef(onClose);
+  const preventDismissRef = useRef(preventDismiss);
   const horizontalSwipeStartRef = useRef<HorizontalSwipeStart | null>(null);
   const directionalDragStartRef = useRef<HorizontalSwipeStart | null>(null);
   const directionalTouchStartRef = useRef<TouchSwipeStart | null>(null);
@@ -267,7 +289,8 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
 
   useLayoutEffect(() => {
     onCloseRef.current = onClose;
-  }, [onClose]);
+    preventDismissRef.current = preventDismiss;
+  }, [onClose, preventDismiss]);
 
   useFocusTrap(sheetRef, isOpen && !suspendInteraction);
 
@@ -287,7 +310,11 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
     if (!isOpen) return;
 
     ensureHistoryBackHandler();
-    registerSheet(sheetId, () => onCloseRef.current());
+    registerSheet(
+      sheetId,
+      () => onCloseRef.current(),
+      () => preventDismissRef.current
+    );
 
     const handleEsc = (event: KeyboardEvent) => {
       if (event.key !== 'Escape') return;
@@ -339,7 +366,7 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={
-              suspendInteraction
+              suspendInteraction || preventDismiss
                 ? undefined
                 : () => requestSheetClose(sheetId)
             }
