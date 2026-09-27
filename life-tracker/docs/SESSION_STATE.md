@@ -4,7 +4,7 @@ Updated: 2026-09-27
 
 Current task: add compact last-backup/last-restore dates below Settings → Backup & Restore and slightly reduce the vertical height of Settings buttons.
 
-Status: implementation complete on `chatgpt/backup-restore-activity-ui`, based on stable Preview `feature/backup-restore` commit `ef0905c8148ad69bc7806a53bde9dea34a67ac74`. Final exact-SHA canonical acceptance is requested by this checkpoint commit.
+Status: implementation complete on `chatgpt/backup-restore-activity-ui`, based on stable Preview `feature/backup-restore` commit `ef0905c8148ad69bc7806a53bde9dea34a67ac74`. The first full run found a React lint issue in the account-change refresh path; that effect/state mirror was removed and focused run 967 is green. Final exact-SHA canonical acceptance is requested by this checkpoint commit.
 
 ## Working set
 - `src/pages/SettingsPage.tsx`, `src/components/ui/SettingsRow.tsx`
@@ -30,7 +30,8 @@ Status: implementation complete on `chatgpt/backup-restore-activity-ui`, based o
 
 ## Verification
 - Stable baseline: `feature/backup-restore` commit `ef0905c8148ad69bc7806a53bde9dea34a67ac74`; Quality Gate run 957 canonical acceptance passed.
-- Focused runtime verification for the Settings activity integration passed on run 963 before the final callback/docs additions.
+- Focused runtime verification: run 967 passed after the React lint repair.
+- Prior full run 966 failed only on `react-hooks/set-state-in-effect`; both DOM shards had already passed. The implementation now derives current-account persisted activity without an effect.
 - Full exact-SHA canonical acceptance: requested by this checkpoint commit.
 - Stable Preview deployment after squash delivery: pending.
 - Manual visual acceptance of compact spacing/activity text: pending.
