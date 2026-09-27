@@ -253,4 +253,39 @@ describe('AuthProvider offline auth gate', () => {
       expect(initializeSyncMock).toHaveBeenCalledWith('user_db_wait')
     );
   });
+
+
+  it('ignores an older session result that finishes after a newer login', async () => {
+    let resolveInitial!: (user: Models.User<Models.Preferences>) => void;
+    const initialPromise = new Promise<Models.User<Models.Preferences>>(
+      (resolve) => {
+        resolveInitial = resolve;
+      }
+    );
+    const oldUser = makeUser({ $id: 'user_old' });
+    const freshUser = makeUser({ $id: 'user_fresh' });
+    accountRef.get
+      .mockReturnValueOnce(initialPromise)
+      .mockResolvedValueOnce(freshUser);
+    accountRef.deleteSession.mockResolvedValueOnce(undefined);
+    accountRef.createEmailPasswordSession.mockResolvedValueOnce(undefined);
+
+    const { result } = renderHook(() => useAuth(), { wrapper });
+    await waitFor(() => expect(accountRef.get).toHaveBeenCalledTimes(1));
+
+    await act(async () => {
+      await result.current.login('user@example.com', 'test-pass');
+    });
+    expect(result.current.user?.$id).toBe('user_fresh');
+
+    await act(async () => {
+      resolveInitial(oldUser);
+      await initialPromise;
+    });
+
+    expect(result.current.user?.$id).toBe('user_fresh');
+    expect(
+      JSON.parse(localStorage.getItem(LAST_KNOWN_USER_KEY) as string).$id
+    ).toBe('user_fresh');
+  });
 });
