@@ -55,7 +55,7 @@ test('cached account reaches Home and preserves local edits with Appwrite unavai
 
   await page.goto(`${BASE_URL}/home`, { waitUntil: 'domcontentloaded' });
   await expect.poll(() => new URL(page.url()).pathname).toBe('/home');
-  await expect(page.getByRole('button', { name: 'Offline' })).toBeVisible();
+  await expect(page.locator('button[aria-label="Offline"]:visible').first()).toBeVisible();
 
   await page.evaluate(
     async ({ userId, taskId }) => {
@@ -90,7 +90,7 @@ test('cached account reaches Home and preserves local edits with Appwrite unavai
   );
 
   await page.reload({ waitUntil: 'domcontentloaded' });
-  await expect(page.getByRole('button', { name: 'Offline' })).toBeVisible();
+  await expect(page.locator('button[aria-label="Offline"]:visible').first()).toBeVisible();
 
   const titleAfterReload = await page.evaluate(async (taskId) => {
     const { waitForDatabaseReady } = await import(
