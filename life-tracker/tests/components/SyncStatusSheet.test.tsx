@@ -17,6 +17,13 @@ const listenersRef = vi.hoisted(() => ({
   current: [] as ((status: unknown) => void)[],
 }));
 const forceSyncMock = vi.hoisted(() => vi.fn().mockResolvedValue(undefined));
+const connectivityRef = vi.hoisted(() => ({
+  current: {
+    status: 'online' as 'checking' | 'online' | 'offline',
+    reason: 'test',
+    lastConfirmedAt: '2026-09-27T01:00:00.000Z' as string | null,
+  },
+}));
 
 vi.mock('../../src/lib/syncStatus', () => ({
   getSyncStatus: () => statusRef.current,
@@ -36,7 +43,7 @@ vi.mock('../../src/hooks/useAuth', () => ({
   useAuth: () => ({ user: { $id: 'user_A' } }),
 }));
 vi.mock('../../src/hooks/useConnectivity', () => ({
-  useConnectivity: () => true,
+  useConnectivity: () => connectivityRef.current,
 }));
 vi.mock('../../src/hooks/useOfflineReadiness', () => ({
   useOfflineReadiness: () => ({
@@ -51,6 +58,11 @@ import { SyncStatusSheet } from '../../src/components/modals/SyncStatusSheet';
 beforeEach(() => {
   statusRef.current = { isSyncing: false, lastSync: null, errors: [] };
   listenersRef.current = [];
+  connectivityRef.current = {
+    status: 'online',
+    reason: 'test',
+    lastConfirmedAt: '2026-09-27T01:00:00.000Z',
+  };
   forceSyncMock.mockReset();
   forceSyncMock.mockResolvedValue(undefined);
   document.body.style.overflow = '';
@@ -110,6 +122,20 @@ describe('SyncStatusSheet', () => {
 
     expect(screen.getByText('1 error')).toBeInTheDocument();
     expect(screen.getByText('tasks: late failure')).toBeInTheDocument();
+  });
+
+  it('shows checking instead of claiming online before reachability is proven', () => {
+    connectivityRef.current = {
+      status: 'checking',
+      reason: 'startup',
+      lastConfirmedAt: null,
+    };
+
+    render(<SyncStatusSheet isOpen onClose={vi.fn()} />);
+
+    expect(screen.getByText('Checking connection')).toBeInTheDocument();
+    expect(screen.getByText('Waiting for connection check')).toBeInTheDocument();
+    expect(screen.getByText('Checking connection…')).toBeInTheDocument();
   });
 
   it('the Sync Now button calls forceSync for the active user and disables itself for 2s', async () => {
