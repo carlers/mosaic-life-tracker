@@ -149,7 +149,8 @@ export interface EnsuredImage {
  */
 export async function ensureRestoredImage(
   file: File,
-  preferredFileId: string
+  preferredFileId: string,
+  expectedUserId?: string
 ): Promise<EnsuredImage> {
   if (!isValidFileId(preferredFileId)) {
     throw new Error('Backup image has an invalid file ID.');
@@ -158,6 +159,9 @@ export async function ensureRestoredImage(
   const userId = await getCurrentUserId();
   if (!userId) {
     throw new Error('Cannot restore image: no authenticated user');
+  }
+  if (expectedUserId && userId !== expectedUserId) {
+    throw new Error('Cannot restore image: authenticated user changed');
   }
 
   try {
