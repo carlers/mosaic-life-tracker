@@ -53,12 +53,13 @@ window.requestAnimationFrame(() => {
 // A previously-hydrated account is likely to redirect straight from /login
 // to Home, so overlap DB opening immediately. A genuinely logged-out Login
 // gets first paint before RxDB work begins.
-let hasCachedIdentity = false;
-try {
-  hasCachedIdentity = Boolean(localStorage.getItem('mosaic_last_known_user'));
-} catch {
-  hasCachedIdentity = false;
-}
+const hasCachedIdentity = (() => {
+  try {
+    return Boolean(localStorage.getItem('mosaic_last_known_user'));
+  } catch {
+    return false;
+  }
+})();
 
 if (window.location.pathname === '/login' && !hasCachedIdentity) {
   if (typeof window.requestIdleCallback === 'function') {
