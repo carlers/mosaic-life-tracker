@@ -110,33 +110,45 @@ describe('AuthProvider offline auth gate', () => {
     });
 
     await waitFor(() => expect(result.current.user?.$id).toBe('user_fresh'));
-    await waitFor(() => expect(initializeSyncMock).toHaveBeenCalledTimes(1));
+    await waitFor(() =>
+      expect(initializeSyncMock).toHaveBeenCalledWith('user_fresh')
+    );
   });
 
-  it('hydrates user from the last-known-user cache on mount-time network error', async () => {
+  it('hydrates cached identity immediately when definitely offline without a session request', async () => {
     const cached = makeUser({
       $id: 'user_cached',
       email: 'cached@example.com',
     });
     localStorage.setItem(LAST_KNOWN_USER_KEY, JSON.stringify(cached));
-    accountRef.get.mockRejectedValueOnce(makeNetworkError());
+    Object.defineProperty(navigator, 'onLine', {
+      configurable: true,
+      value: false,
+    });
 
     const { result } = renderHook(() => useAuth(), { wrapper });
 
-    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(result.current.isLoading).toBe(false);
     expect(result.current.user?.$id).toBe('user_cached');
     expect(result.current.isOffline).toBe(true);
+    await act(async () => Promise.resolve());
+    expect(accountRef.get).not.toHaveBeenCalled();
   });
 
-  it('leaves user null on mount-time network error with no cache', async () => {
+  it('uses the offline unauthenticated state immediately with no cache', async () => {
     localStorage.removeItem(LAST_KNOWN_USER_KEY);
-    accountRef.get.mockRejectedValueOnce(makeNetworkError());
+    Object.defineProperty(navigator, 'onLine', {
+      configurable: true,
+      value: false,
+    });
 
     const { result } = renderHook(() => useAuth(), { wrapper });
 
-    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(result.current.isLoading).toBe(false);
     expect(result.current.user).toBeNull();
     expect(result.current.isOffline).toBe(true);
+    await act(async () => Promise.resolve());
+    expect(accountRef.get).not.toHaveBeenCalled();
   });
 
   it('clears the cache and user on mount-time 401', async () => {
