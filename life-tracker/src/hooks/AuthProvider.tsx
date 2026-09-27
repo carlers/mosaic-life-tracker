@@ -115,7 +115,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [error, setError] = useState<string | null>(initial.error);
   const [isOffline, setIsOffline] = useState(initial.isOffline);
   const isMountedRef = useRef(true);
-  const resolveInFlightRef = useRef(false);
+  const resolveInFlightGenerationRef = useRef<number | null>(null);
   const authGenerationRef = useRef(0);
   const userId = user?.$id ?? null;
 
@@ -156,10 +156,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const resolveInitialUser = useCallback(
     async (hydrateOnNetworkError: boolean) => {
-      if (resolveInFlightRef.current) return;
-
       const generation = authGenerationRef.current;
-      resolveInFlightRef.current = true;
+      if (resolveInFlightGenerationRef.current === generation) return;
+      resolveInFlightGenerationRef.current = generation;
       try {
         if (browserIsOffline()) {
           if (!isMountedRef.current || generation !== authGenerationRef.current) {
@@ -217,7 +216,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           setIsOffline(true);
         }
       } finally {
-        resolveInFlightRef.current = false;
+        if (resolveInFlightGenerationRef.current === generation) {
+          resolveInFlightGenerationRef.current = null;
+        }
         if (
           isMountedRef.current &&
           generation === authGenerationRef.current
