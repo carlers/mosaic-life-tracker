@@ -360,7 +360,9 @@ export async function runBackup({
     reusedBlobs: 0,
   };
 
-  const listedUsers = await listAll(
+  let backupStage = 'auth_export';
+  try {
+    const listedUsers = await listAll(
     (queries) => users.list({ queries, total: false }),
     'users'
   );
@@ -378,8 +380,9 @@ export async function runBackup({
     })
   );
 
-  const manifestDatabases = [];
-  const databases = await listAll(
+    backupStage = 'tables_export';
+    const manifestDatabases = [];
+    const databases = await listAll(
     (queries) => tablesDB.list({ queries, total: false }),
     'databases'
   );
@@ -465,8 +468,9 @@ export async function runBackup({
     });
   }
 
-  const manifestBuckets = [];
-  const buckets = await listAll(
+    backupStage = 'storage_export';
+    const manifestBuckets = [];
+    const buckets = await listAll(
     (queries) => storage.listBuckets({ queries, total: false }),
     'buckets'
   );
@@ -526,8 +530,9 @@ export async function runBackup({
     });
   }
 
-  const completedAt = new Date().toISOString();
-  const manifest = {
+    backupStage = 'commit';
+    const completedAt = new Date().toISOString();
+    const manifest = {
     format: 'mosaic-dr',
     version: 1,
     backupId,
@@ -574,11 +579,26 @@ export async function runBackup({
     throw new Error('R2 verification failed for COMPLETED marker');
   }
 
-  const retention = await pruneCompletedSnapshots(
-    r2,
-    config.prefix,
-    backupId,
-    { ...config.retention, now: new Date(completedAt) }
-  );
-  return { backupId, counts, retention };
+    backupStage = 'retention';
+    const retention = await pruneCompletedSnapshots(
+      r2,
+      config.prefix,
+      backupId,
+      { ...config.retention, now: new Date(completedAt) }
+    );
+    return { backupId, counts, retention };
+  } catch (err) {
+    if (err && typeof err === 'object' && !err.backupStage) {
+      try {
+        Object.defineProperty(err, 'backupStage', {
+          value: backupStage,
+          enumerable: false,
+          configurable: true,
+        });
+      } catch {
+        // Preserve the original error when the thrown value cannot be annotated.
+      }
+    }
+    throw err;
+  }
 }

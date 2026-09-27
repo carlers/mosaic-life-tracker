@@ -10,6 +10,43 @@ function isAuthorized(req) {
   );
 }
 
+function safeFailureDetails(err) {
+  const message = err instanceof Error ? err.message : '';
+  let stage =
+    err && typeof err === 'object' && typeof err.backupStage === 'string'
+      ? err.backupStage
+      : 'unknown';
+  let code = 'unknown';
+
+  if (/DR encryption key/i.test(message)) {
+    stage = 'config';
+    code = 'config_encryption_key';
+  } else if (/Missing required DR variable|Invalid DR numeric variable/i.test(message)) {
+    stage = 'config';
+    code = 'config_missing_or_invalid';
+  } else if (/Invalid R2 endpoint|Missing R2 configuration/i.test(message)) {
+    stage = 'config';
+    code = 'config_r2';
+  } else {
+    const r2Http = message.match(
+      /^R2 (?:GET|PUT|HEAD|DELETE) failed with HTTP (\d{3})/
+    );
+    if (r2Http) {
+      code = `r2_http_${r2Http[1]}`;
+    } else if (
+      /R2 verification failed|DR blob hash metadata mismatch/i.test(message)
+    ) {
+      code = 'r2_verification';
+    } else if (/Missing Appwrite execution key/i.test(message)) {
+      code = 'appwrite_key';
+    } else if (/Appwrite pagination stalled/i.test(message)) {
+      code = 'appwrite_pagination';
+    }
+  }
+
+  return { stage, code };
+}
+
 export function createHandler({ runBackup = defaultRunBackup } = {}) {
   return async ({ req, res, log, error }) => {
     if (!isAuthorized(req)) {
@@ -37,12 +74,18 @@ export function createHandler({ runBackup = defaultRunBackup } = {}) {
       });
     } catch (err) {
       const durationMs = Date.now() - started;
+      const failure = safeFailureDetails(err);
       error(
-        `dr-backup: failed durationMs=${durationMs} errorType=${
-          err instanceof Error ? err.name : 'unknown'
-        }`
+        `dr-backup: failed durationMs=${durationMs} stage=${failure.stage} code=${failure.code}`
       );
-      return res.json({ error: 'Disaster backup failed' }, 500);
+      return res.json(
+        {
+          error: 'Disaster backup failed',
+          stage: failure.stage,
+          code: failure.code,
+        },
+        500
+      );
     }
   };
 }
