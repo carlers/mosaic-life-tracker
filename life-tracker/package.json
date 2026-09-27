@@ -33,7 +33,8 @@
     "apply:rollback": "node apply-changes.mjs --rollback",
     "verify": "node scripts/verify.mjs",
     "contracts:check": "node scripts/check-project-contracts.mjs",
-    "test:browser:prepare": "npm install --prefix tests/e2e --package-lock=false --no-audit --no-fund"
+    "test:browser:prepare": "npm install --prefix tests/e2e --package-lock=false --no-audit --no-fund",
+    "dr:restore": "node scripts/dr-restore.mjs"
   },
   "dependencies": {
     "ajv": "^8.20.0",
