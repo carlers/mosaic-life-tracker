@@ -937,7 +937,7 @@ export async function restoreUserData(
     syncStatus.isSyncing ||
     syncStatus.errors.length > 0 ||
     !Number.isFinite(lastSyncMs) ||
-    lastSyncMs < refreshStartedAt - 5_000
+    lastSyncMs < refreshStartedAt
   ) {
     throw new Error(
       'Mosaic could not fully refresh synced data. Try restoring again after sync succeeds.'
