@@ -28,6 +28,7 @@ export const ExportDataSheet: React.FC<ExportDataSheetProps> = ({
 }) => {
   const { user } = useAuth();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const restoreInFlightRef = useRef(false);
   const [includeImages, setIncludeImages] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [exportProgress, setExportProgress] = useState('');
@@ -50,6 +51,7 @@ export const ExportDataSheet: React.FC<ExportDataSheetProps> = ({
     setIsInspecting(false);
     setIsRestoring(false);
     setIsReplaceConfirmOpen(false);
+    restoreInFlightRef.current = false;
     setRestoreProgress('');
     setError(null);
     if (fileInputRef.current) fileInputRef.current.value = '';
@@ -126,11 +128,13 @@ export const ExportDataSheet: React.FC<ExportDataSheetProps> = ({
       !restoreFile ||
       !restorePreview ||
       isRestoring ||
-      isExporting
+      isExporting ||
+      restoreInFlightRef.current
     ) {
       return;
     }
 
+    restoreInFlightRef.current = true;
     setIsRestoring(true);
     setError(null);
     setRestoreProgress('Preparing restore…');
@@ -160,6 +164,7 @@ export const ExportDataSheet: React.FC<ExportDataSheetProps> = ({
       setIsRestoring(false);
       setIsReplaceConfirmOpen(false);
       setRestoreProgress('');
+      restoreInFlightRef.current = false;
     }
   };
 
