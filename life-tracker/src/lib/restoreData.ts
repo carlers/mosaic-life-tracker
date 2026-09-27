@@ -5,7 +5,7 @@ import type {
   DiaryDocument,
   SettingsDocument,
 } from '../db/schema';
-import { initializeSync } from '../db/sync';
+import { getSyncStatus, initializeSync } from '../db/sync';
 import {
   exportUserData,
   triggerDownload,
@@ -804,8 +804,31 @@ export async function restoreUserData(
     throw new Error('Restore mode is invalid.');
   }
 
+  if (
+    options.mode === 'replace' &&
+    typeof navigator !== 'undefined' &&
+    navigator.onLine === false
+  ) {
+    throw new Error(
+      'Replace Personal Data requires an internet connection so Mosaic can refresh synced data first.'
+    );
+  }
+
   report('Refreshing current data…');
   await initializeSync();
+
+  if (options.mode === 'replace') {
+    const syncStatus = getSyncStatus();
+    if (
+      syncStatus.isSyncing ||
+      syncStatus.errors.length > 0 ||
+      !syncStatus.lastSync
+    ) {
+      throw new Error(
+        'Mosaic could not fully refresh synced data. Try Replace again after sync succeeds.'
+      );
+    }
+  }
 
   report('Planning restore…');
   const plan = await planRestore(data, currentUser.id, options.mode);
