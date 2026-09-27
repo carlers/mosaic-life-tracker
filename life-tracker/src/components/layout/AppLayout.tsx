@@ -246,15 +246,6 @@ export const AppLayout: React.FC = () => {
     return () => window.clearTimeout(timer);
   }, [path, user?.$id]);
 
-  if (isLoading && !user) {
-    return (
-      <div className="min-h-screen bg-[#111111] flex items-center justify-center" role="status" aria-live="polite">
-        <div className="w-8 h-8 border-2 border-white border-t-transparent rounded-full animate-spin" />
-        <span className="sr-only">Loading Mosaic</span>
-      </div>
-    );
-  }
-
   if (!user && isOffline) {
     const headline =
       connectivity.status === 'checking'
