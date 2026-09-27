@@ -134,7 +134,7 @@ function makeIndexedDbStub() {
       );
     }
 
-    transaction(_name: string, _mode: IDBTransactionMode) {
+    transaction() {
       return new FakeTransaction(this.db);
     }
   }
