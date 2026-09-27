@@ -10,6 +10,7 @@ import { FriendActionSheet } from './FriendActionSheet';
 import { useFriends } from '../../hooks/useFriends';
 import { useProfileLookup } from '../../hooks/useProfileLookup';
 import { useMyProfile } from '../../hooks/useMyProfile';
+import { useConnectivity } from '../../hooks/useConnectivity';
 import {
   subscribeToSocialOutboxFailures,
   type SocialOutboxAction,
@@ -34,6 +35,7 @@ export const ExploreView: React.FC<ExploreViewProps> = ({
   onFeedback,
 }) => {
   const { profile, isLoading: profileLoading } = useMyProfile();
+  const connectivity = useConnectivity();
   const {
     friends,
     incomingRequests,
@@ -180,7 +182,7 @@ export const ExploreView: React.FC<ExploreViewProps> = ({
           value={query}
           onChange={setQuery}
           onClear={clear}
-          disabled={typeof navigator !== 'undefined' && !navigator.onLine}
+          disabled={connectivity.status !== 'online'}
         />
 
         {searchError && (
