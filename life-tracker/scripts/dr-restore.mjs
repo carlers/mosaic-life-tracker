@@ -125,6 +125,7 @@ export function readRestoreConfig(env = process.env) {
       accessKeyId: env.R2_ACCESS_KEY_ID,
       secretAccessKey: env.R2_SECRET_ACCESS_KEY,
       bucket: env.R2_BUCKET,
+      endpoint: env.R2_ENDPOINT || undefined,
     },
     encryptionKeys: readEncryptionKeyring(env),
     prefix: (env.DR_PREFIX || 'mosaic-dr/v1').replace(/\/+$/, ''),
