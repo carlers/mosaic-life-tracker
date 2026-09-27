@@ -4,7 +4,7 @@ Updated: 2026-09-27
 
 Current task: add compact last-backup/last-restore dates below Settings → Backup & Restore and slightly reduce the vertical height of Settings buttons.
 
-Status: implementation complete on `chatgpt/backup-restore-activity-ui`, based on stable Preview `feature/backup-restore` commit `ef0905c8148ad69bc7806a53bde9dea34a67ac74`. The first full run found a React lint issue in the account-change refresh path; that effect/state mirror was removed and focused run 967 is green. Final exact-SHA canonical acceptance is requested by this checkpoint commit.
+Status: implementation complete on `chatgpt/backup-restore-activity-ui`, based on stable Preview `feature/backup-restore` commit `ef0905c8148ad69bc7806a53bde9dea34a67ac74`. Full verification exposed and repaired one React lint issue and one strict TypeScript narrowing issue; focused run 969 is green. Final exact-SHA canonical acceptance is requested by this checkpoint commit.
 
 ## Working set
 - `src/pages/SettingsPage.tsx`, `src/components/ui/SettingsRow.tsx`
@@ -30,8 +30,9 @@ Status: implementation complete on `chatgpt/backup-restore-activity-ui`, based o
 
 ## Verification
 - Stable baseline: `feature/backup-restore` commit `ef0905c8148ad69bc7806a53bde9dea34a67ac74`; Quality Gate run 957 canonical acceptance passed.
-- Focused runtime verification: run 967 passed after the React lint repair.
-- Prior full run 966 failed only on `react-hooks/set-state-in-effect`; both DOM shards had already passed. The implementation now derives current-account persisted activity without an effect.
+- Focused runtime verification: run 969 passed after both verification repairs.
+- Full run 966 exposed `react-hooks/set-state-in-effect`; the implementation now derives current-account persisted activity without an effect.
+- Full run 968 then exposed strict TypeScript null narrowing in that derived override; the condition now narrows the nullable override explicitly. Both failures were verification-only implementation issues, not changes to the requested UI behavior.
 - Full exact-SHA canonical acceptance: requested by this checkpoint commit.
 - Stable Preview deployment after squash delivery: pending.
 - Manual visual acceptance of compact spacing/activity text: pending.
