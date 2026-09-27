@@ -19,12 +19,16 @@ interface ExportDataSheetProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess?: (message: string) => void;
+  onBackupComplete?: (completedAt: string) => void;
+  onRestoreComplete?: (completedAt: string) => void;
 }
 
 export const ExportDataSheet: React.FC<ExportDataSheetProps> = ({
   isOpen,
   onClose,
   onSuccess,
+  onBackupComplete,
+  onRestoreComplete,
 }) => {
   const { user } = useAuth();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -72,6 +76,7 @@ export const ExportDataSheet: React.FC<ExportDataSheetProps> = ({
         onProgress: setExportProgress,
       });
       triggerDownload(result.blob, result.filename);
+      onBackupComplete?.(new Date().toISOString());
       setIsExporting(false);
       const missing = result.counts.missingImages;
       onSuccess?.(
@@ -153,6 +158,7 @@ export const ExportDataSheet: React.FC<ExportDataSheetProps> = ({
         result.tombstoned > 0 ? `${result.tombstoned} replaced` : '',
         result.imagesMissing > 0 ? `${result.imagesMissing} photos missing` : '',
       ].filter(Boolean);
+      onRestoreComplete?.(new Date().toISOString());
       onSuccess?.(`Restore complete · ${notes.join(' · ')}`);
       setIsRestoring(false);
       setIsReplaceConfirmOpen(false);
