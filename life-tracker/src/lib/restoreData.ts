@@ -17,7 +17,7 @@ import {
   makeDiaryRowId,
   makeSettingsRowId,
 } from './settingsRowId';
-import { ensureRestoredImage } from './storage';
+import { ensureRestoredImage, getCurrentUserId } from './storage';
 
 export type RestoreMode = 'merge' | 'replace';
 
@@ -687,7 +687,7 @@ function isEqualPortableImageRetry(
   sourceUserId: string,
   userId: string
 ): boolean {
-  if (sourceUserId === userId) return false;
+  if (sourceUserId === userId || current.isDeleted === true) return false;
   if (collectionName === 'tasks') {
     return Boolean((sourceDoc as TaskDocument).image) && !asString(current.image);
   }
@@ -889,6 +889,17 @@ export async function inspectBackupFile(
   };
 }
 
+async function assertRestoreUserStillCurrent(
+  expectedUserId: string
+): Promise<void> {
+  const authenticatedUserId = await getCurrentUserId();
+  if (authenticatedUserId !== expectedUserId) {
+    throw new Error(
+      'Restore stopped because the signed-in account changed. Reopen Backup & Restore and try again.'
+    );
+  }
+}
+
 export async function restoreUserData(
   file: File,
   currentUser: ExportUser,
@@ -933,6 +944,8 @@ export async function restoreUserData(
     );
   }
 
+  await assertRestoreUserStillCurrent(currentUser.id);
+
   report('Planning restore…');
   const plan = await planRestore(data, currentUser.id, options.mode);
 
@@ -950,6 +963,8 @@ export async function restoreUserData(
     currentUser.id,
     options.onProgress
   );
+
+  await assertRestoreUserStillCurrent(currentUser.id);
 
   const replaceTimestamp = new Date().toISOString();
   const restored: Record<RestorableCollection, number> = {
@@ -981,6 +996,7 @@ export async function restoreUserData(
 
   let tombstoned = 0;
   if (options.mode === 'replace') {
+    await assertRestoreUserStillCurrent(currentUser.id);
     report('Removing current-only personal data…');
     tombstoned = await tombstoneMissing(data, currentUser.id, replaceTimestamp);
   }
