@@ -871,12 +871,11 @@ export async function restoreUserData(
   }
 
   if (
-    options.mode === 'replace' &&
     typeof navigator !== 'undefined' &&
     navigator.onLine === false
   ) {
     throw new Error(
-      'Replace Personal Data requires an internet connection so Mosaic can refresh synced data first.'
+      'Restoring a backup requires an internet connection so Mosaic can check for newer synced data first.'
     );
   }
 
@@ -884,21 +883,19 @@ export async function restoreUserData(
   const refreshStartedAt = Date.now();
   await initializeSync();
 
-  if (options.mode === 'replace') {
-    const syncStatus = getSyncStatus();
-    const lastSyncMs = syncStatus.lastSync
-      ? Date.parse(syncStatus.lastSync)
-      : Number.NaN;
-    if (
-      syncStatus.isSyncing ||
-      syncStatus.errors.length > 0 ||
-      !Number.isFinite(lastSyncMs) ||
-      lastSyncMs < refreshStartedAt - 5_000
-    ) {
-      throw new Error(
-        'Mosaic could not fully refresh synced data. Try Replace again after sync succeeds.'
-      );
-    }
+  const syncStatus = getSyncStatus();
+  const lastSyncMs = syncStatus.lastSync
+    ? Date.parse(syncStatus.lastSync)
+    : Number.NaN;
+  if (
+    syncStatus.isSyncing ||
+    syncStatus.errors.length > 0 ||
+    !Number.isFinite(lastSyncMs) ||
+    lastSyncMs < refreshStartedAt - 5_000
+  ) {
+    throw new Error(
+      'Mosaic could not fully refresh synced data. Try restoring again after sync succeeds.'
+    );
   }
 
   report('Planning restore…');
