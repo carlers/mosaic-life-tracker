@@ -5,9 +5,9 @@ import { formatRelative } from '../../lib/format';
 import {
   getSyncStatus,
   subscribeToSyncStatus,
-  forceSync,
   type SyncStatus,
-} from '../../db/sync';
+} from '../../lib/syncStatus';
+import { useAuth } from '../../hooks/useAuth';
 interface SyncStatusSheetProps {
   isOpen: boolean;
   onClose: () => void;
@@ -16,6 +16,7 @@ export const SyncStatusSheet: React.FC<SyncStatusSheetProps> = ({
   isOpen,
   onClose,
 }) => {
+  const { user } = useAuth();
   const [status, setStatus] = useState<SyncStatus>(() => getSyncStatus());
   const [isManualSyncDisabled, setIsManualSyncDisabled] = useState(false);
   // subscribeToSyncStatus invokes the listener synchronously with the
@@ -34,10 +35,14 @@ export const SyncStatusSheet: React.FC<SyncStatusSheetProps> = ({
   const errorCount = status.errors.length;
   const handleSyncNow = () => {
     if (isManualSyncDisabled) return;
+    const userId = user?.$id;
+    if (!userId) return;
     setIsManualSyncDisabled(true);
-    forceSync().catch((err) => {
-      console.error('[SyncStatusSheet] Manual sync failed:', err);
-    });
+    void import('../../db/sync')
+      .then(({ forceSync }) => forceSync(userId))
+      .catch((err) => {
+        console.error('[SyncStatusSheet] Manual sync failed:', err);
+      });
   };
   return (
     <BottomSheet
