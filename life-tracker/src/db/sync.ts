@@ -347,7 +347,7 @@ async function runSyncCycleBody(userId: string): Promise<void> {
       scopedLast = localStorage.getItem(`lastSyncTime_${userId}`);
     } catch {
     }
-    if (scopedLast) publishSyncStatus({ lastSync: scopedLast });
+    publishSyncStatus({ lastSync: scopedLast });
     if (DEBUG) {
       console.log(
         `[Sync] Loaded per-collection state for user ${userId}:`,
