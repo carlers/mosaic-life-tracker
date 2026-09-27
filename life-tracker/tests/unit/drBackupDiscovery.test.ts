@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
   listAll,
+  putEncrypted,
   withBackupStage,
 } from '../../appwrite-functions/dr-backup/backup.mjs';
 
@@ -26,6 +27,63 @@ describe('DR Appwrite discovery pagination', () => {
         (query) => query.includes('"method":"offset"') && query.includes('100')
       )
     ).toBe(true);
+  });
+
+  it('splits staged encrypted writes into put, head, and verify failures', async () => {
+    const encryptionKey = Buffer.alloc(32, 7);
+    const plain = Buffer.from('schema');
+
+    const putError = new Error('provider put detail');
+    const putR2 = {
+      putObject: vi.fn().mockRejectedValue(putError),
+      headObject: vi.fn(),
+    };
+
+    await expect(
+      putEncrypted(putR2, 'snapshots/test/schema.json.enc', plain, {
+        encryptionKey,
+        keyVersion: 'v1',
+        stagePrefix: 'tables_schema_deadbeef0001',
+      })
+    ).rejects.toBe(putError);
+    expect((putError as Error & { backupStage?: string }).backupStage).toBe(
+      'tables_schema_deadbeef0001_put'
+    );
+
+    const headError = new Error('provider head detail');
+    const headR2 = {
+      putObject: vi.fn().mockResolvedValue({}),
+      headObject: vi.fn().mockRejectedValue(headError),
+    };
+
+    await expect(
+      putEncrypted(headR2, 'snapshots/test/schema.json.enc', plain, {
+        encryptionKey,
+        keyVersion: 'v1',
+        stagePrefix: 'tables_schema_deadbeef0002',
+      })
+    ).rejects.toBe(headError);
+    expect((headError as Error & { backupStage?: string }).backupStage).toBe(
+      'tables_schema_deadbeef0002_head'
+    );
+
+    const verifyR2 = {
+      putObject: vi.fn().mockResolvedValue({}),
+      headObject: vi.fn().mockResolvedValue({
+        size: 0,
+        metadata: {},
+      }),
+    };
+
+    await expect(
+      putEncrypted(verifyR2, 'snapshots/test/schema.json.enc', plain, {
+        encryptionKey,
+        keyVersion: 'v1',
+        stagePrefix: 'tables_schema_deadbeef0003',
+      })
+    ).rejects.toMatchObject({
+      backupStage: 'tables_schema_deadbeef0003_verify',
+    });
   });
 
   it('adds the narrowest stage to provider errors without overwriting an existing stage', async () => {
