@@ -43,6 +43,14 @@ describe('DR restore CLI', () => {
     expect(parseJsonLines(Buffer.alloc(0))).toEqual([]);
   });
 
+  it('parses DR JSONL 64-bit integers as native BigInt', () => {
+    const [row] = parseJsonLines(
+      Buffer.from('{"id":"row_1","value":9223372036854775807}\n', 'utf8')
+    );
+    expect(row.value).toBe(9223372036854775807n);
+    expect(stableJson(row)).toContain('9223372036854775807');
+  });
+
   it('canonicalizes nested object keys for deterministic comparisons', () => {
     expect(
       stableJson({ b: 2, a: { d: 4, c: 3 } })

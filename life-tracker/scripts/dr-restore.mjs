@@ -18,7 +18,9 @@ import {
 import {
   normalizeColumn,
   normalizeIndex,
+  parseBackupJson,
   serializeRowRecord,
+  stringifyBackupJson,
 } from '../appwrite-functions/dr-backup/backup.mjs';
 
 const DEFAULT_ENDPOINT = 'https://sgp.cloud.appwrite.io/v1';
@@ -34,7 +36,7 @@ function sortObject(value) {
 }
 
 export function stableJson(value) {
-  return JSON.stringify(sortObject(value));
+  return stringifyBackupJson(sortObject(value));
 }
 
 export function parseJsonLines(buffer) {
@@ -43,7 +45,7 @@ export function parseJsonLines(buffer) {
   return text
     .split('\n')
     .filter(Boolean)
-    .map((line) => JSON.parse(line));
+    .map((line) => parseBackupJson(line));
 }
 
 export function parseArgs(argv) {
@@ -178,7 +180,9 @@ export async function loadCommittedSnapshot({
   encryptionKeys,
 }) {
   const markerKey = `${prefix}/snapshots/${snapshotId}/COMPLETED`;
-  const marker = JSON.parse((await r2.getObject(markerKey)).toString('utf8'));
+  const marker = parseBackupJson(
+    (await r2.getObject(markerKey)).toString('utf8')
+  );
   if (
     marker?.format !== 'mosaic-dr' ||
     marker?.version !== 1 ||
@@ -198,7 +202,7 @@ export async function loadCommittedSnapshot({
       keyVersion: marker.keyVersion,
     }
   );
-  const manifest = JSON.parse(manifestPlain.toString('utf8'));
+  const manifest = parseBackupJson(manifestPlain.toString('utf8'));
   if (
     manifest?.format !== 'mosaic-dr' ||
     manifest?.version !== 1 ||
@@ -392,7 +396,7 @@ export async function restoreSnapshot({ snapshot, clients }) {
   for (const database of manifest.databases || []) {
     await clients.tablesDB.create(databaseCreateInput(database));
     for (const table of database.tables || []) {
-      const schema = JSON.parse(
+      const schema = parseBackupJson(
         (await readObject(table.schemaKey)).toString('utf8')
       );
       await clients.tablesDB.createTable(
@@ -412,7 +416,7 @@ export async function restoreSnapshot({ snapshot, clients }) {
   }
 
   for (const bucket of manifest.storage || []) {
-    const config = JSON.parse(
+    const config = parseBackupJson(
       (await readObject(bucket.configKey)).toString('utf8')
     );
     await clients.storage.createBucket(bucketCreateInput(config));
@@ -565,7 +569,7 @@ export async function verifySnapshot({ snapshot, clients }) {
     }
 
     for (const table of database.tables || []) {
-      const schema = JSON.parse(
+      const schema = parseBackupJson(
         (await readObject(table.schemaKey)).toString('utf8')
       );
       const [targetTable, columns, indexes] = await Promise.all([
@@ -616,7 +620,7 @@ export async function verifySnapshot({ snapshot, clients }) {
   }
 
   for (const bucket of manifest.storage || []) {
-    const sourceBucket = JSON.parse(
+    const sourceBucket = parseBackupJson(
       (await readObject(bucket.configKey)).toString('utf8')
     );
     const targetBucket = await clients.storage.getBucket({
