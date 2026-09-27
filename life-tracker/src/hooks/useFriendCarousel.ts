@@ -58,8 +58,9 @@ export interface UseFriendCarouselReturn {
 }
 
 export function useFriendCarousel(): UseFriendCarouselReturn {
-  const { user } = useAuth();
+  const { user, isOffline } = useAuth();
   const isOnline = useConnectivity();
+  const canUseNetwork = isOnline && !isOffline;
   const { friends, isLoading: friendsLoading } = useFriends();
   const { profile, isLoading: profileLoading } = useMyProfile();
   const { settings, isLoading: settingsLoading, setSetting } = useSettings();
@@ -69,7 +70,7 @@ export function useFriendCarousel(): UseFriendCarouselReturn {
   const attemptedBiosRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
-    if (!isOnline) return;
+    if (!canUseNetwork) return;
     const missing = friends.filter(
       (f) =>
         (!f.friendBio || f.friendBio === '') &&
@@ -117,7 +118,7 @@ export function useFriendCarousel(): UseFriendCarouselReturn {
     return () => {
       cancelled = true;
     };
-  }, [friends, isOnline]);
+  }, [canUseNetwork, friends]);
 
   const persons = useMemo<CarouselPerson[]>(() => {
     const list: CarouselPerson[] = [];
