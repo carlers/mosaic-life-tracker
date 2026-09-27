@@ -5,6 +5,8 @@ import {
   loadCommittedSnapshot,
   parseArgs,
   parseJsonLines,
+  preflightSnapshot,
+  readEncryptionKeyring,
   stableJson,
 } from '../../scripts/dr-restore.mjs';
 import {
@@ -111,7 +113,7 @@ describe('DR restore CLI', () => {
       r2,
       prefix,
       snapshotId,
-      encryptionKey: key,
+      encryptionKeys: new Map([['v1', key]]),
     });
     expect(loaded.manifest.source.projectId).toBe('source-project');
     expect(parseJsonLines(await loaded.readObject(usersKey))).toEqual([
@@ -178,6 +180,58 @@ describe('DR restore CLI', () => {
         mfa: true,
       })
     ).rejects.toThrow(/MFA enabled/);
+  });
+
+
+  it('selects retained encryption keys by snapshot key version', async () => {
+    const v1 = Buffer.alloc(32, 3);
+    const v2 = Buffer.alloc(32, 4);
+    const keyring = readEncryptionKeyring({
+      DR_KEY_VERSION: 'v2',
+      DR_ENCRYPTION_KEY_B64: v2.toString('base64'),
+      DR_ENCRYPTION_KEYS_JSON: JSON.stringify({
+        v1: v1.toString('base64'),
+      }),
+    } as any);
+    expect(keyring.get('v1')).toEqual(v1);
+    expect(keyring.get('v2')).toEqual(v2);
+  });
+
+  it('preflights every authenticated object and file blob before restore', async () => {
+    const readObject = vi.fn(async (key: string) => {
+      if (key.endsWith('/files.jsonl.enc')) {
+        return Buffer.from(
+          JSON.stringify({
+            id: 'file_1',
+            blobKey: 'mosaic-dr/v1/blobs/v1/hash.enc',
+            sha256: sha256Hex(Buffer.from('file bytes')),
+          }) + '\\n'
+        );
+      }
+      return Buffer.from('{}');
+    });
+    const readBlob = vi.fn(async () => Buffer.from('file bytes'));
+    await preflightSnapshot({
+      manifest: {
+        objects: [
+          { key: 'mosaic-dr/v1/snapshots/x/auth/users.jsonl.enc' },
+          { key: 'mosaic-dr/v1/snapshots/x/storage/task_images/files.jsonl.enc' },
+        ],
+        storage: [
+          {
+            id: 'task_images',
+            filesKey:
+              'mosaic-dr/v1/snapshots/x/storage/task_images/files.jsonl.enc',
+          },
+        ],
+      },
+      readObject,
+      readBlob,
+    } as any);
+    expect(readObject).toHaveBeenCalledWith(
+      'mosaic-dr/v1/snapshots/x/auth/users.jsonl.enc'
+    );
+    expect(readBlob).toHaveBeenCalledTimes(1);
   });
 
   it('refuses source-project and non-empty restore targets', async () => {

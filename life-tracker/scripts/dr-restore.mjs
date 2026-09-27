@@ -74,6 +74,37 @@ export function parseArgs(argv) {
   return args;
 }
 
+export function readEncryptionKeyring(env = process.env) {
+  const keyring = new Map();
+  if (env.DR_ENCRYPTION_KEYS_JSON) {
+    let parsed;
+    try {
+      parsed = JSON.parse(env.DR_ENCRYPTION_KEYS_JSON);
+    } catch {
+      throw new Error('DR_ENCRYPTION_KEYS_JSON must be valid JSON');
+    }
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      throw new Error('DR_ENCRYPTION_KEYS_JSON must be an object');
+    }
+    for (const [version, encoded] of Object.entries(parsed)) {
+      if (!version) throw new Error('DR encryption key version cannot be empty');
+      keyring.set(version, decodeMasterKey(encoded));
+    }
+  }
+  if (env.DR_ENCRYPTION_KEY_B64) {
+    keyring.set(
+      env.DR_KEY_VERSION || 'v1',
+      decodeMasterKey(env.DR_ENCRYPTION_KEY_B64)
+    );
+  }
+  if (keyring.size === 0) {
+    throw new Error(
+      'Missing restore encryption key: set DR_ENCRYPTION_KEY_B64 or DR_ENCRYPTION_KEYS_JSON'
+    );
+  }
+  return keyring;
+}
+
 export function readRestoreConfig(env = process.env) {
   const required = [
     'APPWRITE_TARGET_API_KEY',
@@ -81,7 +112,6 @@ export function readRestoreConfig(env = process.env) {
     'R2_ACCESS_KEY_ID',
     'R2_SECRET_ACCESS_KEY',
     'R2_BUCKET',
-    'DR_ENCRYPTION_KEY_B64',
   ];
   for (const name of required) {
     if (!env[name]) {
@@ -96,7 +126,7 @@ export function readRestoreConfig(env = process.env) {
       secretAccessKey: env.R2_SECRET_ACCESS_KEY,
       bucket: env.R2_BUCKET,
     },
-    encryptionKey: decodeMasterKey(env.DR_ENCRYPTION_KEY_B64),
+    encryptionKeys: readEncryptionKeyring(env),
     prefix: (env.DR_PREFIX || 'mosaic-dr/v1').replace(/\/+$/, ''),
   };
 }
@@ -116,12 +146,16 @@ export function createTargetClients({ endpoint, projectId, apiKey }) {
 async function loadEncryptedObject(
   r2,
   key,
-  encryptionKey,
+  encryptionKeys,
   { cipherSha256, plainSha256, keyVersion } = {}
 ) {
   const encrypted = await r2.getObject(key);
   if (cipherSha256 && sha256Hex(encrypted) !== cipherSha256) {
     throw new Error(`Ciphertext SHA-256 mismatch for ${key}`);
+  }
+  const encryptionKey = encryptionKeys.get(keyVersion);
+  if (!encryptionKey) {
+    throw new Error(`No escrowed DR encryption key for version ${keyVersion}`);
   }
   const decrypted = decryptBuffer(encrypted, {
     key: encryptionKey,
@@ -140,7 +174,7 @@ export async function loadCommittedSnapshot({
   r2,
   prefix,
   snapshotId,
-  encryptionKey,
+  encryptionKeys,
 }) {
   const markerKey = `${prefix}/snapshots/${snapshotId}/COMPLETED`;
   const marker = JSON.parse((await r2.getObject(markerKey)).toString('utf8'));
@@ -157,7 +191,7 @@ export async function loadCommittedSnapshot({
   const manifestPlain = await loadEncryptedObject(
     r2,
     marker.manifestKey,
-    encryptionKey,
+    encryptionKeys,
     {
       cipherSha256: marker.manifestCipherSha256,
       keyVersion: marker.keyVersion,
@@ -182,7 +216,7 @@ export async function loadCommittedSnapshot({
     if (!descriptor) {
       throw new Error(`Manifest does not authenticate object ${key}`);
     }
-    return loadEncryptedObject(r2, key, encryptionKey, {
+    return loadEncryptedObject(r2, key, encryptionKeys, {
       cipherSha256: descriptor.cipherSha256,
       plainSha256: descriptor.plainSha256,
       keyVersion: manifest.keyVersion,
@@ -190,7 +224,7 @@ export async function loadCommittedSnapshot({
   }
 
   async function readBlob(file) {
-    return loadEncryptedObject(r2, file.blobKey, encryptionKey, {
+    return loadEncryptedObject(r2, file.blobKey, encryptionKeys, {
       cipherSha256: file.blobCipherSha256,
       plainSha256: file.sha256,
       keyVersion: manifest.keyVersion,
@@ -198,6 +232,22 @@ export async function loadCommittedSnapshot({
   }
 
   return { marker, manifest, readObject, readBlob };
+}
+
+export async function preflightSnapshot(snapshot) {
+  const { manifest, readObject, readBlob } = snapshot;
+  for (const descriptor of manifest.objects || []) {
+    await readObject(descriptor.key);
+  }
+  for (const bucket of manifest.storage || []) {
+    const files = parseJsonLines(await readObject(bucket.filesKey));
+    for (const file of files) {
+      const bytes = await readBlob(file);
+      if (sha256Hex(bytes) !== file.sha256) {
+        throw new Error(`Source blob verification failed for ${bucket.id}/${file.id}`);
+      }
+    }
+  }
 }
 
 export async function assertSafeTarget({
@@ -641,7 +691,7 @@ export async function runRestoreCli({
     r2,
     prefix: config.prefix,
     snapshotId: args.snapshot,
-    encryptionKey: config.encryptionKey,
+    encryptionKeys: config.encryptionKeys,
   });
   if (snapshot.manifest.source?.projectId === args.targetProject) {
     throw new Error('Refusing to restore a snapshot into its source project');
@@ -659,6 +709,8 @@ export async function runRestoreCli({
       sourceProjectId: snapshot.manifest.source?.projectId,
       clients,
     });
+    log(`Preflighting Mosaic DR snapshot ${args.snapshot}...`);
+    await preflightSnapshot(snapshot);
     log(`Restoring Mosaic DR snapshot ${args.snapshot}...`);
     await restoreSnapshot({ snapshot, clients });
   }
