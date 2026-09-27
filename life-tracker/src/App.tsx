@@ -1,11 +1,15 @@
 import { lazy, Suspense, type ReactNode } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { AppLayout } from './components/layout/AppLayout';
 import { RouteErrorBoundary } from './components/layout/RouteErrorBoundary';
 import { ErrorBoundary } from './components/ui/ErrorBoundary';
 import { Spinner } from './components/ui/Spinner';
 import { PwaPrompt } from './components/ui/PwaPrompt';
 
+const AppLayout = lazy(() =>
+  import('./components/layout/AppLayout').then(({ AppLayout }) => ({
+    default: AppLayout,
+  }))
+);
 const HomePage = lazy(() =>
   import('./pages/HomePage').then(({ HomePage }) => ({ default: HomePage }))
 );
@@ -80,7 +84,13 @@ function App() {
             </RouteContent>
           }
         />
-        <Route element={<AppLayout />}>
+        <Route
+          element={
+            <RouteContent label="AppLayout">
+              <AppLayout />
+            </RouteContent>
+          }
+        >
           <Route path="/" element={<Navigate to="/home" replace />} />
           <Route
             path="/home"
