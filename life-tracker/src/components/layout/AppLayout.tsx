@@ -106,7 +106,7 @@ function loadMessageDeliveryModule() {
 }
 
 export const AppLayout: React.FC = () => {
-  const { user, isLoading, isOffline, error, retry } = useAuth();
+  const { user, isOffline, error, retry } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
   const path = location.pathname;
