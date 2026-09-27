@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
   User,
@@ -58,14 +58,15 @@ export const SettingsPage: React.FC = () => {
     PwaUpdateCheckStage | 'error' | null
   >(null);
   const [feedback, setFeedback] = useState<string | null>(null);
-  const [backupActivity, setBackupActivity] = useState<BackupActivity>({
-    lastBackupAt: null,
-    lastRestoreAt: null,
-  });
-
-  useEffect(() => {
-    setBackupActivity(getBackupActivity(user?.$id));
-  }, [user?.$id]);
+  const [backupActivityOverride, setBackupActivityOverride] = useState<{
+    userId: string;
+    activity: BackupActivity;
+  } | null>(null);
+  const storedBackupActivity = getBackupActivity(user?.$id);
+  const backupActivity =
+    backupActivityOverride?.userId === user?.$id
+      ? backupActivityOverride.activity
+      : storedBackupActivity;
 
   const showFeedback = (msg: string) => {
     setFeedback(msg);
@@ -86,7 +87,10 @@ export const SettingsPage: React.FC = () => {
   ) => {
     const userId = user?.$id;
     if (!userId) return;
-    setBackupActivity(recordBackupActivity(userId, kind, completedAt));
+    setBackupActivityOverride({
+      userId,
+      activity: recordBackupActivity(userId, kind, completedAt),
+    });
   };
 
   const handleComingSoon = () => showFeedback('Coming soon');
