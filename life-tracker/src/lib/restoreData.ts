@@ -40,6 +40,7 @@ const ROW_ID_PATTERN = /^[a-zA-Z0-9_]+$/;
 const FILE_ID_PATTERN = /^[a-zA-Z0-9][a-zA-Z0-9._-]*$/;
 const DATE_KEY_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 const FORBIDDEN_SETTING_KEYS = new Set(['__proto__', 'prototype', 'constructor']);
+const CROSS_ACCOUNT_PRESERVED_SETTING_KEYS = new Set(['friend_carousel_prefs']);
 const MAX_ROW_ID_LENGTH = 36;
 const SUPPORTED_BACKUP_VERSIONS = new Set([1, 2]);
 
@@ -490,6 +491,12 @@ function normalizeBackup(
       if (FORBIDDEN_SETTING_KEYS.has(key)) {
         throw new Error('Backup contains an unsafe setting key.');
       }
+      if (
+        sourceUserId !== currentUserId &&
+        CROSS_ACCOUNT_PRESERVED_SETTING_KEYS.has(key)
+      ) {
+        continue;
+      }
       const rawValue = raw.value;
       const value =
         typeof rawValue === 'string' ? rawValue : JSON.stringify(rawValue ?? null);
@@ -506,6 +513,12 @@ function normalizeBackup(
     for (const [key, rawValue] of Object.entries(payload.data.settings)) {
       if (FORBIDDEN_SETTING_KEYS.has(key)) {
         throw new Error('Backup contains an unsafe setting key.');
+      }
+      if (
+        sourceUserId !== currentUserId &&
+        CROSS_ACCOUNT_PRESERVED_SETTING_KEYS.has(key)
+      ) {
+        continue;
       }
       settings.push({
         id: makeSettingsRowId(currentUserId, key),
@@ -842,7 +855,10 @@ async function tombstoneMissing(
         !id ||
         current.userId !== userId ||
         current.isDeleted === true ||
-        wanted[name].has(id)
+        wanted[name].has(id) ||
+        (name === 'settings' &&
+          data.sourceUserId !== userId &&
+          CROSS_ACCOUNT_PRESERVED_SETTING_KEYS.has(asString(current.key)))
       ) {
         continue;
       }
