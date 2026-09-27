@@ -35,6 +35,10 @@ vi.mock('../../src/lib/databaseBootstrap', () => ({
 import { AuthProvider } from '../../src/hooks/AuthProvider';
 import { useAuth } from '../../src/hooks/useAuth';
 import { AUTH_UNAUTHORIZED_EVENT } from '../../src/lib/authEvents';
+import {
+  getConnectivitySnapshot,
+  resetConnectivityForTests,
+} from '../../src/lib/connectivity';
 
 const LAST_KNOWN_USER_KEY = 'mosaic_last_known_user';
 
@@ -85,6 +89,12 @@ describe('AuthProvider offline auth gate', () => {
       configurable: true,
       value: true,
     });
+    resetConnectivityForTests({
+      status: 'checking',
+      reason: 'test-startup',
+      lastConfirmedAt: null,
+    });
+    accountRef.get.mockRejectedValue(makeUnauthorizedError());
   });
 
   afterEach(() => {
@@ -125,6 +135,11 @@ describe('AuthProvider offline auth gate', () => {
       configurable: true,
       value: false,
     });
+    resetConnectivityForTests({
+      status: 'offline',
+      reason: 'browser-offline',
+      lastConfirmedAt: null,
+    });
 
     const { result } = renderHook(() => useAuth(), { wrapper });
 
@@ -141,6 +156,11 @@ describe('AuthProvider offline auth gate', () => {
       configurable: true,
       value: false,
     });
+    resetConnectivityForTests({
+      status: 'offline',
+      reason: 'browser-offline',
+      lastConfirmedAt: null,
+    });
 
     const { result } = renderHook(() => useAuth(), { wrapper });
 
@@ -151,6 +171,39 @@ describe('AuthProvider offline auth gate', () => {
     expect(accountRef.get).not.toHaveBeenCalled();
   });
 
+  it('renders cached identity immediately while browser says online but Appwrite is still unresolved', async () => {
+    const cached = makeUser({ $id: 'user_cached_online_hint' });
+    localStorage.setItem(LAST_KNOWN_USER_KEY, JSON.stringify(cached));
+
+    let rejectLiveCheck!: (error: Error) => void;
+    const liveCheck = new Promise<Models.User<Models.Preferences>>(
+      (_resolve, reject) => {
+        rejectLiveCheck = reject;
+      }
+    );
+    accountRef.get.mockReset();
+    accountRef.get.mockReturnValueOnce(liveCheck);
+
+    const { result } = renderHook(() => useAuth(), { wrapper });
+
+    expect(result.current.isLoading).toBe(false);
+    expect(result.current.user?.$id).toBe('user_cached_online_hint');
+    expect(getConnectivitySnapshot().status).toBe('checking');
+    await waitFor(() => expect(accountRef.get).toHaveBeenCalledOnce());
+
+    await act(async () => {
+      rejectLiveCheck(makeNetworkError());
+      await liveCheck.catch(() => undefined);
+    });
+
+    await waitFor(() =>
+      expect(getConnectivitySnapshot().status).toBe('offline')
+    );
+    expect(result.current.user?.$id).toBe('user_cached_online_hint');
+    expect(result.current.isLoading).toBe(false);
+    expect(result.current.isOffline).toBe(true);
+  });
+
   it('clears the cache and user on mount-time 401', async () => {
     const cached = makeUser({ $id: 'user_cached' });
     localStorage.setItem(LAST_KNOWN_USER_KEY, JSON.stringify(cached));
@@ -158,8 +211,9 @@ describe('AuthProvider offline auth gate', () => {
 
     const { result } = renderHook(() => useAuth(), { wrapper });
 
-    await waitFor(() => expect(result.current.isLoading).toBe(false));
-    expect(result.current.user).toBeNull();
+    expect(result.current.isLoading).toBe(false);
+    expect(result.current.user?.$id).toBe('user_cached');
+    await waitFor(() => expect(result.current.user).toBeNull());
     expect(result.current.isOffline).toBe(false);
     expect(localStorage.getItem(LAST_KNOWN_USER_KEY)).toBeNull();
   });
