@@ -187,7 +187,6 @@ export const SettingsPage: React.FC = () => {
         return;
       }
       await clearAuxiliaryOfflineData();
-      await clearAuxiliaryOfflineData();
       await destroyDatabase();
       window.location.reload();
     } catch (error) {
@@ -210,6 +209,7 @@ export const SettingsPage: React.FC = () => {
         );
         return;
       }
+      await clearAuxiliaryOfflineData();
       await destroyDatabase();
       window.location.reload();
     } catch (error) {
