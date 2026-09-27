@@ -201,7 +201,11 @@ function portableImageId(
   sourceUserId: string,
   sourceImageId: string
 ): string {
-  if (currentUserId === sourceUserId && isValidFileId(sourceImageId)) {
+  if (
+    currentUserId === sourceUserId &&
+    isValidFileId(sourceImageId) &&
+    !sourceImageId.startsWith('localimg_')
+  ) {
     return sourceImageId;
   }
   return `bk_i_${hashString(`${currentUserId}:${sourceUserId}:${sourceImageId}`)}`;
