@@ -68,7 +68,7 @@ export const AppLayout: React.FC = () => {
   // the synchronous startup graph.
   useEffect(() => {
     const uid = user?.$id;
-    if (!uid || !isOnline || database.state !== 'ready') return;
+    if (!uid || isOffline || !isOnline || database.state !== 'ready') return;
 
     let active = true;
     let stopRealtime: (() => void) | null = null;
@@ -87,11 +87,11 @@ export const AppLayout: React.FC = () => {
       active = false;
       stopRealtime?.();
     };
-  }, [database.state, isOnline, user?.$id]);
+  }, [database.state, isOffline, isOnline, user?.$id]);
 
   useEffect(() => {
     const uid = user?.$id;
-    if (!uid || !isOnline || database.state !== 'ready') return;
+    if (!uid || isOffline || !isOnline || database.state !== 'ready') return;
 
     let active = true;
     const tryDeliver = () => {
@@ -119,12 +119,12 @@ export const AppLayout: React.FC = () => {
       window.removeEventListener('focus', tryDeliver);
       window.removeEventListener('online', tryDeliver);
     };
-  }, [database.state, isOnline, user?.$id]);
+  }, [database.state, isOffline, isOnline, user?.$id]);
 
 
   useEffect(() => {
     const uid = user?.$id;
-    if (!uid || database.state !== 'ready') return;
+    if (!uid || isOffline || database.state !== 'ready') return;
 
     let timer: number | null = null;
     let active = true;
@@ -158,7 +158,7 @@ export const AppLayout: React.FC = () => {
       window.removeEventListener('online', onOnline);
       document.removeEventListener('visibilitychange', onVisibility);
     };
-  }, [database.state, user?.$id]);
+  }, [database.state, isOffline, user?.$id]);
 
   useEffect(() => {
     if (!user?.$id) return;
