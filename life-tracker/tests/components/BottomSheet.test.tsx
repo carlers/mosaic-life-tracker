@@ -106,13 +106,13 @@ describe('BottomSheet', () => {
     expect(document.body.style.overflow).not.toBe('hidden');
   });
 
-  // Regression: §7 (locked sheets cannot be dismissed while destructive work is in flight).
-  it('a locked top sheet ignores Escape dismissal', () => {
+  // Regression: §7 (processing sheets can explicitly prevent user dismissal).
+  it('a non-dismissible top sheet ignores Escape dismissal', () => {
     const onClose = vi.fn();
     const historyBack = vi.mocked(window.history.back);
 
     render(
-      <BottomSheet isOpen isLocked onClose={onClose}>
+      <BottomSheet isOpen preventDismiss onClose={onClose}>
         Processing
       </BottomSheet>
     );
