@@ -25,7 +25,6 @@ import {
   buildRenderItems,
   messageMatchesQuery,
 } from '../components/messages/chatRenderItems';
-import { forceSync } from '../db/sync';
 
 interface ComposerReplyState {
   id: string;
@@ -152,10 +151,15 @@ export const ChatPage: React.FC = () => {
     const interval = setInterval(() => {
       if (document.visibilityState !== 'visible') return;
       if (!navigator.onLine) return;
-      forceSync();
+      if (!myUserId) return;
+      void import('../db/sync')
+        .then(({ forceSync }) => forceSync(myUserId))
+        .catch((syncError) =>
+          console.error('[ChatPage] Poll sync failed:', syncError)
+        );
     }, 30000);
     return () => clearInterval(interval);
-  }, []);
+  }, [myUserId]);
 
   useEffect(() => {
     if (feedback === null) return;
