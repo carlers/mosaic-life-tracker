@@ -4,6 +4,11 @@ Mosaic is designed so a new maintainer can run an independent community without 
 the original maintainer's Appwrite project. The application repository contains the schema,
 trusted Function source, and bootstrap tooling needed to provision a fresh Appwrite project.
 
+This repository currently has no explicit open-source license file. The bootstrap makes
+recovery technically portable, but public visibility alone is not the same as a formal
+reuse license. Add an explicit license before treating unrestricted third-party reuse as a
+durable legal guarantee.
+
 Cloudflare R2 is **not required to run Mosaic**. R2 is only needed for administrator disaster
 recovery. A fork can start with Appwrite alone and add DR later.
 
