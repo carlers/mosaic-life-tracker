@@ -2,49 +2,37 @@
 
 Updated: 2026-09-27
 
-Current task: restore Mosaic's local-first startup behavior and make an authenticated device fully useful offline after online hydration, while improving Login/Home initial mounting and adding compact Home connectivity/sync indicators.
+Current task: make Mosaic startup local-first and make an already-hydrated authenticated device useful offline, with explicit Home connectivity/sync/readiness feedback.
 
-Status: implementation active on `chatgpt/offline-startup`, targeting stable Preview `perf/offline-startup` created from accepted `dev` commit `102ef432d591907832e1833236323fc218ab8e7c`.
+Status: implementation complete on `chatgpt/offline-startup`; final canonical acceptance requested by this commit. Delivery target remains stable Preview `perf/offline-startup`, created from accepted `dev` commit `102ef432d591907832e1833236323fc218ab8e7c`.
 
-## Working set
-- bootstrap/auth/database/sync ownership: `main.tsx`, `AuthProvider.tsx`, `AppLayout.tsx`, database/sync bootstrap modules
-- offline readiness/service-worker lifecycle and shared sync status
-- Home status indicators beside Search
-- own-profile/friend-calendar cache correctness
-- offline task-image staging/upload reconciliation
-- startup/offline unit, DOM, production-browser regressions
-- `docs/PROJECT_REFERENCE.md`
-
-## Completed substeps
-- Promoted accepted Backup & Restore Preview to `dev`; dev Quality Gate run 977 passed and the matching deployment is READY.
-- Created stable `perf/offline-startup` from exact dev tip and the `chatgpt/offline-startup` working branch.
-- Audited current startup graph and corrected the authoritative spec before implementation.
-- Identified blocking startup order (storage persistence + full RxDB before React), duplicate cold-start auth work (AuthProvider + bootstrap sync), delayed cached-auth offline hydration, and missing explicit offline-readiness semantics.
-- Identified non-RxDB gaps: own profile remote-only load, friend cache stale/offline + owner-isolation issue, and task image upload requiring live Appwrite.
-- Defined Home connectivity/sync UI as a view over one coherent shared status model.
-
-## Remaining substeps
-- Add lightweight dynamic database bootstrap/readiness gate and mount React/Login immediately.
-- Make AuthProvider offline-cache-first when definitely offline; add auth generation/race protection; make sync identity explicit.
-- Add offline data/shell readiness milestones and startup diagnostics.
-- Cache own profile per owner; owner-scope friend caches and allow stale friend calendar while offline.
-- Add durable pending task-image storage and sync-time upload/rewrite.
-- Add Home connectivity + sync status controls and Sync Status access.
-- Add/repair focused regressions, then exact-SHA full canonical acceptance.
-- Squash-deliver into `perf/offline-startup`, verify Vercel Preview, and hand off installed-device offline relaunch checks.
+## Completed
+- Login/protected startup graph split: React/Login can paint before RxDB; protected providers mount only after one shared dynamic local-database readiness boundary.
+- AuthProvider is the sole session owner. Definite-offline cached identity hydrates without a doomed session request, confirmed 401 still clears identity, and generation guards prevent stale auth results from overwriting newer login/logout/reconnect state.
+- Sync now receives the authenticated owner explicitly, keeps per-owner status/backoff state, marks data readiness only after a complete successful cycle, and no longer performs its own `account.get()`.
+- Service-worker lifecycle records a separate shell-ready milestone; Mosaic reports offline-ready only when both account data and the app shell are ready.
+- Home shows compact connectivity and sync/readiness controls beside Search. Both open the shared Sync Status surface; offline state cannot present an active syncing indicator.
+- Own social-profile cache is owner-scoped. Friend-calendar cache is owner+friend scoped, migrates away the unsafe legacy key shape, and may serve stale cached data while offline.
+- Offline-selected task/profile images are compressed and stored in a dedicated owner-scoped pending-image store, render locally, are backed up with photos, and are uploaded/re-written before any synced row can carry a local-only image id.
+- Clear Local Data / Delete All User Data clear auxiliary offline caches and pending images as well as RxDB. Network-only profile/username operations remain explicitly online-only.
+- Production PWA build policy still requires `index.html` and every emitted JS/CSS chunk in the service-worker precache.
+- Added/updated regression coverage for offline cached auth, auth races, DB bootstrap, owner-isolated caches/status, two-part readiness, pending-image reconciliation, Home status controls, service-worker readiness, and browser local task persistence with Appwrite unavailable.
+- Focused Quality Gate run `36302632783` passed on the final runtime hardening before this checkpoint.
 
 ## Constraints
-- Preserve account isolation, confirmed-401 semantics, tombstones, local-first writes, sync mappings, and existing PWA prompt/update policy.
-- Login must not depend on RxDB; protected data providers must not mount before local DB readiness.
-- Sync must not call `account.get()`; AuthProvider is the sole session owner.
-- Normal online navigation must not wait for first sync just to claim offline readiness.
+- Preserve account isolation, confirmed-401 semantics, tombstones, local-first personal-data writes, sync mappings, and existing explicit PWA update activation.
+- Cached identity grants access only to the same account's already-local data; it is not proof of a live remote session.
+- Normal online use never waits for the first sync merely to render; readiness is informational and non-blocking.
 - No promotion from `perf/offline-startup` to `dev` without explicit user instruction.
 
 ## Verification
-- Baseline `dev`: `102ef432d591907832e1833236323fc218ab8e7c`, Quality Gate run 977 green.
-- New implementation verification: pending.
-- Manual installed-PWA offline relaunch: pending.
+- Baseline `dev`: `102ef432d591907832e1833236323fc218ab8e7c`, prior Quality Gate run 977 green.
+- Focused implementation verification: run `36302632783` green.
+- Exact task-SHA full canonical acceptance: pending this commit.
+- Stable Preview Quality Gate + Vercel deployment: pending squash delivery.
+- Manual installed Android/Samsung PWA network-disabled relaunch: pending.
+- Safari/iOS installed-PWA lifecycle check: pending.
 
-Next action: land spec-first startup/auth/database regressions, then implement the lightweight bootstrap boundary.
+Next action: wait for this exact SHA's full canonical acceptance; fix any failure, then squash PR #94 into `perf/offline-startup` and verify the stable Preview deployment.
 
 Blockers: none.
