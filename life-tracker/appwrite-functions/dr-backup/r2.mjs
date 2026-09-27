@@ -43,6 +43,12 @@ function decodeXml(value) {
     .replace(/&amp;/g, '&');
 }
 
+function parseS3ErrorCode(xml) {
+  const match = String(xml || '').match(/<Code>([^<]{1,128})<\/Code>/);
+  if (!match) return '';
+  return match[1].replace(/[^A-Za-z0-9._-]/g, '').slice(0, 128);
+}
+
 function parseListXml(xml) {
   const keys = [];
   for (const match of xml.matchAll(
