@@ -19,7 +19,7 @@ Usage:
 
 Options:
   --project <id>               Empty Appwrite project to provision.
-  --endpoint <url>             Appwrite API endpoint. Defaults to Singapore Cloud.
+  --endpoint <url>             Appwrite API endpoint for the target project.
   --web-hostname <hostname>    Allowed web origin. Repeat for multiple hostnames.
                                Defaults to localhost.
   --message-function-id <id>   Function ID for message-action (default: message_action).
@@ -45,7 +45,6 @@ export async function runBootstrapCli({
   argv = process.argv.slice(2),
   env = process.env,
   log = console.log,
-  error = console.error,
 } = {}) {
   if (argv.includes('--help')) {
     log(HELP);
