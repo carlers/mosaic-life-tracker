@@ -38,8 +38,8 @@ export function createHandler({ runBackup = defaultRunBackup } = {}) {
     } catch (err) {
       const durationMs = Date.now() - started;
       error(
-        `dr-backup: failed durationMs=${durationMs} error=${
-          err instanceof Error ? err.message : 'unknown'
+        `dr-backup: failed durationMs=${durationMs} errorType=${
+          err instanceof Error ? err.name : 'unknown'
         }`
       );
       return res.json({ error: 'Disaster backup failed' }, 500);
