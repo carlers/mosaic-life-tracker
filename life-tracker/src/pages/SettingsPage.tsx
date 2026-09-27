@@ -32,6 +32,11 @@ import { ExportDataSheet } from '../components/modals/ExportDataSheet';
 import { SyncStatusSheet } from '../components/modals/SyncStatusSheet';
 import { useAppearance } from '../hooks/useAppearance';
 import { hasExpectedRouteParent, makeRouteParentState } from '../lib/primarySwipeNavigation';
+import {
+  getBackupActivity,
+  recordBackupActivity,
+  type BackupActivity,
+} from '../lib/backupActivity';
 
 export const SettingsPage: React.FC = () => {
   const { user, logout } = useAuth();
@@ -53,10 +58,39 @@ export const SettingsPage: React.FC = () => {
     PwaUpdateCheckStage | 'error' | null
   >(null);
   const [feedback, setFeedback] = useState<string | null>(null);
+  const [backupActivityOverride, setBackupActivityOverride] = useState<{
+    userId: string;
+    activity: BackupActivity;
+  } | null>(null);
+  const storedBackupActivity = getBackupActivity(user?.$id);
+  const backupActivity =
+    backupActivityOverride && backupActivityOverride.userId === user?.$id
+      ? backupActivityOverride.activity
+      : storedBackupActivity;
 
   const showFeedback = (msg: string) => {
     setFeedback(msg);
     setTimeout(() => setFeedback(null), 2000);
+  };
+
+  const formatActivityDate = (value: string | null) =>
+    value
+      ? new Intl.DateTimeFormat(undefined, {
+          dateStyle: 'medium',
+          timeStyle: 'short',
+        }).format(new Date(value))
+      : 'Never';
+
+  const handleBackupActivity = (
+    kind: 'backup' | 'restore',
+    completedAt: string
+  ) => {
+    const userId = user?.$id;
+    if (!userId) return;
+    setBackupActivityOverride({
+      userId,
+      activity: recordBackupActivity(userId, kind, completedAt),
+    });
   };
 
   const handleComingSoon = () => showFeedback('Coming soon');
@@ -263,6 +297,17 @@ export const SettingsPage: React.FC = () => {
             label="Backup & Restore"
             onClick={() => setIsExportSheetOpen(true)}
           />
+          <div
+            aria-label="Backup activity"
+            className="pl-[60px] pr-4 -mt-1 pb-2 flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-gray-500"
+          >
+            <span>
+              Last backup: {formatActivityDate(backupActivity.lastBackupAt)}
+            </span>
+            <span>
+              Last restore: {formatActivityDate(backupActivity.lastRestoreAt)}
+            </span>
+          </div>
         </div>
         <div className="border-t border-[#333333] py-2">
           <div className="px-4 py-3.5 text-white">
@@ -331,7 +376,7 @@ export const SettingsPage: React.FC = () => {
             type="button"
             onClick={handleLogout}
             onPointerDown={(e) => e.stopPropagation()}
-            className="w-full py-3 bg-[#1E1E1E] border border-[#333333] rounded-xl text-red-500 font-medium hover:bg-[#2A2A2A] transition-colors flex items-center justify-center gap-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
+            className="w-full py-2.5 bg-[#1E1E1E] border border-[#333333] rounded-xl text-red-500 font-medium hover:bg-[#2A2A2A] transition-colors flex items-center justify-center gap-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
           >
             <LogOut size={18} aria-hidden="true" />
             Sign Out
@@ -430,6 +475,12 @@ export const SettingsPage: React.FC = () => {
         isOpen={isExportSheetOpen}
         onClose={() => setIsExportSheetOpen(false)}
         onSuccess={showFeedback}
+        onBackupComplete={(completedAt) =>
+          handleBackupActivity('backup', completedAt)
+        }
+        onRestoreComplete={(completedAt) =>
+          handleBackupActivity('restore', completedAt)
+        }
       />
       <SyncStatusSheet
         isOpen={isSyncStatusOpen}

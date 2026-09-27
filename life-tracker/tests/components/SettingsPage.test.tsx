@@ -8,6 +8,7 @@ const updateMocks = vi.hoisted(() => ({
 }));
 beforeEach(() => {
   updateMocks.checkForUpdate.mockReset().mockResolvedValue('up-to-date');
+  window.localStorage.clear();
 });
 
 vi.mock('../../src/hooks/useAuth', () => ({
@@ -32,7 +33,33 @@ vi.mock('../../src/db/database', () => ({
 vi.mock('../../src/components/modals/AccountSettingsSheet', () => ({ AccountSettingsSheet: () => null }));
 vi.mock('../../src/components/modals/ChangeEmailSheet', () => ({ ChangeEmailSheet: () => null }));
 vi.mock('../../src/components/modals/ChangePasswordSheet', () => ({ ChangePasswordSheet: () => null }));
-vi.mock('../../src/components/modals/ExportDataSheet', () => ({ ExportDataSheet: () => null }));
+vi.mock('../../src/components/modals/ExportDataSheet', () => ({
+  ExportDataSheet: ({
+    isOpen,
+    onBackupComplete,
+    onRestoreComplete,
+  }: {
+    isOpen: boolean;
+    onBackupComplete?: (completedAt: string) => void;
+    onRestoreComplete?: (completedAt: string) => void;
+  }) =>
+    isOpen ? (
+      <div>
+        <button
+          type="button"
+          onClick={() => onBackupComplete?.('2026-09-27T01:00:00.000Z')}
+        >
+          Complete backup test
+        </button>
+        <button
+          type="button"
+          onClick={() => onRestoreComplete?.('2026-09-27T02:00:00.000Z')}
+        >
+          Complete restore test
+        </button>
+      </div>
+    ) : null,
+}));
 vi.mock('../../src/components/modals/SyncStatusSheet', () => ({ SyncStatusSheet: () => null }));
 vi.mock('../../src/lib/deleteUserData', () => ({
   deleteAllUserData: vi.fn().mockResolvedValue({ totalRows: 0 }),
@@ -58,6 +85,27 @@ describe('SettingsPage navigation, updates, and data controls', () => {
     expect(
       screen.getByRole('button', { name: 'Backup & Restore' })
     ).toBeInTheDocument();
+  });
+
+  it('shows and updates the last backup and restore activity', async () => {
+    render(
+      <MemoryRouter>
+        <SettingsPage />
+      </MemoryRouter>
+    );
+
+    expect(screen.getByText('Last backup: Never')).toBeInTheDocument();
+    expect(screen.getByText('Last restore: Never')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Backup & Restore' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Complete backup test' }));
+
+    expect(screen.getByText(/Last backup:.*2026/)).toBeInTheDocument();
+    expect(screen.getByText('Last restore: Never')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Complete restore test' }));
+
+    expect(screen.getByText(/Last restore:.*2026/)).toBeInTheDocument();
   });
 
   it('announces useful progress stages instead of a generic Checking label', async () => {
