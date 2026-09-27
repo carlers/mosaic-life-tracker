@@ -106,6 +106,23 @@ describe('BottomSheet', () => {
     expect(document.body.style.overflow).not.toBe('hidden');
   });
 
+  // Regression: §7 (locked sheets cannot be dismissed while destructive work is in flight).
+  it('a locked top sheet ignores Escape dismissal', () => {
+    const onClose = vi.fn();
+    const historyBack = vi.mocked(window.history.back);
+
+    render(
+      <BottomSheet isOpen isLocked onClose={onClose}>
+        Processing
+      </BottomSheet>
+    );
+
+    fireEvent.keyDown(window, { key: 'Escape' });
+
+    expect(historyBack).not.toHaveBeenCalled();
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
   it('Escape requests Back for the topmost sheet history slot', () => {
     const onCloseA = vi.fn();
     const onCloseB = vi.fn();
