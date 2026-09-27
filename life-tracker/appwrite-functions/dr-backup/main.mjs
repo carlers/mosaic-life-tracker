@@ -29,10 +29,19 @@ function safeFailureDetails(err) {
     code = 'config_r2';
   } else {
     const r2Http = message.match(
-      /^R2 (?:GET|PUT|HEAD|DELETE) failed with HTTP (\d{3})/
+      /^R2 (?:GET|PUT|HEAD|DELETE) failed with HTTP (\d{3})(?: code=([A-Za-z0-9._-]+))?/
     );
     if (r2Http) {
-      code = `r2_http_${r2Http[1]}`;
+      const s3Code = r2Http[2] || '';
+      const knownCodes = {
+        AccessDenied: 'r2_access_denied',
+        SignatureDoesNotMatch: 'r2_signature_mismatch',
+        ExpiredRequest: 'r2_expired_request',
+        NotEntitled: 'r2_not_entitled',
+        Unauthorized: 'r2_unauthorized',
+        NoSuchBucket: 'r2_no_such_bucket',
+      };
+      code = knownCodes[s3Code] || `r2_http_${r2Http[1]}`;
     } else if (
       /R2 verification failed|DR blob hash metadata mismatch/i.test(message)
     ) {
