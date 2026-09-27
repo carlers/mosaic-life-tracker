@@ -20,23 +20,10 @@ import { markStartup } from './lib/startupMetrics';
 markStartup('bootstrap:start');
 initializeAppearance();
 initializeScreenLayout();
-void initializePostHog();
 installChunkLoadErrorTracking();
+// Keep the install/update listeners registered before the browser can emit
+// lifecycle events, but leave all unrelated background work until after paint.
 initializePwaLifecycle(window, registerSW);
-void configureResponsiveOrientation();
-
-if (navigator.storage?.persist) {
-  void navigator.storage
-    .persist()
-    .then((isPersisted) => {
-      if (import.meta.env.DEV) {
-        console.log(`[Bootstrap] Storage persisted: ${isPersisted}`);
-      }
-    })
-    .catch((error) => {
-      console.warn('[Bootstrap] Storage persistence request failed', error);
-    });
-}
 
 const beginDatabaseBootstrap = () => {
   void startDatabaseBootstrap()
@@ -56,19 +43,41 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
     </ErrorBoundary>
   </React.StrictMode>
 );
-markStartup('react:mounted');
 
-// Login gets the first paint before RxDB downloads/evaluates. Protected paths
-// start DB work immediately because they cannot mount their data tree without it.
+window.requestAnimationFrame(() => {
+  markStartup('react:mounted');
+});
+
+// Login gets a clean first paint before RxDB downloads/evaluates. If the user
+// authenticates before this idle preload fires, AuthProvider's DB wait starts
+// the same singleton bootstrap immediately.
 if (window.location.pathname === '/login') {
-  window.requestAnimationFrame(() => {
-    window.setTimeout(beginDatabaseBootstrap, 0);
-  });
+  if (typeof window.requestIdleCallback === 'function') {
+    window.requestIdleCallback(beginDatabaseBootstrap, { timeout: 1200 });
+  } else {
+    window.setTimeout(beginDatabaseBootstrap, 400);
+  }
 } else {
   beginDatabaseBootstrap();
 }
 
 const startBackgroundMaintenance = () => {
+  void initializePostHog();
+  void configureResponsiveOrientation();
+
+  if (navigator.storage?.persist) {
+    void navigator.storage
+      .persist()
+      .then((isPersisted) => {
+        if (import.meta.env.DEV) {
+          console.log(`[Bootstrap] Storage persisted: ${isPersisted}`);
+        }
+      })
+      .catch((error) => {
+        console.warn('[Bootstrap] Storage persistence request failed', error);
+      });
+  }
+
   void import('./lib/imageCache')
     .then(({ enforceImageCacheBudget }) => enforceImageCacheBudget())
     .catch((error) =>
@@ -78,10 +87,6 @@ const startBackgroundMaintenance = () => {
 
 // Maintenance stays behind the first paint. Sync is intentionally absent here:
 // AuthProvider owns identity and starts sync only after auth + DB readiness.
-if (typeof window.requestAnimationFrame === 'function') {
-  window.requestAnimationFrame(() => {
-    window.setTimeout(startBackgroundMaintenance, 0);
-  });
-} else {
+window.requestAnimationFrame(() => {
   window.setTimeout(startBackgroundMaintenance, 0);
-}
+});
