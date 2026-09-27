@@ -10,8 +10,9 @@ import {
 } from './messageActionQueue';
 import type { MessageDocument } from '../db/schema';
 import { getConnectivitySnapshot } from './connectivity';
+import { APPWRITE_MESSAGE_ACTION_FUNCTION_ID } from './appwriteConfig';
 const DEBUG = import.meta.env.DEV;
-export const MESSAGE_ACTION_FUNCTION_ID = '6aa8057f002a4c306fdd';
+export const MESSAGE_ACTION_FUNCTION_ID = APPWRITE_MESSAGE_ACTION_FUNCTION_ID;
 const SEND_TIMEOUT_MS = 15_000;
 const MAX_DELIVERY_LOOPS = 5;
 let inFlightDeliveryPromise: Promise<void> | null = null;

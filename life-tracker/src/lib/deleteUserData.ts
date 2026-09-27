@@ -3,8 +3,9 @@ import { guardedTablesDB } from './sdk';
 import { toAppwriteDeletePatch } from './syncMapping';
 import { deleteImage } from './storage';
 import { deleteFriendPair, fetchMyProfile } from './social';
+import { APPWRITE_DATABASE_ID } from './appwriteConfig';
 
-const DATABASE_ID = 'life_tracker';
+const DATABASE_ID = APPWRITE_DATABASE_ID;
 const SYNCED_COLLECTIONS = [
   'tasks',
   'categories',

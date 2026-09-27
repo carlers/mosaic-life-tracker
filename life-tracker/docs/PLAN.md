@@ -44,6 +44,18 @@ This roadmap records durable workstreams and batch status. `SESSION_STATE.md` co
 - [x] Test-suite architecture consolidation — behavior-first UI assertions, reduced DOM/browser duplication, and diagnostic performance isolated from canonical correctness
 - [ ] Phase 4 — final production acceptance and main release
 
+## Disaster recovery and backend capacity
+
+- [ ] Complete provider-independent disaster-backup rollout on `security/disaster-backups`: exporter/restore/health-check code and the schedule-disabled Appwrite Function are implemented; R2 secrets, escrow, isolated restore drill, and schedule enablement remain.
+- [x] Reserve the two Appwrite Function slots by responsibility, not provider: the existing `message-action` Function evolves into the general trusted `app-api` surface for messaging/social operations, tombstone GC, future external API routes/webhooks, and one coordinated maintenance/integration schedule; the second Function is dedicated to privileged `dr-backup` work only.
+- [ ] Treat Strava, Spotify, Garmin, Hevy, Letterboxd, YouTube, and later integrations as isolated modules/routes inside `app-api`, with provider secrets and OAuth tokens kept server-side. Do not consume one Appwrite Function per integration.
+- [x] Export the whole recoverable Appwrite backend dynamically rather than hardcoding today's synced tables: Auth users and password-hash metadata, TablesDB table schema/columns/indexes/permissions/rows, Storage bucket configuration/files/permissions/raw bytes, plus non-secret infrastructure/function definitions from Git/IaC.
+- [x] Use a versioned DR format with independent authenticated encryption, content-addressed/deduplicated file blobs, encrypted manifests, object hashes/counts, and a final `COMPLETED` marker so incomplete runs are never retention candidates.
+- [x] Start with 7 daily + 4 weekly + 6 monthly restore points and a recent-object lock window; never prune valid older snapshots after a failed/incomplete run. Escrow the backup encryption key and R2 recovery credentials outside Appwrite, with key-version metadata for rotation.
+- [x] Build restore as a separate admin CLI requiring target-project write credentials. Restore into a fresh isolated DR project, preserve IDs/password hashes/permissions where Appwrite supports it, verify schemas/row IDs/counts/checksums/file hashes/permissions, then run a temporary Mosaic build against the restored project for manual login/tasks/diary/settings/social/messages/photos acceptance.
+- [x] Make Appwrite project/function/resource identifiers environment-configurable and keep non-secret infrastructure definitions in the repository so recovery does not depend on Console memory.
+- [ ] Enable the production backup schedule only after the isolated restore drill passes. Add stale-backup detection when no valid completed snapshot appears within the expected window. User-facing Backup & Restore remains a separate feature and is not the DR mechanism.
+
 ## Feature backlog
 
 - [x] Todo List view: compact color-only calendar with a selected-day task list
@@ -62,4 +74,4 @@ This roadmap records durable workstreams and batch status. `SESSION_STATE.md` co
 
 ## Batch boundary
 
-Strategy B tombstone retention and its Appwrite rollout are complete. Garbage collection shares the existing `message-action` Function through its trusted schedule-trigger path, `TOMBSTONE_RETENTION_DAYS=90` is configured, and the daily schedule is live. The second Appwrite Function slot remains free. Todo List implementation and automated browser coverage are present. Select the next feature only when requested; current task details live in SESSION_STATE.md.
+Strategy B tombstone retention and its Appwrite rollout are complete. Garbage collection currently shares `message-action`; the backend-capacity plan now reserves that slot as the future general `app-api` and reserves the second Function slot for isolated disaster backups. Disaster recovery is the active next workstream on `security/disaster-backups`; current execution details live in SESSION_STATE.md.

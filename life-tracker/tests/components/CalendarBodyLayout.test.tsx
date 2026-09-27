@@ -22,6 +22,14 @@ vi.mock('../../src/components/home/views/DayViewSheet', () => ({
   },
 }));
 
+vi.mock('../../src/components/friend/FriendDayViewSheet', () => ({
+  FriendDayViewSheet: () => null,
+}));
+
+vi.mock('../../src/components/messages/ReplyComposerSheet', () => ({
+  ReplyComposerSheet: () => null,
+}));
+
 vi.mock('../../src/hooks/useTasksByDate', () => ({
   useTasksByDate: () => new Map(),
 }));

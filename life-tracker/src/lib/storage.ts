@@ -14,11 +14,14 @@ import {
   getPendingImage,
   isPendingImageId,
 } from './pendingImages';
+import {
+  APPWRITE_PROJECT_ID,
+  APPWRITE_STORAGE_BUCKET_ID,
+} from './appwriteConfig';
 
 const APPWRITE_CONFIG = {
-  endpoint: 'https://sgp.cloud.appwrite.io',
-  projectId: '6a9703c50016b37110ff',
-  bucketId: 'task_images',
+  projectId: APPWRITE_PROJECT_ID,
+  bucketId: APPWRITE_STORAGE_BUCKET_ID,
 };
 
 export async function compressImage(file: File): Promise<Blob> {

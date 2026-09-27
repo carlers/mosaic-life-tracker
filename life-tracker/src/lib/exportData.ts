@@ -13,10 +13,14 @@ import type {
   SettingsDocument,
   FriendshipDocument,
 } from '../db/schema';
+import {
+  APPWRITE_PROJECT_ID,
+  APPWRITE_STORAGE_BUCKET_ID,
+} from './appwriteConfig';
 
 const APPWRITE_CONFIG = {
-  bucketId: 'task_images',
-  projectId: '6a9703c50016b37110ff',
+  bucketId: APPWRITE_STORAGE_BUCKET_ID,
+  projectId: APPWRITE_PROJECT_ID,
 } as const;
 
 const DEBUG = import.meta.env.DEV;

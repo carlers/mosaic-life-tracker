@@ -12,19 +12,18 @@ import { markOfflineDataReady } from '../lib/offlineReadiness';
 import { isPendingImageId, deletePendingImage } from '../lib/pendingImages';
 import { uploadPendingImage } from '../lib/storage';
 import { getConnectivitySnapshot } from '../lib/connectivity';
+import { APPWRITE_DATABASE_ID, APPWRITE_TABLES } from '../lib/appwriteConfig';
 export { toAppwriteFormat, fromAppwriteFormat };
 export { getSyncStatus, subscribeToSyncStatus } from '../lib/syncStatus';
 const APPWRITE_CONFIG = {
-  endpoint: 'https://sgp.cloud.appwrite.io',
-  projectId: '6a9703c50016b37110ff',
-  databaseId: 'life_tracker',
+  databaseId: APPWRITE_DATABASE_ID,
   tables: {
-    tasks: 'tasks',
-    categories: 'categories',
-    diary: 'diary',
-    settings: 'settings',
-    friendships: 'friendships',
-    messages: 'messages',
+    tasks: APPWRITE_TABLES.tasks,
+    categories: APPWRITE_TABLES.categories,
+    diary: APPWRITE_TABLES.diary,
+    settings: APPWRITE_TABLES.settings,
+    friendships: APPWRITE_TABLES.friendships,
+    messages: APPWRITE_TABLES.messages,
   },
 } as const;
 const DEBUG = import.meta.env.DEV;

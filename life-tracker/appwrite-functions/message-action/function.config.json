@@ -1,0 +1,22 @@
+{
+  "$id": "6aa8057f002a4c306fdd",
+  "name": "message-action",
+  "runtime": "node-18.0",
+  "execute": ["users"],
+  "scopes": [
+    "users.read",
+    "rows.read",
+    "rows.write",
+    "tables.read"
+  ],
+  "schedule": "0 0 * * *",
+  "timeout": 15,
+  "entrypoint": "main.js",
+  "commands": "npm install",
+  "deploymentRetention": 0,
+  "nonSecretVariables": {
+    "TOMBSTONE_RETENTION_DAYS": "90",
+    "APPWRITE_DATABASE_ID": "life_tracker"
+  },
+  "requiredSecretVariables": []
+}

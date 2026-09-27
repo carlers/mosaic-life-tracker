@@ -2,43 +2,69 @@
 
 Updated: 2026-09-27
 
-Current task: fix the remaining offline-refresh/Login startup stall and incorrect Online indicator observed on Android/PWA after the first offline-startup pass.
+Current task: implement Mosaic disaster recovery on `chatgpt/disaster-backups`, targeting
+stable Preview `security/disaster-backups`.
 
-Status: implementation complete on `chatgpt/reachability-startup-fix`, targeting stable Preview `perf/offline-startup`. The first full run 1104 exposed two lint leftovers and stale DOM harness assumptions around background auth/reachability; all were repaired and focused run 1108 passed. Replacement exact-SHA full canonical acceptance is requested by this checkpoint commit.
+Status: implementation is complete as far as repository/Appwrite work can proceed without
+Cloudflare recovery credentials. The dedicated `dr_backup` Function is deployed live but
+schedule-disabled; no R2/encryption secrets have been added and no production backup schedule
+has been enabled.
 
-## Working set
-- authoritative reachability: `src/lib/connectivity.ts`, guarded Appwrite calls, AuthProvider
-- spinner-free Login/authenticated startup: `App.tsx`, `AuthPage.tsx`, `AppLayout.tsx`, `AppDataShell.tsx`
-- shared connectivity consumers: Main/Home/Sync Status plus sync/images/social/profile/chat network gates
-- regressions for browser-online/Appwrite-unreachable startup and connectivity state
-- `docs/PROJECT_REFERENCE.md`
-
-## Completed
-- Replaced `navigator.onLine` as the Online authority with one three-state Appwrite reachability store: Checking / Online / Offline.
-- Successful Appwrite calls and real HTTP/Appwrite errors prove Online; network/timeout failures prove Offline. Browser offline is a hard negative, while browser online/network-interface/focus/visibility changes only request a background re-check.
-- Cached auth is now the immediate local rendering authority even when the browser claims online. Live `account.get()` reconciles in the background; network failure retains local identity, confirmed 401 still revokes it.
-- Login no longer lazy-loads behind the generic route spinner and no longer imports Framer Motion on its critical path.
-- Split DB-backed authenticated providers into `AppDataShell`. AppLayout is lightweight/eager, preloads the provider shell while RxDB opens, and shows a static Home-shaped local-data shell instead of a spinning page.
-- Home lazy loading uses a content skeleton instead of the Mosaic spinner.
-- Cached sessions start DB bootstrap immediately even when launch begins at `/login`; genuinely logged-out Login defers RxDB until idle.
-- Main offline banner, Home indicators, Sync Status, sync, images, friend data, profile/search, chat polling, message delivery/reactions, and backup image acquisition are being aligned to the shared reachability source.
-- Added direct connectivity regression coverage and replaced the browser offline-startup fixture with the missed real-world case: `navigator.onLine === true` while Appwrite hangs/fails.
-
-## Constraints
-- Preserve account isolation, generation/race guards, confirmed-401 semantics, local-first writes, sync mappings, tombstones, explicit PWA update behavior, and existing offline image staging.
-- Online means confirmed backend reachability, not browser interface state.
-- Cached identity may expose only that same account's already-local data while live verification is pending.
-- No promotion from `perf/offline-startup` to `dev` without explicit user instruction.
+## Completed in this task
+- Added the `mosaic-dr/v1` encrypted snapshot format with AES-256-GCM, per-object nonces/AAD,
+  SHA-256 integrity metadata, content-addressed Storage blobs, encrypted manifests, and a
+  final `COMPLETED` commit marker.
+- Added dynamic Appwrite discovery for users, databases, tables, columns, indexes, rows,
+  buckets, files, permissions, and file bytes; schema endpoints without row-style IDs use
+  offset pagination.
+- Added 7 daily + 4 weekly + 6 monthly retention selection while retaining the configured
+  recent lock window and never pruning after an incomplete backup.
+- Added the explicit administrator restore/verification CLI and fail-closed handling for
+  unsupported auth recovery state.
+- Added `npm run dr:check` stale/tamper detection for the newest completed snapshot.
+- Made browser Appwrite project/database/bucket/table/function IDs environment-configurable
+  so a temporary Mosaic build can target an isolated restored project.
+- Added checked-in non-secret Function configs for both Appwrite Function slots.
+- Deployed live `dr_backup` with zero client execute roles and only
+  users/databases/tables/columns/indexes/rows/buckets/files read scopes.
+- Live HTTP smoke test returned 403 while `DR_ALLOW_MANUAL_EXECUTION=false`, confirming
+  the deployed manual-execution boundary.
+- Production `dr_backup` schedule remains blank.
 
 ## Verification
-- Baseline stable Preview before this repair: `34e0656cfffdb2bcee27535a02eebc9435cd3a34`, Vercel READY.
-- Focused verification for this repair: runs 1103, 1108, and 1111 passed.
-- Full run 1104 failed on two lint leftovers plus stale AuthProvider/PostHog and message-reaction test assumptions; repaired without weakening behavior.
-- Full run 1109 passed build and both DOM shards; checks failed because the sync unit suite never established an Online reachability fixture, and browser shard 1 showed that component-only consumers needed to initialize connectivity listeners themselves. Both were repaired; browser shard 2 had already passed.
-- Final replacement exact-SHA full canonical acceptance: requested by this checkpoint commit.
-- Stable Preview Quality Gate + Vercel deployment after squash: pending.
-- Required manual check: Samsung/Android installed PWA, Wi-Fi/network loss while open and cold offline relaunch.
+- Structural-red run 1117 failed only because the specified DR modules did not exist yet.
+- Focused run 1125 passed after the core implementation/config refactor.
+- Focused run 1131 passed after R2 signing/schema-pagination hardening and DR health checks.
+- Final exact-SHA canonical acceptance still must run after this state/config checkpoint.
+- No restore drill, R2 upload, bucket-lock verification, or manual restored-app acceptance is
+  claimed yet.
 
-Next action: follow this exact SHA through full canonical acceptance, repair any failure, then squash PR #96 into `perf/offline-startup` and verify the stable Preview Quality Gate + Vercel deployment.
+## External acceptance still required
+1. Create/select a private Cloudflare R2 bucket and bucket-scoped S3 read/write credentials.
+2. Configure a provider bucket-lock rule for the recent recovery prefix/window.
+3. Create a 32-byte backup encryption key and escrow that key plus R2 recovery credentials
+   outside Appwrite.
+4. Add the R2/encryption secrets to `dr_backup`, temporarily permit a controlled manual
+   execution, and obtain a valid `COMPLETED` restore point.
+5. Restore that snapshot into a fresh isolated Appwrite DR-test project; do not reuse the
+   unrelated existing empty project without explicit scope.
+6. Deploy the two repository-owned Functions to the DR project, point a temporary Mosaic
+   build at it, and complete login/tasks/diary/settings/social/messages/photos acceptance.
+7. Only after the drill passes, enable a non-overlapping daily `dr_backup` schedule and
+   configure an external runner/alert path for `npm run dr:check`.
 
-Blockers: none.
+## Constraints
+- Preserve the two-Function Free-plan architecture.
+- Do not add Appwrite write scopes to `dr_backup`.
+- Do not log user content, password hashes, decrypted payloads, or file bytes.
+- Do not enable the production backup schedule before the isolated restore drill passes.
+- Do not promote `security/disaster-backups` to `dev` without explicit user instruction.
+
+Next action: run full canonical acceptance, deploy the exact accepted DR source to
+`dr_backup`, squash-deliver PR #98 to `security/disaster-backups`, then stop at the
+external R2/escrow/isolated-drill blocker.
+
+Blocker: Cloudflare R2 bucket/credentials and independently escrowed encryption material are
+not available through the connected tools. A Cloudflare plugin search returned no Cloudflare
+integration, so the R2/restore drill cannot be completed from this environment without those
+external recovery inputs.
