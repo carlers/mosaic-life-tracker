@@ -16,6 +16,12 @@ import { syncPostHogIdentity } from '../lib/posthog';
 import { waitForDatabaseReady } from '../lib/databaseBootstrap';
 import { markStartup } from '../lib/startupMetrics';
 import { scopeSyncStatusToUser } from '../lib/syncStatus';
+import {
+  getConnectivitySnapshot,
+  markConnectivityChecking,
+  reportConnectivityResult,
+} from '../lib/connectivity';
+import { useConnectivity } from './useConnectivity';
 
 const AUTH_BROADCAST_KEY = 'mosaic_auth_broadcast';
 const LAST_KNOWN_USER_KEY = 'mosaic_last_known_user';
@@ -65,69 +71,49 @@ function clearCachedUser(): void {
   }
 }
 
-function browserIsOffline(): boolean {
-  return typeof navigator !== 'undefined' && navigator.onLine === false;
-}
-
-function isNetworkError(err: unknown): boolean {
-  if (browserIsOffline()) return true;
-  const msg = err instanceof Error ? err.message.toLowerCase() : '';
-  return (
-    msg.includes('network') ||
-    msg.includes('failed to fetch') ||
-    msg.includes('load failed') ||
-    msg.includes('timeout')
-  );
+async function callAccount<T>(fn: () => Promise<T>): Promise<T> {
+  try {
+    const result = await fn();
+    reportConnectivityResult();
+    return result;
+  } catch (error) {
+    reportConnectivityResult(error);
+    throw error;
+  }
 }
 
 interface AuthProviderProps {
   children: ReactNode;
 }
 
-interface InitialAuthState {
-  user: Models.User<Models.Preferences> | null;
-  isLoading: boolean;
-  isOffline: boolean;
-  error: string | null;
-}
-
-function getInitialAuthState(): InitialAuthState {
-  if (!browserIsOffline()) {
-    return { user: null, isLoading: true, isOffline: false, error: null };
-  }
-  const cached = readCachedUser();
-  return {
-    user: cached,
-    isLoading: false,
-    isOffline: true,
-    error: cached ? null : 'Could not reach server.',
-  };
-}
-
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
-  const [initial] = useState<InitialAuthState>(getInitialAuthState);
+  // Cached identity is the local startup authority. Live Appwrite verification
+  // reconciles in the background and must never hold a previously-hydrated
+  // account behind a page-level spinner.
   const [user, setUser] = useState<Models.User<Models.Preferences> | null>(
-    initial.user
+    readCachedUser
   );
-  const [isLoading, setIsLoading] = useState(initial.isLoading);
-  const [error, setError] = useState<string | null>(initial.error);
-  const [isOffline, setIsOffline] = useState(initial.isOffline);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const connectivity = useConnectivity();
+  const isOffline = connectivity.status === 'offline';
   const isMountedRef = useRef(true);
   const resolveInFlightGenerationRef = useRef<number | null>(null);
   const authGenerationRef = useRef(0);
   const userId = user?.$id ?? null;
 
   useEffect(() => {
+    markStartup('auth:resolved');
+  }, []);
+
+  useEffect(() => {
     scopeSyncStatusToUser(userId);
   }, [userId]);
 
   useEffect(() => {
-    if (!isLoading) syncPostHogIdentity(userId);
-  }, [isLoading, userId]);
+    syncPostHogIdentity(userId);
+  }, [userId]);
 
-  // Preload Home as soon as we have a usable identity. The production
-  // service worker precaches the chunk, so this is also cheap on offline
-  // relaunch and overlaps local database opening.
   useEffect(() => {
     if (!userId) return;
     void import('../pages/HomePage').catch((loadError) => {
@@ -135,10 +121,15 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     });
   }, [userId]);
 
-  // AuthProvider owns identity. Sync starts only after a live online identity
-  // and the local DB are both ready, and receives the owner id explicitly.
+  // Sync waits for proven Appwrite reachability, not navigator.onLine.
   useEffect(() => {
-    if (isLoading || isOffline || !userId) return;
+    if (
+      isLoading ||
+      connectivity.status !== 'online' ||
+      !userId
+    ) {
+      return;
+    }
     let active = true;
     void waitForDatabaseReady()
       .then(() => import('../db/sync'))
@@ -154,94 +145,76 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     return () => {
       active = false;
     };
-  }, [isLoading, isOffline, userId]);
+  }, [connectivity.status, isLoading, userId]);
 
-  const resolveInitialUser = useCallback(
-    async (hydrateOnNetworkError: boolean) => {
-      const generation = authGenerationRef.current;
-      if (resolveInFlightGenerationRef.current === generation) return;
-      resolveInFlightGenerationRef.current = generation;
-      try {
-        if (browserIsOffline()) {
-          if (!isMountedRef.current || generation !== authGenerationRef.current) {
-            return;
-          }
-          if (hydrateOnNetworkError) {
-            const cached = readCachedUser();
-            setUser(cached);
-            setError(cached ? null : 'Could not reach server.');
-          }
-          setIsOffline(true);
-          return;
-        }
+  const verifyLiveSession = useCallback(async () => {
+    const generation = authGenerationRef.current;
+    if (resolveInFlightGenerationRef.current === generation) return;
 
-        const resolved = await account.get();
-        if (
-          !isMountedRef.current ||
-          generation !== authGenerationRef.current
-        ) {
-          return;
-        }
-        writeCachedUser(resolved);
-        setUser(resolved);
-        setError(null);
-        setIsOffline(false);
-      } catch (resolveError) {
-        if (
-          !isMountedRef.current ||
-          generation !== authGenerationRef.current
-        ) {
-          return;
-        }
-        if (isUnauthorizedError(resolveError)) {
-          clearCachedUser();
-          setUser(null);
-          setError(null);
-          setIsOffline(false);
-        } else if (isNetworkError(resolveError)) {
-          const message =
-            resolveError instanceof Error
-              ? resolveError.message
-              : 'Could not reach server.';
-          if (hydrateOnNetworkError) {
-            setUser(readCachedUser());
-          }
-          setError(message);
-          setIsOffline(true);
-        } else {
-          const message =
-            resolveError instanceof Error
-              ? resolveError.message
-              : 'Could not verify session.';
-          if (hydrateOnNetworkError) setUser(null);
-          setError(message);
-          setIsOffline(true);
-        }
-      } finally {
-        if (resolveInFlightGenerationRef.current === generation) {
-          resolveInFlightGenerationRef.current = null;
-        }
-        if (
-          isMountedRef.current &&
-          generation === authGenerationRef.current
-        ) {
-          setIsLoading(false);
-          markStartup('auth:resolved');
-        }
+    // Browser-offline is still a useful hard negative. The important change
+    // is that browser-online is no longer treated as proof of reachability.
+    if (
+      typeof navigator !== 'undefined' &&
+      navigator.onLine === false
+    ) {
+      return;
+    }
+
+    resolveInFlightGenerationRef.current = generation;
+    try {
+      const resolved = await callAccount(() => account.get());
+      if (
+        !isMountedRef.current ||
+        generation !== authGenerationRef.current
+      ) {
+        return;
       }
-    },
-    []
-  );
+      writeCachedUser(resolved);
+      setUser(resolved);
+      setError(null);
+    } catch (resolveError) {
+      if (
+        !isMountedRef.current ||
+        generation !== authGenerationRef.current
+      ) {
+        return;
+      }
+      if (isUnauthorizedError(resolveError)) {
+        clearCachedUser();
+        setUser(null);
+        setError(null);
+      } else {
+        // Keep the cached identity/local app. Connectivity now communicates
+        // reachability; a failed verification is not a rendering gate.
+        setError(
+          resolveError instanceof Error
+            ? resolveError.message
+            : 'Could not reach server.'
+        );
+      }
+    } finally {
+      if (resolveInFlightGenerationRef.current === generation) {
+        resolveInFlightGenerationRef.current = null;
+      }
+    }
+  }, []);
+
+  // "checking" means the browser thinks a path may exist but Mosaic has not
+  // yet proven Appwrite reachability. Initial mount and reconnect both land
+  // here. Verification is background-only.
+  useEffect(() => {
+    if (connectivity.status !== 'checking') return;
+    queueMicrotask(() => {
+      if (isMountedRef.current) void verifyLiveSession();
+    });
+  }, [connectivity.status, verifyLiveSession]);
 
   useEffect(() => {
     isMountedRef.current = true;
-    queueMicrotask(() => {
-      if (isMountedRef.current) void resolveInitialUser(true);
-    });
     return () => {
       isMountedRef.current = false;
     };
-  }, [resolveInitialUser]);
+  }, []);
 
   useEffect(() => {
     const handleStorage = (event: StorageEvent) => {
@@ -253,26 +226,25 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           clearCachedUser();
           setUser(null);
           setError(null);
-          setIsOffline(false);
           setIsLoading(false);
           return;
         }
-        if (browserIsOffline()) {
-          const cached = readCachedUser();
-          setUser(cached);
-          setIsOffline(true);
-          setIsLoading(false);
-          return;
+
+        // Another tab already wrote the authenticated identity. Use it
+        // immediately, then reconcile the live session in the background.
+        setUser(readCachedUser());
+        setError(null);
+        setIsLoading(false);
+        if (getConnectivitySnapshot().status !== 'offline') {
+          markConnectivityChecking('cross-tab-login');
         }
-        setIsLoading(true);
-        void resolveInitialUser(false);
       } catch {
         // Ignore malformed payloads.
       }
     };
     window.addEventListener('storage', handleStorage);
     return () => window.removeEventListener('storage', handleStorage);
-  }, [resolveInitialUser]);
+  }, []);
 
   useEffect(() => {
     const handleUnauthorized = () => {
@@ -281,24 +253,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       clearCachedUser();
       setUser(null);
       setError('Your session has expired. Please sign in again.');
-      setIsOffline(false);
       setIsLoading(false);
     };
     window.addEventListener(AUTH_UNAUTHORIZED_EVENT, handleUnauthorized);
     return () =>
       window.removeEventListener(AUTH_UNAUTHORIZED_EVENT, handleUnauthorized);
   }, []);
-
-  useEffect(() => {
-    const handleOnline = () => {
-      if (!isMountedRef.current || !isOffline) return;
-      authGenerationRef.current += 1;
-      setIsLoading(false);
-      void resolveInitialUser(false);
-    };
-    window.addEventListener('online', handleOnline);
-    return () => window.removeEventListener('online', handleOnline);
-  }, [isOffline, resolveInitialUser]);
 
   const login = useCallback(
     async (email: string, password: string): Promise<boolean> => {
@@ -307,12 +267,15 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       setIsLoading(true);
       try {
         try {
-          await account.deleteSession('current');
+          await callAccount(() => account.deleteSession('current'));
         } catch {
-          // Session may not exist.
+          // Session may not exist or the network may be unavailable. The
+          // create-session call below remains the authoritative login action.
         }
-        await account.createEmailPasswordSession(email, password);
-        const resolved = await account.get();
+        await callAccount(() =>
+          account.createEmailPasswordSession(email, password)
+        );
+        const resolved = await callAccount(() => account.get());
         if (
           !isMountedRef.current ||
           generation !== authGenerationRef.current
@@ -321,8 +284,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         }
         writeCachedUser(resolved);
         setUser(resolved);
+        setError(null);
         setIsLoading(false);
-        setIsOffline(false);
         broadcastAuth('login');
         return true;
       } catch (loginError: unknown) {
@@ -348,9 +311,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       setError(null);
       setIsLoading(true);
       try {
-        await account.create('unique()', email, password, name);
+        await callAccount(() => account.create('unique()', email, password, name));
         try {
-          await account.createEmailPasswordSession(email, password);
+          await callAccount(() =>
+            account.createEmailPasswordSession(email, password)
+          );
         } catch (sessionError: unknown) {
           const msg =
             sessionError instanceof Error ? sessionError.message : '';
@@ -358,7 +323,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             throw sessionError;
           }
         }
-        const resolved = await account.get();
+        const resolved = await callAccount(() => account.get());
         if (
           !isMountedRef.current ||
           generation !== authGenerationRef.current
@@ -367,8 +332,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         }
         writeCachedUser(resolved);
         setUser(resolved);
+        setError(null);
         setIsLoading(false);
-        setIsOffline(false);
         broadcastAuth('login');
         return true;
       } catch (signupError: unknown) {
@@ -393,7 +358,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     setError(null);
     setIsLoading(true);
     try {
-      await account.deleteSession('current');
+      await callAccount(() => account.deleteSession('current'));
       if (
         !isMountedRef.current ||
         generation !== authGenerationRef.current
@@ -403,7 +368,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       clearCachedUser();
       setUser(null);
       setIsLoading(false);
-      setIsOffline(false);
       broadcastAuth('logout');
       return true;
     } catch (logoutError: unknown) {
@@ -426,8 +390,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       const generation = authGenerationRef.current;
       setError(null);
       try {
-        await account.updateEmail(newEmail, password);
-        const resolved = await account.get();
+        await callAccount(() => account.updateEmail(newEmail, password));
+        const resolved = await callAccount(() => account.get());
         if (
           !isMountedRef.current ||
           generation !== authGenerationRef.current
@@ -459,7 +423,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     async (newPassword: string, oldPassword: string): Promise<boolean> => {
       setError(null);
       try {
-        await account.updatePassword(newPassword, oldPassword);
+        await callAccount(() =>
+          account.updatePassword(newPassword, oldPassword)
+        );
         return true;
       } catch (updateError: unknown) {
         if (!isMountedRef.current) return false;
@@ -475,10 +441,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   );
 
   const retry = useCallback(async () => {
-    setIsLoading(true);
-    authGenerationRef.current += 1;
-    await resolveInitialUser(false);
-  }, [resolveInitialUser]);
+    if (getConnectivitySnapshot().status === 'offline') {
+      markConnectivityChecking('manual-retry');
+    }
+    await verifyLiveSession();
+  }, [verifyLiveSession]);
 
   return (
     <AuthContext.Provider
