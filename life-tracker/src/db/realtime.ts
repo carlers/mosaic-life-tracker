@@ -2,22 +2,21 @@ import { getDatabase, type AppDatabaseCollections } from './database';
 import { guardedRealtime, type RealtimeUnsubscribe } from '../lib/sdk';
 import { fromAppwriteFormat } from '../lib/syncMapping';
 import type { RxCollection } from 'rxdb';
+import { APPWRITE_DATABASE_ID, APPWRITE_TABLES } from '../lib/appwriteConfig';
 
 const DEBUG = import.meta.env.DEV;
-
-const APPWRITE_DATABASE_ID = 'life_tracker';
 
 // Same table-name map as sync.ts. Kept duplicated (rather than imported)
 // because importing sync.ts from realtime.ts would create a cycle once
 // sync.ts wants to schedule a sync on a realtime event. The map is
 // small and stable — sync.ts is the canonical source, this is a mirror.
 const TABLES: Record<keyof AppDatabaseCollections, string> = {
-  tasks: 'tasks',
-  categories: 'categories',
-  diary: 'diary',
-  settings: 'settings',
-  friendships: 'friendships',
-  messages: 'messages',
+  tasks: APPWRITE_TABLES.tasks,
+  categories: APPWRITE_TABLES.categories,
+  diary: APPWRITE_TABLES.diary,
+  settings: APPWRITE_TABLES.settings,
+  friendships: APPWRITE_TABLES.friendships,
+  messages: APPWRITE_TABLES.messages,
 };
 
 const ALL_COLLECTIONS: (keyof AppDatabaseCollections)[] = [

@@ -1,7 +1,7 @@
 const crypto = require('crypto');
 const { Client, TablesDB, Query, Permission, Role } = require('node-appwrite');
 const { handleScheduledTombstoneGc } = require('./tombstone-gc');
-const DATABASE_ID = 'life_tracker';
+const DATABASE_ID = process.env.APPWRITE_DATABASE_ID || 'life_tracker';
 const MESSAGES_TABLE = 'messages';
 const FRIENDSHIPS_TABLE = 'friendships';
 const TASKS_TABLE = 'tasks';

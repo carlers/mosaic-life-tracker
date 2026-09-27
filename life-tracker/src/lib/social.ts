@@ -11,13 +11,14 @@ import {
   type SocialOutboxRevertInfo,
 } from './socialOutbox';
 import type { FriendshipDocument } from '../db/schema';
+import { APPWRITE_DATABASE_ID, APPWRITE_TABLES } from './appwriteConfig';
 
 const DEBUG = import.meta.env.DEV;
 const APPWRITE_CONFIG = {
-  databaseId: 'life_tracker',
+  databaseId: APPWRITE_DATABASE_ID,
   tables: {
-    profiles: 'profiles',
-    friendships: 'friendships',
+    profiles: APPWRITE_TABLES.profiles,
+    friendships: APPWRITE_TABLES.friendships,
   },
 } as const;
 
