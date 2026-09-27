@@ -51,8 +51,6 @@ export function useMyProfile(): UseMyProfileReturn {
   const runLoad = useCallback(async (): Promise<void> => {
     if (!userId) return;
     if (typeof navigator !== 'undefined' && navigator.onLine === false) {
-      setLoadedUserId(userId);
-      setError(null);
       return;
     }
     setError(null);
@@ -141,15 +139,20 @@ export function useMyProfile(): UseMyProfileReturn {
     []
   );
 
+  const isDefinitelyOffline =
+    typeof navigator !== 'undefined' && navigator.onLine === false;
   const isLoading =
     !!userId &&
+    !isDefinitelyOffline &&
     !cachedProfile &&
     loadedUserId !== userId;
+  const visibleError =
+    userId && loadedUserId === userId ? error : null;
 
   return {
     profile: visibleProfile,
     isLoading,
-    error,
+    error: visibleError,
     createProfile,
     refetch: runLoad,
     checkUsername,
