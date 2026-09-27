@@ -10,6 +10,7 @@ import {
 } from './messageActionQueue';
 import type { MessageDocument } from '../db/schema';
 import { getConnectivitySnapshot } from './connectivity';
+import { APPWRITE_MESSAGE_ACTION_FUNCTION_ID } from './appwriteConfig';
 const DEBUG = import.meta.env.DEV;
 export const MESSAGE_ACTION_FUNCTION_ID =\n  import.meta.env.VITE_APPWRITE_MESSAGE_ACTION_FUNCTION_ID?.trim() ||\n  '6aa8057f002a4c306fdd';
 const SEND_TIMEOUT_MS = 15_000;

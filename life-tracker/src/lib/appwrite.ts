@@ -1,4 +1,5 @@
 import { Client, Account } from 'appwrite';
+import { APPWRITE_ENDPOINT, APPWRITE_PROJECT_ID } from './appwriteConfig';
 
 export const APPWRITE_ENDPOINT =
   import.meta.env.VITE_APPWRITE_ENDPOINT?.trim() ||
