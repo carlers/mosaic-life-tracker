@@ -85,20 +85,35 @@ function buildFilePermissions(userId: string) {
   ];
 }
 
-export async function uploadImage(file: File): Promise<string> {
-  const userId = await getCurrentUserId();
-  if (!userId) {
-    throw new Error('Cannot upload image: no authenticated user');
-  }
+function isNotFoundError(error: unknown): boolean {
+  return (error as { code?: number } | null)?.code === 404;
+}
+
+function isConflictError(error: unknown): boolean {
+  return (error as { code?: number } | null)?.code === 409;
+}
+
+function isValidFileId(fileId: string): boolean {
+  return (
+    fileId.length > 0 &&
+    fileId.length <= 36 &&
+    /^[a-zA-Z0-9][a-zA-Z0-9._-]*$/.test(fileId)
+  );
+}
+
+async function uploadImageWithId(
+  file: File,
+  fileId: string,
+  userId: string
+): Promise<string> {
   const compressedBlob = await compressImage(file);
-  const fileId = generateFileId();
   const webpFile = new File([compressedBlob], `${fileId}.webp`, {
     type: 'image/webp',
   });
   try {
     await guardedStorage.createFile({
       bucketId: APPWRITE_CONFIG.bucketId,
-      fileId: fileId,
+      fileId,
       file: webpFile,
       permissions: buildFilePermissions(userId),
     });
@@ -111,6 +126,59 @@ export async function uploadImage(file: File): Promise<string> {
       }`,
       { cause: error }
     );
+  }
+}
+
+export async function uploadImage(file: File): Promise<string> {
+  const userId = await getCurrentUserId();
+  if (!userId) {
+    throw new Error('Cannot upload image: no authenticated user');
+  }
+  return uploadImageWithId(file, generateFileId(), userId);
+}
+
+export interface EnsuredImage {
+  fileId: string;
+  uploaded: boolean;
+}
+
+/**
+ * Restore-specific image path. A deterministic/preferred file ID makes
+ * repeated backup restores idempotent instead of leaking a new Storage file
+ * every time. A create race that reports 409 is treated as successful reuse.
+ */
+export async function ensureRestoredImage(
+  file: File,
+  preferredFileId: string
+): Promise<EnsuredImage> {
+  if (!isValidFileId(preferredFileId)) {
+    throw new Error('Backup image has an invalid file ID.');
+  }
+
+  const userId = await getCurrentUserId();
+  if (!userId) {
+    throw new Error('Cannot restore image: no authenticated user');
+  }
+
+  try {
+    await guardedStorage.getFile({
+      bucketId: APPWRITE_CONFIG.bucketId,
+      fileId: preferredFileId,
+    });
+    return { fileId: preferredFileId, uploaded: false };
+  } catch (error) {
+    if (!isNotFoundError(error)) throw error;
+  }
+
+  try {
+    await uploadImageWithId(file, preferredFileId, userId);
+    return { fileId: preferredFileId, uploaded: true };
+  } catch (error) {
+    const cause = (error as Error & { cause?: unknown }).cause;
+    if (isConflictError(cause)) {
+      return { fileId: preferredFileId, uploaded: false };
+    }
+    throw error;
   }
 }
 
