@@ -4,7 +4,6 @@ import {
   screen,
   fireEvent,
   act,
-  waitFor,
 } from '@testing-library/react';
 
 const statusRef = vi.hoisted(() => ({
@@ -121,12 +120,12 @@ describe('SyncStatusSheet', () => {
       expect(button).not.toBeNull();
       expect(button).not.toBeDisabled();
 
-      fireEvent.click(button as Element);
-      await vi.runAllTicks();
+      await act(async () => {
+        fireEvent.click(button as Element);
+        await Promise.resolve();
+      });
 
-      await waitFor(() =>
-        expect(forceSyncMock).toHaveBeenCalledWith('user_A')
-      );
+      expect(forceSyncMock).toHaveBeenCalledWith('user_A');
       expect(button).toBeDisabled();
 
       fireEvent.click(button as Element);
