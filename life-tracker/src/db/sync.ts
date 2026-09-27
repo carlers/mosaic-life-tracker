@@ -11,6 +11,7 @@ import {
 import { markOfflineDataReady } from '../lib/offlineReadiness';
 import { isPendingImageId, deletePendingImage } from '../lib/pendingImages';
 import { uploadPendingImage } from '../lib/storage';
+import { getConnectivitySnapshot } from '../lib/connectivity';
 export { toAppwriteFormat, fromAppwriteFormat };
 export { getSyncStatus, subscribeToSyncStatus } from '../lib/syncStatus';
 const APPWRITE_CONFIG = {
@@ -287,8 +288,8 @@ export async function initializeSync(userId: string): Promise<void> {
     updateSyncStatus({ isSyncing: false });
     return;
   }
-  if (typeof navigator !== 'undefined' && navigator.onLine === false) {
-    if (DEBUG) console.log('[Sync] Offline, skipping sync');
+  if (getConnectivitySnapshot().status !== 'online') {
+    if (DEBUG) console.log('[Sync] Reachability not confirmed, skipping sync');
     updateSyncStatus({ isSyncing: false });
     return;
   }

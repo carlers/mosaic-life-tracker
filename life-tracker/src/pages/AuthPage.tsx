@@ -1,9 +1,8 @@
-import React, { useId, useState } from 'react';
+import React, { useEffect, useId, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
-import { motion } from 'framer-motion';
 import { Eye, EyeOff } from 'lucide-react';
 
 export const AuthPage: React.FC = () => {
@@ -12,9 +11,13 @@ export const AuthPage: React.FC = () => {
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const { login, signup, isLoading, error } = useAuth();
+  const { user, login, signup, isLoading, error } = useAuth();
   const navigate = useNavigate();
   const passwordId = useId();
+
+  useEffect(() => {
+    if (user) navigate('/home', { replace: true });
+  }, [navigate, user]);
 
   const switchToLogin = () => {
     setIsLogin(true);
@@ -39,11 +42,7 @@ export const AuthPage: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-[#111111] text-white flex items-center justify-center p-6">
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="w-full max-w-md bg-[#1E1E1E] rounded-2xl p-8 border border-[#333333] shadow-2xl"
-      >
+      <div className="w-full max-w-md bg-[#1E1E1E] rounded-2xl p-8 border border-[#333333] shadow-2xl">
         <h1 className="text-2xl font-bold text-center mb-2">
           {isLogin ? 'Welcome Back' : 'Create Account'}
         </h1>
@@ -129,7 +128,7 @@ export const AuthPage: React.FC = () => {
             {isLoading ? 'Processing...' : isLogin ? 'Sign In' : 'Create Account'}
           </Button>
         </form>
-      </motion.div>
+      </div>
     </div>
   );
 };

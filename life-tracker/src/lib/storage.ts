@@ -7,6 +7,7 @@ import {
 } from './authEvents';
 import { guardedStorage, guardedAccount } from './sdk';
 import { getCachedImage, cacheImage, deleteCachedImage } from './imageCache';
+import { getConnectivitySnapshot } from './connectivity';
 import {
   createPendingImage,
   deletePendingImage,
@@ -151,10 +152,7 @@ export async function saveImage(
 ): Promise<string> {
   if (!userId) throw new Error('Cannot save image: no authenticated user');
   const compressedBlob = await compressImage(file);
-  if (
-    typeof navigator !== 'undefined' &&
-    navigator.onLine === false
-  ) {
+  if (getConnectivitySnapshot().status !== 'online') {
     return createPendingImage(userId, compressedBlob);
   }
   try {
@@ -266,7 +264,7 @@ export async function getLocalImageUrl(fileId: string): Promise<string | null> {
   if (cachedBlob) {
     return URL.createObjectURL(cachedBlob);
   }
-  if (!navigator.onLine) return null;
+  if (getConnectivitySnapshot().status !== 'online') return null;
   try {
     const url = guardedStorage.getFileView({
       bucketId: APPWRITE_CONFIG.bucketId,

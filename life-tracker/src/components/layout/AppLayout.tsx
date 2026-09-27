@@ -1,15 +1,10 @@
-import React, { useEffect, useState } from 'react';
+import React, { lazy, Suspense, useEffect, useState } from 'react';
 import { Outlet, useLocation, useNavigate, Navigate } from 'react-router-dom';
 import { WifiOff, UserX } from 'lucide-react';
-import { MainLayout } from './MainLayout';
-import { FriendsProvider } from '../../hooks/FriendsProvider';
-import { ConversationsProvider } from '../../hooks/ConversationsProvider';
 import { useAuth } from '../../hooks/useAuth';
 import { useConnectivity } from '../../hooks/useConnectivity';
 import { useDatabaseBootstrap } from '../../hooks/useDatabaseBootstrap';
 import { retryDatabaseBootstrap } from '../../lib/databaseBootstrap';
-import { AppearanceProvider } from '../../hooks/AppearanceProvider';
-import { flushSocialOutbox } from '../../lib/socialOutbox';
 import { PrimaryRoutePreview } from './PrimaryRoutePreview';
 import {
   getPrimaryRoutePreloadTargets,
@@ -25,6 +20,66 @@ import {
 } from '../../lib/primarySwipeNavigation';
 
 const RETRY_COOLDOWN_MS = 2000;
+
+let appDataShellPromise:
+  | Promise<typeof import('./AppDataShell')>
+  | null = null;
+
+function loadAppDataShell() {
+  appDataShellPromise ??= import('./AppDataShell').catch((error) => {
+    appDataShellPromise = null;
+    throw error;
+  });
+  return appDataShellPromise;
+}
+
+const LazyAppDataShell = lazy(() =>
+  loadAppDataShell().then(({ AppDataShell }) => ({ default: AppDataShell }))
+);
+
+const LocalDataStartupShell: React.FC<{
+  connectivity: 'checking' | 'online' | 'offline';
+}> = ({ connectivity }) => (
+  <div className="h-screen w-full bg-[#111111] text-white flex flex-col overflow-hidden">
+    <div className="flex items-center justify-between px-4 py-3 border-b border-[#222222]">
+      <div>
+        <p className="text-sm font-semibold">Mosaic</p>
+        <p className="text-[11px] text-gray-500">Opening your local data…</p>
+      </div>
+      <span className="text-xs text-gray-400" aria-label={
+        connectivity === 'online'
+          ? 'Online'
+          : connectivity === 'offline'
+            ? 'Offline'
+            : 'Checking connection'
+      }>
+        {connectivity === 'online'
+          ? 'Online'
+          : connectivity === 'offline'
+            ? 'Offline'
+            : 'Checking'}
+      </span>
+    </div>
+
+    <div className="flex-1 px-4 py-4 space-y-3" aria-hidden="true">
+      <div className="h-10 rounded-xl bg-[#1A1A1A]" />
+      <div className="h-24 rounded-xl bg-[#1A1A1A]" />
+      <div className="h-24 rounded-xl bg-[#1A1A1A]" />
+      <div className="h-16 rounded-xl bg-[#1A1A1A]" />
+    </div>
+
+    <div className="grid grid-cols-5 border-t border-[#222222] px-2 py-3 text-[10px] text-gray-500">
+      <span className="text-center text-white">Home</span>
+      <span className="text-center">Explore</span>
+      <span className="text-center">Alerts</span>
+      <span className="text-center">Chat</span>
+      <span className="text-center">Me</span>
+    </div>
+    <span className="sr-only" role="status" aria-live="polite">
+      Opening local data
+    </span>
+  </div>
+);
 
 let realtimeModulePromise: Promise<typeof import('../../db/realtime')> | null =
   null;
@@ -51,7 +106,7 @@ function loadMessageDeliveryModule() {
 }
 
 export const AppLayout: React.FC = () => {
-  const { user, isLoading, isOffline, error, retry } = useAuth();
+  const { user, isOffline, error, retry } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
   const path = location.pathname;
@@ -60,15 +115,22 @@ export const AppLayout: React.FC = () => {
   const [retryDisabled, setRetryDisabled] = useState(false);
   const [conversationNeighborReadyFor, setConversationNeighborReadyFor] =
     useState<string | null>(null);
-  const isOnline = useConnectivity();
+  const connectivity = useConnectivity();
   const database = useDatabaseBootstrap();
+
+  useEffect(() => {
+    if (!user?.$id) return;
+    void loadAppDataShell().catch((shellError) => {
+      console.error('[AppLayout] data shell preload failed:', shellError);
+    });
+  }, [user?.$id]);
 
   // Realtime is background infrastructure, not shell-rendering code. Load it
   // after React commits the authenticated layout instead of pulling it into
   // the synchronous startup graph.
   useEffect(() => {
     const uid = user?.$id;
-    if (!uid || isOffline || !isOnline || database.state !== 'ready') return;
+    if (!uid || isOffline || connectivity.status !== 'online' || database.state !== 'ready') return;
 
     let active = true;
     let stopRealtime: (() => void) | null = null;
@@ -87,24 +149,26 @@ export const AppLayout: React.FC = () => {
       active = false;
       stopRealtime?.();
     };
-  }, [database.state, isOffline, isOnline, user?.$id]);
+  }, [connectivity.status, database.state, isOffline, user?.$id]);
 
   useEffect(() => {
     const uid = user?.$id;
-    if (!uid || isOffline || !isOnline || database.state !== 'ready') return;
+    if (!uid || isOffline || connectivity.status !== 'online' || database.state !== 'ready') return;
 
     let active = true;
     const tryDeliver = () => {
-      if (typeof navigator !== 'undefined' && navigator.onLine === false) return;
+      if (connectivity.status !== 'online') return;
       void loadMessageDeliveryModule()
         .then((messageDelivery) => {
           if (!active) return;
           messageDelivery.deliverPendingMessages(uid).catch((err) =>
             console.error('[AppLayout] delivery failed:', err)
           );
-          flushSocialOutbox(uid).catch((err) =>
-            console.error('[AppLayout] social outbox flush failed:', err)
-          );
+          void import('../../lib/socialOutbox')
+            .then(({ flushSocialOutbox }) => flushSocialOutbox(uid))
+            .catch((err) =>
+              console.error('[AppLayout] social outbox flush failed:', err)
+            );
         })
         .catch((err) =>
           console.error('[AppLayout] delivery modules failed:', err)
@@ -119,7 +183,7 @@ export const AppLayout: React.FC = () => {
       window.removeEventListener('focus', tryDeliver);
       window.removeEventListener('online', tryDeliver);
     };
-  }, [database.state, isOffline, isOnline, user?.$id]);
+  }, [connectivity.status, database.state, isOffline, user?.$id]);
 
 
   useEffect(() => {
@@ -129,9 +193,7 @@ export const AppLayout: React.FC = () => {
     let timer: number | null = null;
     let active = true;
     const schedule = (reason: string) => {
-      if (!active || typeof navigator === 'undefined' || navigator.onLine === false) {
-        return;
-      }
+      if (!active || connectivity.status !== 'online') return;
       if (timer !== null) window.clearTimeout(timer);
       timer = window.setTimeout(() => {
         timer = null;
@@ -158,7 +220,7 @@ export const AppLayout: React.FC = () => {
       window.removeEventListener('online', onOnline);
       document.removeEventListener('visibilitychange', onVisibility);
     };
-  }, [database.state, isOffline, user?.$id]);
+  }, [connectivity.status, database.state, isOffline, user?.$id]);
 
   useEffect(() => {
     if (!user?.$id) return;
@@ -184,22 +246,15 @@ export const AppLayout: React.FC = () => {
     return () => window.clearTimeout(timer);
   }, [path, user?.$id]);
 
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-[#111111] flex items-center justify-center" role="status" aria-live="polite">
-        <div className="w-8 h-8 border-2 border-white border-t-transparent rounded-full animate-spin" />
-        <span className="sr-only">Loading Mosaic</span>
-      </div>
-    );
-  }
-
   if (!user && isOffline) {
-    const headline = isOnline
-      ? "We couldn't reach the server"
-      : "You're offline";
-    const body = isOnline
-      ? error || 'Try again in a moment.'
-      : 'Reconnect to continue.';
+    const headline =
+      connectivity.status === 'checking'
+        ? 'Checking connection'
+        : "You're offline";
+    const body =
+      connectivity.status === 'checking'
+        ? error || 'Trying to reach Mosaic sync in the background.'
+        : 'Reconnect to continue.';
     const handleRetry = async () => {
       if (retryDisabled) return;
       setRetryDisabled(true);
@@ -247,18 +302,7 @@ export const AppLayout: React.FC = () => {
   }
 
   if (database.state === 'idle' || database.state === 'loading') {
-    return (
-      <div
-        className="min-h-screen bg-[#111111] flex items-center justify-center px-6"
-        role="status"
-        aria-live="polite"
-      >
-        <div className="text-center">
-          <div className="mx-auto mb-3 h-6 w-6 rounded-full border-2 border-gray-500 border-t-transparent animate-spin" />
-          <p className="text-sm text-gray-400">Opening offline data…</p>
-        </div>
-      </div>
-    );
+    return <LocalDataStartupShell connectivity={connectivity.status} />;
   }
 
   if (database.state === 'error') {
@@ -333,32 +377,31 @@ export const AppLayout: React.FC = () => {
   const isChatDetail = /^\/messages\/[^/]+$/.test(path);
 
   return (
-    <AppearanceProvider>
-      <FriendsProvider>
-        <ConversationsProvider includeConversations={includeConversations}>
-          <MainLayout
-            activeTab={activeTab}
-            routeKey={path}
-            onTabChange={handleTabChange}
-            canSwipeLeft={Boolean(leftSwipeDestination)}
-            canSwipeRight={Boolean(rightSwipeDestination)}
-            leftPreview={
-              leftSwipeDestination ? (
-                <PrimaryRoutePreview pathname={leftSwipeDestination} />
-              ) : null
-            }
-            rightPreview={
-              rightSwipeDestination ? (
-                <PrimaryRoutePreview pathname={rightSwipeDestination} />
-              ) : null
-            }
-            onRouteSwipe={handleRouteSwipe}
-            hideBottomNav={isChatDetail}
-          >
-            <Outlet />
-          </MainLayout>
-        </ConversationsProvider>
-      </FriendsProvider>
-    </AppearanceProvider>
+    <Suspense
+      fallback={<LocalDataStartupShell connectivity={connectivity.status} />}
+    >
+      <LazyAppDataShell
+        includeConversations={includeConversations}
+        activeTab={activeTab}
+        routeKey={path}
+        onTabChange={handleTabChange}
+        canSwipeLeft={Boolean(leftSwipeDestination)}
+        canSwipeRight={Boolean(rightSwipeDestination)}
+        leftPreview={
+          leftSwipeDestination ? (
+            <PrimaryRoutePreview pathname={leftSwipeDestination} />
+          ) : null
+        }
+        rightPreview={
+          rightSwipeDestination ? (
+            <PrimaryRoutePreview pathname={rightSwipeDestination} />
+          ) : null
+        }
+        onRouteSwipe={handleRouteSwipe}
+        hideBottomNav={isChatDetail}
+      >
+        <Outlet />
+      </LazyAppDataShell>
+    </Suspense>
   );
 };

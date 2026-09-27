@@ -29,7 +29,9 @@ export const SyncStatusSheet: React.FC<SyncStatusSheetProps> = ({
   onClose,
 }) => {
   const { user } = useAuth();
-  const isOnline = useConnectivity();
+  const connectivity = useConnectivity();
+  const isOnline = connectivity.status === 'online';
+  const isOffline = connectivity.status === 'offline';
   const readiness = useOfflineReadiness(user?.$id);
   const [status, setStatus] = useState<SyncStatus>(() => getSyncStatus());
   const [isManualSyncDisabled, setIsManualSyncDisabled] = useState(false);
@@ -78,17 +80,25 @@ export const SyncStatusSheet: React.FC<SyncStatusSheetProps> = ({
         <div className="bg-[#1A1A1A] rounded-xl p-4 flex items-center gap-3">
           {isOnline ? (
             <Wifi size={20} className="text-emerald-500 flex-shrink-0" />
-          ) : (
+          ) : isOffline ? (
             <WifiOff size={20} className="text-amber-400 flex-shrink-0" />
+          ) : (
+            <Wifi size={20} className="text-gray-500 flex-shrink-0" />
           )}
           <div className="flex-1 min-w-0">
             <p className="text-sm font-medium text-white">
-              {isOnline ? 'Online' : 'Offline'}
+              {isOnline
+                ? 'Online'
+                : isOffline
+                  ? 'Offline'
+                  : 'Checking connection'}
             </p>
             <p className="text-xs text-gray-400 mt-0.5">
               {isOnline
-                ? 'Mosaic can reconcile local changes with sync.'
-                : 'Personal data stays available locally. Sync resumes when you reconnect.'}
+                ? 'Mosaic has confirmed Appwrite is reachable.'
+                : isOffline
+                  ? 'Personal data stays available locally. Sync resumes when Mosaic can reach Appwrite again.'
+                  : 'Mosaic is verifying sync reachability in the background.'}
             </p>
           </div>
         </div>
@@ -114,8 +124,10 @@ export const SyncStatusSheet: React.FC<SyncStatusSheetProps> = ({
           )}
           <div className="flex-1 min-w-0">
             <p className="text-sm font-medium text-white">
-              {!isOnline
-                ? 'Sync paused'
+              {connectivity.status === 'checking'
+                ? 'Waiting for connection check'
+                : isOffline
+                  ? 'Sync paused'
                 : status.isSyncing
                   ? 'Syncing…'
                   : errorCount > 0
@@ -193,8 +205,10 @@ export const SyncStatusSheet: React.FC<SyncStatusSheetProps> = ({
             size={16}
             className={status.isSyncing ? 'animate-spin' : ''}
           />
-          {!isOnline
-            ? 'Sync resumes when online'
+          {connectivity.status === 'checking'
+            ? 'Checking connection…'
+            : isOffline
+              ? 'Sync resumes when online'
             : status.isSyncing
               ? 'Syncing…'
               : 'Sync Now'}

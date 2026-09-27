@@ -59,8 +59,8 @@ export interface UseFriendCarouselReturn {
 
 export function useFriendCarousel(): UseFriendCarouselReturn {
   const { user, isOffline } = useAuth();
-  const isOnline = useConnectivity();
-  const canUseNetwork = isOnline && !isOffline;
+  const connectivity = useConnectivity();
+  const canUseNetwork = connectivity.status === 'online' && !isOffline;
   const { friends, isLoading: friendsLoading } = useFriends();
   const { profile, isLoading: profileLoading } = useMyProfile();
   const { settings, isLoading: settingsLoading, setSetting } = useSettings();

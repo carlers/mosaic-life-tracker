@@ -27,8 +27,8 @@ export interface UseMyProfileReturn {
 
 export function useMyProfile(): UseMyProfileReturn {
   const { user, isOffline } = useAuth();
-  const isOnline = useConnectivity();
-  const canUseNetwork = isOnline && !isOffline;
+  const connectivity = useConnectivity();
+  const canUseNetwork = connectivity.status === 'online' && !isOffline;
   const userId = user?.$id;
   const cachedProfile = useMemo(
     () => (userId ? readCachedOwnProfile(userId) : null),

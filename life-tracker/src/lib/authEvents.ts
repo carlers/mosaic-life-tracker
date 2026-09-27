@@ -1,3 +1,4 @@
+import { reportConnectivityResult } from './connectivity';
 export const AUTH_UNAUTHORIZED_EVENT = 'auth:unauthorized';
 
 export function isUnauthorizedError(err: unknown): boolean {
@@ -45,8 +46,11 @@ export function isOfflineError(err: unknown): boolean {
 
 export async function guardedCall<T>(fn: () => Promise<T>): Promise<T> {
   try {
-    return await fn();
+    const result = await fn();
+    reportConnectivityResult();
+    return result;
   } catch (err) {
+    reportConnectivityResult(err);
     if (isUnauthorizedError(err)) dispatchUnauthorized();
     throw err;
   }

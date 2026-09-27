@@ -9,6 +9,7 @@ import {
   setMessageActionSender,
 } from './messageActionQueue';
 import type { MessageDocument } from '../db/schema';
+import { getConnectivitySnapshot } from './connectivity';
 const DEBUG = import.meta.env.DEV;
 export const MESSAGE_ACTION_FUNCTION_ID = '6aa8057f002a4c306fdd';
 const SEND_TIMEOUT_MS = 15_000;
@@ -18,7 +19,7 @@ let deliveryRequestedDuringFlight = false;
 export async function sendMessageAction(
   payload: Record<string, unknown>
 ): Promise<Record<string, unknown>> {
-  if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+  if (getConnectivitySnapshot().status !== 'online') {
     throw new Error('Offline');
   }
   if (MESSAGE_ACTION_FUNCTION_ID.startsWith('REPLACE_')) {
@@ -94,7 +95,7 @@ export async function deliverPendingMessages(userId: string): Promise<void> {
     deliveryRequestedDuringFlight = true;
     return inFlightDeliveryPromise;
   }
-  if (typeof navigator !== 'undefined' && navigator.onLine === false) return;
+  if (getConnectivitySnapshot().status !== 'online') return;
   if (!userId) return;
   if (MESSAGE_ACTION_FUNCTION_ID.startsWith('REPLACE_')) {
     if (DEBUG) {

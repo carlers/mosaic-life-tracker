@@ -7,6 +7,7 @@ import { useSheetReset } from '../../hooks/useSheetReset';
 import { useMyProfile } from '../../hooks/useMyProfile';
 import { useAuth } from '../../hooks/useAuth';
 import { isOfflineError } from '../../lib/authEvents';
+import { useConnectivity } from '../../hooks/useConnectivity';
 
 interface SetUsernameSheetProps {
   isOpen: boolean;
@@ -22,6 +23,7 @@ export const SetUsernameSheet: React.FC<SetUsernameSheetProps> = ({
   onSuccess,
 }) => {
   const { user } = useAuth();
+  const connectivity = useConnectivity();
   const { profile, createProfile, checkUsername } = useMyProfile();
   const [username, setUsername] = useState('');
   const [displayName, setDisplayName] = useState('');
@@ -84,8 +86,7 @@ export const SetUsernameSheet: React.FC<SetUsernameSheetProps> = ({
     } catch (err) {
       console.error('[SetUsernameSheet] Save failed:', err);
       const offline =
-        isOfflineError(err) ||
-        (typeof navigator !== 'undefined' && navigator.onLine === false);
+        isOfflineError(err) || connectivity.status !== 'online';
       setError(
         offline
           ? "You're offline. Reconnect to save your profile."

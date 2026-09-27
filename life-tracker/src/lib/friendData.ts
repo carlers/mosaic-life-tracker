@@ -1,3 +1,4 @@
+import { getConnectivitySnapshot } from './connectivity';
 import { ExecutionMethod } from 'appwrite';
 import { MESSAGE_ACTION_FUNCTION_ID } from './messageDelivery';
 import { guardedFunctions } from './sdk';
@@ -67,8 +68,7 @@ export async function fetchFriendCalendar(
   friendUserId: string,
   options: FetchFriendOptions = {}
 ): Promise<FriendCalendarBundle> {
-  const offline =
-    typeof navigator !== 'undefined' && navigator.onLine === false;
+  const offline = getConnectivitySnapshot().status !== 'online';
   if (!options.forceRefresh) {
     const cached = await getCachedCalendar(ownerUserId, friendUserId, {
       allowStale: offline,

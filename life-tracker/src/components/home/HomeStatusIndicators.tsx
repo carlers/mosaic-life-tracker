@@ -20,13 +20,17 @@ const LazySyncStatusSheet = React.lazy(() =>
 
 export const HomeStatusIndicators: React.FC = () => {
   const { user } = useAuth();
-  const isOnline = useConnectivity();
+  const connectivity = useConnectivity();
+  const isOnline = connectivity.status === 'online';
+  const isOffline = connectivity.status === 'offline';
   const sync = useSyncStatus();
   const readiness = useOfflineReadiness(user?.$id);
   const [isSheetOpen, setIsSheetOpen] = useState(false);
 
-  const syncLabel = !isOnline
-    ? 'Sync paused while offline'
+  const syncLabel = connectivity.status === 'checking'
+    ? 'Checking connection'
+    : isOffline
+      ? 'Sync paused while offline'
     : sync.isSyncing
       ? 'Syncing'
       : sync.errors.length > 0
@@ -37,7 +41,9 @@ export const HomeStatusIndicators: React.FC = () => {
             ? 'Preparing offline access'
             : 'Waiting for first sync';
 
-  const syncIcon = !isOnline ? (
+  const syncIcon = connectivity.status === 'checking' ? (
+    <Cloud size={16} aria-hidden="true" />
+  ) : isOffline ? (
     <Cloud size={16} aria-hidden="true" />
   ) : sync.isSyncing ? (
     <RefreshCw size={16} className="animate-spin" aria-hidden="true" />
@@ -57,18 +63,34 @@ export const HomeStatusIndicators: React.FC = () => {
         <button
           type="button"
           onClick={openStatus}
-          aria-label={isOnline ? 'Online' : 'Offline'}
-          title={isOnline ? 'Online' : 'Offline'}
+          aria-label={
+            isOnline
+              ? 'Online'
+              : isOffline
+                ? 'Offline'
+                : 'Checking connection'
+          }
+          title={
+            isOnline
+              ? 'Online'
+              : isOffline
+                ? 'Offline'
+                : 'Checking connection'
+          }
           className={
             isOnline
               ? 'rounded-lg p-1.5 text-emerald-500/80 transition-colors hover:bg-[#1E1E1E] hover:text-emerald-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60'
-              : 'rounded-lg p-1.5 text-amber-400 transition-colors hover:bg-[#1E1E1E] focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/60'
+              : isOffline
+                ? 'rounded-lg p-1.5 text-amber-400 transition-colors hover:bg-[#1E1E1E] focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/60'
+                : 'rounded-lg p-1.5 text-gray-500 transition-colors hover:bg-[#1E1E1E] hover:text-gray-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-gray-500/60'
           }
         >
           {isOnline ? (
             <Wifi size={16} aria-hidden="true" />
-          ) : (
+          ) : isOffline ? (
             <WifiOff size={16} aria-hidden="true" />
+          ) : (
+            <Wifi size={16} aria-hidden="true" />
           )}
         </button>
         <button

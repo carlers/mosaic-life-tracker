@@ -16,8 +16,10 @@ import { initializeAppearance } from './lib/appearance';
 import { initializeScreenLayout } from './lib/screenLayout';
 import { startDatabaseBootstrap } from './lib/databaseBootstrap';
 import { markStartup } from './lib/startupMetrics';
+import { initializeConnectivity } from './lib/connectivity';
 
 markStartup('bootstrap:start');
+initializeConnectivity(window);
 initializeAppearance();
 initializeScreenLayout();
 installChunkLoadErrorTracking();
@@ -48,10 +50,18 @@ window.requestAnimationFrame(() => {
   markStartup('react:mounted');
 });
 
-// Login gets a clean first paint before RxDB downloads/evaluates. If the user
-// authenticates before this idle preload fires, AuthProvider's DB wait starts
-// the same singleton bootstrap immediately.
-if (window.location.pathname === '/login') {
+// A previously-hydrated account is likely to redirect straight from /login
+// to Home, so overlap DB opening immediately. A genuinely logged-out Login
+// gets first paint before RxDB work begins.
+const hasCachedIdentity = (() => {
+  try {
+    return Boolean(localStorage.getItem('mosaic_last_known_user'));
+  } catch {
+    return false;
+  }
+})();
+
+if (window.location.pathname === '/login' && !hasCachedIdentity) {
   if (typeof window.requestIdleCallback === 'function') {
     window.requestIdleCallback(beginDatabaseBootstrap, { timeout: 1200 });
   } else {

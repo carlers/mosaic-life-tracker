@@ -1,20 +1,18 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useSyncExternalStore } from 'react';
+import {
+  getConnectivitySnapshot,
+  initializeConnectivity,
+  subscribeToConnectivity,
+} from '../lib/connectivity';
 
-export function useConnectivity(): boolean {
-  const [isOnline, setIsOnline] = useState(
-    typeof navigator !== 'undefined' ? navigator.onLine : true
-  );
-
+export function useConnectivity() {
   useEffect(() => {
-    const handleOnline = () => setIsOnline(true);
-    const handleOffline = () => setIsOnline(false);
-    window.addEventListener('online', handleOnline);
-    window.addEventListener('offline', handleOffline);
-    return () => {
-      window.removeEventListener('online', handleOnline);
-      window.removeEventListener('offline', handleOffline);
-    };
+    if (typeof window !== 'undefined') initializeConnectivity(window);
   }, []);
 
-  return isOnline;
+  return useSyncExternalStore(
+    subscribeToConnectivity,
+    getConnectivitySnapshot,
+    getConnectivitySnapshot
+  );
 }
