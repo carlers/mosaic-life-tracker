@@ -1,5 +1,16 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 
+const pendingRef = vi.hoisted(() => ({
+  create: vi.fn(),
+  get: vi.fn(),
+  remove: vi.fn(),
+}));
+const imageCacheRef = vi.hoisted(() => ({
+  get: vi.fn(),
+  cache: vi.fn(),
+  remove: vi.fn(),
+}));
+
 const sdkRef = vi.hoisted(() => ({
   guardedAccountGet: vi.fn(),
   guardedStorageCreateFile: vi.fn(),
@@ -25,11 +36,25 @@ vi.mock('../../src/lib/sdk', () => ({
 vi.mock('browser-image-compression', () => ({
   default: vi.fn(async (file: File) => file),
 }));
+vi.mock('../../src/lib/pendingImages', () => ({
+  createPendingImage: pendingRef.create,
+  getPendingImage: pendingRef.get,
+  deletePendingImage: pendingRef.remove,
+  isPendingImageId: (fileId: string) => fileId.startsWith('localimg_'),
+}));
+vi.mock('../../src/lib/imageCache', () => ({
+  getCachedImage: imageCacheRef.get,
+  cacheImage: imageCacheRef.cache,
+  deleteCachedImage: imageCacheRef.remove,
+}));
 
 import {
   uploadImage,
   getCurrentUserId,
   ensureRestoredImage,
+  saveImage,
+  uploadPendingImage,
+  deleteImage,
 } from '../../src/lib/storage';
 import { isOfflineError } from '../../src/lib/authEvents';
 
@@ -41,6 +66,13 @@ beforeEach(() => {
   sdkRef.guardedAccountGet.mockReset();
   sdkRef.guardedStorageCreateFile.mockReset();
   sdkRef.guardedStorageGetFile.mockReset();
+  sdkRef.guardedStorageDeleteFile.mockReset();
+  pendingRef.create.mockReset();
+  pendingRef.get.mockReset();
+  pendingRef.remove.mockReset();
+  imageCacheRef.get.mockReset();
+  imageCacheRef.cache.mockReset().mockResolvedValue(undefined);
+  imageCacheRef.remove.mockReset();
 });
 
 // Regression: §23.6 (confirmed 401 differs from network/offline uncertainty).
@@ -152,5 +184,75 @@ describe('storage.ensureRestoredImage — idempotent backup recovery', () => {
 
     expect(sdkRef.guardedStorageGetFile).not.toHaveBeenCalled();
     expect(sdkRef.guardedStorageCreateFile).not.toHaveBeenCalled();
+  });
+});
+
+
+describe('storage.saveImage — offline staging', () => {
+  it('stages a compressed image locally when definitely offline', async () => {
+    Object.defineProperty(globalThis, 'navigator', {
+      configurable: true,
+      value: { onLine: false },
+    });
+    pendingRef.create.mockResolvedValueOnce(
+      'localimg_0123456789abcdef0123456789'
+    );
+
+    await expect(saveImage(makeFile(), 'user_A')).resolves.toBe(
+      'localimg_0123456789abcdef0123456789'
+    );
+
+    expect(pendingRef.create).toHaveBeenCalledWith(
+      'user_A',
+      expect.any(Blob)
+    );
+    expect(sdkRef.guardedAccountGet).not.toHaveBeenCalled();
+    expect(sdkRef.guardedStorageCreateFile).not.toHaveBeenCalled();
+  });
+
+  it('falls back to local staging when the browser reports online but upload has a transient network failure', async () => {
+    Object.defineProperty(globalThis, 'navigator', {
+      configurable: true,
+      value: { onLine: true },
+    });
+    sdkRef.guardedStorageCreateFile.mockRejectedValueOnce(
+      new Error('Network down')
+    );
+    pendingRef.create.mockResolvedValueOnce(
+      'localimg_abcdef0123456789abcdef0123'
+    );
+
+    await expect(saveImage(makeFile(), 'user_A')).resolves.toBe(
+      'localimg_abcdef0123456789abcdef0123'
+    );
+    expect(pendingRef.create).toHaveBeenCalledOnce();
+  });
+
+  it('uses a deterministic remote id when reconciling a pending image', async () => {
+    pendingRef.get.mockResolvedValueOnce(
+      new Blob(['photo'], { type: 'image/webp' })
+    );
+    sdkRef.guardedStorageCreateFile.mockResolvedValueOnce({});
+
+    const remoteId = await uploadPendingImage(
+      'localimg_0123456789abcdef0123456789',
+      'user_A'
+    );
+
+    expect(remoteId).toBe('img_0123456789abcdef0123456789');
+    expect(sdkRef.guardedStorageCreateFile).toHaveBeenCalledWith(
+      expect.objectContaining({
+        fileId: 'img_0123456789abcdef0123456789',
+      })
+    );
+  });
+
+  it('deletes a pending image locally without issuing a Storage delete', async () => {
+    await deleteImage('localimg_0123456789abcdef0123456789');
+
+    expect(pendingRef.remove).toHaveBeenCalledWith(
+      'localimg_0123456789abcdef0123456789'
+    );
+    expect(sdkRef.guardedStorageDeleteFile).not.toHaveBeenCalled();
   });
 });
