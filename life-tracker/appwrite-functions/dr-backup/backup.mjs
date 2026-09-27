@@ -73,22 +73,36 @@ function jsonlBuffer(values) {
   return Buffer.from(lines.length ? `${lines.join('\n')}\n` : '', 'utf8');
 }
 
-async function listAll(listPage, itemKey) {
+async function listAll(
+  listPage,
+  itemKey,
+  { cursorField = '$id' } = {}
+) {
   const all = [];
   let cursor = null;
+  let offset = 0;
   for (;;) {
-    const queries = [Query.limit(PAGE_SIZE), Query.orderAsc('$id')];
-    if (cursor) queries.push(Query.cursorAfter(cursor));
+    const queries = [Query.limit(PAGE_SIZE)];
+    if (cursorField) {
+      queries.push(Query.orderAsc(cursorField));
+      if (cursor) queries.push(Query.cursorAfter(cursor));
+    } else if (offset > 0) {
+      queries.push(Query.offset(offset));
+    }
     const page = await listPage(queries);
     const items = Array.isArray(page?.[itemKey]) ? page[itemKey] : [];
     if (items.length === 0) break;
     all.push(...items);
     if (items.length < PAGE_SIZE) break;
-    const nextCursor = items.at(-1)?.$id;
-    if (!nextCursor || nextCursor === cursor) {
-      throw new Error(`Appwrite pagination stalled for ${itemKey}`);
+    if (cursorField) {
+      const nextCursor = items.at(-1)?.[cursorField];
+      if (!nextCursor || nextCursor === cursor) {
+        throw new Error(`Appwrite pagination stalled for ${itemKey}`);
+      }
+      cursor = nextCursor;
+    } else {
+      offset += items.length;
     }
-    cursor = nextCursor;
   }
   return all;
 }
@@ -391,7 +405,8 @@ export async function runBackup({
               queries,
               total: false,
             }),
-          'columns'
+          'columns',
+          { cursorField: null }
         ),
         listAll(
           (queries) =>
@@ -401,7 +416,8 @@ export async function runBackup({
               queries,
               total: false,
             }),
-          'indexes'
+          'indexes',
+          { cursorField: null }
         ),
         listAll(
           (queries) =>

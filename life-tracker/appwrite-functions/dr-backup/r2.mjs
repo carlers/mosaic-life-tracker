@@ -114,10 +114,11 @@ export function createR2Client(
     const canonicalHeaders =
       headerEntries.map(([name, value]) => `${name}:${value}`).join('\n') +
       '\n';
+    const queryString = canonicalQuery(params);
     const canonicalRequest = [
       method,
       path,
-      canonicalQuery(params),
+      queryString,
       canonicalHeaders + signedHeaders,
       payloadHash,
     ].join('\n');
@@ -137,7 +138,7 @@ export function createR2Client(
       `SignedHeaders=${signedHeaders}, Signature=${signature}`;
 
     const url = `${origin}${path}${
-      params.size ? `?${params.toString()}` : ''
+      queryString ? `?${queryString}` : ''
     }`;
     const response = await fetchImpl(url, {
       method,
