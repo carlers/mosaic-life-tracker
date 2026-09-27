@@ -2,47 +2,42 @@
 
 Updated: 2026-09-27
 
-Current task: implement user-controlled Backup & Restore from the current Export Data foundation, including safe merge and replace-personal-data restore modes.
+Current task: harden the accepted Backup & Restore feature after manual Preview acceptance, add explicit confirmation before Replace Personal Data, and audit/fix restore edge cases before promotion.
 
-Status: implementation is complete on `chatgpt/backup-restore`, targeting stable Preview `feature/backup-restore`, both based from `dev` commit `d1535b76092b8a9878f5cc52cd5f61c521376d63`.
+Status: active on `chatgpt/backup-restore-hardening`, based on accepted stable Preview `feature/backup-restore` commit `e1df461fa0fb2172491000c66d8af74454f69efc`.
 
 ## Working set
-- `src/lib/exportData.ts`, `src/lib/restoreData.ts`
-- `src/components/modals/ExportDataSheet.tsx`, `src/pages/SettingsPage.tsx`
-- backup/restore unit and Settings DOM regression coverage
-- `docs/BACKUP_RESTORE.md`, `docs/README.md`
+- `src/lib/restoreData.ts`, `src/lib/storage.ts`, `src/lib/sdk.ts`
+- `src/components/modals/ExportDataSheet.tsx`
+- backup/restore and storage regression coverage
+- `docs/BACKUP_RESTORE.md`
 
 ## Completed substeps
-- Created `feature/backup-restore` from the exact current `dev` tip and `chatgpt/backup-restore` as the working branch.
-- Audited and evolved the existing exporter into format v2 while retaining v1 JSON/ZIP restore compatibility.
-- Added validation/preview before restore writes.
-- Added default Merge semantics that keep current-only rows and preserve newer current versions/tombstones.
-- Added Replace Personal Data semantics for tasks/categories/diary/settings only, with a pre-restore safety download and tombstones for current personal rows absent from the backup.
-- Explicitly excluded friendships, messages, login/account state, and reciprocal social data from personal restore.
-- Added deterministic cross-account task/category ID remapping; diary/settings IDs are regenerated for the current account. Re-importing a backup does not create duplicate logical rows.
-- Added best-effort bundled-image upload/remapping; missing image recovery does not block personal data restore.
-- Replaced Settings → Export Data with the Backup & Restore sheet, including backup creation, file preview, mode selection, warnings, and progress feedback.
-- Focused Quality Gate run 903 passed on the complete feature/UI state before the final source-account ID-scope correction.
+- User manually verified the first Backup & Restore Preview works.
+- Audited the destructive/UI flow and restore ordering.
+- Identified a replace-safety defect: current-only rows are tombstoned before backup rows finish applying, so a write failure can leave deletions with an incomplete restore.
+- Identified image/idempotence waste: image blobs are restored before Merge decides which rows are actually eligible, causing unused uploads for newer/equal current rows and repeated imports.
+- Identified validation gaps: v2 format identity is not checked, duplicate task/category source IDs can collapse silently, and file preview validates only the container shape rather than normalized record constraints.
+- Identified a safe-default UI edge: choosing a new backup retains a previously selected Replace mode instead of resetting to Merge.
 
 ## Remaining substeps
-- Complete exact-SHA full canonical acceptance on this final checkpoint and repair any failure until green.
-- Squash-deliver the accepted task PR into `feature/backup-restore`.
-- Verify the stable Preview branch Quality Gate and Vercel deployment.
-- Record any remaining manual/browser acceptance separately.
+- Add explicit nested destructive confirmation for Replace Personal Data and lock the parent restore surface appropriately.
+- Add semantic preflight planning/validation before writes; apply backup rows before destructive replace tombstones.
+- Make bundled-image recovery idempotent and limit it to rows the restore plans to apply.
+- Add regression coverage for the confirmation flow, failure ordering, skipped-image uploads, malformed backups, and image reuse.
+- Run focused checks, exact-SHA canonical acceptance, squash-deliver back to `feature/backup-restore`, and verify its Preview.
 
 ## Constraints
-- Preserve local-first sync semantics, account isolation, tombstones, and existing Appwrite row-ID rules.
+- Preserve v1 Mosaic export compatibility and v2 backup compatibility.
+- Preserve offline/local-first restore semantics and normal tombstone-based sync.
 - Replace never mutates friendships, messages, login/account state, or reciprocal social data.
-- Existing v1 Mosaic exports remain importable.
-- Do not promote the stable feature branch to `dev` without explicit user instruction.
+- Do not promote `feature/backup-restore` to `dev` without explicit user instruction.
 
 ## Verification
-- Baseline: `dev` commit `d1535b76092b8a9878f5cc52cd5f61c521376d63`, Quality Gate 894 green per prior handoff.
-- Focused feature verification: Quality Gate run 903 passed.
-- Full canonical acceptance run 905 reached green checks/DOM/dependency gates but failed production build on a TypeScript BlobPart mismatch in restored image bytes; the image path now materializes an ArrayBuffer before constructing File.
-- New full canonical acceptance: requested by this checkpoint commit.
-- Manual/device acceptance: not yet performed.
+- Stable baseline: `feature/backup-restore` commit `e1df461fa0fb2172491000c66d8af74454f69efc`; Quality Gate run 908 canonical acceptance passed and Vercel Preview was READY/200.
+- Manual baseline: user reports Backup & Restore works on Preview.
+- Hardening verification: pending.
 
-Next action: complete the repaired full canonical acceptance, repair any remaining failure, then squash-deliver to the stable feature branch and verify Preview.
+Next action: implement regression tests for the audited failure modes, then fix runtime behavior to green.
 
 Blockers: none.
