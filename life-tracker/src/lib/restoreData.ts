@@ -645,6 +645,28 @@ async function restoreImages(
   return { restored, missing };
 }
 
+function isEqualPortableImageRetry(
+  collectionName: RestorableCollection,
+  sourceDoc: RestorableDocument,
+  current: JsonRecord,
+  sourceUserId: string,
+  userId: string
+): boolean {
+  if (sourceUserId === userId) return false;
+  if (collectionName === 'tasks') {
+    return Boolean((sourceDoc as TaskDocument).image) && !asString(current.image);
+  }
+  if (collectionName === 'settings') {
+    const setting = sourceDoc as SettingsDocument;
+    return (
+      setting.key === 'profileImageId' &&
+      Boolean(setting.value) &&
+      !asString(current.value)
+    );
+  }
+  return false;
+}
+
 async function planRestore(
   data: NormalizedBackup,
   userId: string,
@@ -678,15 +700,14 @@ async function planRestore(
         const currentUpdatedAt = toMs(current.updatedAt);
         const backupUpdatedAt = toMs(doc.updatedAt);
         const isEqualCrossAccountImageRetry =
-          data.sourceUserId !== userId &&
           currentUpdatedAt === backupUpdatedAt &&
-          ((collectionName === 'tasks' &&
-            Boolean((doc as TaskDocument).image) &&
-            !asString(current.image)) ||
-            (collectionName === 'settings' &&
-              (doc as SettingsDocument).key === 'profileImageId' &&
-              Boolean((doc as SettingsDocument).value) &&
-              !asString(current.value)));
+          isEqualPortableImageRetry(
+            collectionName,
+            doc,
+            current,
+            data.sourceUserId,
+            userId
+          );
 
         if (
           currentUpdatedAt > backupUpdatedAt ||
@@ -708,6 +729,7 @@ async function applyDocuments(
   collectionName: RestorableCollection,
   docs: RestorableDocument[],
   userId: string,
+  sourceUserId: string,
   mode: RestoreMode,
   replaceTimestamp: string
 ): Promise<{ restored: number; skippedNewer: number }> {
@@ -729,12 +751,26 @@ async function applyDocuments(
       if (current.userId !== userId) {
         throw new Error('Restore ID collides with data owned by another account.');
       }
-      if (
-        mode === 'merge' &&
-        toMs(current.updatedAt) >= toMs(doc.updatedAt)
-      ) {
-        skippedNewer += 1;
-        continue;
+      if (mode === 'merge') {
+        const currentUpdatedAt = toMs(current.updatedAt);
+        const backupUpdatedAt = toMs(doc.updatedAt);
+        const isEqualCrossAccountImageRetry =
+          currentUpdatedAt === backupUpdatedAt &&
+          isEqualPortableImageRetry(
+            collectionName,
+            doc,
+            current,
+            sourceUserId,
+            userId
+          );
+        if (
+          currentUpdatedAt > backupUpdatedAt ||
+          (currentUpdatedAt === backupUpdatedAt &&
+            !isEqualCrossAccountImageRetry)
+        ) {
+          skippedNewer += 1;
+          continue;
+        }
       }
     }
 
@@ -903,6 +939,7 @@ export async function restoreUserData(
       collection,
       documentsFor(plan.data, collection),
       currentUser.id,
+      data.sourceUserId,
       options.mode,
       replaceTimestamp
     );
