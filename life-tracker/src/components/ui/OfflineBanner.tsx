@@ -1,41 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { WifiOff, X } from 'lucide-react';
 
 export const OfflineBanner: React.FC = () => {
-  const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [isDismissed, setIsDismissed] = useState(false);
-
-  useEffect(() => {
-    const handleOnline = () => {
-      setIsOnline(true);
-      // Reset dismissal when back online so it's ready to show next time we go offline
-      setIsDismissed(false);
-    };
-
-    const handleOffline = () => {
-      setIsOnline(false);
-    };
-
-    window.addEventListener('online', handleOnline);
-    window.addEventListener('offline', handleOffline);
-
-    return () => {
-      window.removeEventListener('online', handleOnline);
-      window.removeEventListener('offline', handleOffline);
-    };
-  }, []);
-
-  const handleDismiss = () => {
-    setIsDismissed(true);
-  };
-
-  // Only show if we are offline AND the user hasn't dismissed it for this session
-  const visible = !isOnline && !isDismissed;
 
   return (
     <AnimatePresence>
-      {visible && (
+      {!isDismissed && (
         <motion.div
           initial={{ y: -50, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
@@ -52,7 +24,7 @@ export const OfflineBanner: React.FC = () => {
           </div>
           <button
             type="button"
-            onClick={handleDismiss}
+            onClick={() => setIsDismissed(true)}
             className="text-gray-400 hover:text-gray-300 transition-colors p-1 rounded-md hover:bg-[#333333] focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
             aria-label="Dismiss offline banner"
           >

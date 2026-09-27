@@ -18,6 +18,9 @@ const posthogRef = vi.hoisted(() => ({
 }));
 
 const initializeSyncMock = vi.hoisted(() => vi.fn());
+const waitForDatabaseReadyMock = vi.hoisted(() =>
+  vi.fn().mockResolvedValue(undefined)
+);
 
 vi.mock('../../src/lib/appwrite', () => ({
   account: accountRef,
@@ -26,12 +29,17 @@ vi.mock('../../src/lib/appwrite', () => ({
 
 vi.mock('../../src/lib/posthog', () => posthogRef);
 
+vi.mock('../../src/lib/databaseBootstrap', () => ({
+  waitForDatabaseReady: waitForDatabaseReadyMock,
+}));
+
 vi.mock('../../src/db/sync', () => ({
   initializeSync: initializeSyncMock,
 }));
 
 import { AuthProvider } from '../../src/hooks/AuthProvider';
 import { useAuth } from '../../src/hooks/useAuth';
+import { resetConnectivityForTests } from '../../src/lib/connectivity';
 
 const LAST_KNOWN_USER_KEY = 'mosaic_last_known_user';
 
@@ -59,14 +67,24 @@ describe('AuthProvider PostHog identity integration', () => {
   beforeEach(() => {
     localStorage.clear();
     vi.clearAllMocks();
+    waitForDatabaseReadyMock.mockResolvedValue(undefined);
     initializeSyncMock.mockResolvedValue(undefined);
+    Object.defineProperty(navigator, 'onLine', {
+      configurable: true,
+      value: true,
+    });
+    resetConnectivityForTests({
+      status: 'checking',
+      reason: 'test-startup',
+      lastConfirmedAt: null,
+    });
   });
 
   it('identifies resolved authenticated state using only the Appwrite user id', async () => {
     accountRef.get.mockResolvedValueOnce(makeUser());
 
     const { result } = renderHook(() => useAuth(), { wrapper });
-    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    await waitFor(() => expect(result.current.user?.$id).toBe('user_1'));
 
     expect(posthogRef.syncPostHogIdentity).toHaveBeenLastCalledWith('user_1');
     expect(accountRef.get).toHaveBeenCalledTimes(1);
@@ -80,7 +98,8 @@ describe('AuthProvider PostHog identity integration', () => {
     accountRef.get.mockRejectedValueOnce(new Error('Failed to fetch'));
 
     const { result } = renderHook(() => useAuth(), { wrapper });
-    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(result.current.user?.$id).toBe('user_cached');
+    await waitFor(() => expect(accountRef.get).toHaveBeenCalledOnce());
 
     expect(result.current.user?.$id).toBe('user_cached');
     expect(posthogRef.syncPostHogIdentity).toHaveBeenLastCalledWith('user_cached');
@@ -91,7 +110,7 @@ describe('AuthProvider PostHog identity integration', () => {
     accountRef.get.mockResolvedValueOnce(makeUser());
     accountRef.deleteSession.mockResolvedValueOnce(undefined);
     const { result } = renderHook(() => useAuth(), { wrapper });
-    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    await waitFor(() => expect(result.current.user?.$id).toBe('user_1'));
 
     await act(async () => {
       await result.current.logout();
@@ -105,7 +124,7 @@ describe('AuthProvider PostHog identity integration', () => {
       .mockResolvedValueOnce(makeUser())
       .mockRejectedValueOnce(new Error('Failed to fetch'));
     const { result } = renderHook(() => useAuth(), { wrapper });
-    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    await waitFor(() => expect(result.current.user?.$id).toBe('user_1'));
 
     posthogRef.syncPostHogIdentity.mockClear();
     await act(async () => {

@@ -180,7 +180,7 @@ export const FriendsProvider: React.FC<FriendsProviderProps> = ({
         return;
       }
       await deleteFriendPair(uid, friendUserId);
-      await clearCachedCalendar(friendUserId);
+      await clearCachedCalendar(uid, friendUserId);
     },
     [user?.$id]
   );
@@ -194,7 +194,7 @@ export const FriendsProvider: React.FC<FriendsProviderProps> = ({
         return;
       }
       await deleteFriendPair(uid, friendUserId);
-      await clearCachedCalendar(friendUserId);
+      await clearCachedCalendar(uid, friendUserId);
     },
     [user?.$id]
   );
@@ -208,7 +208,7 @@ export const FriendsProvider: React.FC<FriendsProviderProps> = ({
         return;
       }
       await deleteFriendPair(uid, friendUserId);
-      await clearCachedCalendar(friendUserId);
+      await clearCachedCalendar(uid, friendUserId);
     },
     [user?.$id]
   );
@@ -222,7 +222,7 @@ export const FriendsProvider: React.FC<FriendsProviderProps> = ({
         return;
       }
       await blockFriend(uid, friendUserId);
-      await clearCachedCalendar(friendUserId);
+      await clearCachedCalendar(uid, friendUserId);
     },
     [user?.$id]
   );

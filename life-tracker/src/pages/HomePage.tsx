@@ -5,6 +5,7 @@ import type { Swiper as SwiperClass } from 'swiper';
 import 'swiper/css';
 import { HamburgerMenu } from '../components/home/HamburgerMenu';
 import { HomeTaskSearch } from '../components/home/HomeTaskSearch';
+import { HomeStatusIndicators } from '../components/home/HomeStatusIndicators';
 import { PersonCarousel } from '../components/home/PersonCarousel';
 import { PersonPane } from '../components/home/PersonPane';
 import { FriendCarouselSettingsSheet } from '../components/home/FriendCarouselSettingsSheet';
@@ -13,6 +14,7 @@ import { useFriendCarousel } from '../hooks/useFriendCarousel';
 import { useTasks } from '../hooks/useTasks';
 import { useCategories } from '../hooks/useCategories';
 import type { TaskDocument } from '../db/schema';
+import { markStartup } from '../lib/startupMetrics';
 
 const RENDER_WINDOW = 1;
 const INITIAL_RENDER_WINDOW = 0;
@@ -26,6 +28,7 @@ export const HomePage: React.FC = () => {
     rawFriends,
     order,
     hidden,
+    isLoading: carouselLoading,
   } = useFriendCarousel();
   const { tasks: ownerTasks = [], isLoading: tasksLoading } = useTasks();
   const {
@@ -59,6 +62,15 @@ export const HomePage: React.FC = () => {
     const idx = persons.findIndex((p) => p.id === activePersonId);
     return idx >= 0 ? idx : 0;
   }, [persons, activePersonId]);
+
+  useEffect(() => {
+    markStartup('home:mounted');
+  }, []);
+
+  useEffect(() => {
+    if (tasksLoading || categoriesLoading || carouselLoading) return;
+    markStartup('home:local-data-ready');
+  }, [carouselLoading, categoriesLoading, tasksLoading]);
 
   useEffect(() => {
     const schedule = () => setRenderWindow(RENDER_WINDOW);
@@ -192,6 +204,7 @@ export const HomePage: React.FC = () => {
           onOpen={handleOpenSearch}
           onClose={handleCloseSearch}
           onSelectTask={handleSelectSearchTask}
+          statusControls={<HomeStatusIndicators />}
           trailing={<HamburgerMenu />}
         />
 

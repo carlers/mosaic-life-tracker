@@ -1,9 +1,11 @@
 import { format } from 'date-fns';
 import { getDatabase } from '../db/database';
 import { getCachedImage, cacheImage } from './imageCache';
+import { getPendingImage, isPendingImageId } from './pendingImages';
 import { guardedCall, makeUnauthorizedError } from './authEvents';
 import { guardedStorage } from './sdk';
 import { APP_VERSION } from './appVersion';
+import { getConnectivitySnapshot } from './connectivity';
 import type {
   TaskDocument,
   CategoryDocument,
@@ -146,10 +148,16 @@ function parseSettings(raw: SettingsDocument[]): Record<string, unknown> {
   return map;
 }
 
-async function fetchImageBlob(fileId: string): Promise<Blob | null> {
+async function fetchImageBlob(
+  fileId: string,
+  ownerUserId: string
+): Promise<Blob | null> {
+  if (isPendingImageId(fileId)) {
+    return getPendingImage(fileId, ownerUserId);
+  }
   const cached = await getCachedImage(fileId);
   if (cached) return cached;
-  if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+  if (getConnectivitySnapshot().status !== 'online') {
     if (DEBUG)
       console.log(`[Export] Skipping uncached image (offline): ${fileId}`);
     return null;
@@ -272,7 +280,7 @@ export async function exportUserData(
   for (const fileId of referencedArray) {
     index++;
     report(`Fetching photos (${index}/${referencedArray.length})…`);
-    const blob = await fetchImageBlob(fileId);
+    const blob = await fetchImageBlob(fileId, user.id);
     if (blob) imageBlobs.set(fileId, blob);
     else missing.push(fileId);
   }

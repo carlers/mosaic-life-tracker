@@ -49,8 +49,8 @@ export const FriendCalendarPage: React.FC = () => {
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
-    if (friendId) {
-      await clearCachedCalendar(friendId);
+    if (friendId && currentUserId) {
+      await clearCachedCalendar(currentUserId, friendId);
     }
     await refetch(true);
   };

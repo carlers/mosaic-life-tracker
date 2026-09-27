@@ -7,6 +7,13 @@ import {
 } from './authEvents';
 import { guardedStorage, guardedAccount } from './sdk';
 import { getCachedImage, cacheImage, deleteCachedImage } from './imageCache';
+import { getConnectivitySnapshot } from './connectivity';
+import {
+  createPendingImage,
+  deletePendingImage,
+  getPendingImage,
+  isPendingImageId,
+} from './pendingImages';
 
 const APPWRITE_CONFIG = {
   endpoint: 'https://sgp.cloud.appwrite.io',
@@ -101,12 +108,11 @@ function isValidFileId(fileId: string): boolean {
   );
 }
 
-async function uploadImageWithId(
-  file: File,
+async function uploadCompressedBlobWithId(
+  compressedBlob: Blob,
   fileId: string,
   userId: string
 ): Promise<string> {
-  const compressedBlob = await compressImage(file);
   const webpFile = new File([compressedBlob], `${fileId}.webp`, {
     type: 'image/webp',
   });
@@ -117,6 +123,9 @@ async function uploadImageWithId(
       file: webpFile,
       permissions: buildFilePermissions(userId),
     });
+    await cacheImage(fileId, compressedBlob).catch((error) => {
+      console.warn('[Storage] Failed to cache uploaded image:', error);
+    });
     return fileId;
   } catch (error) {
     console.error('[Storage] Upload failed:', error);
@@ -126,6 +135,65 @@ async function uploadImageWithId(
       }`,
       { cause: error }
     );
+  }
+}
+
+async function uploadImageWithId(
+  file: File,
+  fileId: string,
+  userId: string
+): Promise<string> {
+  return uploadCompressedBlobWithId(await compressImage(file), fileId, userId);
+}
+
+export async function saveImage(
+  file: File,
+  userId: string
+): Promise<string> {
+  if (!userId) throw new Error('Cannot save image: no authenticated user');
+  const compressedBlob = await compressImage(file);
+  if (getConnectivitySnapshot().status !== 'online') {
+    return createPendingImage(userId, compressedBlob);
+  }
+  try {
+    return await uploadCompressedBlobWithId(
+      compressedBlob,
+      generateFileId(),
+      userId
+    );
+  } catch (error) {
+    const cause = (error as Error & { cause?: unknown }).cause;
+    const code = (cause as { code?: number } | null)?.code;
+    const transient =
+      !isUnauthorizedError(cause) &&
+      (typeof code !== 'number' || code === 429 || code >= 500);
+    if (!transient) throw error;
+    return createPendingImage(userId, compressedBlob);
+  }
+}
+
+export async function uploadPendingImage(
+  fileId: string,
+  userId: string
+): Promise<string> {
+  if (!isPendingImageId(fileId)) return fileId;
+  const blob = await getPendingImage(fileId, userId);
+  if (!blob) {
+    throw new Error('Pending image is missing or belongs to another account.');
+  }
+
+  // The pending id already contains 26 random hex chars. Reusing those bytes
+  // makes retry after "uploaded but local patch failed" idempotent.
+  const remoteFileId = `img_${fileId.slice('localimg_'.length)}`;
+  try {
+    return await uploadCompressedBlobWithId(blob, remoteFileId, userId);
+  } catch (error) {
+    const cause = (error as Error & { cause?: unknown }).cause;
+    if (isConflictError(cause)) {
+      await cacheImage(remoteFileId, blob).catch(() => {});
+      return remoteFileId;
+    }
+    throw error;
   }
 }
 
@@ -188,11 +256,15 @@ export async function ensureRestoredImage(
 
 export async function getLocalImageUrl(fileId: string): Promise<string | null> {
   if (!fileId) return null;
+  if (isPendingImageId(fileId)) {
+    const pendingBlob = await getPendingImage(fileId);
+    return pendingBlob ? URL.createObjectURL(pendingBlob) : null;
+  }
   const cachedBlob = await getCachedImage(fileId);
   if (cachedBlob) {
     return URL.createObjectURL(cachedBlob);
   }
-  if (!navigator.onLine) return null;
+  if (getConnectivitySnapshot().status !== 'online') return null;
   try {
     const url = guardedStorage.getFileView({
       bucketId: APPWRITE_CONFIG.bucketId,
@@ -219,6 +291,10 @@ export async function getLocalImageUrl(fileId: string): Promise<string | null> {
 }
 
 export async function deleteImage(fileId: string): Promise<void> {
+  if (isPendingImageId(fileId)) {
+    await deletePendingImage(fileId);
+    return;
+  }
   try {
     await guardedStorage.deleteFile({
       bucketId: APPWRITE_CONFIG.bucketId,

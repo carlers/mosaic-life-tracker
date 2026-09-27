@@ -335,13 +335,14 @@ These are documented, deliberate trade-offs after the sync-engine audit. Each wa
 - **Social Outbox — no server-side compensation on drop.** When a social outbox entry is dropped (5 attempts exhausted, or a permanent 4xx), the local row is reverted but the remote side may be partially written (e.g. the outbox succeeded in creating the friend's reciprocal row on a previous attempt but the local revert fires on a later permanent failure of a different row). Because both writes in a friendship pair are independent single-row calls, the reconciliation window is bounded to the next sync cycle and the local row is authoritative. A transactional two-row write would require an Appwrite Function and is out of scope for this batch.
 
 ## 19. Bootstrap & Persistence
-1. `main.tsx` order: `navigator.storage.persist()` → `initializeDatabase()` → fire-and-forget `initializeSync()` and a lazy image-cache budget sweep → `ReactDOM.createRoot(...).render(<React.StrictMode><AuthProvider><App /></AuthProvider></React.StrictMode>)`. Neither background operation blocks render.
-2. Initial sync and image-cache sweep are always rejection-handled — either failure must never prevent mount.
-3. Auth resolution happens in `AuthProvider`, not `main.tsx`: single `account.get()` on mount (deferred via `queueMicrotask`), broadcast via context.
-4. Login-triggered sync: because cold-load `initializeSync()` may run before any session exists, `AuthPage.handleSubmit` calls `initializeSync()` after a successful `login`/`signup` and before navigating to `/home`.
-5. `ignoreDuplicate: true` on `createRxDatabase` + a singleton `dbInstance` module variable are required for React StrictMode double-invocations.
-6. Data hooks opportunistically purge known-bad local state (oversized row IDs, legacy composite IDs) during init, before subscribing.
-7. In production a cold authenticated load fires exactly one `account.get()` (from `AuthProvider`); in dev with StrictMode it fires twice — expected. If you see more, an auth source leaked back into a consumer. Verify with `console.count('account.get')`.
+1. React mounts immediately. `navigator.storage.persist()`, local database opening, service-worker registration, analytics initialization, and image-cache maintenance are non-blocking background/bootstrap work and must never delay the Login route's first render.
+2. `src/lib/databaseBootstrap.ts` owns the single local-database readiness promise. It dynamically imports RxDB/database code so the logged-out Login startup graph does not eagerly parse the database stack. Protected routes cross one database-readiness boundary before any RxDB-backed provider or hook mounts; do not scatter retry loops around individual `getDatabase()` consumers.
+3. Auth resolution happens only in `AuthProvider`. Sync never calls `account.get()` to discover identity. A sync cycle receives the already-resolved owner id explicitly, preserving AuthProvider as the sole session authority and avoiding duplicate cold-start auth requests.
+4. A valid last-known identity is the immediate local startup authority regardless of the browser's network hint. AuthProvider renders that account's local app immediately and verifies the live Appwrite session in the background. Confirmed 401 clears the cache; network failure keeps the local identity. Auth/login/logout/broadcast results use generation/race guards so an older async session check cannot overwrite a newer auth action.
+5. Authenticated Home startup overlaps three independent activities: cached/live auth resolution, local database opening, and Home chunk acquisition. Network sync starts only after auth + database readiness and never gates Home rendering from already-local data.
+6. A successful full sync marks that account's **data offline-ready** milestone. Service-worker precache installation marks the device's **shell offline-ready** milestone. The account/device is considered offline-ready only when both exist. This readiness is informative and non-blocking: first-login Home remains responsive while offline preparation finishes.
+7. `ignoreDuplicate: true` on `createRxDatabase` + a singleton `dbInstance` module variable remain required for React StrictMode double-invocations. Data hooks continue to scope every query by owner and may purge known-bad legacy rows during initialization.
+8. Startup performance marks are diagnostic, not CI budgets. The durable acceptance invariant is behavioral: logged-out Login renders without waiting for RxDB/Appwrite; an offline-ready authenticated account can cold-reload Home from cached identity + local data without a network-dependent full-screen spinner.
 
 ## 20. Messaging Architecture
 
@@ -483,12 +484,14 @@ Recipient-side `read_at` propagation depends on `markReadOnRemote` eventually su
 - Not a replacement for server-side session invalidation; it is a UI consistency mechanism
 
 ### 23.6 Offline vs Unauthenticated
-- **401 from `account.get()`** → definitely not logged in → clear user → `AppLayout` redirects to `/login`
-- **Network error / timeout / offline from `account.get()`** → couldn't check → set `isOffline: true`, keep `user: null` → `AppLayout` renders a retry screen (with a `retry()` button) instead of redirecting
-- **Any time `navigator.onLine` is false**, `AuthProvider` treats the initial check as "couldn't check"
-- `AppLayout` renders three states: `isLoading` → spinner; `!user && isOffline` → retry screen; `!user` → redirect
-- The `OfflineError` class in `src/lib/authEvents.ts` is the canonical "couldn't check" signal at the SDK-wrapper layer. `storage.getCurrentUserId` returns `null` for a confirmed 401 but throws `OfflineError` for anything else, so `uploadImage` can distinguish "you're offline" from "no authenticated user" (§10)
-- **Offline auth gate (H1 = Option A, shipped in Phase 2 batch 2.1).** On mount-time network error, `AuthProvider` hydrates `user` from a persisted last-known identity, sets `isOffline: true`, and `AppLayout` renders the app tree with the offline banner. Cache is cleared on explicit `logout()` and on confirmed 401 — never on a network error. Network errors throw `OfflineError` and never dispatch `auth:unauthorized`, so the hydrated `user` will not trip the redirect path. Every consumer treating `user` as proof-of-live-session must be audited when this lands.
+- **401 from live `account.get()`** → definitely not logged in → clear cached identity → protected routes redirect to `/login`.
+- **Valid cached identity** → hydrate that account synchronously and render local startup immediately, even when `navigator.onLine` is true. The live session check is background reconciliation and never owns the page-level loading state.
+- **No cached identity** → Login remains immediately usable while the one AuthProvider-owned live session check runs in the background. If an existing session is found, Login redirects to Home; if Appwrite is unreachable, the form stays usable.
+- **Connectivity authority** → `navigator.onLine === false` is a hard offline hint, but `navigator.onLine === true` means only "a network interface may exist." Mosaic starts in **Checking**, becomes **Online** only after a successful Appwrite response (or HTTP/Appwrite error response proving reachability), and becomes **Offline** after a network/timeout failure. Browser online/offline, Network Information change, focus, and visibility events trigger re-checking; they do not directly claim Online.
+- Auth generation/race protection is mandatory. Results from a session check started before login, signup, logout, cross-tab auth change, or a global confirmed-401 event must not overwrite the newer auth state.
+- Cached identity is authorization only for that same account's already-local data. Every RxDB/cache lookup remains owner-scoped; auxiliary caches that contain user/social data must also include the current owner in their key.
+- The `OfflineError` class in `src/lib/authEvents.ts` remains the canonical "couldn't check" signal at the SDK-wrapper layer. Do not reinterpret it as 401.
+- Remote session revocation cannot be learned while a device is genuinely disconnected. Offline access to already-local data is therefore intentionally bounded by the last verified identity until connectivity returns; reconnect immediately re-verifies the session.
 
 ### 23.7 Things Not To Do
 - Do not add `account.get()` calls to a hook or component. If you need session state, call `useAuth()`
@@ -837,6 +840,19 @@ Strong direct coverage remains mandatory for sync and mappings, account isolatio
 offline identity, tombstones and destructive deletion, Appwrite Function authorization,
 cross-user writes, queues/outboxes, row-ID/schema parity, and privacy-minimal analytics.
 Those protections take precedence over reducing raw test counts.
+
+### 24.18 Offline startup, readiness, and Home status
+
+The offline contract is split into **boot correctness** and **feature completeness**.
+
+- **Boot correctness:** Login is eagerly renderable and mounts without waiting for RxDB or live session verification. A cached account renders a lightweight authenticated shell immediately while the local database/provider bundle opens in parallel; neither Appwrite reachability nor network sync may own a page-level spinner. Home's lazy fallback is a static content skeleton, not the Mosaic spinner.
+- **Offline readiness:** a per-account data-ready marker is written only after a full successful sync; a device shell-ready marker is written only after the production service worker reaches an installed/active precached state. Home may show "preparing offline access" while either milestone is missing, but this preparation must not block normal online use.
+- **Home status controls:** the Home header shows two compact controls beside Search: connectivity and sync state. Connectivity has three truthful states: **Checking**, **Online**, and **Offline**. Online means Appwrite reachability was actually proven, never merely `navigator.onLine === true`. The sync control distinguishes checking/paused, syncing, synced/preparing, and error states. Both controls open the existing Sync Status surface and share the same reachability source used by AuthProvider, global offline UI, sync, image transfer, and remote social work.
+- **Own profile:** the caller's social profile is cached per owner and used as stale local state offline; online refresh updates the cache. Profile cache keys must never be shared across accounts.
+- **Friend calendars:** cached friend data is keyed by both current owner and friend. Fresh cache may serve online; stale cache may continue serving while offline. Cross-account friend-cache reuse is forbidden.
+- **Images:** already-downloaded images remain available from IndexedDB. Task or profile images selected offline are stored in a dedicated pending-image store under a local-only id and remain renderable. Before a task/profile setting carrying a pending image is pushed, sync uploads that blob, patches the local reference to the real Appwrite file id, and only then sends the row. Pending blobs are never subject to the ordinary downloaded-image LRU. Removing a pending image deletes only the local pending blob; it must not issue a remote delete. Backups with photos include referenced pending blobs and restore them to normal Storage ids.
+- **Network-only boundaries:** brand-new authentication, username uniqueness/search, never-cached remote friend data, and other inherently remote discovery cannot succeed offline. They must fail fast or use stale local state; they must never block personal task/calendar/diary/settings use.
+- **Acceptance:** browser coverage must include the mobile false-positive case where `navigator.onLine === true` while Appwrite requests hang/fail. Cached identity must remain immediately usable, no page-level Mosaic spinner may gate Home/Login, connectivity must transition Checking → Offline after the real failure, and local task edits must survive reload. The production build gate separately proves every emitted JS/CSS chunk plus `index.html` is in the service-worker precache, which covers unopened lazy routes at the shell level. Installed Android/Samsung PWA relaunch with network disabled remains the required end-to-end shell/data manual check; Safari/iOS is a separate manual lifecycle check. Browser storage eviction/site-data clearing remains outside Mosaic's control and must not be described as guaranteed persistence.
 
 ## 25. Workflow Portability and History
 

@@ -1,9 +1,10 @@
-import React, { lazy, Suspense, useContext, useEffect, useState } from 'react';
+import React, { lazy, Suspense, useContext } from 'react';
 import { BottomNav, type TabId } from './BottomNav';
 import { PrimaryRouteSwipeSurface } from './PrimaryRouteSwipeSurface';
 import type { PrimarySwipeDirection } from '../../lib/primarySwipeNavigation';
 import { useChatViewport } from '../messages/useChatViewport';
 import { AppearanceContext } from '../../hooks/appearanceContext';
+import { useConnectivity } from '../../hooks/useConnectivity';
 
 const OfflineBanner = lazy(() =>
   import('../ui/OfflineBanner').then(({ OfflineBanner }) => ({
@@ -11,7 +12,7 @@ const OfflineBanner = lazy(() =>
   }))
 );
 
-interface MainLayoutProps {
+export interface MainLayoutProps {
   children: React.ReactNode;
   activeTab: TabId;
   routeKey?: string;
@@ -40,20 +41,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
   const viewportStyle = useChatViewport(hideBottomNav);
   const appearance = useContext(AppearanceContext);
   const contentWidthMode = appearance?.contentWidthMode ?? 'full';
-  const [isOnline, setIsOnline] = useState(
-    typeof navigator !== 'undefined' ? navigator.onLine : true
-  );
-
-  useEffect(() => {
-    const handleOnline = () => setIsOnline(true);
-    const handleOffline = () => setIsOnline(false);
-    window.addEventListener('online', handleOnline);
-    window.addEventListener('offline', handleOffline);
-    return () => {
-      window.removeEventListener('online', handleOnline);
-      window.removeEventListener('offline', handleOffline);
-    };
-  }, []);
+  const connectivity = useConnectivity();
 
   const contentInsetClass = hideBottomNav
     ? ''
@@ -61,7 +49,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
 
   return (
     <div style={viewportStyle} className={`${hideBottomNav ? 'fixed inset-x-0 top-0 h-dvh' : 'relative h-screen'} w-full bg-[#111111] text-white flex flex-col overflow-hidden`}>
-      {!isOnline && (
+      {connectivity.status === 'offline' && (
         <Suspense fallback={null}>
           <OfflineBanner />
         </Suspense>
