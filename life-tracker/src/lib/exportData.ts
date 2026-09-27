@@ -1,6 +1,7 @@
 import { format } from 'date-fns';
 import { getDatabase } from '../db/database';
 import { getCachedImage, cacheImage } from './imageCache';
+import { getPendingImage, isPendingImageId } from './pendingImages';
 import { guardedCall, makeUnauthorizedError } from './authEvents';
 import { guardedStorage } from './sdk';
 import { APP_VERSION } from './appVersion';
@@ -147,6 +148,9 @@ function parseSettings(raw: SettingsDocument[]): Record<string, unknown> {
 }
 
 async function fetchImageBlob(fileId: string): Promise<Blob | null> {
+  if (isPendingImageId(fileId)) {
+    return getPendingImage(fileId);
+  }
   const cached = await getCachedImage(fileId);
   if (cached) return cached;
   if (typeof navigator !== 'undefined' && navigator.onLine === false) {
