@@ -2,8 +2,7 @@
 
 Updated: 2026-09-27
 
-Current task: implement Mosaic disaster recovery on `chatgpt/disaster-backups`, targeting
-stable Preview `security/disaster-backups`.
+Current task: finish the externally independent disaster-backup watchdog on `chatgpt/disaster-backups-watchdog`, targeting stable Preview `security/disaster-backups`.
 
 Status: implementation is complete as far as repository/Appwrite work can proceed without
 Cloudflare recovery credentials. The dedicated `dr_backup` Function is deployed live but
@@ -29,7 +28,7 @@ has been enabled.
   users/databases/tables/columns/indexes/rows/buckets/files read scopes.
 - Live HTTP smoke test returned 403 while `DR_ALLOW_MANUAL_EXECUTION=false`, confirming
   the deployed manual-execution boundary.
-- Production `dr_backup` schedule remains blank.
+- Production `dr_backup` schedule remains blank.\n- Added an external daily GitHub Actions stale-backup watcher that uses only a separate R2 Object Read token and stays disabled behind `DR_BACKUP_WATCH_ENABLED` until rollout. It does not store or require the backup encryption key.
 
 ## Verification
 - Structural-red run 1117 failed only because the specified DR modules did not exist yet.
@@ -59,8 +58,7 @@ has been enabled.
    unrelated existing empty project without explicit scope.
 6. Deploy the two repository-owned Functions to the DR project, point a temporary Mosaic
    build at it, and complete login/tasks/diary/settings/social/messages/photos acceptance.
-7. Only after the drill passes, enable a non-overlapping daily `dr_backup` schedule and
-   configure an external runner/alert path for `npm run dr:check`.
+7. Only after the drill passes, enable a non-overlapping daily `dr_backup` schedule, add the read-only R2 recovery credentials as GitHub Actions secrets, and set repository variable `DR_BACKUP_WATCH_ENABLED=true`. The external watcher is already implemented.
 
 ## Constraints
 - Preserve the two-Function Free-plan architecture.
@@ -69,9 +67,7 @@ has been enabled.
 - Do not enable the production backup schedule before the isolated restore drill passes.
 - Do not promote `security/disaster-backups` to `dev` without explicit user instruction.
 
-Next action: finish the full gate and stable delivery for the browser-contract timing repair.
-After that, stop at the external R2/escrow/isolated-restore-drill blocker until recovery
-credentials and an independently escrowed encryption key are available.
+Next action: run full canonical acceptance and squash-deliver the external watchdog to `security/disaster-backups`. After that, stop at the external R2/escrow/isolated-restore-drill blocker until recovery credentials and an independently escrowed encryption key are available.
 
 Blocker: Cloudflare R2 bucket/credentials and independently escrowed encryption material are
 not available through the connected tools. A Cloudflare plugin search returned no Cloudflare
