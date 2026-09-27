@@ -596,7 +596,12 @@ async function restoreImages(
     const oldId = ids[index];
     const bytes = loaded.imageFiles.get(oldId);
     if (!bytes) {
-      if (loaded.payload.images?.included) missing += 1;
+      if (
+        loaded.payload.images?.included ||
+        loaded.payload.user.id !== currentUserId
+      ) {
+        missing += 1;
+      }
       continue;
     }
     onProgress?.(`Restoring photos (${index + 1}/${ids.length})…`);
@@ -669,12 +674,28 @@ async function planRestore(
       if (current.userId !== userId) {
         throw new Error('Restore ID collides with data owned by another account.');
       }
-      if (
-        mode === 'merge' &&
-        toMs(current.updatedAt) >= toMs(doc.updatedAt)
-      ) {
-        skippedNewer += 1;
-        continue;
+      if (mode === 'merge') {
+        const currentUpdatedAt = toMs(current.updatedAt);
+        const backupUpdatedAt = toMs(doc.updatedAt);
+        const isEqualCrossAccountImageRetry =
+          data.sourceUserId !== userId &&
+          currentUpdatedAt === backupUpdatedAt &&
+          ((collectionName === 'tasks' &&
+            Boolean((doc as TaskDocument).image) &&
+            !asString(current.image)) ||
+            (collectionName === 'settings' &&
+              (doc as SettingsDocument).key === 'profileImageId' &&
+              Boolean((doc as SettingsDocument).value) &&
+              !asString(current.value)));
+
+        if (
+          currentUpdatedAt > backupUpdatedAt ||
+          (currentUpdatedAt === backupUpdatedAt &&
+            !isEqualCrossAccountImageRetry)
+        ) {
+          skippedNewer += 1;
+          continue;
+        }
       }
       target.push(doc);
     }
