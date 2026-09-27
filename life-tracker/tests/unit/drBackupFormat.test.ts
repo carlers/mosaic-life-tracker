@@ -3,7 +3,9 @@ import {
   buildBackupId,
   normalizeColumn,
   normalizeIndex,
+  parseBackupJson,
   serializeRowRecord,
+  stringifyBackupJson,
 } from '../../appwrite-functions/dr-backup/backup.mjs';
 
 describe('DR backup normalization', () => {
@@ -53,6 +55,30 @@ describe('DR backup normalization', () => {
       orders: [],
       lengths: [0],
     });
+  });
+
+  it('round-trips signed 64-bit schema bounds without precision loss', () => {
+    const min = -9223372036854775808n;
+    const max = 9223372036854775807n;
+    const column = normalizeColumn({
+      key: 'order',
+      type: 'integer',
+      required: true,
+      array: false,
+      default: null,
+      min,
+      max,
+    });
+
+    const encoded = stringifyBackupJson({ column });
+    expect(encoded).toContain('-9223372036854775808');
+    expect(encoded).toContain('9223372036854775807');
+
+    const decoded = parseBackupJson(encoded);
+    expect(decoded.column.min).toBe(min);
+    expect(decoded.column.max).toBe(max);
+    expect(typeof decoded.column.min).toBe('bigint');
+    expect(typeof decoded.column.max).toBe('bigint');
   });
 
   it('preserves row ID and permissions while separating user data', () => {
