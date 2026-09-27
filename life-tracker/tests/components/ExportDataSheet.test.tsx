@@ -46,6 +46,19 @@ describe('Backup & Restore destructive confirmation', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.inspectBackupFile.mockResolvedValue(preview);
+    mocks.exportUserData.mockResolvedValue({
+      blob: new Blob(['backup'], { type: 'application/json' }),
+      filename: 'mosaic-backup.json',
+      counts: {
+        tasks: 0,
+        categories: 0,
+        diary: 0,
+        settings: 0,
+        friendships: 0,
+        images: 0,
+        missingImages: 0,
+      },
+    });
     mocks.restoreUserData.mockResolvedValue({
       mode: 'replace',
       restored: { tasks: 2, categories: 1, diary: 1, settings: 2 },
@@ -57,10 +70,33 @@ describe('Backup & Restore destructive confirmation', () => {
     });
   });
 
+  it('reports a successful backup completion time', async () => {
+    const onBackupComplete = vi.fn();
+    render(
+      <ExportDataSheet
+        isOpen
+        onClose={vi.fn()}
+        onBackupComplete={onBackupComplete}
+      />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Download Backup' }));
+
+    await waitFor(() => expect(mocks.exportUserData).toHaveBeenCalledOnce());
+    expect(mocks.triggerDownload).toHaveBeenCalledOnce();
+    expect(onBackupComplete).toHaveBeenCalledWith(expect.any(String));
+  });
+
   it('requires a second explicit confirmation before Replace Personal Data runs', async () => {
     const onClose = vi.fn();
+    const onRestoreComplete = vi.fn();
     render(
-      <ExportDataSheet isOpen onClose={onClose} onSuccess={vi.fn()} />
+      <ExportDataSheet
+        isOpen
+        onClose={onClose}
+        onSuccess={vi.fn()}
+        onRestoreComplete={onRestoreComplete}
+      />
     );
 
     const file = new File(['{}'], 'backup.json', { type: 'application/json' });
@@ -92,6 +128,7 @@ describe('Backup & Restore destructive confirmation', () => {
         expect.objectContaining({ mode: 'replace' })
       )
     );
+    expect(onRestoreComplete).toHaveBeenCalledWith(expect.any(String));
   });
 
   it('resets the safer Merge mode whenever a different backup is chosen', async () => {
