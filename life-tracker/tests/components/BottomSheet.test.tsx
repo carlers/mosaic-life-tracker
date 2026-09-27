@@ -106,6 +106,23 @@ describe('BottomSheet', () => {
     expect(document.body.style.overflow).not.toBe('hidden');
   });
 
+  // Regression: §7 (processing sheets can explicitly prevent user dismissal).
+  it('a non-dismissible top sheet ignores Escape dismissal', () => {
+    const onClose = vi.fn();
+    const historyBack = vi.mocked(window.history.back);
+
+    render(
+      <BottomSheet isOpen preventDismiss onClose={onClose}>
+        Processing
+      </BottomSheet>
+    );
+
+    fireEvent.keyDown(window, { key: 'Escape' });
+
+    expect(historyBack).not.toHaveBeenCalled();
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
   it('Escape requests Back for the topmost sheet history slot', () => {
     const onCloseA = vi.fn();
     const onCloseB = vi.fn();

@@ -1,5 +1,6 @@
 // Regression: BACKUP_RESTORE.md (validated, idempotent merge/replace restore).
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { zipSync } from 'fflate';
 
 type CollectionName = 'tasks' | 'categories' | 'diary' | 'settings' | 'friendships' | 'messages';
 
@@ -17,6 +18,11 @@ const state = vi.hoisted(() => {
   return {
     rows,
     sync: vi.fn().mockResolvedValue(undefined),
+    getSyncStatus: vi.fn().mockReturnValue({
+      isSyncing: false,
+      lastSync: '2026-09-27T00:00:00.000Z',
+      errors: [],
+    }),
     exportUserData: vi.fn().mockResolvedValue({
       blob: new Blob(['safety'], { type: 'application/json' }),
       filename: 'mosaic-safety.json',
@@ -31,7 +37,12 @@ const state = vi.hoisted(() => {
       },
     }),
     triggerDownload: vi.fn(),
-    uploadImage: vi.fn().mockResolvedValue('img_restored'),
+    upsertLocalDoc: vi.fn(),
+    ensureRestoredImage: vi.fn().mockResolvedValue({
+      fileId: 'img_restored',
+      uploaded: true,
+    }),
+    getCurrentUserId: vi.fn().mockResolvedValue('user_A'),
   };
 });
 
@@ -75,13 +86,13 @@ vi.mock('../../src/db/database', () => ({
 }));
 
 vi.mock('../../src/lib/localUpsert', () => ({
-  upsertLocalDoc: vi.fn(async (collection: CollectionName, id: string, doc: Stored) => {
-    const map = state.rows[collection];
-    map.set(id, { ...(map.get(id) ?? {}), ...doc });
-  }),
+  upsertLocalDoc: state.upsertLocalDoc,
 }));
 
-vi.mock('../../src/db/sync', () => ({ initializeSync: state.sync }));
+vi.mock('../../src/db/sync', () => ({
+  initializeSync: state.sync,
+  getSyncStatus: state.getSyncStatus,
+}));
 vi.mock('../../src/lib/exportData', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../../src/lib/exportData')>();
   return {
@@ -90,14 +101,18 @@ vi.mock('../../src/lib/exportData', async (importOriginal) => {
     triggerDownload: state.triggerDownload,
   };
 });
-vi.mock('../../src/lib/storage', () => ({ uploadImage: state.uploadImage }));
+vi.mock('../../src/lib/storage', () => ({
+  ensureRestoredImage: state.ensureRestoredImage,
+  getCurrentUserId: state.getCurrentUserId,
+}));
 
 import { inspectBackupFile, restoreUserData } from '../../src/lib/restoreData';
 
 const currentUser = { id: 'user_A', email: 'a@example.com', name: 'A' };
 
-function jsonBackup(overrides: Record<string, unknown> = {}) {
-  const payload = {
+function backupPayload(overrides: Record<string, unknown> = {}) {
+  return {
+    format: 'mosaic-user-backup',
     app: { name: 'Mosaic', version: '0.1.0' },
     version: 2,
     exportedAt: '2026-09-20T12:00:00.000Z',
@@ -126,7 +141,30 @@ function jsonBackup(overrides: Record<string, unknown> = {}) {
     },
     ...overrides,
   };
-  return new File([JSON.stringify(payload)], 'backup.json', { type: 'application/json' });
+}
+
+function jsonBackup(overrides: Record<string, unknown> = {}) {
+  return new File(
+    [JSON.stringify(backupPayload(overrides))],
+    'backup.json',
+    { type: 'application/json' }
+  );
+}
+
+function zipBackup(
+  overrides: Record<string, unknown>,
+  images: Record<string, string> = {}
+) {
+  const encoder = new TextEncoder();
+  const files: Record<string, Uint8Array> = {
+    'manifest.json': encoder.encode(JSON.stringify(backupPayload(overrides))),
+  };
+  for (const [fileId, contents] of Object.entries(images)) {
+    files[`images/${fileId}.webp`] = encoder.encode(contents);
+  }
+  const zipped = zipSync(files);
+  const buffer = zipped.slice().buffer as ArrayBuffer;
+  return new File([buffer], 'backup.zip', { type: 'application/zip' });
 }
 
 describe('backup restore', () => {
@@ -134,7 +172,22 @@ describe('backup restore', () => {
     resetRows();
     vi.clearAllMocks();
     state.sync.mockResolvedValue(undefined);
-    state.uploadImage.mockResolvedValue('img_restored');
+    state.getSyncStatus.mockImplementation(() => ({
+      isSyncing: false,
+      lastSync: new Date().toISOString(),
+      errors: [],
+    }));
+    state.upsertLocalDoc.mockImplementation(
+      async (collection: CollectionName, id: string, doc: Stored) => {
+        const map = state.rows[collection];
+        map.set(id, { ...(map.get(id) ?? {}), ...doc });
+      }
+    );
+    state.ensureRestoredImage.mockResolvedValue({
+      fileId: 'img_restored',
+      uploaded: true,
+    });
+    state.getCurrentUserId.mockResolvedValue('user_A');
     state.exportUserData.mockResolvedValue({
       blob: new Blob(['safety'], { type: 'application/json' }),
       filename: 'mosaic-safety.json',
@@ -267,5 +320,479 @@ describe('backup restore', () => {
     expect(result.tombstoned).toBe(1);
     expect(state.exportUserData).toHaveBeenCalledWith(currentUser, expect.objectContaining({ includeImages: false }));
     expect(state.triggerDownload).toHaveBeenCalledOnce();
+  });
+
+
+  it('rejects a v2 file without the Mosaic backup format marker', async () => {
+    const payload = backupPayload();
+    delete (payload as { format?: string }).format;
+    const file = new File([JSON.stringify(payload)], 'not-v2.json', {
+      type: 'application/json',
+    });
+
+    await expect(inspectBackupFile(file, currentUser.id)).rejects.toThrow(
+      /valid Mosaic backup v2/i
+    );
+  });
+
+  it('rejects duplicate task IDs during preview instead of silently collapsing them', async () => {
+    const duplicate = {
+      id: 'task_dup',
+      title: 'Duplicate',
+      completed: false,
+      categoryId: '',
+      date: '2026-09-20',
+      createdAt: '2026-09-20T00:00:00.000Z',
+      updatedAt: '2026-09-20T00:00:00.000Z',
+      userId: 'user_A',
+      isDeleted: false,
+      visibility: 'private',
+    };
+    const file = jsonBackup({
+      data: {
+        tasks: [duplicate, { ...duplicate, title: 'Second copy' }],
+        categories: [],
+        diary: [],
+        settings: [],
+        friendships: [],
+      },
+    });
+
+    await expect(inspectBackupFile(file, currentUser.id)).rejects.toThrow(
+      /duplicate task IDs/i
+    );
+  });
+
+  it('rejects schema-invalid content during preview before any restore write', async () => {
+    const file = jsonBackup({
+      data: {
+        tasks: [{
+          id: 'task_long',
+          title: 'x'.repeat(256),
+          completed: false,
+          categoryId: '',
+          date: '2026-09-20',
+          createdAt: '2026-09-20T00:00:00.000Z',
+          updatedAt: '2026-09-20T00:00:00.000Z',
+          userId: 'user_A',
+          isDeleted: false,
+          visibility: 'private',
+        }],
+        categories: [],
+        diary: [],
+        settings: [],
+        friendships: [],
+      },
+    });
+
+    await expect(inspectBackupFile(file, currentUser.id)).rejects.toThrow(
+      /task title exceeds/i
+    );
+    expect(state.upsertLocalDoc).not.toHaveBeenCalled();
+  });
+
+  it('does not tombstone current-only rows when applying a replace backup fails', async () => {
+    state.rows.tasks.set('task_current_only', {
+      id: 'task_current_only',
+      title: 'Keep if restore fails',
+      completed: false,
+      categoryId: '',
+      date: '2026-09-20',
+      createdAt: '2026-09-20T00:00:00.000Z',
+      updatedAt: '2026-09-20T00:00:00.000Z',
+      userId: 'user_A',
+      isDeleted: false,
+      visibility: 'private',
+    });
+    const file = jsonBackup({
+      data: {
+        tasks: [{
+          id: 'task_backup',
+          title: 'Backup task',
+          completed: false,
+          categoryId: '',
+          date: '2026-09-20',
+          createdAt: '2026-09-20T00:00:00.000Z',
+          updatedAt: '2026-09-20T00:00:00.000Z',
+          userId: 'user_A',
+          isDeleted: false,
+          visibility: 'private',
+        }],
+        categories: [],
+        diary: [],
+        settings: [],
+        friendships: [],
+      },
+    });
+    state.upsertLocalDoc.mockRejectedValueOnce(new Error('write failed'));
+
+    await expect(
+      restoreUserData(file, currentUser, { mode: 'replace' })
+    ).rejects.toThrow('write failed');
+
+    expect(state.rows.tasks.get('task_current_only')?.isDeleted).toBe(false);
+    expect(state.exportUserData).toHaveBeenCalledOnce();
+    expect(state.triggerDownload).toHaveBeenCalledOnce();
+  });
+
+  it('does not recover bundled images for merge rows that preflight skips as newer', async () => {
+    state.rows.tasks.set('task_keep', {
+      id: 'task_keep',
+      title: 'Current',
+      completed: false,
+      categoryId: '',
+      date: '2026-09-20',
+      image: 'img_backup',
+      createdAt: '2026-09-20T00:00:00.000Z',
+      updatedAt: '2026-09-22T00:00:00.000Z',
+      userId: 'user_A',
+      isDeleted: false,
+      visibility: 'private',
+    });
+    const file = zipBackup(
+      {
+        data: {
+          tasks: [{
+            id: 'task_keep',
+            title: 'Older',
+            completed: false,
+            categoryId: '',
+            date: '2026-09-20',
+            image: 'img_backup',
+            createdAt: '2026-09-20T00:00:00.000Z',
+            updatedAt: '2026-09-21T00:00:00.000Z',
+            userId: 'user_A',
+            isDeleted: false,
+            visibility: 'private',
+          }],
+          categories: [],
+          diary: [],
+          settings: [],
+          friendships: [],
+        },
+        images: {
+          included: true,
+          referenced: ['img_backup'],
+          missingImages: [],
+          note: 'bundled',
+        },
+      },
+      { img_backup: 'image-bytes' }
+    );
+
+    const result = await restoreUserData(file, currentUser, { mode: 'merge' });
+
+    expect(result.skippedNewer).toBe(1);
+    expect(state.ensureRestoredImage).not.toHaveBeenCalled();
+    expect(state.rows.tasks.get('task_keep')?.title).toBe('Current');
+  });
+
+
+  it('refuses restore when the pre-restore sync did not fully succeed', async () => {
+    state.getSyncStatus.mockReturnValue({
+      isSyncing: false,
+      lastSync: '2026-09-26T23:00:00.000Z',
+      errors: ['tasks: network failed'],
+    });
+    const file = jsonBackup();
+
+    await expect(
+      restoreUserData(file, currentUser, { mode: 'merge' })
+    ).rejects.toThrow(/could not fully refresh synced data/i);
+
+    expect(state.exportUserData).not.toHaveBeenCalled();
+    expect(state.triggerDownload).not.toHaveBeenCalled();
+    expect(state.upsertLocalDoc).not.toHaveBeenCalled();
+  });
+
+
+  it('refuses restore when sync status is successful but stale', async () => {
+    state.getSyncStatus.mockReturnValue({
+      isSyncing: false,
+      lastSync: '2026-01-01T00:00:00.000Z',
+      errors: [],
+    });
+    const file = jsonBackup();
+
+    await expect(
+      restoreUserData(file, currentUser, { mode: 'merge' })
+    ).rejects.toThrow(/could not fully refresh synced data/i);
+
+    expect(state.exportUserData).not.toHaveBeenCalled();
+    expect(state.upsertLocalDoc).not.toHaveBeenCalled();
+  });
+
+
+  it('retries an equal-version cross-account row when its portable image was previously missing', async () => {
+    const sourceUser = {
+      id: 'source_user',
+      email: 'source@example.com',
+      name: 'Source',
+    };
+    const backupTask = {
+      id: 'task_source_photo',
+      title: 'Portable photo task',
+      completed: false,
+      categoryId: '',
+      date: '2026-09-20',
+      image: 'img_source',
+      createdAt: '2026-09-20T00:00:00.000Z',
+      updatedAt: '2026-09-20T00:00:00.000Z',
+      userId: 'source_user',
+      isDeleted: false,
+      visibility: 'private',
+    };
+    const file = zipBackup(
+      {
+        user: sourceUser,
+        data: {
+          tasks: [backupTask],
+          categories: [],
+          diary: [],
+          settings: [],
+          friendships: [],
+        },
+        images: {
+          included: true,
+          referenced: ['img_source'],
+          missingImages: [],
+          note: 'bundled',
+        },
+      },
+      { img_source: 'image-bytes' }
+    );
+
+    state.ensureRestoredImage.mockRejectedValueOnce(new Error('temporary upload failure'));
+    const first = await restoreUserData(file, currentUser, { mode: 'merge' });
+    expect(first.imagesMissing).toBe(1);
+
+    const restoredTask = Array.from(state.rows.tasks.values())[0];
+    expect(restoredTask.image).toBe('');
+
+    state.ensureRestoredImage.mockResolvedValueOnce({
+      fileId: 'bk_i_recovered',
+      uploaded: true,
+    });
+    const second = await restoreUserData(file, currentUser, { mode: 'merge' });
+
+    expect(second.restored.tasks).toBe(1);
+    expect(Array.from(state.rows.tasks.values())[0].image).toBe('bk_i_recovered');
+  });
+
+  it('reports cross-account image loss when a backup has no bundled photo bytes', async () => {
+    const file = jsonBackup({
+      user: { id: 'source_user', email: 'source@example.com', name: 'Source' },
+      data: {
+        tasks: [{
+          id: 'task_source_missing_photo',
+          title: 'No bundled photo',
+          completed: false,
+          categoryId: '',
+          date: '2026-09-20',
+          image: 'img_unavailable',
+          createdAt: '2026-09-20T00:00:00.000Z',
+          updatedAt: '2026-09-20T00:00:00.000Z',
+          userId: 'source_user',
+          isDeleted: false,
+          visibility: 'private',
+        }],
+        categories: [],
+        diary: [],
+        settings: [],
+        friendships: [],
+      },
+    });
+
+    const result = await restoreUserData(file, currentUser, { mode: 'merge' });
+
+    expect(result.imagesMissing).toBe(1);
+    expect(Array.from(state.rows.tasks.values())[0].image).toBe('');
+  });
+
+
+  it('rejects invalid calendar day keys during preview', async () => {
+    const file = jsonBackup({
+      data: {
+        tasks: [{
+          id: 'task_bad_date',
+          title: 'Bad date',
+          completed: false,
+          categoryId: '',
+          date: '2026-02-31',
+          createdAt: '2026-09-20T00:00:00.000Z',
+          updatedAt: '2026-09-20T00:00:00.000Z',
+          userId: 'user_A',
+          isDeleted: false,
+          visibility: 'private',
+        }],
+        categories: [],
+        diary: [],
+        settings: [],
+        friendships: [],
+      },
+    });
+
+    await expect(inspectBackupFile(file, currentUser.id)).rejects.toThrow(
+      /invalid date/i
+    );
+  });
+
+  it('rejects prototype-polluting setting keys during preview', async () => {
+    const file = new File(
+      [
+        JSON.stringify({
+          ...backupPayload(),
+          data: {
+            tasks: [],
+            categories: [],
+            diary: [],
+            settings: JSON.parse('{"__proto__":"pollute"}'),
+            friendships: [],
+          },
+        }),
+      ],
+      'unsafe-setting.json',
+      { type: 'application/json' }
+    );
+
+    await expect(inspectBackupFile(file, currentUser.id)).rejects.toThrow(
+      /unsafe setting key/i
+    );
+  });
+
+
+  it('aborts before writes when the authenticated account no longer matches the restore owner', async () => {
+    state.getCurrentUserId.mockResolvedValueOnce('user_B');
+    const file = jsonBackup({
+      data: {
+        tasks: [{
+          id: 'task_account_guard',
+          title: 'Must not import',
+          completed: false,
+          categoryId: '',
+          date: '2026-09-20',
+          createdAt: '2026-09-20T00:00:00.000Z',
+          updatedAt: '2026-09-20T00:00:00.000Z',
+          userId: 'user_A',
+          isDeleted: false,
+          visibility: 'private',
+        }],
+        categories: [],
+        diary: [],
+        settings: [],
+        friendships: [],
+      },
+    });
+
+    await expect(
+      restoreUserData(file, currentUser, { mode: 'merge' })
+    ).rejects.toThrow(/signed-in account changed/i);
+
+    expect(state.upsertLocalDoc).not.toHaveBeenCalled();
+    expect(state.exportUserData).not.toHaveBeenCalled();
+  });
+
+  it('does not let an equal-version image retry resurrect a tombstone', async () => {
+    const sourceUser = {
+      id: 'source_user',
+      email: 'source@example.com',
+      name: 'Source',
+    };
+    const file = zipBackup(
+      {
+        user: sourceUser,
+        data: {
+          tasks: [{
+            id: 'task_deleted_source',
+            title: 'Deleted current row',
+            completed: false,
+            categoryId: '',
+            date: '2026-09-20',
+            image: 'img_source',
+            createdAt: '2026-09-20T00:00:00.000Z',
+            updatedAt: '2026-09-20T00:00:00.000Z',
+            userId: 'source_user',
+            isDeleted: false,
+            visibility: 'private',
+          }],
+          categories: [],
+          diary: [],
+          settings: [],
+          friendships: [],
+        },
+        images: {
+          included: true,
+          referenced: ['img_source'],
+          missingImages: [],
+          note: 'bundled',
+        },
+      },
+      { img_source: 'image-bytes' }
+    );
+
+    await restoreUserData(file, currentUser, { mode: 'merge' });
+    const currentId = Array.from(state.rows.tasks.keys())[0];
+    state.rows.tasks.set(currentId, {
+      ...state.rows.tasks.get(currentId),
+      image: '',
+      isDeleted: true,
+      updatedAt: '2026-09-20T00:00:00.000Z',
+    });
+    vi.clearAllMocks();
+    state.sync.mockResolvedValue(undefined);
+    state.getSyncStatus.mockImplementation(() => ({
+      isSyncing: false,
+      lastSync: new Date().toISOString(),
+      errors: [],
+    }));
+    state.getCurrentUserId.mockResolvedValue('user_A');
+
+    const result = await restoreUserData(file, currentUser, { mode: 'merge' });
+
+    expect(result.restored.tasks).toBe(0);
+    expect(state.ensureRestoredImage).not.toHaveBeenCalled();
+    expect(state.rows.tasks.get(currentId)?.isDeleted).toBe(true);
+  });
+
+
+  it('preserves destination friendship preferences during cross-account Replace', async () => {
+    const friendPrefsId = 'user_A_friend_carousel_prefs';
+    state.rows.settings.set(friendPrefsId, {
+      id: friendPrefsId,
+      userId: 'user_A',
+      key: 'friend_carousel_prefs',
+      value: '{"order":["friend_target"],"hidden":[]}',
+      isDeleted: false,
+      updatedAt: '2026-09-25T00:00:00.000Z',
+    });
+    const file = jsonBackup({
+      user: { id: 'source_user', email: 'source@example.com', name: 'Source' },
+      data: {
+        tasks: [],
+        categories: [],
+        diary: [],
+        settings: [{
+          id: 'source_friend_prefs',
+          userId: 'source_user',
+          key: 'friend_carousel_prefs',
+          value: '{"order":["friend_source"],"hidden":["friend_source"]}',
+          isDeleted: false,
+          updatedAt: '2026-09-20T00:00:00.000Z',
+        }],
+        friendships: [],
+      },
+    });
+
+    await restoreUserData(file, currentUser, { mode: 'replace' });
+
+    expect(state.rows.settings.get(friendPrefsId)).toMatchObject({
+      isDeleted: false,
+      value: '{"order":["friend_target"],"hidden":[]}',
+    });
+    expect(
+      Array.from(state.rows.settings.values()).some(
+        (row) => row.value === '{"order":["friend_source"],"hidden":["friend_source"]}'
+      )
+    ).toBe(false);
   });
 });

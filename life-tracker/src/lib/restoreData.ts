@@ -5,7 +5,7 @@ import type {
   DiaryDocument,
   SettingsDocument,
 } from '../db/schema';
-import { initializeSync } from '../db/sync';
+import { getSyncStatus, initializeSync } from '../db/sync';
 import {
   exportUserData,
   triggerDownload,
@@ -17,7 +17,7 @@ import {
   makeDiaryRowId,
   makeSettingsRowId,
 } from './settingsRowId';
-import { uploadImage } from './storage';
+import { ensureRestoredImage, getCurrentUserId } from './storage';
 
 export type RestoreMode = 'merge' | 'replace';
 
@@ -37,10 +37,15 @@ type RestorableDocument =
   | SettingsDocument;
 
 const ROW_ID_PATTERN = /^[a-zA-Z0-9_]+$/;
+const FILE_ID_PATTERN = /^[a-zA-Z0-9][a-zA-Z0-9._-]*$/;
+const DATE_KEY_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+const FORBIDDEN_SETTING_KEYS = new Set(['__proto__', 'prototype', 'constructor']);
+const CROSS_ACCOUNT_PRESERVED_SETTING_KEYS = new Set(['friend_carousel_prefs']);
 const MAX_ROW_ID_LENGTH = 36;
 const SUPPORTED_BACKUP_VERSIONS = new Set([1, 2]);
 
 interface BackupPayload {
+  format?: string;
   app: { name: string; version?: string };
   version: number;
   exportedAt: string;
@@ -72,6 +77,11 @@ interface NormalizedBackup {
   categories: CategoryDocument[];
   diary: DiaryDocument[];
   settings: SettingsDocument[];
+}
+
+interface RestorePlan {
+  data: NormalizedBackup;
+  skippedNewer: number;
 }
 
 export interface BackupPreview {
@@ -171,6 +181,32 @@ function portableRowId(
   return `bk_${prefix}_${hashString(`${currentUserId}:${sourceUserId}:${sourceId}`)}`;
 }
 
+function isValidFileId(id: string): boolean {
+  return id.length > 0 && id.length <= 36 && FILE_ID_PATTERN.test(id);
+}
+
+function isValidDateKey(value: string): boolean {
+  if (!DATE_KEY_PATTERN.test(value)) return false;
+  const [year, month, day] = value.split('-').map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  return (
+    date.getUTCFullYear() === year &&
+    date.getUTCMonth() === month - 1 &&
+    date.getUTCDate() === day
+  );
+}
+
+function portableImageId(
+  currentUserId: string,
+  sourceUserId: string,
+  sourceImageId: string
+): string {
+  if (currentUserId === sourceUserId && isValidFileId(sourceImageId)) {
+    return sourceImageId;
+  }
+  return `bk_i_${hashString(`${currentUserId}:${sourceUserId}:${sourceImageId}`)}`;
+}
+
 function textFromBytes(bytes: Uint8Array): string {
   return new TextDecoder().decode(bytes);
 }
@@ -240,6 +276,9 @@ function validatePayload(value: unknown): BackupPayload {
   ) {
     throw new Error('This Mosaic backup version is not supported.');
   }
+  if (value.version === 2 && value.format !== 'mosaic-user-backup') {
+    throw new Error('This file is not a valid Mosaic backup v2.');
+  }
   if (
     typeof value.exportedAt !== 'string' ||
     !Number.isFinite(Date.parse(value.exportedAt))
@@ -268,6 +307,7 @@ function validatePayload(value: unknown): BackupPayload {
   }
 
   return {
+    format: typeof value.format === 'string' ? value.format : undefined,
     app: {
       name: 'Mosaic',
       version: asString(value.app.version),
@@ -318,11 +358,17 @@ function normalizeBackup(
   const exportedAt = payload.exportedAt;
   const categoryIdMap = new Map<string, string>();
   const taskIdMap = new Map<string, string>();
+  const categorySourceIds = new Set<string>();
+  const taskSourceIds = new Set<string>();
 
   for (const raw of payload.data.categories) {
     if (!isRecord(raw) || raw.isDeleted === true) continue;
     const sourceId = asString(raw.id);
     if (!sourceId) throw new Error('Backup category is missing an ID.');
+    if (categorySourceIds.has(sourceId)) {
+      throw new Error('Backup contains duplicate category IDs.');
+    }
+    categorySourceIds.add(sourceId);
     categoryIdMap.set(
       sourceId,
       portableRowId('c', currentUserId, sourceUserId, sourceId)
@@ -334,6 +380,10 @@ function normalizeBackup(
     if (!isRecord(raw) || raw.isDeleted === true) continue;
     const sourceId = asString(raw.id);
     if (!sourceId) throw new Error('Backup task is missing an ID.');
+    if (taskSourceIds.has(sourceId)) {
+      throw new Error('Backup contains duplicate task IDs.');
+    }
+    taskSourceIds.add(sourceId);
     taskIdMap.set(
       sourceId,
       portableRowId('t', currentUserId, sourceUserId, sourceId)
@@ -377,6 +427,9 @@ function normalizeBackup(
     const title = asString(raw.title);
     const date = asString(raw.date);
     if (!title || !date) throw new Error('Backup task is missing required data.');
+    if (!isValidDateKey(date)) {
+      throw new Error('Backup task has an invalid date.');
+    }
     const sourceCategoryId = asString(raw.categoryId);
     tasks.push({
       id,
@@ -407,6 +460,9 @@ function normalizeBackup(
     if (!isRecord(raw) || raw.isDeleted === true) continue;
     const date = asString(raw.date);
     if (!date) throw new Error('Backup diary entry is missing a date.');
+    if (!isValidDateKey(date)) {
+      throw new Error('Backup diary entry has an invalid date.');
+    }
     diary.push({
       id: makeDiaryRowId(currentUserId, date),
       date,
@@ -432,6 +488,15 @@ function normalizeBackup(
       if (!isRecord(raw) || raw.isDeleted === true) continue;
       const key = asString(raw.key);
       if (!key) throw new Error('Backup setting is missing a key.');
+      if (FORBIDDEN_SETTING_KEYS.has(key)) {
+        throw new Error('Backup contains an unsafe setting key.');
+      }
+      if (
+        sourceUserId !== currentUserId &&
+        CROSS_ACCOUNT_PRESERVED_SETTING_KEYS.has(key)
+      ) {
+        continue;
+      }
       const rawValue = raw.value;
       const value =
         typeof rawValue === 'string' ? rawValue : JSON.stringify(rawValue ?? null);
@@ -446,6 +511,15 @@ function normalizeBackup(
     }
   } else {
     for (const [key, rawValue] of Object.entries(payload.data.settings)) {
+      if (FORBIDDEN_SETTING_KEYS.has(key)) {
+        throw new Error('Backup contains an unsafe setting key.');
+      }
+      if (
+        sourceUserId !== currentUserId &&
+        CROSS_ACCOUNT_PRESERVED_SETTING_KEYS.has(key)
+      ) {
+        continue;
+      }
       settings.push({
         id: makeSettingsRowId(currentUserId, key),
         userId: currentUserId,
@@ -464,7 +538,65 @@ function normalizeBackup(
     'setting keys'
   );
 
-  return { sourceUserId, tasks, categories, diary, settings };
+  const normalized = { sourceUserId, tasks, categories, diary, settings };
+  validateNormalizedBackup(normalized);
+  return normalized;
+}
+
+function assertMaxLength(label: string, value: string | undefined, max: number): void {
+  if (value !== undefined && value.length > max) {
+    throw new Error(`Backup ${label} exceeds Mosaic's supported length.`);
+  }
+}
+
+function validateNormalizedBackup(data: NormalizedBackup): void {
+  for (const task of data.tasks) {
+    assertMaxLength('task title', task.title, 255);
+    assertMaxLength('task category ID', task.categoryId, 255);
+    assertMaxLength('task tags', task.tags, 1000);
+    assertMaxLength('task date', task.date, 50);
+    assertMaxLength('task memo', task.memo, 2000);
+    assertMaxLength('task image reference', task.image, 1_000_000);
+    if (task.image && !isValidFileId(task.image)) {
+      throw new Error('Backup task has an invalid image reference.');
+    }
+    assertMaxLength('task created time', task.createdAt, 50);
+    assertMaxLength('task completed time', task.completedAt, 50);
+    assertMaxLength('task updated time', task.updatedAt, 50);
+    assertMaxLength('task source', task.source, 50);
+    assertMaxLength('task routine ID', task.routineId, 255);
+    assertMaxLength('task reminder time', task.reminderTime, 50);
+    assertMaxLength('task reactions', task.reactions, 5000);
+  }
+
+  for (const category of data.categories) {
+    assertMaxLength('category name', category.name, 100);
+    assertMaxLength('category color', category.color, 20);
+    assertMaxLength('category icon', category.icon, 10);
+    assertMaxLength('category updated time', category.updatedAt, 50);
+    if (!Number.isInteger(category.order) || category.order < 0 || category.order > 999999) {
+      throw new Error('Backup category order is invalid.');
+    }
+  }
+
+  for (const entry of data.diary) {
+    assertMaxLength('diary date', entry.date, 50);
+    assertMaxLength('diary created time', entry.createdAt, 50);
+    assertMaxLength('diary updated time', entry.updatedAt, 50);
+  }
+
+  for (const setting of data.settings) {
+    assertMaxLength('setting key', setting.key, 100);
+    assertMaxLength('setting value', setting.value, 10000);
+    if (
+      setting.key === 'profileImageId' &&
+      setting.value &&
+      !isValidFileId(setting.value)
+    ) {
+      throw new Error('Backup profile image reference is invalid.');
+    }
+    assertMaxLength('setting updated time', setting.updatedAt, 50);
+  }
 }
 
 function readLocalDoc(doc: LocalDoc): JsonRecord {
@@ -512,7 +644,12 @@ async function restoreImages(
     const oldId = ids[index];
     const bytes = loaded.imageFiles.get(oldId);
     if (!bytes) {
-      if (loaded.payload.images?.included) missing += 1;
+      if (
+        loaded.payload.images?.included ||
+        loaded.payload.user.id !== currentUserId
+      ) {
+        missing += 1;
+      }
       continue;
     }
     onProgress?.(`Restoring photos (${index + 1}/${ids.length})…`);
@@ -521,9 +658,18 @@ async function restoreImages(
       const file = new File([imageBuffer], `${oldId}.webp`, {
         type: 'image/webp',
       });
-      const newId = await uploadImage(file);
-      remapped.set(oldId, newId);
-      restored += 1;
+      const preferredFileId = portableImageId(
+        currentUserId,
+        loaded.payload.user.id,
+        oldId
+      );
+      const ensured = await ensureRestoredImage(
+        file,
+        preferredFileId,
+        currentUserId
+      );
+      remapped.set(oldId, ensured.fileId);
+      if (ensured.uploaded) restored += 1;
     } catch (error) {
       console.warn('[Restore] Image restore failed:', oldId, error);
       missing += 1;
@@ -547,10 +693,91 @@ async function restoreImages(
   return { restored, missing };
 }
 
+function isEqualPortableImageRetry(
+  collectionName: RestorableCollection,
+  sourceDoc: RestorableDocument,
+  current: JsonRecord,
+  sourceUserId: string,
+  userId: string
+): boolean {
+  if (sourceUserId === userId || current.isDeleted === true) return false;
+  if (collectionName === 'tasks') {
+    return Boolean((sourceDoc as TaskDocument).image) && !asString(current.image);
+  }
+  if (collectionName === 'settings') {
+    const setting = sourceDoc as SettingsDocument;
+    return (
+      setting.key === 'profileImageId' &&
+      Boolean(setting.value) &&
+      !asString(current.value)
+    );
+  }
+  return false;
+}
+
+async function planRestore(
+  data: NormalizedBackup,
+  userId: string,
+  mode: RestoreMode
+): Promise<RestorePlan> {
+  const planned: NormalizedBackup = {
+    sourceUserId: data.sourceUserId,
+    tasks: [],
+    categories: [],
+    diary: [],
+    settings: [],
+  };
+  let skippedNewer = 0;
+
+  for (const collectionName of RESTORABLE_COLLECTIONS) {
+    const collection = collectionFor(collectionName);
+    const target = planned[collectionName] as RestorableDocument[];
+
+    for (const doc of documentsFor(data, collectionName)) {
+      const existing = await collection.findOne(doc.id).exec();
+      if (!existing) {
+        target.push(doc);
+        continue;
+      }
+
+      const current = readLocalDoc(existing);
+      if (current.userId !== userId) {
+        throw new Error('Restore ID collides with data owned by another account.');
+      }
+      if (mode === 'merge') {
+        const currentUpdatedAt = toMs(current.updatedAt);
+        const backupUpdatedAt = toMs(doc.updatedAt);
+        const isEqualCrossAccountImageRetry =
+          currentUpdatedAt === backupUpdatedAt &&
+          isEqualPortableImageRetry(
+            collectionName,
+            doc,
+            current,
+            data.sourceUserId,
+            userId
+          );
+
+        if (
+          currentUpdatedAt > backupUpdatedAt ||
+          (currentUpdatedAt === backupUpdatedAt &&
+            !isEqualCrossAccountImageRetry)
+        ) {
+          skippedNewer += 1;
+          continue;
+        }
+      }
+      target.push(doc);
+    }
+  }
+
+  return { data: planned, skippedNewer };
+}
+
 async function applyDocuments(
   collectionName: RestorableCollection,
   docs: RestorableDocument[],
   userId: string,
+  sourceUserId: string,
   mode: RestoreMode,
   replaceTimestamp: string
 ): Promise<{ restored: number; skippedNewer: number }> {
@@ -569,19 +796,29 @@ async function applyDocuments(
     const existing = await collection.findOne(doc.id).exec();
     if (existing) {
       const current = readLocalDoc(existing);
-      if (
-        typeof current.userId === 'string' &&
-        current.userId &&
-        current.userId !== userId
-      ) {
+      if (current.userId !== userId) {
         throw new Error('Restore ID collides with data owned by another account.');
       }
-      if (
-        mode === 'merge' &&
-        toMs(current.updatedAt) >= toMs(doc.updatedAt)
-      ) {
-        skippedNewer += 1;
-        continue;
+      if (mode === 'merge') {
+        const currentUpdatedAt = toMs(current.updatedAt);
+        const backupUpdatedAt = toMs(doc.updatedAt);
+        const isEqualCrossAccountImageRetry =
+          currentUpdatedAt === backupUpdatedAt &&
+          isEqualPortableImageRetry(
+            collectionName,
+            doc,
+            current,
+            sourceUserId,
+            userId
+          );
+        if (
+          currentUpdatedAt > backupUpdatedAt ||
+          (currentUpdatedAt === backupUpdatedAt &&
+            !isEqualCrossAccountImageRetry)
+        ) {
+          skippedNewer += 1;
+          continue;
+        }
       }
     }
 
@@ -618,7 +855,10 @@ async function tombstoneMissing(
         !id ||
         current.userId !== userId ||
         current.isDeleted === true ||
-        wanted[name].has(id)
+        wanted[name].has(id) ||
+        (name === 'settings' &&
+          data.sourceUserId !== userId &&
+          CROSS_ACCOUNT_PRESERVED_SETTING_KEYS.has(asString(current.key)))
       ) {
         continue;
       }
@@ -639,26 +879,41 @@ function documentsFor(
   return data[collection] as RestorableDocument[];
 }
 
-export async function inspectBackupFile(file: File): Promise<BackupPreview> {
+export async function inspectBackupFile(
+  file: File,
+  currentUserId?: string
+): Promise<BackupPreview> {
   const loaded = await loadBackupFile(file);
-  const settingsCount = Array.isArray(loaded.payload.data.settings)
-    ? loaded.payload.data.settings.length
-    : Object.keys(loaded.payload.data.settings).length;
+  const normalized = normalizeBackup(
+    loaded.payload,
+    currentUserId || loaded.payload.user.id
+  );
 
   return {
     version: loaded.payload.version,
     exportedAt: loaded.payload.exportedAt,
     sourceUser: loaded.payload.user,
     counts: {
-      tasks: loaded.payload.data.tasks.length,
-      categories: loaded.payload.data.categories.length,
-      diary: loaded.payload.data.diary.length,
-      settings: settingsCount,
+      tasks: normalized.tasks.length,
+      categories: normalized.categories.length,
+      diary: normalized.diary.length,
+      settings: normalized.settings.length,
       images: loaded.imageFiles.size,
     },
     imagesIncluded: loaded.payload.images?.included === true,
     friendshipsReferenceOnly: loaded.payload.data.friendships?.length ?? 0,
   };
+}
+
+async function assertRestoreUserStillCurrent(
+  expectedUserId: string
+): Promise<void> {
+  const authenticatedUserId = await getCurrentUserId();
+  if (authenticatedUserId !== expectedUserId) {
+    throw new Error(
+      'Restore stopped because the signed-in account changed. Reopen Backup & Restore and try again.'
+    );
+  }
 }
 
 export async function restoreUserData(
@@ -673,8 +928,42 @@ export async function restoreUserData(
   const loaded = await loadBackupFile(file);
   const data = normalizeBackup(loaded.payload, currentUser.id);
 
+  if (options.mode !== 'merge' && options.mode !== 'replace') {
+    throw new Error('Restore mode is invalid.');
+  }
+
+  if (
+    typeof navigator !== 'undefined' &&
+    navigator.onLine === false
+  ) {
+    throw new Error(
+      'Restoring a backup requires an internet connection so Mosaic can check for newer synced data first.'
+    );
+  }
+
   report('Refreshing current data…');
+  const refreshStartedAt = Date.now();
   await initializeSync();
+
+  const syncStatus = getSyncStatus();
+  const lastSyncMs = syncStatus.lastSync
+    ? Date.parse(syncStatus.lastSync)
+    : Number.NaN;
+  if (
+    syncStatus.isSyncing ||
+    syncStatus.errors.length > 0 ||
+    !Number.isFinite(lastSyncMs) ||
+    lastSyncMs < refreshStartedAt
+  ) {
+    throw new Error(
+      'Mosaic could not fully refresh synced data. Try restoring again after sync succeeds.'
+    );
+  }
+
+  await assertRestoreUserStillCurrent(currentUser.id);
+
+  report('Planning restore…');
+  const plan = await planRestore(data, currentUser.id, options.mode);
 
   let safetyBackupDownloaded = false;
   if (options.mode === 'replace') {
@@ -686,38 +975,46 @@ export async function restoreUserData(
 
   const imageResult = await restoreImages(
     loaded,
-    data,
+    plan.data,
     currentUser.id,
     options.onProgress
   );
 
-  const replaceTimestamp = new Date().toISOString();
-  let tombstoned = 0;
-  if (options.mode === 'replace') {
-    report('Replacing personal data…');
-    tombstoned = await tombstoneMissing(data, currentUser.id, replaceTimestamp);
-  } else {
-    report('Merging personal data…');
-  }
+  await assertRestoreUserStillCurrent(currentUser.id);
 
+  const replaceTimestamp = new Date().toISOString();
   const restored: Record<RestorableCollection, number> = {
     tasks: 0,
     categories: 0,
     diary: 0,
     settings: 0,
   };
-  let skippedNewer = 0;
+  let skippedNewer = plan.skippedNewer;
+
+  report(
+    options.mode === 'replace'
+      ? 'Applying backup data…'
+      : 'Merging personal data…'
+  );
 
   for (const collection of RESTORABLE_COLLECTIONS) {
     const result = await applyDocuments(
       collection,
-      documentsFor(data, collection),
+      documentsFor(plan.data, collection),
       currentUser.id,
+      data.sourceUserId,
       options.mode,
       replaceTimestamp
     );
     restored[collection] = result.restored;
     skippedNewer += result.skippedNewer;
+  }
+
+  let tombstoned = 0;
+  if (options.mode === 'replace') {
+    await assertRestoreUserStillCurrent(currentUser.id);
+    report('Removing current-only personal data…');
+    tombstoned = await tombstoneMissing(data, currentUser.id, replaceTimestamp);
   }
 
   report('Syncing restored data…');

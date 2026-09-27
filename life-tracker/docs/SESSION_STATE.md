@@ -2,47 +2,42 @@
 
 Updated: 2026-09-27
 
-Current task: implement user-controlled Backup & Restore from the current Export Data foundation, including safe merge and replace-personal-data restore modes.
+Current task: harden Backup & Restore after the user manually accepted the first Preview; add explicit confirmation before Replace Personal Data and close restore/data-safety edge cases before promotion.
 
-Status: implementation is complete on `chatgpt/backup-restore`, targeting stable Preview `feature/backup-restore`, both based from `dev` commit `d1535b76092b8a9878f5cc52cd5f61c521376d63`.
+Status: implementation/audit complete on `chatgpt/backup-restore-hardening`, based on stable Preview `feature/backup-restore` commit `e1df461fa0fb2172491000c66d8af74454f69efc`. Focused CI is green; full canonical acceptance is next.
 
 ## Working set
-- `src/lib/exportData.ts`, `src/lib/restoreData.ts`
-- `src/components/modals/ExportDataSheet.tsx`, `src/pages/SettingsPage.tsx`
-- backup/restore unit and Settings DOM regression coverage
-- `docs/BACKUP_RESTORE.md`, `docs/README.md`
+- `src/lib/restoreData.ts`, `src/lib/storage.ts`, `src/lib/sdk.ts`
+- `src/components/modals/ExportDataSheet.tsx`, `src/components/ui/ConfirmSheet.tsx`, `src/components/ui/BottomSheet.tsx`
+- backup/restore, storage, BottomSheet DOM, and browser-history regression coverage
+- `docs/BACKUP_RESTORE.md`, `docs/PROJECT_REFERENCE.md`
 
 ## Completed substeps
-- Created `feature/backup-restore` from the exact current `dev` tip and `chatgpt/backup-restore` as the working branch.
-- Audited and evolved the existing exporter into format v2 while retaining v1 JSON/ZIP restore compatibility.
-- Added validation/preview before restore writes.
-- Added default Merge semantics that keep current-only rows and preserve newer current versions/tombstones.
-- Added Replace Personal Data semantics for tasks/categories/diary/settings only, with a pre-restore safety download and tombstones for current personal rows absent from the backup.
-- Explicitly excluded friendships, messages, login/account state, and reciprocal social data from personal restore.
-- Added deterministic cross-account task/category ID remapping; diary/settings IDs are regenerated for the current account. Re-importing a backup does not create duplicate logical rows.
-- Added best-effort bundled-image upload/remapping; missing image recovery does not block personal data restore.
-- Replaced Settings → Export Data with the Backup & Restore sheet, including backup creation, file preview, mode selection, warnings, and progress feedback.
-- Focused Quality Gate run 903 passed on the complete feature/UI state before the final source-account ID-scope correction.
-
-## Remaining substeps
-- Complete exact-SHA full canonical acceptance on this final checkpoint and repair any failure until green.
-- Squash-deliver the accepted task PR into `feature/backup-restore`.
-- Verify the stable Preview branch Quality Gate and Vercel deployment.
-- Record any remaining manual/browser acceptance separately.
+- Added an explicit destructive confirmation before Replace Personal Data; selecting a different backup resets mode to Merge.
+- Replace now validates/plans first, applies all backup rows before current-only tombstones, and does not begin destructive deletion when a backup-row write fails.
+- Both Merge and Replace require a successful fresh sync from the active restore attempt before writes, so newer remote edits/remote-only rows cannot be missed.
+- Restore re-verifies the authenticated account before writes and destructive tombstones; restored images also reject account changes.
+- Added v2 format identity, duplicate-ID, schema-length, valid date/file-ID, and unsafe-setting-key validation during preview/preflight.
+- Bundled images are planned only for rows that will apply, use deterministic/reusable file IDs, avoid repeated Storage leaks, and can retry a previously failed portable-image recovery without overwriting newer edits or resurrecting tombstones.
+- Cross-account restore preserves destination friendship-bound preferences (`friend_carousel_prefs`) and continues to exclude friendships/messages/account state from personal restore.
+- Added synchronous restore invocation locking to prevent rapid double-confirm races.
+- Added a separate `BottomSheet.preventDismiss` contract for in-flight operations; it blocks backdrop, Escape, and browser/Android Back without changing existing `isLocked` drag-only semantics or hiding the active dialog from accessibility.
+- Updated authoritative backup/restore and BottomSheet contracts plus regression coverage for the audited failure modes.
 
 ## Constraints
-- Preserve local-first sync semantics, account isolation, tombstones, and existing Appwrite row-ID rules.
+- Preserve v1 Mosaic export compatibility and v2 backup compatibility.
+- Normal Mosaic editing remains local-first/offline, but backup restore intentionally requires online fresh-sync reconciliation before writes for cross-device data safety.
 - Replace never mutates friendships, messages, login/account state, or reciprocal social data.
-- Existing v1 Mosaic exports remain importable.
-- Do not promote the stable feature branch to `dev` without explicit user instruction.
+- Do not promote `feature/backup-restore` to `dev` without explicit user instruction.
 
 ## Verification
-- Baseline: `dev` commit `d1535b76092b8a9878f5cc52cd5f61c521376d63`, Quality Gate 894 green per prior handoff.
-- Focused feature verification: Quality Gate run 903 passed.
-- Full canonical acceptance run 905 reached green checks/DOM/dependency gates but failed production build on a TypeScript BlobPart mismatch in restored image bytes; the image path now materializes an ArrayBuffer before constructing File.
-- New full canonical acceptance: requested by this checkpoint commit.
-- Manual/device acceptance: not yet performed.
+- Baseline: `feature/backup-restore` commit `e1df461fa0fb2172491000c66d8af74454f69efc`; Quality Gate run 908 canonical acceptance passed; user manually verified that Preview.
+- Hardening focused checks: latest focused Quality Gate through run 955 green.
+- New coverage includes Replace confirmation, safe failure ordering, fresh-sync gating, malformed backup rejection, image idempotence/retry, account switching, tombstone safety, cross-account social preference isolation, and non-dismissible browser-history behavior.
+- Full exact-SHA canonical acceptance: pending.
+- Stable Preview deployment after squash delivery: pending.
+- Manual re-check of the new confirmation/Back behavior on hosted Preview: pending.
 
-Next action: complete the repaired full canonical acceptance, repair any remaining failure, then squash-deliver to the stable feature branch and verify Preview.
+Next action: create the final `[verify:full]` checkpoint commit, wait for exact-SHA canonical acceptance, squash-deliver to `feature/backup-restore`, verify Vercel READY/200, then hand off the Preview for the remaining manual check.
 
 Blockers: none.

@@ -4,6 +4,7 @@ const sdkRef = vi.hoisted(() => ({
   guardedAccountGet: vi.fn(),
   guardedStorageCreateFile: vi.fn(),
   guardedStorageDeleteFile: vi.fn(),
+  guardedStorageGetFile: vi.fn(),
   guardedStorageGetFileView: vi.fn(),
   guardedStorageGetFilePreview: vi.fn(),
 }));
@@ -13,6 +14,7 @@ vi.mock('../../src/lib/sdk', () => ({
   guardedStorage: {
     createFile: sdkRef.guardedStorageCreateFile,
     deleteFile: sdkRef.guardedStorageDeleteFile,
+    getFile: sdkRef.guardedStorageGetFile,
     getFileView: sdkRef.guardedStorageGetFileView,
     getFilePreview: sdkRef.guardedStorageGetFilePreview,
   },
@@ -24,7 +26,11 @@ vi.mock('browser-image-compression', () => ({
   default: vi.fn(async (file: File) => file),
 }));
 
-import { uploadImage, getCurrentUserId } from '../../src/lib/storage';
+import {
+  uploadImage,
+  getCurrentUserId,
+  ensureRestoredImage,
+} from '../../src/lib/storage';
 import { isOfflineError } from '../../src/lib/authEvents';
 
 function makeFile(): File {
@@ -34,6 +40,7 @@ function makeFile(): File {
 beforeEach(() => {
   sdkRef.guardedAccountGet.mockReset();
   sdkRef.guardedStorageCreateFile.mockReset();
+  sdkRef.guardedStorageGetFile.mockReset();
 });
 
 // Regression: §23.6 (confirmed 401 differs from network/offline uncertainty).
@@ -89,5 +96,61 @@ describe('storage.uploadImage — error messages', () => {
     expect(typeof id).toBe('string');
     expect(id.startsWith('img_')).toBe(true);
     expect(sdkRef.guardedStorageCreateFile).toHaveBeenCalledTimes(1);
+  });
+});
+
+
+describe('storage.ensureRestoredImage — idempotent backup recovery', () => {
+  it('reuses an existing preferred file instead of uploading a duplicate', async () => {
+    sdkRef.guardedAccountGet.mockResolvedValueOnce({ $id: 'user_A' });
+    sdkRef.guardedStorageGetFile.mockResolvedValueOnce({ $id: 'bk_i_existing' });
+
+    await expect(
+      ensureRestoredImage(makeFile(), 'bk_i_existing')
+    ).resolves.toEqual({ fileId: 'bk_i_existing', uploaded: false });
+
+    expect(sdkRef.guardedStorageCreateFile).not.toHaveBeenCalled();
+  });
+
+  it('creates a missing preferred file with the deterministic ID', async () => {
+    sdkRef.guardedAccountGet.mockResolvedValueOnce({ $id: 'user_A' });
+    sdkRef.guardedStorageGetFile.mockRejectedValueOnce(
+      Object.assign(new Error('Not found'), { code: 404 })
+    );
+    sdkRef.guardedStorageCreateFile.mockResolvedValueOnce({ $id: 'bk_i_restored' });
+
+    await expect(
+      ensureRestoredImage(makeFile(), 'bk_i_restored')
+    ).resolves.toEqual({ fileId: 'bk_i_restored', uploaded: true });
+
+    expect(sdkRef.guardedStorageCreateFile).toHaveBeenCalledWith(
+      expect.objectContaining({ fileId: 'bk_i_restored' })
+    );
+  });
+
+  it('treats a create conflict as successful reuse after a race', async () => {
+    sdkRef.guardedAccountGet.mockResolvedValueOnce({ $id: 'user_A' });
+    sdkRef.guardedStorageGetFile.mockRejectedValueOnce(
+      Object.assign(new Error('Not found'), { code: 404 })
+    );
+    sdkRef.guardedStorageCreateFile.mockRejectedValueOnce(
+      Object.assign(new Error('Already exists'), { code: 409 })
+    );
+
+    await expect(
+      ensureRestoredImage(makeFile(), 'bk_i_race')
+    ).resolves.toEqual({ fileId: 'bk_i_race', uploaded: false });
+  });
+
+
+  it('refuses restore-image writes if the authenticated account changed', async () => {
+    sdkRef.guardedAccountGet.mockResolvedValueOnce({ $id: 'user_B' });
+
+    await expect(
+      ensureRestoredImage(makeFile(), 'bk_i_account_guard', 'user_A')
+    ).rejects.toThrow(/authenticated user changed/i);
+
+    expect(sdkRef.guardedStorageGetFile).not.toHaveBeenCalled();
+    expect(sdkRef.guardedStorageCreateFile).not.toHaveBeenCalled();
   });
 });
