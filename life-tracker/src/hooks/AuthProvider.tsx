@@ -15,6 +15,7 @@ import type { Models } from 'appwrite';
 import { syncPostHogIdentity } from '../lib/posthog';
 import { waitForDatabaseReady } from '../lib/databaseBootstrap';
 import { markStartup } from '../lib/startupMetrics';
+import { scopeSyncStatusToUser } from '../lib/syncStatus';
 
 const AUTH_BROADCAST_KEY = 'mosaic_auth_broadcast';
 const LAST_KNOWN_USER_KEY = 'mosaic_last_known_user';
@@ -118,6 +119,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const resolveInFlightGenerationRef = useRef<number | null>(null);
   const authGenerationRef = useRef(0);
   const userId = user?.$id ?? null;
+
+  useEffect(() => {
+    scopeSyncStatusToUser(userId);
+  }, [userId]);
 
   useEffect(() => {
     if (!isLoading) syncPostHogIdentity(userId);
