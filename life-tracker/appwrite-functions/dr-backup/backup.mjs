@@ -138,34 +138,45 @@ function appwriteClients({ endpoint, projectId, appwriteKey }) {
   };
 }
 
-async function putEncrypted(
+export async function putEncrypted(
   r2,
   key,
   plain,
-  { encryptionKey, keyVersion, compress = true }
+  { encryptionKey, keyVersion, compress = true, stagePrefix = '' }
 ) {
-  const encrypted = encryptBuffer(plain, {
-    key: encryptionKey,
-    keyVersion,
-    aad: key,
-    compress,
-  });
+  const staged = (suffix, operation) =>
+    stagePrefix
+      ? withBackupStage(`${stagePrefix}_${suffix}`, operation)
+      : operation();
+
+  const encrypted = await staged('encrypt', async () =>
+    encryptBuffer(plain, {
+      key: encryptionKey,
+      keyVersion,
+      aad: key,
+      compress,
+    })
+  );
   const plainSha256 = sha256Hex(plain);
   const cipherSha256 = sha256Hex(encrypted);
-  await r2.putObject(key, encrypted, {
-    metadata: {
-      'plain-sha256': plainSha256,
-      'cipher-sha256': cipherSha256,
-      'key-version': keyVersion,
-    },
-  });
-  const head = await r2.headObject(key);
+  await staged('put', () =>
+    r2.putObject(key, encrypted, {
+      metadata: {
+        'plain-sha256': plainSha256,
+        'cipher-sha256': cipherSha256,
+        'key-version': keyVersion,
+      },
+    })
+  );
+  const head = await staged('head', () => r2.headObject(key));
   if (
     !head ||
     head.size !== encrypted.length ||
     head.metadata['cipher-sha256'] !== cipherSha256
   ) {
-    throw new Error(`R2 verification failed for ${key}`);
+    await staged('verify', async () => {
+      throw new Error('R2 verification failed for staged object');
+    });
   }
   return {
     key,
@@ -479,12 +490,16 @@ export async function runBackup({
       const schema = normalizedTable(table, columns, indexes);
       const schemaKey = `${snapshotPrefix}/tables/${database.$id}/${table.$id}/schema.json.enc`;
       const rowsKey = `${snapshotPrefix}/tables/${database.$id}/${table.$id}/rows.jsonl.enc`;
+      const tableStageToken = sha256Hex(
+        Buffer.from(String(table.$id), 'utf8')
+      ).slice(0, 12);
       objects.push(
         await withBackupStage('tables_write_schema', () =>
           putEncrypted(r2, schemaKey, jsonBuffer(schema), {
             encryptionKey: config.encryptionKey,
             keyVersion: config.keyVersion,
             compress: true,
+            stagePrefix: `tables_schema_${tableStageToken}`,
           })
         )
       );
