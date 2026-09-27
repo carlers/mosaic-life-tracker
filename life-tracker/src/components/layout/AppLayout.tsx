@@ -5,6 +5,9 @@ import { MainLayout } from './MainLayout';
 import { FriendsProvider } from '../../hooks/FriendsProvider';
 import { ConversationsProvider } from '../../hooks/ConversationsProvider';
 import { useAuth } from '../../hooks/useAuth';
+import { useConnectivity } from '../../hooks/useConnectivity';
+import { useDatabaseBootstrap } from '../../hooks/useDatabaseBootstrap';
+import { retryDatabaseBootstrap } from '../../lib/databaseBootstrap';
 import { AppearanceProvider } from '../../hooks/AppearanceProvider';
 import { flushSocialOutbox } from '../../lib/socialOutbox';
 import { PrimaryRoutePreview } from './PrimaryRoutePreview';
@@ -57,27 +60,15 @@ export const AppLayout: React.FC = () => {
   const [retryDisabled, setRetryDisabled] = useState(false);
   const [conversationNeighborReadyFor, setConversationNeighborReadyFor] =
     useState<string | null>(null);
-  const [isOnline, setIsOnline] = useState(
-    typeof navigator !== 'undefined' ? navigator.onLine : true
-  );
-
-  useEffect(() => {
-    const onOnline = () => setIsOnline(true);
-    const onOffline = () => setIsOnline(false);
-    window.addEventListener('online', onOnline);
-    window.addEventListener('offline', onOffline);
-    return () => {
-      window.removeEventListener('online', onOnline);
-      window.removeEventListener('offline', onOffline);
-    };
-  }, []);
+  const isOnline = useConnectivity();
+  const database = useDatabaseBootstrap();
 
   // Realtime is background infrastructure, not shell-rendering code. Load it
   // after React commits the authenticated layout instead of pulling it into
   // the synchronous startup graph.
   useEffect(() => {
     const uid = user?.$id;
-    if (!uid) return;
+    if (!uid || isOffline || !isOnline || database.state !== 'ready') return;
 
     let active = true;
     let stopRealtime: (() => void) | null = null;
@@ -96,14 +87,15 @@ export const AppLayout: React.FC = () => {
       active = false;
       stopRealtime?.();
     };
-  }, [user?.$id]);
+  }, [database.state, isOffline, isOnline, user?.$id]);
 
   useEffect(() => {
     const uid = user?.$id;
-    if (!uid) return;
+    if (!uid || isOffline || !isOnline || database.state !== 'ready') return;
 
     let active = true;
     const tryDeliver = () => {
+      if (typeof navigator !== 'undefined' && navigator.onLine === false) return;
       void loadMessageDeliveryModule()
         .then((messageDelivery) => {
           if (!active) return;
@@ -127,8 +119,46 @@ export const AppLayout: React.FC = () => {
       window.removeEventListener('focus', tryDeliver);
       window.removeEventListener('online', tryDeliver);
     };
-  }, [user?.$id]);
+  }, [database.state, isOffline, isOnline, user?.$id]);
 
+
+  useEffect(() => {
+    const uid = user?.$id;
+    if (!uid || isOffline || database.state !== 'ready') return;
+
+    let timer: number | null = null;
+    let active = true;
+    const schedule = (reason: string) => {
+      if (!active || typeof navigator === 'undefined' || navigator.onLine === false) {
+        return;
+      }
+      if (timer !== null) window.clearTimeout(timer);
+      timer = window.setTimeout(() => {
+        timer = null;
+        void import('../../db/sync')
+          .then(({ forceSync }) => forceSync(uid))
+          .catch((syncError) =>
+            console.error(`[AppLayout] ${reason} sync failed:`, syncError)
+          );
+      }, 250);
+    };
+    const onFocus = () => schedule('focus');
+    const onOnline = () => schedule('online');
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') schedule('visibility');
+    };
+
+    window.addEventListener('focus', onFocus);
+    window.addEventListener('online', onOnline);
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => {
+      active = false;
+      if (timer !== null) window.clearTimeout(timer);
+      window.removeEventListener('focus', onFocus);
+      window.removeEventListener('online', onOnline);
+      document.removeEventListener('visibilitychange', onVisibility);
+    };
+  }, [database.state, isOffline, user?.$id]);
 
   useEffect(() => {
     if (!user?.$id) return;
@@ -214,6 +244,46 @@ export const AppLayout: React.FC = () => {
 
   if (!user) {
     return <Navigate to="/login" replace state={{ from: location }} />;
+  }
+
+  if (database.state === 'idle' || database.state === 'loading') {
+    return (
+      <div
+        className="min-h-screen bg-[#111111] flex items-center justify-center px-6"
+        role="status"
+        aria-live="polite"
+      >
+        <div className="text-center">
+          <div className="mx-auto mb-3 h-6 w-6 rounded-full border-2 border-gray-500 border-t-transparent animate-spin" />
+          <p className="text-sm text-gray-400">Opening offline data…</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (database.state === 'error') {
+    return (
+      <div className="min-h-screen bg-[#111111] text-white flex items-center justify-center px-6">
+        <div className="max-w-sm w-full text-center">
+          <h1 className="text-lg font-bold mb-2">Local database unavailable</h1>
+          <p className="text-sm text-gray-400 mb-4">
+            Mosaic could not open its on-device database. Your synced Appwrite data has not been deleted.
+          </p>
+          {database.error && (
+            <p className="text-xs text-red-300 mb-4 break-words">{database.error}</p>
+          )}
+          <button
+            type="button"
+            onClick={() => {
+              void retryDatabaseBootstrap().catch(() => {});
+            }}
+            className="w-full py-2.5 rounded-xl bg-emerald-500 text-black font-medium"
+          >
+            Retry database
+          </button>
+        </div>
+      </div>
+    );
   }
 
   // OFF-1: `user` is non-null here. When `isOffline` is true the identity

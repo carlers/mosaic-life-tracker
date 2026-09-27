@@ -201,7 +201,11 @@ function portableImageId(
   sourceUserId: string,
   sourceImageId: string
 ): string {
-  if (currentUserId === sourceUserId && isValidFileId(sourceImageId)) {
+  if (
+    currentUserId === sourceUserId &&
+    isValidFileId(sourceImageId) &&
+    !sourceImageId.startsWith('localimg_')
+  ) {
     return sourceImageId;
   }
   return `bk_i_${hashString(`${currentUserId}:${sourceUserId}:${sourceImageId}`)}`;
@@ -943,7 +947,7 @@ export async function restoreUserData(
 
   report('Refreshing current data…');
   const refreshStartedAt = Date.now();
-  await initializeSync();
+  await initializeSync(currentUser.id);
 
   const syncStatus = getSyncStatus();
   const lastSyncMs = syncStatus.lastSync
@@ -1018,7 +1022,7 @@ export async function restoreUserData(
   }
 
   report('Syncing restored data…');
-  await initializeSync();
+  await initializeSync(currentUser.id);
 
   return {
     mode: options.mode,

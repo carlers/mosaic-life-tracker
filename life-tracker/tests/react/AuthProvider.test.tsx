@@ -9,6 +9,7 @@ import type { Models } from 'appwrite';
 // confirmed 401 — never on a network error.
 
 const initializeSyncMock = vi.hoisted(() => vi.fn());
+const waitForDatabaseReadyMock = vi.hoisted(() => vi.fn());
 
 const accountRef = vi.hoisted(() => ({
   get: vi.fn(),
@@ -26,6 +27,9 @@ vi.mock('../../src/lib/appwrite', () => ({
 
 vi.mock('../../src/db/sync', () => ({
   initializeSync: initializeSyncMock,
+}));
+vi.mock('../../src/lib/databaseBootstrap', () => ({
+  waitForDatabaseReady: waitForDatabaseReadyMock,
 }));
 
 import { AuthProvider } from '../../src/hooks/AuthProvider';
@@ -75,6 +79,12 @@ describe('AuthProvider offline auth gate', () => {
     accountRef.updatePassword.mockReset();
     initializeSyncMock.mockReset();
     initializeSyncMock.mockResolvedValue(undefined);
+    waitForDatabaseReadyMock.mockReset();
+    waitForDatabaseReadyMock.mockResolvedValue(undefined);
+    Object.defineProperty(navigator, 'onLine', {
+      configurable: true,
+      value: true,
+    });
   });
 
   afterEach(() => {
@@ -100,33 +110,45 @@ describe('AuthProvider offline auth gate', () => {
     });
 
     await waitFor(() => expect(result.current.user?.$id).toBe('user_fresh'));
-    await waitFor(() => expect(initializeSyncMock).toHaveBeenCalledTimes(1));
+    await waitFor(() =>
+      expect(initializeSyncMock).toHaveBeenCalledWith('user_fresh')
+    );
   });
 
-  it('hydrates user from the last-known-user cache on mount-time network error', async () => {
+  it('hydrates cached identity immediately when definitely offline without a session request', async () => {
     const cached = makeUser({
       $id: 'user_cached',
       email: 'cached@example.com',
     });
     localStorage.setItem(LAST_KNOWN_USER_KEY, JSON.stringify(cached));
-    accountRef.get.mockRejectedValueOnce(makeNetworkError());
+    Object.defineProperty(navigator, 'onLine', {
+      configurable: true,
+      value: false,
+    });
 
     const { result } = renderHook(() => useAuth(), { wrapper });
 
-    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(result.current.isLoading).toBe(false);
     expect(result.current.user?.$id).toBe('user_cached');
     expect(result.current.isOffline).toBe(true);
+    await act(async () => Promise.resolve());
+    expect(accountRef.get).not.toHaveBeenCalled();
   });
 
-  it('leaves user null on mount-time network error with no cache', async () => {
+  it('uses the offline unauthenticated state immediately with no cache', async () => {
     localStorage.removeItem(LAST_KNOWN_USER_KEY);
-    accountRef.get.mockRejectedValueOnce(makeNetworkError());
+    Object.defineProperty(navigator, 'onLine', {
+      configurable: true,
+      value: false,
+    });
 
     const { result } = renderHook(() => useAuth(), { wrapper });
 
-    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(result.current.isLoading).toBe(false);
     expect(result.current.user).toBeNull();
     expect(result.current.isOffline).toBe(true);
+    await act(async () => Promise.resolve());
+    expect(accountRef.get).not.toHaveBeenCalled();
   });
 
   it('clears the cache and user on mount-time 401', async () => {
@@ -203,5 +225,67 @@ describe('AuthProvider offline auth gate', () => {
     const cachedRaw = localStorage.getItem(LAST_KNOWN_USER_KEY);
     expect(cachedRaw).not.toBeNull();
     expect(JSON.parse(cachedRaw as string).$id).toBe('user_fresh');
+  });
+
+
+  it('waits for local database readiness before starting post-auth sync', async () => {
+    accountRef.get.mockRejectedValueOnce(makeUnauthorizedError());
+    let releaseDatabase!: () => void;
+    const databaseReady = new Promise<void>((resolve) => {
+      releaseDatabase = resolve;
+    });
+    waitForDatabaseReadyMock.mockReturnValueOnce(databaseReady);
+
+    const { result } = renderHook(() => useAuth(), { wrapper });
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    accountRef.deleteSession.mockResolvedValueOnce(undefined);
+    accountRef.createEmailPasswordSession.mockResolvedValueOnce(undefined);
+    accountRef.get.mockResolvedValueOnce(makeUser({ $id: 'user_db_wait' }));
+
+    await act(async () => {
+      await result.current.login('user@example.com', 'test-pass');
+    });
+
+    expect(initializeSyncMock).not.toHaveBeenCalled();
+    releaseDatabase();
+    await waitFor(() =>
+      expect(initializeSyncMock).toHaveBeenCalledWith('user_db_wait')
+    );
+  });
+
+
+  it('ignores an older session result that finishes after a newer login', async () => {
+    let resolveInitial!: (user: Models.User<Models.Preferences>) => void;
+    const initialPromise = new Promise<Models.User<Models.Preferences>>(
+      (resolve) => {
+        resolveInitial = resolve;
+      }
+    );
+    const oldUser = makeUser({ $id: 'user_old' });
+    const freshUser = makeUser({ $id: 'user_fresh' });
+    accountRef.get
+      .mockReturnValueOnce(initialPromise)
+      .mockResolvedValueOnce(freshUser);
+    accountRef.deleteSession.mockResolvedValueOnce(undefined);
+    accountRef.createEmailPasswordSession.mockResolvedValueOnce(undefined);
+
+    const { result } = renderHook(() => useAuth(), { wrapper });
+    await waitFor(() => expect(accountRef.get).toHaveBeenCalledTimes(1));
+
+    await act(async () => {
+      await result.current.login('user@example.com', 'test-pass');
+    });
+    expect(result.current.user?.$id).toBe('user_fresh');
+
+    await act(async () => {
+      resolveInitial(oldUser);
+      await initialPromise;
+    });
+
+    expect(result.current.user?.$id).toBe('user_fresh');
+    expect(
+      JSON.parse(localStorage.getItem(LAST_KNOWN_USER_KEY) as string).$id
+    ).toBe('user_fresh');
   });
 });

@@ -88,7 +88,7 @@ export const SetUsernameSheet: React.FC<SetUsernameSheetProps> = ({
         (typeof navigator !== 'undefined' && navigator.onLine === false);
       setError(
         offline
-          ? "You're offline. Your profile will sync when you reconnect."
+          ? "You're offline. Reconnect to save your profile."
           : 'Could not save. Try again.'
       );
     } finally {

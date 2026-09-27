@@ -2,7 +2,6 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App.tsx';
 import './index.css';
-import { initializeDatabaseWithRetry } from './db/database';
 import { AuthProvider } from './hooks/AuthProvider';
 import { ErrorBoundary } from './components/ui/ErrorBoundary';
 import { installChunkLoadErrorTracking } from './lib/chunkLoadErrors';
@@ -15,100 +14,79 @@ import {
 } from './lib/posthog';
 import { initializeAppearance } from './lib/appearance';
 import { initializeScreenLayout } from './lib/screenLayout';
+import { startDatabaseBootstrap } from './lib/databaseBootstrap';
+import { markStartup } from './lib/startupMetrics';
 
+markStartup('bootstrap:start');
 initializeAppearance();
 initializeScreenLayout();
-void initializePostHog();
 installChunkLoadErrorTracking();
+// Keep the install/update listeners registered before the browser can emit
+// lifecycle events, but leave all unrelated background work until after paint.
 initializePwaLifecycle(window, registerSW);
-void configureResponsiveOrientation();
 
-function databaseErrorMessage(error: unknown): string {
-  if (error instanceof Error && error.message.trim()) return error.message;
-  return 'The local database could not be opened.';
+const beginDatabaseBootstrap = () => {
+  void startDatabaseBootstrap()
+    .then(() => markStartup('database:ready'))
+    .catch((error) => {
+      console.error('[Bootstrap] Database initialization failed', error);
+      captureHandledException(error, { source: 'database-bootstrap' });
+    });
+};
+
+ReactDOM.createRoot(document.getElementById('root')!).render(
+  <React.StrictMode>
+    <ErrorBoundary label="auth">
+      <AuthProvider>
+        <App />
+      </AuthProvider>
+    </ErrorBoundary>
+  </React.StrictMode>
+);
+
+window.requestAnimationFrame(() => {
+  markStartup('react:mounted');
+});
+
+// Login gets a clean first paint before RxDB downloads/evaluates. If the user
+// authenticates before this idle preload fires, AuthProvider's DB wait starts
+// the same singleton bootstrap immediately.
+if (window.location.pathname === '/login') {
+  if (typeof window.requestIdleCallback === 'function') {
+    window.requestIdleCallback(beginDatabaseBootstrap, { timeout: 1200 });
+  } else {
+    window.setTimeout(beginDatabaseBootstrap, 400);
+  }
+} else {
+  beginDatabaseBootstrap();
 }
 
-function renderDatabaseFailure(error: unknown) {
-  const message = databaseErrorMessage(error);
-  ReactDOM.createRoot(document.getElementById('root')!).render(
-    <React.StrictMode>
-      <div className="min-h-screen bg-[#111111] text-white flex items-center justify-center px-6">
-        <div className="max-w-sm w-full text-center">
-          <h1 className="text-lg font-bold mb-2">Local database unavailable</h1>
-          <p className="text-sm text-gray-400 mb-4">
-            Mosaic could not open its on-device database. Your Appwrite data has not been deleted.
-          </p>
-          <pre className="text-left text-xs text-red-300 bg-[#1A1A1A] border border-red-900/30 rounded-xl p-3 whitespace-pre-wrap break-words mb-4">
-            {message}
-          </pre>
-          <button
-            type="button"
-            onClick={() => window.location.reload()}
-            className="w-full py-3 rounded-xl bg-emerald-500 text-black font-medium"
-          >
-            Retry database
-          </button>
-        </div>
-      </div>
-    </React.StrictMode>
-  );
-}
+const startBackgroundMaintenance = () => {
+  void initializePostHog();
+  void configureResponsiveOrientation();
 
-async function bootstrap() {
-  try {
-    if (navigator.storage && navigator.storage.persist) {
-      try {
-        const isPersisted = await navigator.storage.persist();
+  if (navigator.storage?.persist) {
+    void navigator.storage
+      .persist()
+      .then((isPersisted) => {
         if (import.meta.env.DEV) {
           console.log(`[Bootstrap] Storage persisted: ${isPersisted}`);
         }
-      } catch (error) {
+      })
+      .catch((error) => {
         console.warn('[Bootstrap] Storage persistence request failed', error);
-      }
-    }
-
-    if (import.meta.env.DEV) console.log('[Bootstrap] Initializing database...');
-    await initializeDatabaseWithRetry();
-    if (import.meta.env.DEV) {
-      console.log('[Bootstrap] ✅ Database initialized successfully.');
-    }
-  } catch (error) {
-    console.error('[Bootstrap] FATAL: Database initialization failed', error);
-    captureHandledException(error, { source: 'database-bootstrap' });
-    renderDatabaseFailure(error);
-    return;
+      });
   }
 
-  ReactDOM.createRoot(document.getElementById('root')!).render(
-    <React.StrictMode>
-      <ErrorBoundary label="auth">
-        <AuthProvider>
-          <App />
-        </AuthProvider>
-      </ErrorBoundary>
-    </React.StrictMode>
-  );
+  void import('./lib/imageCache')
+    .then(({ enforceImageCacheBudget }) => enforceImageCacheBudget())
+    .catch((error) =>
+      console.warn('[Bootstrap] Image-cache sweep failed:', error)
+    );
+};
 
-  const startBackgroundWork = () => {
-    void import('./db/sync')
-      .then(({ initializeSync }) => initializeSync())
-      .catch((err) =>
-        console.error('[Bootstrap] Initial sync failed:', err)
-      );
-    void import('./lib/imageCache')
-      .then(({ enforceImageCacheBudget }) => enforceImageCacheBudget())
-      .catch((err) =>
-        console.warn('[Bootstrap] Image-cache sweep failed:', err)
-      );
-  };
-
-  // Let the local-first shell commit before starting network/sweep work.
-  if (typeof window.requestAnimationFrame === 'function') {
-    window.requestAnimationFrame(() => {
-      window.setTimeout(startBackgroundWork, 0);
-    });
-  } else {
-    window.setTimeout(startBackgroundWork, 0);
-  }
-}
-bootstrap();
+// Maintenance stays behind the first paint. Sync is intentionally absent here:
+// AuthProvider owns identity and starts sync only after auth + DB readiness.
+window.requestAnimationFrame(() => {
+  window.setTimeout(startBackgroundMaintenance, 0);
+});

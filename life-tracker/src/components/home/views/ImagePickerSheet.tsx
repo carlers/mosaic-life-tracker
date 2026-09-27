@@ -3,7 +3,8 @@ import { BottomSheet } from '../../ui/BottomSheet';
 import { Button } from '../../ui/Button';
 import { SheetErrorBanner } from '../../ui/SheetErrorBanner';
 import { Upload, X, Loader2 } from 'lucide-react';
-import { uploadImage } from '../../../lib/storage';
+import { saveImage } from '../../../lib/storage';
+import { useAuth } from '../../../hooks/useAuth';
 import { useSheetReset } from '../../../hooks/useSheetReset';
 
 interface ImagePickerSheetProps {
@@ -23,7 +24,7 @@ interface ImagePickerSheetProps {
   hasExistingImage: boolean;
   /** Title shown in the sheet header. Callers pass a context-specific label. */
   title: string;
-  onSave: (fileId: string) => void;
+  onSave: (fileId: string) => void | Promise<void>;
   onRemove: () => void;
 }
 
@@ -43,6 +44,7 @@ export const ImagePickerSheet: React.FC<ImagePickerSheetProps> = ({
   onSave,
   onRemove,
 }) => {
+  const { user } = useAuth();
   const [isUploading, setIsUploading] = useState(false);
   const [error, setError] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -59,11 +61,13 @@ export const ImagePickerSheet: React.FC<ImagePickerSheetProps> = ({
     setIsUploading(true);
     setError('');
     try {
-      const fileId = await uploadImage(file);
-      onSave(fileId);
+      const userId = user?.$id;
+      if (!userId) throw new Error('Not authenticated');
+      const fileId = await saveImage(file, userId);
+      await onSave(fileId);
       onClose();
     } catch (err) {
-      setError('Failed to upload image. Please try again.');
+      setError('Failed to save image. Please try again.');
       console.error(`${logPrefix} Upload failed:`, err);
     } finally {
       setIsUploading(false);
@@ -80,7 +84,7 @@ export const ImagePickerSheet: React.FC<ImagePickerSheetProps> = ({
     <BottomSheet isOpen={isOpen} onClose={onClose} title={title} height="auto">
       <div className="pt-2 pb-8 px-4 space-y-4">
         <p className="text-sm text-gray-400 text-center">
-          Images are automatically compressed to 150KB before uploading.
+          Images are compressed on-device and sync automatically when online.
         </p>
 
         <SheetErrorBanner message={error} />
@@ -95,7 +99,7 @@ export const ImagePickerSheet: React.FC<ImagePickerSheetProps> = ({
             {isUploading ? (
               <>
                 <Loader2 size={18} className="animate-spin" />
-                Compressing &amp; Uploading...
+                Saving photo...
               </>
             ) : (
               <>

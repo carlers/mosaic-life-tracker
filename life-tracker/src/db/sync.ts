@@ -2,9 +2,17 @@ import { getDatabase, type AppDatabaseCollections } from './database';
 import { Permission, Role, Query } from 'appwrite';
 import { isUnauthorizedError } from '../lib/authEvents';
 import { guardedTablesDB } from '../lib/sdk';
-import { account } from '../lib/appwrite';
 import { toAppwriteFormat, fromAppwriteFormat } from '../lib/syncMapping';
+import {
+  getSyncStatus,
+  publishSyncStatus,
+  type SyncStatus,
+} from '../lib/syncStatus';
+import { markOfflineDataReady } from '../lib/offlineReadiness';
+import { isPendingImageId, deletePendingImage } from '../lib/pendingImages';
+import { uploadPendingImage } from '../lib/storage';
 export { toAppwriteFormat, fromAppwriteFormat };
+export { getSyncStatus, subscribeToSyncStatus } from '../lib/syncStatus';
 const APPWRITE_CONFIG = {
   endpoint: 'https://sgp.cloud.appwrite.io',
   projectId: '6a9703c50016b37110ff',
@@ -26,7 +34,6 @@ const RATE_LIMIT_BASE_MS = 5_000;
 const RATE_LIMIT_MAX_MS = 60_000;
 const FAILURE_BACKOFF_BASE_MS = 5_000;
 const FAILURE_BACKOFF_MAX_MS = 60_000;
-const TRIGGER_DEBOUNCE_MS = 1_500;
 // Tombstones are retained remotely for this long. A client whose incremental
 // pull cursor is older than the retention window performs a full pull so it
 // never assumes that a missing row means the row still exists.
@@ -136,52 +143,19 @@ let perCollectionSync: Partial<
   Record<CollectionName, PerCollectionSyncEntry>
 > = {};
 let perCollectionOwnerId: string | null = null;
-export interface SyncStatus {
-  isSyncing: boolean;
-  lastSync: string | null;
-  errors: string[];
-}
-let syncStatus: SyncStatus = {
-  isSyncing: false,
-  lastSync: null,
-  errors: [],
-};
-export function getSyncStatus(): SyncStatus {
-  return syncStatus;
-}
-type SyncListener = (status: SyncStatus) => void;
-const listeners: SyncListener[] = [];
 function updateSyncStatus(updates: Partial<SyncStatus>) {
-  syncStatus = { ...syncStatus, ...updates };
-  if (syncStatus.lastSync && perCollectionOwnerId) {
+  const next = publishSyncStatus(updates);
+  if (next.lastSync && perCollectionOwnerId) {
     try {
       localStorage.setItem(
         `lastSyncTime_${perCollectionOwnerId}`,
-        syncStatus.lastSync
+        next.lastSync
       );
     } catch {
+      // Sync status persistence is best-effort.
     }
   }
-  for (const l of listeners) {
-    try {
-      l(syncStatus);
-    } catch (err) {
-      console.error('[Sync] Status listener threw:', err);
-    }
-  }
-  if (DEBUG) console.log('[Sync] Status:', syncStatus);
-}
-export function subscribeToSyncStatus(listener: SyncListener): () => void {
-  listeners.push(listener);
-  try {
-    listener(syncStatus);
-  } catch (err) {
-    console.error('[Sync] Status listener threw on subscribe:', err);
-  }
-  return () => {
-    const idx = listeners.indexOf(listener);
-    if (idx > -1) listeners.splice(idx, 1);
-  };
+  if (DEBUG) console.log('[Sync] Status:', next);
 }
 type AppwriteRow = Record<string, unknown>;
 type LocalDoc = {
@@ -198,16 +172,12 @@ type LocalCollection = {
 let isSyncInProgress = false;
 let isSyncCycleQueued = false;
 let syncRequestedDuringFlight = false;
+let queuedSyncUserId: string | null = null;
+let backoffOwnerId: string | null = null;
 let rateLimitUntil = 0;
 let rateLimitBackoffMs = 0;
 let failureBackoffUntil = 0;
 let failureBackoffMs = 0;
-let debounceTimer: ReturnType<typeof setTimeout> | null = null;
-declare global {
-  interface Window {
-    __mosaicFocusSyncAttached?: boolean;
-  }
-}
 function isTimestampedCollection(collection: string): boolean {
   return (
     collection === 'tasks' ||
@@ -244,24 +214,44 @@ function toMs(value: unknown): number {
   const t = new Date(value).getTime();
   return Number.isFinite(t) ? t : 0;
 }
-// OFF-2: this runs on every sync cycle, including the cold-load call in
-// main.tsx that precedes AuthProvider's own account.get(). A 401 here is
-// the normal "no session yet" case, not a mid-session expiry, and the
-// guarded SDK would dispatch `auth:unauthorized` on that 401 — racing
-// AuthProvider's resolveInitialUser and intermittently showing a
-// "session expired" banner on a fresh device. Use the raw client so sync
-// never owns session state; AuthProvider is the single source of truth
-// (docs/PROJECT_REFERENCE.md §23).
-async function resolveAuthenticatedUserId(): Promise<string | null> {
-  try {
-    const user = await account.get();
-    return user?.$id || null;
-  } catch (err) {
-    if (DEBUG) console.log('[Sync] account.get() failed:', err);
-    return null;
+
+async function resolvePendingImageForPush(
+  doc: LocalDoc,
+  json: Record<string, unknown>,
+  collection: string,
+  userId: string
+): Promise<Record<string, unknown>> {
+  const field =
+    collection === 'tasks'
+      ? 'image'
+      : collection === 'settings' && json.key === 'profileImageId'
+        ? 'value'
+        : null;
+  if (!field) return json;
+
+  const pendingId = typeof json[field] === 'string' ? (json[field] as string) : '';
+  if (!pendingId || !isPendingImageId(pendingId)) return json;
+
+  if (json.isDeleted === true) {
+    await doc.incrementalPatch({ [field]: '' });
+    await deletePendingImage(pendingId, userId);
+    return { ...json, [field]: '' };
   }
+
+  const remoteFileId = await uploadPendingImage(pendingId, userId);
+  await doc.incrementalPatch({ [field]: remoteFileId });
+  await deletePendingImage(pendingId, userId);
+  return { ...json, [field]: remoteFileId };
 }
-export async function initializeSync(): Promise<void> {
+export async function initializeSync(userId: string): Promise<void> {
+  if (!userId) return;
+  if (backoffOwnerId !== userId) {
+    backoffOwnerId = userId;
+    rateLimitUntil = 0;
+    rateLimitBackoffMs = 0;
+    failureBackoffUntil = 0;
+    failureBackoffMs = 0;
+  }
   // Same-tab reentry: if a cycle is queued (awaiting or holding the lock)
   // or running, coalesce into a single follow-up run rather than queueing
   // a second full cycle. The cross-tab lock below serializes cycles
@@ -272,6 +262,7 @@ export async function initializeSync(): Promise<void> {
         '[Sync] initializeSync requested while in-flight; queueing follow-up'
       );
     syncRequestedDuringFlight = true;
+    queuedSyncUserId = userId;
     return;
   }
   if (Date.now() < rateLimitUntil) {
@@ -309,7 +300,7 @@ export async function initializeSync(): Promise<void> {
       typeof navigator.locks.request === 'function'
     ) {
       try {
-        await navigator.locks.request(WEB_LOCKS_NAME, runSyncCycleBody);
+        await navigator.locks.request(WEB_LOCKS_NAME, () => runSyncCycleBody(userId));
       } catch (lockErr) {
         // Web Locks API exists but the request failed for some reason.
         // Fall back to running the cycle without the cross-tab mutex so
@@ -318,35 +309,31 @@ export async function initializeSync(): Promise<void> {
           '[Sync] Web Locks request failed; running without cross-tab mutex:',
           lockErr
         );
-        await runSyncCycleBody();
+        await runSyncCycleBody(userId);
       }
     } else {
-      await runSyncCycleBody();
+      await runSyncCycleBody(userId);
     }
   } finally {
     isSyncCycleQueued = false;
     if (syncRequestedDuringFlight) {
       syncRequestedDuringFlight = false;
+      const nextUserId = queuedSyncUserId ?? userId;
+      queuedSyncUserId = null;
       if (DEBUG) console.log('[Sync] Running queued follow-up sync');
       queueMicrotask(() => {
-        initializeSync().catch((err) => {
+        initializeSync(nextUserId).catch((err) => {
           console.error('[Sync] Queued follow-up sync failed:', err);
         });
       });
     }
   }
 }
-async function runSyncCycleBody(): Promise<void> {
+async function runSyncCycleBody(userId: string): Promise<void> {
   isSyncInProgress = true;
   if (DEBUG) console.log('[Sync] Starting sync...');
   updateSyncStatus({ isSyncing: true, errors: [] });
   try {
-    const userId = await resolveAuthenticatedUserId();
-    if (!userId) {
-      if (DEBUG) console.log('[Sync] No authenticated user, skipping sync');
-      updateSyncStatus({ isSyncing: false });
-      return;
-    }
     // Unconditional reload: another tab may have written a newer per-
     // collection state since this tab last loaded it. The cross-tab lock
     // guarantees mutual exclusion, not that our in-memory copy is
@@ -359,7 +346,7 @@ async function runSyncCycleBody(): Promise<void> {
       scopedLast = localStorage.getItem(`lastSyncTime_${userId}`);
     } catch {
     }
-    syncStatus = { ...syncStatus, lastSync: scopedLast };
+    publishSyncStatus({ lastSync: scopedLast });
     if (DEBUG) {
       console.log(
         `[Sync] Loaded per-collection state for user ${userId}:`,
@@ -425,11 +412,13 @@ async function runSyncCycleBody(): Promise<void> {
       failureBackoffUntil = 0;
     }
     if (collectionErrors.length === 0) {
+      const completedAt = new Date().toISOString();
       updateSyncStatus({
         isSyncing: false,
-        lastSync: new Date().toISOString(),
+        lastSync: completedAt,
         errors: [],
       });
+      markOfflineDataReady(userId, completedAt);
       if (DEBUG) console.log('[Sync] ✅ Sync complete');
     } else {
       updateSyncStatus({ isSyncing: false, errors: collectionErrors });
@@ -441,7 +430,7 @@ async function runSyncCycleBody(): Promise<void> {
     updateSyncStatus({
       isSyncing: false,
       errors: [
-        ...syncStatus.errors,
+        ...getSyncStatus().errors,
         error instanceof Error ? error.message : 'Unknown error',
       ],
     });
@@ -627,7 +616,7 @@ async function syncCollection(
   if (colName !== 'messages') {
     const localDocs = await collection.find().exec();
     for (const doc of localDocs) {
-      const json = doc.toJSON();
+      let json = doc.toJSON();
       const docUserId = json.userId as string | undefined;
       if (docUserId !== userId) continue;
       const docId = (json.id as string) || doc.id;
@@ -651,6 +640,16 @@ async function syncCollection(
         shouldPush = localUpdatedAt > remoteMeta.updatedAt;
       }
       if (!shouldPush) continue;
+      try {
+        json = await resolvePendingImageForPush(doc, json, colName, userId);
+      } catch (imageError) {
+        console.error(
+          `[Sync] Failed to reconcile pending image for ${colName} ${docId}:`,
+          imageError
+        );
+        pushFailed++;
+        continue;
+      }
       const rowData = toAppwriteFormat(json, colName, userId);
       if (DEBUG) console.log(`[Sync] Pushing ${colName} ${docId}`);
       try {
@@ -740,48 +739,7 @@ async function syncCollection(
     }
   }
 }
-export async function forceSync() {
+export async function forceSync(userId: string) {
   if (DEBUG) console.log('[Sync] Force sync triggered');
-  await initializeSync();
-}
-function safeForceSync(reason: string) {
-  try {
-    getDatabase();
-    if (DEBUG) console.log(`[Sync] ${reason}, syncing...`);
-    forceSync().catch((e) => console.error(`[Sync] ${reason} sync failed`, e));
-  } catch (e) {
-    if (DEBUG)
-      console.log(`[Sync] ${reason} handler skipped (DB not ready):`, e);
-  }
-}
-function scheduleSync(reason: string) {
-  if (debounceTimer !== null) {
-    clearTimeout(debounceTimer);
-  }
-  debounceTimer = setTimeout(() => {
-    debounceTimer = null;
-    safeForceSync(reason);
-  }, TRIGGER_DEBOUNCE_MS);
-}
-function handleWindowFocus() {
-  scheduleSync('Window focused');
-}
-function handleOnline() {
-  scheduleSync('Connection restored');
-}
-function handleVisibilityChange() {
-  if (
-    typeof document !== 'undefined' &&
-    document.visibilityState === 'visible'
-  ) {
-    scheduleSync('App became visible');
-  }
-}
-if (typeof window !== 'undefined' && !window.__mosaicFocusSyncAttached) {
-  window.__mosaicFocusSyncAttached = true;
-  window.addEventListener('focus', handleWindowFocus);
-  window.addEventListener('online', handleOnline);
-  if (typeof document !== 'undefined') {
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-  }
+  await initializeSync(userId);
 }

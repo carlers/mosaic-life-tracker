@@ -31,6 +31,7 @@ interface HomeTaskSearchProps {
   onClose: () => void;
   onSelectTask: (task: TaskDocument) => void;
   trailing: ReactNode;
+  statusControls?: ReactNode;
 }
 
 const RESULT_LIMIT = 50;
@@ -60,6 +61,7 @@ export const HomeTaskSearch: React.FC<HomeTaskSearchProps> = ({
   onClose,
   onSelectTask,
   trailing,
+  statusControls,
 }) => {
   const shouldReduceMotion = useReducedMotion();
   const [query, setQuery] = useState('');
@@ -190,7 +192,13 @@ export const HomeTaskSearch: React.FC<HomeTaskSearchProps> = ({
             </div>
           </motion.div>
         ) : (
-          <div data-route-swipe-ignore="true" className="shrink-0">
+          <>
+            {statusControls && (
+              <div data-route-swipe-ignore="true" className="shrink-0">
+                {statusControls}
+              </div>
+            )}
+            <div data-route-swipe-ignore="true" className="shrink-0">
             <button
               type="button"
               onClick={onOpen}
@@ -199,7 +207,8 @@ export const HomeTaskSearch: React.FC<HomeTaskSearchProps> = ({
             >
               <Search size={20} aria-hidden="true" />
             </button>
-          </div>
+            </div>
+          </>
         )}
 
         <div data-route-swipe-ignore="true" className="shrink-0">

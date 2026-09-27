@@ -1,6 +1,6 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAuth } from './useAuth';
-import { isOfflineError } from '../lib/authEvents';
+import { useConnectivity } from './useConnectivity';
 import {
   fetchMyProfile,
   createOrUpdateProfile,
@@ -8,6 +8,11 @@ import {
   type ProfileCard,
   type MyProfileInput,
 } from '../lib/social';
+import {
+  clearCachedOwnProfile,
+  readCachedOwnProfile,
+  writeCachedOwnProfile,
+} from '../lib/profileCache';
 
 export interface UseMyProfileReturn {
   profile: ProfileCard | null;
@@ -20,81 +25,89 @@ export interface UseMyProfileReturn {
   checkUsername: (username: string) => Promise<boolean | null>;
 }
 
-/**
- * Load the caller's own profile. HB-5: the fetch + classify logic was
- * duplicated between the mount effect and `refetch`. Both now call the
- * same `runLoad` helper; the effect adds cancellation, `refetch` does
- * not (it is user-initiated).
- */
 export function useMyProfile(): UseMyProfileReturn {
-  const { user } = useAuth();
+  const { user, isOffline } = useAuth();
+  const isOnline = useConnectivity();
+  const canUseNetwork = isOnline && !isOffline;
   const userId = user?.$id;
-  const [profile, setProfile] = useState<ProfileCard | null>(null);
-  const [loadedUserId, setLoadedUserId] = useState<string | null>(null);
+  const cachedProfile = useMemo(
+    () => (userId ? readCachedOwnProfile(userId) : null),
+    [userId]
+  );
+  const [resolved, setResolved] = useState<{
+    userId: string;
+    profile: ProfileCard | null;
+  } | null>(null);
+  const [loadedUserId, setLoadedUserId] = useState<string | null>(
+    cachedProfile && userId ? userId : null
+  );
   const [error, setError] = useState<string | null>(null);
+
+  const visibleProfile =
+    userId && resolved?.userId === userId
+      ? resolved.profile
+      : userId
+        ? cachedProfile
+        : null;
 
   const runLoad = useCallback(async (): Promise<void> => {
     if (!userId) return;
+    if (!canUseNetwork) {
+      return;
+    }
     setError(null);
     try {
-      const p = await fetchMyProfile(userId);
-      setProfile(p);
+      const profile = await fetchMyProfile(userId);
+      if (profile) writeCachedOwnProfile(userId, profile);
+      else clearCachedOwnProfile(userId);
+      setResolved({ userId, profile });
       setLoadedUserId(userId);
-    } catch (err) {
-      console.error('[useMyProfile] Load failed:', err);
-      setError('Could not load profile.');
+    } catch (loadError) {
+      console.error('[useMyProfile] Load failed:', loadError);
+      setError(cachedProfile ? null : 'Could not load profile.');
       setLoadedUserId(userId);
     }
-  }, [userId]);
+  }, [cachedProfile, canUseNetwork, userId]);
 
   useEffect(() => {
     if (!userId) return;
-    let isMounted = true;
-    (async () => {
-      try {
-        const p = await fetchMyProfile(userId);
-        if (!isMounted) return;
-        setProfile(p);
+    let active = true;
+    if (!canUseNetwork) return;
+    void fetchMyProfile(userId)
+      .then((profile) => {
+        if (!active) return;
+        if (profile) writeCachedOwnProfile(userId, profile);
+        else clearCachedOwnProfile(userId);
+        setResolved({ userId, profile });
         setLoadedUserId(userId);
-      } catch (err) {
-        if (!isMounted) return;
-        console.error('[useMyProfile] Load failed:', err);
-        setError('Could not load profile.');
+        setError(null);
+      })
+      .catch((loadError) => {
+        if (!active) return;
+        console.error('[useMyProfile] Load failed:', loadError);
+        setError(cachedProfile ? null : 'Could not load profile.');
         setLoadedUserId(userId);
-      }
-    })();
+      });
     return () => {
-      isMounted = false;
+      active = false;
     };
-  }, [userId]);
+  }, [cachedProfile, canUseNetwork, userId]);
 
   const createProfile = useCallback(
     async (input: Omit<MyProfileInput, 'userId'>) => {
       if (!userId) {
-        console.error(
-          '[useMyProfile] Cannot create profile: Not authenticated'
-        );
+        console.error('[useMyProfile] Cannot create profile: Not authenticated');
         return null;
       }
       try {
         const created = await createOrUpdateProfile({ ...input, userId });
-        setProfile(created);
+        writeCachedOwnProfile(userId, created);
+        setResolved({ userId, profile: created });
+        setLoadedUserId(userId);
         return created;
-      } catch (err) {
-        console.error('[useMyProfile] Create failed:', err);
-        if (isOfflineError(err)) {
-          const optimistic: ProfileCard = {
-            $id: `profile_${userId}`,
-            user_id: userId,
-            username: input.username.toLowerCase(),
-            display_name: input.displayName || '',
-            avatar_file_id: input.avatarFileId || '',
-            bio: input.bio || '',
-            is_searchable: true,
-          };
-          setProfile(optimistic);
-        }
-        throw err;
+      } catch (createError) {
+        console.error('[useMyProfile] Create failed:', createError);
+        throw createError;
       }
     },
     [userId]
@@ -102,16 +115,26 @@ export function useMyProfile(): UseMyProfileReturn {
 
   const checkUsername = useCallback(
     async (username: string): Promise<boolean | null> => {
+      if (!canUseNetwork) {
+        return null;
+      }
       return isUsernameAvailable(username);
     },
-    []
+    [canUseNetwork]
   );
 
-  const isLoading = !!userId && loadedUserId !== userId;
+  const isLoading =
+    !!userId &&
+    canUseNetwork &&
+    !cachedProfile &&
+    loadedUserId !== userId;
+  const visibleError =
+    userId && loadedUserId === userId ? error : null;
+
   return {
-    profile: userId && loadedUserId === userId ? profile : null,
+    profile: visibleProfile,
     isLoading,
-    error,
+    error: visibleError,
     createProfile,
     refetch: runLoad,
     checkUsername,

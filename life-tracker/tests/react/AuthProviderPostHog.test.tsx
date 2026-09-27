@@ -18,6 +18,9 @@ const posthogRef = vi.hoisted(() => ({
 }));
 
 const initializeSyncMock = vi.hoisted(() => vi.fn());
+const waitForDatabaseReadyMock = vi.hoisted(() =>
+  vi.fn().mockResolvedValue(undefined)
+);
 
 vi.mock('../../src/lib/appwrite', () => ({
   account: accountRef,
@@ -25,6 +28,10 @@ vi.mock('../../src/lib/appwrite', () => ({
 }));
 
 vi.mock('../../src/lib/posthog', () => posthogRef);
+
+vi.mock('../../src/lib/databaseBootstrap', () => ({
+  waitForDatabaseReady: waitForDatabaseReadyMock,
+}));
 
 vi.mock('../../src/db/sync', () => ({
   initializeSync: initializeSyncMock,
@@ -59,6 +66,7 @@ describe('AuthProvider PostHog identity integration', () => {
   beforeEach(() => {
     localStorage.clear();
     vi.clearAllMocks();
+    waitForDatabaseReadyMock.mockResolvedValue(undefined);
     initializeSyncMock.mockResolvedValue(undefined);
   });
 

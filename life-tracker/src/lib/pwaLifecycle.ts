@@ -1,3 +1,4 @@
+import { markOfflineShellReady } from './offlineReadiness';
 export interface InstallPromptEvent extends Event {
   prompt(): Promise<void>;
   userChoice: Promise<{ outcome: 'accepted' | 'dismissed'; platform: string }>;
@@ -48,6 +49,33 @@ let serviceWorkerContainer: ServiceWorkerContainer | null = null;
 let initialized = false;
 const listeners = new Set<() => void>();
 
+function observeOfflineShellReady(
+  registration: ServiceWorkerRegistration | null
+): void {
+  if (!registration) return;
+  const candidate =
+    registration.active ?? registration.waiting ?? registration.installing;
+  if (!candidate) return;
+
+  const markIfReady = () => {
+    if (
+      candidate.state === 'installed' ||
+      candidate.state === 'activated'
+    ) {
+      markOfflineShellReady();
+      candidate.removeEventListener?.('statechange', markIfReady);
+    }
+  };
+  markIfReady();
+  if (
+    candidate.state !== 'installed' &&
+    candidate.state !== 'activated' &&
+    candidate.state !== 'redundant'
+  ) {
+    candidate.addEventListener?.('statechange', markIfReady);
+  }
+}
+
 function publish(next: Partial<PwaLifecycleSnapshot>) {
   snapshot = { ...snapshot, ...next };
   listeners.forEach((listener) => listener());
@@ -69,6 +97,9 @@ export function initializePwaLifecycle(
   if (initialized) return;
   initialized = true;
   serviceWorkerContainer = target.navigator?.serviceWorker ?? null;
+  if (serviceWorkerContainer?.controller) {
+    markOfflineShellReady();
+  }
 
   target.addEventListener('beforeinstallprompt', ((event: InstallPromptEvent) => {
     event.preventDefault();
@@ -85,6 +116,7 @@ export function initializePwaLifecycle(
     onNeedRefresh: () => publish({ updateAvailable: true }),
     onRegisteredSW: (_swUrl, registration) => {
       serviceWorkerRegistration = registration ?? null;
+      observeOfflineShellReady(serviceWorkerRegistration);
     },
     // The generated worker only takes over after applyPwaUpdate sends the
     // explicit SKIP_WAITING request, so a reload here is always user-approved.
@@ -122,6 +154,7 @@ async function resolveServiceWorkerRegistration(): Promise<ServiceWorkerRegistra
       const registration = await container.getRegistration();
       if (registration) {
         serviceWorkerRegistration = registration;
+        observeOfflineShellReady(registration);
         return registration;
       }
     }
@@ -136,6 +169,7 @@ async function resolveServiceWorkerRegistration(): Promise<ServiceWorkerRegistra
   try {
     const registration = await container.ready;
     serviceWorkerRegistration = registration;
+    observeOfflineShellReady(registration);
     return registration;
   } catch (error) {
     console.warn('[PWA] Active service-worker registration lookup failed:', error);

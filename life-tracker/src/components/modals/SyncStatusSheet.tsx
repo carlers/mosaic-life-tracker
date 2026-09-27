@@ -1,44 +1,72 @@
 import React, { useEffect, useState } from 'react';
-import { CheckCircle2, AlertCircle, RefreshCw } from 'lucide-react';
+import {
+  AlertCircle,
+  CheckCircle2,
+  Cloud,
+  HardDrive,
+  RefreshCw,
+  Wifi,
+  WifiOff,
+} from 'lucide-react';
 import { BottomSheet } from '../ui/BottomSheet';
 import { formatRelative } from '../../lib/format';
 import {
   getSyncStatus,
   subscribeToSyncStatus,
-  forceSync,
   type SyncStatus,
-} from '../../db/sync';
+} from '../../lib/syncStatus';
+import { useAuth } from '../../hooks/useAuth';
+import { useConnectivity } from '../../hooks/useConnectivity';
+import { useOfflineReadiness } from '../../hooks/useOfflineReadiness';
+
 interface SyncStatusSheetProps {
   isOpen: boolean;
   onClose: () => void;
 }
+
 export const SyncStatusSheet: React.FC<SyncStatusSheetProps> = ({
   isOpen,
   onClose,
 }) => {
+  const { user } = useAuth();
+  const isOnline = useConnectivity();
+  const readiness = useOfflineReadiness(user?.$id);
   const [status, setStatus] = useState<SyncStatus>(() => getSyncStatus());
   const [isManualSyncDisabled, setIsManualSyncDisabled] = useState(false);
-  // subscribeToSyncStatus invokes the listener synchronously with the
-  // current status, so the initial state is delivered by the subscriber
-  // itself. No direct setState call in the effect body.
+
   useEffect(() => {
     if (!isOpen) return;
-    const unsubscribe = subscribeToSyncStatus((next) => setStatus(next));
-    return unsubscribe;
+    return subscribeToSyncStatus(setStatus);
   }, [isOpen]);
+
   useEffect(() => {
     if (!isManualSyncDisabled) return;
-    const t = setTimeout(() => setIsManualSyncDisabled(false), 2000);
-    return () => clearTimeout(t);
+    const timer = setTimeout(() => setIsManualSyncDisabled(false), 2000);
+    return () => clearTimeout(timer);
   }, [isManualSyncDisabled]);
+
   const errorCount = status.errors.length;
+  const dataReady = Boolean(readiness.dataReadyAt);
+  const shellReady = Boolean(readiness.shellReadyAt);
+
   const handleSyncNow = () => {
-    if (isManualSyncDisabled) return;
+    const userId = user?.$id;
+    if (
+      !userId ||
+      !isOnline ||
+      isManualSyncDisabled ||
+      status.isSyncing
+    ) {
+      return;
+    }
     setIsManualSyncDisabled(true);
-    forceSync().catch((err) => {
-      console.error('[SyncStatusSheet] Manual sync failed:', err);
-    });
+    void import('../../db/sync')
+      .then(({ forceSync }) => forceSync(userId))
+      .catch((err) => {
+        console.error('[SyncStatusSheet] Manual sync failed:', err);
+      });
   };
+
   return (
     <BottomSheet
       isOpen={isOpen}
@@ -46,39 +74,99 @@ export const SyncStatusSheet: React.FC<SyncStatusSheetProps> = ({
       title="Sync Status"
       height="auto"
     >
-      <div className="pt-2 pb-8 px-4 space-y-4">
+      <div className="pt-2 pb-8 px-4 space-y-3">
+        <div className="bg-[#1A1A1A] rounded-xl p-4 flex items-center gap-3">
+          {isOnline ? (
+            <Wifi size={20} className="text-emerald-500 flex-shrink-0" />
+          ) : (
+            <WifiOff size={20} className="text-amber-400 flex-shrink-0" />
+          )}
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium text-white">
+              {isOnline ? 'Online' : 'Offline'}
+            </p>
+            <p className="text-xs text-gray-400 mt-0.5">
+              {isOnline
+                ? 'Mosaic can reconcile local changes with sync.'
+                : 'Personal data stays available locally. Sync resumes when you reconnect.'}
+            </p>
+          </div>
+        </div>
+
         <div className="bg-[#1A1A1A] rounded-xl p-4 flex items-center gap-3">
           {status.isSyncing ? (
-            <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin flex-shrink-0" />
-          ) : errorCount === 0 ? (
+            <RefreshCw
+              size={20}
+              className="animate-spin text-gray-300 flex-shrink-0"
+            />
+          ) : errorCount > 0 ? (
+            <AlertCircle
+              size={20}
+              className="text-amber-500 flex-shrink-0"
+            />
+          ) : status.lastSync ? (
             <CheckCircle2
               size={20}
               className="text-emerald-500 flex-shrink-0"
             />
           ) : (
-            <AlertCircle size={20} className="text-amber-500 flex-shrink-0" />
+            <Cloud size={20} className="text-gray-400 flex-shrink-0" />
           )}
           <div className="flex-1 min-w-0">
             <p className="text-sm font-medium text-white">
-              {status.isSyncing
-                ? 'Syncing…'
-                : errorCount === 0
-                ? 'Up to date'
-                : `${errorCount} error${errorCount === 1 ? '' : 's'}`}
+              {!isOnline
+                ? 'Sync paused'
+                : status.isSyncing
+                  ? 'Syncing…'
+                  : errorCount > 0
+                    ? `${errorCount} error${errorCount === 1 ? '' : 's'}`
+                    : status.lastSync
+                      ? 'Up to date'
+                      : 'Waiting for first sync'}
             </p>
             <p className="text-xs text-gray-400 mt-0.5">
-              Last synced {formatRelative(status.lastSync, ' ago')}
+              {status.lastSync
+                ? `Last synced ${formatRelative(status.lastSync, ' ago')}`
+                : 'This device has not completed a sync yet.'}
             </p>
           </div>
         </div>
+
+        <div className="bg-[#1A1A1A] rounded-xl p-4 flex items-center gap-3">
+          <HardDrive
+            size={20}
+            className={
+              readiness.isReady
+                ? 'text-emerald-500 flex-shrink-0'
+                : 'text-gray-400 flex-shrink-0'
+            }
+          />
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium text-white">
+              {readiness.isReady
+                ? 'Ready for offline use'
+                : 'Preparing offline access'}
+            </p>
+            <p className="text-xs text-gray-400 mt-0.5">
+              {readiness.isReady
+                ? 'Local data and the app shell are prepared on this device.'
+                : !dataReady && !shellReady
+                  ? 'Waiting for the first complete sync and app-shell cache.'
+                  : !dataReady
+                    ? 'App shell cached. Waiting for the first complete data sync.'
+                    : 'Data synced. Finishing the app-shell cache.'}
+            </p>
+          </div>
+        </div>
+
         {errorCount > 0 && (
           <div className="space-y-2">
             <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider px-1">
               Errors
             </p>
-            {status.errors.map((err, i) => (
+            {status.errors.map((err, index) => (
               <div
-                key={i}
+                key={index}
                 className="bg-[#1A1A1A] border border-red-900/30 rounded-lg p-3"
               >
                 <p className="text-xs text-red-400 break-words whitespace-pre-wrap">
@@ -88,18 +176,28 @@ export const SyncStatusSheet: React.FC<SyncStatusSheetProps> = ({
             ))}
           </div>
         )}
+
         <button
           type="button"
           onClick={handleSyncNow}
-          onPointerDown={(e) => e.stopPropagation()}
-          disabled={isManualSyncDisabled || status.isSyncing}
+          onPointerDown={(event) => event.stopPropagation()}
+          disabled={
+            !isOnline ||
+            !user?.$id ||
+            isManualSyncDisabled ||
+            status.isSyncing
+          }
           className="w-full flex items-center justify-center gap-2 py-3 bg-[#2A2A2A] hover:bg-[#333333] disabled:opacity-50 disabled:cursor-not-allowed rounded-xl text-white text-sm font-medium transition-colors"
         >
           <RefreshCw
             size={16}
             className={status.isSyncing ? 'animate-spin' : ''}
           />
-          {status.isSyncing ? 'Syncing…' : 'Sync Now'}
+          {!isOnline
+            ? 'Sync resumes when online'
+            : status.isSyncing
+              ? 'Syncing…'
+              : 'Sync Now'}
         </button>
       </div>
     </BottomSheet>

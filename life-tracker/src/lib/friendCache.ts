@@ -2,7 +2,7 @@ import type { TaskDocument, CategoryDocument } from '../db/schema';
 
 const DB_NAME = 'mosaic_friend_cache';
 const STORE_NAME = 'calendars';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 const TTL_MS = 5 * 60 * 1000;
 
 export interface FriendCalendarBundle {
@@ -17,13 +17,20 @@ interface CachedEntry {
   cachedAt: number;
 }
 
+function cacheKey(ownerUserId: string, friendUserId: string): string {
+  return `${ownerUserId}::${friendUserId}`;
+}
+
 function openDB(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
     const request = indexedDB.open(DB_NAME, DB_VERSION);
-    request.onupgradeneeded = () => {
+    request.onupgradeneeded = (event) => {
       const db = request.result;
       if (!db.objectStoreNames.contains(STORE_NAME)) {
         db.createObjectStore(STORE_NAME);
+      } else if ((event.oldVersion ?? 0) < 2) {
+        // v1 keys were friend-only and could cross account boundaries.
+        request.transaction?.objectStore(STORE_NAME).clear();
       }
     };
     request.onsuccess = () => resolve(request.result);
@@ -32,58 +39,66 @@ function openDB(): Promise<IDBDatabase> {
 }
 
 export async function getCachedCalendar(
-  friendUserId: string
+  ownerUserId: string,
+  friendUserId: string,
+  options: { allowStale?: boolean } = {}
 ): Promise<FriendCalendarBundle | null> {
   try {
     const db = await openDB();
     return new Promise((resolve, reject) => {
       const tx = db.transaction(STORE_NAME, 'readonly');
-      const store = tx.objectStore(STORE_NAME);
-      const req = store.get(friendUserId);
+      const req = tx.objectStore(STORE_NAME).get(cacheKey(ownerUserId, friendUserId));
       req.onsuccess = () => {
         const entry = req.result as CachedEntry | undefined;
         if (!entry) return resolve(null);
-        if (Date.now() - entry.cachedAt > TTL_MS) return resolve(null);
+        const stale = Date.now() - entry.cachedAt > TTL_MS;
+        if (stale && !options.allowStale) return resolve(null);
         resolve(entry.bundle);
       };
       req.onerror = () => reject(req.error);
     });
-  } catch (err) {
-    console.warn('[friendCache] read failed:', err);
+  } catch (error) {
+    console.warn('[friendCache] read failed:', error);
     return null;
   }
 }
 
 export async function setCachedCalendar(
+  ownerUserId: string,
   bundle: FriendCalendarBundle
 ): Promise<void> {
   try {
     const db = await openDB();
     return new Promise((resolve, reject) => {
       const tx = db.transaction(STORE_NAME, 'readwrite');
-      const store = tx.objectStore(STORE_NAME);
       const entry: CachedEntry = { bundle, cachedAt: Date.now() };
-      const req = store.put(entry, bundle.friendUserId);
+      const req = tx
+        .objectStore(STORE_NAME)
+        .put(entry, cacheKey(ownerUserId, bundle.friendUserId));
       req.onsuccess = () => resolve();
       req.onerror = () => reject(req.error);
     });
-  } catch (err) {
-    console.warn('[friendCache] write failed:', err);
+  } catch (error) {
+    console.warn('[friendCache] write failed:', error);
   }
 }
 
-export async function clearCachedCalendar(friendUserId: string): Promise<void> {
+export async function clearCachedCalendar(
+  ownerUserId: string,
+  friendUserId: string
+): Promise<void> {
   try {
     const db = await openDB();
     return new Promise((resolve, reject) => {
       const tx = db.transaction(STORE_NAME, 'readwrite');
-      const store = tx.objectStore(STORE_NAME);
-      const req = store.delete(friendUserId);
+      const req = tx
+        .objectStore(STORE_NAME)
+        .delete(cacheKey(ownerUserId, friendUserId));
       req.onsuccess = () => resolve();
       req.onerror = () => reject(req.error);
     });
-  } catch (err) {
-    console.warn('[friendCache] delete failed:', err);
+  } catch (error) {
+    console.warn('[friendCache] delete failed:', error);
   }
 }
 
@@ -92,33 +107,31 @@ export async function clearAllFriendCaches(): Promise<void> {
     const db = await openDB();
     return new Promise((resolve, reject) => {
       const tx = db.transaction(STORE_NAME, 'readwrite');
-      const store = tx.objectStore(STORE_NAME);
-      const req = store.clear();
+      const req = tx.objectStore(STORE_NAME).clear();
       req.onsuccess = () => resolve();
       req.onerror = () => reject(req.error);
     });
-  } catch (err) {
-    console.warn('[friendCache] clear failed:', err);
+  } catch (error) {
+    console.warn('[friendCache] clear failed:', error);
   }
 }
 
-/**
- * Patches a single task in the cached bundle. No-op if the cache is missing
- * or expired.
- */
 export async function patchCachedCalendarTask(
+  ownerUserId: string,
   friendUserId: string,
   taskId: string,
   updates: Partial<TaskDocument>
 ): Promise<void> {
   try {
-    const bundle = await getCachedCalendar(friendUserId);
+    const bundle = await getCachedCalendar(ownerUserId, friendUserId, {
+      allowStale: true,
+    });
     if (!bundle) return;
-    const nextTasks = bundle.tasks.map((t) =>
-      t.id === taskId ? { ...t, ...updates } : t
+    const nextTasks = bundle.tasks.map((task) =>
+      task.id === taskId ? { ...task, ...updates } : task
     );
-    await setCachedCalendar({ ...bundle, tasks: nextTasks });
-  } catch (err) {
-    console.warn('[friendCache] patch failed:', err);
+    await setCachedCalendar(ownerUserId, { ...bundle, tasks: nextTasks });
+  } catch (error) {
+    console.warn('[friendCache] patch failed:', error);
   }
 }
