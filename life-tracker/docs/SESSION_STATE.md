@@ -38,7 +38,9 @@ ever logging the raw provider response.
   operational codes.
 - Regression tests prove fake secret text in provider error messages never reaches thrown
   errors, Function logs, or responses.
-- Focused Quality Gate run 1180 passed.
+- Focused Quality Gate run 1180 passed the initial parser/classifier change.
+- Full run 1181 correctly failed because the old raw provider-body throw path was still active; this was a real implementation defect, not test flakiness.
+- Commit `b2a0ea75e31a40b3cf84b4bf22710eab6dade2c1` replaces that throw path so only the sanitized S3 code survives; focused Quality Gate run 1182 passed.
 
 ## Constraints
 - Never expose R2 credentials, encryption material, user content, password hashes, or raw
@@ -47,6 +49,6 @@ ever logging the raw provider response.
 - Do not enable the production schedule until an isolated restore drill passes.
 - Do not promote `security/disaster-backups` to `dev` without explicit user instruction.
 
-Next action: obtain canonical acceptance for the refined diagnostics, squash to
+Next action: obtain canonical acceptance for the corrected refined diagnostics, squash to
 `security/disaster-backups`, deploy the accepted stable source, rerun one controlled backup,
 and act on the returned S3-specific safe code.
