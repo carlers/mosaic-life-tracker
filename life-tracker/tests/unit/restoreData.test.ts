@@ -42,6 +42,7 @@ const state = vi.hoisted(() => {
       fileId: 'img_restored',
       uploaded: true,
     }),
+    getCurrentUserId: vi.fn().mockResolvedValue('user_A'),
   };
 });
 
@@ -100,7 +101,10 @@ vi.mock('../../src/lib/exportData', async (importOriginal) => {
     triggerDownload: state.triggerDownload,
   };
 });
-vi.mock('../../src/lib/storage', () => ({ ensureRestoredImage: state.ensureRestoredImage }));
+vi.mock('../../src/lib/storage', () => ({
+  ensureRestoredImage: state.ensureRestoredImage,
+  getCurrentUserId: state.getCurrentUserId,
+}));
 
 import { inspectBackupFile, restoreUserData } from '../../src/lib/restoreData';
 
@@ -183,6 +187,7 @@ describe('backup restore', () => {
       fileId: 'img_restored',
       uploaded: true,
     });
+    state.getCurrentUserId.mockResolvedValue('user_A');
     state.exportUserData.mockResolvedValue({
       blob: new Blob(['safety'], { type: 'application/json' }),
       filename: 'mosaic-safety.json',
@@ -653,5 +658,99 @@ describe('backup restore', () => {
     await expect(inspectBackupFile(file, currentUser.id)).rejects.toThrow(
       /unsafe setting key/i
     );
+  });
+
+
+  it('aborts before writes when the authenticated account no longer matches the restore owner', async () => {
+    state.getCurrentUserId.mockResolvedValueOnce('user_B');
+    const file = jsonBackup({
+      data: {
+        tasks: [{
+          id: 'task_account_guard',
+          title: 'Must not import',
+          completed: false,
+          categoryId: '',
+          date: '2026-09-20',
+          createdAt: '2026-09-20T00:00:00.000Z',
+          updatedAt: '2026-09-20T00:00:00.000Z',
+          userId: 'user_A',
+          isDeleted: false,
+          visibility: 'private',
+        }],
+        categories: [],
+        diary: [],
+        settings: [],
+        friendships: [],
+      },
+    });
+
+    await expect(
+      restoreUserData(file, currentUser, { mode: 'merge' })
+    ).rejects.toThrow(/signed-in account changed/i);
+
+    expect(state.upsertLocalDoc).not.toHaveBeenCalled();
+    expect(state.exportUserData).not.toHaveBeenCalled();
+  });
+
+  it('does not let an equal-version image retry resurrect a tombstone', async () => {
+    const sourceUser = {
+      id: 'source_user',
+      email: 'source@example.com',
+      name: 'Source',
+    };
+    const file = zipBackup(
+      {
+        user: sourceUser,
+        data: {
+          tasks: [{
+            id: 'task_deleted_source',
+            title: 'Deleted current row',
+            completed: false,
+            categoryId: '',
+            date: '2026-09-20',
+            image: 'img_source',
+            createdAt: '2026-09-20T00:00:00.000Z',
+            updatedAt: '2026-09-20T00:00:00.000Z',
+            userId: 'source_user',
+            isDeleted: false,
+            visibility: 'private',
+          }],
+          categories: [],
+          diary: [],
+          settings: [],
+          friendships: [],
+        },
+        images: {
+          included: true,
+          referenced: ['img_source'],
+          missingImages: [],
+          note: 'bundled',
+        },
+      },
+      { img_source: 'image-bytes' }
+    );
+
+    await restoreUserData(file, currentUser, { mode: 'merge' });
+    const currentId = Array.from(state.rows.tasks.keys())[0];
+    state.rows.tasks.set(currentId, {
+      ...state.rows.tasks.get(currentId),
+      image: '',
+      isDeleted: true,
+      updatedAt: '2026-09-20T00:00:00.000Z',
+    });
+    vi.clearAllMocks();
+    state.sync.mockResolvedValue(undefined);
+    state.getSyncStatus.mockReturnValue({
+      isSyncing: false,
+      lastSync: new Date().toISOString(),
+      errors: [],
+    });
+    state.getCurrentUserId.mockResolvedValue('user_A');
+
+    const result = await restoreUserData(file, currentUser, { mode: 'merge' });
+
+    expect(result.restored.tasks).toBe(0);
+    expect(state.ensureRestoredImage).not.toHaveBeenCalled();
+    expect(state.rows.tasks.get(currentId)?.isDeleted).toBe(true);
   });
 });
