@@ -4,7 +4,7 @@ Updated: 2026-09-27
 
 Current task: fix the remaining offline-refresh/Login startup stall and incorrect Online indicator observed on Android/PWA after the first offline-startup pass.
 
-Status: implementation active on `chatgpt/reachability-startup-fix`, targeting stable Preview `perf/offline-startup`.
+Status: implementation complete on `chatgpt/reachability-startup-fix`, targeting stable Preview `perf/offline-startup`. Focused Quality Gate run 1103 passed on head `8e44f75a6bfe57cd716adfe233c1661e93ad1c48`; final exact-SHA full canonical acceptance is requested by this checkpoint commit.
 
 ## Working set
 - authoritative reachability: `src/lib/connectivity.ts`, guarded Appwrite calls, AuthProvider
@@ -32,11 +32,11 @@ Status: implementation active on `chatgpt/reachability-startup-fix`, targeting s
 
 ## Verification
 - Baseline stable Preview before this repair: `34e0656cfffdb2bcee27535a02eebc9435cd3a34`, Vercel READY.
-- Focused verification for this repair: pending.
-- Exact-SHA full canonical acceptance: pending.
+- Focused verification for this repair: Quality Gate run 1103 passed.
+- Exact-SHA full canonical acceptance: requested by this checkpoint commit.
 - Stable Preview Quality Gate + Vercel deployment after squash: pending.
 - Required manual check: Samsung/Android installed PWA, Wi-Fi/network loss while open and cold offline relaunch.
 
-Next action: run focused CI, repair compile/test findings, request exact-SHA full acceptance, squash into `perf/offline-startup`, and verify the new stable Preview.
+Next action: follow this exact SHA through full canonical acceptance, repair any failure, then squash PR #96 into `perf/offline-startup` and verify the stable Preview Quality Gate + Vercel deployment.
 
 Blockers: none.
