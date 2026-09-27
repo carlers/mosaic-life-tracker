@@ -50,10 +50,17 @@ window.requestAnimationFrame(() => {
   markStartup('react:mounted');
 });
 
-// Login gets a clean first paint before RxDB downloads/evaluates. If the user
-// authenticates before this idle preload fires, AuthProvider's DB wait starts
-// the same singleton bootstrap immediately.
-if (window.location.pathname === '/login') {
+// A previously-hydrated account is likely to redirect straight from /login
+// to Home, so overlap DB opening immediately. A genuinely logged-out Login
+// gets first paint before RxDB work begins.
+let hasCachedIdentity = false;
+try {
+  hasCachedIdentity = Boolean(localStorage.getItem('mosaic_last_known_user'));
+} catch {
+  hasCachedIdentity = false;
+}
+
+if (window.location.pathname === '/login' && !hasCachedIdentity) {
   if (typeof window.requestIdleCallback === 'function') {
     window.requestIdleCallback(beginDatabaseBootstrap, { timeout: 1200 });
   } else {
