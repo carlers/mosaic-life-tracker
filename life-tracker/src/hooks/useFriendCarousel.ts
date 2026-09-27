@@ -2,6 +2,7 @@ import { useMemo, useCallback, useEffect, useRef } from 'react';
 import { useFriends } from './useFriends';
 import { useMyProfile } from './useMyProfile';
 import { useSettings } from './useSettings';
+import { useAuth } from './useAuth';
 import {
   fetchProfileByUserId,
   updateFriendBioLocally,
@@ -56,6 +57,7 @@ export interface UseFriendCarouselReturn {
 }
 
 export function useFriendCarousel(): UseFriendCarouselReturn {
+  const { user } = useAuth();
   const { friends, isLoading: friendsLoading } = useFriends();
   const { profile, isLoading: profileLoading } = useMyProfile();
   const { settings, isLoading: settingsLoading, setSetting } = useSettings();
@@ -121,9 +123,13 @@ export function useFriendCarousel(): UseFriendCarouselReturn {
     list.push({
       id: 'me',
       kind: 'me',
-      userId: profile?.user_id || '',
+      userId: profile?.user_id || user?.$id || '',
       username: profile?.username || '',
-      displayName: profile?.display_name || profile?.username || 'Me',
+      displayName:
+        profile?.display_name ||
+        profile?.username ||
+        user?.name ||
+        'Me',
       avatarFileId: profile?.avatar_file_id || '',
       bio: profile?.bio || '',
     });
@@ -158,7 +164,7 @@ export function useFriendCarousel(): UseFriendCarouselReturn {
     }
 
     return list;
-  }, [friends, profile, prefs]);
+  }, [friends, prefs, profile, user?.$id, user?.name]);
 
   const reorder = useCallback(
     async (newFriendOrder: string[]) => {
