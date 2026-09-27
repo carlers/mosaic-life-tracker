@@ -21,7 +21,6 @@ import {
 } from '../../infrastructure/mosaic-backend.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
-const DEFAULT_ENDPOINT = 'https://sgp.cloud.appwrite.io/v1';
 const FUNCTION_DIR = resolve(ROOT, 'appwrite-functions');
 const DEPLOY_POLL_MS = 1_000;
 const DEPLOY_POLL_LIMIT = 180;
@@ -69,7 +68,7 @@ function normalizeHostname(value) {
 
 export function parseBootstrapArgs(argv = [], env = process.env) {
   const endpoint = normalizeEndpoint(
-    flagValue(argv, '--endpoint') || env.APPWRITE_ENDPOINT || DEFAULT_ENDPOINT
+    flagValue(argv, '--endpoint') || env.APPWRITE_ENDPOINT || ''
   );
   const projectId =
     flagValue(argv, '--project') || env.APPWRITE_PROJECT_ID || '';
@@ -107,6 +106,11 @@ export function parseBootstrapArgs(argv = [], env = process.env) {
       'Missing APPWRITE_API_KEY. Create a temporary project API key for provisioning.'
     );
   }
+  if (!endpoint) {
+    throw new Error(
+      'Missing Appwrite endpoint. Pass --endpoint <url> or set APPWRITE_ENDPOINT.'
+    );
+  }
   if (!/^[a-zA-Z0-9][a-zA-Z0-9._-]{0,35}$/.test(messageFunctionId)) {
     throw new Error('Invalid message Function ID');
   }
@@ -118,6 +122,7 @@ export function parseBootstrapArgs(argv = [], env = process.env) {
   }
 
   const drSecrets = {};
+  const drVariables = {};
   if (withDr) {
     for (const name of [
       'R2_ACCOUNT_ID',
@@ -133,7 +138,7 @@ export function parseBootstrapArgs(argv = [], env = process.env) {
       }
       drSecrets[name] = env[name];
     }
-    if (env.R2_ENDPOINT) drSecrets.R2_ENDPOINT = env.R2_ENDPOINT;
+    if (env.R2_ENDPOINT) drVariables.R2_ENDPOINT = env.R2_ENDPOINT;
   }
 
   return {
@@ -149,6 +154,7 @@ export function parseBootstrapArgs(argv = [], env = process.env) {
     drFunctionId,
     webHostnames,
     drSecrets,
+    drVariables,
   };
 }
 
@@ -520,6 +526,7 @@ export async function bootstrapMosaicProject(
       functions: services.functions,
       directory: join(FUNCTION_DIR, 'dr-backup'),
       functionId: config.drFunctionId,
+      extraVariables: config.drVariables,
       secretVariables: config.drSecrets,
       sleep,
     });
