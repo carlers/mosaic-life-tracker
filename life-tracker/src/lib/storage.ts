@@ -157,7 +157,21 @@ export async function saveImage(
   ) {
     return createPendingImage(userId, compressedBlob);
   }
-  return uploadCompressedBlobWithId(compressedBlob, generateFileId(), userId);
+  try {
+    return await uploadCompressedBlobWithId(
+      compressedBlob,
+      generateFileId(),
+      userId
+    );
+  } catch (error) {
+    const cause = (error as Error & { cause?: unknown }).cause;
+    const code = (cause as { code?: number } | null)?.code;
+    const transient =
+      !isUnauthorizedError(cause) &&
+      (typeof code !== 'number' || code === 429 || code >= 500);
+    if (!transient) throw error;
+    return createPendingImage(userId, compressedBlob);
+  }
 }
 
 export async function uploadPendingImage(
