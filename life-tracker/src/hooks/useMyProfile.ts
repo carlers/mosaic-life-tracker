@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAuth } from './useAuth';
 import { useConnectivity } from './useConnectivity';
-import { isOfflineError } from '../lib/authEvents';
 import {
   fetchMyProfile,
   createOrUpdateProfile,
@@ -72,11 +71,7 @@ export function useMyProfile(): UseMyProfileReturn {
   useEffect(() => {
     if (!userId) return;
     let active = true;
-    if (!isOnline) {
-      setLoadedUserId(userId);
-      setError(null);
-      return;
-    }
+    if (!isOnline) return;
     void fetchMyProfile(userId)
       .then((profile) => {
         if (!active) return;
@@ -111,20 +106,6 @@ export function useMyProfile(): UseMyProfileReturn {
         return created;
       } catch (createError) {
         console.error('[useMyProfile] Create failed:', createError);
-        if (isOfflineError(createError)) {
-          const optimistic: ProfileCard = {
-            $id: `profile_${userId}`,
-            user_id: userId,
-            username: input.username.toLowerCase(),
-            display_name: input.displayName || '',
-            avatar_file_id: input.avatarFileId || '',
-            bio: input.bio || '',
-            is_searchable: true,
-          };
-          writeCachedOwnProfile(userId, optimistic);
-          setResolved({ userId, profile: optimistic });
-          setLoadedUserId(userId);
-        }
         throw createError;
       }
     },
