@@ -1,3 +1,4 @@
+import { unzipSync } from 'fflate';
 import { describe, expect, it, vi } from 'vitest';
 import { prepareTodoMateTransfer } from '../../src/lib/todomateImport';
 
@@ -5,6 +6,8 @@ type FetchCall = {
   url: string;
   init?: RequestInit;
 };
+
+const identityPhotoProcessor = async (file: File): Promise<Blob> => file;
 
 function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
@@ -73,6 +76,12 @@ function createFetch() {
       return jsonResponse({
         idToken: 'firebase-id-token',
         localId: 'todo_uid',
+      });
+    }
+    if (url === 'https://example.invalid/private-photo') {
+      return new Response(new Uint8Array([1, 2, 3, 4]), {
+        status: 200,
+        headers: { 'content-type': 'image/webp' },
       });
     }
     if (url.includes('firestore.googleapis.com')) {
@@ -163,6 +172,7 @@ describe('TodoMate import adapter', () => {
       {
         fetchImpl,
         now: () => new Date(2026, 8, 28, 4, 0, 0),
+        photoProcessor: identityPhotoProcessor,
       }
     );
 
@@ -171,11 +181,17 @@ describe('TodoMate import adapter', () => {
       tasks: 2,
       diary: 1,
       unscheduledMovedToToday: 1,
-      photosSkipped: 1,
+      photosFound: 1,
+      photosReady: 1,
+      photosUnavailable: 0,
       routinesReferenced: 1,
     });
 
-    const payload = JSON.parse(await prepared.file.text());
+    expect(prepared.file.type).toBe('application/zip');
+    const archive = unzipSync(
+      new Uint8Array(await prepared.file.arrayBuffer())
+    );
+    const payload = JSON.parse(new TextDecoder().decode(archive['manifest.json']));
     expect(payload).toMatchObject({
       format: 'mosaic-user-backup',
       version: 2,
@@ -210,7 +226,7 @@ describe('TodoMate import adapter', () => {
         categoryId: 'goal_work',
         date: '2026-09-27',
         memo: 'Keep the memo',
-        image: '',
+        image: expect.stringMatching(/^tmimg_[a-z0-9]+$/),
         source: 'todomate',
         routineId: 'routine_daily',
         reminderTime: '2026-09-27T07:30:00.000Z',
@@ -231,16 +247,26 @@ describe('TodoMate import adapter', () => {
         visibility: 'private',
       }),
     ]);
+    const sourceImageId = payload.data.tasks[0].image;
+    expect(archive[`images/${sourceImageId}.webp`]).toEqual(
+      new Uint8Array([1, 2, 3, 4])
+    );
+    expect(payload.images).toMatchObject({
+      included: true,
+      referenced: [sourceImageId],
+      missingImages: [],
+    });
 
     const urls = calls.map((call) => call.url);
-    expect(urls).toHaveLength(5);
+    expect(urls).toHaveLength(6);
     expect(urls[0]).toBe('https://www.todomate.net/__/firebase/init.json');
     expect(urls[1]).toMatch(/^https:\/\/identitytoolkit\.googleapis\.com\//);
     expect(
-      urls.slice(2).every((url) =>
+      urls.slice(2, 5).every((url) =>
         url.startsWith('https://firestore.googleapis.com/')
       )
     ).toBe(true);
+    expect(urls[5]).toBe('https://example.invalid/private-photo');
     expect(
       urls.some((url) => url.includes('todomate-api.3xhaust.dev'))
     ).toBe(false);
@@ -252,7 +278,7 @@ describe('TodoMate import adapter', () => {
       returnSecureToken: true,
     });
 
-    for (const call of calls.slice(2)) {
+    for (const call of calls.slice(2, 5)) {
       const body = JSON.parse(String(call.init?.body));
       const where = body.structuredQuery.where;
       expect(where.fieldFilter.field.fieldPath).toMatch(/^(userID|writerID)$/);
@@ -299,7 +325,9 @@ describe('TodoMate import adapter', () => {
       tasks: 0,
       diary: 0,
       unscheduledMovedToToday: 0,
-      photosSkipped: 0,
+      photosFound: 0,
+      photosReady: 0,
+      photosUnavailable: 0,
       routinesReferenced: 0,
     });
     expect(calls).toHaveLength(5);
