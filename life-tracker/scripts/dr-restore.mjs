@@ -288,6 +288,19 @@ export async function assertSafeTarget({
   }
 }
 
+export function unwrapUserPrefs(prefs) {
+  if (!prefs || typeof prefs !== 'object' || Array.isArray(prefs)) return {};
+  if (
+    Object.prototype.hasOwnProperty.call(prefs, 'data') &&
+    prefs.data &&
+    typeof prefs.data === 'object' &&
+    !Array.isArray(prefs.data)
+  ) {
+    return prefs.data;
+  }
+  return prefs;
+}
+
 export async function createImportedUser(users, user) {
   if (!user?.id) throw new Error('Backup user is missing an ID');
   if (user.mfa) {
@@ -315,7 +328,7 @@ export async function createImportedUser(users, user) {
   });
   await users.updatePrefs({
     userId: user.id,
-    prefs: user.prefs && typeof user.prefs === 'object' ? user.prefs : {},
+    prefs: unwrapUserPrefs(user.prefs),
   });
   await users.updateEmailVerification({
     userId: user.id,
@@ -455,7 +468,7 @@ function comparableUser(user) {
     labels: [...(user.labels || [])].sort(),
     emailVerification: Boolean(user.emailVerification),
     phoneVerification: Boolean(user.phoneVerification),
-    prefs: user.prefs || {},
+    prefs: unwrapUserPrefs(user.prefs),
     password: user.password || '',
     hash: user.hash || '',
   };
