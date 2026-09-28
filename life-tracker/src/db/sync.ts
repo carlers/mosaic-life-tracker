@@ -4,6 +4,7 @@ import { Permission, Role, Query } from 'appwrite';
 import { isUnauthorizedError } from '../lib/authEvents';
 import { guardedTablesDB } from '../lib/sdk';
 import { toAppwriteFormat, fromAppwriteFormat } from '../lib/syncMapping';
+import { updateProfileAvatar } from '../lib/social';
 import {
   getSyncStatus,
   publishSyncStatus,
@@ -11,7 +12,7 @@ import {
 } from '../lib/syncStatus';
 import { markOfflineDataReady } from '../lib/offlineReadiness';
 import { isPendingImageId, deletePendingImage } from '../lib/pendingImages';
-import { uploadPendingImage } from '../lib/storage';
+import { uploadPendingImage, makeProfileImageReadable } from '../lib/storage';
 import { getConnectivitySnapshot } from '../lib/connectivity';
 import { APPWRITE_DATABASE_ID, APPWRITE_TABLES } from '../lib/appwriteConfig';
 export { toAppwriteFormat, fromAppwriteFormat };
@@ -307,6 +308,7 @@ async function resolvePendingImageForPush(
   }
 
   const remoteFileId = await uploadPendingImage(pendingId, userId);
+  if (collection === 'settings' && json.key === 'profileImageId') await makeProfileImageReadable(remoteFileId, userId);
   await doc.incrementalPatch({ [field]: remoteFileId });
   await deletePendingImage(pendingId, userId);
   return { ...json, [field]: remoteFileId };
@@ -749,6 +751,7 @@ async function syncCollection(
             rowId: docId,
             data: rowData,
           });
+          if (colName === 'settings' && json.key === 'profileImageId' && typeof json.value === 'string' && json.value) await updateProfileAvatar(userId, json.value);
           return 0;
         } catch (updateErr) {
           if (!isNotFoundError(updateErr)) {
@@ -772,6 +775,7 @@ async function syncCollection(
               data: rowData,
               permissions: buildRowPermissions(userId),
             });
+            if (colName === 'settings' && json.key === 'profileImageId' && typeof json.value === 'string' && json.value) await updateProfileAvatar(userId, json.value);
             return 0;
           } catch (createErr) {
             console.error(

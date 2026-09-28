@@ -153,6 +153,12 @@ export async function fetchProfileByUserId(
   return fetchMyProfile(userId);
 }
 
+export async function updateProfileAvatar(userId: string, avatarFileId: string): Promise<void> {
+  const current = await fetchMyProfile(userId);
+  if (!current) return;
+  await writeProfile({ databaseId: APPWRITE_CONFIG.databaseId, tableId: APPWRITE_CONFIG.tables.profiles, rowId: `profile_${userId}`, data: { avatar_file_id: avatarFileId, updated_at: new Date().toISOString() } });
+}
+
 export async function createOrUpdateProfile(
   input: MyProfileInput
 ): Promise<ProfileCard> {
