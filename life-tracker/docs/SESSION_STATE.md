@@ -53,15 +53,22 @@ Focused green:
 - commit `09796f6f1c2179c4dd9cc05c1f8e3706efedea32`
 - Quality Gate 1332 passed focused verification.
 
+## Verification status
+- Final diff review is complete and scoped to `ImageViewer`, one focused regression test,
+  and the viewer/TodoMate/checkpoint contracts.
+- Behavioral-red Quality Gate 1331 proved the old 1920×1080 metadata stretched the portrait
+  fixture.
+- Focused Quality Gate 1332 passed after the intrinsic-dimension implementation.
+- This exact checkpoint tip requests the full canonical gate before stable Preview delivery.
+
 ## Remaining
-1. Review final diff and checkpoint.
-2. Run exact-SHA full canonical acceptance.
-3. Squash-deliver the accepted fix into `feature/todomate-importer`.
-4. Verify the stable Vercel Preview is READY and the stable alias serves it.
-5. User opens one portrait/square migrated task photo from Day View and confirms it is no
+1. Run exact-SHA full canonical acceptance.
+2. Squash-deliver the accepted fix into `feature/todomate-importer`.
+3. Verify the stable Vercel Preview is READY and the stable alias serves it.
+4. User opens one portrait/square migrated task photo from Day View and confirms it is no
    longer stretched.
-6. If visually accepted, mark the TodoMate photo migration enhancement complete.
-7. Promotion of `feature/todomate-importer` to `dev` remains an explicit user decision.
+5. If visually accepted, mark the TodoMate photo migration enhancement complete.
+6. Promotion of `feature/todomate-importer` to `dev` remains an explicit user decision.
 
 ## Separate DR follow-up
 - DR work is already merged into `dev`.
