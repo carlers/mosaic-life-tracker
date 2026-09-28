@@ -10,6 +10,28 @@ interface ImageViewerProps {
   onClose: () => void;
 }
 
+const IMAGE_VIEWER_HISTORY_KEY = '__mosaicImageViewerGuard';
+let imageViewerHistorySequence = 0;
+
+function readImageViewerGuard(state: unknown): string | null {
+  if (typeof state !== 'object' || state === null || Array.isArray(state)) {
+    return null;
+  }
+  const value = (state as Record<string, unknown>)[IMAGE_VIEWER_HISTORY_KEY];
+  return typeof value === 'string' ? value : null;
+}
+
+function currentHistoryState(): Record<string, unknown> {
+  if (
+    typeof window.history.state === 'object' &&
+    window.history.state !== null &&
+    !Array.isArray(window.history.state)
+  ) {
+    return window.history.state as Record<string, unknown>;
+  }
+  return {};
+}
+
 function readIntrinsicDimensions(
   imageUrl: string
 ): Promise<{ width: number; height: number }> {
@@ -66,15 +88,42 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
 
     let effectIsActive = true;
     let currentLightbox: PhotoSwipeLightbox | null = null;
+    const historyId = `mosaic-image-viewer-${++imageViewerHistorySequence}`;
+
+    window.history.pushState(
+      {
+        ...currentHistoryState(),
+        [IMAGE_VIEWER_HISTORY_KEY]: historyId,
+      },
+      '',
+      window.location.href
+    );
+
+    const requestClose = () => {
+      if (!effectIsActive) return;
+
+      if (readImageViewerGuard(window.history.state) === historyId) {
+        window.history.back();
+        return;
+      }
+
+      onCloseRef.current();
+    };
+
+    const handlePopState = (event: PopStateEvent) => {
+      if (!effectIsActive) return;
+      if (readImageViewerGuard(event.state) === historyId) return;
+      onCloseRef.current();
+    };
+
+    window.addEventListener('popstate', handlePopState);
 
     const openViewer = async () => {
       let dimensions: { width: number; height: number };
       try {
         dimensions = await readIntrinsicDimensions(imageUrl);
       } catch {
-        if (effectIsActive) {
-          onCloseRef.current();
-        }
+        requestClose();
         return;
       }
 
@@ -131,11 +180,7 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
         pswp.element?.appendChild(captionEl);
       });
 
-      lightbox.on('close', () => {
-        if (effectIsActive) {
-          onCloseRef.current();
-        }
-      });
+      lightbox.on('close', requestClose);
 
       currentLightbox = lightbox;
       lightboxRef.current = lightbox;
@@ -147,6 +192,7 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
 
     return () => {
       effectIsActive = false;
+      window.removeEventListener('popstate', handlePopState);
       currentLightbox?.destroy();
       if (lightboxRef.current === currentLightbox) {
         lightboxRef.current = null;
