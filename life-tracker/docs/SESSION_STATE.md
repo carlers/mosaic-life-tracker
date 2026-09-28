@@ -53,8 +53,11 @@ deployment and manual application acceptance complete.
   than only today's seven bootstrap tables.
 - The next recovery step is now repository-owned as
   `npm run dr:deploy-functions -- --target-project <projectId>`. It recreates both
-  checked-in Functions in an already restored project and forcibly leaves both schedules
-  blank.
+  checked-in Functions in an already restored project, refuses a target that already has
+  Functions, and verifies both schedules remain blank after deployment.
+- The recovery Function deploy path is covered by unit tests for schedule disabling,
+  secret-variable wiring, and local CLI configuration; full canonical acceptance is the
+  final automated gate before running it against the restored project.
 
 ## Remaining rollout
 1. Deploy the two repository-owned Functions to the restored DR target with schedules
