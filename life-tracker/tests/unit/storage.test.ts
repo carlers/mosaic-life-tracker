@@ -61,7 +61,7 @@ import {
   deleteImage,
 } from '../../src/lib/storage';
 import { isOfflineError } from '../../src/lib/authEvents';
-import { markConnectivityOnline } from '../../src/lib/connectivity';
+import { markConnectivityOnline, markConnectivityOffline } from '../../src/lib/connectivity';
 
 function makeFile(): File {
   return new File(['abc'], 'a.png', { type: 'image/png' });
@@ -147,6 +147,7 @@ describe('storage.saveProfileImage — friend-readable permissions', () => {
     expect(sdkRef.guardedStorageCreateFile).toHaveBeenCalledWith(expect.objectContaining({
       permissions: ['read("users")', 'update("user:user_A")', 'delete("user:user_A")'],
     }));
+    markConnectivityOffline('test-reset');
   });
 
   it('repairs an existing profile image without broadening writes', async () => {
