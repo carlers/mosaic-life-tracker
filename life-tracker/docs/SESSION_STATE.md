@@ -44,13 +44,13 @@ Status: the original importer is live-accepted on stable Preview branch
   query-token changes do not create new source IDs.
 
 ## Automated verification
-- Focused Quality Gate 1278 passed the implementation/UI/photo-bundling tests through commit
-  `551d4fead12b4179cdd27eaec6e5d0370caa6f89`.
-- Additional unit coverage at `a1fc86d41d63317f24a348882bdff6dd8a9f7918`
-  pins the credential boundary: public/arbitrary photo downloads receive no Firebase token;
-  a Google Storage 401/403 retry may receive the Firebase ID token.
-- A final exact-SHA full canonical gate is still required after documentation/checkpoint
-  finalization.
+- Focused Quality Gate 1284 passed the final runtime/tests at
+  `706a0c36a71e378a36bebcdd376d5531a09e388b`.
+- Coverage pins direct photo bundling, partial/unavailable-photo behavior, and the credential
+  boundary: public/arbitrary photo downloads receive no Firebase token; a Google Storage
+  401/403 retry may receive the Firebase ID token.
+- A final exact-SHA full canonical gate is required on the final checkpoint tip before
+  stable Preview delivery.
 
 ## Remaining
 1. Complete diff review and final exact-SHA canonical acceptance.
