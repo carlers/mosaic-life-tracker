@@ -116,9 +116,12 @@ Production restore is never automatic.
 
 Repository-owned Function configuration is recorded in
 `appwrite-functions/*/function.config.json`. The data restore/verification CLI performs the
-Auth/TablesDB/Storage recovery; after it verifies those resources, deploy the two Function
-source directories using those checked-in configs before application acceptance. The DR
-Function remains schedule-disabled until the entire isolated drill passes.
+Auth/TablesDB/Storage recovery; after it verifies those resources, run
+`npm run dr:deploy-functions -- --target-project <projectId>` with a short-lived target
+API key that has `functions.read` and `functions.write` plus the escrowed DR secrets.
+The recovery deploy command packages the checked-in Function source, recreates both
+Functions, and forcibly keeps both schedules blank for the isolated drill. The DR Function
+remains schedule-disabled until the entire isolated drill passes.
 
 ## Operations
 
@@ -126,6 +129,11 @@ Function remains schedule-disabled until the entire isolated drill passes.
   verifies a committed snapshot in a fresh target project.
 - `npm run dr:restore -- --snapshot <backupId> --target-project <projectId> --verify-only`
   re-runs verification against an already restored target.
+- `npm run dr:deploy-functions -- --target-project <projectId>` deploys the two
+  repository-owned Functions into an already restored project. It requires
+  `APPWRITE_TARGET_API_KEY`, `APPWRITE_TARGET_ENDPOINT`, the escrowed R2 recovery
+  credentials, and `DR_ENCRYPTION_KEY_B64`; it refuses targets that already contain
+  Functions and verifies both deployed schedules remain blank.
 - `npm run dr:check` performs the authenticated operator check: it decrypts/verifies the newest committed manifest and exits non-zero when it is missing, tampered, or older than `DR_MAX_AGE_HOURS` (default 36).\n- `npm run dr:watch` is the external metadata-only stale-backup check. It needs only bucket-scoped R2 Object Read credentials, validates the newest `COMPLETED` marker plus manifest object/hash metadata, and never needs `DR_ENCRYPTION_KEY_B64`. It does not replace the authenticated `dr:check`.\n- `.github/workflows/dr-backup-watch.yml` runs `dr:watch` daily at 00:15 UTC when repository variable `DR_BACKUP_WATCH_ENABLED=true`. Keep it disabled until the first restore drill passes and a completed production backup exists. Configure GitHub Actions secrets `DR_R2_ACCOUNT_ID`, `DR_R2_RECOVERY_ACCESS_KEY_ID`, `DR_R2_RECOVERY_SECRET_ACCESS_KEY`, and `DR_R2_BUCKET` using a separate bucket-scoped **Object Read only** R2 token. A failed workflow is the external stale-backup signal.
 - `appwrite-functions/dr-backup/function.config.json` is the non-secret source of truth for
   the dedicated backup Function boundary. Its checked-in production schedule is blank.
