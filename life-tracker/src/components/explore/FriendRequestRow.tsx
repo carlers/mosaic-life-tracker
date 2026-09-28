@@ -6,8 +6,8 @@ import type { FriendshipDocument } from '../../db/schema';
 
 interface FriendRequestRowProps {
   friendship: FriendshipDocument;
-  onAccept: (friendId: string) => Promise<void>;
-  onDecline: (friendId: string) => Promise<void>;
+  onAccept: (friendId: string) => Promise<unknown>;
+  onDecline: (friendId: string) => Promise<unknown>;
 }
 
 export const FriendRequestRow: React.FC<FriendRequestRowProps> = ({
@@ -15,14 +15,18 @@ export const FriendRequestRow: React.FC<FriendRequestRowProps> = ({
   onAccept,
   onDecline,
 }) => {
+  const [error, setError] = useState('');
   const [pendingAction, setPendingAction] = useState<'accept' | 'decline' | null>(
     null
   );
 
   const handleAccept = async () => {
     setPendingAction('accept');
+    setError('');
     try {
       await onAccept(friendship.friendId);
+    } catch (failure) {
+      setError(failure instanceof Error ? failure.message : 'Could not update friendship.');
     } finally {
       setPendingAction(null);
     }
@@ -30,8 +34,11 @@ export const FriendRequestRow: React.FC<FriendRequestRowProps> = ({
 
   const handleDecline = async () => {
     setPendingAction('decline');
+    setError('');
     try {
       await onDecline(friendship.friendId);
+    } catch (failure) {
+      setError(failure instanceof Error ? failure.message : 'Could not update friendship.');
     } finally {
       setPendingAction(null);
     }
@@ -41,6 +48,7 @@ export const FriendRequestRow: React.FC<FriendRequestRowProps> = ({
 
   return (
     <div className="flex items-center gap-3 bg-[#1E1E1E] border border-[#333333] rounded-xl p-3">
+      {error && <p role="alert">{error}</p>}
       <DeferredAvatar
         fileId={friendship.friendAvatarFileId || undefined}
         alt={friendship.friendDisplayName || friendship.friendUsername}

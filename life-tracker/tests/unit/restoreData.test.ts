@@ -332,6 +332,23 @@ describe('backup restore', () => {
   });
 
 
+  it.each([['merge', false, false], ['replace', false, true], ['merge', true, true], ['replace', true, false]] as const)('%s preserves relationships (cross-account=%s, zip=%s)', async (mode, crossAccount, zip) => {
+    const relationships = ['pending_incoming', 'pending_outgoing', 'accepted', 'blocked'].map((status, i) => ({
+      id: 'fr_' + i, userId: 'user_A', friendId: 'peer_' + i, status, isDeleted: false,
+    }));
+    relationships.push({ id: 'fr_deleted', userId: 'user_A', friendId: 'old_peer', status: 'accepted', isDeleted: true });
+    for (const row of relationships) state.rows.friendships.set(row.id, { ...row });
+    const storage = new Map<string, string>();
+    vi.stubGlobal('localStorage', { getItem: (k: string) => storage.get(k), setItem: (k: string, v: string) => storage.set(k, v) });
+    const queue = JSON.stringify([{ ownerId: 'user_A', operation: 'send', friendUserId: 'new_peer' }]);
+    localStorage.setItem('mosaic_friendship_commands_v1', queue);
+    const payload = backupPayload({ user: crossAccount ? { ...currentUser, id: 'source_user' } : currentUser });
+    payload.data.friendships = [{ id: 'must_not_restore', userId: 'source_user', status: 'accepted' }];
+    await restoreUserData(zip ? zipBackup(payload) : jsonBackup(payload), currentUser, { mode });
+    expect([...state.rows.friendships.values()]).toEqual(relationships);
+    expect(localStorage.getItem('mosaic_friendship_commands_v1')).toBe(queue);
+  });
+
   it('rejects a v2 file without the Mosaic backup format marker', async () => {
     const payload = backupPayload();
     delete (payload as { format?: string }).format;

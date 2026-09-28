@@ -1,16 +1,13 @@
+import { executeFriendshipCommand, type FriendshipOperation } from './friendshipCommands';
 import { Permission, Role, Query } from 'appwrite';
 import { getDatabase } from '../db/database';
 import { isUnauthorizedError, OfflineError } from './authEvents';
 import { guardedTablesDB } from './sdk';
 import {
-  emitSocialOutboxFailure,
   enqueueSocialOp,
   setSocialOutboxSender,
-  type SocialOutboxAction,
   type SocialOutboxRemoteOp,
-  type SocialOutboxRevertInfo,
 } from './socialOutbox';
-import type { FriendshipDocument } from '../db/schema';
 import { APPWRITE_DATABASE_ID, APPWRITE_TABLES } from './appwriteConfig';
 
 const DEBUG = import.meta.env.DEV;
@@ -46,13 +43,24 @@ export interface MyProfileInput {
   bio?: string;
 }
 
+async function writeProfile(op: { databaseId: string; tableId: string; rowId: string; data: Record<string, unknown>; permissions?: string[] }) {
+  try { return await guardedTablesDB.updateRow(op); }
+  catch (error) {
+    if ((error as { code?: number }).code !== 404) throw error;
+    return guardedTablesDB.createRow(op);
+  }
+}
+
 // The outbox's sender routes each queued op through the guarded SDK surface.
 // Set at module init so `flushSocialOutbox` (called by AppLayout) is wired
 // as soon as any consumer of `social.ts` loads. Mirrors the pattern in
 // `messageDelivery.ts` for `setMessageActionSender`.
 setSocialOutboxSender(async (op) => {
+  if (op.tableId !== APPWRITE_CONFIG.tables.profiles) {
+    throw Object.assign(new Error('Legacy friendship change needs retry'), { code: 409 });
+  }
   if (op.kind === 'upsertRow') {
-    await guardedTablesDB.upsertRow({
+    await writeProfile({
       databaseId: op.databaseId,
       tableId: op.tableId,
       rowId: op.rowId,
@@ -90,14 +98,6 @@ function buildProfileRowPermissions(userId: string) {
   ];
 }
 
-function buildCreatorOwnPermissions(userId: string) {
-  return [
-    Permission.read(Role.user(userId)),
-    Permission.update(Role.user(userId)),
-    Permission.delete(Role.user(userId)),
-  ];
-}
-
 function toMs(value: unknown): number {
   if (typeof value !== 'string' || !value) return 0;
   const t = new Date(value).getTime();
@@ -128,25 +128,6 @@ function isTransientSocialFailure(err: unknown): boolean {
  * - Permanent (non-429 4xx): emit the failure immediately so the local
  *   RxDB row can be reverted and the user is told. Do not queue.
  */
-function handleSocialRemoteFailure(input: {
-  err: unknown;
-  userId: string;
-  action: SocialOutboxAction;
-  op: SocialOutboxRemoteOp;
-  revert: SocialOutboxRevertInfo;
-  dedupKey: string;
-}): void {
-  const { err, userId, action, op, revert, dedupKey } = input;
-  if (isUnauthorizedError(err)) {
-    throw err;
-  }
-  if (isTransientSocialFailure(err)) {
-    enqueueSocialOp(userId, { action, op, revert, dedupKey });
-  } else {
-    emitSocialOutboxFailure({ userId, action, revert });
-  }
-}
-
 export async function fetchMyProfile(
   userId: string
 ): Promise<ProfileCard | null> {
@@ -197,7 +178,7 @@ export async function createOrUpdateProfile(
     permissions: buildProfileRowPermissions(input.userId),
   };
   try {
-    const row = await guardedTablesDB.upsertRow({
+    const row = await writeProfile({
       databaseId: op.databaseId,
       tableId: op.tableId,
       rowId: op.rowId,
@@ -282,214 +263,25 @@ export interface SendRequestInput {
   friend: ProfileCard;
 }
 
-export async function sendFriendRequest(
-  input: SendRequestInput
-): Promise<void> {
-  const {
-    myUserId,
-    myUsername,
-    myDisplayName,
-    myAvatarFileId,
-    myBio,
-    friend,
-  } = input;
+export async function sendFriendRequest(input: SendRequestInput) {
   const now = new Date().toISOString();
-  const db = getDatabase();
-  const myRowId = await makeFriendshipId(myUserId, friend.user_id);
-  const friendRowId = await makeFriendshipId(friend.user_id, myUserId);
-  const myLocalRow: FriendshipDocument = {
-    id: myRowId,
-    userId: myUserId,
-    friendId: friend.user_id,
-    friendUsername: friend.username,
+  const { myUserId, friend } = input;
+  return executeFriendshipCommand(myUserId, friend.user_id, 'send', {
+    id: await makeFriendshipId(myUserId, friend.user_id), userId: myUserId,
+    friendId: friend.user_id, friendUsername: friend.username,
     friendDisplayName: friend.display_name || friend.username,
-    friendAvatarFileId: friend.avatar_file_id || '',
-    friendBio: friend.bio || '',
-    status: 'pending_outgoing',
-    createdAt: now,
-    updatedAt: now,
-    isDeleted: false,
-  };
-  await db.friendships.upsert(myLocalRow);
-
-  const op: SocialOutboxRemoteOp = {
-    kind: 'upsertRow',
-    databaseId: APPWRITE_CONFIG.databaseId,
-    tableId: APPWRITE_CONFIG.tables.friendships,
-    rowId: friendRowId,
-    data: {
-      user_id: friend.user_id,
-      friend_id: myUserId,
-      friend_username: myUsername,
-      friend_display_name: myDisplayName,
-      friend_avatar_file_id: myAvatarFileId,
-      friend_bio: myBio,
-      status: 'pending_incoming',
-      created_at: now,
-      updated_at: now,
-      deleted: false,
-    },
-    permissions: buildCreatorOwnPermissions(myUserId),
-  };
-
-  try {
-    await guardedTablesDB.upsertRow({
-      databaseId: op.databaseId,
-      tableId: op.tableId,
-      rowId: op.rowId,
-      data: op.data,
-      permissions: op.permissions,
-    });
-    if (DEBUG)
-      console.log('[social] Friend request sent:', myRowId, friendRowId);
-  } catch (err) {
-    handleSocialRemoteFailure({
-      err,
-      userId: myUserId,
-      action: 'send_request',
-      op,
-      revert: { myRowId },
-      dedupKey: `send_request:${friend.user_id}`,
-    });
-  }
+    friendAvatarFileId: friend.avatar_file_id || '', friendBio: friend.bio || '',
+    status: 'pending_outgoing', createdAt: now, updatedAt: now, isDeleted: false,
+  });
 }
-
-export async function acceptFriendRequest(
-  myUserId: string,
-  friendUserId: string
-): Promise<void> {
-  const now = new Date().toISOString();
-  const db = getDatabase();
-  const myRowId = await makeFriendshipId(myUserId, friendUserId);
-  const friendRowId = await makeFriendshipId(friendUserId, myUserId);
-  const localDoc = await db.friendships.findOne(myRowId).exec();
-  const previousStatus: FriendshipDocument['status'] =
-    (localDoc?.status as FriendshipDocument['status'] | undefined) ??
-    'pending_incoming';
-  if (localDoc) {
-    await localDoc.patch({ status: 'accepted', updatedAt: now });
-  }
-
-  const op: SocialOutboxRemoteOp = {
-    kind: 'updateRow',
-    databaseId: APPWRITE_CONFIG.databaseId,
-    tableId: APPWRITE_CONFIG.tables.friendships,
-    rowId: friendRowId,
-    data: { status: 'accepted', updated_at: now },
-  };
-
-  try {
-    await guardedTablesDB.updateRow({
-      databaseId: op.databaseId,
-      tableId: op.tableId,
-      rowId: op.rowId,
-      data: op.data,
-    });
-    if (DEBUG) console.log('[social] Friend request accepted:', myRowId);
-  } catch (err) {
-    handleSocialRemoteFailure({
-      err,
-      userId: myUserId,
-      action: 'accept_friend_request',
-      op,
-      revert: { myRowId, previousStatus },
-      dedupKey: `accept_friend_request:${friendUserId}`,
-    });
-  }
+export function acceptFriendRequest(userId: string, friendId: string) {
+  return executeFriendshipCommand(userId, friendId, 'accept');
 }
-
-export async function deleteFriendPair(
-  myUserId: string,
-  friendUserId: string
-): Promise<void> {
-  const now = new Date().toISOString();
-  const db = getDatabase();
-  const myRowId = await makeFriendshipId(myUserId, friendUserId);
-  const friendRowId = await makeFriendshipId(friendUserId, myUserId);
-  const localDoc = await db.friendships.findOne(myRowId).exec();
-  if (localDoc) {
-    await localDoc.patch({ isDeleted: true, updatedAt: now });
-  }
-
-  const op: SocialOutboxRemoteOp = {
-    kind: 'updateRow',
-    databaseId: APPWRITE_CONFIG.databaseId,
-    tableId: APPWRITE_CONFIG.tables.friendships,
-    rowId: friendRowId,
-    data: { deleted: true, updated_at: now },
-  };
-
-  try {
-    await guardedTablesDB.updateRow({
-      databaseId: op.databaseId,
-      tableId: op.tableId,
-      rowId: op.rowId,
-      data: op.data,
-    });
-    if (DEBUG) console.log('[social] Friend pair soft-deleted:', myRowId);
-  } catch (err: unknown) {
-    // A 404 on the friend's row means there is nothing left to delete. The
-    // local side is already soft-deleted, so no queue entry is needed.
-    const code = (err as { code?: number })?.code;
-    if (code === 404) {
-      if (DEBUG)
-        console.log(
-          '[social] deleteFriendPair: friend row already 404, skipping'
-        );
-      return;
-    }
-    handleSocialRemoteFailure({
-      err,
-      userId: myUserId,
-      action: 'delete_friend_pair',
-      op,
-      revert: { myRowId },
-      dedupKey: `delete_friend_pair:${friendUserId}`,
-    });
-  }
+export function deleteFriendPair(userId: string, friendId: string, operation: FriendshipOperation = 'remove') {
+  return executeFriendshipCommand(userId, friendId, operation);
 }
-
-export async function blockFriend(
-  myUserId: string,
-  friendUserId: string
-): Promise<void> {
-  const now = new Date().toISOString();
-  const db = getDatabase();
-  const myRowId = await makeFriendshipId(myUserId, friendUserId);
-  const friendRowId = await makeFriendshipId(friendUserId, myUserId);
-  const localDoc = await db.friendships.findOne(myRowId).exec();
-  const previousStatus: FriendshipDocument['status'] =
-    (localDoc?.status as FriendshipDocument['status'] | undefined) ??
-    'accepted';
-  if (localDoc) {
-    await localDoc.patch({ status: 'blocked', updatedAt: now });
-  }
-
-  const op: SocialOutboxRemoteOp = {
-    kind: 'updateRow',
-    databaseId: APPWRITE_CONFIG.databaseId,
-    tableId: APPWRITE_CONFIG.tables.friendships,
-    rowId: friendRowId,
-    data: { status: 'blocked', updated_at: now },
-  };
-
-  try {
-    await guardedTablesDB.updateRow({
-      databaseId: op.databaseId,
-      tableId: op.tableId,
-      rowId: op.rowId,
-      data: op.data,
-    });
-  } catch (err) {
-    handleSocialRemoteFailure({
-      err,
-      userId: myUserId,
-      action: 'block_friend',
-      op,
-      revert: { myRowId, previousStatus },
-      dedupKey: `block_friend:${friendUserId}`,
-    });
-  }
+export function blockFriend(userId: string, friendId: string) {
+  return executeFriendshipCommand(userId, friendId, 'block');
 }
 
 export function hasRecentTimestamp(iso: string, thresholdMs = 5000): boolean {

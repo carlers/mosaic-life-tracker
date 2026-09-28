@@ -1,3 +1,4 @@
+import { syncFriendships } from '../lib/friendshipSync';
 import { getDatabase, type AppDatabaseCollections } from './database';
 import { Permission, Role, Query } from 'appwrite';
 import { isUnauthorizedError } from '../lib/authEvents';
@@ -510,6 +511,7 @@ async function syncCollection(
   colName: string,
   userId: string
 ) {
+  if (colName === 'friendships') return syncFriendships(userId);
   const cycleStartMs = Date.now();
   const tableId =
     APPWRITE_CONFIG.tables[colName as keyof typeof APPWRITE_CONFIG.tables];
