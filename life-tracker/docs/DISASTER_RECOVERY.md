@@ -145,6 +145,12 @@ provisioned. The DR Function remains schedule-disabled until the entire isolated
   next watcher check.
 - `appwrite-functions/message-action/function.config.json` records the existing general
   trusted Function configuration needed during recovery.
+- When changing a live Appwrite Function through the API, send the complete intended
+  Function configuration rather than only the changed field. The Appwrite update endpoint
+  can apply defaults to omitted optional fields. During the first production schedule
+  rollout, a schedule-only update temporarily reset scopes/timeout/build settings; the
+  rollout detected and reverted that state immediately. Re-read the complete Function
+  after every configuration write before considering the change accepted.
 
 ## Acceptance and rollout
 
