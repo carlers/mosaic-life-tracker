@@ -61,6 +61,7 @@ import {
   deleteImage,
 } from '../../src/lib/storage';
 import { isOfflineError } from '../../src/lib/authEvents';
+import { markConnectivityOnline, markConnectivityOffline } from '../../src/lib/connectivity';
 
 function makeFile(): File {
   return new File(['abc'], 'a.png', { type: 'image/png' });
