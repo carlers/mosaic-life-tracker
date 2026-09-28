@@ -181,6 +181,35 @@ describe('DR restore CLI', () => {
     });
   });
 
+  it('skips Appwrite updatePrefs when restored preferences are empty', async () => {
+    const users = {
+      createArgon2User: vi.fn().mockResolvedValue({}),
+      updatePhone: vi.fn().mockResolvedValue({}),
+      updateLabels: vi.fn().mockResolvedValue({}),
+      updatePrefs: vi.fn().mockResolvedValue({}),
+      updateEmailVerification: vi.fn().mockResolvedValue({}),
+      updatePhoneVerification: vi.fn().mockResolvedValue({}),
+      updateStatus: vi.fn().mockResolvedValue({}),
+    };
+
+    await createImportedUser(users as any, {
+      id: 'user_empty_prefs',
+      name: 'User',
+      email: 'empty@example.com',
+      phone: '',
+      status: true,
+      labels: [],
+      prefs: {},
+      emailVerification: false,
+      phoneVerification: false,
+      mfa: false,
+      hash: 'argon2',
+      password: '$argon2id$backuphash',
+    });
+
+    expect(users.updatePrefs).not.toHaveBeenCalled();
+  });
+
   it('fails instead of silently weakening unsupported auth state', async () => {
     const users = { createArgon2User: vi.fn() };
     await expect(
