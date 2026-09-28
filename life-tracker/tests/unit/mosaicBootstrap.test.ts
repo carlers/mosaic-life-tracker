@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
+import { parseDrFunctionDeployArgs } from '../../scripts/dr-deploy-functions.mjs';
 import {
   assertEmptyTarget,
   bootstrapMosaicProject,
@@ -127,6 +128,48 @@ describe('Mosaic bootstrap configuration', () => {
     expect(write.mock.calls[0][1]).toContain(
       'VITE_APPWRITE_PROJECT_ID=fork_project'
     );
+  });
+});
+
+describe('DR Function deployment CLI configuration', () => {
+  const secrets = {
+    R2_ACCOUNT_ID: 'account',
+    R2_ACCESS_KEY_ID: 'access',
+    R2_SECRET_ACCESS_KEY: 'secret',
+    R2_BUCKET: 'bucket',
+    DR_ENCRYPTION_KEY_B64: 'key',
+  };
+
+  it('reuses the restored-project API key and recovery secrets without printing them', () => {
+    const config = parseDrFunctionDeployArgs(
+      ['--target-project', 'restored_project'],
+      {
+        APPWRITE_TARGET_API_KEY: 'temporary-function-key',
+        APPWRITE_TARGET_ENDPOINT: 'https://fra.cloud.appwrite.io/v1',
+        ...secrets,
+      }
+    );
+
+    expect(config).toMatchObject({
+      projectId: 'restored_project',
+      endpoint: 'https://fra.cloud.appwrite.io/v1',
+      apiKey: 'temporary-function-key',
+      drSecrets: secrets,
+    });
+  });
+
+  it('fails before deployment when a required recovery secret is missing', () => {
+    expect(() =>
+      parseDrFunctionDeployArgs(
+        ['--target-project', 'restored_project'],
+        {
+          APPWRITE_TARGET_API_KEY: 'temporary-function-key',
+          APPWRITE_TARGET_ENDPOINT: 'https://fra.cloud.appwrite.io/v1',
+          ...secrets,
+          DR_ENCRYPTION_KEY_B64: '',
+        }
+      )
+    ).toThrow(/DR_ENCRYPTION_KEY_B64/);
   });
 });
 
