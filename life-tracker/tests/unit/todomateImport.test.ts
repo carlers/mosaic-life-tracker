@@ -291,6 +291,75 @@ describe('TodoMate import adapter', () => {
     }
   });
 
+  it('keeps an unavailable TodoMate photo off the task instead of creating a dangling image reference', async () => {
+    const photoUrl = 'https://cdn.example.invalid/missing.jpg';
+    const fetchImpl = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+
+      if (url === 'https://www.todomate.net/__/firebase/init.json') {
+        return jsonResponse({
+          apiKey: 'public-firebase-key',
+          projectId: 'mate-914f3',
+        });
+      }
+      if (url.startsWith('https://identitytoolkit.googleapis.com/')) {
+        return jsonResponse({
+          idToken: 'firebase-id-token',
+          localId: 'todo_uid',
+        });
+      }
+      if (url.includes('firestore.googleapis.com')) {
+        const body = JSON.parse(String(init?.body ?? '{}'));
+        const collection = body.structuredQuery?.from?.[0]?.collectionId;
+        if (collection === 'TodoItem') {
+          return jsonResponse([
+            firestoreRow('TodoItem', 'todo_missing_photo', {
+              writerID: 'todo_uid',
+              content: 'Missing photo',
+              date: Date.UTC(2026, 8, 27),
+              createTime: Date.UTC(2026, 8, 20),
+              isDone: false,
+              doneTime: null,
+              goalID: '',
+              memo: null,
+              remindAt: null,
+              routineID: null,
+              photoURL: photoUrl,
+            }),
+          ]);
+        }
+        return jsonResponse([]);
+      }
+      if (url === photoUrl) {
+        return new Response('', { status: 404 });
+      }
+
+      throw new Error(`unexpected request: ${url}`);
+    }) as unknown as typeof fetch;
+
+    const prepared = await prepareTodoMateTransfer(
+      { email: 'person@example.com', password: 'private-password' },
+      {
+        fetchImpl,
+        now: () => new Date(2026, 8, 28, 4, 0, 0),
+        photoProcessor: identityPhotoProcessor,
+      }
+    );
+
+    expect(prepared.preview).toMatchObject({
+      photosFound: 1,
+      photosReady: 0,
+      photosUnavailable: 1,
+    });
+    expect(prepared.file.type).toBe('application/json');
+    const payload = JSON.parse(await prepared.file.text());
+    expect(payload.data.tasks[0].image).toBe('');
+    expect(payload.images).toMatchObject({
+      included: false,
+      referenced: [],
+    });
+  });
+
   it('uses the Firebase token only when a Google Storage photo requires authentication', async () => {
     const photoUrl =
       'https://firebasestorage.googleapis.com/v0/b/mate-914f3/o/private%2Fphoto.jpg?alt=media';
