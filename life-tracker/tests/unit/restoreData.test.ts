@@ -18,10 +18,13 @@ const state = vi.hoisted(() => {
   return {
     rows,
     sync: vi.fn().mockResolvedValue(undefined),
-    getSyncStatus: vi.fn().mockReturnValue({
-      isSyncing: false,
-      lastSync: '2026-09-27T00:00:00.000Z',
-      errors: [],
+    refreshSync: vi.fn().mockResolvedValue({
+      status: {
+        isSyncing: false,
+        lastSync: '2026-09-27T00:00:00.000Z',
+        errors: [],
+      },
+      startedAt: 0,
     }),
     exportUserData: vi.fn().mockResolvedValue({
       blob: new Blob(['safety'], { type: 'application/json' }),
@@ -91,7 +94,7 @@ vi.mock('../../src/lib/localUpsert', () => ({
 
 vi.mock('../../src/db/sync', () => ({
   initializeSync: state.sync,
-  getSyncStatus: state.getSyncStatus,
+  refreshSync: state.refreshSync,
 }));
 vi.mock('../../src/lib/exportData', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../../src/lib/exportData')>();
@@ -172,11 +175,17 @@ describe('backup restore', () => {
     resetRows();
     vi.clearAllMocks();
     state.sync.mockResolvedValue(undefined);
-    state.getSyncStatus.mockImplementation(() => ({
-      isSyncing: false,
-      lastSync: new Date().toISOString(),
-      errors: [],
-    }));
+    state.refreshSync.mockImplementation(async () => {
+      const startedAt = Date.now() - 1;
+      return {
+        status: {
+          isSyncing: false,
+          lastSync: new Date().toISOString(),
+          errors: [],
+        },
+        startedAt,
+      };
+    });
     state.upsertLocalDoc.mockImplementation(
       async (collection: CollectionName, id: string, doc: Stored) => {
         const map = state.rows[collection];
@@ -489,10 +498,13 @@ describe('backup restore', () => {
 
 
   it('refuses restore when the pre-restore sync did not fully succeed', async () => {
-    state.getSyncStatus.mockReturnValue({
-      isSyncing: false,
-      lastSync: '2026-09-26T23:00:00.000Z',
-      errors: ['tasks: network failed'],
+    state.refreshSync.mockResolvedValueOnce({
+      status: {
+        isSyncing: false,
+        lastSync: '2026-09-26T23:00:00.000Z',
+        errors: ['tasks: network failed'],
+      },
+      startedAt: Date.parse('2026-09-27T00:00:00.000Z'),
     });
     const file = jsonBackup();
 
@@ -507,10 +519,13 @@ describe('backup restore', () => {
 
 
   it('refuses restore when sync status is successful but stale', async () => {
-    state.getSyncStatus.mockReturnValue({
-      isSyncing: false,
-      lastSync: '2026-01-01T00:00:00.000Z',
-      errors: [],
+    state.refreshSync.mockResolvedValueOnce({
+      status: {
+        isSyncing: false,
+        lastSync: '2026-01-01T00:00:00.000Z',
+        errors: [],
+      },
+      startedAt: Date.parse('2026-09-27T00:00:00.000Z'),
     });
     const file = jsonBackup();
 
@@ -740,11 +755,17 @@ describe('backup restore', () => {
     });
     vi.clearAllMocks();
     state.sync.mockResolvedValue(undefined);
-    state.getSyncStatus.mockImplementation(() => ({
-      isSyncing: false,
-      lastSync: new Date().toISOString(),
-      errors: [],
-    }));
+    state.refreshSync.mockImplementation(async () => {
+      const startedAt = Date.now() - 1;
+      return {
+        status: {
+          isSyncing: false,
+          lastSync: new Date().toISOString(),
+          errors: [],
+        },
+        startedAt,
+      };
+    });
     state.getCurrentUserId.mockResolvedValue('user_A');
 
     const result = await restoreUserData(file, currentUser, { mode: 'merge' });
