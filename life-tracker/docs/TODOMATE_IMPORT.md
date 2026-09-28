@@ -232,6 +232,15 @@ update equal-version tasks whose Mosaic image field is still empty.
 
 Automated acceptance covers direct public photo download, ZIP bundling, deterministic image
 references, secure Google Storage bearer-token retry, partial photo failure reporting, and
-the existing equal-version image retry in the restore engine. Real-account acceptance remains
-to confirm how many of the user's 37 TodoMate photo URLs are currently downloadable from the
-browser and that the resulting Appwrite-hosted images render on their existing imported tasks.
+the existing equal-version image retry in the restore engine.
+
+Real-account photo preview has now confirmed **37 of 37** TodoMate photo attachments are
+downloadable and ready to copy. The first photo import attempt stopped before any restore
+writes because Mosaic's restore safety preflight encountered an already-running sync. That
+live finding exposed two sync/restore issues outside the TodoMate adapter: the generic sync
+engine pushed large dirty sets strictly serially, and restore treated the ordinary
+coalescing `initializeSync()` trigger as though it were an awaitable freshness barrier.
+The sync engine now has bounded four-worker row pushes and restore uses `refreshSync()` to
+wait for the current same-tab coordinator to drain before running one genuinely fresh cycle.
+Hosted re-acceptance still must confirm the 37 images upload into Appwrite Storage and render
+on the existing imported tasks without duplication.
