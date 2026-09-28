@@ -19,6 +19,9 @@ const docs = vi.hoisted(() => ({
   },
 }));
 
+const sendAction = vi.hoisted(() => vi.fn().mockResolvedValue({ ok: true }));
+vi.mock('../../src/lib/messageDelivery', () => ({ sendMessageAction: sendAction }));
+
 const updateRow = vi.hoisted(() => vi.fn().mockResolvedValue({}));
 const deleteImage = vi.hoisted(() => vi.fn().mockResolvedValue(undefined));
 const deleteFriendPair = vi.hoisted(() => vi.fn().mockResolvedValue(undefined));
@@ -57,8 +60,16 @@ describe('deleteAllUserData', () => {
     docs.category.incrementalPatch.mockImplementation(async (patch) => Object.assign(docs.category, patch));
   });
 
+  it('does not proceed to personal deletion while relationship cleanup fails', async () => {
+    sendAction.mockRejectedValueOnce(new Error('Offline'));
+    await expect(deleteAllUserData('user_1')).rejects.toThrow('Offline');
+    expect(updateRow).not.toHaveBeenCalled();
+    expect(docs.task.incrementalPatch).not.toHaveBeenCalled();
+  });
+
   it('tombstones owned local+remote rows, profile, and referenced images', async () => {
     const result = await deleteAllUserData('user_1');
+    expect(sendAction).toHaveBeenCalledWith({ action: 'delete_account_friendships', ownerId: 'user_1' });
 
     expect(docs.task.incrementalPatch).toHaveBeenCalledWith(
       expect.objectContaining({ isDeleted: true })

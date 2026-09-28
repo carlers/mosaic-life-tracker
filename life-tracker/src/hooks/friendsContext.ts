@@ -1,3 +1,4 @@
+import type { FriendshipResult } from '../lib/friendshipCommands';
 import { createContext } from 'react';
 import type { FriendshipDocument } from '../db/schema';
 import type { ProfileCard } from '../lib/social';
@@ -16,12 +17,12 @@ export interface UseFriendsReturn {
   sendRequest: (
     myProfile: MyProfileSummary,
     friend: ProfileCard
-  ) => Promise<void>;
-  accept: (friendUserId: string) => Promise<void>;
-  decline: (friendUserId: string) => Promise<void>;
-  cancel: (friendUserId: string) => Promise<void>;
-  remove: (friendUserId: string) => Promise<void>;
-  block: (friendUserId: string) => Promise<void>;
+  ) => Promise<FriendshipResult>;
+  accept: (friendUserId: string) => Promise<FriendshipResult>;
+  decline: (friendUserId: string) => Promise<FriendshipResult>;
+  cancel: (friendUserId: string) => Promise<FriendshipResult>;
+  remove: (friendUserId: string) => Promise<FriendshipResult>;
+  block: (friendUserId: string) => Promise<FriendshipResult>;
   findFriendship: (friendUserId: string) => FriendshipDocument | undefined;
 }
 export const FriendsContext = createContext<UseFriendsReturn | null>(null);

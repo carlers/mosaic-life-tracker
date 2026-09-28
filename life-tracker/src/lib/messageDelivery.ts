@@ -61,6 +61,11 @@ export async function sendMessageAction(
       `Message action failed (${execution.responseStatusCode}): ${execution.responseBody}`
     );
     (err as { code?: number }).code = execution.responseStatusCode;
+    try {
+      const result = JSON.parse(execution.responseBody);
+      (err as { result?: unknown }).result = result;
+      if (payload.action === 'friendship' && typeof result.error === 'string') err.message = result.error;
+    } catch { /* Preserve the generic error for an invalid server response. */ }
     throw err;
   }
   try {

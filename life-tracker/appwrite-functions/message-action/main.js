@@ -1,4 +1,5 @@
 const crypto = require('crypto');
+const { handleFriendship, deleteAccountFriendships } = require('./friendship');
 const { Client, TablesDB, Query, Permission, Role } = require('node-appwrite');
 const { handleScheduledTombstoneGc } = require('./tombstone-gc');
 const DATABASE_ID = process.env.APPWRITE_DATABASE_ID || 'life_tracker';
@@ -1074,6 +1075,13 @@ const handler = async ({ req, res, log, error }) => {
   try {
     let result;
     switch (action) {
+      case 'delete_account_friendships':
+        if (payload.ownerId !== callerId) return res.json({ error: 'Account changed' }, 403);
+        result = await deleteAccountFriendships(tablesDB, callerId);
+        break;
+      case 'friendship':
+        result = await handleFriendship(tablesDB, callerId, payload);
+        break;
       case 'deliver':
         result = await handleDeliver(tablesDB, callerId, payload, log, error);
         break;

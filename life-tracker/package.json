@@ -39,7 +39,8 @@
     "dr:status": "node scripts/dr-status.mjs",
     "dr:check": "node scripts/dr-health.mjs",
     "dr:watch": "node scripts/dr-watch.mjs",
-    "mosaic:bootstrap": "node scripts/bootstrap-mosaic.mjs"
+    "mosaic:bootstrap": "node scripts/bootstrap-mosaic.mjs",
+    "friendships:repair": "node scripts/repair-friendships.mjs"
   },
   "dependencies": {
     "ajv": "^8.20.0",

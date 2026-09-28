@@ -6,20 +6,24 @@ import type { FriendshipDocument } from '../../db/schema';
 
 interface OutgoingRequestRowProps {
   friendship: FriendshipDocument;
-  onCancel: (friendId: string) => Promise<void>;
+  onCancel: (friendId: string) => Promise<unknown>;
 }
 
 export const OutgoingRequestRow: React.FC<OutgoingRequestRowProps> = ({
   friendship,
   onCancel,
 }) => {
+  const [error, setError] = useState('');
   const [isCancelling, setIsCancelling] = useState(false);
 
   const handleCancel = async () => {
     if (isCancelling) return;
     setIsCancelling(true);
+    setError('');
     try {
       await onCancel(friendship.friendId);
+    } catch (failure) {
+      setError(failure instanceof Error ? failure.message : 'Could not update friendship.');
     } finally {
       setIsCancelling(false);
     }
@@ -27,6 +31,7 @@ export const OutgoingRequestRow: React.FC<OutgoingRequestRowProps> = ({
 
   return (
     <div className="flex items-center gap-3 bg-[#1E1E1E] border border-[#333333] rounded-xl p-3">
+      {error && <p role="alert">{error}</p>}
       <DeferredAvatar
         fileId={friendship.friendAvatarFileId || undefined}
         alt={friendship.friendDisplayName || friendship.friendUsername}
