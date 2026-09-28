@@ -244,6 +244,13 @@ The sync engine now has bounded four-worker row pushes and restore uses `refresh
 wait for the current same-tab coordinator to drain before running one genuinely fresh cycle.
 During that preflight the import may remain on **Refreshing current data…** while an existing
 sync finishes; this wait is intentional and bounded to 90 seconds. If the coordinator still
-cannot settle, Mosaic fails the import rather than continuing with stale data. Hosted
-re-acceptance still must confirm the 37 images upload into Appwrite Storage and render on
-the existing imported tasks without duplication.
+cannot settle, Mosaic fails the import rather than continuing with stale data.
+
+Hosted re-acceptance subsequently confirmed the import itself succeeds: all 37 prepared
+TodoMate images were copied onto the existing imported tasks without duplication and Mosaic
+sync completed. Opening those migrated task photos then exposed a separate viewer regression:
+`ImageViewer` reported every source to PhotoSwipe as 1920×1080, horizontally stretching
+portrait/square images. The viewer contract now requires real intrinsic dimensions, with a
+behavioral regression test proving a 720×1280 source is opened as 720×1280 rather than 16:9.
+Hosted visual acceptance of that viewer repair remains before this enhancement is marked
+complete.
