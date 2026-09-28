@@ -21,6 +21,7 @@ interface TodoMateImportOptions {
   fetchImpl?: typeof fetch;
   now?: () => Date;
   onProgress?: (message: string) => void;
+  photoProcessor?: (file: File) => Promise<Blob>;
 }
 
 interface FirestoreRecord {
@@ -30,12 +31,203 @@ interface FirestoreRecord {
   updateTime: string;
 }
 
+interface PreparedTodoMatePhoto {
+  sourceId: string;
+  bytes: Uint8Array;
+}
+
+const TODOMATE_PHOTO_CONCURRENCY = 4;
+const MAX_TODOMATE_PHOTO_BYTES = 20 * 1024 * 1024;
+
+function photoSourceId(todoId: string, photoUrl: string): string {
+  let stableUrl = photoUrl;
+  try {
+    const parsed = new URL(photoUrl);
+    stableUrl = `${parsed.origin}${parsed.pathname}`;
+  } catch {
+    // Invalid URLs are rejected before download. Keeping the raw value here only
+    // makes the deterministic ID stable for tests/callers that inspect it.
+  }
+
+  let h1 = 5381;
+  let h2 = 52711;
+  const input = `${todoId}:${stableUrl}`;
+  for (let index = 0; index < input.length; index += 1) {
+    const code = input.charCodeAt(index);
+    h1 = ((h1 << 5) + h1 + code) | 0;
+    h2 = ((h2 << 5) + h2 + code * 31) | 0;
+  }
+  return `tmimg_${(h1 >>> 0).toString(36)}${(h2 >>> 0).toString(36)}`;
+}
+
+function googleStorageHost(hostname: string): boolean {
+  return (
+    hostname === 'firebasestorage.googleapis.com' ||
+    hostname === 'storage.googleapis.com' ||
+    hostname.endsWith('.storage.googleapis.com')
+  );
+}
+
+function inferredImageType(url: URL, responseType: string): string {
+  if (responseType.startsWith('image/')) return responseType;
+  const pathname = url.pathname.toLowerCase();
+  if (pathname.endsWith('.png')) return 'image/png';
+  if (pathname.endsWith('.webp')) return 'image/webp';
+  if (pathname.endsWith('.gif')) return 'image/gif';
+  if (pathname.endsWith('.jpg') || pathname.endsWith('.jpeg')) {
+    return 'image/jpeg';
+  }
+  return responseType || 'image/jpeg';
+}
+
+async function defaultPhotoProcessor(file: File): Promise<Blob> {
+  const { compressImage } = await import('./storage');
+  return compressImage(file);
+}
+
+async function fetchTodoMatePhoto(
+  photoUrl: string,
+  idToken: string,
+  fetchImpl: typeof fetch,
+  photoProcessor: (file: File) => Promise<Blob>
+): Promise<Uint8Array | null> {
+  let url: URL;
+  try {
+    url = new URL(photoUrl);
+  } catch {
+    return null;
+  }
+  if (url.protocol !== 'https:') return null;
+
+  const baseInit: RequestInit = {
+    method: 'GET',
+    credentials: 'omit',
+    referrerPolicy: 'no-referrer',
+    cache: 'no-store',
+  };
+
+  let response: Response | null = null;
+  try {
+    response = await fetchImpl(url.toString(), baseInit);
+  } catch {
+    response = null;
+  }
+
+  if (
+    (!response || response.status === 401 || response.status === 403) &&
+    googleStorageHost(url.hostname)
+  ) {
+    try {
+      response = await fetchImpl(url.toString(), {
+        ...baseInit,
+        headers: { authorization: `Bearer ${idToken}` },
+      });
+    } catch {
+      response = null;
+    }
+  }
+
+  if (!response?.ok) return null;
+
+  const declaredLength = Number(response.headers.get('content-length') || '0');
+  if (
+    Number.isFinite(declaredLength) &&
+    declaredLength > MAX_TODOMATE_PHOTO_BYTES
+  ) {
+    return null;
+  }
+
+  const blob = await response.blob();
+  if (blob.size === 0 || blob.size > MAX_TODOMATE_PHOTO_BYTES) return null;
+  if (blob.type && !blob.type.startsWith('image/')) return null;
+
+  const type = inferredImageType(url, blob.type);
+  try {
+    const processed = await photoProcessor(
+      new File([blob], `todomate-photo-${Date.now()}`, { type })
+    );
+    if (processed.size === 0 || processed.size > MAX_TODOMATE_PHOTO_BYTES) {
+      return null;
+    }
+    return new Uint8Array(await processed.arrayBuffer());
+  } catch {
+    return null;
+  }
+}
+
+async function downloadTodoMatePhotos(
+  todos: FirestoreRecord[],
+  idToken: string,
+  fetchImpl: typeof fetch,
+  photoProcessor: (file: File) => Promise<Blob>,
+  report: (message: string) => void
+): Promise<{
+  found: number;
+  prepared: Map<string, PreparedTodoMatePhoto>;
+}> {
+  const candidates = todos
+    .map((todo) => ({
+      todoId: todo.id,
+      url: maybeString(todo.fields.photoURL),
+    }))
+    .filter((candidate) => Boolean(candidate.url));
+
+  const prepared = new Map<string, PreparedTodoMatePhoto>();
+  let cursor = 0;
+  let completed = 0;
+
+  const worker = async () => {
+    while (true) {
+      const index = cursor;
+      cursor += 1;
+      if (index >= candidates.length) return;
+      const candidate = candidates[index];
+      const bytes = await fetchTodoMatePhoto(
+        candidate.url,
+        idToken,
+        fetchImpl,
+        photoProcessor
+      );
+      completed += 1;
+      report(
+        `Fetching TodoMate photos (${completed}/${candidates.length})…`
+      );
+      if (!bytes) continue;
+      prepared.set(candidate.todoId, {
+        sourceId: photoSourceId(candidate.todoId, candidate.url),
+        bytes,
+      });
+    }
+  };
+
+  const workerCount = Math.min(TODOMATE_PHOTO_CONCURRENCY, candidates.length);
+  await Promise.all(
+    Array.from({ length: workerCount }, () => worker())
+  );
+
+  return { found: candidates.length, prepared };
+}
+
+async function zipAsync(
+  files: Record<string, Uint8Array>
+): Promise<Uint8Array> {
+  const { zip } = await import('fflate');
+  return new Promise((resolve, reject) => {
+    zip(files, { level: 6 }, (error, data) => {
+      if (error) reject(error);
+      else resolve(data);
+    });
+  });
+}
+
 export interface TodoMateTransferPreview {
   categories: number;
   tasks: number;
   diary: number;
   unscheduledMovedToToday: number;
-  photosSkipped: number;
+  photosFound: number;
+  photosReady: number;
+  photosUnavailable: number;
   routinesReferenced: number;
 }
 
