@@ -13,6 +13,7 @@ describe('server-owned friendships', () => {
     } });
     expect(result.status).toBe(200);
     expect(db.createRow).toHaveBeenCalledTimes(2);
+    expect(db.createTransaction).toHaveBeenCalledWith({ ttl: 60 });
     for (const [input] of db.createRow.mock.calls) {
       expect(input.transactionId).toBe('tx');
       expect(input.permissions).toEqual([`read("user:${input.data.user_id}")`]);

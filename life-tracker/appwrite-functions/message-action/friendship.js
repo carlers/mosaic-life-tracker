@@ -35,7 +35,7 @@ async function handleFriendship(db, caller, payload) {
   }
   const myId = idFor(caller, friend), peerId = idFor(friend, caller);
   for (let attempt = 0; attempt < 3; attempt++) {
-    const tx = await db.createTransaction({ ttl: 30 });
+    const tx = await db.createTransaction({ ttl: 60 });
     let committed = false;
     try {
       const mine = await read(db, TABLE, myId, tx.$id);
@@ -108,7 +108,7 @@ async function deleteAccountFriendships(db, caller) {
     }
   }
   for (const peer of peers) {
-    const tx = await db.createTransaction({ ttl: 30 });
+    const tx = await db.createTransaction({ ttl: 60 });
     try {
       for (const [owner, friend] of [[caller, peer], [peer, caller]]) {
         const rowId = idFor(owner, friend);
