@@ -35,6 +35,7 @@
     "contracts:check": "node scripts/check-project-contracts.mjs",
     "test:browser:prepare": "npm install --prefix tests/e2e --package-lock=false --no-audit --no-fund",
     "dr:restore": "node scripts/dr-restore.mjs",
+    "dr:deploy-functions": "node scripts/dr-deploy-functions.mjs",
     "dr:status": "node scripts/dr-status.mjs",
     "dr:check": "node scripts/dr-health.mjs",
     "dr:watch": "node scripts/dr-watch.mjs",
