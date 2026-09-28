@@ -162,7 +162,7 @@ describe('TodoMate import adapter', () => {
       { email: 'person@example.com', password: 'private-password' },
       {
         fetchImpl,
-        now: () => new Date('2026-09-28T04:00:00+08:00'),
+        now: () => new Date(2026, 8, 28, 4, 0, 0),
       }
     );
 
@@ -236,9 +236,11 @@ describe('TodoMate import adapter', () => {
     expect(urls).toHaveLength(5);
     expect(urls[0]).toBe('https://www.todomate.net/__/firebase/init.json');
     expect(urls[1]).toMatch(/^https:\/\/identitytoolkit\.googleapis\.com\//);
-    expect(urls.slice(2)).toSatisfy((items: string[]) =>
-      items.every((url) => url.startsWith('https://firestore.googleapis.com/'))
-    );
+    expect(
+      urls.slice(2).every((url) =>
+        url.startsWith('https://firestore.googleapis.com/')
+      )
+    ).toBe(true);
     expect(
       urls.some((url) => url.includes('todomate-api.3xhaust.dev'))
     ).toBe(false);
