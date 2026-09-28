@@ -1,16 +1,18 @@
 import { describe, expect, it, vi } from 'vitest';
 
-const accountGet = vi.fn();
-const getFile = vi.fn();
-const updateFile = vi.fn();
-const createFile = vi.fn();
+const refs = vi.hoisted(() => ({
+  accountGet: vi.fn(),
+  getFile: vi.fn(),
+  updateFile: vi.fn(),
+  createFile: vi.fn(),
+}));
 
 vi.mock('../../src/lib/sdk', () => ({
-  guardedAccount: { get: accountGet },
+  guardedAccount: { get: refs.accountGet },
   guardedStorage: {
-    getFile,
-    updateFile,
-    createFile,
+    getFile: refs.getFile,
+    updateFile: refs.updateFile,
+    createFile: refs.createFile,
   },
 }));
 
@@ -43,15 +45,15 @@ function makeFile(): File {
 
 describe('ensureRestoredImage — friend-readable task attachments', () => {
   it('repairs an existing imported/restored file for friend reads', async () => {
-    accountGet.mockResolvedValueOnce({ $id: 'user_A' });
-    getFile.mockResolvedValueOnce({ $id: 'tmimg_existing' });
+    refs.accountGet.mockResolvedValueOnce({ $id: 'user_A' });
+    refs.getFile.mockResolvedValueOnce({ $id: 'tmimg_existing' });
 
     await expect(ensureRestoredImage(makeFile(), 'tmimg_existing')).resolves.toEqual({
       fileId: 'tmimg_existing',
       uploaded: false,
     });
 
-    expect(updateFile).toHaveBeenCalledWith(expect.objectContaining({
+    expect(refs.updateFile).toHaveBeenCalledWith(expect.objectContaining({
       fileId: 'tmimg_existing',
       permissions: [
         'read("users")',
@@ -62,16 +64,16 @@ describe('ensureRestoredImage — friend-readable task attachments', () => {
   });
 
   it('creates missing imported/restored files with friend-readable permissions', async () => {
-    accountGet.mockResolvedValueOnce({ $id: 'user_A' });
-    getFile.mockRejectedValueOnce(Object.assign(new Error('Not found'), { code: 404 }));
-    createFile.mockResolvedValueOnce({ $id: 'tmimg_new' });
+    refs.accountGet.mockResolvedValueOnce({ $id: 'user_A' });
+    refs.getFile.mockRejectedValueOnce(Object.assign(new Error('Not found'), { code: 404 }));
+    refs.createFile.mockResolvedValueOnce({ $id: 'tmimg_new' });
 
     await expect(ensureRestoredImage(makeFile(), 'tmimg_new')).resolves.toEqual({
       fileId: 'tmimg_new',
       uploaded: true,
     });
 
-    expect(createFile).toHaveBeenCalledWith(expect.objectContaining({
+    expect(refs.createFile).toHaveBeenCalledWith(expect.objectContaining({
       fileId: 'tmimg_new',
       permissions: [
         'read("users")',
