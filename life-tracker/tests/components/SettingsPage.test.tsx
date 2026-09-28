@@ -33,6 +33,10 @@ vi.mock('../../src/db/database', () => ({
 vi.mock('../../src/components/modals/AccountSettingsSheet', () => ({ AccountSettingsSheet: () => null }));
 vi.mock('../../src/components/modals/ChangeEmailSheet', () => ({ ChangeEmailSheet: () => null }));
 vi.mock('../../src/components/modals/ChangePasswordSheet', () => ({ ChangePasswordSheet: () => null }));
+vi.mock('../../src/components/modals/TodoMateImportSheet', () => ({
+  TodoMateImportSheet: ({ isOpen }: { isOpen: boolean }) =>
+    isOpen ? <div>TodoMate import sheet</div> : null,
+}));
 vi.mock('../../src/components/modals/ExportDataSheet', () => ({
   ExportDataSheet: ({
     isOpen,
@@ -85,6 +89,21 @@ describe('SettingsPage navigation, updates, and data controls', () => {
     expect(
       screen.getByRole('button', { name: 'Backup & Restore' })
     ).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Import from TodoMate' })
+    ).toBeInTheDocument();
+  });
+
+  it('opens the TodoMate transfer surface from Settings', () => {
+    render(
+      <MemoryRouter>
+        <SettingsPage />
+      </MemoryRouter>
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Import from TodoMate' }));
+
+    expect(screen.getByText('TodoMate import sheet')).toBeInTheDocument();
   });
 
   it('shows and updates the last backup and restore activity', async () => {

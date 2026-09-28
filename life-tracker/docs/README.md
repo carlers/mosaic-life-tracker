@@ -15,6 +15,7 @@ behavior.
 | Accessibility evidence and manual protocol | [Accessibility review](ACCESSIBILITY_AUDIT.md) |
 | Tombstones and scheduled maintenance | [Retention procedure](TOMBSTONE_RETENTION.md) |
 | User backup format and restore semantics | [Backup and restore](BACKUP_RESTORE.md) |
+| One-way TodoMate personal-data migration | [TodoMate import](TODOMATE_IMPORT.md) |
 | Forking, fresh Appwrite bootstrap, maintainer continuity | [Forking and recovery](FORKING.md) |
 | Administrator disaster recovery | [Disaster recovery](DISASTER_RECOVERY.md) |
 | Optional measurements/evidence ledger | [Telemetry](WORKFLOW_TELEMETRY.md) |
