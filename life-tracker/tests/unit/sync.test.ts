@@ -339,6 +339,37 @@ describe('sync — listener isolation', () => {
     ).toBe(true);
   });
 });
+describe('sync — explicit fresh refresh', () => {
+  it('waits for an in-flight cycle before starting the caller-required fresh cycle', async () => {
+    const firstPull = makeDeferred<{ rows: never[] }>();
+    listRowsMock.mockReturnValueOnce(firstPull.promise);
+    listRowsMock.mockResolvedValue({ rows: [] });
+
+    const first = syncModule.initializeSync('user_A');
+    await Promise.resolve();
+
+    let refreshSettled = false;
+    const refresh = syncModule.refreshSync('user_A', 1_000).then((result) => {
+      refreshSettled = true;
+      return result;
+    });
+    await Promise.resolve();
+
+    expect(refreshSettled).toBe(false);
+
+    firstPull.resolve({ rows: [] });
+    await first;
+    const refreshed = await refresh;
+
+    expect(taskListRowsCalls()).toHaveLength(2);
+    expect(refreshed.status.isSyncing).toBe(false);
+    expect(refreshed.status.errors).toEqual([]);
+    expect(Date.parse(refreshed.status.lastSync!)).toBeGreaterThanOrEqual(
+      refreshed.startedAt
+    );
+  });
+});
+
 describe('sync — forceSync follow-up queueing', () => {
   it('runs a follow-up when forceSync is called during an in-flight sync', async () => {
     const firstPull = makeDeferred<{ rows: never[] }>();
@@ -1080,6 +1111,37 @@ describe('sync — tombstone retention cursor expiry', () => {
 
 });
 
+
+describe('sync — bounded push concurrency', () => {
+  it('pushes independent dirty rows in parallel without exceeding the concurrency cap', async () => {
+    const docs = Array.from({ length: 12 }, (_, index) =>
+      makeLocalDoc(`task_parallel_${index}`)
+    );
+    getDatabaseMock.mockReturnValue(
+      makeTaskOnlyDb({
+        findOne: () => ({ exec: async () => null }),
+        find: () => ({ exec: async () => docs }),
+        upsert: vi.fn(),
+      })
+    );
+
+    let active = 0;
+    let maxActive = 0;
+    updateRowMock.mockImplementation(async () => {
+      active += 1;
+      maxActive = Math.max(maxActive, active);
+      await new Promise((resolve) => setTimeout(resolve, 2));
+      active -= 1;
+      return {};
+    });
+
+    await syncModule.initializeSync('user_A');
+
+    expect(updateRowMock).toHaveBeenCalledTimes(12);
+    expect(maxActive).toBeGreaterThan(1);
+    expect(maxActive).toBeLessThanOrEqual(4);
+  });
+});
 
 // Regression: §24.18 (pending local image ids never reach Appwrite).
 describe('sync — pending image reconciliation', () => {

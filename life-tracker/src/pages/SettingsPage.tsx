@@ -16,6 +16,7 @@ import {
   ChevronLeft,
   FileDown,
   RefreshCw,
+  Import,
 } from 'lucide-react';
 import { BottomSheet } from '../components/ui/BottomSheet';
 import { SettingsRow } from '../components/ui/SettingsRow';
@@ -29,6 +30,7 @@ import { AccountSettingsSheet } from '../components/modals/AccountSettingsSheet'
 import { ChangeEmailSheet } from '../components/modals/ChangeEmailSheet';
 import { ChangePasswordSheet } from '../components/modals/ChangePasswordSheet';
 import { ExportDataSheet } from '../components/modals/ExportDataSheet';
+import { TodoMateImportSheet } from '../components/modals/TodoMateImportSheet';
 import { SyncStatusSheet } from '../components/modals/SyncStatusSheet';
 import { useAppearance } from '../hooks/useAppearance';
 import { hasExpectedRouteParent, makeRouteParentState } from '../lib/primarySwipeNavigation';
@@ -52,6 +54,7 @@ export const SettingsPage: React.FC = () => {
   const [isChangeEmailOpen, setIsChangeEmailOpen] = useState(false);
   const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
   const [isExportSheetOpen, setIsExportSheetOpen] = useState(false);
+  const [isTodoMateImportOpen, setIsTodoMateImportOpen] = useState(false);
   const [isSyncStatusOpen, setIsSyncStatusOpen] = useState(false);
   const [isCheckingUpdate, setIsCheckingUpdate] = useState(false);
   const [updateStage, setUpdateStage] = useState<
@@ -319,6 +322,11 @@ export const SettingsPage: React.FC = () => {
             label="Backup & Restore"
             onClick={() => setIsExportSheetOpen(true)}
           />
+          <SettingsRow
+            icon={<Import size={18} className="text-violet-400" aria-hidden="true" />}
+            label="Import from TodoMate"
+            onClick={() => setIsTodoMateImportOpen(true)}
+          />
           <div
             aria-label="Backup activity"
             className="pl-[60px] pr-4 -mt-1 pb-2 flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-gray-500"
@@ -503,6 +511,11 @@ export const SettingsPage: React.FC = () => {
         onRestoreComplete={(completedAt) =>
           handleBackupActivity('restore', completedAt)
         }
+      />
+      <TodoMateImportSheet
+        isOpen={isTodoMateImportOpen}
+        onClose={() => setIsTodoMateImportOpen(false)}
+        onSuccess={showFeedback}
       />
       <SyncStatusSheet
         isOpen={isSyncStatusOpen}

@@ -58,6 +58,21 @@ This roadmap records durable workstreams and batch status. `SESSION_STATE.md` co
 - [x] Add stale-backup detection and an external GitHub Actions watcher that uses a separate read-only R2 credential and stays disabled until rollout.
 - [x] Enable the production backup schedule only after the isolated restore drill passes. User-facing Backup & Restore remains a separate feature and is not the DR mechanism.
 
+## Data portability and migration
+
+- [x] TodoMate → Mosaic one-way migration: direct browser-to-TodoMate/Firebase read path,
+  full owned Goal/TodoItem/Diary history preview, and Merge-only Mosaic import are implemented
+  with automated privacy/mapping coverage and real-account Preview/import acceptance. The live
+  account preview contained 505 tasks, 13 categories, and 1 diary entry; 3 undated tasks were
+  intentionally placed on the import day and 37 TodoMate photo attachments were reported but not
+  copied. Recurring routine definitions remain intentionally out of scope for the first version.
+- [ ] TodoMate photo migration enhancement: direct browser photo download, secure Google Storage
+  auth retry, deterministic ZIP bundling, and idempotent fill-in of photos on already-imported
+  tasks are implemented with automated coverage. Real-account re-import succeeded for all 37
+  attachments without task duplication. Final acceptance is limited to the task-photo viewer
+  aspect-ratio regression discovered while opening the migrated photos; the viewer fix is under
+  hosted Preview verification.
+
 ## Feature backlog
 
 - [x] Todo List view: compact color-only calendar with a selected-day task list
