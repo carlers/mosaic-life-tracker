@@ -2,75 +2,66 @@
 
 Updated: 2026-09-28
 
-Current task: complete live TodoMate photo re-acceptance on the stable hosted Preview.
+Current task: fix task-photo aspect-ratio distortion discovered after successful TodoMate
+photo migration.
 
 Stable Preview branch: `feature/todomate-importer`.
+Working branch: `chatgpt/imageviewer-aspect-ratio`, based on stable
+`8329ce480af9766e27144ba7f516fdeb6c9993f3`.
 
-## Live TodoMate evidence
-- Original migration succeeded with 505 tasks, 13 categories, 1 diary entry, and 3 undated
-  tasks placed on the import day.
-- The photo-capable Preview reported **37 of 37** TodoMate photo attachments ready to copy.
-- The first photo import attempt stopped before restore writes because Mosaic could not
-  establish the required fresh-sync preflight; the user also observed Syncing remaining on.
+## Live acceptance state
+- Original TodoMate migration: 505 tasks, 13 categories, 1 diary entry.
+- Photo preview: **37 of 37** TodoMate attachments ready.
+- After the sync/restore fix and Vercel build-budget repair, the user reran the importer and
+  reported it **worked perfectly**: the TodoMate photo re-import succeeded on the existing
+  tasks.
+- The remaining issue is presentation only: opening a migrated task photo from Day View in
+  PhotoSwipe stretches portrait/square images horizontally.
 
-## Accepted sync/restore fix
-Stable Preview contains:
-- `914dd25793349e54dfd608a98bb430df9dc6d8de` —
-  `fix: unblock restore preflight during long sync`
-- `a7561da6ca11bef096988f98f0ec37b4a02035db` —
-  `docs: clarify TodoMate fresh-sync wait`
+## Root cause
+`src/components/home/views/ImageViewer.tsx` hard-coded every PhotoSwipe source as:
+- width: 1920
+- height: 1080
 
-The fix:
-- adds `refreshSync()` as a fail-closed freshness barrier for restore/import;
-- waits for this tab's queued/running sync coordinator to drain before starting one new
-  serialized cycle;
-- retains last-sync freshness/error checks;
-- bounds independent dirty-row pushes to four workers per collection while preserving
-  collection order, Web Locks, per-row update→404-create semantics, permissions, dirty
-  boundaries, and failure accounting.
+PhotoSwipe therefore laid every source out as 16:9 even when the actual stored WebP was
+portrait or square. The issue is independent of TodoMate mapping/storage; any non-16:9 task
+photo could be distorted in the viewer.
 
-Stable Quality Gate 1305 passed the sync/restore fix.
+## Product contract
+`PROJECT_REFERENCE.md` §2 now requires the Day View task-photo viewer to use the source
+image's intrinsic dimensions. Portrait, square, and landscape photos must preserve their
+aspect ratio and must not be forced into a fixed 16:9 frame.
 
-## Vercel build investigation and repair
-The accepted sync SHAs initially failed only in Vercel with
-`BUILD_UTILS_SPAWN_1` / `npm run build exited with 1`, while GitHub built the exact same
-source successfully.
+## Regression evidence
+A new DOM regression test, `tests/components/ImageViewer.test.tsx`, stubs a portrait
+720×1280 image and inspects the PhotoSwipe item dimensions.
 
-Two build-system issues were resolved:
+Behavioral-red:
+- commit `d0b368b46f1aea6d6f5969f4985bc3ca5caff4a0`
+- Quality Gate 1331 failed the new test as intended:
+  received 1920×1080, expected 720×1280.
 
-1. Stable `dff7f4529fae4f40901db31448b4f2cf12062c06` prevents Vercel Preview from
-   invoking the optional PostHog source-map upload path. Quality Gate 1322 passed.
-2. The existing build-size budget had only ~620 bytes of aggregate gzip headroom after the
-   accepted TodoMate/photo/sync feature growth. The reviewed aggregate baseline was
-   re-established from the accepted stable build while preserving the existing entry caps
-   and approximately five percent aggregate headroom.
+Implementation:
+- `ImageViewer` now probes the already-resolved task image for its intrinsic dimensions
+  before creating PhotoSwipe.
+- PhotoSwipe receives the actual width/height.
+- If intrinsic dimensions cannot be read, the viewer closes instead of rendering the image
+  against fabricated dimensions.
+- Existing caption, close gesture, lazy loading, and Day View sheet behavior remain unchanged.
 
-Stable rebaseline commit:
-- `2a9fc29c9580712778dba5b89cfcab2f9000d76e` —
-  `chore: rebaseline accepted bundle-size budget`
+Focused green:
+- commit `09796f6f1c2179c4dd9cc05c1f8e3706efedea32`
+- Quality Gate 1332 passed focused verification.
 
-Verification:
-- stable Quality Gate **1327 passed** at `2a9fc29c...`;
-- Vercel deployment `dpl_9SLNejNfzzbZMfcFaQ5WQLthPegy` is **READY**;
-- the stable feature alias returns HTTP 200 and is serving that deployment:
-  `https://mosaic-life-tracker-git-feature-248dfb-carls-projects-72516fde.vercel.app`.
-
-## Remaining live acceptance
-No further repository change is required before the user retests.
-
-1. Refresh/reopen the stable Preview so the current deployment controls the page.
-2. Open **Settings → Import from TodoMate** and rerun **Preview Transfer**.
-3. Expected photo preview: **37 found / 37 ready / 0 unavailable**.
-4. Choose **Import into Mosaic**.
-5. Confirm:
-   - the import completes instead of failing at the fresh-sync preflight;
-   - Mosaic sync settles rather than remaining indefinitely on Syncing;
-   - no duplicate TodoMate tasks/categories are created;
-   - several previously imported tasks now show their TodoMate photos from Mosaic/Appwrite
-     Storage.
-6. Only after those checks pass, mark the TodoMate photo migration enhancement complete.
-
-Do not ask the user to paste TodoMate credentials, Firebase tokens, or photo URLs into chat.
+## Remaining
+1. Review final diff and checkpoint.
+2. Run exact-SHA full canonical acceptance.
+3. Squash-deliver the accepted fix into `feature/todomate-importer`.
+4. Verify the stable Vercel Preview is READY and the stable alias serves it.
+5. User opens one portrait/square migrated task photo from Day View and confirms it is no
+   longer stretched.
+6. If visually accepted, mark the TodoMate photo migration enhancement complete.
+7. Promotion of `feature/todomate-importer` to `dev` remains an explicit user decision.
 
 ## Separate DR follow-up
 - DR work is already merged into `dev`.
@@ -78,4 +69,5 @@ Do not ask the user to paste TodoMate credentials, Firebase tokens, or photo URL
 - External GitHub stale-backup monitoring still requires default-branch
   delivery/configuration; do not promote to `main` without explicit user authorization.
 
-Next action: user performs the hosted photo-import re-acceptance on the READY stable Preview.
+Next action: full-gate this exact viewer fix, deliver the stable Preview, and run the single
+visual aspect-ratio acceptance check.
