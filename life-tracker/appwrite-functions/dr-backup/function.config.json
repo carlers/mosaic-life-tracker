@@ -1,0 +1,37 @@
+{
+  "$id": "dr_backup",
+  "name": "dr-backup",
+  "runtime": "node-22",
+  "execute": [],
+  "scopes": [
+    "users.read",
+    "databases.read",
+    "tables.read",
+    "columns.read",
+    "indexes.read",
+    "rows.read",
+    "buckets.read",
+    "files.read"
+  ],
+  "schedule": "0 11 * * *",
+  "timeout": 900,
+  "entrypoint": "main.mjs",
+  "commands": "npm install",
+  "deploymentRetention": 7,
+  "nonSecretVariables": {
+    "DR_KEY_VERSION": "v1",
+    "DR_PREFIX": "mosaic-dr/v1",
+    "DR_RETENTION_DAILY": "7",
+    "DR_RETENTION_WEEKLY": "4",
+    "DR_RETENTION_MONTHLY": "6",
+    "DR_OBJECT_LOCK_DAYS": "30",
+    "DR_ALLOW_MANUAL_EXECUTION": "false"
+  },
+  "requiredSecretVariables": [
+    "R2_ACCOUNT_ID",
+    "R2_ACCESS_KEY_ID",
+    "R2_SECRET_ACCESS_KEY",
+    "R2_BUCKET",
+    "DR_ENCRYPTION_KEY_B64"
+  ]
+}

@@ -50,7 +50,14 @@ export const ConfirmSheet: React.FC<ConfirmSheetProps> = ({
   onConfirm,
 }) => {
   return (
-    <BottomSheet isOpen={isOpen} onClose={onClose} title={title} height="auto">
+    <BottomSheet
+      isOpen={isOpen}
+      onClose={onClose}
+      title={title}
+      height="auto"
+      isLocked={isProcessing}
+      preventDismiss={isProcessing}
+    >
       <div className="pt-2 pb-8 px-4">
         <p className="text-gray-300 text-sm text-center mb-6 leading-relaxed">
           {message}

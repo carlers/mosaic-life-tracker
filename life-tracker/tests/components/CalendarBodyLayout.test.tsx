@@ -1,14 +1,33 @@
 import React from 'react';
-import { render } from '@testing-library/react';
+import { fireEvent, render } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { CalendarBody } from '../../src/components/home/views/CalendarBody';
 
+const daySheetState = vi.fn();
+
 vi.mock('../../src/components/home/views/CalendarCarousel', () => ({
-  CalendarCarousel: () => <div data-testid="calendar-carousel" />,
+  CalendarCarousel: ({ onDayClick }: { onDayClick: (date: Date) => void }) => (
+    <div data-testid="calendar-carousel">
+      <button data-testid="calendar-day" onClick={() => onDayClick(new Date('2026-01-05'))}>
+        day
+      </button>
+    </div>
+  ),
 }));
 
 vi.mock('../../src/components/home/views/DayViewSheet', () => ({
-  DayViewSheet: () => null,
+  DayViewSheet: (props: { isOpen: boolean; selectedDate: Date }) => {
+    daySheetState(props);
+    return <div data-testid="day-view-sheet" data-open={props.isOpen} />;
+  },
+}));
+
+vi.mock('../../src/components/friend/FriendDayViewSheet', () => ({
+  FriendDayViewSheet: () => null,
+}));
+
+vi.mock('../../src/components/messages/ReplyComposerSheet', () => ({
+  ReplyComposerSheet: () => null,
 }));
 
 vi.mock('../../src/hooks/useTasksByDate', () => ({
@@ -30,8 +49,9 @@ vi.mock('../../src/hooks/useHorizontalArrowNavigation', () => ({
   useHorizontalArrowNavigation: vi.fn(),
 }));
 
-describe('CalendarBody layout', () => {
-  it('gives the calendar carousel a bounded flex viewport so month height cannot resize the horizontal carousel', () => {
+describe('CalendarBody behavior', () => {
+  it('opens the DayView sheet immediately from a day tap', () => {
+    daySheetState.mockClear();
     const { getByTestId } = render(
       <CalendarBody
         viewMode="month"
@@ -49,9 +69,12 @@ describe('CalendarBody layout', () => {
       />
     );
 
-    const carousel = getByTestId('calendar-carousel');
-    const viewport = carousel.parentElement;
+    fireEvent.click(getByTestId('calendar-day'));
 
-    expect(viewport).toHaveClass('flex', 'min-h-0', 'flex-1', 'flex-col');
+    expect(getByTestId('day-view-sheet')).toHaveAttribute('data-open', 'true');
+    expect(daySheetState.mock.calls.at(-1)?.[0]).toMatchObject({
+      isOpen: true,
+      selectedDate: new Date('2026-01-05'),
+    });
   });
 });

@@ -1,4 +1,4 @@
-// Regression: Phase 3.7 PH-1/PH-2/PH-4/PH-5/PH-6.
+// Regression: §24.15 (privacy-minimal PostHog adapter contracts).
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const fetchMock = vi.fn();

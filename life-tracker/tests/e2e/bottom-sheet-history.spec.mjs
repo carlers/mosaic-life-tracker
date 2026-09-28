@@ -61,3 +61,26 @@ test('closing the final sheet with Back restores focus to its opener', async ({ 
   await expect(page.getByRole('dialog', { name: 'Parent sheet' })).toBeHidden();
   await expect(opener).toBeFocused();
 });
+
+
+test('Back cannot dismiss a locked sheet while work is in flight', async ({ page }) => {
+  await page.goto(`${BASE_URL}/tests/e2e/bottom-sheet-history.html`);
+  const baselineLength = await page.evaluate(() => window.history.length);
+
+  await page.getByRole('button', { name: 'Open locked sheet' }).click();
+  const locked = page.getByRole('dialog', { name: 'Locked sheet' });
+  await expect(locked).toBeVisible();
+  await expect.poll(() => page.evaluate(() => window.history.length)).toBe(
+    baselineLength + 1
+  );
+
+  await page.evaluate(() => window.history.back());
+
+  await expect(locked).toBeVisible();
+  await expect.poll(() => page.evaluate(() => window.history.length)).toBe(
+    baselineLength + 1
+  );
+
+  await page.getByRole('button', { name: 'Finish locked work' }).click();
+  await expect(locked).toBeHidden();
+});

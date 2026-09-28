@@ -1,5 +1,13 @@
 import React from 'react';
-import { Check, ChevronLeft } from 'lucide-react';
+import {
+  CalendarDays,
+  Check,
+  ChevronLeft,
+  ChevronsUpDown,
+  ListPlus,
+  LocateFixed,
+  Tag,
+} from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAppearance } from '../hooks/useAppearance';
 import { APPEARANCE_MODES, type AppearanceMode } from '../lib/appearance';
@@ -9,6 +17,15 @@ import {
   type ContentWidthMode,
   type SheetWidthMode,
 } from '../lib/screenLayout';
+import { SettingsRow } from '../components/ui/SettingsRow';
+import { useSettings } from '../hooks/useSettings';
+import {
+  CONTINUE_ADDING_TASKS_SETTING_KEY,
+  SHOW_CATEGORY_COLLAPSE_SETTING_KEY,
+  SHOW_DAY_VIEW_TODAY_TAG_SETTING_KEY,
+  TAP_CALENDAR_DATE_TO_TODAY_SETTING_KEY,
+  WEEK_STARTS_ON_SUNDAY_SETTING_KEY,
+} from '../lib/preferences';
 import { hasExpectedRouteParent } from '../lib/primarySwipeNavigation';
 
 interface ChoiceCopy {
@@ -35,6 +52,10 @@ const CONTENT_WIDTH_COPY: Record<ContentWidthMode, ChoiceCopy> = {
     label: 'Comfortable',
     description:
       'Center app content at 70% of the screen, capped at 960px, on tablets and larger.',
+  },
+  wide: {
+    label: 'Wide',
+    description: 'Center app content at 85% of the screen on tablets and larger.',
   },
 };
 
@@ -81,7 +102,7 @@ function ChoiceGroup<T extends string>({
               role="radio"
               aria-checked={selected}
               onClick={() => void onChange(option)}
-              className="flex w-full items-center justify-between gap-3 rounded-xl px-3 py-3 text-left transition-colors hover:bg-[#2A2A2A] focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
+              className="flex w-full items-center justify-between gap-3 rounded-xl px-3 py-2.5 text-left transition-colors hover:bg-[#2A2A2A] focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
             >
               <span className="min-w-0">
                 <span className="block text-sm font-semibold text-white">
@@ -109,7 +130,7 @@ function ChoiceGroup<T extends string>({
   );
 }
 
-export const ScreenSettingsPage: React.FC = () => {
+export const PreferencesPage: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const {
@@ -120,6 +141,18 @@ export const ScreenSettingsPage: React.FC = () => {
     setContentWidthMode,
     setSheetWidthMode,
   } = useAppearance();
+  const { getSetting, setSetting } = useSettings();
+
+  const continueAddingTasks =
+    getSetting(CONTINUE_ADDING_TASKS_SETTING_KEY, false) === true;
+  const weekStartsOnSunday =
+    getSetting(WEEK_STARTS_ON_SUNDAY_SETTING_KEY, true) === true;
+  const showCategoryCollapse =
+    getSetting(SHOW_CATEGORY_COLLAPSE_SETTING_KEY, false) === true;
+  const showDayViewTodayTag =
+    getSetting(SHOW_DAY_VIEW_TODAY_TAG_SETTING_KEY, false) === true;
+  const tapCalendarDateToToday =
+    getSetting(TAP_CALENDAR_DATE_TO_TODAY_SETTING_KEY, false) === true;
 
   const handleBack = () => {
     const parent = '/settings';
@@ -142,10 +175,85 @@ export const ScreenSettingsPage: React.FC = () => {
         >
           <ChevronLeft size={20} aria-hidden="true" />
         </button>
-        <h1 className="text-lg font-bold text-white">Screen</h1>
+        <h1 className="text-lg font-bold text-white">Preferences</h1>
       </div>
 
       <div className="flex-1 pb-24">
+        <section className="border-b border-[#333333] py-2">
+          <h2 className="px-4 pb-1 pt-3 text-sm font-semibold uppercase tracking-wide text-gray-400">
+            Tasks
+          </h2>
+          <SettingsRow
+            icon={<ListPlus size={18} className="text-emerald-500" aria-hidden="true" />}
+            label="Keep adding in same category"
+            showChevron={false}
+            isToggle
+            checked={continueAddingTasks}
+            onClick={() =>
+              void setSetting(
+                CONTINUE_ADDING_TASKS_SETTING_KEY,
+                !continueAddingTasks
+              )
+            }
+          />
+          <SettingsRow
+            icon={<ChevronsUpDown size={18} className="text-gray-400" aria-hidden="true" />}
+            label="Show collapse button for categories"
+            showChevron={false}
+            isToggle
+            checked={showCategoryCollapse}
+            onClick={() =>
+              void setSetting(
+                SHOW_CATEGORY_COLLAPSE_SETTING_KEY,
+                !showCategoryCollapse
+              )
+            }
+          />
+        </section>
+        <section className="border-b border-[#333333] py-2">
+          <h2 className="px-4 pb-1 pt-3 text-sm font-semibold uppercase tracking-wide text-gray-400">
+            Calendar
+          </h2>
+          <SettingsRow
+            icon={<CalendarDays size={18} className="text-gray-400" aria-hidden="true" />}
+            label="Start week on Sunday"
+            showChevron={false}
+            isToggle
+            checked={weekStartsOnSunday}
+            onClick={() =>
+              void setSetting(
+                WEEK_STARTS_ON_SUNDAY_SETTING_KEY,
+                !weekStartsOnSunday
+              )
+            }
+          />
+          <SettingsRow
+            icon={<Tag size={18} className="text-gray-400" aria-hidden="true" />}
+            label="Show Today tag beside date header"
+            showChevron={false}
+            isToggle
+            checked={showDayViewTodayTag}
+            onClick={() =>
+              void setSetting(
+                SHOW_DAY_VIEW_TODAY_TAG_SETTING_KEY,
+                !showDayViewTodayTag
+              )
+            }
+          />
+          <SettingsRow
+            icon={<LocateFixed size={18} className="text-gray-400" aria-hidden="true" />}
+            label="Tap calendar date header to go to today"
+            showChevron={false}
+            isToggle
+            checked={tapCalendarDateToToday}
+            onClick={() =>
+              void setSetting(
+                TAP_CALENDAR_DATE_TO_TODAY_SETTING_KEY,
+                !tapCalendarDateToToday
+              )
+            }
+          />
+        </section>
         <ChoiceGroup
           label="Appearance"
           options={APPEARANCE_MODES}

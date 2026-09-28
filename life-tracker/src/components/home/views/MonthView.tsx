@@ -11,12 +11,14 @@ import {
 import { DayCell } from './DayCell';
 import { EMPTY_TASKS } from '../../../constants/empty';
 import type { TaskDocument } from '../../../db/schema';
+import type { WeekStartsOn } from '../../../lib/preferences';
 
 interface MonthViewProps {
   focusDate: Date;
   onDayClick?: (date: Date) => void;
   tasksByDate: Map<string, TaskDocument[]>;
   categoriesMap: Record<string, { color: string; name: string }>;
+  weekStartsOn?: WeekStartsOn;
 }
 
 const WEEKDAY_LABELS = [
@@ -34,14 +36,23 @@ export const MonthView: React.FC<MonthViewProps> = ({
   onDayClick,
   tasksByDate,
   categoriesMap,
+  weekStartsOn = 0,
 }) => {
   const calendarDays = useMemo(() => {
     const monthStart = startOfMonth(focusDate);
     const monthEnd = endOfMonth(monthStart);
-    const startDate = startOfWeek(monthStart);
-    const endDate = endOfWeek(monthEnd);
+    const startDate = startOfWeek(monthStart, { weekStartsOn });
+    const endDate = endOfWeek(monthEnd, { weekStartsOn });
     return eachDayOfInterval({ start: startDate, end: endDate });
-  }, [focusDate]);
+  }, [focusDate, weekStartsOn]);
+
+  const weekdayLabels = useMemo(
+    () =>
+      weekStartsOn === 0
+        ? WEEKDAY_LABELS
+        : [...WEEKDAY_LABELS.slice(1), WEEKDAY_LABELS[0]],
+    [weekStartsOn]
+  );
 
   const calendarWeeks = useMemo(() => {
     const weeks: Date[][] = [];
@@ -58,7 +69,7 @@ export const MonthView: React.FC<MonthViewProps> = ({
       aria-label={`${format(focusDate, 'MMMM yyyy')} calendar`}
     >
       <div className="grid grid-cols-7 gap-1 px-2 mb-1" role="row">
-        {WEEKDAY_LABELS.map(([shortLabel, fullLabel]) => (
+        {weekdayLabels.map(([shortLabel, fullLabel]) => (
           <div
             key={shortLabel}
             role="columnheader"
@@ -70,14 +81,14 @@ export const MonthView: React.FC<MonthViewProps> = ({
         ))}
       </div>
       <div
-        className="grid grid-cols-7 gap-1 px-2 flex-1 auto-rows-[minmax(min-content,1fr)]"
+        className="grid grid-cols-7 gap-1 px-2 auto-rows-max"
         role="rowgroup"
       >
         {calendarWeeks.map((week) => (
           <div
             key={format(week[0], 'yyyy-MM-dd')}
             role="row"
-            className="contents"
+            className="col-span-7 grid grid-cols-7 gap-1"
           >
             {week.map((day) => {
               const dateStr = format(day, 'yyyy-MM-dd');

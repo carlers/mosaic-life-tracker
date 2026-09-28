@@ -42,7 +42,7 @@ describe('AppearanceProvider', () => {
     vi.unstubAllGlobals();
   });
 
-  // Regression: PROJECT_REFERENCE.md §2 — mode changes are immediate, cached, and synced.
+  // Regression: §2 (appearance changes are immediate, cached, and synced).
   it('applies and persists a selected appearance mode', () => {
     vi.stubGlobal('matchMedia', vi.fn(() => ({
       matches: true,
@@ -69,7 +69,7 @@ describe('AppearanceProvider', () => {
     expect(mocks.setSetting).toHaveBeenCalledWith('appearanceMode', 'light');
   });
 
-  // Regression: PROJECT_REFERENCE.md §2 — System follows prefers-color-scheme live.
+  // Regression: §2 (System appearance follows prefers-color-scheme live).
   it('updates the resolved theme when the system preference changes', () => {
     let listener: ((event: MediaQueryListEvent) => void) | null = null;
     let matches = false;

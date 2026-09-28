@@ -7,12 +7,29 @@ export function Harness() {
   const [parentOpen, setParentOpen] = useState(false);
   const [nestedOpen, setNestedOpen] = useState(false);
   const [deepOpen, setDeepOpen] = useState(false);
+  const [lockedOpen, setLockedOpen] = useState(false);
 
   return (
     <main className="min-h-screen bg-[#111111] text-white p-6">
       <button type="button" onClick={() => setParentOpen(true)}>
         Open parent sheet
       </button>
+      <button type="button" onClick={() => setLockedOpen(true)}>
+        Open locked sheet
+      </button>
+
+      <BottomSheet
+        isOpen={lockedOpen}
+        onClose={() => setLockedOpen(false)}
+        isLocked
+        preventDismiss
+        title="Locked sheet"
+      >
+        <p>Locked content</p>
+        <button type="button" onClick={() => setLockedOpen(false)}>
+          Finish locked work
+        </button>
+      </BottomSheet>
 
       <BottomSheet
         isOpen={parentOpen}

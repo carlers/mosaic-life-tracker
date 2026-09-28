@@ -1,69 +1,68 @@
 # Session checkpoint
 
-Updated: 2026-09-26
+Updated: 2026-09-28
 
-Current task: isolate and optimize the remaining real-device DayView bottom-sheet close hitch on `chatgpt/dayview-close-smoothness`.
+Current task: fix Samsung/Android Back leaving stale task-photo viewer state after the
+PhotoSwipe overlay disappears.
 
-Status: CI runner allocation is operational again on the public repository. PR #41 (`ci: reduce duplicate Quality Gate runner demand`) was merged into `perf/animation-optimization` as `2e033313a51171f5305e53cac4b995b1af609b67`. The Quality Gate is push-driven only, so PRs receive checks from their pushed head SHA without a duplicate pull_request run. The repository was made public by the user after hosted-runner execution recovered; this is operational evidence, not proof of an internal GitHub throttle/quota cause.
+Stable Preview branch: `feature/todomate-importer`.
+Working branch: `chatgpt/imageviewer-samsung-back`, based on stable
+`45c35d7c0861a7083dd6ee526f6ad50b008b6154`.
 
-The interaction-performance phase already retained:
-- Settings deployment branch/short SHA/commit message metadata.
-- Conditional TaskItem optional work.
-- Shell-first DayView content deferral.
-- Swiper Virtual with explicit `addSlidesBefore: 3` / `addSlidesAfter: 3`.
-- TaskItem Framer Motion layout-projection suppression during sheet entrance.
-- CI Chromium instrumentation for Event Timing, Long Animation Frames, React render/commit timing, mutations, and synchronous layout reads.
+## Live evidence
+- TodoMate photo migration succeeded for all 37 prepared attachments on the existing tasks.
+- The task-photo aspect-ratio fix is already on the stable Preview.
+- On Samsung, pressing Back while a task photo is open removes PhotoSwipe from the screen
+  but does not clear Day View's viewer state. Opening Day View again resurrects that photo.
+- Closing through PhotoSwipe's X or vertical swipe does clear the viewer normally.
 
-Representative lab evidence: sheet-open click processing improved from about 154ms to 51ms and max action Long Animation Frame from about 175ms to 70ms after the accepted virtualization changes. A separate trace reduced Framer Motion `getBoundingClientRect` reads from 52 to 2 during sheet entrance. These are CI/lab measurements, not device guarantees. A boolean/default Swiper Virtual experiment and BottomSheet drag-suppression experiment were both reverted after measurable regressions.
+## Root cause
+Day View itself participates in Mosaic's BottomSheet browser-history stack, but
+`ImageViewer`/PhotoSwipe did not own a nested history entry.
 
-Close-path evidence so far:
-- Rejected deferred-child exit retention by itself: close measured about 335ms LOAF with 52 Framer Motion layout reads.
-- Disabled TaskItem layout projection for the sheet lifecycle: layout reads fell from 52 to 2, but close stayed around 342ms LOAF, so projection was not the whole cost.
-- A direct-transform sheet rewrite reduced the probe substantially but broke sheet drag interaction; the exit-only variant preserved drag without a material improvement.
-- Native CSS transition was rejected because browser contracts did not observe transition-end cleanup and the close probe stayed around 325ms.
-- Shadow/overflow paint experiments were noisy and did not explain the remaining cost.
-- The stable candidate is contain: paint on the fixed sheet surface. With the same 0.32s Framer exit duration, the tap-driven close probe fell from roughly 325ms action duration / 315ms LOAF to roughly 192ms / 184ms, across repeated browser runs. Layout reads remain at 2. The improvement is therefore tied to paint containment rather than shortening the animation.
-- The performance probe now closes by tapping the documented exposed backdrop strip, matching the real phone dismissal contract rather than measuring Escape.
-- Focused regression coverage pins deferred-child exit retention and BottomSheet dialog semantics.
-Working set:
-- `life-tracker/src/components/ui/BottomSheet.tsx`
-- `life-tracker/tests/components/BottomSheet.test.tsx`
-- `life-tracker/docs/SESSION_STATE.md`
+With the viewer open, Samsung Back therefore consumed the Day View sheet's history layer.
+The parent viewer was torn down visually as the sheet closed, but
+`isImageViewerOpen`/`viewingTaskId` remained set in Day View state. Reopening Day View
+mounted the viewer again from that stale state.
 
-Completed substeps:
-- Merged PR #41 CI runner-demand mitigation.
-- Created `chatgpt/dayview-close-smoothness` from the merged stable commit.
-- Identified the exit-teardown candidate.
-- Added the exit-teardown regression test.
-- Investigated and repaired two React lint failures exposed by CI.
+## Fix
+- `ImageViewer` now pushes one viewer-specific browser-history guard above the Day View
+  sheet when it opens.
+- A browser/Android `popstate` below that guard calls the existing Day View `onClose`
+  callback, clearing `isImageViewerOpen` and `viewingTaskId`.
+- PhotoSwipe X and vertical-dismiss close through `history.back()` when the viewer guard
+  is active, so all close paths consume the same modal history layer rather than leaving a
+  dead Back step.
+- The underlying BottomSheet guard is preserved; expected order is viewer → Day View → route.
+- Aspect-ratio behavior and photo data/storage are unchanged.
 
-Remaining substeps:
-- Run the canonical full gate on the final task SHA.
-- After exact-SHA canonical acceptance, publish the stable Preview branch and perform the required real-device open/close acceptance.
-- If device evidence shows remaining hitching, continue from a device trace; do not revert the paint-containment candidate without evidence.
-Constraints:
-- Do not claim real-device acceptance without an actual device check.
-- Do not replace the accepted explicit Swiper virtual buffers without new evidence.
-- Preserve BottomSheet history/Back-stack behavior and existing visual behavior.
-- Use a coherent `chatgpt/**` task branch and include `[verify:full]` on the final acceptance commit.
-- Vercel Preview is only considered delivered after the exact final SHA receives canonical acceptance.
+## Regression evidence
+`tests/components/ImageViewer.test.tsx` now verifies that a browser Back transition from
+the viewer guard to the existing Day View guard invokes the viewer close callback while
+preserving the Day View history state.
 
-Verification:
-- Focused Quality Gate passed on the implementation.
-- Browser contracts passed with contain: paint; the tap-driven close probe measured about 192ms action duration and 184ms max Long Animation Frame on the latest repeated run, with 2 layout reads.
-- The canonical full gate passed on the code checkpoint immediately before this documentation-only finalization; the exact final SHA below still needs its own canonical acceptance.
-- Real-device close smoothness remains unverified.
-- Vercel Preview remains pending exact-SHA canonical acceptance.
-Next action: wait for this final [verify:full] documentation checkpoint to receive canonical acceptance, then create the stable feature Preview branch from the accepted SHA and perform the real-device close protocol.
+Behavioral-red:
+- `e58293c42b740e0fb0caad7faee1a8149b8889bd`
+- Quality Gate 1340 failed as intended because the viewer created no
+  `__mosaicImageViewerGuard`.
 
-Blockers: none currently. The previous hosted-runner allocation blocker is no longer reproducing; the remaining blocker to completion is verification of the close-path performance candidate and real-device acceptance.
+Focused green:
+- `e606d6195a2b111d5c392e82fbbee2afbc28f7f7`
+- Quality Gate 1341 passed focused verification.
 
-## Close animation cohesion follow-up — 2026-09-26
+## Contract
+`PROJECT_REFERENCE.md` §2 now requires the photo viewer to be the top Android/browser Back
+layer above Day View. One Back closes the viewer state only; the next Back may dismiss Day
+View. X/swipe-down consume that same viewer layer.
 
-The first paint-containment fix exposed a visual synchronization issue: the fixed sheet container remained stationary while a nested motion wrapper translated its contents, making the background/shadow appear detached from the content. The fix moves the same 0.32s transform animation onto the draggable fixed dialog surface itself, so the container, shadow, clipping, header, and content share one compositor transform. The nested motion wrapper was removed; drag and history behavior remain on the animated surface.
+## Remaining
+1. Run exact-SHA full canonical acceptance.
+2. Squash-deliver the accepted fix into `feature/todomate-importer`.
+3. Verify the stable Vercel Preview is READY.
+4. Manual Samsung acceptance: open Day View → open photo → press system Back. The photo
+   viewer should close while Day View remains open; closing/reopening Day View must not
+   resurrect the photo.
+5. Promotion of `feature/todomate-importer` to `dev` remains an explicit user decision.
 
-Verification is running on the feature branch. Real-device visual acceptance remains required.
-
-## Stable Preview handoff — 2026-09-26
-
-The accepted task SHA `bc78a220c87ff6c086ab51236bc442e2e79a0cbf` was copied to `feature/dayview-close-paint-containment` for the configured Vercel Preview delivery path. This branch adds no runtime changes; its own canonical gate is required before treating the feature Preview as delivered.
+Next action: full-gate this exact viewer Back fix, deliver the stable Preview, then run the
+single Samsung Back acceptance check.

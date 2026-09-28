@@ -1,0 +1,54 @@
+{
+  "projectId": "6a9703c50016b37110ff",
+  "projectName": "Mosaic",
+  "endpoint": "https://sgp.cloud.appwrite.io/v1",
+  "functions": [
+    {
+      "$id": "6aa8057f002a4c306fdd",
+      "name": "message-action",
+      "enabled": true,
+      "logging": true,
+      "runtime": "node-18.0",
+      "buildSpecification": "s-2vcpu-2gb",
+      "runtimeSpecification": "s-0.5vcpu-512mb",
+      "deploymentRetention": 0,
+      "execute": ["users"],
+      "scopes": ["users.read", "rows.read", "rows.write", "tables.read"],
+      "events": [],
+      "schedule": "0 0 * * *",
+      "timeout": 15,
+      "entrypoint": "main.js",
+      "commands": "npm install",
+      "ignore": "node_modules\n.tmp",
+      "path": "appwrite-functions/message-action"
+    },
+    {
+      "$id": "dr_backup",
+      "name": "dr-backup",
+      "enabled": true,
+      "logging": true,
+      "runtime": "node-22",
+      "buildSpecification": "s-2vcpu-2gb",
+      "runtimeSpecification": "s-0.5vcpu-512mb",
+      "deploymentRetention": 7,
+      "execute": [],
+      "scopes": [
+        "users.read",
+        "databases.read",
+        "tables.read",
+        "columns.read",
+        "indexes.read",
+        "rows.read",
+        "buckets.read",
+        "files.read"
+      ],
+      "events": [],
+      "schedule": "",
+      "timeout": 900,
+      "entrypoint": "main.mjs",
+      "commands": "npm install",
+      "ignore": "node_modules\n.tmp",
+      "path": "appwrite-functions/dr-backup"
+    }
+  ]
+}

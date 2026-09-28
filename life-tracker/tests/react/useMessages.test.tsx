@@ -8,6 +8,7 @@ import {
   type TestDatabaseCollections,
 } from '../helpers/testDb';
 import type { MessageDocument } from '../../src/db/schema';
+import { resetConnectivityForTests } from '../../src/lib/connectivity';
 
 // ---------------------------------------------------------------------------
 // Module mocks
@@ -105,6 +106,11 @@ describe('useMessages', () => {
   beforeEach(async () => {
     dbRef.current = await createTestDb('messages');
     vi.clearAllMocks();
+    resetConnectivityForTests({
+      status: 'online',
+      reason: 'test',
+      lastConfirmedAt: '2026-01-01T00:00:00.000Z',
+    });
   });
 
   afterEach(async () => {

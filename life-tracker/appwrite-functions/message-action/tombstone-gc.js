@@ -1,6 +1,6 @@
 const { Client, TablesDB, Query } = require('node-appwrite');
 
-const DATABASE_ID = 'life_tracker';
+const DATABASE_ID = process.env.APPWRITE_DATABASE_ID || 'life_tracker';
 const TABLES = [
   'tasks',
   'categories',

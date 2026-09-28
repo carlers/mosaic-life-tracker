@@ -85,10 +85,17 @@ export function useDayViewSwiper({
   useEffect(() => {
     if (!isOpen) return;
     const swiper = swiperRef.current;
-    if (!swiper) return;
+    if (!swiper || swiper.destroyed) return;
     if (swiper.activeIndex === initialIndex) return;
+
     isProgrammaticMoveRef.current = true;
+
+    // Keep Swiper responsible only for the 181 lightweight geometry slides.
+    // The expensive DaySlide content is windowed by React below, so a large
+    // selected-date jump cannot leave Swiper Virtual's internal window stale.
     swiper.slideTo(initialIndex, 0);
+    swiper.updateSlides?.();
+
     if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
     rafRef.current = requestAnimationFrame(() => {
       rafRef.current = null;
@@ -119,12 +126,16 @@ export function useDayViewSwiper({
 
   const handlePrevDay = useCallback(() => {
     if (isDisabled) return;
-    swiperRef.current?.slidePrev();
+    const swiper = swiperRef.current;
+    if (!swiper || swiper.destroyed) return;
+    swiper.slidePrev();
   }, [isDisabled]);
 
   const handleNextDay = useCallback(() => {
     if (isDisabled) return;
-    swiperRef.current?.slideNext();
+    const swiper = swiperRef.current;
+    if (!swiper || swiper.destroyed) return;
+    swiper.slideNext();
   }, [isDisabled]);
 
   return {

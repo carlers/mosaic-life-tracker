@@ -12,6 +12,7 @@ interface CalendarHeaderProps {
   onNext: () => void;
   activeView: ViewType;
   onViewChange: (v: ViewType) => void;
+  onTitleClick?: () => void;
 }
 
 export const CalendarHeader: React.FC<CalendarHeaderProps> = ({
@@ -22,15 +23,30 @@ export const CalendarHeader: React.FC<CalendarHeaderProps> = ({
   onNext,
   activeView,
   onViewChange,
+  onTitleClick,
 }) => {
   return (
     <div className="px-4 py-3 flex items-center gap-3 border-b border-[#333333]">
       <ViewSwitcher activeView={activeView} onViewChange={onViewChange} />
       <h2
-        className="text-base font-bold text-white flex-1 truncate transition-all duration-200"
+        className="min-w-0 flex-1 text-base font-bold text-white transition-all duration-200"
         aria-live="polite"
       >
-        {activeView === 'diary' ? 'Diary' : title}
+        {activeView === 'calendar' && onTitleClick ? (
+          <button
+            type="button"
+            onClick={onTitleClick}
+            onPointerDown={(event) => event.stopPropagation()}
+            className="max-w-full truncate rounded px-1 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
+            aria-label="Go to today"
+          >
+            {title}
+          </button>
+        ) : (
+          <span className="block truncate">
+            {activeView === 'diary' ? 'Diary' : title}
+          </span>
+        )}
       </h2>
       {activeView !== 'diary' && (
         <div className="flex items-center gap-2 flex-shrink-0">

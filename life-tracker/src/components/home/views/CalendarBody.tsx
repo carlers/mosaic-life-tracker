@@ -1,4 +1,4 @@
-import React, { startTransition, useCallback, useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import { DayViewSheet } from './DayViewSheet';
 import { FriendDayViewSheet } from '../../friend/FriendDayViewSheet';
 import { ReplyComposerSheet } from '../../messages/ReplyComposerSheet';
@@ -8,6 +8,7 @@ import { useFriendTaskReply } from '../../../hooks/useFriendTaskReply';
 import { useHorizontalArrowNavigation } from '../../../hooks/useHorizontalArrowNavigation';
 import type { TaskDocument, CategoryDocument } from '../../../db/schema';
 import type { CalendarViewMode } from './useCalendarState';
+import type { WeekStartsOn } from '../../../lib/preferences';
 
 interface CalendarBodyProps {
   viewMode: CalendarViewMode;
@@ -27,6 +28,7 @@ interface CalendarBodyProps {
   onPrev: () => void;
   onNext: () => void;
   onReactToTask?: (task: TaskDocument, emoji: string) => void;
+  weekStartsOn?: WeekStartsOn;
 }
 
 const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
@@ -47,6 +49,7 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
   onPrev,
   onNext,
   onReactToTask,
+  weekStartsOn = 0,
 }) => {
   const [daySheetOpen, setDaySheetOpen] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
@@ -62,11 +65,8 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
   } = useFriendTaskReply(tasks);
 
   const handleDayClick = useCallback((date: Date) => {
-    // Keep the tap responsive; sheet rendering is non-urgent work. [verify:full]
-    startTransition(() => {
-      setSelectedDate(date);
-      setDaySheetOpen(true);
-    });
+    setSelectedDate(date);
+    setDaySheetOpen(true);
   }, []);
 
   const handleCloseDaySheet = useCallback(() => {
@@ -93,6 +93,7 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
       onDayClick={handleDayClick}
       tasksByDate={tasksByDate}
       categoriesMap={categoriesMap}
+      weekStartsOn={weekStartsOn}
     />
   );
 

@@ -1,4 +1,4 @@
-// Regression: Phase 3.7 PH-5/PH-6.
+// Regression: §24.15 (feature flags fail closed and expose load/error state).
 import { act, renderHook } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 

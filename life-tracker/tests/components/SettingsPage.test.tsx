@@ -6,9 +6,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const updateMocks = vi.hoisted(() => ({
   checkForUpdate: vi.fn<(onProgress?: (stage: string) => void) => Promise<'up-to-date' | 'update-available'>>(),
 }));
-
 beforeEach(() => {
   updateMocks.checkForUpdate.mockReset().mockResolvedValue('up-to-date');
+  window.localStorage.clear();
 });
 
 vi.mock('../../src/hooks/useAuth', () => ({
@@ -33,7 +33,37 @@ vi.mock('../../src/db/database', () => ({
 vi.mock('../../src/components/modals/AccountSettingsSheet', () => ({ AccountSettingsSheet: () => null }));
 vi.mock('../../src/components/modals/ChangeEmailSheet', () => ({ ChangeEmailSheet: () => null }));
 vi.mock('../../src/components/modals/ChangePasswordSheet', () => ({ ChangePasswordSheet: () => null }));
-vi.mock('../../src/components/modals/ExportDataSheet', () => ({ ExportDataSheet: () => null }));
+vi.mock('../../src/components/modals/TodoMateImportSheet', () => ({
+  TodoMateImportSheet: ({ isOpen }: { isOpen: boolean }) =>
+    isOpen ? <div>TodoMate import sheet</div> : null,
+}));
+vi.mock('../../src/components/modals/ExportDataSheet', () => ({
+  ExportDataSheet: ({
+    isOpen,
+    onBackupComplete,
+    onRestoreComplete,
+  }: {
+    isOpen: boolean;
+    onBackupComplete?: (completedAt: string) => void;
+    onRestoreComplete?: (completedAt: string) => void;
+  }) =>
+    isOpen ? (
+      <div>
+        <button
+          type="button"
+          onClick={() => onBackupComplete?.('2026-09-27T01:00:00.000Z')}
+        >
+          Complete backup test
+        </button>
+        <button
+          type="button"
+          onClick={() => onRestoreComplete?.('2026-09-27T02:00:00.000Z')}
+        >
+          Complete restore test
+        </button>
+      </div>
+    ) : null,
+}));
 vi.mock('../../src/components/modals/SyncStatusSheet', () => ({ SyncStatusSheet: () => null }));
 vi.mock('../../src/lib/deleteUserData', () => ({
   deleteAllUserData: vi.fn().mockResolvedValue({ totalRows: 0 }),
@@ -41,10 +71,9 @@ vi.mock('../../src/lib/deleteUserData', () => ({
 
 import { SettingsPage } from '../../src/pages/SettingsPage';
 
-// Regression: PROJECT_REFERENCE.md §24.13 — version/update controls precede
-// destructive data controls and update checks expose meaningful stages.
+// Regression: §24.13 (update checks expose meaningful stages).
 describe('SettingsPage navigation, updates, and data controls', () => {
-  it('shows version 0.1.0 and places update checking before destructive data controls', () => {
+  it('shows the app version and a dedicated update control', () => {
     render(
       <MemoryRouter>
         <SettingsPage />
@@ -54,14 +83,48 @@ describe('SettingsPage navigation, updates, and data controls', () => {
     expect(screen.getByText('0.1.0')).toBeInTheDocument();
     expect(screen.getByTestId('app-build-info')).toHaveTextContent(/branch: local/);
     expect(screen.getByTestId('app-build-info')).toHaveTextContent(/commit: local/);
-    const check = screen.getByRole('button', { name: /Check for Updates/i });
-    const deletion = screen.getByRole('button', { name: 'Delete All User Data' });
     expect(
-      Boolean(
-        check.compareDocumentPosition(deletion) &
-          Node.DOCUMENT_POSITION_FOLLOWING
-      )
-    ).toBe(true);
+      screen.getByRole('button', { name: /Check for Updates/i })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Backup & Restore' })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Import from TodoMate' })
+    ).toBeInTheDocument();
+  });
+
+  it('opens the TodoMate transfer surface from Settings', () => {
+    render(
+      <MemoryRouter>
+        <SettingsPage />
+      </MemoryRouter>
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Import from TodoMate' }));
+
+    expect(screen.getByText('TodoMate import sheet')).toBeInTheDocument();
+  });
+
+  it('shows and updates the last backup and restore activity', async () => {
+    render(
+      <MemoryRouter>
+        <SettingsPage />
+      </MemoryRouter>
+    );
+
+    expect(screen.getByText('Last backup: Never')).toBeInTheDocument();
+    expect(screen.getByText('Last restore: Never')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Backup & Restore' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Complete backup test' }));
+
+    expect(screen.getByText(/Last backup:.*2026/)).toBeInTheDocument();
+    expect(screen.getByText('Last restore: Never')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Complete restore test' }));
+
+    expect(screen.getByText(/Last restore:.*2026/)).toBeInTheDocument();
   });
 
   it('announces useful progress stages instead of a generic Checking label', async () => {
@@ -93,7 +156,7 @@ describe('SettingsPage navigation, updates, and data controls', () => {
     );
   });
 
-  // Regression: PROJECT_REFERENCE.md §2 — remote deletion is distinct from local clearing.
+  // Regression: §2 (remote deletion remains distinct from local clearing).
   it('offers Delete All User Data as a separate destructive confirmation', () => {
     render(
       <MemoryRouter>
@@ -107,7 +170,7 @@ describe('SettingsPage navigation, updates, and data controls', () => {
     expect(screen.getByText(/does not delete your login account/i)).toBeInTheDocument();
   });
 
-  // Regression: PROJECT_REFERENCE.md §24.13 — update checks are not data sync.
+  // Regression: §24.13 (app-update checks are independent from data sync).
   it('offers a dedicated update check and reports an up-to-date result', async () => {
     render(
       <MemoryRouter>
@@ -123,20 +186,22 @@ describe('SettingsPage navigation, updates, and data controls', () => {
     );
   });
 
-  // Regression: task acceptance — Screen is a Settings child route, not an appearance sheet.
-  it('opens the Screen route instead of an appearance dialog', () => {
+  // Regression: §2 (Preferences is the Settings child route for behavior and display choices).
+  it('opens the Preferences route instead of exposing behavior toggles on Settings', () => {
     render(
       <MemoryRouter initialEntries={['/settings']}>
         <Routes>
           <Route path="/settings" element={<SettingsPage />} />
-          <Route path="/settings/screen" element={<div>Screen settings route</div>} />
+          <Route path="/settings/preferences" element={<div>Preferences route</div>} />
         </Routes>
       </MemoryRouter>
     );
 
-    fireEvent.click(screen.getByRole('button', { name: /Screen/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Preferences/i }));
 
-    expect(screen.getByText('Screen settings route')).toBeInTheDocument();
-    expect(screen.queryByRole('dialog', { name: 'Appearance' })).toBeNull();
+    expect(screen.getByText('Preferences route')).toBeInTheDocument();
+    expect(
+      screen.queryByRole('switch', { name: 'Keep adding in same category' })
+    ).toBeNull();
   });
 });

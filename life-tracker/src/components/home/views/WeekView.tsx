@@ -8,12 +8,14 @@ import {
 import { DayCell } from './DayCell';
 import { EMPTY_TASKS } from '../../../constants/empty';
 import type { TaskDocument } from '../../../db/schema';
+import type { WeekStartsOn } from '../../../lib/preferences';
 
 interface WeekViewProps {
   focusDate: Date;
   onDayClick?: (date: Date) => void;
   tasksByDate: Map<string, TaskDocument[]>;
   categoriesMap: Record<string, { color: string; name: string }>;
+  weekStartsOn?: WeekStartsOn;
 }
 
 export const WeekView: React.FC<WeekViewProps> = ({
@@ -21,12 +23,13 @@ export const WeekView: React.FC<WeekViewProps> = ({
   onDayClick,
   tasksByDate,
   categoriesMap,
+  weekStartsOn = 0,
 }) => {
   const weekDays = useMemo(() => {
-    const weekStart = startOfWeek(focusDate, { weekStartsOn: 0 });
-    const weekEnd = endOfWeek(focusDate, { weekStartsOn: 0 });
+    const weekStart = startOfWeek(focusDate, { weekStartsOn });
+    const weekEnd = endOfWeek(focusDate, { weekStartsOn });
     return eachDayOfInterval({ start: weekStart, end: weekEnd });
-  }, [focusDate]);
+  }, [focusDate, weekStartsOn]);
 
   return (
     <div
@@ -47,10 +50,10 @@ export const WeekView: React.FC<WeekViewProps> = ({
         ))}
       </div>
       <div
-        className="grid grid-cols-7 gap-1 px-2 flex-1 auto-rows-[minmax(min-content,1fr)]"
+        className="grid grid-cols-7 gap-1 px-2 auto-rows-max"
         role="rowgroup"
       >
-        <div role="row" className="contents">
+        <div role="row" className="col-span-7 grid grid-cols-7 gap-1">
           {weekDays.map((day) => {
             const dateStr = format(day, 'yyyy-MM-dd');
             return (

@@ -16,6 +16,7 @@ import {
 } from 'date-fns';
 import useEmblaCarousel from 'embla-carousel-react';
 import type { CategoryDocument, TaskDocument } from '../../../db/schema';
+import type { WeekStartsOn } from '../../../lib/preferences';
 
 interface TodoCalendarGridProps {
   focusDate: Date;
@@ -25,6 +26,7 @@ interface TodoCalendarGridProps {
   categoriesMap: Record<string, { color: string; name: string }>;
   onDateSelect: (date: Date) => void;
   onMonthChange: (date: Date) => void;
+  weekStartsOn?: WeekStartsOn;
 }
 
 interface TodoMonthGridProps
@@ -47,14 +49,23 @@ const TodoMonthGrid: React.FC<TodoMonthGridProps> = ({
   categories,
   onDateSelect,
   isActive,
+  weekStartsOn = 0,
 }) => {
   const calendarDays = useMemo(() => {
     const monthStart = startOfMonth(monthDate);
     return eachDayOfInterval({
-      start: startOfWeek(monthStart),
-      end: endOfWeek(endOfMonth(monthStart)),
+      start: startOfWeek(monthStart, { weekStartsOn }),
+      end: endOfWeek(endOfMonth(monthStart), { weekStartsOn }),
     });
-  }, [monthDate]);
+  }, [monthDate, weekStartsOn]);
+
+  const weekdayLabels = useMemo(
+    () =>
+      weekStartsOn === 0
+        ? WEEKDAY_LABELS
+        : [...WEEKDAY_LABELS.slice(1), WEEKDAY_LABELS[0]],
+    [weekStartsOn]
+  );
 
   const calendarWeeks = useMemo(() => {
     const weeks: Date[][] = [];
@@ -83,10 +94,10 @@ const TodoMonthGrid: React.FC<TodoMonthGridProps> = ({
     <div
       role={isActive ? 'grid' : undefined}
       aria-label={isActive ? `${format(monthDate, 'MMMM yyyy')} todo calendar` : undefined}
-      className="mx-auto w-full max-w-sm rounded-xl bg-transparent px-2 pt-3 pb-0"
+      className="w-full rounded-xl bg-transparent px-2 pt-3 pb-0"
     >
       <div className="mb-2 grid grid-cols-7" role={isActive ? 'row' : undefined}>
-        {WEEKDAY_LABELS.map((label, index) => (
+        {weekdayLabels.map((label, index) => (
           <div
             key={`${label}-${index}`}
             role={isActive ? 'columnheader' : undefined}
@@ -231,6 +242,7 @@ export const TodoCalendarGrid: React.FC<TodoCalendarGridProps> = ({
   categoriesMap,
   onDateSelect,
   onMonthChange,
+  weekStartsOn = 0,
 }) => {
   const [baseDate] = useState(() => new Date(focusDate));
   const [activeIndex, setActiveIndex] = useState(CENTER_INDEX);
@@ -308,6 +320,7 @@ export const TodoCalendarGrid: React.FC<TodoCalendarGridProps> = ({
           categoriesMap={categoriesMap}
           onDateSelect={onDateSelect}
           isActive={isActive}
+          weekStartsOn={weekStartsOn}
         />
       );
     },
@@ -319,6 +332,7 @@ export const TodoCalendarGrid: React.FC<TodoCalendarGridProps> = ({
       onDateSelect,
       selectedDate,
       tasksByDate,
+      weekStartsOn,
     ]
   );
 

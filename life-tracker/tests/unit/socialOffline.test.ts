@@ -92,7 +92,7 @@ beforeEach(() => {
 });
 afterEach(() => restoreConsole());
 
-describe('social.sendFriendRequest — offline resilience (OFF-8)', () => {
+describe('social.sendFriendRequest — offline resilience', () => {
   it('local write happens first, remote failure enqueues into the outbox', async () => {
     sdkRef.upsertRow.mockRejectedValueOnce(new Error('Network down'));
     await sendFriendRequest({
@@ -141,7 +141,7 @@ describe('social.sendFriendRequest — offline resilience (OFF-8)', () => {
   });
 });
 
-describe('social.acceptFriendRequest — offline resilience (OFF-9)', () => {
+describe('social.acceptFriendRequest — offline resilience', () => {
   it('transient remote failure enqueues; local patch already applied', async () => {
     const patch = vi.fn().mockResolvedValue(undefined);
     dbRef.findOne.mockResolvedValueOnce({
@@ -175,7 +175,7 @@ describe('social.acceptFriendRequest — offline resilience (OFF-9)', () => {
   });
 });
 
-describe('social.createOrUpdateProfile — offline resilience (OFF-10)', () => {
+describe('social.createOrUpdateProfile — offline resilience', () => {
   it('transient failure enqueues and throws a distinguishable Offline error', async () => {
     sdkRef.upsertRow.mockRejectedValueOnce(new Error('Network down'));
     let caught: unknown = null;

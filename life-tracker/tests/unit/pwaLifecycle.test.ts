@@ -86,6 +86,29 @@ function fixture({
 
 describe('PWA lifecycle', () => {
   beforeEach(() => resetPwaLifecycleForTests());
+  afterEach(() => vi.unstubAllGlobals());
+
+  // Regression: §24.18 (controlled service worker marks shell offline-ready).
+  it('marks the app shell ready when the page is already service-worker controlled', () => {
+    const values = new Map<string, string>();
+    vi.stubGlobal('localStorage', {
+      getItem: (key: string) => values.get(key) ?? null,
+      setItem: (key: string, value: string) => values.set(key, value),
+      removeItem: (key: string) => values.delete(key),
+      clear: () => values.clear(),
+      key: (index: number) => [...values.keys()][index] ?? null,
+      get length() {
+        return values.size;
+      },
+    });
+
+    fixture({ readyFallback: true });
+
+    expect(values.get('mosaic_offline_shell_ready')).toMatch(
+      /^\d{4}-\d{2}-\d{2}T/
+    );
+
+  });
 
   it('captures and resolves the browser install prompt', async () => {
     const { target } = fixture();
@@ -114,7 +137,7 @@ describe('PWA lifecycle', () => {
     expect(setup.registration.update).toHaveBeenCalledOnce();
   });
 
-  // Regression: PROJECT_REFERENCE.md §24.13 — manual checks must recover a valid browser registration.
+  // Regression: §24.13 (manual update checks recover a valid browser registration).
   it('recovers the service-worker registration when the registration callback omits it', async () => {
     const setup = fixture({ callbackRegistration: false });
 
@@ -123,7 +146,7 @@ describe('PWA lifecycle', () => {
     expect(setup.registration.update).toHaveBeenCalledOnce();
   });
 
-  // Regression: PROJECT_REFERENCE.md §24.13 — WebKit/Safari-compatible recovery uses only standard SW APIs.
+  // Regression: §24.13 (WebKit/Safari recovery uses standard service-worker APIs).
   it('falls back to the active ready registration when direct lookup yields no registration', async () => {
     const setup = fixture({
       callbackRegistration: false,
@@ -160,8 +183,7 @@ describe('PWA lifecycle', () => {
     expect(setup.registration.update).not.toHaveBeenCalled();
   });
 
-  // Regression: PROJECT_REFERENCE.md §24.13 — a found worker reports the
-  // download stage before becoming ready to install.
+  // Regression: §24.13 (worker discovery reports meaningful update stages).
   it('reports update-found and downloading while the new worker installs', async () => {
     const setup = fixture();
     const stages: string[] = [];

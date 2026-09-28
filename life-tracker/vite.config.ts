@@ -4,6 +4,9 @@ import { VitePWA } from 'vite-plugin-pwa';
 import basicSsl from '@vitejs/plugin-basic-ssl';
 
 const isLocalBuild = !process.env.VERCEL_ENV;
+const isOfficialMosaicBuild =
+  process.env.GITHUB_REPOSITORY === 'carlers/mosaic-life-tracker' ||
+  process.env.VERCEL_PROJECT_ID === 'prj_jysOLDbuO9c5rP8x6Q145DVIw0fc';
 
 const buildCommit = process.env.VERCEL_GIT_COMMIT_SHA?.trim() || '';
 const buildMessage = process.env.VERCEL_GIT_COMMIT_MESSAGE?.trim() || '';
@@ -17,6 +20,7 @@ const buildChannel =
       : 'Local';
 
 const posthogSourceMapsEnabled =
+  vercelEnvironment !== 'preview' &&
   process.env.POSTHOG_SOURCE_MAPS_ENABLED === 'true' &&
   Boolean(
     process.env.POSTHOG_PERSONAL_API_KEY &&
@@ -44,6 +48,9 @@ const posthogSourceMapPlugin = posthog
 
 export default defineConfig({
   define: {
+    'import.meta.env.VITE_MOSAIC_OFFICIAL_BUILD': JSON.stringify(
+      isOfficialMosaicBuild ? 'true' : 'false'
+    ),
     'import.meta.env.VITE_APP_BUILD_COMMIT': JSON.stringify(buildCommit),
     'import.meta.env.VITE_APP_BUILD_BRANCH': JSON.stringify(buildRef),
     'import.meta.env.VITE_APP_BUILD_MESSAGE': JSON.stringify(buildMessage),

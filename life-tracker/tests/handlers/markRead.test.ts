@@ -15,7 +15,7 @@ describe('message-action / mark_read', () => {
     mockDb = makeMockDb();
   });
 
-  // Regression: A3 — partnerId must be a valid row id.
+  // Regression: §11/§20.3 (mark_read validates participant row IDs).
   it('returns 400 when partnerId is missing', async () => {
     const res = await invoke({
       userId: CALLER,
@@ -46,7 +46,7 @@ describe('message-action / mark_read', () => {
     expect(res.body.error).toBe('partnerId cannot be self');
   });
 
-  // Regression: P1 — friendship required before touching any message rows.
+  // Regression: §20.3/§20.5 (mark_read requires accepted friendship).
   it('returns 403 when the caller is not friends with the partner', async () => {
     const res = await invoke({
       userId: CALLER,
@@ -58,7 +58,7 @@ describe('message-action / mark_read', () => {
     expect(mockDb.updateRow).not.toHaveBeenCalled();
   });
 
-  // Regression: P1 — the caller-in-thread check fires before either pass.
+  // Regression: §20.5 (mark_read validates caller membership before mutation).
   it('returns 403 when the caller is not a participant in the thread', async () => {
     mockDb.listRows
       .mockResolvedValueOnce({ rows: [friendshipRow()] })
@@ -75,7 +75,7 @@ describe('message-action / mark_read', () => {
     expect(mockDb.updateRow).not.toHaveBeenCalled();
   });
 
-  // Regression: A3 — both passes fire; response reports both counts.
+  // Regression: §20.5 (mark_read updates both participant views and reports counts).
   it('successful: marks partner and caller rows and reports both counts', async () => {
     mockDb.listRows
       .mockResolvedValueOnce({ rows: [friendshipRow()] })
@@ -101,7 +101,7 @@ describe('message-action / mark_read', () => {
     expect(mockDb.updateRow).toHaveBeenCalledTimes(3);
   });
 
-  // Regression: P1 — pagination must continue with cursorAfter once a
+  // Regression: §20.5 (mark_read paginates through the full thread).
   // 100-row page is returned.
   it('pagination: >100 rows in pass 1 triggers a second listRows with cursorAfter', async () => {
     const hundredRows = Array.from({ length: 100 }, (_, i) => ({

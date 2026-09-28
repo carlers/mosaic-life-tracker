@@ -1,4 +1,4 @@
-// Regression: UIFIX-2 — friend day sheets must navigate adjacent days by swipe.
+// Regression: §2 (friend Day View swipes navigate adjacent days).
 import type { ReactNode } from 'react';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { addDays, startOfDay } from 'date-fns';

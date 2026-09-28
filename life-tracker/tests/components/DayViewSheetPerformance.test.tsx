@@ -1,13 +1,23 @@
 import type { ReactNode } from 'react';
 import { render, screen, act } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { CategoryDocument, TaskDocument } from '../../src/db/schema';
 
 const fixture = vi.hoisted(() => ({
   onAnimationComplete: null as (() => void) | null,
   onClose: null as (() => void) | null,
+  onBeforeDestroy: null as ((swiper: unknown) => void) | null,
   deferChildrenUntilPaint: false,
   disableTaskLayoutAnimation: false,
+  swiperRef: { current: null as unknown },
+  swiperInstance: null as null | {
+    activeIndex: number;
+    destroyed: boolean;
+    slideTo: ReturnType<typeof vi.fn>;
+    slidePrev: ReturnType<typeof vi.fn>;
+    slideNext: ReturnType<typeof vi.fn>;
+    updateSlides: ReturnType<typeof vi.fn>;
+  },
 }));
 
 vi.mock('../../src/components/ui/BottomSheet', () => ({
@@ -31,7 +41,30 @@ vi.mock('../../src/components/ui/BottomSheet', () => ({
 }));
 
 vi.mock('swiper/react', () => ({
-  Swiper: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+  Swiper: ({
+    children,
+    onSwiper,
+    onBeforeDestroy,
+  }: {
+    children: ReactNode;
+    onSwiper?: (swiper: unknown) => void;
+    onBeforeDestroy?: (swiper: unknown) => void;
+  }) => {
+    const swiper =
+      fixture.swiperInstance ??
+      {
+        activeIndex: 90,
+        destroyed: false,
+        slideTo: vi.fn(),
+        slidePrev: vi.fn(),
+        slideNext: vi.fn(),
+        updateSlides: vi.fn(),
+      };
+    fixture.swiperInstance = swiper;
+    fixture.onBeforeDestroy = onBeforeDestroy ?? null;
+    onSwiper?.(swiper);
+    return <div>{children}</div>;
+  },
   SwiperSlide: ({ children }: { children: ReactNode }) => <div>{children}</div>,
 }));
 vi.mock('swiper/modules', () => ({
@@ -103,6 +136,13 @@ vi.mock('../../src/hooks/useAuth', () => ({
 vi.mock('../../src/hooks/useFeedback', () => ({
   useFeedback: () => ({ message: null }),
 }));
+
+vi.mock('../../src/hooks/useSettings', () => ({
+  useSettings: () => ({
+    getSetting: () => false,
+    setSetting: vi.fn(),
+  }),
+}));
 vi.mock('../../src/hooks/useTaskImage', () => ({
   useTaskImage: () => ({ imageUrl: null, isLoading: false }),
 }));
@@ -114,7 +154,7 @@ vi.mock('../../src/hooks/useHorizontalArrowNavigation', () => ({
 }));
 vi.mock('../../src/components/home/views/useDayViewSwiper', () => ({
   useDayViewSwiper: () => ({
-    swiperRef: { current: null },
+    swiperRef: fixture.swiperRef,
     slideDates: Array.from({ length: 181 }, (_, index) => new Date(2026, 8, 20 + index - 90)),
     slideDateStrs: Array.from({ length: 181 }, (_, index) => `2026-09-${String(((20 + index - 90 + 30) % 30) + 1).padStart(2, '0')}`),
     activeIndex: 90,
@@ -128,11 +168,19 @@ vi.mock('../../src/components/home/views/useDayViewSwiper', () => ({
 
 import { DayViewSheet } from '../../src/components/home/views/DayViewSheet';
 
-// Regression: task acceptance — sheet animation gets the first frame before non-active day trees mount.
+// Regression: §24.16 (Day View keeps expensive rendering outside the opening frame).
 describe('DayViewSheet mount scheduling', () => {
-  it('mounts only the active day during sheet animation, then restores the full render window', () => {
+  beforeEach(() => {
     fixture.onAnimationComplete = null;
+    fixture.onClose = null;
+    fixture.onBeforeDestroy = null;
+    fixture.swiperRef.current = null;
+    fixture.swiperInstance = null;
+    fixture.deferChildrenUntilPaint = false;
+    fixture.disableTaskLayoutAnimation = false;
+  });
 
+  it('mounts only the active day during sheet animation, then restores the full render window', () => {
     render(
       <DayViewSheet
         isOpen
@@ -166,5 +214,28 @@ describe('DayViewSheet mount scheduling', () => {
     expect(
       document.querySelectorAll('[data-day-view-navigation="true"]')
     ).toHaveLength(1);
+  });
+
+  // Regression: §2 (Day View teardown releases stale Swiper ownership before reopen).
+  // the old Swiper before a later Day View open can synchronize another date.
+  it('releases the current swiper ref before the swiper is destroyed', () => {
+    render(
+      <DayViewSheet
+        isOpen
+        onClose={vi.fn()}
+        selectedDate={new Date(2026, 8, 20)}
+      />
+    );
+
+    const swiper = fixture.swiperInstance;
+    expect(swiper).not.toBeNull();
+    expect(fixture.swiperRef.current).toBe(swiper);
+    expect(fixture.onBeforeDestroy).toEqual(expect.any(Function));
+
+    act(() => {
+      fixture.onBeforeDestroy?.(swiper);
+    });
+
+    expect(fixture.swiperRef.current).toBeNull();
   });
 });

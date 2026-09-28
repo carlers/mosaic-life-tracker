@@ -13,7 +13,8 @@
     "test:unit": "vitest run --project unit",
     "test:handlers": "vitest run --project handlers",
     "test:dom": "vitest run --project dom",
-    "test:browser-contract": "tests/e2e/node_modules/.bin/playwright test tests/e2e --config=playwright.config.mjs --reporter=line",
+    "test:browser-contract": "tests/e2e/node_modules/.bin/playwright test tests/e2e --config=playwright.config.mjs --reporter=line --grep-invert @performance",
+    "test:performance": "tests/e2e/node_modules/.bin/playwright test tests/e2e/performance-probe.spec.mjs --config=playwright.config.mjs --reporter=line --grep @performance",
     "test:discovery": "node scripts/check-test-discovery.mjs",
     "test:benchmark": "node scripts/benchmark-tests.mjs",
     "test:red": "node scripts/check-test-red.mjs",
@@ -32,7 +33,13 @@
     "apply:rollback": "node apply-changes.mjs --rollback",
     "verify": "node scripts/verify.mjs",
     "contracts:check": "node scripts/check-project-contracts.mjs",
-    "test:browser:prepare": "npm install --prefix tests/e2e --package-lock=false --no-audit --no-fund"
+    "test:browser:prepare": "npm install --prefix tests/e2e --package-lock=false --no-audit --no-fund",
+    "dr:restore": "node scripts/dr-restore.mjs",
+    "dr:deploy-functions": "node scripts/dr-deploy-functions.mjs",
+    "dr:status": "node scripts/dr-status.mjs",
+    "dr:check": "node scripts/dr-health.mjs",
+    "dr:watch": "node scripts/dr-watch.mjs",
+    "mosaic:bootstrap": "node scripts/bootstrap-mosaic.mjs"
   },
   "dependencies": {
     "ajv": "^8.20.0",
@@ -77,6 +84,7 @@
     "typescript": "~6.0.2",
     "typescript-eslint": "^8.67.0",
     "vite": "^8.2.2",
-    "vitest": "^3.2.0"
+    "vitest": "^3.2.0",
+    "json-bigint": "1.0.0"
   }
 }

@@ -10,6 +10,7 @@ import {
   differenceInCalendarWeeks,
 } from 'date-fns';
 import useEmblaCarousel from 'embla-carousel-react';
+import type { WeekStartsOn } from '../../../lib/preferences';
 
 export type CalendarViewMode = 'month' | 'week';
 
@@ -35,7 +36,9 @@ export interface CalendarState {
   resetToToday: () => void;
 }
 
-export function useCalendarState(): CalendarState {
+export function useCalendarState(
+  { weekStartsOn = 0 }: { weekStartsOn?: WeekStartsOn } = {}
+): CalendarState {
   const [viewMode, setViewMode] = useState<CalendarViewMode>('month');
   const [focusDate, setFocusDate] = useState<Date>(() => new Date());
   const [baseDate, setBaseDate] = useState<Date>(() => new Date());
@@ -60,6 +63,7 @@ export function useCalendarState(): CalendarState {
     align: 'start',
     skipSnaps: false,
     startIndex: CENTER_INDEX,
+    duration: 22,
   });
 
   // Keep the active render window aligned to settled snaps. The active slide
@@ -89,13 +93,13 @@ export function useCalendarState(): CalendarState {
     const offset =
       viewMode === 'month'
         ? differenceInCalendarMonths(focusDate, baseDate)
-        : differenceInCalendarWeeks(focusDate, baseDate);
+        : differenceInCalendarWeeks(focusDate, baseDate, { weekStartsOn });
     const targetIndex = CENTER_INDEX + offset;
     if (targetIndex < 0 || targetIndex >= TOTAL_SLIDES) return;
     if (emblaApi.selectedScrollSnap() !== targetIndex) {
       emblaApi.scrollTo(targetIndex, true);
     }
-  }, [emblaApi, focusDate, baseDate, viewMode]);
+  }, [emblaApi, focusDate, baseDate, viewMode, weekStartsOn]);
 
   useEffect(() => {
     if (!emblaApi) return;
@@ -141,8 +145,8 @@ export function useCalendarState(): CalendarState {
     setBaseDate(today);
   }, []);
 
-  const weekStart = startOfWeek(focusDate, { weekStartsOn: 0 });
-  const weekEnd = endOfWeek(focusDate, { weekStartsOn: 0 });
+  const weekStart = startOfWeek(focusDate, { weekStartsOn });
+  const weekEnd = endOfWeek(focusDate, { weekStartsOn });
   const title = useMemo(() => {
     return viewMode === 'month'
       ? format(focusDate, 'MMMM yyyy')
@@ -157,10 +161,10 @@ export function useCalendarState(): CalendarState {
     const offset =
       viewMode === 'month'
         ? differenceInCalendarMonths(focusDate, baseDate)
-        : differenceInCalendarWeeks(focusDate, baseDate);
+        : differenceInCalendarWeeks(focusDate, baseDate, { weekStartsOn });
     const raw = CENTER_INDEX + offset;
     return Math.max(0, Math.min(TOTAL_SLIDES - 1, raw));
-  }, [focusDate, baseDate, viewMode]);
+  }, [focusDate, baseDate, viewMode, weekStartsOn]);
 
   const renderStart = Math.max(
     0,

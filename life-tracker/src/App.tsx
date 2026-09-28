@@ -1,16 +1,14 @@
 import { lazy, Suspense, type ReactNode } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { AppLayout } from './components/layout/AppLayout';
 import { RouteErrorBoundary } from './components/layout/RouteErrorBoundary';
 import { ErrorBoundary } from './components/ui/ErrorBoundary';
 import { Spinner } from './components/ui/Spinner';
 import { PwaPrompt } from './components/ui/PwaPrompt';
+import { AppLayout } from './components/layout/AppLayout';
+import { AuthPage } from './pages/AuthPage';
 
 const HomePage = lazy(() =>
   import('./pages/HomePage').then(({ HomePage }) => ({ default: HomePage }))
-);
-const AuthPage = lazy(() =>
-  import('./pages/AuthPage').then(({ AuthPage }) => ({ default: AuthPage }))
 );
 const AccountPage = lazy(() =>
   import('./pages/AccountPage').then(({ AccountPage }) => ({ default: AccountPage }))
@@ -18,9 +16,9 @@ const AccountPage = lazy(() =>
 const SettingsPage = lazy(() =>
   import('./pages/SettingsPage').then(({ SettingsPage }) => ({ default: SettingsPage }))
 );
-const ScreenSettingsPage = lazy(() =>
-  import('./pages/ScreenSettingsPage').then(({ ScreenSettingsPage }) => ({
-    default: ScreenSettingsPage,
+const PreferencesPage = lazy(() =>
+  import('./pages/PreferencesPage').then(({ PreferencesPage }) => ({
+    default: PreferencesPage,
   }))
 );
 const ProfilePage = lazy(() =>
@@ -49,22 +47,41 @@ const ComingSoon = lazy(() =>
 function RouteContent({
   label,
   children,
+  fallback,
 }: {
   label: string;
   children: ReactNode;
+  fallback?: ReactNode;
 }) {
   return (
     <RouteErrorBoundary label={label}>
       <Suspense
         fallback={
-          <div className="min-h-[60vh] flex items-center justify-center">
-            <Spinner size="w-8 h-8" />
-          </div>
+          fallback ?? (
+            <div className="min-h-[60vh] flex items-center justify-center">
+              <Spinner size="w-8 h-8" />
+            </div>
+          )
         }
       >
         {children}
       </Suspense>
     </RouteErrorBoundary>
+  );
+}
+
+function HomeRouteFallback() {
+  return (
+    <div
+      className="h-full min-h-[60vh] bg-[#111111] px-4 py-4 space-y-3"
+      role="status"
+      aria-label="Opening Home"
+    >
+      <div className="h-10 rounded-xl bg-[#1A1A1A]" aria-hidden="true" />
+      <div className="h-24 rounded-xl bg-[#1A1A1A]" aria-hidden="true" />
+      <div className="h-24 rounded-xl bg-[#1A1A1A]" aria-hidden="true" />
+      <div className="h-16 rounded-xl bg-[#1A1A1A]" aria-hidden="true" />
+    </div>
   );
 }
 
@@ -80,12 +97,18 @@ function App() {
             </RouteContent>
           }
         />
-        <Route element={<AppLayout />}>
+        <Route
+          element={
+            <RouteContent label="AppLayout">
+              <AppLayout />
+            </RouteContent>
+          }
+        >
           <Route path="/" element={<Navigate to="/home" replace />} />
           <Route
             path="/home"
             element={
-              <RouteContent label="HomePage">
+              <RouteContent label="HomePage" fallback={<HomeRouteFallback />}>
                 <HomePage />
               </RouteContent>
             }
@@ -147,12 +170,16 @@ function App() {
             }
           />
           <Route
-            path="/settings/screen"
+            path="/settings/preferences"
             element={
-              <RouteContent label="ScreenSettingsPage">
-                <ScreenSettingsPage />
+              <RouteContent label="PreferencesPage">
+                <PreferencesPage />
               </RouteContent>
             }
+          />
+          <Route
+            path="/settings/screen"
+            element={<Navigate to="/settings/preferences" replace />}
           />
           <Route
             path="/profile"

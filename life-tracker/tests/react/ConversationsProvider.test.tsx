@@ -115,6 +115,25 @@ describe('ConversationsProvider', () => {
     expect(result.current.conversations).toEqual([]);
     expectUnread(result.current, 0);
   });
+  it('uses an unread-only message query outside conversation routes', async () => {
+    const db = dbRef.current as RxDatabase<TestDatabaseCollections>;
+    const findSpy = vi.spyOn(db.messages, 'find');
+    function UnreadOnlyWrapper({ children }: { children: ReactNode }) {
+      return <ConversationsProvider includeConversations={false}>{children}</ConversationsProvider>;
+    }
+    const { result } = renderHook(() => useProviderValue(), { wrapper: UnreadOnlyWrapper });
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(findSpy).toHaveBeenCalledWith({
+      selector: {
+        userId: 'user_A',
+        isDeleted: false,
+        direction: 'incoming',
+        readAt: '',
+        isUnsent: false,
+      },
+    });
+  });
+
   it('exposes empty state when there are no friends and no messages', async () => {
     const { result } = renderHook(() => useProviderValue(), { wrapper });
     await waitFor(() => expect(result.current.isLoading).toBe(false));
@@ -155,7 +174,8 @@ describe('ConversationsProvider', () => {
     expectUnread(result.current, 1);
     expect(result.current.conversations[0].unreadCount).toBe(1);
   });
-  it('excludes unsent incoming messages from unread counts (regression: F3)', async () => {
+  // Regression: §20.5/§21 (unsent messages do not contribute to unread state).
+  it('excludes unsent incoming messages from unread counts', async () => {
     mockFriendsRef.current = [
       makeFriend({ friendId: 'user_B', friendUsername: 'b' }),
     ];
@@ -212,7 +232,7 @@ describe('ConversationsProvider', () => {
     const order = result.current.conversations.map((c) => c.friend.friendId);
     expect(order).toEqual(['user_C', 'user_B', 'user_D']);
   });
-  // Regression: PROJECT_REFERENCE.md §16 — unread badge consumers stay isolated from conversation-detail churn.
+  // Regression: §16 (unread consumers stay isolated from conversation-detail churn).
   it('does not rerender an unread-only consumer when an outgoing message changes conversations but not unread count', async () => {
     mockFriendsRef.current = [
       makeFriend({ friendId: 'user_B', friendUsername: 'b' }),

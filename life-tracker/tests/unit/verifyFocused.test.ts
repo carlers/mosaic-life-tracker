@@ -1,4 +1,4 @@
-// Regression: task acceptance — deleting or renaming tests must not break focused CI lint.
+// Regression: TEST_WORKFLOW.md (focused verification handles deleted or renamed tests).
 import { existsSync, mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';

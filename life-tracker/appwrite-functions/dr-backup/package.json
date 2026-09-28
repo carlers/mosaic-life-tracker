@@ -1,0 +1,10 @@
+{
+  "name": "mosaic-dr-backup",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "node-appwrite": "^29.0.0",
+    "json-bigint": "1.0.0"
+  }
+}

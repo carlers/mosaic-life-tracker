@@ -4,7 +4,7 @@ import {
   User,
   Shield,
   Lock,
-  Monitor,
+  SlidersHorizontal,
   Bell,
   Megaphone,
   Smile,
@@ -16,6 +16,7 @@ import {
   ChevronLeft,
   FileDown,
   RefreshCw,
+  Import,
 } from 'lucide-react';
 import { BottomSheet } from '../components/ui/BottomSheet';
 import { SettingsRow } from '../components/ui/SettingsRow';
@@ -29,9 +30,15 @@ import { AccountSettingsSheet } from '../components/modals/AccountSettingsSheet'
 import { ChangeEmailSheet } from '../components/modals/ChangeEmailSheet';
 import { ChangePasswordSheet } from '../components/modals/ChangePasswordSheet';
 import { ExportDataSheet } from '../components/modals/ExportDataSheet';
+import { TodoMateImportSheet } from '../components/modals/TodoMateImportSheet';
 import { SyncStatusSheet } from '../components/modals/SyncStatusSheet';
 import { useAppearance } from '../hooks/useAppearance';
 import { hasExpectedRouteParent, makeRouteParentState } from '../lib/primarySwipeNavigation';
+import {
+  getBackupActivity,
+  recordBackupActivity,
+  type BackupActivity,
+} from '../lib/backupActivity';
 
 export const SettingsPage: React.FC = () => {
   const { user, logout } = useAuth();
@@ -47,16 +54,46 @@ export const SettingsPage: React.FC = () => {
   const [isChangeEmailOpen, setIsChangeEmailOpen] = useState(false);
   const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
   const [isExportSheetOpen, setIsExportSheetOpen] = useState(false);
+  const [isTodoMateImportOpen, setIsTodoMateImportOpen] = useState(false);
   const [isSyncStatusOpen, setIsSyncStatusOpen] = useState(false);
   const [isCheckingUpdate, setIsCheckingUpdate] = useState(false);
   const [updateStage, setUpdateStage] = useState<
     PwaUpdateCheckStage | 'error' | null
   >(null);
   const [feedback, setFeedback] = useState<string | null>(null);
+  const [backupActivityOverride, setBackupActivityOverride] = useState<{
+    userId: string;
+    activity: BackupActivity;
+  } | null>(null);
+  const storedBackupActivity = getBackupActivity(user?.$id);
+  const backupActivity =
+    backupActivityOverride && backupActivityOverride.userId === user?.$id
+      ? backupActivityOverride.activity
+      : storedBackupActivity;
 
   const showFeedback = (msg: string) => {
     setFeedback(msg);
     setTimeout(() => setFeedback(null), 2000);
+  };
+
+  const formatActivityDate = (value: string | null) =>
+    value
+      ? new Intl.DateTimeFormat(undefined, {
+          dateStyle: 'medium',
+          timeStyle: 'short',
+        }).format(new Date(value))
+      : 'Never';
+
+  const handleBackupActivity = (
+    kind: 'backup' | 'restore',
+    completedAt: string
+  ) => {
+    const userId = user?.$id;
+    if (!userId) return;
+    setBackupActivityOverride({
+      userId,
+      activity: recordBackupActivity(userId, kind, completedAt),
+    });
   };
 
   const handleComingSoon = () => showFeedback('Coming soon');
@@ -109,6 +146,26 @@ export const SettingsPage: React.FC = () => {
                     ? 'Could not check for updates. Try again.'
                     : null;
 
+  const clearAuxiliaryOfflineData = async () => {
+    const [
+      { clearAllPendingImages },
+      { clearAllFriendCaches },
+      { clearAllCachedOwnProfiles },
+      { clearOfflineDataReadiness },
+    ] = await Promise.all([
+      import('../lib/pendingImages'),
+      import('../lib/friendCache'),
+      import('../lib/profileCache'),
+      import('../lib/offlineReadiness'),
+    ]);
+    await Promise.all([
+      clearAllPendingImages(),
+      clearAllFriendCaches(),
+    ]);
+    clearAllCachedOwnProfiles();
+    clearOfflineDataReadiness();
+  };
+
   const handleLogout = async () => {
     const ok = await logout();
     if (ok) {
@@ -132,6 +189,7 @@ export const SettingsPage: React.FC = () => {
         showFeedback('Data deleted, but sign out failed. Try signing out again.');
         return;
       }
+      await clearAuxiliaryOfflineData();
       await destroyDatabase();
       window.location.reload();
     } catch (error) {
@@ -154,6 +212,7 @@ export const SettingsPage: React.FC = () => {
         );
         return;
       }
+      await clearAuxiliaryOfflineData();
       await destroyDatabase();
       window.location.reload();
     } catch (error) {
@@ -201,8 +260,8 @@ export const SettingsPage: React.FC = () => {
             onClick={handleComingSoon}
           />
           <SettingsRow
-            icon={<Monitor size={18} className="text-gray-400" aria-hidden="true" />}
-            label="Screen"
+            icon={<SlidersHorizontal size={18} className="text-gray-400" aria-hidden="true" />}
+            label="Preferences"
             value={
               appearanceMode === 'system'
                 ? 'System'
@@ -212,7 +271,11 @@ export const SettingsPage: React.FC = () => {
                     ? 'Light'
                     : 'Black'
             }
-            onClick={() => navigate('/settings/screen', { state: makeRouteParentState('/settings') })}
+            onClick={() =>
+              navigate('/settings/preferences', {
+                state: makeRouteParentState('/settings'),
+              })
+            }
           />
           <SettingsRow
             icon={<Bell size={18} className="text-gray-400" aria-hidden="true" />}
@@ -256,9 +319,25 @@ export const SettingsPage: React.FC = () => {
           />
           <SettingsRow
             icon={<FileDown size={18} className="text-emerald-500" aria-hidden="true" />}
-            label="Export Data"
+            label="Backup & Restore"
             onClick={() => setIsExportSheetOpen(true)}
           />
+          <SettingsRow
+            icon={<Import size={18} className="text-violet-400" aria-hidden="true" />}
+            label="Import from TodoMate"
+            onClick={() => setIsTodoMateImportOpen(true)}
+          />
+          <div
+            aria-label="Backup activity"
+            className="pl-[60px] pr-4 -mt-1 pb-2 flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-gray-500"
+          >
+            <span>
+              Last backup: {formatActivityDate(backupActivity.lastBackupAt)}
+            </span>
+            <span>
+              Last restore: {formatActivityDate(backupActivity.lastRestoreAt)}
+            </span>
+          </div>
         </div>
         <div className="border-t border-[#333333] py-2">
           <div className="px-4 py-3.5 text-white">
@@ -327,7 +406,7 @@ export const SettingsPage: React.FC = () => {
             type="button"
             onClick={handleLogout}
             onPointerDown={(e) => e.stopPropagation()}
-            className="w-full py-3 bg-[#1E1E1E] border border-[#333333] rounded-xl text-red-500 font-medium hover:bg-[#2A2A2A] transition-colors flex items-center justify-center gap-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
+            className="w-full py-2.5 bg-[#1E1E1E] border border-[#333333] rounded-xl text-red-500 font-medium hover:bg-[#2A2A2A] transition-colors flex items-center justify-center gap-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
           >
             <LogOut size={18} aria-hidden="true" />
             Sign Out
@@ -425,6 +504,17 @@ export const SettingsPage: React.FC = () => {
       <ExportDataSheet
         isOpen={isExportSheetOpen}
         onClose={() => setIsExportSheetOpen(false)}
+        onSuccess={showFeedback}
+        onBackupComplete={(completedAt) =>
+          handleBackupActivity('backup', completedAt)
+        }
+        onRestoreComplete={(completedAt) =>
+          handleBackupActivity('restore', completedAt)
+        }
+      />
+      <TodoMateImportSheet
+        isOpen={isTodoMateImportOpen}
+        onClose={() => setIsTodoMateImportOpen(false)}
         onSuccess={showFeedback}
       />
       <SyncStatusSheet

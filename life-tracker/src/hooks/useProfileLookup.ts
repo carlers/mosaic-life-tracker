@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { searchProfiles, type ProfileCard } from '../lib/social';
 import { useAuth } from './useAuth';
+import { useConnectivity } from './useConnectivity';
 
 export interface UseProfileLookupReturn {
   results: ProfileCard[];
@@ -14,6 +15,7 @@ export interface UseProfileLookupReturn {
 export function useProfileLookup(debounceMs = 300): UseProfileLookupReturn {
   const { user } = useAuth();
   const userId = user?.$id;
+  const connectivity = useConnectivity();
 
   const [query, setQueryState] = useState('');
   const [results, setResults] = useState<ProfileCard[]>([]);
@@ -63,7 +65,7 @@ export function useProfileLookup(debounceMs = 300): UseProfileLookupReturn {
     timerRef.current = setTimeout(async () => {
       if (!effectIsActive) return;
 
-      if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+      if (connectivity.status !== 'online') {
         setError('You need to be online to search.');
         setIsSearching(false);
         return;
@@ -86,7 +88,7 @@ export function useProfileLookup(debounceMs = 300): UseProfileLookupReturn {
       effectIsActive = false;
       if (timerRef.current) clearTimeout(timerRef.current);
     };
-  }, [query, userId, debounceMs]);
+  }, [connectivity.status, query, userId, debounceMs]);
 
   return { results, isSearching, error, query, setQuery, clear };
 }

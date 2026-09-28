@@ -1,8 +1,11 @@
 import { format } from 'date-fns';
 import { getDatabase } from '../db/database';
 import { getCachedImage, cacheImage } from './imageCache';
+import { getPendingImage, isPendingImageId } from './pendingImages';
 import { guardedCall, makeUnauthorizedError } from './authEvents';
 import { guardedStorage } from './sdk';
+import { APP_VERSION } from './appVersion';
+import { getConnectivitySnapshot } from './connectivity';
 import type {
   TaskDocument,
   CategoryDocument,
@@ -10,16 +13,19 @@ import type {
   SettingsDocument,
   FriendshipDocument,
 } from '../db/schema';
+import {
+  APPWRITE_PROJECT_ID,
+  APPWRITE_STORAGE_BUCKET_ID,
+} from './appwriteConfig';
 
 const APPWRITE_CONFIG = {
-  bucketId: 'task_images',
-  projectId: '6a9703c50016b37110ff',
+  bucketId: APPWRITE_STORAGE_BUCKET_ID,
+  projectId: APPWRITE_PROJECT_ID,
 } as const;
 
 const DEBUG = import.meta.env.DEV;
 const APP_NAME = 'Mosaic';
-const APP_VERSION = '0.0.0';
-const EXPORT_VERSION = 1;
+const EXPORT_VERSION = 2;
 
 export interface ExportUser {
   id: string;
@@ -43,6 +49,7 @@ export interface ExportCounts {
 }
 
 export interface ExportPayload {
+  format: 'mosaic-user-backup';
   app: { name: string; version: string };
   version: number;
   exportedAt: string;
@@ -52,8 +59,13 @@ export interface ExportPayload {
     tasks: TaskDocument[];
     categories: CategoryDocument[];
     diary: DiaryDocument[];
-    settings: Record<string, unknown>;
+    settings: SettingsDocument[];
     friendships: FriendshipDocument[];
+  };
+  restore: {
+    restorable: ['tasks', 'categories', 'diary', 'settings'];
+    referenceOnly: ['friendships'];
+    excluded: ['messages'];
   };
   images: {
     included: boolean;
@@ -140,10 +152,16 @@ function parseSettings(raw: SettingsDocument[]): Record<string, unknown> {
   return map;
 }
 
-async function fetchImageBlob(fileId: string): Promise<Blob | null> {
+async function fetchImageBlob(
+  fileId: string,
+  ownerUserId: string
+): Promise<Blob | null> {
+  if (isPendingImageId(fileId)) {
+    return getPendingImage(fileId, ownerUserId);
+  }
   const cached = await getCachedImage(fileId);
   if (cached) return cached;
-  if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+  if (getConnectivitySnapshot().status !== 'online') {
     if (DEBUG)
       console.log(`[Export] Skipping uncached image (offline): ${fileId}`);
     return null;
@@ -189,7 +207,7 @@ async function zipAsync(files: Record<string, Uint8Array>): Promise<Uint8Array> 
 
 function makeFilename(ext: 'json' | 'zip'): string {
   const ts = format(new Date(), 'yyyy-MM-dd-HHmmss');
-  return `mosaic-export-${ts}.${ext}`;
+  return `mosaic-backup-${ts}.${ext}`;
 }
 
 export async function exportUserData(
@@ -215,6 +233,7 @@ export async function exportUserData(
   const referencedArray = Array.from(referencedImages);
   const exportedAt = new Date().toISOString();
   const payload: ExportPayload = {
+    format: 'mosaic-user-backup',
     app: { name: APP_NAME, version: APP_VERSION },
     version: EXPORT_VERSION,
     exportedAt,
@@ -223,7 +242,7 @@ export async function exportUserData(
       tasks: raw.tasks.length,
       categories: raw.categories.length,
       diary: raw.diary.length,
-      settings: Object.keys(parsedSettings).length,
+      settings: raw.settings.length,
       friendships: raw.friendships.length,
       images: 0,
       missingImages: 0,
@@ -232,8 +251,13 @@ export async function exportUserData(
       tasks: raw.tasks,
       categories: raw.categories,
       diary: raw.diary,
-      settings: parsedSettings,
+      settings: raw.settings,
       friendships: raw.friendships,
+    },
+    restore: {
+      restorable: ['tasks', 'categories', 'diary', 'settings'],
+      referenceOnly: ['friendships'],
+      excluded: ['messages'],
     },
     images: {
       included: includeImages,
@@ -260,7 +284,7 @@ export async function exportUserData(
   for (const fileId of referencedArray) {
     index++;
     report(`Fetching photos (${index}/${referencedArray.length})…`);
-    const blob = await fetchImageBlob(fileId);
+    const blob = await fetchImageBlob(fileId, user.id);
     if (blob) imageBlobs.set(fileId, blob);
     else missing.push(fileId);
   }
@@ -281,7 +305,7 @@ export async function exportUserData(
     JSON.stringify(raw.diary, null, 2)
   );
   files['data/settings.json'] = encoder.encode(
-    JSON.stringify(parsedSettings, null, 2)
+    JSON.stringify(raw.settings, null, 2)
   );
   files['data/friendships.json'] = encoder.encode(
     JSON.stringify(raw.friendships, null, 2)

@@ -11,13 +11,14 @@ import {
   type SocialOutboxRevertInfo,
 } from './socialOutbox';
 import type { FriendshipDocument } from '../db/schema';
+import { APPWRITE_DATABASE_ID, APPWRITE_TABLES } from './appwriteConfig';
 
 const DEBUG = import.meta.env.DEV;
 const APPWRITE_CONFIG = {
-  databaseId: 'life_tracker',
+  databaseId: APPWRITE_DATABASE_ID,
   tables: {
-    profiles: 'profiles',
-    friendships: 'friendships',
+    profiles: APPWRITE_TABLES.profiles,
+    friendships: APPWRITE_TABLES.friendships,
   },
 } as const;
 
@@ -217,7 +218,7 @@ export async function createOrUpdateProfile(
       // Distinguishable error — SetUsernameSheet branches on it to show an
       // "offline" message instead of a generic "could not save".
       throw new OfflineError(
-        "You're offline. Your profile will sync when you reconnect."
+        "You're offline. Reconnect to save your profile."
       );
     }
     throw err;

@@ -1,4 +1,4 @@
-// Regression: A11Y-33 + calendar swipe keyboard parity.
+// Regression: §2 (calendar arrow-key navigation preserves editable caret keys).
 import { describe, it, expect, vi } from 'vitest';
 import { fireEvent, render } from '@testing-library/react';
 import React from 'react';

@@ -18,6 +18,7 @@ import { useCalendarState } from '../../src/components/home/views/useCalendarSta
 import { useHorizontalArrowNavigation } from '../../src/hooks/useHorizontalArrowNavigation';
 import { PrimaryRouteSwipeSurface } from '../../src/components/layout/PrimaryRouteSwipeSurface';
 import { applyAppearanceMode } from '../../src/lib/appearance';
+import { SettingsRow } from '../../src/components/ui/SettingsRow';
 
 class DayViewProbeBoundary extends React.Component<
   { children: React.ReactNode },
@@ -49,6 +50,9 @@ export function InteractionHarness() {
   const [todoGesture, setTodoGesture] = useState('idle');
   const [fullSheetOpen, setFullSheetOpen] = useState(false);
   const [dayViewSheetOpen, setDayViewSheetOpen] = useState(false);
+  const [dayViewSelectedDate, setDayViewSelectedDate] = useState(
+    () => new Date(2026, 8, 15)
+  );
   const [homeSearchOpen, setHomeSearchOpen] = useState(false);
   const [searchResultSheetOpen, setSearchResultSheetOpen] = useState(false);
   const [selectedSearchTask, setSelectedSearchTask] = useState<TaskDocument | null>(null);
@@ -335,6 +339,17 @@ export function InteractionHarness() {
           >
             Open day view sheet
           </button>
+          <button
+            type="button"
+            data-testid="open-next-day-view-sheet"
+            onClick={() => {
+              setDayViewSelectedDate(new Date(2026, 8, 16));
+              setDayViewSheetOpen(true);
+            }}
+            className="px-3 py-2"
+          >
+            Open next day view sheet
+          </button>
           <DayViewProbeBoundary>
             <Profiler
               id="DayViewSheet"
@@ -367,7 +382,7 @@ export function InteractionHarness() {
               <DayViewSheet
                 isOpen={dayViewSheetOpen}
                 onClose={() => setDayViewSheetOpen(false)}
-                selectedDate={new Date(2026, 8, 15)}
+                selectedDate={dayViewSelectedDate}
                 tasks={todoTasks}
                 categories={todoCategories}
               />
@@ -565,6 +580,24 @@ export function InteractionHarness() {
         >
           Black appearance
         </button>
+      </div>
+      <div data-testid="settings-switch-geometry" className="mt-3 max-w-sm">
+        <SettingsRow
+          icon={<span />}
+          label="Switch off"
+          showChevron={false}
+          isToggle
+          checked={false}
+          onClick={() => {}}
+        />
+        <SettingsRow
+          icon={<span />}
+          label="Switch on"
+          showChevron={false}
+          isToggle
+          checked
+          onClick={() => {}}
+        />
       </div>
     </main>
   );

@@ -44,9 +44,7 @@ describe('UserResultCard', () => {
         onAdd={onAdd}
       />
     );
-    const addButton = screen.getByText('Add').closest('button');
-    expect(addButton).not.toBeNull();
-    fireEvent.click(addButton as Element);
+    fireEvent.click(screen.getByRole('button', { name: 'Add' }));
     expect(onAdd).toHaveBeenCalledWith(profile);
   });
 
