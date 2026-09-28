@@ -5,9 +5,10 @@ Updated: 2026-09-28
 Current task: finish disaster-recovery rollout on `security/disaster-backups`.
 
 Status: the first real production DR backup completed successfully and reconciled exactly
-against the live source inventory. The isolated restore drill is actively exercising that
-snapshot against the spare Appwrite project; production scheduling and external stale-backup
-monitoring remain disabled until the drill passes.
+against the live source inventory. Snapshot `20260927T171742476Z` has now been restored
+into the isolated spare Appwrite project and the restore CLI's full verification passed.
+Production scheduling and external stale-backup monitoring remain disabled until Function
+deployment and manual application acceptance complete.
 
 ## Successful production restore point
 - Backup ID: `20260927T171742476Z`.
@@ -33,30 +34,34 @@ monitoring remain disabled until the drill passes.
 ## Spare DR target
 - The user explicitly authorized Appwrite project `My first project`
   (`6a96e82d000d1310b3be`, region `fra`) for the isolated DR restore drill.
-- Rechecked after authorization: it is still empty with 0 TablesDB databases, 0 users,
-  0 Storage buckets, and 0 Functions.
-- It is now reserved for restoring snapshot `20260927T171742476Z`; never use production
-  Mosaic as a restore target.
+- Snapshot `20260927T171742476Z` is restored there. Independent live inventory after the
+  passing restore shows 2 users, 1 TablesDB database with 10 tables and 559 total rows,
+  1 Storage bucket with 6 files, and 0 Functions.
+- The project remains reserved for this restore drill; never use production Mosaic as a
+  restore target.
 
 ## Restore drill progress
-- The restore reached Auth import and exposed two live Appwrite compatibility differences:
-  empty user prefs cannot be sent through `users.updatePrefs`, and empty index `orders`/
-  `lengths` arrays must be omitted when recreating indexes.
+- The drill exposed two live Appwrite compatibility differences: empty user prefs cannot be
+  sent through `users.updatePrefs`, and empty index `orders`/`lengths` arrays must be
+  omitted when recreating indexes.
 - Restore now skips empty prefs while preserving non-empty prefs, and strips only empty
   optional index arrays while failing closed on partially populated arrays.
-- Regression coverage exists for both behaviors; Quality Gate run 1224 passed at commit
-  `2ec6d249e9fd041c4d988789f2079ee13d9c86e8`.
-- After the latest failed attempt, the two partial users and `life_tracker` database were
-  deleted and the spare target was rechecked empty (0 users, 0 TablesDB databases, 0 buckets).
+- The full restore completed and printed
+  `DR verification passed: users=2 rows=559 files=6`.
+- Independent post-restore inventory matched the same totals: 2 users, 559 rows, and
+  6 files. The restored database contains 10 tables, matching the dynamic snapshot rather
+  than only today's seven bootstrap tables.
+- The next recovery step is now repository-owned as
+  `npm run dr:deploy-functions -- --target-project <projectId>`. It recreates both
+  checked-in Functions in an already restored project and forcibly leaves both schedules
+  blank.
 
 ## Remaining rollout
-1. Restore snapshot `20260927T171742476Z` into the isolated DR project.
-2. Verify users/hash metadata, schemas/indexes/permissions, all 559 rows/IDs/data,
-   6 file IDs/hashes/permissions, and snapshot checksums.
-3. Deploy the two repository-owned Functions to the DR target with schedules disabled.
-4. Point a temporary Mosaic build at the DR project and complete manual login/tasks/
+1. Deploy the two repository-owned Functions to the restored DR target with schedules
+   disabled.
+2. Point a temporary Mosaic build at the DR project and complete manual login/tasks/
    diary/settings/friendships/messages/photos acceptance.
-5. Only after the drill passes: enable the production daily backup schedule and configure/
+3. Only after the drill passes: enable the production daily backup schedule and configure/
    enable the external read-only GitHub stale-backup watcher.
 
 ## Constraints
@@ -66,7 +71,8 @@ monitoring remain disabled until the drill passes.
 - Never restore into the production Mosaic project.
 - Do not promote `security/disaster-backups` to `dev` without explicit user instruction.
 
-Next action: pull the latest `chatgpt/dr-restore-drill-authorized` branch and rerun
-`dr:restore` locally against `My first project` with the already prepared short-lived
-target API key, escrowed read-only R2 recovery credential, and DR encryption key. Continue
-fixing restore-only compatibility issues until the full verification passes.
+Next action: create a short-lived Appwrite API key in `My first project` with only
+`functions.read` and `functions.write`, export it as `APPWRITE_TARGET_API_KEY` in the
+same local shell that already has the escrowed DR variables, pull the latest task branch,
+then run `npm run dr:deploy-functions -- --target-project 6a96e82d000d1310b3be`.
+Verify both deployments become ready and both schedules remain blank.
