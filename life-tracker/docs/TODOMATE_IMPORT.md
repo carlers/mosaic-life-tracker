@@ -242,5 +242,8 @@ engine pushed large dirty sets strictly serially, and restore treated the ordina
 coalescing `initializeSync()` trigger as though it were an awaitable freshness barrier.
 The sync engine now has bounded four-worker row pushes and restore uses `refreshSync()` to
 wait for the current same-tab coordinator to drain before running one genuinely fresh cycle.
-Hosted re-acceptance still must confirm the 37 images upload into Appwrite Storage and render
-on the existing imported tasks without duplication.
+During that preflight the import may remain on **Refreshing current data…** while an existing
+sync finishes; this wait is intentional and bounded to 90 seconds. If the coordinator still
+cannot settle, Mosaic fails the import rather than continuing with stale data. Hosted
+re-acceptance still must confirm the 37 images upload into Appwrite Storage and render on
+the existing imported tasks without duplication.
