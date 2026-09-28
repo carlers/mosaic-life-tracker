@@ -363,14 +363,17 @@ async function readFunctionConfig(directory) {
   );
 }
 
-function functionCreateInput(config, functionId) {
+function functionCreateInput(config, functionId, overrides = {}) {
   return {
     functionId,
     name: config.name,
     runtime: config.runtime,
     execute: config.execute || [],
     events: config.events || [],
-    schedule: config.schedule || '',
+    schedule:
+      overrides.schedule !== undefined
+        ? overrides.schedule
+        : config.schedule || '',
     timeout: config.timeout,
     enabled: true,
     logging: true,
@@ -440,10 +443,13 @@ async function provisionFunction({
   functionId,
   extraVariables = {},
   secretVariables = {},
+  functionOverrides = {},
   sleep,
 }) {
   const config = await readFunctionConfig(directory);
-  await functions.create(functionCreateInput(config, functionId));
+  await functions.create(
+    functionCreateInput(config, functionId, functionOverrides)
+  );
   await createVariables(functions, functionId, {
     ...(config.nonSecretVariables || {}),
     ...extraVariables,
@@ -455,6 +461,82 @@ async function provisionFunction({
     Object.keys(secretVariables)
   );
   return deployFunction(functions, functionId, directory, config, { sleep });
+}
+
+export async function deployRecoveredProjectFunctions(
+  {
+    endpoint,
+    projectId,
+    apiKey,
+    drSecrets,
+    drVariables = {},
+    messageFunctionId,
+    drFunctionId,
+  },
+  {
+    services = createBootstrapServices({ endpoint, projectId, apiKey }),
+    sleep,
+    log = () => {},
+  } = {}
+) {
+  const listed = await services.functions.list({
+    queries: [Query.limit(100)],
+    total: false,
+  });
+  const existing = Array.isArray(listed?.functions) ? listed.functions : [];
+  if (existing.length > 0) {
+    throw new Error(
+      `Refusing to deploy recovery Functions because target already has Functions: ${existing
+        .map((item) => item.$id)
+        .filter(Boolean)
+        .join(', ') || existing.length}`
+    );
+  }
+
+  const messageConfig = await readFunctionConfig(
+    join(FUNCTION_DIR, 'message-action')
+  );
+  const drConfig = await readFunctionConfig(join(FUNCTION_DIR, 'dr-backup'));
+  const resolvedMessageFunctionId =
+    messageFunctionId || messageConfig.$id || 'message_action';
+  const resolvedDrFunctionId = drFunctionId || drConfig.$id || 'dr_backup';
+
+  if (resolvedMessageFunctionId === resolvedDrFunctionId) {
+    throw new Error('Message and DR Function IDs must be different');
+  }
+
+  const requiredDrSecrets = drConfig.requiredSecretVariables || [];
+  for (const name of requiredDrSecrets) {
+    if (!drSecrets?.[name]) {
+      throw new Error(`Missing DR recovery Function secret: ${name}`);
+    }
+  }
+
+  log('Deploying schedule-disabled message-action Function...');
+  await provisionFunction({
+    functions: services.functions,
+    directory: join(FUNCTION_DIR, 'message-action'),
+    functionId: resolvedMessageFunctionId,
+    extraVariables: { APPWRITE_DATABASE_ID: MOSAIC_DATABASE.id },
+    functionOverrides: { schedule: '' },
+    sleep,
+  });
+
+  log('Deploying schedule-disabled dr-backup Function...');
+  await provisionFunction({
+    functions: services.functions,
+    directory: join(FUNCTION_DIR, 'dr-backup'),
+    functionId: resolvedDrFunctionId,
+    extraVariables: drVariables,
+    secretVariables: drSecrets,
+    functionOverrides: { schedule: '' },
+    sleep,
+  });
+
+  return {
+    messageFunctionId: resolvedMessageFunctionId,
+    drFunctionId: resolvedDrFunctionId,
+  };
 }
 
 export async function bootstrapMosaicProject(
