@@ -1,4 +1,5 @@
 import { APP_VERSION } from './appVersion';
+import { hashString } from './settingsRowId';
 
 const TODOMATE_FIREBASE_INIT_URL =
   'https://www.todomate.net/__/firebase/init.json';
@@ -21,6 +22,7 @@ interface TodoMateImportOptions {
   fetchImpl?: typeof fetch;
   now?: () => Date;
   onProgress?: (message: string) => void;
+  photoProcessor?: (file: File) => Promise<Blob>;
 }
 
 interface FirestoreRecord {
@@ -30,12 +32,197 @@ interface FirestoreRecord {
   updateTime: string;
 }
 
+interface PreparedTodoMatePhoto {
+  sourceId: string;
+  bytes: Uint8Array;
+}
+
+const TODOMATE_PHOTO_CONCURRENCY = 4;
+const MAX_TODOMATE_PHOTO_BYTES = 20 * 1024 * 1024;
+
+function photoSourceId(todoId: string, photoUrl: string): string {
+  let stableUrl = photoUrl;
+  try {
+    const parsed = new URL(photoUrl);
+    stableUrl = `${parsed.origin}${parsed.pathname}`;
+  } catch {
+    // Invalid URLs are rejected before download. Keeping the raw value here only
+    // makes the deterministic ID stable for tests/callers that inspect it.
+  }
+
+  return `tmimg_${hashString(`${todoId}:${stableUrl}`)}`;
+}
+
+function googleStorageHost(hostname: string): boolean {
+  return (
+    hostname === 'firebasestorage.googleapis.com' ||
+    hostname === 'storage.googleapis.com' ||
+    hostname.endsWith('.storage.googleapis.com')
+  );
+}
+
+function inferredImageType(url: URL, responseType: string): string {
+  if (responseType.startsWith('image/')) return responseType;
+  const pathname = url.pathname.toLowerCase();
+  if (pathname.endsWith('.png')) return 'image/png';
+  if (pathname.endsWith('.webp')) return 'image/webp';
+  if (pathname.endsWith('.gif')) return 'image/gif';
+  if (pathname.endsWith('.jpg') || pathname.endsWith('.jpeg')) {
+    return 'image/jpeg';
+  }
+  return responseType || 'image/jpeg';
+}
+
+async function defaultPhotoProcessor(file: File): Promise<Blob> {
+  const { compressImage } = await import('./storage');
+  return compressImage(file);
+}
+
+async function fetchTodoMatePhoto(
+  photoUrl: string,
+  idToken: string,
+  fetchImpl: typeof fetch,
+  photoProcessor: (file: File) => Promise<Blob>
+): Promise<Uint8Array | null> {
+  let url: URL;
+  try {
+    url = new URL(photoUrl);
+  } catch {
+    return null;
+  }
+  if (url.protocol !== 'https:') return null;
+
+  const baseInit: RequestInit = {
+    method: 'GET',
+    credentials: 'omit',
+    referrerPolicy: 'no-referrer',
+    cache: 'no-store',
+  };
+
+  let response: Response | null = null;
+  try {
+    response = await fetchImpl(url.toString(), baseInit);
+  } catch {
+    // Keep the initial null response and allow the guarded Google Storage
+    // authentication retry below when applicable.
+  }
+
+  if (
+    (!response || response.status === 401 || response.status === 403) &&
+    googleStorageHost(url.hostname)
+  ) {
+    try {
+      response = await fetchImpl(url.toString(), {
+        ...baseInit,
+        headers: { authorization: `Bearer ${idToken}` },
+      });
+    } catch {
+      response = null;
+    }
+  }
+
+  if (!response?.ok) return null;
+
+  const declaredLength = Number(response.headers.get('content-length') || '0');
+  if (
+    Number.isFinite(declaredLength) &&
+    declaredLength > MAX_TODOMATE_PHOTO_BYTES
+  ) {
+    return null;
+  }
+
+  const blob = await response.blob();
+  if (blob.size === 0 || blob.size > MAX_TODOMATE_PHOTO_BYTES) return null;
+  if (blob.type && !blob.type.startsWith('image/')) return null;
+
+  const type = inferredImageType(url, blob.type);
+  try {
+    const processed = await photoProcessor(
+      new File([blob], `todomate-photo-${Date.now()}`, { type })
+    );
+    if (processed.size === 0 || processed.size > MAX_TODOMATE_PHOTO_BYTES) {
+      return null;
+    }
+    return new Uint8Array(await processed.arrayBuffer());
+  } catch {
+    return null;
+  }
+}
+
+async function downloadTodoMatePhotos(
+  todos: FirestoreRecord[],
+  idToken: string,
+  fetchImpl: typeof fetch,
+  photoProcessor: (file: File) => Promise<Blob>,
+  report: (message: string) => void
+): Promise<{
+  found: number;
+  prepared: Map<string, PreparedTodoMatePhoto>;
+}> {
+  const candidates = todos
+    .filter((todo) => Boolean(maybeString(todo.fields.content)))
+    .map((todo) => ({
+      todoId: todo.id,
+      url: maybeString(todo.fields.photoURL),
+    }))
+    .filter((candidate) => Boolean(candidate.url));
+
+  const prepared = new Map<string, PreparedTodoMatePhoto>();
+  let cursor = 0;
+  let completed = 0;
+
+  const worker = async () => {
+    while (true) {
+      const index = cursor;
+      cursor += 1;
+      if (index >= candidates.length) return;
+      const candidate = candidates[index];
+      const bytes = await fetchTodoMatePhoto(
+        candidate.url,
+        idToken,
+        fetchImpl,
+        photoProcessor
+      );
+      completed += 1;
+      report(
+        `Fetching TodoMate photos (${completed}/${candidates.length})…`
+      );
+      if (!bytes) continue;
+      prepared.set(candidate.todoId, {
+        sourceId: photoSourceId(candidate.todoId, candidate.url),
+        bytes,
+      });
+    }
+  };
+
+  const workerCount = Math.min(TODOMATE_PHOTO_CONCURRENCY, candidates.length);
+  await Promise.all(
+    Array.from({ length: workerCount }, () => worker())
+  );
+
+  return { found: candidates.length, prepared };
+}
+
+async function zipAsync(
+  files: Record<string, Uint8Array>
+): Promise<Uint8Array> {
+  const { zip } = await import('fflate');
+  return new Promise((resolve, reject) => {
+    zip(files, { level: 6 }, (error, data) => {
+      if (error) reject(error);
+      else resolve(data);
+    });
+  });
+}
+
 export interface TodoMateTransferPreview {
   categories: number;
   tasks: number;
   diary: number;
   unscheduledMovedToToday: number;
-  photosSkipped: number;
+  photosFound: number;
+  photosReady: number;
+  photosUnavailable: number;
   routinesReferenced: number;
 }
 
@@ -308,14 +495,18 @@ async function queryOwnedCollection(
   return parseRunQuery(await readJson(response));
 }
 
-function makeMosaicBackup(
+async function makeMosaicBackup(
   email: string,
   uid: string,
   goals: FirestoreRecord[],
   todos: FirestoreRecord[],
   diaries: FirestoreRecord[],
-  now: Date
-): { file: File; preview: TodoMateTransferPreview } {
+  now: Date,
+  photoResult: {
+    found: number;
+    prepared: Map<string, PreparedTodoMatePhoto>;
+  }
+): Promise<{ file: File; preview: TodoMateTransferPreview }> {
   const exportedAt = now.toISOString();
   const today = localDateKey(now);
 
@@ -338,7 +529,6 @@ function makeMosaicBackup(
   }));
 
   let unscheduledMovedToToday = 0;
-  let photosSkipped = 0;
   const routineIds = new Set<string>();
 
   const tasks = todos
@@ -350,7 +540,7 @@ function makeMosaicBackup(
         date = today;
       }
 
-      if (maybeString(todo.fields.photoURL)) photosSkipped += 1;
+      const preparedPhoto = photoResult.prepared.get(todo.id);
       const routineId = maybeString(todo.fields.routineID);
       if (routineId) routineIds.add(routineId);
 
@@ -362,7 +552,7 @@ function makeMosaicBackup(
         tags: '',
         date,
         memo: maybeString(todo.fields.memo),
-        image: '',
+        image: preparedPhoto?.sourceId || '',
         createdAt:
           millisToIso(todo.fields.createTime) ||
           (todo.createTime && Number.isFinite(Date.parse(todo.createTime))
@@ -409,7 +599,9 @@ function makeMosaicBackup(
     tasks: tasks.length,
     diary: diary.length,
     unscheduledMovedToToday,
-    photosSkipped,
+    photosFound: photoResult.found,
+    photosReady: photoResult.prepared.size,
+    photosUnavailable: photoResult.found - photoResult.prepared.size,
     routinesReferenced: routineIds.size,
   };
 
@@ -438,21 +630,40 @@ function makeMosaicBackup(
       friendships: [],
     },
     images: {
-      included: false,
-      referenced: [],
+      included: photoResult.prepared.size > 0,
+      referenced: Array.from(photoResult.prepared.values(), (photo) => photo.sourceId),
       missingImages: [],
       note:
-        photosSkipped > 0
-          ? 'TodoMate photo attachments are not included in this migration.'
-          : 'No TodoMate photo attachments were included.',
+        photoResult.prepared.size > 0
+          ? 'TodoMate photo attachments are bundled for Mosaic Storage migration.'
+          : 'No TodoMate photo attachments were bundled.',
     },
   };
 
+  if (photoResult.prepared.size === 0) {
+    return {
+      file: new File(
+        [JSON.stringify(payload)],
+        `todomate-to-mosaic-${today}.json`,
+        { type: 'application/json' }
+      ),
+      preview,
+    };
+  }
+
+  const encoder = new TextEncoder();
+  const files: Record<string, Uint8Array> = {
+    'manifest.json': encoder.encode(JSON.stringify(payload)),
+  };
+  for (const photo of photoResult.prepared.values()) {
+    files[`images/${photo.sourceId}.webp`] = photo.bytes;
+  }
+  const zipped = await zipAsync(files);
   return {
     file: new File(
-      [JSON.stringify(payload)],
-      `todomate-to-mosaic-${today}.json`,
-      { type: 'application/json' }
+      [zipped.buffer as ArrayBuffer],
+      `todomate-to-mosaic-${today}.zip`,
+      { type: 'application/zip' }
     ),
     preview,
   };
@@ -509,6 +720,23 @@ export async function prepareTodoMateTransfer(
     ),
   ]);
 
+  const photoProcessor = options.photoProcessor ?? defaultPhotoProcessor;
+  const photoResult = await downloadTodoMatePhotos(
+    todos,
+    session.idToken,
+    fetchImpl,
+    photoProcessor,
+    report
+  );
+
   report('Preparing Mosaic import…');
-  return makeMosaicBackup(email, session.uid, goals, todos, diaries, now());
+  return makeMosaicBackup(
+    email,
+    session.uid,
+    goals,
+    todos,
+    diaries,
+    now(),
+    photoResult
+  );
 }

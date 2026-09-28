@@ -37,7 +37,9 @@ describe('TodoMateImportSheet', () => {
         tasks: 12,
         diary: 2,
         unscheduledMovedToToday: 1,
-        photosSkipped: 2,
+        photosFound: 2,
+        photosReady: 2,
+        photosUnavailable: 0,
         routinesReferenced: 1,
       },
     });
@@ -46,7 +48,7 @@ describe('TodoMateImportSheet', () => {
       restored: { tasks: 12, categories: 3, diary: 2, settings: 0 },
       skippedNewer: 1,
       tombstoned: 0,
-      imagesRestored: 0,
+      imagesRestored: 2,
       imagesMissing: 0,
       safetyBackupDownloaded: false,
     });
@@ -73,9 +75,45 @@ describe('TodoMateImportSheet', () => {
     );
     expect(password).toHaveValue('');
     expect(screen.getByText(/1 unscheduled task will be placed on today/i)).toBeInTheDocument();
-    expect(screen.getByText(/2 TodoMate photo attachments will not be copied/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(/2 of 2 TodoMate photo attachments are ready to copy/i)
+    ).toBeInTheDocument();
     expect(screen.getByText(/1 TodoMate routine reference will stay linked/i)).toBeInTheDocument();
     expect(screen.getByText(/Existing newer Mosaic data wins/i)).toBeInTheDocument();
+  });
+
+  it('reports photo downloads that could not be prepared without blocking the import', async () => {
+    mocks.prepareTodoMateTransfer.mockResolvedValueOnce({
+      file: preparedFile,
+      preview: {
+        categories: 3,
+        tasks: 12,
+        diary: 2,
+        unscheduledMovedToToday: 0,
+        photosFound: 4,
+        photosReady: 3,
+        photosUnavailable: 1,
+        routinesReferenced: 0,
+      },
+    });
+
+    render(<TodoMateImportSheet isOpen onClose={vi.fn()} />);
+
+    fireEvent.change(screen.getByLabelText('TodoMate email'), {
+      target: { value: 'todo@example.com' },
+    });
+    fireEvent.change(screen.getByLabelText('TodoMate password'), {
+      target: { value: 'secret-password' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Preview Transfer' }));
+
+    await screen.findByText(/3 of 4 TodoMate photo attachments are ready to copy/i);
+    expect(
+      screen.getByText(/1 TodoMate photo attachment could not be downloaded/i)
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Import into Mosaic' })
+    ).toBeEnabled();
   });
 
   it('imports only through Mosaic Merge restore', async () => {
@@ -115,7 +153,7 @@ describe('TodoMateImportSheet', () => {
       )
     );
     expect(onSuccess).toHaveBeenCalledWith(
-      expect.stringMatching(/17 restored.*1 newer Mosaic item kept/)
+      expect.stringMatching(/17 restored.*2 photos copied.*1 newer Mosaic item kept/)
     );
     expect(onClose).toHaveBeenCalledOnce();
   });

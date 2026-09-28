@@ -66,6 +66,10 @@ This roadmap records durable workstreams and batch status. `SESSION_STATE.md` co
   account preview contained 505 tasks, 13 categories, and 1 diary entry; 3 undated tasks were
   intentionally placed on the import day and 37 TodoMate photo attachments were reported but not
   copied. Recurring routine definitions remain intentionally out of scope for the first version.
+- [ ] TodoMate photo migration enhancement: direct browser photo download, secure Google Storage
+  auth retry, deterministic ZIP bundling, and idempotent fill-in of photos on already-imported
+  tasks are implemented with automated coverage. Real-account acceptance of the user's existing
+  37 photo attachments remains.
 
 ## Feature backlog
 
