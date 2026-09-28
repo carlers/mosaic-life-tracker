@@ -55,9 +55,10 @@ The restore safety requirement itself is correct and must not be bypassed.
   `BACKUP_RESTORE.md`, and `TODOMATE_IMPORT.md`.
 
 ## Verification status
-- Focused CI for the final runtime/test tip was queued after
-  `2b487eed7bdf84204cc9a64117bcd72cb05a097c`; final docs were added afterward.
-- A final exact-SHA full Quality Gate is still required after checkpoint finalization.
+- Diff review is complete and scope is limited to the sync coordinator/push path, restore
+  preflight, focused unit regressions, and the corresponding contracts/checkpoint.
+- Earlier focused runs were superseded by subsequent commits before completion; the final
+  task tip therefore requests the canonical full gate directly.
 - No hosted manual acceptance has been claimed for the sync fix yet.
 
 ## Remaining
