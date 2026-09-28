@@ -132,44 +132,31 @@ describe('Mosaic bootstrap configuration', () => {
 });
 
 describe('DR Function deployment CLI configuration', () => {
-  const secrets = {
-    R2_ACCOUNT_ID: 'account',
-    R2_ACCESS_KEY_ID: 'access',
-    R2_SECRET_ACCESS_KEY: 'secret',
-    R2_BUCKET: 'bucket',
-    DR_ENCRYPTION_KEY_B64: 'key',
-  };
-
-  it('reuses the restored-project API key and recovery secrets without printing them', () => {
+  it('requires only the restored-project API key and endpoint', () => {
     const config = parseDrFunctionDeployArgs(
       ['--target-project', 'restored_project'],
       {
         APPWRITE_TARGET_API_KEY: 'temporary-function-key',
         APPWRITE_TARGET_ENDPOINT: 'https://fra.cloud.appwrite.io/v1',
-        ...secrets,
       }
     );
 
-    expect(config).toMatchObject({
+    expect(config).toEqual({
       projectId: 'restored_project',
       endpoint: 'https://fra.cloud.appwrite.io/v1',
       apiKey: 'temporary-function-key',
-      drSecrets: secrets,
+      messageFunctionId: undefined,
+      drFunctionId: undefined,
     });
   });
 
-  it('fails before deployment when a required recovery secret is missing', () => {
+  it('fails before deployment when the target API key is missing', () => {
     expect(() =>
       parseDrFunctionDeployArgs(
         ['--target-project', 'restored_project'],
-        {
-          APPWRITE_TARGET_API_KEY: 'temporary-function-key',
-          APPWRITE_TARGET_ENDPOINT: 'https://fra.cloud.appwrite.io/v1',
-          ...secrets,
-          DR_ENCRYPTION_KEY_B64: '',
-        }
+        { APPWRITE_TARGET_ENDPOINT: 'https://fra.cloud.appwrite.io/v1' }
       )
-    ).toThrow(/DR_ENCRYPTION_KEY_B64/);
+    ).toThrow(/APPWRITE_TARGET_API_KEY/);
   });
 });
 
@@ -262,13 +249,6 @@ describe('Mosaic bootstrap operations', () => {
         endpoint: 'https://fra.cloud.appwrite.io/v1',
         projectId: 'restored_project',
         apiKey: 'temporary-key',
-        drSecrets: {
-          R2_ACCOUNT_ID: 'account',
-          R2_ACCESS_KEY_ID: 'access',
-          R2_SECRET_ACCESS_KEY: 'secret',
-          R2_BUCKET: 'bucket',
-          DR_ENCRYPTION_KEY_B64: 'key',
-        },
       },
       { services, sleep: async () => {} }
     );
@@ -288,14 +268,11 @@ describe('Mosaic bootstrap operations', () => {
         execute: [],
       })
     );
-    expect(services.functions.createVariable).toHaveBeenCalledWith(
-      expect.objectContaining({
-        functionId: result.drFunctionId,
-        key: 'DR_ENCRYPTION_KEY_B64',
-        value: 'key',
-        secret: true,
-      })
-    );
+    expect(
+      services.functions.createVariable.mock.calls.some(
+        ([input]) => input.secret === true
+      )
+    ).toBe(false);
     expect(services.functions.get).toHaveBeenCalledTimes(2);
     expect(result.messageFunctionId).toBe('6aa8057f002a4c306fdd');
     expect(result.drFunctionId).toBe('dr_backup');
