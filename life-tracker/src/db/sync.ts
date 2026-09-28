@@ -34,6 +34,8 @@ const RATE_LIMIT_BASE_MS = 5_000;
 const RATE_LIMIT_MAX_MS = 60_000;
 const FAILURE_BACKOFF_BASE_MS = 5_000;
 const FAILURE_BACKOFF_MAX_MS = 60_000;
+const PUSH_CONCURRENCY = 4;
+const SYNC_COORDINATOR_IDLE_TIMEOUT_MS = 90_000;
 // Tombstones are retained remotely for this long. A client whose incremental
 // pull cursor is older than the retention window performs a full pull so it
 // never assumes that a missing row means the row still exists.
@@ -213,6 +215,71 @@ function toMs(value: unknown): number {
   if (typeof value !== 'string' || !value) return 0;
   const t = new Date(value).getTime();
   return Number.isFinite(t) ? t : 0;
+}
+
+async function runBounded<T, R>(
+  items: T[],
+  limit: number,
+  worker: (item: T) => Promise<R>
+): Promise<R[]> {
+  if (items.length === 0) return [];
+  const results = new Array<R>(items.length);
+  let cursor = 0;
+
+  const runWorker = async () => {
+    while (true) {
+      const index = cursor;
+      cursor += 1;
+      if (index >= items.length) return;
+      results[index] = await worker(items[index]);
+    }
+  };
+
+  await Promise.all(
+    Array.from(
+      { length: Math.min(Math.max(1, limit), items.length) },
+      () => runWorker()
+    )
+  );
+  return results;
+}
+
+async function waitForSyncCoordinatorIdle(
+  timeoutMs = SYNC_COORDINATOR_IDLE_TIMEOUT_MS
+): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+  while (isSyncInProgress || isSyncCycleQueued || syncRequestedDuringFlight) {
+    if (Date.now() >= deadline) {
+      throw new Error(
+        'Mosaic sync is still busy. Close other Mosaic tabs or wait for sync to finish, then try again.'
+      );
+    }
+    await new Promise((resolve) => setTimeout(resolve, 25));
+  }
+}
+
+export interface FreshSyncResult {
+  status: SyncStatus;
+  startedAt: number;
+}
+
+/**
+ * Callers that must observe a genuinely fresh server snapshot (for example
+ * destructive/import restore preflight) cannot treat initializeSync() as an
+ * awaitable freshness barrier: initializeSync intentionally coalesces
+ * same-tab re-entry and returns immediately while a cycle is in flight.
+ *
+ * Drain the coordinator first, then start and await one new cycle. Cross-tab
+ * Web Locks still serialize the new cycle behind any other tab.
+ */
+export async function refreshSync(
+  userId: string,
+  timeoutMs = SYNC_COORDINATOR_IDLE_TIMEOUT_MS
+): Promise<FreshSyncResult> {
+  await waitForSyncCoordinatorIdle(timeoutMs);
+  const startedAt = Date.now();
+  await initializeSync(userId);
+  return { status: getSyncStatus(), startedAt };
 }
 
 async function resolvePendingImageForPush(
@@ -615,8 +682,14 @@ async function syncCollection(
   // recreated; only genuinely dirty local rows remain eligible to push.
   if (colName !== 'messages') {
     const localDocs = await collection.find().exec();
+    const pushCandidates: Array<{
+      doc: LocalDoc;
+      json: Record<string, unknown>;
+      docId: string;
+    }> = [];
+
     for (const doc of localDocs) {
-      let json = doc.toJSON();
+      const json = doc.toJSON();
       const docUserId = json.userId as string | undefined;
       if (docUserId !== userId) continue;
       const docId = (json.id as string) || doc.id;
@@ -625,13 +698,15 @@ async function syncCollection(
       const remoteMeta = remoteIndex.get(docId);
       const localLwt = doc._meta?.lwt ?? 0;
       const isLocalDirty = localLwt > dirtyBoundaryMs;
-      const reconciliationStamp = reconciledMissing[reconciliationKey(colName, docId)];
+      const reconciliationStamp =
+        reconciledMissing[reconciliationKey(colName, docId)];
       const isReconciledMissing =
         !remoteMeta &&
         json.isDeleted === true &&
         !!reconciliationStamp &&
         toMs(json.updatedAt) <= toMs(reconciliationStamp);
       if (isReconciledMissing) continue;
+
       let shouldPush = false;
       if (isLocalDirty) {
         shouldPush = true;
@@ -640,27 +715,48 @@ async function syncCollection(
         shouldPush = localUpdatedAt > remoteMeta.updatedAt;
       }
       if (!shouldPush) continue;
-      try {
-        json = await resolvePendingImageForPush(doc, json, colName, userId);
-      } catch (imageError) {
-        console.error(
-          `[Sync] Failed to reconcile pending image for ${colName} ${docId}:`,
-          imageError
-        );
-        pushFailed++;
-        continue;
-      }
-      const rowData = toAppwriteFormat(json, colName, userId);
-      if (DEBUG) console.log(`[Sync] Pushing ${colName} ${docId}`);
-      try {
-        await guardedTablesDB.updateRow({
-          databaseId: APPWRITE_CONFIG.databaseId,
-          tableId,
-          rowId: docId,
-          data: rowData,
-        });
-      } catch (updateErr) {
-        if (isNotFoundError(updateErr)) {
+      pushCandidates.push({ doc, json, docId });
+    }
+
+    const pushResults = await runBounded(
+      pushCandidates,
+      PUSH_CONCURRENCY,
+      async ({ doc, json: initialJson, docId }) => {
+        let json = initialJson;
+        try {
+          json = await resolvePendingImageForPush(
+            doc,
+            json,
+            colName,
+            userId
+          );
+        } catch (imageError) {
+          console.error(
+            `[Sync] Failed to reconcile pending image for ${colName} ${docId}:`,
+            imageError
+          );
+          return 1;
+        }
+
+        const rowData = toAppwriteFormat(json, colName, userId);
+        if (DEBUG) console.log(`[Sync] Pushing ${colName} ${docId}`);
+        try {
+          await guardedTablesDB.updateRow({
+            databaseId: APPWRITE_CONFIG.databaseId,
+            tableId,
+            rowId: docId,
+            data: rowData,
+          });
+          return 0;
+        } catch (updateErr) {
+          if (!isNotFoundError(updateErr)) {
+            console.error(
+              `[Sync] Failed to push ${colName} ${docId}:`,
+              updateErr
+            );
+            return 1;
+          }
+
           // createRow is a strict insert (no PUT semantics). If the row
           // reappeared between our 404 and this call, createRow throws
           // 409 and we let the next cycle reconcile. Do NOT use
@@ -674,22 +770,18 @@ async function syncCollection(
               data: rowData,
               permissions: buildRowPermissions(userId),
             });
+            return 0;
           } catch (createErr) {
             console.error(
               `[Sync] Failed to create ${colName} ${docId}:`,
               createErr
             );
-            pushFailed++;
+            return 1;
           }
-        } else {
-          console.error(
-            `[Sync] Failed to push ${colName} ${docId}:`,
-            updateErr
-          );
-          pushFailed++;
         }
       }
-    }
+    );
+    pushFailed = pushResults.reduce((total, failed) => total + failed, 0);
   }
   if (incrementalCursorExpired) {
     const localDocsAfterPull = await collection.find().exec();
