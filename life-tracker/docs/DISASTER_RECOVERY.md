@@ -138,7 +138,11 @@ provisioned. The DR Function remains schedule-disabled until the entire isolated
   isolated drill does not import escrowed recovery secrets into Appwrite.
 - `npm run dr:check` performs the authenticated operator check: it decrypts/verifies the newest committed manifest and exits non-zero when it is missing, tampered, or older than `DR_MAX_AGE_HOURS` (default 36).\n- `npm run dr:watch` is the external metadata-only stale-backup check. It needs only bucket-scoped R2 Object Read credentials, validates the newest `COMPLETED` marker plus manifest object/hash metadata, and never needs `DR_ENCRYPTION_KEY_B64`. It does not replace the authenticated `dr:check`.\n- `.github/workflows/dr-backup-watch.yml` runs `dr:watch` daily at 00:15 UTC when repository variable `DR_BACKUP_WATCH_ENABLED=true`. Keep it disabled until the first restore drill passes and a completed production backup exists. Configure GitHub Actions secrets `DR_R2_ACCOUNT_ID`, `DR_R2_RECOVERY_ACCESS_KEY_ID`, `DR_R2_RECOVERY_SECRET_ACCESS_KEY`, and `DR_R2_BUCKET` using a separate bucket-scoped **Object Read only** R2 token. A failed workflow is the external stale-backup signal.
 - `appwrite-functions/dr-backup/function.config.json` is the non-secret source of truth for
-  the dedicated backup Function boundary. Its checked-in production schedule is blank.
+  the dedicated backup Function boundary. After the accepted restore drill, the production
+  schedule is `0 11 * * *` (11:00 UTC daily). The external watcher runs at 00:15 UTC;
+  this spacing means that if one daily backup is missed, even a prior run that consumed
+  the full 15-minute Function timeout is older than the 36-hour stale threshold by the
+  next watcher check.
 - `appwrite-functions/message-action/function.config.json` records the existing general
   trusted Function configuration needed during recovery.
 
@@ -158,6 +162,7 @@ The production schedule remains blank until all of the following are true:
    friendships/messages, and photo checks.
 
 Only after the drill passes may a non-overlapping daily production schedule be enabled.
+The accepted production schedule is 11:00 UTC daily (`0 11 * * *`).
 A stale-backup check treats the newest valid `COMPLETED` snapshot older than 36 hours as
 unhealthy. A check that cannot reach R2 is also unhealthy; absence of an alerting transport
 must not be described as active monitoring.
