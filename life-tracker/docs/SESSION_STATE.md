@@ -2,9 +2,9 @@
 
 Updated: 2026-09-28
 Current task: server-controlled friend requests and recovery of existing invisible requests.
-Status: implementation and focused verification in progress.
-Next action: finish safety regression review, run canonical acceptance, then coordinate isolated rehearsal and backend/client permission cutover.
-Blockers: isolated Appwrite target awaits identification; fresh backup completed; full restore rehearsal and live cutover still required.
+Status: live Preview acceptance found an Appwrite transaction TTL incompatibility; fix in progress.
+Next action: fix Appwrite transaction TTL minimum, verify the handler regression, redeploy message-action, then resume Preview acceptance.
+Blockers: full restore rehearsal remains deferred; current blocker is the live friendship transaction TTL incompatibility.
 
 ## Working set
 - appwrite-functions/message-action/
@@ -36,7 +36,7 @@ Blockers: isolated Appwrite target awaits identification; fresh backup completed
 - Task branch: chatgpt/friend-request-delivery, based on dev 722c43e.
 
 ## Verification
-- Server acceptance initially failed for unsupported friendship action; now passes.
+- Server acceptance initially failed for unsupported friendship action; the new deployment exposed an Appwrite transaction TTL incompatibility (30s below the 60s minimum).
 - 85 handler tests and 252 DOM tests passed before final regression additions.
 - Handoff CLI tests require unsandboxed temporary Git fixtures; all three passed there.
 - Build/PWA/size passed. Full canonical and hosted checks remain pending.
