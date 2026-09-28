@@ -6,6 +6,7 @@ const fixture = vi.hoisted(() => ({
   options: null as {
     dataSource?: Array<{ src?: string; w?: number; h?: number; alt?: string }>;
   } | null,
+  handlers: new Map<string, () => void>(),
 }));
 
 vi.mock('photoswipe/lightbox', () => ({
@@ -16,7 +17,9 @@ vi.mock('photoswipe/lightbox', () => ({
       fixture.options = options;
     }
 
-    on() {}
+    on(name: string, handler: () => void) {
+      fixture.handlers.set(name, handler);
+    }
     init() {}
     loadAndOpen() {}
     destroy() {}
@@ -41,7 +44,46 @@ class PortraitImage {
 describe('ImageViewer', () => {
   beforeEach(() => {
     fixture.options = null;
+    fixture.handlers.clear();
+    window.history.replaceState(
+      { __mosaicBottomSheetGuard: 'day-sheet' },
+      '',
+      window.location.href
+    );
     vi.stubGlobal('Image', PortraitImage);
+  });
+
+  // Regression: §2 (task photo viewer is the top Android/browser Back layer).
+  it('closes viewer state on browser Back without consuming the Day View layer', async () => {
+    const onClose = vi.fn();
+
+    render(
+      <ImageViewer
+        isOpen
+        imageUrl="blob:portrait"
+        taskTitle="Portrait task"
+        taskDate="2026-09-28"
+        onClose={onClose}
+      />
+    );
+
+    await waitFor(() =>
+      expect(window.history.state.__mosaicImageViewerGuard).toBeTruthy()
+    );
+
+    window.history.replaceState(
+      { __mosaicBottomSheetGuard: 'day-sheet' },
+      '',
+      window.location.href
+    );
+    window.dispatchEvent(
+      new PopStateEvent('popstate', { state: window.history.state })
+    );
+
+    expect(onClose).toHaveBeenCalledTimes(1);
+    expect(window.history.state).toEqual({
+      __mosaicBottomSheetGuard: 'day-sheet',
+    });
   });
 
   // Regression: §2 (task photo viewer preserves source aspect ratio).
