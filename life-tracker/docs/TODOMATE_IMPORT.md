@@ -92,9 +92,26 @@ TodoMate permits undated tasks while Mosaic currently requires a calendar date. 
 silently losing those tasks, the import preview counts them and the generated migration
 places them on the local calendar day on which the preview was created.
 
-TodoMate task photo URLs are not stored directly in Mosaic's `image` field because Mosaic
-requires owned Appwrite Storage file IDs. The first importer version counts and reports these
-attachments but leaves the Mosaic image reference empty.
+TodoMate task photo URLs are migrated through Mosaic's existing backup/restore image path
+rather than being stored directly in the task `image` field. During preview, Mosaic attempts
+to download each HTTPS `photoURL` directly in the browser with credentials omitted and no
+referrer. If a Google/Firebase Storage URL returns 401/403, Mosaic may retry that same Google
+Storage URL with the already-held TodoMate Firebase ID token; the token is never attached to
+an arbitrary photo host.
+
+Successfully downloaded images are compressed locally to WebP, given deterministic source
+image IDs derived from the TodoMate task and stable photo URL path, bundled into the in-memory
+migration ZIP, and then uploaded by Mosaic's existing restore engine into the signed-in user's
+own Appwrite Storage bucket. The task is rewritten to the resulting Mosaic-owned file ID.
+
+Photo preparation is bounded to four concurrent downloads and rejects invalid/non-HTTPS,
+non-image, empty, or over-20 MiB source responses. Unavailable photos are reported in preview
+without aborting the rest of the migration. A later re-import can retry them.
+
+This is intentionally idempotent. The restore engine already permits an equal-version
+cross-account task to run again when the current Mosaic task is missing its portable image,
+so users who imported TodoMate before photo support can rerun the migration to fill photos
+without duplicating their existing tasks.
 
 TodoMate routine references are preserved on imported tasks, but Mosaic does not currently
 have a routine-definition collection to reconstruct TodoMate's recurring rules. The preview
@@ -137,7 +154,7 @@ Preview reads TodoMate but performs no Mosaic writes. It reports at minimum:
 - task count
 - diary count
 - undated tasks that will be placed on today
-- TodoMate photo attachments not copied
+- TodoMate photo attachments found, ready to copy, and unavailable
 - distinct routine references whose recurring definitions are not recreated
 
 Only after preview can the user start the Merge import.
@@ -172,7 +189,11 @@ Automated coverage must prove:
 5. Firestore queries use the authenticated owner filter and do not require a date filter;
 6. category/task/diary mapping and warnings are deterministic;
 7. a rejected TodoMate login performs no history reads;
-8. the UI clears the password after preview and imports only through Merge restore.
+8. TodoMate photo bytes are bundled with deterministic image IDs and mapped onto the source
+   tasks;
+9. an arbitrary photo host never receives the Firebase bearer token, while a Google Storage
+   401/403 may be retried with that token;
+10. the UI clears the password after preview and imports only through Merge restore.
 
 Live acceptance requires a real TodoMate account and must be done by the user locally. Never
 ask the user to paste TodoMate credentials or Firebase tokens into an AI chat. Verify preview
@@ -192,8 +213,22 @@ Observed preview:
 - 13 categories
 - 1 diary entry
 - 3 undated tasks placed on the local import day
-- 37 TodoMate task photo attachments reported and skipped
+- 37 TodoMate task photo attachments reported and skipped by the original v1 importer
 
 The user completed **Import into Mosaic** successfully. The migration remained Merge-only and
 the known first-version limitations (photo attachment copying and recurring routine-definition
 reconstruction) remained explicit rather than being silently widened or guessed.
+
+
+## Photo migration enhancement
+
+After the initial accepted migration, photo copying was added as an additive enhancement.
+The user's previously imported TodoMate tasks do not need to be deleted. Re-running the
+import with the photo-capable build will reuse the same deterministic task IDs and only
+update equal-version tasks whose Mosaic image field is still empty.
+
+Automated acceptance covers direct public photo download, ZIP bundling, deterministic image
+references, secure Google Storage bearer-token retry, partial photo failure reporting, and
+the existing equal-version image retry in the restore engine. Real-account acceptance remains
+to confirm how many of the user's 37 TodoMate photo URLs are currently downloadable from the
+browser and that the resulting Appwrite-hosted images render on their existing imported tasks.
