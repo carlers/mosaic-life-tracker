@@ -61,7 +61,6 @@ import {
   deleteImage,
 } from '../../src/lib/storage';
 import { isOfflineError } from '../../src/lib/authEvents';
-import { markConnectivityOnline, markConnectivityOffline } from '../../src/lib/connectivity';
 
 function makeFile(): File {
   return new File(['abc'], 'a.png', { type: 'image/png' });
@@ -140,13 +139,11 @@ describe('storage.uploadImage — error messages', () => {
 
 describe('storage.saveProfileImage — friend-readable permissions', () => {
   it('uploads profile images with all-user read access and owner-only writes', async () => {
-    markConnectivityOnline('test');
     sdkRef.guardedStorageCreateFile.mockResolvedValueOnce({ $id: 'img_profile' });
-    await expect(saveProfileImage(makeFile(), 'user_A')).resolves.toMatch(/^img_/);
+    await expect(saveProfileImage(makeFile(), 'user_A')).resolves.toBe('img_profile');
     expect(sdkRef.guardedStorageCreateFile).toHaveBeenCalledWith(expect.objectContaining({
       permissions: ['read("users")', 'update("user:user_A")', 'delete("user:user_A")'],
     }));
-    markConnectivityOffline('test-reset');
   });
 
   it('repairs an existing profile image without broadening writes', async () => {
