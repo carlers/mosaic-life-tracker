@@ -7,8 +7,9 @@ Current task: finish disaster-recovery rollout on `security/disaster-backups`.
 Status: the first real production DR backup completed successfully and reconciled exactly
 against the live source inventory. Snapshot `20260927T171742476Z` has now been restored
 into the isolated spare Appwrite project and the restore CLI's full verification passed.
-Production scheduling and external stale-backup monitoring remain disabled until Function
-deployment and manual application acceptance complete.
+Both repository-owned Functions are now deployed to the restored project with schedules
+disabled and ready deployments. Production scheduling and external stale-backup monitoring
+remain disabled until manual application acceptance completes.
 
 ## Successful production restore point
 - Backup ID: `20260927T171742476Z`.
@@ -36,7 +37,7 @@ deployment and manual application acceptance complete.
   (`6a96e82d000d1310b3be`, region `fra`) for the isolated DR restore drill.
 - Snapshot `20260927T171742476Z` is restored there. Independent live inventory after the
   passing restore shows 2 users, 1 TablesDB database with 10 tables and 559 total rows,
-  1 Storage bucket with 6 files, and 0 Functions.
+  1 Storage bucket with 6 files, and 2 ready Functions.
 - The project remains reserved for this restore drill; never use production Mosaic as a
   restore target.
 
@@ -56,16 +57,19 @@ deployment and manual application acceptance complete.
   checked-in Functions in an already restored project, refuses a target that already has
   Functions, and verifies both schedules remain blank after deployment.
 - The recovery Function deploy path is covered by unit tests for schedule disabling and
-  local CLI configuration. The drill intentionally leaves DR runtime secrets unset so the
-  independently escrowed recovery credential/key are not copied back into Appwrite; fresh
-  writer credentials are a later production-recovery concern. Full canonical acceptance is
-  the final automated gate before running the deploy command against the restored project.
+  local CLI configuration. Full canonical acceptance passed at `4fe9bf1f3eeeaf48585ee665940042fd7c75e6d9`.
+- The live Function deployment then passed: `message-action` and `dr-backup` each have one
+  ready active deployment and blank schedules. `dr-backup` has no R2/encryption secrets
+  copied into the restored project.
+- The two short-lived Appwrite API keys used for restore and Function deployment were deleted
+  after successful use.
+- A temporary `localhost` Web platform (`mosaic_dr_localhost`) is registered only for
+  manual DR application acceptance.
 
 ## Remaining rollout
-1. Deploy the two repository-owned Functions to the restored DR target with schedules
-   disabled.
-2. Point a temporary Mosaic build at the DR project and complete manual login/tasks/
+1. Point a temporary Mosaic build at the DR project and complete manual login/tasks/
    diary/settings/friendships/messages/photos acceptance.
+2. Remove the temporary localhost platform after manual acceptance.
 3. Only after the drill passes: enable the production daily backup schedule and configure/
    enable the external read-only GitHub stale-backup watcher.
 
@@ -76,9 +80,6 @@ deployment and manual application acceptance complete.
 - Never restore into the production Mosaic project.
 - Do not promote `security/disaster-backups` to `dev` without explicit user instruction.
 
-Next action: create a short-lived Appwrite API key in `My first project` with only
-`functions.read` and `functions.write`, export it as `APPWRITE_TARGET_API_KEY`, pull
-the latest task branch, then run
-`npm run dr:deploy-functions -- --target-project 6a96e82d000d1310b3be`.
-Do not supply the escrowed R2 recovery credential/key to this command. Verify both
-deployments become ready and both schedules remain blank.
+Next action: run Mosaic locally with explicit `VITE_APPWRITE_*` environment overrides
+pointing to the restored project, use a fresh/private browser context, and complete the
+manual acceptance checklist without sharing account passwords or user content in chat.
