@@ -12,6 +12,7 @@ describe('PostHog production source-map build contract', () => {
     const vite = read('vite.config.ts');
     const deployment = read('docs/DELIVERY.md');
 
+    expect(vite).toContain("vercelEnvironment !== 'preview'");
     expect(vite).toContain("process.env.POSTHOG_SOURCE_MAPS_ENABLED === 'true'");
     expect(vite).toContain('process.env.POSTHOG_PERSONAL_API_KEY');
     expect(vite).toContain('process.env.POSTHOG_PROJECT_ID');
