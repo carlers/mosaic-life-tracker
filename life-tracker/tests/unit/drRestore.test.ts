@@ -8,6 +8,7 @@ import {
   preflightSnapshot,
   readEncryptionKeyring,
   stableJson,
+  unwrapUserPrefs,
 } from '../../scripts/dr-restore.mjs';
 import {
   encryptBuffer,
@@ -129,6 +130,14 @@ describe('DR restore CLI', () => {
     ]);
   });
 
+  it('unwraps Appwrite preference model data for the update API', () => {
+    expect(unwrapUserPrefs({ data: { theme: 'dark' } })).toEqual({
+      theme: 'dark',
+    });
+    expect(unwrapUserPrefs({ theme: 'light' })).toEqual({ theme: 'light' });
+    expect(unwrapUserPrefs(null)).toEqual({});
+  });
+
   it('imports the original Argon2 hash and account metadata', async () => {
     const users = {
       createArgon2User: vi.fn().mockResolvedValue({}),
@@ -146,7 +155,7 @@ describe('DR restore CLI', () => {
       phone: '+6512345678',
       status: true,
       labels: ['friend'],
-      prefs: { theme: 'dark' },
+      prefs: { data: { theme: 'dark' } },
       emailVerification: true,
       phoneVerification: false,
       mfa: false,
@@ -161,6 +170,10 @@ describe('DR restore CLI', () => {
       email: 'user@example.com',
       password: '$argon2id$backuphash',
       name: 'User',
+    });
+    expect(users.updatePrefs).toHaveBeenCalledWith({
+      userId: 'user_1',
+      prefs: { theme: 'dark' },
     });
     expect(users.updateStatus).toHaveBeenCalledWith({
       userId: 'user_1',
