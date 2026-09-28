@@ -2,79 +2,67 @@
 
 Updated: 2026-09-28
 
-Current task: fix task-photo aspect-ratio distortion discovered after successful TodoMate
-photo migration.
+Current task: fix Samsung/Android Back leaving stale task-photo viewer state after the
+PhotoSwipe overlay disappears.
 
 Stable Preview branch: `feature/todomate-importer`.
-Working branch: `chatgpt/imageviewer-aspect-ratio`, based on stable
-`8329ce480af9766e27144ba7f516fdeb6c9993f3`.
+Working branch: `chatgpt/imageviewer-samsung-back`, based on stable
+`45c35d7c0861a7083dd6ee526f6ad50b008b6154`.
 
-## Live acceptance state
-- Original TodoMate migration: 505 tasks, 13 categories, 1 diary entry.
-- Photo preview: **37 of 37** TodoMate attachments ready.
-- After the sync/restore fix and Vercel build-budget repair, the user reran the importer and
-  reported it **worked perfectly**: the TodoMate photo re-import succeeded on the existing
-  tasks.
-- The remaining issue is presentation only: opening a migrated task photo from Day View in
-  PhotoSwipe stretches portrait/square images horizontally.
+## Live evidence
+- TodoMate photo migration succeeded for all 37 prepared attachments on the existing tasks.
+- The task-photo aspect-ratio fix is already on the stable Preview.
+- On Samsung, pressing Back while a task photo is open removes PhotoSwipe from the screen
+  but does not clear Day View's viewer state. Opening Day View again resurrects that photo.
+- Closing through PhotoSwipe's X or vertical swipe does clear the viewer normally.
 
 ## Root cause
-`src/components/home/views/ImageViewer.tsx` hard-coded every PhotoSwipe source as:
-- width: 1920
-- height: 1080
+Day View itself participates in Mosaic's BottomSheet browser-history stack, but
+`ImageViewer`/PhotoSwipe did not own a nested history entry.
 
-PhotoSwipe therefore laid every source out as 16:9 even when the actual stored WebP was
-portrait or square. The issue is independent of TodoMate mapping/storage; any non-16:9 task
-photo could be distorted in the viewer.
+With the viewer open, Samsung Back therefore consumed the Day View sheet's history layer.
+The parent viewer was torn down visually as the sheet closed, but
+`isImageViewerOpen`/`viewingTaskId` remained set in Day View state. Reopening Day View
+mounted the viewer again from that stale state.
 
-## Product contract
-`PROJECT_REFERENCE.md` §2 now requires the Day View task-photo viewer to use the source
-image's intrinsic dimensions. Portrait, square, and landscape photos must preserve their
-aspect ratio and must not be forced into a fixed 16:9 frame.
+## Fix
+- `ImageViewer` now pushes one viewer-specific browser-history guard above the Day View
+  sheet when it opens.
+- A browser/Android `popstate` below that guard calls the existing Day View `onClose`
+  callback, clearing `isImageViewerOpen` and `viewingTaskId`.
+- PhotoSwipe X and vertical-dismiss close through `history.back()` when the viewer guard
+  is active, so all close paths consume the same modal history layer rather than leaving a
+  dead Back step.
+- The underlying BottomSheet guard is preserved; expected order is viewer → Day View → route.
+- Aspect-ratio behavior and photo data/storage are unchanged.
 
 ## Regression evidence
-A new DOM regression test, `tests/components/ImageViewer.test.tsx`, stubs a portrait
-720×1280 image and inspects the PhotoSwipe item dimensions.
+`tests/components/ImageViewer.test.tsx` now verifies that a browser Back transition from
+the viewer guard to the existing Day View guard invokes the viewer close callback while
+preserving the Day View history state.
 
 Behavioral-red:
-- commit `d0b368b46f1aea6d6f5969f4985bc3ca5caff4a0`
-- Quality Gate 1331 failed the new test as intended:
-  received 1920×1080, expected 720×1280.
-
-Implementation:
-- `ImageViewer` now probes the already-resolved task image for its intrinsic dimensions
-  before creating PhotoSwipe.
-- PhotoSwipe receives the actual width/height.
-- If intrinsic dimensions cannot be read, the viewer closes instead of rendering the image
-  against fabricated dimensions.
-- Existing caption, close gesture, lazy loading, and Day View sheet behavior remain unchanged.
+- `e58293c42b740e0fb0caad7faee1a8149b8889bd`
+- Quality Gate 1340 failed as intended because the viewer created no
+  `__mosaicImageViewerGuard`.
 
 Focused green:
-- commit `09796f6f1c2179c4dd9cc05c1f8e3706efedea32`
-- Quality Gate 1332 passed focused verification.
+- `e606d6195a2b111d5c392e82fbbee2afbc28f7f7`
+- Quality Gate 1341 passed focused verification.
 
-## Verification status
-- Final diff review is complete and scoped to `ImageViewer`, one focused regression test,
-  and the viewer/TodoMate/checkpoint contracts.
-- Behavioral-red Quality Gate 1331 proved the old 1920×1080 metadata stretched the portrait
-  fixture.
-- Focused Quality Gate 1332 passed after the intrinsic-dimension implementation.
-- This exact checkpoint tip requests the full canonical gate before stable Preview delivery.
+## Contract
+`PROJECT_REFERENCE.md` §2 now requires the photo viewer to be the top Android/browser Back
+layer above Day View. One Back closes the viewer state only; the next Back may dismiss Day
+View. X/swipe-down consume that same viewer layer.
 
 ## Remaining
 1. Run exact-SHA full canonical acceptance.
 2. Squash-deliver the accepted fix into `feature/todomate-importer`.
-3. Verify the stable Vercel Preview is READY and the stable alias serves it.
-4. User opens one portrait/square migrated task photo from Day View and confirms it is no
-   longer stretched.
-5. If visually accepted, mark the TodoMate photo migration enhancement complete.
-6. Promotion of `feature/todomate-importer` to `dev` remains an explicit user decision.
+3. Verify the stable Vercel Preview is READY.
+4. Manual Samsung acceptance: open Day View → open photo → press system Back. The photo
+   viewer should close while Day View remains open; closing/reopening Day View must not
+   resurrect the photo.
+5. Promotion of `feature/todomate-importer` to `dev` remains an explicit user decision.
 
-## Separate DR follow-up
-- DR work is already merged into `dev`.
-- Production `dr_backup` remains scheduled at `0 11 * * *`.
-- External GitHub stale-backup monitoring still requires default-branch
-  delivery/configuration; do not promote to `main` without explicit user authorization.
-
-Next action: full-gate this exact viewer fix, deliver the stable Preview, and run the single
-visual aspect-ratio acceptance check.
+Next action: full-gate this exact viewer Back fix, deliver the stable Preview, then run the
+single Samsung Back acceptance check.
