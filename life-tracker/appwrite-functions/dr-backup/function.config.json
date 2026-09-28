@@ -13,7 +13,7 @@
     "buckets.read",
     "files.read"
   ],
-  "schedule": "",
+  "schedule": "0 11 * * *",
   "timeout": 900,
   "entrypoint": "main.mjs",
   "commands": "npm install",
