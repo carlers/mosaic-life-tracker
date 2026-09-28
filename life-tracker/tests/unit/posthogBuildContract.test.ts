@@ -19,5 +19,6 @@ describe('PostHog production source-map build contract', () => {
     expect(vite).toContain('process.env.POSTHOG_HOST');
     expect(deployment).toContain('POSTHOG_SOURCE_MAPS_ENABLED=true');
     expect(deployment).toContain('credentials alone MUST NOT');
+    expect(deployment).toContain('Vercel Preview builds never run the upload');
   });
 });
