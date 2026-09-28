@@ -5,6 +5,11 @@ const TODOMATE_FIREBASE_INIT_URL =
 const IDENTITY_TOOLKIT_URL =
   'https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword';
 
+const TODOMATE_FIREBASE_FALLBACK = {
+  apiKey: 'AIzaSyCtSjt1LBEXmQnZdjD8DOPXBc5I1acm0Ew',
+  projectId: 'mate-914f3',
+} as const;
+
 type JsonRecord = Record<string, unknown>;
 
 interface TodoMateCredentials {
@@ -184,34 +189,35 @@ async function loadFirebaseConfig(fetchImpl: typeof fetch): Promise<{
   apiKey: string;
   projectId: string;
 }> {
-  let response: Response;
   try {
-    response = await fetchImpl(TODOMATE_FIREBASE_INIT_URL, {
+    const response = await fetchImpl(TODOMATE_FIREBASE_INIT_URL, {
       cache: 'no-store',
       credentials: 'omit',
       referrerPolicy: 'no-referrer',
     });
+
+    if (response.ok) {
+      const payload = await readJson(response);
+      if (
+        isRecord(payload) &&
+        typeof payload.apiKey === 'string' &&
+        payload.apiKey &&
+        typeof payload.projectId === 'string' &&
+        payload.projectId
+      ) {
+        return {
+          apiKey: payload.apiKey,
+          projectId: payload.projectId,
+        };
+      }
+    }
   } catch {
-    throw new Error(
-      'Mosaic could not load TodoMate’s public connection settings. Try again from an online browser.'
-    );
+    // TodoMate's public Firebase init endpoint is not guaranteed to allow
+    // cross-origin browser reads. Fall through to the public web config
+    // shipped by TodoMate itself rather than failing before authentication.
   }
 
-  if (!response.ok) {
-    throw new Error(
-      'Mosaic could not load TodoMate’s public connection settings. Try again later.'
-    );
-  }
-
-  const payload = await readJson(response);
-  if (!isRecord(payload)) {
-    throw new Error('TodoMate’s public connection settings are invalid.');
-  }
-
-  return {
-    apiKey: requireString(payload.apiKey, 'Firebase key'),
-    projectId: requireString(payload.projectId, 'Firebase project'),
-  };
+  return TODOMATE_FIREBASE_FALLBACK;
 }
 
 async function signInTodoMate(
