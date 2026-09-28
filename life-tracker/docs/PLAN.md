@@ -46,7 +46,7 @@ This roadmap records durable workstreams and batch status. `SESSION_STATE.md` co
 
 ## Disaster recovery and backend capacity
 
-- [ ] Complete provider-independent disaster-backup rollout on `security/disaster-backups`: exporter/restore/health-check code, R2 secrets/key escrow, the first verified production `COMPLETED` snapshot, and an isolated restore with full automated verification are in place; recovery Function deployment, manual application acceptance, schedule enablement, and external watcher activation remain.
+- [ ] Complete provider-independent disaster-backup rollout on `security/disaster-backups`: exporter/restore/health-check code, R2 secrets/key escrow, the first verified production `COMPLETED` snapshot, isolated restore/full verification, recovered Function deployment, manual application acceptance, and the accepted production backup schedule are complete; only default-branch delivery plus external watcher activation remain.
 - [x] Reserve the two Appwrite Function slots by responsibility, not provider: the existing `message-action` Function evolves into the general trusted `app-api` surface for messaging/social operations, tombstone GC, future external API routes/webhooks, and one coordinated maintenance/integration schedule; the second Function is dedicated to privileged `dr-backup` work only.
 - [ ] Treat Strava, Spotify, Garmin, Hevy, Letterboxd, YouTube, and later integrations as isolated modules/routes inside `app-api`, with provider secrets and OAuth tokens kept server-side. Do not consume one Appwrite Function per integration.
 - [x] Export the whole recoverable Appwrite backend dynamically rather than hardcoding today's synced tables: Auth users and password-hash metadata, TablesDB table schema/columns/indexes/permissions/rows, Storage bucket configuration/files/permissions/raw bytes, plus non-secret infrastructure/function definitions from Git/IaC.
@@ -56,7 +56,7 @@ This roadmap records durable workstreams and batch status. `SESSION_STATE.md` co
 - [x] Make Appwrite project/function/resource identifiers environment-configurable and keep non-secret infrastructure definitions in the repository so recovery does not depend on Console memory.
 - [x] Make Mosaic independently forkable: version the active Appwrite backend manifest, provide a fresh-project bootstrap command that deploys schema/Storage/messaging infrastructure and browser config, refuse non-empty targets, and prevent unconfigured forks from falling back to the original production backend.
 - [x] Add stale-backup detection and an external GitHub Actions watcher that uses a separate read-only R2 credential and stays disabled until rollout.
-- [ ] Enable the production backup schedule only after the isolated restore drill passes. User-facing Backup & Restore remains a separate feature and is not the DR mechanism.
+- [x] Enable the production backup schedule only after the isolated restore drill passes. User-facing Backup & Restore remains a separate feature and is not the DR mechanism.
 
 ## Feature backlog
 
