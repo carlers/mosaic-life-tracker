@@ -46,11 +46,14 @@ Status: the original importer is live-accepted on stable Preview branch
 ## Automated verification
 - Focused Quality Gate 1284 passed the final runtime/tests at
   `706a0c36a71e378a36bebcdd376d5531a09e388b`.
+- The first full gate (1285) caught one ESLint `no-useless-assignment` issue in the new
+  photo-fetch error path. It was fixed without behavioral change at
+  `c5b45e50d56a800cd4a8df9e9d15d3f1161bb9ff`, and focused Quality Gate 1286 passed.
 - Coverage pins direct photo bundling, partial/unavailable-photo behavior, and the credential
   boundary: public/arbitrary photo downloads receive no Firebase token; a Google Storage
   401/403 retry may receive the Firebase ID token.
-- A final exact-SHA full canonical gate is required on the final checkpoint tip before
-  stable Preview delivery.
+- A final exact-SHA full canonical gate is required on this checkpoint tip before stable
+  Preview delivery.
 
 ## Remaining
 1. Complete diff review and final exact-SHA canonical acceptance.
