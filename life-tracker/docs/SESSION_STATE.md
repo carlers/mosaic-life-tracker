@@ -57,8 +57,10 @@ The restore safety requirement itself is correct and must not be bypassed.
 ## Verification status
 - Diff review is complete and scope is limited to the sync coordinator/push path, restore
   preflight, focused unit regressions, and the corresponding contracts/checkpoint.
-- Earlier focused runs were superseded by subsequent commits before completion; the final
-  task tip therefore requests the canonical full gate directly.
+- Full Quality Gate 1300 reached checks/DOM successfully but the build caught a TypeScript
+  inference error in the new bounded-push failure reduction. The reduction now has an
+  explicit numeric accumulator at `6316abd0c134161747af4c1b3bf0fb6f6d5ff0ac`.
+- This checkpoint requests a new exact-SHA full canonical gate after that repair.
 - No hosted manual acceptance has been claimed for the sync fix yet.
 
 ## Remaining
