@@ -55,9 +55,11 @@ deployment and manual application acceptance complete.
   `npm run dr:deploy-functions -- --target-project <projectId>`. It recreates both
   checked-in Functions in an already restored project, refuses a target that already has
   Functions, and verifies both schedules remain blank after deployment.
-- The recovery Function deploy path is covered by unit tests for schedule disabling,
-  secret-variable wiring, and local CLI configuration; full canonical acceptance is the
-  final automated gate before running it against the restored project.
+- The recovery Function deploy path is covered by unit tests for schedule disabling and
+  local CLI configuration. The drill intentionally leaves DR runtime secrets unset so the
+  independently escrowed recovery credential/key are not copied back into Appwrite; fresh
+  writer credentials are a later production-recovery concern. Full canonical acceptance is
+  the final automated gate before running the deploy command against the restored project.
 
 ## Remaining rollout
 1. Deploy the two repository-owned Functions to the restored DR target with schedules
@@ -75,7 +77,8 @@ deployment and manual application acceptance complete.
 - Do not promote `security/disaster-backups` to `dev` without explicit user instruction.
 
 Next action: create a short-lived Appwrite API key in `My first project` with only
-`functions.read` and `functions.write`, export it as `APPWRITE_TARGET_API_KEY` in the
-same local shell that already has the escrowed DR variables, pull the latest task branch,
-then run `npm run dr:deploy-functions -- --target-project 6a96e82d000d1310b3be`.
-Verify both deployments become ready and both schedules remain blank.
+`functions.read` and `functions.write`, export it as `APPWRITE_TARGET_API_KEY`, pull
+the latest task branch, then run
+`npm run dr:deploy-functions -- --target-project 6a96e82d000d1310b3be`.
+Do not supply the escrowed R2 recovery credential/key to this command. Verify both
+deployments become ready and both schedules remain blank.
