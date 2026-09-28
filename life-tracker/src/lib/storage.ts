@@ -61,26 +61,14 @@ function generateFileId(): string {
   return `img_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
 }
 
-/**
- * Returns the current user's id, or `null` if the server says there is no
- * session (401). A network error / offline state throws `OfflineError` —
- * "couldn't check" must never be conflated with "definitely not logged in"
- * (see docs/PROJECT_REFERENCE.md §§10 and 23.6).
- *
- * Exported for tests; `uploadImage` is the only production caller.
- */
 export async function getCurrentUserId(): Promise<string | null> {
   try {
     const user = await guardedAccount.get();
     return user?.$id || null;
   } catch (err) {
     if (isUnauthorizedError(err)) {
-      // Definitely no session — the global auth redirect is already in flight.
       return null;
     }
-    // Network error / offline: we could not check. Surface a distinguishable
-    // Offline error so callers report "you're offline" instead of the
-    // misleading "no authenticated user".
     throw new OfflineError(
       "You're offline. Try again when you reconnect."
     );
@@ -151,6 +139,7 @@ async function uploadImageWithId(
   return uploadCompressedBlobWithId(await compressImage(file), fileId, userId, readForAllUsers);
 }
 
+/** Task attachments are visible through the authorized friend calendar. */
 export async function saveImage(
   file: File,
   userId: string
@@ -164,7 +153,8 @@ export async function saveImage(
     return await uploadCompressedBlobWithId(
       compressedBlob,
       generateFileId(),
-      userId
+      userId,
+      true
     );
   } catch (error) {
     const cause = (error as Error & { cause?: unknown }).cause;
@@ -186,9 +176,6 @@ export async function uploadPendingImage(
   if (!blob) {
     throw new Error('Pending image is missing or belongs to another account.');
   }
-
-  // The pending id already contains 26 random hex chars. Reusing those bytes
-  // makes retry after "uploaded but local patch failed" idempotent.
   const remoteFileId = `img_${fileId.slice('localimg_'.length)}`;
   try {
     return await uploadCompressedBlobWithId(blob, remoteFileId, userId);
@@ -243,11 +230,6 @@ export interface EnsuredImage {
   uploaded: boolean;
 }
 
-/**
- * Restore-specific image path. A deterministic/preferred file ID makes
- * repeated backup restores idempotent instead of leaking a new Storage file
- * every time. A create race that reports 409 is treated as successful reuse.
- */
 export async function ensureRestoredImage(
   file: File,
   preferredFileId: string,
