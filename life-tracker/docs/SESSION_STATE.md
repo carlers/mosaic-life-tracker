@@ -9,9 +9,9 @@ against the live source inventory. Snapshot `20260927T171742476Z` has now been r
 into the isolated spare Appwrite project and the restore CLI's full verification passed.
 Both repository-owned Functions were deployed to the restored project with schedules
 disabled and ready deployments, and the user completed manual application acceptance
-successfully. The temporary DR localhost platform has been removed. The accepted production
-backup schedule is now recorded in Git and is awaiting exact-SHA acceptance before the live
-Function schedule is updated.
+successfully. The temporary DR localhost platform has been removed. Exact-SHA canonical
+acceptance passed for the production schedule, and production `dr_backup` is now live on
+the accepted `0 11 * * *` daily schedule.
 
 ## Successful production restore point
 - Backup ID: `20260927T171742476Z`.
@@ -22,17 +22,19 @@ Function schedule is updated.
 - The successful code path encrypts each object, verifies ciphertext metadata by HEAD,
   writes the encrypted manifest, writes the plaintext `COMPLETED` marker, and HEAD-verifies
   that marker before returning success.
-- No production backup schedule is enabled yet.
+- Production backup schedule is enabled at `0 11 * * *` (11:00 UTC daily).
 
 ## Current live DR safety state
 - `dr_backup` execute roles: none.
 - Appwrite scopes remain read-only: users/databases/tables/columns/indexes/rows/buckets/files.
-- Schedule remains blank.
+- Schedule is `0 11 * * *` (11:00 UTC daily).
 - `DR_ALLOW_MANUAL_EXECUTION=false`.
-- Active locked deployment `6ab94fbd2b4018d902ce` is ready and uses accepted stable
-  source `182a7fa904380bbb574253502c43062a5bfcb636`.
+- Active deployment `6ab9e044a2fd6ca95435` is ready/live and was built from the
+  exact accepted repository Function source at `f0b674fd6dc554420586c4f6bffd36acbf2872b6`.
+- Timeout remains 900 seconds, deployment retention remains 7 days, entrypoint remains
+  `main.mjs`, and build command remains `npm install`.
 - R2/encryption secrets remain configured and secret.
-- Stable Quality Gate run 1214 passed the BigInt-safe DR snapshot/restore repair.
+- Full Quality Gate run 1246 passed the accepted production schedule SHA.
 
 ## Spare DR target
 - The user explicitly authorized Appwrite project `My first project`
@@ -71,12 +73,21 @@ Function schedule is updated.
   acceptance.
 
 ## Remaining rollout
-1. Pass canonical acceptance for the accepted `0 11 * * *` production backup schedule,
-   then apply and re-read that schedule on the live production `dr_backup` Function.
-2. Deliver the DR workflow to the repository default branch and configure/enable the
+1. Deliver the DR workflow to the repository default branch and configure/enable the
    external read-only GitHub stale-backup watcher. The watcher workflow is currently absent
    from both `main` and `dev`, and project rules forbid promoting the DR branch without
-   explicit user instruction.
+   explicit user instruction. Until then, production backups are scheduled but external
+   stale-backup monitoring is not active.
+
+## Appwrite rollout note
+- Appwrite's Function update endpoint must receive the complete intended Function
+  configuration. A schedule-only update reset omitted optional fields (including scopes,
+  timeout, build command, and deployment retention) to defaults during this rollout.
+- The reset was detected immediately and fully reverted before rollout continued.
+- The accepted source was then repackaged directly from Git, deployed successfully as
+  `6ab9e044a2fd6ca95435`, and the full Function configuration was applied and re-read.
+  Final live state is schedule `0 11 * * *`, timeout 900, zero execute roles, and the
+  eight documented read-only scopes.
 
 ## Constraints
 - Never expose R2 credentials, encryption material, password hashes, user content, or raw
@@ -85,7 +96,6 @@ Function schedule is updated.
 - Never restore into the production Mosaic project.
 - Do not promote `security/disaster-backups` to `dev` without explicit user instruction.
 
-Next action: complete exact-SHA CI for the production schedule, apply it to the production
-`dr_backup` Function, and verify live schedule/scopes/execute roles. Then stop at the
-default-branch/external-watcher promotion boundary unless the user explicitly authorizes
-promotion.
+Next action: stop at the default-branch/external-watcher promotion boundary. Promote the
+DR workflow and configure/enable the read-only GitHub watcher only after explicit user
+authorization.
