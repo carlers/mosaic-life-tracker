@@ -62,9 +62,11 @@ This roadmap records durable workstreams and batch status. `SESSION_STATE.md` co
 
 - [ ] TodoMate → Mosaic one-way migration: direct browser-to-TodoMate/Firebase read path,
   full owned Goal/TodoItem/Diary history preview, and Merge-only Mosaic import are implemented
-  with automated privacy/mapping coverage. Live acceptance with a real TodoMate account remains
-  required. Task photo attachments and recurring routine definitions are intentionally reported
-  but not reconstructed in the first version.
+  with automated privacy/mapping coverage. The first live attempt exposed a CORS-blocked public
+  Firebase-config bootstrap; the importer now has a regression-covered fallback to TodoMate's
+  pinned public web config. Real-account preview/import acceptance still remains. Task photo
+  attachments and recurring routine definitions are intentionally reported but not reconstructed
+  in the first version.
 
 ## Feature backlog
 

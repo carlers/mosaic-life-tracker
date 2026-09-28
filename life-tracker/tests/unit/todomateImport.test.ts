@@ -264,6 +264,55 @@ describe('TodoMate import adapter', () => {
     }
   });
 
+  it('falls back to TodoMate public Firebase config when browser config discovery is CORS-blocked', async () => {
+    const calls: FetchCall[] = [];
+    const fetchImpl = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      calls.push({ url, init });
+
+      if (url === 'https://www.todomate.net/__/firebase/init.json') {
+        throw new TypeError('Failed to fetch');
+      }
+      if (url.startsWith('https://identitytoolkit.googleapis.com/')) {
+        return jsonResponse({
+          idToken: 'firebase-id-token',
+          localId: 'todo_uid',
+        });
+      }
+      if (url.includes('firestore.googleapis.com')) {
+        return jsonResponse([]);
+      }
+
+      throw new Error(`unexpected request: ${url}`);
+    }) as unknown as typeof fetch;
+
+    const prepared = await prepareTodoMateTransfer(
+      { email: 'person@example.com', password: 'private-password' },
+      {
+        fetchImpl,
+        now: () => new Date(2026, 8, 28, 4, 0, 0),
+      }
+    );
+
+    expect(prepared.preview).toEqual({
+      categories: 0,
+      tasks: 0,
+      diary: 0,
+      unscheduledMovedToToday: 0,
+      photosSkipped: 0,
+      routinesReferenced: 0,
+    });
+    expect(calls).toHaveLength(5);
+    expect(calls[1].url).toContain(
+      'https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key='
+    );
+    expect(
+      calls.slice(2).every((call) =>
+        call.url.includes('/projects/mate-914f3/databases/(default)/documents:runQuery')
+      )
+    ).toBe(true);
+  });
+
   it('stops after a rejected TodoMate login and never queries Firestore', async () => {
     const calls: string[] = [];
     const fetchImpl = vi.fn(async (input: RequestInfo | URL) => {

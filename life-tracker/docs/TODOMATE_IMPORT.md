@@ -18,8 +18,11 @@ The importer is a migration tool, not a sync integration:
 
 ## Credential and network boundary
 
-The browser retrieves TodoMate's public Firebase web configuration from
-`https://www.todomate.net/__/firebase/init.json`.
+The browser first attempts to retrieve TodoMate's public Firebase web configuration from
+`https://www.todomate.net/__/firebase/init.json`. TodoMate does not guarantee that this
+endpoint permits cross-origin browser reads, so Mosaic also carries a pinned fallback copy
+of TodoMate's public Firebase web API key/project ID. The fallback contains no user secret
+and is used only when runtime discovery is blocked or unavailable.
 
 The user enters their TodoMate email/password in the local Mosaic UI. Mosaic sends those
 credentials directly from the browser to Google's Firebase Identity Toolkit login endpoint.
@@ -38,8 +41,9 @@ Do not log:
 - raw TodoMate response bodies
 - imported task/diary content
 
-The Firebase web API key is public client configuration, not a user secret. Mosaic discovers
-it at runtime rather than committing it to this repository.
+The Firebase web API key is public client configuration, not a user secret. Mosaic prefers
+runtime discovery and may pin the same public web configuration as a compatibility fallback
+when TodoMate's init endpoint is CORS-blocked.
 
 ## Read scope
 
@@ -161,13 +165,14 @@ semantics to Mosaic's database/sync layers.
 
 Automated coverage must prove:
 
-1. login is sent only to Google's Firebase Identity Toolkit endpoint;
-2. history reads are sent only to TodoMate's Firestore project;
-3. no third-party migration proxy is used;
-4. Firestore queries use the authenticated owner filter and do not require a date filter;
-5. category/task/diary mapping and warnings are deterministic;
-6. a rejected TodoMate login performs no history reads;
-7. the UI clears the password after preview and imports only through Merge restore.
+1. CORS-blocked Firebase config discovery falls back to TodoMate's pinned public web config;
+2. login is sent only to Google's Firebase Identity Toolkit endpoint;
+3. history reads are sent only to TodoMate's Firestore project;
+4. no third-party migration proxy is used;
+5. Firestore queries use the authenticated owner filter and do not require a date filter;
+6. category/task/diary mapping and warnings are deterministic;
+7. a rejected TodoMate login performs no history reads;
+8. the UI clears the password after preview and imports only through Merge restore.
 
 Live acceptance requires a real TodoMate account and must be done by the user locally. Never
 ask the user to paste TodoMate credentials or Firebase tokens into an AI chat. Verify preview
