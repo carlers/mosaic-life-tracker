@@ -2,82 +2,85 @@
 
 Updated: 2026-09-28
 
-Current task: finish hosted acceptance for the TodoMate photo migration after the user's
-live preview showed all 37 TodoMate photos ready but restore was blocked by a long-running
-sync.
+Current task: finish hosted TodoMate photo acceptance after the user's live preview showed
+all 37 TodoMate photos ready but restore was blocked by a long-running sync.
 
 Stable Preview branch: `feature/todomate-importer`.
 
 ## Live TodoMate evidence
-- Original migration already succeeded with 505 tasks, 13 categories, 1 diary entry, and
-  3 undated tasks placed on the import day.
-- The photo-capable Preview subsequently reported **37 of 37** TodoMate photo attachments
-  ready to copy.
+- Original migration succeeded with 505 tasks, 13 categories, 1 diary entry, and 3 undated
+  tasks placed on the import day.
+- The photo-capable Preview later reported **37 of 37** TodoMate photo attachments ready.
 - The first photo import attempt stopped before restore writes because Mosaic could not
-  establish the required fresh-sync preflight; the user also observed the sync indicator
-  remaining on Syncing.
+  establish the required fresh-sync preflight; the user also observed Syncing remaining on.
 
-## Sync/restore fix now on stable Preview
-The stable branch already contains the accepted sync fix:
+## Accepted sync/restore fix
+Stable Preview already contains:
 - `914dd25793349e54dfd608a98bb430df9dc6d8de` —
   `fix: unblock restore preflight during long sync`
 - `a7561da6ca11bef096988f98f0ec37b4a02035db` —
   `docs: clarify TodoMate fresh-sync wait`
 
-The fix:
-- adds `refreshSync()` as an explicit freshness barrier for restore/import;
-- waits for this tab's queued/running sync coordinator to drain before starting one new
-  serialized cycle;
-- keeps the fail-closed freshness/error checks;
-- bounds independent dirty-row pushes to four concurrent workers per collection while
-  preserving collection ordering, per-row `updateRow` → 404 `createRow`, Web Locks,
-  permissions, dirty boundaries, and failure accounting.
+The fix adds `refreshSync()` as a fail-closed freshness barrier for restore/import and
+bounds independent dirty-row pushes to four workers per collection while preserving
+collection order, Web Locks, per-row update→404-create semantics, permissions, dirty
+boundaries, and failure accounting. Stable Quality Gate 1305 passed at `a7561da6...`.
 
-Stable Quality Gate 1305 passed at
-`a7561da6ca11bef096988f98f0ec37b4a02035db`, including build, lint/unit/handlers,
-both DOM shards, both browser-contract shards, dependency audit, and canonical acceptance.
+## Vercel Preview investigation
+Vercel Git builds for the accepted sync commits failed with
+`BUILD_UTILS_SPAWN_1` / `npm run build exited with 1`, while GitHub built the exact same
+stable SHAs successfully. The connected Vercel build-log endpoint is unavailable, so the
+provider failure has been isolated through repo/build evidence rather than raw Vercel logs.
 
-## Deployment blocker found
-Vercel Git deployments for both stable sync commits failed at `npm run build` even though
-GitHub built the exact stable SHA successfully:
-- `914dd257...` → Vercel ERROR
-- `a7561da6...` → Vercel ERROR
+A first hardening fix corrected a real contract mismatch: Preview builds could invoke the
+optional PostHog source-map uploader even though docs defined it as production-only.
+Stable commit `dff7f4529fae4f40901db31448b4f2cf12062c06` now forces that upload path off
+when `VERCEL_ENV=preview`; Quality Gate 1322 is fully green. Vercel still failed that SHA,
+so source-map upload was not the root cause.
 
-The connected Vercel deployment record exposes only `BUILD_UTILS_SPAWN_1` /
-`npm run build exited with 1`; its build-log endpoint is currently unavailable from this
-tool session.
+## Root cause evidence: stale build-size baseline
+The last Vercel-successful stable SHA, `e1cdb38c...`, had this GitHub build result:
+- app assets gzip: **605,042 / 606,100 B** — only 1,058 B headroom.
 
-Repo inspection found one real Vercel-only build-contract mismatch:
-- docs define PostHog source-map upload as optional **production** delivery and require
-  Preview builds not to depend on stale external upload credentials;
-- `vite.config.ts` previously enabled `@posthog/rollup-plugin` in Preview whenever
-  `POSTHOG_SOURCE_MAPS_ENABLED=true` plus the build credentials were present.
+After the accepted sync work, stable `a7561da6...` measured:
+- app assets gzip: **605,462 / 606,100 B** — only 638 B headroom.
 
-Current working branch: `chatgpt/vercel-preview-build-fix`, based on stable
-`a7561da6ca11bef096988f98f0ec37b4a02035db`.
+Stable `dff7f452...` measured:
+- entry raw: 533,477 B
+- entry gzip: 161,455 B
+- app assets raw: 2,006,246 B
+- app assets gzip: **605,480 B**
+- unique precache: 2,066,777 B
 
-## Preview build hardening
-- `vite.config.ts` now forces the PostHog source-map upload path off whenever
-  `VERCEL_ENV=preview`.
-- Production and explicitly opted-in local builds retain the existing upload path.
-- Browser-facing PostHog Preview configuration remains unaffected.
-- `posthogBuildContract.test.ts` pins both the explicit opt-in and Preview isolation.
-- `DELIVERY.md` and `PROJECT_REFERENCE.md` now match the runtime contract.
+Vercel injects build commit/branch/message/time metadata into the compiled client whereas the
+ordinary GitHub build leaves those values empty. The accepted feature growth consumed almost
+the entire old aggregate-gzip allowance, making provider metadata sufficient to cross a
+budget that was last baselined before the TodoMate/photo/sync work.
 
-This change is intentionally narrow: it does not alter Mosaic runtime behavior, sync
-semantics, TodoMate mapping, or production source-map delivery.
+## Current working branch
+`chatgpt/build-size-rebaseline`, based on stable
+`dff7f4529fae4f40901db31448b4f2cf12062c06`.
+
+Changes:
+- rebaseline `config/build-size-budget.json` to the exact accepted `dff7f45` GitHub build;
+- keep the existing entry raw/gzip safety caps unchanged;
+- give aggregate app-assets raw/gzip and unique-precache limits approximately 5% reviewed
+  headroom over the accepted current baseline;
+- add unit coverage pinning the baseline commit/date and 4.9–5.1% aggregate headroom;
+- document the deliberate rebaseline in `PROJECT_REFERENCE.md`.
+
+This is a reviewed feature-growth rebaseline, not disabling the guard or raising a threshold
+solely to make CI pass.
 
 ## Remaining
-1. Run exact-SHA full canonical acceptance for the Preview build hardening.
+1. Run exact-SHA full canonical acceptance for the rebaseline.
 2. Squash-deliver it to `feature/todomate-importer`.
-3. Verify the resulting Vercel Preview deployment becomes READY.
-4. If it still fails, continue provider-specific diagnosis; do not hand the user a stale
-   Preview.
-5. Once hosted-ready, user refreshes the stable Preview, reruns **Preview Transfer**
+3. Verify the new Vercel Preview becomes READY. If it does not, continue provider diagnosis.
+4. Once READY, user refreshes the stable Preview, reruns **Preview Transfer**
    (expected 37/37 ready), then **Import into Mosaic**.
-6. Verify import completion, sync settles, no duplicate tasks appear, and several restored
-   photos render from Mosaic/Appwrite Storage.
-7. Only then mark the TodoMate photo enhancement complete.
+5. Confirm import completes, sync settles, no duplicate tasks appear, and spot-check several
+   TodoMate photos rendering from Mosaic/Appwrite Storage.
+6. Only then mark the TodoMate photo enhancement complete.
 
 ## Separate DR follow-up
 - DR work is already merged into `dev`.
@@ -85,5 +88,5 @@ semantics, TodoMate mapping, or production source-map delivery.
 - External GitHub stale-backup monitoring still requires default-branch
   delivery/configuration; do not promote to `main` without explicit user authorization.
 
-Next action: run the full gate for the Preview build hardening, deliver it to the stable
-Preview branch, and verify Vercel.
+Next action: full-gate the reviewed build-size rebaseline, deliver it to stable Preview, and
+verify Vercel.
