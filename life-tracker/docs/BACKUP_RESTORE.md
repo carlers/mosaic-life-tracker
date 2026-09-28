@@ -54,6 +54,8 @@ When a ZIP contains image blobs, restore ensures the needed images exist for the
 
 Restore applies through Mosaic's local-first database and then requests the normal sync engine. Both restore modes require an online, successful refresh before writes begin. This is deliberate: without a fresh pull, Merge cannot know about a newer edit on another device and Replace cannot know about remote-only rows that need tombstones. Normal offline task editing remains supported; backup restore is a safety-sensitive exception.
 
+The restore preflight uses the sync engine's explicit fresh-refresh barrier, not the ordinary coalescing trigger. If this tab already has a sync queued/running, restore waits for that coordinator to drain and then starts one new serialized sync cycle before evaluating freshness/errors. Waiting for the same-tab coordinator is bounded; if it cannot settle within 90 seconds, restore fails visibly rather than proceeding on stale state. Large restore/import pushes use the sync engine's bounded four-worker per-collection row concurrency; row semantics, collection ordering, Web-Lock cross-tab serialization, and failure/backoff rules remain unchanged.
+
 Validation and restore planning complete before writes begin. v2 files must carry the Mosaic backup format marker, duplicate logical IDs are rejected, and normalized records must satisfy the local schema constraints before application. Data application is idempotent by logical/deterministic IDs. Image upload is best-effort and may be partial; data restore still completes and reports missing images. Replace uses tombstones rather than permanent row deletion.
 
 
