@@ -88,6 +88,12 @@ export const TodoMateImportSheet: React.FC<TodoMateImportSheetProps> = ({
       );
       const notes = [
         `${restored} restored`,
+        result.imagesRestored > 0
+          ? `${result.imagesRestored} photo${result.imagesRestored === 1 ? '' : 's'} copied`
+          : '',
+        result.imagesMissing > 0
+          ? `${result.imagesMissing} photo${result.imagesMissing === 1 ? '' : 's'} missing`
+          : '',
         result.skippedNewer > 0 ? `${result.skippedNewer} newer Mosaic item${result.skippedNewer === 1 ? '' : 's'} kept` : '',
       ].filter(Boolean);
 
@@ -123,7 +129,7 @@ export const TodoMateImportSheet: React.FC<TodoMateImportSheetProps> = ({
 
         <div className="space-y-2">
           <p className="text-sm text-gray-300 leading-relaxed">
-            Transfer your TodoMate groups, task history, memos, completion state,
+            Transfer your TodoMate groups, task history, photos, memos, completion state,
             reminders, and diary entries into Mosaic without TodoMate&apos;s paid export.
           </p>
           <p className="text-xs text-gray-500 leading-relaxed">
@@ -220,11 +226,18 @@ export const TodoMateImportSheet: React.FC<TodoMateImportSheetProps> = ({
                   placed on today because Mosaic currently requires task dates.
                 </p>
               )}
-              {preview.photosSkipped > 0 && (
+              {preview.photosReady > 0 && (
                 <p>
-                  {preview.photosSkipped} TodoMate photo attachment
-                  {preview.photosSkipped === 1 ? '' : 's'} will not be copied in
-                  this version.
+                  {preview.photosReady} of {preview.photosFound} TodoMate photo
+                  attachment{preview.photosFound === 1 ? '' : 's'} are ready to
+                  copy into Mosaic Storage.
+                </p>
+              )}
+              {preview.photosUnavailable > 0 && (
+                <p>
+                  {preview.photosUnavailable} TodoMate photo attachment
+                  {preview.photosUnavailable === 1 ? '' : 's'} could not be
+                  downloaded and will be skipped. You can retry the import later.
                 </p>
               )}
               {preview.routinesReferenced > 0 && (
