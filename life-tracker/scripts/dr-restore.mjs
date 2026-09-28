@@ -326,10 +326,13 @@ export async function createImportedUser(users, user) {
     userId: user.id,
     labels: Array.isArray(user.labels) ? user.labels : [],
   });
-  await users.updatePrefs({
-    userId: user.id,
-    prefs: unwrapUserPrefs(user.prefs),
-  });
+  const prefs = unwrapUserPrefs(user.prefs);
+  if (Object.keys(prefs).length > 0) {
+    await users.updatePrefs({
+      userId: user.id,
+      prefs,
+    });
+  }
   await users.updateEmailVerification({
     userId: user.id,
     emailVerification: Boolean(user.emailVerification),
