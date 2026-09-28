@@ -500,14 +500,18 @@ async function queryOwnedCollection(
   return parseRunQuery(await readJson(response));
 }
 
-function makeMosaicBackup(
+async function makeMosaicBackup(
   email: string,
   uid: string,
   goals: FirestoreRecord[],
   todos: FirestoreRecord[],
   diaries: FirestoreRecord[],
-  now: Date
-): { file: File; preview: TodoMateTransferPreview } {
+  now: Date,
+  photoResult: {
+    found: number;
+    prepared: Map<string, PreparedTodoMatePhoto>;
+  }
+): Promise<{ file: File; preview: TodoMateTransferPreview }> {
   const exportedAt = now.toISOString();
   const today = localDateKey(now);
 
@@ -530,7 +534,6 @@ function makeMosaicBackup(
   }));
 
   let unscheduledMovedToToday = 0;
-  let photosSkipped = 0;
   const routineIds = new Set<string>();
 
   const tasks = todos
@@ -542,7 +545,7 @@ function makeMosaicBackup(
         date = today;
       }
 
-      if (maybeString(todo.fields.photoURL)) photosSkipped += 1;
+      const preparedPhoto = photoResult.prepared.get(todo.id);
       const routineId = maybeString(todo.fields.routineID);
       if (routineId) routineIds.add(routineId);
 
@@ -554,7 +557,7 @@ function makeMosaicBackup(
         tags: '',
         date,
         memo: maybeString(todo.fields.memo),
-        image: '',
+        image: preparedPhoto?.sourceId || '',
         createdAt:
           millisToIso(todo.fields.createTime) ||
           (todo.createTime && Number.isFinite(Date.parse(todo.createTime))
@@ -601,7 +604,9 @@ function makeMosaicBackup(
     tasks: tasks.length,
     diary: diary.length,
     unscheduledMovedToToday,
-    photosSkipped,
+    photosFound: photoResult.found,
+    photosReady: photoResult.prepared.size,
+    photosUnavailable: photoResult.found - photoResult.prepared.size,
     routinesReferenced: routineIds.size,
   };
 
@@ -630,21 +635,40 @@ function makeMosaicBackup(
       friendships: [],
     },
     images: {
-      included: false,
-      referenced: [],
+      included: photoResult.prepared.size > 0,
+      referenced: Array.from(photoResult.prepared.values(), (photo) => photo.sourceId),
       missingImages: [],
       note:
-        photosSkipped > 0
-          ? 'TodoMate photo attachments are not included in this migration.'
-          : 'No TodoMate photo attachments were included.',
+        photoResult.prepared.size > 0
+          ? 'TodoMate photo attachments are bundled for Mosaic Storage migration.'
+          : 'No TodoMate photo attachments were bundled.',
     },
   };
 
+  if (photoResult.prepared.size === 0) {
+    return {
+      file: new File(
+        [JSON.stringify(payload)],
+        `todomate-to-mosaic-${today}.json`,
+        { type: 'application/json' }
+      ),
+      preview,
+    };
+  }
+
+  const encoder = new TextEncoder();
+  const files: Record<string, Uint8Array> = {
+    'manifest.json': encoder.encode(JSON.stringify(payload)),
+  };
+  for (const photo of photoResult.prepared.values()) {
+    files[`images/${photo.sourceId}.webp`] = photo.bytes;
+  }
+  const zipped = await zipAsync(files);
   return {
     file: new File(
-      [JSON.stringify(payload)],
-      `todomate-to-mosaic-${today}.json`,
-      { type: 'application/json' }
+      [zipped.buffer as ArrayBuffer],
+      `todomate-to-mosaic-${today}.zip`,
+      { type: 'application/zip' }
     ),
     preview,
   };
@@ -701,6 +725,23 @@ export async function prepareTodoMateTransfer(
     ),
   ]);
 
+  const photoProcessor = options.photoProcessor ?? defaultPhotoProcessor;
+  const photoResult = await downloadTodoMatePhotos(
+    todos,
+    session.idToken,
+    fetchImpl,
+    photoProcessor,
+    report
+  );
+
   report('Preparing Mosaic import…');
-  return makeMosaicBackup(email, session.uid, goals, todos, diaries, now());
+  return makeMosaicBackup(
+    email,
+    session.uid,
+    goals,
+    todos,
+    diaries,
+    now(),
+    photoResult
+  );
 }
