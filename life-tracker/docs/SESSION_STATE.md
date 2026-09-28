@@ -7,9 +7,11 @@ Current task: finish disaster-recovery rollout on `security/disaster-backups`.
 Status: the first real production DR backup completed successfully and reconciled exactly
 against the live source inventory. Snapshot `20260927T171742476Z` has now been restored
 into the isolated spare Appwrite project and the restore CLI's full verification passed.
-Both repository-owned Functions are now deployed to the restored project with schedules
-disabled and ready deployments. Production scheduling and external stale-backup monitoring
-remain disabled until manual application acceptance completes.
+Both repository-owned Functions were deployed to the restored project with schedules
+disabled and ready deployments, and the user completed manual application acceptance
+successfully. The temporary DR localhost platform has been removed. The accepted production
+backup schedule is now recorded in Git and is awaiting exact-SHA acceptance before the live
+Function schedule is updated.
 
 ## Successful production restore point
 - Backup ID: `20260927T171742476Z`.
@@ -63,15 +65,18 @@ remain disabled until manual application acceptance completes.
   copied into the restored project.
 - The two short-lived Appwrite API keys used for restore and Function deployment were deleted
   after successful use.
-- A temporary `localhost` Web platform (`mosaic_dr_localhost`) is registered only for
-  manual DR application acceptance.
+- The user manually accepted restored login, tasks/categories/memos, diary/settings,
+  friendships/profile, message history plus a test message, and restored photos/images.
+- The temporary `localhost` Web platform (`mosaic_dr_localhost`) was deleted after
+  acceptance.
 
 ## Remaining rollout
-1. Point a temporary Mosaic build at the DR project and complete manual login/tasks/
-   diary/settings/friendships/messages/photos acceptance.
-2. Remove the temporary localhost platform after manual acceptance.
-3. Only after the drill passes: enable the production daily backup schedule and configure/
-   enable the external read-only GitHub stale-backup watcher.
+1. Pass canonical acceptance for the accepted `0 11 * * *` production backup schedule,
+   then apply and re-read that schedule on the live production `dr_backup` Function.
+2. Deliver the DR workflow to the repository default branch and configure/enable the
+   external read-only GitHub stale-backup watcher. The watcher workflow is currently absent
+   from both `main` and `dev`, and project rules forbid promoting the DR branch without
+   explicit user instruction.
 
 ## Constraints
 - Never expose R2 credentials, encryption material, password hashes, user content, or raw
@@ -80,6 +85,7 @@ remain disabled until manual application acceptance completes.
 - Never restore into the production Mosaic project.
 - Do not promote `security/disaster-backups` to `dev` without explicit user instruction.
 
-Next action: run Mosaic locally with explicit `VITE_APPWRITE_*` environment overrides
-pointing to the restored project, use a fresh/private browser context, and complete the
-manual acceptance checklist without sharing account passwords or user content in chat.
+Next action: complete exact-SHA CI for the production schedule, apply it to the production
+`dr_backup` Function, and verify live schedule/scopes/execute roles. Then stop at the
+default-branch/external-watcher promotion boundary unless the user explicitly authorizes
+promotion.
