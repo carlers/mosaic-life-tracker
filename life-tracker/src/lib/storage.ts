@@ -87,9 +87,9 @@ export async function getCurrentUserId(): Promise<string | null> {
   }
 }
 
-function buildFilePermissions(userId: string) {
+function buildFilePermissions(userId: string, readForAllUsers = false) {
   return [
-    Permission.read(Role.user(userId)),
+    readForAllUsers ? Permission.read(Role.users()) : Permission.read(Role.user(userId)),
     Permission.update(Role.user(userId)),
     Permission.delete(Role.user(userId)),
   ];
@@ -114,7 +114,8 @@ function isValidFileId(fileId: string): boolean {
 async function uploadCompressedBlobWithId(
   compressedBlob: Blob,
   fileId: string,
-  userId: string
+  userId: string,
+  readForAllUsers = false
 ): Promise<string> {
   const webpFile = new File([compressedBlob], `${fileId}.webp`, {
     type: 'image/webp',
@@ -124,7 +125,7 @@ async function uploadCompressedBlobWithId(
       bucketId: APPWRITE_CONFIG.bucketId,
       fileId,
       file: webpFile,
-      permissions: buildFilePermissions(userId),
+      permissions: buildFilePermissions(userId, readForAllUsers),
     });
     await cacheImage(fileId, compressedBlob).catch((error) => {
       console.warn('[Storage] Failed to cache uploaded image:', error);
@@ -144,9 +145,10 @@ async function uploadCompressedBlobWithId(
 async function uploadImageWithId(
   file: File,
   fileId: string,
-  userId: string
+  userId: string,
+  readForAllUsers = false
 ): Promise<string> {
-  return uploadCompressedBlobWithId(await compressImage(file), fileId, userId);
+  return uploadCompressedBlobWithId(await compressImage(file), fileId, userId, readForAllUsers);
 }
 
 export async function saveImage(
@@ -198,6 +200,34 @@ export async function uploadPendingImage(
     }
     throw error;
   }
+}
+
+export async function saveProfileImage(file: File, userId: string): Promise<string> {
+  if (!userId) throw new Error('Cannot save profile image: no authenticated user');
+  const compressedBlob = await compressImage(file);
+  if (getConnectivitySnapshot().status !== 'online') return createPendingImage(userId, compressedBlob);
+  try {
+    return await uploadCompressedBlobWithId(compressedBlob, generateFileId(), userId, true);
+  } catch (error) {
+    const cause = (error as Error & { cause?: unknown }).cause;
+    const code = (cause as { code?: number } | null)?.code;
+    const transient = !isUnauthorizedError(cause) && (typeof code !== 'number' || code === 429 || code >= 500);
+    if (!transient) throw error;
+    return createPendingImage(userId, compressedBlob);
+  }
+}
+
+export async function makeProfileImageReadable(fileId: string, userId: string): Promise<void> {
+  if (!fileId || isPendingImageId(fileId) || !userId) return;
+  await guardedStorage.updateFile({
+    bucketId: APPWRITE_CONFIG.bucketId,
+    fileId,
+    permissions: [
+      Permission.read(Role.users()),
+      Permission.update(Role.user(userId)),
+      Permission.delete(Role.user(userId)),
+    ],
+  });
 }
 
 export async function uploadImage(file: File): Promise<string> {
