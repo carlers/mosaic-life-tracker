@@ -5,7 +5,7 @@ import type {
   DiaryDocument,
   SettingsDocument,
 } from '../db/schema';
-import { getSyncStatus, initializeSync } from '../db/sync';
+import { initializeSync, refreshSync } from '../db/sync';
 import {
   exportUserData,
   triggerDownload,
@@ -946,18 +946,16 @@ export async function restoreUserData(
   }
 
   report('Refreshing current data…');
-  const refreshStartedAt = Date.now();
-  await initializeSync(currentUser.id);
+  const refreshed = await refreshSync(currentUser.id);
 
-  const syncStatus = getSyncStatus();
-  const lastSyncMs = syncStatus.lastSync
-    ? Date.parse(syncStatus.lastSync)
+  const lastSyncMs = refreshed.status.lastSync
+    ? Date.parse(refreshed.status.lastSync)
     : Number.NaN;
   if (
-    syncStatus.isSyncing ||
-    syncStatus.errors.length > 0 ||
+    refreshed.status.isSyncing ||
+    refreshed.status.errors.length > 0 ||
     !Number.isFinite(lastSyncMs) ||
-    lastSyncMs < refreshStartedAt
+    lastSyncMs < refreshed.startedAt
   ) {
     throw new Error(
       'Mosaic could not fully refresh synced data. Try restoring again after sync succeeds.'
