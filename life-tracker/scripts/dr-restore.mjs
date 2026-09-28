@@ -377,6 +377,30 @@ function bucketCreateInput(bucket) {
   };
 }
 
+export function indexCreateInput(index) {
+  const attributes = Array.isArray(index?.attributes)
+    ? [...index.attributes]
+    : [];
+  const input = {
+    key: index?.key,
+    type: index?.type,
+    attributes,
+  };
+
+  for (const field of ['orders', 'lengths']) {
+    const values = index?.[field];
+    if (!Array.isArray(values) || values.length === 0) continue;
+    if (values.length !== attributes.length) {
+      throw new Error(
+        `Index '${index?.key || '(unknown)'}': ${field} array length (${values.length}) must match attributes array length (${attributes.length})`
+      );
+    }
+    input[field] = [...values];
+  }
+
+  return input;
+}
+
 function tableCreateInput(databaseId, schema) {
   return {
     databaseId,
@@ -386,7 +410,7 @@ function tableCreateInput(databaseId, schema) {
     rowSecurity: Boolean(schema.rowSecurity),
     enabled: schema.enabled !== false,
     columns: schema.columns || [],
-    indexes: schema.indexes || [],
+    indexes: (schema.indexes || []).map(indexCreateInput),
   };
 }
 
