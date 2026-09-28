@@ -144,7 +144,7 @@ export async function saveImage(
   file: File,
   userId: string
 ): Promise<string> {
-  if (!userId) throw new Error('Cannot save image: no authenticated user');
+  if (!userId) throw new Error('Cannot upload image: no authenticated user');
   const compressedBlob = await compressImage(file);
   if (getConnectivitySnapshot().status !== 'online') {
     return createPendingImage(userId, compressedBlob);
@@ -178,10 +178,15 @@ export async function uploadPendingImage(
   }
   const remoteFileId = `img_${fileId.slice('localimg_'.length)}`;
   try {
-    return await uploadCompressedBlobWithId(blob, remoteFileId, userId);
+    return await uploadCompressedBlobWithId(blob, remoteFileId, userId, true);
   } catch (error) {
     const cause = (error as Error & { cause?: unknown }).cause;
     if (isConflictError(cause)) {
+      await guardedStorage.updateFile({
+        bucketId: APPWRITE_CONFIG.bucketId,
+        fileId: remoteFileId,
+        permissions: buildFilePermissions(userId, true),
+      });
       await cacheImage(remoteFileId, blob).catch(() => {});
       return remoteFileId;
     }
