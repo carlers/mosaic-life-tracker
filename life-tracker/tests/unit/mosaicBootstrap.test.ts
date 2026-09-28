@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import {
   assertEmptyTarget,
   bootstrapMosaicProject,
+  deployRecoveredProjectFunctions,
   ensureWebPlatforms,
   parseBootstrapArgs,
   renderBrowserEnv,
@@ -25,6 +26,7 @@ function emptyServices() {
       createVariable: vi.fn(async () => ({})),
       createDeployment: vi.fn(async () => ({ $id: 'dep_1' })),
       getDeployment: vi.fn(async () => ({ $id: 'dep_1', status: 'ready' })),
+      get: vi.fn(async ({ functionId }) => ({ $id: functionId, schedule: '' })),
     },
     users: {
       list: vi.fn(async () => ({ users: [] })),
@@ -208,6 +210,52 @@ describe('Mosaic bootstrap operations', () => {
       messageFunctionId: 'message_action',
       drFunctionId: null,
     });
+  });
+
+  it('deploys both recovery Functions with schedules forcibly disabled', async () => {
+    const services = emptyServices();
+    const result = await deployRecoveredProjectFunctions(
+      {
+        endpoint: 'https://fra.cloud.appwrite.io/v1',
+        projectId: 'restored_project',
+        apiKey: 'temporary-key',
+        drSecrets: {
+          R2_ACCOUNT_ID: 'account',
+          R2_ACCESS_KEY_ID: 'access',
+          R2_SECRET_ACCESS_KEY: 'secret',
+          R2_BUCKET: 'bucket',
+          DR_ENCRYPTION_KEY_B64: 'key',
+        },
+      },
+      { services, sleep: async () => {} }
+    );
+
+    expect(services.functions.create).toHaveBeenCalledTimes(2);
+    expect(services.functions.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        name: 'message-action',
+        schedule: '',
+        execute: ['users'],
+      })
+    );
+    expect(services.functions.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        name: 'dr-backup',
+        schedule: '',
+        execute: [],
+      })
+    );
+    expect(services.functions.createVariable).toHaveBeenCalledWith(
+      expect.objectContaining({
+        functionId: result.drFunctionId,
+        key: 'DR_ENCRYPTION_KEY_B64',
+        value: 'key',
+        secret: true,
+      })
+    );
+    expect(services.functions.get).toHaveBeenCalledTimes(2);
+    expect(result.messageFunctionId).toBe('6aa8057f002a4c306fdd');
+    expect(result.drFunctionId).toBe('dr_backup');
   });
 
   it('platform-only mode never inspects or creates backend data', async () => {
