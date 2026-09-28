@@ -781,7 +781,10 @@ async function syncCollection(
         }
       }
     );
-    pushFailed = pushResults.reduce((total, failed) => total + failed, 0);
+    pushFailed = pushResults.reduce<number>(
+      (total, failed) => total + failed,
+      0
+    );
   }
   if (incrementalCursorExpired) {
     const localDocsAfterPull = await collection.find().exec();
