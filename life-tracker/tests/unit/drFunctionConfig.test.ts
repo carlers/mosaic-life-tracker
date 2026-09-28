@@ -10,9 +10,9 @@ describe('DR Function least-privilege configuration', () => {
     )
   );
 
-  it('has no client execution roles or production schedule before the drill', () => {
+  it('has no client execution roles and uses the accepted daily production schedule', () => {
     expect(config.execute).toEqual([]);
-    expect(config.schedule).toBe('');
+    expect(config.schedule).toBe('0 11 * * *');
   });
 
   it('contains read-only Appwrite scopes', () => {
