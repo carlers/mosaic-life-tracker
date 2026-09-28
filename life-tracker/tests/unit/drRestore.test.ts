@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import {
   assertSafeTarget,
   createImportedUser,
+  indexCreateInput,
   loadCommittedSnapshot,
   parseArgs,
   parseJsonLines,
@@ -208,6 +209,49 @@ describe('DR restore CLI', () => {
     });
 
     expect(users.updatePrefs).not.toHaveBeenCalled();
+  });
+
+  it('omits empty index option arrays when recreating Appwrite indexes', () => {
+    expect(
+      indexCreateInput({
+        key: 'idx_user_status',
+        type: 'key',
+        attributes: ['user_id', 'status'],
+        orders: [],
+        lengths: [],
+      })
+    ).toEqual({
+      key: 'idx_user_status',
+      type: 'key',
+      attributes: ['user_id', 'status'],
+    });
+
+    expect(
+      indexCreateInput({
+        key: 'idx_user_status',
+        type: 'key',
+        attributes: ['user_id', 'status'],
+        orders: ['ASC', 'DESC'],
+        lengths: [32, 16],
+      })
+    ).toEqual({
+      key: 'idx_user_status',
+      type: 'key',
+      attributes: ['user_id', 'status'],
+      orders: ['ASC', 'DESC'],
+      lengths: [32, 16],
+    });
+  });
+
+  it('fails closed on partially populated index option arrays', () => {
+    expect(() =>
+      indexCreateInput({
+        key: 'idx_user_status',
+        type: 'key',
+        attributes: ['user_id', 'status'],
+        orders: ['ASC'],
+      })
+    ).toThrow(/orders array length/);
   });
 
   it('fails instead of silently weakening unsupported auth state', async () => {
