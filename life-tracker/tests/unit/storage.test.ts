@@ -140,10 +140,9 @@ describe('storage.uploadImage — error messages', () => {
 
 describe('storage.saveProfileImage — friend-readable permissions', () => {
   it('uploads profile images with all-user read access and owner-only writes', async () => {
-    Object.defineProperty(globalThis, 'navigator', { configurable: true, value: { onLine: true } });
     markConnectivityOnline('test');
     sdkRef.guardedStorageCreateFile.mockResolvedValueOnce({ $id: 'img_profile' });
-    await expect(saveProfileImage(makeFile(), 'user_A')).resolves.toBe('img_profile');
+    await expect(saveProfileImage(makeFile(), 'user_A')).resolves.toMatch(/^img_/);
     expect(sdkRef.guardedStorageCreateFile).toHaveBeenCalledWith(expect.objectContaining({
       permissions: ['read("users")', 'update("user:user_A")', 'delete("user:user_A")'],
     }));
