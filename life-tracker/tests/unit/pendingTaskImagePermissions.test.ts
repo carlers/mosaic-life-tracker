@@ -58,7 +58,7 @@ it('reconciles pending task images with authenticated-user read access', async (
 
 it('repairs permissions when a pending-image reconciliation races with an existing file', async () => {
   refs.getPendingImage.mockResolvedValueOnce(new Blob(['photo'], { type: 'image/webp' }));
-  refs.createFile.mockRejectedValueOnce(Object.assign(new Error('Already exists'), { cause: { code: 409 } }));
+  refs.createFile.mockRejectedValueOnce(Object.assign(new Error('Already exists'), { code: 409 }));
 
   await expect(uploadPendingImage(localId, 'user_A')).resolves.toBe(remoteId);
 
