@@ -179,3 +179,21 @@ ask the user to paste TodoMate credentials or Firebase tokens into an AI chat. V
 counts against the TodoMate account before approving the import, then spot-check historical
 completed/incomplete tasks, categories, memos, reminders, and diary entries in Mosaic after
 sync.
+
+
+## Accepted live result
+
+The first real-account acceptance completed successfully on the stable
+`feature/todomate-importer` Preview after the CORS fallback fix.
+
+Observed preview:
+
+- 505 tasks
+- 13 categories
+- 1 diary entry
+- 3 undated tasks placed on the local import day
+- 37 TodoMate task photo attachments reported and skipped
+
+The user completed **Import into Mosaic** successfully. The migration remained Merge-only and
+the known first-version limitations (photo attachment copying and recurring routine-definition
+reconstruction) remained explicit rather than being silently widened or guessed.
