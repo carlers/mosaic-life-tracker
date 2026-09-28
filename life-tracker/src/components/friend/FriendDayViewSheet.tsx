@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { lazy, Suspense, useCallback, useMemo, useState } from 'react';
 import { format } from 'date-fns';
 import { motion } from 'framer-motion';
 import { Swiper, SwiperSlide } from 'swiper/react';
@@ -15,14 +15,31 @@ import { BottomSheet } from '../ui/BottomSheet';
 import { ReactionRow } from '../messages/ReactionRow';
 import { EmojiPickerSheet } from '../messages/EmojiPickerSheet';
 import { useTasksByDate } from '../../hooks/useTasksByDate';
+import { useTaskImage } from '../../hooks/useTaskImage';
+import { useImageLoadGate } from '../../hooks/useImageLoadGate';
 import { useDayViewSwiper } from '../home/views/useDayViewSwiper';
 import { useHorizontalArrowNavigation } from '../../hooks/useHorizontalArrowNavigation';
 import { parseReactions } from '../../lib/reactionUtils';
 import { visibilityIcon } from '../../lib/visibility';
 import { getCategoryLabelColor, getReadableTextColor } from '../../constants/colors';
+import { Spinner } from '../ui/Spinner';
 import type { TaskDocument, CategoryDocument } from '../../db/schema';
 
 type Visibility = 'private' | 'followers' | 'public';
+
+const ImageViewer = lazy(() =>
+  import('../home/views/ImageViewer').then(({ ImageViewer }) => ({ default: ImageViewer }))
+);
+
+const ImageViewerLoadingFallback: React.FC = () => (
+  <div
+    className="fixed inset-0 z-[80] bg-black flex items-center justify-center px-6"
+    role="status"
+    aria-live="polite"
+  >
+    <Spinner size="w-8 h-8" />
+  </div>
+);
 
 interface FriendDayViewSheetProps {
   isOpen: boolean;
@@ -46,10 +63,53 @@ interface FriendDaySlideProps {
   onReplyToTask?: (task: TaskDocument, categoryColor: string) => void;
   onReactToTask?: (task: TaskDocument, emoji: string) => void;
   onOpenReactions: (task: TaskDocument) => void;
+  onViewImage?: (task: TaskDocument) => void;
   scrollMode?: 'page' | 'contained';
 }
 
 const EMPTY_TASKS: TaskDocument[] = [];
+
+interface FriendTaskImageProps {
+  task: TaskDocument;
+  onViewImage?: (task: TaskDocument) => void;
+}
+
+const FriendTaskImage: React.FC<FriendTaskImageProps> = ({ task, onViewImage }) => {
+  const { targetRef, shouldLoad } = useImageLoadGate<HTMLElement>();
+  const { imageUrl, isLoading } = useTaskImage(task.image, shouldLoad);
+
+  if (imageUrl) {
+    return (
+      <button
+        ref={targetRef}
+        type="button"
+        onClick={(event) => {
+          event.stopPropagation();
+          onViewImage?.(task);
+        }}
+        onPointerDown={(event) => event.stopPropagation()}
+        className="mt-2 block w-full aspect-[16/9] rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
+        aria-label="View image"
+      >
+        <img
+          src={imageUrl}
+          alt={task.title}
+          loading="lazy"
+          decoding="async"
+          className="w-full h-full object-cover rounded-xl"
+        />
+      </button>
+    );
+  }
+
+  return (
+    <div
+      ref={targetRef}
+      aria-hidden="true"
+      className={`mt-2 w-full aspect-[16/9] rounded-xl bg-gray-500/20 ${isLoading ? 'animate-pulse' : ''}`}
+    />
+  );
+};
 
 const FriendDaySlide: React.FC<FriendDaySlideProps> = ({
   tasks,
@@ -59,6 +119,7 @@ const FriendDaySlide: React.FC<FriendDaySlideProps> = ({
   onReplyToTask,
   onReactToTask,
   onOpenReactions,
+  onViewImage,
   scrollMode = 'contained',
 }) => {
   const tasksByCategory = useMemo(() => {
@@ -171,10 +232,7 @@ const FriendDaySlide: React.FC<FriendDaySlideProps> = ({
                           </p>
                         )}
                         {task.image && (
-                          <div className="flex items-center gap-1 mt-1 text-xs text-gray-400">
-                            <ImageIcon size={11} />
-                            <span>Photo attached</span>
-                          </div>
+                          <FriendTaskImage task={task} onViewImage={onViewImage} />
                         )}
                         {reactions.length > 0 && (
                           <div className="mt-1.5">
@@ -247,7 +305,19 @@ export const FriendDayViewSheet: React.FC<FriendDayViewSheetProps> = ({
   renderMode = 'sheet',
 }) => {
   const [reactionTask, setReactionTask] = useState<TaskDocument | null>(null);
+  const [viewingTaskId, setViewingTaskId] = useState<string | null>(null);
+  const [isImageViewerOpen, setIsImageViewerOpen] = useState(false);
   const tasksByDate = useTasksByDate(tasks);
+
+  const viewingTask = useMemo(
+    () => tasks.find((task) => task.id === viewingTaskId) ?? null,
+    [tasks, viewingTaskId]
+  );
+
+  const {
+    imageUrl: viewingImageUrl,
+    isLoading: isViewingImageLoading,
+  } = useTaskImage(viewingTask?.image, isImageViewerOpen);
 
   const {
     swiperRef,
@@ -263,7 +333,7 @@ export const FriendDayViewSheet: React.FC<FriendDayViewSheetProps> = ({
     isOpen,
     selectedDate: date,
     onDateChange,
-    isDisabled: !!reactionTask,
+    isDisabled: !!reactionTask || isImageViewerOpen,
   });
 
   const handlePickEmoji = (emoji: string) => {
@@ -271,6 +341,17 @@ export const FriendDayViewSheet: React.FC<FriendDayViewSheetProps> = ({
     onReactToTask?.(reactionTask, emoji);
     setReactionTask(null);
   };
+
+  const handleViewImage = useCallback((task: TaskDocument) => {
+    if (!task.image) return;
+    setViewingTaskId(task.id);
+    setIsImageViewerOpen(true);
+  }, []);
+
+  const handleCloseImageViewer = useCallback(() => {
+    setIsImageViewerOpen(false);
+    setViewingTaskId(null);
+  }, []);
 
   const handleSheetHorizontalSwipe = useCallback(
     (direction: 'left' | 'right') => {
@@ -281,7 +362,7 @@ export const FriendDayViewSheet: React.FC<FriendDayViewSheetProps> = ({
   );
 
   useHorizontalArrowNavigation({
-    enabled: isOpen && !reactionTask,
+    enabled: isOpen && !reactionTask && !isImageViewerOpen,
     onLeft: handlePrevDay,
     onRight: handleNextDay,
   });
@@ -365,6 +446,7 @@ export const FriendDayViewSheet: React.FC<FriendDayViewSheetProps> = ({
                   onReplyToTask={onReplyToTask}
                   onReactToTask={onReactToTask}
                   onOpenReactions={setReactionTask}
+                  onViewImage={handleViewImage}
                   scrollMode={renderMode === 'sheet' ? 'contained' : 'page'}
                 />
               )}
@@ -389,8 +471,8 @@ export const FriendDayViewSheet: React.FC<FriendDayViewSheetProps> = ({
         onClose={onClose}
         ariaLabel={format(date, 'EEEE, MMMM d, yyyy')}
         height="full"
-        isLocked={!!reactionTask}
-        suspendInteraction={!!reactionTask}
+        isLocked={!!reactionTask || isImageViewerOpen}
+        suspendInteraction={!!reactionTask || isImageViewerOpen}
         contentMode="fixed"
         onHorizontalSwipe={handleSheetHorizontalSwipe}
       >
@@ -406,6 +488,15 @@ export const FriendDayViewSheet: React.FC<FriendDayViewSheetProps> = ({
         onClose={() => setReactionTask(null)}
         onPick={handlePickEmoji}
       />
+      <Suspense fallback={<ImageViewerLoadingFallback />}>
+        <ImageViewer
+          isOpen={isImageViewerOpen && !!viewingImageUrl && !isViewingImageLoading}
+          imageUrl={viewingImageUrl}
+          taskTitle={viewingTask?.title}
+          taskDate={viewingTask?.date}
+          onClose={handleCloseImageViewer}
+        />
+      </Suspense>
     </>
   );
 };
