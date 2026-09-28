@@ -103,7 +103,8 @@ async function fetchTodoMatePhoto(
   try {
     response = await fetchImpl(url.toString(), baseInit);
   } catch {
-    response = null;
+    // Keep the initial null response and allow the guarded Google Storage
+    // authentication retry below when applicable.
   }
 
   if (
