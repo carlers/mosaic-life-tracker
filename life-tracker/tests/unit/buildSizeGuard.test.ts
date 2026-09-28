@@ -73,6 +73,31 @@ describe('build-size guard', () => {
     })).toThrow(/entryGzipBytes/);
   });
 
+  // Regression: §24.14 (reviewed aggregate bundle headroom).
+  it('keeps configured aggregate limits near five percent above the reviewed baseline', async () => {
+    const configuredBudget = JSON.parse(await readFile(
+      new URL('../../config/build-size-budget.json', import.meta.url),
+      'utf8',
+    ));
+
+    expect(configuredBudget.baseline).toMatchObject({
+      measuredAt: '2026-09-28',
+      commit: 'dff7f45',
+    });
+
+    for (const metric of [
+      'appAssetsRawBytes',
+      'appAssetsGzipBytes',
+      'precacheUniqueBytes',
+    ]) {
+      const baselineBytes = configuredBudget.baseline.metrics[metric];
+      const limitBytes = configuredBudget.limits[metric];
+      const ratio = limitBytes / baselineBytes;
+      expect(ratio).toBeGreaterThanOrEqual(1.049);
+      expect(ratio).toBeLessThanOrEqual(1.051);
+    }
+  });
+
   // Regression: PLAN.md — Phase 3.6 Build-size guard
   it('keeps the reviewed budget in the production build command', async () => {
     const packageJson = JSON.parse(await readFile(new URL('../../package.json', import.meta.url), 'utf8'));

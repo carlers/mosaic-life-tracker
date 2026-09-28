@@ -720,13 +720,24 @@ generated service-worker policy pass. The guard reads the emitted module entry f
 from the generated worker. It enforces raw and Node-gzip entry/aggregate values plus the
 unique raw precache value in `config/build-size-budget.json`.
 
-These are regression ceilings with about five percent reviewed headroom over the
-2026-09-20 baseline, not performance goals. Hashed output names are intentionally ignored.
-A budget failure requires graph inspection and either a size fix or a documented decision
-to accept the growth before changing the baseline/limit. Never raise a threshold solely
-to make verification pass. `npm run build:size` checks an existing `dist/`; the diagnostic
+These are regression ceilings, not performance goals. Hashed output names are intentionally
+ignored. A budget failure requires graph inspection and either a size fix or a documented
+decision to accept the growth before changing the baseline/limit. Never raise a threshold
+solely to make verification pass.
+
+The aggregate bundle/precache baseline was deliberately re-reviewed on 2026-09-28 at stable
+Preview commit `dff7f45` after the accepted TodoMate importer, photo migration, and sync
+freshness work consumed essentially all of the previous September 24 aggregate-gzip
+allowance. The reviewed baseline is 2,006,246 raw app-asset bytes, 605,480 gzip app-asset
+bytes, and 2,066,777 unique precache bytes. Their limits carry approximately five percent
+headroom. The existing entry raw/gzip safety caps remain unchanged because this review was
+about accepted aggregate feature growth, not permission for the initial entry chunk to grow.
+The configured baseline/limits are pinned by unit coverage.
+
+`npm run build:size` checks an existing `dist/`; the diagnostic
 `scripts/audit-bundle.mjs` remains the source for static-closure and package attribution.
-The current baseline and limits live in `config/build-size-budget.json`; historical audit details remain available in Git history.
+The current baseline and limits live in `config/build-size-budget.json`; historical audit
+details remain available in Git history.
 
 
 ### 24.15 PostHog error tracking and feature flags
