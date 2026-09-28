@@ -28,29 +28,10 @@ export function parseDrFunctionDeployArgs(argv = [], env = process.env) {
     throw new Error('Missing APPWRITE_TARGET_API_KEY.');
   }
 
-  const drSecrets = {};
-  for (const name of [
-    'R2_ACCOUNT_ID',
-    'R2_ACCESS_KEY_ID',
-    'R2_SECRET_ACCESS_KEY',
-    'R2_BUCKET',
-    'DR_ENCRYPTION_KEY_B64',
-  ]) {
-    if (!env[name]) {
-      throw new Error(`Missing DR recovery Function secret: ${name}`);
-    }
-    drSecrets[name] = env[name];
-  }
-
-  const drVariables = {};
-  if (env.R2_ENDPOINT) drVariables.R2_ENDPOINT = env.R2_ENDPOINT;
-
   return {
     endpoint,
     projectId,
     apiKey,
-    drSecrets,
-    drVariables,
     messageFunctionId: flagValue(argv, '--message-function-id') || undefined,
     drFunctionId: flagValue(argv, '--dr-function-id') || undefined,
   };
