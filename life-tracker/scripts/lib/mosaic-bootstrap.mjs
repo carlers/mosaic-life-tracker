@@ -468,8 +468,6 @@ export async function deployRecoveredProjectFunctions(
     endpoint,
     projectId,
     apiKey,
-    drSecrets,
-    drVariables = {},
     messageFunctionId,
     drFunctionId,
   },
@@ -505,13 +503,6 @@ export async function deployRecoveredProjectFunctions(
     throw new Error('Message and DR Function IDs must be different');
   }
 
-  const requiredDrSecrets = drConfig.requiredSecretVariables || [];
-  for (const name of requiredDrSecrets) {
-    if (!drSecrets?.[name]) {
-      throw new Error(`Missing DR recovery Function secret: ${name}`);
-    }
-  }
-
   log('Deploying schedule-disabled message-action Function...');
   await provisionFunction({
     functions: services.functions,
@@ -527,8 +518,6 @@ export async function deployRecoveredProjectFunctions(
     functions: services.functions,
     directory: join(FUNCTION_DIR, 'dr-backup'),
     functionId: resolvedDrFunctionId,
-    extraVariables: drVariables,
-    secretVariables: drSecrets,
     functionOverrides: { schedule: '' },
     sleep,
   });
