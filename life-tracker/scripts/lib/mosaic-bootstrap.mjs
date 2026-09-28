@@ -533,6 +533,14 @@ export async function deployRecoveredProjectFunctions(
     sleep,
   });
 
+  const [messageFunction, drFunction] = await Promise.all([
+    services.functions.get({ functionId: resolvedMessageFunctionId }),
+    services.functions.get({ functionId: resolvedDrFunctionId }),
+  ]);
+  if (messageFunction.schedule || drFunction.schedule) {
+    throw new Error('Recovery Function schedules must remain disabled');
+  }
+
   return {
     messageFunctionId: resolvedMessageFunctionId,
     drFunctionId: resolvedDrFunctionId,
