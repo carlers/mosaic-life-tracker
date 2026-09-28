@@ -2,51 +2,65 @@
 
 Updated: 2026-09-28
 
-Current task: TodoMate → Mosaic migration is live-accepted on stable Preview branch
-`feature/todomate-importer`.
+Current task: extend the accepted TodoMate → Mosaic migration so TodoMate task photos are
+copied into Mosaic's own Appwrite Storage and can be filled onto already-imported tasks.
 
-Status: the importer and its CORS regression fix are delivered to
-`feature/todomate-importer` at `0f1c4e692b7f4d8192d9d5356c32a453b90f1287`.
-Full stable-branch Quality Gate 1269 passed and the Vercel Preview was READY. The user then
-completed a real-account preview and import successfully.
+Status: the original importer is live-accepted on stable Preview branch
+`feature/todomate-importer`. Photo work is isolated on
+`chatgpt/todomate-photo-import`, branched from stable Preview SHA
+`f2ce2f65c275c39d28feb7ed7f0eab4ee239c624`.
 
-## Accepted live result
-- Preview found 505 TodoMate tasks, 13 categories, and 1 diary entry.
-- 3 undated TodoMate tasks were explicitly reported and placed on the local import day,
-  matching the documented Mosaic date requirement.
-- 37 TodoMate task photo attachments were explicitly reported and skipped, matching the
-  documented first-version limitation.
-- The user completed **Import into Mosaic** successfully.
-- The migration remained Merge-only through Mosaic's existing restore engine.
-- TodoMate credentials/tokens were not supplied in chat and remain outside Mosaic's backend.
-- The CORS compatibility fallback uses only TodoMate's public Firebase web configuration;
-  authentication and personal-data reads still go directly browser → Google/TodoMate.
+## Existing accepted migration
+- Real-account import succeeded with 505 tasks, 13 categories, and 1 diary entry.
+- 3 undated TodoMate tasks were placed on the import day.
+- The original v1 preview reported 37 TodoMate photo attachments but did not copy them.
+- TodoMate remains read-only and application remains Merge-only through Mosaic's existing
+  restore engine.
 
-## Delivered migration behavior
-- TodoMate is read-only.
-- Full owned `Goal`, `TodoItem`, and `Diary` history is previewed before Mosaic writes.
-- Groups/categories, task history/completion state/time, memos, reminders, routine
-  references, and diary data map into Mosaic.
-- Newer Mosaic rows/tombstones win because application is Merge-only.
-- TodoMate task photos are not copied in v1 because Mosaic requires owned Appwrite Storage
-  file IDs.
-- Routine IDs are preserved on tasks, but TodoMate recurring routine definitions are not
-  reconstructed in v1.
-- Selected-viewer TodoMate visibility narrows to private rather than broadening access.
+## Photo migration implementation
+- Preview now attempts to download each HTTPS TodoMate `photoURL` directly in the browser
+  with cookies/credentials omitted and no referrer.
+- If a Google/Firebase Storage URL returns 401/403, only that Google Storage URL may be
+  retried with the TodoMate Firebase ID token. Arbitrary photo hosts never receive the token.
+- Invalid/non-HTTPS, non-image, empty, over-20 MiB, or otherwise unavailable photos are
+  reported as unavailable without blocking the rest of the migration.
+- Photo downloads use at most four concurrent workers.
+- Successfully fetched photos are compressed locally to WebP and bundled into the same
+  in-memory Mosaic migration ZIP under deterministic source image IDs.
+- The task `image` reference points to the bundled source image ID; Mosaic's existing
+  restore-image path uploads the bytes to the current user's Appwrite Storage and rewrites
+  the task to the resulting Mosaic-owned file ID.
+- Preview now reports photo attachments found / ready / unavailable.
+- Import completion feedback reports copied and missing photos.
+- No TodoMate photo URL/token/content is logged or sent through a third-party migration
+  proxy or Mosaic backend.
 
-## Verification
-- Runtime adapter/UI coverage pins direct Google/TodoMate network boundaries, owner-only
-  history queries, mapping/warnings, bad-login behavior, password clearing, Settings
-  discoverability, Merge-only restore, and the Firebase-config CORS fallback.
-- Exact task SHA `6b903a82c76a6c47ff74d5adb51e621a9176d108` passed full Quality Gate 1268.
-- Stable Preview SHA `0f1c4e692b7f4d8192d9d5356c32a453b90f1287` passed full Quality Gate 1269.
-- Hosted real-account manual acceptance passed.
+## Idempotent re-import
+- Existing restore coverage already proves an equal-version cross-account task may be
+  retried when its current Mosaic image field is empty.
+- Therefore the user's already imported 505 tasks do not need to be deleted or duplicated.
+  Re-running the photo-capable TodoMate import can fill missing images on matching tasks.
+- Deterministic source image IDs use the TodoMate task plus stable photo URL path so signed
+  query-token changes do not create new source IDs.
 
-## Remaining TodoMate work
-- No blocker remains for the first-version TodoMate migration.
-- Stable Preview promotion to `dev` remains a separate explicit user decision.
-- Photo attachment migration and recurring routine-definition reconstruction are future
-  enhancements, not incomplete acceptance criteria for v1.
+## Automated verification
+- Focused Quality Gate 1278 passed the implementation/UI/photo-bundling tests through commit
+  `551d4fead12b4179cdd27eaec6e5d0370caa6f89`.
+- Additional unit coverage at `a1fc86d41d63317f24a348882bdff6dd8a9f7918`
+  pins the credential boundary: public/arbitrary photo downloads receive no Firebase token;
+  a Google Storage 401/403 retry may receive the Firebase ID token.
+- A final exact-SHA full canonical gate is still required after documentation/checkpoint
+  finalization.
+
+## Remaining
+1. Complete diff review and final exact-SHA canonical acceptance.
+2. Squash-deliver the accepted change into `feature/todomate-importer`.
+3. Verify the replacement Vercel Preview is READY.
+4. User reruns **Preview Transfer** with their own TodoMate account and reports the photo
+   found/ready/unavailable counts; do not ask for credentials or photo URLs in chat.
+5. If photo readiness is sane, user reruns **Import into Mosaic**. Existing imported tasks
+   should gain their Appwrite-hosted photos without duplication.
+6. Spot-check several restored photos and sync; then mark the photo enhancement complete.
 
 ## Separate DR follow-up
 - DR work is already merged into `dev`.
@@ -54,6 +68,5 @@ completed a real-account preview and import successfully.
 - External GitHub stale-backup monitoring still requires default-branch delivery/configuration;
   do not promote to `main` without explicit user authorization.
 
-Next action: finish this acceptance-documentation delivery into
-`feature/todomate-importer`. Then wait for explicit instruction before promoting that
-stable Preview branch to `dev`.
+Next action: finish final review, request full canonical acceptance on the exact task tip,
+deliver to the stable TodoMate Preview branch, and run real-account photo acceptance.
