@@ -267,6 +267,7 @@ describe('TodoMate import adapter', () => {
       )
     ).toBe(true);
     expect(urls[5]).toBe('https://example.invalid/private-photo');
+    expect(calls[5].init?.headers).toBeUndefined();
     expect(
       urls.some((url) => url.includes('todomate-api.3xhaust.dev'))
     ).toBe(false);
@@ -288,6 +289,82 @@ describe('TodoMate import adapter', () => {
         authorization: 'Bearer firebase-id-token',
       });
     }
+  });
+
+  it('uses the Firebase token only when a Google Storage photo requires authentication', async () => {
+    const photoUrl =
+      'https://firebasestorage.googleapis.com/v0/b/mate-914f3/o/private%2Fphoto.jpg?alt=media';
+    const photoCalls: FetchCall[] = [];
+    const fetchImpl = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      photoCalls.push({ url, init });
+
+      if (url === 'https://www.todomate.net/__/firebase/init.json') {
+        return jsonResponse({
+          apiKey: 'public-firebase-key',
+          projectId: 'mate-914f3',
+        });
+      }
+      if (url.startsWith('https://identitytoolkit.googleapis.com/')) {
+        return jsonResponse({
+          idToken: 'firebase-id-token',
+          localId: 'todo_uid',
+        });
+      }
+      if (url.includes('firestore.googleapis.com')) {
+        const body = JSON.parse(String(init?.body ?? '{}'));
+        const collection = body.structuredQuery?.from?.[0]?.collectionId;
+        if (collection === 'TodoItem') {
+          return jsonResponse([
+            firestoreRow('TodoItem', 'todo_photo', {
+              writerID: 'todo_uid',
+              content: 'Private photo',
+              date: Date.UTC(2026, 8, 27),
+              createTime: Date.UTC(2026, 8, 20),
+              isDone: false,
+              doneTime: null,
+              goalID: '',
+              memo: null,
+              remindAt: null,
+              routineID: null,
+              photoURL: photoUrl,
+            }),
+          ]);
+        }
+        return jsonResponse([]);
+      }
+      if (url === photoUrl) {
+        const headers = init?.headers as Record<string, string> | undefined;
+        if (headers?.authorization === 'Bearer firebase-id-token') {
+          return new Response(new Uint8Array([9, 8, 7]), {
+            status: 200,
+            headers: { 'content-type': 'image/jpeg' },
+          });
+        }
+        return new Response('', { status: 403 });
+      }
+
+      throw new Error(`unexpected request: ${url}`);
+    }) as unknown as typeof fetch;
+
+    const prepared = await prepareTodoMateTransfer(
+      { email: 'person@example.com', password: 'private-password' },
+      {
+        fetchImpl,
+        now: () => new Date(2026, 8, 28, 4, 0, 0),
+        photoProcessor: identityPhotoProcessor,
+      }
+    );
+
+    expect(prepared.preview.photosFound).toBe(1);
+    expect(prepared.preview.photosReady).toBe(1);
+    expect(prepared.preview.photosUnavailable).toBe(0);
+    const imageRequests = photoCalls.filter((call) => call.url === photoUrl);
+    expect(imageRequests).toHaveLength(2);
+    expect(imageRequests[0].init?.headers).toBeUndefined();
+    expect(imageRequests[1].init?.headers).toEqual({
+      authorization: 'Bearer firebase-id-token',
+    });
   });
 
   it('falls back to TodoMate public Firebase config when browser config discovery is CORS-blocked', async () => {
