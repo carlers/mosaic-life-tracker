@@ -20,6 +20,7 @@ const buildChannel =
       : 'Local';
 
 const posthogSourceMapsEnabled =
+  vercelEnvironment !== 'preview' &&
   process.env.POSTHOG_SOURCE_MAPS_ENABLED === 'true' &&
   Boolean(
     process.env.POSTHOG_PERSONAL_API_KEY &&

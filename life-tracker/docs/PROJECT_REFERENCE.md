@@ -773,11 +773,13 @@ Production source-map upload uses `@posthog/rollup-plugin` only when the explici
 `POSTHOG_SOURCE_MAPS_ENABLED=true` build flag is present together with all three build-only
 variables: `POSTHOG_PERSONAL_API_KEY`, `POSTHOG_PROJECT_ID`, and `POSTHOG_HOST`. Those
 names are deliberately not `VITE_` variables and are unavailable to browser code. The
-three credentials alone do not activate upload; optional source-map delivery must never
-make an otherwise valid Preview/production build depend on stale external credentials.
-Opted-in builds use hidden source maps and request deletion after a successful upload;
-ordinary builds create no source maps for this integration. Client configuration continues
-to use only `VITE_POSTHOG_TOKEN` and `VITE_POSTHOG_HOST`. The host is never assumed.
+three credentials alone do not activate upload. Vercel Preview builds additionally force
+this upload path off even if the build-only variables are inherited into Preview, because
+optional source-map delivery must never make a valid Preview depend on an external upload
+service. Production and explicitly opted-in local builds retain the upload path. Opted-in
+builds use hidden source maps and request deletion after a successful upload; ordinary
+builds create no source maps for this integration. Client configuration continues to use
+only `VITE_POSTHOG_TOKEN` and `VITE_POSTHOG_HOST`. The host is never assumed.
 
 IP-discarding is not represented as a client-side setting. If Mosaic requires IP discard,
 configure and verify it in the PostHog project. Live verification must also confirm

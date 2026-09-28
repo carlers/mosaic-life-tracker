@@ -110,10 +110,12 @@ PostHog is optional for preview deployment. Without its browser environment vari
 adapter is a clean no-op. Production source-map upload is separately opt-in: set
 `POSTHOG_SOURCE_MAPS_ENABLED=true` together with valid `POSTHOG_PERSONAL_API_KEY`,
 `POSTHOG_PROJECT_ID`, and `POSTHOG_HOST`. The three build credentials alone MUST NOT
-activate source-map upload, so an expired or unavailable optional PostHog upload cannot
-break an otherwise valid Vercel build. If live Phase 3.7 staging verification is desired,
-configure the appropriate Vercel Preview/Production variables separately; do not commit
-secrets.
+activate source-map upload, and Vercel Preview builds never run the upload even if those
+build-only variables are inherited into Preview. This keeps an expired or unavailable
+optional PostHog upload from breaking an otherwise valid Preview deployment. Production
+and explicitly opted-in local builds retain source-map upload. If live Phase 3.7 staging
+verification is desired, configure only the browser-facing Preview variables separately;
+do not commit secrets.
 
 ## Branch deployment review loop
 
