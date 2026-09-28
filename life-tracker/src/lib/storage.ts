@@ -230,6 +230,12 @@ export interface EnsuredImage {
   uploaded: boolean;
 }
 
+/**
+ * Ensures a deterministic restored/imported task image exists. Existing files
+ * are reused so repeated backup restores remain idempotent. Restored task
+ * attachments use authenticated-user read access because friends may receive
+ * the owning task through the authorized friend calendar.
+ */
 export async function ensureRestoredImage(
   file: File,
   preferredFileId: string,
@@ -252,17 +258,27 @@ export async function ensureRestoredImage(
       bucketId: APPWRITE_CONFIG.bucketId,
       fileId: preferredFileId,
     });
+    await guardedStorage.updateFile({
+      bucketId: APPWRITE_CONFIG.bucketId,
+      fileId: preferredFileId,
+      permissions: buildFilePermissions(userId, true),
+    });
     return { fileId: preferredFileId, uploaded: false };
   } catch (error) {
     if (!isNotFoundError(error)) throw error;
   }
 
   try {
-    await uploadImageWithId(file, preferredFileId, userId);
+    await uploadImageWithId(file, preferredFileId, userId, true);
     return { fileId: preferredFileId, uploaded: true };
   } catch (error) {
     const cause = (error as Error & { cause?: unknown }).cause;
     if (isConflictError(cause)) {
+      await guardedStorage.updateFile({
+        bucketId: APPWRITE_CONFIG.bucketId,
+        fileId: preferredFileId,
+        permissions: buildFilePermissions(userId, true),
+      });
       return { fileId: preferredFileId, uploaded: false };
     }
     throw error;
