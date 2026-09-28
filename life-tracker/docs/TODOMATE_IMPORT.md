@@ -106,7 +106,10 @@ own Appwrite Storage bucket. The task is rewritten to the resulting Mosaic-owned
 
 Photo preparation is bounded to four concurrent downloads and rejects invalid/non-HTTPS,
 non-image, empty, or over-20 MiB source responses. Unavailable photos are reported in preview
-without aborting the rest of the migration. A later re-import can retry them.
+without aborting the rest of the migration. A later re-import can retry them. Because photo
+download/compression happens during **Preview Transfer**, accounts with many attachments may
+spend noticeably longer in the preview step; progress is reported as photos complete. No
+Appwrite photo write occurs until the user confirms **Import into Mosaic**.
 
 This is intentionally idempotent. The restore engine already permits an equal-version
 cross-account task to run again when the current Mosaic task is missing its portable image,
