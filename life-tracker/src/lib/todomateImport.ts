@@ -1,4 +1,5 @@
 import { APP_VERSION } from './appVersion';
+import { hashString } from './settingsRowId';
 
 const TODOMATE_FIREBASE_INIT_URL =
   'https://www.todomate.net/__/firebase/init.json';
@@ -49,15 +50,7 @@ function photoSourceId(todoId: string, photoUrl: string): string {
     // makes the deterministic ID stable for tests/callers that inspect it.
   }
 
-  let h1 = 5381;
-  let h2 = 52711;
-  const input = `${todoId}:${stableUrl}`;
-  for (let index = 0; index < input.length; index += 1) {
-    const code = input.charCodeAt(index);
-    h1 = ((h1 << 5) + h1 + code) | 0;
-    h2 = ((h2 << 5) + h2 + code * 31) | 0;
-  }
-  return `tmimg_${(h1 >>> 0).toString(36)}${(h2 >>> 0).toString(36)}`;
+  return `tmimg_${hashString(`${todoId}:${stableUrl}`)}`;
 }
 
 function googleStorageHost(hostname: string): boolean {
@@ -166,6 +159,7 @@ async function downloadTodoMatePhotos(
   prepared: Map<string, PreparedTodoMatePhoto>;
 }> {
   const candidates = todos
+    .filter((todo) => Boolean(maybeString(todo.fields.content)))
     .map((todo) => ({
       todoId: todo.id,
       url: maybeString(todo.fields.photoURL),
