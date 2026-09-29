@@ -11,6 +11,7 @@ import {
   Archive,
   Image as ImageIcon,
   Eye,
+  Copy,
 } from 'lucide-react';
 import { isToday } from 'date-fns';
 import {
@@ -62,6 +63,15 @@ export const TaskActionSheet: React.FC<TaskActionSheetProps> = ({
   const visibilityLabel = inheriting
     ? `${labelForVisibility(effective as TaskVisibility)} · Default`
     : labelForVisibility(effective as TaskVisibility);
+
+  const handleCopyTaskText = async () => {
+    try {
+      await navigator.clipboard.writeText(task.title);
+      onClose();
+    } catch {
+      // Clipboard access can be unavailable outside a secure browser context.
+    }
+  };
 
   return (
     <BottomSheet
@@ -138,6 +148,20 @@ export const TaskActionSheet: React.FC<TaskActionSheetProps> = ({
 
         {/* Actions list */}
         <div className="space-y-1">
+          <button
+            type="button"
+            onClick={handleCopyTaskText}
+            className="w-full flex items-center gap-4 px-2 py-3.5 rounded-xl hover:bg-[#1E1E1E] transition-colors text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
+          >
+            <div
+              className="w-8 h-8 rounded-full bg-gray-300 flex items-center justify-center"
+              aria-hidden="true"
+            >
+              <Copy size={16} className="text-black" />
+            </div>
+            <span className="text-base font-medium">Copy Task Text</span>
+          </button>
+
           {!task.memo && (
             <button
               type="button"
