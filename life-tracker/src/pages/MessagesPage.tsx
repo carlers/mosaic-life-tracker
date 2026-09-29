@@ -14,7 +14,7 @@ export const MessagesPage: React.FC = () => {
       <div className="sticky top-0 z-20 bg-[#111111] px-4 py-3 border-b border-[#333333]">
         <h1 className="text-lg font-bold text-white">Messages</h1>
       </div>
-      <div className="flex-1 pb-24 px-4 pt-4">
+      <div className="flex-1 pb-24 pt-4">
         {isLoading ? (
           <div className="flex justify-center py-10" role="status" aria-live="polite">
             <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin" />

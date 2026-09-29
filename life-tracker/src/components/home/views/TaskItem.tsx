@@ -6,7 +6,6 @@ import { useTaskImage } from '../../../hooks/useTaskImage';
 import { useBubbleGestures } from '../../../hooks/useBubbleGestures';
 import { ReactionRow } from '../../messages/ReactionRow';
 import { parseReactions } from '../../../lib/reactionUtils';
-import { getReadableTextColor } from '../../../constants/colors';
 import type { TaskDocument } from '../../../db/schema';
 
 type MemoOpenMode = 'view' | 'edit';
@@ -202,7 +201,13 @@ export const TaskItem: React.FC<TaskItemProps> = ({
         aria-label={selectionMode ? (isSelected ? 'Deselect task' : 'Select task') : (isCompleted ? 'Mark incomplete' : 'Mark complete')}
       >
         {(selectionMode ? isSelected : isCompleted) && (
-          <Check size={12} style={{ color: getReadableTextColor(categoryColor) }} aria-hidden="true" />
+          <Check
+            size={15}
+            strokeWidth={4}
+            style={{ color: '#fff' }}
+            className="drop-shadow-[0_1px_1px_rgba(0,0,0,0.4)]"
+            aria-hidden="true"
+          />
         )}
       </button>
       <div className="flex-1 min-w-0">
@@ -215,7 +220,8 @@ export const TaskItem: React.FC<TaskItemProps> = ({
             onKeyDown={handleKeyDown}
             onBlur={onEditSave}
             onPointerDown={(e) => e.stopPropagation()}
-            className="w-full bg-transparent text-white outline-none border-b border-[#4B5563] focus-visible:ring-2 focus-visible:ring-emerald-500/60"
+            className="w-full bg-transparent text-white outline-none border-b border-[#4B5563]"
+            style={{ borderBottomColor: categoryColor, borderBottomWidth: '2px' }}
             aria-label="Task title"
           />
         ) : (
@@ -247,7 +253,7 @@ export const TaskItem: React.FC<TaskItemProps> = ({
         )}
         {reactions.length > 0 && (
           <div className={`mt-1 ${selectionMode ? 'pointer-events-none' : ''}`}>
-            <ReactionRow reactions={reactions} currentUserId={currentUserId} isOutgoing={false} onToggle={() => {}} />
+            <ReactionRow reactions={reactions} currentUserId={currentUserId} isOutgoing={false} onToggle={() => { }} />
           </div>
         )}
       </div>
