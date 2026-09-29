@@ -1,35 +1,28 @@
 # Session checkpoint
 
 Updated: 2026-09-29
-Current task: password recovery.
-Status: password recovery request and completion are implemented through AuthProvider, with public login/reset flows, race and unmount protection, focused tests, and deployment configuration documentation.
-Next action: review and deliver the password-recovery branch; configure the canonical public origin and matching Appwrite Web platform before hosted acceptance.
-Blockers: hosted recovery-email acceptance requires deployment and Appwrite Console configuration.
+Current task: category reorder drag fix.
+Status: category drag order is now held optimistically in the manager while database writes catch up, and reorder writes are serialized instead of dropping later drag updates.
+Next action: deliver the focused fix and verify hosted drag behavior after Preview deployment.
+Blockers: none locally.
 
 ## Working set
-- src/hooks/authContext.ts
-- src/hooks/AuthProvider.tsx
-- src/pages/AuthPage.tsx
-- src/pages/ResetPasswordPage.tsx
-- tests/react/AuthProvider.test.tsx
-- tests/components/PasswordRecovery.test.tsx
+- src/components/modals/CategoryManagerSheet.tsx
+- src/hooks/useCategories.ts
+- tests/components/CategoryManagerSheet.test.tsx
 
 ## Completed substeps
-- Added recovery request/completion context state and Appwrite calls with stale-result and unmount guards.
-- Added generic forgot-password confirmation and a public reset callback page.
-- Shared the eight-character signup/reset password rule.
-- Documented canonical callback-origin and Appwrite Web-platform configuration.
+- Kept the latest drag order visible immediately rather than rerendering the stale live-query order.
+- Serialized reorder persistence so rapid Framer Motion updates finish in the latest order.
+- Added a DOM regression test for the visible optimistic order and persistence callback.
 
 ## Remaining substeps
-- Configure the hosted canonical origin and Appwrite Web platform.
-- Verify delivery and consumption of a real recovery email on the hosted deployment.
+- Verify the drag interaction on the hosted Preview.
 
 ## Constraints
-- Recovery request confirmation must not reveal whether an account exists.
-- The reset callback remains public even when a cached/authenticated user is present.
-- Ignore superseded and post-unmount async recovery outcomes.
+- Preserve category membership changes from live RxDB updates while retaining the active local order.
+- Never drop a later reorder while an earlier database write is still running.
 
 ## Verification
-- Focused provider and component tests pass.
-- Lint and production build pass.
-- Hosted recovery-email acceptance is pending configuration/deployment.
+- Focused CategoryManagerSheet regression test and focused lint pass.
+- Production build, PWA policy, and build-size budgets pass.
