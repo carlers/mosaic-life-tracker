@@ -1,6 +1,8 @@
 import { reportConnectivityResult } from './connectivity';
 export const AUTH_UNAUTHORIZED_EVENT = 'auth:unauthorized';
 
+let verificationRequestQueued = false;
+
 export function isUnauthorizedError(err: unknown): boolean {
   const code = (err as { code?: number } | null)?.code;
   if (code === 401) return true;
@@ -18,9 +20,13 @@ export function makeUnauthorizedError(message = 'Unauthorized'): Error {
 }
 
 export function dispatchUnauthorized(): void {
-  if (typeof window !== 'undefined') {
+  if (typeof window === 'undefined' || verificationRequestQueued) return;
+
+  verificationRequestQueued = true;
+  queueMicrotask(() => {
+    verificationRequestQueued = false;
     window.dispatchEvent(new CustomEvent(AUTH_UNAUTHORIZED_EVENT));
-  }
+  });
 }
 
 /**
