@@ -142,6 +142,24 @@ describe('BottomSheet', () => {
     expect(onCloseB).not.toHaveBeenCalled();
   });
 
+  it('lets a transient mode consume Escape before dismissing the sheet', () => {
+    const onClose = vi.fn();
+    const onTransientDismiss = vi.fn(() => true);
+    const historyBack = vi.mocked(window.history.back);
+
+    render(
+      <BottomSheet isOpen onClose={onClose} onTransientDismiss={onTransientDismiss}>
+        Selecting
+      </BottomSheet>
+    );
+
+    fireEvent.keyDown(window, { key: 'Escape' });
+
+    expect(onTransientDismiss).toHaveBeenCalledTimes(1);
+    expect(historyBack).not.toHaveBeenCalled();
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
   // Regression: §7 (nested sheets reserve modal browser-history layers).
   it('reserves one same-route history entry for every open sheet layer', () => {
     const baselineLength = window.history.length;

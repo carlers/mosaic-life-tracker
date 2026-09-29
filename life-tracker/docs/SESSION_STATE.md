@@ -1,31 +1,35 @@
 # Session checkpoint
 
 Updated: 2026-09-29
-Current task: category reorder drag fix.
-Status: the category grip now owns touch movement without making the scrollable row draggable; its button semantics and drag-control wiring have focused DOM coverage.
-Next action: run the documented real-mobile category reorder acceptance after Preview deployment.
+Current task: Day View multi-task selection.
+Status: Day View supports same-day multi-selection with category-colored rows, sticky bulk actions, bulk date/Today/Tomorrow/visibility/delete sheets, and Escape/Android Back mode dismissal.
+Next action: complete broad verification and run the hosted mobile Day View selection acceptance after Preview deployment.
 Blockers: none locally.
 
 ## Working set
-- src/components/modals/CategoryManagerSheet.tsx
-- src/hooks/useCategories.ts
-- tests/components/CategoryManagerSheet.test.tsx
-- tests/manual/category-reorder-mobile.md
+- src/components/home/views/DayViewSheet.tsx
+- src/components/home/views/TaskItem.tsx
+- src/components/home/views/BulkTaskActionSheet.tsx
+- src/components/ui/BottomSheet.tsx
+- tests/components/DayViewSheetRegression.test.tsx
+- tests/components/BottomSheet.test.tsx
 
 ## Completed substeps
-- Kept the latest drag order visible immediately rather than rerendering the stale live-query order.
-- Serialized reorder persistence so rapid Framer Motion updates finish in the latest order.
-- Added a DOM regression test for the visible optimistic order and persistence callback.
-- Matched the proven friend-carousel grip behavior (`type=button`, touch ownership, active cursor, and padded hit target).
-- Added focused DOM coverage for grip semantics/drag start and a real-touch mobile acceptance protocol covering persistence, scrolling, and sheet-dismiss isolation.
+- Added active Select state and day-scoped task selection through the Day View component tree.
+- Suppressed completion and task gestures during selection while preserving task content and keyboard-accessible selection semantics.
+- Added sticky, safe-area-aware bulk controls and dedicated action, date, visibility, and destructive-confirmation sheets.
+- Added partial-failure handling and retained failed selections for retry.
+- Extended BottomSheet transient dismissal so Escape/Android Back leave selection before closing Day View.
+- Added focused regression coverage for selection behavior and transient Escape handling.
 
 ## Remaining substeps
-- Run `tests/manual/category-reorder-mobile.md` on the hosted Preview.
+- Run real-device Android Back, safe-area, scrolling, and touch-selection acceptance on hosted Preview.
 
 ## Constraints
-- Preserve category membership changes from live RxDB updates while retaining the active local order.
-- Never drop a later reorder while an earlier database write is still running.
+- Selection never spans dates and bulk deletion remains a soft-delete/tombstone mutation.
+- Nested bulk sheets dismiss before selection mode; the following Back closes Day View.
+- Bulk mutation failures retain failed task IDs for retry.
 
 ## Verification
-- Focused CategoryManagerSheet regression test and focused lint pass.
-- Production build, PWA policy, and build-size budgets pass.
+- Focused DayViewSheet, TaskItem, CategorySection, Todo integration, and BottomSheet DOM tests pass.
+- Focused ESLint and TypeScript checks pass.
