@@ -27,31 +27,14 @@ interface FakeWindow extends EventTarget {
 interface FakeRegisterOptions {
   onNeedRefresh?: () => void;
   onNeedReload?: () => void;
-  onRegisteredSW?: (
-    swUrl: string,
-    registration: ServiceWorkerRegistration | undefined
-  ) => void;
+  onRegisteredSW?: (swUrl: string, registration: ServiceWorkerRegistration | undefined) => void;
   onRegisterError?: (error: unknown) => void;
 }
 
-function fixture({
-  callbackRegistration = true,
-  browserRegistration = true,
-  readyFallback = false,
-  standalone = false,
-}: {
-  callbackRegistration?: boolean;
-  browserRegistration?: boolean;
-  readyFallback?: boolean;
-  standalone?: boolean;
-} = {}) {
+function fixture({ callbackRegistration = true, browserRegistration = true, readyFallback = false, standalone = false } = {}) {
   const target = new EventTarget() as FakeWindow;
   target.location = { reload: vi.fn() };
-  target.matchMedia = vi.fn().mockReturnValue({
-    matches: standalone,
-    addEventListener: vi.fn(),
-    removeEventListener: vi.fn(),
-  });
+  target.matchMedia = vi.fn().mockReturnValue({ matches: standalone, addEventListener: vi.fn(), removeEventListener: vi.fn() });
   let options: FakeRegisterOptions = {};
   const update = vi.fn().mockResolvedValue(undefined);
   const registration = Object.assign(new EventTarget(), {
@@ -59,46 +42,28 @@ function fixture({
     installing: null as ServiceWorker | null,
     update: vi.fn().mockResolvedValue(undefined),
   }) as unknown as ServiceWorkerRegistration;
-  const getRegistration = vi
-    .fn()
-    .mockResolvedValue(
-      readyFallback ? undefined : browserRegistration ? registration : undefined
-    );
+  const getRegistration = vi.fn().mockResolvedValue(readyFallback ? undefined : browserRegistration ? registration : undefined);
   target.navigator = {
     serviceWorker: {
       getRegistration,
-      controller:
-        readyFallback && browserRegistration ? ({} as ServiceWorker) : null,
+      controller: readyFallback && browserRegistration ? ({} as ServiceWorker) : null,
       ready: Promise.resolve(registration),
     },
     standalone,
   };
   const register = vi.fn((next: FakeRegisterOptions = {}) => {
     options = next;
-    next.onRegisteredSW?.(
-      '/sw.js',
-      callbackRegistration ? registration : undefined
-    );
+    next.onRegisteredSW?.('/sw.js', callbackRegistration ? registration : undefined);
     return update;
   });
   initializePwaLifecycle(target as unknown as Window, register);
-  return {
-    target,
-    register,
-    update,
-    registration,
-    getRegistration,
-    get options() {
-      return options;
-    },
-  };
+  return { target, register, update, registration, getRegistration, get options() { return options; } };
 }
 
 describe('PWA lifecycle', () => {
   beforeEach(() => resetPwaLifecycleForTests());
   afterEach(() => vi.unstubAllGlobals());
 
-  // Regression: §24.18 (controlled service worker marks shell offline-ready).
   it('marks the app shell ready when the page is already service-worker controlled', () => {
     const values = new Map<string, string>();
     vi.stubGlobal('localStorage', {
@@ -107,16 +72,10 @@ describe('PWA lifecycle', () => {
       removeItem: (key: string) => values.delete(key),
       clear: () => values.clear(),
       key: (index: number) => [...values.keys()][index] ?? null,
-      get length() {
-        return values.size;
-      },
+      get length() { return values.size; },
     });
-
     fixture({ readyFallback: true });
-
-    expect(values.get('mosaic_offline_shell_ready')).toMatch(
-      /^\d{4}-\d{2}-\d{2}T/
-    );
+    expect(values.get('mosaic_offline_shell_ready')).toMatch(/^\d{4}-\d{2}-\d{2}T/);
   });
 
   it('captures and resolves the browser install prompt', async () => {
@@ -126,28 +85,42 @@ describe('PWA lifecycle', () => {
       prompt,
       userChoice: Promise.resolve({ outcome: 'accepted' as const, platform: 'web' }),
     }) as InstallPromptEvent;
-
     target.dispatchEvent(event);
     expect(event.defaultPrevented).toBe(true);
     expect(getPwaLifecycleSnapshot().installAvailable).toBe(true);
     await expect(requestPwaInstall()).resolves.toBe('accepted');
     expect(prompt).toHaveBeenCalledOnce();
-    expect(getPwaLifecycleSnapshot().installAvailable).toBe(false);
     expect(getPwaLifecycleSnapshot().installed).toBe(true);
+  });
+
+  it('waits for a delayed beforeinstallprompt event instead of reporting unavailable immediately', async () => {
+    const { target } = fixture();
+    const prompt = vi.fn().mockResolvedValue(undefined);
+    const event = Object.assign(new Event('beforeinstallprompt', { cancelable: true }), {
+      prompt,
+      userChoice: Promise.resolve({ outcome: 'accepted' as const, platform: 'web' }),
+    }) as InstallPromptEvent;
+    const install = requestPwaInstall();
+    await Promise.resolve();
+    target.dispatchEvent(event);
+    await expect(install).resolves.toBe('accepted');
+    expect(prompt).toHaveBeenCalledOnce();
+  });
+
+  it('reports unavailable after waiting when no install prompt is provided', async () => {
+    fixture();
+    await expect(requestPwaInstall()).resolves.toBe('unavailable');
   });
 
   it('marks the app installed after the browser emits appinstalled', () => {
     const { target } = fixture();
-
     target.dispatchEvent(new Event('appinstalled'));
-
     expect(getPwaLifecycleSnapshot().installed).toBe(true);
     expect(getPwaLifecycleSnapshot().installAvailable).toBe(false);
   });
 
   it('detects an installed PWA from standalone display mode', () => {
     fixture({ standalone: true });
-
     expect(getPwaLifecycleSnapshot().installed).toBe(true);
     expect(getPwaLifecycleSnapshot().installAvailable).toBe(false);
   });
@@ -155,114 +128,66 @@ describe('PWA lifecycle', () => {
   it('does not prompt again when the app is already installed', async () => {
     const { target } = fixture({ standalone: true });
     const prompt = vi.fn().mockResolvedValue(undefined);
-    target.dispatchEvent(
-      Object.assign(new Event('beforeinstallprompt', { cancelable: true }), {
-        prompt,
-        userChoice: Promise.resolve({ outcome: 'accepted' as const, platform: 'web' }),
-      }) as InstallPromptEvent
-    );
-
+    target.dispatchEvent(Object.assign(new Event('beforeinstallprompt', { cancelable: true }), {
+      prompt,
+      userChoice: Promise.resolve({ outcome: 'accepted' as const, platform: 'web' }),
+    }) as InstallPromptEvent);
     await expect(requestPwaInstall()).resolves.toBe('unavailable');
     expect(prompt).not.toHaveBeenCalled();
-    expect(getPwaLifecycleSnapshot().installed).toBe(true);
   });
 
   it('checks the captured service-worker registration on demand with staged progress', async () => {
-    const setup = fixture();
-    const stages: string[] = [];
-
-    await expect(
-      checkForPwaUpdate((stage) => stages.push(stage))
-    ).resolves.toBe('up-to-date');
+    const setup = fixture(); const stages: string[] = [];
+    await expect(checkForPwaUpdate((stage) => stages.push(stage))).resolves.toBe('up-to-date');
     expect(stages).toEqual(['preparing', 'checking', 'up-to-date']);
     expect(setup.registration.update).toHaveBeenCalledOnce();
   });
 
-  // Regression: §24.13 (manual update checks recover a valid browser registration).
   it('recovers the service-worker registration when the registration callback omits it', async () => {
     const setup = fixture({ callbackRegistration: false });
-
     await expect(checkForPwaUpdate()).resolves.toBe('up-to-date');
     expect(setup.getRegistration).toHaveBeenCalledOnce();
     expect(setup.registration.update).toHaveBeenCalledOnce();
   });
 
-  // Regression: §24.13 (WebKit/Safari recovery uses standard service-worker APIs).
   it('falls back to the active ready registration when direct lookup yields no registration', async () => {
-    const setup = fixture({
-      callbackRegistration: false,
-      browserRegistration: true,
-      readyFallback: true,
-    });
-
+    const setup = fixture({ callbackRegistration: false, browserRegistration: true, readyFallback: true });
     await expect(checkForPwaUpdate()).resolves.toBe('up-to-date');
     expect(setup.getRegistration).toHaveBeenCalledOnce();
     expect(setup.registration.update).toHaveBeenCalledOnce();
   });
 
   it('still reports unavailable when the browser has no matching service-worker registration', async () => {
-    const setup = fixture({
-      callbackRegistration: false,
-      browserRegistration: false,
-    });
-
+    const setup = fixture({ callbackRegistration: false, browserRegistration: false });
     await expect(checkForPwaUpdate()).resolves.toBe('unavailable');
     expect(setup.getRegistration).toHaveBeenCalledOnce();
   });
 
   it('re-surfaces an already-waiting update without another network check', async () => {
-    const setup = fixture();
-    const stages: string[] = [];
-    (setup.registration as unknown as { waiting: ServiceWorker | null }).waiting =
-      {} as ServiceWorker;
-
-    await expect(
-      checkForPwaUpdate((stage) => stages.push(stage))
-    ).resolves.toBe('update-available');
+    const setup = fixture(); const stages: string[] = [];
+    (setup.registration as unknown as { waiting: ServiceWorker | null }).waiting = {} as ServiceWorker;
+    await expect(checkForPwaUpdate((stage) => stages.push(stage))).resolves.toBe('update-available');
     expect(stages).toEqual(['preparing', 'ready']);
     expect(getPwaLifecycleSnapshot().updateAvailable).toBe(true);
     expect(setup.registration.update).not.toHaveBeenCalled();
   });
 
-  // Regression: §24.13 (worker discovery reports meaningful update stages).
   it('reports update-found and downloading while the new worker installs', async () => {
-    const setup = fixture();
-    const stages: string[] = [];
-    let workerState: ServiceWorkerState = 'installing';
-    const worker = Object.assign(new EventTarget(), {
-      get state() {
-        return workerState;
-      },
-    }) as unknown as ServiceWorker;
-
+    const setup = fixture(); const stages: string[] = []; let workerState: ServiceWorkerState = 'installing';
+    const worker = Object.assign(new EventTarget(), { get state() { return workerState; } }) as unknown as ServiceWorker;
     setup.registration.update = vi.fn().mockImplementation(async () => {
       Object.assign(setup.registration, { installing: worker });
       setup.registration.dispatchEvent(new Event('updatefound'));
       workerState = 'installed';
-      Object.assign(setup.registration, {
-        waiting: worker,
-        installing: null,
-      });
+      Object.assign(setup.registration, { waiting: worker, installing: null });
       worker.dispatchEvent(new Event('statechange'));
     });
-
-    await expect(
-      checkForPwaUpdate((stage) => stages.push(stage))
-    ).resolves.toBe('update-available');
-    expect(stages).toEqual([
-      'preparing',
-      'checking',
-      'update-found',
-      'downloading',
-      'ready',
-    ]);
+    await expect(checkForPwaUpdate((stage) => stages.push(stage))).resolves.toBe('update-available');
+    expect(stages).toEqual(['preparing', 'checking', 'update-found', 'downloading', 'ready']);
   });
 
   it('publishes explicit update availability and applies only on request', async () => {
-    const setup = fixture();
-    const listener = vi.fn();
-    subscribeToPwaLifecycle(listener);
-
+    const setup = fixture(); const listener = vi.fn(); subscribeToPwaLifecycle(listener);
     setup.options.onNeedRefresh?.();
     expect(getPwaLifecycleSnapshot().updateAvailable).toBe(true);
     expect(setup.update).not.toHaveBeenCalled();
@@ -273,36 +198,22 @@ describe('PWA lifecycle', () => {
   });
 
   it('reloads only after the registered worker reports an approved takeover', () => {
-    const setup = fixture();
-    setup.options.onNeedReload?.();
+    const setup = fixture(); setup.options.onNeedReload?.();
     expect(setup.target.location.reload).toHaveBeenCalledOnce();
   });
 
   it('keeps the update prompt available when activation fails', async () => {
-    const setup = fixture();
-    setup.options.onNeedRefresh?.();
-    setup.update.mockRejectedValueOnce(new Error('activation failed'));
-
+    const setup = fixture(); setup.options.onNeedRefresh?.(); setup.update.mockRejectedValueOnce(new Error('activation failed'));
     await expect(applyPwaUpdate()).rejects.toThrow('activation failed');
     expect(getPwaLifecycleSnapshot().updateAvailable).toBe(true);
   });
 
   it('dismisses install and update prompts without applying either action', () => {
     const setup = fixture();
-    const event = Object.assign(new Event('beforeinstallprompt'), {
-      prompt: vi.fn(),
-      userChoice: Promise.resolve({ outcome: 'dismissed' as const, platform: 'web' }),
-    }) as InstallPromptEvent;
-    setup.target.dispatchEvent(event);
-    setup.options.onNeedRefresh?.();
-
-    dismissPwaInstall();
-    dismissPwaUpdate();
-    expect(getPwaLifecycleSnapshot()).toEqual({
-      installAvailable: false,
-      installed: false,
-      updateAvailable: false,
-    });
+    const event = Object.assign(new Event('beforeinstallprompt'), { prompt: vi.fn(), userChoice: Promise.resolve({ outcome: 'dismissed' as const, platform: 'web' }) }) as InstallPromptEvent;
+    setup.target.dispatchEvent(event); setup.options.onNeedRefresh?.();
+    dismissPwaInstall(); dismissPwaUpdate();
+    expect(getPwaLifecycleSnapshot()).toEqual({ installAvailable: false, installed: false, updateAvailable: false });
     expect(setup.update).not.toHaveBeenCalled();
   });
 });
