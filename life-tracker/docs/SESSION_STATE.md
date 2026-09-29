@@ -1,32 +1,36 @@
 # Session checkpoint
 
 Updated: 2026-09-30
-Current task: Fix TaskActionSheet Edit mode exiting immediately.
-Status: Root cause identified and fix implemented; focused regression coverage added.
-Next action: canonical acceptance and Preview delivery after review.
+Current task: Investigate TaskItem tap latency before TaskActionSheet opens.
+Status: Root cause identified; scoped performance fix and regression coverage implemented.
+Next action: canonical acceptance and stable Preview delivery after review.
 Blockers: none locally.
 
 ## Working set
-- src/components/home/views/TaskActionSheet.tsx
-- tests/components/TaskActionSheet.test.tsx
+- src/components/home/views/TaskItem.tsx
+- tests/components/TaskItemGestures.test.tsx
 - docs/SESSION_STATE.md
 
 ## Completed substeps
-- Traced the Edit path from TaskActionSheet through DayViewSheet, DaySlide, CategorySection, and TaskItem.
-- Confirmed BottomSheet's focus trap restores focus to the previously focused action-sheet control when the sheet closes.
-- Confirmed TaskItem's editor saves/exits on blur, so entering edit mode in the same event as closing the action sheet immediately triggered the blur-save path.
-- Changed Edit to close the action sheet first and defer entering edit mode until after focus-trap cleanup.
-- Added a regression test proving close precedes deferred edit activation.
+- Read repository guidance, current checkpoint, roadmap, delivery/test workflow, and the affected Task/Day View contract.
+- Traced TaskItem title activation into `useBubbleGestures`.
+- Confirmed single taps intentionally wait for the shared 300ms double/triple-tap disambiguation window before calling `onOpenActions`.
+- Confirmed the delay is local gesture disambiguation, not TaskActionSheet mount/render work.
+- Added a TaskItem-local 200ms disambiguation window for title and inline memo gestures; the shared message gesture behavior remains unchanged.
+- Added regression coverage proving the action callback remains pending at 199ms and fires at 200ms, while double/triple tap behavior remains covered.
+- Reviewed the task diff: only TaskItem gesture timing, its focused regression coverage, and the session checkpoint changed.
 
 ## Remaining substeps
 - Wait for canonical acceptance on the final task SHA.
-- Publish/verify the configured stable Preview branch after accepted task-branch delivery.
+- Review the accepted task branch and squash merge it into `perf/task-item-tap-latency`.
+- Verify the stable Preview deployment and perform the required manual interaction check.
 
 ## Constraints
-- Preserve existing inline task editing behavior and blur-save semantics.
-- Do not change BottomSheet focus behavior globally for this task.
-- Keep the fix scoped to TaskActionSheet edit sequencing.
+- Preserve single/double/triple tap semantics and swipe/long-press precedence.
+- Do not change the shared gesture default or unrelated message interactions.
+- Preserve existing TaskItem UI and inline editing behavior.
 
 ## Verification
-- Regression coverage added for the close-before-edit sequencing.
-- Remote canonical acceptance pending on the final `[verify:full]` commit.
+- Regression coverage added for the shortened tap-disambiguation window.
+- Task branch PR #159 is open against `perf/task-item-tap-latency`.
+- Final task SHA requests `[verify:full]` canonical acceptance.

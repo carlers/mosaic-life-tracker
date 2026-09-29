@@ -37,6 +37,8 @@ interface TaskImageProps {
   onSelect?: () => void;
 }
 
+const TASK_TAP_DISAMBIGUATION_WINDOW = 200;
+
 const TaskImage: React.FC<TaskImageProps> = ({ task, onViewImage, selectionMode, onSelect }) => {
   const { targetRef, shouldLoad } = useImageLoadGate<HTMLElement>();
   const { imageUrl, isLoading } = useTaskImage(task.image, shouldLoad);
@@ -83,6 +85,7 @@ const TaskMemo: React.FC<{
 }> = ({ task, onOpenMemo, selectionMode, onSelect }) => {
   const memoGestures = useBubbleGestures({
     disabled: selectionMode,
+    doubleTapWindow: TASK_TAP_DISAMBIGUATION_WINDOW,
     onSingleTap: () => onOpenMemo(task, 'view'),
     onDoubleTap: () => onOpenMemo(task, 'edit'),
   });
@@ -147,6 +150,7 @@ export const TaskItem: React.FC<TaskItemProps> = ({
 
   const titleGestures = useBubbleGestures({
     disabled: isEditing || selectionMode,
+    doubleTapWindow: TASK_TAP_DISAMBIGUATION_WINDOW,
     onSingleTap: () => onOpenActions(task),
     onDoubleTap: () => onEditStart(task),
     onTripleTap: () => onOpenMemo(task, 'edit'),
