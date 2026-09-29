@@ -15,6 +15,7 @@ export interface UseBubbleGesturesOptions {
   doubleTapWindow?: number;
   swipeThreshold?: number;
   swipeMaxDistance?: number;
+  deferTripleTap?: boolean;
 }
 
 export interface UseBubbleGesturesReturn {
@@ -43,6 +44,7 @@ export function useBubbleGestures(
     doubleTapWindow = 300,
     swipeThreshold = 60,
     swipeMaxDistance = 100,
+    deferTripleTap = false,
   } = options;
 
   const swipeSign = swipeDirection === 'right' ? 1 : -1;
@@ -52,6 +54,7 @@ export function useBubbleGestures(
   const activePointerIdRef = useRef<number | null>(null);
   const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const tapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const tripleTapFrameRef = useRef<number | null>(null);
   const lastTapRef = useRef(0);
   const tapCountRef = useRef(0);
   const isSwipingRef = useRef(false);
@@ -73,11 +76,19 @@ export function useBubbleGestures(
     }
   }, []);
 
+  const clearTripleTapFrame = useCallback(() => {
+    if (tripleTapFrameRef.current !== null) {
+      cancelAnimationFrame(tripleTapFrameRef.current);
+      tripleTapFrameRef.current = null;
+    }
+  }, []);
+
   const resetTapSequence = useCallback(() => {
     clearTapTimer();
+    clearTripleTapFrame();
     lastTapRef.current = 0;
     tapCountRef.current = 0;
-  }, [clearTapTimer]);
+  }, [clearTapTimer, clearTripleTapFrame]);
 
   const resetSwipe = useCallback(() => {
     isSwipingRef.current = false;
@@ -95,9 +106,10 @@ export function useBubbleGestures(
     return () => {
       if (longPressTimerRef.current) clearTimeout(longPressTimerRef.current);
       if (tapTimerRef.current) clearTimeout(tapTimerRef.current);
+      clearTripleTapFrame();
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
     };
-  }, []);
+  }, [clearTripleTapFrame]);
 
   const onPointerDown = useCallback(
     (e: React.PointerEvent) => {
@@ -173,7 +185,14 @@ export function useBubbleGestures(
       clearTapTimer();
       if (tapCountRef.current >= 3) {
         resetTapSequence();
-        onTripleTap();
+        if (!deferTripleTap) {
+          onTripleTap();
+        } else {
+          tripleTapFrameRef.current = requestAnimationFrame(() => {
+            tripleTapFrameRef.current = null;
+            onTripleTap();
+          });
+        }
         return;
       }
       tapTimerRef.current = setTimeout(() => {
@@ -201,6 +220,7 @@ export function useBubbleGestures(
   }, [
     clearTapTimer,
     doubleTapWindow,
+    deferTripleTap,
     onDoubleTap,
     onSingleTap,
     onTripleTap,
