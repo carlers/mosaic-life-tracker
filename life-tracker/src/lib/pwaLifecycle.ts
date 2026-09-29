@@ -6,6 +6,7 @@ export interface InstallPromptEvent extends Event {
 
 export interface PwaLifecycleSnapshot {
   installAvailable: boolean;
+  installed: boolean;
   updateAvailable: boolean;
 }
 
@@ -40,6 +41,7 @@ type RegisterServiceWorker = (
 
 let snapshot: PwaLifecycleSnapshot = {
   installAvailable: false,
+  installed: false,
   updateAvailable: false,
 };
 let installPrompt: InstallPromptEvent | null = null;
@@ -47,7 +49,18 @@ let updateServiceWorker: (() => Promise<void>) | null = null;
 let serviceWorkerRegistration: ServiceWorkerRegistration | null = null;
 let serviceWorkerContainer: ServiceWorkerContainer | null = null;
 let initialized = false;
+let displayModeMediaQuery: MediaQueryList | null = null;
+let displayModeListener: ((event: MediaQueryListEvent) => void) | null = null;
 const listeners = new Set<() => void>();
+
+function isStandalone(target: Window): boolean {
+  if (target.matchMedia?.('(display-mode: standalone)').matches) return true;
+  return (target.navigator as Navigator & { standalone?: boolean }).standalone === true;
+}
+
+function updateInstalledState(target: Window): void {
+  publish({ installed: isStandalone(target) });
+}
 
 function observeOfflineShellReady(
   registration: ServiceWorkerRegistration | null
@@ -101,14 +114,21 @@ export function initializePwaLifecycle(
     markOfflineShellReady();
   }
 
+  updateInstalledState(target);
+  if (typeof target.matchMedia === 'function') {
+    displayModeMediaQuery = target.matchMedia('(display-mode: standalone)');
+    displayModeListener = () => updateInstalledState(target);
+    displayModeMediaQuery.addEventListener?.('change', displayModeListener);
+  }
+
   target.addEventListener('beforeinstallprompt', ((event: InstallPromptEvent) => {
     event.preventDefault();
     installPrompt = event;
-    publish({ installAvailable: true });
+    publish({ installAvailable: true, installed: false });
   }) as EventListener);
   target.addEventListener('appinstalled', () => {
     installPrompt = null;
-    publish({ installAvailable: false });
+    publish({ installAvailable: false, installed: true });
   });
 
   updateServiceWorker = register({
@@ -128,6 +148,7 @@ export function initializePwaLifecycle(
 }
 
 export async function requestPwaInstall(): Promise<'accepted' | 'dismissed' | 'unavailable'> {
+  if (snapshot.installed) return 'unavailable';
   const prompt = installPrompt;
   if (!prompt) return 'unavailable';
   await prompt.prompt();
@@ -135,6 +156,9 @@ export async function requestPwaInstall(): Promise<'accepted' | 'dismissed' | 'u
   if (installPrompt === prompt) {
     installPrompt = null;
     publish({ installAvailable: false });
+  }
+  if (outcome === 'accepted') {
+    publish({ installed: true });
   }
   return outcome;
 }
@@ -278,11 +302,16 @@ export function dismissPwaUpdate(): void {
 }
 
 export function resetPwaLifecycleForTests(): void {
-  snapshot = { installAvailable: false, updateAvailable: false };
+  if (displayModeMediaQuery && displayModeListener) {
+    displayModeMediaQuery.removeEventListener?.('change', displayModeListener);
+  }
+  snapshot = { installAvailable: false, installed: false, updateAvailable: false };
   installPrompt = null;
   updateServiceWorker = null;
   serviceWorkerRegistration = null;
   serviceWorkerContainer = null;
+  displayModeMediaQuery = null;
+  displayModeListener = null;
   initialized = false;
   listeners.clear();
 }
