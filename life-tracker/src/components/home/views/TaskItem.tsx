@@ -210,7 +210,7 @@ export const TaskItem: React.FC<TaskItemProps> = ({
             size={15}
             strokeWidth={4}
             style={{ color: '#fff' }}
-            className="drop-shadow-[0_1px_1px_rgba(0,0,0,0.4) ]"
+            className="drop-shadow-[0_1px_1px_rgba(0,0,0,0.4)]"
             aria-hidden="true"
           />
         )}
