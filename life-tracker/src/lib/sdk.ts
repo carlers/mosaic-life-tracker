@@ -1,6 +1,6 @@
 import { Functions, Storage, TablesDB } from 'appwrite';
 import { client, account } from './appwrite';
-import { guardedCall, makeUnauthorizedError } from './authEvents';
+import { dispatchUnauthorized, guardedCall } from './authEvents';
 
 const rawTablesDB = new TablesDB(client);
 const rawStorage = new Storage(client);
@@ -179,11 +179,11 @@ export const guardedFunctions = {
   ): Promise<CreateExecutionResult> =>
     guardedCall(async () => {
       const execution = await rawFunctions.createExecution(params as never);
-      // The SDK returns an Execution with responseStatusCode 401 instead of
-      // throwing. Normalize that into an error so guardedCall dispatches the
-      // global auth:unauthorized event.
+      // A Function's HTTP status describes that business operation, not the
+      // browser session. Ask AuthProvider to verify the session, while leaving
+      // the Execution intact for operation-specific handling and queues.
       if (execution.responseStatusCode === 401) {
-        throw makeUnauthorizedError('Function call unauthorized');
+        dispatchUnauthorized();
       }
       return execution;
     }),

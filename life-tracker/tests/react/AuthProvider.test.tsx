@@ -319,10 +319,10 @@ describe("AuthProvider offline auth gate", () => {
     expect(localStorage.getItem(LAST_KNOWN_USER_KEY)).toBeNull();
   });
 
-  it("clears the cache on the auth:unauthorized event", async () => {
+  it("preserves user and cache when a resource 401 is followed by a successful session probe", async () => {
     const cached = makeUser({ $id: "user_1" });
     localStorage.setItem(LAST_KNOWN_USER_KEY, JSON.stringify(cached));
-    accountRef.get.mockResolvedValueOnce(cached);
+    accountRef.get.mockResolvedValue(cached);
 
     const { result } = renderHook(() => useAuth(), { wrapper });
     await waitFor(() => expect(result.current.isLoading).toBe(false));
@@ -332,8 +332,119 @@ describe("AuthProvider offline auth gate", () => {
       window.dispatchEvent(new CustomEvent(AUTH_UNAUTHORIZED_EVENT));
     });
 
+    await waitFor(() => expect(accountRef.get).toHaveBeenCalledTimes(2));
+    expect(result.current.user?.$id).toBe("user_1");
+    expect(localStorage.getItem(LAST_KNOWN_USER_KEY)).not.toBeNull();
+    expect(result.current.error).toBeNull();
+  });
+
+  it("expires user and cache only when the resource-401 session probe returns 401", async () => {
+    const cached = makeUser({ $id: "user_1" });
+    localStorage.setItem(LAST_KNOWN_USER_KEY, JSON.stringify(cached));
+    accountRef.get
+      .mockResolvedValueOnce(cached)
+      .mockRejectedValueOnce(makeUnauthorizedError());
+    const { result } = renderHook(() => useAuth(), { wrapper });
+    await waitFor(() => expect(result.current.user?.$id).toBe("user_1"));
+
+    act(() => window.dispatchEvent(new CustomEvent(AUTH_UNAUTHORIZED_EVENT)));
+
     await waitFor(() => expect(result.current.user).toBeNull());
     expect(localStorage.getItem(LAST_KNOWN_USER_KEY)).toBeNull();
+    expect(result.current.error).toBe(
+      "Your session has expired. Please sign in again.",
+    );
+  });
+
+  it("keeps the user on a failed resource-401 probe and reports offline", async () => {
+    const cached = makeUser({ $id: "user_1" });
+    localStorage.setItem(LAST_KNOWN_USER_KEY, JSON.stringify(cached));
+    accountRef.get
+      .mockResolvedValueOnce(cached)
+      .mockRejectedValueOnce(makeNetworkError());
+    const { result } = renderHook(() => useAuth(), { wrapper });
+    await waitFor(() => expect(result.current.user?.$id).toBe("user_1"));
+
+    act(() => window.dispatchEvent(new CustomEvent(AUTH_UNAUTHORIZED_EVENT)));
+
+    await waitFor(() => expect(result.current.isOffline).toBe(true));
+    expect(result.current.user?.$id).toBe("user_1");
+    expect(localStorage.getItem(LAST_KNOWN_USER_KEY)).not.toBeNull();
+  });
+
+  it("coalesces concurrent unauthorized events into one session probe", async () => {
+    const cached = makeUser({ $id: "user_1" });
+    localStorage.setItem(LAST_KNOWN_USER_KEY, JSON.stringify(cached));
+    let resolveProbe!: (user: Models.User<Models.Preferences>) => void;
+    accountRef.get.mockResolvedValueOnce(cached).mockReturnValueOnce(
+      new Promise((resolve) => {
+        resolveProbe = resolve;
+      }),
+    );
+    renderHook(() => useAuth(), { wrapper });
+    await waitFor(() => expect(accountRef.get).toHaveBeenCalledOnce());
+
+    act(() => {
+      window.dispatchEvent(new CustomEvent(AUTH_UNAUTHORIZED_EVENT));
+      window.dispatchEvent(new CustomEvent(AUTH_UNAUTHORIZED_EVENT));
+      window.dispatchEvent(new CustomEvent(AUTH_UNAUTHORIZED_EVENT));
+    });
+    await waitFor(() => expect(accountRef.get).toHaveBeenCalledTimes(2));
+    expect(accountRef.get).toHaveBeenCalledTimes(2);
+    await act(async () => resolveProbe(cached));
+  });
+
+  it("does not let a stale unauthorized probe reverse logout", async () => {
+    const cached = makeUser({ $id: "user_1" });
+    localStorage.setItem(LAST_KNOWN_USER_KEY, JSON.stringify(cached));
+    let rejectProbe!: (error: Error) => void;
+    const probe = new Promise<Models.User<Models.Preferences>>(
+      (_resolve, reject) => { rejectProbe = reject; },
+    );
+    accountRef.get
+      .mockResolvedValueOnce(cached)
+      .mockReturnValueOnce(probe);
+    accountRef.deleteSession.mockResolvedValueOnce(undefined);
+    const { result } = renderHook(() => useAuth(), { wrapper });
+    await waitFor(() => expect(result.current.user?.$id).toBe("user_1"));
+    act(() => window.dispatchEvent(new CustomEvent(AUTH_UNAUTHORIZED_EVENT)));
+    await waitFor(() => expect(accountRef.get).toHaveBeenCalledTimes(2));
+
+    await act(async () => { await result.current.logout(); });
+    await act(async () => { rejectProbe(makeUnauthorizedError()); await probe.catch(() => undefined); });
+    expect(result.current.user).toBeNull();
+    expect(result.current.error).toBeNull();
+  });
+
+  it("does not let a stale unauthorized probe reverse a cross-tab login", async () => {
+    const cached = makeUser({ $id: "user_1" });
+    const other = makeUser({ $id: "user_other" });
+    localStorage.setItem(LAST_KNOWN_USER_KEY, JSON.stringify(cached));
+    let rejectProbe!: (error: Error) => void;
+    const probe = new Promise<Models.User<Models.Preferences>>(
+      (_resolve, reject) => { rejectProbe = reject; },
+    );
+    accountRef.get
+      .mockResolvedValueOnce(cached)
+      .mockReturnValueOnce(probe)
+      .mockResolvedValueOnce(other);
+    const { result } = renderHook(() => useAuth(), { wrapper });
+    await waitFor(() => expect(accountRef.get).toHaveBeenCalledOnce());
+    act(() => window.dispatchEvent(new CustomEvent(AUTH_UNAUTHORIZED_EVENT)));
+    await waitFor(() => expect(accountRef.get).toHaveBeenCalledTimes(2));
+    localStorage.setItem(LAST_KNOWN_USER_KEY, JSON.stringify(other));
+    act(() => {
+      window.dispatchEvent(new StorageEvent("storage", {
+        key: "mosaic_auth_broadcast",
+        newValue: JSON.stringify({ type: "login", at: Date.now() }),
+      }));
+    });
+    await act(async () => {
+      rejectProbe(makeUnauthorizedError());
+      await probe.catch(() => undefined);
+    });
+    expect(result.current.user?.$id).toBe("user_other");
+    expect(result.current.error).toBeNull();
   });
 
   it("rewrites the cache and clears isOffline on successful retry()", async () => {

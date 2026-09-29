@@ -149,7 +149,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     };
   }, [connectivity.status, isLoading, userId]);
 
-  const verifyLiveSession = useCallback(async () => {
+  const verifyLiveSession = useCallback(async (sessionExpiredOn401 = false) => {
     const generation = authGenerationRef.current;
     if (resolveInFlightGenerationRef.current === generation) return;
 
@@ -173,9 +173,17 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         return;
       }
       if (isUnauthorizedError(resolveError)) {
+        // Only account.get() is authoritative evidence that the browser's
+        // session has gone away. Invalidate every older auth operation before
+        // publishing the signed-out state.
+        authGenerationRef.current += 1;
         clearCachedUser();
         setUser(null);
-        setError(null);
+        setError(
+          sessionExpiredOn401
+            ? "Your session has expired. Please sign in again."
+            : null,
+        );
       } else {
         // Keep the cached identity/local app. Connectivity now communicates
         // reachability; a failed verification is not a rendering gate.
@@ -242,16 +250,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   useEffect(() => {
     const handleUnauthorized = () => {
       if (!isMountedRef.current) return;
-      authGenerationRef.current += 1;
-      clearCachedUser();
-      setUser(null);
-      setError("Your session has expired. Please sign in again.");
-      setIsLoading(false);
+      void verifyLiveSession(true);
     };
     window.addEventListener(AUTH_UNAUTHORIZED_EVENT, handleUnauthorized);
     return () =>
       window.removeEventListener(AUTH_UNAUTHORIZED_EVENT, handleUnauthorized);
-  }, []);
+  }, [verifyLiveSession]);
 
   const login = useCallback(
     async (email: string, password: string): Promise<boolean> => {

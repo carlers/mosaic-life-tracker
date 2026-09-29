@@ -475,11 +475,11 @@ Recipient-side `read_at` propagation depends on `markReadOnRemote` eventually su
 
 ### 23.4 Mid-Session 401 Handling
 - Every SDK call that can 401 goes through `guardedCall` from `src/lib/authEvents.ts`. In practice this means every consumer call routes through the guarded SDK surface (`guardedTablesDB`, `guardedStorage`, `guardedFunctions`, `guardedAccount` — see §15). Do not construct raw `TablesDB`/`Storage`/`Functions`/`Account` outside `src/lib/sdk.ts` and `src/lib/appwrite.ts`; ESLint `no-restricted-imports` blocks it
-- Raw `fetch` calls that can 401 (image blob fetches in `storage.ts` and `exportData.ts`) wrap their `fetch` in an outer `guardedCall` and throw `makeUnauthorizedError()` on `r.status === 401`
-- `guardedFunctions.createExecution` normalizes `execution.responseStatusCode === 401` into `makeUnauthorizedError()` before returning — the SDK does not throw on 401 executions, so this step is required for global dispatch to fire
-- On `isUnauthorizedError(err) === true`, `guardedCall` calls `dispatchUnauthorized()`, firing the window event `auth:unauthorized`
-- `AuthProvider` listens for `auth:unauthorized` and clears `user`, sets a session-expired error, and lets `AppLayout` redirect to `/login` via its existing `!user` branch
-- `src/lib/friendData.ts` additionally throws `FriendAccessError('Unauthorized', 'forbidden')` with `code = 401` on 401 — `guardedCall` keys off `code`; the friend-calendar UI keys off `errorKind === 'forbidden'` and renders "No access". Dual-purpose is intentional
+- Raw `fetch` calls that can 401 (image blob fetches in `storage.ts` and `exportData.ts`) wrap their `fetch` in an outer `guardedCall` and throw `makeUnauthorizedError()` on `r.status === 401`; this requests session confirmation rather than directly expiring authentication
+- `guardedFunctions.createExecution` requests session confirmation when `execution.responseStatusCode === 401`, but returns the original Execution unchanged. A Function's business response (including `missing scope`) remains an operation failure for `friendData.ts`, `messageDelivery.ts`, and their queues; it is not direct proof that the cookie/session is invalid
+- On `isUnauthorizedError(err) === true`, `guardedCall` calls `dispatchUnauthorized()`. The `auth:unauthorized` event means **session verification requested**, and simultaneous requests are deduplicated
+- `AuthProvider` listens for `auth:unauthorized` and runs its generation-guarded live `account.get()` verification. It preserves the current/cached user while that request is pending. Success preserves auth and clears transient auth errors; a network/timeout failure preserves auth and reports offline connectivity; only a confirmed 401 from `account.get()` clears the cache/user, shows the session-expired error, and lets `AppLayout` redirect to `/login`
+- `src/lib/friendData.ts` and `src/lib/messageDelivery.ts` inspect the returned Function status/body and retain their domain-specific UI and queue behavior. Session confirmation is an independent side effect and must not replace those operation results
 - Do not redirect from the call site. Always dispatch and let the provider drive the redirect
 
 ### 23.5 Multi-Tab Auth Sync
@@ -490,10 +490,11 @@ Recipient-side `read_at` propagation depends on `markReadOnRemote` eventually su
 
 ### 23.6 Offline vs Unauthenticated
 - **401 from live `account.get()`** → definitely not logged in → clear cached identity → protected routes redirect to `/login`.
+- **401 from any non-Account operation** → request a deduplicated `account.get()` confirmation while preserving the operation's original response/error. It cannot directly clear authentication state; only a 401 from that confirmation proves the session is gone.
 - **Valid cached identity** → hydrate that account synchronously and render local startup immediately, even when `navigator.onLine` is true. The live session check is background reconciliation and never owns the page-level loading state.
 - **No cached identity** → Login remains immediately usable while the one AuthProvider-owned live session check runs in the background. If an existing session is found, Login redirects to Home; if Appwrite is unreachable, the form stays usable.
 - **Connectivity authority** → `navigator.onLine === false` is a hard offline hint, but `navigator.onLine === true` means only "a network interface may exist." Mosaic starts in **Checking**, becomes **Online** only after a successful Appwrite response (or HTTP/Appwrite error response proving reachability), and becomes **Offline** after a network/timeout failure. Browser online/offline, Network Information change, focus, and visibility events trigger re-checking; they do not directly claim Online.
-- Auth generation/race protection is mandatory. Results from a session check started before login, signup, logout, cross-tab auth change, or a global confirmed-401 event must not overwrite the newer auth state.
+- Auth generation/race protection is mandatory. Results from a session check started before login, signup, logout, cross-tab auth change, or another confirmed auth transition must not overwrite the newer auth state.
 - Cached identity is authorization only for that same account's already-local data. Every RxDB/cache lookup remains owner-scoped; auxiliary caches that contain user/social data must also include the current owner in their key.
 - The `OfflineError` class in `src/lib/authEvents.ts` remains the canonical "couldn't check" signal at the SDK-wrapper layer. Do not reinterpret it as 401.
 - Remote session revocation cannot be learned while a device is genuinely disconnected. Offline access to already-local data is therefore intentionally bounded by the last verified identity until connectivity returns; reconnect immediately re-verifies the session.
