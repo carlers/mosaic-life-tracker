@@ -7,6 +7,9 @@ export interface MockDb {
   upsertRow: any;
   updateRow: any;
   deleteRow: any;
+  createRow: any;
+  createTransaction: any;
+  updateTransaction: any;
 }
 
 export interface InvokeInput {
@@ -47,6 +50,9 @@ class MockTablesDB {
   upsertRow: any;
   updateRow: any;
   deleteRow: any;
+  createRow: any;
+  createTransaction: any;
+  updateTransaction: any;
 
   constructor(_client: unknown) {
     const m = state.current;
@@ -60,6 +66,9 @@ class MockTablesDB {
     this.upsertRow = m.upsertRow;
     this.updateRow = m.updateRow;
     this.deleteRow = m.deleteRow;
+    this.createRow = m.createRow;
+    this.createTransaction = m.createTransaction;
+    this.updateTransaction = m.updateTransaction;
   }
 }
 
@@ -131,6 +140,9 @@ export function makeMockDb(): MockDb {
     upsertRow: vi.fn().mockResolvedValue({}),
     updateRow: vi.fn().mockResolvedValue({}),
     deleteRow: vi.fn().mockResolvedValue({}),
+    createRow: vi.fn().mockResolvedValue({}),
+    createTransaction: vi.fn().mockResolvedValue({ $id: "tx" }),
+    updateTransaction: vi.fn().mockResolvedValue({}),
   };
 }
 

@@ -1,3 +1,4 @@
+import { subscribeFriendshipFailures } from '../../lib/friendshipCommands';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Copy, Check, Users, Inbox } from 'lucide-react';
 import { motion } from 'framer-motion';
@@ -64,17 +65,22 @@ export const ExploreView: React.FC<ExploreViewProps> = ({
   );
   const [copied, setCopied] = useState(false);
 
+  useEffect(() => subscribeFriendshipFailures((uid, message) => {
+    if (uid === profile?.user_id) onFeedback?.(message);
+  }), [profile?.user_id, onFeedback]);
+
   const myUsername = profile?.username || '';
 
   // Surface permanent outbox failures via the page-level toast. The
   // revert itself is handled by FriendsProvider (a sibling subscriber).
   useEffect(() => {
     const unsubscribe = subscribeToSocialOutboxFailures((event) => {
+      if (event.userId !== profile?.user_id) return;
       const msg = SOCIAL_FAILURE_MESSAGES[event.action];
       if (msg) onFeedback?.(msg);
     });
     return unsubscribe;
-  }, [onFeedback]);
+  }, [onFeedback, profile?.user_id]);
 
   const relationshipFor = useCallback(
     (p: ProfileCard) => {
@@ -94,7 +100,7 @@ export const ExploreView: React.FC<ExploreViewProps> = ({
       if (!profile) return;
       setSendingTo(p.user_id);
       try {
-        await sendRequest(
+        const result = await sendRequest(
           {
             username: profile.username,
             displayName: profile.display_name || profile.username,
@@ -103,9 +109,9 @@ export const ExploreView: React.FC<ExploreViewProps> = ({
           },
           p
         );
-        onFeedback?.('Request sent');
+        onFeedback?.(result?.status === 'queued' ? 'Request queued. Connect to send.' : 'Request sent');
       } catch (err) {
-        console.error('[ExploreView] Send request failed:', err);
+        onFeedback?.(err instanceof Error ? err.message : 'Could not send request.');
       } finally {
         setSendingTo(null);
       }
@@ -116,10 +122,10 @@ export const ExploreView: React.FC<ExploreViewProps> = ({
   const handleCancelRequest = useCallback(
     async (friendUserId: string) => {
       try {
-        await cancel(friendUserId);
-        onFeedback?.('Request cancelled');
+        const result = await cancel(friendUserId);
+        onFeedback?.(result?.status === 'queued' ? 'Cancellation queued. Connect to finish.' : 'Request cancelled');
       } catch (err) {
-        console.error('[ExploreView] Cancel request failed:', err);
+        onFeedback?.(err instanceof Error ? err.message : 'Could not cancel request.');
       }
     },
     [cancel, onFeedback]
@@ -233,8 +239,14 @@ export const ExploreView: React.FC<ExploreViewProps> = ({
               <FriendRequestRow
                 key={r.id}
                 friendship={r}
-                onAccept={accept}
-                onDecline={decline}
+                onAccept={async (id) => {
+                  const result = await accept(id);
+                  if (result?.status === 'queued') onFeedback?.('Change queued. Connect to finish.');
+                }}
+                onDecline={async (id) => {
+                  const result = await decline(id);
+                  if (result?.status === 'queued') onFeedback?.('Change queued. Connect to finish.');
+                }}
               />
             ))}
           </section>
@@ -312,8 +324,14 @@ export const ExploreView: React.FC<ExploreViewProps> = ({
         isOpen={!!actionTarget}
         onClose={() => setActionTarget(null)}
         friendship={actionTarget}
-        onRemove={remove}
-        onBlock={block}
+        onRemove={async (id) => {
+                  const result = await remove(id);
+                  if (result?.status === 'queued') onFeedback?.('Change queued. Connect to finish.');
+                }}
+        onBlock={async (id) => {
+                  const result = await block(id);
+                  if (result?.status === 'queued') onFeedback?.('Change queued. Connect to finish.');
+                }}
       />
     </div>
   );

@@ -8,8 +8,8 @@ interface FriendActionSheetProps {
   isOpen: boolean;
   onClose: () => void;
   friendship: FriendshipDocument | null;
-  onRemove: (friendId: string) => Promise<void>;
-  onBlock: (friendId: string) => Promise<void>;
+  onRemove: (friendId: string) => Promise<unknown>;
+  onBlock: (friendId: string) => Promise<unknown>;
 }
 
 export const FriendActionSheet: React.FC<FriendActionSheetProps> = ({
@@ -19,15 +19,19 @@ export const FriendActionSheet: React.FC<FriendActionSheetProps> = ({
   onRemove,
   onBlock,
 }) => {
+  const [error, setError] = useState('');
   const [isWorking, setIsWorking] = useState(false);
 
   if (!friendship) return null;
 
-  const handleAction = async (fn: (id: string) => Promise<void>) => {
+  const handleAction = async (fn: (id: string) => Promise<unknown>) => {
     setIsWorking(true);
+    setError('');
     try {
       await fn(friendship.friendId);
       onClose();
+    } catch (failure) {
+      setError(failure instanceof Error ? failure.message : 'Could not update friendship.');
     } finally {
       setIsWorking(false);
     }
@@ -41,6 +45,7 @@ export const FriendActionSheet: React.FC<FriendActionSheetProps> = ({
       height="auto"
     >
       <div className="pt-2 pb-8 px-4">
+        {error && <p role="alert">{error}</p>}
         <div className="flex flex-col items-center mb-6">
           <DeferredAvatar
             fileId={friendship.friendAvatarFileId || undefined}

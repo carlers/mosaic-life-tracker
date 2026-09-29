@@ -172,3 +172,13 @@ The accepted production schedule is 11:00 UTC daily (`0 11 * * *`).
 A stale-backup check treats the newest valid `COMPLETED` snapshot older than 36 hours as
 unhealthy. A check that cannot reach R2 is also unhealthy; absence of an alerting transport
 must not be described as active monitoring.
+
+## Restoring snapshots around the friendship permission migration
+
+Restore and verify the snapshot exactly first, including original table and row permissions.
+Current snapshots preserve an empty friendship table permission list and owner-read-only
+row permissions. Before serving an older snapshot with the upgraded application, deploy
+its compatible Function and run the audited [friendship repair](FRIENDSHIP_RECOVERY.md).
+Do not edit the snapshot or weaken permissions to make an old frontend work. Queued browser
+intents are not part of administrator snapshots. Keep the DR Function read-only and both
+recovery-project schedules disabled throughout the drill.

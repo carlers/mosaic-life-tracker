@@ -61,35 +61,23 @@ function generateFileId(): string {
   return `img_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
 }
 
-/**
- * Returns the current user's id, or `null` if the server says there is no
- * session (401). A network error / offline state throws `OfflineError` —
- * "couldn't check" must never be conflated with "definitely not logged in"
- * (see docs/PROJECT_REFERENCE.md §§10 and 23.6).
- *
- * Exported for tests; `uploadImage` is the only production caller.
- */
 export async function getCurrentUserId(): Promise<string | null> {
   try {
     const user = await guardedAccount.get();
     return user?.$id || null;
   } catch (err) {
     if (isUnauthorizedError(err)) {
-      // Definitely no session — the global auth redirect is already in flight.
       return null;
     }
-    // Network error / offline: we could not check. Surface a distinguishable
-    // Offline error so callers report "you're offline" instead of the
-    // misleading "no authenticated user".
     throw new OfflineError(
       "You're offline. Try again when you reconnect."
     );
   }
 }
 
-function buildFilePermissions(userId: string) {
+function buildFilePermissions(userId: string, readForAllUsers = false) {
   return [
-    Permission.read(Role.user(userId)),
+    readForAllUsers ? Permission.read(Role.users()) : Permission.read(Role.user(userId)),
     Permission.update(Role.user(userId)),
     Permission.delete(Role.user(userId)),
   ];
@@ -114,7 +102,8 @@ function isValidFileId(fileId: string): boolean {
 async function uploadCompressedBlobWithId(
   compressedBlob: Blob,
   fileId: string,
-  userId: string
+  userId: string,
+  readForAllUsers = false
 ): Promise<string> {
   const webpFile = new File([compressedBlob], `${fileId}.webp`, {
     type: 'image/webp',
@@ -124,7 +113,7 @@ async function uploadCompressedBlobWithId(
       bucketId: APPWRITE_CONFIG.bucketId,
       fileId,
       file: webpFile,
-      permissions: buildFilePermissions(userId),
+      permissions: buildFilePermissions(userId, readForAllUsers),
     });
     await cacheImage(fileId, compressedBlob).catch((error) => {
       console.warn('[Storage] Failed to cache uploaded image:', error);
@@ -144,16 +133,18 @@ async function uploadCompressedBlobWithId(
 async function uploadImageWithId(
   file: File,
   fileId: string,
-  userId: string
+  userId: string,
+  readForAllUsers = false
 ): Promise<string> {
-  return uploadCompressedBlobWithId(await compressImage(file), fileId, userId);
+  return uploadCompressedBlobWithId(await compressImage(file), fileId, userId, readForAllUsers);
 }
 
+/** Task attachments are visible through the authorized friend calendar. */
 export async function saveImage(
   file: File,
   userId: string
 ): Promise<string> {
-  if (!userId) throw new Error('Cannot save image: no authenticated user');
+  if (!userId) throw new Error('Cannot upload image: no authenticated user');
   const compressedBlob = await compressImage(file);
   if (getConnectivitySnapshot().status !== 'online') {
     return createPendingImage(userId, compressedBlob);
@@ -162,7 +153,8 @@ export async function saveImage(
     return await uploadCompressedBlobWithId(
       compressedBlob,
       generateFileId(),
-      userId
+      userId,
+      true
     );
   } catch (error) {
     const cause = (error as Error & { cause?: unknown }).cause;
@@ -184,20 +176,50 @@ export async function uploadPendingImage(
   if (!blob) {
     throw new Error('Pending image is missing or belongs to another account.');
   }
-
-  // The pending id already contains 26 random hex chars. Reusing those bytes
-  // makes retry after "uploaded but local patch failed" idempotent.
   const remoteFileId = `img_${fileId.slice('localimg_'.length)}`;
   try {
-    return await uploadCompressedBlobWithId(blob, remoteFileId, userId);
+    return await uploadCompressedBlobWithId(blob, remoteFileId, userId, true);
   } catch (error) {
     const cause = (error as Error & { cause?: unknown }).cause;
     if (isConflictError(cause)) {
+      await guardedStorage.updateFile({
+        bucketId: APPWRITE_CONFIG.bucketId,
+        fileId: remoteFileId,
+        permissions: buildFilePermissions(userId, true),
+      });
       await cacheImage(remoteFileId, blob).catch(() => {});
       return remoteFileId;
     }
     throw error;
   }
+}
+
+export async function saveProfileImage(file: File, userId: string): Promise<string> {
+  if (!userId) throw new Error('Cannot save profile image: no authenticated user');
+  const compressedBlob = await compressImage(file);
+  if (getConnectivitySnapshot().status !== 'online') return createPendingImage(userId, compressedBlob);
+  try {
+    return await uploadCompressedBlobWithId(compressedBlob, generateFileId(), userId, true);
+  } catch (error) {
+    const cause = (error as Error & { cause?: unknown }).cause;
+    const code = (cause as { code?: number } | null)?.code;
+    const transient = !isUnauthorizedError(cause) && (typeof code !== 'number' || code === 429 || code >= 500);
+    if (!transient) throw error;
+    return createPendingImage(userId, compressedBlob);
+  }
+}
+
+export async function makeProfileImageReadable(fileId: string, userId: string): Promise<void> {
+  if (!fileId || isPendingImageId(fileId) || !userId) return;
+  await guardedStorage.updateFile({
+    bucketId: APPWRITE_CONFIG.bucketId,
+    fileId,
+    permissions: [
+      Permission.read(Role.users()),
+      Permission.update(Role.user(userId)),
+      Permission.delete(Role.user(userId)),
+    ],
+  });
 }
 
 export async function uploadImage(file: File): Promise<string> {
@@ -214,9 +236,10 @@ export interface EnsuredImage {
 }
 
 /**
- * Restore-specific image path. A deterministic/preferred file ID makes
- * repeated backup restores idempotent instead of leaking a new Storage file
- * every time. A create race that reports 409 is treated as successful reuse.
+ * Ensures a deterministic restored/imported task image exists. Existing files
+ * are reused so repeated backup restores remain idempotent. Restored task
+ * attachments use authenticated-user read access because friends may receive
+ * the owning task through the authorized friend calendar.
  */
 export async function ensureRestoredImage(
   file: File,
@@ -240,17 +263,27 @@ export async function ensureRestoredImage(
       bucketId: APPWRITE_CONFIG.bucketId,
       fileId: preferredFileId,
     });
+    await guardedStorage.updateFile({
+      bucketId: APPWRITE_CONFIG.bucketId,
+      fileId: preferredFileId,
+      permissions: buildFilePermissions(userId, true),
+    });
     return { fileId: preferredFileId, uploaded: false };
   } catch (error) {
     if (!isNotFoundError(error)) throw error;
   }
 
   try {
-    await uploadImageWithId(file, preferredFileId, userId);
+    await uploadImageWithId(file, preferredFileId, userId, true);
     return { fileId: preferredFileId, uploaded: true };
   } catch (error) {
     const cause = (error as Error & { cause?: unknown }).cause;
     if (isConflictError(cause)) {
+      await guardedStorage.updateFile({
+        bucketId: APPWRITE_CONFIG.bucketId,
+        fileId: preferredFileId,
+        permissions: buildFilePermissions(userId, true),
+      });
       return { fileId: preferredFileId, uploaded: false };
     }
     throw error;

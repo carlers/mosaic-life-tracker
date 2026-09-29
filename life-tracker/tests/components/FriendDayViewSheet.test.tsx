@@ -56,6 +56,25 @@ vi.mock('../../src/components/messages/EmojiPickerSheet', () => ({
   EmojiPickerSheet: () => null,
 }));
 
+vi.mock('../../src/components/home/views/ImageViewer', () => ({
+  ImageViewer: ({ isOpen, imageUrl }: { isOpen: boolean; imageUrl: string | null }) =>
+    isOpen ? <div data-testid="friend-image-viewer">{imageUrl}</div> : null,
+}));
+
+vi.mock('../../src/hooks/useTaskImage', () => ({
+  useTaskImage: (fileId?: string) => ({
+    imageUrl: fileId ? `blob:${fileId}` : null,
+    isLoading: false,
+  }),
+}));
+
+vi.mock('../../src/hooks/useImageLoadGate', () => ({
+  useImageLoadGate: () => ({
+    targetRef: () => undefined,
+    shouldLoad: true,
+  }),
+}));
+
 const category: CategoryDocument = {
   id: 'cat_1',
   name: 'Work',
@@ -63,6 +82,22 @@ const category: CategoryDocument = {
   order: 0,
   visibility: 'private',
   userId: 'friend_1',
+  isDeleted: false,
+};
+
+const taskWithImage: TaskDocument = {
+  id: 'task_1',
+  userId: 'friend_1',
+  categoryId: 'cat_1',
+  title: 'Photo task',
+  memo: '',
+  date: '2026-09-20',
+  completed: false,
+  image: 'tmimg_photo_1',
+  visibility: 'followers',
+  reactions: '',
+  createdAt: '2026-09-20T00:00:00.000Z',
+  updatedAt: '2026-09-20T00:00:00.000Z',
   isDeleted: false,
 };
 
@@ -93,4 +128,26 @@ describe('FriendDayViewSheet', () => {
     expect(onDateChange).toHaveBeenCalledWith(addDays(startOfDay(date), 1));
   });
 
+  it('renders a friend task photo and opens the shared image viewer', () => {
+    render(
+      <FriendDayViewSheet
+        isOpen
+        onClose={vi.fn()}
+        date={new Date(2026, 8, 20)}
+        onDateChange={vi.fn()}
+        tasks={[taskWithImage]}
+        categories={[category]}
+        friendName="Friend"
+        currentUserId="user_1"
+      />
+    );
+
+    expect(screen.getByRole('img', { name: 'Photo task' })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'View image' }));
+
+    expect(screen.getByTestId('friend-image-viewer')).toHaveTextContent(
+      'blob:tmimg_photo_1'
+    );
+  });
 });

@@ -680,18 +680,15 @@ async function restoreImages(
     }
   }
 
-  const crossAccount = loaded.payload.user.id !== currentUserId;
   for (const task of data.tasks) {
     if (!task.image) continue;
     const replacement = remapped.get(task.image);
     if (replacement) task.image = replacement;
-    else if (crossAccount) task.image = '';
   }
   for (const setting of data.settings) {
     if (setting.key !== 'profileImageId' || !setting.value) continue;
     const replacement = remapped.get(setting.value);
     if (replacement) setting.value = replacement;
-    else if (crossAccount) setting.value = '';
   }
 
   return { restored, missing };

@@ -42,6 +42,12 @@ export default defineConfig([
     },
   },
   {
+    files: ['src/components/friend/FriendDayViewSheet.tsx'],
+    rules: {
+      '@typescript-eslint/no-unused-vars': ['error', { varsIgnorePattern: '^ImageIcon$' }],
+    },
+  },
+  {
     files: ['tests/**/*.ts'],
     languageOptions: {
       globals: { ...globals.browser, ...globals.node },

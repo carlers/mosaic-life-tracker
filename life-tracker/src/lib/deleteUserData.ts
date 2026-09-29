@@ -2,7 +2,8 @@ import { getDatabase } from '../db/database';
 import { guardedTablesDB } from './sdk';
 import { toAppwriteDeletePatch } from './syncMapping';
 import { deleteImage } from './storage';
-import { deleteFriendPair, fetchMyProfile } from './social';
+import { fetchMyProfile } from './social';
+import { sendMessageAction } from './messageDelivery';
 import { APPWRITE_DATABASE_ID } from './appwriteConfig';
 
 const DATABASE_ID = APPWRITE_DATABASE_ID;
@@ -58,6 +59,9 @@ export async function deleteAllUserData(
   const profile = await fetchMyProfile(userId);
   if (profile?.avatar_file_id) imageIds.add(profile.avatar_file_id);
 
+  // Never clear queues/sign out while reciprocal cleanup is merely queued.
+  await sendMessageAction({ action: 'delete_account_friendships', ownerId: userId });
+
   for (const collectionName of SYNCED_COLLECTIONS) {
     const collection = db[collectionName] as unknown as DeletableCollection;
     const docs = await collection.find({ selector: { userId } }).exec();
@@ -75,19 +79,12 @@ export async function deleteAllUserData(
         imageIds.add(json.image);
       }
 
-      if (
-        collectionName === 'friendships' &&
-        json.isDeleted !== true &&
-        typeof json.friendId === 'string' &&
-        json.friendId
-      ) {
-        await deleteFriendPair(userId, json.friendId);
-      }
-
       await doc.incrementalPatch({
         isDeleted: true,
         updatedAt: now,
       });
+
+      if (collectionName === 'friendships') { counts[collectionName] += 1; continue; }
 
       try {
         await guardedTablesDB.updateRow({

@@ -1,3 +1,4 @@
+import { flushFriendshipCommands, clearFriendshipCommands, pendingFriendshipCount, migrateLegacyFriendship } from './friendshipCommands';
 import { createPersistentOutbox } from './outbox';
 import type { FriendshipDocument } from '../db/schema';
 
@@ -136,6 +137,10 @@ outbox.setSender(async (entry) => {
   if (!sender) {
     throw new Error('Social outbox sender not configured');
   }
+  if (entry.action !== 'upsert_profile') {
+    await migrateLegacyFriendship(entry);
+    return;
+  }
   await sender(entry.op);
 });
 
@@ -161,16 +166,17 @@ export function enqueueSocialOp(
 }
 
 export async function flushSocialOutbox(userId: string): Promise<void> {
-  if (!sender) return;
-  await outbox.flush(userId);
+  if (sender) await outbox.flush(userId);
+  await flushFriendshipCommands(userId);
 }
 
 export function clearSocialOutbox(userId?: string): void {
   outbox.clear(userId);
+  clearFriendshipCommands(userId);
 }
 
 export function getSocialOutboxSize(userId?: string): number {
-  return outbox.size(userId);
+  return outbox.size(userId) + pendingFriendshipCount(userId);
 }
 
 export function __resetSocialOutboxForTests(): void {

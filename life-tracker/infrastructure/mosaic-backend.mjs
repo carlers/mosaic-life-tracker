@@ -7,7 +7,7 @@ export const MOSAIC_DATABASE = {
 const ownerTable = (id, name, columns, indexes = []) => ({
   id,
   name,
-  permissions: ['create("users")'],
+  permissions: id === 'friendships' ? [] : ['create("users")'],
   rowSecurity: true,
   enabled: true,
   columns,
