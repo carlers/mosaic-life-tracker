@@ -5,9 +5,13 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const updateMocks = vi.hoisted(() => ({
   checkForUpdate: vi.fn<(onProgress?: (stage: string) => void) => Promise<'up-to-date' | 'update-available'>>(),
+  requestInstall: vi.fn<() => Promise<'accepted' | 'dismissed' | 'unavailable'>>(),
+  installed: false,
 }));
 beforeEach(() => {
   updateMocks.checkForUpdate.mockReset().mockResolvedValue('up-to-date');
+  updateMocks.requestInstall.mockReset().mockResolvedValue('accepted');
+  updateMocks.installed = false;
   window.localStorage.clear();
 });
 
@@ -18,7 +22,11 @@ vi.mock('../../src/hooks/useAuth', () => ({
   }),
 }));
 vi.mock('../../src/hooks/usePwaLifecycle', () => ({
-  usePwaLifecycle: () => ({ checkForUpdate: updateMocks.checkForUpdate }),
+  usePwaLifecycle: () => ({
+    checkForUpdate: updateMocks.checkForUpdate,
+    requestInstall: updateMocks.requestInstall,
+    installed: updateMocks.installed,
+  }),
 }));
 vi.mock('../../src/hooks/useAppearance', () => ({
   useAppearance: () => ({
@@ -71,9 +79,9 @@ vi.mock('../../src/lib/deleteUserData', () => ({
 
 import { SettingsPage } from '../../src/pages/SettingsPage';
 
-// Regression: §24.13 (update checks expose meaningful stages).
+// Regression: §24.13 (update checks expose meaningful stages and PWA install state).
 describe('SettingsPage navigation, updates, and data controls', () => {
-  it('shows the app version and a dedicated update control', () => {
+  it('shows the app version and dedicated update/install controls', () => {
     render(
       <MemoryRouter>
         <SettingsPage />
@@ -87,11 +95,39 @@ describe('SettingsPage navigation, updates, and data controls', () => {
       screen.getByRole('button', { name: /Check for Updates/i })
     ).toBeInTheDocument();
     expect(
+      screen.getByRole('button', { name: 'Install App' })
+    ).toBeInTheDocument();
+    expect(
       screen.getByRole('button', { name: 'Backup & Restore' })
     ).toBeInTheDocument();
     expect(
       screen.getByRole('button', { name: 'Import from TodoMate' })
     ).toBeInTheDocument();
+  });
+
+  it('requests PWA installation from the dedicated Settings control', async () => {
+    render(
+      <MemoryRouter>
+        <SettingsPage />
+      </MemoryRouter>
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Install App' }));
+
+    await waitFor(() => expect(updateMocks.requestInstall).toHaveBeenCalledOnce());
+  });
+
+  it('shows Already installed instead of an install action for an installed PWA', () => {
+    updateMocks.installed = true;
+
+    render(
+      <MemoryRouter>
+        <SettingsPage />
+      </MemoryRouter>
+    );
+
+    expect(screen.getByRole('button', { name: 'Already installed' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Install App' })).toBeNull();
   });
 
   it('opens the TodoMate transfer surface from Settings', () => {
