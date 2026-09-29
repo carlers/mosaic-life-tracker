@@ -136,6 +136,15 @@ describe('PWA lifecycle', () => {
     expect(getPwaLifecycleSnapshot().installed).toBe(true);
   });
 
+  it('marks the app installed after the browser emits appinstalled', () => {
+    const { target } = fixture();
+
+    target.dispatchEvent(new Event('appinstalled'));
+
+    expect(getPwaLifecycleSnapshot().installed).toBe(true);
+    expect(getPwaLifecycleSnapshot().installAvailable).toBe(false);
+  });
+
   it('detects an installed PWA from standalone display mode', () => {
     fixture({ standalone: true });
 
@@ -148,7 +157,6 @@ describe('PWA lifecycle', () => {
     const prompt = vi.fn().mockResolvedValue(undefined);
     target.dispatchEvent(
       Object.assign(new Event('beforeinstallprompt', { cancelable: true }), {
-        preventDefault: vi.fn(),
         prompt,
         userChoice: Promise.resolve({ outcome: 'accepted' as const, platform: 'web' }),
       }) as InstallPromptEvent
