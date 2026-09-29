@@ -154,6 +154,7 @@ export const TaskItem: React.FC<TaskItemProps> = ({
     onSingleTap: () => onOpenActions(task),
     onDoubleTap: () => onEditStart(task),
     onTripleTap: () => onOpenMemo(task, 'edit'),
+    deferTripleTap: true,
   });
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
