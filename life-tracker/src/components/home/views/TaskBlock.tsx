@@ -27,7 +27,13 @@ export const TaskBlock: React.FC<TaskBlockProps> = ({ task, categoryColor }) => 
       title={task.title}
     >
       <div className="flex flex-col gap-0.5">
-        <span className="block overflow-hidden whitespace-nowrap px-1">{task.title}</span>
+        {/* Padding lives on the outer element; clipping lives on the inner
+            one. Because the inner span has no padding, its clip rect ends
+            exactly where the outer padding begins, so the right gutter is
+            preserved on hard-cut text. */}
+        <div className="px-1">
+          <span className="block overflow-hidden whitespace-nowrap">{task.title}</span>
+        </div>
         {task.image && (
           <div className="w-full h-10 mt-0.5 rounded-[2px] overflow-hidden bg-black/20">
             {isLoading ? (
