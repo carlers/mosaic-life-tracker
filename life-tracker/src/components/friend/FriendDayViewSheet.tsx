@@ -7,7 +7,6 @@ import {
   Check,
   ChevronLeft,
   ChevronRight,
-  Image as ImageIcon,
   MessageSquare,
   Heart,
 } from 'lucide-react';
