@@ -1,37 +1,35 @@
 # Session checkpoint
 
-Updated: 2026-09-28
-Current task: friend task-image delivery.
-Status: friend request delivery is working in Preview. Task rows are delivered to authorized friends, but task attachments were stored with owner-only read permissions, so the image request failed. The task-image upload contract is now friend-readable while owner writes remain restricted, and the existing task-image files for the active two-account test data were repaired in Appwrite Storage.
-Next action: complete canonical verification on this clean task-image branch, merge it into the stable Preview branch, verify hosted friend-calendar task images, and keep dev promotion gated on explicit user instruction.
-Blockers: full restore rehearsal remains deferred by plan.
+Updated: 2026-09-29
+Current task: password recovery.
+Status: password recovery request and completion are implemented through AuthProvider, with public login/reset flows, race and unmount protection, focused tests, and deployment configuration documentation.
+Next action: review and deliver the password-recovery branch; configure the canonical public origin and matching Appwrite Web platform before hosted acceptance.
+Blockers: hosted recovery-email acceptance requires deployment and Appwrite Console configuration.
 
 ## Working set
-- src/lib/storage.ts
-- tests/unit/taskImagePermissions.test.ts
-- appwrite-functions/message-action/
-- src/lib/friendData.ts
-- docs/DELIVERY.md
+- src/hooks/authContext.ts
+- src/hooks/AuthProvider.tsx
+- src/pages/AuthPage.tsx
+- src/pages/ResetPasswordPage.tsx
+- tests/react/AuthProvider.test.tsx
+- tests/components/PasswordRecovery.test.tsx
 
 ## Completed substeps
-- Root cause isolated to Appwrite Storage file permissions rather than friend-calendar task delivery.
-- New task-image uploads grant authenticated-user read access while retaining owner-only update/delete.
-- Existing task-image files for the two active Preview test accounts were repaired in Appwrite Storage.
-- Added a focused regression test covering the task-image permission contract.
+- Added recovery request/completion context state and Appwrite calls with stale-result and unmount guards.
+- Added generic forgot-password confirmation and a public reset callback page.
+- Shared the eight-character signup/reset password rule.
+- Documented canonical callback-origin and Appwrite Web-platform configuration.
 
 ## Remaining substeps
-- Run full canonical acceptance on the final task-image commit.
-- Merge into the stable Preview branch and verify its deployment.
-- Manual two-account hosted verification: friend calendar task image loads and task-photo viewer opens normally.
-- Promote Preview to dev only after explicit user instruction.
+- Configure the hosted canonical origin and Appwrite Web platform.
+- Verify delivery and consumption of a real recovery email on the hosted deployment.
 
 ## Constraints
-- Preserve task-row account isolation and server-mediated friend calendar authorization.
-- Task image read access is authenticated-user scoped; update/delete remain owner-only.
-- Do not weaken task-row permissions.
-- Never automatically promote Preview to dev.
+- Recovery request confirmation must not reveal whether an account exists.
+- The reset callback remains public even when a cached/authenticated user is present.
+- Ignore superseded and post-unmount async recovery outcomes.
 
 ## Verification
-- Focused regression test is included in the final branch.
-- Existing Preview Quality Gate for the friendship delivery remains green.
-- Final canonical acceptance for this clean task-image branch is pending.
+- Focused provider and component tests pass.
+- Lint and production build pass.
+- Hosted recovery-email acceptance is pending configuration/deployment.
