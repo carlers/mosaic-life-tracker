@@ -1,5 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, fireEvent, screen } from '@testing-library/react';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { render, fireEvent, screen, act } from '@testing-library/react';
 import { TaskActionSheet } from '../../src/components/home/views/TaskActionSheet';
 import type {
   TaskDocument,
@@ -81,6 +81,34 @@ describe('TaskActionSheet', () => {
     });
   });
 
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('closes before entering edit mode so focus restoration cannot immediately blur the editor', () => {
+    vi.useFakeTimers();
+    const cbs = makeCallbacks();
+    render(
+      <TaskActionSheet
+        isOpen
+        task={makeTask({ date: TOMORROW_STR })}
+        category={makeCategory()}
+        {...cbs}
+      />
+    );
+
+    fireEvent.click(screen.getByText('Edit'));
+
+    expect(cbs.onClose).toHaveBeenCalledTimes(1);
+    expect(cbs.onEdit).not.toHaveBeenCalled();
+
+    act(() => {
+      vi.runAllTimers();
+    });
+
+    expect(cbs.onEdit).toHaveBeenCalledTimes(1);
+  });
+
   it('fires the top-grid and menu callbacks on tap', () => {
     const cbs = makeCallbacks();
     // Use tomorrow so the "Do It Today" label is stable.
@@ -93,9 +121,8 @@ describe('TaskActionSheet', () => {
       />
     );
 
-    fireEvent.click(screen.getByText('Edit'));
-    expect(cbs.onEdit).toHaveBeenCalledTimes(1);
-
+    // Edit has its own sequencing test above; verify the remaining action
+    // callbacks synchronously here.
     fireEvent.click(screen.getByText('Delete'));
     expect(cbs.onDelete).toHaveBeenCalledTimes(1);
 
