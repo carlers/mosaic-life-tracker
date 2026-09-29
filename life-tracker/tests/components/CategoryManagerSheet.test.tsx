@@ -5,6 +5,7 @@ import type { CategoryDocument } from '../../src/db/schema';
 
 const mocks = vi.hoisted(() => ({
   reorderCategories: vi.fn().mockResolvedValue(undefined),
+  startDrag: vi.fn(),
 }));
 
 const categories: CategoryDocument[] = [
@@ -74,13 +75,23 @@ vi.mock('framer-motion', async (importOriginal) => {
       </div>
     ),
     },
-    useDragControls: () => ({ start: vi.fn() }),
+    useDragControls: () => ({ start: mocks.startDrag }),
   };
 });
 
 import { CategoryManagerSheet } from '../../src/components/modals/CategoryManagerSheet';
 
 describe('CategoryManagerSheet', () => {
+  it('starts reordering only from the category grip button', () => {
+    render(<CategoryManagerSheet isOpen onClose={vi.fn()} />);
+
+    const grips = screen.getAllByRole('button', { name: 'Drag to reorder' });
+    expect(grips[0]).toHaveAttribute('type', 'button');
+
+    fireEvent.pointerDown(grips[0]);
+    expect(mocks.startDrag).toHaveBeenCalledTimes(1);
+  });
+
   it('keeps the dragged order visible while persisting it', () => {
     render(<CategoryManagerSheet isOpen onClose={vi.fn()} />);
 

@@ -38,11 +38,12 @@ const CategoryRow: React.FC<CategoryRowProps> = ({
       className="flex items-center gap-3 py-3 px-2 bg-[#1A1A1A] rounded-lg"
     >
       <button
+        type="button"
         onPointerDown={(e) => {
           e.stopPropagation();
           dragControls.start(e);
         }}
-        className="text-gray-400 cursor-grab"
+        className="p-1 -ml-1 text-gray-400 touch-none cursor-grab active:cursor-grabbing"
         aria-label="Drag to reorder"
       >
         <GripVertical size={18} />
