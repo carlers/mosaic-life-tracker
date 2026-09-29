@@ -45,6 +45,7 @@ let snapshot: PwaLifecycleSnapshot = {
   updateAvailable: false,
 };
 let installPrompt: InstallPromptEvent | null = null;
+let installPromptWaiters: Array<(prompt: InstallPromptEvent) => void> = [];
 let updateServiceWorker: (() => Promise<void>) | null = null;
 let serviceWorkerRegistration: ServiceWorkerRegistration | null = null;
 let serviceWorkerContainer: ServiceWorkerContainer | null = null;
@@ -125,9 +126,13 @@ export function initializePwaLifecycle(
     event.preventDefault();
     installPrompt = event;
     publish({ installAvailable: true });
+    const waiters = installPromptWaiters;
+    installPromptWaiters = [];
+    waiters.forEach((resolve) => resolve(event));
   }) as EventListener);
   target.addEventListener('appinstalled', () => {
     installPrompt = null;
+    installPromptWaiters = [];
     publish({ installAvailable: false, installed: true });
   });
 
@@ -138,8 +143,6 @@ export function initializePwaLifecycle(
       serviceWorkerRegistration = registration ?? null;
       observeOfflineShellReady(serviceWorkerRegistration);
     },
-    // The generated worker only takes over after applyPwaUpdate sends the
-    // explicit SKIP_WAITING request, so a reload here is always user-approved.
     onNeedReload: () => target.location.reload(),
     onRegisterError: (error) => {
       console.error('[PWA] Service-worker registration failed:', error);
@@ -147,9 +150,24 @@ export function initializePwaLifecycle(
   });
 }
 
+function waitForInstallPrompt(timeoutMs = 3000): Promise<InstallPromptEvent | null> {
+  if (installPrompt) return Promise.resolve(installPrompt);
+  return new Promise((resolve) => {
+    const timer = window.setTimeout(() => {
+      installPromptWaiters = installPromptWaiters.filter((waiter) => waiter !== resolvePrompt);
+      resolve(null);
+    }, timeoutMs);
+    const resolvePrompt = (prompt: InstallPromptEvent) => {
+      window.clearTimeout(timer);
+      resolve(prompt);
+    };
+    installPromptWaiters.push(resolvePrompt);
+  });
+}
+
 export async function requestPwaInstall(): Promise<'accepted' | 'dismissed' | 'unavailable'> {
   if (snapshot.installed) return 'unavailable';
-  const prompt = installPrompt;
+  const prompt = await waitForInstallPrompt();
   if (!prompt) return 'unavailable';
   await prompt.prompt();
   const { outcome } = await prompt.userChoice;
@@ -165,6 +183,7 @@ export async function requestPwaInstall(): Promise<'accepted' | 'dismissed' | 'u
 
 export function dismissPwaInstall(): void {
   installPrompt = null;
+  installPromptWaiters = [];
   publish({ installAvailable: false });
 }
 
@@ -186,9 +205,6 @@ async function resolveServiceWorkerRegistration(): Promise<ServiceWorkerRegistra
     console.warn('[PWA] Direct service-worker registration lookup failed:', error);
   }
 
-  // Standards-only fallback for controlled pages. This covers browser-specific
-  // registration timing/lookup differences (including WebKit/Safari) without
-  // user-agent sniffing. `ready` should already be resolved for a controlled page.
   if (!container.controller) return null;
   try {
     const registration = await container.ready;
@@ -201,9 +217,7 @@ async function resolveServiceWorkerRegistration(): Promise<ServiceWorkerRegistra
   }
 }
 
-function waitForInstallingWorker(
-  worker: ServiceWorker
-): Promise<void> {
+function waitForInstallingWorker(worker: ServiceWorker): Promise<void> {
   if (
     worker.state === 'installed' ||
     worker.state === 'activated' ||
@@ -307,6 +321,7 @@ export function resetPwaLifecycleForTests(): void {
   }
   snapshot = { installAvailable: false, installed: false, updateAvailable: false };
   installPrompt = null;
+  installPromptWaiters = [];
   updateServiceWorker = null;
   serviceWorkerRegistration = null;
   serviceWorkerContainer = null;
