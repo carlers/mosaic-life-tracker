@@ -124,7 +124,7 @@ export function initializePwaLifecycle(
   target.addEventListener('beforeinstallprompt', ((event: InstallPromptEvent) => {
     event.preventDefault();
     installPrompt = event;
-    publish({ installAvailable: true, installed: false });
+    publish({ installAvailable: true });
   }) as EventListener);
   target.addEventListener('appinstalled', () => {
     installPrompt = null;
