@@ -17,13 +17,13 @@ export const TaskBlock: React.FC<TaskBlockProps> = ({ task, categoryColor }) => 
   const { targetRef, shouldLoad } = useImageLoadGate<HTMLDivElement>();
   const { imageUrl, isLoading } = useTaskImage(task.image, shouldLoad);
   const bgColor = task.completed ? categoryColor : '#374151';
-  const textColor = task.completed ? getReadableTextColor(categoryColor) : '#D1D5DB';
+  const textColor = task.completed ? 'text-white' : 'text-gray-300';
 
   return (
     <div
       ref={targetRef}
-      className="text-[9px] py-0.5 w-full font-medium rounded-[3px] overflow-hidden"
-      style={{ backgroundColor: bgColor, color: textColor }}
+      className={`text-[9px] py-0.5 w-full font-medium rounded-[3px] overflow-hidden ${textColor}`}
+      style={{ backgroundColor: bgColor }}
       title={task.title}
     >
       <div className="flex flex-col gap-0.5">
