@@ -9,6 +9,7 @@ import {
   preflightSnapshot,
   readEncryptionKeyring,
   stableJson,
+  restoreSnapshot,
   unwrapUserPrefs,
 } from '../../scripts/dr-restore.mjs';
 import {
@@ -355,5 +356,25 @@ describe('DR restore CLI', () => {
         clients: nonEmpty as any,
       })
     ).rejects.toThrow(/non-empty/);
+  });
+});
+
+
+describe('friendship disaster recovery', () => {
+  it('restores server-controlled table and owner-only row permissions exactly, including tombstones', async () => {
+    const records = ['pending_incoming', 'pending_outgoing', 'accepted', 'blocked'].map((status, i) => ({
+      id: 'fr_' + i, data: { user_id: 'alice', friend_id: 'peer_' + i, status, deleted: i === 3 }, permissions: ['read("user:alice")'],
+    }));
+    const objects = {
+      users: '', schema: JSON.stringify({ id: 'friendships', name: 'Friendships', permissions: [], rowSecurity: true, columns: [], indexes: [] }),
+      rows: records.map(row => JSON.stringify(row)).join('\n'),
+    };
+    const tablesDB = { create: vi.fn(), createTable: vi.fn(), createRow: vi.fn() };
+    await restoreSnapshot({ snapshot: {
+      manifest: { auth: { usersKey: 'users' }, databases: [{ id: 'db', name: 'db', tables: [{ schemaKey: 'schema', rowsKey: 'rows' }] }], storage: [] },
+      readObject: async (key: keyof typeof objects) => Buffer.from(objects[key]), readBlob: vi.fn(),
+    }, clients: { tablesDB, users: {}, storage: {} } });
+    expect(tablesDB.createTable).toHaveBeenCalledWith(expect.objectContaining({ permissions: [], rowSecurity: true }));
+    expect(tablesDB.createRow.mock.calls.map(([args]) => ({ id: args.rowId, data: args.data, permissions: args.permissions }))).toEqual(records);
   });
 });

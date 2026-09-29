@@ -18,6 +18,7 @@ const sdkRef = vi.hoisted(() => ({
   guardedStorageGetFile: vi.fn(),
   guardedStorageGetFileView: vi.fn(),
   guardedStorageGetFilePreview: vi.fn(),
+  guardedStorageUpdateFile: vi.fn(),
 }));
 
 vi.mock('../../src/lib/sdk', () => ({
@@ -28,6 +29,7 @@ vi.mock('../../src/lib/sdk', () => ({
     getFile: sdkRef.guardedStorageGetFile,
     getFileView: sdkRef.guardedStorageGetFileView,
     getFilePreview: sdkRef.guardedStorageGetFilePreview,
+    updateFile: sdkRef.guardedStorageUpdateFile,
   },
   guardedTablesDB: {},
   guardedFunctions: {},
@@ -53,10 +55,13 @@ import {
   getCurrentUserId,
   ensureRestoredImage,
   saveImage,
+  saveProfileImage,
+  makeProfileImageReadable,
   uploadPendingImage,
   deleteImage,
 } from '../../src/lib/storage';
 import { isOfflineError } from '../../src/lib/authEvents';
+import { markConnectivityOnline, markConnectivityOffline } from '../../src/lib/connectivity';
 
 function makeFile(): File {
   return new File(['abc'], 'a.png', { type: 'image/png' });
@@ -66,6 +71,7 @@ beforeEach(() => {
   sdkRef.guardedAccountGet.mockReset();
   sdkRef.guardedStorageCreateFile.mockReset();
   sdkRef.guardedStorageGetFile.mockReset();
+  sdkRef.guardedStorageUpdateFile.mockReset();
   sdkRef.guardedStorageDeleteFile.mockReset();
   pendingRef.create.mockReset();
   pendingRef.get.mockReset();
@@ -131,6 +137,27 @@ describe('storage.uploadImage — error messages', () => {
   });
 });
 
+
+describe('storage.saveProfileImage — friend-readable permissions', () => {
+  it('uploads profile images with all-user read access and owner-only writes', async () => {
+    markConnectivityOnline('test');
+    sdkRef.guardedStorageCreateFile.mockResolvedValueOnce({ $id: 'img_profile' });
+    await expect(saveProfileImage(makeFile(), 'user_A')).resolves.toMatch(/^img_/);
+    expect(sdkRef.guardedStorageCreateFile).toHaveBeenCalledWith(expect.objectContaining({
+      permissions: ['read("users")', 'update("user:user_A")', 'delete("user:user_A")'],
+    }));
+    markConnectivityOffline('test-reset');
+  });
+
+  it('repairs an existing profile image without broadening writes', async () => {
+    await makeProfileImageReadable('img_profile', 'user_A');
+    expect(sdkRef.guardedStorageUpdateFile).toHaveBeenCalledWith({
+      bucketId: expect.any(String),
+      fileId: 'img_profile',
+      permissions: ['read("users")', 'update("user:user_A")', 'delete("user:user_A")'],
+    });
+  });
+});
 
 describe('storage.ensureRestoredImage — idempotent backup recovery', () => {
   it('reuses an existing preferred file instead of uploading a duplicate', async () => {

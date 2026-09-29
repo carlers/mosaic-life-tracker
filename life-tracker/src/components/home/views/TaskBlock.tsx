@@ -2,7 +2,6 @@ import React from 'react';
 import { useImageLoadGate } from '../../../hooks/useImageLoadGate';
 import { useTaskImage } from '../../../hooks/useTaskImage';
 import type { TaskDocument } from '../../../db/schema';
-import { getReadableTextColor } from '../../../constants/colors';
 
 interface TaskBlockProps {
   task: TaskDocument;
@@ -17,17 +16,23 @@ export const TaskBlock: React.FC<TaskBlockProps> = ({ task, categoryColor }) => 
   const { targetRef, shouldLoad } = useImageLoadGate<HTMLDivElement>();
   const { imageUrl, isLoading } = useTaskImage(task.image, shouldLoad);
   const bgColor = task.completed ? categoryColor : '#374151';
-  const textColor = task.completed ? getReadableTextColor(categoryColor) : '#D1D5DB';
+  const textColor = task.completed ? 'text-white' : 'text-gray-300';
 
   return (
     <div
       ref={targetRef}
-      className="text-[9px] py-0.5 w-full font-medium rounded-[3px] overflow-hidden"
-      style={{ backgroundColor: bgColor, color: textColor }}
+      className={`text-[9px] py-0.5 w-full font-medium rounded-[3px] overflow-hidden ${textColor}`}
+      style={{ backgroundColor: bgColor }}
       title={task.title}
     >
       <div className="flex flex-col gap-0.5">
-        <span className="block overflow-hidden whitespace-nowrap px-1">{task.title}</span>
+        {/* Padding lives on the outer element; clipping lives on the inner
+            one. Because the inner span has no padding, its clip rect ends
+            exactly where the outer padding begins, so the right gutter is
+            preserved on hard-cut text. */}
+        <div className="px-1">
+          <span className="block overflow-hidden whitespace-nowrap">{task.title}</span>
+        </div>
         {task.image && (
           <div className="w-full h-10 mt-0.5 rounded-[2px] overflow-hidden bg-black/20">
             {isLoading ? (

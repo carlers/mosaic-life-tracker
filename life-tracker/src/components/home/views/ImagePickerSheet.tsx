@@ -3,7 +3,7 @@ import { BottomSheet } from '../../ui/BottomSheet';
 import { Button } from '../../ui/Button';
 import { SheetErrorBanner } from '../../ui/SheetErrorBanner';
 import { Upload, X, Loader2 } from 'lucide-react';
-import { saveImage } from '../../../lib/storage';
+import { saveImage, saveProfileImage } from '../../../lib/storage';
 import { useAuth } from '../../../hooks/useAuth';
 import { useSheetReset } from '../../../hooks/useSheetReset';
 
@@ -63,7 +63,7 @@ export const ImagePickerSheet: React.FC<ImagePickerSheetProps> = ({
     try {
       const userId = user?.$id;
       if (!userId) throw new Error('Not authenticated');
-      const fileId = await saveImage(file, userId);
+      const fileId = await (variant === 'profile' ? saveProfileImage(file, userId) : saveImage(file, userId));
       await onSave(fileId);
       onClose();
     } catch (err) {

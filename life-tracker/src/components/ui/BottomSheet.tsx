@@ -19,6 +19,8 @@ interface BottomSheetProps {
   onHorizontalSwipe?: (direction: 'left' | 'right') => void;
   onAnimationComplete?: () => void;
   deferChildrenUntilPaint?: boolean;
+  /** Consume Escape/Android Back without dismissing the sheet (for transient modes). */
+  onTransientDismiss?: () => boolean;
 }
 
 type SheetStackEntry = {
@@ -26,6 +28,7 @@ type SheetStackEntry = {
   historyId: string;
   onClose: () => void;
   preventDismiss: () => boolean;
+  onTransientDismiss: () => boolean;
 };
 
 let openSheetCount = 0;
@@ -93,7 +96,8 @@ function cancelPendingCleanup(sheetId: string): void {
 function registerSheet(
   sheetId: string,
   onClose: () => void,
-  preventDismiss: () => boolean
+  preventDismiss: () => boolean,
+  onTransientDismiss: () => boolean
 ): void {
   cancelPendingCleanup(sheetId);
 
@@ -101,6 +105,7 @@ function registerSheet(
   if (existing) {
     existing.onClose = onClose;
     existing.preventDismiss = preventDismiss;
+    existing.onTransientDismiss = onTransientDismiss;
     return;
   }
 
@@ -109,6 +114,7 @@ function registerSheet(
     historyId: `mosaic-sheet-${++historyGuardSequence}`,
     onClose,
     preventDismiss,
+    onTransientDismiss,
   };
   sheetStack.push(entry);
   pushSheetHistory(entry);
@@ -147,6 +153,13 @@ function handleBottomSheetPopState(event: PopStateEvent): void {
     if (targetHistoryId !== top.historyId) {
       pushSheetHistory(top);
     }
+    return;
+  }
+
+  if (top?.onTransientDismiss()) {
+    // Back already consumed this sheet's guard. Restore it so the next Back
+    // dismisses the still-open sheet after its transient mode has exited.
+    pushSheetHistory(top);
     return;
   }
 
@@ -195,9 +208,10 @@ function ensureHistoryBackHandler(): void {
   historyBackHandlerInstalled = true;
 }
 
-function requestSheetClose(sheetId: string): void {
+function requestSheetClose(sheetId: string, allowTransientDismiss = false): void {
   const entry = sheetStack.find((sheet) => sheet.id === sheetId);
   if (!entry || entry.preventDismiss()) return;
+  if (allowTransientDismiss && entry.onTransientDismiss()) return;
 
   const top = sheetStack[sheetStack.length - 1];
   if (
@@ -265,12 +279,14 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
   onHorizontalSwipe,
   onAnimationComplete,
   deferChildrenUntilPaint = false,
+  onTransientDismiss,
 }) => {
   const appearance = useContext(AppearanceContext);
   const sheetWidthMode = appearance?.sheetWidthMode ?? 'full';
   const sheetRef = useRef<HTMLDivElement>(null);
   const onCloseRef = useRef(onClose);
   const preventDismissRef = useRef(preventDismiss);
+  const onTransientDismissRef = useRef(onTransientDismiss);
   const horizontalSwipeStartRef = useRef<HorizontalSwipeStart | null>(null);
   const directionalDragStartRef = useRef<HorizontalSwipeStart | null>(null);
   const directionalTouchStartRef = useRef<TouchSwipeStart | null>(null);
@@ -290,7 +306,8 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
   useLayoutEffect(() => {
     onCloseRef.current = onClose;
     preventDismissRef.current = preventDismiss;
-  }, [onClose, preventDismiss]);
+    onTransientDismissRef.current = onTransientDismiss;
+  }, [onClose, onTransientDismiss, preventDismiss]);
 
   useFocusTrap(sheetRef, isOpen && !suspendInteraction);
 
@@ -313,14 +330,15 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
     registerSheet(
       sheetId,
       () => onCloseRef.current(),
-      () => preventDismissRef.current
+      () => preventDismissRef.current,
+      () => onTransientDismissRef.current?.() ?? false
     );
 
     const handleEsc = (event: KeyboardEvent) => {
       if (event.key !== 'Escape') return;
       const top = sheetStack[sheetStack.length - 1];
       if (top?.id === sheetId) {
-        requestSheetClose(sheetId);
+        requestSheetClose(sheetId, true);
       }
     };
 

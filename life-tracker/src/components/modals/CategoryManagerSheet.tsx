@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import { Reorder, useDragControls } from 'framer-motion';
 import { BottomSheet } from '../ui/BottomSheet';
 import { ColorPalettePicker } from '../ui/ColorPalettePicker';
@@ -17,6 +17,7 @@ interface CategoryRowProps {
   overriddenCount: number;
   onEditStart: (cat: CategoryDocument) => void;
   onDeleteRequest: (id: string) => void;
+  onReorderEnd: () => void;
 }
 
 const CategoryRow: React.FC<CategoryRowProps> = ({
@@ -24,6 +25,7 @@ const CategoryRow: React.FC<CategoryRowProps> = ({
   overriddenCount,
   onEditStart,
   onDeleteRequest,
+  onReorderEnd,
 }) => {
   const dragControls = useDragControls();
 
@@ -32,14 +34,16 @@ const CategoryRow: React.FC<CategoryRowProps> = ({
       value={cat}
       dragListener={false}
       dragControls={dragControls}
+      onDragEnd={onReorderEnd}
       className="flex items-center gap-3 py-3 px-2 bg-[#1A1A1A] rounded-lg"
     >
       <button
+        type="button"
         onPointerDown={(e) => {
           e.stopPropagation();
           dragControls.start(e);
         }}
-        className="text-gray-400 cursor-grab"
+        className="p-1 -ml-1 text-gray-400 touch-none cursor-grab active:cursor-grabbing"
         aria-label="Drag to reorder"
       >
         <GripVertical size={18} />
@@ -106,10 +110,23 @@ export const CategoryManagerSheet: React.FC<CategoryManagerSheetProps> = ({
   const [editVisibility, setEditVisibility] = useState<Visibility>('private');
 
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [orderedIds, setOrderedIds] = useState(() =>
+    categories.map((cat) => cat.id)
+  );
+  const orderedCategories = useMemo(() => {
+    const orderIndex = new Map(orderedIds.map((id, index) => [id, index]));
+    return [...categories].sort((a, b) => {
+      const aIndex = orderIndex.get(a.id) ?? Number.MAX_SAFE_INTEGER;
+      const bIndex = orderIndex.get(b.id) ?? Number.MAX_SAFE_INTEGER;
+      return aIndex - bIndex || a.order - b.order;
+    });
+  }, [categories, orderedIds]);
+  const pendingOrder = useRef(orderedCategories);
 
   const [syncedIsOpen, setSyncedIsOpen] = useState(isOpen);
   if (isOpen !== syncedIsOpen) {
     setSyncedIsOpen(isOpen);
+    if (isOpen) setOrderedIds(categories.map((cat) => cat.id));
     if (!isOpen) {
       setIsAdding(false);
       setNewName('');
@@ -184,13 +201,14 @@ export const CategoryManagerSheet: React.FC<CategoryManagerSheetProps> = ({
       <div className="pt-2 pb-8 px-4">
         <Reorder.Group
           axis="y"
-          values={categories}
+          values={orderedCategories}
           onReorder={(newOrder) => {
-            reorderCategories(newOrder);
+            pendingOrder.current = newOrder;
+            setOrderedIds(newOrder.map((cat) => cat.id));
           }}
           className="space-y-2"
         >
-          {categories.map((cat) => (
+          {orderedCategories.map((cat) => (
             <CategoryRow
               key={cat.id}
               cat={cat}
@@ -201,6 +219,7 @@ export const CategoryManagerSheet: React.FC<CategoryManagerSheetProps> = ({
                 setEditVisibility(c.visibility);
               }}
               onDeleteRequest={(id) => setDeleteId(id)}
+              onReorderEnd={() => reorderCategories(pendingOrder.current)}
             />
           ))}
         </Reorder.Group>

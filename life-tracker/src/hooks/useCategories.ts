@@ -1,14 +1,12 @@
-import { useCallback } from 'react';
+import { useCallback, useRef } from 'react';
 import { getDatabase } from '../db/database';
 import { useAuth } from './useAuth';
 import { useRxCollection } from './useRxCollection';
 import type { CategoryDocument } from '../db/schema';
 
-const DEBUG = import.meta.env.DEV;
-let reorderInProgress = false;
-
 export function useCategories(enabled = true) {
   const { user } = useAuth();
+  const reorderQueue = useRef(Promise.resolve());
 
   const { data: categories, isLoading } = useRxCollection<CategoryDocument>({
     collection: 'categories',
@@ -85,23 +83,12 @@ export function useCategories(enabled = true) {
   );
 
   const reorderCategories = useCallback(
-    async (newOrder: CategoryDocument[]) => {
-      // HB-12: silent guard replaced with a debug log so a debounced
-      // reorder that lands while a previous one is still applying is
-      // visible in dev instead of being dropped without a trace.
-      if (reorderInProgress) {
-        if (DEBUG) {
-          console.warn(
-            '[useCategories] reorder skipped: a previous reorder is still in progress'
-          );
-        }
-        return;
-      }
-      reorderInProgress = true;
-      try {
+    (newOrder: CategoryDocument[]) => {
+      const order = [...newOrder];
+      const applyOrder = async () => {
         const db = getDatabase();
-        for (let i = 0; i < newOrder.length; i++) {
-          const id = newOrder[i].id;
+        for (let i = 0; i < order.length; i++) {
+          const id = order[i].id;
           try {
             const doc = await db.categories.findOne(id).exec();
             if (!doc) continue;
@@ -117,9 +104,13 @@ export function useCategories(enabled = true) {
             );
           }
         }
-      } finally {
-        reorderInProgress = false;
-      }
+      };
+
+      // Framer Motion can report several orders during one drag. Serialize
+      // them so a later (and usually final) order is never silently dropped.
+      const queued = reorderQueue.current.then(applyOrder, applyOrder);
+      reorderQueue.current = queued.catch(() => undefined);
+      return queued;
     },
     []
   );

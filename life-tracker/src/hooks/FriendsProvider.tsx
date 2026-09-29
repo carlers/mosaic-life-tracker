@@ -3,6 +3,7 @@ import React, {
   useEffect,
   useMemo,
   useState,
+  useSyncExternalStore,
   type ReactNode,
 } from 'react';
 import { getDatabase } from '../db/database';
@@ -13,8 +14,7 @@ import {
   deleteFriendPair,
   blockFriend,
 } from '../lib/social';
-import { clearCachedCalendar } from '../lib/friendCache';
-import { subscribeToSocialOutboxFailures } from '../lib/socialOutbox';
+import { scopeFriendshipCommands, subscribeFriendshipCommands, getFriendshipRevision, pendingFriendshipRows } from '../lib/friendshipCommands';
 import {
   FriendsContext,
   type MyProfileSummary,
@@ -30,9 +30,10 @@ export const FriendsProvider: React.FC<FriendsProviderProps> = ({
 }) => {
   const { user } = useAuth();
   const userId = user?.$id;
-  const [rows, setRows] = useState<FriendshipDocument[]>([]);
+  const [confirmedRows, setRows] = useState<FriendshipDocument[]>([]);
   const [loadedUserId, setLoadedUserId] = useState<string | null>(null);
   useEffect(() => {
+    scopeFriendshipCommands(userId ?? null);
     if (!userId) return;
     const uid = userId;
     let subscription: { unsubscribe: () => void } | undefined;
@@ -76,47 +77,19 @@ export const FriendsProvider: React.FC<FriendsProviderProps> = ({
     init();
     return () => {
       isMounted = false;
+      scopeFriendshipCommands(null);
       if (subscription) subscription.unsubscribe();
     };
   }, [userId]);
-  // Revert-on-permanent-failure hook for the social outbox. When a queued
-  // cross-user write is dropped (5 attempts exhausted, or a permanent
-  // failure), the local RxDB row is un-patched so local and remote state
-  // agree. The outbox entry carries enough revert info for each action.
-  useEffect(() => {
-    const unsubscribe = subscribeToSocialOutboxFailures((event) => {
-      const { action, revert } = event;
-      if (!revert.myRowId) return;
-      void (async () => {
-        try {
-          const db = getDatabase();
-          const doc = await db.friendships
-            .findOne(revert.myRowId)
-            .exec();
-          if (!doc) return;
-          const now = new Date().toISOString();
-          if (action === 'send_request') {
-            // The friend never learned about the request. Soft-delete our
-            // optimistic row so the UI stops showing a phantom request.
-            await doc.patch({ isDeleted: true, updatedAt: now });
-          } else if (
-            action === 'accept_friend_request' ||
-            action === 'block_friend'
-          ) {
-            await doc.patch({
-              status: revert.previousStatus ?? 'pending_incoming',
-              updatedAt: now,
-            });
-          } else if (action === 'delete_friend_pair') {
-            await doc.patch({ isDeleted: false, updatedAt: now });
-          }
-        } catch (err) {
-          console.error('[FriendsProvider] Outbox revert failed:', err);
-        }
-      })();
-    });
-    return unsubscribe;
-  }, []);
+  const queueRevision = useSyncExternalStore(subscribeFriendshipCommands, getFriendshipRevision);
+  const rows = useMemo(() => {
+    const visible = userId && loadedUserId === userId ? confirmedRows : [];
+    if (!userId) return [];
+    // External-store revision invalidates the persisted queue projection.
+    void queueRevision;
+    const pending = pendingFriendshipRows(userId);
+    return [...visible, ...pending.filter(p => !visible.some(r => r.friendId === p.friendId))];
+  }, [confirmedRows, userId, loadedUserId, queueRevision]);
   const friends = useMemo(
     () => rows.filter((r) => r.status === 'accepted'),
     [rows]
@@ -144,9 +117,9 @@ export const FriendsProvider: React.FC<FriendsProviderProps> = ({
         console.error(
           '[FriendsProvider] Cannot send request: User not authenticated'
         );
-        return;
+        throw new Error('Not authenticated');
       }
-      await sendFriendRequest({
+      return sendFriendRequest({
         myUserId: uid,
         myUsername: myProfile.username,
         myDisplayName: myProfile.displayName,
@@ -164,9 +137,9 @@ export const FriendsProvider: React.FC<FriendsProviderProps> = ({
         console.error(
           '[FriendsProvider] Cannot accept: User not authenticated'
         );
-        return;
+        throw new Error('Not authenticated');
       }
-      await acceptFriendRequest(uid, friendUserId);
+      return acceptFriendRequest(uid, friendUserId);
     },
     [user?.$id]
   );
@@ -177,10 +150,10 @@ export const FriendsProvider: React.FC<FriendsProviderProps> = ({
         console.error(
           '[FriendsProvider] Cannot decline: User not authenticated'
         );
-        return;
+        throw new Error('Not authenticated');
       }
-      await deleteFriendPair(uid, friendUserId);
-      await clearCachedCalendar(uid, friendUserId);
+      const result = await deleteFriendPair(uid, friendUserId, 'decline');
+      return result;
     },
     [user?.$id]
   );
@@ -191,10 +164,10 @@ export const FriendsProvider: React.FC<FriendsProviderProps> = ({
         console.error(
           '[FriendsProvider] Cannot cancel: User not authenticated'
         );
-        return;
+        throw new Error('Not authenticated');
       }
-      await deleteFriendPair(uid, friendUserId);
-      await clearCachedCalendar(uid, friendUserId);
+      const result = await deleteFriendPair(uid, friendUserId, 'cancel');
+      return result;
     },
     [user?.$id]
   );
@@ -205,10 +178,10 @@ export const FriendsProvider: React.FC<FriendsProviderProps> = ({
         console.error(
           '[FriendsProvider] Cannot remove: User not authenticated'
         );
-        return;
+        throw new Error('Not authenticated');
       }
-      await deleteFriendPair(uid, friendUserId);
-      await clearCachedCalendar(uid, friendUserId);
+      const result = await deleteFriendPair(uid, friendUserId);
+      return result;
     },
     [user?.$id]
   );
@@ -219,10 +192,10 @@ export const FriendsProvider: React.FC<FriendsProviderProps> = ({
         console.error(
           '[FriendsProvider] Cannot block: User not authenticated'
         );
-        return;
+        throw new Error('Not authenticated');
       }
-      await blockFriend(uid, friendUserId);
-      await clearCachedCalendar(uid, friendUserId);
+      const result = await blockFriend(uid, friendUserId);
+      return result;
     },
     [user?.$id]
   );

@@ -1,3 +1,4 @@
+import { clearCachedCalendar } from '../lib/friendCache';
 import { getDatabase, type AppDatabaseCollections } from './database';
 import { guardedRealtime, type RealtimeUnsubscribe } from '../lib/sdk';
 import { fromAppwriteFormat } from '../lib/syncMapping';
@@ -84,8 +85,10 @@ function stripRxMeta(
 async function applyRowEvent(
   colName: keyof AppDatabaseCollections,
   verb: 'create' | 'update' | 'delete',
-  payload: Record<string, unknown>
+  payload: Record<string, unknown>,
+  userId: string
 ): Promise<void> {
+  if (activeUserId !== userId || payload.user_id !== userId) return;
   let db;
   try {
     db = getDatabase();
@@ -105,6 +108,7 @@ async function applyRowEvent(
   if (verb === 'delete') {
     try {
       const local = await collection.findOne(docId).exec();
+      if (activeUserId !== userId) return;
       if (!local) return;
       const localDoc = local as unknown as {
         incrementalPatch: (
@@ -112,6 +116,7 @@ async function applyRowEvent(
         ) => Promise<unknown>;
       };
       await localDoc.incrementalPatch({ isDeleted: true });
+      if (colName === 'friendships' && typeof doc.friendId === 'string') await clearCachedCalendar(userId, doc.friendId);
     } catch (err) {
       const code = (err as { code?: string })?.code;
       if (code !== 'CONFLICT') {
@@ -126,9 +131,11 @@ async function applyRowEvent(
 
   try {
     const local = await collection.findOne(docId).exec();
+    if (activeUserId !== userId) return;
     if (!local) {
       try {
         await collection.upsert(doc);
+        if (colName === 'friendships' && (doc.isDeleted || doc.status === 'blocked') && typeof doc.friendId === 'string') await clearCachedCalendar(userId, doc.friendId);
       } catch (upsertErr) {
         const code = (upsertErr as { code?: string })?.code;
         if (code !== 'CONFLICT') {
@@ -185,6 +192,15 @@ async function applyRowEvent(
       return;
     }
 
+    if (colName === 'friendships') {
+      await local.incrementalModify((latest) => {
+        if (activeUserId !== userId || String(latest.updatedAt || '') > String(doc.updatedAt || '')) return latest;
+        return { ...latest, ...stripRxMeta(doc) };
+      });
+      if ((doc.isDeleted || doc.status === 'blocked') && typeof doc.friendId === 'string') await clearCachedCalendar(userId, doc.friendId);
+      return;
+    }
+
     const patch = stripRxMeta(doc);
     // Never let a realtime update clobber the server-owned read_at on an
     // outgoing message with the (empty) client value — sync.ts omits it
@@ -237,7 +253,7 @@ export function startRealtime(userId: string): void {
           const parsed = parseRowEvent(event);
           if (!parsed) continue;
           // Fire and forget; applyRowEvent never throws.
-          void applyRowEvent(colName, parsed.verb, payload);
+          void applyRowEvent(colName, parsed.verb, payload, userId);
         }
       }
     );

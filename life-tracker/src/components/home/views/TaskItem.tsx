@@ -6,7 +6,6 @@ import { useTaskImage } from '../../../hooks/useTaskImage';
 import { useBubbleGestures } from '../../../hooks/useBubbleGestures';
 import { ReactionRow } from '../../messages/ReactionRow';
 import { parseReactions } from '../../../lib/reactionUtils';
-import { getReadableTextColor } from '../../../constants/colors';
 import type { TaskDocument } from '../../../db/schema';
 
 type MemoOpenMode = 'view' | 'edit';
@@ -26,14 +25,19 @@ interface TaskItemProps {
   onEditSave: () => void;
   onEditCancel: () => void;
   disableLayoutAnimation?: boolean;
+  selectionMode?: boolean;
+  isSelected?: boolean;
+  onToggleSelection?: () => void;
 }
 
 interface TaskImageProps {
   task: TaskDocument;
   onViewImage?: (task: TaskDocument) => void;
+  selectionMode?: boolean;
+  onSelect?: () => void;
 }
 
-const TaskImage: React.FC<TaskImageProps> = ({ task, onViewImage }) => {
+const TaskImage: React.FC<TaskImageProps> = ({ task, onViewImage, selectionMode, onSelect }) => {
   const { targetRef, shouldLoad } = useImageLoadGate<HTMLElement>();
   const { imageUrl, isLoading } = useTaskImage(task.image, shouldLoad);
 
@@ -44,7 +48,8 @@ const TaskImage: React.FC<TaskImageProps> = ({ task, onViewImage }) => {
         type="button"
         onClick={(e) => {
           e.stopPropagation();
-          onViewImage?.(task);
+          if (selectionMode) onSelect?.();
+          else onViewImage?.(task);
         }}
         onPointerDown={(e) => e.stopPropagation()}
         className="mt-2 block w-full aspect-[16/9] rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
@@ -73,8 +78,11 @@ const TaskImage: React.FC<TaskImageProps> = ({ task, onViewImage }) => {
 const TaskMemo: React.FC<{
   task: TaskDocument;
   onOpenMemo: (task: TaskDocument, mode: MemoOpenMode) => void;
-}> = ({ task, onOpenMemo }) => {
+  selectionMode?: boolean;
+  onSelect?: () => void;
+}> = ({ task, onOpenMemo, selectionMode, onSelect }) => {
   const memoGestures = useBubbleGestures({
+    disabled: selectionMode,
     onSingleTap: () => onOpenMemo(task, 'view'),
     onDoubleTap: () => onOpenMemo(task, 'edit'),
   });
@@ -89,7 +97,8 @@ const TaskMemo: React.FC<{
       onContextMenu={memoGestures.onContextMenu}
       onClick={(event) => {
         event.stopPropagation();
-        if (event.detail === 0) onOpenMemo(task, 'view');
+        if (selectionMode) onSelect?.();
+        else if (event.detail === 0) onOpenMemo(task, 'view');
       }}
       className="mt-1 flex w-full touch-pan-y items-start gap-1 text-left text-xs text-gray-400 rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
       aria-label="Open memo"
@@ -115,6 +124,9 @@ export const TaskItem: React.FC<TaskItemProps> = ({
   onEditSave,
   onEditCancel,
   disableLayoutAnimation = false,
+  selectionMode = false,
+  isSelected = false,
+  onToggleSelection,
 }) => {
   const reactions = React.useMemo(
     () => parseReactions(task.reactions),
@@ -134,7 +146,7 @@ export const TaskItem: React.FC<TaskItemProps> = ({
   }, [isEditing]);
 
   const titleGestures = useBubbleGestures({
-    disabled: isEditing,
+    disabled: isEditing || selectionMode,
     onSingleTap: () => onOpenActions(task),
     onDoubleTap: () => onEditStart(task),
     onTripleTap: () => onOpenMemo(task, 'edit'),
@@ -156,25 +168,50 @@ export const TaskItem: React.FC<TaskItemProps> = ({
       layout={!disableLayoutAnimation}
       layoutDependency={`${task.updatedAt}:${isEditing}`}
       data-task-id={task.id}
-      className="flex scroll-mt-16 items-start gap-3 rounded-lg py-2 transition-[background-color,box-shadow] duration-300 data-[search-focused=true]:bg-emerald-400/10 data-[search-focused=true]:ring-1 data-[search-focused=true]:ring-emerald-400/60"
+      role={selectionMode ? 'checkbox' : undefined}
+      aria-checked={selectionMode ? isSelected : undefined}
+      aria-label={selectionMode ? `${task.title}, ${isSelected ? 'selected' : 'not selected'}` : undefined}
+      tabIndex={selectionMode ? 0 : undefined}
+      onClick={selectionMode ? onToggleSelection : undefined}
+      onKeyDown={selectionMode ? (event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          onToggleSelection?.();
+        }
+      } : undefined}
+      className="flex scroll-mt-16 items-start gap-3 rounded-lg px-2 py-2 transition-[background-color,box-shadow] duration-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 data-[search-focused=true]:ring-1 data-[search-focused=true]:ring-emerald-400/60"
+      style={isSelected ? { backgroundColor: `${categoryColor}33`, boxShadow: `inset 0 0 0 1px ${categoryColor}` } : undefined}
     >
       <button
         type="button"
-        onClick={() => onToggle(task.id)}
+        onClick={(event) => {
+          if (selectionMode) {
+            event.stopPropagation();
+            onToggleSelection?.();
+          } else {
+            onToggle(task.id);
+          }
+        }}
         onPointerDown={(e) => e.stopPropagation()}
         className="mt-0.5 shrink-0 w-6 h-6 rounded-full border-2 flex items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
         style={{
-          borderColor: isCompleted ? categoryColor : '#4B5563',
-          backgroundColor: isCompleted ? categoryColor : 'transparent',
+          borderColor: (selectionMode ? isSelected : isCompleted) ? categoryColor : '#4B5563',
+          backgroundColor: (selectionMode ? isSelected : isCompleted) ? categoryColor : 'transparent',
         }}
-        aria-label={isCompleted ? 'Mark incomplete' : 'Mark complete'}
+        aria-label={selectionMode ? (isSelected ? 'Deselect task' : 'Select task') : (isCompleted ? 'Mark incomplete' : 'Mark complete')}
       >
-        {isCompleted && (
-          <Check size={12} style={{ color: getReadableTextColor(categoryColor) }} aria-hidden="true" />
+        {(selectionMode ? isSelected : isCompleted) && (
+          <Check
+            size={15}
+            strokeWidth={4}
+            style={{ color: '#fff' }}
+            className="drop-shadow-[0_1px_1px_rgba(0,0,0,0.4)]"
+            aria-hidden="true"
+          />
         )}
       </button>
       <div className="flex-1 min-w-0">
-        {isEditing ? (
+        {isEditing && !selectionMode ? (
           <input
             ref={inputRef}
             type="text"
@@ -183,7 +220,8 @@ export const TaskItem: React.FC<TaskItemProps> = ({
             onKeyDown={handleKeyDown}
             onBlur={onEditSave}
             onPointerDown={(e) => e.stopPropagation()}
-            className="w-full bg-transparent text-white outline-none border-b border-[#4B5563] focus-visible:ring-2 focus-visible:ring-emerald-500/60"
+            className="w-full bg-transparent text-white outline-none border-b border-[#4B5563]"
+            style={{ borderBottomColor: categoryColor, borderBottomWidth: '2px' }}
             aria-label="Task title"
           />
         ) : (
@@ -196,7 +234,8 @@ export const TaskItem: React.FC<TaskItemProps> = ({
             onContextMenu={titleGestures.onContextMenu}
             onClick={(event) => {
               event.stopPropagation();
-              if (event.detail === 0) onOpenActions(task);
+              if (selectionMode) onToggleSelection?.();
+              else if (event.detail === 0) onOpenActions(task);
             }}
             className="w-full touch-pan-y text-left rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
             aria-label={task.title}
@@ -207,14 +246,14 @@ export const TaskItem: React.FC<TaskItemProps> = ({
           </button>
         )}
         {task.memo && (
-          <TaskMemo task={task} onOpenMemo={onOpenMemo} />
+          <TaskMemo task={task} onOpenMemo={onOpenMemo} selectionMode={selectionMode} onSelect={onToggleSelection} />
         )}
         {task.image && (
-          <TaskImage task={task} onViewImage={onViewImage} />
+          <TaskImage task={task} onViewImage={onViewImage} selectionMode={selectionMode} onSelect={onToggleSelection} />
         )}
         {reactions.length > 0 && (
-          <div className="mt-1">
-            <ReactionRow reactions={reactions} currentUserId={currentUserId} isOutgoing={false} onToggle={() => {}} />
+          <div className={`mt-1 ${selectionMode ? 'pointer-events-none' : ''}`}>
+            <ReactionRow reactions={reactions} currentUserId={currentUserId} isOutgoing={false} onToggle={() => { }} />
           </div>
         )}
       </div>

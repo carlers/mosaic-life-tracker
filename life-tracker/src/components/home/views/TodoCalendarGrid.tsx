@@ -176,7 +176,7 @@ const TodoMonthGrid: React.FC<TodoMonthGridProps> = ({
                   aria-current={isActive && isToday(day) ? 'date' : undefined}
                   onClick={() => onDateSelect(day)}
                   onKeyDown={handleKeyDown}
-                  className="mx-auto flex h-14 w-10 flex-col items-center justify-center rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 hover:bg-[#2A2A2A]"
+                  className="mx-auto flex h-14 w-10 flex-col items-center justify-center rounded-lg focus:outline-none hover:bg-[#2A2A2A]"
                 >
                   <span
                     data-testid={`todo-status-marker-${dateKey}`}

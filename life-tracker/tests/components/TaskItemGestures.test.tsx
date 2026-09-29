@@ -115,4 +115,44 @@ describe('TaskItem owner gestures', () => {
     tap(memo, 12);
     expect(callbacks.onOpenMemo).toHaveBeenCalledWith(task, 'edit');
   });
+
+  it('turns the row into a selectable control and suppresses normal task actions', () => {
+    const onToggleSelection = vi.fn();
+    const callbacks = {
+      onToggle: vi.fn(),
+      onOpenActions: vi.fn(),
+      onOpenMemo: vi.fn(),
+      onEditStart: vi.fn(),
+      onViewImage: vi.fn(),
+      onEditChange: vi.fn(),
+      onEditSave: vi.fn(),
+      onEditCancel: vi.fn(),
+    };
+    render(
+      <TaskItem
+        task={task}
+        categoryColor="#3B82F6"
+        currentUserId="user_1"
+        isEditing={false}
+        editValue=""
+        selectionMode
+        isSelected
+        onToggleSelection={onToggleSelection}
+        {...callbacks}
+      />
+    );
+
+    const row = screen.getByRole('checkbox', { name: 'Write release notes, selected' });
+    expect(row).toHaveAttribute('aria-checked', 'true');
+    expect(screen.getByRole('button', { name: 'Open memo' })).toBeInTheDocument();
+
+    fireEvent.keyDown(row, { key: ' ' });
+    fireEvent.click(screen.getByRole('button', { name: 'Deselect task' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Open memo' }));
+
+    expect(onToggleSelection).toHaveBeenCalledTimes(3);
+    expect(callbacks.onToggle).not.toHaveBeenCalled();
+    expect(callbacks.onOpenActions).not.toHaveBeenCalled();
+    expect(callbacks.onOpenMemo).not.toHaveBeenCalled();
+  });
 });

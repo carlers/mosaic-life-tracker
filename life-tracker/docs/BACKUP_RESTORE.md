@@ -69,3 +69,12 @@ credential, mapping, and limitation contract lives in [TodoMate import](TODOMATE
 ## Activity timestamps
 
 Settings shows the most recent completed manual backup and successful restore for the current account. These timestamps are small per-account local operational metadata: they are not synced, exported, or restored, so importing an older backup cannot roll the displayed activity history backward. The automatic safety snapshot created before Replace Personal Data does not count as a manual backup.
+
+## Friendship delivery compatibility
+
+Friendships are server-controlled cached reference data. Export may include confirmed
+relationships; pending delivery intents in `mosaic_friendship_commands_v1` are not backup
+records. Neither Merge nor Replace imports, clears, or replays those intents. Existing
+pending, accepted, blocked, and deleted relationships remain unchanged on same-account
+and cross-account restore, including TodoMate imports. Backup versions remain unchanged.
+See [friendship recovery](FRIENDSHIP_RECOVERY.md) for administrative legacy-data repair.
