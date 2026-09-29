@@ -23,6 +23,9 @@ interface DaySlideProps {
   disableTaskLayoutAnimation?: boolean;
   continueAddingTasks?: boolean;
   showCategoryCollapseButton?: boolean;
+  selectionMode?: boolean;
+  selectedTaskIds?: ReadonlySet<string>;
+  onToggleTaskSelection?: (taskId: string) => void;
 }
 
 const DaySlideComponent: React.FC<DaySlideProps> = ({
@@ -45,6 +48,9 @@ const DaySlideComponent: React.FC<DaySlideProps> = ({
   disableTaskLayoutAnimation = false,
   continueAddingTasks = false,
   showCategoryCollapseButton = false,
+  selectionMode = false,
+  selectedTaskIds = new Set<string>(),
+  onToggleTaskSelection,
 }) => {
   const tasksByCategory = React.useMemo(() => {
     const map = new Map<string, TaskDocument[]>();
@@ -98,6 +104,9 @@ const DaySlideComponent: React.FC<DaySlideProps> = ({
           disableTaskLayoutAnimation={disableTaskLayoutAnimation}
           continueAddingAfterSubmit={continueAddingTasks}
           showCollapseButton={showCategoryCollapseButton}
+          selectionMode={selectionMode}
+          selectedTaskIds={selectedTaskIds}
+          onToggleTaskSelection={onToggleTaskSelection}
         />
       ))}
     </div>

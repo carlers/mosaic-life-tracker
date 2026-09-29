@@ -1,8 +1,8 @@
 import React, { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
-import { format, isToday } from 'date-fns';
+import { addDays, format, isToday } from 'date-fns';
 import { Swiper, SwiperSlide } from 'swiper/react';
-import { AnimatePresence } from 'framer-motion';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { AnimatePresence, motion } from 'framer-motion';
+import { CheckSquare, ChevronLeft, ChevronRight, MoreHorizontal, Trash2 } from 'lucide-react';
 import { BottomSheet } from '../../ui/BottomSheet';
 import { ConfirmSheet } from '../../ui/ConfirmSheet';
 import { DaySlide } from './DaySlide';
@@ -11,6 +11,9 @@ import { MemoSheet } from './MemoSheet';
 import { DatePickerSheet } from './DatePickerSheet';
 import { ImagePickerSheet } from './ImagePickerSheet';
 import { TaskVisibilitySheet } from './TaskVisibilitySheet';
+import { BulkTaskActionSheet } from './BulkTaskActionSheet';
+import { BulkDatePickerSheet } from './BulkDatePickerSheet';
+import { BulkVisibilitySheet } from './BulkVisibilitySheet';
 import { useTasks } from '../../../hooks/useTasks';
 import { useCategories } from '../../../hooks/useCategories';
 import { useAuth } from '../../../hooks/useAuth';
@@ -80,7 +83,7 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
   const { categories: hookCategories = [] } = useCategories(
     categoriesOverride === undefined
   );
-  const { message: deleteFeedback } = useFeedback();
+  const { message: deleteFeedback, show: showFeedback } = useFeedback();
   const { getSetting } = useSettings();
   const continueAddingTasks =
     getSetting(CONTINUE_ADDING_TASKS_SETTING_KEY, false) === true;
@@ -106,6 +109,14 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
   const [isImageViewerOpen, setIsImageViewerOpen] = useState(false);
   const [deletePhotoConfirmOpen, setDeletePhotoConfirmOpen] = useState(false);
+  const [isSelectMode, setIsSelectMode] = useState(false);
+  const [selectedTaskIds, setSelectedTaskIds] = useState<Set<string>>(() => new Set());
+  const [isBulkActionOpen, setIsBulkActionOpen] = useState(false);
+  const [isBulkDateOpen, setIsBulkDateOpen] = useState(false);
+  const [isBulkVisibilityOpen, setIsBulkVisibilityOpen] = useState(false);
+  const [isBulkDeleteOpen, setIsBulkDeleteOpen] = useState(false);
+  const [isBulkWorking, setIsBulkWorking] = useState(false);
+  const [syncedSelectionContext, setSyncedSelectionContext] = useState('');
 
   const activeTask = useMemo(
     () => tasks.find((t) => t.id === activeTaskId) ?? null,
@@ -133,6 +144,16 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
     [activeTask, categories]
   );
 
+  const exitSelectMode = useCallback(() => {
+    if (isBulkWorking) return;
+    setIsSelectMode(false);
+    setSelectedTaskIds(new Set());
+    setIsBulkActionOpen(false);
+    setIsBulkDateOpen(false);
+    setIsBulkVisibilityOpen(false);
+    setIsBulkDeleteOpen(false);
+  }, [isBulkWorking]);
+
   const {
     swiperRef,
     slideDates,
@@ -155,8 +176,31 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
       isDeleteConfirmOpen ||
       isImageViewerOpen ||
       deletePhotoConfirmOpen ||
+      isBulkActionOpen ||
+      isBulkDateOpen ||
+      isBulkVisibilityOpen ||
+      isBulkDeleteOpen ||
+      isBulkWorking ||
       !!imagePickerTaskId,
   });
+
+  const activeDateStr = slideDateStrs[activeIndex] ?? format(selectedDate, 'yyyy-MM-dd');
+  const selectedTasks = useMemo(
+    () => tasks.filter((task) => selectedTaskIds.has(task.id) && task.date === activeDateStr),
+    [activeDateStr, selectedTaskIds, tasks]
+  );
+  const selectionContext = `${isOpen ? 'open' : 'closed'}:${activeDateStr}`;
+  if (selectionContext !== syncedSelectionContext) {
+    setSyncedSelectionContext(selectionContext);
+    if (isSelectMode && !isBulkWorking) {
+      setIsSelectMode(false);
+      setSelectedTaskIds(new Set());
+      setIsBulkActionOpen(false);
+      setIsBulkDateOpen(false);
+      setIsBulkVisibilityOpen(false);
+      setIsBulkDeleteOpen(false);
+    }
+  }
 
   // #10: precompute the header label per slide so the render loop doesn't
   // re-run date-fns' format() on every render for every in-window slide.
@@ -182,6 +226,8 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
 
   const handleSheetClose = useCallback(() => {
     setDeferredRenderWindow(0);
+    setIsSelectMode(false);
+    setSelectedTaskIds(new Set());
     onClose();
   }, [onClose]);
 
@@ -223,14 +269,30 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
 
   const handleSheetHorizontalSwipe = useCallback(
     (direction: 'left' | 'right') => {
+      if (isSelectMode) exitSelectMode();
       if (direction === 'left') {
         handleNextDay();
       } else {
         handlePrevDay();
       }
     },
-    [handleNextDay, handlePrevDay]
+    [exitSelectMode, handleNextDay, handlePrevDay, isSelectMode]
   );
+
+  const handlePrevDayFromUi = useCallback(() => {
+    if (isSelectMode) exitSelectMode();
+    handlePrevDay();
+  }, [exitSelectMode, handlePrevDay, isSelectMode]);
+
+  const handleNextDayFromUi = useCallback(() => {
+    if (isSelectMode) exitSelectMode();
+    handleNextDay();
+  }, [exitSelectMode, handleNextDay, isSelectMode]);
+
+  const handleSwipeSettledFromUi = useCallback((swiper: Parameters<typeof handleSwipeSettled>[0]) => {
+    if (isSelectMode) exitSelectMode();
+    handleSwipeSettled(swiper);
+  }, [exitSelectMode, handleSwipeSettled, isSelectMode]);
 
   const handleToggleTask = useCallback(
     (taskId: string, currentStatus: boolean) => {
@@ -238,6 +300,60 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
     },
     [toggleTaskCompletion]
   );
+
+  const handleToggleTaskSelection = useCallback((taskId: string) => {
+    setSelectedTaskIds((current) => {
+      const next = new Set(current);
+      if (next.has(taskId)) next.delete(taskId);
+      else next.add(taskId);
+      return next;
+    });
+  }, []);
+
+  const handleToggleSelectMode = useCallback(() => {
+    if (isSelectMode) {
+      exitSelectMode();
+      return;
+    }
+    setEditingTaskId(null);
+    setEditValue('');
+    setSelectedTaskIds(new Set());
+    setIsSelectMode(true);
+  }, [exitSelectMode, isSelectMode]);
+
+  const runBulkUpdate = useCallback(async (updates: Partial<TaskDocument>) => {
+    const snapshot = selectedTasks;
+    if (snapshot.length === 0 || isBulkWorking) return;
+    setIsBulkWorking(true);
+    const results = await Promise.allSettled(snapshot.map((task) => updateTask(task.id, updates)));
+    const failedIds = new Set(snapshot.filter((_, index) => results[index]?.status === 'rejected').map((task) => task.id));
+    setIsBulkWorking(false);
+    if (failedIds.size > 0) {
+      setSelectedTaskIds(failedIds);
+      setIsBulkActionOpen(false);
+      setIsBulkDateOpen(false);
+      setIsBulkVisibilityOpen(false);
+      showFeedback(`${failedIds.size} ${failedIds.size === 1 ? 'task' : 'tasks'} could not be updated`);
+      return;
+    }
+    exitSelectMode();
+  }, [exitSelectMode, isBulkWorking, selectedTasks, showFeedback, updateTask]);
+
+  const handleBulkDelete = useCallback(async () => {
+    const snapshot = selectedTasks;
+    if (snapshot.length === 0 || isBulkWorking) return;
+    setIsBulkWorking(true);
+    const results = await Promise.allSettled(snapshot.map((task) => deleteTask(task.id)));
+    const failedIds = new Set(snapshot.filter((_, index) => results[index]?.status === 'rejected').map((task) => task.id));
+    setIsBulkWorking(false);
+    if (failedIds.size > 0) {
+      setSelectedTaskIds(failedIds);
+      setIsBulkDeleteOpen(false);
+      showFeedback(`${failedIds.size} ${failedIds.size === 1 ? 'task' : 'tasks'} could not be deleted`);
+      return;
+    }
+    exitSelectMode();
+  }, [deleteTask, exitSelectMode, isBulkWorking, selectedTasks, showFeedback]);
 
   const handleAddTask = useCallback(
     (title: string, categoryId: string, dateStr: string) => {
@@ -333,7 +449,7 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
   const handleDoItTomorrowOrToday = useCallback(async () => {
     if (!activeTask) return;
     const today = format(new Date(), 'yyyy-MM-dd');
-    const tomorrow = format(new Date(Date.now() + 86400000), 'yyyy-MM-dd');
+    const tomorrow = format(addDays(new Date(), 1), 'yyyy-MM-dd');
     const newDate = activeTask.date === today ? tomorrow : today;
     await updateTask(activeTask.id, { date: newDate });
     setActiveTaskId(null);
@@ -444,13 +560,28 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
     isDeleteConfirmOpen ||
     isImageViewerOpen ||
     deletePhotoConfirmOpen ||
+    isBulkActionOpen ||
+    isBulkDateOpen ||
+    isBulkVisibilityOpen ||
+    isBulkDeleteOpen ||
+    isBulkWorking ||
     !!imagePickerTaskId;
+  useEffect(() => {
+    if (renderMode !== 'inline' || !isSelectMode) return;
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape' || isBackgroundLocked) return;
+      event.preventDefault();
+      exitSelectMode();
+    };
+    window.addEventListener('keydown', handleEscape);
+    return () => window.removeEventListener('keydown', handleEscape);
+  }, [exitSelectMode, isBackgroundLocked, isSelectMode, renderMode]);
   // A11Y-33: keyboard arrows mirror the existing swipe/chevron day navigation.
   // Nested sheets and text editing retain their own keyboard behavior.
   useHorizontalArrowNavigation({
     enabled: isOpen && !isBackgroundLocked,
-    onLeft: handlePrevDay,
-    onRight: handleNextDay,
+    onLeft: handlePrevDayFromUi,
+    onRight: handleNextDayFromUi,
   });
 
   const imageViewerUnavailable = (
@@ -485,7 +616,7 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
           }
         }}
         initialSlide={initialIndex}
-        onSlideChange={handleSwipeSettled}
+        onSlideChange={handleSwipeSettledFromUi}
         data-testid="day-swiper"
         data-bottom-sheet-native-horizontal-swipe={renderMode === 'sheet' ? 'true' : undefined}
         className={`min-w-0 w-full max-w-full overflow-hidden ${renderMode === 'inline' ? '' : 'flex-1'}`}
@@ -521,7 +652,7 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
                     >
                       <button
                         type="button"
-                        onClick={handlePrevDay}
+                        onClick={handlePrevDayFromUi}
                         tabIndex={i === activeIndex ? 0 : -1}
                         className="p-2 text-gray-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
                         aria-label="Previous day"
@@ -541,7 +672,18 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
                       </h3>
                       <button
                         type="button"
-                        onClick={handleNextDay}
+                        onClick={handleToggleSelectMode}
+                        tabIndex={i === activeIndex ? 0 : -1}
+                        aria-pressed={isSelectMode}
+                        aria-label={isSelectMode ? 'Exit selection mode' : 'Select tasks'}
+                        className={`flex items-center gap-1 rounded-lg px-2 py-1.5 text-xs font-medium focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 ${isSelectMode ? 'bg-emerald-500 text-black' : 'text-gray-300 hover:bg-[#2A2A2A]'}`}
+                      >
+                        <CheckSquare size={16} aria-hidden="true" />
+                        <span>Select</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleNextDayFromUi}
                         tabIndex={i === activeIndex ? 0 : -1}
                         className="p-2 text-gray-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
                         aria-label="Next day"
@@ -570,6 +712,9 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
                       disableTaskLayoutAnimation={renderMode === 'sheet'}
                       continueAddingTasks={continueAddingTasks}
                       showCategoryCollapseButton={showCategoryCollapseButton}
+                      selectionMode={isSelectMode && i === activeIndex}
+                      selectedTaskIds={selectedTaskIds}
+                      onToggleTaskSelection={handleToggleTaskSelection}
                     />
                   </>
                 )}
@@ -578,6 +723,46 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
           );
         })}
       </Swiper>
+      <AnimatePresence initial={false}>
+        {isSelectMode && (
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 8 }}
+            className="z-10 mx-2 mb-[max(0.5rem,env(safe-area-inset-bottom))] flex shrink-0 items-center justify-end gap-2 rounded-2xl border border-[#333333] bg-[#171717]/95 p-2 shadow-xl backdrop-blur"
+            role="toolbar"
+            aria-label={`${selectedTasks.length} selected ${selectedTasks.length === 1 ? 'task' : 'tasks'}`}
+          >
+            <span className="mr-auto pl-2 text-sm text-gray-300">{selectedTasks.length} selected</span>
+            <button type="button" disabled={selectedTasks.length === 0 || isBulkWorking} onClick={() => setIsBulkActionOpen(true)} aria-label="More actions for selected tasks" className="flex h-11 w-11 items-center justify-center rounded-full bg-[#2A2A2A] text-white disabled:opacity-40 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60">
+              <MoreHorizontal aria-hidden="true" />
+            </button>
+            <button type="button" disabled={selectedTasks.length === 0 || isBulkWorking} onClick={() => setIsBulkDeleteOpen(true)} aria-label="Delete selected tasks" className="flex h-11 w-11 items-center justify-center rounded-full bg-red-500 text-black disabled:opacity-40 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-300">
+              <Trash2 aria-hidden="true" />
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+      <AnimatePresence>
+        {isBulkActionOpen && (
+          <BulkTaskActionSheet
+            isOpen
+            count={selectedTasks.length}
+            isWorking={isBulkWorking}
+            onClose={() => setIsBulkActionOpen(false)}
+            onChangeDate={() => { setIsBulkActionOpen(false); setIsBulkDateOpen(true); }}
+            onDoToday={() => runBulkUpdate({ date: format(new Date(), 'yyyy-MM-dd') })}
+            onDoTomorrow={() => runBulkUpdate({ date: format(addDays(new Date(), 1), 'yyyy-MM-dd') })}
+            onVisibility={() => { setIsBulkActionOpen(false); setIsBulkVisibilityOpen(true); }}
+          />
+        )}
+        {isBulkDateOpen && (
+          <BulkDatePickerSheet isOpen count={selectedTasks.length} isWorking={isBulkWorking} onClose={() => setIsBulkDateOpen(false)} onSave={(date) => runBulkUpdate({ date })} />
+        )}
+        {isBulkVisibilityOpen && (
+          <BulkVisibilitySheet isOpen count={selectedTasks.length} isWorking={isBulkWorking} onClose={() => setIsBulkVisibilityOpen(false)} onSave={(visibility) => runBulkUpdate({ visibility })} />
+        )}
+      </AnimatePresence>
       <TaskActionSheet
         isOpen={isActionSheetOpen && !!activeTask}
         onClose={handleCloseActions}
@@ -639,6 +824,17 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
         confirmLabel="Delete"
         destructive
         onConfirm={handleDelete}
+      />
+      <ConfirmSheet
+        isOpen={isBulkDeleteOpen}
+        onClose={() => setIsBulkDeleteOpen(false)}
+        title={`Delete ${selectedTasks.length} ${selectedTasks.length === 1 ? 'Task' : 'Tasks'}?`}
+        message="The selected tasks will be removed from your calendar."
+        confirmLabel={isBulkWorking ? 'Deleting…' : 'Delete'}
+        destructive
+        isProcessing={isBulkWorking}
+        processingLabel="Deleting…"
+        onConfirm={handleBulkDelete}
       />
       <ConfirmSheet
         isOpen={deletePhotoConfirmOpen}
@@ -703,6 +899,11 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
       onHorizontalSwipe={handleSheetHorizontalSwipe}
       onAnimationComplete={handleSheetSettled}
       deferChildrenUntilPaint
+      onTransientDismiss={() => {
+        if (!isSelectMode || isBackgroundLocked) return false;
+        exitSelectMode();
+        return true;
+      }}
     >
       <div
         data-testid="day-sheet-swipe-surface"

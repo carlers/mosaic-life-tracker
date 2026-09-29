@@ -27,6 +27,9 @@ interface CategorySectionProps {
   disableTaskLayoutAnimation?: boolean;
   continueAddingAfterSubmit?: boolean;
   showCollapseButton?: boolean;
+  selectionMode?: boolean;
+  selectedTaskIds?: ReadonlySet<string>;
+  onToggleTaskSelection?: (taskId: string) => void;
 }
 
 export const CategorySection: React.FC<CategorySectionProps> = ({
@@ -49,6 +52,9 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
   disableTaskLayoutAnimation = false,
   continueAddingAfterSubmit = false,
   showCollapseButton = false,
+  selectionMode = false,
+  selectedTaskIds = new Set<string>(),
+  onToggleTaskSelection,
 }) => {
   const [isAdding, setIsAdding] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -115,6 +121,7 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
         <button
           type="button"
           onClick={handleOpen}
+          disabled={selectionMode}
           className="inline-flex items-center gap-2 bg-black rounded-full pl-3.5 pr-3 py-2 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
           aria-label={`Add a task to ${categoryName}`}
         >
@@ -132,7 +139,8 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
         {showCollapseButton && (
           <button
             type="button"
-            onClick={handleToggleCollapse}
+          onClick={handleToggleCollapse}
+          disabled={selectionMode}
             aria-label={categoryCollapsed ? `Expand ${categoryName}` : `Collapse ${categoryName}`}
             aria-expanded={!categoryCollapsed}
             className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 transition-colors hover:bg-[#2A2A2A] hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
@@ -192,6 +200,9 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
           onEditSave={onEditSave}
           onEditCancel={onEditCancel}
           disableLayoutAnimation={disableTaskLayoutAnimation}
+          selectionMode={selectionMode}
+          isSelected={selectedTaskIds.has(task.id)}
+          onToggleSelection={() => onToggleTaskSelection?.(task.id)}
         />
       ))}
     </div>
