@@ -87,12 +87,20 @@ vi.mock('../../src/components/home/views/DaySlide', () => ({
   DaySlide: ({
     tasks,
     onOpenActions,
+    selectionMode,
+    selectedTaskIds,
+    onToggleTaskSelection,
   }: {
     tasks: TaskDocument[];
     onOpenActions: (task: TaskDocument) => void;
+    selectionMode?: boolean;
+    selectedTaskIds?: ReadonlySet<string>;
+    onToggleTaskSelection?: (taskId: string) => void;
   }) =>
     tasks.length > 0 ? (
-      <button onClick={() => onOpenActions(tasks[0])}>Open actions</button>
+      <button onClick={() => selectionMode ? onToggleTaskSelection?.(tasks[0].id) : onOpenActions(tasks[0])}>
+        {selectionMode ? `${selectedTaskIds?.has(tasks[0].id) ? 'Deselect' : 'Select'} mocked task` : 'Open actions'}
+      </button>
     ) : null,
 }));
 
@@ -140,7 +148,7 @@ vi.mock('../../src/hooks/useAuth', () => ({
 }));
 
 vi.mock('../../src/hooks/useFeedback', () => ({
-  useFeedback: () => ({ message: null }),
+  useFeedback: () => ({ message: null, show: vi.fn(), clear: vi.fn() }),
 }));
 
 vi.mock('../../src/hooks/useSettings', () => ({
@@ -220,6 +228,48 @@ describe('DayViewSheet nested task actions', () => {
 
     expect(swiperFixture.slidePrev).toHaveBeenCalledTimes(1);
     expect(swiperFixture.slideNext).toHaveBeenCalledTimes(1);
+  });
+
+  it('selects tasks and exposes bulk controls without opening task actions', () => {
+    renderSheet();
+
+    const activeSelect = screen.getAllByRole('button', { name: 'Select tasks' })
+      .find((button) => button.getAttribute('tabindex') === '0');
+    expect(activeSelect).toBeDefined();
+    fireEvent.click(activeSelect as HTMLElement);
+    expect(screen.getByRole('button', { name: 'Exit selection mode' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('button', { name: 'More actions for selected tasks' })).toBeDisabled();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Select mocked task' }));
+    expect(screen.getByText('1 selected')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'More actions for selected tasks' })).toBeEnabled();
+    expect(screen.queryByText('Visibility')).toBeNull();
+
+    fireEvent.click(screen.getByRole('button', { name: 'More actions for selected tasks' }));
+    expect(screen.getByRole('button', { name: 'Change Date' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Do It Today' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Do It Tomorrow' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Visibility' })).toBeInTheDocument();
+  });
+
+  it('exits inline selection mode on Escape', () => {
+    render(
+      <DayViewSheet
+        isOpen
+        onClose={vi.fn()}
+        selectedDate={new Date(2026, 8, 20)}
+        renderMode="inline"
+      />
+    );
+
+    const activeSelect = screen.getAllByRole('button', { name: 'Select tasks' })
+      .find((button) => button.getAttribute('tabindex') === '0');
+    expect(activeSelect).toBeDefined();
+    fireEvent.click(activeSelect as HTMLElement);
+    fireEvent.keyDown(window, { key: 'Escape' });
+
+    expect(screen.getAllByRole('button', { name: 'Select tasks' }).find((button) => button.getAttribute('tabindex') === '0')).toHaveAttribute('aria-pressed', 'false');
+    expect(screen.getByRole('toolbar')).toHaveStyle({ opacity: '0' });
   });
 
   // Regression: §2 (date and day arrows share the Day View navigation surface).
