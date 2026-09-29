@@ -6,7 +6,6 @@ import { useTaskImage } from '../../../hooks/useTaskImage';
 import { useBubbleGestures } from '../../../hooks/useBubbleGestures';
 import { ReactionRow } from '../../messages/ReactionRow';
 import { parseReactions } from '../../../lib/reactionUtils';
-import { getReadableTextColor } from '../../../constants/colors';
 import type { TaskDocument } from '../../../db/schema';
 
 type MemoOpenMode = 'view' | 'edit';

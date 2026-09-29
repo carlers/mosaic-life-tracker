@@ -2,7 +2,6 @@ import React from 'react';
 import { useImageLoadGate } from '../../../hooks/useImageLoadGate';
 import { useTaskImage } from '../../../hooks/useTaskImage';
 import type { TaskDocument } from '../../../db/schema';
-import { getReadableTextColor } from '../../../constants/colors';
 
 interface TaskBlockProps {
   task: TaskDocument;
