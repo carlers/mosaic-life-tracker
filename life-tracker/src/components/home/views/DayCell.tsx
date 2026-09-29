@@ -22,7 +22,7 @@ const DayCellComponent: React.FC<DayCellProps> = ({
   const dayOfWeek = date.getDay();
   const isTodayDate = isToday(date);
 
-  let dayColor = 'text-gray-400';
+  let dayColor = 'text-white';
   if (dayOfWeek === 6) dayColor = 'text-blue-500';
   if (dayOfWeek === 0) dayColor = 'text-red-500';
   if (!isCurrentMonth) dayColor = 'text-gray-400';
@@ -67,14 +67,14 @@ const DayCellComponent: React.FC<DayCellProps> = ({
       // Keep sparse calendar rows readable: reserve the height of the
       // day label plus two standard (text-only) task blocks. Rows can
       // still grow when their tallest cell contains more content.
-      className={`py-0.5 flex flex-col h-full min-h-[4.25rem] w-full rounded-md text-left transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 ${
+      className={`py-0.5 flex flex-col h-full min-h-[4.25rem] w-full rounded-md text-left transition-colors focus:outline-none ${
         onDayClick ? 'cursor-pointer hover:bg-[#1E1E1E] active:scale-[0.98]' : 'cursor-default'
       } ${!isCurrentMonth ? 'opacity-40' : ''}`}
     >
       <div className="flex justify-center mb-1">
         <div
-          className={`text-sm font-bold flex items-center justify-center w-7 h-7 rounded-full ${dayColor} ${
-            isTodayDate ? 'border border-blue-500' : ''
+          className={`text-[0.93rem] font-bold flex items-center justify-center w-7 h-7 rounded-full ${dayColor} ${
+            isTodayDate ? 'border border-blue-500 border-2' : ''
           }`}
           aria-hidden="true"
         >
