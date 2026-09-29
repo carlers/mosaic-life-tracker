@@ -19,7 +19,9 @@ interface FakeWindow extends EventTarget {
       controller?: ServiceWorker | null;
       ready?: Promise<ServiceWorkerRegistration>;
     };
+    standalone?: boolean;
   };
+  matchMedia?: ReturnType<typeof vi.fn>;
 }
 
 interface FakeRegisterOptions {
@@ -36,13 +38,20 @@ function fixture({
   callbackRegistration = true,
   browserRegistration = true,
   readyFallback = false,
+  standalone = false,
 }: {
   callbackRegistration?: boolean;
   browserRegistration?: boolean;
   readyFallback?: boolean;
+  standalone?: boolean;
 } = {}) {
   const target = new EventTarget() as FakeWindow;
   target.location = { reload: vi.fn() };
+  target.matchMedia = vi.fn().mockReturnValue({
+    matches: standalone,
+    addEventListener: vi.fn(),
+    removeEventListener: vi.fn(),
+  });
   let options: FakeRegisterOptions = {};
   const update = vi.fn().mockResolvedValue(undefined);
   const registration = Object.assign(new EventTarget(), {
@@ -62,6 +71,7 @@ function fixture({
         readyFallback && browserRegistration ? ({} as ServiceWorker) : null,
       ready: Promise.resolve(registration),
     },
+    standalone,
   };
   const register = vi.fn((next: FakeRegisterOptions = {}) => {
     options = next;
@@ -107,7 +117,6 @@ describe('PWA lifecycle', () => {
     expect(values.get('mosaic_offline_shell_ready')).toMatch(
       /^\d{4}-\d{2}-\d{2}T/
     );
-
   });
 
   it('captures and resolves the browser install prompt', async () => {
@@ -124,6 +133,38 @@ describe('PWA lifecycle', () => {
     await expect(requestPwaInstall()).resolves.toBe('accepted');
     expect(prompt).toHaveBeenCalledOnce();
     expect(getPwaLifecycleSnapshot().installAvailable).toBe(false);
+    expect(getPwaLifecycleSnapshot().installed).toBe(true);
+  });
+
+  it('marks the app installed after the browser emits appinstalled', () => {
+    const { target } = fixture();
+
+    target.dispatchEvent(new Event('appinstalled'));
+
+    expect(getPwaLifecycleSnapshot().installed).toBe(true);
+    expect(getPwaLifecycleSnapshot().installAvailable).toBe(false);
+  });
+
+  it('detects an installed PWA from standalone display mode', () => {
+    fixture({ standalone: true });
+
+    expect(getPwaLifecycleSnapshot().installed).toBe(true);
+    expect(getPwaLifecycleSnapshot().installAvailable).toBe(false);
+  });
+
+  it('does not prompt again when the app is already installed', async () => {
+    const { target } = fixture({ standalone: true });
+    const prompt = vi.fn().mockResolvedValue(undefined);
+    target.dispatchEvent(
+      Object.assign(new Event('beforeinstallprompt', { cancelable: true }), {
+        prompt,
+        userChoice: Promise.resolve({ outcome: 'accepted' as const, platform: 'web' }),
+      }) as InstallPromptEvent
+    );
+
+    await expect(requestPwaInstall()).resolves.toBe('unavailable');
+    expect(prompt).not.toHaveBeenCalled();
+    expect(getPwaLifecycleSnapshot().installed).toBe(true);
   });
 
   it('checks the captured service-worker registration on demand with staged progress', async () => {
@@ -222,7 +263,7 @@ describe('PWA lifecycle', () => {
     const listener = vi.fn();
     subscribeToPwaLifecycle(listener);
 
-    setup.options.onNeedRefresh();
+    setup.options.onNeedRefresh?.();
     expect(getPwaLifecycleSnapshot().updateAvailable).toBe(true);
     expect(setup.update).not.toHaveBeenCalled();
     await expect(applyPwaUpdate()).resolves.toBe(true);
@@ -233,13 +274,13 @@ describe('PWA lifecycle', () => {
 
   it('reloads only after the registered worker reports an approved takeover', () => {
     const setup = fixture();
-    setup.options.onNeedReload();
+    setup.options.onNeedReload?.();
     expect(setup.target.location.reload).toHaveBeenCalledOnce();
   });
 
   it('keeps the update prompt available when activation fails', async () => {
     const setup = fixture();
-    setup.options.onNeedRefresh();
+    setup.options.onNeedRefresh?.();
     setup.update.mockRejectedValueOnce(new Error('activation failed'));
 
     await expect(applyPwaUpdate()).rejects.toThrow('activation failed');
@@ -253,12 +294,13 @@ describe('PWA lifecycle', () => {
       userChoice: Promise.resolve({ outcome: 'dismissed' as const, platform: 'web' }),
     }) as InstallPromptEvent;
     setup.target.dispatchEvent(event);
-    setup.options.onNeedRefresh();
+    setup.options.onNeedRefresh?.();
 
     dismissPwaInstall();
     dismissPwaUpdate();
     expect(getPwaLifecycleSnapshot()).toEqual({
       installAvailable: false,
+      installed: false,
       updateAvailable: false,
     });
     expect(setup.update).not.toHaveBeenCalled();

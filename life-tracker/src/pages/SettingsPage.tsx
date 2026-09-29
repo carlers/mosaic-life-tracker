@@ -17,6 +17,7 @@ import {
   FileDown,
   RefreshCw,
   Import,
+  Download,
 } from 'lucide-react';
 import { BottomSheet } from '../components/ui/BottomSheet';
 import { SettingsRow } from '../components/ui/SettingsRow';
@@ -42,7 +43,11 @@ import {
 
 export const SettingsPage: React.FC = () => {
   const { user, logout } = useAuth();
-  const { checkForUpdate } = usePwaLifecycle();
+  const {
+    checkForUpdate,
+    installed: isAppInstalled,
+    requestInstall,
+  } = usePwaLifecycle();
   const { mode: appearanceMode } = useAppearance();
   const navigate = useNavigate();
   const location = useLocation();
@@ -124,6 +129,16 @@ export const SettingsPage: React.FC = () => {
       setUpdateStage('error');
     } finally {
       setIsCheckingUpdate(false);
+    }
+  };
+
+  const handleInstallApp = async () => {
+    if (isAppInstalled) return;
+    const result = await requestInstall();
+    if (result === 'dismissed') {
+      showFeedback('App installation dismissed.');
+    } else if (result === 'unavailable') {
+      showFeedback('App installation is unavailable in this browser.');
     }
   };
 
@@ -384,6 +399,12 @@ export const SettingsPage: React.FC = () => {
               </div>
             </div>
           )}
+          <SettingsRow
+            icon={<Download size={18} className="text-emerald-500" aria-hidden="true" />}
+            label={isAppInstalled ? 'Already installed' : 'Install App'}
+            showChevron={false}
+            onClick={isAppInstalled ? undefined : handleInstallApp}
+          />
         </div>
         <div className="border-t border-[#333333] py-2">
           <SettingsRow
