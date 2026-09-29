@@ -75,6 +75,10 @@ describe('TaskActionSheet', () => {
     // Defensive reset for the openSheetCount counter's side effect on body
     // overflow, in case a prior test failed before its cleanup ran.
     document.body.style.overflow = '';
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: { writeText: vi.fn().mockResolvedValue(undefined) },
+    });
   });
 
   it('fires the top-grid and menu callbacks on tap', () => {
@@ -103,5 +107,25 @@ describe('TaskActionSheet', () => {
 
     fireEvent.click(screen.getByText('Do It Today'));
     expect(cbs.onDoItTomorrowOrToday).toHaveBeenCalledTimes(1);
+  });
+
+  it('copies the task title and closes the sheet', async () => {
+    const cbs = makeCallbacks();
+    const writeText = navigator.clipboard.writeText as ReturnType<typeof vi.fn>;
+    render(
+      <TaskActionSheet
+        isOpen
+        task={makeTask({ title: 'Buy groceries' })}
+        category={makeCategory()}
+        {...cbs}
+      />
+    );
+
+    fireEvent.click(screen.getByText('Copy Task Text'));
+
+    await vi.waitFor(() => {
+      expect(writeText).toHaveBeenCalledWith('Buy groceries');
+      expect(cbs.onClose).toHaveBeenCalledTimes(1);
+    });
   });
 });
