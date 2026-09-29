@@ -72,6 +72,13 @@ Copy the generated `VITE_APPWRITE_*` values from `.env.local` into the hosting p
 build environment. Never publish `APPWRITE_API_KEY`; only the `VITE_*` values are browser
 configuration.
 
+Set `VITE_PUBLIC_APP_ORIGIN` to the deployment's canonical HTTPS origin (for example,
+`https://mosaic.example.com`). Password recovery emails target
+`<VITE_PUBLIC_APP_ORIGIN>/reset-password`; the app uses the current browser origin only when
+that variable is absent. Add the same hostname as an Appwrite **Web platform** in the Console
+so Appwrite allows the recovery callback. Preview or alternate hostnames that should receive
+recovery links must each be registered as Web platforms as well.
+
 Before using a production hostname, add it as an Appwrite Web platform. You can do that in
 the Appwrite Console, or create another short-lived provisioning API key and run:
 

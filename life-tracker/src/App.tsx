@@ -1,47 +1,58 @@
-import { lazy, Suspense, type ReactNode } from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { RouteErrorBoundary } from './components/layout/RouteErrorBoundary';
-import { ErrorBoundary } from './components/ui/ErrorBoundary';
-import { Spinner } from './components/ui/Spinner';
-import { PwaPrompt } from './components/ui/PwaPrompt';
-import { AppLayout } from './components/layout/AppLayout';
-import { AuthPage } from './pages/AuthPage';
+import { lazy, Suspense, type ReactNode } from "react";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { RouteErrorBoundary } from "./components/layout/RouteErrorBoundary";
+import { ErrorBoundary } from "./components/ui/ErrorBoundary";
+import { Spinner } from "./components/ui/Spinner";
+import { PwaPrompt } from "./components/ui/PwaPrompt";
+import { AppLayout } from "./components/layout/AppLayout";
+import { AuthPage } from "./pages/AuthPage";
+import { ResetPasswordPage } from "./pages/ResetPasswordPage";
 
 const HomePage = lazy(() =>
-  import('./pages/HomePage').then(({ HomePage }) => ({ default: HomePage }))
+  import("./pages/HomePage").then(({ HomePage }) => ({ default: HomePage })),
 );
 const AccountPage = lazy(() =>
-  import('./pages/AccountPage').then(({ AccountPage }) => ({ default: AccountPage }))
+  import("./pages/AccountPage").then(({ AccountPage }) => ({
+    default: AccountPage,
+  })),
 );
 const SettingsPage = lazy(() =>
-  import('./pages/SettingsPage').then(({ SettingsPage }) => ({ default: SettingsPage }))
+  import("./pages/SettingsPage").then(({ SettingsPage }) => ({
+    default: SettingsPage,
+  })),
 );
 const PreferencesPage = lazy(() =>
-  import('./pages/PreferencesPage').then(({ PreferencesPage }) => ({
+  import("./pages/PreferencesPage").then(({ PreferencesPage }) => ({
     default: PreferencesPage,
-  }))
+  })),
 );
 const ProfilePage = lazy(() =>
-  import('./pages/ProfilePage').then(({ ProfilePage }) => ({ default: ProfilePage }))
+  import("./pages/ProfilePage").then(({ ProfilePage }) => ({
+    default: ProfilePage,
+  })),
 );
 const ExplorePage = lazy(() =>
-  import('./pages/ExplorePage').then(({ ExplorePage }) => ({ default: ExplorePage }))
+  import("./pages/ExplorePage").then(({ ExplorePage }) => ({
+    default: ExplorePage,
+  })),
 );
 const FriendCalendarPage = lazy(() =>
-  import('./pages/FriendCalendarPage').then(({ FriendCalendarPage }) => ({
+  import("./pages/FriendCalendarPage").then(({ FriendCalendarPage }) => ({
     default: FriendCalendarPage,
-  }))
+  })),
 );
 const MessagesPage = lazy(() =>
-  import('./pages/MessagesPage').then(({ MessagesPage }) => ({ default: MessagesPage }))
+  import("./pages/MessagesPage").then(({ MessagesPage }) => ({
+    default: MessagesPage,
+  })),
 );
 const ChatPage = lazy(() =>
-  import('./pages/ChatPage').then(({ ChatPage }) => ({ default: ChatPage }))
+  import("./pages/ChatPage").then(({ ChatPage }) => ({ default: ChatPage })),
 );
 const ComingSoon = lazy(() =>
-  import('./components/layout/ComingSoon').then(({ ComingSoon }) => ({
+  import("./components/layout/ComingSoon").then(({ ComingSoon }) => ({
     default: ComingSoon,
-  }))
+  })),
 );
 
 function RouteContent({
@@ -89,6 +100,14 @@ function App() {
   return (
     <BrowserRouter>
       <Routes>
+        <Route
+          path="/reset-password"
+          element={
+            <RouteContent label="ResetPasswordPage">
+              <ResetPasswordPage />
+            </RouteContent>
+          }
+        />
         <Route
           path="/login"
           element={
