@@ -124,6 +124,7 @@ describe('TaskItem owner gestures', () => {
     callbacks.onOpenMemo.mockClear();
     tap(memo, 11);
     tap(memo, 12);
+    act(() => vi.advanceTimersByTime(210));
     expect(callbacks.onOpenMemo).toHaveBeenCalledWith(task, 'edit');
   });
 
