@@ -1,4 +1,5 @@
 // Regression: §2 (owner Day View gesture and memo contracts).
+// Gesture assertions advance the 200ms disambiguation timer before checking deferred callbacks.
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { TaskDocument } from '../../src/db/schema';
