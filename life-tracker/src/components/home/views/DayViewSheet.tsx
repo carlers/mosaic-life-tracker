@@ -79,6 +79,7 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
     toggleTaskCompletion,
     updateTask,
     deleteTask,
+    reorderTask,
   } = taskStore;
   const { categories: hookCategories = [] } = useCategories(
     categoriesOverride === undefined
@@ -715,6 +716,8 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
                       selectionMode={isSelectMode && i === activeIndex}
                       selectedTaskIds={selectedTaskIds}
                       onToggleTaskSelection={handleToggleTaskSelection}
+                      reorderEnabled={i === activeIndex && !isActionSheetOpen && !isMemoOpen && !isBulkActionOpen}
+                      onReorderTask={reorderTask}
                     />
                   </>
                 )}

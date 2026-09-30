@@ -28,6 +28,10 @@ interface TaskItemProps {
   selectionMode?: boolean;
   isSelected?: boolean;
   onToggleSelection?: () => void;
+  reorderEnabled?: boolean;
+  onReorderStart?: (task: TaskDocument) => void;
+  onReorderMove?: (task: TaskDocument, clientX: number, clientY: number) => void;
+  onReorderEnd?: (task: TaskDocument, cancelled: boolean) => void;
 }
 
 interface TaskImageProps {
@@ -130,6 +134,10 @@ export const TaskItem: React.FC<TaskItemProps> = ({
   selectionMode = false,
   isSelected = false,
   onToggleSelection,
+  reorderEnabled = false,
+  onReorderStart,
+  onReorderMove,
+  onReorderEnd,
 }) => {
   const reactions = React.useMemo(
     () => parseReactions(task.reactions),
@@ -137,6 +145,8 @@ export const TaskItem: React.FC<TaskItemProps> = ({
   );
   const inputRef = useRef<HTMLInputElement>(null);
   const [syncedTaskId, setSyncedTaskId] = useState<string | null>(null);
+  const draggingRef = useRef(false);
+  const [isDragging, setIsDragging] = useState(false);
 
   if (isEditing && task.id !== syncedTaskId) {
     setSyncedTaskId(task.id);
@@ -155,6 +165,12 @@ export const TaskItem: React.FC<TaskItemProps> = ({
     onDoubleTap: () => onEditStart(task),
     onTripleTap: () => onOpenMemo(task, 'edit'),
     deferTripleTap: true,
+    longPressThreshold: 450,
+    onLongPress: reorderEnabled ? () => {
+      draggingRef.current = true;
+      setIsDragging(true);
+      onReorderStart?.(task);
+    } : undefined,
   });
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -173,6 +189,7 @@ export const TaskItem: React.FC<TaskItemProps> = ({
       layout={!disableLayoutAnimation}
       layoutDependency={`${task.updatedAt}:${isEditing}`}
       data-task-id={task.id}
+      aria-grabbed={reorderEnabled ? isDragging : undefined}
       role={selectionMode ? 'checkbox' : undefined}
       aria-checked={selectionMode ? isSelected : undefined}
       aria-label={selectionMode ? `${task.title}, ${isSelected ? 'selected' : 'not selected'}` : undefined}
@@ -185,7 +202,7 @@ export const TaskItem: React.FC<TaskItemProps> = ({
         }
       } : undefined}
       className="flex scroll-mt-16 items-start gap-3 rounded-lg px-2 py-2 transition-[background-color,box-shadow] duration-300 focus:outline-none data-[search-focused=true]:ring-1 data-[search-focused=true]:ring-emerald-400/60"
-      style={isSelected ? { backgroundColor: `${categoryColor}33`, boxShadow: `inset 0 0 0 1px ${categoryColor}` } : undefined}
+      style={isDragging ? { backgroundColor: `${categoryColor}33`, boxShadow: `0 8px 24px #0008`, zIndex: 20 } : isSelected ? { backgroundColor: `${categoryColor}33`, boxShadow: `inset 0 0 0 1px ${categoryColor}` } : undefined}
     >
       <button
         type="button"
@@ -233,9 +250,29 @@ export const TaskItem: React.FC<TaskItemProps> = ({
           <button
             type="button"
             onPointerDown={titleGestures.onPointerDown}
-            onPointerMove={titleGestures.onPointerMove}
-            onPointerUp={titleGestures.onPointerUp}
-            onPointerCancel={titleGestures.onPointerCancel}
+            onPointerMove={(event) => {
+              titleGestures.onPointerMove(event);
+              if (draggingRef.current) {
+                event.preventDefault();
+                onReorderMove?.(task, event.clientX, event.clientY);
+              }
+            }}
+            onPointerUp={(event) => {
+              titleGestures.onPointerUp(event);
+              if (draggingRef.current) {
+                draggingRef.current = false;
+                setIsDragging(false);
+                onReorderEnd?.(task, false);
+              }
+            }}
+            onPointerCancel={(event) => {
+              titleGestures.onPointerCancel(event);
+              if (draggingRef.current) {
+                draggingRef.current = false;
+                setIsDragging(false);
+                onReorderEnd?.(task, true);
+              }
+            }}
             onContextMenu={titleGestures.onContextMenu}
             onClick={(event) => {
               event.stopPropagation();

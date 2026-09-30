@@ -13,6 +13,7 @@ behavior.
 | Product and architecture contracts | [Project reference](PROJECT_REFERENCE.md) |
 | Release versions and build identity | [Versioning protocol](VERSIONING.md) |
 | Accessibility evidence and manual protocol | [Accessibility review](ACCESSIBILITY_AUDIT.md) |
+| Task reorder mobile acceptance | [Task reorder acceptance](MANUAL_TASK_REORDER_ACCEPTANCE.md) |
 | Tombstones and scheduled maintenance | [Retention procedure](TOMBSTONE_RETENTION.md) |
 | Friendship permissions, rollout, and legacy repair | [Friendship recovery](FRIENDSHIP_RECOVERY.md) |
 | User backup format and restore semantics | [Backup and restore](BACKUP_RESTORE.md) |

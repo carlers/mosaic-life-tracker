@@ -9,6 +9,7 @@ type Visibility = 'private' | 'followers' | 'public';
 
 interface CategorySectionProps {
   categoryName: string;
+  categoryId?: string;
   categoryColor: string;
   visibility?: Visibility;
   currentUserId: string;
@@ -30,10 +31,15 @@ interface CategorySectionProps {
   selectionMode?: boolean;
   selectedTaskIds?: ReadonlySet<string>;
   onToggleTaskSelection?: (taskId: string) => void;
+  reorderEnabled?: boolean;
+  onReorderStart?: (task: TaskDocument) => void;
+  onReorderMove?: (task: TaskDocument, x: number, y: number) => void;
+  onReorderEnd?: (task: TaskDocument, cancelled: boolean) => void;
 }
 
 export const CategorySection: React.FC<CategorySectionProps> = ({
   categoryName,
+  categoryId,
   categoryColor,
   visibility,
   currentUserId,
@@ -55,6 +61,10 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
   selectionMode = false,
   selectedTaskIds = new Set<string>(),
   onToggleTaskSelection,
+  reorderEnabled,
+  onReorderStart,
+  onReorderMove,
+  onReorderEnd,
 }) => {
   const [isAdding, setIsAdding] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -116,7 +126,7 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
   };
 
   return (
-    <div className="mb-4">
+    <div className="mb-4" data-category-id={categoryId}>
       <div className="mb-2 flex items-center gap-2">
         <button
           type="button"
@@ -203,6 +213,10 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
           selectionMode={selectionMode}
           isSelected={selectedTaskIds.has(task.id)}
           onToggleSelection={() => onToggleTaskSelection?.(task.id)}
+          reorderEnabled={reorderEnabled && !isAdding && !categoryCollapsed}
+          onReorderStart={onReorderStart}
+          onReorderMove={onReorderMove}
+          onReorderEnd={onReorderEnd}
         />
       ))}
     </div>

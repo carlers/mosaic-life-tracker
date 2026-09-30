@@ -19,6 +19,9 @@ export const MOSAIC_TABLES = [
     { key: 'title', type: 'varchar', size: 255, required: true },
     { key: 'is_completed', type: 'boolean', required: false, default: false },
     { key: 'category_id', type: 'varchar', size: 255, required: true },
+    // Optional during rollout: deploy/backfill this column before clients that
+    // write it. It can be made required only after legacy clients retire.
+    { key: 'order', type: 'integer', required: false, default: 0 },
     { key: 'tags', type: 'varchar', size: 1000, required: false },
     { key: 'date', type: 'varchar', size: 50, required: true },
     { key: 'memo', type: 'varchar', size: 2000, required: false },
