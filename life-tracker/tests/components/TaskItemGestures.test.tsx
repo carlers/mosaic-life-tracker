@@ -1,4 +1,5 @@
 // Regression: §2 (owner Day View gesture and memo contracts).
+// Gesture assertions advance the 200ms disambiguation timer before checking deferred callbacks.
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { TaskDocument } from '../../src/db/schema';
@@ -108,8 +109,8 @@ describe('TaskItem owner gestures', () => {
     tap(title, 4);
     tap(title, 5);
     tap(title, 6);
-    expect(callbacks.onOpenMemo).toHaveBeenCalledWith(task, 'edit');
     act(() => vi.advanceTimersByTime(210));
+    expect(callbacks.onOpenMemo).toHaveBeenCalledWith(task, 'edit');
     expect(callbacks.onEditStart).not.toHaveBeenCalled();
   });
 
@@ -124,6 +125,7 @@ describe('TaskItem owner gestures', () => {
     callbacks.onOpenMemo.mockClear();
     tap(memo, 11);
     tap(memo, 12);
+    act(() => vi.advanceTimersByTime(210));
     expect(callbacks.onOpenMemo).toHaveBeenCalledWith(task, 'edit');
   });
 
