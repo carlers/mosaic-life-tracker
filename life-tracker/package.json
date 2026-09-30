@@ -22,6 +22,7 @@
     "test:watch:unit": "vitest --project unit",
     "test:watch:handlers": "vitest --project handlers",
     "test:watch:dom": "vitest --project dom",
+    "test:watch:unit": "vitest --project unit",
     "test:ui": "vitest --ui",
     "metrics": "node scripts/workflow-metrics.mjs",
     "handoff": "node scripts/create-handoff.mjs",
@@ -87,5 +88,10 @@
     "vite": "^8.2.2",
     "vitest": "^3.2.0",
     "json-bigint": "1.0.0"
+  },
+  "overrides": {
+    "brace-expansion": "5.0.12",
+    "fast-uri": "3.1.8",
+    "ip-address": "10.7.2"
   }
 }
