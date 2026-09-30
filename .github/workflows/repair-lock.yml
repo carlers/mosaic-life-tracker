@@ -30,4 +30,4 @@ jobs:
             exit 0
           fi
           git commit -m "chore: refresh npm lockfile"
-          git push
+          git push --force-with-lease
