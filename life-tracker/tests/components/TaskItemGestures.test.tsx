@@ -108,8 +108,8 @@ describe('TaskItem owner gestures', () => {
     tap(title, 4);
     tap(title, 5);
     tap(title, 6);
-    expect(callbacks.onOpenMemo).toHaveBeenCalledWith(task, 'edit');
     act(() => vi.advanceTimersByTime(210));
+    expect(callbacks.onOpenMemo).toHaveBeenCalledWith(task, 'edit');
     expect(callbacks.onEditStart).not.toHaveBeenCalled();
   });
 
