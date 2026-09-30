@@ -78,18 +78,29 @@ describe('TaskItem owner gestures', () => {
     expect(screen.queryByText(/^Memo$/)).toBeNull();
   });
 
+  it('opens task actions after the shortened tap-disambiguation window', () => {
+    const callbacks = renderTask();
+    const title = screen.getByRole('button', { name: 'Write release notes' });
+
+    tap(title, 1);
+    act(() => vi.advanceTimersByTime(199));
+    expect(callbacks.onOpenActions).not.toHaveBeenCalled();
+    act(() => vi.advanceTimersByTime(1));
+    expect(callbacks.onOpenActions).toHaveBeenCalledTimes(1);
+  });
+
   it('single-taps the task for actions, double-taps to edit, and triple-taps for memo edit', () => {
     const callbacks = renderTask();
     const title = screen.getByRole('button', { name: 'Write release notes' });
 
     tap(title, 1);
-    act(() => vi.advanceTimersByTime(310));
+    act(() => vi.advanceTimersByTime(210));
     expect(callbacks.onOpenActions).toHaveBeenCalledTimes(1);
 
     callbacks.onOpenActions.mockClear();
     tap(title, 2);
     tap(title, 3);
-    act(() => vi.advanceTimersByTime(310));
+    act(() => vi.advanceTimersByTime(210));
     expect(callbacks.onEditStart).toHaveBeenCalledWith(task);
     expect(callbacks.onOpenActions).not.toHaveBeenCalled();
 
@@ -98,7 +109,7 @@ describe('TaskItem owner gestures', () => {
     tap(title, 5);
     tap(title, 6);
     expect(callbacks.onOpenMemo).toHaveBeenCalledWith(task, 'edit');
-    act(() => vi.advanceTimersByTime(310));
+    act(() => vi.advanceTimersByTime(210));
     expect(callbacks.onEditStart).not.toHaveBeenCalled();
   });
 
@@ -107,7 +118,7 @@ describe('TaskItem owner gestures', () => {
     const memo = screen.getByRole('button', { name: 'Open memo' });
 
     tap(memo, 10);
-    act(() => vi.advanceTimersByTime(310));
+    act(() => vi.advanceTimersByTime(210));
     expect(callbacks.onOpenMemo).toHaveBeenCalledWith(task, 'view');
 
     callbacks.onOpenMemo.mockClear();

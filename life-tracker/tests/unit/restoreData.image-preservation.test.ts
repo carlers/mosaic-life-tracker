@@ -48,6 +48,7 @@ vi.mock('../../src/lib/storage', () => ({
 import { restoreUserData } from '../../src/lib/restoreData';
 
 const currentUser = { id: 'user_A', email: 'a@example.com', name: 'A' };
+const successfulSyncTimestamp = '2026-09-29T00:00:00.000Z';
 
 function makeBackup() {
   return new File([
@@ -93,8 +94,8 @@ describe('backup restore image references', () => {
     state.rows.clear();
     vi.clearAllMocks();
     state.refreshSync.mockResolvedValue({
-      status: { isSyncing: false, lastSync: new Date().toISOString(), errors: [] },
-      startedAt: Date.now() - 1,
+      status: { isSyncing: false, lastSync: successfulSyncTimestamp, errors: [] },
+      startedAt: Date.parse(successfulSyncTimestamp) - 1,
     });
     state.initializeSync.mockResolvedValue(undefined);
     state.getCurrentUserId.mockResolvedValue('user_A');

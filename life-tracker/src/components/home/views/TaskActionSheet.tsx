@@ -73,6 +73,16 @@ export const TaskActionSheet: React.FC<TaskActionSheetProps> = ({
     }
   };
 
+  const handleEdit = () => {
+    // BottomSheet restores focus to the control that opened it when the sheet
+    // closes. Starting inline editing in the same event would focus the input
+    // and then immediately blur it during that focus restoration, causing the
+    // input's blur-save handler to exit edit mode. Close first, then enter edit
+    // mode after the sheet's focus-trap cleanup has run.
+    onClose();
+    window.setTimeout(onEdit, 0);
+  };
+
   return (
     <BottomSheet
       isOpen={isOpen}
@@ -86,7 +96,7 @@ export const TaskActionSheet: React.FC<TaskActionSheetProps> = ({
         <div className="grid grid-cols-2 gap-3 mb-6">
           <button
             type="button"
-            onClick={onEdit}
+            onClick={handleEdit}
             className="flex flex-col items-center justify-center gap-2 py-4 bg-[#2A2A2A] rounded-xl hover:bg-[#333333] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
           >
             <Pencil size={20} className="text-blue-400" aria-hidden="true" />

@@ -104,7 +104,7 @@ export const MemoSheet: React.FC<MemoSheetProps> = ({
             >
               <span>Visible to me only</span>
               <span aria-hidden="true" className={`relative h-6 w-11 rounded-full transition-colors ${privateOnly ? 'bg-emerald-500' : 'bg-[#444444]'}`}>
-                <span aria-hidden="true" className={`absolute top-0.5 h-5 w-5 rounded-full bg-white transition-transform ${privateOnly ? 'translate-x-5' : 'translate-x-0.5'}`} />
+                <span aria-hidden="true" className={`absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white transition-[left] ${privateOnly ? 'left-5' : ''}`} />
               </span>
             </button>
           </>
