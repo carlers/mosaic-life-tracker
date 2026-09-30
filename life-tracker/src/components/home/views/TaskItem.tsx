@@ -54,7 +54,7 @@ const TaskImage: React.FC<TaskImageProps> = ({ task, onViewImage, selectionMode,
           else onViewImage?.(task);
         }}
         onPointerDown={(e) => e.stopPropagation()}
-        className="mt-2 block w-full aspect-[16/9] rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
+        className="mt-2 block w-full aspect-[16/9] rounded-xl focus:outline-none"
         aria-label="View image"
       >
         <img
@@ -103,7 +103,7 @@ const TaskMemo: React.FC<{
         if (selectionMode) onSelect?.();
         else if (event.detail === 0) onOpenMemo(task, 'view');
       }}
-      className="mt-1 flex w-full touch-pan-y items-start gap-1 text-left text-xs text-gray-400 rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
+      className="mt-1 flex w-full touch-pan-y items-start gap-1 text-left text-xs text-gray-400 rounded focus:outline-none"
       aria-label="Open memo"
     >
       <FileText size={12} className="mt-0.5 shrink-0" aria-hidden="true" />
@@ -184,7 +184,7 @@ export const TaskItem: React.FC<TaskItemProps> = ({
           onToggleSelection?.();
         }
       } : undefined}
-      className="flex scroll-mt-16 items-start gap-3 rounded-lg px-2 py-2 transition-[background-color,box-shadow] duration-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 data-[search-focused=true]:ring-1 data-[search-focused=true]:ring-emerald-400/60"
+      className="flex scroll-mt-16 items-start gap-3 rounded-lg px-2 py-2 transition-[background-color,box-shadow] duration-300 focus:outline-none data-[search-focused=true]:ring-1 data-[search-focused=true]:ring-emerald-400/60"
       style={isSelected ? { backgroundColor: `${categoryColor}33`, boxShadow: `inset 0 0 0 1px ${categoryColor}` } : undefined}
     >
       <button
@@ -198,7 +198,7 @@ export const TaskItem: React.FC<TaskItemProps> = ({
           }
         }}
         onPointerDown={(e) => e.stopPropagation()}
-        className="mt-0.5 shrink-0 w-6 h-6 rounded-full border-2 flex items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
+        className="mt-0.5 shrink-0 w-6 h-6 rounded-full border-2 flex items-center justify-center focus:outline-none"
         style={{
           borderColor: (selectionMode ? isSelected : isCompleted) ? categoryColor : '#4B5563',
           backgroundColor: (selectionMode ? isSelected : isCompleted) ? categoryColor : 'transparent',
@@ -242,7 +242,7 @@ export const TaskItem: React.FC<TaskItemProps> = ({
               if (selectionMode) onToggleSelection?.();
               else if (event.detail === 0) onOpenActions(task);
             }}
-            className="w-full touch-pan-y text-left rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
+            className="w-full touch-pan-y text-left rounded focus:outline-none"
             aria-label={task.title}
           >
             <span className={isCompleted ? 'line-through text-gray-400' : 'text-white'}>

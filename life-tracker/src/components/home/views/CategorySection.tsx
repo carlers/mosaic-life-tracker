@@ -177,7 +177,7 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
             onKeyDown={handleKeyDown}
             onBlur={handleBlur}
             placeholder={`Add a task to ${categoryName}...`}
-            className="min-w-0 flex-1 bg-transparent text-white outline-none border-b text-sm focus-visible:ring-2 focus-visible:ring-emerald-500/60"
+            className="min-w-0 flex-1 bg-transparent text-white outline-none border-b text-sm"
             style={{ borderBottomColor: categoryColor }}
           />
         </div>
