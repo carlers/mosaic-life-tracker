@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useRef } from 'react';
 import { getDatabase } from '../db/database';
 import { useAuth } from './useAuth';
 import { useRxCollection } from './useRxCollection';
@@ -6,11 +6,12 @@ import type { TaskDocument } from '../db/schema';
 
 export function useTasks(enabled = true) {
   const { user } = useAuth();
+  const reorderQueue = useRef(Promise.resolve());
 
   const { data: tasks, isLoading } = useRxCollection<TaskDocument>({
     collection: 'tasks',
     selector: { userId: user?.$id ?? '', isDeleted: false },
-    sort: [{ date: 'asc' }, { createdAt: 'desc' }],
+    sort: [{ date: 'asc' }, { categoryId: 'asc' }, { order: 'asc' }, { createdAt: 'asc' }, { id: 'asc' }],
     logPrefix: '[useTasks]',
     enabled,
   });
@@ -19,7 +20,7 @@ export function useTasks(enabled = true) {
     async (
       task: Omit<
         TaskDocument,
-        'id' | 'userId' | 'createdAt' | 'updatedAt' | 'isDeleted'
+        'id' | 'userId' | 'order' | 'createdAt' | 'updatedAt' | 'isDeleted'
       >
     ) => {
       const uid = user?.$id;
@@ -29,17 +30,21 @@ export function useTasks(enabled = true) {
       }
       const db = getDatabase();
       const now = new Date().toISOString();
+      const siblings = tasks.filter(
+        (candidate) => candidate.date === task.date && candidate.categoryId === task.categoryId
+      );
       const newTask: TaskDocument = {
         ...task,
         id: `task_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
         userId: uid,
+        order: siblings.reduce((maximum, candidate) => Math.max(maximum, candidate.order), -1) + 1,
         createdAt: now,
         updatedAt: now,
         isDeleted: false,
       };
       await db.tasks.insert(newTask);
     },
-    [user?.$id]
+    [tasks, user?.$id]
   );
 
   const updateTask = useCallback(
@@ -74,6 +79,29 @@ export function useTasks(enabled = true) {
     [updateTask]
   );
 
+  const reorderTask = useCallback(
+    (draggedTask: TaskDocument, targetCategoryId: string, ordering: TaskDocument[]) => {
+      const snapshot = ordering.map((task) => ({ ...task }));
+      const apply = async () => {
+        const db = getDatabase();
+        const updatedAt = new Date().toISOString();
+        const normalized = new Map<string, number>();
+        for (const task of snapshot) {
+          const categoryId = task.id === draggedTask.id ? targetCategoryId : task.categoryId;
+          const nextOrder = normalized.get(categoryId) ?? 0;
+          normalized.set(categoryId, nextOrder + 1);
+          const doc = await db.tasks.findOne(task.id).exec();
+          if (!doc || (doc.categoryId === categoryId && doc.order === nextOrder)) continue;
+          await doc.incrementalPatch({ categoryId, order: nextOrder, updatedAt });
+        }
+      };
+      const result = reorderQueue.current.then(apply);
+      reorderQueue.current = result.catch(() => undefined);
+      return result;
+    },
+    []
+  );
+
   return {
     tasks,
     isLoading,
@@ -81,5 +109,6 @@ export function useTasks(enabled = true) {
     updateTask,
     deleteTask,
     toggleTaskCompletion,
+    reorderTask,
   };
 }

@@ -14,6 +14,7 @@ describe('toAppwriteFormat — tasks', () => {
     title: 'Buy groceries',
     completed: true,
     categoryId: 'cat_1',
+    order: 7,
     tags: 'shopping',
     date: '2026-01-15',
     memo: 'milk, eggs',
@@ -34,6 +35,9 @@ describe('toAppwriteFormat — tasks', () => {
   });
   it('maps categoryId → category_id', () => {
     expect(toAppwriteFormat(doc, 'tasks', USER_ID).category_id).toBe('cat_1');
+  });
+  it('maps task order without coercion', () => {
+    expect(toAppwriteFormat(doc, 'tasks', USER_ID).order).toBe(7);
   });
   it('maps isDeleted → deleted', () => {
     expect(toAppwriteFormat(doc, 'tasks', USER_ID).deleted).toBe(false);
@@ -277,6 +281,7 @@ describe('fromAppwriteFormat', () => {
       title: 'Buy groceries',
       is_completed: true,
       category_id: 'cat_1',
+      order: 7,
       tags: '',
       date: '2026-01-15',
       memo: '',
@@ -469,6 +474,7 @@ describe('round-trip', () => {
       title: 'Buy groceries',
       completed: true,
       categoryId: 'cat_1',
+      order: 7,
       tags: 'shopping',
       date: '2026-01-15',
       memo: 'milk',
@@ -485,6 +491,9 @@ describe('round-trip', () => {
       visibility: 'private',
     };
     expect(roundTrip(doc, 'tasks', USER_ID)).toEqual(doc);
+  });
+  it('tasks: defaults order for remote rows created by older clients', () => {
+    expect(fromAppwriteFormat({ $id: 'legacy', category_id: '', created_at: '', updated_at: '' }, 'tasks').order).toBe(0);
   });
   it('categories: round-trips a canonical doc', () => {
     const doc = {

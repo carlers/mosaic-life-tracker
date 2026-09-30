@@ -1,36 +1,19 @@
 # Session checkpoint
 
 Updated: 2026-09-30
-Current task: Investigate TaskItem tap latency before TaskActionSheet opens.
-Status: Root cause identified; scoped performance fix and regression coverage implemented.
-Next action: canonical acceptance and stable Preview delivery after review.
-Blockers: none locally.
-
-## Working set
-- src/components/home/views/TaskItem.tsx
-- tests/components/TaskItemGestures.test.tsx
-- docs/SESSION_STATE.md
+Current task: Persistent task ordering and Day View hold-to-reorder.
+Status: Implementation and focused local verification complete; remote delivery is blocked by repository authentication.
+Next action: Push the committed `chatgpt/task-ordering-reorder` branch and run canonical acceptance when authenticated GitHub access is available.
+Blockers: Fetch/push to `https://github.com/carlers/mosaic-life-tracker.git` returns HTTP 403 in this environment.
 
 ## Completed substeps
-- Read repository guidance, current checkpoint, roadmap, delivery/test workflow, and the affected Task/Day View contract.
-- Traced TaskItem title activation into `useBubbleGestures`.
-- Confirmed single taps intentionally wait for the shared 300ms double/triple-tap disambiguation window before calling `onOpenActions`.
-- Confirmed the delay is local gesture disambiguation, not TaskActionSheet mount/render work.
-- Added a TaskItem-local 200ms disambiguation window for title and inline memo gestures; the shared message gesture behavior remains unchanged.
-- Added regression coverage proving the action callback remains pending at 199ms and fires at 200ms, while double/triple tap behavior remains covered.
-- Reviewed the task diff: only TaskItem gesture timing, its focused regression coverage, and the session checkpoint changed.
-
-## Remaining substeps
-- Wait for canonical acceptance on the final task SHA.
-- Review the accepted task branch and squash merge it into `perf/task-item-tap-latency`.
-- Verify the stable Preview deployment and perform the required manual interaction check.
-
-## Constraints
-- Preserve single/double/triple tap semantics and swipe/long-press precedence.
-- Do not change the shared gesture default or unrelated message interactions.
-- Preserve existing TaskItem UI and inline editing behavior.
+- Added task order schema/migration, remote mapping and backward-compatible friend mapping.
+- Added idempotent remote column/backfill script and documented server-first rollout.
+- Added deterministic append ordering, normalized serialized reorder persistence, and Day View drag snapshots.
+- Added hold activation on non-interactive row content, pointer cancellation, active-slide/modal/selection/edit guards, and optimistic cross-category placement.
+- Added sync round-trip and schema-migration coverage plus a manual mobile acceptance protocol.
 
 ## Verification
-- Regression coverage added for the shortened tap-disambiguation window.
-- Task branch PR #159 is open against `perf/task-item-tap-latency`.
-- Final task SHA requests `[verify:full]` canonical acceptance.
+- TypeScript build check passed.
+- Focused task-order migration and sync-mapping tests passed.
+- Manual mobile protocol remains required on the stable Preview deployment.
