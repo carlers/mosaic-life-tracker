@@ -22,7 +22,6 @@
     "test:watch:unit": "vitest --project unit",
     "test:watch:handlers": "vitest --project handlers",
     "test:watch:dom": "vitest --project dom",
-    "test:watch:unit": "vitest --project unit",
     "test:ui": "vitest --ui",
     "metrics": "node scripts/workflow-metrics.mjs",
     "handoff": "node scripts/create-handoff.mjs",
