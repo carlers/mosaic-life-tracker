@@ -62,6 +62,7 @@ const DaySlideComponent: React.FC<DaySlideProps> = ({
   const surfaceRef = React.useRef<HTMLDivElement>(null);
   const autoScrollFrame = React.useRef<number | null>(null);
   const pointerY = React.useRef<number | null>(null);
+  const runAutoScrollRef = React.useRef<(() => void) | null>(null);
   const renderedTasks = dragTasks ?? tasks;
   const stopAutoScroll = React.useCallback(() => {
     if (autoScrollFrame.current !== null) cancelAnimationFrame(autoScrollFrame.current);
@@ -92,8 +93,11 @@ const DaySlideComponent: React.FC<DaySlideProps> = ({
         ? Math.min(14, (y - (bounds.bottom - edge)) / 4)
         : 0;
     if (velocity) scroller.scrollTop += velocity;
-    autoScrollFrame.current = requestAnimationFrame(runAutoScroll);
+    autoScrollFrame.current = requestAnimationFrame(() => runAutoScrollRef.current?.());
   }, [scrollMode]);
+  React.useEffect(() => {
+    runAutoScrollRef.current = runAutoScroll;
+  }, [runAutoScroll]);
 
   const handleReorderStart = React.useCallback(() => {
     dragSnapshot.current = tasks.map((task) => ({ ...task }));
@@ -101,7 +105,7 @@ const DaySlideComponent: React.FC<DaySlideProps> = ({
   }, [tasks]);
   const handleReorderMove = React.useCallback((dragged: TaskDocument, x: number, y: number) => {
     pointerY.current = y;
-    if (autoScrollFrame.current === null) autoScrollFrame.current = requestAnimationFrame(runAutoScroll);
+    if (autoScrollFrame.current === null) autoScrollFrame.current = requestAnimationFrame(() => runAutoScrollRef.current?.());
     const element = document.elementFromPoint(x, y) as HTMLElement | null;
     const categoryElement = element?.closest<HTMLElement>('[data-category-id]');
     const categoryId = categoryElement?.dataset.categoryId;
@@ -121,85 +125,5 @@ const DaySlideComponent: React.FC<DaySlideProps> = ({
       targetCategory.current = categoryId;
       return next;
     });
-  }, [runAutoScroll]);
+  }, []);
   const handleReorderEnd = React.useCallback((dragged: TaskDocument, cancelled: boolean) => {
-    setDragTasks((current) => {
-      const original = dragSnapshot.current;
-      dragSnapshot.current = null;
-      if (!cancelled && current && original && current.map((task) => `${task.id}:${task.categoryId}`).join('|') !== original.map((task) => `${task.id}:${task.categoryId}`).join('|')) {
-        void onReorderTask?.(dragged, targetCategory.current ?? dragged.categoryId, current).catch(() => undefined);
-      }
-      return null;
-    });
-    stopAutoScroll();
-  }, [onReorderTask, stopAutoScroll]);
-
-  const tasksByCategory = React.useMemo(() => {
-    const map = new Map<string, TaskDocument[]>();
-    for (const task of renderedTasks) {
-      const list = map.get(task.categoryId);
-      if (list) {
-        list.push(task);
-      } else {
-        map.set(task.categoryId, [task]);
-      }
-    }
-    return map;
-  }, [renderedTasks]);
-
-  if (categories.length === 0) {
-    return (
-      <div className="flex flex-col items-center justify-center h-full text-gray-400">
-        <p className="text-sm">No categories yet</p>
-      </div>
-    );
-  }
-
-  return (
-    <div
-      ref={surfaceRef}
-      className={
-        scrollMode === 'contained'
-          ? 'min-h-0 w-full min-w-0 flex-1 overflow-y-auto px-2 pb-8'
-          : 'w-full min-w-0 px-4 pb-8'
-      }
-      data-testid="day-slide"
-    >
-      {categories.map((cat) => (
-        <CategorySection
-          key={cat.id}
-          categoryName={cat.name}
-          categoryId={cat.id}
-          categoryColor={cat.color}
-          visibility={cat.visibility}
-          currentUserId={currentUserId}
-          tasks={tasksByCategory.get(cat.id) ?? []}
-          onToggleTask={onToggleTask}
-          onAddTask={(title) => onAddTask(title, cat.id, dateStr)}
-          onOpenActions={onOpenActions}
-          onOpenMemo={onOpenMemo}
-          onEditTask={onEditTask}
-          onViewImage={onViewImage}
-          editingTaskId={editingTaskId}
-          editValue={editValue}
-          onEditChange={onEditChange}
-          onEditSave={onEditSave}
-          onEditCancel={onEditCancel}
-          disableTaskLayoutAnimation={disableTaskLayoutAnimation}
-          continueAddingAfterSubmit={continueAddingTasks}
-          showCollapseButton={showCategoryCollapseButton}
-          selectionMode={selectionMode}
-          selectedTaskIds={selectedTaskIds}
-          onToggleTaskSelection={onToggleTaskSelection}
-          reorderEnabled={reorderEnabled && !selectionMode && !editingTaskId}
-          onReorderStart={handleReorderStart}
-          onReorderMove={handleReorderMove}
-          onReorderEnd={handleReorderEnd}
-        />
-      ))}
-    </div>
-  );
-};
-
-export const DaySlide = React.memo(DaySlideComponent);
-DaySlide.displayName = 'DaySlide';
