@@ -60,53 +60,6 @@ export function buildTaskPlacement(
   return placement;
 }
 
-export function cloneTaskPlacement(placement: TaskPlacement): TaskPlacement {
-  return Object.fromEntries(
-    Object.entries(placement).map(([categoryId, taskIds]) => [
-      categoryId,
-      [...taskIds],
-    ])
-  );
-}
-
-export function moveTaskInPlacement(
-  placement: TaskPlacement,
-  taskId: string,
-  targetCategoryId: string,
-  targetIndex: number
-): TaskPlacement | null {
-  const next = cloneTaskPlacement(placement);
-  let found = false;
-
-  for (const taskIds of Object.values(next)) {
-    const index = taskIds.indexOf(taskId);
-    if (index < 0) continue;
-    taskIds.splice(index, 1);
-    found = true;
-    break;
-  }
-
-  if (!found) return null;
-
-  const target = next[targetCategoryId] ?? (next[targetCategoryId] = []);
-  const index = Math.max(0, Math.min(targetIndex, target.length));
-  target.splice(index, 0, taskId);
-  return next;
-}
-
-export function taskPlacementSignature(
-  placement: TaskPlacement,
-  categoryIds: readonly string[] = Object.keys(placement)
-): string {
-  return categoryIds
-    .map((categoryId) => `${categoryId}:${(placement[categoryId] ?? []).join(',')}`)
-    .join('|');
-}
-
-export function taskPlacementIdSignature(placement: TaskPlacement): string {
-  return Object.values(placement).flat().slice().sort().join('|');
-}
-
 export function isTaskPlacementCompatible(
   candidate: TaskPlacement,
   live: TaskPlacement,
