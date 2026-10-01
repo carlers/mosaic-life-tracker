@@ -547,14 +547,18 @@ test('category header and first-row boundary share one stable insertion slot', a
   expect(Math.abs(firstAtFirstRow.y - firstAtHeader.y)).toBeLessThan(2);
 
   await gesture.moveTo(
-    headerBox.x + headerBox.width * 0.5,
-    headerBox.y + headerBox.height * 0.75
+    gapAtFirstRow.x + gapAtFirstRow.width * 0.5,
+    gapAtFirstRow.y + gapAtFirstRow.height * 0.5
   );
-  await page.waitForTimeout(80);
+  await page.waitForTimeout(120);
 
-  const gapBackAtHeader = await gap.boundingBox();
-  if (!gapBackAtHeader) throw new Error('Missing repeated header insertion geometry');
-  expect(Math.abs(gapBackAtHeader.y - gapAtHeader.y)).toBeLessThan(2);
+  const gapUnderFinger = await gap.boundingBox();
+  const firstUnderFinger = await firstTarget.boundingBox();
+  if (!gapUnderFinger || !firstUnderFinger) {
+    throw new Error('Missing projected-gap drop geometry');
+  }
+  expect(Math.abs(gapUnderFinger.y - gapAtHeader.y)).toBeLessThan(2);
+  expect(Math.abs(firstUnderFinger.y - firstAtHeader.y)).toBeLessThan(2);
 
   await gesture.finish();
 
