@@ -1,22 +1,18 @@
 # Session checkpoint
 
 Updated: 2026-10-01
-Current task: Repair Day View task reordering cancellation and row visibility.
-Status: Implementation and available local verification complete.
-Next action: Run the touch-browser contract and real-device acceptance in an environment with Chromium, then publish canonical Preview.
-Blockers: Playwright Chromium is absent and its CDN download is forbidden (HTTP 403), so the new touch-browser contract and screenshot could not run locally.
+Current task: Repair persistent Day View task reordering on the feature branch.
+Status: Reorder interaction architecture revised on a dedicated ChatGPT branch; canonical CI and hosted touch acceptance are pending.
+Next action: Run canonical CI, repair any failures, merge the verified change back to `feature/persistent-task-ordering`, then verify Preview.
+Blockers: None currently.
 
 ## Completed substeps
-- Preserved native pre-activation scrolling while continuing an activated touch drag through non-passive touch events.
-- Rendered the active projection instead of an inert insertion marker so task rows shift live within and across categories.
-- Restored layout animation during active sheet reordering and retained one release-time persistence commit.
-- Added DOM coverage for live cross-category order, touch tracking, release, and cancellation.
-- Added a mobile Playwright contract for long-press lift, live movement, and release.
-- Installed touch ownership listeners before activation, restored pointer-cancel cleanup, and kept layout measurement stable across activation.
-- Added regression coverage proving rows remain mounted on lift and touch pointer cancellation cannot strand the drag session.
+- Kept the active source TaskItem mounted for the full drag instead of re-parenting the gesture owner across category subtrees.
+- Made native touch events authoritative after long-press activation so browser pointer cancellation cannot abort an otherwise valid touch drag.
+- Replaced live re-parenting with a measured projected gap so surrounding rows still shift live while the overlay follows the finger.
+- Retained the final optimistic task order after release until the RxDB live query reflects the persisted order, preventing release-time snap-back.
+- Added DOM regressions for stable source ownership, optimistic release state, touch pointer-cancel fallback, and true touch cancellation.
 
 ## Verification
-- Focused DaySlide and TaskItem DOM tests pass.
-- ESLint and production build pass.
-- Full Vitest run passed 839/840 initially; the sole unrelated AuthProviderPostHog timeout passed immediately when rerun in isolation.
-- Playwright execution remains blocked by the unavailable browser binary and forbidden browser download.
+- Canonical CI pending on the task branch.
+- Hosted Preview/manual mobile acceptance pending.

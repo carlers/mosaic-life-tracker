@@ -31,6 +31,7 @@ interface TaskItemProps {
   reorderEnabled?: boolean;
   onReorderActivate?: (task: TaskDocument, pointerId: number, pointerType: string, clientX: number, clientY: number) => void;
   isReorderSource?: boolean;
+  isReorderAnchor?: boolean;
   reorderLayoutDependency?: string;
 }
 
@@ -137,6 +138,7 @@ export const TaskItem: React.FC<TaskItemProps> = ({
   reorderEnabled = false,
   onReorderActivate,
   isReorderSource = false,
+  isReorderAnchor = false,
   reorderLayoutDependency = '',
 }) => {
   const reactions = React.useMemo(
@@ -184,11 +186,13 @@ export const TaskItem: React.FC<TaskItemProps> = ({
 
   return (
     <motion.div
-      layout={!disableLayoutAnimation}
+      layout={!disableLayoutAnimation && !isReorderAnchor}
       layoutDependency={`${task.updatedAt}:${isEditing}:${reorderLayoutDependency}`}
       data-testid="task-row"
       data-task-id={task.id}
-      aria-grabbed={reorderEnabled ? isReorderSource : undefined}
+      data-reorder-anchor={isReorderAnchor ? 'true' : undefined}
+      aria-hidden={isReorderAnchor || undefined}
+      aria-grabbed={isReorderSource ? true : reorderEnabled ? false : undefined}
       role={selectionMode ? 'checkbox' : undefined}
       aria-checked={selectionMode ? isSelected : undefined}
       aria-label={selectionMode ? `${task.title}, ${isSelected ? 'selected' : 'not selected'}` : undefined}
@@ -200,8 +204,8 @@ export const TaskItem: React.FC<TaskItemProps> = ({
           onToggleSelection?.();
         }
       } : undefined}
-      className="flex scroll-mt-16 items-start gap-3 rounded-lg px-2 py-2 transition-[background-color,box-shadow] duration-300 focus:outline-none data-[search-focused=true]:ring-1 data-[search-focused=true]:ring-emerald-400/60"
-      style={isReorderSource ? { opacity: 0.25 } : isSelected ? { backgroundColor: `${categoryColor}33`, boxShadow: `inset 0 0 0 1px ${categoryColor}` } : undefined}
+      className={`flex scroll-mt-16 items-start gap-3 rounded-lg px-2 py-2 transition-[background-color,box-shadow] duration-300 focus:outline-none data-[search-focused=true]:ring-1 data-[search-focused=true]:ring-emerald-400/60 ${isReorderAnchor ? 'fixed left-0 top-0 h-px w-px overflow-hidden p-0 opacity-0' : ''}`}
+      style={!isReorderAnchor && isSelected ? { backgroundColor: `${categoryColor}33`, boxShadow: `inset 0 0 0 1px ${categoryColor}` } : undefined}
     >
       <button
         type="button"
