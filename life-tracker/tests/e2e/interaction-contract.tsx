@@ -74,8 +74,8 @@ export function InteractionHarness() {
     userId: 'user_1',
     isDeleted: false,
   })), []);
-  const todoTasks: TaskDocument[] = React.useMemo(
-    () => todoCategories.flatMap((category, categoryIndex) =>
+  const [todoTasks, setTodoTasks] = useState<TaskDocument[]>(() =>
+    todoCategories.flatMap((category, categoryIndex) =>
       Array.from(
         {
           length:
@@ -86,23 +86,24 @@ export function InteractionHarness() {
                 : 3,
         },
         (_, taskIndex) => ({
-        id: `task_${categoryIndex}_${taskIndex}`,
-        title: `Task ${categoryIndex + 1}.${taskIndex + 1}`,
-        completed: false,
-        categoryId: category.id,
-        order: taskIndex,
-        date: '2026-09-15',
-        createdAt: '2026-09-01T00:00:00.000Z',
-        completedAt: '',
-        updatedAt: '2026-09-01T00:00:00.000Z',
-        userId: 'user_1',
-        isDeleted: false,
-        visibility: 'private',
-        memo: categoryIndex === 0 && taskIndex === 0 ? 'Browser memo content' : '',
-        })
-      )
-    ),
-    [todoCategories, performanceHeavy]
+          id: `task_${categoryIndex}_${taskIndex}`,
+          title: `Task ${categoryIndex + 1}.${taskIndex + 1}`,
+          completed: false,
+          categoryId: category.id,
+          order: taskIndex,
+          date: '2026-09-15',
+          createdAt: '2026-09-01T00:00:00.000Z',
+          completedAt: '',
+          updatedAt: '2026-09-01T00:00:00.000Z',
+          userId: 'user_1',
+          isDeleted: false,
+          visibility: 'private',
+          memo:
+            categoryIndex === 0 && taskIndex === 0
+              ? 'Browser memo content'
+              : '',
+        }))
+    )
   );
 
   const daySwipeDates = React.useMemo(() => [-1, 0, 1].map((offset) => {
@@ -304,6 +305,28 @@ export function InteractionHarness() {
           onEditCancel={() => {}}
           reorderEnabled
           onReorderTasks={(_, groups) => {
+            const assignments = new Map<
+              string,
+              { categoryId: string; order: number }
+            >();
+            groups.forEach((group) => {
+              group.taskIds.forEach((taskId, order) => {
+                assignments.set(taskId, {
+                  categoryId: group.categoryId,
+                  order,
+                });
+              });
+            });
+            const updatedAt = new Date().toISOString();
+            setTodoTasks((current) =>
+              current.map((task) => {
+                const assignment = assignments.get(task.id);
+                return assignment
+                  ? { ...task, ...assignment, updatedAt }
+                  : task;
+              })
+            );
+
             if (groups.length === 1) {
               setTodoGesture(
                 `reordered:${groups[0]?.taskIds.join(',') ?? ''}`

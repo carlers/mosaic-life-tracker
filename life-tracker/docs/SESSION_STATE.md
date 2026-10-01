@@ -1,23 +1,19 @@
 # Session checkpoint
 
 Updated: 2026-10-01
-Current task: Extend the accepted clean Day View reorder interaction across categories.
-Status: Complete. Cross-category task dragging passed exact-SHA canonical acceptance and was squash-merged into `feature/task-reorder-clean` as `9a55927fba521787c6ac7f965da9c0adc4d365a9`.
-Next action: Real-device cross-category acceptance on the final stable Preview using `docs/MANUAL_TASK_REORDER_ACCEPTANCE.md`.
+Current task: Repair the post-drop lifecycle for cross-category Day View task reordering.
+Status: Implementation complete on `chatgpt/fix-task-reorder-lifecycle`; canonical verification and stable Preview delivery are the remaining automated steps. Real Samsung/PWA acceptance remains required.
+Next action: Run exact-SHA full Quality Gate, merge into `feature/task-reorder-clean`, verify the stable Vercel Preview, then repeat the consecutive-drag device protocol.
 Blockers: None.
 
-## Delivered
-- Preserved the accepted 500 ms invisible-title-handle interaction, 8 px movement tolerance, neutral floating TaskItem, and existing Day View sheet/swiper locking.
-- Moved the dnd-kit provider to the Day View level so one drag context spans every category on the active day.
-- Uses dnd-kit's official grouped `move()` helper for cross-list projection. React mirrors only category-to-task-ID placement during drag; pointer geometry, collision detection, and sortable projection remain dnd-kit-owned.
-- Populated categories support projected insertion among their tasks. Lower-priority category drop surfaces also accept append drops into empty, collapsed, header, or blank category space.
-- Release persists once: same-category drops normalize one group; cross-category drops update the moved task's `categoryId` and normalize both source and destination groups with one shared `updatedAt`.
-- Persistence revalidates the complete affected user/date/category task set plus destination category ownership before writes, so concurrent additions, removals, or category moves fail closed instead of overwriting unseen state.
-- No schema or Appwrite migration was required because both `categoryId` and `order` were already part of the accepted synced task model.
+## Root cause addressed
+- The cross-category implementation let dnd-kit's OptimisticSortingPlugin reparent sortable DOM nodes while React simultaneously rendered a new category-to-task placement from `dragover`. Current dnd-kit React 0.5.0 has known cross-container reconciliation failures in this area, including broken subsequent sorting and removeChild/DOM ownership failures.
+- Mosaic also retained a stale post-drop pending placement in component state after live RxDB placement converged, allowing old placement to become eligible again after later live changes.
+- The prior browser harness stopped after a single drop and did not mutate task documents the way RxDB does, so it never exercised post-persistence reconciliation or a second drag.
 
-## Verification
-- Final task head `a139d7ddd063c4c6155c9917218b95b2ad62f61b` passed Quality Gate run `36837002117`.
-- Canonical acceptance passed after build/PWA/size, static/unit checks, dependency audit, both DOM shards, and both browser-contract shards.
-- Browser coverage verifies the original same-category gesture, populated cross-category insertion, empty-category drop, delayed-activation cancellation, and active drag ownership inside the real Day View sheet.
-- PR #175 was squash-merged into `feature/task-reorder-clean` as `9a55927fba521787c6ac7f965da9c0adc4d365a9`.
-- Real Samsung/PWA cross-category touch acceptance remains manual and is documented in `MANUAL_TASK_REORDER_ACCEPTANCE.md`.
+## Fix
+- Every task `dragover` prevents the OptimisticSortingPlugin update before React applies dnd-kit's grouped `move()` result. React is the only owner of category/task DOM ordering during the active drag; dnd-kit still owns sensors, collision data, pointer feedback, and the projection helper.
+- Post-drop placement is an explicit commit generation. It remains the render source only while live RxDB catches up, then is permanently retired when the live placement matches or the task set changes.
+- Persistence failure can clear only the matching commit generation, so an older async failure cannot erase a newer drag.
+- The browser harness now applies reorder callbacks to task `categoryId`/`order` state and includes a consecutive cross-category drag regression that checks task uniqueness/visibility and second-drag activation without remounting.
+- No schema, sync mapping, Appwrite, or remote-service changes are required.

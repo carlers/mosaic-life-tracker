@@ -23,6 +23,13 @@ const TASK_REORDER_POINTER_SENSOR = PointerSensor.configure({
   ],
 });
 
+interface CommittedPlacement {
+  id: number;
+  placement: TaskPlacement;
+  signature: string;
+  idSignature: string;
+}
+
 interface DaySlideProps {
   date: Date;
   scrollMode?: 'page' | 'contained';
@@ -100,12 +107,13 @@ const DaySlideComponent: React.FC<DaySlideProps> = ({
     () => buildTaskPlacement(tasks, categoryIds),
     [categoryIds, tasks]
   );
-  const [pendingPlacement, setPendingPlacement] =
-    React.useState<TaskPlacement | null>(null);
+  const [committedPlacement, setCommittedPlacement] =
+    React.useState<CommittedPlacement | null>(null);
   const [dragPlacement, setDragPlacement] =
     React.useState<TaskPlacement | null>(null);
   const dragSnapshotRef = React.useRef<TaskPlacement | null>(null);
   const dragPlacementRef = React.useRef<TaskPlacement | null>(null);
+  const commitIdRef = React.useRef(0);
 
   const livePlacementSignature = React.useMemo(
     () => taskPlacementSignature(livePlacement, categoryIds),
@@ -115,14 +123,24 @@ const DaySlideComponent: React.FC<DaySlideProps> = ({
     () => taskPlacementIdSignature(livePlacement),
     [livePlacement]
   );
-  const usablePendingPlacement =
-    pendingPlacement &&
-    taskPlacementIdSignature(pendingPlacement) === liveIdSignature &&
-    taskPlacementSignature(pendingPlacement, categoryIds) !==
-      livePlacementSignature
-      ? pendingPlacement
+  const committedMatchesLive =
+    committedPlacement?.signature === livePlacementSignature;
+  const committedHasSameTaskSet =
+    committedPlacement?.idSignature === liveIdSignature;
+  const shouldRetireCommitted =
+    dragPlacement === null &&
+    committedPlacement !== null &&
+    (!committedHasSameTaskSet || committedMatchesLive);
+
+  if (shouldRetireCommitted) {
+    setCommittedPlacement(null);
+  }
+
+  const activeCommittedPlacement =
+    committedPlacement && !shouldRetireCommitted
+      ? committedPlacement.placement
       : null;
-  const basePlacement = usablePendingPlacement ?? livePlacement;
+  const basePlacement = activeCommittedPlacement ?? livePlacement;
   const effectivePlacement = dragPlacement ?? basePlacement;
   const taskById = React.useMemo(
     () => new Map(tasks.map((task) => [task.id, task])),
@@ -162,14 +180,26 @@ const DaySlideComponent: React.FC<DaySlideProps> = ({
         NonNullable<React.ComponentProps<typeof DragDropProvider>['onDragOver']>
       >[0]
     ) => {
+      // React owns list placement during an active drag. Prevent the sortable
+      // plugin from also reparenting DOM nodes behind React's back.
+      event.preventDefault();
       setDragPlacement((current) => {
         if (!current) return current;
         const next = move(current, event) as TaskPlacement;
+        const currentSignature = taskPlacementSignature(
+          current,
+          categoryIds
+        );
+        const nextSignature = taskPlacementSignature(next, categoryIds);
+        if (currentSignature === nextSignature) {
+          dragPlacementRef.current = current;
+          return current;
+        }
         dragPlacementRef.current = next;
         return next;
       });
     },
-    []
+    [categoryIds]
   );
 
   const handleDragEnd = React.useCallback(
@@ -209,7 +239,13 @@ const DaySlideComponent: React.FC<DaySlideProps> = ({
       );
       if (snapshotSignature === nextSignature) return;
 
-      setPendingPlacement(finalPlacement);
+      const commitId = ++commitIdRef.current;
+      setCommittedPlacement({
+        id: commitId,
+        placement: finalPlacement,
+        signature: nextSignature,
+        idSignature: taskPlacementIdSignature(finalPlacement),
+      });
       const affectedCategoryIds = Array.from(
         new Set([initialCategoryId, targetCategoryId])
       );
@@ -220,14 +256,13 @@ const DaySlideComponent: React.FC<DaySlideProps> = ({
         })
       );
 
-      void Promise.resolve(onReorderTasks(dateStr, groups)).catch(() => {
-        setPendingPlacement((current) =>
-          current &&
-          taskPlacementSignature(current, categoryIds) === nextSignature
-            ? null
-            : current
-        );
-      });
+      void Promise.resolve()
+        .then(() => onReorderTasks(dateStr, groups))
+        .catch(() => {
+          setCommittedPlacement((current) =>
+            current?.id === commitId ? null : current
+          );
+        });
     },
     [categoryIds, dateStr, onReorderActiveChange, onReorderTasks]
   );
