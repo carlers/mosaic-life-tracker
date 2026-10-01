@@ -1010,6 +1010,52 @@ test('todo day swipe advances the nested day view without advancing the friend c
   await expect(page.getByTestId('friend-index')).toHaveText('0');
 });
 
+test('inactive adjacent Day View keeps category spacing when it becomes active', async ({ page }) => {
+  await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html?perf=heavy`);
+  await page.getByTestId('open-day-view-sheet').click();
+
+  const dialog = page.getByRole('dialog', {
+    name: 'Tuesday, September 15, 2026',
+  });
+  await expect(dialog).toBeVisible();
+  await waitForStableVerticalPosition(dialog);
+
+  const nextSlide = dialog
+    .locator('.swiper-slide')
+    .filter({ hasText: 'Wednesday, September 16, 2026' });
+  await expect(nextSlide).toHaveCount(1);
+
+  const nextCategories = nextSlide.locator('[data-task-category-id]');
+  await expect(nextCategories).toHaveCount(5);
+
+  const firstBefore = await nextCategories.nth(0).boundingBox();
+  const secondBefore = await nextCategories.nth(1).boundingBox();
+  if (!firstBefore || !secondBefore) {
+    throw new Error('Missing inactive next-day category geometry');
+  }
+  const spacingBefore = secondBefore.y - firstBefore.y;
+
+  const currentSlide = dialog.locator('.swiper-slide-active');
+  const currentTitle = currentSlide.getByRole('button', {
+    name: 'Task 1.1',
+    exact: true,
+  });
+  await dragWithMouse(page, currentTitle, -240);
+
+  const activeSlide = dialog.locator('.swiper-slide-active');
+  await expect(activeSlide).toContainText('Wednesday, September 16, 2026');
+
+  const activeCategories = activeSlide.locator('[data-task-category-id]');
+  const firstAfter = await activeCategories.nth(0).boundingBox();
+  const secondAfter = await activeCategories.nth(1).boundingBox();
+  if (!firstAfter || !secondAfter) {
+    throw new Error('Missing active next-day category geometry');
+  }
+  const spacingAfter = secondAfter.y - firstAfter.y;
+
+  expect(Math.abs(spacingAfter - spacingBefore)).toBeLessThanOrEqual(1);
+});
+
 test('mouse drag over a task title swipes the Day View instead of being trapped by the task control', async ({ page }) => {
   await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html?perf=heavy`);
   await page.getByTestId('open-day-view-sheet').click();
