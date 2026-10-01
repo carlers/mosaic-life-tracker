@@ -79,7 +79,7 @@ export function InteractionHarness() {
       Array.from(
         {
           length:
-            !performanceHeavy && categoryIndex === 4
+            !performanceHeavy && categoryIndex === 2
               ? 0
               : performanceHeavy
                 ? 10

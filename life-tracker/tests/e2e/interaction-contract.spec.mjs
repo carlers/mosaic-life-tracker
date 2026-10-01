@@ -435,7 +435,7 @@ test('task can move into another populated category at the projected position', 
   const gesture = await startTaskLongPress(page, title);
   await gesture.moveTo(
     destinationBox.x + destinationBox.width * 0.5,
-    destinationBox.y + destinationBox.height * 0.5
+    destinationBox.y + destinationBox.height * 0.2
   );
   await gesture.finish();
 
@@ -460,9 +460,9 @@ test('task can drop into an empty category from its category surface', async ({ 
   const region = page.getByTestId('todo-day-content');
   const source = region.locator('[data-task-id="task_0_0"]');
   const title = source.getByRole('button', { name: 'Task 1.1', exact: true });
-  const emptyCategory = region.locator('[data-task-category-id="cat_4"]');
+  const emptyCategory = region.locator('[data-task-category-id="cat_2"]');
   const emptyHeader = emptyCategory.getByRole('button', {
-    name: 'Add a task to Category 5',
+    name: 'Add a task to Category 3',
   });
   await source.scrollIntoViewIfNeeded();
   const headerBox = await emptyHeader.boundingBox();
@@ -476,7 +476,7 @@ test('task can drop into an empty category from its category surface', async ({ 
   await gesture.finish();
 
   await expect(page.getByTestId('todo-gesture')).toHaveText(
-    'reordered:cat_0=task_0_1,task_0_2|cat_4=task_0_0'
+    'reordered:cat_0=task_0_1,task_0_2|cat_2=task_0_0'
   );
   await expect(
     emptyCategory.locator(
