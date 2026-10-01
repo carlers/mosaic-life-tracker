@@ -28,9 +28,7 @@ export interface TaskItemProps {
   selectionMode?: boolean;
   isSelected?: boolean;
   onToggleSelection?: () => void;
-  rowRef?: React.Ref<HTMLDivElement>;
   titleRef?: React.Ref<HTMLButtonElement>;
-  isDragSource?: boolean;
   isDragOverlay?: boolean;
 }
 
@@ -135,9 +133,7 @@ export const TaskItem: React.FC<TaskItemProps> = ({
   selectionMode = false,
   isSelected = false,
   onToggleSelection,
-  rowRef,
   titleRef,
-  isDragSource = false,
   isDragOverlay = false,
 }) => {
   const reactions = React.useMemo(
@@ -179,12 +175,11 @@ export const TaskItem: React.FC<TaskItemProps> = ({
 
   return (
     <motion.div
-      ref={rowRef}
       layout={!disableLayoutAnimation}
       layoutDependency={`${task.updatedAt}:${isEditing}`}
       data-task-id={isDragOverlay ? undefined : task.id}
       data-task-overlay-id={isDragOverlay ? task.id : undefined}
-      data-task-dragging={isDragSource || isDragOverlay ? 'true' : undefined}
+      data-task-dragging={isDragOverlay ? 'true' : undefined}
       role={!isDragOverlay && selectionMode ? 'checkbox' : undefined}
       aria-checked={!isDragOverlay && selectionMode ? isSelected : undefined}
       aria-label={
@@ -209,9 +204,7 @@ export const TaskItem: React.FC<TaskItemProps> = ({
               boxShadow: '0 14px 36px rgba(0, 0, 0, 0.38)',
               pointerEvents: 'none',
             }
-          : isDragSource
-            ? { backgroundColor: '#111111' }
-            : isSelected
+          : isSelected
             ? { backgroundColor: `${categoryColor}33`, boxShadow: `inset 0 0 0 1px ${categoryColor}` }
             : undefined
       }

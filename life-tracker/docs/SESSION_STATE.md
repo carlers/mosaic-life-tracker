@@ -1,31 +1,36 @@
 # Session checkpoint
 
 Updated: 2026-10-01
-Current task: Remove the slight vertical compression/jump visible on neighboring Day View slides while swiping between days.
-Status: Automated implementation and delivery are complete on `feature/task-reorder-clean`. Stable code commit `7a60c5ab0d3aa1df813e3ce7396f4de726c1254d` passed the full canonical Quality Gate and its Vercel Preview is READY. Manual visual acceptance of sparse/empty-day swipes remains.
-Next action: On the stable Preview, swipe repeatedly through sparse/empty days and confirm the category stack keeps the same vertical spacing while coming into view and after snap.
+Current task: Clean up and harden the completed task-reorder/day-swipe feature before any merge from `feature/task-reorder-clean` into `dev`.
+Status: Cleanup is implemented on `chatgpt/cleanup-task-reorder-before-dev`. Focused verification is green; exact-SHA full canonical verification is requested before promotion back to the stable feature branch. Nothing has been merged to `dev`.
+Next action: Complete the full Quality Gate, fix any failures, squash-promote the cleanup into `feature/task-reorder-clean`, verify its stable Preview, then perform one final functional smoke test before deciding whether to merge to `dev`.
 Blockers: None.
 
-## Accepted baseline
-- Fresh-open task rendering, legacy multi-task rendering, same/cross-category reorder, consecutive drags, and category-boundary stability are accepted.
-- Desktop mouse day-swipes starting on task title/memo are accepted; stationary 500 ms title hold still reorders.
-- `025639666a52e4a047331329ad60fc18d9b1c96d` is the rollback checkpoint before this spacing polish.
+## Accepted behavior baseline
+- Fresh-open and legacy multi-task rows render correctly.
+- Same-category, populated cross-category, and empty-category reordering work across consecutive drags.
+- The category-pill/first-row insertion boundary is visually stable.
+- Quick mouse drags over task title/memo navigate days; stationary 500 ms title holds reorder.
+- Neighboring Day View slides keep the same vertical geometry when becoming active.
+- These behaviors were manually accepted before this cleanup and remain protected by browser contracts.
 
-## Root cause
-- Inactive neighboring slides render categories without active reorder drop surfaces.
-- The inactive header path used `margin-bottom`; the active reorder path used equivalent `padding-bottom`.
-- On empty categories, the inactive header margin could collapse with the category container's bottom margin, making the preview stack one spacing token tighter.
-- Activating the slide switched to non-collapsing padding, so the category stack expanded vertically at swipe settle.
-- Swiper scaling/windowing was not the source of the compression.
+## Audit of feature branch versus dev
+- Required product/data changes: task `order` schema + migration + sync/restore/backend mappings, append/reorder persistence, dnd-kit runtime, Day View gesture arbitration, and regression coverage.
+- Iteration residue was concentrated in the reorder UI/runtime: a ~600-line `DaySlide`, dnd drop-surface code mixed into `CategorySection`, duplicated placement helpers/signatures, obsolete drag-source props/markers, redundant drag refs/flags, and an unused direct `@dnd-kit/helpers` dependency.
+- Persistence also read more local task rows than necessary when appending or reordering.
 
-## Fix
-- Inactive and active category headers now share one `CategoryHeaderFrame` with non-collapsing `padding-bottom` geometry.
-- Active reorder mode only adds the droppable ref/metadata and no longer changes layout.
-- Task rendering, drag collision behavior, persistence, Swiper windowing, and task interactions are unchanged.
+## Cleanup
+- `DaySlide` is now orchestration only; presentation, dnd runtime, droppable surfaces, and pure projection logic are separated into focused modules.
+- Pure reorder target parsing/projection/equality/group derivation has unit coverage independent of browser gesture tests.
+- Removed obsolete task drag-source props, dead placement helpers/signature generation, redundant dnd flags/refs, and unused diagnostics.
+- Removed the unused direct `@dnd-kit/helpers` dependency and lock entry.
+- Drag projection clones only source/destination task arrays rather than every category array on each target change.
+- Drag lifecycle state is held in one session ref instead of three independent refs.
+- Add-task and reorder persistence queries are scoped to the relevant category/day instead of reading all local task rows.
+- Existing fail-closed persistence, RxDocument materialization, overlay ownership, collision geometry, optimistic reconciliation, and gesture behavior are unchanged.
 
 ## Verification
-- Task-branch full Quality Gate passed on `7d621fc8a3f6335ff47fdd04badb89b28d9915cf`.
-- Stable feature full Quality Gate passed on `7a60c5ab0d3aa1df813e3ce7396f4de726c1254d`, including both Chromium shards and canonical acceptance.
-- Browser regression measures an adjacent empty day's category spacing while inactive, swipes it active, and requires the same spacing within browser-pixel tolerance.
-- Vercel deployment `dpl_6ioGWLEFKL57kMGnYtNdVHHjdqNJ` is READY on the stable feature alias.
-- Manual visual acceptance has not yet been claimed.
+- Latest focused Quality Gate passed on `b5132ff68ab325c7025644e512002fb6164423f3`.
+- Full exact-SHA Quality Gate is requested by this checkpoint.
+- Stable feature promotion and Vercel Preview verification remain.
+- No merge to `dev` has been performed.

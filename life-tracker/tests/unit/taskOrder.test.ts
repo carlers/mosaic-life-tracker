@@ -5,7 +5,6 @@ import {
   buildTaskPlacement,
   isTaskPlacementCompatible,
   materializeTaskDocument,
-  moveTaskInPlacement,
 } from '../../src/lib/taskOrder';
 
 const task = (
@@ -27,38 +26,6 @@ const task = (
 });
 
 describe('task ordering', () => {
-  it('moves a task between categories without mutating the source placement', () => {
-    const placement = {
-      cat_a: ['a1', 'a2'],
-      cat_b: ['b1', 'b2'],
-    };
-
-    const next = moveTaskInPlacement(placement, 'a1', 'cat_b', 1);
-
-    expect(next).toEqual({
-      cat_a: ['a2'],
-      cat_b: ['b1', 'a1', 'b2'],
-    });
-    expect(placement).toEqual({
-      cat_a: ['a1', 'a2'],
-      cat_b: ['b1', 'b2'],
-    });
-  });
-
-  it('supports moving into an empty category and emptying the source category', () => {
-    expect(
-      moveTaskInPlacement(
-        { cat_a: ['a1'], cat_empty: [] },
-        'a1',
-        'cat_empty',
-        0
-      )
-    ).toEqual({
-      cat_a: [],
-      cat_empty: ['a1'],
-    });
-  });
-
   it('rejects optimistic placement with missing, duplicate, or unknown tasks', () => {
     const live = {
       cat_a: ['a1', 'a2'],
