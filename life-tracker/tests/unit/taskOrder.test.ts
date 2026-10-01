@@ -4,6 +4,7 @@ import {
   buildTaskOrderAssignments,
   buildTaskPlacement,
   isTaskPlacementCompatible,
+  materializeTaskDocument,
   moveTaskInPlacement,
 } from '../../src/lib/taskOrder';
 
@@ -128,6 +129,39 @@ describe('task ordering', () => {
         { categoryId: 'cat_b', taskIds: ['a1'] },
       ])
     ).toThrow(/changed while reordering/);
+  });
+
+  it('materializes RxDocument-backed tasks without losing schema fields', () => {
+    const plain = {
+      ...task('legacy', 'cat_a', 0),
+      title: 'Legacy task',
+      memo: 'memo',
+      image: 'image_1',
+      reactions: '[{"emoji":"👍","userId":"user_2"}]',
+    };
+    const rxLike = new Proxy({} as TaskDocument, {
+      get(_target, property) {
+        if (property === 'toJSON') {
+          return () => ({ ...plain });
+        }
+        return plain[property as keyof TaskDocument];
+      },
+    });
+
+    expect({ ...rxLike }).toEqual({});
+    expect(materializeTaskDocument(rxLike)).toEqual(plain);
+  });
+
+  it('keeps duplicate legacy orders deterministic until a completed reorder normalizes them', () => {
+    const tasks = [
+      { ...task('older', 'cat_a', 0), createdAt: '2026-09-01T00:00:00.000Z' },
+      { ...task('newer', 'cat_a', 0), createdAt: '2026-09-02T00:00:00.000Z' },
+      { ...task('third', 'cat_a', 0), createdAt: '2026-08-31T00:00:00.000Z' },
+    ];
+
+    expect(buildTaskPlacement(tasks, ['cat_a'])).toEqual({
+      cat_a: ['newer', 'older', 'third'],
+    });
   });
 
   it('preserves the existing deterministic within-category ordering', () => {
