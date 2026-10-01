@@ -189,7 +189,6 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
           key={task.id}
           categoryId={categoryId}
           taskId={task.id}
-          disabled={isActiveSource}
           isActiveSource={isActiveSource}
         >
           <DraggableTaskItem {...taskProps(task)} />
