@@ -10,7 +10,7 @@ export const DraggableTaskItem: React.FC<DraggableTaskItemProps> = ({
   reorderEnabled,
   ...taskItemProps
 }) => {
-  const draggable = useDraggable({
+  const { ref: dragRef, handleRef } = useDraggable({
     id: taskItemProps.task.id,
     type: 'task',
     disabled: !reorderEnabled,
@@ -19,7 +19,7 @@ export const DraggableTaskItem: React.FC<DraggableTaskItemProps> = ({
   return (
     <>
       <div
-        ref={draggable.ref}
+        ref={dragRef}
         data-task-drag-proxy={taskItemProps.task.id}
         aria-hidden="true"
         style={{
@@ -31,7 +31,7 @@ export const DraggableTaskItem: React.FC<DraggableTaskItemProps> = ({
       />
       <TaskItem
         {...taskItemProps}
-        titleRef={draggable.handleRef}
+        titleRef={handleRef}
         disableLayoutAnimation={
           taskItemProps.disableLayoutAnimation || reorderEnabled
         }
