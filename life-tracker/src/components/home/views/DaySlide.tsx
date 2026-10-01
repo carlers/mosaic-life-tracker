@@ -240,53 +240,30 @@ const DaySlideComponent: React.FC<DaySlideProps> = ({
     if (!reorderEnabled) return;
     const move = (event: PointerEvent) => {
       const current = sessionRef.current;
-      if (!current || event.pointerId !== current.pointerId || current.pointerType === 'touch') return;
+      if (!current || event.pointerId !== current.pointerId) return;
       event.preventDefault();
       event.stopPropagation();
       projectAt(event.clientX, event.clientY);
     };
     const up = (event: PointerEvent) => {
       const current = sessionRef.current;
-      if (!current || event.pointerId !== current.pointerId || current.pointerType === 'touch') return;
+      if (!current || event.pointerId !== current.pointerId) return;
       event.preventDefault();
       event.stopPropagation();
       finish(false);
     };
     const cancel = (event: PointerEvent) => {
       const current = sessionRef.current;
-      if (!current || event.pointerId !== current.pointerId || current.pointerType === 'touch') return;
+      if (!current || event.pointerId !== current.pointerId) return;
       finish(true);
-    };
-    const touchMove = (event: TouchEvent) => {
-      if (sessionRef.current?.pointerType !== 'touch') return;
-      const touch = event.touches[0];
-      if (!touch) return;
-      event.preventDefault();
-      event.stopPropagation();
-      projectAt(touch.clientX, touch.clientY);
-    };
-    const touchEnd = (event: TouchEvent) => {
-      if (sessionRef.current?.pointerType !== 'touch' || event.touches.length > 0) return;
-      event.preventDefault();
-      event.stopPropagation();
-      finish(false);
-    };
-    const touchCancel = () => {
-      if (sessionRef.current?.pointerType === 'touch') finish(true);
     };
     window.addEventListener('pointermove', move, { capture: true, passive: false });
     window.addEventListener('pointerup', up, { capture: true, passive: false });
     window.addEventListener('pointercancel', cancel, true);
-    window.addEventListener('touchmove', touchMove, { capture: true, passive: false });
-    window.addEventListener('touchend', touchEnd, { capture: true, passive: false });
-    window.addEventListener('touchcancel', touchCancel, true);
     return () => {
       window.removeEventListener('pointermove', move, true);
       window.removeEventListener('pointerup', up, true);
       window.removeEventListener('pointercancel', cancel, true);
-      window.removeEventListener('touchmove', touchMove, true);
-      window.removeEventListener('touchend', touchEnd, true);
-      window.removeEventListener('touchcancel', touchCancel, true);
     };
   }, [finish, projectAt, reorderEnabled]);
 

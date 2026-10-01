@@ -68,22 +68,21 @@ async function dragVertical(page, locator, deltaY) {
   });
 }
 
-async function startLongPressTaskDrag(page, source, destination) {
-  const sourceBox = await source.boundingBox();
-  if (!sourceBox) throw new Error('Missing task drag source bounds');
+async function startTaskGripDrag(page, grip, destination) {
+  const gripBox = await grip.boundingBox();
+  if (!gripBox) throw new Error('Missing task reorder grip bounds');
   const session = await page.context().newCDPSession(page);
-  const startX = sourceBox.x + sourceBox.width * 0.6;
-  const startY = sourceBox.y + sourceBox.height * 0.5;
+  const startX = gripBox.x + gripBox.width * 0.5;
+  const startY = gripBox.y + gripBox.height * 0.5;
 
   await session.send('Input.dispatchTouchEvent', {
     type: 'touchStart',
     touchPoints: [{ x: startX, y: startY }],
   });
-  await page.waitForTimeout(500);
   await expect(page.getByTestId('task-drag-overlay')).toBeVisible();
 
   let destinationBox = await destination.boundingBox();
-  if (!destinationBox) throw new Error('Missing task drag destination bounds after lift');
+  if (!destinationBox) throw new Error('Missing task drag destination bounds');
   let endX = destinationBox.x + destinationBox.width * 0.6;
   let endY = destinationBox.y + destinationBox.height * 0.9;
   for (let step = 1; step <= 4; step += 1) {
@@ -379,39 +378,16 @@ test('owner task memo is visible and double/triple tap shortcuts reach edit surf
   await expect(page.getByTestId('todo-gesture')).toHaveText('memo-edit');
 });
 
-// Regression: §25 (a held task owns touch movement and reorders live).
-test('owner task long press follows touch and shifts rows before release', async ({ page }) => {
+// Regression: §25 (the dedicated task grip owns touch movement and reorders live).
+test('owner task grip follows touch and shifts rows before release', async ({ page }) => {
   await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html`);
 
   const source = page.locator('[data-task-id="task_0_0"]');
+  const grip = page.getByRole('button', { name: 'Reorder Task 1.1' });
   const destination = page.locator('[data-task-id="task_0_1"]');
   await source.scrollIntoViewIfNeeded();
-  await page.evaluate(() => {
-    window.__taskDragTrace = [];
-    const record = (event) => {
-      const touch = 'touches' in event ? event.touches[0] : null;
-      const x = touch?.clientX ?? ('clientX' in event ? event.clientX : null);
-      const y = touch?.clientY ?? ('clientY' in event ? event.clientY : null);
-      const hit = x !== null && y !== null ? document.elementFromPoint(x, y) : null;
-      window.__taskDragTrace.push({
-        type: event.type,
-        x,
-        y,
-        cancelable: event.cancelable,
-        defaultPrevented: event.defaultPrevented,
-        scrollY: window.scrollY,
-        task: hit?.closest?.('[data-task-id]')?.getAttribute('data-task-id') ?? null,
-        gap: hit?.closest?.('[data-task-drop-index]')?.getAttribute('data-task-drop-index') ?? null,
-        category: hit?.closest?.('[data-category-id]')?.getAttribute('data-category-id') ?? null,
-      });
-    };
-    for (const type of ['touchmove', 'touchend', 'pointermove', 'pointercancel']) {
-      window.addEventListener(type, record, { capture: true, passive: false });
-    }
-  });
-  const session = await startLongPressTaskDrag(page, source, destination);
-  const dragTrace = await page.evaluate(() => window.__taskDragTrace ?? []);
-  console.log('TASK_DRAG_TRACE', JSON.stringify(dragTrace));
+  const scrollBefore = await page.evaluate(() => window.scrollY);
+  const session = await startTaskGripDrag(page, grip, destination);
 
   await expect(page.getByTestId('task-drag-overlay')).toHaveText('Task 1.1');
   await expect(page.locator(
@@ -427,6 +403,7 @@ test('owner task long press follows touch and shifts rows before release', async
       ))
     )))
     .toEqual(['task_0_1', 'gap-1', 'task_0_2']);
+  expect(await page.evaluate(() => window.scrollY)).toBe(scrollBefore);
 
   await session.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
   await expect(page.getByTestId('todo-gesture')).toHaveText('reordered');

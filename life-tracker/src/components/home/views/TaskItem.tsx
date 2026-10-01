@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Check, FileText } from 'lucide-react';
+import { Check, FileText, GripVertical } from 'lucide-react';
 import { useImageLoadGate } from '../../../hooks/useImageLoadGate';
 import { useTaskImage } from '../../../hooks/useTaskImage';
 import { useBubbleGestures } from '../../../hooks/useBubbleGestures';
@@ -147,7 +147,6 @@ export const TaskItem: React.FC<TaskItemProps> = ({
   );
   const inputRef = useRef<HTMLInputElement>(null);
   const [syncedTaskId, setSyncedTaskId] = useState<string | null>(null);
-  const reorderPointer = useRef<{ pointerId: number; pointerType: string; x: number; y: number } | null>(null);
 
   if (isEditing && task.id !== syncedTaskId) {
     setSyncedTaskId(task.id);
@@ -166,11 +165,6 @@ export const TaskItem: React.FC<TaskItemProps> = ({
     onDoubleTap: () => onEditStart(task),
     onTripleTap: () => onOpenMemo(task, 'edit'),
     deferTripleTap: true,
-    longPressThreshold: 450,
-    onLongPress: reorderEnabled ? () => {
-      const pointer = reorderPointer.current;
-      if (pointer) onReorderActivate?.(task, pointer.pointerId, pointer.pointerType, pointer.x, pointer.y);
-    } : undefined,
   });
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -252,15 +246,7 @@ export const TaskItem: React.FC<TaskItemProps> = ({
         ) : (
           <button
             type="button"
-            onPointerDown={(event) => {
-              reorderPointer.current = {
-                pointerId: event.pointerId,
-                pointerType: event.pointerType,
-                x: event.clientX,
-                y: event.clientY,
-              };
-              titleGestures.onPointerDown(event);
-            }}
+            onPointerDown={titleGestures.onPointerDown}
             onPointerMove={titleGestures.onPointerMove}
             onPointerUp={titleGestures.onPointerUp}
             onPointerCancel={titleGestures.onPointerCancel}
@@ -290,6 +276,28 @@ export const TaskItem: React.FC<TaskItemProps> = ({
           </div>
         )}
       </div>
+      {onReorderActivate && !selectionMode && !isEditing && (
+        <button
+          type="button"
+          disabled={!reorderEnabled && !isReorderSource}
+          onPointerDown={(event) => {
+            event.stopPropagation();
+            if (!reorderEnabled) return;
+            onReorderActivate(
+              task,
+              event.pointerId,
+              event.pointerType,
+              event.clientX,
+              event.clientY
+            );
+          }}
+          onClick={(event) => event.stopPropagation()}
+          className="mt-0.5 shrink-0 touch-none rounded p-1 text-gray-500 cursor-grab active:cursor-grabbing disabled:cursor-default disabled:opacity-40 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
+          aria-label={`Reorder ${task.title}`}
+        >
+          <GripVertical size={18} aria-hidden="true" />
+        </button>
+      )}
     </motion.div>
   );
 };

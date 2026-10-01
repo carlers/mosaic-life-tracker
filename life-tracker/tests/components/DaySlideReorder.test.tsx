@@ -1,5 +1,5 @@
-import { act, fireEvent, render, screen, within } from '@testing-library/react';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { fireEvent, render, screen, within } from '@testing-library/react';
+import { describe, expect, it, vi } from 'vitest';
 import { DaySlide } from '../../src/components/home/views/DaySlide';
 import type { CategoryDocument, TaskDocument } from '../../src/db/schema';
 
@@ -24,9 +24,10 @@ function renderSlide(onReorderTask = vi.fn().mockResolvedValue(undefined)) {
   return onReorderTask;
 }
 
-function hold(title: HTMLElement, pointerType = 'touch') {
-  fireEvent.pointerDown(title, { pointerId: 7, pointerType, clientX: 30, clientY: 40 });
-  act(() => vi.advanceTimersByTime(450));
+function lift(title: string, pointerType = 'touch') {
+  const grip = screen.getByRole('button', { name: `Reorder ${title}` });
+  fireEvent.pointerDown(grip, { pointerId: 7, pointerType, clientX: 30, clientY: 40 });
+  return grip;
 }
 
 function visibleCategoryOrder(categoryId: string) {
@@ -38,12 +39,23 @@ function visibleCategoryOrder(categoryId: string) {
 }
 
 describe('DaySlide drag coordinator', () => {
-  beforeEach(() => vi.useFakeTimers());
-  afterEach(() => { vi.runOnlyPendingTimers(); vi.useRealTimers(); vi.restoreAllMocks(); });
+  it('uses a dedicated touch-owned grip while leaving the title scrollable', () => {
+    renderSlide();
+    const title = screen.getByRole('button', { name: 'one' });
+    const grip = screen.getByRole('button', { name: 'Reorder one' });
+
+    expect(title).toHaveClass('touch-pan-y');
+    expect(grip).toHaveClass('touch-none');
+    fireEvent.pointerDown(title, { pointerId: 4, pointerType: 'touch', clientX: 20, clientY: 20 });
+    expect(screen.queryByTestId('task-drag-overlay')).toBeNull();
+
+    fireEvent.pointerDown(grip, { pointerId: 7, pointerType: 'touch', clientX: 30, clientY: 40 });
+    expect(screen.getByTestId('task-drag-overlay')).toHaveTextContent('one');
+  });
 
   it('keeps the gesture-owning source row mounted while rows make room for the projection', () => {
     renderSlide();
-    hold(screen.getByRole('button', { name: 'one' }));
+    lift('one');
     expect(screen.getByTestId('task-drag-overlay')).toHaveTextContent('one');
     const anchor = document.querySelector('[data-task-id="one"][data-reorder-anchor="true"]');
     expect(anchor).not.toBeNull();
@@ -61,13 +73,13 @@ describe('DaySlide drag coordinator', () => {
     vi.spyOn(document, 'elementFromPoint').mockReturnValue(destination);
     vi.spyOn(destination, 'getBoundingClientRect').mockReturnValue({ top: 100, bottom: 140, height: 40, left: 0, right: 200, width: 200, x: 0, y: 100, toJSON: vi.fn() });
 
-    hold(screen.getByRole('button', { name: 'one' }));
-    fireEvent.touchMove(window, { touches: [{ identifier: 0, clientX: 40, clientY: 110 }] });
+    lift('one');
+    fireEvent.pointerMove(window, { pointerId: 7, pointerType: 'touch', clientX: 40, clientY: 110 });
     const placeholder = screen.getByTestId('task-drop-placeholder');
     expect(placeholder.closest('[data-category-id]')).toHaveAttribute('data-category-id', 'b');
     expect(placeholder).toHaveAttribute('data-task-drop-index', '0');
 
-    fireEvent.touchEnd(window, { touches: [] });
+    fireEvent.pointerUp(window, { pointerId: 7, pointerType: 'touch', clientX: 40, clientY: 110 });
     expect(reorder).toHaveBeenCalledTimes(1);
     expect(reorder.mock.calls[0][1]).toBe('b');
     expect(Object.isFrozen(reorder.mock.calls[0][2][0])).toBe(true);
@@ -84,47 +96,23 @@ describe('DaySlide drag coordinator', () => {
     vi.spyOn(document, 'elementFromPoint').mockReturnValue(destination);
     vi.spyOn(destination, 'getBoundingClientRect').mockReturnValue({ top: 100, bottom: 140, height: 40, left: 0, right: 200, width: 200, x: 0, y: 100, toJSON: vi.fn() });
 
-    hold(screen.getByRole('button', { name: 'one' }));
-    fireEvent.touchMove(window, { touches: [{ identifier: 0, clientX: 40, clientY: 110 }] });
-    fireEvent.touchEnd(window, { touches: [] });
+    lift('one');
+    fireEvent.pointerMove(window, { pointerId: 7, pointerType: 'touch', clientX: 40, clientY: 110 });
+    fireEvent.pointerUp(window, { pointerId: 7, pointerType: 'touch', clientX: 40, clientY: 110 });
     expect(visibleCategoryOrder('b')).toEqual(['one', 'three']);
 
-    await act(async () => {
-      await Promise.resolve();
-    });
+    await Promise.resolve();
+    await Promise.resolve();
     expect(visibleCategoryOrder('a')).toEqual(['one', 'two']);
     expect(visibleCategoryOrder('b')).toEqual(['three']);
   });
 
-  it('ignores touch pointer cancellation after lift and continues through native touch events', () => {
+  it('cancels a grip drag on pointer cancellation', () => {
     const reorder = renderSlide();
-    const destination = screen.getByRole('button', { name: 'three' }).closest('[data-task-id]') as HTMLElement;
-    vi.spyOn(document, 'elementFromPoint').mockReturnValue(destination);
-    vi.spyOn(destination, 'getBoundingClientRect').mockReturnValue({ top: 100, bottom: 140, height: 40, left: 0, right: 200, width: 200, x: 0, y: 100, toJSON: vi.fn() });
-
-    hold(screen.getByRole('button', { name: 'one' }));
+    lift('one');
     fireEvent.pointerCancel(window, { pointerId: 7, pointerType: 'touch' });
-    expect(screen.getByTestId('task-drag-overlay')).toBeInTheDocument();
-
-    fireEvent.touchMove(window, { touches: [{ identifier: 0, clientX: 40, clientY: 110 }] });
-    fireEvent.touchEnd(window, { touches: [] });
-    expect(reorder).toHaveBeenCalledTimes(1);
-  });
-
-  it('cancels touch reordering only on native touch cancellation', () => {
-    const reorder = renderSlide();
-    hold(screen.getByRole('button', { name: 'one' }));
-    fireEvent.touchCancel(window);
     expect(screen.queryByTestId('task-drag-overlay')).toBeNull();
     expect(reorder).not.toHaveBeenCalled();
     expect(visibleCategoryOrder('a')).toEqual(['one', 'two']);
-  });
-
-  it('cancels non-touch reordering on pointer cancellation', () => {
-    const reorder = renderSlide();
-    hold(screen.getByRole('button', { name: 'one' }), 'mouse');
-    fireEvent.pointerCancel(window, { pointerId: 7, pointerType: 'mouse' });
-    expect(screen.queryByTestId('task-drag-overlay')).toBeNull();
-    expect(reorder).not.toHaveBeenCalled();
   });
 });
