@@ -95,25 +95,24 @@ export function projectTaskPlacement(
   const target = parseDropTarget(targetId);
   if (!target || !(target.categoryId in snapshot)) return null;
 
-  const next = Object.fromEntries(
-    Object.entries(snapshot).map(([categoryId, taskIds]) => [
-      categoryId,
-      [...taskIds],
-    ])
-  ) as TaskPlacement;
+  const sourceCategoryId = findTaskCategory(snapshot, taskId);
+  if (!sourceCategoryId) return null;
 
-  let foundSource = false;
-  for (const taskIds of Object.values(next)) {
-    const sourceIndex = taskIds.indexOf(taskId);
-    if (sourceIndex < 0) continue;
-    taskIds.splice(sourceIndex, 1);
-    foundSource = true;
-    break;
-  }
-  if (!foundSource) return null;
+  // Only source and destination arrays can change during one projection.
+  // Keep every other category array shared with the immutable drag snapshot.
+  const next: TaskPlacement = { ...snapshot };
+  const sourceTaskIds = [...(snapshot[sourceCategoryId] ?? [])];
+  next[sourceCategoryId] = sourceTaskIds;
 
-  const targetTaskIds = next[target.categoryId];
-  if (!targetTaskIds) return null;
+  const sourceIndex = sourceTaskIds.indexOf(taskId);
+  if (sourceIndex < 0) return null;
+  sourceTaskIds.splice(sourceIndex, 1);
+
+  const targetTaskIds =
+    target.categoryId === sourceCategoryId
+      ? sourceTaskIds
+      : [...(snapshot[target.categoryId] ?? [])];
+  next[target.categoryId] = targetTaskIds;
 
   let targetIndex = 0;
   if (target.position === 'index') {
