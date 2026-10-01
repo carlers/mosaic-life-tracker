@@ -44,7 +44,8 @@ interface ActiveDrag {
 interface ParsedDropTarget {
   categoryId: string;
   taskId?: string;
-  position: 'before' | 'after' | 'append';
+  index?: number;
+  position: 'before' | 'after' | 'start' | 'index';
 }
 
 interface DaySlideProps {
@@ -96,12 +97,26 @@ function findTaskCategory(
 }
 
 function parseDropTarget(targetId: string): ParsedDropTarget | null {
-  const categoryPrefix = 'task-category:';
-  if (targetId.startsWith(categoryPrefix)) {
-    const categoryId = targetId.slice(categoryPrefix.length);
+  const categoryStartPrefix = 'task-category-start:';
+  if (targetId.startsWith(categoryStartPrefix)) {
+    const categoryId = targetId.slice(categoryStartPrefix.length);
     return categoryId
-      ? { categoryId, position: 'append' }
+      ? { categoryId, position: 'start' }
       : null;
+  }
+
+  const gapPrefix = 'task-gap:';
+  if (targetId.startsWith(gapPrefix)) {
+    const parts = targetId.slice(gapPrefix.length).split(':');
+    if (parts.length !== 2) return null;
+
+    const [categoryId, rawIndex] = parts;
+    const index = Number(rawIndex);
+    if (!categoryId || !Number.isInteger(index) || index < 0) {
+      return null;
+    }
+
+    return { categoryId, index, position: 'index' };
   }
 
   const insertPrefix = 'task-insert:';
@@ -144,9 +159,11 @@ function projectTaskPlacement(
   if (!foundSource) return null;
 
   const targetTaskIds = withoutSource[target.categoryId] ?? [];
-  let targetIndex = targetTaskIds.length;
+  let targetIndex = 0;
 
-  if (target.position !== 'append') {
+  if (target.position === 'index') {
+    targetIndex = target.index ?? 0;
+  } else if (target.position !== 'start') {
     const targetTaskIndex = target.taskId
       ? targetTaskIds.indexOf(target.taskId)
       : -1;
@@ -302,6 +319,7 @@ const TaskReorderRuntime: React.FC<
   const [activeDrag, setActiveDrag] = React.useState<ActiveDrag | null>(null);
   const dragSnapshotRef = React.useRef<TaskPlacement | null>(null);
   const dragProjectionRef = React.useRef<TaskPlacement | null>(null);
+  const dragTargetValidRef = React.useRef(false);
   const commitIdRef = React.useRef(0);
 
   const committedIsCompatible =
@@ -368,6 +386,7 @@ const TaskReorderRuntime: React.FC<
 
       dragSnapshotRef.current = snapshot;
       dragProjectionRef.current = snapshot;
+      dragTargetValidRef.current = false;
       setActiveDrag(next);
       onReorderActiveChange?.(true);
     },
@@ -389,11 +408,25 @@ const TaskReorderRuntime: React.FC<
       if (!source) return;
 
       const taskId = String(source.id);
-      const next = target
-        ? projectTaskPlacement(snapshot, taskId, String(target.id)) ?? snapshot
-        : snapshot;
+      if (!target) {
+        dragTargetValidRef.current = false;
+        return;
+      }
 
-      if (!isTaskPlacementCompatible(next, snapshot, categoryIds)) return;
+      const next = projectTaskPlacement(
+        snapshot,
+        taskId,
+        String(target.id)
+      );
+      if (
+        !next ||
+        !isTaskPlacementCompatible(next, snapshot, categoryIds)
+      ) {
+        dragTargetValidRef.current = false;
+        return;
+      }
+
+      dragTargetValidRef.current = true;
 
       const nextSignature = taskPlacementSignature(next, categoryIds);
       const previous = dragProjectionRef.current;
@@ -424,12 +457,15 @@ const TaskReorderRuntime: React.FC<
 
       const snapshot = dragSnapshotRef.current;
       const finalPlacement = dragProjectionRef.current;
+      const hasValidTarget = dragTargetValidRef.current;
       dragSnapshotRef.current = null;
       dragProjectionRef.current = null;
+      dragTargetValidRef.current = false;
       setActiveDrag(null);
 
       if (
         event.canceled ||
+        !hasValidTarget ||
         !snapshot ||
         !finalPlacement ||
         !onReorderTasks

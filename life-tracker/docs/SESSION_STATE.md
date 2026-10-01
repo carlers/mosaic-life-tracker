@@ -1,30 +1,36 @@
 # Session checkpoint
 
 Updated: 2026-10-01
-Current task: Fix remaining blank task rows in categories containing multiple legacy tasks and harden reorder rendering edge cases.
-Status: Root cause is confirmed and the repair is implemented on `chatgpt/fix-multi-task-legacy-order-render`. Browser coverage performs consecutive cross-category drags from migrated RxDocument-like groups whose initial orders are all zero. Plain task inputs retain object identity to avoid unnecessary cloning; only RxDocuments are materialized. Exact-SHA full canonical verification is running before promotion to `feature/task-reorder-clean`.
-Next action: Complete canonical verification, promote the accepted fix to the stable feature branch, verify Vercel READY, then repeat fresh-open and consecutive reorder acceptance on Samsung/PWA.
+Current task: Polish Day View task reordering to remove the visual oscillation near category pills without changing accepted reorder behavior.
+Status: The no-known-bugs baseline is `feature/task-reorder-clean` commit `77c6e381643d6b7f864baac922f110c2d39c6cc4`. The jitter fix is implemented on `chatgpt/polish-task-reorder-header-jitter`; focused verification passed and full canonical verification is next.
+Next action: Run exact-SHA full Quality Gate, repair any failures, squash-promote to `feature/task-reorder-clean`, verify the stable Vercel Preview is READY, then repeat the near-category-pill drag acceptance on Samsung/PWA.
 Blockers: None.
 
-## Root cause
-- `useRxCollection` exposes RxDB query results directly, so Day View receives real `RxDocument` instances even though the public TypeScript shape is `TaskDocument`.
-- The task-order v2 migration intentionally assigns every legacy task `order: 0` so old created-at ordering is preserved until a user first reorders that group.
-- DaySlide's render placement normalizes visible positions to `0..n-1`. For the second and later task in a legacy multi-task category, the positional order therefore differs from the stored `order: 0`.
-- That mismatch path used `{ ...task, categoryId, order }`. RxDB schema fields such as `id`, `title`, and `completed` are prototype-backed getters on `RxDocument`, so spreading the document omitted them. The result was a structurally present TaskItem with a checkbox but no title/content.
-- Moving another task out of the category normalized/persisted the affected group, removing the order mismatch and making the blank row appear to repair itself.
+## Baseline
+- Fresh-open task rendering is correct on Samsung/PWA.
+- Same-category and cross-category reordering work.
+- Consecutive drags work.
+- Legacy multi-task groups with duplicate `order: 0` render correctly.
+- `77c6e381643d6b7f864baac922f110c2d39c6cc4` remains the rollback/checkpoint commit if this visual polish regresses behavior.
+
+## Jitter root cause
+- The old low-priority category droppable covered the entire category and meant append-to-end.
+- Task rows use high-priority top/bottom targets for before/after insertion.
+- Near a category pill / first-row boundary, collision could alternate between category append and first-row prepend.
+- Once the insertion gap appeared, it could also occupy the pointer position while being non-droppable, causing a transient no-target state.
+- Those semantic changes moved the gap itself, which changed row geometry and fed the next collision result, producing the visible up/down oscillation.
 
 ## Fix
-- Materialize every DaySlide task exactly once at the runtime boundary: use RxDB `toJSON()` when available, otherwise clone an already-plain task.
-- Build placement, rendered rows, overlays, action callbacks, and optimistic category/order overrides from those plain snapshots only.
-- Preserve the existing legacy equal-order tie-breaker; opening Day View does not silently rewrite task order.
-- Keep the drag proxy, title long-press handle, official overlay, insertion gap, category targets, fail-closed persistence, and runtime teardown unchanged.
-- Add unit coverage for RxDocument-backed materialization, duplicate legacy orders, and optional task fields.
-- Add browser coverage using RxDocument-like tasks with every legacy order set to zero; all rows must be readable before any drag.
+- Category-level collision is restricted to the category header/pill row.
+- Header drops mean insert-at-start, matching the first row's upper-half target.
+- Header spacing is inside the header droppable so there is no small dead strip immediately below the pill.
+- The React-owned insertion gap is now a droppable for its exact projected index. Header, adjacent row halves, and the gap therefore resolve to the same insertion index around a boundary.
+- True no-target movement keeps the last valid visual projection stable, while release outside a valid target still commits nothing.
+- The last row's lower half remains the append path; empty and collapsed categories remain droppable through their header.
+- Drag proxy ownership, overlay behavior, immutable drag snapshot, optimistic reconciliation, persistence validation, and runtime teardown are unchanged.
 
-## Edge cases covered
-- Two or more legacy tasks with equal `order: 0`.
-- Gapped/non-normalized order values before first reorder.
-- Cross-category optimistic placement while live RxDB still reports the old category/order.
-- Memo/image/reaction fields surviving materialization.
-- Empty categories and source-category-emptying behavior remain covered by existing reorder tests.
-- Consecutive same-category/cross-category drags and fresh-open runtime rebuild remain covered.
+## Verification
+- Focused checks passed after the implementation.
+- Browser regression added for moving between category header, first-row boundary, and the projected gap without layout oscillation, then releasing on the gap.
+- Existing empty-category, same-category, populated cross-category, consecutive-drag, cancel, legacy-order, and runtime-rebuild coverage remains in place.
+- Full canonical verification and stable Preview promotion remain.
