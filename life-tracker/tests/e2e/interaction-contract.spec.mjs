@@ -378,7 +378,10 @@ test('task long-press stays under the finger while siblings reorder, then persis
   }
 
   const gesture = await startTaskLongPress(page, title);
-  await expect(source).toHaveAttribute('data-task-dragging', 'true');
+  const dragged = page.locator(
+    '[data-task-id="task_0_0"][data-dnd-dragging="true"]'
+  );
+  await expect(dragged).toHaveAttribute('data-task-dragging', 'true');
   await expect(page.getByTestId('todo-gesture')).toHaveText('sorting');
 
   await gesture.moveTo(
@@ -386,11 +389,13 @@ test('task long-press stays under the finger while siblings reorder, then persis
     destinationBox.y + destinationBox.height * 0.85
   );
 
-  await expect.poll(async () => (await source.boundingBox())?.y ?? sourceBefore.y)
+  await expect.poll(async () => (await dragged.boundingBox())?.y ?? sourceBefore.y)
     .toBeGreaterThan(sourceBefore.y + 12);
   await expect.poll(async () => (await sibling.boundingBox())?.y ?? siblingBefore.y)
     .toBeLessThan(siblingBefore.y - 8);
-  await expect(region.locator('[data-task-id^="task_0_"]')).toHaveCount(3);
+  await expect(
+    region.locator('[data-task-id^="task_0_"]:not([data-dnd-placeholder])')
+  ).toHaveCount(3);
 
   await gesture.finish();
 
@@ -398,7 +403,9 @@ test('task long-press stays under the finger while siblings reorder, then persis
     'reordered:task_0_1,task_0_0,task_0_2'
   );
   await expect
-    .poll(() => region.locator('[data-task-id^="task_0_"]').evaluateAll(
+    .poll(() => region.locator(
+      '[data-task-id^="task_0_"]:not([data-dnd-placeholder])'
+    ).evaluateAll(
       (rows) => rows.map((row) => row.getAttribute('data-task-id'))
     ))
     .toEqual(['task_0_1', 'task_0_0', 'task_0_2']);
@@ -436,14 +443,19 @@ test('active task sorting keeps the real Day View sheet and day swiper locked in
   await source.scrollIntoViewIfNeeded();
 
   const gesture = await startTaskLongPress(page, title);
-  await expect(source).toHaveAttribute('data-task-dragging', 'true');
+  const dragged = dialog.locator(
+    '[data-task-id="task_0_0"][data-dnd-dragging="true"]'
+  );
+  await expect(dragged).toHaveAttribute('data-task-dragging', 'true');
   await gesture.moveTo(gesture.startX, gesture.startY + 55);
 
   await expect(dialog).toBeVisible();
   await expect(dialog.getByText('Tuesday, September 15, 2026')).toBeVisible();
 
   await gesture.cancel();
-  await expect(source).not.toHaveAttribute('data-task-dragging', 'true');
+  await expect(
+    dialog.locator('[data-task-id="task_0_0"][data-dnd-dragging="true"]')
+  ).toHaveCount(0);
   await expect(dialog).toBeVisible();
 });
 
