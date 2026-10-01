@@ -20,8 +20,8 @@ import { PrimaryRouteSwipeSurface } from '../../src/components/layout/PrimaryRou
 import { applyAppearanceMode } from '../../src/lib/appearance';
 import { SettingsRow } from '../../src/components/ui/SettingsRow';
 
-function asRxLikeLegacyTask(task: TaskDocument): TaskDocument {
-  const data = { ...task, order: 0 };
+function asRxLikeTask(task: TaskDocument): TaskDocument {
+  const data = { ...task };
 
   return new Proxy({} as TaskDocument, {
     get(_target, property) {
@@ -105,7 +105,7 @@ export function InteractionHarness() {
           title: `Task ${categoryIndex + 1}.${taskIndex + 1}`,
           completed: false,
           categoryId: category.id,
-          order: taskIndex,
+          order: rxLikeLegacyTasks ? 0 : taskIndex,
           date: '2026-09-15',
           createdAt: '2026-09-01T00:00:00.000Z',
           completedAt: '',
@@ -123,7 +123,7 @@ export function InteractionHarness() {
   const renderedTodoTasks = React.useMemo(
     () =>
       rxLikeLegacyTasks
-        ? todoTasks.map(asRxLikeLegacyTask)
+        ? todoTasks.map(asRxLikeTask)
         : todoTasks,
     [rxLikeLegacyTasks, todoTasks]
   );
