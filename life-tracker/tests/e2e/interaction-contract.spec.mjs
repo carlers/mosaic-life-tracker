@@ -499,7 +499,7 @@ test('task can move into another populated category at the projected position', 
 });
 
 test('cross-category persistence leaves every task visible and a second drag immediately usable', async ({ page }) => {
-  await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html`);
+  await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html?rxdocs=legacy`);
 
   const region = page.getByTestId('todo-day-content');
   const allRows = region.locator(
