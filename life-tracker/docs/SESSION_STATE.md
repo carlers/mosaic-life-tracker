@@ -1,35 +1,33 @@
 # Session checkpoint
 
 Updated: 2026-10-01
-Current task: Polish Day View task reordering to remove the visual oscillation near category pills without changing accepted reorder behavior.
-Status: Automated implementation and delivery are complete on `feature/task-reorder-clean`. Stable commit `9cee1ac448212fdbeb917a68bfce9ba26f35fe56` passed the full canonical Quality Gate and its Vercel Preview is READY. Real-device Samsung/PWA visual acceptance of the near-category-pill drag zone remains.
-Next action: On the stable Preview, repeatedly drag a task across the category pill / first-task boundary and release both on the pill-side start slot and inside the projected gap. Confirm there is no repeated up/down oscillation and normal same/cross-category behavior remains intact.
+Current task: Polish Day View gesture arbitration so desktop mouse day-swipes can start from task text without weakening long-press task reorder.
+Status: The prior category-boundary jitter polish is manually accepted on Samsung/PWA. The mouse-swipe repair is implemented on `chatgpt/polish-task-mouse-day-swipe`; focused/full verification remains before promotion.
+Next action: Run exact-SHA canonical verification, repair any failures, squash-promote to `feature/task-reorder-clean`, verify Vercel READY, then manually confirm quick mouse drags over task title/memo change days while a stationary 500 ms title hold still reorders.
 Blockers: None.
 
-## Checkpoints
-- `77c6e381643d6b7f864baac922f110c2d39c6cc4` is the accepted no-known-bugs functional baseline before this visual polish.
-- `9cee1ac448212fdbeb917a68bfce9ba26f35fe56` is the current polished stable commit.
+## Accepted baseline
+- `77c6e381643d6b7f864baac922f110c2d39c6cc4` remains the rollback point before category-boundary visual polish.
+- `9cee1ac448212fdbeb917a68bfce9ba26f35fe56` contains the accepted jitter fix.
+- `5d9ae331ac4d98620ac949258f8ff9443f91c4a9` is the latest stable checkpoint commit before this mouse gesture polish.
+- Fresh-open task rendering, legacy multi-task rendering, same/cross-category reorder, consecutive drags, and category-boundary visual stability are accepted.
 
-## Jitter root cause
-- The old low-priority category droppable covered the whole category and meant append-to-end.
-- Task rows use high-priority top/bottom targets for before/after insertion.
-- Near a category pill / first-row boundary, collision could alternate between category append and first-row prepend.
-- Once the insertion gap appeared, it could occupy the pointer position while being non-droppable, causing a transient no-target state.
-- Those target changes moved the gap itself, which changed row geometry and fed the next collision result, producing the visible up/down oscillation.
+## Mouse swipe root cause
+- Swiper 14 treats `button` as a focusable element by default.
+- Task titles are semantic buttons and `useBubbleGestures` captures their pointer so multi-tap/long-press behavior remains coherent.
+- On mouse-down, the title becomes `document.activeElement`. Swiper's pointer-move handler explicitly returns when the move target is the focused element and it matches `focusableElements`.
+- The task title therefore trapped desktop mouse drags before Swiper could move, while non-focusable category/background surfaces swiped normally.
+- dnd-kit's reorder sensor was not the blocking layer: it uses a 500 ms delay and cancels when movement exceeds tolerance before activation.
 
 ## Fix
-- Category-level collision is restricted to the category header/pill row.
-- Header drops mean insert-at-start, matching the first row's upper-half destination.
-- Header spacing is included in the header droppable so there is no small dead strip directly below the pill.
-- The projected insertion gap is itself a droppable for its exact insertion index. Header, adjacent row halves, and the gap therefore agree on the same destination around a boundary.
-- True no-target movement keeps the last valid visual projection stable; release outside a valid target commits nothing.
-- The last row's lower half remains the append path; empty and collapsed categories remain droppable through their header.
-- Drag proxy ownership, overlay behavior, immutable drag snapshot, optimistic reconciliation, persistence validation, and runtime teardown remain unchanged.
+- Task title and inline memo text are marked as explicit Day View swipe-through controls.
+- The Day View Swiper keeps normal focus protection for inputs and ordinary buttons, but excludes only those marked task text controls from its internal `focusableElements` guard.
+- Quick mouse movement over task text is therefore owned by day navigation.
+- A stationary 500 ms hold on the title still activates dnd-kit reorder; once reorder is active, Day View disables Swiper movement as before.
+- Completion checkbox, task image, edit input, reactions, and other dedicated controls keep their existing pointer isolation and remain control-owned.
+- No task reorder persistence, collision, overlay, or optimistic-placement logic changes.
 
 ## Verification
-- Task-branch exact-SHA full Quality Gate passed on `03ee06815029ae5cb0c848d61af749499d9afdcb`.
-- Stable feature full Quality Gate passed on `9cee1ac448212fdbeb917a68bfce9ba26f35fe56`, including both Chromium browser shards.
-- Browser regression covers moving between the category header, first-row boundary, and projected gap without layout oscillation, then releasing on the gap.
-- Existing empty-category, same-category, populated cross-category, consecutive-drag, cancel, legacy-order, and runtime-rebuild coverage remains green.
-- Vercel deployment `dpl_Hvsbf5X9TsrzMMG4sDybebUKFemD` is READY on the stable feature alias.
-- Real-device Samsung/PWA visual acceptance has not yet been claimed.
+- Added a browser regression that opens the real Day View sheet and mouse-drags left directly from a task title; the active day must advance and no drag overlay may appear.
+- Existing touch long-press reorder and active-reorder sheet-lock coverage remain in place.
+- Full canonical verification and stable Preview promotion remain.
