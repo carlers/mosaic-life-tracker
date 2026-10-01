@@ -23,6 +23,48 @@ const TASK_REORDER_POINTER_SENSOR = PointerSensor.configure({
   ],
 });
 
+interface DaySlideProps {
+  date: Date;
+  scrollMode?: 'page' | 'contained';
+  dateStr: string;
+  tasks: TaskDocument[];
+  categories: CategoryDocument[];
+  currentUserId: string;
+  editingTaskId: string | null;
+  editValue: string;
+  onToggleTask: (taskId: string, currentStatus: boolean) => void;
+  onAddTask: (title: string, categoryId: string, dateStr: string) => void;
+  onOpenActions: (task: TaskDocument) => void;
+  onOpenMemo: (task: TaskDocument, mode: 'view' | 'edit') => void;
+  onEditTask: (task: TaskDocument) => void;
+  onViewImage: (task: TaskDocument) => void;
+  onEditChange: (val: string) => void;
+  onEditSave: () => void;
+  onEditCancel: () => void;
+  disableTaskLayoutAnimation?: boolean;
+  continueAddingTasks?: boolean;
+  showCategoryCollapseButton?: boolean;
+  selectionMode?: boolean;
+  selectedTaskIds?: ReadonlySet<string>;
+  onToggleTaskSelection?: (taskId: string) => void;
+  reorderEnabled?: boolean;
+  onReorderTasks?: (
+    dateStr: string,
+    groups: readonly TaskOrderGroup[]
+  ) => Promise<void> | void;
+  onReorderActiveChange?: (active: boolean) => void;
+}
+
+function findTaskCategory(
+  placement: TaskPlacement,
+  taskId: string
+): string | null {
+  for (const [categoryId, taskIds] of Object.entries(placement)) {
+    if (taskIds.includes(taskId)) return categoryId;
+  }
+  return null;
+}
+
 const DaySlideComponent: React.FC<DaySlideProps> = ({
   dateStr,
   scrollMode = 'page',
