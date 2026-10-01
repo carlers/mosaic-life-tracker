@@ -291,6 +291,8 @@ export function InteractionHarness() {
           onEditChange={() => {}}
           onEditSave={() => {}}
           onEditCancel={() => {}}
+          reorderEnabled
+          onReorderTask={async () => setTodoGesture('reordered')}
         />
       </div>
 

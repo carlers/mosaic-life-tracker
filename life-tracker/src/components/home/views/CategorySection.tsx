@@ -32,9 +32,8 @@ interface CategorySectionProps {
   selectedTaskIds?: ReadonlySet<string>;
   onToggleTaskSelection?: (taskId: string) => void;
   reorderEnabled?: boolean;
-  onReorderActivate?: (task: TaskDocument, pointerId: number, x: number, y: number) => void;
+  onReorderActivate?: (task: TaskDocument, pointerId: number, pointerType: string, x: number, y: number) => void;
   draggedTaskId?: string | null;
-  insertionIndex?: number | null;
 }
 
 export const CategorySection: React.FC<CategorySectionProps> = ({
@@ -64,7 +63,6 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
   reorderEnabled,
   onReorderActivate,
   draggedTaskId,
-  insertionIndex,
 }) => {
   const [isAdding, setIsAdding] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -193,8 +191,7 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
         </div>
       )}
 
-      {!categoryCollapsed && tasks.flatMap((task, index) => [
-        insertionIndex === index ? <div key={`placeholder-${categoryId}`} data-testid="task-drop-placeholder" className="mx-2 my-1 h-10 rounded-lg border border-dashed border-emerald-400/70" /> : null,
+      {!categoryCollapsed && tasks.map((task, index) =>
         <TaskItem
           key={task.id}
           task={task}
@@ -217,10 +214,8 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
           reorderEnabled={reorderEnabled && !isAdding && !categoryCollapsed}
           onReorderActivate={onReorderActivate}
           isReorderSource={draggedTaskId === task.id}
+          reorderLayoutDependency={draggedTaskId ? `${categoryId}:${index}:${draggedTaskId}` : ''}
         />
-      ])}
-      {!categoryCollapsed && insertionIndex === tasks.length && (
-        <div data-testid="task-drop-placeholder" className="mx-2 my-1 h-10 rounded-lg border border-dashed border-emerald-400/70" />
       )}
     </div>
   );
