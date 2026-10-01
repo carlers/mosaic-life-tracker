@@ -2,7 +2,7 @@
 
 Updated: 2026-10-01
 Current task: Promote the accepted task-reorder/day-swipe release from `dev` to production `main`.
-Status: `dev` promotion is complete and fully green. Production preflight found one required release step: the completed task-reorder work is a meaningful backwards-compatible product capability, so Mosaic must advance from `0.1.0` to `0.2.0` under the repository versioning contract. The version bump is implemented on `chatgpt/release-task-reorder-0-2-0`; exact-SHA full verification is running before it enters `dev`.
+Status: `dev` promotion is complete and fully green. Production preflight required Mosaic to advance from `0.1.0` to `0.2.0`. The first full release gate correctly exposed two stale tests that still hard-coded `0.1.0`; both are fixed, PROJECT_REFERENCE now records `0.2.0`, and exact-SHA full verification is rerunning on `chatgpt/release-task-reorder-0-2-0` before it enters `dev`.
 Next action: Pass full canonical verification for the 0.2.0 release bump, squash-promote it into `dev`, verify the new dev SHA/deployment, then merge `dev` into `main` and verify production CI plus Vercel Production READY.
 Blockers: None.
 
