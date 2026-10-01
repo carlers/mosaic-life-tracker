@@ -22,6 +22,7 @@ import {
   reportConnectivityResult,
 } from "../lib/connectivity";
 import { useConnectivity } from "./useConnectivity";
+import { preloadHomePage } from "../lib/homePreload";
 
 const AUTH_BROADCAST_KEY = "mosaic_auth_broadcast";
 const LAST_KNOWN_USER_KEY = "mosaic_last_known_user";
@@ -122,7 +123,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   useEffect(() => {
     if (!userId) return;
-    void import("../pages/HomePage").catch((loadError) => {
+    void preloadHomePage().catch((loadError) => {
       console.warn("[AuthProvider] Home preload failed:", loadError);
     });
   }, [userId]);
