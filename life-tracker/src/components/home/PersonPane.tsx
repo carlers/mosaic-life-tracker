@@ -1,14 +1,12 @@
-import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { addMonths, format } from 'date-fns';
 import { PersonProfileHeader } from './PersonProfileHeader';
 import { CalendarHeader } from './views/CalendarHeader';
 import { CalendarBody } from './views/CalendarBody';
 import { ComingSoon } from '../layout/ComingSoon';
 import { useCalendarState } from './views/useCalendarState';
-import { useMessageActions } from '../../hooks/useMessageActions';
 import { useAuth } from '../../hooks/useAuth';
 import { useSettings } from '../../hooks/useSettings';
-import { useFriendCalendar } from '../../lib/useFriendCalendar';
 import {
   TAP_CALENDAR_DATE_TO_TODAY_SETTING_KEY,
   WEEK_STARTS_ON_SUNDAY_SETTING_KEY,
@@ -23,6 +21,11 @@ const LazyTodoListView = React.lazy(() =>
     default: TodoListView,
   }))
 );
+const LazyFriendPersonPane = React.lazy(() =>
+  import('./FriendPersonPane').then(({ FriendPersonPane }) => ({
+    default: FriendPersonPane,
+  }))
+);
 
 interface PersonPaneProps {
   person: CarouselPerson;
@@ -31,12 +34,10 @@ interface PersonPaneProps {
   ownerCategories?: CategoryDocument[];
 }
 
-const FRIEND_REFETCH_MIN_INTERVAL_MS = 15_000;
-
-function readMeView(): ViewType {
+function readHomeView(): ViewType {
   try {
-    const v = localStorage.getItem('mosaic_home_view');
-    return v === 'diary' || v === 'todo' ? v : 'calendar';
+    const value = localStorage.getItem('mosaic_home_view');
+    return value === 'diary' || value === 'todo' ? value : 'calendar';
   } catch {
     return 'calendar';
   }
@@ -48,6 +49,14 @@ export const PersonPane: React.FC<PersonPaneProps> = ({
   ownerTasks = [],
   ownerCategories = [],
 }) => {
+  if (person.kind === 'friend') {
+    return (
+      <React.Suspense fallback={null}>
+        <LazyFriendPersonPane person={person} isActive={isActive} />
+      </React.Suspense>
+    );
+  }
+
   const { user } = useAuth();
   const currentUserId = user?.$id ?? '';
   const { getSetting } = useSettings();
@@ -56,57 +65,17 @@ export const PersonPane: React.FC<PersonPaneProps> = ({
   );
   const tapCalendarDateToToday =
     getSetting(TAP_CALENDAR_DATE_TO_TODAY_SETTING_KEY, false) === true;
-  const tasks = ownerTasks;
-  const categories = ownerCategories;
-
-  const { sendTaskReaction } = useMessageActions(
-    person.kind === 'friend' ? person.userId : null
-  );
-
-  const [activeView, setActiveView] = useState<ViewType>(readMeView);
+  const [activeView, setActiveView] = useState<ViewType>(readHomeView);
   const [todoFocusDate, setTodoFocusDate] = useState(() => new Date());
-
   const calendarState = useCalendarState({ weekStartsOn });
-
-  const friendUserId = person.kind === 'friend' ? person.userId : null;
-  const {
-    tasks: friendTasks = [],
-    categories: friendCategories = [],
-    refetch: refetchFriendCalendar,
-  } = useFriendCalendar(friendUserId);
-
-  const lastRefetchRef = useRef<number>(0);
-
-  useEffect(() => {
-    if (person.kind !== 'friend' || !isActive) return;
-    const now = Date.now();
-    if (now - lastRefetchRef.current < FRIEND_REFETCH_MIN_INTERVAL_MS) return;
-    lastRefetchRef.current = now;
-    refetchFriendCalendar(true);
-  }, [person.kind, isActive, refetchFriendCalendar]);
 
   const categoriesMap = useMemo(() => {
     const map: Record<string, { color: string; name: string }> = {};
-    for (const cat of categories) {
-      map[cat.id] = { color: cat.color, name: cat.name };
+    for (const category of ownerCategories) {
+      map[category.id] = { color: category.color, name: category.name };
     }
     return map;
-  }, [categories]);
-
-  const friendCategoriesMap = useMemo(() => {
-    const map: Record<string, { color: string; name: string }> = {};
-    for (const cat of friendCategories) {
-      map[cat.id] = { color: cat.color, name: cat.name };
-    }
-    return map;
-  }, [friendCategories]);
-
-  const handleReactToTask = useCallback(
-    (task: TaskDocument, emoji: string) => {
-      sendTaskReaction(task, emoji, '');
-    },
-    [sendTaskReaction]
-  );
+  }, [ownerCategories]);
 
   const handleTodoPrev = useCallback(() => {
     setTodoFocusDate((date) => addMonths(date, -1));
@@ -116,76 +85,23 @@ export const PersonPane: React.FC<PersonPaneProps> = ({
     setTodoFocusDate((date) => addMonths(date, 1));
   }, []);
 
-  if (person.kind === 'friend' && friendUserId) {
-    return (
-      <div className="flex flex-col h-full">
-        <PersonProfileHeader person={person} isActive={isActive} />
-        <CalendarHeader
-          title={activeView === 'todo' ? format(todoFocusDate, 'MMMM yyyy') : calendarState.title}
-          viewMode={calendarState.viewMode}
-          onToggleMode={calendarState.handleToggle}
-          onPrev={activeView === 'todo' ? handleTodoPrev : calendarState.handlePrev}
-          onNext={activeView === 'todo' ? handleTodoNext : calendarState.handleNext}
-          activeView={activeView}
-          onViewChange={setActiveView}
-          onTitleClick={
-            activeView === 'calendar' && tapCalendarDateToToday
-              ? calendarState.resetToToday
-              : undefined
-          }
-        />
-        {activeView === 'calendar' ? (
-          <CalendarBody
-            viewMode={calendarState.viewMode}
-            slides={calendarState.slides}
-            renderStart={calendarState.renderStart}
-            renderEnd={calendarState.renderEnd}
-            emblaRef={calendarState.emblaRef}
-            tasks={friendTasks}
-            categoriesMap={friendCategoriesMap}
-            variant="friend"
-            friendCategories={friendCategories}
-            friendName={person.displayName}
-            friendUserId={friendUserId}
-            currentUserId={currentUserId}
-            isActive={isActive}
-            onPrev={calendarState.handlePrev}
-            onNext={calendarState.handleNext}
-            onReactToTask={handleReactToTask}
-            weekStartsOn={weekStartsOn}
-          />
-        ) : activeView === 'todo' ? (
-          <React.Suspense fallback={null}>
-          <LazyTodoListView
-            variant="friend"
-            focusDate={todoFocusDate}
-            tasks={friendTasks}
-            categories={friendCategories}
-            categoriesMap={friendCategoriesMap}
-            onFocusDateChange={setTodoFocusDate}
-            friendName={person.displayName}
-            friendUserId={friendUserId}
-            currentUserId={currentUserId}
-            onReactToTask={handleReactToTask}
-            weekStartsOn={weekStartsOn}
-          />
-          </React.Suspense>
-        ) : (
-          <ComingSoon />
-        )}
-      </div>
-    );
-  }
-
   return (
     <div className="flex flex-col h-full">
       <PersonProfileHeader person={person} isActive={isActive} />
       <CalendarHeader
-        title={activeView === 'todo' ? format(todoFocusDate, 'MMMM yyyy') : calendarState.title}
+        title={
+          activeView === 'todo'
+            ? format(todoFocusDate, 'MMMM yyyy')
+            : calendarState.title
+        }
         viewMode={calendarState.viewMode}
         onToggleMode={calendarState.handleToggle}
-        onPrev={activeView === 'todo' ? handleTodoPrev : calendarState.handlePrev}
-        onNext={activeView === 'todo' ? handleTodoNext : calendarState.handleNext}
+        onPrev={
+          activeView === 'todo' ? handleTodoPrev : calendarState.handlePrev
+        }
+        onNext={
+          activeView === 'todo' ? handleTodoNext : calendarState.handleNext
+        }
         activeView={activeView}
         onViewChange={setActiveView}
         onTitleClick={
@@ -201,8 +117,8 @@ export const PersonPane: React.FC<PersonPaneProps> = ({
           renderStart={calendarState.renderStart}
           renderEnd={calendarState.renderEnd}
           emblaRef={calendarState.emblaRef}
-          tasks={tasks}
-          categories={categories}
+          tasks={ownerTasks}
+          categories={ownerCategories}
           categoriesMap={categoriesMap}
           variant="me"
           currentUserId={currentUserId}
@@ -213,14 +129,14 @@ export const PersonPane: React.FC<PersonPaneProps> = ({
         />
       ) : activeView === 'todo' ? (
         <React.Suspense fallback={null}>
-        <LazyTodoListView
-          focusDate={todoFocusDate}
-          tasks={tasks}
-          categories={categories}
-          categoriesMap={categoriesMap}
-          onFocusDateChange={setTodoFocusDate}
-          weekStartsOn={weekStartsOn}
-        />
+          <LazyTodoListView
+            focusDate={todoFocusDate}
+            tasks={ownerTasks}
+            categories={ownerCategories}
+            categoriesMap={categoriesMap}
+            onFocusDateChange={setTodoFocusDate}
+            weekStartsOn={weekStartsOn}
+          />
         </React.Suspense>
       ) : (
         <ComingSoon />
