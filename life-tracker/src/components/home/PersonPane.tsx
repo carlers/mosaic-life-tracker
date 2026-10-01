@@ -3,7 +3,6 @@ import { addMonths, format } from 'date-fns';
 import { PersonProfileHeader } from './PersonProfileHeader';
 import { CalendarHeader } from './views/CalendarHeader';
 import { CalendarBody } from './views/CalendarBody';
-import { TodoListView } from './views/TodoListView';
 import { ComingSoon } from '../layout/ComingSoon';
 import { useCalendarState } from './views/useCalendarState';
 import { useMessageActions } from '../../hooks/useMessageActions';
@@ -18,6 +17,12 @@ import {
 import type { CarouselPerson } from '../../hooks/useFriendCarousel';
 import type { ViewType } from './ViewSwitcher';
 import type { CategoryDocument, TaskDocument } from '../../db/schema';
+
+const LazyTodoListView = React.lazy(() =>
+  import('./views/TodoListView').then(({ TodoListView }) => ({
+    default: TodoListView,
+  }))
+);
 
 interface PersonPaneProps {
   person: CarouselPerson;
@@ -150,7 +155,8 @@ export const PersonPane: React.FC<PersonPaneProps> = ({
             weekStartsOn={weekStartsOn}
           />
         ) : activeView === 'todo' ? (
-          <TodoListView
+          <React.Suspense fallback={null}>
+          <LazyTodoListView
             variant="friend"
             focusDate={todoFocusDate}
             tasks={friendTasks}
@@ -163,6 +169,7 @@ export const PersonPane: React.FC<PersonPaneProps> = ({
             onReactToTask={handleReactToTask}
             weekStartsOn={weekStartsOn}
           />
+          </React.Suspense>
         ) : (
           <ComingSoon />
         )}
@@ -205,7 +212,8 @@ export const PersonPane: React.FC<PersonPaneProps> = ({
           weekStartsOn={weekStartsOn}
         />
       ) : activeView === 'todo' ? (
-        <TodoListView
+        <React.Suspense fallback={null}>
+        <LazyTodoListView
           focusDate={todoFocusDate}
           tasks={tasks}
           categories={categories}
@@ -213,6 +221,7 @@ export const PersonPane: React.FC<PersonPaneProps> = ({
           onFocusDateChange={setTodoFocusDate}
           weekStartsOn={weekStartsOn}
         />
+        </React.Suspense>
       ) : (
         <ComingSoon />
       )}
