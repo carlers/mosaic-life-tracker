@@ -192,10 +192,7 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
           disabled={isActiveSource}
           isActiveSource={isActiveSource}
         >
-          <DraggableTaskItem
-            {...taskProps(task)}
-            reorderEnabled
-          />
+          <DraggableTaskItem {...taskProps(task)} />
         </TaskRowDropSurface>
       );
 
