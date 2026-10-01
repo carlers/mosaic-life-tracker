@@ -10,7 +10,7 @@ Blockers: None.
 - Task rows no longer use `useSortable` or dnd-kit's `OptimisticSortingPlugin`.
 - Each task uses plain `useDraggable`; the title remains the only drag handle and keeps the 500 ms hold/tolerance sensor.
 - Each visible row exposes high-priority top/bottom droppable halves for before/after insertion; each category surface is a lower-priority append target for populated, empty, and collapsed categories.
-- The provider configures Feedback with `feedback: 'none'` and uses one official `DragOverlay`, so dnd-kit never promotes, clones, placeholders, or reparents the real task row.
+- The provider uses one official `DragOverlay`; dnd-kit's Feedback plugin targets that overlay, so it does not create a placeholder or move/reparent the real task row.
 - The real source task stays mounted in its original React parent inside a collapsed source slot. Only a lightweight insertion gap moves during drag.
 - Projection is recalculated from the immutable drag-start placement and the current droppable target; release persists only the final source/destination groups.
 - Existing fail-closed persistence, optimistic reconciliation, sheet-runtime teardown, and normal Mosaic overlay background are preserved.
