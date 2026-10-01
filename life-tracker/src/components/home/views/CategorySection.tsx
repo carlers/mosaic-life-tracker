@@ -223,9 +223,9 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
             isActiveSource
               ? {
                   height: 0,
-                  overflow: 'hidden',
-                  visibility: 'hidden',
+                  opacity: 0,
                   pointerEvents: 'none',
+                  position: 'relative',
                 }
               : undefined
           }

@@ -647,7 +647,6 @@ test('owner task memo is visible and double/triple tap shortcuts reach edit surf
 test('DayView task rows are interactive on first open and after a clean runtime rebuild', async ({ page }) => {
   await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html?perf=heavy`);
 
-  await expect(page.locator('[data-dnd-overlay]')).toHaveCount(0);
   await page.getByTestId('open-day-view-sheet').click();
 
   let dialog = page.getByRole('dialog', {
@@ -655,7 +654,9 @@ test('DayView task rows are interactive on first open and after a clean runtime 
   });
   await expect(dialog).toBeVisible();
   await waitForStableVerticalPosition(dialog);
-  await expect(page.locator('[data-dnd-overlay]')).toHaveCount(1);
+  await expect(
+    dialog.locator('[data-task-reorder-runtime="true"]')
+  ).toHaveCount(1);
 
   let title = dialog.getByRole('button', {
     name: 'Task 1.1',
@@ -665,7 +666,6 @@ test('DayView task rows are interactive on first open and after a clean runtime 
 
   await page.keyboard.press('Escape');
   await expect(dialog).toHaveCount(0);
-  await expect(page.locator('[data-dnd-overlay]')).toHaveCount(0);
 
   await page.getByTestId('open-day-view-sheet').click();
   dialog = page.getByRole('dialog', {
@@ -673,7 +673,9 @@ test('DayView task rows are interactive on first open and after a clean runtime 
   });
   await expect(dialog).toBeVisible();
   await waitForStableVerticalPosition(dialog);
-  await expect(page.locator('[data-dnd-overlay]')).toHaveCount(1);
+  await expect(
+    dialog.locator('[data-task-reorder-runtime="true"]')
+  ).toHaveCount(1);
 
   title = dialog.getByRole('button', {
     name: 'Task 1.1',

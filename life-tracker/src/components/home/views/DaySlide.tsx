@@ -134,6 +134,7 @@ const DaySlideContent: React.FC<DaySlideContentProps> = ({
   selectedTaskIds = new Set<string>(),
   onToggleTaskSelection,
   reorderEnabled = false,
+  reorderRuntimeActive = false,
   tasksByCategory,
   activeDrag,
 }) => {
@@ -154,6 +155,9 @@ const DaySlideContent: React.FC<DaySlideContentProps> = ({
           : 'w-full min-w-0 px-4 pb-8'
       }
       data-testid="day-slide"
+      data-task-reorder-runtime={
+        reorderRuntimeActive ? 'true' : undefined
+      }
     >
       {categories.map((cat) => (
         <CategorySection
@@ -219,6 +223,7 @@ const TaskReorderRuntime: React.FC<
   const dragSnapshotRef = React.useRef<TaskPlacement | null>(null);
   const dragProjectionRef = React.useRef<TaskPlacement | null>(null);
   const commitIdRef = React.useRef(0);
+  const retiredCommitIdRef = React.useRef(0);
 
   const livePlacementSignature = React.useMemo(
     () => taskPlacementSignature(livePlacement, categoryIds),
@@ -235,7 +240,10 @@ const TaskReorderRuntime: React.FC<
   const committedMatchesLive =
     committedPlacement?.signature === livePlacementSignature;
   const activeCommittedPlacement =
-    committedPlacement && committedIsCompatible && !committedMatchesLive
+    committedPlacement &&
+    committedPlacement.id > retiredCommitIdRef.current &&
+    committedIsCompatible &&
+    !committedMatchesLive
       ? committedPlacement.placement
       : null;
   const basePlacement = activeCommittedPlacement ?? livePlacement;
@@ -245,24 +253,15 @@ const TaskReorderRuntime: React.FC<
     if (!committedPlacement) return;
     if (committedIsCompatible && !committedMatchesLive) return;
 
-    const retiringId = committedPlacement.id;
-    setCommittedPlacement((current) =>
-      current?.id === retiringId ? null : current
+    retiredCommitIdRef.current = Math.max(
+      retiredCommitIdRef.current,
+      committedPlacement.id
     );
   }, [
     committedIsCompatible,
     committedMatchesLive,
     committedPlacement,
   ]);
-
-  React.useEffect(
-    () => () => {
-      dragSnapshotRef.current = null;
-      dragProjectionRef.current = null;
-      onReorderActiveChange?.(false);
-    },
-    [onReorderActiveChange]
-  );
 
   const tasksByCategory = React.useMemo(
     () =>
