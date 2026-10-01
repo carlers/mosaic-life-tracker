@@ -2,7 +2,7 @@
 
 Updated: 2026-10-01
 Current task: Fix remaining blank task rows in categories containing multiple legacy tasks and harden reorder rendering edge cases.
-Status: Root cause is confirmed and the repair is implemented on `chatgpt/fix-multi-task-legacy-order-render`. Browser coverage now also performs consecutive cross-category drags from migrated RxDocument-like groups whose initial orders are all zero. Exact-SHA full canonical verification is running before promotion to `feature/task-reorder-clean`.
+Status: Root cause is confirmed and the repair is implemented on `chatgpt/fix-multi-task-legacy-order-render`. Browser coverage performs consecutive cross-category drags from migrated RxDocument-like groups whose initial orders are all zero. Plain task inputs retain object identity to avoid unnecessary cloning; only RxDocuments are materialized. Exact-SHA full canonical verification is running before promotion to `feature/task-reorder-clean`.
 Next action: Complete canonical verification, promote the accepted fix to the stable feature branch, verify Vercel READY, then repeat fresh-open and consecutive reorder acceptance on Samsung/PWA.
 Blockers: None.
 
