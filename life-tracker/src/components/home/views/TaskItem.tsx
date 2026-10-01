@@ -107,6 +107,7 @@ const TaskMemo: React.FC<{
         if (selectionMode) onSelect?.();
         else if (event.detail === 0) onOpenMemo(task, 'view');
       }}
+      data-day-swipe-through="true"
       className="mt-1 flex w-full touch-pan-y items-start gap-1 text-left text-xs text-gray-400 rounded focus:outline-none"
       aria-label="Open memo"
     >
@@ -271,6 +272,7 @@ export const TaskItem: React.FC<TaskItemProps> = ({
               if (selectionMode) onToggleSelection?.();
               else if (event.detail === 0) onOpenActions(task);
             }}
+            data-day-swipe-through="true"
             className="w-full touch-pan-y text-left rounded focus:outline-none"
             aria-label={task.title}
           >
