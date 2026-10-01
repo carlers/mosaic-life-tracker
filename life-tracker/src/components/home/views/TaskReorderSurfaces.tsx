@@ -71,13 +71,11 @@ export const TaskGapDropSurface: React.FC<{
 export const TaskRowDropSurface: React.FC<{
   categoryId: string;
   taskId: string;
-  disabled?: boolean;
   isActiveSource?: boolean;
   children: React.ReactNode;
 }> = ({
   categoryId,
   taskId,
-  disabled = false,
   isActiveSource = false,
   children,
 }) => {
@@ -86,14 +84,14 @@ export const TaskRowDropSurface: React.FC<{
     type: 'task-insert',
     accept: 'task',
     collisionPriority: CollisionPriority.High,
-    disabled,
+    disabled: isActiveSource,
   });
   const { ref: afterRef } = useDroppable({
     id: taskInsertDropId(categoryId, taskId, 'after'),
     type: 'task-insert',
     accept: 'task',
     collisionPriority: CollisionPriority.High,
-    disabled,
+    disabled: isActiveSource,
   });
 
   return (
