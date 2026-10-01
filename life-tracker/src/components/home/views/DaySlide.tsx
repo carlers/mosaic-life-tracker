@@ -1,7 +1,6 @@
 import React from 'react';
 import { DragDropProvider, DragOverlay } from '@dnd-kit/react';
 import {
-  Feedback,
   PointerActivationConstraints,
   PointerSensor,
 } from '@dnd-kit/dom';
@@ -343,6 +342,8 @@ const TaskReorderRuntime: React.FC<
       >[0]
     ) => {
       const { source } = event.operation;
+      if (!source) return;
+
       const taskId = String(source.id);
       if (!taskById.has(taskId)) return;
 
@@ -382,6 +383,8 @@ const TaskReorderRuntime: React.FC<
       if (!snapshot) return;
 
       const { source, target } = event.operation;
+      if (!source) return;
+
       const taskId = String(source.id);
       const next = target
         ? projectTaskPlacement(snapshot, taskId, String(target.id)) ?? snapshot
@@ -431,7 +434,10 @@ const TaskReorderRuntime: React.FC<
         return;
       }
 
-      const taskId = String(event.operation.source.id);
+      const source = event.operation.source;
+      if (!source) return;
+
+      const taskId = String(source.id);
       const initialCategoryId = findTaskCategory(snapshot, taskId);
       const targetCategoryId = findTaskCategory(finalPlacement, taskId);
       if (!initialCategoryId || !targetCategoryId) return;
@@ -511,10 +517,6 @@ const TaskReorderRuntime: React.FC<
       sensors={(defaults) => [
         ...defaults.filter((sensor) => sensor !== PointerSensor),
         TASK_REORDER_POINTER_SENSOR,
-      ]}
-      plugins={(defaults) => [
-        ...defaults,
-        Feedback.configure({ feedback: 'none' }),
       ]}
       onDragStart={handleDragStart}
       onDragOver={handleDragOver}
