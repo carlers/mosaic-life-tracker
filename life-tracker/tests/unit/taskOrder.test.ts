@@ -150,6 +150,7 @@ describe('task ordering', () => {
 
     expect({ ...rxLike }).toEqual({});
     expect(materializeTaskDocument(rxLike)).toEqual(plain);
+    expect(materializeTaskDocument(plain)).toBe(plain);
   });
 
   it('keeps duplicate legacy orders deterministic until a completed reorder normalizes them', () => {
