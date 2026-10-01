@@ -37,6 +37,9 @@ const ImageViewer = lazy(() =>
   import('./ImageViewer').then(({ ImageViewer }) => ({ default: ImageViewer }))
 );
 
+const DAY_SWIPER_FOCUSABLE_ELEMENTS =
+  'input, select, option, textarea, video, label, button:not([data-day-swipe-through="true"])';
+
 // #11a: hoisted — closes over nothing, so building this once avoids
 // re-allocating the JSX tree on every DayViewSheet render.
 const ImageViewerLoadingFallback: React.FC = () => (
@@ -609,6 +612,7 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
         nested={renderMode === 'inline'}
         allowTouchMove={!isTaskReorderActive}
         noSwiping={renderMode === 'sheet'}
+        focusableElements={DAY_SWIPER_FOCUSABLE_ELEMENTS}
         touchStartPreventDefault={false}
         touchMoveStopPropagation={false}
         autoHeight={renderMode === 'inline'}
