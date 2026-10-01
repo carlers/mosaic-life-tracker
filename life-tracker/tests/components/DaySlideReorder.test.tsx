@@ -43,6 +43,8 @@ describe('DaySlide drag coordinator', () => {
     renderSlide();
     hold(screen.getByRole('button', { name: 'one' }));
     expect(screen.getByTestId('task-drag-overlay')).toHaveTextContent('one');
+    expect(categoryOrder('a')).toEqual(['one', 'two']);
+    expect(categoryOrder('b')).toEqual(['three']);
     expect(screen.getAllByText('one')).toHaveLength(2);
     expect(screen.getByRole('button', { name: 'two' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'three' })).toBeInTheDocument();
@@ -79,10 +81,10 @@ describe('DaySlide drag coordinator', () => {
     expect(reorder).toHaveBeenCalledTimes(1);
   });
 
-  it('discards its projection on pointer cancellation', () => {
+  it('discards a touch projection when the browser only sends pointer cancellation', () => {
     const reorder = renderSlide();
     hold(screen.getByRole('button', { name: 'one' }));
-    fireEvent.touchCancel(window);
+    fireEvent.pointerCancel(window, { pointerId: 7, pointerType: 'touch' });
     expect(screen.queryByTestId('task-drag-overlay')).toBeNull();
     expect(reorder).not.toHaveBeenCalled();
     expect(screen.getAllByText('one')).toHaveLength(1);

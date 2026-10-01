@@ -131,9 +131,8 @@ const DaySlideComponent: React.FC<DaySlideProps> = ({
     autoScrollFrame.current = requestAnimationFrame(runAutoScroll);
   }, [onReorderActiveChange, reorderEnabled, runAutoScroll, tasks]);
 
-  const activePointerId = session?.pointerId;
   React.useEffect(() => {
-    if (activePointerId === undefined) return;
+    if (!reorderEnabled) return;
     const move = (event: PointerEvent) => {
       if (event.pointerId !== sessionRef.current?.pointerId) return;
       event.preventDefault();
@@ -146,7 +145,6 @@ const DaySlideComponent: React.FC<DaySlideProps> = ({
     };
     const cancel = (event: PointerEvent) => {
       if (event.pointerId !== sessionRef.current?.pointerId) return;
-      if (sessionRef.current.pointerType === 'touch') return;
       finish(true);
     };
     const touchMove = (event: TouchEvent) => {
@@ -180,7 +178,7 @@ const DaySlideComponent: React.FC<DaySlideProps> = ({
       window.removeEventListener('touchend', touchEnd, true);
       window.removeEventListener('touchcancel', touchCancel, true);
     };
-  }, [activePointerId, finish, projectAt]);
+  }, [finish, projectAt, reorderEnabled]);
 
   React.useEffect(() => () => finish(true), [dateStr, finish]);
   React.useEffect(() => { if (!reorderEnabled && sessionRef.current) finish(true); }, [finish, reorderEnabled]);
@@ -199,7 +197,7 @@ const DaySlideComponent: React.FC<DaySlideProps> = ({
     {categories.map((cat) => <CategorySection key={cat.id} categoryName={cat.name} categoryId={cat.id} categoryColor={cat.color} visibility={cat.visibility} currentUserId={currentUserId}
       tasks={tasksByCategory.get(cat.id) ?? []} onToggleTask={onToggleTask} onAddTask={(title) => onAddTask(title, cat.id, dateStr)} onOpenActions={onOpenActions}
       onOpenMemo={onOpenMemo} onEditTask={onEditTask} onViewImage={onViewImage} editingTaskId={editingTaskId} editValue={editValue} onEditChange={onEditChange}
-      onEditSave={onEditSave} onEditCancel={onEditCancel} disableTaskLayoutAnimation={disableTaskLayoutAnimation && !session} continueAddingAfterSubmit={continueAddingTasks}
+      onEditSave={onEditSave} onEditCancel={onEditCancel} disableTaskLayoutAnimation={disableTaskLayoutAnimation && !reorderEnabled} continueAddingAfterSubmit={continueAddingTasks}
       showCollapseButton={showCategoryCollapseButton} selectionMode={selectionMode} selectedTaskIds={selectedTaskIds} onToggleTaskSelection={onToggleTaskSelection}
       reorderEnabled={reorderEnabled && !selectionMode && !editingTaskId && !session} onReorderActivate={activate} draggedTaskId={session?.taskId} />)}
     {draggedTask && <div key={draggedTask.id} data-testid="task-drag-overlay" aria-hidden="true" className="pointer-events-none fixed z-[100] max-w-[min(24rem,80vw)] rounded-lg px-3 py-2 text-white shadow-2xl"

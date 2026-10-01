@@ -214,7 +214,7 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
           reorderEnabled={reorderEnabled && !isAdding && !categoryCollapsed}
           onReorderActivate={onReorderActivate}
           isReorderSource={draggedTaskId === task.id}
-          reorderLayoutDependency={draggedTaskId ? `${categoryId}:${index}:${draggedTaskId}` : ''}
+          reorderLayoutDependency={`${categoryId}:${index}`}
         />
       )}
     </div>
