@@ -222,7 +222,7 @@ const DaySlideComponent: React.FC<DaySlideProps> = ({
     const edge = 64;
     const velocity = current.y < bounds.top + edge ? -Math.min(14, (bounds.top + edge - current.y) / 4)
       : current.y > bounds.bottom - edge ? Math.min(14, (current.y - (bounds.bottom - edge)) / 4) : 0;
-    if (velocity) scroller.scrollTop += velocity;
+    if (velocity) scroller.scrollBy({ top: velocity });
     autoScrollFrame.current = requestAnimationFrame(() => runAutoScrollRef.current());
   }, [scrollMode]);
   React.useEffect(() => { runAutoScrollRef.current = runAutoScroll; }, [runAutoScroll]);
@@ -265,15 +265,16 @@ const DaySlideComponent: React.FC<DaySlideProps> = ({
 
   React.useEffect(() => {
     if (!reorderEnabled) return;
+    const activeTouches = activeTouchesRef.current;
 
     const rememberTouches = (event: TouchEvent) => {
       for (const touch of Array.from(event.changedTouches)) {
-        activeTouchesRef.current.set(touch.identifier, { x: touch.clientX, y: touch.clientY });
+        activeTouches.set(touch.identifier, { x: touch.clientX, y: touch.clientY });
       }
     };
     const forgetTouches = (event: TouchEvent) => {
       for (const touch of Array.from(event.changedTouches)) {
-        activeTouchesRef.current.delete(touch.identifier);
+        activeTouches.delete(touch.identifier);
       }
     };
     const move = (event: PointerEvent) => {
@@ -342,7 +343,7 @@ const DaySlideComponent: React.FC<DaySlideProps> = ({
     window.addEventListener('pointerup', up, { capture: true, passive: false });
     window.addEventListener('pointercancel', cancel, true);
     return () => {
-      activeTouchesRef.current.clear();
+      activeTouches.clear();
       window.removeEventListener('touchstart', rememberTouches, true);
       window.removeEventListener('touchmove', touchMove, true);
       window.removeEventListener('touchend', touchEnd, true);
