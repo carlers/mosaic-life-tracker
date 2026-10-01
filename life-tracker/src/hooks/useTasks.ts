@@ -18,6 +18,7 @@ export function useTasks(enabled = true) {
     sort: [{ date: 'asc' }, { createdAt: 'desc' }],
     logPrefix: '[useTasks]',
     enabled,
+    startupMark: 'home:tasks-ready',
   });
 
   const addTask = useCallback(

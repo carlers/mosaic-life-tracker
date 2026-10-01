@@ -117,12 +117,12 @@ describe('PersonPane view switcher', () => {
   });
 
   // Regression: §2 (friends expose the shared Todo List).
-  it('renders Todo List for a friend in friend mode', () => {
+  it('renders Todo List for a friend in friend mode', async () => {
     render(<PersonPane person={friend} isActive />);
 
-    fireEvent.click(screen.getByLabelText('Todo list'));
+    fireEvent.click(await screen.findByLabelText('Todo list'));
 
-    expect(screen.getByTestId('todo-list-view')).toHaveAttribute('data-variant', 'friend');
+    expect(await screen.findByTestId('todo-list-view')).toHaveAttribute('data-variant', 'friend');
     expect(screen.queryByTestId('diary-body')).toBeNull();
   });
 

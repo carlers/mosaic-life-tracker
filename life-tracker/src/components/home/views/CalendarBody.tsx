@@ -1,7 +1,4 @@
 import React, { useCallback, useState } from 'react';
-import { DayViewSheet } from './DayViewSheet';
-import { FriendDayViewSheet } from '../../friend/FriendDayViewSheet';
-import { ReplyComposerSheet } from '../../messages/ReplyComposerSheet';
 import { CalendarCarousel } from './CalendarCarousel';
 import { useTasksByDate } from '../../../hooks/useTasksByDate';
 import { useFriendTaskReply } from '../../../hooks/useFriendTaskReply';
@@ -9,6 +6,22 @@ import { useHorizontalArrowNavigation } from '../../../hooks/useHorizontalArrowN
 import type { TaskDocument, CategoryDocument } from '../../../db/schema';
 import type { CalendarViewMode } from './useCalendarState';
 import type { WeekStartsOn } from '../../../lib/preferences';
+
+const LazyDayViewSheet = React.lazy(() =>
+  import('./DayViewSheet').then(({ DayViewSheet }) => ({
+    default: DayViewSheet,
+  }))
+);
+const LazyFriendDayViewSheet = React.lazy(() =>
+  import('../../friend/FriendDayViewSheet').then(({ FriendDayViewSheet }) => ({
+    default: FriendDayViewSheet,
+  }))
+);
+const LazyReplyComposerSheet = React.lazy(() =>
+  import('../../messages/ReplyComposerSheet').then(({ ReplyComposerSheet }) => ({
+    default: ReplyComposerSheet,
+  }))
+);
 
 interface CalendarBodyProps {
   viewMode: CalendarViewMode;
@@ -52,6 +65,7 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
   weekStartsOn = 0,
 }) => {
   const [daySheetOpen, setDaySheetOpen] = useState(false);
+  const [daySheetMounted, setDaySheetMounted] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
 
   const tasksByDate = useTasksByDate(tasks);
@@ -66,6 +80,7 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
 
   const handleDayClick = useCallback((date: Date) => {
     setSelectedDate(date);
+    setDaySheetMounted(true);
     setDaySheetOpen(true);
   }, []);
 
@@ -107,27 +122,33 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
     return (
       <>
         {calendarContent(carousel)}
-        <FriendDayViewSheet
-          isOpen={daySheetOpen}
-          onClose={handleCloseDaySheet}
-          date={selectedDate}
-          onDateChange={handleDateChange}
-          tasks={tasks}
-          categories={friendCategories ?? []}
-          friendName={friendName}
-          currentUserId={currentUserId}
-          onReplyToTask={handleReplyToTask}
-          onReactToTask={onReactToTask}
-        />
-        <ReplyComposerSheet
-          isOpen={!!replyTask}
-          onClose={closeReply}
-          task={replyTask}
-          categoryColor={replyColor}
-          friendId={friendUserId}
-          friendName={friendName}
-          onSent={handleReplySent}
-        />
+        {daySheetMounted && (
+          <React.Suspense fallback={null}>
+            <LazyFriendDayViewSheet
+              isOpen={daySheetOpen}
+              onClose={handleCloseDaySheet}
+              date={selectedDate}
+              onDateChange={handleDateChange}
+              tasks={tasks}
+              categories={friendCategories ?? []}
+              friendName={friendName}
+              currentUserId={currentUserId}
+              onReplyToTask={handleReplyToTask}
+              onReactToTask={onReactToTask}
+            />
+          </React.Suspense>
+        )}
+        <React.Suspense fallback={null}>
+          <LazyReplyComposerSheet
+            isOpen={!!replyTask}
+            onClose={closeReply}
+            task={replyTask}
+            categoryColor={replyColor}
+            friendId={friendUserId}
+            friendName={friendName}
+            onSent={handleReplySent}
+          />
+        </React.Suspense>
         {feedback && (
           <div role="status" aria-live="polite" className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[70] bg-[#2A2A2A] text-white text-sm px-4 py-2 rounded-lg shadow-lg">
             {feedback}
@@ -140,14 +161,18 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
   return (
     <>
       {calendarContent(carousel)}
-      <DayViewSheet
-        isOpen={daySheetOpen}
-        onClose={handleCloseDaySheet}
-        selectedDate={selectedDate}
-        onDateChange={handleDateChange}
-        tasks={tasks}
-        categories={categories ?? []}
-      />
+      {daySheetMounted && (
+        <React.Suspense fallback={null}>
+          <LazyDayViewSheet
+            isOpen={daySheetOpen}
+            onClose={handleCloseDaySheet}
+            selectedDate={selectedDate}
+            onDateChange={handleDateChange}
+            tasks={tasks}
+            categories={categories ?? []}
+          />
+        </React.Suspense>
+      )}
     </>
   );
 };

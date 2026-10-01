@@ -1,26 +1,20 @@
 # Session checkpoint
 
-Updated: 2026-10-01
-Current task: Promote the accepted task-reorder/day-swipe release from `dev` to production `main`.
-Status: `dev` promotion is complete and fully green. Production preflight required Mosaic to advance from `0.1.0` to `0.2.0`. The first full release gate correctly exposed two stale tests that still hard-coded `0.1.0`; both are fixed, PROJECT_REFERENCE now records `0.2.0`, and exact-SHA full verification is rerunning on `chatgpt/release-task-reorder-0-2-0` before it enters `dev`.
-Next action: Pass full canonical verification for the 0.2.0 release bump, squash-promote it into `dev`, verify the new dev SHA/deployment, then merge `dev` into `main` and verify production CI plus Vercel Production READY.
+Updated: 2026-10-02
+Current task: Reduce authenticated Home cold-start latency online and offline without weakening local-data, auth, sync, or PWA correctness.
+Status: The first optimization pass is implemented on `chatgpt/initial-mount-optimization`. Startup diagnostics now separate RxDB import/create/collection time from Home/provider readiness. Closed heavy Home surfaces no longer mount at startup, Todo/Day View and friend-person code are outside the initial owner-calendar graph, and concurrent settings consumers share one legacy-row cleanup. The database readiness boundary is intentionally unchanged until hosted timings show that it is still the dominant bottleneck.
+Next action: Complete exact-SHA full canonical verification, squash the task branch into `perf/initial-mount-optimization`, verify the READY Preview, run the cached-Home startup probe there, and use those measurements to decide whether a staged RxDB bootstrap is justified.
 Blockers: None.
 
-## Accepted release content
-- Fresh-open and legacy multi-task rows render correctly.
-- Same-category, populated cross-category, and empty-category reordering work across consecutive drags.
-- Category-boundary drag projection is visually stable.
-- Quick mouse drags over task title/memo navigate days; stationary 500 ms title holds reorder.
-- Neighboring Day View slides keep identical vertical geometry while becoming active.
-- Reorder implementation cleanup is complete and manually accepted.
+## Implemented
+- Added one-shot startup marks for database module import, RxDB creation, collection setup, AppDataShell mount, task/category/settings/friend first emissions, owner-data readiness, carousel readiness, and full local-data readiness.
+- Added a diagnostic Playwright startup probe for cached offline Home cold-document and warm-reload timings; it reports measurements without creating a release budget.
+- Deferred initial mounting of closed Day View, friend-carousel settings, and category-manager surfaces while preserving normal mounted close behavior after first use.
+- Dynamically split Todo List/Day View and friend-person code away from the first owner-calendar render.
+- Deduplicated oversized legacy settings-row cleanup across concurrent `useSettings()` subscriptions while preserving retry-on-failure behavior.
+- Kept the existing all-collections RxDB readiness gate unchanged pending measurement.
 
-## Dev promotion
-- `feature/task-reorder-clean` was merged into `dev` as `9025cd37683af9cbb545c36881203a1ecb09efb7`.
-- The exact dev SHA passed the full Quality Gate, including both DOM shards, both Chromium shards, dependency audit, and canonical acceptance.
-- The matching dev Vercel deployment is READY.
-- `dev` is ahead of `main` with no reverse divergence.
-
-## Release version
-- This release adds a meaningful backwards-compatible product capability.
-- Per `docs/VERSIONING.md`, the pre-1.0 release version advances from `0.1.0` to `0.2.0`.
-- `package.json`, `package-lock.json`, and `src/lib/appVersion.ts` are kept in sync at `0.2.0`.
+## Verification
+- Focused component coverage was updated for deferred/lazy Home surfaces.
+- Full canonical verification is requested by this checkpoint commit.
+- Hosted Preview timing and installed-device perception remain pending until the stable `perf/*` branch deploys.

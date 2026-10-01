@@ -9,12 +9,17 @@ import { HomeStatusIndicators } from '../components/home/HomeStatusIndicators';
 import { PersonCarousel } from '../components/home/PersonCarousel';
 import { PersonPane } from '../components/home/PersonPane';
 import { FriendCarouselSettingsSheet } from '../components/home/FriendCarouselSettingsSheet';
-import { DayViewSheet } from '../components/home/views/DayViewSheet';
 import { useFriendCarousel } from '../hooks/useFriendCarousel';
 import { useTasks } from '../hooks/useTasks';
 import { useCategories } from '../hooks/useCategories';
 import type { TaskDocument } from '../db/schema';
 import { markStartup } from '../lib/startupMetrics';
+
+const LazyDayViewSheet = React.lazy(() =>
+  import('../components/home/views/DayViewSheet').then(({ DayViewSheet }) => ({
+    default: DayViewSheet,
+  }))
+);
 
 const RENDER_WINDOW = 1;
 const INITIAL_RENDER_WINDOW = 0;
@@ -39,6 +44,7 @@ export const HomePage: React.FC = () => {
   const [activePersonId, setActivePersonId] = useState<string>('me');
   const [renderWindow, setRenderWindow] = useState(INITIAL_RENDER_WINDOW);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [settingsSheetMounted, setSettingsSheetMounted] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [searchDaySheetOpen, setSearchDaySheetOpen] = useState(false);
   const [searchSelectedDate, setSearchSelectedDate] = useState<Date | null>(
@@ -66,6 +72,16 @@ export const HomePage: React.FC = () => {
   useEffect(() => {
     markStartup('home:mounted');
   }, []);
+
+  useEffect(() => {
+    if (tasksLoading || categoriesLoading) return;
+    markStartup('home:owner-data-ready');
+  }, [categoriesLoading, tasksLoading]);
+
+  useEffect(() => {
+    if (carouselLoading) return;
+    markStartup('home:carousel-ready');
+  }, [carouselLoading]);
 
   useEffect(() => {
     if (tasksLoading || categoriesLoading || carouselLoading) return;
@@ -131,6 +147,7 @@ export const HomePage: React.FC = () => {
   }, []);
 
   const handleOpenSettings = useCallback(() => {
+    setSettingsSheetMounted(true);
     setIsSettingsOpen(true);
   }, []);
 
@@ -262,28 +279,32 @@ export const HomePage: React.FC = () => {
         </div>
       </div>
 
-      <FriendCarouselSettingsSheet
-        isOpen={isSettingsOpen}
-        onClose={handleCloseSettings}
-        friends={rawFriends}
-        order={order}
-        hidden={hidden}
-        onReorder={reorder}
-        onToggleVisibility={toggleVisibility}
-        onReset={resetOrder}
-      />
+      {settingsSheetMounted && (
+        <FriendCarouselSettingsSheet
+          isOpen={isSettingsOpen}
+          onClose={handleCloseSettings}
+          friends={rawFriends}
+          order={order}
+          hidden={hidden}
+          onReorder={reorder}
+          onToggleVisibility={toggleVisibility}
+          onReset={resetOrder}
+        />
+      )}
 
       {searchSelectedDate && (
-        <DayViewSheet
-          key={searchSheetKey}
-          isOpen={searchDaySheetOpen}
-          onClose={handleCloseSearchDaySheet}
-          selectedDate={searchSelectedDate}
-          onDateChange={handleSearchDateChange}
-          tasks={ownerTasks}
-          categories={ownerCategories}
-          focusTaskId={searchFocusTaskId}
-        />
+        <React.Suspense fallback={null}>
+          <LazyDayViewSheet
+            key={searchSheetKey}
+            isOpen={searchDaySheetOpen}
+            onClose={handleCloseSearchDaySheet}
+            selectedDate={searchSelectedDate}
+            onDateChange={handleSearchDateChange}
+            tasks={ownerTasks}
+            categories={ownerCategories}
+            focusTaskId={searchFocusTaskId}
+          />
+        </React.Suspense>
       )}
     </>
   );

@@ -50,9 +50,9 @@ vi.mock('../../src/hooks/useHorizontalArrowNavigation', () => ({
 }));
 
 describe('CalendarBody behavior', () => {
-  it('opens the DayView sheet immediately from a day tap', () => {
+  it('opens the DayView sheet immediately from a day tap', async () => {
     daySheetState.mockClear();
-    const { getByTestId } = render(
+    const { getByTestId, findByTestId } = render(
       <CalendarBody
         viewMode="month"
         slides={[new Date('2026-01-01')]}
@@ -71,7 +71,7 @@ describe('CalendarBody behavior', () => {
 
     fireEvent.click(getByTestId('calendar-day'));
 
-    expect(getByTestId('day-view-sheet')).toHaveAttribute('data-open', 'true');
+    expect(await findByTestId('day-view-sheet')).toHaveAttribute('data-open', 'true');
     expect(daySheetState.mock.calls.at(-1)?.[0]).toMatchObject({
       isOpen: true,
       selectedDate: new Date('2026-01-05'),
