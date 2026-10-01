@@ -359,6 +359,26 @@ test('home task search survives result-sheet Back with state preserved', async (
   await expect(result).toBeVisible();
 });
 
+// Regression: a fresh reorder runtime must not turn untouched tasks into drag shells.
+test('fresh task reorder runtime keeps every real task row readable before any drag', async ({ page }) => {
+  await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html`);
+
+  const region = page.getByTestId('todo-day-content');
+  const rows = region.locator('[data-task-id]');
+  await expect(rows).toHaveCount(12);
+
+  await expect
+    .poll(() =>
+      rows.evaluateAll((items) =>
+        items.every((item) => {
+          const title = item.textContent?.trim() ?? '';
+          return title.length > 0 && item.getAttribute('data-task-dragging') !== 'true';
+        })
+      )
+    )
+    .toBe(true);
+});
+
 // Regression: owner task reorder is a simple delayed sortable interaction.
 test('task long-press stays under the finger while siblings reorder, then persists on release', async ({ page }) => {
   await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html`);
