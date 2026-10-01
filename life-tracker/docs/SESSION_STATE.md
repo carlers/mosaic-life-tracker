@@ -1,19 +1,20 @@
 # Session checkpoint
 
-Updated: 2026-09-30
-Current task: Day View drag coordinator.
-Status: Coordinator implementation and focused component verification complete; delivery pending commit and PR creation.
-Next action: Run final checks, commit the scoped changes, and create the pull request.
-Blockers: None.
+Updated: 2026-10-01
+Current task: Repair Day View task reordering.
+Status: Implementation and available local verification complete.
+Next action: Run the touch-browser contract and real-device acceptance in an environment with Chromium, then publish canonical Preview.
+Blockers: Playwright Chromium is absent and its CDN download is forbidden (HTTP 403), so the new touch-browser contract and screenshot could not run locally.
 
 ## Completed substeps
-- Moved the active pointer lifecycle, projection, overlay, cancellation, and auto-scroll ownership into `DaySlide`.
-- Kept source rows mounted, added projected insertion placeholders, and froze one final persistence snapshot.
-- Disabled/restored Day View Swiper movement and guarded BottomSheet dismissal while reordering.
-- Limited reorder normalization to the affected date and source/destination categories.
-- Added focused drag coordinator tests and expanded real-device horizontal movement acceptance.
+- Preserved native pre-activation scrolling while continuing an activated touch drag through non-passive touch events.
+- Rendered the active projection instead of an inert insertion marker so task rows shift live within and across categories.
+- Restored layout animation during active sheet reordering and retained one release-time persistence commit.
+- Added DOM coverage for live cross-category order, touch tracking, release, and cancellation.
+- Added a mobile Playwright contract for long-press lift, live movement, and release.
 
 ## Verification
-- TypeScript build check passed.
-- Focused TaskItem, DaySlide, and DayViewSheet DOM tests passed.
-- ESLint and final combined checks remain to run.
+- Focused DaySlide and TaskItem DOM tests pass.
+- ESLint and production build pass.
+- Full Vitest run passed 839/840 initially; the sole unrelated AuthProviderPostHog timeout passed immediately when rerun in isolation.
+- Playwright execution remains blocked by the unavailable browser binary and forbidden browser download.

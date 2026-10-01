@@ -29,8 +29,9 @@ interface TaskItemProps {
   isSelected?: boolean;
   onToggleSelection?: () => void;
   reorderEnabled?: boolean;
-  onReorderActivate?: (task: TaskDocument, pointerId: number, clientX: number, clientY: number) => void;
+  onReorderActivate?: (task: TaskDocument, pointerId: number, pointerType: string, clientX: number, clientY: number) => void;
   isReorderSource?: boolean;
+  reorderLayoutDependency?: string;
 }
 
 interface TaskImageProps {
@@ -136,6 +137,7 @@ export const TaskItem: React.FC<TaskItemProps> = ({
   reorderEnabled = false,
   onReorderActivate,
   isReorderSource = false,
+  reorderLayoutDependency = '',
 }) => {
   const reactions = React.useMemo(
     () => parseReactions(task.reactions),
@@ -143,7 +145,7 @@ export const TaskItem: React.FC<TaskItemProps> = ({
   );
   const inputRef = useRef<HTMLInputElement>(null);
   const [syncedTaskId, setSyncedTaskId] = useState<string | null>(null);
-  const reorderPointer = useRef<{ pointerId: number; x: number; y: number } | null>(null);
+  const reorderPointer = useRef<{ pointerId: number; pointerType: string; x: number; y: number } | null>(null);
 
   if (isEditing && task.id !== syncedTaskId) {
     setSyncedTaskId(task.id);
@@ -165,7 +167,7 @@ export const TaskItem: React.FC<TaskItemProps> = ({
     longPressThreshold: 450,
     onLongPress: reorderEnabled ? () => {
       const pointer = reorderPointer.current;
-      if (pointer) onReorderActivate?.(task, pointer.pointerId, pointer.x, pointer.y);
+      if (pointer) onReorderActivate?.(task, pointer.pointerId, pointer.pointerType, pointer.x, pointer.y);
     } : undefined,
   });
 
@@ -183,7 +185,8 @@ export const TaskItem: React.FC<TaskItemProps> = ({
   return (
     <motion.div
       layout={!disableLayoutAnimation}
-      layoutDependency={`${task.updatedAt}:${isEditing}`}
+      layoutDependency={`${task.updatedAt}:${isEditing}:${reorderLayoutDependency}`}
+      data-testid="task-row"
       data-task-id={task.id}
       aria-grabbed={reorderEnabled ? isReorderSource : undefined}
       role={selectionMode ? 'checkbox' : undefined}
@@ -246,7 +249,12 @@ export const TaskItem: React.FC<TaskItemProps> = ({
           <button
             type="button"
             onPointerDown={(event) => {
-              reorderPointer.current = { pointerId: event.pointerId, x: event.clientX, y: event.clientY };
+              reorderPointer.current = {
+                pointerId: event.pointerId,
+                pointerType: event.pointerType,
+                x: event.clientX,
+                y: event.clientY,
+              };
               titleGestures.onPointerDown(event);
             }}
             onPointerMove={titleGestures.onPointerMove}

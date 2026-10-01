@@ -68,6 +68,33 @@ async function dragVertical(page, locator, deltaY) {
   });
 }
 
+async function startLongPressTaskDrag(page, source, destination) {
+  const sourceBox = await source.boundingBox();
+  const destinationBox = await destination.boundingBox();
+  if (!sourceBox || !destinationBox) throw new Error('Missing task drag bounds');
+  const session = await page.context().newCDPSession(page);
+  const startX = sourceBox.x + sourceBox.width * 0.6;
+  const startY = sourceBox.y + sourceBox.height * 0.5;
+  const endX = destinationBox.x + destinationBox.width * 0.6;
+  const endY = destinationBox.y + destinationBox.height * 0.75;
+
+  await session.send('Input.dispatchTouchEvent', {
+    type: 'touchStart',
+    touchPoints: [{ x: startX, y: startY }],
+  });
+  await page.waitForTimeout(500);
+  for (let step = 1; step <= 6; step += 1) {
+    await session.send('Input.dispatchTouchEvent', {
+      type: 'touchMove',
+      touchPoints: [{
+        x: startX + ((endX - startX) * step) / 6,
+        y: startY + ((endY - startY) * step) / 6,
+      }],
+    });
+  }
+  return session;
+}
+
 async function waitForStableVerticalPosition(locator) {
   let previousY = null;
   let stableSamples = 0;
@@ -337,6 +364,27 @@ test('owner task memo is visible and double/triple tap shortcuts reach edit surf
   await page.reload();
   await page.getByRole('button', { name: 'Task 1.1' }).click({ clickCount: 3 });
   await expect(page.getByTestId('todo-gesture')).toHaveText('memo-edit');
+});
+
+// Regression: §25 (a held task owns touch movement and reorders live).
+test('owner task long press follows touch and shifts rows before release', async ({ page }) => {
+  await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html`);
+
+  const source = page.locator('[data-task-id="task_0_0"]');
+  const destination = page.locator('[data-task-id="task_0_1"]');
+  await source.scrollIntoViewIfNeeded();
+  const session = await startLongPressTaskDrag(page, source, destination);
+
+  await expect(page.getByTestId('task-drag-overlay')).toHaveText('Task 1.1');
+  await expect
+    .poll(() => page.locator('[data-category-id="cat_0"] [data-task-id]').evaluateAll(
+      (rows) => rows.map((row) => row.getAttribute('data-task-id'))
+    ))
+    .toEqual(['task_0_1', 'task_0_0', 'task_0_2']);
+
+  await session.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+  await expect(page.getByTestId('todo-gesture')).toHaveText('reordered');
+  await expect(page.getByTestId('task-drag-overlay')).toHaveCount(0);
 });
 
 // Regression: §2 (Day View reopens cleanly after sheet teardown).
