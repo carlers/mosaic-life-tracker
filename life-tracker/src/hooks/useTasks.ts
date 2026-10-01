@@ -34,17 +34,21 @@ export function useTasks(enabled = true) {
       }
       const db = getDatabase();
       const now = new Date().toISOString();
-      const siblingDocs = await db.tasks.find().exec();
+      const siblingDocs = await db.tasks
+        .find({
+          selector: {
+            userId: uid,
+            date: task.date,
+            categoryId: task.categoryId,
+            isDeleted: false,
+          },
+        })
+        .exec();
       const order =
-        siblingDocs
-          .filter(
-            (candidate) =>
-              !candidate.isDeleted &&
-              candidate.userId === uid &&
-              candidate.date === task.date &&
-              candidate.categoryId === task.categoryId
-          )
-          .reduce((maximum, candidate) => Math.max(maximum, candidate.order), -1) + 1;
+        siblingDocs.reduce(
+          (maximum, candidate) => Math.max(maximum, candidate.order),
+          -1
+        ) + 1;
       const newTask: TaskDocument = {
         ...task,
         order,
@@ -126,15 +130,23 @@ export function useTasks(enabled = true) {
           throw new Error('[useTasks] Category changed while reordering');
         }
 
-        const allTasks = await db.tasks.find().exec();
+        const affectedDayTasks = await db.tasks
+          .find({
+            selector: {
+              userId: uid,
+              date,
+              isDeleted: false,
+            },
+          })
+          .exec();
         const assignments = buildTaskOrderAssignments(
-          allTasks,
+          affectedDayTasks,
           uid,
           date,
           snapshot
         );
         const docsById = new Map(
-          allTasks.map((task) => [task.id, task])
+          affectedDayTasks.map((task) => [task.id, task])
         );
         const updatedAt = new Date().toISOString();
 
