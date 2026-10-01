@@ -302,6 +302,7 @@ const TaskReorderRuntime: React.FC<
   const [activeDrag, setActiveDrag] = React.useState<ActiveDrag | null>(null);
   const dragSnapshotRef = React.useRef<TaskPlacement | null>(null);
   const dragProjectionRef = React.useRef<TaskPlacement | null>(null);
+  const dragTargetValidRef = React.useRef(false);
   const commitIdRef = React.useRef(0);
 
   const committedIsCompatible =
@@ -368,6 +369,7 @@ const TaskReorderRuntime: React.FC<
 
       dragSnapshotRef.current = snapshot;
       dragProjectionRef.current = snapshot;
+      dragTargetValidRef.current = false;
       setActiveDrag(next);
       onReorderActiveChange?.(true);
     },
@@ -389,11 +391,25 @@ const TaskReorderRuntime: React.FC<
       if (!source) return;
 
       const taskId = String(source.id);
-      const next = target
-        ? projectTaskPlacement(snapshot, taskId, String(target.id)) ?? snapshot
-        : snapshot;
+      if (!target) {
+        dragTargetValidRef.current = false;
+        return;
+      }
 
-      if (!isTaskPlacementCompatible(next, snapshot, categoryIds)) return;
+      const next = projectTaskPlacement(
+        snapshot,
+        taskId,
+        String(target.id)
+      );
+      if (
+        !next ||
+        !isTaskPlacementCompatible(next, snapshot, categoryIds)
+      ) {
+        dragTargetValidRef.current = false;
+        return;
+      }
+
+      dragTargetValidRef.current = true;
 
       const nextSignature = taskPlacementSignature(next, categoryIds);
       const previous = dragProjectionRef.current;
@@ -424,12 +440,15 @@ const TaskReorderRuntime: React.FC<
 
       const snapshot = dragSnapshotRef.current;
       const finalPlacement = dragProjectionRef.current;
+      const hasValidTarget = dragTargetValidRef.current;
       dragSnapshotRef.current = null;
       dragProjectionRef.current = null;
+      dragTargetValidRef.current = false;
       setActiveDrag(null);
 
       if (
         event.canceled ||
+        !hasValidTarget ||
         !snapshot ||
         !finalPlacement ||
         !onReorderTasks
