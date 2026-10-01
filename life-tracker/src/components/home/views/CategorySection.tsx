@@ -1,169 +1,20 @@
-import React, { useId, useRef, useState } from 'react';
-import { CollisionPriority } from '@dnd-kit/abstract';
-import { useDroppable } from '@dnd-kit/react';
+import React, { useId, useState } from 'react';
 import { ChevronDown, Plus } from 'lucide-react';
 import { DraggableTaskItem } from './DraggableTaskItem';
 import { TaskItem } from './TaskItem';
 import {
-  categoryStartDropId,
-  taskGapDropId,
-  taskInsertDropId,
-} from './taskReorder';
+  CategoryHeaderDropSurface,
+  CategoryHeaderFrame,
+  TaskGapDropSurface,
+  TaskRowDropSurface,
+} from './TaskReorderSurfaces';
 import { visibilityIcon } from '../../../lib/visibility';
 import { getCategoryLabelColor } from '../../../constants/colors';
 import type { TaskDocument } from '../../../db/schema';
 
 type Visibility = 'private' | 'followers' | 'public';
 
-interface CategoryHeaderFrameProps {
-  children: React.ReactNode;
-  surfaceRef?: React.Ref<HTMLDivElement>;
-  dropPosition?: 'start';
-}
-
-const CategoryHeaderFrame: React.FC<CategoryHeaderFrameProps> = ({
-  children,
-  surfaceRef,
-  dropPosition,
-}) => (
-  <div
-    ref={surfaceRef}
-    className="pb-2"
-    data-task-category-drop-position={dropPosition}
-  >
-    <div className="flex items-center gap-2">
-      {children}
-    </div>
-  </div>
-);
-
-interface CategoryHeaderDropSurfaceProps {
-  categoryId: string;
-  children: React.ReactNode;
-}
-
-const CategoryHeaderDropSurface: React.FC<CategoryHeaderDropSurfaceProps> = ({
-  categoryId,
-  children,
-}) => {
-  const { ref } = useDroppable({
-    id: categoryStartDropId(categoryId),
-    type: 'task-category',
-    accept: 'task',
-    collisionPriority: CollisionPriority.Low,
-  });
-
-  return (
-    <CategoryHeaderFrame surfaceRef={ref} dropPosition="start">
-      {children}
-    </CategoryHeaderFrame>
-  );
-};
-
-interface TaskGapDropSurfaceProps {
-  categoryId: string;
-  index: number;
-  height: number;
-}
-
-const TaskGapDropSurface: React.FC<TaskGapDropSurfaceProps> = ({
-  categoryId,
-  index,
-  height,
-}) => {
-  const { ref } = useDroppable({
-    id: taskGapDropId(categoryId, index),
-    type: 'task-insert',
-    accept: 'task',
-    collisionPriority: CollisionPriority.Normal,
-  });
-
-  return (
-    <div
-      ref={ref}
-      data-task-drop-gap="true"
-      data-task-drop-index={index}
-      aria-hidden="true"
-      style={{ height: Math.max(1, height) }}
-    />
-  );
-};
-
-interface TaskRowDropSurfaceProps {
-  categoryId: string;
-  taskId: string;
-  disabled?: boolean;
-  isActiveSource?: boolean;
-  children: React.ReactNode;
-}
-
-const TaskRowDropSurface: React.FC<TaskRowDropSurfaceProps> = ({
-  categoryId,
-  taskId,
-  disabled = false,
-  isActiveSource = false,
-  children,
-}) => {
-  const { ref: beforeRef } = useDroppable({
-    id: taskInsertDropId(categoryId, taskId, 'before'),
-    type: 'task-insert',
-    accept: 'task',
-    collisionPriority: CollisionPriority.High,
-    disabled,
-  });
-  const { ref: afterRef } = useDroppable({
-    id: taskInsertDropId(categoryId, taskId, 'after'),
-    type: 'task-insert',
-    accept: 'task',
-    collisionPriority: CollisionPriority.High,
-    disabled,
-  });
-
-  return (
-    <div
-      className="relative"
-      data-task-slot-id={taskId}
-      data-task-source-slot={isActiveSource ? 'true' : undefined}
-      aria-hidden={isActiveSource ? true : undefined}
-      style={
-        isActiveSource
-          ? {
-              height: 0,
-              opacity: 0,
-              overflow: 'hidden',
-              pointerEvents: 'none',
-            }
-          : undefined
-      }
-    >
-      <div
-        ref={beforeRef}
-        data-task-insert-position="before"
-        aria-hidden="true"
-        style={{
-          position: 'absolute',
-          insetInline: 0,
-          top: 0,
-          height: '50%',
-          pointerEvents: 'none',
-        }}
-      />
-      <div
-        ref={afterRef}
-        data-task-insert-position="after"
-        aria-hidden="true"
-        style={{
-          position: 'absolute',
-          insetInline: 0,
-          bottom: 0,
-          height: '50%',
-          pointerEvents: 'none',
-        }}
-      />
-      {children}
-    </div>
-  );
-};
+const EMPTY_SELECTED_TASK_IDS: ReadonlySet<string> = new Set();
 
 interface CategorySectionProps {
   categoryId: string;
@@ -217,7 +68,7 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
   continueAddingAfterSubmit = false,
   showCollapseButton = false,
   selectionMode = false,
-  selectedTaskIds = new Set<string>(),
+  selectedTaskIds = EMPTY_SELECTED_TASK_IDS,
   onToggleTaskSelection,
   reorderEnabled = false,
   activeDragTaskId = null,
@@ -227,14 +78,10 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
   const [isAdding, setIsAdding] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [newTitle, setNewTitle] = useState('');
-  const inputRef = useRef<HTMLInputElement>(null);
   const inputId = useId();
 
   const setInputRef = (node: HTMLInputElement | null) => {
-    inputRef.current = node;
-    if (node) {
-      node.focus();
-    }
+    node?.focus();
   };
 
   const closeInput = () => {
@@ -311,16 +158,12 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
   const renderDraggableRows = () => {
     const rows: React.ReactNode[] = [];
     let visibleIndex = 0;
+    const visibleTaskCount =
+      tasks.length - (activeDragTaskId ? 1 : 0);
     const clampedGapIndex =
       dragGapIndex == null
         ? null
-        : Math.max(
-            0,
-            Math.min(
-              dragGapIndex,
-              tasks.filter((task) => task.id !== activeDragTaskId).length
-            )
-          );
+        : Math.max(0, Math.min(dragGapIndex, visibleTaskCount));
 
     const pushGap = () => {
       if (clampedGapIndex == null) return;
