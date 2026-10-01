@@ -29,9 +29,8 @@ interface TaskItemProps {
   isSelected?: boolean;
   onToggleSelection?: () => void;
   reorderEnabled?: boolean;
-  onReorderStart?: (task: TaskDocument) => void;
-  onReorderMove?: (task: TaskDocument, clientX: number, clientY: number) => void;
-  onReorderEnd?: (task: TaskDocument, cancelled: boolean) => void;
+  onReorderActivate?: (task: TaskDocument, pointerId: number, clientX: number, clientY: number) => void;
+  isReorderSource?: boolean;
 }
 
 interface TaskImageProps {
@@ -135,9 +134,8 @@ export const TaskItem: React.FC<TaskItemProps> = ({
   isSelected = false,
   onToggleSelection,
   reorderEnabled = false,
-  onReorderStart,
-  onReorderMove,
-  onReorderEnd,
+  onReorderActivate,
+  isReorderSource = false,
 }) => {
   const reactions = React.useMemo(
     () => parseReactions(task.reactions),
@@ -145,8 +143,7 @@ export const TaskItem: React.FC<TaskItemProps> = ({
   );
   const inputRef = useRef<HTMLInputElement>(null);
   const [syncedTaskId, setSyncedTaskId] = useState<string | null>(null);
-  const draggingRef = useRef(false);
-  const [isDragging, setIsDragging] = useState(false);
+  const reorderPointer = useRef<{ pointerId: number; x: number; y: number } | null>(null);
 
   if (isEditing && task.id !== syncedTaskId) {
     setSyncedTaskId(task.id);
@@ -167,9 +164,8 @@ export const TaskItem: React.FC<TaskItemProps> = ({
     deferTripleTap: true,
     longPressThreshold: 450,
     onLongPress: reorderEnabled ? () => {
-      draggingRef.current = true;
-      setIsDragging(true);
-      onReorderStart?.(task);
+      const pointer = reorderPointer.current;
+      if (pointer) onReorderActivate?.(task, pointer.pointerId, pointer.x, pointer.y);
     } : undefined,
   });
 
@@ -189,7 +185,7 @@ export const TaskItem: React.FC<TaskItemProps> = ({
       layout={!disableLayoutAnimation}
       layoutDependency={`${task.updatedAt}:${isEditing}`}
       data-task-id={task.id}
-      aria-grabbed={reorderEnabled ? isDragging : undefined}
+      aria-grabbed={reorderEnabled ? isReorderSource : undefined}
       role={selectionMode ? 'checkbox' : undefined}
       aria-checked={selectionMode ? isSelected : undefined}
       aria-label={selectionMode ? `${task.title}, ${isSelected ? 'selected' : 'not selected'}` : undefined}
@@ -202,7 +198,7 @@ export const TaskItem: React.FC<TaskItemProps> = ({
         }
       } : undefined}
       className="flex scroll-mt-16 items-start gap-3 rounded-lg px-2 py-2 transition-[background-color,box-shadow] duration-300 focus:outline-none data-[search-focused=true]:ring-1 data-[search-focused=true]:ring-emerald-400/60"
-      style={isDragging ? { backgroundColor: `${categoryColor}33`, boxShadow: `0 8px 24px #0008`, zIndex: 20 } : isSelected ? { backgroundColor: `${categoryColor}33`, boxShadow: `inset 0 0 0 1px ${categoryColor}` } : undefined}
+      style={isReorderSource ? { opacity: 0.25 } : isSelected ? { backgroundColor: `${categoryColor}33`, boxShadow: `inset 0 0 0 1px ${categoryColor}` } : undefined}
     >
       <button
         type="button"
@@ -249,30 +245,13 @@ export const TaskItem: React.FC<TaskItemProps> = ({
         ) : (
           <button
             type="button"
-            onPointerDown={titleGestures.onPointerDown}
-            onPointerMove={(event) => {
-              titleGestures.onPointerMove(event);
-              if (draggingRef.current) {
-                event.preventDefault();
-                onReorderMove?.(task, event.clientX, event.clientY);
-              }
+            onPointerDown={(event) => {
+              reorderPointer.current = { pointerId: event.pointerId, x: event.clientX, y: event.clientY };
+              titleGestures.onPointerDown(event);
             }}
-            onPointerUp={(event) => {
-              titleGestures.onPointerUp(event);
-              if (draggingRef.current) {
-                draggingRef.current = false;
-                setIsDragging(false);
-                onReorderEnd?.(task, false);
-              }
-            }}
-            onPointerCancel={(event) => {
-              titleGestures.onPointerCancel(event);
-              if (draggingRef.current) {
-                draggingRef.current = false;
-                setIsDragging(false);
-                onReorderEnd?.(task, true);
-              }
-            }}
+            onPointerMove={titleGestures.onPointerMove}
+            onPointerUp={titleGestures.onPointerUp}
+            onPointerCancel={titleGestures.onPointerCancel}
             onContextMenu={titleGestures.onContextMenu}
             onClick={(event) => {
               event.stopPropagation();

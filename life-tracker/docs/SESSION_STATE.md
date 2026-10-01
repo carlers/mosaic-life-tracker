@@ -1,19 +1,19 @@
 # Session checkpoint
 
 Updated: 2026-09-30
-Current task: Persistent task ordering and Day View hold-to-reorder.
-Status: Implementation and focused local verification complete; remote delivery is blocked by repository authentication.
-Next action: Push the committed `chatgpt/task-ordering-reorder` branch and run canonical acceptance when authenticated GitHub access is available.
-Blockers: Fetch/push to `https://github.com/carlers/mosaic-life-tracker.git` returns HTTP 403 in this environment.
+Current task: Day View drag coordinator.
+Status: Coordinator implementation and focused component verification complete; delivery pending commit and PR creation.
+Next action: Run final checks, commit the scoped changes, and create the pull request.
+Blockers: None.
 
 ## Completed substeps
-- Added task order schema/migration, remote mapping and backward-compatible friend mapping.
-- Added idempotent remote column/backfill script and documented server-first rollout.
-- Added deterministic append ordering, normalized serialized reorder persistence, and Day View drag snapshots.
-- Added hold activation on non-interactive row content, pointer cancellation, active-slide/modal/selection/edit guards, and optimistic cross-category placement.
-- Added sync round-trip and schema-migration coverage plus a manual mobile acceptance protocol.
+- Moved the active pointer lifecycle, projection, overlay, cancellation, and auto-scroll ownership into `DaySlide`.
+- Kept source rows mounted, added projected insertion placeholders, and froze one final persistence snapshot.
+- Disabled/restored Day View Swiper movement and guarded BottomSheet dismissal while reordering.
+- Limited reorder normalization to the affected date and source/destination categories.
+- Added focused drag coordinator tests and expanded real-device horizontal movement acceptance.
 
 ## Verification
 - TypeScript build check passed.
-- Focused task-order migration and sync-mapping tests passed.
-- Manual mobile protocol remains required on the stable Preview deployment.
+- Focused TaskItem, DaySlide, and DayViewSheet DOM tests passed.
+- ESLint and final combined checks remain to run.
