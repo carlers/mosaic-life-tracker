@@ -10,21 +10,32 @@ export const DraggableTaskItem: React.FC<DraggableTaskItemProps> = ({
   reorderEnabled,
   ...taskItemProps
 }) => {
-  const draggable = useDraggable({
+  const { ref: dragRef, handleRef } = useDraggable({
     id: taskItemProps.task.id,
     type: 'task',
     disabled: !reorderEnabled,
   });
 
   return (
-    <TaskItem
-      {...taskItemProps}
-      rowRef={(node) => draggable.ref(node)}
-      titleRef={(node) => draggable.handleRef(node)}
-      isDragSource={draggable.isDragSource}
-      disableLayoutAnimation={
-        taskItemProps.disableLayoutAnimation || reorderEnabled
-      }
-    />
+    <>
+      <div
+        ref={dragRef}
+        data-task-drag-proxy={taskItemProps.task.id}
+        aria-hidden="true"
+        style={{
+          position: 'absolute',
+          inset: 0,
+          opacity: 0,
+          pointerEvents: 'none',
+        }}
+      />
+      <TaskItem
+        {...taskItemProps}
+        titleRef={handleRef}
+        disableLayoutAnimation={
+          taskItemProps.disableLayoutAnimation || reorderEnabled
+        }
+      />
+    </>
   );
 };
