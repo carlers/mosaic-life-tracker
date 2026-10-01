@@ -236,10 +236,6 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
   }, [onClose]);
 
   useEffect(() => {
-    setIsTaskReorderActive(false);
-  }, [activeDateStr, isOpen]);
-
-  useEffect(() => {
     if (!isOpen || renderMode !== 'sheet' || !focusTaskId) return;
 
     let clearTimer: number | null = null;
