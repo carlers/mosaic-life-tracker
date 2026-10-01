@@ -10,17 +10,17 @@ import type { TaskDocument } from '../../../db/schema';
 
 type Visibility = 'private' | 'followers' | 'public';
 
-interface CategoryDropSurfaceProps {
+interface CategoryHeaderDropSurfaceProps {
   categoryId: string;
   children: React.ReactNode;
 }
 
-const CategoryDropSurface: React.FC<CategoryDropSurfaceProps> = ({
+const CategoryHeaderDropSurface: React.FC<CategoryHeaderDropSurfaceProps> = ({
   categoryId,
   children,
 }) => {
   const { ref } = useDroppable({
-    id: `task-category:${categoryId}`,
+    id: `task-category-start:${categoryId}`,
     type: 'task-category',
     accept: 'task',
     collisionPriority: CollisionPriority.Low,
@@ -29,8 +29,8 @@ const CategoryDropSurface: React.FC<CategoryDropSurfaceProps> = ({
   return (
     <div
       ref={ref}
-      className="mb-4"
-      data-task-category-id={categoryId}
+      className="mb-2 flex items-center gap-2"
+      data-task-category-drop-position="start"
     >
       {children}
     </div>
@@ -315,48 +315,60 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
     return rows;
   };
 
-  const contents = (
+  const categoryHeaderControls = (
     <>
-      <div className="mb-2 flex items-center gap-2">
+      <button
+        type="button"
+        onClick={handleOpen}
+        disabled={selectionMode}
+        className="inline-flex items-center gap-2 bg-black rounded-full pl-3.5 pr-3 py-2 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
+        aria-label={`Add a task to ${categoryName}`}
+      >
+        {visibility && visibilityIcon(visibility, 12, 'text-gray-400')}
+        <span
+          className="text-[0.9375rem] font-bold"
+          style={{ color: getCategoryLabelColor(categoryColor) }}
+        >
+          {categoryName}
+        </span>
+        <span className="text-gray-400" aria-hidden="true">
+          <Plus data-testid="category-add-icon" size={18} />
+        </span>
+      </button>
+      {showCollapseButton && (
         <button
           type="button"
-          onClick={handleOpen}
+          onClick={handleToggleCollapse}
           disabled={selectionMode}
-          className="inline-flex items-center gap-2 bg-black rounded-full pl-3.5 pr-3 py-2 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
-          aria-label={`Add a task to ${categoryName}`}
+          aria-label={
+            categoryCollapsed
+              ? `Expand ${categoryName}`
+              : `Collapse ${categoryName}`
+          }
+          aria-expanded={!categoryCollapsed}
+          className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 transition-colors hover:bg-[#2A2A2A] hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
         >
-          {visibility && visibilityIcon(visibility, 12, 'text-gray-400')}
-          <span
-            className="text-[0.9375rem] font-bold"
-            style={{ color: getCategoryLabelColor(categoryColor) }}
-          >
-            {categoryName}
-          </span>
-          <span className="text-gray-400" aria-hidden="true">
-            <Plus data-testid="category-add-icon" size={18} />
-          </span>
+          <ChevronDown
+            size={17}
+            aria-hidden="true"
+            className={`transition-transform ${categoryCollapsed ? '-rotate-90' : ''}`}
+          />
         </button>
-        {showCollapseButton && (
-          <button
-            type="button"
-            onClick={handleToggleCollapse}
-            disabled={selectionMode}
-            aria-label={
-              categoryCollapsed
-                ? `Expand ${categoryName}`
-                : `Collapse ${categoryName}`
-            }
-            aria-expanded={!categoryCollapsed}
-            className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 transition-colors hover:bg-[#2A2A2A] hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
-          >
-            <ChevronDown
-              size={17}
-              aria-hidden="true"
-              className={`transition-transform ${categoryCollapsed ? '-rotate-90' : ''}`}
-            />
-          </button>
-        )}
-      </div>
+      )}
+    </>
+  );
+
+  const contents = (
+    <>
+      {canReorder ? (
+        <CategoryHeaderDropSurface categoryId={categoryId}>
+          {categoryHeaderControls}
+        </CategoryHeaderDropSurface>
+      ) : (
+        <div className="mb-2 flex items-center gap-2">
+          {categoryHeaderControls}
+        </div>
+      )}
 
       {!categoryCollapsed && isAdding && (
         <div
@@ -395,14 +407,6 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
             )))}
     </>
   );
-
-  if (canReorder) {
-    return (
-      <CategoryDropSurface categoryId={categoryId}>
-        {contents}
-      </CategoryDropSurface>
-    );
-  }
 
   return (
     <div className="mb-4" data-task-category-id={categoryId}>
