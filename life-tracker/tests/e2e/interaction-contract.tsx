@@ -76,7 +76,16 @@ export function InteractionHarness() {
   })), []);
   const todoTasks: TaskDocument[] = React.useMemo(
     () => todoCategories.flatMap((category, categoryIndex) =>
-      Array.from({ length: performanceHeavy ? 10 : 3 }, (_, taskIndex) => ({
+      Array.from(
+        {
+          length:
+            !performanceHeavy && categoryIndex === 4
+              ? 0
+              : performanceHeavy
+                ? 10
+                : 3,
+        },
+        (_, taskIndex) => ({
         id: `task_${categoryIndex}_${taskIndex}`,
         title: `Task ${categoryIndex + 1}.${taskIndex + 1}`,
         completed: false,
@@ -90,7 +99,8 @@ export function InteractionHarness() {
         isDeleted: false,
         visibility: 'private',
         memo: categoryIndex === 0 && taskIndex === 0 ? 'Browser memo content' : '',
-      }))
+        })
+      )
     ),
     [todoCategories, performanceHeavy]
   );
@@ -293,9 +303,20 @@ export function InteractionHarness() {
           onEditSave={() => {}}
           onEditCancel={() => {}}
           reorderEnabled
-          onReorderTasks={(orderedTasks) => {
+          onReorderTasks={(_, groups) => {
+            if (groups.length === 1) {
+              setTodoGesture(
+                `reordered:${groups[0]?.taskIds.join(',') ?? ''}`
+              );
+              return;
+            }
             setTodoGesture(
-              `reordered:${orderedTasks.map((task) => task.id).join(',')}`
+              `reordered:${groups
+                .map(
+                  (group) =>
+                    `${group.categoryId}=${group.taskIds.join(',')}`
+                )
+                .join('|')}`
             );
           }}
           onReorderActiveChange={(active) => {

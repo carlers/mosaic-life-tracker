@@ -1,7 +1,6 @@
-import React, { useState, useRef, useId } from 'react';
-import { DragDropProvider } from '@dnd-kit/react';
-import { PointerActivationConstraints, PointerSensor } from '@dnd-kit/dom';
-import { isSortable } from '@dnd-kit/react/sortable';
+import React, { useId, useRef, useState } from 'react';
+import { CollisionPriority } from '@dnd-kit/abstract';
+import { useDroppable } from '@dnd-kit/react';
 import { ChevronDown, Plus } from 'lucide-react';
 import { TaskItem } from './TaskItem';
 import { SortableTaskItem } from './SortableTaskItem';
@@ -11,19 +10,33 @@ import type { TaskDocument } from '../../../db/schema';
 
 type Visibility = 'private' | 'followers' | 'public';
 
-const TASK_REORDER_POINTER_SENSOR = PointerSensor.configure({
-  activationConstraints: [
-    new PointerActivationConstraints.Delay({
-      value: 500,
-      tolerance: 8,
-    }),
-  ],
-});
-
-interface PendingTaskOrder {
-  ids: string[];
-  signature: string;
+interface CategoryDropSurfaceProps {
+  categoryId: string;
+  children: React.ReactNode;
 }
+
+const CategoryDropSurface: React.FC<CategoryDropSurfaceProps> = ({
+  categoryId,
+  children,
+}) => {
+  const { ref } = useDroppable({
+    id: `task-category:${categoryId}`,
+    type: 'task-category',
+    accept: 'task',
+    collisionPriority: CollisionPriority.Low,
+    data: { categoryId },
+  });
+
+  return (
+    <div
+      ref={ref}
+      className="mb-4"
+      data-task-category-id={categoryId}
+    >
+      {children}
+    </div>
+  );
+};
 
 interface CategorySectionProps {
   categoryId: string;
@@ -50,8 +63,6 @@ interface CategorySectionProps {
   selectedTaskIds?: ReadonlySet<string>;
   onToggleTaskSelection?: (taskId: string) => void;
   reorderEnabled?: boolean;
-  onReorderTasks?: (tasks: readonly TaskDocument[]) => Promise<void> | void;
-  onReorderActiveChange?: (active: boolean) => void;
 }
 
 export const CategorySection: React.FC<CategorySectionProps> = ({
@@ -79,13 +90,10 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
   selectedTaskIds = new Set<string>(),
   onToggleTaskSelection,
   reorderEnabled = false,
-  onReorderTasks,
-  onReorderActiveChange,
 }) => {
   const [isAdding, setIsAdding] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [newTitle, setNewTitle] = useState('');
-  const [pendingOrder, setPendingOrder] = useState<PendingTaskOrder | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const inputId = useId();
 
@@ -134,66 +142,11 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
   };
 
   const categoryCollapsed = showCollapseButton && isCollapsed;
-  const liveIds = tasks.map((task) => task.id);
-  const liveSignature = liveIds.join('\0');
-  const canUsePending =
-    pendingOrder !== null &&
-    pendingOrder.ids.length === liveIds.length &&
-    pendingOrder.ids.every((id) => liveIds.includes(id));
-
-  let orderedTasks = tasks;
-  if (pendingOrder && canUsePending && liveSignature !== pendingOrder.signature) {
-    const latestById = new Map(tasks.map((task) => [task.id, task]));
-    orderedTasks = pendingOrder.ids.flatMap((id) => {
-      const task = latestById.get(id);
-      return task ? [task] : [];
-    });
-  } else if (pendingOrder) {
-    setPendingOrder(null);
-  }
-
   const canReorder =
     reorderEnabled &&
     !selectionMode &&
     !isAdding &&
-    editingTaskId === null &&
-    !!onReorderTasks;
-
-  const handleDragEnd = (event: Parameters<
-    NonNullable<React.ComponentProps<typeof DragDropProvider>['onDragEnd']>
-  >[0]) => {
-    onReorderActiveChange?.(false);
-    if (event.canceled) return;
-
-    const { source } = event.operation;
-    if (!isSortable(source) || source.initialIndex === source.index) return;
-    if (
-      source.initialIndex < 0 ||
-      source.index < 0 ||
-      source.initialIndex >= orderedTasks.length ||
-      source.index >= orderedTasks.length
-    ) {
-      return;
-    }
-
-    const next = [...orderedTasks];
-    const [moved] = next.splice(source.initialIndex, 1);
-    if (!moved) return;
-    next.splice(source.index, 0, moved);
-
-    const ids = next.map((task) => task.id);
-    const optimistic: PendingTaskOrder = {
-      ids,
-      signature: ids.join('\0'),
-    };
-    setPendingOrder(optimistic);
-
-    void Promise.resolve(onReorderTasks?.(next)).catch(() => {
-      setPendingOrder((current) =>
-        current?.signature === optimistic.signature ? null : current
-      );
-    });
-  };
+    editingTaskId === null;
 
   const taskProps = (task: TaskDocument) => ({
     task,
@@ -222,8 +175,8 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
     setIsCollapsed((current) => !current);
   };
 
-  return (
-    <div className="mb-4">
+  const contents = (
+    <>
       <div className="mb-2 flex items-center gap-2">
         <button
           type="button"
@@ -246,9 +199,13 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
         {showCollapseButton && (
           <button
             type="button"
-          onClick={handleToggleCollapse}
-          disabled={selectionMode}
-            aria-label={categoryCollapsed ? `Expand ${categoryName}` : `Collapse ${categoryName}`}
+            onClick={handleToggleCollapse}
+            disabled={selectionMode}
+            aria-label={
+              categoryCollapsed
+                ? `Expand ${categoryName}`
+                : `Collapse ${categoryName}`
+            }
             aria-expanded={!categoryCollapsed}
             className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 transition-colors hover:bg-[#2A2A2A] hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
           >
@@ -290,17 +247,9 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
         </div>
       )}
 
-      {!categoryCollapsed && (
-        canReorder ? (
-          <DragDropProvider
-            sensors={(defaults) => [
-              ...defaults.filter((sensor) => sensor !== PointerSensor),
-              TASK_REORDER_POINTER_SENSOR,
-            ]}
-            onDragStart={() => onReorderActiveChange?.(true)}
-            onDragEnd={handleDragEnd}
-          >
-            {orderedTasks.map((task, index) => (
+      {!categoryCollapsed &&
+        (canReorder
+          ? tasks.map((task, index) => (
               <SortableTaskItem
                 key={task.id}
                 {...taskProps(task)}
@@ -308,14 +257,24 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
                 group={categoryId}
                 reorderEnabled
               />
-            ))}
-          </DragDropProvider>
-        ) : (
-          orderedTasks.map((task) => (
-            <TaskItem key={task.id} {...taskProps(task)} />
-          ))
-        )
-      )}
+            ))
+          : tasks.map((task) => (
+              <TaskItem key={task.id} {...taskProps(task)} />
+            )))}
+    </>
+  );
+
+  if (canReorder) {
+    return (
+      <CategoryDropSurface categoryId={categoryId}>
+        {contents}
+      </CategoryDropSurface>
+    );
+  }
+
+  return (
+    <div className="mb-4" data-task-category-id={categoryId}>
+      {contents}
     </div>
   );
 };
