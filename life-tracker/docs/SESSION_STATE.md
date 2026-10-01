@@ -1,19 +1,25 @@
 # Session checkpoint
 
 Updated: 2026-10-01
-Current task: Repair the post-drop lifecycle for cross-category Day View task reordering.
-Status: Implementation complete on `chatgpt/fix-task-reorder-lifecycle`; canonical verification and stable Preview delivery are the remaining automated steps. Real Samsung/PWA acceptance remains required.
-Next action: Run exact-SHA full Quality Gate, merge into `feature/task-reorder-clean`, verify the stable Vercel Preview, then repeat the consecutive-drag device protocol.
+Current task: Eliminate dead/inert task rows and stale drag runtime in Day View cross-category reordering.
+Status: Implementation is on `chatgpt/fix-task-reorder-runtime`; browser/full verification and stable Preview delivery remain. Samsung/PWA manual acceptance is still required.
+Next action: Finish browser verification, run exact-SHA full Quality Gate, squash into `feature/task-reorder-clean`, verify Vercel READY, then run the first-open/reopen/consecutive-drag device protocol.
 Blockers: None.
 
-## Root cause addressed
-- The cross-category implementation let dnd-kit's OptimisticSortingPlugin reparent sortable DOM nodes while React simultaneously rendered a new category-to-task placement from `dragover`. Current dnd-kit React 0.5.0 has known cross-container reconciliation failures in this area, including broken subsequent sorting and removeChild/DOM ownership failures.
-- Mosaic also retained a stale post-drop pending placement in component state after live RxDB placement converged, allowing old placement to become eligible again after later live changes.
-- The prior browser harness stopped after a single drop and did not mutate task documents the way RxDB does, so it never exercised post-persistence reconciliation or a second drag.
+## Root causes addressed
+- dnd-kit's default Feedback path creates an inert hidden placeholder and promotes the real draggable node. Current experimental dnd-kit has an open cross-container React reconciliation defect in this cleanup path; the observed dark rows match inert/dead feedback shells.
+- Preventing OptimisticSortingPlugin DOM reordering alone was insufficient because Feedback still owned/promoted the real task node.
+- Cross-category `dragover` also moved the active `SortableTaskItem` between different `CategorySection` React parents while it was still the registered drag source.
+- Sheet Day View remains mounted while closed, so the prior provider/local reorder state could survive close → reopen unless explicitly torn down.
+- Committed optimistic placement previously needed stronger integrity validation and lifecycle retirement.
 
-## Fix
-- Every task `dragover` prevents the OptimisticSortingPlugin update before React applies dnd-kit's grouped `move()` result. React is the only owner of category/task DOM ordering during the active drag; dnd-kit still owns sensors, collision data, pointer feedback, and the projection helper.
-- Post-drop placement is an explicit commit generation. It remains the render source only while live RxDB catches up, then is permanently retired when the live placement matches or the task set changes.
-- Persistence failure can clear only the matching commit generation, so an older async failure cannot erase a newer drag.
-- The browser harness now applies reorder callbacks to task `categoryId`/`order` state and includes a consecutive cross-category drag regression that checks task uniqueness/visibility and second-drag activation without remounting.
-- No schema, sync mapping, Appwrite, or remote-service changes are required.
+## Fix design
+- Sheet-mode reorder runtime/provider exists only while Day View is open on the active day; close/date change destroys the registry and resets parent reorder-lock state.
+- One official dnd-kit `DragOverlay` supplies feedback with `dropAnimation={null}`. Because Feedback has an overlay, it does not create a placeholder or move the real TaskItem.
+- `dragover.preventDefault()` continues to block OptimisticSortingPlugin DOM reparenting.
+- Real task components never change category/order during an active drag. The source stays mounted in its original category inside a collapsed wrapper; projection is represented only by a lightweight React insertion gap.
+- Projection is recalculated from the immutable drag-start snapshot on each dragover, so source registration does not need to migrate groups.
+- Post-drop placement renders optimistically only when it contains exactly the current live task IDs once each. Matching/invalid placement is retired in an effect, never via render-time state updates.
+- Persistence generations remain serialized; failure of an older generation clears newer optimistic state derived from it.
+- Browser coverage now requires no dnd placeholder during active drag, an official overlay, a still-mounted real source slot, clean runtime destruction/rebuild across close/reopen, persisted reconciliation, and immediate second-drag usability.
+- No schema/Appwrite/sync-mapping changes are required.

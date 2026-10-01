@@ -223,12 +223,6 @@ const TaskReorderRuntime: React.FC<
   const dragSnapshotRef = React.useRef<TaskPlacement | null>(null);
   const dragProjectionRef = React.useRef<TaskPlacement | null>(null);
   const commitIdRef = React.useRef(0);
-  const retiredCommitIdRef = React.useRef(0);
-
-  const livePlacementSignature = React.useMemo(
-    () => taskPlacementSignature(livePlacement, categoryIds),
-    [categoryIds, livePlacement]
-  );
 
   const committedIsCompatible =
     committedPlacement !== null &&
@@ -237,31 +231,12 @@ const TaskReorderRuntime: React.FC<
       livePlacement,
       categoryIds
     );
-  const committedMatchesLive =
-    committedPlacement?.signature === livePlacementSignature;
   const activeCommittedPlacement =
-    committedPlacement &&
-    committedPlacement.id > retiredCommitIdRef.current &&
-    committedIsCompatible &&
-    !committedMatchesLive
+    committedPlacement && committedIsCompatible
       ? committedPlacement.placement
       : null;
   const basePlacement = activeCommittedPlacement ?? livePlacement;
   const renderPlacement = activeDrag?.snapshot ?? basePlacement;
-
-  React.useEffect(() => {
-    if (!committedPlacement) return;
-    if (committedIsCompatible && !committedMatchesLive) return;
-
-    retiredCommitIdRef.current = Math.max(
-      retiredCommitIdRef.current,
-      committedPlacement.id
-    );
-  }, [
-    committedIsCompatible,
-    committedMatchesLive,
-    committedPlacement,
-  ]);
 
   const tasksByCategory = React.useMemo(
     () =>
@@ -424,6 +399,13 @@ const TaskReorderRuntime: React.FC<
 
       void Promise.resolve()
         .then(() => onReorderTasks(dateStr, groups))
+        .then(() => {
+          window.requestAnimationFrame(() => {
+            setCommittedPlacement((current) =>
+              current?.id === commitId ? null : current
+            );
+          });
+        })
         .catch(() => {
           setCommittedPlacement((current) =>
             current && current.id >= commitId ? null : current

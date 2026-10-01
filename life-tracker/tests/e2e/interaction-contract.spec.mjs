@@ -445,13 +445,13 @@ test('task can move into another populated category at the projected position', 
   await gesture.finish();
 
   await expect(page.getByTestId('todo-gesture')).toHaveText(
-    'reordered:cat_0=task_0_1,task_0_2|cat_1=task_1_0,task_1_1,task_0_0,task_1_2'
+    'reordered:cat_0=task_0_1,task_0_2|cat_1=task_1_0,task_0_0,task_1_1,task_1_2'
   );
   await expect
     .poll(() => targetCategory.locator(
       '[data-task-id]:not([data-dnd-placeholder])'
     ).evaluateAll((rows) => rows.map((row) => row.getAttribute('data-task-id'))))
-    .toEqual(['task_1_0', 'task_1_1', 'task_0_0', 'task_1_2']);
+    .toEqual(['task_1_0', 'task_0_0', 'task_1_1', 'task_1_2']);
   await expect
     .poll(() => sourceCategory.locator(
       '[data-task-id]:not([data-dnd-placeholder])'
@@ -545,6 +545,11 @@ test('cross-category persistence leaves every task visible and a second drag imm
       )
     )
     .toEqual(initialIds);
+
+  await region
+    .getByRole('button', { name: 'Task 1.1', exact: true })
+    .click();
+  await expect(page.getByTestId('todo-gesture')).toHaveText('actions');
 });
 
 test('task can drop into an empty category from its category surface', async ({ page }) => {
@@ -622,6 +627,19 @@ test('active task sorting keeps the real Day View sheet and day swiper locked in
     page.locator('[data-task-overlay-id="task_0_0"]')
   ).toHaveCount(0);
   await expect(dialog).toBeVisible();
+
+  await page.keyboard.press('Escape');
+  await expect(dialog).toHaveCount(0);
+  await page.getByTestId('open-day-view-sheet').click();
+
+  const reopened = page.getByRole('dialog', {
+    name: 'Tuesday, September 15, 2026',
+  });
+  await expect(reopened).toBeVisible();
+  await waitForStableVerticalPosition(reopened);
+  await expect(
+    reopened.getByRole('button', { name: 'Task 1.1', exact: true })
+  ).toBeVisible();
 });
 
 // Regression: §2 (owner Day View exposes memo content and multi-tap shortcuts).
