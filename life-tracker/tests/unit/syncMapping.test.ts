@@ -474,6 +474,7 @@ describe('round-trip', () => {
       title: 'Buy groceries',
       completed: true,
       categoryId: 'cat_1',
+      order: 7,
       tags: 'shopping',
       date: '2026-01-15',
       memo: 'milk',
