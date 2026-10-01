@@ -2,8 +2,8 @@
 
 Updated: 2026-10-01
 Current task: Repair persistent Day View task reordering on the feature branch.
-Status: Implementation and regression coverage complete on the ChatGPT task branch; full canonical CI requested.
-Next action: Repair any canonical CI failure, then squash-merge into `feature/persistent-task-ordering` and verify the stable Vercel Preview.
+Status: Interaction fix and regression coverage are complete on the ChatGPT task branch; the first full gate exposed React 19 lint-only violations and those have been repaired.
+Next action: Pass full canonical CI on the repaired SHA, then squash-merge into `feature/persistent-task-ordering` and verify the stable Vercel Preview.
 Blockers: None currently.
 
 ## Completed substeps
@@ -13,7 +13,9 @@ Blockers: None currently.
 - Retained the final optimistic task order after release until the RxDB live query reflects the persisted order, preventing release-time snap-back.
 - Roll back the optimistic projection if persistence rejects instead of leaving an unsaved order on screen.
 - Added DOM regressions for stable source ownership, optimistic release state, failed-write rollback, touch pointer-cancel fallback, and true touch cancellation.
+- Reworked latest-task refs and live-query reconciliation to satisfy the repository's React 19 lint contracts without changing drag semantics.
 
 ## Verification
-- Full canonical GitHub Actions acceptance requested on the final task SHA.
+- First full gate: production build and both DOM shards passed; general checks failed only on three React lint rules in DaySlide.
+- Repaired full canonical gate pending on the new final SHA.
 - Hosted Preview/manual mobile acceptance pending stable-branch merge.

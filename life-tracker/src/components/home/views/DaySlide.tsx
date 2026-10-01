@@ -76,7 +76,26 @@ const DaySlideComponent: React.FC<DaySlideProps> = ({
   const surfaceRef = React.useRef<HTMLDivElement>(null);
   const autoScrollFrame = React.useRef<number | null>(null);
   const runAutoScrollRef = React.useRef<() => void>(() => undefined);
-  tasksRef.current = tasks;
+  const liveOrderingSignature = orderingSignature(tasks);
+  const [syncedLiveOrderingSignature, setSyncedLiveOrderingSignature] = React.useState(liveOrderingSignature);
+
+  if (liveOrderingSignature !== syncedLiveOrderingSignature) {
+    setSyncedLiveOrderingSignature(liveOrderingSignature);
+    if (pendingProjection) {
+      const expectedIds = new Set(pendingProjection.tasks.map((task) => task.id));
+      const liveExpected = tasks.filter((task) => expectedIds.has(task.id));
+      if (
+        liveExpected.length !== expectedIds.size ||
+        orderingSignature(liveExpected) === pendingProjection.signature
+      ) {
+        setPendingProjection(null);
+      }
+    }
+  }
+
+  React.useEffect(() => {
+    tasksRef.current = tasks;
+  }, [tasks]);
 
   const displayedTasks = React.useMemo(() => {
     if (!pendingProjection) return tasks;
@@ -92,7 +111,9 @@ const DaySlideComponent: React.FC<DaySlideProps> = ({
     return projected;
   }, [pendingProjection, tasks]);
   const displayedTasksRef = React.useRef(displayedTasks);
-  displayedTasksRef.current = displayedTasks;
+  React.useEffect(() => {
+    displayedTasksRef.current = displayedTasks;
+  }, [displayedTasks]);
 
   const stopAutoScroll = React.useCallback(() => {
     if (autoScrollFrame.current !== null) cancelAnimationFrame(autoScrollFrame.current);
@@ -275,19 +296,6 @@ const DaySlideComponent: React.FC<DaySlideProps> = ({
     const current = sessionRef.current;
     if (current && !tasks.some((task) => task.id === current.taskId)) finish(true);
   }, [finish, tasks]);
-  React.useEffect(() => {
-    if (!pendingProjection) return;
-    const expectedIds = new Set(pendingProjection.tasks.map((task) => task.id));
-    const liveExpected = tasks.filter((task) => expectedIds.has(task.id));
-    if (liveExpected.length !== expectedIds.size) {
-      setPendingProjection(null);
-      return;
-    }
-    if (orderingSignature(liveExpected) === pendingProjection.signature) {
-      setPendingProjection(null);
-    }
-  }, [pendingProjection, tasks]);
-
   const insertion = React.useMemo(() => {
     if (!session) return null;
     const targetTasks = session.projected.filter((task) => task.categoryId === session.targetCategoryId);
