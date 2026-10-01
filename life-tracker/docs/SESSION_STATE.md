@@ -2,26 +2,22 @@
 
 Updated: 2026-10-01
 Current task: Extend the accepted clean Day View reorder interaction across categories.
-Status: Implementation is on `chatgpt/task-reorder-cross-category` from stable Preview branch `feature/task-reorder-clean`; verification and Preview delivery remain.
-Next action: Run focused/full verification, fix failures, merge into the stable feature branch, then perform real-device cross-category acceptance.
+Status: Complete. Cross-category task dragging passed exact-SHA canonical acceptance and was squash-merged into `feature/task-reorder-clean` as `9a55927fba521787c6ac7f965da9c0adc4d365a9`.
+Next action: Real-device cross-category acceptance on the final stable Preview using `docs/MANUAL_TASK_REORDER_ACCEPTANCE.md`.
 Blockers: None.
 
-## Scope
-- Preserve the accepted 500 ms invisible-title-handle interaction and dnd-kit drag feedback exactly.
-- Move the dnd-kit provider from each category to the Day View so all categories share one sortable context.
-- Support precise insertion into populated categories plus append drops onto empty, collapsed, header, or blank category surfaces.
-- Keep pointer geometry/projection inside dnd-kit. React may mirror grouped task IDs on `dragover` so cross-category ownership stays structurally consistent, but do not reintroduce custom pointer math, hit testing, overlays/placeholders, or task-document writes during movement.
-- Persist only on release. Same-category drops normalize one group; cross-category drops update the moved task's `categoryId` and normalize both affected groups.
-- Revalidate the complete affected task set and destination categories before writes so concurrent changes fail closed.
+## Delivered
+- Preserved the accepted 500 ms invisible-title-handle interaction, 8 px movement tolerance, neutral floating TaskItem, and existing Day View sheet/swiper locking.
+- Moved the dnd-kit provider to the Day View level so one drag context spans every category on the active day.
+- Uses dnd-kit's official grouped `move()` helper for cross-list projection. React mirrors only category-to-task-ID placement during drag; pointer geometry, collision detection, and sortable projection remain dnd-kit-owned.
+- Populated categories support projected insertion among their tasks. Lower-priority category drop surfaces also accept append drops into empty, collapsed, header, or blank category space.
+- Release persists once: same-category drops normalize one group; cross-category drops update the moved task's `categoryId` and normalize both source and destination groups with one shared `updatedAt`.
+- Persistence revalidates the complete affected user/date/category task set plus destination category ownership before writes, so concurrent additions, removals, or category moves fail closed instead of overwriting unseen state.
+- No schema or Appwrite migration was required because both `categoryId` and `order` were already part of the accepted synced task model.
 
-## Working set
-- `src/components/home/views/{DaySlide,CategorySection,SortableTaskItem}.tsx`
-- `src/hooks/useTasks.ts`
-- `src/lib/taskOrder.ts`
-- focused unit/browser regressions
-- project reference and manual acceptance checklist
-
-## Existing accepted baseline
-- Stable branch before this task: `feature/task-reorder-clean` at `7137049d47c31d5e0739aa4224b90e789a3e6c37`.
-- Same-category implementation already passed canonical Quality Gate and real Samsung/PWA acceptance.
-- No schema or remote Appwrite migration is required for cross-category movement because `categoryId` and `order` are already synced fields.
+## Verification
+- Final task head `a139d7ddd063c4c6155c9917218b95b2ad62f61b` passed Quality Gate run `36837002117`.
+- Canonical acceptance passed after build/PWA/size, static/unit checks, dependency audit, both DOM shards, and both browser-contract shards.
+- Browser coverage verifies the original same-category gesture, populated cross-category insertion, empty-category drop, delayed-activation cancellation, and active drag ownership inside the real Day View sheet.
+- PR #175 was squash-merged into `feature/task-reorder-clean` as `9a55927fba521787c6ac7f965da9c0adc4d365a9`.
+- Real Samsung/PWA cross-category touch acceptance remains manual and is documented in `MANUAL_TASK_REORDER_ACCEPTANCE.md`.
