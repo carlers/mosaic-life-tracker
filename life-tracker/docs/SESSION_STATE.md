@@ -2,8 +2,8 @@
 
 Updated: 2026-10-01
 Current task: Rebuild Day View task reordering so same-category and cross-category drags remain stable across repeated use.
-Status: Implementation is on `chatgpt/task-reorder-draggable-droppable`; exact-SHA canonical verification and stable Preview promotion remain.
-Next action: Run the full Quality Gate on the exact task-branch SHA, repair any failures, then squash-promote into `feature/task-reorder-clean`, verify Vercel READY, and run the Samsung/PWA manual reorder protocol.
+Status: Implementation is on `chatgpt/task-reorder-draggable-droppable`; corrected implementation passed canonical Quality Gate on `cadada28f7eaeef2c38af6c7557bbfc8c23233c3`. This checkpoint requests final exact-SHA confirmation before stable Preview promotion.
+Next action: Confirm the final checkpoint SHA passes the full Quality Gate, then squash-promote into `feature/task-reorder-clean`, verify Vercel READY, and run the Samsung/PWA manual reorder protocol.
 Blockers: None.
 
 ## Implementation
@@ -17,5 +17,5 @@ Blockers: None.
 
 ## Verification
 - Existing browser contracts cover same-category reorder, cross-category insertion, empty-category drop, immediate second drag, pre-hold movement cancellation, sheet gesture locking/cancel, and close/reopen runtime rebuild.
-- Initial full Quality Gate run #1520 exposed and confirmed three implementation defects: render-time droppable ref access, nullable drag-source typing, and an incorrect Feedback override that disabled the official overlay. All three are fixed; exact-SHA canonical rerun is pending.
+- Initial full Quality Gate run #1520 exposed three implementation defects: render-time droppable ref access, nullable drag-source typing, and an incorrect Feedback override that disabled the official overlay. All three were fixed. Run #1525 passed checks, build, both DOM shards, both browser shards, dependency audit, and canonical acceptance on `cadada28f7eaeef2c38af6c7557bbfc8c23233c3`.
 - Real-device Samsung/PWA acceptance remains required after stable Preview delivery.
