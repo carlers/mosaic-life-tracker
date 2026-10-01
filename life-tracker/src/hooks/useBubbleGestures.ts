@@ -2,12 +2,19 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 export type SwipeDirection = 'left' | 'right';
 
+export interface LongPressPointer {
+  pointerId: number;
+  pointerType: string;
+  clientX: number;
+  clientY: number;
+}
+
 export interface UseBubbleGesturesOptions {
   swipeDirection?: SwipeDirection;
   onSingleTap?: () => void;
   onDoubleTap?: () => void;
   onTripleTap?: () => void;
-  onLongPress?: () => void;
+  onLongPress?: (pointer: LongPressPointer) => void;
   onSwipeReply?: () => void;
   onContextMenu?: (e: React.MouseEvent) => void;
   disabled?: boolean;
@@ -124,11 +131,17 @@ export function useBubbleGestures(
       } catch {
         // Pointer capture is optional.
       }
+      const longPressPointer: LongPressPointer = {
+        pointerId: e.pointerId,
+        pointerType: e.pointerType,
+        clientX: e.clientX,
+        clientY: e.clientY,
+      };
       longPressTimerRef.current = setTimeout(() => {
         longPressTimerRef.current = null;
         startPosRef.current = null;
         resetTapSequence();
-        onLongPress?.();
+        onLongPress?.(longPressPointer);
       }, longPressThreshold);
     },
     [disabled, clearLongPress, longPressThreshold, onLongPress, resetTapSequence]

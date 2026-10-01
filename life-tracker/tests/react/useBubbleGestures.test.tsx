@@ -1,5 +1,5 @@
 import { act, renderHook } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { useBubbleGestures } from '../../src/hooks/useBubbleGestures';
 
 function pointerEvent(pointerId: number): React.PointerEvent {
@@ -15,6 +15,11 @@ function pointerEvent(pointerId: number): React.PointerEvent {
     },
   } as unknown as React.PointerEvent;
 }
+
+afterEach(() => {
+  vi.restoreAllMocks();
+  vi.useRealTimers();
+});
 
 describe('useBubbleGestures', () => {
   it('defers a triple-tap action until the originating pointer sequence settles', () => {
@@ -56,5 +61,47 @@ describe('useBubbleGestures', () => {
     requestFrame.mockRestore();
     unmount();
     vi.useRealTimers();
+  });
+
+  it('reports the originating pointer only after the long-press threshold', () => {
+    vi.useFakeTimers();
+    const onLongPress = vi.fn();
+    const { result } = renderHook(() =>
+      useBubbleGestures({ onLongPress, longPressThreshold: 500 })
+    );
+
+    act(() => {
+      result.current.onPointerDown(pointerEvent(9));
+      vi.advanceTimersByTime(499);
+    });
+    expect(onLongPress).not.toHaveBeenCalled();
+
+    act(() => {
+      vi.advanceTimersByTime(1);
+    });
+    expect(onLongPress).toHaveBeenCalledWith({
+      pointerId: 9,
+      pointerType: 'touch',
+      clientX: 10,
+      clientY: 10,
+    });
+  });
+
+  it('cancels long-press recognition when vertical movement takes over', () => {
+    vi.useFakeTimers();
+    const onLongPress = vi.fn();
+    const { result } = renderHook(() =>
+      useBubbleGestures({ onLongPress, longPressThreshold: 500 })
+    );
+    const down = pointerEvent(10);
+    const moved = { ...down, clientY: 60 } as React.PointerEvent;
+
+    act(() => {
+      result.current.onPointerDown(down);
+      result.current.onPointerMove(moved);
+      vi.advanceTimersByTime(500);
+    });
+
+    expect(onLongPress).not.toHaveBeenCalled();
   });
 });

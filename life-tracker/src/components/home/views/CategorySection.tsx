@@ -127,12 +127,6 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
     setIsCollapsed((current) => !current);
   };
 
-  const draggedTask = draggedTaskId
-    ? tasks.find((task) => task.id === draggedTaskId) ?? null
-    : null;
-  const visibleTasks = draggedTaskId
-    ? tasks.filter((task) => task.id !== draggedTaskId)
-    : tasks;
   const renderTask = (task: TaskDocument, index: number, isReorderAnchor = false) => (
     <TaskItem
       key={task.id}
@@ -160,6 +154,40 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
       reorderLayoutDependency={`${categoryId}:${index}:${insertionIndex ?? 'none'}`}
     />
   );
+
+  const taskRows: React.ReactNode[] = [];
+  if (!categoryCollapsed) {
+    let visibleIndex = 0;
+    tasks.forEach((task, index) => {
+      const isReorderAnchor = task.id === draggedTaskId;
+      if (!isReorderAnchor && insertionIndex === visibleIndex) {
+        taskRows.push(
+          <div
+            key={`task-drop-${categoryId}-${visibleIndex}`}
+            data-testid="task-drop-placeholder"
+            data-task-drop-index={visibleIndex}
+            aria-hidden="true"
+            className="mx-2"
+            style={{ height: reorderPlaceholderHeight }}
+          />
+        );
+      }
+      taskRows.push(renderTask(task, index, isReorderAnchor));
+      if (!isReorderAnchor) visibleIndex += 1;
+    });
+    if (insertionIndex === visibleIndex) {
+      taskRows.push(
+        <div
+          key={`task-drop-${categoryId}-${visibleIndex}`}
+          data-testid="task-drop-placeholder"
+          data-task-drop-index={visibleIndex}
+          aria-hidden="true"
+          className="mx-2"
+          style={{ height: reorderPlaceholderHeight }}
+        />
+      );
+    }
+  }
 
   return (
     <div className="mb-4" data-category-id={categoryId}>
@@ -229,37 +257,7 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
         </div>
       )}
 
-      {!categoryCollapsed && (
-        <>
-          {draggedTask && renderTask(
-            draggedTask,
-            tasks.findIndex((task) => task.id === draggedTask.id),
-            true
-          )}
-          {visibleTasks.flatMap((task, index) => [
-            insertionIndex === index ? (
-              <div
-                key={`task-drop-${categoryId}-${index}`}
-                data-testid="task-drop-placeholder"
-                data-task-drop-index={index}
-                aria-hidden="true"
-                className="mx-2"
-                style={{ height: reorderPlaceholderHeight }}
-              />
-            ) : null,
-            renderTask(task, index),
-          ])}
-          {insertionIndex === visibleTasks.length && (
-            <div
-              data-testid="task-drop-placeholder"
-              data-task-drop-index={visibleTasks.length}
-              aria-hidden="true"
-              className="mx-2"
-              style={{ height: reorderPlaceholderHeight }}
-            />
-          )}
-        </>
-      )}
+      {!categoryCollapsed && <>{taskRows}</>}
     </div>
   );
 };
