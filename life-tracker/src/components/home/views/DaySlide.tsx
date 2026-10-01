@@ -200,7 +200,12 @@ const DaySlideComponent: React.FC<DaySlideProps> = ({
           targetCategoryId,
           targetIndex
         );
-        if (!next) return current;
+        if (
+          !next ||
+          taskPlacementSignature(next) === taskPlacementSignature(current)
+        ) {
+          return current;
+        }
         dragPlacementRef.current = next;
         return next;
       });
