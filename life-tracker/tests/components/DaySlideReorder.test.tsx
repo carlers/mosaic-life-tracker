@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { DaySlide } from '../../src/components/home/views/DaySlide';
 import type { CategoryDocument, TaskDocument } from '../../src/db/schema';
@@ -29,6 +29,12 @@ function hold(title: HTMLElement) {
   act(() => vi.advanceTimersByTime(450));
 }
 
+function categoryOrder(categoryId: string) {
+  const category = document.querySelector(`[data-category-id="${categoryId}"]`);
+  if (!category) throw new Error(`Missing category ${categoryId}`);
+  return within(category as HTMLElement).queryAllByTestId('task-row').map((row) => row.dataset.taskId);
+}
+
 describe('DaySlide drag coordinator', () => {
   beforeEach(() => vi.useFakeTimers());
   afterEach(() => { vi.runOnlyPendingTimers(); vi.useRealTimers(); vi.restoreAllMocks(); });
@@ -37,6 +43,8 @@ describe('DaySlide drag coordinator', () => {
     renderSlide();
     hold(screen.getByRole('button', { name: 'one' }));
     expect(screen.getByTestId('task-drag-overlay')).toHaveTextContent('one');
+    expect(categoryOrder('a')).toEqual(['one', 'two']);
+    expect(categoryOrder('b')).toEqual(['three']);
     expect(screen.getAllByText('one')).toHaveLength(2);
     expect(screen.getByRole('button', { name: 'two' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'three' })).toBeInTheDocument();
@@ -48,18 +56,35 @@ describe('DaySlide drag coordinator', () => {
     vi.spyOn(document, 'elementFromPoint').mockReturnValue(destination);
     vi.spyOn(destination, 'getBoundingClientRect').mockReturnValue({ top: 100, bottom: 140, height: 40, left: 0, right: 200, width: 200, x: 0, y: 100, toJSON: vi.fn() });
     hold(screen.getByRole('button', { name: 'one' }));
-    fireEvent.pointerMove(window, { pointerId: 7, clientX: 40, clientY: 120 });
-    expect(screen.getByTestId('task-drop-placeholder')).toBeInTheDocument();
-    fireEvent.pointerUp(window, { pointerId: 7, clientX: 40, clientY: 120 });
+    fireEvent.pointerMove(window, { pointerId: 7, clientX: 40, clientY: 110 });
+    expect(categoryOrder('a')).toEqual(['two']);
+    expect(categoryOrder('b')).toEqual(['one', 'three']);
+    fireEvent.pointerUp(window, { pointerId: 7, clientX: 40, clientY: 110 });
     expect(reorder).toHaveBeenCalledTimes(1);
     expect(reorder.mock.calls[0][1]).toBe('b');
     expect(Object.isFrozen(reorder.mock.calls[0][2][0])).toBe(true);
   });
 
-  it('discards its projection on pointer cancellation', () => {
+  it('keeps tracking an activated touch through native touch events', () => {
+    const reorder = renderSlide();
+    const destination = screen.getByRole('button', { name: 'three' }).closest('[data-task-id]') as HTMLElement;
+    vi.spyOn(document, 'elementFromPoint').mockReturnValue(destination);
+    vi.spyOn(destination, 'getBoundingClientRect').mockReturnValue({ top: 100, bottom: 140, height: 40, left: 0, right: 200, width: 200, x: 0, y: 100, toJSON: vi.fn() });
+
+    hold(screen.getByRole('button', { name: 'one' }));
+    fireEvent.touchMove(window, { touches: [{ identifier: 0, clientX: 40, clientY: 110 }] });
+
+    expect(categoryOrder('a')).toEqual(['two']);
+    expect(categoryOrder('b')).toEqual(['one', 'three']);
+
+    fireEvent.touchEnd(window, { touches: [] });
+    expect(reorder).toHaveBeenCalledTimes(1);
+  });
+
+  it('discards a touch projection when the browser only sends pointer cancellation', () => {
     const reorder = renderSlide();
     hold(screen.getByRole('button', { name: 'one' }));
-    fireEvent.pointerCancel(window, { pointerId: 7 });
+    fireEvent.pointerCancel(window, { pointerId: 7, pointerType: 'touch' });
     expect(screen.queryByTestId('task-drag-overlay')).toBeNull();
     expect(reorder).not.toHaveBeenCalled();
     expect(screen.getAllByText('one')).toHaveLength(1);

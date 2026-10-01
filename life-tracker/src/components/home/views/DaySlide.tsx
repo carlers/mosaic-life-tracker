@@ -33,6 +33,7 @@ interface DaySlideProps {
 
 type DragSession = {
   pointerId: number;
+  pointerType: string;
   taskId: string;
   snapshot: readonly TaskDocument[];
   projected: readonly TaskDocument[];
@@ -120,10 +121,10 @@ const DaySlideComponent: React.FC<DaySlideProps> = ({
   }, [scrollMode]);
   React.useEffect(() => { runAutoScrollRef.current = runAutoScroll; }, [runAutoScroll]);
 
-  const activate = React.useCallback((task: TaskDocument, pointerId: number, x: number, y: number) => {
+  const activate = React.useCallback((task: TaskDocument, pointerId: number, pointerType: string, x: number, y: number) => {
     if (sessionRef.current || !reorderEnabled) return;
     const snapshot = tasks.map((item) => Object.freeze({ ...item }));
-    const next: DragSession = { pointerId, taskId: task.id, snapshot, projected: snapshot, targetCategoryId: task.categoryId, x, y };
+    const next: DragSession = { pointerId, pointerType, taskId: task.id, snapshot, projected: snapshot, targetCategoryId: task.categoryId, x, y };
     sessionRef.current = next;
     setSession(next);
     onReorderActiveChange?.(true);
@@ -131,7 +132,7 @@ const DaySlideComponent: React.FC<DaySlideProps> = ({
   }, [onReorderActiveChange, reorderEnabled, runAutoScroll, tasks]);
 
   React.useEffect(() => {
-    if (!session) return;
+    if (!reorderEnabled) return;
     const move = (event: PointerEvent) => {
       if (event.pointerId !== sessionRef.current?.pointerId) return;
       event.preventDefault();
@@ -146,32 +147,49 @@ const DaySlideComponent: React.FC<DaySlideProps> = ({
       if (event.pointerId !== sessionRef.current?.pointerId) return;
       finish(true);
     };
+    const touchMove = (event: TouchEvent) => {
+      if (sessionRef.current?.pointerType !== 'touch') return;
+      const touch = event.touches[0];
+      if (!touch) return;
+      event.preventDefault();
+      event.stopPropagation();
+      projectAt(touch.clientX, touch.clientY);
+    };
+    const touchEnd = (event: TouchEvent) => {
+      if (sessionRef.current?.pointerType !== 'touch' || event.touches.length > 0) return;
+      event.preventDefault();
+      event.stopPropagation();
+      finish(false);
+    };
+    const touchCancel = () => {
+      if (sessionRef.current?.pointerType === 'touch') finish(true);
+    };
     window.addEventListener('pointermove', move, { capture: true, passive: false });
     window.addEventListener('pointerup', up, { capture: true, passive: false });
     window.addEventListener('pointercancel', cancel, true);
+    window.addEventListener('touchmove', touchMove, { capture: true, passive: false });
+    window.addEventListener('touchend', touchEnd, { capture: true, passive: false });
+    window.addEventListener('touchcancel', touchCancel, true);
     return () => {
       window.removeEventListener('pointermove', move, true);
       window.removeEventListener('pointerup', up, true);
       window.removeEventListener('pointercancel', cancel, true);
+      window.removeEventListener('touchmove', touchMove, true);
+      window.removeEventListener('touchend', touchEnd, true);
+      window.removeEventListener('touchcancel', touchCancel, true);
     };
-  }, [finish, projectAt, session?.pointerId]);
+  }, [finish, projectAt, reorderEnabled]);
 
   React.useEffect(() => () => finish(true), [dateStr, finish]);
   React.useEffect(() => { if (!reorderEnabled && sessionRef.current) finish(true); }, [finish, reorderEnabled]);
 
-  const insertion = React.useMemo(() => {
-    if (!session) return null;
-    const categoryTasks = session.projected.filter((task) => task.categoryId === session.targetCategoryId && task.id !== session.taskId);
-    const projectedIndex = session.projected.filter((task) => task.categoryId === session.targetCategoryId).findIndex((task) => task.id === session.taskId);
-    return { categoryId: session.targetCategoryId, index: Math.max(0, Math.min(projectedIndex, categoryTasks.length)) };
-  }, [session]);
   const draggedTask = session?.snapshot.find((task) => task.id === session.taskId);
   const draggedCategory = categories.find((category) => category.id === draggedTask?.categoryId);
   const tasksByCategory = React.useMemo(() => {
     const map = new Map<string, TaskDocument[]>();
-    for (const task of tasks) map.set(task.categoryId, [...(map.get(task.categoryId) ?? []), task]);
+    for (const task of session?.projected ?? tasks) map.set(task.categoryId, [...(map.get(task.categoryId) ?? []), task]);
     return map;
-  }, [tasks]);
+  }, [session?.projected, tasks]);
 
   if (categories.length === 0) return <div className="flex h-full flex-col items-center justify-center text-gray-400"><p className="text-sm">No categories yet</p></div>;
 
@@ -179,10 +197,9 @@ const DaySlideComponent: React.FC<DaySlideProps> = ({
     {categories.map((cat) => <CategorySection key={cat.id} categoryName={cat.name} categoryId={cat.id} categoryColor={cat.color} visibility={cat.visibility} currentUserId={currentUserId}
       tasks={tasksByCategory.get(cat.id) ?? []} onToggleTask={onToggleTask} onAddTask={(title) => onAddTask(title, cat.id, dateStr)} onOpenActions={onOpenActions}
       onOpenMemo={onOpenMemo} onEditTask={onEditTask} onViewImage={onViewImage} editingTaskId={editingTaskId} editValue={editValue} onEditChange={onEditChange}
-      onEditSave={onEditSave} onEditCancel={onEditCancel} disableTaskLayoutAnimation={disableTaskLayoutAnimation} continueAddingAfterSubmit={continueAddingTasks}
+      onEditSave={onEditSave} onEditCancel={onEditCancel} disableTaskLayoutAnimation={disableTaskLayoutAnimation && !reorderEnabled} continueAddingAfterSubmit={continueAddingTasks}
       showCollapseButton={showCategoryCollapseButton} selectionMode={selectionMode} selectedTaskIds={selectedTaskIds} onToggleTaskSelection={onToggleTaskSelection}
-      reorderEnabled={reorderEnabled && !selectionMode && !editingTaskId && !session} onReorderActivate={activate} draggedTaskId={session?.taskId}
-      insertionIndex={insertion?.categoryId === cat.id ? insertion.index : null} />)}
+      reorderEnabled={reorderEnabled && !selectionMode && !editingTaskId && !session} onReorderActivate={activate} draggedTaskId={session?.taskId} />)}
     {draggedTask && <div key={draggedTask.id} data-testid="task-drag-overlay" aria-hidden="true" className="pointer-events-none fixed z-[100] max-w-[min(24rem,80vw)] rounded-lg px-3 py-2 text-white shadow-2xl"
       style={{ left: session!.x, top: session!.y, transform: 'translate(-50%, -50%)', backgroundColor: `${draggedCategory?.color ?? '#374151'}ee` }}>{draggedTask.title}</div>}
   </div>;
