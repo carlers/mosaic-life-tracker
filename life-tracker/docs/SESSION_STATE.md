@@ -1,36 +1,30 @@
 # Session checkpoint
 
 Updated: 2026-10-01
-Current task: Polish Day View gesture arbitration so desktop mouse day-swipes can start from task text without weakening long-press task reorder.
-Status: Automated implementation and delivery are complete on `feature/task-reorder-clean`. Stable commit `8a25971506c33ac9f7928bfe9aff2cd093d74dd6` passed the full canonical Quality Gate and its Vercel Preview is READY. Manual desktop acceptance of the mouse gesture remains.
-Next action: On the stable Preview, quick-drag left/right with a mouse directly from a task title and inline memo and confirm the day follows the cursor. Then hold a task title stationary for 500 ms and confirm normal task reorder still activates.
+Current task: Remove the slight vertical compression/jump visible on neighboring Day View slides while swiping between days.
+Status: The prior mouse day-swipe polish is manually accepted. The preview-spacing repair is implemented on `chatgpt/polish-day-slide-preview-spacing`; exact-SHA verification remains before promotion.
+Next action: Run the full canonical Quality Gate, repair any failures, squash-promote to `feature/task-reorder-clean`, verify the stable Vercel Preview is READY, then manually swipe through several sparse/empty days and confirm category spacing no longer expands at snap.
 Blockers: None.
 
 ## Accepted baseline
-- `77c6e381643d6b7f864baac922f110c2d39c6cc4` remains the rollback point before category-boundary visual polish.
-- `9cee1ac448212fdbeb917a68bfce9ba26f35fe56` contains the accepted category-boundary jitter fix.
-- The category-boundary polish is manually accepted on Samsung/PWA.
-- Fresh-open task rendering, legacy multi-task rendering, same/cross-category reorder, consecutive drags, and category-boundary visual stability are accepted.
+- Fresh-open task rendering, legacy multi-task rendering, same/cross-category reorder, consecutive drags, and category-boundary stability are accepted.
+- Desktop mouse day-swipes starting on task title/memo are accepted; stationary 500 ms title hold still reorders.
+- `025639666a52e4a047331329ad60fc18d9b1c96d` is the stable checkpoint before this spacing polish.
 
-## Mouse swipe root cause
-- Swiper 14 treats `button` as a focusable element by default.
-- Task titles are semantic buttons and `useBubbleGestures` captures their pointer so multi-tap/long-press behavior remains coherent.
-- On mouse-down, the title becomes `document.activeElement`. Swiper's pointer-move handler returns when the move target is that focused element and it matches `focusableElements`.
-- The task title therefore trapped desktop mouse drags before Swiper could move, while non-focusable category/background surfaces swiped normally.
-- dnd-kit's reorder sensor was not the blocking layer: it uses a 500 ms delay and cancels when movement exceeds tolerance before activation.
+## Root cause
+- The inactive neighboring slide renders the same categories without active reorder drop surfaces.
+- In the inactive path, the category header used `margin-bottom`; in the active reorder path, the equivalent spacing used `padding-bottom`.
+- When a category had no task rows, the inactive header's bottom margin could collapse with the category container's own bottom margin.
+- The inactive/preview stack was therefore about one spacing token tighter. When the slide became active, the reorder header used non-collapsing padding and the categories expanded vertically at the end of the swipe.
+- This was a layout-shell mismatch, not Swiper scaling or animation compression.
 
 ## Fix
-- Task title and inline memo text are explicit Day View swipe-through controls.
-- The Day View Swiper retains normal focus protection for inputs and ordinary buttons, but excludes only those marked task text controls from its internal focusable-element guard.
-- Quick mouse movement over task text is owned by day navigation.
-- A stationary 500 ms hold on the title still activates dnd-kit reorder; once reorder is active, Day View disables Swiper movement as before.
-- Completion checkbox, task image, edit input, reactions, and other dedicated controls keep their existing pointer isolation and remain control-owned.
-- Task reorder persistence, collision, overlay, optimistic placement, and lifecycle code are unchanged.
+- Added one shared `CategoryHeaderFrame` with non-collapsing `padding-bottom` geometry.
+- Both inactive/non-reorder headers and active droppable headers render through that same frame.
+- Active mode only adds the droppable ref/metadata; it no longer changes vertical layout.
+- Task rendering, drag/drop collision behavior, persistence, Swiper windowing, and task interactions are unchanged.
 
 ## Verification
-- Task-branch full Quality Gate passed on `ab232542b8b92881e82f8080abbf72272d6ccf23`.
-- Stable feature full Quality Gate passed on `8a25971506c33ac9f7928bfe9aff2cd093d74dd6`, including both Chromium browser shards and canonical acceptance.
-- Browser regression opens the real Day View sheet, mouse-drags directly from a task title, verifies the active day advances, and verifies no task drag overlay appears.
-- Existing touch long-press reorder and active-reorder sheet-lock coverage remain green.
-- Vercel deployment `dpl_HkQyLVkHYn6WKNrRBLn5YXAfELyd` is READY on the stable feature alias.
-- Manual desktop mouse acceptance has not yet been claimed.
+- Added a real Day View browser regression using the adjacent empty day: measure category spacing while it is inactive, swipe it active, and require the spacing to remain unchanged within browser-pixel tolerance.
+- Existing mouse-swipe, touch reorder, category-boundary, empty-category, cross-category, and runtime-rebuild coverage remains.
+- Full canonical verification and stable Preview promotion remain.
