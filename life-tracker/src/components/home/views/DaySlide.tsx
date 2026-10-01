@@ -11,6 +11,7 @@ import {
   buildTaskPlacement,
   cloneTaskPlacement,
   isTaskPlacementCompatible,
+  materializeTaskDocument,
   moveTaskInPlacement,
   taskPlacementSignature,
   type TaskOrderGroup,
@@ -176,9 +177,11 @@ function buildRenderedTasksByCategory(
       (taskId, order) => {
         const task = taskById.get(taskId);
         if (!task) return [];
+
         if (task.categoryId === categoryId && task.order === order) {
           return [task];
         }
+
         return [{ ...task, categoryId, order }];
       }
     );
@@ -563,13 +566,17 @@ const DaySlideComponent: React.FC<DaySlideProps> = ({
   ...props
 }) => {
   const { tasks, categories } = props;
+  const materializedTasks = React.useMemo(
+    () => tasks.map(materializeTaskDocument),
+    [tasks]
+  );
   const categoryIds = React.useMemo(
     () => categories.map((category) => category.id),
     [categories]
   );
   const livePlacement = React.useMemo(
-    () => buildTaskPlacement(tasks, categoryIds),
-    [categoryIds, tasks]
+    () => buildTaskPlacement(materializedTasks, categoryIds),
+    [categoryIds, materializedTasks]
   );
 
   if (categories.length === 0) {
@@ -582,13 +589,14 @@ const DaySlideComponent: React.FC<DaySlideProps> = ({
 
   if (!reorderRuntimeActive) {
     const tasksByCategory = buildRenderedTasksByCategory(
-      tasks,
+      materializedTasks,
       livePlacement,
       categoryIds
     );
     return (
       <DaySlideContent
         {...props}
+        tasks={materializedTasks}
         reorderEnabled={false}
         reorderRuntimeActive={false}
         tasksByCategory={tasksByCategory}
@@ -600,6 +608,7 @@ const DaySlideComponent: React.FC<DaySlideProps> = ({
   return (
     <TaskReorderRuntime
       {...props}
+      tasks={materializedTasks}
       reorderRuntimeActive
       categoryIds={categoryIds}
       livePlacement={livePlacement}

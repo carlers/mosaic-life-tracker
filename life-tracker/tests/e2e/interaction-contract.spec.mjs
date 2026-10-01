@@ -360,19 +360,38 @@ test('home task search survives result-sheet Back with state preserved', async (
 });
 
 // Regression: a fresh reorder runtime must not turn untouched tasks into drag shells.
-test('fresh task reorder runtime keeps every real task row readable before any drag', async ({ page }) => {
-  await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html`);
+test('fresh task reorder runtime keeps legacy RxDocument-backed rows readable before any drag', async ({ page }) => {
+  await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html?rxdocs=legacy`);
 
   const region = page.getByTestId('todo-day-content');
   const rows = region.locator('[data-task-id]');
   await expect(rows).toHaveCount(12);
+
+  for (const title of [
+    'Task 1.1',
+    'Task 1.2',
+    'Task 1.3',
+    'Task 2.1',
+    'Task 2.2',
+    'Task 2.3',
+  ]) {
+    await expect(
+      region.getByRole('button', { name: title, exact: true })
+    ).toBeVisible();
+  }
 
   await expect
     .poll(() =>
       rows.evaluateAll((items) =>
         items.every((item) => {
           const title = item.textContent?.trim() ?? '';
-          return title.length > 0 && item.getAttribute('data-task-dragging') !== 'true';
+          const rect = item.getBoundingClientRect();
+          return (
+            title.length > 0 &&
+            rect.width > 0 &&
+            rect.height > 0 &&
+            item.getAttribute('data-task-dragging') !== 'true'
+          );
         })
       )
     )
@@ -480,7 +499,7 @@ test('task can move into another populated category at the projected position', 
 });
 
 test('cross-category persistence leaves every task visible and a second drag immediately usable', async ({ page }) => {
-  await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html`);
+  await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html?rxdocs=legacy`);
 
   const region = page.getByTestId('todo-day-content');
   const allRows = region.locator(

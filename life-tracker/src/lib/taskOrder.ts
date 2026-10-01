@@ -13,6 +13,21 @@ export interface TaskOrderAssignment {
   order: number;
 }
 
+type JsonBackedTaskDocument = TaskDocument & {
+  toJSON?: (withMetaFields?: boolean) => TaskDocument;
+};
+
+export function materializeTaskDocument(
+  task: TaskDocument
+): TaskDocument {
+  const jsonTask = task as JsonBackedTaskDocument;
+  if (typeof jsonTask.toJSON !== 'function') {
+    return task;
+  }
+
+  return { ...jsonTask.toJSON() };
+}
+
 const compareTasks = (a: TaskDocument, b: TaskDocument) =>
   (a.order ?? 0) - (b.order ?? 0) ||
   b.createdAt.localeCompare(a.createdAt) ||
