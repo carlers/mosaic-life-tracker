@@ -158,8 +158,10 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
   const renderDraggableRows = () => {
     const rows: React.ReactNode[] = [];
     let visibleIndex = 0;
-    const visibleTaskCount =
-      tasks.length - (activeDragTaskId ? 1 : 0);
+    const visibleTaskCount = Math.max(
+      0,
+      tasks.length - (activeDragTaskId ? 1 : 0)
+    );
     const clampedGapIndex =
       dragGapIndex == null
         ? null
