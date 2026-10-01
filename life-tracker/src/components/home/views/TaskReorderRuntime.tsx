@@ -6,7 +6,6 @@ import {
 } from '@dnd-kit/dom';
 import { TaskItem } from './TaskItem';
 import { DaySlideContent, type DaySlideProps } from './DaySlideContent';
-import type { CategoryDocument, TaskDocument } from '../../../db/schema';
 import {
   isTaskPlacementCompatible,
   type TaskPlacement,
@@ -250,7 +249,7 @@ export const TaskReorderRuntime: React.FC<TaskReorderRuntimeProps> = (
     ]
   );
 
-  const overlayTask: TaskDocument | null = activeDrag
+  const overlayTask = activeDrag
     ? taskById.get(activeDrag.taskId) ?? null
     : null;
   const overlayCategoryId =
@@ -258,7 +257,7 @@ export const TaskReorderRuntime: React.FC<TaskReorderRuntimeProps> = (
       ? findTaskCategory(activeDrag.projection, activeDrag.taskId) ??
         overlayTask.categoryId
       : null;
-  const overlayCategory: CategoryDocument | null = overlayCategoryId
+  const overlayCategory = overlayCategoryId
     ? categoryById.get(overlayCategoryId) ?? null
     : null;
 
