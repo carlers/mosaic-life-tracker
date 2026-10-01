@@ -40,6 +40,23 @@ async function drag(page, locator, deltaX) {
   });
 }
 
+async function dragWithMouse(page, locator, deltaX, deltaY = 0) {
+  const box = await locator.boundingBox();
+  if (!box) throw new Error('Missing mouse drag target bounds');
+  const startX = box.x + box.width * 0.5;
+  const startY = box.y + Math.min(box.height * 0.5, 24);
+
+  await page.mouse.move(startX, startY);
+  await page.mouse.down();
+  for (let step = 1; step <= 10; step += 1) {
+    await page.mouse.move(
+      startX + (deltaX * step) / 10,
+      startY + (deltaY * step) / 10
+    );
+  }
+  await page.mouse.up();
+}
+
 async function dragVertical(page, locator, deltaY) {
   const box = await locator.boundingBox();
   if (!box) throw new Error('Missing vertical drag target bounds');
@@ -991,6 +1008,33 @@ test('todo day swipe advances the nested day view without advancing the friend c
 
   await expect(page.getByTestId('todo-day-index')).toHaveText('1');
   await expect(page.getByTestId('friend-index')).toHaveText('0');
+});
+
+test('mouse drag over a task title swipes the Day View instead of being trapped by the task control', async ({ page }) => {
+  await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html`);
+  await page.getByTestId('open-day-view-sheet').click();
+
+  const dialog = page.getByRole('dialog', {
+    name: 'Tuesday, September 15, 2026',
+  });
+  await expect(dialog).toBeVisible();
+  await waitForStableVerticalPosition(dialog);
+
+  const activeSlide = dialog.locator('.swiper-slide-active');
+  await expect(activeSlide).toContainText('Tuesday, September 15, 2026');
+
+  const title = activeSlide.getByRole('button', {
+    name: 'Task 1.1',
+    exact: true,
+  });
+  await expect(title).toBeVisible();
+
+  await dragWithMouse(page, title, -240);
+
+  await expect(dialog.locator('.swiper-slide-active')).toContainText(
+    'Wednesday, September 16, 2026'
+  );
+  await expect(page.locator('[data-task-drag-overlay="true"]')).toHaveCount(0);
 });
 
 test('ArrowLeft and ArrowRight navigate the calendar but preserve text caret keys', async ({ page }) => {
