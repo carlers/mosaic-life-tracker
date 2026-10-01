@@ -454,6 +454,94 @@ test('task can move into another populated category at the projected position', 
     .toEqual(['task_0_1', 'task_0_2']);
 });
 
+test('cross-category persistence leaves every task visible and a second drag immediately usable', async ({ page }) => {
+  await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html`);
+
+  const region = page.getByTestId('todo-day-content');
+  const allRows = region.locator(
+    '[data-task-id]:not([data-dnd-placeholder])'
+  );
+  const initialIds = await allRows.evaluateAll((rows) =>
+    rows.map((row) => row.getAttribute('data-task-id')).filter(Boolean).sort()
+  );
+
+  const firstSource = region.locator('[data-task-id="task_0_0"]');
+  const firstTitle = firstSource.getByRole('button', {
+    name: 'Task 1.1',
+    exact: true,
+  });
+  const firstTarget = region.locator('[data-task-id="task_1_1"]');
+  await firstSource.scrollIntoViewIfNeeded();
+  const firstTargetBox = await firstTarget.boundingBox();
+  if (!firstTargetBox) throw new Error('Missing first cross-category target');
+
+  const firstGesture = await startTaskLongPress(page, firstTitle);
+  await firstGesture.moveTo(
+    firstTargetBox.x + firstTargetBox.width * 0.5,
+    firstTargetBox.y + firstTargetBox.height * 0.2
+  );
+  await firstGesture.finish();
+
+  await expect(
+    region.locator('[data-task-id="task_0_0"]:not([data-dnd-placeholder])')
+  ).toBeVisible();
+  await expect(region.locator('[data-dnd-placeholder]')).toHaveCount(0);
+  await expect(region.locator('[data-dnd-dragging="true"]')).toHaveCount(0);
+  await expect
+    .poll(() =>
+      allRows.evaluateAll((rows) =>
+        rows
+          .map((row) => row.getAttribute('data-task-id'))
+          .filter(Boolean)
+          .sort()
+      )
+    )
+    .toEqual(initialIds);
+  await expect
+    .poll(() =>
+      allRows.evaluateAll((rows) =>
+        rows.every((row) => {
+          const rect = row.getBoundingClientRect();
+          return rect.width > 0 && rect.height > 0;
+        })
+      )
+    )
+    .toBe(true);
+
+  const secondSource = region.locator('[data-task-id="task_1_0"]');
+  const secondTitle = secondSource.getByRole('button', {
+    name: 'Task 2.1',
+    exact: true,
+  });
+  const secondTarget = region.locator('[data-task-id="task_3_1"]');
+  await secondSource.scrollIntoViewIfNeeded();
+  const secondTargetBox = await secondTarget.boundingBox();
+  if (!secondTargetBox) throw new Error('Missing second cross-category target');
+
+  const secondGesture = await startTaskLongPress(page, secondTitle);
+  await expect(
+    region.locator('[data-task-id="task_1_0"][data-dnd-dragging="true"]')
+  ).toHaveAttribute('data-task-dragging', 'true');
+  await secondGesture.moveTo(
+    secondTargetBox.x + secondTargetBox.width * 0.5,
+    secondTargetBox.y + secondTargetBox.height * 0.2
+  );
+  await secondGesture.finish();
+
+  await expect(region.locator('[data-dnd-placeholder]')).toHaveCount(0);
+  await expect(region.locator('[data-dnd-dragging="true"]')).toHaveCount(0);
+  await expect
+    .poll(() =>
+      allRows.evaluateAll((rows) =>
+        rows
+          .map((row) => row.getAttribute('data-task-id'))
+          .filter(Boolean)
+          .sort()
+      )
+    )
+    .toEqual(initialIds);
+});
+
 test('task can drop into an empty category from its category surface', async ({ page }) => {
   await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html`);
 
