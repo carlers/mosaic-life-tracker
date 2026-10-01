@@ -4,6 +4,11 @@ import { useDroppable } from '@dnd-kit/react';
 import { ChevronDown, Plus } from 'lucide-react';
 import { DraggableTaskItem } from './DraggableTaskItem';
 import { TaskItem } from './TaskItem';
+import {
+  categoryStartDropId,
+  taskGapDropId,
+  taskInsertDropId,
+} from './taskReorder';
 import { visibilityIcon } from '../../../lib/visibility';
 import { getCategoryLabelColor } from '../../../constants/colors';
 import type { TaskDocument } from '../../../db/schema';
@@ -42,7 +47,7 @@ const CategoryHeaderDropSurface: React.FC<CategoryHeaderDropSurfaceProps> = ({
   children,
 }) => {
   const { ref } = useDroppable({
-    id: `task-category-start:${categoryId}`,
+    id: categoryStartDropId(categoryId),
     type: 'task-category',
     accept: 'task',
     collisionPriority: CollisionPriority.Low,
@@ -67,7 +72,7 @@ const TaskGapDropSurface: React.FC<TaskGapDropSurfaceProps> = ({
   height,
 }) => {
   const { ref } = useDroppable({
-    id: `task-gap:${categoryId}:${index}`,
+    id: taskGapDropId(categoryId, index),
     type: 'task-insert',
     accept: 'task',
     collisionPriority: CollisionPriority.Normal,
@@ -100,14 +105,14 @@ const TaskRowDropSurface: React.FC<TaskRowDropSurfaceProps> = ({
   children,
 }) => {
   const { ref: beforeRef } = useDroppable({
-    id: `task-insert:${categoryId}:${taskId}:before`,
+    id: taskInsertDropId(categoryId, taskId, 'before'),
     type: 'task-insert',
     accept: 'task',
     collisionPriority: CollisionPriority.High,
     disabled,
   });
   const { ref: afterRef } = useDroppable({
-    id: `task-insert:${categoryId}:${taskId}:after`,
+    id: taskInsertDropId(categoryId, taskId, 'after'),
     type: 'task-insert',
     accept: 'task',
     collisionPriority: CollisionPriority.High,
