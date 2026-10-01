@@ -17,14 +17,25 @@ export const DraggableTaskItem: React.FC<DraggableTaskItemProps> = ({
   });
 
   return (
-    <TaskItem
-      {...taskItemProps}
-      rowRef={(node) => draggable.ref(node)}
-      titleRef={(node) => draggable.handleRef(node)}
-      isDragSource={draggable.isDragSource}
-      disableLayoutAnimation={
-        taskItemProps.disableLayoutAnimation || reorderEnabled
-      }
-    />
+    <>
+      <div
+        ref={draggable.ref}
+        data-task-drag-proxy={taskItemProps.task.id}
+        aria-hidden="true"
+        style={{
+          position: 'absolute',
+          inset: 0,
+          opacity: 0,
+          pointerEvents: 'none',
+        }}
+      />
+      <TaskItem
+        {...taskItemProps}
+        titleRef={draggable.handleRef}
+        disableLayoutAnimation={
+          taskItemProps.disableLayoutAnimation || reorderEnabled
+        }
+      />
+    </>
   );
 };
