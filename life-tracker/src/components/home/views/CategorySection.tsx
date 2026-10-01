@@ -52,14 +52,14 @@ const TaskRowDropSurface: React.FC<TaskRowDropSurfaceProps> = ({
   isActiveSource = false,
   children,
 }) => {
-  const before = useDroppable({
+  const { ref: beforeRef } = useDroppable({
     id: `task-insert:${categoryId}:${taskId}:before`,
     type: 'task-insert',
     accept: 'task',
     collisionPriority: CollisionPriority.High,
     disabled,
   });
-  const after = useDroppable({
+  const { ref: afterRef } = useDroppable({
     id: `task-insert:${categoryId}:${taskId}:after`,
     type: 'task-insert',
     accept: 'task',
@@ -85,7 +85,7 @@ const TaskRowDropSurface: React.FC<TaskRowDropSurfaceProps> = ({
       }
     >
       <div
-        ref={before.ref}
+        ref={beforeRef}
         data-task-insert-position="before"
         aria-hidden="true"
         style={{
@@ -97,7 +97,7 @@ const TaskRowDropSurface: React.FC<TaskRowDropSurfaceProps> = ({
         }}
       />
       <div
-        ref={after.ref}
+        ref={afterRef}
         data-task-insert-position="after"
         aria-hidden="true"
         style={{
