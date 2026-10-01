@@ -10,7 +10,7 @@ Blockers: None.
 - Preserve the accepted 500 ms invisible-title-handle interaction and dnd-kit drag feedback exactly.
 - Move the dnd-kit provider from each category to the Day View so all categories share one sortable context.
 - Support precise insertion into populated categories plus append drops onto empty, collapsed, header, or blank category surfaces.
-- Keep drag projection inside dnd-kit; do not reintroduce custom pointer math, hit testing, placeholders, or per-move React state.
+- Keep pointer geometry/projection inside dnd-kit. React may mirror grouped task IDs on `dragover` so cross-category ownership stays structurally consistent, but do not reintroduce custom pointer math, hit testing, overlays/placeholders, or task-document writes during movement.
 - Persist only on release. Same-category drops normalize one group; cross-category drops update the moved task's `categoryId` and normalize both affected groups.
 - Revalidate the complete affected task set and destination categories before writes so concurrent changes fail closed.
 

@@ -57,18 +57,27 @@ interface DaySlideProps {
   onReorderActiveChange?: (active: boolean) => void;
 }
 
-function categoryFromDropTarget(
-  target: { id: string | number; type?: string | number | symbol } | null
-): string | null {
+function categoryFromDropTarget(target: unknown): string | null {
+  if (!target || typeof target !== 'object') return null;
+  const candidate = target as { id?: unknown; type?: unknown };
   if (
-    !target ||
-    target.type !== 'task-category' ||
-    typeof target.id !== 'string' ||
-    !target.id.startsWith(CATEGORY_DROP_PREFIX)
+    candidate.type !== 'task-category' ||
+    typeof candidate.id !== 'string' ||
+    !candidate.id.startsWith(CATEGORY_DROP_PREFIX)
   ) {
     return null;
   }
-  return target.id.slice(CATEGORY_DROP_PREFIX.length);
+  return candidate.id.slice(CATEGORY_DROP_PREFIX.length);
+}
+
+function findTaskCategory(
+  placement: TaskPlacement,
+  taskId: string
+): string | null {
+  for (const [categoryId, taskIds] of Object.entries(placement)) {
+    if (taskIds.includes(taskId)) return categoryId;
+  }
+  return null;
 }
 
 const DaySlideComponent: React.FC<DaySlideProps> = ({
@@ -108,7 +117,10 @@ const DaySlideComponent: React.FC<DaySlideProps> = ({
   );
   const [pendingPlacement, setPendingPlacement] =
     React.useState<TaskPlacement | null>(null);
+  const [dragPlacement, setDragPlacement] =
+    React.useState<TaskPlacement | null>(null);
   const dragSnapshotRef = React.useRef<TaskPlacement | null>(null);
+  const dragPlacementRef = React.useRef<TaskPlacement | null>(null);
 
   const livePlacementSignature = React.useMemo(
     () => taskPlacementSignature(livePlacement, categoryIds),
@@ -118,29 +130,15 @@ const DaySlideComponent: React.FC<DaySlideProps> = ({
     () => taskPlacementIdSignature(livePlacement),
     [livePlacement]
   );
-
-  React.useEffect(() => {
-    if (!pendingPlacement) return;
-    const pendingIdSignature = taskPlacementIdSignature(pendingPlacement);
-    const pendingSignature = taskPlacementSignature(
-      pendingPlacement,
-      categoryIds
-    );
-
-    if (
-      pendingIdSignature !== liveIdSignature ||
-      pendingSignature === livePlacementSignature
-    ) {
-      setPendingPlacement(null);
-    }
-  }, [
-    categoryIds,
-    liveIdSignature,
-    livePlacementSignature,
-    pendingPlacement,
-  ]);
-
-  const effectivePlacement = pendingPlacement ?? livePlacement;
+  const usablePendingPlacement =
+    pendingPlacement &&
+    taskPlacementIdSignature(pendingPlacement) === liveIdSignature &&
+    taskPlacementSignature(pendingPlacement, categoryIds) !==
+      livePlacementSignature
+      ? pendingPlacement
+      : null;
+  const basePlacement = usablePendingPlacement ?? livePlacement;
+  const effectivePlacement = dragPlacement ?? basePlacement;
   const taskById = React.useMemo(
     () => new Map(tasks.map((task) => [task.id, task])),
     [tasks]
@@ -166,9 +164,49 @@ const DaySlideComponent: React.FC<DaySlideProps> = ({
   }, [categoryIds, effectivePlacement, taskById]);
 
   const handleDragStart = React.useCallback(() => {
-    dragSnapshotRef.current = cloneTaskPlacement(effectivePlacement);
+    const snapshot = cloneTaskPlacement(basePlacement);
+    dragSnapshotRef.current = snapshot;
+    dragPlacementRef.current = snapshot;
+    setDragPlacement(snapshot);
     onReorderActiveChange?.(true);
-  }, [effectivePlacement, onReorderActiveChange]);
+  }, [basePlacement, onReorderActiveChange]);
+
+  const handleDragOver = React.useCallback(
+    (
+      event: Parameters<
+        NonNullable<React.ComponentProps<typeof DragDropProvider>['onDragOver']>
+      >[0]
+    ) => {
+      setDragPlacement((current) => {
+        if (!current) return current;
+        const { source, target } = event.operation;
+        if (!isSortable(source)) return current;
+
+        const taskId = String(source.id);
+        const categoryTarget = categoryFromDropTarget(target);
+        const currentCategoryId = findTaskCategory(current, taskId);
+        const targetCategoryId =
+          categoryTarget ??
+          (source.group == null ? currentCategoryId : String(source.group));
+        if (!targetCategoryId) return current;
+
+        const targetIndex =
+          categoryTarget !== null
+            ? (current[targetCategoryId] ?? []).length
+            : source.index;
+        const next = moveTaskInPlacement(
+          current,
+          taskId,
+          targetCategoryId,
+          targetIndex
+        );
+        if (!next) return current;
+        dragPlacementRef.current = next;
+        return next;
+      });
+    },
+    []
+  );
 
   const handleDragEnd = React.useCallback(
     (
@@ -178,43 +216,43 @@ const DaySlideComponent: React.FC<DaySlideProps> = ({
     ) => {
       onReorderActiveChange?.(false);
       const snapshot = dragSnapshotRef.current;
+      const finalPlacement = dragPlacementRef.current;
       dragSnapshotRef.current = null;
+      dragPlacementRef.current = null;
+      setDragPlacement(null);
 
-      if (event.canceled || !snapshot || !onReorderTasks) return;
+      if (
+        event.canceled ||
+        !snapshot ||
+        !finalPlacement ||
+        !onReorderTasks
+      ) {
+        return;
+      }
 
-      const { source, target } = event.operation;
-      if (!isSortable(source) || source.initialGroup == null) return;
+      const { source } = event.operation;
+      if (!isSortable(source)) return;
 
-      const initialCategoryId = String(source.initialGroup);
-      const categoryTarget = categoryFromDropTarget(target);
-      const targetCategoryId =
-        categoryTarget ??
-        (source.group == null ? initialCategoryId : String(source.group));
-      const targetIndex =
-        categoryTarget !== null
-          ? (snapshot[targetCategoryId] ?? []).length
-          : source.index;
-
-      const nextPlacement = moveTaskInPlacement(
-        snapshot,
-        String(source.id),
-        targetCategoryId,
-        targetIndex
-      );
-      if (!nextPlacement) return;
+      const taskId = String(source.id);
+      const initialCategoryId = findTaskCategory(snapshot, taskId);
+      const targetCategoryId = findTaskCategory(finalPlacement, taskId);
+      if (!initialCategoryId || !targetCategoryId) return;
 
       const snapshotSignature = taskPlacementSignature(snapshot, categoryIds);
-      const nextSignature = taskPlacementSignature(nextPlacement, categoryIds);
+      const nextSignature = taskPlacementSignature(
+        finalPlacement,
+        categoryIds
+      );
       if (snapshotSignature === nextSignature) return;
 
-      setPendingPlacement(nextPlacement);
+      setPendingPlacement(finalPlacement);
       const affectedCategoryIds = Array.from(
         new Set([initialCategoryId, targetCategoryId])
       );
       const groups: TaskOrderGroup[] = affectedCategoryIds.map(
         (categoryId) => ({
           categoryId,
-          taskIds: nextPlacement[categoryId] ?? [],
+          taskIds: finalPlacement[categoryId] ?? [],
         })
       );
 
@@ -245,6 +283,7 @@ const DaySlideComponent: React.FC<DaySlideProps> = ({
         TASK_REORDER_POINTER_SENSOR,
       ]}
       onDragStart={handleDragStart}
+      onDragOver={handleDragOver}
       onDragEnd={handleDragEnd}
     >
       <div
