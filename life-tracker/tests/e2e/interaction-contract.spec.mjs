@@ -380,11 +380,16 @@ test('task long-press stays under the finger while siblings reorder, then persis
   }
 
   const gesture = await startTaskLongPress(page, title);
-  const dragged = page.locator(
-    '[data-task-id="task_0_0"][data-dnd-dragging="true"]'
-  );
+  const dragged = page.locator('[data-task-overlay-id="task_0_0"]');
   await expect(dragged).toHaveAttribute('data-task-dragging', 'true');
   await expect(page.getByTestId('todo-gesture')).toHaveText('sorting');
+  await expect(page.locator('[data-dnd-placeholder]')).toHaveCount(0);
+  await expect(
+    page.locator('[data-task-overlay-id="task_0_0"]')
+  ).toBeVisible();
+  await expect(
+    region.locator('[data-task-source-slot="true"] [data-task-id="task_0_0"]')
+  ).toHaveCount(1);
 
   await gesture.moveTo(
     destinationBox.x + destinationBox.width * 0.5,
@@ -440,13 +445,13 @@ test('task can move into another populated category at the projected position', 
   await gesture.finish();
 
   await expect(page.getByTestId('todo-gesture')).toHaveText(
-    'reordered:cat_0=task_0_1,task_0_2|cat_1=task_1_0,task_1_1,task_0_0,task_1_2'
+    'reordered:cat_0=task_0_1,task_0_2|cat_1=task_1_0,task_0_0,task_1_1,task_1_2'
   );
   await expect
     .poll(() => targetCategory.locator(
       '[data-task-id]:not([data-dnd-placeholder])'
     ).evaluateAll((rows) => rows.map((row) => row.getAttribute('data-task-id'))))
-    .toEqual(['task_1_0', 'task_1_1', 'task_0_0', 'task_1_2']);
+    .toEqual(['task_1_0', 'task_0_0', 'task_1_1', 'task_1_2']);
   await expect
     .poll(() => sourceCategory.locator(
       '[data-task-id]:not([data-dnd-placeholder])'
@@ -520,7 +525,7 @@ test('cross-category persistence leaves every task visible and a second drag imm
 
   const secondGesture = await startTaskLongPress(page, secondTitle);
   await expect(
-    region.locator('[data-task-id="task_1_0"][data-dnd-dragging="true"]')
+    page.locator('[data-task-overlay-id="task_1_0"]')
   ).toHaveAttribute('data-task-dragging', 'true');
   await secondGesture.moveTo(
     secondTargetBox.x + secondTargetBox.width * 0.5,
@@ -540,6 +545,11 @@ test('cross-category persistence leaves every task visible and a second drag imm
       )
     )
     .toEqual(initialIds);
+
+  await region
+    .getByRole('button', { name: 'Task 1.1', exact: true })
+    .click();
+  await expect(page.getByTestId('todo-gesture')).toHaveText('actions');
 });
 
 test('task can drop into an empty category from its category surface', async ({ page }) => {
@@ -605,9 +615,7 @@ test('active task sorting keeps the real Day View sheet and day swiper locked in
   await source.scrollIntoViewIfNeeded();
 
   const gesture = await startTaskLongPress(page, title);
-  const dragged = dialog.locator(
-    '[data-task-id="task_0_0"][data-dnd-dragging="true"]'
-  );
+  const dragged = page.locator('[data-task-overlay-id="task_0_0"]');
   await expect(dragged).toHaveAttribute('data-task-dragging', 'true');
   await gesture.moveTo(gesture.startX, gesture.startY + 55);
 
@@ -616,9 +624,22 @@ test('active task sorting keeps the real Day View sheet and day swiper locked in
 
   await gesture.cancel();
   await expect(
-    dialog.locator('[data-task-id="task_0_0"][data-dnd-dragging="true"]')
+    page.locator('[data-task-overlay-id="task_0_0"]')
   ).toHaveCount(0);
   await expect(dialog).toBeVisible();
+
+  await page.keyboard.press('Escape');
+  await expect(dialog).toHaveCount(0);
+  await page.getByTestId('open-day-view-sheet').click();
+
+  const reopened = page.getByRole('dialog', {
+    name: 'Tuesday, September 15, 2026',
+  });
+  await expect(reopened).toBeVisible();
+  await waitForStableVerticalPosition(reopened);
+  await expect(
+    reopened.getByRole('button', { name: 'Task 1.1', exact: true })
+  ).toBeVisible();
 });
 
 // Regression: §2 (owner Day View exposes memo content and multi-tap shortcuts).
@@ -638,6 +659,52 @@ test('owner task memo is visible and double/triple tap shortcuts reach edit surf
   await page.reload();
   await page.getByRole('button', { name: 'Task 1.1' }).click({ clickCount: 3 });
   await expect(page.getByTestId('todo-gesture')).toHaveText('memo-edit');
+});
+
+// Regression: §2 (closed Day View destroys task drag runtime; reopen starts from live tasks).
+test('DayView task rows are interactive on first open and after a clean runtime rebuild', async ({ page }) => {
+  await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html?perf=heavy`);
+
+  await page.getByTestId('open-day-view-sheet').click();
+
+  let dialog = page.getByRole('dialog', {
+    name: 'Tuesday, September 15, 2026',
+  });
+  await expect(dialog).toBeVisible();
+  await waitForStableVerticalPosition(dialog);
+  await expect(
+    dialog.locator('[data-task-reorder-runtime="true"]')
+  ).toHaveCount(1);
+
+  let title = dialog.getByRole('button', {
+    name: 'Task 1.1',
+    exact: true,
+  });
+  await expect(title).toBeVisible();
+
+  await page.keyboard.press('Escape');
+  await expect(dialog).toHaveCount(0);
+
+  await page.getByTestId('open-day-view-sheet').click();
+  dialog = page.getByRole('dialog', {
+    name: 'Tuesday, September 15, 2026',
+  });
+  await expect(dialog).toBeVisible();
+  await waitForStableVerticalPosition(dialog);
+  await expect(
+    dialog.locator('[data-task-reorder-runtime="true"]')
+  ).toHaveCount(1);
+
+  title = dialog.getByRole('button', {
+    name: 'Task 1.1',
+    exact: true,
+  });
+  await expect(title).toBeVisible();
+  await title.click();
+
+  await expect(
+    page.getByRole('dialog', { name: 'Task 1.1' })
+  ).toBeVisible();
 });
 
 // Regression: §2 (Day View reopens cleanly after sheet teardown).

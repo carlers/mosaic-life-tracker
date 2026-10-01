@@ -63,6 +63,9 @@ interface CategorySectionProps {
   selectedTaskIds?: ReadonlySet<string>;
   onToggleTaskSelection?: (taskId: string) => void;
   reorderEnabled?: boolean;
+  activeDragTaskId?: string | null;
+  dragGapIndex?: number | null;
+  dragGapHeight?: number;
 }
 
 export const CategorySection: React.FC<CategorySectionProps> = ({
@@ -90,6 +93,9 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
   selectedTaskIds = new Set<string>(),
   onToggleTaskSelection,
   reorderEnabled = false,
+  activeDragTaskId = null,
+  dragGapIndex = null,
+  dragGapHeight = 0,
 }) => {
   const [isAdding, setIsAdding] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -175,6 +181,76 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
     setIsCollapsed((current) => !current);
   };
 
+  const renderSortableRows = () => {
+    const rows: React.ReactNode[] = [];
+    let visibleIndex = 0;
+    const clampedGapIndex =
+      dragGapIndex == null
+        ? null
+        : Math.max(
+            0,
+            Math.min(
+              dragGapIndex,
+              tasks.filter((task) => task.id !== activeDragTaskId).length
+            )
+          );
+
+    const pushGap = () => {
+      rows.push(
+        <div
+          key="task-drag-gap"
+          data-task-drop-gap="true"
+          aria-hidden="true"
+          style={{ height: Math.max(1, dragGapHeight) }}
+        />
+      );
+    };
+
+    tasks.forEach((task, index) => {
+      const isActiveSource = task.id === activeDragTaskId;
+
+      if (!isActiveSource && clampedGapIndex === visibleIndex) {
+        pushGap();
+      }
+
+      rows.push(
+        <div
+          key={task.id}
+          data-task-slot-id={task.id}
+          data-task-source-slot={isActiveSource ? 'true' : undefined}
+          aria-hidden={isActiveSource ? true : undefined}
+          style={
+            isActiveSource
+              ? {
+                  height: 0,
+                  opacity: 0,
+                  pointerEvents: 'none',
+                  position: 'relative',
+                }
+              : undefined
+          }
+        >
+          <SortableTaskItem
+            {...taskProps(task)}
+            index={index}
+            group={categoryId}
+            reorderEnabled
+          />
+        </div>
+      );
+
+      if (!isActiveSource) {
+        visibleIndex += 1;
+      }
+    });
+
+    if (clampedGapIndex === visibleIndex) {
+      pushGap();
+    }
+
+    return rows;
+  };
+
   const contents = (
     <>
       <div className="mb-2 flex items-center gap-2">
@@ -249,15 +325,7 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
 
       {!categoryCollapsed &&
         (canReorder
-          ? tasks.map((task, index) => (
-              <SortableTaskItem
-                key={task.id}
-                {...taskProps(task)}
-                index={index}
-                group={categoryId}
-                reorderEnabled
-              />
-            ))
+          ? renderSortableRows()
           : tasks.map((task) => (
               <TaskItem key={task.id} {...taskProps(task)} />
             )))}

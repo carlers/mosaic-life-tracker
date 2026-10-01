@@ -229,6 +229,7 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
 
   const handleSheetClose = useCallback(() => {
     setDeferredRenderWindow(0);
+    setIsTaskReorderActive(false);
     setIsSelectMode(false);
     setSelectedTaskIds(new Set());
     onClose();
@@ -720,11 +721,13 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
                       selectedTaskIds={selectedTaskIds}
                       onToggleTaskSelection={handleToggleTaskSelection}
                       reorderEnabled={
+                        isOpen &&
                         i === activeIndex &&
                         !isSelectMode &&
                         !isBackgroundLocked &&
                         editingTaskId === null
                       }
+                      reorderRuntimeActive={isOpen && i === activeIndex}
                       onReorderTasks={reorderTasks}
                       onReorderActiveChange={setIsTaskReorderActive}
                     />
