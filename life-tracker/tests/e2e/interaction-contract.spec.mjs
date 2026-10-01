@@ -70,28 +70,41 @@ async function dragVertical(page, locator, deltaY) {
 
 async function startLongPressTaskDrag(page, source, destination) {
   const sourceBox = await source.boundingBox();
-  const destinationBox = await destination.boundingBox();
-  if (!sourceBox || !destinationBox) throw new Error('Missing task drag bounds');
+  if (!sourceBox) throw new Error('Missing task drag source bounds');
   const session = await page.context().newCDPSession(page);
   const startX = sourceBox.x + sourceBox.width * 0.6;
   const startY = sourceBox.y + sourceBox.height * 0.5;
-  const endX = destinationBox.x + destinationBox.width * 0.6;
-  const endY = destinationBox.y + destinationBox.height * 0.75;
 
   await session.send('Input.dispatchTouchEvent', {
     type: 'touchStart',
     touchPoints: [{ x: startX, y: startY }],
   });
   await page.waitForTimeout(500);
-  for (let step = 1; step <= 6; step += 1) {
+  await expect(page.getByTestId('task-drag-overlay')).toBeVisible();
+
+  let destinationBox = await destination.boundingBox();
+  if (!destinationBox) throw new Error('Missing task drag destination bounds after lift');
+  let endX = destinationBox.x + destinationBox.width * 0.6;
+  let endY = destinationBox.y + destinationBox.height * 0.9;
+  for (let step = 1; step <= 4; step += 1) {
     await session.send('Input.dispatchTouchEvent', {
       type: 'touchMove',
       touchPoints: [{
-        x: startX + ((endX - startX) * step) / 6,
-        y: startY + ((endY - startY) * step) / 6,
+        x: startX + ((endX - startX) * step) / 4,
+        y: startY + ((endY - startY) * step) / 4,
       }],
     });
   }
+
+  await page.waitForTimeout(50);
+  destinationBox = await destination.boundingBox();
+  if (!destinationBox) throw new Error('Missing task drag destination bounds after movement');
+  endX = destinationBox.x + destinationBox.width * 0.6;
+  endY = destinationBox.y + destinationBox.height * 0.9;
+  await session.send('Input.dispatchTouchEvent', {
+    type: 'touchMove',
+    touchPoints: [{ x: endX, y: endY }],
+  });
   return session;
 }
 

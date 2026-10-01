@@ -2,8 +2,8 @@
 
 Updated: 2026-10-01
 Current task: Repair persistent Day View task reordering on the feature branch.
-Status: Production fix and regression coverage are complete on the ChatGPT task branch; the second full gate exposed one stale browser assertion from the pre-fix re-parenting model, now corrected.
-Next action: Pass full canonical CI on the updated browser contract, then squash-merge into `feature/persistent-task-ordering` and verify the stable Vercel Preview.
+Status: Production fix and DOM coverage are complete; browser verification is isolating the remaining synthetic touch-coordinate behavior.
+Next action: Run the browser-only gate with post-lift destination measurement; if it still cannot move the projected gap, repair the production touch sensor rather than weakening the contract.
 Blockers: None currently.
 
 ## Completed substeps
@@ -13,10 +13,10 @@ Blockers: None currently.
 - Retained the final optimistic task order after release until the RxDB live query reflects the persisted order, preventing release-time snap-back.
 - Roll back the optimistic projection if persistence rejects instead of leaving an unsaved order on screen.
 - Added DOM regressions for stable source ownership, optimistic release state, failed-write rollback, touch pointer-cancel fallback, and true touch cancellation.
-- Updated the browser touch contract to assert the stable source anchor plus projected gap during drag and the final visible order after release.
+- Updated the browser touch helper to measure the destination after lift and again after movement, avoiding stale pre-lift row geometry.
 
 ## Verification
-- Full gate #1461: lint, unit, handlers, build, both DOM shards, dependency audit, and browser shard 1/2 passed.
-- Browser shard 2/2 failed only because its reorder assertion expected the old pre-fix DOM re-parenting; the remaining 14 tests in that shard passed.
-- Updated full canonical gate pending on the new final SHA.
+- Full gate #1461 passed lint, unit, handlers, build, both DOM shards, dependency audit, and browser shard 1/2; its sole browser 2/2 failure was the old re-parenting expectation.
+- Full gate #1462 again passed non-browser checks; browser 2/2 showed the projected gap remaining at index 0, indicating either stale synthetic coordinates or touch ownership.
+- Browser-only verification requested for the post-lift geometry correction.
 - Hosted Preview/manual mobile acceptance pending stable-branch merge.
