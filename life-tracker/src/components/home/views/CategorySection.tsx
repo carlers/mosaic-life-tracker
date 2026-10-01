@@ -10,6 +10,28 @@ import type { TaskDocument } from '../../../db/schema';
 
 type Visibility = 'private' | 'followers' | 'public';
 
+interface CategoryHeaderFrameProps {
+  children: React.ReactNode;
+  surfaceRef?: React.Ref<HTMLDivElement>;
+  dropPosition?: 'start';
+}
+
+const CategoryHeaderFrame: React.FC<CategoryHeaderFrameProps> = ({
+  children,
+  surfaceRef,
+  dropPosition,
+}) => (
+  <div
+    ref={surfaceRef}
+    className="pb-2"
+    data-task-category-drop-position={dropPosition}
+  >
+    <div className="flex items-center gap-2">
+      {children}
+    </div>
+  </div>
+);
+
 interface CategoryHeaderDropSurfaceProps {
   categoryId: string;
   children: React.ReactNode;
@@ -27,15 +49,9 @@ const CategoryHeaderDropSurface: React.FC<CategoryHeaderDropSurfaceProps> = ({
   });
 
   return (
-    <div
-      ref={ref}
-      className="pb-2"
-      data-task-category-drop-position="start"
-    >
-      <div className="flex items-center gap-2">
-        {children}
-      </div>
-    </div>
+    <CategoryHeaderFrame surfaceRef={ref} dropPosition="start">
+      {children}
+    </CategoryHeaderFrame>
   );
 };
 
@@ -397,9 +413,9 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
           {categoryHeaderControls}
         </CategoryHeaderDropSurface>
       ) : (
-        <div className="mb-2 flex items-center gap-2">
+        <CategoryHeaderFrame>
           {categoryHeaderControls}
-        </div>
+        </CategoryHeaderFrame>
       )}
 
       {!categoryCollapsed && isAdding && (
