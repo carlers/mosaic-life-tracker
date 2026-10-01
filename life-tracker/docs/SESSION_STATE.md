@@ -17,5 +17,5 @@ Blockers: None.
 
 ## Verification
 - Existing browser contracts cover same-category reorder, cross-category insertion, empty-category drop, immediate second drag, pre-hold movement cancellation, sheet gesture locking/cancel, and close/reopen runtime rebuild.
-- Canonical full Quality Gate has not yet completed for this implementation.
+- Initial full Quality Gate run #1520 exposed and confirmed three implementation defects: render-time droppable ref access, nullable drag-source typing, and an incorrect Feedback override that disabled the official overlay. All three are fixed; exact-SHA canonical rerun is pending.
 - Real-device Samsung/PWA acceptance remains required after stable Preview delivery.
