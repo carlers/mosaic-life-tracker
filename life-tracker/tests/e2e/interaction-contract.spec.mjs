@@ -376,15 +376,28 @@ test('owner task long press follows touch and shifts rows before release', async
   const session = await startLongPressTaskDrag(page, source, destination);
 
   await expect(page.getByTestId('task-drag-overlay')).toHaveText('Task 1.1');
+  await expect(page.locator(
+    '[data-category-id="cat_0"] [data-task-id="task_0_0"][data-reorder-anchor="true"]'
+  )).toHaveCount(1);
   await expect
-    .poll(() => page.locator('[data-category-id="cat_0"] [data-task-id]').evaluateAll(
-      (rows) => rows.map((row) => row.getAttribute('data-task-id'))
-    ))
-    .toEqual(['task_0_1', 'task_0_0', 'task_0_2']);
+    .poll(() => page.locator('[data-category-id="cat_0"]').evaluate((category) => (
+      [...category.querySelectorAll(
+        '[data-task-id]:not([data-reorder-anchor="true"]), [data-task-drop-index]'
+      )].map((element) => (
+        element.getAttribute('data-task-id') ??
+        `gap-${element.getAttribute('data-task-drop-index')}`
+      ))
+    )))
+    .toEqual(['task_0_1', 'gap-1', 'task_0_2']);
 
   await session.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
   await expect(page.getByTestId('todo-gesture')).toHaveText('reordered');
   await expect(page.getByTestId('task-drag-overlay')).toHaveCount(0);
+  await expect
+    .poll(() => page.locator(
+      '[data-category-id="cat_0"] [data-task-id]:not([data-reorder-anchor="true"])'
+    ).evaluateAll((rows) => rows.map((row) => row.getAttribute('data-task-id'))))
+    .toEqual(['task_0_1', 'task_0_0', 'task_0_2']);
 });
 
 // Regression: §2 (Day View reopens cleanly after sheet teardown).
