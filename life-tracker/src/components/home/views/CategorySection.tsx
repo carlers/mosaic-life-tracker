@@ -29,10 +29,12 @@ const CategoryHeaderDropSurface: React.FC<CategoryHeaderDropSurfaceProps> = ({
   return (
     <div
       ref={ref}
-      className="mb-2 flex items-center gap-2"
+      className="pb-2"
       data-task-category-drop-position="start"
     >
-      {children}
+      <div className="flex items-center gap-2">
+        {children}
+      </div>
     </div>
   );
 };
