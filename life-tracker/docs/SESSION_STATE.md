@@ -2,7 +2,7 @@
 
 Updated: 2026-10-01
 Current task: Polish Day View gesture arbitration so desktop mouse day-swipes can start from task text without weakening long-press task reorder.
-Status: The prior category-boundary jitter polish is manually accepted on Samsung/PWA. The mouse-swipe repair is implemented on `chatgpt/polish-task-mouse-day-swipe`; focused/full verification remains before promotion.
+Status: The prior category-boundary jitter polish is manually accepted on Samsung/PWA. The mouse-swipe repair is implemented on `chatgpt/polish-task-mouse-day-swipe`. The first full run exposed only a regression-fixture mistake: the real Day View probe is intentionally mounted only with `?perf=heavy`; the test now opens that fixture correctly. Exact-SHA full verification is rerunning before promotion.
 Next action: Run exact-SHA canonical verification, repair any failures, squash-promote to `feature/task-reorder-clean`, verify Vercel READY, then manually confirm quick mouse drags over task title/memo change days while a stationary 500 ms title hold still reorders.
 Blockers: None.
 
