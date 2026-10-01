@@ -43,20 +43,12 @@ function readHomeView(): ViewType {
   }
 }
 
-export const PersonPane: React.FC<PersonPaneProps> = ({
+const OwnerPersonPane: React.FC<PersonPaneProps> = ({
   person,
   isActive,
   ownerTasks = [],
   ownerCategories = [],
 }) => {
-  if (person.kind === 'friend') {
-    return (
-      <React.Suspense fallback={null}>
-        <LazyFriendPersonPane person={person} isActive={isActive} />
-      </React.Suspense>
-    );
-  }
-
   const { user } = useAuth();
   const currentUserId = user?.$id ?? '';
   const { getSetting } = useSettings();
@@ -143,4 +135,19 @@ export const PersonPane: React.FC<PersonPaneProps> = ({
       )}
     </div>
   );
+};
+
+export const PersonPane: React.FC<PersonPaneProps> = (props) => {
+  if (props.person.kind === 'friend') {
+    return (
+      <React.Suspense fallback={null}>
+        <LazyFriendPersonPane
+          person={props.person}
+          isActive={props.isActive}
+        />
+      </React.Suspense>
+    );
+  }
+
+  return <OwnerPersonPane {...props} />;
 };
