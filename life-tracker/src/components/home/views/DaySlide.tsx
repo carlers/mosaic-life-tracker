@@ -11,6 +11,7 @@ import {
   buildTaskPlacement,
   cloneTaskPlacement,
   isTaskPlacementCompatible,
+  materializeTaskDocument,
   moveTaskInPlacement,
   taskPlacementSignature,
   type TaskOrderGroup,
@@ -168,7 +169,12 @@ function buildRenderedTasksByCategory(
   placement: TaskPlacement,
   categoryIds: readonly string[]
 ): Map<string, TaskDocument[]> {
-  const taskById = new Map(tasks.map((task) => [task.id, task]));
+  const taskById = new Map(
+    tasks.map((task) => {
+      const materialized = materializeTaskDocument(task);
+      return [materialized.id, materialized] as const;
+    })
+  );
   const result = new Map<string, TaskDocument[]>();
 
   for (const categoryId of categoryIds) {
@@ -176,9 +182,11 @@ function buildRenderedTasksByCategory(
       (taskId, order) => {
         const task = taskById.get(taskId);
         if (!task) return [];
+
         if (task.categoryId === categoryId && task.order === order) {
           return [task];
         }
+
         return [{ ...task, categoryId, order }];
       }
     );
