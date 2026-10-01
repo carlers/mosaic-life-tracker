@@ -2,27 +2,35 @@
 
 Updated: 2026-10-01
 Current task: Polish Day View task reordering to remove the visual oscillation near category pills without changing accepted reorder behavior.
-Status: `feature/task-reorder-clean` commit `77c6e381643d6b7f864baac922f110c2d39c6cc4` is the accepted no-known-bugs baseline. The remaining issue is visual-only: while dragging near a category pill / first task boundary, the first task can repeatedly jump up and down.
-Next action: Replace the broad category append target with a header-specific start target, add a browser regression for stable header/first-row insertion, run full canonical verification, promote back to `feature/task-reorder-clean`, and verify Preview delivery.
+Status: The no-known-bugs baseline is `feature/task-reorder-clean` commit `77c6e381643d6b7f864baac922f110c2d39c6cc4`. The jitter fix is implemented on `chatgpt/polish-task-reorder-header-jitter`; focused verification passed and full canonical verification is next.
+Next action: Run exact-SHA full Quality Gate, repair any failures, squash-promote to `feature/task-reorder-clean`, verify the stable Vercel Preview is READY, then repeat the near-category-pill drag acceptance on Samsung/PWA.
 Blockers: None.
 
 ## Baseline
-- Fresh-open task rendering is correct on the accepted Samsung/PWA check.
+- Fresh-open task rendering is correct on Samsung/PWA.
 - Same-category and cross-category reordering work.
 - Consecutive drags work.
 - Legacy multi-task groups with duplicate `order: 0` render correctly.
-- Stable Preview is READY for `77c6e381643d6b7f864baac922f110c2d39c6cc4`.
+- `77c6e381643d6b7f864baac922f110c2d39c6cc4` remains the rollback/checkpoint commit if this visual polish regresses behavior.
 
-## Jitter diagnosis
-- Each category currently registers one low-priority droppable over the entire category and interprets it as append-to-end.
-- Each task row registers high-priority top/bottom droppables for before/after insertion.
-- Near the category pill / first-row boundary, collision can alternate between the category target (append) and the first row's upper target (insert first).
-- Those two projections move the insertion gap between opposite positions. Moving that gap shifts the first row's geometry, which can feed the next collision result and produce visible up/down oscillation.
-- dnd-kit's collision priority resolves overlapping targets by priority, but it does not make two adjacent targets with different semantic destinations equivalent.
+## Jitter root cause
+- The old low-priority category droppable covered the entire category and meant append-to-end.
+- Task rows use high-priority top/bottom targets for before/after insertion.
+- Near a category pill / first-row boundary, collision could alternate between category append and first-row prepend.
+- Once the insertion gap appeared, it could also occupy the pointer position while being non-droppable, causing a transient no-target state.
+- Those semantic changes moved the gap itself, which changed row geometry and fed the next collision result, producing the visible up/down oscillation.
 
-## Planned polish
-- Restrict the category-level droppable to the category header/pill row instead of the entire category body.
-- Make the header target mean insert-at-start. This matches the first task's upper-half target, so crossing that boundary cannot change the projected insertion slot.
-- Keep row before/after targets for precise placement; the last row's lower half remains the append path.
-- Empty and collapsed categories remain droppable through their header, where start and end are equivalent for empty groups and start is deterministic for collapsed groups.
-- Preserve the drag proxy, overlay, immutable drag snapshot, persistence, optimistic reconciliation, and runtime teardown.
+## Fix
+- Category-level collision is restricted to the category header/pill row.
+- Header drops mean insert-at-start, matching the first row's upper-half target.
+- Header spacing is inside the header droppable so there is no small dead strip immediately below the pill.
+- The React-owned insertion gap is now a droppable for its exact projected index. Header, adjacent row halves, and the gap therefore resolve to the same insertion index around a boundary.
+- True no-target movement keeps the last valid visual projection stable, while release outside a valid target still commits nothing.
+- The last row's lower half remains the append path; empty and collapsed categories remain droppable through their header.
+- Drag proxy ownership, overlay behavior, immutable drag snapshot, optimistic reconciliation, persistence validation, and runtime teardown are unchanged.
+
+## Verification
+- Focused checks passed after the implementation.
+- Browser regression added for moving between category header, first-row boundary, and the projected gap without layout oscillation, then releasing on the gap.
+- Existing empty-category, same-category, populated cross-category, consecutive-drag, cancel, legacy-order, and runtime-rebuild coverage remains in place.
+- Full canonical verification and stable Preview promotion remain.
