@@ -1,13 +1,13 @@
 import React from 'react';
 import { DragDropProvider } from '@dnd-kit/react';
 import { PointerActivationConstraints, PointerSensor } from '@dnd-kit/dom';
+import { move } from '@dnd-kit/helpers';
 import { isSortable } from '@dnd-kit/react/sortable';
 import { CategorySection } from './CategorySection';
 import type { CategoryDocument, TaskDocument } from '../../../db/schema';
 import {
   buildTaskPlacement,
   cloneTaskPlacement,
-  moveTaskInPlacement,
   taskPlacementIdSignature,
   taskPlacementSignature,
   type TaskOrderGroup,
@@ -22,63 +22,6 @@ const TASK_REORDER_POINTER_SENSOR = PointerSensor.configure({
     }),
   ],
 });
-
-const CATEGORY_DROP_PREFIX = 'task-category:';
-
-interface DaySlideProps {
-  date: Date;
-  scrollMode?: 'page' | 'contained';
-  dateStr: string;
-  tasks: TaskDocument[];
-  categories: CategoryDocument[];
-  currentUserId: string;
-  editingTaskId: string | null;
-  editValue: string;
-  onToggleTask: (taskId: string, currentStatus: boolean) => void;
-  onAddTask: (title: string, categoryId: string, dateStr: string) => void;
-  onOpenActions: (task: TaskDocument) => void;
-  onOpenMemo: (task: TaskDocument, mode: 'view' | 'edit') => void;
-  onEditTask: (task: TaskDocument) => void;
-  onViewImage: (task: TaskDocument) => void;
-  onEditChange: (val: string) => void;
-  onEditSave: () => void;
-  onEditCancel: () => void;
-  disableTaskLayoutAnimation?: boolean;
-  continueAddingTasks?: boolean;
-  showCategoryCollapseButton?: boolean;
-  selectionMode?: boolean;
-  selectedTaskIds?: ReadonlySet<string>;
-  onToggleTaskSelection?: (taskId: string) => void;
-  reorderEnabled?: boolean;
-  onReorderTasks?: (
-    dateStr: string,
-    groups: readonly TaskOrderGroup[]
-  ) => Promise<void> | void;
-  onReorderActiveChange?: (active: boolean) => void;
-}
-
-function categoryFromDropTarget(target: unknown): string | null {
-  if (!target || typeof target !== 'object') return null;
-  const candidate = target as { id?: unknown; type?: unknown };
-  if (
-    candidate.type !== 'task-category' ||
-    typeof candidate.id !== 'string' ||
-    !candidate.id.startsWith(CATEGORY_DROP_PREFIX)
-  ) {
-    return null;
-  }
-  return candidate.id.slice(CATEGORY_DROP_PREFIX.length);
-}
-
-function findTaskCategory(
-  placement: TaskPlacement,
-  taskId: string
-): string | null {
-  for (const [categoryId, taskIds] of Object.entries(placement)) {
-    if (taskIds.includes(taskId)) return categoryId;
-  }
-  return null;
-}
 
 const DaySlideComponent: React.FC<DaySlideProps> = ({
   dateStr,
@@ -179,33 +122,7 @@ const DaySlideComponent: React.FC<DaySlideProps> = ({
     ) => {
       setDragPlacement((current) => {
         if (!current) return current;
-        const { source, target } = event.operation;
-        if (!isSortable(source)) return current;
-
-        const taskId = String(source.id);
-        const categoryTarget = categoryFromDropTarget(target);
-        const currentCategoryId = findTaskCategory(current, taskId);
-        const targetCategoryId =
-          categoryTarget ??
-          (source.group == null ? currentCategoryId : String(source.group));
-        if (!targetCategoryId) return current;
-
-        const targetIndex =
-          categoryTarget !== null
-            ? (current[targetCategoryId] ?? []).length
-            : source.index;
-        const next = moveTaskInPlacement(
-          current,
-          taskId,
-          targetCategoryId,
-          targetIndex
-        );
-        if (
-          !next ||
-          taskPlacementSignature(next) === taskPlacementSignature(current)
-        ) {
-          return current;
-        }
+        const next = move(current, event) as TaskPlacement;
         dragPlacementRef.current = next;
         return next;
       });

@@ -20,7 +20,7 @@ const CategoryDropSurface: React.FC<CategoryDropSurfaceProps> = ({
   children,
 }) => {
   const { ref } = useDroppable({
-    id: `task-category:${categoryId}`,
+    id: categoryId,
     type: 'task-category',
     accept: 'task',
     collisionPriority: CollisionPriority.Low,
