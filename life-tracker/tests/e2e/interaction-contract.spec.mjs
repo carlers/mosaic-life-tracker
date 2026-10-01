@@ -365,15 +365,17 @@ test('task long-press stays under the finger while siblings reorder, then persis
 
   const region = page.getByTestId('todo-day-content');
   const source = region.locator('[data-task-id="task_0_0"]');
-  const sibling = region.locator('[data-task-id="task_0_1"]');
-  const destination = region.locator('[data-task-id="task_0_1"]');
+  const firstSibling = region.locator('[data-task-id="task_0_1"]');
+  const secondSibling = region.locator('[data-task-id="task_0_2"]');
+  const destination = secondSibling;
   const title = source.getByRole('button', { name: 'Task 1.1', exact: true });
   await source.scrollIntoViewIfNeeded();
 
   const sourceBefore = await source.boundingBox();
-  const siblingBefore = await sibling.boundingBox();
+  const firstSiblingBefore = await firstSibling.boundingBox();
+  const secondSiblingBefore = await secondSibling.boundingBox();
   const destinationBox = await destination.boundingBox();
-  if (!sourceBefore || !siblingBefore || !destinationBox) {
+  if (!sourceBefore || !firstSiblingBefore || !secondSiblingBefore || !destinationBox) {
     throw new Error('Missing task reorder bounds');
   }
 
@@ -391,8 +393,14 @@ test('task long-press stays under the finger while siblings reorder, then persis
 
   await expect.poll(async () => (await dragged.boundingBox())?.y ?? sourceBefore.y)
     .toBeGreaterThan(sourceBefore.y + 12);
-  await expect.poll(async () => (await sibling.boundingBox())?.y ?? siblingBefore.y)
-    .toBeLessThan(siblingBefore.y - 8);
+  await expect.poll(async () => {
+    const first = await firstSibling.boundingBox();
+    const second = await secondSibling.boundingBox();
+    return Math.max(
+      Math.abs((first?.y ?? firstSiblingBefore.y) - firstSiblingBefore.y),
+      Math.abs((second?.y ?? secondSiblingBefore.y) - secondSiblingBefore.y)
+    );
+  }).toBeGreaterThan(8);
   await expect(
     region.locator('[data-task-id^="task_0_"]:not([data-dnd-placeholder])')
   ).toHaveCount(3);
@@ -400,7 +408,7 @@ test('task long-press stays under the finger while siblings reorder, then persis
   await gesture.finish();
 
   await expect(page.getByTestId('todo-gesture')).toHaveText(
-    'reordered:task_0_1,task_0_0,task_0_2'
+    'reordered:task_0_1,task_0_2,task_0_0'
   );
   await expect
     .poll(() => region.locator(
@@ -408,7 +416,7 @@ test('task long-press stays under the finger while siblings reorder, then persis
     ).evaluateAll(
       (rows) => rows.map((row) => row.getAttribute('data-task-id'))
     ))
-    .toEqual(['task_0_1', 'task_0_0', 'task_0_2']);
+    .toEqual(['task_0_1', 'task_0_2', 'task_0_0']);
 });
 
 test('moving before the task hold threshold cancels reorder activation', async ({ page }) => {

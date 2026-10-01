@@ -81,8 +81,8 @@ describe('build-size guard', () => {
     ));
 
     expect(configuredBudget.baseline).toMatchObject({
-      measuredAt: '2026-09-28',
-      commit: 'dff7f45',
+      measuredAt: '2026-10-01',
+      commit: '89ec35b',
     });
 
     for (const metric of [

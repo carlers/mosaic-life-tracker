@@ -2,7 +2,7 @@
 
 Updated: 2026-10-01
 Current task: Rebuild owner Day View task reordering cleanly from `dev`.
-Status: Clean dnd-kit implementation is on `chatgpt/task-reorder-clean` targeting stable Preview branch `feature/task-reorder-clean`; the live Appwrite `tasks.order` column is available and the repaired exact SHA is entering full canonical verification.
+Status: Clean dnd-kit implementation is on `chatgpt/task-reorder-clean` targeting stable Preview branch `feature/task-reorder-clean`; live Appwrite schema is ready and the final repair SHA is entering full canonical verification.
 Next action: Run canonical verification, fix any failures, squash into the stable feature branch, then perform real-device acceptance.
 Blockers: None.
 
@@ -26,4 +26,5 @@ Blockers: None.
 - Browser coverage verifies delayed activation, source movement under the finger, live sibling displacement, no disappearing rows, drop order, and real Day View sheet gesture locking.
 - Live Appwrite `tasks.order` is provisioned as optional integer 0..999999 with default 0 and status `available`; legacy rows therefore need no destructive backfill.
 - The first full gate confirmed dnd-kit lifted the real task row; follow-up fixes covered the friend-task mapping, offline/test fixtures, docs index, and browser selectors for dnd-kit's inert layout placeholder.
+- The second full gate passed both DOM shards and the real-sheet browser shard; final repairs keep dnd-kit's default optimistic sorting, make the browser drag cross a clear first-to-last boundary, and rebaseline the intentional dnd-kit bundle growth from measured commit `89ec35b` while preserving entry caps and ~5% aggregate headroom.
 - Final delivery requires exact-SHA canonical acceptance and a READY Vercel Preview. Real Samsung/PWA acceptance remains a separate human check.
