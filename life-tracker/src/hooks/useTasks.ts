@@ -3,6 +3,10 @@ import { getDatabase } from '../db/database';
 import { useAuth } from './useAuth';
 import { useRxCollection } from './useRxCollection';
 import type { TaskDocument } from '../db/schema';
+import {
+  buildTaskOrderAssignments,
+  type TaskOrderGroup,
+} from '../lib/taskOrder';
 
 export function useTasks(enabled = true) {
   const { user } = useAuth();
@@ -87,50 +91,77 @@ export function useTasks(enabled = true) {
     [updateTask]
   );
 
-  const reorderTasks = useCallback((orderedTasks: readonly TaskDocument[]) => {
-    const snapshot = orderedTasks.map((task) => ({ ...task }));
-    const applyOrder = async () => {
-      if (snapshot.length < 2) return;
-      const [first] = snapshot;
-      const sameGroup = snapshot.every(
-        (task) =>
-          task.userId === first.userId &&
-          task.date === first.date &&
-          task.categoryId === first.categoryId
-      );
-      if (!sameGroup) {
-        throw new Error('[useTasks] reorderTasks only accepts one date/category group');
-      }
+  const reorderTasks = useCallback(
+    (date: string, groups: readonly TaskOrderGroup[]) => {
+      const uid = user?.$id;
+      const snapshot = groups.map((group) => ({
+        categoryId: group.categoryId,
+        taskIds: [...group.taskIds],
+      }));
 
-      const db = getDatabase();
-      const docs = await Promise.all(
-        snapshot.map((task) => db.tasks.findOne(task.id).exec())
-      );
-      const stillSameGroup = docs.every(
-        (doc) =>
-          doc &&
-          !doc.isDeleted &&
-          doc.userId === first.userId &&
-          doc.date === first.date &&
-          doc.categoryId === first.categoryId
-      );
-      if (!stillSameGroup) {
-        throw new Error('[useTasks] Task group changed while reordering');
-      }
+      const applyOrder = async () => {
+        if (!uid || snapshot.length === 0) return;
 
-      const updatedAt = new Date().toISOString();
-      await Promise.all(
-        docs.map((doc, index) => {
-          if (!doc || doc.order === index) return Promise.resolve();
-          return doc.incrementalPatch({ order: index, updatedAt });
-        })
-      );
-    };
+        const categoryIds = Array.from(
+          new Set(snapshot.map((group) => group.categoryId))
+        );
+        if (categoryIds.length !== snapshot.length || categoryIds.length > 2) {
+          throw new Error('[useTasks] Invalid task reorder groups');
+        }
 
-    const queued = reorderQueue.current.then(applyOrder, applyOrder);
-    reorderQueue.current = queued.catch(() => undefined);
-    return queued;
-  }, []);
+        const db = getDatabase();
+        const categoryDocs = await Promise.all(
+          categoryIds.map((categoryId) =>
+            db.categories.findOne(categoryId).exec()
+          )
+        );
+        if (
+          categoryDocs.some(
+            (category) =>
+              !category ||
+              category.isDeleted ||
+              category.userId !== uid
+          )
+        ) {
+          throw new Error('[useTasks] Category changed while reordering');
+        }
+
+        const allTasks = await db.tasks.find().exec();
+        const assignments = buildTaskOrderAssignments(
+          allTasks,
+          uid,
+          date,
+          snapshot
+        );
+        const docsById = new Map(
+          allTasks.map((task) => [task.id, task])
+        );
+        const updatedAt = new Date().toISOString();
+
+        await Promise.all(
+          assignments.map(({ id, categoryId, order }) => {
+            const doc = docsById.get(id);
+            if (!doc) {
+              throw new Error('[useTasks] Task disappeared while reordering');
+            }
+            if (doc.categoryId === categoryId && doc.order === order) {
+              return Promise.resolve();
+            }
+            return doc.incrementalPatch({
+              categoryId,
+              order,
+              updatedAt,
+            });
+          })
+        );
+      };
+
+      const queued = reorderQueue.current.then(applyOrder, applyOrder);
+      reorderQueue.current = queued.catch(() => undefined);
+      return queued;
+    },
+    [user?.$id]
+  );
 
   return {
     tasks,

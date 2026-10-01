@@ -419,6 +419,72 @@ test('task long-press stays under the finger while siblings reorder, then persis
     .toEqual(['task_0_1', 'task_0_2', 'task_0_0']);
 });
 
+test('task can move into another populated category at the projected position', async ({ page }) => {
+  await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html`);
+
+  const region = page.getByTestId('todo-day-content');
+  const sourceCategory = region.locator('[data-task-category-id="cat_0"]');
+  const targetCategory = region.locator('[data-task-category-id="cat_1"]');
+  const source = sourceCategory.locator('[data-task-id="task_0_0"]');
+  const title = source.getByRole('button', { name: 'Task 1.1', exact: true });
+  const destination = targetCategory.locator('[data-task-id="task_1_1"]');
+  await source.scrollIntoViewIfNeeded();
+  const destinationBox = await destination.boundingBox();
+  if (!destinationBox) throw new Error('Missing cross-category destination bounds');
+
+  const gesture = await startTaskLongPress(page, title);
+  await gesture.moveTo(
+    destinationBox.x + destinationBox.width * 0.5,
+    destinationBox.y + destinationBox.height * 0.2
+  );
+  await gesture.finish();
+
+  await expect(page.getByTestId('todo-gesture')).toHaveText(
+    'reordered:cat_0=task_0_1,task_0_2|cat_1=task_1_0,task_1_1,task_0_0,task_1_2'
+  );
+  await expect
+    .poll(() => targetCategory.locator(
+      '[data-task-id]:not([data-dnd-placeholder])'
+    ).evaluateAll((rows) => rows.map((row) => row.getAttribute('data-task-id'))))
+    .toEqual(['task_1_0', 'task_1_1', 'task_0_0', 'task_1_2']);
+  await expect
+    .poll(() => sourceCategory.locator(
+      '[data-task-id]:not([data-dnd-placeholder])'
+    ).evaluateAll((rows) => rows.map((row) => row.getAttribute('data-task-id'))))
+    .toEqual(['task_0_1', 'task_0_2']);
+});
+
+test('task can drop into an empty category from its category surface', async ({ page }) => {
+  await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html`);
+
+  const region = page.getByTestId('todo-day-content');
+  const source = region.locator('[data-task-id="task_0_0"]');
+  const title = source.getByRole('button', { name: 'Task 1.1', exact: true });
+  const emptyCategory = region.locator('[data-task-category-id="cat_2"]');
+  const emptyHeader = emptyCategory.getByRole('button', {
+    name: 'Add a task to Category 3',
+  });
+  await source.scrollIntoViewIfNeeded();
+  const headerBox = await emptyHeader.boundingBox();
+  if (!headerBox) throw new Error('Missing empty-category bounds');
+
+  const gesture = await startTaskLongPress(page, title);
+  await gesture.moveTo(
+    headerBox.x + headerBox.width * 0.5,
+    headerBox.y + headerBox.height * 0.5
+  );
+  await gesture.finish();
+
+  await expect(page.getByTestId('todo-gesture')).toHaveText(
+    'reordered:cat_0=task_0_1,task_0_2|cat_2=task_0_0'
+  );
+  await expect(
+    emptyCategory.locator(
+      '[data-task-id="task_0_0"]:not([data-dnd-placeholder])'
+    )
+  ).toBeVisible();
+});
+
 test('moving before the task hold threshold cancels reorder activation', async ({ page }) => {
   await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html`);
 
