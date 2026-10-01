@@ -10,7 +10,7 @@ import type { TaskDocument } from '../../../db/schema';
 
 type MemoOpenMode = 'view' | 'edit';
 
-interface TaskItemProps {
+export interface TaskItemProps {
   task: TaskDocument;
   categoryColor: string;
   currentUserId: string;
@@ -28,6 +28,9 @@ interface TaskItemProps {
   selectionMode?: boolean;
   isSelected?: boolean;
   onToggleSelection?: () => void;
+  rowRef?: React.Ref<HTMLDivElement>;
+  titleRef?: React.Ref<HTMLButtonElement>;
+  isDragSource?: boolean;
 }
 
 interface TaskImageProps {
@@ -130,6 +133,9 @@ export const TaskItem: React.FC<TaskItemProps> = ({
   selectionMode = false,
   isSelected = false,
   onToggleSelection,
+  rowRef,
+  titleRef,
+  isDragSource = false,
 }) => {
   const reactions = React.useMemo(
     () => parseReactions(task.reactions),
@@ -170,9 +176,11 @@ export const TaskItem: React.FC<TaskItemProps> = ({
 
   return (
     <motion.div
+      ref={rowRef}
       layout={!disableLayoutAnimation}
       layoutDependency={`${task.updatedAt}:${isEditing}`}
       data-task-id={task.id}
+      data-task-dragging={isDragSource ? 'true' : undefined}
       role={selectionMode ? 'checkbox' : undefined}
       aria-checked={selectionMode ? isSelected : undefined}
       aria-label={selectionMode ? `${task.title}, ${isSelected ? 'selected' : 'not selected'}` : undefined}
@@ -184,8 +192,14 @@ export const TaskItem: React.FC<TaskItemProps> = ({
           onToggleSelection?.();
         }
       } : undefined}
-      className="flex scroll-mt-16 items-start gap-3 rounded-lg px-2 py-2 transition-[background-color,box-shadow] duration-300 focus:outline-none data-[search-focused=true]:ring-1 data-[search-focused=true]:ring-emerald-400/60"
-      style={isSelected ? { backgroundColor: `${categoryColor}33`, boxShadow: `inset 0 0 0 1px ${categoryColor}` } : undefined}
+      className="flex scroll-mt-16 items-start gap-3 rounded-lg px-2 py-2 transition-[background-color,box-shadow] duration-200 focus:outline-none data-[search-focused=true]:ring-1 data-[search-focused=true]:ring-emerald-400/60"
+      style={
+        isDragSource
+          ? { backgroundColor: '#111111', boxShadow: '0 14px 36px rgba(0, 0, 0, 0.38)' }
+          : isSelected
+            ? { backgroundColor: `${categoryColor}33`, boxShadow: `inset 0 0 0 1px ${categoryColor}` }
+            : undefined
+      }
     >
       <button
         type="button"
@@ -231,6 +245,7 @@ export const TaskItem: React.FC<TaskItemProps> = ({
           />
         ) : (
           <button
+            ref={titleRef}
             type="button"
             onPointerDown={titleGestures.onPointerDown}
             onPointerMove={titleGestures.onPointerMove}

@@ -45,6 +45,7 @@ const tasks: TaskDocument[] = [
     title: 'Plan release',
     completed: false,
     categoryId: 'work',
+    order: 0,
     date: '2026-09-15',
     createdAt: '2026-09-01T00:00:00.000Z',
     completedAt: '',

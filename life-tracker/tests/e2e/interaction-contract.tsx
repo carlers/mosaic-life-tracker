@@ -81,6 +81,7 @@ export function InteractionHarness() {
         title: `Task ${categoryIndex + 1}.${taskIndex + 1}`,
         completed: false,
         categoryId: category.id,
+        order: taskIndex,
         date: '2026-09-15',
         createdAt: '2026-09-01T00:00:00.000Z',
         completedAt: '',
@@ -291,6 +292,15 @@ export function InteractionHarness() {
           onEditChange={() => {}}
           onEditSave={() => {}}
           onEditCancel={() => {}}
+          reorderEnabled
+          onReorderTasks={(orderedTasks) => {
+            setTodoGesture(
+              `reordered:${orderedTasks.map((task) => task.id).join(',')}`
+            );
+          }}
+          onReorderActiveChange={(active) => {
+            if (active) setTodoGesture('sorting');
+          }}
         />
       </div>
 

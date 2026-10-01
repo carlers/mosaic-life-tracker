@@ -68,6 +68,45 @@ async function dragVertical(page, locator, deltaY) {
   });
 }
 
+async function startTaskLongPress(page, locator, holdMs = 550) {
+  const box = await locator.boundingBox();
+  if (!box) throw new Error('Missing task long-press target bounds');
+  const session = await page.context().newCDPSession(page);
+  const startX = box.x + box.width * 0.5;
+  const startY = box.y + box.height * 0.5;
+
+  await session.send('Input.dispatchTouchEvent', {
+    type: 'touchStart',
+    touchPoints: [{ x: startX, y: startY }],
+  });
+  await page.waitForTimeout(holdMs);
+
+  return {
+    session,
+    startX,
+    startY,
+    moveTo: async (x, y) => {
+      for (let step = 1; step <= 5; step += 1) {
+        await session.send('Input.dispatchTouchEvent', {
+          type: 'touchMove',
+          touchPoints: [{
+            x: startX + ((x - startX) * step) / 5,
+            y: startY + ((y - startY) * step) / 5,
+          }],
+        });
+      }
+    },
+    finish: () => session.send('Input.dispatchTouchEvent', {
+      type: 'touchEnd',
+      touchPoints: [],
+    }),
+    cancel: () => session.send('Input.dispatchTouchEvent', {
+      type: 'touchCancel',
+      touchPoints: [],
+    }),
+  };
+}
+
 async function waitForStableVerticalPosition(locator) {
   let previousY = null;
   let stableSamples = 0;
@@ -318,6 +357,114 @@ test('home task search survives result-sheet Back with state preserved', async (
     harness.getByRole('button', { name: 'Today' })
   ).toHaveAttribute('aria-pressed', 'true');
   await expect(result).toBeVisible();
+});
+
+// Regression: owner task reorder is a simple delayed sortable interaction.
+test('task long-press stays under the finger while siblings reorder, then persists on release', async ({ page }) => {
+  await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html`);
+
+  const region = page.getByTestId('todo-day-content');
+  const source = region.locator('[data-task-id="task_0_0"]');
+  const firstSibling = region.locator('[data-task-id="task_0_1"]');
+  const secondSibling = region.locator('[data-task-id="task_0_2"]');
+  const destination = secondSibling;
+  const title = source.getByRole('button', { name: 'Task 1.1', exact: true });
+  await source.scrollIntoViewIfNeeded();
+
+  const sourceBefore = await source.boundingBox();
+  const firstSiblingBefore = await firstSibling.boundingBox();
+  const secondSiblingBefore = await secondSibling.boundingBox();
+  const destinationBox = await destination.boundingBox();
+  if (!sourceBefore || !firstSiblingBefore || !secondSiblingBefore || !destinationBox) {
+    throw new Error('Missing task reorder bounds');
+  }
+
+  const gesture = await startTaskLongPress(page, title);
+  const dragged = page.locator(
+    '[data-task-id="task_0_0"][data-dnd-dragging="true"]'
+  );
+  await expect(dragged).toHaveAttribute('data-task-dragging', 'true');
+  await expect(page.getByTestId('todo-gesture')).toHaveText('sorting');
+
+  await gesture.moveTo(
+    destinationBox.x + destinationBox.width * 0.5,
+    destinationBox.y + destinationBox.height * 0.85
+  );
+
+  await expect.poll(async () => (await dragged.boundingBox())?.y ?? sourceBefore.y)
+    .toBeGreaterThan(sourceBefore.y + 12);
+  await expect.poll(async () => {
+    const first = await firstSibling.boundingBox();
+    const second = await secondSibling.boundingBox();
+    return Math.max(
+      Math.abs((first?.y ?? firstSiblingBefore.y) - firstSiblingBefore.y),
+      Math.abs((second?.y ?? secondSiblingBefore.y) - secondSiblingBefore.y)
+    );
+  }).toBeGreaterThan(8);
+  await expect(
+    region.locator('[data-task-id^="task_0_"]:not([data-dnd-placeholder])')
+  ).toHaveCount(3);
+
+  await gesture.finish();
+
+  await expect(page.getByTestId('todo-gesture')).toHaveText(
+    'reordered:task_0_1,task_0_2,task_0_0'
+  );
+  await expect
+    .poll(() => region.locator(
+      '[data-task-id^="task_0_"]:not([data-dnd-placeholder])'
+    ).evaluateAll(
+      (rows) => rows.map((row) => row.getAttribute('data-task-id'))
+    ))
+    .toEqual(['task_0_1', 'task_0_2', 'task_0_0']);
+});
+
+test('moving before the task hold threshold cancels reorder activation', async ({ page }) => {
+  await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html`);
+
+  const region = page.getByTestId('todo-day-content');
+  const source = region.locator('[data-task-id="task_0_0"]');
+  const title = source.getByRole('button', { name: 'Task 1.1', exact: true });
+  await source.scrollIntoViewIfNeeded();
+
+  const gesture = await startTaskLongPress(page, title, 150);
+  await gesture.moveTo(gesture.startX, gesture.startY + 50);
+  await page.waitForTimeout(450);
+
+  await expect(source).not.toHaveAttribute('data-task-dragging', 'true');
+  await expect(page.getByTestId('todo-gesture')).toHaveText('idle');
+  await gesture.finish();
+});
+
+test('active task sorting keeps the real Day View sheet and day swiper locked in place', async ({ page }) => {
+  await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html?perf=heavy`);
+  await page.getByTestId('open-day-view-sheet').click();
+
+  const dialog = page.getByRole('dialog', {
+    name: 'Tuesday, September 15, 2026',
+  });
+  await expect(dialog).toBeVisible();
+  await waitForStableVerticalPosition(dialog);
+
+  const source = dialog.locator('[data-task-id="task_0_0"]');
+  const title = source.getByRole('button', { name: 'Task 1.1', exact: true });
+  await source.scrollIntoViewIfNeeded();
+
+  const gesture = await startTaskLongPress(page, title);
+  const dragged = dialog.locator(
+    '[data-task-id="task_0_0"][data-dnd-dragging="true"]'
+  );
+  await expect(dragged).toHaveAttribute('data-task-dragging', 'true');
+  await gesture.moveTo(gesture.startX, gesture.startY + 55);
+
+  await expect(dialog).toBeVisible();
+  await expect(dialog.getByText('Tuesday, September 15, 2026')).toBeVisible();
+
+  await gesture.cancel();
+  await expect(
+    dialog.locator('[data-task-id="task_0_0"][data-dnd-dragging="true"]')
+  ).toHaveCount(0);
+  await expect(dialog).toBeVisible();
 });
 
 // Regression: §2 (owner Day View exposes memo content and multi-tap shortcuts).
