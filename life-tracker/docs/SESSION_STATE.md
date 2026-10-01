@@ -2,8 +2,8 @@
 
 Updated: 2026-10-01
 Current task: Restore long-press Day View task reordering and prevent task rows from disappearing when a drag starts.
-Status: Long-press reorder repair and regression coverage are implemented on `chatgpt/restore-task-long-press-reorder`; stable Preview/manual device acceptance remains.
-Next action: Deliver through `feature/persistent-task-ordering`, then run the manual touch acceptance checklist on the stable Preview.
+Status: Complete. The verified long-press reorder fix is merged into `feature/persistent-task-ordering` and its Vercel Preview is ready.
+Next action: Manual touch-device acceptance on the stable feature Preview using `docs/MANUAL_TASK_REORDER_ACCEPTANCE.md`.
 Blockers: None.
 
 ## Completed substeps
@@ -14,8 +14,11 @@ Blockers: None.
 - Replaced moving-row hit targeting with category hit detection plus measured visible-row midpoints for deterministic insertion.
 - Preserved optimistic release ordering and rollback on persistence failure.
 - Updated component, gesture-hook, browser, reference, and manual-acceptance coverage for the long-press contract.
+- Exact task SHA `1c1d47ff456929695a2b94a862973ad34c22f8b3` passed full Quality Gate and canonical acceptance.
+- Squash-merged PR #171 into `feature/persistent-task-ordering` as `5a2572da404abe0641cd634b6d49ad72edc9e11d`.
+- Vercel deployment `dpl_D8CUk4pdWPYRZqcYRQSEhHh7T7g7` for the merge SHA reached READY with no alias error.
 
-## Verification target
-- Focused component coverage pins the 500 ms activation boundary, pre-threshold movement cancellation, non-dragged row visibility, stable source mounting, optimistic persistence, rollback, and touch cancellation ownership.
-- Browser coverage pins long-press movement/release and the real Day View Sheet + Swiper + BottomSheet nesting.
-- Final delivery requires exact-SHA canonical acceptance and a ready Vercel Preview; manual touch hardware acceptance remains separate.
+## Verification
+- Lint, unit tests, handler tests, both DOM shards, production build, dependency audit, both browser shards, and canonical acceptance passed on the exact task SHA.
+- Browser coverage includes the 500 ms title long-press interaction and the real Day View Sheet + Swiper + BottomSheet nesting.
+- Remaining acceptance is human/manual touch-hardware verification; no real-device check has been claimed.
