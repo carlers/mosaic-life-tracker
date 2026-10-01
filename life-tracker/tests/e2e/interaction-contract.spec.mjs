@@ -386,7 +386,32 @@ test('owner task long press follows touch and shifts rows before release', async
   const source = page.locator('[data-task-id="task_0_0"]');
   const destination = page.locator('[data-task-id="task_0_1"]');
   await source.scrollIntoViewIfNeeded();
+  await page.evaluate(() => {
+    window.__taskDragTrace = [];
+    const record = (event) => {
+      const touch = 'touches' in event ? event.touches[0] : null;
+      const x = touch?.clientX ?? ('clientX' in event ? event.clientX : null);
+      const y = touch?.clientY ?? ('clientY' in event ? event.clientY : null);
+      const hit = x !== null && y !== null ? document.elementFromPoint(x, y) : null;
+      window.__taskDragTrace.push({
+        type: event.type,
+        x,
+        y,
+        cancelable: event.cancelable,
+        defaultPrevented: event.defaultPrevented,
+        scrollY: window.scrollY,
+        task: hit?.closest?.('[data-task-id]')?.getAttribute('data-task-id') ?? null,
+        gap: hit?.closest?.('[data-task-drop-index]')?.getAttribute('data-task-drop-index') ?? null,
+        category: hit?.closest?.('[data-category-id]')?.getAttribute('data-category-id') ?? null,
+      });
+    };
+    for (const type of ['touchmove', 'touchend', 'pointermove', 'pointercancel']) {
+      window.addEventListener(type, record, { capture: true, passive: false });
+    }
+  });
   const session = await startLongPressTaskDrag(page, source, destination);
+  const dragTrace = await page.evaluate(() => window.__taskDragTrace ?? []);
+  console.log('TASK_DRAG_TRACE', JSON.stringify(dragTrace));
 
   await expect(page.getByTestId('task-drag-overlay')).toHaveText('Task 1.1');
   await expect(page.locator(
