@@ -22,6 +22,7 @@ import {
   type FriendshipDocument,
   type MessageDocument,
 } from './schema';
+import { markStartup } from '../lib/startupMetrics';
 import {
   tasksMigrationStrategies,
   friendshipsMigrationStrategies,
@@ -51,6 +52,7 @@ async function createDatabaseInstance(): Promise<RxDatabase<AppDatabaseCollectio
   let database: RxDatabase<AppDatabaseCollections> | null = null;
   try {
     if (DEBUG) console.log('[RxDB] Initializing database:', DB_NAME);
+    markStartup('database:create-start');
     database = await createRxDatabase<AppDatabaseCollections>({
       name: DB_NAME,
       storage: wrappedValidateAjvStorage({
@@ -60,7 +62,9 @@ async function createDatabaseInstance(): Promise<RxDatabase<AppDatabaseCollectio
       eventReduce: true,
       ignoreDuplicate: import.meta.env.DEV,
     });
+    markStartup('database:create-ready');
     if (DEBUG) console.log('[RxDB] Database created successfully');
+    markStartup('database:collections-start');
     await database.addCollections({
       tasks: {
         schema: tasksSchema,
@@ -84,6 +88,7 @@ async function createDatabaseInstance(): Promise<RxDatabase<AppDatabaseCollectio
         migrationStrategies: messagesMigrationStrategies,
       },
     });
+    markStartup('database:collections-ready');
     if (DEBUG) console.log('[RxDB] Collections added successfully');
     if (DEBUG) {
       const stats = await getDatabaseStats(database);
