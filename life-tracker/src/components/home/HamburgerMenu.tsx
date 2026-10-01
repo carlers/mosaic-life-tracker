@@ -2,11 +2,17 @@ import React, { useState } from 'react';
 import { Menu, List, RefreshCw, Bell } from 'lucide-react';
 import { BottomSheet } from '../ui/BottomSheet';
 import { Button } from '../ui/Button';
-import { CategoryManagerSheet } from '../modals/CategoryManagerSheet';
+
+const LazyCategoryManagerSheet = React.lazy(() =>
+  import('../modals/CategoryManagerSheet').then(({ CategoryManagerSheet }) => ({
+    default: CategoryManagerSheet,
+  }))
+);
 
 export const HamburgerMenu: React.FC = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isCategoryManagerOpen, setIsCategoryManagerOpen] = useState(false);
+  const [categoryManagerMounted, setCategoryManagerMounted] = useState(false);
 
   const menuItems = [
     {
@@ -14,6 +20,7 @@ export const HamburgerMenu: React.FC = () => {
       icon: List,
       action: () => {
         setIsMenuOpen(false);
+        setCategoryManagerMounted(true);
         setIsCategoryManagerOpen(true);
       },
     },
@@ -51,10 +58,14 @@ export const HamburgerMenu: React.FC = () => {
         </div>
       </BottomSheet>
 
-      <CategoryManagerSheet
-        isOpen={isCategoryManagerOpen}
-        onClose={() => setIsCategoryManagerOpen(false)}
-      />
+      {categoryManagerMounted && (
+        <React.Suspense fallback={null}>
+          <LazyCategoryManagerSheet
+            isOpen={isCategoryManagerOpen}
+            onClose={() => setIsCategoryManagerOpen(false)}
+          />
+        </React.Suspense>
+      )}
     </>
   );
 };
