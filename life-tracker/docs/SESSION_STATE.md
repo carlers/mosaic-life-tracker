@@ -2,29 +2,23 @@
 
 Updated: 2026-10-01
 Current task: Rebuild owner Day View task reordering cleanly from `dev`.
-Status: Clean dnd-kit implementation is on `chatgpt/task-reorder-clean` targeting stable Preview branch `feature/task-reorder-clean`; live Appwrite schema is ready and the final repair SHA is entering full canonical verification.
-Next action: Run canonical verification, fix any failures, squash into the stable feature branch, then perform real-device acceptance.
+Status: Complete. The clean dnd-kit implementation passed exact-SHA canonical acceptance and was squash-merged into `feature/task-reorder-clean` as `23a11c5dabd8a3eedb4e3817c027258f725cf5e2`.
+Next action: Real-device manual acceptance on the final stable feature Preview using `docs/MANUAL_TASK_REORDER_ACCEPTANCE.md`.
 Blockers: None.
 
-## Scope
-- Same-category vertical task sorting only. Cross-category task movement is intentionally deferred.
-- Long-press the task title for 500 ms to activate; movement before activation remains normal scrolling/gesture input.
-- The actual TaskItem follows the pointer while dnd-kit moves siblings optimistically. There is no visible grip, custom drag overlay, hidden source row, manual placeholder, or custom pointer coordinator.
-- The active floating task uses the normal Mosaic background, not its category color.
-- Release persists one final order; task data stores a date/category-scoped integer `order`.
+## Delivered
+- Same-category vertical task sorting only; cross-category transfer remains intentionally deferred.
+- The task title is the invisible handle: hold stationary for 500 ms to activate, while movement before activation remains available to native scrolling/gestures.
+- dnd-kit owns drag activation, top-layer task feedback, sibling displacement, drop animation, and final sortable index. Mosaic no longer has a custom pointer coordinator, manual hit testing, hand-built placeholder, hidden source-row choreography, or duplicate drag overlay.
+- The active task uses Mosaic's normal background and stays glued to the pointer while siblings remain visible and move aside.
+- Release persists exactly one final date/category-scoped integer task order; new tasks append and the first completed reorder normalizes the group.
+- RxDB schema/migration, sync mapping, friend-calendar mapping, backup restore, portable Appwrite manifest, and production Appwrite `tasks.order` rollout all carry the order field. The live remote column is optional integer `0..999999`, default `0`, and is `available`.
+- Existing rows preserve their previous newest-created-first display because legacy/missing order defaults to `0` and `createdAt` remains the tie-breaker until the group is explicitly reordered.
+- Build-size budget was deliberately rebaselined from measured commit `89ec35b` for the accepted dnd-kit dependency growth, preserving the existing entry caps and ~5% aggregate headroom.
 
-## Working set
-- `src/components/home/views/{DayViewSheet,DaySlide,CategorySection,SortableTaskItem,TaskItem}.tsx`
-- `src/hooks/useTasks.ts`
-- task schema/migration/sync/backend manifest
-- interaction/browser and data regression coverage
-- this checkpoint, project reference, and manual acceptance checklist
-
-## Verification target
-- Schema migration preserves existing display order by defaulting legacy tasks to order 0 and retaining createdAt-desc as the tie-breaker.
-- Sync/bootstrap schema carries task order; new tasks append and reorder persistence normalizes one category group.
-- Browser coverage verifies delayed activation, source movement under the finger, live sibling displacement, no disappearing rows, drop order, and real Day View sheet gesture locking.
-- Live Appwrite `tasks.order` is provisioned as optional integer 0..999999 with default 0 and status `available`; legacy rows therefore need no destructive backfill.
-- The first full gate confirmed dnd-kit lifted the real task row; follow-up fixes covered the friend-task mapping, offline/test fixtures, docs index, and browser selectors for dnd-kit's inert layout placeholder.
-- The second full gate passed both DOM shards and the real-sheet browser shard; final repairs keep dnd-kit's default optimistic sorting, make the browser drag cross a clear first-to-last boundary, and rebaseline the intentional dnd-kit bundle growth from measured commit `89ec35b` while preserving entry caps and ~5% aggregate headroom.
-- Final delivery requires exact-SHA canonical acceptance and a READY Vercel Preview. Real Samsung/PWA acceptance remains a separate human check.
+## Verification
+- Final task head `d967cfd713983d95cecfb36ae9b484c8698485d6` passed Quality Gate run `36827380107`.
+- Canonical acceptance passed after static/unit checks, production build/PWA/size checks, dependency audit, both DOM shards, and both browser-contract shards.
+- Browser coverage includes delayed activation cancellation, promoted task movement under the finger, visible sibling displacement, final first-to-last order, and active sorting inside the real Day View sheet without Swiper/sheet dismissal stealing the gesture.
+- PR #173 was squash-merged into `feature/task-reorder-clean` as `23a11c5dabd8a3eedb4e3817c027258f725cf5e2`.
+- Real Samsung/PWA touch acceptance remains manual and is documented in `MANUAL_TASK_REORDER_ACCEPTANCE.md`.
