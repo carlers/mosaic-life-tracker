@@ -385,6 +385,10 @@ test('task long-press stays under the finger while siblings reorder, then persis
   );
   await expect(dragged).toHaveAttribute('data-task-dragging', 'true');
   await expect(page.getByTestId('todo-gesture')).toHaveText('sorting');
+  await expect(page.locator('[data-dnd-placeholder]')).toHaveCount(0);
+  await expect(
+    page.locator('[data-task-overlay-id="task_0_0"]')
+  ).toBeVisible();
 
   await gesture.moveTo(
     destinationBox.x + destinationBox.width * 0.5,
