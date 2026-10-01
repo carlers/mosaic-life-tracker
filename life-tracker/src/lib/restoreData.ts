@@ -442,6 +442,10 @@ function normalizeBackup(
       categoryId: sourceCategoryId
         ? categoryIdMap.get(sourceCategoryId) ?? ''
         : '',
+      order:
+        typeof raw.order === 'number' && Number.isInteger(raw.order) && raw.order >= 0
+          ? raw.order
+          : 0,
       tags: asString(raw.tags),
       date,
       memo: asString(raw.memo),

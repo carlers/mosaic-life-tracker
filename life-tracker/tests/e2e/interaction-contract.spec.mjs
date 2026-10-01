@@ -40,6 +40,23 @@ async function drag(page, locator, deltaX) {
   });
 }
 
+async function dragWithMouse(page, locator, deltaX, deltaY = 0) {
+  const box = await locator.boundingBox();
+  if (!box) throw new Error('Missing mouse drag target bounds');
+  const startX = box.x + box.width * 0.5;
+  const startY = box.y + Math.min(box.height * 0.5, 24);
+
+  await page.mouse.move(startX, startY);
+  await page.mouse.down();
+  for (let step = 1; step <= 10; step += 1) {
+    await page.mouse.move(
+      startX + (deltaX * step) / 10,
+      startY + (deltaY * step) / 10
+    );
+  }
+  await page.mouse.up();
+}
+
 async function dragVertical(page, locator, deltaY) {
   const box = await locator.boundingBox();
   if (!box) throw new Error('Missing vertical drag target bounds');
@@ -66,6 +83,45 @@ async function dragVertical(page, locator, deltaY) {
     type: 'touchEnd',
     touchPoints: [],
   });
+}
+
+async function startTaskLongPress(page, locator, holdMs = 550) {
+  const box = await locator.boundingBox();
+  if (!box) throw new Error('Missing task long-press target bounds');
+  const session = await page.context().newCDPSession(page);
+  const startX = box.x + box.width * 0.5;
+  const startY = box.y + box.height * 0.5;
+
+  await session.send('Input.dispatchTouchEvent', {
+    type: 'touchStart',
+    touchPoints: [{ x: startX, y: startY }],
+  });
+  await page.waitForTimeout(holdMs);
+
+  return {
+    session,
+    startX,
+    startY,
+    moveTo: async (x, y) => {
+      for (let step = 1; step <= 5; step += 1) {
+        await session.send('Input.dispatchTouchEvent', {
+          type: 'touchMove',
+          touchPoints: [{
+            x: startX + ((x - startX) * step) / 5,
+            y: startY + ((y - startY) * step) / 5,
+          }],
+        });
+      }
+    },
+    finish: () => session.send('Input.dispatchTouchEvent', {
+      type: 'touchEnd',
+      touchPoints: [],
+    }),
+    cancel: () => session.send('Input.dispatchTouchEvent', {
+      type: 'touchCancel',
+      touchPoints: [],
+    }),
+  };
 }
 
 async function waitForStableVerticalPosition(locator) {
@@ -320,6 +376,397 @@ test('home task search survives result-sheet Back with state preserved', async (
   await expect(result).toBeVisible();
 });
 
+// Regression: a fresh reorder runtime must not turn untouched tasks into drag shells.
+test('fresh task reorder runtime keeps legacy RxDocument-backed rows readable before any drag', async ({ page }) => {
+  await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html?rxdocs=legacy`);
+
+  const region = page.getByTestId('todo-day-content');
+  const rows = region.locator('[data-task-id]');
+  await expect(rows).toHaveCount(12);
+
+  for (const title of [
+    'Task 1.1',
+    'Task 1.2',
+    'Task 1.3',
+    'Task 2.1',
+    'Task 2.2',
+    'Task 2.3',
+  ]) {
+    await expect(
+      region.getByRole('button', { name: title, exact: true })
+    ).toBeVisible();
+  }
+
+  await expect
+    .poll(() =>
+      rows.evaluateAll((items) =>
+        items.every((item) => {
+          const title = item.textContent?.trim() ?? '';
+          const rect = item.getBoundingClientRect();
+          return (
+            title.length > 0 &&
+            rect.width > 0 &&
+            rect.height > 0 &&
+            item.getAttribute('data-task-dragging') !== 'true'
+          );
+        })
+      )
+    )
+    .toBe(true);
+});
+
+// Regression: owner task reorder is a simple delayed sortable interaction.
+test('task long-press stays under the finger while siblings reorder, then persists on release', async ({ page }) => {
+  await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html`);
+
+  const region = page.getByTestId('todo-day-content');
+  const source = region.locator('[data-task-id="task_0_0"]');
+  const firstSibling = region.locator('[data-task-id="task_0_1"]');
+  const secondSibling = region.locator('[data-task-id="task_0_2"]');
+  const destination = secondSibling;
+  const title = source.getByRole('button', { name: 'Task 1.1', exact: true });
+  await source.scrollIntoViewIfNeeded();
+
+  const sourceBefore = await source.boundingBox();
+  const firstSiblingBefore = await firstSibling.boundingBox();
+  const secondSiblingBefore = await secondSibling.boundingBox();
+  const destinationBox = await destination.boundingBox();
+  if (!sourceBefore || !firstSiblingBefore || !secondSiblingBefore || !destinationBox) {
+    throw new Error('Missing task reorder bounds');
+  }
+
+  const gesture = await startTaskLongPress(page, title);
+  const dragged = page.locator('[data-task-overlay-id="task_0_0"]');
+  await expect(dragged).toHaveAttribute('data-task-dragging', 'true');
+  await expect(page.getByTestId('todo-gesture')).toHaveText('sorting');
+  await expect(page.locator('[data-dnd-placeholder]')).toHaveCount(0);
+  await expect(
+    page.locator('[data-task-overlay-id="task_0_0"]')
+  ).toBeVisible();
+  await expect(
+    region.locator('[data-task-source-slot="true"] [data-task-id="task_0_0"]')
+  ).toHaveCount(1);
+
+  await gesture.moveTo(
+    destinationBox.x + destinationBox.width * 0.5,
+    destinationBox.y + destinationBox.height * 0.85
+  );
+
+  await expect.poll(async () => (await dragged.boundingBox())?.y ?? sourceBefore.y)
+    .toBeGreaterThan(sourceBefore.y + 12);
+  await expect.poll(async () => {
+    const first = await firstSibling.boundingBox();
+    const second = await secondSibling.boundingBox();
+    return Math.max(
+      Math.abs((first?.y ?? firstSiblingBefore.y) - firstSiblingBefore.y),
+      Math.abs((second?.y ?? secondSiblingBefore.y) - secondSiblingBefore.y)
+    );
+  }).toBeGreaterThan(8);
+  await expect(
+    region.locator('[data-task-id^="task_0_"]:not([data-dnd-placeholder])')
+  ).toHaveCount(3);
+
+  await gesture.finish();
+
+  await expect(page.getByTestId('todo-gesture')).toHaveText(
+    'reordered:task_0_1,task_0_2,task_0_0'
+  );
+  await expect
+    .poll(() => region.locator(
+      '[data-task-id^="task_0_"]:not([data-dnd-placeholder])'
+    ).evaluateAll(
+      (rows) => rows.map((row) => row.getAttribute('data-task-id'))
+    ))
+    .toEqual(['task_0_1', 'task_0_2', 'task_0_0']);
+});
+
+test('task can move into another populated category at the projected position', async ({ page }) => {
+  await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html`);
+
+  const region = page.getByTestId('todo-day-content');
+  const sourceCategory = region.locator('[data-task-category-id="cat_0"]');
+  const targetCategory = region.locator('[data-task-category-id="cat_1"]');
+  const source = sourceCategory.locator('[data-task-id="task_0_0"]');
+  const title = source.getByRole('button', { name: 'Task 1.1', exact: true });
+  const destination = targetCategory.locator('[data-task-id="task_1_1"]');
+  await source.scrollIntoViewIfNeeded();
+  const destinationBox = await destination.boundingBox();
+  if (!destinationBox) throw new Error('Missing cross-category destination bounds');
+
+  const gesture = await startTaskLongPress(page, title);
+  await gesture.moveTo(
+    destinationBox.x + destinationBox.width * 0.5,
+    destinationBox.y + destinationBox.height * 0.2
+  );
+  await gesture.finish();
+
+  await expect(page.getByTestId('todo-gesture')).toHaveText(
+    'reordered:cat_0=task_0_1,task_0_2|cat_1=task_1_0,task_0_0,task_1_1,task_1_2'
+  );
+  await expect
+    .poll(() => targetCategory.locator(
+      '[data-task-id]:not([data-dnd-placeholder])'
+    ).evaluateAll((rows) => rows.map((row) => row.getAttribute('data-task-id'))))
+    .toEqual(['task_1_0', 'task_0_0', 'task_1_1', 'task_1_2']);
+  await expect
+    .poll(() => sourceCategory.locator(
+      '[data-task-id]:not([data-dnd-placeholder])'
+    ).evaluateAll((rows) => rows.map((row) => row.getAttribute('data-task-id'))))
+    .toEqual(['task_0_1', 'task_0_2']);
+});
+
+test('category header and first-row boundary share one stable insertion slot', async ({ page }) => {
+  await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html`);
+
+  const region = page.getByTestId('todo-day-content');
+  const sourceCategory = region.locator('[data-task-category-id="cat_0"]');
+  const targetCategory = region.locator('[data-task-category-id="cat_1"]');
+  const source = sourceCategory.locator('[data-task-id="task_0_0"]');
+  const title = source.getByRole('button', { name: 'Task 1.1', exact: true });
+  const headerTarget = targetCategory.locator(
+    '[data-task-category-drop-position="start"]'
+  );
+  const firstTarget = targetCategory.locator('[data-task-id="task_1_0"]');
+
+  await source.scrollIntoViewIfNeeded();
+  const headerBox = await headerTarget.boundingBox();
+  if (!headerBox) throw new Error('Missing category header drop bounds');
+
+  const gesture = await startTaskLongPress(page, title);
+  await gesture.moveTo(
+    headerBox.x + headerBox.width * 0.5,
+    headerBox.y + headerBox.height * 0.75
+  );
+
+  const gap = targetCategory.locator('[data-task-drop-gap="true"]');
+  await expect(gap).toHaveCount(1);
+  const gapAtHeader = await gap.boundingBox();
+  const firstAtHeader = await firstTarget.boundingBox();
+  if (!gapAtHeader || !firstAtHeader) {
+    throw new Error('Missing header insertion geometry');
+  }
+  expect(gapAtHeader.y).toBeLessThan(firstAtHeader.y);
+
+  await gesture.moveTo(
+    firstAtHeader.x + firstAtHeader.width * 0.5,
+    firstAtHeader.y + Math.min(4, firstAtHeader.height * 0.1)
+  );
+  await page.waitForTimeout(80);
+
+  const gapAtFirstRow = await gap.boundingBox();
+  const firstAtFirstRow = await firstTarget.boundingBox();
+  if (!gapAtFirstRow || !firstAtFirstRow) {
+    throw new Error('Missing first-row insertion geometry');
+  }
+
+  expect(gapAtFirstRow.y).toBeLessThan(firstAtFirstRow.y);
+  expect(Math.abs(gapAtFirstRow.y - gapAtHeader.y)).toBeLessThan(2);
+  expect(Math.abs(firstAtFirstRow.y - firstAtHeader.y)).toBeLessThan(2);
+
+  await gesture.moveTo(
+    gapAtFirstRow.x + gapAtFirstRow.width * 0.5,
+    gapAtFirstRow.y + gapAtFirstRow.height * 0.5
+  );
+  await page.waitForTimeout(120);
+
+  const gapUnderFinger = await gap.boundingBox();
+  const firstUnderFinger = await firstTarget.boundingBox();
+  if (!gapUnderFinger || !firstUnderFinger) {
+    throw new Error('Missing projected-gap drop geometry');
+  }
+  expect(Math.abs(gapUnderFinger.y - gapAtHeader.y)).toBeLessThan(2);
+  expect(Math.abs(firstUnderFinger.y - firstAtHeader.y)).toBeLessThan(2);
+
+  await gesture.finish();
+
+  await expect(page.getByTestId('todo-gesture')).toHaveText(
+    'reordered:cat_0=task_0_1,task_0_2|cat_1=task_0_0,task_1_0,task_1_1,task_1_2'
+  );
+});
+
+test('cross-category persistence leaves every task visible and a second drag immediately usable', async ({ page }) => {
+  await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html?rxdocs=legacy`);
+
+  const region = page.getByTestId('todo-day-content');
+  const allRows = region.locator(
+    '[data-task-id]:not([data-dnd-placeholder])'
+  );
+  const initialIds = await allRows.evaluateAll((rows) =>
+    rows.map((row) => row.getAttribute('data-task-id')).filter(Boolean).sort()
+  );
+
+  const firstSource = region.locator('[data-task-id="task_0_0"]');
+  const firstTitle = firstSource.getByRole('button', {
+    name: 'Task 1.1',
+    exact: true,
+  });
+  const firstTarget = region.locator('[data-task-id="task_1_1"]');
+  await firstSource.scrollIntoViewIfNeeded();
+  const firstTargetBox = await firstTarget.boundingBox();
+  if (!firstTargetBox) throw new Error('Missing first cross-category target');
+
+  const firstGesture = await startTaskLongPress(page, firstTitle);
+  await firstGesture.moveTo(
+    firstTargetBox.x + firstTargetBox.width * 0.5,
+    firstTargetBox.y + firstTargetBox.height * 0.2
+  );
+  await firstGesture.finish();
+
+  await expect(
+    region.locator('[data-task-id="task_0_0"]:not([data-dnd-placeholder])')
+  ).toBeVisible();
+  await expect(region.locator('[data-dnd-placeholder]')).toHaveCount(0);
+  await expect(region.locator('[data-dnd-dragging="true"]')).toHaveCount(0);
+  await expect
+    .poll(() =>
+      allRows.evaluateAll((rows) =>
+        rows
+          .map((row) => row.getAttribute('data-task-id'))
+          .filter(Boolean)
+          .sort()
+      )
+    )
+    .toEqual(initialIds);
+  await expect
+    .poll(() =>
+      allRows.evaluateAll((rows) =>
+        rows.every((row) => {
+          const rect = row.getBoundingClientRect();
+          return rect.width > 0 && rect.height > 0;
+        })
+      )
+    )
+    .toBe(true);
+
+  const secondSource = region.locator('[data-task-id="task_1_0"]');
+  const secondTitle = secondSource.getByRole('button', {
+    name: 'Task 2.1',
+    exact: true,
+  });
+  const secondTarget = region.locator('[data-task-id="task_3_1"]');
+  await secondSource.scrollIntoViewIfNeeded();
+  const secondTargetBox = await secondTarget.boundingBox();
+  if (!secondTargetBox) throw new Error('Missing second cross-category target');
+
+  const secondGesture = await startTaskLongPress(page, secondTitle);
+  await expect(
+    page.locator('[data-task-overlay-id="task_1_0"]')
+  ).toHaveAttribute('data-task-dragging', 'true');
+  await secondGesture.moveTo(
+    secondTargetBox.x + secondTargetBox.width * 0.5,
+    secondTargetBox.y + secondTargetBox.height * 0.2
+  );
+  await secondGesture.finish();
+
+  await expect(region.locator('[data-dnd-placeholder]')).toHaveCount(0);
+  await expect(region.locator('[data-dnd-dragging="true"]')).toHaveCount(0);
+  await expect
+    .poll(() =>
+      allRows.evaluateAll((rows) =>
+        rows
+          .map((row) => row.getAttribute('data-task-id'))
+          .filter(Boolean)
+          .sort()
+      )
+    )
+    .toEqual(initialIds);
+
+  await region
+    .getByRole('button', { name: 'Task 1.1', exact: true })
+    .click();
+  await expect(page.getByTestId('todo-gesture')).toHaveText('actions');
+});
+
+test('task can drop into an empty category from its category surface', async ({ page }) => {
+  await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html`);
+
+  const region = page.getByTestId('todo-day-content');
+  const source = region.locator('[data-task-id="task_0_0"]');
+  const title = source.getByRole('button', { name: 'Task 1.1', exact: true });
+  const emptyCategory = region.locator('[data-task-category-id="cat_2"]');
+  const emptyHeader = emptyCategory.getByRole('button', {
+    name: 'Add a task to Category 3',
+  });
+  await source.scrollIntoViewIfNeeded();
+  const headerBox = await emptyHeader.boundingBox();
+  if (!headerBox) throw new Error('Missing empty-category bounds');
+
+  const gesture = await startTaskLongPress(page, title);
+  await gesture.moveTo(
+    headerBox.x + headerBox.width * 0.5,
+    headerBox.y + headerBox.height * 0.5
+  );
+  await gesture.finish();
+
+  await expect(page.getByTestId('todo-gesture')).toHaveText(
+    'reordered:cat_0=task_0_1,task_0_2|cat_2=task_0_0'
+  );
+  await expect(
+    emptyCategory.locator(
+      '[data-task-id="task_0_0"]:not([data-dnd-placeholder])'
+    )
+  ).toBeVisible();
+});
+
+test('moving before the task hold threshold cancels reorder activation', async ({ page }) => {
+  await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html`);
+
+  const region = page.getByTestId('todo-day-content');
+  const source = region.locator('[data-task-id="task_0_0"]');
+  const title = source.getByRole('button', { name: 'Task 1.1', exact: true });
+  await source.scrollIntoViewIfNeeded();
+
+  const gesture = await startTaskLongPress(page, title, 150);
+  await gesture.moveTo(gesture.startX, gesture.startY + 50);
+  await page.waitForTimeout(450);
+
+  await expect(source).not.toHaveAttribute('data-task-dragging', 'true');
+  await expect(page.getByTestId('todo-gesture')).toHaveText('idle');
+  await gesture.finish();
+});
+
+test('active task sorting keeps the real Day View sheet and day swiper locked in place', async ({ page }) => {
+  await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html?perf=heavy`);
+  await page.getByTestId('open-day-view-sheet').click();
+
+  const dialog = page.getByRole('dialog', {
+    name: 'Tuesday, September 15, 2026',
+  });
+  await expect(dialog).toBeVisible();
+  await waitForStableVerticalPosition(dialog);
+
+  const source = dialog.locator('[data-task-id="task_0_0"]');
+  const title = source.getByRole('button', { name: 'Task 1.1', exact: true });
+  await source.scrollIntoViewIfNeeded();
+
+  const gesture = await startTaskLongPress(page, title);
+  const dragged = page.locator('[data-task-overlay-id="task_0_0"]');
+  await expect(dragged).toHaveAttribute('data-task-dragging', 'true');
+  await gesture.moveTo(gesture.startX, gesture.startY + 55);
+
+  await expect(dialog).toBeVisible();
+  await expect(dialog.getByText('Tuesday, September 15, 2026')).toBeVisible();
+
+  await gesture.cancel();
+  await expect(
+    page.locator('[data-task-overlay-id="task_0_0"]')
+  ).toHaveCount(0);
+  await expect(dialog).toBeVisible();
+
+  await page.keyboard.press('Escape');
+  await expect(dialog).toHaveCount(0);
+  await page.getByTestId('open-day-view-sheet').click();
+
+  const reopened = page.getByRole('dialog', {
+    name: 'Tuesday, September 15, 2026',
+  });
+  await expect(reopened).toBeVisible();
+  await waitForStableVerticalPosition(reopened);
+  await expect(
+    reopened.getByRole('button', { name: 'Task 1.1', exact: true })
+  ).toBeVisible();
+});
+
 // Regression: §2 (owner Day View exposes memo content and multi-tap shortcuts).
 test('owner task memo is visible and double/triple tap shortcuts reach edit surfaces', async ({ page }) => {
   await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html`);
@@ -337,6 +784,52 @@ test('owner task memo is visible and double/triple tap shortcuts reach edit surf
   await page.reload();
   await page.getByRole('button', { name: 'Task 1.1' }).click({ clickCount: 3 });
   await expect(page.getByTestId('todo-gesture')).toHaveText('memo-edit');
+});
+
+// Regression: §2 (closed Day View destroys task drag runtime; reopen starts from live tasks).
+test('DayView task rows are interactive on first open and after a clean runtime rebuild', async ({ page }) => {
+  await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html?perf=heavy`);
+
+  await page.getByTestId('open-day-view-sheet').click();
+
+  let dialog = page.getByRole('dialog', {
+    name: 'Tuesday, September 15, 2026',
+  });
+  await expect(dialog).toBeVisible();
+  await waitForStableVerticalPosition(dialog);
+  await expect(
+    dialog.locator('[data-task-reorder-runtime="true"]')
+  ).toHaveCount(1);
+
+  let title = dialog.getByRole('button', {
+    name: 'Task 1.1',
+    exact: true,
+  });
+  await expect(title).toBeVisible();
+
+  await page.keyboard.press('Escape');
+  await expect(dialog).toHaveCount(0);
+
+  await page.getByTestId('open-day-view-sheet').click();
+  dialog = page.getByRole('dialog', {
+    name: 'Tuesday, September 15, 2026',
+  });
+  await expect(dialog).toBeVisible();
+  await waitForStableVerticalPosition(dialog);
+  await expect(
+    dialog.locator('[data-task-reorder-runtime="true"]')
+  ).toHaveCount(1);
+
+  title = dialog.getByRole('button', {
+    name: 'Task 1.1',
+    exact: true,
+  });
+  await expect(title).toBeVisible();
+  await title.click();
+
+  await expect(
+    page.getByRole('dialog', { name: 'Task 1.1' })
+  ).toBeVisible();
 });
 
 // Regression: §2 (Day View reopens cleanly after sheet teardown).
@@ -515,6 +1008,79 @@ test('todo day swipe advances the nested day view without advancing the friend c
 
   await expect(page.getByTestId('todo-day-index')).toHaveText('1');
   await expect(page.getByTestId('friend-index')).toHaveText('0');
+});
+
+test('inactive adjacent Day View keeps category spacing when it becomes active', async ({ page }) => {
+  await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html?perf=heavy`);
+  await page.getByTestId('open-day-view-sheet').click();
+
+  const dialog = page.getByRole('dialog', {
+    name: 'Tuesday, September 15, 2026',
+  });
+  await expect(dialog).toBeVisible();
+  await waitForStableVerticalPosition(dialog);
+
+  const nextSlide = dialog
+    .locator('.swiper-slide')
+    .filter({ hasText: 'Wednesday, September 16, 2026' });
+  await expect(nextSlide).toHaveCount(1);
+
+  const nextCategories = nextSlide.locator('[data-task-category-id]');
+  await expect(nextCategories).toHaveCount(5);
+
+  const firstBefore = await nextCategories.nth(0).boundingBox();
+  const secondBefore = await nextCategories.nth(1).boundingBox();
+  if (!firstBefore || !secondBefore) {
+    throw new Error('Missing inactive next-day category geometry');
+  }
+  const spacingBefore = secondBefore.y - firstBefore.y;
+
+  const currentSlide = dialog.locator('.swiper-slide-active');
+  const currentTitle = currentSlide.getByRole('button', {
+    name: 'Task 1.1',
+    exact: true,
+  });
+  await dragWithMouse(page, currentTitle, -240);
+
+  const activeSlide = dialog.locator('.swiper-slide-active');
+  await expect(activeSlide).toContainText('Wednesday, September 16, 2026');
+
+  const activeCategories = activeSlide.locator('[data-task-category-id]');
+  const firstAfter = await activeCategories.nth(0).boundingBox();
+  const secondAfter = await activeCategories.nth(1).boundingBox();
+  if (!firstAfter || !secondAfter) {
+    throw new Error('Missing active next-day category geometry');
+  }
+  const spacingAfter = secondAfter.y - firstAfter.y;
+
+  expect(Math.abs(spacingAfter - spacingBefore)).toBeLessThanOrEqual(1);
+});
+
+test('mouse drag over a task title swipes the Day View instead of being trapped by the task control', async ({ page }) => {
+  await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html?perf=heavy`);
+  await page.getByTestId('open-day-view-sheet').click();
+
+  const dialog = page.getByRole('dialog', {
+    name: 'Tuesday, September 15, 2026',
+  });
+  await expect(dialog).toBeVisible();
+  await waitForStableVerticalPosition(dialog);
+
+  const activeSlide = dialog.locator('.swiper-slide-active');
+  await expect(activeSlide).toContainText('Tuesday, September 15, 2026');
+
+  const title = activeSlide.getByRole('button', {
+    name: 'Task 1.1',
+    exact: true,
+  });
+  await expect(title).toBeVisible();
+
+  await dragWithMouse(page, title, -240);
+
+  await expect(dialog.locator('.swiper-slide-active')).toContainText(
+    'Wednesday, September 16, 2026'
+  );
+  await expect(page.locator('[data-task-drag-overlay="true"]')).toHaveCount(0);
 });
 
 test('ArrowLeft and ArrowRight navigate the calendar but preserve text caret keys', async ({ page }) => {

@@ -4,6 +4,7 @@ export interface TaskDocument {
   title: string;
   completed: boolean;
   categoryId: string;
+  order: number;
   tags?: string;
   date: string;
   memo?: string;
@@ -86,15 +87,16 @@ export interface MessageDocument {
   isDeleted: boolean;
 }
 export const tasksSchema: RxJsonSchema<TaskDocument> = {
-  version: 1,
+  version: 2,
   primaryKey: 'id',
   type: 'object',
-  required: ['id', 'title', 'completed', 'categoryId', 'date', 'createdAt', 'updatedAt', 'userId', 'isDeleted'],
+  required: ['id', 'title', 'completed', 'categoryId', 'order', 'date', 'createdAt', 'updatedAt', 'userId', 'isDeleted'],
   properties: {
     id: { type: 'string', maxLength: 255 },
     title: { type: 'string', maxLength: 255 },
     completed: { type: 'boolean' },
     categoryId: { type: 'string', maxLength: 255 },
+    order: { type: 'integer', multipleOf: 1, minimum: 0, maximum: 999999 },
     tags: { type: 'string', maxLength: 1000 },
     date: { type: 'string', maxLength: 50 },
     memo: { type: 'string', maxLength: 2000 },

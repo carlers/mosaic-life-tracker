@@ -5,12 +5,12 @@ import { APP_BUILD_INFO } from '../../src/lib/buildInfo';
 
 // Regression: §24.13 (release version and package metadata stay aligned).
 describe('app version and build identity', () => {
-  it('publishes release 0.1.0 consistently', () => {
+  it('publishes release 0.2.0 consistently', () => {
     const packageJson = JSON.parse(
       readFileSync(new URL('../../package.json', import.meta.url), 'utf8')
     ) as { version: string };
 
-    expect(APP_VERSION).toBe('0.1.0');
+    expect(APP_VERSION).toBe('0.2.0');
     expect(packageJson.version).toBe(APP_VERSION);
     expect(APP_BUILD_INFO.version).toBe(APP_VERSION);
   });

@@ -70,6 +70,7 @@ vi.mock('../../src/lib/deleteUserData', () => ({
 }));
 
 import { SettingsPage } from '../../src/pages/SettingsPage';
+import { APP_VERSION } from '../../src/lib/appVersion';
 
 // Regression: §24.13 (update checks expose meaningful stages).
 describe('SettingsPage navigation, updates, and data controls', () => {
@@ -80,7 +81,7 @@ describe('SettingsPage navigation, updates, and data controls', () => {
       </MemoryRouter>
     );
 
-    expect(screen.getByText('0.1.0')).toBeInTheDocument();
+    expect(screen.getByText(APP_VERSION)).toBeInTheDocument();
     expect(screen.getByTestId('app-build-info')).toHaveTextContent(/branch: local/);
     expect(screen.getByTestId('app-build-info')).toHaveTextContent(/commit: local/);
     expect(

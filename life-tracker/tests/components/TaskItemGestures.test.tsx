@@ -18,6 +18,7 @@ const task: TaskDocument = {
   title: 'Write release notes',
   completed: false,
   categoryId: 'work',
+  order: 0,
   date: '2026-09-23',
   memo: 'Mention the migration.',
   createdAt: '2026-09-23T00:00:00.000Z',

@@ -41,6 +41,7 @@ function task(
     title,
     completed: false,
     categoryId,
+    order: 0,
     date,
     createdAt: `${date}T00:00:00.000Z`,
     updatedAt: `${date}T00:00:00.000Z`,

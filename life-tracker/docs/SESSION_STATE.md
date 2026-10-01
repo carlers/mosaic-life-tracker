@@ -1,36 +1,26 @@
 # Session checkpoint
 
-Updated: 2026-09-30
-Current task: Investigate TaskItem tap latency before TaskActionSheet opens.
-Status: Root cause identified; scoped performance fix and regression coverage implemented.
-Next action: canonical acceptance and stable Preview delivery after review.
-Blockers: none locally.
+Updated: 2026-10-01
+Current task: Promote the accepted task-reorder/day-swipe release from `dev` to production `main`.
+Status: `dev` promotion is complete and fully green. Production preflight required Mosaic to advance from `0.1.0` to `0.2.0`. The first full release gate correctly exposed two stale tests that still hard-coded `0.1.0`; both are fixed, PROJECT_REFERENCE now records `0.2.0`, and exact-SHA full verification is rerunning on `chatgpt/release-task-reorder-0-2-0` before it enters `dev`.
+Next action: Pass full canonical verification for the 0.2.0 release bump, squash-promote it into `dev`, verify the new dev SHA/deployment, then merge `dev` into `main` and verify production CI plus Vercel Production READY.
+Blockers: None.
 
-## Working set
-- src/components/home/views/TaskItem.tsx
-- tests/components/TaskItemGestures.test.tsx
-- docs/SESSION_STATE.md
+## Accepted release content
+- Fresh-open and legacy multi-task rows render correctly.
+- Same-category, populated cross-category, and empty-category reordering work across consecutive drags.
+- Category-boundary drag projection is visually stable.
+- Quick mouse drags over task title/memo navigate days; stationary 500 ms title holds reorder.
+- Neighboring Day View slides keep identical vertical geometry while becoming active.
+- Reorder implementation cleanup is complete and manually accepted.
 
-## Completed substeps
-- Read repository guidance, current checkpoint, roadmap, delivery/test workflow, and the affected Task/Day View contract.
-- Traced TaskItem title activation into `useBubbleGestures`.
-- Confirmed single taps intentionally wait for the shared 300ms double/triple-tap disambiguation window before calling `onOpenActions`.
-- Confirmed the delay is local gesture disambiguation, not TaskActionSheet mount/render work.
-- Added a TaskItem-local 200ms disambiguation window for title and inline memo gestures; the shared message gesture behavior remains unchanged.
-- Added regression coverage proving the action callback remains pending at 199ms and fires at 200ms, while double/triple tap behavior remains covered.
-- Reviewed the task diff: only TaskItem gesture timing, its focused regression coverage, and the session checkpoint changed.
+## Dev promotion
+- `feature/task-reorder-clean` was merged into `dev` as `9025cd37683af9cbb545c36881203a1ecb09efb7`.
+- The exact dev SHA passed the full Quality Gate, including both DOM shards, both Chromium shards, dependency audit, and canonical acceptance.
+- The matching dev Vercel deployment is READY.
+- `dev` is ahead of `main` with no reverse divergence.
 
-## Remaining substeps
-- Wait for canonical acceptance on the final task SHA.
-- Review the accepted task branch and squash merge it into `perf/task-item-tap-latency`.
-- Verify the stable Preview deployment and perform the required manual interaction check.
-
-## Constraints
-- Preserve single/double/triple tap semantics and swipe/long-press precedence.
-- Do not change the shared gesture default or unrelated message interactions.
-- Preserve existing TaskItem UI and inline editing behavior.
-
-## Verification
-- Regression coverage added for the shortened tap-disambiguation window.
-- Task branch PR #159 is open against `perf/task-item-tap-latency`.
-- Final task SHA requests `[verify:full]` canonical acceptance.
+## Release version
+- This release adds a meaningful backwards-compatible product capability.
+- Per `docs/VERSIONING.md`, the pre-1.0 release version advances from `0.1.0` to `0.2.0`.
+- `package.json`, `package-lock.json`, and `src/lib/appVersion.ts` are kept in sync at `0.2.0`.
