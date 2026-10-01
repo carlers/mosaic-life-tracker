@@ -20,6 +20,19 @@ import { PrimaryRouteSwipeSurface } from '../../src/components/layout/PrimaryRou
 import { applyAppearanceMode } from '../../src/lib/appearance';
 import { SettingsRow } from '../../src/components/ui/SettingsRow';
 
+function asRxLikeLegacyTask(task: TaskDocument): TaskDocument {
+  const data = { ...task, order: 0 };
+
+  return new Proxy({} as TaskDocument, {
+    get(_target, property) {
+      if (property === 'toJSON') {
+        return () => ({ ...data });
+      }
+      return data[property as keyof TaskDocument];
+    },
+  });
+}
+
 class DayViewProbeBoundary extends React.Component<
   { children: React.ReactNode },
   { error: Error | null }
@@ -44,7 +57,9 @@ class DayViewProbeBoundary extends React.Component<
 
 export function InteractionHarness() {
   const calendar = useCalendarState();
-  const performanceHeavy = new URLSearchParams(window.location.search).get('perf') === 'heavy';
+  const searchParams = new URLSearchParams(window.location.search);
+  const performanceHeavy = searchParams.get('perf') === 'heavy';
+  const rxLikeLegacyTasks = searchParams.get('rxdocs') === 'legacy';
   const [friendIndex, setFriendIndex] = useState(0);
   const [todoDayIndex, setTodoDayIndex] = useState(0);
   const [todoGesture, setTodoGesture] = useState('idle');
@@ -104,6 +119,13 @@ export function InteractionHarness() {
               : '',
         }))
     )
+  );
+  const renderedTodoTasks = React.useMemo(
+    () =>
+      rxLikeLegacyTasks
+        ? todoTasks.map(asRxLikeLegacyTask)
+        : todoTasks,
+    [rxLikeLegacyTasks, todoTasks]
   );
 
   const daySwipeDates = React.useMemo(() => [-1, 0, 1].map((offset) => {
@@ -289,7 +311,7 @@ export function InteractionHarness() {
         <DaySlide
           date={todoSelectedDate}
           dateStr={format(todoSelectedDate, 'yyyy-MM-dd')}
-          tasks={todoTasks}
+          tasks={renderedTodoTasks}
           categories={todoCategories}
           currentUserId="user_1"
           editingTaskId={null}
