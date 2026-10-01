@@ -32,9 +32,9 @@ interface CategorySectionProps {
   selectedTaskIds?: ReadonlySet<string>;
   onToggleTaskSelection?: (taskId: string) => void;
   reorderEnabled?: boolean;
-  onReorderStart?: (task: TaskDocument) => void;
-  onReorderMove?: (task: TaskDocument, x: number, y: number) => void;
-  onReorderEnd?: (task: TaskDocument, cancelled: boolean) => void;
+  onReorderActivate?: (task: TaskDocument, pointerId: number, x: number, y: number) => void;
+  draggedTaskId?: string | null;
+  insertionIndex?: number | null;
 }
 
 export const CategorySection: React.FC<CategorySectionProps> = ({
@@ -62,9 +62,9 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
   selectedTaskIds = new Set<string>(),
   onToggleTaskSelection,
   reorderEnabled,
-  onReorderStart,
-  onReorderMove,
-  onReorderEnd,
+  onReorderActivate,
+  draggedTaskId,
+  insertionIndex,
 }) => {
   const [isAdding, setIsAdding] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -193,7 +193,8 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
         </div>
       )}
 
-      {!categoryCollapsed && tasks.map((task) => (
+      {!categoryCollapsed && tasks.flatMap((task, index) => [
+        insertionIndex === index ? <div key={`placeholder-${categoryId}`} data-testid="task-drop-placeholder" className="mx-2 my-1 h-10 rounded-lg border border-dashed border-emerald-400/70" /> : null,
         <TaskItem
           key={task.id}
           task={task}
@@ -214,11 +215,13 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
           isSelected={selectedTaskIds.has(task.id)}
           onToggleSelection={() => onToggleTaskSelection?.(task.id)}
           reorderEnabled={reorderEnabled && !isAdding && !categoryCollapsed}
-          onReorderStart={onReorderStart}
-          onReorderMove={onReorderMove}
-          onReorderEnd={onReorderEnd}
+          onReorderActivate={onReorderActivate}
+          isReorderSource={draggedTaskId === task.id}
         />
-      ))}
+      ])}
+      {!categoryCollapsed && insertionIndex === tasks.length && (
+        <div data-testid="task-drop-placeholder" className="mx-2 my-1 h-10 rounded-lg border border-dashed border-emerald-400/70" />
+      )}
     </div>
   );
 };

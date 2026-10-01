@@ -85,9 +85,11 @@ export function useTasks(enabled = true) {
       const apply = async () => {
         const db = getDatabase();
         const updatedAt = new Date().toISOString();
+        const affectedCategories = new Set([draggedTask.categoryId, targetCategoryId]);
         const normalized = new Map<string, number>();
         for (const task of snapshot) {
           const categoryId = task.id === draggedTask.id ? targetCategoryId : task.categoryId;
+          if (task.date !== draggedTask.date || !affectedCategories.has(categoryId)) continue;
           const nextOrder = normalized.get(categoryId) ?? 0;
           normalized.set(categoryId, nextOrder + 1);
           const doc = await db.tasks.findOne(task.id).exec();

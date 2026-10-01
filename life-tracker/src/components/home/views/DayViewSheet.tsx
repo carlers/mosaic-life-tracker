@@ -118,6 +118,8 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
   const [isBulkDeleteOpen, setIsBulkDeleteOpen] = useState(false);
   const [isBulkWorking, setIsBulkWorking] = useState(false);
   const [syncedSelectionContext, setSyncedSelectionContext] = useState('');
+  const [isReorderActive, setIsReorderActive] = useState(false);
+  const swiperTouchMoveBeforeReorder = React.useRef<boolean | null>(null);
 
   const activeTask = useMemo(
     () => tasks.find((t) => t.id === activeTaskId) ?? null,
@@ -184,6 +186,30 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
       isBulkWorking ||
       !!imagePickerTaskId,
   });
+
+  const handleReorderActiveChange = useCallback((active: boolean) => {
+    const swiper = swiperRef.current;
+    if (active) {
+      if (swiper && swiperTouchMoveBeforeReorder.current === null) {
+        swiperTouchMoveBeforeReorder.current = swiper.allowTouchMove;
+        swiper.allowTouchMove = false;
+      }
+      setIsReorderActive(true);
+      return;
+    }
+    if (swiper && swiperTouchMoveBeforeReorder.current !== null) {
+      swiper.allowTouchMove = swiperTouchMoveBeforeReorder.current;
+    }
+    swiperTouchMoveBeforeReorder.current = null;
+    setIsReorderActive(false);
+  }, [swiperRef]);
+
+  useEffect(() => () => {
+    const swiper = swiperRef.current;
+    if (swiper && swiperTouchMoveBeforeReorder.current !== null) {
+      swiper.allowTouchMove = swiperTouchMoveBeforeReorder.current;
+    }
+  }, [swiperRef]);
 
   const activeDateStr = slideDateStrs[activeIndex] ?? format(selectedDate, 'yyyy-MM-dd');
   const selectedTasks = useMemo(
@@ -610,6 +636,7 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
         autoHeight={renderMode === 'inline'}
         onSwiper={(swiper) => {
           swiperRef.current = swiper;
+          if (isReorderActive) swiper.allowTouchMove = false;
         }}
         onBeforeDestroy={(swiper) => {
           if (swiperRef.current === swiper) {
@@ -718,6 +745,7 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
                       onToggleTaskSelection={handleToggleTaskSelection}
                       reorderEnabled={i === activeIndex && !isActionSheetOpen && !isMemoOpen && !isBulkActionOpen}
                       onReorderTask={reorderTask}
+                      onReorderActiveChange={handleReorderActiveChange}
                     />
                   </>
                 )}
@@ -898,8 +926,9 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
       height="full"
       isLocked={isBackgroundLocked}
       suspendInteraction={isBackgroundLocked}
+      preventDismiss={isReorderActive}
       contentMode="fixed"
-      onHorizontalSwipe={handleSheetHorizontalSwipe}
+      onHorizontalSwipe={isReorderActive ? undefined : handleSheetHorizontalSwipe}
       onAnimationComplete={handleSheetSettled}
       deferChildrenUntilPaint
       onTransientDismiss={() => {
