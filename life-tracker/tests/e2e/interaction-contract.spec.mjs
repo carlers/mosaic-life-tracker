@@ -1011,7 +1011,7 @@ test('todo day swipe advances the nested day view without advancing the friend c
 });
 
 test('mouse drag over a task title swipes the Day View instead of being trapped by the task control', async ({ page }) => {
-  await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html`);
+  await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html?perf=heavy`);
   await page.getByTestId('open-day-view-sheet').click();
 
   const dialog = page.getByRole('dialog', {
