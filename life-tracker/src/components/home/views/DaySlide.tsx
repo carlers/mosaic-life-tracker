@@ -1,8 +1,10 @@
 import React from 'react';
 import { DragDropProvider, DragOverlay } from '@dnd-kit/react';
-import { PointerActivationConstraints, PointerSensor } from '@dnd-kit/dom';
-import { move } from '@dnd-kit/helpers';
-import { isSortable } from '@dnd-kit/react/sortable';
+import {
+  Feedback,
+  PointerActivationConstraints,
+  PointerSensor,
+} from '@dnd-kit/dom';
 import { CategorySection } from './CategorySection';
 import { TaskItem } from './TaskItem';
 import type { CategoryDocument, TaskDocument } from '../../../db/schema';
@@ -10,6 +12,7 @@ import {
   buildTaskPlacement,
   cloneTaskPlacement,
   isTaskPlacementCompatible,
+  moveTaskInPlacement,
   taskPlacementSignature,
   type TaskOrderGroup,
   type TaskPlacement,
@@ -36,6 +39,12 @@ interface ActiveDrag {
   snapshot: TaskPlacement;
   projection: TaskPlacement;
   rowHeight: number;
+}
+
+interface ParsedDropTarget {
+  categoryId: string;
+  taskId?: string;
+  position: 'before' | 'after' | 'append';
 }
 
 interface DaySlideProps {
@@ -84,6 +93,75 @@ function findTaskCategory(
     if (taskIds.includes(taskId)) return categoryId;
   }
   return null;
+}
+
+function parseDropTarget(targetId: string): ParsedDropTarget | null {
+  const categoryPrefix = 'task-category:';
+  if (targetId.startsWith(categoryPrefix)) {
+    const categoryId = targetId.slice(categoryPrefix.length);
+    return categoryId
+      ? { categoryId, position: 'append' }
+      : null;
+  }
+
+  const insertPrefix = 'task-insert:';
+  if (!targetId.startsWith(insertPrefix)) return null;
+
+  const parts = targetId.slice(insertPrefix.length).split(':');
+  if (parts.length !== 3) return null;
+
+  const [categoryId, taskId, position] = parts;
+  if (
+    !categoryId ||
+    !taskId ||
+    (position !== 'before' && position !== 'after')
+  ) {
+    return null;
+  }
+
+  return { categoryId, taskId, position };
+}
+
+function projectTaskPlacement(
+  snapshot: TaskPlacement,
+  taskId: string,
+  targetId: string
+): TaskPlacement | null {
+  const target = parseDropTarget(targetId);
+  if (!target || !(target.categoryId in snapshot)) return null;
+
+  const withoutSource = cloneTaskPlacement(snapshot);
+  let foundSource = false;
+
+  for (const taskIds of Object.values(withoutSource)) {
+    const sourceIndex = taskIds.indexOf(taskId);
+    if (sourceIndex < 0) continue;
+    taskIds.splice(sourceIndex, 1);
+    foundSource = true;
+    break;
+  }
+
+  if (!foundSource) return null;
+
+  const targetTaskIds = withoutSource[target.categoryId] ?? [];
+  let targetIndex = targetTaskIds.length;
+
+  if (target.position !== 'append') {
+    const targetTaskIndex = target.taskId
+      ? targetTaskIds.indexOf(target.taskId)
+      : -1;
+    if (targetTaskIndex < 0) return null;
+
+    targetIndex =
+      targetTaskIndex + (target.position === 'after' ? 1 : 0);
+  }
+
+  return moveTaskInPlacement(
+    snapshot,
+    taskId,
+    target.categoryId,
+    targetIndex
+  );
 }
 
 function buildRenderedTasksByCategory(
@@ -265,9 +343,9 @@ const TaskReorderRuntime: React.FC<
       >[0]
     ) => {
       const { source } = event.operation;
-      if (!isSortable(source)) return;
-
       const taskId = String(source.id);
+      if (!taskById.has(taskId)) return;
+
       const snapshot = cloneTaskPlacement(basePlacement);
       const initialCategoryId = findTaskCategory(snapshot, taskId);
       if (!initialCategoryId) return;
@@ -289,7 +367,7 @@ const TaskReorderRuntime: React.FC<
       setActiveDrag(next);
       onReorderActiveChange?.(true);
     },
-    [basePlacement, onReorderActiveChange]
+    [basePlacement, onReorderActiveChange, taskById]
   );
 
   const handleDragOver = React.useCallback(
@@ -300,17 +378,15 @@ const TaskReorderRuntime: React.FC<
         >
       >[0]
     ) => {
-      const { source } = event.operation;
-      if (!isSortable(source)) return;
-
-      // React owns all task DOM ordering. dnd-kit keeps sensor/collision state,
-      // but its OptimisticSortingPlugin must never reparent these rows.
-      event.preventDefault();
-
       const snapshot = dragSnapshotRef.current;
       if (!snapshot) return;
 
-      const next = move(snapshot, event) as TaskPlacement;
+      const { source, target } = event.operation;
+      const taskId = String(source.id);
+      const next = target
+        ? projectTaskPlacement(snapshot, taskId, String(target.id)) ?? snapshot
+        : snapshot;
+
       if (!isTaskPlacementCompatible(next, snapshot, categoryIds)) return;
 
       const nextSignature = taskPlacementSignature(next, categoryIds);
@@ -355,10 +431,7 @@ const TaskReorderRuntime: React.FC<
         return;
       }
 
-      const { source } = event.operation;
-      if (!isSortable(source)) return;
-
-      const taskId = String(source.id);
+      const taskId = String(event.operation.source.id);
       const initialCategoryId = findTaskCategory(snapshot, taskId);
       const targetCategoryId = findTaskCategory(finalPlacement, taskId);
       if (!initialCategoryId || !targetCategoryId) return;
@@ -438,6 +511,10 @@ const TaskReorderRuntime: React.FC<
       sensors={(defaults) => [
         ...defaults.filter((sensor) => sensor !== PointerSensor),
         TASK_REORDER_POINTER_SENSOR,
+      ]}
+      plugins={(defaults) => [
+        ...defaults,
+        Feedback.configure({ feedback: 'none' }),
       ]}
       onDragStart={handleDragStart}
       onDragOver={handleDragOver}
