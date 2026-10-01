@@ -1,25 +1,21 @@
 # Session checkpoint
 
 Updated: 2026-10-01
-Current task: Eliminate dead/inert task rows and stale drag runtime in Day View cross-category reordering.
-Status: Implementation is on `chatgpt/fix-task-reorder-runtime`; browser/full verification and stable Preview delivery remain. Samsung/PWA manual acceptance is still required.
-Next action: Finish browser verification, run exact-SHA full Quality Gate, squash into `feature/task-reorder-clean`, verify Vercel READY, then run the first-open/reopen/consecutive-drag device protocol.
+Current task: Rebuild Day View task reordering so same-category and cross-category drags remain stable across repeated use.
+Status: Implementation is on `chatgpt/task-reorder-draggable-droppable`; corrected implementation passed canonical Quality Gate on `cadada28f7eaeef2c38af6c7557bbfc8c23233c3`. This checkpoint requests final exact-SHA confirmation before stable Preview promotion.
+Next action: Confirm the final checkpoint SHA passes the full Quality Gate, then squash-promote into `feature/task-reorder-clean`, verify Vercel READY, and run the Samsung/PWA manual reorder protocol.
 Blockers: None.
 
-## Root causes addressed
-- dnd-kit's default Feedback path creates an inert hidden placeholder and promotes the real draggable node. Current experimental dnd-kit has an open cross-container React reconciliation defect in this cleanup path; the observed dark rows match inert/dead feedback shells.
-- Preventing OptimisticSortingPlugin DOM reordering alone was insufficient because Feedback still owned/promoted the real task node.
-- Cross-category `dragover` also moved the active `SortableTaskItem` between different `CategorySection` React parents while it was still the registered drag source.
-- Sheet Day View remains mounted while closed, so the prior provider/local reorder state could survive close → reopen unless explicitly torn down.
-- Committed optimistic placement previously needed stronger integrity validation and lifecycle retirement.
+## Implementation
+- Task rows no longer use `useSortable` or dnd-kit's `OptimisticSortingPlugin`.
+- Each task uses plain `useDraggable`; the title remains the only drag handle and keeps the 500 ms hold/tolerance sensor.
+- Each visible row exposes high-priority top/bottom droppable halves for before/after insertion; each category surface is a lower-priority append target for populated, empty, and collapsed categories.
+- The provider uses one official `DragOverlay`; dnd-kit's Feedback plugin targets that overlay, so it does not create a placeholder or move/reparent the real task row.
+- The real source task stays mounted in its original React parent inside a collapsed source slot. Only a lightweight insertion gap moves during drag.
+- Projection is recalculated from the immutable drag-start placement and the current droppable target; release persists only the final source/destination groups.
+- Existing fail-closed persistence, optimistic reconciliation, sheet-runtime teardown, and normal Mosaic overlay background are preserved.
 
-## Fix design
-- Sheet-mode reorder runtime/provider exists only while Day View is open on the active day; close/date change destroys the registry and resets parent reorder-lock state.
-- One official dnd-kit `DragOverlay` supplies feedback with `dropAnimation={null}`. Because Feedback has an overlay, it does not create a placeholder or move the real TaskItem.
-- `dragover.preventDefault()` continues to block OptimisticSortingPlugin DOM reparenting.
-- Real task components never change category/order during an active drag. The source stays mounted in its original category inside a collapsed wrapper; projection is represented only by a lightweight React insertion gap.
-- Projection is recalculated from the immutable drag-start snapshot on each dragover, so source registration does not need to migrate groups.
-- Post-drop placement renders optimistically only when it contains exactly the current live task IDs once each. Matching/invalid placement is retired in an effect, never via render-time state updates.
-- Persistence generations remain serialized; failure of an older generation clears newer optimistic state derived from it.
-- Browser coverage now requires no dnd placeholder during active drag, an official overlay, a still-mounted real source slot, clean runtime destruction/rebuild across close/reopen, persisted reconciliation, and immediate second-drag usability.
-- No schema/Appwrite/sync-mapping changes are required.
+## Verification
+- Existing browser contracts cover same-category reorder, cross-category insertion, empty-category drop, immediate second drag, pre-hold movement cancellation, sheet gesture locking/cancel, and close/reopen runtime rebuild.
+- Initial full Quality Gate run #1520 exposed three implementation defects: render-time droppable ref access, nullable drag-source typing, and an incorrect Feedback override that disabled the official overlay. All three were fixed. Run #1525 passed checks, build, both DOM shards, both browser shards, dependency audit, and canonical acceptance on `cadada28f7eaeef2c38af6c7557bbfc8c23233c3`.
+- Real-device Samsung/PWA acceptance remains required after stable Preview delivery.

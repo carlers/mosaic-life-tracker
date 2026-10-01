@@ -2,8 +2,8 @@ import React, { useId, useRef, useState } from 'react';
 import { CollisionPriority } from '@dnd-kit/abstract';
 import { useDroppable } from '@dnd-kit/react';
 import { ChevronDown, Plus } from 'lucide-react';
+import { DraggableTaskItem } from './DraggableTaskItem';
 import { TaskItem } from './TaskItem';
-import { SortableTaskItem } from './SortableTaskItem';
 import { visibilityIcon } from '../../../lib/visibility';
 import { getCategoryLabelColor } from '../../../constants/colors';
 import type { TaskDocument } from '../../../db/schema';
@@ -20,11 +20,10 @@ const CategoryDropSurface: React.FC<CategoryDropSurfaceProps> = ({
   children,
 }) => {
   const { ref } = useDroppable({
-    id: categoryId,
+    id: `task-category:${categoryId}`,
     type: 'task-category',
     accept: 'task',
     collisionPriority: CollisionPriority.Low,
-    data: { categoryId },
   });
 
   return (
@@ -33,6 +32,82 @@ const CategoryDropSurface: React.FC<CategoryDropSurfaceProps> = ({
       className="mb-4"
       data-task-category-id={categoryId}
     >
+      {children}
+    </div>
+  );
+};
+
+interface TaskRowDropSurfaceProps {
+  categoryId: string;
+  taskId: string;
+  disabled?: boolean;
+  isActiveSource?: boolean;
+  children: React.ReactNode;
+}
+
+const TaskRowDropSurface: React.FC<TaskRowDropSurfaceProps> = ({
+  categoryId,
+  taskId,
+  disabled = false,
+  isActiveSource = false,
+  children,
+}) => {
+  const { ref: beforeRef } = useDroppable({
+    id: `task-insert:${categoryId}:${taskId}:before`,
+    type: 'task-insert',
+    accept: 'task',
+    collisionPriority: CollisionPriority.High,
+    disabled,
+  });
+  const { ref: afterRef } = useDroppable({
+    id: `task-insert:${categoryId}:${taskId}:after`,
+    type: 'task-insert',
+    accept: 'task',
+    collisionPriority: CollisionPriority.High,
+    disabled,
+  });
+
+  return (
+    <div
+      className="relative"
+      data-task-slot-id={taskId}
+      data-task-source-slot={isActiveSource ? 'true' : undefined}
+      aria-hidden={isActiveSource ? true : undefined}
+      style={
+        isActiveSource
+          ? {
+              height: 0,
+              opacity: 0,
+              overflow: 'hidden',
+              pointerEvents: 'none',
+            }
+          : undefined
+      }
+    >
+      <div
+        ref={beforeRef}
+        data-task-insert-position="before"
+        aria-hidden="true"
+        style={{
+          position: 'absolute',
+          insetInline: 0,
+          top: 0,
+          height: '50%',
+          pointerEvents: 'none',
+        }}
+      />
+      <div
+        ref={afterRef}
+        data-task-insert-position="after"
+        aria-hidden="true"
+        style={{
+          position: 'absolute',
+          insetInline: 0,
+          bottom: 0,
+          height: '50%',
+          pointerEvents: 'none',
+        }}
+      />
       {children}
     </div>
   );
@@ -181,7 +256,7 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
     setIsCollapsed((current) => !current);
   };
 
-  const renderSortableRows = () => {
+  const renderDraggableRows = () => {
     const rows: React.ReactNode[] = [];
     let visibleIndex = 0;
     const clampedGapIndex =
@@ -206,7 +281,7 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
       );
     };
 
-    tasks.forEach((task, index) => {
+    tasks.forEach((task) => {
       const isActiveSource = task.id === activeDragTaskId;
 
       if (!isActiveSource && clampedGapIndex === visibleIndex) {
@@ -214,29 +289,18 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
       }
 
       rows.push(
-        <div
+        <TaskRowDropSurface
           key={task.id}
-          data-task-slot-id={task.id}
-          data-task-source-slot={isActiveSource ? 'true' : undefined}
-          aria-hidden={isActiveSource ? true : undefined}
-          style={
-            isActiveSource
-              ? {
-                  height: 0,
-                  opacity: 0,
-                  pointerEvents: 'none',
-                  position: 'relative',
-                }
-              : undefined
-          }
+          categoryId={categoryId}
+          taskId={task.id}
+          disabled={isActiveSource}
+          isActiveSource={isActiveSource}
         >
-          <SortableTaskItem
+          <DraggableTaskItem
             {...taskProps(task)}
-            index={index}
-            group={categoryId}
             reorderEnabled
           />
-        </div>
+        </TaskRowDropSurface>
       );
 
       if (!isActiveSource) {
@@ -325,7 +389,7 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
 
       {!categoryCollapsed &&
         (canReorder
-          ? renderSortableRows()
+          ? renderDraggableRows()
           : tasks.map((task) => (
               <TaskItem key={task.id} {...taskProps(task)} />
             )))}
