@@ -39,6 +39,35 @@ const CategoryHeaderDropSurface: React.FC<CategoryHeaderDropSurfaceProps> = ({
   );
 };
 
+interface TaskGapDropSurfaceProps {
+  categoryId: string;
+  index: number;
+  height: number;
+}
+
+const TaskGapDropSurface: React.FC<TaskGapDropSurfaceProps> = ({
+  categoryId,
+  index,
+  height,
+}) => {
+  const { ref } = useDroppable({
+    id: `task-gap:${categoryId}:${index}`,
+    type: 'task-insert',
+    accept: 'task',
+    collisionPriority: CollisionPriority.Normal,
+  });
+
+  return (
+    <div
+      ref={ref}
+      data-task-drop-gap="true"
+      data-task-drop-index={index}
+      aria-hidden="true"
+      style={{ height: Math.max(1, height) }}
+    />
+  );
+};
+
 interface TaskRowDropSurfaceProps {
   categoryId: string;
   taskId: string;
@@ -273,12 +302,13 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
           );
 
     const pushGap = () => {
+      if (clampedGapIndex == null) return;
       rows.push(
-        <div
+        <TaskGapDropSurface
           key="task-drag-gap"
-          data-task-drop-gap="true"
-          aria-hidden="true"
-          style={{ height: Math.max(1, dragGapHeight) }}
+          categoryId={categoryId}
+          index={clampedGapIndex}
+          height={dragGapHeight}
         />
       );
     };
