@@ -1,30 +1,26 @@
 # Session checkpoint
 
 Updated: 2026-10-01
-Current task: Promote the completed task-reorder/day-swipe feature from `feature/task-reorder-clean` into `dev`.
-Status: Final manual smoke acceptance is complete on the stable Preview. The feature branch is approved for promotion to `dev`.
-Next action: Merge `feature/task-reorder-clean` into `dev`, then verify the resulting `dev` Quality Gate and deployment state.
+Current task: Promote the accepted task-reorder/day-swipe release from `dev` to production `main`.
+Status: `dev` promotion is complete and fully green. Production preflight required Mosaic to advance from `0.1.0` to `0.2.0`. The first full release gate correctly exposed two stale tests that still hard-coded `0.1.0`; both are fixed, PROJECT_REFERENCE now records `0.2.0`, and exact-SHA full verification is rerunning on `chatgpt/release-task-reorder-0-2-0` before it enters `dev`.
+Next action: Pass full canonical verification for the 0.2.0 release bump, squash-promote it into `dev`, verify the new dev SHA/deployment, then merge `dev` into `main` and verify production CI plus Vercel Production READY.
 Blockers: None.
 
-## Accepted behavior
+## Accepted release content
 - Fresh-open and legacy multi-task rows render correctly.
 - Same-category, populated cross-category, and empty-category reordering work across consecutive drags.
-- The category-pill/first-row insertion boundary is visually stable.
+- Category-boundary drag projection is visually stable.
 - Quick mouse drags over task title/memo navigate days; stationary 500 ms title holds reorder.
-- Neighboring Day View slides keep the same vertical geometry when becoming active.
-- Final post-cleanup manual smoke testing is accepted by the user.
+- Neighboring Day View slides keep identical vertical geometry while becoming active.
+- Reorder implementation cleanup is complete and manually accepted.
 
-## Cleanup completed
-- `DaySlide` is reduced to orchestration; presentation, dnd runtime, droppable geometry, and pure reorder projection are separate focused modules.
-- Obsolete drag-source props, duplicate state flags/refs, dead placement helpers/signature generation, unused diagnostic markers, and an unused direct dnd helper dependency were removed.
-- Drag projection clones only affected task groups.
-- Drag lifecycle uses one session ref.
-- Task-order persistence reads are scoped to the relevant category/day.
-- Existing schema migration, sync/restore/backend order mappings, fail-closed persistence, RxDocument materialization, overlay ownership, collision geometry, optimistic reconciliation, and gesture behavior remain intact.
+## Dev promotion
+- `feature/task-reorder-clean` was merged into `dev` as `9025cd37683af9cbb545c36881203a1ecb09efb7`.
+- The exact dev SHA passed the full Quality Gate, including both DOM shards, both Chromium shards, dependency audit, and canonical acceptance.
+- The matching dev Vercel deployment is READY.
+- `dev` is ahead of `main` with no reverse divergence.
 
-## Verification
-- Stable code commit `25b3645cb797c65b40a77eff46d13397683d0f72` passed the full canonical Quality Gate.
-- Current stable feature checkpoint `f2cbc32f3661aa764949ebaff6fc4f08f9c32c82` also passed the full Quality Gate.
-- Stable Vercel deployment `dpl_6pBRei2mPmeisEcTiyW5myjkG2pZ` is READY.
-- Final manual smoke test is accepted.
-- `feature/task-reorder-clean` was confirmed 0 commits behind `dev` before promotion.
+## Release version
+- This release adds a meaningful backwards-compatible product capability.
+- Per `docs/VERSIONING.md`, the pre-1.0 release version advances from `0.1.0` to `0.2.0`.
+- `package.json`, `package-lock.json`, and `src/lib/appVersion.ts` are kept in sync at `0.2.0`.
