@@ -36,6 +36,12 @@ interface CommittedPlacement {
   placement: TaskPlacement;
 }
 
+interface DragSession {
+  snapshot: TaskPlacement;
+  projection: TaskPlacement;
+  hasValidTarget: boolean;
+}
+
 interface TaskReorderRuntimeProps extends DaySlideProps {
   categoryIds: string[];
   livePlacement: TaskPlacement;
@@ -60,9 +66,7 @@ export const TaskReorderRuntime: React.FC<TaskReorderRuntimeProps> = (
   const [activeDrag, setActiveDrag] =
     React.useState<ActiveTaskDrag | null>(null);
 
-  const dragSnapshotRef = React.useRef<TaskPlacement | null>(null);
-  const dragProjectionRef = React.useRef<TaskPlacement | null>(null);
-  const dragTargetValidRef = React.useRef(false);
+  const dragSessionRef = React.useRef<DragSession | null>(null);
   const commitIdRef = React.useRef(0);
 
   const activeCommittedPlacement =
@@ -120,9 +124,11 @@ export const TaskReorderRuntime: React.FC<TaskReorderRuntimeProps> = (
         ),
       };
 
-      dragSnapshotRef.current = snapshot;
-      dragProjectionRef.current = snapshot;
-      dragTargetValidRef.current = false;
+      dragSessionRef.current = {
+        snapshot,
+        projection: snapshot,
+        hasValidTarget: false,
+      };
       setActiveDrag(next);
       onReorderActiveChange?.(true);
     },
@@ -137,35 +143,33 @@ export const TaskReorderRuntime: React.FC<TaskReorderRuntimeProps> = (
         >
       >[0]
     ) => {
-      const snapshot = dragSnapshotRef.current;
+      const session = dragSessionRef.current;
       const { source, target } = event.operation;
-      if (!snapshot || !source) return;
+      if (!session || !source) return;
 
       if (!target) {
-        dragTargetValidRef.current = false;
+        session.hasValidTarget = false;
         return;
       }
 
       const next = projectTaskPlacement(
-        snapshot,
+        session.snapshot,
         String(source.id),
         String(target.id)
       );
       if (!next) {
-        dragTargetValidRef.current = false;
+        session.hasValidTarget = false;
         return;
       }
 
-      dragTargetValidRef.current = true;
-      const previous = dragProjectionRef.current;
+      session.hasValidTarget = true;
       if (
-        previous &&
-        taskPlacementsEqual(previous, next, categoryIds)
+        taskPlacementsEqual(session.projection, next, categoryIds)
       ) {
         return;
       }
 
-      dragProjectionRef.current = next;
+      session.projection = next;
       setActiveDrag((current) =>
         current ? { ...current, projection: next } : current
       );
@@ -183,27 +187,21 @@ export const TaskReorderRuntime: React.FC<TaskReorderRuntimeProps> = (
     ) => {
       onReorderActiveChange?.(false);
 
-      const snapshot = dragSnapshotRef.current;
-      const finalPlacement = dragProjectionRef.current;
-      const hasValidTarget = dragTargetValidRef.current;
-
-      dragSnapshotRef.current = null;
-      dragProjectionRef.current = null;
-      dragTargetValidRef.current = false;
+      const session = dragSessionRef.current;
+      dragSessionRef.current = null;
       setActiveDrag(null);
 
       const source = event.operation.source;
       if (
         event.canceled ||
         !source ||
-        !hasValidTarget ||
-        !snapshot ||
-        !finalPlacement ||
+        !session?.hasValidTarget ||
         !onReorderTasks
       ) {
         return;
       }
 
+      const { snapshot, projection: finalPlacement } = session;
       if (
         !isTaskPlacementCompatible(
           finalPlacement,
