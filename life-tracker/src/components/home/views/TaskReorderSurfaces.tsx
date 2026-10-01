@@ -61,7 +61,6 @@ export const TaskGapDropSurface: React.FC<{
     <div
       ref={ref}
       data-task-drop-gap="true"
-      data-task-drop-index={index}
       aria-hidden="true"
       style={{ height: Math.max(1, height) }}
     />
@@ -97,7 +96,6 @@ export const TaskRowDropSurface: React.FC<{
   return (
     <div
       className="relative"
-      data-task-slot-id={taskId}
       data-task-source-slot={isActiveSource ? 'true' : undefined}
       aria-hidden={isActiveSource ? true : undefined}
       style={
@@ -113,7 +111,6 @@ export const TaskRowDropSurface: React.FC<{
     >
       <div
         ref={beforeRef}
-        data-task-insert-position="before"
         aria-hidden="true"
         style={{
           position: 'absolute',
@@ -125,7 +122,6 @@ export const TaskRowDropSurface: React.FC<{
       />
       <div
         ref={afterRef}
-        data-task-insert-position="after"
         aria-hidden="true"
         style={{
           position: 'absolute',
