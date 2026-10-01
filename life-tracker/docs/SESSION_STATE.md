@@ -2,8 +2,8 @@
 
 Updated: 2026-10-01
 Current task: Rebuild Day View task reordering so same-category and cross-category drags remain stable across repeated use.
-Status: Implementation is on `chatgpt/task-reorder-draggable-droppable`; corrected implementation passed canonical Quality Gate on `cadada28f7eaeef2c38af6c7557bbfc8c23233c3`. This checkpoint requests final exact-SHA confirmation before stable Preview promotion.
-Next action: Confirm the final checkpoint SHA passes the full Quality Gate, then squash-promote into `feature/task-reorder-clean`, verify Vercel READY, and run the Samsung/PWA manual reorder protocol.
+Status: Automated implementation and delivery are complete on `feature/task-reorder-clean`. Stable commit `2fb1b5cdebe0d9cc924d4826eb4aafb50ff48d3f` passed the full canonical Quality Gate and its Vercel Preview is READY. Real-device Samsung/PWA touch acceptance remains.
+Next action: Run `docs/MANUAL_TASK_REORDER_ACCEPTANCE.md` on the stable Preview. If accepted, this feature branch is ready for the normal promotion decision.
 Blockers: None.
 
 ## Implementation
@@ -16,6 +16,10 @@ Blockers: None.
 - Existing fail-closed persistence, optimistic reconciliation, sheet-runtime teardown, and normal Mosaic overlay background are preserved.
 
 ## Verification
-- Existing browser contracts cover same-category reorder, cross-category insertion, empty-category drop, immediate second drag, pre-hold movement cancellation, sheet gesture locking/cancel, and close/reopen runtime rebuild.
-- Initial full Quality Gate run #1520 exposed three implementation defects: render-time droppable ref access, nullable drag-source typing, and an incorrect Feedback override that disabled the official overlay. All three were fixed. Run #1525 passed checks, build, both DOM shards, both browser shards, dependency audit, and canonical acceptance on `cadada28f7eaeef2c38af6c7557bbfc8c23233c3`.
-- Real-device Samsung/PWA acceptance remains required after stable Preview delivery.
+- Initial full Quality Gate run #1520 exposed render-time droppable ref access, nullable drag-source typing, and an incorrect Feedback override that disabled the official overlay. All three were fixed before promotion.
+- Task-branch run #1525 passed checks, build, both DOM shards, both browser shards, dependency audit, and canonical acceptance on `cadada28f7eaeef2c38af6c7557bbfc8c23233c3`.
+- Final task checkpoint run #1526 passed the same full canonical gate on `79748e469f603684601e7d750f0c48b829cc4571`.
+- Stable feature commit `2fb1b5cdebe0d9cc924d4826eb4aafb50ff48d3f` passed full Quality Gate run #1527, including both Chromium browser shards.
+- Vercel deployment `dpl_HjVdjwMBoBoR2dGgqjhmoZhVGw3s` for that stable commit is READY.
+- Browser coverage directly exercises same-category reorder, cross-category insertion, empty-category drop, immediate second drag, pre-hold movement cancellation, sheet gesture locking/cancel, and close/reopen runtime rebuild.
+- Real-device Samsung/PWA acceptance remains required; it has not been claimed as completed.
