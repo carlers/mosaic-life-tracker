@@ -42,7 +42,7 @@ function task(
     completed: false,
     categoryId,
     order: 0,
-    date:
+    date,
     createdAt: `${date}T00:00:00.000Z`,
     updatedAt: `${date}T00:00:00.000Z`,
     userId: 'user_A',
