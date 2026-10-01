@@ -9,14 +9,19 @@ import { TaskItem } from './TaskItem';
 import type { CategoryDocument, TaskDocument } from '../../../db/schema';
 import {
   buildTaskPlacement,
-  cloneTaskPlacement,
   isTaskPlacementCompatible,
   materializeTaskDocument,
-  moveTaskInPlacement,
-  taskPlacementSignature,
   type TaskOrderGroup,
   type TaskPlacement,
 } from '../../../lib/taskOrder';
+import {
+  buildAffectedTaskOrderGroups,
+  buildRenderedTasksByCategory,
+  findTaskCategory,
+  projectTaskPlacement,
+  taskPlacementsEqual,
+  type ActiveTaskDrag,
+} from './taskReorder';
 
 const TASK_REORDER_POINTER_SENSOR = PointerSensor.configure({
   activationConstraints: [
@@ -30,22 +35,6 @@ const TASK_REORDER_POINTER_SENSOR = PointerSensor.configure({
 interface CommittedPlacement {
   id: number;
   placement: TaskPlacement;
-  signature: string;
-}
-
-interface ActiveDrag {
-  taskId: string;
-  initialCategoryId: string;
-  snapshot: TaskPlacement;
-  projection: TaskPlacement;
-  rowHeight: number;
-}
-
-interface ParsedDropTarget {
-  categoryId: string;
-  taskId?: string;
-  index?: number;
-  position: 'before' | 'after' | 'start' | 'index';
 }
 
 interface DaySlideProps {
@@ -83,129 +72,7 @@ interface DaySlideProps {
 
 interface DaySlideContentProps extends DaySlideProps {
   tasksByCategory: Map<string, TaskDocument[]>;
-  activeDrag: ActiveDrag | null;
-}
-
-function findTaskCategory(
-  placement: TaskPlacement,
-  taskId: string
-): string | null {
-  for (const [categoryId, taskIds] of Object.entries(placement)) {
-    if (taskIds.includes(taskId)) return categoryId;
-  }
-  return null;
-}
-
-function parseDropTarget(targetId: string): ParsedDropTarget | null {
-  const categoryStartPrefix = 'task-category-start:';
-  if (targetId.startsWith(categoryStartPrefix)) {
-    const categoryId = targetId.slice(categoryStartPrefix.length);
-    return categoryId
-      ? { categoryId, position: 'start' }
-      : null;
-  }
-
-  const gapPrefix = 'task-gap:';
-  if (targetId.startsWith(gapPrefix)) {
-    const parts = targetId.slice(gapPrefix.length).split(':');
-    if (parts.length !== 2) return null;
-
-    const [categoryId, rawIndex] = parts;
-    const index = Number(rawIndex);
-    if (!categoryId || !Number.isInteger(index) || index < 0) {
-      return null;
-    }
-
-    return { categoryId, index, position: 'index' };
-  }
-
-  const insertPrefix = 'task-insert:';
-  if (!targetId.startsWith(insertPrefix)) return null;
-
-  const parts = targetId.slice(insertPrefix.length).split(':');
-  if (parts.length !== 3) return null;
-
-  const [categoryId, taskId, position] = parts;
-  if (
-    !categoryId ||
-    !taskId ||
-    (position !== 'before' && position !== 'after')
-  ) {
-    return null;
-  }
-
-  return { categoryId, taskId, position };
-}
-
-function projectTaskPlacement(
-  snapshot: TaskPlacement,
-  taskId: string,
-  targetId: string
-): TaskPlacement | null {
-  const target = parseDropTarget(targetId);
-  if (!target || !(target.categoryId in snapshot)) return null;
-
-  const withoutSource = cloneTaskPlacement(snapshot);
-  let foundSource = false;
-
-  for (const taskIds of Object.values(withoutSource)) {
-    const sourceIndex = taskIds.indexOf(taskId);
-    if (sourceIndex < 0) continue;
-    taskIds.splice(sourceIndex, 1);
-    foundSource = true;
-    break;
-  }
-
-  if (!foundSource) return null;
-
-  const targetTaskIds = withoutSource[target.categoryId] ?? [];
-  let targetIndex = 0;
-
-  if (target.position === 'index') {
-    targetIndex = target.index ?? 0;
-  } else if (target.position !== 'start') {
-    const targetTaskIndex = target.taskId
-      ? targetTaskIds.indexOf(target.taskId)
-      : -1;
-    if (targetTaskIndex < 0) return null;
-
-    targetIndex =
-      targetTaskIndex + (target.position === 'after' ? 1 : 0);
-  }
-
-  return moveTaskInPlacement(
-    snapshot,
-    taskId,
-    target.categoryId,
-    targetIndex
-  );
-}
-
-function buildRenderedTasksByCategory(
-  tasks: readonly TaskDocument[],
-  placement: TaskPlacement,
-  categoryIds: readonly string[]
-): Map<string, TaskDocument[]> {
-  const taskById = new Map(tasks.map((task) => [task.id, task]));
-  const result = new Map<string, TaskDocument[]>();
-
-  for (const categoryId of categoryIds) {
-    const ordered = (placement[categoryId] ?? []).flatMap(
-      (taskId, order) => {
-        const task = taskById.get(taskId);
-        if (!task) return [];
-
-        if (task.categoryId === categoryId && task.order === order) {
-          return [task];
-        }
-
-        return [{ ...task, categoryId, order }];
-      }
-    );
-    result.set(categoryId, ordered);
-  }
-
-  return result;
+  activeDrag: ActiveTaskDrag | null;
 }
 
 const DaySlideContent: React.FC<DaySlideContentProps> = ({
@@ -316,7 +183,7 @@ const TaskReorderRuntime: React.FC<
   } = props;
   const [committedPlacement, setCommittedPlacement] =
     React.useState<CommittedPlacement | null>(null);
-  const [activeDrag, setActiveDrag] = React.useState<ActiveDrag | null>(null);
+  const [activeDrag, setActiveDrag] = React.useState<ActiveTaskDrag | null>(null);
   const dragSnapshotRef = React.useRef<TaskPlacement | null>(null);
   const dragProjectionRef = React.useRef<TaskPlacement | null>(null);
   const dragTargetValidRef = React.useRef(false);
@@ -368,7 +235,7 @@ const TaskReorderRuntime: React.FC<
       const taskId = String(source.id);
       if (!taskById.has(taskId)) return;
 
-      const snapshot = cloneTaskPlacement(basePlacement);
+      const snapshot = basePlacement;
       const initialCategoryId = findTaskCategory(snapshot, taskId);
       if (!initialCategoryId) return;
 
@@ -418,21 +285,17 @@ const TaskReorderRuntime: React.FC<
         taskId,
         String(target.id)
       );
-      if (
-        !next ||
-        !isTaskPlacementCompatible(next, snapshot, categoryIds)
-      ) {
+      if (!next) {
         dragTargetValidRef.current = false;
         return;
       }
 
       dragTargetValidRef.current = true;
 
-      const nextSignature = taskPlacementSignature(next, categoryIds);
       const previous = dragProjectionRef.current;
       if (
         previous &&
-        taskPlacementSignature(previous, categoryIds) === nextSignature
+        taskPlacementsEqual(previous, next, categoryIds)
       ) {
         return;
       }
@@ -477,9 +340,6 @@ const TaskReorderRuntime: React.FC<
       if (!source) return;
 
       const taskId = String(source.id);
-      const initialCategoryId = findTaskCategory(snapshot, taskId);
-      const targetCategoryId = findTaskCategory(finalPlacement, taskId);
-      if (!initialCategoryId || !targetCategoryId) return;
 
       if (
         !isTaskPlacementCompatible(
@@ -491,29 +351,20 @@ const TaskReorderRuntime: React.FC<
         return;
       }
 
-      const snapshotSignature = taskPlacementSignature(snapshot, categoryIds);
-      const nextSignature = taskPlacementSignature(
+      if (taskPlacementsEqual(snapshot, finalPlacement, categoryIds)) return;
+
+      const groups = buildAffectedTaskOrderGroups(
+        snapshot,
         finalPlacement,
-        categoryIds
+        taskId
       );
-      if (snapshotSignature === nextSignature) return;
+      if (groups.length === 0) return;
 
       const commitId = ++commitIdRef.current;
       setCommittedPlacement({
         id: commitId,
         placement: finalPlacement,
-        signature: nextSignature,
       });
-
-      const affectedCategoryIds = Array.from(
-        new Set([initialCategoryId, targetCategoryId])
-      );
-      const groups: TaskOrderGroup[] = affectedCategoryIds.map(
-        (categoryId) => ({
-          categoryId,
-          taskIds: finalPlacement[categoryId] ?? [],
-        })
-      );
 
       void Promise.resolve()
         .then(() => onReorderTasks(dateStr, groups))
