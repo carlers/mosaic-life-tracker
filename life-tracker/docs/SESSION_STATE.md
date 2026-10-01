@@ -2,7 +2,7 @@
 
 Updated: 2026-10-01
 Current task: Fix blank/dark task shells appearing immediately when Day View opens before any drag.
-Status: Fix is in progress on `chatgpt/fix-fresh-open-task-shells`. The stable Preview reproduced the failure on a real Samsung/PWA device even though browser CI was green.
+Status: Drag-proxy fix is implemented on `chatgpt/fix-fresh-open-task-shells`; exact-SHA canonical verification is running before stable Preview promotion.
 Next action: Run canonical verification for the drag-proxy fix, promote it to `feature/task-reorder-clean`, verify the new Preview is READY, then repeat manual acceptance step 1 before any drag.
 Blockers: None.
 
