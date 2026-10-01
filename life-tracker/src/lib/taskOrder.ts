@@ -21,12 +21,11 @@ export function materializeTaskDocument(
   task: TaskDocument
 ): TaskDocument {
   const jsonTask = task as JsonBackedTaskDocument;
-  const source =
-    typeof jsonTask.toJSON === 'function'
-      ? jsonTask.toJSON()
-      : task;
+  if (typeof jsonTask.toJSON !== 'function') {
+    return task;
+  }
 
-  return { ...source };
+  return { ...jsonTask.toJSON() };
 }
 
 const compareTasks = (a: TaskDocument, b: TaskDocument) =>
