@@ -31,7 +31,17 @@ describe('portable Mosaic backend manifest', () => {
     );
   });
 
-  it('pins the social and messaging schema needed by current Mosaic', () => {
+  it('pins task ordering plus the social and messaging schema needed by current Mosaic', () => {
+    expect(byId.tasks.columns).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          key: 'order',
+          type: 'integer',
+          required: false,
+          default: 0,
+        }),
+      ])
+    );
     expect(byId.friendships.columns).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ key: 'friend_bio', size: 300 }),

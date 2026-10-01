@@ -26,6 +26,9 @@ interface DaySlideProps {
   selectionMode?: boolean;
   selectedTaskIds?: ReadonlySet<string>;
   onToggleTaskSelection?: (taskId: string) => void;
+  reorderEnabled?: boolean;
+  onReorderTasks?: (tasks: readonly TaskDocument[]) => Promise<void> | void;
+  onReorderActiveChange?: (active: boolean) => void;
 }
 
 const DaySlideComponent: React.FC<DaySlideProps> = ({
@@ -51,6 +54,9 @@ const DaySlideComponent: React.FC<DaySlideProps> = ({
   selectionMode = false,
   selectedTaskIds = new Set<string>(),
   onToggleTaskSelection,
+  reorderEnabled = false,
+  onReorderTasks,
+  onReorderActiveChange,
 }) => {
   const tasksByCategory = React.useMemo(() => {
     const map = new Map<string, TaskDocument[]>();
@@ -61,6 +67,14 @@ const DaySlideComponent: React.FC<DaySlideProps> = ({
       } else {
         map.set(task.categoryId, [task]);
       }
+    }
+    for (const list of map.values()) {
+      list.sort(
+        (a, b) =>
+          (a.order ?? 0) - (b.order ?? 0) ||
+          b.createdAt.localeCompare(a.createdAt) ||
+          a.id.localeCompare(b.id)
+      );
     }
     return map;
   }, [tasks]);
@@ -85,6 +99,7 @@ const DaySlideComponent: React.FC<DaySlideProps> = ({
       {categories.map((cat) => (
         <CategorySection
           key={cat.id}
+          categoryId={cat.id}
           categoryName={cat.name}
           categoryColor={cat.color}
           visibility={cat.visibility}
@@ -107,6 +122,9 @@ const DaySlideComponent: React.FC<DaySlideProps> = ({
           selectionMode={selectionMode}
           selectedTaskIds={selectedTaskIds}
           onToggleTaskSelection={onToggleTaskSelection}
+          reorderEnabled={reorderEnabled}
+          onReorderTasks={onReorderTasks}
+          onReorderActiveChange={onReorderActiveChange}
         />
       ))}
     </div>

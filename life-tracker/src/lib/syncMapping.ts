@@ -5,6 +5,7 @@ const KNOWN_FIELDS: Record<string, Set<string>> = {
     'title',
     'is_completed',
     'category_id',
+    'order',
     'tags',
     'date',
     'memo',
@@ -115,6 +116,7 @@ export function toAppwriteFormat(
     mapped.title = source.title || '';
     mapped.is_completed = source.completed ?? false;
     mapped.category_id = source.categoryId || '';
+    mapped.order = source.order ?? 0;
     mapped.tags = source.tags || '';
     mapped.date = source.date || '';
     mapped.memo = source.memo || '';
@@ -207,6 +209,7 @@ export function fromAppwriteFormat(
     mapped.id = row.$id || mapped.id;
     mapped.completed = mapped.is_completed ?? false;
     mapped.categoryId = mapped.category_id || '';
+    mapped.order = typeof row.order === 'number' ? row.order : 0;
     mapped.createdAt = mapped.created_at || new Date().toISOString();
     mapped.completedAt = mapped.completed_at || '';
     mapped.updatedAt = mapped.updated_at || new Date().toISOString();

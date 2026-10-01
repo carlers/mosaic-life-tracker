@@ -24,6 +24,7 @@ const fixture = vi.hoisted(() => ({
     title: 'Task with photo',
     completed: false,
     categoryId: 'cat_1',
+    order: 0,
     date: '2026-09-20',
     createdAt: '2026-09-20T00:00:00.000Z',
     updatedAt: '2026-09-20T00:00:00.000Z',

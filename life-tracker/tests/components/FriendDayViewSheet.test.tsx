@@ -89,6 +89,7 @@ const taskWithImage: TaskDocument = {
   id: 'task_1',
   userId: 'friend_1',
   categoryId: 'cat_1',
+  order: 0,
   title: 'Photo task',
   memo: '',
   date: '2026-09-20',

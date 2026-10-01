@@ -1,13 +1,32 @@
 import React, { useState, useRef, useId } from 'react';
+import { DragDropProvider } from '@dnd-kit/react';
+import { PointerActivationConstraints, PointerSensor } from '@dnd-kit/dom';
+import { isSortable } from '@dnd-kit/react/sortable';
 import { ChevronDown, Plus } from 'lucide-react';
 import { TaskItem } from './TaskItem';
+import { SortableTaskItem } from './SortableTaskItem';
 import { visibilityIcon } from '../../../lib/visibility';
 import { getCategoryLabelColor } from '../../../constants/colors';
 import type { TaskDocument } from '../../../db/schema';
 
 type Visibility = 'private' | 'followers' | 'public';
 
+const TASK_REORDER_POINTER_SENSOR = PointerSensor.configure({
+  activationConstraints: [
+    new PointerActivationConstraints.Delay({
+      value: 500,
+      tolerance: 8,
+    }),
+  ],
+});
+
+interface PendingTaskOrder {
+  ids: string[];
+  signature: string;
+}
+
 interface CategorySectionProps {
+  categoryId: string;
   categoryName: string;
   categoryColor: string;
   visibility?: Visibility;
@@ -30,9 +49,13 @@ interface CategorySectionProps {
   selectionMode?: boolean;
   selectedTaskIds?: ReadonlySet<string>;
   onToggleTaskSelection?: (taskId: string) => void;
+  reorderEnabled?: boolean;
+  onReorderTasks?: (tasks: readonly TaskDocument[]) => Promise<void> | void;
+  onReorderActiveChange?: (active: boolean) => void;
 }
 
 export const CategorySection: React.FC<CategorySectionProps> = ({
+  categoryId,
   categoryName,
   categoryColor,
   visibility,
@@ -55,10 +78,14 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
   selectionMode = false,
   selectedTaskIds = new Set<string>(),
   onToggleTaskSelection,
+  reorderEnabled = false,
+  onReorderTasks,
+  onReorderActiveChange,
 }) => {
   const [isAdding, setIsAdding] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [newTitle, setNewTitle] = useState('');
+  const [pendingOrder, setPendingOrder] = useState<PendingTaskOrder | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const inputId = useId();
 
@@ -107,6 +134,86 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
   };
 
   const categoryCollapsed = showCollapseButton && isCollapsed;
+  const liveIds = tasks.map((task) => task.id);
+  const liveSignature = liveIds.join('\0');
+  const canUsePending =
+    pendingOrder !== null &&
+    pendingOrder.ids.length === liveIds.length &&
+    pendingOrder.ids.every((id) => liveIds.includes(id));
+
+  let orderedTasks = tasks;
+  if (pendingOrder && canUsePending && liveSignature !== pendingOrder.signature) {
+    const latestById = new Map(tasks.map((task) => [task.id, task]));
+    orderedTasks = pendingOrder.ids.flatMap((id) => {
+      const task = latestById.get(id);
+      return task ? [task] : [];
+    });
+  } else if (pendingOrder) {
+    setPendingOrder(null);
+  }
+
+  const canReorder =
+    reorderEnabled &&
+    !selectionMode &&
+    !isAdding &&
+    editingTaskId === null &&
+    !!onReorderTasks;
+
+  const handleDragEnd = (event: Parameters<
+    NonNullable<React.ComponentProps<typeof DragDropProvider>['onDragEnd']>
+  >[0]) => {
+    onReorderActiveChange?.(false);
+    if (event.canceled) return;
+
+    const { source } = event.operation;
+    if (!isSortable(source) || source.initialIndex === source.index) return;
+    if (
+      source.initialIndex < 0 ||
+      source.index < 0 ||
+      source.initialIndex >= orderedTasks.length ||
+      source.index >= orderedTasks.length
+    ) {
+      return;
+    }
+
+    const next = [...orderedTasks];
+    const [moved] = next.splice(source.initialIndex, 1);
+    if (!moved) return;
+    next.splice(source.index, 0, moved);
+
+    const ids = next.map((task) => task.id);
+    const optimistic: PendingTaskOrder = {
+      ids,
+      signature: ids.join('\0'),
+    };
+    setPendingOrder(optimistic);
+
+    void Promise.resolve(onReorderTasks?.(next)).catch(() => {
+      setPendingOrder((current) =>
+        current?.signature === optimistic.signature ? null : current
+      );
+    });
+  };
+
+  const taskProps = (task: TaskDocument) => ({
+    task,
+    categoryColor,
+    currentUserId,
+    onToggle: () => onToggleTask(task.id, task.completed),
+    onOpenActions,
+    onOpenMemo,
+    onEditStart: onEditTask,
+    onViewImage,
+    isEditing: editingTaskId === task.id,
+    editValue,
+    onEditChange,
+    onEditSave,
+    onEditCancel,
+    disableLayoutAnimation: disableTaskLayoutAnimation,
+    selectionMode,
+    isSelected: selectedTaskIds.has(task.id),
+    onToggleSelection: () => onToggleTaskSelection?.(task.id),
+  });
 
   const handleToggleCollapse = () => {
     if (!categoryCollapsed) {
@@ -183,28 +290,32 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
         </div>
       )}
 
-      {!categoryCollapsed && tasks.map((task) => (
-        <TaskItem
-          key={task.id}
-          task={task}
-          categoryColor={categoryColor}
-          currentUserId={currentUserId}
-          onToggle={() => onToggleTask(task.id, task.completed)}
-          onOpenActions={onOpenActions}
-          onOpenMemo={onOpenMemo}
-          onEditStart={onEditTask}
-          onViewImage={onViewImage}
-          isEditing={editingTaskId === task.id}
-          editValue={editValue}
-          onEditChange={onEditChange}
-          onEditSave={onEditSave}
-          onEditCancel={onEditCancel}
-          disableLayoutAnimation={disableTaskLayoutAnimation}
-          selectionMode={selectionMode}
-          isSelected={selectedTaskIds.has(task.id)}
-          onToggleSelection={() => onToggleTaskSelection?.(task.id)}
-        />
-      ))}
+      {!categoryCollapsed && (
+        canReorder ? (
+          <DragDropProvider
+            sensors={(defaults) => [
+              ...defaults.filter((sensor) => sensor !== PointerSensor),
+              TASK_REORDER_POINTER_SENSOR,
+            ]}
+            onDragStart={() => onReorderActiveChange?.(true)}
+            onDragEnd={handleDragEnd}
+          >
+            {orderedTasks.map((task, index) => (
+              <SortableTaskItem
+                key={task.id}
+                {...taskProps(task)}
+                index={index}
+                group={categoryId}
+                reorderEnabled
+              />
+            ))}
+          </DragDropProvider>
+        ) : (
+          orderedTasks.map((task) => (
+            <TaskItem key={task.id} {...taskProps(task)} />
+          ))
+        )
+      )}
     </div>
   );
 };

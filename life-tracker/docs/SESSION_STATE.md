@@ -1,36 +1,27 @@
 # Session checkpoint
 
-Updated: 2026-09-30
-Current task: Investigate TaskItem tap latency before TaskActionSheet opens.
-Status: Root cause identified; scoped performance fix and regression coverage implemented.
-Next action: canonical acceptance and stable Preview delivery after review.
-Blockers: none locally.
+Updated: 2026-10-01
+Current task: Rebuild owner Day View task reordering cleanly from `dev`.
+Status: Implementation is on `chatgpt/task-reorder-clean` targeting stable Preview branch `feature/task-reorder-clean`; verification and delivery remain.
+Next action: Run canonical verification, fix any failures, squash into the stable feature branch, then perform real-device acceptance.
+Blockers: None.
+
+## Scope
+- Same-category vertical task sorting only. Cross-category task movement is intentionally deferred.
+- Long-press the task title for 500 ms to activate; movement before activation remains normal scrolling/gesture input.
+- The actual TaskItem follows the pointer while dnd-kit moves siblings optimistically. There is no visible grip, custom drag overlay, hidden source row, manual placeholder, or custom pointer coordinator.
+- The active floating task uses the normal Mosaic background, not its category color.
+- Release persists one final order; task data stores a date/category-scoped integer `order`.
 
 ## Working set
-- src/components/home/views/TaskItem.tsx
-- tests/components/TaskItemGestures.test.tsx
-- docs/SESSION_STATE.md
+- `src/components/home/views/{DayViewSheet,DaySlide,CategorySection,SortableTaskItem,TaskItem}.tsx`
+- `src/hooks/useTasks.ts`
+- task schema/migration/sync/backend manifest
+- interaction/browser and data regression coverage
+- this checkpoint, project reference, and manual acceptance checklist
 
-## Completed substeps
-- Read repository guidance, current checkpoint, roadmap, delivery/test workflow, and the affected Task/Day View contract.
-- Traced TaskItem title activation into `useBubbleGestures`.
-- Confirmed single taps intentionally wait for the shared 300ms double/triple-tap disambiguation window before calling `onOpenActions`.
-- Confirmed the delay is local gesture disambiguation, not TaskActionSheet mount/render work.
-- Added a TaskItem-local 200ms disambiguation window for title and inline memo gestures; the shared message gesture behavior remains unchanged.
-- Added regression coverage proving the action callback remains pending at 199ms and fires at 200ms, while double/triple tap behavior remains covered.
-- Reviewed the task diff: only TaskItem gesture timing, its focused regression coverage, and the session checkpoint changed.
-
-## Remaining substeps
-- Wait for canonical acceptance on the final task SHA.
-- Review the accepted task branch and squash merge it into `perf/task-item-tap-latency`.
-- Verify the stable Preview deployment and perform the required manual interaction check.
-
-## Constraints
-- Preserve single/double/triple tap semantics and swipe/long-press precedence.
-- Do not change the shared gesture default or unrelated message interactions.
-- Preserve existing TaskItem UI and inline editing behavior.
-
-## Verification
-- Regression coverage added for the shortened tap-disambiguation window.
-- Task branch PR #159 is open against `perf/task-item-tap-latency`.
-- Final task SHA requests `[verify:full]` canonical acceptance.
+## Verification target
+- Schema migration preserves existing display order by defaulting legacy tasks to order 0 and retaining createdAt-desc as the tie-breaker.
+- Sync/bootstrap schema carries task order; new tasks append and reorder persistence normalizes one category group.
+- Browser coverage verifies delayed activation, source movement under the finger, live sibling displacement, no disappearing rows, drop order, and real Day View sheet gesture locking.
+- Final delivery requires exact-SHA canonical acceptance and a READY Vercel Preview. Real Samsung/PWA acceptance remains a separate human check.
