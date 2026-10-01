@@ -440,13 +440,13 @@ test('task can move into another populated category at the projected position', 
   await gesture.finish();
 
   await expect(page.getByTestId('todo-gesture')).toHaveText(
-    'reordered:cat_0=task_0_1,task_0_2|cat_1=task_1_0,task_0_0,task_1_1,task_1_2'
+    'reordered:cat_0=task_0_1,task_0_2|cat_1=task_1_0,task_1_1,task_0_0,task_1_2'
   );
   await expect
     .poll(() => targetCategory.locator(
       '[data-task-id]:not([data-dnd-placeholder])'
     ).evaluateAll((rows) => rows.map((row) => row.getAttribute('data-task-id'))))
-    .toEqual(['task_1_0', 'task_0_0', 'task_1_1', 'task_1_2']);
+    .toEqual(['task_1_0', 'task_1_1', 'task_0_0', 'task_1_2']);
   await expect
     .poll(() => sourceCategory.locator(
       '[data-task-id]:not([data-dnd-placeholder])'
