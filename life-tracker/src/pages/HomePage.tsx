@@ -68,6 +68,16 @@ export const HomePage: React.FC = () => {
   }, []);
 
   useEffect(() => {
+    if (tasksLoading || categoriesLoading) return;
+    markStartup('home:owner-data-ready');
+  }, [categoriesLoading, tasksLoading]);
+
+  useEffect(() => {
+    if (carouselLoading) return;
+    markStartup('home:carousel-ready');
+  }, [carouselLoading]);
+
+  useEffect(() => {
     if (tasksLoading || categoriesLoading || carouselLoading) return;
     markStartup('home:local-data-ready');
   }, [carouselLoading, categoriesLoading, tasksLoading]);
