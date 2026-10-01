@@ -17,6 +17,7 @@ import { initializeScreenLayout } from './lib/screenLayout';
 import { startDatabaseBootstrap } from './lib/databaseBootstrap';
 import { markStartup } from './lib/startupMetrics';
 import { initializeConnectivity } from './lib/connectivity';
+import { preloadHomePage } from './lib/homePreload';
 
 markStartup('bootstrap:start');
 initializeConnectivity(window);
@@ -36,6 +37,24 @@ const beginDatabaseBootstrap = () => {
     });
 };
 
+// Read the local auth hint before React mounts so an authenticated reload can
+// start its two expensive independent imports in the same bootstrap task. The
+// imports remain asynchronous; logged-out Login still gets first paint first.
+const hasCachedIdentity = (() => {
+  try {
+    return Boolean(localStorage.getItem('mosaic_last_known_user'));
+  } catch {
+    return false;
+  }
+})();
+
+if (hasCachedIdentity) {
+  beginDatabaseBootstrap();
+  void preloadHomePage().catch((error) => {
+    console.warn('[Bootstrap] Home preload failed:', error);
+  });
+}
+
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <ErrorBoundary label="auth">
@@ -50,25 +69,16 @@ window.requestAnimationFrame(() => {
   markStartup('react:mounted');
 });
 
-// A previously-hydrated account is likely to redirect straight from /login
-// to Home, so overlap DB opening immediately. A genuinely logged-out Login
-// gets first paint before RxDB work begins.
-const hasCachedIdentity = (() => {
-  try {
-    return Boolean(localStorage.getItem('mosaic_last_known_user'));
-  } catch {
-    return false;
-  }
-})();
-
-if (window.location.pathname === '/login' && !hasCachedIdentity) {
-  if (typeof window.requestIdleCallback === 'function') {
-    window.requestIdleCallback(beginDatabaseBootstrap, { timeout: 1200 });
+if (!hasCachedIdentity) {
+  if (window.location.pathname === '/login') {
+    if (typeof window.requestIdleCallback === 'function') {
+      window.requestIdleCallback(beginDatabaseBootstrap, { timeout: 1200 });
+    } else {
+      window.setTimeout(beginDatabaseBootstrap, 400);
+    }
   } else {
-    window.setTimeout(beginDatabaseBootstrap, 400);
+    beginDatabaseBootstrap();
   }
-} else {
-  beginDatabaseBootstrap();
 }
 
 const startBackgroundMaintenance = () => {
