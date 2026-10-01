@@ -77,6 +77,25 @@ describe('DaySlide drag coordinator', () => {
     resolve();
   });
 
+  it('restores the live order when persistence rejects', async () => {
+    const reorder = vi.fn().mockRejectedValue(new Error('write failed'));
+    renderSlide(reorder);
+    const destination = screen.getByRole('button', { name: 'three' }).closest('[data-task-id]') as HTMLElement;
+    vi.spyOn(document, 'elementFromPoint').mockReturnValue(destination);
+    vi.spyOn(destination, 'getBoundingClientRect').mockReturnValue({ top: 100, bottom: 140, height: 40, left: 0, right: 200, width: 200, x: 0, y: 100, toJSON: vi.fn() });
+
+    hold(screen.getByRole('button', { name: 'one' }));
+    fireEvent.touchMove(window, { touches: [{ identifier: 0, clientX: 40, clientY: 110 }] });
+    fireEvent.touchEnd(window, { touches: [] });
+    expect(visibleCategoryOrder('b')).toEqual(['one', 'three']);
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(visibleCategoryOrder('a')).toEqual(['one', 'two']);
+    expect(visibleCategoryOrder('b')).toEqual(['three']);
+  });
+
   it('ignores touch pointer cancellation after lift and continues through native touch events', () => {
     const reorder = renderSlide();
     const destination = screen.getByRole('button', { name: 'three' }).closest('[data-task-id]') as HTMLElement;
