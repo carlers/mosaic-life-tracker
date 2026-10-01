@@ -14,7 +14,6 @@ export const DraggableTaskItem: React.FC<TaskItemProps> = (
     <>
       <div
         ref={dragRef}
-        data-task-drag-proxy={taskItemProps.task.id}
         aria-hidden="true"
         style={{
           position: 'absolute',
