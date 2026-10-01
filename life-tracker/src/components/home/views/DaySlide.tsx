@@ -44,7 +44,8 @@ interface ActiveDrag {
 interface ParsedDropTarget {
   categoryId: string;
   taskId?: string;
-  position: 'before' | 'after' | 'start';
+  index?: number;
+  position: 'before' | 'after' | 'start' | 'index';
 }
 
 interface DaySlideProps {
@@ -104,6 +105,20 @@ function parseDropTarget(targetId: string): ParsedDropTarget | null {
       : null;
   }
 
+  const gapPrefix = 'task-gap:';
+  if (targetId.startsWith(gapPrefix)) {
+    const parts = targetId.slice(gapPrefix.length).split(':');
+    if (parts.length !== 2) return null;
+
+    const [categoryId, rawIndex] = parts;
+    const index = Number(rawIndex);
+    if (!categoryId || !Number.isInteger(index) || index < 0) {
+      return null;
+    }
+
+    return { categoryId, index, position: 'index' };
+  }
+
   const insertPrefix = 'task-insert:';
   if (!targetId.startsWith(insertPrefix)) return null;
 
@@ -146,7 +161,9 @@ function projectTaskPlacement(
   const targetTaskIds = withoutSource[target.categoryId] ?? [];
   let targetIndex = 0;
 
-  if (target.position !== 'start') {
+  if (target.position === 'index') {
+    targetIndex = target.index ?? 0;
+  } else if (target.position !== 'start') {
     const targetTaskIndex = target.taskId
       ? targetTaskIds.indexOf(target.taskId)
       : -1;
