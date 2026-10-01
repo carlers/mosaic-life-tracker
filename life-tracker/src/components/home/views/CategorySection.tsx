@@ -34,6 +34,8 @@ interface CategorySectionProps {
   reorderEnabled?: boolean;
   onReorderActivate?: (task: TaskDocument, pointerId: number, pointerType: string, x: number, y: number) => void;
   draggedTaskId?: string | null;
+  insertionIndex?: number | null;
+  reorderPlaceholderHeight?: number;
 }
 
 export const CategorySection: React.FC<CategorySectionProps> = ({
@@ -63,6 +65,8 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
   reorderEnabled,
   onReorderActivate,
   draggedTaskId,
+  insertionIndex = null,
+  reorderPlaceholderHeight = 40,
 }) => {
   const [isAdding, setIsAdding] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -122,6 +126,40 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
     }
     setIsCollapsed((current) => !current);
   };
+
+  const draggedTask = draggedTaskId
+    ? tasks.find((task) => task.id === draggedTaskId) ?? null
+    : null;
+  const visibleTasks = draggedTaskId
+    ? tasks.filter((task) => task.id !== draggedTaskId)
+    : tasks;
+  const renderTask = (task: TaskDocument, index: number, isReorderAnchor = false) => (
+    <TaskItem
+      key={task.id}
+      task={task}
+      categoryColor={categoryColor}
+      currentUserId={currentUserId}
+      onToggle={() => onToggleTask(task.id, task.completed)}
+      onOpenActions={onOpenActions}
+      onOpenMemo={onOpenMemo}
+      onEditStart={onEditTask}
+      onViewImage={onViewImage}
+      isEditing={editingTaskId === task.id}
+      editValue={editValue}
+      onEditChange={onEditChange}
+      onEditSave={onEditSave}
+      onEditCancel={onEditCancel}
+      disableLayoutAnimation={disableTaskLayoutAnimation}
+      selectionMode={selectionMode}
+      isSelected={selectedTaskIds.has(task.id)}
+      onToggleSelection={() => onToggleTaskSelection?.(task.id)}
+      reorderEnabled={!isReorderAnchor && reorderEnabled && !isAdding && !categoryCollapsed}
+      onReorderActivate={onReorderActivate}
+      isReorderSource={isReorderAnchor}
+      isReorderAnchor={isReorderAnchor}
+      reorderLayoutDependency={`${categoryId}:${index}:${insertionIndex ?? 'none'}`}
+    />
+  );
 
   return (
     <div className="mb-4" data-category-id={categoryId}>
@@ -191,31 +229,36 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
         </div>
       )}
 
-      {!categoryCollapsed && tasks.map((task, index) =>
-        <TaskItem
-          key={task.id}
-          task={task}
-          categoryColor={categoryColor}
-          currentUserId={currentUserId}
-          onToggle={() => onToggleTask(task.id, task.completed)}
-          onOpenActions={onOpenActions}
-          onOpenMemo={onOpenMemo}
-          onEditStart={onEditTask}
-          onViewImage={onViewImage}
-          isEditing={editingTaskId === task.id}
-          editValue={editValue}
-          onEditChange={onEditChange}
-          onEditSave={onEditSave}
-          onEditCancel={onEditCancel}
-          disableLayoutAnimation={disableTaskLayoutAnimation}
-          selectionMode={selectionMode}
-          isSelected={selectedTaskIds.has(task.id)}
-          onToggleSelection={() => onToggleTaskSelection?.(task.id)}
-          reorderEnabled={reorderEnabled && !isAdding && !categoryCollapsed}
-          onReorderActivate={onReorderActivate}
-          isReorderSource={draggedTaskId === task.id}
-          reorderLayoutDependency={`${categoryId}:${index}`}
-        />
+      {!categoryCollapsed && (
+        <>
+          {draggedTask && renderTask(
+            draggedTask,
+            tasks.findIndex((task) => task.id === draggedTask.id),
+            true
+          )}
+          {visibleTasks.flatMap((task, index) => [
+            insertionIndex === index ? (
+              <div
+                key={`task-drop-${categoryId}-${index}`}
+                data-testid="task-drop-placeholder"
+                data-task-drop-index={index}
+                aria-hidden="true"
+                className="mx-2"
+                style={{ height: reorderPlaceholderHeight }}
+              />
+            ) : null,
+            renderTask(task, index),
+          ])}
+          {insertionIndex === visibleTasks.length && (
+            <div
+              data-testid="task-drop-placeholder"
+              data-task-drop-index={visibleTasks.length}
+              aria-hidden="true"
+              className="mx-2"
+              style={{ height: reorderPlaceholderHeight }}
+            />
+          )}
+        </>
       )}
     </div>
   );

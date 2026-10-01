@@ -68,30 +68,42 @@ async function dragVertical(page, locator, deltaY) {
   });
 }
 
-async function startLongPressTaskDrag(page, source, destination) {
-  const sourceBox = await source.boundingBox();
-  const destinationBox = await destination.boundingBox();
-  if (!sourceBox || !destinationBox) throw new Error('Missing task drag bounds');
+async function startTaskGripDrag(page, grip, destination) {
+  const gripBox = await grip.boundingBox();
+  if (!gripBox) throw new Error('Missing task reorder grip bounds');
   const session = await page.context().newCDPSession(page);
-  const startX = sourceBox.x + sourceBox.width * 0.6;
-  const startY = sourceBox.y + sourceBox.height * 0.5;
-  const endX = destinationBox.x + destinationBox.width * 0.6;
-  const endY = destinationBox.y + destinationBox.height * 0.75;
+  const startX = gripBox.x + gripBox.width * 0.5;
+  const startY = gripBox.y + gripBox.height * 0.5;
 
   await session.send('Input.dispatchTouchEvent', {
     type: 'touchStart',
     touchPoints: [{ x: startX, y: startY }],
   });
-  await page.waitForTimeout(500);
-  for (let step = 1; step <= 6; step += 1) {
+  await expect(page.getByTestId('task-drag-overlay')).toBeVisible();
+
+  let destinationBox = await destination.boundingBox();
+  if (!destinationBox) throw new Error('Missing task drag destination bounds');
+  let endX = destinationBox.x + destinationBox.width * 0.6;
+  let endY = destinationBox.y + destinationBox.height * 0.9;
+  for (let step = 1; step <= 4; step += 1) {
     await session.send('Input.dispatchTouchEvent', {
       type: 'touchMove',
       touchPoints: [{
-        x: startX + ((endX - startX) * step) / 6,
-        y: startY + ((endY - startY) * step) / 6,
+        x: startX + ((endX - startX) * step) / 4,
+        y: startY + ((endY - startY) * step) / 4,
       }],
     });
   }
+
+  await page.waitForTimeout(50);
+  destinationBox = await destination.boundingBox();
+  if (!destinationBox) throw new Error('Missing task drag destination bounds after movement');
+  endX = destinationBox.x + destinationBox.width * 0.6;
+  endY = destinationBox.y + destinationBox.height * 0.9;
+  await session.send('Input.dispatchTouchEvent', {
+    type: 'touchMove',
+    touchPoints: [{ x: endX, y: endY }],
+  });
   return session;
 }
 
@@ -352,7 +364,7 @@ test('owner task memo is visible and double/triple tap shortcuts reach edit surf
   await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html`);
 
   await expect(page.getByText('Browser memo content')).toBeVisible();
-  const title = page.getByRole('button', { name: 'Task 1.1' });
+  const title = page.getByRole('button', { name: 'Task 1.1', exact: true });
   await title.dblclick();
   await expect(page.getByTestId('todo-gesture')).toHaveText('edit');
 
@@ -362,29 +374,45 @@ test('owner task memo is visible and double/triple tap shortcuts reach edit surf
   await expect(page.getByTestId('todo-gesture')).toHaveText('memo-edit');
 
   await page.reload();
-  await page.getByRole('button', { name: 'Task 1.1' }).click({ clickCount: 3 });
+  await page.getByRole('button', { name: 'Task 1.1', exact: true }).click({ clickCount: 3 });
   await expect(page.getByTestId('todo-gesture')).toHaveText('memo-edit');
 });
 
-// Regression: §25 (a held task owns touch movement and reorders live).
-test('owner task long press follows touch and shifts rows before release', async ({ page }) => {
+// Regression: §25 (the dedicated task grip owns touch movement and reorders live).
+test('owner task grip follows touch and shifts rows before release', async ({ page }) => {
   await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html`);
 
   const source = page.locator('[data-task-id="task_0_0"]');
+  const grip = page.getByRole('button', { name: 'Reorder Task 1.1' });
   const destination = page.locator('[data-task-id="task_0_1"]');
   await source.scrollIntoViewIfNeeded();
-  const session = await startLongPressTaskDrag(page, source, destination);
+  const scrollBefore = await page.evaluate(() => window.scrollY);
+  const session = await startTaskGripDrag(page, grip, destination);
 
   await expect(page.getByTestId('task-drag-overlay')).toHaveText('Task 1.1');
+  await expect(page.locator(
+    '[data-category-id="cat_0"] [data-task-id="task_0_0"][data-reorder-anchor="true"]'
+  )).toHaveCount(1);
   await expect
-    .poll(() => page.locator('[data-category-id="cat_0"] [data-task-id]').evaluateAll(
-      (rows) => rows.map((row) => row.getAttribute('data-task-id'))
-    ))
-    .toEqual(['task_0_1', 'task_0_0', 'task_0_2']);
+    .poll(() => page.locator('[data-category-id="cat_0"]').evaluate((category) => (
+      [...category.querySelectorAll(
+        '[data-task-id]:not([data-reorder-anchor="true"]), [data-task-drop-index]'
+      )].map((element) => (
+        element.getAttribute('data-task-id') ??
+        `gap-${element.getAttribute('data-task-drop-index')}`
+      ))
+    )))
+    .toEqual(['task_0_1', 'gap-1', 'task_0_2']);
+  expect(await page.evaluate(() => window.scrollY)).toBe(scrollBefore);
 
   await session.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
   await expect(page.getByTestId('todo-gesture')).toHaveText('reordered');
   await expect(page.getByTestId('task-drag-overlay')).toHaveCount(0);
+  await expect
+    .poll(() => page.locator(
+      '[data-category-id="cat_0"] [data-task-id]:not([data-reorder-anchor="true"])'
+    ).evaluateAll((rows) => rows.map((row) => row.getAttribute('data-task-id'))))
+    .toEqual(['task_0_1', 'task_0_0', 'task_0_2']);
 });
 
 // Regression: §2 (Day View reopens cleanly after sheet teardown).

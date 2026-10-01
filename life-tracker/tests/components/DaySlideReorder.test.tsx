@@ -1,5 +1,5 @@
 import { act, fireEvent, render, screen, within } from '@testing-library/react';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { DaySlide } from '../../src/components/home/views/DaySlide';
 import type { CategoryDocument, TaskDocument } from '../../src/db/schema';
 
@@ -24,69 +24,97 @@ function renderSlide(onReorderTask = vi.fn().mockResolvedValue(undefined)) {
   return onReorderTask;
 }
 
-function hold(title: HTMLElement) {
-  fireEvent.pointerDown(title, { pointerId: 7, pointerType: 'touch', clientX: 30, clientY: 40 });
-  act(() => vi.advanceTimersByTime(450));
+function lift(title: string, pointerType = 'touch') {
+  const grip = screen.getByRole('button', { name: `Reorder ${title}` });
+  fireEvent.pointerDown(grip, { pointerId: 7, pointerType, clientX: 30, clientY: 40 });
+  return grip;
 }
 
-function categoryOrder(categoryId: string) {
+function visibleCategoryOrder(categoryId: string) {
   const category = document.querySelector(`[data-category-id="${categoryId}"]`);
   if (!category) throw new Error(`Missing category ${categoryId}`);
-  return within(category as HTMLElement).queryAllByTestId('task-row').map((row) => row.dataset.taskId);
+  return within(category as HTMLElement).queryAllByTestId('task-row')
+    .filter((row) => row.dataset.reorderAnchor !== 'true')
+    .map((row) => row.dataset.taskId);
 }
 
 describe('DaySlide drag coordinator', () => {
-  beforeEach(() => vi.useFakeTimers());
-  afterEach(() => { vi.runOnlyPendingTimers(); vi.useRealTimers(); vi.restoreAllMocks(); });
-
-  it('keeps every source row mounted and displays a pointer-following overlay after hold', () => {
+  it('uses a dedicated touch-owned grip while leaving the title scrollable', () => {
     renderSlide();
-    hold(screen.getByRole('button', { name: 'one' }));
+    const title = screen.getByRole('button', { name: 'one' });
+    const grip = screen.getByRole('button', { name: 'Reorder one' });
+
+    expect(title).toHaveClass('touch-pan-y');
+    expect(grip).toHaveClass('touch-none');
+    fireEvent.pointerDown(title, { pointerId: 4, pointerType: 'touch', clientX: 20, clientY: 20 });
+    expect(screen.queryByTestId('task-drag-overlay')).toBeNull();
+
+    fireEvent.pointerDown(grip, { pointerId: 7, pointerType: 'touch', clientX: 30, clientY: 40 });
     expect(screen.getByTestId('task-drag-overlay')).toHaveTextContent('one');
-    expect(categoryOrder('a')).toEqual(['one', 'two']);
-    expect(categoryOrder('b')).toEqual(['three']);
-    expect(screen.getAllByText('one')).toHaveLength(2);
-    expect(screen.getByRole('button', { name: 'two' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'three' })).toBeInTheDocument();
   });
 
-  it('commits one frozen cross-category projection on release', () => {
-    const reorder = renderSlide();
+  it('keeps the gesture-owning source row mounted while rows make room for the projection', () => {
+    renderSlide();
+    lift('one');
+    expect(screen.getByTestId('task-drag-overlay')).toHaveTextContent('one');
+    const anchor = document.querySelector('[data-task-id="one"][data-reorder-anchor="true"]');
+    expect(anchor).not.toBeNull();
+    expect(anchor?.closest('[data-category-id]')).toHaveAttribute('data-category-id', 'a');
+    expect(visibleCategoryOrder('a')).toEqual(['two']);
+    expect(visibleCategoryOrder('b')).toEqual(['three']);
+    expect(screen.getAllByText('one')).toHaveLength(2);
+  });
+
+  it('keeps the final projection visible while persistence catches up', () => {
+    let resolve!: () => void;
+    const reorder = vi.fn(() => new Promise<void>((done) => { resolve = done; }));
+    renderSlide(reorder);
     const destination = screen.getByRole('button', { name: 'three' }).closest('[data-task-id]') as HTMLElement;
     vi.spyOn(document, 'elementFromPoint').mockReturnValue(destination);
     vi.spyOn(destination, 'getBoundingClientRect').mockReturnValue({ top: 100, bottom: 140, height: 40, left: 0, right: 200, width: 200, x: 0, y: 100, toJSON: vi.fn() });
-    hold(screen.getByRole('button', { name: 'one' }));
-    fireEvent.pointerMove(window, { pointerId: 7, clientX: 40, clientY: 110 });
-    expect(categoryOrder('a')).toEqual(['two']);
-    expect(categoryOrder('b')).toEqual(['one', 'three']);
-    fireEvent.pointerUp(window, { pointerId: 7, clientX: 40, clientY: 110 });
+
+    lift('one');
+    fireEvent.pointerMove(window, { pointerId: 7, pointerType: 'touch', clientX: 40, clientY: 110 });
+    const placeholder = screen.getByTestId('task-drop-placeholder');
+    expect(placeholder.closest('[data-category-id]')).toHaveAttribute('data-category-id', 'b');
+    expect(placeholder).toHaveAttribute('data-task-drop-index', '0');
+
+    fireEvent.pointerUp(window, { pointerId: 7, pointerType: 'touch', clientX: 40, clientY: 110 });
     expect(reorder).toHaveBeenCalledTimes(1);
     expect(reorder.mock.calls[0][1]).toBe('b');
     expect(Object.isFrozen(reorder.mock.calls[0][2][0])).toBe(true);
+    expect(visibleCategoryOrder('a')).toEqual(['two']);
+    expect(visibleCategoryOrder('b')).toEqual(['one', 'three']);
+
+    resolve();
   });
 
-  it('keeps tracking an activated touch through native touch events', () => {
-    const reorder = renderSlide();
+  it('restores the live order when persistence rejects', async () => {
+    const reorder = vi.fn().mockRejectedValue(new Error('write failed'));
+    renderSlide(reorder);
     const destination = screen.getByRole('button', { name: 'three' }).closest('[data-task-id]') as HTMLElement;
     vi.spyOn(document, 'elementFromPoint').mockReturnValue(destination);
     vi.spyOn(destination, 'getBoundingClientRect').mockReturnValue({ top: 100, bottom: 140, height: 40, left: 0, right: 200, width: 200, x: 0, y: 100, toJSON: vi.fn() });
 
-    hold(screen.getByRole('button', { name: 'one' }));
-    fireEvent.touchMove(window, { touches: [{ identifier: 0, clientX: 40, clientY: 110 }] });
+    lift('one');
+    fireEvent.pointerMove(window, { pointerId: 7, pointerType: 'touch', clientX: 40, clientY: 110 });
+    fireEvent.pointerUp(window, { pointerId: 7, pointerType: 'touch', clientX: 40, clientY: 110 });
+    expect(visibleCategoryOrder('b')).toEqual(['one', 'three']);
 
-    expect(categoryOrder('a')).toEqual(['two']);
-    expect(categoryOrder('b')).toEqual(['one', 'three']);
-
-    fireEvent.touchEnd(window, { touches: [] });
-    expect(reorder).toHaveBeenCalledTimes(1);
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(visibleCategoryOrder('a')).toEqual(['one', 'two']);
+    expect(visibleCategoryOrder('b')).toEqual(['three']);
   });
 
-  it('discards a touch projection when the browser only sends pointer cancellation', () => {
+  it('cancels a grip drag on pointer cancellation', () => {
     const reorder = renderSlide();
-    hold(screen.getByRole('button', { name: 'one' }));
+    lift('one');
     fireEvent.pointerCancel(window, { pointerId: 7, pointerType: 'touch' });
     expect(screen.queryByTestId('task-drag-overlay')).toBeNull();
     expect(reorder).not.toHaveBeenCalled();
-    expect(screen.getAllByText('one')).toHaveLength(1);
+    expect(visibleCategoryOrder('a')).toEqual(['one', 'two']);
   });
 });

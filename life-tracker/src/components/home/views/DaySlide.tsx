@@ -35,14 +35,31 @@ type DragSession = {
   pointerId: number;
   pointerType: string;
   taskId: string;
+  sourceCategoryId: string;
   snapshot: readonly TaskDocument[];
   projected: readonly TaskDocument[];
   targetCategoryId: string;
+  rowHeight: number;
   x: number;
   y: number;
 };
 
-const signature = (items: readonly TaskDocument[]) => items.map((task) => `${task.id}:${task.categoryId}`).join('|');
+type PendingProjection = {
+  taskId: string;
+  tasks: readonly TaskDocument[];
+  signature: string;
+};
+
+const orderingSignature = (items: readonly TaskDocument[]) => {
+  const grouped = new Map<string, string[]>();
+  for (const task of items) {
+    grouped.set(task.categoryId, [...(grouped.get(task.categoryId) ?? []), task.id]);
+  }
+  return [...grouped.entries()]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([categoryId, ids]) => `${categoryId}:${ids.join(',')}`)
+    .join('|');
+};
 
 const DaySlideComponent: React.FC<DaySlideProps> = ({
   dateStr, scrollMode = 'page', tasks, categories, currentUserId, editingTaskId, editValue,
@@ -53,10 +70,50 @@ const DaySlideComponent: React.FC<DaySlideProps> = ({
   onReorderTask, onReorderActiveChange,
 }) => {
   const [session, setSession] = React.useState<DragSession | null>(null);
+  const [pendingProjection, setPendingProjection] = React.useState<PendingProjection | null>(null);
   const sessionRef = React.useRef<DragSession | null>(null);
+  const tasksRef = React.useRef(tasks);
   const surfaceRef = React.useRef<HTMLDivElement>(null);
   const autoScrollFrame = React.useRef<number | null>(null);
   const runAutoScrollRef = React.useRef<() => void>(() => undefined);
+  const liveOrderingSignature = orderingSignature(tasks);
+  const [syncedLiveOrderingSignature, setSyncedLiveOrderingSignature] = React.useState(liveOrderingSignature);
+
+  if (liveOrderingSignature !== syncedLiveOrderingSignature) {
+    setSyncedLiveOrderingSignature(liveOrderingSignature);
+    if (pendingProjection) {
+      const expectedIds = new Set(pendingProjection.tasks.map((task) => task.id));
+      const liveExpected = tasks.filter((task) => expectedIds.has(task.id));
+      if (
+        liveExpected.length !== expectedIds.size ||
+        orderingSignature(liveExpected) === pendingProjection.signature
+      ) {
+        setPendingProjection(null);
+      }
+    }
+  }
+
+  React.useEffect(() => {
+    tasksRef.current = tasks;
+  }, [tasks]);
+
+  const displayedTasks = React.useMemo(() => {
+    if (!pendingProjection) return tasks;
+    const latestById = new Map(tasks.map((task) => [task.id, task]));
+    const projectedIds = new Set(pendingProjection.tasks.map((task) => task.id));
+    const projected = pendingProjection.tasks.map((task) => {
+      const latest = latestById.get(task.id);
+      return latest ? { ...latest, categoryId: task.categoryId } : task;
+    });
+    for (const task of tasks) {
+      if (!projectedIds.has(task.id)) projected.push(task);
+    }
+    return projected;
+  }, [pendingProjection, tasks]);
+  const displayedTasksRef = React.useRef(displayedTasks);
+  React.useEffect(() => {
+    displayedTasksRef.current = displayedTasks;
+  }, [displayedTasks]);
 
   const stopAutoScroll = React.useCallback(() => {
     if (autoScrollFrame.current !== null) cancelAnimationFrame(autoScrollFrame.current);
@@ -70,13 +127,34 @@ const DaySlideComponent: React.FC<DaySlideProps> = ({
     setSession(null);
     stopAutoScroll();
     onReorderActiveChange?.(false);
-    if (!cancelled && signature(finalSession.projected) !== signature(finalSession.snapshot)) {
-      const dragged = finalSession.snapshot.find((task) => task.id === finalSession.taskId);
-      if (dragged) {
-        const frozen = finalSession.projected.map((task) => Object.freeze({ ...task }));
-        void onReorderTask?.(dragged, finalSession.targetCategoryId, frozen).catch(() => undefined);
-      }
+    const dragged = finalSession.snapshot.find((task) => task.id === finalSession.taskId);
+    const stillExists = tasksRef.current.some((task) => task.id === finalSession.taskId);
+    if (
+      cancelled ||
+      !dragged ||
+      !stillExists ||
+      orderingSignature(finalSession.projected) === orderingSignature(finalSession.snapshot)
+    ) {
+      return;
     }
+
+    const frozen = finalSession.projected.map((task) => Object.freeze({ ...task }));
+    const optimistic: PendingProjection = {
+      taskId: finalSession.taskId,
+      tasks: frozen,
+      signature: orderingSignature(frozen),
+    };
+    setPendingProjection(optimistic);
+
+    if (!onReorderTask) {
+      setPendingProjection(null);
+      return;
+    }
+    void Promise.resolve(onReorderTask(dragged, finalSession.targetCategoryId, frozen)).catch(() => {
+      setPendingProjection((current) =>
+        current?.signature === optimistic.signature ? null : current
+      );
+    });
   }, [onReorderActiveChange, onReorderTask, stopAutoScroll]);
 
   const projectAt = React.useCallback((x: number, y: number) => {
@@ -85,20 +163,35 @@ const DaySlideComponent: React.FC<DaySlideProps> = ({
     const hit = document.elementFromPoint(x, y) as HTMLElement | null;
     const categoryId = hit?.closest<HTMLElement>('[data-category-id]')?.dataset.categoryId;
     if (!categoryId) return;
-    const targetElement = hit?.closest<HTMLElement>('[data-task-id]');
-    const targetId = targetElement?.dataset.taskId;
+
     const without = current.projected.filter((task) => task.id !== current.taskId);
-    let insertAt = without.length;
-    if (targetId && targetId !== current.taskId) {
-      const targetIndex = without.findIndex((task) => task.id === targetId);
+    const categoryTasks = without.filter((task) => task.categoryId === categoryId);
+    const placeholder = hit?.closest<HTMLElement>('[data-task-drop-index]');
+    const placeholderIndex = Number(placeholder?.dataset.taskDropIndex);
+    const targetElement = hit?.closest<HTMLElement>('[data-task-id]:not([data-reorder-anchor="true"])');
+    const targetId = targetElement?.dataset.taskId;
+
+    let localInsertAt = categoryTasks.length;
+    if (placeholder && Number.isInteger(placeholderIndex)) {
+      localInsertAt = Math.max(0, Math.min(placeholderIndex, categoryTasks.length));
+    } else if (targetId && targetId !== current.taskId) {
+      const targetIndex = categoryTasks.findIndex((task) => task.id === targetId);
       if (targetIndex >= 0) {
         const rect = targetElement!.getBoundingClientRect();
-        insertAt = targetIndex + (y >= rect.top + rect.height / 2 ? 1 : 0);
+        localInsertAt = targetIndex + (y >= rect.top + rect.height / 2 ? 1 : 0);
       }
-    } else {
-      const lastInCategory = without.reduce((last, task, index) => task.categoryId === categoryId ? index : last, -1);
-      insertAt = lastInCategory + 1;
     }
+
+    const categoryIndices = without
+      .map((task, index) => task.categoryId === categoryId ? index : -1)
+      .filter((index) => index >= 0);
+    let insertAt = without.length;
+    if (categoryIndices.length > 0) {
+      insertAt = localInsertAt < categoryIndices.length
+        ? categoryIndices[localInsertAt]
+        : categoryIndices[categoryIndices.length - 1] + 1;
+    }
+
     const original = current.snapshot.find((task) => task.id === current.taskId);
     if (!original) return;
     const projected = [...without];
@@ -123,73 +216,79 @@ const DaySlideComponent: React.FC<DaySlideProps> = ({
 
   const activate = React.useCallback((task: TaskDocument, pointerId: number, pointerType: string, x: number, y: number) => {
     if (sessionRef.current || !reorderEnabled) return;
-    const snapshot = tasks.map((item) => Object.freeze({ ...item }));
-    const next: DragSession = { pointerId, pointerType, taskId: task.id, snapshot, projected: snapshot, targetCategoryId: task.categoryId, x, y };
+    const snapshot = displayedTasksRef.current.map((item) => Object.freeze({ ...item }));
+    const row = surfaceRef.current?.querySelector<HTMLElement>(`[data-task-id="${task.id}"]`);
+    const next: DragSession = {
+      pointerId,
+      pointerType,
+      taskId: task.id,
+      sourceCategoryId: task.categoryId,
+      snapshot,
+      projected: snapshot,
+      targetCategoryId: task.categoryId,
+      rowHeight: Math.max(1, row?.getBoundingClientRect().height ?? 40),
+      x,
+      y,
+    };
     sessionRef.current = next;
     setSession(next);
     onReorderActiveChange?.(true);
     autoScrollFrame.current = requestAnimationFrame(runAutoScroll);
-  }, [onReorderActiveChange, reorderEnabled, runAutoScroll, tasks]);
+  }, [onReorderActiveChange, reorderEnabled, runAutoScroll]);
 
   React.useEffect(() => {
     if (!reorderEnabled) return;
     const move = (event: PointerEvent) => {
-      if (event.pointerId !== sessionRef.current?.pointerId) return;
+      const current = sessionRef.current;
+      if (!current || event.pointerId !== current.pointerId) return;
       event.preventDefault();
       event.stopPropagation();
       projectAt(event.clientX, event.clientY);
     };
     const up = (event: PointerEvent) => {
-      if (event.pointerId !== sessionRef.current?.pointerId) return;
-      event.preventDefault(); event.stopPropagation(); finish(false);
-    };
-    const cancel = (event: PointerEvent) => {
-      if (event.pointerId !== sessionRef.current?.pointerId) return;
-      finish(true);
-    };
-    const touchMove = (event: TouchEvent) => {
-      if (sessionRef.current?.pointerType !== 'touch') return;
-      const touch = event.touches[0];
-      if (!touch) return;
-      event.preventDefault();
-      event.stopPropagation();
-      projectAt(touch.clientX, touch.clientY);
-    };
-    const touchEnd = (event: TouchEvent) => {
-      if (sessionRef.current?.pointerType !== 'touch' || event.touches.length > 0) return;
+      const current = sessionRef.current;
+      if (!current || event.pointerId !== current.pointerId) return;
       event.preventDefault();
       event.stopPropagation();
       finish(false);
     };
-    const touchCancel = () => {
-      if (sessionRef.current?.pointerType === 'touch') finish(true);
+    const cancel = (event: PointerEvent) => {
+      const current = sessionRef.current;
+      if (!current || event.pointerId !== current.pointerId) return;
+      finish(true);
     };
     window.addEventListener('pointermove', move, { capture: true, passive: false });
     window.addEventListener('pointerup', up, { capture: true, passive: false });
     window.addEventListener('pointercancel', cancel, true);
-    window.addEventListener('touchmove', touchMove, { capture: true, passive: false });
-    window.addEventListener('touchend', touchEnd, { capture: true, passive: false });
-    window.addEventListener('touchcancel', touchCancel, true);
     return () => {
       window.removeEventListener('pointermove', move, true);
       window.removeEventListener('pointerup', up, true);
       window.removeEventListener('pointercancel', cancel, true);
-      window.removeEventListener('touchmove', touchMove, true);
-      window.removeEventListener('touchend', touchEnd, true);
-      window.removeEventListener('touchcancel', touchCancel, true);
     };
   }, [finish, projectAt, reorderEnabled]);
 
   React.useEffect(() => () => finish(true), [dateStr, finish]);
   React.useEffect(() => { if (!reorderEnabled && sessionRef.current) finish(true); }, [finish, reorderEnabled]);
-
+  React.useEffect(() => {
+    const current = sessionRef.current;
+    if (current && !tasks.some((task) => task.id === current.taskId)) finish(true);
+  }, [finish, tasks]);
+  const insertion = React.useMemo(() => {
+    if (!session) return null;
+    const targetTasks = session.projected.filter((task) => task.categoryId === session.targetCategoryId);
+    const index = targetTasks.findIndex((task) => task.id === session.taskId);
+    return index < 0 ? null : { categoryId: session.targetCategoryId, index };
+  }, [session]);
   const draggedTask = session?.snapshot.find((task) => task.id === session.taskId);
   const draggedCategory = categories.find((category) => category.id === draggedTask?.categoryId);
   const tasksByCategory = React.useMemo(() => {
     const map = new Map<string, TaskDocument[]>();
-    for (const task of session?.projected ?? tasks) map.set(task.categoryId, [...(map.get(task.categoryId) ?? []), task]);
+    const source = session?.snapshot ?? displayedTasks;
+    for (const task of source) {
+      map.set(task.categoryId, [...(map.get(task.categoryId) ?? []), task]);
+    }
     return map;
-  }, [session?.projected, tasks]);
+  }, [displayedTasks, session?.snapshot]);
 
   if (categories.length === 0) return <div className="flex h-full flex-col items-center justify-center text-gray-400"><p className="text-sm">No categories yet</p></div>;
 
@@ -197,9 +296,12 @@ const DaySlideComponent: React.FC<DaySlideProps> = ({
     {categories.map((cat) => <CategorySection key={cat.id} categoryName={cat.name} categoryId={cat.id} categoryColor={cat.color} visibility={cat.visibility} currentUserId={currentUserId}
       tasks={tasksByCategory.get(cat.id) ?? []} onToggleTask={onToggleTask} onAddTask={(title) => onAddTask(title, cat.id, dateStr)} onOpenActions={onOpenActions}
       onOpenMemo={onOpenMemo} onEditTask={onEditTask} onViewImage={onViewImage} editingTaskId={editingTaskId} editValue={editValue} onEditChange={onEditChange}
-      onEditSave={onEditSave} onEditCancel={onEditCancel} disableTaskLayoutAnimation={disableTaskLayoutAnimation && !reorderEnabled} continueAddingAfterSubmit={continueAddingTasks}
+      onEditSave={onEditSave} onEditCancel={onEditCancel} disableTaskLayoutAnimation={disableTaskLayoutAnimation && !session} continueAddingAfterSubmit={continueAddingTasks}
       showCollapseButton={showCategoryCollapseButton} selectionMode={selectionMode} selectedTaskIds={selectedTaskIds} onToggleTaskSelection={onToggleTaskSelection}
-      reorderEnabled={reorderEnabled && !selectionMode && !editingTaskId && !session} onReorderActivate={activate} draggedTaskId={session?.taskId} />)}
+      reorderEnabled={reorderEnabled && !selectionMode && !editingTaskId && !session} onReorderActivate={activate}
+      draggedTaskId={session?.sourceCategoryId === cat.id ? session.taskId : null}
+      insertionIndex={insertion?.categoryId === cat.id ? insertion.index : null}
+      reorderPlaceholderHeight={session?.rowHeight} />)}
     {draggedTask && <div key={draggedTask.id} data-testid="task-drag-overlay" aria-hidden="true" className="pointer-events-none fixed z-[100] max-w-[min(24rem,80vw)] rounded-lg px-3 py-2 text-white shadow-2xl"
       style={{ left: session!.x, top: session!.y, transform: 'translate(-50%, -50%)', backgroundColor: `${draggedCategory?.color ?? '#374151'}ee` }}>{draggedTask.title}</div>}
   </div>;
