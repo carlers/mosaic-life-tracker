@@ -93,6 +93,7 @@ test('cached account renders locally while browser claims online and Appwrite is
         title: 'Created while offline',
         completed: false,
         categoryId: '',
+        order: 0,
         tags: '',
         date: now.slice(0, 10),
         memo: '',

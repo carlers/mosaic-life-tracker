@@ -10,6 +10,7 @@ behavior.
 | Local, cloud, connected chat, offline chat | [AI workflow](AI_WORKFLOW.md) |
 | CI, branch delivery, Preview/device acceptance | [Delivery](DELIVERY.md) |
 | Focused tests and regression strategy | [Test workflow](TEST_WORKFLOW.md) |
+| Manual mobile task reorder acceptance | [Task reorder acceptance](MANUAL_TASK_REORDER_ACCEPTANCE.md) |
 | Product and architecture contracts | [Project reference](PROJECT_REFERENCE.md) |
 | Release versions and build identity | [Versioning protocol](VERSIONING.md) |
 | Accessibility evidence and manual protocol | [Accessibility review](ACCESSIBILITY_AUDIT.md) |

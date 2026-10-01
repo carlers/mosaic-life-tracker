@@ -10,7 +10,7 @@ import type { TaskDocument } from '../../../db/schema';
 
 type MemoOpenMode = 'view' | 'edit';
 
-interface TaskItemProps {
+export interface TaskItemProps {
   task: TaskDocument;
   categoryColor: string;
   currentUserId: string;
@@ -28,6 +28,8 @@ interface TaskItemProps {
   selectionMode?: boolean;
   isSelected?: boolean;
   onToggleSelection?: () => void;
+  titleRef?: React.Ref<HTMLButtonElement>;
+  isDragOverlay?: boolean;
 }
 
 interface TaskImageProps {
@@ -103,6 +105,7 @@ const TaskMemo: React.FC<{
         if (selectionMode) onSelect?.();
         else if (event.detail === 0) onOpenMemo(task, 'view');
       }}
+      data-day-swipe-through="true"
       className="mt-1 flex w-full touch-pan-y items-start gap-1 text-left text-xs text-gray-400 rounded focus:outline-none"
       aria-label="Open memo"
     >
@@ -130,6 +133,8 @@ export const TaskItem: React.FC<TaskItemProps> = ({
   selectionMode = false,
   isSelected = false,
   onToggleSelection,
+  titleRef,
+  isDragOverlay = false,
 }) => {
   const reactions = React.useMemo(
     () => parseReactions(task.reactions),
@@ -172,11 +177,18 @@ export const TaskItem: React.FC<TaskItemProps> = ({
     <motion.div
       layout={!disableLayoutAnimation}
       layoutDependency={`${task.updatedAt}:${isEditing}`}
-      data-task-id={task.id}
-      role={selectionMode ? 'checkbox' : undefined}
-      aria-checked={selectionMode ? isSelected : undefined}
-      aria-label={selectionMode ? `${task.title}, ${isSelected ? 'selected' : 'not selected'}` : undefined}
-      tabIndex={selectionMode ? 0 : undefined}
+      data-task-id={isDragOverlay ? undefined : task.id}
+      data-task-overlay-id={isDragOverlay ? task.id : undefined}
+      data-task-dragging={isDragOverlay ? 'true' : undefined}
+      role={!isDragOverlay && selectionMode ? 'checkbox' : undefined}
+      aria-checked={!isDragOverlay && selectionMode ? isSelected : undefined}
+      aria-label={
+        !isDragOverlay && selectionMode
+          ? `${task.title}, ${isSelected ? 'selected' : 'not selected'}`
+          : undefined
+      }
+      aria-hidden={isDragOverlay ? true : undefined}
+      tabIndex={!isDragOverlay && selectionMode ? 0 : undefined}
       onClick={selectionMode ? onToggleSelection : undefined}
       onKeyDown={selectionMode ? (event) => {
         if (event.key === 'Enter' || event.key === ' ') {
@@ -184,8 +196,18 @@ export const TaskItem: React.FC<TaskItemProps> = ({
           onToggleSelection?.();
         }
       } : undefined}
-      className="flex scroll-mt-16 items-start gap-3 rounded-lg px-2 py-2 transition-[background-color,box-shadow] duration-300 focus:outline-none data-[search-focused=true]:ring-1 data-[search-focused=true]:ring-emerald-400/60"
-      style={isSelected ? { backgroundColor: `${categoryColor}33`, boxShadow: `inset 0 0 0 1px ${categoryColor}` } : undefined}
+      className="flex scroll-mt-16 items-start gap-3 rounded-lg px-2 py-2 transition-[background-color,box-shadow] duration-200 focus:outline-none data-[search-focused=true]:ring-1 data-[search-focused=true]:ring-emerald-400/60"
+      style={
+        isDragOverlay
+          ? {
+              backgroundColor: '#111111',
+              boxShadow: '0 14px 36px rgba(0, 0, 0, 0.38)',
+              pointerEvents: 'none',
+            }
+          : isSelected
+            ? { backgroundColor: `${categoryColor}33`, boxShadow: `inset 0 0 0 1px ${categoryColor}` }
+            : undefined
+      }
     >
       <button
         type="button"
@@ -231,6 +253,7 @@ export const TaskItem: React.FC<TaskItemProps> = ({
           />
         ) : (
           <button
+            ref={titleRef}
             type="button"
             onPointerDown={titleGestures.onPointerDown}
             onPointerMove={titleGestures.onPointerMove}
@@ -242,6 +265,7 @@ export const TaskItem: React.FC<TaskItemProps> = ({
               if (selectionMode) onToggleSelection?.();
               else if (event.detail === 0) onOpenActions(task);
             }}
+            data-day-swipe-through="true"
             className="w-full touch-pan-y text-left rounded focus:outline-none"
             aria-label={task.title}
           >

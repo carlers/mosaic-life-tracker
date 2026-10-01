@@ -44,6 +44,7 @@ export const generateMockTasks = (): TaskDocument[] => {
       title: template.title,
       completed: template.completed,
       categoryId: template.categoryId,
+      order: index,
       date: date.toISOString().split('T')[0], // YYYY-MM-DD format
       createdAt: date.toISOString(),
       updatedAt: date.toISOString(),

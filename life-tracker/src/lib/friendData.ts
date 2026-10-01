@@ -16,6 +16,7 @@ function mapTaskRow(row: AppwriteRow): TaskDocument {
     title: (row.title as string) || '',
     completed: (row.is_completed as boolean) ?? false,
     categoryId: (row.category_id as string) || '',
+    order: typeof row.order === 'number' ? row.order : 0,
     tags: (row.tags as string) || '',
     date: (row.date as string) || '',
     memo: (row.memo as string) || '',

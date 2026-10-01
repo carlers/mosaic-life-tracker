@@ -1,69 +1,30 @@
 import React from 'react';
-import { CategorySection } from './CategorySection';
-import type { CategoryDocument, TaskDocument } from '../../../db/schema';
-
-interface DaySlideProps {
-  date: Date;
-  scrollMode?: 'page' | 'contained';
-  dateStr: string;
-  tasks: TaskDocument[];
-  categories: CategoryDocument[];
-  currentUserId: string;
-  editingTaskId: string | null;
-  editValue: string;
-  onToggleTask: (taskId: string, currentStatus: boolean) => void;
-  onAddTask: (title: string, categoryId: string, dateStr: string) => void;
-  onOpenActions: (task: TaskDocument) => void;
-  onOpenMemo: (task: TaskDocument, mode: 'view' | 'edit') => void;
-  onEditTask: (task: TaskDocument) => void;
-  onViewImage: (task: TaskDocument) => void;
-  onEditChange: (val: string) => void;
-  onEditSave: () => void;
-  onEditCancel: () => void;
-  disableTaskLayoutAnimation?: boolean;
-  continueAddingTasks?: boolean;
-  showCategoryCollapseButton?: boolean;
-  selectionMode?: boolean;
-  selectedTaskIds?: ReadonlySet<string>;
-  onToggleTaskSelection?: (taskId: string) => void;
-}
+import { DaySlideContent, type DaySlideProps } from './DaySlideContent';
+import { TaskReorderRuntime } from './TaskReorderRuntime';
+import {
+  buildTaskPlacement,
+  materializeTaskDocument,
+} from '../../../lib/taskOrder';
+import { buildRenderedTasksByCategory } from './taskReorder';
 
 const DaySlideComponent: React.FC<DaySlideProps> = ({
-  dateStr,
-  scrollMode = 'page',
-  tasks,
-  categories,
-  currentUserId,
-  editingTaskId,
-  editValue,
-  onToggleTask,
-  onAddTask,
-  onOpenActions,
-  onOpenMemo,
-  onEditTask,
-  onViewImage,
-  onEditChange,
-  onEditSave,
-  onEditCancel,
-  disableTaskLayoutAnimation = false,
-  continueAddingTasks = false,
-  showCategoryCollapseButton = false,
-  selectionMode = false,
-  selectedTaskIds = new Set<string>(),
-  onToggleTaskSelection,
+  reorderRuntimeActive = true,
+  ...props
 }) => {
-  const tasksByCategory = React.useMemo(() => {
-    const map = new Map<string, TaskDocument[]>();
-    for (const task of tasks) {
-      const list = map.get(task.categoryId);
-      if (list) {
-        list.push(task);
-      } else {
-        map.set(task.categoryId, [task]);
-      }
-    }
-    return map;
-  }, [tasks]);
+  const { tasks, categories } = props;
+
+  const materializedTasks = React.useMemo(
+    () => tasks.map(materializeTaskDocument),
+    [tasks]
+  );
+  const categoryIds = React.useMemo(
+    () => categories.map((category) => category.id),
+    [categories]
+  );
+  const livePlacement = React.useMemo(
+    () => buildTaskPlacement(materializedTasks, categoryIds),
+    [categoryIds, materializedTasks]
+  );
 
   if (categories.length === 0) {
     return (
@@ -73,43 +34,34 @@ const DaySlideComponent: React.FC<DaySlideProps> = ({
     );
   }
 
+  const sharedProps = {
+    ...props,
+    tasks: materializedTasks,
+  };
+
+  if (!reorderRuntimeActive) {
+    return (
+      <DaySlideContent
+        {...sharedProps}
+        reorderEnabled={false}
+        reorderRuntimeActive={false}
+        tasksByCategory={buildRenderedTasksByCategory(
+          materializedTasks,
+          livePlacement,
+          categoryIds
+        )}
+        activeDrag={null}
+      />
+    );
+  }
+
   return (
-    <div
-      className={
-        scrollMode === 'contained'
-          ? 'min-h-0 w-full min-w-0 flex-1 overflow-y-auto px-2 pb-8'
-          : 'w-full min-w-0 px-4 pb-8'
-      }
-      data-testid="day-slide"
-    >
-      {categories.map((cat) => (
-        <CategorySection
-          key={cat.id}
-          categoryName={cat.name}
-          categoryColor={cat.color}
-          visibility={cat.visibility}
-          currentUserId={currentUserId}
-          tasks={tasksByCategory.get(cat.id) ?? []}
-          onToggleTask={onToggleTask}
-          onAddTask={(title) => onAddTask(title, cat.id, dateStr)}
-          onOpenActions={onOpenActions}
-          onOpenMemo={onOpenMemo}
-          onEditTask={onEditTask}
-          onViewImage={onViewImage}
-          editingTaskId={editingTaskId}
-          editValue={editValue}
-          onEditChange={onEditChange}
-          onEditSave={onEditSave}
-          onEditCancel={onEditCancel}
-          disableTaskLayoutAnimation={disableTaskLayoutAnimation}
-          continueAddingAfterSubmit={continueAddingTasks}
-          showCollapseButton={showCategoryCollapseButton}
-          selectionMode={selectionMode}
-          selectedTaskIds={selectedTaskIds}
-          onToggleTaskSelection={onToggleTaskSelection}
-        />
-      ))}
-    </div>
+    <TaskReorderRuntime
+      {...sharedProps}
+      reorderRuntimeActive
+      categoryIds={categoryIds}
+      livePlacement={livePlacement}
+    />
   );
 };
 

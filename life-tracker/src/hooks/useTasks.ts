@@ -1,11 +1,16 @@
-import { useCallback } from 'react';
+import { useCallback, useRef } from 'react';
 import { getDatabase } from '../db/database';
 import { useAuth } from './useAuth';
 import { useRxCollection } from './useRxCollection';
 import type { TaskDocument } from '../db/schema';
+import {
+  buildTaskOrderAssignments,
+  type TaskOrderGroup,
+} from '../lib/taskOrder';
 
 export function useTasks(enabled = true) {
   const { user } = useAuth();
+  const reorderQueue = useRef(Promise.resolve());
 
   const { data: tasks, isLoading } = useRxCollection<TaskDocument>({
     collection: 'tasks',
@@ -19,7 +24,7 @@ export function useTasks(enabled = true) {
     async (
       task: Omit<
         TaskDocument,
-        'id' | 'userId' | 'createdAt' | 'updatedAt' | 'isDeleted'
+        'id' | 'userId' | 'order' | 'createdAt' | 'updatedAt' | 'isDeleted'
       >
     ) => {
       const uid = user?.$id;
@@ -29,8 +34,24 @@ export function useTasks(enabled = true) {
       }
       const db = getDatabase();
       const now = new Date().toISOString();
+      const siblingDocs = await db.tasks
+        .find({
+          selector: {
+            userId: uid,
+            date: task.date,
+            categoryId: task.categoryId,
+            isDeleted: false,
+          },
+        })
+        .exec();
+      const order =
+        siblingDocs.reduce(
+          (maximum, candidate) => Math.max(maximum, candidate.order),
+          -1
+        ) + 1;
       const newTask: TaskDocument = {
         ...task,
+        order,
         id: `task_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
         userId: uid,
         createdAt: now,
@@ -74,6 +95,86 @@ export function useTasks(enabled = true) {
     [updateTask]
   );
 
+  const reorderTasks = useCallback(
+    (date: string, groups: readonly TaskOrderGroup[]) => {
+      const uid = user?.$id;
+      const snapshot = groups.map((group) => ({
+        categoryId: group.categoryId,
+        taskIds: [...group.taskIds],
+      }));
+
+      const applyOrder = async () => {
+        if (!uid || snapshot.length === 0) return;
+
+        const categoryIds = Array.from(
+          new Set(snapshot.map((group) => group.categoryId))
+        );
+        if (categoryIds.length !== snapshot.length || categoryIds.length > 2) {
+          throw new Error('[useTasks] Invalid task reorder groups');
+        }
+
+        const db = getDatabase();
+        const categoryDocs = await Promise.all(
+          categoryIds.map((categoryId) =>
+            db.categories.findOne(categoryId).exec()
+          )
+        );
+        if (
+          categoryDocs.some(
+            (category) =>
+              !category ||
+              category.isDeleted ||
+              category.userId !== uid
+          )
+        ) {
+          throw new Error('[useTasks] Category changed while reordering');
+        }
+
+        const affectedDayTasks = await db.tasks
+          .find({
+            selector: {
+              userId: uid,
+              date,
+              isDeleted: false,
+            },
+          })
+          .exec();
+        const assignments = buildTaskOrderAssignments(
+          affectedDayTasks,
+          uid,
+          date,
+          snapshot
+        );
+        const docsById = new Map(
+          affectedDayTasks.map((task) => [task.id, task])
+        );
+        const updatedAt = new Date().toISOString();
+
+        await Promise.all(
+          assignments.map(({ id, categoryId, order }) => {
+            const doc = docsById.get(id);
+            if (!doc) {
+              throw new Error('[useTasks] Task disappeared while reordering');
+            }
+            if (doc.categoryId === categoryId && doc.order === order) {
+              return Promise.resolve();
+            }
+            return doc.incrementalPatch({
+              categoryId,
+              order,
+              updatedAt,
+            });
+          })
+        );
+      };
+
+      const queued = reorderQueue.current.then(applyOrder, applyOrder);
+      reorderQueue.current = queued.catch(() => undefined);
+      return queued;
+    },
+    [user?.$id]
+  );
+
   return {
     tasks,
     isLoading,
@@ -81,5 +182,6 @@ export function useTasks(enabled = true) {
     updateTask,
     deleteTask,
     toggleTaskCompletion,
+    reorderTasks,
   };
 }

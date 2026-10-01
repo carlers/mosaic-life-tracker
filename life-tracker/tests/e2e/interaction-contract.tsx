@@ -20,6 +20,19 @@ import { PrimaryRouteSwipeSurface } from '../../src/components/layout/PrimaryRou
 import { applyAppearanceMode } from '../../src/lib/appearance';
 import { SettingsRow } from '../../src/components/ui/SettingsRow';
 
+function asRxLikeTask(task: TaskDocument): TaskDocument {
+  const data = { ...task };
+
+  return new Proxy({} as TaskDocument, {
+    get(_target, property) {
+      if (property === 'toJSON') {
+        return () => ({ ...data });
+      }
+      return data[property as keyof TaskDocument];
+    },
+  });
+}
+
 class DayViewProbeBoundary extends React.Component<
   { children: React.ReactNode },
   { error: Error | null }
@@ -44,7 +57,9 @@ class DayViewProbeBoundary extends React.Component<
 
 export function InteractionHarness() {
   const calendar = useCalendarState();
-  const performanceHeavy = new URLSearchParams(window.location.search).get('perf') === 'heavy';
+  const searchParams = new URLSearchParams(window.location.search);
+  const performanceHeavy = searchParams.get('perf') === 'heavy';
+  const rxLikeLegacyTasks = searchParams.get('rxdocs') === 'legacy';
   const [friendIndex, setFriendIndex] = useState(0);
   const [todoDayIndex, setTodoDayIndex] = useState(0);
   const [todoGesture, setTodoGesture] = useState('idle');
@@ -74,24 +89,43 @@ export function InteractionHarness() {
     userId: 'user_1',
     isDeleted: false,
   })), []);
-  const todoTasks: TaskDocument[] = React.useMemo(
-    () => todoCategories.flatMap((category, categoryIndex) =>
-      Array.from({ length: performanceHeavy ? 10 : 3 }, (_, taskIndex) => ({
-        id: `task_${categoryIndex}_${taskIndex}`,
-        title: `Task ${categoryIndex + 1}.${taskIndex + 1}`,
-        completed: false,
-        categoryId: category.id,
-        date: '2026-09-15',
-        createdAt: '2026-09-01T00:00:00.000Z',
-        completedAt: '',
-        updatedAt: '2026-09-01T00:00:00.000Z',
-        userId: 'user_1',
-        isDeleted: false,
-        visibility: 'private',
-        memo: categoryIndex === 0 && taskIndex === 0 ? 'Browser memo content' : '',
-      }))
-    ),
-    [todoCategories, performanceHeavy]
+  const [todoTasks, setTodoTasks] = useState<TaskDocument[]>(() =>
+    todoCategories.flatMap((category, categoryIndex) =>
+      Array.from(
+        {
+          length:
+            !performanceHeavy && categoryIndex === 2
+              ? 0
+              : performanceHeavy
+                ? 10
+                : 3,
+        },
+        (_, taskIndex) => ({
+          id: `task_${categoryIndex}_${taskIndex}`,
+          title: `Task ${categoryIndex + 1}.${taskIndex + 1}`,
+          completed: false,
+          categoryId: category.id,
+          order: rxLikeLegacyTasks ? 0 : taskIndex,
+          date: '2026-09-15',
+          createdAt: '2026-09-01T00:00:00.000Z',
+          completedAt: '',
+          updatedAt: '2026-09-01T00:00:00.000Z',
+          userId: 'user_1',
+          isDeleted: false,
+          visibility: 'private',
+          memo:
+            categoryIndex === 0 && taskIndex === 0
+              ? 'Browser memo content'
+              : '',
+        }))
+    )
+  );
+  const renderedTodoTasks = React.useMemo(
+    () =>
+      rxLikeLegacyTasks
+        ? todoTasks.map(asRxLikeTask)
+        : todoTasks,
+    [rxLikeLegacyTasks, todoTasks]
   );
 
   const daySwipeDates = React.useMemo(() => [-1, 0, 1].map((offset) => {
@@ -277,7 +311,7 @@ export function InteractionHarness() {
         <DaySlide
           date={todoSelectedDate}
           dateStr={format(todoSelectedDate, 'yyyy-MM-dd')}
-          tasks={todoTasks}
+          tasks={renderedTodoTasks}
           categories={todoCategories}
           currentUserId="user_1"
           editingTaskId={null}
@@ -291,6 +325,48 @@ export function InteractionHarness() {
           onEditChange={() => {}}
           onEditSave={() => {}}
           onEditCancel={() => {}}
+          reorderEnabled
+          onReorderTasks={(_, groups) => {
+            const assignments = new Map<
+              string,
+              { categoryId: string; order: number }
+            >();
+            groups.forEach((group) => {
+              group.taskIds.forEach((taskId, order) => {
+                assignments.set(taskId, {
+                  categoryId: group.categoryId,
+                  order,
+                });
+              });
+            });
+            const updatedAt = new Date().toISOString();
+            setTodoTasks((current) =>
+              current.map((task) => {
+                const assignment = assignments.get(task.id);
+                return assignment
+                  ? { ...task, ...assignment, updatedAt }
+                  : task;
+              })
+            );
+
+            if (groups.length === 1) {
+              setTodoGesture(
+                `reordered:${groups[0]?.taskIds.join(',') ?? ''}`
+              );
+              return;
+            }
+            setTodoGesture(
+              `reordered:${groups
+                .map(
+                  (group) =>
+                    `${group.categoryId}=${group.taskIds.join(',')}`
+                )
+                .join('|')}`
+            );
+          }}
+          onReorderActiveChange={(active) => {
+            if (active) setTodoGesture('sorting');
+          }}
         />
       </div>
 

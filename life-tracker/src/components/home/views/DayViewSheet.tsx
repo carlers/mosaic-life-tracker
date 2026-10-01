@@ -37,6 +37,9 @@ const ImageViewer = lazy(() =>
   import('./ImageViewer').then(({ ImageViewer }) => ({ default: ImageViewer }))
 );
 
+const DAY_SWIPER_FOCUSABLE_ELEMENTS =
+  'input, select, option, textarea, video, label, button:not([data-day-swipe-through="true"])';
+
 // #11a: hoisted — closes over nothing, so building this once avoids
 // re-allocating the JSX tree on every DayViewSheet render.
 const ImageViewerLoadingFallback: React.FC = () => (
@@ -79,6 +82,7 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
     toggleTaskCompletion,
     updateTask,
     deleteTask,
+    reorderTasks,
   } = taskStore;
   const { categories: hookCategories = [] } = useCategories(
     categoriesOverride === undefined
@@ -117,6 +121,7 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
   const [isBulkDeleteOpen, setIsBulkDeleteOpen] = useState(false);
   const [isBulkWorking, setIsBulkWorking] = useState(false);
   const [syncedSelectionContext, setSyncedSelectionContext] = useState('');
+  const [isTaskReorderActive, setIsTaskReorderActive] = useState(false);
 
   const activeTask = useMemo(
     () => tasks.find((t) => t.id === activeTaskId) ?? null,
@@ -181,7 +186,8 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
       isBulkVisibilityOpen ||
       isBulkDeleteOpen ||
       isBulkWorking ||
-      !!imagePickerTaskId,
+      !!imagePickerTaskId ||
+      isTaskReorderActive,
   });
 
   const activeDateStr = slideDateStrs[activeIndex] ?? format(selectedDate, 'yyyy-MM-dd');
@@ -226,6 +232,7 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
 
   const handleSheetClose = useCallback(() => {
     setDeferredRenderWindow(0);
+    setIsTaskReorderActive(false);
     setIsSelectMode(false);
     setSelectedTaskIds(new Set());
     onClose();
@@ -579,7 +586,7 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
   // A11Y-33: keyboard arrows mirror the existing swipe/chevron day navigation.
   // Nested sheets and text editing retain their own keyboard behavior.
   useHorizontalArrowNavigation({
-    enabled: isOpen && !isBackgroundLocked,
+    enabled: isOpen && !isBackgroundLocked && !isTaskReorderActive,
     onLeft: handlePrevDayFromUi,
     onRight: handleNextDayFromUi,
   });
@@ -603,7 +610,9 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
     <>
       <Swiper
         nested={renderMode === 'inline'}
+        allowTouchMove={!isTaskReorderActive}
         noSwiping={renderMode === 'sheet'}
+        focusableElements={DAY_SWIPER_FOCUSABLE_ELEMENTS}
         touchStartPreventDefault={false}
         touchMoveStopPropagation={false}
         autoHeight={renderMode === 'inline'}
@@ -715,6 +724,16 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
                       selectionMode={isSelectMode && i === activeIndex}
                       selectedTaskIds={selectedTaskIds}
                       onToggleTaskSelection={handleToggleTaskSelection}
+                      reorderEnabled={
+                        isOpen &&
+                        i === activeIndex &&
+                        !isSelectMode &&
+                        !isBackgroundLocked &&
+                        editingTaskId === null
+                      }
+                      reorderRuntimeActive={isOpen && i === activeIndex}
+                      onReorderTasks={reorderTasks}
+                      onReorderActiveChange={setIsTaskReorderActive}
                     />
                   </>
                 )}
@@ -893,7 +912,8 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
       onClose={handleSheetClose}
       ariaLabel={format(selectedDate, 'EEEE, MMMM d, yyyy')}
       height="full"
-      isLocked={isBackgroundLocked}
+      isLocked={isBackgroundLocked || isTaskReorderActive}
+      preventDismiss={isTaskReorderActive}
       suspendInteraction={isBackgroundLocked}
       contentMode="fixed"
       onHorizontalSwipe={handleSheetHorizontalSwipe}
