@@ -1,5 +1,5 @@
-import { act, afterEach, fireEvent, render, screen, within } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { act, fireEvent, render, screen, within } from '@testing-library/react';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { DaySlide } from '../../src/components/home/views/DaySlide';
 import type { CategoryDocument, TaskDocument } from '../../src/db/schema';
 
