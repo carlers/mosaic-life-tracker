@@ -31,6 +31,7 @@ export interface TaskItemProps {
   rowRef?: React.Ref<HTMLDivElement>;
   titleRef?: React.Ref<HTMLButtonElement>;
   isDragSource?: boolean;
+  isDragOverlay?: boolean;
 }
 
 interface TaskImageProps {
@@ -136,6 +137,7 @@ export const TaskItem: React.FC<TaskItemProps> = ({
   rowRef,
   titleRef,
   isDragSource = false,
+  isDragOverlay = false,
 }) => {
   const reactions = React.useMemo(
     () => parseReactions(task.reactions),
@@ -179,12 +181,18 @@ export const TaskItem: React.FC<TaskItemProps> = ({
       ref={rowRef}
       layout={!disableLayoutAnimation}
       layoutDependency={`${task.updatedAt}:${isEditing}`}
-      data-task-id={task.id}
-      data-task-dragging={isDragSource ? 'true' : undefined}
-      role={selectionMode ? 'checkbox' : undefined}
-      aria-checked={selectionMode ? isSelected : undefined}
-      aria-label={selectionMode ? `${task.title}, ${isSelected ? 'selected' : 'not selected'}` : undefined}
-      tabIndex={selectionMode ? 0 : undefined}
+      data-task-id={isDragOverlay ? undefined : task.id}
+      data-task-overlay-id={isDragOverlay ? task.id : undefined}
+      data-task-dragging={isDragSource || isDragOverlay ? 'true' : undefined}
+      role={!isDragOverlay && selectionMode ? 'checkbox' : undefined}
+      aria-checked={!isDragOverlay && selectionMode ? isSelected : undefined}
+      aria-label={
+        !isDragOverlay && selectionMode
+          ? `${task.title}, ${isSelected ? 'selected' : 'not selected'}`
+          : undefined
+      }
+      aria-hidden={isDragOverlay ? true : undefined}
+      tabIndex={!isDragOverlay && selectionMode ? 0 : undefined}
       onClick={selectionMode ? onToggleSelection : undefined}
       onKeyDown={selectionMode ? (event) => {
         if (event.key === 'Enter' || event.key === ' ') {
@@ -194,9 +202,15 @@ export const TaskItem: React.FC<TaskItemProps> = ({
       } : undefined}
       className="flex scroll-mt-16 items-start gap-3 rounded-lg px-2 py-2 transition-[background-color,box-shadow] duration-200 focus:outline-none data-[search-focused=true]:ring-1 data-[search-focused=true]:ring-emerald-400/60"
       style={
-        isDragSource
-          ? { backgroundColor: '#111111', boxShadow: '0 14px 36px rgba(0, 0, 0, 0.38)' }
-          : isSelected
+        isDragOverlay
+          ? {
+              backgroundColor: '#111111',
+              boxShadow: '0 14px 36px rgba(0, 0, 0, 0.38)',
+              pointerEvents: 'none',
+            }
+          : isDragSource
+            ? { backgroundColor: '#111111' }
+            : isSelected
             ? { backgroundColor: `${categoryColor}33`, boxShadow: `inset 0 0 0 1px ${categoryColor}` }
             : undefined
       }

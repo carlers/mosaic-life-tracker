@@ -3,6 +3,7 @@ import type { TaskDocument } from '../../src/db/schema';
 import {
   buildTaskOrderAssignments,
   buildTaskPlacement,
+  isTaskPlacementCompatible,
   moveTaskInPlacement,
 } from '../../src/lib/taskOrder';
 
@@ -55,6 +56,42 @@ describe('task ordering', () => {
       cat_a: [],
       cat_empty: ['a1'],
     });
+  });
+
+  it('rejects optimistic placement with missing, duplicate, or unknown tasks', () => {
+    const live = {
+      cat_a: ['a1', 'a2'],
+      cat_b: ['b1'],
+    };
+
+    expect(
+      isTaskPlacementCompatible(
+        { cat_a: ['a2'], cat_b: ['b1', 'a1'] },
+        live,
+        ['cat_a', 'cat_b']
+      )
+    ).toBe(true);
+    expect(
+      isTaskPlacementCompatible(
+        { cat_a: ['a1'], cat_b: ['b1'] },
+        live,
+        ['cat_a', 'cat_b']
+      )
+    ).toBe(false);
+    expect(
+      isTaskPlacementCompatible(
+        { cat_a: ['a1', 'a1'], cat_b: ['b1'] },
+        live,
+        ['cat_a', 'cat_b']
+      )
+    ).toBe(false);
+    expect(
+      isTaskPlacementCompatible(
+        { cat_a: ['a1', 'a2'], cat_b: ['b1'], cat_other: ['ghost'] },
+        live,
+        ['cat_a', 'cat_b']
+      )
+    ).toBe(false);
   });
 
   it('builds normalized assignments across both affected categories', () => {

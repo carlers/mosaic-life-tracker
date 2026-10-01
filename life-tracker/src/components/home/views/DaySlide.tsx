@@ -1,14 +1,15 @@
 import React from 'react';
-import { DragDropProvider } from '@dnd-kit/react';
+import { DragDropProvider, DragOverlay } from '@dnd-kit/react';
 import { PointerActivationConstraints, PointerSensor } from '@dnd-kit/dom';
 import { move } from '@dnd-kit/helpers';
 import { isSortable } from '@dnd-kit/react/sortable';
 import { CategorySection } from './CategorySection';
+import { TaskItem } from './TaskItem';
 import type { CategoryDocument, TaskDocument } from '../../../db/schema';
 import {
   buildTaskPlacement,
   cloneTaskPlacement,
-  taskPlacementIdSignature,
+  isTaskPlacementCompatible,
   taskPlacementSignature,
   type TaskOrderGroup,
   type TaskPlacement,
@@ -27,7 +28,14 @@ interface CommittedPlacement {
   id: number;
   placement: TaskPlacement;
   signature: string;
-  idSignature: string;
+}
+
+interface ActiveDrag {
+  taskId: string;
+  initialCategoryId: string;
+  snapshot: TaskPlacement;
+  projection: TaskPlacement;
+  rowHeight: number;
 }
 
 interface DaySlideProps {
@@ -55,11 +63,17 @@ interface DaySlideProps {
   selectedTaskIds?: ReadonlySet<string>;
   onToggleTaskSelection?: (taskId: string) => void;
   reorderEnabled?: boolean;
+  reorderRuntimeActive?: boolean;
   onReorderTasks?: (
     dateStr: string,
     groups: readonly TaskOrderGroup[]
   ) => Promise<void> | void;
   onReorderActiveChange?: (active: boolean) => void;
+}
+
+interface DaySlideContentProps extends DaySlideProps {
+  tasksByCategory: Map<string, TaskDocument[]>;
+  activeDrag: ActiveDrag | null;
 }
 
 function findTaskCategory(
@@ -72,10 +86,34 @@ function findTaskCategory(
   return null;
 }
 
-const DaySlideComponent: React.FC<DaySlideProps> = ({
+function buildRenderedTasksByCategory(
+  tasks: readonly TaskDocument[],
+  placement: TaskPlacement,
+  categoryIds: readonly string[]
+): Map<string, TaskDocument[]> {
+  const taskById = new Map(tasks.map((task) => [task.id, task]));
+  const result = new Map<string, TaskDocument[]>();
+
+  for (const categoryId of categoryIds) {
+    const ordered = (placement[categoryId] ?? []).flatMap(
+      (taskId, order) => {
+        const task = taskById.get(taskId);
+        if (!task) return [];
+        if (task.categoryId === categoryId && task.order === order) {
+          return [task];
+        }
+        return [{ ...task, categoryId, order }];
+      }
+    );
+    result.set(categoryId, ordered);
+  }
+
+  return result;
+}
+
+const DaySlideContent: React.FC<DaySlideContentProps> = ({
   dateStr,
   scrollMode = 'page',
-  tasks,
   categories,
   currentUserId,
   editingTaskId,
@@ -96,108 +134,224 @@ const DaySlideComponent: React.FC<DaySlideProps> = ({
   selectedTaskIds = new Set<string>(),
   onToggleTaskSelection,
   reorderEnabled = false,
-  onReorderTasks,
-  onReorderActiveChange,
+  tasksByCategory,
+  activeDrag,
 }) => {
-  const categoryIds = React.useMemo(
-    () => categories.map((category) => category.id),
-    [categories]
+  const projectedCategoryId = activeDrag
+    ? findTaskCategory(activeDrag.projection, activeDrag.taskId)
+    : null;
+  const projectedGapIndex =
+    activeDrag && projectedCategoryId
+      ? activeDrag.projection[projectedCategoryId]?.indexOf(activeDrag.taskId) ??
+        null
+      : null;
+
+  return (
+    <div
+      className={
+        scrollMode === 'contained'
+          ? 'min-h-0 w-full min-w-0 flex-1 overflow-y-auto px-2 pb-8'
+          : 'w-full min-w-0 px-4 pb-8'
+      }
+      data-testid="day-slide"
+    >
+      {categories.map((cat) => (
+        <CategorySection
+          key={cat.id}
+          categoryId={cat.id}
+          categoryName={cat.name}
+          categoryColor={cat.color}
+          visibility={cat.visibility}
+          currentUserId={currentUserId}
+          tasks={tasksByCategory.get(cat.id) ?? []}
+          onToggleTask={onToggleTask}
+          onAddTask={(title) => onAddTask(title, cat.id, dateStr)}
+          onOpenActions={onOpenActions}
+          onOpenMemo={onOpenMemo}
+          onEditTask={onEditTask}
+          onViewImage={onViewImage}
+          editingTaskId={editingTaskId}
+          editValue={editValue}
+          onEditChange={onEditChange}
+          onEditSave={onEditSave}
+          onEditCancel={onEditCancel}
+          disableTaskLayoutAnimation={disableTaskLayoutAnimation}
+          continueAddingAfterSubmit={continueAddingTasks}
+          showCollapseButton={showCategoryCollapseButton}
+          selectionMode={selectionMode}
+          selectedTaskIds={selectedTaskIds}
+          onToggleTaskSelection={onToggleTaskSelection}
+          reorderEnabled={reorderEnabled}
+          activeDragTaskId={
+            activeDrag?.initialCategoryId === cat.id
+              ? activeDrag.taskId
+              : null
+          }
+          dragGapIndex={
+            projectedCategoryId === cat.id ? projectedGapIndex : null
+          }
+          dragGapHeight={activeDrag?.rowHeight ?? 0}
+        />
+      ))}
+    </div>
   );
-  const livePlacement = React.useMemo(
-    () => buildTaskPlacement(tasks, categoryIds),
-    [categoryIds, tasks]
-  );
+};
+
+const TaskReorderRuntime: React.FC<
+  DaySlideProps & {
+    categoryIds: string[];
+    livePlacement: TaskPlacement;
+  }
+> = (props) => {
+  const {
+    tasks,
+    categories,
+    currentUserId,
+    categoryIds,
+    livePlacement,
+    onReorderTasks,
+    onReorderActiveChange,
+    dateStr,
+  } = props;
   const [committedPlacement, setCommittedPlacement] =
     React.useState<CommittedPlacement | null>(null);
-  const [dragPlacement, setDragPlacement] =
-    React.useState<TaskPlacement | null>(null);
+  const [activeDrag, setActiveDrag] = React.useState<ActiveDrag | null>(null);
   const dragSnapshotRef = React.useRef<TaskPlacement | null>(null);
-  const dragPlacementRef = React.useRef<TaskPlacement | null>(null);
+  const dragProjectionRef = React.useRef<TaskPlacement | null>(null);
   const commitIdRef = React.useRef(0);
 
   const livePlacementSignature = React.useMemo(
     () => taskPlacementSignature(livePlacement, categoryIds),
     [categoryIds, livePlacement]
   );
-  const liveIdSignature = React.useMemo(
-    () => taskPlacementIdSignature(livePlacement),
-    [livePlacement]
-  );
+
+  const committedIsCompatible =
+    committedPlacement !== null &&
+    isTaskPlacementCompatible(
+      committedPlacement.placement,
+      livePlacement,
+      categoryIds
+    );
   const committedMatchesLive =
     committedPlacement?.signature === livePlacementSignature;
-  const committedHasSameTaskSet =
-    committedPlacement?.idSignature === liveIdSignature;
-  const shouldRetireCommitted =
-    dragPlacement === null &&
-    committedPlacement !== null &&
-    (!committedHasSameTaskSet || committedMatchesLive);
-
-  if (shouldRetireCommitted) {
-    setCommittedPlacement(null);
-  }
-
   const activeCommittedPlacement =
-    committedPlacement && !shouldRetireCommitted
+    committedPlacement && committedIsCompatible && !committedMatchesLive
       ? committedPlacement.placement
       : null;
   const basePlacement = activeCommittedPlacement ?? livePlacement;
-  const effectivePlacement = dragPlacement ?? basePlacement;
+  const renderPlacement = activeDrag?.snapshot ?? basePlacement;
+
+  React.useEffect(() => {
+    if (!committedPlacement) return;
+    if (committedIsCompatible && !committedMatchesLive) return;
+
+    const retiringId = committedPlacement.id;
+    setCommittedPlacement((current) =>
+      current?.id === retiringId ? null : current
+    );
+  }, [
+    committedIsCompatible,
+    committedMatchesLive,
+    committedPlacement,
+  ]);
+
+  React.useEffect(
+    () => () => {
+      dragSnapshotRef.current = null;
+      dragProjectionRef.current = null;
+      onReorderActiveChange?.(false);
+    },
+    [onReorderActiveChange]
+  );
+
+  const tasksByCategory = React.useMemo(
+    () =>
+      buildRenderedTasksByCategory(
+        tasks,
+        renderPlacement,
+        categoryIds
+      ),
+    [categoryIds, renderPlacement, tasks]
+  );
   const taskById = React.useMemo(
     () => new Map(tasks.map((task) => [task.id, task])),
     [tasks]
   );
-  const tasksByCategory = React.useMemo(() => {
-    const map = new Map<string, TaskDocument[]>();
+  const categoryById = React.useMemo(
+    () => new Map(categories.map((category) => [category.id, category])),
+    [categories]
+  );
 
-    for (const categoryId of categoryIds) {
-      const ordered = (effectivePlacement[categoryId] ?? []).flatMap(
-        (taskId, order) => {
-          const task = taskById.get(taskId);
-          if (!task) return [];
-          if (task.categoryId === categoryId && task.order === order) {
-            return [task];
-          }
-          return [{ ...task, categoryId, order }];
-        }
+  const handleDragStart = React.useCallback(
+    (
+      event: Parameters<
+        NonNullable<
+          React.ComponentProps<typeof DragDropProvider>['onDragStart']
+        >
+      >[0]
+    ) => {
+      const { source } = event.operation;
+      if (!isSortable(source)) return;
+
+      const taskId = String(source.id);
+      const snapshot = cloneTaskPlacement(basePlacement);
+      const initialCategoryId = findTaskCategory(snapshot, taskId);
+      if (!initialCategoryId) return;
+
+      const rowHeight = Math.max(
+        1,
+        source.element?.getBoundingClientRect().height ?? 1
       );
-      map.set(categoryId, ordered);
-    }
+      const next: ActiveDrag = {
+        taskId,
+        initialCategoryId,
+        snapshot,
+        projection: snapshot,
+        rowHeight,
+      };
 
-    return map;
-  }, [categoryIds, effectivePlacement, taskById]);
-
-  const handleDragStart = React.useCallback(() => {
-    const snapshot = cloneTaskPlacement(basePlacement);
-    dragSnapshotRef.current = snapshot;
-    dragPlacementRef.current = snapshot;
-    setDragPlacement(snapshot);
-    onReorderActiveChange?.(true);
-  }, [basePlacement, onReorderActiveChange]);
+      dragSnapshotRef.current = snapshot;
+      dragProjectionRef.current = snapshot;
+      setActiveDrag(next);
+      onReorderActiveChange?.(true);
+    },
+    [basePlacement, onReorderActiveChange]
+  );
 
   const handleDragOver = React.useCallback(
     (
       event: Parameters<
-        NonNullable<React.ComponentProps<typeof DragDropProvider>['onDragOver']>
+        NonNullable<
+          React.ComponentProps<typeof DragDropProvider>['onDragOver']
+        >
       >[0]
     ) => {
-      // React owns list placement during an active drag. Prevent the sortable
-      // plugin from also reparenting DOM nodes behind React's back.
+      const { source } = event.operation;
+      if (!isSortable(source)) return;
+
+      // React owns all task DOM ordering. dnd-kit keeps sensor/collision state,
+      // but its OptimisticSortingPlugin must never reparent these rows.
       event.preventDefault();
-      setDragPlacement((current) => {
-        if (!current) return current;
-        const next = move(current, event) as TaskPlacement;
-        const currentSignature = taskPlacementSignature(
-          current,
-          categoryIds
-        );
-        const nextSignature = taskPlacementSignature(next, categoryIds);
-        if (currentSignature === nextSignature) {
-          dragPlacementRef.current = current;
-          return current;
-        }
-        dragPlacementRef.current = next;
-        return next;
-      });
+
+      const snapshot = dragSnapshotRef.current;
+      if (!snapshot) return;
+
+      const next = move(snapshot, event) as TaskPlacement;
+      if (!isTaskPlacementCompatible(next, snapshot, categoryIds)) return;
+
+      const nextSignature = taskPlacementSignature(next, categoryIds);
+      const previous = dragProjectionRef.current;
+      if (
+        previous &&
+        taskPlacementSignature(previous, categoryIds) === nextSignature
+      ) {
+        return;
+      }
+
+      dragProjectionRef.current = next;
+      setActiveDrag((current) =>
+        current ? { ...current, projection: next } : current
+      );
     },
     [categoryIds]
   );
@@ -205,15 +359,18 @@ const DaySlideComponent: React.FC<DaySlideProps> = ({
   const handleDragEnd = React.useCallback(
     (
       event: Parameters<
-        NonNullable<React.ComponentProps<typeof DragDropProvider>['onDragEnd']>
+        NonNullable<
+          React.ComponentProps<typeof DragDropProvider>['onDragEnd']
+        >
       >[0]
     ) => {
       onReorderActiveChange?.(false);
+
       const snapshot = dragSnapshotRef.current;
-      const finalPlacement = dragPlacementRef.current;
+      const finalPlacement = dragProjectionRef.current;
       dragSnapshotRef.current = null;
-      dragPlacementRef.current = null;
-      setDragPlacement(null);
+      dragProjectionRef.current = null;
+      setActiveDrag(null);
 
       if (
         event.canceled ||
@@ -232,6 +389,16 @@ const DaySlideComponent: React.FC<DaySlideProps> = ({
       const targetCategoryId = findTaskCategory(finalPlacement, taskId);
       if (!initialCategoryId || !targetCategoryId) return;
 
+      if (
+        !isTaskPlacementCompatible(
+          finalPlacement,
+          livePlacement,
+          categoryIds
+        )
+      ) {
+        return;
+      }
+
       const snapshotSignature = taskPlacementSignature(snapshot, categoryIds);
       const nextSignature = taskPlacementSignature(
         finalPlacement,
@@ -244,8 +411,8 @@ const DaySlideComponent: React.FC<DaySlideProps> = ({
         id: commitId,
         placement: finalPlacement,
         signature: nextSignature,
-        idSignature: taskPlacementIdSignature(finalPlacement),
       });
+
       const affectedCategoryIds = Array.from(
         new Set([initialCategoryId, targetCategoryId])
       );
@@ -260,20 +427,30 @@ const DaySlideComponent: React.FC<DaySlideProps> = ({
         .then(() => onReorderTasks(dateStr, groups))
         .catch(() => {
           setCommittedPlacement((current) =>
-            current?.id === commitId ? null : current
+            current && current.id >= commitId ? null : current
           );
         });
     },
-    [categoryIds, dateStr, onReorderActiveChange, onReorderTasks]
+    [
+      categoryIds,
+      dateStr,
+      livePlacement,
+      onReorderActiveChange,
+      onReorderTasks,
+    ]
   );
 
-  if (categories.length === 0) {
-    return (
-      <div className="flex flex-col items-center justify-center h-full text-gray-400">
-        <p className="text-sm">No categories yet</p>
-      </div>
-    );
-  }
+  const overlayTask = activeDrag
+    ? taskById.get(activeDrag.taskId) ?? null
+    : null;
+  const overlayCategoryId =
+    activeDrag && overlayTask
+      ? findTaskCategory(activeDrag.projection, activeDrag.taskId) ??
+        overlayTask.categoryId
+      : null;
+  const overlayCategory = overlayCategoryId
+    ? categoryById.get(overlayCategoryId) ?? null
+    : null;
 
   return (
     <DragDropProvider
@@ -285,45 +462,88 @@ const DaySlideComponent: React.FC<DaySlideProps> = ({
       onDragOver={handleDragOver}
       onDragEnd={handleDragEnd}
     >
-      <div
-        className={
-          scrollMode === 'contained'
-            ? 'min-h-0 w-full min-w-0 flex-1 overflow-y-auto px-2 pb-8'
-            : 'w-full min-w-0 px-4 pb-8'
-        }
-        data-testid="day-slide"
-      >
-        {categories.map((cat) => (
-          <CategorySection
-            key={cat.id}
-            categoryId={cat.id}
-            categoryName={cat.name}
-            categoryColor={cat.color}
-            visibility={cat.visibility}
-            currentUserId={currentUserId}
-            tasks={tasksByCategory.get(cat.id) ?? []}
-            onToggleTask={onToggleTask}
-            onAddTask={(title) => onAddTask(title, cat.id, dateStr)}
-            onOpenActions={onOpenActions}
-            onOpenMemo={onOpenMemo}
-            onEditTask={onEditTask}
-            onViewImage={onViewImage}
-            editingTaskId={editingTaskId}
-            editValue={editValue}
-            onEditChange={onEditChange}
-            onEditSave={onEditSave}
-            onEditCancel={onEditCancel}
-            disableTaskLayoutAnimation={disableTaskLayoutAnimation}
-            continueAddingAfterSubmit={continueAddingTasks}
-            showCollapseButton={showCategoryCollapseButton}
-            selectionMode={selectionMode}
-            selectedTaskIds={selectedTaskIds}
-            onToggleTaskSelection={onToggleTaskSelection}
-            reorderEnabled={reorderEnabled}
-          />
-        ))}
-      </div>
+      <DaySlideContent
+        {...props}
+        tasksByCategory={tasksByCategory}
+        activeDrag={activeDrag}
+      />
+      <DragOverlay dropAnimation={null}>
+        {overlayTask && (
+          <div
+            aria-hidden="true"
+            data-task-drag-overlay="true"
+            style={{ pointerEvents: 'none' }}
+          >
+            <TaskItem
+              task={overlayTask}
+              categoryColor={overlayCategory?.color ?? '#4B5563'}
+              currentUserId={currentUserId}
+              onToggle={() => undefined}
+              onOpenActions={() => undefined}
+              onOpenMemo={() => undefined}
+              onEditStart={() => undefined}
+              onViewImage={() => undefined}
+              isEditing={false}
+              editValue=""
+              onEditChange={() => undefined}
+              onEditSave={() => undefined}
+              onEditCancel={() => undefined}
+              disableLayoutAnimation
+              isDragOverlay
+            />
+          </div>
+        )}
+      </DragOverlay>
     </DragDropProvider>
+  );
+};
+
+const DaySlideComponent: React.FC<DaySlideProps> = ({
+  reorderRuntimeActive = true,
+  ...props
+}) => {
+  const { tasks, categories } = props;
+  const categoryIds = React.useMemo(
+    () => categories.map((category) => category.id),
+    [categories]
+  );
+  const livePlacement = React.useMemo(
+    () => buildTaskPlacement(tasks, categoryIds),
+    [categoryIds, tasks]
+  );
+
+  if (categories.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full text-gray-400">
+        <p className="text-sm">No categories yet</p>
+      </div>
+    );
+  }
+
+  if (!reorderRuntimeActive) {
+    const tasksByCategory = buildRenderedTasksByCategory(
+      tasks,
+      livePlacement,
+      categoryIds
+    );
+    return (
+      <DaySlideContent
+        {...props}
+        reorderEnabled={false}
+        reorderRuntimeActive={false}
+        tasksByCategory={tasksByCategory}
+        activeDrag={null}
+      />
+    );
+  }
+
+  return (
+    <TaskReorderRuntime
+      {...props}
+      reorderRuntimeActive
+      categoryIds={categoryIds}
+      livePlacement={livePlacement}
+    />
   );
 };
 

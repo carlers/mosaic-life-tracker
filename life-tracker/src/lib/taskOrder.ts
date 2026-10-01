@@ -92,6 +92,44 @@ export function taskPlacementIdSignature(placement: TaskPlacement): string {
   return Object.values(placement).flat().slice().sort().join('|');
 }
 
+export function isTaskPlacementCompatible(
+  candidate: TaskPlacement,
+  live: TaskPlacement,
+  categoryIds: readonly string[]
+): boolean {
+  const allowed = new Set(categoryIds);
+
+  for (const [categoryId, taskIds] of Object.entries(candidate)) {
+    if (!allowed.has(categoryId) && taskIds.length > 0) return false;
+  }
+
+  const expectedIds = categoryIds.flatMap(
+    (categoryId) => live[categoryId] ?? []
+  );
+  const candidateIds = categoryIds.flatMap(
+    (categoryId) => candidate[categoryId] ?? []
+  );
+
+  if (expectedIds.length !== candidateIds.length) return false;
+
+  const expected = new Set(expectedIds);
+  const actual = new Set(candidateIds);
+
+  if (
+    expected.size !== expectedIds.length ||
+    actual.size !== candidateIds.length ||
+    actual.size !== expected.size
+  ) {
+    return false;
+  }
+
+  for (const taskId of expected) {
+    if (!actual.has(taskId)) return false;
+  }
+
+  return true;
+}
+
 export function buildTaskOrderAssignments(
   tasks: readonly TaskDocument[],
   userId: string,
