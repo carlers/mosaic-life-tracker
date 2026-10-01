@@ -498,6 +498,71 @@ test('task can move into another populated category at the projected position', 
     .toEqual(['task_0_1', 'task_0_2']);
 });
 
+test('category header and first-row boundary share one stable insertion slot', async ({ page }) => {
+  await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html`);
+
+  const region = page.getByTestId('todo-day-content');
+  const sourceCategory = region.locator('[data-task-category-id="cat_0"]');
+  const targetCategory = region.locator('[data-task-category-id="cat_1"]');
+  const source = sourceCategory.locator('[data-task-id="task_0_0"]');
+  const title = source.getByRole('button', { name: 'Task 1.1', exact: true });
+  const headerTarget = targetCategory.locator(
+    '[data-task-category-drop-position="start"]'
+  );
+  const firstTarget = targetCategory.locator('[data-task-id="task_1_0"]');
+
+  await source.scrollIntoViewIfNeeded();
+  const headerBox = await headerTarget.boundingBox();
+  if (!headerBox) throw new Error('Missing category header drop bounds');
+
+  const gesture = await startTaskLongPress(page, title);
+  await gesture.moveTo(
+    headerBox.x + headerBox.width * 0.5,
+    headerBox.y + headerBox.height * 0.75
+  );
+
+  const gap = targetCategory.locator('[data-task-drop-gap="true"]');
+  await expect(gap).toHaveCount(1);
+  const gapAtHeader = await gap.boundingBox();
+  const firstAtHeader = await firstTarget.boundingBox();
+  if (!gapAtHeader || !firstAtHeader) {
+    throw new Error('Missing header insertion geometry');
+  }
+  expect(gapAtHeader.y).toBeLessThan(firstAtHeader.y);
+
+  await gesture.moveTo(
+    firstAtHeader.x + firstAtHeader.width * 0.5,
+    firstAtHeader.y + Math.min(4, firstAtHeader.height * 0.1)
+  );
+  await page.waitForTimeout(80);
+
+  const gapAtFirstRow = await gap.boundingBox();
+  const firstAtFirstRow = await firstTarget.boundingBox();
+  if (!gapAtFirstRow || !firstAtFirstRow) {
+    throw new Error('Missing first-row insertion geometry');
+  }
+
+  expect(gapAtFirstRow.y).toBeLessThan(firstAtFirstRow.y);
+  expect(Math.abs(gapAtFirstRow.y - gapAtHeader.y)).toBeLessThan(2);
+  expect(Math.abs(firstAtFirstRow.y - firstAtHeader.y)).toBeLessThan(2);
+
+  await gesture.moveTo(
+    headerBox.x + headerBox.width * 0.5,
+    headerBox.y + headerBox.height * 0.75
+  );
+  await page.waitForTimeout(80);
+
+  const gapBackAtHeader = await gap.boundingBox();
+  if (!gapBackAtHeader) throw new Error('Missing repeated header insertion geometry');
+  expect(Math.abs(gapBackAtHeader.y - gapAtHeader.y)).toBeLessThan(2);
+
+  await gesture.finish();
+
+  await expect(page.getByTestId('todo-gesture')).toHaveText(
+    'reordered:cat_0=task_0_1,task_0_2|cat_1=task_0_0,task_1_0,task_1_1,task_1_2'
+  );
+});
+
 test('cross-category persistence leaves every task visible and a second drag immediately usable', async ({ page }) => {
   await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html?rxdocs=legacy`);
 
