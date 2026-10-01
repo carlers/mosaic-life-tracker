@@ -364,7 +364,7 @@ test('owner task memo is visible and double/triple tap shortcuts reach edit surf
   await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html`);
 
   await expect(page.getByText('Browser memo content')).toBeVisible();
-  const title = page.getByRole('button', { name: 'Task 1.1' });
+  const title = page.getByRole('button', { name: 'Task 1.1', exact: true });
   await title.dblclick();
   await expect(page.getByTestId('todo-gesture')).toHaveText('edit');
 
@@ -374,7 +374,7 @@ test('owner task memo is visible and double/triple tap shortcuts reach edit surf
   await expect(page.getByTestId('todo-gesture')).toHaveText('memo-edit');
 
   await page.reload();
-  await page.getByRole('button', { name: 'Task 1.1' }).click({ clickCount: 3 });
+  await page.getByRole('button', { name: 'Task 1.1', exact: true }).click({ clickCount: 3 });
   await expect(page.getByTestId('todo-gesture')).toHaveText('memo-edit');
 });
 

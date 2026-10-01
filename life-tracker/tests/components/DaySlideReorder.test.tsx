@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { DaySlide } from '../../src/components/home/views/DaySlide';
 import type { CategoryDocument, TaskDocument } from '../../src/db/schema';
@@ -101,8 +101,10 @@ describe('DaySlide drag coordinator', () => {
     fireEvent.pointerUp(window, { pointerId: 7, pointerType: 'touch', clientX: 40, clientY: 110 });
     expect(visibleCategoryOrder('b')).toEqual(['one', 'three']);
 
-    await Promise.resolve();
-    await Promise.resolve();
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
     expect(visibleCategoryOrder('a')).toEqual(['one', 'two']);
     expect(visibleCategoryOrder('b')).toEqual(['three']);
   });
