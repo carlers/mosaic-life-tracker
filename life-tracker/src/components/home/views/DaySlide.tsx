@@ -31,13 +31,16 @@ interface DaySlideProps {
   onReorderActiveChange?: (active: boolean) => void;
 }
 
+type TaskPlacement = Pick<TaskDocument, 'id' | 'categoryId'>;
+
 type DragSession = {
   pointerId: number;
   pointerType: string;
+  touchIdentifier: number | null;
   taskId: string;
   sourceCategoryId: string;
-  snapshot: readonly TaskDocument[];
-  projected: readonly TaskDocument[];
+  snapshot: readonly TaskPlacement[];
+  projected: readonly TaskPlacement[];
   targetCategoryId: string;
   rowHeight: number;
   x: number;
@@ -46,11 +49,11 @@ type DragSession = {
 
 type PendingProjection = {
   taskId: string;
-  tasks: readonly TaskDocument[];
+  placements: readonly TaskPlacement[];
   signature: string;
 };
 
-const orderingSignature = (items: readonly TaskDocument[]) => {
+const orderingSignature = (items: readonly TaskPlacement[]) => {
   const grouped = new Map<string, string[]>();
   for (const task of items) {
     grouped.set(task.categoryId, [...(grouped.get(task.categoryId) ?? []), task.id]);
@@ -74,6 +77,7 @@ const DaySlideComponent: React.FC<DaySlideProps> = ({
   const sessionRef = React.useRef<DragSession | null>(null);
   const tasksRef = React.useRef(tasks);
   const surfaceRef = React.useRef<HTMLDivElement>(null);
+  const activeTouchesRef = React.useRef(new Map<number, { x: number; y: number }>());
   const autoScrollFrame = React.useRef<number | null>(null);
   const runAutoScrollRef = React.useRef<() => void>(() => undefined);
   const liveOrderingSignature = orderingSignature(tasks);
@@ -82,7 +86,7 @@ const DaySlideComponent: React.FC<DaySlideProps> = ({
   if (liveOrderingSignature !== syncedLiveOrderingSignature) {
     setSyncedLiveOrderingSignature(liveOrderingSignature);
     if (pendingProjection) {
-      const expectedIds = new Set(pendingProjection.tasks.map((task) => task.id));
+      const expectedIds = new Set(pendingProjection.placements.map((task) => task.id));
       const liveExpected = tasks.filter((task) => expectedIds.has(task.id));
       if (
         liveExpected.length !== expectedIds.size ||
@@ -100,20 +104,16 @@ const DaySlideComponent: React.FC<DaySlideProps> = ({
   const displayedTasks = React.useMemo(() => {
     if (!pendingProjection) return tasks;
     const latestById = new Map(tasks.map((task) => [task.id, task]));
-    const projectedIds = new Set(pendingProjection.tasks.map((task) => task.id));
-    const projected = pendingProjection.tasks.map((task) => {
-      const latest = latestById.get(task.id);
-      return latest ? { ...latest, categoryId: task.categoryId } : task;
+    const projectedIds = new Set(pendingProjection.placements.map((placement) => placement.id));
+    const projected = pendingProjection.placements.flatMap((placement) => {
+      const latest = latestById.get(placement.id);
+      return latest ? [{ ...latest, categoryId: placement.categoryId }] : [];
     });
     for (const task of tasks) {
       if (!projectedIds.has(task.id)) projected.push(task);
     }
     return projected;
   }, [pendingProjection, tasks]);
-  const displayedTasksRef = React.useRef(displayedTasks);
-  React.useEffect(() => {
-    displayedTasksRef.current = displayedTasks;
-  }, [displayedTasks]);
 
   const stopAutoScroll = React.useCallback(() => {
     if (autoScrollFrame.current !== null) cancelAnimationFrame(autoScrollFrame.current);
@@ -127,22 +127,28 @@ const DaySlideComponent: React.FC<DaySlideProps> = ({
     setSession(null);
     stopAutoScroll();
     onReorderActiveChange?.(false);
-    const dragged = finalSession.snapshot.find((task) => task.id === finalSession.taskId);
-    const stillExists = tasksRef.current.some((task) => task.id === finalSession.taskId);
+
+    const latestById = new Map(tasksRef.current.map((task) => [task.id, task]));
+    const dragged = latestById.get(finalSession.taskId);
     if (
       cancelled ||
       !dragged ||
-      !stillExists ||
       orderingSignature(finalSession.projected) === orderingSignature(finalSession.snapshot)
     ) {
       return;
     }
 
-    const frozen = finalSession.projected.map((task) => Object.freeze({ ...task }));
+    const placements = finalSession.projected
+      .filter((placement) => latestById.has(placement.id))
+      .map((placement) => Object.freeze({ ...placement }));
+    const frozen = placements.flatMap((placement) => {
+      const latest = latestById.get(placement.id);
+      return latest ? [Object.freeze({ ...latest, categoryId: placement.categoryId })] : [];
+    });
     const optimistic: PendingProjection = {
       taskId: finalSession.taskId,
-      tasks: frozen,
-      signature: orderingSignature(frozen),
+      placements,
+      signature: orderingSignature(placements),
     };
     setPendingProjection(optimistic);
 
@@ -159,31 +165,38 @@ const DaySlideComponent: React.FC<DaySlideProps> = ({
 
   const projectAt = React.useCallback((x: number, y: number) => {
     const current = sessionRef.current;
-    if (!current) return;
+    const surface = surfaceRef.current;
+    if (!current || !surface) return;
+
     const hit = document.elementFromPoint(x, y) as HTMLElement | null;
-    const categoryId = hit?.closest<HTMLElement>('[data-category-id]')?.dataset.categoryId;
-    if (!categoryId) return;
+    let category = hit?.closest<HTMLElement>('[data-category-id]') ?? null;
+    if (!category || !surface.contains(category)) {
+      category = [...surface.querySelectorAll<HTMLElement>('[data-category-id]')].find((candidate) => {
+        const rect = candidate.getBoundingClientRect();
+        return y >= rect.top && y <= rect.bottom && x >= rect.left && x <= rect.right;
+      }) ?? null;
+    }
+    const categoryId = category?.dataset.categoryId;
+    if (!category || !categoryId) return;
 
-    const without = current.projected.filter((task) => task.id !== current.taskId);
-    const categoryTasks = without.filter((task) => task.categoryId === categoryId);
-    const placeholder = hit?.closest<HTMLElement>('[data-task-drop-index]');
-    const placeholderIndex = Number(placeholder?.dataset.taskDropIndex);
-    const targetElement = hit?.closest<HTMLElement>('[data-task-id]:not([data-reorder-anchor="true"])');
-    const targetId = targetElement?.dataset.taskId;
+    const without = current.projected.filter((placement) => placement.id !== current.taskId);
+    const categoryTasks = without.filter((placement) => placement.categoryId === categoryId);
+    const rows = [...category.querySelectorAll<HTMLElement>(
+      '[data-task-id]:not([data-reorder-anchor="true"])'
+    )];
 
-    let localInsertAt = categoryTasks.length;
-    if (placeholder && Number.isInteger(placeholderIndex)) {
-      localInsertAt = Math.max(0, Math.min(placeholderIndex, categoryTasks.length));
-    } else if (targetId && targetId !== current.taskId) {
-      const targetIndex = categoryTasks.findIndex((task) => task.id === targetId);
-      if (targetIndex >= 0) {
-        const rect = targetElement!.getBoundingClientRect();
-        localInsertAt = targetIndex + (y >= rect.top + rect.height / 2 ? 1 : 0);
+    let localInsertAt = rows.length;
+    for (let index = 0; index < rows.length; index += 1) {
+      const rect = rows[index].getBoundingClientRect();
+      if (y < rect.top + rect.height / 2) {
+        localInsertAt = index;
+        break;
       }
     }
+    localInsertAt = Math.max(0, Math.min(localInsertAt, categoryTasks.length));
 
     const categoryIndices = without
-      .map((task, index) => task.categoryId === categoryId ? index : -1)
+      .map((placement, index) => placement.categoryId === categoryId ? index : -1)
       .filter((index) => index >= 0);
     let insertAt = without.length;
     if (categoryIndices.length > 0) {
@@ -192,7 +205,7 @@ const DaySlideComponent: React.FC<DaySlideProps> = ({
         : categoryIndices[categoryIndices.length - 1] + 1;
     }
 
-    const original = current.snapshot.find((task) => task.id === current.taskId);
+    const original = current.snapshot.find((placement) => placement.id === current.taskId);
     if (!original) return;
     const projected = [...without];
     projected.splice(insertAt, 0, { ...original, categoryId });
@@ -209,18 +222,32 @@ const DaySlideComponent: React.FC<DaySlideProps> = ({
     const edge = 64;
     const velocity = current.y < bounds.top + edge ? -Math.min(14, (bounds.top + edge - current.y) / 4)
       : current.y > bounds.bottom - edge ? Math.min(14, (current.y - (bounds.bottom - edge)) / 4) : 0;
-    if (velocity) scroller.scrollTop += velocity;
+    if (velocity) scroller.scrollBy({ top: velocity });
     autoScrollFrame.current = requestAnimationFrame(() => runAutoScrollRef.current());
   }, [scrollMode]);
   React.useEffect(() => { runAutoScrollRef.current = runAutoScroll; }, [runAutoScroll]);
 
   const activate = React.useCallback((task: TaskDocument, pointerId: number, pointerType: string, x: number, y: number) => {
     if (sessionRef.current || !reorderEnabled) return;
-    const snapshot = displayedTasksRef.current.map((item) => Object.freeze({ ...item }));
+    const snapshot = displayedTasks.map(({ id, categoryId }) => Object.freeze({ id, categoryId }));
     const row = surfaceRef.current?.querySelector<HTMLElement>(`[data-task-id="${task.id}"]`);
+
+    let touchIdentifier: number | null = null;
+    if (pointerType === 'touch' && activeTouchesRef.current.size > 0) {
+      let closestDistance = Number.POSITIVE_INFINITY;
+      for (const [identifier, point] of activeTouchesRef.current) {
+        const distance = Math.hypot(point.x - x, point.y - y);
+        if (distance < closestDistance) {
+          closestDistance = distance;
+          touchIdentifier = identifier;
+        }
+      }
+    }
+
     const next: DragSession = {
       pointerId,
       pointerType,
+      touchIdentifier,
       taskId: task.id,
       sourceCategoryId: task.categoryId,
       snapshot,
@@ -234,33 +261,93 @@ const DaySlideComponent: React.FC<DaySlideProps> = ({
     setSession(next);
     onReorderActiveChange?.(true);
     autoScrollFrame.current = requestAnimationFrame(runAutoScroll);
-  }, [onReorderActiveChange, reorderEnabled, runAutoScroll]);
+  }, [displayedTasks, onReorderActiveChange, reorderEnabled, runAutoScroll]);
 
   React.useEffect(() => {
     if (!reorderEnabled) return;
+    const activeTouches = activeTouchesRef.current;
+
+    const rememberTouches = (event: TouchEvent) => {
+      for (const touch of Array.from(event.changedTouches)) {
+        activeTouches.set(touch.identifier, { x: touch.clientX, y: touch.clientY });
+      }
+    };
+    const forgetTouches = (event: TouchEvent) => {
+      for (const touch of Array.from(event.changedTouches)) {
+        activeTouches.delete(touch.identifier);
+      }
+    };
     const move = (event: PointerEvent) => {
       const current = sessionRef.current;
-      if (!current || event.pointerId !== current.pointerId) return;
+      if (!current || current.pointerType === 'touch' || event.pointerId !== current.pointerId) return;
       event.preventDefault();
       event.stopPropagation();
       projectAt(event.clientX, event.clientY);
     };
     const up = (event: PointerEvent) => {
       const current = sessionRef.current;
-      if (!current || event.pointerId !== current.pointerId) return;
+      if (!current || current.pointerType === 'touch' || event.pointerId !== current.pointerId) return;
       event.preventDefault();
       event.stopPropagation();
       finish(false);
     };
     const cancel = (event: PointerEvent) => {
       const current = sessionRef.current;
-      if (!current || event.pointerId !== current.pointerId) return;
+      if (!current || current.pointerType === 'touch' || event.pointerId !== current.pointerId) return;
       finish(true);
     };
+    const touchMove = (event: TouchEvent) => {
+      rememberTouches(event);
+      const current = sessionRef.current;
+      if (!current || current.pointerType !== 'touch') return;
+      const touches = Array.from(event.touches);
+      const touch = current.touchIdentifier === null
+        ? touches[0]
+        : touches.find((candidate) => candidate.identifier === current.touchIdentifier);
+      if (!touch) return;
+
+      if (current.touchIdentifier === null) {
+        const next = { ...current, touchIdentifier: touch.identifier };
+        sessionRef.current = next;
+        setSession(next);
+      }
+      event.preventDefault();
+      event.stopPropagation();
+      projectAt(touch.clientX, touch.clientY);
+    };
+    const touchEnd = (event: TouchEvent) => {
+      const current = sessionRef.current;
+      const endedIds = new Set(Array.from(event.changedTouches, (touch) => touch.identifier));
+      forgetTouches(event);
+      if (!current || current.pointerType !== 'touch') return;
+      if (current.touchIdentifier !== null && !endedIds.has(current.touchIdentifier)) return;
+      if (current.touchIdentifier === null && event.touches.length > 0) return;
+      event.preventDefault();
+      event.stopPropagation();
+      finish(false);
+    };
+    const touchCancel = (event: TouchEvent) => {
+      const current = sessionRef.current;
+      const cancelledIds = new Set(Array.from(event.changedTouches, (touch) => touch.identifier));
+      forgetTouches(event);
+      if (!current || current.pointerType !== 'touch') return;
+      if (current.touchIdentifier !== null && !cancelledIds.has(current.touchIdentifier)) return;
+      finish(true);
+    };
+
+    window.addEventListener('touchstart', rememberTouches, { capture: true, passive: true });
+    window.addEventListener('touchmove', touchMove, { capture: true, passive: false });
+    window.addEventListener('touchend', touchEnd, { capture: true, passive: false });
+    window.addEventListener('touchcancel', touchCancel, true);
     window.addEventListener('pointermove', move, { capture: true, passive: false });
     window.addEventListener('pointerup', up, { capture: true, passive: false });
     window.addEventListener('pointercancel', cancel, true);
     return () => {
+      activeTouches.clear();
+      window.removeEventListener('touchstart', rememberTouches, true);
+      window.removeEventListener('touchmove', touchMove, true);
+      window.removeEventListener('touchend', touchEnd, true);
+      window.removeEventListener('touchcancel', touchCancel, true);
       window.removeEventListener('pointermove', move, true);
       window.removeEventListener('pointerup', up, true);
       window.removeEventListener('pointercancel', cancel, true);
@@ -275,20 +362,34 @@ const DaySlideComponent: React.FC<DaySlideProps> = ({
   }, [finish, tasks]);
   const insertion = React.useMemo(() => {
     if (!session) return null;
-    const targetTasks = session.projected.filter((task) => task.categoryId === session.targetCategoryId);
-    const index = targetTasks.findIndex((task) => task.id === session.taskId);
+    const targetTasks = session.projected.filter((placement) => placement.categoryId === session.targetCategoryId);
+    const index = targetTasks.findIndex((placement) => placement.id === session.taskId);
     return index < 0 ? null : { categoryId: session.targetCategoryId, index };
   }, [session]);
-  const draggedTask = session?.snapshot.find((task) => task.id === session.taskId);
-  const draggedCategory = categories.find((category) => category.id === draggedTask?.categoryId);
+  const draggedTask = session
+    ? displayedTasks.find((task) => task.id === session.taskId) ?? null
+    : null;
+  const draggedCategory = categories.find((category) => category.id === session?.sourceCategoryId);
+  const renderedTasks = React.useMemo(() => {
+    if (!session) return displayedTasks;
+    const latestById = new Map(displayedTasks.map((task) => [task.id, task]));
+    const snapshotIds = new Set(session.snapshot.map((placement) => placement.id));
+    const stable = session.snapshot.flatMap((placement) => {
+      const latest = latestById.get(placement.id);
+      return latest ? [{ ...latest, categoryId: placement.categoryId }] : [];
+    });
+    for (const task of displayedTasks) {
+      if (!snapshotIds.has(task.id)) stable.push(task);
+    }
+    return stable;
+  }, [displayedTasks, session]);
   const tasksByCategory = React.useMemo(() => {
     const map = new Map<string, TaskDocument[]>();
-    const source = session?.snapshot ?? displayedTasks;
-    for (const task of source) {
+    for (const task of renderedTasks) {
       map.set(task.categoryId, [...(map.get(task.categoryId) ?? []), task]);
     }
     return map;
-  }, [displayedTasks, session?.snapshot]);
+  }, [renderedTasks]);
 
   if (categories.length === 0) return <div className="flex h-full flex-col items-center justify-center text-gray-400"><p className="text-sm">No categories yet</p></div>;
 

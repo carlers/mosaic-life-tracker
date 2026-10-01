@@ -68,18 +68,24 @@ async function dragVertical(page, locator, deltaY) {
   });
 }
 
-async function startTaskGripDrag(page, grip, destination) {
-  const gripBox = await grip.boundingBox();
-  if (!gripBox) throw new Error('Missing task reorder grip bounds');
+async function startTaskLongPress(page, target) {
+  const box = await target.boundingBox();
+  if (!box) throw new Error('Missing task long-press target bounds');
   const session = await page.context().newCDPSession(page);
-  const startX = gripBox.x + gripBox.width * 0.5;
-  const startY = gripBox.y + gripBox.height * 0.5;
+  const startX = box.x + box.width * 0.5;
+  const startY = box.y + box.height * 0.5;
 
   await session.send('Input.dispatchTouchEvent', {
     type: 'touchStart',
     touchPoints: [{ x: startX, y: startY }],
   });
+  await page.waitForTimeout(550);
   await expect(page.getByTestId('task-drag-overlay')).toBeVisible();
+  return { session, startX, startY };
+}
+
+async function startTaskLongPressDrag(page, target, destination) {
+  const { session, startX, startY } = await startTaskLongPress(page, target);
 
   let destinationBox = await destination.boundingBox();
   if (!destinationBox) throw new Error('Missing task drag destination bounds');
@@ -378,16 +384,17 @@ test('owner task memo is visible and double/triple tap shortcuts reach edit surf
   await expect(page.getByTestId('todo-gesture')).toHaveText('memo-edit');
 });
 
-// Regression: §25 (the dedicated task grip owns touch movement and reorders live).
-test('owner task grip follows touch and shifts rows before release', async ({ page }) => {
+// Regression: Day View task reorder is a stationary title long-press, not a visible grip.
+test('owner task long-press follows touch and shifts rows before release', async ({ page }) => {
   await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html`);
 
   const source = page.locator('[data-task-id="task_0_0"]');
-  const grip = page.getByRole('button', { name: 'Reorder Task 1.1' });
+  const title = page.getByRole('button', { name: 'Task 1.1', exact: true });
   const destination = page.locator('[data-task-id="task_0_1"]');
   await source.scrollIntoViewIfNeeded();
+  await expect(page.getByRole('button', { name: 'Reorder Task 1.1' })).toHaveCount(0);
   const scrollBefore = await page.evaluate(() => window.scrollY);
-  const session = await startTaskGripDrag(page, grip, destination);
+  const session = await startTaskLongPressDrag(page, title, destination);
 
   await expect(page.getByTestId('task-drag-overlay')).toHaveText('Task 1.1');
   await expect(page.locator(
@@ -413,6 +420,31 @@ test('owner task grip follows touch and shifts rows before release', async ({ pa
       '[data-category-id="cat_0"] [data-task-id]:not([data-reorder-anchor="true"])'
     ).evaluateAll((rows) => rows.map((row) => row.getAttribute('data-task-id'))))
     .toEqual(['task_0_1', 'task_0_0', 'task_0_2']);
+});
+
+test('task long-press keeps the real Day View sheet mounted and dismiss-locked', async ({ page }) => {
+  await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html?perf=heavy`);
+  await page.getByTestId('open-day-view-sheet').click();
+
+  const dialog = page.getByRole('dialog', { name: 'Tuesday, September 15, 2026' });
+  await expect(dialog).toBeVisible();
+  await waitForStableVerticalPosition(dialog);
+  const title = dialog.getByRole('button', { name: 'Task 1.1', exact: true });
+  await title.scrollIntoViewIfNeeded();
+  const rowsBefore = await dialog.locator(
+    '[data-task-id]:not([data-reorder-anchor="true"])'
+  ).count();
+
+  const { session } = await startTaskLongPress(page, title);
+  await expect(dialog).toBeVisible();
+  await expect(dialog.getByRole('button', { name: 'Task 1.2', exact: true })).toBeVisible();
+  await expect(dialog.locator(
+    '[data-task-id]:not([data-reorder-anchor="true"])'
+  )).toHaveCount(rowsBefore - 1);
+
+  await session.send('Input.dispatchTouchEvent', { type: 'touchCancel', touchPoints: [] });
+  await expect(page.getByTestId('task-drag-overlay')).toHaveCount(0);
+  await expect(dialog).toBeVisible();
 });
 
 // Regression: §2 (Day View reopens cleanly after sheet teardown).

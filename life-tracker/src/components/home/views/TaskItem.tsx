@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Check, FileText, GripVertical } from 'lucide-react';
+import { Check, FileText } from 'lucide-react';
 import { useImageLoadGate } from '../../../hooks/useImageLoadGate';
 import { useTaskImage } from '../../../hooks/useTaskImage';
 import { useBubbleGestures } from '../../../hooks/useBubbleGestures';
@@ -164,6 +164,16 @@ export const TaskItem: React.FC<TaskItemProps> = ({
     onSingleTap: () => onOpenActions(task),
     onDoubleTap: () => onEditStart(task),
     onTripleTap: () => onOpenMemo(task, 'edit'),
+    onLongPress: reorderEnabled && onReorderActivate
+      ? (pointer) => onReorderActivate(
+          task,
+          pointer.pointerId,
+          pointer.pointerType,
+          pointer.clientX,
+          pointer.clientY
+        )
+      : undefined,
+    longPressThreshold: 500,
     deferTripleTap: true,
   });
 
@@ -276,28 +286,6 @@ export const TaskItem: React.FC<TaskItemProps> = ({
           </div>
         )}
       </div>
-      {onReorderActivate && !selectionMode && !isEditing && (
-        <button
-          type="button"
-          disabled={!reorderEnabled && !isReorderSource}
-          onPointerDown={(event) => {
-            event.stopPropagation();
-            if (!reorderEnabled) return;
-            onReorderActivate(
-              task,
-              event.pointerId,
-              event.pointerType,
-              event.clientX,
-              event.clientY
-            );
-          }}
-          onClick={(event) => event.stopPropagation()}
-          className="mt-0.5 shrink-0 touch-none rounded p-1 text-gray-500 cursor-grab active:cursor-grabbing disabled:cursor-default disabled:opacity-40 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
-          aria-label={`Reorder ${task.title}`}
-        >
-          <GripVertical size={18} aria-hidden="true" />
-        </button>
-      )}
     </motion.div>
   );
 };
