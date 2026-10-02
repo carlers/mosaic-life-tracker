@@ -717,8 +717,7 @@ async function runSyncCycleBody(userId: string): Promise<void> {
             db.friendships,
             friendshipPushCheckpoint
           );
-        }
-        else if (colName === 'messages') {
+        } else if (colName === 'messages') {
           await startMessageReplicationPilot(
             userId,
             db.messages,
