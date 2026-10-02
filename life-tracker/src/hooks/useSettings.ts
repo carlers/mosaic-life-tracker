@@ -5,6 +5,7 @@ import { useRxCollection } from './useRxCollection';
 import { makeSettingsRowId, MAX_ROW_ID_LENGTH } from '../lib/settingsRowId';
 import { upsertLocalDoc } from '../lib/localUpsert';
 import type { SettingsDocument } from '../db/schema';
+import { requestSyncAfterLocalMutation } from '../lib/syncTrigger';
 
 export { makeSettingsRowId };
 const DEBUG = import.meta.env.DEV;
@@ -97,6 +98,7 @@ export function useSettings() {
         };
         await upsertLocalDoc('settings', id, newSetting);
       }
+      requestSyncAfterLocalMutation(uid);
     },
     [user?.$id]
   );
