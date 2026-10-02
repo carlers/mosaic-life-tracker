@@ -31,6 +31,7 @@ import {
   isPendingImageId,
 } from '../lib/pendingImages';
 import { updateProfileAvatar } from '../lib/social';
+import { awaitPilotReplicationFreshness } from './replicationFreshness';
 
 const PULL_BATCH_SIZE = 100;
 const PUSH_BATCH_SIZE = 20;
@@ -63,6 +64,7 @@ let activePullStream:
   | null = null;
 let realtimeUnsubscribe: RealtimeUnsubscribe | null = null;
 let errorSubscription: Subscription | null = null;
+let activeCollection: RxCollection<SettingsDocument> | null = null;
 
 function isNotFoundError(error: unknown): boolean {
   return (error as { code?: number } | null)?.code === 404;
@@ -481,6 +483,26 @@ export function resyncSettingsReplicationPilot(userId: string): boolean {
   return true;
 }
 
+export async function refreshSettingsReplicationPilot(
+  userId: string,
+  timeoutMs: number
+): Promise<boolean> {
+  if (
+    !isSettingsReplicationPilotActive(userId) ||
+    !activeReplication ||
+    !activeCollection
+  ) {
+    return false;
+  }
+  await awaitPilotReplicationFreshness(
+    'settings',
+    activeReplication,
+    activeCollection,
+    timeoutMs
+  );
+  return true;
+}
+
 export async function stopSettingsReplicationPilot(
   userId?: string
 ): Promise<void> {
@@ -489,6 +511,7 @@ export async function stopSettingsReplicationPilot(
   const replication = activeReplication;
   activeOwnerId = null;
   activeReplication = null;
+  activeCollection = null;
 
   realtimeUnsubscribe?.();
   realtimeUnsubscribe = null;
@@ -547,6 +570,7 @@ export async function startSettingsReplicationPilot(
 
   activeOwnerId = userId;
   activeReplication = replication;
+  activeCollection = collection;
   activePullStream = pullStream;
   realtimeUnsubscribe = subscribeToSettingsRealtime(userId, pullStream);
   errorSubscription = replication.error$.subscribe((error) => {
