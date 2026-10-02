@@ -267,7 +267,7 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
       {!categoryCollapsed && isAdding && (
         <div
           data-testid="pending-task-row"
-          className="flex items-start gap-3 rounded-lg px-2 py-2"
+          className="flex items-start gap-3 rounded-lg pl-0 pr-2 py-2"
         >
           <span
             data-testid="pending-task-checkbox"
