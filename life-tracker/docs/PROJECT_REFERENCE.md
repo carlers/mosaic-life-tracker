@@ -81,7 +81,7 @@ is authoritative.
 ## 4. The Locked Tech Stack
 - **Frontend:** Vite + React 19 (TS) + React Router v7 + Tailwind CSS v3 + lucide-react + date-fns
 - **Media & UI:** `browser-image-compression` (max 150KB base64), `emoji-picker-react` (used by message + task emoji pickers)
-- **Local DB & Sync Engine:** RxDB v17 (`getRxStorageDexie` + `wrappedValidateAjvStorage`). **CRITICAL:** we do NOT use the `replicateAppwrite` plugin. Custom REST sync engine (`src/db/sync.ts`) calls the Appwrite TablesDB API directly.
+- **Local DB & Sync Engine:** RxDB v17 (`getRxStorageDexie` + `wrappedValidateAjvStorage`). The production sync path remains the custom Appwrite TablesDB engine for tasks, diary, settings, friendships, and messages. **Categories are an incremental RxDB replication pilot:** `src/db/categoryReplicationPilot.ts` uses generic `replicateRxCollection()` with Mosaic's guarded TablesDB adapter. **Do not use the official `replicateAppwrite` plugin**: Mosaic requires TablesDB plus its existing mapping/permission/tombstone contracts.
 - **Backend:** Appwrite TablesDB (SDK v26+).
 - **Backend Functions:** `message-action` (Node.js 18) handles all cross-user writes for messaging and task reactions, and its trusted `x-appwrite-trigger: schedule` path performs 90-day tombstone garbage collection. Browser/user executions cannot select the maintenance path through an action payload. Actions are enumerated in §20.3; maintenance is specified in `docs/TOMBSTONE_RETENTION.md`. Required scopes remain `rows.read`, `rows.write`, `tables.read`. `tables.write` intentionally absent — add only if Appwrite docs/Console require it for cross-user `upsertRow`/`updateRow`.
 - **PWA:** `vite-plugin-pwa` (`registerType: 'prompt'`), with passive registration
@@ -328,6 +328,18 @@ for the active task, and [test workflow](TEST_WORKFLOW.md) for verification comm
 - **Local-dirty-wins conflict semantics:** when a locally-modified row (`_meta.lwt` newer than last sync) conflicts with a remote tombstone, the client keeps its local version and re-pushes next cycle. Deliberate: local edits are user intent that outranks a stale server deletion. Trade-off: device B's unsynced edit can resurrect a row deleted on device A. Remote-wins was rejected (silent data loss for offline edits). Policy is global, no per-collection override.
 - **Two-phase read-then-write for multi-row server mutations:** when an Appwrite Function writes to >1 row in one action (`handleReact`), structure as two passes. **Pass A** reads + computes next values for every target, validating each (`REACTIONS_MAX_LEN` overflow check). **Pass B** writes. Any Pass A validation failure returns 400/403 before ANY write — prevents one-row-succeeded / one-row-overflowed partial commits. Residual risk: a Pass B failure after the first write partially commits; next sync reconciles. Known limitation (§20.7).
 - **Mounted pane freshness:** any component displaying cached data from an externally-changeable source that stays mounted across navigation MUST refetch on activation, throttled by a minimum interval. Reference: `PersonPane` friend-pane activation (`FRIEND_REFETCH_MIN_INTERVAL_MS = 15_000`). Own-user panes are exempt if they subscribe live via RxDB. Do not rely on cache TTL alone.
+
+### Category RxDB replication pilot
+
+Categories are the first collection delegated to RxDB's generic replication protocol. This is deliberately incremental rather than a sync rewrite.
+
+- Every JavaScript session performs one successful legacy category sync before the pilot starts. That bootstrap flushes pre-pilot local edits and preserves the 90-day stale-cursor/full-reconciliation guarantee.
+- Immediately after bootstrap, the pilot seeds RxDB's **push** checkpoint from the current local storage checkpoint so historical local categories are not replayed as fresh outbound writes. Pull starts from the remote beginning once so RxDB can establish its own master assumptions.
+- Remote pull checkpoints are server-authored Appwrite `$updatedAt + $id` tuples ordered by the same fields and scoped by `user_id`. This removes client-clock overlap from the pilot's steady-state pull path.
+- Mosaic's `isDeleted` remains an ordinary replicated soft tombstone. RxDB's internal `_deleted` flag remains false for category rows; the pilot must never translate a Mosaic soft delete into an RxDB physical deletion.
+- Appwrite Realtime for categories is owned by the pilot's pull stream. The legacy realtime module intentionally excludes categories to prevent duplicate reconciliation/echo paths. Focus/reconnect/manual legacy sync triggers call `reSync()` when the pilot is active.
+- Existing rows still use `updateRow`; missing/new rows use strict `createRow`; `upsertRow` remains forbidden. Push compares the current remote category with RxDB's assumed master state before updating, but Appwrite still lacks an atomic compare-and-update, so the accepted concurrent-write race remains.
+- The pilot does not gate initial UI/database readiness and does not migrate any other collection. Its status/error presentation remains experimental until the pilot is accepted for broader rollout.
 
 ### Accepted Sync Engine Limitations
 
