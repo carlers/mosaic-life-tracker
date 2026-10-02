@@ -86,8 +86,8 @@ This roadmap records durable workstreams and batch status. `SESSION_STATE.md` co
 ## Deferred technical work
 
 - [ ] Revisit cross-device last-write-wins only if collaboration or active multi-device editing makes the accepted limitation material
-- [ ] Revisit sync clock-skew tolerance if users report missing rows after clock changes
-- [ ] Revisit cross-tab backoff sharing if rate-limit pressure appears in multi-tab use
+- [ ] Revisit compatibility-bootstrap clock-skew tolerance only if stale-client handoff reports missing rows; steady-state RxDB pulls use server-authored tuple checkpoints.
+- [ ] Revisit compatibility-bootstrap cross-tab backoff sharing only if first-session handoff causes rate-limit pressure; steady-state RxDB retries are pilot-owned.
 
 ## Batch boundary
 
