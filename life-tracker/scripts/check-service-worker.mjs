@@ -25,6 +25,16 @@ for (const url of result.precacheUrls) {
   assert.ok((await stat(path)).isFile(), `Precache URL is not an emitted static file: ${url}`);
 }
 
+const importMap = JSON.parse(await readFile(join(directory, 'importmap.json'), 'utf8'));
+assert.ok(
+  Object.keys(importMap.imports ?? {}).length > 0,
+  'Chunk import map must contain emitted chunk mappings'
+);
+assert.ok(
+  result.precacheUrls.includes('importmap.json'),
+  'Chunk import map must be precached for offline module resolution'
+);
+
 const manifest = JSON.parse(await readFile(join(directory, 'manifest.webmanifest'), 'utf8'));
 assert.equal(manifest.id, '/', 'Manifest must keep a stable app identity');
 assert.equal(manifest.scope, '/', 'Manifest must retain root scope');
