@@ -35,6 +35,13 @@ import {
   resyncSettingsReplicationPilot,
   startSettingsReplicationPilot,
 } from './settingsReplicationPilot';
+import {
+  captureFriendshipReplicationPushCheckpoint,
+  isFriendshipReplicationPilotActive,
+  refreshFriendshipReplicationPilot,
+  resyncFriendshipReplicationPilot,
+  startFriendshipReplicationPilot,
+} from './friendshipReplicationPilot';
 import { APPWRITE_DATABASE_ID, APPWRITE_TABLES } from '../lib/appwriteConfig';
 export { toAppwriteFormat, fromAppwriteFormat };
 export { getSyncStatus, subscribeToSyncStatus } from '../lib/syncStatus';
@@ -354,6 +361,7 @@ export async function refreshSync(
     await refreshCategoryReplicationPilot(userId, remaining());
     await refreshDiaryReplicationPilot(userId, remaining());
     await refreshSettingsReplicationPilot(userId, remaining());
+    await refreshFriendshipReplicationPilot(userId, remaining());
   } catch (error) {
     const message =
       error instanceof Error ? error.message : 'Fresh RxDB sync failed';
@@ -567,6 +575,14 @@ async function runSyncCycleBody(userId: string): Promise<void> {
           continue;
         }
 
+        if (
+          colName === 'friendships' &&
+          isFriendshipReplicationPilotActive(userId)
+        ) {
+          resyncFriendshipReplicationPilot(userId);
+          continue;
+        }
+
         const categoryPushCheckpoint =
           colName === 'categories'
             ? await captureCategoryReplicationPushCheckpoint(db.categories)
@@ -578,6 +594,10 @@ async function runSyncCycleBody(userId: string): Promise<void> {
         const settingsPushCheckpoint =
           colName === 'settings'
             ? await captureSettingsReplicationPushCheckpoint(db.settings)
+            : undefined;
+        const friendshipPushCheckpoint =
+          colName === 'friendships'
+            ? await captureFriendshipReplicationPushCheckpoint(db.friendships)
             : undefined;
         const result = await syncCollection(
           db[colName] as unknown as LocalCollection,
@@ -638,6 +658,12 @@ async function runSyncCycleBody(userId: string): Promise<void> {
             userId,
             db.settings,
             settingsPushCheckpoint
+          );
+        } else if (colName === 'friendships') {
+          await startFriendshipReplicationPilot(
+            userId,
+            db.friendships,
+            friendshipPushCheckpoint
           );
         }
       } catch (colError) {
