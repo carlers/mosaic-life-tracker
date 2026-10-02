@@ -5,7 +5,10 @@ import './index.css';
 import { AuthProvider } from './hooks/AuthProvider';
 import { ErrorBoundary } from './components/ui/ErrorBoundary';
 import { installChunkLoadErrorTracking } from './lib/chunkLoadErrors';
-import { initializePwaLifecycle } from './lib/pwaLifecycle';
+import {
+  initializePwaLifecycle,
+  prefetchPwaUpdate,
+} from './lib/pwaLifecycle';
 import { registerSW } from 'virtual:pwa-register';
 import { configureResponsiveOrientation } from './lib/orientation';
 import {
@@ -81,6 +84,29 @@ if (!hasCachedIdentity) {
   }
 }
 
+const PWA_UPDATE_PREFETCH_DELAY_MS = 65_000;
+const PWA_UPDATE_RECHECK_MS = 60 * 60 * 1000;
+const pwaUpdatePrefetchEligibleAt =
+  Date.now() + PWA_UPDATE_PREFETCH_DELAY_MS;
+let lastPwaUpdatePrefetchAt = 0;
+
+const maybePrefetchPwaUpdate = () => {
+  const now = Date.now();
+  if (
+    now < pwaUpdatePrefetchEligibleAt ||
+    now - lastPwaUpdatePrefetchAt < PWA_UPDATE_RECHECK_MS ||
+    navigator.onLine === false ||
+    document.visibilityState === 'hidden'
+  ) {
+    return;
+  }
+
+  lastPwaUpdatePrefetchAt = now;
+  void prefetchPwaUpdate().catch((error) => {
+    console.warn('[PWA] Background update check failed:', error);
+  });
+};
+
 const startBackgroundMaintenance = () => {
   void initializePostHog();
   void configureResponsiveOrientation();
@@ -103,6 +129,14 @@ const startBackgroundMaintenance = () => {
     .catch((error) =>
       console.warn('[Bootstrap] Image-cache sweep failed:', error)
     );
+
+  // Let first-use Home/auth/database work win. Once the app has been settled
+  // for more than a minute, quietly download future app-shell updates so the
+  // Settings action usually only needs to activate an already-waiting worker.
+  window.setTimeout(maybePrefetchPwaUpdate, PWA_UPDATE_PREFETCH_DELAY_MS);
+  window.setInterval(maybePrefetchPwaUpdate, PWA_UPDATE_RECHECK_MS);
+  window.addEventListener('online', maybePrefetchPwaUpdate);
+  document.addEventListener('visibilitychange', maybePrefetchPwaUpdate);
 };
 
 // Maintenance stays behind the first paint. Sync is intentionally absent here:
