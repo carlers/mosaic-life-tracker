@@ -22,6 +22,7 @@ import {
   APPWRITE_DATABASE_ID,
   APPWRITE_TABLES,
 } from '../lib/appwriteConfig';
+import { awaitPilotReplicationFreshness } from './replicationFreshness';
 
 const PULL_BATCH_SIZE = 100;
 const PUSH_BATCH_SIZE = 20;
@@ -54,6 +55,7 @@ let activePullStream:
   | null = null;
 let realtimeUnsubscribe: RealtimeUnsubscribe | null = null;
 let errorSubscription: Subscription | null = null;
+let activeCollection: RxCollection<DiaryDocument> | null = null;
 
 function isNotFoundError(error: unknown): boolean {
   return (error as { code?: number } | null)?.code === 404;
@@ -336,6 +338,26 @@ export function resyncDiaryReplicationPilot(userId: string): boolean {
   return true;
 }
 
+export async function refreshDiaryReplicationPilot(
+  userId: string,
+  timeoutMs: number
+): Promise<boolean> {
+  if (
+    !isDiaryReplicationPilotActive(userId) ||
+    !activeReplication ||
+    !activeCollection
+  ) {
+    return false;
+  }
+  await awaitPilotReplicationFreshness(
+    'diary',
+    activeReplication,
+    activeCollection,
+    timeoutMs
+  );
+  return true;
+}
+
 export async function stopDiaryReplicationPilot(
   userId?: string
 ): Promise<void> {
@@ -344,6 +366,7 @@ export async function stopDiaryReplicationPilot(
   const replication = activeReplication;
   activeOwnerId = null;
   activeReplication = null;
+  activeCollection = null;
 
   realtimeUnsubscribe?.();
   realtimeUnsubscribe = null;
@@ -402,6 +425,7 @@ export async function startDiaryReplicationPilot(
 
   activeOwnerId = userId;
   activeReplication = replication;
+  activeCollection = collection;
   activePullStream = pullStream;
   realtimeUnsubscribe = subscribeToDiaryRealtime(userId, pullStream);
   errorSubscription = replication.error$.subscribe((error) => {
