@@ -11,6 +11,7 @@ export interface PwaLifecycleSnapshot {
 
 export type PwaUpdateCheckResult =
   | 'update-available'
+  | 'update-in-progress'
   | 'up-to-date'
   | 'unavailable';
 
@@ -19,6 +20,7 @@ export type PwaUpdateCheckStage =
   | 'checking'
   | 'update-found'
   | 'downloading'
+  | 'background-download'
   | 'ready'
   | 'up-to-date'
   | 'unavailable';
@@ -177,26 +179,34 @@ async function resolveServiceWorkerRegistration(): Promise<ServiceWorkerRegistra
   }
 }
 
+const INSTALL_WAIT_BEFORE_BACKGROUND_MS = 30_000;
+
+type InstallingWorkerResult =
+  | 'installed'
+  | 'activated'
+  | 'redundant'
+  | 'timeout';
+
 function waitForInstallingWorker(
   worker: ServiceWorker
-): Promise<void> {
+): Promise<InstallingWorkerResult> {
   if (
     worker.state === 'installed' ||
     worker.state === 'activated' ||
     worker.state === 'redundant'
   ) {
-    return Promise.resolve();
+    return Promise.resolve(worker.state);
   }
 
   return new Promise((resolve) => {
     let settled = false;
     let timeout = 0;
-    const finish = () => {
+    const finish = (result: InstallingWorkerResult) => {
       if (settled) return;
       settled = true;
       window.clearTimeout(timeout);
       worker.removeEventListener('statechange', handleStateChange);
-      resolve();
+      resolve(result);
     };
     const handleStateChange = () => {
       if (
@@ -204,13 +214,49 @@ function waitForInstallingWorker(
         worker.state === 'activated' ||
         worker.state === 'redundant'
       ) {
-        finish();
+        finish(worker.state);
       }
     };
 
     worker.addEventListener('statechange', handleStateChange);
-    timeout = window.setTimeout(finish, 15_000);
+    timeout = window.setTimeout(
+      () => finish('timeout'),
+      INSTALL_WAIT_BEFORE_BACKGROUND_MS
+    );
   });
+}
+
+function publishWaitingUpdate(
+  report?: PwaUpdateProgressListener
+): PwaUpdateCheckResult {
+  publish({ updateAvailable: true });
+  report?.('ready');
+  return 'update-available';
+}
+
+async function waitForUpdateInstall(
+  registration: ServiceWorkerRegistration,
+  worker: ServiceWorker,
+  report: PwaUpdateProgressListener
+): Promise<PwaUpdateCheckResult | null> {
+  report('update-found');
+  report('downloading');
+  const state = await waitForInstallingWorker(worker);
+
+  if (state === 'redundant') {
+    throw new Error('The downloaded service worker became redundant before installation completed.');
+  }
+
+  if (registration.waiting || snapshot.updateAvailable) {
+    return publishWaitingUpdate(report);
+  }
+
+  if (state === 'timeout') {
+    report('background-download');
+    return 'update-in-progress';
+  }
+
+  return null;
 }
 
 export async function checkForPwaUpdate(
@@ -226,19 +272,24 @@ export async function checkForPwaUpdate(
   }
 
   if (registration.waiting) {
-    publish({ updateAvailable: true });
-    report('ready');
-    return 'update-available';
+    return publishWaitingUpdate(report);
+  }
+
+  if (registration.installing) {
+    const result = await waitForUpdateInstall(
+      registration,
+      registration.installing,
+      report
+    );
+    if (result) return result;
   }
 
   report('checking');
   let updateFound = false;
-  let downloadReported = false;
   const handleUpdateFound = () => {
     updateFound = true;
     report('update-found');
     if (registration.installing) {
-      downloadReported = true;
       report('downloading');
     }
   };
@@ -247,16 +298,21 @@ export async function checkForPwaUpdate(
   try {
     await registration.update();
 
-    if (registration.installing) {
-      if (!updateFound) report('update-found');
-      if (!downloadReported) report('downloading');
-      await waitForInstallingWorker(registration.installing);
+    if (registration.waiting || snapshot.updateAvailable) {
+      return publishWaitingUpdate(report);
     }
 
-    if (registration.waiting || snapshot.updateAvailable) {
-      publish({ updateAvailable: true });
-      report('ready');
-      return 'update-available';
+    if (registration.installing) {
+      const result = await waitForUpdateInstall(
+        registration,
+        registration.installing,
+        report
+      );
+      if (result) return result;
+    }
+
+    if (updateFound) {
+      throw new Error('An app update was found but did not finish installing.');
     }
 
     report('up-to-date');
@@ -264,6 +320,27 @@ export async function checkForPwaUpdate(
   } finally {
     registration.removeEventListener?.('updatefound', handleUpdateFound);
   }
+}
+
+export async function prefetchPwaUpdate(): Promise<PwaUpdateCheckResult> {
+  const registration = await resolveServiceWorkerRegistration();
+  if (!registration) return 'unavailable';
+
+  if (registration.waiting) {
+    return publishWaitingUpdate();
+  }
+
+  if (registration.installing) {
+    return 'update-in-progress';
+  }
+
+  await registration.update();
+
+  if (registration.waiting || snapshot.updateAvailable) {
+    return publishWaitingUpdate();
+  }
+
+  return registration.installing ? 'update-in-progress' : 'up-to-date';
 }
 
 export async function applyPwaUpdate(): Promise<boolean> {
