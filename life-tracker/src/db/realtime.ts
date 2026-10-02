@@ -20,12 +20,11 @@ const TABLES: Record<keyof AppDatabaseCollections, string> = {
   messages: APPWRITE_TABLES.messages,
 };
 
-// Categories, diary, and settings are intentionally excluded here. After one
-// clean legacy bootstrap, their RxDB replication pilots own Appwrite Realtime
-// so each remote event has exactly one reconciliation path.
+// Categories, diary, settings, and friendships are intentionally excluded
+// here. After one clean legacy bootstrap, their RxDB replication pilots own
+// Appwrite Realtime so each remote event has exactly one reconciliation path.
 const ALL_COLLECTIONS: (keyof AppDatabaseCollections)[] = [
   'tasks',
-  'friendships',
   'messages',
 ];
 
