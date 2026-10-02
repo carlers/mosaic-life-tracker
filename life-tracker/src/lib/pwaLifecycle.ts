@@ -204,7 +204,7 @@ function waitForInstallingWorker(
     const finish = (result: InstallingWorkerResult) => {
       if (settled) return;
       settled = true;
-      window.clearTimeout(timeout);
+      globalThis.clearTimeout(timeout);
       worker.removeEventListener('statechange', handleStateChange);
       resolve(result);
     };
@@ -219,7 +219,7 @@ function waitForInstallingWorker(
     };
 
     worker.addEventListener('statechange', handleStateChange);
-    timeout = window.setTimeout(
+    timeout = globalThis.setTimeout(
       () => finish('timeout'),
       INSTALL_WAIT_BEFORE_BACKGROUND_MS
     );
