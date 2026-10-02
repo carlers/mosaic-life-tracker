@@ -152,16 +152,15 @@ export const SettingsPage: React.FC = () => {
     }
   };
 
+  const isUpdateReady = updateAvailable || updateStage === 'ready';
   const displayedUpdateStage =
     updateStage === 'error' ||
     updateStage === 'unavailable' ||
     updateStage === 'applying'
       ? updateStage
-      : updateAvailable
+      : isUpdateReady
         ? 'ready'
-        : updateStage === 'ready'
-          ? null
-          : updateStage;
+        : updateStage;
 
   const updateStatusMessage =
     displayedUpdateStage === 'preparing'
@@ -402,10 +401,10 @@ export const SettingsPage: React.FC = () => {
           </div>
           <SettingsRow
             icon={<RefreshCw size={18} className="text-emerald-500" aria-hidden="true" />}
-            label={updateAvailable ? 'Update now' : 'Check for Updates'}
-            value={updateAvailable ? 'Ready' : undefined}
+            label={isUpdateReady ? 'Update now' : 'Check for Updates'}
+            value={isUpdateReady ? 'Ready' : undefined}
             showChevron={false}
-            onClick={updateAvailable ? handleApplyUpdate : handleCheckForUpdates}
+            onClick={isUpdateReady ? handleApplyUpdate : handleCheckForUpdates}
           />
           {updateStatusMessage && (
             <div
