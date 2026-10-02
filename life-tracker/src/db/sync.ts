@@ -14,6 +14,49 @@ import { markOfflineDataReady } from '../lib/offlineReadiness';
 import { isPendingImageId, deletePendingImage } from '../lib/pendingImages';
 import { uploadPendingImage, makeProfileImageReadable } from '../lib/storage';
 import { getConnectivitySnapshot } from '../lib/connectivity';
+import {
+  captureCategoryReplicationPushCheckpoint,
+  isCategoryReplicationPilotActive,
+  refreshCategoryReplicationPilot,
+  resyncCategoryReplicationPilot,
+  startCategoryReplicationPilot,
+} from './categoryReplicationPilot';
+import {
+  captureDiaryReplicationPushCheckpoint,
+  isDiaryReplicationPilotActive,
+  refreshDiaryReplicationPilot,
+  resyncDiaryReplicationPilot,
+  startDiaryReplicationPilot,
+} from './diaryReplicationPilot';
+import {
+  captureSettingsReplicationPushCheckpoint,
+  isSettingsReplicationPilotActive,
+  refreshSettingsReplicationPilot,
+  resyncSettingsReplicationPilot,
+  startSettingsReplicationPilot,
+} from './settingsReplicationPilot';
+import {
+  captureFriendshipReplicationPushCheckpoint,
+  isFriendshipReplicationPilotActive,
+  refreshFriendshipReplicationPilot,
+  resyncFriendshipReplicationPilot,
+  startFriendshipReplicationPilot,
+} from './friendshipReplicationPilot';
+import {
+  captureTaskReplicationPushCheckpoint,
+  isTaskReplicationPilotActive,
+  refreshTaskReplicationPilot,
+  resyncTaskReplicationPilot,
+  startTaskReplicationPilot,
+} from './taskReplicationPilot';
+import {
+  captureMessageReplicationPullCheckpoint,
+  captureMessageReplicationPushCheckpoint,
+  isMessageReplicationPilotActive,
+  refreshMessageReplicationPilot,
+  resyncMessageReplicationPilot,
+  startMessageReplicationPilot,
+} from './messageReplicationPilot';
 import { APPWRITE_DATABASE_ID, APPWRITE_TABLES } from '../lib/appwriteConfig';
 export { toAppwriteFormat, fromAppwriteFormat };
 export { getSyncStatus, subscribeToSyncStatus } from '../lib/syncStatus';
@@ -162,6 +205,12 @@ function updateSyncStatus(updates: Partial<SyncStatus>) {
   if (DEBUG) console.log('[Sync] Status:', next);
 }
 type AppwriteRow = Record<string, unknown>;
+interface CollectionSyncResult {
+  pullRowFailed: boolean;
+  pushFailed: number;
+  pullComplete: boolean;
+  errors: unknown[];
+}
 type LocalDoc = {
   id: string;
   _meta?: { lwt?: number };
@@ -182,6 +231,36 @@ let rateLimitUntil = 0;
 let rateLimitBackoffMs = 0;
 let failureBackoffUntil = 0;
 let failureBackoffMs = 0;
+let backoffWakeTimer: ReturnType<typeof setTimeout> | null = null;
+let backoffWakeAt = 0;
+let backoffWakeUserId: string | null = null;
+
+function clearBackoffWakeTimer(): void {
+  if (backoffWakeTimer !== null) {
+    clearTimeout(backoffWakeTimer);
+  }
+  backoffWakeTimer = null;
+  backoffWakeAt = 0;
+  backoffWakeUserId = null;
+}
+
+function scheduleBackoffWake(userId: string, wakeAt: number): void {
+  if (!userId || wakeAt <= Date.now()) return;
+  if (backoffWakeUserId === userId && backoffWakeAt === wakeAt) return;
+
+  clearBackoffWakeTimer();
+  backoffWakeUserId = userId;
+  backoffWakeAt = wakeAt;
+  backoffWakeTimer = globalThis.setTimeout(() => {
+    backoffWakeTimer = null;
+    backoffWakeAt = 0;
+    backoffWakeUserId = null;
+    void initializeSync(userId).catch((error) => {
+      console.error('[Sync] Scheduled retry failed:', error);
+    });
+  }, Math.max(0, wakeAt - Date.now()) + 10);
+}
+
 function isTimestampedCollection(collection: string): boolean {
   return (
     collection === 'tasks' ||
@@ -217,6 +296,26 @@ function toMs(value: unknown): number {
   if (typeof value !== 'string' || !value) return 0;
   const t = new Date(value).getTime();
   return Number.isFinite(t) ? t : 0;
+}
+
+function allReplicationPilotsActive(userId: string): boolean {
+  return (
+    isTaskReplicationPilotActive(userId) &&
+    isCategoryReplicationPilotActive(userId) &&
+    isDiaryReplicationPilotActive(userId) &&
+    isSettingsReplicationPilotActive(userId) &&
+    isFriendshipReplicationPilotActive(userId) &&
+    isMessageReplicationPilotActive(userId)
+  );
+}
+
+function resyncAllReplicationPilots(userId: string): void {
+  resyncTaskReplicationPilot(userId);
+  resyncCategoryReplicationPilot(userId);
+  resyncDiaryReplicationPilot(userId);
+  resyncSettingsReplicationPilot(userId);
+  resyncFriendshipReplicationPilot(userId);
+  resyncMessageReplicationPilot(userId);
 }
 
 async function runBounded<T, R>(
@@ -278,7 +377,76 @@ export async function refreshSync(
   userId: string,
   timeoutMs = SYNC_COORDINATOR_IDLE_TIMEOUT_MS
 ): Promise<FreshSyncResult> {
+  const deadline = Date.now() + timeoutMs;
   await waitForSyncCoordinatorIdle(timeoutMs);
+  const startedAt = Date.now();
+  await initializeSync(userId);
+  updateSyncStatus({ isSyncing: true, errors: [] });
+
+  const remaining = () => {
+    const value = deadline - Date.now();
+    if (value <= 0) {
+      throw new Error(
+        'Mosaic fresh sync timed out. Close other Mosaic tabs or check your connection, then try again.'
+      );
+    }
+    return value;
+  };
+
+  try {
+    await refreshCategoryReplicationPilot(userId, remaining());
+    await refreshDiaryReplicationPilot(userId, remaining());
+    await refreshSettingsReplicationPilot(userId, remaining());
+    await refreshFriendshipReplicationPilot(userId, remaining());
+    await refreshTaskReplicationPilot(userId, remaining());
+    await refreshMessageReplicationPilot(userId, remaining());
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : 'Fresh RxDB sync failed';
+    updateSyncStatus({
+      isSyncing: false,
+      errors: [...getSyncStatus().errors, message],
+    });
+    throw error;
+  }
+
+  const completedAt = new Date().toISOString();
+  updateSyncStatus({
+    isSyncing: false,
+    lastSync: completedAt,
+    errors: [],
+  });
+  markOfflineDataReady(userId, completedAt);
+  return { status: getSyncStatus(), startedAt };
+}
+
+/**
+ * User-invoked sync is a real freshness request, unlike ordinary coalescing
+ * triggers. Drain the same-tab coordinator first. A transient failure backoff
+ * may be retried immediately by explicit user intent, while Appwrite 429
+ * backoff remains protected and wakes itself when the server window expires.
+ */
+export async function syncNow(
+  userId: string,
+  timeoutMs = SYNC_COORDINATOR_IDLE_TIMEOUT_MS
+): Promise<FreshSyncResult> {
+  await waitForSyncCoordinatorIdle(timeoutMs);
+
+  if (allReplicationPilotsActive(userId)) {
+    return refreshSync(userId, timeoutMs);
+  }
+
+  if (backoffOwnerId === userId && Date.now() < rateLimitUntil) {
+    scheduleBackoffWake(userId, rateLimitUntil);
+    return { status: getSyncStatus(), startedAt: Date.now() };
+  }
+
+  if (backoffOwnerId === userId && Date.now() < failureBackoffUntil) {
+    failureBackoffUntil = 0;
+    failureBackoffMs = 0;
+    clearBackoffWakeTimer();
+  }
+
   const startedAt = Date.now();
   await initializeSync(userId);
   return { status: getSyncStatus(), startedAt };
@@ -315,12 +483,21 @@ async function resolvePendingImageForPush(
 }
 export async function initializeSync(userId: string): Promise<void> {
   if (!userId) return;
+
+  // Once every collection has handed off in this JavaScript session, the
+  // custom engine is no longer part of steady-state sync. Focus/reconnect
+  // triggers go straight to the six RxDB replication states.
+  if (allReplicationPilotsActive(userId)) {
+    resyncAllReplicationPilots(userId);
+    return;
+  }
   if (backoffOwnerId !== userId) {
     backoffOwnerId = userId;
     rateLimitUntil = 0;
     rateLimitBackoffMs = 0;
     failureBackoffUntil = 0;
     failureBackoffMs = 0;
+    clearBackoffWakeTimer();
   }
   // Same-tab reentry: if a cycle is queued (awaiting or holding the lock)
   // or running, coalesce into a single follow-up run rather than queueing
@@ -343,6 +520,7 @@ export async function initializeSync(userId: string): Promise<void> {
         ).toISOString()}`
       );
     }
+    scheduleBackoffWake(userId, rateLimitUntil);
     updateSyncStatus({ isSyncing: false });
     return;
   }
@@ -354,6 +532,7 @@ export async function initializeSync(userId: string): Promise<void> {
         ).toISOString()}`
       );
     }
+    scheduleBackoffWake(userId, failureBackoffUntil);
     updateSyncStatus({ isSyncing: false });
     return;
   }
@@ -430,11 +609,162 @@ async function runSyncCycleBody(userId: string): Promise<void> {
     let sawNonRateLimitFailure = false;
     for (const colName of ALL_COLLECTIONS) {
       try {
-        await syncCollection(
+        if (
+          colName === 'categories' &&
+          isCategoryReplicationPilotActive(userId)
+        ) {
+          resyncCategoryReplicationPilot(userId);
+          continue;
+        }
+        if (
+          colName === 'diary' &&
+          isDiaryReplicationPilotActive(userId)
+        ) {
+          resyncDiaryReplicationPilot(userId);
+          continue;
+        }
+
+        if (
+          colName === 'settings' &&
+          isSettingsReplicationPilotActive(userId)
+        ) {
+          resyncSettingsReplicationPilot(userId);
+          continue;
+        }
+
+        if (
+          colName === 'tasks' &&
+          isTaskReplicationPilotActive(userId)
+        ) {
+          resyncTaskReplicationPilot(userId);
+          continue;
+        }
+
+        if (
+          colName === 'friendships' &&
+          isFriendshipReplicationPilotActive(userId)
+        ) {
+          resyncFriendshipReplicationPilot(userId);
+          continue;
+        }
+
+        if (
+          colName === 'messages' &&
+          isMessageReplicationPilotActive(userId)
+        ) {
+          resyncMessageReplicationPilot(userId);
+          continue;
+        }
+
+        const taskPushCheckpoint =
+          colName === 'tasks'
+            ? await captureTaskReplicationPushCheckpoint(db.tasks)
+            : undefined;
+        const categoryPushCheckpoint =
+          colName === 'categories'
+            ? await captureCategoryReplicationPushCheckpoint(db.categories)
+            : undefined;
+        const diaryPushCheckpoint =
+          colName === 'diary'
+            ? await captureDiaryReplicationPushCheckpoint(db.diary)
+            : undefined;
+        const settingsPushCheckpoint =
+          colName === 'settings'
+            ? await captureSettingsReplicationPushCheckpoint(db.settings)
+            : undefined;
+        const friendshipPushCheckpoint =
+          colName === 'friendships'
+            ? await captureFriendshipReplicationPushCheckpoint(db.friendships)
+            : undefined;
+        const messagePushCheckpoint =
+          colName === 'messages'
+            ? await captureMessageReplicationPushCheckpoint(db.messages)
+            : undefined;
+        const messagePullCheckpoint =
+          colName === 'messages'
+            ? await captureMessageReplicationPullCheckpoint(userId)
+            : undefined;
+        const result = await syncCollection(
           db[colName] as unknown as LocalCollection,
           colName,
-          userId
+          userId,
+          colName === 'messages'
         );
+
+        const hasCollectionIssues =
+          result.pullRowFailed ||
+          result.pushFailed > 0 ||
+          !result.pullComplete;
+        if (hasCollectionIssues) {
+          const issueParts: string[] = [];
+          if (result.pullRowFailed) issueParts.push('pull row failed');
+          if (result.pushFailed > 0) {
+            issueParts.push(
+              `${result.pushFailed} push/reconciliation failure${result.pushFailed === 1 ? '' : 's'}`
+            );
+          }
+          if (!result.pullComplete) issueParts.push('pull incomplete');
+          collectionErrors.push(`${colName}: ${issueParts.join(', ')}`);
+
+          let classifiedError = false;
+          for (const rowError of result.errors) {
+            classifiedError = true;
+            if (isRateLimitError(rowError)) {
+              sawRateLimit = true;
+            } else if (isUnauthorizedError(rowError)) {
+              sawUnauthorized = true;
+            } else {
+              sawNonRateLimitFailure = true;
+            }
+          }
+          if (!classifiedError || !result.pullComplete) {
+            sawNonRateLimitFailure = true;
+          }
+          continue;
+        }
+
+        if (colName === 'tasks') {
+          await startTaskReplicationPilot(
+            userId,
+            db.tasks,
+            taskPushCheckpoint
+          );
+        } else if (colName === 'categories') {
+          // Only a completely clean legacy bootstrap may establish RxDB's
+          // initial upstream baseline. The seed was captured before the
+          // bootstrap so edits made while it was running remain newer than
+          // the checkpoint and cannot be skipped by the handoff.
+          await startCategoryReplicationPilot(
+            userId,
+            db.categories,
+            categoryPushCheckpoint
+          );
+        } else if (colName === 'diary') {
+          await startDiaryReplicationPilot(
+            userId,
+            db.diary,
+            diaryPushCheckpoint
+          );
+        } else if (colName === 'settings') {
+          await startSettingsReplicationPilot(
+            userId,
+            db.settings,
+            settingsPushCheckpoint
+          );
+        } else if (colName === 'friendships') {
+          await startFriendshipReplicationPilot(
+            userId,
+            db.friendships,
+            friendshipPushCheckpoint
+          );
+        } else if (colName === 'messages') {
+          await startMessageReplicationPilot(
+            userId,
+            db.messages,
+            messagePushCheckpoint,
+            messagePullCheckpoint
+          );
+        }
       } catch (colError) {
         const message =
           colError instanceof Error
@@ -452,6 +782,7 @@ async function runSyncCycleBody(userId: string): Promise<void> {
       }
     }
     if (sawUnauthorized) {
+      clearBackoffWakeTimer();
       updateSyncStatus({ isSyncing: false, errors: collectionErrors });
       return;
     }
@@ -481,6 +812,14 @@ async function runSyncCycleBody(userId: string): Promise<void> {
       failureBackoffMs = 0;
       failureBackoffUntil = 0;
     }
+
+    const wakeAt = Math.max(rateLimitUntil, failureBackoffUntil);
+    if (wakeAt > Date.now()) {
+      scheduleBackoffWake(userId, wakeAt);
+    } else {
+      clearBackoffWakeTimer();
+    }
+
     if (collectionErrors.length === 0) {
       const completedAt = new Date().toISOString();
       updateSyncStatus({
@@ -511,9 +850,18 @@ async function runSyncCycleBody(userId: string): Promise<void> {
 async function syncCollection(
   collection: LocalCollection,
   colName: string,
-  userId: string
-) {
-  if (colName === 'friendships') return syncFriendships(userId);
+  userId: string,
+  forceFullPull = false
+): Promise<CollectionSyncResult> {
+  if (colName === 'friendships') {
+    await syncFriendships(userId);
+    return {
+      pullRowFailed: false,
+      pushFailed: 0,
+      pullComplete: true,
+      errors: [],
+    };
+  }
   const cycleStartMs = Date.now();
   const tableId =
     APPWRITE_CONFIG.tables[colName as keyof typeof APPWRITE_CONFIG.tables];
@@ -523,7 +871,8 @@ async function syncCollection(
   const dirtyBoundaryMs = entry?.dirty ? new Date(entry.dirty).getTime() : 0;
   const incrementalCursorExpired =
     pullBoundaryMs > 0 && Date.now() - pullBoundaryMs > TOMBSTONE_RETENTION_MS;
-  const effectivePullBoundaryMs = incrementalCursorExpired ? 0 : pullBoundaryMs;
+  const effectivePullBoundaryMs =
+    forceFullPull || incrementalCursorExpired ? 0 : pullBoundaryMs;
   if (incrementalCursorExpired && DEBUG) {
     console.log(
       `[Sync] ${colName} incremental cursor expired; performing full pull`
@@ -539,6 +888,8 @@ async function syncCollection(
   let cursor: string | undefined = undefined;
   let pageCount = 0;
   let pullRowFailed = false;
+  let pullComplete = true;
+  const collectionErrors: unknown[] = [];
   for (;;) {
     const queries: unknown[] = [
       Query.equal('user_id', userId),
@@ -574,7 +925,7 @@ async function syncCollection(
           updatedAt: remoteUpdatedAt,
           isDeleted: (doc.isDeleted as boolean) ?? false,
         });
-        if (incrementalCursorExpired) {
+        if (incrementalCursorExpired && pullComplete && !pullRowFailed) {
           delete reconciledMissing[reconciliationKey(colName, docId)];
         }
         const localDoc = await collection.findOne(docId).exec();
@@ -613,9 +964,9 @@ async function syncCollection(
             try {
               await localDoc.incrementalPatch({ readAt: remoteReadAt });
             } catch (err) {
-              if (DEBUG) {
-                console.warn('[Sync] read_at pull failed for', docId, err);
-              }
+              pullRowFailed = true;
+              collectionErrors.push(err);
+              console.warn('[Sync] read_at pull failed for', docId, err);
             }
           }
         }
@@ -658,22 +1009,31 @@ async function syncCollection(
       } catch (rowError) {
         console.error(`[Sync] Failed to process ${colName} row:`, rowError);
         pullRowFailed = true;
+        collectionErrors.push(rowError);
       }
     }
     if (rows.length < PAGE_SIZE) break;
     const lastId = rows[rows.length - 1].$id as string | undefined;
-    if (!lastId || lastId === cursor) break;
+    if (!lastId || lastId === cursor) {
+      pullComplete = false;
+      console.warn(
+        `[Sync] ${colName} pagination did not advance; keeping pull checkpoint`
+      );
+      break;
+    }
     cursor = lastId;
     if (pageCount >= MAX_PAGES_PER_COLLECTION) {
+      pullComplete = false;
       console.warn(
         `[Sync] ${colName} hit page cap (${MAX_PAGES_PER_COLLECTION}); stopping pull`
       );
       break;
     }
   }
-  const nextPullIso = pullRowFailed
-    ? entry?.pull ?? ''
-    : new Date(cycleStartMs).toISOString();
+  const nextPullIso =
+    pullRowFailed || !pullComplete
+      ? entry?.pull ?? ''
+      : new Date(cycleStartMs).toISOString();
   perCollectionSync[colName as CollectionName] = {
     pull: nextPullIso,
     dirty: entry?.dirty ?? '',
@@ -739,6 +1099,7 @@ async function syncCollection(
             `[Sync] Failed to reconcile pending image for ${colName} ${docId}:`,
             imageError
           );
+          collectionErrors.push(imageError);
           return 1;
         }
 
@@ -759,6 +1120,7 @@ async function syncCollection(
               `[Sync] Failed to push ${colName} ${docId}:`,
               updateErr
             );
+            collectionErrors.push(updateErr);
             return 1;
           }
 
@@ -782,6 +1144,7 @@ async function syncCollection(
               `[Sync] Failed to create ${colName} ${docId}:`,
               createErr
             );
+            collectionErrors.push(createErr);
             return 1;
           }
         }
@@ -792,7 +1155,7 @@ async function syncCollection(
       0
     );
   }
-  if (incrementalCursorExpired) {
+  if (incrementalCursorExpired && pullComplete && !pullRowFailed) {
     const localDocsAfterPull = await collection.find().exec();
     const reconciliationNow = new Date().toISOString();
     for (const doc of localDocsAfterPull) {
@@ -814,6 +1177,7 @@ async function syncCollection(
           `[Sync] Failed to reconcile missing ${colName} ${docId}:`,
           reconcileErr
         );
+        collectionErrors.push(reconcileErr);
         pushFailed++;
       }
     }
@@ -830,17 +1194,51 @@ async function syncCollection(
   saveReconciledMissingRows(userId, reconciledMissing);
   savePerCollectionState(userId, perCollectionSync);
   if (DEBUG) {
-    if (pullRowFailed || pushFailed > 0) {
+    if (pullRowFailed || pushFailed > 0 || !pullComplete) {
       console.warn(
         `[Sync] ⚠️ ${colName} completed with issues: ` +
-          `pullRowFailed=${pullRowFailed} pushFailed=${pushFailed}`
+          `pullRowFailed=${pullRowFailed} pushFailed=${pushFailed} ` +
+          `pullComplete=${pullComplete}`
       );
     } else {
       console.log(`[Sync] ✅ ${colName} synced (${pageCount} page(s) pulled)`);
     }
   }
+  return {
+    pullRowFailed,
+    pushFailed,
+    pullComplete,
+    errors: collectionErrors,
+  };
 }
 export async function forceSync(userId: string) {
   if (DEBUG) console.log('[Sync] Force sync triggered');
+  if (allReplicationPilotsActive(userId)) {
+    resyncAllReplicationPilots(userId);
+    return;
+  }
   await initializeSync(userId);
+}
+
+export async function forceMessageSync(userId: string): Promise<void> {
+  if (isMessageReplicationPilotActive(userId)) {
+    resyncMessageReplicationPilot(userId);
+    return;
+  }
+  await initializeSync(userId);
+}
+
+export function __resetSyncRuntimeForTests(): void {
+  clearBackoffWakeTimer();
+  isSyncInProgress = false;
+  isSyncCycleQueued = false;
+  syncRequestedDuringFlight = false;
+  queuedSyncUserId = null;
+  backoffOwnerId = null;
+  rateLimitUntil = 0;
+  rateLimitBackoffMs = 0;
+  failureBackoffUntil = 0;
+  failureBackoffMs = 0;
+  perCollectionSync = {};
+  perCollectionOwnerId = null;
 }

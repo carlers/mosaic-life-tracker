@@ -64,7 +64,10 @@ export function useDiary() {
       const id = makeDiaryRowId(uid, date);
       const doc = await getDatabase().diary.findOne(id).exec();
       if (doc) {
-        await doc.patch({ isDeleted: true });
+        await doc.incrementalPatch({
+          isDeleted: true,
+          updatedAt: new Date().toISOString(),
+        });
       }
     },
     [user?.$id]

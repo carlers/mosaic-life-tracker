@@ -24,6 +24,37 @@ const createRowMock = vi.hoisted(() => vi.fn());
 const getDatabaseMock = vi.hoisted(() => vi.fn());
 const uploadPendingImageMock = vi.hoisted(() => vi.fn());
 const deletePendingImageMock = vi.hoisted(() => vi.fn());
+const categoryPilotActiveMock = vi.hoisted(() => vi.fn());
+const categoryPilotResyncMock = vi.hoisted(() => vi.fn());
+const categoryPilotStartMock = vi.hoisted(() => vi.fn());
+const categoryPilotCheckpointMock = vi.hoisted(() => vi.fn());
+const categoryPilotRefreshMock = vi.hoisted(() => vi.fn());
+const diaryPilotActiveMock = vi.hoisted(() => vi.fn());
+const diaryPilotResyncMock = vi.hoisted(() => vi.fn());
+const diaryPilotStartMock = vi.hoisted(() => vi.fn());
+const diaryPilotCheckpointMock = vi.hoisted(() => vi.fn());
+const diaryPilotRefreshMock = vi.hoisted(() => vi.fn());
+const settingsPilotActiveMock = vi.hoisted(() => vi.fn());
+const settingsPilotResyncMock = vi.hoisted(() => vi.fn());
+const settingsPilotStartMock = vi.hoisted(() => vi.fn());
+const settingsPilotCheckpointMock = vi.hoisted(() => vi.fn());
+const settingsPilotRefreshMock = vi.hoisted(() => vi.fn());
+const friendshipPilotActiveMock = vi.hoisted(() => vi.fn());
+const friendshipPilotResyncMock = vi.hoisted(() => vi.fn());
+const friendshipPilotStartMock = vi.hoisted(() => vi.fn());
+const friendshipPilotCheckpointMock = vi.hoisted(() => vi.fn());
+const friendshipPilotRefreshMock = vi.hoisted(() => vi.fn());
+const taskPilotActiveMock = vi.hoisted(() => vi.fn());
+const taskPilotResyncMock = vi.hoisted(() => vi.fn());
+const taskPilotStartMock = vi.hoisted(() => vi.fn());
+const taskPilotCheckpointMock = vi.hoisted(() => vi.fn());
+const taskPilotRefreshMock = vi.hoisted(() => vi.fn());
+const messagePilotActiveMock = vi.hoisted(() => vi.fn());
+const messagePilotResyncMock = vi.hoisted(() => vi.fn());
+const messagePilotStartMock = vi.hoisted(() => vi.fn());
+const messagePilotPushCheckpointMock = vi.hoisted(() => vi.fn());
+const messagePilotPullCheckpointMock = vi.hoisted(() => vi.fn());
+const messagePilotRefreshMock = vi.hoisted(() => vi.fn());
 // Test fixture note: sync.ts reads `account` directly from '../../src/lib/appwrite'
 // instead of going through guardedAccount. The appwrite SDK mock must
 // therefore provide `Client` and `Account` so the real appwrite.ts module
@@ -82,6 +113,49 @@ vi.mock('../../src/lib/sdk', () => ({
 }));
 vi.mock('../../src/db/database', () => ({
   getDatabase: getDatabaseMock,
+}));
+vi.mock('../../src/db/categoryReplicationPilot', () => ({
+  captureCategoryReplicationPushCheckpoint: categoryPilotCheckpointMock,
+  isCategoryReplicationPilotActive: categoryPilotActiveMock,
+  refreshCategoryReplicationPilot: categoryPilotRefreshMock,
+  resyncCategoryReplicationPilot: categoryPilotResyncMock,
+  startCategoryReplicationPilot: categoryPilotStartMock,
+}));
+vi.mock('../../src/db/diaryReplicationPilot', () => ({
+  captureDiaryReplicationPushCheckpoint: diaryPilotCheckpointMock,
+  isDiaryReplicationPilotActive: diaryPilotActiveMock,
+  refreshDiaryReplicationPilot: diaryPilotRefreshMock,
+  resyncDiaryReplicationPilot: diaryPilotResyncMock,
+  startDiaryReplicationPilot: diaryPilotStartMock,
+}));
+vi.mock('../../src/db/settingsReplicationPilot', () => ({
+  captureSettingsReplicationPushCheckpoint: settingsPilotCheckpointMock,
+  isSettingsReplicationPilotActive: settingsPilotActiveMock,
+  refreshSettingsReplicationPilot: settingsPilotRefreshMock,
+  resyncSettingsReplicationPilot: settingsPilotResyncMock,
+  startSettingsReplicationPilot: settingsPilotStartMock,
+}));
+vi.mock('../../src/db/friendshipReplicationPilot', () => ({
+  captureFriendshipReplicationPushCheckpoint: friendshipPilotCheckpointMock,
+  isFriendshipReplicationPilotActive: friendshipPilotActiveMock,
+  refreshFriendshipReplicationPilot: friendshipPilotRefreshMock,
+  resyncFriendshipReplicationPilot: friendshipPilotResyncMock,
+  startFriendshipReplicationPilot: friendshipPilotStartMock,
+}));
+vi.mock('../../src/db/taskReplicationPilot', () => ({
+  captureTaskReplicationPushCheckpoint: taskPilotCheckpointMock,
+  isTaskReplicationPilotActive: taskPilotActiveMock,
+  refreshTaskReplicationPilot: taskPilotRefreshMock,
+  resyncTaskReplicationPilot: taskPilotResyncMock,
+  startTaskReplicationPilot: taskPilotStartMock,
+}));
+vi.mock('../../src/db/messageReplicationPilot', () => ({
+  captureMessageReplicationPullCheckpoint: messagePilotPullCheckpointMock,
+  captureMessageReplicationPushCheckpoint: messagePilotPushCheckpointMock,
+  isMessageReplicationPilotActive: messagePilotActiveMock,
+  refreshMessageReplicationPilot: messagePilotRefreshMock,
+  resyncMessageReplicationPilot: messagePilotResyncMock,
+  startMessageReplicationPilot: messagePilotStartMock,
 }));
 vi.mock('../../src/lib/storage', () => ({
   uploadPendingImage: uploadPendingImageMock,
@@ -156,6 +230,52 @@ function makeRemoteTaskRow(id: string, updatedAt: string) {
     ...makeTaskRow(id),
     $updatedAt: updatedAt,
     updated_at: updatedAt,
+  };
+}
+function makeDiaryRow(id: string) {
+  return {
+    $id: id,
+    user_id: 'user_A',
+    $updatedAt: '2026-01-01T00:00:00.000Z',
+    date: '2026-01-01',
+    content: 'entry',
+    visibility: 'private',
+    created_at: '2026-01-01T00:00:00.000Z',
+    updated_at: '2026-01-01T00:00:00.000Z',
+    deleted: false,
+  };
+}
+function makeLocalCategoryDoc(id: string) {
+  return {
+    id,
+    _meta: { lwt: Date.now() + 1_000_000 },
+    toJSON: () => ({
+      id,
+      userId: 'user_A',
+      name: 'Work',
+      color: '#3B82F6',
+      order: 0,
+      visibility: 'private',
+      isDeleted: false,
+      icon: '',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+    }),
+    incrementalPatch: vi.fn().mockResolvedValue(undefined),
+  };
+}
+function makeLocalSettingDoc(id: string) {
+  return {
+    id,
+    _meta: { lwt: Date.now() + 1_000_000 },
+    toJSON: () => ({
+      id,
+      userId: 'user_A',
+      key: 'theme',
+      value: 'dark',
+      isDeleted: false,
+      updatedAt: '2026-01-01T00:00:00.000Z',
+    }),
+    incrementalPatch: vi.fn().mockResolvedValue(undefined),
   };
 }
 function makeLocalDoc(id: string) {
@@ -289,6 +409,83 @@ beforeEach(async () => {
   getDatabaseMock.mockReset();
   uploadPendingImageMock.mockReset();
   deletePendingImageMock.mockReset();
+  categoryPilotActiveMock.mockReset();
+  categoryPilotResyncMock.mockReset();
+  categoryPilotStartMock.mockReset();
+  categoryPilotCheckpointMock.mockReset();
+  categoryPilotRefreshMock.mockReset();
+  diaryPilotActiveMock.mockReset();
+  diaryPilotResyncMock.mockReset();
+  diaryPilotStartMock.mockReset();
+  diaryPilotCheckpointMock.mockReset();
+  diaryPilotRefreshMock.mockReset();
+  settingsPilotActiveMock.mockReset();
+  settingsPilotResyncMock.mockReset();
+  settingsPilotStartMock.mockReset();
+  settingsPilotCheckpointMock.mockReset();
+  settingsPilotRefreshMock.mockReset();
+  friendshipPilotActiveMock.mockReset();
+  friendshipPilotResyncMock.mockReset();
+  friendshipPilotStartMock.mockReset();
+  friendshipPilotCheckpointMock.mockReset();
+  friendshipPilotRefreshMock.mockReset();
+  taskPilotActiveMock.mockReset();
+  taskPilotResyncMock.mockReset();
+  taskPilotStartMock.mockReset();
+  taskPilotCheckpointMock.mockReset();
+  taskPilotRefreshMock.mockReset();
+  messagePilotActiveMock.mockReset();
+  messagePilotResyncMock.mockReset();
+  messagePilotStartMock.mockReset();
+  messagePilotPushCheckpointMock.mockReset();
+  messagePilotPullCheckpointMock.mockReset();
+  messagePilotRefreshMock.mockReset();
+  categoryPilotActiveMock.mockReturnValue(false);
+  categoryPilotStartMock.mockResolvedValue(undefined);
+  categoryPilotCheckpointMock.mockResolvedValue({
+    id: 'cat_seed',
+    lwt: 123,
+  });
+  categoryPilotRefreshMock.mockResolvedValue(false);
+  diaryPilotActiveMock.mockReturnValue(false);
+  diaryPilotStartMock.mockResolvedValue(undefined);
+  diaryPilotCheckpointMock.mockResolvedValue({
+    id: 'diary_seed',
+    lwt: 456,
+  });
+  diaryPilotRefreshMock.mockResolvedValue(false);
+  settingsPilotActiveMock.mockReturnValue(false);
+  settingsPilotStartMock.mockResolvedValue(undefined);
+  settingsPilotCheckpointMock.mockResolvedValue({
+    id: 'setting_seed',
+    lwt: 789,
+  });
+  settingsPilotRefreshMock.mockResolvedValue(false);
+  friendshipPilotActiveMock.mockReturnValue(false);
+  friendshipPilotStartMock.mockResolvedValue(undefined);
+  friendshipPilotCheckpointMock.mockResolvedValue({
+    id: 'friendship_seed',
+    lwt: 987,
+  });
+  friendshipPilotRefreshMock.mockResolvedValue(false);
+  taskPilotActiveMock.mockReturnValue(false);
+  taskPilotStartMock.mockResolvedValue(undefined);
+  taskPilotCheckpointMock.mockResolvedValue({
+    id: 'task_seed',
+    lwt: 654,
+  });
+  taskPilotRefreshMock.mockResolvedValue(false);
+  messagePilotActiveMock.mockReturnValue(false);
+  messagePilotStartMock.mockResolvedValue(undefined);
+  messagePilotPushCheckpointMock.mockResolvedValue({
+    id: 'msg_seed',
+    lwt: 321,
+  });
+  messagePilotPullCheckpointMock.mockResolvedValue({
+    id: 'msg_tail',
+    updatedAt: '2026-10-02T00:00:09.000Z',
+  });
+  messagePilotRefreshMock.mockResolvedValue(false);
   uploadPendingImageMock.mockResolvedValue('img_uploaded');
   deletePendingImageMock.mockResolvedValue(undefined);
   getDatabaseMock.mockReturnValue(makeDb());
@@ -302,8 +499,442 @@ beforeEach(async () => {
   logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
 });
 afterEach(() => {
+  syncModule.__resetSyncRuntimeForTests();
+  vi.useRealTimers();
   vi.restoreAllMocks();
 });
+describe('sync — message RxDB replication pilot handoff', () => {
+  it('captures both message checkpoints before a forced-full bootstrap, then starts RxDB', async () => {
+    const db = makeDb();
+    getDatabaseMock.mockReturnValue(db);
+    localStorage.setItem(
+      'lastSyncTimePerCollection',
+      JSON.stringify({
+        version: 1,
+        ownerId: 'user_A',
+        entries: {
+          messages: {
+            pull: '2026-10-02T00:00:08.000Z',
+            dirty: '2026-10-02T00:00:08.000Z',
+          },
+        },
+      })
+    );
+
+    await syncModule.initializeSync('user_A');
+
+    expect(messagePilotPushCheckpointMock).toHaveBeenCalledWith(db.messages);
+    expect(messagePilotPullCheckpointMock).toHaveBeenCalledWith('user_A');
+    expect(messagePilotStartMock).toHaveBeenCalledWith(
+      'user_A',
+      db.messages,
+      { id: 'msg_seed', lwt: 321 },
+      {
+        id: 'msg_tail',
+        updatedAt: '2026-10-02T00:00:09.000Z',
+      }
+    );
+
+    const messagePull = listRowsMock.mock.calls.find(
+      (call) => (call[0] as { tableId?: string }).tableId === 'messages'
+    );
+    expect(messagePull).toBeDefined();
+    const queries = (messagePull?.[0] as { queries?: Array<{ op?: string }> })
+      .queries ?? [];
+    expect(queries.some((query) => query.op === 'greaterThan')).toBe(false);
+
+    expect(
+      messagePilotPushCheckpointMock.mock.invocationCallOrder[0]
+    ).toBeLessThan(
+      listRowsMock.mock.invocationCallOrder[
+        listRowsMock.mock.calls.indexOf(messagePull!)
+      ]
+    );
+    expect(
+      messagePilotPullCheckpointMock.mock.invocationCallOrder[0]
+    ).toBeLessThan(
+      listRowsMock.mock.invocationCallOrder[
+        listRowsMock.mock.calls.indexOf(messagePull!)
+      ]
+    );
+  });
+
+  it('delegates later message catch-up triggers to RxDB', async () => {
+    const db = makeDb();
+    getDatabaseMock.mockReturnValue(db);
+
+    await syncModule.initializeSync('user_A');
+
+    messagePilotActiveMock.mockReturnValue(true);
+    listRowsMock.mockClear();
+
+    await syncModule.initializeSync('user_A');
+
+    expect(messagePilotResyncMock).toHaveBeenCalledWith('user_A');
+    const messagePulls = listRowsMock.mock.calls.filter(
+      (call) => (call[0] as { tableId?: string }).tableId === 'messages'
+    );
+    expect(messagePulls).toHaveLength(0);
+  });
+
+  it('chat heartbeat resyncs only messages once the pilot is active', async () => {
+    messagePilotActiveMock.mockReturnValue(true);
+    listRowsMock.mockClear();
+    taskPilotResyncMock.mockClear();
+    categoryPilotResyncMock.mockClear();
+
+    await syncModule.forceMessageSync('user_A');
+
+    expect(messagePilotResyncMock).toHaveBeenCalledWith('user_A');
+    expect(taskPilotResyncMock).not.toHaveBeenCalled();
+    expect(categoryPilotResyncMock).not.toHaveBeenCalled();
+    expect(listRowsMock).not.toHaveBeenCalled();
+  });
+
+  it('refuses message handoff when the forced-full bootstrap is incomplete', async () => {
+    const fullPage = Array.from({ length: 100 }, (_, index) => ({
+      $id: `msg_${String(index).padStart(3, '0')}`,
+      user_id: 'user_A',
+      $updatedAt: '2026-10-02T00:00:01.000Z',
+      thread_id: 'th_one',
+      sender_id: 'user_A',
+      recipient_id: 'user_B',
+      direction: 'outgoing',
+      content: 'x',
+      task_ref_id: '',
+      task_ref_title: '',
+      task_ref_date: '',
+      task_ref_color: '',
+      reply_to_id: '',
+      reply_to_content: '',
+      reply_to_sender_id: '',
+      is_unsent: false,
+      original_message_id: '',
+      reactions: '',
+      read_at: '',
+      delivery_status: 'delivered',
+      created_at: '2026-10-02T00:00:00.000Z',
+      updated_at: '2026-10-02T00:00:01.000Z',
+      deleted: false,
+    }));
+    listRowsMock.mockImplementation(
+      async ({ tableId }: { tableId: string }) => {
+        if (tableId === 'messages') return { rows: fullPage };
+        return { rows: [] };
+      }
+    );
+
+    await syncModule.initializeSync('user_A');
+
+    expect(messagePilotStartMock).not.toHaveBeenCalled();
+    expect(syncModule.getSyncStatus().errors).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining('messages: pull incomplete'),
+      ])
+    );
+  });
+});
+
+describe('sync — task RxDB replication pilot handoff', () => {
+  it('bootstraps tasks once, then delegates catch-up triggers to RxDB', async () => {
+    const db = makeDb();
+    getDatabaseMock.mockReturnValue(db);
+
+    await syncModule.initializeSync('user_A');
+
+    expect(taskPilotCheckpointMock).toHaveBeenCalledWith(db.tasks);
+    expect(taskPilotStartMock).toHaveBeenCalledWith(
+      'user_A',
+      db.tasks,
+      { id: 'task_seed', lwt: 654 }
+    );
+    const taskPullCallIndex = listRowsMock.mock.calls.findIndex(
+      (call) => (call[0] as { tableId?: string }).tableId === 'tasks'
+    );
+    expect(taskPullCallIndex).toBeGreaterThanOrEqual(0);
+    expect(taskPilotCheckpointMock.mock.invocationCallOrder[0]).toBeLessThan(
+      listRowsMock.mock.invocationCallOrder[taskPullCallIndex]
+    );
+
+    taskPilotActiveMock.mockReturnValue(true);
+    listRowsMock.mockClear();
+
+    await syncModule.initializeSync('user_A');
+
+    expect(taskPilotResyncMock).toHaveBeenCalledWith('user_A');
+    expect(taskListRowsCalls()).toHaveLength(0);
+  });
+
+  it('does not hand off tasks after an incomplete legacy bootstrap', async () => {
+    const fullPage = Array.from({ length: 100 }, (_, index) =>
+      makeTaskRow(`task_${String(index).padStart(3, '0')}`)
+    );
+    listRowsMock.mockImplementation(
+      async ({ tableId }: { tableId: string }) => {
+        if (tableId === 'tasks') return { rows: fullPage };
+        return { rows: [] };
+      }
+    );
+
+    await syncModule.initializeSync('user_A');
+
+    expect(taskPilotStartMock).not.toHaveBeenCalled();
+    expect(syncModule.getSyncStatus().errors).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining('tasks: pull incomplete'),
+      ])
+    );
+  });
+});
+
+describe('sync — category RxDB replication pilot handoff', () => {
+  it('bootstraps categories once, then delegates catch-up triggers to RxDB', async () => {
+    const db = makeDb();
+    getDatabaseMock.mockReturnValue(db);
+
+    await syncModule.initializeSync('user_A');
+
+    expect(categoryPilotStartMock).toHaveBeenCalledTimes(1);
+    expect(categoryPilotCheckpointMock).toHaveBeenCalledWith(db.categories);
+    expect(categoryPilotStartMock).toHaveBeenCalledWith(
+      'user_A',
+      db.categories,
+      { id: 'cat_seed', lwt: 123 }
+    );
+    const categoryPullCallIndex = listRowsMock.mock.calls.findIndex(
+      (call) =>
+        (call[0] as { tableId?: string }).tableId === 'categories'
+    );
+    expect(categoryPullCallIndex).toBeGreaterThanOrEqual(0);
+    expect(categoryPilotCheckpointMock.mock.invocationCallOrder[0]).toBeLessThan(
+      listRowsMock.mock.invocationCallOrder[categoryPullCallIndex]
+    );
+
+    categoryPilotActiveMock.mockReturnValue(true);
+    listRowsMock.mockClear();
+
+    await syncModule.initializeSync('user_A');
+
+    expect(categoryPilotResyncMock).toHaveBeenCalledWith('user_A');
+    const categoryPulls = listRowsMock.mock.calls.filter(
+      (call) =>
+        (call[0] as { tableId?: string }).tableId === 'categories'
+    );
+    expect(categoryPulls).toHaveLength(0);
+  });
+
+  it('does not hand off when the legacy category bootstrap has a push failure', async () => {
+    const failedCategory = makeLocalCategoryDoc('cat_failed');
+    const db = {
+      ...makeDb(),
+      categories: {
+        findOne: () => ({ exec: async () => null }),
+        find: () => ({ exec: async () => [failedCategory] }),
+        upsert: vi.fn().mockResolvedValue(undefined),
+      },
+    };
+    getDatabaseMock.mockReturnValue(db);
+    updateRowMock.mockImplementation(
+      async ({ tableId }: { tableId: string }) => {
+        if (tableId === 'categories') {
+          throw Object.assign(new Error('category write failed'), {
+            code: 500,
+          });
+        }
+        return {};
+      }
+    );
+
+    await syncModule.initializeSync('user_A');
+
+    expect(categoryPilotStartMock).not.toHaveBeenCalled();
+    expect(syncModule.getSyncStatus().errors).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining('categories: 1 push/reconciliation failure'),
+      ])
+    );
+  });
+});
+
+describe('sync — diary RxDB replication pilot handoff', () => {
+  it('bootstraps diary once, then delegates catch-up triggers to RxDB', async () => {
+    const db = makeDb();
+    getDatabaseMock.mockReturnValue(db);
+
+    await syncModule.initializeSync('user_A');
+
+    expect(diaryPilotCheckpointMock).toHaveBeenCalledWith(db.diary);
+    expect(diaryPilotStartMock).toHaveBeenCalledWith(
+      'user_A',
+      db.diary,
+      { id: 'diary_seed', lwt: 456 }
+    );
+    const diaryPullCallIndex = listRowsMock.mock.calls.findIndex(
+      (call) => (call[0] as { tableId?: string }).tableId === 'diary'
+    );
+    expect(diaryPullCallIndex).toBeGreaterThanOrEqual(0);
+    expect(diaryPilotCheckpointMock.mock.invocationCallOrder[0]).toBeLessThan(
+      listRowsMock.mock.invocationCallOrder[diaryPullCallIndex]
+    );
+
+    diaryPilotActiveMock.mockReturnValue(true);
+    listRowsMock.mockClear();
+
+    await syncModule.initializeSync('user_A');
+
+    expect(diaryPilotResyncMock).toHaveBeenCalledWith('user_A');
+    const diaryPulls = listRowsMock.mock.calls.filter(
+      (call) => (call[0] as { tableId?: string }).tableId === 'diary'
+    );
+    expect(diaryPulls).toHaveLength(0);
+  });
+
+  it('does not hand off diary after an incomplete legacy bootstrap', async () => {
+    const fullPage = Array.from({ length: 100 }, (_, index) =>
+      makeDiaryRow(`diary_${String(index).padStart(3, '0')}`)
+    );
+    listRowsMock.mockImplementation(
+      async ({ tableId }: { tableId: string }) => {
+        if (tableId === 'diary') return { rows: fullPage };
+        return { rows: [] };
+      }
+    );
+
+    await syncModule.initializeSync('user_A');
+
+    expect(diaryPilotStartMock).not.toHaveBeenCalled();
+    expect(syncModule.getSyncStatus().errors).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining('diary: pull incomplete'),
+      ])
+    );
+  });
+});
+
+describe('sync — settings RxDB replication pilot handoff', () => {
+  it('bootstraps settings once, then delegates catch-up triggers to RxDB', async () => {
+    const db = makeDb();
+    getDatabaseMock.mockReturnValue(db);
+
+    await syncModule.initializeSync('user_A');
+
+    expect(settingsPilotCheckpointMock).toHaveBeenCalledWith(db.settings);
+    expect(settingsPilotStartMock).toHaveBeenCalledWith(
+      'user_A',
+      db.settings,
+      { id: 'setting_seed', lwt: 789 }
+    );
+    const settingsPullCallIndex = listRowsMock.mock.calls.findIndex(
+      (call) => (call[0] as { tableId?: string }).tableId === 'settings'
+    );
+    expect(settingsPullCallIndex).toBeGreaterThanOrEqual(0);
+    expect(settingsPilotCheckpointMock.mock.invocationCallOrder[0]).toBeLessThan(
+      listRowsMock.mock.invocationCallOrder[settingsPullCallIndex]
+    );
+
+    settingsPilotActiveMock.mockReturnValue(true);
+    listRowsMock.mockClear();
+
+    await syncModule.initializeSync('user_A');
+
+    expect(settingsPilotResyncMock).toHaveBeenCalledWith('user_A');
+    const settingsPulls = listRowsMock.mock.calls.filter(
+      (call) => (call[0] as { tableId?: string }).tableId === 'settings'
+    );
+    expect(settingsPulls).toHaveLength(0);
+  });
+
+  it('does not hand off settings after a failed legacy push', async () => {
+    const failedSetting = makeLocalSettingDoc('setting_failed');
+    const db = {
+      ...makeDb(),
+      settings: {
+        findOne: () => ({ exec: async () => null }),
+        find: () => ({ exec: async () => [failedSetting] }),
+        upsert: vi.fn().mockResolvedValue(undefined),
+      },
+    };
+    getDatabaseMock.mockReturnValue(db);
+    updateRowMock.mockImplementation(
+      async ({ tableId }: { tableId: string }) => {
+        if (tableId === 'settings') {
+          throw Object.assign(new Error('settings write failed'), { code: 500 });
+        }
+        return {};
+      }
+    );
+
+    await syncModule.initializeSync('user_A');
+
+    expect(settingsPilotStartMock).not.toHaveBeenCalled();
+    expect(syncModule.getSyncStatus().errors).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining('settings: 1 push/reconciliation failure'),
+      ])
+    );
+  });
+});
+
+describe('sync — friendship RxDB replication pilot handoff', () => {
+  it('bootstraps friendships once, then delegates catch-up triggers to RxDB', async () => {
+    const db = makeDb();
+    getDatabaseMock.mockReturnValue(db);
+
+    await syncModule.initializeSync('user_A');
+
+    expect(friendshipPilotCheckpointMock).toHaveBeenCalledWith(
+      db.friendships
+    );
+    expect(friendshipPilotStartMock).toHaveBeenCalledWith(
+      'user_A',
+      db.friendships,
+      { id: 'friendship_seed', lwt: 987 }
+    );
+    const friendshipPullCallIndex = listRowsMock.mock.calls.findIndex(
+      (call) =>
+        (call[0] as { tableId?: string }).tableId === 'friendships'
+    );
+    expect(friendshipPullCallIndex).toBeGreaterThanOrEqual(0);
+    expect(
+      friendshipPilotCheckpointMock.mock.invocationCallOrder[0]
+    ).toBeLessThan(
+      listRowsMock.mock.invocationCallOrder[friendshipPullCallIndex]
+    );
+
+    friendshipPilotActiveMock.mockReturnValue(true);
+    listRowsMock.mockClear();
+
+    await syncModule.initializeSync('user_A');
+
+    expect(friendshipPilotResyncMock).toHaveBeenCalledWith('user_A');
+    const friendshipPulls = listRowsMock.mock.calls.filter(
+      (call) =>
+        (call[0] as { tableId?: string }).tableId === 'friendships'
+    );
+    expect(friendshipPulls).toHaveLength(0);
+  });
+
+  it('does not hand off friendships when the legacy full pull fails', async () => {
+    listRowsMock.mockImplementation(
+      async ({ tableId }: { tableId: string }) => {
+        if (tableId === 'friendships') {
+          throw new Error('friendship pull failed');
+        }
+        return { rows: [] };
+      }
+    );
+
+    await syncModule.initializeSync('user_A');
+
+    expect(friendshipPilotStartMock).not.toHaveBeenCalled();
+    expect(syncModule.getSyncStatus().errors).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining('friendships: friendship pull failed'),
+      ])
+    );
+  });
+});
+
 describe('sync — listener isolation', () => {
   it('a throwing status listener does not prevent initializeSync from completing', async () => {
     const unsubscribe = syncModule.subscribeToSyncStatus(() => {
@@ -370,6 +1001,56 @@ describe('sync — explicit fresh refresh', () => {
   });
 });
 
+describe('sync — steady-state RxDB fast path', () => {
+  function markAllPilotsActive() {
+    taskPilotActiveMock.mockReturnValue(true);
+    categoryPilotActiveMock.mockReturnValue(true);
+    diaryPilotActiveMock.mockReturnValue(true);
+    settingsPilotActiveMock.mockReturnValue(true);
+    friendshipPilotActiveMock.mockReturnValue(true);
+    messagePilotActiveMock.mockReturnValue(true);
+  }
+
+  it('forceSync resyncs all pilots without entering the legacy engine', async () => {
+    markAllPilotsActive();
+    listRowsMock.mockClear();
+
+    await syncModule.forceSync('user_A');
+
+    expect(taskPilotResyncMock).toHaveBeenCalledWith('user_A');
+    expect(categoryPilotResyncMock).toHaveBeenCalledWith('user_A');
+    expect(diaryPilotResyncMock).toHaveBeenCalledWith('user_A');
+    expect(settingsPilotResyncMock).toHaveBeenCalledWith('user_A');
+    expect(friendshipPilotResyncMock).toHaveBeenCalledWith('user_A');
+    expect(messagePilotResyncMock).toHaveBeenCalledWith('user_A');
+    expect(listRowsMock).not.toHaveBeenCalled();
+  });
+
+  it('manual sync uses the RxDB freshness barrier and records a fresh success', async () => {
+    markAllPilotsActive();
+    taskPilotRefreshMock.mockResolvedValue(true);
+    categoryPilotRefreshMock.mockResolvedValue(true);
+    diaryPilotRefreshMock.mockResolvedValue(true);
+    settingsPilotRefreshMock.mockResolvedValue(true);
+    friendshipPilotRefreshMock.mockResolvedValue(true);
+    messagePilotRefreshMock.mockResolvedValue(true);
+    listRowsMock.mockClear();
+
+    const result = await syncModule.syncNow('user_A', 5_000);
+
+    expect(listRowsMock).not.toHaveBeenCalled();
+    expect(taskPilotRefreshMock).toHaveBeenCalled();
+    expect(categoryPilotRefreshMock).toHaveBeenCalled();
+    expect(diaryPilotRefreshMock).toHaveBeenCalled();
+    expect(settingsPilotRefreshMock).toHaveBeenCalled();
+    expect(friendshipPilotRefreshMock).toHaveBeenCalled();
+    expect(messagePilotRefreshMock).toHaveBeenCalled();
+    expect(result.status.isSyncing).toBe(false);
+    expect(result.status.errors).toEqual([]);
+    expect(result.status.lastSync).toBeTruthy();
+  });
+});
+
 describe('sync — forceSync follow-up queueing', () => {
   it('runs a follow-up when forceSync is called during an in-flight sync', async () => {
     const firstPull = makeDeferred<{ rows: never[] }>();
@@ -400,6 +1081,162 @@ describe('sync — forceSync follow-up queueing', () => {
   });
 });
 // Regression: §18 (sync failure isolation and boundary safety).
+describe('sync — RxDB pilot fresh-sync barrier', () => {
+  it('awaits task, category, diary, settings, friendship, and message pilot freshness before returning', async () => {
+    taskPilotRefreshMock.mockResolvedValue(true);
+    categoryPilotRefreshMock.mockResolvedValue(true);
+    diaryPilotRefreshMock.mockResolvedValue(true);
+    settingsPilotRefreshMock.mockResolvedValue(true);
+    friendshipPilotRefreshMock.mockResolvedValue(true);
+    messagePilotRefreshMock.mockResolvedValue(true);
+
+    await syncModule.refreshSync('user_A', 5_000);
+
+    expect(taskPilotRefreshMock).toHaveBeenCalledWith(
+      'user_A',
+      expect.any(Number)
+    );
+    expect(categoryPilotRefreshMock).toHaveBeenCalledWith(
+      'user_A',
+      expect.any(Number)
+    );
+    expect(diaryPilotRefreshMock).toHaveBeenCalledWith(
+      'user_A',
+      expect.any(Number)
+    );
+    expect(settingsPilotRefreshMock).toHaveBeenCalledWith(
+      'user_A',
+      expect.any(Number)
+    );
+    expect(friendshipPilotRefreshMock).toHaveBeenCalledWith(
+      'user_A',
+      expect.any(Number)
+    );
+    expect(messagePilotRefreshMock).toHaveBeenCalledWith(
+      'user_A',
+      expect.any(Number)
+    );
+    expect(
+      taskPilotRefreshMock.mock.invocationCallOrder[0]
+    ).toBeGreaterThan(friendshipPilotRefreshMock.mock.invocationCallOrder[0]);
+    expect(
+      messagePilotRefreshMock.mock.invocationCallOrder[0]
+    ).toBeGreaterThan(taskPilotRefreshMock.mock.invocationCallOrder[0]);
+    expect(
+      categoryPilotRefreshMock.mock.invocationCallOrder[0]
+    ).toBeLessThan(diaryPilotRefreshMock.mock.invocationCallOrder[0]);
+    expect(
+      diaryPilotRefreshMock.mock.invocationCallOrder[0]
+    ).toBeLessThan(settingsPilotRefreshMock.mock.invocationCallOrder[0]);
+    expect(
+      settingsPilotRefreshMock.mock.invocationCallOrder[0]
+    ).toBeLessThan(friendshipPilotRefreshMock.mock.invocationCallOrder[0]);
+  });
+
+  it('fails the safety barrier when an RxDB pilot cannot prove freshness', async () => {
+    categoryPilotRefreshMock.mockRejectedValue(
+      new Error('Fresh category sync is owned by another Mosaic tab.')
+    );
+
+    await expect(
+      syncModule.refreshSync('user_A', 5_000)
+    ).rejects.toThrow('another Mosaic tab');
+
+    expect(syncModule.getSyncStatus().errors).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining('another Mosaic tab'),
+      ])
+    );
+    expect(diaryPilotRefreshMock).not.toHaveBeenCalled();
+    expect(settingsPilotRefreshMock).not.toHaveBeenCalled();
+    expect(friendshipPilotRefreshMock).not.toHaveBeenCalled();
+    expect(taskPilotRefreshMock).not.toHaveBeenCalled();
+    expect(messagePilotRefreshMock).not.toHaveBeenCalled();
+  });
+});
+
+describe('sync — manual freshness and retry wake-up', () => {
+  it('manual sync retries immediately through a transient failure backoff', async () => {
+    const docs = [makeLocalDoc('manual_retry')];
+    getDatabaseMock.mockReturnValue({
+      tasks: {
+        findOne: () => ({ exec: async () => null }),
+        find: () => ({ exec: async () => docs }),
+        upsert: vi.fn(),
+      },
+      categories: makeEmptyCollection(),
+      diary: makeEmptyCollection(),
+      settings: makeEmptyCollection(),
+      friendships: makeEmptyCollection(),
+      messages: makeEmptyCollection(),
+    });
+    updateRowMock.mockRejectedValueOnce(
+      Object.assign(new Error('server boom'), { code: 500 })
+    );
+
+    await syncModule.initializeSync('user_A');
+    expect(syncModule.getSyncStatus().errors.length).toBeGreaterThan(0);
+
+    listRowsMock.mockClear();
+    updateRowMock.mockResolvedValue({});
+    await syncModule.syncNow('user_A');
+
+    expect(listRowsMock).toHaveBeenCalled();
+    expect(syncModule.getSyncStatus().errors).toEqual([]);
+    expect(syncModule.getSyncStatus().lastSync).toBeTruthy();
+  });
+
+  it('manual sync respects an active 429 backoff', async () => {
+    const rateLimitErr = Object.assign(new Error('rate limit'), {
+      code: 429,
+    });
+    listRowsMock.mockRejectedValueOnce(rateLimitErr);
+
+    await syncModule.initializeSync('user_A');
+    expect(syncModule.getSyncStatus().errors.length).toBeGreaterThan(0);
+
+    listRowsMock.mockClear();
+    await syncModule.syncNow('user_A');
+
+    expect(listRowsMock).not.toHaveBeenCalled();
+  });
+
+  it('automatically retries when transient failure backoff expires', async () => {
+    vi.useFakeTimers();
+    const docs = [makeLocalDoc('auto_retry')];
+    getDatabaseMock.mockReturnValue({
+      tasks: {
+        findOne: () => ({ exec: async () => null }),
+        find: () => ({ exec: async () => docs }),
+        upsert: vi.fn(),
+      },
+      categories: makeEmptyCollection(),
+      diary: makeEmptyCollection(),
+      settings: makeEmptyCollection(),
+      friendships: makeEmptyCollection(),
+      messages: makeEmptyCollection(),
+    });
+
+    let retryObserved = false;
+    updateRowMock
+      .mockRejectedValueOnce(Object.assign(new Error('server boom'), { code: 500 }))
+      .mockImplementation(async () => {
+        retryObserved = true;
+        return {};
+      });
+
+    await syncModule.initializeSync('user_A');
+    expect(retryObserved).toBe(false);
+
+    await vi.advanceTimersByTimeAsync(5_020);
+    for (let i = 0; i < 10 && !retryObserved; i += 1) {
+      await Promise.resolve();
+    }
+
+    expect(retryObserved).toBe(true);
+  });
+});
+
 describe('sync — boundary advancement', () => {
   it('after a successful cycle, dirty boundary equals cycle-start, not cycle-end', async () => {
     const observedFirstListRowsAt = { value: 0 };
@@ -442,6 +1279,10 @@ describe('sync — boundary advancement', () => {
     );
     await syncModule.initializeSync('user_A');
     expect(failingUpsert).toHaveBeenCalledTimes(1);
+    expect(syncModule.getSyncStatus().lastSync).toBeNull();
+    expect(syncModule.getSyncStatus().errors).toEqual(
+      expect.arrayContaining([expect.stringContaining('tasks: pull row failed')])
+    );
     const raw = localStorageMock.getItem('lastSyncTimePerCollection');
     const state = JSON.parse(raw!);
     expect(state.entries.tasks.pull).toBe('');
@@ -498,6 +1339,12 @@ describe('sync — boundary advancement', () => {
     updateRowMock.mockResolvedValueOnce({});
     await syncModule.initializeSync('user_A');
     expect(updateRowMock).toHaveBeenCalledTimes(3);
+    expect(syncModule.getSyncStatus().lastSync).toBeNull();
+    expect(syncModule.getSyncStatus().errors).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining('tasks: 1 push/reconciliation failure'),
+      ])
+    );
   });
   it('a push failure leaves the dirty boundary at its previous value', async () => {
     await syncModule.initializeSync('user_A');

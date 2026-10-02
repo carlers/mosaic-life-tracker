@@ -81,19 +81,9 @@ const LocalDataStartupShell: React.FC<{
   </div>
 );
 
-let realtimeModulePromise: Promise<typeof import('../../db/realtime')> | null =
-  null;
 let messageDeliveryModulePromise:
   | Promise<typeof import('../../lib/messageDelivery')>
   | null = null;
-
-function loadRealtimeModule() {
-  realtimeModulePromise ??= import('../../db/realtime').catch((error) => {
-    realtimeModulePromise = null;
-    throw error;
-  });
-  return realtimeModulePromise;
-}
 
 function loadMessageDeliveryModule() {
   messageDeliveryModulePromise ??= import('../../lib/messageDelivery').catch(
@@ -124,32 +114,6 @@ export const AppLayout: React.FC = () => {
       console.error('[AppLayout] data shell preload failed:', shellError);
     });
   }, [user?.$id]);
-
-  // Realtime is background infrastructure, not shell-rendering code. Load it
-  // after React commits the authenticated layout instead of pulling it into
-  // the synchronous startup graph.
-  useEffect(() => {
-    const uid = user?.$id;
-    if (!uid || isOffline || connectivity.status !== 'online' || database.state !== 'ready') return;
-
-    let active = true;
-    let stopRealtime: (() => void) | null = null;
-
-    void loadRealtimeModule()
-      .then((realtime) => {
-        if (!active) return;
-        realtime.startRealtime(uid);
-        stopRealtime = realtime.stopRealtime;
-      })
-      .catch((err) =>
-        console.error('[AppLayout] realtime module failed:', err)
-      );
-
-    return () => {
-      active = false;
-      stopRealtime?.();
-    };
-  }, [connectivity.status, database.state, isOffline, user?.$id]);
 
   useEffect(() => {
     const uid = user?.$id;

@@ -7,11 +7,14 @@ otherwise miss deletions and recreate stale rows.
 
 - Remote tombstones are retained for **90 days** by default.
 - The tombstone's `updated_at` is the deletion timestamp for retention purposes.
-- A client keeps its existing per-collection sync cursor in `lastSyncTimePerCollection`.
-- If a collection's pull cursor is older than 90 days, that collection performs a full
-  pull instead of an incremental `$updatedAt` pull.
-- Full pulls include tombstones, so a stale client can reconcile deletions that still fall
-  inside the retention window.
+- Steady-state RxDB replication uses each pilot's server-authored `$updatedAt + $id`
+  checkpoint. Mosaic also retains the compatibility bootstrap's per-collection cursor in
+  `lastSyncTimePerCollection` specifically for stale-client/full-reconciliation safety.
+- On each JavaScript session, before an inactive pilot hands off, the compatibility bootstrap
+  checks that cursor. If it is older than 90 days, that collection performs a full pull rather
+  than trusting an incremental boundary.
+- Full compatibility pulls include tombstones, so a stale client can reconcile deletions that
+  still fall inside the retention window before steady-state RxDB replication resumes.
 - Full reconciliation does not discard newly dirty local edits. Clean local rows that are
   absent from the remote full pull are converted to local tombstones and marked as
   reconciliation-suppressed, so they disappear locally without being recreated on the
@@ -82,8 +85,10 @@ attempting a browser-side recreation.
 ## Why this is safe
 
 The protocol does not require a device registry. Safety comes from the retention horizon:
-clients that remain within the incremental window can receive tombstones normally; clients
-that fall outside the window switch to full reconciliation.
+steady-state clients receive tombstones through RxDB replication, while a new JavaScript
+session still passes through the compatibility bootstrap before handoff. If that bootstrap's
+cursor is outside the retention window, it switches to full reconciliation instead of
+assuming that a remotely absent row is still active.
 
 Sharing `message-action` does not make maintenance user-callable. Appwrite marks scheduled
 executions with trusted trigger metadata, and the handler routes that trigger before its
