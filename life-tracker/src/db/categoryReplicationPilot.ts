@@ -22,6 +22,7 @@ import {
   APPWRITE_DATABASE_ID,
   APPWRITE_TABLES,
 } from '../lib/appwriteConfig';
+import { awaitPilotReplicationFreshness } from './replicationFreshness';
 
 const PULL_BATCH_SIZE = 100;
 const PUSH_BATCH_SIZE = 20;
@@ -54,6 +55,7 @@ let activePullStream:
   | null = null;
 let realtimeUnsubscribe: RealtimeUnsubscribe | null = null;
 let errorSubscription: Subscription | null = null;
+let activeCollection: RxCollection<CategoryDocument> | null = null;
 
 function isNotFoundError(error: unknown): boolean {
   return (error as { code?: number } | null)?.code === 404;
@@ -337,6 +339,26 @@ export function resyncCategoryReplicationPilot(userId: string): boolean {
   return true;
 }
 
+export async function refreshCategoryReplicationPilot(
+  userId: string,
+  timeoutMs: number
+): Promise<boolean> {
+  if (
+    !isCategoryReplicationPilotActive(userId) ||
+    !activeReplication ||
+    !activeCollection
+  ) {
+    return false;
+  }
+  await awaitPilotReplicationFreshness(
+    'category',
+    activeReplication,
+    activeCollection,
+    timeoutMs
+  );
+  return true;
+}
+
 export async function stopCategoryReplicationPilot(
   userId?: string
 ): Promise<void> {
@@ -345,6 +367,7 @@ export async function stopCategoryReplicationPilot(
   const replication = activeReplication;
   activeOwnerId = null;
   activeReplication = null;
+  activeCollection = null;
 
   realtimeUnsubscribe?.();
   realtimeUnsubscribe = null;
@@ -407,6 +430,7 @@ export async function startCategoryReplicationPilot(
 
   activeOwnerId = userId;
   activeReplication = replication;
+  activeCollection = collection;
   activePullStream = pullStream;
   realtimeUnsubscribe = subscribeToCategoryRealtime(userId, pullStream);
   errorSubscription = replication.error$.subscribe((error) => {
