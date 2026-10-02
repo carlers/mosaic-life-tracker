@@ -659,52 +659,59 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
                 {inWindow && (
                   <>
                     <div
-                      className="flex shrink-0 items-center justify-between gap-2 px-4 py-2"
+                      className="shrink-0 px-4 py-2"
                       data-day-view-navigation="true"
                       data-bottom-sheet-directional-drag-handle={
                         renderMode === 'sheet' ? 'true' : undefined
                       }
                     >
-                      <button
-                        type="button"
-                        onClick={handlePrevDayFromUi}
-                        tabIndex={i === activeIndex ? 0 : -1}
-                        className="p-2 text-gray-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
-                        aria-label="Previous day"
-                      >
-                        <ChevronLeft size={20} />
-                      </button>
-                      <h3
-                        className="flex min-w-0 flex-1 items-center justify-center gap-2 text-center text-base font-semibold text-white"
-                        aria-live={i === activeIndex ? 'polite' : undefined}
-                      >
-                        <span className="truncate">{slideDateLabels[i]}</span>
-                        {showDayViewTodayTag && isToday(date) && (
-                          <span className="shrink-0 rounded-full bg-emerald-500/15 px-2 py-0.5 text-[11px] font-semibold text-emerald-400">
-                            Today
-                          </span>
-                        )}
-                      </h3>
-                      <button
-                        type="button"
-                        onClick={handleToggleSelectMode}
-                        tabIndex={i === activeIndex ? 0 : -1}
-                        aria-pressed={isSelectMode}
-                        aria-label={isSelectMode ? 'Exit selection mode' : 'Select tasks'}
-                        className={`flex items-center gap-1 rounded-lg px-2 py-1.5 text-xs font-medium focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 ${isSelectMode ? 'bg-emerald-500 text-black' : 'text-gray-300 hover:bg-[#2A2A2A]'}`}
-                      >
-                        <CheckSquare size={16} aria-hidden="true" />
-                        <span>Select</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={handleNextDayFromUi}
-                        tabIndex={i === activeIndex ? 0 : -1}
-                        className="p-2 text-gray-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
-                        aria-label="Next day"
-                      >
-                        <ChevronRight size={20} />
-                      </button>
+                      <div className="grid grid-cols-[2.5rem_minmax(0,1fr)_2.5rem] items-center">
+                        <button
+                          type="button"
+                          onClick={handlePrevDayFromUi}
+                          tabIndex={i === activeIndex ? 0 : -1}
+                          className="justify-self-start p-2 text-gray-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
+                          aria-label="Previous day"
+                        >
+                          <ChevronLeft size={20} />
+                        </button>
+                        <h3
+                          className="min-w-0 text-center text-base font-semibold text-white"
+                          aria-live={i === activeIndex ? 'polite' : undefined}
+                        >
+                          <span className="block truncate">{slideDateLabels[i]}</span>
+                        </h3>
+                        <button
+                          type="button"
+                          onClick={handleNextDayFromUi}
+                          tabIndex={i === activeIndex ? 0 : -1}
+                          className="justify-self-end p-2 text-gray-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
+                          aria-label="Next day"
+                        >
+                          <ChevronRight size={20} />
+                        </button>
+                      </div>
+                      <div className="mt-0.5 grid min-h-8 grid-cols-[1fr_auto_1fr] items-center">
+                        <span aria-hidden="true" />
+                        <div className="flex justify-center">
+                          {showDayViewTodayTag && isToday(date) && (
+                            <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-[11px] font-semibold text-emerald-400">
+                              Today
+                            </span>
+                          )}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={handleToggleSelectMode}
+                          tabIndex={i === activeIndex ? 0 : -1}
+                          aria-pressed={isSelectMode}
+                          aria-label={isSelectMode ? 'Exit selection mode' : 'Select tasks'}
+                          className={`justify-self-end flex items-center gap-1 rounded-lg px-2 py-1.5 text-xs font-medium focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 ${isSelectMode ? 'bg-emerald-500 text-black' : 'text-gray-300 hover:bg-[#2A2A2A]'}`}
+                        >
+                          <CheckSquare size={16} aria-hidden="true" />
+                          <span>Select</span>
+                        </button>
+                      </div>
                     </div>
                     <DaySlide
                       date={date}
