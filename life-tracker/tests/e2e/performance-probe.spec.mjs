@@ -385,6 +385,23 @@ test('@performance interaction performance probe', async ({ page }) => {
   );
 
   results.push(
+    await measureInteraction(page, 'day-view-sheet-swipe', async () => {
+      await swipe(page, '[role="dialog"] [data-testid="day-swiper"]', 620, 180, 520);
+      await page.waitForTimeout(420);
+    })
+  );
+
+  results.push(
+    await measureInteraction(page, 'day-view-sheet-rapid-swipes', async () => {
+      const selector = '[role="dialog"] [data-testid="day-swiper"]';
+      await swipe(page, selector, 620, 180, 520);
+      await swipe(page, selector, 620, 180, 520);
+      await swipe(page, selector, 620, 180, 520);
+      await page.waitForTimeout(420);
+    })
+  );
+
+  results.push(
     await measureInteraction(page, 'bottom-sheet-close', async () => {
       // Match the documented phone dismissal path: tap the exposed backdrop strip.
       await page.mouse.click(10, 10);

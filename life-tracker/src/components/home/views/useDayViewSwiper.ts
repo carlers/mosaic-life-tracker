@@ -30,6 +30,7 @@ interface UseDayViewSwiperReturn {
   renderWindow: number;
   handlePrevDay: () => void;
   handleNextDay: () => void;
+  handleSlideChange: (swiper: SwiperClass) => void;
   handleSwipeSettled: (swiper: SwiperClass) => void;
 }
 
@@ -112,8 +113,16 @@ export function useDayViewSwiper({
     };
   }, []);
 
+  const handleSlideChange = useCallback((swiper: SwiperClass) => {
+    // Keep the render window tracking Swiper immediately so rapid consecutive
+    // swipes never outrun the prepared neighboring DaySlides.
+    setActiveIndex(swiper.activeIndex);
+  }, []);
+
   const handleSwipeSettled = useCallback(
     (swiper: SwiperClass) => {
+      // Parent date propagation waits until the snap completes. The local
+      // active index already moved on slideChange, keeping the buffer ready.
       setActiveIndex(swiper.activeIndex);
       if (isProgrammaticMoveRef.current) return;
       const date = slideDates[swiper.activeIndex];
@@ -148,6 +157,7 @@ export function useDayViewSwiper({
     renderWindow: RENDER_WINDOW,
     handlePrevDay,
     handleNextDay,
+    handleSlideChange,
     handleSwipeSettled,
   };
 }
