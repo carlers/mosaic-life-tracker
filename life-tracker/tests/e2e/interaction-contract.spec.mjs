@@ -1010,6 +1010,31 @@ test('todo day swipe advances the nested day view without advancing the friend c
   await expect(page.getByTestId('friend-index')).toHaveText('0');
 });
 
+// Regression: §2/§24.16 (rapid Day View paging keeps rendered neighbors ahead of the gesture).
+test('rapid Day View swipes never outrun the rendered slide buffer', async ({ page }) => {
+  await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html?perf=heavy`);
+  await page.getByTestId('open-day-view-sheet').click();
+
+  const dialog = page.getByRole('dialog', {
+    name: 'Tuesday, September 15, 2026',
+  });
+  await expect(dialog).toBeVisible();
+  await waitForStableVerticalPosition(dialog);
+
+  const swiper = dialog.getByTestId('day-swiper');
+  await drag(page, swiper, -260);
+  await drag(page, swiper, -260);
+  await drag(page, swiper, -260);
+  await drag(page, swiper, -260);
+
+  const activeSlide = dialog.locator('.swiper-slide-active');
+  await expect(activeSlide).toContainText('Saturday, September 19, 2026');
+  await expect(
+    activeSlide.locator('[data-day-view-navigation="true"]')
+  ).toHaveCount(1);
+  await expect(activeSlide.locator('[data-task-category-id]')).toHaveCount(5);
+});
+
 test('inactive adjacent Day View keeps category spacing when it becomes active', async ({ page }) => {
   await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html?perf=heavy`);
   await page.getByTestId('open-day-view-sheet').click();
