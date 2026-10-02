@@ -221,36 +221,23 @@ describe('PWA lifecycle', () => {
     ]);
   });
 
-  it('joins an update that is already downloading instead of starting another check', async () => {
+  it('joins an update that is already downloading without blocking or starting another check', async () => {
     const setup = fixture();
     const stages: string[] = [];
-    let workerState: ServiceWorkerState = 'installing';
     const worker = Object.assign(new EventTarget(), {
-      get state() {
-        return workerState;
-      },
+      state: 'installing' as ServiceWorkerState,
     }) as unknown as ServiceWorker;
     Object.assign(setup.registration, { installing: worker });
 
-    const checking = checkForPwaUpdate((stage) => stages.push(stage));
-    for (let attempt = 0; attempt < 5 && !stages.includes('downloading'); attempt += 1) {
-      await Promise.resolve();
-    }
-    expect(stages).toContain('downloading');
+    await expect(
+      checkForPwaUpdate((stage) => stages.push(stage))
+    ).resolves.toBe('update-in-progress');
 
-    workerState = 'installed';
-    Object.assign(setup.registration, {
-      waiting: worker,
-      installing: null,
-    });
-    worker.dispatchEvent(new Event('statechange'));
-
-    await expect(checking).resolves.toBe('update-available');
     expect(stages).toEqual([
       'preparing',
       'update-found',
       'downloading',
-      'ready',
+      'background-download',
     ]);
     expect(setup.registration.update).not.toHaveBeenCalled();
   });
