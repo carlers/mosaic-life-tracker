@@ -1,20 +1,20 @@
 # Session checkpoint
 
 Updated: 2026-10-02
-Current task: Align task-row checkboxes with the left edge of their category pill on the Home UI polish Preview branch.
-Status: Delivered to stable `feature/ui-home-polish` at `1499a1f`. Normal/editing task rows and the pending add-task row now remove the left 8px inset while preserving the right inset, so checkbox left edges align with the category pill without changing task behavior.
-Next action: Manual visual acceptance on the stable Preview. Do not promote to `dev` without explicit user instruction.
-Blockers: No known source, behavior, CI, or deployment blocker.
+Current task: Simplify the Day View sticky header by separating date navigation from Today/Select controls on the existing Home UI polish Preview branch.
+Status: Implementation is on `chatgpt/ui-home-polish-day-header`, based on stable `feature/ui-home-polish` at `0b0af2e`. The header now uses two rows: Previous/date/Next on the first row, then centered Today and right-aligned Select on the second row. Existing Today preference, selection behavior, arrows, day swiping, and bulk controls are unchanged.
+Next action: Complete exact-SHA canonical verification. If green, squash-merge into the same stable `feature/ui-home-polish` branch, verify the refreshed Vercel Preview is READY, then hand off for manual visual acceptance. Do not promote to `dev` without explicit user instruction.
+Blockers: No known source or behavior blocker.
 
 ## Completed
-- Shifted normal/editing task rows 8px left by replacing symmetric horizontal padding with left-zero/right-preserved padding.
-- Applied the same horizontal shift to the pending new-task row so create mode remains aligned with edit mode.
-- Preserved checkbox size, task text gap, right inset, selection behavior, editing, and reorder behavior.
-- Updated the durable Todo/Day View polish contract to require checkbox-to-category-pill left-edge alignment.
-- Squash-merged the accepted task branch into `feature/ui-home-polish`.
+- Removed Today and Select from the date-navigation line so the date gets the full center span between arrows.
+- Added a compact secondary header row with Today centered and Select right-aligned.
+- Kept both rows outside the contained task scroller, preserving sticky Day View behavior in sheet mode.
+- Preserved selection semantics, Today preference semantics, day navigation, sheet drag ownership, and bulk action behavior.
+- Updated the Day View header contract and regression wording without adding layout-class assertions.
 
 ## Verification
-- Task SHA `d5f8974e`: Quality Gate 1837 passed full canonical acceptance.
-- Stable SHA `1499a1f3`: Quality Gate 1838 passed full canonical acceptance.
-- Stable Vercel Preview deployment `dpl_6DUbttuteLRJ4og7W7ZxaWZhjNfp`: READY.
-- Remaining manual check: visually confirm checkbox left edges align with category-pill left edges in normal, edit, and create-task states.
+- Source/diff review: pending after commit.
+- Existing Day View semantic/behavior regression coverage retained; no Tailwind/pixel assertion added.
+- Exact-SHA canonical acceptance: pending.
+- Stable Preview deployment/manual visual acceptance: pending canonical acceptance.

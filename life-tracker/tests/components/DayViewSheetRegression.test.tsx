@@ -199,8 +199,8 @@ describe('DayViewSheet nested task actions', () => {
     vi.useRealTimers();
   });
 
-  // Regression: §2 (optional Today marker beside the active date).
-  it('shows a Today tag beside the active date only when the preference is enabled', () => {
+  // Regression: §2 (optional Today marker in the secondary sticky header row).
+  it('shows a Today tag for the active date only when the preference is enabled', () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date(2026, 8, 20, 12));
     settingsFixture.values = { showDayViewTodayTag: true };
