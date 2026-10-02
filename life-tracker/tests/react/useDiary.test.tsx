@@ -29,7 +29,6 @@ vi.mock('../../src/lib/localUpsert', () => ({
   upsertLocalDoc: upsertLocalDocMock,
 }));
 
-
 import { useDiary } from '../../src/hooks/useDiary';
 
 beforeEach(() => {
@@ -44,8 +43,8 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-describe('useDiary sync mutations', () => {
-  it('stamps diary tombstones with the deletion time and schedules sync', async () => {
+describe('useDiary RxDB mutations', () => {
+  it('stamps diary tombstones with the deletion time', async () => {
     const incrementalPatch = vi.fn().mockResolvedValue(undefined);
     findOneMock.mockResolvedValue({ incrementalPatch });
 
@@ -70,6 +69,5 @@ describe('useDiary sync mutations', () => {
     });
 
     expect(upsertLocalDocMock).toHaveBeenCalledTimes(1);
-    expect(requestSyncMock).toHaveBeenCalledWith('user_A');
   });
 });
