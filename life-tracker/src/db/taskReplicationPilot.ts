@@ -227,24 +227,14 @@ async function finishSuccessfulPush(
   userId: string
 ): Promise<void> {
   if (!pendingImageId) return;
-  await cleanupPendingTaskImage(
-    {
-      id: '',
-      title: '',
-      completed: false,
-      categoryId: '',
-      order: 0,
-      date: '',
-      createdAt: '',
-      updatedAt: '',
-      userId,
-      isDeleted: false,
-      visibility: '',
-      image: pendingImageId,
-      _deleted: false,
-    },
-    userId
-  );
+  try {
+    await deletePendingImage(pendingImageId, userId);
+  } catch (error) {
+    console.warn(
+      '[TaskReplicationPilot] pending image cleanup failed:',
+      error
+    );
+  }
 }
 
 function mergeServerReactionDrift(
