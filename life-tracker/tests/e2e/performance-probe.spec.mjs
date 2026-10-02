@@ -415,3 +415,123 @@ test('@performance interaction performance probe', async ({ page }) => {
     console.log(`MOSAIC_PERF ${JSON.stringify(result)}`);
   }
 });
+
+
+async function captureStartupMarks(page, label) {
+  await page.waitForFunction(
+    () =>
+      performance.getEntriesByName('mosaic:home:owner-data-ready').length > 0 &&
+      performance.getEntriesByName('mosaic:home:local-data-ready').length > 0,
+    null,
+    { timeout: 15_000 }
+  );
+
+  const result = await page.evaluate((runLabel) => {
+    const markNames = [
+      'bootstrap:start',
+      'react:mounted',
+      'database:import-start',
+      'database:module-ready',
+      'database:create-start',
+      'database:create-ready',
+      'database:collections-start',
+      'database:collections-ready',
+      'database:ready',
+      'auth:resolved',
+      'app-data-shell:mounted',
+      'home:mounted',
+      'home:tasks-ready',
+      'home:categories-ready',
+      'home:settings-ready',
+      'home:friends-ready',
+      'home:owner-data-ready',
+      'home:carousel-ready',
+      'home:local-data-ready',
+    ];
+
+    const marks = Object.fromEntries(
+      markNames.map((name) => {
+        const entry = performance.getEntriesByName(`mosaic:${name}`, 'mark')[0];
+        return [name, entry?.startTime ?? null];
+      })
+    );
+    const start = marks['bootstrap:start'];
+    const duration = (from, to) => {
+      const a = marks[from];
+      const b = marks[to];
+      return a == null || b == null ? null : Number((b - a).toFixed(2));
+    };
+    const sinceStart = (name) => {
+      const value = marks[name];
+      return start == null || value == null
+        ? null
+        : Number((value - start).toFixed(2));
+    };
+
+    return {
+      label: runLabel,
+      sinceBootstrapMs: Object.fromEntries(
+        markNames.map((name) => [name, sinceStart(name)])
+      ),
+      phasesMs: {
+        databaseModuleImport: duration(
+          'database:import-start',
+          'database:module-ready'
+        ),
+        databaseCreate: duration(
+          'database:create-start',
+          'database:create-ready'
+        ),
+        databaseCollections: duration(
+          'database:collections-start',
+          'database:collections-ready'
+        ),
+        databaseTotal: duration('database:import-start', 'database:ready'),
+        databaseReadyToHomeMount: duration('database:ready', 'home:mounted'),
+        homeMountToOwnerData: duration(
+          'home:mounted',
+          'home:owner-data-ready'
+        ),
+        homeMountToAllLocalData: duration(
+          'home:mounted',
+          'home:local-data-ready'
+        ),
+        bootstrapToOwnerData: duration(
+          'bootstrap:start',
+          'home:owner-data-ready'
+        ),
+        bootstrapToAllLocalData: duration(
+          'bootstrap:start',
+          'home:local-data-ready'
+        ),
+      },
+    };
+  }, label);
+
+  console.log(`MOSAIC_STARTUP ${JSON.stringify(result)}`);
+  return result;
+}
+
+test('@performance cached Home startup probe', async ({ page }) => {
+  await page.addInitScript(() => {
+    Object.defineProperty(window.navigator, 'onLine', {
+      configurable: true,
+      get: () => false,
+    });
+    localStorage.setItem(
+      'mosaic_last_known_user',
+      JSON.stringify({
+        $id: 'perf_cached_user',
+        email: 'startup-perf@example.invalid',
+        prefs: {},
+        name: 'Startup Perf',
+      })
+    );
+  });
+
+  await page.goto(`${BASE_URL}/home`, { waitUntil: 'domcontentloaded' });
+  await captureStartupMarks(page, 'cold-document');
+
+  await page.reload({ waitUntil: 'domcontentloaded' });
+  await captureStartupMarks(page, 'warm-reload');
+});

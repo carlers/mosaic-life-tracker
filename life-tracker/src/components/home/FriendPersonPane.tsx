@@ -1,12 +1,20 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { addMonths, format } from 'date-fns';
 import { PersonProfileHeader } from './PersonProfileHeader';
 import { CalendarHeader } from './views/CalendarHeader';
 import { CalendarBody } from './views/CalendarBody';
 import { ComingSoon } from '../layout/ComingSoon';
 import { useCalendarState } from './views/useCalendarState';
+import { useMessageActions } from '../../hooks/useMessageActions';
 import { useAuth } from '../../hooks/useAuth';
 import { useSettings } from '../../hooks/useSettings';
+import { useFriendCalendar } from '../../lib/useFriendCalendar';
 import {
   TAP_CALENDAR_DATE_TO_TODAY_SETTING_KEY,
   WEEK_STARTS_ON_SUNDAY_SETTING_KEY,
@@ -14,25 +22,15 @@ import {
 } from '../../lib/preferences';
 import type { CarouselPerson } from '../../hooks/useFriendCarousel';
 import type { ViewType } from './ViewSwitcher';
-import type { CategoryDocument, TaskDocument } from '../../db/schema';
+import type { TaskDocument } from '../../db/schema';
+
+const FRIEND_REFETCH_MIN_INTERVAL_MS = 15_000;
 
 const LazyTodoListView = React.lazy(() =>
   import('./views/TodoListView').then(({ TodoListView }) => ({
     default: TodoListView,
   }))
 );
-const LazyFriendPersonPane = React.lazy(() =>
-  import('./FriendPersonPane').then(({ FriendPersonPane }) => ({
-    default: FriendPersonPane,
-  }))
-);
-
-interface PersonPaneProps {
-  person: CarouselPerson;
-  isActive: boolean;
-  ownerTasks?: TaskDocument[];
-  ownerCategories?: CategoryDocument[];
-}
 
 function readHomeView(): ViewType {
   try {
@@ -43,11 +41,14 @@ function readHomeView(): ViewType {
   }
 }
 
-const OwnerPersonPane: React.FC<PersonPaneProps> = ({
+interface FriendPersonPaneProps {
+  person: CarouselPerson;
+  isActive: boolean;
+}
+
+export const FriendPersonPane: React.FC<FriendPersonPaneProps> = ({
   person,
   isActive,
-  ownerTasks = [],
-  ownerCategories = [],
 }) => {
   const { user } = useAuth();
   const currentUserId = user?.$id ?? '';
@@ -57,17 +58,41 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
   );
   const tapCalendarDateToToday =
     getSetting(TAP_CALENDAR_DATE_TO_TODAY_SETTING_KEY, false) === true;
+  const { sendTaskReaction } = useMessageActions(person.userId);
+
   const [activeView, setActiveView] = useState<ViewType>(readHomeView);
   const [todoFocusDate, setTodoFocusDate] = useState(() => new Date());
   const calendarState = useCalendarState({ weekStartsOn });
 
+  const {
+    tasks = [],
+    categories = [],
+    refetch: refetchFriendCalendar,
+  } = useFriendCalendar(person.userId);
+  const lastRefetchRef = useRef(0);
+
+  useEffect(() => {
+    if (!isActive) return;
+    const now = Date.now();
+    if (now - lastRefetchRef.current < FRIEND_REFETCH_MIN_INTERVAL_MS) return;
+    lastRefetchRef.current = now;
+    refetchFriendCalendar(true);
+  }, [isActive, refetchFriendCalendar]);
+
   const categoriesMap = useMemo(() => {
     const map: Record<string, { color: string; name: string }> = {};
-    for (const category of ownerCategories) {
+    for (const category of categories) {
       map[category.id] = { color: category.color, name: category.name };
     }
     return map;
-  }, [ownerCategories]);
+  }, [categories]);
+
+  const handleReactToTask = useCallback(
+    (task: TaskDocument, emoji: string) => {
+      sendTaskReaction(task, emoji, '');
+    },
+    [sendTaskReaction]
+  );
 
   const handleTodoPrev = useCallback(() => {
     setTodoFocusDate((date) => addMonths(date, -1));
@@ -109,24 +134,32 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
           renderStart={calendarState.renderStart}
           renderEnd={calendarState.renderEnd}
           emblaRef={calendarState.emblaRef}
-          tasks={ownerTasks}
-          categories={ownerCategories}
+          tasks={tasks}
           categoriesMap={categoriesMap}
-          variant="me"
+          variant="friend"
+          friendCategories={categories}
+          friendName={person.displayName}
+          friendUserId={person.userId}
           currentUserId={currentUserId}
           isActive={isActive}
           onPrev={calendarState.handlePrev}
           onNext={calendarState.handleNext}
+          onReactToTask={handleReactToTask}
           weekStartsOn={weekStartsOn}
         />
       ) : activeView === 'todo' ? (
         <React.Suspense fallback={null}>
           <LazyTodoListView
+            variant="friend"
             focusDate={todoFocusDate}
-            tasks={ownerTasks}
-            categories={ownerCategories}
+            tasks={tasks}
+            categories={categories}
             categoriesMap={categoriesMap}
             onFocusDateChange={setTodoFocusDate}
+            friendName={person.displayName}
+            friendUserId={person.userId}
+            currentUserId={currentUserId}
+            onReactToTask={handleReactToTask}
             weekStartsOn={weekStartsOn}
           />
         </React.Suspense>
@@ -135,19 +168,4 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
       )}
     </div>
   );
-};
-
-export const PersonPane: React.FC<PersonPaneProps> = (props) => {
-  if (props.person.kind === 'friend') {
-    return (
-      <React.Suspense fallback={null}>
-        <LazyFriendPersonPane
-          person={props.person}
-          isActive={props.isActive}
-        />
-      </React.Suspense>
-    );
-  }
-
-  return <OwnerPersonPane {...props} />;
 };

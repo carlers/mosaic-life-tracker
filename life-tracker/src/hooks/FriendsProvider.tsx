@@ -22,6 +22,7 @@ import {
 } from './friendsContext';
 import type { FriendshipDocument } from '../db/schema';
 import type { ProfileCard } from '../lib/social';
+import { markStartup } from '../lib/startupMetrics';
 interface FriendsProviderProps {
   children: ReactNode;
 }
@@ -63,6 +64,7 @@ export const FriendsProvider: React.FC<FriendsProviderProps> = ({
           if (!isMounted) return;
           setRows(docs as FriendshipDocument[]);
           setLoadedUserId(uid);
+          markStartup('home:friends-ready');
         });
         if (!isMounted) {
           sub.unsubscribe();

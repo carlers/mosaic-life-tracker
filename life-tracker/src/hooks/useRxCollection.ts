@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { getDatabase } from '../db/database';
 import { useAuth } from './useAuth';
 import type { AppDatabaseCollections } from '../db/database';
+import { markStartup, type StartupMark } from '../lib/startupMetrics';
 
 type CollectionName = keyof AppDatabaseCollections;
 
@@ -36,6 +37,8 @@ interface UseRxCollectionOptions<TDoc, TData> {
   logPrefix: string;
   /** Skip the subscription while preserving the hook call order. */
   enabled?: boolean;
+  /** Optional diagnostic mark emitted on the first local query result. */
+  startupMark?: StartupMark;
 }
 
 interface UseRxCollectionResult<TData> {
@@ -90,6 +93,7 @@ export function useRxCollection<
   beforeSubscribe,
   logPrefix,
   enabled = true,
+  startupMark,
 }: UseRxCollectionOptions<TDoc, TData>): UseRxCollectionResult<TData> {
   const { user } = useAuth();
   const userId = user?.$id;
@@ -129,6 +133,7 @@ export function useRxCollection<
           if (!isMounted) return;
           setDocs(incoming as TDoc[]);
           setLoadedUserId(uid);
+          if (startupMark) markStartup(startupMark);
         });
 
         if (!isMounted) {
@@ -152,7 +157,7 @@ export function useRxCollection<
     // literals; including the raw objects would re-subscribe on every
     // render (new identity each time).
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userId, collection, selectorKey, sortKey, enabled]);
+  }, [userId, collection, selectorKey, sortKey, enabled, startupMark]);
 
   const isEmpty = !enabled || !userId || loadedUserId !== userId;
   const visibleDocs = isEmpty

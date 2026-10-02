@@ -3,6 +3,7 @@ import { AppearanceProvider } from '../../hooks/AppearanceProvider';
 import { FriendsProvider } from '../../hooks/FriendsProvider';
 import { ConversationsProvider } from '../../hooks/ConversationsProvider';
 import { MainLayout, type MainLayoutProps } from './MainLayout';
+import { markStartup } from '../../lib/startupMetrics';
 
 interface AppDataShellProps extends MainLayoutProps {
   includeConversations: boolean;
@@ -11,12 +12,18 @@ interface AppDataShellProps extends MainLayoutProps {
 export const AppDataShell: React.FC<AppDataShellProps> = ({
   includeConversations,
   ...layoutProps
-}) => (
-  <AppearanceProvider>
-    <FriendsProvider>
-      <ConversationsProvider includeConversations={includeConversations}>
-        <MainLayout {...layoutProps} />
-      </ConversationsProvider>
-    </FriendsProvider>
-  </AppearanceProvider>
-);
+}) => {
+  React.useEffect(() => {
+    markStartup('app-data-shell:mounted');
+  }, []);
+
+  return (
+    <AppearanceProvider>
+      <FriendsProvider>
+        <ConversationsProvider includeConversations={includeConversations}>
+          <MainLayout {...layoutProps} />
+        </ConversationsProvider>
+      </FriendsProvider>
+    </AppearanceProvider>
+  );
+};
