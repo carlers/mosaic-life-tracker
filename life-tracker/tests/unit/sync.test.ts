@@ -44,6 +44,11 @@ const friendshipPilotResyncMock = vi.hoisted(() => vi.fn());
 const friendshipPilotStartMock = vi.hoisted(() => vi.fn());
 const friendshipPilotCheckpointMock = vi.hoisted(() => vi.fn());
 const friendshipPilotRefreshMock = vi.hoisted(() => vi.fn());
+const taskPilotActiveMock = vi.hoisted(() => vi.fn());
+const taskPilotResyncMock = vi.hoisted(() => vi.fn());
+const taskPilotStartMock = vi.hoisted(() => vi.fn());
+const taskPilotCheckpointMock = vi.hoisted(() => vi.fn());
+const taskPilotRefreshMock = vi.hoisted(() => vi.fn());
 // Test fixture note: sync.ts reads `account` directly from '../../src/lib/appwrite'
 // instead of going through guardedAccount. The appwrite SDK mock must
 // therefore provide `Client` and `Account` so the real appwrite.ts module
@@ -130,6 +135,13 @@ vi.mock('../../src/db/friendshipReplicationPilot', () => ({
   refreshFriendshipReplicationPilot: friendshipPilotRefreshMock,
   resyncFriendshipReplicationPilot: friendshipPilotResyncMock,
   startFriendshipReplicationPilot: friendshipPilotStartMock,
+}));
+vi.mock('../../src/db/taskReplicationPilot', () => ({
+  captureTaskReplicationPushCheckpoint: taskPilotCheckpointMock,
+  isTaskReplicationPilotActive: taskPilotActiveMock,
+  refreshTaskReplicationPilot: taskPilotRefreshMock,
+  resyncTaskReplicationPilot: taskPilotResyncMock,
+  startTaskReplicationPilot: taskPilotStartMock,
 }));
 vi.mock('../../src/lib/storage', () => ({
   uploadPendingImage: uploadPendingImageMock,
@@ -403,6 +415,11 @@ beforeEach(async () => {
   friendshipPilotStartMock.mockReset();
   friendshipPilotCheckpointMock.mockReset();
   friendshipPilotRefreshMock.mockReset();
+  taskPilotActiveMock.mockReset();
+  taskPilotResyncMock.mockReset();
+  taskPilotStartMock.mockReset();
+  taskPilotCheckpointMock.mockReset();
+  taskPilotRefreshMock.mockReset();
   categoryPilotActiveMock.mockReturnValue(false);
   categoryPilotStartMock.mockResolvedValue(undefined);
   categoryPilotCheckpointMock.mockResolvedValue({
@@ -431,6 +448,13 @@ beforeEach(async () => {
     lwt: 987,
   });
   friendshipPilotRefreshMock.mockResolvedValue(false);
+  taskPilotActiveMock.mockReturnValue(false);
+  taskPilotStartMock.mockResolvedValue(undefined);
+  taskPilotCheckpointMock.mockResolvedValue({
+    id: 'task_seed',
+    lwt: 654,
+  });
+  taskPilotRefreshMock.mockResolvedValue(false);
   uploadPendingImageMock.mockResolvedValue('img_uploaded');
   deletePendingImageMock.mockResolvedValue(undefined);
   getDatabaseMock.mockReturnValue(makeDb());
@@ -448,6 +472,58 @@ afterEach(() => {
   vi.useRealTimers();
   vi.restoreAllMocks();
 });
+describe('sync — task RxDB replication pilot handoff', () => {
+  it('bootstraps tasks once, then delegates catch-up triggers to RxDB', async () => {
+    const db = makeDb();
+    getDatabaseMock.mockReturnValue(db);
+
+    await syncModule.initializeSync('user_A');
+
+    expect(taskPilotCheckpointMock).toHaveBeenCalledWith(db.tasks);
+    expect(taskPilotStartMock).toHaveBeenCalledWith(
+      'user_A',
+      db.tasks,
+      { id: 'task_seed', lwt: 654 }
+    );
+    const taskPullCallIndex = listRowsMock.mock.calls.findIndex(
+      (call) => (call[0] as { tableId?: string }).tableId === 'tasks'
+    );
+    expect(taskPullCallIndex).toBeGreaterThanOrEqual(0);
+    expect(taskPilotCheckpointMock.mock.invocationCallOrder[0]).toBeLessThan(
+      listRowsMock.mock.invocationCallOrder[taskPullCallIndex]
+    );
+
+    taskPilotActiveMock.mockReturnValue(true);
+    listRowsMock.mockClear();
+
+    await syncModule.initializeSync('user_A');
+
+    expect(taskPilotResyncMock).toHaveBeenCalledWith('user_A');
+    expect(taskListRowsCalls()).toHaveLength(0);
+  });
+
+  it('does not hand off tasks after an incomplete legacy bootstrap', async () => {
+    const fullPage = Array.from({ length: 100 }, (_, index) =>
+      makeTaskRow(`task_${String(index).padStart(3, '0')}`)
+    );
+    listRowsMock.mockImplementation(
+      async ({ tableId }: { tableId: string }) => {
+        if (tableId === 'tasks') return { rows: fullPage };
+        return { rows: [] };
+      }
+    );
+
+    await syncModule.initializeSync('user_A');
+
+    expect(taskPilotStartMock).not.toHaveBeenCalled();
+    expect(syncModule.getSyncStatus().errors).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining('tasks: pull incomplete'),
+      ])
+    );
+  });
+});
+
 describe('sync — category RxDB replication pilot handoff', () => {
   it('bootstraps categories once, then delegates catch-up triggers to RxDB', async () => {
     const db = makeDb();
@@ -793,7 +869,8 @@ describe('sync — forceSync follow-up queueing', () => {
 });
 // Regression: §18 (sync failure isolation and boundary safety).
 describe('sync — RxDB pilot fresh-sync barrier', () => {
-  it('awaits category, diary, settings, and friendship pilot freshness before returning', async () => {
+  it('awaits task, category, diary, settings, and friendship pilot freshness before returning', async () => {
+    taskPilotRefreshMock.mockResolvedValue(true);
     categoryPilotRefreshMock.mockResolvedValue(true);
     diaryPilotRefreshMock.mockResolvedValue(true);
     settingsPilotRefreshMock.mockResolvedValue(true);
@@ -801,6 +878,10 @@ describe('sync — RxDB pilot fresh-sync barrier', () => {
 
     await syncModule.refreshSync('user_A', 5_000);
 
+    expect(taskPilotRefreshMock).toHaveBeenCalledWith(
+      'user_A',
+      expect.any(Number)
+    );
     expect(categoryPilotRefreshMock).toHaveBeenCalledWith(
       'user_A',
       expect.any(Number)
@@ -817,6 +898,9 @@ describe('sync — RxDB pilot fresh-sync barrier', () => {
       'user_A',
       expect.any(Number)
     );
+    expect(
+      taskPilotRefreshMock.mock.invocationCallOrder[0]
+    ).toBeGreaterThan(friendshipPilotRefreshMock.mock.invocationCallOrder[0]);
     expect(
       categoryPilotRefreshMock.mock.invocationCallOrder[0]
     ).toBeLessThan(diaryPilotRefreshMock.mock.invocationCallOrder[0]);
@@ -845,6 +929,7 @@ describe('sync — RxDB pilot fresh-sync barrier', () => {
     expect(diaryPilotRefreshMock).not.toHaveBeenCalled();
     expect(settingsPilotRefreshMock).not.toHaveBeenCalled();
     expect(friendshipPilotRefreshMock).not.toHaveBeenCalled();
+    expect(taskPilotRefreshMock).not.toHaveBeenCalled();
   });
 });
 
