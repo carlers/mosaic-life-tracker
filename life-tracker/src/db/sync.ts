@@ -42,6 +42,13 @@ import {
   resyncFriendshipReplicationPilot,
   startFriendshipReplicationPilot,
 } from './friendshipReplicationPilot';
+import {
+  captureTaskReplicationPushCheckpoint,
+  isTaskReplicationPilotActive,
+  refreshTaskReplicationPilot,
+  resyncTaskReplicationPilot,
+  startTaskReplicationPilot,
+} from './taskReplicationPilot';
 import { APPWRITE_DATABASE_ID, APPWRITE_TABLES } from '../lib/appwriteConfig';
 export { toAppwriteFormat, fromAppwriteFormat };
 export { getSyncStatus, subscribeToSyncStatus } from '../lib/syncStatus';
@@ -362,6 +369,7 @@ export async function refreshSync(
     await refreshDiaryReplicationPilot(userId, remaining());
     await refreshSettingsReplicationPilot(userId, remaining());
     await refreshFriendshipReplicationPilot(userId, remaining());
+    await refreshTaskReplicationPilot(userId, remaining());
   } catch (error) {
     const message =
       error instanceof Error ? error.message : 'Fresh RxDB sync failed';
@@ -576,6 +584,14 @@ async function runSyncCycleBody(userId: string): Promise<void> {
         }
 
         if (
+          colName === 'tasks' &&
+          isTaskReplicationPilotActive(userId)
+        ) {
+          resyncTaskReplicationPilot(userId);
+          continue;
+        }
+
+        if (
           colName === 'friendships' &&
           isFriendshipReplicationPilotActive(userId)
         ) {
@@ -583,6 +599,10 @@ async function runSyncCycleBody(userId: string): Promise<void> {
           continue;
         }
 
+        const taskPushCheckpoint =
+          colName === 'tasks'
+            ? await captureTaskReplicationPushCheckpoint(db.tasks)
+            : undefined;
         const categoryPushCheckpoint =
           colName === 'categories'
             ? await captureCategoryReplicationPushCheckpoint(db.categories)
@@ -637,7 +657,13 @@ async function runSyncCycleBody(userId: string): Promise<void> {
           continue;
         }
 
-        if (colName === 'categories') {
+        if (colName === 'tasks') {
+          await startTaskReplicationPilot(
+            userId,
+            db.tasks,
+            taskPushCheckpoint
+          );
+        } else if (colName === 'categories') {
           // Only a completely clean legacy bootstrap may establish RxDB's
           // initial upstream baseline. The seed was captured before the
           // bootstrap so edits made while it was running remain newer than
