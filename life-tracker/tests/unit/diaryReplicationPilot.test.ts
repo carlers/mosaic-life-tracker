@@ -16,6 +16,7 @@ const updateRowMock = vi.hoisted(() => vi.fn());
 const createRowMock = vi.hoisted(() => vi.fn());
 const realtimeSubscribeMock = vi.hoisted(() => vi.fn());
 const reSyncMock = vi.hoisted(() => vi.fn());
+const awaitInSyncMock = vi.hoisted(() => vi.fn());
 const cancelMock = vi.hoisted(() => vi.fn());
 const errorSubscribeMock = vi.hoisted(() => vi.fn());
 
@@ -67,6 +68,7 @@ vi.mock('../../src/lib/sdk', () => ({
 import {
   __diaryReplicationPilotTestUtils,
   captureDiaryReplicationPushCheckpoint,
+  refreshDiaryReplicationPilot,
   startDiaryReplicationPilot,
   stopDiaryReplicationPilot,
 } from '../../src/db/diaryReplicationPilot';
@@ -101,8 +103,14 @@ function remoteDiary(overrides: Record<string, unknown> = {}) {
   };
 }
 
-function collectionFixture() {
-  return { storageInstance: {} } as never;
+function collectionFixture(isLeader = true) {
+  return {
+    storageInstance: {},
+    database: {
+      isLeader: () => isLeader,
+      waitForLeadership: async () => isLeader,
+    },
+  } as never;
 }
 
 beforeEach(async () => {
@@ -117,10 +125,12 @@ beforeEach(async () => {
   updateRowMock.mockResolvedValue({});
   createRowMock.mockResolvedValue({});
   cancelMock.mockResolvedValue(true);
+  awaitInSyncMock.mockResolvedValue(true);
   errorSubscribeMock.mockReturnValue({ unsubscribe: vi.fn() });
   realtimeSubscribeMock.mockReturnValue(vi.fn());
   replicateRxCollectionMock.mockReturnValue({
     reSync: reSyncMock,
+    awaitInSync: awaitInSyncMock,
     cancel: cancelMock,
     error$: { subscribe: errorSubscribeMock },
   });
@@ -161,6 +171,33 @@ describe('diary RxDB replication pilot', () => {
     expect(options.push.initialCheckpoint).toEqual(checkpoint);
     expect(options.waitForLeadership).toBe(true);
     expect(options.live).toBe(true);
+  });
+
+  it('awaits a real fresh cycle when this tab owns RxDB leadership', async () => {
+    await startDiaryReplicationPilot(
+      'user_A',
+      collectionFixture(true),
+      { id: 'diary_seed', lwt: 77 }
+    );
+
+    await expect(
+      refreshDiaryReplicationPilot('user_A', 1_000)
+    ).resolves.toBe(true);
+
+    expect(reSyncMock).toHaveBeenCalled();
+    expect(awaitInSyncMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('fails closed when another tab owns RxDB leadership', async () => {
+    await startDiaryReplicationPilot(
+      'user_A',
+      collectionFixture(false),
+      { id: 'diary_seed', lwt: 77 }
+    );
+
+    await expect(
+      refreshDiaryReplicationPilot('user_A', 1_000)
+    ).rejects.toThrow('another Mosaic tab');
   });
 
   it('pulls with an owner-scoped updatedAt+id tuple checkpoint', async () => {
