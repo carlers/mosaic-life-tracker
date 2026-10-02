@@ -167,6 +167,9 @@ describe('SettingsPage navigation, updates, and data controls', () => {
     expect(await screen.findByRole('status')).toHaveTextContent(
       /Update (downloaded|ready|found)/
     );
+    expect(
+      screen.getByRole('button', { name: /Update now/i })
+    ).toBeInTheDocument();
   });
 
   it('keeps a long-running update download honest after the foreground wait ends', async () => {
