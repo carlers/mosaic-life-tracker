@@ -1021,13 +1021,13 @@ test('rapid Day View swipes never outrun the rendered slide buffer', async ({ pa
   await expect(dialog).toBeVisible();
   await waitForStableVerticalPosition(dialog);
 
-  const swiper = dialog.getByTestId('day-swiper');
+  const swiper = page.getByTestId('day-swiper');
   await drag(page, swiper, -260);
   await drag(page, swiper, -260);
   await drag(page, swiper, -260);
   await drag(page, swiper, -260);
 
-  const activeSlide = dialog.locator('.swiper-slide-active');
+  const activeSlide = swiper.locator('.swiper-slide-active');
   await expect(activeSlide).toContainText('Saturday, September 19, 2026');
   await expect(
     activeSlide.locator('[data-day-view-navigation="true"]')
