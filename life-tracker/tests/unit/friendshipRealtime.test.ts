@@ -85,6 +85,15 @@ describe('friendship realtime isolation', () => {
     ).toBe(false);
   });
 
+  it('leaves settings to the RxDB replication pilot', () => {
+    startRealtime('alice');
+    expect(
+      [...state.callbacks.keys()].some((channel) =>
+        channel.includes('.settings.')
+      )
+    ).toBe(false);
+  });
+
   it('drops old subscription events after logout/account switching', async () => {
     startRealtime('alice');
     const old = friendshipCallback();
