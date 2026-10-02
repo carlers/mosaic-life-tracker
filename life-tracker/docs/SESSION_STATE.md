@@ -2,7 +2,7 @@
 
 Updated: 2026-10-02
 Current task: Continue the incremental RxDB sync migration after the categories pilot and legacy P0 hardening, using diary as the second pilot.
-Status: The legacy P0 reliability pass is merged into stable `perf/sync-engine-audit` at `2eb7e10e80a26e4efb4b7b40e2b813f7f5e1c5aa` and its Vercel Preview is READY. User reports category sync is working in hosted use. Diary RxDB replication is implemented on `chatgpt/sync-rxdb-diary-pilot`: it uses the same lossless pre-bootstrap checkpoint barrier, owner-scoped Appwrite `$updatedAt + $id` pulls, strict update/create writes, soft tombstones, and pilot-owned realtime. Tasks, settings, friendships, and messages remain on the hardened legacy engine. Settings was deliberately deferred because `profileImageId` has Storage upload/permission/profile-update side effects that need a dedicated adapter design rather than being treated as a simple scalar setting.
+Status: The legacy P0 reliability pass is merged into stable `perf/sync-engine-audit` at `2eb7e10e80a26e4efb4b7b40e2b813f7f5e1c5aa` and its Vercel Preview is READY. User reports category sync is working in hosted use. Diary RxDB replication and the RxDB-aware restore/import freshness-barrier repair are complete on `chatgpt/sync-rxdb-diary-pilot`. Tasks, settings, friendships, and messages remain on the hardened legacy engine. Settings was deliberately deferred because `profileImageId` has Storage upload/permission/profile-update side effects that need a dedicated adapter design rather than being treated as a simple scalar setting. This checkpoint requests full canonical verification of the exact task tip.
 Next action: Run exact-SHA full canonical acceptance for the diary pilot, repair any failure, squash into `perf/sync-engine-audit`, verify the stable Preview, and perform diary create/edit/delete + offline/reconnect acceptance before selecting the third collection.
 Blockers: None known in source. Live Appwrite diary tuple-query compatibility and hosted offline/reconnect behavior still require acceptance.
 
@@ -23,5 +23,5 @@ Blockers: None known in source. Live Appwrite diary tuple-query compatibility an
 ## Verification
 - Legacy P0 stable Preview: READY at `2eb7e10e80a26e4efb4b7b40e2b813f7f5e1c5aa`.
 - Diary pilot source/diff review: complete; one stale test assertion and one restore/import freshness regression were found and repaired during review.
-- Exact-SHA full canonical acceptance: pending.
+- Exact-SHA full canonical acceptance: requested by this checkpoint commit.
 - Stable diary Preview and hosted diary acceptance: pending.
