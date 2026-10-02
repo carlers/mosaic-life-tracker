@@ -1001,6 +1001,56 @@ describe('sync — explicit fresh refresh', () => {
   });
 });
 
+describe('sync — steady-state RxDB fast path', () => {
+  function markAllPilotsActive() {
+    taskPilotActiveMock.mockReturnValue(true);
+    categoryPilotActiveMock.mockReturnValue(true);
+    diaryPilotActiveMock.mockReturnValue(true);
+    settingsPilotActiveMock.mockReturnValue(true);
+    friendshipPilotActiveMock.mockReturnValue(true);
+    messagePilotActiveMock.mockReturnValue(true);
+  }
+
+  it('forceSync resyncs all pilots without entering the legacy engine', async () => {
+    markAllPilotsActive();
+    listRowsMock.mockClear();
+
+    await syncModule.forceSync('user_A');
+
+    expect(taskPilotResyncMock).toHaveBeenCalledWith('user_A');
+    expect(categoryPilotResyncMock).toHaveBeenCalledWith('user_A');
+    expect(diaryPilotResyncMock).toHaveBeenCalledWith('user_A');
+    expect(settingsPilotResyncMock).toHaveBeenCalledWith('user_A');
+    expect(friendshipPilotResyncMock).toHaveBeenCalledWith('user_A');
+    expect(messagePilotResyncMock).toHaveBeenCalledWith('user_A');
+    expect(listRowsMock).not.toHaveBeenCalled();
+  });
+
+  it('manual sync uses the RxDB freshness barrier and records a fresh success', async () => {
+    markAllPilotsActive();
+    taskPilotRefreshMock.mockResolvedValue(true);
+    categoryPilotRefreshMock.mockResolvedValue(true);
+    diaryPilotRefreshMock.mockResolvedValue(true);
+    settingsPilotRefreshMock.mockResolvedValue(true);
+    friendshipPilotRefreshMock.mockResolvedValue(true);
+    messagePilotRefreshMock.mockResolvedValue(true);
+    listRowsMock.mockClear();
+
+    const result = await syncModule.syncNow('user_A', 5_000);
+
+    expect(listRowsMock).not.toHaveBeenCalled();
+    expect(taskPilotRefreshMock).toHaveBeenCalled();
+    expect(categoryPilotRefreshMock).toHaveBeenCalled();
+    expect(diaryPilotRefreshMock).toHaveBeenCalled();
+    expect(settingsPilotRefreshMock).toHaveBeenCalled();
+    expect(friendshipPilotRefreshMock).toHaveBeenCalled();
+    expect(messagePilotRefreshMock).toHaveBeenCalled();
+    expect(result.status.isSyncing).toBe(false);
+    expect(result.status.errors).toEqual([]);
+    expect(result.status.lastSync).toBeTruthy();
+  });
+});
+
 describe('sync — forceSync follow-up queueing', () => {
   it('runs a follow-up when forceSync is called during an in-flight sync', async () => {
     const firstPull = makeDeferred<{ rows: never[] }>();
