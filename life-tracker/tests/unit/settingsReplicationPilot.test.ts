@@ -22,6 +22,7 @@ const uploadPendingImageMock = vi.hoisted(() => vi.fn());
 const makeProfileImageReadableMock = vi.hoisted(() => vi.fn());
 const deletePendingImageMock = vi.hoisted(() => vi.fn());
 const updateProfileAvatarMock = vi.hoisted(() => vi.fn());
+const awaitPilotReplicationFreshnessMock = vi.hoisted(() => vi.fn());
 
 vi.mock('rxdb', () => ({
   getChangedDocumentsSince: getChangedDocumentsSinceMock,
@@ -82,9 +83,14 @@ vi.mock('../../src/lib/social', () => ({
   updateProfileAvatar: updateProfileAvatarMock,
 }));
 
+vi.mock('../../src/db/replicationFreshness', () => ({
+  awaitPilotReplicationFreshness: awaitPilotReplicationFreshnessMock,
+}));
+
 import {
   __settingsReplicationPilotTestUtils,
   captureSettingsReplicationPushCheckpoint,
+  refreshSettingsReplicationPilot,
   startSettingsReplicationPilot,
   stopSettingsReplicationPilot,
 } from '../../src/db/settingsReplicationPilot';
@@ -134,6 +140,7 @@ beforeEach(async () => {
   makeProfileImageReadableMock.mockResolvedValue(undefined);
   deletePendingImageMock.mockResolvedValue(undefined);
   updateProfileAvatarMock.mockResolvedValue(undefined);
+  awaitPilotReplicationFreshnessMock.mockResolvedValue(undefined);
   cancelMock.mockResolvedValue(true);
   errorSubscribeMock.mockReturnValue({ unsubscribe: vi.fn() });
   realtimeSubscribeMock.mockReturnValue(vi.fn());
@@ -179,6 +186,26 @@ describe('settings RxDB replication pilot', () => {
     expect(options.push.initialCheckpoint).toEqual(checkpoint);
     expect(options.waitForLeadership).toBe(true);
     expect(options.live).toBe(true);
+  });
+
+  it('uses the shared leader-owned freshness barrier when active', async () => {
+    const collection = collectionFixture();
+    await startSettingsReplicationPilot(
+      'user_A',
+      collection,
+      { id: 'setting_seed', lwt: 77 }
+    );
+
+    await expect(
+      refreshSettingsReplicationPilot('user_A', 5_000)
+    ).resolves.toBe(true);
+
+    expect(awaitPilotReplicationFreshnessMock).toHaveBeenCalledWith(
+      'settings',
+      replicateRxCollectionMock.mock.results[0].value,
+      collection,
+      5_000
+    );
   });
 
   it('pulls with an owner-scoped updatedAt+id tuple checkpoint', async () => {
