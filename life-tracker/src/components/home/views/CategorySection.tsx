@@ -267,29 +267,34 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
       {!categoryCollapsed && isAdding && (
         <div
           data-testid="pending-task-row"
-          className="flex items-center gap-3 py-2"
+          className="flex items-start gap-3 rounded-lg pl-0 pr-2 py-2"
         >
           <span
             data-testid="pending-task-checkbox"
             aria-hidden="true"
-            className="shrink-0 h-6 w-6 rounded-full border-2"
+            className="mt-0.5 h-6 w-6 shrink-0 rounded-full border-2"
             style={{ borderColor: categoryColor }}
           />
-          <label htmlFor={inputId} className="sr-only">
-            New task title
-          </label>
-          <input
-            id={inputId}
-            ref={setInputRef}
-            type="text"
-            value={newTitle}
-            onChange={(e) => setNewTitle(e.target.value)}
-            onKeyDown={handleKeyDown}
-            onBlur={handleBlur}
-            placeholder={`Add a task to ${categoryName}...`}
-            className="min-w-0 flex-1 bg-transparent text-white outline-none border-b text-sm"
-            style={{ borderBottomColor: categoryColor }}
-          />
+          <div className="min-w-0 flex-1">
+            <label htmlFor={inputId} className="sr-only">
+              New task title
+            </label>
+            <input
+              id={inputId}
+              ref={setInputRef}
+              type="text"
+              value={newTitle}
+              onChange={(e) => setNewTitle(e.target.value)}
+              onKeyDown={handleKeyDown}
+              onBlur={handleBlur}
+              placeholder={`Add a task to ${categoryName}...`}
+              className="w-full bg-transparent text-white outline-none border-b"
+              style={{
+                borderBottomColor: categoryColor,
+                borderBottomWidth: '2px',
+              }}
+            />
+          </div>
         </div>
       )}
 

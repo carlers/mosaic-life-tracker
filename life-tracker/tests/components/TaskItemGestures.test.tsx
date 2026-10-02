@@ -130,7 +130,7 @@ describe('TaskItem owner gestures', () => {
     expect(callbacks.onOpenMemo).toHaveBeenCalledWith(task, 'edit');
   });
 
-  it('turns the row into a selectable control and suppresses normal task actions', () => {
+  it('keeps the completion control normal while row selection suppresses task actions', () => {
     const onToggleSelection = vi.fn();
     const callbacks = {
       onToggle: vi.fn(),
@@ -161,11 +161,11 @@ describe('TaskItem owner gestures', () => {
     expect(screen.getByRole('button', { name: 'Open memo' })).toBeInTheDocument();
 
     fireEvent.keyDown(row, { key: ' ' });
-    fireEvent.click(screen.getByRole('button', { name: 'Deselect task' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Mark complete' }));
     fireEvent.click(screen.getByRole('button', { name: 'Open memo' }));
 
-    expect(onToggleSelection).toHaveBeenCalledTimes(3);
-    expect(callbacks.onToggle).not.toHaveBeenCalled();
+    expect(onToggleSelection).toHaveBeenCalledTimes(2);
+    expect(callbacks.onToggle).toHaveBeenCalledWith(task.id);
     expect(callbacks.onOpenActions).not.toHaveBeenCalled();
     expect(callbacks.onOpenMemo).not.toHaveBeenCalled();
   });
