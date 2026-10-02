@@ -27,6 +27,7 @@ const deletePendingImageMock = vi.hoisted(() => vi.fn());
 const categoryPilotActiveMock = vi.hoisted(() => vi.fn());
 const categoryPilotResyncMock = vi.hoisted(() => vi.fn());
 const categoryPilotStartMock = vi.hoisted(() => vi.fn());
+const categoryPilotCheckpointMock = vi.hoisted(() => vi.fn());
 // Test fixture note: sync.ts reads `account` directly from '../../src/lib/appwrite'
 // instead of going through guardedAccount. The appwrite SDK mock must
 // therefore provide `Client` and `Account` so the real appwrite.ts module
@@ -87,6 +88,7 @@ vi.mock('../../src/db/database', () => ({
   getDatabase: getDatabaseMock,
 }));
 vi.mock('../../src/db/categoryReplicationPilot', () => ({
+  captureCategoryReplicationPushCheckpoint: categoryPilotCheckpointMock,
   isCategoryReplicationPilotActive: categoryPilotActiveMock,
   resyncCategoryReplicationPilot: categoryPilotResyncMock,
   startCategoryReplicationPilot: categoryPilotStartMock,
@@ -164,6 +166,24 @@ function makeRemoteTaskRow(id: string, updatedAt: string) {
     ...makeTaskRow(id),
     $updatedAt: updatedAt,
     updated_at: updatedAt,
+  };
+}
+function makeLocalCategoryDoc(id: string) {
+  return {
+    id,
+    _meta: { lwt: Date.now() + 1_000_000 },
+    toJSON: () => ({
+      id,
+      userId: 'user_A',
+      name: 'Work',
+      color: '#3B82F6',
+      order: 0,
+      visibility: 'private',
+      isDeleted: false,
+      icon: '',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+    }),
+    incrementalPatch: vi.fn().mockResolvedValue(undefined),
   };
 }
 function makeLocalDoc(id: string) {
@@ -300,8 +320,13 @@ beforeEach(async () => {
   categoryPilotActiveMock.mockReset();
   categoryPilotResyncMock.mockReset();
   categoryPilotStartMock.mockReset();
+  categoryPilotCheckpointMock.mockReset();
   categoryPilotActiveMock.mockReturnValue(false);
   categoryPilotStartMock.mockResolvedValue(undefined);
+  categoryPilotCheckpointMock.mockResolvedValue({
+    id: 'cat_seed',
+    lwt: 123,
+  });
   uploadPendingImageMock.mockResolvedValue('img_uploaded');
   deletePendingImageMock.mockResolvedValue(undefined);
   getDatabaseMock.mockReturnValue(makeDb());
@@ -325,9 +350,19 @@ describe('sync — category RxDB replication pilot handoff', () => {
     await syncModule.initializeSync('user_A');
 
     expect(categoryPilotStartMock).toHaveBeenCalledTimes(1);
+    expect(categoryPilotCheckpointMock).toHaveBeenCalledWith(db.categories);
     expect(categoryPilotStartMock).toHaveBeenCalledWith(
       'user_A',
-      db.categories
+      db.categories,
+      { id: 'cat_seed', lwt: 123 }
+    );
+    const categoryPullCallIndex = listRowsMock.mock.calls.findIndex(
+      (call) =>
+        (call[0] as { tableId?: string }).tableId === 'categories'
+    );
+    expect(categoryPullCallIndex).toBeGreaterThanOrEqual(0);
+    expect(categoryPilotCheckpointMock.mock.invocationCallOrder[0]).toBeLessThan(
+      listRowsMock.mock.invocationCallOrder[categoryPullCallIndex]
     );
 
     categoryPilotActiveMock.mockReturnValue(true);
@@ -341,6 +376,38 @@ describe('sync — category RxDB replication pilot handoff', () => {
         (call[0] as { tableId?: string }).tableId === 'categories'
     );
     expect(categoryPulls).toHaveLength(0);
+  });
+
+  it('does not hand off when the legacy category bootstrap has a push failure', async () => {
+    const failedCategory = makeLocalCategoryDoc('cat_failed');
+    const db = {
+      ...makeDb(),
+      categories: {
+        findOne: () => ({ exec: async () => null }),
+        find: () => ({ exec: async () => [failedCategory] }),
+        upsert: vi.fn().mockResolvedValue(undefined),
+      },
+    };
+    getDatabaseMock.mockReturnValue(db);
+    updateRowMock.mockImplementation(
+      async ({ tableId }: { tableId: string }) => {
+        if (tableId === 'categories') {
+          throw Object.assign(new Error('category write failed'), {
+            code: 500,
+          });
+        }
+        return {};
+      }
+    );
+
+    await syncModule.initializeSync('user_A');
+
+    expect(categoryPilotStartMock).not.toHaveBeenCalled();
+    expect(syncModule.getSyncStatus().errors).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining('Category bootstrap incomplete'),
+      ])
+    );
   });
 });
 

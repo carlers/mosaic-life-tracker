@@ -66,6 +66,7 @@ vi.mock('../../src/lib/sdk', () => ({
 
 import {
   __categoryReplicationPilotTestUtils,
+  captureCategoryReplicationPushCheckpoint,
   startCategoryReplicationPilot,
   stopCategoryReplicationPilot,
 } from '../../src/db/categoryReplicationPilot';
@@ -132,19 +133,34 @@ afterEach(async () => {
 });
 
 describe('category RxDB replication pilot', () => {
-  it('seeds upstream from the post-bootstrap local checkpoint', async () => {
-    await startCategoryReplicationPilot('user_A', collectionFixture());
+  it('captures the current local checkpoint for the pre-bootstrap seed', async () => {
+    const checkpoint = await captureCategoryReplicationPushCheckpoint(
+      collectionFixture()
+    );
 
     expect(getChangedDocumentsSinceMock).toHaveBeenCalledWith(
       {},
       200,
       undefined
     );
-    const options = replicateRxCollectionMock.mock.calls[0][0];
-    expect(options.push.initialCheckpoint).toEqual({
+    expect(checkpoint).toEqual({
       id: 'cat_z',
       lwt: 123,
     });
+  });
+
+  it('starts from the caller-supplied pre-bootstrap checkpoint without rescanning', async () => {
+    const checkpoint = { id: 'cat_seed', lwt: 77 };
+
+    await startCategoryReplicationPilot(
+      'user_A',
+      collectionFixture(),
+      checkpoint
+    );
+
+    expect(getChangedDocumentsSinceMock).not.toHaveBeenCalled();
+    const options = replicateRxCollectionMock.mock.calls[0][0];
+    expect(options.push.initialCheckpoint).toEqual(checkpoint);
     expect(options.waitForLeadership).toBe(true);
     expect(options.live).toBe(true);
   });
@@ -271,7 +287,11 @@ describe('category RxDB replication pilot', () => {
   });
 
   it('streams owner-scoped Appwrite realtime updates into replication', async () => {
-    await startCategoryReplicationPilot('user_A', collectionFixture());
+    await startCategoryReplicationPilot(
+      'user_A',
+      collectionFixture(),
+      { id: 'cat_seed', lwt: 77 }
+    );
     const options = replicateRxCollectionMock.mock.calls[0][0];
     const next = firstValueFrom(options.pull.stream$);
     const callback = realtimeSubscribeMock.mock.calls[0][1];

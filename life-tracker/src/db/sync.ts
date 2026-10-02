@@ -15,6 +15,7 @@ import { isPendingImageId, deletePendingImage } from '../lib/pendingImages';
 import { uploadPendingImage, makeProfileImageReadable } from '../lib/storage';
 import { getConnectivitySnapshot } from '../lib/connectivity';
 import {
+  captureCategoryReplicationPushCheckpoint,
   isCategoryReplicationPilotActive,
   resyncCategoryReplicationPilot,
   startCategoryReplicationPilot,
@@ -167,6 +168,11 @@ function updateSyncStatus(updates: Partial<SyncStatus>) {
   if (DEBUG) console.log('[Sync] Status:', next);
 }
 type AppwriteRow = Record<string, unknown>;
+interface CollectionSyncResult {
+  pullRowFailed: boolean;
+  pushFailed: number;
+  pullComplete: boolean;
+}
 type LocalDoc = {
   id: string;
   _meta?: { lwt?: number };
@@ -443,17 +449,35 @@ async function runSyncCycleBody(userId: string): Promise<void> {
           continue;
         }
 
-        await syncCollection(
+        const categoryPushCheckpoint =
+          colName === 'categories'
+            ? await captureCategoryReplicationPushCheckpoint(db.categories)
+            : undefined;
+        const result = await syncCollection(
           db[colName] as unknown as LocalCollection,
           colName,
           userId
         );
 
         if (colName === 'categories') {
-          // One successful legacy category sync is the migration barrier:
-          // it flushes pre-pilot local writes, performs stale-cursor
-          // reconciliation, then hands a clean baseline to RxDB replication.
-          await startCategoryReplicationPilot(userId, db.categories);
+          // Only a completely clean legacy bootstrap may establish RxDB's
+          // initial upstream baseline. The seed was captured before the
+          // bootstrap so edits made while it was running remain newer than
+          // the checkpoint and cannot be skipped by the handoff.
+          if (
+            result.pullRowFailed ||
+            result.pushFailed > 0 ||
+            !result.pullComplete
+          ) {
+            throw new Error(
+              'Category bootstrap incomplete; keeping legacy sync active'
+            );
+          }
+          await startCategoryReplicationPilot(
+            userId,
+            db.categories,
+            categoryPushCheckpoint
+          );
         }
       } catch (colError) {
         const message =
@@ -532,8 +556,11 @@ async function syncCollection(
   collection: LocalCollection,
   colName: string,
   userId: string
-) {
-  if (colName === 'friendships') return syncFriendships(userId);
+): Promise<CollectionSyncResult> {
+  if (colName === 'friendships') {
+    await syncFriendships(userId);
+    return { pullRowFailed: false, pushFailed: 0, pullComplete: true };
+  }
   const cycleStartMs = Date.now();
   const tableId =
     APPWRITE_CONFIG.tables[colName as keyof typeof APPWRITE_CONFIG.tables];
@@ -559,6 +586,7 @@ async function syncCollection(
   let cursor: string | undefined = undefined;
   let pageCount = 0;
   let pullRowFailed = false;
+  let pullComplete = true;
   for (;;) {
     const queries: unknown[] = [
       Query.equal('user_id', userId),
@@ -594,7 +622,7 @@ async function syncCollection(
           updatedAt: remoteUpdatedAt,
           isDeleted: (doc.isDeleted as boolean) ?? false,
         });
-        if (incrementalCursorExpired) {
+        if (incrementalCursorExpired && pullComplete && !pullRowFailed) {
           delete reconciledMissing[reconciliationKey(colName, docId)];
         }
         const localDoc = await collection.findOne(docId).exec();
@@ -682,18 +710,26 @@ async function syncCollection(
     }
     if (rows.length < PAGE_SIZE) break;
     const lastId = rows[rows.length - 1].$id as string | undefined;
-    if (!lastId || lastId === cursor) break;
+    if (!lastId || lastId === cursor) {
+      pullComplete = false;
+      console.warn(
+        `[Sync] ${colName} pagination did not advance; keeping pull checkpoint`
+      );
+      break;
+    }
     cursor = lastId;
     if (pageCount >= MAX_PAGES_PER_COLLECTION) {
+      pullComplete = false;
       console.warn(
         `[Sync] ${colName} hit page cap (${MAX_PAGES_PER_COLLECTION}); stopping pull`
       );
       break;
     }
   }
-  const nextPullIso = pullRowFailed
-    ? entry?.pull ?? ''
-    : new Date(cycleStartMs).toISOString();
+  const nextPullIso =
+    pullRowFailed || !pullComplete
+      ? entry?.pull ?? ''
+      : new Date(cycleStartMs).toISOString();
   perCollectionSync[colName as CollectionName] = {
     pull: nextPullIso,
     dirty: entry?.dirty ?? '',
@@ -850,15 +886,17 @@ async function syncCollection(
   saveReconciledMissingRows(userId, reconciledMissing);
   savePerCollectionState(userId, perCollectionSync);
   if (DEBUG) {
-    if (pullRowFailed || pushFailed > 0) {
+    if (pullRowFailed || pushFailed > 0 || !pullComplete) {
       console.warn(
         `[Sync] ⚠️ ${colName} completed with issues: ` +
-          `pullRowFailed=${pullRowFailed} pushFailed=${pushFailed}`
+          `pullRowFailed=${pullRowFailed} pushFailed=${pushFailed} ` +
+          `pullComplete=${pullComplete}`
       );
     } else {
       console.log(`[Sync] ✅ ${colName} synced (${pageCount} page(s) pulled)`);
     }
   }
+  return { pullRowFailed, pushFailed, pullComplete };
 }
 export async function forceSync(userId: string) {
   if (DEBUG) console.log('[Sync] Force sync triggered');
