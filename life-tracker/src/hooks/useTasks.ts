@@ -3,7 +3,6 @@ import { getDatabase } from '../db/database';
 import { useAuth } from './useAuth';
 import { useRxCollection } from './useRxCollection';
 import type { TaskDocument } from '../db/schema';
-import { requestSyncAfterLocalMutation } from '../lib/syncTrigger';
 import {
   buildTaskOrderAssignments,
   type TaskOrderGroup,
@@ -61,14 +60,12 @@ export function useTasks(enabled = true) {
         isDeleted: false,
       };
       await db.tasks.insert(newTask);
-      requestSyncAfterLocalMutation(uid);
     },
     [user?.$id]
   );
 
   const updateTask = useCallback(
     async (id: string, updates: Partial<TaskDocument>) => {
-      const uid = user?.$id;
       const db = getDatabase();
       const doc = await db.tasks.findOne(id).exec();
       if (doc) {
@@ -76,12 +73,9 @@ export function useTasks(enabled = true) {
           ...updates,
           updatedAt: new Date().toISOString(),
         });
-        if (uid && doc.userId === uid) {
-          requestSyncAfterLocalMutation(uid);
-        }
       }
     },
-    [user?.$id]
+    []
   );
 
   const deleteTask = useCallback(
@@ -157,7 +151,6 @@ export function useTasks(enabled = true) {
         );
         const updatedAt = new Date().toISOString();
 
-        let changed = false;
         await Promise.all(
           assignments.map(({ id, categoryId, order }) => {
             const doc = docsById.get(id);
@@ -167,7 +160,6 @@ export function useTasks(enabled = true) {
             if (doc.categoryId === categoryId && doc.order === order) {
               return Promise.resolve();
             }
-            changed = true;
             return doc.incrementalPatch({
               categoryId,
               order,
@@ -175,9 +167,6 @@ export function useTasks(enabled = true) {
             });
           })
         );
-        if (changed) {
-          requestSyncAfterLocalMutation(uid);
-        }
       };
 
       const queued = reorderQueue.current.then(applyOrder, applyOrder);
