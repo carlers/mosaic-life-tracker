@@ -24,6 +24,9 @@ const createRowMock = vi.hoisted(() => vi.fn());
 const getDatabaseMock = vi.hoisted(() => vi.fn());
 const uploadPendingImageMock = vi.hoisted(() => vi.fn());
 const deletePendingImageMock = vi.hoisted(() => vi.fn());
+const categoryPilotActiveMock = vi.hoisted(() => vi.fn());
+const categoryPilotResyncMock = vi.hoisted(() => vi.fn());
+const categoryPilotStartMock = vi.hoisted(() => vi.fn());
 // Test fixture note: sync.ts reads `account` directly from '../../src/lib/appwrite'
 // instead of going through guardedAccount. The appwrite SDK mock must
 // therefore provide `Client` and `Account` so the real appwrite.ts module
@@ -82,6 +85,11 @@ vi.mock('../../src/lib/sdk', () => ({
 }));
 vi.mock('../../src/db/database', () => ({
   getDatabase: getDatabaseMock,
+}));
+vi.mock('../../src/db/categoryReplicationPilot', () => ({
+  isCategoryReplicationPilotActive: categoryPilotActiveMock,
+  resyncCategoryReplicationPilot: categoryPilotResyncMock,
+  startCategoryReplicationPilot: categoryPilotStartMock,
 }));
 vi.mock('../../src/lib/storage', () => ({
   uploadPendingImage: uploadPendingImageMock,
@@ -289,6 +297,11 @@ beforeEach(async () => {
   getDatabaseMock.mockReset();
   uploadPendingImageMock.mockReset();
   deletePendingImageMock.mockReset();
+  categoryPilotActiveMock.mockReset();
+  categoryPilotResyncMock.mockReset();
+  categoryPilotStartMock.mockReset();
+  categoryPilotActiveMock.mockReturnValue(false);
+  categoryPilotStartMock.mockResolvedValue(undefined);
   uploadPendingImageMock.mockResolvedValue('img_uploaded');
   deletePendingImageMock.mockResolvedValue(undefined);
   getDatabaseMock.mockReturnValue(makeDb());
@@ -304,6 +317,33 @@ beforeEach(async () => {
 afterEach(() => {
   vi.restoreAllMocks();
 });
+describe('sync — category RxDB replication pilot handoff', () => {
+  it('bootstraps categories once, then delegates catch-up triggers to RxDB', async () => {
+    const db = makeDb();
+    getDatabaseMock.mockReturnValue(db);
+
+    await syncModule.initializeSync('user_A');
+
+    expect(categoryPilotStartMock).toHaveBeenCalledTimes(1);
+    expect(categoryPilotStartMock).toHaveBeenCalledWith(
+      'user_A',
+      db.categories
+    );
+
+    categoryPilotActiveMock.mockReturnValue(true);
+    listRowsMock.mockClear();
+
+    await syncModule.initializeSync('user_A');
+
+    expect(categoryPilotResyncMock).toHaveBeenCalledWith('user_A');
+    const categoryPulls = listRowsMock.mock.calls.filter(
+      (call) =>
+        (call[0] as { tableId?: string }).tableId === 'categories'
+    );
+    expect(categoryPulls).toHaveLength(0);
+  });
+});
+
 describe('sync — listener isolation', () => {
   it('a throwing status listener does not prevent initializeSync from completing', async () => {
     const unsubscribe = syncModule.subscribeToSyncStatus(() => {
