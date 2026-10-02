@@ -178,13 +178,37 @@ async function validateFriendshipChanges(
         `Friendship replication owner mismatch for ${next.id}`
       );
     }
-    if (next._deleted) {
-      throw new Error(
-        `Friendship replication cannot physically delete ${next.id}; use isDeleted tombstones`
-      );
+
+    // FriendsProvider removes pre-migration invalid local rows physically.
+    // They cannot be valid current Appwrite row IDs and are intentionally
+    // local-only cleanup, so acknowledge them without touching the server.
+    if (
+      next._deleted &&
+      next.id.length > 36 &&
+      next.id.includes('_')
+    ) {
+      await clearCachedCalendar(userId, next.friendId);
+      continue;
     }
 
     const current = await readRemoteFriendship(next.id);
+    if (current && current.userId !== userId) {
+      throw new Error(
+        `Friendship replication master owner mismatch for ${next.id}`
+      );
+    }
+
+    // Friendships are server-owned. A physical local deletion of a valid
+    // row must never delete the master: restore it as a conflict when the
+    // master still exists, otherwise acknowledge the already-absent row.
+    if (next._deleted) {
+      if (current) {
+        conflicts.push(current);
+      } else {
+        await clearCachedCalendar(userId, next.friendId);
+      }
+      continue;
+    }
 
     if (!current) {
       if (next.isDeleted) {
