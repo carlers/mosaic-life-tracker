@@ -340,6 +340,8 @@ beforeEach(async () => {
   logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
 });
 afterEach(() => {
+  syncModule.__resetSyncRuntimeForTests();
+  vi.useRealTimers();
   vi.restoreAllMocks();
 });
 describe('sync — category RxDB replication pilot handoff', () => {
@@ -405,7 +407,7 @@ describe('sync — category RxDB replication pilot handoff', () => {
     expect(categoryPilotStartMock).not.toHaveBeenCalled();
     expect(syncModule.getSyncStatus().errors).toEqual(
       expect.arrayContaining([
-        expect.stringContaining('Category bootstrap incomplete'),
+        expect.stringContaining('categories: 1 push/reconciliation failure'),
       ])
     );
   });
@@ -507,6 +509,88 @@ describe('sync — forceSync follow-up queueing', () => {
   });
 });
 // Regression: §18 (sync failure isolation and boundary safety).
+describe('sync — manual freshness and retry wake-up', () => {
+  it('manual sync retries immediately through a transient failure backoff', async () => {
+    const docs = [makeLocalDoc('manual_retry')];
+    getDatabaseMock.mockReturnValue({
+      tasks: {
+        findOne: () => ({ exec: async () => null }),
+        find: () => ({ exec: async () => docs }),
+        upsert: vi.fn(),
+      },
+      categories: makeEmptyCollection(),
+      diary: makeEmptyCollection(),
+      settings: makeEmptyCollection(),
+      friendships: makeEmptyCollection(),
+      messages: makeEmptyCollection(),
+    });
+    updateRowMock.mockRejectedValueOnce(
+      Object.assign(new Error('server boom'), { code: 500 })
+    );
+
+    await syncModule.initializeSync('user_A');
+    expect(syncModule.getSyncStatus().errors.length).toBeGreaterThan(0);
+
+    listRowsMock.mockClear();
+    updateRowMock.mockResolvedValue({});
+    await syncModule.syncNow('user_A');
+
+    expect(listRowsMock).toHaveBeenCalled();
+    expect(syncModule.getSyncStatus().errors).toEqual([]);
+    expect(syncModule.getSyncStatus().lastSync).toBeTruthy();
+  });
+
+  it('manual sync respects an active 429 backoff', async () => {
+    const rateLimitErr = Object.assign(new Error('rate limit'), {
+      code: 429,
+    });
+    listRowsMock.mockRejectedValueOnce(rateLimitErr);
+
+    await syncModule.initializeSync('user_A');
+    expect(syncModule.getSyncStatus().errors.length).toBeGreaterThan(0);
+
+    listRowsMock.mockClear();
+    await syncModule.syncNow('user_A');
+
+    expect(listRowsMock).not.toHaveBeenCalled();
+  });
+
+  it('automatically retries when transient failure backoff expires', async () => {
+    vi.useFakeTimers();
+    const docs = [makeLocalDoc('auto_retry')];
+    getDatabaseMock.mockReturnValue({
+      tasks: {
+        findOne: () => ({ exec: async () => null }),
+        find: () => ({ exec: async () => docs }),
+        upsert: vi.fn(),
+      },
+      categories: makeEmptyCollection(),
+      diary: makeEmptyCollection(),
+      settings: makeEmptyCollection(),
+      friendships: makeEmptyCollection(),
+      messages: makeEmptyCollection(),
+    });
+
+    let retryObserved = false;
+    updateRowMock
+      .mockRejectedValueOnce(Object.assign(new Error('server boom'), { code: 500 }))
+      .mockImplementation(async () => {
+        retryObserved = true;
+        return {};
+      });
+
+    await syncModule.initializeSync('user_A');
+    expect(retryObserved).toBe(false);
+
+    await vi.advanceTimersByTimeAsync(5_020);
+    for (let i = 0; i < 10 && !retryObserved; i += 1) {
+      await Promise.resolve();
+    }
+
+    expect(retryObserved).toBe(true);
+  });
+});
+
 describe('sync — boundary advancement', () => {
   it('after a successful cycle, dirty boundary equals cycle-start, not cycle-end', async () => {
     const observedFirstListRowsAt = { value: 0 };
@@ -549,6 +633,10 @@ describe('sync — boundary advancement', () => {
     );
     await syncModule.initializeSync('user_A');
     expect(failingUpsert).toHaveBeenCalledTimes(1);
+    expect(syncModule.getSyncStatus().lastSync).toBeNull();
+    expect(syncModule.getSyncStatus().errors).toEqual(
+      expect.arrayContaining([expect.stringContaining('tasks: pull row failed')])
+    );
     const raw = localStorageMock.getItem('lastSyncTimePerCollection');
     const state = JSON.parse(raw!);
     expect(state.entries.tasks.pull).toBe('');
@@ -605,6 +693,12 @@ describe('sync — boundary advancement', () => {
     updateRowMock.mockResolvedValueOnce({});
     await syncModule.initializeSync('user_A');
     expect(updateRowMock).toHaveBeenCalledTimes(3);
+    expect(syncModule.getSyncStatus().lastSync).toBeNull();
+    expect(syncModule.getSyncStatus().errors).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining('tasks: 1 push/reconciliation failure'),
+      ])
+    );
   });
   it('a push failure leaves the dirty boundary at its previous value', async () => {
     await syncModule.initializeSync('user_A');

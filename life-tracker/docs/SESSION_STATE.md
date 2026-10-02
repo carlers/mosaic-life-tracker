@@ -1,24 +1,24 @@
 # Session checkpoint
 
 Updated: 2026-10-02
-Current task: Prove whether RxDB's generic replication engine can safely replace Mosaic's hand-built sync machinery one collection at a time, starting with categories, without changing the other five collection sync paths.
-Status: The categories-only RxDB replication pilot and its lossless handoff repair are merged into stable `perf/sync-engine-audit`. Categories perform one clean legacy bootstrap, then hand off to generic `replicateRxCollection()` using a pre-bootstrap upstream seed; tasks, diary, settings, friendships, and messages remain on the legacy engine. Stable implementation SHA `d1b6c2a803233cdd1c8ce8e4eb4cafb15eee0e04` passed the full Quality Gate and has a READY Vercel Preview. A read-only production Appwrite probe confirmed the exact owner-filtered `$updatedAt + $id` tuple query is accepted by the current categories schema with no custom category indexes.
-Next action: Perform hosted/manual acceptance on the stable Preview: real category create/update/delete, offline edit then reconnect, and second-browser/device propagation/conflict behavior. Do not migrate another collection until those checks are accepted.
-Blockers: No automated/source/query-shape blocker. The remaining gate is real hosted offline/reconnect and multi-device acceptance.
+Current task: Harden the five legacy-sync collections after accepting the categories RxDB pilot in real use, then continue the incremental RxDB migration with settings.
+Status: Legacy P0 reliability fixes are implemented on `chatgpt/sync-legacy-p0-reliability`, based from stable `perf/sync-engine-audit`. Categories remain on the accepted RxDB pilot. Tasks, diary, settings, friendships, and messages remain on the legacy engine for this acceptance unit. Full canonical verification is requested by this checkpoint commit; after it passes, squash into the stable sync branch, verify Preview, then start a separate settings-replication task branch.
+Next action: Wait for exact-SHA full canonical acceptance. Repair any failure. If green, squash-merge this task branch into `perf/sync-engine-audit`, verify its stable Vercel Preview, then begin the settings RxDB replication pilot from the updated stable branch.
+Blockers: None known in source. User reports category sync is working in current hosted use; broader category multi-device conflict acceptance remains ongoing but no longer blocks the legacy safety pass.
 
 ## Completed
-- Added a categories-only generic RxDB replication adapter over guarded Appwrite TablesDB; the official RxDB Appwrite plugin is not used.
-- Preserved Mosaic owner scoping, soft tombstones, strict `updateRow` -> 404 `createRow`, category realtime ownership, and the existing non-atomic Appwrite conflict limitation.
-- Switched category steady-state pulls to server-authored `$updatedAt + $id` tuple checkpoints.
-- Made the migration boundary lossless: capture the RxDB push seed before legacy bootstrap and refuse handoff after any row-level pull/push failure or incomplete pagination.
-- Page-cap/non-advancing legacy pulls retain the previous pull checkpoint and cannot run stale missing-row reconciliation.
-- Added regression coverage for checkpoint capture/start separation, pre-bootstrap ordering, tuple pulls, strict create fallback, conflict returns, category realtime, and failed-bootstrap handoff refusal.
-- Updated `PROJECT_REFERENCE.md` with the incremental pilot and lossless handoff contracts.
+- Legacy row-level pull/push/reconciliation failures now make the collection and account sync unsuccessful instead of allowing a false `lastSync` / offline-ready success.
+- Preserved underlying row errors so 429, unauthorized, and ordinary transient failures retain correct classification.
+- Legacy stale-cursor reconciliation now requires a complete, row-error-free pull; page-cap/non-advancing pulls cannot tombstone unseen local rows.
+- Added per-tab self-waking backoff timers. Triggers during backoff re-establish the wake-up instead of silently depending on a later focus/reconnect event.
+- Added `syncNow()` for user-invoked freshness: it drains same-tab work, may retry ordinary transient backoff immediately, and never bypasses active Appwrite 429 protection. Background/focus/chat triggers keep coalescing semantics.
+- Task, diary, and settings writes now request a per-account 300ms debounced sync. This does not subscribe to generic RxDB writes, so remote/realtime applies do not create an echo loop.
+- Diary deletion now stamps a fresh `updatedAt` with the tombstone, preserving 90-day retention semantics.
+- Added regression coverage for false-success prevention, automatic retry wake-up, manual retry behavior, mutation-sync debounce, diary tombstone timestamps, and Sync Status manual freshness.
+- Updated `PROJECT_REFERENCE.md` with the new sync contracts.
 
 ## Verification
-- Original pilot full Quality Gate: green.
-- Handoff-safety task code SHA `02bad9e7e4fc2f5bc0e51906396ac2e4b37a6c3b`: full Quality Gate green.
-- Stable implementation SHA `d1b6c2a803233cdd1c8ce8e4eb4cafb15eee0e04`: project contracts, lint, unit/handler tests, both DOM shards, both browser-contract shards, production build, dependency audit, and `canonical-acceptance` all green.
-- Stable Vercel Preview for the implementation SHA: READY.
-- Read-only live Appwrite tuple-query probe: passed; current categories table reports no custom indexes.
-- Hosted/manual category mutation, offline/reconnect, and second-browser/device acceptance: pending.
+- Source/diff review completed in chat against the current stable sync branch.
+- Exact-SHA full canonical acceptance: pending.
+- Stable Preview verification: pending until squash promotion.
+- No settings RxDB migration changes are included in this acceptance unit.

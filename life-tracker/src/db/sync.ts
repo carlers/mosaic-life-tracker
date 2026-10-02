@@ -172,6 +172,7 @@ interface CollectionSyncResult {
   pullRowFailed: boolean;
   pushFailed: number;
   pullComplete: boolean;
+  errors: unknown[];
 }
 type LocalDoc = {
   id: string;
@@ -193,6 +194,36 @@ let rateLimitUntil = 0;
 let rateLimitBackoffMs = 0;
 let failureBackoffUntil = 0;
 let failureBackoffMs = 0;
+let backoffWakeTimer: ReturnType<typeof setTimeout> | null = null;
+let backoffWakeAt = 0;
+let backoffWakeUserId: string | null = null;
+
+function clearBackoffWakeTimer(): void {
+  if (backoffWakeTimer !== null) {
+    clearTimeout(backoffWakeTimer);
+  }
+  backoffWakeTimer = null;
+  backoffWakeAt = 0;
+  backoffWakeUserId = null;
+}
+
+function scheduleBackoffWake(userId: string, wakeAt: number): void {
+  if (!userId || wakeAt <= Date.now()) return;
+  if (backoffWakeUserId === userId && backoffWakeAt === wakeAt) return;
+
+  clearBackoffWakeTimer();
+  backoffWakeUserId = userId;
+  backoffWakeAt = wakeAt;
+  backoffWakeTimer = globalThis.setTimeout(() => {
+    backoffWakeTimer = null;
+    backoffWakeAt = 0;
+    backoffWakeUserId = null;
+    void initializeSync(userId).catch((error) => {
+      console.error('[Sync] Scheduled retry failed:', error);
+    });
+  }, Math.max(0, wakeAt - Date.now()) + 10);
+}
+
 function isTimestampedCollection(collection: string): boolean {
   return (
     collection === 'tasks' ||
@@ -295,6 +326,34 @@ export async function refreshSync(
   return { status: getSyncStatus(), startedAt };
 }
 
+/**
+ * User-invoked sync is a real freshness request, unlike ordinary coalescing
+ * triggers. Drain the same-tab coordinator first. A transient failure backoff
+ * may be retried immediately by explicit user intent, while Appwrite 429
+ * backoff remains protected and wakes itself when the server window expires.
+ */
+export async function syncNow(
+  userId: string,
+  timeoutMs = SYNC_COORDINATOR_IDLE_TIMEOUT_MS
+): Promise<FreshSyncResult> {
+  await waitForSyncCoordinatorIdle(timeoutMs);
+
+  if (backoffOwnerId === userId && Date.now() < rateLimitUntil) {
+    scheduleBackoffWake(userId, rateLimitUntil);
+    return { status: getSyncStatus(), startedAt: Date.now() };
+  }
+
+  if (backoffOwnerId === userId && Date.now() < failureBackoffUntil) {
+    failureBackoffUntil = 0;
+    failureBackoffMs = 0;
+    clearBackoffWakeTimer();
+  }
+
+  const startedAt = Date.now();
+  await initializeSync(userId);
+  return { status: getSyncStatus(), startedAt };
+}
+
 async function resolvePendingImageForPush(
   doc: LocalDoc,
   json: Record<string, unknown>,
@@ -332,6 +391,7 @@ export async function initializeSync(userId: string): Promise<void> {
     rateLimitBackoffMs = 0;
     failureBackoffUntil = 0;
     failureBackoffMs = 0;
+    clearBackoffWakeTimer();
   }
   // Same-tab reentry: if a cycle is queued (awaiting or holding the lock)
   // or running, coalesce into a single follow-up run rather than queueing
@@ -354,6 +414,7 @@ export async function initializeSync(userId: string): Promise<void> {
         ).toISOString()}`
       );
     }
+    scheduleBackoffWake(userId, rateLimitUntil);
     updateSyncStatus({ isSyncing: false });
     return;
   }
@@ -365,6 +426,7 @@ export async function initializeSync(userId: string): Promise<void> {
         ).toISOString()}`
       );
     }
+    scheduleBackoffWake(userId, failureBackoffUntil);
     updateSyncStatus({ isSyncing: false });
     return;
   }
@@ -459,20 +521,43 @@ async function runSyncCycleBody(userId: string): Promise<void> {
           userId
         );
 
+        const hasCollectionIssues =
+          result.pullRowFailed ||
+          result.pushFailed > 0 ||
+          !result.pullComplete;
+        if (hasCollectionIssues) {
+          const issueParts: string[] = [];
+          if (result.pullRowFailed) issueParts.push('pull row failed');
+          if (result.pushFailed > 0) {
+            issueParts.push(
+              `${result.pushFailed} push/reconciliation failure${result.pushFailed === 1 ? '' : 's'}`
+            );
+          }
+          if (!result.pullComplete) issueParts.push('pull incomplete');
+          collectionErrors.push(`${colName}: ${issueParts.join(', ')}`);
+
+          let classifiedError = false;
+          for (const rowError of result.errors) {
+            classifiedError = true;
+            if (isRateLimitError(rowError)) {
+              sawRateLimit = true;
+            } else if (isUnauthorizedError(rowError)) {
+              sawUnauthorized = true;
+            } else {
+              sawNonRateLimitFailure = true;
+            }
+          }
+          if (!classifiedError || !result.pullComplete) {
+            sawNonRateLimitFailure = true;
+          }
+          continue;
+        }
+
         if (colName === 'categories') {
           // Only a completely clean legacy bootstrap may establish RxDB's
           // initial upstream baseline. The seed was captured before the
           // bootstrap so edits made while it was running remain newer than
           // the checkpoint and cannot be skipped by the handoff.
-          if (
-            result.pullRowFailed ||
-            result.pushFailed > 0 ||
-            !result.pullComplete
-          ) {
-            throw new Error(
-              'Category bootstrap incomplete; keeping legacy sync active'
-            );
-          }
           await startCategoryReplicationPilot(
             userId,
             db.categories,
@@ -496,6 +581,7 @@ async function runSyncCycleBody(userId: string): Promise<void> {
       }
     }
     if (sawUnauthorized) {
+      clearBackoffWakeTimer();
       updateSyncStatus({ isSyncing: false, errors: collectionErrors });
       return;
     }
@@ -525,6 +611,14 @@ async function runSyncCycleBody(userId: string): Promise<void> {
       failureBackoffMs = 0;
       failureBackoffUntil = 0;
     }
+
+    const wakeAt = Math.max(rateLimitUntil, failureBackoffUntil);
+    if (wakeAt > Date.now()) {
+      scheduleBackoffWake(userId, wakeAt);
+    } else {
+      clearBackoffWakeTimer();
+    }
+
     if (collectionErrors.length === 0) {
       const completedAt = new Date().toISOString();
       updateSyncStatus({
@@ -559,7 +653,12 @@ async function syncCollection(
 ): Promise<CollectionSyncResult> {
   if (colName === 'friendships') {
     await syncFriendships(userId);
-    return { pullRowFailed: false, pushFailed: 0, pullComplete: true };
+    return {
+      pullRowFailed: false,
+      pushFailed: 0,
+      pullComplete: true,
+      errors: [],
+    };
   }
   const cycleStartMs = Date.now();
   const tableId =
@@ -587,6 +686,7 @@ async function syncCollection(
   let pageCount = 0;
   let pullRowFailed = false;
   let pullComplete = true;
+  const collectionErrors: unknown[] = [];
   for (;;) {
     const queries: unknown[] = [
       Query.equal('user_id', userId),
@@ -661,9 +761,9 @@ async function syncCollection(
             try {
               await localDoc.incrementalPatch({ readAt: remoteReadAt });
             } catch (err) {
-              if (DEBUG) {
-                console.warn('[Sync] read_at pull failed for', docId, err);
-              }
+              pullRowFailed = true;
+              collectionErrors.push(err);
+              console.warn('[Sync] read_at pull failed for', docId, err);
             }
           }
         }
@@ -706,6 +806,7 @@ async function syncCollection(
       } catch (rowError) {
         console.error(`[Sync] Failed to process ${colName} row:`, rowError);
         pullRowFailed = true;
+        collectionErrors.push(rowError);
       }
     }
     if (rows.length < PAGE_SIZE) break;
@@ -795,6 +896,7 @@ async function syncCollection(
             `[Sync] Failed to reconcile pending image for ${colName} ${docId}:`,
             imageError
           );
+          collectionErrors.push(imageError);
           return 1;
         }
 
@@ -815,6 +917,7 @@ async function syncCollection(
               `[Sync] Failed to push ${colName} ${docId}:`,
               updateErr
             );
+            collectionErrors.push(updateErr);
             return 1;
           }
 
@@ -838,6 +941,7 @@ async function syncCollection(
               `[Sync] Failed to create ${colName} ${docId}:`,
               createErr
             );
+            collectionErrors.push(createErr);
             return 1;
           }
         }
@@ -848,7 +952,7 @@ async function syncCollection(
       0
     );
   }
-  if (incrementalCursorExpired) {
+  if (incrementalCursorExpired && pullComplete && !pullRowFailed) {
     const localDocsAfterPull = await collection.find().exec();
     const reconciliationNow = new Date().toISOString();
     for (const doc of localDocsAfterPull) {
@@ -870,6 +974,7 @@ async function syncCollection(
           `[Sync] Failed to reconcile missing ${colName} ${docId}:`,
           reconcileErr
         );
+        collectionErrors.push(reconcileErr);
         pushFailed++;
       }
     }
@@ -896,9 +1001,29 @@ async function syncCollection(
       console.log(`[Sync] ✅ ${colName} synced (${pageCount} page(s) pulled)`);
     }
   }
-  return { pullRowFailed, pushFailed, pullComplete };
+  return {
+    pullRowFailed,
+    pushFailed,
+    pullComplete,
+    errors: collectionErrors,
+  };
 }
 export async function forceSync(userId: string) {
   if (DEBUG) console.log('[Sync] Force sync triggered');
   await initializeSync(userId);
+}
+
+export function __resetSyncRuntimeForTests(): void {
+  clearBackoffWakeTimer();
+  isSyncInProgress = false;
+  isSyncCycleQueued = false;
+  syncRequestedDuringFlight = false;
+  queuedSyncUserId = null;
+  backoffOwnerId = null;
+  rateLimitUntil = 0;
+  rateLimitBackoffMs = 0;
+  failureBackoffUntil = 0;
+  failureBackoffMs = 0;
+  perCollectionSync = {};
+  perCollectionOwnerId = null;
 }

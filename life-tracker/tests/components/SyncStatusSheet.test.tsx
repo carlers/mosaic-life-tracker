@@ -16,7 +16,7 @@ const statusRef = vi.hoisted(() => ({
 const listenersRef = vi.hoisted(() => ({
   current: [] as ((status: unknown) => void)[],
 }));
-const forceSyncMock = vi.hoisted(() => vi.fn().mockResolvedValue(undefined));
+const syncNowMock = vi.hoisted(() => vi.fn().mockResolvedValue(undefined));
 const connectivityRef = vi.hoisted(() => ({
   current: {
     status: 'online' as 'checking' | 'online' | 'offline',
@@ -37,7 +37,7 @@ vi.mock('../../src/lib/syncStatus', () => ({
   },
 }));
 vi.mock('../../src/db/sync', () => ({
-  forceSync: forceSyncMock,
+  syncNow: syncNowMock,
 }));
 vi.mock('../../src/hooks/useAuth', () => ({
   useAuth: () => ({ user: { $id: 'user_A' } }),
@@ -63,8 +63,8 @@ beforeEach(() => {
     reason: 'test',
     lastConfirmedAt: '2026-09-27T01:00:00.000Z',
   };
-  forceSyncMock.mockReset();
-  forceSyncMock.mockResolvedValue(undefined);
+  syncNowMock.mockReset();
+  syncNowMock.mockResolvedValue(undefined);
   document.body.style.overflow = '';
 });
 
@@ -138,7 +138,7 @@ describe('SyncStatusSheet', () => {
     expect(screen.getByText('Checking connection…')).toBeInTheDocument();
   });
 
-  it('the Sync Now button calls forceSync for the active user and disables itself for 2s', async () => {
+  it('the Sync Now button calls syncNow for the active user and disables itself for 2s', async () => {
     vi.useFakeTimers();
     try {
       render(<SyncStatusSheet isOpen onClose={vi.fn()} />);
@@ -151,11 +151,11 @@ describe('SyncStatusSheet', () => {
         await Promise.resolve();
       });
 
-      expect(forceSyncMock).toHaveBeenCalledWith('user_A');
+      expect(syncNowMock).toHaveBeenCalledWith('user_A');
       expect(button).toBeDisabled();
 
       fireEvent.click(button as Element);
-      expect(forceSyncMock).toHaveBeenCalledTimes(1);
+      expect(syncNowMock).toHaveBeenCalledTimes(1);
 
       await act(async () => {
         await vi.advanceTimersByTimeAsync(2100);
