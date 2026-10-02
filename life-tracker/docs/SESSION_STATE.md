@@ -16,10 +16,12 @@ Blockers: None known in source. Live Appwrite diary tuple-query compatibility an
 - Removed diary's delayed legacy mutation-sync trigger; RxDB now observes diary writes directly once the pilot is active, while offline/pre-handoff writes are covered by the legacy bootstrap/reconnect path.
 - Kept the fresh diary tombstone `updatedAt` fix from the P0 pass.
 - Added adapter and handoff regression coverage for checkpoint seeding, tuple pulls, strict create fallback, conflict preservation, realtime ownership, and refusal to hand off after incomplete legacy pagination.
-- Updated `PROJECT_REFERENCE.md` with the two-pilot architecture and diary-specific contracts.
+- Final review found that the pre-existing restore/import `refreshSync()` barrier only nudged active RxDB pilots and could return before their pull completed. Category and diary now expose an awaitable leader-only freshness path using `awaitInSync()`; a newly-started pilot gets a bounded leadership-election grace period, and a non-leader tab fails restore/import closed instead of accepting stale data.
+- Added regression coverage for leader-owned fresh pilot completion and non-leader fail-closed behavior.
+- Updated `PROJECT_REFERENCE.md` and TodoMate import recovery notes with the two-pilot architecture and RxDB-aware freshness contract.
 
 ## Verification
 - Legacy P0 stable Preview: READY at `2eb7e10e80a26e4efb4b7b40e2b813f7f5e1c5aa`.
-- Diary pilot source/diff review: in progress.
+- Diary pilot source/diff review: complete; one stale test assertion and one restore/import freshness regression were found and repaired during review.
 - Exact-SHA full canonical acceptance: pending.
 - Stable diary Preview and hosted diary acceptance: pending.
