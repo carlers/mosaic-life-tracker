@@ -109,7 +109,7 @@ export default defineConfig({
         // images are `src/lib/imageCache.ts`. The SW is deliberately not
         // a second cache for either — see PWA-1 and docs/PROJECT_REFERENCE.md §15
         // (`imageCache.ts` is the single owner of the blob cache).
-        globPatterns: ['**/*.{js,css,html,ico,png,svg,webp,woff2,wasm}'],
+        globPatterns: ['**/*.{js,css,html,ico,png,svg,webp,woff2,wasm,json}'],
         // SPA routes: cold-loading `/messages/abc123` offline must serve
         // the app shell, not a 404 from the SW. The denylist keeps any
         // `/v1/*` (Appwrite REST) or `/api/*` path from being rewritten
@@ -126,6 +126,10 @@ export default defineConfig({
     })
   ],
   build: {
+    // Vite 8.1+ can route chunk-to-chunk imports through an import map so a
+    // changed dependency hash does not invalidate every transitive importer.
+    // This directly reduces PWA update downloads while retaining hashed chunks.
+    chunkImportMap: true,
     sourcemap: posthogSourceMapsEnabled ? 'hidden' : false,
   },
 });
