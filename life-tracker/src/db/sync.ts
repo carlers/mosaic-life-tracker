@@ -17,12 +17,14 @@ import { getConnectivitySnapshot } from '../lib/connectivity';
 import {
   captureCategoryReplicationPushCheckpoint,
   isCategoryReplicationPilotActive,
+  refreshCategoryReplicationPilot,
   resyncCategoryReplicationPilot,
   startCategoryReplicationPilot,
 } from './categoryReplicationPilot';
 import {
   captureDiaryReplicationPushCheckpoint,
   isDiaryReplicationPilotActive,
+  refreshDiaryReplicationPilot,
   resyncDiaryReplicationPilot,
   startDiaryReplicationPilot,
 } from './diaryReplicationPilot';
@@ -326,9 +328,34 @@ export async function refreshSync(
   userId: string,
   timeoutMs = SYNC_COORDINATOR_IDLE_TIMEOUT_MS
 ): Promise<FreshSyncResult> {
+  const deadline = Date.now() + timeoutMs;
   await waitForSyncCoordinatorIdle(timeoutMs);
   const startedAt = Date.now();
   await initializeSync(userId);
+
+  const remaining = () => {
+    const value = deadline - Date.now();
+    if (value <= 0) {
+      throw new Error(
+        'Mosaic fresh sync timed out. Close other Mosaic tabs or check your connection, then try again.'
+      );
+    }
+    return value;
+  };
+
+  try {
+    await refreshCategoryReplicationPilot(userId, remaining());
+    await refreshDiaryReplicationPilot(userId, remaining());
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : 'Fresh RxDB sync failed';
+    updateSyncStatus({
+      isSyncing: false,
+      errors: [...getSyncStatus().errors, message],
+    });
+    throw error;
+  }
+
   return { status: getSyncStatus(), startedAt };
 }
 
