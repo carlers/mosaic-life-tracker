@@ -343,6 +343,54 @@ describe('friendship RxDB replication pilot', () => {
     expect(createRowMock).not.toHaveBeenCalled();
   });
 
+  it('restores a valid server friendship after an accidental physical local delete', async () => {
+    const conflicts =
+      await __friendshipReplicationPilotTestUtils.validateFriendshipChanges(
+        [
+          {
+            newDocumentState: localFriendship({
+              _deleted: true,
+            }),
+          },
+        ],
+        'user_A'
+      );
+
+    expect(conflicts).toEqual([
+      expect.objectContaining({
+        id: 'fr_one',
+        userId: 'user_A',
+        _deleted: false,
+      }),
+    ]);
+    expect(updateRowMock).not.toHaveBeenCalled();
+    expect(createRowMock).not.toHaveBeenCalled();
+  });
+
+  it('acknowledges physical cleanup of an invalid legacy friendship id without a server lookup', async () => {
+    const legacyId =
+      'legacy_friendship_row_that_is_far_too_long_for_appwrite';
+    const conflicts =
+      await __friendshipReplicationPilotTestUtils.validateFriendshipChanges(
+        [
+          {
+            newDocumentState: localFriendship({
+              id: legacyId,
+              _deleted: true,
+            }),
+          },
+        ],
+        'user_A'
+      );
+
+    expect(conflicts).toEqual([]);
+    expect(getRowMock).not.toHaveBeenCalled();
+    expect(clearCachedCalendarMock).toHaveBeenCalledWith(
+      'user_A',
+      'user_B'
+    );
+  });
+
   it('turns an active local orphan into a soft tombstone when the master is absent', async () => {
     getRowMock.mockRejectedValue(
       Object.assign(new Error('not found'), { code: 404 })
@@ -455,6 +503,19 @@ describe('friendship RxDB replication pilot', () => {
       'user_A',
       'user_B'
     );
+  });
+
+  it('rejects a master row that belongs to another account', async () => {
+    getRowMock.mockResolvedValue(
+      remoteFriendship({ user_id: 'mallory' })
+    );
+
+    await expect(
+      __friendshipReplicationPilotTestUtils.validateFriendshipChanges(
+        [{ newDocumentState: localFriendship() }],
+        'user_A'
+      )
+    ).rejects.toThrow('master owner mismatch');
   });
 
   it('rejects local writes scoped to another account', async () => {
