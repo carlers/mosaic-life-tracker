@@ -166,6 +166,27 @@ async function mirrorProfileImageSetting(
   await updateProfileAvatar(userId, document.value);
 }
 
+async function cleanupPendingProfileImage(
+  document: ReplicatedSetting,
+  userId: string
+): Promise<void> {
+  if (
+    document.key !== 'profileImageId' ||
+    typeof document.value !== 'string' ||
+    !isPendingImageId(document.value)
+  ) {
+    return;
+  }
+  try {
+    await deletePendingImage(document.value, userId);
+  } catch (error) {
+    console.warn(
+      '[SettingsReplicationPilot] pending image cleanup failed:',
+      error
+    );
+  }
+}
+
 async function finishSuccessfulPush(
   document: ReplicatedSetting,
   userId: string,
@@ -173,14 +194,10 @@ async function finishSuccessfulPush(
 ): Promise<void> {
   await mirrorProfileImageSetting(document, userId);
   if (!pendingImageId) return;
-  try {
-    await deletePendingImage(pendingImageId, userId);
-  } catch (error) {
-    console.warn(
-      '[SettingsReplicationPilot] pending image cleanup failed:',
-      error
-    );
-  }
+  await cleanupPendingProfileImage(
+    { ...document, value: pendingImageId },
+    userId
+  );
 }
 
 async function createRemoteSetting(
@@ -231,6 +248,7 @@ async function pushSettings(
     if (!assumed) {
       if (current) {
         await mirrorProfileImageSetting(current, userId);
+        await cleanupPendingProfileImage(next, userId);
         conflicts.push(current);
         continue;
       }
@@ -242,6 +260,7 @@ async function pushSettings(
       );
       if (createConflict) {
         await mirrorProfileImageSetting(createConflict, userId);
+        await cleanupPendingProfileImage(next, userId);
         conflicts.push(createConflict);
         continue;
       }
@@ -259,6 +278,7 @@ async function pushSettings(
 
     if (current && !settingStateEquals(current, assumed)) {
       await mirrorProfileImageSetting(current, userId);
+      await cleanupPendingProfileImage(next, userId);
       conflicts.push(current);
       continue;
     }
@@ -272,6 +292,7 @@ async function pushSettings(
       );
       if (createConflict) {
         await mirrorProfileImageSetting(createConflict, userId);
+        await cleanupPendingProfileImage(next, userId);
         conflicts.push(createConflict);
         continue;
       }
@@ -305,6 +326,7 @@ async function pushSettings(
       );
       if (createConflict) {
         await mirrorProfileImageSetting(createConflict, userId);
+        await cleanupPendingProfileImage(next, userId);
         conflicts.push(createConflict);
         continue;
       }
