@@ -17,12 +17,21 @@ import { getConnectivitySnapshot } from '../lib/connectivity';
 import {
   captureCategoryReplicationPushCheckpoint,
   isCategoryReplicationPilotActive,
+  refreshCategoryReplicationPilot,
   resyncCategoryReplicationPilot,
   startCategoryReplicationPilot,
 } from './categoryReplicationPilot';
 import {
+  captureDiaryReplicationPushCheckpoint,
+  isDiaryReplicationPilotActive,
+  refreshDiaryReplicationPilot,
+  resyncDiaryReplicationPilot,
+  startDiaryReplicationPilot,
+} from './diaryReplicationPilot';
+import {
   captureSettingsReplicationPushCheckpoint,
   isSettingsReplicationPilotActive,
+  refreshSettingsReplicationPilot,
   resyncSettingsReplicationPilot,
   startSettingsReplicationPilot,
 } from './settingsReplicationPilot';
@@ -326,9 +335,35 @@ export async function refreshSync(
   userId: string,
   timeoutMs = SYNC_COORDINATOR_IDLE_TIMEOUT_MS
 ): Promise<FreshSyncResult> {
+  const deadline = Date.now() + timeoutMs;
   await waitForSyncCoordinatorIdle(timeoutMs);
   const startedAt = Date.now();
   await initializeSync(userId);
+
+  const remaining = () => {
+    const value = deadline - Date.now();
+    if (value <= 0) {
+      throw new Error(
+        'Mosaic fresh sync timed out. Close other Mosaic tabs or check your connection, then try again.'
+      );
+    }
+    return value;
+  };
+
+  try {
+    await refreshCategoryReplicationPilot(userId, remaining());
+    await refreshDiaryReplicationPilot(userId, remaining());
+    await refreshSettingsReplicationPilot(userId, remaining());
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : 'Fresh RxDB sync failed';
+    updateSyncStatus({
+      isSyncing: false,
+      errors: [...getSyncStatus().errors, message],
+    });
+    throw error;
+  }
+
   return { status: getSyncStatus(), startedAt };
 }
 
@@ -517,6 +552,14 @@ async function runSyncCycleBody(userId: string): Promise<void> {
           continue;
         }
         if (
+          colName === 'diary' &&
+          isDiaryReplicationPilotActive(userId)
+        ) {
+          resyncDiaryReplicationPilot(userId);
+          continue;
+        }
+
+        if (
           colName === 'settings' &&
           isSettingsReplicationPilotActive(userId)
         ) {
@@ -527,6 +570,10 @@ async function runSyncCycleBody(userId: string): Promise<void> {
         const categoryPushCheckpoint =
           colName === 'categories'
             ? await captureCategoryReplicationPushCheckpoint(db.categories)
+            : undefined;
+        const diaryPushCheckpoint =
+          colName === 'diary'
+            ? await captureDiaryReplicationPushCheckpoint(db.diary)
             : undefined;
         const settingsPushCheckpoint =
           colName === 'settings'
@@ -579,6 +626,12 @@ async function runSyncCycleBody(userId: string): Promise<void> {
             userId,
             db.categories,
             categoryPushCheckpoint
+          );
+        } else if (colName === 'diary') {
+          await startDiaryReplicationPilot(
+            userId,
+            db.diary,
+            diaryPushCheckpoint
           );
         } else if (colName === 'settings') {
           await startSettingsReplicationPilot(
