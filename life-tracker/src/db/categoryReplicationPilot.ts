@@ -1,0 +1,419 @@
+import { Permission, Query, Role } from 'appwrite';
+import {
+  getChangedDocumentsSince,
+  type RxCollection,
+  type RxReplicationPullStreamItem,
+  type RxReplicationWriteToMasterRow,
+  type WithDeletedAndAttachments,
+} from 'rxdb';
+import {
+  replicateRxCollection,
+  type RxReplicationState,
+} from 'rxdb/plugins/replication';
+import { Subject, type Subscription } from 'rxjs';
+import type { CategoryDocument } from './schema';
+import {
+  guardedRealtime,
+  guardedTablesDB,
+  type RealtimeUnsubscribe,
+} from '../lib/sdk';
+import { fromAppwriteFormat, toAppwriteFormat } from '../lib/syncMapping';
+import {
+  APPWRITE_DATABASE_ID,
+  APPWRITE_TABLES,
+} from '../lib/appwriteConfig';
+
+const PULL_BATCH_SIZE = 100;
+const PUSH_BATCH_SIZE = 20;
+const LOCAL_CHECKPOINT_BATCH_SIZE = 200;
+const RETRY_TIME_MS = 5_000;
+
+export interface CategoryReplicationCheckpoint {
+  updatedAt: string;
+  id: string;
+}
+
+type LocalStorageCheckpoint = {
+  id: string;
+  lwt: number;
+};
+
+type ReplicatedCategory = WithDeletedAndAttachments<CategoryDocument>;
+
+let activeOwnerId: string | null = null;
+let activeReplication:
+  | RxReplicationState<CategoryDocument, CategoryReplicationCheckpoint>
+  | null = null;
+let activePullStream:
+  | Subject<
+      RxReplicationPullStreamItem<
+        CategoryDocument,
+        CategoryReplicationCheckpoint
+      >
+    >
+  | null = null;
+let realtimeUnsubscribe: RealtimeUnsubscribe | null = null;
+let errorSubscription: Subscription | null = null;
+
+function isNotFoundError(error: unknown): boolean {
+  return (error as { code?: number } | null)?.code === 404;
+}
+
+function isConflictError(error: unknown): boolean {
+  return (error as { code?: number } | null)?.code === 409;
+}
+
+function buildRowPermissions(userId: string): string[] {
+  return [
+    Permission.read(Role.user(userId)),
+    Permission.update(Role.user(userId)),
+    Permission.delete(Role.user(userId)),
+  ];
+}
+
+function toReplicatedCategory(
+  row: Record<string, unknown>
+): ReplicatedCategory {
+  return {
+    ...(fromAppwriteFormat(row, 'categories') as unknown as CategoryDocument),
+    _deleted: false,
+  };
+}
+
+function categoryStateEquals(
+  left: ReplicatedCategory,
+  right: ReplicatedCategory
+): boolean {
+  return (
+    left.id === right.id &&
+    left.userId === right.userId &&
+    left.name === right.name &&
+    left.color === right.color &&
+    left.order === right.order &&
+    left.visibility === right.visibility &&
+    left.isDeleted === right.isDeleted &&
+    (left.icon ?? '') === (right.icon ?? '') &&
+    left.updatedAt === right.updatedAt &&
+    left._deleted === right._deleted
+  );
+}
+
+async function readRemoteCategory(
+  rowId: string
+): Promise<ReplicatedCategory | null> {
+  try {
+    const row = await guardedTablesDB.getRow({
+      databaseId: APPWRITE_DATABASE_ID,
+      tableId: APPWRITE_TABLES.categories,
+      rowId,
+    });
+    return toReplicatedCategory(row as unknown as Record<string, unknown>);
+  } catch (error) {
+    if (isNotFoundError(error)) return null;
+    throw error;
+  }
+}
+
+async function createRemoteCategory(
+  document: ReplicatedCategory,
+  userId: string
+): Promise<ReplicatedCategory | null> {
+  try {
+    await guardedTablesDB.createRow({
+      databaseId: APPWRITE_DATABASE_ID,
+      tableId: APPWRITE_TABLES.categories,
+      rowId: document.id,
+      data: toAppwriteFormat(
+        document as unknown as Record<string, unknown>,
+        'categories',
+        userId
+      ),
+      permissions: buildRowPermissions(userId),
+    });
+    return null;
+  } catch (error) {
+    if (!isConflictError(error)) throw error;
+    const current = await readRemoteCategory(document.id);
+    if (current) return current;
+    throw error;
+  }
+}
+
+async function pushCategories(
+  rows: RxReplicationWriteToMasterRow<CategoryDocument>[],
+  userId: string
+): Promise<ReplicatedCategory[]> {
+  const conflicts: ReplicatedCategory[] = [];
+
+  for (const row of rows) {
+    const next = row.newDocumentState;
+    if (next.userId !== userId) {
+      throw new Error(`Category replication owner mismatch for ${next.id}`);
+    }
+    if (next._deleted) {
+      throw new Error(
+        `Category replication cannot physically delete ${next.id}; use isDeleted tombstones`
+      );
+    }
+
+    const current = await readRemoteCategory(next.id);
+    const assumed = row.assumedMasterState;
+
+    if (!assumed) {
+      if (current) {
+        conflicts.push(current);
+        continue;
+      }
+      const createConflict = await createRemoteCategory(next, userId);
+      if (createConflict) conflicts.push(createConflict);
+      continue;
+    }
+
+    if (current && !categoryStateEquals(current, assumed)) {
+      conflicts.push(current);
+      continue;
+    }
+
+    if (!current) {
+      const createConflict = await createRemoteCategory(next, userId);
+      if (createConflict) conflicts.push(createConflict);
+      continue;
+    }
+
+    try {
+      await guardedTablesDB.updateRow({
+        databaseId: APPWRITE_DATABASE_ID,
+        tableId: APPWRITE_TABLES.categories,
+        rowId: next.id,
+        data: toAppwriteFormat(
+          next as unknown as Record<string, unknown>,
+          'categories',
+          userId
+        ),
+      });
+    } catch (error) {
+      if (!isNotFoundError(error)) throw error;
+      const createConflict = await createRemoteCategory(next, userId);
+      if (createConflict) conflicts.push(createConflict);
+    }
+  }
+
+  return conflicts;
+}
+
+async function pullCategories(
+  userId: string,
+  checkpoint: CategoryReplicationCheckpoint | undefined,
+  batchSize: number
+): Promise<{
+  documents: ReplicatedCategory[];
+  checkpoint: CategoryReplicationCheckpoint | undefined;
+}> {
+  const queries: string[] = [Query.equal('user_id', userId)];
+
+  if (checkpoint) {
+    queries.push(
+      Query.or([
+        Query.greaterThan('$updatedAt', checkpoint.updatedAt),
+        Query.and([
+          Query.equal('$updatedAt', checkpoint.updatedAt),
+          Query.greaterThan('$id', checkpoint.id),
+        ]),
+      ])
+    );
+  }
+
+  queries.push(
+    Query.orderAsc('$updatedAt'),
+    Query.orderAsc('$id'),
+    Query.limit(batchSize)
+  );
+
+  const response = await guardedTablesDB.listRows({
+    databaseId: APPWRITE_DATABASE_ID,
+    tableId: APPWRITE_TABLES.categories,
+    queries,
+    total: false,
+  });
+  const rows = (
+    (response as unknown as { rows?: Record<string, unknown>[] }).rows ?? []
+  ).filter(
+    (row) =>
+      typeof row.$id === 'string' &&
+      row.$id.length > 0 &&
+      typeof row.$updatedAt === 'string' &&
+      row.$updatedAt.length > 0
+  );
+
+  const last = rows.at(-1);
+  return {
+    documents: rows.map(toReplicatedCategory),
+    checkpoint: last
+      ? {
+          id: last.$id as string,
+          updatedAt: last.$updatedAt as string,
+        }
+      : checkpoint,
+  };
+}
+
+async function getCurrentLocalCheckpoint(
+  collection: RxCollection<CategoryDocument>
+): Promise<LocalStorageCheckpoint> {
+  let checkpoint: LocalStorageCheckpoint | undefined;
+
+  for (;;) {
+    const result = await getChangedDocumentsSince<
+      CategoryDocument,
+      LocalStorageCheckpoint
+    >(
+      collection.storageInstance,
+      LOCAL_CHECKPOINT_BATCH_SIZE,
+      checkpoint
+    );
+    checkpoint = result.checkpoint;
+    if (result.documents.length < LOCAL_CHECKPOINT_BATCH_SIZE) {
+      return checkpoint;
+    }
+  }
+}
+
+function subscribeToCategoryRealtime(
+  userId: string,
+  pullStream: Subject<
+    RxReplicationPullStreamItem<
+      CategoryDocument,
+      CategoryReplicationCheckpoint
+    >
+  >
+): RealtimeUnsubscribe {
+  const channel =
+    `databases.${APPWRITE_DATABASE_ID}.tables.${APPWRITE_TABLES.categories}.rows`;
+
+  return guardedRealtime.subscribe(channel, (message) => {
+    if (activeOwnerId !== userId) return;
+    const payload = message.payload;
+    if (!payload || payload.user_id !== userId) return;
+
+    const events = Array.isArray(message.events) ? message.events : [];
+    if (events.some((event) => event.endsWith('.delete'))) {
+      pullStream.next('RESYNC');
+      return;
+    }
+    if (
+      !events.some(
+        (event) => event.endsWith('.create') || event.endsWith('.update')
+      )
+    ) {
+      return;
+    }
+
+    const id = payload.$id;
+    const updatedAt = payload.$updatedAt;
+    if (
+      typeof id !== 'string' ||
+      !id ||
+      typeof updatedAt !== 'string' ||
+      !updatedAt
+    ) {
+      pullStream.next('RESYNC');
+      return;
+    }
+
+    pullStream.next({
+      checkpoint: { id, updatedAt },
+      documents: [toReplicatedCategory(payload as Record<string, unknown>)],
+    });
+  });
+}
+
+export function isCategoryReplicationPilotActive(userId: string): boolean {
+  return activeOwnerId === userId && activeReplication !== null;
+}
+
+export function resyncCategoryReplicationPilot(userId: string): boolean {
+  if (!isCategoryReplicationPilotActive(userId)) return false;
+  activeReplication?.reSync();
+  return true;
+}
+
+export async function stopCategoryReplicationPilot(
+  userId?: string
+): Promise<void> {
+  if (userId && activeOwnerId !== userId) return;
+
+  const replication = activeReplication;
+  activeOwnerId = null;
+  activeReplication = null;
+
+  realtimeUnsubscribe?.();
+  realtimeUnsubscribe = null;
+  errorSubscription?.unsubscribe();
+  errorSubscription = null;
+  activePullStream?.complete();
+  activePullStream = null;
+
+  if (replication) {
+    await replication.cancel();
+  }
+}
+
+export async function startCategoryReplicationPilot(
+  userId: string,
+  collection: RxCollection<CategoryDocument>
+): Promise<void> {
+  if (!userId) return;
+  if (isCategoryReplicationPilotActive(userId)) return;
+
+  if (activeReplication) {
+    await stopCategoryReplicationPilot();
+  }
+
+  // The legacy category sync runs immediately before this handoff. Seed
+  // RxDB's upstream checkpoint at the current local storage tip so existing
+  // history is not mistaken for fresh outbound work on the first pilot run.
+  const initialPushCheckpoint = await getCurrentLocalCheckpoint(collection);
+  const pullStream = new Subject<
+    RxReplicationPullStreamItem<
+      CategoryDocument,
+      CategoryReplicationCheckpoint
+    >
+  >();
+
+  const replication = replicateRxCollection<
+    CategoryDocument,
+    CategoryReplicationCheckpoint
+  >({
+    replicationIdentifier:
+      `mosaic-appwrite-tablesdb-categories-v1:${userId}`,
+    collection,
+    live: true,
+    retryTime: RETRY_TIME_MS,
+    waitForLeadership: true,
+    toggleOnDocumentVisible: true,
+    pull: {
+      batchSize: PULL_BATCH_SIZE,
+      stream$: pullStream.asObservable(),
+      handler: (checkpoint, batchSize) =>
+        pullCategories(userId, checkpoint, batchSize),
+    },
+    push: {
+      batchSize: PUSH_BATCH_SIZE,
+      initialCheckpoint: initialPushCheckpoint,
+      handler: (rows) => pushCategories(rows, userId),
+    },
+  });
+
+  activeOwnerId = userId;
+  activeReplication = replication;
+  activePullStream = pullStream;
+  realtimeUnsubscribe = subscribeToCategoryRealtime(userId, pullStream);
+  errorSubscription = replication.error$.subscribe((error) => {
+    console.error('[CategoryReplicationPilot] replication error:', error);
+  });
+}
+
+export const __categoryReplicationPilotTestUtils = {
+  pullCategories,
+  pushCategories,
+};
