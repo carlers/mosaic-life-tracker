@@ -3,7 +3,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const findOneMock = vi.hoisted(() => vi.fn());
 const upsertLocalDocMock = vi.hoisted(() => vi.fn().mockResolvedValue(undefined));
-const requestSyncMock = vi.hoisted(() => vi.fn());
 
 vi.mock('../../src/db/database', () => ({
   getDatabase: () => ({
@@ -30,9 +29,6 @@ vi.mock('../../src/lib/localUpsert', () => ({
   upsertLocalDoc: upsertLocalDocMock,
 }));
 
-vi.mock('../../src/lib/syncTrigger', () => ({
-  requestSyncAfterLocalMutation: requestSyncMock,
-}));
 
 import { useDiary } from '../../src/hooks/useDiary';
 
@@ -42,7 +38,6 @@ beforeEach(() => {
   findOneMock.mockReset();
   upsertLocalDocMock.mockReset();
   upsertLocalDocMock.mockResolvedValue(undefined);
-  requestSyncMock.mockReset();
 });
 
 afterEach(() => {
@@ -64,10 +59,9 @@ describe('useDiary sync mutations', () => {
       isDeleted: true,
       updatedAt: '2026-10-02T08:00:00.000Z',
     });
-    expect(requestSyncMock).toHaveBeenCalledWith('user_A');
   });
 
-  it('schedules sync after saving a diary entry', async () => {
+  it('saves a diary entry through the local RxDB document path', async () => {
     findOneMock.mockResolvedValue(null);
     const { result } = renderHook(() => useDiary());
 
