@@ -8,7 +8,6 @@ import { useCalendarState } from './views/useCalendarState';
 import { useAuth } from '../../hooks/useAuth';
 import { useSettings } from '../../hooks/useSettings';
 import {
-  TAP_CALENDAR_DATE_TO_TODAY_SETTING_KEY,
   WEEK_STARTS_ON_SUNDAY_SETTING_KEY,
   resolveWeekStartsOn,
 } from '../../lib/preferences';
@@ -55,8 +54,6 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
   const weekStartsOn = resolveWeekStartsOn(
     getSetting(WEEK_STARTS_ON_SUNDAY_SETTING_KEY, true) === true
   );
-  const tapCalendarDateToToday =
-    getSetting(TAP_CALENDAR_DATE_TO_TODAY_SETTING_KEY, false) === true;
   const [activeView, setActiveView] = useState<ViewType>(readHomeView);
   const [todoFocusDate, setTodoFocusDate] = useState(() => new Date());
   const calendarState = useCalendarState({ weekStartsOn });
@@ -75,6 +72,10 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
 
   const handleTodoNext = useCallback(() => {
     setTodoFocusDate((date) => addMonths(date, 1));
+  }, []);
+
+  const handleTodoToday = useCallback(() => {
+    setTodoFocusDate(new Date());
   }, []);
 
   return (
@@ -97,9 +98,11 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
         activeView={activeView}
         onViewChange={setActiveView}
         onTitleClick={
-          activeView === 'calendar' && tapCalendarDateToToday
-            ? calendarState.resetToToday
-            : undefined
+          activeView === 'todo'
+            ? handleTodoToday
+            : activeView === 'calendar'
+              ? calendarState.resetToToday
+              : undefined
         }
       />
       {activeView === 'calendar' ? (
