@@ -1,27 +1,29 @@
 # Session checkpoint
 
 Updated: 2026-10-02
-Current task: Continue the incremental RxDB sync migration after the categories pilot and legacy P0 hardening, using diary as the second pilot.
-Status: The legacy P0 reliability pass is merged into stable `perf/sync-engine-audit` at `2eb7e10e80a26e4efb4b7b40e2b813f7f5e1c5aa` and its Vercel Preview is READY. User reports category sync is working in hosted use. Diary RxDB replication and the RxDB-aware restore/import freshness-barrier repair are complete on `chatgpt/sync-rxdb-diary-pilot`. Tasks, settings, friendships, and messages remain on the hardened legacy engine. Settings was deliberately deferred because `profileImageId` has Storage upload/permission/profile-update side effects that need a dedicated adapter design rather than being treated as a simple scalar setting. This checkpoint requests full canonical verification of the exact task tip.
-Next action: Run exact-SHA full canonical acceptance for the diary pilot, repair any failure, squash into `perf/sync-engine-audit`, verify the stable Preview, and perform diary create/edit/delete + offline/reconnect acceptance before selecting the third collection.
-Blockers: None known in source. Live Appwrite diary tuple-query compatibility and hosted offline/reconnect behavior still require acceptance.
+Current task: Continue the incremental RxDB sync migration after the accepted category pilot and legacy P0 reliability pass, reconciling the already-landed diary pilot with settings as the next collection.
+Status: The combined implementation is on `chatgpt/sync-rxdb-settings-pilot`, now merged with stable `perf/sync-engine-audit` tip `1716f96d`. Categories, diary, and settings use generic `replicateRxCollection()` pilots over guarded Appwrite TablesDB; tasks, friendships, and messages remain on the hardened legacy engine. The settings adapter includes offline `profileImageId` upload/profile-side-effect recovery, and safety-sensitive `refreshSync()` now awaits all three active RxDB pilots in the leader tab. Reconciled focused CI is green. This checkpoint requests full canonical acceptance of the combined task tip.
+Next action: Repair any full Quality Gate failure. If green, squash-merge PR #208 into `perf/sync-engine-audit`, verify the stable Vercel Preview, then perform hosted settings acceptance (normal setting changes, offline/reconnect, profile image, and second-browser propagation) before migrating another collection.
+Blockers: No known source or Appwrite query-shape blocker. A read-only production probe confirmed the settings table accepts the owner-filtered `$updatedAt + $id` tuple query and currently has no custom indexes. Hosted settings behavior remains the manual acceptance gate.
 
 ## Completed
-- Legacy P0 reliability pass squash-merged into `perf/sync-engine-audit`; stable Vercel deployment for `2eb7e10e` is READY.
-- Added `src/db/diaryReplicationPilot.ts` using generic RxDB replication over guarded Appwrite TablesDB.
-- Preserved owner isolation, Mosaic soft tombstones, `updateRow` -> 404 `createRow`, and existing non-atomic Appwrite conflict semantics.
-- Added pre-bootstrap local push-checkpoint capture and clean-bootstrap-only handoff so historical diary rows are not mass-repushed and writes made during bootstrap cannot be skipped.
-- Switched diary steady-state pulls to server-authored `$updatedAt + $id` tuple checkpoints.
-- Moved diary Appwrite Realtime ownership from the legacy realtime module to the RxDB pilot.
-- Removed diary's delayed legacy mutation-sync trigger; RxDB now observes diary writes directly once the pilot is active, while offline/pre-handoff writes are covered by the legacy bootstrap/reconnect path.
-- Kept the fresh diary tombstone `updatedAt` fix from the P0 pass.
-- Added adapter and handoff regression coverage for checkpoint seeding, tuple pulls, strict create fallback, conflict preservation, realtime ownership, and refusal to hand off after incomplete legacy pagination.
-- Final review found that the pre-existing restore/import `refreshSync()` barrier only nudged active RxDB pilots and could return before their pull completed. Category and diary now expose an awaitable leader-only freshness path using `awaitInSync()`; a newly-started pilot gets a bounded leadership-election grace period, and a non-leader tab fails restore/import closed instead of accepting stale data.
-- Added regression coverage for leader-owned fresh pilot completion and non-leader fail-closed behavior.
-- Updated `PROJECT_REFERENCE.md` and TodoMate import recovery notes with the two-pilot architecture and RxDB-aware freshness contract.
+- Preserved the accepted category RxDB pilot and the merged legacy P0 reliability fixes.
+- Reconciled the independently landed diary pilot into the settings task branch with a real two-parent merge; the task branch is no longer behind stable.
+- Added `src/db/settingsReplicationPilot.ts` using generic RxDB replication over guarded Appwrite TablesDB; the official RxDB Appwrite plugin remains unused.
+- Settings capture their local push checkpoint before one clean legacy bootstrap, then hand steady-state push/pull/realtime to RxDB. Failed row work or incomplete pagination refuses handoff.
+- Settings pulls use owner-scoped server `$updatedAt + $id` tuple checkpoints; strict `updateRow` -> 404 `createRow`, soft `isDeleted` tombstones, and remote-master conflict handling are preserved.
+- Settings now own their Appwrite Realtime stream and local change detection; the legacy realtime module excludes category, diary, and settings, and `useSettings` no longer schedules the legacy mutation trigger.
+- Preserved offline profile-image behavior: pending images upload and become readable before the setting write; pending blobs survive partial profile-side-effect failure for retry, authoritative remote settings repair the profile side effect, and obsolete pending blobs are cleaned after server conflict resolution.
+- Extended the fail-closed restore/import freshness barrier so `refreshSync()` awaits category, diary, and settings RxDB pilots through leader-owned `awaitInSync()`.
+- Added settings adapter/handoff/realtime/profile-image/freshness regression coverage.
+- The combined focused run exposed a stale diary update-404 test fixture inherited from the diary pilot: its default remote master differed from the assumed state, so production correctly returned a conflict instead of reaching the fallback path. The fixture now supplies a matching master; the reconciled focused run is green.
+- Updated `PROJECT_REFERENCE.md` to describe the three-pilot architecture and settings media/profile contract.
 
 ## Verification
-- Legacy P0 stable Preview: READY at `2eb7e10e80a26e4efb4b7b40e2b813f7f5e1c5aa`.
-- Diary pilot source/diff review: complete; one stale test assertion and one restore/import freshness regression were found and repaired during review.
-- Exact-SHA full canonical acceptance: requested by this checkpoint commit.
-- Stable diary Preview and hosted diary acceptance: pending.
+- User reports category sync is working in hosted use.
+- Legacy P0 reliability changes are merged into stable and their Vercel deployment is READY.
+- Settings tuple-query read-only production probe: passed; settings table reports no custom indexes.
+- Settings task tip before diary reconciliation: full Quality Gate green.
+- Reconciled category + diary + settings focused Quality Gate: green at `3554109f`.
+- Exact-SHA full canonical acceptance: requested by this commit.
+- Stable Preview and hosted/manual settings acceptance: pending promotion.
