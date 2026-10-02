@@ -2,9 +2,9 @@
 
 Updated: 2026-10-02
 Current task: Prove whether RxDB's generic replication engine can safely replace Mosaic's hand-built sync machinery one collection at a time, starting with categories, without changing the other five collection sync paths.
-Status: The categories-only pilot is merged into stable `perf/sync-engine-audit` and its stable Vercel Preview is READY. Review found a migration-safety defect in the initial handoff: the RxDB upstream seed was captured after the legacy bootstrap, so an edit made during that gap—or a row whose legacy push failed silently—could be included in the seed without ever reaching Appwrite. The repair is implemented on `chatgpt/rxdb-category-handoff-safety`: capture the seed before bootstrap, require a clean/complete category bootstrap before starting RxDB, and keep pull checkpoints/reconciliation conservative when pagination is incomplete.
-Next action: Run exact-SHA full canonical acceptance for the handoff-safety repair. If green, squash it into `perf/sync-engine-audit`, verify the new stable Preview, then perform hosted Appwrite category create/update/delete, offline edit/reconnect, and second-browser/device acceptance before migrating another collection.
-Blockers: No source blocker. Hosted acceptance must still prove the live TablesDB compound `$updatedAt + $id` query/index shape and real multi-device behavior.
+Status: The categories-only pilot is merged into stable `perf/sync-engine-audit`, and the handoff-safety repair on `chatgpt/rxdb-category-handoff-safety` has passed full canonical acceptance at code SHA `02bad9e7e4fc2f5bc0e51906396ac2e4b37a6c3b`. The repair captures the RxDB upstream seed before bootstrap, requires a clean/complete category bootstrap before starting RxDB, and keeps pull checkpoints/reconciliation conservative when pagination is incomplete. A read-only probe against the live production categories table also confirmed the exact owner-filtered `$updatedAt + $id` tuple query is accepted with the current schema; no custom category index is currently required for that query shape.
+Next action: Let the final docs-only head pass canonical acceptance, squash PR #204 into `perf/sync-engine-audit`, verify the new stable Vercel Preview, then perform real category create/update/delete, offline edit/reconnect, and second-browser/device acceptance before migrating another collection.
+Blockers: No source or query-shape blocker. Real offline/reconnect and multi-device behavior still require hosted/manual acceptance.
 
 ## Completed
 - Added the categories-only generic RxDB replication pilot with Appwrite TablesDB pull/push handlers; tasks, diary, settings, friendships, and messages remain on the legacy engine.
@@ -19,5 +19,7 @@ Blockers: No source blocker. Hosted acceptance must still prove the live TablesD
 ## Verification
 - Original category pilot task SHA `b1d9053bbc320faf5e07f6fd540e22e1cc0038a8` passed its full Quality Gate and was squash-merged as `d6acfc0c95c9256e3fa456f8204ae5a426e62a47`.
 - Stable Preview for `d6acfc0c95c9256e3fa456f8204ae5a426e62a47` is READY.
-- Exact-SHA canonical acceptance for the handoff-safety repair is pending.
-- Hosted/manual Appwrite acceptance is pending.
+- Full Quality Gate for repair code SHA `02bad9e7e4fc2f5bc0e51906396ac2e4b37a6c3b` passed: project contracts, lint, unit/handler tests, both DOM shards, both browser-contract shards, production build, dependency audit, and `canonical-acceptance` are green.
+- A read-only live Appwrite probe confirmed the production category table accepts the pilot's exact `user_id` + `$updatedAt/$id` tuple filter/order query with no custom category indexes present.
+- Final docs-only head canonical acceptance is pending.
+- Hosted/manual create/update/delete, offline/reconnect, and second-browser/device acceptance is pending.
