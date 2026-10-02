@@ -178,6 +178,19 @@ function makeRemoteTaskRow(id: string, updatedAt: string) {
     updated_at: updatedAt,
   };
 }
+function makeDiaryRow(id: string) {
+  return {
+    $id: id,
+    user_id: 'user_A',
+    $updatedAt: '2026-01-01T00:00:00.000Z',
+    date: '2026-01-01',
+    content: 'entry',
+    visibility: 'private',
+    created_at: '2026-01-01T00:00:00.000Z',
+    updated_at: '2026-01-01T00:00:00.000Z',
+    deleted: false,
+  };
+}
 function makeLocalCategoryDoc(id: string) {
   return {
     id,
@@ -467,12 +480,9 @@ describe('sync — diary RxDB replication pilot handoff', () => {
   });
 
   it('does not hand off diary after an incomplete legacy bootstrap', async () => {
-    const fullPage = Array.from({ length: 100 }, (_, index) => ({
-      ...makeTaskRow(`diary_${String(index).padStart(3, '0')}`),
-      date: '2026-10-02',
-      content: 'x',
-      visibility: 'private',
-    }));
+    const fullPage = Array.from({ length: 100 }, (_, index) =>
+      makeDiaryRow(`diary_${String(index).padStart(3, '0')}`)
+    );
     listRowsMock.mockImplementation(
       async ({ tableId }: { tableId: string }) => {
         if (tableId === 'diary') return { rows: fullPage };
