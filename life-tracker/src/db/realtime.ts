@@ -19,13 +19,11 @@ const TABLES: Record<keyof AppDatabaseCollections, string> = {
   messages: APPWRITE_TABLES.messages,
 };
 
-// Tasks, categories, diary, settings, and friendships are intentionally
-// excluded here. After one clean legacy bootstrap, their RxDB replication
-// pilots own Appwrite Realtime so each remote event has exactly one
-// reconciliation path.
-const ALL_COLLECTIONS: (keyof AppDatabaseCollections)[] = [
-  'messages',
-];
+// All synced collections now hand Appwrite Realtime to their RxDB
+// replication pilots after one clean legacy bootstrap. This legacy module is
+// retained only as a compatibility shell for the startup lifecycle; it owns
+// no table subscriptions once every pilot is active.
+const ALL_COLLECTIONS: (keyof AppDatabaseCollections)[] = [];
 
 // Appwrite Realtime event strings look like:
 //   databases.<db>.tables.<table>.rows.<rowId>.create|update|delete
