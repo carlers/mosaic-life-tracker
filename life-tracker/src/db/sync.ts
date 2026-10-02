@@ -1012,3 +1012,18 @@ export async function forceSync(userId: string) {
   if (DEBUG) console.log('[Sync] Force sync triggered');
   await initializeSync(userId);
 }
+
+export function __resetSyncRuntimeForTests(): void {
+  clearBackoffWakeTimer();
+  isSyncInProgress = false;
+  isSyncCycleQueued = false;
+  syncRequestedDuringFlight = false;
+  queuedSyncUserId = null;
+  backoffOwnerId = null;
+  rateLimitUntil = 0;
+  rateLimitBackoffMs = 0;
+  failureBackoffUntil = 0;
+  failureBackoffMs = 0;
+  perCollectionSync = {};
+  perCollectionOwnerId = null;
+}
