@@ -241,10 +241,12 @@ live finding exposed two sync/restore issues outside the TodoMate adapter: the g
 engine pushed large dirty sets strictly serially, and restore treated the ordinary
 coalescing `initializeSync()` trigger as though it were an awaitable freshness barrier.
 The sync engine now has bounded four-worker row pushes and restore uses `refreshSync()` to
-wait for the current same-tab coordinator to drain before running one genuinely fresh cycle.
-During that preflight the import may remain on **Refreshing current data…** while an existing
-sync finishes; this wait is intentional and bounded to 90 seconds. If the coordinator still
-cannot settle, Mosaic fails the import rather than continuing with stale data.
+wait for the current same-tab coordinator to drain before running one genuinely fresh legacy
+cycle. Collections already migrated to RxDB replication are also awaited through their
+leader-owned `awaitInSync()` barrier. During that preflight the import may remain on
+**Refreshing current data…** while existing work finishes. If another Mosaic tab owns RxDB
+leadership, or the bounded preflight cannot settle, Mosaic fails the import and asks the user
+to close the other tab/retry rather than continuing with stale data.
 
 Hosted re-acceptance subsequently confirmed the import itself succeeds: all 37 prepared
 TodoMate images were copied onto the existing imported tasks without duplication and Mosaic

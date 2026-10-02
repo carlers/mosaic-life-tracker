@@ -5,7 +5,6 @@ import { useRxCollection } from './useRxCollection';
 import { makeDiaryRowId } from '../lib/settingsRowId';
 import { upsertLocalDoc } from '../lib/localUpsert';
 import type { DiaryDocument } from '../db/schema';
-import { requestSyncAfterLocalMutation } from '../lib/syncTrigger';
 
 export function useDiary() {
   const { user } = useAuth();
@@ -51,7 +50,6 @@ export function useDiary() {
         };
         await upsertLocalDoc('diary', id, newEntry);
       }
-      requestSyncAfterLocalMutation(uid);
     },
     [user?.$id]
   );
@@ -70,7 +68,6 @@ export function useDiary() {
           isDeleted: true,
           updatedAt: new Date().toISOString(),
         });
-        requestSyncAfterLocalMutation(uid);
       }
     },
     [user?.$id]

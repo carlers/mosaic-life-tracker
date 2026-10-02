@@ -11,7 +11,7 @@ import {
   type RxReplicationState,
 } from 'rxdb/plugins/replication';
 import { Subject, type Subscription } from 'rxjs';
-import type { CategoryDocument } from './schema';
+import type { DiaryDocument } from './schema';
 import {
   guardedRealtime,
   guardedTablesDB,
@@ -29,33 +29,33 @@ const PUSH_BATCH_SIZE = 20;
 const LOCAL_CHECKPOINT_BATCH_SIZE = 200;
 const RETRY_TIME_MS = 5_000;
 
-export interface CategoryReplicationCheckpoint {
+export interface DiaryReplicationCheckpoint {
   updatedAt: string;
   id: string;
 }
 
-export type CategoryReplicationPushCheckpoint = {
+export type DiaryReplicationPushCheckpoint = {
   id: string;
   lwt: number;
 };
 
-type ReplicatedCategory = WithDeletedAndAttachments<CategoryDocument>;
+type ReplicatedDiary = WithDeletedAndAttachments<DiaryDocument>;
 
 let activeOwnerId: string | null = null;
 let activeReplication:
-  | RxReplicationState<CategoryDocument, CategoryReplicationCheckpoint>
+  | RxReplicationState<DiaryDocument, DiaryReplicationCheckpoint>
   | null = null;
 let activePullStream:
   | Subject<
       RxReplicationPullStreamItem<
-        CategoryDocument,
-        CategoryReplicationCheckpoint
+        DiaryDocument,
+        DiaryReplicationCheckpoint
       >
     >
   | null = null;
 let realtimeUnsubscribe: RealtimeUnsubscribe | null = null;
 let errorSubscription: Subscription | null = null;
-let activeCollection: RxCollection<CategoryDocument> | null = null;
+let activeCollection: RxCollection<DiaryDocument> | null = null;
 
 function isNotFoundError(error: unknown): boolean {
   return (error as { code?: number } | null)?.code === 404;
@@ -73,61 +73,60 @@ function buildRowPermissions(userId: string): string[] {
   ];
 }
 
-function toReplicatedCategory(
+function toReplicatedDiary(
   row: Record<string, unknown>
-): ReplicatedCategory {
+): ReplicatedDiary {
   return {
-    ...(fromAppwriteFormat(row, 'categories') as unknown as CategoryDocument),
+    ...(fromAppwriteFormat(row, 'diary') as unknown as DiaryDocument),
     _deleted: false,
   };
 }
 
-function categoryStateEquals(
-  left: ReplicatedCategory,
-  right: ReplicatedCategory
+function diaryStateEquals(
+  left: ReplicatedDiary,
+  right: ReplicatedDiary
 ): boolean {
   return (
     left.id === right.id &&
     left.userId === right.userId &&
-    left.name === right.name &&
-    left.color === right.color &&
-    left.order === right.order &&
+    left.date === right.date &&
+    (left.content ?? '') === (right.content ?? '') &&
     left.visibility === right.visibility &&
-    left.isDeleted === right.isDeleted &&
-    (left.icon ?? '') === (right.icon ?? '') &&
+    left.createdAt === right.createdAt &&
     left.updatedAt === right.updatedAt &&
+    left.isDeleted === right.isDeleted &&
     left._deleted === right._deleted
   );
 }
 
-async function readRemoteCategory(
+async function readRemoteDiary(
   rowId: string
-): Promise<ReplicatedCategory | null> {
+): Promise<ReplicatedDiary | null> {
   try {
     const row = await guardedTablesDB.getRow({
       databaseId: APPWRITE_DATABASE_ID,
-      tableId: APPWRITE_TABLES.categories,
+      tableId: APPWRITE_TABLES.diary,
       rowId,
     });
-    return toReplicatedCategory(row as unknown as Record<string, unknown>);
+    return toReplicatedDiary(row as unknown as Record<string, unknown>);
   } catch (error) {
     if (isNotFoundError(error)) return null;
     throw error;
   }
 }
 
-async function createRemoteCategory(
-  document: ReplicatedCategory,
+async function createRemoteDiary(
+  document: ReplicatedDiary,
   userId: string
-): Promise<ReplicatedCategory | null> {
+): Promise<ReplicatedDiary | null> {
   try {
     await guardedTablesDB.createRow({
       databaseId: APPWRITE_DATABASE_ID,
-      tableId: APPWRITE_TABLES.categories,
+      tableId: APPWRITE_TABLES.diary,
       rowId: document.id,
       data: toAppwriteFormat(
         document as unknown as Record<string, unknown>,
-        'categories',
+        'diary',
         userId
       ),
       permissions: buildRowPermissions(userId),
@@ -135,30 +134,30 @@ async function createRemoteCategory(
     return null;
   } catch (error) {
     if (!isConflictError(error)) throw error;
-    const current = await readRemoteCategory(document.id);
+    const current = await readRemoteDiary(document.id);
     if (current) return current;
     throw error;
   }
 }
 
-async function pushCategories(
-  rows: RxReplicationWriteToMasterRow<CategoryDocument>[],
+async function pushDiary(
+  rows: RxReplicationWriteToMasterRow<DiaryDocument>[],
   userId: string
-): Promise<ReplicatedCategory[]> {
-  const conflicts: ReplicatedCategory[] = [];
+): Promise<ReplicatedDiary[]> {
+  const conflicts: ReplicatedDiary[] = [];
 
   for (const row of rows) {
     const next = row.newDocumentState;
     if (next.userId !== userId) {
-      throw new Error(`Category replication owner mismatch for ${next.id}`);
+      throw new Error(`Diary replication owner mismatch for ${next.id}`);
     }
     if (next._deleted) {
       throw new Error(
-        `Category replication cannot physically delete ${next.id}; use isDeleted tombstones`
+        `Diary replication cannot physically delete ${next.id}; use isDeleted tombstones`
       );
     }
 
-    const current = await readRemoteCategory(next.id);
+    const current = await readRemoteDiary(next.id);
     const assumed = row.assumedMasterState;
 
     if (!assumed) {
@@ -166,18 +165,18 @@ async function pushCategories(
         conflicts.push(current);
         continue;
       }
-      const createConflict = await createRemoteCategory(next, userId);
+      const createConflict = await createRemoteDiary(next, userId);
       if (createConflict) conflicts.push(createConflict);
       continue;
     }
 
-    if (current && !categoryStateEquals(current, assumed)) {
+    if (current && !diaryStateEquals(current, assumed)) {
       conflicts.push(current);
       continue;
     }
 
     if (!current) {
-      const createConflict = await createRemoteCategory(next, userId);
+      const createConflict = await createRemoteDiary(next, userId);
       if (createConflict) conflicts.push(createConflict);
       continue;
     }
@@ -185,17 +184,17 @@ async function pushCategories(
     try {
       await guardedTablesDB.updateRow({
         databaseId: APPWRITE_DATABASE_ID,
-        tableId: APPWRITE_TABLES.categories,
+        tableId: APPWRITE_TABLES.diary,
         rowId: next.id,
         data: toAppwriteFormat(
           next as unknown as Record<string, unknown>,
-          'categories',
+          'diary',
           userId
         ),
       });
     } catch (error) {
       if (!isNotFoundError(error)) throw error;
-      const createConflict = await createRemoteCategory(next, userId);
+      const createConflict = await createRemoteDiary(next, userId);
       if (createConflict) conflicts.push(createConflict);
     }
   }
@@ -203,13 +202,13 @@ async function pushCategories(
   return conflicts;
 }
 
-async function pullCategories(
+async function pullDiary(
   userId: string,
-  checkpoint: CategoryReplicationCheckpoint | undefined,
+  checkpoint: DiaryReplicationCheckpoint | undefined,
   batchSize: number
 ): Promise<{
-  documents: ReplicatedCategory[];
-  checkpoint: CategoryReplicationCheckpoint | undefined;
+  documents: ReplicatedDiary[];
+  checkpoint: DiaryReplicationCheckpoint | undefined;
 }> {
   const queries: string[] = [Query.equal('user_id', userId)];
 
@@ -233,7 +232,7 @@ async function pullCategories(
 
   const response = await guardedTablesDB.listRows({
     databaseId: APPWRITE_DATABASE_ID,
-    tableId: APPWRITE_TABLES.categories,
+    tableId: APPWRITE_TABLES.diary,
     queries,
     total: false,
   });
@@ -249,7 +248,7 @@ async function pullCategories(
 
   const last = rows.at(-1);
   return {
-    documents: rows.map(toReplicatedCategory),
+    documents: rows.map(toReplicatedDiary),
     checkpoint: last
       ? {
           id: last.$id as string,
@@ -259,15 +258,15 @@ async function pullCategories(
   };
 }
 
-export async function captureCategoryReplicationPushCheckpoint(
-  collection: RxCollection<CategoryDocument>
-): Promise<CategoryReplicationPushCheckpoint | undefined> {
-  let checkpoint: CategoryReplicationPushCheckpoint | undefined;
+export async function captureDiaryReplicationPushCheckpoint(
+  collection: RxCollection<DiaryDocument>
+): Promise<DiaryReplicationPushCheckpoint | undefined> {
+  let checkpoint: DiaryReplicationPushCheckpoint | undefined;
 
   for (;;) {
     const result = await getChangedDocumentsSince<
-      CategoryDocument,
-      CategoryReplicationPushCheckpoint
+      DiaryDocument,
+      DiaryReplicationPushCheckpoint
     >(
       collection.storageInstance,
       LOCAL_CHECKPOINT_BATCH_SIZE,
@@ -280,17 +279,17 @@ export async function captureCategoryReplicationPushCheckpoint(
   }
 }
 
-function subscribeToCategoryRealtime(
+function subscribeToDiaryRealtime(
   userId: string,
   pullStream: Subject<
     RxReplicationPullStreamItem<
-      CategoryDocument,
-      CategoryReplicationCheckpoint
+      DiaryDocument,
+      DiaryReplicationCheckpoint
     >
   >
 ): RealtimeUnsubscribe {
   const channel =
-    `databases.${APPWRITE_DATABASE_ID}.tables.${APPWRITE_TABLES.categories}.rows`;
+    `databases.${APPWRITE_DATABASE_ID}.tables.${APPWRITE_TABLES.diary}.rows`;
 
   return guardedRealtime.subscribe(channel, (message) => {
     if (activeOwnerId !== userId) return;
@@ -324,34 +323,34 @@ function subscribeToCategoryRealtime(
 
     pullStream.next({
       checkpoint: { id, updatedAt },
-      documents: [toReplicatedCategory(payload as Record<string, unknown>)],
+      documents: [toReplicatedDiary(payload as Record<string, unknown>)],
     });
   });
 }
 
-export function isCategoryReplicationPilotActive(userId: string): boolean {
+export function isDiaryReplicationPilotActive(userId: string): boolean {
   return activeOwnerId === userId && activeReplication !== null;
 }
 
-export function resyncCategoryReplicationPilot(userId: string): boolean {
-  if (!isCategoryReplicationPilotActive(userId)) return false;
+export function resyncDiaryReplicationPilot(userId: string): boolean {
+  if (!isDiaryReplicationPilotActive(userId)) return false;
   activeReplication?.reSync();
   return true;
 }
 
-export async function refreshCategoryReplicationPilot(
+export async function refreshDiaryReplicationPilot(
   userId: string,
   timeoutMs: number
 ): Promise<boolean> {
   if (
-    !isCategoryReplicationPilotActive(userId) ||
+    !isDiaryReplicationPilotActive(userId) ||
     !activeReplication ||
     !activeCollection
   ) {
     return false;
   }
   await awaitPilotReplicationFreshness(
-    'category',
+    'diary',
     activeReplication,
     activeCollection,
     timeoutMs
@@ -359,7 +358,7 @@ export async function refreshCategoryReplicationPilot(
   return true;
 }
 
-export async function stopCategoryReplicationPilot(
+export async function stopDiaryReplicationPilot(
   userId?: string
 ): Promise<void> {
   if (userId && activeOwnerId !== userId) return;
@@ -381,35 +380,31 @@ export async function stopCategoryReplicationPilot(
   }
 }
 
-export async function startCategoryReplicationPilot(
+export async function startDiaryReplicationPilot(
   userId: string,
-  collection: RxCollection<CategoryDocument>,
-  initialPushCheckpoint: CategoryReplicationPushCheckpoint | undefined
+  collection: RxCollection<DiaryDocument>,
+  initialPushCheckpoint: DiaryReplicationPushCheckpoint | undefined
 ): Promise<void> {
   if (!userId) return;
-  if (isCategoryReplicationPilotActive(userId)) return;
+  if (isDiaryReplicationPilotActive(userId)) return;
 
   if (activeReplication) {
-    await stopCategoryReplicationPilot();
+    await stopDiaryReplicationPilot();
   }
 
-  // The caller captures this checkpoint before the legacy bootstrap sync.
-  // That makes all pre-bootstrap history eligible for suppression while
-  // keeping writes made during the bootstrap newer than the seed, so RxDB
-  // still pushes them after the handoff.
   const pullStream = new Subject<
     RxReplicationPullStreamItem<
-      CategoryDocument,
-      CategoryReplicationCheckpoint
+      DiaryDocument,
+      DiaryReplicationCheckpoint
     >
   >();
 
   const replication = replicateRxCollection<
-    CategoryDocument,
-    CategoryReplicationCheckpoint
+    DiaryDocument,
+    DiaryReplicationCheckpoint
   >({
     replicationIdentifier:
-      `mosaic-appwrite-tablesdb-categories-v1:${userId}`,
+      `mosaic-appwrite-tablesdb-diary-v1:${userId}`,
     collection,
     live: true,
     retryTime: RETRY_TIME_MS,
@@ -419,12 +414,12 @@ export async function startCategoryReplicationPilot(
       batchSize: PULL_BATCH_SIZE,
       stream$: pullStream.asObservable(),
       handler: (checkpoint, batchSize) =>
-        pullCategories(userId, checkpoint, batchSize),
+        pullDiary(userId, checkpoint, batchSize),
     },
     push: {
       batchSize: PUSH_BATCH_SIZE,
       initialCheckpoint: initialPushCheckpoint,
-      handler: (rows) => pushCategories(rows, userId),
+      handler: (rows) => pushDiary(rows, userId),
     },
   });
 
@@ -432,13 +427,13 @@ export async function startCategoryReplicationPilot(
   activeReplication = replication;
   activeCollection = collection;
   activePullStream = pullStream;
-  realtimeUnsubscribe = subscribeToCategoryRealtime(userId, pullStream);
+  realtimeUnsubscribe = subscribeToDiaryRealtime(userId, pullStream);
   errorSubscription = replication.error$.subscribe((error) => {
-    console.error('[CategoryReplicationPilot] replication error:', error);
+    console.error('[DiaryReplicationPilot] replication error:', error);
   });
 }
 
-export const __categoryReplicationPilotTestUtils = {
-  pullCategories,
-  pushCategories,
+export const __diaryReplicationPilotTestUtils = {
+  pullDiary,
+  pushDiary,
 };
