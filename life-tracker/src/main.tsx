@@ -133,8 +133,10 @@ const startBackgroundMaintenance = () => {
   // Let first-use Home/auth/database work win. Once the app has been settled
   // for more than a minute, quietly download future app-shell updates so the
   // Settings action usually only needs to activate an already-waiting worker.
-  window.setTimeout(maybePrefetchPwaUpdate, PWA_UPDATE_PREFETCH_DELAY_MS);
-  window.setInterval(maybePrefetchPwaUpdate, PWA_UPDATE_RECHECK_MS);
+  window.setTimeout(() => {
+    maybePrefetchPwaUpdate();
+    window.setInterval(maybePrefetchPwaUpdate, PWA_UPDATE_RECHECK_MS);
+  }, PWA_UPDATE_PREFETCH_DELAY_MS);
   window.addEventListener('online', maybePrefetchPwaUpdate);
   document.addEventListener('visibilitychange', maybePrefetchPwaUpdate);
 };
