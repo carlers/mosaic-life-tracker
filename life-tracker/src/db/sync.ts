@@ -20,6 +20,12 @@ import {
   resyncCategoryReplicationPilot,
   startCategoryReplicationPilot,
 } from './categoryReplicationPilot';
+import {
+  captureSettingsReplicationPushCheckpoint,
+  isSettingsReplicationPilotActive,
+  resyncSettingsReplicationPilot,
+  startSettingsReplicationPilot,
+} from './settingsReplicationPilot';
 import { APPWRITE_DATABASE_ID, APPWRITE_TABLES } from '../lib/appwriteConfig';
 export { toAppwriteFormat, fromAppwriteFormat };
 export { getSyncStatus, subscribeToSyncStatus } from '../lib/syncStatus';
@@ -510,10 +516,21 @@ async function runSyncCycleBody(userId: string): Promise<void> {
           resyncCategoryReplicationPilot(userId);
           continue;
         }
+        if (
+          colName === 'settings' &&
+          isSettingsReplicationPilotActive(userId)
+        ) {
+          resyncSettingsReplicationPilot(userId);
+          continue;
+        }
 
         const categoryPushCheckpoint =
           colName === 'categories'
             ? await captureCategoryReplicationPushCheckpoint(db.categories)
+            : undefined;
+        const settingsPushCheckpoint =
+          colName === 'settings'
+            ? await captureSettingsReplicationPushCheckpoint(db.settings)
             : undefined;
         const result = await syncCollection(
           db[colName] as unknown as LocalCollection,
@@ -562,6 +579,12 @@ async function runSyncCycleBody(userId: string): Promise<void> {
             userId,
             db.categories,
             categoryPushCheckpoint
+          );
+        } else if (colName === 'settings') {
+          await startSettingsReplicationPilot(
+            userId,
+            db.settings,
+            settingsPushCheckpoint
           );
         }
       } catch (colError) {
