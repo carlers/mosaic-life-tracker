@@ -1,4 +1,4 @@
-import React, { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
+import React, { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { addDays, format, isToday } from 'date-fns';
 import { Swiper, SwiperSlide } from 'swiper/react';
 import { AnimatePresence, motion } from 'framer-motion';
@@ -28,6 +28,7 @@ import { Spinner } from '../../ui/Spinner';
 import { useHorizontalArrowNavigation } from '../../../hooks/useHorizontalArrowNavigation';
 import { useSettings } from '../../../hooks/useSettings';
 import {
+  ADD_TASKS_TO_TOP_SETTING_KEY,
   CONTINUE_ADDING_TASKS_SETTING_KEY,
   SHOW_CATEGORY_COLLAPSE_SETTING_KEY,
   SHOW_DAY_VIEW_TODAY_TAG_SETTING_KEY,
@@ -39,6 +40,8 @@ const ImageViewer = lazy(() =>
 
 const DAY_SWIPER_FOCUSABLE_ELEMENTS =
   'input, select, option, textarea, video, label, button:not([data-day-swipe-through="true"])';
+const DAY_SWIPER_TRANSITION_SPEED_MS = 320;
+const DAY_SWIPER_TRANSITION_EASING = 'cubic-bezier(0.32, 0.72, 0, 1)';
 
 // #11a: hoisted — closes over nothing, so building this once avoids
 // re-allocating the JSX tree on every DayViewSheet render.
@@ -91,6 +94,8 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
   const { getSetting } = useSettings();
   const continueAddingTasks =
     getSetting(CONTINUE_ADDING_TASKS_SETTING_KEY, false) === true;
+  const addTasksToTop =
+    getSetting(ADD_TASKS_TO_TOP_SETTING_KEY, false) === true;
   const showCategoryCollapseButton =
     getSetting(SHOW_CATEGORY_COLLAPSE_SETTING_KEY, false) === true;
   const showDayViewTodayTag =
@@ -120,7 +125,6 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
   const [isBulkVisibilityOpen, setIsBulkVisibilityOpen] = useState(false);
   const [isBulkDeleteOpen, setIsBulkDeleteOpen] = useState(false);
   const [isBulkWorking, setIsBulkWorking] = useState(false);
-  const [syncedSelectionContext, setSyncedSelectionContext] = useState('');
   const [isTaskReorderActive, setIsTaskReorderActive] = useState(false);
 
   const activeTask = useMemo(
@@ -168,6 +172,7 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
     renderWindow,
     handlePrevDay,
     handleNextDay,
+    handleSlideChange,
     handleSwipeSettled,
   } = useDayViewSwiper({
     isOpen,
@@ -191,22 +196,25 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
   });
 
   const activeDateStr = slideDateStrs[activeIndex] ?? format(selectedDate, 'yyyy-MM-dd');
+  const previousActiveDateStrRef = useRef(activeDateStr);
   const selectedTasks = useMemo(
-    () => tasks.filter((task) => selectedTaskIds.has(task.id) && task.date === activeDateStr),
-    [activeDateStr, selectedTaskIds, tasks]
+    () =>
+      isSelectMode
+        ? tasks.filter(
+            (task) =>
+              selectedTaskIds.has(task.id) && task.date === activeDateStr
+          )
+        : EMPTY_TASKS,
+    [activeDateStr, isSelectMode, selectedTaskIds, tasks]
   );
-  const selectionContext = `${isOpen ? 'open' : 'closed'}:${activeDateStr}`;
-  if (selectionContext !== syncedSelectionContext) {
-    setSyncedSelectionContext(selectionContext);
-    if (isSelectMode && !isBulkWorking) {
-      setIsSelectMode(false);
-      setSelectedTaskIds(new Set());
-      setIsBulkActionOpen(false);
-      setIsBulkDateOpen(false);
-      setIsBulkVisibilityOpen(false);
-      setIsBulkDeleteOpen(false);
+
+  useEffect(() => {
+    const didChangeDate = previousActiveDateStrRef.current !== activeDateStr;
+    previousActiveDateStrRef.current = activeDateStr;
+    if (didChangeDate && isSelectMode && !isBulkWorking) {
+      exitSelectMode();
     }
-  }
+  }, [activeDateStr, exitSelectMode, isBulkWorking, isSelectMode]);
 
   // #10: precompute the header label per slide so the render loop doesn't
   // re-run date-fns' format() on every render for every in-window slide.
@@ -296,10 +304,14 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
     handleNextDay();
   }, [exitSelectMode, handleNextDay, isSelectMode]);
 
-  const handleSwipeSettledFromUi = useCallback((swiper: Parameters<typeof handleSwipeSettled>[0]) => {
+  const handleSlideChangeFromUi = useCallback((swiper: Parameters<typeof handleSlideChange>[0]) => {
     if (isSelectMode) exitSelectMode();
+    handleSlideChange(swiper);
+  }, [exitSelectMode, handleSlideChange, isSelectMode]);
+
+  const handleSwipeSettledFromUi = useCallback((swiper: Parameters<typeof handleSwipeSettled>[0]) => {
     handleSwipeSettled(swiper);
-  }, [exitSelectMode, handleSwipeSettled, isSelectMode]);
+  }, [handleSwipeSettled]);
 
   const handleToggleTask = useCallback(
     (taskId: string, currentStatus: boolean) => {
@@ -364,15 +376,18 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
 
   const handleAddTask = useCallback(
     (title: string, categoryId: string, dateStr: string) => {
-      addTask({
-        title,
-        categoryId,
-        date: dateStr,
-        completed: false,
-        visibility: '',
-      });
+      addTask(
+        {
+          title,
+          categoryId,
+          date: dateStr,
+          completed: false,
+          visibility: '',
+        },
+        addTasksToTop ? 'top' : 'bottom'
+      );
     },
-    [addTask]
+    [addTask, addTasksToTop]
   );
 
   const handleOpenActions = useCallback((task: TaskDocument) => {
@@ -625,7 +640,9 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
           }
         }}
         initialSlide={initialIndex}
-        onSlideChange={handleSwipeSettledFromUi}
+        speed={DAY_SWIPER_TRANSITION_SPEED_MS}
+        onSlideChange={handleSlideChangeFromUi}
+        onSlideChangeTransitionEnd={handleSwipeSettledFromUi}
         data-testid="day-swiper"
         data-bottom-sheet-native-horizontal-swipe={renderMode === 'sheet' ? 'true' : undefined}
         className={`min-w-0 w-full max-w-full overflow-hidden ${renderMode === 'inline' ? '' : 'flex-1'}`}
@@ -634,7 +651,8 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
           maxWidth: '100%',
           height: renderMode === 'inline' ? 'auto' : undefined,
           touchAction: 'pan-y',
-        }}
+          '--swiper-wrapper-transition-timing-function': DAY_SWIPER_TRANSITION_EASING,
+        } as React.CSSProperties}
       >
         {slideDates.map((date, i) => {
           const inWindow = Math.abs(i - activeIndex) <= effectiveRenderWindow;
@@ -653,52 +671,59 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
                 {inWindow && (
                   <>
                     <div
-                      className="flex shrink-0 items-center justify-between gap-2 px-4 py-2"
+                      className="shrink-0 px-4 py-2"
                       data-day-view-navigation="true"
                       data-bottom-sheet-directional-drag-handle={
                         renderMode === 'sheet' ? 'true' : undefined
                       }
                     >
-                      <button
-                        type="button"
-                        onClick={handlePrevDayFromUi}
-                        tabIndex={i === activeIndex ? 0 : -1}
-                        className="p-2 text-gray-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
-                        aria-label="Previous day"
-                      >
-                        <ChevronLeft size={20} />
-                      </button>
-                      <h3
-                        className="flex min-w-0 flex-1 items-center justify-center gap-2 text-center text-base font-semibold text-white"
-                        aria-live={i === activeIndex ? 'polite' : undefined}
-                      >
-                        <span className="truncate">{slideDateLabels[i]}</span>
-                        {showDayViewTodayTag && isToday(date) && (
-                          <span className="shrink-0 rounded-full bg-emerald-500/15 px-2 py-0.5 text-[11px] font-semibold text-emerald-400">
-                            Today
-                          </span>
-                        )}
-                      </h3>
-                      <button
-                        type="button"
-                        onClick={handleToggleSelectMode}
-                        tabIndex={i === activeIndex ? 0 : -1}
-                        aria-pressed={isSelectMode}
-                        aria-label={isSelectMode ? 'Exit selection mode' : 'Select tasks'}
-                        className={`flex items-center gap-1 rounded-lg px-2 py-1.5 text-xs font-medium focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 ${isSelectMode ? 'bg-emerald-500 text-black' : 'text-gray-300 hover:bg-[#2A2A2A]'}`}
-                      >
-                        <CheckSquare size={16} aria-hidden="true" />
-                        <span>Select</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={handleNextDayFromUi}
-                        tabIndex={i === activeIndex ? 0 : -1}
-                        className="p-2 text-gray-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
-                        aria-label="Next day"
-                      >
-                        <ChevronRight size={20} />
-                      </button>
+                      <div className="grid grid-cols-[2.5rem_minmax(0,1fr)_2.5rem] items-center">
+                        <button
+                          type="button"
+                          onClick={handlePrevDayFromUi}
+                          tabIndex={i === activeIndex ? 0 : -1}
+                          className="justify-self-start p-2 text-gray-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
+                          aria-label="Previous day"
+                        >
+                          <ChevronLeft size={20} />
+                        </button>
+                        <h3
+                          className="min-w-0 text-center text-base font-semibold text-white"
+                          aria-live={i === activeIndex ? 'polite' : undefined}
+                        >
+                          <span className="block truncate">{slideDateLabels[i]}</span>
+                        </h3>
+                        <button
+                          type="button"
+                          onClick={handleNextDayFromUi}
+                          tabIndex={i === activeIndex ? 0 : -1}
+                          className="justify-self-end p-2 text-gray-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
+                          aria-label="Next day"
+                        >
+                          <ChevronRight size={20} />
+                        </button>
+                      </div>
+                      <div className="mt-0.5 grid min-h-8 grid-cols-[1fr_auto_1fr] items-center">
+                        <span aria-hidden="true" />
+                        <div className="flex justify-center">
+                          {showDayViewTodayTag && isToday(date) && (
+                            <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-[11px] font-semibold text-emerald-400">
+                              Today
+                            </span>
+                          )}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={handleToggleSelectMode}
+                          tabIndex={i === activeIndex ? 0 : -1}
+                          aria-pressed={isSelectMode}
+                          aria-label={isSelectMode ? 'Exit selection mode' : 'Select tasks'}
+                          className={`justify-self-end flex items-center gap-1 rounded-lg px-2 py-1.5 text-xs font-medium focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 ${isSelectMode ? 'bg-emerald-500 text-black' : 'text-gray-300 hover:bg-[#2A2A2A]'}`}
+                        >
+                          <CheckSquare size={16} aria-hidden="true" />
+                          <span>Select</span>
+                        </button>
+                      </div>
                     </div>
                     <DaySlide
                       date={date}

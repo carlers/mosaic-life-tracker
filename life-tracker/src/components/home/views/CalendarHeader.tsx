@@ -32,7 +32,7 @@ export const CalendarHeader: React.FC<CalendarHeaderProps> = ({
         className="min-w-0 flex-1 text-base font-bold text-white transition-all duration-200"
         aria-live="polite"
       >
-        {activeView === 'calendar' && onTitleClick ? (
+        {(activeView === 'calendar' || activeView === 'todo') && onTitleClick ? (
           <button
             type="button"
             onClick={onTitleClick}

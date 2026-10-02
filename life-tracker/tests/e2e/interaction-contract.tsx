@@ -459,6 +459,7 @@ export function InteractionHarness() {
                 isOpen={dayViewSheetOpen}
                 onClose={() => setDayViewSheetOpen(false)}
                 selectedDate={dayViewSelectedDate}
+                onDateChange={setDayViewSelectedDate}
                 tasks={todoTasks}
                 categories={todoCategories}
               />

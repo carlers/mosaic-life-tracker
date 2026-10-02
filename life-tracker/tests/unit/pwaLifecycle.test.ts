@@ -5,6 +5,7 @@ import {
   dismissPwaUpdate,
   getPwaLifecycleSnapshot,
   initializePwaLifecycle,
+  prefetchPwaUpdate,
   requestPwaInstall,
   resetPwaLifecycleForTests,
   subscribeToPwaLifecycle,
@@ -86,7 +87,10 @@ function fixture({
 
 describe('PWA lifecycle', () => {
   beforeEach(() => resetPwaLifecycleForTests());
-  afterEach(() => vi.unstubAllGlobals());
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+  });
 
   // Regression: §24.18 (controlled service worker marks shell offline-ready).
   it('marks the app shell ready when the page is already service-worker controlled', () => {
@@ -215,6 +219,63 @@ describe('PWA lifecycle', () => {
       'downloading',
       'ready',
     ]);
+  });
+
+  it('joins an update that is already downloading without blocking or starting another check', async () => {
+    const setup = fixture();
+    const stages: string[] = [];
+    const worker = Object.assign(new EventTarget(), {
+      state: 'installing' as ServiceWorkerState,
+    }) as unknown as ServiceWorker;
+    Object.assign(setup.registration, { installing: worker });
+
+    await expect(
+      checkForPwaUpdate((stage) => stages.push(stage))
+    ).resolves.toBe('update-in-progress');
+
+    expect(stages).toEqual([
+      'preparing',
+      'update-found',
+      'downloading',
+      'background-download',
+    ]);
+    expect(setup.registration.update).not.toHaveBeenCalled();
+  });
+
+  it('keeps a slow install in progress instead of reporting the app as current', async () => {
+    vi.useFakeTimers();
+    const setup = fixture();
+    const stages: string[] = [];
+    const worker = Object.assign(new EventTarget(), {
+      state: 'installing' as ServiceWorkerState,
+    }) as unknown as ServiceWorker;
+    Object.assign(setup.registration, { installing: worker });
+
+    const checking = checkForPwaUpdate((stage) => stages.push(stage));
+    await vi.advanceTimersByTimeAsync(30_000);
+
+    await expect(checking).resolves.toBe('update-in-progress');
+    expect(stages).toEqual([
+      'preparing',
+      'update-found',
+      'downloading',
+      'background-download',
+    ]);
+    expect(setup.registration.update).not.toHaveBeenCalled();
+  });
+
+  it('starts a background update fetch without waiting for the full install', async () => {
+    const setup = fixture();
+    const worker = Object.assign(new EventTarget(), {
+      state: 'installing' as ServiceWorkerState,
+    }) as unknown as ServiceWorker;
+
+    setup.registration.update = vi.fn().mockImplementation(async () => {
+      Object.assign(setup.registration, { installing: worker });
+    });
+
+    await expect(prefetchPwaUpdate()).resolves.toBe('update-in-progress');
+    expect(setup.registration.update).toHaveBeenCalledOnce();
   });
 
   it('publishes explicit update availability and applies only on request', async () => {

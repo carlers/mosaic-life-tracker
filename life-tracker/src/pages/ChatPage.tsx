@@ -155,7 +155,7 @@ export const ChatPage: React.FC = () => {
       if (connectivity.status !== 'online') return;
       if (!myUserId) return;
       void import('../db/sync')
-        .then(({ forceSync }) => forceSync(myUserId))
+        .then(({ forceMessageSync }) => forceMessageSync(myUserId))
         .catch((syncError) =>
           console.error('[ChatPage] Poll sync failed:', syncError)
         );

@@ -162,6 +162,7 @@ vi.mock('../../src/components/home/views/useDayViewSwiper', () => ({
     renderWindow: 3,
     handlePrevDay: vi.fn(),
     handleNextDay: vi.fn(),
+    handleSlideChange: vi.fn(),
     handleSwipeSettled: vi.fn(),
   }),
 }));

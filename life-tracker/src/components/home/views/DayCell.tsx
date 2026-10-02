@@ -81,7 +81,7 @@ const DayCellComponent: React.FC<DayCellProps> = ({
           {dayNumber}
         </div>
       </div>
-      <div className="flex-1 space-y-0.5" aria-hidden="true">
+      <div className="flex-1 space-y-[0.2rem]" aria-hidden="true">
         {sortedTasks.map((task) => (
           <TaskBlock
             key={task.id}
