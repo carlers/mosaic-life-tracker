@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
   User,
@@ -103,12 +103,6 @@ export const SettingsPage: React.FC = () => {
 
   const handleComingSoon = () => showFeedback('Coming soon');
 
-  useEffect(() => {
-    if (updateAvailable) {
-      setUpdateStage('ready');
-    }
-  }, [updateAvailable]);
-
   const handleBack = () => {
     const parent = '/account';
     if (hasExpectedRouteParent(location.key, location.state, parent)) {
@@ -158,26 +152,37 @@ export const SettingsPage: React.FC = () => {
     }
   };
 
+  const displayedUpdateStage =
+    updateStage === 'error' ||
+    updateStage === 'unavailable' ||
+    updateStage === 'applying'
+      ? updateStage
+      : updateAvailable
+        ? 'ready'
+        : updateStage === 'ready'
+          ? null
+          : updateStage;
+
   const updateStatusMessage =
-    updateStage === 'preparing'
+    displayedUpdateStage === 'preparing'
       ? 'Preparing update check…'
-      : updateStage === 'checking'
+      : displayedUpdateStage === 'checking'
         ? 'Checking for a new version…'
-        : updateStage === 'update-found'
+        : displayedUpdateStage === 'update-found'
           ? 'Update found. Preparing download…'
-          : updateStage === 'downloading'
+          : displayedUpdateStage === 'downloading'
             ? 'Update found — downloading…'
-            : updateStage === 'background-download'
+            : displayedUpdateStage === 'background-download'
               ? 'Update is still downloading in the background.'
-              : updateStage === 'ready'
+              : displayedUpdateStage === 'ready'
                 ? 'Update downloaded. Ready to install.'
-                : updateStage === 'applying'
+                : displayedUpdateStage === 'applying'
                   ? 'Installing update…'
-              : updateStage === 'up-to-date'
+              : displayedUpdateStage === 'up-to-date'
                 ? 'Mosaic is up to date.'
-                : updateStage === 'unavailable'
+                : displayedUpdateStage === 'unavailable'
                   ? 'Update checking is unavailable in this browser.'
-                  : updateStage === 'error'
+                  : displayedUpdateStage === 'error'
                     ? 'Could not check for updates. Try again.'
                     : null;
 
