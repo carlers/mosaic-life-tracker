@@ -28,10 +28,12 @@ const categoryPilotActiveMock = vi.hoisted(() => vi.fn());
 const categoryPilotResyncMock = vi.hoisted(() => vi.fn());
 const categoryPilotStartMock = vi.hoisted(() => vi.fn());
 const categoryPilotCheckpointMock = vi.hoisted(() => vi.fn());
+const categoryPilotRefreshMock = vi.hoisted(() => vi.fn());
 const diaryPilotActiveMock = vi.hoisted(() => vi.fn());
 const diaryPilotResyncMock = vi.hoisted(() => vi.fn());
 const diaryPilotStartMock = vi.hoisted(() => vi.fn());
 const diaryPilotCheckpointMock = vi.hoisted(() => vi.fn());
+const diaryPilotRefreshMock = vi.hoisted(() => vi.fn());
 // Test fixture note: sync.ts reads `account` directly from '../../src/lib/appwrite'
 // instead of going through guardedAccount. The appwrite SDK mock must
 // therefore provide `Client` and `Account` so the real appwrite.ts module
@@ -94,12 +96,14 @@ vi.mock('../../src/db/database', () => ({
 vi.mock('../../src/db/categoryReplicationPilot', () => ({
   captureCategoryReplicationPushCheckpoint: categoryPilotCheckpointMock,
   isCategoryReplicationPilotActive: categoryPilotActiveMock,
+  refreshCategoryReplicationPilot: categoryPilotRefreshMock,
   resyncCategoryReplicationPilot: categoryPilotResyncMock,
   startCategoryReplicationPilot: categoryPilotStartMock,
 }));
 vi.mock('../../src/db/diaryReplicationPilot', () => ({
   captureDiaryReplicationPushCheckpoint: diaryPilotCheckpointMock,
   isDiaryReplicationPilotActive: diaryPilotActiveMock,
+  refreshDiaryReplicationPilot: diaryPilotRefreshMock,
   resyncDiaryReplicationPilot: diaryPilotResyncMock,
   startDiaryReplicationPilot: diaryPilotStartMock,
 }));
@@ -344,22 +348,26 @@ beforeEach(async () => {
   categoryPilotResyncMock.mockReset();
   categoryPilotStartMock.mockReset();
   categoryPilotCheckpointMock.mockReset();
+  categoryPilotRefreshMock.mockReset();
   diaryPilotActiveMock.mockReset();
   diaryPilotResyncMock.mockReset();
   diaryPilotStartMock.mockReset();
   diaryPilotCheckpointMock.mockReset();
+  diaryPilotRefreshMock.mockReset();
   categoryPilotActiveMock.mockReturnValue(false);
   categoryPilotStartMock.mockResolvedValue(undefined);
   categoryPilotCheckpointMock.mockResolvedValue({
     id: 'cat_seed',
     lwt: 123,
   });
+  categoryPilotRefreshMock.mockResolvedValue(false);
   diaryPilotActiveMock.mockReturnValue(false);
   diaryPilotStartMock.mockResolvedValue(undefined);
   diaryPilotCheckpointMock.mockResolvedValue({
     id: 'diary_seed',
     lwt: 456,
   });
+  diaryPilotRefreshMock.mockResolvedValue(false);
   uploadPendingImageMock.mockResolvedValue('img_uploaded');
   deletePendingImageMock.mockResolvedValue(undefined);
   getDatabaseMock.mockReturnValue(makeDb());
@@ -597,6 +605,44 @@ describe('sync — forceSync follow-up queueing', () => {
   });
 });
 // Regression: §18 (sync failure isolation and boundary safety).
+describe('sync — RxDB pilot fresh-sync barrier', () => {
+  it('awaits category and diary pilot freshness before returning', async () => {
+    categoryPilotRefreshMock.mockResolvedValue(true);
+    diaryPilotRefreshMock.mockResolvedValue(true);
+
+    await syncModule.refreshSync('user_A', 5_000);
+
+    expect(categoryPilotRefreshMock).toHaveBeenCalledWith(
+      'user_A',
+      expect.any(Number)
+    );
+    expect(diaryPilotRefreshMock).toHaveBeenCalledWith(
+      'user_A',
+      expect.any(Number)
+    );
+    expect(
+      categoryPilotRefreshMock.mock.invocationCallOrder[0]
+    ).toBeLessThan(diaryPilotRefreshMock.mock.invocationCallOrder[0]);
+  });
+
+  it('fails the safety barrier when an RxDB pilot cannot prove freshness', async () => {
+    categoryPilotRefreshMock.mockRejectedValue(
+      new Error('Fresh category sync is owned by another Mosaic tab.')
+    );
+
+    await expect(
+      syncModule.refreshSync('user_A', 5_000)
+    ).rejects.toThrow('another Mosaic tab');
+
+    expect(syncModule.getSyncStatus().errors).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining('another Mosaic tab'),
+      ])
+    );
+    expect(diaryPilotRefreshMock).not.toHaveBeenCalled();
+  });
+});
+
 describe('sync — manual freshness and retry wake-up', () => {
   it('manual sync retries immediately through a transient failure backoff', async () => {
     const docs = [makeLocalDoc('manual_retry')];
