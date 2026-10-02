@@ -13,6 +13,21 @@ export interface TaskOrderAssignment {
   order: number;
 }
 
+export type NewTaskPosition = 'top' | 'bottom';
+
+export function getNewTaskOrder(
+  siblings: readonly Pick<TaskDocument, 'order'>[],
+  position: NewTaskPosition
+): number {
+  if (position === 'top') return 0;
+  return (
+    siblings.reduce(
+      (maximum, candidate) => Math.max(maximum, candidate.order ?? 0),
+      -1
+    ) + 1
+  );
+}
+
 type JsonBackedTaskDocument = TaskDocument & {
   toJSON?: (withMetaFields?: boolean) => TaskDocument;
 };

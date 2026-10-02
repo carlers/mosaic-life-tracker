@@ -8,6 +8,13 @@ const taskMocks = vi.hoisted(() => ({
   addTask: vi.fn(),
 }));
 
+const settingsFixture = vi.hoisted(() => ({
+  values: {
+    continueAddingTasks: true,
+    addTasksToTop: true,
+  } as Record<string, unknown>,
+}));
+
 const fixture = vi.hoisted(() => ({
   task: {
     id: 'task_real',
@@ -83,7 +90,8 @@ vi.mock('../../src/hooks/useFeedback', () => ({
 
 vi.mock('../../src/hooks/useSettings', () => ({
   useSettings: () => ({
-    getSetting: () => true,
+    getSetting: (key: string, defaultValue?: unknown) =>
+      key in settingsFixture.values ? settingsFixture.values[key] : defaultValue,
     setSetting: vi.fn(),
   }),
 }));
@@ -101,6 +109,10 @@ import { TodoListView } from '../../src/components/home/views/TodoListView';
 describe('TodoListView integrated selected-day workspace', () => {
   beforeEach(() => {
     taskMocks.addTask.mockReset();
+    settingsFixture.values = {
+      continueAddingTasks: true,
+      addTasksToTop: true,
+    };
   });
 
   // Regression: an inline Todo day with no tasks must still mount its Day View surface.
@@ -175,13 +187,16 @@ describe('TodoListView integrated selected-day workspace', () => {
     fireEvent.change(input, { target: { value: 'Another task' } });
     fireEvent.keyDown(input, { key: 'Enter' });
 
-    expect(taskMocks.addTask).toHaveBeenCalledWith({
-      title: 'Another task',
-      categoryId: 'cat_real',
-      date: '2026-09-15',
-      completed: false,
-      visibility: '',
-    });
+    expect(taskMocks.addTask).toHaveBeenCalledWith(
+      {
+        title: 'Another task',
+        categoryId: 'cat_real',
+        date: '2026-09-15',
+        completed: false,
+        visibility: '',
+      },
+      'top'
+    );
     expect(
       screen.getByPlaceholderText('Add a task to Integrated category...')
     ).toHaveValue('');

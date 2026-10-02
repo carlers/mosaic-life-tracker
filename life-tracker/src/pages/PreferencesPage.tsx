@@ -1,5 +1,6 @@
 import React from 'react';
 import {
+  ArrowUp,
   CalendarDays,
   Check,
   ChevronLeft,
@@ -19,6 +20,7 @@ import {
 import { SettingsRow } from '../components/ui/SettingsRow';
 import { useSettings } from '../hooks/useSettings';
 import {
+  ADD_TASKS_TO_TOP_SETTING_KEY,
   CONTINUE_ADDING_TASKS_SETTING_KEY,
   SHOW_CATEGORY_COLLAPSE_SETTING_KEY,
   SHOW_DAY_VIEW_TODAY_TAG_SETTING_KEY,
@@ -143,6 +145,8 @@ export const PreferencesPage: React.FC = () => {
 
   const continueAddingTasks =
     getSetting(CONTINUE_ADDING_TASKS_SETTING_KEY, false) === true;
+  const addTasksToTop =
+    getSetting(ADD_TASKS_TO_TOP_SETTING_KEY, false) === true;
   const weekStartsOnSunday =
     getSetting(WEEK_STARTS_ON_SUNDAY_SETTING_KEY, true) === true;
   const showCategoryCollapse =
@@ -189,6 +193,19 @@ export const PreferencesPage: React.FC = () => {
               void setSetting(
                 CONTINUE_ADDING_TASKS_SETTING_KEY,
                 !continueAddingTasks
+              )
+            }
+          />
+          <SettingsRow
+            icon={<ArrowUp size={18} className="text-gray-400" aria-hidden="true" />}
+            label="Add new tasks to top"
+            showChevron={false}
+            isToggle
+            checked={addTasksToTop}
+            onClick={() =>
+              void setSetting(
+                ADD_TASKS_TO_TOP_SETTING_KEY,
+                !addTasksToTop
               )
             }
           />

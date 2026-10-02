@@ -1,19 +1,20 @@
 # Session checkpoint
 
 Updated: 2026-10-02
-Current task: Align the new-task creation row with inline task edit mode on the existing Home UI polish Preview branch.
-Status: The follow-up implementation is on `chatgpt/ui-home-polish-align-new-task`, based on stable `feature/ui-home-polish` at `4998940`. The pending add-task row now mirrors the edit row's horizontal inset, top alignment, checkbox offset, content wrapper, and 2px underline while preserving the category-colored pending checkbox/underline.
-Next action: Complete exact-SHA canonical verification. If green, squash-merge this follow-up into the same stable `feature/ui-home-polish` branch, verify its refreshed Vercel Preview is READY, then hand off for manual visual acceptance against the supplied screenshots. Do not promote to `dev` without explicit user instruction.
-Blockers: No known source blocker. This is a presentation alignment fix, so repository rules intentionally do not add class/pixel assertions; final alignment remains a manual visual check.
+Current task: Add a synced Preferences toggle controlling whether newly created tasks are inserted at the top or bottom of their date/category list.
+Status: Implementation is on `chatgpt/ui-home-polish-task-position`, based on stable `feature/ui-home-polish` at `3d7569d`. The new **Add new tasks to top** switch defaults off to preserve existing bottom-insertion behavior. Day View/Todo task creation passes the selected placement into `useTasks.addTask`; bottom uses max order + 1, while top uses order 0 and the existing newest-created-first tie-break.
+Next action: Complete exact-SHA canonical verification. If green, squash-merge this follow-up into the same stable `feature/ui-home-polish` branch, verify the refreshed Vercel Preview is READY, then hand off for manual acceptance. Do not promote to `dev` without explicit user instruction.
+Blockers: No known source, data, or schema blocker. Settings storage is generic, so no database migration is required.
 
 ## Completed
-- Reused the editing task row geometry for the pending new-task row: `items-start`, matching `px-2 py-2`, checkbox `mt-0.5`, and the same flex content wrapper.
-- Matched the pending input's full-width 2px underline to inline edit mode while retaining category color.
-- Updated the durable Todo/Day View visual contract to record the alignment requirement.
-- Preserved add-task behavior, continuous-entry behavior, task ordering, and selection behavior unchanged.
+- Added synced setting key `addTasksToTop` and a Preferences → Tasks switch labeled **Add new tasks to top**.
+- Preserved bottom insertion as the default for existing users.
+- Added explicit top/bottom placement support to `useTasks.addTask` without renumbering sibling tasks.
+- Wired Day View and Todo inline task creation to the synced preference.
+- Added Preferences, Todo integration, and task-order regression coverage.
+- Updated the durable task preference and ordering contracts in `PROJECT_REFERENCE.md`.
 
 ## Verification
 - Source/diff review: pending after commit.
-- Automated styling regression: intentionally not added; project test rules prohibit class/pixel lock-in for presentation-only alignment.
-- Exact-SHA canonical acceptance: pending.
-- Stable Preview deployment/manual visual acceptance: pending.
+- Exact-SHA full canonical acceptance: pending.
+- Stable Preview deployment/manual acceptance: pending canonical acceptance.

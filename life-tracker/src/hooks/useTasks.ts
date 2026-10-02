@@ -5,6 +5,8 @@ import { useRxCollection } from './useRxCollection';
 import type { TaskDocument } from '../db/schema';
 import {
   buildTaskOrderAssignments,
+  getNewTaskOrder,
+  type NewTaskPosition,
   type TaskOrderGroup,
 } from '../lib/taskOrder';
 
@@ -26,7 +28,8 @@ export function useTasks(enabled = true) {
       task: Omit<
         TaskDocument,
         'id' | 'userId' | 'order' | 'createdAt' | 'updatedAt' | 'isDeleted'
-      >
+      >,
+      position: NewTaskPosition = 'bottom'
     ) => {
       const uid = user?.$id;
       if (!uid) {
@@ -45,11 +48,7 @@ export function useTasks(enabled = true) {
           },
         })
         .exec();
-      const order =
-        siblingDocs.reduce(
-          (maximum, candidate) => Math.max(maximum, candidate.order),
-          -1
-        ) + 1;
+      const order = getNewTaskOrder(siblingDocs, position);
       const newTask: TaskDocument = {
         ...task,
         order,
