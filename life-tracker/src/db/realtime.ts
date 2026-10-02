@@ -20,9 +20,11 @@ const TABLES: Record<keyof AppDatabaseCollections, string> = {
   messages: APPWRITE_TABLES.messages,
 };
 
+// Categories are intentionally excluded here. After one legacy bootstrap
+// sync, categoryReplicationPilot.ts owns their Appwrite Realtime stream so
+// a remote event is applied through exactly one reconciliation path.
 const ALL_COLLECTIONS: (keyof AppDatabaseCollections)[] = [
   'tasks',
-  'categories',
   'diary',
   'settings',
   'friendships',

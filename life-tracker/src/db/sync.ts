@@ -14,6 +14,11 @@ import { markOfflineDataReady } from '../lib/offlineReadiness';
 import { isPendingImageId, deletePendingImage } from '../lib/pendingImages';
 import { uploadPendingImage, makeProfileImageReadable } from '../lib/storage';
 import { getConnectivitySnapshot } from '../lib/connectivity';
+import {
+  isCategoryReplicationPilotActive,
+  resyncCategoryReplicationPilot,
+  startCategoryReplicationPilot,
+} from './categoryReplicationPilot';
 import { APPWRITE_DATABASE_ID, APPWRITE_TABLES } from '../lib/appwriteConfig';
 export { toAppwriteFormat, fromAppwriteFormat };
 export { getSyncStatus, subscribeToSyncStatus } from '../lib/syncStatus';
@@ -430,11 +435,26 @@ async function runSyncCycleBody(userId: string): Promise<void> {
     let sawNonRateLimitFailure = false;
     for (const colName of ALL_COLLECTIONS) {
       try {
+        if (
+          colName === 'categories' &&
+          isCategoryReplicationPilotActive(userId)
+        ) {
+          resyncCategoryReplicationPilot(userId);
+          continue;
+        }
+
         await syncCollection(
           db[colName] as unknown as LocalCollection,
           colName,
           userId
         );
+
+        if (colName === 'categories') {
+          // One successful legacy category sync is the migration barrier:
+          // it flushes pre-pilot local writes, performs stale-cursor
+          // reconciliation, then hands a clean baseline to RxDB replication.
+          await startCategoryReplicationPilot(userId, db.categories);
+        }
       } catch (colError) {
         const message =
           colError instanceof Error
