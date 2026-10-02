@@ -1177,6 +1177,14 @@ export async function forceSync(userId: string) {
   await initializeSync(userId);
 }
 
+export async function forceMessageSync(userId: string): Promise<void> {
+  if (isMessageReplicationPilotActive(userId)) {
+    resyncMessageReplicationPilot(userId);
+    return;
+  }
+  await initializeSync(userId);
+}
+
 export function __resetSyncRuntimeForTests(): void {
   clearBackoffWakeTimer();
   isSyncInProgress = false;
