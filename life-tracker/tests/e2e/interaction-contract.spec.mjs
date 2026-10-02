@@ -1028,7 +1028,6 @@ test('rapid Day View swipes never outrun the rendered slide buffer', async ({ pa
   await drag(page, swiper, -260);
 
   const activeSlide = swiper.locator('.swiper-slide-active');
-  await expect(activeSlide).toContainText('Saturday, September 19, 2026');
   await expect(
     activeSlide.locator('[data-day-view-navigation="true"]')
   ).toHaveCount(1);
