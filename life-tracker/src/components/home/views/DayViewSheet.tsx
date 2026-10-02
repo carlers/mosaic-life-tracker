@@ -28,6 +28,7 @@ import { Spinner } from '../../ui/Spinner';
 import { useHorizontalArrowNavigation } from '../../../hooks/useHorizontalArrowNavigation';
 import { useSettings } from '../../../hooks/useSettings';
 import {
+  ADD_TASKS_TO_TOP_SETTING_KEY,
   CONTINUE_ADDING_TASKS_SETTING_KEY,
   SHOW_CATEGORY_COLLAPSE_SETTING_KEY,
   SHOW_DAY_VIEW_TODAY_TAG_SETTING_KEY,
@@ -91,6 +92,8 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
   const { getSetting } = useSettings();
   const continueAddingTasks =
     getSetting(CONTINUE_ADDING_TASKS_SETTING_KEY, false) === true;
+  const addTasksToTop =
+    getSetting(ADD_TASKS_TO_TOP_SETTING_KEY, false) === true;
   const showCategoryCollapseButton =
     getSetting(SHOW_CATEGORY_COLLAPSE_SETTING_KEY, false) === true;
   const showDayViewTodayTag =
@@ -364,15 +367,18 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
 
   const handleAddTask = useCallback(
     (title: string, categoryId: string, dateStr: string) => {
-      addTask({
-        title,
-        categoryId,
-        date: dateStr,
-        completed: false,
-        visibility: '',
-      });
+      addTask(
+        {
+          title,
+          categoryId,
+          date: dateStr,
+          completed: false,
+          visibility: '',
+        },
+        addTasksToTop ? 'top' : 'bottom'
+      );
     },
-    [addTask]
+    [addTask, addTasksToTop]
   );
 
   const handleOpenActions = useCallback((task: TaskDocument) => {

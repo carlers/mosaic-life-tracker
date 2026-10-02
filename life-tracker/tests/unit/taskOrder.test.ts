@@ -3,6 +3,7 @@ import type { TaskDocument } from '../../src/db/schema';
 import {
   buildTaskOrderAssignments,
   buildTaskPlacement,
+  getNewTaskOrder,
   isTaskPlacementCompatible,
   materializeTaskDocument,
 } from '../../src/lib/taskOrder';
@@ -26,6 +27,19 @@ const task = (
 });
 
 describe('task ordering', () => {
+  it('places new tasks at the requested end without renumbering siblings', () => {
+    const siblings = [
+      task('first', 'cat_a', 0),
+      task('middle', 'cat_a', 3),
+      task('last', 'cat_a', 7),
+    ];
+
+    expect(getNewTaskOrder(siblings, 'top')).toBe(0);
+    expect(getNewTaskOrder(siblings, 'bottom')).toBe(8);
+    expect(getNewTaskOrder([], 'top')).toBe(0);
+    expect(getNewTaskOrder([], 'bottom')).toBe(0);
+  });
+
   it('rejects optimistic placement with missing, duplicate, or unknown tasks', () => {
     const live = {
       cat_a: ['a1', 'a2'],

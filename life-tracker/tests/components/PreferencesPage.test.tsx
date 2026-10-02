@@ -65,6 +65,9 @@ describe('PreferencesPage', () => {
     const continuous = screen.getByRole('switch', {
       name: 'Keep adding in same category',
     });
+    const taskPosition = screen.getByRole('switch', {
+      name: 'Add new tasks to top',
+    });
     const sunday = screen.getByRole('switch', {
       name: 'Start week on Sunday',
     });
@@ -76,16 +79,19 @@ describe('PreferencesPage', () => {
     });
 
     expect(continuous).toHaveAttribute('aria-checked', 'false');
+    expect(taskPosition).toHaveAttribute('aria-checked', 'false');
     expect(sunday).toHaveAttribute('aria-checked', 'true');
     expect(collapse).toHaveAttribute('aria-checked', 'false');
     expect(todayTag).toHaveAttribute('aria-checked', 'false');
 
     fireEvent.click(continuous);
+    fireEvent.click(taskPosition);
     fireEvent.click(sunday);
     fireEvent.click(collapse);
     fireEvent.click(todayTag);
 
     expect(mocks.setSetting).toHaveBeenCalledWith('continueAddingTasks', true);
+    expect(mocks.setSetting).toHaveBeenCalledWith('addTasksToTop', true);
     expect(mocks.setSetting).toHaveBeenCalledWith('weekStartsOnSunday', false);
     expect(mocks.setSetting).toHaveBeenCalledWith('showCategoryCollapseButton', true);
     expect(mocks.setSetting).toHaveBeenCalledWith('showDayViewTodayTag', true);
