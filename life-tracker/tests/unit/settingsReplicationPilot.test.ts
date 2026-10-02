@@ -392,11 +392,49 @@ describe('settings RxDB replication pilot', () => {
       'user_A',
       'img_uploaded'
     );
+    expect(deletePendingImageMock).toHaveBeenCalledWith(
+      'localimg_abc',
+      'user_A'
+    );
     expect(conflicts).toEqual([
       expect.objectContaining({
         value: 'img_uploaded',
       }),
     ]);
+  });
+
+  it('keeps the pending avatar available when the profile side effect fails', async () => {
+    const pending = localSetting({
+      key: 'profileImageId',
+      value: 'localimg_abc',
+    });
+    getRowMock.mockResolvedValue(
+      remoteSetting({
+        key: 'profileImageId',
+        value: 'img_old',
+      })
+    );
+    updateProfileAvatarMock.mockRejectedValueOnce(
+      new Error('profile write failed')
+    );
+
+    await expect(
+      __settingsReplicationPilotTestUtils.pushSettings(
+        [
+          {
+            assumedMasterState: localSetting({
+              key: 'profileImageId',
+              value: 'img_old',
+            }),
+            newDocumentState: pending,
+          },
+        ],
+        'user_A'
+      )
+    ).rejects.toThrow('profile write failed');
+
+    expect(updateRowMock).toHaveBeenCalledTimes(1);
+    expect(deletePendingImageMock).not.toHaveBeenCalled();
   });
 
   it('streams owner-scoped Appwrite realtime updates into replication', async () => {
