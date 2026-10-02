@@ -49,6 +49,14 @@ import {
   resyncTaskReplicationPilot,
   startTaskReplicationPilot,
 } from './taskReplicationPilot';
+import {
+  captureMessageReplicationPullCheckpoint,
+  captureMessageReplicationPushCheckpoint,
+  isMessageReplicationPilotActive,
+  refreshMessageReplicationPilot,
+  resyncMessageReplicationPilot,
+  startMessageReplicationPilot,
+} from './messageReplicationPilot';
 import { APPWRITE_DATABASE_ID, APPWRITE_TABLES } from '../lib/appwriteConfig';
 export { toAppwriteFormat, fromAppwriteFormat };
 export { getSyncStatus, subscribeToSyncStatus } from '../lib/syncStatus';
@@ -370,6 +378,7 @@ export async function refreshSync(
     await refreshSettingsReplicationPilot(userId, remaining());
     await refreshFriendshipReplicationPilot(userId, remaining());
     await refreshTaskReplicationPilot(userId, remaining());
+    await refreshMessageReplicationPilot(userId, remaining());
   } catch (error) {
     const message =
       error instanceof Error ? error.message : 'Fresh RxDB sync failed';
@@ -599,6 +608,14 @@ async function runSyncCycleBody(userId: string): Promise<void> {
           continue;
         }
 
+        if (
+          colName === 'messages' &&
+          isMessageReplicationPilotActive(userId)
+        ) {
+          resyncMessageReplicationPilot(userId);
+          continue;
+        }
+
         const taskPushCheckpoint =
           colName === 'tasks'
             ? await captureTaskReplicationPushCheckpoint(db.tasks)
@@ -619,10 +636,19 @@ async function runSyncCycleBody(userId: string): Promise<void> {
           colName === 'friendships'
             ? await captureFriendshipReplicationPushCheckpoint(db.friendships)
             : undefined;
+        const messagePushCheckpoint =
+          colName === 'messages'
+            ? await captureMessageReplicationPushCheckpoint(db.messages)
+            : undefined;
+        const messagePullCheckpoint =
+          colName === 'messages'
+            ? await captureMessageReplicationPullCheckpoint(userId)
+            : undefined;
         const result = await syncCollection(
           db[colName] as unknown as LocalCollection,
           colName,
-          userId
+          userId,
+          colName === 'messages'
         );
 
         const hasCollectionIssues =
@@ -690,6 +716,14 @@ async function runSyncCycleBody(userId: string): Promise<void> {
             userId,
             db.friendships,
             friendshipPushCheckpoint
+          );
+        }
+        else if (colName === 'messages') {
+          await startMessageReplicationPilot(
+            userId,
+            db.messages,
+            messagePushCheckpoint,
+            messagePullCheckpoint
           );
         }
       } catch (colError) {
@@ -777,7 +811,8 @@ async function runSyncCycleBody(userId: string): Promise<void> {
 async function syncCollection(
   collection: LocalCollection,
   colName: string,
-  userId: string
+  userId: string,
+  forceFullPull = false
 ): Promise<CollectionSyncResult> {
   if (colName === 'friendships') {
     await syncFriendships(userId);
@@ -797,7 +832,8 @@ async function syncCollection(
   const dirtyBoundaryMs = entry?.dirty ? new Date(entry.dirty).getTime() : 0;
   const incrementalCursorExpired =
     pullBoundaryMs > 0 && Date.now() - pullBoundaryMs > TOMBSTONE_RETENTION_MS;
-  const effectivePullBoundaryMs = incrementalCursorExpired ? 0 : pullBoundaryMs;
+  const effectivePullBoundaryMs =
+    forceFullPull || incrementalCursorExpired ? 0 : pullBoundaryMs;
   if (incrementalCursorExpired && DEBUG) {
     console.log(
       `[Sync] ${colName} incremental cursor expired; performing full pull`
