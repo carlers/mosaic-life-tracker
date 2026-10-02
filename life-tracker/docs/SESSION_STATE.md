@@ -1,32 +1,28 @@
 # Session checkpoint
 
 Updated: 2026-10-02
-Current task: Finish the incremental RxDB sync migration by moving messages—the final legacy steady-state collection—to generic RxDB replication without changing the existing Function/outbox ownership of message delivery, read receipts, unsend, reactions, or account-data deletion.
-Status: Message RxDB replication is implemented on `chatgpt/sync-rxdb-messages-pilot`, based from stable `perf/sync-engine-audit` at `546f5832`. All six synced collections now have generic `replicateRxCollection()` pilots over guarded Appwrite TablesDB. Messages use owner-scoped server tuple pulls plus a validation-only upstream; remote message writes remain owned by `message-action`, `deliverPendingMessages`, `messageActionQueue`, and the explicit Delete All Data tombstone path. Integrated focused verification is green after fixing a pre-existing nondeterministic restore-test timestamp fixture. This checkpoint requests exact-SHA full canonical acceptance.
-Next action: Repair any full Quality Gate failure. If green, open/squash-merge the message task PR into `perf/sync-engine-audit`, verify the resulting stable Vercel Preview and stable-branch full Quality Gate, then perform hosted message acceptance before any legacy coordinator cleanup or merge to `dev`.
-Blockers: No known source, schema, or Appwrite query-shape blocker. Read-only production probes confirmed both owner-scoped ascending `$updatedAt + $id` pagination and descending one-row remote-tail capture on the messages table; existing message indexes remain available. Hosted messaging behavior remains the manual acceptance gate.
+Current task: Validate the completed six-collection RxDB sync migration in hosted use before removing the compatibility coordinator or merging the stable sync branch to `dev`.
+Status: PR #211 (`perf: pilot RxDB message replication`) is squash-merged into `perf/sync-engine-audit`. Stable implementation commit `b96a0c5c` passed the full Quality Gate and its Vercel Preview is READY. All six synced collections—tasks, categories, diary, settings, friendships, and messages—now use generic `replicateRxCollection()` for steady-state replication over guarded Appwrite TablesDB adapters. The old custom sync engine remains only as a per-session bootstrap/resync compatibility layer pending a later cleanup after hosted acceptance.
+Next action: Perform hosted message acceptance on the stable Preview. Exercise normal send/reply/task-reference delivery, offline pending send + reconnect, read receipts, unsend + reply-cascade behavior, reaction add/remove from both participants, and second-browser realtime propagation. If accepted, audit/remove obsolete legacy sync/realtime/checkpoint/backoff code in a separate cleanup task before considering merge to `dev`.
+Blockers: No known automated or deployment blocker. Hosted message behavior is the remaining manual acceptance gate.
 
-## Completed
-- User accepted hosted task replication and directed work to messages.
-- Added `src/db/messageReplicationPilot.ts` as the sixth and final collection pilot.
-- Preserved message remote-write ownership: the replication upstream is validation-only and never directly creates/updates message rows. Delivery, read receipts, unsend, reactions, cross-user writes, and retry queues remain on their existing Function/outbox paths.
-- Added lossless message handoff: capture the local RxDB push seed and the owner's current remote `$updatedAt + $id` tail before one forced-full legacy message pull. The handoff is refused after row failure or incomplete pagination.
-- Seeded RxDB's initial pull checkpoint at the captured pre-bootstrap remote tail. Historical remote rows are reconciled by the forced-full bootstrap rather than replayed through new replication, while remote writes racing after the captured tail remain newer and are pulled by RxDB.
-- Steady-state messages use owner-scoped server `$updatedAt + $id` tuple checkpoints and Appwrite Realtime.
-- Added local-intent reconciliation for known Function/outbox races: newer local unsend, optimistic reactions, unsend reply-snapshot wipe, legacy `originalMessageId` enrichment, incoming local read state while `mark_read` is pending, and local soft tombstones. Outgoing `readAt` remains server-owned. Newer remote mutations supersede older optimistic state.
-- Moved message Appwrite Realtime ownership into the pilot. The legacy realtime module now owns zero table subscriptions and remains only as a lifecycle compatibility shell pending a later cleanup.
-- Added `forceMessageSync()` so ChatPage's existing 30-second visible/online heartbeat resyncs messages only after handoff; pre-handoff it falls back to the compatibility coordinator.
-- Extended safety-sensitive `refreshSync()` to await the message pilot alongside the other five pilots.
-- Added regression coverage for local/remote checkpoint seeding, forced-full handoff/refusal, validation-only upstream, pending/read/unsend/reaction intent merges, outgoing server-owned read receipts, realtime updates/deletes, message-only chat heartbeat, owner isolation, and fresh-sync barrier participation.
-- Fixed a pre-existing flaky restore fixture discovered by focused CI: the happy-path mock used a 1ms freshness margin that could invert under scheduler delay. The fixture now uses a deterministic 1s margin; production restore freshness checks are unchanged.
-- Updated `PROJECT_REFERENCE.md` so all six collections are documented as RxDB steady-state replication, with the compatibility coordinator and message Function/outbox boundaries explicitly scoped.
+## Delivered
+- Categories, diary, settings, friendships, tasks, and messages all have RxDB replication pilots.
+- Message remote writes remain Function/outbox-owned: delivery uses `deliverPendingMessages`, transient read/unsend retries use `messageActionQueue`, peer-row/cross-user mutations use `message-action`, and Delete All Data retains its explicit tombstone writes.
+- Message handoff captures local push state plus the remote `$updatedAt + $id` tail, runs one forced-full compatibility pull, refuses incomplete handoff, then starts RxDB from that captured remote tail.
+- Message pull/realtime reconciliation preserves only documented local intents that may precede their Function result: unsend, optimistic reactions, reply-snapshot wipe, legacy `originalMessageId`, incoming read state, and soft tombstones. Outgoing `readAt` remains server-owned.
+- Appwrite Realtime is owned by the six pilots. The legacy realtime module owns zero table subscriptions and remains only as a lifecycle compatibility shell.
+- ChatPage's 30-second safety heartbeat uses `forceMessageSync()`, resyncing only messages after handoff.
+- Safety-sensitive `refreshSync()` awaits all six pilots through the leader-owned freshness barrier.
+- The old task-only 300ms local-mutation sync trigger is removed.
+- A nondeterministic restore-test freshness fixture discovered during message CI was corrected without weakening production restore checks.
+- `PROJECT_REFERENCE.md` documents the six-pilot architecture and domain-specific write ownership.
 
 ## Verification
-- Tasks hosted sync: accepted by user.
-- Messages ascending tuple-query production probe: passed.
-- Messages descending remote-tail production probe: passed.
-- Existing messages indexes: available; no schema/index migration required.
-- Standalone message replication pilot focused run: green.
-- Integrated message handoff focused run after restore-fixture repair: green at `c270fba0`.
-- Exact-SHA full canonical acceptance: requested by this commit.
-- Stable Preview and hosted/manual message acceptance: pending promotion.
+- User-hosted acceptance already passed for categories, settings, and tasks; prior pilot delivery gates also completed for diary/friendships.
+- Message ascending tuple-query production probe: passed.
+- Message descending remote-tail production probe: passed.
+- Message task-tip full canonical Quality Gate at `2c00ed08`: passed.
+- Stable implementation `b96a0c5c` full Quality Gate: passed (checks, build, dependency audit, both DOM shards, both browser-contract shards, canonical acceptance).
+- Stable implementation `b96a0c5c` Vercel Preview: READY/success.
+- Merge to `dev`: not performed.
