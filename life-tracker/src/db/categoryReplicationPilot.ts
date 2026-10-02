@@ -33,7 +33,7 @@ export interface CategoryReplicationCheckpoint {
   id: string;
 }
 
-type LocalStorageCheckpoint = {
+export type CategoryReplicationPushCheckpoint = {
   id: string;
   lwt: number;
 };
@@ -257,15 +257,15 @@ async function pullCategories(
   };
 }
 
-async function getCurrentLocalCheckpoint(
+export async function captureCategoryReplicationPushCheckpoint(
   collection: RxCollection<CategoryDocument>
-): Promise<LocalStorageCheckpoint> {
-  let checkpoint: LocalStorageCheckpoint | undefined;
+): Promise<CategoryReplicationPushCheckpoint | undefined> {
+  let checkpoint: CategoryReplicationPushCheckpoint | undefined;
 
   for (;;) {
     const result = await getChangedDocumentsSince<
       CategoryDocument,
-      LocalStorageCheckpoint
+      CategoryReplicationPushCheckpoint
     >(
       collection.storageInstance,
       LOCAL_CHECKPOINT_BATCH_SIZE,
@@ -360,7 +360,8 @@ export async function stopCategoryReplicationPilot(
 
 export async function startCategoryReplicationPilot(
   userId: string,
-  collection: RxCollection<CategoryDocument>
+  collection: RxCollection<CategoryDocument>,
+  initialPushCheckpoint: CategoryReplicationPushCheckpoint | undefined
 ): Promise<void> {
   if (!userId) return;
   if (isCategoryReplicationPilotActive(userId)) return;
@@ -369,10 +370,10 @@ export async function startCategoryReplicationPilot(
     await stopCategoryReplicationPilot();
   }
 
-  // The legacy category sync runs immediately before this handoff. Seed
-  // RxDB's upstream checkpoint at the current local storage tip so existing
-  // history is not mistaken for fresh outbound work on the first pilot run.
-  const initialPushCheckpoint = await getCurrentLocalCheckpoint(collection);
+  // The caller captures this checkpoint before the legacy bootstrap sync.
+  // That makes all pre-bootstrap history eligible for suppression while
+  // keeping writes made during the bootstrap newer than the seed, so RxDB
+  // still pushes them after the handoff.
   const pullStream = new Subject<
     RxReplicationPullStreamItem<
       CategoryDocument,
