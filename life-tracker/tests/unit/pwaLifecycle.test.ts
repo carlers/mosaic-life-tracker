@@ -233,7 +233,10 @@ describe('PWA lifecycle', () => {
     Object.assign(setup.registration, { installing: worker });
 
     const checking = checkForPwaUpdate((stage) => stages.push(stage));
-    await Promise.resolve();
+    for (let attempt = 0; attempt < 5 && !stages.includes('downloading'); attempt += 1) {
+      await Promise.resolve();
+    }
+    expect(stages).toContain('downloading');
 
     workerState = 'installed';
     Object.assign(setup.registration, {
