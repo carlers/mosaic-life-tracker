@@ -21,7 +21,7 @@ export const TaskBlock: React.FC<TaskBlockProps> = ({ task, categoryColor }) => 
   return (
     <div
       ref={targetRef}
-      className={`text-[9px] py-0.5 w-full font-medium rounded-[3px] overflow-hidden ${textColor}`}
+      className={`text-[10.5px] pt-0.5 w-full font-semibold rounded-[4.5px] overflow-hidden ${textColor}`}
       style={{ backgroundColor: bgColor }}
       title={task.title}
     >
@@ -30,11 +30,11 @@ export const TaskBlock: React.FC<TaskBlockProps> = ({ task, categoryColor }) => 
             one. Because the inner span has no padding, its clip rect ends
             exactly where the outer padding begins, so the right gutter is
             preserved on hard-cut text. */}
-        <div className="px-1">
+        <div className="px-[0.3rem] pb-0.5">
           <span className="block overflow-hidden whitespace-nowrap">{task.title}</span>
         </div>
         {task.image && (
-          <div className="w-full h-10 mt-0.5 rounded-[2px] overflow-hidden bg-black/20">
+          <div className="w-full h-10 overflow-hidden bg-black/20">
             {isLoading ? (
               <div className="w-full h-full bg-gray-500/30 animate-pulse" />
             ) : imageUrl ? (
