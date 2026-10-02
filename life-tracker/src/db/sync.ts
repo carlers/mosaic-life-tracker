@@ -20,6 +20,12 @@ import {
   resyncCategoryReplicationPilot,
   startCategoryReplicationPilot,
 } from './categoryReplicationPilot';
+import {
+  captureDiaryReplicationPushCheckpoint,
+  isDiaryReplicationPilotActive,
+  resyncDiaryReplicationPilot,
+  startDiaryReplicationPilot,
+} from './diaryReplicationPilot';
 import { APPWRITE_DATABASE_ID, APPWRITE_TABLES } from '../lib/appwriteConfig';
 export { toAppwriteFormat, fromAppwriteFormat };
 export { getSyncStatus, subscribeToSyncStatus } from '../lib/syncStatus';
@@ -510,10 +516,21 @@ async function runSyncCycleBody(userId: string): Promise<void> {
           resyncCategoryReplicationPilot(userId);
           continue;
         }
+        if (
+          colName === 'diary' &&
+          isDiaryReplicationPilotActive(userId)
+        ) {
+          resyncDiaryReplicationPilot(userId);
+          continue;
+        }
 
         const categoryPushCheckpoint =
           colName === 'categories'
             ? await captureCategoryReplicationPushCheckpoint(db.categories)
+            : undefined;
+        const diaryPushCheckpoint =
+          colName === 'diary'
+            ? await captureDiaryReplicationPushCheckpoint(db.diary)
             : undefined;
         const result = await syncCollection(
           db[colName] as unknown as LocalCollection,
@@ -562,6 +579,12 @@ async function runSyncCycleBody(userId: string): Promise<void> {
             userId,
             db.categories,
             categoryPushCheckpoint
+          );
+        } else if (colName === 'diary') {
+          await startDiaryReplicationPilot(
+            userId,
+            db.diary,
+            diaryPushCheckpoint
           );
         }
       } catch (colError) {
