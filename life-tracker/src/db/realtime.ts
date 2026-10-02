@@ -1,4 +1,3 @@
-import { clearCachedCalendar } from '../lib/friendCache';
 import { getDatabase, type AppDatabaseCollections } from './database';
 import { guardedRealtime, type RealtimeUnsubscribe } from '../lib/sdk';
 import { fromAppwriteFormat } from '../lib/syncMapping';
@@ -115,7 +114,6 @@ async function applyRowEvent(
         ) => Promise<unknown>;
       };
       await localDoc.incrementalPatch({ isDeleted: true });
-      if (colName === 'friendships' && typeof doc.friendId === 'string') await clearCachedCalendar(userId, doc.friendId);
     } catch (err) {
       const code = (err as { code?: string })?.code;
       if (code !== 'CONFLICT') {
@@ -134,7 +132,6 @@ async function applyRowEvent(
     if (!local) {
       try {
         await collection.upsert(doc);
-        if (colName === 'friendships' && (doc.isDeleted || doc.status === 'blocked') && typeof doc.friendId === 'string') await clearCachedCalendar(userId, doc.friendId);
       } catch (upsertErr) {
         const code = (upsertErr as { code?: string })?.code;
         if (code !== 'CONFLICT') {
@@ -188,15 +185,6 @@ async function applyRowEvent(
       remoteUpdatedAt &&
       remoteUpdatedAt <= localUpdatedAt
     ) {
-      return;
-    }
-
-    if (colName === 'friendships') {
-      await local.incrementalModify((latest) => {
-        if (activeUserId !== userId || String(latest.updatedAt || '') > String(doc.updatedAt || '')) return latest;
-        return { ...latest, ...stripRxMeta(doc) };
-      });
-      if ((doc.isDeleted || doc.status === 'blocked') && typeof doc.friendId === 'string') await clearCachedCalendar(userId, doc.friendId);
       return;
     }
 
