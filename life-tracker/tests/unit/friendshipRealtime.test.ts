@@ -29,24 +29,8 @@ beforeEach(() => {
 });
 
 describe('legacy realtime ownership', () => {
-  it('leaves tasks, category, diary, settings, and friendships to RxDB pilots', () => {
+  it('owns no collection after the message RxDB handoff', () => {
     startRealtime('alice');
-    const channels = [...state.callbacks.keys()];
-
-    for (const table of [
-      'tasks',
-      'categories',
-      'diary',
-      'settings',
-      'friendships',
-    ]) {
-      expect(
-        channels.some((channel) => channel.includes(`.${table}.`))
-      ).toBe(false);
-    }
-
-    expect(
-      channels.some((channel) => channel.includes('.messages.'))
-    ).toBe(true);
+    expect([...state.callbacks.keys()]).toEqual([]);
   });
 });
