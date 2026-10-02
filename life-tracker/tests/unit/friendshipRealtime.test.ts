@@ -29,11 +29,12 @@ beforeEach(() => {
 });
 
 describe('legacy realtime ownership', () => {
-  it('leaves category, diary, settings, and friendships to RxDB pilots', () => {
+  it('leaves tasks, category, diary, settings, and friendships to RxDB pilots', () => {
     startRealtime('alice');
     const channels = [...state.callbacks.keys()];
 
     for (const table of [
+      'tasks',
       'categories',
       'diary',
       'settings',
@@ -44,9 +45,6 @@ describe('legacy realtime ownership', () => {
       ).toBe(false);
     }
 
-    expect(
-      channels.some((channel) => channel.includes('.tasks.'))
-    ).toBe(true);
     expect(
       channels.some((channel) => channel.includes('.messages.'))
     ).toBe(true);
