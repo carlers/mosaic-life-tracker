@@ -298,6 +298,26 @@ function toMs(value: unknown): number {
   return Number.isFinite(t) ? t : 0;
 }
 
+function allReplicationPilotsActive(userId: string): boolean {
+  return (
+    isTaskReplicationPilotActive(userId) &&
+    isCategoryReplicationPilotActive(userId) &&
+    isDiaryReplicationPilotActive(userId) &&
+    isSettingsReplicationPilotActive(userId) &&
+    isFriendshipReplicationPilotActive(userId) &&
+    isMessageReplicationPilotActive(userId)
+  );
+}
+
+function resyncAllReplicationPilots(userId: string): void {
+  resyncTaskReplicationPilot(userId);
+  resyncCategoryReplicationPilot(userId);
+  resyncDiaryReplicationPilot(userId);
+  resyncSettingsReplicationPilot(userId);
+  resyncFriendshipReplicationPilot(userId);
+  resyncMessageReplicationPilot(userId);
+}
+
 async function runBounded<T, R>(
   items: T[],
   limit: number,
@@ -361,6 +381,7 @@ export async function refreshSync(
   await waitForSyncCoordinatorIdle(timeoutMs);
   const startedAt = Date.now();
   await initializeSync(userId);
+  updateSyncStatus({ isSyncing: true, errors: [] });
 
   const remaining = () => {
     const value = deadline - Date.now();
@@ -389,6 +410,13 @@ export async function refreshSync(
     throw error;
   }
 
+  const completedAt = new Date().toISOString();
+  updateSyncStatus({
+    isSyncing: false,
+    lastSync: completedAt,
+    errors: [],
+  });
+  markOfflineDataReady(userId, completedAt);
   return { status: getSyncStatus(), startedAt };
 }
 
@@ -403,6 +431,10 @@ export async function syncNow(
   timeoutMs = SYNC_COORDINATOR_IDLE_TIMEOUT_MS
 ): Promise<FreshSyncResult> {
   await waitForSyncCoordinatorIdle(timeoutMs);
+
+  if (allReplicationPilotsActive(userId)) {
+    return refreshSync(userId, timeoutMs);
+  }
 
   if (backoffOwnerId === userId && Date.now() < rateLimitUntil) {
     scheduleBackoffWake(userId, rateLimitUntil);
@@ -451,6 +483,14 @@ async function resolvePendingImageForPush(
 }
 export async function initializeSync(userId: string): Promise<void> {
   if (!userId) return;
+
+  // Once every collection has handed off in this JavaScript session, the
+  // custom engine is no longer part of steady-state sync. Focus/reconnect
+  // triggers go straight to the six RxDB replication states.
+  if (allReplicationPilotsActive(userId)) {
+    resyncAllReplicationPilots(userId);
+    return;
+  }
   if (backoffOwnerId !== userId) {
     backoffOwnerId = userId;
     rateLimitUntil = 0;
@@ -1173,6 +1213,10 @@ async function syncCollection(
 }
 export async function forceSync(userId: string) {
   if (DEBUG) console.log('[Sync] Force sync triggered');
+  if (allReplicationPilotsActive(userId)) {
+    resyncAllReplicationPilots(userId);
+    return;
+  }
   await initializeSync(userId);
 }
 
