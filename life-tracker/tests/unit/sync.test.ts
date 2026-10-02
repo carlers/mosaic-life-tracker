@@ -49,6 +49,12 @@ const taskPilotResyncMock = vi.hoisted(() => vi.fn());
 const taskPilotStartMock = vi.hoisted(() => vi.fn());
 const taskPilotCheckpointMock = vi.hoisted(() => vi.fn());
 const taskPilotRefreshMock = vi.hoisted(() => vi.fn());
+const messagePilotActiveMock = vi.hoisted(() => vi.fn());
+const messagePilotResyncMock = vi.hoisted(() => vi.fn());
+const messagePilotStartMock = vi.hoisted(() => vi.fn());
+const messagePilotPushCheckpointMock = vi.hoisted(() => vi.fn());
+const messagePilotPullCheckpointMock = vi.hoisted(() => vi.fn());
+const messagePilotRefreshMock = vi.hoisted(() => vi.fn());
 // Test fixture note: sync.ts reads `account` directly from '../../src/lib/appwrite'
 // instead of going through guardedAccount. The appwrite SDK mock must
 // therefore provide `Client` and `Account` so the real appwrite.ts module
@@ -142,6 +148,14 @@ vi.mock('../../src/db/taskReplicationPilot', () => ({
   refreshTaskReplicationPilot: taskPilotRefreshMock,
   resyncTaskReplicationPilot: taskPilotResyncMock,
   startTaskReplicationPilot: taskPilotStartMock,
+}));
+vi.mock('../../src/db/messageReplicationPilot', () => ({
+  captureMessageReplicationPullCheckpoint: messagePilotPullCheckpointMock,
+  captureMessageReplicationPushCheckpoint: messagePilotPushCheckpointMock,
+  isMessageReplicationPilotActive: messagePilotActiveMock,
+  refreshMessageReplicationPilot: messagePilotRefreshMock,
+  resyncMessageReplicationPilot: messagePilotResyncMock,
+  startMessageReplicationPilot: messagePilotStartMock,
 }));
 vi.mock('../../src/lib/storage', () => ({
   uploadPendingImage: uploadPendingImageMock,
@@ -420,6 +434,12 @@ beforeEach(async () => {
   taskPilotStartMock.mockReset();
   taskPilotCheckpointMock.mockReset();
   taskPilotRefreshMock.mockReset();
+  messagePilotActiveMock.mockReset();
+  messagePilotResyncMock.mockReset();
+  messagePilotStartMock.mockReset();
+  messagePilotPushCheckpointMock.mockReset();
+  messagePilotPullCheckpointMock.mockReset();
+  messagePilotRefreshMock.mockReset();
   categoryPilotActiveMock.mockReturnValue(false);
   categoryPilotStartMock.mockResolvedValue(undefined);
   categoryPilotCheckpointMock.mockResolvedValue({
@@ -455,6 +475,17 @@ beforeEach(async () => {
     lwt: 654,
   });
   taskPilotRefreshMock.mockResolvedValue(false);
+  messagePilotActiveMock.mockReturnValue(false);
+  messagePilotStartMock.mockResolvedValue(undefined);
+  messagePilotPushCheckpointMock.mockResolvedValue({
+    id: 'msg_seed',
+    lwt: 321,
+  });
+  messagePilotPullCheckpointMock.mockResolvedValue({
+    id: 'msg_tail',
+    updatedAt: '2026-10-02T00:00:09.000Z',
+  });
+  messagePilotRefreshMock.mockResolvedValue(false);
   uploadPendingImageMock.mockResolvedValue('img_uploaded');
   deletePendingImageMock.mockResolvedValue(undefined);
   getDatabaseMock.mockReturnValue(makeDb());
@@ -472,6 +503,124 @@ afterEach(() => {
   vi.useRealTimers();
   vi.restoreAllMocks();
 });
+describe('sync — message RxDB replication pilot handoff', () => {
+  it('captures both message checkpoints before a forced-full bootstrap, then starts RxDB', async () => {
+    const db = makeDb();
+    getDatabaseMock.mockReturnValue(db);
+    localStorage.setItem(
+      'lastSyncTimePerCollection',
+      JSON.stringify({
+        version: 1,
+        ownerId: 'user_A',
+        entries: {
+          messages: {
+            pull: '2026-10-02T00:00:08.000Z',
+            dirty: '2026-10-02T00:00:08.000Z',
+          },
+        },
+      })
+    );
+
+    await syncModule.initializeSync('user_A');
+
+    expect(messagePilotPushCheckpointMock).toHaveBeenCalledWith(db.messages);
+    expect(messagePilotPullCheckpointMock).toHaveBeenCalledWith('user_A');
+    expect(messagePilotStartMock).toHaveBeenCalledWith(
+      'user_A',
+      db.messages,
+      { id: 'msg_seed', lwt: 321 },
+      {
+        id: 'msg_tail',
+        updatedAt: '2026-10-02T00:00:09.000Z',
+      }
+    );
+
+    const messagePull = listRowsMock.mock.calls.find(
+      (call) => (call[0] as { tableId?: string }).tableId === 'messages'
+    );
+    expect(messagePull).toBeDefined();
+    const queries = (messagePull?.[0] as { queries?: Array<{ op?: string }> })
+      .queries ?? [];
+    expect(queries.some((query) => query.op === 'greaterThan')).toBe(false);
+
+    expect(
+      messagePilotPushCheckpointMock.mock.invocationCallOrder[0]
+    ).toBeLessThan(
+      listRowsMock.mock.invocationCallOrder[
+        listRowsMock.mock.calls.indexOf(messagePull!)
+      ]
+    );
+    expect(
+      messagePilotPullCheckpointMock.mock.invocationCallOrder[0]
+    ).toBeLessThan(
+      listRowsMock.mock.invocationCallOrder[
+        listRowsMock.mock.calls.indexOf(messagePull!)
+      ]
+    );
+  });
+
+  it('delegates later message catch-up triggers to RxDB', async () => {
+    const db = makeDb();
+    getDatabaseMock.mockReturnValue(db);
+
+    await syncModule.initializeSync('user_A');
+
+    messagePilotActiveMock.mockReturnValue(true);
+    listRowsMock.mockClear();
+
+    await syncModule.initializeSync('user_A');
+
+    expect(messagePilotResyncMock).toHaveBeenCalledWith('user_A');
+    const messagePulls = listRowsMock.mock.calls.filter(
+      (call) => (call[0] as { tableId?: string }).tableId === 'messages'
+    );
+    expect(messagePulls).toHaveLength(0);
+  });
+
+  it('refuses message handoff when the forced-full bootstrap is incomplete', async () => {
+    const fullPage = Array.from({ length: 100 }, (_, index) => ({
+      $id: `msg_${String(index).padStart(3, '0')}`,
+      user_id: 'user_A',
+      $updatedAt: '2026-10-02T00:00:01.000Z',
+      thread_id: 'th_one',
+      sender_id: 'user_A',
+      recipient_id: 'user_B',
+      direction: 'outgoing',
+      content: 'x',
+      task_ref_id: '',
+      task_ref_title: '',
+      task_ref_date: '',
+      task_ref_color: '',
+      reply_to_id: '',
+      reply_to_content: '',
+      reply_to_sender_id: '',
+      is_unsent: false,
+      original_message_id: '',
+      reactions: '',
+      read_at: '',
+      delivery_status: 'delivered',
+      created_at: '2026-10-02T00:00:00.000Z',
+      updated_at: '2026-10-02T00:00:01.000Z',
+      deleted: false,
+    }));
+    listRowsMock.mockImplementation(
+      async ({ tableId }: { tableId: string }) => {
+        if (tableId === 'messages') return { rows: fullPage };
+        return { rows: [] };
+      }
+    );
+
+    await syncModule.initializeSync('user_A');
+
+    expect(messagePilotStartMock).not.toHaveBeenCalled();
+    expect(syncModule.getSyncStatus().errors).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining('messages: pull incomplete'),
+      ])
+    );
+  });
+});
+
 describe('sync — task RxDB replication pilot handoff', () => {
   it('bootstraps tasks once, then delegates catch-up triggers to RxDB', async () => {
     const db = makeDb();
@@ -869,12 +1018,13 @@ describe('sync — forceSync follow-up queueing', () => {
 });
 // Regression: §18 (sync failure isolation and boundary safety).
 describe('sync — RxDB pilot fresh-sync barrier', () => {
-  it('awaits task, category, diary, settings, and friendship pilot freshness before returning', async () => {
+  it('awaits task, category, diary, settings, friendship, and message pilot freshness before returning', async () => {
     taskPilotRefreshMock.mockResolvedValue(true);
     categoryPilotRefreshMock.mockResolvedValue(true);
     diaryPilotRefreshMock.mockResolvedValue(true);
     settingsPilotRefreshMock.mockResolvedValue(true);
     friendshipPilotRefreshMock.mockResolvedValue(true);
+    messagePilotRefreshMock.mockResolvedValue(true);
 
     await syncModule.refreshSync('user_A', 5_000);
 
@@ -898,9 +1048,16 @@ describe('sync — RxDB pilot fresh-sync barrier', () => {
       'user_A',
       expect.any(Number)
     );
+    expect(messagePilotRefreshMock).toHaveBeenCalledWith(
+      'user_A',
+      expect.any(Number)
+    );
     expect(
       taskPilotRefreshMock.mock.invocationCallOrder[0]
     ).toBeGreaterThan(friendshipPilotRefreshMock.mock.invocationCallOrder[0]);
+    expect(
+      messagePilotRefreshMock.mock.invocationCallOrder[0]
+    ).toBeGreaterThan(taskPilotRefreshMock.mock.invocationCallOrder[0]);
     expect(
       categoryPilotRefreshMock.mock.invocationCallOrder[0]
     ).toBeLessThan(diaryPilotRefreshMock.mock.invocationCallOrder[0]);
@@ -930,6 +1087,7 @@ describe('sync — RxDB pilot fresh-sync barrier', () => {
     expect(settingsPilotRefreshMock).not.toHaveBeenCalled();
     expect(friendshipPilotRefreshMock).not.toHaveBeenCalled();
     expect(taskPilotRefreshMock).not.toHaveBeenCalled();
+    expect(messagePilotRefreshMock).not.toHaveBeenCalled();
   });
 });
 
