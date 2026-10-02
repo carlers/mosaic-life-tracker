@@ -1,5 +1,6 @@
 // Regression: §2 (Calendar/Diary view switching remains reachable).
 import { fireEvent, render, screen } from '@testing-library/react';
+import { addMonths, format } from 'date-fns';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('../../src/components/home/PersonProfileHeader', () => ({
@@ -28,7 +29,6 @@ const calendarFixture = vi.hoisted(() => ({
 const settingsFixture = vi.hoisted(() => ({
   values: {
     weekStartsOnSunday: true,
-    tapCalendarDateToToday: false,
   } as Record<string, unknown>,
 }));
 
@@ -112,25 +112,33 @@ describe('PersonPane view switcher', () => {
     calendarFixture.options = undefined;
     settingsFixture.values = {
       weekStartsOnSunday: true,
-      tapCalendarDateToToday: false,
     };
   });
 
-  // Regression: §2 (friends expose the shared Todo List).
-  it('renders Todo List for a friend in friend mode', async () => {
+  // Regression: §2 (friends expose the shared Todo List and its date title returns to the current month).
+  it('renders Todo List for a friend in friend mode and lets its date header return to today', async () => {
     render(<PersonPane person={friend} isActive />);
 
     fireEvent.click(await screen.findByLabelText('Todo list'));
 
     expect(await screen.findByTestId('todo-list-view')).toHaveAttribute('data-variant', 'friend');
     expect(screen.queryByTestId('diary-body')).toBeNull();
+
+    const currentMonthTitle = format(new Date(), 'MMMM yyyy');
+    const nextMonthTitle = format(addMonths(new Date(), 1), 'MMMM yyyy');
+    expect(screen.getByRole('button', { name: 'Go to today' })).toHaveTextContent(currentMonthTitle);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Next month' }));
+    expect(screen.getByRole('button', { name: 'Go to today' })).toHaveTextContent(nextMonthTitle);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Go to today' }));
+    expect(screen.getByRole('button', { name: 'Go to today' })).toHaveTextContent(currentMonthTitle);
   });
 
-  // Regression: §2 (calendar preferences apply through the person pane).
-  it('uses Monday week start and lets the calendar date header jump to today when enabled', () => {
+  // Regression: §2 (calendar preferences apply through the person pane and the date title always returns to today).
+  it('uses Monday week start and lets the calendar date header jump to today', () => {
     settingsFixture.values = {
       weekStartsOnSunday: false,
-      tapCalendarDateToToday: true,
     };
 
     render(<PersonPane person={me} isActive />);
@@ -138,6 +146,24 @@ describe('PersonPane view switcher', () => {
     expect(calendarFixture.options).toEqual({ weekStartsOn: 1 });
     fireEvent.click(screen.getByRole('button', { name: 'Go to today' }));
     expect(calendarFixture.resetToToday).toHaveBeenCalledOnce();
+  });
+
+  // Regression: §2 (owner Todo date title returns to the month containing today).
+  it('lets the owner Todo date header return to the current month', async () => {
+    render(<PersonPane person={me} isActive />);
+
+    fireEvent.click(screen.getByLabelText('Todo list'));
+    await screen.findByTestId('todo-list-view');
+
+    const currentMonthTitle = format(new Date(), 'MMMM yyyy');
+    const nextMonthTitle = format(addMonths(new Date(), 1), 'MMMM yyyy');
+    expect(screen.getByRole('button', { name: 'Go to today' })).toHaveTextContent(currentMonthTitle);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Next month' }));
+    expect(screen.getByRole('button', { name: 'Go to today' })).toHaveTextContent(nextMonthTitle);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Go to today' }));
+    expect(screen.getByRole('button', { name: 'Go to today' })).toHaveTextContent(currentMonthTitle);
   });
 
   it('keeps the toggle visible in Diary and lets the user switch back to Calendar', () => {

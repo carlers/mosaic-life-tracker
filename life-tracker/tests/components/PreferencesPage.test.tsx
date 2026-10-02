@@ -74,26 +74,20 @@ describe('PreferencesPage', () => {
     const todayTag = screen.getByRole('switch', {
       name: 'Show Today tag beside date header',
     });
-    const tapToday = screen.getByRole('switch', {
-      name: 'Tap calendar date header to go to today',
-    });
 
     expect(continuous).toHaveAttribute('aria-checked', 'false');
     expect(sunday).toHaveAttribute('aria-checked', 'true');
     expect(collapse).toHaveAttribute('aria-checked', 'false');
     expect(todayTag).toHaveAttribute('aria-checked', 'false');
-    expect(tapToday).toHaveAttribute('aria-checked', 'false');
 
     fireEvent.click(continuous);
     fireEvent.click(sunday);
     fireEvent.click(collapse);
     fireEvent.click(todayTag);
-    fireEvent.click(tapToday);
 
     expect(mocks.setSetting).toHaveBeenCalledWith('continueAddingTasks', true);
     expect(mocks.setSetting).toHaveBeenCalledWith('weekStartsOnSunday', false);
     expect(mocks.setSetting).toHaveBeenCalledWith('showCategoryCollapseButton', true);
     expect(mocks.setSetting).toHaveBeenCalledWith('showDayViewTodayTag', true);
-    expect(mocks.setSetting).toHaveBeenCalledWith('tapCalendarDateToToday', true);
   });
 });

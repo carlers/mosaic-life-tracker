@@ -5,7 +5,6 @@ import {
   ChevronLeft,
   ChevronsUpDown,
   ListPlus,
-  LocateFixed,
   Tag,
 } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -23,7 +22,6 @@ import {
   CONTINUE_ADDING_TASKS_SETTING_KEY,
   SHOW_CATEGORY_COLLAPSE_SETTING_KEY,
   SHOW_DAY_VIEW_TODAY_TAG_SETTING_KEY,
-  TAP_CALENDAR_DATE_TO_TODAY_SETTING_KEY,
   WEEK_STARTS_ON_SUNDAY_SETTING_KEY,
 } from '../lib/preferences';
 import { hasExpectedRouteParent } from '../lib/primarySwipeNavigation';
@@ -151,8 +149,6 @@ export const PreferencesPage: React.FC = () => {
     getSetting(SHOW_CATEGORY_COLLAPSE_SETTING_KEY, false) === true;
   const showDayViewTodayTag =
     getSetting(SHOW_DAY_VIEW_TODAY_TAG_SETTING_KEY, false) === true;
-  const tapCalendarDateToToday =
-    getSetting(TAP_CALENDAR_DATE_TO_TODAY_SETTING_KEY, false) === true;
 
   const handleBack = () => {
     const parent = '/settings';
@@ -237,19 +233,6 @@ export const PreferencesPage: React.FC = () => {
               void setSetting(
                 SHOW_DAY_VIEW_TODAY_TAG_SETTING_KEY,
                 !showDayViewTodayTag
-              )
-            }
-          />
-          <SettingsRow
-            icon={<LocateFixed size={18} className="text-gray-400" aria-hidden="true" />}
-            label="Tap calendar date header to go to today"
-            showChevron={false}
-            isToggle
-            checked={tapCalendarDateToToday}
-            onClick={() =>
-              void setSetting(
-                TAP_CALENDAR_DATE_TO_TODAY_SETTING_KEY,
-                !tapCalendarDateToToday
               )
             }
           />
