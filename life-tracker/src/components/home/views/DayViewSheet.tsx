@@ -1,4 +1,4 @@
-import React, { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
+import React, { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { addDays, format, isToday } from 'date-fns';
 import { Swiper, SwiperSlide } from 'swiper/react';
 import { AnimatePresence, motion } from 'framer-motion';
@@ -40,6 +40,8 @@ const ImageViewer = lazy(() =>
 
 const DAY_SWIPER_FOCUSABLE_ELEMENTS =
   'input, select, option, textarea, video, label, button:not([data-day-swipe-through="true"])';
+const DAY_SWIPER_TRANSITION_SPEED_MS = 320;
+const DAY_SWIPER_TRANSITION_EASING = 'cubic-bezier(0.32, 0.72, 0, 1)';
 
 // #11a: hoisted — closes over nothing, so building this once avoids
 // re-allocating the JSX tree on every DayViewSheet render.
@@ -123,7 +125,6 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
   const [isBulkVisibilityOpen, setIsBulkVisibilityOpen] = useState(false);
   const [isBulkDeleteOpen, setIsBulkDeleteOpen] = useState(false);
   const [isBulkWorking, setIsBulkWorking] = useState(false);
-  const [syncedSelectionContext, setSyncedSelectionContext] = useState('');
   const [isTaskReorderActive, setIsTaskReorderActive] = useState(false);
 
   const activeTask = useMemo(
@@ -171,6 +172,7 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
     renderWindow,
     handlePrevDay,
     handleNextDay,
+    handleSlideChange,
     handleSwipeSettled,
   } = useDayViewSwiper({
     isOpen,
@@ -194,22 +196,25 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
   });
 
   const activeDateStr = slideDateStrs[activeIndex] ?? format(selectedDate, 'yyyy-MM-dd');
+  const previousActiveDateStrRef = useRef(activeDateStr);
   const selectedTasks = useMemo(
-    () => tasks.filter((task) => selectedTaskIds.has(task.id) && task.date === activeDateStr),
-    [activeDateStr, selectedTaskIds, tasks]
+    () =>
+      isSelectMode
+        ? tasks.filter(
+            (task) =>
+              selectedTaskIds.has(task.id) && task.date === activeDateStr
+          )
+        : EMPTY_TASKS,
+    [activeDateStr, isSelectMode, selectedTaskIds, tasks]
   );
-  const selectionContext = `${isOpen ? 'open' : 'closed'}:${activeDateStr}`;
-  if (selectionContext !== syncedSelectionContext) {
-    setSyncedSelectionContext(selectionContext);
-    if (isSelectMode && !isBulkWorking) {
-      setIsSelectMode(false);
-      setSelectedTaskIds(new Set());
-      setIsBulkActionOpen(false);
-      setIsBulkDateOpen(false);
-      setIsBulkVisibilityOpen(false);
-      setIsBulkDeleteOpen(false);
+
+  useEffect(() => {
+    const didChangeDate = previousActiveDateStrRef.current !== activeDateStr;
+    previousActiveDateStrRef.current = activeDateStr;
+    if (didChangeDate && isSelectMode && !isBulkWorking) {
+      exitSelectMode();
     }
-  }
+  }, [activeDateStr, exitSelectMode, isBulkWorking, isSelectMode]);
 
   // #10: precompute the header label per slide so the render loop doesn't
   // re-run date-fns' format() on every render for every in-window slide.
@@ -299,10 +304,14 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
     handleNextDay();
   }, [exitSelectMode, handleNextDay, isSelectMode]);
 
-  const handleSwipeSettledFromUi = useCallback((swiper: Parameters<typeof handleSwipeSettled>[0]) => {
+  const handleSlideChangeFromUi = useCallback((swiper: Parameters<typeof handleSlideChange>[0]) => {
     if (isSelectMode) exitSelectMode();
+    handleSlideChange(swiper);
+  }, [exitSelectMode, handleSlideChange, isSelectMode]);
+
+  const handleSwipeSettledFromUi = useCallback((swiper: Parameters<typeof handleSwipeSettled>[0]) => {
     handleSwipeSettled(swiper);
-  }, [exitSelectMode, handleSwipeSettled, isSelectMode]);
+  }, [handleSwipeSettled]);
 
   const handleToggleTask = useCallback(
     (taskId: string, currentStatus: boolean) => {
@@ -631,7 +640,9 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
           }
         }}
         initialSlide={initialIndex}
-        onSlideChange={handleSwipeSettledFromUi}
+        speed={DAY_SWIPER_TRANSITION_SPEED_MS}
+        onSlideChange={handleSlideChangeFromUi}
+        onSlideChangeTransitionEnd={handleSwipeSettledFromUi}
         data-testid="day-swiper"
         data-bottom-sheet-native-horizontal-swipe={renderMode === 'sheet' ? 'true' : undefined}
         className={`min-w-0 w-full max-w-full overflow-hidden ${renderMode === 'inline' ? '' : 'flex-1'}`}
@@ -640,7 +651,8 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
           maxWidth: '100%',
           height: renderMode === 'inline' ? 'auto' : undefined,
           touchAction: 'pan-y',
-        }}
+          '--swiper-wrapper-transition-timing-function': DAY_SWIPER_TRANSITION_EASING,
+        } as React.CSSProperties}
       >
         {slideDates.map((date, i) => {
           const inWindow = Math.abs(i - activeIndex) <= effectiveRenderWindow;

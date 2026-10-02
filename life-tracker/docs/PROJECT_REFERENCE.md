@@ -905,9 +905,15 @@ production source-map symbolication.
 
 The stable `perf/animation-optimization` branch contains measured interaction hardening for
 DayView and Calendar. DayView preserves all 181 Swiper geometry slides while mounting only
-the existing seven-slide expensive render window. Calendar preserves its 61-slide Embla
+the existing seven-slide expensive render window. The seven-slide window is a fast-swipe
+safety buffer and must continue tracking Swiper's active index immediately; do not shrink or
+defer that buffer in a way that lets repeated flicks expose empty slides. Parent selected-date
+propagation may wait for Swiper's snap to finish so unrelated parent work stays off the
+animation path, while the local active index and render window continue following every
+`slideChange`. Calendar preserves its 61-slide Embla
 geometry while limiting vertical scrolling to the rendered three-slide window. The Chromium
-performance probe exercises a heavy fixture and reports requestAnimationFrame timing plus
+performance probe exercises a heavy fixture, including the real owner DayViewSheet for both
+a single swipe and repeated rapid swipes, and reports requestAnimationFrame timing plus
 PerformanceObserver long tasks without enforcing a budget. Run it explicitly with
 `npm run test:performance`; it is diagnostic and is not part of canonical correctness
 acceptance. The 2026-09-25 baseline recorded approximately 60 FPS for calendar month swipe,

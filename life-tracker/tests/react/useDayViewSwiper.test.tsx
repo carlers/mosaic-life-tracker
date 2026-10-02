@@ -40,11 +40,54 @@ describe('useDayViewSwiper', () => {
 
     act(() => {
       result.current.handleNextDay();
+      result.current.handleSlideChange(swiper);
+    });
+
+    expect(result.current.activeIndex).toBe(result.current.initialIndex + 1);
+    expect(onDateChange).not.toHaveBeenCalled();
+
+    act(() => {
       result.current.handleSwipeSettled(swiper);
     });
 
     expect(onDateChange).toHaveBeenCalledWith(
       addDays(startOfDay(selectedDate), 1)
+    );
+  });
+
+  it('keeps rapid slide changes local until the latest snap settles', () => {
+    const selectedDate = new Date(2026, 8, 20);
+    const onDateChange = vi.fn();
+    const { result } = renderHook(() =>
+      useDayViewSwiper({
+        isOpen: true,
+        selectedDate,
+        onDateChange,
+        isDisabled: false,
+      })
+    );
+    const swiper = makeSwiper(result.current.initialIndex);
+    result.current.swiperRef.current = swiper;
+
+    act(() => {
+      swiper.activeIndex += 1;
+      result.current.handleSlideChange(swiper);
+      swiper.activeIndex += 1;
+      result.current.handleSlideChange(swiper);
+      swiper.activeIndex += 1;
+      result.current.handleSlideChange(swiper);
+    });
+
+    expect(result.current.activeIndex).toBe(result.current.initialIndex + 3);
+    expect(onDateChange).not.toHaveBeenCalled();
+
+    act(() => {
+      result.current.handleSwipeSettled(swiper);
+    });
+
+    expect(onDateChange).toHaveBeenCalledTimes(1);
+    expect(onDateChange).toHaveBeenCalledWith(
+      addDays(startOfDay(selectedDate), 3)
     );
   });
 
