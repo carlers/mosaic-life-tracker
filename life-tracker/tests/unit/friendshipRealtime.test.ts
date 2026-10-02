@@ -76,21 +76,17 @@ describe('friendship realtime isolation', () => {
     );
   });
 
-  it('leaves categories to the RxDB replication pilot', () => {
+  it('leaves categories, diary, and settings to their RxDB replication pilots', () => {
     startRealtime('alice');
+    const channels = [...state.callbacks.keys()];
     expect(
-      [...state.callbacks.keys()].some((channel) =>
-        channel.includes('.categories.')
-      )
+      channels.some((channel) => channel.includes('.categories.'))
     ).toBe(false);
-  });
-
-  it('leaves settings to the RxDB replication pilot', () => {
-    startRealtime('alice');
     expect(
-      [...state.callbacks.keys()].some((channel) =>
-        channel.includes('.settings.')
-      )
+      channels.some((channel) => channel.includes('.diary.'))
+    ).toBe(false);
+    expect(
+      channels.some((channel) => channel.includes('.settings.'))
     ).toBe(false);
   });
 
