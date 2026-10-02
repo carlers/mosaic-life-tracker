@@ -28,6 +28,10 @@ const categoryPilotActiveMock = vi.hoisted(() => vi.fn());
 const categoryPilotResyncMock = vi.hoisted(() => vi.fn());
 const categoryPilotStartMock = vi.hoisted(() => vi.fn());
 const categoryPilotCheckpointMock = vi.hoisted(() => vi.fn());
+const diaryPilotActiveMock = vi.hoisted(() => vi.fn());
+const diaryPilotResyncMock = vi.hoisted(() => vi.fn());
+const diaryPilotStartMock = vi.hoisted(() => vi.fn());
+const diaryPilotCheckpointMock = vi.hoisted(() => vi.fn());
 // Test fixture note: sync.ts reads `account` directly from '../../src/lib/appwrite'
 // instead of going through guardedAccount. The appwrite SDK mock must
 // therefore provide `Client` and `Account` so the real appwrite.ts module
@@ -92,6 +96,12 @@ vi.mock('../../src/db/categoryReplicationPilot', () => ({
   isCategoryReplicationPilotActive: categoryPilotActiveMock,
   resyncCategoryReplicationPilot: categoryPilotResyncMock,
   startCategoryReplicationPilot: categoryPilotStartMock,
+}));
+vi.mock('../../src/db/diaryReplicationPilot', () => ({
+  captureDiaryReplicationPushCheckpoint: diaryPilotCheckpointMock,
+  isDiaryReplicationPilotActive: diaryPilotActiveMock,
+  resyncDiaryReplicationPilot: diaryPilotResyncMock,
+  startDiaryReplicationPilot: diaryPilotStartMock,
 }));
 vi.mock('../../src/lib/storage', () => ({
   uploadPendingImage: uploadPendingImageMock,
@@ -321,11 +331,21 @@ beforeEach(async () => {
   categoryPilotResyncMock.mockReset();
   categoryPilotStartMock.mockReset();
   categoryPilotCheckpointMock.mockReset();
+  diaryPilotActiveMock.mockReset();
+  diaryPilotResyncMock.mockReset();
+  diaryPilotStartMock.mockReset();
+  diaryPilotCheckpointMock.mockReset();
   categoryPilotActiveMock.mockReturnValue(false);
   categoryPilotStartMock.mockResolvedValue(undefined);
   categoryPilotCheckpointMock.mockResolvedValue({
     id: 'cat_seed',
     lwt: 123,
+  });
+  diaryPilotActiveMock.mockReturnValue(false);
+  diaryPilotStartMock.mockResolvedValue(undefined);
+  diaryPilotCheckpointMock.mockResolvedValue({
+    id: 'diary_seed',
+    lwt: 456,
   });
   uploadPendingImageMock.mockResolvedValue('img_uploaded');
   deletePendingImageMock.mockResolvedValue(undefined);
@@ -408,6 +428,64 @@ describe('sync — category RxDB replication pilot handoff', () => {
     expect(syncModule.getSyncStatus().errors).toEqual(
       expect.arrayContaining([
         expect.stringContaining('categories: 1 push/reconciliation failure'),
+      ])
+    );
+  });
+});
+
+describe('sync — diary RxDB replication pilot handoff', () => {
+  it('bootstraps diary once, then delegates catch-up triggers to RxDB', async () => {
+    const db = makeDb();
+    getDatabaseMock.mockReturnValue(db);
+
+    await syncModule.initializeSync('user_A');
+
+    expect(diaryPilotCheckpointMock).toHaveBeenCalledWith(db.diary);
+    expect(diaryPilotStartMock).toHaveBeenCalledWith(
+      'user_A',
+      db.diary,
+      { id: 'diary_seed', lwt: 456 }
+    );
+    const diaryPullCallIndex = listRowsMock.mock.calls.findIndex(
+      (call) => (call[0] as { tableId?: string }).tableId === 'diary'
+    );
+    expect(diaryPullCallIndex).toBeGreaterThanOrEqual(0);
+    expect(diaryPilotCheckpointMock.mock.invocationCallOrder[0]).toBeLessThan(
+      listRowsMock.mock.invocationCallOrder[diaryPullCallIndex]
+    );
+
+    diaryPilotActiveMock.mockReturnValue(true);
+    listRowsMock.mockClear();
+
+    await syncModule.initializeSync('user_A');
+
+    expect(diaryPilotResyncMock).toHaveBeenCalledWith('user_A');
+    const diaryPulls = listRowsMock.mock.calls.filter(
+      (call) => (call[0] as { tableId?: string }).tableId === 'diary'
+    );
+    expect(diaryPulls).toHaveLength(0);
+  });
+
+  it('does not hand off diary after an incomplete legacy bootstrap', async () => {
+    const fullPage = Array.from({ length: 100 }, (_, index) => ({
+      ...makeTaskRow(`diary_${String(index).padStart(3, '0')}`),
+      date: '2026-10-02',
+      content: 'x',
+      visibility: 'private',
+    }));
+    listRowsMock.mockImplementation(
+      async ({ tableId }: { tableId: string }) => {
+        if (tableId === 'diary') return { rows: fullPage };
+        return { rows: [] };
+      }
+    );
+
+    await syncModule.initializeSync('user_A');
+
+    expect(diaryPilotStartMock).not.toHaveBeenCalled();
+    expect(syncModule.getSyncStatus().errors).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining('diary: pull incomplete'),
       ])
     );
   });
