@@ -34,6 +34,11 @@ const diaryPilotResyncMock = vi.hoisted(() => vi.fn());
 const diaryPilotStartMock = vi.hoisted(() => vi.fn());
 const diaryPilotCheckpointMock = vi.hoisted(() => vi.fn());
 const diaryPilotRefreshMock = vi.hoisted(() => vi.fn());
+const settingsPilotActiveMock = vi.hoisted(() => vi.fn());
+const settingsPilotResyncMock = vi.hoisted(() => vi.fn());
+const settingsPilotStartMock = vi.hoisted(() => vi.fn());
+const settingsPilotCheckpointMock = vi.hoisted(() => vi.fn());
+const settingsPilotRefreshMock = vi.hoisted(() => vi.fn());
 // Test fixture note: sync.ts reads `account` directly from '../../src/lib/appwrite'
 // instead of going through guardedAccount. The appwrite SDK mock must
 // therefore provide `Client` and `Account` so the real appwrite.ts module
@@ -106,6 +111,13 @@ vi.mock('../../src/db/diaryReplicationPilot', () => ({
   refreshDiaryReplicationPilot: diaryPilotRefreshMock,
   resyncDiaryReplicationPilot: diaryPilotResyncMock,
   startDiaryReplicationPilot: diaryPilotStartMock,
+}));
+vi.mock('../../src/db/settingsReplicationPilot', () => ({
+  captureSettingsReplicationPushCheckpoint: settingsPilotCheckpointMock,
+  isSettingsReplicationPilotActive: settingsPilotActiveMock,
+  refreshSettingsReplicationPilot: settingsPilotRefreshMock,
+  resyncSettingsReplicationPilot: settingsPilotResyncMock,
+  startSettingsReplicationPilot: settingsPilotStartMock,
 }));
 vi.mock('../../src/lib/storage', () => ({
   uploadPendingImage: uploadPendingImageMock,
@@ -208,6 +220,21 @@ function makeLocalCategoryDoc(id: string) {
       visibility: 'private',
       isDeleted: false,
       icon: '',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+    }),
+    incrementalPatch: vi.fn().mockResolvedValue(undefined),
+  };
+}
+function makeLocalSettingDoc(id: string) {
+  return {
+    id,
+    _meta: { lwt: Date.now() + 1_000_000 },
+    toJSON: () => ({
+      id,
+      userId: 'user_A',
+      key: 'theme',
+      value: 'dark',
+      isDeleted: false,
       updatedAt: '2026-01-01T00:00:00.000Z',
     }),
     incrementalPatch: vi.fn().mockResolvedValue(undefined),
@@ -354,6 +381,11 @@ beforeEach(async () => {
   diaryPilotStartMock.mockReset();
   diaryPilotCheckpointMock.mockReset();
   diaryPilotRefreshMock.mockReset();
+  settingsPilotActiveMock.mockReset();
+  settingsPilotResyncMock.mockReset();
+  settingsPilotStartMock.mockReset();
+  settingsPilotCheckpointMock.mockReset();
+  settingsPilotRefreshMock.mockReset();
   categoryPilotActiveMock.mockReturnValue(false);
   categoryPilotStartMock.mockResolvedValue(undefined);
   categoryPilotCheckpointMock.mockResolvedValue({
@@ -368,6 +400,13 @@ beforeEach(async () => {
     lwt: 456,
   });
   diaryPilotRefreshMock.mockResolvedValue(false);
+  settingsPilotActiveMock.mockReturnValue(false);
+  settingsPilotStartMock.mockResolvedValue(undefined);
+  settingsPilotCheckpointMock.mockResolvedValue({
+    id: 'setting_seed',
+    lwt: 789,
+  });
+  settingsPilotRefreshMock.mockResolvedValue(false);
   uploadPendingImageMock.mockResolvedValue('img_uploaded');
   deletePendingImageMock.mockResolvedValue(undefined);
   getDatabaseMock.mockReturnValue(makeDb());
@@ -509,6 +548,70 @@ describe('sync — diary RxDB replication pilot handoff', () => {
   });
 });
 
+describe('sync — settings RxDB replication pilot handoff', () => {
+  it('bootstraps settings once, then delegates catch-up triggers to RxDB', async () => {
+    const db = makeDb();
+    getDatabaseMock.mockReturnValue(db);
+
+    await syncModule.initializeSync('user_A');
+
+    expect(settingsPilotCheckpointMock).toHaveBeenCalledWith(db.settings);
+    expect(settingsPilotStartMock).toHaveBeenCalledWith(
+      'user_A',
+      db.settings,
+      { id: 'setting_seed', lwt: 789 }
+    );
+    const settingsPullCallIndex = listRowsMock.mock.calls.findIndex(
+      (call) => (call[0] as { tableId?: string }).tableId === 'settings'
+    );
+    expect(settingsPullCallIndex).toBeGreaterThanOrEqual(0);
+    expect(settingsPilotCheckpointMock.mock.invocationCallOrder[0]).toBeLessThan(
+      listRowsMock.mock.invocationCallOrder[settingsPullCallIndex]
+    );
+
+    settingsPilotActiveMock.mockReturnValue(true);
+    listRowsMock.mockClear();
+
+    await syncModule.initializeSync('user_A');
+
+    expect(settingsPilotResyncMock).toHaveBeenCalledWith('user_A');
+    const settingsPulls = listRowsMock.mock.calls.filter(
+      (call) => (call[0] as { tableId?: string }).tableId === 'settings'
+    );
+    expect(settingsPulls).toHaveLength(0);
+  });
+
+  it('does not hand off settings after a failed legacy push', async () => {
+    const failedSetting = makeLocalSettingDoc('setting_failed');
+    const db = {
+      ...makeDb(),
+      settings: {
+        findOne: () => ({ exec: async () => null }),
+        find: () => ({ exec: async () => [failedSetting] }),
+        upsert: vi.fn().mockResolvedValue(undefined),
+      },
+    };
+    getDatabaseMock.mockReturnValue(db);
+    updateRowMock.mockImplementation(
+      async ({ tableId }: { tableId: string }) => {
+        if (tableId === 'settings') {
+          throw Object.assign(new Error('settings write failed'), { code: 500 });
+        }
+        return {};
+      }
+    );
+
+    await syncModule.initializeSync('user_A');
+
+    expect(settingsPilotStartMock).not.toHaveBeenCalled();
+    expect(syncModule.getSyncStatus().errors).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining('settings: 1 push/reconciliation failure'),
+      ])
+    );
+  });
+});
+
 describe('sync — listener isolation', () => {
   it('a throwing status listener does not prevent initializeSync from completing', async () => {
     const unsubscribe = syncModule.subscribeToSyncStatus(() => {
@@ -606,9 +709,10 @@ describe('sync — forceSync follow-up queueing', () => {
 });
 // Regression: §18 (sync failure isolation and boundary safety).
 describe('sync — RxDB pilot fresh-sync barrier', () => {
-  it('awaits category and diary pilot freshness before returning', async () => {
+  it('awaits category, diary, and settings pilot freshness before returning', async () => {
     categoryPilotRefreshMock.mockResolvedValue(true);
     diaryPilotRefreshMock.mockResolvedValue(true);
+    settingsPilotRefreshMock.mockResolvedValue(true);
 
     await syncModule.refreshSync('user_A', 5_000);
 
@@ -620,9 +724,16 @@ describe('sync — RxDB pilot fresh-sync barrier', () => {
       'user_A',
       expect.any(Number)
     );
+    expect(settingsPilotRefreshMock).toHaveBeenCalledWith(
+      'user_A',
+      expect.any(Number)
+    );
     expect(
       categoryPilotRefreshMock.mock.invocationCallOrder[0]
     ).toBeLessThan(diaryPilotRefreshMock.mock.invocationCallOrder[0]);
+    expect(
+      diaryPilotRefreshMock.mock.invocationCallOrder[0]
+    ).toBeLessThan(settingsPilotRefreshMock.mock.invocationCallOrder[0]);
   });
 
   it('fails the safety barrier when an RxDB pilot cannot prove freshness', async () => {
@@ -640,6 +751,7 @@ describe('sync — RxDB pilot fresh-sync barrier', () => {
       ])
     );
     expect(diaryPilotRefreshMock).not.toHaveBeenCalled();
+    expect(settingsPilotRefreshMock).not.toHaveBeenCalled();
   });
 });
 

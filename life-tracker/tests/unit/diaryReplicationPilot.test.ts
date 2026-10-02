@@ -306,6 +306,9 @@ describe('diary RxDB replication pilot', () => {
   });
 
   it('falls back from update 404 to strict createRow', async () => {
+    getRowMock.mockResolvedValue(
+      remoteDiary({ content: 'Local entry' })
+    );
     updateRowMock.mockRejectedValue(
       Object.assign(new Error('not found'), { code: 404 })
     );

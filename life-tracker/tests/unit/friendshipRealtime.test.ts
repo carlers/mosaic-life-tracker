@@ -76,7 +76,7 @@ describe('friendship realtime isolation', () => {
     );
   });
 
-  it('leaves categories and diary to their RxDB replication pilots', () => {
+  it('leaves categories, diary, and settings to their RxDB replication pilots', () => {
     startRealtime('alice');
     const channels = [...state.callbacks.keys()];
     expect(
@@ -84,6 +84,9 @@ describe('friendship realtime isolation', () => {
     ).toBe(false);
     expect(
       channels.some((channel) => channel.includes('.diary.'))
+    ).toBe(false);
+    expect(
+      channels.some((channel) => channel.includes('.settings.'))
     ).toBe(false);
   });
 
