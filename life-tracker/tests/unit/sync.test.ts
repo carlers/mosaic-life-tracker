@@ -577,6 +577,20 @@ describe('sync — message RxDB replication pilot handoff', () => {
     expect(messagePulls).toHaveLength(0);
   });
 
+  it('chat heartbeat resyncs only messages once the pilot is active', async () => {
+    messagePilotActiveMock.mockReturnValue(true);
+    listRowsMock.mockClear();
+    taskPilotResyncMock.mockClear();
+    categoryPilotResyncMock.mockClear();
+
+    await syncModule.forceMessageSync('user_A');
+
+    expect(messagePilotResyncMock).toHaveBeenCalledWith('user_A');
+    expect(taskPilotResyncMock).not.toHaveBeenCalled();
+    expect(categoryPilotResyncMock).not.toHaveBeenCalled();
+    expect(listRowsMock).not.toHaveBeenCalled();
+  });
+
   it('refuses message handoff when the forced-full bootstrap is incomplete', async () => {
     const fullPage = Array.from({ length: 100 }, (_, index) => ({
       $id: `msg_${String(index).padStart(3, '0')}`,
