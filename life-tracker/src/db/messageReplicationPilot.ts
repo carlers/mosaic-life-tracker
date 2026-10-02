@@ -117,7 +117,7 @@ async function mergeRemoteWithLocalIntent(
   remote: ReplicatedMessage
 ): Promise<ReplicatedMessage> {
   const localDoc = await collection.findOne(remote.id).exec();
-  if (!localDoc || activeOwnerId !== userId) return remote;
+  if (!localDoc) return remote;
 
   const local = {
     ...(localDoc.toJSON() as MessageDocument),
@@ -173,11 +173,11 @@ async function mergeRemoteWithLocalIntent(
   if (
     remote.direction === 'incoming' &&
     local.readAt &&
-    !remote.readAt
+    (!remote.readAt || remote.readAt === local.readAt)
   ) {
     merged = {
       ...merged,
-      readAt: local.readAt,
+      readAt: remote.readAt || local.readAt,
       updatedAt:
         toTimestamp(local.updatedAt) > toTimestamp(merged.updatedAt)
           ? local.updatedAt
