@@ -4,10 +4,18 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const updateMocks = vi.hoisted(() => ({
-  checkForUpdate: vi.fn<(onProgress?: (stage: string) => void) => Promise<'up-to-date' | 'update-available'>>(),
+  applyUpdate: vi.fn<() => Promise<boolean>>(),
+  checkForUpdate: vi.fn<
+    (onProgress?: (stage: string) => void) => Promise<
+      'up-to-date' | 'update-available' | 'update-in-progress'
+    >
+  >(),
+  updateAvailable: false,
 }));
 beforeEach(() => {
+  updateMocks.applyUpdate.mockReset().mockResolvedValue(true);
   updateMocks.checkForUpdate.mockReset().mockResolvedValue('up-to-date');
+  updateMocks.updateAvailable = false;
   window.localStorage.clear();
 });
 
@@ -18,7 +26,11 @@ vi.mock('../../src/hooks/useAuth', () => ({
   }),
 }));
 vi.mock('../../src/hooks/usePwaLifecycle', () => ({
-  usePwaLifecycle: () => ({ checkForUpdate: updateMocks.checkForUpdate }),
+  usePwaLifecycle: () => ({
+    applyUpdate: updateMocks.applyUpdate,
+    checkForUpdate: updateMocks.checkForUpdate,
+    updateAvailable: updateMocks.updateAvailable,
+  }),
 }));
 vi.mock('../../src/hooks/useAppearance', () => ({
   useAppearance: () => ({
@@ -155,6 +167,39 @@ describe('SettingsPage navigation, updates, and data controls', () => {
     expect(await screen.findByRole('status')).toHaveTextContent(
       /Update (downloaded|ready|found)/
     );
+  });
+
+  it('keeps a long-running update download honest after the foreground wait ends', async () => {
+    updateMocks.checkForUpdate.mockImplementationOnce(async (onProgress) => {
+      onProgress?.('downloading');
+      onProgress?.('background-download');
+      return 'update-in-progress';
+    });
+    render(
+      <MemoryRouter>
+        <SettingsPage />
+      </MemoryRouter>
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /Check for Updates/i }));
+
+    expect(await screen.findByRole('status')).toHaveTextContent(
+      'Update is still downloading in the background.'
+    );
+  });
+
+  it('turns the update row into the install action when a worker is ready', async () => {
+    updateMocks.updateAvailable = true;
+    render(
+      <MemoryRouter>
+        <SettingsPage />
+      </MemoryRouter>
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /Update now/i }));
+
+    await waitFor(() => expect(updateMocks.applyUpdate).toHaveBeenCalledOnce());
+    expect(updateMocks.checkForUpdate).not.toHaveBeenCalled();
   });
 
   // Regression: §2 (remote deletion remains distinct from local clearing).
