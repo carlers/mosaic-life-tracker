@@ -276,12 +276,10 @@ export async function checkForPwaUpdate(
   }
 
   if (registration.installing) {
-    const result = await waitForUpdateInstall(
-      registration,
-      registration.installing,
-      report
-    );
-    if (result) return result;
+    report('update-found');
+    report('downloading');
+    report('background-download');
+    return 'update-in-progress';
   }
 
   report('checking');
