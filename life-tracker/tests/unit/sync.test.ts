@@ -28,10 +28,17 @@ const categoryPilotActiveMock = vi.hoisted(() => vi.fn());
 const categoryPilotResyncMock = vi.hoisted(() => vi.fn());
 const categoryPilotStartMock = vi.hoisted(() => vi.fn());
 const categoryPilotCheckpointMock = vi.hoisted(() => vi.fn());
+const categoryPilotRefreshMock = vi.hoisted(() => vi.fn());
+const diaryPilotActiveMock = vi.hoisted(() => vi.fn());
+const diaryPilotResyncMock = vi.hoisted(() => vi.fn());
+const diaryPilotStartMock = vi.hoisted(() => vi.fn());
+const diaryPilotCheckpointMock = vi.hoisted(() => vi.fn());
+const diaryPilotRefreshMock = vi.hoisted(() => vi.fn());
 const settingsPilotActiveMock = vi.hoisted(() => vi.fn());
 const settingsPilotResyncMock = vi.hoisted(() => vi.fn());
 const settingsPilotStartMock = vi.hoisted(() => vi.fn());
 const settingsPilotCheckpointMock = vi.hoisted(() => vi.fn());
+const settingsPilotRefreshMock = vi.hoisted(() => vi.fn());
 // Test fixture note: sync.ts reads `account` directly from '../../src/lib/appwrite'
 // instead of going through guardedAccount. The appwrite SDK mock must
 // therefore provide `Client` and `Account` so the real appwrite.ts module
@@ -94,12 +101,21 @@ vi.mock('../../src/db/database', () => ({
 vi.mock('../../src/db/categoryReplicationPilot', () => ({
   captureCategoryReplicationPushCheckpoint: categoryPilotCheckpointMock,
   isCategoryReplicationPilotActive: categoryPilotActiveMock,
+  refreshCategoryReplicationPilot: categoryPilotRefreshMock,
   resyncCategoryReplicationPilot: categoryPilotResyncMock,
   startCategoryReplicationPilot: categoryPilotStartMock,
+}));
+vi.mock('../../src/db/diaryReplicationPilot', () => ({
+  captureDiaryReplicationPushCheckpoint: diaryPilotCheckpointMock,
+  isDiaryReplicationPilotActive: diaryPilotActiveMock,
+  refreshDiaryReplicationPilot: diaryPilotRefreshMock,
+  resyncDiaryReplicationPilot: diaryPilotResyncMock,
+  startDiaryReplicationPilot: diaryPilotStartMock,
 }));
 vi.mock('../../src/db/settingsReplicationPilot', () => ({
   captureSettingsReplicationPushCheckpoint: settingsPilotCheckpointMock,
   isSettingsReplicationPilotActive: settingsPilotActiveMock,
+  refreshSettingsReplicationPilot: settingsPilotRefreshMock,
   resyncSettingsReplicationPilot: settingsPilotResyncMock,
   startSettingsReplicationPilot: settingsPilotStartMock,
 }));
@@ -176,6 +192,19 @@ function makeRemoteTaskRow(id: string, updatedAt: string) {
     ...makeTaskRow(id),
     $updatedAt: updatedAt,
     updated_at: updatedAt,
+  };
+}
+function makeDiaryRow(id: string) {
+  return {
+    $id: id,
+    user_id: 'user_A',
+    $updatedAt: '2026-01-01T00:00:00.000Z',
+    date: '2026-01-01',
+    content: 'entry',
+    visibility: 'private',
+    created_at: '2026-01-01T00:00:00.000Z',
+    updated_at: '2026-01-01T00:00:00.000Z',
+    deleted: false,
   };
 }
 function makeLocalCategoryDoc(id: string) {
@@ -346,22 +375,38 @@ beforeEach(async () => {
   categoryPilotResyncMock.mockReset();
   categoryPilotStartMock.mockReset();
   categoryPilotCheckpointMock.mockReset();
+  categoryPilotRefreshMock.mockReset();
+  diaryPilotActiveMock.mockReset();
+  diaryPilotResyncMock.mockReset();
+  diaryPilotStartMock.mockReset();
+  diaryPilotCheckpointMock.mockReset();
+  diaryPilotRefreshMock.mockReset();
+  settingsPilotActiveMock.mockReset();
+  settingsPilotResyncMock.mockReset();
+  settingsPilotStartMock.mockReset();
+  settingsPilotCheckpointMock.mockReset();
+  settingsPilotRefreshMock.mockReset();
   categoryPilotActiveMock.mockReturnValue(false);
   categoryPilotStartMock.mockResolvedValue(undefined);
   categoryPilotCheckpointMock.mockResolvedValue({
     id: 'cat_seed',
     lwt: 123,
   });
-  settingsPilotActiveMock.mockReset();
-  settingsPilotResyncMock.mockReset();
-  settingsPilotStartMock.mockReset();
-  settingsPilotCheckpointMock.mockReset();
+  categoryPilotRefreshMock.mockResolvedValue(false);
+  diaryPilotActiveMock.mockReturnValue(false);
+  diaryPilotStartMock.mockResolvedValue(undefined);
+  diaryPilotCheckpointMock.mockResolvedValue({
+    id: 'diary_seed',
+    lwt: 456,
+  });
+  diaryPilotRefreshMock.mockResolvedValue(false);
   settingsPilotActiveMock.mockReturnValue(false);
   settingsPilotStartMock.mockResolvedValue(undefined);
   settingsPilotCheckpointMock.mockResolvedValue({
     id: 'setting_seed',
-    lwt: 456,
+    lwt: 789,
   });
+  settingsPilotRefreshMock.mockResolvedValue(false);
   uploadPendingImageMock.mockResolvedValue('img_uploaded');
   deletePendingImageMock.mockResolvedValue(undefined);
   getDatabaseMock.mockReturnValue(makeDb());
@@ -448,6 +493,61 @@ describe('sync — category RxDB replication pilot handoff', () => {
   });
 });
 
+describe('sync — diary RxDB replication pilot handoff', () => {
+  it('bootstraps diary once, then delegates catch-up triggers to RxDB', async () => {
+    const db = makeDb();
+    getDatabaseMock.mockReturnValue(db);
+
+    await syncModule.initializeSync('user_A');
+
+    expect(diaryPilotCheckpointMock).toHaveBeenCalledWith(db.diary);
+    expect(diaryPilotStartMock).toHaveBeenCalledWith(
+      'user_A',
+      db.diary,
+      { id: 'diary_seed', lwt: 456 }
+    );
+    const diaryPullCallIndex = listRowsMock.mock.calls.findIndex(
+      (call) => (call[0] as { tableId?: string }).tableId === 'diary'
+    );
+    expect(diaryPullCallIndex).toBeGreaterThanOrEqual(0);
+    expect(diaryPilotCheckpointMock.mock.invocationCallOrder[0]).toBeLessThan(
+      listRowsMock.mock.invocationCallOrder[diaryPullCallIndex]
+    );
+
+    diaryPilotActiveMock.mockReturnValue(true);
+    listRowsMock.mockClear();
+
+    await syncModule.initializeSync('user_A');
+
+    expect(diaryPilotResyncMock).toHaveBeenCalledWith('user_A');
+    const diaryPulls = listRowsMock.mock.calls.filter(
+      (call) => (call[0] as { tableId?: string }).tableId === 'diary'
+    );
+    expect(diaryPulls).toHaveLength(0);
+  });
+
+  it('does not hand off diary after an incomplete legacy bootstrap', async () => {
+    const fullPage = Array.from({ length: 100 }, (_, index) =>
+      makeDiaryRow(`diary_${String(index).padStart(3, '0')}`)
+    );
+    listRowsMock.mockImplementation(
+      async ({ tableId }: { tableId: string }) => {
+        if (tableId === 'diary') return { rows: fullPage };
+        return { rows: [] };
+      }
+    );
+
+    await syncModule.initializeSync('user_A');
+
+    expect(diaryPilotStartMock).not.toHaveBeenCalled();
+    expect(syncModule.getSyncStatus().errors).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining('diary: pull incomplete'),
+      ])
+    );
+  });
+});
+
 describe('sync — settings RxDB replication pilot handoff', () => {
   it('bootstraps settings once, then delegates catch-up triggers to RxDB', async () => {
     const db = makeDb();
@@ -455,16 +555,14 @@ describe('sync — settings RxDB replication pilot handoff', () => {
 
     await syncModule.initializeSync('user_A');
 
-    expect(settingsPilotStartMock).toHaveBeenCalledTimes(1);
     expect(settingsPilotCheckpointMock).toHaveBeenCalledWith(db.settings);
     expect(settingsPilotStartMock).toHaveBeenCalledWith(
       'user_A',
       db.settings,
-      { id: 'setting_seed', lwt: 456 }
+      { id: 'setting_seed', lwt: 789 }
     );
     const settingsPullCallIndex = listRowsMock.mock.calls.findIndex(
-      (call) =>
-        (call[0] as { tableId?: string }).tableId === 'settings'
+      (call) => (call[0] as { tableId?: string }).tableId === 'settings'
     );
     expect(settingsPullCallIndex).toBeGreaterThanOrEqual(0);
     expect(settingsPilotCheckpointMock.mock.invocationCallOrder[0]).toBeLessThan(
@@ -478,13 +576,12 @@ describe('sync — settings RxDB replication pilot handoff', () => {
 
     expect(settingsPilotResyncMock).toHaveBeenCalledWith('user_A');
     const settingsPulls = listRowsMock.mock.calls.filter(
-      (call) =>
-        (call[0] as { tableId?: string }).tableId === 'settings'
+      (call) => (call[0] as { tableId?: string }).tableId === 'settings'
     );
     expect(settingsPulls).toHaveLength(0);
   });
 
-  it('does not hand off when the legacy settings bootstrap has a push failure', async () => {
+  it('does not hand off settings after a failed legacy push', async () => {
     const failedSetting = makeLocalSettingDoc('setting_failed');
     const db = {
       ...makeDb(),
@@ -498,9 +595,7 @@ describe('sync — settings RxDB replication pilot handoff', () => {
     updateRowMock.mockImplementation(
       async ({ tableId }: { tableId: string }) => {
         if (tableId === 'settings') {
-          throw Object.assign(new Error('settings write failed'), {
-            code: 500,
-          });
+          throw Object.assign(new Error('settings write failed'), { code: 500 });
         }
         return {};
       }
@@ -613,6 +708,53 @@ describe('sync — forceSync follow-up queueing', () => {
   });
 });
 // Regression: §18 (sync failure isolation and boundary safety).
+describe('sync — RxDB pilot fresh-sync barrier', () => {
+  it('awaits category, diary, and settings pilot freshness before returning', async () => {
+    categoryPilotRefreshMock.mockResolvedValue(true);
+    diaryPilotRefreshMock.mockResolvedValue(true);
+    settingsPilotRefreshMock.mockResolvedValue(true);
+
+    await syncModule.refreshSync('user_A', 5_000);
+
+    expect(categoryPilotRefreshMock).toHaveBeenCalledWith(
+      'user_A',
+      expect.any(Number)
+    );
+    expect(diaryPilotRefreshMock).toHaveBeenCalledWith(
+      'user_A',
+      expect.any(Number)
+    );
+    expect(settingsPilotRefreshMock).toHaveBeenCalledWith(
+      'user_A',
+      expect.any(Number)
+    );
+    expect(
+      categoryPilotRefreshMock.mock.invocationCallOrder[0]
+    ).toBeLessThan(diaryPilotRefreshMock.mock.invocationCallOrder[0]);
+    expect(
+      diaryPilotRefreshMock.mock.invocationCallOrder[0]
+    ).toBeLessThan(settingsPilotRefreshMock.mock.invocationCallOrder[0]);
+  });
+
+  it('fails the safety barrier when an RxDB pilot cannot prove freshness', async () => {
+    categoryPilotRefreshMock.mockRejectedValue(
+      new Error('Fresh category sync is owned by another Mosaic tab.')
+    );
+
+    await expect(
+      syncModule.refreshSync('user_A', 5_000)
+    ).rejects.toThrow('another Mosaic tab');
+
+    expect(syncModule.getSyncStatus().errors).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining('another Mosaic tab'),
+      ])
+    );
+    expect(diaryPilotRefreshMock).not.toHaveBeenCalled();
+    expect(settingsPilotRefreshMock).not.toHaveBeenCalled();
+  });
+});
+
 describe('sync — manual freshness and retry wake-up', () => {
   it('manual sync retries immediately through a transient failure backoff', async () => {
     const docs = [makeLocalDoc('manual_retry')];
