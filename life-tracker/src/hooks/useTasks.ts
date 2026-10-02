@@ -3,7 +3,6 @@ import { getDatabase } from '../db/database';
 import { useAuth } from './useAuth';
 import { useRxCollection } from './useRxCollection';
 import type { TaskDocument } from '../db/schema';
-import { requestSyncAfterLocalMutation } from '../lib/syncTrigger';
 import {
   buildTaskOrderAssignments,
   type TaskOrderGroup,
@@ -61,7 +60,6 @@ export function useTasks(enabled = true) {
         isDeleted: false,
       };
       await db.tasks.insert(newTask);
-      requestSyncAfterLocalMutation(uid);
     },
     [user?.$id]
   );
@@ -76,9 +74,6 @@ export function useTasks(enabled = true) {
           ...updates,
           updatedAt: new Date().toISOString(),
         });
-        if (uid && doc.userId === uid) {
-          requestSyncAfterLocalMutation(uid);
-        }
       }
     },
     [user?.$id]
@@ -175,9 +170,6 @@ export function useTasks(enabled = true) {
             });
           })
         );
-        if (changed) {
-          requestSyncAfterLocalMutation(uid);
-        }
       };
 
       const queued = reorderQueue.current.then(applyOrder, applyOrder);
