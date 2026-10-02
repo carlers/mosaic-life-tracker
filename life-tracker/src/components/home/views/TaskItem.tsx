@@ -205,29 +205,25 @@ export const TaskItem: React.FC<TaskItemProps> = ({
               pointerEvents: 'none',
             }
           : isSelected
-            ? { backgroundColor: `${categoryColor}33`, boxShadow: `inset 0 0 0 1px ${categoryColor}` }
+            ? { backgroundColor: `${categoryColor}33` }
             : undefined
       }
     >
       <button
         type="button"
         onClick={(event) => {
-          if (selectionMode) {
-            event.stopPropagation();
-            onToggleSelection?.();
-          } else {
-            onToggle(task.id);
-          }
+          event.stopPropagation();
+          onToggle(task.id);
         }}
         onPointerDown={(e) => e.stopPropagation()}
         className="mt-0.5 shrink-0 w-6 h-6 rounded-full border-2 flex items-center justify-center focus:outline-none"
         style={{
-          borderColor: (selectionMode ? isSelected : isCompleted) ? categoryColor : '#4B5563',
-          backgroundColor: (selectionMode ? isSelected : isCompleted) ? categoryColor : 'transparent',
+          borderColor: isCompleted ? categoryColor : '#4B5563',
+          backgroundColor: isCompleted ? categoryColor : 'transparent',
         }}
-        aria-label={selectionMode ? (isSelected ? 'Deselect task' : 'Select task') : (isCompleted ? 'Mark incomplete' : 'Mark complete')}
+        aria-label={isCompleted ? 'Mark incomplete' : 'Mark complete'}
       >
-        {(selectionMode ? isSelected : isCompleted) && (
+        {isCompleted && (
           <Check
             size={15}
             strokeWidth={4}
