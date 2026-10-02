@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
   User,
@@ -42,7 +42,11 @@ import {
 
 export const SettingsPage: React.FC = () => {
   const { user, logout } = useAuth();
-  const { checkForUpdate } = usePwaLifecycle();
+  const {
+    applyUpdate,
+    checkForUpdate,
+    updateAvailable,
+  } = usePwaLifecycle();
   const { mode: appearanceMode } = useAppearance();
   const navigate = useNavigate();
   const location = useLocation();
@@ -57,8 +61,9 @@ export const SettingsPage: React.FC = () => {
   const [isTodoMateImportOpen, setIsTodoMateImportOpen] = useState(false);
   const [isSyncStatusOpen, setIsSyncStatusOpen] = useState(false);
   const [isCheckingUpdate, setIsCheckingUpdate] = useState(false);
+  const [isApplyingUpdate, setIsApplyingUpdate] = useState(false);
   const [updateStage, setUpdateStage] = useState<
-    PwaUpdateCheckStage | 'error' | null
+    PwaUpdateCheckStage | 'applying' | 'error' | null
   >(null);
   const [feedback, setFeedback] = useState<string | null>(null);
   const [backupActivityOverride, setBackupActivityOverride] = useState<{
@@ -97,6 +102,13 @@ export const SettingsPage: React.FC = () => {
   };
 
   const handleComingSoon = () => showFeedback('Coming soon');
+
+  useEffect(() => {
+    if (updateAvailable) {
+      setUpdateStage('ready');
+    }
+  }, [updateAvailable]);
+
   const handleBack = () => {
     const parent = '/account';
     if (hasExpectedRouteParent(location.key, location.state, parent)) {
@@ -114,6 +126,8 @@ export const SettingsPage: React.FC = () => {
       const result = await checkForUpdate(setUpdateStage);
       if (result === 'update-available') {
         setUpdateStage('ready');
+      } else if (result === 'update-in-progress') {
+        setUpdateStage('background-download');
       } else if (result === 'up-to-date') {
         setUpdateStage('up-to-date');
       } else {
@@ -127,6 +141,23 @@ export const SettingsPage: React.FC = () => {
     }
   };
 
+  const handleApplyUpdate = async () => {
+    if (isApplyingUpdate) return;
+    setIsApplyingUpdate(true);
+    setUpdateStage('applying');
+    try {
+      const applied = await applyUpdate();
+      if (!applied) {
+        setUpdateStage('unavailable');
+      }
+    } catch (error) {
+      console.error('[SettingsPage] Update install failed:', error);
+      setUpdateStage('error');
+    } finally {
+      setIsApplyingUpdate(false);
+    }
+  };
+
   const updateStatusMessage =
     updateStage === 'preparing'
       ? 'Preparing update check…'
@@ -136,8 +167,12 @@ export const SettingsPage: React.FC = () => {
           ? 'Update found. Preparing download…'
           : updateStage === 'downloading'
             ? 'Update found — downloading…'
-            : updateStage === 'ready'
-              ? 'Update downloaded. Ready to install.'
+            : updateStage === 'background-download'
+              ? 'Update is still downloading in the background.'
+              : updateStage === 'ready'
+                ? 'Update downloaded. Ready to install.'
+                : updateStage === 'applying'
+                  ? 'Installing update…'
               : updateStage === 'up-to-date'
                 ? 'Mosaic is up to date.'
                 : updateStage === 'unavailable'
@@ -362,9 +397,10 @@ export const SettingsPage: React.FC = () => {
           </div>
           <SettingsRow
             icon={<RefreshCw size={18} className="text-emerald-500" aria-hidden="true" />}
-            label="Check for Updates"
+            label={updateAvailable ? 'Update now' : 'Check for Updates'}
+            value={updateAvailable ? 'Ready' : undefined}
             showChevron={false}
-            onClick={handleCheckForUpdates}
+            onClick={updateAvailable ? handleApplyUpdate : handleCheckForUpdates}
           />
           {updateStatusMessage && (
             <div
@@ -374,7 +410,7 @@ export const SettingsPage: React.FC = () => {
               className="px-4 pb-3 text-sm text-gray-400"
             >
               <div className="flex items-center gap-2">
-                {isCheckingUpdate && (
+                {(isCheckingUpdate || isApplyingUpdate) && (
                   <span
                     className="h-3.5 w-3.5 shrink-0 rounded-full border-2 border-gray-500 border-t-transparent animate-spin"
                     aria-hidden="true"
