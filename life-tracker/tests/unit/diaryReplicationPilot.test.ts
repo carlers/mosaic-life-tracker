@@ -66,41 +66,39 @@ vi.mock('../../src/lib/sdk', () => ({
 }));
 
 import {
-  __categoryReplicationPilotTestUtils,
-  captureCategoryReplicationPushCheckpoint,
-  refreshCategoryReplicationPilot,
-  startCategoryReplicationPilot,
-  stopCategoryReplicationPilot,
-} from '../../src/db/categoryReplicationPilot';
+  __diaryReplicationPilotTestUtils,
+  captureDiaryReplicationPushCheckpoint,
+  refreshDiaryReplicationPilot,
+  startDiaryReplicationPilot,
+  stopDiaryReplicationPilot,
+} from '../../src/db/diaryReplicationPilot';
 
-function localCategory(overrides: Record<string, unknown> = {}) {
+function localDiary(overrides: Record<string, unknown> = {}) {
   return {
-    id: 'cat_a',
+    id: 'diary_a',
     userId: 'user_A',
-    name: 'Work',
-    color: '#3B82F6',
-    order: 0,
+    date: '2026-10-02',
+    content: 'Local entry',
     visibility: 'private',
+    createdAt: '2026-10-02T00:00:00.000Z',
+    updatedAt: '2026-10-02T00:00:01.000Z',
     isDeleted: false,
-    icon: '',
-    updatedAt: '2026-10-02T00:00:00.000Z',
     _deleted: false,
     ...overrides,
   };
 }
 
-function remoteCategory(overrides: Record<string, unknown> = {}) {
+function remoteDiary(overrides: Record<string, unknown> = {}) {
   return {
-    $id: 'cat_a',
-    $updatedAt: '2026-10-02T00:00:01.000Z',
+    $id: 'diary_a',
+    $updatedAt: '2026-10-02T00:00:02.000Z',
     user_id: 'user_A',
-    name: 'Work',
-    color: '#3B82F6',
-    order: 0,
+    date: '2026-10-02',
+    content: 'Remote entry',
     visibility: 'private',
+    created_at: '2026-10-02T00:00:00.000Z',
+    updated_at: '2026-10-02T00:00:01.000Z',
     deleted: false,
-    icon: '',
-    updated_at: '2026-10-02T00:00:00.000Z',
     ...overrides,
   };
 }
@@ -116,14 +114,14 @@ function collectionFixture(isLeader = true) {
 }
 
 beforeEach(async () => {
-  await stopCategoryReplicationPilot();
+  await stopDiaryReplicationPilot();
   vi.clearAllMocks();
   getChangedDocumentsSinceMock.mockResolvedValue({
     documents: [],
-    checkpoint: { id: 'cat_z', lwt: 123 },
+    checkpoint: { id: 'diary_z', lwt: 123 },
   });
   listRowsMock.mockResolvedValue({ rows: [] });
-  getRowMock.mockResolvedValue(remoteCategory());
+  getRowMock.mockResolvedValue(remoteDiary());
   updateRowMock.mockResolvedValue({});
   createRowMock.mockResolvedValue({});
   cancelMock.mockResolvedValue(true);
@@ -139,12 +137,12 @@ beforeEach(async () => {
 });
 
 afterEach(async () => {
-  await stopCategoryReplicationPilot();
+  await stopDiaryReplicationPilot();
 });
 
-describe('category RxDB replication pilot', () => {
+describe('diary RxDB replication pilot', () => {
   it('captures the current local checkpoint for the pre-bootstrap seed', async () => {
-    const checkpoint = await captureCategoryReplicationPushCheckpoint(
+    const checkpoint = await captureDiaryReplicationPushCheckpoint(
       collectionFixture()
     );
 
@@ -154,15 +152,15 @@ describe('category RxDB replication pilot', () => {
       undefined
     );
     expect(checkpoint).toEqual({
-      id: 'cat_z',
+      id: 'diary_z',
       lwt: 123,
     });
   });
 
-  it('starts from the caller-supplied pre-bootstrap checkpoint without rescanning', async () => {
-    const checkpoint = { id: 'cat_seed', lwt: 77 };
+  it('starts from the caller-supplied checkpoint without rescanning local history', async () => {
+    const checkpoint = { id: 'diary_seed', lwt: 77 };
 
-    await startCategoryReplicationPilot(
+    await startDiaryReplicationPilot(
       'user_A',
       collectionFixture(),
       checkpoint
@@ -176,14 +174,14 @@ describe('category RxDB replication pilot', () => {
   });
 
   it('awaits a real fresh cycle when this tab owns RxDB leadership', async () => {
-    await startCategoryReplicationPilot(
+    await startDiaryReplicationPilot(
       'user_A',
       collectionFixture(true),
-      { id: 'cat_seed', lwt: 77 }
+      { id: 'diary_seed', lwt: 77 }
     );
 
     await expect(
-      refreshCategoryReplicationPilot('user_A', 1_000)
+      refreshDiaryReplicationPilot('user_A', 1_000)
     ).resolves.toBe(true);
 
     expect(reSyncMock).toHaveBeenCalled();
@@ -191,34 +189,34 @@ describe('category RxDB replication pilot', () => {
   });
 
   it('fails closed when another tab owns RxDB leadership', async () => {
-    await startCategoryReplicationPilot(
+    await startDiaryReplicationPilot(
       'user_A',
       collectionFixture(false),
-      { id: 'cat_seed', lwt: 77 }
+      { id: 'diary_seed', lwt: 77 }
     );
 
     await expect(
-      refreshCategoryReplicationPilot('user_A', 1_000)
+      refreshDiaryReplicationPilot('user_A', 1_000)
     ).rejects.toThrow('another Mosaic tab');
   });
 
   it('pulls with an owner-scoped updatedAt+id tuple checkpoint', async () => {
     listRowsMock.mockResolvedValue({
       rows: [
-        remoteCategory({
-          $id: 'cat_b',
-          $updatedAt: '2026-10-02T00:00:02.000Z',
+        remoteDiary({
+          $id: 'diary_b',
+          $updatedAt: '2026-10-02T00:00:03.000Z',
           deleted: true,
         }),
       ],
     });
 
     const result =
-      await __categoryReplicationPilotTestUtils.pullCategories(
+      await __diaryReplicationPilotTestUtils.pullDiary(
         'user_A',
         {
-          id: 'cat_a',
-          updatedAt: '2026-10-02T00:00:01.000Z',
+          id: 'diary_a',
+          updatedAt: '2026-10-02T00:00:02.000Z',
         },
         100
       );
@@ -245,12 +243,12 @@ describe('category RxDB replication pilot', () => {
       ])
     );
     expect(result.checkpoint).toEqual({
-      id: 'cat_b',
-      updatedAt: '2026-10-02T00:00:02.000Z',
+      id: 'diary_b',
+      updatedAt: '2026-10-02T00:00:03.000Z',
     });
     expect(result.documents[0]).toEqual(
       expect.objectContaining({
-        id: 'cat_b',
+        id: 'diary_b',
         userId: 'user_A',
         isDeleted: true,
         _deleted: false,
@@ -263,16 +261,17 @@ describe('category RxDB replication pilot', () => {
       Object.assign(new Error('not found'), { code: 404 })
     );
 
-    await __categoryReplicationPilotTestUtils.pushCategories(
-      [{ newDocumentState: localCategory() }],
+    await __diaryReplicationPilotTestUtils.pushDiary(
+      [{ newDocumentState: localDiary() }],
       'user_A'
     );
 
     expect(createRowMock).toHaveBeenCalledWith(
       expect.objectContaining({
-        rowId: 'cat_a',
+        rowId: 'diary_a',
         data: expect.objectContaining({
           user_id: 'user_A',
+          content: 'Local entry',
           deleted: false,
         }),
       })
@@ -282,15 +281,15 @@ describe('category RxDB replication pilot', () => {
 
   it('returns the current master as a conflict instead of overwriting it', async () => {
     getRowMock.mockResolvedValue(
-      remoteCategory({ name: 'Server version' })
+      remoteDiary({ content: 'Server version' })
     );
 
     const conflicts =
-      await __categoryReplicationPilotTestUtils.pushCategories(
+      await __diaryReplicationPilotTestUtils.pushDiary(
         [
           {
-            assumedMasterState: localCategory({ name: 'Old version' }),
-            newDocumentState: localCategory({ name: 'Local version' }),
+            assumedMasterState: localDiary({ content: 'Old version' }),
+            newDocumentState: localDiary({ content: 'Local version' }),
           },
         ],
         'user_A'
@@ -299,8 +298,8 @@ describe('category RxDB replication pilot', () => {
     expect(updateRowMock).not.toHaveBeenCalled();
     expect(conflicts).toEqual([
       expect.objectContaining({
-        id: 'cat_a',
-        name: 'Server version',
+        id: 'diary_a',
+        content: 'Server version',
         _deleted: false,
       }),
     ]);
@@ -310,10 +309,10 @@ describe('category RxDB replication pilot', () => {
     updateRowMock.mockRejectedValue(
       Object.assign(new Error('not found'), { code: 404 })
     );
-    const state = localCategory();
+    const state = localDiary();
 
     const conflicts =
-      await __categoryReplicationPilotTestUtils.pushCategories(
+      await __diaryReplicationPilotTestUtils.pushDiary(
         [{ assumedMasterState: state, newDocumentState: state }],
         'user_A'
       );
@@ -323,11 +322,11 @@ describe('category RxDB replication pilot', () => {
     expect(createRowMock).toHaveBeenCalledTimes(1);
   });
 
-  it('streams owner-scoped Appwrite realtime updates into replication', async () => {
-    await startCategoryReplicationPilot(
+  it('streams owner-scoped realtime updates into replication', async () => {
+    await startDiaryReplicationPilot(
       'user_A',
       collectionFixture(),
-      { id: 'cat_seed', lwt: 77 }
+      { id: 'diary_seed', lwt: 77 }
     );
     const options = replicateRxCollectionMock.mock.calls[0][0];
     const next = firstValueFrom(options.pull.stream$);
@@ -335,21 +334,21 @@ describe('category RxDB replication pilot', () => {
 
     callback({
       events: [
-        'databases.life_tracker.tables.categories.rows.cat_a.update',
+        'databases.life_tracker.tables.diary.rows.diary_a.update',
       ],
       channels: [],
       timestamp: '',
-      payload: remoteCategory(),
+      payload: remoteDiary(),
     });
 
     await expect(next).resolves.toEqual({
       checkpoint: {
-        id: 'cat_a',
-        updatedAt: '2026-10-02T00:00:01.000Z',
+        id: 'diary_a',
+        updatedAt: '2026-10-02T00:00:02.000Z',
       },
       documents: [
         expect.objectContaining({
-          id: 'cat_a',
+          id: 'diary_a',
           userId: 'user_A',
           _deleted: false,
         }),

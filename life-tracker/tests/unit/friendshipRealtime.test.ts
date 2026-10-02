@@ -76,12 +76,14 @@ describe('friendship realtime isolation', () => {
     );
   });
 
-  it('leaves categories to the RxDB replication pilot', () => {
+  it('leaves categories and diary to their RxDB replication pilots', () => {
     startRealtime('alice');
+    const channels = [...state.callbacks.keys()];
     expect(
-      [...state.callbacks.keys()].some((channel) =>
-        channel.includes('.categories.')
-      )
+      channels.some((channel) => channel.includes('.categories.'))
+    ).toBe(false);
+    expect(
+      channels.some((channel) => channel.includes('.diary.'))
     ).toBe(false);
   });
 
