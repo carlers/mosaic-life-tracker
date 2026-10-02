@@ -7,6 +7,7 @@ import { CategoryManagerSheet } from '../modals/CategoryManagerSheet';
 export const HamburgerMenu: React.FC = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isCategoryManagerOpen, setIsCategoryManagerOpen] = useState(false);
+  const [categoryManagerMounted, setCategoryManagerMounted] = useState(false);
 
   const menuItems = [
     {
@@ -14,6 +15,7 @@ export const HamburgerMenu: React.FC = () => {
       icon: List,
       action: () => {
         setIsMenuOpen(false);
+        setCategoryManagerMounted(true);
         setIsCategoryManagerOpen(true);
       },
     },
@@ -51,10 +53,12 @@ export const HamburgerMenu: React.FC = () => {
         </div>
       </BottomSheet>
 
-      <CategoryManagerSheet
-        isOpen={isCategoryManagerOpen}
-        onClose={() => setIsCategoryManagerOpen(false)}
-      />
+      {categoryManagerMounted && (
+        <CategoryManagerSheet
+          isOpen={isCategoryManagerOpen}
+          onClose={() => setIsCategoryManagerOpen(false)}
+        />
+      )}
     </>
   );
 };

@@ -5,7 +5,6 @@ import {
   type RxCollection,
 } from 'rxdb';
 import { getRxStorageDexie } from 'rxdb/plugins/storage-dexie';
-import { RxDBDevModePlugin } from 'rxdb/plugins/dev-mode';
 import { RxDBMigrationSchemaPlugin } from 'rxdb/plugins/migration-schema';
 import { wrappedValidateAjvStorage } from 'rxdb/plugins/validate-ajv';
 import {
@@ -22,6 +21,7 @@ import {
   type FriendshipDocument,
   type MessageDocument,
 } from './schema';
+import { markStartup } from '../lib/startupMetrics';
 import {
   tasksMigrationStrategies,
   friendshipsMigrationStrategies,
@@ -29,11 +29,20 @@ import {
   categoriesMigrationStrategies,
   settingsMigrationStrategies,
 } from './migrations';
-if (import.meta.env.DEV) {
-  addRxPlugin(RxDBDevModePlugin);
-  console.log('[RxDB] Dev Mode Plugin enabled (v17)');
-}
 addRxPlugin(RxDBMigrationSchemaPlugin);
+
+let devModePluginPromise: Promise<void> | null = null;
+
+async function ensureDevModePlugin(): Promise<void> {
+  if (!import.meta.env.DEV) return;
+  devModePluginPromise ??= import('rxdb/plugins/dev-mode').then(
+    ({ RxDBDevModePlugin }) => {
+      addRxPlugin(RxDBDevModePlugin);
+      console.log('[RxDB] Dev Mode Plugin enabled (v17)');
+    }
+  );
+  await devModePluginPromise;
+}
 const DB_NAME = 'life_tracker_db';
 const DEBUG = import.meta.env.DEV;
 export interface AppDatabaseCollections {
@@ -51,6 +60,8 @@ async function createDatabaseInstance(): Promise<RxDatabase<AppDatabaseCollectio
   let database: RxDatabase<AppDatabaseCollections> | null = null;
   try {
     if (DEBUG) console.log('[RxDB] Initializing database:', DB_NAME);
+    await ensureDevModePlugin();
+    markStartup('database:create-start');
     database = await createRxDatabase<AppDatabaseCollections>({
       name: DB_NAME,
       storage: wrappedValidateAjvStorage({
@@ -60,7 +71,9 @@ async function createDatabaseInstance(): Promise<RxDatabase<AppDatabaseCollectio
       eventReduce: true,
       ignoreDuplicate: import.meta.env.DEV,
     });
+    markStartup('database:create-ready');
     if (DEBUG) console.log('[RxDB] Database created successfully');
+    markStartup('database:collections-start');
     await database.addCollections({
       tasks: {
         schema: tasksSchema,
@@ -84,6 +97,7 @@ async function createDatabaseInstance(): Promise<RxDatabase<AppDatabaseCollectio
         migrationStrategies: messagesMigrationStrategies,
       },
     });
+    markStartup('database:collections-ready');
     if (DEBUG) console.log('[RxDB] Collections added successfully');
     if (DEBUG) {
       const stats = await getDatabaseStats(database);

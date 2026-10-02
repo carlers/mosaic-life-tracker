@@ -14,6 +14,7 @@ export function useCategories(enabled = true) {
     sort: [{ order: 'asc' }],
     logPrefix: '[useCategories]',
     enabled,
+    startupMark: 'home:categories-ready',
   });
 
   const addCategory = useCallback(

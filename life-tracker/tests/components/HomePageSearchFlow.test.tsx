@@ -168,12 +168,12 @@ describe('HomePage task-search wiring', () => {
     expect(inertRegion).toHaveTextContent('Carousel');
   });
 
-  it('keeps Home search open when the selected task sheet closes', () => {
+  it('keeps Home search open when the selected task sheet closes', async () => {
     render(<HomePage />);
 
     fireEvent.click(screen.getByRole('button', { name: 'Open search' }));
     fireEvent.click(screen.getByRole('button', { name: 'Select search task' }));
-    expect(screen.getByTestId('search-day-view')).toBeInTheDocument();
+    expect(await screen.findByTestId('search-day-view')).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Close day view' }));
 
@@ -183,12 +183,12 @@ describe('HomePage task-search wiring', () => {
     expect(screen.getByRole('button', { name: 'Open search' })).toBeInTheDocument();
   });
 
-  it('opens Day View for the selected result without creating another data source', () => {
+  it('opens Day View for the selected result without creating another data source', async () => {
     render(<HomePage />);
 
     fireEvent.click(screen.getByRole('button', { name: 'Select search task' }));
 
-    const sheet = screen.getByTestId('search-day-view');
+    const sheet = await screen.findByTestId('search-day-view');
     expect(sheet).toHaveTextContent('2026-09-24');
     expect(sheet).toHaveTextContent('task_search');
     expect(sheet).toHaveTextContent('1');

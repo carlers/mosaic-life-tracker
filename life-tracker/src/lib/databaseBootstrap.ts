@@ -1,3 +1,5 @@
+import { markStartup } from './startupMetrics';
+
 export type DatabaseBootstrapState = 'idle' | 'loading' | 'ready' | 'error';
 
 export interface DatabaseBootstrapSnapshot {
@@ -28,8 +30,12 @@ export function startDatabaseBootstrap(): Promise<void> {
   if (bootstrapPromise) return bootstrapPromise;
 
   publish({ state: 'loading', error: null });
+  markStartup('database:import-start');
   bootstrapPromise = import('../db/database')
-    .then(({ initializeDatabaseWithRetry }) => initializeDatabaseWithRetry())
+    .then(({ initializeDatabaseWithRetry }) => {
+      markStartup('database:module-ready');
+      return initializeDatabaseWithRetry();
+    })
     .then(() => {
       publish({ state: 'ready', error: null });
     })
