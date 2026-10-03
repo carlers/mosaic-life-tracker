@@ -2,8 +2,8 @@
 
 Updated: 2026-10-03
 Current task: Audit and harden Mosaic sync against race conditions, account transitions, cross-tab queue loss, stale compatibility metadata, and safety-preflight false success.
-Status: Implementation and regression coverage are complete on `chatgpt/sync-engine-audit`. The branch now needs task-level verification; because this task accumulated multiple remote WIP commits before the final verification marker, run the exceptional full task gate rather than a focused diff that would only inspect the last commit.
-Next action: Run the full GitHub Quality Gate for this task tree, investigate/fix any failures, then squash the accepted task into a stable Preview branch created from `dev`. Wait for stable Preview canonical acceptance and Vercel Preview. Promotion to `dev` remains user-controlled.
+Status: Implementation, documentation, and regression coverage are complete on `chatgpt/sync-engine-audit`. The first full task gate exposed three lint issues; the second exposed three test-fixture issues caused by the new account-scope contract. Those failures were investigated and repaired. A new full task gate is requested by this checkpoint commit.
+Next action: Inspect the newly requested full GitHub Quality Gate. Fix any remaining failure, then squash the accepted task into a stable Preview branch created from `dev`. Wait for stable Preview canonical acceptance and Vercel Preview. Promotion to `dev` remains user-controlled.
 Blockers: None known.
 
 ## Results
@@ -21,7 +21,7 @@ Blockers: None known.
 
 ## Verification
 
-- Task-level full Quality Gate: requested by the final task marker commit.
+- Task-level full Quality Gate: rerun requested after fixing the lint and unit-fixture failures found by the first two full runs.
 - Stable Preview canonical acceptance: pending after task verification.
 - Vercel Preview: pending stable Preview delivery.
 - Manual/device acceptance: not required for this non-visual data-synchronization hardening batch; hosted smoke testing remains useful after Preview.
