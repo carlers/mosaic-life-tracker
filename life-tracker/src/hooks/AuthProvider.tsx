@@ -334,6 +334,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       const generation = ++authGenerationRef.current;
       setError(null);
       setIsLoading(true);
+      await suspendCurrentAccountWork();
       try {
         await callAccount(() =>
           account.create("unique()", email, password, name),
@@ -370,7 +371,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         return false;
       }
     },
-    [],
+    [suspendCurrentAccountWork],
   );
 
   const logout = useCallback(async (): Promise<boolean> => {
