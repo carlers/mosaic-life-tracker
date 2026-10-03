@@ -67,6 +67,7 @@ export function createPersistentOutbox<
 >(config: OutboxConfig<TPayload, TSendInput, TEntry>): PersistentOutbox<TPayload, TEntry> {
   const { storageKey, logPrefix, makeEntry, parseEntry, send, toSendInput, onDrop } = config;
   const entryPrefix = `${storageKey}:entry:`;
+  const knownEntryKeys = new Set<string>();
   const isFlushingUsers = new Set<string>();
   let sendOverride: ((entry: TEntry) => Promise<void>) | null = null;
 
@@ -84,24 +85,27 @@ export function createPersistentOutbox<
   }
 
   function listKeys(): string[] {
-    const keys: string[] = [];
+    const keys = new Set(knownEntryKeys);
     try {
-      for (let index = 0; index < localStorage.length; index += 1) {
-        const key = localStorage.key(index);
-        if (key?.startsWith(entryPrefix)) keys.push(key);
+      if (
+        typeof localStorage.length === 'number' &&
+        typeof localStorage.key === 'function'
+      ) {
+        for (let index = 0; index < localStorage.length; index += 1) {
+          const key = localStorage.key(index);
+          if (key?.startsWith(entryPrefix)) keys.add(key);
+        }
       }
     } catch {
-      return [];
     }
-    return keys;
+    return [...keys];
   }
 
   function writeEntry(entry: TEntry): void {
     try {
-      localStorage.setItem(
-        entryKey(entry.userId, entry.id),
-        JSON.stringify(entry)
-      );
+      const key = entryKey(entry.userId, entry.id);
+      localStorage.setItem(key, JSON.stringify(entry));
+      knownEntryKeys.add(key);
     } catch {
     }
   }
@@ -178,7 +182,9 @@ export function createPersistentOutbox<
   function removeEntryIfUnchanged(entry: TEntry): boolean {
     if (!storedEntryMatches(entry)) return false;
     try {
-      localStorage.removeItem(entryKey(entry.userId, entry.id));
+      const key = entryKey(entry.userId, entry.id);
+      localStorage.removeItem(key);
+      knownEntryKeys.delete(key);
       return true;
     } catch {
       return false;
@@ -332,7 +338,9 @@ export function createPersistentOutbox<
     migrateLegacyQueue();
     for (const entry of readEntries(userId)) {
       try {
-        localStorage.removeItem(entryKey(entry.userId, entry.id));
+        const key = entryKey(entry.userId, entry.id);
+        localStorage.removeItem(key);
+        knownEntryKeys.delete(key);
       } catch {
       }
     }
@@ -348,6 +356,7 @@ export function createPersistentOutbox<
 
   function resetForTests(): void {
     sendOverride = null;
+    knownEntryKeys.clear();
     isFlushingUsers.clear();
   }
 
