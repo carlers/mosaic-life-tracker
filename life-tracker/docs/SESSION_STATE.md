@@ -42,5 +42,5 @@ Branch from latest `dev` into `perf/build-size-audit`; comprehensively measure p
 - Baseline `dev` SHA `10bbf772`: canonical Quality Gate passed; Vercel deployment READY.
 - Intermediate optimized builds: TypeScript/build, unit/checks, DOM shards, and browser-contract shards have passed.
 - Dependency audit after lockfile ownership refresh: passed.
-- Final exact-SHA canonical acceptance: pending.
+- Final exact-SHA canonical acceptance: requested on the final task-branch candidate.
 - Stable `perf/build-size-audit` Preview verification: pending.
