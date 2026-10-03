@@ -95,7 +95,14 @@ export function trackReplicationFreshness(
       await waitForInitialReplicationOrCancel(replication);
     if (!initialCompleted) return;
 
-    await markReplicationFresh(userId, collection);
+    try {
+      await markReplicationFresh(userId, collection);
+    } catch (error) {
+      console.warn(
+        '[ReplicationLocalState] Failed to persist initial replication freshness:',
+        error
+      );
+    }
 
     let sawActive = false;
     let activeSubscription: Subscription | null = null;
