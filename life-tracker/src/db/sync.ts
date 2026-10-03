@@ -20,6 +20,7 @@ import {
   refreshCategoryReplicationPilot,
   resyncCategoryReplicationPilot,
   startCategoryReplicationPilot,
+  stopCategoryReplicationPilot,
 } from './categoryReplicationPilot';
 import {
   captureDiaryReplicationPushCheckpoint,
@@ -27,6 +28,7 @@ import {
   refreshDiaryReplicationPilot,
   resyncDiaryReplicationPilot,
   startDiaryReplicationPilot,
+  stopDiaryReplicationPilot,
 } from './diaryReplicationPilot';
 import {
   captureSettingsReplicationPushCheckpoint,
@@ -34,6 +36,7 @@ import {
   refreshSettingsReplicationPilot,
   resyncSettingsReplicationPilot,
   startSettingsReplicationPilot,
+  stopSettingsReplicationPilot,
 } from './settingsReplicationPilot';
 import {
   captureFriendshipReplicationPushCheckpoint,
@@ -41,6 +44,7 @@ import {
   refreshFriendshipReplicationPilot,
   resyncFriendshipReplicationPilot,
   startFriendshipReplicationPilot,
+  stopFriendshipReplicationPilot,
 } from './friendshipReplicationPilot';
 import {
   captureTaskReplicationPushCheckpoint,
@@ -48,6 +52,7 @@ import {
   refreshTaskReplicationPilot,
   resyncTaskReplicationPilot,
   startTaskReplicationPilot,
+  stopTaskReplicationPilot,
 } from './taskReplicationPilot';
 import {
   captureMessageReplicationPullCheckpoint,
@@ -56,8 +61,13 @@ import {
   refreshMessageReplicationPilot,
   resyncMessageReplicationPilot,
   startMessageReplicationPilot,
+  stopMessageReplicationPilot,
 } from './messageReplicationPilot';
 import { APPWRITE_DATABASE_ID, APPWRITE_TABLES } from '../lib/appwriteConfig';
+import {
+  captureAccountWorkGeneration,
+  isAccountWorkCurrent,
+} from '../lib/accountWorkScope';
 export { toAppwriteFormat, fromAppwriteFormat };
 export { getSyncStatus, subscribeToSyncStatus } from '../lib/syncStatus';
 const APPWRITE_CONFIG = {
@@ -344,7 +354,32 @@ let perCollectionSync: Partial<
   Record<CollectionName, PerCollectionSyncEntry>
 > = {};
 let perCollectionOwnerId: string | null = null;
-function updateSyncStatus(updates: Partial<SyncStatus>) {
+class SyncOwnerChangedError extends Error {
+  constructor() {
+    super('Account changed during sync.');
+    this.name = 'SyncOwnerChangedError';
+  }
+}
+
+function assertSyncOwnerCurrent(
+  userId: string,
+  generation: number
+): void {
+  if (!isAccountWorkCurrent(userId, generation)) {
+    throw new SyncOwnerChangedError();
+  }
+}
+
+function updateSyncStatus(
+  updates: Partial<SyncStatus>,
+  ownerGuard?: { userId: string; generation: number }
+) {
+  if (
+    ownerGuard &&
+    !isAccountWorkCurrent(ownerGuard.userId, ownerGuard.generation)
+  ) {
+    return getSyncStatus();
+  }
   const next = publishSyncStatus(updates);
   if (next.lastSync && perCollectionOwnerId) {
     try {
@@ -357,6 +392,7 @@ function updateSyncStatus(updates: Partial<SyncStatus>) {
     }
   }
   if (DEBUG) console.log('[Sync] Status:', next);
+  return next;
 }
 type AppwriteRow = Record<string, unknown>;
 interface CollectionSyncResult {
@@ -399,8 +435,19 @@ function clearBackoffWakeTimer(): void {
   backoffWakeUserId = null;
 }
 
-function scheduleBackoffWake(userId: string, wakeAt: number): void {
-  if (!userId || wakeAt <= Date.now()) return;
+function scheduleBackoffWake(
+  userId: string,
+  wakeAt: number,
+  generation = captureAccountWorkGeneration(userId)
+): void {
+  if (
+    !userId ||
+    generation === null ||
+    !isAccountWorkCurrent(userId, generation) ||
+    wakeAt <= Date.now()
+  ) {
+    return;
+  }
   if (backoffWakeUserId === userId && backoffWakeAt === wakeAt) return;
 
   clearBackoffWakeTimer();
@@ -410,6 +457,7 @@ function scheduleBackoffWake(userId: string, wakeAt: number): void {
     backoffWakeTimer = null;
     backoffWakeAt = 0;
     backoffWakeUserId = null;
+    if (!isAccountWorkCurrent(userId, generation)) return;
     void initializeSync(userId).catch((error) => {
       console.error('[Sync] Scheduled retry failed:', error);
     });
@@ -487,6 +535,33 @@ function resyncAllReplicationPilots(userId: string): void {
   resyncSettingsReplicationPilot(userId);
   resyncFriendshipReplicationPilot(userId);
   resyncMessageReplicationPilot(userId);
+}
+
+async function stopAllReplicationPilots(userId?: string): Promise<void> {
+  await Promise.allSettled([
+    stopTaskReplicationPilot(userId),
+    stopCategoryReplicationPilot(userId),
+    stopDiaryReplicationPilot(userId),
+    stopSettingsReplicationPilot(userId),
+    stopFriendshipReplicationPilot(userId),
+    stopMessageReplicationPilot(userId),
+  ]);
+}
+
+export async function suspendSyncOwner(userId?: string): Promise<void> {
+  clearBackoffWakeTimer();
+  if (!userId || backoffOwnerId === userId) {
+    backoffOwnerId = null;
+    rateLimitUntil = 0;
+    rateLimitBackoffMs = 0;
+    failureBackoffUntil = 0;
+    failureBackoffMs = 0;
+  }
+  if (!userId || queuedSyncUserId === userId) {
+    queuedSyncUserId = null;
+    syncRequestedDuringFlight = false;
+  }
+  await stopAllReplicationPilots(userId);
 }
 
 async function runBounded<T, R>(
