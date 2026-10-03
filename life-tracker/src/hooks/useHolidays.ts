@@ -20,12 +20,11 @@ export function useHolidaysByDate(
     [yearsKey]
   );
   const [holidays, setHolidays] = useState<HolidayOccurrence[]>([]);
+  const isEnabled =
+    config.enabled && !!config.countryCode && requestedYears.length > 0;
 
   useEffect(() => {
-    if (!config.enabled || !config.countryCode || requestedYears.length === 0) {
-      setHolidays([]);
-      return;
-    }
+    if (!isEnabled) return;
     let active = true;
     void import('../lib/holidayData')
       .then(async (data) => {
@@ -48,13 +47,13 @@ export function useHolidaysByDate(
     return () => {
       active = false;
     };
-  }, [config.countryCode, config.enabled, config.types, requestedYears]);
+  }, [config.countryCode, config.types, isEnabled, requestedYears]);
 
   return useMemo(
-    () => holidays.length > 0
+    () => isEnabled && holidays.length > 0
       ? groupHolidaysByDate(holidays)
       : EMPTY_HOLIDAYS_BY_DATE,
-    [holidays]
+    [holidays, isEnabled]
   );
 }
 
