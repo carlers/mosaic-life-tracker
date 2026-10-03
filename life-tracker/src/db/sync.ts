@@ -1143,7 +1143,10 @@ async function runSyncCycleBody(
           );
         }
       } catch (colError) {
-        if (colError instanceof SyncOwnerChangedError) return;
+        if (colError instanceof SyncOwnerChangedError) {
+          await stopAllReplicationPilots(userId);
+          return;
+        }
         const message =
           colError instanceof Error
             ? colError.message
@@ -1223,7 +1226,9 @@ async function runSyncCycleBody(
         console.warn('[Sync] ⚠️ Sync completed with errors:', collectionErrors);
     }
   } catch (error) {
-    if (!(error instanceof SyncOwnerChangedError)) {
+    if (error instanceof SyncOwnerChangedError) {
+      await stopAllReplicationPilots(userId);
+    } else {
       console.error('[Sync] ❌ Sync failed', error);
       updateSyncStatus(
         {
