@@ -625,11 +625,15 @@ export async function refreshSync(
   userId: string,
   timeoutMs = SYNC_COORDINATOR_IDLE_TIMEOUT_MS
 ): Promise<FreshSyncResult> {
+  const generation = captureAccountWorkGeneration(userId);
+  if (generation === null) {
+    throw new Error('Fresh sync requires the currently authenticated account.');
+  }
+
   const deadline = Date.now() + timeoutMs;
   await waitForSyncCoordinatorIdle(timeoutMs);
+  assertSyncOwnerCurrent(userId, generation);
   const startedAt = Date.now();
-  await initializeSync(userId);
-  updateSyncStatus({ isSyncing: true, errors: [] });
 
   const remaining = () => {
     const value = deadline - Date.now();
@@ -642,30 +646,80 @@ export async function refreshSync(
   };
 
   try {
-    await refreshCategoryReplicationPilot(userId, remaining());
-    await refreshDiaryReplicationPilot(userId, remaining());
-    await refreshSettingsReplicationPilot(userId, remaining());
-    await refreshFriendshipReplicationPilot(userId, remaining());
-    await refreshTaskReplicationPilot(userId, remaining());
-    await refreshMessageReplicationPilot(userId, remaining());
+    await initializeSync(userId, { deadline });
+    assertSyncOwnerCurrent(userId, generation);
+
+    const bootstrapErrors = getSyncStatus().errors;
+    if (bootstrapErrors.length > 0) {
+      throw new Error(
+        'Fresh sync bootstrap failed: ' + bootstrapErrors.join('; ')
+      );
+    }
+    if (!allReplicationPilotsActive(userId)) {
+      throw new Error(
+        'Fresh sync could not activate every replication collection.'
+      );
+    }
+
+    updateSyncStatus(
+      { isSyncing: true },
+      { userId, generation }
+    );
+
+    const refreshes: Array<
+      [string, (timeout: number) => Promise<boolean>]
+    > = [
+      [
+        'category',
+        (timeout) => refreshCategoryReplicationPilot(userId, timeout),
+      ],
+      ['diary', (timeout) => refreshDiaryReplicationPilot(userId, timeout)],
+      [
+        'settings',
+        (timeout) => refreshSettingsReplicationPilot(userId, timeout),
+      ],
+      [
+        'friendship',
+        (timeout) => refreshFriendshipReplicationPilot(userId, timeout),
+      ],
+      ['task', (timeout) => refreshTaskReplicationPilot(userId, timeout)],
+      ['message', (timeout) => refreshMessageReplicationPilot(userId, timeout)],
+    ];
+
+    for (const [name, refresh] of refreshes) {
+      assertSyncOwnerCurrent(userId, generation);
+      const refreshed = await refresh(remaining());
+      if (!refreshed) {
+        throw new Error(
+          'Fresh ' + name + ' sync is not active for the current account.'
+        );
+      }
+    }
+
+    assertSyncOwnerCurrent(userId, generation);
+    const completedAt = new Date().toISOString();
+    updateSyncStatus(
+      {
+        isSyncing: false,
+        lastSync: completedAt,
+        errors: [],
+      },
+      { userId, generation }
+    );
+    markOfflineDataReady(userId, completedAt);
+    return { status: getSyncStatus(), startedAt };
   } catch (error) {
     const message =
       error instanceof Error ? error.message : 'Fresh RxDB sync failed';
-    updateSyncStatus({
-      isSyncing: false,
-      errors: [...getSyncStatus().errors, message],
-    });
+    updateSyncStatus(
+      {
+        isSyncing: false,
+        errors: [...getSyncStatus().errors, message],
+      },
+      { userId, generation }
+    );
     throw error;
   }
-
-  const completedAt = new Date().toISOString();
-  updateSyncStatus({
-    isSyncing: false,
-    lastSync: completedAt,
-    errors: [],
-  });
-  markOfflineDataReady(userId, completedAt);
-  return { status: getSyncStatus(), startedAt };
 }
 
 /**
@@ -729,16 +783,21 @@ async function resolvePendingImageForPush(
   await deletePendingImage(pendingId, userId);
   return { ...json, [field]: remoteFileId };
 }
-export async function initializeSync(userId: string): Promise<void> {
+export async function initializeSync(
+  userId: string,
+  options: { deadline?: number } = {}
+): Promise<void> {
   if (!userId) return;
+  const generation = captureAccountWorkGeneration(userId);
+  if (generation === null) return;
 
-  // Once every collection has handed off in this JavaScript session, the
-  // custom engine is no longer part of steady-state sync. Focus/reconnect
-  // triggers go straight to the six RxDB replication states.
   if (allReplicationPilotsActive(userId)) {
-    resyncAllReplicationPilots(userId);
+    if (isAccountWorkCurrent(userId, generation)) {
+      resyncAllReplicationPilots(userId);
+    }
     return;
   }
+
   if (backoffOwnerId !== userId) {
     backoffOwnerId = userId;
     rateLimitUntil = 0;
@@ -747,48 +806,62 @@ export async function initializeSync(userId: string): Promise<void> {
     failureBackoffMs = 0;
     clearBackoffWakeTimer();
   }
-  // Same-tab reentry: if a cycle is queued (awaiting or holding the lock)
-  // or running, coalesce into a single follow-up run rather than queueing
-  // a second full cycle. The cross-tab lock below serializes cycles
-  // across tabs; this guard only governs intra-tab coalescing.
+
   if (isSyncInProgress || isSyncCycleQueued) {
-    if (DEBUG)
+    if (DEBUG) {
       console.log(
         '[Sync] initializeSync requested while in-flight; queueing follow-up'
       );
+    }
     syncRequestedDuringFlight = true;
     queuedSyncUserId = userId;
     return;
   }
+
   if (Date.now() < rateLimitUntil) {
     if (DEBUG) {
       console.log(
-        `[Sync] Skipping: rate-limit backoff until ${new Date(
-          rateLimitUntil
-        ).toISOString()}`
+        '[Sync] Skipping: rate-limit backoff until ' +
+          new Date(rateLimitUntil).toISOString()
       );
     }
-    scheduleBackoffWake(userId, rateLimitUntil);
-    updateSyncStatus({ isSyncing: false });
+    scheduleBackoffWake(userId, rateLimitUntil, generation);
+    updateSyncStatus(
+      { isSyncing: false },
+      { userId, generation }
+    );
     return;
   }
+
   if (Date.now() < failureBackoffUntil) {
     if (DEBUG) {
       console.log(
-        `[Sync] Skipping: failure backoff until ${new Date(
-          failureBackoffUntil
-        ).toISOString()}`
+        '[Sync] Skipping: failure backoff until ' +
+          new Date(failureBackoffUntil).toISOString()
       );
     }
-    scheduleBackoffWake(userId, failureBackoffUntil);
-    updateSyncStatus({ isSyncing: false });
+    scheduleBackoffWake(userId, failureBackoffUntil, generation);
+    updateSyncStatus(
+      { isSyncing: false },
+      { userId, generation }
+    );
     return;
   }
+
   if (getConnectivitySnapshot().status !== 'online') {
     if (DEBUG) console.log('[Sync] Reachability not confirmed, skipping sync');
-    updateSyncStatus({ isSyncing: false });
+    updateSyncStatus(
+      { isSyncing: false },
+      { userId, generation }
+    );
     return;
   }
+
+  const runCycle = async () => {
+    if (!isAccountWorkCurrent(userId, generation)) return;
+    await runSyncCycleBody(userId, generation);
+  };
+
   isSyncCycleQueued = true;
   try {
     if (
@@ -796,20 +869,42 @@ export async function initializeSync(userId: string): Promise<void> {
       navigator.locks &&
       typeof navigator.locks.request === 'function'
     ) {
+      let abortController: AbortController | null = null;
+      let abortTimer: ReturnType<typeof setTimeout> | null = null;
       try {
-        await navigator.locks.request(WEB_LOCKS_NAME, () => runSyncCycleBody(userId));
+        if (options.deadline !== undefined) {
+          const lockWaitMs = options.deadline - Date.now();
+          if (lockWaitMs <= 0) {
+            throw new Error(
+              'Mosaic fresh sync timed out while waiting for the sync lock.'
+            );
+          }
+          abortController = new AbortController();
+          abortTimer = globalThis.setTimeout(
+            () => abortController?.abort(),
+            lockWaitMs
+          );
+          await navigator.locks.request(
+            WEB_LOCKS_NAME,
+            { signal: abortController.signal },
+            runCycle
+          );
+        } else {
+          await navigator.locks.request(WEB_LOCKS_NAME, runCycle);
+        }
       } catch (lockErr) {
-        // Web Locks API exists but the request failed for some reason.
-        // Fall back to running the cycle without the cross-tab mutex so
-        // the user still gets a sync. Log and continue.
-        console.warn(
-          '[Sync] Web Locks request failed; running without cross-tab mutex:',
-          lockErr
-        );
-        await runSyncCycleBody(userId);
+        if (abortController?.signal.aborted) {
+          throw new Error(
+            'Mosaic fresh sync timed out while waiting for another Mosaic tab.'
+          );
+        }
+        console.warn('[Sync] Web Locks request failed:', lockErr);
+        throw lockErr;
+      } finally {
+        if (abortTimer !== null) clearTimeout(abortTimer);
       }
     } else {
-      await runSyncCycleBody(userId);
+      await runCycle();
     }
   } finally {
     isSyncCycleQueued = false;
