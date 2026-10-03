@@ -4,6 +4,7 @@ import { WeekView } from './WeekView';
 import type { TaskDocument } from '../../../db/schema';
 import type { CalendarViewMode } from './useCalendarState';
 import type { WeekStartsOn } from '../../../lib/preferences';
+import type { HolidayOccurrence } from '../../../lib/holidays';
 
 interface CalendarSlideProps {
   date: Date;
@@ -12,6 +13,7 @@ interface CalendarSlideProps {
   tasksByDate: Map<string, TaskDocument[]>;
   categoriesMap: Record<string, { color: string; name: string }>;
   weekStartsOn?: WeekStartsOn;
+  holidaysByDate?: ReadonlyMap<string, readonly HolidayOccurrence[]>;
 }
 
 const CalendarSlideComponent: React.FC<CalendarSlideProps> = ({
@@ -21,6 +23,7 @@ const CalendarSlideComponent: React.FC<CalendarSlideProps> = ({
   tasksByDate,
   categoriesMap,
   weekStartsOn = 0,
+  holidaysByDate,
 }) => {
   if (viewMode === 'month') {
     return (
@@ -30,6 +33,7 @@ const CalendarSlideComponent: React.FC<CalendarSlideProps> = ({
         tasksByDate={tasksByDate}
         categoriesMap={categoriesMap}
         weekStartsOn={weekStartsOn}
+        holidaysByDate={holidaysByDate}
       />
     );
   }

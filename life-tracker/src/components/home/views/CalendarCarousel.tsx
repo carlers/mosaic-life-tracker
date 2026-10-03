@@ -3,6 +3,7 @@ import { CalendarSlide } from './CalendarSlide';
 import type { TaskDocument } from '../../../db/schema';
 import type { CalendarViewMode } from './useCalendarState';
 import type { WeekStartsOn } from '../../../lib/preferences';
+import type { HolidayOccurrence } from '../../../lib/holidays';
 
 interface CalendarCarouselProps {
   slides: Date[];
@@ -14,6 +15,7 @@ interface CalendarCarouselProps {
   tasksByDate: Map<string, TaskDocument[]>;
   categoriesMap: Record<string, { color: string; name: string }>;
   weekStartsOn?: WeekStartsOn;
+  holidaysByDate?: ReadonlyMap<string, readonly HolidayOccurrence[]>;
 }
 
 const CalendarCarouselComponent: React.FC<CalendarCarouselProps> = ({
@@ -26,6 +28,7 @@ const CalendarCarouselComponent: React.FC<CalendarCarouselProps> = ({
   tasksByDate,
   categoriesMap,
   weekStartsOn = 0,
+  holidaysByDate,
 }) => {
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden py-2">
@@ -58,6 +61,7 @@ const CalendarCarouselComponent: React.FC<CalendarCarouselProps> = ({
                     tasksByDate={tasksByDate}
                     categoriesMap={categoriesMap}
                     weekStartsOn={weekStartsOn}
+                    holidaysByDate={holidaysByDate}
                   />
                 )}
               </div>
