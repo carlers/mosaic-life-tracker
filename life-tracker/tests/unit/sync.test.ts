@@ -750,7 +750,7 @@ describe('sync — category RxDB replication pilot handoff', () => {
     expect(categoryPilotStartMock).not.toHaveBeenCalled();
     expect(syncModule.getSyncStatus().errors).toEqual(
       expect.arrayContaining([
-        expect.stringContaining('categories: 1 push/reconciliation failure'),
+        expect.stringContaining('categories: push/reconciliation: 1 failed (server error 500)'),
       ])
     );
   });
@@ -869,7 +869,7 @@ describe('sync — settings RxDB replication pilot handoff', () => {
     expect(settingsPilotStartMock).not.toHaveBeenCalled();
     expect(syncModule.getSyncStatus().errors).toEqual(
       expect.arrayContaining([
-        expect.stringContaining('settings: 1 push/reconciliation failure'),
+        expect.stringContaining('settings: push/reconciliation: 1 failed (server error 500)'),
       ])
     );
   });
@@ -1237,6 +1237,120 @@ describe('sync — manual freshness and retry wake-up', () => {
   });
 });
 
+// Regression: §18 (compatibility bootstrap push resume and rate-limit stop).
+describe('sync — compatibility bootstrap push resume', () => {
+  it('stops scheduling after the first 429 and does not replay successful row revisions after reload', async () => {
+    const docs = Array.from({ length: 12 }, (_, index) =>
+      makeLocalDocWithLwt(`resume_${index}`, 10_000 + index)
+    );
+    getDatabaseMock.mockReturnValue(
+      makeTaskOnlyDb({
+        findOne: () => ({ exec: async () => null }),
+        find: () => ({ exec: async () => docs }),
+        upsert: vi.fn().mockResolvedValue(undefined),
+      })
+    );
+
+    const firstAttempts: string[] = [];
+    updateRowMock.mockImplementation(async ({ rowId }: { rowId: string }) => {
+      firstAttempts.push(rowId);
+      if (rowId === 'resume_0') {
+        throw Object.assign(new Error('rate limit'), { code: 429 });
+      }
+      return {};
+    });
+
+    await syncModule.initializeSync('user_A');
+
+    expect(firstAttempts).toContain('resume_0');
+    expect(firstAttempts.length).toBeLessThanOrEqual(4);
+    const successfulFirstAttempts = firstAttempts.filter(
+      (rowId) => rowId !== 'resume_0'
+    );
+    expect(successfulFirstAttempts.length).toBeGreaterThan(0);
+    expect(syncModule.getSyncStatus().errors).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining('tasks: push/reconciliation: 1 failed'),
+        expect.stringContaining('rate limited'),
+        expect.stringContaining('deferred'),
+      ])
+    );
+
+    syncModule.__resetSyncRuntimeForTests();
+    vi.resetModules();
+    syncModule = await import('../../src/db/sync');
+
+    const retryAttempts: string[] = [];
+    updateRowMock.mockImplementation(async ({ rowId }: { rowId: string }) => {
+      retryAttempts.push(rowId);
+      return {};
+    });
+
+    await syncModule.initializeSync('user_A');
+
+    for (const rowId of successfulFirstAttempts) {
+      expect(retryAttempts).not.toContain(rowId);
+    }
+    expect(retryAttempts).toContain('resume_0');
+    expect(new Set([...firstAttempts, ...retryAttempts]).size).toBe(12);
+    expect(taskPilotStartMock).toHaveBeenCalled();
+    expect(syncModule.getSyncStatus().errors).toEqual([]);
+  });
+  it('lets a newer remote row replace an acknowledged local revision before handoff', async () => {
+    const acknowledged = makeLocalDocWithLwt('ack_remote_newer', 20_001);
+    const failed = makeLocalDocWithLwt('still_pending', 20_002);
+    const upsert = vi.fn().mockResolvedValue(undefined);
+    const collection = {
+      findOne: (id: string) => ({
+        exec: async () =>
+          id === acknowledged.id
+            ? acknowledged
+            : id === failed.id
+              ? failed
+              : null,
+      }),
+      find: () => ({ exec: async () => [acknowledged, failed] }),
+      upsert,
+    };
+    getDatabaseMock.mockReturnValue(makeTaskOnlyDb(collection));
+
+    updateRowMock.mockImplementation(async ({ rowId }: { rowId: string }) => {
+      if (rowId === failed.id) {
+        throw Object.assign(new Error('server boom'), { code: 500 });
+      }
+      return {};
+    });
+
+    await syncModule.initializeSync('user_A');
+
+    syncModule.__resetSyncRuntimeForTests();
+    vi.resetModules();
+    syncModule = await import('../../src/db/sync');
+
+    const remoteNewer = makeRemoteTaskRow(
+      acknowledged.id,
+      '2026-10-03T00:00:00.000Z'
+    );
+    listRowsMock.mockImplementation(
+      async ({ tableId }: { tableId: string }) =>
+        tableId === 'tasks' ? { rows: [remoteNewer] } : { rows: [] }
+    );
+    const retryAttempts: string[] = [];
+    updateRowMock.mockImplementation(async ({ rowId }: { rowId: string }) => {
+      retryAttempts.push(rowId);
+      return {};
+    });
+
+    await syncModule.initializeSync('user_A');
+
+    expect(upsert).toHaveBeenCalledWith(
+      expect.objectContaining({ id: acknowledged.id })
+    );
+    expect(retryAttempts).not.toContain(acknowledged.id);
+    expect(retryAttempts).toContain(failed.id);
+  });
+});
+
 describe('sync — boundary advancement', () => {
   it('after a successful cycle, dirty boundary equals cycle-start, not cycle-end', async () => {
     const observedFirstListRowsAt = { value: 0 };
@@ -1342,7 +1456,7 @@ describe('sync — boundary advancement', () => {
     expect(syncModule.getSyncStatus().lastSync).toBeNull();
     expect(syncModule.getSyncStatus().errors).toEqual(
       expect.arrayContaining([
-        expect.stringContaining('tasks: 1 push/reconciliation failure'),
+        expect.stringContaining('tasks: push/reconciliation: 1 failed (server error 500)'),
       ])
     );
   });
