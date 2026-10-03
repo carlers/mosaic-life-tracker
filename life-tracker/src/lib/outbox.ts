@@ -216,7 +216,7 @@ export function createPersistentOutbox<
       console.warn(
         `${logPrefix} Dropping oldest entry ${entry.id} (action=${entry.action}, attempts=${entry.attempts}) — per-user queue cap ${MAX_ENTRIES_PER_USER} reached`
       );
-      dropEntry(entry);
+      removeEntryIfUnchanged(entry);
     }
   }
 
