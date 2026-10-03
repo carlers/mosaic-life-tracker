@@ -24,6 +24,8 @@ import {
   APPWRITE_TABLES,
 } from '../lib/appwriteConfig';
 import { awaitPilotReplicationFreshness } from './replicationFreshness';
+import { getReplicationIdentifier } from './replicationIds';
+import { markReplicationFresh } from './replicationLocalState';
 
 const PULL_BATCH_SIZE = 100;
 const PUSH_BATCH_SIZE = 20;
@@ -405,7 +407,7 @@ async function startDiaryReplicationPilotNow(
     DiaryReplicationCheckpoint
   >({
     replicationIdentifier:
-      `mosaic-appwrite-tablesdb-diary-v1:${userId}`,
+      getReplicationIdentifier('diary', userId),
     collection,
     live: true,
     retryTime: RETRY_TIME_MS,
@@ -414,8 +416,13 @@ async function startDiaryReplicationPilotNow(
     pull: {
       batchSize: PULL_BATCH_SIZE,
       stream$: pullStream.asObservable(),
-      handler: (checkpoint, batchSize) =>
-        pullDiary(userId, checkpoint, batchSize),
+      handler: async (checkpoint, batchSize) => {
+        const result = await pullDiary(userId, checkpoint, batchSize);
+        if (result.documents.length < batchSize) {
+          await markReplicationFresh(userId, 'diary');
+        }
+        return result;
+      },
     },
     push: {
       batchSize: PUSH_BATCH_SIZE,
