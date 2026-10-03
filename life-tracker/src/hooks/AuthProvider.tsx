@@ -23,6 +23,7 @@ import {
 } from "../lib/connectivity";
 import { useConnectivity } from "./useConnectivity";
 import { preloadHomePage } from "../lib/homePreload";
+import { scopeAccountWork } from "../lib/accountWorkScope";
 
 const AUTH_BROADCAST_KEY = "mosaic_auth_broadcast";
 const LAST_KNOWN_USER_KEY = "mosaic_last_known_user";
@@ -118,6 +119,20 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   }, [userId]);
 
   useEffect(() => {
+    scopeAccountWork(userId);
+    if (!userId) return;
+
+    return () => {
+      scopeAccountWork(null);
+      void import("../db/sync")
+        .then(({ suspendSyncOwner }) => suspendSyncOwner(userId))
+        .catch((syncError) => {
+          console.warn("[AuthProvider] Sync owner teardown failed:", syncError);
+        });
+    };
+  }, [userId]);
+
+  useEffect(() => {
     syncPostHogIdentity(userId);
   }, [userId]);
 
@@ -166,6 +181,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       if (!isMountedRef.current || generation !== authGenerationRef.current) {
         return;
       }
+      scopeAccountWork(resolved.$id);
       writeCachedUser(resolved);
       setUser(resolved);
       setError(null);
@@ -178,6 +194,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         // session has gone away. Invalidate every older auth operation before
         // publishing the signed-out state.
         authGenerationRef.current += 1;
+        scopeAccountWork(null);
         clearCachedUser();
         setUser(null);
         setError(
@@ -224,6 +241,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       try {
         const parsed = JSON.parse(event.newValue) as AuthBroadcast;
         authGenerationRef.current += 1;
+        scopeAccountWork(null);
         if (parsed.type === "logout") {
           clearCachedUser();
           setUser(null);
@@ -258,11 +276,23 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       window.removeEventListener(AUTH_UNAUTHORIZED_EVENT, handleUnauthorized);
   }, [verifyLiveSession]);
 
+  const suspendCurrentAccountWork = useCallback(async (): Promise<void> => {
+    scopeAccountWork(null);
+    if (!userId) return;
+    try {
+      const { suspendSyncOwner } = await import("../db/sync");
+      await suspendSyncOwner(userId);
+    } catch (syncError) {
+      console.warn("[AuthProvider] Sync suspension failed:", syncError);
+    }
+  }, [userId]);
+
   const login = useCallback(
     async (email: string, password: string): Promise<boolean> => {
       const generation = ++authGenerationRef.current;
       setError(null);
       setIsLoading(true);
+      await suspendCurrentAccountWork();
       try {
         try {
           await callAccount(() => account.deleteSession("current"));
@@ -277,6 +307,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         if (!isMountedRef.current || generation !== authGenerationRef.current) {
           return false;
         }
+        scopeAccountWork(resolved.$id);
+        scopeAccountWork(resolved.$id);
         writeCachedUser(resolved);
         setUser(resolved);
         setError(null);
@@ -291,10 +323,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           loginError instanceof Error ? loginError.message : "Login failed";
         setError(message);
         setIsLoading(false);
+        void verifyLiveSession(true);
         return false;
       }
     },
-    [],
+    [suspendCurrentAccountWork, verifyLiveSession],
   );
 
   const signup = useCallback(
@@ -344,11 +377,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     const generation = ++authGenerationRef.current;
     setError(null);
     setIsLoading(true);
+    await suspendCurrentAccountWork();
     try {
       await callAccount(() => account.deleteSession("current"));
       if (!isMountedRef.current || generation !== authGenerationRef.current) {
         return false;
       }
+      scopeAccountWork(null);
       clearCachedUser();
       setUser(null);
       setIsLoading(false);
@@ -362,9 +397,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         logoutError instanceof Error ? logoutError.message : "Logout failed";
       setError(message);
       setIsLoading(false);
+      void verifyLiveSession(true);
       return false;
     }
-  }, []);
+  }, [suspendCurrentAccountWork, verifyLiveSession]);
 
   const updateEmail = useCallback(
     async (newEmail: string, password: string): Promise<boolean> => {
