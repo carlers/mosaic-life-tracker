@@ -381,10 +381,11 @@ function updateSyncStatus(
     return getSyncStatus();
   }
   const next = publishSyncStatus(updates);
-  if (next.lastSync && perCollectionOwnerId) {
+  const persistenceOwnerId = ownerGuard?.userId ?? perCollectionOwnerId;
+  if (next.lastSync && persistenceOwnerId) {
     try {
       localStorage.setItem(
-        `lastSyncTime_${perCollectionOwnerId}`,
+        `lastSyncTime_${persistenceOwnerId}`,
         next.lastSync
       );
     } catch {
