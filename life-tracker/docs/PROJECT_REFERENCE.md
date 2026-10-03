@@ -476,7 +476,7 @@ Function ID lives in `src/lib/messageDelivery.ts` as `MESSAGE_ACTION_FUNCTION_ID
 2. `deliverPendingMessages(userId)` scans for pending outgoing rows
 3. Each is sent to `message-action` with `action: 'deliver'`
 4. On success: local row patched to `deliveryStatus: 'delivered'`
-5. Re-entrancy guarded by module-level `isDeliveryInProgress`; outer loop capped at 5 iterations (§18)
+5. Re-entrancy is scoped by the authenticated owner generation; same-owner triggers coalesce, a newer owner waits for the previous generation to retire, and the outer loop remains capped at 5 iterations (§18)
 6. Triggered on `AppLayout` mount, `window.focus`, `window.online`, and after every send
 7. Each trigger also best-effort flushes the `messageActionQueue` (§20.5)
 
@@ -661,7 +661,7 @@ Lifecycle per hook test file: `beforeEach` → `dbRef.current = await createTest
 - Hook → `tests/react/<hookName>.test.tsx` with the §24.6 mock pattern (skip `testDb.ts` entirely if the hook has no RxDB dependency)
 - Component → `tests/components/<ComponentName>.test.tsx` (happy-dom + `@testing-library/react`). Mock `react-router-dom`'s `useNavigate` for navigating components; mock `../../src/lib/storage` for image-rendering components. Prefer asserting on rendered text/labels and firing user events over asserting on internal state.
 - Provider → `tests/react/<ProviderName>.test.tsx`. Render a consumer hook via a `wrapper` component mounting the provider. For providers consuming `useAuth`/`useFriends`, mock those dependencies at module level with `vi.hoisted` refs so the test can drive user/friendship state. See `ConversationsProvider.test.tsx` and `FriendsProvider.test.tsx`.
-- Sync engine → `tests/unit/sync.test.ts`. The module has module-level state; each test uses `vi.resetModules()` in `beforeEach` followed by a dynamic `await import('../../src/db/sync')`. `guardedTablesDB` and `guardedAccount` are mocked with `vi.hoisted` spies. Per-collection state assertions read `localStorageMock.getItem('lastSyncTimePerCollection')`.
+- Sync engine → `tests/unit/sync.test.ts`. The module has module-level state; each test uses `vi.resetModules()` in `beforeEach`, establishes the active account work scope, then dynamically imports `../../src/db/sync`. `guardedTablesDB` and `guardedAccount` are mocked with `vi.hoisted` spies. Compatibility-state assertions read the account-scoped `lastSyncTimePerCollection_<userId>` key; tests that intentionally exercise migration seed the legacy unsuffixed key explicitly.
 
 ### 24.8 Regression comments
 Use a regression comment when a durable requirement pointer materially helps future
