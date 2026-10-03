@@ -294,6 +294,8 @@ jobs:
         run: npm ci --prefer-offline --no-audit
       - name: Build production app
         run: npm run build
+      - name: Audit production bundle
+        run: node scripts/audit-bundle.mjs
 
   browser_contract:
     name: browser-contract (${{ matrix.shard }})
