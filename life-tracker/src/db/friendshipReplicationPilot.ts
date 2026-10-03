@@ -26,7 +26,7 @@ import {
 import { clearCachedCalendar } from '../lib/friendCache';
 import { awaitPilotReplicationFreshness } from './replicationFreshness';
 import { getReplicationIdentifier } from './replicationIds';
-import { markReplicationFresh } from './replicationLocalState';
+import { trackReplicationFreshness } from './replicationLocalState';
 
 const PULL_BATCH_SIZE = 100;
 const PUSH_BATCH_SIZE = 20;
@@ -521,13 +521,8 @@ async function startFriendshipReplicationPilotNow(
     pull: {
       batchSize: PULL_BATCH_SIZE,
       stream$: pullStream.asObservable(),
-      handler: async (checkpoint, batchSize) => {
-        const result = await pullFriendships(userId, checkpoint, batchSize);
-        if (result.documents.length < batchSize) {
-          await markReplicationFresh(userId, 'friendships');
-        }
-        return result;
-      },
+      handler: (checkpoint, batchSize) =>
+        pullFriendships(userId, checkpoint, batchSize),
     },
     push: {
       batchSize: PUSH_BATCH_SIZE,
@@ -538,6 +533,7 @@ async function startFriendshipReplicationPilotNow(
 
   activeOwnerId = userId;
   activeReplication = replication;
+  trackReplicationFreshness(replication, userId, 'friendships');
   activeCollection = collection;
   activePullStream = pullStream;
   realtimeUnsubscribe = subscribeToFriendshipRealtime(
