@@ -33,6 +33,8 @@ import {
 } from '../lib/pendingImages';
 import { updateProfileAvatar } from '../lib/social';
 import { awaitPilotReplicationFreshness } from './replicationFreshness';
+import { getReplicationIdentifier } from './replicationIds';
+import { markReplicationFresh } from './replicationLocalState';
 
 const PULL_BATCH_SIZE = 100;
 const PUSH_BATCH_SIZE = 20;
@@ -550,7 +552,7 @@ async function startSettingsReplicationPilotNow(
     SettingsReplicationCheckpoint
   >({
     replicationIdentifier:
-      `mosaic-appwrite-tablesdb-settings-v1:${userId}`,
+      getReplicationIdentifier('settings', userId),
     collection,
     live: true,
     retryTime: RETRY_TIME_MS,
@@ -559,8 +561,13 @@ async function startSettingsReplicationPilotNow(
     pull: {
       batchSize: PULL_BATCH_SIZE,
       stream$: pullStream.asObservable(),
-      handler: (checkpoint, batchSize) =>
-        pullSettings(userId, checkpoint, batchSize),
+      handler: async (checkpoint, batchSize) => {
+        const result = await pullSettings(userId, checkpoint, batchSize);
+        if (result.documents.length < batchSize) {
+          await markReplicationFresh(userId, 'settings');
+        }
+        return result;
+      },
     },
     push: {
       batchSize: PUSH_BATCH_SIZE,
