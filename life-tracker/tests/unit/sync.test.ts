@@ -295,7 +295,15 @@ function makeMessageRow(id: string) {
   };
 }
 
-function oldFreshness() {
+function oldFreshness(
+  collection:
+    | 'tasks'
+    | 'categories'
+    | 'diary'
+    | 'settings'
+    | 'friendships'
+    | 'messages' = 'tasks'
+) {
   return {
     lastFreshAt: new Date(
       Date.now() -
@@ -305,7 +313,8 @@ function oldFreshness() {
           60 *
           1000
     ).toISOString(),
-    replicationIdentifier: 'old',
+    replicationIdentifier:
+      `mosaic-appwrite-tablesdb-${collection}-v1:user_A`,
   };
 }
 
@@ -644,6 +653,25 @@ describe('sync — stale-client recovery', () => {
     expect(createRowMock).not.toHaveBeenCalled();
   });
 
+  it('does not trust freshness from a different replication identifier', async () => {
+    getReplicationFreshnessMock.mockResolvedValue({
+      lastFreshAt: new Date(
+        Date.now() -
+          (syncModule.TOMBSTONE_RETENTION_DAYS + 1) *
+            24 *
+            60 *
+            60 *
+            1000
+      ).toISOString(),
+      replicationIdentifier: 'mosaic-appwrite-tablesdb-tasks-v0:user_A',
+    });
+
+    await syncModule.initializeSync('user_A');
+
+    expect(listRowsMock).not.toHaveBeenCalled();
+    expect(taskPilotStartMock).toHaveBeenCalled();
+  });
+
   it('does not run legacy recovery for a recent legacy cursor', async () => {
     const recent = new Date().toISOString();
     localStorageMock.setItem(
@@ -711,7 +739,7 @@ describe('sync — stale-client recovery', () => {
   });
 
   it('preserves a pending outgoing message missing after stale recovery', async () => {
-    const freshness = oldFreshness();
+    const freshness = oldFreshness('messages');
     getReplicationFreshnessMock.mockImplementation(
       async (_userId: string, collection: string) =>
         collection === 'messages' ? freshness : null
