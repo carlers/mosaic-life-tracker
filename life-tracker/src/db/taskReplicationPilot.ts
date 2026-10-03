@@ -29,6 +29,8 @@ import {
   isPendingImageId,
 } from '../lib/pendingImages';
 import { awaitPilotReplicationFreshness } from './replicationFreshness';
+import { getReplicationIdentifier } from './replicationIds';
+import { markReplicationFresh } from './replicationLocalState';
 
 const PULL_BATCH_SIZE = 100;
 const PUSH_BATCH_SIZE = 20;
@@ -563,7 +565,7 @@ async function startTaskReplicationPilotNow(
     TaskReplicationCheckpoint
   >({
     replicationIdentifier:
-      `mosaic-appwrite-tablesdb-tasks-v1:${userId}`,
+      getReplicationIdentifier('tasks', userId),
     collection,
     live: true,
     retryTime: RETRY_TIME_MS,
@@ -572,8 +574,13 @@ async function startTaskReplicationPilotNow(
     pull: {
       batchSize: PULL_BATCH_SIZE,
       stream$: pullStream.asObservable(),
-      handler: (checkpoint, batchSize) =>
-        pullTasks(userId, checkpoint, batchSize),
+      handler: async (checkpoint, batchSize) => {
+        const result = await pullTasks(userId, checkpoint, batchSize);
+        if (result.documents.length < batchSize) {
+          await markReplicationFresh(userId, 'tasks');
+        }
+        return result;
+      },
     },
     push: {
       batchSize: PUSH_BATCH_SIZE,
