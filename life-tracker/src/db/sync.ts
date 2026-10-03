@@ -601,10 +601,6 @@ export async function syncNow(
 ): Promise<FreshSyncResult> {
   await waitForSyncCoordinatorIdle(timeoutMs);
 
-  if (allReplicationPilotsActive(userId)) {
-    return refreshSync(userId, timeoutMs);
-  }
-
   if (backoffOwnerId === userId && Date.now() < rateLimitUntil) {
     scheduleBackoffWake(userId, rateLimitUntil);
     return { status: getSyncStatus(), startedAt: Date.now() };
@@ -616,9 +612,7 @@ export async function syncNow(
     clearBackoffWakeTimer();
   }
 
-  const startedAt = Date.now();
-  await initializeSync(userId);
-  return { status: getSyncStatus(), startedAt };
+  return refreshSync(userId, timeoutMs);
 }
 
 export async function initializeSync(
@@ -760,10 +754,10 @@ export async function initializeSync(
     }
   }
 }
-async function isReplicationPilotActive(
+function isReplicationPilotActive(
   collection: CollectionName,
   userId: string
-): Promise<boolean> {
+): boolean {
   switch (collection) {
     case 'tasks':
       return isTaskReplicationPilotActive(userId);
@@ -897,7 +891,7 @@ async function runSyncCycleBody(
     for (const colName of ALL_COLLECTIONS) {
       assertSyncOwnerCurrent(userId, generation);
       try {
-        if (await isReplicationPilotActive(colName, userId)) {
+        if (isReplicationPilotActive(colName, userId)) {
           resyncReplicationPilot(colName, userId);
           continue;
         }
