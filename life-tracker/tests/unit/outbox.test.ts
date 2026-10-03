@@ -4,6 +4,10 @@ import { silenceExpectedConsole } from '../helpers/expectedConsole';
 const localStorageMock = vi.hoisted(() => {
   const store = new Map<string, string>();
   const mock = {
+    get length() {
+      return store.size;
+    },
+    key: (index: number) => Array.from(store.keys())[index] ?? null,
     getItem: (k: string) => (store.has(k) ? store.get(k) ?? null : null),
     setItem: (k: string, v: string) => {
       store.set(k, v);
@@ -23,6 +27,18 @@ import { createPersistentOutbox, type OutboxEntryBase } from '../../src/lib/outb
 
 interface TestEntry extends OutboxEntryBase {
   payload: { n: number };
+}
+
+function storedEntries(storageKey = 'test_outbox'): TestEntry[] {
+  const prefix = storageKey + ':entry:';
+  const entries: TestEntry[] = [];
+  for (let index = 0; index < localStorageMock.length; index += 1) {
+    const key = localStorageMock.key(index);
+    if (!key?.startsWith(prefix)) continue;
+    const raw = localStorageMock.getItem(key);
+    if (raw) entries.push(JSON.parse(raw) as TestEntry);
+  }
+  return entries;
 }
 
 function makeOutbox(
@@ -86,9 +102,7 @@ describe('outbox — enqueue', () => {
       dedupKey: 'k1',
     });
     expect(outbox.size('user_A')).toBe(1);
-    const raw = localStorageMock.getItem('test_outbox');
-    expect(raw).toBeTruthy();
-    const parsed = JSON.parse(raw!);
+    const parsed = storedEntries();
     expect(parsed).toHaveLength(1);
     expect(parsed[0].action).toBe('test');
     expect(parsed[0].userId).toBe('user_A');
@@ -111,16 +125,25 @@ describe('outbox — enqueue', () => {
     expect(outbox.size('user_B')).toBe(1);
   });
 
-  it('caps total queue length at 100', () => {
+  it('caps each account independently at 100 entries', () => {
     const { outbox } = makeOutbox();
-    for (let i = 0; i < 150; i++) {
+    for (let i = 0; i < 125; i++) {
       outbox.enqueue('user_A', {
         action: 'test',
         payload: { n: i },
-        dedupKey: `k-${i}`,
+        dedupKey: `a-${i}`,
       });
     }
-    expect(outbox.size()).toBeLessThanOrEqual(100);
+    for (let i = 0; i < 100; i++) {
+      outbox.enqueue('user_B', {
+        action: 'test',
+        payload: { n: i },
+        dedupKey: `b-${i}`,
+      });
+    }
+    expect(outbox.size('user_A')).toBe(100);
+    expect(outbox.size('user_B')).toBe(100);
+    expect(outbox.size()).toBe(200);
   });
 
   it('preserves attempts on re-enqueue (dedup does not reset the counter)', async () => {
@@ -132,13 +155,79 @@ describe('outbox — enqueue', () => {
     outbox.enqueue('user_A', { action: 'test', payload: { n: 1 }, dedupKey: 'k' });
     await outbox.flush('user_A');
     outbox.enqueue('user_A', { action: 'test', payload: { n: 2 }, dedupKey: 'k' });
-    const raw = localStorageMock.getItem('test_outbox');
-    const parsed = JSON.parse(raw!);
+    const parsed = storedEntries();
     expect(parsed[0].attempts).toBe(1);
   });
 });
 
 describe('outbox — flush', () => {
+  it('does not lose a different-tab enqueue while a flush is in flight', async () => {
+    let releaseSend: (() => void) | null = null;
+    const send = vi.fn<(input: { n: number }) => Promise<void>>(
+      () =>
+        new Promise<void>((resolve) => {
+          releaseSend = resolve;
+        })
+    );
+    const first = makeOutbox(send).outbox;
+    const second = makeOutbox().outbox;
+
+    first.enqueue('user_A', {
+      action: 'test',
+      payload: { n: 1 },
+      dedupKey: 'first',
+    });
+    const flushing = first.flush('user_A');
+    await vi.waitFor(() => expect(send).toHaveBeenCalledTimes(1));
+
+    second.enqueue('user_A', {
+      action: 'test',
+      payload: { n: 2 },
+      dedupKey: 'second',
+    });
+
+    releaseSend?.();
+    await flushing;
+
+    expect(second.size('user_A')).toBe(1);
+    expect(storedEntries()).toEqual([
+      expect.objectContaining({ id: 'second', payload: { n: 2 } }),
+    ]);
+  });
+
+  it('keeps a newer same-key enqueue when an older send finishes', async () => {
+    let releaseSend: (() => void) | null = null;
+    const send = vi.fn<(input: { n: number }) => Promise<void>>(
+      () =>
+        new Promise<void>((resolve) => {
+          releaseSend = resolve;
+        })
+    );
+    const first = makeOutbox(send).outbox;
+    const second = makeOutbox().outbox;
+
+    first.enqueue('user_A', {
+      action: 'test',
+      payload: { n: 1 },
+      dedupKey: 'same',
+    });
+    const flushing = first.flush('user_A');
+    await vi.waitFor(() => expect(send).toHaveBeenCalledTimes(1));
+
+    second.enqueue('user_A', {
+      action: 'test',
+      payload: { n: 2 },
+      dedupKey: 'same',
+    });
+
+    releaseSend?.();
+    await flushing;
+
+    expect(storedEntries()).toEqual([
+      expect.objectContaining({ id: 'same', payload: { n: 2 } }),
+    ]);
+  });
+
   it('drains successfully: entries removed after send succeeds', async () => {
     const { outbox, send } = makeOutbox();
     outbox.enqueue('user_A', { action: 'test', payload: { n: 1 }, dedupKey: 'a' });
@@ -194,7 +283,7 @@ describe('outbox — flush', () => {
     outbox.enqueue('user_A', { action: 'test', payload: { n: 1 }, dedupKey: 'a' });
     await outbox.flush('user_A');
     expect(outbox.size('user_A')).toBe(1);
-    const parsed = JSON.parse(localStorageMock.getItem('test_outbox')!);
+    const parsed = storedEntries();
     expect(parsed[0].attempts).toBe(1);
   });
 

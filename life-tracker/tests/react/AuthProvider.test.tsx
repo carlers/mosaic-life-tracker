@@ -9,6 +9,7 @@ import type { Models } from "appwrite";
 // confirmed 401 — never on a network error.
 
 const initializeSyncMock = vi.hoisted(() => vi.fn());
+const suspendSyncOwnerMock = vi.hoisted(() => vi.fn());
 const waitForDatabaseReadyMock = vi.hoisted(() => vi.fn());
 
 const accountRef = vi.hoisted(() => ({
@@ -29,6 +30,7 @@ vi.mock("../../src/lib/appwrite", () => ({
 
 vi.mock("../../src/db/sync", () => ({
   initializeSync: initializeSyncMock,
+  suspendSyncOwner: suspendSyncOwnerMock,
 }));
 vi.mock("../../src/lib/databaseBootstrap", () => ({
   waitForDatabaseReady: waitForDatabaseReadyMock,
@@ -87,6 +89,8 @@ describe("AuthProvider offline auth gate", () => {
     accountRef.updateRecovery.mockReset();
     initializeSyncMock.mockReset();
     initializeSyncMock.mockResolvedValue(undefined);
+    suspendSyncOwnerMock.mockReset();
+    suspendSyncOwnerMock.mockResolvedValue(undefined);
     waitForDatabaseReadyMock.mockReset();
     waitForDatabaseReadyMock.mockResolvedValue(undefined);
     Object.defineProperty(navigator, "onLine", {
@@ -204,6 +208,27 @@ describe("AuthProvider offline auth gate", () => {
     await waitFor(() =>
       expect(initializeSyncMock).toHaveBeenCalledWith("user_fresh"),
     );
+  });
+
+  it("suspends the authenticated sync owner before logout mutates the session", async () => {
+    const cached = makeUser({ $id: "user_cached_logout" });
+    localStorage.setItem(LAST_KNOWN_USER_KEY, JSON.stringify(cached));
+    accountRef.get.mockResolvedValue(cached);
+    accountRef.deleteSession.mockResolvedValue(undefined);
+
+    const { result } = renderHook(() => useAuth(), { wrapper });
+    await waitFor(() =>
+      expect(result.current.user?.$id).toBe("user_cached_logout"),
+    );
+
+    await act(async () => {
+      expect(await result.current.logout()).toBe(true);
+    });
+
+    expect(suspendSyncOwnerMock).toHaveBeenCalledWith("user_cached_logout");
+    expect(
+      suspendSyncOwnerMock.mock.invocationCallOrder[0],
+    ).toBeLessThan(accountRef.deleteSession.mock.invocationCallOrder[0]);
   });
 
   it("hydrates cached identity immediately when definitely offline without a session request", async () => {

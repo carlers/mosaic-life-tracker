@@ -1,3 +1,4 @@
+import { createReplicationPilotLifecycleQueue } from './replicationPilotLifecycle';
 import { Query } from 'appwrite';
 import {
   getChangedDocumentsSince,
@@ -461,7 +462,7 @@ export async function refreshFriendshipReplicationPilot(
   return true;
 }
 
-export async function stopFriendshipReplicationPilot(
+async function stopFriendshipReplicationPilotNow(
   userId?: string
 ): Promise<void> {
   if (userId && activeOwnerId !== userId) return;
@@ -483,7 +484,7 @@ export async function stopFriendshipReplicationPilot(
   }
 }
 
-export async function startFriendshipReplicationPilot(
+async function startFriendshipReplicationPilotNow(
   userId: string,
   collection: RxCollection<FriendshipDocument>,
   initialPushCheckpoint:
@@ -494,7 +495,7 @@ export async function startFriendshipReplicationPilot(
   if (isFriendshipReplicationPilotActive(userId)) return;
 
   if (activeReplication) {
-    await stopFriendshipReplicationPilot();
+    await stopFriendshipReplicationPilotNow();
   }
 
   const pullStream = new Subject<
@@ -542,6 +543,20 @@ export async function startFriendshipReplicationPilot(
       error
     );
   });
+}
+
+const runReplicationPilotLifecycle = createReplicationPilotLifecycleQueue();
+
+export function stopFriendshipReplicationPilot(
+  ...args: Parameters<typeof stopFriendshipReplicationPilotNow>
+): ReturnType<typeof stopFriendshipReplicationPilotNow> {
+  return runReplicationPilotLifecycle(() => stopFriendshipReplicationPilotNow(...args));
+}
+
+export function startFriendshipReplicationPilot(
+  ...args: Parameters<typeof startFriendshipReplicationPilotNow>
+): ReturnType<typeof startFriendshipReplicationPilotNow> {
+  return runReplicationPilotLifecycle(() => startFriendshipReplicationPilotNow(...args));
 }
 
 export const __friendshipReplicationPilotTestUtils = {

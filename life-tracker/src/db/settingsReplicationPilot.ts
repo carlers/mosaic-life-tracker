@@ -1,3 +1,4 @@
+import { createReplicationPilotLifecycleQueue } from './replicationPilotLifecycle';
 import { Permission, Query, Role } from 'appwrite';
 import {
   getChangedDocumentsSince,
@@ -503,7 +504,7 @@ export async function refreshSettingsReplicationPilot(
   return true;
 }
 
-export async function stopSettingsReplicationPilot(
+async function stopSettingsReplicationPilotNow(
   userId?: string
 ): Promise<void> {
   if (userId && activeOwnerId !== userId) return;
@@ -525,7 +526,7 @@ export async function stopSettingsReplicationPilot(
   }
 }
 
-export async function startSettingsReplicationPilot(
+async function startSettingsReplicationPilotNow(
   userId: string,
   collection: RxCollection<SettingsDocument>,
   initialPushCheckpoint: SettingsReplicationPushCheckpoint | undefined
@@ -534,7 +535,7 @@ export async function startSettingsReplicationPilot(
   if (isSettingsReplicationPilotActive(userId)) return;
 
   if (activeReplication) {
-    await stopSettingsReplicationPilot();
+    await stopSettingsReplicationPilotNow();
   }
 
   const pullStream = new Subject<
@@ -576,6 +577,20 @@ export async function startSettingsReplicationPilot(
   errorSubscription = replication.error$.subscribe((error) => {
     console.error('[SettingsReplicationPilot] replication error:', error);
   });
+}
+
+const runReplicationPilotLifecycle = createReplicationPilotLifecycleQueue();
+
+export function stopSettingsReplicationPilot(
+  ...args: Parameters<typeof stopSettingsReplicationPilotNow>
+): ReturnType<typeof stopSettingsReplicationPilotNow> {
+  return runReplicationPilotLifecycle(() => stopSettingsReplicationPilotNow(...args));
+}
+
+export function startSettingsReplicationPilot(
+  ...args: Parameters<typeof startSettingsReplicationPilotNow>
+): ReturnType<typeof startSettingsReplicationPilotNow> {
+  return runReplicationPilotLifecycle(() => startSettingsReplicationPilotNow(...args));
 }
 
 export const __settingsReplicationPilotTestUtils = {

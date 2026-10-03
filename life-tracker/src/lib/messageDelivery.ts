@@ -11,11 +11,17 @@ import {
 import type { MessageDocument } from '../db/schema';
 import { getConnectivitySnapshot } from './connectivity';
 import { APPWRITE_MESSAGE_ACTION_FUNCTION_ID } from './appwriteConfig';
+import {
+  captureAccountWorkGeneration,
+  isAccountWorkCurrent,
+} from './accountWorkScope';
 const DEBUG = import.meta.env.DEV;
 export const MESSAGE_ACTION_FUNCTION_ID = APPWRITE_MESSAGE_ACTION_FUNCTION_ID;
 const SEND_TIMEOUT_MS = 15_000;
 const MAX_DELIVERY_LOOPS = 5;
 let inFlightDeliveryPromise: Promise<void> | null = null;
+let inFlightDeliveryUserId: string | null = null;
+let inFlightDeliveryGeneration: number | null = null;
 let deliveryRequestedDuringFlight = false;
 export async function sendMessageAction(
   payload: Record<string, unknown>
@@ -89,20 +95,33 @@ function shouldQueueMessageAction(err: unknown): boolean {
   return false;
 }
 export async function deliverPendingMessages(userId: string): Promise<void> {
-  // Best-effort drain of the message action retry queue. Not awaited — the
-  // caller only cares about delivery. The queue module enforces a single
-  // in-flight flush so multiple triggers cannot stampede.
+  if (!userId) return;
+  const generation = captureAccountWorkGeneration(userId);
+  if (generation === null) return;
+
   flushMessageActionQueue(userId).catch((err) => {
     if (DEBUG) {
       console.error('[messageDelivery] queue flush failed:', err);
     }
   });
+
   if (inFlightDeliveryPromise) {
-    deliveryRequestedDuringFlight = true;
-    return inFlightDeliveryPromise;
+    if (
+      inFlightDeliveryUserId === userId &&
+      inFlightDeliveryGeneration === generation
+    ) {
+      deliveryRequestedDuringFlight = true;
+      return inFlightDeliveryPromise;
+    }
+
+    const previous = inFlightDeliveryPromise;
+    await previous;
+    if (!isAccountWorkCurrent(userId, generation)) return;
+    return deliverPendingMessages(userId);
   }
+
+  if (!isAccountWorkCurrent(userId, generation)) return;
   if (getConnectivitySnapshot().status !== 'online') return;
-  if (!userId) return;
   if (MESSAGE_ACTION_FUNCTION_ID.startsWith('REPLACE_')) {
     if (DEBUG) {
       console.warn(
@@ -111,10 +130,14 @@ export async function deliverPendingMessages(userId: string): Promise<void> {
     }
     return;
   }
+
+  inFlightDeliveryUserId = userId;
+  inFlightDeliveryGeneration = generation;
   inFlightDeliveryPromise = (async () => {
     try {
       let loopCount = 0;
       for (;;) {
+        if (!isAccountWorkCurrent(userId, generation)) break;
         loopCount++;
         if (loopCount > MAX_DELIVERY_LOOPS) {
           console.warn(
@@ -152,14 +175,17 @@ export async function deliverPendingMessages(userId: string): Promise<void> {
           );
           break;
         }
+        if (!isAccountWorkCurrent(userId, generation)) break;
         if (DEBUG && pending.length > 0) {
           console.log(
             `[messageDelivery] ${pending.length} pending message(s)`
           );
         }
         for (const doc of pending) {
+          if (!isAccountWorkCurrent(userId, generation)) break;
           try {
             await deliverOne(doc);
+            if (!isAccountWorkCurrent(userId, generation)) break;
             await doc.patch({ deliveryStatus: 'delivered' });
           } catch (err) {
             console.error(
@@ -168,11 +194,23 @@ export async function deliverPendingMessages(userId: string): Promise<void> {
             );
           }
         }
-        if (!deliveryRequestedDuringFlight) break;
+        if (
+          !isAccountWorkCurrent(userId, generation) ||
+          !deliveryRequestedDuringFlight
+        ) {
+          break;
+        }
       }
     } finally {
-      inFlightDeliveryPromise = null;
-      deliveryRequestedDuringFlight = false;
+      if (
+        inFlightDeliveryUserId === userId &&
+        inFlightDeliveryGeneration === generation
+      ) {
+        inFlightDeliveryPromise = null;
+        inFlightDeliveryUserId = null;
+        inFlightDeliveryGeneration = null;
+        deliveryRequestedDuringFlight = false;
+      }
     }
   })();
   return inFlightDeliveryPromise;
@@ -198,6 +236,8 @@ export async function markReadOnRemote(
   partnerId: string,
   threadId: string
 ): Promise<void> {
+  const generation = captureAccountWorkGeneration(userId);
+  if (generation === null) return;
   try {
     await sendMessageAction({
       action: 'mark_read',
@@ -205,7 +245,10 @@ export async function markReadOnRemote(
       threadId,
     });
   } catch (err) {
-    if (shouldQueueMessageAction(err)) {
+    if (
+      shouldQueueMessageAction(err) &&
+      isAccountWorkCurrent(userId, generation)
+    ) {
       enqueueMessageAction(userId, {
         action: 'mark_read',
         payload: { partnerId, threadId },
@@ -220,6 +263,8 @@ export async function unsendOnRemote(
   messageId: string,
   recipientId: string
 ): Promise<void> {
+  const generation = captureAccountWorkGeneration(userId);
+  if (generation === null) return;
   try {
     await sendMessageAction({
       action: 'unsend',
@@ -227,7 +272,10 @@ export async function unsendOnRemote(
       recipientId,
     });
   } catch (err) {
-    if (shouldQueueMessageAction(err)) {
+    if (
+      shouldQueueMessageAction(err) &&
+      isAccountWorkCurrent(userId, generation)
+    ) {
       enqueueMessageAction(userId, {
         action: 'unsend',
         payload: { messageId, recipientId },
