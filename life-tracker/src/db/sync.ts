@@ -899,7 +899,8 @@ export async function initializeSync(
       } catch (lockErr) {
         if (abortController?.signal.aborted) {
           throw new Error(
-            'Mosaic fresh sync timed out while waiting for another Mosaic tab.'
+            'Mosaic fresh sync timed out while waiting for another Mosaic tab.',
+            { cause: lockErr }
           );
         }
         console.warn('[Sync] Web Locks request failed:', lockErr);
