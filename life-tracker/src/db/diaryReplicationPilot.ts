@@ -25,7 +25,7 @@ import {
 } from '../lib/appwriteConfig';
 import { awaitPilotReplicationFreshness } from './replicationFreshness';
 import { getReplicationIdentifier } from './replicationIds';
-import { markReplicationFresh } from './replicationLocalState';
+import { trackReplicationFreshness } from './replicationLocalState';
 
 const PULL_BATCH_SIZE = 100;
 const PUSH_BATCH_SIZE = 20;
@@ -439,13 +439,8 @@ async function startDiaryReplicationPilotNow(
     pull: {
       batchSize: PULL_BATCH_SIZE,
       stream$: pullStream.asObservable(),
-      handler: async (checkpoint, batchSize) => {
-        const result = await pullDiary(userId, checkpoint, batchSize);
-        if (result.documents.length < batchSize) {
-          await markReplicationFresh(userId, 'diary');
-        }
-        return result;
-      },
+      handler: (checkpoint, batchSize) =>
+        pullDiary(userId, checkpoint, batchSize),
     },
     push: {
       batchSize: PUSH_BATCH_SIZE,
@@ -456,6 +451,7 @@ async function startDiaryReplicationPilotNow(
 
   activeOwnerId = userId;
   activeReplication = replication;
+  trackReplicationFreshness(replication, userId, 'diary');
   activeCollection = collection;
   activePullStream = pullStream;
   realtimeUnsubscribe = subscribeToDiaryRealtime(userId, pullStream);
