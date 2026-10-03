@@ -1,3 +1,9 @@
+import {
+  filter,
+  firstValueFrom,
+  type Observable,
+  type Subscription,
+} from 'rxjs';
 import { getDatabase } from './database';
 import {
   getReplicationIdentifier,
@@ -16,6 +22,12 @@ function syncMetaId(
 export interface ReplicationFreshnessRecord {
   lastFreshAt: string;
   replicationIdentifier: string;
+}
+
+interface TrackableReplication {
+  awaitInitialReplication: () => Promise<void>;
+  active$: Observable<boolean>;
+  canceled$: Observable<boolean>;
 }
 
 export async function markReplicationFresh(
@@ -55,6 +67,67 @@ export async function markReplicationFresh(
   if (records.every((value): value is string => !!value)) {
     markOfflineDataReady(userId, lastFreshAt);
   }
+}
+
+async function waitForInitialReplicationOrCancel(
+  replication: TrackableReplication
+): Promise<boolean> {
+  return Promise.race([
+    replication.awaitInitialReplication().then(() => true),
+    firstValueFrom(
+      replication.canceled$.pipe(filter((value) => value))
+    ).then(() => false),
+  ]);
+}
+
+/**
+ * Persist freshness only after RxDB has actually settled a replication
+ * cycle. Pull handlers run before their returned documents/checkpoints are
+ * written, so they are too early to prove tombstone-safe local freshness.
+ */
+export function trackReplicationFreshness(
+  replication: TrackableReplication,
+  userId: string,
+  collection: SyncedCollectionName
+): void {
+  void (async () => {
+    const initialCompleted =
+      await waitForInitialReplicationOrCancel(replication);
+    if (!initialCompleted) return;
+
+    await markReplicationFresh(userId, collection);
+
+    let sawActive = false;
+    let activeSubscription: Subscription | null = null;
+    let canceledSubscription: Subscription | null = null;
+
+    activeSubscription = replication.active$.subscribe((active) => {
+      if (active) {
+        sawActive = true;
+        return;
+      }
+      if (!sawActive) return;
+      sawActive = false;
+      void markReplicationFresh(userId, collection).catch((error) => {
+        console.warn(
+          '[ReplicationLocalState] Failed to persist replication freshness:',
+          error
+        );
+      });
+    });
+
+    canceledSubscription = replication.canceled$
+      .pipe(filter((value) => value))
+      .subscribe(() => {
+        activeSubscription?.unsubscribe();
+        canceledSubscription?.unsubscribe();
+      });
+  })().catch((error) => {
+    console.warn(
+      '[ReplicationLocalState] Failed to track replication freshness:',
+      error
+    );
+  });
 }
 
 export async function getReplicationFreshness(
