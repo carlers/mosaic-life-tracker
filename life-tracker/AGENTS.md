@@ -17,9 +17,12 @@ additional reading. Current code and Git override stale progress prose.
   semantic/behavioral checks or manual visual acceptance unless the observable geometry is
   required for interaction, accessibility, clipping, or overflow correctness. Reserve
   Playwright for browser-only failure modes. Follow [test workflow](docs/TEST_WORKFLOW.md).
-- Commit scoped task changes automatically, push a `chatgpt/**` task branch, and publish
-  Preview after exact-SHA canonical acceptance. Follow [delivery](docs/DELIVERY.md).
-  Never force-update shared history or divergent Preview. No unrelated service changes.
+- Commit scoped task changes automatically and batch remote edits so ordinary WIP pushes are
+  rare. The final coherent `chatgpt/**` task commit includes the current checkpoint and
+  requests `[verify:focused]`; after focused green, squash it into the stable Preview branch,
+  where the one routine full canonical gate + Preview run. Do not add a status-only post-green
+  commit. Follow [delivery](docs/DELIVERY.md). Never force-update shared history or divergent
+  Preview. No unrelated service changes.
 - Update the checkpoint at meaningful milestones and handoffs. Keep objective, constraints,
   completed/remaining work, working files, checks, blockers, and next action concise.
   Do not copy prompts, Git status, or response boilerplate into it.
@@ -46,7 +49,8 @@ additional reading. Current code and Git override stale progress prose.
 
 ## Definition of done
 
-Focused checks and diff review pass; checkpoint is current; remote canonical acceptance
-and Preview delivery are completed or their concrete blockers are reported. Ordinary
+Focused checks and diff review pass; checkpoint is current in the final task commit; the
+stable Preview branch has remote canonical acceptance and Preview delivery, or their concrete
+blockers are reported. Ordinary
 prose edits need contracts and diff checks locally. Tooling changes need relevant tests
 and lint. Required manual/device checks remain separate from automated results.

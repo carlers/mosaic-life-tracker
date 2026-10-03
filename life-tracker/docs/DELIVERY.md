@@ -2,20 +2,38 @@
 
 ## Authorized completion
 
-Commit only task paths (never blanket-stage unrelated edits), use a `chatgpt/**` task
-branch, and push after focused checks and diff review. Prefer one coherent commit; repair
-commits are appropriate when CI exposes a defect. Include `[verify:full]` on the final commit when full canonical acceptance is required. Wait for that exact SHA's `canonical-acceptance` before treating the implementation as remotely accepted. No force push across divergence,
-no automatic `dev` merge, and no unrelated remote service changes.
+Commit only task paths (never blanket-stage unrelated edits) on a `chatgpt/**` or
+`codex/**` task branch. Batch remote edits and prefer one coherent verification push rather
+than pushing each small repair. Ordinary task pushes intentionally run classification only.
+The final coherent task commit must already contain the durable checkpoint/documentation for
+the task and request `[verify:focused]` (or `[verify:browser]` when browser feedback is
+specifically needed). A repair after focused failure requests focused verification again.
+
+After that focused task SHA is green, open the pull request to the named stable Preview branch
+(`fix/*`, `feature/*`, `perf/*`, `security/*`, `refactor/*`, or another explicitly
+configured Preview category) and **Squash and merge**. The resulting stable Preview branch is
+the one routine full canonical gate: it runs static/lint, unit, handler, DOM, production
+build/PWA/size, and browser correctness in parallel and publishes the Vercel Preview. Do not
+run the same full gate on the task branch merely to repeat it after squash. `[verify:full]`
+remains a manual escape hatch for unusual diagnostics, not the normal final-task marker.
 
 AI task branches are never merged directly into `dev` as part of ordinary task delivery.
-The task branch enters its named stable Preview branch (`fix/*`, `feature/*`, `perf/*`,
-`security/*`, `refactor/*`, or another explicitly configured Preview category) through
-a pull request and squash merge. Promotion from a stable Preview branch to `dev` requires
-explicit user instruction.
+Promotion from an accepted stable Preview branch to `dev` requires explicit user instruction.
+For an exact merge promotion, `dev` first verifies that the push is a merged stable-Preview
+PR, the merge tree is byte-for-byte the accepted source tree, the push first parent is the
+previous `dev` SHA, and the source SHA has a successful `canonical-acceptance` check. When
+all evidence matches, `dev` reuses that acceptance instead of rerunning the full suite. Any
+missing/mismatched evidence fails closed to the normal full gate. `main` always retains the
+full gate.
+
+Do not make a documentation/status-only commit after CI turns green. GitHub Actions and
+Vercel are the source of truth for run/deployment status; update repository state only when
+the repository itself actually changed.
 
 If tools/network prevent a step, complete independent work and report the exact blocker.
 Do not ask for authorization already granted. Include commit SHA/subject, checks, and
-Deployment status in the final result. Do not commit status-only prose after acceptance.
+deployment status in the final result. No force push across divergence and no unrelated
+remote service changes.
 
 ## One CI workflow
 
@@ -23,14 +41,23 @@ Deployment status in the final result. Do not commit status-only prose after acc
 
 | Mode | Trigger and work |
 |---|---|
-| Docs | Ordinary Markdown-only changes: contracts and diff checks, no dependency install |
-| Focused | Ordinary runtime pushes to `chatgpt/**` and `codex/**`: contracts/discovery, changed existing-file ESLint, Git-aware related tests |
-| Full | `main`, `dev`, stable Preview branches, manual dispatch, or `[verify:full]`: checks (contracts/discovery/lint/unit/handlers), two DOM shards, build, two browser shards |
-| Branch delivery | Vercel deploys `main` to Production and configured stable Preview categories to Preview; AI task branches remain blocked |
+| Skip | Ordinary pushes to `chatgpt/**` and `codex/**`: classification only; this is the cheap WIP path |
+| Focused | AI task commits carrying `[verify:focused]` or `[verify:browser]`: contracts/discovery, changed-file ESLint, Git-aware related tests; browser contracts are added only for `[verify:browser]` |
+| Docs | Markdown-only changes on miscellaneous non-AI branches: contracts and diff checks, no dependency install |
+| Full | Stable Preview branches, `main`, manual dispatch, or the explicit `[verify:full]` escape hatch |
+| Promotion | `dev`: reuse accepted stable-Preview evidence only when PR provenance + identical tree + successful source canonical check all match; otherwise automatically fall back to Full |
+| Branch delivery | Vercel deploys `main`, `dev`, and configured stable Preview categories; AI task branches remain blocked |
 
-Quality Gate is intentionally push-driven: the workflow does not also run on `pull_request`, avoiding duplicate runner allocation for the same commit. PRs still receive the checks attached to the pushed head SHA. A focused or docs-only green run is never canonical acceptance. `[verify:browser]` requests intermediate browser coverage. Manual device evidence remains separate.
-While CI runs, finish independent review; otherwise wait between status requests. Read
-full logs for failures or unusual stalls, not on every poll. Fix the actual failing layer.
+Quality Gate remains push-driven and does not duplicate work on `pull_request`. The task
+branch focused check is development confidence, not canonical acceptance. Stable Preview
+canonical acceptance is the routine release-quality proof for that tree. `[verify:browser]`
+is for intermediate real-browser feedback; `[verify:full]` is exceptional. Manual device
+evidence remains separate.
+
+The full jobs stay parallel after promotion eligibility is resolved. Production build jobs
+reuse the same lockfile-keyed `node_modules` cache as focused/DOM/browser jobs; cache miss
+still runs `npm ci`. While CI runs, finish independent review. Read full logs for failures
+or unusual stalls, not every poll, and fix the actual failing layer.
 
 ## Provider and branch
 
@@ -119,22 +146,22 @@ do not commit secrets.
 
 ## Branch deployment review loop
 
-1. Finish a task on its normal task branch and include the durable session/doc checkpoint
-   before the final acceptance commit.
-2. Put `[verify:full]` on the exact final task commit when full canonical acceptance is
-   required.
-3. Wait for that exact SHA's `canonical-acceptance` check to pass.
-4. Squash-merge the accepted task PR into the intended stable Preview branch only; do not
-   promote to `dev` unless explicitly requested.
-5. Verify the Vercel deployment for the stable Preview branch is ready.
-6. Share the relevant stable Preview URL when a manual/browser protocol is relevant.
-7. The user performs any required phone/browser protocol.
-8. Record manual evidence separately from automated CI evidence.
+1. Finish the task on its AI task branch. Include the durable session/doc checkpoint in the
+   same final implementation commit and request `[verify:focused]`.
+2. Wait for that task SHA's focused check to pass. Use `[verify:browser]` instead only when
+   the task needs intermediate real-browser evidence.
+3. Squash-merge the focused-green task PR into the intended stable Preview branch.
+4. Wait for that stable Preview SHA's automatic full `canonical-acceptance` and Vercel
+   Preview. Fix failures on a task branch and repeat; do not patch the stable branch directly.
+5. Share/use the stable Preview for any required phone/browser protocol.
+6. Record manual evidence in the handoff/chat. Do not create a repository commit merely to
+   record CI or deployment status.
+7. Promote the stable Preview to `dev` only after explicit user instruction. An exact,
+   already-accepted promotion uses the provenance/tree promotion check; any ambiguity falls
+   back to the full gate automatically.
 
-Do not add a state-only closure commit after canonical acceptance merely to record a run
-number; derive completed verification/deployment status from GitHub and Vercel. If repository
-state truly needs another committed change, that new exact SHA becomes the task tip and must
-receive its own required acceptance.
+If repository state truly needs another committed change after acceptance, that change is
+new work and receives the appropriate verification path.
 
 For interaction-heavy changes, the hosted device check is part of acceptance even when DOM
 regressions are green. In particular, verify Android/Samsung Back against nested bottom

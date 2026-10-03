@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { CalendarCarousel } from './CalendarCarousel';
 import { useTasksByDate } from '../../../hooks/useTasksByDate';
 import { useFriendTaskReply } from '../../../hooks/useFriendTaskReply';
@@ -6,6 +6,11 @@ import { useHorizontalArrowNavigation } from '../../../hooks/useHorizontalArrowN
 import type { TaskDocument, CategoryDocument } from '../../../db/schema';
 import type { CalendarViewMode } from './useCalendarState';
 import type { WeekStartsOn } from '../../../lib/preferences';
+import { useHolidaysByDate } from '../../../hooks/useHolidays';
+import {
+  DISABLED_HOLIDAY_CONFIG,
+  type HolidayDisplayConfig,
+} from '../../../lib/holidays';
 
 const LazyDayViewSheet = React.lazy(() =>
   import('./DayViewSheet').then(({ DayViewSheet }) => ({
@@ -42,6 +47,7 @@ interface CalendarBodyProps {
   onNext: () => void;
   onReactToTask?: (task: TaskDocument, emoji: string) => void;
   weekStartsOn?: WeekStartsOn;
+  holidayConfig?: HolidayDisplayConfig;
 }
 
 const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
@@ -63,12 +69,26 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
   onNext,
   onReactToTask,
   weekStartsOn = 0,
+  holidayConfig = DISABLED_HOLIDAY_CONFIG,
 }) => {
   const [daySheetOpen, setDaySheetOpen] = useState(false);
   const [daySheetMounted, setDaySheetMounted] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
 
   const tasksByDate = useTasksByDate(tasks);
+  const holidayYears = useMemo(() => {
+    const years = new Set<number>();
+    for (let index = renderStart; index <= renderEnd; index += 1) {
+      const date = slides[index];
+      if (!date) continue;
+      const year = date.getFullYear();
+      years.add(year);
+      if (date.getMonth() === 0) years.add(year - 1);
+      if (date.getMonth() === 11) years.add(year + 1);
+    }
+    return [...years];
+  }, [renderEnd, renderStart, slides]);
+  const holidaysByDate = useHolidaysByDate(holidayConfig, holidayYears);
   const {
     replyTask,
     replyColor,
@@ -109,6 +129,7 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
       tasksByDate={tasksByDate}
       categoriesMap={categoriesMap}
       weekStartsOn={weekStartsOn}
+      holidaysByDate={holidaysByDate}
     />
   );
 
@@ -135,6 +156,7 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
               currentUserId={currentUserId}
               onReplyToTask={handleReplyToTask}
               onReactToTask={onReactToTask}
+              holidayConfig={holidayConfig}
             />
           </React.Suspense>
         )}
@@ -170,6 +192,7 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
             onDateChange={handleDateChange}
             tasks={tasks}
             categories={categories ?? []}
+            holidayConfig={holidayConfig}
           />
         </React.Suspense>
       )}

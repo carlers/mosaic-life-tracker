@@ -1,30 +1,27 @@
 # Session checkpoint
 
 Updated: 2026-10-03
-Current task: Fix repeated task/diary compatibility-bootstrap push failures reported by Sync Status on `fix/sync-reconciliation-errors`.
-Status: Implementation is complete on `chatgpt/fix-sync-reconciliation-errors`. Partial legacy/bootstrap pushes are resumable across retries and reloads, 429 handling stops scheduling new writes after the first observed rate-limit failure, and Sync Status reports failed/deferred counts with the failure class. Focused verification is green after two behavioral-red regressions proved the original replay and remote-update defects. Full canonical acceptance is requested by this checkpoint commit.
-Next action: Wait for exact-SHA full canonical acceptance. Fix any failure. If green, squash-merge the task branch into stable `fix/sync-reconciliation-errors`, verify the stable Vercel Preview is READY/HTTP 200, and leave promotion to `dev` for explicit user instruction.
+Current task: Audit and harden Mosaic sync against race conditions, account transitions, cross-tab queue loss, stale compatibility metadata, and safety-preflight false success.
+Status: Implementation, documentation, and regression coverage are complete on `chatgpt/sync-engine-audit`. The first full task gate exposed three lint issues; the second exposed three test-fixture issues caused by the new account-scope contract. Those failures were investigated and repaired. A new full task gate is requested by this checkpoint commit.
+Next action: Inspect the newly requested full GitHub Quality Gate. Fix any remaining failure, then squash the accepted task into a stable Preview branch created from `dev`. Wait for stable Preview canonical acceptance and Vercel Preview. Promotion to `dev` remains user-controlled.
 Blockers: None known.
 
 ## Results
 
-- Stable branch baseline: `38ffffeb` (latest `dev` state when the fix branch was created).
-- Root cause in code: a partial compatibility push kept the old collection dirty boundary, so a retry replayed rows that had already succeeded; a large failed batch could therefore repeat the same successful prefix indefinitely.
-- Successful bootstrap writes now persist an account/collection/row acknowledgement keyed to the exact local RxDB `_meta.lwt` revision.
-- Retries skip only that exact acknowledged revision. Any later local edit has a new revision and is pushed normally.
-- Acknowledged revisions are treated as clean during retry pull arbitration, allowing a genuinely newer remote row to win before RxDB handoff rather than being masked by the conservative dirty boundary.
-- The acknowledgement set is cleared after a clean collection bootstrap advances its dirty boundary.
-- On the first 429, at most the already in-flight workers finish; no new row writes are scheduled. Remaining candidates are deferred until the existing rate-limit backoff wakes the sync engine.
-- Non-429 row failures still allow later independent candidates to run, preserving progress while recording successful revisions for the next retry.
-- Sync Status compatibility errors now distinguish rate limiting, authorization, server/request, network, and unexpected failures and include failed/deferred counts.
-- No schema, Appwrite backend, UI layout, product behavior, offline capability, or steady-state RxDB replication contract changed.
+- `refreshSync()` now fails closed: inactive pilots, bootstrap errors, false pilot freshness, leadership/lock failures, owner changes, and deadline expiry cannot stamp fresh `lastSync` or offline readiness.
+- Web Lock waiting is bounded by the caller freshness deadline. When the API exists but lock acquisition fails, compatibility sync no longer runs unlocked.
+- Added lightweight authenticated-work generations shared by AuthProvider, sync, message delivery, and generic retry flushing. Login/signup/logout invalidate old work before session mutation; stale owners cannot publish status/backoff or continue scheduling writes.
+- Added explicit sync-owner suspension and six-pilot teardown. Each pilot serializes start/stop lifecycle transitions so overlapping account replacement cannot orphan a live replication.
+- Compatibility pull/dirty state, stale-missing suppression, and partial-push acknowledgements are now account-scoped. Matching legacy blobs migrate forward; when an older account's singleton blob was overwritten, its own successful `lastSyncTime_<userId>` is used as the clean recovery baseline.
+- Generic message/social retry queues now persist one entry per account/dedup key rather than replacing one whole localStorage array. Compare-before-remove protects newer racing enqueues, Web Locks serialize flushes when available, and capacity is enforced per account.
+- Message delivery is account-generation scoped. A newer owner request cannot be swallowed by an older in-flight delivery loop, and stale delivery results do not patch the old owner's local message as delivered.
+- Stale-cursor full reconciliation preserves pending outgoing messages instead of interpreting a never-delivered local message as a remotely-garbage-collected row.
+- Added/updated regressions for fresh-sync false success, Web Lock timeout/failure, account metadata isolation/recovery, cross-account backoff, cross-tab retry enqueue races, auth suspension ordering, delivery owner switches, pilot lifecycle overlap, and stale pending messages.
+- Accepted Appwrite non-atomic read→write compare/update limitation remains unchanged.
 
 ## Verification
 
-- Behavioral red 1: `c3fd6653` failed because the original engine attempted all 12 dirty rows after the first simulated 429; expected at most the four already in-flight workers.
-- Focused green after resumable-push implementation: `d8934682` Quality Gate focused checks passed.
-- Behavioral red 2: `1cab8b22` failed because an acknowledged local revision still masked a newer remote row during retry pull arbitration.
-- Focused green after acknowledged-revision pull fix: `2509df32` Quality Gate focused checks passed.
-- Full canonical Quality Gate: requested by the final checkpoint commit.
-- Stable Preview: pending squash promotion after canonical acceptance.
-- Manual/device acceptance: not yet claimed.
+- Task-level full Quality Gate: rerun requested after fixing the lint and unit-fixture failures found by the first two full runs.
+- Stable Preview canonical acceptance: pending after task verification.
+- Vercel Preview: pending stable Preview delivery.
+- Manual/device acceptance: not required for this non-visual data-synchronization hardening batch; hosted smoke testing remains useful after Preview.

@@ -1,6 +1,10 @@
 import { flushFriendshipCommands, clearFriendshipCommands, pendingFriendshipCount, migrateLegacyFriendship } from './friendshipCommands';
 import { createPersistentOutbox } from './outbox';
 import type { FriendshipDocument } from '../db/schema';
+import {
+  captureAccountWorkGeneration,
+  isAccountWorkCurrent,
+} from './accountWorkScope';
 
 const DEBUG = import.meta.env.DEV;
 
@@ -166,7 +170,15 @@ export function enqueueSocialOp(
 }
 
 export async function flushSocialOutbox(userId: string): Promise<void> {
-  if (sender) await outbox.flush(userId);
+  const generation = captureAccountWorkGeneration(userId);
+  if (generation === null) return;
+  if (sender) {
+    await outbox.flush(
+      userId,
+      () => isAccountWorkCurrent(userId, generation)
+    );
+  }
+  if (!isAccountWorkCurrent(userId, generation)) return;
   await flushFriendshipCommands(userId);
 }
 

@@ -1,3 +1,4 @@
+import { createReplicationPilotLifecycleQueue } from './replicationPilotLifecycle';
 import { Permission, Query, Role } from 'appwrite';
 import {
   getChangedDocumentsSince,
@@ -519,7 +520,7 @@ export async function refreshTaskReplicationPilot(
   return true;
 }
 
-export async function stopTaskReplicationPilot(
+async function stopTaskReplicationPilotNow(
   userId?: string
 ): Promise<void> {
   if (userId && activeOwnerId !== userId) return;
@@ -541,7 +542,7 @@ export async function stopTaskReplicationPilot(
   }
 }
 
-export async function startTaskReplicationPilot(
+async function startTaskReplicationPilotNow(
   userId: string,
   collection: RxCollection<TaskDocument>,
   initialPushCheckpoint: TaskReplicationPushCheckpoint | undefined
@@ -550,7 +551,7 @@ export async function startTaskReplicationPilot(
   if (isTaskReplicationPilotActive(userId)) return;
 
   if (activeReplication) {
-    await stopTaskReplicationPilot();
+    await stopTaskReplicationPilotNow();
   }
 
   const pullStream = new Subject<
@@ -589,6 +590,20 @@ export async function startTaskReplicationPilot(
   errorSubscription = replication.error$.subscribe((error) => {
     console.error('[TaskReplicationPilot] replication error:', error);
   });
+}
+
+const runReplicationPilotLifecycle = createReplicationPilotLifecycleQueue();
+
+export function stopTaskReplicationPilot(
+  ...args: Parameters<typeof stopTaskReplicationPilotNow>
+): ReturnType<typeof stopTaskReplicationPilotNow> {
+  return runReplicationPilotLifecycle(() => stopTaskReplicationPilotNow(...args));
+}
+
+export function startTaskReplicationPilot(
+  ...args: Parameters<typeof startTaskReplicationPilotNow>
+): ReturnType<typeof startTaskReplicationPilotNow> {
+  return runReplicationPilotLifecycle(() => startTaskReplicationPilotNow(...args));
 }
 
 export const __taskReplicationPilotTestUtils = {

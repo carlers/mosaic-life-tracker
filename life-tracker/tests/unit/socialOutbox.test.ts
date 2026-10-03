@@ -4,6 +4,10 @@ import { silenceExpectedConsole } from '../helpers/expectedConsole';
 const localStorageMock = vi.hoisted(() => {
   const store = new Map<string, string>();
   const mock = {
+    get length() {
+      return store.size;
+    },
+    key: (index: number) => Array.from(store.keys())[index] ?? null,
     getItem: (k: string) => (store.has(k) ? store.get(k) ?? null : null),
     setItem: (k: string, v: string) => {
       store.set(k, v);
@@ -30,9 +34,26 @@ import {
   __resetSocialOutboxForTests,
   type SocialOutboxFailureEvent,
   type SocialOutboxRemoteOp,
+  type SocialOutboxQueuedEntry,
 } from '../../src/lib/socialOutbox';
+import {
+  __resetAccountWorkScopeForTests,
+  scopeAccountWork,
+} from '../../src/lib/accountWorkScope';
 
 const STORAGE_KEY = 'mosaic_social_outbox';
+
+function storedEntries(): SocialOutboxQueuedEntry[] {
+  const prefix = STORAGE_KEY + ':entry:';
+  const entries: SocialOutboxQueuedEntry[] = [];
+  for (let index = 0; index < localStorageMock.length; index += 1) {
+    const key = localStorageMock.key(index);
+    if (!key?.startsWith(prefix)) continue;
+    const raw = localStorageMock.getItem(key);
+    if (raw) entries.push(JSON.parse(raw) as SocialOutboxQueuedEntry);
+  }
+  return entries;
+}
 
 function makeOp(
   overrides: Partial<SocialOutboxRemoteOp> = {}
@@ -52,6 +73,8 @@ beforeEach(() => {
   restoreConsole = silenceExpectedConsole(['[socialOutbox]']);
   localStorageMock.clear();
   __resetSocialOutboxForTests();
+  __resetAccountWorkScopeForTests();
+  scopeAccountWork('user_A');
 });
 afterEach(() => restoreConsole());
 
@@ -64,9 +87,7 @@ describe('socialOutbox — enqueue', () => {
       dedupKey: 'accept_friend_request:user_B',
     });
     expect(getSocialOutboxSize('user_A')).toBe(1);
-    const raw = localStorageMock.getItem(STORAGE_KEY);
-    expect(raw).toBeTruthy();
-    const parsed = JSON.parse(raw!);
+    const parsed = storedEntries();
     expect(parsed).toHaveLength(1);
     expect(parsed[0].action).toBe('accept_friend_request');
     expect(parsed[0].userId).toBe('user_A');
@@ -108,8 +129,7 @@ describe('socialOutbox — enqueue', () => {
       revert: { myRowId: 'fr_mine' },
       dedupKey: 'send_request:user_B',
     });
-    const raw = localStorageMock.getItem(STORAGE_KEY);
-    const parsed = JSON.parse(raw!);
+    const parsed = storedEntries();
     expect(parsed[0].attempts).toBe(1);
   });
 
@@ -255,8 +275,7 @@ describe('socialOutbox — flush', () => {
     });
     await flushSocialOutbox('user_A');
     expect(getSocialOutboxSize('user_A')).toBe(1);
-    const raw = localStorageMock.getItem(STORAGE_KEY);
-    const parsed = JSON.parse(raw!);
+    const parsed = storedEntries();
     expect(parsed[0].attempts).toBe(1);
   });
 

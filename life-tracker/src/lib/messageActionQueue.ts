@@ -1,4 +1,8 @@
 import { createPersistentOutbox } from './outbox';
+import {
+  captureAccountWorkGeneration,
+  isAccountWorkCurrent,
+} from './accountWorkScope';
 
 export interface MessageActionSender {
   (payload: Record<string, unknown>): Promise<Record<string, unknown>>;
@@ -75,7 +79,12 @@ export function enqueueMessageAction(
 
 export async function flushMessageActionQueue(userId: string): Promise<void> {
   if (!sender) return;
-  await outbox.flush(userId);
+  const generation = captureAccountWorkGeneration(userId);
+  if (generation === null) return;
+  await outbox.flush(
+    userId,
+    () => isAccountWorkCurrent(userId, generation)
+  );
 }
 
 export function clearMessageActionQueue(userId?: string): void {

@@ -42,6 +42,8 @@ This roadmap records durable workstreams and batch status. `SESSION_STATE.md` co
 - [x] Phase 2 — hosted response headers and local-only HTTPS build isolation
 - [x] Phase 3 — code hygiene and performance review
 - [x] Test-suite architecture consolidation — behavior-first UI assertions, reduced DOM/browser duplication, and diagnostic performance isolated from canonical correctness
+- [x] Workflow wall-time optimization — quiet WIP task pushes, one focused task checkpoint, one stable-Preview full gate, cached build dependencies, and provenance/tree-based acceptance reuse for exact stable Preview → dev promotions
+- [x] Sync-engine race hardening — fail-closed freshness barriers, authenticated-owner generations, account-scoped compatibility metadata, serialized pilot lifecycle, and cross-tab durable retry queues
 - [ ] Phase 4 — final production acceptance and main release
 
 ## Disaster recovery and backend capacity
@@ -76,6 +78,7 @@ This roadmap records durable workstreams and batch status. `SESSION_STATE.md` co
 ## Feature backlog
 
 - [x] Todo List view: compact color-only calendar with a selected-day task list
+- [x] Optional regional holiday overlay: synced show/region/type preferences, cached read-only holiday data, Calendar/Todo/Day View presentation, and viewer-local friend-calendar overlay
 - [ ] Diary view: per-day text entries with `public`, `followers`, or `private` visibility
 - [ ] Notifications tab
 - [ ] Routines and reminders

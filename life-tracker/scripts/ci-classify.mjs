@@ -30,10 +30,10 @@ export function classifyVerifyMode({
   }
 
   const browserRequested = commitMessage.includes('[verify:browser]');
-  const isCanonicalBranch =
-    branch === 'main' ||
-    branch === 'dev' ||
+  const focusedRequested = commitMessage.includes('[verify:focused]');
+  const isStablePreviewBranch =
     branch.startsWith('feature/') ||
+    branch.startsWith('fix/') ||
     branch.startsWith('perf/') ||
     branch.startsWith('security/') ||
     branch.startsWith('refactor/');
@@ -41,8 +41,19 @@ export function classifyVerifyMode({
     branch.startsWith('chatgpt/') ||
     branch.startsWith('codex/');
 
-  if (isCanonicalBranch) {
+  if (branch === 'dev') {
+    return { mode: 'promotion', browser: false };
+  }
+
+  if (branch === 'main' || isStablePreviewBranch) {
     return { mode: 'full', browser: true };
+  }
+
+  if (isAiBranch) {
+    if (focusedRequested || browserRequested) {
+      return { mode: 'focused', browser: browserRequested };
+    }
+    return { mode: 'skip', browser: false };
   }
 
   const docsOnly =
@@ -50,10 +61,6 @@ export function classifyVerifyMode({
 
   if (docsOnly) {
     return { mode: 'docs', browser: browserRequested };
-  }
-
-  if (isAiBranch) {
-    return { mode: 'focused', browser: browserRequested };
   }
 
   return { mode: 'full', browser: true };

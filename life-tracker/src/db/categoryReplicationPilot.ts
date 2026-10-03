@@ -1,3 +1,4 @@
+import { createReplicationPilotLifecycleQueue } from './replicationPilotLifecycle';
 import { Permission, Query, Role } from 'appwrite';
 import {
   getChangedDocumentsSince,
@@ -359,7 +360,7 @@ export async function refreshCategoryReplicationPilot(
   return true;
 }
 
-export async function stopCategoryReplicationPilot(
+async function stopCategoryReplicationPilotNow(
   userId?: string
 ): Promise<void> {
   if (userId && activeOwnerId !== userId) return;
@@ -381,7 +382,7 @@ export async function stopCategoryReplicationPilot(
   }
 }
 
-export async function startCategoryReplicationPilot(
+async function startCategoryReplicationPilotNow(
   userId: string,
   collection: RxCollection<CategoryDocument>,
   initialPushCheckpoint: CategoryReplicationPushCheckpoint | undefined
@@ -390,7 +391,7 @@ export async function startCategoryReplicationPilot(
   if (isCategoryReplicationPilotActive(userId)) return;
 
   if (activeReplication) {
-    await stopCategoryReplicationPilot();
+    await stopCategoryReplicationPilotNow();
   }
 
   // The caller captures this checkpoint before the legacy bootstrap sync.
@@ -436,6 +437,20 @@ export async function startCategoryReplicationPilot(
   errorSubscription = replication.error$.subscribe((error) => {
     console.error('[CategoryReplicationPilot] replication error:', error);
   });
+}
+
+const runReplicationPilotLifecycle = createReplicationPilotLifecycleQueue();
+
+export function stopCategoryReplicationPilot(
+  ...args: Parameters<typeof stopCategoryReplicationPilotNow>
+): ReturnType<typeof stopCategoryReplicationPilotNow> {
+  return runReplicationPilotLifecycle(() => stopCategoryReplicationPilotNow(...args));
+}
+
+export function startCategoryReplicationPilot(
+  ...args: Parameters<typeof startCategoryReplicationPilotNow>
+): ReturnType<typeof startCategoryReplicationPilotNow> {
+  return runReplicationPilotLifecycle(() => startCategoryReplicationPilotNow(...args));
 }
 
 export const __categoryReplicationPilotTestUtils = {

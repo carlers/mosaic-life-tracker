@@ -2,11 +2,17 @@ import React, { useMemo } from 'react';
 import { isToday, format } from 'date-fns';
 import { TaskBlock } from './TaskBlock';
 import type { TaskDocument } from '../../../db/schema';
+import {
+  EMPTY_HOLIDAYS,
+  holidayNames,
+  type HolidayOccurrence,
+} from '../../../lib/holidays';
 
 interface DayCellProps {
   date: Date;
   tasks: TaskDocument[];
   categories: Record<string, { color: string; name: string }>;
+  holidays?: readonly HolidayOccurrence[];
   isCurrentMonth?: boolean;
   onDayClick?: (date: Date) => void;
 }
@@ -15,6 +21,7 @@ const DayCellComponent: React.FC<DayCellProps> = ({
   date,
   tasks,
   categories,
+  holidays = EMPTY_HOLIDAYS,
   isCurrentMonth = true,
   onDayClick,
 }) => {
@@ -24,7 +31,7 @@ const DayCellComponent: React.FC<DayCellProps> = ({
 
   let dayColor = 'text-white';
   if (dayOfWeek === 6) dayColor = 'text-blue-500';
-  if (dayOfWeek === 0) dayColor = 'text-red-500';
+  if (dayOfWeek === 0 || holidays.length > 0) dayColor = 'text-red-500';
   if (!isCurrentMonth) dayColor = 'text-gray-400';
 
   // Sort only when there is more than one task. Empty days (the vast
@@ -44,15 +51,15 @@ const DayCellComponent: React.FC<DayCellProps> = ({
   // screen-reader user gets the same information the visual grid
   // conveys (day-of-week coloring, today's border, task density).
   const ariaLabel = useMemo(() => {
-    const dateLabel = format(date, 'EEEE, MMMM d, yyyy');
-    const n = tasks.length;
-    if (n === 0) {
-      return isTodayDate ? `${dateLabel}, today, no tasks` : `${dateLabel}, no tasks`;
+    const parts = [format(date, 'EEEE, MMMM d, yyyy')];
+    if (isTodayDate) parts.push('today');
+    if (holidays.length > 0) {
+      parts.push(`holiday: ${holidayNames(holidays)}`);
     }
-    return isTodayDate
-      ? `${dateLabel}, today, ${n} task${n === 1 ? '' : 's'}`
-      : `${dateLabel}, ${n} task${n === 1 ? '' : 's'}`;
-  }, [date, tasks.length, isTodayDate]);
+    const n = tasks.length;
+    parts.push(n === 0 ? 'no tasks' : `${n} task${n === 1 ? '' : 's'}`);
+    return parts.join(', ');
+  }, [date, holidays, tasks.length, isTodayDate]);
 
   const handleClick = onDayClick ? () => onDayClick(date) : undefined;
 
@@ -82,6 +89,17 @@ const DayCellComponent: React.FC<DayCellProps> = ({
         </div>
       </div>
       <div className="flex-1 space-y-[0.2rem]" aria-hidden="true">
+        {holidays.map((holiday) => (
+          <div
+            key={holiday.id}
+            className="w-full overflow-hidden rounded-[4.5px] bg-red-950/70 px-[0.3rem] pb-0.5 pt-0.5 text-[10.5px] font-semibold text-red-400"
+            title={holiday.title}
+          >
+            <span className="block overflow-hidden whitespace-nowrap">
+              {holiday.title}
+            </span>
+          </div>
+        ))}
         {sortedTasks.map((task) => (
           <TaskBlock
             key={task.id}

@@ -8,9 +8,13 @@ import { useCalendarState } from './views/useCalendarState';
 import { useAuth } from '../../hooks/useAuth';
 import { useSettings } from '../../hooks/useSettings';
 import {
+  HOLIDAY_REGION_SETTING_KEY,
+  HOLIDAY_TYPES_SETTING_KEY,
+  SHOW_HOLIDAYS_SETTING_KEY,
   WEEK_STARTS_ON_SUNDAY_SETTING_KEY,
   resolveWeekStartsOn,
 } from '../../lib/preferences';
+import { createHolidayDisplayConfig } from '../../lib/holidays';
 import type { CarouselPerson } from '../../hooks/useFriendCarousel';
 import type { ViewType } from './ViewSwitcher';
 import type { CategoryDocument, TaskDocument } from '../../db/schema';
@@ -53,6 +57,11 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
   const { getSetting } = useSettings();
   const weekStartsOn = resolveWeekStartsOn(
     getSetting(WEEK_STARTS_ON_SUNDAY_SETTING_KEY, true) === true
+  );
+  const holidayConfig = createHolidayDisplayConfig(
+    getSetting(SHOW_HOLIDAYS_SETTING_KEY, false),
+    getSetting(HOLIDAY_REGION_SETTING_KEY, ''),
+    getSetting(HOLIDAY_TYPES_SETTING_KEY, 'public-and-observances')
   );
   const [activeView, setActiveView] = useState<ViewType>(readHomeView);
   const [todoFocusDate, setTodoFocusDate] = useState(() => new Date());
@@ -121,6 +130,7 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
           onPrev={calendarState.handlePrev}
           onNext={calendarState.handleNext}
           weekStartsOn={weekStartsOn}
+          holidayConfig={holidayConfig}
         />
       ) : activeView === 'todo' ? (
         <React.Suspense fallback={null}>
@@ -131,6 +141,7 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
             categoriesMap={categoriesMap}
             onFocusDateChange={setTodoFocusDate}
             weekStartsOn={weekStartsOn}
+            holidayConfig={holidayConfig}
           />
         </React.Suspense>
       ) : (
