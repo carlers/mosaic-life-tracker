@@ -2,8 +2,8 @@
 
 Updated: 2026-10-04
 Current task: Fix the multi-device sync restart path that could misclassify remote-applied RxDB revisions as local dirty rows and trigger hundreds of unnecessary Appwrite writes/rate limits.
-Status: Implementation, regression coverage, and architecture/retention documentation are complete on `chatgpt/multi-device-sync-rate-limit-audit`. This checkpoint requests the focused task gate.
-Next action: Inspect the focused Quality Gate for this commit. Fix any failure and rerun focused verification. Once green, squash the task into a stable `fix/*` Preview branch created from `dev`, then wait for canonical acceptance and Vercel Preview. Promotion to `dev` remains user-controlled.
+Status: Implementation, regression coverage, and documentation are complete on `chatgpt/multi-device-sync-rate-limit-audit`. The first focused gate passed. Stable Preview canonical acceptance then exposed one full-lint error in `taskReplicationPilot.ts` (`no-useless-assignment`); this repair removes that redundant initialization and requests focused verification on the actual TypeScript repair.
+Next action: Inspect this focused repair gate. If green, squash the repair into `fix/multi-device-sync-rate-limit` and wait for a fresh full canonical acceptance + Vercel Preview. Promotion to `dev` remains user-controlled.
 Blockers: None known.
 
 ## Results
@@ -20,7 +20,9 @@ Blockers: None known.
 
 ## Verification
 
-- Focused task Quality Gate: requested by this checkpoint commit.
-- Stable Preview canonical acceptance: pending focused green + squash delivery.
-- Vercel Preview: pending stable Preview delivery.
-- Manual/device acceptance: recommended on phone + desktop with the same account after Preview; confirm ordinary reload/focus does not surface `push/reconciliation` errors or mass rate-limit failures.
+- Initial focused task Quality Gate: passed.
+- First stable Preview canonical attempt: build and dependency audit passed; full `checks` failed on one ESLint `no-useless-assignment` error before unit execution.
+- Focused repair Quality Gate: requested by this commit.
+- Stable Preview canonical acceptance: pending repair delivery and rerun.
+- Vercel Preview: first Preview build reached READY for the pre-repair SHA; final deployment pending repaired Preview SHA.
+- Manual/device acceptance: recommended on phone + desktop with the same account after final Preview; confirm ordinary reload/focus does not surface `push/reconciliation` errors or mass rate-limit failures.

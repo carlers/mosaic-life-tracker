@@ -293,7 +293,7 @@ async function pushTasks(
     }
 
     const assumed = row.assumedMasterState;
-    let documentToPush: ReplicatedTask = next;
+    let documentToPush: ReplicatedTask;
 
     if (!assumed) {
       if (!current) {
