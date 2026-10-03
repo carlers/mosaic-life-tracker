@@ -5,9 +5,12 @@
 Read applicable AGENTS instructions, the [checkpoint](SESSION_STATE.md), and relevant
 source. Read [roadmap](PLAN.md) only for sequencing and [reference](PROJECT_REFERENCE.md)
 sections only for affected contracts. Inspect Git before edits; preserve unrelated work.
-Complete the requested scope, run focused checks, repair failures, review the diff,
-checkpoint, then follow [delivery](DELIVERY.md). No mandatory profiles, model selection,
-response footers, verbatim prompt copies, or evidence ledger. [Telemetry](WORKFLOW_TELEMETRY.md)
+Complete the requested scope, run focused checks, repair failures, review the diff, and put
+the durable checkpoint in the same final task commit. Batch remote edits; ordinary AI-branch
+pushes are intentionally verification-free, so request `[verify:focused]` only on the
+coherent task checkpoint before stable-Preview squash. Do not create a later status-only
+checkpoint after CI turns green. Then follow [delivery](DELIVERY.md). No mandatory profiles,
+model selection, response footers, verbatim prompt copies, or evidence ledger. [Telemetry](WORKFLOW_TELEMETRY.md)
 is optional. Batch independent reads and ask for missing files together.
 
 ## Environment selection

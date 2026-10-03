@@ -42,6 +42,7 @@ This roadmap records durable workstreams and batch status. `SESSION_STATE.md` co
 - [x] Phase 2 — hosted response headers and local-only HTTPS build isolation
 - [x] Phase 3 — code hygiene and performance review
 - [x] Test-suite architecture consolidation — behavior-first UI assertions, reduced DOM/browser duplication, and diagnostic performance isolated from canonical correctness
+- [x] Workflow wall-time optimization — quiet WIP task pushes, one focused task checkpoint, one stable-Preview full gate, cached build dependencies, and provenance/tree-based acceptance reuse for exact stable Preview → dev promotions
 - [ ] Phase 4 — final production acceptance and main release
 
 ## Disaster recovery and backend capacity

@@ -102,23 +102,35 @@ variants are `test:watch:unit`, `test:watch:handlers`, and `test:watch:dom`.
 
 ### GitHub-connected fast loop
 
-Ordinary pushes to AI-owned `chatgpt/**` and `codex/**` branches use the least expensive
-safe remote loop. Quality Gate is push-driven rather than duplicated on `pull_request`, so
-each pushed commit gets one classification/verification run instead of separate push and PR
-runs. Changes limited to project Markdown/`docs/**` run contract/link and diff checks only.
-Other ordinary pushes run `scripts/verify-focused.mjs` against the push's real before-SHA:
-contracts/discovery always run, ESLint receives changed code files, and Vitest selects tests
-related to those changes. Use `[verify:browser]` on an intermediate commit only when the
-change needs real-browser feedback.
+AI-owned `chatgpt/**` and `codex/**` branches are deliberately quiet between verification
+checkpoints. Ordinary pushes run classification only; agents should batch remote edits and
+avoid turning every tiny repair into a GitHub Actions run. Local/IDE agents use the narrowest
+relevant commands while editing. GitHub-only agents review/batch the intended tree, then push
+one coherent verification commit.
 
-Use `[verify:full]` on the exact final task commit. The remote canonical gate then runs
-static/lint, unit, handler, DOM, production build/PWA/size, and browser correctness
-contracts as parallel jobs and emits `canonical-acceptance` only when all pass. The
-diagnostic performance probe is excluded. That exact green SHA is accepted on the source
-branch after canonical acceptance; Vercel deploys only the configured stable branches.
+The final task commit already contains its durable checkpoint and uses
+`[verify:focused]`. That runs `scripts/verify-focused.mjs` against the push's real
+before-SHA: contracts/discovery always run, ESLint receives changed code files, and Vitest
+selects tests related to those changes. Use `[verify:browser]` instead when intermediate
+real-browser feedback is decisive; it keeps focused checks and adds the browser contract
+shards. `[verify:full]` remains an exceptional manual escape hatch.
 
-Use the remote canonical gate for final acceptance when available; do not duplicate the
-whole suite locally. See [delivery](DELIVERY.md).
+After focused green, squash the task PR into its stable Preview branch. The stable Preview
+push automatically runs the **single routine full canonical gate**: static/lint, unit,
+handler, DOM, production build/PWA/size, and browser correctness contracts in parallel,
+then emits `canonical-acceptance`. Vercel deploys that stable branch for manual/device
+acceptance. Do not first run the same full gate on the task branch.
+
+When an accepted stable Preview is later merged unchanged into `dev`, the promotion check
+verifies merged-PR provenance, first-parent continuity, exact tree equality, and the source
+SHA's successful `canonical-acceptance`. Matching evidence is reused; any mismatch or API
+failure automatically runs the full gate on `dev` instead. `main` still always runs full.
+
+Do not add a status-only documentation commit after a green run. GitHub Actions/Vercel retain
+that evidence; a new committed source/doc change is new tree state and needs verification.
+
+Use the stable Preview canonical gate for final acceptance when available; do not duplicate
+the whole suite locally. See [delivery](DELIVERY.md).
 
 ## Spec-first TDD rule
 

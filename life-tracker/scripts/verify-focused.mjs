@@ -41,5 +41,5 @@ if (broad) {
 }
 
 process.stdout.write(
-  `Focused verification passed for ${changed.length} changed file(s). Final acceptance still requires [verify:full].\n`
+  `Focused verification passed for ${changed.length} changed file(s). Full canonical acceptance runs after squash on the stable Preview branch.\n`
 );

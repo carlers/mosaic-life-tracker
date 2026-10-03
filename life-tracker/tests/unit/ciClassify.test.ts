@@ -14,78 +14,108 @@ describe('CI verification mode classifier', () => {
     expect(isDocsOnlyPath('.github/workflows/quality-gate.yml')).toBe(false);
   });
 
-  it('uses the lightweight docs gate for ordinary docs-only task pushes', () => {
+  it('skips ordinary AI task pushes until an explicit verification checkpoint', () => {
+    for (const ref of [
+      'refs/heads/chatgpt/runtime',
+      'refs/heads/chatgpt/docs',
+      'refs/heads/codex/runtime',
+    ]) {
+      expect(
+        classifyVerifyMode({
+          eventName: 'push',
+          ref,
+          changedFiles: ['life-tracker/src/App.tsx'],
+        })
+      ).toEqual({ mode: 'skip', browser: false });
+    }
+  });
+
+  it('runs focused verification only when an AI task checkpoint requests it', () => {
     expect(
       classifyVerifyMode({
         eventName: 'push',
-        ref: 'refs/heads/chatgpt/docs',
+        ref: 'refs/heads/chatgpt/runtime',
+        commitMessage: 'fix: finish task [verify:focused]',
+        changedFiles: ['life-tracker/src/App.tsx'],
+      })
+    ).toEqual({ mode: 'focused', browser: false });
+
+    expect(
+      classifyVerifyMode({
+        eventName: 'push',
+        ref: 'refs/heads/codex/runtime',
+        commitMessage: 'fix: browser behavior [verify:browser]',
+        changedFiles: ['life-tracker/src/App.tsx'],
+      })
+    ).toEqual({ mode: 'focused', browser: true });
+  });
+
+  it('keeps the explicit full marker as a manual escape hatch', () => {
+    expect(
+      classifyVerifyMode({
+        eventName: 'push',
+        ref: 'refs/heads/chatgpt/runtime',
+        commitMessage: 'test: force full gate [verify:full]',
+        changedFiles: ['life-tracker/src/App.tsx'],
+      })
+    ).toEqual({ mode: 'full', browser: true });
+  });
+
+  it('runs one full canonical gate on stable Preview branches', () => {
+    for (const ref of [
+      'refs/heads/feature/calendar',
+      'refs/heads/fix/sync',
+      'refs/heads/perf/animation',
+      'refs/heads/security/backups',
+      'refs/heads/refactor/data',
+    ]) {
+      expect(
+        classifyVerifyMode({
+          eventName: 'push',
+          ref,
+          changedFiles: ['life-tracker/src/App.tsx'],
+        })
+      ).toEqual({ mode: 'full', browser: true });
+    }
+  });
+
+  it('routes dev pushes through promotion evidence before deciding on a full fallback', () => {
+    expect(
+      classifyVerifyMode({
+        eventName: 'push',
+        ref: 'refs/heads/dev',
+        changedFiles: ['life-tracker/src/App.tsx'],
+      })
+    ).toEqual({ mode: 'promotion', browser: false });
+  });
+
+  it('keeps main and manual dispatches on the full gate', () => {
+    expect(
+      classifyVerifyMode({
+        eventName: 'push',
+        ref: 'refs/heads/main',
+        changedFiles: ['life-tracker/src/App.tsx'],
+      })
+    ).toEqual({ mode: 'full', browser: true });
+
+    expect(
+      classifyVerifyMode({
+        eventName: 'workflow_dispatch',
+        ref: 'refs/heads/chatgpt/runtime',
+      })
+    ).toEqual({ mode: 'full', browser: true });
+  });
+
+  it('retains the lightweight docs mode for non-AI miscellaneous branches', () => {
+    expect(
+      classifyVerifyMode({
+        eventName: 'push',
+        ref: 'refs/heads/task/docs',
         changedFiles: [
           'life-tracker/AGENTS.md',
           'life-tracker/docs/DELIVERY.md',
         ],
       })
     ).toEqual({ mode: 'docs', browser: false });
-  });
-
-  it('uses focused verification for ordinary runtime task pushes', () => {
-    expect(
-      classifyVerifyMode({
-        eventName: 'push',
-        ref: 'refs/heads/chatgpt/runtime',
-        changedFiles: ['life-tracker/src/App.tsx'],
-      })
-    ).toEqual({ mode: 'focused', browser: false });
-  });
-
-  it('never downgrades an explicit exact-SHA full acceptance commit', () => {
-    expect(
-      classifyVerifyMode({
-        eventName: 'push',
-        ref: 'refs/heads/chatgpt/docs',
-        commitMessage: 'docs: close task [verify:full]',
-        changedFiles: ['life-tracker/docs/SESSION_STATE.md'],
-      })
-    ).toEqual({ mode: 'full', browser: true });
-  });
-
-  it('keeps stable branch pull requests on the full canonical gate', () => {
-    expect(
-      classifyVerifyMode({
-        eventName: 'pull_request',
-        ref: 'refs/pull/1/merge',
-        headRef: 'feature/calendar',
-        changedFiles: ['life-tracker/src/App.tsx'],
-      })
-    ).toEqual({ mode: 'full', browser: true });
-  });
-
-  it('keeps docs-only optimization and browser overrides on AI branches', () => {
-    expect(
-      classifyVerifyMode({
-        eventName: 'pull_request',
-        ref: 'refs/pull/1/merge',
-        headRef: 'chatgpt/docs',
-        changedFiles: ['life-tracker/docs/TEST_WORKFLOW.md'],
-      })
-    ).toEqual({ mode: 'docs', browser: false });
-
-    expect(
-      classifyVerifyMode({
-        eventName: 'push',
-        ref: 'refs/heads/chatgpt/runtime',
-        commitMessage: 'test: interaction [verify:browser]',
-        changedFiles: ['life-tracker/src/App.tsx'],
-      })
-    ).toEqual({ mode: 'focused', browser: true });
-  });
-
-  it('uses focused verification for both AI branch families', () => {
-    expect(
-      classifyVerifyMode({
-        eventName: 'push',
-        ref: 'refs/heads/codex/runtime',
-        changedFiles: ['life-tracker/src/App.tsx'],
-      })
-    ).toEqual({ mode: 'focused', browser: false });
   });
 });
