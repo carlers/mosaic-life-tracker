@@ -115,31 +115,88 @@ const RECONCILED_MISSING_KEY = 'reconciledMissingRows';
 const BOOTSTRAP_PUSH_ACKS_KEY = 'bootstrapPushAcknowledgements';
 const PER_COLLECTION_STATE_VERSION = 1;
 const BOOTSTRAP_PUSH_ACKS_VERSION = 1;
-function loadPerCollectionState(
+
+function accountStorageKey(base: string, userId: string): string {
+  return base + '_' + userId;
+}
+
+function parsePerCollectionState(
+  raw: string | null,
   userId: string
-): Partial<Record<CollectionName, PerCollectionSyncEntry>> {
+): Partial<Record<CollectionName, PerCollectionSyncEntry>> | null {
+  if (!raw) return null;
   try {
-    const raw = localStorage.getItem(PER_COLLECTION_KEY);
-    if (!raw) return {};
     const parsed = JSON.parse(raw) as unknown;
-    if (!parsed || typeof parsed !== 'object') return {};
+    if (!parsed || typeof parsed !== 'object') return null;
     const state = parsed as Partial<PerCollectionPersistedState>;
-    // Legacy blobs (pre-versioning) have no `version` field. Treat them as
-    // version 1 so existing users do not lose their per-collection state.
     const version =
       typeof state.version === 'number'
         ? state.version
         : PER_COLLECTION_STATE_VERSION;
-    if (version !== PER_COLLECTION_STATE_VERSION) return {};
-    if (state.ownerId !== userId) return {};
-    if (!state.entries || typeof state.entries !== 'object') return {};
+    if (version !== PER_COLLECTION_STATE_VERSION) return null;
+    if (state.ownerId !== userId) return null;
+    if (!state.entries || typeof state.entries !== 'object') return null;
     return state.entries as Partial<
       Record<CollectionName, PerCollectionSyncEntry>
     >;
   } catch {
-    return {};
+    return null;
   }
 }
+
+function baselineFromLastSuccessfulSync(
+  userId: string
+): Partial<Record<CollectionName, PerCollectionSyncEntry>> | null {
+  try {
+    const lastSync = localStorage.getItem('lastSyncTime_' + userId);
+    if (!lastSync || !Number.isFinite(Date.parse(lastSync))) return null;
+    return Object.fromEntries(
+      ALL_COLLECTIONS.map((collection) => [
+        collection,
+        { pull: lastSync, dirty: lastSync },
+      ])
+    ) as Record<CollectionName, PerCollectionSyncEntry>;
+  } catch {
+    return null;
+  }
+}
+
+function loadPerCollectionState(
+  userId: string
+): Partial<Record<CollectionName, PerCollectionSyncEntry>> {
+  try {
+    const scoped = parsePerCollectionState(
+      localStorage.getItem(accountStorageKey(PER_COLLECTION_KEY, userId)),
+      userId
+    );
+    if (scoped) return scoped;
+
+    const legacy = parsePerCollectionState(
+      localStorage.getItem(PER_COLLECTION_KEY),
+      userId
+    );
+    if (legacy) {
+      savePerCollectionState(userId, legacy);
+      return legacy;
+    }
+
+    // The account-scoped lastSync is written only after every collection
+    // completes cleanly. It is therefore a safe fallback baseline when the
+    // old single-owner compatibility blob was overwritten by another account.
+    // Revisions newer than this timestamp remain dirty and eligible to push.
+    const recovered = baselineFromLastSuccessfulSync(userId);
+    if (recovered) {
+      savePerCollectionState(userId, recovered);
+      return recovered;
+    }
+  } catch {
+  }
+
+  // With no successful baseline (for example first-ever offline use), keep
+  // the offline-first behavior and preserve potentially unsynced local rows.
+  return {};
+}
+
 function savePerCollectionState(
   userId: string,
   entries: Partial<Record<CollectionName, PerCollectionSyncEntry>>
@@ -150,30 +207,57 @@ function savePerCollectionState(
       ownerId: userId,
       entries,
     };
-    localStorage.setItem(PER_COLLECTION_KEY, JSON.stringify(state));
+    localStorage.setItem(
+      accountStorageKey(PER_COLLECTION_KEY, userId),
+      JSON.stringify(state)
+    );
   } catch {
   }
 }
-function loadReconciledMissingRows(
+
+function parseReconciledMissingState(
+  raw: string | null,
   userId: string
-): Record<string, string> {
+): Record<string, string> | null {
+  if (!raw) return null;
   try {
-    const raw = localStorage.getItem(RECONCILED_MISSING_KEY);
-    if (!raw) return {};
     const parsed = JSON.parse(raw) as unknown;
-    if (!parsed || typeof parsed !== 'object') return {};
+    if (!parsed || typeof parsed !== 'object') return null;
     const state = parsed as {
       version?: number;
       ownerId?: string;
       entries?: Record<string, string>;
     };
     if (state.version !== 1 || state.ownerId !== userId || !state.entries) {
-      return {};
+      return null;
     }
     return state.entries;
   } catch {
-    return {};
+    return null;
   }
+}
+
+function loadReconciledMissingRows(
+  userId: string
+): Record<string, string> {
+  try {
+    const scoped = parseReconciledMissingState(
+      localStorage.getItem(accountStorageKey(RECONCILED_MISSING_KEY, userId)),
+      userId
+    );
+    if (scoped) return scoped;
+
+    const legacy = parseReconciledMissingState(
+      localStorage.getItem(RECONCILED_MISSING_KEY),
+      userId
+    );
+    if (legacy) {
+      saveReconciledMissingRows(userId, legacy);
+      return legacy;
+    }
+  } catch {
+  }
+  return {};
 }
 
 function saveReconciledMissingRows(
@@ -182,7 +266,7 @@ function saveReconciledMissingRows(
 ): void {
   try {
     localStorage.setItem(
-      RECONCILED_MISSING_KEY,
+      accountStorageKey(RECONCILED_MISSING_KEY, userId),
       JSON.stringify({ version: 1, ownerId: userId, entries })
     );
   } catch {
@@ -190,15 +274,15 @@ function saveReconciledMissingRows(
 }
 
 function reconciliationKey(collection: string, rowId: string): string {
-  return `${collection}::${rowId}`;
+  return collection + '::' + rowId;
 }
 
-function loadBootstrapPushAcks(
+function parseBootstrapPushAcks(
+  raw: string | null,
   userId: string
-): Partial<Record<CollectionName, Record<string, number>>> {
+): Partial<Record<CollectionName, Record<string, number>>> | null {
+  if (!raw) return null;
   try {
-    const raw = localStorage.getItem(BOOTSTRAP_PUSH_ACKS_KEY);
-    if (!raw) return {};
     const parsed = JSON.parse(raw) as Partial<BootstrapPushAcksState>;
     if (
       parsed.version !== BOOTSTRAP_PUSH_ACKS_VERSION ||
@@ -206,12 +290,35 @@ function loadBootstrapPushAcks(
       !parsed.entries ||
       typeof parsed.entries !== 'object'
     ) {
-      return {};
+      return null;
     }
     return parsed.entries;
   } catch {
-    return {};
+    return null;
   }
+}
+
+function loadBootstrapPushAcks(
+  userId: string
+): Partial<Record<CollectionName, Record<string, number>>> {
+  try {
+    const scoped = parseBootstrapPushAcks(
+      localStorage.getItem(accountStorageKey(BOOTSTRAP_PUSH_ACKS_KEY, userId)),
+      userId
+    );
+    if (scoped) return scoped;
+
+    const legacy = parseBootstrapPushAcks(
+      localStorage.getItem(BOOTSTRAP_PUSH_ACKS_KEY),
+      userId
+    );
+    if (legacy) {
+      saveBootstrapPushAcks(userId, legacy);
+      return legacy;
+    }
+  } catch {
+  }
+  return {};
 }
 
 function saveBootstrapPushAcks(
@@ -220,7 +327,7 @@ function saveBootstrapPushAcks(
 ): void {
   try {
     localStorage.setItem(
-      BOOTSTRAP_PUSH_ACKS_KEY,
+      accountStorageKey(BOOTSTRAP_PUSH_ACKS_KEY, userId),
       JSON.stringify({
         version: BOOTSTRAP_PUSH_ACKS_VERSION,
         ownerId: userId,
