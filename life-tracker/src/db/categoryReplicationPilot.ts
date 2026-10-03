@@ -103,6 +103,19 @@ function categoryStateEquals(
   );
 }
 
+function isBootstrapLocalNewer(
+  localUpdatedAt: string,
+  remoteUpdatedAt: string
+): boolean {
+  const localMs = Date.parse(localUpdatedAt);
+  const remoteMs = Date.parse(remoteUpdatedAt);
+  return (
+    Number.isFinite(localMs) &&
+    Number.isFinite(remoteMs) &&
+    localMs > remoteMs
+  );
+}
+
 async function readRemoteCategory(
   rowId: string
 ): Promise<ReplicatedCategory | null> {
@@ -165,16 +178,26 @@ async function pushCategories(
     const assumed = row.assumedMasterState;
 
     if (!assumed) {
-      if (current) {
+      if (!current) {
+        const createConflict = await createRemoteCategory(next, userId);
+        if (createConflict) conflicts.push(createConflict);
+        continue;
+      }
+
+      // No assumed master means this row predates RxDB's persisted
+      // replication metadata (first sync / metadata recovery). A local LWT
+      // alone is not evidence of a local edit because downstream replication
+      // also writes the local document. Identical state is acknowledged
+      // without a remote write; otherwise only a genuinely newer
+      // application-level edit is allowed to win this one-time bootstrap.
+      if (categoryStateEquals(current, next)) {
+        continue;
+      }
+      if (!isBootstrapLocalNewer(next.updatedAt, current.updatedAt)) {
         conflicts.push(current);
         continue;
       }
-      const createConflict = await createRemoteCategory(next, userId);
-      if (createConflict) conflicts.push(createConflict);
-      continue;
-    }
-
-    if (current && !categoryStateEquals(current, assumed)) {
+    } else if (current && !categoryStateEquals(current, assumed)) {
       conflicts.push(current);
       continue;
     }
