@@ -1296,6 +1296,59 @@ describe('sync — compatibility bootstrap push resume', () => {
     expect(taskPilotStartMock).toHaveBeenCalled();
     expect(syncModule.getSyncStatus().errors).toEqual([]);
   });
+  it('lets a newer remote row replace an acknowledged local revision before handoff', async () => {
+    const acknowledged = makeLocalDocWithLwt('ack_remote_newer', 20_001);
+    const failed = makeLocalDocWithLwt('still_pending', 20_002);
+    const upsert = vi.fn().mockResolvedValue(undefined);
+    const collection = {
+      findOne: (id: string) => ({
+        exec: async () =>
+          id === acknowledged.id
+            ? acknowledged
+            : id === failed.id
+              ? failed
+              : null,
+      }),
+      find: () => ({ exec: async () => [acknowledged, failed] }),
+      upsert,
+    };
+    getDatabaseMock.mockReturnValue(makeTaskOnlyDb(collection));
+
+    updateRowMock.mockImplementation(async ({ rowId }: { rowId: string }) => {
+      if (rowId === failed.id) {
+        throw Object.assign(new Error('server boom'), { code: 500 });
+      }
+      return {};
+    });
+
+    await syncModule.initializeSync('user_A');
+
+    syncModule.__resetSyncRuntimeForTests();
+    vi.resetModules();
+    syncModule = await import('../../src/db/sync');
+
+    const remoteNewer = makeRemoteTaskRow(
+      acknowledged.id,
+      '2026-10-03T00:00:00.000Z'
+    );
+    listRowsMock.mockImplementation(
+      async ({ tableId }: { tableId: string }) =>
+        tableId === 'tasks' ? { rows: [remoteNewer] } : { rows: [] }
+    );
+    const retryAttempts: string[] = [];
+    updateRowMock.mockImplementation(async ({ rowId }: { rowId: string }) => {
+      retryAttempts.push(rowId);
+      return {};
+    });
+
+    await syncModule.initializeSync('user_A');
+
+    expect(upsert).toHaveBeenCalledWith(
+      expect.objectContaining({ id: acknowledged.id })
+    );
+    expect(retryAttempts).not.toContain(acknowledged.id);
+    expect(retryAttempts).toContain(failed.id);
+  });
 });
 
 describe('sync — boundary advancement', () => {
