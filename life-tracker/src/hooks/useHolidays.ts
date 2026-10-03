@@ -19,9 +19,15 @@ export function useHolidaysByDate(
     () => (yearsKey ? yearsKey.split(',').map(Number) : []),
     [yearsKey]
   );
-  const [holidays, setHolidays] = useState<HolidayOccurrence[]>([]);
   const isEnabled =
     config.enabled && !!config.countryCode && requestedYears.length > 0;
+  const requestKey = isEnabled
+    ? `${config.countryCode}|${config.types}|${yearsKey}`
+    : '';
+  const [result, setResult] = useState<{
+    key: string;
+    holidays: HolidayOccurrence[];
+  }>({ key: '', holidays: [] });
 
   useEffect(() => {
     if (!isEnabled) return;
@@ -33,27 +39,36 @@ export function useHolidaysByDate(
           requestedYears,
           config.types
         );
-        if (active) setHolidays(cached);
+        if (active) setResult({ key: requestKey, holidays: cached });
         const refreshed = await data.refreshHolidayYears(
           config.countryCode,
           requestedYears,
           config.types
         );
-        if (active) setHolidays(refreshed);
+        if (active) setResult({ key: requestKey, holidays: refreshed });
       })
       .catch(() => {
-        if (active) setHolidays([]);
+        if (active) setResult({ key: requestKey, holidays: [] });
       });
     return () => {
       active = false;
     };
-  }, [config.countryCode, config.types, isEnabled, requestedYears]);
+  }, [
+    config.countryCode,
+    config.types,
+    isEnabled,
+    requestKey,
+    requestedYears,
+  ]);
 
   return useMemo(
-    () => isEnabled && holidays.length > 0
-      ? groupHolidaysByDate(holidays)
-      : EMPTY_HOLIDAYS_BY_DATE,
-    [holidays, isEnabled]
+    () =>
+      isEnabled &&
+      result.key === requestKey &&
+      result.holidays.length > 0
+        ? groupHolidaysByDate(result.holidays)
+        : EMPTY_HOLIDAYS_BY_DATE,
+    [isEnabled, requestKey, result]
   );
 }
 
