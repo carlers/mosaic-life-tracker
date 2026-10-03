@@ -34,7 +34,7 @@ import {
 import { updateProfileAvatar } from '../lib/social';
 import { awaitPilotReplicationFreshness } from './replicationFreshness';
 import { getReplicationIdentifier } from './replicationIds';
-import { markReplicationFresh } from './replicationLocalState';
+import { trackReplicationFreshness } from './replicationLocalState';
 
 const PULL_BATCH_SIZE = 100;
 const PUSH_BATCH_SIZE = 20;
@@ -577,13 +577,8 @@ async function startSettingsReplicationPilotNow(
     pull: {
       batchSize: PULL_BATCH_SIZE,
       stream$: pullStream.asObservable(),
-      handler: async (checkpoint, batchSize) => {
-        const result = await pullSettings(userId, checkpoint, batchSize);
-        if (result.documents.length < batchSize) {
-          await markReplicationFresh(userId, 'settings');
-        }
-        return result;
-      },
+      handler: (checkpoint, batchSize) =>
+        pullSettings(userId, checkpoint, batchSize),
     },
     push: {
       batchSize: PUSH_BATCH_SIZE,
@@ -594,6 +589,7 @@ async function startSettingsReplicationPilotNow(
 
   activeOwnerId = userId;
   activeReplication = replication;
+  trackReplicationFreshness(replication, userId, 'settings');
   activeCollection = collection;
   activePullStream = pullStream;
   realtimeUnsubscribe = subscribeToSettingsRealtime(userId, pullStream);
