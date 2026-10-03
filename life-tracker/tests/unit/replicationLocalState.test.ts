@@ -1,3 +1,4 @@
+import { BehaviorSubject } from 'rxjs';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const dbRef = vi.hoisted(() => ({
@@ -23,6 +24,7 @@ vi.mock('../../src/lib/offlineReadiness', () => ({
 import {
   getReplicationFreshness,
   markReplicationFresh,
+  trackReplicationFreshness,
 } from '../../src/db/replicationLocalState';
 import {
   getReplicationIdentifier,
@@ -51,6 +53,64 @@ describe('replication local freshness state', () => {
     dbRef.current = {
       syncMeta: syncMeta.collection,
     };
+  });
+
+  it('waits for RxDB initial replication to settle before recording freshness', async () => {
+    let resolveInitial!: () => void;
+    const initial = new Promise<void>((resolve) => {
+      resolveInitial = resolve;
+    });
+    const active$ = new BehaviorSubject(false);
+    const canceled$ = new BehaviorSubject(false);
+    const upsert = dbRef.current.syncMeta.upsert as ReturnType<typeof vi.fn>;
+
+    trackReplicationFreshness(
+      {
+        awaitInitialReplication: () => initial,
+        active$,
+        canceled$,
+      },
+      'user_A',
+      'tasks'
+    );
+
+    await Promise.resolve();
+    expect(upsert).not.toHaveBeenCalled();
+
+    resolveInitial();
+    await vi.waitFor(() => expect(upsert).toHaveBeenCalledTimes(1));
+
+    active$.next(true);
+    active$.next(false);
+    await vi.waitFor(() => expect(upsert).toHaveBeenCalledTimes(2));
+
+    canceled$.next(true);
+    active$.next(true);
+    active$.next(false);
+    await Promise.resolve();
+    expect(upsert).toHaveBeenCalledTimes(2);
+  });
+
+  it('does not record freshness when replication is canceled before initial sync', async () => {
+    const active$ = new BehaviorSubject(false);
+    const canceled$ = new BehaviorSubject(false);
+    const upsert = dbRef.current.syncMeta.upsert as ReturnType<typeof vi.fn>;
+
+    trackReplicationFreshness(
+      {
+        awaitInitialReplication: () => new Promise<void>(() => {}),
+        active$,
+        canceled$,
+      },
+      'user_A',
+      'tasks'
+    );
+
+    canceled$.next(true);
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(upsert).not.toHaveBeenCalled();
   });
 
   it('stores freshness under the current account-scoped replication identifier', async () => {
