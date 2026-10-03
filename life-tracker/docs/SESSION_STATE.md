@@ -2,8 +2,8 @@
 
 Updated: 2026-10-04
 Current task: Fix the multi-device sync restart path that could misclassify remote-applied RxDB revisions as local dirty rows and trigger hundreds of unnecessary Appwrite writes/rate limits.
-Status: Implementation, regression coverage, and architecture/retention documentation are complete on `chatgpt/multi-device-sync-rate-limit-audit`. This checkpoint requests the focused task gate.
-Next action: Inspect the focused Quality Gate for this commit. Fix any failure and rerun focused verification. Once green, squash the task into a stable `fix/*` Preview branch created from `dev`, then wait for canonical acceptance and Vercel Preview. Promotion to `dev` remains user-controlled.
+Status: The main implementation is already on stable Preview `fix/multi-device-sync-rate-limit`. Its first canonical run exposed one full-lint error in `taskReplicationPilot.ts` (`no-useless-assignment`). This repair branch is based directly on that Preview SHA and contains only the one-line lint repair plus this checkpoint.
+Next action: Inspect this focused repair gate. If green, squash this branch into `fix/multi-device-sync-rate-limit`, then wait for a fresh full canonical acceptance and Vercel Preview. Promotion to `dev` remains user-controlled.
 Blockers: None known.
 
 ## Results
@@ -17,10 +17,14 @@ Blockers: None known.
 - Replication identifiers are centralized/versioned, and data hooks explicitly exclude the local-only `syncMeta` collection.
 - Removed the old compatibility push-ack/write-resume machinery and its rate-limit/deferred write path from normal sync coordination.
 - Added regressions for the 320-row false-dirty restart shape, RxDB-first startup, semantic first-sync handling, settled freshness tracking/cancellation, read-only stale recovery, offline-edit preservation, pending-message preservation, freshness barriers, account generation changes, and Web Lock failure/timeout behavior.
+- Repair: removed a redundant initial assignment to `documentToPush`; every continuing branch assigns it before use.
 
 ## Verification
 
-- Focused task Quality Gate: requested by this checkpoint commit.
-- Stable Preview canonical acceptance: pending focused green + squash delivery.
-- Vercel Preview: pending stable Preview delivery.
-- Manual/device acceptance: recommended on phone + desktop with the same account after Preview; confirm ordinary reload/focus does not surface `push/reconciliation` errors or mass rate-limit failures.
+- Initial task focused Quality Gate: passed.
+- First stable Preview canonical attempt: build and dependency audit passed; full `checks` stopped at one ESLint `no-useless-assignment` error.
+- Earlier repair focused gate on the original task branch: passed 14 related test files / 119 tests, but that branch could not cleanly PR into the already-squashed Preview history.
+- Clean repair focused Quality Gate: requested by this commit.
+- Stable Preview canonical acceptance: pending repair delivery and rerun.
+- Vercel Preview: first Preview build reached READY for the pre-repair SHA; final deployment pending repaired Preview SHA.
+- Manual/device acceptance: recommended on phone + desktop with the same account after final Preview; confirm ordinary reload/focus does not surface `push/reconciliation` errors or mass rate-limit failures.
