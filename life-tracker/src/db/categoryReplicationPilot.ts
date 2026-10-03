@@ -25,7 +25,7 @@ import {
 } from '../lib/appwriteConfig';
 import { awaitPilotReplicationFreshness } from './replicationFreshness';
 import { getReplicationIdentifier } from './replicationIds';
-import { markReplicationFresh } from './replicationLocalState';
+import { trackReplicationFreshness } from './replicationLocalState';
 
 const PULL_BATCH_SIZE = 100;
 const PUSH_BATCH_SIZE = 20;
@@ -444,13 +444,8 @@ async function startCategoryReplicationPilotNow(
     pull: {
       batchSize: PULL_BATCH_SIZE,
       stream$: pullStream.asObservable(),
-      handler: async (checkpoint, batchSize) => {
-        const result = await pullCategories(userId, checkpoint, batchSize);
-        if (result.documents.length < batchSize) {
-          await markReplicationFresh(userId, 'categories');
-        }
-        return result;
-      },
+      handler: (checkpoint, batchSize) =>
+        pullCategories(userId, checkpoint, batchSize),
     },
     push: {
       batchSize: PUSH_BATCH_SIZE,
@@ -461,6 +456,7 @@ async function startCategoryReplicationPilotNow(
 
   activeOwnerId = userId;
   activeReplication = replication;
+  trackReplicationFreshness(replication, userId, 'categories');
   activeCollection = collection;
   activePullStream = pullStream;
   realtimeUnsubscribe = subscribeToCategoryRealtime(userId, pullStream);
