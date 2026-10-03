@@ -320,7 +320,7 @@ export const syncMetaSchema: RxJsonSchema<SyncMetaDocument> = {
     'lastFreshAt',
   ],
   properties: {
-    id: { type: 'string', maxLength: 255 },
+    id: { type: 'string', maxLength: 550 },
     userId: { type: 'string', maxLength: 255 },
     collection: {
       type: 'string',
