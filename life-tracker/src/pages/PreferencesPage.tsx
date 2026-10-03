@@ -242,10 +242,12 @@ export const PreferencesPage: React.FC = () => {
 
   const handleToggleHolidays = async () => {
     const next = !showHolidays;
+    const writes: Promise<void>[] = [];
     if (next && !storedHolidayRegion && holidayRegion) {
-      await setSetting(HOLIDAY_REGION_SETTING_KEY, holidayRegion);
+      writes.push(setSetting(HOLIDAY_REGION_SETTING_KEY, holidayRegion));
     }
-    await setSetting(SHOW_HOLIDAYS_SETTING_KEY, next);
+    writes.push(setSetting(SHOW_HOLIDAYS_SETTING_KEY, next));
+    await Promise.all(writes);
   };
 
   const handleBack = () => {
