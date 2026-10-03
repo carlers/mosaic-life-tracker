@@ -24,6 +24,8 @@ import {
   APPWRITE_TABLES,
 } from '../lib/appwriteConfig';
 import { awaitPilotReplicationFreshness } from './replicationFreshness';
+import { getReplicationIdentifier } from './replicationIds';
+import { markReplicationFresh } from './replicationLocalState';
 
 const PULL_BATCH_SIZE = 100;
 const PUSH_BATCH_SIZE = 20;
@@ -410,7 +412,7 @@ async function startCategoryReplicationPilotNow(
     CategoryReplicationCheckpoint
   >({
     replicationIdentifier:
-      `mosaic-appwrite-tablesdb-categories-v1:${userId}`,
+      getReplicationIdentifier('categories', userId),
     collection,
     live: true,
     retryTime: RETRY_TIME_MS,
@@ -419,8 +421,13 @@ async function startCategoryReplicationPilotNow(
     pull: {
       batchSize: PULL_BATCH_SIZE,
       stream$: pullStream.asObservable(),
-      handler: (checkpoint, batchSize) =>
-        pullCategories(userId, checkpoint, batchSize),
+      handler: async (checkpoint, batchSize) => {
+        const result = await pullCategories(userId, checkpoint, batchSize);
+        if (result.documents.length < batchSize) {
+          await markReplicationFresh(userId, 'categories');
+        }
+        return result;
+      },
     },
     push: {
       batchSize: PUSH_BATCH_SIZE,
