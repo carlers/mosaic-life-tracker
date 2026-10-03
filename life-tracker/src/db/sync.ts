@@ -1036,7 +1036,13 @@ async function syncCollection(
           continue;
         }
         const localLwt = localDoc._meta?.lwt ?? 0;
-        const isLocalDirty = localLwt > dirtyBoundaryMs;
+        const acknowledgedLwt = collectionPushAcks[docId];
+        // A revision that already reached Appwrite during an earlier partial
+        // bootstrap is no longer locally dirty for pull arbitration. This
+        // lets a genuinely newer remote edit win on retry while the persisted
+        // acknowledgement still prevents replaying the already-sent revision.
+        const isLocalDirty =
+          localLwt > dirtyBoundaryMs && acknowledgedLwt !== localLwt;
         // Server-owned read_at on outgoing messages is applied BEFORE the
         // dirty-skip. The local client never writes read_at on outgoing
         // rows (see docs/PROJECT_REFERENCE.md §12), so a dirty outgoing row's local edit is
