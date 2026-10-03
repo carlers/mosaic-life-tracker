@@ -77,23 +77,29 @@ describe('PreferencesPage', () => {
     const todayTag = screen.getByRole('switch', {
       name: 'Show Today tag beside date header',
     });
+    const holidays = screen.getByRole('switch', {
+      name: 'Show holidays',
+    });
 
     expect(continuous).toHaveAttribute('aria-checked', 'false');
     expect(taskPosition).toHaveAttribute('aria-checked', 'false');
     expect(sunday).toHaveAttribute('aria-checked', 'true');
     expect(collapse).toHaveAttribute('aria-checked', 'false');
     expect(todayTag).toHaveAttribute('aria-checked', 'false');
+    expect(holidays).toHaveAttribute('aria-checked', 'false');
 
     fireEvent.click(continuous);
     fireEvent.click(taskPosition);
     fireEvent.click(sunday);
     fireEvent.click(collapse);
     fireEvent.click(todayTag);
+    fireEvent.click(holidays);
 
     expect(mocks.setSetting).toHaveBeenCalledWith('continueAddingTasks', true);
     expect(mocks.setSetting).toHaveBeenCalledWith('addTasksToTop', true);
     expect(mocks.setSetting).toHaveBeenCalledWith('weekStartsOnSunday', false);
     expect(mocks.setSetting).toHaveBeenCalledWith('showCategoryCollapseButton', true);
     expect(mocks.setSetting).toHaveBeenCalledWith('showDayViewTodayTag', true);
+    expect(mocks.setSetting).toHaveBeenCalledWith('showHolidays', true);
   });
 });
