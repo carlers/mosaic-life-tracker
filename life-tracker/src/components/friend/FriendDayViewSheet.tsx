@@ -18,11 +18,17 @@ import { useTaskImage } from '../../hooks/useTaskImage';
 import { useImageLoadGate } from '../../hooks/useImageLoadGate';
 import { useDayViewSwiper } from '../home/views/useDayViewSwiper';
 import { useHorizontalArrowNavigation } from '../../hooks/useHorizontalArrowNavigation';
+import { useHolidaysByDate } from '../../hooks/useHolidays';
 import { parseReactions } from '../../lib/reactionUtils';
 import { visibilityIcon } from '../../lib/visibility';
 import { getCategoryLabelColor, getReadableTextColor } from '../../constants/colors';
 import { Spinner } from '../ui/Spinner';
 import type { TaskDocument, CategoryDocument } from '../../db/schema';
+import {
+  DISABLED_HOLIDAY_CONFIG,
+  EMPTY_HOLIDAYS,
+  type HolidayDisplayConfig,
+} from '../../lib/holidays';
 
 type Visibility = 'private' | 'followers' | 'public';
 
@@ -52,6 +58,7 @@ interface FriendDayViewSheetProps {
   onReplyToTask?: (task: TaskDocument, categoryColor: string) => void;
   onReactToTask?: (task: TaskDocument, emoji: string) => void;
   renderMode?: 'sheet' | 'inline';
+  holidayConfig?: HolidayDisplayConfig;
 }
 
 interface FriendDaySlideProps {
@@ -302,6 +309,7 @@ export const FriendDayViewSheet: React.FC<FriendDayViewSheetProps> = ({
   onReplyToTask,
   onReactToTask,
   renderMode = 'sheet',
+  holidayConfig = DISABLED_HOLIDAY_CONFIG,
 }) => {
   const [reactionTask, setReactionTask] = useState<TaskDocument | null>(null);
   const [viewingTaskId, setViewingTaskId] = useState<string | null>(null);
@@ -334,6 +342,17 @@ export const FriendDayViewSheet: React.FC<FriendDayViewSheetProps> = ({
     onDateChange,
     isDisabled: !!reactionTask || isImageViewerOpen,
   });
+
+  const holidayYears = useMemo(() => {
+    const years = new Set<number>();
+    const start = Math.max(0, activeIndex - renderWindow);
+    const end = Math.min(slideDates.length - 1, activeIndex + renderWindow);
+    for (let index = start; index <= end; index += 1) {
+      years.add(slideDates[index].getFullYear());
+    }
+    return [...years];
+  }, [activeIndex, renderWindow, slideDates]);
+  const holidaysByDate = useHolidaysByDate(holidayConfig, holidayYears);
 
   const handlePickEmoji = (emoji: string) => {
     if (!reactionTask) return;
@@ -392,7 +411,9 @@ export const FriendDayViewSheet: React.FC<FriendDayViewSheetProps> = ({
     >
       {slideDates.map((slideDate, index) => {
         const inWindow = Math.abs(index - activeIndex) <= renderWindow;
-        const dayTasks = tasksByDate.get(slideDateStrs[index]) ?? EMPTY_TASKS;
+        const dateStr = slideDateStrs[index];
+        const dayTasks = tasksByDate.get(dateStr) ?? EMPTY_TASKS;
+        const dayHolidays = holidaysByDate.get(dateStr) ?? EMPTY_HOLIDAYS;
         return (
           <SwiperSlide
             key={slideDate.toISOString()}
@@ -436,6 +457,18 @@ export const FriendDayViewSheet: React.FC<FriendDayViewSheetProps> = ({
                   <ChevronRight size={20} />
                 </button>
               </div>
+              {dayHolidays.length > 0 && (
+                <div className="-mt-1 flex shrink-0 flex-wrap justify-center gap-1 px-4 pb-1">
+                  {dayHolidays.map((holiday) => (
+                    <span
+                      key={holiday.id}
+                      className="rounded-full bg-red-500/15 px-2 py-0.5 text-center text-[11px] font-semibold text-red-400"
+                    >
+                      {holiday.title}
+                    </span>
+                  ))}
+                </div>
+              )}
               {inWindow && (
                 <FriendDaySlide
                   tasks={dayTasks}

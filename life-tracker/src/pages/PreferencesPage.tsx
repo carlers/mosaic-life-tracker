@@ -5,6 +5,8 @@ import {
   Check,
   ChevronLeft,
   ChevronsUpDown,
+  Globe2,
+  ListFilter,
   ListPlus,
   Tag,
 } from 'lucide-react';
@@ -23,9 +25,19 @@ import {
   ADD_TASKS_TO_TOP_SETTING_KEY,
   CONTINUE_ADDING_TASKS_SETTING_KEY,
   SHOW_CATEGORY_COLLAPSE_SETTING_KEY,
+  HOLIDAY_REGION_SETTING_KEY,
+  HOLIDAY_TYPES_SETTING_KEY,
   SHOW_DAY_VIEW_TODAY_TAG_SETTING_KEY,
+  SHOW_HOLIDAYS_SETTING_KEY,
   WEEK_STARTS_ON_SUNDAY_SETTING_KEY,
 } from '../lib/preferences';
+import {
+  inferHolidayRegion,
+  normalizeHolidayRegion,
+  resolveHolidayTypesSetting,
+  type HolidayTypesSetting,
+} from '../lib/holidays';
+import { useHolidayCountries } from '../hooks/useHolidays';
 import { hasExpectedRouteParent } from '../lib/primarySwipeNavigation';
 
 interface ChoiceCopy {
@@ -70,6 +82,50 @@ const SHEET_WIDTH_COPY: Record<SheetWidthMode, ChoiceCopy> = {
       'Center bottom sheets at up to 540px wide on tablets and larger.',
   },
 };
+
+interface SelectSettingRowProps {
+  id: string;
+  icon: React.ReactNode;
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  options: readonly { value: string; label: string }[];
+  placeholder?: string;
+}
+
+function SelectSettingRow({
+  id,
+  icon,
+  label,
+  value,
+  onChange,
+  options,
+  placeholder,
+}: SelectSettingRowProps) {
+  return (
+    <div className="flex w-full items-center justify-between gap-3 px-4 py-3">
+      <div className="flex min-w-0 items-center gap-3">
+        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#2A2A2A]" aria-hidden="true">
+          {icon}
+        </div>
+        <label htmlFor={id} className="text-base font-medium text-white">{label}</label>
+      </div>
+      <select
+        id={id}
+        aria-label={label}
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        onPointerDown={(event) => event.stopPropagation()}
+        className="min-w-0 max-w-[12rem] rounded-lg border border-[#444444] bg-[#1E1E1E] px-2 py-1.5 text-sm text-gray-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
+      >
+        {placeholder && <option value="">{placeholder}</option>}
+        {options.map((option) => (
+          <option key={option.value} value={option.value}>{option.label}</option>
+        ))}
+      </select>
+    </div>
+  );
+}
 
 interface ChoiceGroupProps<T extends string> {
   label: string;
@@ -142,6 +198,7 @@ export const PreferencesPage: React.FC = () => {
     setSheetWidthMode,
   } = useAppearance();
   const { getSetting, setSetting } = useSettings();
+  const holidayCountries = useHolidayCountries();
 
   const continueAddingTasks =
     getSetting(CONTINUE_ADDING_TASKS_SETTING_KEY, false) === true;
@@ -153,6 +210,45 @@ export const PreferencesPage: React.FC = () => {
     getSetting(SHOW_CATEGORY_COLLAPSE_SETTING_KEY, false) === true;
   const showDayViewTodayTag =
     getSetting(SHOW_DAY_VIEW_TODAY_TAG_SETTING_KEY, false) === true;
+  const showHolidays =
+    getSetting(SHOW_HOLIDAYS_SETTING_KEY, false) === true;
+  const storedHolidayRegion = normalizeHolidayRegion(
+    getSetting(HOLIDAY_REGION_SETTING_KEY, '')
+  );
+  const holidayRegion = storedHolidayRegion || inferHolidayRegion();
+  const holidayTypes = resolveHolidayTypesSetting(
+    getSetting(HOLIDAY_TYPES_SETTING_KEY, 'public-and-observances')
+  );
+  const holidayRegionOptions = [
+    ...(holidayRegion &&
+    !holidayCountries.some((country) => country.countryCode === holidayRegion)
+      ? [{ value: holidayRegion, label: holidayRegion }]
+      : []),
+    ...holidayCountries.map((country) => ({
+      value: country.countryCode,
+      label: country.name,
+    })),
+  ];
+  const holidayTypeOptions: readonly {
+    value: HolidayTypesSetting;
+    label: string;
+  }[] = [
+    { value: 'public', label: 'Public holidays only' },
+    {
+      value: 'public-and-observances',
+      label: 'Public holidays + observances',
+    },
+  ];
+
+  const handleToggleHolidays = async () => {
+    const next = !showHolidays;
+    const writes: Promise<void>[] = [];
+    if (next && !storedHolidayRegion && holidayRegion) {
+      writes.push(setSetting(HOLIDAY_REGION_SETTING_KEY, holidayRegion));
+    }
+    writes.push(setSetting(SHOW_HOLIDAYS_SETTING_KEY, next));
+    await Promise.all(writes);
+  };
 
   const handleBack = () => {
     const parent = '/settings';
@@ -250,6 +346,36 @@ export const PreferencesPage: React.FC = () => {
               void setSetting(
                 SHOW_DAY_VIEW_TODAY_TAG_SETTING_KEY,
                 !showDayViewTodayTag
+              )
+            }
+          />
+          <SettingsRow
+            icon={<CalendarDays size={18} className="text-red-400" aria-hidden="true" />}
+            label="Show holidays"
+            showChevron={false}
+            isToggle
+            checked={showHolidays}
+            onClick={() => void handleToggleHolidays()}
+          />
+          <SelectSettingRow
+            id="holiday-region"
+            icon={<Globe2 size={18} className="text-gray-400" aria-hidden="true" />}
+            label="Holiday region"
+            value={holidayRegion}
+            placeholder="Choose region"
+            options={holidayRegionOptions}
+            onChange={(value) => void setSetting(HOLIDAY_REGION_SETTING_KEY, value)}
+          />
+          <SelectSettingRow
+            id="holiday-types"
+            icon={<ListFilter size={18} className="text-gray-400" aria-hidden="true" />}
+            label="Holiday types"
+            value={holidayTypes}
+            options={holidayTypeOptions}
+            onChange={(value) =>
+              void setSetting(
+                HOLIDAY_TYPES_SETTING_KEY,
+                resolveHolidayTypesSetting(value)
               )
             }
           />

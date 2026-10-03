@@ -9,6 +9,7 @@ import { DayCell } from './DayCell';
 import { EMPTY_TASKS } from '../../../constants/empty';
 import type { TaskDocument } from '../../../db/schema';
 import type { WeekStartsOn } from '../../../lib/preferences';
+import type { HolidayOccurrence } from '../../../lib/holidays';
 
 interface WeekViewProps {
   focusDate: Date;
@@ -16,6 +17,7 @@ interface WeekViewProps {
   tasksByDate: Map<string, TaskDocument[]>;
   categoriesMap: Record<string, { color: string; name: string }>;
   weekStartsOn?: WeekStartsOn;
+  holidaysByDate?: ReadonlyMap<string, readonly HolidayOccurrence[]>;
 }
 
 export const WeekView: React.FC<WeekViewProps> = ({
@@ -24,6 +26,7 @@ export const WeekView: React.FC<WeekViewProps> = ({
   tasksByDate,
   categoriesMap,
   weekStartsOn = 0,
+  holidaysByDate,
 }) => {
   const weekDays = useMemo(() => {
     const weekStart = startOfWeek(focusDate, { weekStartsOn });
@@ -66,6 +69,7 @@ export const WeekView: React.FC<WeekViewProps> = ({
                   date={day}
                   tasks={tasksByDate.get(dateStr) ?? EMPTY_TASKS}
                   categories={categoriesMap}
+                  holidays={holidaysByDate?.get(dateStr)}
                   isCurrentMonth
                   onDayClick={onDayClick}
                 />
