@@ -750,7 +750,7 @@ describe('sync — category RxDB replication pilot handoff', () => {
     expect(categoryPilotStartMock).not.toHaveBeenCalled();
     expect(syncModule.getSyncStatus().errors).toEqual(
       expect.arrayContaining([
-        expect.stringContaining('categories: 1 push/reconciliation failure'),
+        expect.stringContaining('categories: push/reconciliation: 1 failed (server error 500)'),
       ])
     );
   });
@@ -869,7 +869,7 @@ describe('sync — settings RxDB replication pilot handoff', () => {
     expect(settingsPilotStartMock).not.toHaveBeenCalled();
     expect(syncModule.getSyncStatus().errors).toEqual(
       expect.arrayContaining([
-        expect.stringContaining('settings: 1 push/reconciliation failure'),
+        expect.stringContaining('settings: push/reconciliation: 1 failed (server error 500)'),
       ])
     );
   });
@@ -1270,7 +1270,9 @@ describe('sync — compatibility bootstrap push resume', () => {
     expect(successfulFirstAttempts.length).toBeGreaterThan(0);
     expect(syncModule.getSyncStatus().errors).toEqual(
       expect.arrayContaining([
-        expect.stringContaining('tasks:'),
+        expect.stringContaining('tasks: push/reconciliation: 1 failed'),
+        expect.stringContaining('rate limited'),
+        expect.stringContaining('deferred'),
       ])
     );
 
@@ -1401,7 +1403,7 @@ describe('sync — boundary advancement', () => {
     expect(syncModule.getSyncStatus().lastSync).toBeNull();
     expect(syncModule.getSyncStatus().errors).toEqual(
       expect.arrayContaining([
-        expect.stringContaining('tasks: 1 push/reconciliation failure'),
+        expect.stringContaining('tasks: push/reconciliation: 1 failed (server error 500)'),
       ])
     );
   });
