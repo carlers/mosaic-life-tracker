@@ -294,6 +294,21 @@ jobs:
         run: npm ci --prefer-offline --no-audit
       - name: Build production app
         run: npm run build
+      - name: Audit production bundle baseline
+        if: ${{ github.ref == 'refs/heads/chatgpt/build-size-audit' }}
+        shell: bash
+        run: |
+          node scripts/audit-bundle.mjs | tee /tmp/mosaic-bundle-audit.log
+          report="$(ls -t /tmp/mosaic-bundle-audit-*/report.json | head -n 1)"
+          node --input-type=module - "$report" <<'NODE'
+          import { readFile } from 'node:fs/promises';
+          const report = JSON.parse(await readFile(process.argv[2], 'utf8'));
+          console.log('\nTop module contributions per chunk (renderedLength):');
+          for (const chunk of report.chunks) {
+            console.log(`\n${chunk.file}`);
+            console.table(chunk.modules.slice(0, 12));
+          }
+          NODE
 
   browser_contract:
     name: browser-contract (${{ matrix.shard }})
