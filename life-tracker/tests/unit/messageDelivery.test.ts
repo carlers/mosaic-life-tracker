@@ -21,6 +21,10 @@ vi.mock('../../src/lib/connectivity', () => ({
   }),
 }));
 
+vi.mock('../../src/lib/appwriteConfig', () => ({
+  APPWRITE_MESSAGE_ACTION_FUNCTION_ID: 'message-action-test',
+}));
+
 function makeDeferred<T>() {
   let resolve!: (value: T) => void;
   const promise = new Promise<T>((res) => {
