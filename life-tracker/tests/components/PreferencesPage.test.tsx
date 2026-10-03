@@ -41,6 +41,13 @@ vi.mock('../../src/hooks/useSettings', () => ({
   }),
 }));
 
+vi.mock('../../src/hooks/useHolidays', () => ({
+  useHolidayCountries: () => [
+    { countryCode: 'PH', name: 'Philippines' },
+    { countryCode: 'US', name: 'United States' },
+  ],
+}));
+
 import { PreferencesPage } from '../../src/pages/PreferencesPage';
 
 describe('PreferencesPage', () => {
@@ -94,6 +101,12 @@ describe('PreferencesPage', () => {
     fireEvent.click(collapse);
     fireEvent.click(todayTag);
     fireEvent.click(holidays);
+    fireEvent.change(screen.getByRole('combobox', { name: 'Holiday region' }), {
+      target: { value: 'PH' },
+    });
+    fireEvent.change(screen.getByRole('combobox', { name: 'Holiday types' }), {
+      target: { value: 'public' },
+    });
 
     expect(mocks.setSetting).toHaveBeenCalledWith('continueAddingTasks', true);
     expect(mocks.setSetting).toHaveBeenCalledWith('addTasksToTop', true);
@@ -101,5 +114,7 @@ describe('PreferencesPage', () => {
     expect(mocks.setSetting).toHaveBeenCalledWith('showCategoryCollapseButton', true);
     expect(mocks.setSetting).toHaveBeenCalledWith('showDayViewTodayTag', true);
     expect(mocks.setSetting).toHaveBeenCalledWith('showHolidays', true);
+    expect(mocks.setSetting).toHaveBeenCalledWith('holidayRegion', 'PH');
+    expect(mocks.setSetting).toHaveBeenCalledWith('holidayTypes', 'public');
   });
 });
