@@ -2,7 +2,7 @@
 
 Updated: 2026-10-03
 Current task: Production bundle/dead-code/dependency audit and purge on `perf/build-size-audit`.
-Status: Complete. The implementation was promoted to stable `perf/build-size-audit` as `378f5f42`; its full canonical Quality Gate passed and its Vercel Preview reached READY and returned HTTP 200. This checkpoint is documentation-only and does not change the verified app tree.
+Status: Finalization in progress. The size/runtime implementation was promoted to stable `perf/build-size-audit` as `378f5f42`; its full canonical Quality Gate passed and its Vercel Preview reached READY and returned HTTP 200. A follow-up diagnostic fix now makes dependency reachability use Vite's full module graph instead of emitted package attribution, eliminating the `react-router-dom` false positive without changing app runtime output.
 Next action: User may manually review the stable Preview. Do not promote `perf/build-size-audit` to `dev` unless explicitly requested.
 Blockers: None.
 
@@ -42,11 +42,12 @@ Branch from latest `dev` into `perf/build-size-audit`; comprehensively measure p
 - Build-size guard now protects seven metrics, including initial-closure and Home-closure gzip budgets. Home closure ceiling is 357,000 B gzip; prior aggregate/precache ceilings were not raised.
 - Purged six unreachable legacy source files with no live consumer: `TopBar.tsx`, `EditTaskSheet.tsx`, `AppearanceSettingsSheet.tsx`, `useImageCompression.ts`, `mockData.ts`, and `TestPlayground.tsx`. These deletions are source cleanup, not claimed as emitted-byte savings.
 - `useDiary.ts` and `useFeatureFlag.ts` remain because they retain dedicated tests/contracts despite not currently being route-reachable.
-- `react-router-dom` appears absent from package attribution because its emitted implementation is attributed to `react-router`; it is actively imported throughout the app and is not unused.
+- Dependency reachability now uses Vite's full production module graph; no genuinely unused production dependency is currently identified by the audit.
 
 ## Verification
 
 - Task-branch final candidate `cbb02cb8`: full canonical Quality Gate passed.
 - Stable `perf/build-size-audit` implementation `378f5f42`: checks, dependency audit, both DOM shards, build, both browser-contract shards, and canonical acceptance all passed.
 - Stable Vercel Preview for `378f5f42`: READY; root fetch returned HTTP 200.
+- Follow-up module-graph diagnostic fix: pending final exact-SHA verification and stable promotion.
 - No manual device/browser acceptance was claimed.
