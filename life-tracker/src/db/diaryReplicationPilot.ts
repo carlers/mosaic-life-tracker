@@ -1,3 +1,4 @@
+import { createReplicationPilotLifecycleQueue } from './replicationPilotLifecycle';
 import { Permission, Query, Role } from 'appwrite';
 import {
   getChangedDocumentsSince,
@@ -358,7 +359,7 @@ export async function refreshDiaryReplicationPilot(
   return true;
 }
 
-export async function stopDiaryReplicationPilot(
+async function stopDiaryReplicationPilotNow(
   userId?: string
 ): Promise<void> {
   if (userId && activeOwnerId !== userId) return;
@@ -380,7 +381,7 @@ export async function stopDiaryReplicationPilot(
   }
 }
 
-export async function startDiaryReplicationPilot(
+async function startDiaryReplicationPilotNow(
   userId: string,
   collection: RxCollection<DiaryDocument>,
   initialPushCheckpoint: DiaryReplicationPushCheckpoint | undefined
@@ -389,7 +390,7 @@ export async function startDiaryReplicationPilot(
   if (isDiaryReplicationPilotActive(userId)) return;
 
   if (activeReplication) {
-    await stopDiaryReplicationPilot();
+    await stopDiaryReplicationPilotNow();
   }
 
   const pullStream = new Subject<
@@ -431,6 +432,20 @@ export async function startDiaryReplicationPilot(
   errorSubscription = replication.error$.subscribe((error) => {
     console.error('[DiaryReplicationPilot] replication error:', error);
   });
+}
+
+const runReplicationPilotLifecycle = createReplicationPilotLifecycleQueue();
+
+export function stopDiaryReplicationPilot(
+  ...args: Parameters<typeof stopDiaryReplicationPilotNow>
+): ReturnType<typeof stopDiaryReplicationPilotNow> {
+  return runReplicationPilotLifecycle(() => stopDiaryReplicationPilotNow(...args));
+}
+
+export function startDiaryReplicationPilot(
+  ...args: Parameters<typeof startDiaryReplicationPilotNow>
+): ReturnType<typeof startDiaryReplicationPilotNow> {
+  return runReplicationPilotLifecycle(() => startDiaryReplicationPilotNow(...args));
 }
 
 export const __diaryReplicationPilotTestUtils = {
