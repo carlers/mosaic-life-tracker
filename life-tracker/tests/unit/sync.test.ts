@@ -2177,8 +2177,56 @@ describe('sync — tombstone retention cursor expiry', () => {
     expect(suppression.entries['tasks::task_missing_after_gc']).toBeTruthy();
   });
 
-});
+  it('preserves a pending outgoing message that is missing after cursor expiry', async () => {
+    const oldPull = new Date(
+      Date.now() - syncModule.TOMBSTONE_RETENTION_DAYS * 24 * 60 * 60 * 1000 - 1
+    ).toISOString();
+    const pending = {
+      id: 'msg_pending_after_gc',
+      _meta: { lwt: new Date(oldPull).getTime() - 1 },
+      toJSON: () => ({
+        id: 'msg_pending_after_gc',
+        userId: 'user_A',
+        direction: 'outgoing',
+        deliveryStatus: 'pending',
+        isDeleted: false,
+        updatedAt: oldPull,
+      }),
+      incrementalPatch: vi.fn().mockResolvedValue(undefined),
+    };
 
+    getDatabaseMock.mockReturnValue({
+      tasks: makeEmptyCollection(),
+      categories: makeEmptyCollection(),
+      diary: makeEmptyCollection(),
+      settings: makeEmptyCollection(),
+      friendships: makeEmptyCollection(),
+      messages: {
+        findOne: () => ({ exec: async () => null }),
+        find: () => ({ exec: async () => [pending] }),
+        upsert: vi.fn(),
+      },
+    });
+    localStorageMock.setItem(
+      PER_COLLECTION_KEY_A,
+      JSON.stringify({
+        version: 1,
+        ownerId: 'user_A',
+        entries: {
+          messages: { pull: oldPull, dirty: oldPull },
+        },
+      })
+    );
+    listRowsMock.mockResolvedValue({ rows: [] });
+
+    await syncModule.initializeSync('user_A');
+
+    expect(pending.incrementalPatch).not.toHaveBeenCalledWith(
+      expect.objectContaining({ isDeleted: true })
+    );
+  });
+
+});
 
 describe('sync — bounded push concurrency', () => {
   it('pushes independent dirty rows in parallel without exceeding the concurrency cap', async () => {
