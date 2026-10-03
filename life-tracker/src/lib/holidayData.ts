@@ -95,9 +95,6 @@ export function parseHolidayApiPayload(
     const date = typeof raw.date === 'string' ? raw.date : '';
     const title = typeof raw.name === 'string' ? raw.name.trim() : '';
     const countryCode = normalizeHolidayRegion(raw.countryCode);
-    const subdivisionCodes = Array.isArray(raw.subdivisionCodes)
-      ? raw.subdivisionCodes.filter((value): value is string => typeof value === 'string')
-      : [];
     const nationalScope = raw.nationalHoliday === true;
     const types = Array.isArray(raw.holidayTypes)
       ? raw.holidayTypes.filter((value): value is string => typeof value === 'string')
