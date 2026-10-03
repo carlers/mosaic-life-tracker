@@ -292,6 +292,42 @@ describe('settings RxDB replication pilot', () => {
     expect(updateRowMock).not.toHaveBeenCalled();
   });
 
+  it('acknowledges identical first-sync setting state without rewriting Appwrite', async () => {
+    const conflicts =
+      await __settingsReplicationPilotTestUtils.pushSettings(
+        [{ newDocumentState: localSetting() }],
+        'user_A'
+      );
+
+    expect(conflicts).toEqual([]);
+    expect(updateRowMock).not.toHaveBeenCalled();
+    expect(createRowMock).not.toHaveBeenCalled();
+  });
+
+  it('writes a genuinely newer first-sync setting edit once', async () => {
+    const conflicts =
+      await __settingsReplicationPilotTestUtils.pushSettings(
+        [
+          {
+            newDocumentState: localSetting({
+              value: 'light',
+              updatedAt: '2026-10-02T00:00:02.000Z',
+            }),
+          },
+        ],
+        'user_A'
+      );
+
+    expect(conflicts).toEqual([]);
+    expect(updateRowMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        rowId: 'setting_a',
+        data: expect.objectContaining({ value: 'light' }),
+      })
+    );
+    expect(createRowMock).not.toHaveBeenCalled();
+  });
+
   it('returns the current master as a conflict instead of overwriting it', async () => {
     getRowMock.mockResolvedValue(
       remoteSetting({ value: 'server' })
