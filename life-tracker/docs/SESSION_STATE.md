@@ -21,7 +21,7 @@ Blockers: None known.
 
 ## Verification
 
-- Task-level full Quality Gate: pending final verification trigger.
+- Task-level full Quality Gate: requested by the final task marker commit.
 - Stable Preview canonical acceptance: pending after task verification.
 - Vercel Preview: pending stable Preview delivery.
 - Manual/device acceptance: not required for this non-visual data-synchronization hardening batch; hosted smoke testing remains useful after Preview.
