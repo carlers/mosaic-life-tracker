@@ -18,7 +18,7 @@ const realtimeSubscribeMock = vi.hoisted(() => vi.fn());
 const reSyncMock = vi.hoisted(() => vi.fn());
 const cancelMock = vi.hoisted(() => vi.fn());
 const errorSubscribeMock = vi.hoisted(() => vi.fn());
-const markReplicationFreshMock = vi.hoisted(() => vi.fn());
+const trackReplicationFreshnessMock = vi.hoisted(() => vi.fn());
 const clearCachedCalendarMock = vi.hoisted(() => vi.fn());
 const awaitPilotReplicationFreshnessMock = vi.hoisted(() => vi.fn());
 
@@ -62,7 +62,7 @@ vi.mock('../../src/lib/friendCache', () => ({
 }));
 
 vi.mock('../../src/db/replicationLocalState', () => ({
-  markReplicationFresh: markReplicationFreshMock,
+  trackReplicationFreshness: trackReplicationFreshnessMock,
 }));
 
 vi.mock('../../src/db/replicationFreshness', () => ({
@@ -141,7 +141,7 @@ function collectionFixture(localDoc?: Record<string, unknown>) {
 beforeEach(async () => {
   await stopFriendshipReplicationPilot();
   vi.clearAllMocks();
-  markReplicationFreshMock.mockResolvedValue(undefined);
+  trackReplicationFreshnessMock.mockImplementation(() => undefined);
 
   getChangedDocumentsSinceMock.mockResolvedValue({
     documents: [],
