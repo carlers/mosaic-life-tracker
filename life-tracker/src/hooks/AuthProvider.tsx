@@ -93,7 +93,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   // reconciles in the background and must never hold a previously-hydrated
   // account behind a page-level spinner.
   const [user, setUser] = useState<Models.User<Models.Preferences> | null>(
-    readCachedUser,
+    () => {
+      const initialUser = readCachedUser();
+      scopeAccountWork(initialUser?.$id ?? null);
+      return initialUser;
+    },
   );
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -368,10 +372,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           signupError instanceof Error ? signupError.message : "Signup failed";
         setError(message);
         setIsLoading(false);
+        void verifyLiveSession(true);
         return false;
       }
     },
-    [suspendCurrentAccountWork],
+    [suspendCurrentAccountWork, verifyLiveSession],
   );
 
   const logout = useCallback(async (): Promise<boolean> => {
