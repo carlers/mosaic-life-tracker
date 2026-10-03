@@ -1,19 +1,23 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "baseline": {
-    "measuredAt": "2026-10-01",
-    "commit": "89ec35b",
+    "measuredAt": "2026-10-03",
+    "commit": "9ca52e2",
     "metrics": {
-      "entryRawBytes": 539618,
-      "entryGzipBytes": 162911,
-      "appAssetsRawBytes": 2147439,
-      "appAssetsGzipBytes": 649765,
-      "precacheUniqueBytes": 2207970
+      "entryRawBytes": 423122,
+      "entryGzipBytes": 125240,
+      "initialClosureGzipBytes": 136883,
+      "homeClosureGzipBytes": 339955,
+      "appAssetsRawBytes": 2195734,
+      "appAssetsGzipBytes": 667418,
+      "precacheUniqueBytes": 2269326
     }
   },
   "limits": {
-    "entryRawBytes": 900000,
-    "entryGzipBytes": 280000,
+    "entryRawBytes": 444400,
+    "entryGzipBytes": 131600,
+    "initialClosureGzipBytes": 143700,
+    "homeClosureGzipBytes": 357000,
     "appAssetsRawBytes": 2254900,
     "appAssetsGzipBytes": 682300,
     "precacheUniqueBytes": 2318400

@@ -196,3 +196,41 @@ html[data-theme='light']
   background: var(--mosaic-border);
   border-radius: 3px;
 }
+
+@keyframes mosaic-home-search-field-enter {
+  from {
+    opacity: 0;
+    transform: translateY(-2px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes mosaic-home-search-panel-enter {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.home-search-field-enter {
+  animation: mosaic-home-search-field-enter 180ms ease-out;
+}
+
+.home-search-panel-enter {
+  animation: mosaic-home-search-panel-enter 160ms ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .home-search-field-enter,
+  .home-search-panel-enter {
+    animation: none;
+  }
+}
+

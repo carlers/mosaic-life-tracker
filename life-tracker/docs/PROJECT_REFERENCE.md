@@ -115,7 +115,7 @@ See [offline implementation output](AI_WORKFLOW.md#offline-implementation-output
 - **Predefined Colors Only:** Use the strict hex array in `src/constants/colors.ts` for `ColorPalettePicker`. No free-form hex inputs.
 - **Bottom Sheet Standardization:** All modals MUST use `<BottomSheet>` (see §13). It MUST use `ReactDOM.createPortal` into `document.body` to escape parent z-index/overflow traps and sit above `BottomNav`. Drag-to-close is restricted to the header handle via Framer Motion `useDragControls` + `dragListener={false}` on the main container — prevents accidental closes while scrolling. On Android/Samsung browser or installed-PWA Back, open sheets are modal history layers: Back dismisses only the top sheet, repeated Back dismisses nested sheets top-first, and route/browser navigation resumes only after the sheet stack is empty.
 - **Sticky Layout Rules:** `MainLayout` root must be `h-screen overflow-hidden`; `<main>` must be `flex-1 overflow-y-auto`. Without both, `position: sticky` misbehaves.
-- **Non-Sticky Home Chrome:** On Home, the person carousel, profile header, `TopBar`, and calendar date header are intentionally NOT sticky — they scroll away so the calendar grid owns the viewport. Do not re-add `sticky top-0`.
+- **Non-Sticky Home Chrome:** On Home, the person carousel, profile header, Home toolbar, and calendar date header are intentionally NOT sticky — they scroll away so the calendar grid owns the viewport. Do not re-add `sticky top-0`.
 - **Layout-Shift Reservation:** Any element whose visibility toggles (timestamps, status rows, hover controls) MUST always reserve its space — toggle opacity, never presence. Prevents the hover-flicker reflow loop.
 - **Day View bulk selection:** Selection is scoped to the active day and exits on date navigation or outer-sheet close. Selected task rows use their category color, suppress completion/edit/memo/photo gestures, and expose bulk soft-delete, date, Today/Tomorrow, and visibility actions. Escape and Android Back exit selection before dismissing the Day View sheet; nested bulk sheets retain normal top-first dismissal.
 - **Gesture Priority on Interactive Elements:** swipe > long-press > double-tap > single-tap. Single-tap is deferred ~300ms to distinguish from double-tap. Any tap on the same pointer sequence as a swipe or long-press MUST be suppressed via a flag on the gesture hook (see §21).
@@ -137,7 +137,7 @@ for the active task, and [test workflow](TEST_WORKFLOW.md) for verification comm
 - **Depend on `user?.$id`, never the `user` object** — Appwrite object identity churn causes re-subscription storms.
 - **Observable subscriptions:** RxDB reads use `query.$.subscribe(...)` in a `useEffect`, store + unsubscribe in cleanup, guard `setState` with `isMounted`.
 - **Mutator signatures:** Add = `Omit<Doc, 'id'|'userId'|'createdAt'|'updatedAt'|'isDeleted'>`; Update = `(id, updates: Partial<Doc>)`; both `useCallback` with `user?.$id` in deps.
-- **"Sync State From Props" pattern:** render-body reset — `const [syncedId, setSyncedId] = useState<string|null>(null); if (task?.id !== syncedId) { setSyncedId(task?.id ?? null); setEditedValue(null); } const value = editedValue ?? task?.field ?? '';`. Canonical replacement for useEffect-based prop-syncing (MemoSheet, DatePickerSheet, EditTaskSheet, DayViewSheet).
+- **"Sync State From Props" pattern:** render-body reset — `const [syncedId, setSyncedId] = useState<string|null>(null); if (task?.id !== syncedId) { setSyncedId(task?.id ?? null); setEditedValue(null); } const value = editedValue ?? task?.field ?? '';`. Canonical replacement for useEffect-based prop-syncing (MemoSheet, DatePickerSheet, DayViewSheet).
 - **Primitive-only deps in effects:** read `const taskId = task?.id ?? null` at component top; use `taskId` in effect body + deps. Never reference the whole `task` object inside the effect.
 - **Debounced persistence in sheets:** debounce live reorder writes ~400ms inside a `useEffect` keyed on local items. Do not write on every drag tick.
 - **In-flight ref guard for idempotent multi-row patches:** `markAllRead` and batch unsends need a `useRef<boolean>` guard; re-fetch each doc with `findOne(id).exec()` before patching — RxDB throws `CONFLICT` on stale revisions.
@@ -808,30 +808,47 @@ and manifest identity. Browser release verification still requires:
 ### 24.14 Production build-size guard
 
 `npm run build` runs `scripts/check-build-size.mjs` only after TypeScript, Vite, and the
-generated service-worker policy pass. The guard reads the emitted module entry from
-`index.html`, totals every emitted JavaScript/CSS asset, and totals unique precache files
-from the generated worker. It enforces raw and Node-gzip entry/aggregate values plus the
-unique raw precache value in `config/build-size-budget.json`.
+generated service-worker policy pass. Vite emits `.vite/manifest.json` for post-build graph
+measurement; Workbox explicitly excludes that metadata file from precache. The guard reads
+the emitted module entry from `index.html`, follows Vite's **static** import graph for the
+initial app closure and the Home closure, totals every emitted JavaScript/CSS asset, and
+totals unique precache files from the generated worker.
+
+The guarded metrics are:
+
+- entry raw bytes
+- entry gzip bytes
+- initial static-closure gzip bytes
+- Home static-closure gzip bytes
+- aggregate app-asset raw bytes
+- aggregate app-asset gzip bytes
+- unique raw PWA precache bytes
 
 These are regression ceilings, not performance goals. Hashed output names are intentionally
-ignored. A budget failure requires graph inspection and either a size fix or a documented
-decision to accept the growth before changing the baseline/limit. Never raise a threshold
-solely to make verification pass.
+ignored. A budget failure requires graph inspection and either a measured size fix or a
+documented decision to accept the growth before changing the baseline/limit. Never raise a
+threshold solely to make verification pass.
 
-The aggregate bundle/precache baseline was deliberately re-reviewed on 2026-09-28 at stable
-Preview commit `dff7f45` after the accepted TodoMate importer, photo migration, and sync
-freshness work consumed essentially all of the previous September 24 aggregate-gzip
-allowance. The reviewed baseline is 2,006,246 raw app-asset bytes, 605,480 gzip app-asset
-bytes, and 2,066,777 unique precache bytes. Their limits carry approximately five percent
-headroom. The existing entry raw/gzip safety caps remain unchanged because this review was
-about accepted aggregate feature growth, not permission for the initial entry chunk to grow.
-The configured baseline/limits are pinned by unit coverage.
+The reviewed 2026-10-03 baseline is commit `9ca52e2`, after the production graph audit and
+startup/Home deferral pass:
 
-`npm run build:size` checks an existing `dist/`; the diagnostic
-`scripts/audit-bundle.mjs` remains the source for static-closure and package attribution.
-The current baseline and limits live in `config/build-size-budget.json`; historical audit
-details remain available in Git history.
+- entry: 423,122 B raw / 125,240 B gzip
+- initial static closure: 472,803 B raw / 136,883 B gzip
+- Home static closure: 1,114,771 B raw / 339,955 B gzip
+- aggregate JS/CSS assets: 2,195,734 B raw / 667,418 B gzip
+- unique PWA precache: 2,269,326 B raw
 
+Entry and startup/Home closure ceilings carry about five percent headroom from the reviewed
+baseline. The aggregate/precache ceilings remain the previously reviewed tighter ceilings
+rather than being raised to create CI headroom. The current baseline and limits live in
+`config/build-size-budget.json` and are pinned by unit coverage.
+
+`npm run build:size` checks an existing `dist/`. The diagnostic
+`scripts/audit-bundle.mjs` remains the source for per-chunk package/module attribution,
+static-closure raw sizes, deferred-package leak checks, source reachability, declared
+production-dependency attribution, and PWA precache inspection. Deleting an unreachable
+source file is repository cleanup only; it is not a production bundle-size win unless the
+file was part of the emitted graph.
 
 ### 24.15 PostHog error tracking and feature flags
 

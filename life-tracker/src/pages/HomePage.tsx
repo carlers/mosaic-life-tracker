@@ -8,7 +8,6 @@ import { HomeTaskSearch } from '../components/home/HomeTaskSearch';
 import { HomeStatusIndicators } from '../components/home/HomeStatusIndicators';
 import { PersonCarousel } from '../components/home/PersonCarousel';
 import { PersonPane } from '../components/home/PersonPane';
-import { FriendCarouselSettingsSheet } from '../components/home/FriendCarouselSettingsSheet';
 import { useFriendCarousel } from '../hooks/useFriendCarousel';
 import { useTasks } from '../hooks/useTasks';
 import { useCategories } from '../hooks/useCategories';
@@ -19,6 +18,13 @@ const LazyDayViewSheet = React.lazy(() =>
   import('../components/home/views/DayViewSheet').then(({ DayViewSheet }) => ({
     default: DayViewSheet,
   }))
+);
+const LazyFriendCarouselSettingsSheet = React.lazy(() =>
+  import('../components/home/FriendCarouselSettingsSheet').then(
+    ({ FriendCarouselSettingsSheet }) => ({
+      default: FriendCarouselSettingsSheet,
+    })
+  )
 );
 
 const RENDER_WINDOW = 1;
@@ -280,16 +286,18 @@ export const HomePage: React.FC = () => {
       </div>
 
       {settingsSheetMounted && (
-        <FriendCarouselSettingsSheet
-          isOpen={isSettingsOpen}
-          onClose={handleCloseSettings}
-          friends={rawFriends}
-          order={order}
-          hidden={hidden}
-          onReorder={reorder}
-          onToggleVisibility={toggleVisibility}
-          onReset={resetOrder}
-        />
+        <React.Suspense fallback={null}>
+          <LazyFriendCarouselSettingsSheet
+            isOpen={isSettingsOpen}
+            onClose={handleCloseSettings}
+            friends={rawFriends}
+            order={order}
+            hidden={hidden}
+            onReorder={reorder}
+            onToggleVisibility={toggleVisibility}
+            onReset={resetOrder}
+          />
+        </React.Suspense>
       )}
 
       {searchSelectedDate && (
