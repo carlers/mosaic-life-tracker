@@ -30,9 +30,18 @@ import { useSettings } from '../../../hooks/useSettings';
 import {
   ADD_TASKS_TO_TOP_SETTING_KEY,
   CONTINUE_ADDING_TASKS_SETTING_KEY,
+  HOLIDAY_REGION_SETTING_KEY,
+  HOLIDAY_TYPES_SETTING_KEY,
   SHOW_CATEGORY_COLLAPSE_SETTING_KEY,
   SHOW_DAY_VIEW_TODAY_TAG_SETTING_KEY,
+  SHOW_HOLIDAYS_SETTING_KEY,
 } from '../../../lib/preferences';
+import { useHolidaysByDate } from '../../../hooks/useHolidays';
+import {
+  EMPTY_HOLIDAYS,
+  createHolidayDisplayConfig,
+  type HolidayDisplayConfig,
+} from '../../../lib/holidays';
 
 const ImageViewer = lazy(() =>
   import('./ImageViewer').then(({ ImageViewer }) => ({ default: ImageViewer }))
@@ -64,6 +73,7 @@ interface DayViewSheetProps {
   tasks?: TaskDocument[];
   categories?: CategoryDocument[];
   focusTaskId?: string | null;
+  holidayConfig?: HolidayDisplayConfig;
 }
 
 export const DayViewSheet: React.FC<DayViewSheetProps> = ({
@@ -75,6 +85,7 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
   tasks: tasksOverride,
   categories: categoriesOverride,
   focusTaskId = null,
+  holidayConfig: holidayConfigOverride,
 }) => {
   const { user } = useAuth();
   const currentUserId = user?.$id ?? '';
@@ -100,6 +111,13 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
     getSetting(SHOW_CATEGORY_COLLAPSE_SETTING_KEY, false) === true;
   const showDayViewTodayTag =
     getSetting(SHOW_DAY_VIEW_TODAY_TAG_SETTING_KEY, false) === true;
+  const holidayConfig =
+    holidayConfigOverride ??
+    createHolidayDisplayConfig(
+      getSetting(SHOW_HOLIDAYS_SETTING_KEY, false),
+      getSetting(HOLIDAY_REGION_SETTING_KEY, ''),
+      getSetting(HOLIDAY_TYPES_SETTING_KEY, 'public-and-observances')
+    );
 
   const tasks = tasksOverride ?? taskStore.tasks ?? EMPTY_TASKS;
   const categories = categoriesOverride ?? hookCategories;
@@ -194,6 +212,17 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
       !!imagePickerTaskId ||
       isTaskReorderActive,
   });
+
+  const holidayYears = useMemo(() => {
+    const years = new Set<number>();
+    const start = Math.max(0, activeIndex - renderWindow);
+    const end = Math.min(slideDates.length - 1, activeIndex + renderWindow);
+    for (let index = start; index <= end; index += 1) {
+      years.add(slideDates[index].getFullYear());
+    }
+    return [...years];
+  }, [activeIndex, renderWindow, slideDates]);
+  const holidaysByDate = useHolidaysByDate(holidayConfig, holidayYears);
 
   const activeDateStr = slideDateStrs[activeIndex] ?? format(selectedDate, 'yyyy-MM-dd');
   const previousActiveDateStrRef = useRef(activeDateStr);
@@ -658,6 +687,7 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
           const inWindow = Math.abs(i - activeIndex) <= effectiveRenderWindow;
           const dateStr = slideDateStrs[i];
           const dayTasks = tasksByDate.get(dateStr) ?? EMPTY_TASKS;
+          const dayHolidays = holidaysByDate.get(dateStr) ?? EMPTY_HOLIDAYS;
           return (
             <SwiperSlide
               key={date.toISOString()}
@@ -705,12 +735,20 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
                       </div>
                       <div className="mt-0.5 grid min-h-8 grid-cols-[1fr_auto_1fr] items-center">
                         <span aria-hidden="true" />
-                        <div className="flex justify-center">
+                        <div className="flex min-w-0 flex-col items-center justify-center gap-0.5">
                           {showDayViewTodayTag && isToday(date) && (
                             <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-[11px] font-semibold text-emerald-400">
                               Today
                             </span>
                           )}
+                          {dayHolidays.map((holiday) => (
+                            <span
+                              key={holiday.id}
+                              className="max-w-full rounded-full bg-red-500/15 px-2 py-0.5 text-center text-[11px] font-semibold text-red-400"
+                            >
+                              {holiday.title}
+                            </span>
+                          ))}
                         </div>
                         <button
                           type="button"
