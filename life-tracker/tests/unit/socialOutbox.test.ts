@@ -34,6 +34,7 @@ import {
   __resetSocialOutboxForTests,
   type SocialOutboxFailureEvent,
   type SocialOutboxRemoteOp,
+  type SocialOutboxQueuedEntry,
 } from '../../src/lib/socialOutbox';
 import {
   __resetAccountWorkScopeForTests,
