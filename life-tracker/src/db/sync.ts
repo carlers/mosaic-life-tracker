@@ -105,9 +105,16 @@ interface PerCollectionPersistedState {
   ownerId: string;
   entries: Partial<Record<CollectionName, PerCollectionSyncEntry>>;
 }
+interface BootstrapPushAcksState {
+  version: number;
+  ownerId: string;
+  entries: Partial<Record<CollectionName, Record<string, number>>>;
+}
 const PER_COLLECTION_KEY = 'lastSyncTimePerCollection';
 const RECONCILED_MISSING_KEY = 'reconciledMissingRows';
+const BOOTSTRAP_PUSH_ACKS_KEY = 'bootstrapPushAcknowledgements';
 const PER_COLLECTION_STATE_VERSION = 1;
+const BOOTSTRAP_PUSH_ACKS_VERSION = 1;
 function loadPerCollectionState(
   userId: string
 ): Partial<Record<CollectionName, PerCollectionSyncEntry>> {
@@ -186,6 +193,46 @@ function reconciliationKey(collection: string, rowId: string): string {
   return `${collection}::${rowId}`;
 }
 
+function loadBootstrapPushAcks(
+  userId: string
+): Partial<Record<CollectionName, Record<string, number>>> {
+  try {
+    const raw = localStorage.getItem(BOOTSTRAP_PUSH_ACKS_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw) as Partial<BootstrapPushAcksState>;
+    if (
+      parsed.version !== BOOTSTRAP_PUSH_ACKS_VERSION ||
+      parsed.ownerId !== userId ||
+      !parsed.entries ||
+      typeof parsed.entries !== 'object'
+    ) {
+      return {};
+    }
+    return parsed.entries;
+  } catch {
+    return {};
+  }
+}
+
+function saveBootstrapPushAcks(
+  userId: string,
+  entries: Partial<Record<CollectionName, Record<string, number>>>
+): void {
+  try {
+    localStorage.setItem(
+      BOOTSTRAP_PUSH_ACKS_KEY,
+      JSON.stringify({
+        version: BOOTSTRAP_PUSH_ACKS_VERSION,
+        ownerId: userId,
+        entries,
+      })
+    );
+  } catch {
+    // Retry safety remains conservative if persistence is unavailable:
+    // a previously successful row may be sent again, but no write is lost.
+  }
+}
+
 let perCollectionSync: Partial<
   Record<CollectionName, PerCollectionSyncEntry>
 > = {};
@@ -208,6 +255,7 @@ type AppwriteRow = Record<string, unknown>;
 interface CollectionSyncResult {
   pullRowFailed: boolean;
   pushFailed: number;
+  pushDeferred: number;
   pullComplete: boolean;
   errors: unknown[];
 }
@@ -285,6 +333,22 @@ function isConflictError(err: unknown): boolean {
   const code = (err as { code?: string } | null)?.code;
   return code === 'CONFLICT';
 }
+
+function describeSyncError(err: unknown): string {
+  if (isRateLimitError(err)) return 'rate limited';
+  if (isUnauthorizedError(err)) return 'authorization failed';
+  const code = (err as { code?: number } | null)?.code;
+  if (typeof code === 'number' && code >= 500) {
+    return `server error ${code}`;
+  }
+  if (typeof code === 'number' && code >= 400) {
+    return `request rejected ${code}`;
+  }
+  const message = err instanceof Error ? err.message : String(err);
+  if (/network|fetch|timeout|offline/i.test(message)) return 'network error';
+  return 'unexpected error';
+}
+
 function buildRowPermissions(userId: string) {
   return [
     Permission.read(Role.user(userId)),
@@ -321,18 +385,20 @@ function resyncAllReplicationPilots(userId: string): void {
 async function runBounded<T, R>(
   items: T[],
   limit: number,
-  worker: (item: T) => Promise<R>
+  worker: (item: T) => Promise<R>,
+  shouldStop: () => boolean = () => false
 ): Promise<R[]> {
   if (items.length === 0) return [];
-  const results = new Array<R>(items.length);
+  const results: R[] = [];
   let cursor = 0;
 
   const runWorker = async () => {
     while (true) {
+      if (shouldStop()) return;
       const index = cursor;
       cursor += 1;
       if (index >= items.length) return;
-      results[index] = await worker(items[index]);
+      results.push(await worker(items[index]));
     }
   };
 
@@ -694,13 +760,27 @@ async function runSyncCycleBody(userId: string): Promise<void> {
         const hasCollectionIssues =
           result.pullRowFailed ||
           result.pushFailed > 0 ||
+          result.pushDeferred > 0 ||
           !result.pullComplete;
         if (hasCollectionIssues) {
           const issueParts: string[] = [];
           if (result.pullRowFailed) issueParts.push('pull row failed');
-          if (result.pushFailed > 0) {
+          if (result.pushFailed > 0 || result.pushDeferred > 0) {
+            const reasons = [
+              ...new Set(result.errors.map((error) => describeSyncError(error))),
+            ];
+            const reasonSuffix =
+              reasons.length > 0 ? ` (${reasons.join(', ')})` : '';
+            const failedPart =
+              result.pushFailed > 0
+                ? `${result.pushFailed} failed`
+                : '0 failed';
+            const deferredPart =
+              result.pushDeferred > 0
+                ? `, ${result.pushDeferred} deferred`
+                : '';
             issueParts.push(
-              `${result.pushFailed} push/reconciliation failure${result.pushFailed === 1 ? '' : 's'}`
+              `push/reconciliation: ${failedPart}${deferredPart}${reasonSuffix}`
             );
           }
           if (!result.pullComplete) issueParts.push('pull incomplete');
@@ -858,6 +938,7 @@ async function syncCollection(
     return {
       pullRowFailed: false,
       pushFailed: 0,
+      pushDeferred: 0,
       pullComplete: true,
       errors: [],
     };
@@ -885,6 +966,10 @@ async function syncCollection(
   >();
   const justPulled = new Set<string>();
   const reconciledMissing = loadReconciledMissingRows(userId);
+  const bootstrapPushAcks = loadBootstrapPushAcks(userId);
+  const collectionPushAcks =
+    bootstrapPushAcks[colName as CollectionName] ?? {};
+  bootstrapPushAcks[colName as CollectionName] = collectionPushAcks;
   let cursor: string | undefined = undefined;
   let pageCount = 0;
   let pullRowFailed = false;
@@ -1040,6 +1125,8 @@ async function syncCollection(
   };
   savePerCollectionState(userId, perCollectionSync);
   let pushFailed = 0;
+  let pushDeferred = 0;
+  let pushRateLimited = false;
   // A stale cursor forces a complete remote reconciliation, but it does not
   // discard edits made locally since the last successful push. Clean local
   // rows that disappeared from the remote full pull are intentionally not
@@ -1061,6 +1148,8 @@ async function syncCollection(
       if (justPulled.has(docId)) continue;
       const remoteMeta = remoteIndex.get(docId);
       const localLwt = doc._meta?.lwt ?? 0;
+      const acknowledgedLwt = collectionPushAcks[docId];
+      if (localLwt > 0 && acknowledgedLwt === localLwt) continue;
       const isLocalDirty = localLwt > dirtyBoundaryMs;
       const reconciliationStamp =
         reconciledMissing[reconciliationKey(colName, docId)];
@@ -1082,6 +1171,18 @@ async function syncCollection(
       pushCandidates.push({ doc, json, docId });
     }
 
+    const acknowledgeSuccessfulPush = (docId: string, lwt: number) => {
+      if (lwt <= 0) return;
+      collectionPushAcks[docId] = lwt;
+      saveBootstrapPushAcks(userId, bootstrapPushAcks);
+    };
+
+    const markPushFailure = (error: unknown) => {
+      collectionErrors.push(error);
+      if (isRateLimitError(error)) pushRateLimited = true;
+      return 1;
+    };
+
     const pushResults = await runBounded(
       pushCandidates,
       PUSH_CONCURRENCY,
@@ -1099,10 +1200,18 @@ async function syncCollection(
             `[Sync] Failed to reconcile pending image for ${colName} ${docId}:`,
             imageError
           );
-          collectionErrors.push(imageError);
-          return 1;
+          return markPushFailure(imageError);
         }
 
+        // Pending-image reconciliation and a concurrent local edit can both
+        // create a newer RxDB revision after candidates were collected.
+        // Re-read immediately before serialization so the revision marker we
+        // persist describes the same local state that is sent remotely.
+        const currentDoc = await collection.findOne(docId).exec();
+        if (currentDoc) {
+          json = currentDoc.toJSON();
+        }
+        const pushedLwt = currentDoc?._meta?.lwt ?? doc._meta?.lwt ?? 0;
         const rowData = toAppwriteFormat(json, colName, userId);
         if (DEBUG) console.log(`[Sync] Pushing ${colName} ${docId}`);
         try {
@@ -1112,7 +1221,15 @@ async function syncCollection(
             rowId: docId,
             data: rowData,
           });
-          if (colName === 'settings' && json.key === 'profileImageId' && typeof json.value === 'string' && json.value) await updateProfileAvatar(userId, json.value);
+          if (
+            colName === 'settings' &&
+            json.key === 'profileImageId' &&
+            typeof json.value === 'string' &&
+            json.value
+          ) {
+            await updateProfileAvatar(userId, json.value);
+          }
+          acknowledgeSuccessfulPush(docId, pushedLwt);
           return 0;
         } catch (updateErr) {
           if (!isNotFoundError(updateErr)) {
@@ -1120,8 +1237,7 @@ async function syncCollection(
               `[Sync] Failed to push ${colName} ${docId}:`,
               updateErr
             );
-            collectionErrors.push(updateErr);
-            return 1;
+            return markPushFailure(updateErr);
           }
 
           // createRow is a strict insert (no PUT semantics). If the row
@@ -1137,23 +1253,36 @@ async function syncCollection(
               data: rowData,
               permissions: buildRowPermissions(userId),
             });
-            if (colName === 'settings' && json.key === 'profileImageId' && typeof json.value === 'string' && json.value) await updateProfileAvatar(userId, json.value);
+            if (
+              colName === 'settings' &&
+              json.key === 'profileImageId' &&
+              typeof json.value === 'string' &&
+              json.value
+            ) {
+              await updateProfileAvatar(userId, json.value);
+            }
+            acknowledgeSuccessfulPush(docId, pushedLwt);
             return 0;
           } catch (createErr) {
             console.error(
               `[Sync] Failed to create ${colName} ${docId}:`,
               createErr
             );
-            collectionErrors.push(createErr);
-            return 1;
+            return markPushFailure(createErr);
           }
         }
-      }
+      },
+      () => pushRateLimited
     );
     pushFailed = pushResults.reduce<number>(
       (total, failed) => total + failed,
       0
     );
+    pushDeferred = Math.max(0, pushCandidates.length - pushResults.length);
+    if (pushFailed === 0 && pushDeferred === 0) {
+      delete bootstrapPushAcks[colName as CollectionName];
+      saveBootstrapPushAcks(userId, bootstrapPushAcks);
+    }
   }
   if (incrementalCursorExpired && pullComplete && !pullRowFailed) {
     const localDocsAfterPull = await collection.find().exec();
@@ -1184,7 +1313,7 @@ async function syncCollection(
     saveReconciledMissingRows(userId, reconciledMissing);
   }
   const nextDirtyIso =
-    pushFailed > 0
+    pushFailed > 0 || pushDeferred > 0
       ? entry?.dirty ?? ''
       : new Date(Math.max(cycleStartMs, dirtyBoundaryMs)).toISOString();
   perCollectionSync[colName as CollectionName] = {
@@ -1194,11 +1323,16 @@ async function syncCollection(
   saveReconciledMissingRows(userId, reconciledMissing);
   savePerCollectionState(userId, perCollectionSync);
   if (DEBUG) {
-    if (pullRowFailed || pushFailed > 0 || !pullComplete) {
+    if (
+      pullRowFailed ||
+      pushFailed > 0 ||
+      pushDeferred > 0 ||
+      !pullComplete
+    ) {
       console.warn(
         `[Sync] ⚠️ ${colName} completed with issues: ` +
           `pullRowFailed=${pullRowFailed} pushFailed=${pushFailed} ` +
-          `pullComplete=${pullComplete}`
+          `pushDeferred=${pushDeferred} pullComplete=${pullComplete}`
       );
     } else {
       console.log(`[Sync] ✅ ${colName} synced (${pageCount} page(s) pulled)`);
@@ -1207,6 +1341,7 @@ async function syncCollection(
   return {
     pullRowFailed,
     pushFailed,
+    pushDeferred,
     pullComplete,
     errors: collectionErrors,
   };
