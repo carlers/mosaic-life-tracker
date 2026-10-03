@@ -73,6 +73,19 @@ async function measure(folder) {
   return files.sort((a, b) => b.bytes - a.bytes);
 }
 
+async function listRuntimeSourceFiles(folder) {
+  const files = [];
+  for (const entry of await readdir(folder, { withFileTypes: true })) {
+    const fullPath = join(folder, entry.name);
+    if (entry.isDirectory()) {
+      files.push(...await listRuntimeSourceFiles(fullPath));
+    } else if (/\.(?:ts|tsx|js|jsx)$/.test(entry.name) && !entry.name.endsWith('.d.ts')) {
+      files.push(normalize(fullPath));
+    }
+  }
+  return files;
+}
+
 const files = await measure(outDir);
 const sizes = new Map(files.map((file) => [file.file, file]));
 const chunkByFile = new Map(chunks.map((chunk) => [chunk.file, chunk]));
@@ -136,6 +149,19 @@ const fileSizes = new Map(files.map((file) => [file.file, file.bytes]));
 for (const url of uniqueUrls) {
   if (!fileSizes.has(url)) throw new Error(`Missing precache asset: ${url}`);
 }
+const runtimeModuleIds = new Set(moduleGraph.map(({ id }) => id));
+const runtimeUnreachableSourceFiles = (await listRuntimeSourceFiles(join(root, 'src')))
+  .filter((file) => !runtimeModuleIds.has(file))
+  .sort();
+const packageJson = JSON.parse(await readFile(join(root, 'package.json'), 'utf8'));
+const runtimePackages = new Set(
+  chunks.flatMap((chunk) => chunk.packages.map(({ name }) => name))
+    .filter((name) => name !== 'application' && name !== 'other')
+);
+const declaredProductionDependenciesNotBundled = Object.keys(packageJson.dependencies ?? {})
+  .filter((name) => !runtimePackages.has(name))
+  .sort();
+
 const summary = {
   node: process.version,
   vite: viteVersion,
@@ -151,6 +177,10 @@ const summary = {
     urls: precacheUrls,
   },
   serviceWorker,
+  reachability: {
+    runtimeUnreachableSourceFiles,
+    declaredProductionDependenciesNotBundled,
+  },
   note: 'Artifact bytes/gzip are measured from emitted files. Module renderedLength is a bundler attribution metric, not compressed transfer size or predicted savings.',
 };
 const report = join(directory, 'report.json');
@@ -159,6 +189,8 @@ console.log(`\nAudit metadata: ${report}`);
 console.table(files);
 console.log('Precache:', summary.precache.entries, 'entries;', summary.precache.uniqueUrls, 'unique URLs;', summary.precache.uniqueBytes, 'unique bytes');
 console.log('Service worker:', summary.serviceWorker);
+console.log('Runtime source files outside the production module graph:', runtimeUnreachableSourceFiles);
+console.log('Declared production dependencies absent from the production graph:', declaredProductionDependenciesNotBundled);
 console.log('Static closures:', {
   initial: { bytes: boundaries.initial.bytes, gzipBytes: boundaries.initial.gzipBytes },
   home: { bytes: boundaries.home.bytes, gzipBytes: boundaries.home.gzipBytes },
