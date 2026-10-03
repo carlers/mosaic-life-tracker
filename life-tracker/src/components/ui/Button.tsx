@@ -1,10 +1,8 @@
 import React from 'react';
-import { motion } from 'framer-motion';
-import type { HTMLMotionProps } from 'framer-motion';
 
 type ButtonVariant = 'primary' | 'ghost' | 'icon' | 'danger';
 
-interface ButtonProps extends HTMLMotionProps<'button'> {
+interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: ButtonVariant;
 }
 
@@ -26,7 +24,7 @@ export const Button: React.FC<ButtonProps> = ({
   ...props
 }) => {
   const baseStyles =
-    'flex items-center justify-center font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 focus-visible:ring-offset-2 focus-visible:ring-offset-[#111111] disabled:opacity-50 disabled:cursor-not-allowed';
+    'flex items-center justify-center font-medium transition-[color,background-color,border-color,transform] active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 focus-visible:ring-offset-2 focus-visible:ring-offset-[#111111] disabled:opacity-50 disabled:cursor-not-allowed';
 
   const variants = {
     primary: 'bg-[#2A2A2A] hover:bg-[#333333] text-white rounded-lg px-4 py-2.5',
@@ -38,12 +36,11 @@ export const Button: React.FC<ButtonProps> = ({
   };
 
   return (
-    <motion.button
-      whileTap={{ scale: 0.95 }}
+    <button
       className={`${baseStyles} ${variants[variant]} ${className}`}
       {...props}
     >
       {children}
-    </motion.button>
+    </button>
   );
 };
