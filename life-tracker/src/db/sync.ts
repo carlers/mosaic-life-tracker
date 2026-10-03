@@ -773,6 +773,7 @@ function isReplicationPilotActive(
     case 'messages':
       return isMessageReplicationPilotActive(userId);
   }
+  return false;
 }
 
 function resyncReplicationPilot(
@@ -1158,7 +1159,7 @@ async function syncCollection(
         const localUpdatedAt = toMs(localJson.updatedAt);
         const isLocalDirty =
           staleBoundaryMs !== undefined
-            ? localUpdatedAt > staleBoundaryMs
+            ? localUpdatedAt <= 0 || localUpdatedAt > staleBoundaryMs
             : localLwt > dirtyBoundaryMs;
 
         if (colName === 'messages' && row.direction === 'outgoing') {
@@ -1252,7 +1253,7 @@ async function syncCollection(
       }
 
       const localUpdatedAt = toMs(json.updatedAt);
-      if (localUpdatedAt > staleBoundaryMs) continue;
+      if (localUpdatedAt <= 0 || localUpdatedAt > staleBoundaryMs) continue;
 
       try {
         await doc.incrementalPatch({
