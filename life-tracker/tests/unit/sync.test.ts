@@ -787,7 +787,7 @@ describe('sync — stale-client recovery', () => {
   });
 
   it('applies outgoing read_at during stale recovery without remote writes', async () => {
-    const freshness = oldFreshness();
+    const freshness = oldFreshness('messages');
     getReplicationFreshnessMock.mockImplementation(
       async (_userId: string, collection: string) =>
         collection === 'messages' ? freshness : null
