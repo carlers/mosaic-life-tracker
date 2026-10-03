@@ -735,7 +735,7 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
                       </div>
                       <div className="mt-0.5 grid min-h-8 grid-cols-[1fr_auto_1fr] items-center">
                         <span aria-hidden="true" />
-                        <div className="flex min-w-0 flex-col items-center justify-center gap-0.5">
+                        <div className="flex min-w-0 max-w-[60vw] flex-col items-center justify-center gap-0.5">
                           {showDayViewTodayTag && isToday(date) && (
                             <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-[11px] font-semibold text-emerald-400">
                               Today
@@ -744,7 +744,7 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
                           {dayHolidays.map((holiday) => (
                             <span
                               key={holiday.id}
-                              className="max-w-full rounded-full bg-red-500/15 px-2 py-0.5 text-center text-[11px] font-semibold text-red-400"
+                              className="block max-w-full truncate rounded-full bg-red-500/15 px-2 py-0.5 text-center text-[11px] font-semibold text-red-400"
                             >
                               {holiday.title}
                             </span>
