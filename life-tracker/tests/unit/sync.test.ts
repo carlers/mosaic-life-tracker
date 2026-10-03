@@ -1237,6 +1237,65 @@ describe('sync — manual freshness and retry wake-up', () => {
   });
 });
 
+// Regression: §18 (compatibility bootstrap push resume and rate-limit stop).
+describe('sync — compatibility bootstrap push resume', () => {
+  it('stops scheduling after the first 429 and does not replay successful row revisions after reload', async () => {
+    const docs = Array.from({ length: 12 }, (_, index) =>
+      makeLocalDocWithLwt(`resume_${index}`, 10_000 + index)
+    );
+    getDatabaseMock.mockReturnValue(
+      makeTaskOnlyDb({
+        findOne: () => ({ exec: async () => null }),
+        find: () => ({ exec: async () => docs }),
+        upsert: vi.fn().mockResolvedValue(undefined),
+      })
+    );
+
+    const firstAttempts: string[] = [];
+    updateRowMock.mockImplementation(async ({ rowId }: { rowId: string }) => {
+      firstAttempts.push(rowId);
+      if (rowId === 'resume_0') {
+        throw Object.assign(new Error('rate limit'), { code: 429 });
+      }
+      return {};
+    });
+
+    await syncModule.initializeSync('user_A');
+
+    expect(firstAttempts).toContain('resume_0');
+    expect(firstAttempts.length).toBeLessThanOrEqual(4);
+    const successfulFirstAttempts = firstAttempts.filter(
+      (rowId) => rowId !== 'resume_0'
+    );
+    expect(successfulFirstAttempts.length).toBeGreaterThan(0);
+    expect(syncModule.getSyncStatus().errors).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining('tasks:'),
+      ])
+    );
+
+    syncModule.__resetSyncRuntimeForTests();
+    vi.resetModules();
+    syncModule = await import('../../src/db/sync');
+
+    const retryAttempts: string[] = [];
+    updateRowMock.mockImplementation(async ({ rowId }: { rowId: string }) => {
+      retryAttempts.push(rowId);
+      return {};
+    });
+
+    await syncModule.initializeSync('user_A');
+
+    for (const rowId of successfulFirstAttempts) {
+      expect(retryAttempts).not.toContain(rowId);
+    }
+    expect(retryAttempts).toContain('resume_0');
+    expect(new Set([...firstAttempts, ...retryAttempts]).size).toBe(12);
+    expect(taskPilotStartMock).toHaveBeenCalled();
+    expect(syncModule.getSyncStatus().errors).toEqual([]);
+  });
+});
+
 describe('sync — boundary advancement', () => {
   it('after a successful cycle, dirty boundary equals cycle-start, not cycle-end', async () => {
     const observedFirstListRowsAt = { value: 0 };
