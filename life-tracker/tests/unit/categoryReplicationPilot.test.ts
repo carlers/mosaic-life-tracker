@@ -331,6 +331,42 @@ describe('category RxDB replication pilot', () => {
     expect(updateRowMock).not.toHaveBeenCalled();
   });
 
+  it('acknowledges identical first-sync category state without rewriting Appwrite', async () => {
+    const conflicts =
+      await __categoryReplicationPilotTestUtils.pushCategories(
+        [{ newDocumentState: localCategory() }],
+        'user_A'
+      );
+
+    expect(conflicts).toEqual([]);
+    expect(updateRowMock).not.toHaveBeenCalled();
+    expect(createRowMock).not.toHaveBeenCalled();
+  });
+
+  it('writes a genuinely newer first-sync category edit once', async () => {
+    const conflicts =
+      await __categoryReplicationPilotTestUtils.pushCategories(
+        [
+          {
+            newDocumentState: localCategory({
+              name: 'Offline edit',
+              updatedAt: '2026-10-02T00:00:02.000Z',
+            }),
+          },
+        ],
+        'user_A'
+      );
+
+    expect(conflicts).toEqual([]);
+    expect(updateRowMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        rowId: 'cat_a',
+        data: expect.objectContaining({ name: 'Offline edit' }),
+      })
+    );
+    expect(createRowMock).not.toHaveBeenCalled();
+  });
+
   it('returns the current master as a conflict instead of overwriting it', async () => {
     getRowMock.mockResolvedValue(
       remoteCategory({ name: 'Server version' })
