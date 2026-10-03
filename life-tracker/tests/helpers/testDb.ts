@@ -29,6 +29,7 @@ import {
   messagesMigrationStrategies,
   categoriesMigrationStrategies,
   settingsMigrationStrategies,
+  syncMetaMigrationStrategies,
 } from '../../src/db/migrations';
 export interface TestDatabaseCollections {
   tasks: RxCollection<TaskDocument>;
@@ -66,6 +67,7 @@ const collectionDefinitions = {
   },
   syncMeta: {
     schema: syncMetaSchema,
+    migrationStrategies: syncMetaMigrationStrategies,
   },
 };
 

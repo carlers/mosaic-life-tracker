@@ -1,4 +1,5 @@
 import { BehaviorSubject } from 'rxjs';
+import { checkSchema } from 'rxdb/plugins/dev-mode';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const dbRef = vi.hoisted(() => ({
@@ -30,6 +31,8 @@ import {
   getReplicationIdentifier,
   SYNCED_COLLECTION_NAMES,
 } from '../../src/db/replicationIds';
+import { syncMetaSchema } from '../../src/db/schema';
+import { syncMetaMigrationStrategies } from '../../src/db/migrations';
 
 function makeSyncMetaCollection() {
   const rows = new Map<string, Record<string, unknown>>();
@@ -47,6 +50,28 @@ function makeSyncMetaCollection() {
 }
 
 describe('replication local freshness state', () => {
+  it('keeps the local metadata schema valid under RxDB Dev Mode', () => {
+    expect(() => checkSchema(syncMetaSchema)).not.toThrow();
+  });
+
+  it('migrates the Preview v0 reserved field to collectionName', () => {
+    expect(
+      syncMetaMigrationStrategies[1]({
+        id: 'replication:tasks:user_A',
+        userId: 'user_A',
+        collection: 'tasks',
+        replicationIdentifier: 'mosaic-appwrite-tablesdb-tasks-v1:user_A',
+        lastFreshAt: '2026-10-03T14:00:00.000Z',
+      })
+    ).toEqual({
+      id: 'replication:tasks:user_A',
+      userId: 'user_A',
+      collectionName: 'tasks',
+      replicationIdentifier: 'mosaic-appwrite-tablesdb-tasks-v1:user_A',
+      lastFreshAt: '2026-10-03T14:00:00.000Z',
+    });
+  });
+
   beforeEach(() => {
     markOfflineDataReadyMock.mockReset();
     const syncMeta = makeSyncMetaCollection();
@@ -162,7 +187,7 @@ describe('replication local freshness state', () => {
     await dbRef.current.syncMeta.upsert({
       id: staleId,
       userId: 'user_A',
-      collection: 'tasks',
+      collectionName: 'tasks',
       replicationIdentifier:
         'mosaic-appwrite-tablesdb-tasks-v0:user_A',
       lastFreshAt: at,

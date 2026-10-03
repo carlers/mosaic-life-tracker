@@ -43,7 +43,7 @@ export async function markReplicationFresh(
   await db.syncMeta.upsert({
     id: syncMetaId(userId, collection),
     userId,
-    collection,
+    collectionName: collection,
     replicationIdentifier,
     lastFreshAt,
   });
