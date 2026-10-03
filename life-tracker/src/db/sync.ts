@@ -102,16 +102,9 @@ interface PerCollectionPersistedState {
   ownerId: string;
   entries: Partial<Record<CollectionName, PerCollectionSyncEntry>>;
 }
-interface BootstrapPushAcksState {
-  version: number;
-  ownerId: string;
-  entries: Partial<Record<CollectionName, Record<string, number>>>;
-}
 const PER_COLLECTION_KEY = 'lastSyncTimePerCollection';
 const RECONCILED_MISSING_KEY = 'reconciledMissingRows';
-const BOOTSTRAP_PUSH_ACKS_KEY = 'bootstrapPushAcknowledgements';
 const PER_COLLECTION_STATE_VERSION = 1;
-const BOOTSTRAP_PUSH_ACKS_VERSION = 1;
 
 function accountStorageKey(base: string, userId: string): string {
   return base + '_' + userId;
@@ -274,68 +267,6 @@ function reconciliationKey(collection: string, rowId: string): string {
   return collection + '::' + rowId;
 }
 
-function parseBootstrapPushAcks(
-  raw: string | null,
-  userId: string
-): Partial<Record<CollectionName, Record<string, number>>> | null {
-  if (!raw) return null;
-  try {
-    const parsed = JSON.parse(raw) as Partial<BootstrapPushAcksState>;
-    if (
-      parsed.version !== BOOTSTRAP_PUSH_ACKS_VERSION ||
-      parsed.ownerId !== userId ||
-      !parsed.entries ||
-      typeof parsed.entries !== 'object'
-    ) {
-      return null;
-    }
-    return parsed.entries;
-  } catch {
-    return null;
-  }
-}
-
-function loadBootstrapPushAcks(
-  userId: string
-): Partial<Record<CollectionName, Record<string, number>>> {
-  try {
-    const scoped = parseBootstrapPushAcks(
-      localStorage.getItem(accountStorageKey(BOOTSTRAP_PUSH_ACKS_KEY, userId)),
-      userId
-    );
-    if (scoped) return scoped;
-
-    const legacy = parseBootstrapPushAcks(
-      localStorage.getItem(BOOTSTRAP_PUSH_ACKS_KEY),
-      userId
-    );
-    if (legacy) {
-      saveBootstrapPushAcks(userId, legacy);
-      return legacy;
-    }
-  } catch {
-  }
-  return {};
-}
-
-function saveBootstrapPushAcks(
-  userId: string,
-  entries: Partial<Record<CollectionName, Record<string, number>>>
-): void {
-  try {
-    localStorage.setItem(
-      accountStorageKey(BOOTSTRAP_PUSH_ACKS_KEY, userId),
-      JSON.stringify({
-        version: BOOTSTRAP_PUSH_ACKS_VERSION,
-        ownerId: userId,
-        entries,
-      })
-    );
-  } catch {
-    // Retry safety remains conservative if persistence is unavailable:
-    // a previously successful row may be sent again, but no write is lost.
-  }
-}
 
 let perCollectionSync: Partial<
   Record<CollectionName, PerCollectionSyncEntry>
