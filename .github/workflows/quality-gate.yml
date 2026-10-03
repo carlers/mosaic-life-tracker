@@ -22,6 +22,7 @@ on:
 permissions:
   contents: read
   checks: read
+  pull-requests: read
 
 concurrency:
   group: quality-gate-${{ github.ref }}
@@ -45,21 +46,43 @@ jobs:
           CI_REF: ${{ github.ref }}
           CI_COMMIT_MESSAGE: ${{ github.event.head_commit.message || github.event.pull_request.title }}
           CI_HEAD_REF: ${{ github.head_ref }}
+          CI_BEFORE_SHA: ${{ github.event.before }}
         run: |
           mode=""
-          browser=""
+          browser="false"
+          base="$CI_BEFORE_SHA"
+          branch="${CI_HEAD_REF:-${CI_REF#refs/heads/}}"
+          if [[ -z "$base" || "$base" =~ ^0+$ ]]; then
+            base="HEAD^"
+          fi
+
           if [[ "$CI_EVENT_NAME" == "workflow_dispatch" ]]; then
             mode="full"
             browser="true"
           elif [[ "$CI_COMMIT_MESSAGE" == *"[verify:full]"* ]]; then
             mode="full"
             browser="true"
+          elif [[ "$branch" == "dev" ]]; then
+            mode="promotion"
+          elif [[ "$branch" == "main" || "$branch" == feature/* || "$branch" == fix/* || "$branch" == perf/* || "$branch" == security/* || "$branch" == refactor/* ]]; then
+            mode="full"
+            browser="true"
+          elif [[ "$branch" == chatgpt/* || "$branch" == codex/* ]]; then
+            if [[ "$CI_COMMIT_MESSAGE" == *"[verify:browser]"* ]]; then
+              mode="focused"
+              browser="true"
+            elif [[ "$CI_COMMIT_MESSAGE" == *"[verify:focused]"* ]]; then
+              mode="focused"
+            else
+              mode="skip"
+            fi
           fi
 
           if [[ -n "$mode" ]]; then
             echo "immediate=true" >> "$GITHUB_OUTPUT"
             echo "mode=$mode" >> "$GITHUB_OUTPUT"
             echo "browser=$browser" >> "$GITHUB_OUTPUT"
+            echo "base=$base" >> "$GITHUB_OUTPUT"
           else
             echo "immediate=false" >> "$GITHUB_OUTPUT"
           fi
@@ -88,14 +111,49 @@ jobs:
         env:
           IMMEDIATE_MODE: ${{ steps.immediate.outputs.mode }}
           IMMEDIATE_BROWSER: ${{ steps.immediate.outputs.browser }}
+          IMMEDIATE_BASE: ${{ steps.immediate.outputs.base }}
           CLASSIFIED_MODE: ${{ steps.classify.outputs.mode }}
           CLASSIFIED_BROWSER: ${{ steps.classify.outputs.browser }}
           CLASSIFIED_BASE: ${{ steps.classify.outputs.base }}
         run: |
           echo "mode=${IMMEDIATE_MODE:-$CLASSIFIED_MODE}" >> "$GITHUB_OUTPUT"
           echo "browser=${IMMEDIATE_BROWSER:-$CLASSIFIED_BROWSER}" >> "$GITHUB_OUTPUT"
-          echo "base=$CLASSIFIED_BASE" >> "$GITHUB_OUTPUT"
+          echo "base=${IMMEDIATE_BASE:-$CLASSIFIED_BASE}" >> "$GITHUB_OUTPUT"
 
+  promotion_check:
+    name: promotion-check
+    needs: classify
+    if: ${{ needs.classify.outputs.mode == 'promotion' }}
+    continue-on-error: true
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      eligible: ${{ steps.verify.outputs.eligible }}
+      source_sha: ${{ steps.verify.outputs.source_sha }}
+      source_branch: ${{ steps.verify.outputs.source_branch }}
+      reason: ${{ steps.verify.outputs.reason }}
+    defaults:
+      run:
+        working-directory: life-tracker
+    steps:
+      - name: Check out promotion verifier
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          sparse-checkout: life-tracker/scripts
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Reuse accepted stable Preview evidence
+        id: verify
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          CI_REPOSITORY: ${{ github.repository }}
+          CI_HEAD_SHA: ${{ github.sha }}
+          CI_BEFORE_SHA: ${{ github.event.before }}
+          CI_TARGET_BRANCH: dev
+        run: node scripts/verify-promotion.mjs
   docs_checks:
     name: docs-checks
     needs: classify
@@ -171,8 +229,8 @@ jobs:
 
   checks:
     name: checks
-    needs: classify
-    if: ${{ needs.classify.outputs.mode == 'full' }}
+    needs: [classify, promotion_check]
+    if: ${{ always() && (needs.classify.outputs.mode == 'full' || (needs.classify.outputs.mode == 'promotion' && needs.promotion_check.outputs.eligible != 'true')) }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
     defaults:
@@ -212,8 +270,8 @@ jobs:
 
   dependency_audit:
     name: dependency-audit
-    needs: classify
-    if: ${{ needs.classify.outputs.mode == 'full' }}
+    needs: [classify, promotion_check]
+    if: ${{ always() && (needs.classify.outputs.mode == 'full' || (needs.classify.outputs.mode == 'promotion' && needs.promotion_check.outputs.eligible != 'true')) }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     defaults:
@@ -234,8 +292,8 @@ jobs:
 
   dom_tests:
     name: dom-tests (${{ matrix.shard }})
-    needs: classify
-    if: ${{ needs.classify.outputs.mode == 'full' }}
+    needs: [classify, promotion_check]
+    if: ${{ always() && (needs.classify.outputs.mode == 'full' || (needs.classify.outputs.mode == 'promotion' && needs.promotion_check.outputs.eligible != 'true')) }}
     strategy:
       fail-fast: false
       matrix:
@@ -271,8 +329,8 @@ jobs:
 
   build_check:
     name: build
-    needs: classify
-    if: ${{ needs.classify.outputs.mode == 'full' }}
+    needs: [classify, promotion_check]
+    if: ${{ always() && (needs.classify.outputs.mode == 'full' || (needs.classify.outputs.mode == 'promotion' && needs.promotion_check.outputs.eligible != 'true')) }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     defaults:
@@ -288,17 +346,22 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: npm
-          cache-dependency-path: life-tracker/package-lock.json
-      - name: Install dependencies
+      - name: Restore app dependencies from focused cache
+        id: build-app-modules-cache
+        uses: actions/cache@v4
+        with:
+          path: life-tracker/node_modules
+          key: ${{ runner.os }}-node22-focused-modules-${{ hashFiles('life-tracker/package-lock.json') }}
+      - name: Install app dependencies on cache miss
+        if: steps.build-app-modules-cache.outputs.cache-hit != 'true'
         run: npm ci --prefer-offline --no-audit
       - name: Build production app
         run: npm run build
 
   browser_contract:
     name: browser-contract (${{ matrix.shard }})
-    needs: classify
-    if: ${{ needs.classify.outputs.mode == 'full' || needs.classify.outputs.browser == 'true' }}
+    needs: [classify, promotion_check]
+    if: ${{ always() && (needs.classify.outputs.browser == 'true' || needs.classify.outputs.mode == 'full' || (needs.classify.outputs.mode == 'promotion' && needs.promotion_check.outputs.eligible != 'true')) }}
     strategy:
       fail-fast: false
       matrix:
@@ -370,23 +433,33 @@ jobs:
     name: canonical-acceptance
     needs:
       - classify
+      - promotion_check
       - checks
       - dependency_audit
       - dom_tests
       - build_check
       - browser_contract
-    if: ${{ always() && needs.classify.outputs.mode == 'full' }}
+    if: ${{ always() && (needs.classify.outputs.mode == 'full' || needs.classify.outputs.mode == 'promotion') }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - name: Confirm every canonical gate passed
+      - name: Confirm canonical evidence
         env:
+          MODE: ${{ needs.classify.outputs.mode }}
+          PROMOTION_ELIGIBLE: ${{ needs.promotion_check.outputs.eligible }}
+          PROMOTION_SOURCE_SHA: ${{ needs.promotion_check.outputs.source_sha }}
+          PROMOTION_SOURCE_BRANCH: ${{ needs.promotion_check.outputs.source_branch }}
           CHECKS_RESULT: ${{ needs.checks.result }}
           AUDIT_RESULT: ${{ needs.dependency_audit.result }}
           DOM_RESULT: ${{ needs.dom_tests.result }}
           BUILD_RESULT: ${{ needs.build_check.result }}
           BROWSER_RESULT: ${{ needs.browser_contract.result }}
         run: |
+          if [[ "$MODE" == "promotion" && "$PROMOTION_ELIGIBLE" == "true" ]]; then
+            echo "Canonical acceptance reused from accepted stable Preview $PROMOTION_SOURCE_BRANCH at $PROMOTION_SOURCE_SHA."
+            exit 0
+          fi
+
           failed=0
           for result in "$CHECKS_RESULT" "$AUDIT_RESULT" "$DOM_RESULT" "$BUILD_RESULT" "$BROWSER_RESULT"; do
             if [ "$result" != "success" ]; then
