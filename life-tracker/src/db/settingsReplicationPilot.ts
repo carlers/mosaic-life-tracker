@@ -109,6 +109,19 @@ function settingStateEquals(
   );
 }
 
+function isBootstrapLocalNewer(
+  localUpdatedAt: string,
+  remoteUpdatedAt: string
+): boolean {
+  const localMs = Date.parse(localUpdatedAt);
+  const remoteMs = Date.parse(remoteUpdatedAt);
+  return (
+    Number.isFinite(localMs) &&
+    Number.isFinite(remoteMs) &&
+    localMs > remoteMs
+  );
+}
+
 async function readRemoteSetting(
   rowId: string
 ): Promise<ReplicatedSetting | null> {
@@ -251,37 +264,40 @@ async function pushSettings(
     const assumed = row.assumedMasterState;
 
     if (!assumed) {
-      if (current) {
+      if (!current) {
+        const prepared = await prepareSettingForPush(next, userId);
+        const createConflict = await createRemoteSetting(
+          prepared.document,
+          userId
+        );
+        if (createConflict) {
+          await mirrorProfileImageSetting(createConflict, userId);
+          await cleanupPendingProfileImage(next, userId);
+          conflicts.push(createConflict);
+          continue;
+        }
+        await finishSuccessfulPush(
+          prepared.document,
+          userId,
+          prepared.pendingImageId
+        );
+        if (!settingStateEquals(prepared.document, next)) {
+          conflicts.push(prepared.document);
+        }
+        continue;
+      }
+
+      if (settingStateEquals(current, next)) {
+        await mirrorProfileImageSetting(current, userId);
+        continue;
+      }
+      if (!isBootstrapLocalNewer(next.updatedAt, current.updatedAt)) {
         await mirrorProfileImageSetting(current, userId);
         await cleanupPendingProfileImage(next, userId);
         conflicts.push(current);
         continue;
       }
-
-      const prepared = await prepareSettingForPush(next, userId);
-      const createConflict = await createRemoteSetting(
-        prepared.document,
-        userId
-      );
-      if (createConflict) {
-        await mirrorProfileImageSetting(createConflict, userId);
-        await cleanupPendingProfileImage(next, userId);
-        conflicts.push(createConflict);
-        continue;
-      }
-
-      await finishSuccessfulPush(
-        prepared.document,
-        userId,
-        prepared.pendingImageId
-      );
-      if (!settingStateEquals(prepared.document, next)) {
-        conflicts.push(prepared.document);
-      }
-      continue;
-    }
-
-    if (current && !settingStateEquals(current, assumed)) {
+    } else if (current && !settingStateEquals(current, assumed)) {
       await mirrorProfileImageSetting(current, userId);
       await cleanupPendingProfileImage(next, userId);
       conflicts.push(current);
