@@ -30,6 +30,7 @@ import {
   messagesMigrationStrategies,
   categoriesMigrationStrategies,
   settingsMigrationStrategies,
+  syncMetaMigrationStrategies,
 } from './migrations';
 addRxPlugin(RxDBMigrationSchemaPlugin);
 
@@ -101,6 +102,7 @@ async function createDatabaseInstance(): Promise<RxDatabase<AppDatabaseCollectio
       },
       syncMeta: {
         schema: syncMetaSchema,
+        migrationStrategies: syncMetaMigrationStrategies,
       },
     });
     markStartup('database:collections-ready');

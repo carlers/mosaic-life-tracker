@@ -65,7 +65,7 @@ export interface FriendshipDocument {
 export interface SyncMetaDocument {
   id: string;
   userId: string;
-  collection:
+  collectionName:
     | 'tasks'
     | 'categories'
     | 'diary'
@@ -309,20 +309,20 @@ export const messagesSchema: RxJsonSchema<MessageDocument> = {
   ],
 };
 export const syncMetaSchema: RxJsonSchema<SyncMetaDocument> = {
-  version: 0,
+  version: 1,
   primaryKey: 'id',
   type: 'object',
   required: [
     'id',
     'userId',
-    'collection',
+    'collectionName',
     'replicationIdentifier',
     'lastFreshAt',
   ],
   properties: {
     id: { type: 'string', maxLength: 550 },
     userId: { type: 'string', maxLength: 255 },
-    collection: {
+    collectionName: {
       type: 'string',
       maxLength: 20,
       enum: [
@@ -337,6 +337,6 @@ export const syncMetaSchema: RxJsonSchema<SyncMetaDocument> = {
     replicationIdentifier: { type: 'string', maxLength: 500 },
     lastFreshAt: { type: 'string', maxLength: 50 },
   },
-  indexes: [['userId', 'collection']],
+  indexes: [['userId', 'collectionName']],
 };
 

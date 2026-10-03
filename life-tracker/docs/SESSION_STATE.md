@@ -2,29 +2,26 @@
 
 Updated: 2026-10-04
 Current task: Fix the multi-device sync restart path that could misclassify remote-applied RxDB revisions as local dirty rows and trigger hundreds of unnecessary Appwrite writes/rate limits.
-Status: The main implementation is already on stable Preview `fix/multi-device-sync-rate-limit`. Its first canonical run exposed one full-lint error in `taskReplicationPilot.ts` (`no-useless-assignment`). This repair branch is based directly on that Preview SHA and contains only the one-line lint repair plus this checkpoint.
-Next action: Inspect this focused repair gate. If green, squash this branch into `fix/multi-device-sync-rate-limit`, then wait for a fresh full canonical acceptance and Vercel Preview. Promotion to `dev` remains user-controlled.
+Status: Main sync hardening is on stable Preview `fix/multi-device-sync-rate-limit`. Full canonical verification exposed an authenticated browser-startup regression: the new local `syncMeta` v0 schema used top-level field `collection`, which is reserved by RxDocument and rejected by RxDB Dev Mode (SC17). This repair renames it to `collectionName`, bumps the local-only schema to v1, migrates any Preview v0 rows, mirrors migration wiring in tests, and adds direct Dev Mode schema validation.
+Next action: Inspect this focused repair gate. If green, squash into `fix/multi-device-sync-rate-limit` and rerun the full canonical gate + exact-SHA Vercel Preview. Promotion to `dev` remains user-controlled.
 Blockers: None known.
 
 ## Results
 
-- Normal startup no longer runs the compatibility pull/push writer before inactive pilots. It starts/resumes the same versioned RxDB replication identifiers directly, so persisted RxDB checkpoints and pending offline writes own restart behavior.
-- Added a local-only `syncMeta` RxDB collection that records per-account/per-collection settled replication freshness. Freshness is written only after RxDB initial replication completes and after later active→idle cycles; it is never synced to Appwrite.
-- A >90-day freshness boundary now invokes read-only full recovery before that collection's pilot starts. The recovery may reconcile local rows but cannot call Appwrite `updateRow`/`createRow`; incomplete recovery blocks pilot start.
-- Legacy `lastSyncTimePerCollection` remains only as a one-time stale-recovery fallback when no current DB-local freshness marker exists.
-- Tasks/categories/diary/settings now handle `assumedMasterState === undefined` semantically: equal remote/local state is acknowledged without a write, newer remote state wins, and only a genuinely newer local application timestamp may update an existing row. Task bootstrap updates preserve current server reactions.
-- Stale recovery preserves possible local edits with invalid/unknown timestamps, and preserves pending outgoing messages that are absent remotely.
-- Replication identifiers are centralized/versioned, and data hooks explicitly exclude the local-only `syncMeta` collection.
-- Removed the old compatibility push-ack/write-resume machinery and its rate-limit/deferred write path from normal sync coordination.
-- Added regressions for the 320-row false-dirty restart shape, RxDB-first startup, semantic first-sync handling, settled freshness tracking/cancellation, read-only stale recovery, offline-edit preservation, pending-message preservation, freshness barriers, account generation changes, and Web Lock failure/timeout behavior.
-- Repair: removed a redundant initial assignment to `documentToPush`; every continuing branch assigns it before use.
+- Normal startup resumes versioned RxDB replication directly; the compatibility pull/push writer no longer runs on ordinary JS-session restart.
+- Local-only `syncMeta` tracks settled per-account/per-collection replication freshness; >90-day recovery is read-only and runs only before a stale collection pilot starts.
+- Tasks/categories/diary/settings use semantic no-assumed-master handling, preventing remote-applied cache revisions from becoming redundant Appwrite writes.
+- The 320-row false-dirty restart regression, stale recovery safety, offline-write preservation, freshness barriers, Web Lock/account generation behavior, and pilot first-sync conflict rules have automated coverage.
+- First canonical Preview attempt found and repaired one task-pilot lint issue.
+- Second canonical Preview attempt passed build, dependency audit, full checks, both DOM shards, and browser shard 1, but browser shard 2 reproducibly failed authenticated startup.
+- Root cause: RxDB Dev Mode rejects `syncMeta.properties.collection` because `collection` is an RxDocument-reserved property. Unit tests did not load that dev-mode schema checker.
+- Repair: `syncMeta` schema v1 uses `collectionName`; v0 Preview rows migrate safely; a unit regression now calls RxDB Dev Mode `checkSchema()` directly.
 
 ## Verification
 
-- Initial task focused Quality Gate: passed.
-- First stable Preview canonical attempt: build and dependency audit passed; full `checks` stopped at one ESLint `no-useless-assignment` error.
-- Earlier repair focused gate on the original task branch: passed 14 related test files / 119 tests, but that branch could not cleanly PR into the already-squashed Preview history.
-- Clean repair focused Quality Gate: requested by this commit.
-- Stable Preview canonical acceptance: pending repair delivery and rerun.
-- Vercel Preview: first Preview build reached READY for the pre-repair SHA; final deployment pending repaired Preview SHA.
-- Manual/device acceptance: recommended on phone + desktop with the same account after final Preview; confirm ordinary reload/focus does not surface `push/reconciliation` errors or mass rate-limit failures.
+- Main task focused gate: passed.
+- Task lint repair focused gate: passed.
+- Stable Preview canonical attempts: one lint failure repaired; next attempt isolated the RxDB Dev Mode schema collision described above.
+- This schema-repair focused gate: requested by this commit.
+- Vercel Preview for pre-schema-repair SHA `eb68a9a`: READY; final exact-SHA deployment pending repair delivery.
+- Manual/device acceptance: still required after final green Preview on phone + desktop using the same account; ordinary reload/focus should not surface mass `push/reconciliation` rate-limit errors.
