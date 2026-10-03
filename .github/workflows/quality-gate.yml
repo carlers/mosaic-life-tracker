@@ -309,6 +309,11 @@ jobs:
             console.table(chunk.modules.slice(0, 12));
           }
           NODE
+      - name: Explain newly audited vulnerable packages
+        if: ${{ github.ref == 'refs/heads/chatgpt/build-size-audit' }}
+        run: |
+          npm explain braces || true
+          npm explain serialize-javascript || true
 
   browser_contract:
     name: browser-contract (${{ matrix.shard }})
