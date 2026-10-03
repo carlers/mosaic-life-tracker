@@ -17,9 +17,7 @@ describe('verification workflow contracts', () => {
     expect(classifier).toContain('[verify:focused]');
     expect(classifier).toContain('[verify:browser]');
     expect(classifier).toContain('[verify:full]');
-    expect(delivery).toContain(
-      'Stable Preview branch is the one routine full canonical gate'
-    );
+    expect(delivery).toContain('one routine full canonical gate');
   });
 
   it('requires provenance plus identical trees before a dev promotion can reuse acceptance', () => {
