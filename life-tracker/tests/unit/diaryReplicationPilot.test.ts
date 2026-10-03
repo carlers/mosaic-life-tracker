@@ -285,6 +285,46 @@ describe('diary RxDB replication pilot', () => {
     expect(updateRowMock).not.toHaveBeenCalled();
   });
 
+  it('acknowledges identical first-sync diary state without rewriting Appwrite', async () => {
+    getRowMock.mockResolvedValue(
+      remoteDiary({ content: 'Local entry' })
+    );
+
+    const conflicts =
+      await __diaryReplicationPilotTestUtils.pushDiary(
+        [{ newDocumentState: localDiary() }],
+        'user_A'
+      );
+
+    expect(conflicts).toEqual([]);
+    expect(updateRowMock).not.toHaveBeenCalled();
+    expect(createRowMock).not.toHaveBeenCalled();
+  });
+
+  it('writes a genuinely newer first-sync diary edit once', async () => {
+    const conflicts =
+      await __diaryReplicationPilotTestUtils.pushDiary(
+        [
+          {
+            newDocumentState: localDiary({
+              content: 'Offline edit',
+              updatedAt: '2026-10-02T00:00:03.000Z',
+            }),
+          },
+        ],
+        'user_A'
+      );
+
+    expect(conflicts).toEqual([]);
+    expect(updateRowMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        rowId: 'diary_a',
+        data: expect.objectContaining({ content: 'Offline edit' }),
+      })
+    );
+    expect(createRowMock).not.toHaveBeenCalled();
+  });
+
   it('returns the current master as a conflict instead of overwriting it', async () => {
     getRowMock.mockResolvedValue(
       remoteDiary({ content: 'Server version' })
