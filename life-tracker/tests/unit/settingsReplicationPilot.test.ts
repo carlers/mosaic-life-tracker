@@ -18,7 +18,7 @@ const realtimeSubscribeMock = vi.hoisted(() => vi.fn());
 const reSyncMock = vi.hoisted(() => vi.fn());
 const cancelMock = vi.hoisted(() => vi.fn());
 const errorSubscribeMock = vi.hoisted(() => vi.fn());
-const markReplicationFreshMock = vi.hoisted(() => vi.fn());
+const trackReplicationFreshnessMock = vi.hoisted(() => vi.fn());
 const uploadPendingImageMock = vi.hoisted(() => vi.fn());
 const makeProfileImageReadableMock = vi.hoisted(() => vi.fn());
 const deletePendingImageMock = vi.hoisted(() => vi.fn());
@@ -85,7 +85,7 @@ vi.mock('../../src/lib/social', () => ({
 }));
 
 vi.mock('../../src/db/replicationLocalState', () => ({
-  markReplicationFresh: markReplicationFreshMock,
+  trackReplicationFreshness: trackReplicationFreshnessMock,
 }));
 
 vi.mock('../../src/db/replicationFreshness', () => ({
@@ -133,7 +133,7 @@ function collectionFixture() {
 beforeEach(async () => {
   await stopSettingsReplicationPilot();
   vi.clearAllMocks();
-  markReplicationFreshMock.mockResolvedValue(undefined);
+  trackReplicationFreshnessMock.mockImplementation(() => undefined);
   getChangedDocumentsSinceMock.mockResolvedValue({
     documents: [],
     checkpoint: { id: 'setting_z', lwt: 123 },
