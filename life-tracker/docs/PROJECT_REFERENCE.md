@@ -487,6 +487,8 @@ Function ID lives in `src/lib/messageDelivery.ts` as `MESSAGE_ACTION_FUNCTION_ID
 4. Appwrite Realtime normally delivers the server update immediately; ChatPage's 30-second `forceMessageSync()` heartbeat is the bounded catch-up path if a realtime event is missed
 5. `MessageBubble` renders "✓✓ Seen at [time]" under the last read outgoing message
 
+The generic retry queue uses per-entry account-scoped localStorage records rather than one shared array. The legacy array format is migrated on read. Flush is serialized across tabs with an owner-scoped Web Lock where available and compare-before-remove semantics preserve any newer same-key enqueue that races an older send. Retry queue capacity is 100 entries **per account**, so one account cannot evict another account's intents on a shared browser.
+
 Unsend follows the same pattern: `unsendOnRemote(userId, messageId, recipientId)` enqueues on transient failure (dedup key `unsend:${messageId}`). Both entries are retried by `flushMessageActionQueue`, which runs on every `deliverPendingMessages` trigger. Attempts cap at 5; on exhaustion the entry is dropped and a warning logged.
 
 Realtime is now the primary propagation path for read receipts, reactions, unsend, and incoming delivery. The 30-second ChatPage heartbeat remains as a message-only `reSync()` safety net for missed/stalled realtime; it no longer wakes the whole sync coordinator once the message pilot is active.
