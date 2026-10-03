@@ -647,14 +647,17 @@ export async function refreshSync(
   };
 
   try {
+    const pilotsWereActive = allReplicationPilotsActive(userId);
     await initializeSync(userId, { deadline });
     assertSyncOwnerCurrent(userId, generation);
 
-    const bootstrapErrors = getSyncStatus().errors;
-    if (bootstrapErrors.length > 0) {
-      throw new Error(
-        'Fresh sync bootstrap failed: ' + bootstrapErrors.join('; ')
-      );
+    if (!pilotsWereActive) {
+      const bootstrapErrors = getSyncStatus().errors;
+      if (bootstrapErrors.length > 0) {
+        throw new Error(
+          'Fresh sync bootstrap failed: ' + bootstrapErrors.join('; ')
+        );
+      }
     }
     if (!allReplicationPilotsActive(userId)) {
       throw new Error(
@@ -663,7 +666,7 @@ export async function refreshSync(
     }
 
     updateSyncStatus(
-      { isSyncing: true },
+      { isSyncing: true, errors: [] },
       { userId, generation }
     );
 
