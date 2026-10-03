@@ -30,7 +30,7 @@ import {
 } from '../lib/pendingImages';
 import { awaitPilotReplicationFreshness } from './replicationFreshness';
 import { getReplicationIdentifier } from './replicationIds';
-import { markReplicationFresh } from './replicationLocalState';
+import { trackReplicationFreshness } from './replicationLocalState';
 
 const PULL_BATCH_SIZE = 100;
 const PUSH_BATCH_SIZE = 20;
@@ -608,13 +608,8 @@ async function startTaskReplicationPilotNow(
     pull: {
       batchSize: PULL_BATCH_SIZE,
       stream$: pullStream.asObservable(),
-      handler: async (checkpoint, batchSize) => {
-        const result = await pullTasks(userId, checkpoint, batchSize);
-        if (result.documents.length < batchSize) {
-          await markReplicationFresh(userId, 'tasks');
-        }
-        return result;
-      },
+      handler: (checkpoint, batchSize) =>
+        pullTasks(userId, checkpoint, batchSize),
     },
     push: {
       batchSize: PUSH_BATCH_SIZE,
@@ -625,6 +620,7 @@ async function startTaskReplicationPilotNow(
 
   activeOwnerId = userId;
   activeReplication = replication;
+  trackReplicationFreshness(replication, userId, 'tasks');
   activeCollection = collection;
   activePullStream = pullStream;
   realtimeUnsubscribe = subscribeToTaskRealtime(userId, pullStream);
