@@ -5,25 +5,43 @@ function read(path: string) {
 }
 
 describe('verification workflow contracts', () => {
-  it('keeps docs, focused, and exact-SHA full verification distinct', () => {
+  it('keeps skipped task pushes, explicit focused checks, stable full gates, and promotion reuse distinct', () => {
     const workflow = read('../.github/workflows/quality-gate.yml');
     const classifier = read('scripts/ci-classify.mjs');
+    const delivery = read('docs/DELIVERY.md');
 
-    expect(workflow).toContain("needs.classify.outputs.mode == 'docs'");
+    expect(workflow).toContain('mode="skip"');
     expect(workflow).toContain("needs.classify.outputs.mode == 'focused'");
+    expect(workflow).toContain("needs.classify.outputs.mode == 'promotion'");
     expect(workflow).toContain("needs.classify.outputs.mode == 'full'");
-    expect(classifier).toContain('[verify:full]');
+    expect(classifier).toContain('[verify:focused]');
     expect(classifier).toContain('[verify:browser]');
-    expect(read('docs/DELIVERY.md')).toContain(
-      'A focused or docs-only green run is never canonical acceptance'
+    expect(classifier).toContain('[verify:full]');
+    expect(delivery).toContain(
+      'Stable Preview branch is the one routine full canonical gate'
     );
   });
 
-  it('requires every canonical correctness gate before acceptance', () => {
+  it('requires provenance plus identical trees before a dev promotion can reuse acceptance', () => {
+    const workflow = read('../.github/workflows/quality-gate.yml');
+    const promotion = read('scripts/lib/promotion-verification.mjs');
+
+    expect(workflow).toContain('name: promotion-check');
+    expect(workflow).toContain('node scripts/verify-promotion.mjs');
+    expect(workflow).toContain('pull-requests: read');
+    expect(promotion).toContain("pull?.base?.ref === targetBranch");
+    expect(promotion).toContain('pull?.merge_commit_sha === headSha');
+    expect(promotion).toContain('headTree !== sourceTree');
+    expect(promotion).toContain("check?.name === 'canonical-acceptance'");
+    expect(promotion).toContain("check?.conclusion === 'success'");
+  });
+
+  it('falls back to every canonical correctness gate when promotion evidence cannot be reused', () => {
     const workflow = read('../.github/workflows/quality-gate.yml');
     const acceptance = workflow.split('  canonical_acceptance:')[1] ?? '';
 
     for (const dependency of [
+      'promotion_check',
       'checks',
       'dependency_audit',
       'dom_tests',
@@ -32,6 +50,7 @@ describe('verification workflow contracts', () => {
     ]) {
       expect(acceptance).toContain(`- ${dependency}`);
     }
+    expect(acceptance).toContain('PROMOTION_ELIGIBLE');
     expect(acceptance).toContain('name: canonical-acceptance');
   });
 
@@ -53,6 +72,17 @@ describe('verification workflow contracts', () => {
     expect(playwright).toContain('workers: process.env.CI ? 1 : undefined');
   });
 
+  it('reuses the app dependency cache in the production build job', () => {
+    const workflow = read('../.github/workflows/quality-gate.yml');
+    const buildJob = (workflow.split('  build_check:')[1] ?? '')
+      .split('  browser_contract:')[0];
+
+    expect(buildJob).toContain('Restore app dependencies from focused cache');
+    expect(buildJob).toContain('build-app-modules-cache');
+    expect(buildJob).toContain('npm ci --prefer-offline --no-audit');
+    expect(buildJob).not.toContain('cache-dependency-path');
+  });
+
   it('keeps diagnostic performance probing outside browser correctness acceptance', () => {
     const packageJson = JSON.parse(read('package.json'));
     const performanceProbe = read('tests/e2e/performance-probe.spec.mjs');
@@ -67,7 +97,7 @@ describe('verification workflow contracts', () => {
       '--grep @performance'
     );
     expect(performanceProbe).toContain(
-      "@performance interaction performance probe"
+      '@performance interaction performance probe'
     );
   });
 
@@ -84,6 +114,7 @@ describe('verification workflow contracts', () => {
     expect(workflow).toContain("      - 'codex/**'");
     expect(classifier).toContain("branch.startsWith('codex/')");
     expect(classifier).toContain("branch.startsWith('feature/')");
+    expect(classifier).toContain("branch.startsWith('fix/')");
     expect(classifier).toContain("branch.startsWith('refactor/')");
 
     expect(vercel.git.deploymentEnabled['*']).toBe(false);
@@ -95,12 +126,12 @@ describe('verification workflow contracts', () => {
     expect(vercel.git.deploymentEnabled['codex/*']).toBe(false);
   });
 
-  it('keeps the full gate parallel instead of serializing browser work behind logic tests', () => {
+  it('keeps the full gate parallel after promotion eligibility is resolved', () => {
     const workflow = read('../.github/workflows/quality-gate.yml');
     const browserJob = (workflow.split('  browser_contract:')[1] ?? '')
       .split('  canonical_acceptance:')[0];
 
-    expect(browserJob).toContain('needs: classify');
+    expect(browserJob).toContain('needs: [classify, promotion_check]');
     expect(browserJob).not.toContain('needs: checks');
     expect(browserJob).not.toContain('needs: dom_tests');
     expect(browserJob).not.toContain('needs: build_check');
