@@ -318,6 +318,42 @@ describe('task RxDB replication pilot', () => {
     );
   });
 
+  it('acknowledges identical first-sync task state without rewriting Appwrite', async () => {
+    const conflicts = await __taskReplicationPilotTestUtils.pushTasks(
+      [{ newDocumentState: localTask() }] as never,
+      'user_A'
+    );
+
+    expect(conflicts).toEqual([]);
+    expect(updateRowMock).not.toHaveBeenCalled();
+    expect(createRowMock).not.toHaveBeenCalled();
+  });
+
+  it('writes a genuinely newer first-sync task edit once', async () => {
+    const conflicts = await __taskReplicationPilotTestUtils.pushTasks(
+      [
+        {
+          newDocumentState: localTask({
+            title: 'Offline edit',
+            updatedAt: '2026-10-02T00:00:02.000Z',
+          }),
+        },
+      ] as never,
+      'user_A'
+    );
+
+    expect(conflicts).toEqual([]);
+    expect(updateRowMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        rowId: 'task_one',
+        data: expect.objectContaining({
+          title: 'Offline edit',
+        }),
+      })
+    );
+    expect(createRowMock).not.toHaveBeenCalled();
+  });
+
   it('falls back from update 404 to strict createRow', async () => {
     updateRowMock.mockRejectedValue(
       Object.assign(new Error('missing'), { code: 404 })
