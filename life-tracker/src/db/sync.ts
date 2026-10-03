@@ -59,6 +59,7 @@ import {
   isAccountWorkCurrent,
 } from '../lib/accountWorkScope';
 import {
+  getReplicationIdentifier,
   SYNCED_COLLECTION_NAMES,
   type SyncedCollectionName,
 } from './replicationIds';
@@ -518,7 +519,7 @@ export async function refreshSync(
       const bootstrapErrors = getSyncStatus().errors;
       if (bootstrapErrors.length > 0) {
         throw new Error(
-          'Fresh sync bootstrap failed: ' + bootstrapErrors.join('; ')
+          'Fresh sync startup or stale recovery failed: ' + bootstrapErrors.join('; ')
         );
       }
     }
@@ -844,7 +845,14 @@ async function getStaleRecoveryBoundary(
   legacyEntry: PerCollectionSyncEntry | undefined
 ): Promise<number | null> {
   const freshness = await getReplicationFreshness(userId, collection);
-  const freshnessMs = toMs(freshness?.lastFreshAt);
+  const currentReplicationIdentifier = getReplicationIdentifier(
+    collection,
+    userId
+  );
+  const freshnessMs =
+    freshness?.replicationIdentifier === currentReplicationIdentifier
+      ? toMs(freshness.lastFreshAt)
+      : 0;
   const legacyPullMs = legacyEntry?.pull ? toMs(legacyEntry.pull) : 0;
   const boundaryMs = freshnessMs || legacyPullMs;
   if (
@@ -1219,16 +1227,6 @@ async function syncCollection(
     }
   }
 
-  const nextPullIso =
-    pullRowFailed || !pullComplete
-      ? entry?.pull ?? ''
-      : new Date(cycleStartMs).toISOString();
-  perCollectionSync[colName] = {
-    pull: nextPullIso,
-    dirty: entry?.dirty ?? '',
-  };
-  savePerCollectionState(userId, perCollectionSync);
-
   if (
     forceFullPull &&
     staleBoundaryMs !== undefined &&
@@ -1275,6 +1273,14 @@ async function syncCollection(
     saveReconciledMissingRows(userId, reconciledMissing);
   }
 
+  const nextPullIso =
+    pullRowFailed || !pullComplete
+      ? entry?.pull ?? ''
+      : new Date(cycleStartMs).toISOString();
+  perCollectionSync[colName] = {
+    pull: nextPullIso,
+    dirty: entry?.dirty ?? '',
+  };
   savePerCollectionState(userId, perCollectionSync);
 
   if (DEBUG) {
