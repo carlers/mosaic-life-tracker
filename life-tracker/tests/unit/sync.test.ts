@@ -1309,6 +1309,8 @@ describe('sync — compatibility bootstrap push resume', () => {
 
     syncModule.__resetSyncRuntimeForTests();
     vi.resetModules();
+    const accountWork = await import('../../src/lib/accountWorkScope');
+    accountWork.scopeAccountWork('user_A');
     syncModule = await import('../../src/db/sync');
 
     const retryAttempts: string[] = [];
@@ -1356,6 +1358,8 @@ describe('sync — compatibility bootstrap push resume', () => {
 
     syncModule.__resetSyncRuntimeForTests();
     vi.resetModules();
+    const accountWork = await import('../../src/lib/accountWorkScope');
+    accountWork.scopeAccountWork('user_A');
     syncModule = await import('../../src/db/sync');
 
     const remoteNewer = makeRemoteTaskRow(
