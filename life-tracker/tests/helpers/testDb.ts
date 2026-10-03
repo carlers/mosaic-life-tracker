@@ -14,12 +14,14 @@ import {
   settingsSchema,
   friendshipsSchema,
   messagesSchema,
+  syncMetaSchema,
   type TaskDocument,
   type CategoryDocument,
   type DiaryDocument,
   type SettingsDocument,
   type FriendshipDocument,
   type MessageDocument,
+  type SyncMetaDocument,
 } from '../../src/db/schema';
 import {
   tasksMigrationStrategies,
@@ -35,6 +37,7 @@ export interface TestDatabaseCollections {
   settings: RxCollection<SettingsDocument>;
   friendships: RxCollection<FriendshipDocument>;
   messages: RxCollection<MessageDocument>;
+  syncMeta: RxCollection<SyncMetaDocument>;
 }
 let pluginsRegistered = false;
 export type TestDbProfile = 'all' | 'messages' | 'friendships';
@@ -61,10 +64,21 @@ const collectionDefinitions = {
     schema: messagesSchema,
     migrationStrategies: messagesMigrationStrategies,
   },
+  syncMeta: {
+    schema: syncMetaSchema,
+  },
 };
 
 const profileCollections: Record<TestDbProfile, Array<keyof TestDatabaseCollections>> = {
-  all: ['tasks', 'categories', 'diary', 'settings', 'friendships', 'messages'],
+  all: [
+    'tasks',
+    'categories',
+    'diary',
+    'settings',
+    'friendships',
+    'messages',
+    'syncMeta',
+  ],
   messages: ['messages'],
   friendships: ['friendships'],
 };
