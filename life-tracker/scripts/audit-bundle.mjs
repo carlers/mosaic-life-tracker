@@ -52,6 +52,7 @@ await build({
         const info = this.getModuleInfo(id);
         moduleGraph.push({
           id: normalize(id),
+          packageName: owner(id),
           imports: info.importedIds.map(normalize),
           dynamicImports: info.dynamicallyImportedIds.map(normalize),
         });
@@ -154,12 +155,12 @@ const runtimeUnreachableSourceFiles = (await listRuntimeSourceFiles(join(root, '
   .filter((file) => !runtimeModuleIds.has(file))
   .sort();
 const packageJson = JSON.parse(await readFile(join(root, 'package.json'), 'utf8'));
-const runtimePackages = new Set(
-  chunks.flatMap((chunk) => chunk.packages.map(({ name }) => name))
+const runtimeGraphPackages = new Set(
+  moduleGraph.map(({ packageName }) => packageName)
     .filter((name) => name !== 'application' && name !== 'other')
 );
-const declaredProductionDependenciesNotBundled = Object.keys(packageJson.dependencies ?? {})
-  .filter((name) => !runtimePackages.has(name))
+const declaredProductionDependenciesNotInModuleGraph = Object.keys(packageJson.dependencies ?? {})
+  .filter((name) => !runtimeGraphPackages.has(name))
   .sort();
 
 const summary = {
@@ -179,7 +180,7 @@ const summary = {
   serviceWorker,
   reachability: {
     runtimeUnreachableSourceFiles,
-    declaredProductionDependenciesNotBundled,
+    declaredProductionDependenciesNotInModuleGraph,
   },
   note: 'Artifact bytes/gzip are measured from emitted files. Module renderedLength is a bundler attribution metric, not compressed transfer size or predicted savings.',
 };
@@ -190,7 +191,7 @@ console.table(files);
 console.log('Precache:', summary.precache.entries, 'entries;', summary.precache.uniqueUrls, 'unique URLs;', summary.precache.uniqueBytes, 'unique bytes');
 console.log('Service worker:', summary.serviceWorker);
 console.log('Runtime source files outside the production module graph:', runtimeUnreachableSourceFiles);
-console.log('Declared production dependencies absent from the production graph:', declaredProductionDependenciesNotBundled);
+console.log('Declared production dependencies absent from the production module graph:', declaredProductionDependenciesNotInModuleGraph);
 console.log('Static closures:', {
   initial: { bytes: boundaries.initial.bytes, gzipBytes: boundaries.initial.gzipBytes },
   home: { bytes: boundaries.home.bytes, gzipBytes: boundaries.home.gzipBytes },
