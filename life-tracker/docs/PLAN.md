@@ -76,6 +76,7 @@ This roadmap records durable workstreams and batch status. `SESSION_STATE.md` co
 ## Feature backlog
 
 - [x] Todo List view: compact color-only calendar with a selected-day task list
+- [x] Optional regional holiday overlay: synced show/region/type preferences, cached read-only holiday data, Calendar/Todo/Day View presentation, and viewer-local friend-calendar overlay
 - [ ] Diary view: per-day text entries with `public`, `followers`, or `private` visibility
 - [ ] Notifications tab
 - [ ] Routines and reminders

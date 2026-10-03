@@ -9,6 +9,10 @@ import { useFriendTaskReply } from '../../../hooks/useFriendTaskReply';
 import { TodoCalendarGrid } from './TodoCalendarGrid';
 import type { CategoryDocument, TaskDocument } from '../../../db/schema';
 import type { WeekStartsOn } from '../../../lib/preferences';
+import {
+  DISABLED_HOLIDAY_CONFIG,
+  type HolidayDisplayConfig,
+} from '../../../lib/holidays';
 
 const ReplyComposerSheet = lazy(() =>
   import('../../messages/ReplyComposerSheet').then(({ ReplyComposerSheet }) => ({
@@ -28,6 +32,7 @@ interface TodoListViewProps {
   currentUserId?: string;
   onReactToTask?: (task: TaskDocument, emoji: string) => void;
   weekStartsOn?: WeekStartsOn;
+  holidayConfig?: HolidayDisplayConfig;
 }
 
 export const TodoListView: React.FC<TodoListViewProps> = ({
@@ -42,6 +47,7 @@ export const TodoListView: React.FC<TodoListViewProps> = ({
   currentUserId = '',
   onReactToTask,
   weekStartsOn = 0,
+  holidayConfig = DISABLED_HOLIDAY_CONFIG,
 }) => {
   const [selectedDate, setSelectedDate] = useState(() => new Date(focusDate));
   const {
@@ -89,6 +95,7 @@ export const TodoListView: React.FC<TodoListViewProps> = ({
           onDateSelect={handleDateChange}
           onMonthChange={onFocusDateChange}
           weekStartsOn={weekStartsOn}
+          holidayConfig={holidayConfig}
         />
       </div>
 
@@ -108,6 +115,7 @@ export const TodoListView: React.FC<TodoListViewProps> = ({
               currentUserId={currentUserId}
               onReplyToTask={handleReplyToTask}
               onReactToTask={onReactToTask}
+              holidayConfig={holidayConfig}
             />
             {replyTask && (
               <Suspense fallback={null}>
@@ -142,6 +150,7 @@ export const TodoListView: React.FC<TodoListViewProps> = ({
             renderMode="inline"
             tasks={tasks}
             categories={categories}
+            holidayConfig={holidayConfig}
           />
         )}
       </div>

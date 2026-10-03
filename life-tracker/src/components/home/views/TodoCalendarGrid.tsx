@@ -17,6 +17,14 @@ import {
 import useEmblaCarousel from 'embla-carousel-react';
 import type { CategoryDocument, TaskDocument } from '../../../db/schema';
 import type { WeekStartsOn } from '../../../lib/preferences';
+import { useHolidaysByDate } from '../../../hooks/useHolidays';
+import {
+  DISABLED_HOLIDAY_CONFIG,
+  EMPTY_HOLIDAYS,
+  holidayNames,
+  type HolidayDisplayConfig,
+  type HolidayOccurrence,
+} from '../../../lib/holidays';
 
 interface TodoCalendarGridProps {
   focusDate: Date;
@@ -27,12 +35,14 @@ interface TodoCalendarGridProps {
   onDateSelect: (date: Date) => void;
   onMonthChange: (date: Date) => void;
   weekStartsOn?: WeekStartsOn;
+  holidayConfig?: HolidayDisplayConfig;
 }
 
 interface TodoMonthGridProps
   extends Omit<TodoCalendarGridProps, 'tasks' | 'onMonthChange'> {
   monthDate: Date;
   tasksByDate: Map<string, TaskDocument[]>;
+  holidaysByDate: ReadonlyMap<string, readonly HolidayOccurrence[]>;
   isActive: boolean;
 }
 
@@ -46,6 +56,7 @@ const TodoMonthGrid: React.FC<TodoMonthGridProps> = ({
   monthDate,
   selectedDate,
   tasksByDate,
+  holidaysByDate,
   categories,
   onDateSelect,
   isActive,
@@ -117,6 +128,7 @@ const TodoMonthGrid: React.FC<TodoMonthGridProps> = ({
             {week.map((day) => {
               const dateKey = format(day, 'yyyy-MM-dd');
               const dayTasks = tasksByDate.get(dateKey) ?? [];
+              const dayHolidays = holidaysByDate.get(dateKey) ?? EMPTY_HOLIDAYS;
               const selected = isSameDay(day, selectedDate);
               const currentMonth = isSameMonth(day, monthDate);
               const dateLabel = format(day, 'EEEE, MMMM d, yyyy');
@@ -171,7 +183,7 @@ const TodoMonthGrid: React.FC<TodoMonthGridProps> = ({
                   role={isActive ? 'gridcell' : undefined}
                   tabIndex={isActive && selected ? 0 : -1}
                   data-todo-date={dateKey}
-                  aria-label={`${dateLabel}, ${dayTasks.length} task${dayTasks.length === 1 ? '' : 's'}`}
+                  aria-label={`${dateLabel}${dayHolidays.length > 0 ? `, holiday: ${holidayNames(dayHolidays)}` : ''}, ${dayTasks.length} task${dayTasks.length === 1 ? '' : 's'}`}
                   aria-selected={isActive ? selected : undefined}
                   aria-current={isActive && isToday(day) ? 'date' : undefined}
                   onClick={() => onDateSelect(day)}
@@ -218,7 +230,9 @@ const TodoMonthGrid: React.FC<TodoMonthGridProps> = ({
                       selected
                         ? 'bg-white text-black'
                         : currentMonth
-                          ? 'text-gray-300'
+                          ? dayHolidays.length > 0
+                            ? 'text-red-500'
+                            : 'text-gray-300'
                           : 'text-gray-600'
                     }`}
                   >
@@ -243,6 +257,7 @@ export const TodoCalendarGrid: React.FC<TodoCalendarGridProps> = ({
   onDateSelect,
   onMonthChange,
   weekStartsOn = 0,
+  holidayConfig = DISABLED_HOLIDAY_CONFIG,
 }) => {
   const [baseDate] = useState(() => new Date(focusDate));
   const [activeIndex, setActiveIndex] = useState(CENTER_INDEX);
@@ -253,6 +268,16 @@ export const TodoCalendarGrid: React.FC<TodoCalendarGridProps> = ({
       ),
     [baseDate]
   );
+
+  const activeMonthDate = slides[activeIndex] ?? focusDate;
+  const holidayYears = useMemo(() => {
+    const year = activeMonthDate.getFullYear();
+    const years = [year];
+    if (activeMonthDate.getMonth() === 0) years.push(year - 1);
+    if (activeMonthDate.getMonth() === 11) years.push(year + 1);
+    return years;
+  }, [activeMonthDate]);
+  const holidaysByDate = useHolidaysByDate(holidayConfig, holidayYears);
 
   const tasksByDate = useMemo(() => {
     const grouped = new Map<string, TaskDocument[]>();
@@ -316,6 +341,7 @@ export const TodoCalendarGrid: React.FC<TodoCalendarGridProps> = ({
           focusDate={focusDate}
           selectedDate={selectedDate}
           tasksByDate={tasksByDate}
+          holidaysByDate={holidaysByDate}
           categories={categories}
           categoriesMap={categoriesMap}
           onDateSelect={onDateSelect}
@@ -332,6 +358,7 @@ export const TodoCalendarGrid: React.FC<TodoCalendarGridProps> = ({
       onDateSelect,
       selectedDate,
       tasksByDate,
+      holidaysByDate,
       weekStartsOn,
     ]
   );

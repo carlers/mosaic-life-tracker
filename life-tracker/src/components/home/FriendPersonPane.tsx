@@ -16,9 +16,13 @@ import { useAuth } from '../../hooks/useAuth';
 import { useSettings } from '../../hooks/useSettings';
 import { useFriendCalendar } from '../../lib/useFriendCalendar';
 import {
+  HOLIDAY_REGION_SETTING_KEY,
+  HOLIDAY_TYPES_SETTING_KEY,
+  SHOW_HOLIDAYS_SETTING_KEY,
   WEEK_STARTS_ON_SUNDAY_SETTING_KEY,
   resolveWeekStartsOn,
 } from '../../lib/preferences';
+import { createHolidayDisplayConfig } from '../../lib/holidays';
 import type { CarouselPerson } from '../../hooks/useFriendCarousel';
 import type { ViewType } from './ViewSwitcher';
 import type { TaskDocument } from '../../db/schema';
@@ -54,6 +58,11 @@ export const FriendPersonPane: React.FC<FriendPersonPaneProps> = ({
   const { getSetting } = useSettings();
   const weekStartsOn = resolveWeekStartsOn(
     getSetting(WEEK_STARTS_ON_SUNDAY_SETTING_KEY, true) === true
+  );
+  const holidayConfig = createHolidayDisplayConfig(
+    getSetting(SHOW_HOLIDAYS_SETTING_KEY, false),
+    getSetting(HOLIDAY_REGION_SETTING_KEY, ''),
+    getSetting(HOLIDAY_TYPES_SETTING_KEY, 'public-and-observances')
   );
   const { sendTaskReaction } = useMessageActions(person.userId);
 
@@ -149,6 +158,7 @@ export const FriendPersonPane: React.FC<FriendPersonPaneProps> = ({
           onNext={calendarState.handleNext}
           onReactToTask={handleReactToTask}
           weekStartsOn={weekStartsOn}
+          holidayConfig={holidayConfig}
         />
       ) : activeView === 'todo' ? (
         <React.Suspense fallback={null}>
@@ -164,6 +174,7 @@ export const FriendPersonPane: React.FC<FriendPersonPaneProps> = ({
             currentUserId={currentUserId}
             onReactToTask={handleReactToTask}
             weekStartsOn={weekStartsOn}
+            holidayConfig={holidayConfig}
           />
         </React.Suspense>
       ) : (

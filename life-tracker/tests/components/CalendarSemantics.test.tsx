@@ -129,6 +129,34 @@ describe('calendar accessibility semantics', () => {
     ).toBeInTheDocument();
   });
 
+  // Regression: §2 (holiday overlay is visible and announced without becoming a task).
+  it('announces a holiday separately from the task count', () => {
+    render(
+      <DayCell
+        date={new Date(2026, 10, 2)}
+        tasks={[]}
+        categories={{}}
+        holidays={[
+          {
+            id: 'PH:2026-11-02:All Souls Day',
+            date: '2026-11-02',
+            title: 'All Souls Day',
+            countryCode: 'PH',
+            types: ['Observance'],
+          },
+        ]}
+        onDayClick={() => {}}
+      />
+    );
+
+    expect(
+      screen.getByRole('button', {
+        name: 'Monday, November 2, 2026, holiday: All Souls Day, no tasks',
+      })
+    ).toBeEnabled();
+    expect(screen.getByText('All Souls Day')).toBeInTheDocument();
+  });
+
   it('marks today as the current date and noninteractive days as disabled', () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date(2026, 8, 21, 12, 0, 0));

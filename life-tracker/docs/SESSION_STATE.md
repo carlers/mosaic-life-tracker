@@ -1,30 +1,28 @@
 # Session checkpoint
 
 Updated: 2026-10-03
-Current task: Fix repeated task/diary compatibility-bootstrap push failures reported by Sync Status on `fix/sync-reconciliation-errors`.
-Status: Implementation is complete on `chatgpt/fix-sync-reconciliation-errors`. Partial legacy/bootstrap pushes are resumable across retries and reloads, 429 handling stops scheduling new writes after the first observed rate-limit failure, and Sync Status reports failed/deferred counts with the failure class. Focused verification is green after two behavioral-red regressions proved the original replay and remote-update defects. Full canonical acceptance is requested by this checkpoint commit.
-Next action: Wait for exact-SHA full canonical acceptance. Fix any failure. If green, squash-merge the task branch into stable `fix/sync-reconciliation-errors`, verify the stable Vercel Preview is READY/HTTP 200, and leave promotion to `dev` for explicit user instruction.
+Current task: Add an optional regional holiday overlay on `feature/holidays` without turning holidays into Mosaic tasks or weakening offline/startup behavior.
+Status: Implementation is complete on `chatgpt/holidays`. Synced holiday preferences, a replaceable browser API/cache adapter, Calendar/ Todo/owner Day View/friend Day View presentation, accessibility coverage, and provider normalization are implemented. Latest focused Quality Gate is green. Full exact-SHA canonical acceptance is requested by this checkpoint commit.
+Next action: Wait for exact-SHA canonical acceptance, fix any failure, then squash-merge the accepted task branch into `feature/holidays`, verify the stable Preview deployment, and leave promotion to `dev` for explicit user instruction.
 Blockers: None known.
 
 ## Results
 
-- Stable branch baseline: `38ffffeb` (latest `dev` state when the fix branch was created).
-- Root cause in code: a partial compatibility push kept the old collection dirty boundary, so a retry replayed rows that had already succeeded; a large failed batch could therefore repeat the same successful prefix indefinitely.
-- Successful bootstrap writes now persist an account/collection/row acknowledgement keyed to the exact local RxDB `_meta.lwt` revision.
-- Retries skip only that exact acknowledged revision. Any later local edit has a new revision and is pushed normally.
-- Acknowledged revisions are treated as clean during retry pull arbitration, allowing a genuinely newer remote row to win before RxDB handoff rather than being masked by the conservative dirty boundary.
-- The acknowledgement set is cleared after a clean collection bootstrap advances its dirty boundary.
-- On the first 429, at most the already in-flight workers finish; no new row writes are scheduled. Remaining candidates are deferred until the existing rate-limit backoff wakes the sync engine.
-- Non-429 row failures still allow later independent candidates to run, preserving progress while recording successful revisions for the next retry.
-- Sync Status compatibility errors now distinguish rate limiting, authorization, server/request, network, and unexpected failures and include failed/deferred counts.
-- No schema, Appwrite backend, UI layout, product behavior, offline capability, or steady-state RxDB replication contract changed.
+- Stable `feature/holidays` and task `chatgpt/holidays` branches were created from `dev` SHA `4accf1db`.
+- Holiday preferences use `showHolidays`, `holidayRegion`, and `holidayTypes`; no RxDB/Appwrite schema change is required.
+- Holiday data remains separate from `TaskDocument` and is a viewer-local overlay while viewing either self or friends.
+- The provider adapter uses Nager.Holidays Community API v4, caches public country/year data locally, refreshes stale data in the background, and fails closed to cache/empty data without gating Mosaic.
+- Provider/cache code is dynamically imported so the optional network adapter is excluded from the disabled holiday path's Home static closure.
+- Country-wide public holidays are supported; observances are optional. Non-national/subdivision-only rows are excluded until Mosaic exposes an explicit subdivision preference.
+- Calendar Month/Week renders red holiday numerals plus read-only holiday blocks before tasks. Todo keeps its compact grid title-free and only colors holiday numerals. Owner and friend Day Views render compact holiday labels below the date header.
+- Holiday occurrences never enter task completion, ordering, search, reactions, visibility, bulk actions, or sync.
+- Long owner Day View holiday labels are width-bounded/truncated so the existing Select control remains usable.
+- Request-keyed hook state prevents cached holidays for a previous region/type/year selection from flashing after settings change.
 
 ## Verification
 
-- Behavioral red 1: `c3fd6653` failed because the original engine attempted all 12 dirty rows after the first simulated 429; expected at most the four already in-flight workers.
-- Focused green after resumable-push implementation: `d8934682` Quality Gate focused checks passed.
-- Behavioral red 2: `1cab8b22` failed because an acknowledged local revision still masked a newer remote row during retry pull arbitration.
-- Focused green after acknowledged-revision pull fix: `2509df32` Quality Gate focused checks passed.
-- Full canonical Quality Gate: requested by the final checkpoint commit.
-- Stable Preview: pending squash promotion after canonical acceptance.
-- Manual/device acceptance: not yet claimed.
+- Behavioral red: `fea99acd` focused Quality Gate failed because Preferences did not yet expose the accessible **Show holidays** switch.
+- Focused implementation verification: Quality Gate run `37112125524` passed on `5daaa337`.
+- Full canonical Quality Gate: requested by this checkpoint commit.
+- Stable Preview: pending canonical acceptance and squash promotion.
+- Manual/device acceptance: pending; no device check claimed.
