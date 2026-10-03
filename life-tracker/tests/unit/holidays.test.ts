@@ -90,6 +90,14 @@ describe('holiday domain', () => {
             subdivisionCodes: ['PH-00'],
             holidayTypes: ['Public'],
           },
+          {
+            date: '2026-04-01',
+            name: 'Non-national Holiday',
+            countryCode: 'PH',
+            nationalHoliday: false,
+            subdivisionCodes: null,
+            holidayTypes: ['Public'],
+          },
         ],
         'PH'
       )
