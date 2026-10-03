@@ -44,6 +44,7 @@ This roadmap records durable workstreams and batch status. `SESSION_STATE.md` co
 - [x] Test-suite architecture consolidation — behavior-first UI assertions, reduced DOM/browser duplication, and diagnostic performance isolated from canonical correctness
 - [x] Workflow wall-time optimization — quiet WIP task pushes, one focused task checkpoint, one stable-Preview full gate, cached build dependencies, and provenance/tree-based acceptance reuse for exact stable Preview → dev promotions
 - [x] Sync-engine race hardening — fail-closed freshness barriers, authenticated-owner generations, account-scoped compatibility metadata, serialized pilot lifecycle, and cross-tab durable retry queues
+- [x] Multi-device RxDB restart hardening — normal startup resumes versioned RxDB metadata directly, first-sync conflicts are semantic rather than LWT-based, and >90-day recovery is read-only with DB-local freshness proofs
 - [ ] Phase 4 — final production acceptance and main release
 
 ## Disaster recovery and backend capacity
@@ -89,8 +90,7 @@ This roadmap records durable workstreams and batch status. `SESSION_STATE.md` co
 ## Deferred technical work
 
 - [ ] Revisit cross-device last-write-wins only if collaboration or active multi-device editing makes the accepted limitation material
-- [ ] Revisit compatibility-bootstrap clock-skew tolerance only if stale-client handoff reports missing rows; steady-state RxDB pulls use server-authored tuple checkpoints.
-- [ ] Revisit compatibility-bootstrap cross-tab backoff sharing only if first-session handoff causes rate-limit pressure; steady-state RxDB retries are pilot-owned.
+- [ ] Revisit >90-day stale-recovery client-clock tolerance only if recovery reports show legitimate offline edits being conservatively preserved or remote tombstones being ambiguous; steady-state RxDB pulls use server-authored tuple checkpoints and are unaffected.
 
 ## Batch boundary
 

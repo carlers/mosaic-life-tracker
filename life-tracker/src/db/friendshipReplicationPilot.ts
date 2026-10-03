@@ -25,6 +25,8 @@ import {
 } from '../lib/appwriteConfig';
 import { clearCachedCalendar } from '../lib/friendCache';
 import { awaitPilotReplicationFreshness } from './replicationFreshness';
+import { getReplicationIdentifier } from './replicationIds';
+import { trackReplicationFreshness } from './replicationLocalState';
 
 const PULL_BATCH_SIZE = 100;
 const PUSH_BATCH_SIZE = 20;
@@ -510,7 +512,7 @@ async function startFriendshipReplicationPilotNow(
     FriendshipReplicationCheckpoint
   >({
     replicationIdentifier:
-      `mosaic-appwrite-tablesdb-friendships-v1:${userId}`,
+      getReplicationIdentifier('friendships', userId),
     collection,
     live: true,
     retryTime: RETRY_TIME_MS,
@@ -531,6 +533,7 @@ async function startFriendshipReplicationPilotNow(
 
   activeOwnerId = userId;
   activeReplication = replication;
+  trackReplicationFreshness(replication, userId, 'friendships');
   activeCollection = collection;
   activePullStream = pullStream;
   realtimeUnsubscribe = subscribeToFriendshipRealtime(

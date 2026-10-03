@@ -18,6 +18,7 @@ const realtimeSubscribeMock = vi.hoisted(() => vi.fn());
 const reSyncMock = vi.hoisted(() => vi.fn());
 const cancelMock = vi.hoisted(() => vi.fn());
 const errorSubscribeMock = vi.hoisted(() => vi.fn());
+const trackReplicationFreshnessMock = vi.hoisted(() => vi.fn());
 const uploadPendingImageMock = vi.hoisted(() => vi.fn());
 const makeProfileImageReadableMock = vi.hoisted(() => vi.fn());
 const deletePendingImageMock = vi.hoisted(() => vi.fn());
@@ -83,6 +84,10 @@ vi.mock('../../src/lib/social', () => ({
   updateProfileAvatar: updateProfileAvatarMock,
 }));
 
+vi.mock('../../src/db/replicationLocalState', () => ({
+  trackReplicationFreshness: trackReplicationFreshnessMock,
+}));
+
 vi.mock('../../src/db/replicationFreshness', () => ({
   awaitPilotReplicationFreshness: awaitPilotReplicationFreshnessMock,
 }));
@@ -128,6 +133,7 @@ function collectionFixture() {
 beforeEach(async () => {
   await stopSettingsReplicationPilot();
   vi.clearAllMocks();
+  trackReplicationFreshnessMock.mockImplementation(() => undefined);
   getChangedDocumentsSinceMock.mockResolvedValue({
     documents: [],
     checkpoint: { id: 'setting_z', lwt: 123 },
@@ -284,6 +290,42 @@ describe('settings RxDB replication pilot', () => {
       })
     );
     expect(updateRowMock).not.toHaveBeenCalled();
+  });
+
+  it('acknowledges identical first-sync setting state without rewriting Appwrite', async () => {
+    const conflicts =
+      await __settingsReplicationPilotTestUtils.pushSettings(
+        [{ newDocumentState: localSetting() }],
+        'user_A'
+      );
+
+    expect(conflicts).toEqual([]);
+    expect(updateRowMock).not.toHaveBeenCalled();
+    expect(createRowMock).not.toHaveBeenCalled();
+  });
+
+  it('writes a genuinely newer first-sync setting edit once', async () => {
+    const conflicts =
+      await __settingsReplicationPilotTestUtils.pushSettings(
+        [
+          {
+            newDocumentState: localSetting({
+              value: 'light',
+              updatedAt: '2026-10-02T00:00:02.000Z',
+            }),
+          },
+        ],
+        'user_A'
+      );
+
+    expect(conflicts).toEqual([]);
+    expect(updateRowMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        rowId: 'setting_a',
+        data: expect.objectContaining({ value: 'light' }),
+      })
+    );
+    expect(createRowMock).not.toHaveBeenCalled();
   });
 
   it('returns the current master as a conflict instead of overwriting it', async () => {

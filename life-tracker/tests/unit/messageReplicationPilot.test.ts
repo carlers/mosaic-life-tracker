@@ -15,6 +15,7 @@ const realtimeSubscribeMock = vi.hoisted(() => vi.fn());
 const reSyncMock = vi.hoisted(() => vi.fn());
 const cancelMock = vi.hoisted(() => vi.fn());
 const errorSubscribeMock = vi.hoisted(() => vi.fn());
+const trackReplicationFreshnessMock = vi.hoisted(() => vi.fn());
 const awaitPilotReplicationFreshnessMock = vi.hoisted(() => vi.fn());
 
 vi.mock('rxdb', () => ({
@@ -49,6 +50,10 @@ vi.mock('../../src/lib/sdk', () => ({
   guardedRealtime: {
     subscribe: realtimeSubscribeMock,
   },
+}));
+
+vi.mock('../../src/db/replicationLocalState', () => ({
+  trackReplicationFreshness: trackReplicationFreshnessMock,
 }));
 
 vi.mock('../../src/db/replicationFreshness', () => ({
@@ -162,6 +167,7 @@ function collectionFixture(
 beforeEach(async () => {
   await stopMessageReplicationPilot();
   vi.clearAllMocks();
+  trackReplicationFreshnessMock.mockImplementation(() => undefined);
 
   getChangedDocumentsSinceMock.mockResolvedValue({
     documents: [],
