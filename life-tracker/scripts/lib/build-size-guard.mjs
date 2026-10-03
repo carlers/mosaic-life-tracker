@@ -6,6 +6,8 @@ import { inspectServiceWorker } from './inspect-service-worker.mjs';
 export const BUILD_SIZE_METRICS = [
   'entryRawBytes',
   'entryGzipBytes',
+  'initialClosureGzipBytes',
+  'homeClosureGzipBytes',
   'appAssetsRawBytes',
   'appAssetsGzipBytes',
   'precacheUniqueBytes',
@@ -23,7 +25,7 @@ function assertByteMap(value, label, { positive = false } = {}) {
 
 export function validateBuildSizeBudget(budget) {
   if (!budget || typeof budget !== 'object') throw new Error('Budget must be an object');
-  if (budget.schemaVersion !== 1) throw new Error('Unsupported build-size budget schemaVersion');
+  if (budget.schemaVersion !== 2) throw new Error('Unsupported build-size budget schemaVersion');
   if (!budget.baseline || typeof budget.baseline.measuredAt !== 'string'
     || typeof budget.baseline.commit !== 'string') {
     throw new Error('Budget baseline must include measuredAt and commit');
@@ -64,7 +66,7 @@ export function formatBuildSizeResult(result) {
   const heading = `Build-size budget ${result.passed ? 'passed' : 'failed'}.`;
   const rows = result.metrics.map((metric) => {
     const status = metric.passed ? 'PASS' : `FAIL (+${formatBytes(metric.overByBytes)})`;
-    return `${status.padEnd(18)} ${metric.name.padEnd(24)} ${formatBytes(metric.bytes).padStart(12)} / ${formatBytes(metric.limitBytes)}`;
+    return `${status.padEnd(18)} ${metric.name.padEnd(28)} ${formatBytes(metric.bytes).padStart(12)} / ${formatBytes(metric.limitBytes)}`;
   });
   return [heading, ...rows].join('\n');
 }
@@ -86,21 +88,94 @@ function emittedPath(directory, url) {
   return path;
 }
 
+function normalizedRelativePath(directory, path) {
+  return relative(directory, path).replaceAll('\\', '/');
+}
+
+function findManifestKey(manifest, predicate, label) {
+  const matches = Object.entries(manifest)
+    .filter(([key, chunk]) => predicate(chunk, key))
+    .map(([key]) => key);
+  if (matches.length !== 1) {
+    throw new Error(`Expected exactly one ${label} manifest entry; found ${matches.length}`);
+  }
+  return matches[0];
+}
+
+export function measureManifestStaticClosure(manifest, fileSizes, startKeys) {
+  const files = new Set();
+  const visitedChunks = new Set();
+  const pending = [...startKeys];
+
+  while (pending.length > 0) {
+    const key = pending.pop();
+    if (visitedChunks.has(key)) continue;
+    const chunk = manifest[key];
+    if (!chunk || typeof chunk !== 'object') {
+      throw new Error(`Missing manifest chunk: ${key}`);
+    }
+    visitedChunks.add(key);
+    if (typeof chunk.file !== 'string') {
+      throw new Error(`Manifest chunk ${key} is missing its emitted file`);
+    }
+    files.add(chunk.file);
+    for (const css of chunk.css ?? []) files.add(css);
+    for (const imported of chunk.imports ?? []) pending.push(imported);
+  }
+
+  let rawBytes = 0;
+  let gzipBytes = 0;
+  for (const file of files) {
+    const size = fileSizes.get(file);
+    if (!size) throw new Error(`Missing emitted size for static closure asset: ${file}`);
+    rawBytes += size.rawBytes;
+    gzipBytes += size.gzipBytes;
+  }
+  return {
+    files: [...files].sort(),
+    rawBytes,
+    gzipBytes,
+  };
+}
+
 export async function measureProductionBuild(directory) {
   const html = await readFile(join(directory, 'index.html'), 'utf8');
   const entryUrl = html.match(/<script\b[^>]*\btype=["']module["'][^>]*\bsrc=["']([^"']+)["']/i)?.[1]
     ?? html.match(/<script\b[^>]*\bsrc=["']([^"']+)["'][^>]*\btype=["']module["']/i)?.[1];
   if (!entryUrl) throw new Error('Unable to identify the module entry in index.html');
-  const entry = await readFile(emittedPath(directory, entryUrl));
+  const entryPath = emittedPath(directory, entryUrl);
+  const entryFile = normalizedRelativePath(directory, entryPath);
+  const entry = await readFile(entryPath);
 
   let appAssetsRawBytes = 0;
   let appAssetsGzipBytes = 0;
+  const fileSizes = new Map();
   const appAssets = await listAppAssets(directory);
   for (const path of appAssets) {
     const data = await readFile(path);
-    appAssetsRawBytes += data.length;
-    appAssetsGzipBytes += gzipSync(data).length;
+    const rawBytes = data.length;
+    const gzipBytes = gzipSync(data).length;
+    appAssetsRawBytes += rawBytes;
+    appAssetsGzipBytes += gzipBytes;
+    fileSizes.set(normalizedRelativePath(directory, path), { rawBytes, gzipBytes });
   }
+
+  const manifest = JSON.parse(
+    await readFile(join(directory, '.vite', 'manifest.json'), 'utf8'),
+  );
+  const entryKey = findManifestKey(
+    manifest,
+    (chunk) => chunk.isEntry === true && chunk.file === entryFile,
+    'application entry',
+  );
+  const homeKey = findManifestKey(
+    manifest,
+    (chunk, key) => key === 'src/pages/HomePage.tsx'
+      || chunk.src === 'src/pages/HomePage.tsx',
+    'Home route',
+  );
+  const initialClosure = measureManifestStaticClosure(manifest, fileSizes, [entryKey]);
+  const homeClosure = measureManifestStaticClosure(manifest, fileSizes, [entryKey, homeKey]);
 
   const { precacheUrls } = await inspectServiceWorker(
     await readFile(join(directory, 'sw.js'), 'utf8'),
@@ -113,6 +188,8 @@ export async function measureProductionBuild(directory) {
   return {
     entryRawBytes: entry.length,
     entryGzipBytes: gzipSync(entry).length,
+    initialClosureGzipBytes: initialClosure.gzipBytes,
+    homeClosureGzipBytes: homeClosure.gzipBytes,
     appAssetsRawBytes,
     appAssetsGzipBytes,
     precacheUniqueBytes,

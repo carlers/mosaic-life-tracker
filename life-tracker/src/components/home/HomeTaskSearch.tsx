@@ -5,7 +5,6 @@ import React, {
   type ReactNode,
 } from 'react';
 import { format, parseISO } from 'date-fns';
-import { motion, useReducedMotion } from 'framer-motion';
 import {
   CalendarDays,
   CheckCircle2,
@@ -63,7 +62,6 @@ export const HomeTaskSearch: React.FC<HomeTaskSearchProps> = ({
   trailing,
   statusControls,
 }) => {
-  const shouldReduceMotion = useReducedMotion();
   const [query, setQuery] = useState('');
   const [selectedCategoryIds, setSelectedCategoryIds] = useState<Set<string>>(
     () => new Set()
@@ -152,12 +150,9 @@ export const HomeTaskSearch: React.FC<HomeTaskSearchProps> = ({
     >
       <div className="flex items-center justify-end gap-2">
         {isOpen ? (
-          <motion.div
-            initial={shouldReduceMotion ? false : { opacity: 0, y: -2 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: shouldReduceMotion ? 0 : 0.18, ease: 'easeOut' }}
+          <div
             data-route-swipe-ignore="true"
-            className="min-w-0 flex-1"
+            className="home-search-field-enter min-w-0 flex-1"
           >
             <div className="relative flex min-w-0 items-center">
               <Search
@@ -190,7 +185,7 @@ export const HomeTaskSearch: React.FC<HomeTaskSearchProps> = ({
                 <X size={16} aria-hidden="true" />
               </button>
             </div>
-          </motion.div>
+          </div>
         ) : (
           <>
             {statusControls && (
@@ -227,14 +222,9 @@ export const HomeTaskSearch: React.FC<HomeTaskSearchProps> = ({
       )}
 
       {isOpen && (
-        <motion.div
+        <div
           data-route-swipe-ignore="true"
-          initial={
-            shouldReduceMotion ? false : { opacity: 0, y: -4 }
-          }
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: shouldReduceMotion ? 0 : 0.16 }}
-          className="absolute left-4 right-4 top-full z-50 pt-2"
+          className="home-search-panel-enter absolute left-4 right-4 top-full z-50 pt-2"
         >
           <div className="max-h-[min(72dvh,42rem)] overflow-y-auto overscroll-contain rounded-2xl border border-[#333333] bg-[#181818] shadow-2xl">
             <div className="border-b border-[#2A2A2A] px-3 py-3">
@@ -441,7 +431,7 @@ export const HomeTaskSearch: React.FC<HomeTaskSearchProps> = ({
               )}
             </div>
           </div>
-        </motion.div>
+        </div>
       )}
     </div>
   );

@@ -110,6 +110,9 @@ export default defineConfig({
         // a second cache for either — see PWA-1 and docs/PROJECT_REFERENCE.md §15
         // (`imageCache.ts` is the single owner of the blob cache).
         globPatterns: ['**/*.{js,css,html,ico,png,svg,webp,woff2,wasm,json}'],
+        // Build metadata is emitted only so the post-build size guard can
+        // follow Vite's static chunk graph. It is not part of the offline app.
+        globIgnores: ['.vite/manifest.json'],
         // SPA routes: cold-loading `/messages/abc123` offline must serve
         // the app shell, not a 404 from the SW. The denylist keeps any
         // `/v1/*` (Appwrite REST) or `/api/*` path from being rewritten
@@ -130,6 +133,7 @@ export default defineConfig({
     // changed dependency hash does not invalidate every transitive importer.
     // This directly reduces PWA update downloads while retaining hashed chunks.
     chunkImportMap: true,
+    manifest: true,
     sourcemap: posthogSourceMapsEnabled ? 'hidden' : false,
   },
 });
