@@ -1,3 +1,4 @@
+import { createReplicationPilotLifecycleQueue } from './replicationPilotLifecycle';
 import { Query } from 'appwrite';
 import {
   getChangedDocumentsSince,
@@ -487,7 +488,7 @@ export async function refreshMessageReplicationPilot(
   return true;
 }
 
-export async function stopMessageReplicationPilot(
+async function stopMessageReplicationPilotNow(
   userId?: string
 ): Promise<void> {
   if (userId && activeOwnerId !== userId) return;
@@ -509,7 +510,7 @@ export async function stopMessageReplicationPilot(
   }
 }
 
-export async function startMessageReplicationPilot(
+async function startMessageReplicationPilotNow(
   userId: string,
   collection: RxCollection<MessageDocument>,
   initialPushCheckpoint: MessageReplicationPushCheckpoint | undefined,
@@ -519,7 +520,7 @@ export async function startMessageReplicationPilot(
   if (isMessageReplicationPilotActive(userId)) return;
 
   if (activeReplication) {
-    await stopMessageReplicationPilot();
+    await stopMessageReplicationPilotNow();
   }
 
   const pullStream = new Subject<
@@ -569,6 +570,20 @@ export async function startMessageReplicationPilot(
       error
     );
   });
+}
+
+const runReplicationPilotLifecycle = createReplicationPilotLifecycleQueue();
+
+export function stopMessageReplicationPilot(
+  ...args: Parameters<typeof stopMessageReplicationPilotNow>
+): ReturnType<typeof stopMessageReplicationPilotNow> {
+  return runReplicationPilotLifecycle(() => stopMessageReplicationPilotNow(...args));
+}
+
+export function startMessageReplicationPilot(
+  ...args: Parameters<typeof startMessageReplicationPilotNow>
+): ReturnType<typeof startMessageReplicationPilotNow> {
+  return runReplicationPilotLifecycle(() => startMessageReplicationPilotNow(...args));
 }
 
 export const __messageReplicationPilotTestUtils = {

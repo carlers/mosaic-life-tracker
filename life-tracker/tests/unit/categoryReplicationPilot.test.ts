@@ -175,6 +175,51 @@ describe('category RxDB replication pilot', () => {
     expect(options.live).toBe(true);
   });
 
+  it('serializes overlapping owner replacements through cancellation', async () => {
+    await startCategoryReplicationPilot(
+      'user_A',
+      collectionFixture(),
+      { id: 'cat_seed_a', lwt: 1 }
+    );
+
+    let releaseCancel!: (value: boolean) => void;
+    cancelMock.mockImplementationOnce(
+      () =>
+        new Promise<boolean>((resolve) => {
+          releaseCancel = resolve;
+        })
+    );
+
+    const startB = startCategoryReplicationPilot(
+      'user_B',
+      collectionFixture(),
+      { id: 'cat_seed_b', lwt: 2 }
+    );
+    await vi.waitFor(() => expect(cancelMock).toHaveBeenCalledTimes(1));
+
+    const startC = startCategoryReplicationPilot(
+      'user_C',
+      collectionFixture(),
+      { id: 'cat_seed_c', lwt: 3 }
+    );
+    await Promise.resolve();
+
+    expect(replicateRxCollectionMock).toHaveBeenCalledTimes(1);
+
+    releaseCancel(true);
+    await startB;
+    expect(replicateRxCollectionMock).toHaveBeenCalledTimes(2);
+
+    await startC;
+    expect(replicateRxCollectionMock).toHaveBeenCalledTimes(3);
+    await expect(
+      refreshCategoryReplicationPilot('user_C', 1_000)
+    ).resolves.toBe(true);
+    await expect(
+      refreshCategoryReplicationPilot('user_B', 1_000)
+    ).resolves.toBe(false);
+  });
+
   it('awaits a real fresh cycle when this tab owns RxDB leadership', async () => {
     await startCategoryReplicationPilot(
       'user_A',

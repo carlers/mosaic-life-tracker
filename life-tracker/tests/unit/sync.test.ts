@@ -120,6 +120,7 @@ vi.mock('../../src/db/categoryReplicationPilot', () => ({
   refreshCategoryReplicationPilot: categoryPilotRefreshMock,
   resyncCategoryReplicationPilot: categoryPilotResyncMock,
   startCategoryReplicationPilot: categoryPilotStartMock,
+  stopCategoryReplicationPilot: vi.fn().mockResolvedValue(undefined),
 }));
 vi.mock('../../src/db/diaryReplicationPilot', () => ({
   captureDiaryReplicationPushCheckpoint: diaryPilotCheckpointMock,
@@ -127,6 +128,7 @@ vi.mock('../../src/db/diaryReplicationPilot', () => ({
   refreshDiaryReplicationPilot: diaryPilotRefreshMock,
   resyncDiaryReplicationPilot: diaryPilotResyncMock,
   startDiaryReplicationPilot: diaryPilotStartMock,
+  stopDiaryReplicationPilot: vi.fn().mockResolvedValue(undefined),
 }));
 vi.mock('../../src/db/settingsReplicationPilot', () => ({
   captureSettingsReplicationPushCheckpoint: settingsPilotCheckpointMock,
@@ -134,6 +136,7 @@ vi.mock('../../src/db/settingsReplicationPilot', () => ({
   refreshSettingsReplicationPilot: settingsPilotRefreshMock,
   resyncSettingsReplicationPilot: settingsPilotResyncMock,
   startSettingsReplicationPilot: settingsPilotStartMock,
+  stopSettingsReplicationPilot: vi.fn().mockResolvedValue(undefined),
 }));
 vi.mock('../../src/db/friendshipReplicationPilot', () => ({
   captureFriendshipReplicationPushCheckpoint: friendshipPilotCheckpointMock,
@@ -141,6 +144,7 @@ vi.mock('../../src/db/friendshipReplicationPilot', () => ({
   refreshFriendshipReplicationPilot: friendshipPilotRefreshMock,
   resyncFriendshipReplicationPilot: friendshipPilotResyncMock,
   startFriendshipReplicationPilot: friendshipPilotStartMock,
+  stopFriendshipReplicationPilot: vi.fn().mockResolvedValue(undefined),
 }));
 vi.mock('../../src/db/taskReplicationPilot', () => ({
   captureTaskReplicationPushCheckpoint: taskPilotCheckpointMock,
@@ -148,6 +152,7 @@ vi.mock('../../src/db/taskReplicationPilot', () => ({
   refreshTaskReplicationPilot: taskPilotRefreshMock,
   resyncTaskReplicationPilot: taskPilotResyncMock,
   startTaskReplicationPilot: taskPilotStartMock,
+  stopTaskReplicationPilot: vi.fn().mockResolvedValue(undefined),
 }));
 vi.mock('../../src/db/messageReplicationPilot', () => ({
   captureMessageReplicationPullCheckpoint: messagePilotPullCheckpointMock,
@@ -156,6 +161,7 @@ vi.mock('../../src/db/messageReplicationPilot', () => ({
   refreshMessageReplicationPilot: messagePilotRefreshMock,
   resyncMessageReplicationPilot: messagePilotResyncMock,
   startMessageReplicationPilot: messagePilotStartMock,
+  stopMessageReplicationPilot: vi.fn().mockResolvedValue(undefined),
 }));
 vi.mock('../../src/lib/storage', () => ({
   uploadPendingImage: uploadPendingImageMock,
@@ -172,6 +178,8 @@ vi.mock('../../src/lib/connectivity', () => ({
   }),
 }));
 type SyncModule = typeof import('../../src/db/sync');
+const PER_COLLECTION_KEY_A = 'lastSyncTimePerCollection_user_A';
+const RECONCILED_MISSING_KEY_A = 'reconciledMissingRows_user_A';
 let syncModule!: SyncModule;
 let errorSpy: ReturnType<typeof vi.spyOn>;
 let warnSpy: ReturnType<typeof vi.spyOn>;
@@ -397,8 +405,26 @@ function taskListRowsCalls() {
     (c) => (c[0] as { tableId: string }).tableId === 'tasks'
   );
 }
+function markAllPilotsActive() {
+  taskPilotActiveMock.mockReturnValue(true);
+  categoryPilotActiveMock.mockReturnValue(true);
+  diaryPilotActiveMock.mockReturnValue(true);
+  settingsPilotActiveMock.mockReturnValue(true);
+  friendshipPilotActiveMock.mockReturnValue(true);
+  messagePilotActiveMock.mockReturnValue(true);
+}
+function markAllPilotRefreshesSuccessful() {
+  taskPilotRefreshMock.mockResolvedValue(true);
+  categoryPilotRefreshMock.mockResolvedValue(true);
+  diaryPilotRefreshMock.mockResolvedValue(true);
+  settingsPilotRefreshMock.mockResolvedValue(true);
+  friendshipPilotRefreshMock.mockResolvedValue(true);
+  messagePilotRefreshMock.mockResolvedValue(true);
+}
 beforeEach(async () => {
   vi.resetModules();
+  const accountWork = await import('../../src/lib/accountWorkScope');
+  accountWork.scopeAccountWork('user_A');
   syncModule = await import('../../src/db/sync');
   localStorageMock.clear();
   accountGetMock.mockReset();
@@ -508,7 +534,7 @@ describe('sync — message RxDB replication pilot handoff', () => {
     const db = makeDb();
     getDatabaseMock.mockReturnValue(db);
     localStorage.setItem(
-      'lastSyncTimePerCollection',
+      PER_COLLECTION_KEY_A,
       JSON.stringify({
         version: 1,
         ownerId: 'user_A',
@@ -988,11 +1014,15 @@ describe('sync — explicit fresh refresh', () => {
 
     expect(refreshSettled).toBe(false);
 
+    markAllPilotsActive();
+    markAllPilotRefreshesSuccessful();
     firstPull.resolve({ rows: [] });
     await first;
     const refreshed = await refresh;
 
-    expect(taskListRowsCalls()).toHaveLength(2);
+    expect(taskListRowsCalls()).toHaveLength(1);
+    expect(categoryPilotRefreshMock).toHaveBeenCalled();
+    expect(messagePilotRefreshMock).toHaveBeenCalled();
     expect(refreshed.status.isSyncing).toBe(false);
     expect(refreshed.status.errors).toEqual([]);
     expect(Date.parse(refreshed.status.lastSync!)).toBeGreaterThanOrEqual(
@@ -1002,15 +1032,6 @@ describe('sync — explicit fresh refresh', () => {
 });
 
 describe('sync — steady-state RxDB fast path', () => {
-  function markAllPilotsActive() {
-    taskPilotActiveMock.mockReturnValue(true);
-    categoryPilotActiveMock.mockReturnValue(true);
-    diaryPilotActiveMock.mockReturnValue(true);
-    settingsPilotActiveMock.mockReturnValue(true);
-    friendshipPilotActiveMock.mockReturnValue(true);
-    messagePilotActiveMock.mockReturnValue(true);
-  }
-
   it('forceSync resyncs all pilots without entering the legacy engine', async () => {
     markAllPilotsActive();
     listRowsMock.mockClear();
@@ -1028,12 +1049,7 @@ describe('sync — steady-state RxDB fast path', () => {
 
   it('manual sync uses the RxDB freshness barrier and records a fresh success', async () => {
     markAllPilotsActive();
-    taskPilotRefreshMock.mockResolvedValue(true);
-    categoryPilotRefreshMock.mockResolvedValue(true);
-    diaryPilotRefreshMock.mockResolvedValue(true);
-    settingsPilotRefreshMock.mockResolvedValue(true);
-    friendshipPilotRefreshMock.mockResolvedValue(true);
-    messagePilotRefreshMock.mockResolvedValue(true);
+    markAllPilotRefreshesSuccessful();
     listRowsMock.mockClear();
 
     const result = await syncModule.syncNow('user_A', 5_000);
@@ -1083,12 +1099,8 @@ describe('sync — forceSync follow-up queueing', () => {
 // Regression: §18 (sync failure isolation and boundary safety).
 describe('sync — RxDB pilot fresh-sync barrier', () => {
   it('awaits task, category, diary, settings, friendship, and message pilot freshness before returning', async () => {
-    taskPilotRefreshMock.mockResolvedValue(true);
-    categoryPilotRefreshMock.mockResolvedValue(true);
-    diaryPilotRefreshMock.mockResolvedValue(true);
-    settingsPilotRefreshMock.mockResolvedValue(true);
-    friendshipPilotRefreshMock.mockResolvedValue(true);
-    messagePilotRefreshMock.mockResolvedValue(true);
+    markAllPilotsActive();
+    markAllPilotRefreshesSuccessful();
 
     await syncModule.refreshSync('user_A', 5_000);
 
@@ -1134,6 +1146,7 @@ describe('sync — RxDB pilot fresh-sync barrier', () => {
   });
 
   it('fails the safety barrier when an RxDB pilot cannot prove freshness', async () => {
+    markAllPilotsActive();
     categoryPilotRefreshMock.mockRejectedValue(
       new Error('Fresh category sync is owned by another Mosaic tab.')
     );
@@ -1152,6 +1165,24 @@ describe('sync — RxDB pilot fresh-sync barrier', () => {
     expect(friendshipPilotRefreshMock).not.toHaveBeenCalled();
     expect(taskPilotRefreshMock).not.toHaveBeenCalled();
     expect(messagePilotRefreshMock).not.toHaveBeenCalled();
+  });
+
+  it('fails closed when an active pilot reports that freshness is unavailable', async () => {
+    markAllPilotsActive();
+    markAllPilotRefreshesSuccessful();
+    categoryPilotRefreshMock.mockResolvedValue(false);
+
+    const before = syncModule.getSyncStatus().lastSync;
+    await expect(
+      syncModule.refreshSync('user_A', 5_000)
+    ).rejects.toThrow('category sync is not active');
+
+    expect(syncModule.getSyncStatus().lastSync).toBe(before);
+    expect(syncModule.getSyncStatus().errors).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining('category sync is not active'),
+      ])
+    );
   });
 });
 
@@ -1278,6 +1309,8 @@ describe('sync — compatibility bootstrap push resume', () => {
 
     syncModule.__resetSyncRuntimeForTests();
     vi.resetModules();
+    const accountWork = await import('../../src/lib/accountWorkScope');
+    accountWork.scopeAccountWork('user_A');
     syncModule = await import('../../src/db/sync');
 
     const retryAttempts: string[] = [];
@@ -1325,6 +1358,8 @@ describe('sync — compatibility bootstrap push resume', () => {
 
     syncModule.__resetSyncRuntimeForTests();
     vi.resetModules();
+    const accountWork = await import('../../src/lib/accountWorkScope');
+    accountWork.scopeAccountWork('user_A');
     syncModule = await import('../../src/db/sync');
 
     const remoteNewer = makeRemoteTaskRow(
@@ -1361,7 +1396,7 @@ describe('sync — boundary advancement', () => {
       return { rows: [] };
     });
     await syncModule.initializeSync('user_A');
-    const raw = localStorageMock.getItem('lastSyncTimePerCollection');
+    const raw = localStorageMock.getItem(PER_COLLECTION_KEY_A);
     expect(raw).toBeTruthy();
     const state = JSON.parse(raw!);
     const dirtyMs = new Date(state.entries.tasks.dirty).getTime();
@@ -1397,7 +1432,7 @@ describe('sync — boundary advancement', () => {
     expect(syncModule.getSyncStatus().errors).toEqual(
       expect.arrayContaining([expect.stringContaining('tasks: pull row failed')])
     );
-    const raw = localStorageMock.getItem('lastSyncTimePerCollection');
+    const raw = localStorageMock.getItem(PER_COLLECTION_KEY_A);
     const state = JSON.parse(raw!);
     expect(state.entries.tasks.pull).toBe('');
   });
@@ -1428,7 +1463,7 @@ describe('sync — boundary advancement', () => {
       }
     );
     await syncModule.initializeSync('user_A');
-    const raw = localStorageMock.getItem('lastSyncTimePerCollection');
+    const raw = localStorageMock.getItem(PER_COLLECTION_KEY_A);
     const state = JSON.parse(raw!);
     expect(state.entries.tasks.pull).toBe('');
   });
@@ -1462,7 +1497,7 @@ describe('sync — boundary advancement', () => {
   });
   it('a push failure leaves the dirty boundary at its previous value', async () => {
     await syncModule.initializeSync('user_A');
-    const rawBefore = localStorageMock.getItem('lastSyncTimePerCollection');
+    const rawBefore = localStorageMock.getItem(PER_COLLECTION_KEY_A);
     const dirtyBefore = JSON.parse(rawBefore!).entries.tasks.dirty;
     const docs = [makeLocalDoc('d_bad')];
     getDatabaseMock.mockReturnValue({
@@ -1481,17 +1516,17 @@ describe('sync — boundary advancement', () => {
       Object.assign(new Error('server boom'), { code: 500 })
     );
     await syncModule.initializeSync('user_A');
-    const rawAfter = localStorageMock.getItem('lastSyncTimePerCollection');
+    const rawAfter = localStorageMock.getItem(PER_COLLECTION_KEY_A);
     const dirtyAfter = JSON.parse(rawAfter!).entries.tasks.dirty;
     expect(dirtyAfter).toBe(dirtyBefore);
   });
   it('a clean cycle still advances the dirty boundary', async () => {
     await syncModule.initializeSync('user_A');
-    const rawBefore = localStorageMock.getItem('lastSyncTimePerCollection');
+    const rawBefore = localStorageMock.getItem(PER_COLLECTION_KEY_A);
     const dirtyBefore = JSON.parse(rawBefore!).entries.tasks.dirty;
     await new Promise((r) => setTimeout(r, 5));
     await syncModule.initializeSync('user_A');
-    const rawAfter = localStorageMock.getItem('lastSyncTimePerCollection');
+    const rawAfter = localStorageMock.getItem(PER_COLLECTION_KEY_A);
     const dirtyAfter = JSON.parse(rawAfter!).entries.tasks.dirty;
     expect(new Date(dirtyAfter).getTime()).toBeGreaterThan(
       new Date(dirtyBefore).getTime()
@@ -1501,7 +1536,7 @@ describe('sync — boundary advancement', () => {
 describe('sync — per-collection state versioning', () => {
   it('writes version: 1 on the per-collection state blob', async () => {
     await syncModule.initializeSync('user_A');
-    const raw = localStorageMock.getItem('lastSyncTimePerCollection');
+    const raw = localStorageMock.getItem(PER_COLLECTION_KEY_A);
     expect(raw).toBeTruthy();
     const state = JSON.parse(raw!);
     expect(state.version).toBe(1);
@@ -1518,7 +1553,7 @@ describe('sync — per-collection state versioning', () => {
       },
     };
     localStorageMock.setItem(
-      'lastSyncTimePerCollection',
+      PER_COLLECTION_KEY_A,
       JSON.stringify(legacy)
     );
     listRowsMock.mockImplementation(
@@ -1534,7 +1569,7 @@ describe('sync — per-collection state versioning', () => {
     expect(tasksCall).toBeDefined();
     const queries = (tasksCall[0] as { queries: { op?: string }[] }).queries;
     expect(queries.some((q) => q.op === 'greaterThan')).toBe(true);
-    const rawAfter = localStorageMock.getItem('lastSyncTimePerCollection');
+    const rawAfter = localStorageMock.getItem(PER_COLLECTION_KEY_A);
     const stateAfter = JSON.parse(rawAfter!);
     expect(stateAfter.version).toBe(1);
   });
@@ -1550,7 +1585,7 @@ describe('sync — per-collection state versioning', () => {
       },
     };
     localStorageMock.setItem(
-      'lastSyncTimePerCollection',
+      PER_COLLECTION_KEY_A,
       JSON.stringify(future)
     );
     await syncModule.initializeSync('user_A');
@@ -1560,6 +1595,80 @@ describe('sync — per-collection state versioning', () => {
     expect(queries.some((q) => q.op === 'greaterThan')).toBe(false);
   });
 });
+describe('sync — compatibility metadata account isolation', () => {
+  it('migrates the matching legacy blob into an account-scoped key', async () => {
+    const legacy = {
+      version: 1,
+      ownerId: 'user_A',
+      entries: {
+        tasks: {
+          pull: '2026-01-01T00:00:00.000Z',
+          dirty: '2026-01-01T00:00:00.000Z',
+        },
+      },
+    };
+    localStorageMock.setItem(
+      'lastSyncTimePerCollection',
+      JSON.stringify(legacy)
+    );
+
+    await syncModule.initializeSync('user_A');
+
+    expect(localStorageMock.getItem(PER_COLLECTION_KEY_A)).toBeTruthy();
+  });
+
+  it('recovers a missing compatibility blob from the account clean-sync baseline', async () => {
+    const baseline = '2026-01-01T00:00:00.000Z';
+    localStorageMock.setItem('lastSyncTime_user_A', baseline);
+
+    await syncModule.initializeSync('user_A');
+
+    const scoped = JSON.parse(
+      localStorageMock.getItem(PER_COLLECTION_KEY_A)!
+    );
+    expect(Date.parse(scoped.entries.tasks.dirty)).toBeGreaterThanOrEqual(
+      Date.parse(baseline)
+    );
+    expect(localStorageMock.getItem('lastSyncTimePerCollection')).toBeNull();
+  });
+
+  it('does not let user B overwrite user A compatibility metadata', async () => {
+    await syncModule.initializeSync('user_A');
+    const userAState = localStorageMock.getItem(PER_COLLECTION_KEY_A);
+    expect(userAState).toBeTruthy();
+
+    const accountWork = await import('../../src/lib/accountWorkScope');
+    accountWork.scopeAccountWork('user_B');
+    await syncModule.initializeSync('user_B');
+
+    expect(localStorageMock.getItem(PER_COLLECTION_KEY_A)).toBe(userAState);
+    expect(
+      localStorageMock.getItem('lastSyncTimePerCollection_user_B')
+    ).toBeTruthy();
+  });
+});
+
+describe('sync — account-transition race safety', () => {
+  it('does not transfer user A rate-limit backoff into queued user B sync', async () => {
+    const firstPull = makeDeferred<{ rows: never[] }>();
+    listRowsMock.mockReturnValueOnce(firstPull.promise);
+    listRowsMock.mockResolvedValue({ rows: [] });
+
+    const first = syncModule.initializeSync('user_A');
+    await Promise.resolve();
+
+    const accountWork = await import('../../src/lib/accountWorkScope');
+    accountWork.scopeAccountWork('user_B');
+    await syncModule.initializeSync('user_B');
+
+    firstPull.reject(Object.assign(new Error('rate limit'), { code: 429 }));
+    await first;
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(taskListRowsCalls().length).toBeGreaterThanOrEqual(2);
+  });
+});
+
 describe('sync — lastSyncTime is user-scoped', () => {
   it('writes lastSyncTime_<userId> and does not write the bare key', async () => {
     await syncModule.initializeSync('user_A');
@@ -1572,6 +1681,8 @@ describe('sync — lastSyncTime is user-scoped', () => {
     const userATimestamp = localStorageMock.getItem('lastSyncTime_user_A');
     expect(userATimestamp).toBeTruthy();
     await new Promise((r) => setTimeout(r, 10));
+    const accountWork = await import('../../src/lib/accountWorkScope');
+    accountWork.scopeAccountWork('user_B');
     await syncModule.initializeSync('user_B');
     const userBTimestamp = localStorageMock.getItem('lastSyncTime_user_B');
     expect(userBTimestamp).toBeTruthy();
@@ -1677,7 +1788,7 @@ describe('sync — read_at pull for dirty outgoing messages', () => {
 describe('sync — pull upsert race window', () => {
   it('a local edit landing between check and upsert is not clobbered', async () => {
     await syncModule.initializeSync('user_A');
-    const rawPrimed = localStorageMock.getItem('lastSyncTimePerCollection');
+    const rawPrimed = localStorageMock.getItem(PER_COLLECTION_KEY_A);
     const dirtyMs = new Date(
       JSON.parse(rawPrimed!).entries.tasks.dirty
     ).getTime();
@@ -1713,13 +1824,13 @@ describe('sync — pull upsert race window', () => {
     await syncModule.initializeSync('user_A');
     expect(findOneCalls).toBeGreaterThanOrEqual(2);
     expect(upsertSpy).not.toHaveBeenCalled();
-    const rawAfter = localStorageMock.getItem('lastSyncTimePerCollection');
+    const rawAfter = localStorageMock.getItem(PER_COLLECTION_KEY_A);
     const stateAfter = JSON.parse(rawAfter!);
     expect(stateAfter.entries.tasks.pull).not.toBe('');
   });
   it('RxDB CONFLICT during pull upsert is not classified as a row failure', async () => {
     await syncModule.initializeSync('user_A');
-    const rawPrimed = localStorageMock.getItem('lastSyncTimePerCollection');
+    const rawPrimed = localStorageMock.getItem(PER_COLLECTION_KEY_A);
     const dirtyMs = new Date(
       JSON.parse(rawPrimed!).entries.tasks.dirty
     ).getTime();
@@ -1749,7 +1860,7 @@ describe('sync — pull upsert race window', () => {
     );
     await syncModule.initializeSync('user_A');
     expect(upsertSpy).toHaveBeenCalledTimes(1);
-    const rawAfter = localStorageMock.getItem('lastSyncTimePerCollection');
+    const rawAfter = localStorageMock.getItem(PER_COLLECTION_KEY_A);
     const stateAfter = JSON.parse(rawAfter!);
     expect(stateAfter.entries.tasks.pull).not.toBe('');
   });
@@ -1782,13 +1893,13 @@ describe('sync — pull upsert race window', () => {
     );
     await syncModule.initializeSync('user_A');
     expect(upsertSpy).toHaveBeenCalledTimes(1);
-    const rawAfter = localStorageMock.getItem('lastSyncTimePerCollection');
+    const rawAfter = localStorageMock.getItem(PER_COLLECTION_KEY_A);
     const stateAfter = JSON.parse(rawAfter!);
     expect(stateAfter.entries.tasks.pull).not.toBe('');
   });
   it('a normal pull upsert with no race still succeeds', async () => {
     await syncModule.initializeSync('user_A');
-    const rawPrimed = localStorageMock.getItem('lastSyncTimePerCollection');
+    const rawPrimed = localStorageMock.getItem(PER_COLLECTION_KEY_A);
     const dirtyMs = new Date(
       JSON.parse(rawPrimed!).entries.tasks.dirty
     ).getTime();
@@ -1950,7 +2061,7 @@ describe('sync — pull pagination', () => {
   });
   it('the pull query uses pullBoundaryMs - 30s as the sinceIso boundary', async () => {
     await syncModule.initializeSync('user_A');
-    const rawPrimed = localStorageMock.getItem('lastSyncTimePerCollection');
+    const rawPrimed = localStorageMock.getItem(PER_COLLECTION_KEY_A);
     const pullMs = new Date(
       JSON.parse(rawPrimed!).entries.tasks.pull
     ).getTime();
@@ -1989,7 +2100,7 @@ describe('sync — tombstone retention cursor expiry', () => {
       Date.now() - syncModule.TOMBSTONE_RETENTION_DAYS * 24 * 60 * 60 * 1000 - 1
     ).toISOString();
     localStorageMock.setItem(
-      'lastSyncTimePerCollection',
+      PER_COLLECTION_KEY_A,
       JSON.stringify({
         version: 1,
         ownerId: 'user_A',
@@ -2046,7 +2157,7 @@ describe('sync — tombstone retention cursor expiry', () => {
       })
     );
     localStorageMock.setItem(
-      'lastSyncTimePerCollection',
+      PER_COLLECTION_KEY_A,
       JSON.stringify({
         version: 1,
         ownerId: 'user_A',
@@ -2065,13 +2176,61 @@ describe('sync — tombstone retention cursor expiry', () => {
     expect(updateRowMock).not.toHaveBeenCalled();
     expect(createRowMock).not.toHaveBeenCalled();
     const suppression = JSON.parse(
-      localStorageMock.getItem('reconciledMissingRows')!
+      localStorageMock.getItem(RECONCILED_MISSING_KEY_A)!
     );
     expect(suppression.entries['tasks::task_missing_after_gc']).toBeTruthy();
   });
 
-});
+  it('preserves a pending outgoing message that is missing after cursor expiry', async () => {
+    const oldPull = new Date(
+      Date.now() - syncModule.TOMBSTONE_RETENTION_DAYS * 24 * 60 * 60 * 1000 - 1
+    ).toISOString();
+    const pending = {
+      id: 'msg_pending_after_gc',
+      _meta: { lwt: new Date(oldPull).getTime() - 1 },
+      toJSON: () => ({
+        id: 'msg_pending_after_gc',
+        userId: 'user_A',
+        direction: 'outgoing',
+        deliveryStatus: 'pending',
+        isDeleted: false,
+        updatedAt: oldPull,
+      }),
+      incrementalPatch: vi.fn().mockResolvedValue(undefined),
+    };
 
+    getDatabaseMock.mockReturnValue({
+      tasks: makeEmptyCollection(),
+      categories: makeEmptyCollection(),
+      diary: makeEmptyCollection(),
+      settings: makeEmptyCollection(),
+      friendships: makeEmptyCollection(),
+      messages: {
+        findOne: () => ({ exec: async () => null }),
+        find: () => ({ exec: async () => [pending] }),
+        upsert: vi.fn(),
+      },
+    });
+    localStorageMock.setItem(
+      PER_COLLECTION_KEY_A,
+      JSON.stringify({
+        version: 1,
+        ownerId: 'user_A',
+        entries: {
+          messages: { pull: oldPull, dirty: oldPull },
+        },
+      })
+    );
+    listRowsMock.mockResolvedValue({ rows: [] });
+
+    await syncModule.initializeSync('user_A');
+
+    expect(pending.incrementalPatch).not.toHaveBeenCalledWith(
+      expect.objectContaining({ isDeleted: true })
+    );
+  });
+
+});
 
 describe('sync — bounded push concurrency', () => {
   it('pushes independent dirty rows in parallel without exceeding the concurrency cap', async () => {
@@ -2190,7 +2349,7 @@ describe('sync — 404 fallback uses createRow', () => {
       })
     );
     await syncModule.initializeSync('user_A');
-    const rawBefore = localStorageMock.getItem('lastSyncTimePerCollection');
+    const rawBefore = localStorageMock.getItem(PER_COLLECTION_KEY_A);
     const dirtyBefore = JSON.parse(rawBefore!).entries.tasks.dirty;
     expect(dirtyBefore).not.toBe('');
     const notFoundErr = Object.assign(new Error('not found'), { code: 404 });
@@ -2198,7 +2357,7 @@ describe('sync — 404 fallback uses createRow', () => {
     updateRowMock.mockRejectedValueOnce(notFoundErr);
     createRowMock.mockRejectedValueOnce(conflictErr);
     await syncModule.initializeSync('user_A');
-    const rawAfter = localStorageMock.getItem('lastSyncTimePerCollection');
+    const rawAfter = localStorageMock.getItem(PER_COLLECTION_KEY_A);
     const dirtyAfter = JSON.parse(rawAfter!).entries.tasks.dirty;
     expect(dirtyAfter).toBe(dirtyBefore);
   });
@@ -2247,7 +2406,7 @@ describe('sync — cross-tab mutex and state reload', () => {
       });
     }
   });
-  it('falls back to running the cycle when navigator.locks.request throws', async () => {
+  it('fails closed when navigator.locks.request throws', async () => {
     const originalNavigator = (globalThis as { navigator?: unknown }).navigator;
     const requestMock = vi.fn().mockRejectedValue(new Error('lock denied'));
     Object.defineProperty(globalThis, 'navigator', {
@@ -2256,11 +2415,11 @@ describe('sync — cross-tab mutex and state reload', () => {
       value: { locks: { request: requestMock } },
     });
     try {
-      await syncModule.initializeSync('user_A');
+      await expect(syncModule.initializeSync('user_A')).rejects.toThrow(
+        'lock denied'
+      );
       expect(requestMock).toHaveBeenCalledTimes(1);
-      // The cycle still ran.
-      expect(syncModule.getSyncStatus().isSyncing).toBe(false);
-      // A warning was logged.
+      expect(listRowsMock).not.toHaveBeenCalled();
       const warnings = warnSpy.mock.calls.map((args) => String(args[0]));
       expect(
         warnings.some((m) => m.includes('Web Locks request failed'))
@@ -2273,22 +2432,55 @@ describe('sync — cross-tab mutex and state reload', () => {
       });
     }
   });
+
+  it('bounds fresh-sync Web Lock waiting by the caller timeout', async () => {
+    const originalNavigator = (globalThis as { navigator?: unknown }).navigator;
+    const requestMock = vi.fn(
+      async (
+        _name: string,
+        options: { signal?: AbortSignal },
+        _cb: () => Promise<unknown>
+      ) =>
+        new Promise<void>((_resolve, reject) => {
+          options.signal?.addEventListener('abort', () => {
+            reject(new DOMException('aborted', 'AbortError'));
+          });
+        })
+    );
+    Object.defineProperty(globalThis, 'navigator', {
+      configurable: true,
+      writable: true,
+      value: { locks: { request: requestMock } },
+    });
+    try {
+      await expect(syncModule.refreshSync('user_A', 20)).rejects.toThrow(
+        'timed out while waiting for another Mosaic tab'
+      );
+      expect(listRowsMock).not.toHaveBeenCalled();
+    } finally {
+      Object.defineProperty(globalThis, 'navigator', {
+        configurable: true,
+        writable: true,
+        value: originalNavigator,
+      });
+    }
+  });
   it('reloads per-collection state from localStorage at the start of every cycle', async () => {
     // Prime per-collection state.
     await syncModule.initializeSync('user_A');
     // Plant a future dirty boundary, simulating what another tab wrote.
-    const raw = localStorageMock.getItem('lastSyncTimePerCollection');
+    const raw = localStorageMock.getItem(PER_COLLECTION_KEY_A);
     const state = JSON.parse(raw!);
     const future = '2099-01-01T00:00:00.000Z';
     state.entries.tasks.dirty = future;
     localStorageMock.setItem(
-      'lastSyncTimePerCollection',
+      PER_COLLECTION_KEY_A,
       JSON.stringify(state)
     );
     // Run another cycle. The cycle must observe the planted boundary
     // and preserve it (Math.max with a 2026 cycle-start keeps 2099).
     await syncModule.initializeSync('user_A');
-    const afterRaw = localStorageMock.getItem('lastSyncTimePerCollection');
+    const afterRaw = localStorageMock.getItem(PER_COLLECTION_KEY_A);
     const after = JSON.parse(afterRaw!);
     expect(after.entries.tasks.dirty).toBe(future);
   });

@@ -20,6 +20,7 @@ import {
   refreshCategoryReplicationPilot,
   resyncCategoryReplicationPilot,
   startCategoryReplicationPilot,
+  stopCategoryReplicationPilot,
 } from './categoryReplicationPilot';
 import {
   captureDiaryReplicationPushCheckpoint,
@@ -27,6 +28,7 @@ import {
   refreshDiaryReplicationPilot,
   resyncDiaryReplicationPilot,
   startDiaryReplicationPilot,
+  stopDiaryReplicationPilot,
 } from './diaryReplicationPilot';
 import {
   captureSettingsReplicationPushCheckpoint,
@@ -34,6 +36,7 @@ import {
   refreshSettingsReplicationPilot,
   resyncSettingsReplicationPilot,
   startSettingsReplicationPilot,
+  stopSettingsReplicationPilot,
 } from './settingsReplicationPilot';
 import {
   captureFriendshipReplicationPushCheckpoint,
@@ -41,6 +44,7 @@ import {
   refreshFriendshipReplicationPilot,
   resyncFriendshipReplicationPilot,
   startFriendshipReplicationPilot,
+  stopFriendshipReplicationPilot,
 } from './friendshipReplicationPilot';
 import {
   captureTaskReplicationPushCheckpoint,
@@ -48,6 +52,7 @@ import {
   refreshTaskReplicationPilot,
   resyncTaskReplicationPilot,
   startTaskReplicationPilot,
+  stopTaskReplicationPilot,
 } from './taskReplicationPilot';
 import {
   captureMessageReplicationPullCheckpoint,
@@ -56,8 +61,13 @@ import {
   refreshMessageReplicationPilot,
   resyncMessageReplicationPilot,
   startMessageReplicationPilot,
+  stopMessageReplicationPilot,
 } from './messageReplicationPilot';
 import { APPWRITE_DATABASE_ID, APPWRITE_TABLES } from '../lib/appwriteConfig';
+import {
+  captureAccountWorkGeneration,
+  isAccountWorkCurrent,
+} from '../lib/accountWorkScope';
 export { toAppwriteFormat, fromAppwriteFormat };
 export { getSyncStatus, subscribeToSyncStatus } from '../lib/syncStatus';
 const APPWRITE_CONFIG = {
@@ -115,31 +125,88 @@ const RECONCILED_MISSING_KEY = 'reconciledMissingRows';
 const BOOTSTRAP_PUSH_ACKS_KEY = 'bootstrapPushAcknowledgements';
 const PER_COLLECTION_STATE_VERSION = 1;
 const BOOTSTRAP_PUSH_ACKS_VERSION = 1;
-function loadPerCollectionState(
+
+function accountStorageKey(base: string, userId: string): string {
+  return base + '_' + userId;
+}
+
+function parsePerCollectionState(
+  raw: string | null,
   userId: string
-): Partial<Record<CollectionName, PerCollectionSyncEntry>> {
+): Partial<Record<CollectionName, PerCollectionSyncEntry>> | null {
+  if (!raw) return null;
   try {
-    const raw = localStorage.getItem(PER_COLLECTION_KEY);
-    if (!raw) return {};
     const parsed = JSON.parse(raw) as unknown;
-    if (!parsed || typeof parsed !== 'object') return {};
+    if (!parsed || typeof parsed !== 'object') return null;
     const state = parsed as Partial<PerCollectionPersistedState>;
-    // Legacy blobs (pre-versioning) have no `version` field. Treat them as
-    // version 1 so existing users do not lose their per-collection state.
     const version =
       typeof state.version === 'number'
         ? state.version
         : PER_COLLECTION_STATE_VERSION;
-    if (version !== PER_COLLECTION_STATE_VERSION) return {};
-    if (state.ownerId !== userId) return {};
-    if (!state.entries || typeof state.entries !== 'object') return {};
+    if (version !== PER_COLLECTION_STATE_VERSION) return null;
+    if (state.ownerId !== userId) return null;
+    if (!state.entries || typeof state.entries !== 'object') return null;
     return state.entries as Partial<
       Record<CollectionName, PerCollectionSyncEntry>
     >;
   } catch {
-    return {};
+    return null;
   }
 }
+
+function baselineFromLastSuccessfulSync(
+  userId: string
+): Partial<Record<CollectionName, PerCollectionSyncEntry>> | null {
+  try {
+    const lastSync = localStorage.getItem('lastSyncTime_' + userId);
+    if (!lastSync || !Number.isFinite(Date.parse(lastSync))) return null;
+    return Object.fromEntries(
+      ALL_COLLECTIONS.map((collection) => [
+        collection,
+        { pull: lastSync, dirty: lastSync },
+      ])
+    ) as Record<CollectionName, PerCollectionSyncEntry>;
+  } catch {
+    return null;
+  }
+}
+
+function loadPerCollectionState(
+  userId: string
+): Partial<Record<CollectionName, PerCollectionSyncEntry>> {
+  try {
+    const scoped = parsePerCollectionState(
+      localStorage.getItem(accountStorageKey(PER_COLLECTION_KEY, userId)),
+      userId
+    );
+    if (scoped) return scoped;
+
+    const legacy = parsePerCollectionState(
+      localStorage.getItem(PER_COLLECTION_KEY),
+      userId
+    );
+    if (legacy) {
+      savePerCollectionState(userId, legacy);
+      return legacy;
+    }
+
+    // The account-scoped lastSync is written only after every collection
+    // completes cleanly. It is therefore a safe fallback baseline when the
+    // old single-owner compatibility blob was overwritten by another account.
+    // Revisions newer than this timestamp remain dirty and eligible to push.
+    const recovered = baselineFromLastSuccessfulSync(userId);
+    if (recovered) {
+      savePerCollectionState(userId, recovered);
+      return recovered;
+    }
+  } catch {
+  }
+
+  // With no successful baseline (for example first-ever offline use), keep
+  // the offline-first behavior and preserve potentially unsynced local rows.
+  return {};
+}
+
 function savePerCollectionState(
   userId: string,
   entries: Partial<Record<CollectionName, PerCollectionSyncEntry>>
@@ -150,30 +217,57 @@ function savePerCollectionState(
       ownerId: userId,
       entries,
     };
-    localStorage.setItem(PER_COLLECTION_KEY, JSON.stringify(state));
+    localStorage.setItem(
+      accountStorageKey(PER_COLLECTION_KEY, userId),
+      JSON.stringify(state)
+    );
   } catch {
   }
 }
-function loadReconciledMissingRows(
+
+function parseReconciledMissingState(
+  raw: string | null,
   userId: string
-): Record<string, string> {
+): Record<string, string> | null {
+  if (!raw) return null;
   try {
-    const raw = localStorage.getItem(RECONCILED_MISSING_KEY);
-    if (!raw) return {};
     const parsed = JSON.parse(raw) as unknown;
-    if (!parsed || typeof parsed !== 'object') return {};
+    if (!parsed || typeof parsed !== 'object') return null;
     const state = parsed as {
       version?: number;
       ownerId?: string;
       entries?: Record<string, string>;
     };
     if (state.version !== 1 || state.ownerId !== userId || !state.entries) {
-      return {};
+      return null;
     }
     return state.entries;
   } catch {
-    return {};
+    return null;
   }
+}
+
+function loadReconciledMissingRows(
+  userId: string
+): Record<string, string> {
+  try {
+    const scoped = parseReconciledMissingState(
+      localStorage.getItem(accountStorageKey(RECONCILED_MISSING_KEY, userId)),
+      userId
+    );
+    if (scoped) return scoped;
+
+    const legacy = parseReconciledMissingState(
+      localStorage.getItem(RECONCILED_MISSING_KEY),
+      userId
+    );
+    if (legacy) {
+      saveReconciledMissingRows(userId, legacy);
+      return legacy;
+    }
+  } catch {
+  }
+  return {};
 }
 
 function saveReconciledMissingRows(
@@ -182,7 +276,7 @@ function saveReconciledMissingRows(
 ): void {
   try {
     localStorage.setItem(
-      RECONCILED_MISSING_KEY,
+      accountStorageKey(RECONCILED_MISSING_KEY, userId),
       JSON.stringify({ version: 1, ownerId: userId, entries })
     );
   } catch {
@@ -190,15 +284,15 @@ function saveReconciledMissingRows(
 }
 
 function reconciliationKey(collection: string, rowId: string): string {
-  return `${collection}::${rowId}`;
+  return collection + '::' + rowId;
 }
 
-function loadBootstrapPushAcks(
+function parseBootstrapPushAcks(
+  raw: string | null,
   userId: string
-): Partial<Record<CollectionName, Record<string, number>>> {
+): Partial<Record<CollectionName, Record<string, number>>> | null {
+  if (!raw) return null;
   try {
-    const raw = localStorage.getItem(BOOTSTRAP_PUSH_ACKS_KEY);
-    if (!raw) return {};
     const parsed = JSON.parse(raw) as Partial<BootstrapPushAcksState>;
     if (
       parsed.version !== BOOTSTRAP_PUSH_ACKS_VERSION ||
@@ -206,12 +300,35 @@ function loadBootstrapPushAcks(
       !parsed.entries ||
       typeof parsed.entries !== 'object'
     ) {
-      return {};
+      return null;
     }
     return parsed.entries;
   } catch {
-    return {};
+    return null;
   }
+}
+
+function loadBootstrapPushAcks(
+  userId: string
+): Partial<Record<CollectionName, Record<string, number>>> {
+  try {
+    const scoped = parseBootstrapPushAcks(
+      localStorage.getItem(accountStorageKey(BOOTSTRAP_PUSH_ACKS_KEY, userId)),
+      userId
+    );
+    if (scoped) return scoped;
+
+    const legacy = parseBootstrapPushAcks(
+      localStorage.getItem(BOOTSTRAP_PUSH_ACKS_KEY),
+      userId
+    );
+    if (legacy) {
+      saveBootstrapPushAcks(userId, legacy);
+      return legacy;
+    }
+  } catch {
+  }
+  return {};
 }
 
 function saveBootstrapPushAcks(
@@ -220,7 +337,7 @@ function saveBootstrapPushAcks(
 ): void {
   try {
     localStorage.setItem(
-      BOOTSTRAP_PUSH_ACKS_KEY,
+      accountStorageKey(BOOTSTRAP_PUSH_ACKS_KEY, userId),
       JSON.stringify({
         version: BOOTSTRAP_PUSH_ACKS_VERSION,
         ownerId: userId,
@@ -237,12 +354,38 @@ let perCollectionSync: Partial<
   Record<CollectionName, PerCollectionSyncEntry>
 > = {};
 let perCollectionOwnerId: string | null = null;
-function updateSyncStatus(updates: Partial<SyncStatus>) {
+class SyncOwnerChangedError extends Error {
+  constructor() {
+    super('Account changed during sync.');
+    this.name = 'SyncOwnerChangedError';
+  }
+}
+
+function assertSyncOwnerCurrent(
+  userId: string,
+  generation: number
+): void {
+  if (!isAccountWorkCurrent(userId, generation)) {
+    throw new SyncOwnerChangedError();
+  }
+}
+
+function updateSyncStatus(
+  updates: Partial<SyncStatus>,
+  ownerGuard?: { userId: string; generation: number }
+) {
+  if (
+    ownerGuard &&
+    !isAccountWorkCurrent(ownerGuard.userId, ownerGuard.generation)
+  ) {
+    return getSyncStatus();
+  }
   const next = publishSyncStatus(updates);
-  if (next.lastSync && perCollectionOwnerId) {
+  const persistenceOwnerId = ownerGuard?.userId ?? perCollectionOwnerId;
+  if (next.lastSync && persistenceOwnerId) {
     try {
       localStorage.setItem(
-        `lastSyncTime_${perCollectionOwnerId}`,
+        `lastSyncTime_${persistenceOwnerId}`,
         next.lastSync
       );
     } catch {
@@ -250,6 +393,7 @@ function updateSyncStatus(updates: Partial<SyncStatus>) {
     }
   }
   if (DEBUG) console.log('[Sync] Status:', next);
+  return next;
 }
 type AppwriteRow = Record<string, unknown>;
 interface CollectionSyncResult {
@@ -292,8 +436,19 @@ function clearBackoffWakeTimer(): void {
   backoffWakeUserId = null;
 }
 
-function scheduleBackoffWake(userId: string, wakeAt: number): void {
-  if (!userId || wakeAt <= Date.now()) return;
+function scheduleBackoffWake(
+  userId: string,
+  wakeAt: number,
+  generation = captureAccountWorkGeneration(userId)
+): void {
+  if (
+    !userId ||
+    generation === null ||
+    !isAccountWorkCurrent(userId, generation) ||
+    wakeAt <= Date.now()
+  ) {
+    return;
+  }
   if (backoffWakeUserId === userId && backoffWakeAt === wakeAt) return;
 
   clearBackoffWakeTimer();
@@ -303,6 +458,7 @@ function scheduleBackoffWake(userId: string, wakeAt: number): void {
     backoffWakeTimer = null;
     backoffWakeAt = 0;
     backoffWakeUserId = null;
+    if (!isAccountWorkCurrent(userId, generation)) return;
     void initializeSync(userId).catch((error) => {
       console.error('[Sync] Scheduled retry failed:', error);
     });
@@ -382,6 +538,33 @@ function resyncAllReplicationPilots(userId: string): void {
   resyncMessageReplicationPilot(userId);
 }
 
+async function stopAllReplicationPilots(userId?: string): Promise<void> {
+  await Promise.allSettled([
+    stopTaskReplicationPilot(userId),
+    stopCategoryReplicationPilot(userId),
+    stopDiaryReplicationPilot(userId),
+    stopSettingsReplicationPilot(userId),
+    stopFriendshipReplicationPilot(userId),
+    stopMessageReplicationPilot(userId),
+  ]);
+}
+
+export async function suspendSyncOwner(userId?: string): Promise<void> {
+  clearBackoffWakeTimer();
+  if (!userId || backoffOwnerId === userId) {
+    backoffOwnerId = null;
+    rateLimitUntil = 0;
+    rateLimitBackoffMs = 0;
+    failureBackoffUntil = 0;
+    failureBackoffMs = 0;
+  }
+  if (!userId || queuedSyncUserId === userId) {
+    queuedSyncUserId = null;
+    syncRequestedDuringFlight = false;
+  }
+  await stopAllReplicationPilots(userId);
+}
+
 async function runBounded<T, R>(
   items: T[],
   limit: number,
@@ -443,11 +626,15 @@ export async function refreshSync(
   userId: string,
   timeoutMs = SYNC_COORDINATOR_IDLE_TIMEOUT_MS
 ): Promise<FreshSyncResult> {
+  const generation = captureAccountWorkGeneration(userId);
+  if (generation === null) {
+    throw new Error('Fresh sync requires the currently authenticated account.');
+  }
+
   const deadline = Date.now() + timeoutMs;
   await waitForSyncCoordinatorIdle(timeoutMs);
+  assertSyncOwnerCurrent(userId, generation);
   const startedAt = Date.now();
-  await initializeSync(userId);
-  updateSyncStatus({ isSyncing: true, errors: [] });
 
   const remaining = () => {
     const value = deadline - Date.now();
@@ -460,30 +647,83 @@ export async function refreshSync(
   };
 
   try {
-    await refreshCategoryReplicationPilot(userId, remaining());
-    await refreshDiaryReplicationPilot(userId, remaining());
-    await refreshSettingsReplicationPilot(userId, remaining());
-    await refreshFriendshipReplicationPilot(userId, remaining());
-    await refreshTaskReplicationPilot(userId, remaining());
-    await refreshMessageReplicationPilot(userId, remaining());
+    const pilotsWereActive = allReplicationPilotsActive(userId);
+    await initializeSync(userId, { deadline });
+    assertSyncOwnerCurrent(userId, generation);
+
+    if (!pilotsWereActive) {
+      const bootstrapErrors = getSyncStatus().errors;
+      if (bootstrapErrors.length > 0) {
+        throw new Error(
+          'Fresh sync bootstrap failed: ' + bootstrapErrors.join('; ')
+        );
+      }
+    }
+    if (!allReplicationPilotsActive(userId)) {
+      throw new Error(
+        'Fresh sync could not activate every replication collection.'
+      );
+    }
+
+    updateSyncStatus(
+      { isSyncing: true, errors: [] },
+      { userId, generation }
+    );
+
+    const refreshes: Array<
+      [string, (timeout: number) => Promise<boolean>]
+    > = [
+      [
+        'category',
+        (timeout) => refreshCategoryReplicationPilot(userId, timeout),
+      ],
+      ['diary', (timeout) => refreshDiaryReplicationPilot(userId, timeout)],
+      [
+        'settings',
+        (timeout) => refreshSettingsReplicationPilot(userId, timeout),
+      ],
+      [
+        'friendship',
+        (timeout) => refreshFriendshipReplicationPilot(userId, timeout),
+      ],
+      ['task', (timeout) => refreshTaskReplicationPilot(userId, timeout)],
+      ['message', (timeout) => refreshMessageReplicationPilot(userId, timeout)],
+    ];
+
+    for (const [name, refresh] of refreshes) {
+      assertSyncOwnerCurrent(userId, generation);
+      const refreshed = await refresh(remaining());
+      if (!refreshed) {
+        throw new Error(
+          'Fresh ' + name + ' sync is not active for the current account.'
+        );
+      }
+    }
+
+    assertSyncOwnerCurrent(userId, generation);
+    const completedAt = new Date().toISOString();
+    updateSyncStatus(
+      {
+        isSyncing: false,
+        lastSync: completedAt,
+        errors: [],
+      },
+      { userId, generation }
+    );
+    markOfflineDataReady(userId, completedAt);
+    return { status: getSyncStatus(), startedAt };
   } catch (error) {
     const message =
       error instanceof Error ? error.message : 'Fresh RxDB sync failed';
-    updateSyncStatus({
-      isSyncing: false,
-      errors: [...getSyncStatus().errors, message],
-    });
+    updateSyncStatus(
+      {
+        isSyncing: false,
+        errors: [...getSyncStatus().errors, message],
+      },
+      { userId, generation }
+    );
     throw error;
   }
-
-  const completedAt = new Date().toISOString();
-  updateSyncStatus({
-    isSyncing: false,
-    lastSync: completedAt,
-    errors: [],
-  });
-  markOfflineDataReady(userId, completedAt);
-  return { status: getSyncStatus(), startedAt };
 }
 
 /**
@@ -547,16 +787,21 @@ async function resolvePendingImageForPush(
   await deletePendingImage(pendingId, userId);
   return { ...json, [field]: remoteFileId };
 }
-export async function initializeSync(userId: string): Promise<void> {
+export async function initializeSync(
+  userId: string,
+  options: { deadline?: number } = {}
+): Promise<void> {
   if (!userId) return;
+  const generation = captureAccountWorkGeneration(userId);
+  if (generation === null) return;
 
-  // Once every collection has handed off in this JavaScript session, the
-  // custom engine is no longer part of steady-state sync. Focus/reconnect
-  // triggers go straight to the six RxDB replication states.
   if (allReplicationPilotsActive(userId)) {
-    resyncAllReplicationPilots(userId);
+    if (isAccountWorkCurrent(userId, generation)) {
+      resyncAllReplicationPilots(userId);
+    }
     return;
   }
+
   if (backoffOwnerId !== userId) {
     backoffOwnerId = userId;
     rateLimitUntil = 0;
@@ -565,48 +810,62 @@ export async function initializeSync(userId: string): Promise<void> {
     failureBackoffMs = 0;
     clearBackoffWakeTimer();
   }
-  // Same-tab reentry: if a cycle is queued (awaiting or holding the lock)
-  // or running, coalesce into a single follow-up run rather than queueing
-  // a second full cycle. The cross-tab lock below serializes cycles
-  // across tabs; this guard only governs intra-tab coalescing.
+
   if (isSyncInProgress || isSyncCycleQueued) {
-    if (DEBUG)
+    if (DEBUG) {
       console.log(
         '[Sync] initializeSync requested while in-flight; queueing follow-up'
       );
+    }
     syncRequestedDuringFlight = true;
     queuedSyncUserId = userId;
     return;
   }
+
   if (Date.now() < rateLimitUntil) {
     if (DEBUG) {
       console.log(
-        `[Sync] Skipping: rate-limit backoff until ${new Date(
-          rateLimitUntil
-        ).toISOString()}`
+        '[Sync] Skipping: rate-limit backoff until ' +
+          new Date(rateLimitUntil).toISOString()
       );
     }
-    scheduleBackoffWake(userId, rateLimitUntil);
-    updateSyncStatus({ isSyncing: false });
+    scheduleBackoffWake(userId, rateLimitUntil, generation);
+    updateSyncStatus(
+      { isSyncing: false },
+      { userId, generation }
+    );
     return;
   }
+
   if (Date.now() < failureBackoffUntil) {
     if (DEBUG) {
       console.log(
-        `[Sync] Skipping: failure backoff until ${new Date(
-          failureBackoffUntil
-        ).toISOString()}`
+        '[Sync] Skipping: failure backoff until ' +
+          new Date(failureBackoffUntil).toISOString()
       );
     }
-    scheduleBackoffWake(userId, failureBackoffUntil);
-    updateSyncStatus({ isSyncing: false });
+    scheduleBackoffWake(userId, failureBackoffUntil, generation);
+    updateSyncStatus(
+      { isSyncing: false },
+      { userId, generation }
+    );
     return;
   }
+
   if (getConnectivitySnapshot().status !== 'online') {
     if (DEBUG) console.log('[Sync] Reachability not confirmed, skipping sync');
-    updateSyncStatus({ isSyncing: false });
+    updateSyncStatus(
+      { isSyncing: false },
+      { userId, generation }
+    );
     return;
   }
+
+  const runCycle = async () => {
+    if (!isAccountWorkCurrent(userId, generation)) return;
+    await runSyncCycleBody(userId, generation);
+  };
+
   isSyncCycleQueued = true;
   try {
     if (
@@ -614,20 +873,43 @@ export async function initializeSync(userId: string): Promise<void> {
       navigator.locks &&
       typeof navigator.locks.request === 'function'
     ) {
+      let abortController: AbortController | null = null;
+      let abortTimer: ReturnType<typeof setTimeout> | null = null;
       try {
-        await navigator.locks.request(WEB_LOCKS_NAME, () => runSyncCycleBody(userId));
+        if (options.deadline !== undefined) {
+          const lockWaitMs = options.deadline - Date.now();
+          if (lockWaitMs <= 0) {
+            throw new Error(
+              'Mosaic fresh sync timed out while waiting for the sync lock.'
+            );
+          }
+          abortController = new AbortController();
+          abortTimer = globalThis.setTimeout(
+            () => abortController?.abort(),
+            lockWaitMs
+          );
+          await navigator.locks.request(
+            WEB_LOCKS_NAME,
+            { signal: abortController.signal },
+            runCycle
+          );
+        } else {
+          await navigator.locks.request(WEB_LOCKS_NAME, runCycle);
+        }
       } catch (lockErr) {
-        // Web Locks API exists but the request failed for some reason.
-        // Fall back to running the cycle without the cross-tab mutex so
-        // the user still gets a sync. Log and continue.
-        console.warn(
-          '[Sync] Web Locks request failed; running without cross-tab mutex:',
-          lockErr
-        );
-        await runSyncCycleBody(userId);
+        if (abortController?.signal.aborted) {
+          throw new Error(
+            'Mosaic fresh sync timed out while waiting for another Mosaic tab.',
+            { cause: lockErr }
+          );
+        }
+        console.warn('[Sync] Web Locks request failed:', lockErr);
+        throw lockErr;
+      } finally {
+        if (abortTimer !== null) clearTimeout(abortTimer);
       }
     } else {
-      await runSyncCycleBody(userId);
+      await runCycle();
     }
   } finally {
     isSyncCycleQueued = false;
@@ -644,16 +926,24 @@ export async function initializeSync(userId: string): Promise<void> {
     }
   }
 }
-async function runSyncCycleBody(userId: string): Promise<void> {
+async function runSyncCycleBody(
+  userId: string,
+  generation: number
+): Promise<void> {
+  assertSyncOwnerCurrent(userId, generation);
   isSyncInProgress = true;
   if (DEBUG) console.log('[Sync] Starting sync...');
-  updateSyncStatus({ isSyncing: true, errors: [] });
+  updateSyncStatus(
+    { isSyncing: true, errors: [] },
+    { userId, generation }
+  );
   try {
     // Unconditional reload: another tab may have written a newer per-
     // collection state since this tab last loaded it. The cross-tab lock
     // guarantees mutual exclusion, not that our in-memory copy is
     // current. Reloading here means the pull/push boundaries reflect the
     // last writer across all tabs.
+    assertSyncOwnerCurrent(userId, generation);
     perCollectionSync = loadPerCollectionState(userId);
     perCollectionOwnerId = userId;
     let scopedLast: string | null = null;
@@ -661,7 +951,9 @@ async function runSyncCycleBody(userId: string): Promise<void> {
       scopedLast = localStorage.getItem(`lastSyncTime_${userId}`);
     } catch {
     }
-    publishSyncStatus({ lastSync: scopedLast });
+    if (isAccountWorkCurrent(userId, generation)) {
+      publishSyncStatus({ lastSync: scopedLast });
+    }
     if (DEBUG) {
       console.log(
         `[Sync] Loaded per-collection state for user ${userId}:`,
@@ -674,6 +966,7 @@ async function runSyncCycleBody(userId: string): Promise<void> {
     let sawUnauthorized = false;
     let sawNonRateLimitFailure = false;
     for (const colName of ALL_COLLECTIONS) {
+      assertSyncOwnerCurrent(userId, generation);
       try {
         if (
           colName === 'categories' &&
@@ -754,8 +1047,10 @@ async function runSyncCycleBody(userId: string): Promise<void> {
           db[colName] as unknown as LocalCollection,
           colName,
           userId,
+          generation,
           colName === 'messages'
         );
+        assertSyncOwnerCurrent(userId, generation);
 
         const hasCollectionIssues =
           result.pullRowFailed ||
@@ -804,6 +1099,7 @@ async function runSyncCycleBody(userId: string): Promise<void> {
         }
 
         if (colName === 'tasks') {
+          assertSyncOwnerCurrent(userId, generation);
           await startTaskReplicationPilot(
             userId,
             db.tasks,
@@ -814,30 +1110,35 @@ async function runSyncCycleBody(userId: string): Promise<void> {
           // initial upstream baseline. The seed was captured before the
           // bootstrap so edits made while it was running remain newer than
           // the checkpoint and cannot be skipped by the handoff.
+          assertSyncOwnerCurrent(userId, generation);
           await startCategoryReplicationPilot(
             userId,
             db.categories,
             categoryPushCheckpoint
           );
         } else if (colName === 'diary') {
+          assertSyncOwnerCurrent(userId, generation);
           await startDiaryReplicationPilot(
             userId,
             db.diary,
             diaryPushCheckpoint
           );
         } else if (colName === 'settings') {
+          assertSyncOwnerCurrent(userId, generation);
           await startSettingsReplicationPilot(
             userId,
             db.settings,
             settingsPushCheckpoint
           );
         } else if (colName === 'friendships') {
+          assertSyncOwnerCurrent(userId, generation);
           await startFriendshipReplicationPilot(
             userId,
             db.friendships,
             friendshipPushCheckpoint
           );
         } else if (colName === 'messages') {
+          assertSyncOwnerCurrent(userId, generation);
           await startMessageReplicationPilot(
             userId,
             db.messages,
@@ -846,6 +1147,10 @@ async function runSyncCycleBody(userId: string): Promise<void> {
           );
         }
       } catch (colError) {
+        if (colError instanceof SyncOwnerChangedError) {
+          await stopAllReplicationPilots(userId);
+          return;
+        }
         const message =
           colError instanceof Error
             ? colError.message
@@ -861,9 +1166,13 @@ async function runSyncCycleBody(userId: string): Promise<void> {
         }
       }
     }
+    assertSyncOwnerCurrent(userId, generation);
     if (sawUnauthorized) {
       clearBackoffWakeTimer();
-      updateSyncStatus({ isSyncing: false, errors: collectionErrors });
+      updateSyncStatus(
+        { isSyncing: false, errors: collectionErrors },
+        { userId, generation }
+      );
       return;
     }
     if (sawRateLimit) {
@@ -895,34 +1204,47 @@ async function runSyncCycleBody(userId: string): Promise<void> {
 
     const wakeAt = Math.max(rateLimitUntil, failureBackoffUntil);
     if (wakeAt > Date.now()) {
-      scheduleBackoffWake(userId, wakeAt);
+      scheduleBackoffWake(userId, wakeAt, generation);
     } else {
       clearBackoffWakeTimer();
     }
 
     if (collectionErrors.length === 0) {
       const completedAt = new Date().toISOString();
-      updateSyncStatus({
-        isSyncing: false,
-        lastSync: completedAt,
-        errors: [],
-      });
+      updateSyncStatus(
+        {
+          isSyncing: false,
+          lastSync: completedAt,
+          errors: [],
+        },
+        { userId, generation }
+      );
       markOfflineDataReady(userId, completedAt);
       if (DEBUG) console.log('[Sync] ✅ Sync complete');
     } else {
-      updateSyncStatus({ isSyncing: false, errors: collectionErrors });
+      updateSyncStatus(
+        { isSyncing: false, errors: collectionErrors },
+        { userId, generation }
+      );
       if (DEBUG)
         console.warn('[Sync] ⚠️ Sync completed with errors:', collectionErrors);
     }
   } catch (error) {
-    console.error('[Sync] ❌ Sync failed', error);
-    updateSyncStatus({
-      isSyncing: false,
-      errors: [
-        ...getSyncStatus().errors,
-        error instanceof Error ? error.message : 'Unknown error',
-      ],
-    });
+    if (error instanceof SyncOwnerChangedError) {
+      await stopAllReplicationPilots(userId);
+    } else {
+      console.error('[Sync] ❌ Sync failed', error);
+      updateSyncStatus(
+        {
+          isSyncing: false,
+          errors: [
+            ...getSyncStatus().errors,
+            error instanceof Error ? error.message : 'Unknown error',
+          ],
+        },
+        { userId, generation }
+      );
+    }
   } finally {
     isSyncInProgress = false;
   }
@@ -931,10 +1253,14 @@ async function syncCollection(
   collection: LocalCollection,
   colName: string,
   userId: string,
+  generation: number,
   forceFullPull = false
 ): Promise<CollectionSyncResult> {
+  assertSyncOwnerCurrent(userId, generation);
   if (colName === 'friendships') {
+    assertSyncOwnerCurrent(userId, generation);
     await syncFriendships(userId);
+    assertSyncOwnerCurrent(userId, generation);
     return {
       pullRowFailed: false,
       pushFailed: 0,
@@ -976,6 +1302,7 @@ async function syncCollection(
   let pullComplete = true;
   const collectionErrors: unknown[] = [];
   for (;;) {
+    assertSyncOwnerCurrent(userId, generation);
     const queries: unknown[] = [
       Query.equal('user_id', userId),
       Query.limit(PAGE_SIZE),
@@ -994,6 +1321,7 @@ async function syncCollection(
       queries: queries as never,
       total: false,
     });
+    assertSyncOwnerCurrent(userId, generation);
     const rows = ((remoteResponse as { rows?: AppwriteRow[] }).rows ||
       []) as AppwriteRow[];
     pageCount++;
@@ -1193,6 +1521,7 @@ async function syncCollection(
       pushCandidates,
       PUSH_CONCURRENCY,
       async ({ doc, json: initialJson, docId }) => {
+        assertSyncOwnerCurrent(userId, generation);
         let json = initialJson;
         try {
           json = await resolvePendingImageForPush(
@@ -1218,6 +1547,7 @@ async function syncCollection(
           json = currentDoc.toJSON();
         }
         const pushedLwt = currentDoc?._meta?.lwt ?? doc._meta?.lwt ?? 0;
+        assertSyncOwnerCurrent(userId, generation);
         const rowData = toAppwriteFormat(json, colName, userId);
         if (DEBUG) console.log(`[Sync] Pushing ${colName} ${docId}`);
         try {
@@ -1294,6 +1624,7 @@ async function syncCollection(
     const localDocsAfterPull = await collection.find().exec();
     const reconciliationNow = new Date().toISOString();
     for (const doc of localDocsAfterPull) {
+      assertSyncOwnerCurrent(userId, generation);
       const json = doc.toJSON();
       const docUserId = json.userId as string | undefined;
       if (docUserId !== userId) continue;
@@ -1301,6 +1632,13 @@ async function syncCollection(
       if (!docId || remoteIndex.has(docId)) continue;
       const localLwt = doc._meta?.lwt ?? 0;
       if (localLwt > dirtyBoundaryMs || json.isDeleted === true) continue;
+      if (
+        colName === 'messages' &&
+        json.direction === 'outgoing' &&
+        json.deliveryStatus === 'pending'
+      ) {
+        continue;
+      }
       try {
         await doc.incrementalPatch({
           isDeleted: true,

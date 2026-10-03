@@ -3,6 +3,10 @@ import { silenceExpectedConsole } from '../helpers/expectedConsole';
 const localStorageMock = vi.hoisted(() => {
   const store = new Map<string, string>();
   const mock = {
+    get length() {
+      return store.size;
+    },
+    key: (index: number) => Array.from(store.keys())[index] ?? null,
     getItem: (k: string) => (store.has(k) ? store.get(k) ?? null : null),
     setItem: (k: string, v: string) => {
       store.set(k, v);
@@ -24,13 +28,32 @@ import {
   getMessageActionQueueSize,
   setMessageActionSender,
   __resetQueueForTests,
+  type MessageActionQueuedEntry,
 } from '../../src/lib/messageActionQueue';
+import {
+  __resetAccountWorkScopeForTests,
+  scopeAccountWork,
+} from '../../src/lib/accountWorkScope';
 const STORAGE_KEY = 'mosaic_message_action_queue';
+
+function storedEntries(): MessageActionQueuedEntry[] {
+  const prefix = STORAGE_KEY + ':entry:';
+  const entries: MessageActionQueuedEntry[] = [];
+  for (let index = 0; index < localStorageMock.length; index += 1) {
+    const key = localStorageMock.key(index);
+    if (!key?.startsWith(prefix)) continue;
+    const raw = localStorageMock.getItem(key);
+    if (raw) entries.push(JSON.parse(raw) as MessageActionQueuedEntry);
+  }
+  return entries;
+}
 let restoreConsole: () => void;
 beforeEach(() => {
   restoreConsole = silenceExpectedConsole(['[MessageActionQueue]']);
   localStorageMock.clear();
   __resetQueueForTests();
+  __resetAccountWorkScopeForTests();
+  scopeAccountWork('user_A');
 });
 afterEach(() => restoreConsole());
 describe('messageActionQueue — enqueue', () => {
@@ -41,9 +64,7 @@ describe('messageActionQueue — enqueue', () => {
       dedupKey: 'mark_read:th_x',
     });
     expect(getMessageActionQueueSize('user_A')).toBe(1);
-    const raw = localStorageMock.getItem(STORAGE_KEY);
-    expect(raw).toBeTruthy();
-    const parsed = JSON.parse(raw!);
+    const parsed = storedEntries();
     expect(parsed).toHaveLength(1);
     expect(parsed[0].action).toBe('mark_read');
     expect(parsed[0].userId).toBe('user_A');
@@ -168,8 +189,7 @@ describe('messageActionQueue — flush', () => {
     });
     await flushMessageActionQueue('user_A');
     expect(getMessageActionQueueSize('user_A')).toBe(1);
-    const raw = localStorageMock.getItem(STORAGE_KEY);
-    const parsed = JSON.parse(raw!);
+    const parsed = storedEntries();
     expect(parsed[0].attempts).toBe(1);
   });
   it('retries on 429 (rate limit)', async () => {
