@@ -18,6 +18,7 @@ const realtimeSubscribeMock = vi.hoisted(() => vi.fn());
 const reSyncMock = vi.hoisted(() => vi.fn());
 const cancelMock = vi.hoisted(() => vi.fn());
 const errorSubscribeMock = vi.hoisted(() => vi.fn());
+const markReplicationFreshMock = vi.hoisted(() => vi.fn());
 const uploadPendingImageMock = vi.hoisted(() => vi.fn());
 const deletePendingImageMock = vi.hoisted(() => vi.fn());
 const awaitPilotReplicationFreshnessMock = vi.hoisted(() => vi.fn());
@@ -72,6 +73,10 @@ vi.mock('../../src/lib/storage', () => ({
 vi.mock('../../src/lib/pendingImages', () => ({
   isPendingImageId: (id: string) => id.startsWith('localimg_'),
   deletePendingImage: deletePendingImageMock,
+}));
+
+vi.mock('../../src/db/replicationLocalState', () => ({
+  markReplicationFresh: markReplicationFreshMock,
 }));
 
 vi.mock('../../src/db/replicationFreshness', () => ({
@@ -151,6 +156,7 @@ function collectionFixture() {
 beforeEach(async () => {
   await stopTaskReplicationPilot();
   vi.clearAllMocks();
+  markReplicationFreshMock.mockResolvedValue(undefined);
 
   getChangedDocumentsSinceMock.mockResolvedValue({
     documents: [],
