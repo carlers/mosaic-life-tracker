@@ -921,16 +921,24 @@ export async function initializeSync(
     }
   }
 }
-async function runSyncCycleBody(userId: string): Promise<void> {
+async function runSyncCycleBody(
+  userId: string,
+  generation: number
+): Promise<void> {
+  assertSyncOwnerCurrent(userId, generation);
   isSyncInProgress = true;
   if (DEBUG) console.log('[Sync] Starting sync...');
-  updateSyncStatus({ isSyncing: true, errors: [] });
+  updateSyncStatus(
+    { isSyncing: true, errors: [] },
+    { userId, generation }
+  );
   try {
     // Unconditional reload: another tab may have written a newer per-
     // collection state since this tab last loaded it. The cross-tab lock
     // guarantees mutual exclusion, not that our in-memory copy is
     // current. Reloading here means the pull/push boundaries reflect the
     // last writer across all tabs.
+    assertSyncOwnerCurrent(userId, generation);
     perCollectionSync = loadPerCollectionState(userId);
     perCollectionOwnerId = userId;
     let scopedLast: string | null = null;
@@ -938,7 +946,9 @@ async function runSyncCycleBody(userId: string): Promise<void> {
       scopedLast = localStorage.getItem(`lastSyncTime_${userId}`);
     } catch {
     }
-    publishSyncStatus({ lastSync: scopedLast });
+    if (isAccountWorkCurrent(userId, generation)) {
+      publishSyncStatus({ lastSync: scopedLast });
+    }
     if (DEBUG) {
       console.log(
         `[Sync] Loaded per-collection state for user ${userId}:`,
@@ -951,6 +961,7 @@ async function runSyncCycleBody(userId: string): Promise<void> {
     let sawUnauthorized = false;
     let sawNonRateLimitFailure = false;
     for (const colName of ALL_COLLECTIONS) {
+      assertSyncOwnerCurrent(userId, generation);
       try {
         if (
           colName === 'categories' &&
@@ -1031,8 +1042,10 @@ async function runSyncCycleBody(userId: string): Promise<void> {
           db[colName] as unknown as LocalCollection,
           colName,
           userId,
+          generation,
           colName === 'messages'
         );
+        assertSyncOwnerCurrent(userId, generation);
 
         const hasCollectionIssues =
           result.pullRowFailed ||
@@ -1081,6 +1094,7 @@ async function runSyncCycleBody(userId: string): Promise<void> {
         }
 
         if (colName === 'tasks') {
+          assertSyncOwnerCurrent(userId, generation);
           await startTaskReplicationPilot(
             userId,
             db.tasks,
@@ -1091,30 +1105,35 @@ async function runSyncCycleBody(userId: string): Promise<void> {
           // initial upstream baseline. The seed was captured before the
           // bootstrap so edits made while it was running remain newer than
           // the checkpoint and cannot be skipped by the handoff.
+          assertSyncOwnerCurrent(userId, generation);
           await startCategoryReplicationPilot(
             userId,
             db.categories,
             categoryPushCheckpoint
           );
         } else if (colName === 'diary') {
+          assertSyncOwnerCurrent(userId, generation);
           await startDiaryReplicationPilot(
             userId,
             db.diary,
             diaryPushCheckpoint
           );
         } else if (colName === 'settings') {
+          assertSyncOwnerCurrent(userId, generation);
           await startSettingsReplicationPilot(
             userId,
             db.settings,
             settingsPushCheckpoint
           );
         } else if (colName === 'friendships') {
+          assertSyncOwnerCurrent(userId, generation);
           await startFriendshipReplicationPilot(
             userId,
             db.friendships,
             friendshipPushCheckpoint
           );
         } else if (colName === 'messages') {
+          assertSyncOwnerCurrent(userId, generation);
           await startMessageReplicationPilot(
             userId,
             db.messages,
@@ -1123,6 +1142,7 @@ async function runSyncCycleBody(userId: string): Promise<void> {
           );
         }
       } catch (colError) {
+        if (colError instanceof SyncOwnerChangedError) return;
         const message =
           colError instanceof Error
             ? colError.message
@@ -1138,9 +1158,13 @@ async function runSyncCycleBody(userId: string): Promise<void> {
         }
       }
     }
+    assertSyncOwnerCurrent(userId, generation);
     if (sawUnauthorized) {
       clearBackoffWakeTimer();
-      updateSyncStatus({ isSyncing: false, errors: collectionErrors });
+      updateSyncStatus(
+        { isSyncing: false, errors: collectionErrors },
+        { userId, generation }
+      );
       return;
     }
     if (sawRateLimit) {
@@ -1172,34 +1196,45 @@ async function runSyncCycleBody(userId: string): Promise<void> {
 
     const wakeAt = Math.max(rateLimitUntil, failureBackoffUntil);
     if (wakeAt > Date.now()) {
-      scheduleBackoffWake(userId, wakeAt);
+      scheduleBackoffWake(userId, wakeAt, generation);
     } else {
       clearBackoffWakeTimer();
     }
 
     if (collectionErrors.length === 0) {
       const completedAt = new Date().toISOString();
-      updateSyncStatus({
-        isSyncing: false,
-        lastSync: completedAt,
-        errors: [],
-      });
+      updateSyncStatus(
+        {
+          isSyncing: false,
+          lastSync: completedAt,
+          errors: [],
+        },
+        { userId, generation }
+      );
       markOfflineDataReady(userId, completedAt);
       if (DEBUG) console.log('[Sync] ✅ Sync complete');
     } else {
-      updateSyncStatus({ isSyncing: false, errors: collectionErrors });
+      updateSyncStatus(
+        { isSyncing: false, errors: collectionErrors },
+        { userId, generation }
+      );
       if (DEBUG)
         console.warn('[Sync] ⚠️ Sync completed with errors:', collectionErrors);
     }
   } catch (error) {
-    console.error('[Sync] ❌ Sync failed', error);
-    updateSyncStatus({
-      isSyncing: false,
-      errors: [
-        ...getSyncStatus().errors,
-        error instanceof Error ? error.message : 'Unknown error',
-      ],
-    });
+    if (!(error instanceof SyncOwnerChangedError)) {
+      console.error('[Sync] ❌ Sync failed', error);
+      updateSyncStatus(
+        {
+          isSyncing: false,
+          errors: [
+            ...getSyncStatus().errors,
+            error instanceof Error ? error.message : 'Unknown error',
+          ],
+        },
+        { userId, generation }
+      );
+    }
   } finally {
     isSyncInProgress = false;
   }
@@ -1208,10 +1243,14 @@ async function syncCollection(
   collection: LocalCollection,
   colName: string,
   userId: string,
+  generation: number,
   forceFullPull = false
 ): Promise<CollectionSyncResult> {
+  assertSyncOwnerCurrent(userId, generation);
   if (colName === 'friendships') {
+    assertSyncOwnerCurrent(userId, generation);
     await syncFriendships(userId);
+    assertSyncOwnerCurrent(userId, generation);
     return {
       pullRowFailed: false,
       pushFailed: 0,
@@ -1253,6 +1292,7 @@ async function syncCollection(
   let pullComplete = true;
   const collectionErrors: unknown[] = [];
   for (;;) {
+    assertSyncOwnerCurrent(userId, generation);
     const queries: unknown[] = [
       Query.equal('user_id', userId),
       Query.limit(PAGE_SIZE),
@@ -1271,6 +1311,7 @@ async function syncCollection(
       queries: queries as never,
       total: false,
     });
+    assertSyncOwnerCurrent(userId, generation);
     const rows = ((remoteResponse as { rows?: AppwriteRow[] }).rows ||
       []) as AppwriteRow[];
     pageCount++;
@@ -1470,6 +1511,7 @@ async function syncCollection(
       pushCandidates,
       PUSH_CONCURRENCY,
       async ({ doc, json: initialJson, docId }) => {
+        assertSyncOwnerCurrent(userId, generation);
         let json = initialJson;
         try {
           json = await resolvePendingImageForPush(
@@ -1495,6 +1537,7 @@ async function syncCollection(
           json = currentDoc.toJSON();
         }
         const pushedLwt = currentDoc?._meta?.lwt ?? doc._meta?.lwt ?? 0;
+        assertSyncOwnerCurrent(userId, generation);
         const rowData = toAppwriteFormat(json, colName, userId);
         if (DEBUG) console.log(`[Sync] Pushing ${colName} ${docId}`);
         try {
@@ -1571,6 +1614,7 @@ async function syncCollection(
     const localDocsAfterPull = await collection.find().exec();
     const reconciliationNow = new Date().toISOString();
     for (const doc of localDocsAfterPull) {
+      assertSyncOwnerCurrent(userId, generation);
       const json = doc.toJSON();
       const docUserId = json.userId as string | undefined;
       if (docUserId !== userId) continue;
@@ -1578,6 +1622,13 @@ async function syncCollection(
       if (!docId || remoteIndex.has(docId)) continue;
       const localLwt = doc._meta?.lwt ?? 0;
       if (localLwt > dirtyBoundaryMs || json.isDeleted === true) continue;
+      if (
+        colName === 'messages' &&
+        json.direction === 'outgoing' &&
+        json.deliveryStatus === 'pending'
+      ) {
+        continue;
+      }
       try {
         await doc.incrementalPatch({
           isDeleted: true,
