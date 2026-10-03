@@ -111,7 +111,7 @@ export function createPersistentOutbox<
   }
 
   function migrateLegacyQueue(): void {
-    let raw: string | null = null;
+    let raw: string | null;
     try {
       raw = localStorage.getItem(storageKey);
     } catch {
@@ -149,7 +149,7 @@ export function createPersistentOutbox<
     migrateLegacyQueue();
     const entries: TEntry[] = [];
     for (const key of listKeys()) {
-      let raw: string | null = null;
+      let raw: string | null;
       try {
         raw = localStorage.getItem(key);
       } catch {
