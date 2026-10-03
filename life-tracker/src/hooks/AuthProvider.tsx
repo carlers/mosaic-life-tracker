@@ -308,7 +308,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           return false;
         }
         scopeAccountWork(resolved.$id);
-        scopeAccountWork(resolved.$id);
         writeCachedUser(resolved);
         setUser(resolved);
         setError(null);
@@ -353,6 +352,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         if (!isMountedRef.current || generation !== authGenerationRef.current) {
           return false;
         }
+        scopeAccountWork(resolved.$id);
         writeCachedUser(resolved);
         setUser(resolved);
         setError(null);
