@@ -140,6 +140,19 @@ function laterIso(left: string, right: string): string {
   return leftMs >= rightMs ? left : right;
 }
 
+function isBootstrapLocalNewer(
+  localUpdatedAt: string,
+  remoteUpdatedAt: string
+): boolean {
+  const localMs = Date.parse(localUpdatedAt);
+  const remoteMs = Date.parse(remoteUpdatedAt);
+  return (
+    Number.isFinite(localMs) &&
+    Number.isFinite(remoteMs) &&
+    localMs > remoteMs
+  );
+}
+
 async function readRemoteTask(
   rowId: string
 ): Promise<ReplicatedTask | null> {
@@ -280,58 +293,79 @@ async function pushTasks(
     }
 
     const assumed = row.assumedMasterState;
+    let documentToPush: ReplicatedTask = next;
+
     if (!assumed) {
-      if (current) {
+      if (!current) {
+        const prepared = await prepareTaskForPush(next, userId);
+        const createConflict = await createRemoteTask(
+          prepared.document,
+          userId
+        );
+        if (createConflict) {
+          await cleanupPendingTaskImage(next, userId);
+          conflicts.push(createConflict);
+          continue;
+        }
+
+        await finishSuccessfulPush(prepared.pendingImageId, userId);
+        if (!taskStateEquals(prepared.document, next)) {
+          conflicts.push(prepared.document);
+        }
+        continue;
+      }
+
+      // First sync / lost replication metadata: downstream writes can make
+      // RxDB's local LWT look new even when the application state came from
+      // Appwrite. A byte-for-byte-equivalent task is therefore acknowledged
+      // without a write. Only a genuinely newer application edit may win.
+      if (taskStateEquals(current, next)) {
+        await cleanupPendingTaskImage(next, userId);
+        continue;
+      }
+      if (!isBootstrapLocalNewer(next.updatedAt, current.updatedAt)) {
         await cleanupPendingTaskImage(next, userId);
         conflicts.push(current);
         continue;
       }
 
-      const prepared = await prepareTaskForPush(next, userId);
-      const createConflict = await createRemoteTask(
-        prepared.document,
-        userId
-      );
-      if (createConflict) {
-        await cleanupPendingTaskImage(next, userId);
-        conflicts.push(createConflict);
+      // Reactions are server-mutated even for owner tasks. Preserve the
+      // current remote reaction set while carrying the newer local owner edit.
+      documentToPush = {
+        ...next,
+        reactions: current.reactions ?? '',
+        updatedAt: laterIso(next.updatedAt, current.updatedAt),
+      };
+    } else {
+      if (!current) {
+        const prepared = await prepareTaskForPush(next, userId);
+        const createConflict = await createRemoteTask(
+          prepared.document,
+          userId
+        );
+        if (createConflict) {
+          await cleanupPendingTaskImage(next, userId);
+          conflicts.push(createConflict);
+          continue;
+        }
+
+        await finishSuccessfulPush(prepared.pendingImageId, userId);
+        if (!taskStateEquals(prepared.document, next)) {
+          conflicts.push(prepared.document);
+        }
         continue;
       }
 
-      await finishSuccessfulPush(prepared.pendingImageId, userId);
-      if (!taskStateEquals(prepared.document, next)) {
-        conflicts.push(prepared.document);
-      }
-      continue;
-    }
-
-    if (!current) {
-      const prepared = await prepareTaskForPush(next, userId);
-      const createConflict = await createRemoteTask(
-        prepared.document,
-        userId
-      );
-      if (createConflict) {
+      const merged = mergeServerReactionDrift(next, current, assumed);
+      if (!merged) {
         await cleanupPendingTaskImage(next, userId);
-        conflicts.push(createConflict);
+        conflicts.push(current);
         continue;
       }
-
-      await finishSuccessfulPush(prepared.pendingImageId, userId);
-      if (!taskStateEquals(prepared.document, next)) {
-        conflicts.push(prepared.document);
-      }
-      continue;
+      documentToPush = merged;
     }
 
-    const merged = mergeServerReactionDrift(next, current, assumed);
-    if (!merged) {
-      await cleanupPendingTaskImage(next, userId);
-      conflicts.push(current);
-      continue;
-    }
-
-    const prepared = await prepareTaskForPush(merged, userId);
+    const prepared = await prepareTaskForPush(documentToPush, userId);
 
     try {
       await guardedTablesDB.updateRow({
