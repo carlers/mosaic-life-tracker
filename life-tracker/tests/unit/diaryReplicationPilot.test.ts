@@ -19,7 +19,7 @@ const reSyncMock = vi.hoisted(() => vi.fn());
 const awaitInSyncMock = vi.hoisted(() => vi.fn());
 const cancelMock = vi.hoisted(() => vi.fn());
 const errorSubscribeMock = vi.hoisted(() => vi.fn());
-const markReplicationFreshMock = vi.hoisted(() => vi.fn());
+const trackReplicationFreshnessMock = vi.hoisted(() => vi.fn());
 
 vi.mock('rxdb', () => ({
   getChangedDocumentsSince: getChangedDocumentsSinceMock,
@@ -67,7 +67,7 @@ vi.mock('../../src/lib/sdk', () => ({
 }));
 
 vi.mock('../../src/db/replicationLocalState', () => ({
-  markReplicationFresh: markReplicationFreshMock,
+  trackReplicationFreshness: trackReplicationFreshnessMock,
 }));
 
 import {
@@ -121,7 +121,7 @@ function collectionFixture(isLeader = true) {
 beforeEach(async () => {
   await stopDiaryReplicationPilot();
   vi.clearAllMocks();
-  markReplicationFreshMock.mockResolvedValue(undefined);
+  trackReplicationFreshnessMock.mockImplementation(() => undefined);
   getChangedDocumentsSinceMock.mockResolvedValue({
     documents: [],
     checkpoint: { id: 'diary_z', lwt: 123 },
