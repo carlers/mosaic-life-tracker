@@ -1020,7 +1020,9 @@ describe('sync — explicit fresh refresh', () => {
     await first;
     const refreshed = await refresh;
 
-    expect(taskListRowsCalls()).toHaveLength(2);
+    expect(taskListRowsCalls()).toHaveLength(1);
+    expect(categoryPilotRefreshMock).toHaveBeenCalled();
+    expect(messagePilotRefreshMock).toHaveBeenCalled();
     expect(refreshed.status.isSyncing).toBe(false);
     expect(refreshed.status.errors).toEqual([]);
     expect(Date.parse(refreshed.status.lastSync!)).toBeGreaterThanOrEqual(
@@ -1097,6 +1099,7 @@ describe('sync — forceSync follow-up queueing', () => {
 // Regression: §18 (sync failure isolation and boundary safety).
 describe('sync — RxDB pilot fresh-sync barrier', () => {
   it('awaits task, category, diary, settings, friendship, and message pilot freshness before returning', async () => {
+    markAllPilotsActive();
     markAllPilotRefreshesSuccessful();
 
     await syncModule.refreshSync('user_A', 5_000);
@@ -1143,6 +1146,7 @@ describe('sync — RxDB pilot fresh-sync barrier', () => {
   });
 
   it('fails the safety barrier when an RxDB pilot cannot prove freshness', async () => {
+    markAllPilotsActive();
     categoryPilotRefreshMock.mockRejectedValue(
       new Error('Fresh category sync is owned by another Mosaic tab.')
     );
@@ -1161,6 +1165,24 @@ describe('sync — RxDB pilot fresh-sync barrier', () => {
     expect(friendshipPilotRefreshMock).not.toHaveBeenCalled();
     expect(taskPilotRefreshMock).not.toHaveBeenCalled();
     expect(messagePilotRefreshMock).not.toHaveBeenCalled();
+  });
+
+  it('fails closed when an active pilot reports that freshness is unavailable', async () => {
+    markAllPilotsActive();
+    markAllPilotRefreshesSuccessful();
+    categoryPilotRefreshMock.mockResolvedValue(false);
+
+    const before = syncModule.getSyncStatus().lastSync;
+    await expect(
+      syncModule.refreshSync('user_A', 5_000)
+    ).rejects.toThrow('category sync is not active');
+
+    expect(syncModule.getSyncStatus().lastSync).toBe(before);
+    expect(syncModule.getSyncStatus().errors).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining('category sync is not active'),
+      ])
+    );
   });
 });
 
@@ -1569,6 +1591,80 @@ describe('sync — per-collection state versioning', () => {
     expect(queries.some((q) => q.op === 'greaterThan')).toBe(false);
   });
 });
+describe('sync — compatibility metadata account isolation', () => {
+  it('migrates the matching legacy blob into an account-scoped key', async () => {
+    const legacy = {
+      version: 1,
+      ownerId: 'user_A',
+      entries: {
+        tasks: {
+          pull: '2026-01-01T00:00:00.000Z',
+          dirty: '2026-01-01T00:00:00.000Z',
+        },
+      },
+    };
+    localStorageMock.setItem(
+      'lastSyncTimePerCollection',
+      JSON.stringify(legacy)
+    );
+
+    await syncModule.initializeSync('user_A');
+
+    expect(localStorageMock.getItem(PER_COLLECTION_KEY_A)).toBeTruthy();
+  });
+
+  it('recovers a missing compatibility blob from the account clean-sync baseline', async () => {
+    const baseline = '2026-01-01T00:00:00.000Z';
+    localStorageMock.setItem('lastSyncTime_user_A', baseline);
+
+    await syncModule.initializeSync('user_A');
+
+    const scoped = JSON.parse(
+      localStorageMock.getItem(PER_COLLECTION_KEY_A)!
+    );
+    expect(Date.parse(scoped.entries.tasks.dirty)).toBeGreaterThanOrEqual(
+      Date.parse(baseline)
+    );
+    expect(localStorageMock.getItem('lastSyncTimePerCollection')).toBeNull();
+  });
+
+  it('does not let user B overwrite user A compatibility metadata', async () => {
+    await syncModule.initializeSync('user_A');
+    const userAState = localStorageMock.getItem(PER_COLLECTION_KEY_A);
+    expect(userAState).toBeTruthy();
+
+    const accountWork = await import('../../src/lib/accountWorkScope');
+    accountWork.scopeAccountWork('user_B');
+    await syncModule.initializeSync('user_B');
+
+    expect(localStorageMock.getItem(PER_COLLECTION_KEY_A)).toBe(userAState);
+    expect(
+      localStorageMock.getItem('lastSyncTimePerCollection_user_B')
+    ).toBeTruthy();
+  });
+});
+
+describe('sync — account-transition race safety', () => {
+  it('does not transfer user A rate-limit backoff into queued user B sync', async () => {
+    const firstPull = makeDeferred<{ rows: never[] }>();
+    listRowsMock.mockReturnValueOnce(firstPull.promise);
+    listRowsMock.mockResolvedValue({ rows: [] });
+
+    const first = syncModule.initializeSync('user_A');
+    await Promise.resolve();
+
+    const accountWork = await import('../../src/lib/accountWorkScope');
+    accountWork.scopeAccountWork('user_B');
+    await syncModule.initializeSync('user_B');
+
+    firstPull.reject(Object.assign(new Error('rate limit'), { code: 429 }));
+    await first;
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(taskListRowsCalls().length).toBeGreaterThanOrEqual(2);
+  });
+});
+
 describe('sync — lastSyncTime is user-scoped', () => {
   it('writes lastSyncTime_<userId> and does not write the bare key', async () => {
     await syncModule.initializeSync('user_A');
@@ -2258,7 +2354,7 @@ describe('sync — cross-tab mutex and state reload', () => {
       });
     }
   });
-  it('falls back to running the cycle when navigator.locks.request throws', async () => {
+  it('fails closed when navigator.locks.request throws', async () => {
     const originalNavigator = (globalThis as { navigator?: unknown }).navigator;
     const requestMock = vi.fn().mockRejectedValue(new Error('lock denied'));
     Object.defineProperty(globalThis, 'navigator', {
@@ -2267,15 +2363,48 @@ describe('sync — cross-tab mutex and state reload', () => {
       value: { locks: { request: requestMock } },
     });
     try {
-      await syncModule.initializeSync('user_A');
+      await expect(syncModule.initializeSync('user_A')).rejects.toThrow(
+        'lock denied'
+      );
       expect(requestMock).toHaveBeenCalledTimes(1);
-      // The cycle still ran.
-      expect(syncModule.getSyncStatus().isSyncing).toBe(false);
-      // A warning was logged.
+      expect(listRowsMock).not.toHaveBeenCalled();
       const warnings = warnSpy.mock.calls.map((args) => String(args[0]));
       expect(
         warnings.some((m) => m.includes('Web Locks request failed'))
       ).toBe(true);
+    } finally {
+      Object.defineProperty(globalThis, 'navigator', {
+        configurable: true,
+        writable: true,
+        value: originalNavigator,
+      });
+    }
+  });
+
+  it('bounds fresh-sync Web Lock waiting by the caller timeout', async () => {
+    const originalNavigator = (globalThis as { navigator?: unknown }).navigator;
+    const requestMock = vi.fn(
+      async (
+        _name: string,
+        options: { signal?: AbortSignal },
+        _cb: () => Promise<unknown>
+      ) =>
+        new Promise<void>((_resolve, reject) => {
+          options.signal?.addEventListener('abort', () => {
+            reject(new DOMException('aborted', 'AbortError'));
+          });
+        })
+    );
+    Object.defineProperty(globalThis, 'navigator', {
+      configurable: true,
+      writable: true,
+      value: { locks: { request: requestMock } },
+    });
+    try {
+      await expect(syncModule.refreshSync('user_A', 20)).rejects.toThrow(
+        'timed out while waiting for another Mosaic tab'
+      );
+      expect(listRowsMock).not.toHaveBeenCalled();
     } finally {
       Object.defineProperty(globalThis, 'navigator', {
         configurable: true,
