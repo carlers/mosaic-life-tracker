@@ -1,21 +1,17 @@
 import { syncFriendships } from '../lib/friendshipSync';
-import { getDatabase, type AppDatabaseCollections } from './database';
-import { Permission, Role, Query } from 'appwrite';
+import { getDatabase } from './database';
+import { Query } from 'appwrite';
 import { isUnauthorizedError } from '../lib/authEvents';
 import { guardedTablesDB } from '../lib/sdk';
 import { toAppwriteFormat, fromAppwriteFormat } from '../lib/syncMapping';
-import { updateProfileAvatar } from '../lib/social';
 import {
   getSyncStatus,
   publishSyncStatus,
   type SyncStatus,
 } from '../lib/syncStatus';
 import { markOfflineDataReady } from '../lib/offlineReadiness';
-import { isPendingImageId, deletePendingImage } from '../lib/pendingImages';
-import { uploadPendingImage, makeProfileImageReadable } from '../lib/storage';
 import { getConnectivitySnapshot } from '../lib/connectivity';
 import {
-  captureCategoryReplicationPushCheckpoint,
   isCategoryReplicationPilotActive,
   refreshCategoryReplicationPilot,
   resyncCategoryReplicationPilot,
@@ -23,7 +19,6 @@ import {
   stopCategoryReplicationPilot,
 } from './categoryReplicationPilot';
 import {
-  captureDiaryReplicationPushCheckpoint,
   isDiaryReplicationPilotActive,
   refreshDiaryReplicationPilot,
   resyncDiaryReplicationPilot,
@@ -31,7 +26,6 @@ import {
   stopDiaryReplicationPilot,
 } from './diaryReplicationPilot';
 import {
-  captureSettingsReplicationPushCheckpoint,
   isSettingsReplicationPilotActive,
   refreshSettingsReplicationPilot,
   resyncSettingsReplicationPilot,
@@ -39,7 +33,6 @@ import {
   stopSettingsReplicationPilot,
 } from './settingsReplicationPilot';
 import {
-  captureFriendshipReplicationPushCheckpoint,
   isFriendshipReplicationPilotActive,
   refreshFriendshipReplicationPilot,
   resyncFriendshipReplicationPilot,
@@ -47,7 +40,6 @@ import {
   stopFriendshipReplicationPilot,
 } from './friendshipReplicationPilot';
 import {
-  captureTaskReplicationPushCheckpoint,
   isTaskReplicationPilotActive,
   refreshTaskReplicationPilot,
   resyncTaskReplicationPilot,
@@ -55,8 +47,6 @@ import {
   stopTaskReplicationPilot,
 } from './taskReplicationPilot';
 import {
-  captureMessageReplicationPullCheckpoint,
-  captureMessageReplicationPushCheckpoint,
   isMessageReplicationPilotActive,
   refreshMessageReplicationPilot,
   resyncMessageReplicationPilot,
@@ -68,6 +58,11 @@ import {
   captureAccountWorkGeneration,
   isAccountWorkCurrent,
 } from '../lib/accountWorkScope';
+import {
+  SYNCED_COLLECTION_NAMES,
+  type SyncedCollectionName,
+} from './replicationIds';
+import { getReplicationFreshness } from './replicationLocalState';
 export { toAppwriteFormat, fromAppwriteFormat };
 export { getSyncStatus, subscribeToSyncStatus } from '../lib/syncStatus';
 const APPWRITE_CONFIG = {
@@ -89,7 +84,6 @@ const RATE_LIMIT_BASE_MS = 5_000;
 const RATE_LIMIT_MAX_MS = 60_000;
 const FAILURE_BACKOFF_BASE_MS = 5_000;
 const FAILURE_BACKOFF_MAX_MS = 60_000;
-const PUSH_CONCURRENCY = 4;
 const SYNC_COORDINATOR_IDLE_TIMEOUT_MS = 90_000;
 // Tombstones are retained remotely for this long. A client whose incremental
 // pull cursor is older than the retention window performs a full pull so it
@@ -97,15 +91,8 @@ const SYNC_COORDINATOR_IDLE_TIMEOUT_MS = 90_000;
 export const TOMBSTONE_RETENTION_DAYS = 90;
 const TOMBSTONE_RETENTION_MS = TOMBSTONE_RETENTION_DAYS * 24 * 60 * 60 * 1000;
 const WEB_LOCKS_NAME = 'mosaic-sync';
-type CollectionName = keyof AppDatabaseCollections;
-const ALL_COLLECTIONS: CollectionName[] = [
-  'tasks',
-  'categories',
-  'diary',
-  'settings',
-  'friendships',
-  'messages',
-];
+type CollectionName = SyncedCollectionName;
+const ALL_COLLECTIONS: CollectionName[] = [...SYNCED_COLLECTION_NAMES];
 interface PerCollectionSyncEntry {
   pull: string;
   dirty: string;
