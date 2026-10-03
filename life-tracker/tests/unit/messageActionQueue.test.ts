@@ -28,6 +28,7 @@ import {
   getMessageActionQueueSize,
   setMessageActionSender,
   __resetQueueForTests,
+  type MessageActionQueuedEntry,
 } from '../../src/lib/messageActionQueue';
 import {
   __resetAccountWorkScopeForTests,
