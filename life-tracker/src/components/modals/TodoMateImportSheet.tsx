@@ -237,6 +237,41 @@ export const TodoMateImportSheet: React.FC<TodoMateImportSheetProps> = ({
 
   const busy = isPreparing || isImporting;
   const preview = prepared?.preview;
+  const progressPanel =
+    busy && progress ? (
+      <div className="space-y-2 px-1" role="status" aria-live="polite">
+        <div className="flex items-center gap-3">
+          <Spinner size="w-4 h-4" className="flex-shrink-0" />
+          <span className="min-w-0 flex-1 text-sm text-gray-300">
+            {progress}
+          </span>
+          {progressPercent !== null && (
+            <span className="text-xs tabular-nums text-gray-400">
+              {progressPercent}%
+            </span>
+          )}
+        </div>
+        {progressPercent !== null && (
+          <div
+            className="h-1.5 overflow-hidden rounded-full bg-[#2A2A2A]"
+            role="progressbar"
+            aria-label={
+              isPreparing
+                ? 'TodoMate preview progress'
+                : 'TodoMate import progress'
+            }
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={progressPercent}
+          >
+            <div
+              className="h-full rounded-full bg-emerald-500 transition-[width] duration-200"
+              style={{ width: progressPercent + '%' }}
+            />
+          </div>
+        )}
+      </div>
+    ) : null;
 
   return (
     <BottomSheet
@@ -306,36 +341,7 @@ export const TodoMateImportSheet: React.FC<TodoMateImportSheetProps> = ({
           </label>
         </div>
 
-        {busy && progress && (
-          <div className="space-y-2 px-1" role="status" aria-live="polite">
-            <div className="flex items-center gap-3">
-              <Spinner size="w-4 h-4" className="flex-shrink-0" />
-              <span className="min-w-0 flex-1 text-sm text-gray-300">
-                {progress}
-              </span>
-              {progressPercent !== null && (
-                <span className="text-xs tabular-nums text-gray-400">
-                  {progressPercent}%
-                </span>
-              )}
-            </div>
-            {progressPercent !== null && (
-              <div
-                className="h-1.5 overflow-hidden rounded-full bg-[#2A2A2A]"
-                role="progressbar"
-                aria-label={isPreparing ? 'TodoMate preview progress' : 'TodoMate import progress'}
-                aria-valuemin={0}
-                aria-valuemax={100}
-                aria-valuenow={progressPercent}
-              >
-                <div
-                  className="h-full rounded-full bg-emerald-500 transition-[width] duration-200"
-                  style={{ width: progressPercent + '%' }}
-                />
-              </div>
-            )}
-          </div>
-        )}
+        {isPreparing && progressPanel}
 
         <Button
           variant="primary"
@@ -410,6 +416,8 @@ export const TodoMateImportSheet: React.FC<TodoMateImportSheetProps> = ({
             </div>
           </section>
         )}
+
+        {isImporting && progressPanel}
 
         {prepared && (
           <Button
