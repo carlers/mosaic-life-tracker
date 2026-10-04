@@ -121,6 +121,18 @@ html:is([data-theme='light'], [data-theme='black']) [class~="hover:text-white"]:
   color: var(--mosaic-text) !important;
 }
 
+/* Light-mode calendar/day-view accents that should not retain dark fills. */
+html[data-theme='light'] .mosaic-holiday-label {
+  background-color: #fee2e2 !important;
+  color: #b91c1c !important;
+}
+html[data-theme='light'] .mosaic-category-pill {
+  background-color: var(--mosaic-task-incomplete-bg) !important;
+}
+html[data-theme='light'] .mosaic-category-add-icon {
+  background-color: #ffffff !important;
+}
+
 /* Keep white text on semantic/category-colored fills in Light mode. */
 html[data-theme='light']
   :is(
