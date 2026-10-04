@@ -1,5 +1,5 @@
 import React from 'react';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
@@ -270,7 +270,10 @@ describe('TodoMateImportSheet', () => {
       screen.getByRole('progressbar', { name: 'TodoMate import progress' })
     ).toHaveAttribute('aria-valuenow', '60');
 
-    finishRestore();
+    await act(async () => {
+      finishRestore();
+      await Promise.resolve();
+    });
   });
 
   it('reports sync pending after local apply without claiming full completion', async () => {
