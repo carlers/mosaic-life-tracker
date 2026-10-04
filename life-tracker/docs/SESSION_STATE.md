@@ -2,7 +2,7 @@
 
 Updated: 2026-10-04
 Current task: Harden permanent account erasure against ambiguous client responses, multi-device races, stale peer resurrection, worker overlap, malformed legacy data, and DR key rotation.
-Status: Implementation and regression coverage are on task branch `chatgpt/account-erasure-hardening-v2`, based from stable Preview `fix/new-user-onboarding-hardening` at `4f4b0f1`. The task branch is ready for focused verification; production Appwrite/Functions have not been changed by this hardening pass.
+Status: Implementation and regression coverage are on task branch `chatgpt/account-erasure-hardening-v2`, based from stable Preview `fix/new-user-onboarding-hardening` at `4f4b0f1`. Focused verification is requested on the current checkpoint; production Appwrite/Functions have not been changed by this hardening pass.
 Next action: Run the focused task gate, investigate/fix every failure, then squash the verified task into stable Preview. Run the stable branch canonical gate + exact-SHA Vercel Preview. Only after those are green, redeploy the changed `message-action` and `dr-backup` Functions, re-read live configuration, and perform destructive acceptance only with a purpose-built disposable account. Promotion to `dev` remains user-controlled.
 Blockers: None known before focused CI. The old accidental non-production privacy marker for Auth ID `6a96e813038ce6b66315` may remain object-locked; it is unrelated to a real Mosaic user.
 
