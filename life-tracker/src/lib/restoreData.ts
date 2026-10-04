@@ -710,6 +710,8 @@ async function restoreImages(
     assertOwner?.();
   }
 
+  onImageProgress?.(ids.length, ids.length);
+
   for (const task of data.tasks) {
     if (!task.image) continue;
     const replacement = remapped.get(task.image);
