@@ -18,10 +18,18 @@ interface TodoMateCredentials {
   password: string;
 }
 
+export interface TodoMateProgress {
+  message: string;
+  percent: number;
+  completed?: number;
+  total?: number;
+}
+
 interface TodoMateImportOptions {
   fetchImpl?: typeof fetch;
   now?: () => Date;
   onProgress?: (message: string) => void;
+  onProgressDetail?: (progress: TodoMateProgress) => void;
   photoProcessor?: (file: File) => Promise<Blob>;
   signal?: AbortSignal;
 }
@@ -172,6 +180,7 @@ async function downloadTodoMatePhotos(
   fetchImpl: typeof fetch,
   photoProcessor: (file: File) => Promise<Blob>,
   report: (message: string) => void,
+  onPhotoProgress?: (completed: number, total: number) => void,
   signal?: AbortSignal
 ): Promise<{
   found: number;
@@ -207,6 +216,7 @@ async function downloadTodoMatePhotos(
       report(
         `Fetching TodoMate photos (${completed}/${candidates.length})…`
       );
+      onPhotoProgress?.(completed, candidates.length);
       if (!bytes) continue;
       prepared.set(candidate.todoId, {
         sourceId: photoSourceId(candidate.todoId, candidate.url),
@@ -712,13 +722,27 @@ export async function prepareTodoMateTransfer(
   const fetchImpl = options.fetchImpl ?? fetch;
   const now = options.now ?? (() => new Date());
   const report = options.onProgress ?? (() => {});
+  const reportDetail = (
+    message: string,
+    percent: number,
+    completed?: number,
+    total?: number
+  ) => {
+    report(message);
+    options.onProgressDetail?.({
+      message,
+      percent: Math.max(0, Math.min(100, Math.round(percent))),
+      ...(completed !== undefined ? { completed } : {}),
+      ...(total !== undefined ? { total } : {}),
+    });
+  };
   const signal = options.signal;
 
   throwIfAborted(signal);
-  report('Connecting to TodoMate…');
+  reportDetail('Connecting to TodoMate…', 5);
   const config = await loadFirebaseConfig(fetchImpl, signal);
 
-  report('Signing in to TodoMate…');
+  reportDetail('Signing in to TodoMate…', 15);
   const session = await signInTodoMate(
     { email, password: credentials.password },
     config.apiKey,
@@ -726,7 +750,7 @@ export async function prepareTodoMateTransfer(
     signal
   );
 
-  report('Reading TodoMate history…');
+  reportDetail('Reading TodoMate history…', 30);
   const [goals, todos, diaries] = await Promise.all([
     queryOwnedCollection(
       'Goal',
@@ -758,18 +782,28 @@ export async function prepareTodoMateTransfer(
   ]);
 
   const photoProcessor = options.photoProcessor ?? defaultPhotoProcessor;
+  reportDetail('TodoMate history loaded', 45);
   const photoResult = await downloadTodoMatePhotos(
     todos,
     session.idToken,
     fetchImpl,
     photoProcessor,
     report,
+    (completed, total) => {
+      const fraction = total > 0 ? completed / total : 1;
+      reportDetail(
+        'Fetching TodoMate photos (' + completed + '/' + total + ')…',
+        45 + fraction * 40,
+        completed,
+        total
+      );
+    },
     signal
   );
 
   throwIfAborted(signal);
-  report('Preparing Mosaic import…');
-  return makeMosaicBackup(
+  reportDetail('Preparing Mosaic import…', 90);
+  const prepared = await makeMosaicBackup(
     email,
     session.uid,
     goals,
@@ -778,4 +812,6 @@ export async function prepareTodoMateTransfer(
     now(),
     photoResult
   );
+  reportDetail('Preview ready', 100);
+  return prepared;
 }
