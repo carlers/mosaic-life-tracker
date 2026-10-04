@@ -1083,6 +1083,9 @@ export async function restoreUserData(
     await refreshSync(currentUser.id, POST_RESTORE_SYNC_TIMEOUT_MS);
     assertOwner();
   } catch (error) {
+    // Account changes are ownership failures, not ordinary sync delays. Do not
+    // let an old import report success after the user has switched accounts.
+    assertOwner();
     syncState = 'pending';
     syncError =
       error instanceof Error ? error.message : 'Restored data is still syncing.';
