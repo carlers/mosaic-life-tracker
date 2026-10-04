@@ -43,6 +43,12 @@ export interface AuthContextValue {
    *   if (ok) navigate('/login', { replace: true });
    */
   logout: () => Promise<boolean>;
+  /**
+   * Permanently requests deletion of the authenticated Appwrite account and
+   * all Mosaic-owned server data. The backend requires the exact DELETE
+   * confirmation and derives the target user from the active session.
+   */
+  deleteAccount: (confirmation: string) => Promise<boolean>;
   updateEmail: (newEmail: string, password: string) => Promise<boolean>;
   updatePassword: (
     newPassword: string,

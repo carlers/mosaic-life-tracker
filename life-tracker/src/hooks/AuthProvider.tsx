@@ -54,6 +54,13 @@ function isSessionAlreadyActiveError(error: unknown): boolean {
   );
 }
 
+function isBlockedUserError(error: unknown): boolean {
+  const type = (error as { type?: string } | null)?.type;
+  if (type === "user_blocked") return true;
+  const message = error instanceof Error ? error.message : "";
+  return /user.*blocked|account.*blocked/i.test(message);
+}
+
 class ActiveSessionAccountMismatchError extends Error {
   constructor() {
     super(
@@ -352,17 +359,40 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         return;
       }
       if (isUnauthorizedError(resolveError)) {
-        // Only account.get() is authoritative evidence that the browser's
-        // session has gone away. Invalidate every older auth operation before
-        // publishing the signed-out state.
+        // Account deletion deliberately blocks the Auth user before removing
+        // it. Other signed-in devices can use Appwrite's specific
+        // `user_blocked` error to purge their local copy instead of leaving
+        // deleted-account data stranded on that device.
+        const blocked = isBlockedUserError(resolveError);
+        const cached = blocked ? readCachedUser() : null;
+
         authGenerationRef.current += 1;
         scopeAccountWork(null);
         clearCachedUser();
+        if (blocked) {
+          clearPendingSignup();
+          setPendingSignup(null);
+          broadcastAuth("logout");
+          if (cached?.$id) {
+            void import("../lib/accountDeletionLocal")
+              .then(({ clearDeletedAccountLocalData }) =>
+                clearDeletedAccountLocalData(cached.$id),
+              )
+              .catch((cleanupError) => {
+                console.warn(
+                  "[AuthProvider] Peer-device deleted-account cleanup failed:",
+                  cleanupError,
+                );
+              });
+          }
+        }
         setUser(null);
         setError(
-          sessionExpiredOn401
-            ? "Your session has expired. Please sign in again."
-            : null,
+          blocked
+            ? "This Mosaic account is being deleted."
+            : sessionExpiredOn401
+              ? "Your session has expired. Please sign in again."
+              : null,
         );
       } else {
         // Keep the cached identity/local app. Connectivity now communicates
@@ -682,6 +712,92 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   }, [suspendCurrentAccountWork, verifyLiveSession]);
 
+  const deleteAccount = useCallback(
+    async (confirmation: string): Promise<boolean> => {
+      const deletingUser = user;
+      if (!deletingUser) {
+        setError("No signed-in account to delete.");
+        return false;
+      }
+      if (confirmation !== "DELETE") {
+        setError("Type DELETE to confirm account deletion.");
+        return false;
+      }
+
+      const generation = ++authGenerationRef.current;
+      setError(null);
+      setIsLoading(true);
+      await suspendCurrentAccountWork();
+
+      try {
+        const { requestAccountDeletion } = await import(
+          "../lib/accountDeletion"
+        );
+        await requestAccountDeletion(confirmation);
+
+        // Once the server accepts deletion the account is intentionally frozen
+        // and the operation is irreversible. Local cleanup is therefore
+        // best-effort and must never restore the old sync owner on failure.
+        scopeAccountWork(null);
+        clearCachedUser();
+        clearPendingSignup();
+        broadcastAuth("logout");
+
+        if (
+          isMountedRef.current &&
+          generation === authGenerationRef.current
+        ) {
+          // Unmount account-bound consumers before IndexedDB/cache removal.
+          setPendingSignup(null);
+          setUser(null);
+          setError(null);
+          setIsLoading(false);
+        }
+
+        try {
+          const { clearDeletedAccountLocalData } = await import(
+            "../lib/accountDeletionLocal"
+          );
+          await clearDeletedAccountLocalData(deletingUser.$id);
+        } catch (cleanupError) {
+          console.warn(
+            "[AuthProvider] Deleted-account local cleanup was incomplete:",
+            cleanupError,
+          );
+        }
+        return true;
+      } catch (deleteError: unknown) {
+        if (
+          !isMountedRef.current ||
+          generation !== authGenerationRef.current
+        ) {
+          return false;
+        }
+
+        // The server did not confirm the irreversible acceptance boundary.
+        // Restore this account's normal work scope and allow sync to resume.
+        scopeAccountWork(deletingUser.$id);
+        void import("../db/sync")
+          .then(({ initializeSync }) => initializeSync(deletingUser.$id))
+          .catch((syncError) => {
+            console.warn(
+              "[AuthProvider] Sync restart after failed account deletion failed:",
+              syncError,
+            );
+          });
+
+        setError(
+          deleteError instanceof Error
+            ? deleteError.message
+            : "Could not delete account.",
+        );
+        setIsLoading(false);
+        return false;
+      }
+    },
+    [suspendCurrentAccountWork, user],
+  );
+
   const updateEmail = useCallback(
     async (newEmail: string, password: string): Promise<boolean> => {
       const generation = authGenerationRef.current;
@@ -839,6 +955,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         requestPasswordRecovery,
         completePasswordRecovery,
         logout,
+        deleteAccount,
         updateEmail,
         updatePassword,
         retry,

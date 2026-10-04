@@ -23,6 +23,7 @@ describe('portable Mosaic backend manifest', () => {
       'friendships',
       'profiles',
       'messages',
+      'account_deletions',
     ]);
     expect(MOSAIC_TABLES.map((table) => table.id)).not.toContain('routines');
     expect(MOSAIC_TABLES.map((table) => table.id)).not.toContain('stickers');
@@ -69,7 +70,19 @@ describe('portable Mosaic backend manifest', () => {
       'idx_user_thread_created',
       'idx_user_deleted',
       'idx_thread_created',
+      'idx_sender_id',
+      'idx_recipient_id',
     ]);
+    expect(byId.account_deletions).toMatchObject({
+      permissions: [],
+      rowSecurity: true,
+      enabled: true,
+    });
+    expect(
+      byId.account_deletions.indexes.map(
+        (index: { key: string }) => index.key
+      )
+    ).toEqual(['idx_deletion_user', 'idx_deletion_status']);
   });
 
   it('keeps owner data row-secured and creates the production-equivalent image bucket', () => {

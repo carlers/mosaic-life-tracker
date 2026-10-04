@@ -202,7 +202,7 @@ describe('Mosaic bootstrap operations', () => {
       name: 'Life Tracker',
       enabled: true,
     });
-    expect(services.tablesDB.createTable).toHaveBeenCalledTimes(7);
+    expect(services.tablesDB.createTable).toHaveBeenCalledTimes(8);
     expect(
       services.tablesDB.createTable.mock.calls.map(([input]) => input.tableId)
     ).toEqual([
@@ -213,6 +213,7 @@ describe('Mosaic bootstrap operations', () => {
       'friendships',
       'profiles',
       'messages',
+      'account_deletions',
     ]);
     expect(services.storage.createBucket).toHaveBeenCalledWith(
       expect.objectContaining({ bucketId: 'task_images', fileSecurity: true })
@@ -222,7 +223,12 @@ describe('Mosaic bootstrap operations', () => {
       expect.objectContaining({
         functionId: 'message_action',
         execute: ['users'],
-        scopes: expect.arrayContaining(['rows.write']),
+        scopes: expect.arrayContaining([
+          'rows.write',
+          'users.write',
+          'files.write',
+          'execution.write',
+        ]),
       })
     );
     expect(services.functions.createVariable).toHaveBeenCalledWith(

@@ -42,8 +42,18 @@ describe('recoverable two-Function configuration', () => {
     expect(appApi.execute).toEqual(['users']);
   });
 
-  it('keeps source DR scopes read-only while allowing app-api row writes', () => {
+  it('keeps source DR scopes read-only while granting app-api only its account-erasure writes', () => {
     expect(dr.scopes.every((scope: string) => scope.endsWith('.read'))).toBe(true);
-    expect(appApi.scopes).toContain('rows.write');
+    expect(appApi.scopes).toEqual(
+      expect.arrayContaining([
+        'rows.write',
+        'users.write',
+        'files.read',
+        'files.write',
+        'execution.write',
+      ])
+    );
+    expect(appApi.timeout).toBeGreaterThanOrEqual(120);
+    expect(appApi.schedule).toBe('0 * * * *');
   });
 });

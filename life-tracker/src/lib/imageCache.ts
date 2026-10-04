@@ -200,6 +200,15 @@ export async function deleteCachedImage(fileId: string): Promise<void> {
   await deleteEntries(await openDB(), [fileId]);
 }
 
+export async function clearAllCachedImages(): Promise<void> {
+  const db = await openDB();
+  const tx = db.transaction([BLOB_STORE, METADATA_STORE], 'readwrite');
+  await Promise.all([
+    requestResult(tx.objectStore(BLOB_STORE).clear()),
+    requestResult(tx.objectStore(METADATA_STORE).clear()),
+  ]);
+}
+
 export function __resetImageCacheForTests(): void {
   dbPromise = null;
 }

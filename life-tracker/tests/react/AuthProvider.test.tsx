@@ -14,6 +14,8 @@ const waitForDatabaseReadyMock = vi.hoisted(() => vi.fn());
 const fetchMyProfileMock = vi.hoisted(() => vi.fn());
 const createOrUpdateProfileMock = vi.hoisted(() => vi.fn());
 const writeCachedOwnProfileMock = vi.hoisted(() => vi.fn());
+const requestAccountDeletionMock = vi.hoisted(() => vi.fn());
+const clearDeletedAccountLocalDataMock = vi.hoisted(() => vi.fn());
 
 const accountRef = vi.hoisted(() => ({
   get: vi.fn(),
@@ -44,6 +46,12 @@ vi.mock("../../src/lib/social", () => ({
 }));
 vi.mock("../../src/lib/profileCache", () => ({
   writeCachedOwnProfile: writeCachedOwnProfileMock,
+}));
+vi.mock("../../src/lib/accountDeletion", () => ({
+  requestAccountDeletion: requestAccountDeletionMock,
+}));
+vi.mock("../../src/lib/accountDeletionLocal", () => ({
+  clearDeletedAccountLocalData: clearDeletedAccountLocalDataMock,
 }));
 
 import { AuthProvider } from "../../src/hooks/AuthProvider";
@@ -124,6 +132,11 @@ describe("AuthProvider offline auth gate", () => {
       is_searchable: true,
     }));
     writeCachedOwnProfileMock.mockReset();
+    requestAccountDeletionMock.mockReset().mockResolvedValue({
+      accepted: true,
+      deletionPending: true,
+    });
+    clearDeletedAccountLocalDataMock.mockReset().mockResolvedValue(undefined);
     Object.defineProperty(navigator, "onLine", {
       configurable: true,
       value: true,
@@ -359,6 +372,45 @@ describe("AuthProvider offline auth gate", () => {
     expect(result.current.user).toBeNull();
     expect(localStorage.getItem(LAST_KNOWN_USER_KEY)).toBeNull();
     expect(initializeSyncMock).not.toHaveBeenCalled();
+  });
+
+  it("finalizes an accepted account deletion without calling normal logout", async () => {
+    localStorage.setItem(LAST_KNOWN_USER_KEY, JSON.stringify(makeUser()));
+    accountRef.get.mockResolvedValue(makeUser());
+
+    const { result } = renderHook(() => useAuth(), { wrapper });
+    await waitFor(() => expect(result.current.user?.$id).toBe("user_1"));
+
+    await act(async () => {
+      expect(await result.current.deleteAccount("DELETE")).toBe(true);
+    });
+
+    expect(suspendSyncOwnerMock).toHaveBeenCalledWith("user_1");
+    expect(requestAccountDeletionMock).toHaveBeenCalledWith("DELETE");
+    expect(clearDeletedAccountLocalDataMock).toHaveBeenCalledWith("user_1");
+    expect(result.current.user).toBeNull();
+    expect(localStorage.getItem(LAST_KNOWN_USER_KEY)).toBeNull();
+    expect(accountRef.deleteSession).not.toHaveBeenCalled();
+  });
+
+  it("restores the account work scope when deletion is not accepted", async () => {
+    localStorage.setItem(LAST_KNOWN_USER_KEY, JSON.stringify(makeUser()));
+    accountRef.get.mockResolvedValue(makeUser());
+    requestAccountDeletionMock.mockRejectedValueOnce(
+      new Error("Could not persist deletion marker"),
+    );
+
+    const { result } = renderHook(() => useAuth(), { wrapper });
+    await waitFor(() => expect(result.current.user?.$id).toBe("user_1"));
+
+    await act(async () => {
+      expect(await result.current.deleteAccount("DELETE")).toBe(false);
+    });
+
+    expect(result.current.user?.$id).toBe("user_1");
+    expect(result.current.error).toMatch(/deletion marker/i);
+    expect(clearDeletedAccountLocalDataMock).not.toHaveBeenCalled();
+    expect(initializeSyncMock).toHaveBeenCalledWith("user_1");
   });
 
   it("keeps legacy login usable even when no social profile exists yet", async () => {
