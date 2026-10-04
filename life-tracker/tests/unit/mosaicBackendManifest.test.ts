@@ -78,6 +78,20 @@ describe('portable Mosaic backend manifest', () => {
       rowSecurity: true,
       enabled: true,
     });
+    expect(byId.account_deletions.columns).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          key: 'attempts',
+          type: 'integer',
+          required: true,
+        }),
+      ])
+    );
+    expect(
+      byId.account_deletions.columns.find(
+        (column: { key: string }) => column.key === 'attempts'
+      )
+    ).not.toHaveProperty('default');
     expect(
       byId.account_deletions.indexes.map(
         (index: { key: string }) => index.key
