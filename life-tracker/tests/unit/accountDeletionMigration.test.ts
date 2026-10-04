@@ -43,7 +43,9 @@ describe('account deletion backend migration', () => {
           '/tablesdb/life_tracker/tables/account_deletions',
           {
             $id: deletionTable.id,
+            permissions: deletionTable.permissions,
             rowSecurity: deletionTable.rowSecurity,
+            enabled: deletionTable.enabled,
             columns: deletionTable.columns,
           }
         );
@@ -102,9 +104,46 @@ describe('account deletion backend migration', () => {
     expect(() =>
       assertCompatibleDeletionTable({
         $id: 'account_deletions',
+        permissions: [],
         rowSecurity: false,
+        enabled: true,
         columns: deletionTable.columns,
       })
     ).toThrow(/does not match/);
+
+    expect(() =>
+      assertCompatibleDeletionTable({
+        $id: 'account_deletions',
+        permissions: ['read("users")'],
+        rowSecurity: true,
+        enabled: true,
+        columns: deletionTable.columns,
+      })
+    ).toThrow(/does not match/);
+
+    expect(() =>
+      assertCompatibleDeletionTable({
+        $id: 'account_deletions',
+        permissions: [],
+        rowSecurity: true,
+        enabled: true,
+        columns: deletionTable.columns.map((column: any) =>
+          column.key === 'user_id' ? { ...column, size: 36 } : column
+        ),
+      })
+    ).toThrow(/user_id.*incompatible/i);
+
+    expect(() =>
+      assertCompatibleDeletionTable({
+        $id: 'account_deletions',
+        permissions: [],
+        rowSecurity: true,
+        enabled: true,
+        columns: [
+          ...deletionTable.columns,
+          { key: 'unexpected', type: 'varchar', size: 50, required: true },
+        ],
+      })
+    ).toThrow(/unexpected required column/i);
   });
 });

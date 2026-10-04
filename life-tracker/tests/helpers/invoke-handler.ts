@@ -1,4 +1,5 @@
 import { vi } from 'vitest';
+import { createHash } from 'node:crypto';
 import { createRequire } from 'node:module';
 
 export interface MockDb {
@@ -35,6 +36,7 @@ export interface InvokeInput {
   mockUsers?: MockUsers;
   mockFunctions?: MockFunctions;
   trigger?: 'http' | 'schedule' | 'event';
+  deletionPendingUserIds?: string[];
 }
 
 export interface InvokeResult {
@@ -53,11 +55,15 @@ const state: {
   storage: MockStorage | null;
   users: MockUsers | null;
   functions: MockFunctions | null;
+  deletionPendingUserIds: Set<string>;
+  bypassDeletionLookup: boolean;
 } = {
   current: null,
   storage: null,
   users: null,
   functions: null,
+  deletionPendingUserIds: new Set(),
+  bypassDeletionLookup: false,
 };
 
 class MockClient {
@@ -123,7 +129,31 @@ class MockTablesDB {
       );
     }
     this.listRows = m.listRows;
-    this.getRow = m.getRow;
+    this.getRow = (args: any) => {
+      if (
+        args?.tableId === 'account_deletions' &&
+        !state.bypassDeletionLookup
+      ) {
+        for (const userId of state.deletionPendingUserIds) {
+          const rowId =
+            'del_' +
+            createHash('sha256').update(userId).digest('hex').slice(0, 32);
+          if (args.rowId === rowId) {
+            return Promise.resolve({
+              $id: rowId,
+              user_id: userId,
+              status: 'pending',
+              phase: 'queued',
+              attempts: 0,
+            });
+          }
+        }
+        return Promise.reject(
+          Object.assign(new Error('Not found'), { code: 404 })
+        );
+      }
+      return m.getRow(args);
+    };
     this.upsertRow = m.upsertRow;
     this.updateRow = m.updateRow;
     this.deleteRow = m.deleteRow;
@@ -240,6 +270,10 @@ export async function invoke(input: InvokeInput): Promise<InvokeResult> {
   state.storage = input.mockStorage ?? makeMockStorage();
   state.users = input.mockUsers ?? makeMockUsers();
   state.functions = input.mockFunctions ?? makeMockFunctions();
+  state.deletionPendingUserIds = new Set(input.deletionPendingUserIds ?? []);
+  state.bypassDeletionLookup =
+    input.body?.action === 'delete_account' ||
+    input.body?.action === 'resume_account_deletion';
 
   const log = vi.fn();
   const error = vi.fn();

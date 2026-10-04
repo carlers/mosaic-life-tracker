@@ -78,6 +78,26 @@ export function encryptBuffer(
   ]);
 }
 
+export function readEnvelopeKeyVersion(input) {
+  const envelope = Buffer.isBuffer(input) ? input : Buffer.from(input);
+  const minimum = MAGIC.length + 1 + 2 + IV_LENGTH + TAG_LENGTH;
+  if (
+    envelope.length < minimum ||
+    !envelope.subarray(0, MAGIC.length).equals(MAGIC)
+  ) {
+    throw new Error('Invalid Mosaic DR envelope');
+  }
+  let offset = MAGIC.length + 1;
+  const keyVersionLength = envelope.readUInt16BE(offset);
+  offset += 2;
+  if (offset + keyVersionLength + IV_LENGTH + TAG_LENGTH > envelope.length) {
+    throw new Error('Truncated Mosaic DR envelope');
+  }
+  return envelope
+    .subarray(offset, offset + keyVersionLength)
+    .toString('utf8');
+}
+
 export function decryptBuffer(input, { key, aad }) {
   const envelope = Buffer.isBuffer(input) ? input : Buffer.from(input);
   if (!Buffer.isBuffer(key) || key.length !== 32) {

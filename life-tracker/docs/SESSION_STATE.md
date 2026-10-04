@@ -1,37 +1,49 @@
 # Session checkpoint
 
 Updated: 2026-10-04
-Current task: Finish production rollout of permanent account erasure and harden the DR privacy marker against object-lock retries.
-Status: Permanent account erasure is on stable Preview `fix/new-user-onboarding-hardening` at `6c8219a`; focused/full canonical verification are green and the exact-SHA Vercel Preview is READY. Production Appwrite schema and both Function deployments are live. A rollout check exposed that the deterministic R2 privacy-deletion marker was not retry-idempotent under object lock; `chatgpt/privacy-marker-idempotency` now authenticates/reuses an existing marker instead of overwriting it.
-Next action: Publish the marker-idempotency repair as one coherent focused-verification commit, repair failures if any, squash into stable Preview, rerun canonical acceptance, then redeploy only `dr-backup`. After re-read, use a deliberately disposable Mosaic account for the remaining end-to-end deletion acceptance. Promotion to `dev` remains user-controlled.
-Blockers: The accidental rollout probe wrote one privacy-deletion marker for a non-production Auth ID (`6a96e813038ce6b66315`). No Mosaic Auth user/profile was associated with that ID and the deletion-job table is empty. Because the DR prefix is object-locked, that inert marker may remain physically undeletable until the lock window expires; restore filtering only matters if that exact custom user ID exists in a snapshot/target.
+Current task: Harden permanent account erasure against ambiguous client responses, multi-device races, stale peer resurrection, worker overlap, malformed legacy data, and DR key rotation.
+Status: Implementation and regression coverage are on task branch `chatgpt/account-erasure-hardening-v2`, based from stable Preview `fix/new-user-onboarding-hardening` at `4f4b0f1`. Focused verification is requested on the current checkpoint; production Appwrite/Functions have not been changed by this hardening pass.
+Next action: Run the focused task gate, investigate/fix every failure, then squash the verified task into stable Preview. Run the stable branch canonical gate + exact-SHA Vercel Preview. Only after those are green, redeploy the changed `message-action` and `dr-backup` Functions, re-read live configuration, and perform destructive acceptance only with a purpose-built disposable account. Promotion to `dev` remains user-controlled.
+Blockers: None known before focused CI. The old accidental non-production privacy marker for Auth ID `6a96e813038ce6b66315` may remain object-locked; it is unrelated to a real Mosaic user.
 
-## Results
+## Hardening implemented on the task branch
 
-- Settings exposes **Delete Account** separately from **Clear Local Data** and requires exact typed confirmation `DELETE`.
-- A server-only `account_deletions` row is the irreversible acceptance boundary. The worker hides the profile, disables Auth, revokes sessions, hard-deletes owned/cross-user live data and owned Storage files, scrubs supported peer references, verifies no live trace, deletes Auth last, then removes the job.
-- DR writes encrypted privacy-deletion markers outside snapshot generations; restore authenticates them and prevents an erased account from being recreated from older immutable snapshots.
-- Production schema rollout is complete:
-  - `account_deletions` exists with server-only permissions/row security and both required indexes available;
-  - `messages.idx_sender_id` and `messages.idx_recipient_id` are available.
-- The first schema attempt failed atomically because Appwrite rejects a default on a required column. The manifest now keeps `attempts` required without a default; that repair passed focused and full canonical verification before the successful rollout.
-- Production `dr-backup` is active on deployment `6ac210864f66010873e4` with its original read-only Appwrite scopes, secrets, daily schedule, 900s timeout, and new privacy-marker route.
-- Production `message-action` is active on deployment `6ac2111928b0e7b709fa`; its code/schedule/variables are live. Current Appwrite documentation confirms server-side session deletion also requires `sessions.write`, so this repair adds that ninth execution-key scope before final acceptance.
-- A privileged operator execution used by rollout unexpectedly inherited an Appwrite user header, so it was not a valid anonymous negative test. That inherited ID does not exist in Mosaic production Auth and had no profile. Its transient deletion job is gone and `account_deletions` is empty; no real Mosaic login was deleted or disabled.
-- That probe exposed the important retry bug: the first DR marker PUT succeeded, but the worker's retry attempted to overwrite the same deterministic object and R2 object lock returned 409. The repair now:
-  - HEADs the deterministic marker first;
-  - decrypts/authenticates and validates an existing marker for the same user before reuse;
-  - handles concurrent first-write races by authenticating the winning object;
-  - fails closed if the existing marker is invalid rather than allowing deletion to proceed.
+- The durable deletion job is now a pre-pivot intent/write fence. New jobs begin `preparing`; destructive Appwrite work starts only after the deterministic encrypted DR privacy marker is successfully persisted/authenticated.
+- Browser deletion intent is persisted before dispatch. Timeout/network/5xx ambiguity never restores the old account work scope or sync owner. A matching intent blocks cached-account hydration and retries deletion before normal login/sync can resume.
+- Same-browser tabs receive `deletion_pending` immediately and suspend the deleting account. `deletion_accepted` triggers account-scoped local cleanup.
+- Deleted-account local cleanup no longer removes the shared RxDB. It physically removes only rows whose `userId` matches the erased account across tasks/categories/diary/settings/friendships/messages/syncMeta.
+- Worker deletes are duplicate-safe for already-missing rows/files/users; duplicate profile rows no longer permanently trap deletion.
+- Surviving peer task-reaction and friend-carousel scrubs use Appwrite transactions with bounded conflict retry. Malformed structured metadata containing the erased ID is cleared privacy-first.
+- Trusted `message-action` writes involving any user with a deletion job reject while erasure is in progress.
+- Stale peer `friend_carousel_prefs` and task reactions are sanitized against the current accepted friendship graph before replication push, preventing an offline peer from reintroducing an erased former-friend ID.
+- The worker verifies before Auth removal, removes Auth, then performs a post-Auth cleanup/verification while the durable job still fences trusted writes. This catches late direct writes/uploads that were already in flight at the freeze boundary.
+- DR privacy-marker retries can authenticate old key versions through `DR_ENCRYPTION_KEYS_JSON`; missing escrowed old keys fail closed.
+- Account-deletion schema migration validation now checks server-only permissions, enabled/row-security state, detailed column compatibility, and unexpected required columns.
+- `infrastructure/account-erasure-policy.mjs` classifies every active portable table/bucket; tests enforce both manifest coverage and parity with the worker's owned/cross-reference lists.
+- Authoritative architecture/runbook docs are now `PROJECT_REFERENCE.md §23.8` and `ACCOUNT_ERASURE.md`.
 
-## Verification
+## Verification added/updated
 
-- Main account-erasure task focused gate: passed.
-- Stable Preview `28c5d5b`: full canonical acceptance passed; exact-SHA Vercel Preview READY.
-- Appwrite schema compatibility repair focused gate: passed.
-- Stable Preview `6c8219a`: full canonical acceptance passed; exact-SHA Vercel Preview READY.
-- Production Appwrite schema/index migration: applied and re-read available.
-- Production Function builds/configuration: both deployments built READY, activated, and re-read.
-- DR marker idempotency automated coverage: added. The first focused run exposed an R2 test-double metadata omission; that fixture was repaired and verification was re-requested.
-- Appwrite session-revocation scope parity: `sessions.write` added to both checked-in Function manifests and regression coverage; live Function config update waits for CI green.
-- Remaining manual acceptance: use a disposable Mosaic account on hosted Preview/production backend, confirm immediate sign-out, cross-device session invalidation, live row/file cleanup, empty durable-job table after completion, and DR marker retry safety. Do not use an existing personal/friend account.
+- Provider regressions: accepted deletion, ambiguous timeout, pre-pivot pending marker, persisted-intent reload retry, sibling-tab freeze.
+- Local-data regression: deleting account A preserves account B across all shared RxDB collections.
+- Handler regressions: pre-pivot marker failure performs no destructive work, trusted-write fence, concurrent-row disappearance, malformed structured references, late Storage file after Auth deletion.
+- DR regressions: immutable marker reuse across key rotation and fail-closed behavior when the old key is absent.
+- Migration regressions: table permissions, column size, and unexpected required-column drift.
+- Replication regressions: stale deleted-friend IDs are stripped from carousel preferences and task reactions before push.
+- Backend manifest regressions: every portable resource has an erasure classification and worker coverage stays aligned.
+
+## Remaining acceptance sequence
+
+1. Focused task-branch CI.
+2. Squash into `fix/new-user-onboarding-hardening`.
+3. Stable full canonical gate and exact-SHA Vercel Preview.
+4. Redeploy only changed backend Functions/config after green repository acceptance; schema shape itself is unchanged.
+5. Disposable-account E2E: immediate local sign-out, connected second-device/session invalidation, owned/cross-user rows/files absent, peer structured refs scrubbed, Auth user absent, deletion job absent after completion, privacy marker still authenticates on retry.
+6. Keep the documented limitation explicit: a physically disconnected third-party device cannot be remotely wiped; a later generic session 401 alone is not proof of deletion.
+
+## Production state before this hardening rollout
+
+- Existing production `account_deletions` schema/indexes are live and server-only.
+- Existing production `message-action` and `dr-backup` deployments implement the earlier erasure protocol and DR marker route.
+- Existing marker idempotency/object-lock repair at stable `4f4b0f1` is the last fully accepted tree.
+- This hardening task has intentionally made no production backend mutation yet.

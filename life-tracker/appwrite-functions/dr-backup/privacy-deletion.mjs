@@ -5,7 +5,11 @@ import {
   readBackupConfig,
   stringifyBackupJson,
 } from './backup.mjs';
-import { decryptBuffer, sha256Hex } from './crypto.mjs';
+import {
+  decryptBuffer,
+  readEnvelopeKeyVersion,
+  sha256Hex,
+} from './crypto.mjs';
 import { createR2Client } from './r2.mjs';
 
 const USER_ID_RE = /^[a-zA-Z0-9][a-zA-Z0-9._-]{0,35}$/;
@@ -17,8 +21,17 @@ export function privacyDeletionKey(prefix, userId) {
 
 async function verifyExistingPrivacyDeletion(r2, key, userId, config) {
   const encrypted = await r2.getObject(key);
+  const keyVersion = readEnvelopeKeyVersion(encrypted);
+  const verificationKey =
+    config.encryptionKeys?.get?.(keyVersion) ||
+    (keyVersion === config.keyVersion ? config.encryptionKey : null);
+  if (!verificationKey) {
+    throw new Error(
+      `Missing DR encryption key for privacy marker version ${keyVersion}`
+    );
+  }
   const decrypted = decryptBuffer(encrypted, {
-    key: config.encryptionKey,
+    key: verificationKey,
     aad: key,
   });
   const marker = parseBackupJson(decrypted.plain.toString('utf8'));

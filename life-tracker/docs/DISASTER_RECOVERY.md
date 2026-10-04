@@ -103,7 +103,7 @@ Required runtime secrets are:
 - `R2_BUCKET`
 - `DR_ENCRYPTION_KEY_B64`
 
-`DR_KEY_VERSION`, `DR_PREFIX`, retention values, and optional `R2_ENDPOINT` are non-secret configuration. Leave `R2_ENDPOINT` unset for normal/location-hint buckets. For a Cloudflare jurisdiction bucket, set the matching account endpoint (for example `https://<ACCOUNT_ID>.eu.r2.cloudflarestorage.com`). Mosaic rejects endpoint hosts outside Cloudflare R2 for that account.
+`DR_KEY_VERSION`, `DR_PREFIX`, retention values, and optional `R2_ENDPOINT` are non-secret configuration. During encryption-key rotation, `DR_ENCRYPTION_KEYS_JSON` may contain the version→base64 keyring required to authenticate older retained snapshots/blobs/privacy-deletion markers; the current `DR_ENCRYPTION_KEY_B64` and `DR_KEY_VERSION` still own all new writes. Do not remove an older key while any retained immutable object still declares that version. Leave `R2_ENDPOINT` unset for normal/location-hint buckets. For a Cloudflare jurisdiction bucket, set the matching account endpoint (for example `https://<ACCOUNT_ID>.eu.r2.cloudflarestorage.com`). Mosaic rejects endpoint hosts outside Cloudflare R2 for that account.
 
 The encryption key and R2 recovery credentials must have an independent copy outside the
 Appwrite project (password manager/offline recovery record). An Appwrite-only copy is not a

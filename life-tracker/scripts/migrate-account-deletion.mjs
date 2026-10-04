@@ -91,10 +91,22 @@ export function assertCompatibleIndex(actual, expected, label) {
   }
 }
 
+function comparableColumnValue(value) {
+  return value === undefined || value === null ? null : value;
+}
+
 export function assertCompatibleDeletionTable(actual) {
+  const permissions = Array.isArray(actual?.$permissions)
+    ? actual.$permissions
+    : Array.isArray(actual?.permissions)
+      ? actual.permissions
+      : [];
+
   if (
     actual?.$id !== ACCOUNT_DELETIONS.id ||
-    actual?.rowSecurity !== ACCOUNT_DELETIONS.rowSecurity
+    actual?.rowSecurity !== ACCOUNT_DELETIONS.rowSecurity ||
+    actual?.enabled === false ||
+    !sameArray(permissions, ACCOUNT_DELETIONS.permissions)
   ) {
     throw new Error(
       'Existing account_deletions table does not match the Mosaic manifest.'
@@ -106,13 +118,41 @@ export function assertCompatibleDeletionTable(actual) {
   );
   for (const expected of ACCOUNT_DELETIONS.columns) {
     const current = columns.get(expected.key);
-    if (
-      !current ||
-      current.type !== expected.type ||
-      Boolean(current.required) !== Boolean(expected.required)
-    ) {
+    if (!current) {
       throw new Error(
         `Existing account_deletions column ${expected.key} is incompatible.`
+      );
+    }
+
+    for (const key of [
+      'type',
+      'required',
+      'size',
+      'default',
+      'array',
+      'encrypt',
+      'min',
+      'max',
+    ]) {
+      if (
+        Object.prototype.hasOwnProperty.call(expected, key) &&
+        comparableColumnValue(current[key]) !==
+          comparableColumnValue(expected[key])
+      ) {
+        throw new Error(
+          `Existing account_deletions column ${expected.key} is incompatible.`
+        );
+      }
+    }
+  }
+
+  const expectedKeys = new Set(
+    ACCOUNT_DELETIONS.columns.map((column) => column.key)
+  );
+  for (const current of actual.columns || []) {
+    if (!expectedKeys.has(current.key) && current.required) {
+      throw new Error(
+        `Existing account_deletions has unexpected required column ${current.key}.`
       );
     }
   }

@@ -89,6 +89,69 @@ describe('DR privacy deletion marker durability', () => {
     );
   });
 
+  it('reuses an immutable privacy marker after the active DR key rotates', async () => {
+    const r2 = makeR2();
+    const v1Key = Buffer.alloc(32, 7);
+    const v2Key = Buffer.alloc(32, 8);
+    await recordPrivacyDeletion('alice', {
+      config: {
+        ...config,
+        encryptionKey: v1Key,
+        keyVersion: 'v1',
+        encryptionKeys: new Map([['v1', v1Key]]),
+      } as any,
+      r2: r2 as any,
+      now: new Date('2026-10-04T00:00:00.000Z'),
+    });
+
+    const retried = await recordPrivacyDeletion('alice', {
+      config: {
+        ...config,
+        encryptionKey: v2Key,
+        keyVersion: 'v2',
+        encryptionKeys: new Map([
+          ['v1', v1Key],
+          ['v2', v2Key],
+        ]),
+      } as any,
+      r2: r2 as any,
+      now: new Date('2026-10-04T01:00:00.000Z'),
+    });
+
+    expect(retried).toMatchObject({
+      ok: true,
+      reused: true,
+      keyVersion: 'v1',
+    });
+    expect(r2.putObject).toHaveBeenCalledTimes(1);
+  });
+
+  it('fails closed after key rotation when the marker key is not escrowed', async () => {
+    const r2 = makeR2();
+    const v1Key = Buffer.alloc(32, 7);
+    const v2Key = Buffer.alloc(32, 8);
+    await recordPrivacyDeletion('alice', {
+      config: {
+        ...config,
+        encryptionKey: v1Key,
+        keyVersion: 'v1',
+      } as any,
+      r2: r2 as any,
+    });
+
+    await expect(
+      recordPrivacyDeletion('alice', {
+        config: {
+          ...config,
+          encryptionKey: v2Key,
+          keyVersion: 'v2',
+          encryptionKeys: new Map([['v2', v2Key]]),
+        } as any,
+        r2: r2 as any,
+      })
+    ).rejects.toThrow(/Missing DR encryption key/i);
+  });
+
   it('fails closed when an existing deterministic marker cannot be authenticated', async () => {
     const r2 = makeR2();
     const key = privacyDeletionKey(config.prefix, 'alice');

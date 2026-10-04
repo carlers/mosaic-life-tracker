@@ -63,6 +63,7 @@ import {
 } from "../../src/lib/connectivity";
 
 const LAST_KNOWN_USER_KEY = "mosaic_last_known_user";
+const ACCOUNT_DELETION_INTENT_KEY = "mosaic_account_deletion_intent_v1";
 
 function makeUser(
   overrides: Partial<Models.User<Models.Preferences>> = {},
@@ -393,24 +394,100 @@ describe("AuthProvider offline auth gate", () => {
     expect(accountRef.deleteSession).not.toHaveBeenCalled();
   });
 
-  it("restores the account work scope when deletion is not accepted", async () => {
+  it("keeps account work frozen when the deletion response is ambiguous", async () => {
     localStorage.setItem(LAST_KNOWN_USER_KEY, JSON.stringify(makeUser()));
     accountRef.get.mockResolvedValue(makeUser());
     requestAccountDeletionMock.mockRejectedValueOnce(
-      new Error("Could not persist deletion marker"),
+      new Error("Function request timed out"),
     );
+
+    const { result } = renderHook(() => useAuth(), { wrapper });
+    await waitFor(() => expect(result.current.user?.$id).toBe("user_1"));
+    initializeSyncMock.mockClear();
+
+    await act(async () => {
+      expect(await result.current.deleteAccount("DELETE")).toBe(true);
+    });
+
+    expect(result.current.user).toBeNull();
+    expect(result.current.error).toMatch(/deletion is still pending/i);
+    expect(clearDeletedAccountLocalDataMock).not.toHaveBeenCalled();
+    expect(initializeSyncMock).not.toHaveBeenCalled();
+    expect(
+      JSON.parse(localStorage.getItem(ACCOUNT_DELETION_INTENT_KEY) as string)
+        .userId,
+    ).toBe("user_1");
+  });
+
+  it("keeps a pre-pivot server deletion request frozen without erasing local rows", async () => {
+    localStorage.setItem(LAST_KNOWN_USER_KEY, JSON.stringify(makeUser()));
+    accountRef.get.mockResolvedValue(makeUser());
+    requestAccountDeletionMock.mockResolvedValueOnce({
+      accepted: false,
+      deletionPending: true,
+    });
 
     const { result } = renderHook(() => useAuth(), { wrapper });
     await waitFor(() => expect(result.current.user?.$id).toBe("user_1"));
 
     await act(async () => {
-      expect(await result.current.deleteAccount("DELETE")).toBe(false);
+      expect(await result.current.deleteAccount("DELETE")).toBe(true);
     });
 
-    expect(result.current.user?.$id).toBe("user_1");
-    expect(result.current.error).toMatch(/deletion marker/i);
+    expect(result.current.user).toBeNull();
+    expect(result.current.error).toMatch(/privacy marker is available/i);
     expect(clearDeletedAccountLocalDataMock).not.toHaveBeenCalled();
-    expect(initializeSyncMock).toHaveBeenCalledWith("user_1");
+    expect(localStorage.getItem(ACCOUNT_DELETION_INTENT_KEY)).not.toBeNull();
+  });
+
+  it("does not hydrate a cached account with a persisted deletion intent and retries it live", async () => {
+    const cached = makeUser();
+    localStorage.setItem(LAST_KNOWN_USER_KEY, JSON.stringify(cached));
+    localStorage.setItem(
+      ACCOUNT_DELETION_INTENT_KEY,
+      JSON.stringify({
+        userId: cached.$id,
+        startedAt: "2026-10-04T00:00:00.000Z",
+      }),
+    );
+    accountRef.get.mockReset().mockResolvedValueOnce(cached);
+
+    const { result } = renderHook(() => useAuth(), { wrapper });
+
+    expect(result.current.user).toBeNull();
+    await waitFor(() =>
+      expect(requestAccountDeletionMock).toHaveBeenCalledWith("DELETE"),
+    );
+    await waitFor(() =>
+      expect(clearDeletedAccountLocalDataMock).toHaveBeenCalledWith("user_1"),
+    );
+    expect(localStorage.getItem(ACCOUNT_DELETION_INTENT_KEY)).toBeNull();
+  });
+
+  it("freezes another tab immediately when account deletion starts", async () => {
+    const cached = makeUser();
+    localStorage.setItem(LAST_KNOWN_USER_KEY, JSON.stringify(cached));
+    accountRef.get.mockResolvedValue(cached);
+
+    const { result } = renderHook(() => useAuth(), { wrapper });
+    await waitFor(() => expect(result.current.user?.$id).toBe("user_1"));
+
+    act(() => {
+      window.dispatchEvent(
+        new StorageEvent("storage", {
+          key: "mosaic_auth_broadcast",
+          newValue: JSON.stringify({
+            type: "deletion_pending",
+            userId: "user_1",
+            at: Date.now(),
+          }),
+        }),
+      );
+    });
+
+    await waitFor(() => expect(result.current.user).toBeNull());
+    expect(suspendSyncOwnerMock).toHaveBeenCalledWith("user_1");
+    expect(clearDeletedAccountLocalDataMock).not.toHaveBeenCalled();
   });
 
   it("keeps legacy login usable even when no social profile exists yet", async () => {
