@@ -5,6 +5,7 @@ import { guardedTablesDB } from './sdk';
 import { APPWRITE_DATABASE_ID, APPWRITE_TABLES } from './appwriteConfig';
 import { fromAppwriteFormat } from './syncMapping';
 import type { FriendshipDocument } from '../db/schema';
+import { assertRemoteRowsOwnedBy } from '../db/replicationOwnership';
 
 const lwt = (doc: unknown): number => (doc as { _meta?: { lwt?: number } })._meta?.lwt ?? 0;
 
@@ -21,8 +22,12 @@ export async function syncFriendships(userId: string): Promise<void> {
     const result = await guardedTablesDB.listRows({ databaseId: APPWRITE_DATABASE_ID,
       tableId: APPWRITE_TABLES.friendships, queries: [Query.equal('user_id', userId),
         Query.orderAsc('$id'), Query.limit(100), ...(cursor ? [Query.cursorAfter(cursor)] : [])], total: false });
+    assertRemoteRowsOwnedBy(
+      result.rows as unknown as Record<string, unknown>[],
+      userId,
+      'Friendship stale recovery'
+    );
     for (const row of result.rows) {
-      if ((row as unknown as Record<string, unknown>).user_id !== userId) continue;
       seen.add(row.$id);
       const incoming = fromAppwriteFormat(row, 'friendships') as unknown as FriendshipDocument;
       const current = await collection.findOne(row.$id).exec();
