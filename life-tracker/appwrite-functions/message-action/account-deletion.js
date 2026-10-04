@@ -557,6 +557,12 @@ async function processDeletionJob({
     if (!isNotFound(error)) throw error;
   }
 
+  await updateJob(db, jobId, { phase: 'post_auth_reconcile' });
+  await new Promise((resolve) => setTimeout(resolve, 250));
+  await cleanupDeletionData({ db, storage, userId });
+  await updateJob(db, jobId, { phase: 'post_auth_verify' });
+  await verifyNoLiveTrace({ db, storage, userId });
+
   try {
     await db.deleteRow({
       databaseId: DATABASE_ID,
