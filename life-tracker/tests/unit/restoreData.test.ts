@@ -140,7 +140,47 @@ describe('backup restore', () => {
     expect(result.restored.tasks).toBe(count);
     expect(state.rows.tasks.size).toBe(count);
     expect(result.syncState).toBe('synced');
+    expect(state.refreshSync.mock.calls[1]?.[1]).toBeGreaterThan(90_000);
   }, 15_000);
+
+  it('reports monotonic structured progress through local apply and final sync', async () => {
+    state.refreshSync.mockImplementation(async (_userId, _timeout, options) => {
+      options?.onProgress?.({
+        completed: 3,
+        total: 6,
+        percent: 50,
+        label: '3 of 6 data groups synced',
+      });
+      return {
+        status: {
+          isSyncing: false,
+          lastSync: new Date().toISOString(),
+          errors: [],
+        },
+        startedAt: Date.now() - 1_000,
+      };
+    });
+    const details: Array<{ message: string; percent: number }> = [];
+    const file = jsonBackup({ data: {
+      tasks: [
+        { id: 'progress_1', title: 'One', completed: false, categoryId: '', date: '2026-09-20', createdAt: '2026-09-20T00:00:00.000Z', updatedAt: '2026-09-20T00:00:00.000Z', userId: 'user_A', isDeleted: false, visibility: 'private' },
+        { id: 'progress_2', title: 'Two', completed: false, categoryId: '', date: '2026-09-20', createdAt: '2026-09-20T00:00:00.000Z', updatedAt: '2026-09-20T00:00:00.000Z', userId: 'user_A', isDeleted: false, visibility: 'private' },
+      ],
+      categories: [], diary: [], settings: [], friendships: []
+    } });
+
+    await restoreUserData(file, currentUser, {
+      mode: 'merge',
+      onProgressDetail: (value) => details.push(value),
+    });
+
+    expect(details.some((value) => /Importing data \(1\/2\)/.test(value.message))).toBe(true);
+    expect(details.some((value) => /Syncing to cloud/.test(value.message))).toBe(true);
+    expect(details.at(-1)).toMatchObject({ message: 'Import synced', percent: 100 });
+    for (let index = 1; index < details.length; index += 1) {
+      expect(details[index].percent).toBeGreaterThanOrEqual(details[index - 1].percent);
+    }
+  });
 
   it('reruns a 1000-task interrupted-style import idempotently', async () => {
     const tasks = Array.from({ length: 1000 }, (_, index) => ({
