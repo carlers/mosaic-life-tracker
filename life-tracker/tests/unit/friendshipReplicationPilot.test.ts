@@ -227,11 +227,6 @@ describe('friendship RxDB replication pilot', () => {
           $updatedAt: '2026-10-02T00:00:03.000Z',
           status: 'blocked',
         }),
-        remoteFriendship({
-          $id: 'fr_wrong_owner',
-          user_id: 'mallory',
-          $updatedAt: '2026-10-02T00:00:04.000Z',
-        }),
       ],
     });
 

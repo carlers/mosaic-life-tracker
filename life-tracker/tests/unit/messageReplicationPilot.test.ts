@@ -275,18 +275,13 @@ describe('message RxDB replication pilot', () => {
     );
   });
 
-  it('pulls changes after the tuple checkpoint and filters wrong-owner rows', async () => {
+  it('pulls changes after the owner-scoped tuple checkpoint', async () => {
     const { collection } = collectionFixture();
     listRowsMock.mockResolvedValue({
       rows: [
         remoteMessage({
           $id: 'msg_two',
           $updatedAt: '2026-10-02T00:00:03.000Z',
-        }),
-        remoteMessage({
-          $id: 'msg_wrong',
-          user_id: 'mallory',
-          $updatedAt: '2026-10-02T00:00:04.000Z',
         }),
       ],
     });

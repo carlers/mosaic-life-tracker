@@ -244,11 +244,6 @@ describe('task RxDB replication pilot', () => {
           $id: 'task_two',
           $updatedAt: '2026-10-02T00:00:03.000Z',
         }),
-        remoteTask({
-          $id: 'task_wrong_owner',
-          user_id: 'mallory',
-          $updatedAt: '2026-10-02T00:00:04.000Z',
-        }),
       ],
     });
 

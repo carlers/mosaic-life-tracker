@@ -26,10 +26,7 @@ import {
 import { awaitPilotReplicationFreshness } from './replicationFreshness';
 import { getReplicationIdentifier } from './replicationIds';
 import { trackReplicationFreshness } from './replicationLocalState';
-import {
-  assertRemoteRowOwnedBy,
-  assertRemoteRowsOwnedBy,
-} from './replicationOwnership';
+import { assertRemoteRowsOwnedBy } from './replicationOwnership';
 
 const PULL_BATCH_SIZE = 100;
 const PUSH_BATCH_SIZE = 50;
