@@ -701,6 +701,38 @@ describe('sync — stale-client recovery', () => {
     expect(taskPilotStartMock).toHaveBeenCalled();
   });
 
+  it('fails closed if stale recovery receives a row for another account', async () => {
+    getReplicationFreshnessMock.mockImplementation(
+      async (_userId: string, collection: string) =>
+        collection === 'tasks' ? oldFreshness() : null
+    );
+    const tasks = makeCollection();
+    getDatabaseMock.mockReturnValue(makeDb({ tasks }));
+    listRowsMock.mockImplementation(
+      async ({ tableId }: { tableId: string }) =>
+        tableId === 'tasks'
+          ? {
+              rows: [
+                {
+                  ...makeTaskRow('task_foreign'),
+                  user_id: 'mallory',
+                },
+              ],
+            }
+          : { rows: [] }
+    );
+
+    await syncModule.initializeSync('user_A');
+
+    expect(tasks.upsert).not.toHaveBeenCalled();
+    expect(taskPilotStartMock).not.toHaveBeenCalled();
+    expect(syncModule.getSyncStatus().errors).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining('remote owner mismatch'),
+      ])
+    );
+  });
+
   it('uses the legacy pull cursor only as a one-time stale migration fallback', async () => {
     const old = oldFreshness().lastFreshAt;
     localStorageMock.setItem(
@@ -966,6 +998,29 @@ describe('sync — coordinator and account safety', () => {
         value: originalNavigator,
       });
     }
+  });
+
+  it('does not let delayed old-owner suspension cancel the current owner retry timer', async () => {
+    vi.useFakeTimers();
+    const accountWork = await import('../../src/lib/accountWorkScope');
+    accountWork.scopeAccountWork('user_B');
+
+    const rateLimitError = Object.assign(new Error('rate limited'), {
+      code: 429,
+    });
+    taskPilotStartMock
+      .mockRejectedValueOnce(rateLimitError)
+      .mockImplementationOnce(async () => {
+        pilotState.tasks = true;
+      });
+
+    await syncModule.initializeSync('user_B');
+    expect(taskPilotStartMock).toHaveBeenCalledTimes(1);
+
+    await syncModule.suspendSyncOwner('user_A');
+    await vi.advanceTimersByTimeAsync(5_020);
+
+    expect(taskPilotStartMock).toHaveBeenCalledTimes(2);
   });
 
   it('stops old-owner pilots when account generation changes mid-startup', async () => {

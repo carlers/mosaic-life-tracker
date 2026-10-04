@@ -1,33 +1,33 @@
 # Session checkpoint
 
-Updated: 2026-10-04
-Current task: Finish the post-TodoMate 5/6 sync-stall investigation after the new pending-group diagnostics isolated the remaining stall to Diary.
-Status: The shared-RxDB isolation/UI hardening is accepted on stable Preview `fix/sync-stall-diagnostics` at `b09a83b`. Focused run `37216642188` passed; the first stable full run `37216714956` found one stale unit-label assertion only; focused repair run `37216851563` passed; final stable canonical run `37217097075` passed checks/build/dependency audit/both DOM shards/both browser-contract shards/canonical acceptance; exact-SHA Vercel deployment `dpl_HEG4GeYNQPgmkpBnW8TX21QBTAyY` is READY and served HTTP 200. Re-testing the recreated `test@test.com` account then showed `Waiting for Diary · 5 of 6 synced`.
-Next action: Focused-verify `chatgpt/diary-created-at-schema-fix`. If green, squash it into `fix/sync-stall-diagnostics`, rerun the full canonical gate + exact-SHA Preview, then apply the idempotent `diary.created_at` production migration. After the live column is available, trigger/retry sync on the same device and verify the account's one imported diary row appears in Appwrite and Sync Status reaches Up to date. Do not promote to `dev` or `main` without explicit user instruction.
-Blockers: None known. The live schema mismatch has been directly confirmed through Appwrite.
+Updated: 2026-10-05
+Current task: Double-check the accepted sync-engine race audit for missed correctness gaps and repair any remaining owner-isolation holes on `chatgpt/sync-engine-race-matrix-double-check`.
+Status: The second pass is based exactly on accepted stable Preview `fix/sync-engine-race-matrix` commit `44c1ae48`. The original freshness, owner-teardown, Realtime-checkpoint, and steady-state remote-owner fixes still hold. This review found one incomplete boundary expressed in three owner-scoped server reads: generic >90-day stale recovery, friendship full-cache recovery, and the message bootstrap tail probe trusted or silently filtered the Appwrite owner query instead of validating returned `user_id`. All three now fail closed with regression coverage, and the sync matrix/reference have been corrected.
+Next action: Run the focused Quality Gate for this final task checkpoint. If green, squash the task PR into `fix/sync-engine-race-matrix`, then require the stable branch's full canonical acceptance and exact-SHA Vercel Preview. Do not promote to `dev` or `main` without explicit user instruction.
+Blockers: None known before CI.
 
-## Confirmed root cause
+## Double-check findings repaired
 
-- TodoMate live preview/accepted mapping contains 505 tasks, 13 categories, and 1 diary entry.
-- Recreated Mosaic account Auth ID `6ac273888ee3b2e94dfd` has 505 tasks and 13 categories remotely but still has 0 diary rows.
-- The Diary replication payload in `syncMapping.ts` sends `created_at` and `updated_at`.
-- Production Appwrite table `life_tracker/diary` currently has exactly six columns: `date`, `content`, `visibility`, `user_id`, `updated_at`, `deleted`. `created_at` is absent.
-- The checked-in backend manifest had the same omission, proving this is repository schema drift rather than a console-only accident.
-- Therefore the imported Diary row is durable locally but every remote create/update carrying `created_at` is rejected; RxDB keeps the Diary pilot dirty while the other five groups settle. The new named-group UI exposed the fault correctly.
+1. **Generic stale recovery owner validation:** `syncCollection()` now validates every owner-scoped Appwrite recovery page before mapping or applying any row. A foreign row fails the collection recovery, prevents pilot start, and cannot be written into the active account's local cache.
+2. **Friendship full-cache recovery owner validation:** `syncFriendships()` now fails closed if an owner-scoped page returns another account instead of silently skipping that row and potentially treating the snapshot as complete.
+3. **Message bootstrap checkpoint owner validation:** `captureMessageReplicationPullCheckpoint()` now validates the owner-scoped remote tail response before accepting a checkpoint, so a malformed/cross-account response cannot be ignored while bootstrap advances from an untrusted snapshot.
+4. **Documentation accuracy:** `SYNC_SCENARIO_MATRIX.md` and `PROJECT_REFERENCE.md` now state the fail-closed invariant across steady-state pulls, stale-recovery/bootstrap snapshot reads, and direct master reads.
 
-## Changes under focused verification
+## Regression coverage
 
-- Portable backend manifest adds optional/default-empty `diary.created_at` as varchar(50). It is optional only for safe migration of existing deployments; new client writes continue to send the real created timestamp.
-- New `npm run mosaic:migrate-diary-created-at` migration creates the missing column idempotently, waits for availability, and fails closed if an existing column has an incompatible type/size/required/default state.
-- Legacy Diary pulls without `created_at` map local `createdAt` from stable Appwrite `$createdAt` metadata (then stable update metadata), rather than generating `new Date()` on each pull.
-- Manifest, migration, sync-mapping, and Diary replication tests pin the contract and payload.
+- `sync.test.ts`: a foreign task row during stale recovery cannot upsert locally, cannot start the task pilot, and surfaces a remote-owner mismatch.
+- `friendshipSync.test.ts`: a foreign row in the full friendship cache pull rejects instead of being filtered.
+- `messageReplicationPilot.test.ts`: a foreign row in the bootstrap tail probe rejects instead of producing/ignoring a checkpoint.
+- Existing regressions continue to cover retry-safe freshness, owner-scoped backoff teardown, Realtime-as-wakeup behavior across all six pilots, steady-state remote-owner mismatch handling, shared-local-DB foreign rows, stale recovery/tombstones, and freshness barriers.
+
+## Accepted limitations unchanged
+
+- Appwrite still has no atomic compare-and-update for the owner-write pilots; the read→write race is reconciled by subsequent replication.
+- Stale-recovery application timestamps still inherit client-clock ambiguity and therefore preserve uncertain local state conservatively.
 
 ## Acceptance path
 
-1. Focused Quality Gate on the final task checkpoint.
-2. Squash focused-green task into `fix/sync-stall-diagnostics`.
-3. Full stable-Preview canonical Quality Gate and exact-SHA Vercel Preview.
-4. Apply the production Diary `created_at` migration only after the accepted tree is green; re-read the live column and confirm it is available/compatible.
-5. On the existing recreated `test@test.com` device, hit Sync Now (or let live replication retry) and verify one Diary row reaches Appwrite with stable `created_at`/`updated_at`.
-6. Confirm Sync Status reaches Up to date and no backend Function redeploy is needed.
-7. Do not promote to `dev` or `main` without explicit user instruction.
+1. Final task commit requests `[verify:focused]`.
+2. Focused-green task PR is squash-merged into `fix/sync-engine-race-matrix`.
+3. Stable Preview runs the full canonical gate and exact-tree Vercel Preview.
+4. Any CI/deployment failure is investigated and repaired before handoff.

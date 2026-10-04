@@ -244,11 +244,6 @@ describe('task RxDB replication pilot', () => {
           $id: 'task_two',
           $updatedAt: '2026-10-02T00:00:03.000Z',
         }),
-        remoteTask({
-          $id: 'task_wrong_owner',
-          user_id: 'mallory',
-          $updatedAt: '2026-10-02T00:00:04.000Z',
-        }),
       ],
     });
 
@@ -294,6 +289,16 @@ describe('task RxDB replication pilot', () => {
       id: 'task_two',
       updatedAt: '2026-10-02T00:00:03.000Z',
     });
+  });
+
+  it('fails closed if an owner-scoped task pull returns another account', async () => {
+    listRowsMock.mockResolvedValue({
+      rows: [remoteTask({ user_id: 'mallory' })],
+    });
+
+    await expect(
+      __taskReplicationPilotTestUtils.pullTasks('user_A', undefined, 100)
+    ).rejects.toThrow('remote owner mismatch');
   });
 
   it('creates a new task with owner-only row permissions', async () => {
@@ -652,7 +657,7 @@ describe('task RxDB replication pilot', () => {
     );
   });
 
-  it('streams owner-scoped realtime updates through RxDB', async () => {
+  it('uses realtime writes only as an ordered pull catch-up signal', async () => {
     const collection = collectionFixture();
     await startTaskReplicationPilot(
       'user_A',
@@ -676,20 +681,7 @@ describe('task RxDB replication pilot', () => {
       }),
     });
 
-    await expect(next).resolves.toEqual({
-      checkpoint: {
-        id: 'task_one',
-        updatedAt: '2026-10-02T00:00:05.000Z',
-      },
-      documents: [
-        expect.objectContaining({
-          id: 'task_one',
-          userId: 'user_A',
-          reactions: '[{"emoji":"👍","userIds":["friend"]}]',
-          _deleted: false,
-        }),
-      ],
-    });
+    await expect(next).resolves.toBe('RESYNC');
   });
 
   it('rejects physical deletion for the active owner but ignores cached foreign-account rows', async () => {

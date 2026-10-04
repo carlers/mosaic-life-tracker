@@ -262,6 +262,16 @@ describe('diary RxDB replication pilot', () => {
     );
   });
 
+  it('fails closed if an owner-scoped diary pull returns another account', async () => {
+    listRowsMock.mockResolvedValue({
+      rows: [remoteDiary({ user_id: 'mallory' })],
+    });
+
+    await expect(
+      __diaryReplicationPilotTestUtils.pullDiary('user_A', undefined, 100)
+    ).rejects.toThrow('remote owner mismatch');
+  });
+
   it('ignores cached diary rows that belong to another local account', async () => {
     await expect(
       __diaryReplicationPilotTestUtils.pushDiary(
@@ -386,7 +396,7 @@ describe('diary RxDB replication pilot', () => {
     expect(createRowMock).toHaveBeenCalledTimes(1);
   });
 
-  it('streams owner-scoped realtime updates into replication', async () => {
+  it('uses realtime writes only as an ordered pull catch-up signal', async () => {
     await startDiaryReplicationPilot(
       'user_A',
       collectionFixture(),
@@ -405,18 +415,6 @@ describe('diary RxDB replication pilot', () => {
       payload: remoteDiary(),
     });
 
-    await expect(next).resolves.toEqual({
-      checkpoint: {
-        id: 'diary_a',
-        updatedAt: '2026-10-02T00:00:02.000Z',
-      },
-      documents: [
-        expect.objectContaining({
-          id: 'diary_a',
-          userId: 'user_A',
-          _deleted: false,
-        }),
-      ],
-    });
+    await expect(next).resolves.toBe('RESYNC');
   });
 });

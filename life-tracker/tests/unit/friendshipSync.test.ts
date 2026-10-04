@@ -34,8 +34,9 @@ describe('server-owned friendship cache', () => {
     const orphan = local('fr_orphan'); state.list.mockRejectedValue(new Error('offline'));
     await expect(syncFriendships('alice')).rejects.toThrow('offline'); expect(orphan.isDeleted).toBe(false);
   });
-  it('filters unexpected owners even when the server returns them', async () => {
+  it('fails closed when the owner-scoped server pull returns another account', async () => {
     state.list.mockResolvedValue({ rows: [{ ...remote, user_id: 'mallory' }] });
-    await syncFriendships('alice'); expect(state.upsert).not.toHaveBeenCalled();
+    await expect(syncFriendships('alice')).rejects.toThrow('remote owner mismatch');
+    expect(state.upsert).not.toHaveBeenCalled();
   });
 });
