@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import {
   beginTodoMateImport,
   clearTodoMateImportMarker,
@@ -7,8 +7,26 @@ import {
 } from '../../src/lib/todomateImportState';
 
 describe('TodoMate import recovery marker', () => {
+  const values = new Map<string, string>();
+
+  beforeAll(() => {
+    Object.defineProperty(globalThis, 'localStorage', {
+      configurable: true,
+      value: {
+        getItem: (key: string) => values.get(key) ?? null,
+        setItem: (key: string, value: string) => values.set(key, value),
+        removeItem: (key: string) => values.delete(key),
+        clear: () => values.clear(),
+      },
+    });
+  });
+
   beforeEach(() => {
-    localStorage.clear();
+    values.clear();
+  });
+
+  afterAll(() => {
+    delete (globalThis as { localStorage?: unknown }).localStorage;
   });
 
   it('records only account-scoped progress metadata and advances to applied', () => {
