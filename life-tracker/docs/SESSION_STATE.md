@@ -3,7 +3,7 @@
 Updated: 2026-10-04
 Current task: Fix the post-TodoMate sync status that stayed at 5/6 (83%) for more than 20 minutes on the recreated `test@test.com` account, and make sync progress identify the pending data group.
 Status: Investigation proved the cloud import itself completed: recreated Auth ID `6ac273888ee3b2e94dfd` has 505 tasks, 13 categories, 37 owned task images, and the final task row reached Appwrite around 16 minutes before the reported stuck screenshot. The remaining 83% state is therefore client replication/freshness state, not ongoing TodoMate upload. Root cause found in the RxDB-first restart design: Mosaic intentionally preserves multiple owners in one physical local RxDB, but all six upstream handlers treated a foreign-account local row as a fatal owner mismatch. A new per-user replication identifier starts without an upstream checkpoint so it can preserve genuine unsynced current-user rows; that same first scan can legitimately encounter another account's cached rows. A foreign row—especially a message on an otherwise empty Messages group—can therefore poison the pilot retry queue and prevent `awaitInSync()` from settling.
-Next action: Run focused verification for `chatgpt/sync-stall-diagnostics`. If green, squash into stable Preview `fix/sync-stall-diagnostics`, run its full canonical gate + exact-SHA Vercel Preview, then re-accept on the recreated `test@test.com` device by updating/reloading the Preview and confirming the status settles (or explicitly names the still-pending group) instead of remaining indefinitely at a generic 5/6. Do not promote to `dev` or `main` without explicit user instruction.
+Next action: Focused-verify `chatgpt/sync-stall-diagnostics-repair`, which only updates one stale unit assertion from the internal singular `category` label to the current `categories` collection label. The initial task focused gate `37216642188` passed. Stable full gate `37216714956` then passed lint, build, dependency audit, both DOM shards, both browser-contract shards, and 599/600 unit tests; the sole failure was that stale string assertion. After focused green, squash the repair into `fix/sync-stall-diagnostics`, rerun the stable full canonical gate + exact-SHA Preview, then re-accept on the recreated `test@test.com` device. Do not promote to `dev` or `main` without explicit user instruction.
 Blockers: The browser's local RxDB is device-local and cannot be inspected from Appwrite, so the exact foreign row that triggered the user's current 5/6 state cannot be named retrospectively. The code path is deterministic and now has regression coverage across all six replication domains.
 
 ## Findings
@@ -24,8 +24,8 @@ Blockers: The browser's local RxDB is device-local and cannot be inspected from 
 
 ## Acceptance path
 
-1. Focused Quality Gate on the final task checkpoint.
-2. Squash focused-green task into `fix/sync-stall-diagnostics`.
+1. Focused Quality Gate on the repair checkpoint.
+2. Squash focused-green repair into `fix/sync-stall-diagnostics`.
 3. Full stable-Preview canonical Quality Gate and exact-SHA Vercel Preview.
 4. On the recreated `test@test.com` device, update/reload the Preview/PWA and confirm the six-group freshness pass reaches Up to date. If one group legitimately remains, the sheet must name it and exit the active spinner at the bounded timeout rather than displaying an indefinite generic 5/6.
 5. No backend Function/schema rollout is expected; this task is browser sync/UI only.
