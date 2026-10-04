@@ -32,10 +32,14 @@ export const HomeStatusIndicators: React.FC = () => {
     : isOffline
       ? 'Sync paused while offline'
     : sync.isSyncing
-      ? 'Syncing'
+      ? sync.progress
+        ? 'Syncing ' + sync.progress.percent + '%'
+        : 'Syncing'
       : sync.errors.length > 0
         ? 'Sync issue'
-        : readiness.isReady
+        : sync.notice
+          ? 'Sync still finishing'
+          : readiness.isReady
           ? 'Synced and ready offline'
           : sync.lastSync
             ? 'Preparing offline access'
@@ -47,7 +51,7 @@ export const HomeStatusIndicators: React.FC = () => {
     <Cloud size={16} aria-hidden="true" />
   ) : sync.isSyncing ? (
     <RefreshCw size={16} className="animate-spin" aria-hidden="true" />
-  ) : sync.errors.length > 0 ? (
+  ) : sync.errors.length > 0 || sync.notice ? (
     <CloudAlert size={16} aria-hidden="true" />
   ) : readiness.isReady ? (
     <CloudCheck size={16} aria-hidden="true" />
@@ -99,7 +103,7 @@ export const HomeStatusIndicators: React.FC = () => {
           aria-label={syncLabel}
           title={syncLabel}
           className={
-            sync.errors.length > 0
+            sync.errors.length > 0 || sync.notice
               ? 'rounded-lg p-1.5 text-amber-400 transition-colors hover:bg-[#1E1E1E] focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/60'
               : 'rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-[#1E1E1E] hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60'
           }
