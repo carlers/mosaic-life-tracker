@@ -23,6 +23,7 @@ const statusRef = vi.hoisted(() => ({
       total: number;
       percent: number;
       label: string;
+      pendingGroups?: string[];
     } | null;
   },
 }));
@@ -131,20 +132,23 @@ describe('SyncStatusSheet', () => {
       errors: [],
       notice: null,
       progress: {
-        completed: 3,
+        completed: 5,
         total: 6,
-        percent: 50,
-        label: '3 of 6 data groups synced',
+        percent: 83,
+        label: 'Waiting for Messages · 5 of 6 synced',
+        pendingGroups: ['Messages'],
       },
     };
 
     render(<SyncStatusSheet isOpen onClose={vi.fn()} />);
 
-    expect(screen.getByText('Syncing · 50%')).toBeInTheDocument();
-    expect(screen.getByText('3 of 6 data groups synced')).toBeInTheDocument();
+    expect(screen.getByText('Syncing · 83%')).toBeInTheDocument();
+    expect(
+      screen.getByText('Waiting for Messages · 5 of 6 synced')
+    ).toBeInTheDocument();
     expect(screen.getByRole('progressbar', { name: 'Sync progress' })).toHaveAttribute(
       'aria-valuenow',
-      '50'
+      '83'
     );
   });
 
@@ -154,7 +158,7 @@ describe('SyncStatusSheet', () => {
       lastSync: '2026-10-04T05:00:00.000Z',
       errors: [],
       notice:
-        'Sync is still finishing in the background. Tap Sync Now to confirm when it is fully caught up.',
+        'Still waiting for Messages. Live sync will keep trying in the background; tap Sync Now later to confirm.',
       progress: null,
     };
 
@@ -162,7 +166,7 @@ describe('SyncStatusSheet', () => {
 
     expect(screen.getByText('Sync still finishing')).toBeInTheDocument();
     expect(
-      screen.getByText(/still finishing in the background/i)
+      screen.getByText(/still waiting for Messages/i)
     ).toBeInTheDocument();
     expect(screen.queryByText(/^Errors$/i)).not.toBeInTheDocument();
   });
