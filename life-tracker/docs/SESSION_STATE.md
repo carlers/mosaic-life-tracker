@@ -22,7 +22,8 @@ Blockers: None known.
 - Previous onboarding/import hardening stable Preview `f7ccfe8`: full canonical acceptance passed and exact-SHA Vercel Preview was READY.
 - Timeout/progress implementation focused gate: passed and was squash-delivered to stable Preview.
 - First stable canonical run: dependency audit passed; build failed at TypeScript compilation because of the stray `onImageProgress/ids` validator call. The intended callback inside `restoreImages()` remains intact.
-- Compile repair focused gate: requested by this commit.
+- First compile-repair focused gate: passed. Review of the failed canonical shards also found one exact-shape sync-status test that needed to include the new account-scoped `notice`/`progress` reset fields.
+- Final compile/test repair focused gate: requested by this commit.
 - Stable Preview canonical gate and exact-SHA Vercel Preview: pending repair delivery.
 - Live TodoMate re-import with the user's account: manual hosted-Preview acceptance still required.
 - Same-account phone + desktop convergence after import: manual hosted-Preview acceptance still required.
