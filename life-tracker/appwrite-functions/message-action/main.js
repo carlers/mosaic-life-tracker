@@ -12,6 +12,7 @@ const {
 } = require('node-appwrite');
 const { handleScheduledTombstoneGc } = require('./tombstone-gc');
 const {
+  isAccountDeletionPending,
   resumeDeletionJobs,
   startAccountDeletion,
 } = require('./account-deletion');
@@ -1135,6 +1136,24 @@ const handler = async ({ req, res, log, error }) => {
   }
 
   try {
+    if (action !== 'delete_account') {
+      const involvedUsers = new Set(
+        [
+          callerId,
+          payload?.recipientId,
+          payload?.taskOwnerId,
+          payload?.partnerId,
+          payload?.friendUserId,
+          payload?.ownerId,
+        ].filter((value) => typeof value === 'string' && value)
+      );
+      for (const userId of involvedUsers) {
+        if (await isAccountDeletionPending(tablesDB, userId)) {
+          return res.json({ error: 'Account deletion in progress' }, 409);
+        }
+      }
+    }
+
     let result;
     switch (action) {
       case 'delete_account':
