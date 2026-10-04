@@ -178,6 +178,27 @@ export function getDatabase(): RxDatabase<AppDatabaseCollections> {
   }
   return dbInstance;
 }
+export async function purgeAccountFromDatabase(
+  userId: string,
+  database: RxDatabase<AppDatabaseCollections> = getDatabase()
+): Promise<void> {
+  if (!userId) return;
+  const collections = [
+    database.tasks,
+    database.categories,
+    database.diary,
+    database.settings,
+    database.friendships,
+    database.messages,
+    database.syncMeta,
+  ] as const;
+
+  for (const collection of collections) {
+    const docs = await collection.find({ selector: { userId } }).exec();
+    await Promise.all(docs.map((doc) => doc.remove()));
+  }
+}
+
 export async function destroyDatabase(): Promise<void> {
   if (!dbInstance) return;
   try {
