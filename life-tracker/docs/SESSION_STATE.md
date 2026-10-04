@@ -2,7 +2,7 @@
 
 Updated: 2026-10-04
 Current task: Harden the normal new-user path from account creation through username/profile setup, TodoMate import, sync convergence, and multi-device continuation.
-Status: Implementation and regression coverage are complete on `chatgpt/new-user-onboarding-hardening`. The task is ready for focused verification before squash delivery to stable Preview `fix/new-user-onboarding-hardening`.
+Status: Implementation, compatibility corrections, and regression/stress coverage are complete on `chatgpt/new-user-onboarding-hardening`. The final task tree is ready for focused verification before squash delivery to stable Preview `fix/new-user-onboarding-hardening`.
 Next action: Run the focused task gate. Repair any failure, then squash-merge the focused-green task PR into `fix/new-user-onboarding-hardening` for the canonical full gate and Vercel Preview. Promotion to `dev` remains user-controlled.
 Blockers: None known.
 
@@ -20,7 +20,7 @@ Blockers: None known.
 
 ## Verification
 
-- Focused GitHub verification: requested by the final task commit.
+- Focused GitHub verification: requested by the final task commit after the legacy-login and final-convergence account-switch corrections.
 - Stable Preview canonical gate and Vercel Preview: pending focused green + squash delivery.
 - Live TodoMate credential acceptance: not performed by AI; requires the user's own TodoMate account on hosted Preview.
 - Manual multi-device acceptance: pending hosted Preview with the same Mosaic account on phone + desktop.
