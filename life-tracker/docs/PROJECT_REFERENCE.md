@@ -601,51 +601,50 @@ Recipient-side `read_at` propagation depends on `markReadOnRemote` eventually su
 ### 23.8 Permanent account erasure
 
 **Delete Account** is a privacy-sensitive exception to Mosaic's ordinary tombstone-retention
-protocol. The browser must never hard-delete synchronized rows itself.
+protocol. The browser never hard-deletes synchronized server rows itself, and the target
+comes exclusively from Appwrite's authenticated user identity after the user types exact
+`DELETE`.
 
-The user must type the exact string `DELETE`. `AuthProvider` suspends account-scoped
-background work and sends an authenticated `delete_account` action through
-`message-action`. The Function derives the target exclusively from Appwrite's trusted
-`x-appwrite-user-id`; an owner ID in browser payload data is not authoritative.
+A deterministic server-only `account_deletions` row is a durable deletion **intent and
+write fence**, but it is not by itself the irreversible privacy boundary. New jobs begin in
+`preparing`. The irreversible pivot is successful persistence/authentication of the
+encrypted DR privacy-deletion marker outside Appwrite. No profile hiding, Auth disable,
+session revocation, row/file deletion, or other destructive server cleanup may occur before
+that marker succeeds.
 
-The server-only `account_deletions` table is the durability boundary. Its rows have no
-client permissions and are keyed deterministically from the Appwrite user ID. Once the
-Function can create/read that pending job, deletion is **accepted and irreversible**:
-the HTTP response is 202 even if a later R2 marker, session revocation, cleanup pass, or
-background self-kick is temporarily unavailable. Those later failures remain on the
-durable job and the hourly trusted maintenance execution retries them. A request that
-cannot establish the durable job is not accepted.
+After the privacy pivot, deletion only moves forward. The worker disables Auth/revokes
+sessions, hard-deletes owned and cross-user state, transactionally scrubs supported peer
+references, verifies no live trace, deletes the Auth principal, then performs a post-Auth
+reconciliation/verification while the durable job still fences trusted Function writes.
+Only a clean final pass removes the job. Duplicate/overlapping workers are idempotent:
+already-missing rows/files/users are success-equivalent.
 
-Every worker pass is idempotent and follows this order:
+The browser persists a deletion intent before dispatch, suspends that account's work, and
+broadcasts `deletion_pending` to sibling tabs. A timeout/lost response never restarts the
+old sync owner. A retained pre-pivot server job (`accepted:false, deletionPending:true`)
+keeps the browser frozen until server maintenance or a later authenticated retry can finish.
+A confirmed pivot (`accepted:true`) signs out and account-scoped local erasure removes only
+the deleting user's RxDB rows; it must not destroy another account's local rows.
 
-1. persist/verify the encrypted DR privacy-deletion marker;
-2. hide the profile from discovery, disable the Auth user, and revoke all sessions;
-3. hard-delete the owner's task/category/diary/settings rows;
-4. hard-delete friendship/message rows on **both** sides of the relationship/conversation,
-   scrub the deleted ID from surviving task reactions and friend-carousel preferences, and
-   delete Storage files owned by that user;
-5. verify that no live owner row, cross-user friendship/message copy, structured reaction/
-   carousel reference, profile, or owned Storage file remains;
-6. delete the Appwrite Auth user **last**; then remove the deletion job.
+Surviving peer-owned task reactions and `friend_carousel_prefs` are scrubbed during erasure
+and sanitized against the live accepted friendship graph before later replication pushes, so
+a stale offline peer cannot reintroduce an erased former-friend ID. Malformed structured
+metadata fails privacy-first when it can contain the erased ID.
 
-Friendship and message pilots already consume Appwrite row-delete realtime events and
-tombstone/evict the corresponding peer-local row, so hard deletion does not depend on the
-deleted user's device staying online. Offline peers reconcile through the existing
-missing-remote/stale-recovery rules when they reconnect.
+Every portable backend table/bucket requires an explicit erasure classification and automated
+worker-policy parity coverage. DR privacy markers are deterministic, immutable/retry-safe,
+and key-version aware; old marker keys must remain available through
+`DR_ENCRYPTION_KEYS_JSON` after rotation. Restore authenticates privacy markers before
+creating target resources and must never resurrect a marked account from older snapshots.
 
-DR deletion markers live outside snapshot generations under
-`<DR_PREFIX>/privacy-deletions/` and are encrypted/authenticated with the DR key. Restore
-must load those markers before creating target resources, omit marked Auth users and their
-owned/cross-user rows/files, and remove their IDs from surviving structured references.
-Older encrypted snapshots may remain physically present until their configured retention
-and R2 object-lock windows permit removal; that historical ciphertext is never a valid
-source for resurrecting a marked account. Privacy-deletion markers are not snapshot
-retention candidates.
+Disconnected third-party devices cannot be physically wiped while offline. A generic
+expired/missing-session 401 is not treated as proof of deletion because doing so would break
+Mosaic's ordinary offline-session semantics. Immutable DR ciphertext/provider operational
+logs may also remain according to retention policy; the guarantee is erasure of live/
+restorable Mosaic account data and prevention of DR resurrection.
 
-After server acceptance the browser publishes signed-out state before removing account
-caches/queues/pending images and the local RxDB. Other signed-in devices are invalidated by
-server-side session revocation and reconcile to signed-out state when they next contact
-Appwrite. Local cleanup failure cannot cancel or resurrect an accepted server deletion.
+The authoritative state machine, failure matrix, resource policy, limitations, testing, and
+rollout procedure are in [Permanent account erasure](ACCOUNT_ERASURE.md).
 
 ## 24. Test Suite
 
