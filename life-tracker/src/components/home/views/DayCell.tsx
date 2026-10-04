@@ -92,7 +92,7 @@ const DayCellComponent: React.FC<DayCellProps> = ({
         {holidays.map((holiday) => (
           <div
             key={holiday.id}
-            className="w-full overflow-hidden rounded-[4.5px] bg-red-950/70 px-[0.3rem] pb-0.5 pt-0.5 text-[10.5px] font-semibold text-red-400"
+            className="mosaic-holiday-label w-full overflow-hidden rounded-[4.5px] bg-red-950/70 px-[0.3rem] pb-0.5 pt-0.5 text-[10.5px] font-semibold text-red-400"
             title={holiday.title}
           >
             <span className="block overflow-hidden whitespace-nowrap">
