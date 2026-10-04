@@ -58,7 +58,7 @@ Source bytes measure maintenance surface only; they are not bundle-size measurem
 |---|---|---|---|
 | P0 | Owner-write sync compare/update race | **Prototype Appwrite TablesDB transactions** | Mosaic already ships `appwrite@26.2.0`, whose TablesDB client supports transactions. Appwrite commits transaction operations atomically and reports a conflict if an affected row changed outside the transaction. The repo already uses this pattern in trusted friendship writes and repair tooling. This may close the accepted owner-write read→write race without a new dependency. |
 | P1 | Six RxDB replication pilots | **Extract an internal TablesDB replication harness** | RxDB already owns replication state, conflict retry, checkpoints, and leader-owned execution. Mosaic repeats backend-neutral start/stop, checkpoint paging, Realtime RESYNC, ownership checks, and freshness wiring across six pilots. Keep collection-specific mapping and conflict/write policy injectable. |
-| P2 | Raw IndexedDB wrappers | **Evaluate adopting `idb`** | `idb` is a small Promise-based wrapper around the native IndexedDB API. It can remove repeated open/request/transaction boilerplate while Mosaic keeps TTL, LRU, ownership, and cache policy. |
+| P2 | Raw IndexedDB wrappers | **Evaluate direct Dexie reuse first; `idb` only as fallback** | RxDB already resolves Dexie 4.4.2 and Mosaic actively uses `getRxStorageDexie()`, so Dexie is already part of the local-storage stack. Declaring/reusing it directly may remove repeated open/request/transaction boilerplate without adding a second IndexedDB abstraction. Compare against `idb` only if Dexie makes the auxiliary stores materially more complex or enlarges their loaded closure. |
 | P3 | Appwrite schema typing | **Do not add a second schema source; evaluate only if Appwrite CLI config becomes canonical** | Appwrite can generate types from `appwrite.json`, but Mosaic's current source of truth is `infrastructure/mosaic-backend.mjs` and there is no `appwrite.json`. Adding generated types now would introduce another schema representation unless the provisioning source is deliberately migrated. |
 | Watch | Official RxDB Appwrite plugin | **Do not adopt today** | Current upstream plugin code uses Appwrite's document/collection API (`Databases`, `listDocuments`, `createDocument`, `updateDocument`), while Mosaic is on TablesDB rows/tables. Migrating the backend only to consume this plugin would be a larger architectural change than the code it replaces. Re-evaluate if upstream gains TablesDB support. |
 | Keep | Semantic message/social outbox | **Keep custom** | Workbox Background Sync stores/replays failed HTTP `Request` objects. Mosaic's outbox carries typed semantic intents with per-account dedupe, permanent-error policy, compare-before-remove protection, owner-generation cancellation, Web Locks, and domain rollback hooks. These contracts are not equivalent. |
@@ -156,22 +156,28 @@ The current issue is therefore not "Mosaic chose the wrong sync library." It is 
 TablesDB adapter has accumulated repeated mechanics and has not yet adopted every useful
 capability of the backend it already uses.
 
-## P2 — replace raw IndexedDB boilerplate, not cache behavior
+## P2 — reuse the existing IndexedDB stack before adding another wrapper
 
 `pendingImages.ts`, `friendCache.ts`, and `imageCache.ts` each manually wrap
 `indexedDB.open`, `IDBRequest`, upgrade handling, and transaction setup.
 
-A small `idb` migration is reasonable because it keeps the browser IndexedDB model intact
-while converting request plumbing to Promises. It should **not** replace:
+The lockfile already resolves `dexie@4.4.2` through RxDB, and Mosaic uses
+`getRxStorageDexie()` for its primary local database. The first prototype should therefore
+add Dexie as an explicit direct dependency at the already-resolved version and test whether
+these three auxiliary stores become simpler while reusing the runtime already present in the
+production graph. If Dexie is too high-level for these tiny stores, compare it with `idb`,
+which stays close to the native IndexedDB API while converting requests to Promises.
+
+Neither option should replace:
 
 - pending-image owner checks;
 - friend-calendar account-keyed TTL semantics;
 - image-cache byte budget and LRU metadata;
 - best-effort failure behavior required for cache-only data.
 
-Before adoption, measure the production bundle delta and confirm all existing IndexedDB
-regressions pass. If the net code reduction is small after typed schema setup, keep the native
-implementation.
+Before adoption, measure the production bundle/static-closure delta and confirm all existing
+IndexedDB regressions pass. Prefer the option that removes the most maintenance code with no
+new loaded-runtime cost; if neither does, keep the native implementation.
 
 ## Appwrite type generation: useful, but only with one schema source
 
@@ -226,13 +232,13 @@ Expected benefit: correctness first; no new runtime dependency.
 
 Expected benefit: lower maintenance surface and fewer places for future sync fixes to diverge.
 
-### Batch R3 — IndexedDB wrapper evaluation
+### Batch R3 — auxiliary IndexedDB wrapper evaluation
 
-1. Add `idb` only on a branch with a measured production bundle baseline.
-2. Migrate `pendingImages.ts` first.
-3. If the abstraction remains simpler, migrate friend/image caches.
-4. Keep cache policy unchanged and preserve current failure behavior.
-5. Remove the dependency if the bundle/code reduction does not justify it.
+1. Record a production bundle/static-closure baseline.
+2. Declare the already-resolved Dexie version directly and migrate `pendingImages.ts` first.
+3. If Dexie remains simpler with no material loaded-closure increase, migrate friend/image caches.
+4. If Dexie is awkward for these stores, run the same experiment with `idb` instead; do not ship both abstractions without a measured reason.
+5. Keep cache policy/failure behavior unchanged and remove any added direct dependency if the code/bundle reduction does not justify it.
 
 Expected benefit: modest boilerplate reduction; low product impact.
 
@@ -251,7 +257,8 @@ The audit does **not** support a broad dependency-adding rewrite.
 
 Mosaic already delegates many hard commodity problems to mature libraries. The highest-value
 refactor is to use more capability from the stack already present: Appwrite transactions for
-atomic sync decisions and a shared internal adapter around RxDB replication. A small
-IndexedDB wrapper is the clearest new-library candidate. Most other custom infrastructure is
+atomic sync decisions and a shared internal adapter around RxDB replication. Reusing the Dexie runtime already
+present through RxDB is the clearest auxiliary-storage candidate; a new IndexedDB library is
+only a measured fallback. Most other custom infrastructure is
 either deliberately thin or encodes Mosaic-specific offline, account-isolation, PWA, and
 gesture behavior that generic packages do not replace.
