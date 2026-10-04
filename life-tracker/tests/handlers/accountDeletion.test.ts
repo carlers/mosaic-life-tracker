@@ -450,6 +450,66 @@ describe('account deletion handler', () => {
     expect(users.delete).toHaveBeenCalledWith({ userId: 'alice' });
   });
 
+  it('removes a file that lands after Auth deletion but before final reconciliation', async () => {
+    const db = makeMockDb();
+    const storage = makeMockStorage();
+    const users = makeMockUsers();
+    const functions = makeMockFunctions();
+    const job = {
+      $id: 'del_late_file',
+      user_id: 'alice',
+      status: 'pending',
+      phase: 'queued',
+      attempts: 0,
+    };
+    let lateFilePresent = true;
+
+    db.getRow.mockImplementation(async ({ tableId, rowId }: any) => {
+      if (tableId === 'account_deletions' && rowId === job.$id) return job;
+      throw notFound();
+    });
+    db.listRows.mockImplementation(async ({ tableId }: any) => {
+      if (tableId === 'account_deletions') return { rows: [job] };
+      return { rows: [] };
+    });
+    db.updateRow.mockResolvedValue(job);
+    db.deleteRow.mockResolvedValue({});
+
+    storage.listFiles.mockImplementation(async () => {
+      if (users.delete.mock.calls.length > 0 && lateFilePresent) {
+        return {
+          files: [{
+            $id: 'img_late',
+            $permissions: [
+              'update("user:alice")',
+              'delete("user:alice")',
+            ],
+          }],
+        };
+      }
+      return { files: [] };
+    });
+    storage.deleteFile.mockImplementation(async ({ fileId }: any) => {
+      if (fileId === 'img_late') lateFilePresent = false;
+      return {};
+    });
+
+    const response = await invoke({
+      mockDb: db,
+      mockStorage: storage,
+      mockUsers: users,
+      mockFunctions: functions,
+      body: { action: 'resume_account_deletion', jobId: job.$id },
+    });
+
+    expect(response.status).toBe(200);
+    expect(storage.deleteFile).toHaveBeenCalledWith({
+      bucketId: 'task_images',
+      fileId: 'img_late',
+    });
+    expect(lateFilePresent).toBe(false);
+  });
+
   it('tolerates rows disappearing under a concurrent deletion worker', async () => {
     const db = makeMockDb();
     const storage = makeMockStorage();
