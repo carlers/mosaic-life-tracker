@@ -110,6 +110,14 @@ Peer-owned structured state has an additional anti-resurrection boundary:
 accepted friendship graph before replication push. A stale offline peer therefore cannot
 reintroduce an erased former friend ID after the worker scrubbed it.
 
+Erasure scans may inspect a large number of surviving peer rows. The worker must prefilter
+those scan snapshots and open an Appwrite transaction only for a row that can actually
+contain the erased ID. Candidate rows still get a transactional re-read before mutation,
+and final verification remains authoritative for references introduced after the snapshot.
+Do not turn a global peer scan into one transaction per unrelated row: production acceptance
+with a large imported account proved that pattern can exhaust the 120-second Function budget
+before Storage cleanup begins.
+
 ## Erasure coverage
 
 Current portable backend policy:
@@ -168,6 +176,7 @@ device Cartesian product:
 | DR key rotates | old marker authenticates through keyring; missing old key fails closed |
 | schema/manifest drifts | migration or policy tests fail |
 | worker is interrupted | durable job remains retryable |
+| hundreds of unrelated peer rows | scan completes without opening per-row scrub transactions |
 
 ## Device and retention limitations
 
