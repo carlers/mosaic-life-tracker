@@ -30,6 +30,7 @@ describe('TodoMateImportSheet', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    localStorage.clear();
     mocks.prepareTodoMateTransfer.mockResolvedValue({
       file: preparedFile,
       preview: {
@@ -51,6 +52,8 @@ describe('TodoMateImportSheet', () => {
       imagesRestored: 2,
       imagesMissing: 0,
       safetyBackupDownloaded: false,
+      syncState: 'synced',
+      syncError: '',
     });
   });
 
