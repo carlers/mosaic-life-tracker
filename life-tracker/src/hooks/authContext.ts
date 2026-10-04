@@ -15,8 +15,14 @@ export interface AuthContextValue {
    * screen when `isOffline` is true rather than redirecting to /login.
    */
   isOffline: boolean;
+  pendingSignup: { email: string; name: string } | null;
   login: (email: string, password: string) => Promise<boolean>;
-  signup: (email: string, password: string, name: string) => Promise<boolean>;
+  signup: (
+    email: string,
+    password: string,
+    name: string,
+    username: string,
+  ) => Promise<boolean>;
   requestPasswordRecovery: (email: string) => Promise<boolean>;
   completePasswordRecovery: (
     userId: string,

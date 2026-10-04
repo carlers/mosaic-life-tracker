@@ -514,6 +514,31 @@ describe('TodoMate import adapter', () => {
     );
   });
 
+  it('propagates preview cancellation instead of falling back or continuing reads', async () => {
+    const controller = new AbortController();
+    const calls: string[] = [];
+    const fetchImpl = vi.fn(
+      (input: RequestInfo | URL, init?: RequestInit) =>
+        new Promise<Response>((_resolve, reject) => {
+          calls.push(String(input));
+          init?.signal?.addEventListener(
+            'abort',
+            () => reject(Object.assign(new Error('aborted'), { name: 'AbortError' })),
+            { once: true }
+          );
+        })
+    ) as unknown as typeof fetch;
+
+    const pending = prepareTodoMateTransfer(
+      { email: 'person@example.com', password: 'pw-cancel-12345' },
+      { fetchImpl, signal: controller.signal }
+    );
+    controller.abort();
+
+    await expect(pending).rejects.toMatchObject({ name: 'AbortError' });
+    expect(calls).toEqual(['https://www.todomate.net/__/firebase/init.json']);
+  });
+
   it('rejects missing credentials before any network request', async () => {
     const fetchImpl = vi.fn() as unknown as typeof fetch;
 

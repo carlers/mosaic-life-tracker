@@ -5,7 +5,11 @@ import type {
   DiaryDocument,
   SettingsDocument,
 } from '../db/schema';
-import { initializeSync, refreshSync } from '../db/sync';
+import { refreshSync } from '../db/sync';
+import {
+  captureAccountWorkGeneration,
+  isAccountWorkCurrent,
+} from './accountWorkScope';
 import {
   exportUserData,
   triggerDownload,
@@ -22,11 +26,13 @@ import { ensureRestoredImage, getCurrentUserId } from './storage';
 export type RestoreMode = 'merge' | 'replace';
 
 const RESTORABLE_COLLECTIONS = [
-  'tasks',
   'categories',
+  'tasks',
   'diary',
   'settings',
 ] as const;
+
+const POST_RESTORE_SYNC_TIMEOUT_MS = 30_000;
 
 type RestorableCollection = (typeof RESTORABLE_COLLECTIONS)[number];
 type JsonRecord = Record<string, unknown>;
@@ -102,6 +108,7 @@ export interface BackupPreview {
 export interface RestoreOptions {
   mode: RestoreMode;
   onProgress?: (message: string) => void;
+  onLocalApplyComplete?: () => void;
 }
 
 export interface RestoreResult {
@@ -112,6 +119,8 @@ export interface RestoreResult {
   imagesRestored: number;
   imagesMissing: number;
   safetyBackupDownloaded: boolean;
+  syncState: 'synced' | 'pending';
+  syncError: string;
 }
 
 type LocalDoc = {
@@ -639,7 +648,8 @@ async function restoreImages(
   loaded: LoadedBackup,
   data: NormalizedBackup,
   currentUserId: string,
-  onProgress?: (message: string) => void
+  onProgress?: (message: string) => void,
+  assertOwner?: () => void
 ): Promise<{ restored: number; missing: number }> {
   const ids = Array.from(referencedImageIds(data));
   if (ids.length === 0) return { restored: 0, missing: 0 };
@@ -649,6 +659,7 @@ async function restoreImages(
   let missing = 0;
 
   for (let index = 0; index < ids.length; index += 1) {
+    assertOwner?.();
     const oldId = ids[index];
     const bytes = loaded.imageFiles.get(oldId);
     if (!bytes) {
@@ -682,6 +693,7 @@ async function restoreImages(
       console.warn('[Restore] Image restore failed:', oldId, error);
       missing += 1;
     }
+    assertOwner?.();
   }
 
   for (const task of data.tasks) {
@@ -723,7 +735,8 @@ function isEqualPortableImageRetry(
 async function planRestore(
   data: NormalizedBackup,
   userId: string,
-  mode: RestoreMode
+  mode: RestoreMode,
+  assertOwner?: () => void
 ): Promise<RestorePlan> {
   const planned: NormalizedBackup = {
     sourceUserId: data.sourceUserId,
@@ -735,11 +748,14 @@ async function planRestore(
   let skippedNewer = 0;
 
   for (const collectionName of RESTORABLE_COLLECTIONS) {
+    assertOwner?.();
     const collection = collectionFor(collectionName);
     const target = planned[collectionName] as RestorableDocument[];
 
     for (const doc of documentsFor(data, collectionName)) {
+      assertOwner?.();
       const existing = await collection.findOne(doc.id).exec();
+      assertOwner?.();
       if (!existing) {
         target.push(doc);
         continue;
@@ -784,13 +800,15 @@ async function applyDocuments(
   userId: string,
   sourceUserId: string,
   mode: RestoreMode,
-  replaceTimestamp: string
+  replaceTimestamp: string,
+  assertOwner?: () => void
 ): Promise<{ restored: number; skippedNewer: number }> {
   const collection = collectionFor(collectionName);
   let restored = 0;
   let skippedNewer = 0;
 
   for (const sourceDoc of docs) {
+    assertOwner?.();
     const doc = {
       ...sourceDoc,
       ...(mode === 'replace' ? { updatedAt: replaceTimestamp } : {}),
@@ -799,6 +817,7 @@ async function applyDocuments(
     } as RestorableDocument;
 
     const existing = await collection.findOne(doc.id).exec();
+    assertOwner?.();
     if (existing) {
       const current = readLocalDoc(existing);
       if (current.userId !== userId) {
@@ -827,7 +846,9 @@ async function applyDocuments(
       }
     }
 
+    assertOwner?.();
     await upsertLocalDoc(collectionName, doc.id, doc);
+    assertOwner?.();
     restored += 1;
   }
 
@@ -837,7 +858,8 @@ async function applyDocuments(
 async function tombstoneMissing(
   data: NormalizedBackup,
   userId: string,
-  timestamp: string
+  timestamp: string,
+  assertOwner?: () => void
 ): Promise<number> {
   const wanted: Record<RestorableCollection, Set<string>> = {
     tasks: new Set(data.tasks.map((doc) => doc.id)),
@@ -848,12 +870,14 @@ async function tombstoneMissing(
 
   let tombstoned = 0;
   for (const name of RESTORABLE_COLLECTIONS) {
+    assertOwner?.();
     const collection = collectionFor(name);
     const currentDocs = await collection
       .find({ selector: { userId } })
       .exec();
 
     for (const doc of currentDocs) {
+      assertOwner?.();
       const current = readLocalDoc(doc);
       const id = asString(current.id ?? doc.id);
       if (
@@ -871,6 +895,7 @@ async function tombstoneMissing(
         isDeleted: true,
         updatedAt: timestamp,
       });
+      assertOwner?.();
       tombstoned += 1;
     }
   }
@@ -928,9 +953,24 @@ export async function restoreUserData(
 ): Promise<RestoreResult> {
   if (!currentUser.id) throw new Error('Restore requires an authenticated user.');
 
+  const accountGeneration = captureAccountWorkGeneration(currentUser.id);
+  if (accountGeneration === null) {
+    throw new Error(
+      'Restore stopped because the signed-in account changed. Reopen Backup & Restore and try again.'
+    );
+  }
+  const assertOwner = () => {
+    if (!isAccountWorkCurrent(currentUser.id, accountGeneration)) {
+      throw new Error(
+        'Restore stopped because the signed-in account changed. Reopen Backup & Restore and try again.'
+      );
+    }
+  };
+
   const report = options.onProgress ?? (() => {});
   report('Validating backup…');
   const loaded = await loadBackupFile(file);
+  assertOwner();
   const data = normalizeBackup(loaded.payload, currentUser.id);
 
   if (options.mode !== 'merge' && options.mode !== 'replace') {
@@ -948,6 +988,7 @@ export async function restoreUserData(
 
   report('Refreshing current data…');
   const refreshed = await refreshSync(currentUser.id);
+  assertOwner();
 
   const lastSyncMs = refreshed.status.lastSync
     ? Date.parse(refreshed.status.lastSync)
@@ -966,7 +1007,12 @@ export async function restoreUserData(
   await assertRestoreUserStillCurrent(currentUser.id);
 
   report('Planning restore…');
-  const plan = await planRestore(data, currentUser.id, options.mode);
+  const plan = await planRestore(
+    data,
+    currentUser.id,
+    options.mode,
+    assertOwner
+  );
 
   let safetyBackupDownloaded = false;
   if (options.mode === 'replace') {
@@ -980,7 +1026,8 @@ export async function restoreUserData(
     loaded,
     plan.data,
     currentUser.id,
-    options.onProgress
+    options.onProgress,
+    assertOwner
   );
 
   await assertRestoreUserStillCurrent(currentUser.id);
@@ -1007,7 +1054,8 @@ export async function restoreUserData(
       currentUser.id,
       data.sourceUserId,
       options.mode,
-      replaceTimestamp
+      replaceTimestamp,
+      assertOwner
     );
     restored[collection] = result.restored;
     skippedNewer += result.skippedNewer;
@@ -1017,11 +1065,29 @@ export async function restoreUserData(
   if (options.mode === 'replace') {
     await assertRestoreUserStillCurrent(currentUser.id);
     report('Removing current-only personal data…');
-    tombstoned = await tombstoneMissing(data, currentUser.id, replaceTimestamp);
+    tombstoned = await tombstoneMissing(
+      data,
+      currentUser.id,
+      replaceTimestamp,
+      assertOwner
+    );
   }
 
+  assertOwner();
+  options.onLocalApplyComplete?.();
+
   report('Syncing restored data…');
-  await initializeSync(currentUser.id);
+  let syncState: RestoreResult['syncState'] = 'synced';
+  let syncError = '';
+  try {
+    await refreshSync(currentUser.id, POST_RESTORE_SYNC_TIMEOUT_MS);
+    assertOwner();
+  } catch (error) {
+    syncState = 'pending';
+    syncError =
+      error instanceof Error ? error.message : 'Restored data is still syncing.';
+    report('Saved locally. Sync will continue when Mosaic can reach the server.');
+  }
 
   return {
     mode: options.mode,
@@ -1031,5 +1097,7 @@ export async function restoreUserData(
     imagesRestored: imageResult.restored,
     imagesMissing: imageResult.missing,
     safetyBackupDownloaded,
+    syncState,
+    syncError,
   };
 }

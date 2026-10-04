@@ -24,11 +24,82 @@ import {
 import { useConnectivity } from "./useConnectivity";
 import { preloadHomePage } from "../lib/homePreload";
 import { scopeAccountWork } from "../lib/accountWorkScope";
+import {
+  isValidUsername,
+  normalizeUsername,
+  USERNAME_REQUIREMENTS,
+} from "../lib/profileUsername";
 
 const AUTH_BROADCAST_KEY = "mosaic_auth_broadcast";
 const LAST_KNOWN_USER_KEY = "mosaic_last_known_user";
+const PENDING_SIGNUP_KEY = "mosaic_pending_signup";
 
 type AuthBroadcast = { type: "login" | "logout"; at: number };
+interface PendingSignupRecord {
+  email: string;
+  name: string;
+  userId?: string;
+}
+
+function normalizeEmail(value: string): string {
+  return value.trim().toLowerCase();
+}
+
+function readPendingSignup(): PendingSignupRecord | null {
+  try {
+    const raw = localStorage.getItem(PENDING_SIGNUP_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Partial<PendingSignupRecord>;
+    if (
+      typeof parsed.email !== "string" ||
+      parsed.email.trim().length === 0 ||
+      typeof parsed.name !== "string"
+    ) {
+      localStorage.removeItem(PENDING_SIGNUP_KEY);
+      return null;
+    }
+    return {
+      email: normalizeEmail(parsed.email),
+      name: parsed.name,
+      ...(typeof parsed.userId === "string" && parsed.userId
+        ? { userId: parsed.userId }
+        : {}),
+    };
+  } catch {
+    return null;
+  }
+}
+
+function writePendingSignup(record: PendingSignupRecord): void {
+  try {
+    localStorage.setItem(
+      PENDING_SIGNUP_KEY,
+      JSON.stringify({
+        ...record,
+        email: normalizeEmail(record.email),
+      }),
+    );
+  } catch {
+    // Recovery metadata is best-effort; the account remains authoritative.
+  }
+}
+
+function clearPendingSignup(): void {
+  try {
+    localStorage.removeItem(PENDING_SIGNUP_KEY);
+  } catch {
+    // Ignore storage failures.
+  }
+}
+
+function pendingSignupMatchesUser(
+  pending: PendingSignupRecord | null,
+  user: Models.User<Models.Preferences>,
+): boolean {
+  if (!pending) return false;
+  if (pending.userId && pending.userId === user.$id) return true;
+  return normalizeEmail(pending.email) === normalizeEmail(user.email);
+}
 
 function broadcastAuth(type: "login" | "logout") {
   try {
@@ -95,10 +166,22 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = useState<Models.User<Models.Preferences> | null>(
     () => {
       const initialUser = readCachedUser();
+      if (initialUser && pendingSignupMatchesUser(readPendingSignup(), initialUser)) {
+        clearCachedUser();
+        scopeAccountWork(null);
+        return null;
+      }
       scopeAccountWork(initialUser?.$id ?? null);
       return initialUser;
     },
   );
+  const [pendingSignup, setPendingSignup] = useState<{
+    email: string;
+    name: string;
+  } | null>(() => {
+    const pending = readPendingSignup();
+    return pending ? { email: pending.email, name: pending.name } : null;
+  });
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [recoveryLoading, setRecoveryLoading] = useState(false);
@@ -185,6 +268,28 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       if (!isMountedRef.current || generation !== authGenerationRef.current) {
         return;
       }
+      const pending = readPendingSignup();
+      if (pendingSignupMatchesUser(pending, resolved)) {
+        const nextPending = {
+          email: normalizeEmail(resolved.email),
+          name: pending?.name || resolved.name || "",
+          userId: resolved.$id,
+        };
+        writePendingSignup(nextPending);
+        clearCachedUser();
+        scopeAccountWork(null);
+        setPendingSignup({
+          email: nextPending.email,
+          name: nextPending.name,
+        });
+        setUser(null);
+        setError(null);
+        return;
+      }
+      if (pending) {
+        clearPendingSignup();
+        setPendingSignup(null);
+      }
       scopeAccountWork(resolved.$id);
       writeCachedUser(resolved);
       setUser(resolved);
@@ -254,6 +359,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           return;
         }
 
+        // A completed login/signup clears pending onboarding before broadcast.
+        const pending = readPendingSignup();
+        setPendingSignup(
+          pending ? { email: pending.email, name: pending.name } : null,
+        );
         // Another tab already wrote the authenticated identity. Use it
         // immediately, then reconcile the live session in the background.
         setUser(readCachedUser());
@@ -294,6 +404,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const login = useCallback(
     async (email: string, password: string): Promise<boolean> => {
       const generation = ++authGenerationRef.current;
+      const normalizedEmail = normalizeEmail(email);
+      let authenticatedUserId: string | null = null;
       setError(null);
       setIsLoading(true);
       await suspendCurrentAccountWork();
@@ -301,17 +413,44 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         try {
           await callAccount(() => account.deleteSession("current"));
         } catch {
-          // Session may not exist or the network may be unavailable. The
-          // create-session call below remains the authoritative login action.
+          // Session may not exist. The create-session call below is authoritative.
         }
         await callAccount(() =>
-          account.createEmailPasswordSession(email, password),
+          account.createEmailPasswordSession(normalizedEmail, password),
         );
         const resolved = await callAccount(() => account.get());
+        authenticatedUserId = resolved.$id;
         if (!isMountedRef.current || generation !== authGenerationRef.current) {
           return false;
         }
+
         scopeAccountWork(resolved.$id);
+        const { fetchMyProfile } = await import("../lib/social");
+        const profile = await fetchMyProfile(resolved.$id);
+        if (!isMountedRef.current || generation !== authGenerationRef.current) {
+          return false;
+        }
+        if (!profile) {
+          const nextPending = {
+            email: normalizeEmail(resolved.email),
+            name: resolved.name || "",
+            userId: resolved.$id,
+          };
+          writePendingSignup(nextPending);
+          clearCachedUser();
+          scopeAccountWork(null);
+          setPendingSignup({
+            email: nextPending.email,
+            name: nextPending.name,
+          });
+          setUser(null);
+          setError("Choose a username to finish setting up your account.");
+          setIsLoading(false);
+          return false;
+        }
+
+        clearPendingSignup();
+        setPendingSignup(null);
         writeCachedUser(resolved);
         setUser(resolved);
         setError(null);
@@ -322,11 +461,16 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         if (!isMountedRef.current || generation !== authGenerationRef.current) {
           return false;
         }
+        if (authenticatedUserId) {
+          scopeAccountWork(null);
+        }
         const message =
           loginError instanceof Error ? loginError.message : "Login failed";
         setError(message);
         setIsLoading(false);
-        void verifyLiveSession(true);
+        if (!authenticatedUserId) {
+          void verifyLiveSession(true);
+        }
         return false;
       }
     },
@@ -334,30 +478,108 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   );
 
   const signup = useCallback(
-    async (email: string, password: string, name: string): Promise<boolean> => {
+    async (
+      email: string,
+      password: string,
+      name: string,
+      username: string,
+    ): Promise<boolean> => {
       const generation = ++authGenerationRef.current;
+      const normalizedEmail = normalizeEmail(email);
+      const normalizedName = name.trim();
+      const normalizedUsername = normalizeUsername(username);
+      let authenticatedUserId: string | null = null;
+
+      if (!isValidUsername(normalizedUsername)) {
+        setError(USERNAME_REQUIREMENTS);
+        return false;
+      }
+
+      const initialPending = {
+        email: normalizedEmail,
+        name: normalizedName,
+      };
+      writePendingSignup(initialPending);
+      setPendingSignup(initialPending);
       setError(null);
       setIsLoading(true);
       await suspendCurrentAccountWork();
+
       try {
-        await callAccount(() =>
-          account.create("unique()", email, password, name),
-        );
         try {
           await callAccount(() =>
-            account.createEmailPasswordSession(email, password),
+            account.create("unique()", normalizedEmail, password, normalizedName),
           );
-        } catch (sessionError: unknown) {
-          const msg = sessionError instanceof Error ? sessionError.message : "";
-          if (!msg.includes("already active") && !msg.includes("prohibited")) {
-            throw sessionError;
+        } catch (createError: unknown) {
+          const code = (createError as { code?: number } | null)?.code;
+          if (code !== 409) {
+            throw createError;
           }
+          // A previous attempt may have created the account before its response
+          // was lost. Prove ownership with the supplied password and resume.
         }
+
+        try {
+          await callAccount(() => account.deleteSession("current"));
+        } catch {
+          // No current session is the normal fresh-signup case.
+        }
+
+        await callAccount(() =>
+          account.createEmailPasswordSession(normalizedEmail, password),
+        );
         const resolved = await callAccount(() => account.get());
+        authenticatedUserId = resolved.$id;
+
+        if (
+          normalizeEmail(resolved.email) !== normalizedEmail ||
+          !isMountedRef.current ||
+          generation !== authGenerationRef.current
+        ) {
+          if (normalizeEmail(resolved.email) !== normalizedEmail) {
+            throw new Error("Signup session does not match the requested account.");
+          }
+          return false;
+        }
+
+        const pendingWithOwner = {
+          email: normalizedEmail,
+          name: normalizedName || resolved.name || "",
+          userId: resolved.$id,
+        };
+        writePendingSignup(pendingWithOwner);
+        setPendingSignup({
+          email: pendingWithOwner.email,
+          name: pendingWithOwner.name,
+        });
+        scopeAccountWork(resolved.$id);
+
+        const { createOrUpdateProfile, fetchMyProfile } = await import(
+          "../lib/social"
+        );
+        const existingProfile = await fetchMyProfile(resolved.$id);
+        let profile = existingProfile;
+        if (!profile) {
+          profile = await createOrUpdateProfile(
+            {
+              userId: resolved.$id,
+              username: normalizedUsername,
+              displayName: normalizedName || resolved.name || normalizedUsername,
+              avatarFileId: "",
+              bio: "",
+            },
+            { queueOnTransient: false },
+          );
+        }
+
         if (!isMountedRef.current || generation !== authGenerationRef.current) {
           return false;
         }
-        scopeAccountWork(resolved.$id);
+
+        const { writeCachedOwnProfile } = await import("../lib/profileCache");
+        writeCachedOwnProfile(resolved.$id, profile);
+        clearPendingSignup();
+        setPendingSignup(null);
         writeCachedUser(resolved);
         setUser(resolved);
         setError(null);
@@ -368,15 +590,24 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         if (!isMountedRef.current || generation !== authGenerationRef.current) {
           return false;
         }
+        if (authenticatedUserId) {
+          scopeAccountWork(null);
+        }
+        const code = (signupError as { code?: number } | null)?.code;
         const message =
-          signupError instanceof Error ? signupError.message : "Signup failed";
+          code === 409
+            ? "That username is already taken."
+            : authenticatedUserId
+              ? "Your account is ready, but profile setup did not finish. Retry signup to continue."
+              : signupError instanceof Error
+                ? signupError.message
+                : "Signup failed";
         setError(message);
         setIsLoading(false);
-        void verifyLiveSession(true);
         return false;
       }
     },
-    [suspendCurrentAccountWork, verifyLiveSession],
+    [suspendCurrentAccountWork],
   );
 
   const logout = useCallback(async (): Promise<boolean> => {
@@ -559,6 +790,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         recoveryError,
         recoverySuccess,
         isOffline,
+        pendingSignup,
         login,
         signup,
         requestPasswordRecovery,

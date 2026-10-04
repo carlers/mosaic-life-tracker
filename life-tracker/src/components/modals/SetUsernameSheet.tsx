@@ -8,6 +8,12 @@ import { useMyProfile } from '../../hooks/useMyProfile';
 import { useAuth } from '../../hooks/useAuth';
 import { isOfflineError } from '../../lib/authEvents';
 import { useConnectivity } from '../../hooks/useConnectivity';
+import {
+  isValidUsername,
+  normalizeUsername,
+  USERNAME_MAX_LENGTH,
+  USERNAME_REQUIREMENTS,
+} from '../../lib/profileUsername';
 
 interface SetUsernameSheetProps {
   isOpen: boolean;
@@ -15,7 +21,6 @@ interface SetUsernameSheetProps {
   onSuccess?: (username: string) => void;
 }
 
-const USERNAME_REGEX = /^[a-z0-9_]{3,20}$/;
 
 export const SetUsernameSheet: React.FC<SetUsernameSheetProps> = ({
   isOpen,
@@ -48,9 +53,9 @@ export const SetUsernameSheet: React.FC<SetUsernameSheetProps> = ({
   }, [isOpen]);
 
   const handleSave = async () => {
-    const trimmed = username.trim().toLowerCase();
-    if (!USERNAME_REGEX.test(trimmed)) {
-      setError('Username must be 3–20 characters: a–z, 0–9, underscore.');
+    const trimmed = normalizeUsername(username);
+    if (!isValidUsername(trimmed)) {
+      setError(USERNAME_REQUIREMENTS);
       return;
     }
     if (!displayName.trim()) {
@@ -87,10 +92,13 @@ export const SetUsernameSheet: React.FC<SetUsernameSheetProps> = ({
       console.error('[SetUsernameSheet] Save failed:', err);
       const offline =
         isOfflineError(err) || connectivity.status !== 'online';
+      const code = (err as { code?: number } | null)?.code;
       setError(
-        offline
-          ? "You're offline. Reconnect to save your profile."
-          : 'Could not save. Try again.'
+        code === 409
+          ? 'That username is already taken.'
+          : offline
+            ? "You're offline. Reconnect to save your profile."
+            : 'Could not save. Try again.'
       );
     } finally {
       setIsSaving(false);
@@ -125,12 +133,10 @@ export const SetUsernameSheet: React.FC<SetUsernameSheetProps> = ({
               type="text"
               value={username}
               onChange={(e) =>
-                setUsername(
-                  e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, '')
-                )
+                setUsername(normalizeUsername(e.target.value))
               }
               placeholder="your_handle"
-              maxLength={20}
+              maxLength={USERNAME_MAX_LENGTH}
               autoCapitalize="none"
               autoCorrect="off"
               spellCheck={false}
@@ -140,7 +146,7 @@ export const SetUsernameSheet: React.FC<SetUsernameSheetProps> = ({
             />
           </div>
           <p id={usernameHelpId} className="text-xs text-gray-400 mt-1.5 ml-1">
-            3–20 characters · a–z, 0–9, underscore
+            {USERNAME_REQUIREMENTS.replace('Username must be ', '')}
           </p>
         </div>
         <Input

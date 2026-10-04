@@ -11,6 +11,9 @@ import type { Models } from "appwrite";
 const initializeSyncMock = vi.hoisted(() => vi.fn());
 const suspendSyncOwnerMock = vi.hoisted(() => vi.fn());
 const waitForDatabaseReadyMock = vi.hoisted(() => vi.fn());
+const fetchMyProfileMock = vi.hoisted(() => vi.fn());
+const createOrUpdateProfileMock = vi.hoisted(() => vi.fn());
+const writeCachedOwnProfileMock = vi.hoisted(() => vi.fn());
 
 const accountRef = vi.hoisted(() => ({
   get: vi.fn(),
@@ -34,6 +37,13 @@ vi.mock("../../src/db/sync", () => ({
 }));
 vi.mock("../../src/lib/databaseBootstrap", () => ({
   waitForDatabaseReady: waitForDatabaseReadyMock,
+}));
+vi.mock("../../src/lib/social", () => ({
+  fetchMyProfile: fetchMyProfileMock,
+  createOrUpdateProfile: createOrUpdateProfileMock,
+}));
+vi.mock("../../src/lib/profileCache", () => ({
+  writeCachedOwnProfile: writeCachedOwnProfileMock,
 }));
 
 import { AuthProvider } from "../../src/hooks/AuthProvider";
@@ -93,6 +103,27 @@ describe("AuthProvider offline auth gate", () => {
     suspendSyncOwnerMock.mockResolvedValue(undefined);
     waitForDatabaseReadyMock.mockReset();
     waitForDatabaseReadyMock.mockResolvedValue(undefined);
+    fetchMyProfileMock.mockReset();
+    fetchMyProfileMock.mockImplementation(async (userId: string) => ({
+      $id: `profile_${userId}`,
+      user_id: userId,
+      username: 'existing_user',
+      display_name: 'Existing User',
+      avatar_file_id: '',
+      bio: '',
+      is_searchable: true,
+    }));
+    createOrUpdateProfileMock.mockReset();
+    createOrUpdateProfileMock.mockImplementation(async (input) => ({
+      $id: `profile_${input.userId}`,
+      user_id: input.userId,
+      username: input.username,
+      display_name: input.displayName,
+      avatar_file_id: input.avatarFileId || '',
+      bio: input.bio || '',
+      is_searchable: true,
+    }));
+    writeCachedOwnProfileMock.mockReset();
     Object.defineProperty(navigator, "onLine", {
       configurable: true,
       value: true,
@@ -184,6 +215,179 @@ describe("AuthProvider offline auth gate", () => {
       resolve();
       expect(await pending).toBe(false);
     });
+  });
+
+  it("creates the username profile before publishing a newly signed-up user", async () => {
+    accountRef.get.mockRejectedValueOnce(makeUnauthorizedError());
+    const { result } = renderHook(() => useAuth(), { wrapper });
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    const fresh = makeUser({
+      $id: "user_signup",
+      email: "new@example.com",
+      name: "New User",
+    });
+    accountRef.create.mockResolvedValueOnce(fresh);
+    accountRef.deleteSession.mockResolvedValueOnce(undefined);
+    accountRef.createEmailPasswordSession.mockResolvedValueOnce(undefined);
+    accountRef.get.mockResolvedValueOnce(fresh);
+    fetchMyProfileMock.mockResolvedValueOnce(null);
+
+    let ok = false;
+    await act(async () => {
+      ok = await result.current.signup(
+        "new@example.com",
+        "test-pass-123",
+        "New User",
+        "New_User",
+      );
+    });
+
+    expect(ok).toBe(true);
+    expect(createOrUpdateProfileMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: "user_signup",
+        username: "new_user",
+        displayName: "New User",
+      }),
+      { queueOnTransient: false },
+    );
+    expect(writeCachedOwnProfileMock).toHaveBeenCalled();
+    expect(result.current.user?.$id).toBe("user_signup");
+    expect(result.current.pendingSignup).toBeNull();
+    await waitFor(() =>
+      expect(initializeSyncMock).toHaveBeenCalledWith("user_signup"),
+    );
+  });
+
+  it("keeps username collisions in resumable signup instead of publishing a half-onboarded user", async () => {
+    accountRef.get.mockRejectedValueOnce(makeUnauthorizedError());
+    const { result } = renderHook(() => useAuth(), { wrapper });
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    const fresh = makeUser({
+      $id: "user_collision",
+      email: "collision@example.com",
+      name: "Collision User",
+    });
+    accountRef.create.mockResolvedValueOnce(fresh);
+    accountRef.deleteSession.mockResolvedValueOnce(undefined);
+    accountRef.createEmailPasswordSession.mockResolvedValueOnce(undefined);
+    accountRef.get.mockResolvedValueOnce(fresh);
+    fetchMyProfileMock.mockResolvedValueOnce(null);
+    createOrUpdateProfileMock.mockRejectedValueOnce(
+      Object.assign(new Error("duplicate"), { code: 409 }),
+    );
+
+    await act(async () => {
+      expect(
+        await result.current.signup(
+          "collision@example.com",
+          "test-pass-123",
+          "Collision User",
+          "claimed_name",
+        ),
+      ).toBe(false);
+    });
+
+    expect(result.current.user).toBeNull();
+    expect(result.current.pendingSignup).toEqual({
+      email: "collision@example.com",
+      name: "Collision User",
+    });
+    expect(result.current.error).toBe("That username is already taken.");
+    expect(localStorage.getItem(LAST_KNOWN_USER_KEY)).toBeNull();
+    expect(initializeSyncMock).not.toHaveBeenCalled();
+  });
+
+  it("resumes signup when account creation already succeeded on an earlier attempt", async () => {
+    accountRef.get.mockRejectedValueOnce(makeUnauthorizedError());
+    const { result } = renderHook(() => useAuth(), { wrapper });
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    const existing = makeUser({
+      $id: "user_resume",
+      email: "resume@example.com",
+      name: "Resume User",
+    });
+    accountRef.create.mockRejectedValueOnce(
+      Object.assign(new Error("already exists"), { code: 409 }),
+    );
+    accountRef.deleteSession.mockResolvedValueOnce(undefined);
+    accountRef.createEmailPasswordSession.mockResolvedValueOnce(undefined);
+    accountRef.get.mockResolvedValueOnce(existing);
+    fetchMyProfileMock.mockResolvedValueOnce(null);
+
+    await act(async () => {
+      expect(
+        await result.current.signup(
+          "resume@example.com",
+          "test-pass-123",
+          "Resume User",
+          "resume_user",
+        ),
+      ).toBe(true);
+    });
+
+    expect(result.current.user?.$id).toBe("user_resume");
+    expect(createOrUpdateProfileMock).toHaveBeenCalledOnce();
+  });
+
+  it("does not let a reload with a pending signup session bypass username setup", async () => {
+    localStorage.setItem(
+      "mosaic_pending_signup",
+      JSON.stringify({
+        email: "pending@example.com",
+        name: "Pending User",
+        userId: "user_pending",
+      }),
+    );
+    accountRef.get.mockReset();
+    accountRef.get.mockResolvedValueOnce(
+      makeUser({
+        $id: "user_pending",
+        email: "pending@example.com",
+        name: "Pending User",
+      }),
+    );
+
+    const { result } = renderHook(() => useAuth(), { wrapper });
+
+    await waitFor(() =>
+      expect(result.current.pendingSignup?.email).toBe("pending@example.com"),
+    );
+    expect(result.current.user).toBeNull();
+    expect(localStorage.getItem(LAST_KNOWN_USER_KEY)).toBeNull();
+    expect(initializeSyncMock).not.toHaveBeenCalled();
+  });
+
+  it("routes explicit login without a profile back into username setup", async () => {
+    accountRef.get.mockRejectedValueOnce(makeUnauthorizedError());
+    const { result } = renderHook(() => useAuth(), { wrapper });
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    const fresh = makeUser({
+      $id: "user_needs_profile",
+      email: "needs-profile@example.com",
+      name: "Needs Profile",
+    });
+    accountRef.deleteSession.mockResolvedValueOnce(undefined);
+    accountRef.createEmailPasswordSession.mockResolvedValueOnce(undefined);
+    accountRef.get.mockResolvedValueOnce(fresh);
+    fetchMyProfileMock.mockResolvedValueOnce(null);
+
+    await act(async () => {
+      expect(
+        await result.current.login("needs-profile@example.com", "test-pass-123"),
+      ).toBe(false);
+    });
+
+    expect(result.current.user).toBeNull();
+    expect(result.current.pendingSignup).toEqual({
+      email: "needs-profile@example.com",
+      name: "Needs Profile",
+    });
+    expect(result.current.error).toMatch(/choose a username/i);
   });
 
   // Regression: §19 (successful login triggers sync after auth resolves).

@@ -30,6 +30,12 @@ vi.mock('../../src/lib/localUpsert', () => ({
   upsertLocalDoc: state.upsert,
 }));
 
+vi.mock('../../src/lib/accountWorkScope', () => ({
+  captureAccountWorkGeneration: (userId: string) => userId === 'user_A' ? 3 : null,
+  isAccountWorkCurrent: (userId: string, generation: number) =>
+    userId === 'user_A' && generation === 3,
+}));
+
 vi.mock('../../src/db/sync', () => ({
   refreshSync: state.refreshSync,
   initializeSync: state.initializeSync,

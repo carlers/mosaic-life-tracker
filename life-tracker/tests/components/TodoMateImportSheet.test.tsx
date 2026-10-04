@@ -30,6 +30,7 @@ describe('TodoMateImportSheet', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    localStorage.clear();
     mocks.prepareTodoMateTransfer.mockResolvedValue({
       file: preparedFile,
       preview: {
@@ -51,6 +52,8 @@ describe('TodoMateImportSheet', () => {
       imagesRestored: 2,
       imagesMissing: 0,
       safetyBackupDownloaded: false,
+      syncState: 'synced',
+      syncError: '',
     });
   });
 
@@ -156,6 +159,114 @@ describe('TodoMateImportSheet', () => {
       expect.stringMatching(/17 restored.*2 photos copied.*1 newer Mosaic item kept/)
     );
     expect(onClose).toHaveBeenCalledOnce();
+  });
+
+  it('cancels a preview when the sheet closes and ignores its stale result', async () => {
+    let resolveFirst!: (value: unknown) => void;
+    let firstSignal: AbortSignal | undefined;
+    mocks.prepareTodoMateTransfer
+      .mockImplementationOnce((_credentials, options) => {
+        firstSignal = options.signal;
+        return new Promise((resolve) => {
+          resolveFirst = resolve;
+        });
+      })
+      .mockResolvedValueOnce({
+        file: preparedFile,
+        preview: {
+          categories: 1,
+          tasks: 2,
+          diary: 0,
+          unscheduledMovedToToday: 0,
+          photosFound: 0,
+          photosReady: 0,
+          photosUnavailable: 0,
+          routinesReferenced: 0,
+        },
+      });
+
+    const { rerender } = render(
+      <TodoMateImportSheet isOpen onClose={vi.fn()} />
+    );
+    fireEvent.change(screen.getByLabelText('TodoMate email'), {
+      target: { value: 'first@example.com' },
+    });
+    fireEvent.change(screen.getByLabelText('TodoMate password'), {
+      target: { value: 'pw-one-12345' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Preview Transfer' }));
+    await waitFor(() => expect(firstSignal).toBeDefined());
+
+    rerender(<TodoMateImportSheet isOpen={false} onClose={vi.fn()} />);
+    expect(firstSignal?.aborted).toBe(true);
+
+    rerender(<TodoMateImportSheet isOpen onClose={vi.fn()} />);
+    fireEvent.change(screen.getByLabelText('TodoMate email'), {
+      target: { value: 'second@example.com' },
+    });
+    fireEvent.change(screen.getByLabelText('TodoMate password'), {
+      target: { value: 'pw-two-12345' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Preview Transfer' }));
+    await screen.findByText(/2 tasks · 1 categories · 0 diary entries/i);
+
+    resolveFirst({
+      file: preparedFile,
+      preview: {
+        categories: 99,
+        tasks: 999,
+        diary: 99,
+        unscheduledMovedToToday: 0,
+        photosFound: 0,
+        photosReady: 0,
+        photosUnavailable: 0,
+        routinesReferenced: 0,
+      },
+    });
+    await Promise.resolve();
+
+    expect(screen.queryByText(/999 tasks · 99 categories/i)).not.toBeInTheDocument();
+  });
+
+  it('reports sync pending after local apply without claiming full completion', async () => {
+    const onSuccess = vi.fn();
+    mocks.restoreUserData.mockImplementationOnce(async (_file, _user, options) => {
+      options.onLocalApplyComplete?.();
+      return {
+        mode: 'merge',
+        restored: { tasks: 12, categories: 3, diary: 2, settings: 0 },
+        skippedNewer: 0,
+        tombstoned: 0,
+        imagesRestored: 0,
+        imagesMissing: 0,
+        safetyBackupDownloaded: false,
+        syncState: 'pending',
+        syncError: 'network timeout',
+      };
+    });
+
+    render(
+      <TodoMateImportSheet isOpen onClose={vi.fn()} onSuccess={onSuccess} />
+    );
+    fireEvent.change(screen.getByLabelText('TodoMate email'), {
+      target: { value: 'todo@example.com' },
+    });
+    fireEvent.change(screen.getByLabelText('TodoMate password'), {
+      target: { value: 'pw-sync-12345' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Preview Transfer' }));
+    await screen.findByRole('button', { name: 'Import into Mosaic' });
+    fireEvent.click(screen.getByRole('button', { name: 'Import into Mosaic' }));
+
+    await waitFor(() =>
+      expect(onSuccess).toHaveBeenCalledWith(
+        expect.stringMatching(/imported locally · Sync pending/i)
+      )
+    );
+    const marker = JSON.parse(
+      localStorage.getItem('mosaic_todomate_import_v1_user_A') || '{}'
+    );
+    expect(marker.phase).toBe('applied');
   });
 
   it('does not expose a destructive replace mode', async () => {

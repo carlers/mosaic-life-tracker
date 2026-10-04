@@ -23,6 +23,14 @@ interface TodoMateImportOptions {
   now?: () => Date;
   onProgress?: (message: string) => void;
   photoProcessor?: (file: File) => Promise<Blob>;
+  signal?: AbortSignal;
+}
+
+function throwIfAborted(signal?: AbortSignal): void {
+  if (!signal?.aborted) return;
+  const error = new Error('TodoMate preview cancelled.');
+  error.name = 'AbortError';
+  throw error;
 }
 
 interface FirestoreRecord {
@@ -82,8 +90,10 @@ async function fetchTodoMatePhoto(
   photoUrl: string,
   idToken: string,
   fetchImpl: typeof fetch,
-  photoProcessor: (file: File) => Promise<Blob>
+  photoProcessor: (file: File) => Promise<Blob>,
+  signal?: AbortSignal
 ): Promise<Uint8Array | null> {
+  throwIfAborted(signal);
   let url: URL;
   try {
     url = new URL(photoUrl);
@@ -97,12 +107,14 @@ async function fetchTodoMatePhoto(
     credentials: 'omit',
     referrerPolicy: 'no-referrer',
     cache: 'no-store',
+    signal,
   };
 
   let response: Response | null = null;
   try {
     response = await fetchImpl(url.toString(), baseInit);
   } catch {
+    throwIfAborted(signal);
     // Keep the initial null response and allow the guarded Google Storage
     // authentication retry below when applicable.
   }
@@ -117,6 +129,7 @@ async function fetchTodoMatePhoto(
         headers: { authorization: `Bearer ${idToken}` },
       });
     } catch {
+      throwIfAborted(signal);
       response = null;
     }
   }
@@ -131,7 +144,9 @@ async function fetchTodoMatePhoto(
     return null;
   }
 
+  throwIfAborted(signal);
   const blob = await response.blob();
+  throwIfAborted(signal);
   if (blob.size === 0 || blob.size > MAX_TODOMATE_PHOTO_BYTES) return null;
   if (blob.type && !blob.type.startsWith('image/')) return null;
 
@@ -140,11 +155,13 @@ async function fetchTodoMatePhoto(
     const processed = await photoProcessor(
       new File([blob], `todomate-photo-${Date.now()}`, { type })
     );
+    throwIfAborted(signal);
     if (processed.size === 0 || processed.size > MAX_TODOMATE_PHOTO_BYTES) {
       return null;
     }
     return new Uint8Array(await processed.arrayBuffer());
   } catch {
+    throwIfAborted(signal);
     return null;
   }
 }
@@ -154,7 +171,8 @@ async function downloadTodoMatePhotos(
   idToken: string,
   fetchImpl: typeof fetch,
   photoProcessor: (file: File) => Promise<Blob>,
-  report: (message: string) => void
+  report: (message: string) => void,
+  signal?: AbortSignal
 ): Promise<{
   found: number;
   prepared: Map<string, PreparedTodoMatePhoto>;
@@ -173,6 +191,7 @@ async function downloadTodoMatePhotos(
 
   const worker = async () => {
     while (true) {
+      throwIfAborted(signal);
       const index = cursor;
       cursor += 1;
       if (index >= candidates.length) return;
@@ -181,7 +200,8 @@ async function downloadTodoMatePhotos(
         candidate.url,
         idToken,
         fetchImpl,
-        photoProcessor
+        photoProcessor,
+        signal
       );
       completed += 1;
       report(
@@ -372,7 +392,10 @@ async function readJson(response: Response): Promise<unknown> {
   }
 }
 
-async function loadFirebaseConfig(fetchImpl: typeof fetch): Promise<{
+async function loadFirebaseConfig(
+  fetchImpl: typeof fetch,
+  signal?: AbortSignal
+): Promise<{
   apiKey: string;
   projectId: string;
 }> {
@@ -381,6 +404,7 @@ async function loadFirebaseConfig(fetchImpl: typeof fetch): Promise<{
       cache: 'no-store',
       credentials: 'omit',
       referrerPolicy: 'no-referrer',
+      signal,
     });
 
     if (response.ok) {
@@ -399,6 +423,7 @@ async function loadFirebaseConfig(fetchImpl: typeof fetch): Promise<{
       }
     }
   } catch {
+    throwIfAborted(signal);
     // TodoMate's public Firebase init endpoint is not guaranteed to allow
     // cross-origin browser reads. Fall through to the public web config
     // shipped by TodoMate itself rather than failing before authentication.
@@ -410,7 +435,8 @@ async function loadFirebaseConfig(fetchImpl: typeof fetch): Promise<{
 async function signInTodoMate(
   credentials: TodoMateCredentials,
   apiKey: string,
-  fetchImpl: typeof fetch
+  fetchImpl: typeof fetch,
+  signal?: AbortSignal
 ): Promise<{ idToken: string; uid: string }> {
   let response: Response;
   try {
@@ -426,9 +452,11 @@ async function signInTodoMate(
           password: credentials.password,
           returnSecureToken: true,
         }),
+        signal,
       }
     );
   } catch {
+    throwIfAborted(signal);
     throw new Error('Could not reach TodoMate login. Check your connection and try again.');
   }
 
@@ -453,7 +481,8 @@ async function queryOwnedCollection(
   uid: string,
   idToken: string,
   projectId: string,
-  fetchImpl: typeof fetch
+  fetchImpl: typeof fetch,
+  signal?: AbortSignal
 ): Promise<FirestoreRecord[]> {
   const url =
     `https://firestore.googleapis.com/v1/projects/${encodeURIComponent(projectId)}` +
@@ -469,6 +498,7 @@ async function queryOwnedCollection(
         authorization: `Bearer ${idToken}`,
         'content-type': 'application/json',
       },
+      signal,
       body: JSON.stringify({
         structuredQuery: {
           from: [{ collectionId }],
@@ -483,6 +513,7 @@ async function queryOwnedCollection(
       }),
     });
   } catch {
+    throwIfAborted(signal);
     throw new Error('Could not read TodoMate data. Check your connection and try again.');
   }
 
@@ -681,15 +712,18 @@ export async function prepareTodoMateTransfer(
   const fetchImpl = options.fetchImpl ?? fetch;
   const now = options.now ?? (() => new Date());
   const report = options.onProgress ?? (() => {});
+  const signal = options.signal;
 
+  throwIfAborted(signal);
   report('Connecting to TodoMate…');
-  const config = await loadFirebaseConfig(fetchImpl);
+  const config = await loadFirebaseConfig(fetchImpl, signal);
 
   report('Signing in to TodoMate…');
   const session = await signInTodoMate(
     { email, password: credentials.password },
     config.apiKey,
-    fetchImpl
+    fetchImpl,
+    signal
   );
 
   report('Reading TodoMate history…');
@@ -700,7 +734,8 @@ export async function prepareTodoMateTransfer(
       session.uid,
       session.idToken,
       config.projectId,
-      fetchImpl
+      fetchImpl,
+      signal
     ),
     queryOwnedCollection(
       'TodoItem',
@@ -708,7 +743,8 @@ export async function prepareTodoMateTransfer(
       session.uid,
       session.idToken,
       config.projectId,
-      fetchImpl
+      fetchImpl,
+      signal
     ),
     queryOwnedCollection(
       'Diary',
@@ -716,7 +752,8 @@ export async function prepareTodoMateTransfer(
       session.uid,
       session.idToken,
       config.projectId,
-      fetchImpl
+      fetchImpl,
+      signal
     ),
   ]);
 
@@ -726,9 +763,11 @@ export async function prepareTodoMateTransfer(
     session.idToken,
     fetchImpl,
     photoProcessor,
-    report
+    report,
+    signal
   );
 
+  throwIfAborted(signal);
   report('Preparing Mosaic import…');
   return makeMosaicBackup(
     email,
