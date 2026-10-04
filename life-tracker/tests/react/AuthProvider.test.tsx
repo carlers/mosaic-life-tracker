@@ -361,7 +361,7 @@ describe("AuthProvider offline auth gate", () => {
     expect(initializeSyncMock).not.toHaveBeenCalled();
   });
 
-  it("routes explicit login without a profile back into username setup", async () => {
+  it("keeps legacy login usable even when no social profile exists yet", async () => {
     accountRef.get.mockRejectedValueOnce(makeUnauthorizedError());
     const { result } = renderHook(() => useAuth(), { wrapper });
     await waitFor(() => expect(result.current.isLoading).toBe(false));
@@ -379,15 +379,13 @@ describe("AuthProvider offline auth gate", () => {
     await act(async () => {
       expect(
         await result.current.login("needs-profile@example.com", "test-pass-123"),
-      ).toBe(false);
+      ).toBe(true);
     });
 
-    expect(result.current.user).toBeNull();
-    expect(result.current.pendingSignup).toEqual({
-      email: "needs-profile@example.com",
-      name: "Needs Profile",
-    });
-    expect(result.current.error).toMatch(/choose a username/i);
+    expect(result.current.user?.$id).toBe("user_needs_profile");
+    expect(result.current.pendingSignup).toBeNull();
+    expect(result.current.error).toBeNull();
+    expect(fetchMyProfileMock).not.toHaveBeenCalled();
   });
 
   // Regression: §19 (successful login triggers sync after auth resolves).
