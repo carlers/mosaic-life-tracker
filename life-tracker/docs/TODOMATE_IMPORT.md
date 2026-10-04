@@ -206,7 +206,12 @@ Automated coverage must prove:
    tasks;
 9. an arbitrary photo host never receives the Firebase bearer token, while a Google Storage
    401/403 may be retried with that token;
-10. the UI clears the password after preview and imports only through Merge restore.
+10. the UI clears the password after preview and imports only through Merge restore;
+11. closing/reopening Preview cancels the older request and stale preview results cannot win;
+12. account changes stop restore application, categories apply before tasks, and large
+    1,000–5,000-task fixtures retain every row;
+13. failed final convergence keeps locally applied rows and reports sync pending, while a
+    deterministic rerun remains duplicate-safe.
 
 Live acceptance requires a real TodoMate account and must be done by the user locally. Never
 ask the user to paste TodoMate credentials or Firebase tokens into an AI chat. Verify preview
