@@ -2,25 +2,26 @@
 
 Updated: 2026-10-04
 Current task: Harden the normal new-user path from account creation through username/profile setup, TodoMate import, sync convergence, and multi-device continuation.
-Status: Implementation and regression coverage are complete on `chatgpt/new-user-onboarding-hardening`. The task is ready for focused verification before squash delivery to stable Preview `fix/new-user-onboarding-hardening`.
-Next action: Run the focused task gate. Repair any failure, then squash-merge the focused-green task PR into `fix/new-user-onboarding-hardening` for the canonical full gate and Vercel Preview. Promotion to `dev` remains user-controlled.
+Status: The main hardening implementation is already on stable Preview `fix/new-user-onboarding-hardening`. Its first canonical run passed build, dependency audit, and both DOM shards but the general checks job found two React lint violations: AuthPage and TodoMateImportSheet were setting state synchronously inside effects. This repair branch replaces those resets with Mosaic's existing `usePropSync` render-adjustment pattern while preserving the same behavior.
+Next action: Run focused verification for this repair, squash it into `fix/new-user-onboarding-hardening`, then rerun canonical acceptance and confirm the exact-SHA Vercel Preview. Promotion to `dev` remains user-controlled.
 Blockers: None known.
 
 ## Results
 
-- Signup now collects a normalized username and does not publish/cache the authenticated app user until the account has a profile. Appwrite's unique username constraint remains authoritative.
-- Partial/ambiguous signup is resumable: a small local pending-onboarding record survives reload, account-create 409 is followed by password/session proof rather than assumed success, and profile/setup failure keeps the user out of Home until retry completes.
-- Explicit login to an account without a profile routes back into username setup, covering the same account on a second device.
-- TodoMate Preview owns an AbortController + operation generation, so closing/reopening cancels old reads and stale progress/results cannot overwrite a newer attempt.
-- TodoMate import stores only account-scoped recovery metadata (expected counts + applying/applied phase). Interrupted local application is surfaced on reopen and reruns remain deterministic/idempotent.
-- Restore applies categories before tasks and checks the authenticated account-work generation throughout planning, image work, row application, and tombstoning.
-- Restore now performs a real bounded post-apply `refreshSync()` convergence barrier instead of treating `initializeSync()` as completion. A timeout/connectivity failure retains the durable local rows and reports sync pending rather than falsely claiming remote completion.
-- Normal backup restore uses the same truthful synced-vs-pending result contract.
-- Automated coverage includes username onboarding/recovery, stale preview cancellation, interrupted/pending import markers, mid-apply account changes, category-before-task order, 1,000- and 5,000-task application, and 1,000-task idempotent rerun.
+- Signup collects a normalized username before entering the app and keeps partial account/profile setup resumable.
+- Login to an account without a profile returns to username setup instead of entering Home with a missing social identity.
+- TodoMate Preview cancels stale work and ignores stale results across close/reopen races.
+- Interrupted TodoMate imports retain account-scoped recovery metadata and remain safe to rerun because Merge uses deterministic IDs.
+- Restore applies categories before tasks, guards account ownership throughout long operations, and uses a bounded post-apply freshness barrier.
+- A final sync failure retains local data and reports sync pending instead of falsely claiming remote completion.
+- Large import and interruption/idempotency regressions cover 1,000- and 5,000-task fixtures.
+- This repair changes only the React state-reset mechanism required by lint; no product behavior is intentionally changed.
 
 ## Verification
 
-- Focused GitHub verification: requested by the final task commit.
-- Stable Preview canonical gate and Vercel Preview: pending focused green + squash delivery.
-- Live TodoMate credential acceptance: not performed by AI; requires the user's own TodoMate account on hosted Preview.
-- Manual multi-device acceptance: pending hosted Preview with the same Mosaic account on phone + desktop.
+- Main implementation focused gate: passed.
+- First stable Preview canonical attempt: build, dependency audit, and both DOM shards passed; general checks failed on two `react-hooks/set-state-in-effect` errors.
+- CI repair focused gate: requested by the final repair commit.
+- Stable Preview canonical gate and Vercel Preview: pending repair delivery.
+- Live TodoMate credential acceptance: manual only with the user's account.
+- Manual same-account phone + desktop acceptance: pending hosted Preview.
