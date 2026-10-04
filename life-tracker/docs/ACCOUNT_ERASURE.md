@@ -63,7 +63,8 @@ converge on the same logical operation.
 ## Client behavior
 
 `AuthProvider` persists `mosaic_account_deletion_intent_v1` before dispatching the
-request. A matching cached account is not hydrated while that intent exists. Same-browser
+request, including the deleting user ID and normalized account email for safe later-login
+matching. A matching cached account is not hydrated while that intent exists. Same-browser
 tabs receive `deletion_pending` immediately and suspend the same sync owner.
 
 Server responses have two valid retained states:
@@ -78,9 +79,19 @@ A timeout, network error, or 5xx after dispatch is ambiguous. The browser keeps 
 and remains frozen. Signing in to the same account later retries the idempotent operation
 before normal account sync can start.
 
-A confirmed Appwrite `user_blocked` response is deletion-specific evidence and triggers
-local deleted-account cleanup. An ordinary invalid-session 401 is **not** treated as proof
-of permanent deletion.
+A confirmed Appwrite `user_blocked` response triggers deleted-account cleanup. An ordinary
+invalid-session 401 is **not** treated as proof that server deletion completed. However, when
+this browser already has a matching persisted deletion intent, that 401 is enough to evict
+the intended account's local rows while retaining the intent for a future authenticated
+retry if the server never crossed the privacy pivot. A failed login only performs this
+pending-deletion cleanup when its normalized email matches the persisted intent; a different
+account's failed login must never purge the pending account.
+
+Account-scoped RxDB eviction deliberately does not destroy the shared physical database.
+RxDB document removal can retain internal deletion tombstones until normal RxDB cleanup;
+Mosaic does not force a collection-wide `cleanup(0)` because doing so could purge another
+account's replication tombstones. The server-side Appwrite erasure guarantee is independent
+of that local storage implementation detail.
 
 ## Server write fencing and reconciliation
 

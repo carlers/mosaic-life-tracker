@@ -619,12 +619,15 @@ reconciliation/verification while the durable job still fences trusted Function 
 Only a clean final pass removes the job. Duplicate/overlapping workers are idempotent:
 already-missing rows/files/users are success-equivalent.
 
-The browser persists a deletion intent before dispatch, suspends that account's work, and
+The browser persists a deletion intent before dispatch, including the deleting user ID and
+normalized account email for safe later-login matching, suspends that account's work, and
 broadcasts `deletion_pending` to sibling tabs. A timeout/lost response never restarts the
 old sync owner. A retained pre-pivot server job (`accepted:false, deletionPending:true`)
 keeps the browser frozen until server maintenance or a later authenticated retry can finish.
-A confirmed pivot (`accepted:true`) signs out and account-scoped local erasure removes only
-the deleting user's RxDB rows; it must not destroy another account's local rows.
+A confirmed pivot (`accepted:true`) signs out and account-scoped local erasure removes the
+deleting user's live RxDB rows without destroying another account's local rows. RxDB may
+retain internal deletion tombstones until normal cleanup; do not force collection-wide
+zero-age cleanup that could discard another account's replication tombstones.
 
 Surviving peer-owned task reactions and `friend_carousel_prefs` are scrubbed during erasure
 and sanitized against the live accepted friendship graph before later replication pushes, so
@@ -638,10 +641,15 @@ and key-version aware; old marker keys must remain available through
 creating target resources and must never resurrect a marked account from older snapshots.
 
 Disconnected third-party devices cannot be physically wiped while offline. A generic
-expired/missing-session 401 is not treated as proof of deletion because doing so would break
-Mosaic's ordinary offline-session semantics. Immutable DR ciphertext/provider operational
-logs may also remain according to retention policy; the guarantee is erasure of live/
-restorable Mosaic account data and prevention of DR resurrection.
+expired/missing-session 401 by itself is not treated as proof of deletion because doing so
+would break Mosaic's ordinary offline-session semantics. When this browser already holds a
+matching persisted deletion intent, however, an authoritative 401 evicts that intended
+account's local rows while retaining the intent if server acceptance is still uncertain.
+A later failed login may trigger the same pending-deletion cleanup only when the normalized
+login email matches the persisted intent; a different account's failed login must never
+purge it. Immutable DR ciphertext/provider operational logs may also remain according to
+retention policy; the guarantee is erasure of live/restorable Mosaic account data and
+prevention of DR resurrection.
 
 The authoritative state machine, failure matrix, resource policy, limitations, testing, and
 rollout procedure are in [Permanent account erasure](ACCOUNT_ERASURE.md).
