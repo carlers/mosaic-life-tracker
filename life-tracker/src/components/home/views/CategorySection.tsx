@@ -215,7 +215,7 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
         type="button"
         onClick={handleOpen}
         disabled={selectionMode}
-        className="mosaic-category-pill inline-flex items-center gap-2 bg-black rounded-full pl-3.5 pr-3 py-2 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
+        className="mosaic-category-pill inline-flex items-center gap-2 bg-black rounded-full pl-3.5 pr-1 py-1 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
         aria-label={`Add a task to ${categoryName}`}
       >
         {visibility && visibilityIcon(visibility, 12, 'text-gray-400')}
@@ -225,7 +225,10 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
         >
           {categoryName}
         </span>
-        <span className="mosaic-category-add-icon inline-flex rounded-full text-gray-400" aria-hidden="true">
+        <span
+          className="mosaic-category-add-icon inline-flex h-8 w-8 items-center justify-center rounded-full text-gray-400"
+          aria-hidden="true"
+        >
           <Plus data-testid="category-add-icon" size={18} />
         </span>
       </button>
