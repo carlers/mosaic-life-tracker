@@ -518,7 +518,7 @@ describe('friendship RxDB replication pilot', () => {
         [{ newDocumentState: localFriendship() }],
         'user_A'
       )
-    ).rejects.toThrow('master owner mismatch');
+    ).rejects.toThrow('remote owner mismatch');
   });
 
   it('ignores cached friendship rows scoped to another local account', async () => {
