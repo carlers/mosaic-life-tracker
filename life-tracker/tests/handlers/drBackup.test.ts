@@ -1,5 +1,9 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createHandler } from '../../appwrite-functions/dr-backup/main.mjs';
+import {
+  privacyDeletionKey,
+  recordPrivacyDeletion,
+} from '../../appwrite-functions/dr-backup/privacy-deletion.mjs';
 
 function makeContext(options: {
   trigger?: string;
@@ -20,6 +24,88 @@ function makeContext(options: {
   };
   return { req, res, log, error };
 }
+
+describe('DR privacy deletion marker durability', () => {
+  const config = {
+    prefix: 'mosaic-dr/v1',
+    encryptionKey: Buffer.alloc(32, 7),
+    keyVersion: 'v1',
+    r2: {},
+  } as any;
+
+  function makeR2() {
+    const objects = new Map<
+      string,
+      { bytes: Buffer; metadata: Record<string, string> }
+    >();
+    return {
+      objects,
+      headObject: vi.fn(async (key: string) => {
+        const value = objects.get(key);
+        return value
+          ? { size: value.bytes.length, metadata: value.metadata }
+          : null;
+      }),
+      getObject: vi.fn(async (key: string) => {
+        const value = objects.get(key);
+        if (!value) throw new Error('missing');
+        return value.bytes;
+      }),
+      putObject: vi.fn(
+        async (
+          key: string,
+          value: Buffer,
+          options?: { metadata?: Record<string, string> }
+        ) => {
+          objects.set(key, {
+            bytes: Buffer.from(value),
+            metadata: { ...(options?.metadata ?? {}) },
+          });
+          return { etag: 'test' };
+        }
+      ),
+    };
+  }
+
+  it('authenticates and reuses an existing object-locked marker on retry', async () => {
+    const r2 = makeR2();
+    const first = await recordPrivacyDeletion('alice', {
+      config,
+      r2: r2 as any,
+      now: new Date('2026-10-04T00:00:00.000Z'),
+    });
+    const second = await recordPrivacyDeletion('alice', {
+      config,
+      r2: r2 as any,
+      now: new Date('2026-10-04T01:00:00.000Z'),
+    });
+
+    expect(first).toMatchObject({ ok: true, reused: false });
+    expect(second).toMatchObject({ ok: true, reused: true });
+    expect(r2.putObject).toHaveBeenCalledTimes(1);
+    expect(r2.getObject).toHaveBeenCalledTimes(1);
+    expect(r2.objects.has(privacyDeletionKey(config.prefix, 'alice'))).toBe(
+      true
+    );
+  });
+
+  it('fails closed when an existing deterministic marker cannot be authenticated', async () => {
+    const r2 = makeR2();
+    const key = privacyDeletionKey(config.prefix, 'alice');
+    r2.objects.set(key, {
+      bytes: Buffer.from('not-a-valid-dr-envelope'),
+      metadata: {},
+    });
+
+    await expect(
+      recordPrivacyDeletion('alice', {
+        config,
+        r2: r2 as any,
+      })
+    ).rejects.toThrow(/Invalid Mosaic DR envelope/);
+    expect(r2.putObject).not.toHaveBeenCalled();
+  });
+});
 
 describe('dr-backup Function authorization', () => {
   const original = process.env.DR_ALLOW_MANUAL_EXECUTION;

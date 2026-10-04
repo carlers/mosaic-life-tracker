@@ -18,6 +18,7 @@
       "scopes": [
         "users.read",
         "users.write",
+        "sessions.write",
         "rows.read",
         "rows.write",
         "tables.read",

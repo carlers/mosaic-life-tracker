@@ -1,10 +1,11 @@
 import { Buffer } from 'node:buffer';
 import {
+  parseBackupJson,
   putEncrypted,
   readBackupConfig,
   stringifyBackupJson,
 } from './backup.mjs';
-import { sha256Hex } from './crypto.mjs';
+import { decryptBuffer, sha256Hex } from './crypto.mjs';
 import { createR2Client } from './r2.mjs';
 
 const USER_ID_RE = /^[a-zA-Z0-9][a-zA-Z0-9._-]{0,35}$/;
@@ -12,6 +13,30 @@ const USER_ID_RE = /^[a-zA-Z0-9][a-zA-Z0-9._-]{0,35}$/;
 export function privacyDeletionKey(prefix, userId) {
   const digest = sha256Hex(Buffer.from(userId, 'utf8'));
   return `${prefix}/privacy-deletions/${digest}.json.enc`;
+}
+
+async function verifyExistingPrivacyDeletion(r2, key, userId, config) {
+  const encrypted = await r2.getObject(key);
+  const decrypted = decryptBuffer(encrypted, {
+    key: config.encryptionKey,
+    aad: key,
+  });
+  const marker = parseBackupJson(decrypted.plain.toString('utf8'));
+  if (
+    marker?.format !== 'mosaic-dr-privacy-deletion' ||
+    marker?.version !== 1 ||
+    marker?.userId !== userId ||
+    typeof marker?.deletedAt !== 'string' ||
+    !marker.deletedAt
+  ) {
+    throw new Error('Existing privacy deletion marker is invalid');
+  }
+  return {
+    ok: true,
+    key,
+    reused: true,
+    keyVersion: decrypted.keyVersion,
+  };
 }
 
 export async function recordPrivacyDeletion(
@@ -28,6 +53,15 @@ export async function recordPrivacyDeletion(
 
   const r2 = injectedR2 || createR2Client(config.r2);
   const key = privacyDeletionKey(config.prefix, userId);
+
+  // Privacy markers sit under the object-lock prefix and use a deterministic
+  // key. Retries must verify/reuse the immutable marker rather than overwrite
+  // it, otherwise a successful first write can make every later retry fail
+  // with an R2 object-lock conflict.
+  if (await r2.headObject(key)) {
+    return verifyExistingPrivacyDeletion(r2, key, userId, config);
+  }
+
   const plain = Buffer.from(
     stringifyBackupJson({
       format: 'mosaic-dr-privacy-deletion',
@@ -38,12 +72,22 @@ export async function recordPrivacyDeletion(
     'utf8'
   );
 
-  await putEncrypted(r2, key, plain, {
-    encryptionKey: config.encryptionKey,
-    keyVersion: config.keyVersion,
-    compress: true,
-    stagePrefix: 'privacy_deletion',
-  });
+  try {
+    await putEncrypted(r2, key, plain, {
+      encryptionKey: config.encryptionKey,
+      keyVersion: config.keyVersion,
+      compress: true,
+      stagePrefix: 'privacy_deletion',
+    });
+  } catch (error) {
+    // Two accepted retries may race after both observe the marker as missing.
+    // If another writer won, authenticate its marker and treat this retry as
+    // success. If no valid marker exists, preserve the original failure.
+    if (await r2.headObject(key).catch(() => null)) {
+      return verifyExistingPrivacyDeletion(r2, key, userId, config);
+    }
+    throw error;
+  }
 
-  return { ok: true, key };
+  return { ok: true, key, reused: false };
 }

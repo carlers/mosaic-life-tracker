@@ -48,6 +48,7 @@ describe('recoverable two-Function configuration', () => {
       expect.arrayContaining([
         'rows.write',
         'users.write',
+        'sessions.write',
         'files.read',
         'files.write',
         'execution.write',
