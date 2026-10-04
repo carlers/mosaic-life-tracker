@@ -24,27 +24,22 @@ function isNotFound(error) {
   return Number(error && error.code) === 404;
 }
 
-async function readRow(db, tableId, rowId) {
+async function readRow(db, tableId, rowId, transactionId) {
   try {
-    return await db.getRow({ databaseId: DATABASE_ID, tableId, rowId });
+    return await db.getRow({
+      databaseId: DATABASE_ID,
+      tableId,
+      rowId,
+      ...(transactionId ? { transactionId } : {}),
+    });
   } catch (error) {
     if (isNotFound(error)) return null;
     throw error;
   }
 }
 
-async function findProfileByUserId(db, userId) {
-  const result = await db.listRows({
-    databaseId: DATABASE_ID,
-    tableId: 'profiles',
-    queries: [Query.equal('user_id', userId), Query.limit(2)],
-    total: false,
-  });
-  const rows = result.rows || [];
-  if (rows.length > 1) {
-    throw new Error('Account deletion found duplicate profile owners');
-  }
-  return rows[0] || null;
+async function listProfilesByUserId(db, userId) {
+  return listAllRows(db, 'profiles', [Query.equal('user_id', userId)]);
 }
 
 async function mapLimit(values, limit, worker) {
@@ -97,9 +92,17 @@ async function hardDeleteByQuery(db, tableId, queries) {
     });
     const rows = result.rows || [];
     if (rows.length === 0) return deleted;
-    await mapLimit(rows, DELETE_CONCURRENCY, (row) =>
-      db.deleteRow({ databaseId: DATABASE_ID, tableId, rowId: row.$id })
-    );
+    await mapLimit(rows, DELETE_CONCURRENCY, async (row) => {
+      try {
+        await db.deleteRow({
+          databaseId: DATABASE_ID,
+          tableId,
+          rowId: row.$id,
+        });
+      } catch (error) {
+        if (!isNotFound(error)) throw error;
+      }
+    });
     deleted += rows.length;
     if (rows.length < PAGE_SIZE) return deleted;
   }
@@ -107,26 +110,41 @@ async function hardDeleteByQuery(db, tableId, queries) {
 }
 
 function parseReactionArray(raw) {
-  if (!raw || typeof raw !== 'string') return [];
+  if (!raw) return { valid: true, reactions: [] };
+  if (typeof raw !== 'string') return { valid: false, reactions: [] };
   try {
     const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return [];
-    return parsed
-      .filter((value) => value && typeof value === 'object' && typeof value.emoji === 'string' && Array.isArray(value.userIds))
-      .map((value) => ({
-        emoji: value.emoji,
-        userIds: value.userIds.filter((id) => typeof id === 'string'),
-      }));
+    if (!Array.isArray(parsed)) return { valid: false, reactions: [] };
+    let valid = true;
+    const reactions = [];
+    for (const value of parsed) {
+      if (
+        !value ||
+        typeof value !== 'object' ||
+        typeof value.emoji !== 'string' ||
+        !Array.isArray(value.userIds) ||
+        value.userIds.some((id) => typeof id !== 'string')
+      ) {
+        valid = false;
+        continue;
+      }
+      reactions.push({ emoji: value.emoji, userIds: [...value.userIds] });
+    }
+    return { valid, reactions };
   } catch {
-    return [];
+    return { valid: false, reactions: [] };
   }
 }
 
 function stripUserFromReactions(raw, userId) {
   const parsed = parseReactionArray(raw);
+  if (!parsed.valid && typeof raw === 'string' && raw.includes(userId)) {
+    return { changed: true, value: '' };
+  }
+
   let changed = false;
   const next = [];
-  for (const reaction of parsed) {
+  for (const reaction of parsed.reactions) {
     const ids = reaction.userIds.filter((id) => id !== userId);
     if (ids.length !== reaction.userIds.length) changed = true;
     if (ids.length > 0) next.push({ emoji: reaction.emoji, userIds: ids });
@@ -142,8 +160,18 @@ function stripFriendCarouselValue(raw, userId) {
   try {
     const parsed = JSON.parse(raw);
     if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
-      return { changed: false, value: raw };
+      return { changed: raw.includes(userId), value: '' };
     }
+    for (const key of ['order', 'hidden']) {
+      if (
+        parsed[key] !== undefined &&
+        (!Array.isArray(parsed[key]) ||
+          parsed[key].some((id) => typeof id !== 'string'))
+      ) {
+        return { changed: raw.includes(userId), value: '' };
+      }
+    }
+
     let changed = false;
     const next = { ...parsed };
     for (const key of ['order', 'hidden']) {
@@ -154,8 +182,54 @@ function stripFriendCarouselValue(raw, userId) {
     }
     return { changed, value: changed ? JSON.stringify(next) : raw };
   } catch {
-    return { changed: false, value: raw };
+    return { changed: raw.includes(userId), value: '' };
   }
+}
+
+async function scrubRowWithTransaction(
+  db,
+  tableId,
+  rowId,
+  userId,
+  transform
+) {
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const tx = await db.createTransaction({ ttl: 60 });
+    let committed = false;
+    try {
+      const current = await readRow(db, tableId, rowId, tx.$id);
+      if (!current) return false;
+
+      const next = transform(current, userId);
+      if (!next.changed) return false;
+
+      await db.updateRow({
+        databaseId: DATABASE_ID,
+        tableId,
+        rowId,
+        data: next.data,
+        transactionId: tx.$id,
+      });
+      await db.updateTransaction({
+        transactionId: tx.$id,
+        commit: true,
+      });
+      committed = true;
+      return true;
+    } catch (error) {
+      if (isNotFound(error)) return false;
+      if (Number(error && error.code) === 409 && attempt < 2) continue;
+      throw error;
+    } finally {
+      if (!committed) {
+        await db.updateTransaction({
+          transactionId: tx.$id,
+          rollback: true,
+        }).catch(() => {});
+      }
+    }
+  }
+  return false;
 }
 
 async function scrubCrossUserReferences(db, userId) {
@@ -163,29 +237,54 @@ async function scrubCrossUserReferences(db, userId) {
   const tasks = await listAllRows(db, 'tasks');
   for (const row of tasks) {
     if (row.user_id === userId) continue;
-    const next = stripUserFromReactions(row.reactions, userId);
-    if (!next.changed) continue;
-    await db.updateRow({
-      databaseId: DATABASE_ID,
-      tableId: 'tasks',
-      rowId: row.$id,
-      data: { reactions: next.value, updated_at: new Date().toISOString() },
-    });
-    scrubbed += 1;
+    const changed = await scrubRowWithTransaction(
+      db,
+      'tasks',
+      row.$id,
+      userId,
+      (current, deletingUserId) => {
+        const next = stripUserFromReactions(
+          current.reactions,
+          deletingUserId
+        );
+        return {
+          changed: next.changed,
+          data: {
+            reactions: next.value,
+            updated_at: new Date().toISOString(),
+          },
+        };
+      }
+    );
+    if (changed) scrubbed += 1;
   }
 
   const settings = await listAllRows(db, 'settings');
   for (const row of settings) {
     if (row.user_id === userId || row.key !== 'friend_carousel_prefs') continue;
-    const next = stripFriendCarouselValue(row.value, userId);
-    if (!next.changed) continue;
-    await db.updateRow({
-      databaseId: DATABASE_ID,
-      tableId: 'settings',
-      rowId: row.$id,
-      data: { value: next.value, updated_at: new Date().toISOString() },
-    });
-    scrubbed += 1;
+    const changed = await scrubRowWithTransaction(
+      db,
+      'settings',
+      row.$id,
+      userId,
+      (current, deletingUserId) => {
+        if (current.key !== 'friend_carousel_prefs') {
+          return { changed: false, data: {} };
+        }
+        const next = stripFriendCarouselValue(
+          current.value,
+          deletingUserId
+        );
+        return {
+          changed: next.changed,
+          data: {
+            value: next.value,
+            updated_at: new Date().toISOString(),
+          },
+        };
+      }
+    );
+    if (changed) scrubbed += 1;
   }
   return scrubbed;
 }
@@ -237,12 +336,17 @@ async function deleteOwnedFiles(storage, userId) {
 }
 
 async function updateJob(db, jobId, data) {
-  return db.updateRow({
-    databaseId: DATABASE_ID,
-    tableId: JOBS_TABLE,
-    rowId: jobId,
-    data: { ...data, updated_at: new Date().toISOString() },
-  });
+  try {
+    return await db.updateRow({
+      databaseId: DATABASE_ID,
+      tableId: JOBS_TABLE,
+      rowId: jobId,
+      data: { ...data, updated_at: new Date().toISOString() },
+    });
+  } catch (error) {
+    if (isNotFound(error)) return null;
+    throw error;
+  }
 }
 
 async function ensureDeletionJob(db, userId) {
@@ -257,8 +361,8 @@ async function ensureDeletionJob(db, userId) {
       rowId: jobId,
       data: {
         user_id: userId,
-        status: 'pending',
-        phase: 'accepted',
+        status: 'preparing',
+        phase: 'dr_marker',
         attempts: 0,
         created_at: now,
         updated_at: now,
@@ -274,18 +378,23 @@ async function ensureDeletionJob(db, userId) {
 }
 
 async function hideProfile(db, userId) {
-  const profile = await findProfileByUserId(db, userId);
-  if (!profile) return;
-  await db.updateRow({
-    databaseId: DATABASE_ID,
-    tableId: 'profiles',
-    rowId: profile.$id,
-    data: {
-      deleted: true,
-      is_searchable: false,
-      updated_at: new Date().toISOString(),
-    },
-  });
+  const profiles = await listProfilesByUserId(db, userId);
+  for (const profile of profiles) {
+    try {
+      await db.updateRow({
+        databaseId: DATABASE_ID,
+        tableId: 'profiles',
+        rowId: profile.$id,
+        data: {
+          deleted: true,
+          is_searchable: false,
+          updated_at: new Date().toISOString(),
+        },
+      });
+    } catch (error) {
+      if (!isNotFound(error)) throw error;
+    }
+  }
 }
 
 async function invokePrivacyMarker(functions, userId) {
@@ -333,12 +442,24 @@ async function verifyNoLiveTrace({ db, storage, userId }) {
     }
   }
 
-  if (await findProfileByUserId(db, userId)) {
+  const profiles = await db.listRows({
+    databaseId: DATABASE_ID,
+    tableId: 'profiles',
+    queries: [Query.equal('user_id', userId), Query.limit(1)],
+    total: false,
+  });
+  if ((profiles.rows || []).length > 0) {
     throw new Error('Profile row remains');
   }
 
   for (const row of await listAllRows(db, 'tasks')) {
-    if (parseReactionArray(row.reactions).some((r) => r.userIds.includes(userId))) {
+    const parsed = parseReactionArray(row.reactions);
+    if (
+      (!parsed.valid &&
+        typeof row.reactions === 'string' &&
+        row.reactions.includes(userId)) ||
+      parsed.reactions.some((r) => r.userIds.includes(userId))
+    ) {
       throw new Error('Task reaction reference remains');
     }
   }
@@ -354,31 +475,7 @@ async function verifyNoLiveTrace({ db, storage, userId }) {
   }
 }
 
-async function processDeletionJob({ db, storage, users, functions, jobId, log = () => {} }) {
-  const job = await readRow(db, JOBS_TABLE, jobId);
-  if (!job) return { ok: true, missing: true };
-  const userId = job.user_id;
-  if (typeof userId !== 'string' || !userId) throw new Error('Invalid deletion job owner');
-
-  await updateJob(db, jobId, {
-    status: 'running',
-    phase: 'dr_marker',
-    attempts: Number(job.attempts || 0) + 1,
-  });
-  await invokePrivacyMarker(functions, userId);
-
-  await updateJob(db, jobId, { phase: 'freeze' });
-  try {
-    await users.updateStatus({ userId, status: false });
-  } catch (error) {
-    if (!isNotFound(error)) throw error;
-  }
-  try {
-    await users.deleteSessions({ userId });
-  } catch (error) {
-    if (!isNotFound(error)) throw error;
-  }
-  await updateJob(db, jobId, { phase: 'cleanup' });
+async function cleanupDeletionData({ db, storage, userId }) {
   await hideProfile(db, userId);
 
   for (const tableId of OWNED_TABLES) {
@@ -390,17 +487,60 @@ async function processDeletionJob({ db, storage, users, functions, jobId, log = 
     }
   }
 
-  const profile = await findProfileByUserId(db, userId);
-  if (profile) {
-    await db.deleteRow({
-      databaseId: DATABASE_ID,
-      tableId: 'profiles',
-      rowId: profile.$id,
-    });
-  }
-
+  await hardDeleteByQuery(db, 'profiles', [Query.equal('user_id', userId)]);
   await scrubCrossUserReferences(db, userId);
   await deleteOwnedFiles(storage, userId);
+}
+
+async function processDeletionJob({
+  db,
+  storage,
+  users,
+  functions,
+  jobId,
+  log = () => {},
+}) {
+  const job = await readRow(db, JOBS_TABLE, jobId);
+  if (!job) return { ok: true, missing: true };
+  const userId = job.user_id;
+  if (typeof userId !== 'string' || !userId) {
+    throw new Error('Invalid deletion job owner');
+  }
+
+  await updateJob(db, jobId, {
+    status: job.status === 'preparing' ? 'preparing' : 'running',
+    phase: 'dr_marker',
+    attempts: Number(job.attempts || 0) + 1,
+  });
+
+  // This confirmed, immutable DR marker is the privacy pivot. No destructive
+  // Appwrite work may run before it succeeds.
+  await invokePrivacyMarker(functions, userId);
+  await updateJob(db, jobId, {
+    status: 'running',
+    phase: 'freeze',
+  });
+
+  try {
+    await users.updateStatus({ userId, status: false });
+  } catch (error) {
+    if (!isNotFound(error)) throw error;
+  }
+  try {
+    await users.deleteSessions({ userId });
+  } catch (error) {
+    if (!isNotFound(error)) throw error;
+  }
+
+  await updateJob(db, jobId, { phase: 'cleanup' });
+  await cleanupDeletionData({ db, storage, userId });
+
+  // A second pass after the Auth/session fence catches writes/uploads that
+  // were already in flight when the freeze began. Trusted Function writes
+  // are also blocked by the durable deletion-job fence in main.js.
+  await updateJob(db, jobId, { phase: 'reconcile' });
+  await new Promise((resolve) => setTimeout(resolve, 100));
+  await cleanupDeletionData({ db, storage, userId });
 
   await updateJob(db, jobId, { phase: 'verify' });
   await verifyNoLiveTrace({ db, storage, userId });
@@ -417,11 +557,16 @@ async function processDeletionJob({ db, storage, users, functions, jobId, log = 
     if (!isNotFound(error)) throw error;
   }
 
-  await db.deleteRow({
-    databaseId: DATABASE_ID,
-    tableId: JOBS_TABLE,
-    rowId: jobId,
-  });
+  try {
+    await db.deleteRow({
+      databaseId: DATABASE_ID,
+      tableId: JOBS_TABLE,
+      rowId: jobId,
+    });
+  } catch (error) {
+    if (!isNotFound(error)) throw error;
+  }
+
   log('account-deletion: completed');
   return { ok: true };
 }
@@ -436,37 +581,47 @@ async function startAccountDeletion({
   log = () => {},
 }) {
   if (payload?.confirmation !== 'DELETE') {
-    return { status: 400, body: { error: 'Type DELETE to confirm account deletion.' } };
+    return {
+      status: 400,
+      body: { error: 'Type DELETE to confirm account deletion.' },
+    };
   }
 
   const job = await ensureDeletionJob(db, callerId);
   const jobId = job.$id || deletionJobId(callerId);
 
-  // The durable server-owned job is the acceptance boundary. After this row
-  // exists, every later failure is retried server-side and must never turn
-  // into an ambiguous "not accepted" response.
+  let markerReady = false;
   try {
     await invokePrivacyMarker(functions, callerId);
-    await updateJob(db, jobId, { status: 'pending', phase: 'marker_ready' });
-  } catch {
+    markerReady = true;
     await updateJob(db, jobId, {
       status: 'pending',
+      phase: 'marker_ready',
+    });
+  } catch {
+    await updateJob(db, jobId, {
+      status: 'preparing',
       phase: 'dr_marker_retry',
     }).catch(() => {});
-    log('account-deletion: DR marker deferred to worker');
+    log('account-deletion: privacy pivot pending');
   }
 
-  try {
-    await hideProfile(db, callerId);
-    await users.updateStatus({ userId: callerId, status: false });
-    await users.deleteSessions({ userId: callerId });
-    await updateJob(db, jobId, { status: 'pending', phase: 'queued' });
-  } catch {
-    await updateJob(db, jobId, {
-      status: 'pending',
-      phase: 'accepted_retry',
-    }).catch(() => {});
-    log('account-deletion: accepted; freeze deferred to worker');
+  if (markerReady) {
+    try {
+      await hideProfile(db, callerId);
+      await users.updateStatus({ userId: callerId, status: false });
+      await users.deleteSessions({ userId: callerId });
+      await updateJob(db, jobId, {
+        status: 'pending',
+        phase: 'queued',
+      });
+    } catch {
+      await updateJob(db, jobId, {
+        status: 'pending',
+        phase: 'accepted_retry',
+      }).catch(() => {});
+      log('account-deletion: accepted; freeze deferred to worker');
+    }
   }
 
   try {
@@ -479,8 +634,8 @@ async function startAccountDeletion({
     });
   } catch {
     await updateJob(db, jobId, {
-      status: 'pending',
-      phase: 'queued_schedule',
+      status: markerReady ? 'pending' : 'preparing',
+      phase: markerReady ? 'queued_schedule' : 'dr_marker_schedule',
     }).catch(() => {});
     log('account-deletion: async kick unavailable; scheduled retry retained');
   }
@@ -489,7 +644,7 @@ async function startAccountDeletion({
     status: 202,
     body: {
       ok: true,
-      accepted: true,
+      accepted: markerReady,
       deletionPending: true,
     },
   };
@@ -505,7 +660,11 @@ async function resumeDeletionJobs({ db, storage, users, functions, log = () => {
   let processed = 0;
   let failed = 0;
   for (const job of jobs) {
-    if (job.status !== 'pending' && job.status !== 'running') continue;
+    if (
+      job.status !== 'preparing' &&
+      job.status !== 'pending' &&
+      job.status !== 'running'
+    ) continue;
     try {
       await processDeletionJob({
         db,
@@ -519,8 +678,8 @@ async function resumeDeletionJobs({ db, storage, users, functions, log = () => {
     } catch (error) {
       failed += 1;
       await updateJob(db, job.$id, {
-        status: 'pending',
-        phase: 'retry',
+        status: job.status === 'preparing' ? 'preparing' : 'pending',
+        phase: job.status === 'preparing' ? 'dr_marker_retry' : 'retry',
       }).catch(() => {});
       log('account-deletion: job deferred for retry');
     }
@@ -528,11 +687,17 @@ async function resumeDeletionJobs({ db, storage, users, functions, log = () => {
   return { processed, failed };
 }
 
+async function isAccountDeletionPending(db, userId) {
+  if (typeof userId !== 'string' || !userId) return false;
+  return Boolean(await readRow(db, JOBS_TABLE, deletionJobId(userId)));
+}
+
 module.exports = {
   deleteOwnedFiles,
   deletionJobId,
   ensureDeletionJob,
   hardDeleteByQuery,
+  isAccountDeletionPending,
   permissionsBelongToUser,
   processDeletionJob,
   resumeDeletionJobs,
