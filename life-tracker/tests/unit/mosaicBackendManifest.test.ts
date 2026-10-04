@@ -1,3 +1,4 @@
+import { createRequire } from 'node:module';
 import { describe, expect, it } from 'vitest';
 import {
   BOOTSTRAP_API_KEY_SCOPES,
@@ -9,6 +10,12 @@ import {
   ACCOUNT_ERASURE_POLICY,
   assertErasurePolicyCoversManifest,
 } from '../../infrastructure/account-erasure-policy.mjs';
+
+const require = createRequire(import.meta.url);
+const {
+  OWNED_TABLES,
+  CROSS_REFERENCE_QUERIES,
+} = require('../../appwrite-functions/message-action/account-deletion.js');
 
 const byId = Object.fromEntries(MOSAIC_TABLES.map((table) => [table.id, table]));
 
@@ -147,6 +154,26 @@ describe('portable Mosaic backend manifest', () => {
     expect(ACCOUNT_ERASURE_POLICY.buckets.task_images).toEqual({
       kind: 'owned_permissions',
     });
+  });
+
+  it('keeps the worker coverage aligned with the declared erasure policy', () => {
+    const expectedOwned = Object.entries(ACCOUNT_ERASURE_POLICY.tables)
+      .filter(([, rule]: any) => rule.kind === 'owned')
+      .map(([tableId]) => tableId)
+      .sort();
+    const expectedCross = Object.fromEntries(
+      Object.entries(ACCOUNT_ERASURE_POLICY.tables)
+        .filter(([, rule]: any) => rule.kind === 'cross_reference')
+        .map(([tableId, rule]: any) => [
+          tableId,
+          [...rule.fields],
+        ])
+    );
+
+    expect([...OWNED_TABLES].sort()).toEqual(expectedOwned);
+    expect(CROSS_REFERENCE_QUERIES).toEqual(expectedCross);
+    expect(ACCOUNT_ERASURE_POLICY.tables.profiles.kind).toBe('owned_profile');
+    expect(ACCOUNT_ERASURE_POLICY.tables.account_deletions.kind).toBe('control');
   });
 
   it('documents only the provisioning scopes the bootstrap uses', () => {
