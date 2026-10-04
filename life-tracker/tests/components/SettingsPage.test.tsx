@@ -1,7 +1,12 @@
 import React from 'react';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+const authMocks = vi.hoisted(() => ({
+  logout: vi.fn<() => Promise<boolean>>(),
+  deleteAccount: vi.fn<(confirmation: string) => Promise<boolean>>(),
+}));
 
 const updateMocks = vi.hoisted(() => ({
   applyUpdate: vi.fn<() => Promise<boolean>>(),
@@ -16,13 +21,16 @@ beforeEach(() => {
   updateMocks.applyUpdate.mockReset().mockResolvedValue(true);
   updateMocks.checkForUpdate.mockReset().mockResolvedValue('up-to-date');
   updateMocks.updateAvailable = false;
+  authMocks.logout.mockReset().mockResolvedValue(true);
+  authMocks.deleteAccount.mockReset().mockResolvedValue(true);
   window.localStorage.clear();
 });
 
 vi.mock('../../src/hooks/useAuth', () => ({
   useAuth: () => ({
     user: { $id: 'user_1', email: 'user@example.com' },
-    logout: vi.fn().mockResolvedValue(true),
+    logout: authMocks.logout,
+    deleteAccount: authMocks.deleteAccount,
   }),
 }));
 vi.mock('../../src/hooks/usePwaLifecycle', () => ({
@@ -77,10 +85,6 @@ vi.mock('../../src/components/modals/ExportDataSheet', () => ({
     ) : null,
 }));
 vi.mock('../../src/components/modals/SyncStatusSheet', () => ({ SyncStatusSheet: () => null }));
-vi.mock('../../src/lib/deleteUserData', () => ({
-  deleteAllUserData: vi.fn().mockResolvedValue({ totalRows: 0 }),
-}));
-
 import { SettingsPage } from '../../src/pages/SettingsPage';
 import { APP_VERSION } from '../../src/lib/appVersion';
 
@@ -205,18 +209,40 @@ describe('SettingsPage navigation, updates, and data controls', () => {
     expect(updateMocks.checkForUpdate).not.toHaveBeenCalled();
   });
 
-  // Regression: §2 (remote deletion remains distinct from local clearing).
-  it('offers Delete All User Data as a separate destructive confirmation', () => {
+  // Regression: explicit account erasure requires typed confirmation and stays
+  // distinct from the local-only clear action.
+  it('requires DELETE before requesting permanent account deletion', async () => {
     render(
       <MemoryRouter>
         <SettingsPage />
       </MemoryRouter>
     );
 
-    fireEvent.click(screen.getByRole('button', { name: 'Delete All User Data' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Delete Account' }));
 
-    expect(screen.getByRole('dialog', { name: 'Delete All User Data' })).toBeInTheDocument();
-    expect(screen.getByText(/does not delete your login account/i)).toBeInTheDocument();
+    const dialog = screen.getByRole('dialog', { name: 'Delete Account' });
+    expect(dialog).toBeInTheDocument();
+    expect(
+      within(dialog).getByText(/messages exchanged with friends/i)
+    ).toBeInTheDocument();
+
+    const confirm = within(dialog).getByLabelText('Type DELETE to confirm');
+    const deleteButton = within(dialog).getByRole('button', {
+      name: 'Delete Account',
+    });
+    expect(deleteButton).toBeDisabled();
+
+    fireEvent.change(confirm, { target: { value: 'delete' } });
+    expect(deleteButton).toBeDisabled();
+
+    fireEvent.change(confirm, { target: { value: 'DELETE' } });
+    expect(deleteButton).toBeEnabled();
+    fireEvent.click(deleteButton);
+
+    await waitFor(() =>
+      expect(authMocks.deleteAccount).toHaveBeenCalledWith('DELETE')
+    );
+    expect(authMocks.logout).not.toHaveBeenCalled();
   });
 
   // Regression: §24.13 (app-update checks are independent from data sync).

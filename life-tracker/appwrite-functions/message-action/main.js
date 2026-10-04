@@ -1,7 +1,20 @@
 const crypto = require('crypto');
 const { handleFriendship, deleteAccountFriendships } = require('./friendship');
-const { Client, TablesDB, Query, Permission, Role } = require('node-appwrite');
+const {
+  Client,
+  TablesDB,
+  Storage,
+  Users,
+  Functions,
+  Query,
+  Permission,
+  Role,
+} = require('node-appwrite');
 const { handleScheduledTombstoneGc } = require('./tombstone-gc');
+const {
+  resumeDeletionJobs,
+  startAccountDeletion,
+} = require('./account-deletion');
 const DATABASE_ID = process.env.APPWRITE_DATABASE_ID || 'life_tracker';
 const MESSAGES_TABLE = 'messages';
 const FRIENDSHIPS_TABLE = 'friendships';
@@ -1046,35 +1059,99 @@ async function handleGetFriendCalendar(tablesDB, callerId, payload, log, error) 
   };
 }
 const handler = async ({ req, res, log, error }) => {
-  if (req.headers['x-appwrite-trigger'] === 'schedule') {
-    return handleScheduledTombstoneGc({ req, res, log, error });
+  let payload = {};
+  if (req.headers['x-appwrite-trigger'] !== 'schedule') {
+    try {
+      payload = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
+    } catch (e) {
+      error(`Bad Request: ${e.message}`);
+      return res.json({ error: 'Bad Request' }, 400);
+    }
   }
 
-  const callerId = req.headers['x-appwrite-user-id'];
-  if (!callerId) {
-    error('Unauthorized: no x-appwrite-user-id header');
-    return res.json({ error: 'Unauthorized' }, 401);
-  }
-  let payload;
-  try {
-    payload = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
-  } catch (e) {
-    error(`Bad Request: ${e.message}`);
-    return res.json({ error: 'Bad Request' }, 400);
-  }
-  const action = payload?.action;
-  if (!action || typeof action !== 'string') {
-    error('Missing action');
-    return res.json({ error: 'Missing action' }, 400);
-  }
   const client = new Client()
     .setEndpoint(process.env.APPWRITE_FUNCTION_API_ENDPOINT)
     .setProject(process.env.APPWRITE_FUNCTION_PROJECT_ID)
     .setKey(req.headers['x-appwrite-key']);
   const tablesDB = new TablesDB(client);
+  const storage = new Storage(client);
+  const users = new Users(client);
+  const functions = new Functions(client);
+
+  if (req.headers['x-appwrite-trigger'] === 'schedule') {
+    try {
+      const deletionResult = await resumeDeletionJobs({
+        db: tablesDB,
+        storage,
+        users,
+        functions,
+        log,
+      });
+      log(
+        `account-deletion: scheduled processed=${deletionResult.processed} failed=${deletionResult.failed}`
+      );
+    } catch (err) {
+      error(`account-deletion scheduled retry failed: ${err.message}`);
+      return res.json({ error: 'Account deletion maintenance failed' }, 500);
+    }
+
+    // Run ordinary tombstone GC on the same hourly maintenance trigger.
+    // It is idempotent and keeps the schedule deterministic for retries/tests.
+    return handleScheduledTombstoneGc({ req, res, log, error });
+  }
+
+  const action = payload?.action;
+  if (!action || typeof action !== 'string') {
+    error('Missing action');
+    return res.json({ error: 'Missing action' }, 400);
+  }
+
+  const callerId = req.headers['x-appwrite-user-id'];
+  const internalDeletionResume = action === 'resume_account_deletion';
+  if (internalDeletionResume) {
+    if (callerId || !req.headers['x-appwrite-key']) {
+      error('Forbidden internal account deletion resume');
+      return res.json({ error: 'Forbidden' }, 403);
+    }
+    try {
+      const result = await resumeDeletionJobs({
+        db: tablesDB,
+        storage,
+        users,
+        functions,
+        log,
+        jobId: payload.jobId,
+      });
+      return res.json({ ok: true, ...result }, 200);
+    } catch (err) {
+      error(`Internal error (${action}): ${err.message}`);
+      return res.json({ error: 'Account deletion retry failed' }, 500);
+    }
+  }
+
+  if (!callerId) {
+    error('Unauthorized: no x-appwrite-user-id header');
+    return res.json({ error: 'Unauthorized' }, 401);
+  }
+
   try {
     let result;
     switch (action) {
+      case 'delete_account':
+        result = await startAccountDeletion({
+          db: tablesDB,
+          storage,
+          users,
+          functions,
+          callerId,
+          payload,
+          functionId:
+            process.env.APPWRITE_FUNCTION_ID ||
+            process.env.APPWRITE_MESSAGE_ACTION_FUNCTION_ID ||
+            '6aa8057f002a4c306fdd',
+          log,
+        });
+        break;
       case 'delete_account_friendships':
         if (payload.ownerId !== callerId) return res.json({ error: 'Account changed' }, 403);
         result = await deleteAccountFriendships(tablesDB, callerId);

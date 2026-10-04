@@ -4,12 +4,15 @@ import {
   createImportedUser,
   indexCreateInput,
   loadCommittedSnapshot,
+  loadPrivacyDeletedUserIds,
   parseArgs,
   parseJsonLines,
   preflightSnapshot,
   readEncryptionKeyring,
   stableJson,
   restoreSnapshot,
+  scrubDeletedUserRow,
+  shouldRestoreFile,
   unwrapUserPrefs,
 } from '../../scripts/dr-restore.mjs';
 import {
@@ -58,6 +61,123 @@ describe('DR restore CLI', () => {
     expect(
       stableJson({ b: 2, a: { d: 4, c: 3 } })
     ).toBe(stableJson({ a: { c: 3, d: 4 }, b: 2 }));
+  });
+
+  it('loads encrypted external privacy deletion markers', async () => {
+    const key = Buffer.alloc(32, 11);
+    const prefix = 'mosaic-dr/v1';
+    const markerKey =
+      prefix +
+      '/privacy-deletions/' +
+      sha256Hex(Buffer.from('alice', 'utf8')) +
+      '.json.enc';
+    const plain = Buffer.from(
+      JSON.stringify({
+        format: 'mosaic-dr-privacy-deletion',
+        version: 1,
+        userId: 'alice',
+        deletedAt: '2026-10-04T00:00:00.000Z',
+      })
+    );
+    const cipher = encryptBuffer(plain, {
+      key,
+      keyVersion: 'v1',
+      aad: markerKey,
+      compress: true,
+    });
+    const r2 = {
+      listObjects: vi.fn().mockResolvedValue([markerKey]),
+      headObject: vi.fn().mockResolvedValue({
+        metadata: {
+          'key-version': 'v1',
+          'cipher-sha256': sha256Hex(cipher),
+          'plain-sha256': sha256Hex(plain),
+        },
+      }),
+      getObject: vi.fn().mockResolvedValue(cipher),
+    };
+
+    const deleted = await loadPrivacyDeletedUserIds({
+      r2: r2 as any,
+      prefix,
+      encryptionKeys: new Map([['v1', key]]),
+    });
+
+    expect([...deleted]).toEqual(['alice']);
+  });
+
+  it('filters deleted users from restored rows, reactions, preferences, and files', () => {
+    const deleted = new Set(['alice']);
+
+    expect(
+      scrubDeletedUserRow(
+        'messages',
+        {
+          id: 'msg_peer',
+          data: {
+            user_id: 'bob',
+            sender_id: 'alice',
+            recipient_id: 'bob',
+          },
+        },
+        deleted
+      )
+    ).toBeNull();
+
+    expect(
+      scrubDeletedUserRow(
+        'tasks',
+        {
+          id: 'task_bob',
+          data: {
+            user_id: 'bob',
+            reactions: JSON.stringify([
+              { emoji: '❤️', userIds: ['alice', 'bob'] },
+            ]),
+          },
+        },
+        deleted
+      )?.data.reactions
+    ).toBe(JSON.stringify([{ emoji: '❤️', userIds: ['bob'] }]));
+
+    const settings = scrubDeletedUserRow(
+      'settings',
+      {
+        id: 'settings_bob',
+        data: {
+          user_id: 'bob',
+          key: 'friend_carousel_prefs',
+          value: JSON.stringify({
+            order: ['alice', 'carol'],
+            hidden: ['alice'],
+          }),
+        },
+      },
+      deleted
+    );
+    expect(JSON.parse(settings?.data.value)).toEqual({
+      order: ['carol'],
+      hidden: [],
+    });
+
+    expect(
+      shouldRestoreFile(
+        {
+          permissions: [
+            'read("users")',
+            'update("user:alice")',
+            'delete("user:alice")',
+          ],
+        },
+        deleted
+      )
+    ).toBe(false);
+    expect(
+      shouldRestoreFile(
+        { permissions: ['update("user:bob")', 'delete("user:bob")'] },
+        deleted
+      )
+    ).toBe(true);
   });
 
   it('loads only a committed manifest with matching ciphertext hash and AAD', async () => {

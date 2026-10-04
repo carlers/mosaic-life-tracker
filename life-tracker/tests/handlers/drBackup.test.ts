@@ -47,6 +47,35 @@ describe('dr-backup Function authorization', () => {
     });
   });
 
+  it('accepts the server-only privacy deletion marker action without exposing user data', async () => {
+    delete process.env.DR_ALLOW_MANUAL_EXECUTION;
+    const runBackup = vi.fn();
+    const recordPrivacyDeletion = vi.fn().mockResolvedValue({ ok: true });
+    const handler = createHandler({ runBackup, recordPrivacyDeletion });
+
+    const rejected = await handler(
+      makeContext({
+        trigger: 'http',
+        body: { action: 'record_privacy_deletion', userId: 'alice' },
+      }) as any
+    );
+    expect(rejected.status).toBe(403);
+    expect(recordPrivacyDeletion).not.toHaveBeenCalled();
+
+    const ctx = makeContext({
+      trigger: 'http',
+      key: 'dynamic-server-key',
+      body: { action: 'record_privacy_deletion', userId: 'alice' },
+    });
+    const accepted = await handler(ctx as any);
+
+    expect(accepted.status).toBe(200);
+    expect(accepted.body).toEqual({ ok: true });
+    expect(recordPrivacyDeletion).toHaveBeenCalledWith('alice');
+    expect(runBackup).not.toHaveBeenCalled();
+    expect(JSON.stringify(ctx.log.mock.calls)).not.toContain('alice');
+  });
+
   it('rejects normal HTTP execution by default', async () => {
     delete process.env.DR_ALLOW_MANUAL_EXECUTION;
     const runBackup = vi.fn();

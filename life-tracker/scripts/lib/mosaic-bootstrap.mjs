@@ -508,7 +508,13 @@ export async function deployRecoveredProjectFunctions(
     functions: services.functions,
     directory: join(FUNCTION_DIR, 'message-action'),
     functionId: resolvedMessageFunctionId,
-    extraVariables: { APPWRITE_DATABASE_ID: MOSAIC_DATABASE.id },
+    extraVariables: {
+      APPWRITE_DATABASE_ID: MOSAIC_DATABASE.id,
+      APPWRITE_STORAGE_BUCKET_ID: MOSAIC_BUCKET.id,
+      APPWRITE_TABLE_ACCOUNT_DELETIONS: 'account_deletions',
+      DR_BACKUP_FUNCTION_ID: resolvedDrFunctionId,
+      DR_PRIVACY_DELETION_REQUIRED: 'false',
+    },
     functionOverrides: { schedule: '' },
     sleep,
   });
@@ -595,7 +601,13 @@ export async function bootstrapMosaicProject(
     functions: services.functions,
     directory: join(FUNCTION_DIR, 'message-action'),
     functionId: config.messageFunctionId,
-    extraVariables: { APPWRITE_DATABASE_ID: MOSAIC_DATABASE.id },
+    extraVariables: {
+      APPWRITE_DATABASE_ID: MOSAIC_DATABASE.id,
+      APPWRITE_STORAGE_BUCKET_ID: MOSAIC_BUCKET.id,
+      APPWRITE_TABLE_ACCOUNT_DELETIONS: 'account_deletions',
+      DR_BACKUP_FUNCTION_ID: config.drFunctionId,
+      DR_PRIVACY_DELETION_REQUIRED: config.withDr ? 'true' : 'false',
+    },
     sleep,
   });
 

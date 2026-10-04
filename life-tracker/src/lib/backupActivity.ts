@@ -67,3 +67,12 @@ export function recordBackupActivity(
 
   return next;
 }
+
+export function clearBackupActivity(userId: string): void {
+  if (!userId || typeof window === 'undefined') return;
+  try {
+    window.localStorage.removeItem(storageKey(userId));
+  } catch {
+    // Best-effort local deletion metadata cleanup.
+  }
+}
