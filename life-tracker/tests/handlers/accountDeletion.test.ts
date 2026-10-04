@@ -214,6 +214,26 @@ describe('account deletion handler', () => {
     ]);
   });
 
+  it('rejects trusted cross-user writes while either participant has a deletion job', async () => {
+    const db = makeMockDb();
+
+    const response = await invoke({
+      userId: 'bob',
+      mockDb: db,
+      deletionPendingUserIds: ['alice'],
+      body: {
+        action: 'friendship',
+        operation: 'send',
+        friendUserId: 'alice',
+        expectedVersion: null,
+      },
+    });
+
+    expect(response.status).toBe(409);
+    expect(response.body).toEqual({ error: 'Account deletion in progress' });
+    expect(db.createTransaction).not.toHaveBeenCalled();
+  });
+
   it('hard-deletes owner and peer records, scrubs references/files, then deletes Auth last', async () => {
     const db = makeMockDb();
     const storage = makeMockStorage();
