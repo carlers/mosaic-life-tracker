@@ -649,7 +649,7 @@ describe('sync — freshness barriers', () => {
 
     await expect(
       syncModule.refreshSync('user_A', 5_000)
-    ).rejects.toThrow('category sync is not active');
+    ).rejects.toThrow('categories sync is not active');
 
     expect(syncModule.getSyncStatus().lastSync).toBeNull();
   });
