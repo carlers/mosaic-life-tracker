@@ -91,6 +91,13 @@ function makeUnauthorizedError(): Error {
   return err;
 }
 
+function makeBlockedUserError(): Error {
+  const err = new Error("User is blocked");
+  (err as { code?: number; type?: string }).code = 401;
+  (err as { code?: number; type?: string }).type = "user_blocked";
+  return err;
+}
+
 const wrapper = ({ children }: { children: ReactNode }) => (
   <AuthProvider>{children}</AuthProvider>
 );
@@ -462,6 +469,90 @@ describe("AuthProvider offline auth gate", () => {
       expect(clearDeletedAccountLocalDataMock).toHaveBeenCalledWith("user_1"),
     );
     expect(localStorage.getItem(ACCOUNT_DELETION_INTENT_KEY)).toBeNull();
+  });
+
+  it("purges local rows when a persisted deletion intent later receives an ordinary 401", async () => {
+    const cached = makeUser();
+    localStorage.setItem(LAST_KNOWN_USER_KEY, JSON.stringify(cached));
+    localStorage.setItem(
+      ACCOUNT_DELETION_INTENT_KEY,
+      JSON.stringify({
+        userId: cached.$id,
+        startedAt: "2026-10-04T00:00:00.000Z",
+      }),
+    );
+    accountRef.get.mockReset().mockRejectedValueOnce(makeUnauthorizedError());
+
+    const { result } = renderHook(() => useAuth(), { wrapper });
+
+    expect(result.current.user).toBeNull();
+    await waitFor(() =>
+      expect(clearDeletedAccountLocalDataMock).toHaveBeenCalledWith("user_1"),
+    );
+    expect(localStorage.getItem(LAST_KNOWN_USER_KEY)).toBeNull();
+    expect(localStorage.getItem(ACCOUNT_DELETION_INTENT_KEY)).not.toBeNull();
+    expect(result.current.error).toMatch(/deletion is still pending/i);
+  });
+
+  it("purges the matching pending-deletion account when a later login is blocked", async () => {
+    accountRef.get.mockRejectedValueOnce(makeUnauthorizedError());
+    const { result } = renderHook(() => useAuth(), { wrapper });
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    localStorage.setItem(
+      ACCOUNT_DELETION_INTENT_KEY,
+      JSON.stringify({
+        userId: "user_deleted",
+        email: "deleted@example.com",
+        startedAt: "2026-10-04T00:00:00.000Z",
+      }),
+    );
+    accountRef.deleteSession.mockRejectedValueOnce(makeUnauthorizedError());
+    accountRef.createEmailPasswordSession.mockRejectedValueOnce(
+      makeBlockedUserError(),
+    );
+
+    await act(async () => {
+      expect(
+        await result.current.login("deleted@example.com", "test-pass-123"),
+      ).toBe(false);
+    });
+
+    expect(clearDeletedAccountLocalDataMock).toHaveBeenCalledWith(
+      "user_deleted",
+    );
+    expect(localStorage.getItem(ACCOUNT_DELETION_INTENT_KEY)).not.toBeNull();
+    expect(result.current.error).toMatch(/being deleted/i);
+    expect(initializeSyncMock).not.toHaveBeenCalled();
+  });
+
+  it("does not purge a different pending-deletion account when another login fails", async () => {
+    accountRef.get.mockRejectedValueOnce(makeUnauthorizedError());
+    const { result } = renderHook(() => useAuth(), { wrapper });
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    localStorage.setItem(
+      ACCOUNT_DELETION_INTENT_KEY,
+      JSON.stringify({
+        userId: "user_deleted",
+        email: "deleted@example.com",
+        startedAt: "2026-10-04T00:00:00.000Z",
+      }),
+    );
+    accountRef.deleteSession.mockRejectedValueOnce(makeUnauthorizedError());
+    accountRef.createEmailPasswordSession.mockRejectedValueOnce(
+      makeUnauthorizedError(),
+    );
+    clearDeletedAccountLocalDataMock.mockClear();
+
+    await act(async () => {
+      expect(
+        await result.current.login("other@example.com", "wrong-password"),
+      ).toBe(false);
+    });
+
+    expect(clearDeletedAccountLocalDataMock).not.toHaveBeenCalled();
+    expect(localStorage.getItem(ACCOUNT_DELETION_INTENT_KEY)).not.toBeNull();
   });
 
   it("freezes another tab immediately when account deletion starts", async () => {
