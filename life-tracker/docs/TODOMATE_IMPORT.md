@@ -127,6 +127,12 @@ reports how many distinct routine references were found.
 - sharing flags → Mosaic `public`, `followers`, or `private`
 - TodoMate create/document timestamps → Mosaic create/update timestamps
 
+The remote Diary schema must contain both `created_at` and `updated_at`. The importer
+writes a local Diary row first, then normal RxDB replication sends both timestamps to
+Appwrite. If `created_at` is missing from the Appwrite table, the local import can appear
+successful while Diary replication retries forever and Sync Status remains one group short.
+Treat that as backend schema drift, not as a reason to drop the imported diary entry.
+
 TodoMate selected-viewer sharing cannot be represented exactly by Mosaic's current three-way
 visibility model. Such records import as `private`, never as broader visibility.
 
@@ -273,7 +279,16 @@ to close the other tab/retry rather than continuing with stale data.
 
 Hosted re-acceptance subsequently confirmed the import itself succeeds: all 37 prepared
 TodoMate images were copied onto the existing imported tasks without duplication and Mosaic
-sync completed. Opening those migrated task photos then exposed a separate viewer regression:
+sync completed.
+
+Large imports intentionally get a bounded convergence budget that scales with restored row
+count and caps at five minutes. Live 505-task acceptance measured task replication at roughly
+430ms per remote write, so the budget uses 500ms per restored row rather than the earlier
+250ms estimate. The final freshness UI must name whichever groups remain (for example
+`Waiting for Tasks` or `Waiting for Messages`) instead of only showing a generic count.
+If that bounded proof expires, locally applied/imported rows remain durable and live RxDB
+replication continues in the background; the user sees the named pending groups and can
+confirm later with Sync Now. Opening those migrated task photos then exposed a separate viewer regression:
 `ImageViewer` reported every source to PhotoSwipe as 1920×1080, horizontally stretching
 portrait/square images. The viewer contract now requires real intrinsic dimensions, with a
 behavioral regression test proving a 720×1280 source is opened as 720×1280 rather than 16:9.

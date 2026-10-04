@@ -50,6 +50,13 @@ export const MOSAIC_TABLES = [
     { key: 'content', type: 'longtext', required: false },
     { key: 'visibility', type: 'varchar', size: 50, required: true },
     { key: 'user_id', type: 'varchar', size: 255, required: true },
+    {
+      key: 'created_at',
+      type: 'varchar',
+      size: 50,
+      required: false,
+      default: '',
+    },
     { key: 'updated_at', type: 'varchar', size: 50, required: true },
     { key: 'deleted', type: 'boolean', required: false, default: false },
   ]),

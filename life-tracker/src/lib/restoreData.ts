@@ -34,7 +34,9 @@ const RESTORABLE_COLLECTIONS = [
 
 const POST_RESTORE_SYNC_MIN_TIMEOUT_MS = 90_000;
 const POST_RESTORE_SYNC_MAX_TIMEOUT_MS = 300_000;
-const POST_RESTORE_SYNC_PER_ROW_MS = 250;
+// Live TodoMate acceptance measured roughly 430ms per task write on a large
+// import. Budget conservatively per restored row, still capped at five minutes.
+const POST_RESTORE_SYNC_PER_ROW_MS = 500;
 
 type RestorableCollection = (typeof RESTORABLE_COLLECTIONS)[number];
 type JsonRecord = Record<string, unknown>;

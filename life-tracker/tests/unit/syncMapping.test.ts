@@ -338,6 +338,27 @@ describe('fromAppwriteFormat', () => {
     expect(out.updatedAt).toBe('2026-05-01T00:00:00.000Z');
     expect(out.updated_at).toBeUndefined();
   });
+  it('diary: falls back to stable Appwrite metadata when legacy created_at is absent', () => {
+    const row = {
+      $id: 'd_legacy',
+      $createdAt: '2026-01-10T08:00:00.000Z',
+      $updatedAt: '2026-01-15T21:00:00.000Z',
+      date: '2026-01-15',
+      content: 'Legacy diary entry',
+      visibility: 'private',
+      user_id: USER_ID,
+      deleted: false,
+      updated_at: '2026-01-15T21:00:00.000Z',
+    };
+    const first = fromAppwriteFormat(row, 'diary');
+    const second = fromAppwriteFormat(row, 'diary');
+
+    expect(first.createdAt).toBe('2026-01-10T08:00:00.000Z');
+    expect(first.updatedAt).toBe('2026-01-15T21:00:00.000Z');
+    expect(second.createdAt).toBe(first.createdAt);
+    expect(first.created_at).toBeUndefined();
+  });
+
   it('settings: maps updated_at → updatedAt and strips the snake_case field', () => {
     const row = {
       $id: 's_1',

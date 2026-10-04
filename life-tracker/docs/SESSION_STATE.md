@@ -1,37 +1,33 @@
 # Session checkpoint
 
 Updated: 2026-10-04
-Current task: Finish destructive acceptance for permanent account erasure after the disposable `test@test.com` run exposed a Function-timeout bottleneck.
-Status: Stable Preview `fix/new-user-onboarding-hardening` is accepted at `c93a118`; its full canonical gate `37206688081` passed and exact-SHA Vercel Preview `dpl_EWk6kgMRXKAmspUK2Hw2KTzYPQkZ` is READY. Production `message-action` deployment `6ac254279d4fe18c46de` and `dr_backup` deployment `6ac25457acb18594b6c2` are READY. The user then performed the real disposable deletion for `test@test.com` (Auth ID `6ab9ec2a329e7cb1f34c`). The request crossed the privacy pivot and returned 202, disabled Auth, revoked every session, removed all owned/cross-user DB rows and profile, and left the durable deletion job intact. The immediate async worker then timed out at 120 seconds in `running/cleanup` before Storage cleanup/final Auth removal; 37 account-owned image files remained. Root cause: `scrubCrossUserReferences()` opened a transaction for every surviving task/settings row even when the scanned row could not contain the erased ID. Production currently has hundreds of peer task rows, so those sequential transaction round-trips consumed the Function budget.
-Next action: Focused-verify `chatgpt/account-erasure-timeout-fix`, which prefilters scan snapshots and opens transactions only for actual scrub candidates. If green, squash into stable Preview, run the stable full canonical gate + exact-SHA Preview, redeploy only `message-action`, invoke the existing durable deletion job `del_b16bbd4612279b54179e378521ad22e1`, and verify Auth user/job/37 files are all gone plus no row/reference residue. Promotion to `dev` remains user-controlled.
-Blockers: None known. Do not manually delete the remaining disposable-account files/user/job; the acceptance goal is to prove the retryable worker completes them itself after the fix.
+Current task: Finish the post-TodoMate 5/6 sync-stall investigation after the new pending-group diagnostics isolated the remaining stall to Diary.
+Status: The shared-RxDB isolation/UI hardening is accepted on stable Preview `fix/sync-stall-diagnostics` at `b09a83b`. Focused run `37216642188` passed; the first stable full run `37216714956` found one stale unit-label assertion only; focused repair run `37216851563` passed; final stable canonical run `37217097075` passed checks/build/dependency audit/both DOM shards/both browser-contract shards/canonical acceptance; exact-SHA Vercel deployment `dpl_HEG4GeYNQPgmkpBnW8TX21QBTAyY` is READY and served HTTP 200. Re-testing the recreated `test@test.com` account then showed `Waiting for Diary · 5 of 6 synced`.
+Next action: Focused-verify `chatgpt/diary-created-at-schema-fix`. If green, squash it into `fix/sync-stall-diagnostics`, rerun the full canonical gate + exact-SHA Preview, then apply the idempotent `diary.created_at` production migration. After the live column is available, trigger/retry sync on the same device and verify the account's one imported diary row appears in Appwrite and Sync Status reaches Up to date. Do not promote to `dev` or `main` without explicit user instruction.
+Blockers: None known. The live schema mismatch has been directly confirmed through Appwrite.
 
-## Live disposable-account evidence
+## Confirmed root cause
 
-- `test@test.com` maps to Auth ID `6ab9ec2a329e7cb1f34c`.
-- Delete request execution `6ac25fa5da54383e8a3d` ran production deployment `6ac254279d4fe18c46de`, returned HTTP 202, and crossed the marker-backed privacy pivot.
-- Auth is disabled and has zero sessions.
-- Owned tasks, categories, diary, settings, profiles: zero rows.
-- Friendships matching either `user_id` or `friend_id`: zero rows.
-- Messages matching `user_id`, `sender_id`, or `recipient_id`: zero rows.
-- Surviving scanned task reactions and `friend_carousel_prefs`: no deleted-user reference observed.
-- Storage bucket currently has 134 files total; 37 are still owned by the deleted disposable account.
-- Durable job `del_b16bbd4612279b54179e378521ad22e1` remains `running / cleanup`, attempts=1, which is the correct fail-safe state.
-- Async resume execution `6ac25fac826f50c79d64` hit the 120-second timeout. It did not delete Auth or remove the job, so completion was not falsely reported.
+- TodoMate live preview/accepted mapping contains 505 tasks, 13 categories, and 1 diary entry.
+- Recreated Mosaic account Auth ID `6ac273888ee3b2e94dfd` has 505 tasks and 13 categories remotely but still has 0 diary rows.
+- The Diary replication payload in `syncMapping.ts` sends `created_at` and `updated_at`.
+- Production Appwrite table `life_tracker/diary` currently has exactly six columns: `date`, `content`, `visibility`, `user_id`, `updated_at`, `deleted`. `created_at` is absent.
+- The checked-in backend manifest had the same omission, proving this is repository schema drift rather than a console-only accident.
+- Therefore the imported Diary row is durable locally but every remote create/update carrying `created_at` is rejected; RxDB keeps the Diary pilot dirty while the other five groups settle. The new named-group UI exposed the fault correctly.
 
-## Fix under focused verification
+## Changes under focused verification
 
-- Pre-scan task reactions with `stripUserFromReactions()`; skip the Appwrite transaction when the snapshot cannot contain the deleted ID.
-- Pre-scan `friend_carousel_prefs` with `stripFriendCarouselValue()`; likewise skip unrelated settings rows.
-- Actual candidates still use the existing transactional re-read/retry so concurrent peer edits remain protected.
-- Final verification remains authoritative and catches a reference introduced after the prefilter snapshot.
-- Handler regression simulates 100 unrelated peer tasks plus 100 unrelated peer settings; account deletion must complete with zero `createTransaction` calls for those rows.
+- Portable backend manifest adds optional/default-empty `diary.created_at` as varchar(50). It is optional only for safe migration of existing deployments; new client writes continue to send the real created timestamp.
+- New `npm run mosaic:migrate-diary-created-at` migration creates the missing column idempotently, waits for availability, and fails closed if an existing column has an incompatible type/size/required/default state.
+- Legacy Diary pulls without `created_at` map local `createdAt` from stable Appwrite `$createdAt` metadata (then stable update metadata), rather than generating `new Date()` on each pull.
+- Manifest, migration, sync-mapping, and Diary replication tests pin the contract and payload.
 
-## Remaining acceptance
+## Acceptance path
 
-1. Focused CI on this task branch.
-2. Squash into `fix/new-user-onboarding-hardening`, full canonical gate, exact-SHA Preview.
-3. Redeploy only `message-action` from the accepted stable SHA; re-read active deployment/config.
-4. Resume the existing durable deletion job through the internal server-only path.
-5. Verify: Auth user absent, zero sessions/user lookup, deletion job absent, all 37 owned files absent, all owned/cross-user rows absent, no embedded peer references, and retry execution completes below timeout.
-6. Update this checkpoint/PLAN with final evidence. Do not promote to `dev` or `main` without explicit user instruction.
+1. Focused Quality Gate on the final task checkpoint.
+2. Squash focused-green task into `fix/sync-stall-diagnostics`.
+3. Full stable-Preview canonical Quality Gate and exact-SHA Vercel Preview.
+4. Apply the production Diary `created_at` migration only after the accepted tree is green; re-read the live column and confirm it is available/compatible.
+5. On the existing recreated `test@test.com` device, hit Sync Now (or let live replication retry) and verify one Diary row reaches Appwrite with stable `created_at`/`updated_at`.
+6. Confirm Sync Status reaches Up to date and no backend Function redeploy is needed.
+7. Do not promote to `dev` or `main` without explicit user instruction.

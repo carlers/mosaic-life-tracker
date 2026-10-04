@@ -125,7 +125,7 @@ describe('backup restore', () => {
     expect(state.rows.tasks.get('task_owner_switch')?.title).toBe('Owner switch');
   });
 
-  it.each([1000, 5000])('applies a %i-task import without dropping rows', async (count) => {
+  it.each([500, 1000, 5000])('applies a %i-task import without dropping rows', async (count) => {
     const tasks = Array.from({ length: count }, (_, index) => ({
       id: `stress_${index}`, title: `Imported ${index}`, completed: index % 2 === 0,
       categoryId: '', date: '2026-09-20', createdAt: '2026-09-20T00:00:00.000Z',
@@ -140,7 +140,7 @@ describe('backup restore', () => {
     expect(result.restored.tasks).toBe(count);
     expect(state.rows.tasks.size).toBe(count);
     expect(result.syncState).toBe('synced');
-    expect(state.refreshSync.mock.calls[1]?.[1]).toBeGreaterThan(90_000);
+    expect(state.refreshSync.mock.calls[1]?.[1]).toBe(300_000);
   }, 15_000);
 
   it('reports monotonic structured progress through local apply and final sync', async () => {
@@ -149,7 +149,8 @@ describe('backup restore', () => {
         completed: 3,
         total: 6,
         percent: 50,
-        label: '3 of 6 data groups synced',
+        label: 'Waiting for Tasks · 3 of 6 synced',
+        pendingGroups: ['Tasks'],
       });
       return {
         status: {

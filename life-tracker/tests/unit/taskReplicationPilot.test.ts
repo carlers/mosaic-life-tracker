@@ -692,7 +692,7 @@ describe('task RxDB replication pilot', () => {
     });
   });
 
-  it('rejects physical task deletion and account mismatches', async () => {
+  it('rejects physical deletion for the active owner but ignores cached foreign-account rows', async () => {
     await expect(
       __taskReplicationPilotTestUtils.pushTasks(
         [
@@ -704,6 +704,7 @@ describe('task RxDB replication pilot', () => {
       )
     ).rejects.toThrow('cannot physically delete');
 
+    getRowMock.mockClear();
     await expect(
       __taskReplicationPilotTestUtils.pushTasks(
         [
@@ -713,6 +714,7 @@ describe('task RxDB replication pilot', () => {
         ] as never,
         'user_A'
       )
-    ).rejects.toThrow('owner mismatch');
+    ).resolves.toEqual([]);
+    expect(getRowMock).not.toHaveBeenCalled();
   });
 });

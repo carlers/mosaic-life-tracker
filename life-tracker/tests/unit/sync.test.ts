@@ -572,10 +572,15 @@ describe('sync — freshness barriers', () => {
           releaseCategory = resolve;
         })
     );
-    const progress: number[] = [];
+    const progress: Array<{
+      completed: number;
+      percent: number;
+      label: string;
+      pendingGroups?: string[];
+    }> = [];
 
     const pending = syncModule.refreshSync('user_A', 5_000, {
-      onProgress: (value) => progress.push(value.percent),
+      onProgress: (value) => progress.push(value),
     });
 
     await vi.waitFor(() => {
@@ -586,13 +591,30 @@ describe('sync — freshness barriers', () => {
       expect(taskPilotRefreshMock).toHaveBeenCalled();
       expect(messagePilotRefreshMock).toHaveBeenCalled();
     });
+    await vi.waitFor(() => {
+      expect(
+        progress.some(
+          (value) =>
+            value.completed === 5 &&
+            value.label === 'Waiting for Categories · 5 of 6 synced' &&
+            value.pendingGroups?.join(',') === 'Categories'
+        )
+      ).toBe(true);
+    });
 
     releaseCategory(true);
     const result = await pending;
 
     expect(result.status.lastSync).toBeTruthy();
-    expect(progress[0]).toBe(0);
-    expect(progress.at(-1)).toBe(100);
+    expect(progress[0]).toMatchObject({
+      percent: 0,
+      label: 'Checking all 6 data groups…',
+    });
+    expect(progress.at(-1)).toMatchObject({
+      percent: 100,
+      label: 'All data groups synced',
+      pendingGroups: [],
+    });
   });
 
   it('treats a freshness timeout as pending background sync instead of a persistent red error', async () => {
@@ -608,7 +630,7 @@ describe('sync — freshness barriers', () => {
     expect(syncModule.getSyncStatus()).toMatchObject({
       isSyncing: false,
       errors: [],
-      notice: expect.stringMatching(/still finishing in the background/i),
+      notice: expect.stringMatching(/still waiting for Diary/i),
       progress: null,
     });
   });
@@ -627,7 +649,7 @@ describe('sync — freshness barriers', () => {
 
     await expect(
       syncModule.refreshSync('user_A', 5_000)
-    ).rejects.toThrow('category sync is not active');
+    ).rejects.toThrow('categories sync is not active');
 
     expect(syncModule.getSyncStatus().lastSync).toBeNull();
   });
