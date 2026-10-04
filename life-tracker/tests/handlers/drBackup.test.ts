@@ -34,24 +34,36 @@ describe('DR privacy deletion marker durability', () => {
   } as any;
 
   function makeR2() {
-    const objects = new Map<string, Buffer>();
+    const objects = new Map<
+      string,
+      { bytes: Buffer; metadata: Record<string, string> }
+    >();
     return {
       objects,
       headObject: vi.fn(async (key: string) => {
         const value = objects.get(key);
         return value
-          ? { size: value.length, metadata: {} }
+          ? { size: value.bytes.length, metadata: value.metadata }
           : null;
       }),
       getObject: vi.fn(async (key: string) => {
         const value = objects.get(key);
         if (!value) throw new Error('missing');
-        return value;
+        return value.bytes;
       }),
-      putObject: vi.fn(async (key: string, value: Buffer) => {
-        objects.set(key, Buffer.from(value));
-        return { etag: 'test' };
-      }),
+      putObject: vi.fn(
+        async (
+          key: string,
+          value: Buffer,
+          options?: { metadata?: Record<string, string> }
+        ) => {
+          objects.set(key, {
+            bytes: Buffer.from(value),
+            metadata: { ...(options?.metadata ?? {}) },
+          });
+          return { etag: 'test' };
+        }
+      ),
     };
   }
 
@@ -80,7 +92,10 @@ describe('DR privacy deletion marker durability', () => {
   it('fails closed when an existing deterministic marker cannot be authenticated', async () => {
     const r2 = makeR2();
     const key = privacyDeletionKey(config.prefix, 'alice');
-    r2.objects.set(key, Buffer.from('not-a-valid-dr-envelope'));
+    r2.objects.set(key, {
+      bytes: Buffer.from('not-a-valid-dr-envelope'),
+      metadata: {},
+    });
 
     await expect(
       recordPrivacyDeletion('alice', {
