@@ -393,41 +393,12 @@ function subscribeToFriendshipRealtime(
 
     if (!payload || payload.user_id !== userId) return;
     if (
-      !events.some(
+      events.some(
         (event) => event.endsWith('.create') || event.endsWith('.update')
       )
     ) {
-      return;
-    }
-
-    const id = payload.$id;
-    const updatedAt = payload.$updatedAt;
-    if (
-      typeof id !== 'string' ||
-      !id ||
-      typeof updatedAt !== 'string' ||
-      !updatedAt
-    ) {
       pullStream.next('RESYNC');
-      return;
     }
-
-    const document = toReplicatedFriendship(
-      payload as Record<string, unknown>
-    );
-    if (document.isDeleted || document.status === 'blocked') {
-      void clearCachedCalendar(userId, document.friendId).catch((error) => {
-        console.error(
-          '[FriendshipReplicationPilot] cache clear failed:',
-          error
-        );
-      });
-    }
-
-    pullStream.next({
-      checkpoint: { id, updatedAt },
-      documents: [document],
-    });
   });
 }
 

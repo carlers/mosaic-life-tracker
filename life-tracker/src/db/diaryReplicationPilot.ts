@@ -324,37 +324,20 @@ function subscribeToDiaryRealtime(
   return guardedRealtime.subscribe(channel, (message) => {
     if (activeOwnerId !== userId) return;
     const payload = message.payload;
-    if (!payload || payload.user_id !== userId) return;
-
     const events = Array.isArray(message.events) ? message.events : [];
+
     if (events.some((event) => event.endsWith('.delete'))) {
       pullStream.next('RESYNC');
       return;
     }
+    if (!payload || payload.user_id !== userId) return;
     if (
-      !events.some(
+      events.some(
         (event) => event.endsWith('.create') || event.endsWith('.update')
       )
     ) {
-      return;
-    }
-
-    const id = payload.$id;
-    const updatedAt = payload.$updatedAt;
-    if (
-      typeof id !== 'string' ||
-      !id ||
-      typeof updatedAt !== 'string' ||
-      !updatedAt
-    ) {
       pullStream.next('RESYNC');
-      return;
     }
-
-    pullStream.next({
-      checkpoint: { id, updatedAt },
-      documents: [toReplicatedDiary(payload as Record<string, unknown>)],
-    });
   });
 }
 

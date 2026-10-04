@@ -512,37 +512,24 @@ function subscribeToTaskRealtime(
   return guardedRealtime.subscribe(channel, (message) => {
     if (activeOwnerId !== userId) return;
     const payload = message.payload;
-    if (!payload || payload.user_id !== userId) return;
-
     const events = Array.isArray(message.events) ? message.events : [];
+
     if (events.some((event) => event.endsWith('.delete'))) {
       pullStream.next('RESYNC');
       return;
     }
+    if (!payload || payload.user_id !== userId) return;
     if (
-      !events.some(
+      events.some(
         (event) => event.endsWith('.create') || event.endsWith('.update')
       )
     ) {
-      return;
-    }
-
-    const id = payload.$id;
-    const updatedAt = payload.$updatedAt;
-    if (
-      typeof id !== 'string' ||
-      !id ||
-      typeof updatedAt !== 'string' ||
-      !updatedAt
-    ) {
+      // Appwrite Realtime is a wake-up hint, not a durable ordered change
+      // stream. A socket reconnect can miss or reorder events; advancing the
+      // RxDB checkpoint from one payload could jump over an unseen write.
+      // Let the ordered pull handler catch up from its persisted checkpoint.
       pullStream.next('RESYNC');
-      return;
     }
-
-    pullStream.next({
-      checkpoint: { id, updatedAt },
-      documents: [toReplicatedTask(payload as Record<string, unknown>)],
-    });
   });
 }
 

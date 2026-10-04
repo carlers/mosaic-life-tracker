@@ -414,46 +414,12 @@ function subscribeToMessageRealtime(
 
     if (!payload || payload.user_id !== userId) return;
     if (
-      !events.some(
+      events.some(
         (event) => event.endsWith('.create') || event.endsWith('.update')
       )
     ) {
-      return;
-    }
-
-    const id = payload.$id;
-    const updatedAt = payload.$updatedAt;
-    if (
-      typeof id !== 'string' ||
-      !id ||
-      typeof updatedAt !== 'string' ||
-      !updatedAt
-    ) {
       pullStream.next('RESYNC');
-      return;
     }
-
-    void (async () => {
-      const remote = toReplicatedMessage(
-        payload as Record<string, unknown>
-      );
-      const document = await mergeRemoteWithLocalIntent(
-        collection,
-        userId,
-        remote
-      );
-      if (activeOwnerId !== userId) return;
-      pullStream.next({
-        checkpoint: { id, updatedAt },
-        documents: [document],
-      });
-    })().catch((error) => {
-      console.error(
-        '[MessageReplicationPilot] realtime merge failed:',
-        error
-      );
-      pullStream.next('RESYNC');
-    });
   });
 }
 
