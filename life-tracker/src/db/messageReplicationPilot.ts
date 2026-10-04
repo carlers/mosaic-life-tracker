@@ -307,11 +307,11 @@ export async function captureMessageReplicationPullCheckpoint(
     ],
     total: false,
   });
-  const row = (
-    (response as unknown as { rows?: Record<string, unknown>[] }).rows ?? []
-  ).find(
+  const responseRows =
+    (response as unknown as { rows?: Record<string, unknown>[] }).rows ?? [];
+  assertRemoteRowsOwnedBy(responseRows, userId, 'Message bootstrap');
+  const row = responseRows.find(
     (candidate) =>
-      candidate.user_id === userId &&
       typeof candidate.$id === 'string' &&
       candidate.$id.length > 0 &&
       typeof candidate.$updatedAt === 'string' &&
