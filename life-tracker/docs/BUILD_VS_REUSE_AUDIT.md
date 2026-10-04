@@ -69,6 +69,7 @@ Source bytes measure maintenance surface only; they are not bundle-size measurem
 | Keep | Embla + Swiper split | **Do not consolidate without bundle evidence** | They serve different accepted interaction contracts with substantial regression coverage. Removing one solely to lower dependency count would create migration risk without a demonstrated runtime or bundle win. |
 | Keep | Backup/import/export and validation | **Keep domain code; continue using existing libraries** | Mosaic already uses AJV, fflate, browser-image-compression, RxDB, and Appwrite for the commodity parts. The remaining code is format mapping, privacy, recovery, and migration policy. |
 | Keep | Connectivity state | **Keep custom** | Mosaic intentionally distinguishes browser link state from confirmed Appwrite reachability and offline-auth state. A plain online/offline helper would lose that contract. |
+| Keep | Minimal PostHog adapter | **Keep custom by existing bundle/privacy decision** | Project §24.15 explicitly rejects the full browser SDK because the aggregate/precache budget has no room for it. The current adapter implements only error ingestion and feature-flag evaluation, with autocapture/session replay/product analytics structurally absent. Replacing it with the SDK would reverse an already measured optimization rather than remove accidental reinvention. |
 
 ## P0 — use Appwrite transactions for owner-write replication
 
@@ -195,6 +196,7 @@ The following custom code should not be refactored merely because a package exis
   larger conceptually than the implementation.
 - small timeout/retry loops where the retry policy is only a few lines and domain-specific.
 - `profileCache.ts`: minimal best-effort localStorage convenience cache.
+- `posthog.ts`: the direct HTTP adapter is deliberate; §24.15 records that the full PostHog browser SDK exceeded the reviewed aggregate/precache budget and the minimal adapter is also the privacy boundary.
 - interaction code whose purpose is arbitration among already-installed gesture owners.
 - backend bootstrap, DR, account-erasure, TodoMate mapping, and restore policy: these encode
   Mosaic's own infrastructure/data contracts.
