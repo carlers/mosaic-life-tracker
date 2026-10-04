@@ -693,6 +693,8 @@ async function isAccountDeletionPending(db, userId) {
 }
 
 module.exports = {
+  CROSS_REFERENCE_QUERIES,
+  OWNED_TABLES,
   deleteOwnedFiles,
   deletionJobId,
   ensureDeletionJob,
