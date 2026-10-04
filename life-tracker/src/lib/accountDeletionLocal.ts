@@ -1,4 +1,4 @@
-import { destroyDatabase } from '../db/database';
+import { purgeAccountFromDatabase } from '../db/database';
 import { clearMessageActionQueue } from './messageActionQueue';
 import { clearSocialOutbox } from './socialOutbox';
 import { clearPendingImagesForUser } from './pendingImages';
@@ -43,5 +43,5 @@ export async function clearDeletedAccountLocalData(
     clearAllCachedImages(),
   ]);
 
-  await destroyDatabase();
+  await purgeAccountFromDatabase(userId);
 }
