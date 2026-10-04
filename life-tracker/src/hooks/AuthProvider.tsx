@@ -54,6 +54,15 @@ function isSessionAlreadyActiveError(error: unknown): boolean {
   );
 }
 
+class ActiveSessionAccountMismatchError extends Error {
+  constructor() {
+    super(
+      "Another Mosaic account is still active. Please try signing in again.",
+    );
+    this.name = "ActiveSessionAccountMismatchError";
+  }
+}
+
 async function createSessionOrReuseMatching(
   email: string,
   password: string,
@@ -67,11 +76,25 @@ async function createSessionOrReuseMatching(
     if (!isSessionAlreadyActiveError(sessionError)) {
       throw sessionError;
     }
+
     const existing = await callAccount(() => account.get());
-    if (normalizeEmail(existing.email) !== normalizeEmail(email)) {
-      throw sessionError;
+    if (normalizeEmail(existing.email) === normalizeEmail(email)) {
+      return existing;
     }
-    return existing;
+
+    // A stale/failed delete can leave another account's valid session behind.
+    // Now that account.get() proved connectivity, retry the switch instead of
+    // ever accepting the wrong authenticated owner.
+    try {
+      await callAccount(() => account.deleteSession("current"));
+    } catch {
+      throw new ActiveSessionAccountMismatchError();
+    }
+
+    await callAccount(() =>
+      account.createEmailPasswordSession(email, password),
+    );
+    return null;
   }
 }
 
@@ -479,7 +502,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           loginError instanceof Error ? loginError.message : "Login failed";
         setError(message);
         setIsLoading(false);
-        if (!authenticatedUserId) {
+        if (
+          !authenticatedUserId &&
+          !isUnauthorizedError(loginError) &&
+          !(loginError instanceof ActiveSessionAccountMismatchError)
+        ) {
+          // Only ambiguous/non-auth failures need a live-session probe.
+          // Credential 401s and explicit account-mismatch failures are already
+          // authoritative and must not adopt a different active account.
           void verifyLiveSession(true);
         }
         return false;

@@ -416,12 +416,55 @@ describe("AuthProvider offline auth gate", () => {
     expect(accountRef.get).toHaveBeenCalledTimes(2);
   });
 
-  it("rejects an already-active session when it belongs to another account", async () => {
+  it("retries the account switch when another active session is discovered", async () => {
     accountRef.get.mockRejectedValueOnce(makeUnauthorizedError());
     const { result } = renderHook(() => useAuth(), { wrapper });
     await waitFor(() => expect(result.current.isLoading).toBe(false));
 
-    accountRef.deleteSession.mockRejectedValueOnce(new Error("delete unavailable"));
+    const other = makeUser({
+      $id: "user_other_active",
+      email: "other@example.com",
+    });
+    const wanted = makeUser({
+      $id: "user_wanted",
+      email: "wanted@example.com",
+    });
+    accountRef.deleteSession
+      .mockRejectedValueOnce(new Error("delete unavailable"))
+      .mockResolvedValueOnce(undefined);
+    accountRef.createEmailPasswordSession
+      .mockRejectedValueOnce(
+        Object.assign(
+          new Error("Creation of a session is prohibited when a session is active"),
+          { type: "user_session_already_exists", code: 401 },
+        ),
+      )
+      .mockResolvedValueOnce(undefined);
+    accountRef.get
+      .mockResolvedValueOnce(other)
+      .mockResolvedValueOnce(wanted);
+
+    await act(async () => {
+      expect(
+        await result.current.login("wanted@example.com", "test-pass-123"),
+      ).toBe(true);
+    });
+
+    expect(result.current.user?.$id).toBe("user_wanted");
+    expect(result.current.error).toBeNull();
+    expect(accountRef.deleteSession).toHaveBeenCalledTimes(2);
+    expect(accountRef.createEmailPasswordSession).toHaveBeenCalledTimes(2);
+    expect(accountRef.get).toHaveBeenCalledTimes(3);
+  });
+
+  it("fails closed without re-adopting another active account when switching cannot clear it", async () => {
+    accountRef.get.mockRejectedValueOnce(makeUnauthorizedError());
+    const { result } = renderHook(() => useAuth(), { wrapper });
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    accountRef.deleteSession
+      .mockRejectedValueOnce(new Error("delete unavailable"))
+      .mockRejectedValueOnce(new Error("delete still unavailable"));
     accountRef.createEmailPasswordSession.mockRejectedValueOnce(
       Object.assign(
         new Error("Creation of a session is prohibited when a session is active"),
@@ -439,11 +482,13 @@ describe("AuthProvider offline auth gate", () => {
       expect(
         await result.current.login("wanted@example.com", "test-pass-123"),
       ).toBe(false);
+      await Promise.resolve();
     });
 
     expect(result.current.user).toBeNull();
-    expect(result.current.error).toMatch(/session is active/i);
+    expect(result.current.error).toMatch(/another mosaic account is still active/i);
     expect(localStorage.getItem(LAST_KNOWN_USER_KEY)).toBeNull();
+    expect(accountRef.get).toHaveBeenCalledTimes(2);
   });
 
   // Regression: §19 (successful login triggers sync after auth resolves).
