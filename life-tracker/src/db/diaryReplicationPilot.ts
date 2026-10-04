@@ -24,6 +24,12 @@ import {
   APPWRITE_TABLES,
 } from '../lib/appwriteConfig';
 import { awaitPilotReplicationFreshness } from './replicationFreshness';
+import { getReplicationIdentifier } from './replicationIds';
+import { trackReplicationFreshness } from './replicationLocalState';
+import {
+  assertRemoteRowOwnedBy,
+  assertRemoteRowsOwnedBy,
+} from './replicationOwnership';
 
 const PULL_BATCH_SIZE = 100;
 const PUSH_BATCH_SIZE = 20;
@@ -100,8 +106,22 @@ function diaryStateEquals(
   );
 }
 
+function isBootstrapLocalNewer(
+  localUpdatedAt: string,
+  remoteUpdatedAt: string
+): boolean {
+  const localMs = Date.parse(localUpdatedAt);
+  const remoteMs = Date.parse(remoteUpdatedAt);
+  return (
+    Number.isFinite(localMs) &&
+    Number.isFinite(remoteMs) &&
+    localMs > remoteMs
+  );
+}
+
 async function readRemoteDiary(
-  rowId: string
+  rowId: string,
+  userId: string
 ): Promise<ReplicatedDiary | null> {
   try {
     const row = await guardedTablesDB.getRow({
@@ -109,7 +129,9 @@ async function readRemoteDiary(
       tableId: APPWRITE_TABLES.diary,
       rowId,
     });
-    return toReplicatedDiary(row as unknown as Record<string, unknown>);
+    const raw = row as unknown as Record<string, unknown>;
+    assertRemoteRowOwnedBy(raw, userId, 'Diary');
+    return toReplicatedDiary(raw);
   } catch (error) {
     if (isNotFoundError(error)) return null;
     throw error;
@@ -135,7 +157,7 @@ async function createRemoteDiary(
     return null;
   } catch (error) {
     if (!isConflictError(error)) throw error;
-    const current = await readRemoteDiary(document.id);
+    const current = await readRemoteDiary(document.id, userId);
     if (current) return current;
     throw error;
   }
@@ -150,7 +172,11 @@ async function pushDiary(
   for (const row of rows) {
     const next = row.newDocumentState;
     if (next.userId !== userId) {
-      throw new Error(`Diary replication owner mismatch for ${next.id}`);
+      // Mosaic intentionally keeps multiple owners in one local RxDB. A
+      // per-user replication identifier will encounter those cached foreign
+      // rows on first upstream scan; acknowledge them as outside this
+      // replication scope instead of poisoning the active owner's queue.
+      continue;
     }
     if (next._deleted) {
       throw new Error(
@@ -158,20 +184,30 @@ async function pushDiary(
       );
     }
 
-    const current = await readRemoteDiary(next.id);
+    const current = await readRemoteDiary(next.id, userId);
     const assumed = row.assumedMasterState;
 
     if (!assumed) {
-      if (current) {
+      if (!current) {
+        const createConflict = await createRemoteDiary(next, userId);
+        if (createConflict) conflicts.push(createConflict);
+        continue;
+      }
+
+      // No assumed master means this row predates RxDB's persisted
+      // replication metadata (first sync / metadata recovery). A local LWT
+      // alone is not evidence of a local edit because downstream replication
+      // also writes the local document. Identical state is acknowledged
+      // without a remote write; otherwise only a genuinely newer
+      // application-level edit is allowed to win this one-time bootstrap.
+      if (diaryStateEquals(current, next)) {
+        continue;
+      }
+      if (!isBootstrapLocalNewer(next.updatedAt, current.updatedAt)) {
         conflicts.push(current);
         continue;
       }
-      const createConflict = await createRemoteDiary(next, userId);
-      if (createConflict) conflicts.push(createConflict);
-      continue;
-    }
-
-    if (current && !diaryStateEquals(current, assumed)) {
+    } else if (current && !diaryStateEquals(current, assumed)) {
       conflicts.push(current);
       continue;
     }
@@ -237,9 +273,10 @@ async function pullDiary(
     queries,
     total: false,
   });
-  const rows = (
-    (response as unknown as { rows?: Record<string, unknown>[] }).rows ?? []
-  ).filter(
+  const responseRows =
+    (response as unknown as { rows?: Record<string, unknown>[] }).rows ?? [];
+  assertRemoteRowsOwnedBy(responseRows, userId, 'Diary');
+  const rows = responseRows.filter(
     (row) =>
       typeof row.$id === 'string' &&
       row.$id.length > 0 &&
@@ -295,37 +332,20 @@ function subscribeToDiaryRealtime(
   return guardedRealtime.subscribe(channel, (message) => {
     if (activeOwnerId !== userId) return;
     const payload = message.payload;
-    if (!payload || payload.user_id !== userId) return;
-
     const events = Array.isArray(message.events) ? message.events : [];
+
     if (events.some((event) => event.endsWith('.delete'))) {
       pullStream.next('RESYNC');
       return;
     }
+    if (!payload || payload.user_id !== userId) return;
     if (
-      !events.some(
+      events.some(
         (event) => event.endsWith('.create') || event.endsWith('.update')
       )
     ) {
-      return;
-    }
-
-    const id = payload.$id;
-    const updatedAt = payload.$updatedAt;
-    if (
-      typeof id !== 'string' ||
-      !id ||
-      typeof updatedAt !== 'string' ||
-      !updatedAt
-    ) {
       pullStream.next('RESYNC');
-      return;
     }
-
-    pullStream.next({
-      checkpoint: { id, updatedAt },
-      documents: [toReplicatedDiary(payload as Record<string, unknown>)],
-    });
   });
 }
 
@@ -405,7 +425,7 @@ async function startDiaryReplicationPilotNow(
     DiaryReplicationCheckpoint
   >({
     replicationIdentifier:
-      `mosaic-appwrite-tablesdb-diary-v1:${userId}`,
+      getReplicationIdentifier('diary', userId),
     collection,
     live: true,
     retryTime: RETRY_TIME_MS,
@@ -426,6 +446,7 @@ async function startDiaryReplicationPilotNow(
 
   activeOwnerId = userId;
   activeReplication = replication;
+  trackReplicationFreshness(replication, userId, 'diary');
   activeCollection = collection;
   activePullStream = pullStream;
   realtimeUnsubscribe = subscribeToDiaryRealtime(userId, pullStream);

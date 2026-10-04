@@ -33,6 +33,16 @@ import {
 } from '../lib/pendingImages';
 import { updateProfileAvatar } from '../lib/social';
 import { awaitPilotReplicationFreshness } from './replicationFreshness';
+import { getReplicationIdentifier } from './replicationIds';
+import { trackReplicationFreshness } from './replicationLocalState';
+import {
+  assertRemoteRowOwnedBy,
+  assertRemoteRowsOwnedBy,
+} from './replicationOwnership';
+import {
+  loadAcceptedFriendIds,
+  sanitizeFriendCarouselValue,
+} from './socialReferenceSanitizer';
 
 const PULL_BATCH_SIZE = 100;
 const PUSH_BATCH_SIZE = 20;
@@ -107,8 +117,22 @@ function settingStateEquals(
   );
 }
 
+function isBootstrapLocalNewer(
+  localUpdatedAt: string,
+  remoteUpdatedAt: string
+): boolean {
+  const localMs = Date.parse(localUpdatedAt);
+  const remoteMs = Date.parse(remoteUpdatedAt);
+  return (
+    Number.isFinite(localMs) &&
+    Number.isFinite(remoteMs) &&
+    localMs > remoteMs
+  );
+}
+
 async function readRemoteSetting(
-  rowId: string
+  rowId: string,
+  userId: string
 ): Promise<ReplicatedSetting | null> {
   try {
     const row = await guardedTablesDB.getRow({
@@ -116,7 +140,9 @@ async function readRemoteSetting(
       tableId: APPWRITE_TABLES.settings,
       rowId,
     });
-    return toReplicatedSetting(row as unknown as Record<string, unknown>);
+    const raw = row as unknown as Record<string, unknown>;
+    assertRemoteRowOwnedBy(raw, userId, 'Settings');
+    return toReplicatedSetting(raw);
   } catch (error) {
     if (isNotFoundError(error)) return null;
     throw error;
@@ -130,6 +156,24 @@ async function prepareSettingForPush(
   document: ReplicatedSetting;
   pendingImageId: string | null;
 }> {
+  if (
+    document.key === 'friend_carousel_prefs' &&
+    typeof document.value === 'string' &&
+    !document.isDeleted
+  ) {
+    const acceptedFriendIds = await loadAcceptedFriendIds(userId);
+    return {
+      document: {
+        ...document,
+        value: sanitizeFriendCarouselValue(
+          document.value,
+          acceptedFriendIds
+        ),
+      },
+      pendingImageId: null,
+    };
+  }
+
   if (
     document.key !== 'profileImageId' ||
     typeof document.value !== 'string' ||
@@ -222,7 +266,7 @@ async function createRemoteSetting(
     return null;
   } catch (error) {
     if (!isConflictError(error)) throw error;
-    const current = await readRemoteSetting(document.id);
+    const current = await readRemoteSetting(document.id, userId);
     if (current) return current;
     throw error;
   }
@@ -237,7 +281,11 @@ async function pushSettings(
   for (const row of rows) {
     const next = row.newDocumentState;
     if (next.userId !== userId) {
-      throw new Error(`Settings replication owner mismatch for ${next.id}`);
+      // Mosaic intentionally keeps multiple owners in one local RxDB. A
+      // per-user replication identifier will encounter those cached foreign
+      // rows on first upstream scan; acknowledge them as outside this
+      // replication scope instead of poisoning the active owner's queue.
+      continue;
     }
     if (next._deleted) {
       throw new Error(
@@ -245,41 +293,44 @@ async function pushSettings(
       );
     }
 
-    const current = await readRemoteSetting(next.id);
+    const current = await readRemoteSetting(next.id, userId);
     const assumed = row.assumedMasterState;
 
     if (!assumed) {
-      if (current) {
+      if (!current) {
+        const prepared = await prepareSettingForPush(next, userId);
+        const createConflict = await createRemoteSetting(
+          prepared.document,
+          userId
+        );
+        if (createConflict) {
+          await mirrorProfileImageSetting(createConflict, userId);
+          await cleanupPendingProfileImage(next, userId);
+          conflicts.push(createConflict);
+          continue;
+        }
+        await finishSuccessfulPush(
+          prepared.document,
+          userId,
+          prepared.pendingImageId
+        );
+        if (!settingStateEquals(prepared.document, next)) {
+          conflicts.push(prepared.document);
+        }
+        continue;
+      }
+
+      if (settingStateEquals(current, next)) {
+        await mirrorProfileImageSetting(current, userId);
+        continue;
+      }
+      if (!isBootstrapLocalNewer(next.updatedAt, current.updatedAt)) {
         await mirrorProfileImageSetting(current, userId);
         await cleanupPendingProfileImage(next, userId);
         conflicts.push(current);
         continue;
       }
-
-      const prepared = await prepareSettingForPush(next, userId);
-      const createConflict = await createRemoteSetting(
-        prepared.document,
-        userId
-      );
-      if (createConflict) {
-        await mirrorProfileImageSetting(createConflict, userId);
-        await cleanupPendingProfileImage(next, userId);
-        conflicts.push(createConflict);
-        continue;
-      }
-
-      await finishSuccessfulPush(
-        prepared.document,
-        userId,
-        prepared.pendingImageId
-      );
-      if (!settingStateEquals(prepared.document, next)) {
-        conflicts.push(prepared.document);
-      }
-      continue;
-    }
-
-    if (current && !settingStateEquals(current, assumed)) {
+    } else if (current && !settingStateEquals(current, assumed)) {
       await mirrorProfileImageSetting(current, userId);
       await cleanupPendingProfileImage(next, userId);
       conflicts.push(current);
@@ -382,9 +433,10 @@ async function pullSettings(
     queries,
     total: false,
   });
-  const rows = (
-    (response as unknown as { rows?: Record<string, unknown>[] }).rows ?? []
-  ).filter(
+  const responseRows =
+    (response as unknown as { rows?: Record<string, unknown>[] }).rows ?? [];
+  assertRemoteRowsOwnedBy(responseRows, userId, 'Settings');
+  const rows = responseRows.filter(
     (row) =>
       typeof row.$id === 'string' &&
       row.$id.length > 0 &&
@@ -440,37 +492,20 @@ function subscribeToSettingsRealtime(
   return guardedRealtime.subscribe(channel, (message) => {
     if (activeOwnerId !== userId) return;
     const payload = message.payload;
-    if (!payload || payload.user_id !== userId) return;
-
     const events = Array.isArray(message.events) ? message.events : [];
+
     if (events.some((event) => event.endsWith('.delete'))) {
       pullStream.next('RESYNC');
       return;
     }
+    if (!payload || payload.user_id !== userId) return;
     if (
-      !events.some(
+      events.some(
         (event) => event.endsWith('.create') || event.endsWith('.update')
       )
     ) {
-      return;
-    }
-
-    const id = payload.$id;
-    const updatedAt = payload.$updatedAt;
-    if (
-      typeof id !== 'string' ||
-      !id ||
-      typeof updatedAt !== 'string' ||
-      !updatedAt
-    ) {
       pullStream.next('RESYNC');
-      return;
     }
-
-    pullStream.next({
-      checkpoint: { id, updatedAt },
-      documents: [toReplicatedSetting(payload as Record<string, unknown>)],
-    });
   });
 }
 
@@ -550,7 +585,7 @@ async function startSettingsReplicationPilotNow(
     SettingsReplicationCheckpoint
   >({
     replicationIdentifier:
-      `mosaic-appwrite-tablesdb-settings-v1:${userId}`,
+      getReplicationIdentifier('settings', userId),
     collection,
     live: true,
     retryTime: RETRY_TIME_MS,
@@ -571,6 +606,7 @@ async function startSettingsReplicationPilotNow(
 
   activeOwnerId = userId;
   activeReplication = replication;
+  trackReplicationFreshness(replication, userId, 'settings');
   activeCollection = collection;
   activePullStream = pullStream;
   realtimeUnsubscribe = subscribeToSettingsRealtime(userId, pullStream);

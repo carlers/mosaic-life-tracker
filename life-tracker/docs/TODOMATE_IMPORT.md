@@ -127,6 +127,12 @@ reports how many distinct routine references were found.
 - sharing flags → Mosaic `public`, `followers`, or `private`
 - TodoMate create/document timestamps → Mosaic create/update timestamps
 
+The remote Diary schema must contain both `created_at` and `updated_at`. The importer
+writes a local Diary row first, then normal RxDB replication sends both timestamps to
+Appwrite. If `created_at` is missing from the Appwrite table, the local import can appear
+successful while Diary replication retries forever and Sync Status remains one group short.
+Treat that as backend schema drift, not as a reason to drop the imported diary entry.
+
 TodoMate selected-viewer sharing cannot be represented exactly by Mosaic's current three-way
 visibility model. Such records import as `private`, never as broader visibility.
 
@@ -144,7 +150,8 @@ This is deliberate. The existing restore path provides:
 - category-reference rewriting
 - re-import idempotence
 - newer Mosaic rows/tombstones winning over older imported versions
-- normal local-first writes followed by Mosaic sync
+- categories-before-tasks local application with account-generation guards
+- an adaptive bounded post-apply freshness barrier with separate synced and sync-pending outcomes
 
 The TodoMate importer must not expose Replace Personal Data. A migration from an external
 service is additive and must not delete unrelated Mosaic data.
@@ -160,11 +167,28 @@ Preview reads TodoMate but performs no Mosaic writes. It reports at minimum:
 - TodoMate photo attachments found, ready to copy, and unavailable
 - distinct routine references whose recurring definitions are not recreated
 
-Only after preview can the user start the Merge import.
+Only after preview can the user start the Merge import. Closing or reopening the sheet
+cancels the old preview work, and an older attempt cannot overwrite the current preview.
+Both preview and import expose phase text plus a coarse percentage: preview advances through
+connection/login/history/photo preparation; import advances through validation, freshness
+preflight, photo copy, exact local-row application, and the six collection-level cloud
+freshness proofs. The percentage is progress through those known phases/rows/collections,
+not a byte-transfer estimate.
+
+Import start records only small account-scoped recovery metadata: expected counts, start
+time, and whether local application finished. If the app exits while rows are being applied,
+reopening the importer explains that the prior run was interrupted and directs the user to
+preview and rerun it. Deterministic IDs and Merge semantics keep that rerun duplicate-safe.
+If all rows were applied but the bounded final sync did not converge, Mosaic reports
+**imported locally · sync pending** instead of **import complete** and preserves the local
+rows for normal replication. The final proof uses a 90–300 second budget scaled by the
+number of imported personal-data rows rather than the old fixed 30-second budget. All six
+independent RxDB freshness proofs start together so a slow earlier collection cannot consume
+the deadline and falsely make a later collection (for example diary) look broken.
 
 Any authentication, Firebase configuration, Firestore read, decoding, validation, Mosaic
-sync-preflight, or restore error must be shown as a failed import. Do not describe partial
-TodoMate reads as a complete migration.
+sync-preflight, or pre-local-completion restore error must be shown as a failed import. Do
+not describe partial TodoMate reads or unverified remote convergence as a complete migration.
 
 ## Compatibility evidence and maintenance
 
@@ -196,7 +220,12 @@ Automated coverage must prove:
    tasks;
 9. an arbitrary photo host never receives the Firebase bearer token, while a Google Storage
    401/403 may be retried with that token;
-10. the UI clears the password after preview and imports only through Merge restore.
+10. the UI clears the password after preview and imports only through Merge restore;
+11. closing/reopening Preview cancels the older request and stale preview results cannot win;
+12. account changes stop restore application, categories apply before tasks, and large
+    1,000–5,000-task fixtures retain every row;
+13. failed final convergence keeps locally applied rows and reports sync pending, while a
+    deterministic rerun remains duplicate-safe.
 
 Live acceptance requires a real TodoMate account and must be done by the user locally. Never
 ask the user to paste TodoMate credentials or Firebase tokens into an AI chat. Verify preview
@@ -250,7 +279,16 @@ to close the other tab/retry rather than continuing with stale data.
 
 Hosted re-acceptance subsequently confirmed the import itself succeeds: all 37 prepared
 TodoMate images were copied onto the existing imported tasks without duplication and Mosaic
-sync completed. Opening those migrated task photos then exposed a separate viewer regression:
+sync completed.
+
+Large imports intentionally get a bounded convergence budget that scales with restored row
+count and caps at five minutes. Live 505-task acceptance measured task replication at roughly
+430ms per remote write, so the budget uses 500ms per restored row rather than the earlier
+250ms estimate. The final freshness UI must name whichever groups remain (for example
+`Waiting for Tasks` or `Waiting for Messages`) instead of only showing a generic count.
+If that bounded proof expires, locally applied/imported rows remain durable and live RxDB
+replication continues in the background; the user sees the named pending groups and can
+confirm later with Sync Now. Opening those migrated task photos then exposed a separate viewer regression:
 `ImageViewer` reported every source to PhotoSwipe as 1920×1080, horizontally stretching
 portrait/square images. The viewer contract now requires real intrinsic dimensions, with a
 behavioral regression test proving a 720×1280 source is opened as 720×1280 rather than 16:9.

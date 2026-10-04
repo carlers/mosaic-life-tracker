@@ -1,3 +1,4 @@
+import { createRequire } from 'node:module';
 import { describe, expect, it } from 'vitest';
 import {
   BOOTSTRAP_API_KEY_SCOPES,
@@ -5,6 +6,16 @@ import {
   MOSAIC_DATABASE,
   MOSAIC_TABLES,
 } from '../../infrastructure/mosaic-backend.mjs';
+import {
+  ACCOUNT_ERASURE_POLICY,
+  assertErasurePolicyCoversManifest,
+} from '../../infrastructure/account-erasure-policy.mjs';
+
+const require = createRequire(import.meta.url);
+const {
+  OWNED_TABLES,
+  CROSS_REFERENCE_QUERIES,
+} = require('../../appwrite-functions/message-action/account-deletion.js');
 
 const byId = Object.fromEntries(MOSAIC_TABLES.map((table) => [table.id, table]));
 
@@ -23,6 +34,7 @@ describe('portable Mosaic backend manifest', () => {
       'friendships',
       'profiles',
       'messages',
+      'account_deletions',
     ]);
     expect(MOSAIC_TABLES.map((table) => table.id)).not.toContain('routines');
     expect(MOSAIC_TABLES.map((table) => table.id)).not.toContain('stickers');
@@ -39,6 +51,17 @@ describe('portable Mosaic backend manifest', () => {
           type: 'integer',
           required: false,
           default: 0,
+        }),
+      ])
+    );
+    expect(byId.diary.columns).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          key: 'created_at',
+          type: 'varchar',
+          size: 50,
+          required: false,
+          default: '',
         }),
       ])
     );
@@ -69,7 +92,33 @@ describe('portable Mosaic backend manifest', () => {
       'idx_user_thread_created',
       'idx_user_deleted',
       'idx_thread_created',
+      'idx_sender_id',
+      'idx_recipient_id',
     ]);
+    expect(byId.account_deletions).toMatchObject({
+      permissions: [],
+      rowSecurity: true,
+      enabled: true,
+    });
+    expect(byId.account_deletions.columns).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          key: 'attempts',
+          type: 'integer',
+          required: true,
+        }),
+      ])
+    );
+    expect(
+      byId.account_deletions.columns.find(
+        (column: { key: string }) => column.key === 'attempts'
+      )
+    ).not.toHaveProperty('default');
+    expect(
+      byId.account_deletions.indexes.map(
+        (index: { key: string }) => index.key
+      )
+    ).toEqual(['idx_deletion_user', 'idx_deletion_status']);
   });
 
   it('keeps owner data row-secured and creates the production-equivalent image bucket', () => {
@@ -101,6 +150,41 @@ describe('portable Mosaic backend manifest', () => {
       antivirus: true,
       transformations: true,
     });
+  });
+
+  it('requires every portable backend resource to declare erasure semantics', () => {
+    expect(assertErasurePolicyCoversManifest()).toBe(true);
+    expect(ACCOUNT_ERASURE_POLICY.tables.friendships).toEqual({
+      kind: 'cross_reference',
+      fields: ['user_id', 'friend_id'],
+    });
+    expect(ACCOUNT_ERASURE_POLICY.tables.messages).toEqual({
+      kind: 'cross_reference',
+      fields: ['user_id', 'sender_id', 'recipient_id'],
+    });
+    expect(ACCOUNT_ERASURE_POLICY.buckets.task_images).toEqual({
+      kind: 'owned_permissions',
+    });
+  });
+
+  it('keeps the worker coverage aligned with the declared erasure policy', () => {
+    const expectedOwned = Object.entries(ACCOUNT_ERASURE_POLICY.tables)
+      .filter(([, rule]: any) => rule.kind === 'owned')
+      .map(([tableId]) => tableId)
+      .sort();
+    const expectedCross = Object.fromEntries(
+      Object.entries(ACCOUNT_ERASURE_POLICY.tables)
+        .filter(([, rule]: any) => rule.kind === 'cross_reference')
+        .map(([tableId, rule]: any) => [
+          tableId,
+          [...rule.fields],
+        ])
+    );
+
+    expect([...OWNED_TABLES].sort()).toEqual(expectedOwned);
+    expect(CROSS_REFERENCE_QUERIES).toEqual(expectedCross);
+    expect(ACCOUNT_ERASURE_POLICY.tables.profiles.kind).toBe('owned_profile');
+    expect(ACCOUNT_ERASURE_POLICY.tables.account_deletions.kind).toBe('control');
   });
 
   it('documents only the provisioning scopes the bootstrap uses', () => {

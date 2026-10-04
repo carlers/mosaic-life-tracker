@@ -24,6 +24,9 @@ import {
   APPWRITE_TABLES,
 } from '../lib/appwriteConfig';
 import { awaitPilotReplicationFreshness } from './replicationFreshness';
+import { getReplicationIdentifier } from './replicationIds';
+import { trackReplicationFreshness } from './replicationLocalState';
+import { assertRemoteRowsOwnedBy } from './replicationOwnership';
 
 const PULL_BATCH_SIZE = 100;
 const PUSH_BATCH_SIZE = 50;
@@ -208,9 +211,11 @@ async function acknowledgeMessageChanges(
   for (const row of rows) {
     const next = row.newDocumentState;
     if (next.userId !== userId) {
-      throw new Error(
-        `Message replication owner mismatch for ${next.id}`
-      );
+      // Mosaic intentionally keeps multiple owners in one local RxDB. A
+      // per-user replication identifier will encounter those cached foreign
+      // rows on first upstream scan; acknowledge them as outside this
+      // replication scope instead of poisoning the active owner's queue.
+      continue;
     }
     if (next._deleted) {
       throw new Error(
@@ -257,11 +262,11 @@ async function pullMessages(
     total: false,
   });
 
-  const rows = (
-    (response as unknown as { rows?: Record<string, unknown>[] }).rows ?? []
-  ).filter(
+  const responseRows =
+    (response as unknown as { rows?: Record<string, unknown>[] }).rows ?? [];
+  assertRemoteRowsOwnedBy(responseRows, userId, 'Message');
+  const rows = responseRows.filter(
     (row) =>
-      row.user_id === userId &&
       typeof row.$id === 'string' &&
       row.$id.length > 0 &&
       typeof row.$updatedAt === 'string' &&
@@ -302,11 +307,11 @@ export async function captureMessageReplicationPullCheckpoint(
     ],
     total: false,
   });
-  const row = (
-    (response as unknown as { rows?: Record<string, unknown>[] }).rows ?? []
-  ).find(
+  const responseRows =
+    (response as unknown as { rows?: Record<string, unknown>[] }).rows ?? [];
+  assertRemoteRowsOwnedBy(responseRows, userId, 'Message bootstrap');
+  const row = responseRows.find(
     (candidate) =>
-      candidate.user_id === userId &&
       typeof candidate.$id === 'string' &&
       candidate.$id.length > 0 &&
       typeof candidate.$updatedAt === 'string' &&
@@ -410,46 +415,12 @@ function subscribeToMessageRealtime(
 
     if (!payload || payload.user_id !== userId) return;
     if (
-      !events.some(
+      events.some(
         (event) => event.endsWith('.create') || event.endsWith('.update')
       )
     ) {
-      return;
-    }
-
-    const id = payload.$id;
-    const updatedAt = payload.$updatedAt;
-    if (
-      typeof id !== 'string' ||
-      !id ||
-      typeof updatedAt !== 'string' ||
-      !updatedAt
-    ) {
       pullStream.next('RESYNC');
-      return;
     }
-
-    void (async () => {
-      const remote = toReplicatedMessage(
-        payload as Record<string, unknown>
-      );
-      const document = await mergeRemoteWithLocalIntent(
-        collection,
-        userId,
-        remote
-      );
-      if (activeOwnerId !== userId) return;
-      pullStream.next({
-        checkpoint: { id, updatedAt },
-        documents: [document],
-      });
-    })().catch((error) => {
-      console.error(
-        '[MessageReplicationPilot] realtime merge failed:',
-        error
-      );
-      pullStream.next('RESYNC');
-    });
   });
 }
 
@@ -535,7 +506,7 @@ async function startMessageReplicationPilotNow(
     MessageReplicationCheckpoint
   >({
     replicationIdentifier:
-      `mosaic-appwrite-tablesdb-messages-v1:${userId}`,
+      getReplicationIdentifier('messages', userId),
     collection,
     live: true,
     retryTime: RETRY_TIME_MS,
@@ -557,6 +528,7 @@ async function startMessageReplicationPilotNow(
 
   activeOwnerId = userId;
   activeReplication = replication;
+  trackReplicationFreshness(replication, userId, 'messages');
   activeCollection = collection;
   activePullStream = pullStream;
   realtimeUnsubscribe = subscribeToMessageRealtime(

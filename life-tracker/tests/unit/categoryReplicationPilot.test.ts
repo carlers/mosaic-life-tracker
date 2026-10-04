@@ -19,6 +19,7 @@ const reSyncMock = vi.hoisted(() => vi.fn());
 const awaitInSyncMock = vi.hoisted(() => vi.fn());
 const cancelMock = vi.hoisted(() => vi.fn());
 const errorSubscribeMock = vi.hoisted(() => vi.fn());
+const trackReplicationFreshnessMock = vi.hoisted(() => vi.fn());
 
 vi.mock('rxdb', () => ({
   getChangedDocumentsSince: getChangedDocumentsSinceMock,
@@ -63,6 +64,10 @@ vi.mock('../../src/lib/sdk', () => ({
   guardedRealtime: {
     subscribe: realtimeSubscribeMock,
   },
+}));
+
+vi.mock('../../src/db/replicationLocalState', () => ({
+  trackReplicationFreshness: trackReplicationFreshnessMock,
 }));
 
 import {
@@ -118,6 +123,7 @@ function collectionFixture(isLeader = true) {
 beforeEach(async () => {
   await stopCategoryReplicationPilot();
   vi.clearAllMocks();
+  trackReplicationFreshnessMock.mockImplementation(() => undefined);
   getChangedDocumentsSinceMock.mockResolvedValue({
     documents: [],
     checkpoint: { id: 'cat_z', lwt: 123 },
@@ -303,6 +309,33 @@ describe('category RxDB replication pilot', () => {
     );
   });
 
+  it('fails closed if an owner-scoped category pull returns another account', async () => {
+    listRowsMock.mockResolvedValue({
+      rows: [remoteCategory({ user_id: 'mallory' })],
+    });
+
+    await expect(
+      __categoryReplicationPilotTestUtils.pullCategories(
+        'user_A',
+        undefined,
+        100
+      )
+    ).rejects.toThrow('remote owner mismatch');
+  });
+
+  it('ignores cached categories that belong to another local account', async () => {
+    await expect(
+      __categoryReplicationPilotTestUtils.pushCategories(
+        [{ newDocumentState: localCategory({ userId: 'mallory' }) }],
+        'user_A'
+      )
+    ).resolves.toEqual([]);
+
+    expect(getRowMock).not.toHaveBeenCalled();
+    expect(createRowMock).not.toHaveBeenCalled();
+    expect(updateRowMock).not.toHaveBeenCalled();
+  });
+
   it('creates a missing remote row with createRow', async () => {
     getRowMock.mockRejectedValue(
       Object.assign(new Error('not found'), { code: 404 })
@@ -323,6 +356,42 @@ describe('category RxDB replication pilot', () => {
       })
     );
     expect(updateRowMock).not.toHaveBeenCalled();
+  });
+
+  it('acknowledges identical first-sync category state without rewriting Appwrite', async () => {
+    const conflicts =
+      await __categoryReplicationPilotTestUtils.pushCategories(
+        [{ newDocumentState: localCategory() }],
+        'user_A'
+      );
+
+    expect(conflicts).toEqual([]);
+    expect(updateRowMock).not.toHaveBeenCalled();
+    expect(createRowMock).not.toHaveBeenCalled();
+  });
+
+  it('writes a genuinely newer first-sync category edit once', async () => {
+    const conflicts =
+      await __categoryReplicationPilotTestUtils.pushCategories(
+        [
+          {
+            newDocumentState: localCategory({
+              name: 'Offline edit',
+              updatedAt: '2026-10-02T00:00:02.000Z',
+            }),
+          },
+        ],
+        'user_A'
+      );
+
+    expect(conflicts).toEqual([]);
+    expect(updateRowMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        rowId: 'cat_a',
+        data: expect.objectContaining({ name: 'Offline edit' }),
+      })
+    );
+    expect(createRowMock).not.toHaveBeenCalled();
   });
 
   it('returns the current master as a conflict instead of overwriting it', async () => {
@@ -368,7 +437,7 @@ describe('category RxDB replication pilot', () => {
     expect(createRowMock).toHaveBeenCalledTimes(1);
   });
 
-  it('streams owner-scoped Appwrite realtime updates into replication', async () => {
+  it('uses realtime writes only as an ordered pull catch-up signal', async () => {
     await startCategoryReplicationPilot(
       'user_A',
       collectionFixture(),
@@ -387,18 +456,6 @@ describe('category RxDB replication pilot', () => {
       payload: remoteCategory(),
     });
 
-    await expect(next).resolves.toEqual({
-      checkpoint: {
-        id: 'cat_a',
-        updatedAt: '2026-10-02T00:00:01.000Z',
-      },
-      documents: [
-        expect.objectContaining({
-          id: 'cat_a',
-          userId: 'user_A',
-          _deleted: false,
-        }),
-      ],
-    });
+    await expect(next).resolves.toBe('RESYNC');
   });
 });

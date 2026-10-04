@@ -18,6 +18,7 @@ const realtimeSubscribeMock = vi.hoisted(() => vi.fn());
 const reSyncMock = vi.hoisted(() => vi.fn());
 const cancelMock = vi.hoisted(() => vi.fn());
 const errorSubscribeMock = vi.hoisted(() => vi.fn());
+const trackReplicationFreshnessMock = vi.hoisted(() => vi.fn());
 const uploadPendingImageMock = vi.hoisted(() => vi.fn());
 const deletePendingImageMock = vi.hoisted(() => vi.fn());
 const awaitPilotReplicationFreshnessMock = vi.hoisted(() => vi.fn());
@@ -42,6 +43,8 @@ vi.mock('appwrite', () => ({
       JSON.stringify({ op: 'orderAsc', field }),
     limit: (value: number) =>
       JSON.stringify({ op: 'limit', value }),
+    cursorAfter: (id: string) =>
+      JSON.stringify({ op: 'cursorAfter', id }),
   },
   Permission: {
     read: (role: string) => `read(${role})`,
@@ -72,6 +75,10 @@ vi.mock('../../src/lib/storage', () => ({
 vi.mock('../../src/lib/pendingImages', () => ({
   isPendingImageId: (id: string) => id.startsWith('localimg_'),
   deletePendingImage: deletePendingImageMock,
+}));
+
+vi.mock('../../src/db/replicationLocalState', () => ({
+  trackReplicationFreshness: trackReplicationFreshnessMock,
 }));
 
 vi.mock('../../src/db/replicationFreshness', () => ({
@@ -151,6 +158,7 @@ function collectionFixture() {
 beforeEach(async () => {
   await stopTaskReplicationPilot();
   vi.clearAllMocks();
+  trackReplicationFreshnessMock.mockImplementation(() => undefined);
 
   getChangedDocumentsSinceMock.mockResolvedValue({
     documents: [],
@@ -236,11 +244,6 @@ describe('task RxDB replication pilot', () => {
           $id: 'task_two',
           $updatedAt: '2026-10-02T00:00:03.000Z',
         }),
-        remoteTask({
-          $id: 'task_wrong_owner',
-          user_id: 'mallory',
-          $updatedAt: '2026-10-02T00:00:04.000Z',
-        }),
       ],
     });
 
@@ -288,6 +291,16 @@ describe('task RxDB replication pilot', () => {
     });
   });
 
+  it('fails closed if an owner-scoped task pull returns another account', async () => {
+    listRowsMock.mockResolvedValue({
+      rows: [remoteTask({ user_id: 'mallory' })],
+    });
+
+    await expect(
+      __taskReplicationPilotTestUtils.pullTasks('user_A', undefined, 100)
+    ).rejects.toThrow('remote owner mismatch');
+  });
+
   it('creates a new task with owner-only row permissions', async () => {
     getRowMock.mockRejectedValue(
       Object.assign(new Error('missing'), { code: 404 })
@@ -310,6 +323,42 @@ describe('task RxDB replication pilot', () => {
         ],
       })
     );
+  });
+
+  it('acknowledges identical first-sync task state without rewriting Appwrite', async () => {
+    const conflicts = await __taskReplicationPilotTestUtils.pushTasks(
+      [{ newDocumentState: localTask() }] as never,
+      'user_A'
+    );
+
+    expect(conflicts).toEqual([]);
+    expect(updateRowMock).not.toHaveBeenCalled();
+    expect(createRowMock).not.toHaveBeenCalled();
+  });
+
+  it('writes a genuinely newer first-sync task edit once', async () => {
+    const conflicts = await __taskReplicationPilotTestUtils.pushTasks(
+      [
+        {
+          newDocumentState: localTask({
+            title: 'Offline edit',
+            updatedAt: '2026-10-02T00:00:02.000Z',
+          }),
+        },
+      ] as never,
+      'user_A'
+    );
+
+    expect(conflicts).toEqual([]);
+    expect(updateRowMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        rowId: 'task_one',
+        data: expect.objectContaining({
+          title: 'Offline edit',
+        }),
+      })
+    );
+    expect(createRowMock).not.toHaveBeenCalled();
   });
 
   it('falls back from update 404 to strict createRow', async () => {
@@ -434,7 +483,74 @@ describe('task RxDB replication pilot', () => {
     ]);
   });
 
+  it('drops reactions from users who are no longer accepted friends before push', async () => {
+    const assumed = localTask({
+      reactions:
+        '[{"emoji":"👍","userIds":["friend_live","friend_old"]}]',
+      updatedAt: '2026-10-02T00:00:00.000Z',
+    });
+    getRowMock.mockResolvedValue(
+      remoteTask({
+        reactions:
+          '[{"emoji":"👍","userIds":["friend_live","friend_old"]}]',
+      })
+    );
+    listRowsMock.mockImplementation(async ({ tableId }: any) => {
+      if (tableId === 'friendships') {
+        return {
+          rows: [{
+            $id: 'fr_live',
+            user_id: 'user_A',
+            friend_id: 'friend_live',
+            status: 'accepted',
+            deleted: false,
+          }],
+        };
+      }
+      return { rows: [] };
+    });
+
+    const conflicts = await __taskReplicationPilotTestUtils.pushTasks(
+      [{
+        assumedMasterState: assumed,
+        newDocumentState: {
+          ...assumed,
+          memo: 'owner edit',
+          updatedAt: '2026-10-02T00:00:03.000Z',
+        },
+      }] as never,
+      'user_A'
+    );
+
+    expect(updateRowMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          reactions: '[{"emoji":"👍","userIds":["friend_live"]}]',
+        }),
+      })
+    );
+    expect(conflicts).toEqual([
+      expect.objectContaining({
+        reactions: '[{"emoji":"👍","userIds":["friend_live"]}]',
+      }),
+    ]);
+  });
+
   it('preserves a server-side friend reaction while pushing an owner edit', async () => {
+    listRowsMock.mockImplementation(async ({ tableId }: any) => {
+      if (tableId === 'friendships') {
+        return {
+          rows: [{
+            $id: 'fr_friend',
+            user_id: 'user_A',
+            friend_id: 'friend',
+            status: 'accepted',
+            deleted: false,
+          }],
+        };
+      }
+      return { rows: [] };
+    });
     const assumed = localTask({
       reactions: '',
       updatedAt: '2026-10-02T00:00:00.000Z',
@@ -541,7 +657,7 @@ describe('task RxDB replication pilot', () => {
     );
   });
 
-  it('streams owner-scoped realtime updates through RxDB', async () => {
+  it('uses realtime writes only as an ordered pull catch-up signal', async () => {
     const collection = collectionFixture();
     await startTaskReplicationPilot(
       'user_A',
@@ -565,23 +681,10 @@ describe('task RxDB replication pilot', () => {
       }),
     });
 
-    await expect(next).resolves.toEqual({
-      checkpoint: {
-        id: 'task_one',
-        updatedAt: '2026-10-02T00:00:05.000Z',
-      },
-      documents: [
-        expect.objectContaining({
-          id: 'task_one',
-          userId: 'user_A',
-          reactions: '[{"emoji":"👍","userIds":["friend"]}]',
-          _deleted: false,
-        }),
-      ],
-    });
+    await expect(next).resolves.toBe('RESYNC');
   });
 
-  it('rejects physical task deletion and account mismatches', async () => {
+  it('rejects physical deletion for the active owner but ignores cached foreign-account rows', async () => {
     await expect(
       __taskReplicationPilotTestUtils.pushTasks(
         [
@@ -593,6 +696,7 @@ describe('task RxDB replication pilot', () => {
       )
     ).rejects.toThrow('cannot physically delete');
 
+    getRowMock.mockClear();
     await expect(
       __taskReplicationPilotTestUtils.pushTasks(
         [
@@ -602,6 +706,7 @@ describe('task RxDB replication pilot', () => {
         ] as never,
         'user_A'
       )
-    ).rejects.toThrow('owner mismatch');
+    ).resolves.toEqual([]);
+    expect(getRowMock).not.toHaveBeenCalled();
   });
 });

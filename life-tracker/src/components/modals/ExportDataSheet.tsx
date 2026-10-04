@@ -159,7 +159,11 @@ export const ExportDataSheet: React.FC<ExportDataSheetProps> = ({
         result.imagesMissing > 0 ? `${result.imagesMissing} photos missing` : '',
       ].filter(Boolean);
       onRestoreComplete?.(new Date().toISOString());
-      onSuccess?.(`Restore complete · ${notes.join(' · ')}`);
+      onSuccess?.(
+        result.syncState === 'synced'
+          ? `Restore complete · ${notes.join(' · ')}`
+          : `Restore saved locally · Sync pending · ${notes.join(' · ')}`
+      );
       setIsRestoring(false);
       setIsReplaceConfirmOpen(false);
       setRestoreProgress('');

@@ -9,8 +9,21 @@ const state = vi.hoisted(() => ({
   },
   sync: {
     isSyncing: false,
-    lastSync: '2026-09-27T01:00:00.000Z' as string | null,
-    errors: [] as string[],
+    lastSync: '2026-09-27T01:00:00.000Z',
+    errors: [],
+    notice: null,
+    progress: null,
+  } as {
+    isSyncing: boolean;
+    lastSync: string | null;
+    errors: string[];
+    notice?: string | null;
+    progress?: {
+      completed: number;
+      total: number;
+      percent: number;
+      label: string;
+    } | null;
   },
   readiness: {
     dataReadyAt: '2026-09-27T01:00:00.000Z' as string | null,
@@ -53,6 +66,8 @@ describe('HomeStatusIndicators', () => {
       isSyncing: false,
       lastSync: '2026-09-27T01:00:00.000Z',
       errors: [],
+      notice: null,
+      progress: null,
     };
     state.readiness = {
       dataReadyAt: '2026-09-27T01:00:00.000Z',
@@ -94,6 +109,27 @@ describe('HomeStatusIndicators', () => {
       screen.getByRole('button', { name: 'Sync paused while offline' })
     ).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Syncing' })).toBeNull();
+  });
+
+  it('exposes active sync percentage in the home status label', () => {
+    state.sync = {
+      isSyncing: true,
+      lastSync: '2026-09-27T01:00:00.000Z',
+      errors: [],
+      notice: null,
+      progress: {
+        completed: 2,
+        total: 6,
+        percent: 33,
+        label: '2 of 6 data groups synced',
+      },
+    };
+
+    render(<HomeStatusIndicators />);
+
+    expect(
+      screen.getByRole('button', { name: 'Syncing 33%' })
+    ).toBeInTheDocument();
   });
 
   it('does not claim online while reachability is still being checked', () => {

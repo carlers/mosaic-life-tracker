@@ -462,7 +462,7 @@ export const FriendDayViewSheet: React.FC<FriendDayViewSheetProps> = ({
                   {dayHolidays.map((holiday) => (
                     <span
                       key={holiday.id}
-                      className="rounded-full bg-red-500/15 px-2 py-0.5 text-center text-[11px] font-semibold text-red-400"
+                      className="mosaic-holiday-label rounded-full bg-red-500/15 px-2 py-0.5 text-center text-[11px] font-semibold text-red-400"
                     >
                       {holiday.title}
                     </span>

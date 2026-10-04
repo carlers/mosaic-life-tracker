@@ -160,7 +160,8 @@ export async function updateProfileAvatar(userId: string, avatarFileId: string):
 }
 
 export async function createOrUpdateProfile(
-  input: MyProfileInput
+  input: MyProfileInput,
+  options: { queueOnTransient?: boolean } = {}
 ): Promise<ProfileCard> {
   const now = new Date().toISOString();
   const rowId = `profile_${input.userId}`;
@@ -195,7 +196,7 @@ export async function createOrUpdateProfile(
     return row as unknown as ProfileCard;
   } catch (err) {
     if (isUnauthorizedError(err)) throw err;
-    if (isTransientSocialFailure(err)) {
+    if (isTransientSocialFailure(err) && options.queueOnTransient !== false) {
       enqueueSocialOp(input.userId, {
         action: 'upsert_profile',
         op,

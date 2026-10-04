@@ -18,6 +18,7 @@ const realtimeSubscribeMock = vi.hoisted(() => vi.fn());
 const reSyncMock = vi.hoisted(() => vi.fn());
 const cancelMock = vi.hoisted(() => vi.fn());
 const errorSubscribeMock = vi.hoisted(() => vi.fn());
+const trackReplicationFreshnessMock = vi.hoisted(() => vi.fn());
 const clearCachedCalendarMock = vi.hoisted(() => vi.fn());
 const awaitPilotReplicationFreshnessMock = vi.hoisted(() => vi.fn());
 
@@ -58,6 +59,10 @@ vi.mock('../../src/lib/sdk', () => ({
 
 vi.mock('../../src/lib/friendCache', () => ({
   clearCachedCalendar: clearCachedCalendarMock,
+}));
+
+vi.mock('../../src/db/replicationLocalState', () => ({
+  trackReplicationFreshness: trackReplicationFreshnessMock,
 }));
 
 vi.mock('../../src/db/replicationFreshness', () => ({
@@ -136,6 +141,7 @@ function collectionFixture(localDoc?: Record<string, unknown>) {
 beforeEach(async () => {
   await stopFriendshipReplicationPilot();
   vi.clearAllMocks();
+  trackReplicationFreshnessMock.mockImplementation(() => undefined);
 
   getChangedDocumentsSinceMock.mockResolvedValue({
     documents: [],
@@ -221,11 +227,6 @@ describe('friendship RxDB replication pilot', () => {
           $updatedAt: '2026-10-02T00:00:03.000Z',
           status: 'blocked',
         }),
-        remoteFriendship({
-          $id: 'fr_wrong_owner',
-          user_id: 'mallory',
-          $updatedAt: '2026-10-02T00:00:04.000Z',
-        }),
       ],
     });
 
@@ -277,6 +278,20 @@ describe('friendship RxDB replication pilot', () => {
       'user_A',
       'user_B'
     );
+  });
+
+  it('fails closed if an owner-scoped friendship pull returns another account', async () => {
+    listRowsMock.mockResolvedValue({
+      rows: [remoteFriendship({ user_id: 'mallory' })],
+    });
+
+    await expect(
+      __friendshipReplicationPilotTestUtils.pullFriendships(
+        'user_A',
+        undefined,
+        100
+      )
+    ).rejects.toThrow('remote owner mismatch');
   });
 
   it('acknowledges a confirmed local state without writing the server', async () => {
@@ -435,7 +450,7 @@ describe('friendship RxDB replication pilot', () => {
     expect(conflicts).toEqual([]);
   });
 
-  it('streams owner-scoped realtime updates through RxDB', async () => {
+  it('uses realtime writes only as an ordered pull catch-up signal', async () => {
     const { collection } = collectionFixture();
     await startFriendshipReplicationPilot(
       'user_A',
@@ -458,19 +473,7 @@ describe('friendship RxDB replication pilot', () => {
       }),
     });
 
-    await expect(next).resolves.toEqual({
-      checkpoint: {
-        id: 'fr_one',
-        updatedAt: '2026-10-02T00:00:05.000Z',
-      },
-      documents: [
-        expect.objectContaining({
-          id: 'fr_one',
-          userId: 'user_A',
-          _deleted: false,
-        }),
-      ],
-    });
+    await expect(next).resolves.toBe('RESYNC');
   });
 
   it('soft-deletes the local cache on a hard-delete realtime event', async () => {
@@ -515,10 +518,10 @@ describe('friendship RxDB replication pilot', () => {
         [{ newDocumentState: localFriendship() }],
         'user_A'
       )
-    ).rejects.toThrow('master owner mismatch');
+    ).rejects.toThrow('remote owner mismatch');
   });
 
-  it('rejects local writes scoped to another account', async () => {
+  it('ignores cached friendship rows scoped to another local account', async () => {
     await expect(
       __friendshipReplicationPilotTestUtils.validateFriendshipChanges(
         [
@@ -530,6 +533,8 @@ describe('friendship RxDB replication pilot', () => {
         ],
         'user_A'
       )
-    ).rejects.toThrow('owner mismatch');
+    ).resolves.toEqual([]);
+
+    expect(getRowMock).not.toHaveBeenCalled();
   });
 });

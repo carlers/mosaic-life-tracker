@@ -1,14 +1,14 @@
 import { useEffect, useMemo, useState } from 'react';
 import { getDatabase } from '../db/database';
 import { useAuth } from './useAuth';
-import type { AppDatabaseCollections } from '../db/database';
+import type { SyncedCollectionName } from '../db/replicationIds';
 import { markStartup, type StartupMark } from '../lib/startupMetrics';
 
-type CollectionName = keyof AppDatabaseCollections;
+type CollectionName = SyncedCollectionName;
 
 interface UseRxCollectionOptions<TDoc, TData> {
   /**
-   * RxDB collection name. Typed against `AppDatabaseCollections` so a
+   * Synced RxDB collection name. `syncMeta` is deliberately excluded so a
    * typo is a compile error, not a silent empty subscription.
    */
   collection: CollectionName;
@@ -47,7 +47,7 @@ interface UseRxCollectionResult<TData> {
 }
 
 /**
- * Local permissive view of an RxCollection that collapses the six-way
+ * Local permissive view of an RxCollection that collapses the synced
  * union of typed collections into one callable surface. Mirrors the
  * `LocalCollection` type in `sync.ts`. Casting at the boundary is
  * unavoidable: RxDB's `RxCollection<T>` is invariant in T and the six

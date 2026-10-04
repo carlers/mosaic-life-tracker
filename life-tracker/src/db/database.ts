@@ -14,12 +14,14 @@ import {
   settingsSchema,
   friendshipsSchema,
   messagesSchema,
+  syncMetaSchema,
   type TaskDocument,
   type CategoryDocument,
   type DiaryDocument,
   type SettingsDocument,
   type FriendshipDocument,
   type MessageDocument,
+  type SyncMetaDocument,
 } from './schema';
 import { markStartup } from '../lib/startupMetrics';
 import {
@@ -28,6 +30,7 @@ import {
   messagesMigrationStrategies,
   categoriesMigrationStrategies,
   settingsMigrationStrategies,
+  syncMetaMigrationStrategies,
 } from './migrations';
 addRxPlugin(RxDBMigrationSchemaPlugin);
 
@@ -52,6 +55,7 @@ export interface AppDatabaseCollections {
   settings: RxCollection<SettingsDocument>;
   friendships: RxCollection<FriendshipDocument>;
   messages: RxCollection<MessageDocument>;
+  syncMeta: RxCollection<SyncMetaDocument>;
 }
 let dbInstance: RxDatabase<AppDatabaseCollections> | null = null;
 let dbInitPromise: Promise<RxDatabase<AppDatabaseCollections>> | null = null;
@@ -95,6 +99,10 @@ async function createDatabaseInstance(): Promise<RxDatabase<AppDatabaseCollectio
       messages: {
         schema: messagesSchema,
         migrationStrategies: messagesMigrationStrategies,
+      },
+      syncMeta: {
+        schema: syncMetaSchema,
+        migrationStrategies: syncMetaMigrationStrategies,
       },
     });
     markStartup('database:collections-ready');
@@ -170,6 +178,27 @@ export function getDatabase(): RxDatabase<AppDatabaseCollections> {
   }
   return dbInstance;
 }
+export async function purgeAccountFromDatabase(
+  userId: string,
+  database: RxDatabase<AppDatabaseCollections> = getDatabase()
+): Promise<void> {
+  if (!userId) return;
+  const collections = [
+    database.tasks,
+    database.categories,
+    database.diary,
+    database.settings,
+    database.friendships,
+    database.messages,
+    database.syncMeta,
+  ] as const;
+
+  for (const collection of collections) {
+    const docs = await collection.find({ selector: { userId } }).exec();
+    await Promise.all(docs.map((doc) => doc.remove()));
+  }
+}
+
 export async function destroyDatabase(): Promise<void> {
   if (!dbInstance) return;
   try {

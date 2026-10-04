@@ -330,6 +330,31 @@ async function pruneCompletedSnapshots(r2, prefix, currentBackupId, retention) {
   return { completed: new Set(completed).size, retained: retained.size, pruned };
 }
 
+export function readBackupEncryptionKeyring(
+  env,
+  currentKey,
+  currentVersion
+) {
+  const keyring = new Map();
+  if (env.DR_ENCRYPTION_KEYS_JSON) {
+    let parsed;
+    try {
+      parsed = JSON.parse(env.DR_ENCRYPTION_KEYS_JSON);
+    } catch {
+      throw new Error('DR_ENCRYPTION_KEYS_JSON must be valid JSON');
+    }
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      throw new Error('DR_ENCRYPTION_KEYS_JSON must be an object');
+    }
+    for (const [version, encoded] of Object.entries(parsed)) {
+      if (!version) throw new Error('DR encryption key version cannot be empty');
+      keyring.set(version, decodeMasterKey(encoded));
+    }
+  }
+  keyring.set(currentVersion, currentKey);
+  return keyring;
+}
+
 export function readBackupConfig(env = process.env) {
   const required = [
     'APPWRITE_FUNCTION_API_ENDPOINT',
@@ -350,6 +375,8 @@ export function readBackupConfig(env = process.env) {
     }
     return value;
   };
+  const encryptionKey = decodeMasterKey(env.DR_ENCRYPTION_KEY_B64);
+  const keyVersion = env.DR_KEY_VERSION || 'v1';
   return {
     endpoint: env.APPWRITE_FUNCTION_API_ENDPOINT,
     projectId: env.APPWRITE_FUNCTION_PROJECT_ID,
@@ -360,8 +387,13 @@ export function readBackupConfig(env = process.env) {
       bucket: env.R2_BUCKET,
       endpoint: env.R2_ENDPOINT || undefined,
     },
-    encryptionKey: decodeMasterKey(env.DR_ENCRYPTION_KEY_B64),
-    keyVersion: env.DR_KEY_VERSION || 'v1',
+    encryptionKey,
+    keyVersion,
+    encryptionKeys: readBackupEncryptionKeyring(
+      env,
+      encryptionKey,
+      keyVersion
+    ),
     prefix: (env.DR_PREFIX || 'mosaic-dr/v1').replace(/\/+$/, ''),
     retention: {
       daily: int('DR_RETENTION_DAILY', 7),

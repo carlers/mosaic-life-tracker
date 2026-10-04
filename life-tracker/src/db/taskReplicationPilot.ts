@@ -29,6 +29,16 @@ import {
   isPendingImageId,
 } from '../lib/pendingImages';
 import { awaitPilotReplicationFreshness } from './replicationFreshness';
+import { getReplicationIdentifier } from './replicationIds';
+import { trackReplicationFreshness } from './replicationLocalState';
+import {
+  assertRemoteRowOwnedBy,
+  assertRemoteRowsOwnedBy,
+} from './replicationOwnership';
+import {
+  loadAcceptedFriendIds,
+  sanitizeTaskReactions,
+} from './socialReferenceSanitizer';
 
 const PULL_BATCH_SIZE = 100;
 const PUSH_BATCH_SIZE = 20;
@@ -138,8 +148,22 @@ function laterIso(left: string, right: string): string {
   return leftMs >= rightMs ? left : right;
 }
 
+function isBootstrapLocalNewer(
+  localUpdatedAt: string,
+  remoteUpdatedAt: string
+): boolean {
+  const localMs = Date.parse(localUpdatedAt);
+  const remoteMs = Date.parse(remoteUpdatedAt);
+  return (
+    Number.isFinite(localMs) &&
+    Number.isFinite(remoteMs) &&
+    localMs > remoteMs
+  );
+}
+
 async function readRemoteTask(
-  rowId: string
+  rowId: string,
+  userId: string
 ): Promise<ReplicatedTask | null> {
   try {
     const row = await guardedTablesDB.getRow({
@@ -147,7 +171,9 @@ async function readRemoteTask(
       tableId: APPWRITE_TABLES.tasks,
       rowId,
     });
-    return toReplicatedTask(row as unknown as Record<string, unknown>);
+    const raw = row as unknown as Record<string, unknown>;
+    assertRemoteRowOwnedBy(raw, userId, 'Task');
+    return toReplicatedTask(raw);
   } catch (error) {
     if (isNotFoundError(error)) return null;
     throw error;
@@ -173,7 +199,7 @@ async function createRemoteTask(
     return null;
   } catch (error) {
     if (!isConflictError(error)) throw error;
-    const current = await readRemoteTask(document.id);
+    const current = await readRemoteTask(document.id, userId);
     if (current) return current;
     throw error;
   }
@@ -186,22 +212,35 @@ async function prepareTaskForPush(
   document: ReplicatedTask;
   pendingImageId: string | null;
 }> {
-  const image =
-    typeof document.image === 'string' ? document.image : '';
-  if (!image || !isPendingImageId(image)) {
-    return { document, pendingImageId: null };
+  let preparedDocument = document;
+  const reactions =
+    typeof document.reactions === 'string' ? document.reactions : '';
+  if (reactions && !document.isDeleted) {
+    const acceptedFriendIds = await loadAcceptedFriendIds(userId);
+    preparedDocument = {
+      ...document,
+      reactions: sanitizeTaskReactions(reactions, acceptedFriendIds),
+    };
   }
 
-  if (document.isDeleted) {
+  const image =
+    typeof preparedDocument.image === 'string'
+      ? preparedDocument.image
+      : '';
+  if (!image || !isPendingImageId(image)) {
+    return { document: preparedDocument, pendingImageId: null };
+  }
+
+  if (preparedDocument.isDeleted) {
     return {
-      document: { ...document, image: '' },
+      document: { ...preparedDocument, image: '' },
       pendingImageId: image,
     };
   }
 
   const remoteFileId = await uploadPendingImage(image, userId);
   return {
-    document: { ...document, image: remoteFileId },
+    document: { ...preparedDocument, image: remoteFileId },
     pendingImageId: image,
   };
 }
@@ -262,7 +301,11 @@ async function pushTasks(
   for (const row of rows) {
     const next = row.newDocumentState;
     if (next.userId !== userId) {
-      throw new Error(`Task replication owner mismatch for ${next.id}`);
+      // Mosaic intentionally keeps multiple owners in one local RxDB. A
+      // per-user replication identifier will encounter those cached foreign
+      // rows on first upstream scan; acknowledge them as outside this
+      // replication scope instead of poisoning the active owner's queue.
+      continue;
     }
     if (next._deleted) {
       throw new Error(
@@ -270,7 +313,7 @@ async function pushTasks(
       );
     }
 
-    const current = await readRemoteTask(next.id);
+    const current = await readRemoteTask(next.id, userId);
     if (current && current.userId !== userId) {
       throw new Error(
         `Task replication master owner mismatch for ${next.id}`
@@ -278,58 +321,79 @@ async function pushTasks(
     }
 
     const assumed = row.assumedMasterState;
+    let documentToPush: ReplicatedTask;
+
     if (!assumed) {
-      if (current) {
+      if (!current) {
+        const prepared = await prepareTaskForPush(next, userId);
+        const createConflict = await createRemoteTask(
+          prepared.document,
+          userId
+        );
+        if (createConflict) {
+          await cleanupPendingTaskImage(next, userId);
+          conflicts.push(createConflict);
+          continue;
+        }
+
+        await finishSuccessfulPush(prepared.pendingImageId, userId);
+        if (!taskStateEquals(prepared.document, next)) {
+          conflicts.push(prepared.document);
+        }
+        continue;
+      }
+
+      // First sync / lost replication metadata: downstream writes can make
+      // RxDB's local LWT look new even when the application state came from
+      // Appwrite. A byte-for-byte-equivalent task is therefore acknowledged
+      // without a write. Only a genuinely newer application edit may win.
+      if (taskStateEquals(current, next)) {
+        await cleanupPendingTaskImage(next, userId);
+        continue;
+      }
+      if (!isBootstrapLocalNewer(next.updatedAt, current.updatedAt)) {
         await cleanupPendingTaskImage(next, userId);
         conflicts.push(current);
         continue;
       }
 
-      const prepared = await prepareTaskForPush(next, userId);
-      const createConflict = await createRemoteTask(
-        prepared.document,
-        userId
-      );
-      if (createConflict) {
-        await cleanupPendingTaskImage(next, userId);
-        conflicts.push(createConflict);
+      // Reactions are server-mutated even for owner tasks. Preserve the
+      // current remote reaction set while carrying the newer local owner edit.
+      documentToPush = {
+        ...next,
+        reactions: current.reactions ?? '',
+        updatedAt: laterIso(next.updatedAt, current.updatedAt),
+      };
+    } else {
+      if (!current) {
+        const prepared = await prepareTaskForPush(next, userId);
+        const createConflict = await createRemoteTask(
+          prepared.document,
+          userId
+        );
+        if (createConflict) {
+          await cleanupPendingTaskImage(next, userId);
+          conflicts.push(createConflict);
+          continue;
+        }
+
+        await finishSuccessfulPush(prepared.pendingImageId, userId);
+        if (!taskStateEquals(prepared.document, next)) {
+          conflicts.push(prepared.document);
+        }
         continue;
       }
 
-      await finishSuccessfulPush(prepared.pendingImageId, userId);
-      if (!taskStateEquals(prepared.document, next)) {
-        conflicts.push(prepared.document);
-      }
-      continue;
-    }
-
-    if (!current) {
-      const prepared = await prepareTaskForPush(next, userId);
-      const createConflict = await createRemoteTask(
-        prepared.document,
-        userId
-      );
-      if (createConflict) {
+      const merged = mergeServerReactionDrift(next, current, assumed);
+      if (!merged) {
         await cleanupPendingTaskImage(next, userId);
-        conflicts.push(createConflict);
+        conflicts.push(current);
         continue;
       }
-
-      await finishSuccessfulPush(prepared.pendingImageId, userId);
-      if (!taskStateEquals(prepared.document, next)) {
-        conflicts.push(prepared.document);
-      }
-      continue;
+      documentToPush = merged;
     }
 
-    const merged = mergeServerReactionDrift(next, current, assumed);
-    if (!merged) {
-      await cleanupPendingTaskImage(next, userId);
-      conflicts.push(current);
-      continue;
-    }
-
-    const prepared = await prepareTaskForPush(merged, userId);
+    const prepared = await prepareTaskForPush(documentToPush, userId);
 
     try {
       await guardedTablesDB.updateRow({
@@ -399,11 +463,11 @@ async function pullTasks(
     total: false,
   });
 
-  const rows = (
-    (response as unknown as { rows?: Record<string, unknown>[] }).rows ?? []
-  ).filter(
+  const responseRows =
+    (response as unknown as { rows?: Record<string, unknown>[] }).rows ?? [];
+  assertRemoteRowsOwnedBy(responseRows, userId, 'Task');
+  const rows = responseRows.filter(
     (row) =>
-      row.user_id === userId &&
       typeof row.$id === 'string' &&
       row.$id.length > 0 &&
       typeof row.$updatedAt === 'string' &&
@@ -455,37 +519,24 @@ function subscribeToTaskRealtime(
   return guardedRealtime.subscribe(channel, (message) => {
     if (activeOwnerId !== userId) return;
     const payload = message.payload;
-    if (!payload || payload.user_id !== userId) return;
-
     const events = Array.isArray(message.events) ? message.events : [];
+
     if (events.some((event) => event.endsWith('.delete'))) {
       pullStream.next('RESYNC');
       return;
     }
+    if (!payload || payload.user_id !== userId) return;
     if (
-      !events.some(
+      events.some(
         (event) => event.endsWith('.create') || event.endsWith('.update')
       )
     ) {
-      return;
-    }
-
-    const id = payload.$id;
-    const updatedAt = payload.$updatedAt;
-    if (
-      typeof id !== 'string' ||
-      !id ||
-      typeof updatedAt !== 'string' ||
-      !updatedAt
-    ) {
+      // Appwrite Realtime is a wake-up hint, not a durable ordered change
+      // stream. A socket reconnect can miss or reorder events; advancing the
+      // RxDB checkpoint from one payload could jump over an unseen write.
+      // Let the ordered pull handler catch up from its persisted checkpoint.
       pullStream.next('RESYNC');
-      return;
     }
-
-    pullStream.next({
-      checkpoint: { id, updatedAt },
-      documents: [toReplicatedTask(payload as Record<string, unknown>)],
-    });
   });
 }
 
@@ -563,7 +614,7 @@ async function startTaskReplicationPilotNow(
     TaskReplicationCheckpoint
   >({
     replicationIdentifier:
-      `mosaic-appwrite-tablesdb-tasks-v1:${userId}`,
+      getReplicationIdentifier('tasks', userId),
     collection,
     live: true,
     retryTime: RETRY_TIME_MS,
@@ -584,6 +635,7 @@ async function startTaskReplicationPilotNow(
 
   activeOwnerId = userId;
   activeReplication = replication;
+  trackReplicationFreshness(replication, userId, 'tasks');
   activeCollection = collection;
   activePullStream = pullStream;
   realtimeUnsubscribe = subscribeToTaskRealtime(userId, pullStream);

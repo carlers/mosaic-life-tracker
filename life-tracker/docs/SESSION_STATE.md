@@ -1,27 +1,33 @@
 # Session checkpoint
 
-Updated: 2026-10-03
-Current task: Audit and harden Mosaic sync against race conditions, account transitions, cross-tab queue loss, stale compatibility metadata, and safety-preflight false success.
-Status: Implementation, documentation, and regression coverage are complete on `chatgpt/sync-engine-audit`. The first full task gate exposed three lint issues; the second exposed three test-fixture issues caused by the new account-scope contract. Those failures were investigated and repaired. A new full task gate is requested by this checkpoint commit.
-Next action: Inspect the newly requested full GitHub Quality Gate. Fix any remaining failure, then squash the accepted task into a stable Preview branch created from `dev`. Wait for stable Preview canonical acceptance and Vercel Preview. Promotion to `dev` remains user-controlled.
-Blockers: None known.
+Updated: 2026-10-05
+Current task: Double-check the accepted sync-engine race audit for missed correctness gaps and repair any remaining owner-isolation holes on `chatgpt/sync-engine-race-matrix-double-check`.
+Status: The second pass is based exactly on accepted stable Preview `fix/sync-engine-race-matrix` commit `44c1ae48`. The original freshness, owner-teardown, Realtime-checkpoint, and steady-state remote-owner fixes still hold. This review found one incomplete boundary expressed in three owner-scoped server reads: generic >90-day stale recovery, friendship full-cache recovery, and the message bootstrap tail probe trusted or silently filtered the Appwrite owner query instead of validating returned `user_id`. All three now fail closed with regression coverage, and the sync matrix/reference have been corrected.
+Next action: Run the focused Quality Gate for this final task checkpoint. If green, squash the task PR into `fix/sync-engine-race-matrix`, then require the stable branch's full canonical acceptance and exact-SHA Vercel Preview. Do not promote to `dev` or `main` without explicit user instruction.
+Blockers: None known before CI.
 
-## Results
+## Double-check findings repaired
 
-- `refreshSync()` now fails closed: inactive pilots, bootstrap errors, false pilot freshness, leadership/lock failures, owner changes, and deadline expiry cannot stamp fresh `lastSync` or offline readiness.
-- Web Lock waiting is bounded by the caller freshness deadline. When the API exists but lock acquisition fails, compatibility sync no longer runs unlocked.
-- Added lightweight authenticated-work generations shared by AuthProvider, sync, message delivery, and generic retry flushing. Login/signup/logout invalidate old work before session mutation; stale owners cannot publish status/backoff or continue scheduling writes.
-- Added explicit sync-owner suspension and six-pilot teardown. Each pilot serializes start/stop lifecycle transitions so overlapping account replacement cannot orphan a live replication.
-- Compatibility pull/dirty state, stale-missing suppression, and partial-push acknowledgements are now account-scoped. Matching legacy blobs migrate forward; when an older account's singleton blob was overwritten, its own successful `lastSyncTime_<userId>` is used as the clean recovery baseline.
-- Generic message/social retry queues now persist one entry per account/dedup key rather than replacing one whole localStorage array. Compare-before-remove protects newer racing enqueues, Web Locks serialize flushes when available, and capacity is enforced per account.
-- Message delivery is account-generation scoped. A newer owner request cannot be swallowed by an older in-flight delivery loop, and stale delivery results do not patch the old owner's local message as delivered.
-- Stale-cursor full reconciliation preserves pending outgoing messages instead of interpreting a never-delivered local message as a remotely-garbage-collected row.
-- Added/updated regressions for fresh-sync false success, Web Lock timeout/failure, account metadata isolation/recovery, cross-account backoff, cross-tab retry enqueue races, auth suspension ordering, delivery owner switches, pilot lifecycle overlap, and stale pending messages.
-- Accepted Appwrite non-atomic read→write compare/update limitation remains unchanged.
+1. **Generic stale recovery owner validation:** `syncCollection()` now validates every owner-scoped Appwrite recovery page before mapping or applying any row. A foreign row fails the collection recovery, prevents pilot start, and cannot be written into the active account's local cache.
+2. **Friendship full-cache recovery owner validation:** `syncFriendships()` now fails closed if an owner-scoped page returns another account instead of silently skipping that row and potentially treating the snapshot as complete.
+3. **Message bootstrap checkpoint owner validation:** `captureMessageReplicationPullCheckpoint()` now validates the owner-scoped remote tail response before accepting a checkpoint, so a malformed/cross-account response cannot be ignored while bootstrap advances from an untrusted snapshot.
+4. **Documentation accuracy:** `SYNC_SCENARIO_MATRIX.md` and `PROJECT_REFERENCE.md` now state the fail-closed invariant across steady-state pulls, stale-recovery/bootstrap snapshot reads, and direct master reads.
 
-## Verification
+## Regression coverage
 
-- Task-level full Quality Gate: rerun requested after fixing the lint and unit-fixture failures found by the first two full runs.
-- Stable Preview canonical acceptance: pending after task verification.
-- Vercel Preview: pending stable Preview delivery.
-- Manual/device acceptance: not required for this non-visual data-synchronization hardening batch; hosted smoke testing remains useful after Preview.
+- `sync.test.ts`: a foreign task row during stale recovery cannot upsert locally, cannot start the task pilot, and surfaces a remote-owner mismatch.
+- `friendshipSync.test.ts`: a foreign row in the full friendship cache pull rejects instead of being filtered.
+- `messageReplicationPilot.test.ts`: a foreign row in the bootstrap tail probe rejects instead of producing/ignoring a checkpoint.
+- Existing regressions continue to cover retry-safe freshness, owner-scoped backoff teardown, Realtime-as-wakeup behavior across all six pilots, steady-state remote-owner mismatch handling, shared-local-DB foreign rows, stale recovery/tombstones, and freshness barriers.
+
+## Accepted limitations unchanged
+
+- Appwrite still has no atomic compare-and-update for the owner-write pilots; the read→write race is reconciled by subsequent replication.
+- Stale-recovery application timestamps still inherit client-clock ambiguity and therefore preserve uncertain local state conservatively.
+
+## Acceptance path
+
+1. Final task commit requests `[verify:focused]`.
+2. Focused-green task PR is squash-merged into `fix/sync-engine-race-matrix`.
+3. Stable Preview runs the full canonical gate and exact-tree Vercel Preview.
+4. Any CI/deployment failure is investigated and repaired before handoff.

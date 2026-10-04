@@ -50,6 +50,13 @@ export const MOSAIC_TABLES = [
     { key: 'content', type: 'longtext', required: false },
     { key: 'visibility', type: 'varchar', size: 50, required: true },
     { key: 'user_id', type: 'varchar', size: 255, required: true },
+    {
+      key: 'created_at',
+      type: 'varchar',
+      size: 50,
+      required: false,
+      default: '',
+    },
     { key: 'updated_at', type: 'varchar', size: 50, required: true },
     { key: 'deleted', type: 'boolean', required: false, default: false },
   ]),
@@ -138,8 +145,29 @@ export const MOSAIC_TABLES = [
       },
       { key: 'idx_user_deleted', type: 'key', attributes: ['user_id', 'deleted'] },
       { key: 'idx_thread_created', type: 'key', attributes: ['thread_id', 'created_at'] },
+      { key: 'idx_sender_id', type: 'key', attributes: ['sender_id'] },
+      { key: 'idx_recipient_id', type: 'key', attributes: ['recipient_id'] },
     ]
   ),
+  {
+    id: 'account_deletions',
+    name: 'Account Deletions',
+    permissions: [],
+    rowSecurity: true,
+    enabled: true,
+    columns: [
+      { key: 'user_id', type: 'varchar', size: 255, required: true },
+      { key: 'status', type: 'varchar', size: 30, required: true },
+      { key: 'phase', type: 'varchar', size: 50, required: true },
+      { key: 'attempts', type: 'integer', required: true },
+      { key: 'created_at', type: 'varchar', size: 50, required: true },
+      { key: 'updated_at', type: 'varchar', size: 50, required: true },
+    ],
+    indexes: [
+      { key: 'idx_deletion_user', type: 'unique', attributes: ['user_id'] },
+      { key: 'idx_deletion_status', type: 'key', attributes: ['status'] },
+    ],
+  },
 ];
 
 export const MOSAIC_BUCKET = {

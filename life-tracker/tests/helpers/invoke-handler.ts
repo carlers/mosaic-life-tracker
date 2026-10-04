@@ -1,4 +1,5 @@
 import { vi } from 'vitest';
+import { createHash } from 'node:crypto';
 import { createRequire } from 'node:module';
 
 export interface MockDb {
@@ -12,11 +13,30 @@ export interface MockDb {
   updateTransaction: any;
 }
 
+export interface MockStorage {
+  listFiles: any;
+  deleteFile: any;
+}
+
+export interface MockUsers {
+  updateStatus: any;
+  deleteSessions: any;
+  delete: any;
+}
+
+export interface MockFunctions {
+  createExecution: any;
+}
+
 export interface InvokeInput {
   userId?: string;
   body: Record<string, unknown>;
   mockDb: MockDb;
+  mockStorage?: MockStorage;
+  mockUsers?: MockUsers;
+  mockFunctions?: MockFunctions;
   trigger?: 'http' | 'schedule' | 'event';
+  deletionPendingUserIds?: string[];
 }
 
 export interface InvokeResult {
@@ -30,7 +50,21 @@ export interface InvokeResult {
 // time. invoke() sets this immediately before calling the handler, so a
 // fresh set of vi.fn()s is plumbed in per test without recreating the mock
 // module.
-const state: { current: MockDb | null } = { current: null };
+const state: {
+  current: MockDb | null;
+  storage: MockStorage | null;
+  users: MockUsers | null;
+  functions: MockFunctions | null;
+  deletionPendingUserIds: Set<string>;
+  bypassDeletionLookup: boolean;
+} = {
+  current: null,
+  storage: null,
+  users: null,
+  functions: null,
+  deletionPendingUserIds: new Set(),
+  bypassDeletionLookup: false,
+};
 
 class MockClient {
   setEndpoint(_url: string) {
@@ -41,6 +75,39 @@ class MockClient {
   }
   setKey(_key: string) {
     return this;
+  }
+}
+
+class MockStorageService {
+  listFiles: any;
+  deleteFile: any;
+
+  constructor(_client: unknown) {
+    if (!state.storage) throw new Error('invoke-handler: storage state missing');
+    this.listFiles = state.storage.listFiles;
+    this.deleteFile = state.storage.deleteFile;
+  }
+}
+
+class MockUsersService {
+  updateStatus: any;
+  deleteSessions: any;
+  delete: any;
+
+  constructor(_client: unknown) {
+    if (!state.users) throw new Error('invoke-handler: users state missing');
+    this.updateStatus = state.users.updateStatus;
+    this.deleteSessions = state.users.deleteSessions;
+    this.delete = state.users.delete;
+  }
+}
+
+class MockFunctionsService {
+  createExecution: any;
+
+  constructor(_client: unknown) {
+    if (!state.functions) throw new Error('invoke-handler: functions state missing');
+    this.createExecution = state.functions.createExecution;
   }
 }
 
@@ -62,7 +129,31 @@ class MockTablesDB {
       );
     }
     this.listRows = m.listRows;
-    this.getRow = m.getRow;
+    this.getRow = (args: any) => {
+      if (
+        args?.tableId === 'account_deletions' &&
+        !state.bypassDeletionLookup
+      ) {
+        for (const userId of state.deletionPendingUserIds) {
+          const rowId =
+            'del_' +
+            createHash('sha256').update(userId).digest('hex').slice(0, 32);
+          if (args.rowId === rowId) {
+            return Promise.resolve({
+              $id: rowId,
+              user_id: userId,
+              status: 'pending',
+              phase: 'queued',
+              attempts: 0,
+            });
+          }
+        }
+        return Promise.reject(
+          Object.assign(new Error('Not found'), { code: 404 })
+        );
+      }
+      return m.getRow(args);
+    };
     this.upsertRow = m.upsertRow;
     this.updateRow = m.updateRow;
     this.deleteRow = m.deleteRow;
@@ -118,6 +209,9 @@ const appwritePath = requireCjs.resolve('node-appwrite');
   exports: {
     Client: MockClient,
     TablesDB: MockTablesDB,
+    Storage: MockStorageService,
+    Users: MockUsersService,
+    Functions: MockFunctionsService,
     Query: MockQuery,
     Permission: MockPermission,
     Role: MockRole,
@@ -132,6 +226,31 @@ const handler: any = requireCjs(
 
 // Factory returns a fresh, fully-independent mock db. Every test should call
 // this in beforeEach so state never leaks between tests.
+export function makeMockStorage(): MockStorage {
+  return {
+    listFiles: vi.fn().mockResolvedValue({ files: [] }),
+    deleteFile: vi.fn().mockResolvedValue({}),
+  };
+}
+
+export function makeMockUsers(): MockUsers {
+  return {
+    updateStatus: vi.fn().mockResolvedValue({}),
+    deleteSessions: vi.fn().mockResolvedValue({}),
+    delete: vi.fn().mockResolvedValue({}),
+  };
+}
+
+export function makeMockFunctions(): MockFunctions {
+  return {
+    createExecution: vi.fn().mockResolvedValue({
+      status: 'completed',
+      responseStatusCode: 200,
+      responseBody: JSON.stringify({ ok: true }),
+    }),
+  };
+}
+
 export function makeMockDb(): MockDb {
   const notFound = Object.assign(new Error('Not found'), { code: 404 });
   return {
@@ -148,6 +267,13 @@ export function makeMockDb(): MockDb {
 
 export async function invoke(input: InvokeInput): Promise<InvokeResult> {
   state.current = input.mockDb;
+  state.storage = input.mockStorage ?? makeMockStorage();
+  state.users = input.mockUsers ?? makeMockUsers();
+  state.functions = input.mockFunctions ?? makeMockFunctions();
+  state.deletionPendingUserIds = new Set(input.deletionPendingUserIds ?? []);
+  state.bypassDeletionLookup =
+    input.body?.action === 'delete_account' ||
+    input.body?.action === 'resume_account_deletion';
 
   const log = vi.fn();
   const error = vi.fn();

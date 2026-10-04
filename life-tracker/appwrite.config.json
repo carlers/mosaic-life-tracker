@@ -12,11 +12,23 @@
       "buildSpecification": "s-2vcpu-2gb",
       "runtimeSpecification": "s-0.5vcpu-512mb",
       "deploymentRetention": 0,
-      "execute": ["users"],
-      "scopes": ["users.read", "rows.read", "rows.write", "tables.read"],
+      "execute": [
+        "users"
+      ],
+      "scopes": [
+        "users.read",
+        "users.write",
+        "sessions.write",
+        "rows.read",
+        "rows.write",
+        "tables.read",
+        "files.read",
+        "files.write",
+        "execution.write"
+      ],
       "events": [],
-      "schedule": "0 0 * * *",
-      "timeout": 15,
+      "schedule": "0 * * * *",
+      "timeout": 120,
       "entrypoint": "main.js",
       "commands": "npm install",
       "ignore": "node_modules\n.tmp",

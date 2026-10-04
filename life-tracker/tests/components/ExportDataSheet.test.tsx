@@ -67,6 +67,8 @@ describe('Backup & Restore destructive confirmation', () => {
       imagesRestored: 0,
       imagesMissing: 0,
       safetyBackupDownloaded: true,
+      syncState: 'synced',
+      syncError: '',
     });
   });
 

@@ -245,8 +245,18 @@ export function fromAppwriteFormat(
     mapped.id = row.$id || mapped.id;
     mapped.userId = mapped.user_id;
     mapped.isDeleted = mapped.deleted ?? false;
-    mapped.createdAt = mapped.created_at || new Date().toISOString();
-    mapped.updatedAt = mapped.updated_at || new Date().toISOString();
+    mapped.createdAt =
+      mapped.created_at ||
+      row.$createdAt ||
+      mapped.updated_at ||
+      row.$updatedAt ||
+      new Date().toISOString();
+    mapped.updatedAt =
+      mapped.updated_at ||
+      row.$updatedAt ||
+      mapped.created_at ||
+      row.$createdAt ||
+      new Date().toISOString();
     mapped.content = row.content || '';
     delete mapped.user_id;
     delete mapped.deleted;

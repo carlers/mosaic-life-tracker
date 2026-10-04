@@ -24,12 +24,15 @@ plus the encrypted snapshot and the escrowed recovery secrets. The snapshot cove
 The Free-plan two-Function architecture is deliberate:
 
 1. The existing `message-action` slot is the general trusted application backend and may
-   later be renamed/refactored to `app-api`. Messaging/social operations, tombstone GC,
-   external-provider routes/webhooks, and coordinated integration maintenance share this
-   slot through isolated modules.
-2. `dr-backup` owns the second slot. It has no client execute roles and only source-read
-   Appwrite scopes: users, databases, tables, columns, indexes, rows, buckets, and files.
-   It must not receive Appwrite write scopes.
+   later be renamed/refactored to `app-api`. Messaging/social operations, permanent
+   account-erasure coordination, tombstone GC, external-provider routes/webhooks, and
+   coordinated integration maintenance share this slot through isolated modules.
+2. `dr-backup` owns the second slot. Its normal backup path has no client execute roles and
+   only source-read Appwrite scopes: users, databases, tables, columns, indexes, rows,
+   buckets, and files. It must not receive Appwrite write scopes. The one non-backup route
+   accepts a server-key-authenticated privacy-deletion marker request from `message-action`
+   and writes only to R2 using the already-escrowed DR credentials; it does not mutate
+   Appwrite.
 
 The DR Function accepts scheduled executions. Manual server execution is permitted only
 when `DR_ALLOW_MANUAL_EXECUTION=true` and Appwrite supplies the execution API key header.
@@ -64,6 +67,13 @@ A prefix without a valid `COMPLETED` marker is never a restore point and is neve
 evidence that backup succeeded. User content, password hashes, decrypted payloads, emails,
 names, message text, diary text, and file bytes must never be logged.
 
+Permanent account deletion also writes an independently encrypted/authenticated marker under
+`<prefix>/privacy-deletions/<sha256(userId)>.json.enc`. This object is outside the snapshot
+generation tree and is not a restore point. It exists so a valid older snapshot can never
+recreate an account that was explicitly erased after that snapshot was taken. Marker
+requests are server-to-server only; the browser never receives R2 credentials or the
+marker object.
+
 ## Retention
 
 The minimum retained tiers are 7 daily, 4 weekly, and 6 monthly completed restore points.
@@ -73,6 +83,15 @@ causes pruning. Snapshot pruning never deletes content-addressed blobs automatic
 garbage collection requires a separate reference-safe process.
 
 R2 bucket lock for the recent recovery window is configured at the provider. Lock the full `mosaic-dr/v1/` prefix, not only `snapshots/`, so content-addressed file blobs cannot be deleted while a locked snapshot still references them. The Function does not attempt to weaken or bypass provider retention.
+
+Privacy deletion does not rewrite immutable historical snapshots or bypass R2 object lock.
+Encrypted historical ciphertext may therefore remain physically present until the configured
+snapshot-retention/object-lock windows allow removal. Restore treats the privacy-deletion
+marker as authoritative and filters the erased user, their owned/cross-user records, their
+owned files, and their IDs inside surviving structured references. Privacy-deletion markers
+are not pruned with daily/weekly/monthly snapshot generations. Content-addressed blobs remain
+subject to the existing reference-safe garbage-collection limitation; retained ciphertext
+must never be described as restorable account state.
 
 ## Secrets and escrow
 
@@ -84,7 +103,7 @@ Required runtime secrets are:
 - `R2_BUCKET`
 - `DR_ENCRYPTION_KEY_B64`
 
-`DR_KEY_VERSION`, `DR_PREFIX`, retention values, and optional `R2_ENDPOINT` are non-secret configuration. Leave `R2_ENDPOINT` unset for normal/location-hint buckets. For a Cloudflare jurisdiction bucket, set the matching account endpoint (for example `https://<ACCOUNT_ID>.eu.r2.cloudflarestorage.com`). Mosaic rejects endpoint hosts outside Cloudflare R2 for that account.
+`DR_KEY_VERSION`, `DR_PREFIX`, retention values, and optional `R2_ENDPOINT` are non-secret configuration. During encryption-key rotation, `DR_ENCRYPTION_KEYS_JSON` may contain the version→base64 keyring required to authenticate older retained snapshots/blobs/privacy-deletion markers; the current `DR_ENCRYPTION_KEY_B64` and `DR_KEY_VERSION` still own all new writes. Do not remove an older key while any retained immutable object still declares that version. Leave `R2_ENDPOINT` unset for normal/location-hint buckets. For a Cloudflare jurisdiction bucket, set the matching account endpoint (for example `https://<ACCOUNT_ID>.eu.r2.cloudflarestorage.com`). Mosaic rejects endpoint hosts outside Cloudflare R2 for that account.
 
 The encryption key and R2 recovery credentials must have an independent copy outside the
 Appwrite project (password manager/offline recovery record). An Appwrite-only copy is not a
@@ -98,15 +117,17 @@ never uses the source Function's credentials.
 
 Restore order is:
 
-1. decrypt and verify the committed manifest and every referenced object;
-2. recreate Auth users with original IDs and imported password hashes where supported,
-   then restore non-session account metadata;
+1. decrypt and verify the committed manifest and every referenced object, then load and
+   authenticate the persistent privacy-deletion markers;
+2. recreate only unmarked Auth users with original IDs and imported password hashes where
+   supported, then restore non-session account metadata;
 3. recreate databases/tables with original IDs, permissions, columns, and indexes;
-4. recreate rows with original IDs and permissions;
+4. recreate rows with original IDs and permissions after omitting erased owner/cross-user
+   rows and scrubbing erased IDs from supported structured references;
 5. recreate Storage buckets/files with original IDs, permissions, folders, and verified
-   file bytes;
-6. verify target resource IDs, schemas, row records/checksums, user records/hash metadata,
-   file SHA-256 values, and permissions;
+   file bytes, excluding files owned by erased users;
+6. verify the filtered target resource IDs, schemas, row records/checksums, user records/hash
+   metadata, file SHA-256 values, and permissions;
 7. deploy/configure the repository-owned application Functions against the target project.
 
 The restore command refuses to target the same project ID recorded in the snapshot and
@@ -144,7 +165,12 @@ provisioned. The DR Function remains schedule-disabled until the entire isolated
   the full 15-minute Function timeout is older than the 36-hour stale threshold by the
   next watcher check.
 - `appwrite-functions/message-action/function.config.json` records the existing general
-  trusted Function configuration needed during recovery.
+  trusted Function configuration needed during recovery. In a production deployment with
+  DR enabled, set `DR_PRIVACY_DELETION_REQUIRED=true` and point
+  `DR_BACKUP_FUNCTION_ID` at the dedicated DR Function. Fresh/self-hosted deployments
+  created without DR explicitly set this guard false because no DR archive exists to
+  resurrect deleted data. Isolated recovery drills also keep it false while `dr-backup`
+  is intentionally credential-less/inert.
 - When changing a live Appwrite Function through the API, send the complete intended
   Function configuration rather than only the changed field. The Appwrite update endpoint
   can apply defaults to omitted optional fields. During the first production schedule

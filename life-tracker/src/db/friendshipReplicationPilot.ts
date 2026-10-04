@@ -25,6 +25,12 @@ import {
 } from '../lib/appwriteConfig';
 import { clearCachedCalendar } from '../lib/friendCache';
 import { awaitPilotReplicationFreshness } from './replicationFreshness';
+import { getReplicationIdentifier } from './replicationIds';
+import { trackReplicationFreshness } from './replicationLocalState';
+import {
+  assertRemoteRowOwnedBy,
+  assertRemoteRowsOwnedBy,
+} from './replicationOwnership';
 
 const PULL_BATCH_SIZE = 100;
 const PUSH_BATCH_SIZE = 20;
@@ -130,7 +136,8 @@ async function clearInactiveFriendCache(
 }
 
 async function readRemoteFriendship(
-  rowId: string
+  rowId: string,
+  userId: string
 ): Promise<ReplicatedFriendship | null> {
   try {
     const row = await guardedTablesDB.getRow({
@@ -138,9 +145,9 @@ async function readRemoteFriendship(
       tableId: APPWRITE_TABLES.friendships,
       rowId,
     });
-    return toReplicatedFriendship(
-      row as unknown as Record<string, unknown>
-    );
+    const raw = row as unknown as Record<string, unknown>;
+    assertRemoteRowOwnedBy(raw, userId, 'Friendship');
+    return toReplicatedFriendship(raw);
   } catch (error) {
     if (isNotFoundError(error)) return null;
     throw error;
@@ -175,9 +182,11 @@ async function validateFriendshipChanges(
   for (const row of rows) {
     const next = row.newDocumentState;
     if (next.userId !== userId) {
-      throw new Error(
-        `Friendship replication owner mismatch for ${next.id}`
-      );
+      // Mosaic intentionally keeps multiple owners in one local RxDB. A
+      // per-user replication identifier will encounter those cached foreign
+      // rows on first upstream scan; acknowledge them as outside this
+      // replication scope instead of poisoning the active owner's queue.
+      continue;
     }
 
     // FriendsProvider removes pre-migration invalid local rows physically.
@@ -192,7 +201,7 @@ async function validateFriendshipChanges(
       continue;
     }
 
-    const current = await readRemoteFriendship(next.id);
+    const current = await readRemoteFriendship(next.id, userId);
     if (current && current.userId !== userId) {
       throw new Error(
         `Friendship replication master owner mismatch for ${next.id}`
@@ -272,11 +281,11 @@ async function pullFriendships(
     total: false,
   });
 
-  const rows = (
-    (response as unknown as { rows?: Record<string, unknown>[] }).rows ?? []
-  ).filter(
+  const responseRows =
+    (response as unknown as { rows?: Record<string, unknown>[] }).rows ?? [];
+  assertRemoteRowsOwnedBy(responseRows, userId, 'Friendship');
+  const rows = responseRows.filter(
     (row) =>
-      row.user_id === userId &&
       typeof row.$id === 'string' &&
       row.$id.length > 0 &&
       typeof row.$updatedAt === 'string' &&
@@ -389,41 +398,12 @@ function subscribeToFriendshipRealtime(
 
     if (!payload || payload.user_id !== userId) return;
     if (
-      !events.some(
+      events.some(
         (event) => event.endsWith('.create') || event.endsWith('.update')
       )
     ) {
-      return;
-    }
-
-    const id = payload.$id;
-    const updatedAt = payload.$updatedAt;
-    if (
-      typeof id !== 'string' ||
-      !id ||
-      typeof updatedAt !== 'string' ||
-      !updatedAt
-    ) {
       pullStream.next('RESYNC');
-      return;
     }
-
-    const document = toReplicatedFriendship(
-      payload as Record<string, unknown>
-    );
-    if (document.isDeleted || document.status === 'blocked') {
-      void clearCachedCalendar(userId, document.friendId).catch((error) => {
-        console.error(
-          '[FriendshipReplicationPilot] cache clear failed:',
-          error
-        );
-      });
-    }
-
-    pullStream.next({
-      checkpoint: { id, updatedAt },
-      documents: [document],
-    });
   });
 }
 
@@ -510,7 +490,7 @@ async function startFriendshipReplicationPilotNow(
     FriendshipReplicationCheckpoint
   >({
     replicationIdentifier:
-      `mosaic-appwrite-tablesdb-friendships-v1:${userId}`,
+      getReplicationIdentifier('friendships', userId),
     collection,
     live: true,
     retryTime: RETRY_TIME_MS,
@@ -531,6 +511,7 @@ async function startFriendshipReplicationPilotNow(
 
   activeOwnerId = userId;
   activeReplication = replication;
+  trackReplicationFreshness(replication, userId, 'friendships');
   activeCollection = collection;
   activePullStream = pullStream;
   realtimeUnsubscribe = subscribeToFriendshipRealtime(

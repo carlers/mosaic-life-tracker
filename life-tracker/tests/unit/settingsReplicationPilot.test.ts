@@ -18,6 +18,7 @@ const realtimeSubscribeMock = vi.hoisted(() => vi.fn());
 const reSyncMock = vi.hoisted(() => vi.fn());
 const cancelMock = vi.hoisted(() => vi.fn());
 const errorSubscribeMock = vi.hoisted(() => vi.fn());
+const trackReplicationFreshnessMock = vi.hoisted(() => vi.fn());
 const uploadPendingImageMock = vi.hoisted(() => vi.fn());
 const makeProfileImageReadableMock = vi.hoisted(() => vi.fn());
 const deletePendingImageMock = vi.hoisted(() => vi.fn());
@@ -46,6 +47,8 @@ vi.mock('appwrite', () => ({
       JSON.stringify({ op: 'orderAsc', field }),
     limit: (value: number) =>
       JSON.stringify({ op: 'limit', value }),
+    cursorAfter: (id: string) =>
+      JSON.stringify({ op: 'cursorAfter', id }),
   },
   Permission: {
     read: (role: string) => `read(${role})`,
@@ -81,6 +84,10 @@ vi.mock('../../src/lib/pendingImages', () => ({
 
 vi.mock('../../src/lib/social', () => ({
   updateProfileAvatar: updateProfileAvatarMock,
+}));
+
+vi.mock('../../src/db/replicationLocalState', () => ({
+  trackReplicationFreshness: trackReplicationFreshnessMock,
 }));
 
 vi.mock('../../src/db/replicationFreshness', () => ({
@@ -128,6 +135,7 @@ function collectionFixture() {
 beforeEach(async () => {
   await stopSettingsReplicationPilot();
   vi.clearAllMocks();
+  trackReplicationFreshnessMock.mockImplementation(() => undefined);
   getChangedDocumentsSinceMock.mockResolvedValue({
     documents: [],
     checkpoint: { id: 'setting_z', lwt: 123 },
@@ -264,6 +272,34 @@ describe('settings RxDB replication pilot', () => {
     );
   });
 
+  it('fails closed if an owner-scoped settings pull returns another account', async () => {
+    listRowsMock.mockResolvedValue({
+      rows: [remoteSetting({ user_id: 'mallory' })],
+    });
+
+    await expect(
+      __settingsReplicationPilotTestUtils.pullSettings(
+        'user_A',
+        undefined,
+        100
+      )
+    ).rejects.toThrow('remote owner mismatch');
+  });
+
+  it('ignores cached settings that belong to another local account', async () => {
+    await expect(
+      __settingsReplicationPilotTestUtils.pushSettings(
+        [{ newDocumentState: localSetting({ userId: 'mallory' }) }],
+        'user_A'
+      )
+    ).resolves.toEqual([]);
+
+    expect(getRowMock).not.toHaveBeenCalled();
+    expect(createRowMock).not.toHaveBeenCalled();
+    expect(updateRowMock).not.toHaveBeenCalled();
+    expect(updateProfileAvatarMock).not.toHaveBeenCalled();
+  });
+
   it('creates a missing remote row with createRow', async () => {
     getRowMock.mockRejectedValue(
       Object.assign(new Error('not found'), { code: 404 })
@@ -284,6 +320,42 @@ describe('settings RxDB replication pilot', () => {
       })
     );
     expect(updateRowMock).not.toHaveBeenCalled();
+  });
+
+  it('acknowledges identical first-sync setting state without rewriting Appwrite', async () => {
+    const conflicts =
+      await __settingsReplicationPilotTestUtils.pushSettings(
+        [{ newDocumentState: localSetting() }],
+        'user_A'
+      );
+
+    expect(conflicts).toEqual([]);
+    expect(updateRowMock).not.toHaveBeenCalled();
+    expect(createRowMock).not.toHaveBeenCalled();
+  });
+
+  it('writes a genuinely newer first-sync setting edit once', async () => {
+    const conflicts =
+      await __settingsReplicationPilotTestUtils.pushSettings(
+        [
+          {
+            newDocumentState: localSetting({
+              value: 'light',
+              updatedAt: '2026-10-02T00:00:02.000Z',
+            }),
+          },
+        ],
+        'user_A'
+      );
+
+    expect(conflicts).toEqual([]);
+    expect(updateRowMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        rowId: 'setting_a',
+        data: expect.objectContaining({ value: 'light' }),
+      })
+    );
+    expect(createRowMock).not.toHaveBeenCalled();
   });
 
   it('returns the current master as a conflict instead of overwriting it', async () => {
@@ -327,6 +399,95 @@ describe('settings RxDB replication pilot', () => {
     expect(conflicts).toEqual([]);
     expect(updateRowMock).toHaveBeenCalledTimes(1);
     expect(createRowMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('removes stale friend ids before carousel preferences can resync', async () => {
+    const local = localSetting({
+      key: 'friend_carousel_prefs',
+      value: JSON.stringify({
+        order: ['friend_live', 'friend_old'],
+        hidden: ['friend_old'],
+      }),
+      updatedAt: '2026-10-02T00:00:02.000Z',
+    });
+    getRowMock.mockResolvedValue(
+      remoteSetting({
+        key: 'friend_carousel_prefs',
+        value: JSON.stringify({ order: ['friend_live'], hidden: [] }),
+      })
+    );
+    listRowsMock.mockImplementation(async ({ tableId }: any) => {
+      if (tableId === 'friendships') {
+        return {
+          rows: [{
+            $id: 'fr_live',
+            user_id: 'user_A',
+            friend_id: 'friend_live',
+            status: 'accepted',
+            deleted: false,
+          }],
+        };
+      }
+      return { rows: [] };
+    });
+
+    const conflicts =
+      await __settingsReplicationPilotTestUtils.pushSettings(
+        [{
+          assumedMasterState: localSetting({
+            key: 'friend_carousel_prefs',
+            value: JSON.stringify({ order: ['friend_live'], hidden: [] }),
+          }),
+          newDocumentState: local,
+        }],
+        'user_A'
+      );
+
+    expect(updateRowMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          value: JSON.stringify({ order: ['friend_live'], hidden: [] }),
+        }),
+      })
+    );
+    expect(conflicts).toEqual([
+      expect.objectContaining({
+        value: JSON.stringify({ order: ['friend_live'], hidden: [] }),
+      }),
+    ]);
+  });
+
+  it('clears malformed carousel data instead of syncing opaque stale ids', async () => {
+    const state = localSetting({
+      key: 'friend_carousel_prefs',
+      value: '{"order":"friend_old"}',
+      updatedAt: '2026-10-02T00:00:02.000Z',
+    });
+    getRowMock.mockResolvedValue(
+      remoteSetting({
+        key: 'friend_carousel_prefs',
+        value: '{"order":[],"hidden":[]}',
+      })
+    );
+
+    await __settingsReplicationPilotTestUtils.pushSettings(
+      [{
+        assumedMasterState: localSetting({
+          key: 'friend_carousel_prefs',
+          value: '{"order":[],"hidden":[]}',
+        }),
+        newDocumentState: state,
+      }],
+      'user_A'
+    );
+
+    expect(updateRowMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          value: '{"order":[],"hidden":[]}',
+        }),
+      })
+    );
   });
 
   it('uploads pending profile images and returns the stored master state', async () => {
@@ -464,7 +625,7 @@ describe('settings RxDB replication pilot', () => {
     expect(deletePendingImageMock).not.toHaveBeenCalled();
   });
 
-  it('streams owner-scoped Appwrite realtime updates into replication', async () => {
+  it('uses realtime writes only as an ordered pull catch-up signal', async () => {
     await startSettingsReplicationPilot(
       'user_A',
       collectionFixture(),
@@ -483,18 +644,6 @@ describe('settings RxDB replication pilot', () => {
       payload: remoteSetting(),
     });
 
-    await expect(next).resolves.toEqual({
-      checkpoint: {
-        id: 'setting_a',
-        updatedAt: '2026-10-02T00:00:01.000Z',
-      },
-      documents: [
-        expect.objectContaining({
-          id: 'setting_a',
-          userId: 'user_A',
-          _deleted: false,
-        }),
-      ],
-    });
+    await expect(next).resolves.toBe('RESYNC');
   });
 });

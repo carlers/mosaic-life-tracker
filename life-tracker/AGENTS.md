@@ -37,7 +37,9 @@ additional reading. Current code and Git override stale progress prose.
   protection, bounded retries, and sync coordination. Confirmed 401 differs from offline.
 - Schema changes require migrations, sync mappings, mirrored test schemas, and applicable
   remote rollout steps. Local `isDeleted` maps to remote `deleted`; use tombstones.
-  Permanent deletion follows [retention](docs/TOMBSTONE_RETENTION.md) only.
+  Ordinary record deletion follows [retention](docs/TOMBSTONE_RETENTION.md). The only
+  hard-delete exception is explicit, typed-confirmation account erasure through the
+  server-owned durable deletion worker documented in [project reference](docs/PROJECT_REFERENCE.md#238-permanent-account-erasure).
 - Row IDs: at most 36 characters, `[a-zA-Z0-9_]+`, no leading underscore. Existing rows
   use `updateRow`; new rows and update-404 fallback use `createRow`, never `upsertRow`.
 - Cross-user writes go through `message-action`; outgoing `read_at` is server-owned.
