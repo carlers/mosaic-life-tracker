@@ -16,7 +16,7 @@ Blockers: The accidental rollout probe wrote one privacy-deletion marker for a n
   - `messages.idx_sender_id` and `messages.idx_recipient_id` are available.
 - The first schema attempt failed atomically because Appwrite rejects a default on a required column. The manifest now keeps `attempts` required without a default; that repair passed focused and full canonical verification before the successful rollout.
 - Production `dr-backup` is active on deployment `6ac210864f66010873e4` with its original read-only Appwrite scopes, secrets, daily schedule, 900s timeout, and new privacy-marker route.
-- Production `message-action` is active on deployment `6ac2111928b0e7b709fa`; re-read matches the checked-in hourly schedule, 120s timeout, execution roles, eight intended scopes, and six explicit non-secret variables.
+- Production `message-action` is active on deployment `6ac2111928b0e7b709fa`; its code/schedule/variables are live. Current Appwrite documentation confirms server-side session deletion also requires `sessions.write`, so this repair adds that ninth execution-key scope before final acceptance.
 - A privileged operator execution used by rollout unexpectedly inherited an Appwrite user header, so it was not a valid anonymous negative test. That inherited ID does not exist in Mosaic production Auth and had no profile. Its transient deletion job is gone and `account_deletions` is empty; no real Mosaic login was deleted or disabled.
 - That probe exposed the important retry bug: the first DR marker PUT succeeded, but the worker's retry attempted to overwrite the same deterministic object and R2 object lock returned 409. The repair now:
   - HEADs the deterministic marker first;
@@ -32,5 +32,6 @@ Blockers: The accidental rollout probe wrote one privacy-deletion marker for a n
 - Stable Preview `6c8219a`: full canonical acceptance passed; exact-SHA Vercel Preview READY.
 - Production Appwrite schema/index migration: applied and re-read available.
 - Production Function builds/configuration: both deployments built READY, activated, and re-read.
-- DR marker idempotency automated coverage: added; focused verification pending on coherent repair diff.
+- DR marker idempotency automated coverage: added. The first focused run exposed an R2 test-double metadata omission; that fixture was repaired and verification was re-requested.
+- Appwrite session-revocation scope parity: `sessions.write` added to both checked-in Function manifests and regression coverage; live Function config update waits for CI green.
 - Remaining manual acceptance: use a disposable Mosaic account on hosted Preview/production backend, confirm immediate sign-out, cross-device session invalidation, live row/file cleanup, empty durable-job table after completion, and DR marker retry safety. Do not use an existing personal/friend account.

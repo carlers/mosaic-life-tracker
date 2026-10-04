@@ -80,7 +80,7 @@ through the existing authenticated action router, so there is no browser-callabl
 
 Tombstone GC itself still needs only `rows.read`, `rows.write`, and `tables.read`.
 The shared `message-action` Function now carries additional server-only scopes for the
-account-erasure worker (`users.write`, Storage file read/write, and Function execution).
+account-erasure worker (`users.write`, `sessions.write`, Storage file read/write, and Function execution).
 Those scopes must never be exposed through a browser credential or a separate long-lived
 server key.
 
