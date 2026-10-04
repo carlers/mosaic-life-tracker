@@ -161,11 +161,20 @@ Preview reads TodoMate but performs no Mosaic writes. It reports at minimum:
 - TodoMate photo attachments found, ready to copy, and unavailable
 - distinct routine references whose recurring definitions are not recreated
 
-Only after preview can the user start the Merge import.
+Only after preview can the user start the Merge import. Closing or reopening the sheet
+cancels the old preview work, and an older attempt cannot overwrite the current preview.
+
+Import start records only small account-scoped recovery metadata: expected counts, start
+time, and whether local application finished. If the app exits while rows are being applied,
+reopening the importer explains that the prior run was interrupted and directs the user to
+preview and rerun it. Deterministic IDs and Merge semantics keep that rerun duplicate-safe.
+If all rows were applied but the bounded final sync did not converge, Mosaic reports
+**imported locally · sync pending** instead of **import complete** and preserves the local
+rows for normal replication.
 
 Any authentication, Firebase configuration, Firestore read, decoding, validation, Mosaic
-sync-preflight, or restore error must be shown as a failed import. Do not describe partial
-TodoMate reads as a complete migration.
+sync-preflight, or pre-local-completion restore error must be shown as a failed import. Do
+not describe partial TodoMate reads or unverified remote convergence as a complete migration.
 
 ## Compatibility evidence and maintenance
 
