@@ -687,13 +687,13 @@ async function restoreImages(
         preferredFileId,
         currentUserId
       );
-      assertOwner?.();
       remapped.set(oldId, ensured.fileId);
       if (ensured.uploaded) restored += 1;
     } catch (error) {
       console.warn('[Restore] Image restore failed:', oldId, error);
       missing += 1;
     }
+    assertOwner?.();
   }
 
   for (const task of data.tasks) {
