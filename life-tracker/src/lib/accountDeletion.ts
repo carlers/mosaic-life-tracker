@@ -1,25 +1,27 @@
 import { sendMessageAction } from './messageDelivery';
 
-export interface AccountDeletionAccepted {
-  accepted: true;
+export interface AccountDeletionRequestState {
+  accepted: boolean;
   deletionPending: true;
 }
 
 export async function requestAccountDeletion(
   confirmation: string
-): Promise<AccountDeletionAccepted> {
+): Promise<AccountDeletionRequestState> {
   if (confirmation !== 'DELETE') {
     throw new Error('Type DELETE to confirm account deletion.');
   }
+
   const response = await sendMessageAction({
     action: 'delete_account',
     confirmation,
   });
-  if (response.accepted !== true || response.deletionPending !== true) {
-    throw new Error('Account deletion was not accepted. Try again.');
+  if (response.deletionPending !== true) {
+    throw new Error('Account deletion request was not retained. Try again.');
   }
+
   return {
-    accepted: true,
+    accepted: response.accepted === true,
     deletionPending: true,
   };
 }
