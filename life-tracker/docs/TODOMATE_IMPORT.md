@@ -273,7 +273,16 @@ to close the other tab/retry rather than continuing with stale data.
 
 Hosted re-acceptance subsequently confirmed the import itself succeeds: all 37 prepared
 TodoMate images were copied onto the existing imported tasks without duplication and Mosaic
-sync completed. Opening those migrated task photos then exposed a separate viewer regression:
+sync completed.
+
+Large imports intentionally get a bounded convergence budget that scales with restored row
+count and caps at five minutes. Live 505-task acceptance measured task replication at roughly
+430ms per remote write, so the budget uses 500ms per restored row rather than the earlier
+250ms estimate. The final freshness UI must name whichever groups remain (for example
+`Waiting for Tasks` or `Waiting for Messages`) instead of only showing a generic count.
+If that bounded proof expires, locally applied/imported rows remain durable and live RxDB
+replication continues in the background; the user sees the named pending groups and can
+confirm later with Sync Now. Opening those migrated task photos then exposed a separate viewer regression:
 `ImageViewer` reported every source to PhotoSwipe as 1920×1080, horizontally stretching
 portrait/square images. The viewer contract now requires real intrinsic dimensions, with a
 behavioral regression test proving a 720×1280 source is opened as 720×1280 rather than 16:9.
