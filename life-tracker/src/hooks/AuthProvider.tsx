@@ -33,8 +33,17 @@ import {
 const AUTH_BROADCAST_KEY = "mosaic_auth_broadcast";
 const LAST_KNOWN_USER_KEY = "mosaic_last_known_user";
 const PENDING_SIGNUP_KEY = "mosaic_pending_signup";
+const ACCOUNT_DELETION_INTENT_KEY = "mosaic_account_deletion_intent_v1";
 
-type AuthBroadcast = { type: "login" | "logout"; at: number };
+type AuthBroadcast = {
+  type: "login" | "logout" | "deletion_pending" | "deletion_accepted";
+  at: number;
+  userId?: string;
+};
+interface AccountDeletionIntent {
+  userId: string;
+  startedAt: string;
+}
 interface PendingSignupRecord {
   email: string;
   name: string;
@@ -43,6 +52,52 @@ interface PendingSignupRecord {
 
 function normalizeEmail(value: string): string {
   return value.trim().toLowerCase();
+}
+
+function readAccountDeletionIntent(): AccountDeletionIntent | null {
+  try {
+    const raw = localStorage.getItem(ACCOUNT_DELETION_INTENT_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Partial<AccountDeletionIntent>;
+    if (
+      typeof parsed.userId !== "string" ||
+      !parsed.userId ||
+      typeof parsed.startedAt !== "string" ||
+      !parsed.startedAt
+    ) {
+      localStorage.removeItem(ACCOUNT_DELETION_INTENT_KEY);
+      return null;
+    }
+    return { userId: parsed.userId, startedAt: parsed.startedAt };
+  } catch {
+    return null;
+  }
+}
+
+function writeAccountDeletionIntent(userId: string): void {
+  try {
+    localStorage.setItem(
+      ACCOUNT_DELETION_INTENT_KEY,
+      JSON.stringify({
+        userId,
+        startedAt: new Date().toISOString(),
+      }),
+    );
+  } catch {
+    // Server state remains authoritative; this only weakens reload recovery.
+  }
+}
+
+function clearAccountDeletionIntent(userId?: string): void {
+  try {
+    if (userId) {
+      const current = readAccountDeletionIntent();
+      if (current && current.userId !== userId) return;
+    }
+    localStorage.removeItem(ACCOUNT_DELETION_INTENT_KEY);
+  } catch {
+    // Best-effort browser metadata cleanup.
+  }
 }
 
 function isSessionAlreadyActiveError(error: unknown): boolean {
@@ -161,9 +216,16 @@ function pendingSignupMatchesUser(
   return normalizeEmail(pending.email) === normalizeEmail(user.email);
 }
 
-function broadcastAuth(type: "login" | "logout") {
+function broadcastAuth(
+  type: AuthBroadcast["type"],
+  userId?: string,
+) {
   try {
-    const payload: AuthBroadcast = { type, at: Date.now() };
+    const payload: AuthBroadcast = {
+      type,
+      at: Date.now(),
+      ...(userId ? { userId } : {}),
+    };
     localStorage.setItem(AUTH_BROADCAST_KEY, JSON.stringify(payload));
   } catch {
     // Ignore storage failures (private mode, quota, etc.)
@@ -204,6 +266,17 @@ function clearCachedUser(): void {
   }
 }
 
+async function suspendAccountWorkForUser(userId: string): Promise<void> {
+  scopeAccountWork(null);
+  if (!userId) return;
+  try {
+    const { suspendSyncOwner } = await import("../db/sync");
+    await suspendSyncOwner(userId);
+  } catch (syncError) {
+    console.warn("[AuthProvider] Sync suspension failed:", syncError);
+  }
+}
+
 async function callAccount<T>(fn: () => Promise<T>): Promise<T> {
   try {
     const result = await fn();
@@ -226,6 +299,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = useState<Models.User<Models.Preferences> | null>(
     () => {
       const initialUser = readCachedUser();
+      const deletionIntent = readAccountDeletionIntent();
+      if (initialUser && deletionIntent?.userId === initialUser.$id) {
+        scopeAccountWork(null);
+        return null;
+      }
       if (initialUser && pendingSignupMatchesUser(readPendingSignup(), initialUser)) {
         clearCachedUser();
         scopeAccountWork(null);
@@ -312,6 +390,90 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     };
   }, [connectivity.status, isLoading, userId]);
 
+  const finalizeDeletedAccount = useCallback(
+    async (deletingUserId: string): Promise<void> => {
+      scopeAccountWork(null);
+      clearCachedUser();
+      clearPendingSignup();
+      setPendingSignup(null);
+      setUser(null);
+      setIsLoading(false);
+      broadcastAuth("deletion_accepted", deletingUserId);
+
+      try {
+        const { clearDeletedAccountLocalData } = await import(
+          "../lib/accountDeletionLocal"
+        );
+        await clearDeletedAccountLocalData(deletingUserId);
+        clearAccountDeletionIntent(deletingUserId);
+        if (isMountedRef.current) setError(null);
+      } catch (cleanupError) {
+        console.warn(
+          "[AuthProvider] Deleted-account local cleanup was incomplete:",
+          cleanupError,
+        );
+        if (isMountedRef.current) {
+          setError(
+            "Your account deletion was accepted, but some local data could not be cleared yet.",
+          );
+        }
+      }
+    },
+    [],
+  );
+
+  const submitPendingDeletion = useCallback(
+    async (deletingUserId: string): Promise<boolean> => {
+      await suspendAccountWorkForUser(deletingUserId);
+      clearCachedUser();
+      clearPendingSignup();
+      setPendingSignup(null);
+      setUser(null);
+      setIsLoading(true);
+      broadcastAuth("deletion_pending", deletingUserId);
+
+      try {
+        const { requestAccountDeletion } = await import(
+          "../lib/accountDeletion"
+        );
+        const state = await requestAccountDeletion("DELETE");
+
+        if (state.accepted) {
+          await finalizeDeletedAccount(deletingUserId);
+          return true;
+        }
+
+        // The server retained a pre-pivot deletion job but has not yet
+        // confirmed the immutable DR marker. Keep the account locally frozen;
+        // the server worker and future authenticated retries can safely finish.
+        if (isMountedRef.current) {
+          setIsLoading(false);
+          setError(
+            "Account deletion is pending and will continue when the privacy marker is available.",
+          );
+        }
+        return true;
+      } catch (deleteError: unknown) {
+        // A lost/late HTTP response can happen after the server retained the
+        // deletion request or crossed the privacy pivot. Never restart sync
+        // based only on browser uncertainty.
+        scopeAccountWork(null);
+        clearCachedUser();
+        setUser(null);
+        if (isMountedRef.current) {
+          setIsLoading(false);
+          const detail =
+            deleteError instanceof Error ? ` (${deleteError.message})` : "";
+          setError(
+            `Account deletion is still pending. Sign in to the same account to retry safely.${detail}`,
+          );
+        }
+        return true;
+      }
+    },
+    [finalizeDeletedAccount],
+  );
+
   const verifyLiveSession = useCallback(async (sessionExpiredOn401 = false) => {
     const generation = authGenerationRef.current;
     if (resolveInFlightGenerationRef.current === generation) return;
@@ -328,6 +490,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       if (!isMountedRef.current || generation !== authGenerationRef.current) {
         return;
       }
+      const deletionIntent = readAccountDeletionIntent();
+      if (deletionIntent?.userId === resolved.$id) {
+        await submitPendingDeletion(resolved.$id);
+        return;
+      }
+
       const pending = readPendingSignup();
       if (pendingSignupMatchesUser(pending, resolved)) {
         const nextPending = {
@@ -364,20 +532,23 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         // `user_blocked` error to purge their local copy instead of leaving
         // deleted-account data stranded on that device.
         const blocked = isBlockedUserError(resolveError);
-        const cached = blocked ? readCachedUser() : null;
+        const cached = readCachedUser();
+        const deletionIntent = readAccountDeletionIntent();
 
         authGenerationRef.current += 1;
         scopeAccountWork(null);
         clearCachedUser();
         if (blocked) {
+          const deletingUserId = cached?.$id || deletionIntent?.userId;
           clearPendingSignup();
           setPendingSignup(null);
-          broadcastAuth("logout");
-          if (cached?.$id) {
+          if (deletingUserId) {
+            broadcastAuth("deletion_accepted", deletingUserId);
             void import("../lib/accountDeletionLocal")
-              .then(({ clearDeletedAccountLocalData }) =>
-                clearDeletedAccountLocalData(cached.$id),
-              )
+              .then(async ({ clearDeletedAccountLocalData }) => {
+                await clearDeletedAccountLocalData(deletingUserId);
+                clearAccountDeletionIntent(deletingUserId);
+              })
               .catch((cleanupError) => {
                 console.warn(
                   "[AuthProvider] Peer-device deleted-account cleanup failed:",
@@ -390,9 +561,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         setError(
           blocked
             ? "This Mosaic account is being deleted."
-            : sessionExpiredOn401
-              ? "Your session has expired. Please sign in again."
-              : null,
+            : deletionIntent
+              ? "Account deletion is still pending. Sign in to the same account to retry safely."
+              : sessionExpiredOn401
+                ? "Your session has expired. Please sign in again."
+                : null,
         );
       } else {
         // Keep the cached identity/local app. Connectivity now communicates
@@ -408,7 +581,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         resolveInFlightGenerationRef.current = null;
       }
     }
-  }, []);
+  }, [submitPendingDeletion]);
 
   // "checking" means the browser thinks a path may exist but Mosaic has not
   // yet proven Appwrite reachability. Initial mount and reconnect both land
@@ -442,14 +615,59 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           return;
         }
 
+        if (
+          parsed.type === "deletion_pending" ||
+          parsed.type === "deletion_accepted"
+        ) {
+          const deletingUserId = parsed.userId;
+          clearCachedUser();
+          clearPendingSignup();
+          setPendingSignup(null);
+          setUser(null);
+          setIsLoading(false);
+          setError(
+            parsed.type === "deletion_pending"
+              ? "Account deletion is pending."
+              : null,
+          );
+          if (deletingUserId) {
+            void suspendAccountWorkForUser(deletingUserId);
+            if (parsed.type === "deletion_accepted") {
+              void import("../lib/accountDeletionLocal")
+                .then(async ({ clearDeletedAccountLocalData }) => {
+                  await clearDeletedAccountLocalData(deletingUserId);
+                  clearAccountDeletionIntent(deletingUserId);
+                })
+                .catch((cleanupError) => {
+                  console.warn(
+                    "[AuthProvider] Cross-tab deleted-account cleanup failed:",
+                    cleanupError,
+                  );
+                });
+            }
+          }
+          return;
+        }
+
         // A completed login/signup clears pending onboarding before broadcast.
         const pending = readPendingSignup();
         setPendingSignup(
           pending ? { email: pending.email, name: pending.name } : null,
         );
+        const cached = readCachedUser();
+        const deletionIntent = readAccountDeletionIntent();
+        if (cached && deletionIntent?.userId === cached.$id) {
+          setUser(null);
+          setError("Account deletion is pending.");
+          setIsLoading(false);
+          if (getConnectivitySnapshot().status !== "offline") {
+            markConnectivityChecking("cross-tab-deletion-retry");
+          }
+          return;
+        }
         // Another tab already wrote the authenticated identity. Use it
         // immediately, then reconcile the live session in the background.
-        setUser(readCachedUser());
+        setUser(cached);
         setError(null);
         setIsLoading(false);
         if (getConnectivitySnapshot().status !== "offline") {
@@ -474,14 +692,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   }, [verifyLiveSession]);
 
   const suspendCurrentAccountWork = useCallback(async (): Promise<void> => {
-    scopeAccountWork(null);
-    if (!userId) return;
-    try {
-      const { suspendSyncOwner } = await import("../db/sync");
-      await suspendSyncOwner(userId);
-    } catch (syncError) {
-      console.warn("[AuthProvider] Sync suspension failed:", syncError);
+    if (!userId) {
+      scopeAccountWork(null);
+      return;
     }
+    await suspendAccountWorkForUser(userId);
   }, [userId]);
 
   const login = useCallback(
@@ -506,6 +721,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           reusedSession ?? (await callAccount(() => account.get()));
         authenticatedUserId = resolved.$id;
         if (!isMountedRef.current || generation !== authGenerationRef.current) {
+          return false;
+        }
+
+        const deletionIntent = readAccountDeletionIntent();
+        if (deletionIntent?.userId === resolved.$id) {
+          await submitPendingDeletion(resolved.$id);
           return false;
         }
 
@@ -545,7 +766,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         return false;
       }
     },
-    [suspendCurrentAccountWork, verifyLiveSession],
+    [submitPendingDeletion, suspendCurrentAccountWork, verifyLiveSession],
   );
 
   const signup = useCallback(
@@ -724,78 +945,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         return false;
       }
 
-      const generation = ++authGenerationRef.current;
+      ++authGenerationRef.current;
       setError(null);
-      setIsLoading(true);
-      await suspendCurrentAccountWork();
-
-      try {
-        const { requestAccountDeletion } = await import(
-          "../lib/accountDeletion"
-        );
-        await requestAccountDeletion(confirmation);
-
-        // Once the server accepts deletion the account is intentionally frozen
-        // and the operation is irreversible. Local cleanup is therefore
-        // best-effort and must never restore the old sync owner on failure.
-        scopeAccountWork(null);
-        clearCachedUser();
-        clearPendingSignup();
-        broadcastAuth("logout");
-
-        if (
-          isMountedRef.current &&
-          generation === authGenerationRef.current
-        ) {
-          // Unmount account-bound consumers before IndexedDB/cache removal.
-          setPendingSignup(null);
-          setUser(null);
-          setError(null);
-          setIsLoading(false);
-        }
-
-        try {
-          const { clearDeletedAccountLocalData } = await import(
-            "../lib/accountDeletionLocal"
-          );
-          await clearDeletedAccountLocalData(deletingUser.$id);
-        } catch (cleanupError) {
-          console.warn(
-            "[AuthProvider] Deleted-account local cleanup was incomplete:",
-            cleanupError,
-          );
-        }
-        return true;
-      } catch (deleteError: unknown) {
-        if (
-          !isMountedRef.current ||
-          generation !== authGenerationRef.current
-        ) {
-          return false;
-        }
-
-        // The server did not confirm the irreversible acceptance boundary.
-        // Restore this account's normal work scope and allow sync to resume.
-        scopeAccountWork(deletingUser.$id);
-        void import("../db/sync")
-          .then(({ initializeSync }) => initializeSync(deletingUser.$id))
-          .catch((syncError) => {
-            console.warn(
-              "[AuthProvider] Sync restart after failed account deletion failed:",
-              syncError,
-            );
-          });
-
-        setError(
-          deleteError instanceof Error
-            ? deleteError.message
-            : "Could not delete account.",
-        );
-        setIsLoading(false);
-        return false;
-      }
+      writeAccountDeletionIntent(deletingUser.$id);
+      broadcastAuth("deletion_pending", deletingUser.$id);
+      return submitPendingDeletion(deletingUser.$id);
     },
-    [suspendCurrentAccountWork, user],
+    [submitPendingDeletion, user],
   );
 
   const updateEmail = useCallback(
