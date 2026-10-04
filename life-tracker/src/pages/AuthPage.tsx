@@ -5,12 +5,18 @@ import { Button } from "../components/ui/Button";
 import { Input } from "../components/ui/Input";
 import { Eye, EyeOff } from "lucide-react";
 import { MIN_PASSWORD_LENGTH } from "../lib/password";
+import {
+  normalizeUsername,
+  USERNAME_MAX_LENGTH,
+  USERNAME_REQUIREMENTS,
+} from "../lib/profileUsername";
 
 export const AuthPage: React.FC = () => {
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
+  const [username, setUsername] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [showRecovery, setShowRecovery] = useState(false);
   const {
@@ -23,6 +29,7 @@ export const AuthPage: React.FC = () => {
     recoveryLoading,
     recoveryError,
     recoverySuccess,
+    pendingSignup,
   } = useAuth();
   const navigate = useNavigate();
   const passwordId = useId();
@@ -31,11 +38,19 @@ export const AuthPage: React.FC = () => {
     if (user) navigate("/home", { replace: true });
   }, [navigate, user]);
 
+  useEffect(() => {
+    if (!pendingSignup) return;
+    setIsLogin(false);
+    setEmail(pendingSignup.email);
+    setName(pendingSignup.name);
+  }, [pendingSignup]);
+
   const switchToLogin = () => {
     setShowRecovery(false);
     setIsLogin(true);
     setPassword("");
     setName("");
+    setUsername("");
   };
 
   const switchToSignup = () => {
@@ -108,7 +123,7 @@ export const AuthPage: React.FC = () => {
     e.preventDefault();
     const success = isLogin
       ? await login(email, password)
-      : await signup(email, password, name);
+      : await signup(email, password, name, username);
     if (success) {
       navigate("/home", { replace: true });
     }
@@ -147,14 +162,53 @@ export const AuthPage: React.FC = () => {
         </div>
         <form onSubmit={handleSubmit} className="space-y-4">
           {!isLogin && (
-            <Input
-              label="Full Name"
-              type="text"
-              placeholder="John Doe"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              required={!isLogin}
-            />
+            <>
+              <Input
+                label="Full Name"
+                type="text"
+                placeholder="John Doe"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                required
+                maxLength={50}
+                autoComplete="name"
+              />
+              <div className="w-full">
+                <label
+                  htmlFor="signup-username"
+                  className="block text-xs text-gray-400 mb-1.5 ml-1"
+                >
+                  Username
+                </label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm pointer-events-none">
+                    @
+                  </span>
+                  <input
+                    id="signup-username"
+                    type="text"
+                    value={username}
+                    onChange={(e) => setUsername(normalizeUsername(e.target.value))}
+                    placeholder="your_handle"
+                    required
+                    minLength={3}
+                    maxLength={USERNAME_MAX_LENGTH}
+                    autoCapitalize="none"
+                    autoCorrect="off"
+                    spellCheck={false}
+                    autoComplete="username"
+                    aria-describedby="signup-username-help"
+                    className="w-full bg-[#1E1E1E] text-white border border-[#333333] rounded-lg pl-8 pr-4 py-2.5 focus:border-[#555555] focus-visible:ring-2 focus-visible:ring-emerald-500/60 focus:outline-none transition-colors placeholder-gray-400"
+                  />
+                </div>
+                <p
+                  id="signup-username-help"
+                  className="text-xs text-gray-400 mt-1.5 ml-1"
+                >
+                  {USERNAME_REQUIREMENTS.replace("Username must be ", "")}
+                </p>
+              </div>
+            </>
           )}
           <Input
             label="Email Address"
