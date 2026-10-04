@@ -99,6 +99,32 @@ describe('backup restore', () => {
     expect(applied).toHaveBeenCalledOnce();
   });
 
+  it('fails closed if the account changes during the final convergence wait', async () => {
+    const success = {
+      status: {
+        isSyncing: false,
+        lastSync: new Date().toISOString(),
+        errors: [],
+      },
+      startedAt: Date.now() - 1_000,
+    };
+    state.refreshSync
+      .mockResolvedValueOnce(success)
+      .mockImplementationOnce(async () => {
+        state.accountCurrent = false;
+        throw new Error('sync owner changed');
+      });
+    const file = jsonBackup({ data: {
+      tasks: [{ id: 'task_owner_switch', title: 'Owner switch', completed: false, categoryId: '', date: '2026-09-20', createdAt: '2026-09-20T00:00:00.000Z', updatedAt: '2026-09-20T00:00:00.000Z', userId: 'user_A', isDeleted: false, visibility: 'private' }],
+      categories: [], diary: [], settings: [], friendships: []
+    } });
+
+    await expect(
+      restoreUserData(file, currentUser, { mode: 'merge' })
+    ).rejects.toThrow(/signed-in account changed/i);
+    expect(state.rows.tasks.get('task_owner_switch')?.title).toBe('Owner switch');
+  });
+
   it.each([1000, 5000])('applies a %i-task import without dropping rows', async (count) => {
     const tasks = Array.from({ length: count }, (_, index) => ({
       id: `stress_${index}`, title: `Imported ${index}`, completed: index % 2 === 0,
