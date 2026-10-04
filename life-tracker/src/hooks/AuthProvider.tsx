@@ -45,6 +45,36 @@ function normalizeEmail(value: string): string {
   return value.trim().toLowerCase();
 }
 
+function isSessionAlreadyActiveError(error: unknown): boolean {
+  const type = (error as { type?: string } | null)?.type;
+  if (type === "user_session_already_exists") return true;
+  const message = error instanceof Error ? error.message : "";
+  return /session.*(?:already exists|already active|prohibited when a session is active)/i.test(
+    message,
+  );
+}
+
+async function createSessionOrReuseMatching(
+  email: string,
+  password: string,
+): Promise<Models.User<Models.Preferences> | null> {
+  try {
+    await callAccount(() =>
+      account.createEmailPasswordSession(email, password),
+    );
+    return null;
+  } catch (sessionError) {
+    if (!isSessionAlreadyActiveError(sessionError)) {
+      throw sessionError;
+    }
+    const existing = await callAccount(() => account.get());
+    if (normalizeEmail(existing.email) !== normalizeEmail(email)) {
+      throw sessionError;
+    }
+    return existing;
+  }
+}
+
 function readPendingSignup(): PendingSignupRecord | null {
   try {
     const raw = localStorage.getItem(PENDING_SIGNUP_KEY);
@@ -415,40 +445,21 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         } catch {
           // Session may not exist. The create-session call below is authoritative.
         }
-        await callAccount(() =>
-          account.createEmailPasswordSession(normalizedEmail, password),
+        const reusedSession = await createSessionOrReuseMatching(
+          normalizedEmail,
+          password,
         );
-        const resolved = await callAccount(() => account.get());
+        const resolved =
+          reusedSession ?? (await callAccount(() => account.get()));
         authenticatedUserId = resolved.$id;
         if (!isMountedRef.current || generation !== authGenerationRef.current) {
           return false;
         }
 
         scopeAccountWork(resolved.$id);
-        const { fetchMyProfile } = await import("../lib/social");
-        const profile = await fetchMyProfile(resolved.$id);
-        if (!isMountedRef.current || generation !== authGenerationRef.current) {
-          return false;
-        }
-        if (!profile) {
-          const nextPending = {
-            email: normalizeEmail(resolved.email),
-            name: resolved.name || "",
-            userId: resolved.$id,
-          };
-          writePendingSignup(nextPending);
-          clearCachedUser();
-          scopeAccountWork(null);
-          setPendingSignup({
-            email: nextPending.email,
-            name: nextPending.name,
-          });
-          setUser(null);
-          setError("Choose a username to finish setting up your account.");
-          setIsLoading(false);
-          return false;
-        }
-
+        // New signup requires a profile before first entry, but legacy accounts
+        // that predate that requirement must remain usable. Social surfaces
+        // already prompt for profile setup when a profile is actually needed.
         clearPendingSignup();
         setPendingSignup(null);
         writeCachedUser(resolved);
@@ -525,10 +536,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           // No current session is the normal fresh-signup case.
         }
 
-        await callAccount(() =>
-          account.createEmailPasswordSession(normalizedEmail, password),
+        const reusedSession = await createSessionOrReuseMatching(
+          normalizedEmail,
+          password,
         );
-        const resolved = await callAccount(() => account.get());
+        const resolved =
+          reusedSession ?? (await callAccount(() => account.get()));
         authenticatedUserId = resolved.$id;
 
         if (
