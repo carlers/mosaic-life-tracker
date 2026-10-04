@@ -361,7 +361,7 @@ describe("AuthProvider offline auth gate", () => {
     expect(initializeSyncMock).not.toHaveBeenCalled();
   });
 
-  it("routes explicit login without a profile back into username setup", async () => {
+  it("keeps legacy login usable even when no social profile exists yet", async () => {
     accountRef.get.mockRejectedValueOnce(makeUnauthorizedError());
     const { result } = renderHook(() => useAuth(), { wrapper });
     await waitFor(() => expect(result.current.isLoading).toBe(false));
@@ -379,15 +379,71 @@ describe("AuthProvider offline auth gate", () => {
     await act(async () => {
       expect(
         await result.current.login("needs-profile@example.com", "test-pass-123"),
+      ).toBe(true);
+    });
+
+    expect(result.current.user?.$id).toBe("user_needs_profile");
+    expect(result.current.pendingSignup).toBeNull();
+    expect(result.current.error).toBeNull();
+    expect(fetchMyProfileMock).not.toHaveBeenCalled();
+  });
+
+  it("reuses a matching already-active Appwrite session after delete-session fails", async () => {
+    accountRef.get.mockRejectedValueOnce(makeUnauthorizedError());
+    const { result } = renderHook(() => useAuth(), { wrapper });
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    const existing = makeUser({
+      $id: "user_active_session",
+      email: "active@example.com",
+    });
+    accountRef.deleteSession.mockRejectedValueOnce(new Error("delete unavailable"));
+    accountRef.createEmailPasswordSession.mockRejectedValueOnce(
+      Object.assign(
+        new Error("Creation of a session is prohibited when a session is active"),
+        { type: "user_session_already_exists", code: 401 },
+      ),
+    );
+    accountRef.get.mockResolvedValueOnce(existing);
+
+    await act(async () => {
+      expect(
+        await result.current.login("ACTIVE@example.com", "test-pass-123"),
+      ).toBe(true);
+    });
+
+    expect(result.current.user?.$id).toBe("user_active_session");
+    expect(accountRef.get).toHaveBeenCalledTimes(2);
+  });
+
+  it("rejects an already-active session when it belongs to another account", async () => {
+    accountRef.get.mockRejectedValueOnce(makeUnauthorizedError());
+    const { result } = renderHook(() => useAuth(), { wrapper });
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    accountRef.deleteSession.mockRejectedValueOnce(new Error("delete unavailable"));
+    accountRef.createEmailPasswordSession.mockRejectedValueOnce(
+      Object.assign(
+        new Error("Creation of a session is prohibited when a session is active"),
+        { type: "user_session_already_exists", code: 401 },
+      ),
+    );
+    accountRef.get.mockResolvedValueOnce(
+      makeUser({
+        $id: "user_other_active",
+        email: "other@example.com",
+      }),
+    );
+
+    await act(async () => {
+      expect(
+        await result.current.login("wanted@example.com", "test-pass-123"),
       ).toBe(false);
     });
 
     expect(result.current.user).toBeNull();
-    expect(result.current.pendingSignup).toEqual({
-      email: "needs-profile@example.com",
-      name: "Needs Profile",
-    });
-    expect(result.current.error).toMatch(/choose a username/i);
+    expect(result.current.error).toMatch(/session is active/i);
+    expect(localStorage.getItem(LAST_KNOWN_USER_KEY)).toBeNull();
   });
 
   // Regression: §19 (successful login triggers sync after auth resolves).
