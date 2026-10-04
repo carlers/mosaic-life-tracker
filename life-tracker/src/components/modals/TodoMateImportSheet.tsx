@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Download, Loader2 } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { useSheetReset } from '../../hooks/useSheetReset';
+import { usePropSync } from '../../hooks/usePropSync';
 import { restoreUserData } from '../../lib/restoreData';
 import {
   prepareTodoMateTransfer,
@@ -71,7 +72,7 @@ export const TodoMateImportSheet: React.FC<TodoMateImportSheetProps> = ({
     }
   });
 
-  useEffect(() => {
+  usePropSync(isOpen, () => {
     if (isOpen) return;
     previewGenerationRef.current += 1;
     previewAbortRef.current?.abort();
@@ -79,7 +80,7 @@ export const TodoMateImportSheet: React.FC<TodoMateImportSheetProps> = ({
     previewInFlightRef.current = false;
     setPassword('');
     setIsPreparing(false);
-  }, [isOpen]);
+  });
 
   useEffect(
     () => () => {
