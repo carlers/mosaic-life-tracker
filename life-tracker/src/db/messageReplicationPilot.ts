@@ -24,6 +24,8 @@ import {
   APPWRITE_TABLES,
 } from '../lib/appwriteConfig';
 import { awaitPilotReplicationFreshness } from './replicationFreshness';
+import { getReplicationIdentifier } from './replicationIds';
+import { trackReplicationFreshness } from './replicationLocalState';
 
 const PULL_BATCH_SIZE = 100;
 const PUSH_BATCH_SIZE = 50;
@@ -535,7 +537,7 @@ async function startMessageReplicationPilotNow(
     MessageReplicationCheckpoint
   >({
     replicationIdentifier:
-      `mosaic-appwrite-tablesdb-messages-v1:${userId}`,
+      getReplicationIdentifier('messages', userId),
     collection,
     live: true,
     retryTime: RETRY_TIME_MS,
@@ -557,6 +559,7 @@ async function startMessageReplicationPilotNow(
 
   activeOwnerId = userId;
   activeReplication = replication;
+  trackReplicationFreshness(replication, userId, 'messages');
   activeCollection = collection;
   activePullStream = pullStream;
   realtimeUnsubscribe = subscribeToMessageRealtime(

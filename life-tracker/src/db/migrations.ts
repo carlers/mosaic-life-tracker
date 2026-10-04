@@ -42,3 +42,13 @@ export const settingsMigrationStrategies = {
     updatedAt: '',
   }),
 };
+
+export const syncMetaMigrationStrategies = {
+  1: (oldDoc: Record<string, unknown>) => {
+    const { collection, ...rest } = oldDoc;
+    return {
+      ...rest,
+      collectionName: collection,
+    };
+  },
+};

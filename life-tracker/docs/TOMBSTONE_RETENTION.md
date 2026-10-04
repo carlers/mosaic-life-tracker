@@ -7,22 +7,52 @@ otherwise miss deletions and recreate stale rows.
 
 - Remote tombstones are retained for **90 days** by default.
 - The tombstone's `updated_at` is the deletion timestamp for retention purposes.
-- Steady-state RxDB replication uses each pilot's server-authored `$updatedAt + $id`
-  checkpoint. Mosaic also retains the compatibility bootstrap's per-collection cursor in
-  `lastSyncTimePerCollection` specifically for stale-client/full-reconciliation safety.
-- On each JavaScript session, before an inactive pilot hands off, the compatibility bootstrap
-  checks that cursor. If it is older than 90 days, that collection performs a full pull rather
-  than trusting an incremental boundary.
-- Full compatibility pulls include tombstones, so a stale client can reconcile deletions that
-  still fall inside the retention window before steady-state RxDB replication resumes.
-- Full reconciliation does not discard newly dirty local edits. Clean local rows that are
-  absent from the remote full pull are converted to local tombstones and marked as
-  reconciliation-suppressed, so they disappear locally without being recreated on the
-  server. A later user edit clears that effective suppression and can push the edit normally.
+- Normal startup does **not** run the old compatibility pull/push bootstrap. Each of the six
+  collections starts the same versioned RxDB `replicationIdentifier`; RxDB resumes its
+  persisted upstream/downstream checkpoints and pending local writes automatically.
+- `syncMeta` is a local-only RxDB collection. It stores, per account and synced collection,
+  the current replication identifier and the last time that replication reached a settled
+  in-sync state. The marker lives inside the same local database, so clearing/replacing the
+  database also clears the proof. It is never mapped to Appwrite.
+- Freshness is recorded only after RxDB's initial replication has completed, and again after
+  later active→idle replication cycles. Pull-handler return is deliberately insufficient
+  because returned rows/checkpoints may not yet be persisted.
+- During migration, the account-scoped legacy `lastSyncTimePerCollection` pull cursor is a
+  fallback only when no current `syncMeta` freshness marker exists. It is not a normal
+  replication checkpoint and it no longer authorizes browser writes.
+- If the local freshness proof for a collection is older than 90 days, startup performs a
+  **read-only full remote recovery before starting that collection's pilot**. The recovery
+  applies remote rows and reconciles clean local rows that are now absent remotely; it never
+  calls Appwrite `updateRow`/`createRow`.
+- Full stale recovery preserves local rows whose application `updatedAt` is newer than the
+  last trusted freshness boundary. Invalid/unknown local timestamps are preserved
+  conservatively rather than deleted. Pending outgoing messages missing remotely are also
+  preserved.
+- After stale recovery succeeds, the normal RxDB pilot starts. Any legitimate pending local
+  write is then handled by RxDB's persisted upstream protocol and the collection-specific
+  conflict rules.
 - Tombstones older than the retention window may be permanently removed only by the
   privileged scheduled maintenance path documented below.
-- A client whose cursor is older than the retention window must not assume that a missing
-  remote row still exists. Its full-pull path is the recovery boundary.
+
+## First sync and lost replication metadata
+
+When RxDB has no assumed master state for an owner-write row, Mosaic treats that as a
+first-sync/metadata-recovery condition rather than proof that the local row is new.
+
+For tasks, categories, diary, and settings:
+
+- a local row semantically equal to the current Appwrite row is acknowledged with **no
+  remote write**;
+- a newer Appwrite/application state wins as a conflict;
+- only a genuinely newer local application `updatedAt` may update the existing remote row;
+- a row that truly does not exist remotely may be created;
+- task bootstrap writes preserve the current server-owned reaction state.
+
+This prevents a remote row that was merely written into local RxDB from being mistaken for a
+new local edit because its RxDB `_meta.lwt` is recent.
+
+Friendship and message upstream remain validation-only/server-owned as documented in
+`PROJECT_REFERENCE.md`.
 
 ## Garbage collection
 
@@ -84,11 +114,16 @@ attempting a browser-side recreation.
 
 ## Why this is safe
 
-The protocol does not require a device registry. Safety comes from the retention horizon:
-steady-state clients receive tombstones through RxDB replication, while a new JavaScript
-session still passes through the compatibility bootstrap before handoff. If that bootstrap's
-cursor is outside the retention window, it switches to full reconciliation instead of
-assuming that a remotely absent row is still active.
+The protocol does not require a device registry or a cross-device mutex. Each device owns
+its own durable RxDB replication metadata. Normal reloads resume those checkpoints, so phone
+and desktop can replicate the same account independently without replaying local cache rows
+through a second writer.
+
+The 90-day safety boundary is separate from ordinary restart behavior. A local database
+whose proven replication freshness is older than the retention horizon first performs a
+read-only full reconciliation; only after that succeeds does normal RxDB replication resume.
+That prevents a remotely garbage-collected tombstone from being recreated just because an
+old device still has the pre-delete row.
 
 Sharing `message-action` does not make maintenance user-callable. Appwrite marks scheduled
 executions with trusted trigger metadata, and the handler routes that trigger before its

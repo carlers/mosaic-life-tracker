@@ -33,6 +33,8 @@ import {
 } from '../lib/pendingImages';
 import { updateProfileAvatar } from '../lib/social';
 import { awaitPilotReplicationFreshness } from './replicationFreshness';
+import { getReplicationIdentifier } from './replicationIds';
+import { trackReplicationFreshness } from './replicationLocalState';
 
 const PULL_BATCH_SIZE = 100;
 const PUSH_BATCH_SIZE = 20;
@@ -104,6 +106,19 @@ function settingStateEquals(
     left.isDeleted === right.isDeleted &&
     left.updatedAt === right.updatedAt &&
     left._deleted === right._deleted
+  );
+}
+
+function isBootstrapLocalNewer(
+  localUpdatedAt: string,
+  remoteUpdatedAt: string
+): boolean {
+  const localMs = Date.parse(localUpdatedAt);
+  const remoteMs = Date.parse(remoteUpdatedAt);
+  return (
+    Number.isFinite(localMs) &&
+    Number.isFinite(remoteMs) &&
+    localMs > remoteMs
   );
 }
 
@@ -249,37 +264,40 @@ async function pushSettings(
     const assumed = row.assumedMasterState;
 
     if (!assumed) {
-      if (current) {
+      if (!current) {
+        const prepared = await prepareSettingForPush(next, userId);
+        const createConflict = await createRemoteSetting(
+          prepared.document,
+          userId
+        );
+        if (createConflict) {
+          await mirrorProfileImageSetting(createConflict, userId);
+          await cleanupPendingProfileImage(next, userId);
+          conflicts.push(createConflict);
+          continue;
+        }
+        await finishSuccessfulPush(
+          prepared.document,
+          userId,
+          prepared.pendingImageId
+        );
+        if (!settingStateEquals(prepared.document, next)) {
+          conflicts.push(prepared.document);
+        }
+        continue;
+      }
+
+      if (settingStateEquals(current, next)) {
+        await mirrorProfileImageSetting(current, userId);
+        continue;
+      }
+      if (!isBootstrapLocalNewer(next.updatedAt, current.updatedAt)) {
         await mirrorProfileImageSetting(current, userId);
         await cleanupPendingProfileImage(next, userId);
         conflicts.push(current);
         continue;
       }
-
-      const prepared = await prepareSettingForPush(next, userId);
-      const createConflict = await createRemoteSetting(
-        prepared.document,
-        userId
-      );
-      if (createConflict) {
-        await mirrorProfileImageSetting(createConflict, userId);
-        await cleanupPendingProfileImage(next, userId);
-        conflicts.push(createConflict);
-        continue;
-      }
-
-      await finishSuccessfulPush(
-        prepared.document,
-        userId,
-        prepared.pendingImageId
-      );
-      if (!settingStateEquals(prepared.document, next)) {
-        conflicts.push(prepared.document);
-      }
-      continue;
-    }
-
-    if (current && !settingStateEquals(current, assumed)) {
+    } else if (current && !settingStateEquals(current, assumed)) {
       await mirrorProfileImageSetting(current, userId);
       await cleanupPendingProfileImage(next, userId);
       conflicts.push(current);
@@ -550,7 +568,7 @@ async function startSettingsReplicationPilotNow(
     SettingsReplicationCheckpoint
   >({
     replicationIdentifier:
-      `mosaic-appwrite-tablesdb-settings-v1:${userId}`,
+      getReplicationIdentifier('settings', userId),
     collection,
     live: true,
     retryTime: RETRY_TIME_MS,
@@ -571,6 +589,7 @@ async function startSettingsReplicationPilotNow(
 
   activeOwnerId = userId;
   activeReplication = replication;
+  trackReplicationFreshness(replication, userId, 'settings');
   activeCollection = collection;
   activePullStream = pullStream;
   realtimeUnsubscribe = subscribeToSettingsRealtime(userId, pullStream);

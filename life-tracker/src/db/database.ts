@@ -14,12 +14,14 @@ import {
   settingsSchema,
   friendshipsSchema,
   messagesSchema,
+  syncMetaSchema,
   type TaskDocument,
   type CategoryDocument,
   type DiaryDocument,
   type SettingsDocument,
   type FriendshipDocument,
   type MessageDocument,
+  type SyncMetaDocument,
 } from './schema';
 import { markStartup } from '../lib/startupMetrics';
 import {
@@ -28,6 +30,7 @@ import {
   messagesMigrationStrategies,
   categoriesMigrationStrategies,
   settingsMigrationStrategies,
+  syncMetaMigrationStrategies,
 } from './migrations';
 addRxPlugin(RxDBMigrationSchemaPlugin);
 
@@ -52,6 +55,7 @@ export interface AppDatabaseCollections {
   settings: RxCollection<SettingsDocument>;
   friendships: RxCollection<FriendshipDocument>;
   messages: RxCollection<MessageDocument>;
+  syncMeta: RxCollection<SyncMetaDocument>;
 }
 let dbInstance: RxDatabase<AppDatabaseCollections> | null = null;
 let dbInitPromise: Promise<RxDatabase<AppDatabaseCollections>> | null = null;
@@ -95,6 +99,10 @@ async function createDatabaseInstance(): Promise<RxDatabase<AppDatabaseCollectio
       messages: {
         schema: messagesSchema,
         migrationStrategies: messagesMigrationStrategies,
+      },
+      syncMeta: {
+        schema: syncMetaSchema,
+        migrationStrategies: syncMetaMigrationStrategies,
       },
     });
     markStartup('database:collections-ready');

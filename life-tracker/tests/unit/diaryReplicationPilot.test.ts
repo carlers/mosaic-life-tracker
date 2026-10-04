@@ -19,6 +19,7 @@ const reSyncMock = vi.hoisted(() => vi.fn());
 const awaitInSyncMock = vi.hoisted(() => vi.fn());
 const cancelMock = vi.hoisted(() => vi.fn());
 const errorSubscribeMock = vi.hoisted(() => vi.fn());
+const trackReplicationFreshnessMock = vi.hoisted(() => vi.fn());
 
 vi.mock('rxdb', () => ({
   getChangedDocumentsSince: getChangedDocumentsSinceMock,
@@ -63,6 +64,10 @@ vi.mock('../../src/lib/sdk', () => ({
   guardedRealtime: {
     subscribe: realtimeSubscribeMock,
   },
+}));
+
+vi.mock('../../src/db/replicationLocalState', () => ({
+  trackReplicationFreshness: trackReplicationFreshnessMock,
 }));
 
 import {
@@ -116,6 +121,7 @@ function collectionFixture(isLeader = true) {
 beforeEach(async () => {
   await stopDiaryReplicationPilot();
   vi.clearAllMocks();
+  trackReplicationFreshnessMock.mockImplementation(() => undefined);
   getChangedDocumentsSinceMock.mockResolvedValue({
     documents: [],
     checkpoint: { id: 'diary_z', lwt: 123 },
@@ -277,6 +283,46 @@ describe('diary RxDB replication pilot', () => {
       })
     );
     expect(updateRowMock).not.toHaveBeenCalled();
+  });
+
+  it('acknowledges identical first-sync diary state without rewriting Appwrite', async () => {
+    getRowMock.mockResolvedValue(
+      remoteDiary({ content: 'Local entry' })
+    );
+
+    const conflicts =
+      await __diaryReplicationPilotTestUtils.pushDiary(
+        [{ newDocumentState: localDiary() }],
+        'user_A'
+      );
+
+    expect(conflicts).toEqual([]);
+    expect(updateRowMock).not.toHaveBeenCalled();
+    expect(createRowMock).not.toHaveBeenCalled();
+  });
+
+  it('writes a genuinely newer first-sync diary edit once', async () => {
+    const conflicts =
+      await __diaryReplicationPilotTestUtils.pushDiary(
+        [
+          {
+            newDocumentState: localDiary({
+              content: 'Offline edit',
+              updatedAt: '2026-10-02T00:00:03.000Z',
+            }),
+          },
+        ],
+        'user_A'
+      );
+
+    expect(conflicts).toEqual([]);
+    expect(updateRowMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        rowId: 'diary_a',
+        data: expect.objectContaining({ content: 'Offline edit' }),
+      })
+    );
+    expect(createRowMock).not.toHaveBeenCalled();
   });
 
   it('returns the current master as a conflict instead of overwriting it', async () => {

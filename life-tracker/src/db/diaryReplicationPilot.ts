@@ -24,6 +24,8 @@ import {
   APPWRITE_TABLES,
 } from '../lib/appwriteConfig';
 import { awaitPilotReplicationFreshness } from './replicationFreshness';
+import { getReplicationIdentifier } from './replicationIds';
+import { trackReplicationFreshness } from './replicationLocalState';
 
 const PULL_BATCH_SIZE = 100;
 const PUSH_BATCH_SIZE = 20;
@@ -100,6 +102,19 @@ function diaryStateEquals(
   );
 }
 
+function isBootstrapLocalNewer(
+  localUpdatedAt: string,
+  remoteUpdatedAt: string
+): boolean {
+  const localMs = Date.parse(localUpdatedAt);
+  const remoteMs = Date.parse(remoteUpdatedAt);
+  return (
+    Number.isFinite(localMs) &&
+    Number.isFinite(remoteMs) &&
+    localMs > remoteMs
+  );
+}
+
 async function readRemoteDiary(
   rowId: string
 ): Promise<ReplicatedDiary | null> {
@@ -162,16 +177,26 @@ async function pushDiary(
     const assumed = row.assumedMasterState;
 
     if (!assumed) {
-      if (current) {
+      if (!current) {
+        const createConflict = await createRemoteDiary(next, userId);
+        if (createConflict) conflicts.push(createConflict);
+        continue;
+      }
+
+      // No assumed master means this row predates RxDB's persisted
+      // replication metadata (first sync / metadata recovery). A local LWT
+      // alone is not evidence of a local edit because downstream replication
+      // also writes the local document. Identical state is acknowledged
+      // without a remote write; otherwise only a genuinely newer
+      // application-level edit is allowed to win this one-time bootstrap.
+      if (diaryStateEquals(current, next)) {
+        continue;
+      }
+      if (!isBootstrapLocalNewer(next.updatedAt, current.updatedAt)) {
         conflicts.push(current);
         continue;
       }
-      const createConflict = await createRemoteDiary(next, userId);
-      if (createConflict) conflicts.push(createConflict);
-      continue;
-    }
-
-    if (current && !diaryStateEquals(current, assumed)) {
+    } else if (current && !diaryStateEquals(current, assumed)) {
       conflicts.push(current);
       continue;
     }
@@ -405,7 +430,7 @@ async function startDiaryReplicationPilotNow(
     DiaryReplicationCheckpoint
   >({
     replicationIdentifier:
-      `mosaic-appwrite-tablesdb-diary-v1:${userId}`,
+      getReplicationIdentifier('diary', userId),
     collection,
     live: true,
     retryTime: RETRY_TIME_MS,
@@ -426,6 +451,7 @@ async function startDiaryReplicationPilotNow(
 
   activeOwnerId = userId;
   activeReplication = replication;
+  trackReplicationFreshness(replication, userId, 'diary');
   activeCollection = collection;
   activePullStream = pullStream;
   realtimeUnsubscribe = subscribeToDiaryRealtime(userId, pullStream);
