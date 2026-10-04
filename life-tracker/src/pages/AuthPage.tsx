@@ -1,6 +1,7 @@
 import React, { useEffect, useId, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
+import { usePropSync } from "../hooks/usePropSync";
 import { Button } from "../components/ui/Button";
 import { Input } from "../components/ui/Input";
 import { Eye, EyeOff } from "lucide-react";
@@ -38,12 +39,12 @@ export const AuthPage: React.FC = () => {
     if (user) navigate("/home", { replace: true });
   }, [navigate, user]);
 
-  useEffect(() => {
+  usePropSync(pendingSignup, () => {
     if (!pendingSignup) return;
     setIsLogin(false);
     setEmail(pendingSignup.email);
     setName(pendingSignup.name);
-  }, [pendingSignup]);
+  });
 
   const switchToLogin = () => {
     setShowRecovery(false);
