@@ -524,7 +524,7 @@ describe('friendship RxDB replication pilot', () => {
     ).rejects.toThrow('master owner mismatch');
   });
 
-  it('rejects local writes scoped to another account', async () => {
+  it('ignores cached friendship rows scoped to another local account', async () => {
     await expect(
       __friendshipReplicationPilotTestUtils.validateFriendshipChanges(
         [
@@ -536,6 +536,8 @@ describe('friendship RxDB replication pilot', () => {
         ],
         'user_A'
       )
-    ).rejects.toThrow('owner mismatch');
+    ).resolves.toEqual([]);
+
+    expect(getRowMock).not.toHaveBeenCalled();
   });
 });
