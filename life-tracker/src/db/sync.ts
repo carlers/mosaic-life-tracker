@@ -65,6 +65,7 @@ import {
   type SyncedCollectionName,
 } from './replicationIds';
 import { getReplicationFreshness } from './replicationLocalState';
+import { assertRemoteRowsOwnedBy } from './replicationOwnership';
 export { toAppwriteFormat, fromAppwriteFormat };
 export { getSyncStatus, subscribeToSyncStatus } from '../lib/syncStatus';
 const APPWRITE_CONFIG = {
@@ -1230,6 +1231,11 @@ async function syncCollection(
 
     const rows = ((remoteResponse as { rows?: AppwriteRow[] }).rows ||
       []) as AppwriteRow[];
+    assertRemoteRowsOwnedBy(
+      rows as unknown as Record<string, unknown>[],
+      userId,
+      `${colName} stale recovery`
+    );
     pageCount++;
     if (DEBUG) {
       console.log(

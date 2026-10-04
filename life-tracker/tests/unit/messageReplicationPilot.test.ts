@@ -232,6 +232,16 @@ describe('message RxDB replication pilot', () => {
     ]);
   });
 
+  it('fails closed if the message bootstrap tail belongs to another account', async () => {
+    listRowsMock.mockResolvedValue({
+      rows: [remoteMessage({ user_id: 'mallory' })],
+    });
+
+    await expect(
+      captureMessageReplicationPullCheckpoint('user_A')
+    ).rejects.toThrow('remote owner mismatch');
+  });
+
   it('starts from both pre-bootstrap checkpoints', async () => {
     const { collection } = collectionFixture();
     const pushCheckpoint = { id: 'msg_seed', lwt: 77 };

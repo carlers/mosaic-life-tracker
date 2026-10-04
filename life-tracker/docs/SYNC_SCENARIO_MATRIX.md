@@ -26,7 +26,7 @@ Status meanings:
 | Account switch | Owner changes during startup | Old generation stops; old-owner pilots are torn down | **Covered** |
 | Account switch | Old-owner teardown runs after new owner schedules a backoff retry | Old owner must not cancel the new owner's wake timer | **Covered; fixed by this audit** |
 | Shared local DB | Active account's upstream scan sees cached rows belonging to another account | Ignore local foreign-owner rows without touching Appwrite | **Covered** across pilots |
-| Remote isolation | Owner-scoped list/get unexpectedly returns another account's row | Fail closed as a cross-account collision; never silently accept/filter it | **Covered; fixed by this audit** across all six pulls and owner-write direct master reads |
+| Remote isolation | Owner-scoped list/get unexpectedly returns another account's row | Fail closed as a cross-account collision; never silently accept/filter it | **Covered; fixed by this audit** across all six steady-state pulls, stale-recovery/bootstrap snapshot reads, and owner-write direct master reads |
 | Connectivity | Browser/Appwrite reachability is not proven | Do not start network sync; keep local app usable | **Covered** by connectivity/auth contracts |
 | Reconnect/focus | App becomes visible/online/focused | Request resync; do not depend on Realtime having delivered every event | **Covered** by AppLayout lifecycle + sync tests |
 | Realtime | Create/update event arrives in order | Treat event as a wake-up and catch up through ordered pull checkpoint | **Covered; fixed by this audit** across all six pilots |
