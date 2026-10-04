@@ -3,6 +3,7 @@ export interface SyncProgress {
   total: number;
   percent: number;
   label: string;
+  pendingGroups?: string[];
 }
 
 export interface SyncStatus {
