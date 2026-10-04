@@ -547,8 +547,9 @@ Recipient-side `read_at` propagation depends on `markReadOnRemote` eventually su
   isLoading: boolean;
   error: string | null;
   isOffline: boolean;           // true = "couldn't check", not "logged out"
+  pendingSignup: { email: string; name: string } | null;
   login: (email, password) => Promise<boolean>;
-  signup: (email, password, name) => Promise<boolean>;
+  signup: (email, password, name, username) => Promise<boolean>;
   logout: () => Promise<boolean>;
   updateEmail: (newEmail, password) => Promise<boolean>;
   updatePassword: (newPassword, oldPassword) => Promise<boolean>;
@@ -558,8 +559,8 @@ Recipient-side `read_at` propagation depends on `markReadOnRemote` eventually su
 
 ### 23.3 Session Transitions
 - **Mount:** `AuthProvider` defers `account.get()` via `queueMicrotask` inside its mount effect. On 401 → `user: null`, `isOffline: false`. On network error → `user: null`, `isOffline: true`, error message set
-- **Login:** clears any stale session, creates a new one, calls `account.get()`, updates state, broadcasts a `login` event via `localStorage`
-- **Signup:** same as login after account creation (with the `already active` / `prohibited` swallow for Appwrite's auto-session quirk)
+- **Login:** clears any stale session, creates a new one, calls `account.get()`, and verifies that the account has a profile before publishing authenticated app state. An account without a profile stays on resumable username setup instead of entering Home/social with a missing identity.
+- **Signup:** collects display name + username before account creation. A small `mosaic_pending_signup` record lets the flow survive reloads and ambiguous account-creation responses. Account-create 409 is not assumed to be success: Mosaic must prove ownership by creating the email/password session. The profile/username is created before the user is cached/published; the remote unique username constraint is authoritative, so a profile 409 keeps the account in resumable setup. Only completed account + profile onboarding broadcasts `login` and starts ordinary post-auth sync.
 - **Logout:** deletes the session, updates state, broadcasts a `logout` event. Returns `true` on success and `false` on failure. **Callers must gate navigation on the return value**
 - **Update email / password:** these do not change session identity; they refresh `user` only
 
@@ -591,7 +592,7 @@ Recipient-side `read_at` propagation depends on `markReadOnRemote` eventually su
 
 ### 23.7 Things Not To Do
 - Do not add `account.get()` calls to a hook or component. If you need session state, call `useAuth()`
-- Do not call `account.deleteSession` outside `AuthProvider`'s `logout()` except for the pre-login cleanup inside `login()`
+- Do not call `account.deleteSession` outside `AuthProvider`. Login/signup may clear a stale current session before proving the requested email/password identity; logout owns explicit sign-out.
 - Do not navigate away from a protected screen on `logout()` failure. Surface an error and stay put
 - Do not merge `authContext.ts` into `AuthProvider.tsx` — it breaks fast refresh
 - Do not treat offline errors as 401. The whole point of `isOffline` is that they're different
