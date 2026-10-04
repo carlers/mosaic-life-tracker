@@ -441,7 +441,7 @@ describe('friendship RxDB replication pilot', () => {
     expect(conflicts).toEqual([]);
   });
 
-  it('streams owner-scoped realtime updates through RxDB', async () => {
+  it('uses realtime writes only as an ordered pull catch-up signal', async () => {
     const { collection } = collectionFixture();
     await startFriendshipReplicationPilot(
       'user_A',
@@ -464,19 +464,7 @@ describe('friendship RxDB replication pilot', () => {
       }),
     });
 
-    await expect(next).resolves.toEqual({
-      checkpoint: {
-        id: 'fr_one',
-        updatedAt: '2026-10-02T00:00:05.000Z',
-      },
-      documents: [
-        expect.objectContaining({
-          id: 'fr_one',
-          userId: 'user_A',
-          _deleted: false,
-        }),
-      ],
-    });
+    await expect(next).resolves.toBe('RESYNC');
   });
 
   it('soft-deletes the local cache on a hard-delete realtime event', async () => {

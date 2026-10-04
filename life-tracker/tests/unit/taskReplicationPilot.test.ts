@@ -652,7 +652,7 @@ describe('task RxDB replication pilot', () => {
     );
   });
 
-  it('streams owner-scoped realtime updates through RxDB', async () => {
+  it('uses realtime writes only as an ordered pull catch-up signal', async () => {
     const collection = collectionFixture();
     await startTaskReplicationPilot(
       'user_A',
@@ -676,20 +676,7 @@ describe('task RxDB replication pilot', () => {
       }),
     });
 
-    await expect(next).resolves.toEqual({
-      checkpoint: {
-        id: 'task_one',
-        updatedAt: '2026-10-02T00:00:05.000Z',
-      },
-      documents: [
-        expect.objectContaining({
-          id: 'task_one',
-          userId: 'user_A',
-          reactions: '[{"emoji":"👍","userIds":["friend"]}]',
-          _deleted: false,
-        }),
-      ],
-    });
+    await expect(next).resolves.toBe('RESYNC');
   });
 
   it('rejects physical deletion for the active owner but ignores cached foreign-account rows', async () => {

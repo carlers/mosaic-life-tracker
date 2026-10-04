@@ -611,7 +611,7 @@ describe('settings RxDB replication pilot', () => {
     expect(deletePendingImageMock).not.toHaveBeenCalled();
   });
 
-  it('streams owner-scoped Appwrite realtime updates into replication', async () => {
+  it('uses realtime writes only as an ordered pull catch-up signal', async () => {
     await startSettingsReplicationPilot(
       'user_A',
       collectionFixture(),
@@ -630,18 +630,6 @@ describe('settings RxDB replication pilot', () => {
       payload: remoteSetting(),
     });
 
-    await expect(next).resolves.toEqual({
-      checkpoint: {
-        id: 'setting_a',
-        updatedAt: '2026-10-02T00:00:01.000Z',
-      },
-      documents: [
-        expect.objectContaining({
-          id: 'setting_a',
-          userId: 'user_A',
-          _deleted: false,
-        }),
-      ],
-    });
+    await expect(next).resolves.toBe('RESYNC');
   });
 });

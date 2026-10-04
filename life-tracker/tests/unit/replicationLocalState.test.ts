@@ -92,6 +92,7 @@ describe('replication local freshness state', () => {
     trackReplicationFreshness(
       {
         awaitInitialReplication: () => initial,
+        awaitInSync: () => Promise.resolve(true as const),
         active$,
         canceled$,
       },
@@ -116,6 +117,38 @@ describe('replication local freshness state', () => {
     expect(upsert).toHaveBeenCalledTimes(2);
   });
 
+  it('does not record a retrying active-to-idle cycle as fresh until RxDB is actually in sync', async () => {
+    let resolveInSync!: (value: true) => void;
+    const inSync = new Promise<true>((resolve) => {
+      resolveInSync = resolve;
+    });
+    const active$ = new BehaviorSubject(false);
+    const canceled$ = new BehaviorSubject(false);
+    const upsert = dbRef.current.syncMeta.upsert as ReturnType<typeof vi.fn>;
+
+    trackReplicationFreshness(
+      {
+        awaitInitialReplication: () => Promise.resolve(),
+        awaitInSync: () => inSync,
+        active$,
+        canceled$,
+      },
+      'user_A',
+      'tasks'
+    );
+
+    await vi.waitFor(() => expect(upsert).toHaveBeenCalledTimes(1));
+
+    active$.next(true);
+    active$.next(false);
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(upsert).toHaveBeenCalledTimes(1);
+
+    resolveInSync(true);
+    await vi.waitFor(() => expect(upsert).toHaveBeenCalledTimes(2));
+  });
+
   it('does not record freshness when replication is canceled before initial sync', async () => {
     const active$ = new BehaviorSubject(false);
     const canceled$ = new BehaviorSubject(false);
@@ -124,6 +157,7 @@ describe('replication local freshness state', () => {
     trackReplicationFreshness(
       {
         awaitInitialReplication: () => new Promise<void>(() => {}),
+        awaitInSync: () => new Promise<true>(() => {}),
         active$,
         canceled$,
       },

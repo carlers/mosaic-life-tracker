@@ -550,7 +550,7 @@ describe('message RxDB replication pilot', () => {
     expect(merged.originalMessageId).toBe('msg_sender');
   });
 
-  it('streams merged realtime updates through RxDB', async () => {
+  it('uses realtime writes only as an ordered pull catch-up signal', async () => {
     const local = localMessage({
       reactions: '[{"emoji":"❤️","userIds":["user_A"]}]',
       updatedAt: '2026-10-02T00:00:08.000Z',
@@ -581,18 +581,7 @@ describe('message RxDB replication pilot', () => {
       }),
     });
 
-    await expect(next).resolves.toEqual({
-      checkpoint: {
-        id: 'msg_one',
-        updatedAt: '2026-10-02T00:00:07.000Z',
-      },
-      documents: [
-        expect.objectContaining({
-          reactions: '[{"emoji":"❤️","userIds":["user_A"]}]',
-          readAt: '2026-10-02T00:00:07.000Z',
-        }),
-      ],
-    });
+    await expect(next).resolves.toBe('RESYNC');
   });
 
   it('soft-deletes the local cache on a hard-delete realtime event', async () => {
