@@ -487,6 +487,13 @@ function isFreshSyncStillPending(error: unknown): boolean {
   return /timed out|sync is still busy/i.test(error.message);
 }
 
+function formatSyncGroupList(groups: string[]): string {
+  if (groups.length === 0) return '';
+  if (groups.length === 1) return groups[0];
+  if (groups.length === 2) return groups.join(' and ');
+  return groups.slice(0, -1).join(', ') + ', and ' + groups.at(-1);
+}
+
 /**
  * Callers that must observe a genuinely fresh server snapshot (for example
  * destructive/import restore preflight) cannot treat initializeSync() as an
@@ -541,33 +548,52 @@ export async function refreshSync(
     }
 
     const refreshes: Array<
-      [string, (timeout: number) => Promise<boolean>]
+      [CollectionName, string, (timeout: number) => Promise<boolean>]
     > = [
       [
-        'category',
+        'categories',
+        'Categories',
         (timeout) => refreshCategoryReplicationPilot(userId, timeout),
       ],
-      ['diary', (timeout) => refreshDiaryReplicationPilot(userId, timeout)],
+      [
+        'diary',
+        'Diary',
+        (timeout) => refreshDiaryReplicationPilot(userId, timeout),
+      ],
       [
         'settings',
+        'Preferences',
         (timeout) => refreshSettingsReplicationPilot(userId, timeout),
       ],
       [
-        'friendship',
+        'friendships',
+        'Friends',
         (timeout) => refreshFriendshipReplicationPilot(userId, timeout),
       ],
-      ['task', (timeout) => refreshTaskReplicationPilot(userId, timeout)],
-      ['message', (timeout) => refreshMessageReplicationPilot(userId, timeout)],
+      [
+        'tasks',
+        'Tasks',
+        (timeout) => refreshTaskReplicationPilot(userId, timeout),
+      ],
+      [
+        'messages',
+        'Messages',
+        (timeout) => refreshMessageReplicationPilot(userId, timeout),
+      ],
     ];
 
     const total = refreshes.length;
     let completed = 0;
+    const pendingGroups = new Set(
+      refreshes.map(([, displayName]) => displayName)
+    );
     const reportProgress = (label: string) => {
       const progress: SyncProgress = {
         completed,
         total,
         percent: Math.round((completed / total) * 100),
         label,
+        pendingGroups: [...pendingGroups],
       };
       updateSyncStatus(
         {
@@ -581,15 +607,15 @@ export async function refreshSync(
       options.onProgress?.(progress);
     };
 
-    reportProgress('Preparing fresh sync…');
+    reportProgress('Checking all 6 data groups…');
 
     // The six pilots are independent replication states. Awaiting them
     // sequentially made later collections inherit only the scraps of one
     // shared deadline; a slow category pass could therefore make a healthy
     // diary pilot report a false timeout. Start every freshness proof against
-    // the same remaining deadline and report completion as each settles.
+    // the same remaining deadline and report exactly which groups remain.
     const results = await Promise.allSettled(
-      refreshes.map(async ([name, refresh]) => {
+      refreshes.map(async ([name, displayName, refresh]) => {
         assertSyncOwnerCurrent(userId, generation);
         const refreshed = await refresh(remaining());
         if (!refreshed) {
@@ -598,11 +624,18 @@ export async function refreshSync(
           );
         }
         assertSyncOwnerCurrent(userId, generation);
+        pendingGroups.delete(displayName);
         completed += 1;
         reportProgress(
           completed === total
             ? 'All data groups synced'
-            : completed + ' of ' + total + ' data groups synced'
+            : 'Waiting for ' +
+                formatSyncGroupList([...pendingGroups]) +
+                ' · ' +
+                completed +
+                ' of ' +
+                total +
+                ' synced'
         );
       })
     );
@@ -630,12 +663,17 @@ export async function refreshSync(
     const message =
       error instanceof Error ? error.message : 'Fresh RxDB sync failed';
     if (isFreshSyncStillPending(error)) {
+      const pendingGroups = getSyncStatus().progress?.pendingGroups ?? [];
       updateSyncStatus(
         {
           isSyncing: false,
           errors: [],
           notice:
-            'Sync is still finishing in the background. Tap Sync Now to confirm when it is fully caught up.',
+            pendingGroups.length > 0
+              ? 'Still waiting for ' +
+                formatSyncGroupList(pendingGroups) +
+                '. Live sync will keep trying in the background; tap Sync Now later to confirm.'
+              : 'Sync is still finishing in the background. Tap Sync Now to confirm when it is fully caught up.',
           progress: null,
         },
         { userId, generation }

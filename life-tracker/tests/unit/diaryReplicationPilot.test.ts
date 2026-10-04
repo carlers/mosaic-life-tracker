@@ -262,6 +262,19 @@ describe('diary RxDB replication pilot', () => {
     );
   });
 
+  it('ignores cached diary rows that belong to another local account', async () => {
+    await expect(
+      __diaryReplicationPilotTestUtils.pushDiary(
+        [{ newDocumentState: localDiary({ userId: 'mallory' }) }],
+        'user_A'
+      )
+    ).resolves.toEqual([]);
+
+    expect(getRowMock).not.toHaveBeenCalled();
+    expect(createRowMock).not.toHaveBeenCalled();
+    expect(updateRowMock).not.toHaveBeenCalled();
+  });
+
   it('creates a missing remote row with createRow', async () => {
     getRowMock.mockRejectedValue(
       Object.assign(new Error('not found'), { code: 404 })

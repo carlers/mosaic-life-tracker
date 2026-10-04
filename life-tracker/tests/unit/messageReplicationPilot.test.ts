@@ -349,7 +349,7 @@ describe('message RxDB replication pilot', () => {
     ).resolves.toEqual([]);
   });
 
-  it('rejects physical deletion and cross-account rows', async () => {
+  it('rejects physical deletion for the active owner but ignores cached foreign-account rows', async () => {
     await expect(
       __messageReplicationPilotTestUtils.acknowledgeMessageChanges(
         [
@@ -370,7 +370,7 @@ describe('message RxDB replication pilot', () => {
         ] as never,
         'user_A'
       )
-    ).rejects.toThrow('owner mismatch');
+    ).resolves.toEqual([]);
   });
 
   it('preserves an optimistic incoming read while the server receipt is pending', async () => {
