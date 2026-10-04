@@ -360,13 +360,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         }
 
         // A completed login/signup clears pending onboarding before broadcast.
+        const pending = readPendingSignup();
         setPendingSignup(
-          readPendingSignup()
-            ? {
-                email: readPendingSignup()!.email,
-                name: readPendingSignup()!.name,
-              }
-            : null,
+          pending ? { email: pending.email, name: pending.name } : null,
         );
         // Another tab already wrote the authenticated identity. Use it
         // immediately, then reconcile the live session in the background.
@@ -608,13 +604,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
                 : "Signup failed";
         setError(message);
         setIsLoading(false);
-        if (!authenticatedUserId) {
-          void verifyLiveSession(true);
-        }
         return false;
       }
     },
-    [suspendCurrentAccountWork, verifyLiveSession],
+    [suspendCurrentAccountWork],
   );
 
   const logout = useCallback(async (): Promise<boolean> => {
