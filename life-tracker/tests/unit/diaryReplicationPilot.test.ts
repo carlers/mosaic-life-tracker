@@ -291,6 +291,8 @@ describe('diary RxDB replication pilot', () => {
         data: expect.objectContaining({
           user_id: 'user_A',
           content: 'Local entry',
+          created_at: '2026-10-02T00:00:00.000Z',
+          updated_at: '2026-10-02T00:00:01.000Z',
           deleted: false,
         }),
       })

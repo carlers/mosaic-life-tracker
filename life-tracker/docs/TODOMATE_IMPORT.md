@@ -127,6 +127,12 @@ reports how many distinct routine references were found.
 - sharing flags → Mosaic `public`, `followers`, or `private`
 - TodoMate create/document timestamps → Mosaic create/update timestamps
 
+The remote Diary schema must contain both `created_at` and `updated_at`. The importer
+writes a local Diary row first, then normal RxDB replication sends both timestamps to
+Appwrite. If `created_at` is missing from the Appwrite table, the local import can appear
+successful while Diary replication retries forever and Sync Status remains one group short.
+Treat that as backend schema drift, not as a reason to drop the imported diary entry.
+
 TodoMate selected-viewer sharing cannot be represented exactly by Mosaic's current three-way
 visibility model. Such records import as `private`, never as broader visibility.
 

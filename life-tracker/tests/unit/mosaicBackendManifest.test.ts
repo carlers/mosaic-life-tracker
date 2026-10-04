@@ -54,6 +54,17 @@ describe('portable Mosaic backend manifest', () => {
         }),
       ])
     );
+    expect(byId.diary.columns).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          key: 'created_at',
+          type: 'varchar',
+          size: 50,
+          required: false,
+          default: '',
+        }),
+      ])
+    );
     expect(byId.friendships.columns).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ key: 'friend_bio', size: 300 }),
