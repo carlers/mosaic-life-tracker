@@ -9,8 +9,21 @@ import {
 const statusRef = vi.hoisted(() => ({
   current: {
     isSyncing: false,
-    lastSync: null as string | null,
-    errors: [] as string[],
+    lastSync: null,
+    errors: [],
+    notice: null,
+    progress: null,
+  } as {
+    isSyncing: boolean;
+    lastSync: string | null;
+    errors: string[];
+    notice?: string | null;
+    progress?: {
+      completed: number;
+      total: number;
+      percent: number;
+      label: string;
+    } | null;
   },
 }));
 const listenersRef = vi.hoisted(() => ({
@@ -56,7 +69,13 @@ vi.mock('../../src/hooks/useOfflineReadiness', () => ({
 import { SyncStatusSheet } from '../../src/components/modals/SyncStatusSheet';
 
 beforeEach(() => {
-  statusRef.current = { isSyncing: false, lastSync: null, errors: [] };
+  statusRef.current = {
+    isSyncing: false,
+    lastSync: null,
+    errors: [],
+    notice: null,
+    progress: null,
+  };
   listenersRef.current = [];
   connectivityRef.current = {
     status: 'online',
@@ -103,6 +122,49 @@ describe('SyncStatusSheet', () => {
     render(<SyncStatusSheet isOpen onClose={vi.fn()} />);
 
     expect(screen.getAllByText('Syncing…').length).toBeGreaterThan(0);
+  });
+
+  it('shows collection-level percentage while a fresh sync is running', () => {
+    statusRef.current = {
+      isSyncing: true,
+      lastSync: null,
+      errors: [],
+      notice: null,
+      progress: {
+        completed: 3,
+        total: 6,
+        percent: 50,
+        label: '3 of 6 data groups synced',
+      },
+    };
+
+    render(<SyncStatusSheet isOpen onClose={vi.fn()} />);
+
+    expect(screen.getByText('Syncing · 50%')).toBeInTheDocument();
+    expect(screen.getByText('3 of 6 data groups synced')).toBeInTheDocument();
+    expect(screen.getByRole('progressbar', { name: 'Sync progress' })).toHaveAttribute(
+      'aria-valuenow',
+      '50'
+    );
+  });
+
+  it('shows a non-error pending state when the freshness check times out but live sync continues', () => {
+    statusRef.current = {
+      isSyncing: false,
+      lastSync: '2026-10-04T05:00:00.000Z',
+      errors: [],
+      notice:
+        'Sync is still finishing in the background. Tap Sync Now to confirm when it is fully caught up.',
+      progress: null,
+    };
+
+    render(<SyncStatusSheet isOpen onClose={vi.fn()} />);
+
+    expect(screen.getByText('Sync still finishing')).toBeInTheDocument();
+    expect(
+      screen.getByText(/still finishing in the background/i)
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/^Errors$/i)).not.toBeInTheDocument();
   });
 
   it('updates when the status listener fires after open', () => {
