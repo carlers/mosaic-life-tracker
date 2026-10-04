@@ -309,6 +309,20 @@ describe('category RxDB replication pilot', () => {
     );
   });
 
+  it('fails closed if an owner-scoped category pull returns another account', async () => {
+    listRowsMock.mockResolvedValue({
+      rows: [remoteCategory({ user_id: 'mallory' })],
+    });
+
+    await expect(
+      __categoryReplicationPilotTestUtils.pullCategories(
+        'user_A',
+        undefined,
+        100
+      )
+    ).rejects.toThrow('remote owner mismatch');
+  });
+
   it('ignores cached categories that belong to another local account', async () => {
     await expect(
       __categoryReplicationPilotTestUtils.pushCategories(

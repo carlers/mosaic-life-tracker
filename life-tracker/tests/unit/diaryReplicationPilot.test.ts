@@ -262,6 +262,16 @@ describe('diary RxDB replication pilot', () => {
     );
   });
 
+  it('fails closed if an owner-scoped diary pull returns another account', async () => {
+    listRowsMock.mockResolvedValue({
+      rows: [remoteDiary({ user_id: 'mallory' })],
+    });
+
+    await expect(
+      __diaryReplicationPilotTestUtils.pullDiary('user_A', undefined, 100)
+    ).rejects.toThrow('remote owner mismatch');
+  });
+
   it('ignores cached diary rows that belong to another local account', async () => {
     await expect(
       __diaryReplicationPilotTestUtils.pushDiary(

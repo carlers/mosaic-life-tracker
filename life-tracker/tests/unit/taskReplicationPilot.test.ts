@@ -296,6 +296,16 @@ describe('task RxDB replication pilot', () => {
     });
   });
 
+  it('fails closed if an owner-scoped task pull returns another account', async () => {
+    listRowsMock.mockResolvedValue({
+      rows: [remoteTask({ user_id: 'mallory' })],
+    });
+
+    await expect(
+      __taskReplicationPilotTestUtils.pullTasks('user_A', undefined, 100)
+    ).rejects.toThrow('remote owner mismatch');
+  });
+
   it('creates a new task with owner-only row permissions', async () => {
     getRowMock.mockRejectedValue(
       Object.assign(new Error('missing'), { code: 404 })

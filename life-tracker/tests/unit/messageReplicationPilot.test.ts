@@ -326,6 +326,22 @@ describe('message RxDB replication pilot', () => {
     });
   });
 
+  it('fails closed if an owner-scoped message pull returns another account', async () => {
+    const { collection } = collectionFixture();
+    listRowsMock.mockResolvedValue({
+      rows: [remoteMessage({ user_id: 'mallory' })],
+    });
+
+    await expect(
+      __messageReplicationPilotTestUtils.pullMessages(
+        collection,
+        'user_A',
+        undefined,
+        100
+      )
+    ).rejects.toThrow('remote owner mismatch');
+  });
+
   it('acknowledges owner-scoped message intent without writing Appwrite', async () => {
     await expect(
       __messageReplicationPilotTestUtils.acknowledgeMessageChanges(

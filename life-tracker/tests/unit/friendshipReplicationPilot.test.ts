@@ -285,6 +285,20 @@ describe('friendship RxDB replication pilot', () => {
     );
   });
 
+  it('fails closed if an owner-scoped friendship pull returns another account', async () => {
+    listRowsMock.mockResolvedValue({
+      rows: [remoteFriendship({ user_id: 'mallory' })],
+    });
+
+    await expect(
+      __friendshipReplicationPilotTestUtils.pullFriendships(
+        'user_A',
+        undefined,
+        100
+      )
+    ).rejects.toThrow('remote owner mismatch');
+  });
+
   it('acknowledges a confirmed local state without writing the server', async () => {
     const conflicts =
       await __friendshipReplicationPilotTestUtils.validateFriendshipChanges(

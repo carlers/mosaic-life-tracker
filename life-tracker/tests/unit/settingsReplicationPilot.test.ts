@@ -272,6 +272,20 @@ describe('settings RxDB replication pilot', () => {
     );
   });
 
+  it('fails closed if an owner-scoped settings pull returns another account', async () => {
+    listRowsMock.mockResolvedValue({
+      rows: [remoteSetting({ user_id: 'mallory' })],
+    });
+
+    await expect(
+      __settingsReplicationPilotTestUtils.pullSettings(
+        'user_A',
+        undefined,
+        100
+      )
+    ).rejects.toThrow('remote owner mismatch');
+  });
+
   it('ignores cached settings that belong to another local account', async () => {
     await expect(
       __settingsReplicationPilotTestUtils.pushSettings(
