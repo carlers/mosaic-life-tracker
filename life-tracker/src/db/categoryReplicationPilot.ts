@@ -166,7 +166,11 @@ async function pushCategories(
   for (const row of rows) {
     const next = row.newDocumentState;
     if (next.userId !== userId) {
-      throw new Error(`Category replication owner mismatch for ${next.id}`);
+      // Mosaic intentionally keeps multiple owners in one local RxDB. A
+      // per-user replication identifier will encounter those cached foreign
+      // rows on first upstream scan; acknowledge them as outside this
+      // replication scope instead of poisoning the active owner's queue.
+      continue;
     }
     if (next._deleted) {
       throw new Error(
