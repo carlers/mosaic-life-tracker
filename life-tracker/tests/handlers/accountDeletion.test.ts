@@ -380,6 +380,72 @@ describe('account deletion handler', () => {
     );
   });
 
+  // Regression: ACCOUNT_ERASURE.md (large peer datasets must not spend the
+  // Function budget opening transactions for rows that cannot contain the ID).
+  it('prefilters unrelated peer rows before opening scrub transactions', async () => {
+    const db = makeMockDb();
+    const storage = makeMockStorage();
+    const users = makeMockUsers();
+    const functions = makeMockFunctions();
+    const job = {
+      $id: 'del_many_peers',
+      user_id: 'alice',
+      status: 'pending',
+      phase: 'queued',
+      attempts: 0,
+    };
+    const peerTasks = Array.from({ length: 100 }, (_, index) => ({
+      $id: `peer_task_${String(index).padStart(3, '0')}`,
+      user_id: 'bob',
+      reactions: JSON.stringify([{ emoji: '👍', userIds: ['bob'] }]),
+    }));
+    const peerSettings = Array.from({ length: 100 }, (_, index) => ({
+      $id: `peer_setting_${String(index).padStart(3, '0')}`,
+      user_id: 'bob',
+      key: 'friend_carousel_prefs',
+      value: JSON.stringify({ order: ['carol'], hidden: [] }),
+    }));
+
+    db.getRow.mockImplementation(async ({ tableId, rowId }: any) => {
+      if (tableId === 'account_deletions' && rowId === job.$id) return job;
+      throw notFound();
+    });
+    db.listRows.mockImplementation(async ({ tableId, queries }: any) => {
+      const queryList = queries || [];
+      const owner = queryValue(queryList, 'user_id');
+      const hasCursor = queryList.some((query: any) => query?.op === 'cursorAfter');
+
+      if (tableId === 'account_deletions') return { rows: [job] };
+      if (tableId === 'tasks' && owner === undefined) {
+        return { rows: hasCursor ? [] : peerTasks };
+      }
+      if (tableId === 'settings' && owner === undefined) {
+        return { rows: hasCursor ? [] : peerSettings };
+      }
+      return { rows: [] };
+    });
+    db.updateRow.mockImplementation(async (input: any) => {
+      if (input.tableId === 'account_deletions') {
+        Object.assign(job, input.data);
+        return job;
+      }
+      return {};
+    });
+    db.deleteRow.mockResolvedValue({});
+
+    const response = await invoke({
+      mockDb: db,
+      mockStorage: storage,
+      mockUsers: users,
+      mockFunctions: functions,
+      body: { action: 'resume_account_deletion', jobId: job.$id },
+    });
+
+    expect(response.status).toBe(200);
+    expect(db.createTransaction).not.toHaveBeenCalled();
+    expect(users.delete).toHaveBeenCalledWith({ userId: 'alice' });
+  });
+
   it('clears malformed peer metadata when it can contain the deleted user id', async () => {
     const db = makeMockDb();
     const storage = makeMockStorage();
