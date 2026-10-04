@@ -237,6 +237,12 @@ async function scrubCrossUserReferences(db, userId) {
   const tasks = await listAllRows(db, 'tasks');
   for (const row of tasks) {
     if (row.user_id === userId) continue;
+    // Most peer rows do not reference the erased account. Filter cheaply
+    // from the scan snapshot and reserve a transaction for actual candidates.
+    // The transactional re-read below still protects a candidate from
+    // clobbering a concurrent peer edit, while final verification catches a
+    // reference introduced after this snapshot.
+    if (!stripUserFromReactions(row.reactions, userId).changed) continue;
     const changed = await scrubRowWithTransaction(
       db,
       'tasks',
@@ -262,6 +268,7 @@ async function scrubCrossUserReferences(db, userId) {
   const settings = await listAllRows(db, 'settings');
   for (const row of settings) {
     if (row.user_id === userId || row.key !== 'friend_carousel_prefs') continue;
+    if (!stripFriendCarouselValue(row.value, userId).changed) continue;
     const changed = await scrubRowWithTransaction(
       db,
       'settings',
