@@ -309,6 +309,20 @@ describe('category RxDB replication pilot', () => {
     );
   });
 
+  it('fails closed if an owner-scoped category pull returns another account', async () => {
+    listRowsMock.mockResolvedValue({
+      rows: [remoteCategory({ user_id: 'mallory' })],
+    });
+
+    await expect(
+      __categoryReplicationPilotTestUtils.pullCategories(
+        'user_A',
+        undefined,
+        100
+      )
+    ).rejects.toThrow('remote owner mismatch');
+  });
+
   it('ignores cached categories that belong to another local account', async () => {
     await expect(
       __categoryReplicationPilotTestUtils.pushCategories(
@@ -423,7 +437,7 @@ describe('category RxDB replication pilot', () => {
     expect(createRowMock).toHaveBeenCalledTimes(1);
   });
 
-  it('streams owner-scoped Appwrite realtime updates into replication', async () => {
+  it('uses realtime writes only as an ordered pull catch-up signal', async () => {
     await startCategoryReplicationPilot(
       'user_A',
       collectionFixture(),
@@ -442,18 +456,6 @@ describe('category RxDB replication pilot', () => {
       payload: remoteCategory(),
     });
 
-    await expect(next).resolves.toEqual({
-      checkpoint: {
-        id: 'cat_a',
-        updatedAt: '2026-10-02T00:00:01.000Z',
-      },
-      documents: [
-        expect.objectContaining({
-          id: 'cat_a',
-          userId: 'user_A',
-          _deleted: false,
-        }),
-      ],
-    });
+    await expect(next).resolves.toBe('RESYNC');
   });
 });

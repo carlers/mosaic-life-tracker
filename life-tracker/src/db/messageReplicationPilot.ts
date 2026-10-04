@@ -26,6 +26,7 @@ import {
 import { awaitPilotReplicationFreshness } from './replicationFreshness';
 import { getReplicationIdentifier } from './replicationIds';
 import { trackReplicationFreshness } from './replicationLocalState';
+import { assertRemoteRowsOwnedBy } from './replicationOwnership';
 
 const PULL_BATCH_SIZE = 100;
 const PUSH_BATCH_SIZE = 50;
@@ -261,11 +262,11 @@ async function pullMessages(
     total: false,
   });
 
-  const rows = (
-    (response as unknown as { rows?: Record<string, unknown>[] }).rows ?? []
-  ).filter(
+  const responseRows =
+    (response as unknown as { rows?: Record<string, unknown>[] }).rows ?? [];
+  assertRemoteRowsOwnedBy(responseRows, userId, 'Message');
+  const rows = responseRows.filter(
     (row) =>
-      row.user_id === userId &&
       typeof row.$id === 'string' &&
       row.$id.length > 0 &&
       typeof row.$updatedAt === 'string' &&
@@ -414,46 +415,12 @@ function subscribeToMessageRealtime(
 
     if (!payload || payload.user_id !== userId) return;
     if (
-      !events.some(
+      events.some(
         (event) => event.endsWith('.create') || event.endsWith('.update')
       )
     ) {
-      return;
-    }
-
-    const id = payload.$id;
-    const updatedAt = payload.$updatedAt;
-    if (
-      typeof id !== 'string' ||
-      !id ||
-      typeof updatedAt !== 'string' ||
-      !updatedAt
-    ) {
       pullStream.next('RESYNC');
-      return;
     }
-
-    void (async () => {
-      const remote = toReplicatedMessage(
-        payload as Record<string, unknown>
-      );
-      const document = await mergeRemoteWithLocalIntent(
-        collection,
-        userId,
-        remote
-      );
-      if (activeOwnerId !== userId) return;
-      pullStream.next({
-        checkpoint: { id, updatedAt },
-        documents: [document],
-      });
-    })().catch((error) => {
-      console.error(
-        '[MessageReplicationPilot] realtime merge failed:',
-        error
-      );
-      pullStream.next('RESYNC');
-    });
   });
 }
 

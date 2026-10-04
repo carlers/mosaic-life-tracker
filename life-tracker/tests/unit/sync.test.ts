@@ -968,6 +968,29 @@ describe('sync — coordinator and account safety', () => {
     }
   });
 
+  it('does not let delayed old-owner suspension cancel the current owner retry timer', async () => {
+    vi.useFakeTimers();
+    const accountWork = await import('../../src/lib/accountWorkScope');
+    accountWork.scopeAccountWork('user_B');
+
+    const rateLimitError = Object.assign(new Error('rate limited'), {
+      code: 429,
+    });
+    taskPilotStartMock
+      .mockRejectedValueOnce(rateLimitError)
+      .mockImplementationOnce(async () => {
+        pilotState.tasks = true;
+      });
+
+    await syncModule.initializeSync('user_B');
+    expect(taskPilotStartMock).toHaveBeenCalledTimes(1);
+
+    await syncModule.suspendSyncOwner('user_A');
+    await vi.advanceTimersByTimeAsync(5_020);
+
+    expect(taskPilotStartMock).toHaveBeenCalledTimes(2);
+  });
+
   it('stops old-owner pilots when account generation changes mid-startup', async () => {
     let release!: () => void;
     taskPilotStartMock.mockImplementationOnce(

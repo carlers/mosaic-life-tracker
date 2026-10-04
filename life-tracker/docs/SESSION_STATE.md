@@ -1,33 +1,29 @@
 # Session checkpoint
 
-Updated: 2026-10-04
-Current task: Finish the post-TodoMate 5/6 sync-stall investigation after the new pending-group diagnostics isolated the remaining stall to Diary.
-Status: The shared-RxDB isolation/UI hardening is accepted on stable Preview `fix/sync-stall-diagnostics` at `b09a83b`. Focused run `37216642188` passed; the first stable full run `37216714956` found one stale unit-label assertion only; focused repair run `37216851563` passed; final stable canonical run `37217097075` passed checks/build/dependency audit/both DOM shards/both browser-contract shards/canonical acceptance; exact-SHA Vercel deployment `dpl_HEG4GeYNQPgmkpBnW8TX21QBTAyY` is READY and served HTTP 200. Re-testing the recreated `test@test.com` account then showed `Waiting for Diary · 5 of 6 synced`.
-Next action: Focused-verify `chatgpt/diary-created-at-schema-fix`. If green, squash it into `fix/sync-stall-diagnostics`, rerun the full canonical gate + exact-SHA Preview, then apply the idempotent `diary.created_at` production migration. After the live column is available, trigger/retry sync on the same device and verify the account's one imported diary row appears in Appwrite and Sync Status reaches Up to date. Do not promote to `dev` or `main` without explicit user instruction.
-Blockers: None known. The live schema mismatch has been directly confirmed through Appwrite.
+Updated: 2026-10-05
+Current task: Audit the latest `dev` sync engine for missed race conditions and edge cases, build a durable scenario matrix, and implement justified fixes on `fix/sync-engine-race-matrix`.
+Status: Audit/implementation is on task branch `chatgpt/sync-engine-race-matrix`, based exactly on `dev` commit `32f1c252`. The audit retained the documented non-atomic Appwrite compare/update window and stale-recovery client-clock ambiguity as accepted limitations, and found three additional correctness gaps that are now patched with regression coverage.
+Next action: Run the focused Quality Gate for the final task checkpoint. If green, squash the task PR into stable Preview `fix/sync-engine-race-matrix`, then require the stable branch's full canonical acceptance and Preview deployment. Do not promote to `dev` or `main` without explicit user instruction.
+Blockers: None known before CI.
 
-## Confirmed root cause
+## Audit findings implemented
 
-- TodoMate live preview/accepted mapping contains 505 tasks, 13 categories, and 1 diary entry.
-- Recreated Mosaic account Auth ID `6ac273888ee3b2e94dfd` has 505 tasks and 13 categories remotely but still has 0 diary rows.
-- The Diary replication payload in `syncMapping.ts` sends `created_at` and `updated_at`.
-- Production Appwrite table `life_tracker/diary` currently has exactly six columns: `date`, `content`, `visibility`, `user_id`, `updated_at`, `deleted`. `created_at` is absent.
-- The checked-in backend manifest had the same omission, proving this is repository schema drift rather than a console-only accident.
-- Therefore the imported Diary row is durable locally but every remote create/update carrying `created_at` is rejected; RxDB keeps the Diary pilot dirty while the other five groups settle. The new named-group UI exposed the fault correctly.
+1. **Freshness false-positive after retry/error:** a later RxDB `active → idle` transition previously refreshed `syncMeta.lastFreshAt` without proving `awaitInSync()`. A failed/retrying cycle can become inactive before convergence, which could incorrectly extend the 90-day tombstone-safety window. Later freshness marks now require `awaitInSync()`; cancellation does not stamp freshness.
+2. **Old-owner teardown could cancel new-owner retry:** `suspendSyncOwner(A)` cleared the single global backoff wake timer before checking timer ownership. A delayed cleanup for A could therefore cancel B's newly scheduled retry. Teardown now clears the wake only when it belongs to the suspended owner (or when globally suspending).
+3. **Realtime could advance the durable pull checkpoint past missed/out-of-order events:** all six pilots previously injected create/update payloads with their server tuple checkpoint. Realtime reconnect gaps are not a durable ordered change feed, so one later payload could skip an unseen earlier write. Create/update events now emit `RESYNC`; ordered pull handlers alone advance checkpoints. Friendship/message hard-delete local cleanup remains immediate, followed by resync.
+4. **Remote owner drift was not handled consistently:** some owner-scoped pulls silently filtered a foreign remote row while other paths could map it. All six pull handlers, plus direct master reads for owner-write/friendship validation, now fail closed on a remote `user_id` mismatch.
 
-## Changes under focused verification
+## Durable coverage
 
-- Portable backend manifest adds optional/default-empty `diary.created_at` as varchar(50). It is optional only for safe migration of existing deployments; new client writes continue to send the real created timestamp.
-- New `npm run mosaic:migrate-diary-created-at` migration creates the missing column idempotently, waits for availability, and fails closed if an existing column has an incompatible type/size/required/default state.
-- Legacy Diary pulls without `created_at` map local `createdAt` from stable Appwrite `$createdAt` metadata (then stable update metadata), rather than generating `new Date()` on each pull.
-- Manifest, migration, sync-mapping, and Diary replication tests pin the contract and payload.
+- Added `docs/SYNC_SCENARIO_MATRIX.md` as the maintained sync risk/coverage inventory.
+- Added regressions for retry-safe freshness, owner-scoped backoff teardown, Realtime checkpoint safety across all six pilots, and remote-owner mismatch behavior.
+- Existing coverage remains for Web Locks, leader-only freshness, account-generation invalidation, stale recovery/tombstones, first-sync semantics, task reaction drift, pending media, message intent, and shared-local-DB foreign rows.
+- The matrix explicitly separates automated coverage, implementation-only guards, hosted/manual provider behavior, and accepted architectural limits.
 
 ## Acceptance path
 
-1. Focused Quality Gate on the final task checkpoint.
-2. Squash focused-green task into `fix/sync-stall-diagnostics`.
-3. Full stable-Preview canonical Quality Gate and exact-SHA Vercel Preview.
-4. Apply the production Diary `created_at` migration only after the accepted tree is green; re-read the live column and confirm it is available/compatible.
-5. On the existing recreated `test@test.com` device, hit Sync Now (or let live replication retry) and verify one Diary row reaches Appwrite with stable `created_at`/`updated_at`.
-6. Confirm Sync Status reaches Up to date and no backend Function redeploy is needed.
-7. Do not promote to `dev` or `main` without explicit user instruction.
+1. Final task commit requests `[verify:focused]`.
+2. Focused-green task PR is squash-merged into `fix/sync-engine-race-matrix`.
+3. Stable Preview runs the one routine full canonical gate and Vercel Preview.
+4. Investigate and repair any failure on the task branch; repeat until canonical acceptance is green.
+5. Report any remaining manual hosted/device checks separately.

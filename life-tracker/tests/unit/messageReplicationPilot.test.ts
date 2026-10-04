@@ -275,18 +275,13 @@ describe('message RxDB replication pilot', () => {
     );
   });
 
-  it('pulls changes after the tuple checkpoint and filters wrong-owner rows', async () => {
+  it('pulls changes after the owner-scoped tuple checkpoint', async () => {
     const { collection } = collectionFixture();
     listRowsMock.mockResolvedValue({
       rows: [
         remoteMessage({
           $id: 'msg_two',
           $updatedAt: '2026-10-02T00:00:03.000Z',
-        }),
-        remoteMessage({
-          $id: 'msg_wrong',
-          user_id: 'mallory',
-          $updatedAt: '2026-10-02T00:00:04.000Z',
         }),
       ],
     });
@@ -324,6 +319,22 @@ describe('message RxDB replication pilot', () => {
       id: 'msg_two',
       updatedAt: '2026-10-02T00:00:03.000Z',
     });
+  });
+
+  it('fails closed if an owner-scoped message pull returns another account', async () => {
+    const { collection } = collectionFixture();
+    listRowsMock.mockResolvedValue({
+      rows: [remoteMessage({ user_id: 'mallory' })],
+    });
+
+    await expect(
+      __messageReplicationPilotTestUtils.pullMessages(
+        collection,
+        'user_A',
+        undefined,
+        100
+      )
+    ).rejects.toThrow('remote owner mismatch');
   });
 
   it('acknowledges owner-scoped message intent without writing Appwrite', async () => {
@@ -550,7 +561,7 @@ describe('message RxDB replication pilot', () => {
     expect(merged.originalMessageId).toBe('msg_sender');
   });
 
-  it('streams merged realtime updates through RxDB', async () => {
+  it('uses realtime writes only as an ordered pull catch-up signal', async () => {
     const local = localMessage({
       reactions: '[{"emoji":"❤️","userIds":["user_A"]}]',
       updatedAt: '2026-10-02T00:00:08.000Z',
@@ -581,18 +592,7 @@ describe('message RxDB replication pilot', () => {
       }),
     });
 
-    await expect(next).resolves.toEqual({
-      checkpoint: {
-        id: 'msg_one',
-        updatedAt: '2026-10-02T00:00:07.000Z',
-      },
-      documents: [
-        expect.objectContaining({
-          reactions: '[{"emoji":"❤️","userIds":["user_A"]}]',
-          readAt: '2026-10-02T00:00:07.000Z',
-        }),
-      ],
-    });
+    await expect(next).resolves.toBe('RESYNC');
   });
 
   it('soft-deletes the local cache on a hard-delete realtime event', async () => {

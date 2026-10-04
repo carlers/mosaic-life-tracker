@@ -444,7 +444,9 @@ async function stopAllReplicationPilots(userId?: string): Promise<void> {
 }
 
 export async function suspendSyncOwner(userId?: string): Promise<void> {
-  clearBackoffWakeTimer();
+  if (!userId || backoffWakeUserId === userId) {
+    clearBackoffWakeTimer();
+  }
   if (!userId || backoffOwnerId === userId) {
     backoffOwnerId = null;
     rateLimitUntil = 0;
