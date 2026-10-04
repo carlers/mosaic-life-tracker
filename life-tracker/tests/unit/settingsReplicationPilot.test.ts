@@ -47,6 +47,8 @@ vi.mock('appwrite', () => ({
       JSON.stringify({ op: 'orderAsc', field }),
     limit: (value: number) =>
       JSON.stringify({ op: 'limit', value }),
+    cursorAfter: (id: string) =>
+      JSON.stringify({ op: 'cursorAfter', id }),
   },
   Permission: {
     read: (role: string) => `read(${role})`,
@@ -369,6 +371,95 @@ describe('settings RxDB replication pilot', () => {
     expect(conflicts).toEqual([]);
     expect(updateRowMock).toHaveBeenCalledTimes(1);
     expect(createRowMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('removes stale friend ids before carousel preferences can resync', async () => {
+    const local = localSetting({
+      key: 'friend_carousel_prefs',
+      value: JSON.stringify({
+        order: ['friend_live', 'friend_old'],
+        hidden: ['friend_old'],
+      }),
+      updatedAt: '2026-10-02T00:00:02.000Z',
+    });
+    getRowMock.mockResolvedValue(
+      remoteSetting({
+        key: 'friend_carousel_prefs',
+        value: JSON.stringify({ order: ['friend_live'], hidden: [] }),
+      })
+    );
+    listRowsMock.mockImplementation(async ({ tableId }: any) => {
+      if (tableId === 'friendships') {
+        return {
+          rows: [{
+            $id: 'fr_live',
+            user_id: 'user_A',
+            friend_id: 'friend_live',
+            status: 'accepted',
+            deleted: false,
+          }],
+        };
+      }
+      return { rows: [] };
+    });
+
+    const conflicts =
+      await __settingsReplicationPilotTestUtils.pushSettings(
+        [{
+          assumedMasterState: localSetting({
+            key: 'friend_carousel_prefs',
+            value: JSON.stringify({ order: ['friend_live'], hidden: [] }),
+          }),
+          newDocumentState: local,
+        }],
+        'user_A'
+      );
+
+    expect(updateRowMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          value: JSON.stringify({ order: ['friend_live'], hidden: [] }),
+        }),
+      })
+    );
+    expect(conflicts).toEqual([
+      expect.objectContaining({
+        value: JSON.stringify({ order: ['friend_live'], hidden: [] }),
+      }),
+    ]);
+  });
+
+  it('clears malformed carousel data instead of syncing opaque stale ids', async () => {
+    const state = localSetting({
+      key: 'friend_carousel_prefs',
+      value: '{"order":"friend_old"}',
+      updatedAt: '2026-10-02T00:00:02.000Z',
+    });
+    getRowMock.mockResolvedValue(
+      remoteSetting({
+        key: 'friend_carousel_prefs',
+        value: '{"order":[],"hidden":[]}',
+      })
+    );
+
+    await __settingsReplicationPilotTestUtils.pushSettings(
+      [{
+        assumedMasterState: localSetting({
+          key: 'friend_carousel_prefs',
+          value: '{"order":[],"hidden":[]}',
+        }),
+        newDocumentState: state,
+      }],
+      'user_A'
+    );
+
+    expect(updateRowMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          value: '{"order":[],"hidden":[]}',
+        }),
+      })
+    );
   });
 
   it('uploads pending profile images and returns the stored master state', async () => {
