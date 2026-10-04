@@ -11,6 +11,9 @@ import type { Models } from "appwrite";
 const initializeSyncMock = vi.hoisted(() => vi.fn());
 const suspendSyncOwnerMock = vi.hoisted(() => vi.fn());
 const waitForDatabaseReadyMock = vi.hoisted(() => vi.fn());
+const fetchMyProfileMock = vi.hoisted(() => vi.fn());
+const createOrUpdateProfileMock = vi.hoisted(() => vi.fn());
+const writeCachedOwnProfileMock = vi.hoisted(() => vi.fn());
 
 const accountRef = vi.hoisted(() => ({
   get: vi.fn(),
@@ -34,6 +37,13 @@ vi.mock("../../src/db/sync", () => ({
 }));
 vi.mock("../../src/lib/databaseBootstrap", () => ({
   waitForDatabaseReady: waitForDatabaseReadyMock,
+}));
+vi.mock("../../src/lib/social", () => ({
+  fetchMyProfile: fetchMyProfileMock,
+  createOrUpdateProfile: createOrUpdateProfileMock,
+}));
+vi.mock("../../src/lib/profileCache", () => ({
+  writeCachedOwnProfile: writeCachedOwnProfileMock,
 }));
 
 import { AuthProvider } from "../../src/hooks/AuthProvider";
@@ -93,6 +103,27 @@ describe("AuthProvider offline auth gate", () => {
     suspendSyncOwnerMock.mockResolvedValue(undefined);
     waitForDatabaseReadyMock.mockReset();
     waitForDatabaseReadyMock.mockResolvedValue(undefined);
+    fetchMyProfileMock.mockReset();
+    fetchMyProfileMock.mockImplementation(async (userId: string) => ({
+      $id: `profile_${userId}`,
+      user_id: userId,
+      username: 'existing_user',
+      display_name: 'Existing User',
+      avatar_file_id: '',
+      bio: '',
+      is_searchable: true,
+    }));
+    createOrUpdateProfileMock.mockReset();
+    createOrUpdateProfileMock.mockImplementation(async (input) => ({
+      $id: `profile_${input.userId}`,
+      user_id: input.userId,
+      username: input.username,
+      display_name: input.displayName,
+      avatar_file_id: input.avatarFileId || '',
+      bio: input.bio || '',
+      is_searchable: true,
+    }));
+    writeCachedOwnProfileMock.mockReset();
     Object.defineProperty(navigator, "onLine", {
       configurable: true,
       value: true,
