@@ -27,6 +27,10 @@ import { clearCachedCalendar } from '../lib/friendCache';
 import { awaitPilotReplicationFreshness } from './replicationFreshness';
 import { getReplicationIdentifier } from './replicationIds';
 import { trackReplicationFreshness } from './replicationLocalState';
+import {
+  assertRemoteRowOwnedBy,
+  assertRemoteRowsOwnedBy,
+} from './replicationOwnership';
 
 const PULL_BATCH_SIZE = 100;
 const PUSH_BATCH_SIZE = 20;
@@ -132,7 +136,8 @@ async function clearInactiveFriendCache(
 }
 
 async function readRemoteFriendship(
-  rowId: string
+  rowId: string,
+  userId: string
 ): Promise<ReplicatedFriendship | null> {
   try {
     const row = await guardedTablesDB.getRow({
@@ -140,9 +145,9 @@ async function readRemoteFriendship(
       tableId: APPWRITE_TABLES.friendships,
       rowId,
     });
-    return toReplicatedFriendship(
-      row as unknown as Record<string, unknown>
-    );
+    const raw = row as unknown as Record<string, unknown>;
+    assertRemoteRowOwnedBy(raw, userId, 'Friendship');
+    return toReplicatedFriendship(raw);
   } catch (error) {
     if (isNotFoundError(error)) return null;
     throw error;
@@ -196,7 +201,7 @@ async function validateFriendshipChanges(
       continue;
     }
 
-    const current = await readRemoteFriendship(next.id);
+    const current = await readRemoteFriendship(next.id, userId);
     if (current && current.userId !== userId) {
       throw new Error(
         `Friendship replication master owner mismatch for ${next.id}`
@@ -276,11 +281,11 @@ async function pullFriendships(
     total: false,
   });
 
-  const rows = (
-    (response as unknown as { rows?: Record<string, unknown>[] }).rows ?? []
-  ).filter(
+  const responseRows =
+    (response as unknown as { rows?: Record<string, unknown>[] }).rows ?? [];
+  assertRemoteRowsOwnedBy(responseRows, userId, 'Friendship');
+  const rows = responseRows.filter(
     (row) =>
-      row.user_id === userId &&
       typeof row.$id === 'string' &&
       row.$id.length > 0 &&
       typeof row.$updatedAt === 'string' &&

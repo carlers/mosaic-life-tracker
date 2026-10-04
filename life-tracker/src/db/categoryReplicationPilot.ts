@@ -26,6 +26,10 @@ import {
 import { awaitPilotReplicationFreshness } from './replicationFreshness';
 import { getReplicationIdentifier } from './replicationIds';
 import { trackReplicationFreshness } from './replicationLocalState';
+import {
+  assertRemoteRowOwnedBy,
+  assertRemoteRowsOwnedBy,
+} from './replicationOwnership';
 
 const PULL_BATCH_SIZE = 100;
 const PUSH_BATCH_SIZE = 20;
@@ -117,7 +121,8 @@ function isBootstrapLocalNewer(
 }
 
 async function readRemoteCategory(
-  rowId: string
+  rowId: string,
+  userId: string
 ): Promise<ReplicatedCategory | null> {
   try {
     const row = await guardedTablesDB.getRow({
@@ -125,7 +130,9 @@ async function readRemoteCategory(
       tableId: APPWRITE_TABLES.categories,
       rowId,
     });
-    return toReplicatedCategory(row as unknown as Record<string, unknown>);
+    const raw = row as unknown as Record<string, unknown>;
+    assertRemoteRowOwnedBy(raw, userId, 'Category');
+    return toReplicatedCategory(raw);
   } catch (error) {
     if (isNotFoundError(error)) return null;
     throw error;
@@ -151,7 +158,7 @@ async function createRemoteCategory(
     return null;
   } catch (error) {
     if (!isConflictError(error)) throw error;
-    const current = await readRemoteCategory(document.id);
+    const current = await readRemoteCategory(document.id, userId);
     if (current) return current;
     throw error;
   }
@@ -178,7 +185,7 @@ async function pushCategories(
       );
     }
 
-    const current = await readRemoteCategory(next.id);
+    const current = await readRemoteCategory(next.id, userId);
     const assumed = row.assumedMasterState;
 
     if (!assumed) {
@@ -267,9 +274,10 @@ async function pullCategories(
     queries,
     total: false,
   });
-  const rows = (
-    (response as unknown as { rows?: Record<string, unknown>[] }).rows ?? []
-  ).filter(
+  const responseRows =
+    (response as unknown as { rows?: Record<string, unknown>[] }).rows ?? [];
+  assertRemoteRowsOwnedBy(responseRows, userId, 'Category');
+  const rows = responseRows.filter(
     (row) =>
       typeof row.$id === 'string' &&
       row.$id.length > 0 &&

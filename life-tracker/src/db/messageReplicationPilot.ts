@@ -26,6 +26,10 @@ import {
 import { awaitPilotReplicationFreshness } from './replicationFreshness';
 import { getReplicationIdentifier } from './replicationIds';
 import { trackReplicationFreshness } from './replicationLocalState';
+import {
+  assertRemoteRowOwnedBy,
+  assertRemoteRowsOwnedBy,
+} from './replicationOwnership';
 
 const PULL_BATCH_SIZE = 100;
 const PUSH_BATCH_SIZE = 50;
@@ -261,11 +265,11 @@ async function pullMessages(
     total: false,
   });
 
-  const rows = (
-    (response as unknown as { rows?: Record<string, unknown>[] }).rows ?? []
-  ).filter(
+  const responseRows =
+    (response as unknown as { rows?: Record<string, unknown>[] }).rows ?? [];
+  assertRemoteRowsOwnedBy(responseRows, userId, 'Message');
+  const rows = responseRows.filter(
     (row) =>
-      row.user_id === userId &&
       typeof row.$id === 'string' &&
       row.$id.length > 0 &&
       typeof row.$updatedAt === 'string' &&

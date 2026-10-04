@@ -32,6 +32,10 @@ import { awaitPilotReplicationFreshness } from './replicationFreshness';
 import { getReplicationIdentifier } from './replicationIds';
 import { trackReplicationFreshness } from './replicationLocalState';
 import {
+  assertRemoteRowOwnedBy,
+  assertRemoteRowsOwnedBy,
+} from './replicationOwnership';
+import {
   loadAcceptedFriendIds,
   sanitizeTaskReactions,
 } from './socialReferenceSanitizer';
@@ -158,7 +162,8 @@ function isBootstrapLocalNewer(
 }
 
 async function readRemoteTask(
-  rowId: string
+  rowId: string,
+  userId: string
 ): Promise<ReplicatedTask | null> {
   try {
     const row = await guardedTablesDB.getRow({
@@ -166,7 +171,9 @@ async function readRemoteTask(
       tableId: APPWRITE_TABLES.tasks,
       rowId,
     });
-    return toReplicatedTask(row as unknown as Record<string, unknown>);
+    const raw = row as unknown as Record<string, unknown>;
+    assertRemoteRowOwnedBy(raw, userId, 'Task');
+    return toReplicatedTask(raw);
   } catch (error) {
     if (isNotFoundError(error)) return null;
     throw error;
@@ -192,7 +199,7 @@ async function createRemoteTask(
     return null;
   } catch (error) {
     if (!isConflictError(error)) throw error;
-    const current = await readRemoteTask(document.id);
+    const current = await readRemoteTask(document.id, userId);
     if (current) return current;
     throw error;
   }
@@ -306,7 +313,7 @@ async function pushTasks(
       );
     }
 
-    const current = await readRemoteTask(next.id);
+    const current = await readRemoteTask(next.id, userId);
     if (current && current.userId !== userId) {
       throw new Error(
         `Task replication master owner mismatch for ${next.id}`
@@ -456,11 +463,11 @@ async function pullTasks(
     total: false,
   });
 
-  const rows = (
-    (response as unknown as { rows?: Record<string, unknown>[] }).rows ?? []
-  ).filter(
+  const responseRows =
+    (response as unknown as { rows?: Record<string, unknown>[] }).rows ?? [];
+  assertRemoteRowsOwnedBy(responseRows, userId, 'Task');
+  const rows = responseRows.filter(
     (row) =>
-      row.user_id === userId &&
       typeof row.$id === 'string' &&
       row.$id.length > 0 &&
       typeof row.$updatedAt === 'string' &&

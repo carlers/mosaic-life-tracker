@@ -36,6 +36,10 @@ import { awaitPilotReplicationFreshness } from './replicationFreshness';
 import { getReplicationIdentifier } from './replicationIds';
 import { trackReplicationFreshness } from './replicationLocalState';
 import {
+  assertRemoteRowOwnedBy,
+  assertRemoteRowsOwnedBy,
+} from './replicationOwnership';
+import {
   loadAcceptedFriendIds,
   sanitizeFriendCarouselValue,
 } from './socialReferenceSanitizer';
@@ -127,7 +131,8 @@ function isBootstrapLocalNewer(
 }
 
 async function readRemoteSetting(
-  rowId: string
+  rowId: string,
+  userId: string
 ): Promise<ReplicatedSetting | null> {
   try {
     const row = await guardedTablesDB.getRow({
@@ -135,7 +140,9 @@ async function readRemoteSetting(
       tableId: APPWRITE_TABLES.settings,
       rowId,
     });
-    return toReplicatedSetting(row as unknown as Record<string, unknown>);
+    const raw = row as unknown as Record<string, unknown>;
+    assertRemoteRowOwnedBy(raw, userId, 'Settings');
+    return toReplicatedSetting(raw);
   } catch (error) {
     if (isNotFoundError(error)) return null;
     throw error;
@@ -259,7 +266,7 @@ async function createRemoteSetting(
     return null;
   } catch (error) {
     if (!isConflictError(error)) throw error;
-    const current = await readRemoteSetting(document.id);
+    const current = await readRemoteSetting(document.id, userId);
     if (current) return current;
     throw error;
   }
@@ -286,7 +293,7 @@ async function pushSettings(
       );
     }
 
-    const current = await readRemoteSetting(next.id);
+    const current = await readRemoteSetting(next.id, userId);
     const assumed = row.assumedMasterState;
 
     if (!assumed) {
@@ -426,9 +433,10 @@ async function pullSettings(
     queries,
     total: false,
   });
-  const rows = (
-    (response as unknown as { rows?: Record<string, unknown>[] }).rows ?? []
-  ).filter(
+  const responseRows =
+    (response as unknown as { rows?: Record<string, unknown>[] }).rows ?? [];
+  assertRemoteRowsOwnedBy(responseRows, userId, 'Settings');
+  const rows = responseRows.filter(
     (row) =>
       typeof row.$id === 'string' &&
       row.$id.length > 0 &&
