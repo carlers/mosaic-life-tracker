@@ -228,6 +228,47 @@ describe('TodoMateImportSheet', () => {
     expect(screen.queryByText(/999 tasks · 99 categories/i)).not.toBeInTheDocument();
   });
 
+  it('reports sync pending after local apply without claiming full completion', async () => {
+    const onSuccess = vi.fn();
+    mocks.restoreUserData.mockImplementationOnce(async (_file, _user, options) => {
+      options.onLocalApplyComplete?.();
+      return {
+        mode: 'merge',
+        restored: { tasks: 12, categories: 3, diary: 2, settings: 0 },
+        skippedNewer: 0,
+        tombstoned: 0,
+        imagesRestored: 0,
+        imagesMissing: 0,
+        safetyBackupDownloaded: false,
+        syncState: 'pending',
+        syncError: 'network timeout',
+      };
+    });
+
+    render(
+      <TodoMateImportSheet isOpen onClose={vi.fn()} onSuccess={onSuccess} />
+    );
+    fireEvent.change(screen.getByLabelText('TodoMate email'), {
+      target: { value: 'todo@example.com' },
+    });
+    fireEvent.change(screen.getByLabelText('TodoMate password'), {
+      target: { value: 'pw-sync-12345' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Preview Transfer' }));
+    await screen.findByRole('button', { name: 'Import into Mosaic' });
+    fireEvent.click(screen.getByRole('button', { name: 'Import into Mosaic' }));
+
+    await waitFor(() =>
+      expect(onSuccess).toHaveBeenCalledWith(
+        expect.stringMatching(/imported locally · Sync pending/i)
+      )
+    );
+    const marker = JSON.parse(
+      localStorage.getItem('mosaic_todomate_import_v1_user_A') || '{}'
+    );
+    expect(marker.phase).toBe('applied');
+  });
+
   it('does not expose a destructive replace mode', async () => {
     render(<TodoMateImportSheet isOpen onClose={vi.fn()} />);
 
