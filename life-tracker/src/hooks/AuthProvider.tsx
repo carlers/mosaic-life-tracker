@@ -425,30 +425,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         }
 
         scopeAccountWork(resolved.$id);
-        const { fetchMyProfile } = await import("../lib/social");
-        const profile = await fetchMyProfile(resolved.$id);
-        if (!isMountedRef.current || generation !== authGenerationRef.current) {
-          return false;
-        }
-        if (!profile) {
-          const nextPending = {
-            email: normalizeEmail(resolved.email),
-            name: resolved.name || "",
-            userId: resolved.$id,
-          };
-          writePendingSignup(nextPending);
-          clearCachedUser();
-          scopeAccountWork(null);
-          setPendingSignup({
-            email: nextPending.email,
-            name: nextPending.name,
-          });
-          setUser(null);
-          setError("Choose a username to finish setting up your account.");
-          setIsLoading(false);
-          return false;
-        }
-
+        // Username is required for new signups, but legacy accounts that predate
+        // that requirement must still be able to enter Mosaic. Their existing
+        // social surfaces already prompt for profile setup when needed.
         clearPendingSignup();
         setPendingSignup(null);
         writeCachedUser(resolved);
