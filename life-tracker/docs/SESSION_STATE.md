@@ -1,38 +1,37 @@
 # Session checkpoint
 
 Updated: 2026-10-04
-Current task: Finish permanent-account-erasure hardening and final reconnect/local-cleanup verification.
-Status: The main hardening batch is accepted on stable Preview `fix/new-user-onboarding-hardening` at `3c7f452`: focused CI passed on task SHA `69bb91d`, the stable full canonical gate passed, and exact-SHA Vercel Preview deployment `dpl_Erh7jfd3bWtoJ9CRkDNWK7eLqrGW` is READY. Production Appwrite runs the accepted server sources: `message-action` deployment `6ac254279d4fe18c46de` and `dr_backup` deployment `6ac25457acb18594b6c2`, both READY with their previous scopes/schedules/variables preserved. A post-rollout audit found one client-only reconnect hole: after a lost delete response, a later ordinary 401 could leave that browser's deleted-account RxDB rows locally present. Follow-up branch `chatgpt/account-erasure-reconnect-cleanup` now evicts those rows when a matching persisted deletion intent exists and adds normalized-email matching so another account's failed login cannot trigger the purge.
-Next action: Complete focused verification for the reconnect follow-up, repair every failure, squash the focused-green task into stable Preview, then rerun the stable canonical gate + exact-SHA Preview. No Appwrite Function redeploy is required if the final diff remains client/tests/docs only. The remaining destructive acceptance is a real browser/device check using a purpose-built disposable Mosaic account. Promotion to `dev` remains user-controlled.
-Blockers: This environment cannot drive a client-authenticated browser/device session or spoof Appwrite's reserved user identity headers, so destructive multi-device acceptance remains genuinely manual. The old accidental privacy marker for non-production Auth ID `6a96e813038ce6b66315` may remain object-locked and is unrelated to a real Mosaic user.
+Current task: Finish destructive acceptance for permanent account erasure after the disposable `test@test.com` run exposed a Function-timeout bottleneck.
+Status: Stable Preview `fix/new-user-onboarding-hardening` is accepted at `c93a118`; its full canonical gate `37206688081` passed and exact-SHA Vercel Preview `dpl_EWk6kgMRXKAmspUK2Hw2KTzYPQkZ` is READY. Production `message-action` deployment `6ac254279d4fe18c46de` and `dr_backup` deployment `6ac25457acb18594b6c2` are READY. The user then performed the real disposable deletion for `test@test.com` (Auth ID `6ab9ec2a329e7cb1f34c`). The request crossed the privacy pivot and returned 202, disabled Auth, revoked every session, removed all owned/cross-user DB rows and profile, and left the durable deletion job intact. The immediate async worker then timed out at 120 seconds in `running/cleanup` before Storage cleanup/final Auth removal; 37 account-owned image files remained. Root cause: `scrubCrossUserReferences()` opened a transaction for every surviving task/settings row even when the scanned row could not contain the erased ID. Production currently has hundreds of peer task rows, so those sequential transaction round-trips consumed the Function budget.
+Next action: Focused-verify `chatgpt/account-erasure-timeout-fix`, which prefilters scan snapshots and opens transactions only for actual scrub candidates. If green, squash into stable Preview, run the stable full canonical gate + exact-SHA Preview, redeploy only `message-action`, invoke the existing durable deletion job `del_b16bbd4612279b54179e378521ad22e1`, and verify Auth user/job/37 files are all gone plus no row/reference residue. Promotion to `dev` remains user-controlled.
+Blockers: None known. Do not manually delete the remaining disposable-account files/user/job; the acceptance goal is to prove the retryable worker completes them itself after the fix.
 
-## Accepted hardening
+## Live disposable-account evidence
 
-- The encrypted/authenticated DR privacy-deletion marker is the irreversible privacy pivot. Deletion jobs may exist in pre-pivot `preparing` state, but destructive Appwrite cleanup does not begin until the marker is confirmed.
-- Client/network ambiguity is fail-closed. The browser persists deletion intent before dispatch, suspends account work across same-browser tabs, and never restarts the old sync owner merely because the HTTP response disappeared.
-- The worker is duplicate/404 safe, handles duplicate profile rows, transactionally scrubs surviving peer references, clears malformed privacy-sensitive metadata, fences trusted cross-user writes while a deletion job exists, verifies before Auth removal, then performs post-Auth reconciliation/verification before removing the job.
-- Stale peer task reactions and `friend_carousel_prefs` are sanitized against the current accepted friendship graph before replication push so an offline peer cannot resurrect an erased former-friend ID.
-- DR marker verification supports retained old encryption keys through optional `DR_ENCRYPTION_KEYS_JSON`; missing required old keys fail closed.
-- `infrastructure/account-erasure-policy.mjs` classifies every active portable table/bucket, with tests enforcing manifest and worker coverage parity.
-- Account-deletion migration checks server-only permissions, enabled/row-security state, detailed column compatibility, indexes, and unexpected required columns.
-- Deleted-account local cleanup is scoped by `userId` and preserves unrelated accounts in the shared RxDB. RxDB removals may leave internal deletion tombstones until normal cleanup; Mosaic intentionally does not run collection-wide zero-age cleanup because that could discard another account's replication tombstones.
-- Follow-up reconnect rule: an authoritative 401 with a matching persisted deletion intent evicts that account's local rows while retaining the intent if server acceptance is still uncertain. A failed login must match the intent's normalized email before it can trigger this cleanup.
+- `test@test.com` maps to Auth ID `6ab9ec2a329e7cb1f34c`.
+- Delete request execution `6ac25fa5da54383e8a3d` ran production deployment `6ac254279d4fe18c46de`, returned HTTP 202, and crossed the marker-backed privacy pivot.
+- Auth is disabled and has zero sessions.
+- Owned tasks, categories, diary, settings, profiles: zero rows.
+- Friendships matching either `user_id` or `friend_id`: zero rows.
+- Messages matching `user_id`, `sender_id`, or `recipient_id`: zero rows.
+- Surviving scanned task reactions and `friend_carousel_prefs`: no deleted-user reference observed.
+- Storage bucket currently has 134 files total; 37 are still owned by the deleted disposable account.
+- Durable job `del_b16bbd4612279b54179e378521ad22e1` remains `running / cleanup`, attempts=1, which is the correct fail-safe state.
+- Async resume execution `6ac25fac826f50c79d64` hit the 120-second timeout. It did not delete Auth or remove the job, so completion was not falsely reported.
 
-## Verification and rollout evidence
+## Fix under focused verification
 
-- Focused main-hardening gate: GitHub Actions run `37204677984` on `69bb91d` — passed.
-- Stable canonical gate: GitHub Actions run `37204752278` on `3c7f452` — passed across checks, build, dependency audit, both DOM shards, both browser-contract shards, and canonical acceptance.
-- Exact-SHA Preview for `3c7f452`: `mosaic-life-tracker-n68xpyq4k-carls-projects-72516fde.vercel.app`, deployment `dpl_Erh7jfd3bWtoJ9CRkDNWK7eLqrGW` — READY.
-- Production schema re-read: `account_deletions` remains enabled, row-security/server-only, with required columns and both indexes available; no schema mutation was needed for this hardening.
-- Production `message-action`: active deployment `6ac254279d4fe18c46de` — READY; schedule `0 * * * *`, timeout 120, existing nine scopes and variables preserved.
-- Production `dr_backup`: active deployment `6ac25457acb18594b6c2` — READY; schedule `0 11 * * *`, timeout 900, read-only scopes/secrets/retention variables preserved.
-- Non-destructive runtime smoke: `message-action` ran the accepted deployment and returned the expected forbidden result for a non-friend request; `dr_backup` ran the accepted deployment and rejected untrusted manual execution as expected.
-- `account_deletions` was empty after rollout/smoke checks.
+- Pre-scan task reactions with `stripUserFromReactions()`; skip the Appwrite transaction when the snapshot cannot contain the deleted ID.
+- Pre-scan `friend_carousel_prefs` with `stripFriendCarouselValue()`; likewise skip unrelated settings rows.
+- Actual candidates still use the existing transactional re-read/retry so concurrent peer edits remain protected.
+- Final verification remains authoritative and catches a reference introduced after the prefilter snapshot.
+- Handler regression simulates 100 unrelated peer tasks plus 100 unrelated peer settings; account deletion must complete with zero `createTransaction` calls for those rows.
 
 ## Remaining acceptance
 
-1. Focused CI for `chatgpt/account-erasure-reconnect-cleanup`.
-2. Squash the focused-green follow-up into `fix/new-user-onboarding-hardening`, then require the stable full canonical gate and exact-SHA Preview.
-3. On a deliberately disposable Mosaic account, manually verify typed confirmation, immediate initiating-device sign-out/local eviction, connected second-device invalidation/cleanup, owned and cross-user rows/files absent, peer structured references scrubbed, Auth user absent, deletion job absent, and retry-safe DR marker behavior.
-4. Keep the platform limit explicit: a physically disconnected third-party device cannot be remotely wiped while disconnected. Server erasure does not imply immediate byte-level removal from another person's offline device or from RxDB's internal local tombstone storage.
-5. Do not promote to `dev` or `main` without the user's explicit instruction.
+1. Focused CI on this task branch.
+2. Squash into `fix/new-user-onboarding-hardening`, full canonical gate, exact-SHA Preview.
+3. Redeploy only `message-action` from the accepted stable SHA; re-read active deployment/config.
+4. Resume the existing durable deletion job through the internal server-only path.
+5. Verify: Auth user absent, zero sessions/user lookup, deletion job absent, all 37 owned files absent, all owned/cross-user rows absent, no embedded peer references, and retry execution completes below timeout.
+6. Update this checkpoint/PLAN with final evidence. Do not promote to `dev` or `main` without explicit user instruction.
