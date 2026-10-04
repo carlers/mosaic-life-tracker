@@ -161,6 +161,7 @@ async function fetchTodoMatePhoto(
     }
     return new Uint8Array(await processed.arrayBuffer());
   } catch {
+    throwIfAborted(signal);
     return null;
   }
 }
@@ -742,7 +743,8 @@ export async function prepareTodoMateTransfer(
       session.uid,
       session.idToken,
       config.projectId,
-      fetchImpl
+      fetchImpl,
+      signal
     ),
     queryOwnedCollection(
       'Diary',
@@ -750,7 +752,8 @@ export async function prepareTodoMateTransfer(
       session.uid,
       session.idToken,
       config.projectId,
-      fetchImpl
+      fetchImpl,
+      signal
     ),
   ]);
 
