@@ -15,6 +15,7 @@
   --mosaic-text-secondary: #d1d5db;
   --mosaic-text-muted: #9ca3af;
   --mosaic-text-faint: #6b7280;
+  --mosaic-task-incomplete-bg: #374151;
 }
 
 html[data-theme='black'] {
@@ -30,6 +31,7 @@ html[data-theme='black'] {
   --mosaic-text-secondary: #e5e7eb;
   --mosaic-text-muted: #a1a1aa;
   --mosaic-text-faint: #71717a;
+  --mosaic-task-incomplete-bg: #374151;
 }
 
 html[data-theme='light'] {
@@ -45,6 +47,7 @@ html[data-theme='light'] {
   --mosaic-text-secondary: #374151;
   --mosaic-text-muted: #6b7280;
   --mosaic-text-faint: #9ca3af;
+  --mosaic-task-incomplete-bg: #e5e7eb;
 }
 
 body {

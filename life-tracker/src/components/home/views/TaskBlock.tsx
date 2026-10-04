@@ -15,7 +15,7 @@ interface TaskBlockProps {
 export const TaskBlock: React.FC<TaskBlockProps> = ({ task, categoryColor }) => {
   const { targetRef, shouldLoad } = useImageLoadGate<HTMLDivElement>();
   const { imageUrl, isLoading } = useTaskImage(task.image, shouldLoad);
-  const bgColor = task.completed ? categoryColor : '#374151';
+  const bgColor = task.completed ? categoryColor : 'var(--mosaic-task-incomplete-bg)';
   const textColor = task.completed ? 'text-white' : 'text-gray-300';
 
   return (
