@@ -45,6 +45,7 @@ This roadmap records durable workstreams and batch status. `SESSION_STATE.md` co
 - [x] Workflow wall-time optimization — quiet WIP task pushes, one focused task checkpoint, one stable-Preview full gate, cached build dependencies, and provenance/tree-based acceptance reuse for exact stable Preview → dev promotions
 - [x] Sync-engine race hardening — fail-closed freshness barriers, authenticated-owner generations, account-scoped compatibility metadata, serialized pilot lifecycle, and cross-tab durable retry queues
 - [x] Multi-device RxDB restart hardening — normal startup resumes versioned RxDB metadata directly, first-sync conflicts are semantic rather than LWT-based, and >90-day recovery is read-only with DB-local freshness proofs
+- [ ] Permanent account erasure — typed confirmation and the original rollout are live; the current hardening task changes the irreversible pivot to the authenticated DR marker, keeps ambiguous clients fail-closed, adds account-scoped local erasure, duplicate/concurrent-worker tolerance, post-Auth reconciliation, stale peer-reference sanitization, DR key-rotation support, schema drift checks, and explicit backend erasure policy coverage. Focused verification, stable-Preview canonical acceptance, changed-Function rollout, and disposable-account manual acceptance remain.
 - [ ] Phase 4 — final production acceptance and main release
 
 ## Disaster recovery and backend capacity

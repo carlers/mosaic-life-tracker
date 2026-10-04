@@ -138,7 +138,12 @@ describe('message-action / scheduled tombstone GC', () => {
       'friendships',
       'messages',
     ]);
-    expect(mockDb.listRows).toHaveBeenCalledTimes(6);
+    // One server-only read checks durable account-deletion jobs before the
+    // six ordinary tombstone-GC table scans.
+    expect(mockDb.listRows).toHaveBeenCalledTimes(7);
+    expect(response.logs).toContain(
+      'account-deletion: scheduled processed=0 failed=0'
+    );
     expect(response.logs.at(-1)).toBe(
       'tombstone-gc: complete scanned=0 purged=0'
     );

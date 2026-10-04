@@ -32,7 +32,10 @@ otherwise miss deletions and recreate stale rows.
   write is then handled by RxDB's persisted upstream protocol and the collection-specific
   conflict rules.
 - Tombstones older than the retention window may be permanently removed only by the
-  privileged scheduled maintenance path documented below.
+  privileged scheduled maintenance path documented below. Explicit user-confirmed
+  **account erasure** is a separate privacy operation: its durable server worker hard-deletes
+  that account's live records immediately rather than waiting 90 days. See
+  [Project Reference §23.8](PROJECT_REFERENCE.md#238-permanent-account-erasure).
 
 ## First sync and lost replication metadata
 
@@ -75,9 +78,11 @@ The `message-action` entrypoint checks Appwrite's trusted
 through the existing authenticated action router, so there is no browser-callable
 `tombstone_gc` action.
 
-The existing `message-action` dynamic API key scopes are sufficient for this path:
-`rows.read`, `rows.write`, and `tables.read`. Do not add a browser-user credential or
-a separate long-lived server API key.
+Tombstone GC itself still needs only `rows.read`, `rows.write`, and `tables.read`.
+The shared `message-action` Function now carries additional server-only scopes for the
+account-erasure worker (`users.write`, `sessions.write`, Storage file read/write, and Function execution).
+Those scopes must never be exposed through a browser credential or a separate long-lived
+server key.
 
 ### Appwrite Console setup
 
@@ -88,8 +93,10 @@ Configure:
 
 - the current `message-action` source/root and runtime as before
 - `TOMBSTONE_RETENTION_DAYS=90`
-- the existing scopes `rows.read`, `rows.write`, and `tables.read`
-- a daily schedule, for example `0 0 * * *`
+- the complete checked-in Function scope set from
+  `appwrite-functions/message-action/function.config.json`
+- the hourly maintenance schedule `0 * * * *`, which retries accepted account-erasure
+  jobs and then runs the idempotent tombstone GC
 
 Appwrite scheduled executions are asynchronous, so the response body is not the operational
 audit record. The function logs the retention window, cutoff, per-table scanned/purged
@@ -98,8 +105,8 @@ counts, and final totals for every scheduled run.
 ### Production rollout checklist
 
 1. Deploy the updated `message-action` code with its schedule still unset/disabled.
-2. Confirm `TOMBSTONE_RETENTION_DAYS=90` and the existing function scopes above.
-3. Enable a daily schedule such as `0 0 * * *`.
+2. Confirm `TOMBSTONE_RETENTION_DAYS=90` and the complete checked-in Function scopes.
+3. Enable the hourly maintenance schedule `0 * * * *`.
 4. Inspect the first scheduled execution. It must start with a log containing
    `retentionDays=90` and an ISO `cutoff`, then emit one result line for each of
    `tasks`, `categories`, `diary`, `settings`, `friendships`, and `messages`,
@@ -135,6 +142,8 @@ evolve to a server-side sync-version/device-acknowledgement protocol.
 
 ## Operational rule
 
-Do not purge tombstones using an ad-hoc client-side delete or a normal
-`message-action` payload. Permanent deletion is valid only through the schedule-triggered
-maintenance path described here.
+Do not purge ordinary tombstones using an ad-hoc client-side delete or a normal
+`message-action` payload. Permanent deletion of ordinary synchronized records is valid
+only through the schedule-triggered retention path described here. Explicit whole-account
+erasure is the documented exception and must go through the server-owned account-deletion
+job, never through a client-side row loop.

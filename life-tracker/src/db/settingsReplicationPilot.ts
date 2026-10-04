@@ -35,6 +35,10 @@ import { updateProfileAvatar } from '../lib/social';
 import { awaitPilotReplicationFreshness } from './replicationFreshness';
 import { getReplicationIdentifier } from './replicationIds';
 import { trackReplicationFreshness } from './replicationLocalState';
+import {
+  loadAcceptedFriendIds,
+  sanitizeFriendCarouselValue,
+} from './socialReferenceSanitizer';
 
 const PULL_BATCH_SIZE = 100;
 const PUSH_BATCH_SIZE = 20;
@@ -145,6 +149,24 @@ async function prepareSettingForPush(
   document: ReplicatedSetting;
   pendingImageId: string | null;
 }> {
+  if (
+    document.key === 'friend_carousel_prefs' &&
+    typeof document.value === 'string' &&
+    !document.isDeleted
+  ) {
+    const acceptedFriendIds = await loadAcceptedFriendIds(userId);
+    return {
+      document: {
+        ...document,
+        value: sanitizeFriendCarouselValue(
+          document.value,
+          acceptedFriendIds
+        ),
+      },
+      pendingImageId: null,
+    };
+  }
+
   if (
     document.key !== 'profileImageId' ||
     typeof document.value !== 'string' ||

@@ -15,8 +15,14 @@ export interface AuthContextValue {
    * screen when `isOffline` is true rather than redirecting to /login.
    */
   isOffline: boolean;
+  pendingSignup: { email: string; name: string } | null;
   login: (email: string, password: string) => Promise<boolean>;
-  signup: (email: string, password: string, name: string) => Promise<boolean>;
+  signup: (
+    email: string,
+    password: string,
+    name: string,
+    username: string,
+  ) => Promise<boolean>;
   requestPasswordRecovery: (email: string) => Promise<boolean>;
   completePasswordRecovery: (
     userId: string,
@@ -37,6 +43,12 @@ export interface AuthContextValue {
    *   if (ok) navigate('/login', { replace: true });
    */
   logout: () => Promise<boolean>;
+  /**
+   * Permanently requests deletion of the authenticated Appwrite account and
+   * all Mosaic-owned server data. The backend requires the exact DELETE
+   * confirmation and derives the target user from the active session.
+   */
+  deleteAccount: (confirmation: string) => Promise<boolean>;
   updateEmail: (newEmail: string, password: string) => Promise<boolean>;
   updatePassword: (
     newPassword: string,

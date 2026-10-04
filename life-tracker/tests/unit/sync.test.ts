@@ -563,6 +563,56 @@ describe('sync — freshness barriers', () => {
     expect(localStorageMock.getItem('lastSyncTime_user_A')).toBeTruthy();
   });
 
+  it('starts all pilot freshness checks together so a slow collection cannot starve later deadlines', async () => {
+    setAllPilots(true);
+    let releaseCategory!: (value: boolean) => void;
+    categoryPilotRefreshMock.mockImplementationOnce(
+      () =>
+        new Promise<boolean>((resolve) => {
+          releaseCategory = resolve;
+        })
+    );
+    const progress: number[] = [];
+
+    const pending = syncModule.refreshSync('user_A', 5_000, {
+      onProgress: (value) => progress.push(value.percent),
+    });
+
+    await vi.waitFor(() => {
+      expect(categoryPilotRefreshMock).toHaveBeenCalled();
+      expect(diaryPilotRefreshMock).toHaveBeenCalled();
+      expect(settingsPilotRefreshMock).toHaveBeenCalled();
+      expect(friendshipPilotRefreshMock).toHaveBeenCalled();
+      expect(taskPilotRefreshMock).toHaveBeenCalled();
+      expect(messagePilotRefreshMock).toHaveBeenCalled();
+    });
+
+    releaseCategory(true);
+    const result = await pending;
+
+    expect(result.status.lastSync).toBeTruthy();
+    expect(progress[0]).toBe(0);
+    expect(progress.at(-1)).toBe(100);
+  });
+
+  it('treats a freshness timeout as pending background sync instead of a persistent red error', async () => {
+    setAllPilots(true);
+    diaryPilotRefreshMock.mockRejectedValueOnce(
+      new Error('Fresh diary sync timed out. Check your connection and retry.')
+    );
+
+    await expect(
+      syncModule.refreshSync('user_A', 5_000)
+    ).rejects.toThrow(/Fresh diary sync timed out/i);
+
+    expect(syncModule.getSyncStatus()).toMatchObject({
+      isSyncing: false,
+      errors: [],
+      notice: expect.stringMatching(/still finishing in the background/i),
+      progress: null,
+    });
+  });
+
   it('Sync Now is also a freshness barrier when pilots were initially inactive', async () => {
     const result = await syncModule.syncNow('user_A', 5_000);
 

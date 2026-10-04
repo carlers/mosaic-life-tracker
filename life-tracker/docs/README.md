@@ -15,6 +15,7 @@ behavior.
 | Release versions and build identity | [Versioning protocol](VERSIONING.md) |
 | Accessibility evidence and manual protocol | [Accessibility review](ACCESSIBILITY_AUDIT.md) |
 | Tombstones and scheduled maintenance | [Retention procedure](TOMBSTONE_RETENTION.md) |
+| Permanent account deletion and DR non-resurrection | [Account erasure](ACCOUNT_ERASURE.md) |
 | Friendship permissions, rollout, and legacy repair | [Friendship recovery](FRIENDSHIP_RECOVERY.md) |
 | User backup format and restore semantics | [Backup and restore](BACKUP_RESTORE.md) |
 | One-way TodoMate personal-data migration | [TodoMate import](TODOMATE_IMPORT.md) |

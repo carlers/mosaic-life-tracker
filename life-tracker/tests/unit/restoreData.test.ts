@@ -7,13 +7,19 @@ type Stored = Record<string, unknown>;
 
 const state = vi.hoisted(() => {
   const rows = { tasks: new Map<string, Stored>(), categories: new Map<string, Stored>(), diary: new Map<string, Stored>(), settings: new Map<string, Stored>(), friendships: new Map<string, Stored>(), messages: new Map<string, Stored>() };
-  return { rows, sync: vi.fn().mockResolvedValue(undefined), refreshSync: vi.fn().mockResolvedValue({ status: { isSyncing: false, lastSync: '2026-09-27T00:00:00.000Z', errors: [] }, startedAt: 0 }), exportUserData: vi.fn().mockResolvedValue({ blob: new Blob(['safety'], { type: 'application/json' }), filename: 'mosaic-safety.json', counts: { tasks: 0, categories: 0, diary: 0, settings: 0, friendships: 0, images: 0, missingImages: 0 } }), triggerDownload: vi.fn(), upsertLocalDoc: vi.fn(), ensureRestoredImage: vi.fn().mockResolvedValue({ fileId: 'img_restored', uploaded: true }), getCurrentUserId: vi.fn().mockResolvedValue('user_A') };
+  return { rows, accountCurrent: true, sync: vi.fn().mockResolvedValue(undefined), refreshSync: vi.fn().mockResolvedValue({ status: { isSyncing: false, lastSync: '2026-09-27T00:00:00.000Z', errors: [] }, startedAt: 0 }), exportUserData: vi.fn().mockResolvedValue({ blob: new Blob(['safety'], { type: 'application/json' }), filename: 'mosaic-safety.json', counts: { tasks: 0, categories: 0, diary: 0, settings: 0, friendships: 0, images: 0, missingImages: 0 } }), triggerDownload: vi.fn(), upsertLocalDoc: vi.fn(), ensureRestoredImage: vi.fn().mockResolvedValue({ fileId: 'img_restored', uploaded: true }), getCurrentUserId: vi.fn().mockResolvedValue('user_A') };
 });
 function resetRows() { for (const map of Object.values(state.rows)) map.clear(); }
 function wrap(collection: CollectionName, id: string) { const map = state.rows[collection]; return { get id() { return id; }, toJSON: () => ({ ...(map.get(id) ?? {}) }), incrementalPatch: vi.fn(async (patch: Stored) => { map.set(id, { ...(map.get(id) ?? {}), ...patch }); }) }; }
 function dbCollection(collection: CollectionName) { const map = state.rows[collection]; return { findOne: (id: string) => ({ exec: async () => (map.has(id) ? wrap(collection, id) : null) }), find: () => ({ exec: async () => Array.from(map.keys(), (id) => wrap(collection, id)) }), insert: async (doc: Stored) => { map.set(String(doc.id), { ...doc }); } }; }
 vi.mock('../../src/db/database', () => ({ getDatabase: () => ({ tasks: dbCollection('tasks'), categories: dbCollection('categories'), diary: dbCollection('diary'), settings: dbCollection('settings'), friendships: dbCollection('friendships'), messages: dbCollection('messages') }) }));
 vi.mock('../../src/lib/localUpsert', () => ({ upsertLocalDoc: state.upsertLocalDoc }));
+vi.mock('../../src/lib/accountWorkScope', () => ({
+  captureAccountWorkGeneration: (userId: string) =>
+    state.accountCurrent && userId === 'user_A' ? 7 : null,
+  isAccountWorkCurrent: (userId: string, generation: number) =>
+    state.accountCurrent && userId === 'user_A' && generation === 7,
+}));
 vi.mock('../../src/db/sync', () => ({ initializeSync: state.sync, refreshSync: state.refreshSync }));
 vi.mock('../../src/lib/exportData', async (importOriginal) => { const actual = await importOriginal<typeof import('../../src/lib/exportData')>(); return { ...actual, exportUserData: state.exportUserData, triggerDownload: state.triggerDownload }; });
 vi.mock('../../src/lib/storage', () => ({ ensureRestoredImage: state.ensureRestoredImage, getCurrentUserId: state.getCurrentUserId }));
@@ -24,9 +30,9 @@ function jsonBackup(overrides: Record<string, unknown> = {}) { return new File([
 function zipBackup(overrides: Record<string, unknown>, images: Record<string, string> = {}) { const encoder = new TextEncoder(); const files: Record<string, Uint8Array> = { 'manifest.json': encoder.encode(JSON.stringify(backupPayload(overrides))) }; for (const [fileId, contents] of Object.entries(images)) files[`images/${fileId}.webp`] = encoder.encode(contents); const zipped = zipSync(files); const buffer = zipped.slice().buffer as ArrayBuffer; return new File([buffer], 'backup.zip', { type: 'application/zip' }); }
 
 describe('backup restore', () => {
-  beforeEach(() => { resetRows(); vi.clearAllMocks(); state.sync.mockResolvedValue(undefined); state.refreshSync.mockImplementation(async () => ({ status: { isSyncing: false, lastSync: new Date().toISOString(), errors: [] }, startedAt: Date.now() - 1_000 })); state.upsertLocalDoc.mockImplementation(async (collection: CollectionName, id: string, doc: Stored) => { state.rows[collection].set(id, { ...(state.rows[collection].get(id) ?? {}), ...doc }); }); state.ensureRestoredImage.mockResolvedValue({ fileId: 'img_restored', uploaded: true }); state.getCurrentUserId.mockResolvedValue('user_A'); state.exportUserData.mockResolvedValue({ blob: new Blob(['safety'], { type: 'application/json' }), filename: 'mosaic-safety.json', counts: { tasks: 0, categories: 0, diary: 0, settings: 0, friendships: 0, images: 0, missingImages: 0 } }); });
+  beforeEach(() => { resetRows(); vi.clearAllMocks(); state.accountCurrent = true; state.sync.mockResolvedValue(undefined); state.refreshSync.mockImplementation(async () => ({ status: { isSyncing: false, lastSync: new Date().toISOString(), errors: [] }, startedAt: Date.now() - 1_000 })); state.upsertLocalDoc.mockImplementation(async (collection: CollectionName, id: string, doc: Stored) => { state.rows[collection].set(id, { ...(state.rows[collection].get(id) ?? {}), ...doc }); }); state.ensureRestoredImage.mockResolvedValue({ fileId: 'img_restored', uploaded: true }); state.getCurrentUserId.mockResolvedValue('user_A'); state.exportUserData.mockResolvedValue({ blob: new Blob(['safety'], { type: 'application/json' }), filename: 'mosaic-safety.json', counts: { tasks: 0, categories: 0, diary: 0, settings: 0, friendships: 0, images: 0, missingImages: 0 } }); });
   it('accepts legacy v1 JSON and reports friendships as reference-only', async () => { const file = new File([JSON.stringify({ app: { name: 'Mosaic', version: '0.0.0' }, version: 1, exportedAt: '2026-09-01T00:00:00.000Z', user: currentUser, counts: { tasks: 1, categories: 0, diary: 0, settings: 1, friendships: 2, images: 0, missingImages: 0 }, data: { tasks: [{ id: 'task_1', title: 'Old export', completed: false, categoryId: '', date: '2026-09-01', createdAt: '2026-09-01T00:00:00.000Z', updatedAt: '2026-09-01T00:00:00.000Z', userId: 'user_A', isDeleted: false, visibility: 'private' }], categories: [], diary: [], settings: { showTodayTag: true }, friendships: [{ id: 'friend_ref' }, { id: 'friend_ref_2' }] }, images: { included: false, referenced: [], missingImages: [], note: '' } })], 'legacy.json', { type: 'application/json' }); const preview = await inspectBackupFile(file); expect(preview.version).toBe(1); expect(preview.counts.tasks).toBe(1); expect(preview.counts.settings).toBe(1); expect(preview.friendshipsReferenceOnly).toBe(2); });
-  it('merge preserves a newer current row and imports a newer missing row', async () => { state.rows.tasks.set('task_keep', { id: 'task_keep', title: 'Current title', completed: false, categoryId: '', date: '2026-09-19', createdAt: '2026-09-01T00:00:00.000Z', updatedAt: '2026-09-21T00:00:00.000Z', userId: 'user_A', isDeleted: false, visibility: 'private' }); const file = jsonBackup({ data: { tasks: [{ id: 'task_keep', title: 'Older backup title', completed: false, categoryId: '', date: '2026-09-19', createdAt: '2026-09-01T00:00:00.000Z', updatedAt: '2026-09-20T00:00:00.000Z', userId: 'user_A', isDeleted: false, visibility: 'private' }, { id: 'task_new', title: 'Imported', completed: false, categoryId: '', date: '2026-09-20', createdAt: '2026-09-20T00:00:00.000Z', updatedAt: '2026-09-22T00:00:00.000Z', userId: 'user_A', isDeleted: false, visibility: 'private' }], categories: [], diary: [], settings: [], friendships: [] } }); const result = await restoreUserData(file, currentUser, { mode: 'merge' }); expect(state.rows.tasks.get('task_keep')?.title).toBe('Current title'); expect(state.rows.tasks.get('task_new')).toMatchObject({ title: 'Imported', userId: 'user_A' }); expect(result.skippedNewer).toBe(1); expect(result.restored.tasks).toBe(1); expect(state.sync).toHaveBeenCalled(); });
+  it('merge preserves a newer current row and imports a newer missing row', async () => { state.rows.tasks.set('task_keep', { id: 'task_keep', title: 'Current title', completed: false, categoryId: '', date: '2026-09-19', createdAt: '2026-09-01T00:00:00.000Z', updatedAt: '2026-09-21T00:00:00.000Z', userId: 'user_A', isDeleted: false, visibility: 'private' }); const file = jsonBackup({ data: { tasks: [{ id: 'task_keep', title: 'Older backup title', completed: false, categoryId: '', date: '2026-09-19', createdAt: '2026-09-01T00:00:00.000Z', updatedAt: '2026-09-20T00:00:00.000Z', userId: 'user_A', isDeleted: false, visibility: 'private' }, { id: 'task_new', title: 'Imported', completed: false, categoryId: '', date: '2026-09-20', createdAt: '2026-09-20T00:00:00.000Z', updatedAt: '2026-09-22T00:00:00.000Z', userId: 'user_A', isDeleted: false, visibility: 'private' }], categories: [], diary: [], settings: [], friendships: [] } }); const result = await restoreUserData(file, currentUser, { mode: 'merge' }); expect(state.rows.tasks.get('task_keep')?.title).toBe('Current title'); expect(state.rows.tasks.get('task_new')).toMatchObject({ title: 'Imported', userId: 'user_A' }); expect(result.skippedNewer).toBe(1); expect(result.restored.tasks).toBe(1); expect(result.syncState).toBe('synced'); expect(state.refreshSync).toHaveBeenCalledTimes(2); });
   it('cross-account restore uses deterministic IDs and is duplicate-safe', async () => { const file = jsonBackup({ user: { id: 'source_user', email: 'source@example.com', name: 'Source' }, data: { categories: [{ id: 'cat_source', name: 'Work', color: '#123456', order: 0, visibility: 'private', userId: 'source_user', isDeleted: false, updatedAt: '2026-09-20T00:00:00.000Z' }], tasks: [{ id: 'task_source', title: 'Portable', completed: false, categoryId: 'cat_source', date: '2026-09-20', createdAt: '2026-09-20T00:00:00.000Z', updatedAt: '2026-09-20T00:00:00.000Z', userId: 'source_user', isDeleted: false, visibility: 'private' }], diary: [], settings: [], friendships: [] } }); await restoreUserData(file, currentUser, { mode: 'merge' }); await restoreUserData(file, currentUser, { mode: 'merge' }); expect(state.rows.categories.size).toBe(1); expect(state.rows.tasks.size).toBe(1); const category = Array.from(state.rows.categories.values())[0]; const task = Array.from(state.rows.tasks.values())[0]; expect(category.id).not.toBe('cat_source'); expect(task.id).not.toBe('task_source'); expect(task.categoryId).toBe(category.id); expect(task.userId).toBe('user_A'); });
   it('replace tombstones missing personal rows without touching friendships or messages', async () => { state.rows.tasks.set('task_extra', { id: 'task_extra', title: 'Remove me', completed: false, categoryId: '', date: '2026-09-20', createdAt: '2026-09-20T00:00:00.000Z', updatedAt: '2026-09-20T00:00:00.000Z', userId: 'user_A', isDeleted: false, visibility: 'private' }); state.rows.friendships.set('friend_1', { id: 'friend_1', userId: 'user_A', isDeleted: false }); state.rows.messages.set('msg_1', { id: 'msg_1', userId: 'user_A', isDeleted: false }); const file = jsonBackup(); const result = await restoreUserData(file, currentUser, { mode: 'replace' }); expect(state.rows.tasks.get('task_extra')?.isDeleted).toBe(true); expect(state.rows.friendships.get('friend_1')?.isDeleted).toBe(false); expect(state.rows.messages.get('msg_1')?.isDeleted).toBe(false); expect(result.tombstoned).toBe(1); expect(state.exportUserData).toHaveBeenCalledWith(currentUser, expect.objectContaining({ includeImages: false })); expect(state.triggerDownload).toHaveBeenCalledOnce(); });
   it.each([['merge', false, false], ['replace', false, true], ['merge', true, true], ['replace', true, false]] as const)('%s preserves relationships (cross-account=%s, zip=%s)', async (mode, crossAccount, zip) => { const relationships = ['pending_incoming', 'pending_outgoing', 'accepted', 'blocked'].map((status, i) => ({ id: 'fr_' + i, userId: 'user_A', friendId: 'peer_' + i, status, isDeleted: false })); relationships.push({ id: 'fr_deleted', userId: 'user_A', friendId: 'old_peer', status: 'accepted', isDeleted: true }); for (const row of relationships) state.rows.friendships.set(row.id, { ...row }); const storage = new Map<string, string>(); vi.stubGlobal('localStorage', { getItem: (k: string) => storage.get(k), setItem: (k: string, v: string) => storage.set(k, v) }); const queue = JSON.stringify([{ ownerId: 'user_A', operation: 'send', friendUserId: 'new_peer' }]); localStorage.setItem('mosaic_friendship_commands_v1', queue); const payload = backupPayload({ user: crossAccount ? { ...currentUser, id: 'source_user' } : currentUser }); payload.data.friendships = [{ id: 'must_not_restore', userId: 'source_user', status: 'accepted' }]; await restoreUserData(zip ? zipBackup(payload) : jsonBackup(payload), currentUser, { mode }); expect([...state.rows.friendships.values()]).toEqual(relationships); expect(localStorage.getItem('mosaic_friendship_commands_v1')).toBe(queue); });
@@ -43,5 +49,153 @@ describe('backup restore', () => {
   it('rejects prototype-polluting setting keys during preview', async () => { const file = new File([JSON.stringify({ ...backupPayload(), data: { tasks: [], categories: [], diary: [], settings: JSON.parse('{"__proto__":"pollute"}'), friendships: [] } })], 'unsafe-setting.json', { type: 'application/json' }); await expect(inspectBackupFile(file, currentUser.id)).rejects.toThrow(/unsafe setting key/i); });
   it('aborts before writes when the authenticated account no longer matches the restore owner', async () => { state.getCurrentUserId.mockResolvedValueOnce('user_B'); const file = jsonBackup({ data: { tasks: [{ id: 'task_account_guard', title: 'Must not import', completed: false, categoryId: '', date: '2026-09-20', createdAt: '2026-09-20T00:00:00.000Z', updatedAt: '2026-09-20T00:00:00.000Z', userId: 'user_A', isDeleted: false, visibility: 'private' }], categories: [], diary: [], settings: [], friendships: [] } }); await expect(restoreUserData(file, currentUser, { mode: 'merge' })).rejects.toThrow(/signed-in account changed/i); expect(state.upsertLocalDoc).not.toHaveBeenCalled(); expect(state.exportUserData).not.toHaveBeenCalled(); });
   it('does not let an equal-version image retry resurrect a tombstone', async () => { const sourceUser = { id: 'source_user', email: 'source@example.com', name: 'Source' }; const file = zipBackup({ user: sourceUser, data: { tasks: [{ id: 'task_deleted_source', title: 'Deleted current row', completed: false, categoryId: '', date: '2026-09-20', image: 'img_source', createdAt: '2026-09-20T00:00:00.000Z', updatedAt: '2026-09-20T00:00:00.000Z', userId: 'source_user', isDeleted: false, visibility: 'private' }], categories: [], diary: [], settings: [], friendships: [] }, images: { included: true, referenced: ['img_source'], missingImages: [], note: 'bundled' } }, { img_source: 'image-bytes' }); await restoreUserData(file, currentUser, { mode: 'merge' }); const currentId = Array.from(state.rows.tasks.keys())[0]; state.rows.tasks.set(currentId, { ...state.rows.tasks.get(currentId), image: '', isDeleted: true, updatedAt: '2026-09-20T00:00:00.000Z' }); vi.clearAllMocks(); state.sync.mockResolvedValue(undefined); state.refreshSync.mockImplementation(async () => ({ status: { isSyncing: false, lastSync: new Date().toISOString(), errors: [] }, startedAt: Date.now() - 1_000 })); state.getCurrentUserId.mockResolvedValue('user_A'); const result = await restoreUserData(file, currentUser, { mode: 'merge' }); expect(result.restored.tasks).toBe(0); expect(state.ensureRestoredImage).not.toHaveBeenCalled(); expect(state.rows.tasks.get(currentId)?.isDeleted).toBe(true); });
+  it('applies categories before tasks so task references never lead local restore ordering', async () => {
+    const order: CollectionName[] = [];
+    state.upsertLocalDoc.mockImplementation(async (collection: CollectionName, id: string, doc: Stored) => {
+      order.push(collection);
+      state.rows[collection].set(id, { ...(state.rows[collection].get(id) ?? {}), ...doc });
+    });
+    const file = jsonBackup({ data: {
+      categories: [{ id: 'cat_first', name: 'First', color: '#123456', order: 0, visibility: 'private', userId: 'user_A', isDeleted: false, updatedAt: '2026-09-20T00:00:00.000Z' }],
+      tasks: [{ id: 'task_after', title: 'After category', completed: false, categoryId: 'cat_first', date: '2026-09-20', createdAt: '2026-09-20T00:00:00.000Z', updatedAt: '2026-09-20T00:00:00.000Z', userId: 'user_A', isDeleted: false, visibility: 'private' }],
+      diary: [], settings: [], friendships: []
+    } });
+    await restoreUserData(file, currentUser, { mode: 'merge' });
+    expect(order.indexOf('categories')).toBeGreaterThanOrEqual(0);
+    expect(order.indexOf('categories')).toBeLessThan(order.indexOf('tasks'));
+  });
+
+  it('stops applying rows when the authenticated account generation changes mid-import', async () => {
+    const tasks = Array.from({ length: 10 }, (_, index) => ({
+      id: `task_guard_${index}`, title: `Guard ${index}`, completed: false, categoryId: '',
+      date: '2026-09-20', createdAt: '2026-09-20T00:00:00.000Z',
+      updatedAt: `2026-09-20T00:00:${String(index).padStart(2, '0')}.000Z`,
+      userId: 'user_A', isDeleted: false, visibility: 'private'
+    }));
+    let writes = 0;
+    state.upsertLocalDoc.mockImplementation(async (collection: CollectionName, id: string, doc: Stored) => {
+      state.rows[collection].set(id, { ...doc });
+      writes += 1;
+      if (writes === 3) state.accountCurrent = false;
+    });
+    const file = jsonBackup({ data: { tasks, categories: [], diary: [], settings: [], friendships: [] } });
+    await expect(restoreUserData(file, currentUser, { mode: 'merge' })).rejects.toThrow(/signed-in account changed/i);
+    expect(writes).toBe(3);
+    expect(state.rows.tasks.size).toBe(3);
+  });
+
+  it('keeps completed local writes when the bounded post-restore sync cannot converge', async () => {
+    const success = { status: { isSyncing: false, lastSync: new Date().toISOString(), errors: [] }, startedAt: Date.now() - 1_000 };
+    state.refreshSync.mockResolvedValueOnce(success).mockRejectedValueOnce(new Error('network timeout'));
+    const applied = vi.fn();
+    const file = jsonBackup({ data: {
+      tasks: [{ id: 'task_pending_sync', title: 'Durable local row', completed: false, categoryId: '', date: '2026-09-20', createdAt: '2026-09-20T00:00:00.000Z', updatedAt: '2026-09-20T00:00:00.000Z', userId: 'user_A', isDeleted: false, visibility: 'private' }],
+      categories: [], diary: [], settings: [], friendships: []
+    } });
+    const result = await restoreUserData(file, currentUser, { mode: 'merge', onLocalApplyComplete: applied });
+    expect(result.syncState).toBe('pending');
+    expect(result.syncError).toMatch(/network timeout/i);
+    expect(state.rows.tasks.get('task_pending_sync')?.title).toBe('Durable local row');
+    expect(applied).toHaveBeenCalledOnce();
+  });
+
+  it('fails closed if the account changes during the final convergence wait', async () => {
+    const success = {
+      status: {
+        isSyncing: false,
+        lastSync: new Date().toISOString(),
+        errors: [],
+      },
+      startedAt: Date.now() - 1_000,
+    };
+    state.refreshSync
+      .mockResolvedValueOnce(success)
+      .mockImplementationOnce(async () => {
+        state.accountCurrent = false;
+        throw new Error('sync owner changed');
+      });
+    const file = jsonBackup({ data: {
+      tasks: [{ id: 'task_owner_switch', title: 'Owner switch', completed: false, categoryId: '', date: '2026-09-20', createdAt: '2026-09-20T00:00:00.000Z', updatedAt: '2026-09-20T00:00:00.000Z', userId: 'user_A', isDeleted: false, visibility: 'private' }],
+      categories: [], diary: [], settings: [], friendships: []
+    } });
+
+    await expect(
+      restoreUserData(file, currentUser, { mode: 'merge' })
+    ).rejects.toThrow(/signed-in account changed/i);
+    expect(state.rows.tasks.get('task_owner_switch')?.title).toBe('Owner switch');
+  });
+
+  it.each([1000, 5000])('applies a %i-task import without dropping rows', async (count) => {
+    const tasks = Array.from({ length: count }, (_, index) => ({
+      id: `stress_${index}`, title: `Imported ${index}`, completed: index % 2 === 0,
+      categoryId: '', date: '2026-09-20', createdAt: '2026-09-20T00:00:00.000Z',
+      updatedAt: '2026-09-20T00:00:00.000Z', userId: 'user_A', isDeleted: false,
+      visibility: 'private'
+    }));
+    const result = await restoreUserData(
+      jsonBackup({ data: { tasks, categories: [], diary: [], settings: [], friendships: [] } }),
+      currentUser,
+      { mode: 'merge' }
+    );
+    expect(result.restored.tasks).toBe(count);
+    expect(state.rows.tasks.size).toBe(count);
+    expect(result.syncState).toBe('synced');
+    expect(state.refreshSync.mock.calls[1]?.[1]).toBeGreaterThan(90_000);
+  }, 15_000);
+
+  it('reports monotonic structured progress through local apply and final sync', async () => {
+    state.refreshSync.mockImplementation(async (_userId, _timeout, options) => {
+      options?.onProgress?.({
+        completed: 3,
+        total: 6,
+        percent: 50,
+        label: '3 of 6 data groups synced',
+      });
+      return {
+        status: {
+          isSyncing: false,
+          lastSync: new Date().toISOString(),
+          errors: [],
+        },
+        startedAt: Date.now() - 1_000,
+      };
+    });
+    const details: Array<{ message: string; percent: number }> = [];
+    const file = jsonBackup({ data: {
+      tasks: [
+        { id: 'progress_1', title: 'One', completed: false, categoryId: '', date: '2026-09-20', createdAt: '2026-09-20T00:00:00.000Z', updatedAt: '2026-09-20T00:00:00.000Z', userId: 'user_A', isDeleted: false, visibility: 'private' },
+        { id: 'progress_2', title: 'Two', completed: false, categoryId: '', date: '2026-09-20', createdAt: '2026-09-20T00:00:00.000Z', updatedAt: '2026-09-20T00:00:00.000Z', userId: 'user_A', isDeleted: false, visibility: 'private' },
+      ],
+      categories: [], diary: [], settings: [], friendships: []
+    } });
+
+    await restoreUserData(file, currentUser, {
+      mode: 'merge',
+      onProgressDetail: (value) => details.push(value),
+    });
+
+    expect(details.some((value) => /Importing data \(1\/2\)/.test(value.message))).toBe(true);
+    expect(details.some((value) => /Syncing to cloud/.test(value.message))).toBe(true);
+    expect(details.at(-1)).toMatchObject({ message: 'Import synced', percent: 100 });
+    for (let index = 1; index < details.length; index += 1) {
+      expect(details[index].percent).toBeGreaterThanOrEqual(details[index - 1].percent);
+    }
+  });
+
+  it('reruns a 1000-task interrupted-style import idempotently', async () => {
+    const tasks = Array.from({ length: 1000 }, (_, index) => ({
+      id: `rerun_${index}`, title: `Rerun ${index}`, completed: false,
+      categoryId: '', date: '2026-09-20', createdAt: '2026-09-20T00:00:00.000Z',
+      updatedAt: '2026-09-20T00:00:00.000Z', userId: 'user_A', isDeleted: false,
+      visibility: 'private'
+    }));
+    const file = jsonBackup({ data: { tasks, categories: [], diary: [], settings: [], friendships: [] } });
+    const first = await restoreUserData(file, currentUser, { mode: 'merge' });
+    const second = await restoreUserData(file, currentUser, { mode: 'merge' });
+    expect(first.restored.tasks).toBe(1000);
+    expect(second.restored.tasks).toBe(0);
+    expect(state.rows.tasks.size).toBe(1000);
+  }, 15_000);
+
   it('preserves destination friendship preferences during cross-account Replace', async () => { const friendPrefsId = 'user_A_friend_carousel_prefs'; state.rows.settings.set(friendPrefsId, { id: friendPrefsId, userId: 'user_A', key: 'friend_carousel_prefs', value: '{"order":["friend_target"],"hidden":[]}', isDeleted: false, updatedAt: '2026-09-25T00:00:00.000Z' }); const file = jsonBackup({ user: { id: 'source_user', email: 'source@example.com', name: 'Source' }, data: { tasks: [], categories: [], diary: [], settings: [{ id: 'source_friend_prefs', userId: 'source_user', key: 'friend_carousel_prefs', value: '{"order":["friend_source"],"hidden":["friend_source"]}', isDeleted: false, updatedAt: '2026-09-20T00:00:00.000Z' }], friendships: [] } }); await restoreUserData(file, currentUser, { mode: 'replace' }); expect(state.rows.settings.get(friendPrefsId)).toMatchObject({ isDeleted: false, value: '{"order":["friend_target"],"hidden":[]}' }); expect(Array.from(state.rows.settings.values()).some((row) => row.value === '{"order":["friend_source"],"hidden":["friend_source"]}')).toBe(false); });
 });

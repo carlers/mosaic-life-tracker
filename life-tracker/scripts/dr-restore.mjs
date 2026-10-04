@@ -239,6 +239,130 @@ export async function loadCommittedSnapshot({
   return { marker, manifest, readObject, readBlob };
 }
 
+export async function loadPrivacyDeletedUserIds({
+  r2,
+  prefix,
+  encryptionKeys,
+}) {
+  const deleted = new Set();
+  const keys = await r2.listObjects(`${prefix}/privacy-deletions/`);
+  for (const key of keys) {
+    const head = await r2.headObject(key);
+    if (!head) continue;
+    const keyVersion = head.metadata?.['key-version'];
+    const cipherSha256 = head.metadata?.['cipher-sha256'];
+    const plainSha256 = head.metadata?.['plain-sha256'];
+    const encryptionKey = encryptionKeys.get(keyVersion);
+    if (!keyVersion || !encryptionKey) {
+      throw new Error(`Missing DR key for privacy deletion marker ${key}`);
+    }
+    const encrypted = await r2.getObject(key);
+    if (cipherSha256 && sha256Hex(encrypted) !== cipherSha256) {
+      throw new Error(`Privacy deletion marker ciphertext mismatch for ${key}`);
+    }
+    const decrypted = decryptBuffer(encrypted, {
+      key: encryptionKey,
+      aad: key,
+    });
+    if (decrypted.keyVersion !== keyVersion) {
+      throw new Error(`Privacy deletion marker key version mismatch for ${key}`);
+    }
+    if (plainSha256 && sha256Hex(decrypted.plain) !== plainSha256) {
+      throw new Error(`Privacy deletion marker plaintext mismatch for ${key}`);
+    }
+    const marker = parseBackupJson(decrypted.plain.toString('utf8'));
+    if (
+      marker?.format !== 'mosaic-dr-privacy-deletion' ||
+      marker?.version !== 1 ||
+      typeof marker?.userId !== 'string'
+    ) {
+      throw new Error(`Invalid privacy deletion marker ${key}`);
+    }
+    deleted.add(marker.userId);
+  }
+  return deleted;
+}
+
+function permissionTargetsDeletedUser(permission, deletedUserIds) {
+  if (typeof permission !== 'string') return false;
+  for (const userId of deletedUserIds) {
+    const role = `user:${userId}`;
+    if (
+      permission === `update("${role}")` ||
+      permission === `delete("${role}")`
+    ) {
+      return true;
+    }
+  }
+  return false;
+}
+
+export function scrubDeletedUserRow(tableId, row, deletedUserIds) {
+  if (!row || typeof row !== 'object' || deletedUserIds.size === 0) return row;
+  const data = row.data && typeof row.data === 'object' ? { ...row.data } : {};
+  for (const key of [
+    'user_id',
+    'friend_id',
+    'sender_id',
+    'recipient_id',
+    'reply_to_sender_id',
+  ]) {
+    if (typeof data[key] === 'string' && deletedUserIds.has(data[key])) {
+      return null;
+    }
+  }
+
+  if (tableId === 'tasks' && typeof data.reactions === 'string' && data.reactions) {
+    try {
+      const parsed = JSON.parse(data.reactions);
+      if (Array.isArray(parsed)) {
+        const next = parsed
+          .filter((reaction) => reaction && typeof reaction === 'object')
+          .map((reaction) => ({
+            ...reaction,
+            userIds: Array.isArray(reaction.userIds)
+              ? reaction.userIds.filter((id) => !deletedUserIds.has(id))
+              : [],
+          }))
+          .filter((reaction) => reaction.userIds.length > 0);
+        data.reactions = next.length > 0 ? JSON.stringify(next) : '';
+      }
+    } catch {
+      // Preserve malformed legacy values; restore verification will still
+      // compare them exactly when they contain no structured deleted-user ID.
+    }
+  }
+
+  if (
+    tableId === 'settings' &&
+    data.key === 'friend_carousel_prefs' &&
+    typeof data.value === 'string'
+  ) {
+    try {
+      const prefs = JSON.parse(data.value);
+      if (prefs && typeof prefs === 'object' && !Array.isArray(prefs)) {
+        for (const key of ['order', 'hidden']) {
+          if (Array.isArray(prefs[key])) {
+            prefs[key] = prefs[key].filter((id) => !deletedUserIds.has(id));
+          }
+        }
+        data.value = JSON.stringify(prefs);
+      }
+    } catch {
+      // Invalid legacy preference values remain unchanged.
+    }
+  }
+
+  return { ...row, data };
+}
+
+export function shouldRestoreFile(file, deletedUserIds) {
+  if (deletedUserIds.size === 0) return true;
+  return !(file.permissions || []).some((permission) =>
+    permissionTargetsDeletedUser(permission, deletedUserIds)
+  );
+}
+
 export async function preflightSnapshot(snapshot) {
   const { manifest, readObject, readBlob } = snapshot;
   for (const descriptor of manifest.objects || []) {
@@ -425,10 +549,16 @@ async function withTempFile(name, bytes, callback) {
   }
 }
 
-export async function restoreSnapshot({ snapshot, clients }) {
+export async function restoreSnapshot({
+  snapshot,
+  clients,
+  deletedUserIds = new Set(),
+}) {
   const { manifest, readObject, readBlob } = snapshot;
 
-  const users = parseJsonLines(await readObject(manifest.auth.usersKey));
+  const users = parseJsonLines(await readObject(manifest.auth.usersKey)).filter(
+    (user) => !deletedUserIds.has(user.id)
+  );
   for (const user of users) {
     await createImportedUser(clients.users, user);
   }
@@ -442,7 +572,9 @@ export async function restoreSnapshot({ snapshot, clients }) {
       await clients.tablesDB.createTable(
         tableCreateInput(database.id, schema)
       );
-      const rows = parseJsonLines(await readObject(table.rowsKey));
+      const rows = parseJsonLines(await readObject(table.rowsKey))
+        .map((row) => scrubDeletedUserRow(schema.id, row, deletedUserIds))
+        .filter(Boolean);
       for (const row of rows) {
         await clients.tablesDB.createRow({
           databaseId: database.id,
@@ -460,7 +592,9 @@ export async function restoreSnapshot({ snapshot, clients }) {
       (await readObject(bucket.configKey)).toString('utf8')
     );
     await clients.storage.createBucket(bucketCreateInput(config));
-    const files = parseJsonLines(await readObject(bucket.filesKey));
+    const files = parseJsonLines(await readObject(bucket.filesKey)).filter(
+      (file) => shouldRestoreFile(file, deletedUserIds)
+    );
     for (const file of files) {
       const bytes = await readBlob(file);
       if (sha256Hex(bytes) !== file.sha256) {
@@ -583,9 +717,15 @@ function expectedBucket(bucket) {
   };
 }
 
-export async function verifySnapshot({ snapshot, clients }) {
+export async function verifySnapshot({
+  snapshot,
+  clients,
+  deletedUserIds = new Set(),
+}) {
   const { manifest, readObject, readBlob } = snapshot;
-  const users = parseJsonLines(await readObject(manifest.auth.usersKey));
+  const users = parseJsonLines(await readObject(manifest.auth.usersKey)).filter(
+    (user) => !deletedUserIds.has(user.id)
+  );
   let checkedRows = 0;
   let checkedFiles = 0;
 
@@ -639,7 +779,9 @@ export async function verifySnapshot({ snapshot, clients }) {
         );
       }
 
-      const sourceRows = parseJsonLines(await readObject(table.rowsKey));
+      const sourceRows = parseJsonLines(await readObject(table.rowsKey))
+        .map((row) => scrubDeletedUserRow(schema.id, row, deletedUserIds))
+        .filter(Boolean);
       for (const sourceRow of sourceRows) {
         const targetRow = await clients.tablesDB.getRow({
           databaseId: database.id,
@@ -673,7 +815,9 @@ export async function verifySnapshot({ snapshot, clients }) {
       throw new Error(`Bucket verification failed for ${sourceBucket.id}`);
     }
 
-    const sourceFiles = parseJsonLines(await readObject(bucket.filesKey));
+    const sourceFiles = parseJsonLines(await readObject(bucket.filesKey)).filter(
+      (file) => shouldRestoreFile(file, deletedUserIds)
+    );
     for (const sourceFile of sourceFiles) {
       const targetFile = await clients.storage.getFile({
         bucketId: sourceBucket.id,
@@ -738,6 +882,11 @@ export async function runRestoreCli({
     snapshotId: args.snapshot,
     encryptionKeys: config.encryptionKeys,
   });
+  const deletedUserIds = await loadPrivacyDeletedUserIds({
+    r2,
+    prefix: config.prefix,
+    encryptionKeys: config.encryptionKeys,
+  });
   if (snapshot.manifest.source?.projectId === args.targetProject) {
     throw new Error('Refusing to restore a snapshot into its source project');
   }
@@ -757,11 +906,15 @@ export async function runRestoreCli({
     log(`Preflighting Mosaic DR snapshot ${args.snapshot}...`);
     await preflightSnapshot(snapshot);
     log(`Restoring Mosaic DR snapshot ${args.snapshot}...`);
-    await restoreSnapshot({ snapshot, clients });
+    await restoreSnapshot({ snapshot, clients, deletedUserIds });
   }
 
   log(`Verifying Mosaic DR snapshot ${args.snapshot}...`);
-  const verified = await verifySnapshot({ snapshot, clients });
+  const verified = await verifySnapshot({
+    snapshot,
+    clients,
+    deletedUserIds,
+  });
   log(
     `DR verification passed: users=${verified.users} rows=${verified.rows} files=${verified.files}`
   );

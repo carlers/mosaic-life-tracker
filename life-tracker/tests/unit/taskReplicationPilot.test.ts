@@ -43,6 +43,8 @@ vi.mock('appwrite', () => ({
       JSON.stringify({ op: 'orderAsc', field }),
     limit: (value: number) =>
       JSON.stringify({ op: 'limit', value }),
+    cursorAfter: (id: string) =>
+      JSON.stringify({ op: 'cursorAfter', id }),
   },
   Permission: {
     read: (role: string) => `read(${role})`,
@@ -476,7 +478,74 @@ describe('task RxDB replication pilot', () => {
     ]);
   });
 
+  it('drops reactions from users who are no longer accepted friends before push', async () => {
+    const assumed = localTask({
+      reactions:
+        '[{"emoji":"👍","userIds":["friend_live","friend_old"]}]',
+      updatedAt: '2026-10-02T00:00:00.000Z',
+    });
+    getRowMock.mockResolvedValue(
+      remoteTask({
+        reactions:
+          '[{"emoji":"👍","userIds":["friend_live","friend_old"]}]',
+      })
+    );
+    listRowsMock.mockImplementation(async ({ tableId }: any) => {
+      if (tableId === 'friendships') {
+        return {
+          rows: [{
+            $id: 'fr_live',
+            user_id: 'user_A',
+            friend_id: 'friend_live',
+            status: 'accepted',
+            deleted: false,
+          }],
+        };
+      }
+      return { rows: [] };
+    });
+
+    const conflicts = await __taskReplicationPilotTestUtils.pushTasks(
+      [{
+        assumedMasterState: assumed,
+        newDocumentState: {
+          ...assumed,
+          memo: 'owner edit',
+          updatedAt: '2026-10-02T00:00:03.000Z',
+        },
+      }] as never,
+      'user_A'
+    );
+
+    expect(updateRowMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          reactions: '[{"emoji":"👍","userIds":["friend_live"]}]',
+        }),
+      })
+    );
+    expect(conflicts).toEqual([
+      expect.objectContaining({
+        reactions: '[{"emoji":"👍","userIds":["friend_live"]}]',
+      }),
+    ]);
+  });
+
   it('preserves a server-side friend reaction while pushing an owner edit', async () => {
+    listRowsMock.mockImplementation(async ({ tableId }: any) => {
+      if (tableId === 'friendships') {
+        return {
+          rows: [{
+            $id: 'fr_friend',
+            user_id: 'user_A',
+            friend_id: 'friend',
+            status: 'accepted',
+            deleted: false,
+          }],
+        };
+      }
+      return { rows: [] };
+    });
     const assumed = localTask({
       reactions: '',
       updatedAt: '2026-10-02T00:00:00.000Z',

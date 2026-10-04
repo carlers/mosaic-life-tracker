@@ -40,7 +40,8 @@
     "dr:check": "node scripts/dr-health.mjs",
     "dr:watch": "node scripts/dr-watch.mjs",
     "mosaic:bootstrap": "node scripts/bootstrap-mosaic.mjs",
-    "friendships:repair": "node scripts/repair-friendships.mjs"
+    "friendships:repair": "node scripts/repair-friendships.mjs",
+    "mosaic:migrate-account-deletion": "node scripts/migrate-account-deletion.mjs"
   },
   "dependencies": {
     "@dnd-kit/abstract": "^0.5.0",

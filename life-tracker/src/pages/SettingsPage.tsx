@@ -41,7 +41,7 @@ import {
 } from '../lib/backupActivity';
 
 export const SettingsPage: React.FC = () => {
-  const { user, logout } = useAuth();
+  const { user, logout, deleteAccount } = useAuth();
   const {
     applyUpdate,
     checkForUpdate,
@@ -51,9 +51,10 @@ export const SettingsPage: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [isClearDataOpen, setIsClearDataOpen] = useState(false);
-  const [isDeleteAllDataOpen, setIsDeleteAllDataOpen] = useState(false);
+  const [isDeleteAccountOpen, setIsDeleteAccountOpen] = useState(false);
+  const [deleteConfirmation, setDeleteConfirmation] = useState('');
   const [isClearingData, setIsClearingData] = useState(false);
-  const [isDeletingAllData, setIsDeletingAllData] = useState(false);
+  const [isDeletingAccount, setIsDeletingAccount] = useState(false);
   const [isAccountSettingsOpen, setIsAccountSettingsOpen] = useState(false);
   const [isChangeEmailOpen, setIsChangeEmailOpen] = useState(false);
   const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
@@ -214,29 +215,24 @@ export const SettingsPage: React.FC = () => {
     }
   };
 
-  const handleDeleteAllData = async () => {
-    const userId = user?.$id;
-    if (!userId) return;
-    setIsDeletingAllData(true);
-    try {
-      const { deleteAllUserData } = await import('../lib/deleteUserData');
-      await deleteAllUserData(userId);
-      const ok = await logout();
-      if (!ok) {
-        setIsDeletingAllData(false);
-        setIsDeleteAllDataOpen(false);
-        showFeedback('Data deleted, but sign out failed. Try signing out again.');
-        return;
-      }
-      await clearAuxiliaryOfflineData();
-      await destroyDatabase();
-      window.location.reload();
-    } catch (error) {
-      console.error('[SettingsPage] Failed to delete all user data:', error);
-      setIsDeletingAllData(false);
-      setIsDeleteAllDataOpen(false);
-      showFeedback('Delete failed. Check your connection and try again.');
+  const closeDeleteAccount = () => {
+    if (isDeletingAccount) return;
+    setIsDeleteAccountOpen(false);
+    setDeleteConfirmation('');
+  };
+
+  const handleDeleteAccount = async () => {
+    if (deleteConfirmation !== 'DELETE' || isDeletingAccount) return;
+    setIsDeletingAccount(true);
+    const accepted = await deleteAccount(deleteConfirmation);
+    if (!accepted) {
+      setIsDeletingAccount(false);
+      showFeedback(
+        'Account deletion was not accepted. Check your connection and try again.'
+      );
+      return;
     }
+    navigate('/login', { replace: true });
   };
 
   const handleClearData = async () => {
@@ -428,10 +424,10 @@ export const SettingsPage: React.FC = () => {
         <div className="border-t border-[#333333] py-2">
           <SettingsRow
             icon={<Trash2 size={18} className="text-red-500" aria-hidden="true" />}
-            label="Delete All User Data"
+            label="Delete Account"
             isDestructive={true}
             showChevron={false}
-            onClick={() => setIsDeleteAllDataOpen(true)}
+            onClick={() => setIsDeleteAccountOpen(true)}
           />
           <SettingsRow
             icon={<Database size={18} className="text-red-500" aria-hidden="true" />}
@@ -454,33 +450,63 @@ export const SettingsPage: React.FC = () => {
         </div>
       </div>
       <BottomSheet
-        isOpen={isDeleteAllDataOpen}
-        onClose={() => setIsDeleteAllDataOpen(false)}
-        title="Delete All User Data"
+        isOpen={isDeleteAccountOpen}
+        onClose={closeDeleteAccount}
+        title="Delete Account"
         height="auto"
+        isLocked={isDeletingAccount}
+        preventDismiss={isDeletingAccount}
       >
         <div className="pt-2 pb-8 px-4">
-          <p className="text-gray-300 text-sm text-center mb-6 leading-relaxed">
-            Delete all Mosaic data you own from sync, including tasks, categories,
-            diary entries, settings, friendships, messages, profile visibility,
-            and referenced images. This does not delete your login account.
+          <p className="text-gray-300 text-sm text-center leading-relaxed">
+            Permanently delete your Mosaic login and live Mosaic data from
+            Appwrite, including tasks, diary entries, profile, friends, photos,
+            and messages exchanged with friends.
           </p>
-          <div className="flex gap-3">
+          <p className="mt-3 text-xs text-gray-400 text-center leading-relaxed">
+            This cannot be undone. Once accepted, deletion continues on the
+            server even if you close Mosaic. Other signed-in devices will lose
+            access when they reconnect.
+          </p>
+          <div className="mt-5">
+            <label
+              htmlFor="delete-account-confirmation"
+              className="mb-1.5 block text-xs font-medium text-gray-400"
+            >
+              Type DELETE to confirm
+            </label>
+            <input
+              id="delete-account-confirmation"
+              aria-label="Type DELETE to confirm"
+              type="text"
+              value={deleteConfirmation}
+              onChange={(event) => setDeleteConfirmation(event.target.value)}
+              disabled={isDeletingAccount}
+              autoCapitalize="characters"
+              autoComplete="off"
+              spellCheck={false}
+              placeholder="DELETE"
+              className="w-full rounded-xl border border-[#3A3A3A] bg-[#171717] px-3.5 py-3 text-white outline-none transition focus:border-red-500 focus-visible:ring-2 focus-visible:ring-red-500/40 disabled:opacity-50"
+            />
+          </div>
+          <div className="mt-5 flex gap-3">
             <button
               type="button"
-              onClick={() => setIsDeleteAllDataOpen(false)}
-              disabled={isDeletingAllData}
+              onClick={closeDeleteAccount}
+              disabled={isDeletingAccount}
               className="flex-1 py-3 bg-[#2A2A2A] rounded-xl text-white font-medium disabled:opacity-50"
             >
               Cancel
             </button>
             <button
               type="button"
-              onClick={handleDeleteAllData}
-              disabled={isDeletingAllData}
-              className="flex-1 py-3 bg-red-500 rounded-xl text-white font-medium disabled:opacity-50"
+              onClick={() => void handleDeleteAccount()}
+              disabled={
+                isDeletingAccount || deleteConfirmation !== 'DELETE'
+              }
+              className="flex-1 py-3 bg-red-500 rounded-xl text-white font-medium disabled:opacity-40"
             >
-              {isDeletingAllData ? 'Deleting...' : 'Delete All'}
+              {isDeletingAccount ? 'Deleting…' : 'Delete Account'}
             </button>
           </div>
         </div>

@@ -31,6 +31,10 @@ import {
 import { awaitPilotReplicationFreshness } from './replicationFreshness';
 import { getReplicationIdentifier } from './replicationIds';
 import { trackReplicationFreshness } from './replicationLocalState';
+import {
+  loadAcceptedFriendIds,
+  sanitizeTaskReactions,
+} from './socialReferenceSanitizer';
 
 const PULL_BATCH_SIZE = 100;
 const PUSH_BATCH_SIZE = 20;
@@ -201,22 +205,35 @@ async function prepareTaskForPush(
   document: ReplicatedTask;
   pendingImageId: string | null;
 }> {
-  const image =
-    typeof document.image === 'string' ? document.image : '';
-  if (!image || !isPendingImageId(image)) {
-    return { document, pendingImageId: null };
+  let preparedDocument = document;
+  const reactions =
+    typeof document.reactions === 'string' ? document.reactions : '';
+  if (reactions && !document.isDeleted) {
+    const acceptedFriendIds = await loadAcceptedFriendIds(userId);
+    preparedDocument = {
+      ...document,
+      reactions: sanitizeTaskReactions(reactions, acceptedFriendIds),
+    };
   }
 
-  if (document.isDeleted) {
+  const image =
+    typeof preparedDocument.image === 'string'
+      ? preparedDocument.image
+      : '';
+  if (!image || !isPendingImageId(image)) {
+    return { document: preparedDocument, pendingImageId: null };
+  }
+
+  if (preparedDocument.isDeleted) {
     return {
-      document: { ...document, image: '' },
+      document: { ...preparedDocument, image: '' },
       pendingImageId: image,
     };
   }
 
   const remoteFileId = await uploadPendingImage(image, userId);
   return {
-    document: { ...document, image: remoteFileId },
+    document: { ...preparedDocument, image: remoteFileId },
     pendingImageId: image,
   };
 }

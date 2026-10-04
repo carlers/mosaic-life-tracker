@@ -1,4 +1,5 @@
 import { runBackup as defaultRunBackup } from './backup.mjs';
+import { recordPrivacyDeletion as defaultRecordPrivacyDeletion } from './privacy-deletion.mjs';
 
 function isAuthorized(req) {
   const trigger = req?.headers?.['x-appwrite-trigger'] || '';
@@ -66,8 +67,49 @@ function safeFailureDetails(err) {
   return { stage, code };
 }
 
-export function createHandler({ runBackup = defaultRunBackup } = {}) {
+export function createHandler({
+  runBackup = defaultRunBackup,
+  recordPrivacyDeletion = defaultRecordPrivacyDeletion,
+} = {}) {
   return async ({ req, res, log, error }) => {
+    let payload = {};
+    try {
+      payload =
+        typeof req?.body === 'string' && req.body
+          ? JSON.parse(req.body)
+          : req?.body || {};
+    } catch {
+      return res.json({ error: 'Bad Request' }, 400);
+    }
+
+    if (payload?.action === 'record_privacy_deletion') {
+      if (!req?.headers?.['x-appwrite-key']) {
+        error('dr-backup: rejected privacy marker without server key');
+        return res.json({ error: 'Forbidden' }, 403);
+      }
+      const started = Date.now();
+      try {
+        await recordPrivacyDeletion(payload.userId);
+        log(
+          `dr-backup: privacy deletion marker persisted durationMs=${Date.now() - started}`
+        );
+        return res.json({ ok: true }, 200);
+      } catch (err) {
+        const failure = safeFailureDetails(err);
+        error(
+          `dr-backup: privacy marker failed stage=${failure.stage} code=${failure.code}`
+        );
+        return res.json(
+          {
+            error: 'Privacy deletion marker failed',
+            stage: failure.stage,
+            code: failure.code,
+          },
+          500
+        );
+      }
+    }
+
     if (!isAuthorized(req)) {
       error('dr-backup: rejected untrusted execution');
       return res.json({ error: 'Forbidden' }, 403);
