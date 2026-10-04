@@ -152,7 +152,7 @@ export const MOSAIC_TABLES = [
       { key: 'user_id', type: 'varchar', size: 255, required: true },
       { key: 'status', type: 'varchar', size: 30, required: true },
       { key: 'phase', type: 'varchar', size: 50, required: true },
-      { key: 'attempts', type: 'integer', required: true, default: 0 },
+      { key: 'attempts', type: 'integer', required: true },
       { key: 'created_at', type: 'varchar', size: 50, required: true },
       { key: 'updated_at', type: 'varchar', size: 50, required: true },
     ],
