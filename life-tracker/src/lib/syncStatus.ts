@@ -1,13 +1,24 @@
+export interface SyncProgress {
+  completed: number;
+  total: number;
+  percent: number;
+  label: string;
+}
+
 export interface SyncStatus {
   isSyncing: boolean;
   lastSync: string | null;
   errors: string[];
+  notice?: string | null;
+  progress?: SyncProgress | null;
 }
 
 let status: SyncStatus = {
   isSyncing: false,
   lastSync: null,
   errors: [],
+  notice: null,
+  progress: null,
 };
 let ownerId: string | null = null;
 
@@ -29,7 +40,13 @@ export function scopeSyncStatusToUser(userId: string | null): void {
       lastSync = null;
     }
   }
-  status = { isSyncing: false, lastSync, errors: [] };
+  status = {
+    isSyncing: false,
+    lastSync,
+    errors: [],
+    notice: null,
+    progress: null,
+  };
   for (const listener of listeners) {
     try {
       listener(status);
@@ -63,6 +80,12 @@ export function subscribeToSyncStatus(listener: SyncListener): () => void {
 
 export function resetSyncStatusForTests(): void {
   ownerId = null;
-  status = { isSyncing: false, lastSync: null, errors: [] };
+  status = {
+    isSyncing: false,
+    lastSync: null,
+    errors: [],
+    notice: null,
+    progress: null,
+  };
   listeners.clear();
 }
