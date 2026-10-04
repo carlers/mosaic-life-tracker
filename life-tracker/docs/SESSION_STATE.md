@@ -23,7 +23,8 @@ Blockers: None known.
 - Main implementation focused gate: passed.
 - First stable Preview canonical attempt: build, dependency audit, and both DOM shards passed; general checks failed on two `react-hooks/set-state-in-effect` errors.
 - Main implementation focused gate: passed; lint repair focused gate: passed and was delivered to stable Preview.
-- Final compatibility/correctness focused gate: requested by the final polish commit.
+- Final compatibility/correctness tree is limited to auth recovery/legacy compatibility, final-sync ownership fail-closed behavior, their regression tests, and matching docs.
+- Final compatibility/correctness focused gate: requested by this commit.
 - Stable Preview canonical gate and Vercel Preview: pending repair delivery.
 - Live TodoMate credential acceptance: manual only with the user's account.
 - Manual same-account phone + desktop acceptance: pending hosted Preview.
