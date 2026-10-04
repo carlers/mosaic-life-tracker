@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Download, Loader2 } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { useSheetReset } from '../../hooks/useSheetReset';
@@ -11,6 +11,12 @@ import { BottomSheet } from '../ui/BottomSheet';
 import { Button } from '../ui/Button';
 import { SheetErrorBanner } from '../ui/SheetErrorBanner';
 import { Spinner } from '../ui/Spinner';
+import {
+  beginTodoMateImport,
+  clearTodoMateImportMarker,
+  markTodoMateImportApplied,
+  readTodoMateImportMarker,
+} from '../../lib/todomateImportState';
 
 interface TodoMateImportSheetProps {
   isOpen: boolean;
@@ -31,8 +37,18 @@ export const TodoMateImportSheet: React.FC<TodoMateImportSheetProps> = ({
   const [isImporting, setIsImporting] = useState(false);
   const [progress, setProgress] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [recoveryNotice, setRecoveryNotice] = useState<string | null>(null);
+  const previewGenerationRef = useRef(0);
+  const previewAbortRef = useRef<AbortController | null>(null);
+  const previewInFlightRef = useRef(false);
+  const importInFlightRef = useRef(false);
 
   useSheetReset(isOpen, () => {
+    previewGenerationRef.current += 1;
+    previewAbortRef.current?.abort();
+    previewAbortRef.current = null;
+    previewInFlightRef.current = false;
+    importInFlightRef.current = false;
     setEmail('');
     setPassword('');
     setPrepared(null);
@@ -40,26 +56,83 @@ export const TodoMateImportSheet: React.FC<TodoMateImportSheetProps> = ({
     setIsImporting(false);
     setProgress('');
     setError(null);
+    const marker = user?.$id ? readTodoMateImportMarker(user.$id) : null;
+    if (marker?.phase === 'applying') {
+      setRecoveryNotice(
+        'A previous TodoMate import was interrupted. Preview it again and rerun Import; already-applied rows will not duplicate.'
+      );
+    } else if (marker?.phase === 'applied') {
+      setRecoveryNotice(
+        'A previous TodoMate import finished locally and may still be syncing to your other devices.'
+      );
+      if (user?.$id) clearTodoMateImportMarker(user.$id);
+    } else {
+      setRecoveryNotice(null);
+    }
   });
+
+  useEffect(() => {
+    if (isOpen) return;
+    previewGenerationRef.current += 1;
+    previewAbortRef.current?.abort();
+    previewAbortRef.current = null;
+    previewInFlightRef.current = false;
+    setPassword('');
+    setIsPreparing(false);
+  }, [isOpen]);
+
+  useEffect(
+    () => () => {
+      previewGenerationRef.current += 1;
+      previewAbortRef.current?.abort();
+    },
+    []
+  );
 
   const currentUser = user
     ? { id: user.$id, email: user.email, name: user.name || '' }
     : null;
 
   const handlePreview = async () => {
-    if (!email.trim() || !password || isPreparing || isImporting) return;
+    if (
+      !email.trim() ||
+      !password ||
+      isPreparing ||
+      isImporting ||
+      previewInFlightRef.current
+    ) {
+      return;
+    }
+
+    previewInFlightRef.current = true;
+    previewAbortRef.current?.abort();
+    const controller = new AbortController();
+    previewAbortRef.current = controller;
+    const generation = ++previewGenerationRef.current;
+
     setIsPreparing(true);
     setPrepared(null);
+    setRecoveryNotice(null);
     setError(null);
     setProgress('Connecting to TodoMate…');
     try {
       const result = await prepareTodoMateTransfer(
         { email, password },
-        { onProgress: setProgress }
+        {
+          signal: controller.signal,
+          onProgress: (message) => {
+            if (generation === previewGenerationRef.current) {
+              setProgress(message);
+            }
+          },
+        }
       );
+      if (generation !== previewGenerationRef.current) return;
       setPrepared(result);
       setProgress('');
     } catch (err) {
+      if (generation !== previewGenerationRef.current) return;
+      if (err instanceof Error && err.name === 'AbortError') return;
       setError(
         err instanceof Error
           ? err.message
@@ -67,13 +140,33 @@ export const TodoMateImportSheet: React.FC<TodoMateImportSheetProps> = ({
       );
       setProgress('');
     } finally {
-      setPassword('');
-      setIsPreparing(false);
+      if (generation === previewGenerationRef.current) {
+        previewAbortRef.current = null;
+        previewInFlightRef.current = false;
+        setPassword('');
+        setIsPreparing(false);
+      }
     }
   };
 
   const handleImport = async () => {
-    if (!currentUser || !prepared || isPreparing || isImporting) return;
+    if (
+      !currentUser ||
+      !prepared ||
+      isPreparing ||
+      isImporting ||
+      importInFlightRef.current
+    ) {
+      return;
+    }
+    importInFlightRef.current = true;
+    beginTodoMateImport(currentUser.id, {
+      tasks: prepared.preview.tasks,
+      categories: prepared.preview.categories,
+      diary: prepared.preview.diary,
+      photos: prepared.preview.photosReady,
+    });
+    setRecoveryNotice(null);
     setIsImporting(true);
     setError(null);
     setProgress('Preparing Mosaic import…');
@@ -81,6 +174,7 @@ export const TodoMateImportSheet: React.FC<TodoMateImportSheetProps> = ({
       const result = await restoreUserData(prepared.file, currentUser, {
         mode: 'merge',
         onProgress: setProgress,
+        onLocalApplyComplete: () => markTodoMateImportApplied(currentUser.id),
       });
       const restored = Object.values(result.restored).reduce(
         (total, count) => total + count,
@@ -97,7 +191,15 @@ export const TodoMateImportSheet: React.FC<TodoMateImportSheetProps> = ({
         result.skippedNewer > 0 ? `${result.skippedNewer} newer Mosaic item${result.skippedNewer === 1 ? '' : 's'} kept` : '',
       ].filter(Boolean);
 
-      onSuccess?.(`TodoMate import complete · ${notes.join(' · ')}`);
+      if (result.syncState === 'synced') {
+        clearTodoMateImportMarker(currentUser.id);
+        onSuccess?.(`TodoMate import complete · ${notes.join(' · ')}`);
+      } else {
+        onSuccess?.(
+          `TodoMate imported locally · Sync pending · ${notes.join(' · ')}`
+        );
+      }
+      importInFlightRef.current = false;
       setIsImporting(false);
       setProgress('');
       onClose();
@@ -107,6 +209,7 @@ export const TodoMateImportSheet: React.FC<TodoMateImportSheetProps> = ({
           ? err.message
           : 'TodoMate import failed. Please try again.'
       );
+      importInFlightRef.current = false;
       setIsImporting(false);
       setProgress('');
     }
@@ -126,6 +229,15 @@ export const TodoMateImportSheet: React.FC<TodoMateImportSheetProps> = ({
     >
       <div className="px-4 pt-2 pb-8 space-y-5">
         <SheetErrorBanner message={error} />
+
+        {recoveryNotice && (
+          <div
+            role="status"
+            className="rounded-xl border border-amber-900/50 bg-amber-900/15 px-3.5 py-3 text-sm text-amber-200"
+          >
+            {recoveryNotice}
+          </div>
+        )}
 
         <div className="space-y-2">
           <p className="text-sm text-gray-300 leading-relaxed">
