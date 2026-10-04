@@ -37,6 +37,7 @@ export const TodoMateImportSheet: React.FC<TodoMateImportSheetProps> = ({
   const [isPreparing, setIsPreparing] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
   const [progress, setProgress] = useState('');
+  const [progressPercent, setProgressPercent] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [recoveryNotice, setRecoveryNotice] = useState<string | null>(null);
   const previewGenerationRef = useRef(0);
@@ -56,6 +57,7 @@ export const TodoMateImportSheet: React.FC<TodoMateImportSheetProps> = ({
     setIsPreparing(false);
     setIsImporting(false);
     setProgress('');
+    setProgressPercent(null);
     setError(null);
     const marker = user?.$id ? readTodoMateImportMarker(user.$id) : null;
     if (marker?.phase === 'applying') {
@@ -80,6 +82,7 @@ export const TodoMateImportSheet: React.FC<TodoMateImportSheetProps> = ({
     previewInFlightRef.current = false;
     setPassword('');
     setIsPreparing(false);
+    setProgressPercent(null);
   });
 
   useEffect(
@@ -116,6 +119,7 @@ export const TodoMateImportSheet: React.FC<TodoMateImportSheetProps> = ({
     setRecoveryNotice(null);
     setError(null);
     setProgress('Connecting to TodoMate…');
+    setProgressPercent(0);
     try {
       const result = await prepareTodoMateTransfer(
         { email, password },
@@ -126,11 +130,18 @@ export const TodoMateImportSheet: React.FC<TodoMateImportSheetProps> = ({
               setProgress(message);
             }
           },
+          onProgressDetail: (detail) => {
+            if (generation === previewGenerationRef.current) {
+              setProgress(detail.message);
+              setProgressPercent(detail.percent);
+            }
+          },
         }
       );
       if (generation !== previewGenerationRef.current) return;
       setPrepared(result);
       setProgress('');
+      setProgressPercent(null);
     } catch (err) {
       if (generation !== previewGenerationRef.current) return;
       if (err instanceof Error && err.name === 'AbortError') return;
@@ -140,6 +151,7 @@ export const TodoMateImportSheet: React.FC<TodoMateImportSheetProps> = ({
           : 'Could not read TodoMate data. Please try again.'
       );
       setProgress('');
+      setProgressPercent(null);
     } finally {
       if (generation === previewGenerationRef.current) {
         previewAbortRef.current = null;
@@ -171,10 +183,15 @@ export const TodoMateImportSheet: React.FC<TodoMateImportSheetProps> = ({
     setIsImporting(true);
     setError(null);
     setProgress('Preparing Mosaic import…');
+    setProgressPercent(0);
     try {
       const result = await restoreUserData(prepared.file, currentUser, {
         mode: 'merge',
         onProgress: setProgress,
+        onProgressDetail: (detail) => {
+          setProgress(detail.message);
+          setProgressPercent(detail.percent);
+        },
         onLocalApplyComplete: () => markTodoMateImportApplied(currentUser.id),
       });
       const restored = Object.values(result.restored).reduce(
@@ -203,6 +220,7 @@ export const TodoMateImportSheet: React.FC<TodoMateImportSheetProps> = ({
       importInFlightRef.current = false;
       setIsImporting(false);
       setProgress('');
+      setProgressPercent(null);
       onClose();
     } catch (err) {
       setError(
@@ -213,6 +231,7 @@ export const TodoMateImportSheet: React.FC<TodoMateImportSheetProps> = ({
       importInFlightRef.current = false;
       setIsImporting(false);
       setProgress('');
+      setProgressPercent(null);
     }
   };
 
@@ -287,10 +306,34 @@ export const TodoMateImportSheet: React.FC<TodoMateImportSheetProps> = ({
           </label>
         </div>
 
-        {isPreparing && progress && (
-          <div className="flex items-center gap-3 px-1" role="status">
-            <Spinner size="w-4 h-4" className="flex-shrink-0" />
-            <span className="text-sm text-gray-300">{progress}</span>
+        {busy && progress && (
+          <div className="space-y-2 px-1" role="status" aria-live="polite">
+            <div className="flex items-center gap-3">
+              <Spinner size="w-4 h-4" className="flex-shrink-0" />
+              <span className="min-w-0 flex-1 text-sm text-gray-300">
+                {progress}
+              </span>
+              {progressPercent !== null && (
+                <span className="text-xs tabular-nums text-gray-400">
+                  {progressPercent}%
+                </span>
+              )}
+            </div>
+            {progressPercent !== null && (
+              <div
+                className="h-1.5 overflow-hidden rounded-full bg-[#2A2A2A]"
+                role="progressbar"
+                aria-label={isPreparing ? 'TodoMate preview progress' : 'TodoMate import progress'}
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-valuenow={progressPercent}
+              >
+                <div
+                  className="h-full rounded-full bg-emerald-500 transition-[width] duration-200"
+                  style={{ width: progressPercent + '%' }}
+                />
+              </div>
+            )}
           </div>
         )}
 
@@ -366,13 +409,6 @@ export const TodoMateImportSheet: React.FC<TodoMateImportSheetProps> = ({
               </p>
             </div>
           </section>
-        )}
-
-        {isImporting && progress && (
-          <div className="flex items-center gap-3 px-1" role="status">
-            <Spinner size="w-4 h-4" className="flex-shrink-0" />
-            <span className="text-sm text-gray-300">{progress}</span>
-          </div>
         )}
 
         {prepared && (
