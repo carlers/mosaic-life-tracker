@@ -577,8 +577,6 @@ function assertMaxLength(label: string, value: string | undefined, max: number):
 }
 
 function validateNormalizedBackup(data: NormalizedBackup): void {
-  onImageProgress?.(ids.length, ids.length);
-
   for (const task of data.tasks) {
     assertMaxLength('task title', task.title, 255);
     assertMaxLength('task category ID', task.categoryId, 255);

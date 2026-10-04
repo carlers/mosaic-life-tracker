@@ -284,6 +284,8 @@ describe('offline auxiliary caches', () => {
       isSyncing: false,
       lastSync: '2026-09-27T02:00:00.000Z',
       errors: [],
+      notice: null,
+      progress: null,
     });
   });
 

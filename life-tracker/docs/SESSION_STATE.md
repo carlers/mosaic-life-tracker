@@ -2,8 +2,8 @@
 
 Updated: 2026-10-04
 Current task: Fix the false post-TodoMate fresh-sync timeout seen on a newly created account and make TodoMate import/sync progress more informative.
-Status: Implementation and regression coverage are complete on `chatgpt/todomate-sync-progress`. The screenshot timeout was traced to six independent RxDB freshness proofs being awaited sequentially under one shared deadline, combined with a fixed 30-second post-import proof budget. The task is ready for focused verification before squash delivery to stable Preview `fix/new-user-onboarding-hardening`.
-Next action: Run focused verification. Repair any failure, then squash-merge into the stable Preview branch for the canonical full gate and exact-SHA Vercel Preview. Promotion to `dev` remains user-controlled.
+Status: The timeout/progress implementation is on stable Preview `fix/new-user-onboarding-hardening`. Its first canonical run caught one mechanical TypeScript error: a photo-progress completion callback was accidentally inserted into `validateNormalizedBackup()` as well as the actual restore-images loop. `chatgpt/todomate-sync-progress-build-fix` removes only that stray call.
+Next action: Run focused verification for the compile repair, squash it into stable Preview, then rerun the canonical full gate and confirm the exact-SHA Vercel Preview. Promotion to `dev` remains user-controlled.
 Blockers: None known.
 
 ## Results
@@ -20,7 +20,10 @@ Blockers: None known.
 ## Verification
 
 - Previous onboarding/import hardening stable Preview `f7ccfe8`: full canonical acceptance passed and exact-SHA Vercel Preview was READY.
-- This timeout/progress repair: focused verification requested by the final task commit.
-- Stable Preview canonical gate and exact-SHA Vercel Preview: pending focused green + squash delivery.
+- Timeout/progress implementation focused gate: passed and was squash-delivered to stable Preview.
+- First stable canonical run: dependency audit passed; build failed at TypeScript compilation because of the stray `onImageProgress/ids` validator call. The intended callback inside `restoreImages()` remains intact.
+- First compile-repair focused gate: passed. Review of the failed canonical shards also found one exact-shape sync-status test that needed to include the new account-scoped `notice`/`progress` reset fields.
+- Final compile/test repair focused gate: requested by this commit.
+- Stable Preview canonical gate and exact-SHA Vercel Preview: pending repair delivery.
 - Live TodoMate re-import with the user's account: manual hosted-Preview acceptance still required.
 - Same-account phone + desktop convergence after import: manual hosted-Preview acceptance still required.
