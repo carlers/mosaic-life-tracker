@@ -144,7 +144,8 @@ This is deliberate. The existing restore path provides:
 - category-reference rewriting
 - re-import idempotence
 - newer Mosaic rows/tombstones winning over older imported versions
-- normal local-first writes followed by Mosaic sync
+- categories-before-tasks local application with account-generation guards
+- a bounded post-apply freshness barrier with separate synced and sync-pending outcomes
 
 The TodoMate importer must not expose Replace Personal Data. A migration from an external
 service is additive and must not delete unrelated Mosaic data.
