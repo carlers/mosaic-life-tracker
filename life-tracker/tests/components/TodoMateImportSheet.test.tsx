@@ -1,5 +1,5 @@
 import React from 'react';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
@@ -226,6 +226,54 @@ describe('TodoMateImportSheet', () => {
     await Promise.resolve();
 
     expect(screen.queryByText(/999 tasks · 99 categories/i)).not.toBeInTheDocument();
+  });
+
+  it('shows import percentage and current phase while restore is in progress', async () => {
+    let finishRestore!: () => void;
+    mocks.restoreUserData.mockImplementationOnce(async (_file, _user, options) => {
+      options.onProgressDetail?.({
+        message: 'Importing data (250/500)…',
+        percent: 60,
+        completed: 250,
+        total: 500,
+      });
+      await new Promise<void>((resolve) => {
+        finishRestore = resolve;
+      });
+      return {
+        mode: 'merge',
+        restored: { tasks: 12, categories: 3, diary: 2, settings: 0 },
+        skippedNewer: 0,
+        tombstoned: 0,
+        imagesRestored: 0,
+        imagesMissing: 0,
+        safetyBackupDownloaded: false,
+        syncState: 'synced',
+        syncError: '',
+      };
+    });
+
+    render(<TodoMateImportSheet isOpen onClose={vi.fn()} />);
+    fireEvent.change(screen.getByLabelText('TodoMate email'), {
+      target: { value: 'todo@example.com' },
+    });
+    fireEvent.change(screen.getByLabelText('TodoMate password'), {
+      target: { value: 'pw-progress-12345' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Preview Transfer' }));
+    await screen.findByRole('button', { name: 'Import into Mosaic' });
+    fireEvent.click(screen.getByRole('button', { name: 'Import into Mosaic' }));
+
+    await screen.findByText('Importing data (250/500)…');
+    expect(screen.getByText('60%')).toBeInTheDocument();
+    expect(
+      screen.getByRole('progressbar', { name: 'TodoMate import progress' })
+    ).toHaveAttribute('aria-valuenow', '60');
+
+    await act(async () => {
+      finishRestore();
+      await Promise.resolve();
+    });
   });
 
   it('reports sync pending after local apply without claiming full completion', async () => {

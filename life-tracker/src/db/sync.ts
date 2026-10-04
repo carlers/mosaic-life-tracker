@@ -7,6 +7,7 @@ import { toAppwriteFormat, fromAppwriteFormat } from '../lib/syncMapping';
 import {
   getSyncStatus,
   publishSyncStatus,
+  type SyncProgress,
   type SyncStatus,
 } from '../lib/syncStatus';
 import { markOfflineDataReady } from '../lib/offlineReadiness';
@@ -477,6 +478,15 @@ export interface FreshSyncResult {
   startedAt: number;
 }
 
+export interface FreshSyncOptions {
+  onProgress?: (progress: SyncProgress) => void;
+}
+
+function isFreshSyncStillPending(error: unknown): boolean {
+  if (!(error instanceof Error)) return false;
+  return /timed out|sync is still busy/i.test(error.message);
+}
+
 /**
  * Callers that must observe a genuinely fresh server snapshot (for example
  * destructive/import restore preflight) cannot treat initializeSync() as an
@@ -488,7 +498,8 @@ export interface FreshSyncResult {
  */
 export async function refreshSync(
   userId: string,
-  timeoutMs = SYNC_COORDINATOR_IDLE_TIMEOUT_MS
+  timeoutMs = SYNC_COORDINATOR_IDLE_TIMEOUT_MS,
+  options: FreshSyncOptions = {}
 ): Promise<FreshSyncResult> {
   const generation = captureAccountWorkGeneration(userId);
   if (generation === null) {
@@ -529,11 +540,6 @@ export async function refreshSync(
       );
     }
 
-    updateSyncStatus(
-      { isSyncing: true, errors: [] },
-      { userId, generation }
-    );
-
     const refreshes: Array<
       [string, (timeout: number) => Promise<boolean>]
     > = [
@@ -554,15 +560,57 @@ export async function refreshSync(
       ['message', (timeout) => refreshMessageReplicationPilot(userId, timeout)],
     ];
 
-    for (const [name, refresh] of refreshes) {
-      assertSyncOwnerCurrent(userId, generation);
-      const refreshed = await refresh(remaining());
-      if (!refreshed) {
-        throw new Error(
-          'Fresh ' + name + ' sync is not active for the current account.'
+    const total = refreshes.length;
+    let completed = 0;
+    const reportProgress = (label: string) => {
+      const progress: SyncProgress = {
+        completed,
+        total,
+        percent: Math.round((completed / total) * 100),
+        label,
+      };
+      updateSyncStatus(
+        {
+          isSyncing: true,
+          errors: [],
+          notice: null,
+          progress,
+        },
+        { userId, generation }
+      );
+      options.onProgress?.(progress);
+    };
+
+    reportProgress('Preparing fresh sync…');
+
+    // The six pilots are independent replication states. Awaiting them
+    // sequentially made later collections inherit only the scraps of one
+    // shared deadline; a slow category pass could therefore make a healthy
+    // diary pilot report a false timeout. Start every freshness proof against
+    // the same remaining deadline and report completion as each settles.
+    const results = await Promise.allSettled(
+      refreshes.map(async ([name, refresh]) => {
+        assertSyncOwnerCurrent(userId, generation);
+        const refreshed = await refresh(remaining());
+        if (!refreshed) {
+          throw new Error(
+            'Fresh ' + name + ' sync is not active for the current account.'
+          );
+        }
+        assertSyncOwnerCurrent(userId, generation);
+        completed += 1;
+        reportProgress(
+          completed === total
+            ? 'All data groups synced'
+            : completed + ' of ' + total + ' data groups synced'
         );
-      }
-    }
+      })
+    );
+
+    const failure = results.find(
+      (result): result is PromiseRejectedResult => result.status === 'rejected'
+    );
+    if (failure) throw failure.reason;
 
     assertSyncOwnerCurrent(userId, generation);
     const completedAt = new Date().toISOString();
@@ -571,6 +619,8 @@ export async function refreshSync(
         isSyncing: false,
         lastSync: completedAt,
         errors: [],
+        notice: null,
+        progress: null,
       },
       { userId, generation }
     );
@@ -579,13 +629,28 @@ export async function refreshSync(
   } catch (error) {
     const message =
       error instanceof Error ? error.message : 'Fresh RxDB sync failed';
-    updateSyncStatus(
-      {
-        isSyncing: false,
-        errors: [...getSyncStatus().errors, message],
-      },
-      { userId, generation }
-    );
+    if (isFreshSyncStillPending(error)) {
+      updateSyncStatus(
+        {
+          isSyncing: false,
+          errors: [],
+          notice:
+            'Sync is still finishing in the background. Tap Sync Now to confirm when it is fully caught up.',
+          progress: null,
+        },
+        { userId, generation }
+      );
+    } else {
+      updateSyncStatus(
+        {
+          isSyncing: false,
+          errors: [...getSyncStatus().errors, message],
+          notice: null,
+          progress: null,
+        },
+        { userId, generation }
+      );
+    }
     throw error;
   }
 }
@@ -873,7 +938,7 @@ async function runSyncCycleBody(
   isSyncInProgress = true;
   if (DEBUG) console.log('[Sync] Starting replication coordinator...');
   updateSyncStatus(
-    { isSyncing: true, errors: [] },
+    { isSyncing: true, errors: [], notice: null, progress: null },
     { userId, generation }
   );
 
@@ -1024,6 +1089,8 @@ async function runSyncCycleBody(
       {
         isSyncing: false,
         errors: collectionErrors,
+        notice: null,
+        progress: null,
       },
       { userId, generation }
     );

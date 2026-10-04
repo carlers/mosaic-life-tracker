@@ -32,7 +32,9 @@ const RESTORABLE_COLLECTIONS = [
   'settings',
 ] as const;
 
-const POST_RESTORE_SYNC_TIMEOUT_MS = 30_000;
+const POST_RESTORE_SYNC_MIN_TIMEOUT_MS = 90_000;
+const POST_RESTORE_SYNC_MAX_TIMEOUT_MS = 300_000;
+const POST_RESTORE_SYNC_PER_ROW_MS = 250;
 
 type RestorableCollection = (typeof RESTORABLE_COLLECTIONS)[number];
 type JsonRecord = Record<string, unknown>;
@@ -105,9 +107,17 @@ export interface BackupPreview {
   friendshipsReferenceOnly: number;
 }
 
+export interface RestoreProgress {
+  message: string;
+  percent: number;
+  completed?: number;
+  total?: number;
+}
+
 export interface RestoreOptions {
   mode: RestoreMode;
   onProgress?: (message: string) => void;
+  onProgressDetail?: (progress: RestoreProgress) => void;
   onLocalApplyComplete?: () => void;
 }
 
@@ -567,6 +577,8 @@ function assertMaxLength(label: string, value: string | undefined, max: number):
 }
 
 function validateNormalizedBackup(data: NormalizedBackup): void {
+  onImageProgress?.(ids.length, ids.length);
+
   for (const task of data.tasks) {
     assertMaxLength('task title', task.title, 255);
     assertMaxLength('task category ID', task.categoryId, 255);
@@ -649,7 +661,8 @@ async function restoreImages(
   data: NormalizedBackup,
   currentUserId: string,
   onProgress?: (message: string) => void,
-  assertOwner?: () => void
+  assertOwner?: () => void,
+  onImageProgress?: (completed: number, total: number) => void
 ): Promise<{ restored: number; missing: number }> {
   const ids = Array.from(referencedImageIds(data));
   if (ids.length === 0) return { restored: 0, missing: 0 };
@@ -660,6 +673,7 @@ async function restoreImages(
 
   for (let index = 0; index < ids.length; index += 1) {
     assertOwner?.();
+    onImageProgress?.(index, ids.length);
     const oldId = ids[index];
     const bytes = loaded.imageFiles.get(oldId);
     if (!bytes) {
@@ -695,6 +709,8 @@ async function restoreImages(
     }
     assertOwner?.();
   }
+
+  onImageProgress?.(ids.length, ids.length);
 
   for (const task of data.tasks) {
     if (!task.image) continue;
@@ -801,55 +817,60 @@ async function applyDocuments(
   sourceUserId: string,
   mode: RestoreMode,
   replaceTimestamp: string,
-  assertOwner?: () => void
+  assertOwner?: () => void,
+  onProcessed?: () => void
 ): Promise<{ restored: number; skippedNewer: number }> {
   const collection = collectionFor(collectionName);
   let restored = 0;
   let skippedNewer = 0;
 
   for (const sourceDoc of docs) {
-    assertOwner?.();
-    const doc = {
-      ...sourceDoc,
-      ...(mode === 'replace' ? { updatedAt: replaceTimestamp } : {}),
-      userId,
-      isDeleted: false,
-    } as RestorableDocument;
+    try {
+      assertOwner?.();
+      const doc = {
+        ...sourceDoc,
+        ...(mode === 'replace' ? { updatedAt: replaceTimestamp } : {}),
+        userId,
+        isDeleted: false,
+      } as RestorableDocument;
 
-    const existing = await collection.findOne(doc.id).exec();
-    assertOwner?.();
-    if (existing) {
-      const current = readLocalDoc(existing);
-      if (current.userId !== userId) {
-        throw new Error('Restore ID collides with data owned by another account.');
-      }
-      if (mode === 'merge') {
-        const currentUpdatedAt = toMs(current.updatedAt);
-        const backupUpdatedAt = toMs(doc.updatedAt);
-        const isEqualCrossAccountImageRetry =
-          currentUpdatedAt === backupUpdatedAt &&
-          isEqualPortableImageRetry(
-            collectionName,
-            doc,
-            current,
-            sourceUserId,
-            userId
-          );
-        if (
-          currentUpdatedAt > backupUpdatedAt ||
-          (currentUpdatedAt === backupUpdatedAt &&
-            !isEqualCrossAccountImageRetry)
-        ) {
-          skippedNewer += 1;
-          continue;
+      const existing = await collection.findOne(doc.id).exec();
+      assertOwner?.();
+      if (existing) {
+        const current = readLocalDoc(existing);
+        if (current.userId !== userId) {
+          throw new Error('Restore ID collides with data owned by another account.');
+        }
+        if (mode === 'merge') {
+          const currentUpdatedAt = toMs(current.updatedAt);
+          const backupUpdatedAt = toMs(doc.updatedAt);
+          const isEqualCrossAccountImageRetry =
+            currentUpdatedAt === backupUpdatedAt &&
+            isEqualPortableImageRetry(
+              collectionName,
+              doc,
+              current,
+              sourceUserId,
+              userId
+            );
+          if (
+            currentUpdatedAt > backupUpdatedAt ||
+            (currentUpdatedAt === backupUpdatedAt &&
+              !isEqualCrossAccountImageRetry)
+          ) {
+            skippedNewer += 1;
+            continue;
+          }
         }
       }
-    }
 
-    assertOwner?.();
-    await upsertLocalDoc(collectionName, doc.id, doc);
-    assertOwner?.();
-    restored += 1;
+      assertOwner?.();
+      await upsertLocalDoc(collectionName, doc.id, doc);
+      assertOwner?.();
+      restored += 1;
+    } finally {
+      onProcessed?.();
+    }
   }
 
   return { restored, skippedNewer };
@@ -935,6 +956,21 @@ export async function inspectBackupFile(
   };
 }
 
+function postRestoreSyncTimeoutMs(data: NormalizedBackup): number {
+  const rowCount =
+    data.tasks.length +
+    data.categories.length +
+    data.diary.length +
+    data.settings.length;
+  return Math.min(
+    POST_RESTORE_SYNC_MAX_TIMEOUT_MS,
+    Math.max(
+      POST_RESTORE_SYNC_MIN_TIMEOUT_MS,
+      60_000 + rowCount * POST_RESTORE_SYNC_PER_ROW_MS
+    )
+  );
+}
+
 async function assertRestoreUserStillCurrent(
   expectedUserId: string
 ): Promise<void> {
@@ -968,7 +1004,22 @@ export async function restoreUserData(
   };
 
   const report = options.onProgress ?? (() => {});
-  report('Validating backup…');
+  const reportDetail = (
+    message: string,
+    percent: number,
+    completed?: number,
+    total?: number
+  ) => {
+    report(message);
+    options.onProgressDetail?.({
+      message,
+      percent: Math.max(0, Math.min(100, Math.round(percent))),
+      ...(completed !== undefined ? { completed } : {}),
+      ...(total !== undefined ? { total } : {}),
+    });
+  };
+
+  reportDetail('Validating backup…', 2);
   const loaded = await loadBackupFile(file);
   assertOwner();
   const data = normalizeBackup(loaded.payload, currentUser.id);
@@ -986,8 +1037,17 @@ export async function restoreUserData(
     );
   }
 
-  report('Refreshing current data…');
-  const refreshed = await refreshSync(currentUser.id);
+  reportDetail('Refreshing current data…', 5);
+  const refreshed = await refreshSync(currentUser.id, undefined, {
+    onProgress: (syncProgress) => {
+      reportDetail(
+        'Refreshing current data · ' + syncProgress.label,
+        5 + syncProgress.percent * 0.15,
+        syncProgress.completed,
+        syncProgress.total
+      );
+    },
+  });
   assertOwner();
 
   const lastSyncMs = refreshed.status.lastSync
@@ -1006,7 +1066,7 @@ export async function restoreUserData(
 
   await assertRestoreUserStillCurrent(currentUser.id);
 
-  report('Planning restore…');
+  reportDetail('Planning restore…', 22);
   const plan = await planRestore(
     data,
     currentUser.id,
@@ -1027,7 +1087,18 @@ export async function restoreUserData(
     plan.data,
     currentUser.id,
     options.onProgress,
-    assertOwner
+    assertOwner,
+    (completed, total) => {
+      const fraction = total > 0 ? completed / total : 1;
+      reportDetail(
+        total > 0
+          ? 'Copying photos (' + completed + '/' + total + ')…'
+          : 'No photos to copy',
+        25 + fraction * 20,
+        completed,
+        total
+      );
+    }
   );
 
   await assertRestoreUserStillCurrent(currentUser.id);
@@ -1041,10 +1112,19 @@ export async function restoreUserData(
   };
   let skippedNewer = plan.skippedNewer;
 
-  report(
+  const totalDocuments =
+    plan.data.tasks.length +
+    plan.data.categories.length +
+    plan.data.diary.length +
+    plan.data.settings.length;
+  let processedDocuments = 0;
+  reportDetail(
     options.mode === 'replace'
       ? 'Applying backup data…'
-      : 'Merging personal data…'
+      : 'Merging personal data…',
+    45,
+    0,
+    totalDocuments
   );
 
   for (const collection of RESTORABLE_COLLECTIONS) {
@@ -1055,7 +1135,22 @@ export async function restoreUserData(
       data.sourceUserId,
       options.mode,
       replaceTimestamp,
-      assertOwner
+      assertOwner,
+      () => {
+        processedDocuments += 1;
+        const fraction =
+          totalDocuments > 0 ? processedDocuments / totalDocuments : 1;
+        reportDetail(
+          'Importing data (' +
+            processedDocuments +
+            '/' +
+            totalDocuments +
+            ')…',
+          45 + fraction * 30,
+          processedDocuments,
+          totalDocuments
+        );
+      }
     );
     restored[collection] = result.restored;
     skippedNewer += result.skippedNewer;
@@ -1064,7 +1159,7 @@ export async function restoreUserData(
   let tombstoned = 0;
   if (options.mode === 'replace') {
     await assertRestoreUserStillCurrent(currentUser.id);
-    report('Removing current-only personal data…');
+    reportDetail('Removing current-only personal data…', 76);
     tombstoned = await tombstoneMissing(
       data,
       currentUser.id,
@@ -1076,12 +1171,26 @@ export async function restoreUserData(
   assertOwner();
   options.onLocalApplyComplete?.();
 
-  report('Syncing restored data…');
+  reportDetail('Syncing restored data…', 78);
   let syncState: RestoreResult['syncState'] = 'synced';
   let syncError = '';
   try {
-    await refreshSync(currentUser.id, POST_RESTORE_SYNC_TIMEOUT_MS);
+    await refreshSync(
+      currentUser.id,
+      postRestoreSyncTimeoutMs(plan.data),
+      {
+        onProgress: (syncProgress) => {
+          reportDetail(
+            'Syncing to cloud · ' + syncProgress.label,
+            78 + syncProgress.percent * 0.21,
+            syncProgress.completed,
+            syncProgress.total
+          );
+        },
+      }
+    );
     assertOwner();
+    reportDetail('Import synced', 100);
   } catch (error) {
     // Ownership changes are hard failures, not ordinary sync delays. Never
     // let an import started by one account report success under another.
@@ -1089,7 +1198,10 @@ export async function restoreUserData(
     syncState = 'pending';
     syncError =
       error instanceof Error ? error.message : 'Restored data is still syncing.';
-    report('Saved locally. Sync will continue when Mosaic can reach the server.');
+    reportDetail(
+      'Saved locally. Sync will continue in the background.',
+      100
+    );
   }
 
   return {

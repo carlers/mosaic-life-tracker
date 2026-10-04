@@ -145,7 +145,7 @@ This is deliberate. The existing restore path provides:
 - re-import idempotence
 - newer Mosaic rows/tombstones winning over older imported versions
 - categories-before-tasks local application with account-generation guards
-- a bounded post-apply freshness barrier with separate synced and sync-pending outcomes
+- an adaptive bounded post-apply freshness barrier with separate synced and sync-pending outcomes
 
 The TodoMate importer must not expose Replace Personal Data. A migration from an external
 service is additive and must not delete unrelated Mosaic data.
@@ -163,6 +163,11 @@ Preview reads TodoMate but performs no Mosaic writes. It reports at minimum:
 
 Only after preview can the user start the Merge import. Closing or reopening the sheet
 cancels the old preview work, and an older attempt cannot overwrite the current preview.
+Both preview and import expose phase text plus a coarse percentage: preview advances through
+connection/login/history/photo preparation; import advances through validation, freshness
+preflight, photo copy, exact local-row application, and the six collection-level cloud
+freshness proofs. The percentage is progress through those known phases/rows/collections,
+not a byte-transfer estimate.
 
 Import start records only small account-scoped recovery metadata: expected counts, start
 time, and whether local application finished. If the app exits while rows are being applied,
@@ -170,7 +175,10 @@ reopening the importer explains that the prior run was interrupted and directs t
 preview and rerun it. Deterministic IDs and Merge semantics keep that rerun duplicate-safe.
 If all rows were applied but the bounded final sync did not converge, Mosaic reports
 **imported locally · sync pending** instead of **import complete** and preserves the local
-rows for normal replication.
+rows for normal replication. The final proof uses a 90–300 second budget scaled by the
+number of imported personal-data rows rather than the old fixed 30-second budget. All six
+independent RxDB freshness proofs start together so a slow earlier collection cannot consume
+the deadline and falsely make a later collection (for example diary) look broken.
 
 Any authentication, Firebase configuration, Firestore read, decoding, validation, Mosaic
 sync-preflight, or pre-local-completion restore error must be shown as a failed import. Do

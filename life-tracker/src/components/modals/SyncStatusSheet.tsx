@@ -129,18 +129,41 @@ export const SyncStatusSheet: React.FC<SyncStatusSheetProps> = ({
                 : isOffline
                   ? 'Sync paused'
                 : status.isSyncing
-                  ? 'Syncing…'
+                  ? status.progress
+                    ? `Syncing · ${status.progress.percent}%`
+                    : 'Syncing…'
                   : errorCount > 0
                     ? `${errorCount} error${errorCount === 1 ? '' : 's'}`
-                    : status.lastSync
-                      ? 'Up to date'
-                      : 'Waiting for first sync'}
+                    : status.notice
+                      ? 'Sync still finishing'
+                      : status.lastSync
+                        ? 'Up to date'
+                        : 'Waiting for first sync'}
             </p>
             <p className="text-xs text-gray-400 mt-0.5">
-              {status.lastSync
-                ? `Last synced ${formatRelative(status.lastSync, ' ago')}`
-                : 'This device has not completed a sync yet.'}
+              {status.isSyncing && status.progress
+                ? status.progress.label
+                : status.notice
+                  ? status.notice
+                  : status.lastSync
+                    ? `Last synced ${formatRelative(status.lastSync, ' ago')}`
+                    : 'This device has not completed a sync yet.'}
             </p>
+            {status.isSyncing && status.progress && (
+              <div
+                className="mt-2 h-1.5 overflow-hidden rounded-full bg-[#2A2A2A]"
+                role="progressbar"
+                aria-label="Sync progress"
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-valuenow={status.progress.percent}
+              >
+                <div
+                  className="h-full rounded-full bg-emerald-500 transition-[width] duration-200"
+                  style={{ width: status.progress.percent + '%' }}
+                />
+              </div>
+            )}
           </div>
         </div>
 
