@@ -1,10 +1,10 @@
 # Session checkpoint
 
 Updated: 2026-10-05
-Current task: UI smoothness/navigation first batch on stable Preview `feature/ui-smoothness-navigation`.
-Status: Stable Preview commit `66bee36b449835bfc9526b937181ec1b35505228` deployed successfully to Vercel and passed build, dependency audit, and both DOM shards, but full run `37303804660` found one lint failure in the new adjacent-Messages warmup: synchronous state inside the preload effect. Repair branch `chatgpt/ui-smoothness-lint-fix` removes that state entirely and derives conversation warming directly from the already-resolved adjacent swipe destinations; behavior and Home startup scope remain unchanged.
-Next action: Run focused verification on the repair, squash-merge it into `feature/ui-smoothness-navigation`, then require the new stable SHA's full canonical gate + exact-SHA Vercel Preview. Do not promote to `dev` or `main` without explicit user instruction.
-Blockers: None known. Real Samsung/PWA edge-swipe acceptance remains a manual check after hosted Preview.
+Current task: Re-audit Chat edge-back behavior on stable Preview `feature/ui-smoothness-navigation`, especially large-screen Comfortable/Wide modes.
+Status: Root cause confirmed on task branch `chatgpt/ui-smoothness-wide-edge-audit`: edge activation used absolute viewport `clientX <= 32`, while Comfortable/Wide center the route-swipe surface away from viewport x=0. The browser regression covered wide chat geometry but only exercised edge-back at phone/full width. The repair measures the 32px activation zone from the live swipe surface's left bound and gives that true edge route-back priority over replyable message bubbles; bubble swipe-to-reply remains the owner outside the reserved edge. Browser coverage now exercises Full screen, Comfortable, and Wide.
+Next action: Run browser-focused verification, inspect any failures, then squash the repair into `feature/ui-smoothness-navigation` and require the stable branch's full canonical gate + exact-SHA Vercel Preview. Do not promote to `dev` or `main` without explicit user instruction.
+Blockers: None known. The detail-to-parent bottom-nav appearance remains a visual/manual smoothness check rather than an automated geometry invariant.
 
 ## Final build-vs-reuse outcome
 

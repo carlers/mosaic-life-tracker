@@ -164,17 +164,25 @@ export const PrimaryRouteSwipeSurface: React.FC<
   );
 
   const isEligibleStart = useCallback(
-    (target: Element, clientX: number) => {
+    (target: Element, clientX: number, surfaceLeft: number) => {
       if (!canSwipeLeft && !canSwipeRight) return false;
-      if (
-        target.closest(
-          'input, textarea, select, [contenteditable="true"], [data-route-swipe-ignore="true"], [data-bottom-sheet-native-horizontal-swipe], [data-bottom-sheet-directional-drag-handle]'
-        )
-      ) {
-        return false;
-      }
+
+      const hardGestureOwner = target.closest(
+        'input, textarea, select, [contenteditable="true"], [data-bottom-sheet-native-horizontal-swipe], [data-bottom-sheet-directional-drag-handle]'
+      );
+      if (hardGestureOwner) return false;
+
       if (resolvedActivationMode === 'edge-back') {
-        return canSwipeRight && clientX <= EDGE_BACK_ACTIVATION_PX;
+        const edgeOffset = clientX - surfaceLeft;
+        return (
+          canSwipeRight &&
+          edgeOffset >= 0 &&
+          edgeOffset <= EDGE_BACK_ACTIVATION_PX
+        );
+      }
+
+      if (target.closest('[data-route-swipe-ignore="true"]')) {
+        return false;
       }
       if (resolvedActivationMode === 'home-zone') {
         return Boolean(
@@ -187,9 +195,10 @@ export const PrimaryRouteSwipeSurface: React.FC<
   );
 
   const handlePointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
+    const surfaceLeft = event.currentTarget.getBoundingClientRect().left;
     if (
       event.button !== 0 ||
-      !isEligibleStart(event.target as Element, event.clientX)
+      !isEligibleStart(event.target as Element, event.clientX, surfaceLeft)
     ) {
       gestureRef.current = null;
       return;
