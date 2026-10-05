@@ -4,7 +4,10 @@
 
 Commit only task paths (never blanket-stage unrelated edits) on a `chatgpt/**` or
 `codex/**` task branch. Batch remote edits and prefer one coherent verification push rather
-than pushing each small repair. Ordinary task pushes intentionally run classification only.
+than pushing each small repair. GitHub-connected Chat must preflight Code Mode connector-call
+count and use the phased Git-object write protocol in
+[AI workflow](AI_WORKFLOW.md#github-connector-call-budget) instead of waiting for an oversized
+program to fail. Ordinary task pushes intentionally run classification only.
 The final coherent task commit must already contain the durable checkpoint/documentation for
 the task and request `[verify:focused]` (or `[verify:browser]` when browser feedback is
 specifically needed). A repair after focused failure requests focused verification again.
