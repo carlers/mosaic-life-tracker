@@ -283,3 +283,16 @@ The first direct-Dexie prototype replaced the native `pendingImages.ts` wrapper 
 The stable full gate exposed the more important tradeoff: Dexie resolves/captures its IndexedDB dependency at module initialization, while Mosaic's existing DOM contract injects an isolated IndexedDB implementation per test. Making the prototype pass cleanly would require dependency injection or an additional fake-IndexedDB test dependency. For a helper this small, that extra infrastructure outweighs the roughly twenty lines of source removed.
 
 The Dexie prototype and direct dependency were therefore reverted. `pendingImages.ts`, `friendCache.ts`, and `imageCache.ts` remain native IndexedDB implementations. This is an intentional measured keep-custom decision, not unfinished migration work.
+
+
+### Replication primitive extraction result
+
+The implementation stopped at three high-confidence owner-write primitives shared by task, category, diary, and settings:
+
+- local push-checkpoint capture via `getChangedDocumentsSince`;
+- owner-scoped Realtime create/update/delete wakeups translated to ordered `RESYNC`;
+- owner-scoped `$updatedAt + $id` tuple-paged pulls, including row ownership validation and checkpoint construction.
+
+The remaining pilot lifecycle/start-stop blocks are visually similar, but extracting them would require a generic controller that owns typed RxDB state, Subjects, subscriptions, collection state, freshness labels, replication identifiers, error labeling, and collection-specific handlers. That would move complexity into configuration rather than remove it. The implementation therefore stops before that abstraction.
+
+Task/settings side effects and every collection's push/conflict/mapping policy remain explicit in their pilot files. This satisfies the complexity-budget rule: common protocol mechanics have one implementation while product/domain behavior stays locally readable.

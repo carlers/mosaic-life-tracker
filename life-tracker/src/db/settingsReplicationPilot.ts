@@ -1,9 +1,10 @@
 import { createReplicationPilotLifecycleQueue } from './replicationPilotLifecycle';
 import {
   captureReplicationPushCheckpoint,
+  pullOwnerRowsByUpdatedAtId,
   subscribeToOwnerRealtime,
 } from './replicationPilotPrimitives';
-import { Permission, Query, Role } from 'appwrite';
+import { Permission, Role } from 'appwrite';
 import {
   type RxCollection,
   type RxReplicationPullStreamItem,
@@ -34,10 +35,7 @@ import { updateProfileAvatar } from '../lib/social';
 import { awaitPilotReplicationFreshness } from './replicationFreshness';
 import { getReplicationIdentifier } from './replicationIds';
 import { trackReplicationFreshness } from './replicationLocalState';
-import {
-  assertRemoteRowOwnedBy,
-  assertRemoteRowsOwnedBy,
-} from './replicationOwnership';
+import { assertRemoteRowOwnedBy } from './replicationOwnership';
 import {
   loadAcceptedFriendIds,
   sanitizeFriendCarouselValue,
@@ -406,53 +404,15 @@ async function pullSettings(
   documents: ReplicatedSetting[];
   checkpoint: SettingsReplicationCheckpoint | undefined;
 }> {
-  const queries: string[] = [Query.equal('user_id', userId)];
-
-  if (checkpoint) {
-    queries.push(
-      Query.or([
-        Query.greaterThan('$updatedAt', checkpoint.updatedAt),
-        Query.and([
-          Query.equal('$updatedAt', checkpoint.updatedAt),
-          Query.greaterThan('$id', checkpoint.id),
-        ]),
-      ])
-    );
-  }
-
-  queries.push(
-    Query.orderAsc('$updatedAt'),
-    Query.orderAsc('$id'),
-    Query.limit(batchSize)
-  );
-
-  const response = await guardedTablesDB.listRows({
+  return pullOwnerRowsByUpdatedAtId<ReplicatedSetting, SettingsReplicationCheckpoint>({
     databaseId: APPWRITE_DATABASE_ID,
     tableId: APPWRITE_TABLES.settings,
-    queries,
-    total: false,
+    userId,
+    ownerLabel: 'Settings',
+    checkpoint,
+    batchSize,
+    mapRow: toReplicatedSetting,
   });
-  const responseRows =
-    (response as unknown as { rows?: Record<string, unknown>[] }).rows ?? [];
-  assertRemoteRowsOwnedBy(responseRows, userId, 'Settings');
-  const rows = responseRows.filter(
-    (row) =>
-      typeof row.$id === 'string' &&
-      row.$id.length > 0 &&
-      typeof row.$updatedAt === 'string' &&
-      row.$updatedAt.length > 0
-  );
-
-  const last = rows.at(-1);
-  return {
-    documents: rows.map(toReplicatedSetting),
-    checkpoint: last
-      ? {
-          id: last.$id as string,
-          updatedAt: last.$updatedAt as string,
-        }
-      : checkpoint,
-  };
 }
 
 export function captureSettingsReplicationPushCheckpoint(
