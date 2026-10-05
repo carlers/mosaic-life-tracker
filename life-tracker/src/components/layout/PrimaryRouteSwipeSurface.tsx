@@ -252,12 +252,10 @@ export const PrimaryRouteSwipeSurface: React.FC<
 
       gesture.dragging = true;
       suppressClickRef.current = true;
-      if ('setPointerCapture' in event.currentTarget) {
-        try {
-          event.currentTarget.setPointerCapture(event.pointerId);
-        } catch {
-          // Pointer capture is an optimization; the gesture can continue without it.
-        }
+      try {
+        event.currentTarget.setPointerCapture(event.pointerId);
+      } catch {
+        // Pointer capture is an optimization; the gesture can continue without it.
       }
     }
 
@@ -280,12 +278,10 @@ export const PrimaryRouteSwipeSurface: React.FC<
     gestureRef.current = null;
     if (!gesture || gesture.pointerId !== event.pointerId) return;
 
-    if ('releasePointerCapture' in event.currentTarget) {
-      try {
-        event.currentTarget.releasePointerCapture(event.pointerId);
-      } catch {
-        // Ignore browsers that already released capture.
-      }
+    try {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    } catch {
+      // Ignore browsers that lack or already released capture.
     }
 
     if (!gesture.dragging || cancelled) {

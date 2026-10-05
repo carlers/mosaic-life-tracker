@@ -2,8 +2,8 @@
 
 Updated: 2026-10-05
 Current task: UI smoothness/navigation follow-up on stable Preview `feature/ui-smoothness-navigation`.
-Status: Stable commit `22fce599513073bf6634cf5d7866c9f6550edb83` remained full-canonical green in GitHub, but exact-SHA Vercel deployment `dpl_EtPqsZXRquqk39xoVTRkHD7aUmFV` was still 7 B over the unchanged app-assets gzip budget (682,307 B / 682,300 B). Repair branch `chatgpt/ui-smoothness-size-fix-3` removes only redundant `aria-hidden` attributes from empty decorative loading-shell blocks; accessible loading text and all UX/behavior remain unchanged.
-Next action: Browser-focused verify this final no-behavior size trim, squash it into `feature/ui-smoothness-navigation`, then require the repaired stable SHA's full canonical gate + exact-SHA Vercel Preview. Do not promote to `dev` or `main` without explicit user instruction.
+Status: Stable commit `e0a766c3603e0e7163240786623d261d2c6f8f4b` remained functionally green but exact-SHA Vercel deployment `dpl_6rDCTfmvbEp6e7xxrWNrTmUGemjL` was still 6 B over the unchanged app-assets gzip budget (682,306 B / 682,300 B). Repair branch `chatgpt/ui-smoothness-size-fix-4` removes redundant pointer-capture existence guards while retaining the existing try/catch fallback, so unsupported/already-released pointer capture remains harmless and gesture behavior is unchanged.
+Next action: Browser-focused verify this final runtime trim, squash it into `feature/ui-smoothness-navigation`, then require the repaired stable SHA's full canonical gate + exact-SHA Vercel Preview. Do not promote to `dev` or `main` without explicit user instruction.
 Blockers: None known. Real Samsung/PWA touch acceptance remains manual; Chat-to-Messages bottom-nav appearance during the detail commit is still a visual device check.
 
 ## Final build-vs-reuse outcome
