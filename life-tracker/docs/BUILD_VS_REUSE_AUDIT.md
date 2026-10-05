@@ -274,3 +274,12 @@ The transaction candidate was tested against a disposable Appwrite Cloud project
 - Appwrite `updateRows` with equality predicates was also live-proven to behave as a conditional update (one matching row, then zero after the predicate became stale). Mosaic would need a dedicated remote revision token to use that safely across all mutable fields, so that is deferred rather than adding schema/protocol complexity solely to justify reuse.
 
 R1 is therefore rejected. The accepted implementation proceeds with small behavior-preserving replication primitives and a measured Dexie prototype only.
+
+
+### Dexie prototype result
+
+The first direct-Dexie prototype replaced the native `pendingImages.ts` wrapper while keeping the same IndexedDB database, version, store, key, pending-ID format, and owner checks. The production build and build-size guard passed, so bundle budgets were not the blocker.
+
+The stable full gate exposed the more important tradeoff: Dexie resolves/captures its IndexedDB dependency at module initialization, while Mosaic's existing DOM contract injects an isolated IndexedDB implementation per test. Making the prototype pass cleanly would require dependency injection or an additional fake-IndexedDB test dependency. For a helper this small, that extra infrastructure outweighs the roughly twenty lines of source removed.
+
+The Dexie prototype and direct dependency were therefore reverted. `pendingImages.ts`, `friendCache.ts`, and `imageCache.ts` remain native IndexedDB implementations. This is an intentional measured keep-custom decision, not unfinished migration work.
