@@ -40,7 +40,9 @@ additional reading. Current code and Git override stale progress prose.
 - Preserve account isolation, cached offline identity, provider ownership/order, race
   protection, bounded retries, and sync coordination. Confirmed 401 differs from offline.
 - Schema changes require migrations, sync mappings, mirrored test schemas, and applicable
-  remote rollout steps. Local `isDeleted` maps to remote `deleted`; use tombstones.
+  remote rollout steps. Appwrite schema/Function changes also follow
+  [backend workflow](docs/APPWRITE_BACKEND_WORKFLOW.md); never use Console edits or an implicit
+  production target as the normal development path. Local `isDeleted` maps to remote `deleted`; use tombstones.
   Ordinary record deletion follows [retention](docs/TOMBSTONE_RETENTION.md). The only
   hard-delete exception is explicit, typed-confirmation account erasure through the
   server-owned durable deletion worker documented in [project reference](docs/PROJECT_REFERENCE.md#238-permanent-account-erasure).
