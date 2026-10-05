@@ -30,7 +30,12 @@ export async function runAppwriteStatusCli({
     for (const diff of result.diffs) log(`  DRIFT ${diff}`);
   } else {
     log(
-      '  OK managed database, tables, bucket, and Function structure match Git.'
+      '  OK managed database, tables, bucket, Function structure, and declared Function variables match Git.'
+    );
+  }
+  if (result.legacyTables.length) {
+    log(
+      `  INFO tolerated pre-foundation tables: ${result.legacyTables.join(', ')}`
     );
   }
   for (const item of result.functionObservations) {
@@ -47,7 +52,7 @@ export async function runAppwriteStatusCli({
     );
   }
   log(
-    '  Note: schedules, secrets/variables, VCS linkage, and environment-specific Function IDs are operational state and are reported but not drift-enforced.'
+    '  Note: remote schedules, VCS linkage, environment-specific Function IDs, and secret values remain operational state; declared variable presence/classification is drift-enforced without reading secret values.'
   );
 
   if (result.diffs.length) process.exitCode = 2;

@@ -1,9 +1,14 @@
+import { readdirSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { describe, expect, it, vi } from 'vitest';
 import {
   assertConfirmedProject,
   diffFunction,
+  diffFunctionVariables,
   diffLocalFunctionConfig,
   diffTable,
+  diffTableInventory,
   parseBackendTarget,
   readBackendDefinitions,
 } from '../../scripts/lib/appwrite-backend.mjs';
@@ -63,6 +68,35 @@ describe('Appwrite backend target safety', () => {
       )
     ).toEqual([]);
   });
+
+
+  it('keeps executable scripts free of an implicit production project target', () => {
+    const scriptsRoot = fileURLToPath(
+      new URL('../../scripts/', import.meta.url)
+    );
+    const pending = [scriptsRoot];
+    const offenders: string[] = [];
+    while (pending.length) {
+      const directory = pending.pop()!;
+      for (const entry of readdirSync(directory, {
+        withFileTypes: true,
+      })) {
+        const path = join(directory, entry.name);
+        if (entry.isDirectory()) {
+          pending.push(path);
+        } else if (
+          entry.isFile() &&
+          entry.name.endsWith('.mjs') &&
+          readFileSync(path, 'utf8').includes(
+            '6a9703c50016b37110ff'
+          )
+        ) {
+          offenders.push(path);
+        }
+      }
+    }
+    expect(offenders).toEqual([]);
+  });
 });
 
 describe('Appwrite managed-state drift checks', () => {
@@ -97,11 +131,51 @@ describe('Appwrite managed-state drift checks', () => {
     ).toContain(
       'table diary.created_at size: expected 50, got 36'
     );
+
+    expect(
+      diffTable(
+        {
+          ...actual,
+          columns: [
+            ...actual.columns,
+            {
+              key: 'manual_console_field',
+              type: 'varchar',
+              size: 20,
+              required: false,
+            },
+          ],
+        },
+        table
+      )
+    ).toContain(
+      'table diary.manual_console_field: unexpected column'
+    );
+    expect(
+      diffTable(
+        {
+          ...actual,
+          indexes: [
+            ...actual.indexes,
+            {
+              key: 'manual_console_index',
+              type: 'key',
+              columns: ['date'],
+            },
+          ],
+        },
+        table
+      )
+    ).toContain(
+      'table diary.manual_console_index: unexpected index'
+    );
   });
 
   it('checks Function structure but intentionally ignores operational schedule state', () => {
     const expected = {
       name: 'dr-backup',
+      enabled: true,
+      logging: true,
       runtime: 'node-22',
       timeout: 900,
       entrypoint: 'main.mjs',
@@ -112,7 +186,12 @@ describe('Appwrite managed-state drift checks', () => {
     };
     expect(
       diffFunction(
-        { ...expected, schedule: '0 11 * * *' },
+        {
+          ...expected,
+          execute: [],
+          scopes: ['users.read'],
+          schedule: '0 11 * * *',
+        },
         expected
       )
     ).toEqual([]);
@@ -124,6 +203,80 @@ describe('Appwrite managed-state drift checks', () => {
     ).toContain(
       'function dr-backup runtime: expected "node-22", got "node-18.0"'
     );
+  });
+
+  it('treats declared Function variables as managed state without reading secret values', async () => {
+    const definitions = await readBackendDefinitions();
+    const expected = definitions.functions['dr-backup'].config;
+    const actual = {
+      vars: [
+        ...Object.entries(expected.nonSecretVariables).map(
+          ([key, value]) => ({ key, value, secret: false })
+        ),
+        { key: 'R2_ACCOUNT_ID', value: 'account', secret: false },
+        { key: 'R2_BUCKET', value: 'bucket', secret: false },
+        { key: 'R2_ACCESS_KEY_ID', value: '', secret: true },
+        { key: 'R2_SECRET_ACCESS_KEY', value: '', secret: true },
+        { key: 'DR_ENCRYPTION_KEY_B64', value: '', secret: true },
+      ],
+    };
+    expect(diffFunctionVariables(actual, expected)).toEqual([]);
+    expect(
+      diffFunctionVariables(
+        {
+          ...actual,
+          vars: actual.vars.map((item) =>
+            item.key === 'R2_ACCESS_KEY_ID'
+              ? { ...item, secret: false }
+              : item
+          ),
+        },
+        expected
+      )
+    ).toContain(
+      'function dr-backup variable R2_ACCESS_KEY_ID: expected secret'
+    );
+    expect(
+      diffFunctionVariables(
+        {
+          ...actual,
+          vars: [
+            ...actual.vars,
+            { key: 'MANUAL_CONSOLE_VAR', value: 'x', secret: false },
+          ],
+        },
+        expected
+      )
+    ).toContain(
+      'function dr-backup variable MANUAL_CONSOLE_VAR: unexpected'
+    );
+  });
+
+  it('tolerates only the declared pre-foundation table placeholders', () => {
+    expect(
+      diffTableInventory({
+        total: 4,
+        tables: [
+          { $id: 'tasks' },
+          { $id: 'routines' },
+          { $id: 'stickers' },
+          { $id: 'analytics_events' },
+        ],
+      })
+    ).toEqual({
+      diffs: [],
+      legacyTables: [
+        'analytics_events',
+        'routines',
+        'stickers',
+      ],
+    });
+    expect(
+      diffTableInventory({
+        total: 2,
+        tables: [{ $id: 'tasks' }, { $id: 'console_test' }],
+      }).diffs
+    ).toContain('table console_test: unexpected unmanaged table');
   });
 });
 

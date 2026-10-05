@@ -72,7 +72,7 @@ describe('Mosaic bootstrap configuration', () => {
     expect(rendered).not.toContain('6a9703c50016b37110ff');
   });
 
-  it('requires all recovery secrets before optional DR provisioning', () => {
+  it('requires all recovery credentials before optional DR provisioning', () => {
     expect(() =>
       parseBootstrapArgs(
         [
@@ -85,6 +85,38 @@ describe('Mosaic bootstrap configuration', () => {
         { APPWRITE_API_KEY: 'temporary-key' }
       )
     ).toThrow(/R2_ACCOUNT_ID/);
+  });
+
+
+  it('keeps R2 routing values non-secret while protecting credentials', () => {
+    const config = parseBootstrapArgs(
+      [
+        '--project',
+        'fork_project',
+        '--endpoint',
+        'https://fra.cloud.appwrite.io/v1',
+        '--with-dr',
+      ],
+      {
+        APPWRITE_API_KEY: 'temporary-key',
+        R2_ACCOUNT_ID: 'account',
+        R2_ACCESS_KEY_ID: 'access',
+        R2_SECRET_ACCESS_KEY: 'secret',
+        R2_BUCKET: 'bucket',
+        DR_ENCRYPTION_KEY_B64: 'encryption',
+        R2_ENDPOINT: 'https://account.r2.cloudflarestorage.com',
+      }
+    );
+    expect(config.drVariables).toEqual({
+      R2_ACCOUNT_ID: 'account',
+      R2_BUCKET: 'bucket',
+      R2_ENDPOINT: 'https://account.r2.cloudflarestorage.com',
+    });
+    expect(config.drSecrets).toEqual({
+      R2_ACCESS_KEY_ID: 'access',
+      R2_SECRET_ACCESS_KEY: 'secret',
+      DR_ENCRYPTION_KEY_B64: 'encryption',
+    });
   });
 
   it('refuses to overwrite any project that already has community state', async () => {
@@ -263,6 +295,8 @@ describe('Mosaic bootstrap operations', () => {
     expect(services.functions.create).toHaveBeenCalledWith(
       expect.objectContaining({
         name: 'message-action',
+        enabled: true,
+        logging: true,
         schedule: '',
         execute: ['users'],
       })

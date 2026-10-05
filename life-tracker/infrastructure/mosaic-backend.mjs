@@ -14,6 +14,14 @@ const ownerTable = (id, name, columns, indexes = []) => ({
   indexes,
 });
 
+// Pre-foundation placeholders still exist in production but are intentionally
+// excluded from fresh backends and active runtime ownership.
+export const MOSAIC_LEGACY_TABLE_IDS = [
+  'routines',
+  'stickers',
+  'analytics_events',
+];
+
 export const MOSAIC_TABLES = [
   ownerTable('tasks', 'tasks', [
     { key: 'title', type: 'varchar', size: 255, required: true },
