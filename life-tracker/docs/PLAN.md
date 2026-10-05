@@ -92,9 +92,9 @@ This roadmap records durable workstreams and batch status. `SESSION_STATE.md` co
 
 ## Deferred technical work
 
-- [ ] Prototype transaction-scoped compare/write for the owner-write replication pilots using the Appwrite TablesDB transaction API already present in the installed SDK; require a deterministic two-client conflict proof before changing the sync contract.
-- [ ] After the transaction proof, extract only invariant lifecycle/pull/checkpoint/Realtime mechanics from the six RxDB replication pilots into a shared TablesDB adapter harness while keeping domain conflict/write policy explicit.
-- [ ] Evaluate direct Dexie reuse for the three raw IndexedDB modules with before/after bundle and source-size measurements; because RxDB already resolves Dexie, prefer it if it removes boilerplate without a loaded-closure regression. Test `idb` only as a fallback and do not ship both abstractions without a measured reason.
+- [x] Evaluate Appwrite transaction CAS for owner-write replication — rejected after a live disposable-project proof showed a transactional read does not protect a later staged write from an intervening external update. Stage-before-external-write conflicts do return 409, but that does not close Mosaic's current read→compare→write window. Conditional `updateRows` CAS remains deferred because it would require a new collision-safe remote revision-token protocol.
+- [ ] Replication deduplication — first accepted step extracts shared local push-checkpoint capture and owner-scoped Realtime→RESYNC mechanics across task/category/diary/settings. Continue only with similarly obvious primitives; do not build a generic sync framework unless maintenance fan-out measurably improves.
+- [ ] Evaluate direct Dexie reuse for auxiliary IndexedDB — `pendingImages.ts` is the first prototype using direct Dexie 4.4.2 with the existing DB/store/version. Keep it only if stable-Preview tests and build/static-closure metrics show no material regression; friend/image caches stay native until then. Test `idb` only as a fallback.
 - [ ] Revisit cross-device last-write-wins only if collaboration or active multi-device editing makes the accepted limitation material
 - [ ] Revisit >90-day stale-recovery client-clock tolerance only if recovery reports show legitimate offline edits being conservatively preserved or remote tombstones being ambiguous; steady-state RxDB pulls use server-authored tuple checkpoints and are unaffected.
 

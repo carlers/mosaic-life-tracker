@@ -262,3 +262,15 @@ present through RxDB is the clearest auxiliary-storage candidate; a new IndexedD
 only a measured fallback. Most other custom infrastructure is
 either deliberately thin or encodes Mosaic-specific offline, account-isolation, PWA, and
 gesture behavior that generic packages do not replace.
+
+
+## 2026-10-05 implementation evidence
+
+The transaction candidate was tested against a disposable Appwrite Cloud project before production code changed. The result invalidated the original CAS assumption.
+
+- A transaction that **reads**, then another client updates, then the transaction **stages** its update can still commit and overwrite the intervening write.
+- A transaction that stages its update **before** another client writes does conflict on commit with HTTP 409.
+- Therefore Appwrite transaction conflict detection protects staged operations, not the earlier application-level read/compare decision Mosaic needs.
+- Appwrite `updateRows` with equality predicates was also live-proven to behave as a conditional update (one matching row, then zero after the predicate became stale). Mosaic would need a dedicated remote revision token to use that safely across all mutable fields, so that is deferred rather than adding schema/protocol complexity solely to justify reuse.
+
+R1 is therefore rejected. The accepted implementation proceeds with small behavior-preserving replication primitives and a measured Dexie prototype only.
