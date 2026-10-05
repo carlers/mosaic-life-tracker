@@ -84,19 +84,32 @@ describe('MainLayout primary route swipes', () => {
     expect(onRouteSwipe).toHaveBeenCalledWith('left');
   });
 
-  it('can render a detail route without bottom navigation or its content inset', () => {
+  it('renders chat detail without bottom nav and accepts only an edge swipe back', () => {
+    vi.useFakeTimers();
+    const onRouteSwipe = vi.fn();
     render(
       <MainLayout
         activeTab="messages"
         onTabChange={() => {}}
         hideBottomNav
+        canSwipeRight
+        rightPreview={<div>Messages parent</div>}
+        onRouteSwipe={onRouteSwipe}
       >
-        <div>Chat detail</div>
+        <div data-testid="chat-detail">Chat detail</div>
       </MainLayout>
     );
 
     expect(screen.queryByTestId('bottom-nav')).toBeNull();
     expect(screen.getByText('Chat detail')).toBeInTheDocument();
+
+    drag(screen.getByTestId('chat-detail'), 120, 260);
+    act(() => vi.runAllTimers());
+    expect(onRouteSwipe).not.toHaveBeenCalled();
+
+    drag(screen.getByTestId('chat-detail'), 20, 180);
+    act(() => vi.runAllTimers());
+    expect(onRouteSwipe).toHaveBeenCalledWith('right');
   });
 
   it('accepts a leftward full-page swipe on Me', () => {

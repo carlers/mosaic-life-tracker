@@ -60,6 +60,53 @@ async function readHistory(page) {
   return scroller(page).evaluate(el => el.scrollTop);
 }
 
+// Regression: §2/§21 (chat detail uses edge-only route Back without stealing bubble reply swipes).
+test('chat edge swipe reveals Messages while bubble swipes stay chat-owned', async ({ page }) => {
+  await page.setViewportSize({ width: 412, height: 915 });
+  await open(page);
+
+  const path = page.getByTestId('chat-path');
+  await expect(path).toHaveText('/messages/friend');
+
+  const bubble = page.locator('[data-message-id] > [role="button"]').first();
+  const bubbleBox = await bubble.boundingBox();
+  if (!bubbleBox) throw new Error('Missing message bubble bounds');
+  await page.mouse.move(
+    bubbleBox.x + Math.min(24, bubbleBox.width * 0.25),
+    bubbleBox.y + bubbleBox.height * 0.5
+  );
+  await page.mouse.down();
+  await page.mouse.move(
+    bubbleBox.x + Math.min(110, bubbleBox.width * 0.8),
+    bubbleBox.y + bubbleBox.height * 0.5,
+    { steps: 5 }
+  );
+  await page.mouse.up();
+  await expect(path).toHaveText('/messages/friend');
+
+  const surface = page.getByTestId('primary-route-swipe-surface');
+  const surfaceBox = await surface.boundingBox();
+  if (!surfaceBox) throw new Error('Missing chat route surface bounds');
+  const startX = surfaceBox.x + 8;
+  const y = surfaceBox.y + 110;
+
+  await page.mouse.move(startX, y);
+  await page.mouse.down();
+  await page.mouse.move(startX + 90, y + 2, { steps: 5 });
+
+  const preview = page.getByTestId('primary-route-neighbor-preview');
+  await expect(preview).toHaveCount(1);
+  const previewBox = await preview.boundingBox();
+  if (!previewBox) throw new Error('Missing Messages preview bounds');
+  expect(previewBox.x + previewBox.width).toBeGreaterThan(surfaceBox.x);
+
+  await page.mouse.move(startX + 180, y + 2, { steps: 5 });
+  await page.mouse.up();
+
+  await expect(path).toHaveText('/messages');
+  await expect(page.getByTestId('messages-parent-page')).toBeVisible();
+});
+
 test('search restores history, incoming stays below, FAB acknowledges, send exits search', async ({ page }) => {
   await open(page);
   const before = await readHistory(page);

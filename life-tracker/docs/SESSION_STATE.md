@@ -1,10 +1,10 @@
 # Session checkpoint
 
 Updated: 2026-10-05
-Current task: Final polish and delivery of the build-vs-reuse refactor from stable Preview `refactor/build-vs-reuse-audit`.
-Status: Source changes are complete on the polish task tree. The refactor now shares local push-checkpoint scanning across all six RxDB pilots; task/category/diary/settings additionally share owner-scoped Realtime→RESYNC and `$updatedAt + $id` tuple-paged pulls. Friendship/message keep custom pull/delete behavior because of cache and optimistic-intent side effects. Direct primitive tests cover checkpoint pagination, tuple query/checkpoint filtering, owner fail-closed behavior, and Realtime wakeups. The Dexie prototype remains reverted, and the lockfile experiment noise is removed. Audit/roadmap prose now records the final measured decisions instead of the original proposals.
-Next action: Run one focused check on the complete polish diff, squash-merge it into `refactor/build-vs-reuse-audit`, require the stable branch's full canonical gate + exact-SHA Vercel Preview, then promote the accepted stable Preview tree to `dev` under the user's authorization. Do not promote to `main`.
-Blockers: None known before CI. A physical two-device smoke is not claimed by automation and remains optional manual confidence, not a substitute for canonical verification.
+Current task: UI smoothness/navigation first batch on stable Preview `feature/ui-smoothness-navigation`.
+Status: The first browser-focused run (`37303243344`) confirmed the new Chat edge-swipe contract but exposed a browser-harness-only role collision: the hidden route probe used HTML `<output>`, whose implicit status role collided with existing loading-status assertions. The probe is now a neutral `<span>`; production behavior is unchanged. Focused checks were green and browser verification is being rerun.
+Next action: Require the repaired browser-focused gate to pass, then squash-merge `chatgpt/ui-smoothness-chat-swipe` into `feature/ui-smoothness-navigation` and require the stable branch's full canonical gate + Vercel Preview. Do not promote to `dev` or `main` without explicit user instruction.
+Blockers: None known. Real Samsung/PWA edge-swipe acceptance remains a manual check after hosted Preview.
 
 ## Final build-vs-reuse outcome
 

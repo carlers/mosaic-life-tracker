@@ -189,6 +189,7 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
           ref={bubbleRef}
           role="button"
           tabIndex={0}
+          data-route-swipe-ignore="true"
           onPointerDown={onPointerDown}
           onPointerMove={onPointerMove}
           onPointerUp={onPointerUp}

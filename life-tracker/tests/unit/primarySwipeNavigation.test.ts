@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { resolvePrimarySwipeDestination } from '../../src/lib/primarySwipeNavigation';
+import {
+  resolvePrimarySwipeDestination,
+  resolveRouteParent,
+} from '../../src/lib/primarySwipeNavigation';
 
 describe('resolvePrimarySwipeDestination', () => {
   // Regression: §2 (primary route order and Me → Settings swipe).
@@ -13,9 +16,11 @@ describe('resolvePrimarySwipeDestination', () => {
     expect(resolvePrimarySwipeDestination('/account', 'right')).toBe('/messages');
   });
 
-  it('keeps Settings as the Me detail edge and excludes individual chats', () => {
+  it('keeps Settings as the Me detail edge and gives chat detail a Messages parent', () => {
     expect(resolvePrimarySwipeDestination('/settings', 'right')).toBe('/account');
     expect(resolvePrimarySwipeDestination('/settings', 'left')).toBeNull();
+    expect(resolveRouteParent('/messages/friend_1')).toBe('/messages');
+    expect(resolvePrimarySwipeDestination('/messages/friend_1', 'right')).toBe('/messages');
     expect(resolvePrimarySwipeDestination('/messages/friend_1', 'left')).toBeNull();
   });
 

@@ -3,6 +3,10 @@ export type PrimarySwipeDirection = 'left' | 'right';
 export const ROUTE_PARENT_STATE_KEY = 'parentPath';
 
 export function resolveRouteParent(pathname: string): string | null {
+  if (/^\/messages\/[^/]+$/.test(pathname)) {
+    return '/messages';
+  }
+
   switch (pathname) {
     case '/settings':
       return '/account';
