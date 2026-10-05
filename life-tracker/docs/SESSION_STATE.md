@@ -1,31 +1,27 @@
 # Session checkpoint
 
 Updated: 2026-10-05
-Current task: Implement the accepted build-vs-reuse follow-up on `chatgpt/refactor-existing-capabilities`, targeting stable Preview `refactor/build-vs-reuse-audit`.
-Status: R1 transaction CAS was rejected after a live disposable-Appwrite proof: a transactional get followed by an external row update did not make commit conflict when the staged update happened after the external write, so transactions do not close Mosaic's read→compare→write window. A second live proof confirmed Appwrite conflicts only when the external change occurs after the transaction has staged an operation. Query-conditioned `updateRows` can behave as CAS, but using it safely would require a dedicated remote revision token/schema protocol, which is outside this reuse refactor. R2 now extracts shared push-checkpoint capture and owner-scoped Realtime→RESYNC mechanics into `replicationPilotPrimitives.ts` for task/category/diary/settings while preserving each pilot's push/conflict policy. R3 declares the already-resolved Dexie 4.4.2 directly and prototypes `pendingImages.ts` on Dexie with the same database/store/version and owner checks; full stable-Preview build metrics decide whether it stays.
-Next action: Run focused verification on this task SHA. If green, squash into `refactor/build-vs-reuse-audit`; its full canonical build/PWA/size gate is the Dexie bundle decision. If build/static closure regresses materially or tests expose IndexedDB compatibility issues, revert the Dexie prototype while retaining R1 evidence and R2 primitives.
+Current task: Complete the build-vs-reuse implementation on stable Preview `refactor/build-vs-reuse-audit`. The first stable full gate exposed that the Dexie experiment is not a net simplification, so `chatgpt/revert-dexie-prototype` removes that prototype while retaining the accepted replication-primitives refactor and live Appwrite evidence.
+Status: R1 transaction CAS is rejected after live disposable-Appwrite proof; transaction reads do not fence a later staged write from an intervening external update. R2 behavior-preserving reuse is implemented: task/category/diary/settings share local push-checkpoint capture and owner-scoped Realtime→RESYNC mechanics while keeping domain push/conflict policy explicit. R3 direct Dexie reuse is rejected: the prototype passed production build/size checks but failed the existing pending-image owner-isolation DOM contract because Dexie captures IndexedDB dependencies at module initialization. Adding fake-IndexedDB/dependency-injection plumbing for a small helper would erase the maintenance win, so the native auxiliary IndexedDB wrappers remain.
+Next action: Run focused verification for this Dexie-revert repair. If green, squash into `refactor/build-vs-reuse-audit` and rerun the stable branch's full canonical acceptance plus Vercel Preview.
 Blockers: None known before CI.
 
-## Implementation decisions
+## Accepted implementation
 
-1. **R1 killed by evidence:** Appwrite transaction reads are not sufficient CAS fences for Mosaic. Do not migrate the owner-write pilots to transactions.
-2. **Conditional bulk update deferred:** `updateRows` with `$id + revision` predicates was live-proven to update one matching row and then return zero rows after the revision changed, but Mosaic has no collision-safe remote revision token today. Do not add one solely for this refactor.
-3. **R2 small primitives only:** shared checkpoint capture and owner-scoped Realtime wakeup were extracted across the four owner-write pilots. Domain mapping, state equality, create/update behavior, image/profile side effects, and conflict policy remain explicit.
-4. **R3 measured prototype:** `pendingImages.ts` now uses direct Dexie 4.4.2 while preserving DB name `mosaic_pending_images`, schema version 1, store `images`, owner filtering, local IDs, per-owner clearing, and test reset behavior. Friend/image caches remain native until the prototype passes bundle/runtime acceptance.
+1. **No Appwrite transaction migration.** Live proof showed read→external update→stage→commit can still overwrite the external writer. Existing D1 remains explicit.
+2. **Conditional `updateRows` CAS remains deferred.** It works with a revision predicate, but Mosaic has no dedicated collision-safe remote revision token; adding one is a schema/protocol redesign, not a reuse cleanup.
+3. **Shared replication primitives stay.** `replicationPilotPrimitives.ts` centralizes the repeated checkpoint scan and owner-scoped Realtime wakeup for the four owner-write pilots. Domain mapping, equality, conflicts, create/update fallback, task image logic, settings profile logic, and collection-specific behavior remain local.
+4. **Native auxiliary IndexedDB stays.** The direct Dexie dependency and `pendingImages.ts` prototype are removed after the full-gate DOM failure demonstrated extra test/runtime coupling for only modest source reduction. Friend and image caches were never migrated.
 
-## Live Appwrite proof
+## Verification evidence so far
 
-Disposable project: `My first project`; temporary probe table is no longer present.
-
-- Transaction A read row at revision 0; B updated row to revision 1; A then staged revision 2 and committed. **Commit succeeded and A overwrote B.**
-- Transaction A read and staged its update first; B then updated the same row; A commit returned HTTP 409 `transaction_conflict` and B remained master.
-- Query-conditioned `updateRows` with predicates `$id=row_cas AND revision=0` updated exactly one row the first time; repeating the same predicate after revision advanced returned `total: 0`.
-
-These results supersede the audit's earlier assumption that a transactional read alone would protect the later write.
+- Task branch focused Quality Gate `37260886935`: success.
+- Stable squash commit before repair: `cf7b063d0abc5c861d6fa7c94d9de9b8e7372b04`.
+- Stable full Quality Gate `37261263767`: production build/size, checks, dependency audit, DOM shard 1, and browser shard 1 passed; DOM shard 2 failed only `offlineCaches.test.tsx > keeps pending image blobs owner scoped` with Dexie `MissingAPIError IndexedDB API missing`. The Dexie prototype is therefore being reverted rather than weakening or replacing the regression test.
 
 ## Acceptance path
 
-1. This final task commit requests `[verify:focused]`.
-2. Focused-green task PR is squash-merged into `refactor/build-vs-reuse-audit`.
-3. Stable Preview runs full canonical acceptance, production build/PWA/size checks, and Vercel Preview.
-4. Dexie remains only if those metrics/tests are acceptable; otherwise repair on a child task branch and repeat.
+1. This repair checkpoint requests `[verify:focused]`.
+2. Focused-green repair PR is squash-merged into `refactor/build-vs-reuse-audit`.
+3. Stable Preview runs a fresh full canonical gate and exact-tree Vercel Preview.
+4. No promotion to `dev` or `main` without explicit user instruction.
