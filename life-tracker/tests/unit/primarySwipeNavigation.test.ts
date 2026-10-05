@@ -16,12 +16,15 @@ describe('resolvePrimarySwipeDestination', () => {
     expect(resolvePrimarySwipeDestination('/account', 'right')).toBe('/messages');
   });
 
-  it('keeps Settings as the Me detail edge and gives chat detail a Messages parent', () => {
+  it('keeps Settings as the Me detail edge and maps social detail parents', () => {
     expect(resolvePrimarySwipeDestination('/settings', 'right')).toBe('/account');
     expect(resolvePrimarySwipeDestination('/settings', 'left')).toBeNull();
     expect(resolveRouteParent('/messages/friend_1')).toBe('/messages');
     expect(resolvePrimarySwipeDestination('/messages/friend_1', 'right')).toBe('/messages');
     expect(resolvePrimarySwipeDestination('/messages/friend_1', 'left')).toBeNull();
+    expect(resolveRouteParent('/friends/friend_1')).toBe('/explore');
+    expect(resolvePrimarySwipeDestination('/friends/friend_1', 'right')).toBe('/explore');
+    expect(resolvePrimarySwipeDestination('/friends/friend_1', 'left')).toBeNull();
   });
 
   // Regression: §2 (Settings child pages are right-swipe detail routes).

@@ -244,6 +244,38 @@ test('primary route swipe is direct-manipulation with Home and Me ownership rule
 
   await drag(page, page.getByTestId('primary-page-lower-swipe-zone'), 220);
   await expect(page.getByTestId('primary-route')).toHaveText('account');
+
+  await page.getByTestId('set-primary-friend-detail').click();
+  await expect(page.getByTestId('primary-route')).toHaveText('friend-detail');
+
+  // Parent-aware details with nested horizontal content ignore non-edge route drags.
+  await drag(page, page.getByTestId('primary-page-body'), 180);
+  await expect(page.getByTestId('primary-route')).toHaveText('friend-detail');
+
+  const detailSurface = page.getByTestId('primary-route-swipe-surface');
+  const detailBox = await detailSurface.boundingBox();
+  if (!detailBox) throw new Error('Missing friend-detail route surface bounds');
+  const edgeSession = await page.context().newCDPSession(page);
+  const edgeStartX = detailBox.x + 8;
+  const edgeY = detailBox.y + 70;
+  await edgeSession.send('Input.dispatchTouchEvent', {
+    type: 'touchStart',
+    touchPoints: [{ x: edgeStartX, y: edgeY }],
+  });
+  for (let step = 1; step <= 8; step += 1) {
+    await edgeSession.send('Input.dispatchTouchEvent', {
+      type: 'touchMove',
+      touchPoints: [{
+        x: edgeStartX + (170 * step) / 8,
+        y: edgeY,
+      }],
+    });
+  }
+  await edgeSession.send('Input.dispatchTouchEvent', {
+    type: 'touchEnd',
+    touchPoints: [],
+  });
+  await expect(page.getByTestId('primary-route')).toHaveText('explore');
 });
 
 // Regression: §24.17 (switch thumb remains inside its usable track).

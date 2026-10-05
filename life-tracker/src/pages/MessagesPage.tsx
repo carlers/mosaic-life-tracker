@@ -6,6 +6,25 @@ import { ConversationRow } from '../components/messages/ConversationRow';
 import { useConversations } from '../hooks/useConversations';
 import { loadChatPage } from '../components/layout/routeModuleLoaders';
 
+const ConversationListLoadingShell: React.FC = () => (
+  <div className="space-y-2 px-4" role="status" aria-label="Loading conversations">
+    {[0, 1, 2].map((index) => (
+      <div
+        key={index}
+        className="flex items-center gap-3 rounded-xl bg-[#1A1A1A] p-3"
+        aria-hidden="true"
+      >
+        <div className="h-10 w-10 shrink-0 rounded-full bg-[#2A2A2A]" />
+        <div className="min-w-0 flex-1 space-y-2">
+          <div className="h-4 w-28 rounded-full bg-[#2A2A2A]" />
+          <div className="h-3 w-2/3 rounded-full bg-[#2A2A2A]" />
+        </div>
+      </div>
+    ))}
+    <span className="sr-only">Loading conversations</span>
+  </div>
+);
+
 export const MessagesPage: React.FC = () => {
   const navigate = useNavigate();
   const { conversations, isLoading } = useConversations();
@@ -23,10 +42,7 @@ export const MessagesPage: React.FC = () => {
       </div>
       <div className="flex-1 pb-24 pt-4">
         {isLoading ? (
-          <div className="flex justify-center py-10" role="status" aria-live="polite">
-            <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin" />
-            <span className="sr-only">Loading conversations</span>
-          </div>
+          <ConversationListLoadingShell />
         ) : conversations.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 text-center">
             <div

@@ -1,5 +1,5 @@
 import React, { useMemo, useState, useEffect, useCallback } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { ChevronLeft, RefreshCw } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { DeferredAvatar } from '../components/ui/DeferredAvatar';
@@ -10,10 +10,33 @@ import { useMessageActions } from '../hooks/useMessageActions';
 import { useAuth } from '../hooks/useAuth';
 import { clearCachedCalendar } from '../lib/friendCache';
 import type { TaskDocument } from '../db/schema';
+import { hasExpectedRouteParent } from '../lib/primarySwipeNavigation';
+
+const FriendCalendarLoadingShell: React.FC = () => (
+  <div
+    className="flex-1 min-h-0 px-4 py-3"
+    role="status"
+    aria-label="Loading friend calendar"
+  >
+    <div className="mb-4 flex items-center justify-between" aria-hidden="true">
+      <div className="h-8 w-8 rounded-lg bg-[#1A1A1A]" />
+      <div className="h-5 w-32 rounded-full bg-[#1A1A1A]" />
+      <div className="h-8 w-20 rounded-lg bg-[#1A1A1A]" />
+      <div className="h-8 w-8 rounded-lg bg-[#1A1A1A]" />
+    </div>
+    <div className="grid grid-cols-7 gap-2" aria-hidden="true">
+      {Array.from({ length: 35 }, (_, index) => (
+        <div key={index} className="aspect-square rounded-lg bg-[#1A1A1A]" />
+      ))}
+    </div>
+    <span className="sr-only">Loading friend calendar</span>
+  </div>
+);
 
 export const FriendCalendarPage: React.FC = () => {
   const { friendId } = useParams<{ friendId: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   const { user } = useAuth();
   const currentUserId = user?.$id ?? '';
 
@@ -44,7 +67,12 @@ export const FriendCalendarPage: React.FC = () => {
   }, [isRefreshing]);
 
   const handleBack = () => {
-    navigate('/messages');
+    const parent = '/explore';
+    if (hasExpectedRouteParent(location.key, location.state, parent)) {
+      navigate(-1);
+    } else {
+      navigate(parent, { replace: true });
+    }
   };
 
   const handleRefresh = async () => {
@@ -69,40 +97,13 @@ export const FriendCalendarPage: React.FC = () => {
     [reactToTask, sendTaskReaction, currentUserId]
   );
 
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center h-full" role="status" aria-live="polite">
-        <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin" />
-        <span className="sr-only">Loading friend calendar</span>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="flex flex-col items-center justify-center h-full text-gray-400 gap-4">
-        <p>
-          {errorKind === 'forbidden'
-            ? 'No access to this calendar'
-            : 'Something went wrong'}
-        </p>
-        {errorKind === 'forbidden' && (
-          <button
-            onClick={handleGoToExplore}
-            className="px-4 py-2 bg-[#2A2A2A] rounded-lg text-white"
-          >
-            Go to Explore
-          </button>
-        )}
-      </div>
-    );
-  }
 
   return (
     <div className="flex flex-col h-full bg-[#111111]">
       <div className="flex items-center gap-3 px-4 py-3 border-b border-[#2A2A2A]">
         <button
           onClick={handleBack}
+          data-route-swipe-ignore="true"
           className="p-1 text-gray-400"
           aria-label="Back"
         >
@@ -120,20 +121,41 @@ export const FriendCalendarPage: React.FC = () => {
         <motion.button
           whileTap={{ scale: 0.95 }}
           onClick={handleRefresh}
-          className="ml-auto p-2 text-gray-400"
+          disabled={isLoading || isRefreshing}
+          className="ml-auto p-2 text-gray-400 disabled:opacity-50"
           aria-label="Refresh"
         >
           <RefreshCw size={18} className={isRefreshing ? 'animate-spin' : ''} />
         </motion.button>
       </div>
-      <FriendCalendarView
-        friendName={friend?.friendDisplayName || friend?.friendUsername || 'Friend'}
-        friendUserId={friendId ?? ''}
-        currentUserId={currentUserId}
-        tasks={tasks}
-        categories={categories}
-        onReactToTask={handleReactToTask}
-      />
+      {isLoading ? (
+        <FriendCalendarLoadingShell />
+      ) : error ? (
+        <div className="flex flex-1 flex-col items-center justify-center gap-4 px-6 text-center text-gray-400">
+          <p>
+            {errorKind === 'forbidden'
+              ? 'No access to this calendar'
+              : 'Something went wrong'}
+          </p>
+          {errorKind === 'forbidden' && (
+            <button
+              onClick={handleGoToExplore}
+              className="px-4 py-2 bg-[#2A2A2A] rounded-lg text-white"
+            >
+              Go to Explore
+            </button>
+          )}
+        </div>
+      ) : (
+        <FriendCalendarView
+          friendName={friend?.friendDisplayName || friend?.friendUsername || 'Friend'}
+          friendUserId={friendId ?? ''}
+          currentUserId={currentUserId}
+          tasks={tasks}
+          categories={categories}
+          onReactToTask={handleReactToTask}
+        />
+      )}
     </div>
   );
 };

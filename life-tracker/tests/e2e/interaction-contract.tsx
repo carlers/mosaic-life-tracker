@@ -78,7 +78,7 @@ export function InteractionHarness() {
     () => new Date(2026, 8, 15)
   );
   const [composerBlurCount, setComposerBlurCount] = useState(0);
-  const [primaryRoute, setPrimaryRoute] = useState<'home' | 'explore' | 'account' | 'settings'>('home');
+  const [primaryRoute, setPrimaryRoute] = useState<'home' | 'explore' | 'account' | 'settings' | 'friend-detail'>('home');
 
   const todoCategories: CategoryDocument[] = React.useMemo(() => Array.from({ length: 5 }, (_, index) => ({
     id: `cat_${index}`,
@@ -540,11 +540,13 @@ export function InteractionHarness() {
         <PrimaryRouteSwipeSurface
           key={primaryRoute}
           homeZoneOnly={primaryRoute === 'home'}
+          activationMode={primaryRoute === 'friend-detail' ? 'edge-back' : undefined}
           canSwipeLeft={primaryRoute === 'home' || primaryRoute === 'explore' || primaryRoute === 'account'}
           canSwipeRight={
             primaryRoute === 'explore' ||
             primaryRoute === 'account' ||
-            primaryRoute === 'settings'
+            primaryRoute === 'settings' ||
+            primaryRoute === 'friend-detail'
           }
           leftPreview={
             primaryRoute === 'home' ? (
@@ -564,7 +566,8 @@ export function InteractionHarness() {
           rightPreview={
             primaryRoute === 'explore' ||
             primaryRoute === 'account' ||
-            primaryRoute === 'settings' ? (
+            primaryRoute === 'settings' ||
+            primaryRoute === 'friend-detail' ? (
               <div data-testid="primary-right-preview" className="h-full bg-[#181818] p-4">
                 Previous preview
               </div>
@@ -583,6 +586,8 @@ export function InteractionHarness() {
               setPrimaryRoute('explore');
             } else if (primaryRoute === 'settings' && direction === 'right') {
               setPrimaryRoute('account');
+            } else if (primaryRoute === 'friend-detail' && direction === 'right') {
+              setPrimaryRoute('explore');
             }
           }}
         >
@@ -624,6 +629,14 @@ export function InteractionHarness() {
           onClick={() => setPrimaryRoute('account')}
         >
           Set Me route
+        </button>
+        <button
+          type="button"
+          data-testid="set-primary-friend-detail"
+          className="mb-2 px-3 py-2"
+          onClick={() => setPrimaryRoute('friend-detail')}
+        >
+          Set Friend detail route
         </button>
       </div>
 
