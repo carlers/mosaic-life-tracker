@@ -1,10 +1,10 @@
 # Session checkpoint
 
 Updated: 2026-10-05
-Current task: Final polish and delivery of the build-vs-reuse refactor from stable Preview `refactor/build-vs-reuse-audit`.
-Status: Source changes are complete on the polish task tree. The refactor now shares local push-checkpoint scanning across all six RxDB pilots; task/category/diary/settings additionally share owner-scoped Realtime→RESYNC and `$updatedAt + $id` tuple-paged pulls. Friendship/message keep custom pull/delete behavior because of cache and optimistic-intent side effects. Direct primitive tests cover checkpoint pagination, tuple query/checkpoint filtering, owner fail-closed behavior, and Realtime wakeups. The Dexie prototype remains reverted, and the lockfile experiment noise is removed. Audit/roadmap prose now records the final measured decisions instead of the original proposals.
-Next action: Run one focused check on the complete polish diff, squash-merge it into `refactor/build-vs-reuse-audit`, require the stable branch's full canonical gate + exact-SHA Vercel Preview, then promote the accepted stable Preview tree to `dev` under the user's authorization. Do not promote to `main`.
-Blockers: None known before CI. A physical two-device smoke is not claimed by automation and remains optional manual confidence, not a substitute for canonical verification.
+Current task: UI smoothness/navigation follow-up on stable Preview `feature/ui-smoothness-navigation`.
+Status: Stable commit `e0a766c3603e0e7163240786623d261d2c6f8f4b` remained functionally green but exact-SHA Vercel deployment `dpl_6rDCTfmvbEp6e7xxrWNrTmUGemjL` was still 6 B over the unchanged app-assets gzip budget (682,306 B / 682,300 B). Repair branch `chatgpt/ui-smoothness-size-fix-4` removes redundant pointer-capture existence guards while retaining the existing try/catch fallback, so unsupported/already-released pointer capture remains harmless and gesture behavior is unchanged.
+Next action: Browser-focused verify this final runtime trim, squash it into `feature/ui-smoothness-navigation`, then require the repaired stable SHA's full canonical gate + exact-SHA Vercel Preview. Do not promote to `dev` or `main` without explicit user instruction.
+Blockers: None known. Real Samsung/PWA touch acceptance remains manual; Chat-to-Messages bottom-nav appearance during the detail commit is still a visual device check.
 
 ## Final build-vs-reuse outcome
 

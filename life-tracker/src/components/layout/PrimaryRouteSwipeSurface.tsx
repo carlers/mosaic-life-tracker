@@ -6,6 +6,11 @@ import React, {
   type PointerEvent as ReactPointerEvent,
 } from 'react';
 import type { PrimarySwipeDirection } from '../../lib/primarySwipeNavigation';
+import {
+  prefersReducedRouteMotion,
+  resolveRouteSwipeSettleDuration,
+  shouldCommitRouteSwipe,
+} from './routeSwipeMotion';
 
 const DIRECTION_LOCK_DISTANCE = 8;
 const HORIZONTAL_AXIS_RATIO = 1.15;
@@ -13,18 +18,22 @@ const MIN_COMMIT_DISTANCE = 64;
 const COMMIT_VIEWPORT_RATIO = 0.18;
 const RELEASE_DURATION_MS = 160;
 const EDGE_RESISTANCE = 0.18;
+const EDGE_BACK_ACTIVATION_PX = 32;
+
+export type RouteSwipeActivationMode = 'full' | 'home-zone' | 'edge-back';
 
 interface GestureState {
   pointerId: number;
   startX: number;
   startY: number;
-  currentX: number;
+  startTime: number;
   dragging: boolean;
 }
 
 interface PrimaryRouteSwipeSurfaceProps {
   children: React.ReactNode;
   homeZoneOnly?: boolean;
+  activationMode?: RouteSwipeActivationMode;
   canSwipeLeft: boolean;
   canSwipeRight: boolean;
   leftPreview?: React.ReactNode;
@@ -38,6 +47,7 @@ export const PrimaryRouteSwipeSurface: React.FC<
 > = ({
   children,
   homeZoneOnly = false,
+  activationMode,
   canSwipeLeft,
   canSwipeRight,
   leftPreview = null,
@@ -57,6 +67,8 @@ export const PrimaryRouteSwipeSurface: React.FC<
   const previewDirectionRef = useRef<PrimarySwipeDirection | null>(null);
   const [previewDirection, setPreviewDirection] =
     useState<PrimarySwipeDirection | null>(null);
+  const resolvedActivationMode: RouteSwipeActivationMode =
+    activationMode ?? (homeZoneOnly ? 'home-zone' : 'full');
 
   const cancelFrame = useCallback(() => {
     if (frameRef.current !== null) {
@@ -100,14 +112,15 @@ export const PrimaryRouteSwipeSurface: React.FC<
     (immediate = false) => {
       cancelFrame();
       clearReleaseTimer();
-      const transition = immediate
+      const reducedMotion = prefersReducedRouteMotion();
+      const transition = immediate || reducedMotion
         ? 'none'
         : `transform ${RELEASE_DURATION_MS}ms cubic-bezier(0.22, 1, 0.36, 1)`;
       setTransition(transition);
       trackRef.current?.style.setProperty('--route-swipe-x', '0px');
       pendingXRef.current = 0;
 
-      if (immediate) {
+      if (immediate || reducedMotion) {
         hidePreview();
         return;
       }
@@ -157,29 +170,54 @@ export const PrimaryRouteSwipeSurface: React.FC<
   );
 
   const isEligibleStart = useCallback(
-    (target: Element) => {
+    (target: Element, clientX: number, surfaceLeft: number) => {
       if (!canSwipeLeft && !canSwipeRight) return false;
-      if (
-        target.closest(
-          'input, textarea, select, [contenteditable="true"], [data-route-swipe-ignore="true"], [data-bottom-sheet-native-horizontal-swipe], [data-bottom-sheet-directional-drag-handle]'
-        )
-      ) {
+
+      const hardGestureOwner = target.closest(
+        'input, textarea, select, [contenteditable="true"], [data-bottom-sheet-native-horizontal-swipe], [data-bottom-sheet-directional-drag-handle]'
+      );
+      if (hardGestureOwner) return false;
+
+      const routeIgnored = target.closest('[data-route-swipe-ignore="true"]');
+      const replyableMessageBubble = target.closest('[data-message-id]');
+
+      if (resolvedActivationMode === 'edge-back') {
+        if (routeIgnored && !replyableMessageBubble) return false;
+        const edgeOffset = clientX - surfaceLeft;
+        return (
+          canSwipeRight &&
+          edgeOffset >= 0 &&
+          edgeOffset <= EDGE_BACK_ACTIVATION_PX
+        );
+      }
+
+      if (routeIgnored) {
         return false;
       }
-      if (homeZoneOnly) {
+      if (resolvedActivationMode === 'home-zone') {
         return Boolean(
           target.closest('[data-route-swipe-zone="home-to-explore"]')
         );
       }
       return true;
     },
-    [canSwipeLeft, canSwipeRight, homeZoneOnly]
+    [canSwipeLeft, canSwipeRight, resolvedActivationMode]
   );
 
   const handlePointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
-    if (event.button !== 0 || !isEligibleStart(event.target as Element)) {
+    const surfaceLeft = event.currentTarget.getBoundingClientRect().left;
+    if (
+      event.button !== 0 ||
+      !isEligibleStart(event.target as Element, event.clientX, surfaceLeft)
+    ) {
       gestureRef.current = null;
       return;
+    }
+
+    if (resolvedActivationMode === 'edge-back') {
+      // Capture owns an accepted edge-back from the first pointer event so
+      // nested bubble reply recognizers cannot start on the same pointer.
+      event.stopPropagation();
     }
 
     clearReleaseTimer();
@@ -190,7 +228,7 @@ export const PrimaryRouteSwipeSurface: React.FC<
       pointerId: event.pointerId,
       startX: event.clientX,
       startY: event.clientY,
-      currentX: event.clientX,
+      startTime: event.timeStamp,
       dragging: false,
     };
   };
@@ -199,7 +237,6 @@ export const PrimaryRouteSwipeSurface: React.FC<
     const gesture = gestureRef.current;
     if (!gesture || gesture.pointerId !== event.pointerId) return;
 
-    gesture.currentX = event.clientX;
     const deltaX = event.clientX - gesture.startX;
     const deltaY = event.clientY - gesture.startY;
     const distanceX = Math.abs(deltaX);
@@ -215,12 +252,10 @@ export const PrimaryRouteSwipeSurface: React.FC<
 
       gesture.dragging = true;
       suppressClickRef.current = true;
-      if ('setPointerCapture' in event.currentTarget) {
-        try {
-          event.currentTarget.setPointerCapture(event.pointerId);
-        } catch {
-          // Pointer capture is an optimization; the gesture can continue without it.
-        }
+      try {
+        event.currentTarget.setPointerCapture(event.pointerId);
+      } catch {
+        // Pointer capture is an optimization; the gesture can continue without it.
       }
     }
 
@@ -243,12 +278,10 @@ export const PrimaryRouteSwipeSurface: React.FC<
     gestureRef.current = null;
     if (!gesture || gesture.pointerId !== event.pointerId) return;
 
-    if ('releasePointerCapture' in event.currentTarget) {
-      try {
-        event.currentTarget.releasePointerCapture(event.pointerId);
-      } catch {
-        // Ignore browsers that already released capture.
-      }
+    try {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    } catch {
+      // Ignore browsers that lack or already released capture.
     }
 
     if (!gesture.dragging || cancelled) {
@@ -257,6 +290,8 @@ export const PrimaryRouteSwipeSurface: React.FC<
     }
 
     const deltaX = event.clientX - gesture.startX;
+    const elapsed = Math.max(1, event.timeStamp - gesture.startTime);
+    const velocityX = deltaX / elapsed;
     const direction: PrimarySwipeDirection = deltaX < 0 ? 'left' : 'right';
     const currentPanel = currentPanelRef.current;
     const width = currentPanel?.getBoundingClientRect().width || 360;
@@ -265,22 +300,45 @@ export const PrimaryRouteSwipeSurface: React.FC<
       Math.min(96, width * COMMIT_VIEWPORT_RATIO)
     );
 
-    if (!directionAllowed(direction) || Math.abs(deltaX) < threshold) {
+    const distance = Math.abs(deltaX);
+    const velocityTowardDestination =
+      direction === 'right' ? velocityX : -velocityX;
+    const shouldCommit =
+      directionAllowed(direction) &&
+      shouldCommitRouteSwipe(
+        distance,
+        threshold,
+        velocityTowardDestination
+      );
+
+    if (!shouldCommit) {
       resetSurface();
     } else {
       cancelFrame();
       clearReleaseTimer();
+      const duration = resolveRouteSwipeSettleDuration(
+        width,
+        distance,
+        velocityX,
+        prefersReducedRouteMotion()
+      );
       const transition =
-        `transform ${RELEASE_DURATION_MS}ms cubic-bezier(0.22, 1, 0.36, 1)`;
+        duration === 0
+          ? 'none'
+          : `transform ${duration}ms cubic-bezier(0.22, 1, 0.36, 1)`;
       setTransition(transition);
       const targetX = direction === 'left' ? -width : width;
       trackRef.current?.style.setProperty('--route-swipe-x', `${targetX}px`);
       pendingXRef.current = targetX;
 
-      releaseTimerRef.current = window.setTimeout(() => {
+      if (duration === 0) {
         onSwipe(direction);
-        releaseTimerRef.current = null;
-      }, RELEASE_DURATION_MS);
+      } else {
+        releaseTimerRef.current = window.setTimeout(() => {
+          onSwipe(direction);
+          releaseTimerRef.current = null;
+        }, duration);
+      }
     }
 
     if (clickResetTimerRef.current !== null) {
@@ -293,8 +351,9 @@ export const PrimaryRouteSwipeSurface: React.FC<
   };
 
   const customHorizontalOwner =
-    (canSwipeLeft || canSwipeRight) && !homeZoneOnly;
-  const heightClass = fullHeight || homeZoneOnly
+    (canSwipeLeft || canSwipeRight) &&
+    resolvedActivationMode !== 'home-zone';
+  const heightClass = fullHeight || resolvedActivationMode === 'home-zone'
     ? 'h-full min-h-0'
     : 'min-h-[calc(100dvh-4rem-env(safe-area-inset-bottom))]';
   const previewNode =
@@ -343,7 +402,13 @@ export const PrimaryRouteSwipeSurface: React.FC<
           className="pointer-events-none absolute inset-y-0 left-0 w-full will-change-transform"
           style={{ transform: previewTransform, contain: 'layout paint' }}
         >
-          <div className="sticky top-0 h-[calc(100dvh_-_4rem_-_env(safe-area-inset-bottom))] overflow-hidden bg-[#111111]">
+          <div
+            className={`sticky top-0 ${
+              fullHeight
+                ? 'h-full'
+                : 'h-[calc(100dvh_-_4rem_-_env(safe-area-inset-bottom))]'
+            } overflow-hidden bg-[#111111]`}
+          >
             {previewNode}
           </div>
         </div>

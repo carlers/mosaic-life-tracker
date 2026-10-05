@@ -31,6 +31,19 @@ const SOCIAL_FAILURE_MESSAGES: Partial<Record<SocialOutboxAction, string>> = {
   block_friend: "Couldn't block friend. Try again.",
 };
 
+const ExploreLoadingShell: React.FC = () => (
+  <div className="min-h-full" role="status">
+    <div className="sticky top-0 border-b border-[#333333] bg-[#111111] px-4 py-3">
+      <h1 className="text-lg font-bold text-white">Explore</h1>
+    </div>
+    <div className="space-y-3 px-4 pt-4">
+      <div className="h-11 rounded-xl bg-[#1A1A1A]" />
+      <div className="h-20 rounded-xl bg-[#1A1A1A]" />
+    </div>
+    <span className="sr-only">Loading profile</span>
+  </div>
+);
+
 export const ExploreView: React.FC<ExploreViewProps> = ({
   onRequestUsername,
   onFeedback,
@@ -148,12 +161,7 @@ export const ExploreView: React.FC<ExploreViewProps> = ({
   );
 
   if (profileLoading) {
-    return (
-      <div className="flex items-center justify-center py-20" role="status" aria-live="polite">
-        <div className="w-8 h-8 border-2 border-white border-t-transparent rounded-full animate-spin" />
-        <span className="sr-only">Loading profile</span>
-      </div>
-    );
+    return <ExploreLoadingShell />;
   }
 
   if (!profile) {

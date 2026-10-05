@@ -2,58 +2,73 @@ import { lazy, Suspense, type ReactNode } from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { RouteErrorBoundary } from "./components/layout/RouteErrorBoundary";
 import { ErrorBoundary } from "./components/ui/ErrorBoundary";
-import { Spinner } from "./components/ui/Spinner";
 import { PwaPrompt } from "./components/ui/PwaPrompt";
 import { AppLayout } from "./components/layout/AppLayout";
 import { AuthPage } from "./pages/AuthPage";
 import { ResetPasswordPage } from "./pages/ResetPasswordPage";
+import {
+  loadAccountPage,
+  loadChatPage,
+  loadComingSoon,
+  loadExplorePage,
+  loadFriendCalendarPage,
+  loadHomePage,
+  loadMessagesPage,
+  loadPreferencesPage,
+  loadProfilePage,
+  loadSettingsPage,
+} from "./components/layout/routeModuleLoaders";
 
 const HomePage = lazy(() =>
-  import("./pages/HomePage").then(({ HomePage }) => ({ default: HomePage })),
+  loadHomePage().then(({ HomePage }) => ({ default: HomePage })),
 );
 const AccountPage = lazy(() =>
-  import("./pages/AccountPage").then(({ AccountPage }) => ({
-    default: AccountPage,
-  })),
+  loadAccountPage().then(({ AccountPage }) => ({ default: AccountPage })),
 );
 const SettingsPage = lazy(() =>
-  import("./pages/SettingsPage").then(({ SettingsPage }) => ({
-    default: SettingsPage,
-  })),
+  loadSettingsPage().then(({ SettingsPage }) => ({ default: SettingsPage })),
 );
 const PreferencesPage = lazy(() =>
-  import("./pages/PreferencesPage").then(({ PreferencesPage }) => ({
+  loadPreferencesPage().then(({ PreferencesPage }) => ({
     default: PreferencesPage,
   })),
 );
 const ProfilePage = lazy(() =>
-  import("./pages/ProfilePage").then(({ ProfilePage }) => ({
-    default: ProfilePage,
-  })),
+  loadProfilePage().then(({ ProfilePage }) => ({ default: ProfilePage })),
 );
 const ExplorePage = lazy(() =>
-  import("./pages/ExplorePage").then(({ ExplorePage }) => ({
-    default: ExplorePage,
-  })),
+  loadExplorePage().then(({ ExplorePage }) => ({ default: ExplorePage })),
 );
 const FriendCalendarPage = lazy(() =>
-  import("./pages/FriendCalendarPage").then(({ FriendCalendarPage }) => ({
+  loadFriendCalendarPage().then(({ FriendCalendarPage }) => ({
     default: FriendCalendarPage,
   })),
 );
 const MessagesPage = lazy(() =>
-  import("./pages/MessagesPage").then(({ MessagesPage }) => ({
-    default: MessagesPage,
-  })),
+  loadMessagesPage().then(({ MessagesPage }) => ({ default: MessagesPage })),
 );
 const ChatPage = lazy(() =>
-  import("./pages/ChatPage").then(({ ChatPage }) => ({ default: ChatPage })),
+  loadChatPage().then(({ ChatPage }) => ({ default: ChatPage })),
 );
 const ComingSoon = lazy(() =>
-  import("./components/layout/ComingSoon").then(({ ComingSoon }) => ({
-    default: ComingSoon,
-  })),
+  loadComingSoon().then(({ ComingSoon }) => ({ default: ComingSoon })),
 );
+
+function RouteShellFallback({ label }: { label: string }) {
+  const pageName = label.replace(/Page$/, "");
+  return (
+    <div
+      className="min-h-[60vh] bg-[#111111] px-4 py-4 space-y-3"
+      role="status"
+      aria-label={`Opening ${pageName}`}
+    >
+      <div className="h-10 rounded-xl bg-[#1A1A1A]" aria-hidden="true" />
+      <div className="h-20 rounded-xl bg-[#1A1A1A]" aria-hidden="true" />
+      <div className="h-20 rounded-xl bg-[#1A1A1A]" aria-hidden="true" />
+      <span className="sr-only">Opening {pageName}</span>
+    </div>
+  );
+}
 
 function RouteContent({
   label,
@@ -68,11 +83,7 @@ function RouteContent({
     <RouteErrorBoundary label={label}>
       <Suspense
         fallback={
-          fallback ?? (
-            <div className="min-h-[60vh] flex items-center justify-center">
-              <Spinner size="w-8 h-8" />
-            </div>
-          )
+          fallback ?? <RouteShellFallback label={label} />
         }
       >
         {children}
