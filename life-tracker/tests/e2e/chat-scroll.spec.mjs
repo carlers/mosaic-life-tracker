@@ -103,11 +103,18 @@ for (const { viewport, width } of [
     );
     await page.mouse.up();
     await expect(path).toHaveText('/messages/friend');
+    await expect(page.getByRole('button', { name: 'Cancel reply' })).toBeVisible();
+    await page.getByRole('button', { name: 'Cancel reply' }).click();
+
+    // Re-read geometry after the reply composer expanded/collapsed so the next
+    // pointer starts on the live bubble rather than a stale screen coordinate.
+    const edgeBubbleBox = await bubble.boundingBox();
+    if (!edgeBubbleBox) throw new Error('Missing live message bubble bounds');
 
     // Inside the reserved edge, route Back wins even when a replyable bubble is under the pointer.
-    const startX = bubbleBox.x + 2;
+    const startX = edgeBubbleBox.x + 2;
     expect(startX - surfaceBox.x).toBeLessThanOrEqual(32);
-    const y = bubbleBox.y + bubbleBox.height * 0.5;
+    const y = edgeBubbleBox.y + edgeBubbleBox.height * 0.5;
     await page.mouse.move(startX, y);
     await page.mouse.down();
     await page.mouse.move(startX + 90, y + 2, { steps: 5 });
