@@ -9,7 +9,7 @@ import { loadChatPage } from '../components/layout/routeModuleLoaders';
 const ConversationListLoadingShell: React.FC = () => (
   <div className="space-y-2 px-4" role="status">
     {[0, 1].map((index) => (
-      <div key={index} className="h-16 rounded-xl bg-[#1A1A1A]" aria-hidden="true" />
+      <div key={index} className="h-16 rounded-xl bg-[#1A1A1A]" />
     ))}
     <span className="sr-only">Loading conversations</span>
   </div>
