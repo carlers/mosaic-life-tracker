@@ -1,6 +1,6 @@
+import Dexie, { type Table } from 'dexie';
+
 const DB_NAME = 'mosaic_pending_images';
-const STORE_NAME = 'images';
-const DB_VERSION = 1;
 const LOCAL_PREFIX = 'localimg_';
 
 interface PendingImageEntry {
@@ -10,32 +10,22 @@ interface PendingImageEntry {
   createdAt: string;
 }
 
-let dbPromise: Promise<IDBDatabase> | null = null;
+class PendingImagesDatabase extends Dexie {
+  images!: Table<PendingImageEntry, string>;
 
-function openDB(): Promise<IDBDatabase> {
-  if (dbPromise) return dbPromise;
-  dbPromise = new Promise((resolve, reject) => {
-    const request = indexedDB.open(DB_NAME, DB_VERSION);
-    request.onupgradeneeded = () => {
-      const db = request.result;
-      if (!db.objectStoreNames.contains(STORE_NAME)) {
-        db.createObjectStore(STORE_NAME, { keyPath: 'id' });
-      }
-    };
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = () => {
-      dbPromise = null;
-      reject(request.error);
-    };
-  });
-  return dbPromise;
+  constructor() {
+    super(DB_NAME);
+    this.version(1).stores({
+      images: 'id',
+    });
+  }
 }
 
-function requestResult<T>(request: IDBRequest<T>): Promise<T> {
-  return new Promise((resolve, reject) => {
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error);
-  });
+let db: PendingImagesDatabase | null = null;
+
+function getDB(): PendingImagesDatabase {
+  db ??= new PendingImagesDatabase();
+  return db;
 }
 
 function makePendingId(): string {
@@ -57,15 +47,12 @@ export async function createPendingImage(
 ): Promise<string> {
   if (!ownerUserId) throw new Error('Pending image requires an owner.');
   const id = makePendingId();
-  const entry: PendingImageEntry = {
+  await getDB().images.put({
     id,
     ownerUserId,
     blob,
     createdAt: new Date().toISOString(),
-  };
-  const db = await openDB();
-  const tx = db.transaction(STORE_NAME, 'readwrite');
-  await requestResult(tx.objectStore(STORE_NAME).put(entry));
+  });
   return id;
 }
 
@@ -74,11 +61,7 @@ export async function getPendingImage(
   expectedOwnerUserId?: string
 ): Promise<Blob | null> {
   if (!isPendingImageId(fileId)) return null;
-  const db = await openDB();
-  const tx = db.transaction(STORE_NAME, 'readonly');
-  const entry = (await requestResult(
-    tx.objectStore(STORE_NAME).get(fileId)
-  )) as PendingImageEntry | undefined;
+  const entry = await getDB().images.get(fileId);
   if (!entry) return null;
   if (
     expectedOwnerUserId &&
@@ -94,35 +77,31 @@ export async function deletePendingImage(
   expectedOwnerUserId?: string
 ): Promise<void> {
   if (!isPendingImageId(fileId)) return;
-  const db = await openDB();
   if (expectedOwnerUserId) {
-    const current = await getPendingImage(fileId, expectedOwnerUserId);
-    if (!current) return;
+    const entry = await getDB().images.get(fileId);
+    if (!entry || entry.ownerUserId !== expectedOwnerUserId) return;
   }
-  const tx = db.transaction(STORE_NAME, 'readwrite');
-  await requestResult(tx.objectStore(STORE_NAME).delete(fileId));
+  await getDB().images.delete(fileId);
 }
 
 export async function clearAllPendingImages(): Promise<void> {
-  const db = await openDB();
-  const tx = db.transaction(STORE_NAME, 'readwrite');
-  await requestResult(tx.objectStore(STORE_NAME).clear());
+  await getDB().images.clear();
 }
 
 export async function clearPendingImagesForUser(
   ownerUserId: string
 ): Promise<void> {
-  const db = await openDB();
-  const tx = db.transaction(STORE_NAME, 'readwrite');
-  const store = tx.objectStore(STORE_NAME);
-  const entries = (await requestResult(store.getAll())) as PendingImageEntry[];
-  await Promise.all(
-    entries
+  const database = getDB();
+  await database.transaction('rw', database.images, async () => {
+    const entries = await database.images.toArray();
+    const ownedIds = entries
       .filter((entry) => entry.ownerUserId === ownerUserId)
-      .map((entry) => requestResult(store.delete(entry.id)))
-  );
+      .map((entry) => entry.id);
+    await database.images.bulkDelete(ownedIds);
+  });
 }
 
 export function resetPendingImagesForTests(): void {
-  dbPromise = null;
+  db?.close();
+  db = null;
 }
