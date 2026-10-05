@@ -1,5 +1,3 @@
-export const ROUTE_SWIPE_MIN_FLICK_DISTANCE_PX = 28;
-export const ROUTE_SWIPE_FLICK_VELOCITY_PX_PER_MS = 0.5;
 const ROUTE_SWIPE_MIN_SETTLE_MS = 100;
 const ROUTE_SWIPE_MAX_SETTLE_MS = 180;
 const ROUTE_SWIPE_BASE_SETTLE_SPEED_PX_PER_MS = 1.6;
@@ -9,11 +7,9 @@ export function shouldCommitRouteSwipe(
   distanceThresholdPx: number,
   velocityTowardDestinationPxPerMs: number
 ): boolean {
-  if (distancePx >= distanceThresholdPx) return true;
   return (
-    distancePx >= ROUTE_SWIPE_MIN_FLICK_DISTANCE_PX &&
-    velocityTowardDestinationPxPerMs >=
-      ROUTE_SWIPE_FLICK_VELOCITY_PX_PER_MS
+    distancePx >= distanceThresholdPx ||
+    (distancePx >= 28 && velocityTowardDestinationPxPerMs >= 0.5)
   );
 }
 
@@ -40,9 +36,5 @@ export function resolveRouteSwipeSettleDuration(
 }
 
 export function prefersReducedRouteMotion(): boolean {
-  return (
-    typeof window !== 'undefined' &&
-    typeof window.matchMedia === 'function' &&
-    window.matchMedia('(prefers-reduced-motion: reduce)').matches
-  );
+  return window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
 }

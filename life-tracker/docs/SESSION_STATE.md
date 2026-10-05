@@ -2,8 +2,8 @@
 
 Updated: 2026-10-05
 Current task: UI smoothness/navigation follow-up on stable Preview `feature/ui-smoothness-navigation`.
-Status: The follow-up implementation was browser-focused green and squash-merged to stable commit `ebf212df7e7040e6b785ab176fde7e1e8ceab53e`. Exact-SHA Vercel deployment `dpl_57XZYr7Jftvy7ozRB2GCJz7wmvna` then failed only the production bundle budget: `appAssetsGzipBytes` was 682,685 B against 682,300 B (+385 B), while TypeScript/Vite/PWA generation succeeded. Repair branch `chatgpt/ui-smoothness-size-fix` keeps the new UX but reduces motion bookkeeping to average gesture velocity and simplifies static loading placeholders instead of raising the budget.
-Next action: Browser-focused verify the size repair, squash it into `feature/ui-smoothness-navigation`, then require the repaired stable SHA's full canonical gate + exact-SHA Vercel Preview. Do not promote to `dev` or `main` without explicit user instruction.
+Status: Stable commit `363da52d737f08cb0fff67d191050fef18c549f2` is full-canonical green in GitHub but its exact-SHA Vercel Preview still exceeded the unchanged production app-assets gzip budget by 40 B (682,340 B / 682,300 B). Repair branch `chatgpt/ui-smoothness-size-fix-2` makes one behavior-preserving runtime trim in the route motion helper: flick constants are inlined and reduced-motion detection uses optional `matchMedia` directly. No product behavior or budget is changed.
+Next action: Browser-focused verify this final size trim, squash it into `feature/ui-smoothness-navigation`, then require the repaired stable SHA's full canonical gate + exact-SHA Vercel Preview. Do not promote to `dev` or `main` without explicit user instruction.
 Blockers: None known. Real Samsung/PWA touch acceptance remains manual; Chat-to-Messages bottom-nav appearance during the detail commit is still a visual device check.
 
 ## Final build-vs-reuse outcome
