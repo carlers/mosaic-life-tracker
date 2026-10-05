@@ -1,7 +1,10 @@
 import { createReplicationPilotLifecycleQueue } from './replicationPilotLifecycle';
+import {
+  captureReplicationPushCheckpoint,
+  subscribeToOwnerRealtime,
+} from './replicationPilotPrimitives';
 import { Permission, Query, Role } from 'appwrite';
 import {
-  getChangedDocumentsSince,
   type RxCollection,
   type RxReplicationPullStreamItem,
   type RxReplicationWriteToMasterRow,
@@ -13,11 +16,7 @@ import {
 } from 'rxdb/plugins/replication';
 import { Subject, type Subscription } from 'rxjs';
 import type { TaskDocument } from './schema';
-import {
-  guardedRealtime,
-  guardedTablesDB,
-  type RealtimeUnsubscribe,
-} from '../lib/sdk';
+import { guardedTablesDB, type RealtimeUnsubscribe } from '../lib/sdk';
 import { fromAppwriteFormat, toAppwriteFormat } from '../lib/syncMapping';
 import {
   APPWRITE_DATABASE_ID,
@@ -486,57 +485,30 @@ async function pullTasks(
   };
 }
 
-export async function captureTaskReplicationPushCheckpoint(
+export function captureTaskReplicationPushCheckpoint(
   collection: RxCollection<TaskDocument>
 ): Promise<TaskReplicationPushCheckpoint | undefined> {
-  let checkpoint: TaskReplicationPushCheckpoint | undefined;
-
-  for (;;) {
-    const result = await getChangedDocumentsSince<
-      TaskDocument,
-      TaskReplicationPushCheckpoint
-    >(
-      collection.storageInstance,
-      LOCAL_CHECKPOINT_BATCH_SIZE,
-      checkpoint
-    );
-    checkpoint = result.checkpoint;
-    if (result.documents.length < LOCAL_CHECKPOINT_BATCH_SIZE) {
-      return checkpoint;
-    }
-  }
+  return captureReplicationPushCheckpoint<TaskDocument, TaskReplicationPushCheckpoint>(
+    collection,
+    LOCAL_CHECKPOINT_BATCH_SIZE
+  );
 }
 
 function subscribeToTaskRealtime(
   userId: string,
   pullStream: Subject<
-    RxReplicationPullStreamItem<TaskDocument, TaskReplicationCheckpoint>
+    RxReplicationPullStreamItem<
+      TaskDocument,
+      TaskReplicationCheckpoint
+    >
   >
 ): RealtimeUnsubscribe {
-  const channel =
-    `databases.${APPWRITE_DATABASE_ID}.tables.${APPWRITE_TABLES.tasks}.rows`;
-
-  return guardedRealtime.subscribe(channel, (message) => {
-    if (activeOwnerId !== userId) return;
-    const payload = message.payload;
-    const events = Array.isArray(message.events) ? message.events : [];
-
-    if (events.some((event) => event.endsWith('.delete'))) {
-      pullStream.next('RESYNC');
-      return;
-    }
-    if (!payload || payload.user_id !== userId) return;
-    if (
-      events.some(
-        (event) => event.endsWith('.create') || event.endsWith('.update')
-      )
-    ) {
-      // Appwrite Realtime is a wake-up hint, not a durable ordered change
-      // stream. A socket reconnect can miss or reorder events; advancing the
-      // RxDB checkpoint from one payload could jump over an unseen write.
-      // Let the ordered pull handler catch up from its persisted checkpoint.
-      pullStream.next('RESYNC');
-    }
+  return subscribeToOwnerRealtime({
+    channel:
+      `databases.${APPWRITE_DATABASE_ID}.tables.${APPWRITE_TABLES.tasks}.rows`,
+    userId,
+    isActiveOwner: () => activeOwnerId === userId,
+    pullStream,
   });
 }
 
