@@ -103,9 +103,10 @@ export const AppLayout: React.FC = () => {
   const isChatDetail = /^\/messages\/[^/]+$/.test(path);
   const leftSwipeDestination = resolvePrimarySwipeDestination(path, 'left');
   const rightSwipeDestination = resolvePrimarySwipeDestination(path, 'right');
+  const messagesIsAdjacent =
+    leftSwipeDestination === '/messages' ||
+    rightSwipeDestination === '/messages';
   const [retryDisabled, setRetryDisabled] = useState(false);
-  const [conversationNeighborReadyFor, setConversationNeighborReadyFor] =
-    useState<string | null>(null);
   const connectivity = useConnectivity();
   const database = useDatabaseBootstrap();
 
@@ -193,18 +194,16 @@ export const AppLayout: React.FC = () => {
     const destinations = getPrimaryRoutePreloadTargets(path);
     if (destinations.length === 0) return;
 
-    const hasMessagesNeighbor = destinations.includes('/messages');
-    if (hasMessagesNeighbor) {
+    if (messagesIsAdjacent) {
       // Messages is local-first and already shares the mounted providers. Warm
       // only this adjacent route immediately so a quick swipe cannot outrun
       // the idle callback and expose an empty/loading conversation surface.
-      setConversationNeighborReadyFor(path);
       preloadPrimaryRoute('/messages');
     }
 
     const preload = () => {
       for (const destination of destinations) {
-        if (destination !== '/messages' || !hasMessagesNeighbor) {
+        if (destination !== '/messages' || !messagesIsAdjacent) {
           preloadPrimaryRoute(destination);
         }
       }
@@ -217,7 +216,7 @@ export const AppLayout: React.FC = () => {
 
     const timer = window.setTimeout(preload, 750);
     return () => window.clearTimeout(timer);
-  }, [path, user?.$id]);
+  }, [messagesIsAdjacent, path, user?.$id]);
 
   if (!user && isOffline) {
     const headline =
@@ -346,7 +345,7 @@ export const AppLayout: React.FC = () => {
     );
   };
   const includeConversations =
-    path.includes('/messages') || conversationNeighborReadyFor === path;
+    path.includes('/messages') || messagesIsAdjacent;
 
   return (
     <Suspense
