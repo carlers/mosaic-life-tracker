@@ -1,10 +1,10 @@
 # Session checkpoint
 
 Updated: 2026-10-05
-Current task: UI smoothness/navigation first batch on stable Preview `feature/ui-smoothness-navigation`.
-Status: Stable Preview commit `66bee36b449835bfc9526b937181ec1b35505228` deployed successfully to Vercel and passed build, dependency audit, and both DOM shards, but full run `37303804660` found one lint failure in the new adjacent-Messages warmup: synchronous state inside the preload effect. Repair branch `chatgpt/ui-smoothness-lint-fix` removes that state entirely and derives conversation warming directly from the already-resolved adjacent swipe destinations; behavior and Home startup scope remain unchanged.
-Next action: Run focused verification on the repair, squash-merge it into `feature/ui-smoothness-navigation`, then require the new stable SHA's full canonical gate + exact-SHA Vercel Preview. Do not promote to `dev` or `main` without explicit user instruction.
-Blockers: None known. Real Samsung/PWA edge-swipe acceptance remains a manual check after hosted Preview.
+Current task: Re-audit Chat edge-back behavior on stable Preview `feature/ui-smoothness-navigation`, especially large-screen Comfortable/Wide modes.
+Status: Two gesture defects are repaired on `chatgpt/ui-smoothness-wide-edge-audit`. First, edge activation was measured from viewport x=0 instead of the centered route surface, making Comfortable/Wide impossible. Second, allowing a true edge start over a message bubble without exclusive pointer ownership could start both route-back and bubble-reply recognizers, producing dual motion. Edge-back now measures from the live surface, preserves Back/input/native gesture exclusions, takes exclusive ownership only after an accepted edge start, and leaves bubble swipe-to-reply unchanged outside the 32px edge. Browser coverage exercises Full screen, Comfortable, and Wide and checks that the bubble itself stays stationary during route drag.
+Next action: Require browser-focused verification to pass, inspect any remaining failures, then squash the task branch into `feature/ui-smoothness-navigation` and require the stable branch's full canonical gate + exact-SHA Vercel Preview. Do not promote to `dev` or `main` without explicit user instruction.
+Blockers: None known. The detail-to-parent bottom-nav appearance remains a visual/manual smoothness check rather than an automated geometry invariant.
 
 ## Final build-vs-reuse outcome
 

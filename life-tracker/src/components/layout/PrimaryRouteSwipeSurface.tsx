@@ -164,17 +164,29 @@ export const PrimaryRouteSwipeSurface: React.FC<
   );
 
   const isEligibleStart = useCallback(
-    (target: Element, clientX: number) => {
+    (target: Element, clientX: number, surfaceLeft: number) => {
       if (!canSwipeLeft && !canSwipeRight) return false;
-      if (
-        target.closest(
-          'input, textarea, select, [contenteditable="true"], [data-route-swipe-ignore="true"], [data-bottom-sheet-native-horizontal-swipe], [data-bottom-sheet-directional-drag-handle]'
-        )
-      ) {
-        return false;
-      }
+
+      const hardGestureOwner = target.closest(
+        'input, textarea, select, [contenteditable="true"], [data-bottom-sheet-native-horizontal-swipe], [data-bottom-sheet-directional-drag-handle]'
+      );
+      if (hardGestureOwner) return false;
+
+      const routeIgnored = target.closest('[data-route-swipe-ignore="true"]');
+      const replyableMessageBubble = target.closest('[data-message-id]');
+
       if (resolvedActivationMode === 'edge-back') {
-        return canSwipeRight && clientX <= EDGE_BACK_ACTIVATION_PX;
+        if (routeIgnored && !replyableMessageBubble) return false;
+        const edgeOffset = clientX - surfaceLeft;
+        return (
+          canSwipeRight &&
+          edgeOffset >= 0 &&
+          edgeOffset <= EDGE_BACK_ACTIVATION_PX
+        );
+      }
+
+      if (routeIgnored) {
+        return false;
       }
       if (resolvedActivationMode === 'home-zone') {
         return Boolean(
@@ -187,12 +199,19 @@ export const PrimaryRouteSwipeSurface: React.FC<
   );
 
   const handlePointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
+    const surfaceLeft = event.currentTarget.getBoundingClientRect().left;
     if (
       event.button !== 0 ||
-      !isEligibleStart(event.target as Element, event.clientX)
+      !isEligibleStart(event.target as Element, event.clientX, surfaceLeft)
     ) {
       gestureRef.current = null;
       return;
+    }
+
+    if (resolvedActivationMode === 'edge-back') {
+      // Capture owns an accepted edge-back from the first pointer event so
+      // nested bubble reply recognizers cannot start on the same pointer.
+      event.stopPropagation();
     }
 
     clearReleaseTimer();
