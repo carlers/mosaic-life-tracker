@@ -36,7 +36,7 @@ const ExploreLoadingShell: React.FC = () => (
     <div className="sticky top-0 border-b border-[#333333] bg-[#111111] px-4 py-3">
       <h1 className="text-lg font-bold text-white">Explore</h1>
     </div>
-    <div className="space-y-3 px-4 pt-4" aria-hidden="true">
+    <div className="space-y-3 px-4 pt-4">
       <div className="h-11 rounded-xl bg-[#1A1A1A]" />
       <div className="h-20 rounded-xl bg-[#1A1A1A]" />
     </div>

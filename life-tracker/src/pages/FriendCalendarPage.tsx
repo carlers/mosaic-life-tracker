@@ -14,8 +14,8 @@ import { hasExpectedRouteParent } from '../lib/primarySwipeNavigation';
 
 const FriendCalendarLoadingShell: React.FC = () => (
   <div className="flex-1 px-4 py-3" role="status">
-    <div className="mb-4 h-8 rounded-lg bg-[#1A1A1A]" aria-hidden="true" />
-    <div className="h-64 rounded-xl bg-[#1A1A1A]" aria-hidden="true" />
+    <div className="mb-4 h-8 rounded-lg bg-[#1A1A1A]" />
+    <div className="h-64 rounded-xl bg-[#1A1A1A]" />
     <span className="sr-only">Loading friend calendar</span>
   </div>
 );
