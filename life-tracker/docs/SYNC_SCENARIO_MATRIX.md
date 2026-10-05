@@ -54,7 +54,7 @@ Status meanings:
 | Task conflict | Friend reaction changes server row while owner edits task | Merge server-owned reaction drift when owner fields did not change remotely | **Covered** |
 | Settings side effect | Profile image setting write succeeds but profile mirror fails | Keep pending image so next reconciliation can repair side effect | **Covered** |
 | Message intent | Pull races optimistic read/unsend/reaction state | Preserve only documented newer local Function/outbox intent; server-owned fields still win | **Covered** |
-| Concurrent write | Another device changes same owner-write row after master read but before `updateRow` | No atomic compare-and-update is available; next replication reconciles | **Accepted D1** |
+| Concurrent write | Another device changes same owner-write row after master read but before `updateRow` | No atomic compare-and-update is currently used; next replication reconciles | **Accepted D1** — 2026-10-05 live Appwrite proof rejected transaction-scoped read as a CAS fence. Stage-before-conflict works, but read→external-write→stage can still overwrite. Conditional `updateRows` would require a new remote revision-token protocol. |
 | Stale recovery clock | Client clock is severely skewed around the 90-day recovery boundary | Preserve uncertain local state conservatively | **Accepted** |
 | Hosted socket behavior | Appwrite Realtime disconnects/reconnects under real mobile/PWA network changes | Focus/visibility/connectivity resync plus Realtime-as-wakeup must converge after network restoration | **Manual** hosted/device acceptance; unit tests prove the checkpoint invariant, not provider socket timing |
 
