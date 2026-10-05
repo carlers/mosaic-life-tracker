@@ -1,10 +1,10 @@
 # Session checkpoint
 
 Updated: 2026-10-05
-Current task: Final polish and delivery of the build-vs-reuse refactor from stable Preview `refactor/build-vs-reuse-audit`.
-Status: Source changes are complete on the polish task tree. The refactor now shares local push-checkpoint scanning across all six RxDB pilots; task/category/diary/settings additionally share owner-scoped Realtime→RESYNC and `$updatedAt + $id` tuple-paged pulls. Friendship/message keep custom pull/delete behavior because of cache and optimistic-intent side effects. Direct primitive tests cover checkpoint pagination, tuple query/checkpoint filtering, owner fail-closed behavior, and Realtime wakeups. The Dexie prototype remains reverted, and the lockfile experiment noise is removed. Audit/roadmap prose now records the final measured decisions instead of the original proposals.
-Next action: Run one focused check on the complete polish diff, squash-merge it into `refactor/build-vs-reuse-audit`, require the stable branch's full canonical gate + exact-SHA Vercel Preview, then promote the accepted stable Preview tree to `dev` under the user's authorization. Do not promote to `main`.
-Blockers: None known before CI. A physical two-device smoke is not claimed by automation and remains optional manual confidence, not a substitute for canonical verification.
+Current task: UI smoothness/navigation first batch on stable Preview `feature/ui-smoothness-navigation`.
+Status: Implementation is complete on `chatgpt/ui-smoothness-chat-swipe` pending browser-focused verification. Chat detail now uses the shared route-drag surface in full-height left-edge Back mode, conversation entry records Messages as the parent, header/swipe Back share history-aware fallback behavior, and message bubbles remain explicit swipe-to-reply owners. Adjacent Messages code/data warms only when Messages is actually reachable, preserving Home startup behavior. Lazy route imports share memoized loaders and generic route suspension uses a stable shell instead of a centered spinner.
+Next action: Run the browser-focused gate for the complete task tree, fix any failures, then squash-merge into `feature/ui-smoothness-navigation` and require its full canonical gate + Vercel Preview. Do not promote to `dev` or `main` without explicit user instruction.
+Blockers: None known before CI. Real Samsung/PWA edge-swipe acceptance remains a manual check after hosted Preview.
 
 ## Final build-vs-reuse outcome
 

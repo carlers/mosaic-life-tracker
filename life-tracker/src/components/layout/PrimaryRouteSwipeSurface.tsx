@@ -13,6 +13,9 @@ const MIN_COMMIT_DISTANCE = 64;
 const COMMIT_VIEWPORT_RATIO = 0.18;
 const RELEASE_DURATION_MS = 160;
 const EDGE_RESISTANCE = 0.18;
+const EDGE_BACK_ACTIVATION_PX = 32;
+
+export type RouteSwipeActivationMode = 'full' | 'home-zone' | 'edge-back';
 
 interface GestureState {
   pointerId: number;
@@ -25,6 +28,7 @@ interface GestureState {
 interface PrimaryRouteSwipeSurfaceProps {
   children: React.ReactNode;
   homeZoneOnly?: boolean;
+  activationMode?: RouteSwipeActivationMode;
   canSwipeLeft: boolean;
   canSwipeRight: boolean;
   leftPreview?: React.ReactNode;
@@ -38,6 +42,7 @@ export const PrimaryRouteSwipeSurface: React.FC<
 > = ({
   children,
   homeZoneOnly = false,
+  activationMode,
   canSwipeLeft,
   canSwipeRight,
   leftPreview = null,
@@ -57,6 +62,8 @@ export const PrimaryRouteSwipeSurface: React.FC<
   const previewDirectionRef = useRef<PrimarySwipeDirection | null>(null);
   const [previewDirection, setPreviewDirection] =
     useState<PrimarySwipeDirection | null>(null);
+  const resolvedActivationMode: RouteSwipeActivationMode =
+    activationMode ?? (homeZoneOnly ? 'home-zone' : 'full');
 
   const cancelFrame = useCallback(() => {
     if (frameRef.current !== null) {
@@ -157,7 +164,7 @@ export const PrimaryRouteSwipeSurface: React.FC<
   );
 
   const isEligibleStart = useCallback(
-    (target: Element) => {
+    (target: Element, clientX: number) => {
       if (!canSwipeLeft && !canSwipeRight) return false;
       if (
         target.closest(
@@ -166,18 +173,24 @@ export const PrimaryRouteSwipeSurface: React.FC<
       ) {
         return false;
       }
-      if (homeZoneOnly) {
+      if (resolvedActivationMode === 'edge-back') {
+        return canSwipeRight && clientX <= EDGE_BACK_ACTIVATION_PX;
+      }
+      if (resolvedActivationMode === 'home-zone') {
         return Boolean(
           target.closest('[data-route-swipe-zone="home-to-explore"]')
         );
       }
       return true;
     },
-    [canSwipeLeft, canSwipeRight, homeZoneOnly]
+    [canSwipeLeft, canSwipeRight, resolvedActivationMode]
   );
 
   const handlePointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
-    if (event.button !== 0 || !isEligibleStart(event.target as Element)) {
+    if (
+      event.button !== 0 ||
+      !isEligibleStart(event.target as Element, event.clientX)
+    ) {
       gestureRef.current = null;
       return;
     }
@@ -293,8 +306,9 @@ export const PrimaryRouteSwipeSurface: React.FC<
   };
 
   const customHorizontalOwner =
-    (canSwipeLeft || canSwipeRight) && !homeZoneOnly;
-  const heightClass = fullHeight || homeZoneOnly
+    (canSwipeLeft || canSwipeRight) &&
+    resolvedActivationMode !== 'home-zone';
+  const heightClass = fullHeight || resolvedActivationMode === 'home-zone'
     ? 'h-full min-h-0'
     : 'min-h-[calc(100dvh-4rem-env(safe-area-inset-bottom))]';
   const previewNode =
@@ -343,7 +357,13 @@ export const PrimaryRouteSwipeSurface: React.FC<
           className="pointer-events-none absolute inset-y-0 left-0 w-full will-change-transform"
           style={{ transform: previewTransform, contain: 'layout paint' }}
         >
-          <div className="sticky top-0 h-[calc(100dvh_-_4rem_-_env(safe-area-inset-bottom))] overflow-hidden bg-[#111111]">
+          <div
+            className={`sticky top-0 ${
+              fullHeight
+                ? 'h-full'
+                : 'h-[calc(100dvh_-_4rem_-_env(safe-area-inset-bottom))]'
+            } overflow-hidden bg-[#111111]`}
+          >
             {previewNode}
           </div>
         </div>

@@ -1,13 +1,20 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { MessageCircle, Users } from 'lucide-react';
 import { ConversationRow } from '../components/messages/ConversationRow';
 import { useConversations } from '../hooks/useConversations';
+import { loadChatPage } from '../components/layout/routeModuleLoaders';
 
 export const MessagesPage: React.FC = () => {
   const navigate = useNavigate();
   const { conversations, isLoading } = useConversations();
+
+  useEffect(() => {
+    void loadChatPage().catch(() => {
+      // RouteContent keeps a non-blocking shell fallback if preload fails.
+    });
+  }, []);
 
   return (
     <div className="flex min-h-full flex-col">

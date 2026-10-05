@@ -1,13 +1,14 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { ConversationRow } from '../../src/components/messages/ConversationRow';
 import type { Conversation } from '../../src/hooks/useConversations';
 import type {
   FriendshipDocument,
   MessageDocument,
 } from '../../src/db/schema';
+const navigateSpy = vi.hoisted(() => vi.fn());
 vi.mock('react-router-dom', () => ({
-  useNavigate: () => vi.fn(),
+  useNavigate: () => navigateSpy,
 }));
 const useTaskImageSpy = vi.hoisted(() =>
   vi.fn(() => ({ imageUrl: null, isLoading: false }))
@@ -73,12 +74,20 @@ function makeConversation(
 }
 beforeEach(() => {
   useTaskImageSpy.mockClear();
+  navigateSpy.mockClear();
 });
 describe('ConversationRow', () => {
   // Regression: AGENTS.md UI rules — interactive rows use semantic controls.
   it('exposes the conversation row as a named button', () => {
     render(<ConversationRow conversation={makeConversation()} />);
     expect(screen.getByRole('button', { name: /Friend B/i })).toBeInTheDocument();
+  });
+  it('opens chat with Messages recorded as its route parent', () => {
+    render(<ConversationRow conversation={makeConversation()} />);
+    fireEvent.click(screen.getByRole('button', { name: /Friend B/i }));
+    expect(navigateSpy).toHaveBeenCalledWith('/messages/user_B', {
+      state: { parentPath: '/messages' },
+    });
   });
   it('falls back to friendUsername when display name is empty', () => {
     render(

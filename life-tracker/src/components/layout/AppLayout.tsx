@@ -100,6 +100,7 @@ export const AppLayout: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const path = location.pathname;
+  const isChatDetail = /^\/messages\/[^/]+$/.test(path);
   const leftSwipeDestination = resolvePrimarySwipeDestination(path, 'left');
   const rightSwipeDestination = resolvePrimarySwipeDestination(path, 'right');
   const [retryDisabled, setRetryDisabled] = useState(false);
@@ -192,12 +193,20 @@ export const AppLayout: React.FC = () => {
     const destinations = getPrimaryRoutePreloadTargets(path);
     if (destinations.length === 0) return;
 
+    const hasMessagesNeighbor = destinations.includes('/messages');
+    if (hasMessagesNeighbor) {
+      // Messages is local-first and already shares the mounted providers. Warm
+      // only this adjacent route immediately so a quick swipe cannot outrun
+      // the idle callback and expose an empty/loading conversation surface.
+      setConversationNeighborReadyFor(path);
+      preloadPrimaryRoute('/messages');
+    }
+
     const preload = () => {
       for (const destination of destinations) {
-        preloadPrimaryRoute(destination);
-      }
-      if (destinations.includes('/messages')) {
-        setConversationNeighborReadyFor(path);
+        if (destination !== '/messages' || !hasMessagesNeighbor) {
+          preloadPrimaryRoute(destination);
+        }
       }
     };
 
@@ -338,7 +347,6 @@ export const AppLayout: React.FC = () => {
   };
   const includeConversations =
     path.includes('/messages') || conversationNeighborReadyFor === path;
-  const isChatDetail = /^\/messages\/[^/]+$/.test(path);
 
   return (
     <Suspense
