@@ -17,7 +17,6 @@ const HORIZONTAL_AXIS_RATIO = 1.15;
 const MIN_COMMIT_DISTANCE = 64;
 const COMMIT_VIEWPORT_RATIO = 0.18;
 const RELEASE_DURATION_MS = 160;
-const VELOCITY_STALE_AFTER_MS = 80;
 const EDGE_RESISTANCE = 0.18;
 const EDGE_BACK_ACTIVATION_PX = 32;
 
@@ -27,9 +26,7 @@ interface GestureState {
   pointerId: number;
   startX: number;
   startY: number;
-  currentX: number;
-  lastSampleTime: number;
-  velocityX: number;
+  startTime: number;
   dragging: boolean;
 }
 
@@ -231,9 +228,7 @@ export const PrimaryRouteSwipeSurface: React.FC<
       pointerId: event.pointerId,
       startX: event.clientX,
       startY: event.clientY,
-      currentX: event.clientX,
-      lastSampleTime: event.timeStamp,
-      velocityX: 0,
+      startTime: event.timeStamp,
       dragging: false,
     };
   };
@@ -241,13 +236,6 @@ export const PrimaryRouteSwipeSurface: React.FC<
   const handlePointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
     const gesture = gestureRef.current;
     if (!gesture || gesture.pointerId !== event.pointerId) return;
-
-    const sampleElapsed = event.timeStamp - gesture.lastSampleTime;
-    if (sampleElapsed > 0) {
-      gesture.velocityX = (event.clientX - gesture.currentX) / sampleElapsed;
-    }
-    gesture.currentX = event.clientX;
-    gesture.lastSampleTime = event.timeStamp;
 
     const deltaX = event.clientX - gesture.startX;
     const deltaY = event.clientY - gesture.startY;
@@ -305,18 +293,9 @@ export const PrimaryRouteSwipeSurface: React.FC<
       return;
     }
 
-    const finalSampleElapsed = event.timeStamp - gesture.lastSampleTime;
-    if (finalSampleElapsed > VELOCITY_STALE_AFTER_MS) {
-      gesture.velocityX = 0;
-    } else if (
-      finalSampleElapsed > 0 &&
-      event.clientX !== gesture.currentX
-    ) {
-      gesture.velocityX =
-        (event.clientX - gesture.currentX) / finalSampleElapsed;
-    }
-
     const deltaX = event.clientX - gesture.startX;
+    const elapsed = Math.max(1, event.timeStamp - gesture.startTime);
+    const velocityX = deltaX / elapsed;
     const direction: PrimarySwipeDirection = deltaX < 0 ? 'left' : 'right';
     const currentPanel = currentPanelRef.current;
     const width = currentPanel?.getBoundingClientRect().width || 360;
@@ -327,7 +306,7 @@ export const PrimaryRouteSwipeSurface: React.FC<
 
     const distance = Math.abs(deltaX);
     const velocityTowardDestination =
-      direction === 'right' ? gesture.velocityX : -gesture.velocityX;
+      direction === 'right' ? velocityX : -velocityX;
     const shouldCommit =
       directionAllowed(direction) &&
       shouldCommitRouteSwipe(
@@ -344,7 +323,7 @@ export const PrimaryRouteSwipeSurface: React.FC<
       const duration = resolveRouteSwipeSettleDuration(
         width,
         distance,
-        gesture.velocityX,
+        velocityX,
         prefersReducedRouteMotion()
       );
       const transition =

@@ -36,14 +36,9 @@ interface ComposerReplyState {
 }
 
 const ChatMessagesLoadingShell: React.FC = () => (
-  <div
-    className="flex min-h-full flex-col justify-end gap-3 pb-2"
-    role="status"
-    aria-label="Loading messages"
-  >
+  <div className="flex min-h-full flex-col justify-end gap-3 pb-2" role="status">
     <div className="h-10 w-2/3 rounded-2xl bg-[#1A1A1A]" aria-hidden="true" />
     <div className="ml-auto h-14 w-3/4 rounded-2xl bg-[#2A2A2A]" aria-hidden="true" />
-    <div className="h-12 w-1/2 rounded-2xl bg-[#1A1A1A]" aria-hidden="true" />
     <span className="sr-only">Loading messages</span>
   </div>
 );
