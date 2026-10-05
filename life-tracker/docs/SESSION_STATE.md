@@ -1,32 +1,28 @@
 # Session checkpoint
 
 Updated: 2026-10-05
-Current task: Finish the build-vs-reuse implementation on stable Preview `refactor/build-vs-reuse-audit`; `chatgpt/refactor-pull-primitive` contains the final low-risk replication primitive extraction.
-Status: R1 Appwrite transaction CAS was rejected by live disposable-project evidence. R2 is now scoped to three high-confidence owner-write primitives shared by task/category/diary/settings: push-checkpoint capture, owner-scoped Realtime→RESYNC, and owner-scoped `$updatedAt + $id` tuple-paged pulls. Collection push/conflict/mapping behavior remains explicit. A larger lifecycle/controller abstraction was reviewed and rejected because it would replace duplicated straightforward state with a generic typed configuration/controller surface rather than materially reduce maintenance complexity. R3 direct Dexie reuse was rejected after the prototype passed build/size but failed the existing pending-image DOM isolation contract and would require extra dependency-injection/test plumbing for modest source savings; native auxiliary IndexedDB remains.
-Next action: Run focused verification for the tuple-pull extraction. If green, squash into `refactor/build-vs-reuse-audit`, then require one final full canonical gate and exact-tree Vercel Preview.
-Blockers: None known before CI.
+Current task: Final polish and delivery of the build-vs-reuse refactor from stable Preview `refactor/build-vs-reuse-audit`.
+Status: Source changes are complete on the polish task tree. The refactor now shares local push-checkpoint scanning across all six RxDB pilots; task/category/diary/settings additionally share owner-scoped Realtime→RESYNC and `$updatedAt + $id` tuple-paged pulls. Friendship/message keep custom pull/delete behavior because of cache and optimistic-intent side effects. Direct primitive tests cover checkpoint pagination, tuple query/checkpoint filtering, owner fail-closed behavior, and Realtime wakeups. The Dexie prototype remains reverted, and the lockfile experiment noise is removed. Audit/roadmap prose now records the final measured decisions instead of the original proposals.
+Next action: Run one focused check on the complete polish diff, squash-merge it into `refactor/build-vs-reuse-audit`, require the stable branch's full canonical gate + exact-SHA Vercel Preview, then promote the accepted stable Preview tree to `dev` under the user's authorization. Do not promote to `main`.
+Blockers: None known before CI. A physical two-device smoke is not claimed by automation and remains optional manual confidence, not a substitute for canonical verification.
 
-## Accepted implementation
+## Final build-vs-reuse outcome
 
-1. **No Appwrite transaction migration.** Live proof showed read→external update→stage→commit can still overwrite the external writer. Existing D1 remains explicit.
-2. **Conditional `updateRows` CAS remains deferred.** It works with a revision predicate, but a safe adoption requires a new collision-safe remote revision token/schema protocol.
-3. **Shared owner-write primitives:** `replicationPilotPrimitives.ts` owns:
-   - local RxDB push-checkpoint scanning;
-   - owner-scoped Realtime create/update/delete wakeups;
-   - owner-scoped ordered tuple pull queries, owner validation, row filtering, mapping, and checkpoint construction.
-4. **Keep lifecycle/domain policy explicit.** Start/stop/refresh state remains in each pilot. Push comparisons, first-sync behavior, strict create fallback, task images, settings profile work, mappings, and error labels remain collection-local.
-5. **Keep native auxiliary IndexedDB.** Direct Dexie was measured and reverted; no `idb` fallback is justified without a new need.
+1. **Appwrite transaction CAS rejected.** Live disposable-project evidence showed a transactional read does not protect a later staged write from an intervening external update. The existing D1 owner-write race remains explicit; conditional `updateRows` would require a separate revision-token protocol.
+2. **Replication deduplication accepted selectively.** All six pilots use `captureReplicationPushCheckpoint`. Task/category/diary/settings also use the shared owner tuple-pull and simple Realtime wakeup helpers. Friendship/message retain their side-effectful pull and delete handling. Lifecycle/start-stop and domain push/conflict/mapping policy remain local.
+3. **Direct shared-helper regression coverage added.** The primitive contract now directly tests multi-page checkpoint capture, exact owner-scoped tuple query shape, malformed-row checkpoint filtering, owner rejection, and active-owner Realtime wakeups.
+4. **Auxiliary IndexedDB reuse rejected.** The Dexie prototype passed build/size but added module-initialization IndexedDB coupling for modest source reduction, so native helpers remain.
+5. **No further broad refactor planned.** Reopen only for a concrete correctness issue, maintenance fan-out, bundle evidence, or new product requirement.
 
-## Verification evidence
+## Verification evidence before this polish
 
 - Initial implementation focused gate `37260886935`: success.
-- Stable full gate `37261263767`: failed only the Dexie pending-image DOM contract; production build/size and other completed jobs passed.
 - Dexie-revert focused gate `37261486731`: success.
-- Repaired stable commit `d9c2a7542b56d375e05bc9173ab4f65451ef62c4`, full canonical gate `37261563678`: success across checks, build/PWA/size, dependency audit, both DOM shards, and both browser shards.
+- Repaired stable full gate `37261563678`: success.
+- Final tuple-pull extraction focused gate `37261803782`: success.
+- Stable commit `e1fa366426ccde32ac3625bea71b5200798fd0fe`, full canonical gate `37261889776`: success across checks, production build/PWA/size, dependency audit, both DOM shards, and both browser shards.
+- Exact-SHA Vercel deployment `dpl_7TPyaHa2SxRmnUQ4U8SrPvmeaKDA`: READY.
 
-## Acceptance path
+## Delivery boundary
 
-1. This final extraction checkpoint requests `[verify:focused]`.
-2. Focused-green PR is squash-merged into `refactor/build-vs-reuse-audit`.
-3. Stable Preview runs one final full canonical acceptance and Vercel Preview for the exact tree.
-4. No promotion to `dev` or `main` without explicit user instruction.
+The final polish should be one focused-verified task tree, then one stable-Preview full verification. Once accepted, promote that exact stable Preview tree to `dev`. No additional refactor batch is planned and no `main` promotion is authorized.

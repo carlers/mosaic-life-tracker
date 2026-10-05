@@ -33,7 +33,7 @@ Status meanings:
 | Realtime | Reconnect misses an event, or events arrive out of order | A later Realtime payload must not advance the durable pull checkpoint past an unseen write | **Covered by invariant; fixed by this audit** — create/update emits `RESYNC` instead of a checkpointed payload |
 | Realtime delete | Friendship/message hard delete event arrives | Soft-delete owner-scoped local cache and request a resync | **Covered** |
 | Pull checkpoint | Multiple server rows share the same `$updatedAt` | Tuple checkpoint `$updatedAt + $id` must make ordering deterministic | **Covered** by query-shape tests |
-| Pull response | Server row is malformed and lacks checkpoint fields | Do not advance checkpoint from that row | **Guarded** by pull filtering; dedicated malformed-row regression is not present |
+| Pull response | Server row is malformed and lacks checkpoint fields | Do not advance checkpoint from that row | **Covered** — direct `replicationPilotPrimitives.test.ts` regression verifies malformed rows are filtered and cannot become the tuple checkpoint |
 | Freshness | Initial replication has not completed | Do not persist a freshness timestamp | **Covered** |
 | Freshness | Replication is canceled before initial completion | Do not persist freshness | **Covered** |
 | Freshness | A retry/error cycle transitions `active → idle` but is not actually in sync | Do not refresh the 90-day safety timestamp until `awaitInSync()` proves convergence | **Covered; fixed by this audit** |
