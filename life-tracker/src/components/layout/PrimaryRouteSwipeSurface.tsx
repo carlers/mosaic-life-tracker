@@ -172,7 +172,11 @@ export const PrimaryRouteSwipeSurface: React.FC<
       );
       if (hardGestureOwner) return false;
 
+      const routeIgnored = target.closest('[data-route-swipe-ignore="true"]');
+      const replyableMessageBubble = target.closest('[data-message-id]');
+
       if (resolvedActivationMode === 'edge-back') {
+        if (routeIgnored && !replyableMessageBubble) return false;
         const edgeOffset = clientX - surfaceLeft;
         return (
           canSwipeRight &&
@@ -181,7 +185,7 @@ export const PrimaryRouteSwipeSurface: React.FC<
         );
       }
 
-      if (target.closest('[data-route-swipe-ignore="true"]')) {
+      if (routeIgnored) {
         return false;
       }
       if (resolvedActivationMode === 'home-zone') {
@@ -202,6 +206,12 @@ export const PrimaryRouteSwipeSurface: React.FC<
     ) {
       gestureRef.current = null;
       return;
+    }
+
+    if (resolvedActivationMode === 'edge-back') {
+      // Capture owns an accepted edge-back from the first pointer event so
+      // nested bubble reply recognizers cannot start on the same pointer.
+      event.stopPropagation();
     }
 
     clearReleaseTimer();

@@ -111,6 +111,7 @@ for (const { viewport, width } of [
     await page.mouse.move(startX, y);
     await page.mouse.down();
     await page.mouse.move(startX + 90, y + 2, { steps: 5 });
+    expect(await bubble.evaluate(el => el.style.transform)).toBe('translateX(0px)');
 
     const preview = page.getByTestId('primary-route-neighbor-preview');
     await expect(preview).toHaveCount(1);
