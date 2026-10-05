@@ -1,10 +1,10 @@
 # Session checkpoint
 
 Updated: 2026-10-05
-Current task: UI smoothness/navigation follow-up on stable Preview `feature/ui-smoothness-navigation`.
-Status: Stable commit `e0a766c3603e0e7163240786623d261d2c6f8f4b` remained functionally green but exact-SHA Vercel deployment `dpl_6rDCTfmvbEp6e7xxrWNrTmUGemjL` was still 6 B over the unchanged app-assets gzip budget (682,306 B / 682,300 B). Repair branch `chatgpt/ui-smoothness-size-fix-4` removes redundant pointer-capture existence guards while retaining the existing try/catch fallback, so unsupported/already-released pointer capture remains harmless and gesture behavior is unchanged.
-Next action: Browser-focused verify this final runtime trim, squash it into `feature/ui-smoothness-navigation`, then require the repaired stable SHA's full canonical gate + exact-SHA Vercel Preview. Do not promote to `dev` or `main` without explicit user instruction.
-Blockers: None known. Real Samsung/PWA touch acceptance remains manual; Chat-to-Messages bottom-nav appearance during the detail commit is still a visual device check.
+Current task: Connector write-batching workflow hardening on stable Preview `refactor/connector-write-batching`.
+Status: UI smoothness Preview `d5371750f49467f7726e8ac57542241e220a020e` was promoted unchanged to `dev` by PR #286 as merge commit `ffac3b119672fdf1eebf538d618d240471aae6fa`; the dev promotion check and canonical acceptance passed by reusing the accepted Preview evidence. Connector investigation isolated the earlier large-patch failure: the current Code Mode harness accepts 20 nested connector calls in one execution and rejects 21, while no remaining-call counter is exposed. Public OpenAI API docs show the host can configure `max_tool_calls`, so the exact ceiling is environment-specific. The workflow docs now require a conservative <=12-call preflight, separate read/write phases, <=12-call blob batches, and a final 3-call tree/commit/ref phase. A lease-shaped `update_ref` attempt also exposed an action-argument compatibility quirk, so the protocol now requires a fresh head read and uses an expected-head lease only when the current connector accepts it.
+Next action: Focused-verify this documentation-only task commit, squash it into `refactor/connector-write-batching`, then require the stable Preview canonical gate/delivery. Do not promote this refactor to `dev` or `main` without explicit user instruction.
+Blockers: None.
 
 ## Final build-vs-reuse outcome
 
