@@ -82,7 +82,8 @@ for (const { viewport, width } of [
       expect(surfaceBox.x).toBeGreaterThan(32);
     }
 
-    const bubble = page.locator('[data-message-id] > [role="button"]').first();
+    const bubble = page.locator('[data-message-id] > [role="button"]').last();
+    await expect(bubble).toBeVisible();
     const bubbleBox = await bubble.boundingBox();
     if (!bubbleBox) throw new Error('Missing message bubble bounds');
 
