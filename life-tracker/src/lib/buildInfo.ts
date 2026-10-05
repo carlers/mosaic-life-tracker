@@ -2,22 +2,61 @@ import { APP_VERSION } from './appVersion';
 
 export type AppBuildChannel = 'Preview' | 'Production' | 'Local';
 
-const commit = import.meta.env.VITE_APP_BUILD_COMMIT?.trim() || null;
-const commitMessage = import.meta.env.VITE_APP_BUILD_MESSAGE?.trim() || null;
-const branch = import.meta.env.VITE_APP_BUILD_BRANCH?.trim() || null;
-const builtAt = import.meta.env.VITE_APP_BUILD_TIME?.trim() || null;
-const channel = import.meta.env.VITE_APP_BUILD_CHANNEL;
+type EmbeddedBuildInfo = {
+  commit: string | null;
+  commitMessage: string | null;
+  branch: string | null;
+  builtAt: string | null;
+  channel: AppBuildChannel;
+};
+
+function optionalString(value: unknown): string | null {
+  return typeof value === 'string' && value.trim() ? value.trim() : null;
+}
+
+export function parseEmbeddedBuildInfo(
+  value: string | null | undefined
+): EmbeddedBuildInfo | null {
+  if (!value) return null;
+  try {
+    const parsed = JSON.parse(value) as Record<string, unknown>;
+    if (!parsed || typeof parsed !== 'object') return null;
+    const channel =
+      parsed.channel === 'Preview' ||
+      parsed.channel === 'Production' ||
+      parsed.channel === 'Local'
+        ? parsed.channel
+        : 'Local';
+    return {
+      commit: optionalString(parsed.commit),
+      commitMessage: optionalString(parsed.commitMessage),
+      branch: optionalString(parsed.branch),
+      builtAt: optionalString(parsed.builtAt),
+      channel,
+    };
+  } catch {
+    return null;
+  }
+}
+
+function readEmbeddedBuildInfo(): EmbeddedBuildInfo | null {
+  if (typeof document === 'undefined') return null;
+  const meta = document.querySelector<HTMLMetaElement>(
+    'meta[name="mosaic-build-info"]'
+  );
+  return parseEmbeddedBuildInfo(meta?.content);
+}
+
+const embedded = readEmbeddedBuildInfo();
+const commit = embedded?.commit ?? null;
 
 export const APP_BUILD_INFO = Object.freeze({
   version: APP_VERSION,
   buildId: commit ?? 'local',
   commit,
   commitShort: commit ? commit.slice(0, 8) : null,
-  commitMessage,
-  branch,
-  builtAt,
-  channel:
-    channel === 'Preview' || channel === 'Production' || channel === 'Local'
-      ? (channel as AppBuildChannel)
-      : 'Local',
+  commitMessage: embedded?.commitMessage ?? null,
+  branch: embedded?.branch ?? null,
+  builtAt: embedded?.builtAt ?? null,
+  channel: embedded?.channel ?? 'Local',
 });

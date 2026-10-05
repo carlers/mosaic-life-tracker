@@ -176,6 +176,26 @@ describe('build-size guard', () => {
     });
   });
 
+  // Regression: §24.14 (deployment metadata must not perturb hashed JS size).
+  it('keeps variable build identity out of Vite define replacements', async () => {
+    const viteConfig = await readFile(
+      new URL('../../vite.config.ts', import.meta.url),
+      'utf8',
+    );
+
+    expect(viteConfig).toContain("name: 'mosaic-build-info-meta'");
+    expect(viteConfig).toContain("name: 'mosaic-build-info'");
+    expect(viteConfig).not.toContain(
+      "'import.meta.env.VITE_APP_BUILD_COMMIT'",
+    );
+    expect(viteConfig).not.toContain(
+      "'import.meta.env.VITE_APP_BUILD_MESSAGE'",
+    );
+    expect(viteConfig).not.toContain(
+      "'import.meta.env.VITE_APP_BUILD_BRANCH'",
+    );
+  });
+
   // Regression: §24.14 (production build always executes the guard).
   it('keeps the reviewed budget in the production build command', async () => {
     const packageJson = JSON.parse(await readFile(new URL('../../package.json', import.meta.url), 'utf8'));

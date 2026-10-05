@@ -19,6 +19,30 @@ const buildChannel =
       ? 'Production'
       : 'Local';
 
+const embeddedBuildInfo = JSON.stringify({
+  commit: buildCommit || null,
+  commitMessage: buildMessage || null,
+  branch: buildRef || null,
+  builtAt: new Date().toISOString(),
+  channel: buildChannel,
+});
+
+const buildInfoMetaPlugin = {
+  name: 'mosaic-build-info-meta',
+  transformIndexHtml() {
+    return [
+      {
+        tag: 'meta',
+        attrs: {
+          name: 'mosaic-build-info',
+          content: embeddedBuildInfo,
+        },
+        injectTo: 'head' as const,
+      },
+    ];
+  },
+};
+
 const posthogSourceMapsEnabled =
   vercelEnvironment !== 'preview' &&
   process.env.POSTHOG_SOURCE_MAPS_ENABLED === 'true' &&
@@ -51,14 +75,10 @@ export default defineConfig({
     'import.meta.env.VITE_MOSAIC_OFFICIAL_BUILD': JSON.stringify(
       isOfficialMosaicBuild ? 'true' : 'false'
     ),
-    'import.meta.env.VITE_APP_BUILD_COMMIT': JSON.stringify(buildCommit),
-    'import.meta.env.VITE_APP_BUILD_BRANCH': JSON.stringify(buildRef),
-    'import.meta.env.VITE_APP_BUILD_MESSAGE': JSON.stringify(buildMessage),
-    'import.meta.env.VITE_APP_BUILD_TIME': JSON.stringify(new Date().toISOString()),
-    'import.meta.env.VITE_APP_BUILD_CHANNEL': JSON.stringify(buildChannel),
   },
   plugins: [
     react(),
+    buildInfoMetaPlugin,
     ...(isLocalBuild ? [basicSsl()] : []),
     ...(posthogSourceMapPlugin ? [posthogSourceMapPlugin] : []),
     VitePWA({
