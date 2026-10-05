@@ -2,9 +2,9 @@
 
 Updated: 2026-10-05
 Current task: UI smoothness/navigation first batch on stable Preview `feature/ui-smoothness-navigation`.
-Status: Implementation is complete on `chatgpt/ui-smoothness-chat-swipe` pending browser-focused verification. Chat detail now uses the shared route-drag surface in full-height left-edge Back mode, conversation entry records Messages as the parent, header/swipe Back share history-aware fallback behavior, and message bubbles remain explicit swipe-to-reply owners. Adjacent Messages code/data warms only when Messages is actually reachable, preserving Home startup behavior. Lazy route imports share memoized loaders and generic route suspension uses a stable shell instead of a centered spinner.
-Next action: Run the browser-focused gate for the complete task tree, fix any failures, then squash-merge into `feature/ui-smoothness-navigation` and require its full canonical gate + Vercel Preview. Do not promote to `dev` or `main` without explicit user instruction.
-Blockers: None known before CI. Real Samsung/PWA edge-swipe acceptance remains a manual check after hosted Preview.
+Status: The first browser-focused run (`37303243344`) confirmed the new Chat edge-swipe contract but exposed a browser-harness-only role collision: the hidden route probe used HTML `<output>`, whose implicit status role collided with existing loading-status assertions. The probe is now a neutral `<span>`; production behavior is unchanged. Focused checks were green and browser verification is being rerun.
+Next action: Require the repaired browser-focused gate to pass, then squash-merge `chatgpt/ui-smoothness-chat-swipe` into `feature/ui-smoothness-navigation` and require the stable branch's full canonical gate + Vercel Preview. Do not promote to `dev` or `main` without explicit user instruction.
+Blockers: None known. Real Samsung/PWA edge-swipe acceptance remains a manual check after hosted Preview.
 
 ## Final build-vs-reuse outcome
 

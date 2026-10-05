@@ -31,9 +31,9 @@ export function Conversation() {
         if (direction === 'right' && isDetail) navigate('/messages');
       }}
     >
-      <output data-testid="chat-path" className="sr-only">
+      <span data-testid="chat-path" className="sr-only">
         {location.pathname}
-      </output>
+      </span>
       <Routes>
         <Route path="/messages/:friendId" element={<ChatPage />} />
         <Route
