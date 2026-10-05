@@ -1,33 +1,28 @@
 # Session checkpoint
 
 Updated: 2026-10-05
-Current task: Double-check the accepted sync-engine race audit for missed correctness gaps and repair any remaining owner-isolation holes on `chatgpt/sync-engine-race-matrix-double-check`.
-Status: The second pass is based exactly on accepted stable Preview `fix/sync-engine-race-matrix` commit `44c1ae48`. The original freshness, owner-teardown, Realtime-checkpoint, and steady-state remote-owner fixes still hold. This review found one incomplete boundary expressed in three owner-scoped server reads: generic >90-day stale recovery, friendship full-cache recovery, and the message bootstrap tail probe trusted or silently filtered the Appwrite owner query instead of validating returned `user_id`. All three now fail closed with regression coverage, and the sync matrix/reference have been corrected.
-Next action: Run the focused Quality Gate for this final task checkpoint. If green, squash the task PR into `fix/sync-engine-race-matrix`, then require the stable branch's full canonical acceptance and exact-SHA Vercel Preview. Do not promote to `dev` or `main` without explicit user instruction.
-Blockers: None known before CI.
+Current task: Final polish and delivery of the build-vs-reuse refactor from stable Preview `refactor/build-vs-reuse-audit`.
+Status: Source changes are complete on the polish task tree. The refactor now shares local push-checkpoint scanning across all six RxDB pilots; task/category/diary/settings additionally share owner-scoped Realtime→RESYNC and `$updatedAt + $id` tuple-paged pulls. Friendship/message keep custom pull/delete behavior because of cache and optimistic-intent side effects. Direct primitive tests cover checkpoint pagination, tuple query/checkpoint filtering, owner fail-closed behavior, and Realtime wakeups. The Dexie prototype remains reverted, and the lockfile experiment noise is removed. Audit/roadmap prose now records the final measured decisions instead of the original proposals.
+Next action: Run one focused check on the complete polish diff, squash-merge it into `refactor/build-vs-reuse-audit`, require the stable branch's full canonical gate + exact-SHA Vercel Preview, then promote the accepted stable Preview tree to `dev` under the user's authorization. Do not promote to `main`.
+Blockers: None known before CI. A physical two-device smoke is not claimed by automation and remains optional manual confidence, not a substitute for canonical verification.
 
-## Double-check findings repaired
+## Final build-vs-reuse outcome
 
-1. **Generic stale recovery owner validation:** `syncCollection()` now validates every owner-scoped Appwrite recovery page before mapping or applying any row. A foreign row fails the collection recovery, prevents pilot start, and cannot be written into the active account's local cache.
-2. **Friendship full-cache recovery owner validation:** `syncFriendships()` now fails closed if an owner-scoped page returns another account instead of silently skipping that row and potentially treating the snapshot as complete.
-3. **Message bootstrap checkpoint owner validation:** `captureMessageReplicationPullCheckpoint()` now validates the owner-scoped remote tail response before accepting a checkpoint, so a malformed/cross-account response cannot be ignored while bootstrap advances from an untrusted snapshot.
-4. **Documentation accuracy:** `SYNC_SCENARIO_MATRIX.md` and `PROJECT_REFERENCE.md` now state the fail-closed invariant across steady-state pulls, stale-recovery/bootstrap snapshot reads, and direct master reads.
+1. **Appwrite transaction CAS rejected.** Live disposable-project evidence showed a transactional read does not protect a later staged write from an intervening external update. The existing D1 owner-write race remains explicit; conditional `updateRows` would require a separate revision-token protocol.
+2. **Replication deduplication accepted selectively.** All six pilots use `captureReplicationPushCheckpoint`. Task/category/diary/settings also use the shared owner tuple-pull and simple Realtime wakeup helpers. Friendship/message retain their side-effectful pull and delete handling. Lifecycle/start-stop and domain push/conflict/mapping policy remain local.
+3. **Direct shared-helper regression coverage added.** The primitive contract now directly tests multi-page checkpoint capture, exact owner-scoped tuple query shape, malformed-row checkpoint filtering, owner rejection, and active-owner Realtime wakeups.
+4. **Auxiliary IndexedDB reuse rejected.** The Dexie prototype passed build/size but added module-initialization IndexedDB coupling for modest source reduction, so native helpers remain.
+5. **No further broad refactor planned.** Reopen only for a concrete correctness issue, maintenance fan-out, bundle evidence, or new product requirement.
 
-## Regression coverage
+## Verification evidence before this polish
 
-- `sync.test.ts`: a foreign task row during stale recovery cannot upsert locally, cannot start the task pilot, and surfaces a remote-owner mismatch.
-- `friendshipSync.test.ts`: a foreign row in the full friendship cache pull rejects instead of being filtered.
-- `messageReplicationPilot.test.ts`: a foreign row in the bootstrap tail probe rejects instead of producing/ignoring a checkpoint.
-- Existing regressions continue to cover retry-safe freshness, owner-scoped backoff teardown, Realtime-as-wakeup behavior across all six pilots, steady-state remote-owner mismatch handling, shared-local-DB foreign rows, stale recovery/tombstones, and freshness barriers.
+- Initial implementation focused gate `37260886935`: success.
+- Dexie-revert focused gate `37261486731`: success.
+- Repaired stable full gate `37261563678`: success.
+- Final tuple-pull extraction focused gate `37261803782`: success.
+- Stable commit `e1fa366426ccde32ac3625bea71b5200798fd0fe`, full canonical gate `37261889776`: success across checks, production build/PWA/size, dependency audit, both DOM shards, and both browser shards.
+- Exact-SHA Vercel deployment `dpl_7TPyaHa2SxRmnUQ4U8SrPvmeaKDA`: READY.
 
-## Accepted limitations unchanged
+## Delivery boundary
 
-- Appwrite still has no atomic compare-and-update for the owner-write pilots; the read→write race is reconciled by subsequent replication.
-- Stale-recovery application timestamps still inherit client-clock ambiguity and therefore preserve uncertain local state conservatively.
-
-## Acceptance path
-
-1. Final task commit requests `[verify:focused]`.
-2. Focused-green task PR is squash-merged into `fix/sync-engine-race-matrix`.
-3. Stable Preview runs the full canonical gate and exact-tree Vercel Preview.
-4. Any CI/deployment failure is investigated and repaired before handoff.
+The final polish should be one focused-verified task tree, then one stable-Preview full verification. Once accepted, promote that exact stable Preview tree to `dev`. No additional refactor batch is planned and no `main` promotion is authorized.

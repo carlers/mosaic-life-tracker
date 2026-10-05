@@ -13,6 +13,7 @@ behavior.
 | Manual mobile task reorder acceptance | [Task reorder acceptance](MANUAL_TASK_REORDER_ACCEPTANCE.md) |
 | Product and architecture contracts | [Project reference](PROJECT_REFERENCE.md) |
 | Sync race/edge-case coverage | [Sync scenario matrix](SYNC_SCENARIO_MATRIX.md) |
+| Build-vs-reuse decisions and refactor candidates | [Build vs reuse audit](BUILD_VS_REUSE_AUDIT.md) |
 | Release versions and build identity | [Versioning protocol](VERSIONING.md) |
 | Accessibility evidence and manual protocol | [Accessibility review](ACCESSIBILITY_AUDIT.md) |
 | Tombstones and scheduled maintenance | [Retention procedure](TOMBSTONE_RETENTION.md) |

@@ -1,7 +1,11 @@
 import { createReplicationPilotLifecycleQueue } from './replicationPilotLifecycle';
-import { Permission, Query, Role } from 'appwrite';
 import {
-  getChangedDocumentsSince,
+  captureReplicationPushCheckpoint,
+  pullOwnerRowsByUpdatedAtId,
+  subscribeToOwnerRealtime,
+} from './replicationPilotPrimitives';
+import { Permission, Role } from 'appwrite';
+import {
   type RxCollection,
   type RxReplicationPullStreamItem,
   type RxReplicationWriteToMasterRow,
@@ -13,11 +17,7 @@ import {
 } from 'rxdb/plugins/replication';
 import { Subject, type Subscription } from 'rxjs';
 import type { CategoryDocument } from './schema';
-import {
-  guardedRealtime,
-  guardedTablesDB,
-  type RealtimeUnsubscribe,
-} from '../lib/sdk';
+import { guardedTablesDB, type RealtimeUnsubscribe } from '../lib/sdk';
 import { fromAppwriteFormat, toAppwriteFormat } from '../lib/syncMapping';
 import {
   APPWRITE_DATABASE_ID,
@@ -26,10 +26,7 @@ import {
 import { awaitPilotReplicationFreshness } from './replicationFreshness';
 import { getReplicationIdentifier } from './replicationIds';
 import { trackReplicationFreshness } from './replicationLocalState';
-import {
-  assertRemoteRowOwnedBy,
-  assertRemoteRowsOwnedBy,
-} from './replicationOwnership';
+import { assertRemoteRowOwnedBy } from './replicationOwnership';
 
 const PULL_BATCH_SIZE = 100;
 const PUSH_BATCH_SIZE = 20;
@@ -248,74 +245,24 @@ async function pullCategories(
   documents: ReplicatedCategory[];
   checkpoint: CategoryReplicationCheckpoint | undefined;
 }> {
-  const queries: string[] = [Query.equal('user_id', userId)];
-
-  if (checkpoint) {
-    queries.push(
-      Query.or([
-        Query.greaterThan('$updatedAt', checkpoint.updatedAt),
-        Query.and([
-          Query.equal('$updatedAt', checkpoint.updatedAt),
-          Query.greaterThan('$id', checkpoint.id),
-        ]),
-      ])
-    );
-  }
-
-  queries.push(
-    Query.orderAsc('$updatedAt'),
-    Query.orderAsc('$id'),
-    Query.limit(batchSize)
-  );
-
-  const response = await guardedTablesDB.listRows({
+  return pullOwnerRowsByUpdatedAtId<ReplicatedCategory, CategoryReplicationCheckpoint>({
     databaseId: APPWRITE_DATABASE_ID,
     tableId: APPWRITE_TABLES.categories,
-    queries,
-    total: false,
+    userId,
+    ownerLabel: 'Category',
+    checkpoint,
+    batchSize,
+    mapRow: toReplicatedCategory,
   });
-  const responseRows =
-    (response as unknown as { rows?: Record<string, unknown>[] }).rows ?? [];
-  assertRemoteRowsOwnedBy(responseRows, userId, 'Category');
-  const rows = responseRows.filter(
-    (row) =>
-      typeof row.$id === 'string' &&
-      row.$id.length > 0 &&
-      typeof row.$updatedAt === 'string' &&
-      row.$updatedAt.length > 0
-  );
-
-  const last = rows.at(-1);
-  return {
-    documents: rows.map(toReplicatedCategory),
-    checkpoint: last
-      ? {
-          id: last.$id as string,
-          updatedAt: last.$updatedAt as string,
-        }
-      : checkpoint,
-  };
 }
 
-export async function captureCategoryReplicationPushCheckpoint(
+export function captureCategoryReplicationPushCheckpoint(
   collection: RxCollection<CategoryDocument>
 ): Promise<CategoryReplicationPushCheckpoint | undefined> {
-  let checkpoint: CategoryReplicationPushCheckpoint | undefined;
-
-  for (;;) {
-    const result = await getChangedDocumentsSince<
-      CategoryDocument,
-      CategoryReplicationPushCheckpoint
-    >(
-      collection.storageInstance,
-      LOCAL_CHECKPOINT_BATCH_SIZE,
-      checkpoint
-    );
-    checkpoint = result.checkpoint;
-    if (result.documents.length < LOCAL_CHECKPOINT_BATCH_SIZE) {
-      return checkpoint;
-    }
-  }
+  return captureReplicationPushCheckpoint<CategoryDocument, CategoryReplicationPushCheckpoint>(
+    collection,
+    LOCAL_CHECKPOINT_BATCH_SIZE
+  );
 }
 
 function subscribeToCategoryRealtime(
@@ -327,26 +274,12 @@ function subscribeToCategoryRealtime(
     >
   >
 ): RealtimeUnsubscribe {
-  const channel =
-    `databases.${APPWRITE_DATABASE_ID}.tables.${APPWRITE_TABLES.categories}.rows`;
-
-  return guardedRealtime.subscribe(channel, (message) => {
-    if (activeOwnerId !== userId) return;
-    const payload = message.payload;
-    const events = Array.isArray(message.events) ? message.events : [];
-
-    if (events.some((event) => event.endsWith('.delete'))) {
-      pullStream.next('RESYNC');
-      return;
-    }
-    if (!payload || payload.user_id !== userId) return;
-    if (
-      events.some(
-        (event) => event.endsWith('.create') || event.endsWith('.update')
-      )
-    ) {
-      pullStream.next('RESYNC');
-    }
+  return subscribeToOwnerRealtime({
+    channel:
+      `databases.${APPWRITE_DATABASE_ID}.tables.${APPWRITE_TABLES.categories}.rows`,
+    userId,
+    isActiveOwner: () => activeOwnerId === userId,
+    pullStream,
   });
 }
 
