@@ -6,6 +6,9 @@ export function resolveRouteParent(pathname: string): string | null {
   if (/^\/messages\/[^/]+$/.test(pathname)) {
     return '/messages';
   }
+  if (/^\/friends\/[^/]+$/.test(pathname)) {
+    return '/explore';
+  }
 
   switch (pathname) {
     case '/settings':

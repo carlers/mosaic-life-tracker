@@ -35,6 +35,19 @@ interface ComposerReplyState {
   content: string;
 }
 
+const ChatMessagesLoadingShell: React.FC = () => (
+  <div
+    className="flex min-h-full flex-col justify-end gap-3 pb-2"
+    role="status"
+    aria-label="Loading messages"
+  >
+    <div className="h-10 w-2/3 rounded-2xl bg-[#1A1A1A]" aria-hidden="true" />
+    <div className="ml-auto h-14 w-3/4 rounded-2xl bg-[#2A2A2A]" aria-hidden="true" />
+    <div className="h-12 w-1/2 rounded-2xl bg-[#1A1A1A]" aria-hidden="true" />
+    <span className="sr-only">Loading messages</span>
+  </div>
+);
+
 export const ChatPage: React.FC = () => {
   const { friendId } = useParams<{ friendId: string }>();
   const navigate = useNavigate();
@@ -305,10 +318,7 @@ export const ChatPage: React.FC = () => {
           className="min-h-full px-4 pt-4 pb-3 space-y-1"
         >
           {isLoading ? (
-            <div className="flex items-center justify-center h-full" role="status" aria-live="polite">
-              <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin" />
-              <span className="sr-only">Loading messages</span>
-            </div>
+            <ChatMessagesLoadingShell />
           ) : renderItems.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full text-gray-400">
               <MessageSquare size={48} />

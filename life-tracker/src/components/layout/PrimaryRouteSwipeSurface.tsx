@@ -6,12 +6,18 @@ import React, {
   type PointerEvent as ReactPointerEvent,
 } from 'react';
 import type { PrimarySwipeDirection } from '../../lib/primarySwipeNavigation';
+import {
+  prefersReducedRouteMotion,
+  resolveRouteSwipeSettleDuration,
+  shouldCommitRouteSwipe,
+} from './routeSwipeMotion';
 
 const DIRECTION_LOCK_DISTANCE = 8;
 const HORIZONTAL_AXIS_RATIO = 1.15;
 const MIN_COMMIT_DISTANCE = 64;
 const COMMIT_VIEWPORT_RATIO = 0.18;
 const RELEASE_DURATION_MS = 160;
+const VELOCITY_STALE_AFTER_MS = 80;
 const EDGE_RESISTANCE = 0.18;
 const EDGE_BACK_ACTIVATION_PX = 32;
 
@@ -22,6 +28,8 @@ interface GestureState {
   startX: number;
   startY: number;
   currentX: number;
+  lastSampleTime: number;
+  velocityX: number;
   dragging: boolean;
 }
 
@@ -107,14 +115,15 @@ export const PrimaryRouteSwipeSurface: React.FC<
     (immediate = false) => {
       cancelFrame();
       clearReleaseTimer();
-      const transition = immediate
+      const reducedMotion = prefersReducedRouteMotion();
+      const transition = immediate || reducedMotion
         ? 'none'
         : `transform ${RELEASE_DURATION_MS}ms cubic-bezier(0.22, 1, 0.36, 1)`;
       setTransition(transition);
       trackRef.current?.style.setProperty('--route-swipe-x', '0px');
       pendingXRef.current = 0;
 
-      if (immediate) {
+      if (immediate || reducedMotion) {
         hidePreview();
         return;
       }
@@ -223,6 +232,8 @@ export const PrimaryRouteSwipeSurface: React.FC<
       startX: event.clientX,
       startY: event.clientY,
       currentX: event.clientX,
+      lastSampleTime: event.timeStamp,
+      velocityX: 0,
       dragging: false,
     };
   };
@@ -231,7 +242,13 @@ export const PrimaryRouteSwipeSurface: React.FC<
     const gesture = gestureRef.current;
     if (!gesture || gesture.pointerId !== event.pointerId) return;
 
+    const sampleElapsed = event.timeStamp - gesture.lastSampleTime;
+    if (sampleElapsed > 0) {
+      gesture.velocityX = (event.clientX - gesture.currentX) / sampleElapsed;
+    }
     gesture.currentX = event.clientX;
+    gesture.lastSampleTime = event.timeStamp;
+
     const deltaX = event.clientX - gesture.startX;
     const deltaY = event.clientY - gesture.startY;
     const distanceX = Math.abs(deltaX);
@@ -288,6 +305,17 @@ export const PrimaryRouteSwipeSurface: React.FC<
       return;
     }
 
+    const finalSampleElapsed = event.timeStamp - gesture.lastSampleTime;
+    if (finalSampleElapsed > VELOCITY_STALE_AFTER_MS) {
+      gesture.velocityX = 0;
+    } else if (
+      finalSampleElapsed > 0 &&
+      event.clientX !== gesture.currentX
+    ) {
+      gesture.velocityX =
+        (event.clientX - gesture.currentX) / finalSampleElapsed;
+    }
+
     const deltaX = event.clientX - gesture.startX;
     const direction: PrimarySwipeDirection = deltaX < 0 ? 'left' : 'right';
     const currentPanel = currentPanelRef.current;
@@ -297,22 +325,45 @@ export const PrimaryRouteSwipeSurface: React.FC<
       Math.min(96, width * COMMIT_VIEWPORT_RATIO)
     );
 
-    if (!directionAllowed(direction) || Math.abs(deltaX) < threshold) {
+    const distance = Math.abs(deltaX);
+    const velocityTowardDestination =
+      direction === 'right' ? gesture.velocityX : -gesture.velocityX;
+    const shouldCommit =
+      directionAllowed(direction) &&
+      shouldCommitRouteSwipe(
+        distance,
+        threshold,
+        velocityTowardDestination
+      );
+
+    if (!shouldCommit) {
       resetSurface();
     } else {
       cancelFrame();
       clearReleaseTimer();
+      const duration = resolveRouteSwipeSettleDuration(
+        width,
+        distance,
+        gesture.velocityX,
+        prefersReducedRouteMotion()
+      );
       const transition =
-        `transform ${RELEASE_DURATION_MS}ms cubic-bezier(0.22, 1, 0.36, 1)`;
+        duration === 0
+          ? 'none'
+          : `transform ${duration}ms cubic-bezier(0.22, 1, 0.36, 1)`;
       setTransition(transition);
       const targetX = direction === 'left' ? -width : width;
       trackRef.current?.style.setProperty('--route-swipe-x', `${targetX}px`);
       pendingXRef.current = targetX;
 
-      releaseTimerRef.current = window.setTimeout(() => {
+      if (duration === 0) {
         onSwipe(direction);
-        releaseTimerRef.current = null;
-      }, RELEASE_DURATION_MS);
+      } else {
+        releaseTimerRef.current = window.setTimeout(() => {
+          onSwipe(direction);
+          releaseTimerRef.current = null;
+        }, duration);
+      }
     }
 
     if (clickResetTimerRef.current !== null) {

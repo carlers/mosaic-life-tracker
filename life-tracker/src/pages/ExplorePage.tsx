@@ -1,10 +1,17 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { ExploreView } from '../components/explore/ExploreView';
 import { SetUsernameSheet } from '../components/modals/SetUsernameSheet';
+import { loadFriendCalendarPage } from '../components/layout/routeModuleLoaders';
 
 export const ExplorePage: React.FC = () => {
   const [isUsernameSheetOpen, setIsUsernameSheetOpen] = useState(false);
   const [feedback, setFeedback] = useState<string | null>(null);
+
+  useEffect(() => {
+    void loadFriendCalendarPage().catch(() => {
+      // RouteContent keeps a stable shell fallback if preload fails.
+    });
+  }, []);
 
   const showFeedback = (msg: string) => {
     setFeedback(msg);

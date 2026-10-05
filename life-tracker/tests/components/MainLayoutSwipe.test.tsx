@@ -112,6 +112,33 @@ describe('MainLayout primary route swipes', () => {
     expect(onRouteSwipe).toHaveBeenCalledWith('right');
   });
 
+  it('supports edge-back detail routes while keeping bottom navigation mounted', () => {
+    vi.useFakeTimers();
+    const onRouteSwipe = vi.fn();
+    render(
+      <MainLayout
+        activeTab="explore"
+        onTabChange={() => {}}
+        routeSwipeActivationMode="edge-back"
+        canSwipeRight
+        rightPreview={<div>Explore parent</div>}
+        onRouteSwipe={onRouteSwipe}
+      >
+        <div data-testid="friend-detail">Friend calendar</div>
+      </MainLayout>
+    );
+
+    expect(screen.getByTestId('bottom-nav')).toBeInTheDocument();
+
+    drag(screen.getByTestId('friend-detail'), 120, 260);
+    act(() => vi.runAllTimers());
+    expect(onRouteSwipe).not.toHaveBeenCalled();
+
+    drag(screen.getByTestId('friend-detail'), 20, 180);
+    act(() => vi.runAllTimers());
+    expect(onRouteSwipe).toHaveBeenCalledWith('right');
+  });
+
   it('accepts a leftward full-page swipe on Me', () => {
     vi.useFakeTimers();
     const onRouteSwipe = vi.fn();

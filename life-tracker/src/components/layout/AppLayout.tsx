@@ -101,6 +101,7 @@ export const AppLayout: React.FC = () => {
   const navigate = useNavigate();
   const path = location.pathname;
   const isChatDetail = /^\/messages\/[^/]+$/.test(path);
+  const isFriendCalendarDetail = /^\/friends\/[^/]+$/.test(path);
   const leftSwipeDestination = resolvePrimarySwipeDestination(path, 'left');
   const rightSwipeDestination = resolvePrimarySwipeDestination(path, 'right');
   const messagesIsAdjacent =
@@ -308,7 +309,7 @@ export const AppLayout: React.FC = () => {
   // OfflineBanner and the online handler refreshes the session when the
   // network returns.
   let activeTab: TabId = 'home';
-  if (path.includes('explore')) activeTab = 'explore';
+  if (path.includes('explore') || path.startsWith('/friends/')) activeTab = 'explore';
   else if (path.includes('notifications')) activeTab = 'notifications';
   else if (path.includes('messages')) activeTab = 'messages';
   else if (
@@ -369,6 +370,9 @@ export const AppLayout: React.FC = () => {
           ) : null
         }
         onRouteSwipe={handleRouteSwipe}
+        routeSwipeActivationMode={
+          isChatDetail || isFriendCalendarDetail ? 'edge-back' : undefined
+        }
         hideBottomNav={isChatDetail}
       >
         <Outlet />

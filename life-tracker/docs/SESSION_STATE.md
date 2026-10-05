@@ -1,10 +1,10 @@
 # Session checkpoint
 
 Updated: 2026-10-05
-Current task: Re-audit Chat edge-back behavior on stable Preview `feature/ui-smoothness-navigation`, especially large-screen Comfortable/Wide modes.
-Status: Two gesture defects are repaired on `chatgpt/ui-smoothness-wide-edge-audit`. First, edge activation was measured from viewport x=0 instead of the centered route surface, making Comfortable/Wide impossible. Second, allowing a true edge start over a message bubble without exclusive pointer ownership could start both route-back and bubble-reply recognizers, producing dual motion. Edge-back now measures from the live surface, preserves Back/input/native gesture exclusions, takes exclusive ownership only after an accepted edge start, and leaves bubble swipe-to-reply unchanged outside the 32px edge. Browser coverage exercises Full screen, Comfortable, and Wide and checks that the bubble itself stays stationary during route drag.
-Next action: Require browser-focused verification to pass, inspect any remaining failures, then squash the task branch into `feature/ui-smoothness-navigation` and require the stable branch's full canonical gate + exact-SHA Vercel Preview. Do not promote to `dev` or `main` without explicit user instruction.
-Blockers: None known. The detail-to-parent bottom-nav appearance remains a visual/manual smoothness check rather than an automated geometry invariant.
+Current task: UI smoothness/navigation follow-up on stable Preview `feature/ui-smoothness-navigation`.
+Status: Implementation is staged on `chatgpt/ui-smoothness-followup` pending browser-focused verification. Friend Calendar is now an Explore child with parent-aware history/fallback Back, Explore-selected bottom nav, edge-only route Back, and Explore-side chunk preloading. Navigation-time full-page spinners were replaced with stable static shells for Explore profile resolution, Messages conversation hydration, Chat thread hydration, and Friend Calendar loading. The shared route-drag primitive now supports intentional short flick commits, velocity/remaining-distance settle timing, and zero-duration reduced-motion completion without adding per-frame React state.
+Next action: Run focused/browser verification, fix failures, squash the task tree into `feature/ui-smoothness-navigation`, then require the stable branch's full canonical gate + exact-SHA Vercel Preview. Do not promote to `dev` or `main` without explicit user instruction.
+Blockers: None known before CI. Real Samsung/PWA touch acceptance remains manual; Chat-to-Messages bottom-nav appearance during the detail commit is still a visual device check.
 
 ## Final build-vs-reuse outcome
 
