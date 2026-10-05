@@ -255,26 +255,16 @@ test('primary route swipe is direct-manipulation with Home and Me ownership rule
   const detailSurface = page.getByTestId('primary-route-swipe-surface');
   const detailBox = await detailSurface.boundingBox();
   if (!detailBox) throw new Error('Missing friend-detail route surface bounds');
-  const edgeSession = await page.context().newCDPSession(page);
-  const edgeStartX = detailBox.x + 24;
-  const edgeY = detailBox.y + 70;
-  await edgeSession.send('Input.dispatchTouchEvent', {
-    type: 'touchStart',
-    touchPoints: [{ x: edgeStartX, y: edgeY }],
-  });
+  await page.mouse.move(edgeStartX, edgeY);
+  await page.mouse.down();
   for (let step = 1; step <= 8; step += 1) {
-    await edgeSession.send('Input.dispatchTouchEvent', {
-      type: 'touchMove',
-      touchPoints: [{
-        x: edgeStartX + (170 * step) / 8,
-        y: edgeY,
-      }],
-    });
+    await page.mouse.move(
+      edgeStartX + (170 * step) / 8,
+      edgeY,
+      { steps: 1 }
+    );
   }
-  await edgeSession.send('Input.dispatchTouchEvent', {
-    type: 'touchEnd',
-    touchPoints: [],
-  });
+  await page.mouse.up();
   await expect(page.getByTestId('primary-route')).toHaveText('explore');
 });
 
