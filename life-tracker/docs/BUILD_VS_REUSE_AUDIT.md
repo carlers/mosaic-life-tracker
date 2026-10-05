@@ -5,7 +5,7 @@ Baseline: `dev` at `c0e4a62`
 Scope: production client/runtime infrastructure, synchronization, persistence, PWA lifecycle,
 interaction infrastructure, backend schema/tooling, and major third-party dependencies.
 
-This is an audit only. It makes no runtime or product-behavior changes.
+This document began as an audit and now records the completed implementation results. The final refactor changes internal replication mechanics only; it does not intentionally change product behavior.
 
 ## Decision rule
 
@@ -56,9 +56,9 @@ Source bytes measure maintenance surface only; they are not bundle-size measurem
 
 | Priority | Area | Decision | Rationale |
 |---|---|---|---|
-| P0 | Owner-write sync compare/update race | **Prototype Appwrite TablesDB transactions** | Mosaic already ships `appwrite@26.2.0`, whose TablesDB client supports transactions. Appwrite commits transaction operations atomically and reports a conflict if an affected row changed outside the transaction. The repo already uses this pattern in trusted friendship writes and repair tooling. This may close the accepted owner-write read→write race without a new dependency. |
-| P1 | Six RxDB replication pilots | **Extract an internal TablesDB replication harness** | RxDB already owns replication state, conflict retry, checkpoints, and leader-owned execution. Mosaic repeats backend-neutral start/stop, checkpoint paging, Realtime RESYNC, ownership checks, and freshness wiring across six pilots. Keep collection-specific mapping and conflict/write policy injectable. |
-| P2 | Raw IndexedDB wrappers | **Evaluate direct Dexie reuse first; `idb` only as fallback** | RxDB already resolves Dexie 4.4.2 and Mosaic actively uses `getRxStorageDexie()`, so Dexie is already part of the local-storage stack. Declaring/reusing it directly may remove repeated open/request/transaction boilerplate without adding a second IndexedDB abstraction. Compare against `idb` only if Dexie makes the auxiliary stores materially more complex or enlarges their loaded closure. |
+| P0 | Owner-write sync compare/update race | **Transaction approach rejected after live proof** | A transactional read does not fence a later staged write from an intervening external update, so this does not close Mosaic's actual read→compare→write window. Conditional `updateRows` can provide a predicate-based write but would require a new remote revision-token protocol, which is deferred. |
+| P1 | Six RxDB replication pilots | **Selective primitive extraction implemented** | All six pilots now share local push-checkpoint scanning. Task/category/diary/settings additionally share owner-scoped tuple pulls and simple Realtime→`RESYNC` wakeups. Friendship/message retain custom pull and Realtime delete paths because they have cache/intent side effects. Lifecycle and domain policy stay explicit. |
+| P2 | Raw IndexedDB wrappers | **Keep the native wrappers** | A direct Dexie prototype passed build/size checks but introduced module-initialization IndexedDB coupling that would require extra dependency-injection/test plumbing for only modest source reduction. The prototype was reverted; `idb` is not justified as a second experiment without a new measured need. |
 | P3 | Appwrite schema typing | **Do not add a second schema source; evaluate only if Appwrite CLI config becomes canonical** | Appwrite can generate types from `appwrite.json`, but Mosaic's current source of truth is `infrastructure/mosaic-backend.mjs` and there is no `appwrite.json`. Adding generated types now would introduce another schema representation unless the provisioning source is deliberately migrated. |
 | Watch | Official RxDB Appwrite plugin | **Do not adopt today** | Current upstream plugin code uses Appwrite's document/collection API (`Databases`, `listDocuments`, `createDocument`, `updateDocument`), while Mosaic is on TablesDB rows/tables. Migrating the backend only to consume this plugin would be a larger architectural change than the code it replaces. Re-evaluate if upstream gains TablesDB support. |
 | Keep | Semantic message/social outbox | **Keep custom** | Workbox Background Sync stores/replays failed HTTP `Request` objects. Mosaic's outbox carries typed semantic intents with per-account dedupe, permanent-error policy, compare-before-remove protection, owner-generation cancellation, Web Locks, and domain rollback hooks. These contracts are not equivalent. |
@@ -71,75 +71,44 @@ Source bytes measure maintenance surface only; they are not bundle-size measurem
 | Keep | Connectivity state | **Keep custom** | Mosaic intentionally distinguishes browser link state from confirmed Appwrite reachability and offline-auth state. A plain online/offline helper would lose that contract. |
 | Keep | Minimal PostHog adapter | **Keep custom by existing bundle/privacy decision** | Project §24.15 explicitly rejects the full browser SDK because the aggregate/precache budget has no room for it. The current adapter implements only error ingestion and feature-flag evaluation, with autocapture/session replay/product analytics structurally absent. Replacing it with the SDK would reverse an already measured optimization rather than remove accidental reinvention. |
 
-## P0 — use Appwrite transactions for owner-write replication
+## P0 — Appwrite transaction CAS was rejected
 
-The most important finding is not a new package.
+The owner-write task/category/diary/settings push path still has the documented read→compare→write
+window. A live disposable-project proof tested whether TablesDB transactions could close it.
 
-The current task/category/diary/settings replication push path performs a remote read, compares
-it with RxDB's assumed master, then performs a create/update. The documented limitation is
-that another client can change the remote row between the read and write. Subsequent
-replication repairs the race, but the write itself is not compare-and-swap atomic.
+They cannot do so with Mosaic's current protocol: a transaction may read revision A, another
+client may write revision B, and the first transaction can still stage and commit revision C
+afterward. Appwrite does return a 409 when an external change happens after the transaction has
+already staged its operation, but that is too late to protect Mosaic's earlier application-level
+comparison.
 
-Appwrite TablesDB now exposes client transactions. The installed browser SDK already accepts
-`transactionId` on row operations; `sdk.ts` even includes that field in its handwritten
-row parameter shapes. The wrapper simply does not currently expose
-`createTransaction`/`updateTransaction`.
+A second live probe confirmed that query-conditioned `updateRows` can behave like a conditional
+write. Safely adopting that approach would require a dedicated collision-safe remote revision
+token across the owner-write schemas. That is a sync-protocol/schema project, not a reuse cleanup,
+so the existing D1 limitation remains explicit instead of adding misleading transaction code.
 
-The repository also already has a proven transaction pattern:
+## P1 — selective replication primitive extraction was implemented
 
-- `appwrite-functions/message-action/friendship.js` reads rows inside a transaction, stages
-  writes, commits, retries 409 conflicts, and rolls back failures.
-- `scripts/lib/friendship-repair.mjs` audits rows inside one transaction before applying
-  repairs.
+RxDB remains the replication engine. The refactor centralizes only mechanics that proved genuinely
+identical and leaves domain behavior visible.
 
-Appwrite's transaction contract states that commit fails with a conflict when an affected row
-changed outside the transaction. That makes a transaction-scoped read → compare → stage write
-a plausible way to make the owner-write pilot decision atomic.
+`replicationPilotPrimitives.ts` now owns:
 
-This is **not yet an implementation recommendation without a proof**. The next change should
-first add a focused two-client concurrency regression/sandbox proof that:
+- local push-checkpoint scanning via `getChangedDocumentsSince` for all six pilots;
+- owner-scoped `$updatedAt + $id` tuple paging, ownership validation, row filtering, mapping, and
+  checkpoint construction for task/category/diary/settings;
+- simple active-owner Realtime create/update/delete wakeups translated to `RESYNC` for those four
+  owner-write pilots.
 
-1. client A reads the assumed master inside a transaction;
-2. client B changes the same row before A commits;
-3. A's commit returns a conflict rather than overwriting B;
-4. the pilot translates that conflict back into the actual current master for RxDB;
-5. create-vs-create, update-vs-delete/tombstone, lost-response retry, and account-generation
-   cancellation remain safe.
+Friendship and Message deliberately keep custom pull/Realtime implementations because Friendship
+invalidates cached calendars and applies hard-delete tombstones, while Message merges remote rows
+with optimistic local intent and applies custom hard-delete state. Their checkpoint scan is shared,
+but forcing the rest into generic hooks would move complexity rather than remove it.
 
-If that proof passes, this should replace the current accepted read→write race rather than
-adding another synchronization library.
-
-## P1 — consolidate replication mechanics, not replication policy
-
-Mosaic is already using the correct class of library: every pilot calls RxDB's generic
-`replicateRxCollection()`. RxDB already provides replication state, push conflict handling,
-retry, checkpoints, Realtime-triggered resync integration, and multi-tab leader behavior.
-
-The duplication is mostly in Mosaic's TablesDB adapter around that engine. A shared internal
-harness should own only mechanics that are genuinely invariant:
-
-- active owner/replication/stream/subscription lifecycle;
-- serialized start/stop transitions;
-- tuple checkpoint paging by `$updatedAt + $id`;
-- validation of owner-scoped remote pages;
-- Realtime subscription → `RESYNC` wakeup;
-- common local push-checkpoint capture;
-- common `isActive`, `resync`, `refresh`, and teardown wiring;
-- shared batch/retry defaults where they are actually equal.
-
-Keep these as explicit per-collection callbacks/configuration:
-
-- Appwrite table and mapper;
-- state equality;
-- owner-write versus server-owned push semantics;
-- image upload/profile mirroring;
-- message optimistic-intent merge;
-- friendship cache invalidation;
-- social-reference sanitization;
-- special conflict behavior.
-
-Do **not** attempt a single generic "sync everything" abstraction. The goal is to remove
-repeated mechanics while keeping domain rules visible and testable.
+The repeated start/stop/refresh lifecycle blocks also remain per pilot. A generic controller would
+need to own typed RxDB state, Subjects, subscriptions, collection state, freshness labels,
+identifiers, error labels, and collection-specific handlers. That configuration surface did not
+pass the complexity-budget test.
 
 ## Why not replace RxDB/Appwrite with another sync product
 
@@ -156,28 +125,19 @@ The current issue is therefore not "Mosaic chose the wrong sync library." It is 
 TablesDB adapter has accumulated repeated mechanics and has not yet adopted every useful
 capability of the backend it already uses.
 
-## P2 — reuse the existing IndexedDB stack before adding another wrapper
+## P2 — native auxiliary IndexedDB wrappers remain
 
-`pendingImages.ts`, `friendCache.ts`, and `imageCache.ts` each manually wrap
-`indexedDB.open`, `IDBRequest`, upgrade handling, and transaction setup.
+A direct Dexie 4.4.2 prototype was implemented for `pendingImages.ts` using the existing
+database/store/version contract. It passed the production build and size guard.
 
-The lockfile already resolves `dexie@4.4.2` through RxDB, and Mosaic uses
-`getRxStorageDexie()` for its primary local database. The first prototype should therefore
-add Dexie as an explicit direct dependency at the already-resolved version and test whether
-these three auxiliary stores become simpler while reusing the runtime already present in the
-production graph. If Dexie is too high-level for these tiny stores, compare it with `idb`,
-which stays close to the native IndexedDB API while converting requests to Promises.
+The stable full gate then exposed the more important tradeoff: Dexie captures its IndexedDB
+dependency at module initialization, while Mosaic's DOM isolation tests intentionally inject an
+isolated IndexedDB implementation per test. Making that prototype cleanly compatible would require
+additional dependency injection or a fake-IndexedDB dependency for a relatively small helper.
 
-Neither option should replace:
-
-- pending-image owner checks;
-- friend-calendar account-keyed TTL semantics;
-- image-cache byte budget and LRU metadata;
-- best-effort failure behavior required for cache-only data.
-
-Before adoption, measure the production bundle/static-closure delta and confirm all existing
-IndexedDB regressions pass. Prefer the option that removes the most maintenance code with no
-new loaded-runtime cost; if neither does, keep the native implementation.
+That is not a net simplification. The Dexie prototype and direct dependency were reverted.
+`pendingImages.ts`, `friendCache.ts`, and `imageCache.ts` stay native. An `idb` migration is
+not planned unless a future concrete maintenance problem justifies reopening the measurement.
 
 ## Appwrite type generation: useful, but only with one schema source
 
@@ -207,62 +167,44 @@ The following custom code should not be refactored merely because a package exis
 - backend bootstrap, DR, account-erasure, TodoMate mapping, and restore policy: these encode
   Mosaic's own infrastructure/data contracts.
 
-## Recommended implementation sequence
+## Implementation result
 
-### Batch R1 — transaction CAS proof and owner-write pilot migration
+### R1 — transaction CAS
 
-1. Expose guarded TablesDB transaction methods from `src/lib/sdk.ts`.
-2. Write a deterministic concurrency test for transaction conflict behavior at the adapter
-   boundary, plus the normal pilot conflict regression.
-3. Prototype one simple owner-write pilot (category or diary).
-4. Verify create/update/tombstone, lost-response, multi-device, and account-switch scenarios.
-5. If accepted, migrate task/settings and remove the old race limitation from the sync docs.
+**Rejected after live proof.** No owner-write pilot was migrated to Appwrite transactions. The
+accepted D1 read→write race remains documented. Predicate-based conditional writes are deferred to
+a future revision-token protocol only if real multi-device usage makes the limitation material.
 
-Expected benefit: correctness first; no new runtime dependency.
+### R2 — replication deduplication
 
-### Batch R2 — shared TablesDB/RxDB pilot harness
+**Completed selectively.** Shared checkpoint scanning is used by all six pilots. The four
+owner-write pilots additionally share tuple-paged pulls and the simple Realtime wakeup path.
+Friendship/Message keep their side-effectful pull/delete behavior local, and lifecycle orchestration
+remains explicit rather than becoming a generic controller.
 
-1. Extract common lifecycle, pull paging, ownership validation, checkpoint capture, and Realtime
-   wakeup mechanics.
-2. Migrate category + diary first because their pilot structure is the closest.
-3. Re-run their focused suites and diff behavior before touching task/settings.
-4. Migrate task/settings, then server-owned friendship/message only where the same mechanics
-   genuinely apply.
-5. Compare production bundle and source-size metrics before/after.
+The shared primitive has direct unit coverage in addition to the existing per-pilot regressions.
 
-Expected benefit: lower maintenance surface and fewer places for future sync fixes to diverge.
+### R3 — auxiliary IndexedDB
 
-### Batch R3 — auxiliary IndexedDB wrapper evaluation
-
-1. Record a production bundle/static-closure baseline.
-2. Declare the already-resolved Dexie version directly and migrate `pendingImages.ts` first.
-3. If Dexie remains simpler with no material loaded-closure increase, migrate friend/image caches.
-4. If Dexie is awkward for these stores, run the same experiment with `idb` instead; do not ship both abstractions without a measured reason.
-5. Keep cache policy/failure behavior unchanged and remove any added direct dependency if the code/bundle reduction does not justify it.
-
-Expected benefit: modest boilerplate reduction; low product impact.
-
-### Deferred/watch items
-
-- Recheck RxDB's Appwrite plugin when it supports TablesDB directly.
-- Revisit Embla/Swiper consolidation only if a bundle audit identifies a material duplicated
-  cost.
-- Revisit a generic focus-trap library only if modal scope grows or accessibility evidence
-  shows the current trap is insufficient.
-- Revisit Appwrite-generated types only if Mosaic converges on a single Appwrite schema source.
+**Prototype rejected and reverted.** Dexie passed bundle/build checks but did not produce enough
+maintenance benefit to justify its additional IndexedDB/test coupling. Native helpers remain.
 
 ## Conclusion
 
-The audit does **not** support a broad dependency-adding rewrite.
+The audit and implementation do **not** support a broad dependency-adding rewrite.
 
-Mosaic already delegates many hard commodity problems to mature libraries. The highest-value
-refactor is to use more capability from the stack already present: Appwrite transactions for
-atomic sync decisions and a shared internal adapter around RxDB replication. Reusing the Dexie runtime already
-present through RxDB is the clearest auxiliary-storage candidate; a new IndexedDB library is
-only a measured fallback. Most other custom infrastructure is
-either deliberately thin or encodes Mosaic-specific offline, account-isolation, PWA, and
-gesture behavior that generic packages do not replace.
+Mosaic already delegates substantial commodity behavior to mature libraries. The worthwhile
+cleanup was narrower: centralize replication protocol mechanics that were truly identical, and
+leave product-specific conflict, side-effect, cache, message, PWA, and interaction behavior
+explicit.
 
+The implementation also prevented two counterproductive refactors. Live evidence showed that
+Appwrite transactions would not close the actual owner-write race, and the Dexie prototype showed
+that replacing the small native cache wrapper would add coupling for modest source savings.
+
+After the final polish, this workstream is intentionally closed. Further abstraction should be
+driven by a concrete bug, maintenance fan-out, bundle evidence, or a new product requirement—not
+by duplication alone.
 
 ## 2026-10-05 implementation evidence
 
@@ -273,7 +215,7 @@ The transaction candidate was tested against a disposable Appwrite Cloud project
 - Therefore Appwrite transaction conflict detection protects staged operations, not the earlier application-level read/compare decision Mosaic needs.
 - Appwrite `updateRows` with equality predicates was also live-proven to behave as a conditional update (one matching row, then zero after the predicate became stale). Mosaic would need a dedicated remote revision token to use that safely across all mutable fields, so that is deferred rather than adding schema/protocol complexity solely to justify reuse.
 
-R1 is therefore rejected. The accepted implementation proceeds with small behavior-preserving replication primitives and a measured Dexie prototype only.
+R1 is therefore rejected. The accepted implementation proceeds only with behavior-preserving replication primitives; the later Dexie prototype was measured and reverted.
 
 
 ### Dexie prototype result
@@ -287,11 +229,15 @@ The Dexie prototype and direct dependency were therefore reverted. `pendingImage
 
 ### Replication primitive extraction result
 
-The implementation stopped at three high-confidence owner-write primitives shared by task, category, diary, and settings:
+The implementation stopped at a deliberately narrow shared surface:
 
-- local push-checkpoint capture via `getChangedDocumentsSince`;
-- owner-scoped Realtime create/update/delete wakeups translated to ordered `RESYNC`;
-- owner-scoped `$updatedAt + $id` tuple-paged pulls, including row ownership validation and checkpoint construction.
+- local push-checkpoint capture via `getChangedDocumentsSince` is shared by all six pilots;
+- task/category/diary/settings share owner-scoped Realtime create/update/delete wakeups translated
+  to ordered `RESYNC`;
+- those same four owner-write pilots share owner-scoped `$updatedAt + $id` tuple-paged pulls,
+  including row ownership validation and checkpoint construction;
+- Friendship/Message keep custom pull and delete handling because those paths perform cache or
+  optimistic-intent side effects.
 
 The remaining pilot lifecycle/start-stop blocks are visually similar, but extracting them would require a generic controller that owns typed RxDB state, Subjects, subscriptions, collection state, freshness labels, replication identifiers, error labeling, and collection-specific handlers. That would move complexity into configuration rather than remove it. The implementation therefore stops before that abstraction.
 
