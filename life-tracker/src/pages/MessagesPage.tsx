@@ -7,19 +7,9 @@ import { useConversations } from '../hooks/useConversations';
 import { loadChatPage } from '../components/layout/routeModuleLoaders';
 
 const ConversationListLoadingShell: React.FC = () => (
-  <div className="space-y-2 px-4" role="status" aria-label="Loading conversations">
-    {[0, 1, 2].map((index) => (
-      <div
-        key={index}
-        className="flex items-center gap-3 rounded-xl bg-[#1A1A1A] p-3"
-        aria-hidden="true"
-      >
-        <div className="h-10 w-10 shrink-0 rounded-full bg-[#2A2A2A]" />
-        <div className="min-w-0 flex-1 space-y-2">
-          <div className="h-4 w-28 rounded-full bg-[#2A2A2A]" />
-          <div className="h-3 w-2/3 rounded-full bg-[#2A2A2A]" />
-        </div>
-      </div>
+  <div className="space-y-2 px-4" role="status">
+    {[0, 1].map((index) => (
+      <div key={index} className="h-16 rounded-xl bg-[#1A1A1A]" aria-hidden="true" />
     ))}
     <span className="sr-only">Loading conversations</span>
   </div>

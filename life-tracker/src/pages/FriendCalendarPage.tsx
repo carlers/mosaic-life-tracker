@@ -13,22 +13,9 @@ import type { TaskDocument } from '../db/schema';
 import { hasExpectedRouteParent } from '../lib/primarySwipeNavigation';
 
 const FriendCalendarLoadingShell: React.FC = () => (
-  <div
-    className="flex-1 min-h-0 px-4 py-3"
-    role="status"
-    aria-label="Loading friend calendar"
-  >
-    <div className="mb-4 flex items-center justify-between" aria-hidden="true">
-      <div className="h-8 w-8 rounded-lg bg-[#1A1A1A]" />
-      <div className="h-5 w-32 rounded-full bg-[#1A1A1A]" />
-      <div className="h-8 w-20 rounded-lg bg-[#1A1A1A]" />
-      <div className="h-8 w-8 rounded-lg bg-[#1A1A1A]" />
-    </div>
-    <div className="grid grid-cols-7 gap-2" aria-hidden="true">
-      {Array.from({ length: 35 }, (_, index) => (
-        <div key={index} className="aspect-square rounded-lg bg-[#1A1A1A]" />
-      ))}
-    </div>
+  <div className="flex-1 px-4 py-3" role="status">
+    <div className="mb-4 h-8 rounded-lg bg-[#1A1A1A]" aria-hidden="true" />
+    <div className="h-64 rounded-xl bg-[#1A1A1A]" aria-hidden="true" />
     <span className="sr-only">Loading friend calendar</span>
   </div>
 );

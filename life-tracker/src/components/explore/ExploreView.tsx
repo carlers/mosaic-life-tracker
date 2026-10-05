@@ -32,15 +32,13 @@ const SOCIAL_FAILURE_MESSAGES: Partial<Record<SocialOutboxAction, string>> = {
 };
 
 const ExploreLoadingShell: React.FC = () => (
-  <div className="flex min-h-full flex-col" role="status" aria-label="Loading profile">
-    <div className="sticky top-0 z-20 border-b border-[#333333] bg-[#111111] px-4 py-3">
+  <div className="min-h-full" role="status">
+    <div className="sticky top-0 border-b border-[#333333] bg-[#111111] px-4 py-3">
       <h1 className="text-lg font-bold text-white">Explore</h1>
     </div>
-    <div className="space-y-4 px-4 pt-4" aria-hidden="true">
+    <div className="space-y-3 px-4 pt-4" aria-hidden="true">
       <div className="h-11 rounded-xl bg-[#1A1A1A]" />
       <div className="h-20 rounded-xl bg-[#1A1A1A]" />
-      <div className="h-20 rounded-xl bg-[#1A1A1A]" />
-      <div className="h-24 rounded-xl bg-[#1A1A1A]" />
     </div>
     <span className="sr-only">Loading profile</span>
   </div>

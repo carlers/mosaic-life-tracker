@@ -2,9 +2,9 @@
 
 Updated: 2026-10-05
 Current task: UI smoothness/navigation follow-up on stable Preview `feature/ui-smoothness-navigation`.
-Status: Implementation is staged on `chatgpt/ui-smoothness-followup` pending browser-focused verification. Friend Calendar is now an Explore child with parent-aware history/fallback Back, Explore-selected bottom nav, edge-only route Back, and Explore-side chunk preloading. Navigation-time full-page spinners were replaced with stable static shells for Explore profile resolution, Messages conversation hydration, Chat thread hydration, and Friend Calendar loading. The shared route-drag primitive now supports intentional short flick commits, velocity/remaining-distance settle timing, and zero-duration reduced-motion completion without adding per-frame React state.
-Next action: Run focused/browser verification, fix failures, squash the task tree into `feature/ui-smoothness-navigation`, then require the stable branch's full canonical gate + exact-SHA Vercel Preview. Do not promote to `dev` or `main` without explicit user instruction.
-Blockers: None known before CI. Real Samsung/PWA touch acceptance remains manual; Chat-to-Messages bottom-nav appearance during the detail commit is still a visual device check.
+Status: The follow-up implementation was browser-focused green and squash-merged to stable commit `ebf212df7e7040e6b785ab176fde7e1e8ceab53e`. Exact-SHA Vercel deployment `dpl_57XZYr7Jftvy7ozRB2GCJz7wmvna` then failed only the production bundle budget: `appAssetsGzipBytes` was 682,685 B against 682,300 B (+385 B), while TypeScript/Vite/PWA generation succeeded. Repair branch `chatgpt/ui-smoothness-size-fix` keeps the new UX but reduces motion bookkeeping to average gesture velocity and simplifies static loading placeholders instead of raising the budget.
+Next action: Browser-focused verify the size repair, squash it into `feature/ui-smoothness-navigation`, then require the repaired stable SHA's full canonical gate + exact-SHA Vercel Preview. Do not promote to `dev` or `main` without explicit user instruction.
+Blockers: None known. Real Samsung/PWA touch acceptance remains manual; Chat-to-Messages bottom-nav appearance during the detail commit is still a visual device check.
 
 ## Final build-vs-reuse outcome
 
