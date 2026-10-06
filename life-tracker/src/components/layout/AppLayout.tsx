@@ -165,27 +165,21 @@ export const AppLayout: React.FC = () => {
         timer = null;
         void import('../../db/sync')
           .then(({ forceSync }) => forceSync(uid))
-          .catch((syncError) =>
-            console.error('[AppLayout] sync failed:', syncError)
-          );
+          .catch((syncError) => console.error(syncError));
       }, 250);
     };
-    const onFocus = schedule;
-    const onOnline = schedule;
     const onVisibility = () => {
       if (document.visibilityState === 'visible') schedule();
     };
-    const watchdogTimer = window.setInterval(() => {
-      if (document.visibilityState === 'visible') schedule();
-    }, 120_000);
+    const watchdogTimer = window.setInterval(onVisibility, 120_000);
 
-    window.addEventListener('focus', onFocus);
-    window.addEventListener('online', onOnline);
+    window.addEventListener('focus', schedule);
+    window.addEventListener('online', schedule);
     document.addEventListener('visibilitychange', onVisibility);
     return () => {
       if (timer !== null) window.clearTimeout(timer);
-      window.removeEventListener('focus', onFocus);
-      window.removeEventListener('online', onOnline);
+      window.removeEventListener('focus', schedule);
+      window.removeEventListener('online', schedule);
       document.removeEventListener('visibilitychange', onVisibility);
       window.clearInterval(watchdogTimer);
     };

@@ -10,7 +10,7 @@ describe('AppLayout sync watchdog contract', () => {
 
     expect(source).toContain('window.setInterval');
     expect(source).toContain("document.visibilityState === 'visible'");
-    expect(source).toContain("schedule('watchdog')");
+    expect(source).toContain('window.setInterval(onVisibility, 120_000)');
     expect(source).toContain('120_000');
     expect(source).toContain('window.clearInterval(watchdogTimer)');
   });
