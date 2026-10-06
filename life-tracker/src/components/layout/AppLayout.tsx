@@ -165,12 +165,11 @@ export const AppLayout: React.FC = () => {
         timer = null;
         void import('../../db/sync')
           .then(({ forceSync }) => forceSync(uid))
-          .catch(console.error);
+          .catch(() => {});
       }, 250);
     };
-    const onVisibility = () => {
-      if (document.visibilityState === 'visible') schedule();
-    };
+    const onVisibility = () =>
+      document.visibilityState === 'visible' && schedule();
     const watchdogTimer = window.setInterval(onVisibility, 120_000);
 
     window.addEventListener('focus', schedule);
