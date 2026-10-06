@@ -9,7 +9,7 @@ mutate Appwrite.
 | Concern | Repository source |
 |---|---|
 | Fresh database/table/bucket shape | `infrastructure/mosaic-backend.mjs` |
-| Portable Function definition and variables contract | `appwrite-functions/*/function.config.json` |
+| Portable Function definition and variable contract | `appwrite-functions/*/function.config.json` |
 | Production Appwrite CLI target/overlay | `appwrite.config.json` |
 | Existing-project schema evolution | ordered migrations exposed by `scripts/appwrite-migrate.mjs` |
 | Function source | `appwrite-functions/<name>/` |
@@ -19,10 +19,17 @@ mutate Appwrite.
 project ID as permission to mutate production. Mosaic mutation scripts require an explicit
 `--project` target plus the same value again as `--confirm-project`.
 
-The portable Function configs and `appwrite.config.json` duplicate a small set of Function
-fields because Appwrite CLI requires its own project file. `npm run appwrite:status` checks
-that the duplicated structural fields still agree. Schedules, secrets/variables, VCS linkage,
-and environment-specific Function IDs are operational state and are not drift-enforced.
+The Function configs and `appwrite.config.json` duplicate the structural fields Appwrite CLI
+needs. `npm run appwrite:status` verifies those local copies agree. Remote schedules, VCS
+linkage, and environment-specific Function IDs remain operational state because scratch/DR
+environments intentionally differ. Declared Function variables are managed more strictly:
+exact non-secret values are checked where portable, required non-secret/secret keys must exist
+with the correct secrecy classification, optional declared variables may be absent, and
+undeclared Function variables are drift. Secret values themselves are never read.
+
+Three empty pre-foundation production placeholders—`routines`, `stickers`, and
+`analytics_events`—are explicitly recorded as tolerated legacy table IDs. They are not part
+of fresh backends or active runtime ownership. Any other unmanaged table is drift.
 
 ## Environment policy
 
@@ -63,15 +70,27 @@ npm run appwrite:status -- \
   --dr-function-id <id>
 ```
 
-Use `--without-dr` for a backend intentionally provisioned without the DR Function. Drift
-returns a non-zero status. The checker covers Mosaic-managed database/table/column/index,
-bucket, and structural Function configuration. It reports active/latest Function deployment,
-schedule, live state, and VCS linkage without enforcing environment-specific operational
-values.
+Use `--without-dr` when the target was intentionally bootstrapped without DR; this also
+expects the message Function's DR privacy guard to be false. Use `--recovery-drill` for the
+isolated restore topology that intentionally deploys a credential-less `dr-backup` Function
+and keeps that privacy guard false. Those two flags cannot be combined. Drift returns a
+non-zero status.
+
+The checker verifies the managed database, exact declared table column/index sets, bucket,
+Function structure, live-deployment presence, and declared Function-variable contract.
+Permission/scope/extension collections are compared as sets so harmless API ordering cannot
+create false drift. It reports active/latest Function deployment, schedule, live state, VCS
+linkage, and tolerated legacy tables.
+
+The manifest intentionally describes the fields Mosaic owns, not every database-engine
+default. For example, an omitted integer min/max is not inferred by the checker. If such an
+engine constraint becomes a product/backend requirement, add it to the manifest and migrate
+it deliberately rather than teaching the checker a production-only special case.
 
 ## Schema migrations
 
-Existing installations evolve through one ordered reconciliation command:
+Existing installations at the backend-version-control baseline evolve through one ordered
+reconciliation command:
 
 ```bash
 APPWRITE_ENDPOINT=<url> \
@@ -82,15 +101,31 @@ npm run appwrite:migrate -- \
   --confirm-project <project-id>
 ```
 
-Current ordered migrations are:
+Current ordered baseline reconciliations are:
 
 - `001-account-deletion`
 - `002-diary-created-at`
+- `003-task-images-bucket-permissions` — removes the known pre-foundation
+  bucket-wide `read("users")` grant while preserving per-file permissions. Appwrite grants
+  access when either bucket or file permission allows it, so bucket-wide read would otherwise
+  bypass Mosaic's file-security boundary. The migration sends the full intended bucket
+  configuration and fails closed on any bucket drift other than that one known legacy grant.
+
+The runner is not a replay of every historical pre-foundation Console/script change. Fresh
+forks bootstrap the current manifest, and production was already at the current historical
+baseline when this workflow was introduced. Old production-ID-hardcoded setup/add-column
+scripts were therefore retired from the active tree; Git history preserves them for forensic
+reference, but future agents must not resurrect or run them.
 
 Use `--only <migration-id>` only for targeted recovery or compatibility work. The runner is
 intentionally ledger-free for now: every migration is idempotent and reconciles already
-applied state safely. Add a new numbered migration for new schema work rather than creating
-another one-off setup command. Do not repurpose an existing migration ID.
+applied state safely. Add the next numbered migration for new schema work; never create a new
+production-targeted one-off script and never repurpose an existing migration ID.
+
+The `task_images` bucket intentionally grants authenticated users create permission at the
+bucket level but no bucket-wide read permission. Task/profile files that are meant to be
+friend-readable carry `read("users")` on the individual file; owner-only files remain
+owner-only. Do not "fix" drift by adding bucket-wide read back to the manifest.
 
 Prefer additive/expand-first migrations. A destructive rename/drop requires scratch-project
 proof, a recovery/backup plan, compatibility across the deployment window, and explicit
@@ -102,7 +137,8 @@ not an automatic destructive `down` migration.
 A Function edit does **not** require a new Function resource. Appwrite keeps multiple code
 deployments under the same Function.
 
-Build an inactive deployment from the exact checked-out commit:
+First run `appwrite:status` against the intended target. Then build an inactive deployment
+from the exact checked-out commit:
 
 ```bash
 APPWRITE_ENDPOINT=<url> \
@@ -115,10 +151,14 @@ npm run appwrite:function:deploy -- \
   --confirm-project <project-id>
 ```
 
+When a scratch Function ID differs from the production/default config ID, also pass
+`--function-id <id>`.
+
 The deploy command fails if the selected Function directory has uncommitted changes, if the
 provided SHA is not `HEAD`, or if the live Function's structural configuration drifts from
-Git. It creates the Appwrite deployment with activation disabled, waits for `ready`, and
-prints the Git SHA ↔ Appwrite deployment ID mapping. Traffic is unchanged.
+Git. Variable drift belongs to the preceding status gate because scratch environments can
+legitimately override environment-specific values. Deployment creates inactive code, waits
+for `ready`, and prints the Git SHA ↔ Appwrite deployment ID mapping. Traffic is unchanged.
 
 Activate only the deployment that was reviewed:
 

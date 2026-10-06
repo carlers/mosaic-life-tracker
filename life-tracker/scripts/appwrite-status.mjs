@@ -15,6 +15,11 @@ export async function runAppwriteStatusCli({
   log = console.log,
 } = {}) {
   const target = parseBackendTarget(argv, env);
+  const withoutDr = hasFlag(argv, '--without-dr');
+  const recoveryDrill = hasFlag(argv, '--recovery-drill');
+  if (withoutDr && recoveryDrill) {
+    throw new Error('--without-dr and --recovery-drill cannot be combined.');
+  }
   const definitions = await readBackendDefinitions();
   const request = createAppwriteAdminRequest({ ...target, fetchImpl });
   const result = await inspectManagedBackend({
@@ -22,15 +27,25 @@ export async function runAppwriteStatusCli({
     definitions,
     messageFunctionId: flagValue(argv, '--message-function-id'),
     drFunctionId: flagValue(argv, '--dr-function-id'),
-    includeDr: !hasFlag(argv, '--without-dr'),
+    includeDr: !withoutDr,
+    recoveryDrill,
   });
 
-  log(`Appwrite managed-state check: ${target.projectId}`);
+  log(
+    `Appwrite managed-state check: ${target.projectId} (${
+      recoveryDrill ? 'recovery-drill' : withoutDr ? 'without-dr' : 'standard'
+    })`
+  );
   if (result.diffs.length) {
     for (const diff of result.diffs) log(`  DRIFT ${diff}`);
   } else {
     log(
-      '  OK managed database, tables, bucket, and Function structure match Git.'
+      '  OK managed database, tables, bucket, Function structure, and declared Function variables match Git.'
+    );
+  }
+  if (result.legacyTables.length) {
+    log(
+      `  INFO tolerated pre-foundation tables: ${result.legacyTables.join(', ')}`
     );
   }
   for (const item of result.functionObservations) {
@@ -47,7 +62,7 @@ export async function runAppwriteStatusCli({
     );
   }
   log(
-    '  Note: schedules, secrets/variables, VCS linkage, and environment-specific Function IDs are operational state and are reported but not drift-enforced.'
+    '  Note: remote schedules, VCS linkage, environment-specific Function IDs, and secret values remain operational state; declared variable presence/classification is drift-enforced without reading secret values. Recovery-drill mode permits the intentionally credential-less DR Function.'
   );
 
   if (result.diffs.length) process.exitCode = 2;

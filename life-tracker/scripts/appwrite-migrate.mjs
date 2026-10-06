@@ -7,6 +7,7 @@ import {
 } from './lib/appwrite-backend.mjs';
 import { migrateAccountDeletionBackend } from './migrate-account-deletion.mjs';
 import { migrateDiaryCreatedAtBackend } from './migrate-diary-created-at.mjs';
+import { migrateTaskImagesBucketPermissions } from './migrate-task-images-bucket-permissions.mjs';
 
 export const APPWRITE_MIGRATIONS = [
   {
@@ -20,6 +21,12 @@ export const APPWRITE_MIGRATIONS = [
     description: 'Diary created_at compatibility column',
     run: ({ request, log, sleep }) =>
       migrateDiaryCreatedAtBackend({ request, log, sleep }),
+  },
+  {
+    id: '003-task-images-bucket-permissions',
+    description: 'Remove redundant bucket-wide task image read access',
+    run: ({ request, log }) =>
+      migrateTaskImagesBucketPermissions({ request, log }),
   },
 ];
 

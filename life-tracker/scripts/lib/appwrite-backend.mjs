@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url';
 import {
   MOSAIC_BUCKET,
   MOSAIC_DATABASE,
+  MOSAIC_LEGACY_TABLE_IDS,
   MOSAIC_TABLES,
 } from '../../infrastructure/mosaic-backend.mjs';
 
@@ -144,6 +145,14 @@ function sameArray(left, right) {
   );
 }
 
+function sameStringSet(left, right) {
+  if (!Array.isArray(left) || !Array.isArray(right)) return false;
+  return sameArray(
+    [...left].map(String).sort(),
+    [...right].map(String).sort()
+  );
+}
+
 function permissionsOf(actual) {
   return Array.isArray(actual?.$permissions)
     ? actual.$permissions
@@ -171,6 +180,7 @@ function pushMismatch(diffs, label, actual, expected) {
 export function diffTable(actual, expected) {
   const diffs = [];
   if (!actual) return [`table ${expected.id}: missing`];
+  pushMismatch(diffs, `table ${expected.id} name`, actual.name, expected.name);
   pushMismatch(
     diffs,
     `table ${expected.id} rowSecurity`,
@@ -183,13 +193,14 @@ export function diffTable(actual, expected) {
     actual.enabled,
     expected.enabled
   );
-  if (!sameArray(permissionsOf(actual), expected.permissions)) {
+  if (!sameStringSet(permissionsOf(actual), expected.permissions)) {
     diffs.push(`table ${expected.id} permissions differ`);
   }
 
   const actualColumns = new Map(
     (actual.columns || []).map((column) => [column.key, column])
   );
+  const expectedColumnKeys = new Set(expected.columns.map((column) => column.key));
   for (const column of expected.columns) {
     const current = actualColumns.get(column.key);
     if (!current) {
@@ -210,9 +221,17 @@ export function diffTable(actual, expected) {
       diffs.push(`table ${expected.id}.${column.key}: provisioning failed`);
     }
   }
+  for (const key of actualColumns.keys()) {
+    if (!expectedColumnKeys.has(key)) {
+      diffs.push(`table ${expected.id}.${key}: unexpected column`);
+    }
+  }
 
   const actualIndexes = new Map(
     (actual.indexes || []).map((index) => [index.key, index])
+  );
+  const expectedIndexKeys = new Set(
+    (expected.indexes || []).map((index) => index.key)
   );
   for (const index of expected.indexes || []) {
     const current = actualIndexes.get(index.key);
@@ -229,6 +248,14 @@ export function diffTable(actual, expected) {
     if (!sameArray(indexAttributes(current), index.attributes)) {
       diffs.push(`table ${expected.id}.${index.key} attributes differ`);
     }
+    if (current.status === 'failed') {
+      diffs.push(`table ${expected.id}.${index.key}: provisioning failed`);
+    }
+  }
+  for (const key of actualIndexes.keys()) {
+    if (!expectedIndexKeys.has(key)) {
+      diffs.push(`table ${expected.id}.${key}: unexpected index`);
+    }
   }
   return diffs;
 }
@@ -237,6 +264,7 @@ export function diffBucket(actual, expected = MOSAIC_BUCKET) {
   const diffs = [];
   if (!actual) return [`bucket ${expected.id}: missing`];
   for (const key of [
+    'name',
     'fileSecurity',
     'enabled',
     'maximumFileSize',
@@ -252,11 +280,11 @@ export function diffBucket(actual, expected = MOSAIC_BUCKET) {
       expected[key]
     );
   }
-  if (!sameArray(permissionsOf(actual), expected.permissions)) {
+  if (!sameStringSet(permissionsOf(actual), expected.permissions)) {
     diffs.push(`bucket ${expected.id} permissions differ`);
   }
   if (
-    !sameArray(
+    !sameStringSet(
       actual.allowedFileExtensions || [],
       expected.allowedFileExtensions
     )
@@ -271,6 +299,8 @@ export function diffFunction(actual, expected, label = expected.name) {
   if (!actual) return [`function ${label}: missing`];
   for (const key of [
     'name',
+    'enabled',
+    'logging',
     'runtime',
     'timeout',
     'entrypoint',
@@ -285,8 +315,116 @@ export function diffFunction(actual, expected, label = expected.name) {
     );
   }
   for (const key of ['execute', 'scopes']) {
-    if (!sameArray(actual[key] || [], expected[key] || [])) {
+    if (!sameStringSet(actual[key] || [], expected[key] || [])) {
       diffs.push(`function ${label} ${key} differ`);
+    }
+  }
+  return diffs;
+}
+
+function variableMap(actual) {
+  return new Map(
+    (Array.isArray(actual?.vars) ? actual.vars : [])
+      .filter((item) => item?.key)
+      .map((item) => [item.key, item])
+  );
+}
+
+export function diffFunctionVariables(
+  actual,
+  expected,
+  { nonSecretOverrides = {}, allowMissingRequired = false } = {}
+) {
+  const diffs = [];
+  if (!actual) return diffs;
+  const variables = variableMap(actual);
+  const expectedNonSecret = {
+    ...(expected.nonSecretVariables || {}),
+    ...nonSecretOverrides,
+  };
+  const requiredNonSecret = expected.requiredNonSecretVariables || [];
+  const requiredSecret = expected.requiredSecretVariables || [];
+  const optionalNonSecret = expected.optionalNonSecretVariables || [];
+  const optionalSecret = expected.optionalSecretVariables || [];
+  const declared = new Set([
+    ...Object.keys(expectedNonSecret),
+    ...requiredNonSecret,
+    ...requiredSecret,
+    ...optionalNonSecret,
+    ...optionalSecret,
+  ]);
+
+  for (const [key, value] of Object.entries(expectedNonSecret)) {
+    const current = variables.get(key);
+    if (!current) {
+      diffs.push(`function ${expected.name} variable ${key}: missing`);
+      continue;
+    }
+    if (current.secret === true) {
+      diffs.push(
+        `function ${expected.name} variable ${key}: expected non-secret`
+      );
+      continue;
+    }
+    if (String(current.value ?? '') !== String(value)) {
+      diffs.push(
+        `function ${expected.name} variable ${key}: expected ${JSON.stringify(
+          String(value)
+        )}, got ${JSON.stringify(String(current.value ?? ''))}`
+      );
+    }
+  }
+
+  for (const key of requiredNonSecret) {
+    const current = variables.get(key);
+    if (!current) {
+      if (!allowMissingRequired) {
+        diffs.push(`function ${expected.name} variable ${key}: missing`);
+      }
+    } else if (current.secret === true) {
+      diffs.push(
+        `function ${expected.name} variable ${key}: expected non-secret`
+      );
+    } else if (!String(current.value ?? '').trim()) {
+      diffs.push(
+        `function ${expected.name} variable ${key}: expected non-empty value`
+      );
+    }
+  }
+
+  for (const key of requiredSecret) {
+    const current = variables.get(key);
+    if (!current) {
+      if (!allowMissingRequired) {
+        diffs.push(`function ${expected.name} variable ${key}: missing`);
+      }
+    } else if (current.secret !== true) {
+      diffs.push(
+        `function ${expected.name} variable ${key}: expected secret`
+      );
+    }
+  }
+
+  for (const key of optionalNonSecret) {
+    const current = variables.get(key);
+    if (current?.secret === true) {
+      diffs.push(
+        `function ${expected.name} variable ${key}: expected non-secret`
+      );
+    }
+  }
+  for (const key of optionalSecret) {
+    const current = variables.get(key);
+    if (current && current.secret !== true) {
+      diffs.push(
+        `function ${expected.name} variable ${key}: expected secret`
+      );
+    }
+  }
+
+  for (const key of variables.keys()) {
+    if (!declared.has(key)) {
+      diffs.push(`function ${expected.name} variable ${key}: unexpected`);
     }
   }
   return diffs;
@@ -307,7 +445,10 @@ export function diffLocalFunctionConfig(cliConfig, definitions) {
     for (const key of [
       '$id',
       'name',
+      'enabled',
+      'logging',
       'runtime',
+      'schedule',
       'timeout',
       'entrypoint',
       'commands',
@@ -321,7 +462,7 @@ export function diffLocalFunctionConfig(cliConfig, definitions) {
       );
     }
     for (const key of ['execute', 'scopes']) {
-      if (!sameArray(cli[key] || [], portable[key] || [])) {
+      if (!sameStringSet(cli[key] || [], portable[key] || [])) {
         diffs.push(`local ${name} ${key} differ`);
       }
     }
@@ -338,12 +479,38 @@ async function optionalGet(request, path) {
   }
 }
 
+export function diffTableInventory(listed) {
+  const diffs = [];
+  const tables = Array.isArray(listed?.tables) ? listed.tables : [];
+  const total = Number(listed?.total ?? tables.length);
+  if (Number.isFinite(total) && total > tables.length) {
+    diffs.push(
+      `table inventory incomplete: Appwrite reports ${total}, response included ${tables.length}`
+    );
+  }
+
+  const managed = new Set(MOSAIC_TABLES.map((table) => table.id));
+  const legacy = new Set(MOSAIC_LEGACY_TABLE_IDS);
+  const legacyTables = [];
+  for (const table of tables) {
+    const id = table?.$id;
+    if (!id || managed.has(id)) continue;
+    if (legacy.has(id)) {
+      legacyTables.push(id);
+    } else {
+      diffs.push(`table ${id}: unexpected unmanaged table`);
+    }
+  }
+  return { diffs, legacyTables: legacyTables.sort() };
+}
+
 export async function inspectManagedBackend({
   request,
   definitions,
   messageFunctionId,
   drFunctionId,
   includeDr = true,
+  recoveryDrill = false,
 }) {
   const diffs = diffLocalFunctionConfig(
     definitions.cliConfig,
@@ -353,6 +520,7 @@ export async function inspectManagedBackend({
     request,
     `/tablesdb/${MOSAIC_DATABASE.id}`
   );
+  let legacyTables = [];
   if (!database) {
     diffs.push(`database ${MOSAIC_DATABASE.id}: missing`);
   } else {
@@ -368,6 +536,13 @@ export async function inspectManagedBackend({
       database.enabled,
       MOSAIC_DATABASE.enabled
     );
+    const inventory = await request(
+      'GET',
+      `/tablesdb/${MOSAIC_DATABASE.id}/tables`
+    );
+    const inventoryDiff = diffTableInventory(inventory);
+    diffs.push(...inventoryDiff.diffs);
+    legacyTables = inventoryDiff.legacyTables;
   }
 
   for (const table of MOSAIC_TABLES) {
@@ -384,6 +559,8 @@ export async function inspectManagedBackend({
   );
   diffs.push(...diffBucket(bucket));
 
+  const resolvedDrFunctionId =
+    drFunctionId || definitions.functions['dr-backup'].config.$id;
   const functionObservations = [];
   const functionTargets = [
     [
@@ -393,17 +570,34 @@ export async function inspectManagedBackend({
     ],
   ];
   if (includeDr) {
-    functionTargets.push([
-      'dr-backup',
-      drFunctionId || definitions.functions['dr-backup'].config.$id,
-    ]);
+    functionTargets.push(['dr-backup', resolvedDrFunctionId]);
   }
   for (const [name, functionId] of functionTargets) {
     const actual = await optionalGet(request, `/functions/${functionId}`);
-    diffs.push(
-      ...diffFunction(actual, definitions.functions[name].config, name)
-    );
+    const expected = definitions.functions[name].config;
+    diffs.push(...diffFunction(actual, expected, name));
     if (actual) {
+      const nonSecretOverrides =
+        name === 'message-action'
+          ? {
+              DR_BACKUP_FUNCTION_ID: resolvedDrFunctionId,
+              DR_PRIVACY_DELETION_REQUIRED: recoveryDrill
+                ? 'false'
+                : includeDr
+                  ? 'true'
+                  : 'false',
+            }
+          : {};
+      diffs.push(
+        ...diffFunctionVariables(actual, expected, {
+          nonSecretOverrides,
+          allowMissingRequired:
+            recoveryDrill && name === 'dr-backup',
+        })
+      );
+      if (actual.live !== true) {
+        diffs.push(`function ${name} has no live deployment`);
+      }
       functionObservations.push({
         name,
         functionId,
@@ -418,5 +612,5 @@ export async function inspectManagedBackend({
     }
   }
 
-  return { diffs, functionObservations };
+  return { diffs, functionObservations, legacyTables };
 }
