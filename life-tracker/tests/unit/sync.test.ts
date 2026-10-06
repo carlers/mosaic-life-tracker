@@ -675,7 +675,20 @@ describe('sync — freshness barriers', () => {
 
   it('Sync Now does not rewrite owner rows that already match Appwrite', async () => {
     setAllPilots(true);
-    const current = makeDoc({ id: 'task_remote', lwt: 1 });
+    const current = makeDoc({
+      id: 'task_remote',
+      lwt: 1,
+      extra: {
+        tags: '',
+        memo: '',
+        image: '',
+        completedAt: '',
+        source: '',
+        routineId: '',
+        reminderTime: '',
+        reactions: '',
+      },
+    });
     const tasks = makeCollection([current]);
     getDatabaseMock.mockReturnValue(makeDb({ tasks }));
     listRowsMock.mockImplementation(
