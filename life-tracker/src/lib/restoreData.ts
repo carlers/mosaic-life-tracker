@@ -694,8 +694,7 @@ async function restoreImages(
           continue;
         }
 
-        const imageBuffer = bytes.slice().buffer as ArrayBuffer;
-        const file = new File([imageBuffer], `${oldId}.webp`, {
+        const file = new File([bytes as BlobPart], `${oldId}.webp`, {
           type: 'image/webp',
         });
         const preferredFileId = portableImageId(
