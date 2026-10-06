@@ -396,11 +396,13 @@ function isTimestampedCollection(collection: string): boolean {
     collection === 'messages'
   );
 }
-function isRateLimitError(err: unknown): boolean {
-  const code = (err as { code?: number } | null)?.code;
-  if (code === 429) return true;
-  const msg = err instanceof Error ? err.message : String(err);
-  return /rate limit/i.test(msg);
+export function isRateLimitError(err: unknown): boolean {
+  const error = err as { code?: number; cause?: { code?: number } } | null;
+  return (
+    error?.code === 429 ||
+    error?.cause?.code === 429 ||
+    /rate limit/i.test(err instanceof Error ? err.message : String(err))
+  );
 }
 function isConflictError(err: unknown): boolean {
   const code = (err as { code?: string } | null)?.code;

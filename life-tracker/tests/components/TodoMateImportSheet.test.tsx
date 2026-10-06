@@ -159,9 +159,9 @@ describe('TodoMateImportSheet', () => {
         },
         expect.objectContaining({
           mode: 'merge',
-          precompressedImages: true,
           onProgressDetail: expect.any(Function),
-        })
+        }),
+        true
       )
     );
     expect(onSuccess).toHaveBeenCalledWith(

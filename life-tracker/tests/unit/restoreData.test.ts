@@ -20,7 +20,14 @@ vi.mock('../../src/lib/accountWorkScope', () => ({
   isAccountWorkCurrent: (userId: string, generation: number) =>
     state.accountCurrent && userId === 'user_A' && generation === 7,
 }));
-vi.mock('../../src/db/sync', () => ({ initializeSync: state.sync, refreshSync: state.refreshSync }));
+vi.mock('../../src/db/sync', () => ({
+  initializeSync: state.sync,
+  refreshSync: state.refreshSync,
+  isRateLimitError: (error: unknown) => {
+    const value = error as { code?: number; cause?: { code?: number } } | null;
+    return value?.code === 429 || value?.cause?.code === 429;
+  },
+}));
 vi.mock('../../src/lib/exportData', async (importOriginal) => { const actual = await importOriginal<typeof import('../../src/lib/exportData')>(); return { ...actual, exportUserData: state.exportUserData, triggerDownload: state.triggerDownload }; });
 vi.mock('../../src/lib/storage', () => ({ ensureRestoredImage: state.ensureRestoredImage, getCurrentUserId: state.getCurrentUserId }));
 import { inspectBackupFile, restoreUserData } from '../../src/lib/restoreData';
