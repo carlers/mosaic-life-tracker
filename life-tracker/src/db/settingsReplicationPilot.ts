@@ -366,7 +366,7 @@ async function pushSettings(
     }
     const writeResult = await updateOwnerRowWithCas({
       databaseId: APPWRITE_DATABASE_ID,
-      tableId: APPWRITE_TABLES.settings,
+      tableId: 'settings',
       rowId: prepared.document.id,
       userId,
       expectedUpdatedAt: master.serverUpdatedAt,

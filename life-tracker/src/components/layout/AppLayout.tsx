@@ -5,6 +5,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { useConnectivity } from '../../hooks/useConnectivity';
 import { useDatabaseBootstrap } from '../../hooks/useDatabaseBootstrap';
 import { retryDatabaseBootstrap } from '../../lib/databaseBootstrap';
+import { startSyncWatchdog } from '../../db/syncWatchdog';
 import { PrimaryRoutePreview } from './PrimaryRoutePreview';
 import {
   getPrimaryRoutePreloadTargets,

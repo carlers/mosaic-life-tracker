@@ -585,7 +585,7 @@ async function pushTasks(
 
     let writeResult = await updateOwnerRowWithCas({
       databaseId: APPWRITE_DATABASE_ID,
-      tableId: APPWRITE_TABLES.tasks,
+      tableId: 'tasks',
       rowId: prepared.document.id,
       userId,
       expectedUpdatedAt: master.serverUpdatedAt,
@@ -612,7 +612,7 @@ async function pushTasks(
         prepared = await prepareTaskForPush(retryDocument, userId);
         writeResult = await updateOwnerRowWithCas({
           databaseId: APPWRITE_DATABASE_ID,
-          tableId: APPWRITE_TABLES.tasks,
+          tableId: 'tasks',
           rowId: prepared.document.id,
           userId,
           expectedUpdatedAt: retryUpdatedAt,
