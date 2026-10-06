@@ -186,13 +186,12 @@ export const TodoMateImportSheet: React.FC<TodoMateImportSheetProps> = ({
     try {
       const result = await restoreUserData(prepared.file, currentUser, {
         mode: 'merge',
-        precompressedImages: true,
         onProgressDetail: (detail) => {
           setProgress(detail.message);
           setProgressPercent(detail.percent);
         },
         onLocalApplyComplete: () => markTodoMateImportApplied(currentUser.id),
-      });
+      }, true);
       const restored = Object.values(result.restored).reduce(
         (total, count) => total + count,
         0

@@ -5,7 +5,7 @@ import type {
   DiaryDocument,
   SettingsDocument,
 } from '../db/schema';
-import { refreshSync } from '../db/sync';
+import { isRateLimitError, refreshSync } from '../db/sync';
 import {
   captureAccountWorkGeneration,
   isAccountWorkCurrent,
@@ -120,7 +120,6 @@ export interface RestoreOptions {
   mode: RestoreMode;
   onProgressDetail?: (progress: RestoreProgress) => void;
   onLocalApplyComplete?: () => void;
-  precompressedImages?: boolean;
 }
 
 export interface RestoreResult {
@@ -659,11 +658,6 @@ function referencedImageIds(data: NormalizedBackup): Set<string> {
   return ids;
 }
 
-function isRateLimitError(error: unknown): boolean {
-  const candidate = error as { code?: number; cause?: { code?: number } };
-  return candidate?.code === 429 || candidate?.cause?.code === 429;
-}
-
 async function restoreImages(
   loaded: LoadedBackup,
   data: NormalizedBackup,
@@ -1024,7 +1018,8 @@ async function assertRestoreUserStillCurrent(
 export async function restoreUserData(
   file: File,
   currentUser: ExportUser,
-  options: RestoreOptions
+  options: RestoreOptions,
+  precompressedImages = false
 ): Promise<RestoreResult> {
   if (!currentUser.id) throw new Error('Restore requires an authenticated user.');
 
@@ -1135,7 +1130,7 @@ export async function restoreUserData(
         total
       );
     },
-    options.precompressedImages === true
+    precompressedImages
   );
 
   await assertRestoreUserStillCurrent(currentUser.id);

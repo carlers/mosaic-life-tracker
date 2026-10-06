@@ -396,7 +396,7 @@ function isTimestampedCollection(collection: string): boolean {
     collection === 'messages'
   );
 }
-function isRateLimitError(err: unknown): boolean {
+export function isRateLimitError(err: unknown): boolean {
   const code = (err as { code?: number } | null)?.code;
   if (code === 429) return true;
   const msg = err instanceof Error ? err.message : String(err);
