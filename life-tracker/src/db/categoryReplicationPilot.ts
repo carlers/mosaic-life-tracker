@@ -216,10 +216,15 @@ async function pushCategories(
       if (createConflict) conflicts.push(createConflict);
       continue;
     }
+    if (!master) {
+      throw new Error(
+        `Category replication master token missing for ${next.id}`
+      );
+    }
 
     const writeResult = await updateOwnerRowWithCas({
       databaseId: APPWRITE_DATABASE_ID,
-      tableId: APPWRITE_TABLES.categories,
+      tableId: 'categories',
       rowId: next.id,
       userId,
       expectedUpdatedAt: master.serverUpdatedAt,

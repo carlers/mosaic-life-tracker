@@ -126,6 +126,7 @@ function collectionFixture(isLeader = true) {
 beforeEach(async () => {
   await stopDiaryReplicationPilot();
   vi.clearAllMocks();
+  sendAppActionMock.mockReset();
   trackReplicationFreshnessMock.mockImplementation(() => undefined);
   getChangedDocumentsSinceMock.mockResolvedValue({
     documents: [],
@@ -388,6 +389,9 @@ describe('diary RxDB replication pilot', () => {
   });
 
   it('turns a post-read concurrent diary write into an RxDB conflict', async () => {
+    getRowMock.mockResolvedValueOnce(
+      remoteDiary({ content: 'Local entry' })
+    );
     sendAppActionMock.mockResolvedValueOnce({
       status: 'conflict',
       row: remoteDiary({

@@ -5,9 +5,9 @@ export function startSyncWatchdog(input: {
   onTick: () => void;
   intervalMs?: number;
 }): () => void {
-  const timer = window.setInterval(() => {
+  const timer = globalThis.setInterval(() => {
     if (input.shouldRun()) input.onTick();
   }, input.intervalMs ?? SYNC_WATCHDOG_INTERVAL_MS);
 
-  return () => window.clearInterval(timer);
+  return () => globalThis.clearInterval(timer);
 }
