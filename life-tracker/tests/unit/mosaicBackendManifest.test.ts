@@ -4,6 +4,7 @@ import {
   BOOTSTRAP_API_KEY_SCOPES,
   MOSAIC_BUCKET,
   MOSAIC_DATABASE,
+  MOSAIC_LEGACY_TABLE_IDS,
   MOSAIC_TABLES,
 } from '../../infrastructure/mosaic-backend.mjs';
 import {
@@ -41,6 +42,11 @@ describe('portable Mosaic backend manifest', () => {
     expect(MOSAIC_TABLES.map((table) => table.id)).not.toContain(
       'analytics_events'
     );
+    expect(MOSAIC_LEGACY_TABLE_IDS).toEqual([
+      'routines',
+      'stickers',
+      'analytics_events',
+    ]);
   });
 
   it('pins task ordering plus the social and messaging schema needed by current Mosaic', () => {

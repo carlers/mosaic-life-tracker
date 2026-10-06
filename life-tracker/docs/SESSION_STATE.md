@@ -1,28 +1,22 @@
 # Session checkpoint
 
-Updated: 2026-10-05
-Current task: Connector write-batching workflow hardening on stable Preview `refactor/connector-write-batching`.
-Status: UI smoothness Preview `d5371750f49467f7726e8ac57542241e220a020e` was promoted unchanged to `dev` by PR #286 as merge commit `ffac3b119672fdf1eebf538d618d240471aae6fa`; the dev promotion check and canonical acceptance passed by reusing the accepted Preview evidence. Connector investigation isolated the earlier large-patch failure: the current Code Mode harness accepts 20 nested connector calls in one execution and rejects 21, while no remaining-call counter is exposed. Public OpenAI API docs show the host can configure `max_tool_calls`, so the exact ceiling is environment-specific. The workflow docs now require a conservative <=12-call preflight, separate read/write phases, <=12-call blob batches, and a final 3-call tree/commit/ref phase. A lease-shaped `update_ref` attempt also exposed an action-argument compatibility quirk, so the protocol now requires a fresh head read and uses an expected-head lease only when the current connector accepts it.
-Next action: Focused-verify this documentation-only task commit, squash it into `refactor/connector-write-batching`, then require the stable Preview canonical gate/delivery. Do not promote this refactor to `dev` or `main` without explicit user instruction.
+Updated: 2026-10-06
+Current task: Double-check/harden the accepted Appwrite backend change-control foundation on task branch `chatgpt/appwrite-version-control-double-check`, targeting protected Preview `refactor/appwrite-version-control-audit`.
+Status: The re-audit found and fixed several real holes: stale handoff state; drift checks that missed unexpected managed columns/indexes and Function variables; incorrect DR variable secrecy classification; three intentional pre-foundation tables that were not explicitly modeled; and eight old scripts that still embedded the production project ID outside the new confirmation guard. Focused CI initially caught one stale table-name test fixture; that fixture was corrected and the next focused run passed. A read-only live Appwrite comparison then found one additional real production drift: `task_images` still has bucket-wide authenticated-user read access even though Mosaic already grants intended reads per file. Appwrite documents bucket and file permissions as additive, so that bucket grant bypasses file-security restrictions. Live inventory showed 134 files: 132 already have per-file authenticated-user read; the two owner-only legacy files are unreferenced by current tasks/profiles. The repository now includes an explicit idempotent `003-task-images-bucket-permissions` reconciliation, plus recovery-drill-aware status handling. Production Appwrite remains read-only and unchanged during this task.
+Next action: Commit the final hardening patch, run focused verification, fix any failures, then merge the exact accepted tree to protected `refactor/appwrite-version-control-audit` through PR and require the stable full canonical gate plus READY Vercel Preview. The production bucket permission migration is intentionally not applied until an explicit production rollout is authorized. Do not promote to `dev` or `main` without explicit user instruction.
 Blockers: None.
 
-## Final build-vs-reuse outcome
+## Backend workflow decisions
 
-1. **Appwrite transaction CAS rejected.** Live disposable-project evidence showed a transactional read does not protect a later staged write from an intervening external update. The existing D1 owner-write race remains explicit; conditional `updateRows` would require a separate revision-token protocol.
-2. **Replication deduplication accepted selectively.** All six pilots use `captureReplicationPushCheckpoint`. Task/category/diary/settings also use the shared owner tuple-pull and simple Realtime wakeup helpers. Friendship/message retain their side-effectful pull and delete handling. Lifecycle/start-stop and domain push/conflict/mapping policy remain local.
-3. **Direct shared-helper regression coverage added.** The primitive contract now directly tests multi-page checkpoint capture, exact owner-scoped tuple query shape, malformed-row checkpoint filtering, owner rejection, and active-owner Realtime wakeups.
-4. **Auxiliary IndexedDB reuse rejected.** The Dexie prototype passed build/size but added module-initialization IndexedDB coupling for modest source reduction, so native helpers remain.
-5. **No further broad refactor planned.** Reopen only for a concrete correctness issue, maintenance fan-out, bundle evidence, or new product requirement.
-
-## Verification evidence before this polish
-
-- Initial implementation focused gate `37260886935`: success.
-- Dexie-revert focused gate `37261486731`: success.
-- Repaired stable full gate `37261563678`: success.
-- Final tuple-pull extraction focused gate `37261803782`: success.
-- Stable commit `e1fa366426ccde32ac3625bea71b5200798fd0fe`, full canonical gate `37261889776`: success across checks, production build/PWA/size, dependency audit, both DOM shards, and both browser shards.
-- Exact-SHA Vercel deployment `dpl_7TPyaHa2SxRmnUQ4U8SrPvmeaKDA`: READY.
+1. **No permanent cloud staging project.** Use local isolation where sufficient and `My first project` as the disposable Cloud scratch/DR project when real Appwrite behavior is required.
+2. **Git remains authoritative for managed state.** The manifest owns active database/table/bucket shape; Function configs own structural/variable contracts; known pre-foundation placeholder tables are explicitly tolerated but not provisioned fresh.
+3. **Mutations fail closed.** Current migration/deploy/activate entry points require matching `--project` and `--confirm-project`; pre-foundation production-hardcoded one-offs are retired from the active tree.
+4. **Status is the environment preflight.** It checks exact declared managed columns/indexes, bucket/Function structure, live deployment presence, and declared Function variable presence/secrecy without exposing secret values. `--recovery-drill` models the credential-less isolated restore topology; remote schedules/VCS linkage remain operational and reported.
+5. **Function deploy and activation remain separate.** Exact clean `HEAD` source builds inactive; activation is explicit and verified.
+6. **Migration history has a baseline.** Fresh forks bootstrap current state; the numbered runner owns changes from the backend-change-control baseline forward. Migration `003` captures the one live bucket-permission drift found during acceptance rather than normalizing Git to a weaker production setting.
+7. **Storage read access stays file-scoped.** Bucket-level `read("users")` defeats file security because Appwrite grants access through either bucket or file permissions. Mosaic keeps only bucket-level create and uses per-file read/update/delete permissions.
+8. **Build identity stays outside hashed app chunks.** The prior Vercel-size fix remains accepted; no bundle ceiling was raised.
 
 ## Delivery boundary
 
-The final polish should be one focused-verified task tree, then one stable-Preview full verification. Once accepted, promote that exact stable Preview tree to `dev`. No additional refactor batch is planned and no `main` promotion is authorized.
+This follow-up changes repository tooling/docs/tests only. It must not mutate Appwrite Cloud resources, schema, Function deployments/activation, schedules, secrets, bucket permissions, or project state during acceptance. The new bucket migration exists for a later explicit rollout.

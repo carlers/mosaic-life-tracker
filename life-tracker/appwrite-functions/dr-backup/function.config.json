@@ -1,6 +1,8 @@
 {
   "$id": "dr_backup",
   "name": "dr-backup",
+  "enabled": true,
+  "logging": true,
   "runtime": "node-22",
   "execute": [],
   "scopes": [
@@ -27,11 +29,19 @@
     "DR_OBJECT_LOCK_DAYS": "30",
     "DR_ALLOW_MANUAL_EXECUTION": "false"
   },
-  "requiredSecretVariables": [
+  "requiredNonSecretVariables": [
     "R2_ACCOUNT_ID",
+    "R2_BUCKET"
+  ],
+  "requiredSecretVariables": [
     "R2_ACCESS_KEY_ID",
     "R2_SECRET_ACCESS_KEY",
-    "R2_BUCKET",
     "DR_ENCRYPTION_KEY_B64"
+  ],
+  "optionalNonSecretVariables": [
+    "R2_ENDPOINT"
+  ],
+  "optionalSecretVariables": [
+    "DR_ENCRYPTION_KEYS_JSON"
   ]
 }

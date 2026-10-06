@@ -22,8 +22,20 @@ describe('DR Function least-privilege configuration', () => {
     );
   });
 
-  it('records secret names without secret values', () => {
-    expect(config.requiredSecretVariables).toContain('DR_ENCRYPTION_KEY_B64');
+  it('distinguishes required public R2 routing from secret credentials', () => {
+    expect(config.requiredNonSecretVariables).toEqual([
+      'R2_ACCOUNT_ID',
+      'R2_BUCKET',
+    ]);
+    expect(config.requiredSecretVariables).toEqual([
+      'R2_ACCESS_KEY_ID',
+      'R2_SECRET_ACCESS_KEY',
+      'DR_ENCRYPTION_KEY_B64',
+    ]);
+    expect(config.optionalNonSecretVariables).toEqual(['R2_ENDPOINT']);
+    expect(config.optionalSecretVariables).toEqual([
+      'DR_ENCRYPTION_KEYS_JSON',
+    ]);
     expect(config).not.toHaveProperty('secrets');
   });
 });

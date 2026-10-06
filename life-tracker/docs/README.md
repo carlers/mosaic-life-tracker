@@ -22,6 +22,7 @@ behavior.
 | User backup format and restore semantics | [Backup and restore](BACKUP_RESTORE.md) |
 | One-way TodoMate personal-data migration | [TodoMate import](TODOMATE_IMPORT.md) |
 | Forking, fresh Appwrite bootstrap, maintainer continuity | [Forking and recovery](FORKING.md) |
+| Appwrite schema/Function version control and scratch-project workflow | [Appwrite backend workflow](APPWRITE_BACKEND_WORKFLOW.md) |
 | Administrator disaster recovery | [Disaster recovery](DISASTER_RECOVERY.md) |
 | Optional measurements/evidence ledger | [Telemetry](WORKFLOW_TELEMETRY.md) |
 

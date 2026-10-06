@@ -133,12 +133,16 @@ export function parseBootstrapArgs(argv = [], env = process.env) {
     ]) {
       if (!env[name]) {
         throw new Error(
-          `--with-dr requires ${name}. Keep recovery secrets out of source control.`
+          `--with-dr requires ${name}. Keep recovery credentials out of source control.`
         );
       }
-      drSecrets[name] = env[name];
     }
+    drVariables.R2_ACCOUNT_ID = env.R2_ACCOUNT_ID;
+    drVariables.R2_BUCKET = env.R2_BUCKET;
     if (env.R2_ENDPOINT) drVariables.R2_ENDPOINT = env.R2_ENDPOINT;
+    drSecrets.R2_ACCESS_KEY_ID = env.R2_ACCESS_KEY_ID;
+    drSecrets.R2_SECRET_ACCESS_KEY = env.R2_SECRET_ACCESS_KEY;
+    drSecrets.DR_ENCRYPTION_KEY_B64 = env.DR_ENCRYPTION_KEY_B64;
   }
 
   return {
@@ -375,8 +379,8 @@ function functionCreateInput(config, functionId, overrides = {}) {
         ? overrides.schedule
         : config.schedule || '',
     timeout: config.timeout,
-    enabled: true,
-    logging: true,
+    enabled: config.enabled ?? true,
+    logging: config.logging ?? true,
     entrypoint: config.entrypoint,
     commands: config.commands,
     scopes: config.scopes || [],
