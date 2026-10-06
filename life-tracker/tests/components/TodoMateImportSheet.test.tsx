@@ -82,7 +82,7 @@ describe('TodoMateImportSheet', () => {
         email: 'todo@example.com',
         password: 'secret-password',
       },
-      expect.objectContaining({ onProgress: expect.any(Function) })
+      expect.objectContaining({ onProgressDetail: expect.any(Function) })
     );
     expect(password).toHaveValue('');
     expect(screen.getByText(/1 unscheduled task will be placed on today/i)).toBeInTheDocument();

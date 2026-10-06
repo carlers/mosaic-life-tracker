@@ -126,11 +126,6 @@ export const TodoMateImportSheet: React.FC<TodoMateImportSheetProps> = ({
         { email, password },
         {
           signal: controller.signal,
-          onProgress: (message) => {
-            if (generation === previewGenerationRef.current) {
-              setProgress(message);
-            }
-          },
           onProgressDetail: (detail) => {
             if (generation === previewGenerationRef.current) {
               setProgress(detail.message);

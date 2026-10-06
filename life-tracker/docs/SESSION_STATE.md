@@ -1,42 +1,23 @@
 # Session checkpoint
 
 Updated: 2026-10-06
-Current task: TodoMate import/sync performance and race hardening on stable Preview `perf/todomate-import-sync-audit`.
-Status: Implementation is complete and accepted on code head `45a2727`. The final stable Preview production build is READY and the build-size guard passes at `appAssetsGzipBytes = 682,295 B / 682,300 B`. Full canonical Quality Gate run `37411089103` completed successfully: lint, unit tests, handler tests, both DOM shards, both browser-contract shards, dependency audit, production build, and canonical acceptance are green. The accepted optimization keeps four-worker photo restore, RxDB `findByIds()` restore planning, zero-deflate TodoMate WebP ZIP entries, TodoMate-precompressed upload reuse, and create-first fresh TodoMate task replication with 409 fallback. Prepared previews are bound to the Mosaic account that created them and cannot restore under a different account. The lower-priority recovery-marker timing refinement was intentionally dropped to keep the production bundle within its fixed budget; starting Import may leave an `applying` marker if preflight then fails, but rerunning remains deterministic and duplicate-safe.
-Next action: No further automated work is required on this task. Optional manual acceptance is a real-account timing comparison of Preview/import/sync against the prior behavior; that requires the user's TodoMate credentials and must be done by the user locally. Do not promote `perf/todomate-import-sync-audit` to `dev` or `main` without explicit user instruction.
+Current task: TodoMate import/sync performance and race hardening on stable Preview `perf/todomate-import-sync-audit`, with deterministic bundle headroom follow-up on `chatgpt/todomate-import-sync-size-headroom`.
+Status: The accepted code build `45a2727` passed at 682,295 B / 682,300 B app-assets gzip, but the subsequent docs-only stable SHA rebuilt the identical app code at 682,308 B and failed by 8 B. Raw app bytes were effectively unchanged, so this exposed small gzip variation between Vite builds and proved the prior 5 B margin was not robust. The fixed budget remains unchanged. This follow-up removes a redundant TodoMate simple-progress API path: the importer sheet already consumes `onProgressDetail`, and every connection/login/history/photo/preparation phase is emitted through that detailed callback. Removing the duplicate `onProgress` plumbing does not change visible progress, cancellation, mapping, restore, account isolation, or sync semantics, but creates deterministic size headroom.
+Next action: Run focused verification, then squash-merge into `perf/todomate-import-sync-audit` and require a full stable canonical Quality Gate plus READY Vercel Preview/build-size pass. After stable acceptance, update this checkpoint once more only if needed; do not promote to `dev` or `main` without explicit user instruction.
 Blockers: None.
 
-## Verification evidence
+## Verification target
 
-- Focused task verification passed on the final code-size follow-up.
-- Stable full Quality Gate: `37411089103` — canonical acceptance succeeded.
-- Stable Vercel Preview code SHA: `45a272716616b75ec783d282e6f2b77c7d7f9f06`.
-- Vercel deployment: READY.
-- Production size: `682,295 B` app-assets gzip against a `682,300 B` budget.
-- Existing live correctness evidence remains: TodoMate preview/import previously succeeded with 505 tasks, 13 categories, 1 diary entry, 3 undated tasks, and all 37 photo attachments copied on re-import without task duplication.
+- TodoMate importer detailed progress remains visible for all phases and photo completion.
+- Existing stale-preview cancellation, cross-account import refusal, photo migration, restore, storage, and task-replication regressions remain green.
+- Stable production app-assets gzip has meaningful headroom below 682,300 B across the post-merge build.
 
-## Accepted implementation
+## Accepted implementation retained
 
-- TodoMate photo preparation remains bounded to four concurrent download/compression workers.
-- Restore uploads referenced photos through a rolling four-worker pool rather than serially.
-- Restore planning resolves existing documents per collection with RxDB `findByIds()` instead of serial per-row planning lookups.
-- TodoMate migration ZIP stores already-compressed WebPs with no additional deflate pass.
-- Restore recognizes the reserved TodoMate source-user prefix and uploads those adapter-produced WebPs without a second image-compression pass.
-- Fresh, side-effect-free TodoMate task replication attempts create first; a 409 falls back to the established remote-read/bootstrap conflict path.
-- Prepared TodoMate previews retain their Mosaic owner and Import refuses cross-account application.
-- Restore/import progress and the bounded post-restore convergence behavior remain unchanged.
-
-## Working files
-
-- `src/components/modals/TodoMateImportSheet.tsx`
-- `src/lib/todomateImport.ts`
-- `src/lib/restoreData.ts`
-- `src/lib/storage.ts`
-- `src/db/taskReplicationPilot.ts`
-- `tests/components/TodoMateImportSheet.test.tsx`
-- `tests/unit/todomateImport.test.ts`
-- `tests/unit/restoreData.test.ts`
-- `tests/unit/restoreData.image-preservation.test.ts`
-- `tests/unit/storage.test.ts`
-- `tests/unit/taskReplicationPilot.test.ts`
-- `docs/TODOMATE_IMPORT.md`
+- Four-worker TodoMate photo preparation and four-worker restore upload.
+- RxDB `findByIds()` restore planning.
+- Zero-deflate TodoMate WebP migration ZIP entries.
+- TodoMate-precompressed upload reuse without a second image compression pass.
+- Create-first fresh TodoMate task replication with 409 fallback to established conflict semantics.
+- Prepared-preview Mosaic account ownership guard.
+- Existing restore/import percentage UI and bounded post-restore convergence.
