@@ -33,6 +33,7 @@ import { awaitPilotReplicationFreshness } from './replicationFreshness';
 import { getReplicationIdentifier } from './replicationIds';
 import { trackReplicationFreshness } from './replicationLocalState';
 import { assertRemoteRowOwnedBy } from './replicationOwnership';
+import { readOwnerMaster, updateOwnerRowWithCas } from './ownerWriteCas';
 import {
   loadAcceptedFriendIds,
   sanitizeTaskReactions,
@@ -93,10 +94,6 @@ function waitForTodoMateCreateSlot(userId: string): Promise<void> {
   });
   pacer.tail = slot.catch(() => {});
   return slot;
-}
-
-function isNotFoundError(error: unknown): boolean {
-  return (error as { code?: number } | null)?.code === 404;
 }
 
 function isConflictError(error: unknown): boolean {
@@ -183,23 +180,26 @@ function isBootstrapLocalNewer(
   );
 }
 
+async function readRemoteTaskMaster(
+  rowId: string,
+  userId: string
+) {
+  return readOwnerMaster({
+    databaseId: APPWRITE_DATABASE_ID,
+    tableId: APPWRITE_TABLES.tasks,
+    rowId,
+    userId,
+    ownerLabel: 'Task',
+    mapRow: toReplicatedTask,
+  });
+}
+
 async function readRemoteTask(
   rowId: string,
   userId: string
 ): Promise<ReplicatedTask | null> {
-  try {
-    const row = await guardedTablesDB.getRow({
-      databaseId: APPWRITE_DATABASE_ID,
-      tableId: APPWRITE_TABLES.tasks,
-      rowId,
-    });
-    const raw = row as unknown as Record<string, unknown>;
-    assertRemoteRowOwnedBy(raw, userId, 'Task');
-    return toReplicatedTask(raw);
-  } catch (error) {
-    if (isNotFoundError(error)) return null;
-    throw error;
-  }
+  const master = await readRemoteTaskMaster(rowId, userId);
+  return master?.document ?? null;
 }
 
 async function createRemoteTask(
@@ -480,6 +480,7 @@ async function pushTasks(
     }
 
     const assumed = row.assumedMasterState;
+    let master: Awaited<ReturnType<typeof readRemoteTaskMaster>> = null;
     let current: ReplicatedTask | null;
 
     if (
@@ -498,9 +499,11 @@ async function pushTasks(
       if (!createConflict) {
         continue;
       }
-      current = createConflict;
+      master = await readRemoteTaskMaster(next.id, userId);
+      current = master?.document ?? createConflict;
     } else {
-      current = await readRemoteTask(next.id, userId);
+      master = await readRemoteTaskMaster(next.id, userId);
+      current = master?.document ?? null;
     }
 
     if (current && current.userId !== userId) {
@@ -581,21 +584,62 @@ async function pushTasks(
       documentToPush = merged;
     }
 
-    const prepared = await prepareTaskForPush(documentToPush, userId);
+    let prepared = await prepareTaskForPush(documentToPush, userId);
+    if (!master) {
+      throw new Error(
+        `Task replication master token missing for ${prepared.document.id}`
+      );
+    }
 
-    try {
-      await guardedTablesDB.updateRow({
-        databaseId: APPWRITE_DATABASE_ID,
-        tableId: APPWRITE_TABLES.tasks,
-        rowId: prepared.document.id,
-        data: toAppwriteFormat(
-          prepared.document as unknown as Record<string, unknown>,
-          'tasks',
-          userId
-        ),
-      });
-    } catch (error) {
-      if (!isNotFoundError(error)) throw error;
+    let writeResult = await updateOwnerRowWithCas({
+      databaseId: APPWRITE_DATABASE_ID,
+      tableId: APPWRITE_TABLES.tasks,
+      rowId: prepared.document.id,
+      userId,
+      expectedUpdatedAt: master.serverUpdatedAt,
+      data: toAppwriteFormat(
+        prepared.document as unknown as Record<string, unknown>,
+        'tasks',
+        userId
+      ),
+    });
+
+    // A friend can mutate reactions between our master read and CAS. Preserve
+    // that server-owned drift and retry once; owner-field drift remains a real
+    // conflict and must never be overwritten.
+    if (writeResult.status === 'conflict' && assumed) {
+      assertRemoteRowOwnedBy(writeResult.row, userId, 'Task');
+      const latest = toReplicatedTask(writeResult.row);
+      const retryDocument = mergeServerReactionDrift(next, latest, assumed);
+      const retryUpdatedAt = writeResult.row.$updatedAt;
+      if (
+        retryDocument &&
+        typeof retryUpdatedAt === 'string' &&
+        !Number.isNaN(Date.parse(retryUpdatedAt))
+      ) {
+        prepared = await prepareTaskForPush(retryDocument, userId);
+        writeResult = await updateOwnerRowWithCas({
+          databaseId: APPWRITE_DATABASE_ID,
+          tableId: APPWRITE_TABLES.tasks,
+          rowId: prepared.document.id,
+          userId,
+          expectedUpdatedAt: retryUpdatedAt,
+          data: toAppwriteFormat(
+            prepared.document as unknown as Record<string, unknown>,
+            'tasks',
+            userId
+          ),
+        });
+      }
+    }
+
+    if (writeResult.status === 'conflict') {
+      assertRemoteRowOwnedBy(writeResult.row, userId, 'Task');
+      await cleanupPendingTaskImage(next, userId);
+      conflicts.push(toReplicatedTask(writeResult.row));
+      continue;
+    }
+    if (writeResult.status === 'missing') {
       const createConflict = await createRemoteTask(
         prepared.document,
         userId

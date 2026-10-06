@@ -27,6 +27,7 @@ import { awaitPilotReplicationFreshness } from './replicationFreshness';
 import { getReplicationIdentifier } from './replicationIds';
 import { trackReplicationFreshness } from './replicationLocalState';
 import { assertRemoteRowOwnedBy } from './replicationOwnership';
+import { readOwnerMaster, updateOwnerRowWithCas } from './ownerWriteCas';
 
 const PULL_BATCH_SIZE = 100;
 const PUSH_BATCH_SIZE = 20;
@@ -60,10 +61,6 @@ let activePullStream:
 let realtimeUnsubscribe: RealtimeUnsubscribe | null = null;
 let errorSubscription: Subscription | null = null;
 let activeCollection: RxCollection<DiaryDocument> | null = null;
-
-function isNotFoundError(error: unknown): boolean {
-  return (error as { code?: number } | null)?.code === 404;
-}
 
 function isConflictError(error: unknown): boolean {
   return (error as { code?: number } | null)?.code === 409;
@@ -116,23 +113,26 @@ function isBootstrapLocalNewer(
   );
 }
 
+async function readRemoteDiaryMaster(
+  rowId: string,
+  userId: string
+) {
+  return readOwnerMaster({
+    databaseId: APPWRITE_DATABASE_ID,
+    tableId: APPWRITE_TABLES.diary,
+    rowId,
+    userId,
+    ownerLabel: 'Diary',
+    mapRow: toReplicatedDiary,
+  });
+}
+
 async function readRemoteDiary(
   rowId: string,
   userId: string
 ): Promise<ReplicatedDiary | null> {
-  try {
-    const row = await guardedTablesDB.getRow({
-      databaseId: APPWRITE_DATABASE_ID,
-      tableId: APPWRITE_TABLES.diary,
-      rowId,
-    });
-    const raw = row as unknown as Record<string, unknown>;
-    assertRemoteRowOwnedBy(raw, userId, 'Diary');
-    return toReplicatedDiary(raw);
-  } catch (error) {
-    if (isNotFoundError(error)) return null;
-    throw error;
-  }
+  const master = await readRemoteDiaryMaster(rowId, userId);
+  return master?.document ?? null;
 }
 
 async function createRemoteDiary(
@@ -181,7 +181,8 @@ async function pushDiary(
       );
     }
 
-    const current = await readRemoteDiary(next.id, userId);
+    const master = await readRemoteDiaryMaster(next.id, userId);
+    const current = master?.document ?? null;
     const assumed = row.assumedMasterState;
 
     if (!assumed) {
@@ -215,19 +216,24 @@ async function pushDiary(
       continue;
     }
 
-    try {
-      await guardedTablesDB.updateRow({
-        databaseId: APPWRITE_DATABASE_ID,
-        tableId: APPWRITE_TABLES.diary,
-        rowId: next.id,
-        data: toAppwriteFormat(
-          next as unknown as Record<string, unknown>,
-          'diary',
-          userId
-        ),
-      });
-    } catch (error) {
-      if (!isNotFoundError(error)) throw error;
+    const writeResult = await updateOwnerRowWithCas({
+      databaseId: APPWRITE_DATABASE_ID,
+      tableId: APPWRITE_TABLES.diary,
+      rowId: next.id,
+      userId,
+      expectedUpdatedAt: master.serverUpdatedAt,
+      data: toAppwriteFormat(
+        next as unknown as Record<string, unknown>,
+        'diary',
+        userId
+      ),
+    });
+    if (writeResult.status === 'conflict') {
+      assertRemoteRowOwnedBy(writeResult.row, userId, 'Diary');
+      conflicts.push(toReplicatedDiary(writeResult.row));
+      continue;
+    }
+    if (writeResult.status === 'missing') {
       const createConflict = await createRemoteDiary(next, userId);
       if (createConflict) conflicts.push(createConflict);
     }

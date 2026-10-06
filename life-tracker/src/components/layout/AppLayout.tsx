@@ -176,6 +176,13 @@ export const AppLayout: React.FC = () => {
     const onVisibility = () => {
       if (document.visibilityState === 'visible') schedule('visibility');
     };
+    const stopWatchdog = startSyncWatchdog({
+      shouldRun: () =>
+        active &&
+        connectivity.status === 'online' &&
+        document.visibilityState === 'visible',
+      onTick: () => schedule('watchdog'),
+    });
 
     window.addEventListener('focus', onFocus);
     window.addEventListener('online', onOnline);
@@ -186,6 +193,7 @@ export const AppLayout: React.FC = () => {
       window.removeEventListener('focus', onFocus);
       window.removeEventListener('online', onOnline);
       document.removeEventListener('visibilitychange', onVisibility);
+      stopWatchdog();
     };
   }, [connectivity.status, database.state, isOffline, user?.$id]);
 

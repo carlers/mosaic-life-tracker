@@ -28,9 +28,9 @@ Status meanings:
 | Shared local DB | Active account's upstream scan sees cached rows belonging to another account | Ignore local foreign-owner rows without touching Appwrite | **Covered** across pilots |
 | Remote isolation | Owner-scoped list/get unexpectedly returns another account's row | Fail closed as a cross-account collision; never silently accept/filter it | **Covered; fixed by this audit** across all six steady-state pulls, stale-recovery/bootstrap snapshot reads, and owner-write direct master reads |
 | Connectivity | Browser/Appwrite reachability is not proven | Do not start network sync; keep local app usable | **Covered** by connectivity/auth contracts |
-| Reconnect/focus | App becomes visible/online/focused | Request resync; do not depend on Realtime having delivered every event | **Covered** by AppLayout lifecycle + sync tests |
+| Reconnect/focus | App becomes visible/online/focused | Request resync immediately; do not depend on Realtime having delivered every event | **Covered** by AppLayout lifecycle + sync tests |
 | Realtime | Create/update event arrives in order | Treat event as a wake-up and catch up through ordered pull checkpoint | **Covered; fixed by this audit** across all six pilots |
-| Realtime | Reconnect misses an event, or events arrive out of order | A later Realtime payload must not advance the durable pull checkpoint past an unseen write | **Covered by invariant; fixed by this audit** — create/update emits `RESYNC` instead of a checkpointed payload |
+| Realtime | Reconnect misses an event, or events arrive out of order | Realtime must never advance the durable pull checkpoint directly; while visible+online, a periodic incremental resync bounds an otherwise silent missed-event gap | **Covered** — create/update emits `RESYNC`, lifecycle wake-ups remain immediate, and the 120-second watchdog has timer/gating regression coverage |
 | Realtime delete | Friendship/message hard delete event arrives | Soft-delete owner-scoped local cache and request a resync | **Covered** |
 | Pull checkpoint | Multiple server rows share the same `$updatedAt` | Tuple checkpoint `$updatedAt + $id` must make ordering deterministic | **Covered** by query-shape tests |
 | Pull response | Server row is malformed and lacks checkpoint fields | Do not advance checkpoint from that row | **Covered** — direct `replicationPilotPrimitives.test.ts` regression verifies malformed rows are filtered and cannot become the tuple checkpoint |
@@ -55,9 +55,9 @@ Status meanings:
 | Task conflict | Friend reaction changes server row while owner edits task | Merge server-owned reaction drift when owner fields did not change remotely | **Covered** |
 | Settings side effect | Profile image setting write succeeds but profile mirror fails | Keep pending image so next reconciliation can repair side effect | **Covered** |
 | Message intent | Pull races optimistic read/unsend/reaction state | Preserve only documented newer local Function/outbox intent; server-owned fields still win | **Covered** |
-| Concurrent write | Another device changes same owner-write row after master read but before `updateRow` | No atomic compare-and-update is currently used; next replication reconciles | **Accepted D1** — 2026-10-05 live Appwrite proof rejected transaction-scoped read as a CAS fence. Stage-before-conflict works, but read→external-write→stage can still overwrite. Conditional `updateRows` would require a new remote revision-token protocol. |
+| Concurrent write | Another device changes the same task/category/diary/settings row after the client master read | The stale write must update zero rows and return the current master to RxDB instead of silently overwriting it | **Covered in code / rollout-gated** — 2026-10-06 scratch proof validated server `updateRows` CAS using `$id + $updatedAt`; handler/client/pilot regressions cover conflict return. Protection is active once the updated `message-action` Function is deployed; the old-Function compatibility fallback intentionally retains D1 only during staggered rollout. |
 | Stale recovery clock | Client clock is severely skewed around the 90-day recovery boundary | Preserve uncertain local state conservatively | **Accepted** |
-| Hosted socket behavior | Appwrite Realtime disconnects/reconnects under real mobile/PWA network changes | Focus/visibility/connectivity resync plus Realtime-as-wakeup must converge after network restoration | **Manual** hosted/device acceptance; unit tests prove the checkpoint invariant, not provider socket timing |
+| Hosted socket behavior | Appwrite Realtime disconnects/reconnects under real mobile/PWA network changes | Focus/visibility/connectivity resync plus Realtime-as-wakeup must converge after network restoration; a continuously visible+online client requests incremental catch-up at least every 120 seconds | **Automated invariant + manual provider acceptance** — watchdog gating is unit-covered; real mobile/PWA socket timing remains a hosted/device check |
 
 ## Combination coverage
 
@@ -77,6 +77,4 @@ coverage are:
 6. **server-owned field × owner write** — task reactions and message/read semantics retain
    collection-specific merge rules.
 
-The remaining accepted risks are the non-atomic Appwrite read→write window for owner-write pilots
-and client-clock ambiguity in rare stale recovery. Both are documented in
-`PROJECT_REFERENCE.md §18` and should remain explicit rather than being hidden by broader tests.
+The remaining accepted correctness risk in this matrix is client-clock ambiguity in rare stale recovery. The former owner-write D1 is now closed by Function-side compare-and-set once that backend revision is activated; the compatibility fallback is rollout-only and must not be mistaken for final production acceptance. Routine full anti-entropy remains deferred unless convergence testing shows a reproducible checkpoint divergence that the bounded incremental watchdog cannot repair.
