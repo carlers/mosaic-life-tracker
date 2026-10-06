@@ -480,7 +480,7 @@ async function pushTasks(
     }
 
     const assumed = row.assumedMasterState;
-    let master: Awaited<ReturnType<typeof readRemoteTaskMaster>> = null;
+    let master: Awaited<ReturnType<typeof readRemoteTaskMaster>>;
     let current: ReplicatedTask | null;
 
     if (
