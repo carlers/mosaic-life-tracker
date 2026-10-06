@@ -118,7 +118,6 @@ export interface RestoreProgress {
 
 export interface RestoreOptions {
   mode: RestoreMode;
-  onProgress?: (message: string) => void;
   onProgressDetail?: (progress: RestoreProgress) => void;
   onLocalApplyComplete?: () => void;
 }
@@ -661,7 +660,6 @@ async function restoreImages(
   loaded: LoadedBackup,
   data: NormalizedBackup,
   currentUserId: string,
-  onProgress?: (message: string) => void,
   assertOwner?: () => void,
   onImageProgress?: (completed: number, total: number) => void
 ): Promise<{ restored: number; missing: number }> {
@@ -693,9 +691,6 @@ async function restoreImages(
           continue;
         }
 
-        onProgress?.(
-          `Restoring photos (${completed + 1}/${ids.length})…`
-        );
         const imageBuffer = bytes.slice().buffer as ArrayBuffer;
         const file = new File([imageBuffer], `${oldId}.webp`, {
           type: 'image/webp',
@@ -1024,14 +1019,12 @@ export async function restoreUserData(
     }
   };
 
-  const report = options.onProgress ?? (() => {});
   const reportDetail = (
     message: string,
     percent: number,
     completed?: number,
     total?: number
   ) => {
-    report(message);
     options.onProgressDetail?.({
       message,
       percent: Math.max(0, Math.min(100, Math.round(percent))),
@@ -1097,7 +1090,7 @@ export async function restoreUserData(
 
   let safetyBackupDownloaded = false;
   if (options.mode === 'replace') {
-    report('Creating safety backup…');
+    reportDetail('Creating safety backup…', 23);
     const safety = await exportUserData(currentUser, { includeImages: false });
     triggerDownload(safety.blob, safety.filename);
     safetyBackupDownloaded = true;
@@ -1107,7 +1100,6 @@ export async function restoreUserData(
     loaded,
     plan.data,
     currentUser.id,
-    options.onProgress,
     assertOwner,
     (completed, total) => {
       const fraction = total > 0 ? completed / total : 1;
