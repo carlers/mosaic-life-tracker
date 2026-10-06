@@ -146,7 +146,7 @@ export const ExportDataSheet: React.FC<ExportDataSheetProps> = ({
     try {
       const result = await restoreUserData(restoreFile, currentUser, {
         mode: restoreMode,
-        onProgress: setRestoreProgress,
+        onProgressDetail: ({ message }) => setRestoreProgress(message),
       });
       const restoredTotal = Object.values(result.restored).reduce(
         (sum, count) => sum + count,

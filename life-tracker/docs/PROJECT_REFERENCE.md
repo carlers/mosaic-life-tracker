@@ -469,9 +469,10 @@ Single function, single ID, `action` field in the body. Actions:
 | `unsend` | sender | Patch BOTH rows: wipe content/refs/reactions, set `is_unsent=true`. Cascade-wipes `reply_to_content` on any messages that quoted the unsent message |
 | `react` | either | Read-modify-write reactions on BOTH rows using two-phase read-then-write (overflow pre-check on both rows before any write — see §18 and §20.7). Legacy incoming-row backfill: see §22 |
 | `react_to_task` | friend of task owner | Patch the task owner's task row with a reaction delta |
+| `bulk_create_todomate_tasks` | authenticated owner | Migration-only fast path for a pristine TodoMate RxDB push batch (max 20): validate every row, force caller ownership/TodoMate source/non-deleted/no-reaction state, create rows concurrently with API-key server calls and owner-only permissions, and return same-owner 409 rows for normal client conflict resolution |
 | `get_friend_calendar` | friend of calendar owner | Read the owner's visible tasks and categories (filters by `visibility`; verifies friendship) |
 
-Function ID lives in `src/lib/messageDelivery.ts` as `MESSAGE_ACTION_FUNCTION_ID`. All actions live in `appwrite-functions/message-action/main.js`. Accepted friendship is verified before message/calendar writes; friendship lifecycle actions validate their own transition and caller authorization. (General cross-user-write rule: §6.)
+Function ID is shared by `src/lib/appAction.ts` and the message layer; `src/lib/messageDelivery.ts` still exports `MESSAGE_ACTION_FUNCTION_ID` for compatibility. Actions dispatch from `appwrite-functions/message-action/main.js`, with larger action handlers split into sibling modules. Accepted friendship is verified before message/calendar writes; friendship lifecycle actions validate their own transition and caller authorization. (General cross-user-write rule: §6.)
 
 ### 20.4 Delivery Flow
 1. Sender inserts local message with `deliveryStatus: 'pending'`
@@ -908,9 +909,15 @@ startup/Home deferral pass:
 - unique PWA precache: 2,269,326 B raw
 
 Entry and startup/Home closure ceilings carry about five percent headroom from the reviewed
-baseline. The aggregate/precache ceilings remain the previously reviewed tighter ceilings
-rather than being raised to create CI headroom. The current baseline and limits live in
-`config/build-size-budget.json` and are pinned by unit coverage.
+baseline. Aggregate/precache ceilings remain intentionally tight and are not raised merely to
+create CI headroom. A reviewed 2026-10-06 exception accepts the TodoMate task-sync
+observability/throughput feature: exact RxDB-confirmed `completed/total` cloud progress plus a
+bounded, Appwrite-rate-aware create worker pool added about 545 B gzip to aggregate app assets
+(682,281 B → 682,826 B in comparable Preview builds), while entry, startup/Home closures,
+aggregate raw bytes, and precache all stayed within their existing ceilings. Only
+`appAssetsGzipBytes` is therefore revised from 682,300 B to 683,500 B, leaving roughly
+674 B of measured headroom for gzip variation without widening the other guards. The current
+baseline and limits live in `config/build-size-budget.json` and are pinned by unit coverage.
 
 `npm run build:size` checks an existing `dist/`. The diagnostic
 `scripts/audit-bundle.mjs` remains the source for per-chunk package/module attribution,

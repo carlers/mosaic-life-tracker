@@ -1,22 +1,36 @@
 # Session checkpoint
 
 Updated: 2026-10-06
-Current task: Double-check/harden the accepted Appwrite backend change-control foundation on task branch `chatgpt/appwrite-version-control-double-check`, targeting protected Preview `refactor/appwrite-version-control-audit`.
-Status: The re-audit found and fixed several real holes: stale handoff state; drift checks that missed unexpected managed columns/indexes and Function variables; incorrect DR variable secrecy classification; three intentional pre-foundation tables that were not explicitly modeled; and eight old scripts that still embedded the production project ID outside the new confirmation guard. Focused CI initially caught one stale table-name test fixture; that fixture was corrected and the next focused run passed. A read-only live Appwrite comparison then found one additional real production drift: `task_images` still has bucket-wide authenticated-user read access even though Mosaic already grants intended reads per file. Appwrite documents bucket and file permissions as additive, so that bucket grant bypasses file-security restrictions. Live inventory showed 134 files: 132 already have per-file authenticated-user read; the two owner-only legacy files are unreferenced by current tasks/profiles. The repository now includes an explicit idempotent `003-task-images-bucket-permissions` reconciliation, plus recovery-drill-aware status handling. Production Appwrite remains read-only and unchanged during this task.
-Next action: Commit the final hardening patch, run focused verification, fix any failures, then merge the exact accepted tree to protected `refactor/appwrite-version-control-audit` through PR and require the stable full canonical gate plus READY Vercel Preview. The production bucket permission migration is intentionally not applied until an explicit production rollout is authorized. Do not promote to `dev` or `main` without explicit user instruction.
+Current task: Remove the TodoMate task-cloud-sync throughput floor on `chatgpt/todomate-task-sync-server-batch`, targeting stable Preview `perf/todomate-import-sync-audit`.
+Status: Live use showed the exact-task progress counter works but the cloud phase is still far too slow. Root cause is the prior "safe parallel" implementation itself: four browser workers were globally paced 510 ms between fresh `createRow` starts, which imposes an absolute ~257-second / 4m17s minimum for 505 tasks even with zero network latency. The repair routes each pristine TodoMate RxDB push batch (20 rows) through one authenticated execution of the existing `message-action` Function. A new `bulk_create_todomate_tasks` handler validates the complete payload first, requires TodoMate source/caller ownership/non-deleted/no-reaction state, applies owner-only row permissions, and concurrently issues API-key server `createRow` calls. Appwrite server integrations are not subject to browser client rate limits. Same-owner 409 rows are returned to the client and reuse the existing bootstrap/conflict winner logic; a genuinely newer imported row falls back to the established single-row update path. General task sync is unchanged. The shared Function execution wrapper was extracted to `src/lib/appAction.ts` so task replication and messaging do not duplicate the Function call/timeout/error parser. An older deployed Function returning `Unknown action` falls back to the prior paced browser lane, making frontend/backend rollout ordering safe.
+Next action: Finish regression/docs review, commit one coherent task checkpoint, run focused verification, and fix any failures. Because this changes Function source, prove the exact Function build/deployment on the disposable scratch Appwrite project if available. Preflight production bundle size before stable merge because the current aggregate gzip headroom is only ~655 B. After focused/scratch acceptance, squash into `perf/todomate-import-sync-audit` for one full canonical/Vercel pass. Production Function deployment/activation remains an explicit rollout step and must not be performed without user authorization; until activation, live production-backed Preview will intentionally use the old compatibility fallback.
 Blockers: None.
 
-## Backend workflow decisions
+## Performance finding
 
-1. **No permanent cloud staging project.** Use local isolation where sufficient and `My first project` as the disposable Cloud scratch/DR project when real Appwrite behavior is required.
-2. **Git remains authoritative for managed state.** The manifest owns active database/table/bucket shape; Function configs own structural/variable contracts; known pre-foundation placeholder tables are explicitly tolerated but not provisioned fresh.
-3. **Mutations fail closed.** Current migration/deploy/activate entry points require matching `--project` and `--confirm-project`; pre-foundation production-hardcoded one-offs are retired from the active tree.
-4. **Status is the environment preflight.** It checks exact declared managed columns/indexes, bucket/Function structure, live deployment presence, and declared Function variable presence/secrecy without exposing secret values. `--recovery-drill` models the credential-less isolated restore topology; remote schedules/VCS linkage remain operational and reported.
-5. **Function deploy and activation remain separate.** Exact clean `HEAD` source builds inactive; activation is explicit and verified.
-6. **Migration history has a baseline.** Fresh forks bootstrap current state; the numbered runner owns changes from the backend-change-control baseline forward. Migration `003` captures the one live bucket-permission drift found during acceptance rather than normalizing Git to a weaker production setting.
-7. **Storage read access stays file-scoped.** Bucket-level `read("users")` defeats file security because Appwrite grants access through either bucket or file permissions. Mosaic keeps only bucket-level create and uses per-file read/update/delete permissions.
-8. **Build identity stays outside hashed app chunks.** The prior Vercel-size fix remains accepted; no bundle ceiling was raised.
+- Previous floor for 505 fresh tasks: `(505 - 1) × 510 ms ≈ 257 s` before request latency.
+- New normal path: about 26 synchronous Function executions at the existing RxDB batch size of 20; each Function handles its row creates concurrently with server credentials.
+- This task does not claim an exact final wall time until a real 505-task import is timed after Function activation.
 
-## Delivery boundary
+## Verification target
 
-This follow-up changes repository tooling/docs/tests only. It must not mutate Appwrite Cloud resources, schema, Function deployments/activation, schedules, secrets, bucket permissions, or project state during acceptance. The new bucket migration exists for a later explicit rollout.
+- A pristine multi-row TodoMate RxDB push makes one Function execution and zero browser `createRow` calls.
+- Old Function `Unknown action` falls back to the prior bounded/paced browser lane.
+- Same-owner existing rows returned by the Function keep normal bootstrap/conflict semantics.
+- Function rejects owner spoofing/invalid batches before writes, assigns only owner read/update/delete permissions, creates valid rows concurrently, and fails closed on foreign-owner ID collision.
+- Ordinary task pushes, pending images, reactions, tombstones, account isolation, and exact task-progress counting remain unchanged.
+- Production bundle-size growth is measured before stable acceptance; no repeated byte-golf cycles.
+- Production Function is not activated without explicit user approval.
+
+## Working files
+
+- `src/lib/appAction.ts`
+- `src/lib/messageDelivery.ts`
+- `src/db/taskReplicationPilot.ts`
+- `appwrite-functions/message-action/main.js`
+- `appwrite-functions/message-action/todomate-task-batch.js`
+- `tests/unit/taskReplicationPilot.test.ts`
+- `tests/handlers/todomateTaskBatch.test.ts`
+- `docs/TODOMATE_IMPORT.md`
+- `docs/SYNC_SCENARIO_MATRIX.md`
+- `docs/PROJECT_REFERENCE.md`

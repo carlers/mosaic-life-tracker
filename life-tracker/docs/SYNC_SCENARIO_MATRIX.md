@@ -51,6 +51,7 @@ Status meanings:
 | First sync | No assumed master; local equals remote | Acknowledge without rewriting Appwrite | **Covered** for owner-write pilots |
 | First sync | No assumed master; remote is newer | Remote wins | **Covered** |
 | First sync | No assumed master; local application timestamp is newer | Permit one owner write | **Covered** |
+| TodoMate import | Large fresh task batch is the remaining cloud bottleneck | Count unique successful task sends from RxDB `sent$`; send each pristine RxDB push batch through the authenticated Function for concurrent API-key server creates; validate caller ownership/shape/permissions server-side; preserve returned existing-row bootstrap conflicts; fall back to the prior paced browser lane only when the deployed Function does not know the new action | **Covered** — task-pilot Function-batch/fallback/conflict regressions plus handler validation/concurrency/ownership regressions |
 | Task conflict | Friend reaction changes server row while owner edits task | Merge server-owned reaction drift when owner fields did not change remotely | **Covered** |
 | Settings side effect | Profile image setting write succeeds but profile mirror fails | Keep pending image so next reconciliation can repair side effect | **Covered** |
 | Message intent | Pull races optimistic read/unsend/reaction state | Preserve only documented newer local Function/outbox intent; server-owned fields still win | **Covered** |

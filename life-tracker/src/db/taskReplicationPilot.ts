@@ -18,6 +18,7 @@ import {
 import { Subject, type Subscription } from 'rxjs';
 import type { TaskDocument } from './schema';
 import { guardedTablesDB, type RealtimeUnsubscribe } from '../lib/sdk';
+import { sendAppAction } from '../lib/appAction';
 import { fromAppwriteFormat, toAppwriteFormat } from '../lib/syncMapping';
 import {
   APPWRITE_DATABASE_ID,
@@ -41,6 +42,8 @@ const PULL_BATCH_SIZE = 100;
 const PUSH_BATCH_SIZE = 20;
 const LOCAL_CHECKPOINT_BATCH_SIZE = 200;
 const RETRY_TIME_MS = 5_000;
+const TODOMATE_PUSH_CONCURRENCY = 4;
+const TODOMATE_CREATE_INTERVAL_MS = 510;
 
 export interface TaskReplicationCheckpoint {
   updatedAt: string;
@@ -69,6 +72,28 @@ let activePullStream:
 let realtimeUnsubscribe: RealtimeUnsubscribe | null = null;
 let errorSubscription: Subscription | null = null;
 let activeCollection: RxCollection<TaskDocument> | null = null;
+const todoMateCreatePacers = new Map<
+  string,
+  { nextAt: number; tail: Promise<void> }
+>();
+
+function waitForTodoMateCreateSlot(userId: string): Promise<void> {
+  let pacer = todoMateCreatePacers.get(userId);
+  if (!pacer) {
+    pacer = { nextAt: 0, tail: Promise.resolve() };
+    todoMateCreatePacers.set(userId, pacer);
+  }
+
+  const slot = pacer.tail.then(async () => {
+    const waitMs = pacer!.nextAt - Date.now();
+    if (waitMs > 0) {
+      await new Promise((resolve) => setTimeout(resolve, waitMs));
+    }
+    pacer!.nextAt = Date.now() + TODOMATE_CREATE_INTERVAL_MS;
+  });
+  pacer.tail = slot.catch(() => {});
+  return slot;
+}
 
 function isNotFoundError(error: unknown): boolean {
   return (error as { code?: number } | null)?.code === 404;
@@ -289,10 +314,154 @@ function mergeServerReactionDrift(
   };
 }
 
-async function pushTasks(
+function isParallelTodoMateRow(
+  row: RxReplicationWriteToMasterRow<TaskDocument>,
+  userId: string
+): boolean {
+  const next = row.newDocumentState;
+  return (
+    next.userId === userId &&
+    !next._deleted &&
+    !row.assumedMasterState &&
+    next.source === 'todomate' &&
+    !isPendingImageId(next.image ?? '') &&
+    !next.reactions
+  );
+}
+
+type TodoMateBatchResult = {
+  id: string;
+  status: 'created' | 'existing';
+  row?: Record<string, unknown>;
+};
+
+function isUnsupportedTodoMateBatchAction(error: unknown): boolean {
+  const candidate = error as {
+    code?: number;
+    result?: { error?: unknown };
+  };
+  return (
+    candidate?.code === 400 &&
+    typeof candidate.result?.error === 'string' &&
+    candidate.result.error.startsWith('Unknown action:')
+  );
+}
+
+async function pushTodoMateRowsViaFunction(
+  rows: RxReplicationWriteToMasterRow<TaskDocument>[],
+  userId: string
+): Promise<ReplicatedTask[] | null> {
+  let response: Record<string, unknown>;
+  try {
+    response = await sendAppAction(
+      {
+        action: 'bulk_create_todomate_tasks',
+        tasks: rows.map((row) => ({
+          id: row.newDocumentState.id,
+          data: toAppwriteFormat(
+            row.newDocumentState as unknown as Record<string, unknown>,
+            'tasks',
+            userId
+          ),
+        })),
+      },
+      25_000
+    );
+  } catch (error) {
+    if (isUnsupportedTodoMateBatchAction(error)) return null;
+    throw error;
+  }
+
+  if (!Array.isArray(response.results)) {
+    throw new Error('TodoMate task batch returned an invalid response');
+  }
+  const results = response.results as TodoMateBatchResult[];
+  const byId = new Map(results.map((result) => [result.id, result]));
+  if (byId.size !== rows.length) {
+    throw new Error('TodoMate task batch returned an incomplete response');
+  }
+
+  const conflicts: ReplicatedTask[] = [];
+  for (const row of rows) {
+    const next = row.newDocumentState;
+    const result = byId.get(next.id);
+    if (!result || (result.status !== 'created' && result.status !== 'existing')) {
+      throw new Error('TodoMate task batch returned an invalid row result');
+    }
+    if (result.status === 'created') continue;
+    if (!result.row || typeof result.row !== 'object') {
+      throw new Error('TodoMate task batch omitted existing row state');
+    }
+
+    assertRemoteRowOwnedBy(result.row, userId, 'Task');
+    const current = toReplicatedTask(result.row);
+    if (taskStateEquals(current, next)) continue;
+    if (!isBootstrapLocalNewer(next.updatedAt, current.updatedAt)) {
+      conflicts.push(current);
+      continue;
+    }
+
+    // Rare same-owner ID collision where the imported row is genuinely newer:
+    // fall back to the established single-row bootstrap/update path.
+    conflicts.push(...(await pushTasks([row], userId, true)));
+  }
+
+  return conflicts;
+}
+
+async function pushParallelTodoMateRows(
   rows: RxReplicationWriteToMasterRow<TaskDocument>[],
   userId: string
 ): Promise<ReplicatedTask[]> {
+  const results: ReplicatedTask[][] = Array.from(
+    { length: rows.length },
+    () => []
+  );
+  let cursor = 0;
+  let failed = false;
+  let failure: unknown;
+
+  const worker = async () => {
+    while (!failed) {
+      const index = cursor++;
+      if (index >= rows.length) return;
+      try {
+        results[index] = await pushTasks([rows[index]], userId, true);
+      } catch (error) {
+        if (!failed) {
+          failed = true;
+          failure = error;
+        }
+        return;
+      }
+    }
+  };
+
+  await Promise.all(
+    Array.from(
+      { length: Math.min(TODOMATE_PUSH_CONCURRENCY, rows.length) },
+      worker
+    )
+  );
+  if (failed) throw failure;
+  return results.flat();
+}
+
+async function pushTasks(
+  rows: RxReplicationWriteToMasterRow<TaskDocument>[],
+  userId: string,
+  nested = false
+): Promise<ReplicatedTask[]> {
+  if (
+    !nested &&
+    rows.length > 1 &&
+    rows.every((row) => isParallelTodoMateRow(row, userId))
+  ) {
+    const serverBatch = await pushTodoMateRowsViaFunction(rows, userId);
+    if (serverBatch) return serverBatch;
+    return pushParallelTodoMateRows(rows, userId);
+  }
+
   const conflicts: ReplicatedTask[] = [];
 
   for (const row of rows) {
@@ -310,14 +479,36 @@ async function pushTasks(
       );
     }
 
-    const current = await readRemoteTask(next.id, userId);
+    const assumed = row.assumedMasterState;
+    let current: ReplicatedTask | null;
+
+    if (
+      !assumed &&
+      next.source === 'todomate' &&
+      !isPendingImageId(next.image ?? '') &&
+      !next.reactions
+    ) {
+      // Fresh TodoMate imports are deterministic, side-effect-free rows.
+      // Try the create directly so a brand-new import does not pay an
+      // expected getRow -> 404 round trip for every task. Fresh create starts
+      // are paced below Appwrite's shared client create-row rate limit while
+      // a small worker pool overlaps request latency.
+      await waitForTodoMateCreateSlot(userId);
+      const createConflict = await createRemoteTask(next, userId);
+      if (!createConflict) {
+        continue;
+      }
+      current = createConflict;
+    } else {
+      current = await readRemoteTask(next.id, userId);
+    }
+
     if (current && current.userId !== userId) {
       throw new Error(
         `Task replication master owner mismatch for ${next.id}`
       );
     }
 
-    const assumed = row.assumedMasterState;
     let documentToPush: ReplicatedTask;
 
     if (!assumed) {
@@ -475,6 +666,31 @@ export function isTaskReplicationPilotActive(userId: string): boolean {
   return activeOwnerId === userId && activeReplication !== null;
 }
 
+export function subscribeTaskPushProgress(
+  userId: string,
+  taskIds: string[],
+  onProgress: (progress: { completed: number; total: number }) => void
+): (() => void) | null {
+  if (!isTaskReplicationPilotActive(userId) || !activeReplication) return null;
+
+  const pending = new Set(taskIds);
+  const total = pending.size;
+  let completed = 0;
+  onProgress({ completed, total });
+  if (total === 0) return () => {};
+
+  const subscription = activeReplication.sent$.subscribe((document) => {
+    if (
+      document.userId === userId &&
+      pending.delete(document.id)
+    ) {
+      completed += 1;
+      onProgress({ completed, total });
+    }
+  });
+  return () => subscription.unsubscribe();
+}
+
 export function resyncTaskReplicationPilot(userId: string): boolean {
   if (!isTaskReplicationPilotActive(userId)) return false;
   activeReplication?.reSync();
@@ -592,4 +808,5 @@ export function startTaskReplicationPilot(
 export const __taskReplicationPilotTestUtils = {
   pullTasks,
   pushTasks,
+  resetTodoMateCreatePacing: () => todoMateCreatePacers.clear(),
 };
