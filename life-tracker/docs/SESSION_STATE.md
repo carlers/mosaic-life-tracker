@@ -13,7 +13,7 @@ Blockers: Production CAS is not effective until the new `compare_and_set_owner_r
 - Live disposable-project CAS proof: simultaneous server `updateRows` calls constrained by the same `$id + $updatedAt` token consistently produced one winner and one zero-row loser. No `sync_rev` column or new Function is required.
 - Added a Git-owned `message-action` owner-write CAS handler that also constrains `user_id`, validates the owner-write table/data surface, and returns the current master to RxDB when CAS loses.
 - Wired task/category/diary/settings updates through the CAS path while preserving strict create behavior, bootstrap semantics, task reaction-drift merge, and backward-compatible old-Function fallback.
-- Added a 120-second visible+online sync watchdog in the existing lazy sync wake-up path; focus/online/visibility triggers remain immediate and debounce with the watchdog.
+- Added a 120-second visible+online sync watchdog directly in AppLayout's existing lazy sync wake-up path; focus/online/visibility triggers remain immediate and debounce with the watchdog.
 - Added handler/client/pilot/watchdog regressions. Routine full anti-entropy remains intentionally deferred because the ordered server tuple checkpoint plus bounded incremental resync should first be stress-tested before adding full scans.
 
 ## Working files
@@ -22,7 +22,6 @@ Blockers: Production CAS is not effective until the new `compare_and_set_owner_r
 - `appwrite-functions/message-action/owner-write-cas.js`
 - `src/db/ownerWriteCas.ts`
 - `src/db/{task,category,diary,settings}ReplicationPilot.ts`
-- `src/db/syncWatchdog.ts`
 - `src/components/layout/AppLayout.tsx`
 - `tests/handlers/ownerWriteCas.test.ts`
 - `tests/unit/*ReplicationPilot.test.ts`

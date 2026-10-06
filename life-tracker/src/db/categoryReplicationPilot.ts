@@ -26,7 +26,6 @@ import {
 import { awaitPilotReplicationFreshness } from './replicationFreshness';
 import { getReplicationIdentifier } from './replicationIds';
 import { trackReplicationFreshness } from './replicationLocalState';
-import { assertRemoteRowOwnedBy } from './replicationOwnership';
 import { readOwnerMaster, updateOwnerRowWithCas } from './ownerWriteCas';
 
 const PULL_BATCH_SIZE = 100;
@@ -118,14 +117,12 @@ async function readRemoteCategoryMaster(
   rowId: string,
   userId: string
 ) {
-  return readOwnerMaster({
-    databaseId: APPWRITE_DATABASE_ID,
-    tableId: APPWRITE_TABLES.categories,
+  return readOwnerMaster(
+    APPWRITE_TABLES.categories,
     rowId,
     userId,
-    ownerLabel: 'Category',
-    mapRow: toReplicatedCategory,
-  });
+    toReplicatedCategory
+  );
 }
 
 async function readRemoteCategory(
@@ -222,20 +219,18 @@ async function pushCategories(
       );
     }
 
-    const writeResult = await updateOwnerRowWithCas({
-      databaseId: APPWRITE_DATABASE_ID,
-      tableId: 'categories',
-      rowId: next.id,
+    const writeResult = await updateOwnerRowWithCas(
+      'categories',
+      next.id,
       userId,
-      expectedUpdatedAt: master.serverUpdatedAt,
-      data: toAppwriteFormat(
+      master.serverUpdatedAt,
+      toAppwriteFormat(
         next as unknown as Record<string, unknown>,
         'categories',
         userId
-      ),
-    });
+      )
+    );
     if (writeResult.status === 'conflict') {
-      assertRemoteRowOwnedBy(writeResult.row, userId, 'Category');
       conflicts.push(toReplicatedCategory(writeResult.row));
       continue;
     }
