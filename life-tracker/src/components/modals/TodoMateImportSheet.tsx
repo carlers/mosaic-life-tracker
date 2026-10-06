@@ -52,7 +52,6 @@ export const TodoMateImportSheet: React.FC<TodoMateImportSheetProps> = ({
     previewAbortRef.current = null;
     previewInFlightRef.current = false;
     importInFlightRef.current = false;
-    previewUserIdRef.current = null;
     setEmail('');
     setPassword('');
     setPrepared(null);
@@ -111,9 +110,7 @@ export const TodoMateImportSheet: React.FC<TodoMateImportSheetProps> = ({
       return;
     }
 
-    const previewUserId = currentUser.id;
     previewInFlightRef.current = true;
-    previewAbortRef.current?.abort();
     const controller = new AbortController();
     previewAbortRef.current = controller;
     const generation = ++previewGenerationRef.current;
@@ -143,7 +140,7 @@ export const TodoMateImportSheet: React.FC<TodoMateImportSheetProps> = ({
         }
       );
       if (generation !== previewGenerationRef.current) return;
-      previewUserIdRef.current = previewUserId;
+      previewUserIdRef.current = currentUser.id;
       setPrepared(result);
       setProgress('');
       setProgressPercent(null);
@@ -177,10 +174,7 @@ export const TodoMateImportSheet: React.FC<TodoMateImportSheetProps> = ({
     ) {
       return;
     }
-    if (previewUserIdRef.current !== currentUser.id) {
-      setPrepared(null);
-      return;
-    }
+    if (previewUserIdRef.current !== currentUser.id) return setPrepared(null);
 
     importInFlightRef.current = true;
     setRecoveryNotice(null);
@@ -343,7 +337,7 @@ export const TodoMateImportSheet: React.FC<TodoMateImportSheetProps> = ({
               onChange={(event) => {
                 setPassword(event.target.value);
                 setPrepared(null);
-                          }}
+              }}
               autoComplete="current-password"
               disabled={busy}
               className="w-full rounded-xl border border-[#333333] bg-[#1A1A1A] px-3.5 py-3 text-white outline-none focus:border-emerald-500 disabled:opacity-50"
