@@ -189,6 +189,7 @@ async function downloadTodoMatePhotos(
 ): Promise<{
   found: number;
   prepared: Map<string, PreparedTodoMatePhoto>;
+  precompressed: boolean;
 }> {
   const candidates = todos
     .filter((todo) => Boolean(maybeString(todo.fields.content)))
@@ -201,6 +202,7 @@ async function downloadTodoMatePhotos(
   const prepared = new Map<string, PreparedTodoMatePhoto>();
   let cursor = 0;
   let completed = 0;
+  let precompressed = true;
 
   const worker = async () => {
     while (true) {
@@ -222,6 +224,7 @@ async function downloadTodoMatePhotos(
       );
       onPhotoProgress?.(completed, candidates.length);
       if (!photo) continue;
+      if (!photo.precompressed) precompressed = false;
       prepared.set(candidate.todoId, {
         sourceId: photoSourceId(candidate.todoId, candidate.url),
         ...photo,
@@ -234,7 +237,11 @@ async function downloadTodoMatePhotos(
     Array.from({ length: workerCount }, () => worker())
   );
 
-  return { found: candidates.length, prepared };
+  return {
+    found: candidates.length,
+    prepared,
+    precompressed: prepared.size > 0 && precompressed,
+  };
 }
 
 async function zipAsync(
@@ -265,7 +272,7 @@ export interface TodoMateTransferPreview {
 export interface PreparedTodoMateTransfer {
   file: File;
   preview: TodoMateTransferPreview;
-  precompressedPhotoIds: string[];
+  photosPrecompressed: boolean;
 }
 
 function isRecord(value: unknown): value is JsonRecord {
@@ -688,12 +695,6 @@ async function makeMosaicBackup(
     },
   };
 
-  const precompressedPhotoIds = Array.from(
-    photoResult.prepared.values()
-  )
-    .filter((photo) => photo.precompressed)
-    .map((photo) => photo.sourceId);
-
   if (photoResult.prepared.size === 0) {
     return {
       file: new File(
@@ -702,7 +703,7 @@ async function makeMosaicBackup(
         { type: 'application/json' }
       ),
       preview,
-      precompressedPhotoIds,
+      photosPrecompressed: photoResult.precompressed,
     };
   }
 
@@ -721,7 +722,7 @@ async function makeMosaicBackup(
       { type: 'application/zip' }
     ),
     preview,
-    precompressedPhotoIds,
+    photosPrecompressed: photoResult.precompressed,
   };
 }
 

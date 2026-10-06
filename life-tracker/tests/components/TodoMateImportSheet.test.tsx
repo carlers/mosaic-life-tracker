@@ -41,7 +41,7 @@ describe('TodoMateImportSheet', () => {
     };
     mocks.prepareTodoMateTransfer.mockResolvedValue({
       file: preparedFile,
-      precompressedPhotoIds: ['tmimg_one', 'tmimg_two'],
+      photosPrecompressed: true,
       preview: {
         categories: 3,
         tasks: 12,
@@ -165,9 +165,7 @@ describe('TodoMateImportSheet', () => {
       )
     );
     const restoreOptions = mocks.restoreUserData.mock.calls[0][2];
-    expect(
-      Array.from(restoreOptions.trustedPrecompressedImageIds)
-    ).toEqual(['tmimg_one', 'tmimg_two']);
+    expect(restoreOptions.precompressedImages).toBe(true);
     expect(restoreOptions.onLocalApplyStart).toEqual(expect.any(Function));
     expect(onSuccess).toHaveBeenCalledWith(
       expect.stringMatching(/17 restored.*2 photos copied.*1 newer Mosaic item kept/)

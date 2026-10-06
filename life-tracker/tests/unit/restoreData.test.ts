@@ -67,7 +67,7 @@ describe('backup restore', () => {
 
     await restoreUserData(file, currentUser, {
       mode: 'merge',
-      trustedPrecompressedImageIds: new Set(['img_source']),
+      precompressedImages: true,
     });
 
     expect(state.ensureRestoredImage).toHaveBeenCalledWith(
