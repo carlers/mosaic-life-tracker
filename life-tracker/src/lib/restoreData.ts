@@ -662,9 +662,9 @@ async function restoreImages(
   loaded: LoadedBackup,
   data: NormalizedBackup,
   currentUserId: string,
-  assertOwner?: () => void,
-  onImageProgress?: (completed: number, total: number) => void,
-  precompressedImages = false
+  assertOwner: () => void,
+  onImageProgress: (completed: number, total: number) => void,
+  precompressedImages: boolean
 ): Promise<{ restored: number; missing: number }> {
   const ids = Array.from(referencedImageIds(data));
   if (ids.length === 0) return { restored: 0, missing: 0 };
@@ -675,11 +675,11 @@ async function restoreImages(
   let cursor = 0;
   let completed = 0;
 
-  onImageProgress?.(0, ids.length);
+  onImageProgress(0, ids.length);
 
   const worker = async () => {
     while (cursor < ids.length) {
-      assertOwner?.();
+      assertOwner();
       const oldId = ids[cursor++];
       const bytes = loaded.imageFiles.get(oldId);
 
@@ -713,7 +713,7 @@ async function restoreImages(
         } catch (error) {
           if (!isRateLimitError(error)) throw error;
           await new Promise((resolve) => setTimeout(resolve, 60_000));
-          assertOwner?.();
+          assertOwner();
           ensured = await ensureRestoredImage(
             file,
             preferredFileId,
@@ -728,9 +728,9 @@ async function restoreImages(
         console.warn('[Restore] Image restore failed:', oldId, error);
         missing += 1;
       } finally {
-        assertOwner?.();
+        assertOwner();
         completed += 1;
-        onImageProgress?.(completed, ids.length);
+        onImageProgress(completed, ids.length);
       }
     }
   };
