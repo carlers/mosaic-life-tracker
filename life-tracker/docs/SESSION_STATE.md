@@ -1,9 +1,9 @@
 # Session checkpoint
 
 Updated: 2026-10-06
-Current task: TodoMate import/sync performance and race hardening, with bundle-size follow-up on `chatgpt/todomate-import-sync-size-fix` targeting stable Preview `perf/todomate-import-sync-audit`.
-Status: The initial implementation passed its focused Quality Gate and was squash-merged by PR #294 as `746f86a`. Vercel compiled the app successfully but the build-size policy then rejected `appAssetsGzipBytes` by 238 B (682,538 B vs 682,300 B). The follow-up keeps the same behavior while compacting shipped metadata: TodoMate trusted-photo state is one transfer-level boolean instead of a per-ID array plus Set, the prepared-preview owner marker is a ref instead of React state, and the tiny TodoMate create-first predicate is inlined. The original account-isolation, recovery-marker, bounded-photo restore, RxDB findByIds planning, trusted-WebP upload, and create-first conflict semantics remain unchanged.
-Next action: Run the follow-up task branch focused gate. If green, squash-merge into `perf/todomate-import-sync-audit`, then require the stable Preview full canonical gate and a READY Vercel deployment with the build-size guard passing. Do not promote to `dev` or `main` without explicit user instruction.
+Current task: TodoMate import/sync performance and race hardening, with compile follow-up on `chatgpt/todomate-import-sync-type-fix` targeting stable Preview `perf/todomate-import-sync-audit`.
+Status: The size-compaction follow-up was squash-merged as `0e03870`. Vercel immediately caught a TypeScript annotation omission in `makeMosaicBackup`: its local `photoResult` parameter type had not been extended with the new aggregate `precompressed` boolean even though the producer and runtime object include it. This follow-up adds that missing type member only; runtime semantics are unchanged.
+Next action: Require focused verification and a successful task-branch Vercel build, then squash-merge into `perf/todomate-import-sync-audit` and rerun the stable full canonical gate plus READY Vercel/build-size check. Do not promote to `dev` or `main` without explicit user instruction.
 Blockers: None.
 
 ## Verification target
