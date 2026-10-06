@@ -150,8 +150,8 @@ This is deliberate. Restore planning resolves each collection's existing IDs in 
 find-by-ID batch instead of one serial lookup per imported row. Photo restore uses a bounded
 four-worker pool; the normal per-image authenticated-user check and deterministic Storage IDs
 remain in place, so concurrency does not weaken account isolation or re-import idempotence.
-Appwrite Storage 429 responses pause that worker for one-minute retry windows (up to two retries);
-persistent throttling fails the import visibly instead of being reported as a missing photo.
+Appwrite Storage 429 responses pause that worker for one minute and retry once; persistent
+throttling fails the import visibly instead of being reported as a missing photo.
 
 For the large task push that follows a fresh TodoMate restore, a side-effect-free TodoMate task
 with no pending local image or reactions may optimistically call Appwrite create first. Success
@@ -251,9 +251,9 @@ Automated coverage must prove:
     deterministic rerun remains duplicate-safe;
 14. a preview prepared under one Mosaic account cannot be imported after switching accounts;
 15. TodoMate-prepared WebPs skip the second compression pass only when the live importer passes
-    its trusted in-memory flag; forged backup metadata cannot enable that fast path;
-16. photo restore stays bounded to four concurrent workers, retries Storage 429s in bounded
-    one-minute windows, and persistent throttling fails visibly instead of becoming "missing";
+    its in-memory flag; forged backup metadata cannot enable that fast path;
+16. photo restore stays bounded to four concurrent workers, retries one Storage 429 after a
+    one-minute wait, and persistent throttling fails visibly instead of becoming "missing";
 17. restore planning executes RxDB `findByIds(...).exec()` and regression doubles preserve that
     real query shape;
 18. a fresh TodoMate task push can create without a preliminary getRow miss, while create

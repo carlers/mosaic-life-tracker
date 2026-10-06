@@ -126,9 +126,9 @@ describe('backup restore', () => {
     try {
       await expect(
         restoreUserData(file, currentUser, { mode: 'merge' })
-      ).rejects.toThrow(/rate-limited/i);
-      expect(state.ensureRestoredImage).toHaveBeenCalledTimes(3);
-      expect(timeout).toHaveBeenCalledTimes(2);
+      ).rejects.toThrow(/Storage throttled/i);
+      expect(state.ensureRestoredImage).toHaveBeenCalledTimes(2);
+      expect(timeout).toHaveBeenCalledTimes(1);
     } finally {
       timeout.mockRestore();
     }
