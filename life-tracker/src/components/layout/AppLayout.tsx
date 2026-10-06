@@ -122,6 +122,7 @@ export const AppLayout: React.FC = () => {
     const uid = user?.$id;
     if (!uid || isOffline || connectivity.status !== 'online' || database.state !== 'ready') return;
 
+    let active = true;
     const tryDeliver = () => {
       if (connectivity.status !== 'online') return;
       void loadMessageDeliveryModule()
@@ -145,6 +146,7 @@ export const AppLayout: React.FC = () => {
     window.addEventListener('focus', tryDeliver);
     window.addEventListener('online', tryDeliver);
     return () => {
+      active = false;
       window.removeEventListener('focus', tryDeliver);
       window.removeEventListener('online', tryDeliver);
     };
