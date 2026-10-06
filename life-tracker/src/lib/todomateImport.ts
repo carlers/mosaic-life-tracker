@@ -560,6 +560,7 @@ async function makeMosaicBackup(
   photoResult: {
     found: number;
     prepared: Map<string, PreparedTodoMatePhoto>;
+    precompressed: boolean;
   }
 ): Promise<PreparedTodoMateTransfer> {
   const exportedAt = now.toISOString();
