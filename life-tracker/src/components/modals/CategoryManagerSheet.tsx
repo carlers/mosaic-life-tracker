@@ -4,7 +4,7 @@ import { BottomSheet } from '../ui/BottomSheet';
 import { ColorPalettePicker } from '../ui/ColorPalettePicker';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
-import { Pencil, Plus, Trash2, GripVertical } from 'lucide-react';
+import { Plus, Trash2, GripVertical } from 'lucide-react';
 import { useCategories } from '../../hooks/useCategories';
 import { useTasks } from '../../hooks/useTasks';
 import {
@@ -110,7 +110,7 @@ const CategoryRow: React.FC<CategoryRowProps> = ({
         className="p-2 text-gray-400"
         aria-label="Edit category"
       >
-        <Pencil size={16} />
+        <span aria-hidden="true">✎</span>
       </button>
       <button
         onClick={() => onDeleteRequest(cat.id)}
