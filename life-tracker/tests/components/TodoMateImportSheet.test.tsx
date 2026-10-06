@@ -159,7 +159,7 @@ describe('TodoMateImportSheet', () => {
         },
         expect.objectContaining({
           mode: 'merge',
-          trustedPrecompressedImages: true,
+          precompressedImages: true,
           onProgressDetail: expect.any(Function),
         })
       )

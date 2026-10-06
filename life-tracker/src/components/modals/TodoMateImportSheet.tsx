@@ -186,7 +186,7 @@ export const TodoMateImportSheet: React.FC<TodoMateImportSheetProps> = ({
     try {
       const result = await restoreUserData(prepared.file, currentUser, {
         mode: 'merge',
-        trustedPrecompressedImages: true,
+        precompressedImages: true,
         onProgressDetail: (detail) => {
           setProgress(detail.message);
           setProgressPercent(detail.percent);

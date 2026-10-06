@@ -120,7 +120,7 @@ export interface RestoreOptions {
   mode: RestoreMode;
   onProgressDetail?: (progress: RestoreProgress) => void;
   onLocalApplyComplete?: () => void;
-  trustedPrecompressedImages?: boolean;
+  precompressedImages?: boolean;
 }
 
 export interface RestoreResult {
@@ -660,16 +660,8 @@ function referencedImageIds(data: NormalizedBackup): Set<string> {
 }
 
 function isRateLimitError(error: unknown): boolean {
-  const candidate = error as {
-    code?: number;
-    cause?: { code?: number };
-    message?: string;
-  };
-  return (
-    candidate?.code === 429 ||
-    candidate?.cause?.code === 429 ||
-    /rate limit/i.test(candidate?.message ?? '')
-  );
+  const candidate = error as { code?: number; cause?: { code?: number } };
+  return candidate?.code === 429 || candidate?.cause?.code === 429;
 }
 
 async function restoreImages(
@@ -678,7 +670,7 @@ async function restoreImages(
   currentUserId: string,
   assertOwner?: () => void,
   onImageProgress?: (completed: number, total: number) => void,
-  trustedPrecompressedImages = false
+  precompressedImages = false
 ): Promise<{ restored: number; missing: number }> {
   const ids = Array.from(referencedImageIds(data));
   if (ids.length === 0) return { restored: 0, missing: 0 };
@@ -718,30 +710,28 @@ async function restoreImages(
           oldId
         );
         let ensured;
-        for (let attempt = 0; ; attempt += 1) {
-          try {
-            ensured = await ensureRestoredImage(
-              file,
-              preferredFileId,
-              currentUserId,
-              trustedPrecompressedImages
-            );
-            break;
-          } catch (error) {
-            if (!isRateLimitError(error) || attempt >= 2) throw error;
-            await new Promise((resolve) => setTimeout(resolve, 60_000));
-            assertOwner?.();
-          }
+        try {
+          ensured = await ensureRestoredImage(
+            file,
+            preferredFileId,
+            currentUserId,
+            precompressedImages
+          );
+        } catch (error) {
+          if (!isRateLimitError(error)) throw error;
+          await new Promise((resolve) => setTimeout(resolve, 60_000));
+          assertOwner?.();
+          ensured = await ensureRestoredImage(
+            file,
+            preferredFileId,
+            currentUserId,
+            precompressedImages
+          );
         }
         remapped.set(oldId, ensured.fileId);
         if (ensured.uploaded) restored += 1;
       } catch (error) {
-        if (isRateLimitError(error)) {
-          throw new Error(
-            'Photo upload is temporarily rate-limited. Wait a minute and retry the import.',
-            { cause: error }
-          );
-        }
+        if (isRateLimitError(error)) throw error;
         console.warn('[Restore] Image restore failed:', oldId, error);
         missing += 1;
       } finally {
@@ -1145,7 +1135,7 @@ export async function restoreUserData(
         total
       );
     },
-    options.trustedPrecompressedImages === true
+    options.precompressedImages === true
   );
 
   await assertRestoreUserStillCurrent(currentUser.id);
