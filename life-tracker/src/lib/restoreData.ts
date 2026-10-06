@@ -1120,12 +1120,9 @@ export async function restoreUserData(
     currentUser.id,
     assertOwner,
     (completed, total) => {
-      const fraction = total > 0 ? completed / total : 1;
       reportDetail(
-        total > 0
-          ? 'Copying photos (' + completed + '/' + total + ')…'
-          : 'No photos to copy',
-        25 + fraction * 20,
+        'Copying photos (' + completed + '/' + total + ')…',
+        25 + (completed / total) * 20,
         completed,
         total
       );
