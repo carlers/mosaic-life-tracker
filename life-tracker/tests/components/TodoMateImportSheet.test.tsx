@@ -163,8 +163,6 @@ describe('TodoMateImportSheet', () => {
         })
       )
     );
-    const restoreOptions = mocks.restoreUserData.mock.calls[0][2];
-    expect(restoreOptions.onLocalApplyStart).toEqual(expect.any(Function));
     expect(onSuccess).toHaveBeenCalledWith(
       expect.stringMatching(/17 restored.*2 photos copied.*1 newer Mosaic item kept/)
     );
@@ -264,9 +262,6 @@ describe('TodoMateImportSheet', () => {
         screen.queryByRole('button', { name: 'Import into Mosaic' })
       ).not.toBeInTheDocument()
     );
-    expect(
-      screen.getByText(/Mosaic account changed.*Preview TodoMate again/i)
-    ).toBeInTheDocument();
     expect(mocks.restoreUserData).not.toHaveBeenCalled();
   });
 
@@ -318,30 +313,9 @@ describe('TodoMateImportSheet', () => {
     });
   });
 
-  it('does not record an interrupted import when restore fails before local apply starts', async () => {
-    mocks.restoreUserData.mockRejectedValueOnce(new Error('preflight failed'));
-
-    render(<TodoMateImportSheet isOpen onClose={vi.fn()} />);
-    fireEvent.change(screen.getByLabelText('TodoMate email'), {
-      target: { value: 'todo@example.com' },
-    });
-    fireEvent.change(screen.getByLabelText('TodoMate password'), {
-      target: { value: 'pw-preflight-12345' },
-    });
-    fireEvent.click(screen.getByRole('button', { name: 'Preview Transfer' }));
-    await screen.findByRole('button', { name: 'Import into Mosaic' });
-    fireEvent.click(screen.getByRole('button', { name: 'Import into Mosaic' }));
-
-    await screen.findByText('preflight failed');
-    expect(
-      localStorage.getItem('mosaic_todomate_import_v1_user_A')
-    ).toBeNull();
-  });
-
   it('reports sync pending after local apply without claiming full completion', async () => {
     const onSuccess = vi.fn();
     mocks.restoreUserData.mockImplementationOnce(async (_file, _user, options) => {
-      options.onLocalApplyStart?.();
       options.onLocalApplyComplete?.();
       return {
         mode: 'merge',

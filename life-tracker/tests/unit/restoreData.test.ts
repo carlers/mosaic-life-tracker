@@ -32,7 +32,7 @@ function zipBackup(overrides: Record<string, unknown>, images: Record<string, st
 describe('backup restore', () => {
   beforeEach(() => { resetRows(); vi.clearAllMocks(); state.accountCurrent = true; state.sync.mockResolvedValue(undefined); state.refreshSync.mockImplementation(async () => ({ status: { isSyncing: false, lastSync: new Date().toISOString(), errors: [] }, startedAt: Date.now() - 1_000 })); state.upsertLocalDoc.mockImplementation(async (collection: CollectionName, id: string, doc: Stored) => { state.rows[collection].set(id, { ...(state.rows[collection].get(id) ?? {}), ...doc }); }); state.ensureRestoredImage.mockResolvedValue({ fileId: 'img_restored', uploaded: true }); state.getCurrentUserId.mockResolvedValue('user_A'); state.exportUserData.mockResolvedValue({ blob: new Blob(['safety'], { type: 'application/json' }), filename: 'mosaic-safety.json', counts: { tasks: 0, categories: 0, diary: 0, settings: 0, friendships: 0, images: 0, missingImages: 0 } }); });
   it('accepts legacy v1 JSON and reports friendships as reference-only', async () => { const file = new File([JSON.stringify({ app: { name: 'Mosaic', version: '0.0.0' }, version: 1, exportedAt: '2026-09-01T00:00:00.000Z', user: currentUser, counts: { tasks: 1, categories: 0, diary: 0, settings: 1, friendships: 2, images: 0, missingImages: 0 }, data: { tasks: [{ id: 'task_1', title: 'Old export', completed: false, categoryId: '', date: '2026-09-01', createdAt: '2026-09-01T00:00:00.000Z', updatedAt: '2026-09-01T00:00:00.000Z', userId: 'user_A', isDeleted: false, visibility: 'private' }], categories: [], diary: [], settings: { showTodayTag: true }, friendships: [{ id: 'friend_ref' }, { id: 'friend_ref_2' }] }, images: { included: false, referenced: [], missingImages: [], note: '' } })], 'legacy.json', { type: 'application/json' }); const preview = await inspectBackupFile(file); expect(preview.version).toBe(1); expect(preview.counts.tasks).toBe(1); expect(preview.counts.settings).toBe(1); expect(preview.friendshipsReferenceOnly).toBe(2); });
-  it('passes bundled WebP bytes to Storage for restore', async () => {
+  it('marks TodoMate bundled WebP bytes as already compressed for Storage restore', async () => {
     const task = {
       id: 'task_photo',
       title: 'Photo',
@@ -42,12 +42,17 @@ describe('backup restore', () => {
       image: 'img_source',
       createdAt: '2026-09-20T00:00:00.000Z',
       updatedAt: '2026-09-20T00:00:00.000Z',
-      userId: 'user_A',
+      userId: 'todomate_source',
       isDeleted: false,
       visibility: 'private',
     };
     const file = zipBackup(
       {
+        user: {
+          id: 'todomate_source',
+          email: 'todo@example.com',
+          name: 'TodoMate import',
+        },
         data: {
           tasks: [task],
           categories: [],
@@ -69,8 +74,9 @@ describe('backup restore', () => {
 
     expect(state.ensureRestoredImage).toHaveBeenCalledWith(
       expect.any(File),
-      'img_source',
-      'user_A'
+      expect.any(String),
+      'user_A',
+      true
     );
   });
 

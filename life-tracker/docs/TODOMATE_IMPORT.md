@@ -103,9 +103,10 @@ Successfully downloaded images are compressed locally to WebP, given determinist
 image IDs derived from the TodoMate task and stable photo URL path, bundled into the in-memory
 migration ZIP, and then uploaded by Mosaic's existing restore engine into the signed-in user's
 own Appwrite Storage bucket. The TodoMate ZIP stores those already-compressed WebP payloads without another deflate pass.
-Restore recognizes already-small files with a valid WebP header and uploads those bytes directly
-instead of compressing them again; mislabeled or oversized backup bytes still take the normal
-compression path. The task is rewritten to the resulting Mosaic-owned file ID.
+The generated backup uses TodoMate's reserved source-user prefix, so restore can upload those
+adapter-produced WebPs directly instead of compressing them a second time. Normal Mosaic backup
+images keep the standard compression path. The task is rewritten to the resulting Mosaic-owned
+file ID.
 
 Photo preparation is bounded to four concurrent downloads and rejects invalid/non-HTTPS,
 non-image, empty, or over-20 MiB source responses. Unavailable photos are reported in preview
@@ -193,11 +194,9 @@ preflight, photo copy, exact local-row application, and the six collection-level
 freshness proofs. The percentage is progress through those known phases/rows/collections,
 not a byte-transfer estimate.
 
-The recovery marker is created only when restore reaches local application, after validation,
-freshness preflight, planning, and photo preparation/copy have succeeded. A failed preflight
-therefore cannot leave a false "interrupted import" notice. The marker stores only small
-account-scoped recovery metadata: expected counts, start time, and whether local application
-finished. If the app exits while rows are being applied,
+Starting Import records small account-scoped recovery metadata: expected counts, start time,
+and whether local application finished. If the app exits during preflight or while rows are
+being applied,
 reopening the importer explains that the prior run was interrupted and directs the user to
 preview and rerun it. Deterministic IDs and Merge semantics keep that rerun duplicate-safe.
 If all rows were applied but the bounded final sync did not converge, Mosaic reports
@@ -247,10 +246,9 @@ Automated coverage must prove:
     1,000–5,000-task fixtures retain every row;
 13. failed final convergence keeps locally applied rows and reports sync pending, while a
     deterministic rerun remains duplicate-safe;
-14. a preview prepared under one Mosaic account cannot be imported after switching accounts,
-    and a restore failure before local application does not create an interrupted-import marker;
-15. already-small valid WebPs skip the second compression pass while invalid/oversized bytes
-    keep the normal compression path, and photo restore stays bounded to four concurrent workers;
+14. a preview prepared under one Mosaic account cannot be imported after switching accounts;
+15. TodoMate-prepared WebPs skip the second compression pass and photo restore stays bounded
+    to four concurrent workers;
 16. a fresh TodoMate task push can create without a preliminary getRow miss, while create
     conflicts fall back to the existing bootstrap/conflict behavior.
 
