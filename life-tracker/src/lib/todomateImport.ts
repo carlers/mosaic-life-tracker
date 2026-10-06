@@ -28,7 +28,6 @@ export interface TodoMateProgress {
 interface TodoMateImportOptions {
   fetchImpl?: typeof fetch;
   now?: () => Date;
-  onProgress?: (message: string) => void;
   onProgressDetail?: (progress: TodoMateProgress) => void;
   photoProcessor?: (file: File) => Promise<Blob>;
   signal?: AbortSignal;
@@ -179,7 +178,6 @@ async function downloadTodoMatePhotos(
   idToken: string,
   fetchImpl: typeof fetch,
   photoProcessor: (file: File) => Promise<Blob>,
-  report: (message: string) => void,
   onPhotoProgress?: (completed: number, total: number) => void,
   signal?: AbortSignal
 ): Promise<{
@@ -213,9 +211,6 @@ async function downloadTodoMatePhotos(
         signal
       );
       completed += 1;
-      report(
-        `Fetching TodoMate photos (${completed}/${candidates.length})…`
-      );
       onPhotoProgress?.(completed, candidates.length);
       if (!photo) continue;
       prepared.set(candidate.todoId, {
@@ -723,14 +718,12 @@ export async function prepareTodoMateTransfer(
 
   const fetchImpl = options.fetchImpl ?? fetch;
   const now = options.now ?? (() => new Date());
-  const report = options.onProgress ?? (() => {});
   const reportDetail = (
     message: string,
     percent: number,
     completed?: number,
     total?: number
   ) => {
-    report(message);
     options.onProgressDetail?.({
       message,
       percent: Math.max(0, Math.min(100, Math.round(percent))),
@@ -790,7 +783,6 @@ export async function prepareTodoMateTransfer(
     session.idToken,
     fetchImpl,
     photoProcessor,
-    report,
     (completed, total) => {
       const fraction = total > 0 ? completed / total : 1;
       reportDetail(
