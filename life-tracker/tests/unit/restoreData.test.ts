@@ -7,7 +7,7 @@ type Stored = Record<string, unknown>;
 
 const state = vi.hoisted(() => {
   const rows = { tasks: new Map<string, Stored>(), categories: new Map<string, Stored>(), diary: new Map<string, Stored>(), settings: new Map<string, Stored>(), friendships: new Map<string, Stored>(), messages: new Map<string, Stored>() };
-  return { rows, accountCurrent: true, sync: vi.fn().mockResolvedValue(undefined), refreshSync: vi.fn().mockResolvedValue({ status: { isSyncing: false, lastSync: '2026-09-27T00:00:00.000Z', errors: [] }, startedAt: 0 }), exportUserData: vi.fn().mockResolvedValue({ blob: new Blob(['safety'], { type: 'application/json' }), filename: 'mosaic-safety.json', counts: { tasks: 0, categories: 0, diary: 0, settings: 0, friendships: 0, images: 0, missingImages: 0 } }), triggerDownload: vi.fn(), upsertLocalDoc: vi.fn(), ensureRestoredImage: vi.fn().mockResolvedValue({ fileId: 'img_restored', uploaded: true }), getCurrentUserId: vi.fn().mockResolvedValue('user_A') };
+  return { rows, accountCurrent: true, sync: vi.fn().mockResolvedValue(undefined), refreshSync: vi.fn().mockResolvedValue({ status: { isSyncing: false, lastSync: '2026-09-27T00:00:00.000Z', errors: [] }, startedAt: 0 }), exportUserData: vi.fn().mockResolvedValue({ blob: new Blob(['safety'], { type: 'application/json' }), filename: 'mosaic-safety.json', counts: { tasks: 0, categories: 0, diary: 0, settings: 0, friendships: 0, images: 0, missingImages: 0 } }), triggerDownload: vi.fn(), upsertLocalDoc: vi.fn(), ensureRestoredImage: vi.fn().mockResolvedValue({ fileId: 'img_restored', uploaded: true }), getCurrentUserId: vi.fn().mockResolvedValue('user_A'), subscribeTaskPushProgress: vi.fn().mockReturnValue(null) };
 });
 function resetRows() { for (const map of Object.values(state.rows)) map.clear(); }
 function wrap(collection: CollectionName, id: string) { const map = state.rows[collection]; return { get id() { return id; }, toJSON: () => ({ ...(map.get(id) ?? {}) }), incrementalPatch: vi.fn(async (patch: Stored) => { map.set(id, { ...(map.get(id) ?? {}), ...patch }); }) }; }
@@ -19,6 +19,9 @@ vi.mock('../../src/lib/accountWorkScope', () => ({
     state.accountCurrent && userId === 'user_A' ? 7 : null,
   isAccountWorkCurrent: (userId: string, generation: number) =>
     state.accountCurrent && userId === 'user_A' && generation === 7,
+}));
+vi.mock('../../src/db/taskReplicationPilot', () => ({
+  subscribeTaskPushProgress: state.subscribeTaskPushProgress,
 }));
 vi.mock('../../src/db/sync', () => ({
   initializeSync: state.sync,
@@ -37,7 +40,7 @@ function jsonBackup(overrides: Record<string, unknown> = {}) { return new File([
 function zipBackup(overrides: Record<string, unknown>, images: Record<string, string> = {}) { const encoder = new TextEncoder(); const files: Record<string, Uint8Array> = { 'manifest.json': encoder.encode(JSON.stringify(backupPayload(overrides))) }; for (const [fileId, contents] of Object.entries(images)) files[`images/${fileId}.webp`] = encoder.encode(contents); const zipped = zipSync(files); const buffer = zipped.slice().buffer as ArrayBuffer; return new File([buffer], 'backup.zip', { type: 'application/zip' }); }
 
 describe('backup restore', () => {
-  beforeEach(() => { resetRows(); vi.clearAllMocks(); state.accountCurrent = true; state.sync.mockResolvedValue(undefined); state.refreshSync.mockImplementation(async () => ({ status: { isSyncing: false, lastSync: new Date().toISOString(), errors: [] }, startedAt: Date.now() - 1_000 })); state.upsertLocalDoc.mockImplementation(async (collection: CollectionName, id: string, doc: Stored) => { state.rows[collection].set(id, { ...(state.rows[collection].get(id) ?? {}), ...doc }); }); state.ensureRestoredImage.mockResolvedValue({ fileId: 'img_restored', uploaded: true }); state.getCurrentUserId.mockResolvedValue('user_A'); state.exportUserData.mockResolvedValue({ blob: new Blob(['safety'], { type: 'application/json' }), filename: 'mosaic-safety.json', counts: { tasks: 0, categories: 0, diary: 0, settings: 0, friendships: 0, images: 0, missingImages: 0 } }); });
+  beforeEach(() => { resetRows(); vi.clearAllMocks(); state.accountCurrent = true; state.sync.mockResolvedValue(undefined); state.refreshSync.mockImplementation(async () => ({ status: { isSyncing: false, lastSync: new Date().toISOString(), errors: [] }, startedAt: Date.now() - 1_000 })); state.upsertLocalDoc.mockImplementation(async (collection: CollectionName, id: string, doc: Stored) => { state.rows[collection].set(id, { ...(state.rows[collection].get(id) ?? {}), ...doc }); }); state.ensureRestoredImage.mockResolvedValue({ fileId: 'img_restored', uploaded: true }); state.getCurrentUserId.mockResolvedValue('user_A'); state.subscribeTaskPushProgress.mockReturnValue(null); state.exportUserData.mockResolvedValue({ blob: new Blob(['safety'], { type: 'application/json' }), filename: 'mosaic-safety.json', counts: { tasks: 0, categories: 0, diary: 0, settings: 0, friendships: 0, images: 0, missingImages: 0 } }); });
   it('accepts legacy v1 JSON and reports friendships as reference-only', async () => { const file = new File([JSON.stringify({ app: { name: 'Mosaic', version: '0.0.0' }, version: 1, exportedAt: '2026-09-01T00:00:00.000Z', user: currentUser, counts: { tasks: 1, categories: 0, diary: 0, settings: 1, friendships: 2, images: 0, missingImages: 0 }, data: { tasks: [{ id: 'task_1', title: 'Old export', completed: false, categoryId: '', date: '2026-09-01', createdAt: '2026-09-01T00:00:00.000Z', updatedAt: '2026-09-01T00:00:00.000Z', userId: 'user_A', isDeleted: false, visibility: 'private' }], categories: [], diary: [], settings: { showTodayTag: true }, friendships: [{ id: 'friend_ref' }, { id: 'friend_ref_2' }] }, images: { included: false, referenced: [], missingImages: [], note: '' } })], 'legacy.json', { type: 'application/json' }); const preview = await inspectBackupFile(file); expect(preview.version).toBe(1); expect(preview.counts.tasks).toBe(1); expect(preview.counts.settings).toBe(1); expect(preview.friendshipsReferenceOnly).toBe(2); });
   it('does not trust a TodoMate-looking source ID from backup metadata', async () => {
     const task = {
@@ -251,6 +254,98 @@ describe('backup restore', () => {
     expect(result.syncState).toBe('synced');
     expect(state.refreshSync.mock.calls[1]?.[1]).toBe(300_000);
   }, 15_000);
+
+  it('reports exact TodoMate task cloud progress from successful task pushes', async () => {
+    let onTaskProgress:
+      | ((progress: { completed: number; total: number }) => void)
+      | undefined;
+    const unsubscribe = vi.fn();
+    state.subscribeTaskPushProgress.mockImplementation(
+      (_userId, _taskIds, onProgress) => {
+        onTaskProgress = onProgress;
+        onProgress({ completed: 0, total: 2 });
+        return unsubscribe;
+      }
+    );
+    state.refreshSync
+      .mockResolvedValueOnce({
+        status: {
+          isSyncing: false,
+          lastSync: new Date().toISOString(),
+          errors: [],
+        },
+        startedAt: Date.now() - 1_000,
+      })
+      .mockImplementationOnce(async (_userId, _timeout, options) => {
+        onTaskProgress?.({ completed: 1, total: 2 });
+        onTaskProgress?.({ completed: 2, total: 2 });
+        options?.onProgress?.({
+          completed: 5,
+          total: 6,
+          percent: 83,
+          label: 'Waiting for Messages · 5 of 6 synced',
+          pendingGroups: ['Messages'],
+        });
+        return {
+          status: {
+            isSyncing: false,
+            lastSync: new Date().toISOString(),
+            errors: [],
+          },
+          startedAt: Date.now() - 1_000,
+        };
+      });
+
+    const details: Array<{ message: string; percent: number }> = [];
+    const file = jsonBackup({ data: {
+      tasks: [
+        { id: 'todo_progress_1', title: 'One', completed: false, categoryId: '', date: '2026-09-20', createdAt: '2026-09-20T00:00:00.000Z', updatedAt: '2026-09-20T00:00:00.000Z', userId: 'user_A', isDeleted: false, visibility: 'private', source: 'todomate' },
+        { id: 'todo_progress_2', title: 'Two', completed: false, categoryId: '', date: '2026-09-20', createdAt: '2026-09-20T00:00:00.000Z', updatedAt: '2026-09-20T00:00:00.000Z', userId: 'user_A', isDeleted: false, visibility: 'private', source: 'todomate' },
+      ],
+      categories: [], diary: [], settings: [], friendships: []
+    } });
+
+    await restoreUserData(
+      file,
+      currentUser,
+      {
+        mode: 'merge',
+        onProgressDetail: (value) => details.push(value),
+      },
+      true
+    );
+
+    expect(state.subscribeTaskPushProgress).toHaveBeenCalledWith(
+      'user_A',
+      ['todo_progress_1', 'todo_progress_2'],
+      expect.any(Function)
+    );
+    expect(
+      details.some((value) =>
+        /Syncing tasks to cloud \(0\/2\)/.test(value.message)
+      )
+    ).toBe(true);
+    expect(
+      details.some((value) =>
+        /Syncing tasks to cloud \(1\/2\)/.test(value.message)
+      )
+    ).toBe(true);
+    expect(
+      details.some((value) =>
+        /Syncing tasks to cloud \(2\/2\)/.test(value.message)
+      )
+    ).toBe(true);
+    expect(unsubscribe).toHaveBeenCalledOnce();
+    expect(details.at(-1)).toMatchObject({
+      message: 'Import synced',
+      percent: 100,
+    });
+    for (let index = 1; index < details.length; index += 1) {
+      expect(details[index].percent).toBeGreaterThanOrEqual(
+        details[index - 1].percent
+      );
+    }
+  });
 
   it('reports monotonic structured progress through local apply and final sync', async () => {
     state.refreshSync.mockImplementation(async (_userId, _timeout, options) => {

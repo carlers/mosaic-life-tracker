@@ -6,7 +6,7 @@ import {
   it,
   vi,
 } from 'vitest';
-import { firstValueFrom } from 'rxjs';
+import { firstValueFrom, Subject } from 'rxjs';
 
 const getChangedDocumentsSinceMock = vi.hoisted(() => vi.fn());
 const replicateRxCollectionMock = vi.hoisted(() => vi.fn());
@@ -22,6 +22,7 @@ const trackReplicationFreshnessMock = vi.hoisted(() => vi.fn());
 const uploadPendingImageMock = vi.hoisted(() => vi.fn());
 const deletePendingImageMock = vi.hoisted(() => vi.fn());
 const awaitPilotReplicationFreshnessMock = vi.hoisted(() => vi.fn());
+let sentSubject: Subject<ReturnType<typeof localTask>>;
 
 vi.mock('rxdb', () => ({
   getChangedDocumentsSince: getChangedDocumentsSinceMock,
@@ -90,6 +91,7 @@ import {
   captureTaskReplicationPushCheckpoint,
   refreshTaskReplicationPilot,
   startTaskReplicationPilot,
+  subscribeTaskPushProgress,
   stopTaskReplicationPilot,
 } from '../../src/db/taskReplicationPilot';
 
@@ -158,6 +160,8 @@ function collectionFixture() {
 beforeEach(async () => {
   await stopTaskReplicationPilot();
   vi.clearAllMocks();
+  __taskReplicationPilotTestUtils.resetTodoMateCreatePacing();
+  sentSubject = new Subject();
   trackReplicationFreshnessMock.mockImplementation(() => undefined);
 
   getChangedDocumentsSinceMock.mockResolvedValue({
@@ -178,6 +182,7 @@ beforeEach(async () => {
     reSync: reSyncMock,
     cancel: cancelMock,
     error$: { subscribe: errorSubscribeMock },
+    sent$: sentSubject.asObservable(),
   });
 });
 
@@ -323,6 +328,71 @@ describe('task RxDB replication pilot', () => {
         ],
       })
     );
+  });
+
+  it('reports unique successful task sends from the active RxDB replication', async () => {
+    await startTaskReplicationPilot(
+      'user_A',
+      collectionFixture(),
+      undefined
+    );
+
+    const progress: Array<{ completed: number; total: number }> = [];
+    const stop = subscribeTaskPushProgress(
+      'user_A',
+      ['todo_one', 'todo_two'],
+      (value) => progress.push(value)
+    );
+
+    expect(stop).not.toBeNull();
+    sentSubject.next(localTask({ id: 'todo_one', source: 'todomate' }));
+    sentSubject.next(localTask({ id: 'todo_one', source: 'todomate' }));
+    sentSubject.next(localTask({ id: 'other', source: 'todomate' }));
+    sentSubject.next(localTask({ id: 'todo_two', source: 'todomate' }));
+
+    expect(progress).toEqual([
+      { completed: 0, total: 2 },
+      { completed: 1, total: 2 },
+      { completed: 2, total: 2 },
+    ]);
+    stop?.();
+  });
+
+  it('overlaps fresh TodoMate create latency while pacing create starts', async () => {
+    vi.useFakeTimers();
+    try {
+      const starts: number[] = [];
+      let inFlight = 0;
+      let maxInFlight = 0;
+      createRowMock.mockImplementation(async () => {
+        starts.push(Date.now());
+        inFlight += 1;
+        maxInFlight = Math.max(maxInFlight, inFlight);
+        await new Promise((resolve) => setTimeout(resolve, 900));
+        inFlight -= 1;
+        return {};
+      });
+
+      const rows = Array.from({ length: 4 }, (_, index) => ({
+        newDocumentState: localTask({
+          id: 'todo_' + index,
+          source: 'todomate',
+        }),
+      })) as never;
+
+      const push = __taskReplicationPilotTestUtils.pushTasks(rows, 'user_A');
+      await vi.advanceTimersByTimeAsync(4_000);
+      await expect(push).resolves.toEqual([]);
+
+      expect(createRowMock).toHaveBeenCalledTimes(4);
+      expect(maxInFlight).toBeGreaterThan(1);
+      for (let index = 1; index < starts.length; index += 1) {
+        expect(starts[index] - starts[index - 1]).toBeGreaterThanOrEqual(510);
+      }
+    } finally {
+      vi.useRealTimers();
+      __taskReplicationPilotTestUtils.resetTodoMateCreatePacing();
+    }
   });
 
   it('creates a fresh TodoMate task without a preliminary remote read', async () => {

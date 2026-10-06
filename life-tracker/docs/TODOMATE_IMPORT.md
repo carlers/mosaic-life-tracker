@@ -156,9 +156,15 @@ throttling fails the import visibly instead of being reported as a missing photo
 For the large task push that follows a fresh TodoMate restore, a side-effect-free TodoMate task
 with no pending local image or reactions may optimistically call Appwrite create first. Success
 avoids the predictable getRow -> 404 round trip that every brand-new imported task previously
-paid. A create conflict is immediately converted back into the existing remote-read/bootstrap
-comparison path, so an already-existing row, a newer master, ownership validation, pending-image
-handling, and server reaction preservation keep their established semantics.
+paid. Fresh TodoMate-only push batches may overlap up to four create requests, but create starts
+are globally paced about 510 ms apart for that account so Mosaic stays just below Appwrite's
+client create-row ceiling of 120 requests/minute. The worker pool overlaps request latency
+without increasing the allowed request-start rate. Mixed/general task batches keep their
+existing serial semantics. A create conflict is immediately converted back into the existing
+remote-read/bootstrap comparison path, so an already-existing row, a newer master, ownership
+validation, pending-image handling, and server reaction preservation keep their established
+semantics. Appwrite's browser TablesDB client does not expose the server-only bulk row methods,
+so Mosaic does not bypass these client limits with an unsupported bulk call.
 
 This is deliberate. The existing restore path provides:
 
@@ -193,9 +199,12 @@ apply prepared TodoMate data under a different Mosaic account and clears that st
 so the user must preview again under the active account.
 Both preview and import expose phase text plus a coarse percentage: preview advances through
 connection/login/history/photo preparation; import advances through validation, freshness
-preflight, photo copy, exact local-row application, and the six collection-level cloud
-freshness proofs. The percentage is progress through those known phases/rows/collections,
-not a byte-transfer estimate.
+preflight, photo copy, exact local-row application, and cloud convergence. During TodoMate
+task convergence, Mosaic subscribes to RxDB's successful-send stream and shows the actual
+number of imported tasks acknowledged by replication, for example
+`Syncing tasks to cloud (54/505)…`. After task sends settle, the existing six
+collection-level freshness proofs finish the import. The percentage is progress through those
+known phases/rows/collections, not a byte-transfer estimate.
 
 Starting Import records small account-scoped recovery metadata: expected counts, start time,
 and whether local application finished. If the app exits during preflight or while rows are
@@ -257,7 +266,12 @@ Automated coverage must prove:
 17. restore planning executes RxDB `findByIds(...).exec()` and regression doubles preserve that
     real query shape;
 18. a fresh TodoMate task push can create without a preliminary getRow miss, while create
-    conflicts fall back to the existing bootstrap/conflict behavior.
+    conflicts fall back to the existing bootstrap/conflict behavior;
+19. the final TodoMate cloud phase reports unique successful RxDB task sends as
+    `completed/total` without counting duplicate/non-target sends;
+20. fresh side-effect-free TodoMate batches use bounded four-worker latency overlap while
+    create starts remain paced below Appwrite's shared client create-row rate limit; mixed
+    task batches retain the established serial path.
 
 Live acceptance requires a real TodoMate account and must be done by the user locally. Never
 ask the user to paste TodoMate credentials or Firebase tokens into an AI chat. Verify preview
