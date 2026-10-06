@@ -56,6 +56,7 @@ vi.mock('../../src/lib/accountWorkScope', () => ({
 vi.mock('../../src/db/sync', () => ({
   refreshSync: state.refreshSync,
   initializeSync: state.initializeSync,
+  isRateLimitError: () => false,
 }));
 
 vi.mock('../../src/lib/exportData', () => ({
