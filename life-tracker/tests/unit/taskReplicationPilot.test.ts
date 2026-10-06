@@ -519,7 +519,7 @@ describe('task RxDB replication pilot', () => {
 
     expect(conflicts).toEqual([]);
     expect(createRowMock).toHaveBeenCalledTimes(1);
-    expect(getRowMock).toHaveBeenCalledTimes(2);
+    expect(getRowMock).toHaveBeenCalledTimes(1);
     expect(updateRowMock).not.toHaveBeenCalled();
   });
 

@@ -205,7 +205,7 @@ async function readRemoteTask(
 async function createRemoteTask(
   document: ReplicatedTask,
   userId: string
-): Promise<ReplicatedTask | null> {
+): Promise<Awaited<ReturnType<typeof readRemoteTaskMaster>>> {
   try {
     await guardedTablesDB.createRow({
       databaseId: APPWRITE_DATABASE_ID,
@@ -221,7 +221,7 @@ async function createRemoteTask(
     return null;
   } catch (error) {
     if (!isConflictError(error)) throw error;
-    const current = await readRemoteTask(document.id, userId);
+    const current = await readRemoteTaskMaster(document.id, userId);
     if (current) return current;
     throw error;
   }
@@ -499,8 +499,8 @@ async function pushTasks(
       if (!createConflict) {
         continue;
       }
-      master = await readRemoteTaskMaster(next.id, userId);
-      current = master?.document ?? createConflict;
+      master = createConflict;
+      current = createConflict.document;
     } else {
       master = await readRemoteTaskMaster(next.id, userId);
       current = master?.document ?? null;
@@ -523,7 +523,7 @@ async function pushTasks(
         );
         if (createConflict) {
           await cleanupPendingTaskImage(next, userId);
-          conflicts.push(createConflict);
+          conflicts.push(createConflict.document);
           continue;
         }
 
@@ -564,7 +564,7 @@ async function pushTasks(
         );
         if (createConflict) {
           await cleanupPendingTaskImage(next, userId);
-          conflicts.push(createConflict);
+          conflicts.push(createConflict.document);
           continue;
         }
 
@@ -646,7 +646,7 @@ async function pushTasks(
       );
       if (createConflict) {
         await cleanupPendingTaskImage(next, userId);
-        conflicts.push(createConflict);
+        conflicts.push(createConflict.document);
         continue;
       }
     }
