@@ -102,11 +102,10 @@ an arbitrary photo host.
 Successfully downloaded images are compressed locally to WebP, given deterministic source
 image IDs derived from the TodoMate task and stable photo URL path, bundled into the in-memory
 migration ZIP, and then uploaded by Mosaic's existing restore engine into the signed-in user's
-own Appwrite Storage bucket. The TodoMate ZIP stores those already-compressed WebP payloads
-without another deflate pass. The adapter marks a transfer precompressed only when every bundled image was produced as WebP
-by that trusted local processor, allowing restore to upload those exact bytes without running
-the image compressor a second time. Generic user-supplied backup images never receive that shortcut.
-The task is rewritten to the resulting Mosaic-owned file ID.
+own Appwrite Storage bucket. The TodoMate ZIP stores those already-compressed WebP payloads without another deflate pass.
+Restore recognizes already-small files with a valid WebP header and uploads those bytes directly
+instead of compressing them again; mislabeled or oversized backup bytes still take the normal
+compression path. The task is rewritten to the resulting Mosaic-owned file ID.
 
 Photo preparation is bounded to four concurrent downloads and rejects invalid/non-HTTPS,
 non-image, empty, or over-20 MiB source responses. Unavailable photos are reported in preview
@@ -250,8 +249,8 @@ Automated coverage must prove:
     deterministic rerun remains duplicate-safe;
 14. a preview prepared under one Mosaic account cannot be imported after switching accounts,
     and a restore failure before local application does not create an interrupted-import marker;
-15. trusted TodoMate WebPs skip the second compression pass while generic backup bytes do not,
-    and photo restore stays bounded to four concurrent workers;
+15. already-small valid WebPs skip the second compression pass while invalid/oversized bytes
+    keep the normal compression path, and photo restore stays bounded to four concurrent workers;
 16. a fresh TodoMate task push can create without a preliminary getRow miss, while create
     conflicts fall back to the existing bootstrap/conflict behavior.
 

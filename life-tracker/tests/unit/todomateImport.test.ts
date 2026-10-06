@@ -248,7 +248,6 @@ describe('TodoMate import adapter', () => {
       }),
     ]);
     const sourceImageId = payload.data.tasks[0].image;
-    expect(prepared.photosPrecompressed).toBe(true);
     expect(archive[`images/${sourceImageId}.webp`]).toEqual(
       new Uint8Array([1, 2, 3, 4])
     );
