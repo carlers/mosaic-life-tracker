@@ -215,10 +215,15 @@ async function pushDiary(
       if (createConflict) conflicts.push(createConflict);
       continue;
     }
+    if (!master) {
+      throw new Error(
+        `Diary replication master token missing for ${next.id}`
+      );
+    }
 
     const writeResult = await updateOwnerRowWithCas({
       databaseId: APPWRITE_DATABASE_ID,
-      tableId: APPWRITE_TABLES.diary,
+      tableId: 'diary',
       rowId: next.id,
       userId,
       expectedUpdatedAt: master.serverUpdatedAt,
