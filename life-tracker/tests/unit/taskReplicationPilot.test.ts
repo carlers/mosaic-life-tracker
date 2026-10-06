@@ -22,6 +22,7 @@ const trackReplicationFreshnessMock = vi.hoisted(() => vi.fn());
 const uploadPendingImageMock = vi.hoisted(() => vi.fn());
 const deletePendingImageMock = vi.hoisted(() => vi.fn());
 const awaitPilotReplicationFreshnessMock = vi.hoisted(() => vi.fn());
+const sendAppActionMock = vi.hoisted(() => vi.fn());
 let sentSubject: Subject<ReturnType<typeof localTask>>;
 
 vi.mock('rxdb', () => ({
@@ -71,6 +72,10 @@ vi.mock('../../src/lib/sdk', () => ({
 
 vi.mock('../../src/lib/storage', () => ({
   uploadPendingImage: uploadPendingImageMock,
+}));
+
+vi.mock('../../src/lib/appAction', () => ({
+  sendAppAction: sendAppActionMock,
 }));
 
 vi.mock('../../src/lib/pendingImages', () => ({
@@ -178,6 +183,12 @@ beforeEach(async () => {
   errorSubscribeMock.mockReturnValue({ unsubscribe: vi.fn() });
   realtimeSubscribeMock.mockReturnValue(vi.fn());
   awaitPilotReplicationFreshnessMock.mockResolvedValue(undefined);
+  sendAppActionMock.mockRejectedValue(
+    Object.assign(new Error('Unknown action'), {
+      code: 400,
+      result: { error: 'Unknown action: bulk_create_todomate_tasks' },
+    })
+  );
   replicateRxCollectionMock.mockReturnValue({
     reSync: reSyncMock,
     cancel: cancelMock,
@@ -358,21 +369,54 @@ describe('task RxDB replication pilot', () => {
     stop?.();
   });
 
-  it('overlaps fresh TodoMate create latency while pacing create starts', async () => {
+  it('sends a pristine TodoMate push batch through one trusted Function execution', async () => {
+    const rows = Array.from({ length: 4 }, (_, index) => ({
+      newDocumentState: localTask({
+        id: 'todo_' + index,
+        source: 'todomate',
+      }),
+    })) as never;
+    sendAppActionMock.mockResolvedValueOnce({
+      ok: true,
+      results: Array.from({ length: 4 }, (_, index) => ({
+        id: 'todo_' + index,
+        status: 'created',
+      })),
+    });
+
+    await expect(
+      __taskReplicationPilotTestUtils.pushTasks(rows, 'user_A')
+    ).resolves.toEqual([]);
+
+    expect(sendAppActionMock).toHaveBeenCalledTimes(1);
+    expect(sendAppActionMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'bulk_create_todomate_tasks',
+        tasks: expect.arrayContaining([
+          expect.objectContaining({
+            id: 'todo_0',
+            data: expect.objectContaining({
+              user_id: 'user_A',
+              source: 'todomate',
+              deleted: false,
+            }),
+          }),
+        ]),
+      }),
+      25_000
+    );
+    expect(createRowMock).not.toHaveBeenCalled();
+    expect(getRowMock).not.toHaveBeenCalled();
+  });
+
+  it('falls back to the paced browser lane when the deployed Function lacks the batch action', async () => {
     vi.useFakeTimers();
     try {
       const starts: number[] = [];
-      let inFlight = 0;
-      let maxInFlight = 0;
       createRowMock.mockImplementation(async () => {
         starts.push(Date.now());
-        inFlight += 1;
-        maxInFlight = Math.max(maxInFlight, inFlight);
-        await new Promise((resolve) => setTimeout(resolve, 900));
-        inFlight -= 1;
         return {};
       });
-
       const rows = Array.from({ length: 4 }, (_, index) => ({
         newDocumentState: localTask({
           id: 'todo_' + index,
@@ -381,11 +425,11 @@ describe('task RxDB replication pilot', () => {
       })) as never;
 
       const push = __taskReplicationPilotTestUtils.pushTasks(rows, 'user_A');
-      await vi.advanceTimersByTimeAsync(4_000);
+      await vi.advanceTimersByTimeAsync(3_000);
       await expect(push).resolves.toEqual([]);
 
+      expect(sendAppActionMock).toHaveBeenCalledTimes(1);
       expect(createRowMock).toHaveBeenCalledTimes(4);
-      expect(maxInFlight).toBeGreaterThan(1);
       for (let index = 1; index < starts.length; index += 1) {
         expect(starts[index] - starts[index - 1]).toBeGreaterThanOrEqual(510);
       }
@@ -393,6 +437,52 @@ describe('task RxDB replication pilot', () => {
       vi.useRealTimers();
       __taskReplicationPilotTestUtils.resetTodoMateCreatePacing();
     }
+  });
+
+  it('uses returned existing server state for TodoMate batch conflicts', async () => {
+    const rows = [
+      {
+        newDocumentState: localTask({
+          id: 'todo_existing',
+          source: 'todomate',
+          updatedAt: '2026-10-02T00:00:00.000Z',
+        }),
+      },
+      {
+        newDocumentState: localTask({
+          id: 'todo_created',
+          source: 'todomate',
+        }),
+      },
+    ] as never;
+    sendAppActionMock.mockResolvedValueOnce({
+      ok: true,
+      results: [
+        {
+          id: 'todo_existing',
+          status: 'existing',
+          row: remoteTask({
+            $id: 'todo_existing',
+            source: 'todomate',
+            title: 'Remote wins',
+            updated_at: '2026-10-02T00:00:05.000Z',
+          }),
+        },
+        { id: 'todo_created', status: 'created' },
+      ],
+    });
+
+    const conflicts =
+      await __taskReplicationPilotTestUtils.pushTasks(rows, 'user_A');
+
+    expect(conflicts).toEqual([
+      expect.objectContaining({
+        id: 'todo_existing',
+        title: 'Remote wins',
+      }),
+    ]);
+    expect(createRowMock).not.toHaveBeenCalled();
+    expect(updateRowMock).not.toHaveBeenCalled();
   });
 
   it('creates a fresh TodoMate task without a preliminary remote read', async () => {
