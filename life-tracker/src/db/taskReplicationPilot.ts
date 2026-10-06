@@ -274,6 +274,20 @@ async function finishSuccessfulPush(
   }
 }
 
+function canOptimisticallyCreateTodoMateTask(
+  document: ReplicatedTask
+): boolean {
+  const image =
+    typeof document.image === 'string' ? document.image : '';
+  const reactions =
+    typeof document.reactions === 'string' ? document.reactions : '';
+  return (
+    document.source === 'todomate' &&
+    !isPendingImageId(image) &&
+    reactions.length === 0
+  );
+}
+
 function mergeServerReactionDrift(
   next: ReplicatedTask,
   current: ReplicatedTask,
@@ -310,14 +324,29 @@ async function pushTasks(
       );
     }
 
-    const current = await readRemoteTask(next.id, userId);
+    const assumed = row.assumedMasterState;
+    let current: ReplicatedTask | null;
+
+    if (!assumed && canOptimisticallyCreateTodoMateTask(next)) {
+      // Fresh TodoMate imports are deterministic, side-effect-free rows.
+      // Try the create directly so a brand-new import does not pay an
+      // expected getRow -> 404 round trip for every task. A 409 is converted
+      // back into the existing bootstrap/conflict path by createRemoteTask.
+      const createConflict = await createRemoteTask(next, userId);
+      if (!createConflict) {
+        continue;
+      }
+      current = createConflict;
+    } else {
+      current = await readRemoteTask(next.id, userId);
+    }
+
     if (current && current.userId !== userId) {
       throw new Error(
         `Task replication master owner mismatch for ${next.id}`
       );
     }
 
-    const assumed = row.assumedMasterState;
     let documentToPush: ReplicatedTask;
 
     if (!assumed) {

@@ -3,14 +3,17 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
+  authUser: {
+    $id: 'user_A',
+    email: 'mosaic@example.com',
+    name: 'Mosaic User',
+  },
   prepareTodoMateTransfer: vi.fn(),
   restoreUserData: vi.fn(),
 }));
 
 vi.mock('../../src/hooks/useAuth', () => ({
-  useAuth: () => ({
-    user: { $id: 'user_A', email: 'mosaic@example.com', name: 'Mosaic User' },
-  }),
+  useAuth: () => ({ user: mocks.authUser }),
 }));
 
 vi.mock('../../src/lib/todomateImport', () => ({
@@ -31,8 +34,14 @@ describe('TodoMateImportSheet', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     localStorage.clear();
+    mocks.authUser = {
+      $id: 'user_A',
+      email: 'mosaic@example.com',
+      name: 'Mosaic User',
+    };
     mocks.prepareTodoMateTransfer.mockResolvedValue({
       file: preparedFile,
+      precompressedPhotoIds: ['tmimg_one', 'tmimg_two'],
       preview: {
         categories: 3,
         tasks: 12,
@@ -155,6 +164,11 @@ describe('TodoMateImportSheet', () => {
         })
       )
     );
+    const restoreOptions = mocks.restoreUserData.mock.calls[0][2];
+    expect(
+      Array.from(restoreOptions.trustedPrecompressedImageIds)
+    ).toEqual(['tmimg_one', 'tmimg_two']);
+    expect(restoreOptions.onLocalApplyStart).toEqual(expect.any(Function));
     expect(onSuccess).toHaveBeenCalledWith(
       expect.stringMatching(/17 restored.*2 photos copied.*1 newer Mosaic item kept/)
     );
@@ -228,6 +242,38 @@ describe('TodoMateImportSheet', () => {
     expect(screen.queryByText(/999 tasks · 99 categories/i)).not.toBeInTheDocument();
   });
 
+  it('invalidates a prepared preview when the signed-in Mosaic account changes', async () => {
+    const { rerender } = render(
+      <TodoMateImportSheet isOpen onClose={vi.fn()} />
+    );
+    fireEvent.change(screen.getByLabelText('TodoMate email'), {
+      target: { value: 'todo@example.com' },
+    });
+    fireEvent.change(screen.getByLabelText('TodoMate password'), {
+      target: { value: 'pw-account-12345' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Preview Transfer' }));
+
+    await screen.findByRole('button', { name: 'Import into Mosaic' });
+
+    mocks.authUser = {
+      $id: 'user_B',
+      email: 'other@example.com',
+      name: 'Other User',
+    };
+    rerender(<TodoMateImportSheet isOpen onClose={vi.fn()} />);
+
+    await waitFor(() =>
+      expect(
+        screen.queryByRole('button', { name: 'Import into Mosaic' })
+      ).not.toBeInTheDocument()
+    );
+    expect(
+      screen.getByText(/Mosaic account changed.*Preview TodoMate again/i)
+    ).toBeInTheDocument();
+    expect(mocks.restoreUserData).not.toHaveBeenCalled();
+  });
+
   it('shows import percentage and current phase while restore is in progress', async () => {
     let finishRestore!: () => void;
     mocks.restoreUserData.mockImplementationOnce(async (_file, _user, options) => {
@@ -276,9 +322,30 @@ describe('TodoMateImportSheet', () => {
     });
   });
 
+  it('does not record an interrupted import when restore fails before local apply starts', async () => {
+    mocks.restoreUserData.mockRejectedValueOnce(new Error('preflight failed'));
+
+    render(<TodoMateImportSheet isOpen onClose={vi.fn()} />);
+    fireEvent.change(screen.getByLabelText('TodoMate email'), {
+      target: { value: 'todo@example.com' },
+    });
+    fireEvent.change(screen.getByLabelText('TodoMate password'), {
+      target: { value: 'pw-preflight-12345' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Preview Transfer' }));
+    await screen.findByRole('button', { name: 'Import into Mosaic' });
+    fireEvent.click(screen.getByRole('button', { name: 'Import into Mosaic' }));
+
+    await screen.findByText('preflight failed');
+    expect(
+      localStorage.getItem('mosaic_todomate_import_v1_user_A')
+    ).toBeNull();
+  });
+
   it('reports sync pending after local apply without claiming full completion', async () => {
     const onSuccess = vi.fn();
     mocks.restoreUserData.mockImplementationOnce(async (_file, _user, options) => {
+      options.onLocalApplyStart?.();
       options.onLocalApplyComplete?.();
       return {
         mode: 'merge',

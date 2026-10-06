@@ -120,7 +120,14 @@ export interface RestoreOptions {
   mode: RestoreMode;
   onProgress?: (message: string) => void;
   onProgressDetail?: (progress: RestoreProgress) => void;
+  onLocalApplyStart?: () => void;
   onLocalApplyComplete?: () => void;
+  /**
+   * Source image IDs that were produced by a trusted local WebP processor.
+   * Generic user-supplied backups must not set this; they still pass through
+   * normal image compression/validation before Storage upload.
+   */
+  trustedPrecompressedImageIds?: ReadonlySet<string>;
 }
 
 export interface RestoreResult {
@@ -147,6 +154,7 @@ type LocalDoc = {
 
 type LocalCollection = {
   findOne: (id: string) => { exec: () => Promise<LocalDoc | null> };
+  findByIds: (ids: string[]) => Promise<Map<string, LocalDoc>>;
   find: (query?: unknown) => { exec: () => Promise<LocalDoc[]> };
 };
 
@@ -662,7 +670,8 @@ async function restoreImages(
   currentUserId: string,
   onProgress?: (message: string) => void,
   assertOwner?: () => void,
-  onImageProgress?: (completed: number, total: number) => void
+  onImageProgress?: (completed: number, total: number) => void,
+  trustedPrecompressedImageIds?: ReadonlySet<string>
 ): Promise<{ restored: number; missing: number }> {
   const ids = Array.from(referencedImageIds(data));
   if (ids.length === 0) return { restored: 0, missing: 0 };
@@ -670,47 +679,75 @@ async function restoreImages(
   const remapped = new Map<string, string>();
   let restored = 0;
   let missing = 0;
+  let cursor = 0;
+  let completed = 0;
+  const concurrency = Math.min(4, ids.length);
 
-  for (let index = 0; index < ids.length; index += 1) {
-    assertOwner?.();
-    onImageProgress?.(index, ids.length);
-    const oldId = ids[index];
-    const bytes = loaded.imageFiles.get(oldId);
-    if (!bytes) {
-      if (
-        loaded.payload.images?.included ||
-        loaded.payload.user.id !== currentUserId
-      ) {
+  onImageProgress?.(0, ids.length);
+
+  const worker = async () => {
+    while (true) {
+      assertOwner?.();
+      const index = cursor;
+      cursor += 1;
+      if (index >= ids.length) return;
+
+      const oldId = ids[index];
+      const bytes = loaded.imageFiles.get(oldId);
+
+      try {
+        if (!bytes) {
+          if (
+            loaded.payload.images?.included ||
+            loaded.payload.user.id !== currentUserId
+          ) {
+            missing += 1;
+          }
+          continue;
+        }
+
+        onProgress?.(
+          `Restoring photos (${completed + 1}/${ids.length})…`
+        );
+        const imageBuffer = bytes.slice().buffer as ArrayBuffer;
+        const file = new File([imageBuffer], `${oldId}.webp`, {
+          type: 'image/webp',
+        });
+        const preferredFileId = portableImageId(
+          currentUserId,
+          loaded.payload.user.id,
+          oldId
+        );
+        const alreadyCompressed =
+          trustedPrecompressedImageIds?.has(oldId) === true;
+        const ensured = alreadyCompressed
+          ? await ensureRestoredImage(
+              file,
+              preferredFileId,
+              currentUserId,
+              { alreadyCompressed: true }
+            )
+          : await ensureRestoredImage(
+              file,
+              preferredFileId,
+              currentUserId
+            );
+        remapped.set(oldId, ensured.fileId);
+        if (ensured.uploaded) restored += 1;
+      } catch (error) {
+        console.warn('[Restore] Image restore failed:', oldId, error);
         missing += 1;
+      } finally {
+        assertOwner?.();
+        completed += 1;
+        onImageProgress?.(completed, ids.length);
       }
-      continue;
     }
-    onProgress?.(`Restoring photos (${index + 1}/${ids.length})…`);
-    try {
-      const imageBuffer = bytes.slice().buffer as ArrayBuffer;
-      const file = new File([imageBuffer], `${oldId}.webp`, {
-        type: 'image/webp',
-      });
-      const preferredFileId = portableImageId(
-        currentUserId,
-        loaded.payload.user.id,
-        oldId
-      );
-      const ensured = await ensureRestoredImage(
-        file,
-        preferredFileId,
-        currentUserId
-      );
-      remapped.set(oldId, ensured.fileId);
-      if (ensured.uploaded) restored += 1;
-    } catch (error) {
-      console.warn('[Restore] Image restore failed:', oldId, error);
-      missing += 1;
-    }
-    assertOwner?.();
-  }
+  };
 
-  onImageProgress?.(ids.length, ids.length);
+  await Promise.all(
+    Array.from({ length: concurrency }, () => worker())
+  );
 
   for (const task of data.tasks) {
     if (!task.image) continue;
@@ -767,11 +804,16 @@ async function planRestore(
     assertOwner?.();
     const collection = collectionFor(collectionName);
     const target = planned[collectionName] as RestorableDocument[];
+    const documents = documentsFor(data, collectionName);
+    const existingById =
+      documents.length > 0
+        ? await collection.findByIds(documents.map((doc) => doc.id))
+        : new Map<string, LocalDoc>();
+    assertOwner?.();
 
-    for (const doc of documentsFor(data, collectionName)) {
+    for (const doc of documents) {
       assertOwner?.();
-      const existing = await collection.findOne(doc.id).exec();
-      assertOwner?.();
+      const existing = existingById.get(doc.id) ?? null;
       if (!existing) {
         target.push(doc);
         continue;
@@ -1098,7 +1140,8 @@ export async function restoreUserData(
         completed,
         total
       );
-    }
+    },
+    options.trustedPrecompressedImageIds
   );
 
   await assertRestoreUserStillCurrent(currentUser.id);
@@ -1118,6 +1161,7 @@ export async function restoreUserData(
     plan.data.diary.length +
     plan.data.settings.length;
   let processedDocuments = 0;
+  options.onLocalApplyStart?.();
   reportDetail(
     options.mode === 'replace'
       ? 'Applying backup data…'
