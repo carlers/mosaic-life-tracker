@@ -41,6 +41,11 @@ Status meanings:
 | Freshness | Stored marker belongs to an older replication identifier | Reject marker as stale proof | **Covered** |
 | Manual Sync Now | Six pilots converge at different speeds | Start all freshness proofs together under one deadline; report pending groups | **Covered** |
 | Manual Sync Now | One pilot exceeds freshness deadline | Caller fails closed; UI clears spinner and reports background completion notice | **Covered** |
+| Manual Sync Now | Local row content differs from Appwrite but the durable pull checkpoint is already past that row | After the first six-pilot freshness barrier, perform a full owner-scoped reconciliation and repair the local row even when application timestamps are equal | **Covered** — `sync.test.ts` same-timestamp drift regression |
+| Manual Sync Now | Settled local owner row is absent from the complete server snapshot | Reconcile the local row to a Mosaic soft tombstone without treating checkpoint freshness as proof of equality | **Covered** |
+| Manual Sync Now | Local owner edit lands while the full reconciliation is running | Do not overwrite that in-flight local edit; second freshness barrier resolves it through normal replication/conflict rules | **Covered** |
+| Manual Sync Now | Messages contain newer local Function/outbox intent while the server snapshot is older | Keep message reconciliation conservative; preserve newer local intent and pending outgoing messages | **Guarded** by existing message stale-recovery/intent rules |
+| Manual Sync Now | Local owner row already equals Appwrite | Do not rewrite it merely because a full scan was requested | **Covered** — avoids O(n) local write churn on healthy large accounts |
 | Rate limit | Stale recovery receives HTTP 429 | Back off, retain error context, schedule owner-scoped retry | **Covered** |
 | Transient failure | Non-429 stale recovery fails | Apply bounded failure backoff; do not start failed collection pilot | **Covered** |
 | Stale client | Trusted collection freshness is older than 90 days | Full owner-scoped recovery pull before pilot start; recovery itself performs no Appwrite writes | **Covered** |
