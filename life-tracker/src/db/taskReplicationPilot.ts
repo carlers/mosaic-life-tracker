@@ -18,6 +18,7 @@ import {
 import { Subject, type Subscription } from 'rxjs';
 import type { TaskDocument } from './schema';
 import { guardedTablesDB, type RealtimeUnsubscribe } from '../lib/sdk';
+import { sendAppAction } from '../lib/appAction';
 import { fromAppwriteFormat, toAppwriteFormat } from '../lib/syncMapping';
 import {
   APPWRITE_DATABASE_ID,
@@ -328,6 +329,86 @@ function isParallelTodoMateRow(
   );
 }
 
+type TodoMateBatchResult = {
+  id: string;
+  status: 'created' | 'existing';
+  row?: Record<string, unknown>;
+};
+
+function isUnsupportedTodoMateBatchAction(error: unknown): boolean {
+  const candidate = error as {
+    code?: number;
+    result?: { error?: unknown };
+  };
+  return (
+    candidate?.code === 400 &&
+    typeof candidate.result?.error === 'string' &&
+    candidate.result.error.startsWith('Unknown action:')
+  );
+}
+
+async function pushTodoMateRowsViaFunction(
+  rows: RxReplicationWriteToMasterRow<TaskDocument>[],
+  userId: string
+): Promise<ReplicatedTask[] | null> {
+  let response: Record<string, unknown>;
+  try {
+    response = await sendAppAction(
+      {
+        action: 'bulk_create_todomate_tasks',
+        tasks: rows.map((row) => ({
+          id: row.newDocumentState.id,
+          data: toAppwriteFormat(
+            row.newDocumentState as unknown as Record<string, unknown>,
+            'tasks',
+            userId
+          ),
+        })),
+      },
+      25_000
+    );
+  } catch (error) {
+    if (isUnsupportedTodoMateBatchAction(error)) return null;
+    throw error;
+  }
+
+  if (!Array.isArray(response.results)) {
+    throw new Error('TodoMate task batch returned an invalid response');
+  }
+  const results = response.results as TodoMateBatchResult[];
+  const byId = new Map(results.map((result) => [result.id, result]));
+  if (byId.size !== rows.length) {
+    throw new Error('TodoMate task batch returned an incomplete response');
+  }
+
+  const conflicts: ReplicatedTask[] = [];
+  for (const row of rows) {
+    const next = row.newDocumentState;
+    const result = byId.get(next.id);
+    if (!result || (result.status !== 'created' && result.status !== 'existing')) {
+      throw new Error('TodoMate task batch returned an invalid row result');
+    }
+    if (result.status === 'created') continue;
+    if (!result.row || typeof result.row !== 'object') {
+      throw new Error('TodoMate task batch omitted existing row state');
+    }
+
+    assertRemoteRowOwnedBy(result.row, userId, 'Task');
+    const current = toReplicatedTask(result.row);
+    if (taskStateEquals(current, next)) continue;
+    if (!isBootstrapLocalNewer(next.updatedAt, current.updatedAt)) {
+      conflicts.push(current);
+      continue;
+    }
+
+    // Rare same-owner ID collision where the imported row is genuinely newer:
+    // fall back to the established single-row bootstrap/update path.
+    conflicts.push(...(await pushTasks([row], userId, true)));
+  }
+
+  return conflicts;
+}
+
 async function pushParallelTodoMateRows(
   rows: RxReplicationWriteToMasterRow<TaskDocument>[],
   userId: string
@@ -376,6 +457,8 @@ async function pushTasks(
     rows.length > 1 &&
     rows.every((row) => isParallelTodoMateRow(row, userId))
   ) {
+    const serverBatch = await pushTodoMateRowsViaFunction(rows, userId);
+    if (serverBatch) return serverBatch;
     return pushParallelTodoMateRows(rows, userId);
   }
 

@@ -469,9 +469,10 @@ Single function, single ID, `action` field in the body. Actions:
 | `unsend` | sender | Patch BOTH rows: wipe content/refs/reactions, set `is_unsent=true`. Cascade-wipes `reply_to_content` on any messages that quoted the unsent message |
 | `react` | either | Read-modify-write reactions on BOTH rows using two-phase read-then-write (overflow pre-check on both rows before any write — see §18 and §20.7). Legacy incoming-row backfill: see §22 |
 | `react_to_task` | friend of task owner | Patch the task owner's task row with a reaction delta |
+| `bulk_create_todomate_tasks` | authenticated owner | Migration-only fast path for a pristine TodoMate RxDB push batch (max 20): validate every row, force caller ownership/TodoMate source/non-deleted/no-reaction state, create rows concurrently with API-key server calls and owner-only permissions, and return same-owner 409 rows for normal client conflict resolution |
 | `get_friend_calendar` | friend of calendar owner | Read the owner's visible tasks and categories (filters by `visibility`; verifies friendship) |
 
-Function ID lives in `src/lib/messageDelivery.ts` as `MESSAGE_ACTION_FUNCTION_ID`. All actions live in `appwrite-functions/message-action/main.js`. Accepted friendship is verified before message/calendar writes; friendship lifecycle actions validate their own transition and caller authorization. (General cross-user-write rule: §6.)
+Function ID is shared by `src/lib/appAction.ts` and the message layer; `src/lib/messageDelivery.ts` still exports `MESSAGE_ACTION_FUNCTION_ID` for compatibility. Actions dispatch from `appwrite-functions/message-action/main.js`, with larger action handlers split into sibling modules. Accepted friendship is verified before message/calendar writes; friendship lifecycle actions validate their own transition and caller authorization. (General cross-user-write rule: §6.)
 
 ### 20.4 Delivery Flow
 1. Sender inserts local message with `deliveryStatus: 'pending'`

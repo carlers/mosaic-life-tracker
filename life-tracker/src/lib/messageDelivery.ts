@@ -1,7 +1,5 @@
-import { ExecutionMethod } from 'appwrite';
 import type { RxDocument } from 'rxdb';
 import { getDatabase } from '../db/database';
-import { guardedFunctions } from './sdk';
 import { isUnauthorizedError } from './authEvents';
 import {
   enqueueMessageAction,
@@ -11,75 +9,19 @@ import {
 import type { MessageDocument } from '../db/schema';
 import { getConnectivitySnapshot } from './connectivity';
 import { APPWRITE_MESSAGE_ACTION_FUNCTION_ID } from './appwriteConfig';
+import { sendAppAction } from './appAction';
 import {
   captureAccountWorkGeneration,
   isAccountWorkCurrent,
 } from './accountWorkScope';
 const DEBUG = import.meta.env.DEV;
 export const MESSAGE_ACTION_FUNCTION_ID = APPWRITE_MESSAGE_ACTION_FUNCTION_ID;
-const SEND_TIMEOUT_MS = 15_000;
 const MAX_DELIVERY_LOOPS = 5;
 let inFlightDeliveryPromise: Promise<void> | null = null;
 let inFlightDeliveryUserId: string | null = null;
 let inFlightDeliveryGeneration: number | null = null;
 let deliveryRequestedDuringFlight = false;
-export async function sendMessageAction(
-  payload: Record<string, unknown>
-): Promise<Record<string, unknown>> {
-  if (getConnectivitySnapshot().status !== 'online') {
-    throw new Error('Offline');
-  }
-  if (MESSAGE_ACTION_FUNCTION_ID.startsWith('REPLACE_')) {
-    throw new Error('MESSAGE_ACTION_FUNCTION_ID not configured');
-  }
-  let timeoutId: ReturnType<typeof setTimeout> | null = null;
-  const execPromise = guardedFunctions.createExecution({
-    functionId: MESSAGE_ACTION_FUNCTION_ID,
-    body: JSON.stringify(payload),
-    async: false,
-    xpath: '/',
-    method: ExecutionMethod.POST,
-  });
-  execPromise.catch(() => {});
-  const execution = await Promise.race([
-    execPromise,
-    new Promise<never>((_, reject) => {
-      timeoutId = setTimeout(
-        () =>
-          reject(
-            new Error(
-              `Message action timed out after ${SEND_TIMEOUT_MS}ms`
-            )
-          ),
-        SEND_TIMEOUT_MS
-      );
-    }),
-  ]).finally(() => {
-    if (timeoutId !== null) {
-      clearTimeout(timeoutId);
-    }
-  });
-  if (
-    execution.status !== 'completed' ||
-    execution.responseStatusCode >= 400
-  ) {
-    const err = new Error(
-      `Message action failed (${execution.responseStatusCode}): ${execution.responseBody}`
-    );
-    (err as { code?: number }).code = execution.responseStatusCode;
-    try {
-      const result = JSON.parse(execution.responseBody);
-      (err as { result?: unknown }).result = result;
-      if (payload.action === 'friendship' && typeof result.error === 'string') err.message = result.error;
-    } catch { /* Preserve the generic error for an invalid server response. */ }
-    throw err;
-  }
-  try {
-    return JSON.parse(execution.responseBody) as Record<string, unknown>;
-  } catch {
-    return {};
-  }
-}
+export const sendMessageAction = sendAppAction;
 setMessageActionSender(sendMessageAction);
 export { flushMessageActionQueue };
 function shouldQueueMessageAction(err: unknown): boolean {

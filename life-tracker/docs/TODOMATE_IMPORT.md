@@ -153,18 +153,19 @@ remain in place, so concurrency does not weaken account isolation or re-import i
 Appwrite Storage 429 responses pause that worker for one minute and retry once; persistent
 throttling fails the import visibly instead of being reported as a missing photo.
 
-For the large task push that follows a fresh TodoMate restore, a side-effect-free TodoMate task
-with no pending local image or reactions may optimistically call Appwrite create first. Success
-avoids the predictable getRow -> 404 round trip that every brand-new imported task previously
-paid. Fresh TodoMate-only push batches may overlap up to four create requests, but create starts
-are globally paced about 510 ms apart for that account so Mosaic stays just below Appwrite's
-client create-row ceiling of 120 requests/minute. The worker pool overlaps request latency
-without increasing the allowed request-start rate. Mixed/general task batches keep their
-existing serial semantics. A create conflict is immediately converted back into the existing
-remote-read/bootstrap comparison path, so an already-existing row, a newer master, ownership
-validation, pending-image handling, and server reaction preservation keep their established
-semantics. Appwrite's browser TablesDB client does not expose the server-only bulk row methods,
-so Mosaic does not bypass these client limits with an unsupported bulk call.
+For the large task push that follows a fresh TodoMate restore, Mosaic does not normally send
+hundreds of browser `createRow` requests. A whole pristine RxDB TodoMate push batch (currently
+up to 20 rows) is sent once to the existing trusted `message-action` / future `app-api`
+Function via `bulk_create_todomate_tasks`. The Function validates every row before writing,
+forces caller ownership/source/tombstone/reaction invariants, applies owner-only row permissions,
+and creates the validated rows concurrently with its API-key server SDK. Server SDK calls are not
+subject to browser client rate limits, so the old 510 ms-per-create pacing no longer imposes a
+four-minute floor on a 505-task import. A 409 returns the existing same-owner row to the client,
+which reuses the established bootstrap/conflict comparison; genuinely newer same-owner local
+state falls back to the ordinary single-row update path. Mixed/general task batches keep their
+existing semantics. Until a Function deployment containing this action is activated, an
+`Unknown action` response intentionally falls back to the prior bounded/paced browser lane so
+frontend/backend rollout ordering cannot break sync.
 
 This is deliberate. The existing restore path provides:
 
@@ -269,9 +270,12 @@ Automated coverage must prove:
     conflicts fall back to the existing bootstrap/conflict behavior;
 19. the final TodoMate cloud phase reports unique successful RxDB task sends as
     `completed/total` without counting duplicate/non-target sends;
-20. fresh side-effect-free TodoMate batches use bounded four-worker latency overlap while
-    create starts remain paced below Appwrite's shared client create-row rate limit; mixed
-    task batches retain the established serial path.
+20. pristine TodoMate RxDB push batches use one authenticated Function execution; the Function
+    validates the whole batch and concurrently creates rows with API-key server calls while
+    preserving owner-only permissions and existing-row conflict fallback;
+21. a frontend paired with the pre-batch Function falls back on `Unknown action` to the prior
+    paced browser create lane, so the rollout is backward-compatible; mixed/general task batches
+    retain the established path.
 
 Live acceptance requires a real TodoMate account and must be done by the user locally. Never
 ask the user to paste TodoMate credentials or Firebase tokens into an AI chat. Verify preview
