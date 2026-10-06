@@ -120,7 +120,6 @@ export interface RestoreOptions {
   mode: RestoreMode;
   onProgress?: (message: string) => void;
   onProgressDetail?: (progress: RestoreProgress) => void;
-  onLocalApplyStart?: () => void;
   onLocalApplyComplete?: () => void;
 }
 
@@ -674,18 +673,13 @@ async function restoreImages(
   let missing = 0;
   let cursor = 0;
   let completed = 0;
-  const concurrency = Math.min(4, ids.length);
 
   onImageProgress?.(0, ids.length);
 
   const worker = async () => {
-    while (true) {
+    while (cursor < ids.length) {
       assertOwner?.();
-      const index = cursor;
-      cursor += 1;
-      if (index >= ids.length) return;
-
-      const oldId = ids[index];
+      const oldId = ids[cursor++];
       const bytes = loaded.imageFiles.get(oldId);
 
       try {
@@ -714,7 +708,8 @@ async function restoreImages(
         const ensured = await ensureRestoredImage(
           file,
           preferredFileId,
-          currentUserId
+          currentUserId,
+          loaded.payload.user.id.startsWith('todomate_')
         );
         remapped.set(oldId, ensured.fileId);
         if (ensured.uploaded) restored += 1;
@@ -730,7 +725,7 @@ async function restoreImages(
   };
 
   await Promise.all(
-    Array.from({ length: concurrency }, () => worker())
+    Array.from({ length: Math.min(4, ids.length) }, worker)
   );
 
   for (const task of data.tasks) {
@@ -1144,7 +1139,6 @@ export async function restoreUserData(
     plan.data.diary.length +
     plan.data.settings.length;
   let processedDocuments = 0;
-  options.onLocalApplyStart?.();
   reportDetail(
     options.mode === 'replace'
       ? 'Applying backup data…'

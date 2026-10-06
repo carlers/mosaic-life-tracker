@@ -192,9 +192,10 @@ describe('storage.ensureRestoredImage — idempotent backup recovery', () => {
     expect(sdkRef.guardedStorageCreateFile).toHaveBeenCalledWith(
       expect.objectContaining({ fileId: 'bk_i_restored' })
     );
+    expect(compressionRef.compress).toHaveBeenCalled();
   });
 
-  it('uploads an already-small valid WebP without compressing it again', async () => {
+  it('uploads TodoMate-precompressed restore bytes without compressing them again', async () => {
     sdkRef.guardedAccountGet.mockResolvedValueOnce({ $id: 'user_A' });
     sdkRef.guardedStorageGetFile.mockRejectedValueOnce(
       Object.assign(new Error('Not found'), { code: 404 })
@@ -202,43 +203,16 @@ describe('storage.ensureRestoredImage — idempotent backup recovery', () => {
     sdkRef.guardedStorageCreateFile.mockResolvedValueOnce({
       $id: 'bk_i_precompressed',
     });
-    const webp = new File(
-      [new Uint8Array([82, 73, 70, 70, 0, 0, 0, 0, 87, 69, 66, 80])],
-      'photo.webp',
-      { type: 'image/webp' }
-    );
+    const webp = new File(['webp'], 'photo.webp', { type: 'image/webp' });
 
     await expect(
-      ensureRestoredImage(webp, 'bk_i_precompressed', 'user_A')
+      ensureRestoredImage(webp, 'bk_i_precompressed', 'user_A', true)
     ).resolves.toEqual({
       fileId: 'bk_i_precompressed',
       uploaded: true,
     });
 
     expect(compressionRef.compress).not.toHaveBeenCalled();
-    expect(sdkRef.guardedStorageCreateFile).toHaveBeenCalledWith(
-      expect.objectContaining({
-        fileId: 'bk_i_precompressed',
-        file: expect.objectContaining({ type: 'image/webp' }),
-      })
-    );
-  });
-
-  it('keeps the normal compression path for mislabeled WebP bytes', async () => {
-    sdkRef.guardedAccountGet.mockResolvedValueOnce({ $id: 'user_A' });
-    sdkRef.guardedStorageGetFile.mockRejectedValueOnce(
-      Object.assign(new Error('Not found'), { code: 404 })
-    );
-    sdkRef.guardedStorageCreateFile.mockResolvedValueOnce({
-      $id: 'bk_i_mislabeled',
-    });
-    const invalid = new File(['not-webp'], 'photo.webp', {
-      type: 'image/webp',
-    });
-
-    await ensureRestoredImage(invalid, 'bk_i_mislabeled', 'user_A');
-
-    expect(compressionRef.compress).toHaveBeenCalledWith(invalid, expect.anything());
   });
 
   it('treats a create conflict as successful reuse after a race', async () => {
