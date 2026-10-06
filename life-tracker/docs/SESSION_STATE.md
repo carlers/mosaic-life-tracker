@@ -1,24 +1,21 @@
 # Session checkpoint
 
-Updated: 2026-10-06
-Current task: Release Mosaic 0.3.0 from accepted `dev` to `main`.
-Status: Sync convergence/reconciliation is promoted to `dev` at `4c88a8aa`; production `message-action` CAS deployment `6ac522c0b2a584dc525e` is active and runtime-smoked. Release prep bumps Mosaic from 0.2.0 to 0.3.0 with no product/runtime behavior changes beyond the already-accepted `dev` tree.
-Next action: Verify the 0.3.0 metadata bump, deliver it through a stable Preview, promote the accepted tree back to `dev`, then merge `dev` to `main` and require the full production Quality Gate + Vercel Production deployment.
+Updated: 2026-10-07
+Current task: Restore category visibility controls in category creation/editing and replace the row edit Save icon with a Pencil icon.
+Status: Implementation is on `chatgpt/feature-category-visibility`, based on current `dev`. The root cause is the 2026-09-17 cleanup commit `9df913b`, which removed both category visibility selectors while leaving the existing visibility state, persistence, schema, replication, and sharing behavior intact. The category manager now exposes Private/Friends/Public selectors for create and edit with accessible selected state, and the category-row edit action uses a Pencil icon.
+Next action: Run focused verification for the task commit, squash it into stable Preview `feature/category-visibility`, then require canonical full CI plus Vercel Preview delivery.
 Blockers: None known.
 
-## Release scope
+## Completed evidence
 
-- Multi-device owner-write CAS for tasks/categories/diary/settings through the trusted Function.
-- Bounded visible/online incremental resync for missed Realtime events.
-- Manual Sync Now anti-entropy repair for checkpoint-hidden historical local drift.
-- Existing accepted TodoMate import/sync performance and workflow hardening already present on `dev`.
-- Release version metadata is synchronized in `package.json`, `package-lock.json`, and `src/lib/appVersion.ts`; build identity remains commit-specific.
+- Confirmed category visibility remains a required `private | followers | public` field throughout the local schema, Appwrite mapping/replication, import/restore, and friend-calendar sharing paths.
+- Restored category visibility selection without mutating task overrides: tasks with empty visibility continue inheriting the category, while explicit task visibility remains independent.
+- Reused the existing shared visibility icons and user-facing Friends label rather than adding another visibility mapping.
+- Added DOM regression coverage for create persistence, edit initialization/persistence, cancel reset behavior, and existing category reorder behavior.
+- Replaced the category row's misleading Save glyph with a Pencil while preserving the accessible `Edit category` action name.
 
 ## Working files
 
-- `package.json`
-- `package-lock.json`
-- `src/lib/appVersion.ts`
-- `tests/unit/appVersion.test.ts`
-- `docs/PROJECT_REFERENCE.md`
+- `src/components/modals/CategoryManagerSheet.tsx`
+- `tests/components/CategoryManagerSheet.test.tsx`
 - `docs/SESSION_STATE.md`

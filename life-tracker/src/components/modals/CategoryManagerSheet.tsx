@@ -4,13 +4,82 @@ import { BottomSheet } from '../ui/BottomSheet';
 import { ColorPalettePicker } from '../ui/ColorPalettePicker';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
-import { Plus, Trash2, Save, GripVertical } from 'lucide-react';
+import { Pencil, Plus, Trash2, GripVertical } from 'lucide-react';
 import { useCategories } from '../../hooks/useCategories';
 import { useTasks } from '../../hooks/useTasks';
-import { visibilityIcon } from '../../lib/visibility';
+import {
+  visibilityIcon,
+  visibilityOptionIcon,
+} from '../../lib/visibility';
 import type { CategoryDocument } from '../../db/schema';
 
 type Visibility = 'private' | 'followers' | 'public';
+
+const VISIBILITY_OPTIONS: Array<{
+  value: Visibility;
+  label: string;
+  description: string;
+}> = [
+  {
+    value: 'private',
+    label: 'Private',
+    description: 'Only visible to you',
+  },
+  {
+    value: 'followers',
+    label: 'Friends',
+    description: 'Visible to accepted friends',
+  },
+  {
+    value: 'public',
+    label: 'Public',
+    description: 'Visible to anyone',
+  },
+];
+
+interface VisibilityPickerProps {
+  value: Visibility;
+  onChange: (visibility: Visibility) => void;
+}
+
+const VisibilityPicker: React.FC<VisibilityPickerProps> = ({
+  value,
+  onChange,
+}) => (
+  <div>
+    <p className="mb-2 text-xs text-gray-400">Visibility</p>
+    <div
+      role="group"
+      aria-label="Visibility"
+      className="grid grid-cols-3 gap-2"
+    >
+      {VISIBILITY_OPTIONS.map((option) => {
+        const selected = value === option.value;
+        return (
+          <button
+            key={option.value}
+            type="button"
+            aria-pressed={selected}
+            onClick={() => onChange(option.value)}
+            className={`flex min-w-0 flex-col items-center gap-1 rounded-xl border px-2 py-3 text-center transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 ${
+              selected
+                ? 'border-emerald-500/50 bg-[#252525] text-white'
+                : 'border-[#2A2A2A] bg-[#151515] text-gray-400 hover:bg-[#222222]'
+            }`}
+          >
+            <span aria-hidden="true">
+              {visibilityOptionIcon(option.value, 16)}
+            </span>
+            <span className="text-xs font-medium">{option.label}</span>
+            <span className="text-[10px] leading-tight text-gray-500">
+              {option.description}
+            </span>
+          </button>
+        );
+      })}
+    </div>
+  </div>
+);
 
 interface CategoryRowProps {
   cat: CategoryDocument;
@@ -69,7 +138,7 @@ const CategoryRow: React.FC<CategoryRowProps> = ({
         className="p-2 text-gray-400"
         aria-label="Edit category"
       >
-        <Save size={16} />
+        <Pencil size={16} />
       </button>
       <button
         onClick={() => onDeleteRequest(cat.id)}
@@ -231,6 +300,10 @@ export const CategoryManagerSheet: React.FC<CategoryManagerSheetProps> = ({
               value={editName}
               onChange={(e) => setEditName(e.target.value)}
             />
+            <VisibilityPicker
+              value={editVisibility}
+              onChange={setEditVisibility}
+            />
             <Button
               onClick={() => handleUpdate(editingId, editName, editVisibility)}
               disabled={!editName.trim()}
@@ -253,6 +326,10 @@ export const CategoryManagerSheet: React.FC<CategoryManagerSheetProps> = ({
             <ColorPalettePicker
               selectedColor={newColor}
               onSelect={setNewColor}
+            />
+            <VisibilityPicker
+              value={newVisibility}
+              onChange={setNewVisibility}
             />
             <Button onClick={handleSaveNew} disabled={!newName.trim()}>
               Add Category
