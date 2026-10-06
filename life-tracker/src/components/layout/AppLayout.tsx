@@ -122,7 +122,6 @@ export const AppLayout: React.FC = () => {
     const uid = user?.$id;
     if (!uid || isOffline || connectivity.status !== 'online' || database.state !== 'ready') return;
 
-    let active = true;
     const tryDeliver = () => {
       if (connectivity.status !== 'online') return;
       void loadMessageDeliveryModule()
@@ -146,7 +145,6 @@ export const AppLayout: React.FC = () => {
     window.addEventListener('focus', tryDeliver);
     window.addEventListener('online', tryDeliver);
     return () => {
-      active = false;
       window.removeEventListener('focus', tryDeliver);
       window.removeEventListener('online', tryDeliver);
     };
@@ -158,33 +156,31 @@ export const AppLayout: React.FC = () => {
     if (!uid || isOffline || database.state !== 'ready') return;
 
     let timer: number | null = null;
-    let active = true;
-    const schedule = (reason: string) => {
-      if (!active || connectivity.status !== 'online') return;
+    const schedule = () => {
+      if (connectivity.status !== 'online') return;
       if (timer !== null) window.clearTimeout(timer);
       timer = window.setTimeout(() => {
         timer = null;
         void import('../../db/sync')
           .then(({ forceSync }) => forceSync(uid))
           .catch((syncError) =>
-            console.error(`[AppLayout] ${reason} sync failed:`, syncError)
+            console.error('[AppLayout] sync failed:', syncError)
           );
       }, 250);
     };
-    const onFocus = () => schedule('focus');
-    const onOnline = () => schedule('online');
+    const onFocus = schedule;
+    const onOnline = schedule;
     const onVisibility = () => {
-      if (document.visibilityState === 'visible') schedule('visibility');
+      if (document.visibilityState === 'visible') schedule();
     };
     const watchdogTimer = window.setInterval(() => {
-      if (document.visibilityState === 'visible') schedule('watchdog');
+      if (document.visibilityState === 'visible') schedule();
     }, 120_000);
 
     window.addEventListener('focus', onFocus);
     window.addEventListener('online', onOnline);
     document.addEventListener('visibilitychange', onVisibility);
     return () => {
-      active = false;
       if (timer !== null) window.clearTimeout(timer);
       window.removeEventListener('focus', onFocus);
       window.removeEventListener('online', onOnline);

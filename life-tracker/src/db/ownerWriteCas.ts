@@ -31,8 +31,8 @@ export async function readOwnerMaster<T>(
     })) as unknown as Record<string, unknown>;
     assertRemoteRowOwnedBy(raw, userId, tableId);
     const serverUpdatedAt = raw.$updatedAt;
-    if (typeof serverUpdatedAt !== 'string' || !serverUpdatedAt) {
-      throw new Error(`Invalid ${tableId} replication master token for ${rowId}`);
+    if (typeof serverUpdatedAt !== 'string') {
+      throw new Error('Invalid replication master token');
     }
     return { document: mapRow(raw), serverUpdatedAt };
   } catch (error) {
@@ -68,7 +68,7 @@ export async function updateOwnerRowWithCas(
     if (
       candidate?.code !== 400 ||
       typeof candidate.result?.error !== 'string' ||
-      !candidate.result.error.startsWith('Unknown action:')
+      !candidate.result.error.startsWith('Unknown action')
     ) {
       throw error;
     }
@@ -98,5 +98,5 @@ export async function updateOwnerRowWithCas(
     assertRemoteRowOwnedBy(row, userId, tableId);
     return { status: 'conflict', row };
   }
-  throw new Error('Owner write CAS returned an invalid response');
+  throw new Error('Invalid CAS response');
 }
