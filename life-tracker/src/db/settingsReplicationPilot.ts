@@ -35,7 +35,6 @@ import { updateProfileAvatar } from '../lib/social';
 import { awaitPilotReplicationFreshness } from './replicationFreshness';
 import { getReplicationIdentifier } from './replicationIds';
 import { trackReplicationFreshness } from './replicationLocalState';
-import { assertRemoteRowOwnedBy } from './replicationOwnership';
 import { readOwnerMaster, updateOwnerRowWithCas } from './ownerWriteCas';
 import {
   loadAcceptedFriendIds,
@@ -128,14 +127,12 @@ async function readRemoteSettingMaster(
   rowId: string,
   userId: string
 ) {
-  return readOwnerMaster({
-    databaseId: APPWRITE_DATABASE_ID,
-    tableId: APPWRITE_TABLES.settings,
+  return readOwnerMaster(
+    APPWRITE_TABLES.settings,
     rowId,
     userId,
-    ownerLabel: 'Settings',
-    mapRow: toReplicatedSetting,
-  });
+    toReplicatedSetting
+  );
 }
 
 async function readRemoteSetting(
@@ -364,20 +361,18 @@ async function pushSettings(
         `Settings replication master token missing for ${prepared.document.id}`
       );
     }
-    const writeResult = await updateOwnerRowWithCas({
-      databaseId: APPWRITE_DATABASE_ID,
-      tableId: 'settings',
-      rowId: prepared.document.id,
+    const writeResult = await updateOwnerRowWithCas(
+      'settings',
+      prepared.document.id,
       userId,
-      expectedUpdatedAt: master.serverUpdatedAt,
-      data: toAppwriteFormat(
+      master.serverUpdatedAt,
+      toAppwriteFormat(
         prepared.document as unknown as Record<string, unknown>,
         'settings',
         userId
-      ),
-    });
+      )
+    );
     if (writeResult.status === 'conflict') {
-      assertRemoteRowOwnedBy(writeResult.row, userId, 'Settings');
       const latest = toReplicatedSetting(writeResult.row);
       await mirrorProfileImageSetting(latest, userId);
       await cleanupPendingProfileImage(next, userId);

@@ -26,7 +26,6 @@ import {
 import { awaitPilotReplicationFreshness } from './replicationFreshness';
 import { getReplicationIdentifier } from './replicationIds';
 import { trackReplicationFreshness } from './replicationLocalState';
-import { assertRemoteRowOwnedBy } from './replicationOwnership';
 import { readOwnerMaster, updateOwnerRowWithCas } from './ownerWriteCas';
 
 const PULL_BATCH_SIZE = 100;
@@ -117,14 +116,12 @@ async function readRemoteDiaryMaster(
   rowId: string,
   userId: string
 ) {
-  return readOwnerMaster({
-    databaseId: APPWRITE_DATABASE_ID,
-    tableId: APPWRITE_TABLES.diary,
+  return readOwnerMaster(
+    APPWRITE_TABLES.diary,
     rowId,
     userId,
-    ownerLabel: 'Diary',
-    mapRow: toReplicatedDiary,
-  });
+    toReplicatedDiary
+  );
 }
 
 async function readRemoteDiary(
@@ -221,20 +218,18 @@ async function pushDiary(
       );
     }
 
-    const writeResult = await updateOwnerRowWithCas({
-      databaseId: APPWRITE_DATABASE_ID,
-      tableId: 'diary',
-      rowId: next.id,
+    const writeResult = await updateOwnerRowWithCas(
+      'diary',
+      next.id,
       userId,
-      expectedUpdatedAt: master.serverUpdatedAt,
-      data: toAppwriteFormat(
+      master.serverUpdatedAt,
+      toAppwriteFormat(
         next as unknown as Record<string, unknown>,
         'diary',
         userId
-      ),
-    });
+      )
+    );
     if (writeResult.status === 'conflict') {
-      assertRemoteRowOwnedBy(writeResult.row, userId, 'Diary');
       conflicts.push(toReplicatedDiary(writeResult.row));
       continue;
     }

@@ -5,7 +5,6 @@ import { useAuth } from '../../hooks/useAuth';
 import { useConnectivity } from '../../hooks/useConnectivity';
 import { useDatabaseBootstrap } from '../../hooks/useDatabaseBootstrap';
 import { retryDatabaseBootstrap } from '../../lib/databaseBootstrap';
-import { startSyncWatchdog } from '../../db/syncWatchdog';
 import { PrimaryRoutePreview } from './PrimaryRoutePreview';
 import {
   getPrimaryRoutePreloadTargets,
@@ -177,13 +176,9 @@ export const AppLayout: React.FC = () => {
     const onVisibility = () => {
       if (document.visibilityState === 'visible') schedule('visibility');
     };
-    const stopWatchdog = startSyncWatchdog({
-      shouldRun: () =>
-        active &&
-        connectivity.status === 'online' &&
-        document.visibilityState === 'visible',
-      onTick: () => schedule('watchdog'),
-    });
+    const watchdogTimer = window.setInterval(() => {
+      if (document.visibilityState === 'visible') schedule('watchdog');
+    }, 120_000);
 
     window.addEventListener('focus', onFocus);
     window.addEventListener('online', onOnline);
@@ -194,7 +189,7 @@ export const AppLayout: React.FC = () => {
       window.removeEventListener('focus', onFocus);
       window.removeEventListener('online', onOnline);
       document.removeEventListener('visibilitychange', onVisibility);
-      stopWatchdog();
+      window.clearInterval(watchdogTimer);
     };
   }, [connectivity.status, database.state, isOffline, user?.$id]);
 

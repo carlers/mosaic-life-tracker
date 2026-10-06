@@ -34,14 +34,12 @@ describe('owner write CAS client', () => {
       name: 'Work',
     });
 
-    const result = await readOwnerMaster({
-      databaseId: 'life_tracker',
-      tableId: 'categories',
-      rowId: 'cat_a',
-      userId: 'user_A',
-      ownerLabel: 'Category',
-      mapRow: (row) => ({ id: row.$id, name: row.name }),
-    });
+    const result = await readOwnerMaster(
+      'categories',
+      'cat_a',
+      'user_A',
+      (row) => ({ id: row.$id, name: row.name })
+    );
 
     expect(result).toEqual({
       document: { id: 'cat_a', name: 'Work' },
@@ -61,14 +59,13 @@ describe('owner write CAS client', () => {
     });
 
     await expect(
-      updateOwnerRowWithCas({
-        databaseId: 'life_tracker',
-        tableId: 'categories',
-        rowId: 'cat_a',
-        userId: 'user_A',
-        expectedUpdatedAt: '2026-10-06T10:00:01.000Z',
-        data: { user_id: 'user_A', name: 'Local' },
-      })
+      updateOwnerRowWithCas(
+        'categories',
+        'cat_a',
+        'user_A',
+        '2026-10-06T10:00:01.000Z',
+        { user_id: 'user_A', name: 'Local' }
+      )
     ).resolves.toEqual(
       expect.objectContaining({
         status: 'conflict',
@@ -88,18 +85,17 @@ describe('owner write CAS client', () => {
     );
 
     await expect(
-      updateOwnerRowWithCas({
-        databaseId: 'life_tracker',
-        tableId: 'settings',
-        rowId: 'setting_a',
-        userId: 'user_A',
-        expectedUpdatedAt: '2026-10-06T10:00:01.000Z',
-        data: {
+      updateOwnerRowWithCas(
+        'settings',
+        'setting_a',
+        'user_A',
+        '2026-10-06T10:00:01.000Z',
+        {
           user_id: 'user_A',
           key: 'theme',
           value: 'light',
-        },
-      })
+        }
+      )
     ).resolves.toEqual({ status: 'updated' });
 
     expect(updateRowMock).toHaveBeenCalledWith(

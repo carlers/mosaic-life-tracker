@@ -184,14 +184,12 @@ async function readRemoteTaskMaster(
   rowId: string,
   userId: string
 ) {
-  return readOwnerMaster({
-    databaseId: APPWRITE_DATABASE_ID,
-    tableId: APPWRITE_TABLES.tasks,
+  return readOwnerMaster(
+    APPWRITE_TABLES.tasks,
     rowId,
     userId,
-    ownerLabel: 'Task',
-    mapRow: toReplicatedTask,
-  });
+    toReplicatedTask
+  );
 }
 
 async function createRemoteTask(
@@ -583,24 +581,22 @@ async function pushTasks(
       );
     }
 
-    let writeResult = await updateOwnerRowWithCas({
-      databaseId: APPWRITE_DATABASE_ID,
-      tableId: 'tasks',
-      rowId: prepared.document.id,
+    let writeResult = await updateOwnerRowWithCas(
+      'tasks',
+      prepared.document.id,
       userId,
-      expectedUpdatedAt: master.serverUpdatedAt,
-      data: toAppwriteFormat(
+      master.serverUpdatedAt,
+      toAppwriteFormat(
         prepared.document as unknown as Record<string, unknown>,
         'tasks',
         userId
-      ),
-    });
+      )
+    );
 
     // A friend can mutate reactions between our master read and CAS. Preserve
     // that server-owned drift and retry once; owner-field drift remains a real
     // conflict and must never be overwritten.
     if (writeResult.status === 'conflict' && assumed) {
-      assertRemoteRowOwnedBy(writeResult.row, userId, 'Task');
       const latest = toReplicatedTask(writeResult.row);
       const retryDocument = mergeServerReactionDrift(next, latest, assumed);
       const retryUpdatedAt = writeResult.row.$updatedAt;
@@ -610,23 +606,21 @@ async function pushTasks(
         !Number.isNaN(Date.parse(retryUpdatedAt))
       ) {
         prepared = await prepareTaskForPush(retryDocument, userId);
-        writeResult = await updateOwnerRowWithCas({
-          databaseId: APPWRITE_DATABASE_ID,
-          tableId: 'tasks',
-          rowId: prepared.document.id,
+        writeResult = await updateOwnerRowWithCas(
+          'tasks',
+          prepared.document.id,
           userId,
-          expectedUpdatedAt: retryUpdatedAt,
-          data: toAppwriteFormat(
+          retryUpdatedAt,
+          toAppwriteFormat(
             prepared.document as unknown as Record<string, unknown>,
             'tasks',
             userId
-          ),
-        });
+          )
+        );
       }
     }
 
     if (writeResult.status === 'conflict') {
-      assertRemoteRowOwnedBy(writeResult.row, userId, 'Task');
       await cleanupPendingTaskImage(next, userId);
       conflicts.push(toReplicatedTask(writeResult.row));
       continue;

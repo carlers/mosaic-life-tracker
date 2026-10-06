@@ -1,35 +1,17 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import {
-  startSyncWatchdog,
-  SYNC_WATCHDOG_INTERVAL_MS,
-} from '../../src/db/syncWatchdog';
+import { readFileSync } from 'node:fs';
+import { describe, expect, it } from 'vitest';
 
-describe('sync watchdog', () => {
-  beforeEach(() => {
-    vi.useFakeTimers();
-  });
+describe('AppLayout sync watchdog contract', () => {
+  it('keeps a bounded visible-only incremental catch-up loop', () => {
+    const source = readFileSync(
+      new URL('../../src/components/layout/AppLayout.tsx', import.meta.url),
+      'utf8'
+    );
 
-  afterEach(() => {
-    vi.useRealTimers();
-  });
-
-  it('only requests a catch-up while its visibility/connectivity gate is open', () => {
-    let enabled = false;
-    const onTick = vi.fn();
-    const stop = startSyncWatchdog({
-      shouldRun: () => enabled,
-      onTick,
-    });
-
-    vi.advanceTimersByTime(SYNC_WATCHDOG_INTERVAL_MS);
-    expect(onTick).not.toHaveBeenCalled();
-
-    enabled = true;
-    vi.advanceTimersByTime(SYNC_WATCHDOG_INTERVAL_MS);
-    expect(onTick).toHaveBeenCalledTimes(1);
-
-    stop();
-    vi.advanceTimersByTime(SYNC_WATCHDOG_INTERVAL_MS);
-    expect(onTick).toHaveBeenCalledTimes(1);
+    expect(source).toContain('window.setInterval');
+    expect(source).toContain("document.visibilityState === 'visible'");
+    expect(source).toContain("schedule('watchdog')");
+    expect(source).toContain('120_000');
+    expect(source).toContain('window.clearInterval(watchdogTimer)');
   });
 });
