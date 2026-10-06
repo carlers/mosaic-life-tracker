@@ -106,6 +106,7 @@ describe('Appwrite managed-state drift checks', () => {
     )!;
     const actual = {
       $id: table.id,
+      name: table.name,
       $permissions: table.permissions,
       rowSecurity: table.rowSecurity,
       enabled: table.enabled,
