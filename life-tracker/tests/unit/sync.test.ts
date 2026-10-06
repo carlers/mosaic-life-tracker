@@ -673,6 +673,23 @@ describe('sync — freshness barriers', () => {
     expect(taskPilotRefreshMock).toHaveBeenCalledTimes(2);
   });
 
+  it('Sync Now does not rewrite owner rows that already match Appwrite', async () => {
+    setAllPilots(true);
+    const current = makeDoc({ id: 'task_remote', lwt: 1 });
+    const tasks = makeCollection([current]);
+    getDatabaseMock.mockReturnValue(makeDb({ tasks }));
+    listRowsMock.mockImplementation(
+      async ({ tableId }: { tableId: string }) =>
+        tableId === 'tasks'
+          ? { rows: [makeTaskRow('task_remote')] }
+          : { rows: [] }
+    );
+
+    await syncModule.syncNow('user_A', 5_000);
+
+    expect(tasks.upsert).not.toHaveBeenCalled();
+  });
+
   it('Sync Now reconciles a settled local owner row that is absent remotely', async () => {
     setAllPilots(true);
     const missing = makeDoc({ id: 'task_missing', lwt: 1 });

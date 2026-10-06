@@ -333,6 +333,15 @@ function isTimestampedCollection(collection: string): boolean {
     collection === 'messages'
   );
 }
+function mappedStateEquals(
+  local: Record<string, unknown>,
+  remote: Record<string, unknown>
+): boolean {
+  return Object.keys(remote).every(
+    (key) => JSON.stringify(local[key]) === JSON.stringify(remote[key])
+  );
+}
+
 export function isRateLimitError(err: unknown): boolean {
   const error = err as { code?: number; cause?: { code?: number } } | null;
   return (
@@ -1286,6 +1295,9 @@ async function syncCollection(
         }
 
         if (isLocalDirty) continue;
+        if (authoritativeReconcile && mappedStateEquals(localJson, doc)) {
+          continue;
+        }
 
         const remoteWins =
           authoritativeReconcile ||
