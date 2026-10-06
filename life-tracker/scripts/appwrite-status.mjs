@@ -15,6 +15,11 @@ export async function runAppwriteStatusCli({
   log = console.log,
 } = {}) {
   const target = parseBackendTarget(argv, env);
+  const withoutDr = hasFlag(argv, '--without-dr');
+  const recoveryDrill = hasFlag(argv, '--recovery-drill');
+  if (withoutDr && recoveryDrill) {
+    throw new Error('--without-dr and --recovery-drill cannot be combined.');
+  }
   const definitions = await readBackendDefinitions();
   const request = createAppwriteAdminRequest({ ...target, fetchImpl });
   const result = await inspectManagedBackend({
@@ -22,10 +27,15 @@ export async function runAppwriteStatusCli({
     definitions,
     messageFunctionId: flagValue(argv, '--message-function-id'),
     drFunctionId: flagValue(argv, '--dr-function-id'),
-    includeDr: !hasFlag(argv, '--without-dr'),
+    includeDr: !withoutDr,
+    recoveryDrill,
   });
 
-  log(`Appwrite managed-state check: ${target.projectId}`);
+  log(
+    `Appwrite managed-state check: ${target.projectId} (${
+      recoveryDrill ? 'recovery-drill' : withoutDr ? 'without-dr' : 'standard'
+    })`
+  );
   if (result.diffs.length) {
     for (const diff of result.diffs) log(`  DRIFT ${diff}`);
   } else {
@@ -52,7 +62,7 @@ export async function runAppwriteStatusCli({
     );
   }
   log(
-    '  Note: remote schedules, VCS linkage, environment-specific Function IDs, and secret values remain operational state; declared variable presence/classification is drift-enforced without reading secret values.'
+    '  Note: remote schedules, VCS linkage, environment-specific Function IDs, and secret values remain operational state; declared variable presence/classification is drift-enforced without reading secret values. Recovery-drill mode permits the intentionally credential-less DR Function.'
   );
 
   if (result.diffs.length) process.exitCode = 2;

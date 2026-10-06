@@ -71,7 +71,10 @@ npm run appwrite:status -- \
 ```
 
 Use `--without-dr` when the target was intentionally bootstrapped without DR; this also
-expects the message Function's DR privacy guard to be false. Drift returns a non-zero status.
+expects the message Function's DR privacy guard to be false. Use `--recovery-drill` for the
+isolated restore topology that intentionally deploys a credential-less `dr-backup` Function
+and keeps that privacy guard false. Those two flags cannot be combined. Drift returns a
+non-zero status.
 
 The checker verifies the managed database, exact declared table column/index sets, bucket,
 Function structure, live-deployment presence, and declared Function-variable contract.
@@ -102,6 +105,11 @@ Current ordered baseline reconciliations are:
 
 - `001-account-deletion`
 - `002-diary-created-at`
+- `003-task-images-bucket-permissions` — removes the known pre-foundation
+  bucket-wide `read("users")` grant while preserving per-file permissions. Appwrite grants
+  access when either bucket or file permission allows it, so bucket-wide read would otherwise
+  bypass Mosaic's file-security boundary. The migration sends the full intended bucket
+  configuration and fails closed on any bucket drift other than that one known legacy grant.
 
 The runner is not a replay of every historical pre-foundation Console/script change. Fresh
 forks bootstrap the current manifest, and production was already at the current historical
@@ -113,6 +121,11 @@ Use `--only <migration-id>` only for targeted recovery or compatibility work. Th
 intentionally ledger-free for now: every migration is idempotent and reconciles already
 applied state safely. Add the next numbered migration for new schema work; never create a new
 production-targeted one-off script and never repurpose an existing migration ID.
+
+The `task_images` bucket intentionally grants authenticated users create permission at the
+bucket level but no bucket-wide read permission. Task/profile files that are meant to be
+friend-readable carry `read("users")` on the individual file; owner-only files remain
+owner-only. Do not "fix" drift by adding bucket-wide read back to the manifest.
 
 Prefer additive/expand-first migrations. A destructive rename/drop requires scratch-project
 proof, a recovery/backup plan, compatibility across the deployment window, and explicit

@@ -222,6 +222,19 @@ describe('Appwrite managed-state drift checks', () => {
       ],
     };
     expect(diffFunctionVariables(actual, expected)).toEqual([]);
+    const recoveryActual = {
+      vars: Object.entries(expected.nonSecretVariables).map(
+        ([key, value]) => ({ key, value, secret: false })
+      ),
+    };
+    expect(
+      diffFunctionVariables(recoveryActual, expected, {
+        allowMissingRequired: true,
+      })
+    ).toEqual([]);
+    expect(
+      diffFunctionVariables(recoveryActual, expected)
+    ).toContain('function dr-backup variable R2_ACCOUNT_ID: missing');
     expect(
       diffFunctionVariables(
         {
@@ -288,6 +301,7 @@ describe('ordered idempotent Appwrite migration runner', () => {
     ).toEqual([
       '001-account-deletion',
       '002-diary-created-at',
+      '003-task-images-bucket-permissions',
     ]);
     expect(
       selectMigrations(['--only', '002-diary-created-at'])

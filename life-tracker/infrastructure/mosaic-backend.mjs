@@ -181,6 +181,8 @@ export const MOSAIC_TABLES = [
 export const MOSAIC_BUCKET = {
   id: 'task_images',
   name: 'task_images',
+  // Reads are granted per file. A bucket-wide read would bypass file security
+  // and expose every attachment to every authenticated user.
   permissions: ['create("users")'],
   fileSecurity: true,
   enabled: true,

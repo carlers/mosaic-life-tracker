@@ -333,7 +333,7 @@ function variableMap(actual) {
 export function diffFunctionVariables(
   actual,
   expected,
-  { nonSecretOverrides = {} } = {}
+  { nonSecretOverrides = {}, allowMissingRequired = false } = {}
 ) {
   const diffs = [];
   if (!actual) return diffs;
@@ -378,7 +378,9 @@ export function diffFunctionVariables(
   for (const key of requiredNonSecret) {
     const current = variables.get(key);
     if (!current) {
-      diffs.push(`function ${expected.name} variable ${key}: missing`);
+      if (!allowMissingRequired) {
+        diffs.push(`function ${expected.name} variable ${key}: missing`);
+      }
     } else if (current.secret === true) {
       diffs.push(
         `function ${expected.name} variable ${key}: expected non-secret`
@@ -393,7 +395,9 @@ export function diffFunctionVariables(
   for (const key of requiredSecret) {
     const current = variables.get(key);
     if (!current) {
-      diffs.push(`function ${expected.name} variable ${key}: missing`);
+      if (!allowMissingRequired) {
+        diffs.push(`function ${expected.name} variable ${key}: missing`);
+      }
     } else if (current.secret !== true) {
       diffs.push(
         `function ${expected.name} variable ${key}: expected secret`
@@ -506,6 +510,7 @@ export async function inspectManagedBackend({
   messageFunctionId,
   drFunctionId,
   includeDr = true,
+  recoveryDrill = false,
 }) {
   const diffs = diffLocalFunctionConfig(
     definitions.cliConfig,
@@ -576,12 +581,18 @@ export async function inspectManagedBackend({
         name === 'message-action'
           ? {
               DR_BACKUP_FUNCTION_ID: resolvedDrFunctionId,
-              DR_PRIVACY_DELETION_REQUIRED: includeDr ? 'true' : 'false',
+              DR_PRIVACY_DELETION_REQUIRED: recoveryDrill
+                ? 'false'
+                : includeDr
+                  ? 'true'
+                  : 'false',
             }
           : {};
       diffs.push(
         ...diffFunctionVariables(actual, expected, {
           nonSecretOverrides,
+          allowMissingRequired:
+            recoveryDrill && name === 'dr-backup',
         })
       );
       if (actual.live !== true) {
