@@ -82,7 +82,6 @@ const APPWRITE_CONFIG = {
 const DEBUG = import.meta.env.DEV;
 const PAGE_SIZE = 100;
 const MAX_PAGES_PER_COLLECTION = 100;
-const PULL_OVERLAP_MS = 30_000;
 const RATE_LIMIT_BASE_MS = 5_000;
 const RATE_LIMIT_MAX_MS = 60_000;
 const FAILURE_BACKOFF_BASE_MS = 5_000;
@@ -256,8 +255,6 @@ function updateSyncStatus(
 type AppwriteRow = Record<string, unknown>;
 interface CollectionSyncResult {
   pullRowFailed: boolean;
-  pushFailed: number;
-  pushDeferred: number;
   pullComplete: boolean;
   errors: unknown[];
 }
@@ -323,16 +320,6 @@ function scheduleBackoffWake(
   }, Math.max(0, wakeAt - Date.now()) + 10);
 }
 
-function isTimestampedCollection(collection: string): boolean {
-  return (
-    collection === 'tasks' ||
-    collection === 'categories' ||
-    collection === 'diary' ||
-    collection === 'settings' ||
-    collection === 'friendships' ||
-    collection === 'messages'
-  );
-}
 function mappedStateEquals(
   local: Record<string, unknown>,
   remote: Record<string, unknown>
@@ -460,11 +447,7 @@ async function reconcileLocalReplica(
       colName,
       userId,
       generation,
-      {
-        forceFullPull: true,
-        staleFreshnessBoundaryMs:
-          colName === 'messages' ? Date.now() : Infinity,
-      }
+      colName === 'messages' ? Date.now() : Infinity
     );
 
     if (result.pullRowFailed || !result.pullComplete) {
@@ -1020,10 +1003,7 @@ async function runSyncCycleBody(
             colName,
             userId,
             generation,
-            {
-              forceFullPull: true,
-              staleFreshnessBoundaryMs: staleBoundaryMs,
-            }
+            staleBoundaryMs
           );
           assertSyncOwnerCurrent(userId, generation);
 
@@ -1152,30 +1132,20 @@ async function runSyncCycleBody(
   }
 }
 
-interface StaleRecoveryOptions {
-  forceFullPull?: boolean;
-  staleFreshnessBoundaryMs?: number;
-}
-
 async function syncCollection(
   collection: LocalCollection,
   colName: CollectionName,
   userId: string,
   generation: number,
-  options: StaleRecoveryOptions = {}
+  staleBoundaryMs: number
 ): Promise<CollectionSyncResult> {
   assertSyncOwnerCurrent(userId, generation);
 
   if (colName === 'friendships') {
-    await syncFriendships(
-      userId,
-      options.staleFreshnessBoundaryMs === Infinity
-    );
+    await syncFriendships(userId, staleBoundaryMs === Infinity);
     assertSyncOwnerCurrent(userId, generation);
     return {
       pullRowFailed: false,
-      pushFailed: 0,
-      pushDeferred: 0,
       pullComplete: true,
       errors: [],
     };
@@ -1184,11 +1154,6 @@ async function syncCollection(
   const cycleStartMs = Date.now();
   const tableId = APPWRITE_CONFIG.tables[colName];
   const entry = perCollectionSync[colName];
-  const pullBoundaryMs = entry?.pull ? toMs(entry.pull) : 0;
-  const dirtyBoundaryMs = entry?.dirty ? toMs(entry.dirty) : 0;
-  const forceFullPull = options.forceFullPull === true;
-  const effectivePullBoundaryMs = forceFullPull ? 0 : pullBoundaryMs;
-  const staleBoundaryMs = options.staleFreshnessBoundaryMs;
   const authoritativeReconcile = staleBoundaryMs === Infinity;
 
   const remoteIndex = new Map<
@@ -1208,12 +1173,6 @@ async function syncCollection(
       Query.limit(PAGE_SIZE),
       Query.orderAsc('$id'),
     ];
-    if (effectivePullBoundaryMs > 0) {
-      const sinceIso = new Date(
-        effectivePullBoundaryMs - PULL_OVERLAP_MS
-      ).toISOString();
-      queries.push(Query.greaterThan('$updatedAt', sinceIso));
-    }
     if (cursor) queries.push(Query.cursorAfter(cursor));
 
     const remoteResponse = await guardedTablesDB.listRows({
@@ -1265,9 +1224,7 @@ async function syncCollection(
         const localUpdatedAt = toMs(localJson.updatedAt);
         const isLocalDirty = authoritativeReconcile
           ? localLwt > cycleStartMs
-          : staleBoundaryMs !== undefined
-            ? localUpdatedAt <= 0 || localUpdatedAt > staleBoundaryMs
-            : localLwt > dirtyBoundaryMs;
+          : localUpdatedAt <= 0 || localUpdatedAt > staleBoundaryMs;
 
         if (colName === 'messages' && row.direction === 'outgoing') {
           const remoteReadAt = (row.read_at as string) || '';
@@ -1289,10 +1246,7 @@ async function syncCollection(
         }
 
         const remoteWins =
-          authoritativeReconcile ||
-          (isTimestampedCollection(colName)
-            ? remoteUpdatedAt > localUpdatedAt
-            : remoteUpdatedAt > localLwt);
+          authoritativeReconcile || remoteUpdatedAt > localUpdatedAt;
         if (!remoteWins) continue;
 
         const recheck = await collection.findOne(docId).exec();
@@ -1340,12 +1294,7 @@ async function syncCollection(
     }
   }
 
-  if (
-    forceFullPull &&
-    staleBoundaryMs !== undefined &&
-    pullComplete &&
-    !pullRowFailed
-  ) {
+  if (pullComplete && !pullRowFailed) {
     const localDocs = await collection.find().exec();
     const reconciliationNow = new Date().toISOString();
 
@@ -1414,8 +1363,6 @@ async function syncCollection(
 
   return {
     pullRowFailed,
-    pushFailed: 0,
-    pushDeferred: 0,
     pullComplete,
     errors: collectionErrors,
   };
