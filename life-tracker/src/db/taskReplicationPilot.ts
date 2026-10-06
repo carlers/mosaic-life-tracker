@@ -274,20 +274,6 @@ async function finishSuccessfulPush(
   }
 }
 
-function canOptimisticallyCreateTodoMateTask(
-  document: ReplicatedTask
-): boolean {
-  const image =
-    typeof document.image === 'string' ? document.image : '';
-  const reactions =
-    typeof document.reactions === 'string' ? document.reactions : '';
-  return (
-    document.source === 'todomate' &&
-    !isPendingImageId(image) &&
-    reactions.length === 0
-  );
-}
-
 function mergeServerReactionDrift(
   next: ReplicatedTask,
   current: ReplicatedTask,
@@ -327,7 +313,12 @@ async function pushTasks(
     const assumed = row.assumedMasterState;
     let current: ReplicatedTask | null;
 
-    if (!assumed && canOptimisticallyCreateTodoMateTask(next)) {
+    if (
+      !assumed &&
+      next.source === 'todomate' &&
+      !isPendingImageId(next.image ?? '') &&
+      !next.reactions
+    ) {
       // Fresh TodoMate imports are deterministic, side-effect-free rows.
       // Try the create directly so a brand-new import does not pay an
       // expected getRow -> 404 round trip for every task. A 409 is converted

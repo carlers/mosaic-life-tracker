@@ -103,9 +103,9 @@ Successfully downloaded images are compressed locally to WebP, given determinist
 image IDs derived from the TodoMate task and stable photo URL path, bundled into the in-memory
 migration ZIP, and then uploaded by Mosaic's existing restore engine into the signed-in user's
 own Appwrite Storage bucket. The TodoMate ZIP stores those already-compressed WebP payloads
-without another deflate pass. The adapter also marks only WebPs produced by that trusted local
-processor as precompressed, allowing restore to upload those exact bytes without running the
-image compressor a second time. Generic user-supplied backup images never receive that shortcut.
+without another deflate pass. The adapter marks a transfer precompressed only when every bundled image was produced as WebP
+by that trusted local processor, allowing restore to upload those exact bytes without running
+the image compressor a second time. Generic user-supplied backup images never receive that shortcut.
 The task is rewritten to the resulting Mosaic-owned file ID.
 
 Photo preparation is bounded to four concurrent downloads and rejects invalid/non-HTTPS,
