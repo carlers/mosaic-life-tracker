@@ -34,6 +34,7 @@ export const TodoMateImportSheet: React.FC<TodoMateImportSheetProps> = ({
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [prepared, setPrepared] = useState<PreparedTodoMateTransfer | null>(null);
+  const [preparedForUserId, setPreparedForUserId] = useState<string | null>(null);
   const [isPreparing, setIsPreparing] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
   const [progress, setProgress] = useState('');
@@ -44,6 +45,7 @@ export const TodoMateImportSheet: React.FC<TodoMateImportSheetProps> = ({
   const previewAbortRef = useRef<AbortController | null>(null);
   const previewInFlightRef = useRef(false);
   const importInFlightRef = useRef(false);
+  const mosaicUserIdRef = useRef<string | null>(user?.$id ?? null);
 
   useSheetReset(isOpen, () => {
     previewGenerationRef.current += 1;
@@ -54,6 +56,7 @@ export const TodoMateImportSheet: React.FC<TodoMateImportSheetProps> = ({
     setEmail('');
     setPassword('');
     setPrepared(null);
+    setPreparedForUserId(null);
     setIsPreparing(false);
     setIsImporting(false);
     setProgress('');
@@ -93,12 +96,35 @@ export const TodoMateImportSheet: React.FC<TodoMateImportSheetProps> = ({
     []
   );
 
+  useEffect(() => {
+    const nextUserId = user?.$id ?? null;
+    if (mosaicUserIdRef.current === nextUserId) return;
+
+    mosaicUserIdRef.current = nextUserId;
+    previewGenerationRef.current += 1;
+    previewAbortRef.current?.abort();
+    previewAbortRef.current = null;
+    previewInFlightRef.current = false;
+    setPrepared(null);
+    setPreparedForUserId(null);
+    setPassword('');
+    setIsPreparing(false);
+    setProgress('');
+    setProgressPercent(null);
+    if (isOpen && !importInFlightRef.current) {
+      setError(
+        'Mosaic account changed. Preview TodoMate again before importing.'
+      );
+    }
+  }, [isOpen, user?.$id]);
+
   const currentUser = user
     ? { id: user.$id, email: user.email, name: user.name || '' }
     : null;
 
   const handlePreview = async () => {
     if (
+      !currentUser ||
       !email.trim() ||
       !password ||
       isPreparing ||
@@ -108,6 +134,7 @@ export const TodoMateImportSheet: React.FC<TodoMateImportSheetProps> = ({
       return;
     }
 
+    const previewUserId = currentUser.id;
     previewInFlightRef.current = true;
     previewAbortRef.current?.abort();
     const controller = new AbortController();
@@ -116,6 +143,7 @@ export const TodoMateImportSheet: React.FC<TodoMateImportSheetProps> = ({
 
     setIsPreparing(true);
     setPrepared(null);
+    setPreparedForUserId(null);
     setRecoveryNotice(null);
     setError(null);
     setProgress('Connecting to TodoMate…');
@@ -138,8 +166,14 @@ export const TodoMateImportSheet: React.FC<TodoMateImportSheetProps> = ({
           },
         }
       );
-      if (generation !== previewGenerationRef.current) return;
+      if (
+        generation !== previewGenerationRef.current ||
+        mosaicUserIdRef.current !== previewUserId
+      ) {
+        return;
+      }
       setPrepared(result);
+      setPreparedForUserId(previewUserId);
       setProgress('');
       setProgressPercent(null);
     } catch (err) {
@@ -172,13 +206,16 @@ export const TodoMateImportSheet: React.FC<TodoMateImportSheetProps> = ({
     ) {
       return;
     }
+    if (preparedForUserId !== currentUser.id) {
+      setPrepared(null);
+      setPreparedForUserId(null);
+      setError(
+        'Mosaic account changed. Preview TodoMate again before importing.'
+      );
+      return;
+    }
+
     importInFlightRef.current = true;
-    beginTodoMateImport(currentUser.id, {
-      tasks: prepared.preview.tasks,
-      categories: prepared.preview.categories,
-      diary: prepared.preview.diary,
-      photos: prepared.preview.photosReady,
-    });
     setRecoveryNotice(null);
     setIsImporting(true);
     setError(null);
@@ -187,11 +224,21 @@ export const TodoMateImportSheet: React.FC<TodoMateImportSheetProps> = ({
     try {
       const result = await restoreUserData(prepared.file, currentUser, {
         mode: 'merge',
+        trustedPrecompressedImageIds: new Set(
+          prepared.precompressedPhotoIds
+        ),
         onProgress: setProgress,
         onProgressDetail: (detail) => {
           setProgress(detail.message);
           setProgressPercent(detail.percent);
         },
+        onLocalApplyStart: () =>
+          beginTodoMateImport(currentUser.id, {
+            tasks: prepared.preview.tasks,
+            categories: prepared.preview.categories,
+            diary: prepared.preview.diary,
+            photos: prepared.preview.photosReady,
+          }),
         onLocalApplyComplete: () => markTodoMateImportApplied(currentUser.id),
       });
       const restored = Object.values(result.restored).reduce(
@@ -317,6 +364,7 @@ export const TodoMateImportSheet: React.FC<TodoMateImportSheetProps> = ({
               onChange={(event) => {
                 setEmail(event.target.value);
                 setPrepared(null);
+                setPreparedForUserId(null);
               }}
               autoComplete="username"
               disabled={busy}
@@ -333,6 +381,7 @@ export const TodoMateImportSheet: React.FC<TodoMateImportSheetProps> = ({
               onChange={(event) => {
                 setPassword(event.target.value);
                 setPrepared(null);
+                setPreparedForUserId(null);
               }}
               autoComplete="current-password"
               disabled={busy}
@@ -346,7 +395,7 @@ export const TodoMateImportSheet: React.FC<TodoMateImportSheetProps> = ({
         <Button
           variant="primary"
           className="w-full gap-2 py-3"
-          disabled={busy || !email.trim() || !password}
+          disabled={busy || !currentUser || !email.trim() || !password}
           onClick={() => void handlePreview()}
         >
           {isPreparing ? (

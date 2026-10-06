@@ -325,6 +325,44 @@ describe('task RxDB replication pilot', () => {
     );
   });
 
+  it('creates a fresh TodoMate task without a preliminary remote read', async () => {
+    const conflicts = await __taskReplicationPilotTestUtils.pushTasks(
+      [
+        {
+          newDocumentState: localTask({ source: 'todomate' }),
+        },
+      ] as never,
+      'user_A'
+    );
+
+    expect(conflicts).toEqual([]);
+    expect(createRowMock).toHaveBeenCalledTimes(1);
+    expect(getRowMock).not.toHaveBeenCalled();
+  });
+
+  it('falls back to the existing bootstrap conflict path when TodoMate create-first races with an existing row', async () => {
+    createRowMock.mockRejectedValueOnce(
+      Object.assign(new Error('Already exists'), { code: 409 })
+    );
+    getRowMock.mockResolvedValueOnce(
+      remoteTask({ source: 'todomate' })
+    );
+
+    const conflicts = await __taskReplicationPilotTestUtils.pushTasks(
+      [
+        {
+          newDocumentState: localTask({ source: 'todomate' }),
+        },
+      ] as never,
+      'user_A'
+    );
+
+    expect(conflicts).toEqual([]);
+    expect(createRowMock).toHaveBeenCalledTimes(1);
+    expect(getRowMock).toHaveBeenCalledTimes(1);
+    expect(updateRowMock).not.toHaveBeenCalled();
+  });
+
   it('acknowledges identical first-sync task state without rewriting Appwrite', async () => {
     const conflicts = await __taskReplicationPilotTestUtils.pushTasks(
       [{ newDocumentState: localTask() }] as never,

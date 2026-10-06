@@ -102,7 +102,11 @@ an arbitrary photo host.
 Successfully downloaded images are compressed locally to WebP, given deterministic source
 image IDs derived from the TodoMate task and stable photo URL path, bundled into the in-memory
 migration ZIP, and then uploaded by Mosaic's existing restore engine into the signed-in user's
-own Appwrite Storage bucket. The task is rewritten to the resulting Mosaic-owned file ID.
+own Appwrite Storage bucket. The TodoMate ZIP stores those already-compressed WebP payloads
+without another deflate pass. The adapter also marks only WebPs produced by that trusted local
+processor as precompressed, allowing restore to upload those exact bytes without running the
+image compressor a second time. Generic user-supplied backup images never receive that shortcut.
+The task is rewritten to the resulting Mosaic-owned file ID.
 
 Photo preparation is bounded to four concurrent downloads and rejects invalid/non-HTTPS,
 non-image, empty, or over-20 MiB source responses. Unavailable photos are reported in preview
@@ -141,6 +145,18 @@ visibility model. Such records import as `private`, never as broader visibility.
 The TodoMate adapter produces an in-memory Mosaic user-backup v2 file and passes it to the
 existing personal restore engine in **Merge** mode.
 
+This is deliberate. Restore planning resolves each collection's existing IDs in one RxDB
+find-by-ID batch instead of one serial lookup per imported row. Photo restore uses a bounded
+four-worker pool; the normal per-image authenticated-user check and deterministic Storage IDs
+remain in place, so concurrency does not weaken account isolation or re-import idempotence.
+
+For the large task push that follows a fresh TodoMate restore, a side-effect-free TodoMate task
+with no pending local image or reactions may optimistically call Appwrite create first. Success
+avoids the predictable getRow -> 404 round trip that every brand-new imported task previously
+paid. A create conflict is immediately converted back into the existing remote-read/bootstrap
+comparison path, so an already-existing row, a newer master, ownership validation, pending-image
+handling, and server reaction preservation keep their established semantics.
+
 This is deliberate. The existing restore path provides:
 
 - online successful-sync preflight before writes
@@ -169,14 +185,20 @@ Preview reads TodoMate but performs no Mosaic writes. It reports at minimum:
 
 Only after preview can the user start the Merge import. Closing or reopening the sheet
 cancels the old preview work, and an older attempt cannot overwrite the current preview.
+A completed preview is also bound to the Mosaic account that created it. Changing Mosaic
+accounts aborts/invalidate the preview, and Import refuses to apply prepared TodoMate data under
+a different Mosaic account.
 Both preview and import expose phase text plus a coarse percentage: preview advances through
 connection/login/history/photo preparation; import advances through validation, freshness
 preflight, photo copy, exact local-row application, and the six collection-level cloud
 freshness proofs. The percentage is progress through those known phases/rows/collections,
 not a byte-transfer estimate.
 
-Import start records only small account-scoped recovery metadata: expected counts, start
-time, and whether local application finished. If the app exits while rows are being applied,
+The recovery marker is created only when restore reaches local application, after validation,
+freshness preflight, planning, and photo preparation/copy have succeeded. A failed preflight
+therefore cannot leave a false "interrupted import" notice. The marker stores only small
+account-scoped recovery metadata: expected counts, start time, and whether local application
+finished. If the app exits while rows are being applied,
 reopening the importer explains that the prior run was interrupted and directs the user to
 preview and rerun it. Deterministic IDs and Merge semantics keep that rerun duplicate-safe.
 If all rows were applied but the bounded final sync did not converge, Mosaic reports
@@ -225,7 +247,13 @@ Automated coverage must prove:
 12. account changes stop restore application, categories apply before tasks, and large
     1,000–5,000-task fixtures retain every row;
 13. failed final convergence keeps locally applied rows and reports sync pending, while a
-    deterministic rerun remains duplicate-safe.
+    deterministic rerun remains duplicate-safe;
+14. a preview prepared under one Mosaic account cannot be imported after switching accounts,
+    and a restore failure before local application does not create an interrupted-import marker;
+15. trusted TodoMate WebPs skip the second compression pass while generic backup bytes do not,
+    and photo restore stays bounded to four concurrent workers;
+16. a fresh TodoMate task push can create without a preliminary getRow miss, while create
+    conflicts fall back to the existing bootstrap/conflict behavior.
 
 Live acceptance requires a real TodoMate account and must be done by the user locally. Never
 ask the user to paste TodoMate credentials or Firebase tokens into an AI chat. Verify preview

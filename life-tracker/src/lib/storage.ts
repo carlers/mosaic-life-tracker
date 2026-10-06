@@ -235,6 +235,14 @@ export interface EnsuredImage {
   uploaded: boolean;
 }
 
+export interface EnsureRestoredImageOptions {
+  /**
+   * Only set for bytes produced by Mosaic's own trusted local WebP processor.
+   * User-supplied backup bytes must keep the normal compression path.
+   */
+  alreadyCompressed?: boolean;
+}
+
 /**
  * Ensures a deterministic restored/imported task image exists. Existing files
  * are reused so repeated backup restores remain idempotent. Restored task
@@ -244,7 +252,8 @@ export interface EnsuredImage {
 export async function ensureRestoredImage(
   file: File,
   preferredFileId: string,
-  expectedUserId?: string
+  expectedUserId?: string,
+  options: EnsureRestoredImageOptions = {}
 ): Promise<EnsuredImage> {
   if (!isValidFileId(preferredFileId)) {
     throw new Error('Backup image has an invalid file ID.');
@@ -274,7 +283,16 @@ export async function ensureRestoredImage(
   }
 
   try {
-    await uploadImageWithId(file, preferredFileId, userId, true);
+    if (options.alreadyCompressed) {
+      await uploadCompressedBlobWithId(
+        file,
+        preferredFileId,
+        userId,
+        true
+      );
+    } else {
+      await uploadImageWithId(file, preferredFileId, userId, true);
+    }
     return { fileId: preferredFileId, uploaded: true };
   } catch (error) {
     const cause = (error as Error & { cause?: unknown }).cause;
