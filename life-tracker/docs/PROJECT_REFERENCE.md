@@ -917,8 +917,16 @@ bounded, Appwrite-rate-aware create worker pool added about 545 B gzip to aggreg
 (682,281 B → 682,826 B in comparable Preview builds), while entry, startup/Home closures,
 aggregate raw bytes, and precache all stayed within their existing ceilings. Only
 `appAssetsGzipBytes` is therefore revised from 682,300 B to 683,500 B, leaving roughly
-674 B of measured headroom for gzip variation without widening the other guards. The current
-baseline and limits live in `config/build-size-budget.json` and are pinned by unit coverage.
+674 B of measured headroom for gzip variation without widening the other guards.
+
+A reviewed 2026-10-07 exception accepts the restored category-visibility controls and the
+existing Lucide pencil edit affordance. Comparable Vercel builds measured current `dev` at
+683,385 B aggregate gzip and the complete category-visibility Preview at 683,677 B (+292 B).
+The aggregate gzip ceiling is therefore revised from 683,500 B to 684,400 B, leaving about
+723 B of measured provider headroom. Entry/startup/Home, aggregate raw, and precache ceilings
+are unchanged. This is accepted product growth plus build-provider gzip variance, not a
+threshold increase made solely to silence verification. The current baseline and limits live
+in `config/build-size-budget.json` and are pinned by unit coverage.
 
 `npm run build:size` checks an existing `dist/`. The diagnostic
 `scripts/audit-bundle.mjs` remains the source for per-chunk package/module attribution,
