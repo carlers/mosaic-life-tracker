@@ -51,7 +51,6 @@ interface FirestoreRecord {
 interface PreparedTodoMatePhoto {
   sourceId: string;
   bytes: Uint8Array;
-  precompressed: boolean;
 }
 
 const TODOMATE_PHOTO_CONCURRENCY = 4;
@@ -101,7 +100,7 @@ async function fetchTodoMatePhoto(
   fetchImpl: typeof fetch,
   photoProcessor: (file: File) => Promise<Blob>,
   signal?: AbortSignal
-): Promise<{ bytes: Uint8Array; precompressed: boolean } | null> {
+): Promise<Uint8Array | null> {
   throwIfAborted(signal);
   let url: URL;
   try {
@@ -168,10 +167,7 @@ async function fetchTodoMatePhoto(
     if (processed.size === 0 || processed.size > MAX_TODOMATE_PHOTO_BYTES) {
       return null;
     }
-    return {
-      bytes: new Uint8Array(await processed.arrayBuffer()),
-      precompressed: processed.type === 'image/webp',
-    };
+    return new Uint8Array(await processed.arrayBuffer());
   } catch {
     throwIfAborted(signal);
     return null;
@@ -189,7 +185,6 @@ async function downloadTodoMatePhotos(
 ): Promise<{
   found: number;
   prepared: Map<string, PreparedTodoMatePhoto>;
-  precompressed: boolean;
 }> {
   const candidates = todos
     .filter((todo) => Boolean(maybeString(todo.fields.content)))
@@ -202,7 +197,6 @@ async function downloadTodoMatePhotos(
   const prepared = new Map<string, PreparedTodoMatePhoto>();
   let cursor = 0;
   let completed = 0;
-  let precompressed = true;
 
   const worker = async () => {
     while (true) {
@@ -224,10 +218,9 @@ async function downloadTodoMatePhotos(
       );
       onPhotoProgress?.(completed, candidates.length);
       if (!photo) continue;
-      if (!photo.precompressed) precompressed = false;
       prepared.set(candidate.todoId, {
         sourceId: photoSourceId(candidate.todoId, candidate.url),
-        ...photo,
+        bytes: photo,
       });
     }
   };
@@ -237,11 +230,7 @@ async function downloadTodoMatePhotos(
     Array.from({ length: workerCount }, () => worker())
   );
 
-  return {
-    found: candidates.length,
-    prepared,
-    precompressed: prepared.size > 0 && precompressed,
-  };
+  return { found: candidates.length, prepared };
 }
 
 async function zipAsync(
@@ -272,7 +261,6 @@ export interface TodoMateTransferPreview {
 export interface PreparedTodoMateTransfer {
   file: File;
   preview: TodoMateTransferPreview;
-  photosPrecompressed: boolean;
 }
 
 function isRecord(value: unknown): value is JsonRecord {
@@ -560,7 +548,6 @@ async function makeMosaicBackup(
   photoResult: {
     found: number;
     prepared: Map<string, PreparedTodoMatePhoto>;
-    precompressed: boolean;
   }
 ): Promise<PreparedTodoMateTransfer> {
   const exportedAt = now.toISOString();
@@ -704,7 +691,6 @@ async function makeMosaicBackup(
         { type: 'application/json' }
       ),
       preview,
-      photosPrecompressed: photoResult.precompressed,
     };
   }
 
@@ -723,7 +709,6 @@ async function makeMosaicBackup(
       { type: 'application/zip' }
     ),
     preview,
-    photosPrecompressed: photoResult.precompressed,
   };
 }
 

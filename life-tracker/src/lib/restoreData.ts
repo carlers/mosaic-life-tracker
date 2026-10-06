@@ -122,11 +122,6 @@ export interface RestoreOptions {
   onProgressDetail?: (progress: RestoreProgress) => void;
   onLocalApplyStart?: () => void;
   onLocalApplyComplete?: () => void;
-  /**
-   * Set only for an internal transfer whose bundled images were produced by
-   * Mosaic's trusted WebP processor. Generic backups keep normal validation.
-   */
-  precompressedImages?: boolean;
 }
 
 export interface RestoreResult {
@@ -669,8 +664,7 @@ async function restoreImages(
   currentUserId: string,
   onProgress?: (message: string) => void,
   assertOwner?: () => void,
-  onImageProgress?: (completed: number, total: number) => void,
-  precompressedImages?: boolean
+  onImageProgress?: (completed: number, total: number) => void
 ): Promise<{ restored: number; missing: number }> {
   const ids = Array.from(referencedImageIds(data));
   if (ids.length === 0) return { restored: 0, missing: 0 };
@@ -717,19 +711,11 @@ async function restoreImages(
           loaded.payload.user.id,
           oldId
         );
-        const alreadyCompressed = precompressedImages === true;
-        const ensured = alreadyCompressed
-          ? await ensureRestoredImage(
-              file,
-              preferredFileId,
-              currentUserId,
-              { alreadyCompressed: true }
-            )
-          : await ensureRestoredImage(
-              file,
-              preferredFileId,
-              currentUserId
-            );
+        const ensured = await ensureRestoredImage(
+          file,
+          preferredFileId,
+          currentUserId
+        );
         remapped.set(oldId, ensured.fileId);
         if (ensured.uploaded) restored += 1;
       } catch (error) {
@@ -1138,8 +1124,7 @@ export async function restoreUserData(
         completed,
         total
       );
-    },
-    options.precompressedImages
+    }
   );
 
   await assertRestoreUserStillCurrent(currentUser.id);

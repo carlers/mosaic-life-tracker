@@ -230,17 +230,24 @@ export async function uploadImage(file: File): Promise<string> {
   return uploadImageWithId(file, generateFileId(), userId);
 }
 
+async function isSmallWebp(file: File): Promise<boolean> {
+  if (file.type !== 'image/webp' || file.size > 157286) return false;
+  const bytes = new Uint8Array(await file.slice(0, 12).arrayBuffer());
+  return (
+    bytes[0] === 82 &&
+    bytes[1] === 73 &&
+    bytes[2] === 70 &&
+    bytes[3] === 70 &&
+    bytes[8] === 87 &&
+    bytes[9] === 69 &&
+    bytes[10] === 66 &&
+    bytes[11] === 80
+  );
+}
+
 export interface EnsuredImage {
   fileId: string;
   uploaded: boolean;
-}
-
-export interface EnsureRestoredImageOptions {
-  /**
-   * Only set for bytes produced by Mosaic's own trusted local WebP processor.
-   * User-supplied backup bytes must keep the normal compression path.
-   */
-  alreadyCompressed?: boolean;
 }
 
 /**
@@ -252,8 +259,7 @@ export interface EnsureRestoredImageOptions {
 export async function ensureRestoredImage(
   file: File,
   preferredFileId: string,
-  expectedUserId?: string,
-  options: EnsureRestoredImageOptions = {}
+  expectedUserId?: string
 ): Promise<EnsuredImage> {
   if (!isValidFileId(preferredFileId)) {
     throw new Error('Backup image has an invalid file ID.');
@@ -283,13 +289,8 @@ export async function ensureRestoredImage(
   }
 
   try {
-    if (options.alreadyCompressed) {
-      await uploadCompressedBlobWithId(
-        file,
-        preferredFileId,
-        userId,
-        true
-      );
+    if (await isSmallWebp(file)) {
+      await uploadCompressedBlobWithId(file, preferredFileId, userId, true);
     } else {
       await uploadImageWithId(file, preferredFileId, userId, true);
     }
