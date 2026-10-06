@@ -165,7 +165,7 @@ export const AppLayout: React.FC = () => {
         timer = null;
         void import('../../db/sync')
           .then(({ forceSync }) => forceSync(uid))
-          .catch((syncError) => console.error(syncError));
+          .catch(console.error);
       }, 250);
     };
     const onVisibility = () => {
