@@ -201,4 +201,45 @@ describe('CategoryManagerSheet', () => {
     ).toHaveAttribute('aria-pressed', 'false');
     expect(mocks.addCategory).not.toHaveBeenCalled();
   });
+
+  it('does not persist an edited visibility after cancel', () => {
+    render(<CategoryManagerSheet isOpen onClose={vi.fn()} />);
+
+    fireEvent.click(
+      screen.getAllByRole('button', { name: 'Edit category' })[0]
+    );
+
+    let visibility = screen.getByRole('group', { name: 'Visibility' });
+    fireEvent.click(within(visibility).getByRole('button', { name: /Friends/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+
+    expect(mocks.updateCategory).not.toHaveBeenCalled();
+
+    fireEvent.click(
+      screen.getAllByRole('button', { name: 'Edit category' })[0]
+    );
+    visibility = screen.getByRole('group', { name: 'Visibility' });
+    expect(
+      within(visibility).getByRole('button', { name: /Private/ })
+    ).toHaveAttribute('aria-pressed', 'true');
+  });
+
+  it('reloads visibility when switching directly between categories', () => {
+    render(<CategoryManagerSheet isOpen onClose={vi.fn()} />);
+
+    const editButtons = screen.getAllByRole('button', { name: 'Edit category' });
+    fireEvent.click(editButtons[0]);
+
+    let visibility = screen.getByRole('group', { name: 'Visibility' });
+    expect(
+      within(visibility).getByRole('button', { name: /Private/ })
+    ).toHaveAttribute('aria-pressed', 'true');
+
+    fireEvent.click(editButtons[1]);
+    visibility = screen.getByRole('group', { name: 'Visibility' });
+    expect(
+      within(visibility).getByRole('button', { name: /Public/ })
+    ).toHaveAttribute('aria-pressed', 'true');
+  });
+
 });
