@@ -337,9 +337,7 @@ function mappedStateEquals(
   local: Record<string, unknown>,
   remote: Record<string, unknown>
 ): boolean {
-  return Object.keys(remote).every(
-    (key) => JSON.stringify(local[key]) === JSON.stringify(remote[key])
-  );
+  return Object.entries(remote).every(([key, value]) => local[key] === value);
 }
 
 export function isRateLimitError(err: unknown): boolean {
@@ -452,13 +450,10 @@ async function reconcileLocalReplica(
   deadline: number
 ): Promise<void> {
   const db = getDatabase();
-  const boundaryMs = Date.now();
 
   for (const colName of ALL_COLLECTIONS) {
     assertSyncOwnerCurrent(userId, generation);
-    if (Date.now() >= deadline) {
-      throw new Error('Mosaic reconciliation timed out. Check your connection and try again.');
-    }
+    if (Date.now() >= deadline) throw new Error('Reconciliation timed out');
 
     const result = await syncCollection(
       db[colName] as unknown as LocalCollection,
@@ -467,13 +462,13 @@ async function reconcileLocalReplica(
       generation,
       {
         forceFullPull: true,
-        staleFreshnessBoundaryMs: boundaryMs,
-        authoritativeReconcile: colName !== 'messages',
+        staleFreshnessBoundaryMs:
+          colName === 'messages' ? Date.now() : Infinity,
       }
     );
 
     if (result.pullRowFailed || !result.pullComplete) {
-      throw new Error('Mosaic could not fully reconcile ' + colName + '.');
+      throw new Error('Reconciliation failed: ' + colName);
     }
   }
 }
@@ -634,22 +629,14 @@ export async function refreshSync(
       await reconcileLocalReplica(userId, generation, deadline);
       assertSyncOwnerCurrent(userId, generation);
 
-      const settleResults = await Promise.allSettled(
-        refreshes.map(async ([name, , refresh]) => {
-          const refreshed = await refresh(remaining());
-          if (!refreshed) {
-            throw new Error(
-              'Fresh ' + name + ' sync is not active for the current account.'
-            );
-          }
-          assertSyncOwnerCurrent(userId, generation);
-        })
-      );
-      const settleFailure = settleResults.find(
-        (result): result is PromiseRejectedResult =>
-          result.status === 'rejected'
-      );
-      if (settleFailure) throw settleFailure.reason;
+      if (
+        (await Promise.all(
+          refreshes.map(([, , refresh]) => refresh(remaining()))
+        )).includes(false)
+      ) {
+        throw new Error('Fresh sync is not active');
+      }
+      assertSyncOwnerCurrent(userId, generation);
       reportProgress('All data groups verified');
     }
 
@@ -1168,7 +1155,6 @@ async function runSyncCycleBody(
 interface StaleRecoveryOptions {
   forceFullPull?: boolean;
   staleFreshnessBoundaryMs?: number;
-  authoritativeReconcile?: boolean;
 }
 
 async function syncCollection(
@@ -1181,7 +1167,10 @@ async function syncCollection(
   assertSyncOwnerCurrent(userId, generation);
 
   if (colName === 'friendships') {
-    await syncFriendships(userId, options.authoritativeReconcile === true);
+    await syncFriendships(
+      userId,
+      options.staleFreshnessBoundaryMs === Infinity
+    );
     assertSyncOwnerCurrent(userId, generation);
     return {
       pullRowFailed: false,
@@ -1200,7 +1189,7 @@ async function syncCollection(
   const forceFullPull = options.forceFullPull === true;
   const effectivePullBoundaryMs = forceFullPull ? 0 : pullBoundaryMs;
   const staleBoundaryMs = options.staleFreshnessBoundaryMs;
-  const authoritativeReconcile = options.authoritativeReconcile === true;
+  const authoritativeReconcile = staleBoundaryMs === Infinity;
 
   const remoteIndex = new Map<
     string,
