@@ -120,6 +120,7 @@ export interface RestoreOptions {
   mode: RestoreMode;
   onProgressDetail?: (progress: RestoreProgress) => void;
   onLocalApplyComplete?: () => void;
+  trustedPrecompressedImages?: boolean;
 }
 
 export interface RestoreResult {
@@ -146,7 +147,9 @@ type LocalDoc = {
 
 type LocalCollection = {
   findOne: (id: string) => { exec: () => Promise<LocalDoc | null> };
-  findByIds: (ids: string[]) => Promise<Map<string, LocalDoc>>;
+  findByIds: (ids: string[]) => {
+    exec: () => Promise<Map<string, LocalDoc>>;
+  };
   find: (query?: unknown) => { exec: () => Promise<LocalDoc[]> };
 };
 
@@ -656,12 +659,26 @@ function referencedImageIds(data: NormalizedBackup): Set<string> {
   return ids;
 }
 
+function isRateLimitError(error: unknown): boolean {
+  const candidate = error as {
+    code?: number;
+    cause?: { code?: number };
+    message?: string;
+  };
+  return (
+    candidate?.code === 429 ||
+    candidate?.cause?.code === 429 ||
+    /rate limit/i.test(candidate?.message ?? '')
+  );
+}
+
 async function restoreImages(
   loaded: LoadedBackup,
   data: NormalizedBackup,
   currentUserId: string,
   assertOwner?: () => void,
-  onImageProgress?: (completed: number, total: number) => void
+  onImageProgress?: (completed: number, total: number) => void,
+  trustedPrecompressedImages = false
 ): Promise<{ restored: number; missing: number }> {
   const ids = Array.from(referencedImageIds(data));
   if (ids.length === 0) return { restored: 0, missing: 0 };
@@ -700,15 +717,31 @@ async function restoreImages(
           loaded.payload.user.id,
           oldId
         );
-        const ensured = await ensureRestoredImage(
-          file,
-          preferredFileId,
-          currentUserId,
-          loaded.payload.user.id.startsWith('todomate_')
-        );
+        let ensured;
+        for (let attempt = 0; ; attempt += 1) {
+          try {
+            ensured = await ensureRestoredImage(
+              file,
+              preferredFileId,
+              currentUserId,
+              trustedPrecompressedImages
+            );
+            break;
+          } catch (error) {
+            if (!isRateLimitError(error) || attempt >= 2) throw error;
+            await new Promise((resolve) => setTimeout(resolve, 60_000));
+            assertOwner?.();
+          }
+        }
         remapped.set(oldId, ensured.fileId);
         if (ensured.uploaded) restored += 1;
       } catch (error) {
+        if (isRateLimitError(error)) {
+          throw new Error(
+            'Photo upload is temporarily rate-limited. Wait a minute and retry the import.',
+            { cause: error }
+          );
+        }
         console.warn('[Restore] Image restore failed:', oldId, error);
         missing += 1;
       } finally {
@@ -781,7 +814,7 @@ async function planRestore(
     const documents = documentsFor(data, collectionName);
     const existingById =
       documents.length > 0
-        ? await collection.findByIds(documents.map((doc) => doc.id))
+        ? await collection.findByIds(documents.map((doc) => doc.id)).exec()
         : new Map<string, LocalDoc>();
     assertOwner?.();
 
@@ -1111,7 +1144,8 @@ export async function restoreUserData(
         completed,
         total
       );
-    }
+    },
+    options.trustedPrecompressedImages === true
   );
 
   await assertRestoreUserStillCurrent(currentUser.id);
