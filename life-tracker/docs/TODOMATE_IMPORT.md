@@ -185,9 +185,9 @@ Preview reads TodoMate but performs no Mosaic writes. It reports at minimum:
 
 Only after preview can the user start the Merge import. Closing or reopening the sheet
 cancels the old preview work, and an older attempt cannot overwrite the current preview.
-A completed preview is also bound to the Mosaic account that created it. Changing Mosaic
-accounts aborts/invalidate the preview, and Import refuses to apply prepared TodoMate data under
-a different Mosaic account.
+A completed preview is also bound to the Mosaic account that created it. Import refuses to
+apply prepared TodoMate data under a different Mosaic account and clears that stale preview,
+so the user must preview again under the active account.
 Both preview and import expose phase text plus a coarse percentage: preview advances through
 connection/login/history/photo preparation; import advances through validation, freshness
 preflight, photo copy, exact local-row application, and the six collection-level cloud

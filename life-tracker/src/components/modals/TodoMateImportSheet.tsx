@@ -95,15 +95,6 @@ export const TodoMateImportSheet: React.FC<TodoMateImportSheetProps> = ({
     []
   );
 
-  useEffect(() => {
-    previewGenerationRef.current += 1;
-    previewAbortRef.current?.abort();
-    previewInFlightRef.current = false;
-    previewUserIdRef.current = null;
-    setPrepared(null);
-    setIsPreparing(false);
-  }, [user?.$id]);
-
   const currentUser = user
     ? { id: user.$id, email: user.email, name: user.name || '' }
     : null;
@@ -336,7 +327,7 @@ export const TodoMateImportSheet: React.FC<TodoMateImportSheetProps> = ({
               onChange={(event) => {
                 setEmail(event.target.value);
                 setPrepared(null);
-                          }}
+              }}
               autoComplete="username"
               disabled={busy}
               className="w-full rounded-xl border border-[#333333] bg-[#1A1A1A] px-3.5 py-3 text-white outline-none focus:border-emerald-500 disabled:opacity-50"

@@ -236,7 +236,7 @@ describe('TodoMateImportSheet', () => {
     expect(screen.queryByText(/999 tasks · 99 categories/i)).not.toBeInTheDocument();
   });
 
-  it('invalidates a prepared preview when the signed-in Mosaic account changes', async () => {
+  it('refuses a prepared preview after the signed-in Mosaic account changes', async () => {
     const { rerender } = render(
       <TodoMateImportSheet isOpen onClose={vi.fn()} />
     );
@@ -256,6 +256,8 @@ describe('TodoMateImportSheet', () => {
       name: 'Other User',
     };
     rerender(<TodoMateImportSheet isOpen onClose={vi.fn()} />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Import into Mosaic' }));
 
     await waitFor(() =>
       expect(
