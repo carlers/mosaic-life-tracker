@@ -194,14 +194,6 @@ async function readRemoteTaskMaster(
   });
 }
 
-async function readRemoteTask(
-  rowId: string,
-  userId: string
-): Promise<ReplicatedTask | null> {
-  const master = await readRemoteTaskMaster(rowId, userId);
-  return master?.document ?? null;
-}
-
 async function createRemoteTask(
   document: ReplicatedTask,
   userId: string
