@@ -32,7 +32,7 @@ export async function readOwnerMaster<T>(
     assertRemoteRowOwnedBy(raw, userId, tableId);
     const serverUpdatedAt = raw.$updatedAt;
     if (typeof serverUpdatedAt !== 'string') {
-      throw new Error('Invalid replication master token');
+      throw new Error('Invalid sync token');
     }
     return { document: mapRow(raw), serverUpdatedAt };
   } catch (error) {
@@ -98,5 +98,5 @@ export async function updateOwnerRowWithCas(
     assertRemoteRowOwnedBy(row, userId, tableId);
     return { status: 'conflict', row };
   }
-  throw new Error('Invalid CAS response');
+  throw new Error('Invalid CAS');
 }
