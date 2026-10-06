@@ -1,21 +1,33 @@
 # Session checkpoint
 
 Updated: 2026-10-06
-Current task: Promote the accepted connected-chat workflow guardrails into current `dev` and retire completed branches.
-Status: TodoMate import/sync performance work is accepted, live, and already promoted to `dev`. The older stable Preview `refactor/agent-workflow-efficiency` contains useful durable connected-chat latency guardrails but diverged from `dev` only because its historical `SESSION_STATE.md` checkpoint conflicts with the newer TodoMate checkpoint. The direct promotion PR (#318) was closed rather than overwrite current state. A conflict-resolution branch based on current `dev` carries forward only the accepted `AGENTS.md` and `AI_WORKFLOW.md` guardrails plus this refreshed checkpoint.
-Next action: Complete focused verification for the conflict-resolution branch, merge it to `dev`, verify the resulting dev Quality Gate/Vercel deployment, then delete every completed non-`main`/`dev` branch.
-Blockers: None.
+Current task: Close the remaining active multi-device owner-write race and bound missed-Realtime convergence without slowing normal local-first startup.
+Status: Implementation is on `chatgpt/fix-sync-convergence`. A disposable Appwrite proof showed server-side `updateRows` filtered by `$id + $updatedAt` behaves as compare-and-set under simultaneous writers: one request updates exactly one row and the stale competitor updates zero rows. The fix therefore reuses the existing trusted `message-action` Function for owner-row CAS with no schema migration, while a visible+online two-minute watchdog periodically requests incremental catch-up so a silently reconnected Realtime socket cannot leave an active device stale indefinitely.
+Next action: Run focused verification, fix any failures, merge through a stable `fix/*` Preview branch for the canonical full gate, deploy/verify the updated `message-action` Function on scratch, and leave production Function activation plus `dev` promotion for the repository's explicit rollout/promotion steps.
+Blockers: Production CAS is not effective until the new `compare_and_set_owner_row` Function action is activated. The client intentionally falls back to the previous direct owner update only when an older deployed Function reports the action as unknown, so staggered Preview rollout remains usable without pretending the race is closed before backend activation.
 
 ## Completed evidence
 
-- TodoMate server-batched task sync was proven on the scratch Appwrite project, activated in production, manually accepted on a real import, and promoted to `dev`.
-- `refactor/agent-workflow-efficiency` previously passed canonical acceptance at `aba071211a4d9528ea118e7a92f83b7b58a192e7`.
-- The only promotion conflict is historical checkpoint text; the durable workflow changes are limited to `AGENTS.md` and `docs/AI_WORKFLOW.md`.
-- Direct Git-ref movement did not emit a push workflow in this connected environment, so this checkpoint update is being committed through the normal contents path for the required focused verification.
-- No application/runtime behavior or Appwrite resource is changed by this conflict-resolution task.
+- Audited current `dev` owner-write pilots and confirmed tasks/categories/diary/settings still performed semantic master checks followed by unconditional browser `updateRow`, leaving a same-row read→write lost-update window.
+- Confirmed Realtime events are wake-ups only and do not advance durable pull checkpoints, but the app had no bounded all-collection catch-up while it stayed visible/online after an invisible socket reconnect.
+- Live disposable-project CAS proof: simultaneous server `updateRows` calls constrained by the same `$id + $updatedAt` token consistently produced one winner and one zero-row loser. No `sync_rev` column or new Function is required.
+- Added a Git-owned `message-action` owner-write CAS handler that also constrains `user_id`, validates the owner-write table/data surface, and returns the current master to RxDB when CAS loses.
+- Wired task/category/diary/settings updates through the CAS path while preserving strict create behavior, bootstrap semantics, task reaction-drift merge, and backward-compatible old-Function fallback.
+- Added a 120-second visible+online sync watchdog in the existing lazy sync wake-up path; focus/online/visibility triggers remain immediate and debounce with the watchdog.
+- Added handler/client/pilot/watchdog regressions. Routine full anti-entropy remains intentionally deferred because the ordered server tuple checkpoint plus bounded incremental resync should first be stress-tested before adding full scans.
 
 ## Working files
 
-- `AGENTS.md`
-- `docs/AI_WORKFLOW.md`
-- `docs/SESSION_STATE.md`
+- `appwrite-functions/message-action/main.js`
+- `appwrite-functions/message-action/owner-write-cas.js`
+- `src/db/ownerWriteCas.ts`
+- `src/db/{task,category,diary,settings}ReplicationPilot.ts`
+- `src/db/syncWatchdog.ts`
+- `src/components/layout/AppLayout.tsx`
+- `tests/handlers/ownerWriteCas.test.ts`
+- `tests/unit/*ReplicationPilot.test.ts`
+- `tests/unit/ownerWriteCas.test.ts`
+- `tests/unit/syncWatchdog.test.ts`
+- `docs/SYNC_SCENARIO_MATRIX.md`
+- `docs/PROJECT_REFERENCE.md`
+- `docs/PLAN.md`

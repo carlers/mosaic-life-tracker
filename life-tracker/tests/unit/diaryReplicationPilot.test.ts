@@ -20,6 +20,7 @@ const awaitInSyncMock = vi.hoisted(() => vi.fn());
 const cancelMock = vi.hoisted(() => vi.fn());
 const errorSubscribeMock = vi.hoisted(() => vi.fn());
 const trackReplicationFreshnessMock = vi.hoisted(() => vi.fn());
+const sendAppActionMock = vi.hoisted(() => vi.fn());
 
 vi.mock('rxdb', () => ({
   getChangedDocumentsSince: getChangedDocumentsSinceMock,
@@ -64,6 +65,10 @@ vi.mock('../../src/lib/sdk', () => ({
   guardedRealtime: {
     subscribe: realtimeSubscribeMock,
   },
+}));
+
+vi.mock('../../src/lib/appAction', () => ({
+  sendAppAction: sendAppActionMock,
 }));
 
 vi.mock('../../src/db/replicationLocalState', () => ({
@@ -130,6 +135,12 @@ beforeEach(async () => {
   getRowMock.mockResolvedValue(remoteDiary());
   updateRowMock.mockResolvedValue({});
   createRowMock.mockResolvedValue({});
+  sendAppActionMock.mockRejectedValue(
+    Object.assign(new Error('Unknown action'), {
+      code: 400,
+      result: { error: 'Unknown action: compare_and_set_owner_row' },
+    })
+  );
   cancelMock.mockResolvedValue(true);
   awaitInSyncMock.mockResolvedValue(true);
   errorSubscribeMock.mockReturnValue({ unsubscribe: vi.fn() });
@@ -373,6 +384,44 @@ describe('diary RxDB replication pilot', () => {
         content: 'Server version',
         _deleted: false,
       }),
+    ]);
+  });
+
+  it('turns a post-read concurrent diary write into an RxDB conflict', async () => {
+    sendAppActionMock.mockResolvedValueOnce({
+      status: 'conflict',
+      row: remoteDiary({
+        $updatedAt: '2026-10-02T00:00:03.000Z',
+        content: 'Other device',
+        updated_at: '2026-10-02T00:00:03.000Z',
+      }),
+    });
+
+    const conflicts = await __diaryReplicationPilotTestUtils.pushDiary(
+      [
+        {
+          assumedMasterState: localDiary(),
+          newDocumentState: localDiary({
+            content: 'This device',
+            updatedAt: '2026-10-02T00:00:02.000Z',
+          }),
+        },
+      ],
+      'user_A'
+    );
+
+    expect(sendAppActionMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'compare_and_set_owner_row',
+        tableId: 'diary',
+        rowId: 'diary_a',
+        expectedUpdatedAt: '2026-10-02T00:00:02.000Z',
+      }),
+      15_000
+    );
+    expect(updateRowMock).not.toHaveBeenCalled();
+    expect(conflicts).toEqual([
+      expect.objectContaining({ content: 'Other device' }),
     ]);
   });
 

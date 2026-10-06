@@ -1,0 +1,154 @@
+import { beforeEach, describe, expect, it } from 'vitest';
+import { invoke, makeMockDb, type MockDb } from '../helpers/invoke-handler';
+
+function categoryData(overrides: Record<string, unknown> = {}) {
+  return {
+    name: 'Work',
+    color: '#3B82F6',
+    order: 0,
+    visibility: 'private',
+    user_id: 'user_A',
+    deleted: false,
+    icon: '',
+    updated_at: '2026-10-06T10:00:00.000Z',
+    ...overrides,
+  };
+}
+
+describe('message-action owner write CAS', () => {
+  let mockDb: MockDb;
+
+  beforeEach(() => {
+    mockDb = makeMockDb();
+  });
+
+  it('updates exactly the owner row at the expected server revision', async () => {
+    mockDb.updateRows.mockResolvedValue({ total: 1, rows: [{}] });
+
+    const result = await invoke({
+      userId: 'user_A',
+      mockDb,
+      body: {
+        action: 'compare_and_set_owner_row',
+        tableId: 'categories',
+        rowId: 'cat_a',
+        expectedUpdatedAt: '2026-10-06T10:00:01.000Z',
+        data: categoryData({ name: 'Updated' }),
+      },
+    });
+
+    expect(result.status).toBe(200);
+    expect(result.body).toEqual({ ok: true, status: 'updated' });
+    expect(mockDb.updateRows).toHaveBeenCalledWith(
+      expect.objectContaining({
+        databaseId: 'life_tracker',
+        tableId: 'categories',
+        data: expect.objectContaining({
+          user_id: 'user_A',
+          name: 'Updated',
+        }),
+        queries: expect.arrayContaining([
+          { op: 'equal', key: '$id', value: 'cat_a' },
+          {
+            op: 'equal',
+            key: '$updatedAt',
+            value: '2026-10-06T10:00:01.000Z',
+          },
+          { op: 'equal', key: 'user_id', value: 'user_A' },
+        ]),
+      })
+    );
+  });
+
+  it('returns the current master when the compare-and-set loses a race', async () => {
+    mockDb.updateRows.mockResolvedValue({ total: 0, rows: [] });
+    mockDb.getRow.mockResolvedValue({
+      $id: 'cat_a',
+      $updatedAt: '2026-10-06T10:00:02.000Z',
+      ...categoryData({ name: 'Other device' }),
+    });
+
+    const result = await invoke({
+      userId: 'user_A',
+      mockDb,
+      body: {
+        action: 'compare_and_set_owner_row',
+        tableId: 'categories',
+        rowId: 'cat_a',
+        expectedUpdatedAt: '2026-10-06T10:00:01.000Z',
+        data: categoryData({ name: 'This device' }),
+      },
+    });
+
+    expect(result.status).toBe(200);
+    expect(result.body).toEqual(
+      expect.objectContaining({
+        ok: true,
+        status: 'conflict',
+        row: expect.objectContaining({ name: 'Other device' }),
+      })
+    );
+  });
+
+  it('reports a row that disappeared after the client read as missing', async () => {
+    mockDb.updateRows.mockResolvedValue({ total: 0, rows: [] });
+
+    const result = await invoke({
+      userId: 'user_A',
+      mockDb,
+      body: {
+        action: 'compare_and_set_owner_row',
+        tableId: 'diary',
+        rowId: 'diary_a',
+        expectedUpdatedAt: '2026-10-06T10:00:01.000Z',
+        data: {
+          date: '2026-10-06',
+          content: 'entry',
+          visibility: 'private',
+          user_id: 'user_A',
+          updated_at: '2026-10-06T10:00:02.000Z',
+          deleted: false,
+          created_at: '2026-10-06T09:00:00.000Z',
+        },
+      },
+    });
+
+    expect(result.status).toBe(200);
+    expect(result.body).toEqual({ ok: true, status: 'missing' });
+  });
+
+  it('rejects cross-account and non-owner-table writes', async () => {
+    const foreign = await invoke({
+      userId: 'user_A',
+      mockDb,
+      body: {
+        action: 'compare_and_set_owner_row',
+        tableId: 'settings',
+        rowId: 'setting_a',
+        expectedUpdatedAt: '2026-10-06T10:00:01.000Z',
+        data: {
+          user_id: 'user_B',
+          key: 'theme',
+          value: 'light',
+          deleted: false,
+          updated_at: '2026-10-06T10:00:02.000Z',
+        },
+      },
+    });
+    const unsupported = await invoke({
+      userId: 'user_A',
+      mockDb,
+      body: {
+        action: 'compare_and_set_owner_row',
+        tableId: 'messages',
+        rowId: 'msg_a',
+        expectedUpdatedAt: '2026-10-06T10:00:01.000Z',
+        data: { user_id: 'user_A' },
+      },
+    });
+
+    expect(foreign.status).toBe(400);
+    expect(unsupported.status).toBe(400);
+    expect(mockDb.updateRows).not.toHaveBeenCalled();
+  });
+});

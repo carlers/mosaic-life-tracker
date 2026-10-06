@@ -36,6 +36,7 @@ import { awaitPilotReplicationFreshness } from './replicationFreshness';
 import { getReplicationIdentifier } from './replicationIds';
 import { trackReplicationFreshness } from './replicationLocalState';
 import { assertRemoteRowOwnedBy } from './replicationOwnership';
+import { readOwnerMaster, updateOwnerRowWithCas } from './ownerWriteCas';
 import {
   loadAcceptedFriendIds,
   sanitizeFriendCarouselValue,
@@ -73,10 +74,6 @@ let activePullStream:
 let realtimeUnsubscribe: RealtimeUnsubscribe | null = null;
 let errorSubscription: Subscription | null = null;
 let activeCollection: RxCollection<SettingsDocument> | null = null;
-
-function isNotFoundError(error: unknown): boolean {
-  return (error as { code?: number } | null)?.code === 404;
-}
 
 function isConflictError(error: unknown): boolean {
   return (error as { code?: number } | null)?.code === 409;
@@ -127,23 +124,26 @@ function isBootstrapLocalNewer(
   );
 }
 
+async function readRemoteSettingMaster(
+  rowId: string,
+  userId: string
+) {
+  return readOwnerMaster({
+    databaseId: APPWRITE_DATABASE_ID,
+    tableId: APPWRITE_TABLES.settings,
+    rowId,
+    userId,
+    ownerLabel: 'Settings',
+    mapRow: toReplicatedSetting,
+  });
+}
+
 async function readRemoteSetting(
   rowId: string,
   userId: string
 ): Promise<ReplicatedSetting | null> {
-  try {
-    const row = await guardedTablesDB.getRow({
-      databaseId: APPWRITE_DATABASE_ID,
-      tableId: APPWRITE_TABLES.settings,
-      rowId,
-    });
-    const raw = row as unknown as Record<string, unknown>;
-    assertRemoteRowOwnedBy(raw, userId, 'Settings');
-    return toReplicatedSetting(raw);
-  } catch (error) {
-    if (isNotFoundError(error)) return null;
-    throw error;
-  }
+  const master = await readRemoteSettingMaster(rowId, userId);
+  return master?.document ?? null;
 }
 
 async function prepareSettingForPush(
@@ -290,7 +290,8 @@ async function pushSettings(
       );
     }
 
-    const current = await readRemoteSetting(next.id, userId);
+    const master = await readRemoteSettingMaster(next.id, userId);
+    const current = master?.document ?? null;
     const assumed = row.assumedMasterState;
 
     if (!assumed) {
@@ -358,19 +359,32 @@ async function pushSettings(
       continue;
     }
 
-    try {
-      await guardedTablesDB.updateRow({
-        databaseId: APPWRITE_DATABASE_ID,
-        tableId: APPWRITE_TABLES.settings,
-        rowId: prepared.document.id,
-        data: toAppwriteFormat(
-          prepared.document as unknown as Record<string, unknown>,
-          'settings',
-          userId
-        ),
-      });
-    } catch (error) {
-      if (!isNotFoundError(error)) throw error;
+    if (!master) {
+      throw new Error(
+        `Settings replication master token missing for ${prepared.document.id}`
+      );
+    }
+    const writeResult = await updateOwnerRowWithCas({
+      databaseId: APPWRITE_DATABASE_ID,
+      tableId: APPWRITE_TABLES.settings,
+      rowId: prepared.document.id,
+      userId,
+      expectedUpdatedAt: master.serverUpdatedAt,
+      data: toAppwriteFormat(
+        prepared.document as unknown as Record<string, unknown>,
+        'settings',
+        userId
+      ),
+    });
+    if (writeResult.status === 'conflict') {
+      assertRemoteRowOwnedBy(writeResult.row, userId, 'Settings');
+      const latest = toReplicatedSetting(writeResult.row);
+      await mirrorProfileImageSetting(latest, userId);
+      await cleanupPendingProfileImage(next, userId);
+      conflicts.push(latest);
+      continue;
+    }
+    if (writeResult.status === 'missing') {
       const createConflict = await createRemoteSetting(
         prepared.document,
         userId

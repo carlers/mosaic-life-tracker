@@ -27,6 +27,7 @@ import { awaitPilotReplicationFreshness } from './replicationFreshness';
 import { getReplicationIdentifier } from './replicationIds';
 import { trackReplicationFreshness } from './replicationLocalState';
 import { assertRemoteRowOwnedBy } from './replicationOwnership';
+import { readOwnerMaster, updateOwnerRowWithCas } from './ownerWriteCas';
 
 const PULL_BATCH_SIZE = 100;
 const PUSH_BATCH_SIZE = 20;
@@ -60,10 +61,6 @@ let activePullStream:
 let realtimeUnsubscribe: RealtimeUnsubscribe | null = null;
 let errorSubscription: Subscription | null = null;
 let activeCollection: RxCollection<CategoryDocument> | null = null;
-
-function isNotFoundError(error: unknown): boolean {
-  return (error as { code?: number } | null)?.code === 404;
-}
 
 function isConflictError(error: unknown): boolean {
   return (error as { code?: number } | null)?.code === 409;
@@ -117,23 +114,26 @@ function isBootstrapLocalNewer(
   );
 }
 
+async function readRemoteCategoryMaster(
+  rowId: string,
+  userId: string
+) {
+  return readOwnerMaster({
+    databaseId: APPWRITE_DATABASE_ID,
+    tableId: APPWRITE_TABLES.categories,
+    rowId,
+    userId,
+    ownerLabel: 'Category',
+    mapRow: toReplicatedCategory,
+  });
+}
+
 async function readRemoteCategory(
   rowId: string,
   userId: string
 ): Promise<ReplicatedCategory | null> {
-  try {
-    const row = await guardedTablesDB.getRow({
-      databaseId: APPWRITE_DATABASE_ID,
-      tableId: APPWRITE_TABLES.categories,
-      rowId,
-    });
-    const raw = row as unknown as Record<string, unknown>;
-    assertRemoteRowOwnedBy(raw, userId, 'Category');
-    return toReplicatedCategory(raw);
-  } catch (error) {
-    if (isNotFoundError(error)) return null;
-    throw error;
-  }
+  const master = await readRemoteCategoryMaster(rowId, userId);
+  return master?.document ?? null;
 }
 
 async function createRemoteCategory(
@@ -182,7 +182,8 @@ async function pushCategories(
       );
     }
 
-    const current = await readRemoteCategory(next.id, userId);
+    const master = await readRemoteCategoryMaster(next.id, userId);
+    const current = master?.document ?? null;
     const assumed = row.assumedMasterState;
 
     if (!assumed) {
@@ -216,19 +217,24 @@ async function pushCategories(
       continue;
     }
 
-    try {
-      await guardedTablesDB.updateRow({
-        databaseId: APPWRITE_DATABASE_ID,
-        tableId: APPWRITE_TABLES.categories,
-        rowId: next.id,
-        data: toAppwriteFormat(
-          next as unknown as Record<string, unknown>,
-          'categories',
-          userId
-        ),
-      });
-    } catch (error) {
-      if (!isNotFoundError(error)) throw error;
+    const writeResult = await updateOwnerRowWithCas({
+      databaseId: APPWRITE_DATABASE_ID,
+      tableId: APPWRITE_TABLES.categories,
+      rowId: next.id,
+      userId,
+      expectedUpdatedAt: master.serverUpdatedAt,
+      data: toAppwriteFormat(
+        next as unknown as Record<string, unknown>,
+        'categories',
+        userId
+      ),
+    });
+    if (writeResult.status === 'conflict') {
+      assertRemoteRowOwnedBy(writeResult.row, userId, 'Category');
+      conflicts.push(toReplicatedCategory(writeResult.row));
+      continue;
+    }
+    if (writeResult.status === 'missing') {
       const createConflict = await createRemoteCategory(next, userId);
       if (createConflict) conflicts.push(createConflict);
     }

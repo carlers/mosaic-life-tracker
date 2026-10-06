@@ -24,6 +24,7 @@ const makeProfileImageReadableMock = vi.hoisted(() => vi.fn());
 const deletePendingImageMock = vi.hoisted(() => vi.fn());
 const updateProfileAvatarMock = vi.hoisted(() => vi.fn());
 const awaitPilotReplicationFreshnessMock = vi.hoisted(() => vi.fn());
+const sendAppActionMock = vi.hoisted(() => vi.fn());
 
 vi.mock('rxdb', () => ({
   getChangedDocumentsSince: getChangedDocumentsSinceMock,
@@ -84,6 +85,10 @@ vi.mock('../../src/lib/pendingImages', () => ({
 
 vi.mock('../../src/lib/social', () => ({
   updateProfileAvatar: updateProfileAvatarMock,
+}));
+
+vi.mock('../../src/lib/appAction', () => ({
+  sendAppAction: sendAppActionMock,
 }));
 
 vi.mock('../../src/db/replicationLocalState', () => ({
@@ -148,6 +153,12 @@ beforeEach(async () => {
   makeProfileImageReadableMock.mockResolvedValue(undefined);
   deletePendingImageMock.mockResolvedValue(undefined);
   updateProfileAvatarMock.mockResolvedValue(undefined);
+  sendAppActionMock.mockRejectedValue(
+    Object.assign(new Error('Unknown action'), {
+      code: 400,
+      result: { error: 'Unknown action: compare_and_set_owner_row' },
+    })
+  );
   awaitPilotReplicationFreshnessMock.mockResolvedValue(undefined);
   cancelMock.mockResolvedValue(true);
   errorSubscribeMock.mockReturnValue({ unsubscribe: vi.fn() });
@@ -381,6 +392,45 @@ describe('settings RxDB replication pilot', () => {
         value: 'server',
         _deleted: false,
       }),
+    ]);
+  });
+
+  it('turns a post-read concurrent setting write into an RxDB conflict', async () => {
+    sendAppActionMock.mockResolvedValueOnce({
+      status: 'conflict',
+      row: remoteSetting({
+        $updatedAt: '2026-10-02T00:00:02.000Z',
+        value: 'other-device',
+        updated_at: '2026-10-02T00:00:02.000Z',
+      }),
+    });
+
+    const conflicts =
+      await __settingsReplicationPilotTestUtils.pushSettings(
+        [
+          {
+            assumedMasterState: localSetting(),
+            newDocumentState: localSetting({
+              value: 'this-device',
+              updatedAt: '2026-10-02T00:00:02.000Z',
+            }),
+          },
+        ],
+        'user_A'
+      );
+
+    expect(sendAppActionMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'compare_and_set_owner_row',
+        tableId: 'settings',
+        rowId: 'setting_a',
+        expectedUpdatedAt: '2026-10-02T00:00:01.000Z',
+      }),
+      15_000
+    );
+    expect(updateRowMock).not.toHaveBeenCalled();
+    expect(conflicts).toEqual([
+      expect.objectContaining({ value: 'other-device' }),
     ]);
   });
 
