@@ -268,10 +268,17 @@ describe('TodoMateImportSheet', () => {
     expect(mocks.restoreUserData).not.toHaveBeenCalled();
   });
 
-  it('shows import percentage and current phase while restore is in progress', async () => {
+  it('shows import percentage and exact task cloud progress while restore is in progress', async () => {
     let finishRestore!: () => void;
+    let emitProgress!: (value: {
+      message: string;
+      percent: number;
+      completed?: number;
+      total?: number;
+    }) => void;
     mocks.restoreUserData.mockImplementationOnce(async (_file, _user, options) => {
-      options.onProgressDetail?.({
+      emitProgress = options.onProgressDetail;
+      emitProgress?.({
         message: 'Importing data (250/500)…',
         percent: 60,
         completed: 250,
@@ -309,6 +316,22 @@ describe('TodoMateImportSheet', () => {
     expect(
       screen.getByRole('progressbar', { name: 'TodoMate import progress' })
     ).toHaveAttribute('aria-valuenow', '60');
+
+    act(() => {
+      emitProgress({
+        message: 'Syncing tasks to cloud (54/505)…',
+        percent: 80,
+        completed: 54,
+        total: 505,
+      });
+    });
+    expect(
+      screen.getByText('Syncing tasks to cloud (54/505)…')
+    ).toBeInTheDocument();
+    expect(screen.getByText('80%')).toBeInTheDocument();
+    expect(
+      screen.getByRole('progressbar', { name: 'TodoMate import progress' })
+    ).toHaveAttribute('aria-valuenow', '80');
 
     await act(async () => {
       finishRestore();

@@ -1,43 +1,26 @@
 # Session checkpoint
 
 Updated: 2026-10-06
-Current task: TodoMate import/sync performance hardening and runtime repair on stable Preview `perf/todomate-import-sync-audit`.
-Status: Implementation is complete and automated acceptance is green on stable code head `15efe3f`. The real-use `u.get is not a function` crash is fixed: RxDB 17.5 restore planning now executes `findByIds(...).exec()` before reading the returned Map, and unit doubles preserve that real query shape so this regression cannot pass tests again. The same repair keeps TodoMate's precompressed-image fast path behind an in-memory caller value rather than spoofable backup metadata, retries one Storage 429 after a 60-second wait before persistent throttling rejects visibly, and preserves four-worker photo restore, create-first TodoMate task replication, Merge/idempotence semantics, account guards, and consolidated restore progress. Full canonical Quality Gate run `37423932711` succeeded, Vercel deployment `dpl_HvY5WeuHpU7MEHAgECY6ATsjs2Hu` is READY, and the fixed production build-size budget passes at `appAssetsGzipBytes = 682,275 B / 682,300 B`.
-Next action: The remaining acceptance step is manual real-account verification: rerun TodoMate Preview Transfer and Import into Mosaic, confirm the previous `u.get is not a function` failure is gone, then note rough wall times for preview/photo preparation, local import, and final sync settlement. If that real import is healthy, this branch is ready to merge to `dev` when explicitly requested. Do not promote to `dev` or `main` without explicit user instruction.
+Current task: TodoMate final cloud-sync progress and throughput on `chatgpt/todomate-task-sync-progress`, targeting stable Preview `perf/todomate-import-sync-audit`.
+Status: Live acceptance confirms the repaired import now completes its local/restore work much faster; the remaining user-visible bottleneck is the last task-to-Appwrite convergence phase. This task adds an exact TodoMate task counter backed by RxDB's successful `sent$` stream, so the sheet can show e.g. `Syncing tasks to cloud (54/505)…`. For fresh side-effect-free TodoMate batches only, the task push handler uses up to four workers to overlap request latency while create starts are serialized about 510 ms apart (~117.6/min), below Appwrite's documented 120 create-row requests/minute per IP+method+URL+user. All mixed/general task batches keep the current serial path and every worker still reuses the existing single-row create/conflict/bootstrap logic. Appwrite browser clients do not expose server bulk-row methods, so no unsupported client bulk shortcut is introduced.
+Next action: Commit the implementation, regression tests, sync matrix, TodoMate contract, and this checkpoint as one focused task commit. Run focused verification and fix any failures. If green, squash-merge into `perf/todomate-import-sync-audit`, require the full canonical gate plus Vercel/build-size acceptance, then have the user time the real 505-task final sync and confirm the live counter advances accurately. Do not promote to `dev` or `main` without explicit user instruction.
 Blockers: None.
 
-## Verification evidence
+## Verification target
 
-- Focused verification passed on every repair/compaction task branch before squash promotion.
-- Full canonical Quality Gate: `37423932711` — build, dependency audit, lint/unit/handler checks, both DOM shards, both browser-contract shards, and canonical acceptance all succeeded.
-- Stable Vercel SHA: `15efe3f0bd77d9a096d63f815d6762c990414e5a`.
-- Stable deployment: `dpl_HvY5WeuHpU7MEHAgECY6ATsjs2Hu` — READY.
-- Production size: `682,275 B` app-assets gzip against the fixed `682,300 B` budget.
-- Existing live migration evidence remains: 505 tasks, 13 categories, 1 diary entry, 3 undated tasks, and 37 TodoMate photos were previously discovered/copied successfully; the new runtime repair specifically addresses the Import-click crash seen afterward.
-
-## Accepted repair details
-
-- Restore planning uses `findByIds(...).exec()` before Map access.
-- Restore unit doubles expose the same RxDB query shape.
-- TodoMate precompressed-image trust is supplied only by the live importer call, never inferred from backup manifest contents.
-- Photo restore remains bounded to four workers.
-- A Storage 429 waits 60 seconds and retries once; a second rate limit rejects the import instead of incrementing `imagesMissing`.
-- The private `restoreImages()` helper requires its account/progress/trust arguments from its sole caller, preserving behavior while avoiding dead optional branches.
-- Restored image Files use the existing image bytes directly without an intermediate ArrayBuffer clone.
-- Create-first fresh TodoMate task replication still falls back to the established remote-read/bootstrap path on conflict.
-- Prepared TodoMate previews cannot be applied under a different Mosaic account.
-- Generic Backup & Restore and TodoMate both continue to use the consolidated detailed restore-progress channel.
+- TodoMate import UI visibly renders exact task cloud progress such as `54/505`.
+- Progress counts unique successful target-task sends from the active RxDB replication and ignores duplicate/non-target sends.
+- Fresh side-effect-free TodoMate batches overlap request latency with at most four workers.
+- Appwrite create starts are spaced at least 510 ms apart, preserving headroom under the 120/min client create-row limit.
+- Existing 409 bootstrap fallback, ownership validation, pending-image handling, reaction preservation, generic task pushes, large-import/idempotence, and sync-pending behavior remain green.
+- Stable production bundle remains within the reviewed build-size policy; if intended feature growth exceeds the existing ceiling after measured cleanup, any limit change must be explicitly documented rather than made only to silence CI.
 
 ## Working files
 
-- `src/lib/restoreData.ts`
-- `src/db/sync.ts`
-- `src/components/modals/TodoMateImportSheet.tsx`
-- `src/lib/storage.ts`
 - `src/db/taskReplicationPilot.ts`
-- `tests/unit/restoreData.test.ts`
-- `tests/unit/restoreData.image-preservation.test.ts`
-- `tests/components/TodoMateImportSheet.test.tsx`
-- `tests/unit/storage.test.ts`
+- `src/lib/restoreData.ts`
 - `tests/unit/taskReplicationPilot.test.ts`
+- `tests/unit/restoreData.test.ts`
+- `tests/components/TodoMateImportSheet.test.tsx`
 - `docs/TODOMATE_IMPORT.md`
+- `docs/SYNC_SCENARIO_MATRIX.md`

@@ -6,6 +6,7 @@ import type {
   SettingsDocument,
 } from '../db/schema';
 import { isRateLimitError, refreshSync } from '../db/sync';
+import { subscribeTaskPushProgress } from '../db/taskReplicationPilot';
 import {
   captureAccountWorkGeneration,
   isAccountWorkCurrent,
@@ -1131,6 +1132,29 @@ export async function restoreUserData(
 
   await assertRestoreUserStillCurrent(currentUser.id);
 
+  let taskPushCompleted = 0;
+  let taskProgressLive = false;
+  let taskSyncTotal = 0;
+  const stopTaskPushProgress = precompressedImages
+    ? subscribeTaskPushProgress(
+        currentUser.id,
+        plan.data.tasks.map((task) => task.id),
+        ({ completed }) => {
+          taskPushCompleted = completed;
+          if (taskProgressLive) {
+            const settled = Math.min(taskPushCompleted, taskSyncTotal);
+            reportDetail(
+              'Syncing tasks to cloud (' + settled + '/' + taskSyncTotal + ')…',
+              78 + (settled / taskSyncTotal) * 17,
+              settled,
+              taskSyncTotal
+            );
+          }
+        }
+      )
+    : null;
+
+  try {
   const replaceTimestamp = new Date().toISOString();
   const restored: Record<RestorableCollection, number> = {
     tasks: 0,
@@ -1199,7 +1223,20 @@ export async function restoreUserData(
   assertOwner();
   options.onLocalApplyComplete?.();
 
-  reportDetail('Syncing restored data…', 78);
+  taskSyncTotal = restored.tasks;
+  taskProgressLive = taskSyncTotal > 0 && stopTaskPushProgress !== null;
+  if (taskProgressLive) {
+    const settled = Math.min(taskPushCompleted, taskSyncTotal);
+    reportDetail(
+      'Syncing tasks to cloud (' + settled + '/' + taskSyncTotal + ')…',
+      78 + (settled / taskSyncTotal) * 17,
+      settled,
+      taskSyncTotal
+    );
+  } else {
+    reportDetail('Syncing restored data…', 78);
+  }
+
   let syncState: RestoreResult['syncState'] = 'synced';
   let syncError = '';
   try {
@@ -1208,9 +1245,19 @@ export async function restoreUserData(
       postRestoreSyncTimeoutMs(plan.data),
       {
         onProgress: (syncProgress) => {
+          if (
+            taskProgressLive &&
+            taskPushCompleted < taskSyncTotal &&
+            syncProgress.pendingGroups?.includes('Tasks')
+          ) {
+            return;
+          }
+          const hasTaskProgress = taskProgressLive;
           reportDetail(
             'Syncing to cloud · ' + syncProgress.label,
-            78 + syncProgress.percent * 0.21,
+            hasTaskProgress
+              ? 95 + syncProgress.percent * 0.04
+              : 78 + syncProgress.percent * 0.21,
             syncProgress.completed,
             syncProgress.total
           );
@@ -1243,4 +1290,7 @@ export async function restoreUserData(
     syncState,
     syncError,
   };
+  } finally {
+    stopTaskPushProgress?.();
+  }
 }

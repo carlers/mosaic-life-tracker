@@ -51,6 +51,7 @@ Status meanings:
 | First sync | No assumed master; local equals remote | Acknowledge without rewriting Appwrite | **Covered** for owner-write pilots |
 | First sync | No assumed master; remote is newer | Remote wins | **Covered** |
 | First sync | No assumed master; local application timestamp is newer | Permit one owner write | **Covered** |
+| TodoMate import | Large fresh task batch is the remaining cloud bottleneck | Count unique successful task sends from RxDB `sent$`; overlap only side-effect-free TodoMate creates with a bounded worker pool; pace create starts below Appwrite's shared client create-row limit; preserve conflict fallback and all general-task semantics | **Covered** — task replication progress/dedup regression plus paced-concurrency regression |
 | Task conflict | Friend reaction changes server row while owner edits task | Merge server-owned reaction drift when owner fields did not change remotely | **Covered** |
 | Settings side effect | Profile image setting write succeeds but profile mirror fails | Keep pending image so next reconciliation can repair side effect | **Covered** |
 | Message intent | Pull races optimistic read/unsend/reaction state | Preserve only documented newer local Function/outbox intent; server-owned fields still win | **Covered** |
