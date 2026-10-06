@@ -908,9 +908,15 @@ startup/Home deferral pass:
 - unique PWA precache: 2,269,326 B raw
 
 Entry and startup/Home closure ceilings carry about five percent headroom from the reviewed
-baseline. The aggregate/precache ceilings remain the previously reviewed tighter ceilings
-rather than being raised to create CI headroom. The current baseline and limits live in
-`config/build-size-budget.json` and are pinned by unit coverage.
+baseline. Aggregate/precache ceilings remain intentionally tight and are not raised merely to
+create CI headroom. A reviewed 2026-10-06 exception accepts the TodoMate task-sync
+observability/throughput feature: exact RxDB-confirmed `completed/total` cloud progress plus a
+bounded, Appwrite-rate-aware create worker pool added about 545 B gzip to aggregate app assets
+(682,281 B → 682,826 B in comparable Preview builds), while entry, startup/Home closures,
+aggregate raw bytes, and precache all stayed within their existing ceilings. Only
+`appAssetsGzipBytes` is therefore revised from 682,300 B to 683,500 B, leaving roughly
+674 B of measured headroom for gzip variation without widening the other guards. The current
+baseline and limits live in `config/build-size-budget.json` and are pinned by unit coverage.
 
 `npm run build:size` checks an existing `dist/`. The diagnostic
 `scripts/audit-bundle.mjs` remains the source for per-chunk package/module attribution,

@@ -1,26 +1,22 @@
 # Session checkpoint
 
 Updated: 2026-10-06
-Current task: TodoMate final cloud-sync progress and throughput on `chatgpt/todomate-task-sync-progress`, targeting stable Preview `perf/todomate-import-sync-audit`.
-Status: Live acceptance confirms the repaired import now completes its local/restore work much faster; the remaining user-visible bottleneck is the last task-to-Appwrite convergence phase. This task adds an exact TodoMate task counter backed by RxDB's successful `sent$` stream, so the sheet can show e.g. `Syncing tasks to cloud (54/505)…`. For fresh side-effect-free TodoMate batches only, the task push handler uses up to four workers to overlap request latency while create starts are serialized about 510 ms apart (~117.6/min), below Appwrite's documented 120 create-row requests/minute per IP+method+URL+user. All mixed/general task batches keep the current serial path and every worker still reuses the existing single-row create/conflict/bootstrap logic. Appwrite browser clients do not expose server bulk-row methods, so no unsupported client bulk shortcut is introduced.
-Next action: Commit the implementation, regression tests, sync matrix, TodoMate contract, and this checkpoint as one focused task commit. Run focused verification and fix any failures. If green, squash-merge into `perf/todomate-import-sync-audit`, require the full canonical gate plus Vercel/build-size acceptance, then have the user time the real 505-task final sync and confirm the live counter advances accurately. Do not promote to `dev` or `main` without explicit user instruction.
+Current task: TodoMate final cloud-sync progress/throughput and reviewed build-size acceptance on `chatgpt/todomate-task-sync-size-budget`, targeting stable Preview `perf/todomate-import-sync-audit`.
+Status: The exact task cloud counter and rate-aware TodoMate create lane are implemented and focused/full canonical CI are green on stable code head `808d72d`. The sheet now uses RxDB's successful `sent$` stream for exact unique task-send progress such as `Syncing tasks to cloud (54/505)…`. Fresh side-effect-free TodoMate-only batches use up to four workers to overlap request latency while create starts are paced about 510 ms apart (~117.6/min), below Appwrite's documented 120 create-row requests/minute client ceiling; mixed/general task batches keep their existing serial path and all workers reuse the established create/conflict/bootstrap logic. Vercel compiled the feature successfully but the fixed aggregate gzip ceiling failed by 526 B: comparable stable Preview builds moved from 682,281 B to 682,826 B (+545 B measured feature growth). Entry, startup/Home closures, aggregate raw bytes, and PWA precache all remain below their existing limits. Per §24.14 this is a reviewed intended-growth decision, not CI headroom: only `appAssetsGzipBytes` is revised from 682,300 B to 683,500 B; all other ceilings are unchanged.
+Next action: PR #313 carries this narrow budget/config/test/reference update. Run focused verification on the task-branch head; if green, squash-merge into `perf/todomate-import-sync-audit`, then require one full canonical Quality Gate and READY Vercel Preview/build-size pass. After automated acceptance, the user should rerun the real 505-task import and verify the live counter advances accurately while timing the final cloud-sync phase. Do not promote to `dev` or `main` without explicit user instruction.
 Blockers: None.
 
 ## Verification target
 
-- TodoMate import UI visibly renders exact task cloud progress such as `54/505`.
-- Progress counts unique successful target-task sends from the active RxDB replication and ignores duplicate/non-target sends.
-- Fresh side-effect-free TodoMate batches overlap request latency with at most four workers.
-- Appwrite create starts are spaced at least 510 ms apart, preserving headroom under the 120/min client create-row limit.
-- Existing 409 bootstrap fallback, ownership validation, pending-image handling, reaction preservation, generic task pushes, large-import/idempotence, and sync-pending behavior remain green.
-- Stable production bundle remains within the reviewed build-size policy; if intended feature growth exceeds the existing ceiling after measured cleanup, any limit change must be explicitly documented rather than made only to silence CI.
+- Build-size config and unit coverage agree on the reviewed 683,500 B aggregate gzip ceiling.
+- All other production size ceilings remain unchanged.
+- Stable production build lands under the reviewed ceiling without dependency or closure regressions.
+- Existing TodoMate task progress/concurrency regressions remain green in canonical CI.
+- Live manual check confirms the counter reflects real task sends and captures the new final-sync wall time.
 
 ## Working files
 
-- `src/db/taskReplicationPilot.ts`
-- `src/lib/restoreData.ts`
-- `tests/unit/taskReplicationPilot.test.ts`
-- `tests/unit/restoreData.test.ts`
-- `tests/components/TodoMateImportSheet.test.tsx`
-- `docs/TODOMATE_IMPORT.md`
-- `docs/SYNC_SCENARIO_MATRIX.md`
+- `config/build-size-budget.json`
+- `tests/unit/buildSizeGuard.test.ts`
+- `docs/PROJECT_REFERENCE.md`
+- `docs/SESSION_STATE.md`
