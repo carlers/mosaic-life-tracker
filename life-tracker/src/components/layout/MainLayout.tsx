@@ -1,6 +1,9 @@
 import React, { lazy, Suspense, useContext } from 'react';
 import { BottomNav, type TabId } from './BottomNav';
-import { PrimaryRouteSwipeSurface } from './PrimaryRouteSwipeSurface';
+import {
+  PrimaryRouteSwipeSurface,
+  type RouteSwipeActivationMode,
+} from './PrimaryRouteSwipeSurface';
 import type { PrimarySwipeDirection } from '../../lib/primarySwipeNavigation';
 import { useChatViewport } from '../messages/useChatViewport';
 import { AppearanceContext } from '../../hooks/appearanceContext';
@@ -22,6 +25,7 @@ export interface MainLayoutProps {
   leftPreview?: React.ReactNode;
   rightPreview?: React.ReactNode;
   onRouteSwipe?: (direction: PrimarySwipeDirection) => void;
+  routeSwipeActivationMode?: RouteSwipeActivationMode;
   /** Detail routes can consume the full viewport without global bottom chrome. */
   hideBottomNav?: boolean;
 }
@@ -36,6 +40,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
   leftPreview = null,
   rightPreview = null,
   onRouteSwipe = () => {},
+  routeSwipeActivationMode,
   hideBottomNav = false,
 }) => {
   const viewportStyle = useChatViewport(hideBottomNav);
@@ -69,32 +74,36 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
                 : ''
           }`}
         >
-          {hideBottomNav ? (
-            <div data-testid="primary-route-content" className="h-full min-h-0 overflow-hidden">
-              {children}
-            </div>
-          ) : (
-            <PrimaryRouteSwipeSurface
-              key={routeKey}
-              homeZoneOnly={activeTab === 'home'}
-              canSwipeLeft={canSwipeLeft}
-              canSwipeRight={canSwipeRight}
-              leftPreview={leftPreview}
-              rightPreview={rightPreview}
-              onSwipe={onRouteSwipe}
-            >
-              <div
-                data-testid="primary-route-content"
-                className={
-                  activeTab === 'home'
+          <PrimaryRouteSwipeSurface
+            key={routeKey}
+            activationMode={
+              routeSwipeActivationMode ??
+              (hideBottomNav
+                ? 'edge-back'
+                : activeTab === 'home'
+                  ? 'home-zone'
+                  : 'full')
+            }
+            canSwipeLeft={canSwipeLeft}
+            canSwipeRight={canSwipeRight}
+            leftPreview={leftPreview}
+            rightPreview={rightPreview}
+            onSwipe={onRouteSwipe}
+            fullHeight={hideBottomNav}
+          >
+            <div
+              data-testid="primary-route-content"
+              className={
+                hideBottomNav
+                  ? 'h-full min-h-0 overflow-hidden'
+                  : activeTab === 'home'
                     ? 'h-full min-h-0 ' + contentInsetClass
                     : 'min-h-full ' + contentInsetClass
-                }
-              >
-                {children}
-              </div>
-            </PrimaryRouteSwipeSurface>
-          )}
+              }
+            >
+              {children}
+            </div>
+          </PrimaryRouteSwipeSurface>
         </div>
       </main>
 

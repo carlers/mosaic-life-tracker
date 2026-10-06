@@ -18,16 +18,23 @@ additional reading. Current code and Git override stale progress prose.
   required for interaction, accessibility, clipping, or overflow correctness. Reserve
   Playwright for browser-only failure modes. Follow [test workflow](docs/TEST_WORKFLOW.md).
 - Commit scoped task changes automatically and batch remote edits so ordinary WIP pushes are
-  rare. The final coherent `chatgpt/**` task commit includes the current checkpoint and
-  requests `[verify:focused]`; after focused green, squash it into the stable Preview branch,
-  where the one routine full canonical gate + Preview run. Do not add a status-only post-green
+  rare. For GitHub-connected Chat/Code Mode, preflight connector-call count and split large
+  Git-object writes before execution; follow the call-budget protocol in
+  [AI workflow](docs/AI_WORKFLOW.md#github-connector-call-budget). The final coherent
+  `chatgpt/**` task commit includes the current checkpoint and requests
+  `[verify:focused]`; after focused green, squash it into the stable Preview branch, where
+  the one routine full canonical gate + Preview run. Do not add a status-only post-green
   commit. Follow [delivery](docs/DELIVERY.md). Never force-update shared history or divergent
   Preview. No unrelated service changes.
 - Update the checkpoint at meaningful milestones and handoffs. Keep objective, constraints,
   completed/remaining work, working files, checks, blockers, and next action concise.
   Do not copy prompts, Git status, or response boilerplate into it.
 - Report outcome, checks, commit, and deployment status briefly. Telemetry is opt-in.
-  Read [AI workflow](docs/AI_WORKFLOW.md) only for environment setup or handoff details.
+  Connected-chat agents must also follow the read-once, repair-batching, CI-polling, and
+  build-size preflight rules in [latency discipline](docs/AI_WORKFLOW.md#connected-chat-latency-discipline);
+  do not burn wall time on repeated fetches, status polling, or serial micro-fix branches.
+  Read [AI workflow](docs/AI_WORKFLOW.md) for environment setup, connector batching, or
+  handoff details.
 
 ## Data and application constraints
 
@@ -36,7 +43,9 @@ additional reading. Current code and Git override stale progress prose.
 - Preserve account isolation, cached offline identity, provider ownership/order, race
   protection, bounded retries, and sync coordination. Confirmed 401 differs from offline.
 - Schema changes require migrations, sync mappings, mirrored test schemas, and applicable
-  remote rollout steps. Local `isDeleted` maps to remote `deleted`; use tombstones.
+  remote rollout steps. Appwrite schema/Function changes also follow
+  [backend workflow](docs/APPWRITE_BACKEND_WORKFLOW.md); never use Console edits or an implicit
+  production target as the normal development path. Local `isDeleted` maps to remote `deleted`; use tombstones.
   Ordinary record deletion follows [retention](docs/TOMBSTONE_RETENTION.md). The only
   hard-delete exception is explicit, typed-confirmation account erasure through the
   server-owned durable deletion worker documented in [project reference](docs/PROJECT_REFERENCE.md#238-permanent-account-erasure).

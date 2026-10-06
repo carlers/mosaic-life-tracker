@@ -14,6 +14,14 @@ const ownerTable = (id, name, columns, indexes = []) => ({
   indexes,
 });
 
+// Pre-foundation placeholders still exist in production but are intentionally
+// excluded from fresh backends and active runtime ownership.
+export const MOSAIC_LEGACY_TABLE_IDS = [
+  'routines',
+  'stickers',
+  'analytics_events',
+];
+
 export const MOSAIC_TABLES = [
   ownerTable('tasks', 'tasks', [
     { key: 'title', type: 'varchar', size: 255, required: true },
@@ -173,6 +181,8 @@ export const MOSAIC_TABLES = [
 export const MOSAIC_BUCKET = {
   id: 'task_images',
   name: 'task_images',
+  // Reads are granted per file. A bucket-wide read would bypass file security
+  // and expose every attachment to every authenticated user.
   permissions: ['create("users")'],
   fileSecurity: true,
   enabled: true,

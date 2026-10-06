@@ -1,7 +1,11 @@
 import { createReplicationPilotLifecycleQueue } from './replicationPilotLifecycle';
-import { Permission, Query, Role } from 'appwrite';
 import {
-  getChangedDocumentsSince,
+  captureReplicationPushCheckpoint,
+  pullOwnerRowsByUpdatedAtId,
+  subscribeToOwnerRealtime,
+} from './replicationPilotPrimitives';
+import { Permission, Role } from 'appwrite';
+import {
   type RxCollection,
   type RxReplicationPullStreamItem,
   type RxReplicationWriteToMasterRow,
@@ -13,11 +17,7 @@ import {
 } from 'rxdb/plugins/replication';
 import { Subject, type Subscription } from 'rxjs';
 import type { SettingsDocument } from './schema';
-import {
-  guardedRealtime,
-  guardedTablesDB,
-  type RealtimeUnsubscribe,
-} from '../lib/sdk';
+import { guardedTablesDB, type RealtimeUnsubscribe } from '../lib/sdk';
 import { fromAppwriteFormat, toAppwriteFormat } from '../lib/syncMapping';
 import {
   APPWRITE_DATABASE_ID,
@@ -35,10 +35,7 @@ import { updateProfileAvatar } from '../lib/social';
 import { awaitPilotReplicationFreshness } from './replicationFreshness';
 import { getReplicationIdentifier } from './replicationIds';
 import { trackReplicationFreshness } from './replicationLocalState';
-import {
-  assertRemoteRowOwnedBy,
-  assertRemoteRowsOwnedBy,
-} from './replicationOwnership';
+import { readOwnerMaster, updateOwnerRowWithCas } from './ownerWriteCas';
 import {
   loadAcceptedFriendIds,
   sanitizeFriendCarouselValue,
@@ -76,10 +73,6 @@ let activePullStream:
 let realtimeUnsubscribe: RealtimeUnsubscribe | null = null;
 let errorSubscription: Subscription | null = null;
 let activeCollection: RxCollection<SettingsDocument> | null = null;
-
-function isNotFoundError(error: unknown): boolean {
-  return (error as { code?: number } | null)?.code === 404;
-}
 
 function isConflictError(error: unknown): boolean {
   return (error as { code?: number } | null)?.code === 409;
@@ -130,23 +123,24 @@ function isBootstrapLocalNewer(
   );
 }
 
+async function readRemoteSettingMaster(
+  rowId: string,
+  userId: string
+) {
+  return readOwnerMaster(
+    APPWRITE_TABLES.settings,
+    rowId,
+    userId,
+    toReplicatedSetting
+  );
+}
+
 async function readRemoteSetting(
   rowId: string,
   userId: string
 ): Promise<ReplicatedSetting | null> {
-  try {
-    const row = await guardedTablesDB.getRow({
-      databaseId: APPWRITE_DATABASE_ID,
-      tableId: APPWRITE_TABLES.settings,
-      rowId,
-    });
-    const raw = row as unknown as Record<string, unknown>;
-    assertRemoteRowOwnedBy(raw, userId, 'Settings');
-    return toReplicatedSetting(raw);
-  } catch (error) {
-    if (isNotFoundError(error)) return null;
-    throw error;
-  }
+  const master = await readRemoteSettingMaster(rowId, userId);
+  return master?.document ?? null;
 }
 
 async function prepareSettingForPush(
@@ -293,7 +287,8 @@ async function pushSettings(
       );
     }
 
-    const current = await readRemoteSetting(next.id, userId);
+    const master = await readRemoteSettingMaster(next.id, userId);
+    const current = master?.document ?? null;
     const assumed = row.assumedMasterState;
 
     if (!assumed) {
@@ -361,19 +356,30 @@ async function pushSettings(
       continue;
     }
 
-    try {
-      await guardedTablesDB.updateRow({
-        databaseId: APPWRITE_DATABASE_ID,
-        tableId: APPWRITE_TABLES.settings,
-        rowId: prepared.document.id,
-        data: toAppwriteFormat(
-          prepared.document as unknown as Record<string, unknown>,
-          'settings',
-          userId
-        ),
-      });
-    } catch (error) {
-      if (!isNotFoundError(error)) throw error;
+    if (!master) {
+      throw new Error(
+        `Settings replication master token missing for ${prepared.document.id}`
+      );
+    }
+    const writeResult = await updateOwnerRowWithCas(
+      'settings',
+      prepared.document.id,
+      userId,
+      master.serverUpdatedAt,
+      toAppwriteFormat(
+        prepared.document as unknown as Record<string, unknown>,
+        'settings',
+        userId
+      )
+    );
+    if (writeResult.status === 'conflict') {
+      const latest = toReplicatedSetting(writeResult.row);
+      await mirrorProfileImageSetting(latest, userId);
+      await cleanupPendingProfileImage(next, userId);
+      conflicts.push(latest);
+      continue;
+    }
+    if (writeResult.status === 'missing') {
       const createConflict = await createRemoteSetting(
         prepared.document,
         userId
@@ -407,74 +413,24 @@ async function pullSettings(
   documents: ReplicatedSetting[];
   checkpoint: SettingsReplicationCheckpoint | undefined;
 }> {
-  const queries: string[] = [Query.equal('user_id', userId)];
-
-  if (checkpoint) {
-    queries.push(
-      Query.or([
-        Query.greaterThan('$updatedAt', checkpoint.updatedAt),
-        Query.and([
-          Query.equal('$updatedAt', checkpoint.updatedAt),
-          Query.greaterThan('$id', checkpoint.id),
-        ]),
-      ])
-    );
-  }
-
-  queries.push(
-    Query.orderAsc('$updatedAt'),
-    Query.orderAsc('$id'),
-    Query.limit(batchSize)
-  );
-
-  const response = await guardedTablesDB.listRows({
+  return pullOwnerRowsByUpdatedAtId<ReplicatedSetting, SettingsReplicationCheckpoint>({
     databaseId: APPWRITE_DATABASE_ID,
     tableId: APPWRITE_TABLES.settings,
-    queries,
-    total: false,
+    userId,
+    ownerLabel: 'Settings',
+    checkpoint,
+    batchSize,
+    mapRow: toReplicatedSetting,
   });
-  const responseRows =
-    (response as unknown as { rows?: Record<string, unknown>[] }).rows ?? [];
-  assertRemoteRowsOwnedBy(responseRows, userId, 'Settings');
-  const rows = responseRows.filter(
-    (row) =>
-      typeof row.$id === 'string' &&
-      row.$id.length > 0 &&
-      typeof row.$updatedAt === 'string' &&
-      row.$updatedAt.length > 0
-  );
-
-  const last = rows.at(-1);
-  return {
-    documents: rows.map(toReplicatedSetting),
-    checkpoint: last
-      ? {
-          id: last.$id as string,
-          updatedAt: last.$updatedAt as string,
-        }
-      : checkpoint,
-  };
 }
 
-export async function captureSettingsReplicationPushCheckpoint(
+export function captureSettingsReplicationPushCheckpoint(
   collection: RxCollection<SettingsDocument>
 ): Promise<SettingsReplicationPushCheckpoint | undefined> {
-  let checkpoint: SettingsReplicationPushCheckpoint | undefined;
-
-  for (;;) {
-    const result = await getChangedDocumentsSince<
-      SettingsDocument,
-      SettingsReplicationPushCheckpoint
-    >(
-      collection.storageInstance,
-      LOCAL_CHECKPOINT_BATCH_SIZE,
-      checkpoint
-    );
-    checkpoint = result.checkpoint;
-    if (result.documents.length < LOCAL_CHECKPOINT_BATCH_SIZE) {
-      return checkpoint;
-    }
-  }
+  return captureReplicationPushCheckpoint<SettingsDocument, SettingsReplicationPushCheckpoint>(
+    collection,
+    LOCAL_CHECKPOINT_BATCH_SIZE
+  );
 }
 
 function subscribeToSettingsRealtime(
@@ -486,26 +442,12 @@ function subscribeToSettingsRealtime(
     >
   >
 ): RealtimeUnsubscribe {
-  const channel =
-    `databases.${APPWRITE_DATABASE_ID}.tables.${APPWRITE_TABLES.settings}.rows`;
-
-  return guardedRealtime.subscribe(channel, (message) => {
-    if (activeOwnerId !== userId) return;
-    const payload = message.payload;
-    const events = Array.isArray(message.events) ? message.events : [];
-
-    if (events.some((event) => event.endsWith('.delete'))) {
-      pullStream.next('RESYNC');
-      return;
-    }
-    if (!payload || payload.user_id !== userId) return;
-    if (
-      events.some(
-        (event) => event.endsWith('.create') || event.endsWith('.update')
-      )
-    ) {
-      pullStream.next('RESYNC');
-    }
+  return subscribeToOwnerRealtime({
+    channel:
+      `databases.${APPWRITE_DATABASE_ID}.tables.${APPWRITE_TABLES.settings}.rows`,
+    userId,
+    isActiveOwner: () => activeOwnerId === userId,
+    pullStream,
   });
 }
 

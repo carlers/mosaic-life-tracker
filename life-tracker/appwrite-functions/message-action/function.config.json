@@ -1,6 +1,8 @@
 {
   "$id": "6aa8057f002a4c306fdd",
   "name": "message-action",
+  "enabled": true,
+  "logging": true,
   "runtime": "node-18.0",
   "execute": [
     "users"

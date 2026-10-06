@@ -1,4 +1,12 @@
 import { resolvePrimarySwipeDestination } from '../../lib/primarySwipeNavigation';
+import {
+  loadAccountPage,
+  loadComingSoon,
+  loadExplorePage,
+  loadHomePage,
+  loadMessagesPage,
+  loadSettingsPage,
+} from './routeModuleLoaders';
 
 type PreloadPath =
   | '/home'
@@ -9,12 +17,12 @@ type PreloadPath =
   | '/settings';
 
 const PRELOADERS: Record<PreloadPath, () => Promise<unknown>> = {
-  '/home': () => import('../../pages/HomePage'),
-  '/explore': () => import('../../pages/ExplorePage'),
-  '/notifications': () => import('./ComingSoon'),
-  '/messages': () => import('../../pages/MessagesPage'),
-  '/account': () => import('../../pages/AccountPage'),
-  '/settings': () => import('../../pages/SettingsPage'),
+  '/home': loadHomePage,
+  '/explore': loadExplorePage,
+  '/notifications': loadComingSoon,
+  '/messages': loadMessagesPage,
+  '/account': loadAccountPage,
+  '/settings': loadSettingsPage,
 };
 
 function isPreloadPath(pathname: string): pathname is PreloadPath {

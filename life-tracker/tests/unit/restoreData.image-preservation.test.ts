@@ -18,11 +18,28 @@ vi.mock('../../src/db/database', () => ({
           ? { toJSON: () => ({ ...row }), incrementalPatch: vi.fn() }
           : null;
       } }),
+      findByIds: (ids: string[]) => ({
+        exec: async () =>
+          new Map(
+            ids.flatMap((id) => {
+              const row = state.rows.get(id);
+              return row
+                ? [[
+                    id,
+                    {
+                      toJSON: () => ({ ...row }),
+                      incrementalPatch: vi.fn(),
+                    },
+                  ] as const]
+                : [];
+            })
+          ),
+      }),
       find: () => ({ exec: async () => [] }),
     },
-    categories: { findOne: () => ({ exec: async () => null }), find: () => ({ exec: async () => [] }) },
-    diary: { findOne: () => ({ exec: async () => null }), find: () => ({ exec: async () => [] }) },
-    settings: { findOne: () => ({ exec: async () => null }), find: () => ({ exec: async () => [] }) },
+    categories: { findOne: () => ({ exec: async () => null }), findByIds: () => ({ exec: async () => new Map() }), find: () => ({ exec: async () => [] }) },
+    diary: { findOne: () => ({ exec: async () => null }), findByIds: () => ({ exec: async () => new Map() }), find: () => ({ exec: async () => [] }) },
+    settings: { findOne: () => ({ exec: async () => null }), findByIds: () => ({ exec: async () => new Map() }), find: () => ({ exec: async () => [] }) },
   }),
 }));
 
@@ -39,6 +56,7 @@ vi.mock('../../src/lib/accountWorkScope', () => ({
 vi.mock('../../src/db/sync', () => ({
   refreshSync: state.refreshSync,
   initializeSync: state.initializeSync,
+  isRateLimitError: () => false,
 }));
 
 vi.mock('../../src/lib/exportData', () => ({

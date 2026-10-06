@@ -28,7 +28,6 @@ export interface TodoMateProgress {
 interface TodoMateImportOptions {
   fetchImpl?: typeof fetch;
   now?: () => Date;
-  onProgress?: (message: string) => void;
   onProgressDetail?: (progress: TodoMateProgress) => void;
   photoProcessor?: (file: File) => Promise<Blob>;
   signal?: AbortSignal;
@@ -179,7 +178,6 @@ async function downloadTodoMatePhotos(
   idToken: string,
   fetchImpl: typeof fetch,
   photoProcessor: (file: File) => Promise<Blob>,
-  report: (message: string) => void,
   onPhotoProgress?: (completed: number, total: number) => void,
   signal?: AbortSignal
 ): Promise<{
@@ -205,7 +203,7 @@ async function downloadTodoMatePhotos(
       cursor += 1;
       if (index >= candidates.length) return;
       const candidate = candidates[index];
-      const bytes = await fetchTodoMatePhoto(
+      const photo = await fetchTodoMatePhoto(
         candidate.url,
         idToken,
         fetchImpl,
@@ -213,14 +211,11 @@ async function downloadTodoMatePhotos(
         signal
       );
       completed += 1;
-      report(
-        `Fetching TodoMate photos (${completed}/${candidates.length})…`
-      );
       onPhotoProgress?.(completed, candidates.length);
-      if (!bytes) continue;
+      if (!photo) continue;
       prepared.set(candidate.todoId, {
         sourceId: photoSourceId(candidate.todoId, candidate.url),
-        bytes,
+        bytes: photo,
       });
     }
   };
@@ -238,7 +233,9 @@ async function zipAsync(
 ): Promise<Uint8Array> {
   const { zip } = await import('fflate');
   return new Promise((resolve, reject) => {
-    zip(files, { level: 6 }, (error, data) => {
+    // WebP payloads are already compressed; storing them avoids spending
+    // preview CPU re-deflating bytes that will not meaningfully shrink.
+    zip(files, { level: 0 }, (error, data) => {
       if (error) reject(error);
       else resolve(data);
     });
@@ -547,7 +544,7 @@ async function makeMosaicBackup(
     found: number;
     prepared: Map<string, PreparedTodoMatePhoto>;
   }
-): Promise<{ file: File; preview: TodoMateTransferPreview }> {
+): Promise<PreparedTodoMateTransfer> {
   const exportedAt = now.toISOString();
   const today = localDateKey(now);
 
@@ -721,14 +718,12 @@ export async function prepareTodoMateTransfer(
 
   const fetchImpl = options.fetchImpl ?? fetch;
   const now = options.now ?? (() => new Date());
-  const report = options.onProgress ?? (() => {});
   const reportDetail = (
     message: string,
     percent: number,
     completed?: number,
     total?: number
   ) => {
-    report(message);
     options.onProgressDetail?.({
       message,
       percent: Math.max(0, Math.min(100, Math.round(percent))),
@@ -788,7 +783,6 @@ export async function prepareTodoMateTransfer(
     session.idToken,
     fetchImpl,
     photoProcessor,
-    report,
     (completed, total) => {
       const fraction = total > 0 ? completed / total : 1;
       reportDetail(

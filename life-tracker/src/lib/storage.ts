@@ -244,7 +244,8 @@ export interface EnsuredImage {
 export async function ensureRestoredImage(
   file: File,
   preferredFileId: string,
-  expectedUserId?: string
+  expectedUserId?: string,
+  alreadyCompressed = false
 ): Promise<EnsuredImage> {
   if (!isValidFileId(preferredFileId)) {
     throw new Error('Backup image has an invalid file ID.');
@@ -274,7 +275,12 @@ export async function ensureRestoredImage(
   }
 
   try {
-    await uploadImageWithId(file, preferredFileId, userId, true);
+    await (alreadyCompressed ? uploadCompressedBlobWithId : uploadImageWithId)(
+      file,
+      preferredFileId,
+      userId,
+      true
+    );
     return { fileId: preferredFileId, uploaded: true };
   } catch (error) {
     const cause = (error as Error & { cause?: unknown }).cause;

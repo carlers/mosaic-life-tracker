@@ -7,6 +7,7 @@ export interface MockDb {
   getRow: any;
   upsertRow: any;
   updateRow: any;
+  updateRows: any;
   deleteRow: any;
   createRow: any;
   createTransaction: any;
@@ -116,6 +117,7 @@ class MockTablesDB {
   getRow: any;
   upsertRow: any;
   updateRow: any;
+  updateRows: any;
   deleteRow: any;
   createRow: any;
   createTransaction: any;
@@ -156,6 +158,7 @@ class MockTablesDB {
     };
     this.upsertRow = m.upsertRow;
     this.updateRow = m.updateRow;
+    this.updateRows = m.updateRows;
     this.deleteRow = m.deleteRow;
     this.createRow = m.createRow;
     this.createTransaction = m.createTransaction;
@@ -258,6 +261,7 @@ export function makeMockDb(): MockDb {
     getRow: vi.fn().mockRejectedValue(notFound),
     upsertRow: vi.fn().mockResolvedValue({}),
     updateRow: vi.fn().mockResolvedValue({}),
+    updateRows: vi.fn().mockResolvedValue({ total: 0, rows: [] }),
     deleteRow: vi.fn().mockResolvedValue({}),
     createRow: vi.fn().mockResolvedValue({}),
     createTransaction: vi.fn().mockResolvedValue({ $id: "tx" }),

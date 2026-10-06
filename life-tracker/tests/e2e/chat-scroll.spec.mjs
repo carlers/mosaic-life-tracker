@@ -22,6 +22,7 @@ async function open(page, width = 'full') {
 }
 const scroller = page => page.locator('div.overflow-y-auto').last();
 const gap = page => scroller(page).evaluate(el => el.scrollHeight - el.clientHeight - el.scrollTop);
+const EDGE_GESTURE_TEST_GUTTER = 48;
 for (const { viewport, width } of [
   { viewport: { width: 412, height: 915 }, width: 'full' },
   { viewport: { width: 1440, height: 900 }, width: 'wide' },
@@ -58,6 +59,80 @@ async function readHistory(page) {
   await scroller(page).evaluate(el => { el.scrollTop = Math.max(0, el.scrollHeight - el.clientHeight - 700); });
   await expect(page.getByRole('button', { name: 'Scroll to bottom', exact: true })).toBeVisible();
   return scroller(page).evaluate(el => el.scrollTop);
+}
+
+// Regression: §2/§21 (chat detail edge Back is relative to the live route surface,
+// including centered large-screen modes, while non-edge bubble swipes stay chat-owned).
+for (const { viewport, width } of [
+  { viewport: { width: 412, height: 915 }, width: 'full' },
+  { viewport: { width: 1440, height: 900 }, width: 'comfortable' },
+  { viewport: { width: 1440, height: 900 }, width: 'wide' },
+]) {
+  test(`chat edge swipe reveals Messages in ${width} mode while bubble swipes stay chat-owned`, async ({ page }) => {
+    await page.setViewportSize(viewport);
+    await open(page, width);
+
+    const path = page.getByTestId('chat-path');
+    await expect(path).toHaveText('/messages/friend');
+
+    const surface = page.getByTestId('primary-route-swipe-surface');
+    const surfaceBox = await surface.boundingBox();
+    if (!surfaceBox) throw new Error('Missing chat route surface bounds');
+    if (width !== 'full') {
+      expect(surfaceBox.x).toBeGreaterThan(32);
+    }
+
+    const bubble = page.locator('[data-message-id] > [role="button"]').last();
+    await expect(bubble).toBeVisible();
+    const bubbleBox = await bubble.boundingBox();
+    if (!bubbleBox) throw new Error('Missing message bubble bounds');
+
+    // Away from the reserved edge, an incoming bubble keeps its right-swipe reply gesture.
+    const bubbleStartX = Math.max(
+      surfaceBox.x + EDGE_GESTURE_TEST_GUTTER,
+      bubbleBox.x + Math.min(24, bubbleBox.width * 0.25)
+    );
+    await page.mouse.move(
+      bubbleStartX,
+      bubbleBox.y + bubbleBox.height * 0.5
+    );
+    await page.mouse.down();
+    await page.mouse.move(
+      bubbleStartX + Math.min(110, bubbleBox.width * 0.8),
+      bubbleBox.y + bubbleBox.height * 0.5,
+      { steps: 5 }
+    );
+    await page.mouse.up();
+    await expect(path).toHaveText('/messages/friend');
+    await expect(page.getByRole('button', { name: 'Cancel reply' })).toBeVisible();
+    await page.getByRole('button', { name: 'Cancel reply' }).click();
+
+    // Re-read geometry after the reply composer expanded/collapsed so the next
+    // pointer starts on the live bubble rather than a stale screen coordinate.
+    const edgeBubbleBox = await bubble.boundingBox();
+    if (!edgeBubbleBox) throw new Error('Missing live message bubble bounds');
+
+    // Inside the reserved edge, route Back wins even when a replyable bubble is under the pointer.
+    const startX = edgeBubbleBox.x + 2;
+    expect(startX - surfaceBox.x).toBeLessThanOrEqual(32);
+    const y = edgeBubbleBox.y + edgeBubbleBox.height * 0.5;
+    await page.mouse.move(startX, y);
+    await page.mouse.down();
+    await page.mouse.move(startX + 90, y + 2, { steps: 5 });
+    expect(await bubble.evaluate(el => el.style.transform)).toBe('translateX(0px)');
+
+    const preview = page.getByTestId('primary-route-neighbor-preview');
+    await expect(preview).toHaveCount(1);
+    const previewBox = await preview.boundingBox();
+    if (!previewBox) throw new Error('Missing Messages preview bounds');
+    expect(previewBox.x + previewBox.width).toBeGreaterThan(surfaceBox.x);
+
+    await page.mouse.move(startX + 180, y + 2, { steps: 5 });
+    await page.mouse.up();
+
+    await expect(path).toHaveText('/messages');
+    await expect(page.getByTestId('messages-parent-page')).toBeVisible();
+  });
 }
 
 test('search restores history, incoming stays below, FAB acknowledges, send exits search', async ({ page }) => {

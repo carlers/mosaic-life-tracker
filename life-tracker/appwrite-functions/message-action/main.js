@@ -1,5 +1,7 @@
 const crypto = require('crypto');
 const { handleFriendship, deleteAccountFriendships } = require('./friendship');
+const { handleTodoMateTaskBatch } = require('./todomate-task-batch');
+const { handleOwnerWriteCas } = require('./owner-write-cas');
 const {
   Client,
   TablesDB,
@@ -1192,6 +1194,12 @@ const handler = async ({ req, res, log, error }) => {
         break;
       case 'react_to_task':
         result = await handleReactToTask(tablesDB, callerId, payload, log, error);
+        break;
+      case 'compare_and_set_owner_row':
+        result = await handleOwnerWriteCas(tablesDB, callerId, payload);
+        break;
+      case 'bulk_create_todomate_tasks':
+        result = await handleTodoMateTaskBatch(tablesDB, callerId, payload);
         break;
       case 'get_friend_calendar':
         result = await handleGetFriendCalendar(

@@ -1,4 +1,12 @@
 import React, { lazy, memo, Suspense } from 'react';
+import {
+  loadAccountPage,
+  loadComingSoon,
+  loadExplorePage,
+  loadHomePage,
+  loadMessagesPage,
+  loadSettingsPage,
+} from './routeModuleLoaders';
 
 type PreviewPath =
   | '/home'
@@ -9,22 +17,22 @@ type PreviewPath =
   | '/settings';
 
 const HomePreview = lazy(() =>
-  import('../../pages/HomePage').then(({ HomePage }) => ({ default: HomePage }))
+  loadHomePage().then(({ HomePage }) => ({ default: HomePage }))
 );
 const ExplorePreview = lazy(() =>
-  import('../../pages/ExplorePage').then(({ ExplorePage }) => ({ default: ExplorePage }))
+  loadExplorePage().then(({ ExplorePage }) => ({ default: ExplorePage }))
 );
 const NotificationsPreview = lazy(() =>
-  import('./ComingSoon').then(({ ComingSoon }) => ({ default: ComingSoon }))
+  loadComingSoon().then(({ ComingSoon }) => ({ default: ComingSoon }))
 );
 const MessagesPreview = lazy(() =>
-  import('../../pages/MessagesPage').then(({ MessagesPage }) => ({ default: MessagesPage }))
+  loadMessagesPage().then(({ MessagesPage }) => ({ default: MessagesPage }))
 );
 const AccountPreview = lazy(() =>
-  import('../../pages/AccountPage').then(({ AccountPage }) => ({ default: AccountPage }))
+  loadAccountPage().then(({ AccountPage }) => ({ default: AccountPage }))
 );
 const SettingsPreview = lazy(() =>
-  import('../../pages/SettingsPage').then(({ SettingsPage }) => ({ default: SettingsPage }))
+  loadSettingsPage().then(({ SettingsPage }) => ({ default: SettingsPage }))
 );
 
 const LABELS: Record<PreviewPath, string> = {

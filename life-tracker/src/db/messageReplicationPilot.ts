@@ -1,7 +1,7 @@
 import { createReplicationPilotLifecycleQueue } from './replicationPilotLifecycle';
+import { captureReplicationPushCheckpoint } from './replicationPilotPrimitives';
 import { Query } from 'appwrite';
 import {
-  getChangedDocumentsSince,
   type RxCollection,
   type RxReplicationPullStreamItem,
   type RxReplicationWriteToMasterRow,
@@ -324,25 +324,13 @@ export async function captureMessageReplicationPullCheckpoint(
   };
 }
 
-export async function captureMessageReplicationPushCheckpoint(
+export function captureMessageReplicationPushCheckpoint(
   collection: RxCollection<MessageDocument>
 ): Promise<MessageReplicationPushCheckpoint | undefined> {
-  let checkpoint: MessageReplicationPushCheckpoint | undefined;
-
-  for (;;) {
-    const result = await getChangedDocumentsSince<
-      MessageDocument,
-      MessageReplicationPushCheckpoint
-    >(
-      collection.storageInstance,
-      LOCAL_CHECKPOINT_BATCH_SIZE,
-      checkpoint
-    );
-    checkpoint = result.checkpoint;
-    if (result.documents.length < LOCAL_CHECKPOINT_BATCH_SIZE) {
-      return checkpoint;
-    }
-  }
+  return captureReplicationPushCheckpoint<
+    MessageDocument,
+    MessageReplicationPushCheckpoint
+  >(collection, LOCAL_CHECKPOINT_BATCH_SIZE);
 }
 
 async function applyRealtimeDelete(

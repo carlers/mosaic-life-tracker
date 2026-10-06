@@ -5,7 +5,8 @@ import type {
   DiaryDocument,
   SettingsDocument,
 } from '../db/schema';
-import { refreshSync } from '../db/sync';
+import { isRateLimitError, refreshSync } from '../db/sync';
+import { subscribeTaskPushProgress } from '../db/taskReplicationPilot';
 import {
   captureAccountWorkGeneration,
   isAccountWorkCurrent,
@@ -118,7 +119,6 @@ export interface RestoreProgress {
 
 export interface RestoreOptions {
   mode: RestoreMode;
-  onProgress?: (message: string) => void;
   onProgressDetail?: (progress: RestoreProgress) => void;
   onLocalApplyComplete?: () => void;
 }
@@ -147,6 +147,9 @@ type LocalDoc = {
 
 type LocalCollection = {
   findOne: (id: string) => { exec: () => Promise<LocalDoc | null> };
+  findByIds: (ids: string[]) => {
+    exec: () => Promise<Map<string, LocalDoc>>;
+  };
   find: (query?: unknown) => { exec: () => Promise<LocalDoc[]> };
 };
 
@@ -660,9 +663,9 @@ async function restoreImages(
   loaded: LoadedBackup,
   data: NormalizedBackup,
   currentUserId: string,
-  onProgress?: (message: string) => void,
-  assertOwner?: () => void,
-  onImageProgress?: (completed: number, total: number) => void
+  assertOwner: () => void,
+  onImageProgress: (completed: number, total: number) => void,
+  precompressedImages: boolean
 ): Promise<{ restored: number; missing: number }> {
   const ids = Array.from(referencedImageIds(data));
   if (ids.length === 0) return { restored: 0, missing: 0 };
@@ -670,47 +673,72 @@ async function restoreImages(
   const remapped = new Map<string, string>();
   let restored = 0;
   let missing = 0;
+  let cursor = 0;
+  let completed = 0;
 
-  for (let index = 0; index < ids.length; index += 1) {
-    assertOwner?.();
-    onImageProgress?.(index, ids.length);
-    const oldId = ids[index];
-    const bytes = loaded.imageFiles.get(oldId);
-    if (!bytes) {
-      if (
-        loaded.payload.images?.included ||
-        loaded.payload.user.id !== currentUserId
-      ) {
+  onImageProgress(0, ids.length);
+
+  const worker = async () => {
+    while (cursor < ids.length) {
+      assertOwner();
+      const oldId = ids[cursor++];
+      const bytes = loaded.imageFiles.get(oldId);
+
+      try {
+        if (!bytes) {
+          if (
+            loaded.payload.images?.included ||
+            loaded.payload.user.id !== currentUserId
+          ) {
+            missing += 1;
+          }
+          continue;
+        }
+
+        const file = new File([bytes as BlobPart], `${oldId}.webp`, {
+          type: 'image/webp',
+        });
+        const preferredFileId = portableImageId(
+          currentUserId,
+          loaded.payload.user.id,
+          oldId
+        );
+        let ensured;
+        try {
+          ensured = await ensureRestoredImage(
+            file,
+            preferredFileId,
+            currentUserId,
+            precompressedImages
+          );
+        } catch (error) {
+          if (!isRateLimitError(error)) throw error;
+          await new Promise((resolve) => setTimeout(resolve, 60_000));
+          assertOwner();
+          ensured = await ensureRestoredImage(
+            file,
+            preferredFileId,
+            currentUserId,
+            precompressedImages
+          );
+        }
+        remapped.set(oldId, ensured.fileId);
+        if (ensured.uploaded) restored += 1;
+      } catch (error) {
+        if (isRateLimitError(error)) throw error;
+        console.warn('[Restore] Image restore failed:', oldId, error);
         missing += 1;
+      } finally {
+        assertOwner();
+        completed += 1;
+        onImageProgress(completed, ids.length);
       }
-      continue;
     }
-    onProgress?.(`Restoring photos (${index + 1}/${ids.length})…`);
-    try {
-      const imageBuffer = bytes.slice().buffer as ArrayBuffer;
-      const file = new File([imageBuffer], `${oldId}.webp`, {
-        type: 'image/webp',
-      });
-      const preferredFileId = portableImageId(
-        currentUserId,
-        loaded.payload.user.id,
-        oldId
-      );
-      const ensured = await ensureRestoredImage(
-        file,
-        preferredFileId,
-        currentUserId
-      );
-      remapped.set(oldId, ensured.fileId);
-      if (ensured.uploaded) restored += 1;
-    } catch (error) {
-      console.warn('[Restore] Image restore failed:', oldId, error);
-      missing += 1;
-    }
-    assertOwner?.();
-  }
+  };
 
-  onImageProgress?.(ids.length, ids.length);
+  await Promise.all(
+    Array.from({ length: Math.min(4, ids.length) }, worker)
+  );
 
   for (const task of data.tasks) {
     if (!task.image) continue;
@@ -767,11 +795,16 @@ async function planRestore(
     assertOwner?.();
     const collection = collectionFor(collectionName);
     const target = planned[collectionName] as RestorableDocument[];
+    const documents = documentsFor(data, collectionName);
+    const existingById =
+      documents.length > 0
+        ? await collection.findByIds(documents.map((doc) => doc.id)).exec()
+        : new Map<string, LocalDoc>();
+    assertOwner?.();
 
-    for (const doc of documentsFor(data, collectionName)) {
+    for (const doc of documents) {
       assertOwner?.();
-      const existing = await collection.findOne(doc.id).exec();
-      assertOwner?.();
+      const existing = existingById.get(doc.id) ?? null;
       if (!existing) {
         target.push(doc);
         continue;
@@ -985,7 +1018,8 @@ async function assertRestoreUserStillCurrent(
 export async function restoreUserData(
   file: File,
   currentUser: ExportUser,
-  options: RestoreOptions
+  options: RestoreOptions,
+  precompressedImages = false
 ): Promise<RestoreResult> {
   if (!currentUser.id) throw new Error('Restore requires an authenticated user.');
 
@@ -1003,14 +1037,12 @@ export async function restoreUserData(
     }
   };
 
-  const report = options.onProgress ?? (() => {});
   const reportDetail = (
     message: string,
     percent: number,
     completed?: number,
     total?: number
   ) => {
-    report(message);
     options.onProgressDetail?.({
       message,
       percent: Math.max(0, Math.min(100, Math.round(percent))),
@@ -1076,7 +1108,7 @@ export async function restoreUserData(
 
   let safetyBackupDownloaded = false;
   if (options.mode === 'replace') {
-    report('Creating safety backup…');
+    reportDetail('Creating safety backup…', 23);
     const safety = await exportUserData(currentUser, { includeImages: false });
     triggerDownload(safety.blob, safety.filename);
     safetyBackupDownloaded = true;
@@ -1086,23 +1118,43 @@ export async function restoreUserData(
     loaded,
     plan.data,
     currentUser.id,
-    options.onProgress,
     assertOwner,
     (completed, total) => {
-      const fraction = total > 0 ? completed / total : 1;
       reportDetail(
-        total > 0
-          ? 'Copying photos (' + completed + '/' + total + ')…'
-          : 'No photos to copy',
-        25 + fraction * 20,
+        'Copying photos (' + completed + '/' + total + ')…',
+        25 + (completed / total) * 20,
         completed,
         total
       );
-    }
+    },
+    precompressedImages
   );
 
   await assertRestoreUserStillCurrent(currentUser.id);
 
+  let taskPushCompleted = 0;
+  let taskProgressLive = false;
+  let taskSyncTotal = 0;
+  const stopTaskPushProgress = precompressedImages
+    ? subscribeTaskPushProgress(
+        currentUser.id,
+        plan.data.tasks.map((task) => task.id),
+        ({ completed }) => {
+          taskPushCompleted = completed;
+          if (taskProgressLive) {
+            const settled = Math.min(taskPushCompleted, taskSyncTotal);
+            reportDetail(
+              'Syncing tasks to cloud (' + settled + '/' + taskSyncTotal + ')…',
+              78 + (settled / taskSyncTotal) * 17,
+              settled,
+              taskSyncTotal
+            );
+          }
+        }
+      )
+    : null;
+
+  try {
   const replaceTimestamp = new Date().toISOString();
   const restored: Record<RestorableCollection, number> = {
     tasks: 0,
@@ -1171,7 +1223,20 @@ export async function restoreUserData(
   assertOwner();
   options.onLocalApplyComplete?.();
 
-  reportDetail('Syncing restored data…', 78);
+  taskSyncTotal = restored.tasks;
+  taskProgressLive = taskSyncTotal > 0 && stopTaskPushProgress !== null;
+  if (taskProgressLive) {
+    const settled = Math.min(taskPushCompleted, taskSyncTotal);
+    reportDetail(
+      'Syncing tasks to cloud (' + settled + '/' + taskSyncTotal + ')…',
+      78 + (settled / taskSyncTotal) * 17,
+      settled,
+      taskSyncTotal
+    );
+  } else {
+    reportDetail('Syncing restored data…', 78);
+  }
+
   let syncState: RestoreResult['syncState'] = 'synced';
   let syncError = '';
   try {
@@ -1180,9 +1245,19 @@ export async function restoreUserData(
       postRestoreSyncTimeoutMs(plan.data),
       {
         onProgress: (syncProgress) => {
+          if (
+            taskProgressLive &&
+            taskPushCompleted < taskSyncTotal &&
+            syncProgress.pendingGroups?.includes('Tasks')
+          ) {
+            return;
+          }
+          const hasTaskProgress = taskProgressLive;
           reportDetail(
             'Syncing to cloud · ' + syncProgress.label,
-            78 + syncProgress.percent * 0.21,
+            hasTaskProgress
+              ? 95 + syncProgress.percent * 0.04
+              : 78 + syncProgress.percent * 0.21,
             syncProgress.completed,
             syncProgress.total
           );
@@ -1215,4 +1290,7 @@ export async function restoreUserData(
     syncState,
     syncError,
   };
+  } finally {
+    stopTaskPushProgress?.();
+  }
 }

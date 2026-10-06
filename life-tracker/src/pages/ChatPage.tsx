@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { ChevronLeft, MessageSquare, Search } from 'lucide-react';
 import { DeferredAvatar } from '../components/ui/DeferredAvatar';
 import { BottomSheet } from '../components/ui/BottomSheet';
@@ -26,6 +26,7 @@ import {
   buildRenderItems,
   messageMatchesQuery,
 } from '../components/messages/chatRenderItems';
+import { hasExpectedRouteParent } from '../lib/primarySwipeNavigation';
 
 interface ComposerReplyState {
   id: string;
@@ -34,9 +35,18 @@ interface ComposerReplyState {
   content: string;
 }
 
+const ChatMessagesLoadingShell: React.FC = () => (
+  <div className="flex min-h-full flex-col justify-end gap-3 pb-2" role="status">
+    <div className="h-10 w-2/3 rounded-2xl bg-[#1A1A1A]" />
+    <div className="ml-auto h-14 w-3/4 rounded-2xl bg-[#2A2A2A]" />
+    <span className="sr-only">Loading messages</span>
+  </div>
+);
+
 export const ChatPage: React.FC = () => {
   const { friendId } = useParams<{ friendId: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   const { user } = useAuth();
   const connectivity = useConnectivity();
   const myUserId = user?.$id ?? '';
@@ -188,7 +198,12 @@ export const ChatPage: React.FC = () => {
   }, [isSearching, replyTo, openSearch, closeSearch]);
 
   const handleBack = () => {
-    navigate('/messages');
+    const parent = '/messages';
+    if (hasExpectedRouteParent(location.key, location.state, parent)) {
+      navigate(-1);
+    } else {
+      navigate(parent, { replace: true });
+    }
   };
 
   const handleSend = async (content: string) => {
@@ -254,6 +269,7 @@ export const ChatPage: React.FC = () => {
       <div className="shrink-0 flex items-center gap-3 px-4 py-3 border-b border-[#2A2A2A]">
         <button
           onClick={handleBack}
+          data-route-swipe-ignore="true"
           className="p-1 text-gray-400"
           aria-label="Back"
         >
@@ -297,10 +313,7 @@ export const ChatPage: React.FC = () => {
           className="min-h-full px-4 pt-4 pb-3 space-y-1"
         >
           {isLoading ? (
-            <div className="flex items-center justify-center h-full" role="status" aria-live="polite">
-              <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin" />
-              <span className="sr-only">Loading messages</span>
-            </div>
+            <ChatMessagesLoadingShell />
           ) : renderItems.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full text-gray-400">
               <MessageSquare size={48} />

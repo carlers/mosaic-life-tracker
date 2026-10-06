@@ -1,0 +1,203 @@
+# Appwrite backend workflow
+
+Git is the source of truth for Mosaic's Appwrite backend. Appwrite Cloud is the runtime,
+not the place where backend changes are authored. Normal frontend work must not wait on or
+mutate Appwrite.
+
+## Source of truth
+
+| Concern | Repository source |
+|---|---|
+| Fresh database/table/bucket shape | `infrastructure/mosaic-backend.mjs` |
+| Portable Function definition and variable contract | `appwrite-functions/*/function.config.json` |
+| Production Appwrite CLI target/overlay | `appwrite.config.json` |
+| Existing-project schema evolution | ordered migrations exposed by `scripts/appwrite-migrate.mjs` |
+| Function source | `appwrite-functions/<name>/` |
+| DR/fresh-project provisioning | `scripts/bootstrap-mosaic.mjs` and DR runbooks |
+
+`appwrite.config.json` intentionally contains the production project target. Do not treat its
+project ID as permission to mutate production. Mosaic mutation scripts require an explicit
+`--project` target plus the same value again as `--confirm-project`.
+
+The Function configs and `appwrite.config.json` duplicate the structural fields Appwrite CLI
+needs. `npm run appwrite:status` verifies those local copies agree. Remote schedules, VCS
+linkage, and environment-specific Function IDs remain operational state because scratch/DR
+environments intentionally differ. Declared Function variables are managed more strictly:
+exact non-secret values are checked where portable, required non-secret/secret keys must exist
+with the correct secrecy classification, optional declared variables may be absent, and
+undeclared Function variables are drift. Secret values themselves are never read.
+
+Three empty pre-foundation production placeholders—`routines`, `stickers`, and
+`analytics_events`—are explicitly recorded as tolerated legacy table IDs. They are not part
+of fresh backends or active runtime ownership. Any other unmanaged table is drift.
+
+## Environment policy
+
+Mosaic does not reserve a permanent second Appwrite Cloud staging project. The Free-plan
+project slot named **My first project** is the disposable scratch/DR project. Keep it paused
+when unused. It may be bootstrapped, restored, tested, and discarded for risky backend work,
+but no normal workflow may target it or production implicitly.
+
+Use the cheapest isolation that proves the change:
+
+1. Pure Function logic: handler/unit tests first.
+2. Function runtime behavior that does not need real cloud state: local Appwrite/Docker is
+   acceptable.
+3. Cross-service behavior, OAuth/webhooks, risky schema work, restore drills, or destructive
+   experiments: use the scratch project with synthetic/disposable data.
+4. Production: only after repository verification and explicit rollout approval.
+
+A disposable **account** isolates user data but does not isolate project-wide schema,
+Functions, buckets, schedules, or provider configuration. Use the scratch **project** when
+those resources are under test.
+
+## Read-only drift/status check
+
+```bash
+APPWRITE_ENDPOINT=https://sgp.cloud.appwrite.io/v1 \
+APPWRITE_PROJECT_ID=<project-id> \
+APPWRITE_API_KEY=<read-key> \
+npm run appwrite:status
+```
+
+Optional target overrides:
+
+```bash
+npm run appwrite:status -- \
+  --endpoint <url> \
+  --project <project-id> \
+  --message-function-id <id> \
+  --dr-function-id <id>
+```
+
+Use `--without-dr` when the target was intentionally bootstrapped without DR; this also
+expects the message Function's DR privacy guard to be false. Use `--recovery-drill` for the
+isolated restore topology that intentionally deploys a credential-less `dr-backup` Function
+and keeps that privacy guard false. Those two flags cannot be combined. Drift returns a
+non-zero status.
+
+The checker verifies the managed database, exact declared table column/index sets, bucket,
+Function structure, live-deployment presence, and declared Function-variable contract.
+Permission/scope/extension collections are compared as sets so harmless API ordering cannot
+create false drift. It reports active/latest Function deployment, schedule, live state, VCS
+linkage, and tolerated legacy tables.
+
+The manifest intentionally describes the fields Mosaic owns, not every database-engine
+default. For example, an omitted integer min/max is not inferred by the checker. If such an
+engine constraint becomes a product/backend requirement, add it to the manifest and migrate
+it deliberately rather than teaching the checker a production-only special case.
+
+## Schema migrations
+
+Existing installations at the backend-version-control baseline evolve through one ordered
+reconciliation command:
+
+```bash
+APPWRITE_ENDPOINT=<url> \
+APPWRITE_PROJECT_ID=<project-id> \
+APPWRITE_API_KEY=<write-key> \
+npm run appwrite:migrate -- \
+  --project <project-id> \
+  --confirm-project <project-id>
+```
+
+Current ordered baseline reconciliations are:
+
+- `001-account-deletion`
+- `002-diary-created-at`
+- `003-task-images-bucket-permissions` — removes the known pre-foundation
+  bucket-wide `read("users")` grant while preserving per-file permissions. Appwrite grants
+  access when either bucket or file permission allows it, so bucket-wide read would otherwise
+  bypass Mosaic's file-security boundary. The migration sends the full intended bucket
+  configuration and fails closed on any bucket drift other than that one known legacy grant.
+
+The runner is not a replay of every historical pre-foundation Console/script change. Fresh
+forks bootstrap the current manifest, and production was already at the current historical
+baseline when this workflow was introduced. Old production-ID-hardcoded setup/add-column
+scripts were therefore retired from the active tree; Git history preserves them for forensic
+reference, but future agents must not resurrect or run them.
+
+Use `--only <migration-id>` only for targeted recovery or compatibility work. The runner is
+intentionally ledger-free for now: every migration is idempotent and reconciles already
+applied state safely. Add the next numbered migration for new schema work; never create a new
+production-targeted one-off script and never repurpose an existing migration ID.
+
+The `task_images` bucket intentionally grants authenticated users create permission at the
+bucket level but no bucket-wide read permission. Task/profile files that are meant to be
+friend-readable carry `read("users")` on the individual file; owner-only files remain
+owner-only. Do not "fix" drift by adding bucket-wide read back to the manifest.
+
+Prefer additive/expand-first migrations. A destructive rename/drop requires scratch-project
+proof, a recovery/backup plan, compatibility across the deployment window, and explicit
+production approval. Production database rollback normally means a forward-fix migration,
+not an automatic destructive `down` migration.
+
+## Function deployment and activation
+
+A Function edit does **not** require a new Function resource. Appwrite keeps multiple code
+deployments under the same Function.
+
+First run `appwrite:status` against the intended target. Then build an inactive deployment
+from the exact checked-out commit:
+
+```bash
+APPWRITE_ENDPOINT=<url> \
+APPWRITE_PROJECT_ID=<project-id> \
+APPWRITE_API_KEY=<functions-write-key> \
+npm run appwrite:function:deploy -- \
+  --function message-action \
+  --git-sha "$(git rev-parse HEAD)" \
+  --project <project-id> \
+  --confirm-project <project-id>
+```
+
+When a scratch Function ID differs from the production/default config ID, also pass
+`--function-id <id>`.
+
+The deploy command fails if the selected Function directory has uncommitted changes, if the
+provided SHA is not `HEAD`, or if the live Function's structural configuration drifts from
+Git. Variable drift belongs to the preceding status gate because scratch environments can
+legitimately override environment-specific values. Deployment creates inactive code, waits
+for `ready`, and prints the Git SHA ↔ Appwrite deployment ID mapping. Traffic is unchanged.
+
+Activate only the deployment that was reviewed:
+
+```bash
+npm run appwrite:function:activate -- \
+  --function message-action \
+  --deployment <deployment-id> \
+  --project <project-id> \
+  --confirm-project <project-id>
+```
+
+Activation accepts only a `ready`/already-active deployment and verifies Appwrite's active
+deployment ID afterward. Re-activating a retained older deployment is the Function rollback
+mechanism. `message-action` currently keeps non-active deployments indefinitely; DR retention
+is governed by its Function config.
+
+## Normal agent flow
+
+For ordinary UI/client/refactor work, do nothing Appwrite-specific. For backend changes:
+
+1. Branch and edit the repository; never experiment by editing production in Console.
+2. Add/update tests. If schema changes, update `mosaic-backend.mjs` and add the next ordered,
+   idempotent migration.
+3. Run normal focused/canonical repository verification.
+4. Run `appwrite:status` against the intended target.
+5. If cloud integration proof is needed, use **My first project** as the explicit scratch
+   target and synthetic/disposable accounts/data.
+6. For a Function rollout, build an inactive exact-SHA deployment, inspect the deployment ID
+   and build result, then activate explicitly.
+7. For production schema changes, run the reviewed migration explicitly against the confirmed
+   production project, then rerun `appwrite:status`.
+8. Record the deployment/migration result in the task handoff. Emergency Console changes must
+   be reconciled back into Git before the task is considered complete.
+
+Do not enable native Appwrite Git auto-deploy for production by default. Mosaic's Git branch,
+Preview, database migration, and Function activation boundaries need one deliberate rollout
+order; a second automatic deployment pipeline would make that order harder to reason about.
+
+Future external integrations belong as isolated routes/modules in the existing trusted
+`message-action`/future `app-api` Function unless the architecture is deliberately changed.
+Provider secrets and OAuth tokens stay server-side. Use provider sandboxes/mocks first and
+the scratch project when real callback/webhook infrastructure is required.

@@ -1,13 +1,29 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { MessageCircle, Users } from 'lucide-react';
 import { ConversationRow } from '../components/messages/ConversationRow';
 import { useConversations } from '../hooks/useConversations';
+import { loadChatPage } from '../components/layout/routeModuleLoaders';
+
+const ConversationListLoadingShell: React.FC = () => (
+  <div className="space-y-2 px-4" role="status">
+    {[0, 1].map((index) => (
+      <div key={index} className="h-16 rounded-xl bg-[#1A1A1A]" />
+    ))}
+    <span className="sr-only">Loading conversations</span>
+  </div>
+);
 
 export const MessagesPage: React.FC = () => {
   const navigate = useNavigate();
   const { conversations, isLoading } = useConversations();
+
+  useEffect(() => {
+    void loadChatPage().catch(() => {
+      // RouteContent keeps a non-blocking shell fallback if preload fails.
+    });
+  }, []);
 
   return (
     <div className="flex min-h-full flex-col">
@@ -16,10 +32,7 @@ export const MessagesPage: React.FC = () => {
       </div>
       <div className="flex-1 pb-24 pt-4">
         {isLoading ? (
-          <div className="flex justify-center py-10" role="status" aria-live="polite">
-            <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin" />
-            <span className="sr-only">Loading conversations</span>
-          </div>
+          <ConversationListLoadingShell />
         ) : conversations.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 text-center">
             <div

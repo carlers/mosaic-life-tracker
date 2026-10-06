@@ -11,6 +11,10 @@ const imageCacheRef = vi.hoisted(() => ({
   remove: vi.fn(),
 }));
 
+const compressionRef = vi.hoisted(() => ({
+  compress: vi.fn(async (file: File) => file),
+}));
+
 const sdkRef = vi.hoisted(() => ({
   guardedAccountGet: vi.fn(),
   guardedStorageCreateFile: vi.fn(),
@@ -36,7 +40,7 @@ vi.mock('../../src/lib/sdk', () => ({
 }));
 
 vi.mock('browser-image-compression', () => ({
-  default: vi.fn(async (file: File) => file),
+  default: compressionRef.compress,
 }));
 vi.mock('../../src/lib/pendingImages', () => ({
   createPendingImage: pendingRef.create,
@@ -68,6 +72,9 @@ function makeFile(): File {
 }
 
 beforeEach(() => {
+  compressionRef.compress
+    .mockReset()
+    .mockImplementation(async (file: File) => file);
   sdkRef.guardedAccountGet.mockReset();
   sdkRef.guardedStorageCreateFile.mockReset();
   sdkRef.guardedStorageGetFile.mockReset();
@@ -185,6 +192,27 @@ describe('storage.ensureRestoredImage — idempotent backup recovery', () => {
     expect(sdkRef.guardedStorageCreateFile).toHaveBeenCalledWith(
       expect.objectContaining({ fileId: 'bk_i_restored' })
     );
+    expect(compressionRef.compress).toHaveBeenCalled();
+  });
+
+  it('uploads TodoMate-precompressed restore bytes without compressing them again', async () => {
+    sdkRef.guardedAccountGet.mockResolvedValueOnce({ $id: 'user_A' });
+    sdkRef.guardedStorageGetFile.mockRejectedValueOnce(
+      Object.assign(new Error('Not found'), { code: 404 })
+    );
+    sdkRef.guardedStorageCreateFile.mockResolvedValueOnce({
+      $id: 'bk_i_precompressed',
+    });
+    const webp = new File(['webp'], 'photo.webp', { type: 'image/webp' });
+
+    await expect(
+      ensureRestoredImage(webp, 'bk_i_precompressed', 'user_A', true)
+    ).resolves.toEqual({
+      fileId: 'bk_i_precompressed',
+      uploaded: true,
+    });
+
+    expect(compressionRef.compress).not.toHaveBeenCalled();
   });
 
   it('treats a create conflict as successful reuse after a race', async () => {

@@ -49,8 +49,11 @@ Every production build embeds:
 | `channel` | `Preview`, `Production`, or `Local` |
 
 Vercel supplies the deployment Git SHA, branch, and commit message through its system
-environment variables; the Vite build injects those values into the client bundle.
-The build metadata is diagnostic information, not a secret.
+environment variables. The Vite build writes deployment-specific identity into the
+`mosaic-build-info` metadata element in `index.html`, and `buildInfo.ts` reads it at
+runtime. Keeping variable branch/message/time data out of hashed JavaScript prevents a
+metadata-only commit from needlessly changing application chunks or destabilizing the
+bundle-size guard. The build metadata is diagnostic information, not a secret.
 
 The Settings page displays the release version plus the deployment channel, branch, short
 commit identity, and commit message when available. This lets a user report an exact build

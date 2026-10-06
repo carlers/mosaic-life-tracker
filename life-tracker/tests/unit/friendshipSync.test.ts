@@ -30,6 +30,18 @@ describe('server-owned friendship cache', () => {
     const current = local('fr_one', { updatedAt: '2026-09-29T00:00:00.000Z', status: 'blocked', _meta: { lwt: Date.now() + 1000 } });
     await syncFriendships('alice'); expect(current.status).toBe('blocked');
   });
+  it('manual authoritative reconciliation repairs an older local cache even with a future app timestamp', async () => {
+    localStorage.setItem('mosaic_friendship_cache_v1:alice', 'ready');
+    const current = local('fr_one', {
+      updatedAt: '2099-01-01T00:00:00.000Z',
+      status: 'pending_outgoing',
+      _meta: { lwt: 1 },
+    });
+
+    await syncFriendships('alice', true);
+
+    expect(current.status).toBe('accepted');
+  });
   it('refuses to prune on a failed full pull', async () => {
     const orphan = local('fr_orphan'); state.list.mockRejectedValue(new Error('offline'));
     await expect(syncFriendships('alice')).rejects.toThrow('offline'); expect(orphan.isDeleted).toBe(false);

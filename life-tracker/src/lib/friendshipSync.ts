@@ -11,7 +11,10 @@ const lwt = (doc: unknown): number => (doc as { _meta?: { lwt?: number } })._met
 
 // Relationships are a server-owned cache, not an editable sync collection.
 // A full, bounded pull also removes legacy optimistic orphans and GC'd rows.
-export async function syncFriendships(userId: string): Promise<void> {
+export async function syncFriendships(
+  userId: string,
+  authoritative = false
+): Promise<void> {
   const collection = getDatabase().friendships;
   const started = Date.now();
   const key = `mosaic_friendship_cache_v1:${userId}`;
@@ -32,9 +35,24 @@ export async function syncFriendships(userId: string): Promise<void> {
       const incoming = fromAppwriteFormat(row, 'friendships') as unknown as FriendshipDocument;
       const current = await collection.findOne(row.$id).exec();
       // A newer Function response/realtime event may have arrived during the pull.
-      if (current && current.updatedAt > incoming.updatedAt && (!upgrading || lwt(current) > started)) continue;
+      if (
+        current &&
+        (authoritative
+          ? lwt(current) > started
+          : current.updatedAt > incoming.updatedAt &&
+            (!upgrading || lwt(current) > started))
+      ) {
+        continue;
+      }
       if (current) await current.incrementalModify(doc => {
-        if (doc.updatedAt > incoming.updatedAt && (!upgrading || lwt(doc) > started)) return doc;
+        if (
+          authoritative
+            ? lwt(doc) > started
+            : doc.updatedAt > incoming.updatedAt &&
+              (!upgrading || lwt(doc) > started)
+        ) {
+          return doc;
+        }
         return { ...doc, ...incoming };
       });
       else await collection.upsert(incoming);

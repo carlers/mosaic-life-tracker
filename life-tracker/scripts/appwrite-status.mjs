@@ -1,0 +1,85 @@
+#!/usr/bin/env node
+import {
+  createAppwriteAdminRequest,
+  flagValue,
+  hasFlag,
+  inspectManagedBackend,
+  parseBackendTarget,
+  readBackendDefinitions,
+} from './lib/appwrite-backend.mjs';
+
+export async function runAppwriteStatusCli({
+  argv = process.argv.slice(2),
+  env = process.env,
+  fetchImpl = globalThis.fetch,
+  log = console.log,
+} = {}) {
+  const target = parseBackendTarget(argv, env);
+  const withoutDr = hasFlag(argv, '--without-dr');
+  const recoveryDrill = hasFlag(argv, '--recovery-drill');
+  if (withoutDr && recoveryDrill) {
+    throw new Error('--without-dr and --recovery-drill cannot be combined.');
+  }
+  const definitions = await readBackendDefinitions();
+  const request = createAppwriteAdminRequest({ ...target, fetchImpl });
+  const result = await inspectManagedBackend({
+    request,
+    definitions,
+    messageFunctionId: flagValue(argv, '--message-function-id'),
+    drFunctionId: flagValue(argv, '--dr-function-id'),
+    includeDr: !withoutDr,
+    recoveryDrill,
+  });
+
+  log(
+    `Appwrite managed-state check: ${target.projectId} (${
+      recoveryDrill ? 'recovery-drill' : withoutDr ? 'without-dr' : 'standard'
+    })`
+  );
+  if (result.diffs.length) {
+    for (const diff of result.diffs) log(`  DRIFT ${diff}`);
+  } else {
+    log(
+      '  OK managed database, tables, bucket, Function structure, and declared Function variables match Git.'
+    );
+  }
+  if (result.legacyTables.length) {
+    log(
+      `  INFO tolerated pre-foundation tables: ${result.legacyTables.join(', ')}`
+    );
+  }
+  for (const item of result.functionObservations) {
+    log(
+      `  ${item.name}: active=${item.deploymentId || 'none'} latest=${
+        item.latestDeploymentId || 'unknown'
+      } live=${String(item.live)} schedule=${
+        item.schedule || 'disabled'
+      } vcs=${
+        item.providerRepositoryId
+          ? `${item.providerRepositoryId}:${item.providerBranch || '?'}`
+          : 'unconnected'
+      }`
+    );
+  }
+  log(
+    '  Note: remote schedules, VCS linkage, environment-specific Function IDs, and secret values remain operational state; declared variable presence/classification is drift-enforced without reading secret values. Recovery-drill mode permits the intentionally credential-less DR Function.'
+  );
+
+  if (result.diffs.length) process.exitCode = 2;
+  return result;
+}
+
+const isDirectRun =
+  process.argv[1] &&
+  import.meta.url === new URL(`file://${process.argv[1]}`).href;
+
+if (isDirectRun) {
+  runAppwriteStatusCli().catch((cause) => {
+    console.error(
+      `Appwrite status failed: ${
+        cause instanceof Error ? cause.message : 'unknown error'
+      }`
+    );
+    process.exitCode = 1;
+  });
+}

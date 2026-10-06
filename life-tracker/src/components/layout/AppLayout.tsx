@@ -100,11 +100,14 @@ export const AppLayout: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const path = location.pathname;
+  const isChatDetail = /^\/messages\/[^/]+$/.test(path);
+  const isFriendCalendarDetail = /^\/friends\/[^/]+$/.test(path);
   const leftSwipeDestination = resolvePrimarySwipeDestination(path, 'left');
   const rightSwipeDestination = resolvePrimarySwipeDestination(path, 'right');
+  const messagesIsAdjacent =
+    leftSwipeDestination === '/messages' ||
+    rightSwipeDestination === '/messages';
   const [retryDisabled, setRetryDisabled] = useState(false);
-  const [conversationNeighborReadyFor, setConversationNeighborReadyFor] =
-    useState<string | null>(null);
   const connectivity = useConnectivity();
   const database = useDatabaseBootstrap();
 
@@ -155,34 +158,29 @@ export const AppLayout: React.FC = () => {
     if (!uid || isOffline || database.state !== 'ready') return;
 
     let timer: number | null = null;
-    let active = true;
-    const schedule = (reason: string) => {
-      if (!active || connectivity.status !== 'online') return;
+    const schedule = () => {
+      if (connectivity.status !== 'online') return;
       if (timer !== null) window.clearTimeout(timer);
       timer = window.setTimeout(() => {
         timer = null;
         void import('../../db/sync')
           .then(({ forceSync }) => forceSync(uid))
-          .catch((syncError) =>
-            console.error(`[AppLayout] ${reason} sync failed:`, syncError)
-          );
+          .catch(() => {});
       }, 250);
     };
-    const onFocus = () => schedule('focus');
-    const onOnline = () => schedule('online');
-    const onVisibility = () => {
-      if (document.visibilityState === 'visible') schedule('visibility');
-    };
+    const onVisibility = () =>
+      document.visibilityState === 'visible' && schedule();
+    const watchdogTimer = window.setInterval(onVisibility, 120_000);
 
-    window.addEventListener('focus', onFocus);
-    window.addEventListener('online', onOnline);
+    window.addEventListener('focus', schedule);
+    window.addEventListener('online', schedule);
     document.addEventListener('visibilitychange', onVisibility);
     return () => {
-      active = false;
       if (timer !== null) window.clearTimeout(timer);
-      window.removeEventListener('focus', onFocus);
-      window.removeEventListener('online', onOnline);
+      window.removeEventListener('focus', schedule);
+      window.removeEventListener('online', schedule);
       document.removeEventListener('visibilitychange', onVisibility);
+      window.clearInterval(watchdogTimer);
     };
   }, [connectivity.status, database.state, isOffline, user?.$id]);
 
@@ -192,12 +190,18 @@ export const AppLayout: React.FC = () => {
     const destinations = getPrimaryRoutePreloadTargets(path);
     if (destinations.length === 0) return;
 
+    if (messagesIsAdjacent) {
+      // Messages is local-first and already shares the mounted providers. Warm
+      // only this adjacent route immediately so a quick swipe cannot outrun
+      // the idle callback and expose an empty/loading conversation surface.
+      preloadPrimaryRoute('/messages');
+    }
+
     const preload = () => {
       for (const destination of destinations) {
-        preloadPrimaryRoute(destination);
-      }
-      if (destinations.includes('/messages')) {
-        setConversationNeighborReadyFor(path);
+        if (destination !== '/messages' || !messagesIsAdjacent) {
+          preloadPrimaryRoute(destination);
+        }
       }
     };
 
@@ -208,7 +212,7 @@ export const AppLayout: React.FC = () => {
 
     const timer = window.setTimeout(preload, 750);
     return () => window.clearTimeout(timer);
-  }, [path, user?.$id]);
+  }, [messagesIsAdjacent, path, user?.$id]);
 
   if (!user && isOffline) {
     const headline =
@@ -300,7 +304,7 @@ export const AppLayout: React.FC = () => {
   // OfflineBanner and the online handler refreshes the session when the
   // network returns.
   let activeTab: TabId = 'home';
-  if (path.includes('explore')) activeTab = 'explore';
+  if (path.includes('explore') || path.startsWith('/friends/')) activeTab = 'explore';
   else if (path.includes('notifications')) activeTab = 'notifications';
   else if (path.includes('messages')) activeTab = 'messages';
   else if (
@@ -337,8 +341,7 @@ export const AppLayout: React.FC = () => {
     );
   };
   const includeConversations =
-    path.includes('/messages') || conversationNeighborReadyFor === path;
-  const isChatDetail = /^\/messages\/[^/]+$/.test(path);
+    path.includes('/messages') || messagesIsAdjacent;
 
   return (
     <Suspense
@@ -362,6 +365,9 @@ export const AppLayout: React.FC = () => {
           ) : null
         }
         onRouteSwipe={handleRouteSwipe}
+        routeSwipeActivationMode={
+          isChatDetail || isFriendCalendarDetail ? 'edge-back' : undefined
+        }
         hideBottomNav={isChatDetail}
       >
         <Outlet />

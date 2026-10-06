@@ -4,6 +4,7 @@ import { ChevronRight } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { DeferredAvatar } from '../ui/DeferredAvatar';
 import { formatRelative } from '../../lib/format';
+import { makeRouteParentState } from '../../lib/primarySwipeNavigation';
 import type { Conversation } from '../../hooks/useConversations';
 interface ConversationRowProps {
   conversation: Conversation;
@@ -31,7 +32,9 @@ const ConversationRowComponent: React.FC<ConversationRowProps> = ({
     previewClass = 'text-gray-400 italic';
   }
   const handleOpen = () => {
-    navigate(`/messages/${friend.friendId}`);
+    navigate(`/messages/${friend.friendId}`, {
+      state: makeRouteParentState('/messages'),
+    });
   };
   return (
     <motion.button

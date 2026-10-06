@@ -6,7 +6,7 @@ import {
   it,
   vi,
 } from 'vitest';
-import { firstValueFrom } from 'rxjs';
+import { firstValueFrom, Subject } from 'rxjs';
 
 const getChangedDocumentsSinceMock = vi.hoisted(() => vi.fn());
 const replicateRxCollectionMock = vi.hoisted(() => vi.fn());
@@ -22,6 +22,8 @@ const trackReplicationFreshnessMock = vi.hoisted(() => vi.fn());
 const uploadPendingImageMock = vi.hoisted(() => vi.fn());
 const deletePendingImageMock = vi.hoisted(() => vi.fn());
 const awaitPilotReplicationFreshnessMock = vi.hoisted(() => vi.fn());
+const sendAppActionMock = vi.hoisted(() => vi.fn());
+let sentSubject: Subject<ReturnType<typeof localTask>>;
 
 vi.mock('rxdb', () => ({
   getChangedDocumentsSince: getChangedDocumentsSinceMock,
@@ -72,6 +74,10 @@ vi.mock('../../src/lib/storage', () => ({
   uploadPendingImage: uploadPendingImageMock,
 }));
 
+vi.mock('../../src/lib/appAction', () => ({
+  sendAppAction: sendAppActionMock,
+}));
+
 vi.mock('../../src/lib/pendingImages', () => ({
   isPendingImageId: (id: string) => id.startsWith('localimg_'),
   deletePendingImage: deletePendingImageMock,
@@ -90,6 +96,7 @@ import {
   captureTaskReplicationPushCheckpoint,
   refreshTaskReplicationPilot,
   startTaskReplicationPilot,
+  subscribeTaskPushProgress,
   stopTaskReplicationPilot,
 } from '../../src/db/taskReplicationPilot';
 
@@ -158,6 +165,8 @@ function collectionFixture() {
 beforeEach(async () => {
   await stopTaskReplicationPilot();
   vi.clearAllMocks();
+  __taskReplicationPilotTestUtils.resetTodoMateCreatePacing();
+  sentSubject = new Subject();
   trackReplicationFreshnessMock.mockImplementation(() => undefined);
 
   getChangedDocumentsSinceMock.mockResolvedValue({
@@ -174,10 +183,17 @@ beforeEach(async () => {
   errorSubscribeMock.mockReturnValue({ unsubscribe: vi.fn() });
   realtimeSubscribeMock.mockReturnValue(vi.fn());
   awaitPilotReplicationFreshnessMock.mockResolvedValue(undefined);
+  sendAppActionMock.mockRejectedValue(
+    Object.assign(new Error('Unknown action'), {
+      code: 400,
+      result: { error: 'Unknown action: bulk_create_todomate_tasks' },
+    })
+  );
   replicateRxCollectionMock.mockReturnValue({
     reSync: reSyncMock,
     cancel: cancelMock,
     error$: { subscribe: errorSubscribeMock },
+    sent$: sentSubject.asObservable(),
   });
 });
 
@@ -325,6 +341,188 @@ describe('task RxDB replication pilot', () => {
     );
   });
 
+  it('reports unique successful task sends from the active RxDB replication', async () => {
+    await startTaskReplicationPilot(
+      'user_A',
+      collectionFixture(),
+      undefined
+    );
+
+    const progress: Array<{ completed: number; total: number }> = [];
+    const stop = subscribeTaskPushProgress(
+      'user_A',
+      ['todo_one', 'todo_two'],
+      (value) => progress.push(value)
+    );
+
+    expect(stop).not.toBeNull();
+    sentSubject.next(localTask({ id: 'todo_one', source: 'todomate' }));
+    sentSubject.next(localTask({ id: 'todo_one', source: 'todomate' }));
+    sentSubject.next(localTask({ id: 'other', source: 'todomate' }));
+    sentSubject.next(localTask({ id: 'todo_two', source: 'todomate' }));
+
+    expect(progress).toEqual([
+      { completed: 0, total: 2 },
+      { completed: 1, total: 2 },
+      { completed: 2, total: 2 },
+    ]);
+    stop?.();
+  });
+
+  it('sends a pristine TodoMate push batch through one trusted Function execution', async () => {
+    const rows = Array.from({ length: 4 }, (_, index) => ({
+      newDocumentState: localTask({
+        id: 'todo_' + index,
+        source: 'todomate',
+      }),
+    })) as never;
+    sendAppActionMock.mockResolvedValueOnce({
+      ok: true,
+      results: Array.from({ length: 4 }, (_, index) => ({
+        id: 'todo_' + index,
+        status: 'created',
+      })),
+    });
+
+    await expect(
+      __taskReplicationPilotTestUtils.pushTasks(rows, 'user_A')
+    ).resolves.toEqual([]);
+
+    expect(sendAppActionMock).toHaveBeenCalledTimes(1);
+    expect(sendAppActionMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'bulk_create_todomate_tasks',
+        tasks: expect.arrayContaining([
+          expect.objectContaining({
+            id: 'todo_0',
+            data: expect.objectContaining({
+              user_id: 'user_A',
+              source: 'todomate',
+              deleted: false,
+            }),
+          }),
+        ]),
+      }),
+      25_000
+    );
+    expect(createRowMock).not.toHaveBeenCalled();
+    expect(getRowMock).not.toHaveBeenCalled();
+  });
+
+  it('falls back to the paced browser lane when the deployed Function lacks the batch action', async () => {
+    vi.useFakeTimers();
+    try {
+      const starts: number[] = [];
+      createRowMock.mockImplementation(async () => {
+        starts.push(Date.now());
+        return {};
+      });
+      const rows = Array.from({ length: 4 }, (_, index) => ({
+        newDocumentState: localTask({
+          id: 'todo_' + index,
+          source: 'todomate',
+        }),
+      })) as never;
+
+      const push = __taskReplicationPilotTestUtils.pushTasks(rows, 'user_A');
+      await vi.advanceTimersByTimeAsync(3_000);
+      await expect(push).resolves.toEqual([]);
+
+      expect(sendAppActionMock).toHaveBeenCalledTimes(1);
+      expect(createRowMock).toHaveBeenCalledTimes(4);
+      for (let index = 1; index < starts.length; index += 1) {
+        expect(starts[index] - starts[index - 1]).toBeGreaterThanOrEqual(510);
+      }
+    } finally {
+      vi.useRealTimers();
+      __taskReplicationPilotTestUtils.resetTodoMateCreatePacing();
+    }
+  });
+
+  it('uses returned existing server state for TodoMate batch conflicts', async () => {
+    const rows = [
+      {
+        newDocumentState: localTask({
+          id: 'todo_existing',
+          source: 'todomate',
+          updatedAt: '2026-10-02T00:00:00.000Z',
+        }),
+      },
+      {
+        newDocumentState: localTask({
+          id: 'todo_created',
+          source: 'todomate',
+        }),
+      },
+    ] as never;
+    sendAppActionMock.mockResolvedValueOnce({
+      ok: true,
+      results: [
+        {
+          id: 'todo_existing',
+          status: 'existing',
+          row: remoteTask({
+            $id: 'todo_existing',
+            source: 'todomate',
+            title: 'Remote wins',
+            updated_at: '2026-10-02T00:00:05.000Z',
+          }),
+        },
+        { id: 'todo_created', status: 'created' },
+      ],
+    });
+
+    const conflicts =
+      await __taskReplicationPilotTestUtils.pushTasks(rows, 'user_A');
+
+    expect(conflicts).toEqual([
+      expect.objectContaining({
+        id: 'todo_existing',
+        title: 'Remote wins',
+      }),
+    ]);
+    expect(createRowMock).not.toHaveBeenCalled();
+    expect(updateRowMock).not.toHaveBeenCalled();
+  });
+
+  it('creates a fresh TodoMate task without a preliminary remote read', async () => {
+    const conflicts = await __taskReplicationPilotTestUtils.pushTasks(
+      [
+        {
+          newDocumentState: localTask({ source: 'todomate' }),
+        },
+      ] as never,
+      'user_A'
+    );
+
+    expect(conflicts).toEqual([]);
+    expect(createRowMock).toHaveBeenCalledTimes(1);
+    expect(getRowMock).not.toHaveBeenCalled();
+  });
+
+  it('falls back to the existing bootstrap conflict path when TodoMate create-first races with an existing row', async () => {
+    createRowMock.mockRejectedValueOnce(
+      Object.assign(new Error('Already exists'), { code: 409 })
+    );
+    getRowMock.mockResolvedValueOnce(
+      remoteTask({ source: 'todomate' })
+    );
+
+    const conflicts = await __taskReplicationPilotTestUtils.pushTasks(
+      [
+        {
+          newDocumentState: localTask({ source: 'todomate' }),
+        },
+      ] as never,
+      'user_A'
+    );
+
+    expect(conflicts).toEqual([]);
+    expect(createRowMock).toHaveBeenCalledTimes(1);
+    expect(getRowMock).toHaveBeenCalledTimes(1);
+    expect(updateRowMock).not.toHaveBeenCalled();
+  });
+
   it('acknowledges identical first-sync task state without rewriting Appwrite', async () => {
     const conflicts = await __taskReplicationPilotTestUtils.pushTasks(
       [{ newDocumentState: localTask() }] as never,
@@ -359,6 +557,44 @@ describe('task RxDB replication pilot', () => {
       })
     );
     expect(createRowMock).not.toHaveBeenCalled();
+  });
+
+  it('turns a post-read concurrent owner write into an RxDB conflict', async () => {
+    sendAppActionMock.mockResolvedValueOnce({
+      status: 'conflict',
+      row: remoteTask({
+        $updatedAt: '2026-10-02T00:00:02.000Z',
+        title: 'Other device',
+        updated_at: '2026-10-02T00:00:02.000Z',
+      }),
+    });
+
+    const conflicts = await __taskReplicationPilotTestUtils.pushTasks(
+      [
+        {
+          assumedMasterState: localTask(),
+          newDocumentState: localTask({
+            title: 'This device',
+            updatedAt: '2026-10-02T00:00:02.000Z',
+          }),
+        },
+      ],
+      'user_A'
+    );
+
+    expect(sendAppActionMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'compare_and_set_owner_row',
+        tableId: 'tasks',
+        rowId: 'task_one',
+        expectedUpdatedAt: '2026-10-02T00:00:01.000Z',
+      }),
+      15_000
+    );
+    expect(updateRowMock).not.toHaveBeenCalled();
+    expect(conflicts).toEqual([
+      expect.objectContaining({ title: 'Other device' }),
+    ]);
   });
 
   it('falls back from update 404 to strict createRow', async () => {

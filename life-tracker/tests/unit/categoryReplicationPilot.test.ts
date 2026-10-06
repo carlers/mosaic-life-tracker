@@ -20,6 +20,7 @@ const awaitInSyncMock = vi.hoisted(() => vi.fn());
 const cancelMock = vi.hoisted(() => vi.fn());
 const errorSubscribeMock = vi.hoisted(() => vi.fn());
 const trackReplicationFreshnessMock = vi.hoisted(() => vi.fn());
+const sendAppActionMock = vi.hoisted(() => vi.fn());
 
 vi.mock('rxdb', () => ({
   getChangedDocumentsSince: getChangedDocumentsSinceMock,
@@ -64,6 +65,10 @@ vi.mock('../../src/lib/sdk', () => ({
   guardedRealtime: {
     subscribe: realtimeSubscribeMock,
   },
+}));
+
+vi.mock('../../src/lib/appAction', () => ({
+  sendAppAction: sendAppActionMock,
 }));
 
 vi.mock('../../src/db/replicationLocalState', () => ({
@@ -132,6 +137,12 @@ beforeEach(async () => {
   getRowMock.mockResolvedValue(remoteCategory());
   updateRowMock.mockResolvedValue({});
   createRowMock.mockResolvedValue({});
+  sendAppActionMock.mockRejectedValue(
+    Object.assign(new Error('Unknown action'), {
+      code: 400,
+      result: { error: 'Unknown action: compare_and_set_owner_row' },
+    })
+  );
   cancelMock.mockResolvedValue(true);
   awaitInSyncMock.mockResolvedValue(true);
   errorSubscribeMock.mockReturnValue({ unsubscribe: vi.fn() });
@@ -417,6 +428,45 @@ describe('category RxDB replication pilot', () => {
         name: 'Server version',
         _deleted: false,
       }),
+    ]);
+  });
+
+  it('turns a post-read concurrent category write into an RxDB conflict', async () => {
+    sendAppActionMock.mockResolvedValueOnce({
+      status: 'conflict',
+      row: remoteCategory({
+        $updatedAt: '2026-10-02T00:00:02.000Z',
+        name: 'Other device',
+        updated_at: '2026-10-02T00:00:02.000Z',
+      }),
+    });
+
+    const conflicts =
+      await __categoryReplicationPilotTestUtils.pushCategories(
+        [
+          {
+            assumedMasterState: localCategory(),
+            newDocumentState: localCategory({
+              name: 'This device',
+              updatedAt: '2026-10-02T00:00:02.000Z',
+            }),
+          },
+        ],
+        'user_A'
+      );
+
+    expect(sendAppActionMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'compare_and_set_owner_row',
+        tableId: 'categories',
+        rowId: 'cat_a',
+        expectedUpdatedAt: '2026-10-02T00:00:01.000Z',
+      }),
+      15_000
+    );
+    expect(updateRowMock).not.toHaveBeenCalled();
+    expect(conflicts).toEqual([
+      expect.objectContaining({ name: 'Other device' }),
     ]);
   });
 

@@ -4,6 +4,7 @@ import { MoreHorizontal, ChevronRight } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { DeferredAvatar } from '../ui/DeferredAvatar';
 import type { FriendshipDocument } from '../../db/schema';
+import { makeRouteParentState } from '../../lib/primarySwipeNavigation';
 
 interface FriendRowProps {
   friendship: FriendshipDocument;
@@ -17,7 +18,9 @@ export const FriendRow: React.FC<FriendRowProps> = ({
   const navigate = useNavigate();
 
   const handleOpen = () => {
-    navigate(`/friends/${friendship.friendId}`);
+    navigate(`/friends/${friendship.friendId}`, {
+      state: makeRouteParentState('/explore'),
+    });
   };
 
   return (

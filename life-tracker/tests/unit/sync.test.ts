@@ -644,6 +644,111 @@ describe('sync — freshness barriers', () => {
     expect(result.status.lastSync).toBeTruthy();
   });
 
+  it('Sync Now repairs historical owner-row drift even when timestamps match', async () => {
+    setAllPilots(true);
+    const local = makeDoc({
+      id: 'task_remote',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+      lwt: 1,
+      extra: { title: 'stale laptop copy' },
+    });
+    const tasks = makeCollection([local]);
+    getDatabaseMock.mockReturnValue(makeDb({ tasks }));
+    listRowsMock.mockImplementation(
+      async ({ tableId }: { tableId: string }) =>
+        tableId === 'tasks'
+          ? { rows: [makeTaskRow('task_remote')] }
+          : { rows: [] }
+    );
+
+    await syncModule.syncNow('user_A', 5_000);
+
+    expect(tasks.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: 'task_remote',
+        title: 'task_remote',
+      })
+    );
+    expect(syncFriendshipsMock).toHaveBeenCalledWith('user_A', true);
+    expect(taskPilotRefreshMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('Sync Now does not rewrite owner rows that already match Appwrite', async () => {
+    setAllPilots(true);
+    const current = makeDoc({
+      id: 'task_remote',
+      lwt: 1,
+      extra: {
+        tags: '',
+        memo: '',
+        image: '',
+        completedAt: '',
+        source: '',
+        routineId: '',
+        reminderTime: '',
+        reactions: '',
+      },
+    });
+    const tasks = makeCollection([current]);
+    getDatabaseMock.mockReturnValue(makeDb({ tasks }));
+    listRowsMock.mockImplementation(
+      async ({ tableId }: { tableId: string }) =>
+        tableId === 'tasks'
+          ? { rows: [makeTaskRow('task_remote')] }
+          : { rows: [] }
+    );
+
+    await syncModule.syncNow('user_A', 5_000);
+
+    expect(tasks.upsert).not.toHaveBeenCalled();
+  });
+
+  it('Sync Now reconciles a settled local owner row that is absent remotely', async () => {
+    setAllPilots(true);
+    const missing = makeDoc({ id: 'task_missing', lwt: 1 });
+    getDatabaseMock.mockReturnValue(
+      makeDb({ tasks: makeCollection([missing]) })
+    );
+    listRowsMock.mockResolvedValue({ rows: [] });
+
+    await syncModule.syncNow('user_A', 5_000);
+
+    expect(missing.incrementalPatch).toHaveBeenCalledWith(
+      expect.objectContaining({ isDeleted: true })
+    );
+  });
+
+  it('Sync Now preserves an owner row edited after reconciliation starts', async () => {
+    setAllPilots(true);
+    const concurrent = makeDoc({
+      id: 'task_remote',
+      lwt: Date.now() + 60_000,
+      extra: { title: 'concurrent local edit' },
+    });
+    const tasks = makeCollection([concurrent]);
+    getDatabaseMock.mockReturnValue(makeDb({ tasks }));
+    listRowsMock.mockImplementation(
+      async ({ tableId }: { tableId: string }) =>
+        tableId === 'tasks'
+          ? { rows: [makeTaskRow('task_remote')] }
+          : { rows: [] }
+    );
+
+    await syncModule.syncNow('user_A', 5_000);
+
+    expect(tasks.upsert).not.toHaveBeenCalled();
+  });
+
+  it('plain refreshSync stays incremental and does not run reconciliation scans', async () => {
+    setAllPilots(true);
+
+    await syncModule.refreshSync('user_A', 5_000);
+
+    expect(listRowsMock).not.toHaveBeenCalled();
+    expect(syncFriendshipsMock).not.toHaveBeenCalled();
+    expect(taskPilotRefreshMock).toHaveBeenCalledTimes(1);
+  });
+
   it('fails closed when any pilot cannot prove freshness', async () => {
     categoryPilotRefreshMock.mockResolvedValue(false);
 

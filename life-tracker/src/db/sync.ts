@@ -82,7 +82,6 @@ const APPWRITE_CONFIG = {
 const DEBUG = import.meta.env.DEV;
 const PAGE_SIZE = 100;
 const MAX_PAGES_PER_COLLECTION = 100;
-const PULL_OVERLAP_MS = 30_000;
 const RATE_LIMIT_BASE_MS = 5_000;
 const RATE_LIMIT_MAX_MS = 60_000;
 const FAILURE_BACKOFF_BASE_MS = 5_000;
@@ -106,7 +105,6 @@ interface PerCollectionPersistedState {
   entries: Partial<Record<CollectionName, PerCollectionSyncEntry>>;
 }
 const PER_COLLECTION_KEY = 'lastSyncTimePerCollection';
-const RECONCILED_MISSING_KEY = 'reconciledMissingRows';
 const PER_COLLECTION_STATE_VERSION = 1;
 
 function accountStorageKey(base: string, userId: string): string {
@@ -208,68 +206,6 @@ function savePerCollectionState(
   }
 }
 
-function parseReconciledMissingState(
-  raw: string | null,
-  userId: string
-): Record<string, string> | null {
-  if (!raw) return null;
-  try {
-    const parsed = JSON.parse(raw) as unknown;
-    if (!parsed || typeof parsed !== 'object') return null;
-    const state = parsed as {
-      version?: number;
-      ownerId?: string;
-      entries?: Record<string, string>;
-    };
-    if (state.version !== 1 || state.ownerId !== userId || !state.entries) {
-      return null;
-    }
-    return state.entries;
-  } catch {
-    return null;
-  }
-}
-
-function loadReconciledMissingRows(
-  userId: string
-): Record<string, string> {
-  try {
-    const scoped = parseReconciledMissingState(
-      localStorage.getItem(accountStorageKey(RECONCILED_MISSING_KEY, userId)),
-      userId
-    );
-    if (scoped) return scoped;
-
-    const legacy = parseReconciledMissingState(
-      localStorage.getItem(RECONCILED_MISSING_KEY),
-      userId
-    );
-    if (legacy) {
-      saveReconciledMissingRows(userId, legacy);
-      return legacy;
-    }
-  } catch {
-  }
-  return {};
-}
-
-function saveReconciledMissingRows(
-  userId: string,
-  entries: Record<string, string>
-): void {
-  try {
-    localStorage.setItem(
-      accountStorageKey(RECONCILED_MISSING_KEY, userId),
-      JSON.stringify({ version: 1, ownerId: userId, entries })
-    );
-  } catch {
-  }
-}
-
-function reconciliationKey(collection: string, rowId: string): string {
-  return collection + '::' + rowId;
-}
-
 
 let perCollectionSync: Partial<
   Record<CollectionName, PerCollectionSyncEntry>
@@ -319,8 +255,6 @@ function updateSyncStatus(
 type AppwriteRow = Record<string, unknown>;
 interface CollectionSyncResult {
   pullRowFailed: boolean;
-  pushFailed: number;
-  pushDeferred: number;
   pullComplete: boolean;
   errors: unknown[];
 }
@@ -386,21 +320,20 @@ function scheduleBackoffWake(
   }, Math.max(0, wakeAt - Date.now()) + 10);
 }
 
-function isTimestampedCollection(collection: string): boolean {
-  return (
-    collection === 'tasks' ||
-    collection === 'categories' ||
-    collection === 'diary' ||
-    collection === 'settings' ||
-    collection === 'friendships' ||
-    collection === 'messages'
-  );
+function mappedStateEquals(
+  local: Record<string, unknown>,
+  remote: Record<string, unknown>
+): boolean {
+  return Object.entries(remote).every(([key, value]) => local[key] === value);
 }
-function isRateLimitError(err: unknown): boolean {
-  const code = (err as { code?: number } | null)?.code;
-  if (code === 429) return true;
-  const msg = err instanceof Error ? err.message : String(err);
-  return /rate limit/i.test(msg);
+
+export function isRateLimitError(err: unknown): boolean {
+  const error = err as { code?: number; cause?: { code?: number } } | null;
+  return (
+    error?.code === 429 ||
+    error?.cause?.code === 429 ||
+    /rate limit/i.test(err instanceof Error ? err.message : String(err))
+  );
 }
 function isConflictError(err: unknown): boolean {
   const code = (err as { code?: string } | null)?.code;
@@ -483,6 +416,7 @@ export interface FreshSyncResult {
 
 export interface FreshSyncOptions {
   onProgress?: (progress: SyncProgress) => void;
+  reconcile?: boolean;
 }
 
 function isFreshSyncStillPending(error: unknown): boolean {
@@ -495,6 +429,31 @@ function formatSyncGroupList(groups: string[]): string {
   if (groups.length === 1) return groups[0];
   if (groups.length === 2) return groups.join(' and ');
   return groups.slice(0, -1).join(', ') + ', and ' + groups.at(-1);
+}
+
+async function reconcileLocalReplica(
+  userId: string,
+  generation: number,
+  deadline: number
+): Promise<void> {
+  const db = getDatabase();
+
+  for (const colName of ALL_COLLECTIONS) {
+    assertSyncOwnerCurrent(userId, generation);
+    if (Date.now() >= deadline) throw new Error('Reconciliation timed out');
+
+    const result = await syncCollection(
+      db[colName] as unknown as LocalCollection,
+      colName,
+      userId,
+      generation,
+      colName === 'messages' ? Date.now() : Infinity
+    );
+
+    if (result.pullRowFailed || !result.pullComplete) {
+      throw new Error('Reconciliation failed: ' + colName);
+    }
+  }
 }
 
 /**
@@ -648,6 +607,22 @@ export async function refreshSync(
     );
     if (failure) throw failure.reason;
 
+    if (options.reconcile) {
+      reportProgress('Verifying local data…');
+      await reconcileLocalReplica(userId, generation, deadline);
+      assertSyncOwnerCurrent(userId, generation);
+
+      if (
+        (await Promise.all(
+          refreshes.map(([, , refresh]) => refresh(remaining()))
+        )).includes(false)
+      ) {
+        throw new Error('Fresh sync is not active');
+      }
+      assertSyncOwnerCurrent(userId, generation);
+      reportProgress('All data groups verified');
+    }
+
     assertSyncOwnerCurrent(userId, generation);
     const completedAt = new Date().toISOString();
     updateSyncStatus(
@@ -719,7 +694,7 @@ export async function syncNow(
     clearBackoffWakeTimer();
   }
 
-  return refreshSync(userId, timeoutMs);
+  return refreshSync(userId, timeoutMs, { reconcile: true });
 }
 
 export async function initializeSync(
@@ -1028,10 +1003,7 @@ async function runSyncCycleBody(
             colName,
             userId,
             generation,
-            {
-              forceFullPull: true,
-              staleFreshnessBoundaryMs: staleBoundaryMs,
-            }
+            staleBoundaryMs
           );
           assertSyncOwnerCurrent(userId, generation);
 
@@ -1160,27 +1132,20 @@ async function runSyncCycleBody(
   }
 }
 
-interface StaleRecoveryOptions {
-  forceFullPull?: boolean;
-  staleFreshnessBoundaryMs?: number;
-}
-
 async function syncCollection(
   collection: LocalCollection,
   colName: CollectionName,
   userId: string,
   generation: number,
-  options: StaleRecoveryOptions = {}
+  staleBoundaryMs: number
 ): Promise<CollectionSyncResult> {
   assertSyncOwnerCurrent(userId, generation);
 
   if (colName === 'friendships') {
-    await syncFriendships(userId);
+    await syncFriendships(userId, staleBoundaryMs === Infinity);
     assertSyncOwnerCurrent(userId, generation);
     return {
       pullRowFailed: false,
-      pushFailed: 0,
-      pushDeferred: 0,
       pullComplete: true,
       errors: [],
     };
@@ -1189,17 +1154,12 @@ async function syncCollection(
   const cycleStartMs = Date.now();
   const tableId = APPWRITE_CONFIG.tables[colName];
   const entry = perCollectionSync[colName];
-  const pullBoundaryMs = entry?.pull ? toMs(entry.pull) : 0;
-  const dirtyBoundaryMs = entry?.dirty ? toMs(entry.dirty) : 0;
-  const forceFullPull = options.forceFullPull === true;
-  const effectivePullBoundaryMs = forceFullPull ? 0 : pullBoundaryMs;
-  const staleBoundaryMs = options.staleFreshnessBoundaryMs;
+  const authoritativeReconcile = staleBoundaryMs === Infinity;
 
   const remoteIndex = new Map<
     string,
     { updatedAt: number; isDeleted: boolean }
   >();
-  const reconciledMissing = loadReconciledMissingRows(userId);
   let cursor: string | undefined;
   let pageCount = 0;
   let pullRowFailed = false;
@@ -1213,12 +1173,6 @@ async function syncCollection(
       Query.limit(PAGE_SIZE),
       Query.orderAsc('$id'),
     ];
-    if (effectivePullBoundaryMs > 0) {
-      const sinceIso = new Date(
-        effectivePullBoundaryMs - PULL_OVERLAP_MS
-      ).toISOString();
-      queries.push(Query.greaterThan('$updatedAt', sinceIso));
-    }
     if (cursor) queries.push(Query.cursorAfter(cursor));
 
     const remoteResponse = await guardedTablesDB.listRows({
@@ -1255,8 +1209,6 @@ async function syncCollection(
           updatedAt: remoteUpdatedAt,
           isDeleted: (doc.isDeleted as boolean) ?? false,
         });
-        delete reconciledMissing[reconciliationKey(colName, docId)];
-
         const localDoc = await collection.findOne(docId).exec();
         if (!localDoc) {
           try {
@@ -1270,10 +1222,9 @@ async function syncCollection(
         const localJson = localDoc.toJSON();
         const localLwt = localDoc._meta?.lwt ?? 0;
         const localUpdatedAt = toMs(localJson.updatedAt);
-        const isLocalDirty =
-          staleBoundaryMs !== undefined
-            ? localUpdatedAt <= 0 || localUpdatedAt > staleBoundaryMs
-            : localLwt > dirtyBoundaryMs;
+        const isLocalDirty = authoritativeReconcile
+          ? localLwt > cycleStartMs
+          : localUpdatedAt <= 0 || localUpdatedAt > staleBoundaryMs;
 
         if (colName === 'messages' && row.direction === 'outgoing') {
           const remoteReadAt = (row.read_at as string) || '';
@@ -1290,10 +1241,12 @@ async function syncCollection(
         }
 
         if (isLocalDirty) continue;
+        if (authoritativeReconcile && mappedStateEquals(localJson, doc)) {
+          continue;
+        }
 
-        const remoteWins = isTimestampedCollection(colName)
-          ? remoteUpdatedAt > localUpdatedAt
-          : remoteUpdatedAt > localLwt;
+        const remoteWins =
+          authoritativeReconcile || remoteUpdatedAt > localUpdatedAt;
         if (!remoteWins) continue;
 
         const recheck = await collection.findOne(docId).exec();
@@ -1341,12 +1294,7 @@ async function syncCollection(
     }
   }
 
-  if (
-    forceFullPull &&
-    staleBoundaryMs !== undefined &&
-    pullComplete &&
-    !pullRowFailed
-  ) {
+  if (pullComplete && !pullRowFailed) {
     const localDocs = await collection.find().exec();
     const reconciliationNow = new Date().toISOString();
 
@@ -1366,15 +1314,20 @@ async function syncCollection(
       }
 
       const localUpdatedAt = toMs(json.updatedAt);
-      if (localUpdatedAt <= 0 || localUpdatedAt > staleBoundaryMs) continue;
+      if (
+        authoritativeReconcile
+          ? (doc._meta?.lwt ?? 0) > cycleStartMs
+          : localUpdatedAt <= 0 || localUpdatedAt > staleBoundaryMs
+      ) {
+        continue;
+      }
 
       try {
         await doc.incrementalPatch({
           isDeleted: true,
           updatedAt: reconciliationNow,
         });
-        reconciledMissing[reconciliationKey(colName, docId)] =
-          reconciliationNow;
+
       } catch (reconcileErr) {
         console.error(
           `[Sync] Failed to reconcile stale missing ${colName} ${docId}:`,
@@ -1384,7 +1337,6 @@ async function syncCollection(
         pullRowFailed = true;
       }
     }
-    saveReconciledMissingRows(userId, reconciledMissing);
   }
 
   const nextPullIso =
@@ -1411,8 +1363,6 @@ async function syncCollection(
 
   return {
     pullRowFailed,
-    pushFailed: 0,
-    pushDeferred: 0,
     pullComplete,
     errors: collectionErrors,
   };

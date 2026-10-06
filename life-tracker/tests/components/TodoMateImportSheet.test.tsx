@@ -3,14 +3,17 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
+  authUser: {
+    $id: 'user_A',
+    email: 'mosaic@example.com',
+    name: 'Mosaic User',
+  },
   prepareTodoMateTransfer: vi.fn(),
   restoreUserData: vi.fn(),
 }));
 
 vi.mock('../../src/hooks/useAuth', () => ({
-  useAuth: () => ({
-    user: { $id: 'user_A', email: 'mosaic@example.com', name: 'Mosaic User' },
-  }),
+  useAuth: () => ({ user: mocks.authUser }),
 }));
 
 vi.mock('../../src/lib/todomateImport', () => ({
@@ -31,6 +34,11 @@ describe('TodoMateImportSheet', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     localStorage.clear();
+    mocks.authUser = {
+      $id: 'user_A',
+      email: 'mosaic@example.com',
+      name: 'Mosaic User',
+    };
     mocks.prepareTodoMateTransfer.mockResolvedValue({
       file: preparedFile,
       preview: {
@@ -74,7 +82,7 @@ describe('TodoMateImportSheet', () => {
         email: 'todo@example.com',
         password: 'secret-password',
       },
-      expect.objectContaining({ onProgress: expect.any(Function) })
+      expect.objectContaining({ onProgressDetail: expect.any(Function) })
     );
     expect(password).toHaveValue('');
     expect(screen.getByText(/1 unscheduled task will be placed on today/i)).toBeInTheDocument();
@@ -151,8 +159,9 @@ describe('TodoMateImportSheet', () => {
         },
         expect.objectContaining({
           mode: 'merge',
-          onProgress: expect.any(Function),
-        })
+          onProgressDetail: expect.any(Function),
+        }),
+        true
       )
     );
     expect(onSuccess).toHaveBeenCalledWith(
@@ -228,10 +237,48 @@ describe('TodoMateImportSheet', () => {
     expect(screen.queryByText(/999 tasks · 99 categories/i)).not.toBeInTheDocument();
   });
 
-  it('shows import percentage and current phase while restore is in progress', async () => {
+  it('refuses a prepared preview after the signed-in Mosaic account changes', async () => {
+    const { rerender } = render(
+      <TodoMateImportSheet isOpen onClose={vi.fn()} />
+    );
+    fireEvent.change(screen.getByLabelText('TodoMate email'), {
+      target: { value: 'todo@example.com' },
+    });
+    fireEvent.change(screen.getByLabelText('TodoMate password'), {
+      target: { value: 'pw-account-12345' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Preview Transfer' }));
+
+    await screen.findByRole('button', { name: 'Import into Mosaic' });
+
+    mocks.authUser = {
+      $id: 'user_B',
+      email: 'other@example.com',
+      name: 'Other User',
+    };
+    rerender(<TodoMateImportSheet isOpen onClose={vi.fn()} />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Import into Mosaic' }));
+
+    await waitFor(() =>
+      expect(
+        screen.queryByRole('button', { name: 'Import into Mosaic' })
+      ).not.toBeInTheDocument()
+    );
+    expect(mocks.restoreUserData).not.toHaveBeenCalled();
+  });
+
+  it('shows import percentage and exact task cloud progress while restore is in progress', async () => {
     let finishRestore!: () => void;
+    let emitProgress!: (value: {
+      message: string;
+      percent: number;
+      completed?: number;
+      total?: number;
+    }) => void;
     mocks.restoreUserData.mockImplementationOnce(async (_file, _user, options) => {
-      options.onProgressDetail?.({
+      emitProgress = options.onProgressDetail;
+      emitProgress?.({
         message: 'Importing data (250/500)…',
         percent: 60,
         completed: 250,
@@ -269,6 +316,22 @@ describe('TodoMateImportSheet', () => {
     expect(
       screen.getByRole('progressbar', { name: 'TodoMate import progress' })
     ).toHaveAttribute('aria-valuenow', '60');
+
+    act(() => {
+      emitProgress({
+        message: 'Syncing tasks to cloud (54/505)…',
+        percent: 80,
+        completed: 54,
+        total: 505,
+      });
+    });
+    expect(
+      screen.getByText('Syncing tasks to cloud (54/505)…')
+    ).toBeInTheDocument();
+    expect(screen.getByText('80%')).toBeInTheDocument();
+    expect(
+      screen.getByRole('progressbar', { name: 'TodoMate import progress' })
+    ).toHaveAttribute('aria-valuenow', '80');
 
     await act(async () => {
       finishRestore();

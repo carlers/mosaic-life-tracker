@@ -1,7 +1,7 @@
 import { createReplicationPilotLifecycleQueue } from './replicationPilotLifecycle';
+import { captureReplicationPushCheckpoint } from './replicationPilotPrimitives';
 import { Query } from 'appwrite';
 import {
-  getChangedDocumentsSince,
   type RxCollection,
   type RxReplicationPullStreamItem,
   type RxReplicationWriteToMasterRow,
@@ -309,25 +309,13 @@ async function pullFriendships(
   };
 }
 
-export async function captureFriendshipReplicationPushCheckpoint(
+export function captureFriendshipReplicationPushCheckpoint(
   collection: RxCollection<FriendshipDocument>
 ): Promise<FriendshipReplicationPushCheckpoint | undefined> {
-  let checkpoint: FriendshipReplicationPushCheckpoint | undefined;
-
-  for (;;) {
-    const result = await getChangedDocumentsSince<
-      FriendshipDocument,
-      FriendshipReplicationPushCheckpoint
-    >(
-      collection.storageInstance,
-      LOCAL_CHECKPOINT_BATCH_SIZE,
-      checkpoint
-    );
-    checkpoint = result.checkpoint;
-    if (result.documents.length < LOCAL_CHECKPOINT_BATCH_SIZE) {
-      return checkpoint;
-    }
-  }
+  return captureReplicationPushCheckpoint<
+    FriendshipDocument,
+    FriendshipReplicationPushCheckpoint
+  >(collection, LOCAL_CHECKPOINT_BATCH_SIZE);
 }
 
 async function applyRealtimeDelete(

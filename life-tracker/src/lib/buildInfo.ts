@@ -2,22 +2,43 @@ import { APP_VERSION } from './appVersion';
 
 export type AppBuildChannel = 'Preview' | 'Production' | 'Local';
 
-const commit = import.meta.env.VITE_APP_BUILD_COMMIT?.trim() || null;
-const commitMessage = import.meta.env.VITE_APP_BUILD_MESSAGE?.trim() || null;
-const branch = import.meta.env.VITE_APP_BUILD_BRANCH?.trim() || null;
-const builtAt = import.meta.env.VITE_APP_BUILD_TIME?.trim() || null;
-const channel = import.meta.env.VITE_APP_BUILD_CHANNEL;
+type EmbeddedBuildInfo = {
+  commit: string | null;
+  commitMessage: string | null;
+  branch: string | null;
+  builtAt: string | null;
+  channel: AppBuildChannel;
+};
+
+export function parseEmbeddedBuildInfo(
+  value: string | null | undefined
+): EmbeddedBuildInfo | null {
+  if (!value) return null;
+  try {
+    const parsed = JSON.parse(value) as EmbeddedBuildInfo | null;
+    return parsed && typeof parsed === 'object' ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+const embedded =
+  typeof document === 'undefined'
+    ? null
+    : parseEmbeddedBuildInfo(
+        document.querySelector<HTMLMetaElement>(
+          'meta[name="mosaic-build-info"]'
+        )?.content
+      );
+const commit = embedded?.commit || null;
 
 export const APP_BUILD_INFO = Object.freeze({
   version: APP_VERSION,
   buildId: commit ?? 'local',
   commit,
   commitShort: commit ? commit.slice(0, 8) : null,
-  commitMessage,
-  branch,
-  builtAt,
-  channel:
-    channel === 'Preview' || channel === 'Production' || channel === 'Local'
-      ? (channel as AppBuildChannel)
-      : 'Local',
+  commitMessage: embedded?.commitMessage || null,
+  branch: embedded?.branch || null,
+  builtAt: embedded?.builtAt || null,
+  channel: embedded?.channel || 'Local',
 });

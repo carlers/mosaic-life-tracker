@@ -102,7 +102,12 @@ an arbitrary photo host.
 Successfully downloaded images are compressed locally to WebP, given deterministic source
 image IDs derived from the TodoMate task and stable photo URL path, bundled into the in-memory
 migration ZIP, and then uploaded by Mosaic's existing restore engine into the signed-in user's
-own Appwrite Storage bucket. The task is rewritten to the resulting Mosaic-owned file ID.
+own Appwrite Storage bucket. The TodoMate ZIP stores those already-compressed WebP payloads without another deflate pass.
+The importer passes an in-memory trusted-precompressed flag directly to restore, so only the
+adapter-produced WebPs can skip a second compression pass. Backup manifest contents never grant
+that trust; a user-supplied backup with a TodoMate-looking source ID still follows the normal
+compression path. The task is rewritten to the resulting Mosaic-owned
+file ID.
 
 Photo preparation is bounded to four concurrent downloads and rejects invalid/non-HTTPS,
 non-image, empty, or over-20 MiB source responses. Unavailable photos are reported in preview
@@ -141,6 +146,27 @@ visibility model. Such records import as `private`, never as broader visibility.
 The TodoMate adapter produces an in-memory Mosaic user-backup v2 file and passes it to the
 existing personal restore engine in **Merge** mode.
 
+This is deliberate. Restore planning resolves each collection's existing IDs in one RxDB
+find-by-ID batch instead of one serial lookup per imported row. Photo restore uses a bounded
+four-worker pool; the normal per-image authenticated-user check and deterministic Storage IDs
+remain in place, so concurrency does not weaken account isolation or re-import idempotence.
+Appwrite Storage 429 responses pause that worker for one minute and retry once; persistent
+throttling fails the import visibly instead of being reported as a missing photo.
+
+For the large task push that follows a fresh TodoMate restore, Mosaic does not normally send
+hundreds of browser `createRow` requests. A whole pristine RxDB TodoMate push batch (currently
+up to 20 rows) is sent once to the existing trusted `message-action` / future `app-api`
+Function via `bulk_create_todomate_tasks`. The Function validates every row before writing,
+forces caller ownership/source/tombstone/reaction invariants, applies owner-only row permissions,
+and creates the validated rows concurrently with its API-key server SDK. Server SDK calls are not
+subject to browser client rate limits, so the old 510 ms-per-create pacing no longer imposes a
+four-minute floor on a 505-task import. A 409 returns the existing same-owner row to the client,
+which reuses the established bootstrap/conflict comparison; genuinely newer same-owner local
+state falls back to the ordinary single-row update path. Mixed/general task batches keep their
+existing semantics. Until a Function deployment containing this action is activated, an
+`Unknown action` response intentionally falls back to the prior bounded/paced browser lane so
+frontend/backend rollout ordering cannot break sync.
+
 This is deliberate. The existing restore path provides:
 
 - online successful-sync preflight before writes
@@ -169,14 +195,21 @@ Preview reads TodoMate but performs no Mosaic writes. It reports at minimum:
 
 Only after preview can the user start the Merge import. Closing or reopening the sheet
 cancels the old preview work, and an older attempt cannot overwrite the current preview.
+A completed preview is also bound to the Mosaic account that created it. Import refuses to
+apply prepared TodoMate data under a different Mosaic account and clears that stale preview,
+so the user must preview again under the active account.
 Both preview and import expose phase text plus a coarse percentage: preview advances through
 connection/login/history/photo preparation; import advances through validation, freshness
-preflight, photo copy, exact local-row application, and the six collection-level cloud
-freshness proofs. The percentage is progress through those known phases/rows/collections,
-not a byte-transfer estimate.
+preflight, photo copy, exact local-row application, and cloud convergence. During TodoMate
+task convergence, Mosaic subscribes to RxDB's successful-send stream and shows the actual
+number of imported tasks acknowledged by replication, for example
+`Syncing tasks to cloud (54/505)…`. After task sends settle, the existing six
+collection-level freshness proofs finish the import. The percentage is progress through those
+known phases/rows/collections, not a byte-transfer estimate.
 
-Import start records only small account-scoped recovery metadata: expected counts, start
-time, and whether local application finished. If the app exits while rows are being applied,
+Starting Import records small account-scoped recovery metadata: expected counts, start time,
+and whether local application finished. If the app exits during preflight or while rows are
+being applied,
 reopening the importer explains that the prior run was interrupted and directs the user to
 preview and rerun it. Deterministic IDs and Merge semantics keep that rerun duplicate-safe.
 If all rows were applied but the bounded final sync did not converge, Mosaic reports
@@ -225,7 +258,24 @@ Automated coverage must prove:
 12. account changes stop restore application, categories apply before tasks, and large
     1,000–5,000-task fixtures retain every row;
 13. failed final convergence keeps locally applied rows and reports sync pending, while a
-    deterministic rerun remains duplicate-safe.
+    deterministic rerun remains duplicate-safe;
+14. a preview prepared under one Mosaic account cannot be imported after switching accounts;
+15. TodoMate-prepared WebPs skip the second compression pass only when the live importer passes
+    its in-memory flag; forged backup metadata cannot enable that fast path;
+16. photo restore stays bounded to four concurrent workers, retries one Storage 429 after a
+    one-minute wait, and persistent throttling fails visibly instead of becoming "missing";
+17. restore planning executes RxDB `findByIds(...).exec()` and regression doubles preserve that
+    real query shape;
+18. a fresh TodoMate task push can create without a preliminary getRow miss, while create
+    conflicts fall back to the existing bootstrap/conflict behavior;
+19. the final TodoMate cloud phase reports unique successful RxDB task sends as
+    `completed/total` without counting duplicate/non-target sends;
+20. pristine TodoMate RxDB push batches use one authenticated Function execution; the Function
+    validates the whole batch and concurrently creates rows with API-key server calls while
+    preserving owner-only permissions and existing-row conflict fallback;
+21. a frontend paired with the pre-batch Function falls back on `Unknown action` to the prior
+    paced browser create lane, so the rollout is backward-compatible; mixed/general task batches
+    retain the established path.
 
 Live acceptance requires a real TodoMate account and must be done by the user locally. Never
 ask the user to paste TodoMate credentials or Firebase tokens into an AI chat. Verify preview
