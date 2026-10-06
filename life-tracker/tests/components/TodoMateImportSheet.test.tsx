@@ -159,7 +159,7 @@ describe('TodoMateImportSheet', () => {
         },
         expect.objectContaining({
           mode: 'merge',
-          onProgress: expect.any(Function),
+          onProgressDetail: expect.any(Function),
         })
       )
     );
