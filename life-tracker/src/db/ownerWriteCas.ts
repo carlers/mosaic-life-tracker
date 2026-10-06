@@ -61,14 +61,10 @@ export async function updateOwnerRowWithCas(
       15_000
     );
   } catch (error) {
-    const candidate = error as {
-      code?: number;
-      result?: { error?: unknown };
-    };
     if (
-      candidate?.code !== 400 ||
-      typeof candidate.result?.error !== 'string' ||
-      !candidate.result.error.startsWith('Unknown action')
+      !(error as { result?: { error?: string } })?.result?.error?.startsWith(
+        'Unknown action'
+      )
     ) {
       throw error;
     }
