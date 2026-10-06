@@ -18,26 +18,28 @@ vi.mock('../../src/db/database', () => ({
           ? { toJSON: () => ({ ...row }), incrementalPatch: vi.fn() }
           : null;
       } }),
-      findByIds: async (ids: string[]) =>
-        new Map(
-          ids.flatMap((id) => {
-            const row = state.rows.get(id);
-            return row
-              ? [[
-                  id,
-                  {
-                    toJSON: () => ({ ...row }),
-                    incrementalPatch: vi.fn(),
-                  },
-                ] as const]
-              : [];
-          })
-        ),
+      findByIds: (ids: string[]) => ({
+        exec: async () =>
+          new Map(
+            ids.flatMap((id) => {
+              const row = state.rows.get(id);
+              return row
+                ? [[
+                    id,
+                    {
+                      toJSON: () => ({ ...row }),
+                      incrementalPatch: vi.fn(),
+                    },
+                  ] as const]
+                : [];
+            })
+          ),
+      }),
       find: () => ({ exec: async () => [] }),
     },
-    categories: { findOne: () => ({ exec: async () => null }), findByIds: async () => new Map(), find: () => ({ exec: async () => [] }) },
-    diary: { findOne: () => ({ exec: async () => null }), findByIds: async () => new Map(), find: () => ({ exec: async () => [] }) },
-    settings: { findOne: () => ({ exec: async () => null }), findByIds: async () => new Map(), find: () => ({ exec: async () => [] }) },
+    categories: { findOne: () => ({ exec: async () => null }), findByIds: () => ({ exec: async () => new Map() }), find: () => ({ exec: async () => [] }) },
+    diary: { findOne: () => ({ exec: async () => null }), findByIds: () => ({ exec: async () => new Map() }), find: () => ({ exec: async () => [] }) },
+    settings: { findOne: () => ({ exec: async () => null }), findByIds: () => ({ exec: async () => new Map() }), find: () => ({ exec: async () => [] }) },
   }),
 }));
 

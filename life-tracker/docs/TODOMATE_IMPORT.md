@@ -103,9 +103,10 @@ Successfully downloaded images are compressed locally to WebP, given determinist
 image IDs derived from the TodoMate task and stable photo URL path, bundled into the in-memory
 migration ZIP, and then uploaded by Mosaic's existing restore engine into the signed-in user's
 own Appwrite Storage bucket. The TodoMate ZIP stores those already-compressed WebP payloads without another deflate pass.
-The generated backup uses TodoMate's reserved source-user prefix, so restore can upload those
-adapter-produced WebPs directly instead of compressing them a second time. Normal Mosaic backup
-images keep the standard compression path. The task is rewritten to the resulting Mosaic-owned
+The importer passes an in-memory trusted-precompressed flag directly to restore, so only the
+adapter-produced WebPs can skip a second compression pass. Backup manifest contents never grant
+that trust; a user-supplied backup with a TodoMate-looking source ID still follows the normal
+compression path. The task is rewritten to the resulting Mosaic-owned
 file ID.
 
 Photo preparation is bounded to four concurrent downloads and rejects invalid/non-HTTPS,
@@ -149,6 +150,8 @@ This is deliberate. Restore planning resolves each collection's existing IDs in 
 find-by-ID batch instead of one serial lookup per imported row. Photo restore uses a bounded
 four-worker pool; the normal per-image authenticated-user check and deterministic Storage IDs
 remain in place, so concurrency does not weaken account isolation or re-import idempotence.
+Appwrite Storage 429 responses pause that worker for one-minute retry windows (up to two retries);
+persistent throttling fails the import visibly instead of being reported as a missing photo.
 
 For the large task push that follows a fresh TodoMate restore, a side-effect-free TodoMate task
 with no pending local image or reactions may optimistically call Appwrite create first. Success
@@ -247,9 +250,13 @@ Automated coverage must prove:
 13. failed final convergence keeps locally applied rows and reports sync pending, while a
     deterministic rerun remains duplicate-safe;
 14. a preview prepared under one Mosaic account cannot be imported after switching accounts;
-15. TodoMate-prepared WebPs skip the second compression pass and photo restore stays bounded
-    to four concurrent workers;
-16. a fresh TodoMate task push can create without a preliminary getRow miss, while create
+15. TodoMate-prepared WebPs skip the second compression pass only when the live importer passes
+    its trusted in-memory flag; forged backup metadata cannot enable that fast path;
+16. photo restore stays bounded to four concurrent workers, retries Storage 429s in bounded
+    one-minute windows, and persistent throttling fails visibly instead of becoming "missing";
+17. restore planning executes RxDB `findByIds(...).exec()` and regression doubles preserve that
+    real query shape;
+18. a fresh TodoMate task push can create without a preliminary getRow miss, while create
     conflicts fall back to the existing bootstrap/conflict behavior.
 
 Live acceptance requires a real TodoMate account and must be done by the user locally. Never
