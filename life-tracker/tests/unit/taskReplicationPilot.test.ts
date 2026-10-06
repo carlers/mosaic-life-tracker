@@ -559,6 +559,44 @@ describe('task RxDB replication pilot', () => {
     expect(createRowMock).not.toHaveBeenCalled();
   });
 
+  it('turns a post-read concurrent owner write into an RxDB conflict', async () => {
+    sendAppActionMock.mockResolvedValueOnce({
+      status: 'conflict',
+      row: remoteTask({
+        $updatedAt: '2026-10-02T00:00:02.000Z',
+        title: 'Other device',
+        updated_at: '2026-10-02T00:00:02.000Z',
+      }),
+    });
+
+    const conflicts = await __taskReplicationPilotTestUtils.pushTasks(
+      [
+        {
+          assumedMasterState: localTask(),
+          newDocumentState: localTask({
+            title: 'This device',
+            updatedAt: '2026-10-02T00:00:02.000Z',
+          }),
+        },
+      ],
+      'user_A'
+    );
+
+    expect(sendAppActionMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'compare_and_set_owner_row',
+        tableId: 'tasks',
+        rowId: 'task_one',
+        expectedUpdatedAt: '2026-10-02T00:00:01.000Z',
+      }),
+      15_000
+    );
+    expect(updateRowMock).not.toHaveBeenCalled();
+    expect(conflicts).toEqual([
+      expect.objectContaining({ title: 'Other device' }),
+    ]);
+  });
+
   it('falls back from update 404 to strict createRow', async () => {
     updateRowMock.mockRejectedValue(
       Object.assign(new Error('missing'), { code: 404 })

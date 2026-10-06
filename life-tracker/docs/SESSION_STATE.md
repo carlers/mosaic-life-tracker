@@ -1,21 +1,29 @@
 # Session checkpoint
 
 Updated: 2026-10-06
-Current task: Promote the accepted connected-chat workflow guardrails into current `dev` and retire completed branches.
-Status: TodoMate import/sync performance work is accepted, live, and already promoted to `dev`. The older stable Preview `refactor/agent-workflow-efficiency` contains useful durable connected-chat latency guardrails but diverged from `dev` only because its historical `SESSION_STATE.md` checkpoint conflicts with the newer TodoMate checkpoint. The direct promotion PR (#318) was closed rather than overwrite current state. A conflict-resolution branch based on current `dev` carries forward only the accepted `AGENTS.md` and `AI_WORKFLOW.md` guardrails plus this refreshed checkpoint.
-Next action: Complete focused verification for the conflict-resolution branch, merge it to `dev`, verify the resulting dev Quality Gate/Vercel deployment, then delete every completed non-`main`/`dev` branch.
-Blockers: None.
+Current task: Repair historical local replica drift that incremental RxDB checkpoints can hide, without making normal background sync expensive.
+Status: Implementation is on `chatgpt/fix-sync-reconciliation`, based on accepted stable Preview `fix/sync-convergence`. A real two-device account reproduced the gap: Appwrite/server truth was correct, a fresh browser origin rebuilt correctly, but an older laptop replica stayed divergent while Sync Now reported success because its durable checkpoint had already advanced past the differing rows. Clearing local data fixed it only because that deleted both the stale local rows and the checkpoint. Manual Sync Now now settles all six pilots, performs a bounded owner-scoped full reconciliation, then settles the pilots again before stamping success. Automatic focus/reconnect/watchdog sync remains incremental.
+Next action: Run focused verification for the final reconciliation tree, squash into `fix/sync-convergence`, require canonical full CI + Vercel Preview acceptance, then perform disposable two-device manual acceptance. Production Function activation and `dev` promotion remain explicit rollout steps.
+Blockers: Vercel Preview still points at the production Appwrite project unless branch-specific environment overrides are configured. Production `message-action` has not yet activated the CAS revision, so Preview can test reconciliation now but not the final production CAS path until backend rollout.
 
 ## Completed evidence
 
-- TodoMate server-batched task sync was proven on the scratch Appwrite project, activated in production, manually accepted on a real import, and promoted to `dev`.
-- `refactor/agent-workflow-efficiency` previously passed canonical acceptance at `aba071211a4d9528ea118e7a92f83b7b58a192e7`.
-- The only promotion conflict is historical checkpoint text; the durable workflow changes are limited to `AGENTS.md` and `docs/AI_WORKFLOW.md`.
-- Direct Git-ref movement did not emit a push workflow in this connected environment, so this checkpoint update is being committed through the normal contents path for the required focused verification.
-- No application/runtime behavior or Appwrite resource is changed by this conflict-resolution task.
+- Reproduced checkpoint-hidden drift in real usage: ordinary Sync Now could report settled while one browser's local RxDB content differed from Appwrite; a fresh origin converged because it had no stale checkpoint.
+- Preserved the existing cheap automatic path: focus/online/visibility and the 120-second watchdog still request incremental RxDB resync only.
+- Changed explicit Sync Now into a three-stage barrier: settle pilots → full read-only reconciliation → settle pilots again.
+- Owner-write collections (tasks/categories/diary/settings) and friendship cache treat the server snapshot as authoritative only after the first freshness barrier; rows changed locally during reconciliation are preserved for the second pilot pass.
+- Message reconciliation remains conservative: full scan repairs older server-backed drift but preserves newer local Function/outbox intent and pending outgoing messages.
+- Missing settled local owner rows are reconciled to Mosaic soft tombstones; incomplete/page-failed reconciliation fails closed and does not report a successful manual sync.
+- Reconciliation skips owner rows whose mapped local state already equals Appwrite, avoiding pointless rewrites on large accounts.
+- Removed legacy `reconciledMissingRows` persistence that had no read-side behavioral consumer, offsetting bundle cost without changing sync semantics.
+- Initial focused verification for the core implementation passed; final focused/canonical acceptance remains.
 
 ## Working files
 
-- `AGENTS.md`
-- `docs/AI_WORKFLOW.md`
-- `docs/SESSION_STATE.md`
+- `src/db/sync.ts`
+- `src/lib/friendshipSync.ts`
+- `tests/unit/sync.test.ts`
+- `tests/unit/friendshipSync.test.ts`
+- `docs/SYNC_SCENARIO_MATRIX.md`
+- `docs/PROJECT_REFERENCE.md`
+- `docs/PLAN.md`
