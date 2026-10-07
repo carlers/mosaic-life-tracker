@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { NotificationItem } from '../../src/lib/notifications';
 
@@ -65,7 +65,19 @@ vi.mock('../../src/components/messages/ReactionRow', () => ({
 }));
 
 vi.mock('../../src/components/messages/ReplyComposerSheet', () => ({
-  ReplyComposerSheet: () => null,
+  ReplyComposerSheet: ({
+    isOpen,
+    friendId,
+  }: {
+    isOpen: boolean;
+    friendId: string | null;
+  }) => (
+    <div
+      data-testid="reply-sheet"
+      data-open={String(isOpen)}
+      data-friend={friendId ?? ''}
+    />
+  ),
 }));
 
 vi.mock('../../src/components/ui/Spinner', () => ({
@@ -180,6 +192,47 @@ describe('NotificationsPage', () => {
     });
     await waitFor(() =>
       expect(screen.getByText('No activity yet')).toBeInTheDocument()
+    );
+  });
+
+  it('does not reopen a stale reply target after an account switch', async () => {
+    mocks.connectivityStatus = 'offline';
+    mocks.getCachedNotifications
+      .mockResolvedValueOnce({
+        items: [notification()],
+        nextCursor: '',
+        fetchedAt: '2026-10-07T10:00:01.000Z',
+      })
+      .mockResolvedValueOnce({
+        items: [],
+        nextCursor: '',
+        fetchedAt: '2026-10-07T11:00:00.000Z',
+      });
+
+    const { rerender } = render(<NotificationsPage />);
+    expect(await screen.findByText('Ship alerts')).toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Reply to Ship alerts' })
+    );
+    expect(screen.getByTestId('reply-sheet')).toHaveAttribute(
+      'data-open',
+      'true'
+    );
+
+    mocks.userId = 'user_c';
+    rerender(<NotificationsPage />);
+
+    await waitFor(() =>
+      expect(screen.getByText('No activity yet')).toBeInTheDocument()
+    );
+    expect(screen.getByTestId('reply-sheet')).toHaveAttribute(
+      'data-open',
+      'false'
+    );
+    expect(screen.getByTestId('reply-sheet')).toHaveAttribute(
+      'data-friend',
+      ''
     );
   });
 
