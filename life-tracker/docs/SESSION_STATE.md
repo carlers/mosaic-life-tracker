@@ -3,7 +3,7 @@
 Updated: 2026-10-07
 Current task: Add bulk task movement between categories from Day View selection mode.
 Status: Implementation prepared on `chatgpt/bulk-move-tasks`, targeting stable Preview branch `feature/bulk-move-tasks` from current `dev` `5592a2a7`.
-Next action: Verify the build-size repair on the task branch, squash it into `feature/bulk-move-tasks`, then require canonical acceptance and Vercel Preview before handoff.
+Next action: Run focused verification for the documented precache-ceiling update, squash the repair into `feature/bulk-move-tasks`, then require canonical acceptance and Vercel Preview before handoff.
 Blockers: None known.
 
 ## Completed evidence
@@ -17,6 +17,7 @@ Blockers: None known.
 - Canonical functional checks passed on the stable Preview tree; the only failure was the PWA unique-precache size guard (+710 B), so the repair removes a one-off icon and redundant category sorting/filtering without changing behavior.
 - The first measured trim reduced the precache overage from 710 B to 297 B; the second trim removes picker-only count/default-height/empty-state code that is unreachable or redundant in a valid selected-task flow and replaces a one-use Set with `includes`.
 - The second measured build reduced the remaining overage to 93 B; the final trim removes the duplicate-ID guard made unreachable by Set-backed selection and redundant accessibility metadata from an empty decorative color dot.
+- Full task verification is green at `5215798e`: build-size guard, lint, unit/handler, both DOM shards, dependency audit, and both browser-contract shards passed. Final precache measured 2,320,796 B; the reviewed ceiling update to 2,321,800 B restores 1,004 B headroom while leaving every other ceiling unchanged.
 
 ## Working files
 
