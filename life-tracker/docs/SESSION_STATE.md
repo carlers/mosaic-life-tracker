@@ -1,19 +1,28 @@
 # Session checkpoint
 
 Updated: 2026-10-07
-Current task: Remove the memo icon shown beneath task titles in Day View while keeping memo text and memo interactions unchanged.
-Status: Implementation prepared on `chatgpt/remove-dayview-memo-icon`, based on stable Preview branch `feature/remove-dayview-memo-icon` from current `dev` `846fdd9e`.
-Next action: Run focused verification, then squash into `feature/remove-dayview-memo-icon` and require its canonical full gate plus Vercel Preview before handoff.
+Current task: Add bulk task movement between categories from Day View selection mode.
+Status: Implementation prepared on `chatgpt/bulk-move-tasks`, targeting stable Preview branch `feature/bulk-move-tasks` from current `dev` `5592a2a7`.
+Next action: Run focused verification on the coherent task commit, repair any failures, then squash into `feature/bulk-move-tasks` for canonical acceptance and Vercel Preview.
 Blockers: None known.
 
 ## Completed evidence
 
-- Traced the visible memo glyph to `TaskMemo` in `src/components/home/views/TaskItem.tsx`; `DayViewSheet` renders it indirectly through the shared task item.
-- Removed only the decorative Lucide `FileText` icon and the now-unused import.
-- Preserved memo text rendering, button semantics, single-tap view, double-tap edit, keyboard behavior, day-swipe passthrough, and selection-mode handling.
-- No behavior-specific automated test was added because the requested change is purely decorative and repository test policy explicitly avoids asserting incidental icon/styling details.
+- Added a dedicated bulk category move path rather than reusing loose per-task `updateTask` patches.
+- Bulk move rereads current active owner categories and same-day tasks, preserves selected tasks already in the destination, appends incoming tasks in visible category/task order, normalizes all affected groups with one shared timestamp, and serializes through the existing task-order queue.
+- Existing single-task drag/reorder semantics remain unchanged and retain their two-category persistence guard.
+- Added a category picker nested sheet and a `Move to Category` bulk action.
+- Added pure ordering regressions for multi-source moves, destination stability, stale selections, and no-op moves, plus Day View regression coverage for the new bulk UI flow.
+- Updated the durable Day View bulk-selection contract in `PROJECT_REFERENCE.md`.
 
 ## Working files
 
-- `src/components/home/views/TaskItem.tsx`
+- `src/lib/taskOrder.ts`
+- `src/hooks/useTasks.ts`
+- `src/components/home/views/BulkTaskActionSheet.tsx`
+- `src/components/home/views/BulkCategoryPickerSheet.tsx`
+- `src/components/home/views/DayViewSheet.tsx`
+- `tests/unit/taskOrder.test.ts`
+- `tests/components/DayViewSheetRegression.test.tsx`
+- `docs/PROJECT_REFERENCE.md`
 - `docs/SESSION_STATE.md`
