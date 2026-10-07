@@ -113,6 +113,68 @@ export function isTaskPlacementCompatible(
   return true;
 }
 
+export function buildBulkMoveTaskOrderGroups(
+  tasks: readonly TaskDocument[],
+  selectedTaskIds: readonly string[],
+  destinationCategoryId: string,
+  categoryIds: readonly string[]
+): TaskOrderGroup[] {
+  if (selectedTaskIds.length === 0) return [];
+
+  const allowedCategories = new Set(categoryIds);
+  if (!allowedCategories.has(destinationCategoryId)) {
+    throw new Error('[taskOrder] Invalid destination category');
+  }
+
+  const selected = new Set(selectedTaskIds);
+  if (selected.size !== selectedTaskIds.length) {
+    throw new Error('[taskOrder] Duplicate selected task');
+  }
+
+  const placement = buildTaskPlacement(tasks, categoryIds);
+  const liveTaskIds = new Set(
+    categoryIds.flatMap((categoryId) => placement[categoryId] ?? [])
+  );
+  for (const taskId of selected) {
+    if (!liveTaskIds.has(taskId)) {
+      throw new Error('[taskOrder] Selected task changed while moving');
+    }
+  }
+
+  const incomingTaskIds = categoryIds.flatMap((categoryId) =>
+    categoryId === destinationCategoryId
+      ? []
+      : (placement[categoryId] ?? []).filter((taskId) => selected.has(taskId))
+  );
+  if (incomingTaskIds.length === 0) return [];
+
+  const nextPlacement: TaskPlacement = { ...placement };
+  for (const categoryId of categoryIds) {
+    if (categoryId === destinationCategoryId) continue;
+    const currentTaskIds = placement[categoryId] ?? [];
+    if (!currentTaskIds.some((taskId) => selected.has(taskId))) continue;
+    nextPlacement[categoryId] = currentTaskIds.filter(
+      (taskId) => !selected.has(taskId)
+    );
+  }
+  nextPlacement[destinationCategoryId] = [
+    ...(placement[destinationCategoryId] ?? []),
+    ...incomingTaskIds,
+  ];
+
+  return categoryIds
+    .filter((categoryId) => {
+      const current = placement[categoryId] ?? [];
+      const next = nextPlacement[categoryId] ?? [];
+      if (current.length !== next.length) return true;
+      return current.some((taskId, index) => taskId !== next[index]);
+    })
+    .map((categoryId) => ({
+      categoryId,
+      taskIds: nextPlacement[categoryId] ?? [],
+    }));
+}
+
 export function buildTaskOrderAssignments(
   tasks: readonly TaskDocument[],
   userId: string,

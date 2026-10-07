@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { TaskDocument } from '../../src/db/schema';
 import {
+  buildBulkMoveTaskOrderGroups,
   buildTaskOrderAssignments,
   buildTaskPlacement,
   getNewTaskOrder,
@@ -157,5 +158,83 @@ describe('task ordering', () => {
       cat_a: ['first', 'later'],
       cat_b: ['other'],
     });
+  });
+
+
+  it('builds a deterministic multi-category bulk move in visible category order', () => {
+    const tasks = [
+      task('a1', 'cat_a', 0),
+      task('a2', 'cat_a', 1),
+      task('b1', 'cat_b', 0),
+      task('b2', 'cat_b', 1),
+      task('c1', 'cat_c', 0),
+    ];
+
+    expect(
+      buildBulkMoveTaskOrderGroups(
+        tasks,
+        ['b2', 'a1', 'c1'],
+        'cat_b',
+        ['cat_a', 'cat_b', 'cat_c']
+      )
+    ).toEqual([
+      { categoryId: 'cat_a', taskIds: ['a2'] },
+      { categoryId: 'cat_b', taskIds: ['b1', 'b2', 'a1', 'c1'] },
+      { categoryId: 'cat_c', taskIds: [] },
+    ]);
+  });
+
+  it('keeps selected tasks already in the destination in place', () => {
+    const tasks = [
+      task('a1', 'cat_a', 0),
+      task('b1', 'cat_b', 0),
+      task('b2', 'cat_b', 1),
+    ];
+
+    expect(
+      buildBulkMoveTaskOrderGroups(
+        tasks,
+        ['b1', 'a1'],
+        'cat_b',
+        ['cat_a', 'cat_b']
+      )
+    ).toEqual([
+      { categoryId: 'cat_a', taskIds: [] },
+      { categoryId: 'cat_b', taskIds: ['b1', 'b2', 'a1'] },
+    ]);
+  });
+
+  it('fails closed for stale selections or invalid destinations and no-ops when all tasks are already there', () => {
+    const tasks = [
+      task('a1', 'cat_a', 0),
+      task('b1', 'cat_b', 0),
+    ];
+
+    expect(() =>
+      buildBulkMoveTaskOrderGroups(
+        tasks,
+        ['missing'],
+        'cat_b',
+        ['cat_a', 'cat_b']
+      )
+    ).toThrow(/changed while moving/);
+
+    expect(() =>
+      buildBulkMoveTaskOrderGroups(
+        tasks,
+        ['a1'],
+        'missing',
+        ['cat_a', 'cat_b']
+      )
+    ).toThrow(/Invalid destination category/);
+
+    expect(
+      buildBulkMoveTaskOrderGroups(
+        tasks,
+        ['b1'],
+        'cat_b',
+        ['cat_a', 'cat_b']
+      )
+    ).toEqual([]);
   });
 });
