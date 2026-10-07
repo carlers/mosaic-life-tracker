@@ -16,6 +16,7 @@ import {
   initializePostHog,
 } from './lib/posthog';
 import { initializeAppearance } from './lib/appearance';
+import { initializeAccentColor } from './lib/accentColor';
 import { initializeScreenLayout } from './lib/screenLayout';
 import { startDatabaseBootstrap } from './lib/databaseBootstrap';
 import { markStartup } from './lib/startupMetrics';
@@ -25,6 +26,7 @@ import { preloadHomePage } from './lib/homePreload';
 markStartup('bootstrap:start');
 initializeConnectivity(window);
 initializeAppearance();
+initializeAccentColor();
 initializeScreenLayout();
 installChunkLoadErrorTracking();
 // Keep the install/update listeners registered before the browser can emit
