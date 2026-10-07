@@ -12,6 +12,7 @@ import { DatePickerSheet } from './DatePickerSheet';
 import { ImagePickerSheet } from './ImagePickerSheet';
 import { TaskVisibilitySheet } from './TaskVisibilitySheet';
 import { BulkTaskActionSheet } from './BulkTaskActionSheet';
+import { BulkCategoryPickerSheet } from './BulkCategoryPickerSheet';
 import { BulkDatePickerSheet } from './BulkDatePickerSheet';
 import { BulkVisibilitySheet } from './BulkVisibilitySheet';
 import { useTasks } from '../../../hooks/useTasks';
@@ -97,6 +98,7 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
     updateTask,
     deleteTask,
     reorderTasks,
+    moveTasksToCategory,
   } = taskStore;
   const { categories: hookCategories = [] } = useCategories(
     categoriesOverride === undefined
@@ -139,6 +141,7 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
   const [isSelectMode, setIsSelectMode] = useState(false);
   const [selectedTaskIds, setSelectedTaskIds] = useState<Set<string>>(() => new Set());
   const [isBulkActionOpen, setIsBulkActionOpen] = useState(false);
+  const [isBulkCategoryOpen, setIsBulkCategoryOpen] = useState(false);
   const [isBulkDateOpen, setIsBulkDateOpen] = useState(false);
   const [isBulkVisibilityOpen, setIsBulkVisibilityOpen] = useState(false);
   const [isBulkDeleteOpen, setIsBulkDeleteOpen] = useState(false);
@@ -176,6 +179,7 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
     setIsSelectMode(false);
     setSelectedTaskIds(new Set());
     setIsBulkActionOpen(false);
+    setIsBulkCategoryOpen(false);
     setIsBulkDateOpen(false);
     setIsBulkVisibilityOpen(false);
     setIsBulkDeleteOpen(false);
@@ -205,6 +209,7 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
       isImageViewerOpen ||
       deletePhotoConfirmOpen ||
       isBulkActionOpen ||
+      isBulkCategoryOpen ||
       isBulkDateOpen ||
       isBulkVisibilityOpen ||
       isBulkDeleteOpen ||
@@ -386,6 +391,32 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
     }
     exitSelectMode();
   }, [exitSelectMode, isBulkWorking, selectedTasks, showFeedback, updateTask]);
+
+  const handleBulkMoveCategory = useCallback(async (categoryId: string) => {
+    const snapshot = selectedTasks;
+    if (snapshot.length === 0 || isBulkWorking) return;
+    setIsBulkWorking(true);
+    try {
+      await moveTasksToCategory(
+        activeDateStr,
+        snapshot.map((task) => task.id),
+        categoryId
+      );
+      setIsBulkWorking(false);
+      exitSelectMode();
+    } catch {
+      setIsBulkWorking(false);
+      setIsBulkCategoryOpen(false);
+      showFeedback('Selected tasks could not be moved');
+    }
+  }, [
+    activeDateStr,
+    exitSelectMode,
+    isBulkWorking,
+    moveTasksToCategory,
+    selectedTasks,
+    showFeedback,
+  ]);
 
   const handleBulkDelete = useCallback(async () => {
     const snapshot = selectedTasks;
@@ -612,6 +643,7 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
     isImageViewerOpen ||
     deletePhotoConfirmOpen ||
     isBulkActionOpen ||
+    isBulkCategoryOpen ||
     isBulkDateOpen ||
     isBulkVisibilityOpen ||
     isBulkDeleteOpen ||
@@ -832,10 +864,23 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
             count={selectedTasks.length}
             isWorking={isBulkWorking}
             onClose={() => setIsBulkActionOpen(false)}
+            onMoveCategory={() => { setIsBulkActionOpen(false); setIsBulkCategoryOpen(true); }}
             onChangeDate={() => { setIsBulkActionOpen(false); setIsBulkDateOpen(true); }}
             onDoToday={() => runBulkUpdate({ date: format(new Date(), 'yyyy-MM-dd') })}
             onDoTomorrow={() => runBulkUpdate({ date: format(addDays(new Date(), 1), 'yyyy-MM-dd') })}
             onVisibility={() => { setIsBulkActionOpen(false); setIsBulkVisibilityOpen(true); }}
+          />
+        )}
+        {isBulkCategoryOpen && (
+          <BulkCategoryPickerSheet
+            isOpen
+            categories={categories.filter(
+              (category) =>
+                category.userId === currentUserId && !category.isDeleted
+            )}
+            isWorking={isBulkWorking}
+            onClose={() => setIsBulkCategoryOpen(false)}
+            onSelect={handleBulkMoveCategory}
           />
         )}
         {isBulkDateOpen && (

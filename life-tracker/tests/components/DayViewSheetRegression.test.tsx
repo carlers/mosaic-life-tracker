@@ -14,6 +14,10 @@ const swiperFixture = vi.hoisted(() => ({
   touchMoveStopPropagation: undefined as boolean | undefined,
 }));
 
+const taskMocks = vi.hoisted(() => ({
+  moveTasksToCategory: vi.fn().mockResolvedValue(undefined),
+}));
+
 const settingsFixture = vi.hoisted(() => ({
   values: {} as Record<string, unknown>,
 }));
@@ -34,6 +38,15 @@ const fixture = vi.hoisted(() => ({
     memo: '',
     image: 'image_1',
   } as TaskDocument,
+  secondCategory: {
+    id: 'cat_2',
+    name: 'Personal',
+    color: '#22C55E',
+    order: 1,
+    visibility: 'private',
+    userId: 'user_1',
+    isDeleted: false,
+  } as CategoryDocument,
   category: {
     id: 'cat_1',
     name: 'Work',
@@ -137,11 +150,13 @@ vi.mock('../../src/hooks/useTasks', () => ({
     toggleTaskCompletion: vi.fn(),
     updateTask: vi.fn(),
     deleteTask: vi.fn(),
+    reorderTasks: vi.fn(),
+    moveTasksToCategory: taskMocks.moveTasksToCategory,
   }),
 }));
 
 vi.mock('../../src/hooks/useCategories', () => ({
-  useCategories: () => ({ categories: [fixture.category] }),
+  useCategories: () => ({ categories: [fixture.category, fixture.secondCategory] }),
 }));
 
 vi.mock('../../src/hooks/useAuth', () => ({
@@ -193,6 +208,7 @@ describe('DayViewSheet nested task actions', () => {
     swiperFixture.noSwiping = undefined;
     swiperFixture.touchStartPreventDefault = undefined;
     swiperFixture.touchMoveStopPropagation = undefined;
+    taskMocks.moveTasksToCategory.mockClear();
   });
 
   afterEach(() => {
@@ -251,6 +267,29 @@ describe('DayViewSheet nested task actions', () => {
     expect(screen.getByRole('button', { name: 'Do It Today' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Do It Tomorrow' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Visibility' })).toBeInTheDocument();
+  });
+
+  it('moves selected tasks to a chosen category through the bulk action sheet', async () => {
+    renderSheet();
+
+    const activeSelect = screen.getAllByRole('button', { name: 'Select tasks' })
+      .find((button) => button.getAttribute('tabindex') === '0');
+    fireEvent.click(activeSelect as HTMLElement);
+    fireEvent.click(screen.getByRole('button', { name: 'Select mocked task' }));
+    fireEvent.click(screen.getByRole('button', { name: 'More actions for selected tasks' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Move to Category' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Personal' }));
+
+    await waitFor(() =>
+      expect(taskMocks.moveTasksToCategory).toHaveBeenCalledWith(
+        '2026-09-20',
+        ['task_1'],
+        'cat_2'
+      )
+    );
+    expect(screen.getAllByRole('button', { name: 'Select tasks' })
+      .find((button) => button.getAttribute('tabindex') === '0'))
+      .toHaveAttribute('aria-pressed', 'false');
   });
 
   it('exits inline selection mode on Escape', () => {
