@@ -937,14 +937,18 @@ gzip ceiling is therefore revised from 684,400 B to 687,200 B and the precache c
 Entry/startup/Home and aggregate raw ceilings remain unchanged. This is reviewed product growth,
 not a blanket threshold increase.
 
-A third reviewed 2026-10-07 exception accepts Day View bulk Move to Category. The comparable
-pre-feature Preview measured 2,318,073 B unique precache; the final trimmed task build measured
-2,320,796 B (+2,723 B). Before accepting the growth, the implementation removed a one-off icon
-and redundant picker/runtime code, reducing the initial feature build from 2,321,510 B by 714 B.
-Entry, startup/Home closures, aggregate raw, and aggregate gzip all remain within their existing
-ceilings. The precache ceiling is therefore revised from 2,320,800 B to 2,321,800 B, leaving
-1,004 B of measured headroom. This records approved product growth after measured trimming; it
-does not widen any other guard.
+A third reviewed 2026-10-07 exception accepts Day View bulk Move to Category. Before
+accepting growth, the implementation removed a one-off icon and redundant picker/runtime code,
+reducing the first GitHub feature build from 2,321,510 B unique precache to 2,320,796 B. The
+provider-matched Vercel comparison then measured the immediately preceding accepted Preview at
+686,337 B aggregate gzip / 2,319,875 B unique precache and the final bulk-move Preview at
+686,968 B / 2,322,600 B: +631 B aggregate gzip and +2,725 B precache. This agrees with the
+GitHub precache delta (+2,723 B) while also capturing Vercel's build-environment variance.
+The aggregate-gzip ceiling is therefore revised from 687,200 B to 688,000 B and the precache
+ceiling from 2,320,800 B to 2,323,600 B, leaving 1,032 B and 1,000 B of measured Vercel
+headroom respectively. Entry, startup/Home closures, and aggregate raw remain unchanged. This
+records approved product growth after measured trimming and provider-matched verification, not
+a blanket threshold increase.
 
 The current baseline and limits live in
 `config/build-size-budget.json` and are pinned by unit coverage.
