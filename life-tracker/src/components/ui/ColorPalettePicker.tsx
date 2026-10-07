@@ -1,35 +1,52 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Check } from 'lucide-react';
-import { PREDEFINED_COLORS } from '../../constants/colors';
+import {
+  PREDEFINED_COLORS,
+  getReadableTextColor,
+  type ColorPalette,
+} from '../../constants/colors';
 
 interface ColorPalettePickerProps {
   selectedColor: string;
   onSelect: (color: string) => void;
+  palettes?: readonly ColorPalette[];
+  ariaLabel?: string;
 }
 
 export const ColorPalettePicker: React.FC<ColorPalettePickerProps> = ({
   selectedColor,
   onSelect,
+  palettes = PREDEFINED_COLORS,
+  ariaLabel = 'Choose a color',
 }) => {
-  // Default to the first palette ('default')
-  const [activePaletteId, setActivePaletteId] = useState<string>(
-    PREDEFINED_COLORS[0].id
-  );
+  const availablePalettes = palettes.length > 0 ? palettes : PREDEFINED_COLORS;
+  const selectedPaletteId = useMemo(() => {
+    const normalizedSelected = selectedColor.toUpperCase();
+    return (
+      availablePalettes.find((palette) =>
+        palette.colors.some(
+          (color) => color.toUpperCase() === normalizedSelected
+        )
+      )?.id ?? availablePalettes[0].id
+    );
+  }, [availablePalettes, selectedColor]);
+  const [activePaletteId, setActivePaletteId] =
+    useState<string>(selectedPaletteId);
 
   const activePalette =
-    PREDEFINED_COLORS.find((p) => p.id === activePaletteId) ||
-    PREDEFINED_COLORS[0];
+    availablePalettes.find((palette) => palette.id === activePaletteId) ||
+    availablePalettes.find((palette) => palette.id === selectedPaletteId) ||
+    availablePalettes[0];
 
   return (
     <div className="flex flex-col">
-      {/* Tabs */}
       <div
         role="tablist"
         aria-label="Color palette"
-        className="flex bg-[#111111] rounded-lg p-1 mb-4 border border-[#333333]"
+        className="mb-4 flex gap-1 overflow-x-auto rounded-lg border border-[#333333] bg-[#111111] p-1 no-scrollbar"
       >
-        {PREDEFINED_COLORS.map((palette) => {
-          const isActive = activePaletteId === palette.id;
+        {availablePalettes.map((palette) => {
+          const isActive = activePalette.id === palette.id;
           return (
             <button
               key={palette.id}
@@ -37,7 +54,7 @@ export const ColorPalettePicker: React.FC<ColorPalettePickerProps> = ({
               role="tab"
               aria-selected={isActive}
               onClick={() => setActivePaletteId(palette.id)}
-              className={`flex-1 py-1.5 text-xs font-medium rounded-md transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 ${
+              className={`min-w-max flex-1 rounded-md px-3 py-1.5 text-xs font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 ${
                 isActive ? 'bg-[#2A2A2A] text-white' : 'text-gray-400'
               }`}
             >
@@ -47,14 +64,15 @@ export const ColorPalettePicker: React.FC<ColorPalettePickerProps> = ({
         })}
       </div>
 
-      {/* Color Grid */}
       <div
         role="radiogroup"
-        aria-label="Choose a color"
-        className="grid grid-cols-5 sm:grid-cols-6 gap-3 p-2"
+        aria-label={ariaLabel}
+        className="grid grid-cols-5 gap-3 p-2 sm:grid-cols-6"
       >
         {activePalette.colors.map((color) => {
-          const isSelected = selectedColor === color;
+          const isSelected =
+            selectedColor.toUpperCase() === color.toUpperCase();
+          const indicatorColor = getReadableTextColor(color);
           return (
             <button
               key={color}
@@ -63,19 +81,21 @@ export const ColorPalettePicker: React.FC<ColorPalettePickerProps> = ({
               aria-checked={isSelected}
               aria-label={`Select color ${color}`}
               onClick={() => onSelect(color)}
-              className="relative w-10 h-10 rounded-full flex items-center justify-center transition-transform focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 focus-visible:ring-offset-2 focus-visible:ring-offset-[#111111] hover:scale-110"
+              className="relative flex h-10 w-10 items-center justify-center rounded-full transition-transform hover:scale-110 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 focus-visible:ring-offset-2 focus-visible:ring-offset-[#111111]"
               style={{ backgroundColor: color }}
             >
               {isSelected && (
                 <>
-                  <div
-                    className="absolute inset-0 rounded-full border-2 border-white"
+                  <span
+                    className="absolute inset-0 rounded-full border-2"
+                    style={{ borderColor: indicatorColor }}
                     aria-hidden="true"
                   />
                   <Check
                     size={16}
-                    className="text-white drop-shadow-md"
                     strokeWidth={3}
+                    style={{ color: indicatorColor }}
+                    className="drop-shadow-md"
                     aria-hidden="true"
                   />
                 </>

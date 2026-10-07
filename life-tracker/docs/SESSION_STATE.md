@@ -1,24 +1,19 @@
 # Session checkpoint
 
-Updated: 2026-10-06
-Current task: Release Mosaic 0.3.0 from accepted `dev` to `main`.
-Status: Sync convergence/reconciliation is promoted to `dev` at `4c88a8aa`; production `message-action` CAS deployment `6ac522c0b2a584dc525e` is active and runtime-smoked. Release prep bumps Mosaic from 0.2.0 to 0.3.0 with no product/runtime behavior changes beyond the already-accepted `dev` tree.
-Next action: Verify the 0.3.0 metadata bump, deliver it through a stable Preview, promote the accepted tree back to `dev`, then merge `dev` to `main` and require the full production Quality Gate + Vercel Production deployment.
+Updated: 2026-10-07
+Current task: Remove the memo icon shown beneath task titles in Day View while keeping memo text and memo interactions unchanged.
+Status: Implementation prepared on `chatgpt/remove-dayview-memo-icon`, based on stable Preview branch `feature/remove-dayview-memo-icon` from current `dev` `846fdd9e`.
+Next action: Run focused verification, then squash into `feature/remove-dayview-memo-icon` and require its canonical full gate plus Vercel Preview before handoff.
 Blockers: None known.
 
-## Release scope
+## Completed evidence
 
-- Multi-device owner-write CAS for tasks/categories/diary/settings through the trusted Function.
-- Bounded visible/online incremental resync for missed Realtime events.
-- Manual Sync Now anti-entropy repair for checkpoint-hidden historical local drift.
-- Existing accepted TodoMate import/sync performance and workflow hardening already present on `dev`.
-- Release version metadata is synchronized in `package.json`, `package-lock.json`, and `src/lib/appVersion.ts`; build identity remains commit-specific.
+- Traced the visible memo glyph to `TaskMemo` in `src/components/home/views/TaskItem.tsx`; `DayViewSheet` renders it indirectly through the shared task item.
+- Removed only the decorative Lucide `FileText` icon and the now-unused import.
+- Preserved memo text rendering, button semantics, single-tap view, double-tap edit, keyboard behavior, day-swipe passthrough, and selection-mode handling.
+- No behavior-specific automated test was added because the requested change is purely decorative and repository test policy explicitly avoids asserting incidental icon/styling details.
 
 ## Working files
 
-- `package.json`
-- `package-lock.json`
-- `src/lib/appVersion.ts`
-- `tests/unit/appVersion.test.ts`
-- `docs/PROJECT_REFERENCE.md`
+- `src/components/home/views/TaskItem.tsx`
 - `docs/SESSION_STATE.md`

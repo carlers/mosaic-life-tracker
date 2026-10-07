@@ -7,6 +7,12 @@ import {
 } from '../../src/constants/colors';
 
 describe('accessible category colors', () => {
+  it('keeps the expanded palette curated and includes the new-category default', () => {
+    const colors = getAllAvailableColors();
+    expect(colors.length).toBeGreaterThanOrEqual(50);
+    expect(colors).toContain('#3B82F6');
+  });
+
   // Regression: Phase 4 WCAG AA audit — normal text requires 4.5:1 contrast.
   it('keeps every predefined category label readable on the black pill', () => {
     for (const color of getAllAvailableColors()) {

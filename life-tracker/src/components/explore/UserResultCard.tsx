@@ -27,7 +27,7 @@ export const UserResultCard: React.FC<UserResultCardProps> = ({
         );
       case 'friends':
         return (
-          <span className="flex items-center gap-1 text-xs text-emerald-400 font-medium px-3 py-1.5">
+          <span className="mosaic-semantic-success-400 flex items-center gap-1 text-xs text-emerald-400 font-medium px-3 py-1.5">
             <Check size={12} strokeWidth={3} />
             Friends
           </span>
