@@ -2,8 +2,8 @@
 
 Updated: 2026-10-07
 Current task: Add synced app accent-color customization and expand the reusable curated category-color picker.
-Status: Core implementation is on stable Preview branch `feature/accent-color-customization` at `04a3686`. Focused verification passed, and every full-gate functional job passed. The first stable Preview build failed only the production size guard: 686,313 B aggregate gzip versus 684,400 B and 2,319,808 B precache versus 2,318,400 B. A measured budget repair is prepared on `chatgpt/accent-color-budget-repair`.
-Next action: Commit the reviewed aggregate/precache budget adjustment with focused verification, squash it into `feature/accent-color-customization`, then require the stable branch's canonical full gate and Vercel Preview to pass before handoff.
+Status: Accepted on stable Preview branch `feature/accent-color-customization` at `9e8ba651`. The final canonical Quality Gate passed, the Vercel Preview is READY, and the deployed root returns HTTP 200 from the exact accepted commit.
+Next action: Human/manual acceptance on the Preview. Promote to `dev` only when explicitly requested.
 Blockers: None known.
 
 ## Completed evidence
@@ -14,16 +14,17 @@ Blockers: None known.
 - Accent startup cache is account-scoped and applied before React mounts using the cached last-known account, preventing a default-color flash for returning users.
 - AppearanceProvider resolves synced accent over the per-account cache, applies optimistic local changes immediately, and persists through the existing settings hook.
 - Existing emerald interaction chrome is remapped through semantic CSS variables for accent background/text/soft/border/focus variants. Explicit success/online state remains green; warnings/errors/holidays/category colors remain independent.
-- ColorPalettePicker now accepts palette datasets, starts on the palette containing the selected color, keeps accessible tab/radio semantics, supports scrollable palette tabs, and chooses a readable selection indicator.
-- Regression coverage was added for accent contrast/token derivation, per-account caching, provider persistence/sync precedence, Preferences selection, generalized palette behavior, and the expanded category palette.
-- Task-branch focused Quality Gate run 37558262170 passed.
-- Stable Preview Quality Gate run 37558384358 passed dependency audit, lint, unit/handler tests, both DOM shards, and both browser-contract shards. Only the production build-size guard failed.
-- Failed Vercel deployment `dpl_6bheBpLfCJLNEG9YPGYtPSenev3C` confirmed the same size-only failure; TypeScript, Vite build, and PWA policy completed successfully before the guard rejected the build.
-- Reviewed repair keeps entry, startup/Home closure, and aggregate raw limits unchanged while setting aggregate gzip to 687,200 B and precache to 2,320,800 B, leaving 887 B and 992 B of headroom over the measured feature build.
+- ColorPalettePicker accepts category or accent palette datasets, starts on the palette containing the selected color, keeps accessible tab/radio semantics, supports scrollable palette tabs, and chooses a readable selection indicator.
+- Regression coverage covers accent contrast/token derivation, per-account caching, provider persistence/sync precedence, Preferences selection, generalized palette behavior, and the expanded category palette.
+- Feature task focused Quality Gate run `37558262170` passed.
+- The first stable Preview run `37558384358` passed every functional job and failed only the production size guard. Vercel deployment `dpl_6bheBpLfCJLNEG9YPGYtPSenev3C` confirmed the same size-only failure after TypeScript, Vite, and PWA checks had passed.
+- The reviewed size repair preserves entry, startup/Home closure, and aggregate raw limits while setting aggregate gzip to 687,200 B and precache to 2,320,800 B. Repair focused Quality Gate run `37560916602` passed.
+- Final stable Quality Gate run `37560980720` passed build, dependency audit, lint, unit/handler tests, both DOM shards, both browser-contract shards, and canonical acceptance.
+- Final Vercel Preview deployment `dpl_67kQ6vRhFCx7nYP4rDMknMhBwpHx` is READY for commit `9e8ba6517bf55a6ca81fa71293eb1b3a220511c6`; fetching the deployed root returned HTTP 200.
 
-## Working files
+## Manual acceptance still pending
 
-- `config/build-size-budget.json`
-- `tests/unit/buildSizeGuard.test.ts`
-- `docs/PROJECT_REFERENCE.md`
-- `docs/SESSION_STATE.md`
+- Confirm representative accent choices look correct in Dark, Black, and Light appearance modes.
+- Confirm a selected accent survives a reload/offline launch without a visible emerald flash.
+- Confirm account switching and a second signed-in device resolve to the correct per-account synced accent.
+- Confirm category colors and semantic online/success/warning/error colors remain visually independent of the selected accent.
