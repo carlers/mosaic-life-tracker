@@ -144,7 +144,6 @@ function subscriptionPayload(subscription: PushSubscription) {
 }
 
 async function registerSubscription(
-  userId: string,
   subscription: PushSubscription
 ): Promise<void> {
   await sendAppAction({
@@ -165,7 +164,7 @@ export async function reconcileExistingPushSubscription(
   const config = await getPushConfig();
   if (!config.enabled || !config.publicKey) return false;
 
-  await registerSubscription(userId, subscription);
+  await registerSubscription(subscription);
   return true;
 }
 
@@ -186,7 +185,7 @@ export async function getPushNotificationState(
             'Push delivery is not configured'
           );
         }
-        await registerSubscription(userId, subscription);
+        await registerSubscription(subscription);
       } catch (error) {
         console.warn(
           '[pushNotifications] subscription reconciliation failed:',
@@ -262,7 +261,7 @@ export async function enablePushNotifications(
     });
   }
 
-  await registerSubscription(userId, subscription);
+  await registerSubscription(subscription);
   await setPushActiveUser(userId);
   return state('enabled', 'Enabled on this device', true);
 }
