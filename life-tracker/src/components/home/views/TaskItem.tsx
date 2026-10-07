@@ -106,7 +106,7 @@ const TaskMemo: React.FC<{
         else if (event.detail === 0) onOpenMemo(task, 'view');
       }}
       data-day-swipe-through="true"
-      className="mt-1 flex w-full touch-pan-y items-start text-left text-xs text-gray-400 rounded focus:outline-none"
+      className="mt-1 w-full touch-pan-y text-left text-xs text-gray-400 rounded focus:outline-none"
       aria-label="Open memo"
     >
       <span className="whitespace-pre-wrap break-words">{task.memo}</span>
