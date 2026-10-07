@@ -126,9 +126,6 @@ export function buildBulkMoveTaskOrderGroups(
   }
 
   const selected = new Set(selectedTaskIds);
-  if (selected.size !== selectedTaskIds.length) {
-    throw new Error('[taskOrder] Duplicate selected task');
-  }
 
   const placement = buildTaskPlacement(tasks, categoryIds);
   const liveTaskIds = new Set(

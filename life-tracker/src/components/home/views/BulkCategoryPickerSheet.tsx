@@ -35,7 +35,6 @@ export const BulkCategoryPickerSheet = ({
             <span
               className="h-3 w-3 shrink-0 rounded-full"
               style={{ backgroundColor: category.color }}
-              aria-hidden="true"
             />
             <span className="min-w-0 flex-1 truncate text-base font-medium">
               {category.name}
