@@ -1,7 +1,7 @@
 import { resolvePrimarySwipeDestination } from '../../lib/primarySwipeNavigation';
 import {
   loadAccountPage,
-  loadComingSoon,
+  loadNotificationsPage,
   loadExplorePage,
   loadHomePage,
   loadMessagesPage,
@@ -19,7 +19,7 @@ type PreloadPath =
 const PRELOADERS: Record<PreloadPath, () => Promise<unknown>> = {
   '/home': loadHomePage,
   '/explore': loadExplorePage,
-  '/notifications': loadComingSoon,
+  '/notifications': loadNotificationsPage,
   '/messages': loadMessagesPage,
   '/account': loadAccountPage,
   '/settings': loadSettingsPage,
