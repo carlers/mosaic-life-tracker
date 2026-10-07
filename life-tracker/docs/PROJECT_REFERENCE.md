@@ -120,7 +120,7 @@ See [offline implementation output](AI_WORKFLOW.md#offline-implementation-output
 - **Sticky Layout Rules:** `MainLayout` root must be `h-screen overflow-hidden`; `<main>` must be `flex-1 overflow-y-auto`. Without both, `position: sticky` misbehaves.
 - **Non-Sticky Home Chrome:** On Home, the person carousel, profile header, Home toolbar, and calendar date header are intentionally NOT sticky — they scroll away so the calendar grid owns the viewport. Do not re-add `sticky top-0`.
 - **Layout-Shift Reservation:** Any element whose visibility toggles (timestamps, status rows, hover controls) MUST always reserve its space — toggle opacity, never presence. Prevents the hover-flicker reflow loop.
-- **Day View bulk selection:** Selection is scoped to the active day and exits on date navigation or outer-sheet close. Selected task rows use their category color, suppress completion/edit/memo/photo gestures, and expose bulk soft-delete, date, Today/Tomorrow, and visibility actions. Escape and Android Back exit selection before dismissing the Day View sheet; nested bulk sheets retain normal top-first dismissal.
+- **Day View bulk selection:** Selection is scoped to the active day and exits on date navigation or outer-sheet close. Selected task rows use their category color, suppress completion/edit/memo/photo gestures, and expose bulk soft-delete, category move, date, Today/Tomorrow, and visibility actions. Bulk category move rereads the current owner/day/category state before writing, preserves already-destination selected tasks in place, appends incoming selected tasks in current Day View visual order (category order, then task order), normalizes every affected source plus destination group with one shared update timestamp, and fails closed if selected tasks or the destination category changed. Escape and Android Back exit selection before dismissing the Day View sheet; nested bulk sheets retain normal top-first dismissal.
 - **Gesture Priority on Interactive Elements:** swipe > long-press > double-tap > single-tap. Single-tap is deferred ~300ms to distinguish from double-tap. Any tap on the same pointer sequence as a swipe or long-press MUST be suppressed via a flag on the gesture hook (see §21).
 - **Nested Carousel Gesture Ownership:** horizontal swipes that begin inside the calendar carousel belong to the calendar and MUST NOT advance the outer friend/person carousel. Horizontal swipes outside the calendar may advance the friend/person carousel. Parent isolation must not cancel the child calendar's own pointer lifecycle.
 - **RxDB Reserved Keywords:** NEVER use `deleted` as a field name in RxDB schemas (see §12).
@@ -935,7 +935,22 @@ closures, and aggregate raw bytes all remained inside their existing limits. The
 gzip ceiling is therefore revised from 684,400 B to 687,200 B and the precache ceiling from
 2,318,400 B to 2,320,800 B, leaving 887 B and 992 B of measured headroom respectively.
 Entry/startup/Home and aggregate raw ceilings remain unchanged. This is reviewed product growth,
-not a blanket threshold increase. The current baseline and limits live in
+not a blanket threshold increase.
+
+A third reviewed 2026-10-07 exception accepts Day View bulk Move to Category. Before
+accepting growth, the implementation removed a one-off icon and redundant picker/runtime code,
+reducing the first GitHub feature build from 2,321,510 B unique precache to 2,320,796 B. The
+provider-matched Vercel comparison then measured the immediately preceding accepted Preview at
+686,337 B aggregate gzip / 2,319,875 B unique precache and the final bulk-move Preview at
+686,968 B / 2,322,600 B: +631 B aggregate gzip and +2,725 B precache. This agrees with the
+GitHub precache delta (+2,723 B) while also capturing Vercel's build-environment variance.
+The aggregate-gzip ceiling is therefore revised from 687,200 B to 688,000 B and the precache
+ceiling from 2,320,800 B to 2,323,600 B, leaving 1,032 B and 1,000 B of measured Vercel
+headroom respectively. Entry, startup/Home closures, and aggregate raw remain unchanged. This
+records approved product growth after measured trimming and provider-matched verification, not
+a blanket threshold increase.
+
+The current baseline and limits live in
 `config/build-size-budget.json` and are pinned by unit coverage.
 
 `npm run build:size` checks an existing `dist/`. The diagnostic

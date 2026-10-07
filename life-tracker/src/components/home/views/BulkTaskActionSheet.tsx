@@ -6,6 +6,7 @@ interface BulkTaskActionSheetProps {
   isOpen: boolean;
   count: number;
   onClose: () => void;
+  onMoveCategory: () => void;
   onChangeDate: () => void;
   onDoToday: () => void;
   onDoTomorrow: () => void;
@@ -17,6 +18,7 @@ export const BulkTaskActionSheet: React.FC<BulkTaskActionSheetProps> = ({
   isOpen,
   count,
   onClose,
+  onMoveCategory,
   onChangeDate,
   onDoToday,
   onDoTomorrow,
@@ -24,6 +26,7 @@ export const BulkTaskActionSheet: React.FC<BulkTaskActionSheetProps> = ({
   isWorking = false,
 }) => {
   const actions = [
+    { label: 'Move to Category', icon: ArrowRight, action: onMoveCategory },
     { label: 'Change Date', icon: CalendarDays, action: onChangeDate },
     { label: 'Do It Today', icon: ArrowRight, action: onDoToday },
     { label: 'Do It Tomorrow', icon: ArrowRight, action: onDoTomorrow },

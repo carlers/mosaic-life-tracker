@@ -4,6 +4,7 @@ import { useAuth } from './useAuth';
 import { useRxCollection } from './useRxCollection';
 import type { TaskDocument } from '../db/schema';
 import {
+  buildBulkMoveTaskOrderGroups,
   buildTaskOrderAssignments,
   getNewTaskOrder,
   type NewTaskPosition,
@@ -175,6 +176,94 @@ export function useTasks(enabled = true) {
     [user?.$id]
   );
 
+  const moveTasksToCategory = useCallback(
+    (
+      date: string,
+      taskIds: readonly string[],
+      destinationCategoryId: string
+    ) => {
+      const uid = user?.$id;
+      const selectedTaskIds = [...taskIds];
+
+      const applyMove = async () => {
+        if (!uid || selectedTaskIds.length === 0) return;
+
+        const db = getDatabase();
+        const categoryDocs = await db.categories
+          .find({
+            selector: {
+              userId: uid,
+              isDeleted: false,
+            },
+          })
+          .exec();
+        const orderedCategories = categoryDocs
+          .slice()
+          .sort(
+            (a, b) =>
+              (a.order ?? 0) - (b.order ?? 0) || a.id.localeCompare(b.id)
+          );
+        if (
+          !orderedCategories.some(
+            (category) => category.id === destinationCategoryId
+          )
+        ) {
+          throw new Error('[useTasks] Destination category changed while moving');
+        }
+
+        const affectedDayTasks = await db.tasks
+          .find({
+            selector: {
+              userId: uid,
+              date,
+              isDeleted: false,
+            },
+          })
+          .exec();
+        const groups = buildBulkMoveTaskOrderGroups(
+          affectedDayTasks,
+          selectedTaskIds,
+          destinationCategoryId,
+          orderedCategories.map((category) => category.id)
+        );
+        if (groups.length === 0) return;
+
+        const assignments = buildTaskOrderAssignments(
+          affectedDayTasks,
+          uid,
+          date,
+          groups
+        );
+        const docsById = new Map(
+          affectedDayTasks.map((task) => [task.id, task])
+        );
+        const updatedAt = new Date().toISOString();
+
+        await Promise.all(
+          assignments.map(({ id, categoryId, order }) => {
+            const doc = docsById.get(id);
+            if (!doc) {
+              throw new Error('[useTasks] Task disappeared while moving');
+            }
+            if (doc.categoryId === categoryId && doc.order === order) {
+              return Promise.resolve();
+            }
+            return doc.incrementalPatch({
+              categoryId,
+              order,
+              updatedAt,
+            });
+          })
+        );
+      };
+
+      const queued = reorderQueue.current.then(applyMove, applyMove);
+      reorderQueue.current = queued.catch(() => undefined);
+      return queued;
+    },
+    [user?.$id]
+  );
+
   return {
     tasks,
     isLoading,
@@ -183,5 +272,6 @@ export function useTasks(enabled = true) {
     deleteTask,
     toggleTaskCompletion,
     reorderTasks,
+    moveTasksToCategory,
   };
 }
