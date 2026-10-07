@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
   setAppearanceMode: vi.fn().mockResolvedValue(undefined),
+  setAccentColor: vi.fn().mockResolvedValue(undefined),
   setContentWidthMode: vi.fn().mockResolvedValue(undefined),
   setSheetWidthMode: vi.fn().mockResolvedValue(undefined),
   getSetting: vi.fn(),
@@ -13,6 +14,7 @@ const mocks = vi.hoisted(() => ({
 
 beforeEach(() => {
   mocks.setAppearanceMode.mockClear();
+  mocks.setAccentColor.mockClear();
   mocks.setContentWidthMode.mockClear();
   mocks.setSheetWidthMode.mockClear();
   mocks.setSetting.mockClear();
@@ -27,6 +29,8 @@ vi.mock('../../src/hooks/useAppearance', () => ({
     mode: 'system',
     resolvedTheme: 'dark',
     setAppearanceMode: mocks.setAppearanceMode,
+    accentColor: '#10B981',
+    setAccentColor: mocks.setAccentColor,
     contentWidthMode: 'full',
     sheetWidthMode: 'full',
     setContentWidthMode: mocks.setContentWidthMode,
@@ -68,6 +72,11 @@ describe('PreferencesPage', () => {
     expect(mocks.setAppearanceMode).toHaveBeenCalledWith('light');
     expect(mocks.setContentWidthMode).toHaveBeenCalledWith('comfortable');
     expect(mocks.setSheetWidthMode).toHaveBeenCalledWith('compact');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Choose accent color' }));
+    expect(screen.getByRole('dialog', { name: 'Accent color' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('radio', { name: 'Select color #3B82F6' }));
+    expect(mocks.setAccentColor).toHaveBeenCalledWith('#3B82F6');
 
     const continuous = screen.getByRole('switch', {
       name: 'Keep adding in same category',

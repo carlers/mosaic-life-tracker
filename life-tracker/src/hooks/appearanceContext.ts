@@ -9,6 +9,8 @@ export interface AppearanceContextValue {
   mode: AppearanceMode;
   resolvedTheme: ResolvedAppearanceTheme;
   setAppearanceMode: (mode: AppearanceMode) => Promise<void>;
+  accentColor: string;
+  setAccentColor: (color: string) => Promise<void>;
   contentWidthMode: ContentWidthMode;
   sheetWidthMode: SheetWidthMode;
   setContentWidthMode: (mode: ContentWidthMode) => Promise<void>;
