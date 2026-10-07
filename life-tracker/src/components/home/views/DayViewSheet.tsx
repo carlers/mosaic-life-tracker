@@ -874,9 +874,9 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
         {isBulkCategoryOpen && (
           <BulkCategoryPickerSheet
             isOpen
-            count={selectedTasks.length}
             categories={categories.filter(
-              (category) => category.userId === currentUserId
+              (category) =>
+                category.userId === currentUserId && !category.isDeleted
             )}
             isWorking={isBulkWorking}
             onClose={() => setIsBulkCategoryOpen(false)}
