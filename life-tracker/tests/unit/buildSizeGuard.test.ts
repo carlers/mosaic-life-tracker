@@ -162,8 +162,8 @@ describe('build-size guard', () => {
     }
   });
 
-  // Regression: §24.14 (aggregate gzip includes the reviewed TodoMate sync
-  // progress/throughput growth; raw + precache ceilings were not widened).
+  // Regression: §24.14 (aggregate/precache ceilings include reviewed shipped
+  // product growth without widening startup/Home or aggregate raw limits).
   it('preserves the reviewed aggregate and precache ceilings', async () => {
     const configuredBudget = JSON.parse(await readFile(
       new URL('../../config/build-size-budget.json', import.meta.url),
@@ -172,8 +172,8 @@ describe('build-size guard', () => {
 
     expect(configuredBudget.limits).toMatchObject({
       appAssetsRawBytes: 2254900,
-      appAssetsGzipBytes: 684400,
-      precacheUniqueBytes: 2318400,
+      appAssetsGzipBytes: 687200,
+      precacheUniqueBytes: 2320800,
     });
   });
 

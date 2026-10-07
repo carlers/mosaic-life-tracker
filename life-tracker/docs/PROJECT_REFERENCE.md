@@ -925,8 +925,18 @@ existing Lucide pencil edit affordance. Comparable Vercel builds measured curren
 The aggregate gzip ceiling is therefore revised from 683,500 B to 684,400 B, leaving about
 723 B of measured provider headroom. Entry/startup/Home, aggregate raw, and precache ceilings
 are unchanged. This is accepted product growth plus build-provider gzip variance, not a
-threshold increase made solely to silence verification. The current baseline and limits live
-in `config/build-size-budget.json` and are pinned by unit coverage.
+threshold increase made solely to silence verification.
+
+A second reviewed 2026-10-07 exception accepts the accent-customization feature: per-account
+pre-React accent caching, synced appearance state, accessible derived accent tokens, 20 curated
+accent choices, and 20 additional curated category colors. The complete Vercel Preview build
+measured 686,313 B aggregate gzip and 2,319,808 B unique precache while entry, startup/Home
+closures, and aggregate raw bytes all remained inside their existing limits. The aggregate
+gzip ceiling is therefore revised from 684,400 B to 687,200 B and the precache ceiling from
+2,318,400 B to 2,320,800 B, leaving 887 B and 992 B of measured headroom respectively.
+Entry/startup/Home and aggregate raw ceilings remain unchanged. This is reviewed product growth,
+not a blanket threshold increase. The current baseline and limits live in
+`config/build-size-budget.json` and are pinned by unit coverage.
 
 `npm run build:size` checks an existing `dist/`. The diagnostic
 `scripts/audit-bundle.mjs` remains the source for per-chunk package/module attribution,
