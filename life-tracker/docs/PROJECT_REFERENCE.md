@@ -958,6 +958,19 @@ headroom respectively. Entry, startup/Home closures, and aggregate raw remain un
 records approved product growth after measured trimming and provider-matched verification, not
 a blanket threshold increase.
 
+A fourth reviewed 2026-10-07 exception accepts the Notifications/Alerts feature after the
+generated-worker verification fix exposed its complete production graph. Provider-matched
+Vercel builds measured the immediately preceding accepted `dev` at 2,247,422 B aggregate raw /
+686,912 B aggregate gzip / 2,322,431 B unique precache and the complete Alerts Preview at
+2,268,387 B / 694,711 B / 2,346,954 B: +20,965 B raw, +7,799 B gzip, and +24,523 B
+precache. The growth is attributable to the new lazy Alerts route plus its notification cache,
+push-registration client, shared action dependencies, and the checked-in push service-worker
+handler; entry, initial static closure, and Home closure remain inside their existing ceilings.
+The aggregate-raw ceiling is therefore revised from 2,254,900 B to 2,269,500 B, aggregate gzip
+from 688,000 B to 695,800 B, and unique precache from 2,323,600 B to 2,348,000 B, leaving
+1,113 B, 1,089 B, and 1,046 B of measured Vercel headroom respectively. Entry and startup/Home
+ceilings remain unchanged. This is measured product growth, not a blanket threshold increase.
+
 The current baseline and limits live in
 `config/build-size-budget.json` and are pinned by unit coverage.
 
