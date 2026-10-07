@@ -5,6 +5,7 @@ import React, {
   useState,
 } from 'react';
 import { useSettings } from './useSettings';
+import { useAuth } from './useAuth';
 import { AppearanceContext } from './appearanceContext';
 import {
   APPEARANCE_SETTING_KEY,
@@ -16,6 +17,16 @@ import {
   resolveAppearanceMode,
   type AppearanceMode,
 } from '../lib/appearance';
+import {
+  ACCENT_COLOR_SETTING_KEY,
+  applyAccentColor,
+  cacheAccentColor,
+  readCachedAccentColor,
+} from '../lib/accentColor';
+import {
+  isValidAccentColor,
+  normalizeAccentColor,
+} from '../constants/colors';
 import {
   CONTENT_WIDTH_SETTING_KEY,
   SHEET_WIDTH_SETTING_KEY,
@@ -33,11 +44,21 @@ import {
 export const AppearanceProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
+  const { user } = useAuth();
+  const userId = user?.$id ?? '';
   const { getSetting, setSetting, isLoading } = useSettings();
   const cachedMode = useMemo(() => readCachedAppearanceMode(), []);
+  const cachedAccentColor = useMemo(
+    () => readCachedAccentColor(userId),
+    [userId]
+  );
   const cachedContentWidthMode = useMemo(() => readCachedContentWidthMode(), []);
   const cachedSheetWidthMode = useMemo(() => readCachedSheetWidthMode(), []);
   const [overrideMode, setOverrideMode] = useState<AppearanceMode | null>(null);
+  const [overrideAccentColor, setOverrideAccentColor] = useState<{
+    userId: string;
+    color: string;
+  } | null>(null);
   const [overrideContentWidthMode, setOverrideContentWidthMode] =
     useState<ContentWidthMode | null>(null);
   const [overrideSheetWidthMode, setOverrideSheetWidthMode] =
@@ -50,6 +71,23 @@ export const AppearanceProvider: React.FC<{ children: React.ReactNode }> = ({
     ? undefined
     : getSetting(APPEARANCE_SETTING_KEY, undefined);
   const syncedMode = isAppearanceMode(syncedValue) ? syncedValue : null;
+  const syncedAccentValue = isLoading
+    ? undefined
+    : getSetting(ACCENT_COLOR_SETTING_KEY, undefined);
+  const syncedAccentColor = isValidAccentColor(syncedAccentValue)
+    ? normalizeAccentColor(syncedAccentValue)
+    : null;
+  if (
+    overrideAccentColor &&
+    (overrideAccentColor.userId !== userId ||
+      syncedAccentColor === overrideAccentColor.color)
+  ) {
+    setOverrideAccentColor(null);
+  }
+  const accentColor =
+    overrideAccentColor?.userId === userId
+      ? overrideAccentColor.color
+      : syncedAccentColor ?? cachedAccentColor;
   const syncedContentWidthValue = isLoading
     ? undefined
     : getSetting(CONTENT_WIDTH_SETTING_KEY, undefined);
@@ -99,6 +137,11 @@ export const AppearanceProvider: React.FC<{ children: React.ReactNode }> = ({
   }, [mode, systemPrefersDark]);
 
   useEffect(() => {
+    applyAccentColor(accentColor);
+    if (userId) cacheAccentColor(accentColor, userId);
+  }, [accentColor, userId]);
+
+  useEffect(() => {
     cacheContentWidthMode(contentWidthMode);
     cacheSheetWidthMode(sheetWidthMode);
     applyScreenLayoutModes(contentWidthMode, sheetWidthMode);
@@ -112,6 +155,18 @@ export const AppearanceProvider: React.FC<{ children: React.ReactNode }> = ({
       await setSetting(APPEARANCE_SETTING_KEY, nextMode);
     },
     [setSetting, systemPrefersDark]
+  );
+
+  const setAccentColor = useCallback(
+    async (nextColor: string) => {
+      if (!userId || !isValidAccentColor(nextColor)) return;
+      const normalizedColor = normalizeAccentColor(nextColor);
+      setOverrideAccentColor({ userId, color: normalizedColor });
+      cacheAccentColor(normalizedColor, userId);
+      applyAccentColor(normalizedColor);
+      await setSetting(ACCENT_COLOR_SETTING_KEY, normalizedColor);
+    },
+    [setSetting, userId]
   );
 
   const setContentWidthMode = useCallback(
@@ -139,15 +194,19 @@ export const AppearanceProvider: React.FC<{ children: React.ReactNode }> = ({
       mode,
       resolvedTheme,
       setAppearanceMode,
+      accentColor,
+      setAccentColor,
       contentWidthMode,
       sheetWidthMode,
       setContentWidthMode,
       setSheetWidthMode,
     }),
     [
+      accentColor,
       contentWidthMode,
       mode,
       resolvedTheme,
+      setAccentColor,
       setAppearanceMode,
       setContentWidthMode,
       setSheetWidthMode,

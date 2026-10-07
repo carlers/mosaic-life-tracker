@@ -79,7 +79,7 @@ export const SyncStatusSheet: React.FC<SyncStatusSheetProps> = ({
       <div className="pt-2 pb-8 px-4 space-y-3">
         <div className="bg-[#1A1A1A] rounded-xl p-4 flex items-center gap-3">
           {isOnline ? (
-            <Wifi size={20} className="text-emerald-500 flex-shrink-0" />
+            <Wifi size={20} className="mosaic-semantic-success-500 text-emerald-500 flex-shrink-0" />
           ) : isOffline ? (
             <WifiOff size={20} className="text-amber-400 flex-shrink-0" />
           ) : (
@@ -117,7 +117,7 @@ export const SyncStatusSheet: React.FC<SyncStatusSheetProps> = ({
           ) : status.lastSync ? (
             <CheckCircle2
               size={20}
-              className="text-emerald-500 flex-shrink-0"
+              className="mosaic-semantic-success-500 text-emerald-500 flex-shrink-0"
             />
           ) : (
             <Cloud size={20} className="text-gray-400 flex-shrink-0" />
@@ -172,7 +172,7 @@ export const SyncStatusSheet: React.FC<SyncStatusSheetProps> = ({
             size={20}
             className={
               readiness.isReady
-                ? 'text-emerald-500 flex-shrink-0'
+                ? 'mosaic-semantic-success-500 text-emerald-500 flex-shrink-0'
                 : 'text-gray-400 flex-shrink-0'
             }
           />

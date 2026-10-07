@@ -16,6 +16,19 @@
   --mosaic-text-muted: #9ca3af;
   --mosaic-text-faint: #6b7280;
   --mosaic-task-incomplete-bg: #374151;
+  --mosaic-accent: #10b981;
+  --mosaic-accent-hover: #0e9f71;
+  --mosaic-accent-soft: rgba(16, 185, 129, 0.15);
+  --mosaic-accent-foreground: #000000;
+  --mosaic-accent-text-dark: #10b981;
+  --mosaic-accent-text-light: #0b825a;
+  --mosaic-accent-text: var(--mosaic-accent-text-dark);
+  --mosaic-accent-ring-dark: rgba(16, 185, 129, 0.7);
+  --mosaic-accent-ring-light: rgba(11, 130, 90, 0.7);
+  --mosaic-accent-ring: var(--mosaic-accent-ring-dark);
+  --mosaic-accent-border-dark: rgba(16, 185, 129, 0.55);
+  --mosaic-accent-border-light: rgba(11, 130, 90, 0.55);
+  --mosaic-accent-border: var(--mosaic-accent-border-dark);
 }
 
 html[data-theme='black'] {
@@ -48,6 +61,9 @@ html[data-theme='light'] {
   --mosaic-text-muted: #6b7280;
   --mosaic-text-faint: #9ca3af;
   --mosaic-task-incomplete-bg: #e5e7eb;
+  --mosaic-accent-text: var(--mosaic-accent-text-light);
+  --mosaic-accent-ring: var(--mosaic-accent-ring-light);
+  --mosaic-accent-border: var(--mosaic-accent-border-light);
 }
 
 body {
@@ -162,6 +178,51 @@ html[data-theme='light']
   )
   [class~="text-white"] {
   color: #ffffff !important;
+}
+
+/* User-selected accent remap. Semantic success/online colors remain fixed. */
+[class~="bg-emerald-500"] {
+  background-color: var(--mosaic-accent) !important;
+  color: var(--mosaic-accent-foreground) !important;
+}
+[class~="hover:bg-emerald-600"]:hover {
+  background-color: var(--mosaic-accent-hover) !important;
+}
+[class~="bg-emerald-500/15"] {
+  background-color: var(--mosaic-accent-soft) !important;
+}
+[class~="text-emerald-400"]:not(.mosaic-semantic-success-400),
+[class~="text-emerald-500"]:not(.mosaic-semantic-success-500) {
+  color: var(--mosaic-accent-text) !important;
+}
+[class~="hover:text-emerald-300"]:hover,
+[class~="hover:text-emerald-400"]:not(.mosaic-semantic-success-400):hover {
+  color: var(--mosaic-accent-text) !important;
+}
+[class~="border-emerald-500"],
+[class~="border-emerald-500/50"] {
+  border-color: var(--mosaic-accent-border) !important;
+}
+[class~="focus:border-emerald-500"]:focus {
+  border-color: var(--mosaic-accent) !important;
+}
+[class*="ring-emerald-"] {
+  --tw-ring-color: var(--mosaic-accent-ring) !important;
+}
+html[data-theme='light'] [class~="bg-emerald-500"] {
+  color: var(--mosaic-accent-foreground) !important;
+}
+.mosaic-semantic-success-400 {
+  color: #34d399 !important;
+}
+.mosaic-semantic-success-500 {
+  color: #10b981 !important;
+}
+[class~="text-emerald-500/80"] {
+  color: rgb(16 185 129 / 0.8) !important;
+}
+[class~="text-emerald-500/80"][class~="hover:text-emerald-400"]:hover {
+  color: #34d399 !important;
 }
 
 .no-scrollbar::-webkit-scrollbar {

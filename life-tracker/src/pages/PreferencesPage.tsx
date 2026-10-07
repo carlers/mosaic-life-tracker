@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   ArrowUp,
   CalendarDays,
@@ -8,6 +8,7 @@ import {
   Globe2,
   ListFilter,
   ListPlus,
+  Palette,
   Tag,
 } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -20,6 +21,9 @@ import {
   type SheetWidthMode,
 } from '../lib/screenLayout';
 import { SettingsRow } from '../components/ui/SettingsRow';
+import { BottomSheet } from '../components/ui/BottomSheet';
+import { ColorPalettePicker } from '../components/ui/ColorPalettePicker';
+import { ACCENT_COLOR_PALETTES } from '../constants/colors';
 import { useSettings } from '../hooks/useSettings';
 import {
   ADD_TASKS_TO_TOP_SETTING_KEY,
@@ -192,6 +196,8 @@ export const PreferencesPage: React.FC = () => {
   const {
     mode,
     setAppearanceMode,
+    accentColor,
+    setAccentColor,
     contentWidthMode,
     sheetWidthMode,
     setContentWidthMode,
@@ -199,6 +205,7 @@ export const PreferencesPage: React.FC = () => {
   } = useAppearance();
   const { getSetting, setSetting } = useSettings();
   const holidayCountries = useHolidayCountries();
+  const [isAccentPickerOpen, setIsAccentPickerOpen] = useState(false);
 
   const continueAddingTasks =
     getSetting(CONTINUE_ADDING_TASKS_SETTING_KEY, false) === true;
@@ -387,6 +394,56 @@ export const PreferencesPage: React.FC = () => {
           copy={APPEARANCE_COPY}
           onChange={setAppearanceMode}
         />
+        <section className="border-b border-[#333333] px-4 py-5">
+          <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-gray-400">
+            Accent color
+          </h2>
+          <button
+            type="button"
+            aria-label="Choose accent color"
+            onClick={() => setIsAccentPickerOpen(true)}
+            className="flex w-full items-center justify-between gap-3 rounded-xl px-3 py-2.5 text-left transition-colors hover:bg-[#2A2A2A] focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
+          >
+            <span className="flex min-w-0 items-center gap-3">
+              <span
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#2A2A2A]"
+                aria-hidden="true"
+              >
+                <Palette size={17} className="text-emerald-500" />
+              </span>
+              <span>
+                <span className="block text-sm font-semibold text-white">
+                  App accent
+                </span>
+                <span className="mt-0.5 block text-xs leading-relaxed text-gray-400">
+                  Used for interactive controls and selection highlights.
+                </span>
+              </span>
+            </span>
+            <span
+              className="h-7 w-7 shrink-0 rounded-full border border-white/20"
+              style={{ backgroundColor: accentColor }}
+              aria-hidden="true"
+            />
+          </button>
+        </section>
+        <BottomSheet
+          isOpen={isAccentPickerOpen}
+          onClose={() => setIsAccentPickerOpen(false)}
+          title="Accent color"
+        >
+          <div className="pb-4">
+            <p className="mb-3 text-sm leading-relaxed text-gray-400">
+              Changes apply immediately and sync with your Mosaic account.
+            </p>
+            <ColorPalettePicker
+              selectedColor={accentColor}
+              palettes={ACCENT_COLOR_PALETTES}
+              ariaLabel="Choose app accent color"
+              onSelect={(color) => void setAccentColor(color)}
+            />
+          </div>
+        </BottomSheet>
         <ChoiceGroup
           label="Content width"
           options={CONTENT_WIDTH_MODES}
