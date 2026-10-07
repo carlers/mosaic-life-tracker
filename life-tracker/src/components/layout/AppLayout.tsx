@@ -112,6 +112,24 @@ export const AppLayout: React.FC = () => {
   const database = useDatabaseBootstrap();
 
   useEffect(() => {
+    const userId = user?.$id ?? null;
+    let active = true;
+    void import('../../lib/pushNotifications')
+      .then(({ setPushActiveUser }) => {
+        if (active) return setPushActiveUser(userId);
+      })
+      .catch((pushError) => {
+        console.warn('[AppLayout] push account marker failed:', pushError);
+      });
+    return () => {
+      active = false;
+      void import('../../lib/pushNotifications')
+        .then(({ setPushActiveUser }) => setPushActiveUser(null))
+        .catch(() => {});
+    };
+  }, [user?.$id]);
+
+  useEffect(() => {
     if (!user?.$id) return;
     void loadAppDataShell().catch((shellError) => {
       console.error('[AppLayout] data shell preload failed:', shellError);

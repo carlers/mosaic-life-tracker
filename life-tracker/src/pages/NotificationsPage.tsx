@@ -140,16 +140,12 @@ export const NotificationsPage: React.FC = () => {
       }
     } catch (cause) {
       console.error('[NotificationsPage] refresh failed:', cause);
-      setError(
-        items.length > 0
-          ? 'Could not refresh activity.'
-          : 'Could not load activity.'
-      );
+      setError('Could not refresh activity.');
     } finally {
       setIsRefreshing(false);
       setIsHydrating(false);
     }
-  }, [connectivity.status, items.length, userId]);
+  }, [connectivity.status, userId]);
 
   useEffect(() => {
     if (connectivity.status === 'online') {
