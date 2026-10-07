@@ -1,31 +1,25 @@
-import React from 'react';
 import { BottomSheet } from '../../ui/BottomSheet';
 import type { CategoryDocument } from '../../../db/schema';
 
 interface BulkCategoryPickerSheetProps {
   isOpen: boolean;
-  count: number;
   categories: readonly CategoryDocument[];
   onClose: () => void;
   onSelect: (categoryId: string) => void;
   isWorking?: boolean;
 }
 
-export const BulkCategoryPickerSheet: React.FC<
-  BulkCategoryPickerSheetProps
-> = ({
+export const BulkCategoryPickerSheet = ({
   isOpen,
-  count,
   categories,
   onClose,
   onSelect,
   isWorking = false,
-}) => (
+}: BulkCategoryPickerSheetProps) => (
     <BottomSheet
       isOpen={isOpen}
       onClose={onClose}
-      title={`Move ${count} ${count === 1 ? 'Task' : 'Tasks'} to Category`}
-      height="auto"
+      title="Move to Category"
       backdropBlur
       preventDismiss={isWorking}
     >
@@ -37,7 +31,6 @@ export const BulkCategoryPickerSheet: React.FC<
             disabled={isWorking}
             onClick={() => onSelect(category.id)}
             className="flex w-full items-center gap-3 rounded-xl px-2 py-3.5 text-left text-white transition-colors hover:bg-[#252525] disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
-            aria-label={category.name}
           >
             <span
               className="h-3 w-3 shrink-0 rounded-full"
@@ -49,11 +42,6 @@ export const BulkCategoryPickerSheet: React.FC<
             </span>
           </button>
         ))}
-        {categories.length === 0 && (
-          <p className="px-2 py-4 text-sm text-gray-400">
-            No categories available.
-          </p>
-        )}
       </div>
     </BottomSheet>
 );

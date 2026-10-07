@@ -15,6 +15,7 @@ Blockers: None known.
 - Added pure ordering regressions for multi-source moves, destination stability, stale selections, and no-op moves, plus Day View regression coverage for the new bulk UI flow.
 - Updated the durable Day View bulk-selection contract in `PROJECT_REFERENCE.md`.
 - Canonical functional checks passed on the stable Preview tree; the only failure was the PWA unique-precache size guard (+710 B), so the repair removes a one-off icon and redundant category sorting/filtering without changing behavior.
+- The first measured trim reduced the precache overage from 710 B to 297 B; the second trim removes picker-only count/default-height/empty-state code that is unreachable or redundant in a valid selected-task flow and replaces a one-use Set with `includes`.
 
 ## Working files
 

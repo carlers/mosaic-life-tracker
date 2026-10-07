@@ -121,8 +121,7 @@ export function buildBulkMoveTaskOrderGroups(
 ): TaskOrderGroup[] {
   if (selectedTaskIds.length === 0) return [];
 
-  const allowedCategories = new Set(categoryIds);
-  if (!allowedCategories.has(destinationCategoryId)) {
+  if (!categoryIds.includes(destinationCategoryId)) {
     throw new Error('[taskOrder] Invalid destination category');
   }
 
