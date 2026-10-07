@@ -14,6 +14,11 @@ assert.equal(result.skipWaitingOnUnrelatedMessage, false, 'Unrelated messages mu
 assert.equal(result.clientsClaim, false, 'SW must not claim open clients');
 assert.equal(result.navigationFallback, 'index.html', 'Preserve offline SPA navigation');
 assert.deepEqual(result.navigationDenylist, ['^\\/v1\\/', '^\\/api\\/'], 'Preserve API navigation exclusions');
+assert.deepEqual(
+  result.importedScripts,
+  ['/push-sw.js'],
+  'Generated worker must import only the checked-in push handler'
+);
 
 for (const url of result.precacheUrls) {
   assert.ok(!/^(?:[a-z]+:)?\/\//i.test(url), `Precache URL must be same-origin: ${url}`);
