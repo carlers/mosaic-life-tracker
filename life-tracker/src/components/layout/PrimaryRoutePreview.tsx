@@ -75,7 +75,7 @@ const PrimaryRoutePreviewComponent: React.FC<{ pathname: string }> = ({ pathname
       content = <ExplorePreview />;
       break;
     case '/notifications':
-      content = <NotificationsPreview />;
+      content = <NotificationsPreview preview />;
       break;
     case '/messages':
       content = <MessagesPreview />;

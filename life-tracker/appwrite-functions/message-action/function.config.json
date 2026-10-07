@@ -33,8 +33,8 @@
   },
   "requiredSecretVariables": [],
   "events": [
-    "databases.life_tracker.tables.tasks.rows.*.create",
-    "databases.life_tracker.tables.tasks.rows.*.update"
+    "tablesdb.life_tracker.tables.tasks.rows.*.create",
+    "tablesdb.life_tracker.tables.tasks.rows.*.update"
   ],
   "optionalNonSecretVariables": [
     "WEB_PUSH_VAPID_PUBLIC_KEY",

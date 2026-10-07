@@ -68,6 +68,10 @@ describe('Appwrite backend target safety', () => {
         definitions.functions
       )
     ).toEqual([]);
+    expect(definitions.functions['message-action'].config.events).toEqual([
+      'tablesdb.life_tracker.tables.tasks.rows.*.create',
+      'tablesdb.life_tracker.tables.tasks.rows.*.update',
+    ]);
   });
 
 
@@ -423,6 +427,33 @@ describe('controlled Appwrite Function deployments', () => {
         schedule: '',
       })
     );
+  });
+
+  it('can build compatible code before newly-declared event triggers are enabled', async () => {
+    const definitions = await readBackendDefinitions();
+    const definition = definitions.functions['message-action'];
+    const functions = {
+      get: vi.fn(async () => ({
+        ...definition.config,
+        events: [],
+      })),
+      createDeployment: vi.fn(async () => ({ $id: 'dep_events' })),
+      getDeployment: vi.fn(async () => ({
+        $id: 'dep_events',
+        status: 'ready',
+      })),
+    };
+    await expect(
+      deployFunctionVersion({
+        functions: functions as any,
+        definition,
+        functionId: definition.config.$id,
+        gitSha: 'abcdef1',
+        verifyGit: vi.fn(async () => {}),
+        packageDirectory: vi.fn(async () => Buffer.from('archive')),
+        sleep: async () => {},
+      })
+    ).resolves.toMatchObject({ deploymentId: 'dep_events' });
   });
 
   it('builds a ready deployment without activating it', async () => {

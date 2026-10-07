@@ -115,19 +115,27 @@ export const AppLayout: React.FC = () => {
     const userId = user?.$id ?? null;
     let active = true;
     void import('../../lib/pushNotifications')
-      .then(({ setPushActiveUser }) => {
-        if (active) return setPushActiveUser(userId);
+      .then(async ({
+        reconcileExistingPushSubscription,
+        setPushActiveUser,
+      }) => {
+        if (!active) return;
+        await setPushActiveUser(userId);
+        if (
+          active &&
+          userId &&
+          connectivity.status === 'online'
+        ) {
+          await reconcileExistingPushSubscription(userId);
+        }
       })
       .catch((pushError) => {
-        console.warn('[AppLayout] push account marker failed:', pushError);
+        console.warn('[AppLayout] push account reconciliation failed:', pushError);
       });
     return () => {
       active = false;
-      void import('../../lib/pushNotifications')
-        .then(({ setPushActiveUser }) => setPushActiveUser(null))
-        .catch(() => {});
     };
-  }, [user?.$id]);
+  }, [connectivity.status, user?.$id]);
 
   useEffect(() => {
     if (!user?.$id) return;

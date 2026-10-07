@@ -224,7 +224,7 @@ export const PreferencesPage: React.FC = () => {
 
   useEffect(() => {
     let active = true;
-    void getPushNotificationState().then((next) => {
+    void getPushNotificationState(user?.$id ?? '').then((next) => {
       if (active) setPushState(next);
     });
     return () => {
@@ -243,7 +243,7 @@ export const PreferencesPage: React.FC = () => {
       setPushState(next);
     } catch (error) {
       console.error('[PreferencesPage] push toggle failed:', error);
-      setPushState(await getPushNotificationState());
+      setPushState(await getPushNotificationState(userId));
     } finally {
       setIsChangingPush(false);
     }

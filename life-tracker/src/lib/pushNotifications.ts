@@ -20,6 +20,11 @@ export interface PushNotificationState {
   label: string;
 }
 
+interface PushConfig {
+  enabled: boolean;
+  publicKey: string;
+}
+
 let markerWrite: Promise<void> = Promise.resolve();
 
 function openPushStateDB(): Promise<IDBDatabase> {
@@ -116,41 +121,13 @@ async function getLocalSubscription(): Promise<PushSubscription | null> {
   return registration.pushManager.getSubscription();
 }
 
-export async function getPushNotificationState(): Promise<PushNotificationState> {
-  const unsupported = supportState();
-  if (unsupported) return unsupported;
-
-  const subscription = await getLocalSubscription();
-  if (subscription) {
-    return state('enabled', 'Enabled on this device', true);
-  }
-
-  if (getConnectivitySnapshot().status !== 'online') {
-    return state('available', 'Available when online');
-  }
-
-  try {
-    const config = await sendAppAction({ action: 'get_push_config' });
-    if (config.enabled !== true || typeof config.publicKey !== 'string') {
-      return state('unconfigured', 'Push delivery is not configured');
-    }
-  } catch {
-    return state('available', 'Available when online');
-  }
-
-  return state(
-    'available',
-    Notification.permission === 'granted'
-      ? 'Ready to enable'
-      : 'Permission not requested'
-  );
-}
-
-function applicationServerKey(value: string): Uint8Array {
-  const padding = '='.repeat((4 - (value.length % 4)) % 4);
-  const base64 = (value + padding).replace(/-/g, '+').replace(/_/g, '/');
-  const binary = atob(base64);
-  return Uint8Array.from(binary, (char) => char.charCodeAt(0));
+async function getPushConfig(): Promise<PushConfig> {
+  const result = await sendAppAction({ action: 'get_push_config' });
+  return {
+    enabled: result.enabled === true,
+    publicKey:
+      typeof result.publicKey === 'string' ? result.publicKey : '',
+  };
 }
 
 function subscriptionPayload(subscription: PushSubscription) {
@@ -166,6 +143,94 @@ function subscriptionPayload(subscription: PushSubscription) {
   };
 }
 
+async function registerSubscription(
+  userId: string,
+  subscription: PushSubscription
+): Promise<void> {
+  await sendAppAction({
+    action: 'register_push_subscription',
+    ...subscriptionPayload(subscription),
+  });
+  await setPushActiveUser(userId);
+}
+
+export async function reconcileExistingPushSubscription(
+  userId: string
+): Promise<boolean> {
+  if (!userId || supportState()) return false;
+  if (getConnectivitySnapshot().status !== 'online') return false;
+
+  const subscription = await getLocalSubscription();
+  if (!subscription) return false;
+
+  const config = await getPushConfig();
+  if (!config.enabled || !config.publicKey) return false;
+
+  await registerSubscription(userId, subscription);
+  return true;
+}
+
+export async function getPushNotificationState(
+  userId = ''
+): Promise<PushNotificationState> {
+  const unsupported = supportState();
+  if (unsupported) return unsupported;
+
+  const subscription = await getLocalSubscription();
+  if (subscription) {
+    if (getConnectivitySnapshot().status === 'online' && userId) {
+      try {
+        const config = await getPushConfig();
+        if (!config.enabled || !config.publicKey) {
+          return state(
+            'unconfigured',
+            'Push delivery is not configured'
+          );
+        }
+        await registerSubscription(userId, subscription);
+      } catch (error) {
+        console.warn(
+          '[pushNotifications] subscription reconciliation failed:',
+          error
+        );
+      }
+    }
+    return state('enabled', 'Enabled on this device', true);
+  }
+
+  if (getConnectivitySnapshot().status !== 'online') {
+    return state('available', 'Available when online');
+  }
+
+  try {
+    const config = await getPushConfig();
+    if (!config.enabled || !config.publicKey) {
+      return state('unconfigured', 'Push delivery is not configured');
+    }
+  } catch {
+    return state('available', 'Available when online');
+  }
+
+  return state(
+    'available',
+    Notification.permission === 'granted'
+      ? 'Ready to enable'
+      : 'Permission not requested'
+  );
+}
+
+function applicationServerKey(value: string): ArrayBuffer {
+  const padding = '='.repeat((4 - (value.length % 4)) % 4);
+  const base64 = (value + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const binary = atob(base64);
+  const buffer = new ArrayBuffer(binary.length);
+  const bytes = new Uint8Array(buffer);
+  for (let index = 0; index < binary.length; index += 1) {
+    bytes[index] = binary.charCodeAt(index);
+  }
+  return buffer;
+}
+
 export async function enablePushNotifications(
   userId: string
 ): Promise<PushNotificationState> {
@@ -176,12 +241,8 @@ export async function enablePushNotifications(
     return state('available', 'Connect to the internet to enable');
   }
 
-  const config = await sendAppAction({ action: 'get_push_config' });
-  if (
-    config.enabled !== true ||
-    typeof config.publicKey !== 'string' ||
-    !config.publicKey
-  ) {
+  const config = await getPushConfig();
+  if (!config.enabled || !config.publicKey) {
     return state('unconfigured', 'Push delivery is not configured');
   }
 
@@ -202,11 +263,7 @@ export async function enablePushNotifications(
     });
   }
 
-  await sendAppAction({
-    action: 'register_push_subscription',
-    ...subscriptionPayload(subscription),
-  });
-  await setPushActiveUser(userId);
+  await registerSubscription(userId, subscription);
   return state('enabled', 'Enabled on this device', true);
 }
 
@@ -232,6 +289,5 @@ export async function disablePushNotifications(
   if (subscription) {
     await subscription.unsubscribe();
   }
-  if (userId) await setPushActiveUser(userId);
-  return getPushNotificationState();
+  return getPushNotificationState(userId);
 }
