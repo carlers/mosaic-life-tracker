@@ -110,6 +110,10 @@ Current ordered baseline reconciliations are:
   access when either bucket or file permission allows it, so bucket-wide read would otherwise
   bypass Mosaic's file-security boundary. The migration sends the full intended bucket
   configuration and fails closed on any bucket drift other than that one known legacy grant.
+- `004-notifications` — creates the server-only `notifications` and
+  `push_subscriptions` tables from the portable backend manifest. Existing tables are
+  accepted only when their managed columns, indexes, permissions, row-security flag, and
+  enabled state match the manifest; incompatible pre-existing resources fail closed.
 
 The runner is not a replay of every historical pre-foundation Console/script change. Fresh
 forks bootstrap the current manifest, and production was already at the current historical

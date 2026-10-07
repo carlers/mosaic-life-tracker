@@ -383,6 +383,18 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({
   );
   const canInteract =
     !preview && feedIsCurrent && connectivity.status === 'online';
+  const currentReactionTarget =
+    feedIsCurrent &&
+    reactionTarget &&
+    visibleItems.some((item) => item.id === reactionTarget.id)
+      ? reactionTarget
+      : null;
+  const currentReplyTarget =
+    feedIsCurrent &&
+    replyTarget &&
+    visibleItems.some((item) => item.id === replyTarget.id)
+      ? replyTarget
+      : null;
   const isInitialLoading = Boolean(userId) && !feedIsCurrent;
 
   const loadMoreButton = visibleNextCursor ? (
@@ -585,30 +597,22 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({
       )}
 
       <EmojiPickerSheet
-        isOpen={feedIsCurrent && Boolean(reactionTarget)}
+        isOpen={Boolean(currentReactionTarget)}
         onClose={() => setReactionTarget(null)}
         onPick={(emoji) => {
-          if (reactionTarget) {
-            void handleReaction(reactionTarget, emoji);
+          if (currentReactionTarget) {
+            void handleReaction(currentReactionTarget, emoji);
           }
         }}
       />
 
       <ReplyComposerSheet
-        isOpen={feedIsCurrent && Boolean(replyTarget)}
+        isOpen={Boolean(currentReplyTarget)}
         onClose={() => setReplyTarget(null)}
-        task={feedIsCurrent ? replyTarget?.task ?? null : null}
-        categoryColor={
-          feedIsCurrent ? replyTarget?.categoryColor ?? '' : ''
-        }
-        friendId={
-          feedIsCurrent ? replyTarget?.actorId ?? null : null
-        }
-        friendName={
-          feedIsCurrent
-            ? replyTarget?.actorName ?? 'Friend'
-            : 'Friend'
-        }
+        task={currentReplyTarget?.task ?? null}
+        categoryColor={currentReplyTarget?.categoryColor ?? ''}
+        friendId={currentReplyTarget?.actorId ?? null}
+        friendName={currentReplyTarget?.actorName ?? 'Friend'}
       />
     </div>
   );

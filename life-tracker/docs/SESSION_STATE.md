@@ -1,26 +1,33 @@
 # Session checkpoint
 
 Updated: 2026-10-07
-Current task: Add bulk task movement between categories from Day View selection mode.
-Status: Stable Preview `feature/bulk-move-tasks` is at `41cd6a04`; GitHub canonical acceptance is green, while the matching Vercel Preview exposed provider-specific build-size variance. A measured provider-budget repair is prepared on `chatgpt/bulk-move-tasks-provider-budget`.
-Next action: Run focused verification for the provider-budget repair, squash it into `feature/bulk-move-tasks`, then require a green canonical gate and READY Vercel Preview before handoff.
-Blockers: None known.
+Current task: Ship the Notifications/Alerts tab with friend task-completion activity and optional Web Push.
+Status: Implementation and regression coverage are complete on the AI task branch; focused GitHub verification is the next gate. Production Appwrite schema/Function/VAPID rollout has not been performed.
+Next action: Run the task branch focused gate. If green, squash into `feature/notifications-alerts`, wait for canonical acceptance and the Vercel Preview, then perform the explicit Appwrite rollout only after repository acceptance.
+Blockers: Web Push delivery remains intentionally disabled until VAPID values are configured on the target Appwrite Function.
 
 ## Completed evidence
 
-- Added `Move to Category` to Day View bulk selection with an owned-category picker.
-- Bulk move rereads active owner categories and same-day tasks, preserves selected tasks already in the destination, appends incoming tasks in visible category/task order, normalizes every affected source plus destination group with one shared timestamp, and serializes through the existing task-order queue.
-- Existing single-task drag/reorder behavior remains unchanged.
-- Added ordering regressions for multi-source moves, destination stability, stale selections, invalid destinations, and no-op moves, plus Day View regression coverage for the bulk UI flow.
-- Measured runtime trims reduced the initial GitHub precache result from 2,321,510 B to 2,320,796 B; full task verification at `5215798e` passed build, lint, unit/handler, both DOM shards, dependency audit, and both browser-contract shards.
-- The first clean repair was squash-merged through PR #354 into stable Preview commit `41cd6a04`; its GitHub canonical run `37577104019` passed.
-- Vercel deployment `dpl_AjKHeJLMTykfSdk5VstqKBGWejXQ` for the same stable SHA failed only the build-size guard: 2,322,600 B unique precache against the interim 2,321,800 B limit. All other Vercel build metrics passed.
-- Provider-matched Vercel measurements establish the actual feature delta: prior accepted Preview `53ece56e` measured 686,337 B aggregate gzip / 2,319,875 B precache; bulk Move measured 686,968 B / 2,322,600 B, or +631 B / +2,725 B.
-- The reviewed provider-adjusted ceilings are 688,000 B aggregate gzip and 2,323,600 B unique precache, leaving 1,032 B and 1,000 B measured Vercel headroom. Entry, startup/Home, and aggregate-raw ceilings remain unchanged.
+- Replaced the Notifications placeholder with an Alerts feed for visible task completions from mutual friends.
+- Added server-owned `notifications` and `push_subscriptions` manifest tables plus idempotent migration `004-notifications` and account-erasure coverage.
+- Added task create/update Function events using the Appwrite TablesDB event namespace and deterministic per-recipient completion IDs, with TodoMate/stale/private filtering and live revalidation on reads.
+- Added account-scoped offline notification caching, pagination, read marking, task reply/reaction actions, and cache-only primary-route previews so swipe previews do not cause read side effects.
+- Added opt-in Web Push support through the existing service worker, including installed-iOS gating, active-account filtering, stale subscription cleanup, and current-account subscription reconciliation without allowing a late reconciliation to overwrite the service worker's active-account marker.
+- Added regression coverage for deterministic IDs, imported-task suppression, mutual-friend creation, recipient-side profile metadata, route-preview side effects, account-switch isolation, active-feed read marking, backend migration, and exact Function event configuration.
+- Hardened shared Settings switches with an accessible label required by the new Push preference.
 
 ## Working files
 
-- `config/build-size-budget.json`
-- `tests/unit/buildSizeGuard.test.ts`
+- `appwrite-functions/message-action/notifications.js`
+- `appwrite-functions/message-action/main.js`
+- `infrastructure/mosaic-backend.mjs`
+- `scripts/migrate-notifications.mjs`
+- `src/pages/NotificationsPage.tsx`
+- `src/lib/notifications.ts`
+- `src/lib/notificationCache.ts`
+- `src/lib/pushNotifications.ts`
+- `public/push-sw.js`
 - `docs/PROJECT_REFERENCE.md`
+- `docs/APPWRITE_BACKEND_WORKFLOW.md`
+- `docs/PLAN.md`
 - `docs/SESSION_STATE.md`

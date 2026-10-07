@@ -151,7 +151,6 @@ async function registerSubscription(
     action: 'register_push_subscription',
     ...subscriptionPayload(subscription),
   });
-  await setPushActiveUser(userId);
 }
 
 export async function reconcileExistingPushSubscription(
@@ -264,6 +263,7 @@ export async function enablePushNotifications(
   }
 
   await registerSubscription(userId, subscription);
+  await setPushActiveUser(userId);
   return state('enabled', 'Enabled on this device', true);
 }
 
