@@ -3,7 +3,7 @@
 Updated: 2026-10-07
 Current task: Add bulk task movement between categories from Day View selection mode.
 Status: Implementation prepared on `chatgpt/bulk-move-tasks`, targeting stable Preview branch `feature/bulk-move-tasks` from current `dev` `5592a2a7`.
-Next action: Run focused verification on the coherent task commit, repair any failures, then squash into `feature/bulk-move-tasks` for canonical acceptance and Vercel Preview.
+Next action: Verify the build-size repair on the task branch, squash it into `feature/bulk-move-tasks`, then require canonical acceptance and Vercel Preview before handoff.
 Blockers: None known.
 
 ## Completed evidence
@@ -14,6 +14,7 @@ Blockers: None known.
 - Added a category picker nested sheet and a `Move to Category` bulk action.
 - Added pure ordering regressions for multi-source moves, destination stability, stale selections, and no-op moves, plus Day View regression coverage for the new bulk UI flow.
 - Updated the durable Day View bulk-selection contract in `PROJECT_REFERENCE.md`.
+- Canonical functional checks passed on the stable Preview tree; the only failure was the PWA unique-precache size guard (+710 B), so the repair removes a one-off icon and redundant category sorting/filtering without changing behavior.
 
 ## Working files
 

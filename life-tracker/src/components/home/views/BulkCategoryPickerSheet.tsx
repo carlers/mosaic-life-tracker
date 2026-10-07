@@ -20,20 +20,7 @@ export const BulkCategoryPickerSheet: React.FC<
   onClose,
   onSelect,
   isWorking = false,
-}) => {
-  const availableCategories = React.useMemo(
-    () =>
-      categories
-        .filter((category) => !category.isDeleted)
-        .slice()
-        .sort(
-          (a, b) =>
-            (a.order ?? 0) - (b.order ?? 0) || a.id.localeCompare(b.id)
-        ),
-    [categories]
-  );
-
-  return (
+}) => (
     <BottomSheet
       isOpen={isOpen}
       onClose={onClose}
@@ -43,7 +30,7 @@ export const BulkCategoryPickerSheet: React.FC<
       preventDismiss={isWorking}
     >
       <div className="space-y-1 px-4 pb-8 pt-2">
-        {availableCategories.map((category) => (
+        {categories.map((category) => (
           <button
             key={category.id}
             type="button"
@@ -62,12 +49,11 @@ export const BulkCategoryPickerSheet: React.FC<
             </span>
           </button>
         ))}
-        {availableCategories.length === 0 && (
+        {categories.length === 0 && (
           <p className="px-2 py-4 text-sm text-gray-400">
             No categories available.
           </p>
         )}
       </div>
     </BottomSheet>
-  );
-};
+);
