@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Check, FileText } from 'lucide-react';
+import { Check } from 'lucide-react';
 import { useImageLoadGate } from '../../../hooks/useImageLoadGate';
 import { useTaskImage } from '../../../hooks/useTaskImage';
 import { useBubbleGestures } from '../../../hooks/useBubbleGestures';
@@ -106,10 +106,9 @@ const TaskMemo: React.FC<{
         else if (event.detail === 0) onOpenMemo(task, 'view');
       }}
       data-day-swipe-through="true"
-      className="mt-1 flex w-full touch-pan-y items-start gap-1 text-left text-xs text-gray-400 rounded focus:outline-none"
+      className="mt-1 flex w-full touch-pan-y items-start text-left text-xs text-gray-400 rounded focus:outline-none"
       aria-label="Open memo"
     >
-      <FileText size={12} className="mt-0.5 shrink-0" aria-hidden="true" />
       <span className="whitespace-pre-wrap break-words">{task.memo}</span>
     </button>
   );
