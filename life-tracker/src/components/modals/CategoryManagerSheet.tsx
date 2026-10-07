@@ -4,13 +4,54 @@ import { BottomSheet } from '../ui/BottomSheet';
 import { ColorPalettePicker } from '../ui/ColorPalettePicker';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
-import { Plus, Trash2, Save, GripVertical } from 'lucide-react';
+import { Pencil, Plus, Trash2, GripVertical } from 'lucide-react';
 import { useCategories } from '../../hooks/useCategories';
 import { useTasks } from '../../hooks/useTasks';
-import { visibilityIcon } from '../../lib/visibility';
+import {
+  labelForVisibility,
+  visibilityIcon,
+} from '../../lib/visibility';
 import type { CategoryDocument } from '../../db/schema';
 
 type Visibility = 'private' | 'followers' | 'public';
+
+const VISIBILITIES: Visibility[] = ['private', 'followers', 'public'];
+
+interface VisibilityPickerProps {
+  value: Visibility;
+  onChange: (visibility: Visibility) => void;
+}
+
+const VisibilityPicker: React.FC<VisibilityPickerProps> = ({
+  value,
+  onChange,
+}) => (
+  <div>
+    <p className="mb-2 text-xs text-gray-400">Visibility</p>
+    <div
+      role="group"
+      aria-label="Visibility"
+      className="flex rounded-lg border border-[#333333] bg-[#111111] p-1"
+    >
+      {VISIBILITIES.map((visibility) => (
+        <button
+          key={visibility}
+          type="button"
+          aria-pressed={value === visibility}
+          onClick={() => onChange(visibility)}
+          className={`flex flex-1 items-center justify-center gap-1.5 rounded-md py-2 text-xs font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 ${
+            value === visibility
+              ? 'bg-[#2A2A2A] text-white'
+              : 'text-gray-500'
+          }`}
+        >
+          {visibilityIcon(visibility, 14)}
+          {labelForVisibility(visibility)}
+        </button>
+      ))}
+    </div>
+  </div>
+);
 
 interface CategoryRowProps {
   cat: CategoryDocument;
@@ -69,7 +110,7 @@ const CategoryRow: React.FC<CategoryRowProps> = ({
         className="p-2 text-gray-400"
         aria-label="Edit category"
       >
-        <Save size={16} />
+        <Pencil size={16} />
       </button>
       <button
         onClick={() => onDeleteRequest(cat.id)}
@@ -231,6 +272,10 @@ export const CategoryManagerSheet: React.FC<CategoryManagerSheetProps> = ({
               value={editName}
               onChange={(e) => setEditName(e.target.value)}
             />
+            <VisibilityPicker
+              value={editVisibility}
+              onChange={setEditVisibility}
+            />
             <Button
               onClick={() => handleUpdate(editingId, editName, editVisibility)}
               disabled={!editName.trim()}
@@ -253,6 +298,10 @@ export const CategoryManagerSheet: React.FC<CategoryManagerSheetProps> = ({
             <ColorPalettePicker
               selectedColor={newColor}
               onSelect={setNewColor}
+            />
+            <VisibilityPicker
+              value={newVisibility}
+              onChange={setNewVisibility}
             />
             <Button onClick={handleSaveNew} disabled={!newName.trim()}>
               Add Category

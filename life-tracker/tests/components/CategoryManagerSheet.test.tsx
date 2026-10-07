@@ -1,9 +1,18 @@
 import type React from 'react';
-import { fireEvent, render, screen, within } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { CategoryDocument } from '../../src/db/schema';
 
 const mocks = vi.hoisted(() => ({
+  addCategory: vi.fn().mockResolvedValue(undefined),
+  updateCategory: vi.fn().mockResolvedValue(undefined),
+  deleteCategory: vi.fn().mockResolvedValue(undefined),
   reorderCategories: vi.fn().mockResolvedValue(undefined),
   startDrag: vi.fn(),
 }));
@@ -26,7 +35,7 @@ const categories: CategoryDocument[] = [
     color: '#222222',
     icon: '',
     order: 1,
-    visibility: 'private',
+    visibility: 'public',
     userId: 'user',
     isDeleted: false,
     updatedAt: '2026-01-01T00:00:00.000Z',
@@ -36,9 +45,9 @@ const categories: CategoryDocument[] = [
 vi.mock('../../src/hooks/useCategories', () => ({
   useCategories: () => ({
     categories,
-    addCategory: vi.fn(),
-    updateCategory: vi.fn(),
-    deleteCategory: vi.fn(),
+    addCategory: mocks.addCategory,
+    updateCategory: mocks.updateCategory,
+    deleteCategory: mocks.deleteCategory,
     reorderCategories: mocks.reorderCategories,
   }),
 }));
@@ -56,24 +65,24 @@ vi.mock('framer-motion', async (importOriginal) => {
   return {
     ...actual,
     Reorder: {
-    Group: ({ children, onReorder }: React.PropsWithChildren<{
-      onReorder: (items: CategoryDocument[]) => void;
-    }>) => (
-      <div data-testid="category-order">
-        {children}
-        <button onClick={() => onReorder([...categories].reverse())}>
-          Simulate reorder
-        </button>
-      </div>
-    ),
-    Item: ({ children, onDragEnd }: React.PropsWithChildren<{
-      onDragEnd: () => void;
-    }>) => (
-      <div>
-        {children}
-        <button onClick={onDragEnd}>Simulate drag end</button>
-      </div>
-    ),
+      Group: ({ children, onReorder }: React.PropsWithChildren<{
+        onReorder: (items: CategoryDocument[]) => void;
+      }>) => (
+        <div data-testid="category-order">
+          {children}
+          <button onClick={() => onReorder([...categories].reverse())}>
+            Simulate reorder
+          </button>
+        </div>
+      ),
+      Item: ({ children, onDragEnd }: React.PropsWithChildren<{
+        onDragEnd: () => void;
+      }>) => (
+        <div>
+          {children}
+          <button onClick={onDragEnd}>Simulate drag end</button>
+        </div>
+      ),
     },
     useDragControls: () => ({ start: mocks.startDrag }),
   };
@@ -82,6 +91,10 @@ vi.mock('framer-motion', async (importOriginal) => {
 import { CategoryManagerSheet } from '../../src/components/modals/CategoryManagerSheet';
 
 describe('CategoryManagerSheet', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
   it('starts reordering only from the category grip button', () => {
     render(<CategoryManagerSheet isOpen onClose={vi.fn()} />);
 
@@ -106,4 +119,127 @@ describe('CategoryManagerSheet', () => {
     fireEvent.click(screen.getAllByRole('button', { name: 'Simulate drag end' })[0]);
     expect(mocks.reorderCategories).toHaveBeenCalledWith([...categories].reverse());
   });
+
+  it('creates a category with the selected visibility', async () => {
+    render(<CategoryManagerSheet isOpen onClose={vi.fn()} />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add Category' }));
+    fireEvent.change(screen.getByRole('textbox', { name: 'Name' }), {
+      target: { value: 'Shared' },
+    });
+
+    const visibility = screen.getByRole('group', { name: 'Visibility' });
+    fireEvent.click(within(visibility).getByRole('button', { name: /Public/ }));
+
+    expect(
+      within(visibility).getByRole('button', { name: /Public/ })
+    ).toHaveAttribute('aria-pressed', 'true');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add Category' }));
+
+    await waitFor(() =>
+      expect(mocks.addCategory).toHaveBeenCalledWith(
+        expect.objectContaining({
+          name: 'Shared',
+          visibility: 'public',
+        })
+      )
+    );
+  });
+
+  it('loads the existing visibility when editing a category', () => {
+    render(<CategoryManagerSheet isOpen onClose={vi.fn()} />);
+
+    fireEvent.click(
+      screen.getAllByRole('button', { name: 'Edit category' })[1]
+    );
+
+    const visibility = screen.getByRole('group', { name: 'Visibility' });
+    expect(
+      within(visibility).getByRole('button', { name: /Public/ })
+    ).toHaveAttribute('aria-pressed', 'true');
+    expect(
+      within(visibility).getByRole('button', { name: /Private/ })
+    ).toHaveAttribute('aria-pressed', 'false');
+  });
+
+  it('updates a category with the selected visibility', async () => {
+    render(<CategoryManagerSheet isOpen onClose={vi.fn()} />);
+
+    fireEvent.click(
+      screen.getAllByRole('button', { name: 'Edit category' })[0]
+    );
+
+    const visibility = screen.getByRole('group', { name: 'Visibility' });
+    fireEvent.click(within(visibility).getByRole('button', { name: /Friends/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'Save Changes' }));
+
+    await waitFor(() =>
+      expect(mocks.updateCategory).toHaveBeenCalledWith('first', {
+        name: 'First',
+        visibility: 'followers',
+      })
+    );
+  });
+
+  it('resets an unsaved new-category visibility selection after cancel', () => {
+    render(<CategoryManagerSheet isOpen onClose={vi.fn()} />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add Category' }));
+    let visibility = screen.getByRole('group', { name: 'Visibility' });
+    fireEvent.click(within(visibility).getByRole('button', { name: /Public/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add Category' }));
+    visibility = screen.getByRole('group', { name: 'Visibility' });
+
+    expect(
+      within(visibility).getByRole('button', { name: /Private/ })
+    ).toHaveAttribute('aria-pressed', 'true');
+    expect(
+      within(visibility).getByRole('button', { name: /Public/ })
+    ).toHaveAttribute('aria-pressed', 'false');
+    expect(mocks.addCategory).not.toHaveBeenCalled();
+  });
+
+  it('does not persist an edited visibility after cancel', () => {
+    render(<CategoryManagerSheet isOpen onClose={vi.fn()} />);
+
+    fireEvent.click(
+      screen.getAllByRole('button', { name: 'Edit category' })[0]
+    );
+
+    let visibility = screen.getByRole('group', { name: 'Visibility' });
+    fireEvent.click(within(visibility).getByRole('button', { name: /Friends/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+
+    expect(mocks.updateCategory).not.toHaveBeenCalled();
+
+    fireEvent.click(
+      screen.getAllByRole('button', { name: 'Edit category' })[0]
+    );
+    visibility = screen.getByRole('group', { name: 'Visibility' });
+    expect(
+      within(visibility).getByRole('button', { name: /Private/ })
+    ).toHaveAttribute('aria-pressed', 'true');
+  });
+
+  it('reloads visibility when switching directly between categories', () => {
+    render(<CategoryManagerSheet isOpen onClose={vi.fn()} />);
+
+    const editButtons = screen.getAllByRole('button', { name: 'Edit category' });
+    fireEvent.click(editButtons[0]);
+
+    let visibility = screen.getByRole('group', { name: 'Visibility' });
+    expect(
+      within(visibility).getByRole('button', { name: /Private/ })
+    ).toHaveAttribute('aria-pressed', 'true');
+
+    fireEvent.click(editButtons[1]);
+    visibility = screen.getByRole('group', { name: 'Visibility' });
+    expect(
+      within(visibility).getByRole('button', { name: /Public/ })
+    ).toHaveAttribute('aria-pressed', 'true');
+  });
+
 });
