@@ -1,5 +1,5 @@
 import React from 'react';
-import { ArrowRight, CalendarDays, Eye, FolderInput } from 'lucide-react';
+import { ArrowRight, CalendarDays, Eye } from 'lucide-react';
 import { BottomSheet } from '../../ui/BottomSheet';
 
 interface BulkTaskActionSheetProps {
@@ -26,7 +26,7 @@ export const BulkTaskActionSheet: React.FC<BulkTaskActionSheetProps> = ({
   isWorking = false,
 }) => {
   const actions = [
-    { label: 'Move to Category', icon: FolderInput, action: onMoveCategory },
+    { label: 'Move to Category', icon: ArrowRight, action: onMoveCategory },
     { label: 'Change Date', icon: CalendarDays, action: onChangeDate },
     { label: 'Do It Today', icon: ArrowRight, action: onDoToday },
     { label: 'Do It Tomorrow', icon: ArrowRight, action: onDoTomorrow },

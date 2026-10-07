@@ -935,7 +935,18 @@ closures, and aggregate raw bytes all remained inside their existing limits. The
 gzip ceiling is therefore revised from 684,400 B to 687,200 B and the precache ceiling from
 2,318,400 B to 2,320,800 B, leaving 887 B and 992 B of measured headroom respectively.
 Entry/startup/Home and aggregate raw ceilings remain unchanged. This is reviewed product growth,
-not a blanket threshold increase. The current baseline and limits live in
+not a blanket threshold increase.
+
+A third reviewed 2026-10-07 exception accepts Day View bulk Move to Category. The comparable
+pre-feature Preview measured 2,318,073 B unique precache; the final trimmed task build measured
+2,320,796 B (+2,723 B). Before accepting the growth, the implementation removed a one-off icon
+and redundant picker/runtime code, reducing the initial feature build from 2,321,510 B by 714 B.
+Entry, startup/Home closures, aggregate raw, and aggregate gzip all remain within their existing
+ceilings. The precache ceiling is therefore revised from 2,320,800 B to 2,321,800 B, leaving
+1,004 B of measured headroom. This records approved product growth after measured trimming; it
+does not widen any other guard.
+
+The current baseline and limits live in
 `config/build-size-budget.json` and are pinned by unit coverage.
 
 `npm run build:size` checks an existing `dist/`. The diagnostic
