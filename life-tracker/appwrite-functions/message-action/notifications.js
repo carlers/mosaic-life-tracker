@@ -1,5 +1,4 @@
 const crypto = require('crypto');
-const webpush = require('web-push');
 const { Query } = require('node-appwrite');
 
 const DATABASE_ID = process.env.APPWRITE_DATABASE_ID || 'life_tracker';
@@ -137,6 +136,9 @@ async function sendPushToUser(tablesDB, userId, payload, log) {
   const config = pushConfig();
   if (!config.enabled) return { sent: 0, disabled: true };
 
+  // Keep the optional delivery dependency out of ordinary handler/test startup.
+  // Fresh forks without VAPID configuration still get the in-app Alerts feed.
+  const webpush = require('web-push');
   webpush.setVapidDetails(config.subject, config.publicKey, config.privateKey);
   const subscriptions = await listAllRows(tablesDB, PUSH_SUBSCRIPTIONS_TABLE, [
     Query.equal('user_id', userId),

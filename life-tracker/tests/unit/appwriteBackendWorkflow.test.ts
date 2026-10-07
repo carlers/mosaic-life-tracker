@@ -20,6 +20,7 @@ import {
 import {
   activateFunctionVersion,
   assertSourceMatchesGit,
+  configureFunctionDefinition,
   deployFunctionVersion,
   parseFunctionCommand,
 } from '../../scripts/appwrite-function.mjs';
@@ -184,6 +185,7 @@ describe('Appwrite managed-state drift checks', () => {
       deploymentRetention: 7,
       execute: [],
       scopes: ['users.read'],
+      events: [],
     };
     expect(
       diffFunction(
@@ -204,6 +206,12 @@ describe('Appwrite managed-state drift checks', () => {
     ).toContain(
       'function dr-backup runtime: expected "node-22", got "node-18.0"'
     );
+    expect(
+      diffFunction(
+        { ...expected, events: ['databases.*.tables.*.rows.*.create'] },
+        expected
+      )
+    ).toContain('function dr-backup events differ');
   });
 
   it('treats declared Function variables as managed state without reading secret values', async () => {
@@ -302,6 +310,7 @@ describe('ordered idempotent Appwrite migration runner', () => {
       '001-account-deletion',
       '002-diary-created-at',
       '003-task-images-bucket-permissions',
+      '004-notifications',
     ]);
     expect(
       selectMigrations(['--only', '002-diary-created-at'])
@@ -376,6 +385,44 @@ describe('controlled Appwrite Function deployments', () => {
           ' M appwrite-functions/message-action/main.js',
       })
     ).toThrow(/uncommitted/);
+  });
+
+  it('reconciles managed event triggers without changing the live schedule', async () => {
+    const definitions = await readBackendDefinitions();
+    const definition = definitions.functions['message-action'];
+    const updated = {
+      ...definition.config,
+      schedule: '',
+    };
+    const functions = {
+      get: vi
+        .fn()
+        .mockResolvedValueOnce({
+          ...definition.config,
+          events: [],
+          schedule: '',
+        })
+        .mockResolvedValueOnce(updated),
+      update: vi.fn(async () => ({})),
+    };
+    await expect(
+      configureFunctionDefinition({
+        functions: functions as any,
+        definition,
+        functionId: definition.config.$id,
+      })
+    ).resolves.toEqual({
+      functionId: definition.config.$id,
+      events: definition.config.events,
+      schedule: '',
+    });
+    expect(functions.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        functionId: definition.config.$id,
+        events: definition.config.events,
+        schedule: '',
+      })
+    );
   });
 
   it('builds a ready deployment without activating it', async () => {

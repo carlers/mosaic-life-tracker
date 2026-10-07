@@ -137,7 +137,19 @@ not an automatic destructive `down` migration.
 A Function edit does **not** require a new Function resource. Appwrite keeps multiple code
 deployments under the same Function.
 
-First run `appwrite:status` against the intended target. Then build an inactive deployment
+First run `appwrite:status` against the intended target. If the checked-in Function
+configuration changed (for example event triggers), reconcile that configuration explicitly
+before building code:
+
+```bash
+npm run appwrite:function:configure -- \
+  --function message-action \
+  --project <project-id> \
+  --confirm-project <project-id>
+```
+
+Configuration reconciliation preserves the target's live schedule so scratch/DR can keep
+schedules intentionally disabled. It does not activate code. Then build an inactive deployment
 from the exact checked-out commit:
 
 ```bash
@@ -186,11 +198,12 @@ For ordinary UI/client/refactor work, do nothing Appwrite-specific. For backend 
 4. Run `appwrite:status` against the intended target.
 5. If cloud integration proof is needed, use **My first project** as the explicit scratch
    target and synthetic/disposable accounts/data.
-6. For a Function rollout, build an inactive exact-SHA deployment, inspect the deployment ID
-   and build result, then activate explicitly.
+6. For a Function rollout whose structural config changed, run the confirmed-target
+   `appwrite:function:configure` step first. Then build an inactive exact-SHA deployment,
+   inspect the deployment ID and build result, and activate explicitly.
 7. For production schema changes, run the reviewed migration explicitly against the confirmed
    production project, then rerun `appwrite:status`.
-8. Record the deployment/migration result in the task handoff. Emergency Console changes must
+8. Record the configuration/deployment/migration result in the task handoff. Emergency Console changes must
    be reconciled back into Git before the task is considered complete.
 
 Do not enable native Appwrite Git auto-deploy for production by default. Mosaic's Git branch,
