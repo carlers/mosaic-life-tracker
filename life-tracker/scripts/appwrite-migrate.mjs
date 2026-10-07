@@ -8,6 +8,7 @@ import {
 import { migrateAccountDeletionBackend } from './migrate-account-deletion.mjs';
 import { migrateDiaryCreatedAtBackend } from './migrate-diary-created-at.mjs';
 import { migrateTaskImagesBucketPermissions } from './migrate-task-images-bucket-permissions.mjs';
+import { migrateNotificationsBackend } from './migrate-notifications.mjs';
 
 export const APPWRITE_MIGRATIONS = [
   {
@@ -27,6 +28,12 @@ export const APPWRITE_MIGRATIONS = [
     description: 'Remove redundant bucket-wide task image read access',
     run: ({ request, log }) =>
       migrateTaskImagesBucketPermissions({ request, log }),
+  },
+  {
+    id: '004-notifications',
+    description: 'Notifications and Web Push subscription tables',
+    run: ({ request, log }) =>
+      migrateNotificationsBackend({ request, log }),
   },
 ];
 

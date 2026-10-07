@@ -26,6 +26,11 @@ export const ACCOUNT_ERASURE_POLICY = {
       kind: 'cross_reference',
       fields: ['user_id', 'sender_id', 'recipient_id'],
     },
+    notifications: {
+      kind: 'cross_reference',
+      fields: ['recipient_id', 'actor_id'],
+    },
+    push_subscriptions: { kind: 'owned', ownerField: 'user_id' },
     account_deletions: { kind: 'control' },
   },
   buckets: {
