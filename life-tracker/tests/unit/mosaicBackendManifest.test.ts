@@ -35,6 +35,8 @@ describe('portable Mosaic backend manifest', () => {
       'friendships',
       'profiles',
       'messages',
+      'notifications',
+      'push_subscriptions',
       'account_deletions',
     ]);
     expect(MOSAIC_TABLES.map((table) => table.id)).not.toContain('routines');
@@ -101,11 +103,13 @@ describe('portable Mosaic backend manifest', () => {
       'idx_sender_id',
       'idx_recipient_id',
     ]);
-    expect(byId.account_deletions).toMatchObject({
-      permissions: [],
-      rowSecurity: true,
-      enabled: true,
-    });
+    for (const id of ['notifications', 'push_subscriptions', 'account_deletions']) {
+      expect(byId[id]).toMatchObject({
+        permissions: [],
+        rowSecurity: true,
+        enabled: true,
+      });
+    }
     expect(byId.account_deletions.columns).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
@@ -167,6 +171,14 @@ describe('portable Mosaic backend manifest', () => {
     expect(ACCOUNT_ERASURE_POLICY.tables.messages).toEqual({
       kind: 'cross_reference',
       fields: ['user_id', 'sender_id', 'recipient_id'],
+    });
+    expect(ACCOUNT_ERASURE_POLICY.tables.notifications).toEqual({
+      kind: 'cross_reference',
+      fields: ['recipient_id', 'actor_id'],
+    });
+    expect(ACCOUNT_ERASURE_POLICY.tables.push_subscriptions).toEqual({
+      kind: 'owned',
+      ownerField: 'user_id',
     });
     expect(ACCOUNT_ERASURE_POLICY.buckets.task_images).toEqual({
       kind: 'owned_permissions',

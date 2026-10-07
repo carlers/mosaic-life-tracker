@@ -158,6 +158,75 @@ export const MOSAIC_TABLES = [
     ]
   ),
   {
+    id: 'notifications',
+    name: 'Notifications',
+    permissions: [],
+    rowSecurity: true,
+    enabled: true,
+    columns: [
+      { key: 'recipient_id', type: 'varchar', size: 255, required: true },
+      { key: 'actor_id', type: 'varchar', size: 255, required: true },
+      { key: 'type', type: 'varchar', size: 40, required: true },
+      { key: 'task_id', type: 'varchar', size: 255, required: true },
+      { key: 'completed_at', type: 'varchar', size: 50, required: true },
+      { key: 'occurred_at', type: 'varchar', size: 50, required: true },
+      { key: 'read_at', type: 'varchar', size: 50, required: false, default: '' },
+      { key: 'created_at', type: 'varchar', size: 50, required: true },
+    ],
+    indexes: [
+      {
+        key: 'idx_notification_recipient',
+        type: 'key',
+        attributes: ['recipient_id'],
+      },
+      {
+        key: 'idx_notification_actor',
+        type: 'key',
+        attributes: ['actor_id'],
+      },
+      {
+        key: 'idx_notification_recipient_occurred',
+        type: 'key',
+        attributes: ['recipient_id', 'occurred_at'],
+      },
+    ],
+  },
+  {
+    id: 'push_subscriptions',
+    name: 'Push Subscriptions',
+    permissions: [],
+    rowSecurity: true,
+    enabled: true,
+    columns: [
+      { key: 'user_id', type: 'varchar', size: 255, required: true },
+      { key: 'endpoint', type: 'longtext', required: true },
+      { key: 'p256dh', type: 'varchar', size: 512, required: true },
+      { key: 'auth', type: 'varchar', size: 255, required: true },
+      {
+        key: 'expiration_time',
+        type: 'varchar',
+        size: 50,
+        required: false,
+        default: '',
+      },
+      { key: 'enabled', type: 'boolean', required: false, default: true },
+      { key: 'created_at', type: 'varchar', size: 50, required: true },
+      { key: 'updated_at', type: 'varchar', size: 50, required: true },
+    ],
+    indexes: [
+      {
+        key: 'idx_push_user',
+        type: 'key',
+        attributes: ['user_id'],
+      },
+      {
+        key: 'idx_push_user_enabled',
+        type: 'key',
+        attributes: ['user_id', 'enabled'],
+      },
+    ],
+  },
+  {
     id: 'account_deletions',
     name: 'Account Deletions',
     permissions: [],

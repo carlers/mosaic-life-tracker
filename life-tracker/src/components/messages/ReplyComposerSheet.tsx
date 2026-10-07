@@ -3,7 +3,7 @@ import { format } from 'date-fns';
 import { Send } from 'lucide-react';
 import { BottomSheet } from '../ui/BottomSheet';
 import { Button } from '../ui/Button';
-import { useMessages } from '../../hooks/useMessages';
+import { useMessageActions } from '../../hooks/useMessageActions';
 import type { TaskDocument } from '../../db/schema';
 
 interface ReplyComposerSheetProps {
@@ -25,7 +25,7 @@ export const ReplyComposerSheet: React.FC<ReplyComposerSheetProps> = ({
   friendName,
   onSent,
 }) => {
-  const { sendTaskReply } = useMessages(friendId);
+  const { sendTaskReply } = useMessageActions(friendId);
   const [content, setContent] = useState('');
   const [isSending, setIsSending] = useState(false);
 

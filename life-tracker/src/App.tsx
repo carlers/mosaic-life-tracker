@@ -9,7 +9,7 @@ import { ResetPasswordPage } from "./pages/ResetPasswordPage";
 import {
   loadAccountPage,
   loadChatPage,
-  loadComingSoon,
+  loadNotificationsPage,
   loadExplorePage,
   loadFriendCalendarPage,
   loadHomePage,
@@ -50,8 +50,10 @@ const MessagesPage = lazy(() =>
 const ChatPage = lazy(() =>
   loadChatPage().then(({ ChatPage }) => ({ default: ChatPage })),
 );
-const ComingSoon = lazy(() =>
-  loadComingSoon().then(({ ComingSoon }) => ({ default: ComingSoon })),
+const NotificationsPage = lazy(() =>
+  loadNotificationsPage().then(({ NotificationsPage }) => ({
+    default: NotificationsPage,
+  })),
 );
 
 function RouteShellFallback({ label }: { label: string }) {
@@ -162,8 +164,8 @@ function App() {
           <Route
             path="/notifications"
             element={
-              <RouteContent label="Notifications">
-                <ComingSoon />
+              <RouteContent label="NotificationsPage">
+                <NotificationsPage />
               </RouteContent>
             }
           />

@@ -20,9 +20,9 @@ const POLL_LIMIT = 180;
 
 export function parseFunctionCommand(argv = [], env = process.env) {
   const action = argv[0] || '';
-  if (!['deploy', 'activate'].includes(action)) {
+  if (!['configure', 'deploy', 'activate'].includes(action)) {
     throw new Error(
-      'Use deploy or activate as the Appwrite Function action.'
+      'Use configure, deploy, or activate as the Appwrite Function action.'
     );
   }
   const target = parseBackendTarget(argv, env);
@@ -121,6 +121,43 @@ async function waitForReady(
   );
 }
 
+export async function configureFunctionDefinition({
+  functions,
+  definition,
+  functionId,
+}) {
+  const current = await functions.get({ functionId });
+  const config = definition.config;
+  await functions.update({
+    functionId,
+    name: config.name,
+    runtime: config.runtime,
+    execute: config.execute || [],
+    events: config.events || [],
+    // The live schedule is operational state: scratch/DR intentionally disable it.
+    schedule: current.schedule || '',
+    timeout: config.timeout,
+    enabled: config.enabled ?? true,
+    logging: config.logging ?? true,
+    entrypoint: config.entrypoint,
+    commands: config.commands,
+    scopes: config.scopes || [],
+    deploymentRetention: config.deploymentRetention ?? 0,
+  });
+  const updated = await functions.get({ functionId });
+  const drift = diffFunction(updated, config, definition.name);
+  if (drift.length) {
+    throw new Error(
+      `Function configuration reconciliation failed:\n${drift.join('\n')}`
+    );
+  }
+  return {
+    functionId,
+    events: updated.events || [],
+    schedule: updated.schedule || '',
+  };
+}
+
 export async function deployFunctionVersion({
   functions,
   definition,
@@ -217,6 +254,21 @@ export async function runAppwriteFunctionCli({
     config.functionId || definition.config.$id;
   const resolvedServices =
     services || createBootstrapServices(config);
+
+  if (config.action === 'configure') {
+    log(
+      `Reconciling ${config.functionName} Function configuration in ${config.projectId}...`
+    );
+    const result = await configureFunctionDefinition({
+      functions: resolvedServices.functions,
+      definition,
+      functionId,
+    });
+    log(
+      `Configured: function=${functionId} events=${result.events.length}. Deployment traffic unchanged.`
+    );
+    return result;
+  }
 
   if (config.action === 'deploy') {
     log(

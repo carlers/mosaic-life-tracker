@@ -3,6 +3,14 @@ const { handleFriendship, deleteAccountFriendships } = require('./friendship');
 const { handleTodoMateTaskBatch } = require('./todomate-task-batch');
 const { handleOwnerWriteCas } = require('./owner-write-cas');
 const {
+  handleGetNotifications,
+  handleGetPushConfig,
+  handleMarkNotificationsRead,
+  handleRegisterPushSubscription,
+  handleTaskCompletionEvent,
+  handleUnregisterPushSubscription,
+} = require('./notifications');
+const {
   Client,
   TablesDB,
   Storage,
@@ -1081,6 +1089,29 @@ const handler = async ({ req, res, log, error }) => {
   const users = new Users(client);
   const functions = new Functions(client);
 
+  if (req.headers['x-appwrite-trigger'] === 'event') {
+    const eventName = req.headers['x-appwrite-event'] || '';
+    if (
+      eventName.includes('.tables.tasks.rows.') &&
+      (eventName.endsWith('.create') || eventName.endsWith('.update'))
+    ) {
+      try {
+        const result = await handleTaskCompletionEvent(
+          tablesDB,
+          payload,
+          eventName,
+          log,
+          error
+        );
+        return res.json(result.body, result.status);
+      } catch (err) {
+        error(`Task completion event failed: ${err.message}`);
+        return res.json({ error: 'Task completion event failed' }, 500);
+      }
+    }
+    return res.json({ ok: true, ignored: true }, 200);
+  }
+
   if (req.headers['x-appwrite-trigger'] === 'schedule') {
     try {
       const deletionResult = await resumeDeletionJobs({
@@ -1203,6 +1234,45 @@ const handler = async ({ req, res, log, error }) => {
         break;
       case 'get_friend_calendar':
         result = await handleGetFriendCalendar(
+          tablesDB,
+          callerId,
+          payload,
+          log,
+          error
+        );
+        break;
+      case 'get_notifications':
+        result = await handleGetNotifications(
+          tablesDB,
+          callerId,
+          payload,
+          log,
+          error
+        );
+        break;
+      case 'mark_notifications_read':
+        result = await handleMarkNotificationsRead(
+          tablesDB,
+          callerId,
+          payload,
+          log,
+          error
+        );
+        break;
+      case 'get_push_config':
+        result = handleGetPushConfig();
+        break;
+      case 'register_push_subscription':
+        result = await handleRegisterPushSubscription(
+          tablesDB,
+          callerId,
+          payload,
+          log,
+          error
+        );
+        break;
+      case 'unregister_push_subscription':
+        result = await handleUnregisterPushSubscription(
           tablesDB,
           callerId,
           payload,

@@ -30,6 +30,7 @@ export const SettingsRow: React.FC<SettingsRowProps> = ({
       onClick={onClick}
       onPointerDown={(e) => e.stopPropagation()}
       role={isToggle ? 'switch' : undefined}
+      aria-label={isToggle ? label : undefined}
       aria-checked={isToggle ? checked : undefined}
       className={`w-full flex items-center justify-between px-4 py-3 hover:bg-[#2A2A2A] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald-500/60 ${
         isDestructive ? 'text-red-500' : 'text-white'

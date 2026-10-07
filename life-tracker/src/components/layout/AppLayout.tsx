@@ -112,6 +112,32 @@ export const AppLayout: React.FC = () => {
   const database = useDatabaseBootstrap();
 
   useEffect(() => {
+    const userId = user?.$id ?? null;
+    let active = true;
+    void import('../../lib/pushNotifications')
+      .then(async ({
+        reconcileExistingPushSubscription,
+        setPushActiveUser,
+      }) => {
+        if (!active) return;
+        await setPushActiveUser(userId);
+        if (
+          active &&
+          userId &&
+          connectivity.status === 'online'
+        ) {
+          await reconcileExistingPushSubscription(userId);
+        }
+      })
+      .catch((pushError) => {
+        console.warn('[AppLayout] push account reconciliation failed:', pushError);
+      });
+    return () => {
+      active = false;
+    };
+  }, [connectivity.status, user?.$id]);
+
+  useEffect(() => {
     if (!user?.$id) return;
     void loadAppDataShell().catch((shellError) => {
       console.error('[AppLayout] data shell preload failed:', shellError);

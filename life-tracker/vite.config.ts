@@ -141,6 +141,9 @@ export default defineConfig({
         // intent and guards against a future same-origin proxy (PWA-3).
         navigateFallback: 'index.html',
         navigateFallbackDenylist: [/^\/v1\//, /^\/api\//],
+        // Keep push handling additive so pwaLifecycle.ts remains the sole
+        // service-worker registrar and the tested update lifecycle is unchanged.
+        importScripts: ['/push-sw.js'],
         // Preserve the current worker while it still controls open clients.
         // See the registerType comment above (PWA-4).
         skipWaiting: false,

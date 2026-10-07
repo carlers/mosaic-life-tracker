@@ -314,7 +314,7 @@ export function diffFunction(actual, expected, label = expected.name) {
       expected[key]
     );
   }
-  for (const key of ['execute', 'scopes']) {
+  for (const key of ['execute', 'scopes', 'events']) {
     if (!sameStringSet(actual[key] || [], expected[key] || [])) {
       diffs.push(`function ${label} ${key} differ`);
     }
@@ -461,7 +461,7 @@ export function diffLocalFunctionConfig(cliConfig, definitions) {
         portable[key]
       );
     }
-    for (const key of ['execute', 'scopes']) {
+    for (const key of ['execute', 'scopes', 'events']) {
       if (!sameStringSet(cli[key] || [], portable[key] || [])) {
         diffs.push(`local ${name} ${key} differ`);
       }

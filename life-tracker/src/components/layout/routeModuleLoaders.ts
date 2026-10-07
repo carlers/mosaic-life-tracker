@@ -19,5 +19,6 @@ export const loadProfilePage = memoizeImport(() => import('../../pages/ProfilePa
 export const loadExplorePage = memoizeImport(() => import('../../pages/ExplorePage'));
 export const loadFriendCalendarPage = memoizeImport(() => import('../../pages/FriendCalendarPage'));
 export const loadMessagesPage = memoizeImport(() => import('../../pages/MessagesPage'));
+export const loadNotificationsPage = memoizeImport(() => import('../../pages/NotificationsPage'));
 export const loadChatPage = memoizeImport(() => import('../../pages/ChatPage'));
 export const loadComingSoon = memoizeImport(() => import('./ComingSoon'));

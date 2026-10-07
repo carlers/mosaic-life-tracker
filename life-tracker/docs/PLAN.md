@@ -85,7 +85,7 @@ This roadmap records durable workstreams and batch status. `SESSION_STATE.md` co
 - [x] Todo List view: compact color-only calendar with a selected-day task list
 - [x] Optional regional holiday overlay: synced show/region/type preferences, cached read-only holiday data, Calendar/Todo/Day View presentation, and viewer-local friend-calendar overlay
 - [ ] Diary view: per-day text entries with `public`, `followers`, or `private` visibility
-- [ ] Notifications tab
+- [x] Notifications tab: account-scoped friend-completion Alerts feed with offline cache, reply/reaction actions, and optional Web Push
 - [ ] Routines and reminders
 - [ ] Optional external API integrations
 - [ ] Advanced social features, including selected-follower visibility if it enters scope

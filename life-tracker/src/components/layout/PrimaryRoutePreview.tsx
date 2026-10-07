@@ -1,7 +1,7 @@
 import React, { lazy, memo, Suspense } from 'react';
 import {
   loadAccountPage,
-  loadComingSoon,
+  loadNotificationsPage,
   loadExplorePage,
   loadHomePage,
   loadMessagesPage,
@@ -23,7 +23,9 @@ const ExplorePreview = lazy(() =>
   loadExplorePage().then(({ ExplorePage }) => ({ default: ExplorePage }))
 );
 const NotificationsPreview = lazy(() =>
-  loadComingSoon().then(({ ComingSoon }) => ({ default: ComingSoon }))
+  loadNotificationsPage().then(({ NotificationsPage }) => ({
+    default: NotificationsPage,
+  }))
 );
 const MessagesPreview = lazy(() =>
   loadMessagesPage().then(({ MessagesPage }) => ({ default: MessagesPage }))
@@ -73,7 +75,7 @@ const PrimaryRoutePreviewComponent: React.FC<{ pathname: string }> = ({ pathname
       content = <ExplorePreview />;
       break;
     case '/notifications':
-      content = <NotificationsPreview />;
+      content = <NotificationsPreview preview />;
       break;
     case '/messages':
       content = <MessagesPreview />;
