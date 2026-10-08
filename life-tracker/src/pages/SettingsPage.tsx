@@ -377,14 +377,17 @@ export const SettingsPage: React.FC = () => {
           </div>
         </div>
         <div className="border-t border-[#333333] py-2">
-          <div className="px-4 py-3.5 text-white">
-            <div className="flex items-center justify-between">
+          <details className="group text-white" data-testid="app-version-details">
+            <summary className="flex cursor-pointer list-none items-center justify-between rounded-sm px-4 py-3.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald-500/60 [&::-webkit-details-marker]:hidden">
               <span className="text-base font-medium">Version</span>
-              <span className="text-sm text-gray-400">{APP_VERSION}</span>
-            </div>
+              <span className="flex items-center gap-2">
+                <span className="text-sm text-gray-400">{APP_VERSION}</span>
+                <span aria-hidden="true" className="text-gray-500 transition-transform group-open:rotate-180">▾</span>
+              </span>
+            </summary>
             <div
               data-testid="app-build-info"
-              className="mt-1 text-xs text-gray-500"
+              className="px-4 pb-3 text-xs text-gray-500"
             >
               <div>appwrite: {APP_BUILD_INFO.appwrite}</div>
               <div>branch: {APP_BUILD_INFO.branch ?? 'local'}</div>
@@ -402,7 +405,7 @@ export const SettingsPage: React.FC = () => {
                 </details>
               )}
             </div>
-          </div>
+          </details>
           <SettingsRow
             icon={<RefreshCw size={18} className="text-emerald-500" aria-hidden="true" />}
             label={isUpdateReady ? 'Update now' : 'Check for Updates'}

@@ -1,20 +1,16 @@
 # Session checkpoint
 
-Updated: 2026-10-08. Current work: integrate accepted `feature/semantic-versioning` into `feature/notifications-alerts` before dev promotion; task branch `chatgpt/alerts-versioning-integration` from accepted Alerts commit `54d292396c`.
+Updated: 2026-10-08. Active task: user-requested Version disclosure refinement on `chatgpt/alerts-version-details-collapse`, based on accepted Alerts Preview `feature/notifications-alerts` commit `61b6791b`.
 
-## Objective and invariants
+## Scope and current state
 
-- Deliver a single stable Alerts Preview at **0.5.0** (prior standalone versioning Preview was **0.4.0**), preserving the existing Alerts implementation, scratch isolation and native Settings multiline commit disclosure.
-- `dev` is an Appwrite Scratch Preview; only official `main` targets Production. Settings displays `appwrite:` from actual SDK project and endpoint, not from the Git branch.
-- Production Appwrite mutation is **not authorized** by this implementation task. Current production `push_subscriptions` lacks `include_task_details`; reviewed `006-push-details` migration is required before production Function activation.
-- Backend Scratch is shared with other Previews and is also a DR slot; no silent resets, scheduled GC or production-account copying.
-- Normal workflow: final focused task verification, squash into accepted stable Preview, full canonical CI and Vercel READY, then review PR #387. User acceptance on the combined UI and remaining real-device Alerts retention behavior is distinct from automated tests.
+- The combined Alerts + semantic versioning stable Preview first shipped **0.5.0** with full canonical CI and READY Scratch Vercel. This subsequent **user-testable Preview refinement is 0.5.1**.
+- Settings keeps **Version** and its number visible by default, with all app/build diagnostics (effective Appwrite backend, branch, commit and message) hidden until the Version row is opened. The existing multiline commit message disclosure remains nested/independent.
+- Keep exact Appwrite isolation unchanged: Preview and dev use Scratch; main uses Production. Production `push_subscriptions.include_task_details` still needs approved `006-push-details` migration before a main backend activation. No backend changes are part of this task.
+- Keep the Preview `feature/notifications-alerts` as the accepted destination; PR #387 to dev remains draft until explicit user approval. No dev/main production merge is authorized by this request.
 
-## Implementation work
+## Task delivery
 
-- Port versioning scripts, contracts and regressions while preserving Alerts appwrite tooling; bump package/lock/UI version together to 0.5.0.
-- Bring the expandable commit message into Alerts Settings and add runtime-effective Appwrite identity.
-- Harden Preview and official Production Appwrite target guards and test mismatched project/region/Function combinations.
-- Reconcile agent workflow documentation and descriptive release merge requirements; keep the existing Notifications backend/function unchanged.
-
-Next action: finalize focused task commit and run focused CI; merge into the Alerts stable Preview on success, then validate full CI and READY Scratch Vercel deployment. Do not assume device acceptance or production migration has happened.
+- Update Settings interaction and DOM regression, synchronized package/lock/app version 0.5.1, and affected UI/docs in the **same** coherent focused task commit.
+- Verify focused CI on task branch, squash to stable Alerts Preview, then full canonical CI, Vercel READY and size guard. Use the registered stable Alerts Preview alias.
+- Browser/device manual acceptance of the updated disclosure and Alerts retention cross-device syncing remains separate from CI.
