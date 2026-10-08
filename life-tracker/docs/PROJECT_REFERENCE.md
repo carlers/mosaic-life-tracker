@@ -1033,6 +1033,20 @@ aggregate ceilings are revised to 2,289,800 B raw / 703,900 B gzip /
 Vercel headroom. This is scoped feature growth rather than an
 unconditional size guard increase.
 
+A ninth reviewed 2026-10-08 exception accepts **account-synced, independently
+configurable Alerts history**. A comparable GitHub diagnostic build initially fit
+the previous ceilings, but the actual Vercel environment emitted 2,291,198 B
+aggregate raw / 704,042 B gzip / 2,374,031 B precache and exceeded the
+old ceilings by 1,398 B / 142 B / 1,631 B. The growth is from two
+Notification Settings controls, retention-policy logic and the recoverable
+offline feed cache; the Appwrite Function source is not shipped with the PWA.
+The unchanged entry/startup/Home limits still pass. The three aggregate caps
+are increased only to 2,293,300 B raw / 705,100 B gzip / 2,375,900 B
+precache, leaving 2,102 B / 1,058 B / 1,869 B against the measured
+Vercel build, rather than disabling or generally loosening the guard.
+This is the approved feature's measured production cost, not arbitrary budget
+growth.
+
 The current baseline and limits live in
 `config/build-size-budget.json` and are pinned by unit coverage.
 

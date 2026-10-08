@@ -29,15 +29,14 @@ User approved two account-synced retention dropdowns. No permission to change
 - Full task-branch diagnostic initially failed two obsolete/handoff unit
   assertions; repaired at `0cedcaf8` with focused CI green. Squash commit
   `a9f94cf5` passed all canonical CI and browser checks (run 37785073679).
-  Vercel independently failed its build-size guard: its actual 2,291,198
-  app raw bytes, 704,042 gzip and 2,374,031 precache exceeded the old
-  configured ceilings by 1,398 / 142 / 1,631 bytes respectively.
-  `chatgpt/alerts-retention-vercel-size-repair` makes a narrowly measured
-  3,500 / 1,200 / 3,500-byte budget allowance for this approved feature,
-  leaving other limits unchanged. Recheck Vercel READY and canonical CI.
+  Vercel's production build exceeded the old three aggregate budgets by
+  1,398 / 142 / 1,631 B. The reviewed feature-size allowance on
+  `675d9835` repaired Vercel (READY), while canonical CI found a hardcoded
+  test assertion of the previous aggregate caps. The current repair updates
+  the test to the reviewed ceilings without altering runtime or other guards.
 - Disposable scratch Function `message-action` was built from reviewed
-  commit `a9f94cf5` and activated after READY at deployment
-  `6ac79b55eeeee3f58603`. Read-back confirms activation. If the final
+  commit `675d9835` and activated after READY at deployment
+  `6ac79cde15e80ba98d89`. Read-back confirms activation. If the final
   stable commit changes, repeat exact-commit deploy/activate after READY;
   production Appwrite must remain untouched. Authenticated browser
   retention and push acceptance still require manual phone testing.
