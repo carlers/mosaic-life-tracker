@@ -4,7 +4,7 @@ import {
   MOSAIC_SCRATCH_ENDPOINT,
   MOSAIC_SCRATCH_PROJECT_ID,
   assertPreviewBackendIsolation,
-} from '../../scripts/lib/preview-backend-isolation.mjs';
+} from '../../scripts/lib/preview-backend-isolation.ts';
 
 describe('Vercel Preview Appwrite isolation', () => {
   const scratch = {

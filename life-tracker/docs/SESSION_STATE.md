@@ -28,6 +28,20 @@ Task branch: `chatgpt/scratch-preview-isolation`; no dev/main promotion.
   unit regression cases. The official scratch project ID and fra endpoint are
   required for every Vercel Preview; production build remains unchanged.
 
+## Scratch active deployment and Preview build repair
+
+- Scratch Function deployment `6ac77056dfae4233346e` reached READY, was
+  explicitly activated, and read-back confirmed as active. It was built from
+  exact notification source SHA `1d21ebe9`; no production Function change.
+- Isolation PR #377 passed focused CI and merged to the stable feature Preview
+  at `5b0dded`. On that tree, Vercel/CI production builds found TS7016:
+  `vite.config.ts` could not resolve the type declaration of the `.mjs`
+  isolation helper. Follow-up task branch
+  `chatgpt/scratch-preview-isolation-types` converts the helper to `.ts`
+  so Vite/TypeScript and Vitest share one typed implementation.
+- Rebuild and verify the newest Preview targets scratch, not merely that
+  Vercel deploys a static bundle. Production Appwrite remains untouched.
+
 ## Remaining execution gates
 
 1. Inspect scratch Function deployment build; if ready, activate only that
