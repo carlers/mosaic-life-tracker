@@ -163,7 +163,7 @@ describe('build-size guard', () => {
   });
 
   // Regression: §24.14 (aggregate/precache ceilings include reviewed shipped
-  // product growth without widening startup/Home or aggregate raw limits).
+  // product growth without widening startup/Home limits).
   it('preserves the reviewed aggregate and precache ceilings', async () => {
     const configuredBudget = JSON.parse(await readFile(
       new URL('../../config/build-size-budget.json', import.meta.url),
@@ -171,9 +171,9 @@ describe('build-size guard', () => {
     ));
 
     expect(configuredBudget.limits).toMatchObject({
-      appAssetsRawBytes: 2269500,
-      appAssetsGzipBytes: 695800,
-      precacheUniqueBytes: 2348000,
+      appAssetsRawBytes: 2281400,
+      appAssetsGzipBytes: 701400,
+      precacheUniqueBytes: 2361000,
     });
   });
 

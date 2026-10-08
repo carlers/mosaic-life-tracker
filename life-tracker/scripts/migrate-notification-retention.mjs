@@ -22,7 +22,11 @@ export async function migrateNotificationRetentionIndex({
   }
   if (!current) {
     log('Creating notification retention index...');
-    await request('POST', `${tablePath}/indexes`, expected);
+    await request('POST', `${tablePath}/indexes`, {
+      key: expected.key,
+      type: expected.type,
+      columns: expected.attributes,
+    });
     return { created: true };
   }
   assertCompatibleIndex(current, expected, 'notifications');
