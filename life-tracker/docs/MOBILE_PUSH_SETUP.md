@@ -5,6 +5,24 @@ Mosaic uses **standards-based VAPID Web Push** with its existing Appwrite
 project, Apple Developer account, separate push server, or new Function.
 The in-app Alerts feed remains operational even when push is disabled.
 
+## Login and scratch Preview origin
+
+For the notification feature, use the registered **stable branch Preview**:
+`https://mosaic-life-tracker-git-feature-beac29-carls-projects-72516fde.vercel.app`.
+It follows the latest READY Preview for `feature/notifications-alerts`
+and uses the disposable scratch Appwrite project, not production.
+
+A link of the form `mosaic-life-tracker-<deployment-hash>-...vercel.app`
+has a different browser origin even when its code and Vercel status
+match the stable Preview. The hostname must separately be registered
+as a **Web** platform on the *scratch* Appwrite project or login/signup
+may show `Failed to fetch` due to CORS. Both the previously shared
+`mosaic-life-tracker-n73x4jbnd-carls-projects-72516fde.vercel.app`
+and the stable alias were registered on scratch on 2026-10-08.
+Scratch user accounts are not production user accounts; create a
+disposable scratch account for end-to-end testing. Do not sign in
+with your production data expecting it to appear in Preview.
+
 ## Device setup
 
 **Android (Chrome or another browser supporting installed PWA push):**

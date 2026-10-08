@@ -123,6 +123,27 @@ After the Vercel project is created, take its stable production hostname (for ex
 Until that Appwrite platform exists, the static app can load but authenticated Appwrite
 requests from the preview origin may be rejected by CORS.
 
+**Share the stable branch alias, not the deployment-specific immutable URL,**
+when giving users a Preview for login, signup, or other Appwrite-connected testing.
+Vercel assigns a different deployment URL on each push; its hostname is not
+automatically added to the scratch Appwrite Web-platform allowlist. The stable
+branch alias follows the latest READY deployment and requires one registered
+scratch Web platform. In the 2026-10-08 notification incident, the registered
+alias was `mosaic-life-tracker-git-feature-beac29-carls-projects-72516fde.vercel.app`,
+but the unregistered deployment host
+`mosaic-life-tracker-n73x4jbnd-carls-projects-72516fde.vercel.app`
+was shared and login failed with "Failed to fetch". Both hosts have since
+been explicitly registered on **scratch only**.
+
+Before handing off a browser-login Preview, list the deployment's actual
+aliases and the target scratch project's Web platforms and verify the
+**exact hostname** is registered. A Vercel READY status or a successful
+HTML response does not prove browser Appwrite CORS compatibility.
+For an immutable deployment URL that must be tested, register that one
+hostname explicitly on scratch; never use an Appwrite wildcard or switch
+the Preview to production as a shortcut. Include the registered, stable
+alias in the handoff.
+
 Vercel's per-branch preview URLs remain useful for static rendering checks, but they should
 not be treated as authenticated Mosaic test URLs unless their hostnames are also registered
 with Appwrite.
