@@ -1,4 +1,5 @@
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { buildWebChatPacket, estimateTokens, parseWorkingSet, validateSessionState } from '../../scripts/lib/create-handoff.mjs';
 import { resolve } from 'node:path';
 import { checkContracts, localMarkdownTargets } from '../../scripts/check-project-contracts.mjs';
@@ -7,6 +8,15 @@ describe('documentation entrypoints and links', () => {
   it('resolves the migrated documentation and root agent entrypoint', () => {
     expect(checkContracts().errors).toEqual([]);
   });
+  it('indexes every maintained docs Markdown file for agent discoverability', () => {
+    const docs = fileURLToPath(new URL('../../docs/', import.meta.url));
+    const index = readFileSync(resolve(docs, 'README.md'), 'utf8');
+    const unindexed = readdirSync(docs)
+      .filter((name) => name.endsWith('.md') && name !== 'README.md')
+      .filter((name) => !index.includes(`](${name})`));
+    expect(unindexed).toEqual([]);
+  });
+
   it('ignores examples and external links while resolving encoded paths and IDE suffixes', () => {
     const source = resolve('/repo/docs/readme.md');
     const markdown = '[real](../file.md:12) [space](<a%20b.md>) [web](https://example.com) [anchor](#section)\n~~~~~text\n[example](missing.md)\n```\n~~~~~\n[another](other.md#section)';

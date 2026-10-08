@@ -1,47 +1,46 @@
 # Session checkpoint
 
 Updated: 2026-10-09
-Current task: #415 — critique and strengthen the AI development workflow
-Status: implementation checkpoint prepared for focused CI
-Next action: run focused checks on `chatgpt/ai-workflow-critique`, squash into `refactor/ai-workflow-critique` for canonical CI/Preview, and request approval before promotion to `dev`.
-Blockers: no identified source blocker; remote CI/Preview checks not yet completed.
+Current task: #414 — reorganize and clean up repository documentation
+Status: scoped cleanup prepared on `chatgpt/docs-authority-cleanup`; focused CI pending
+Next action: verify the task branch, then squash into `refactor/docs-authority-cleanup` for canonical CI/Vercel Preview. Request separate user approval before promotion to `dev`.
+Blockers: none identified.
 
 ## Intent and scope
 
-- Ground workflow recommendations in recent PR/CI evidence, not anecdotal speed claims.
-- Repair the incompatibility between the concise session checkpoint and handoff CLI.
-- Clarify quick-capture, read-only audit, docs/tooling, frontend, and Appwrite-dependent paths.
-- Do not weaken exact-source acceptance, Scratch isolation, manual checks, or explicit promotions.
+- Make documentation ownership and navigation explicit without moving stable reference anchors.
+- Correct the confirmed stale Alerts claim in the app README and outdated active-workstream guidance in the roadmap.
+- Preserve unique backend, privacy, disaster-recovery, versioning, testing, and manual-acceptance contracts.
+- Add regression coverage that keeps all maintained docs reachable from the index.
 
 ## Working set
 
-- `docs/AI_WORKFLOW.md`
+- `README.md`
+- `docs/README.md`
+- `docs/PLAN.md`
 - `docs/SESSION_STATE.md`
-- `scripts/lib/create-handoff.mjs`
-- `tests/unit/handoffCli.test.ts`
 - `tests/unit/documentationContracts.test.ts`
 
 ## Completed substeps
 
-- Read current `dev` docs, task #415, Quality Gate, handoff scripts, and recent PRs.
-- Verified a browser-contract failure in run 37812228117, passing recheck in
-  37812926535, and exact-tree dev promotion reuse in run 37816839080.
-- Found current `SESSION_STATE.md` differs from the CLI's legacy required headings.
-- Kept delivery policy unchanged; prepared a compatibility fix and regression coverage.
+- Reviewed all 29 tracked Markdown paths and their ownership; 25 reside in `docs/`.
+- Confirmed the existing index already links every other maintained `docs/*.md`.
+- Verified the `/notifications` page exists and the dedicated Diary view remains a planned item.
+- Retained historical audit/rollout evidence instead of silently deleting or reclassifying contracts.
+- Scoped the change to documentation and a documentation-index test; version impact NONE.
 
 ## Remaining substeps
 
-- Focused CI for task SHA; investigate and repair any failure.
-- Stable Preview canonical CI and Vercel verification, then issue #415 evidence update.
-- Optional human acceptance; separate explicit approval for Preview → `dev`.
-- #414 owns wider documentation restructuring and stale README cleanup.
+- Run focused regression/contract tests and inspect the Markdown diff.
+- Complete stable Preview canonical CI and Vercel READY verification.
+- Record measured inventory and acceptance on issue #414; await `dev` promotion approval.
 
 ## Constraints
 
-- No changes to product behavior, visual design, Appwrite, release version, or CI gates.
-- Preserve old and compact handoff input formats, safe file-path handling, and public-repo privacy.
+- No application runtime, design, Appwrite, configuration, CI gate, or version changes.
+- Existing project-reference section numbers and runbook paths must remain stable.
 
 ## Verification
 
-- GitHub historical Actions reviewed; newly changed tree has not yet been tested.
-- Manual or physical-device verification is not applicable to this CLI/docs-only change.
+- Repository source/route audit completed; newly edited tree awaits CI.
+- Physical-device/manual testing is not applicable to this documentation-only task.
