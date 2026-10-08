@@ -7,7 +7,7 @@ import React, {
   useState,
 } from 'react';
 import { format, formatDistanceToNow } from 'date-fns';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import {
   Bell,
   Check,
@@ -27,6 +27,7 @@ import { useConnectivity } from '../hooks/useConnectivity';
 import { useTaskActivityActions } from '../hooks/useTaskActivityActions';
 import {
   fetchNotifications,
+  fetchNotificationById,
   markNotificationsRead,
   type NotificationItem,
 } from '../lib/notifications';
@@ -63,6 +64,7 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({
   preview = false,
 }) => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user } = useAuth();
   const userId = user?.$id ?? '';
   const connectivity = useConnectivity();
@@ -79,6 +81,8 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({
   const [replyTarget, setReplyTarget] =
     useState<NotificationItem | null>(null);
   const [dayTarget, setDayTarget] = useState<NotificationItem | null>(null);
+  const [dayOpen, setDayOpen] = useState(false);
+  const [dayOwnerId, setDayOwnerId] = useState('');
   const [now, setNow] = useState(() => Date.now());
   const markingRef = useRef(new Set<string>());
   const remoteGenerationRef = useRef(0);
@@ -205,6 +209,30 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({
       window.removeEventListener('focus', handleFocus);
     };
   }, [feedIsCurrent, preview, refresh]);
+
+  // Task-specific notification taps must work beyond the first feed page.
+  // Read and authorize the target on the server, never from a stale cache.
+  const requestedId = new URLSearchParams(location.search).get('alert') || '';
+  const alertId = /^not_[a-f0-9]{32}$/.test(requestedId) ? requestedId : '';
+  useEffect(() => {
+    if (preview || !feedIsCurrent || !alertId ||
+        connectivity.status !== 'online') return;
+    let active = true;
+    void fetchNotificationById(alertId).then((item) => {
+      if (!active) return;
+      if (item) {
+        setDayTarget(item);
+        setDayOwnerId(userId);
+        setDayOpen(true);
+      }
+      navigate('/notifications', { replace: true });
+    }).catch((cause) => {
+      if (!active) return;
+      console.warn('[NotificationsPage] notification tap lookup failed:', cause);
+      // A temporary network/server failure preserves the link for retry.
+    });
+    return () => { active = false; };
+  }, [alertId, connectivity.status, feedIsCurrent, navigate, preview, userId]);
 
   const visibleItems = feedIsCurrent ? activeNotifications(items, now) : [];
   const visibleNextCursor = feedIsCurrent ? nextCursor : '';
@@ -598,7 +626,11 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({
                             <div className="min-w-0 flex-1">
                               <button type="button"
                                 disabled={!canInteract}
-                                onClick={() => setDayTarget(item)}
+                                onClick={() => {
+                                   setDayTarget(item);
+                                   setDayOwnerId(userId);
+                                   setDayOpen(true);
+                                 }}
                                 onPointerDown={() => { void loadAlertFriendDaySheet(); }}
                                 onMouseEnter={() => { void loadAlertFriendDaySheet(); }}
                                 onFocus={() => { void loadAlertFriendDaySheet(); }}
@@ -666,10 +698,16 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({
         </div>
       )}
 
-      {feedIsCurrent && dayTarget && visibleItems.some((item) => item.id === dayTarget.id) && (
+      {feedIsCurrent && dayTarget && dayOwnerId === userId && (
         <Suspense fallback={null}>
           <AlertFriendDaySheet key={`${userId}:${dayTarget.id}`}
-            notification={dayTarget} onClose={() => setDayTarget(null)} />
+            notification={dayTarget}
+            isOpen={dayOpen}
+            onClose={() => setDayOpen(false)}
+            onExitComplete={() => {
+              setDayTarget(null);
+              setDayOpen(false);
+            }} />
         </Suspense>
       )}
 

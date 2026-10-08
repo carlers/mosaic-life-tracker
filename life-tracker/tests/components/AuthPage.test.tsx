@@ -1,6 +1,6 @@
 import React from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
@@ -63,4 +63,32 @@ describe('AuthPage signup onboarding', () => {
       )
     );
   });
+  it('returns to an account-safe notification deep link after login', async () => {
+    const id = 'not_' + 'a'.repeat(32);
+    mocks.login.mockResolvedValue(true);
+    const AlertPath = () => {
+      const location = useLocation();
+      return <p>Opened {location.pathname + location.search}</p>;
+    };
+    render(
+      <MemoryRouter initialEntries={[{
+        pathname: '/login',
+        state: { from: { pathname: '/notifications', search: '?alert=' + id } },
+      }]}>
+        <Routes>
+          <Route path="/login" element={<AuthPage />} />
+          <Route path="/notifications" element={<AlertPath />} />
+        </Routes>
+      </MemoryRouter>
+    );
+    fireEvent.change(screen.getByLabelText('Email Address'), {
+      target: { value: 'test@example.com' },
+    });
+    fireEvent.change(screen.getByLabelText('Password'), {
+      target: { value: 'password123' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Sign In' }));
+    expect(await screen.findByText('Opened /notifications?alert=' + id)).toBeInTheDocument();
+  });
+
 });

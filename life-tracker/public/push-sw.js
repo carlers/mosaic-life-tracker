@@ -63,29 +63,43 @@ self.addEventListener('push', (event) => {
 
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
-  event.waitUntil(
-    (async () => {
-      const data = event.notification.data || {};
-      const activeUser = await readActiveUser();
-      if (!activeUser || data.userId !== activeUser) return;
-
-      const targetUrl = new URL(
-        typeof data.url === 'string' ? data.url : '/notifications',
-        self.location.origin
-      ).href;
-      const windows = await self.clients.matchAll({
-        type: 'window',
-        includeUncontrolled: true,
-      });
-      for (const client of windows) {
-        if (new URL(client.url).origin !== self.location.origin) continue;
-        if ('navigate' in client) {
-          await client.navigate(targetUrl);
+  event.waitUntil((async () => {
+    const data = event.notification.data || {};
+    const activeUser = await readActiveUser();
+    // Always open the app. A previous account's alert must never deep-link
+    // into its data, but a missing marker must not turn taps into no-ops.
+    const isCurrent = Boolean(activeUser) && data.userId === activeUser;
+    const deepLink = isCurrent && typeof data.url === 'string' &&
+      /^\/notifications\?alert=not_[a-f0-9]{32}$/.test(data.url)
+      ? data.url : '/notifications';
+    const targetUrl = new URL(deepLink, self.location.origin).href;
+    const windows = await self.clients.matchAll({
+      type: 'window', includeUncontrolled: true,
+    });
+    const sameOrigin = windows.filter((client) => {
+      try { return new URL(client.url).origin === self.location.origin; }
+      catch { return false; }
+    });
+    const preferred = sameOrigin.find((client) =>
+      new URL(client.url).pathname === '/notifications'
+    ) || sameOrigin[0];
+    if (preferred) {
+      try {
+        const navigated = await preferred.navigate(targetUrl);
+        if (navigated) {
+          await navigated.focus();
+          return;
         }
-        await client.focus();
-        return;
+      } catch {
+        // Some installed-PWA clients reject navigate(). openWindow is
+        // the fallback and can reuse the installed application on Android.
       }
-      await self.clients.openWindow(targetUrl);
-    })()
-  );
+    }
+    try {
+      const opened = await self.clients.openWindow(targetUrl);
+      if (opened) await opened.focus();
+    } catch {
+      // The platform can refuse to open a window (OS/browser restrictions).
+    }
+  })());
 });

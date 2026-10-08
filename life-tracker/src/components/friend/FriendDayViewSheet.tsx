@@ -49,6 +49,7 @@ const ImageViewerLoadingFallback: React.FC = () => (
 interface FriendDayViewSheetProps {
   isOpen: boolean;
   onClose: () => void;
+  onExitComplete?: () => void;
   date: Date;
   onDateChange: (date: Date) => void;
   tasks: TaskDocument[];
@@ -335,6 +336,7 @@ const FriendDaySlide: React.FC<FriendDaySlideProps> = ({
 export const FriendDayViewSheet: React.FC<FriendDayViewSheetProps> = ({
   isOpen,
   onClose,
+  onExitComplete,
   date,
   onDateChange,
   tasks,
@@ -537,6 +539,7 @@ export const FriendDayViewSheet: React.FC<FriendDayViewSheetProps> = ({
       <BottomSheet
         isOpen={isOpen}
         onClose={onClose}
+        onExitComplete={onExitComplete}
         ariaLabel={format(date, 'EEEE, MMMM d, yyyy')}
         height="full"
         isLocked={!!reactionTask || isImageViewerOpen}

@@ -1,5 +1,5 @@
 import React, { useEffect, useId, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
 import { usePropSync } from "../hooks/usePropSync";
 import { Button } from "../components/ui/Button";
@@ -33,11 +33,16 @@ export const AuthPage: React.FC = () => {
     pendingSignup,
   } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  const from = (location.state as { from?: { pathname?: string; search?: string } } | null)?.from;
+  const returnPath = from?.pathname === '/notifications' &&
+    /^\?alert=not_[a-f0-9]{32}$/.test(from.search || '')
+      ? `/notifications${from.search}` : '/home';
   const passwordId = useId();
 
   useEffect(() => {
-    if (user) navigate("/home", { replace: true });
-  }, [navigate, user]);
+    if (user) navigate(returnPath, { replace: true });
+  }, [navigate, returnPath, user]);
 
   usePropSync(pendingSignup, () => {
     if (!pendingSignup) return;
@@ -126,7 +131,7 @@ export const AuthPage: React.FC = () => {
       ? await login(email, password)
       : await signup(email, password, name, username);
     if (success) {
-      navigate("/home", { replace: true });
+      navigate(returnPath, { replace: true });
     }
   };
 

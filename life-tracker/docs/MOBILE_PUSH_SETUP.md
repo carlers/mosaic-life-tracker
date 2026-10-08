@@ -28,7 +28,11 @@ The in-app Alerts feed remains operational even when push is disabled.
 4. Use a second accepted friend's account to complete a new shared task.
 
 Push is *per installed app/browser profile and device*, not a synced account
-preference. Enable it separately on each phone. Production and Preview are
+preference. The **Show task details in notifications** switch appears only after
+push is enabled and the server verifies this device's subscription preference.
+It is off by default. Turning it on allows the friend's display name and task
+title to appear on your lock screen; turning it off cannot remove information
+already delivered. Keep it off on shared/unsecured phones. Enable it separately on each phone. Production and Preview are
 different origins: a subscription from one installation is not the other's
 subscription. If the switch says "Install Mosaic to your Home Screen first",
 open the installed icon; if it says "Blocked", re-enable notification access in
@@ -52,6 +56,14 @@ After provisioning, verify the authenticated `get_push_config` action reports
 `enabled: true` with only a public key; check Function variable secrecy without
 reading the private value. Use a disposable, mutually accepted pair to test
 actual delivery (lock screen and notification tap, app foreground/background).
+A tap should open the installed PWA where the browser supports it, navigate to
+the exact receipt, and open the focused Friend Day View. Test cold-start,
+background/foreground, no cached page, older paginated receipts, sign-out,
+account switch, expired/private tasks, and denied/revoked friendship.
+The `006-push-details` backend migration must be applied before the new Function
+becomes active. Client/Function rolling deploys remain compatible: an old
+Function cannot enable the detail switch. Production activation is separate
+from pushing frontend code.
 Push requests are driven by eligible Appwrite task-completion events. The
 payload intentionally excludes private task text and is discarded in the
 service worker unless the local active account matches its intended account.

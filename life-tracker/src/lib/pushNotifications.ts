@@ -18,6 +18,8 @@ export interface PushNotificationState {
   status: PushNotificationStatus;
   enabled: boolean;
   label: string;
+  /** null means the server preference has not been verified. */
+  detailsEnabled: boolean | null;
 }
 
 interface PushConfig {
@@ -94,9 +96,10 @@ function supportsWebPush(): boolean {
 function state(
   status: PushNotificationStatus,
   label: string,
-  enabled = false
+  enabled = false,
+  detailsEnabled: boolean | null = null
 ): PushNotificationState {
-  return { status, label, enabled };
+  return { status, label, enabled, detailsEnabled };
 }
 
 function supportState(): PushNotificationState | null {
@@ -154,6 +157,29 @@ async function registerSubscription(
   });
 }
 
+async function readPushDetails(userId: string, endpoint: string): Promise<boolean> {
+  const result = await sendAppAction({
+    action: 'get_push_details', expectedUserId: userId, endpoint,
+  });
+  return result.includeTaskDetails === true;
+}
+
+export async function setPushDetails(
+  userId: string,
+  includeTaskDetails: boolean
+): Promise<PushNotificationState> {
+  if (!userId || getConnectivitySnapshot().status !== 'online') {
+    throw new Error('Push preferences require an online signed-in account');
+  }
+  const subscription = await getLocalSubscription();
+  if (!subscription) throw new Error('Push is not enabled on this device');
+  await sendAppAction({
+    action: 'set_push_details', expectedUserId: userId,
+    endpoint: subscription.endpoint, includeTaskDetails,
+  });
+  return getPushNotificationState(userId);
+}
+
 export async function reconcileExistingPushSubscription(
   userId: string
 ): Promise<boolean> {
@@ -195,7 +221,15 @@ export async function getPushNotificationState(
         );
       }
     }
-    return state('enabled', 'Enabled on this device', true);
+    let detailsEnabled: boolean | null = null;
+    if (userId && getConnectivitySnapshot().status === 'online') {
+      try {
+        detailsEnabled = await readPushDetails(userId, subscription.endpoint);
+      } catch (error) {
+        console.warn('[pushNotifications] details check failed:', error);
+      }
+    }
+    return state('enabled', 'Enabled on this device', true, detailsEnabled);
   }
 
   if (getConnectivitySnapshot().status !== 'online') {

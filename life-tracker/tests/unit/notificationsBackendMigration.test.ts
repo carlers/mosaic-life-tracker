@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { migrateNotificationsBackend } from '../../scripts/migrate-notifications.mjs';
 import { migrateNotificationRetentionIndex } from '../../scripts/migrate-notification-retention.mjs';
+import { migratePushDetails } from '../../scripts/migrate-push-details.mjs';
 
 describe('notifications backend migration', () => {
   it('creates both server-owned tables when they are absent', async () => {
@@ -46,4 +47,28 @@ describe('notifications backend migration', () => {
     );
   });
 
+  it('adds default-private subscription details without touching existing subscriptions', async () => {
+    let created = false;
+    const request = vi.fn(async (method: string, path: string, body?: any) => {
+      if (method === 'GET' && path.endsWith('/push_subscriptions')) {
+        return { $id: 'push_subscriptions' };
+      }
+      if (method === 'GET' && path.endsWith('/include_task_details')) {
+        if (!created) throw Object.assign(new Error('missing'), { status: 404 });
+        return { key: 'include_task_details', type: 'boolean', required: false,
+          default: false, status: 'available' };
+      }
+      if (method === 'POST' && path.endsWith('/columns/boolean')) {
+        created = true;
+        return body;
+      }
+      throw new Error(`Unexpected ${method} ${path}`);
+    });
+    expect(await migratePushDetails({ request })).toEqual({ created: true });
+    expect(request).toHaveBeenCalledWith(
+      'POST', '/tablesdb/life_tracker/tables/push_subscriptions/columns/boolean',
+      { key: 'include_task_details', required: false, default: false, array: false },
+    );
+    expect(await migratePushDetails({ request })).toEqual({ created: false });
+  });
 });

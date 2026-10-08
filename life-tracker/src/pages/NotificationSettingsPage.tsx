@@ -5,7 +5,7 @@ import { SettingsRow } from '../components/ui/SettingsRow';
 import { useAuth } from '../hooks/useAuth';
 import { hasExpectedRouteParent, resolveRouteParent } from '../lib/primarySwipeNavigation';
 import {
-  disablePushNotifications, enablePushNotifications, getPushNotificationState,
+  disablePushNotifications, enablePushNotifications, getPushNotificationState, setPushDetails,
   type PushNotificationState,
 } from '../lib/pushNotifications';
 
@@ -15,7 +15,7 @@ export const NotificationSettingsPage: React.FC = () => {
   const { user } = useAuth();
   const userId = user?.$id || '';
   const [pushState, setPushState] = useState<PushNotificationState>({
-    status: 'checking', enabled: false, label: 'Checking this device…',
+    status: 'checking', enabled: false, detailsEnabled: null, label: 'Checking this device…',
   });
   const [pending, setPending] = useState(false);
 
@@ -25,7 +25,7 @@ export const NotificationSettingsPage: React.FC = () => {
       if (active) setPushState(next);
     }).catch(() => {
       if (active) setPushState({
-        status: 'unconfigured', enabled: false,
+        status: 'unconfigured', enabled: false, detailsEnabled: null,
         label: 'Could not check push availability',
       });
     });
@@ -45,8 +45,24 @@ export const NotificationSettingsPage: React.FC = () => {
       try {
         setPushState(await getPushNotificationState(userId));
       } catch {
-        setPushState({ status: 'unconfigured', enabled: false, label: 'Could not check push availability' });
+        setPushState({ status: 'unconfigured', enabled: false, detailsEnabled: null, label: 'Could not check push availability' });
       }
+    } finally {
+      setPending(false);
+    }
+  };
+
+  const toggleDetails = async () => {
+    if (!userId || pending || !pushState.enabled ||
+        pushState.detailsEnabled === null) return;
+    setPending(true);
+    try {
+      setPushState(await setPushDetails(userId, !pushState.detailsEnabled));
+    } catch (cause) {
+      console.warn('[NotificationSettings] details preference failed:', cause);
+      setPushState(await getPushNotificationState(userId).catch(() => ({
+        ...pushState, detailsEnabled: null,
+      })));
     } finally {
       setPending(false);
     }
@@ -95,6 +111,27 @@ export const NotificationSettingsPage: React.FC = () => {
           Push is enabled separately on each device. Permission is requested
           only when you turn it on. In-app Alerts work without push.
         </p>
+        {pushState.enabled && (
+          <>
+            <SettingsRow
+              icon={<BellRing size={18} className="text-gray-400" aria-hidden="true" />}
+              label="Show task details in notifications"
+              value={pushState.detailsEnabled === null
+                ? 'Connect to verify this device’s preference'
+                : pushState.detailsEnabled ? 'Friend names and task titles shown' : 'Generic notification text'}
+              showChevron={false}
+              isToggle
+              checked={pushState.detailsEnabled === true}
+              disabled={pending || pushState.detailsEnabled === null}
+              onClick={() => void toggleDetails()}
+            />
+            <p className="px-5 pb-3 pt-2 text-xs text-gray-500">
+              Off by default on each device. When enabled, names and task titles
+              may appear on your lock screen. Disabling cannot erase notifications
+              already delivered.
+            </p>
+          </>
+        )}
         {pushState.status === 'install-required' && (
           <p className="px-5 pb-3 text-xs text-gray-400">
             On iPhone or iPad, open Mosaic in Safari, tap Share, choose
