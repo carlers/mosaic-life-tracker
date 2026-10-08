@@ -28,5 +28,13 @@ starting from stable `fix/light-theme-contrast` SHA
 - v0.5.2 passed all seven Vercel build-size metrics but had only 51 B
   appAssetsRaw headroom; do not increase budgets. Reverted CSS/classes are
   expected to reduce shipped bytes; verify on the actual Preview.
-- GitHub Actions acceptance must be confirmed independently. Do not
-  promote to dev/main without explicit user instruction.
+- Stable v0.5.3 candidate `1cb032b8` has Vercel READY and all seven
+  size/PWA checks pass; first full canonical run `37812228117` failed
+  only the existing Light-theme browser test at its Search-dismissal click:
+  the overlay intercepted pointer events in the test harness. Other browser
+  shard, DOM shards, lint/static, dependency audit, and build passed.
+- Fix the test to use the supported searchbox Escape-key dismissal on
+  `chatgpt/fix-light-contrast-browser-dismissal` and rerun focused CI,
+  then the stable Preview canonical CI. This is a test-only repair of
+  the same user-facing v0.5.3, not another version revision.
+- Do not promote to dev/main without explicit user instruction.
