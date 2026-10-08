@@ -12,7 +12,7 @@ const TABLES = [
 const DEFAULT_RETENTION_DAYS = 90;
 const PAGE_SIZE = 100;
 const MAX_PAGES_PER_TABLE = 100;
-const NOTIFICATION_RETENTION_MS = 7 * 24 * 60 * 60 * 1000;
+const { MAX_RECEIPT_RETENTION_MS } = require('./alert-retention');
 const MAX_NOTIFICATION_GC_PAGES = 2;
 
 function retentionDays() {
@@ -88,9 +88,11 @@ async function runGc(tablesDB, cutoff, log) {
   return results;
 }
 
-// Keep read receipts until seven days after arrival to prevent event replay.
+// Retain receipts through the longest allowable unread->read lifecycle
+// (30 days unread + 7 days after first read). Never delete on per-user
+// visibility changes: a user may lengthen a setting before physical expiry.
 async function purgeExpiredNotifications(tablesDB, now = new Date(), log = () => {}) {
-  const cutoff = new Date(now.getTime() - NOTIFICATION_RETENTION_MS).toISOString();
+  const cutoff = new Date(now.getTime() - MAX_RECEIPT_RETENTION_MS).toISOString();
   let purged = 0;
   for (let page = 0; page < MAX_NOTIFICATION_GC_PAGES; page += 1) {
     const result = await tablesDB.listRows({

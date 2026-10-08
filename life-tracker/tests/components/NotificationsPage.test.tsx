@@ -17,11 +17,17 @@ const mocks = vi.hoisted(() => ({
   sendTaskReaction: vi.fn(),
   navigate: vi.fn(),
   markCachedNotificationsRead: vi.fn().mockResolvedValue(undefined),
+  retentionSettings: {} as Record<string, unknown>,
 }));
 
 vi.mock('react-router-dom', () => ({
   useNavigate: () => mocks.navigate,
   useLocation: () => ({ key: 'default', state: null, search: mocks.locationSearch }),
+}));
+vi.mock('../../src/hooks/useSettings', () => ({
+  useSettings: () => ({
+    getSetting: (key: string, fallback?: unknown) => mocks.retentionSettings[key] ?? fallback,
+  }),
 }));
 vi.mock('../../src/hooks/useAuth', () => ({
   useAuth: () => ({
@@ -157,6 +163,7 @@ function notification(
 describe('NotificationsPage', () => {
   beforeEach(() => {
     mocks.userId = 'user_b';
+    mocks.retentionSettings = {};
     mocks.connectivityStatus = 'online';
     mocks.fetchNotifications.mockReset();
     mocks.fetchNotificationById.mockReset();
@@ -186,6 +193,23 @@ describe('NotificationsPage', () => {
     expect(
       screen.getByRole('button', { name: 'Refresh alerts' })
     ).toBeDisabled();
+  });
+
+  it('recalculates cached visibility as account retention changes without discarding recoverable alerts', async () => {
+    mocks.connectivityStatus = 'offline';
+    const occurredAt = new Date(Date.now() - 9 * 24 * 60 * 60 * 1000).toISOString();
+    const stored = notification({ occurredAt, createdAt: occurredAt });
+    mocks.getCachedNotifications.mockResolvedValue({ items: [stored], nextCursor: '', fetchedAt: occurredAt });
+    mocks.retentionSettings = { alertsUnreadRetentionDays: 7 };
+    const { rerender } = render(<NotificationsPage />);
+    await waitFor(() => expect(screen.getByText('No activity yet')).toBeInTheDocument());
+    mocks.retentionSettings = { alertsUnreadRetentionDays: 14 };
+    rerender(<NotificationsPage />);
+    expect(screen.getByText('Ship alerts')).toBeInTheDocument();
+    mocks.retentionSettings = { alertsUnreadRetentionDays: 3 };
+    rerender(<NotificationsPage />);
+    expect(screen.getByText('No activity yet')).toBeInTheDocument();
+    expect(mocks.markNotificationsRead).not.toHaveBeenCalled();
   });
 
   it('hides the previous account feed immediately during an account switch', async () => {

@@ -1,3 +1,55 @@
+# Session checkpoint — configurable Alerts history retention
+
+Updated: 2026-10-08. Task branch `chatgpt/alerts-configurable-retention`
+off `feature/notifications-alerts` SHA `8d32924a`. User approved two
+separate account-synced retention dropdowns in Settings → Notifications.
+No dev/main or production Appwrite changes are authorized.
+
+## Scope and behavior
+
+- Unread: 1/3/7/14/30 days from authoritative `created_at` (default 7).
+- Read: 1/12/24/72/168 hours from immutable first server `read_at`
+  (default 24h), independent of unread duration. Hard 37-day receipt cap.
+- Owner's values saved via existing synced settings rows, no new Appwrite
+  schema. Server reads and validates owner-controlled settings by hashed
+  row ID; client request body cannot impersonate a retention override.
+- Clients use matching policy for active Alerts and keep physically
+  recoverable account-scoped cache up to existing 100-item cap.
+- Hourly Function GC purges after 37 days using existing index. Task event
+  eligibility remains seven days so replayed old tasks do not fan out push.
+  Physical deletion and privacy revocation are never undone.
+
+## Source and tests
+
+- Function: `appwrite-functions/message-action/alert-retention.js`,
+  `notifications.js`, `tombstone-gc.js`.
+- Client: `src/lib/notificationRetention.ts`,
+  `notificationCache.ts`, `pages/NotificationsPage.tsx`,
+  `pages/NotificationSettingsPage.tsx`.
+- Tests: `tests/handlers/alertRetention.test.ts`,
+  `tombstoneGc.test.ts`,
+  `tests/unit/notificationRetention.test.ts`,
+  `tests/components/NotificationSettingsPage.test.tsx`,
+  `NotificationsPage.test.tsx`.
+- Docs: `PROJECT_REFERENCE.md`, `PLAN.md`, `MOBILE_PUSH_SETUP.md`.
+
+## Next and acceptance
+
+1. Run focused CI; repair any failures before stable Preview squash merge.
+2. Deploy and activate the exact reviewed message-action Function to
+   disposable scratch `6a96e82d000d1310b3be` only, verify active
+   deployment and server authorization. Never alter production Function.
+3. Stable Preview `feature/notifications-alerts` full canonical CI and
+   READY Vercel; share **stable** hostname only.
+4. Manual phone/laptop: controls save, sync both ways, read/unread retention
+   change immediately, refresh/deep-link behavior and push remain working.
+5. Account read receipts already permanently purged under the old seven-day
+   policy cannot be resurrected by longer retention settings. The 100-item
+   offline cache may not hold all remotely retained receipts.
+6. No production/dev/main promotion without explicit user approval.
+
+--- 
+
 # Session checkpoint
 
 Updated: 2026-10-08 — follow-up fix: phone Preview manual Sync Now falsely reports another tab.

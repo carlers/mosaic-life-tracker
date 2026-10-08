@@ -1,6 +1,6 @@
 import type { NotificationItem } from './notifications';
 import type { TaskDocument } from '../db/schema';
-import { activeNotifications } from './notificationRetention';
+import { retainRecoverableNotifications } from './notificationRetention';
 
 const DB_NAME = 'mosaic_notifications_cache';
 const STORE_NAME = 'feeds';
@@ -44,7 +44,7 @@ export async function getCachedNotifications(
       request.onsuccess = () => {
         const entry = request.result as CacheEntry | undefined;
         resolve(entry?.feed
-          ? { ...entry.feed, items: activeNotifications(entry.feed.items) }
+          ? { ...entry.feed, items: retainRecoverableNotifications(entry.feed.items) }
           : null);
       };
       request.onerror = () => reject(request.error);
@@ -68,7 +68,7 @@ export async function setCachedNotifications(
         {
           feed: {
             ...feed,
-            items: activeNotifications(feed.items).slice(0, MAX_CACHED_ITEMS),
+            items: retainRecoverableNotifications(feed.items).slice(0, MAX_CACHED_ITEMS),
           },
           cachedAt: Date.now(),
         } satisfies CacheEntry,

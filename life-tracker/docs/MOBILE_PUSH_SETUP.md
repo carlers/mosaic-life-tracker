@@ -114,3 +114,16 @@ also cleared during sign-out. A successful `get_push_config` check alone
 Web Push may be delayed/suppressed by browser power saving, Focus modes,
 notification permissions or push service availability. The Alerts activity
 feed is the durable source of truth and is not dependent on delivery.
+
+## Alerts history retention settings
+
+Settings → Notifications → Activity history now has **account-synced**
+preferences independent of per-device Push toggles. Unread receipts stay
+1, 3, 7 (default), 14, or 30 days from server arrival. Read receipts stay
+1, 12, 24 (default), 72, or 168 hours after their immutable first-read
+timestamp, with a 37-day absolute physical limit. Longer choices cannot
+restore receipts already physically purged; a recipient's server policy is
+authoritative for feed and exact push taps, while notification shade delivery
+and operating-system lifetime remain device-controlled. The scheduled
+`message-action` cleanup retains receipts for up to 37 days; its separate
+seven-day historic task-completion event cutoff remains unchanged.

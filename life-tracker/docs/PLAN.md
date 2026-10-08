@@ -99,6 +99,7 @@ This roadmap records durable workstreams and batch status. `SESSION_STATE.md` co
 - [x] Optional regional holiday overlay: synced show/region/type preferences, cached read-only holiday data, Calendar/Todo/Day View presentation, and viewer-local friend-calendar overlay
 - [ ] Diary view: per-day text entries with `public`, `followers`, or `private` visibility
 - [x] Notifications tab: account-scoped friend-completion Alerts feed with offline cache, reply/reaction actions, and optional Web Push
+- [x] Configurable account-synced Alerts retention: 1/3/7/14/30-day unread and 1/12/24/72/168-hour read choices (defaults 7 days/24 hours), recipient-authorized server policy, recoverable offline cache and 37-day physical receipts, without new schema
 - [ ] Routines and reminders
 - [ ] Optional external API integrations
 - [ ] Advanced social features, including selected-follower visibility if it enters scope

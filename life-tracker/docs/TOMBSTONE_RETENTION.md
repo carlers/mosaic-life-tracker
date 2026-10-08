@@ -147,3 +147,16 @@ Do not purge ordinary tombstones using an ad-hoc client-side delete or a normal
 only through the schedule-triggered retention path described here. Explicit whole-account
 erasure is the documented exception and must go through the server-owned account-deletion
 job, never through a client-side row loop.
+
+## Alerts receipt retention is separate from sync tombstones
+
+The 90-day sync tombstone strategy is unchanged. The server-only
+`notifications` table now retains receipt rows for at most **37 days**
+to honor independently selectable unread (1–30 days) and read
+(1–168 hours after first read) account settings. `created_at` is the
+server arrival time; `read_at` is written once. No receipt is physically
+removed when users shorten their display duration: that would prevent
+restoring a still-retained receipt when they later lengthen the setting.
+The existing hourly `idx_notification_created` GC permanently deletes
+records after the maximum bound and retains the separate seven-day
+task-event eligibility barrier.
