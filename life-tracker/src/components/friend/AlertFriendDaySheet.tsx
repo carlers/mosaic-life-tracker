@@ -17,8 +17,10 @@ type LookupState = 'checking' | 'ready' | 'fallback' | 'unavailable';
 
 export const AlertFriendDaySheet: React.FC<{
   notification: NotificationItem;
+  isOpen?: boolean;
   onClose: () => void;
-}> = ({ notification, onClose }) => {
+  onExitComplete?: () => void;
+}> = ({ notification, isOpen = true, onClose, onExitComplete }) => {
   const { user } = useAuth();
   const userId = user?.$id ?? '';
   const friendId = notification.actorId;
@@ -128,8 +130,9 @@ export const AlertFriendDaySheet: React.FC<{
   return (
     <>
       <FriendDayViewSheet
-        isOpen
+        isOpen={isOpen}
         onClose={onClose}
+        onExitComplete={onExitComplete}
         date={selectedDate}
         onDateChange={(date) => { setFocusTaskId(''); setOverriddenDate(date); }}
         tasks={sheetTasks}

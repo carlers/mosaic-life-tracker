@@ -7,6 +7,7 @@ const mocks = vi.hoisted(() => ({
   getPushNotificationState: vi.fn(),
   enablePushNotifications: vi.fn(),
   disablePushNotifications: vi.fn(),
+  setPushDetails: vi.fn(),
 }));
 
 vi.mock('../../src/hooks/useAuth', () => ({
@@ -16,6 +17,7 @@ vi.mock('../../src/lib/pushNotifications', () => ({
   getPushNotificationState: mocks.getPushNotificationState,
   enablePushNotifications: mocks.enablePushNotifications,
   disablePushNotifications: mocks.disablePushNotifications,
+  setPushDetails: mocks.setPushDetails,
 }));
 
 import { NotificationSettingsPage } from '../../src/pages/NotificationSettingsPage';
@@ -27,6 +29,7 @@ describe('NotificationSettingsPage', () => {
     });
     mocks.enablePushNotifications.mockReset();
     mocks.disablePushNotifications.mockReset();
+    mocks.setPushDetails.mockReset();
   });
   it('explains retention and does not request permission when push is unconfigured', async () => {
     render(<MemoryRouter><NotificationSettingsPage /></MemoryRouter>);
@@ -37,6 +40,31 @@ describe('NotificationSettingsPage', () => {
     fireEvent.click(switchControl);
     expect(mocks.enablePushNotifications).not.toHaveBeenCalled();
   });
+  it('keeps details hidden until an enabled device preference is verified', async () => {
+    mocks.getPushNotificationState.mockResolvedValue({
+      status: 'enabled', enabled: true, detailsEnabled: null, label: 'Enabled on this device',
+    });
+    render(<MemoryRouter><NotificationSettingsPage /></MemoryRouter>);
+    const details = await screen.findByRole('switch', { name: 'Show task details in notifications' });
+    expect(details).toBeDisabled();
+    expect(mocks.setPushDetails).not.toHaveBeenCalled();
+  });
+
+  it('lets a subscribed device opt in to rich task details', async () => {
+    mocks.getPushNotificationState.mockResolvedValue({
+      status: 'enabled', enabled: true, detailsEnabled: false, label: 'Enabled on this device',
+    });
+    mocks.setPushDetails.mockResolvedValue({
+      status: 'enabled', enabled: true, detailsEnabled: true, label: 'Enabled on this device',
+    });
+    render(<MemoryRouter><NotificationSettingsPage /></MemoryRouter>);
+    const details = await screen.findByRole('switch', { name: 'Show task details in notifications' });
+    await waitFor(() => expect(details).toBeEnabled());
+    fireEvent.click(details);
+    await waitFor(() => expect(mocks.setPushDetails).toHaveBeenCalledWith('user_a', true));
+    expect(details).toBeChecked();
+  });
+
   it('returns to Alerts through browser history when opened from the Alerts gear', async () => {
     render(
       <MemoryRouter initialEntries={[

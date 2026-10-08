@@ -117,6 +117,10 @@ Current ordered baseline reconciliations are:
 - `005-notification-retention` — adds the `notifications.created_at` retention
   index on existing backends. New installations already have the index in
   the manifest. Apply before activating hourly Alerts cleanup.
+- `006-push-details` — adds the optional default-false
+  `push_subscriptions.include_task_details` boolean. Apply on the explicit
+  target before activating the Function that writes rich per-device push
+  preferences; do not retrofit legacy subscriptions to opt in.
 
 The runner is not a replay of every historical pre-foundation Console/script change. Fresh
 forks bootstrap the current manifest, and production was already at the current historical

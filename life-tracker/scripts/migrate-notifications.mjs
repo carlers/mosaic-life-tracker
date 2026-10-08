@@ -48,6 +48,9 @@ function assertCompatibleTable(actual, expected) {
   );
   for (const expectedColumn of expected.columns) {
     const current = columns.get(expectedColumn.key);
+    // 006 adds this optional field to existing subscriptions later.
+    if (!current && expected.id === 'push_subscriptions' &&
+        expectedColumn.key === 'include_task_details') continue;
     if (!current) {
       throw new Error(
         `Existing ${expected.id} column ${expectedColumn.key} is missing.`

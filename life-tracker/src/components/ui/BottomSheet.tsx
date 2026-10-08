@@ -18,6 +18,8 @@ interface BottomSheetProps {
   contentMode?: 'scroll' | 'fixed';
   onHorizontalSwipe?: (direction: 'left' | 'right') => void;
   onAnimationComplete?: () => void;
+  /** Called after the shared sheet finishes its closing transition. */
+  onExitComplete?: () => void;
   deferChildrenUntilPaint?: boolean;
   /** Consume Escape/Android Back without dismissing the sheet (for transient modes). */
   onTransientDismiss?: () => boolean;
@@ -276,6 +278,7 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
   contentMode = 'scroll',
   onHorizontalSwipe,
   onAnimationComplete,
+  onExitComplete,
   deferChildrenUntilPaint = false,
   onTransientDismiss,
 }) => {
@@ -299,7 +302,7 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
     ? isOpen
       ? deferredContentOpen
       : childrenMounted
-    : isOpen;
+    : isOpen || childrenMounted;
 
   useLayoutEffect(() => {
     onCloseRef.current = onClose;
@@ -391,7 +394,10 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
           />
         )}
       </AnimatePresence>
-      <AnimatePresence>
+      <AnimatePresence onExitComplete={() => {
+        setChildrenMounted(false);
+        onExitComplete?.();
+      }}>
         {isOpen && (
           <SheetPresenceSurface
             key="sheet"

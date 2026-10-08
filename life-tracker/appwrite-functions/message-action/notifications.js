@@ -122,11 +122,17 @@ async function mutualFriendMap(tablesDB, userId) {
       Query.equal('deleted', false),
     ]),
   ]);
-  const reverseOwners = new Set(reverse.map((row) => row.user_id));
+  const reverseByOwner = new Map(reverse.map((row) => [row.user_id, row]));
   return new Map(
     forward
-      .filter((row) => reverseOwners.has(row.friend_id))
-      .map((row) => [row.friend_id, row])
+      .filter((row) => reverseByOwner.has(row.friend_id))
+      .map((row) => [
+        row.friend_id,
+        { ...row,
+          recipientFacingName:
+            reverseByOwner.get(row.friend_id)?.friend_display_name ||
+            reverseByOwner.get(row.friend_id)?.friend_username || 'Friend' },
+      ])
   );
 }
 
@@ -143,6 +149,10 @@ async function effectiveTaskVisibility(tablesDB, task, category) {
   return resolvedCategory?.visibility || 'private';
 }
 
+function safePushText(value, maxLength) {
+  return String(value || '').replace(/[\x00-\x1F\x7F]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, maxLength) || 'Task';
+}
+
 function pushConfig() {
   const publicKey = String(process.env.WEB_PUSH_VAPID_PUBLIC_KEY || '').trim();
   const privateKey = String(process.env.WEB_PUSH_VAPID_PRIVATE_KEY || '').trim();
@@ -155,7 +165,7 @@ function pushConfig() {
   };
 }
 
-async function sendPushToUser(tablesDB, userId, payload, log) {
+async function sendPushToUser(tablesDB, userId, payload, log, details = null) {
   const config = pushConfig();
   if (!config.enabled) return { sent: 0, disabled: true };
 
@@ -175,7 +185,12 @@ async function sendPushToUser(tablesDB, userId, payload, log) {
           endpoint: row.endpoint,
           keys: { p256dh: row.p256dh, auth: row.auth },
         },
-        JSON.stringify(payload),
+        JSON.stringify(
+          row.include_task_details === true && details
+            ? { ...payload, title: 'Mosaic',
+                body: `${details.actorName} completed “${details.taskTitle}”` }
+            : payload
+        ),
         { TTL: 60 * 60 }
       );
       sent += 1;
@@ -241,6 +256,15 @@ async function handleTaskCompletionEvent(tablesDB, task, eventName, log, error) 
     return { status: 200, body: { ok: true, created: 0 } };
   }
 
+  // Event snapshots can be stale. Do not include task text unless the
+  // current row still permits the same completion to be shared.
+  const latestTask = await readRow(tablesDB, TASKS_TABLE, taskId);
+  const currentCategory = latestTask ? await categoryForTask(tablesDB, latestTask) : null;
+  const detailedTask = latestTask && latestTask.user_id === actorId &&
+    latestTask.deleted !== true && latestTask.is_completed === true &&
+    latestTask.completed_at === completedAt &&
+    (await effectiveTaskVisibility(tablesDB, latestTask, currentCategory)) !== 'private'
+      ? latestTask : null;
   const now = new Date().toISOString();
   let created = 0;
   await mapLimit([...friends.keys()], 6, async (recipientId) => {
@@ -268,6 +292,12 @@ async function handleTaskCompletionEvent(tablesDB, task, eventName, log, error) 
       throw createError;
     }
 
+    const details = detailedTask && typeof detailedTask.title === 'string' &&
+      detailedTask.title.trim()
+      ? {
+          actorName: safePushText(friends.get(recipientId)?.recipientFacingName || 'Friend', 60),
+          taskTitle: safePushText(detailedTask.title, 100),
+        } : null;
     await sendPushToUser(
       tablesDB,
       recipientId,
@@ -275,10 +305,11 @@ async function handleTaskCompletionEvent(tablesDB, task, eventName, log, error) 
         userId: recipientId,
         title: 'A friend completed a task',
         body: 'Open Mosaic to see recent activity.',
-        url: '/notifications',
-        tag: `friend-completions-${actorId}`,
+        url: `/notifications?alert=${rowId}`,
+        tag: rowId,
       },
-      log
+      log,
+      details
     );
   });
 
@@ -399,6 +430,53 @@ async function handleGetNotifications(tablesDB, callerId, payload, log, error) {
   };
 }
 
+async function handleGetNotification(tablesDB, callerId, payload) {
+  const id = typeof payload?.id === 'string' ? payload.id : '';
+  if (!/^not_[a-f0-9]{32}$/.test(id)) {
+    return { status: 400, body: { error: 'Invalid alert ID' } };
+  }
+  const row = await readRow(tablesDB, NOTIFICATIONS_TABLE, id);
+  if (!row || row.recipient_id !== callerId || row.type !== 'task_completed' ||
+      notificationExpiresAt(row) <= Date.now()) {
+    return { status: 404, body: { error: 'Alert unavailable' } };
+  }
+  const friends = await mutualFriendMap(tablesDB, callerId);
+  const friendship = friends.get(row.actor_id);
+  if (!friendship) return { status: 404, body: { error: 'Alert unavailable' } };
+  const task = await readRow(tablesDB, TASKS_TABLE, row.task_id);
+  if (!task || task.deleted === true || task.user_id !== row.actor_id ||
+      task.is_completed !== true || task.completed_at !== row.completed_at) {
+    return { status: 404, body: { error: 'Alert unavailable' } };
+  }
+  const category = await categoryForTask(tablesDB, task);
+  if ((await effectiveTaskVisibility(tablesDB, task, category)) === 'private') {
+    return { status: 404, body: { error: 'Alert unavailable' } };
+  }
+  return {
+    status: 200,
+    body: { item: {
+      id: row.$id, type: row.type, actorId: row.actor_id,
+      actorName: friendship.friend_display_name || friendship.friend_username || 'Friend',
+      actorUsername: friendship.friend_username || '',
+      actorAvatarFileId: friendship.friend_avatar_file_id || '',
+      occurredAt: row.occurred_at,
+      createdAt: row.created_at || row.occurred_at,
+      readAt: row.read_at || '',
+      categoryColor: category?.color || '#6B7280',
+      task: {
+        id: task.$id, title: task.title || '', completed: true,
+        categoryId: task.category_id || '', order: typeof task.order === 'number' ? task.order : 0,
+        tags: task.tags || '', date: task.date || '', memo: '', image: '',
+        createdAt: task.created_at || '', completedAt: task.completed_at || '',
+        updatedAt: task.updated_at || '', source: task.source || '',
+        userId: task.user_id || '', isDeleted: false,
+        routineId: task.routine_id || '', reminderTime: task.reminder_time || '',
+        reactions: task.reactions || '', visibility: task.visibility || '',
+      },
+    } },
+  };
+}
+
 async function handleMarkNotificationsRead(tablesDB, callerId, payload, log, error) {
   const ids = Array.isArray(payload?.ids)
     ? [...new Set(payload.ids.filter((id) => typeof id === 'string'))].slice(0, 100)
@@ -474,6 +552,18 @@ async function handleRegisterPushSubscription(
     return { status: 403, body: { error: 'Push subscription owner mismatch' } };
   }
 
+  // A single browser endpoint must not retain subscriptions from a
+  // previously signed-in account. This is an infrequent registration path.
+  const registered = await listAllRows(tablesDB, PUSH_SUBSCRIPTIONS_TABLE);
+  await mapLimit(registered.filter((row) =>
+    row.endpoint === endpoint && row.$id !== rowId), 4, async (row) => {
+    await tablesDB.deleteRow({
+      databaseId: DATABASE_ID,
+      tableId: PUSH_SUBSCRIPTIONS_TABLE,
+      rowId: row.$id,
+    });
+  });
+
   const data = {
     user_id: callerId,
     endpoint,
@@ -481,6 +571,8 @@ async function handleRegisterPushSubscription(
     auth,
     expiration_time: expirationTime,
     enabled: true,
+    include_task_details: typeof payload?.includeTaskDetails === 'boolean'
+      ? payload.includeTaskDetails : existing?.include_task_details === true,
     updated_at: now,
   };
   if (existing) {
@@ -501,6 +593,42 @@ async function handleRegisterPushSubscription(
   }
   log(`push subscription registered for ${callerId}`);
   return { status: 200, body: { ok: true } };
+}
+
+async function handleSetPushDetails(tablesDB, callerId, payload) {
+  if (payload?.expectedUserId !== callerId) {
+    return { status: 409, body: { error: 'Account changed' } };
+  }
+  if (typeof payload?.includeTaskDetails !== 'boolean') {
+    return { status: 400, body: { error: 'Invalid preference' } };
+  }
+  const endpoint = validateEndpoint(payload?.endpoint);
+  if (!endpoint) return { status: 400, body: { error: 'Invalid endpoint' } };
+  const rowId = pushSubscriptionId(callerId, endpoint);
+  const row = await readRow(tablesDB, PUSH_SUBSCRIPTIONS_TABLE, rowId);
+  if (!row || row.user_id !== callerId) {
+    return { status: 404, body: { error: 'Subscription unavailable' } };
+  }
+  await tablesDB.updateRow({
+    databaseId: DATABASE_ID,
+    tableId: PUSH_SUBSCRIPTIONS_TABLE,
+    rowId,
+    data: { include_task_details: payload.includeTaskDetails, updated_at: new Date().toISOString() },
+  });
+  return { status: 200, body: { includeTaskDetails: payload.includeTaskDetails } };
+}
+
+async function handleGetPushDetails(tablesDB, callerId, payload) {
+  if (payload?.expectedUserId !== callerId) {
+    return { status: 409, body: { error: 'Account changed' } };
+  }
+  const endpoint = validateEndpoint(payload?.endpoint);
+  if (!endpoint) return { status: 400, body: { error: 'Invalid endpoint' } };
+  const row = await readRow(tablesDB, PUSH_SUBSCRIPTIONS_TABLE, pushSubscriptionId(callerId, endpoint));
+  return {
+    status: 200,
+    body: { includeTaskDetails: row?.user_id === callerId && row?.include_task_details === true },
+  };
 }
 
 async function handleUnregisterPushSubscription(
@@ -541,7 +669,10 @@ module.exports = {
   UNREAD_RETENTION_MS,
   READ_RETENTION_MS,
   handleGetNotifications,
+  handleGetNotification,
   handleGetPushConfig,
+  handleGetPushDetails,
+  handleSetPushDetails,
   handleMarkNotificationsRead,
   handleRegisterPushSubscription,
   handleTaskCompletionEvent,

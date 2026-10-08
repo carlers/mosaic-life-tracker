@@ -1,18 +1,21 @@
 # Session checkpoint
 
 Updated: 2026-10-08
-Current task: Direct-manipulation Friend Day View sheet drag and mobile Web Push setup.
-Task branch: `chatgpt/alerts-live-sheet-mobile-push` from `feature/notifications-alerts` at `91db67c`. Do not promote to dev/main without user instruction.
+Current task: Mobile friend-completion notification content, tap-to-task routing, and Alerts bottom-sheet dismissal.
+Task branch: `chatgpt/notifications-mobile-deeplink` from current `feature/notifications-alerts` (20b8cc2). Never promote to dev/main without user instruction.
 
-## What changed / why
+## Implemented for verification
 
-- Shared BottomSheet's entrance/exit animation used the entire CSS transform string, masking the Framer Motion `drag="y"` live offset. Use a single `y` motion value for both so drag follows the finger. The browser contract tests the sheet surface **before touch release** and then dismissal; existing nested gesture/Back tests must also pass.
-- Notification Settings explains per-device push and provides context-specific iOS Home Screen and blocked-permission hints; `docs/MOBILE_PUSH_SETUP.md` details Android/iOS and secret security.
-- The existing `message-action` Web Push machinery, service worker, server-only subscription table, generic notification copy and account marker are reused with no schema or new server dependency changes.
-- Scratch `message-action` received a scratch-only P-256 VAPID pair using optional Function variables. Live scratch smoke verified `get_push_config` returns enabled=true, an 87-character public key, and no private value. Production VAPID remains disabled until Preview CI and scratch proof are accepted.
+- Web Push notification clicks open generic Alerts when the SW account marker is absent/mismatched, safely navigate or open/focus the installed app, and carry an account-bound exact receipt ID only when safe. Notification tags are per-receipt rather than per-friend.
+- `get_notification` returns only one live-authorized receipt, independent of feed pagination. Alerts handles the query, opens Friend Day View directly and removes the one-time query on success. AuthPage preserves only a validated Alerts deep link across sign-in.
+- Device-local `include_task_details` opt-in stored on the server subscription; generic by default. The delivery handler fetches current task visibility/completion and uses recipient-facing friend metadata. Subscription registration preserves preference and removes former-account endpoint ownership.
+- Alerts retains the Friend Day sheet while `isOpen=false` animates; BottomSheet owns a reusable `onExitComplete` contract.
+- Added regression coverage for notification lookup, detail preference, click navigation, sign-in handoff, sheet lifecycle, and schema migration. New ordered migration `006-push-details`.
 
-## Required next steps
+## Verification and remaining steps
 
-1. Run focused + browser correctness and address failures. Squash to stable Preview and await canonical acceptance + Vercel READY.
-2. Verify scratch Function VAPID details and registration/auth behavior without exposing secrets; verify production variables currently absent. After acceptance, add separate production VAPID pair as optional variables, check secrecy/config smoke. Do not send a test push to a non-disposable account.
-3. Manual Android + installed iOS PWA acceptance of push permission, real incoming notification, tap navigation, and live touch drag/Back gesture remains required. No fabricated device validation.
+1. Run focused verification and repair any failures. Squash task work to the existing stable `feature/notifications-alerts` Preview only after focused green; await canonical acceptance and Vercel READY.
+2. Run schema migration 006 and deploy/activate the matching `message-action` Function **only on the explicitly confirmed scratch Appwrite project**, then test with disposable accounts. Production Function and schema changes require separate user approval.
+3. Manual Samsung installed-PWA cold/background/foreground tap, task focus, lock-screen opt-in/off, and actual drag-down exit acceptance remain required. No manual device validation has been claimed.
+
+Prior branch `chatgpt/alerts-live-sheet-mobile-push` has diverged from stable Preview; do not merge its history blindly. Its implementation already entered feature Preview separately.

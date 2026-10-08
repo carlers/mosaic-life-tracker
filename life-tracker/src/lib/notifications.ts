@@ -80,3 +80,18 @@ export async function markNotificationsRead(ids: string[]): Promise<string> {
   });
   return typeof response.readAt === 'string' ? response.readAt : new Date().toISOString();
 }
+
+/** Single alert lookup for a notification tap, independent of feed pagination. */
+export async function fetchNotificationById(id: string): Promise<NotificationItem | null> {
+  if (!/^not_[a-f0-9]{32}$/.test(id)) return null;
+  try {
+    const result = await sendAppAction({ action: 'get_notification', id });
+    return isNotificationItem(result.item) ? result.item : null;
+  } catch (error) {
+    // Expired or visibility-revoked alerts must not fall back to cached text.
+    const status = (error as { status?: number; code?: number } | null)?.status ??
+      (error as { code?: number } | null)?.code;
+    if (status === 404) return null;
+    throw error;
+  }
+}

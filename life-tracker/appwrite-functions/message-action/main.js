@@ -4,7 +4,10 @@ const { handleTodoMateTaskBatch } = require('./todomate-task-batch');
 const { handleOwnerWriteCas } = require('./owner-write-cas');
 const {
   handleGetNotifications,
+  handleGetNotification,
   handleGetPushConfig,
+  handleGetPushDetails,
+  handleSetPushDetails,
   handleMarkNotificationsRead,
   handleRegisterPushSubscription,
   handleTaskCompletionEvent,
@@ -1301,6 +1304,9 @@ const handler = async ({ req, res, log, error }) => {
           error
         );
         break;
+      case 'get_notification':
+        result = await handleGetNotification(tablesDB, callerId, payload);
+        break;
       case 'mark_notifications_read':
         result = await handleMarkNotificationsRead(
           tablesDB,
@@ -1321,6 +1327,12 @@ const handler = async ({ req, res, log, error }) => {
           log,
           error
         );
+        break;
+      case 'get_push_details':
+        result = await handleGetPushDetails(tablesDB, callerId, payload);
+        break;
+      case 'set_push_details':
+        result = await handleSetPushDetails(tablesDB, callerId, payload);
         break;
       case 'unregister_push_subscription':
         result = await handleUnregisterPushSubscription(

@@ -211,6 +211,7 @@ export const MOSAIC_TABLES = [
         default: '',
       },
       { key: 'enabled', type: 'boolean', required: false, default: true },
+      { key: 'include_task_details', type: 'boolean', required: false, default: false },
       { key: 'created_at', type: 'varchar', size: 50, required: true },
       { key: 'updated_at', type: 'varchar', size: 50, required: true },
     ],

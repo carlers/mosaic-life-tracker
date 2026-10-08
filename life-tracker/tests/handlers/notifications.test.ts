@@ -371,4 +371,75 @@ describe('notifications backend', () => {
     expect(db.updateRow).not.toHaveBeenCalled();
   });
 
+  it('rejects malformed direct alert IDs before touching the database', async () => {
+    const { handleGetNotification } = require('../../appwrite-functions/message-action/notifications.js');
+    const db = { getRow: vi.fn() };
+    expect((await handleGetNotification(db, 'user_b', { id: '../not_123' })).status).toBe(400);
+    expect(db.getRow).not.toHaveBeenCalled();
+  });
+
+  it('resolves an older notification by exact ID with live recipient and task checks', async () => {
+    const { handleGetNotification } = require('../../appwrite-functions/message-action/notifications.js');
+    const id = 'not_' + 'a'.repeat(32);
+    const completedAt = new Date().toISOString();
+    const rows: Record<string, any> = {
+      notifications: {
+        $id: id, type: 'task_completed', recipient_id: 'user_b',
+        actor_id: 'user_a', task_id: 'task_1', completed_at: completedAt,
+        occurred_at: completedAt, created_at: completedAt, read_at: '',
+      },
+      tasks: {
+        $id: 'task_1', user_id: 'user_a', title: 'Cleaned room',
+        completed_at: completedAt, is_completed: true, deleted: false,
+        visibility: 'followers', category_id: '', date: '2026-10-08',
+      },
+    };
+    const db = {
+      getRow: vi.fn(async ({ tableId }: { tableId: string }) => rows[tableId] || null),
+      listRows: vi.fn()
+        .mockResolvedValueOnce({ rows: [{
+          user_id: 'user_b', friend_id: 'user_a', status: 'accepted',
+          deleted: false, friend_display_name: 'Alex',
+        }] })
+        .mockResolvedValueOnce({ rows: [{
+          user_id: 'user_a', friend_id: 'user_b', status: 'accepted', deleted: false,
+        }] }),
+    };
+    const result = await handleGetNotification(db, 'user_b', { id });
+    expect(result.status).toBe(200);
+    expect(result.body.item).toMatchObject({
+      id, actorName: 'Alex', task: { id: 'task_1', title: 'Cleaned room' },
+    });
+    expect((await handleGetNotification(db, 'user_c', { id })).status).toBe(404);
+  });
+
+  it('keeps per-device task details default-private and validates owner on updates', async () => {
+    const { handleGetPushDetails, handleSetPushDetails, pushSubscriptionId } =
+      require('../../appwrite-functions/message-action/notifications.js');
+    const endpoint = 'https://push.example/device';
+    const id = pushSubscriptionId('user_b', endpoint);
+    const db = {
+      getRow: vi.fn(async ({ rowId }: { rowId: string }) => ({
+        $id: rowId, user_id: 'user_b', endpoint,
+      })),
+      updateRow: vi.fn().mockResolvedValue({}),
+    };
+    const initial = await handleGetPushDetails(db, 'user_b', {
+      expectedUserId: 'user_b', endpoint,
+    });
+    expect(initial.body.includeTaskDetails).toBe(false);
+    expect((await handleSetPushDetails(db, 'user_b', {
+      expectedUserId: 'user_c', endpoint, includeTaskDetails: true,
+    })).status).toBe(409);
+    expect(db.updateRow).not.toHaveBeenCalled();
+    const updated = await handleSetPushDetails(db, 'user_b', {
+      expectedUserId: 'user_b', endpoint, includeTaskDetails: true,
+    });
+    expect(updated.status).toBe(200);
+    expect(db.updateRow).toHaveBeenCalledWith(expect.objectContaining({
+      tableId: 'push_subscriptions', rowId: id,
+      data: expect.objectContaining({ include_task_details: true }),
+    }));
+  });
+
 });

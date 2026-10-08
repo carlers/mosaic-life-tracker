@@ -7,6 +7,8 @@ const mocks = vi.hoisted(() => ({
   userId: 'user_b',
   connectivityStatus: 'online',
   fetchNotifications: vi.fn(),
+  fetchNotificationById: vi.fn(),
+  locationSearch: '',
   markNotificationsRead: vi.fn(),
   getCachedNotifications: vi.fn(),
   setCachedNotifications: vi.fn().mockResolvedValue(undefined),
@@ -19,7 +21,7 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock('react-router-dom', () => ({
   useNavigate: () => mocks.navigate,
-  useLocation: () => ({ key: 'default', state: null }),
+  useLocation: () => ({ key: 'default', state: null, search: mocks.locationSearch }),
 }));
 vi.mock('../../src/hooks/useAuth', () => ({
   useAuth: () => ({
@@ -43,6 +45,7 @@ vi.mock('../../src/hooks/useTaskActivityActions', () => ({
 
 vi.mock('../../src/lib/notifications', () => ({
   fetchNotifications: mocks.fetchNotifications,
+  fetchNotificationById: mocks.fetchNotificationById,
   markNotificationsRead: mocks.markNotificationsRead,
 }));
 
@@ -64,15 +67,22 @@ vi.mock('../../src/components/ui/DeferredAvatar', () => ({
 }));
 
 vi.mock('../../src/components/friend/AlertFriendDaySheet', () => ({
-  AlertFriendDaySheet: ({ notification, onClose }: {
+  AlertFriendDaySheet: ({ notification, onClose, isOpen, onExitComplete }: {
     notification: NotificationItem;
     onClose: () => void;
-  }) => (
-    <div role="dialog" aria-label="Friend day view">
-      <p>{notification.task.title}</p>
-      <button type="button" onClick={onClose}>Close friend day view</button>
-    </div>
-  ),
+    isOpen: boolean;
+    onExitComplete: () => void;
+  }) => {
+    React.useEffect(() => {
+      if (!isOpen) onExitComplete();
+    }, [isOpen, onExitComplete]);
+    return (
+      <div role="dialog" aria-label="Friend day view" data-open={String(isOpen)}>
+        <p>{notification.task.title}</p>
+        <button type="button" onClick={onClose}>Close friend day view</button>
+      </div>
+    );
+  },
 }));
 
 vi.mock('../../src/components/messages/EmojiPickerSheet', () => ({
@@ -149,6 +159,8 @@ describe('NotificationsPage', () => {
     mocks.userId = 'user_b';
     mocks.connectivityStatus = 'online';
     mocks.fetchNotifications.mockReset();
+    mocks.fetchNotificationById.mockReset();
+    mocks.locationSearch = '';
     mocks.markNotificationsRead.mockReset();
     mocks.getCachedNotifications.mockReset();
     mocks.setCachedNotifications.mockClear();
@@ -316,6 +328,29 @@ describe('NotificationsPage', () => {
     expect(mocks.markCachedNotificationsRead).toHaveBeenCalledWith(
       'user_b', ['not_1'], '2026-10-08T08:00:00.000Z'
     );
+  });
+
+  it('opens an older alert by targeted server lookup and not feed pagination', async () => {
+    const id = 'not_' + 'a'.repeat(32);
+    mocks.locationSearch = '?alert=' + id;
+    mocks.getCachedNotifications.mockResolvedValue({ items: [], nextCursor: '', fetchedAt: '' });
+    mocks.fetchNotifications.mockResolvedValue({ items: [], nextCursor: '', fetchedAt: '' });
+    mocks.fetchNotificationById.mockResolvedValue(notification({ id }));
+    render(<NotificationsPage />);
+    await waitFor(() => expect(mocks.fetchNotificationById).toHaveBeenCalledWith(id));
+    expect(await screen.findByRole('dialog', { name: 'Friend day view' })).toHaveTextContent('Ship alerts');
+    expect(mocks.navigate).toHaveBeenCalledWith('/notifications', { replace: true });
+  });
+
+  it('does not open a revoked notification returned as missing by the server', async () => {
+    const id = 'not_' + 'b'.repeat(32);
+    mocks.locationSearch = '?alert=' + id;
+    mocks.getCachedNotifications.mockResolvedValue({ items: [notification()], nextCursor: '', fetchedAt: '' });
+    mocks.fetchNotifications.mockResolvedValue({ items: [notification()], nextCursor: '', fetchedAt: '' });
+    mocks.fetchNotificationById.mockResolvedValue(null);
+    render(<NotificationsPage />);
+    await waitFor(() => expect(mocks.fetchNotificationById).toHaveBeenCalledWith(id));
+    expect(screen.queryByRole('dialog', { name: 'Friend day view' })).not.toBeInTheDocument();
   });
 
   it('offers an explicit friend-day task control', async () => {
