@@ -205,7 +205,7 @@ describe('notifications backend', () => {
         if (tableId === 'categories') return category;
         if (tableId === 'tasks') return {
           $id: 'task_1', user_id: 'user_a', category_id: 'cat_1',
-          visibility: '', is_completed: true, completed_at,
+          visibility: '', is_completed: true, completed_at: completedAt,
           deleted: false, source: '', title: 'Ship alerts',
         };
         throw Object.assign(new Error('not found'), { code: 404 });
