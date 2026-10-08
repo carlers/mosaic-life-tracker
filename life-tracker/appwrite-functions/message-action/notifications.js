@@ -9,7 +9,7 @@ const TASKS_TABLE = 'tasks';
 const CATEGORIES_TABLE = 'categories';
 const PAGE_SIZE = 100;
 const MAX_PAGES = 100;
-const MAX_EVENT_AGE_MS = 72 * 60 * 60 * 1000;
+const DEFAULT_NOTIFICATIONS_LAUNCH_AT = '2026-10-07T16:04:00.000Z';
 
 function sha256Hex(input) {
   return crypto.createHash('sha256').update(input).digest('hex');
@@ -29,6 +29,16 @@ function isNotFound(error) {
 
 function isConflict(error) {
   return Number(error && error.code) === 409;
+}
+
+function notificationsLaunchTime() {
+  const configured = String(
+    process.env.NOTIFICATIONS_LAUNCH_AT || DEFAULT_NOTIFICATIONS_LAUNCH_AT
+  ).trim();
+  const parsed = Date.parse(configured);
+  return Number.isNaN(parsed)
+    ? Date.parse(DEFAULT_NOTIFICATIONS_LAUNCH_AT)
+    : parsed;
 }
 
 async function mapLimit(values, limit, worker) {
@@ -197,8 +207,8 @@ async function handleTaskCompletionEvent(tablesDB, task, eventName, log, error) 
   if (task.source === 'todomate') {
     return { status: 200, body: { ok: true, ignored: 'imported-task' } };
   }
-  if (Date.now() - Date.parse(completedAt) > MAX_EVENT_AGE_MS) {
-    return { status: 200, body: { ok: true, ignored: 'stale-completion' } };
+  if (Date.parse(completedAt) < notificationsLaunchTime()) {
+    return { status: 200, body: { ok: true, ignored: 'prelaunch-completion' } };
   }
 
   const category = await categoryForTask(tablesDB, task);
@@ -214,7 +224,7 @@ async function handleTaskCompletionEvent(tablesDB, task, eventName, log, error) 
 
   const now = new Date().toISOString();
   let created = 0;
-  await mapLimit([...friends.entries()], 6, async ([recipientId, friendship]) => {
+  await mapLimit([...friends.keys()], 6, async (recipientId) => {
     const rowId = notificationId(recipientId, taskId, completedAt);
     try {
       await tablesDB.createRow({
@@ -239,16 +249,12 @@ async function handleTaskCompletionEvent(tablesDB, task, eventName, log, error) 
       throw createError;
     }
 
-    const actorName =
-      friendship.friend_display_name ||
-      friendship.friend_username ||
-      'A friend';
     await sendPushToUser(
       tablesDB,
       recipientId,
       {
         userId: recipientId,
-        title: `${actorName} completed a task`,
+        title: 'A friend completed a task',
         body: 'Open Mosaic to see recent activity.',
         url: '/notifications',
         tag: `friend-completions-${actorId}`,
@@ -408,6 +414,9 @@ async function handleRegisterPushSubscription(
   log,
   error
 ) {
+  if (payload?.expectedUserId !== callerId) {
+    return { status: 409, body: { error: 'Account changed' } };
+  }
   const config = pushConfig();
   if (!config.enabled) {
     return { status: 503, body: { error: 'Push notifications are not configured' } };
@@ -464,6 +473,9 @@ async function handleUnregisterPushSubscription(
   log,
   error
 ) {
+  if (payload?.expectedUserId !== callerId) {
+    return { status: 409, body: { error: 'Account changed' } };
+  }
   const endpoint = validateEndpoint(payload?.endpoint);
   if (!endpoint) {
     return { status: 400, body: { error: 'Invalid push endpoint' } };

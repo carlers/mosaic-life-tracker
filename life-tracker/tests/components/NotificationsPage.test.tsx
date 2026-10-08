@@ -196,7 +196,13 @@ describe('NotificationsPage', () => {
   });
 
   it('does not reopen a stale reply target after an account switch', async () => {
-    mocks.connectivityStatus = 'offline';
+    mocks.connectivityStatus = 'online';
+    mocks.fetchNotifications.mockResolvedValue({
+      items: [notification()],
+      nextCursor: '',
+      fetchedAt: '2026-10-07T10:00:02.000Z',
+    });
+    mocks.markNotificationsRead.mockResolvedValue(undefined);
     mocks.getCachedNotifications
       .mockResolvedValueOnce({
         items: [notification()],
@@ -215,11 +221,14 @@ describe('NotificationsPage', () => {
     fireEvent.click(
       screen.getByRole('button', { name: 'Reply to Ship alerts' })
     );
-    expect(screen.getByTestId('reply-sheet')).toHaveAttribute(
-      'data-open',
-      'true'
+    await waitFor(() =>
+      expect(screen.getByTestId('reply-sheet')).toHaveAttribute(
+        'data-open',
+        'true'
+      )
     );
 
+    mocks.connectivityStatus = 'offline';
     mocks.userId = 'user_c';
     rerender(<NotificationsPage />);
 
@@ -234,6 +243,70 @@ describe('NotificationsPage', () => {
       'data-friend',
       ''
     );
+  });
+
+  it('refreshes the active Alerts feed when the app regains focus', async () => {
+    mocks.getCachedNotifications.mockResolvedValue({
+      items: [],
+      nextCursor: '',
+      fetchedAt: '',
+    });
+    mocks.fetchNotifications.mockResolvedValue({
+      items: [],
+      nextCursor: '',
+      fetchedAt: '2026-10-08T08:00:00.000Z',
+    });
+    mocks.markNotificationsRead.mockResolvedValue(undefined);
+
+    render(<NotificationsPage />);
+    await waitFor(() => expect(mocks.fetchNotifications).toHaveBeenCalledTimes(1));
+
+    window.dispatchEvent(new Event('focus'));
+
+    await waitFor(() => expect(mocks.fetchNotifications).toHaveBeenCalledTimes(2));
+  });
+
+  it('persists read state for newly loaded pagination rows', async () => {
+    const first = notification({
+      readAt: '2026-10-08T08:00:00.000Z',
+    });
+    const second = notification({
+      id: 'not_2',
+      occurredAt: '2026-10-07T09:00:00.000Z',
+    });
+    mocks.getCachedNotifications.mockResolvedValue({
+      items: [],
+      nextCursor: '',
+      fetchedAt: '',
+    });
+    mocks.fetchNotifications
+      .mockResolvedValueOnce({
+        items: [first],
+        nextCursor: 'not_1',
+        fetchedAt: '2026-10-08T08:00:01.000Z',
+      })
+      .mockResolvedValueOnce({
+        items: [second],
+        nextCursor: '',
+        fetchedAt: '2026-10-08T08:00:02.000Z',
+      });
+    mocks.markNotificationsRead.mockResolvedValue(undefined);
+
+    render(<NotificationsPage />);
+    expect(await screen.findByText('Ship alerts')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Load more' }));
+
+    await waitFor(() =>
+      expect(mocks.markNotificationsRead).toHaveBeenCalledWith(['not_2'])
+    );
+    await waitFor(() => {
+      const lastFeed =
+        mocks.setCachedNotifications.mock.calls.at(-1)?.[1];
+      const loaded = lastFeed?.items?.find(
+        (item: NotificationItem) => item.id === 'not_2'
+      );
+      expect(loaded?.readAt).not.toBe('');
+    });
   });
 
   it('refreshes the active feed online and marks new rows read', async () => {

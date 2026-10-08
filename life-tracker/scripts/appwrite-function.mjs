@@ -170,11 +170,22 @@ export async function deployFunctionVersion({
 }) {
   await verifyGit(definition.name, gitSha);
   const current = await functions.get({ functionId });
-  const drift = diffFunction(
+  let drift = diffFunction(
     current,
     definition.config,
     definition.name
   );
+  const currentEvents = Array.isArray(current?.events) ? current.events : [];
+  const declaredEvents = Array.isArray(definition.config.events)
+    ? definition.config.events
+    : [];
+  const pendingAdditiveEventRollout =
+    currentEvents.every((event) => declaredEvents.includes(event));
+  if (pendingAdditiveEventRollout) {
+    drift = drift.filter(
+      (item) => item !== `function ${definition.name} events differ`
+    );
+  }
   if (drift.length) {
     throw new Error(
       `Refusing Function deployment while Function configuration drifts from Git:\n${drift.join(

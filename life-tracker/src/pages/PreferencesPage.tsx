@@ -224,17 +224,38 @@ export const PreferencesPage: React.FC = () => {
 
   useEffect(() => {
     let active = true;
-    void getPushNotificationState(user?.$id ?? '').then((next) => {
-      if (active) setPushState(next);
-    });
+    void getPushNotificationState(user?.$id ?? '')
+      .then((next) => {
+        if (active) setPushState(next);
+      })
+      .catch((pushError) => {
+        console.warn('[PreferencesPage] push state check failed:', pushError);
+        if (active) {
+          setPushState({
+            status: 'available',
+            enabled: false,
+            label: 'Could not check push on this device',
+          });
+        }
+      });
     return () => {
       active = false;
     };
   }, [user?.$id]);
 
+  const pushUnavailable =
+    !pushState.enabled &&
+    [
+      'checking',
+      'unsupported',
+      'install-required',
+      'blocked',
+      'unconfigured',
+    ].includes(pushState.status);
+
   const handleTogglePush = async () => {
     const userId = user?.$id;
-    if (!userId || isChangingPush) return;
+    if (!userId || isChangingPush || pushUnavailable) return;
     setIsChangingPush(true);
     try {
       const next = pushState.enabled
@@ -446,6 +467,7 @@ export const PreferencesPage: React.FC = () => {
             showChevron={false}
             isToggle
             checked={pushState.enabled}
+            disabled={isChangingPush || pushUnavailable}
             onClick={() => void handleTogglePush()}
           />
           <p className="px-7 pb-3 text-xs leading-relaxed text-gray-500">

@@ -37,6 +37,7 @@
     "tablesdb.life_tracker.tables.tasks.rows.*.update"
   ],
   "optionalNonSecretVariables": [
+    "NOTIFICATIONS_LAUNCH_AT",
     "WEB_PUSH_VAPID_PUBLIC_KEY",
     "WEB_PUSH_VAPID_SUBJECT"
   ],

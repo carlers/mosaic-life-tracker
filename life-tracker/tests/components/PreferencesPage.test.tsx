@@ -29,6 +29,17 @@ beforeEach(() => {
   mocks.setContentWidthMode.mockClear();
   mocks.setSheetWidthMode.mockClear();
   mocks.setSetting.mockClear();
+  mocks.getPushNotificationState.mockReset().mockResolvedValue({
+    status: 'available',
+    enabled: false,
+    label: 'Permission not requested',
+  });
+  mocks.enablePushNotifications.mockReset().mockResolvedValue({
+    status: 'enabled',
+    enabled: true,
+    label: 'Enabled on this device',
+  });
+  mocks.disablePushNotifications.mockReset();
   mocks.getSetting.mockImplementation((key: string, defaultValue?: unknown) => {
     if (key === 'weekStartsOnSunday') return true;
     return defaultValue;
@@ -77,7 +88,7 @@ import { PreferencesPage } from '../../src/pages/PreferencesPage';
 
 describe('PreferencesPage', () => {
   // Regression: §2 (Preferences owns display/layout and synced behavior controls).
-  it('exposes existing screen choices and the requested behavior preferences', () => {
+  it('exposes existing screen choices and the requested behavior preferences', async () => {
     render(
       <MemoryRouter>
         <PreferencesPage />
@@ -117,6 +128,9 @@ describe('PreferencesPage', () => {
     const holidays = screen.getByRole('switch', {
       name: 'Show holidays',
     });
+    expect(
+      await screen.findByText('Permission not requested')
+    ).toBeInTheDocument();
     const push = screen.getByRole('switch', {
       name: 'Push friend completions',
     });
@@ -152,5 +166,30 @@ describe('PreferencesPage', () => {
     expect(mocks.setSetting).toHaveBeenCalledWith('holidayRegion', 'PH');
     expect(mocks.setSetting).toHaveBeenCalledWith('holidayTypes', 'public');
     expect(mocks.enablePushNotifications).toHaveBeenCalledWith('user_a');
+  });
+
+  it('does not offer a permission-triggering push toggle when delivery is unconfigured', async () => {
+    mocks.getPushNotificationState.mockResolvedValueOnce({
+      status: 'unconfigured',
+      enabled: false,
+      label: 'Push delivery is not configured',
+    });
+
+    render(
+      <MemoryRouter>
+        <PreferencesPage />
+      </MemoryRouter>
+    );
+
+    expect(
+      await screen.findByText('Push delivery is not configured')
+    ).toBeInTheDocument();
+    const push = screen.getByRole('switch', {
+      name: 'Push friend completions',
+    });
+    expect(push).toBeDisabled();
+
+    fireEvent.click(push);
+    expect(mocks.enablePushNotifications).not.toHaveBeenCalled();
   });
 });

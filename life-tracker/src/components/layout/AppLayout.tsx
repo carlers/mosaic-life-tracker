@@ -112,21 +112,14 @@ export const AppLayout: React.FC = () => {
   const database = useDatabaseBootstrap();
 
   useEffect(() => {
-    const userId = user?.$id ?? null;
+    const userId = user?.$id;
+    if (!userId || connectivity.status !== 'online') return;
+
     let active = true;
     void import('../../lib/pushNotifications')
-      .then(async ({
-        reconcileExistingPushSubscription,
-        setPushActiveUser,
-      }) => {
-        if (!active) return;
-        await setPushActiveUser(userId);
-        if (
-          active &&
-          userId &&
-          connectivity.status === 'online'
-        ) {
-          await reconcileExistingPushSubscription(userId);
+      .then(({ reconcileExistingPushSubscription }) => {
+        if (active) {
+          return reconcileExistingPushSubscription(userId);
         }
       })
       .catch((pushError) => {

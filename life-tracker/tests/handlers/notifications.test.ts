@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from 'vitest';
 const require = createRequire(import.meta.url);
 const {
   handleGetPushConfig,
+  handleRegisterPushSubscription,
   handleTaskCompletionEvent,
   notificationId,
   pushSubscriptionId,
@@ -45,6 +46,119 @@ describe('notifications backend', () => {
     else process.env.WEB_PUSH_VAPID_PRIVATE_KEY = prior.privateKey;
     if (prior.subject === undefined) delete process.env.WEB_PUSH_VAPID_SUBJECT;
     else process.env.WEB_PUSH_VAPID_SUBJECT = prior.subject;
+  });
+
+  it('rejects a push registration captured for a different authenticated account', async () => {
+    const db = {
+      getRow: vi.fn(),
+      createRow: vi.fn(),
+      updateRow: vi.fn(),
+    };
+    const result = await handleRegisterPushSubscription(
+      db,
+      'user_b',
+      {
+        expectedUserId: 'user_a',
+        endpoint: 'https://push.example/subscription',
+        p256dh: 'key',
+        auth: 'auth',
+      },
+      vi.fn(),
+      vi.fn()
+    );
+    expect(result).toEqual({
+      status: 409,
+      body: { error: 'Account changed' },
+    });
+    expect(db.getRow).not.toHaveBeenCalled();
+    expect(db.createRow).not.toHaveBeenCalled();
+    expect(db.updateRow).not.toHaveBeenCalled();
+  });
+
+  it('ignores task completions from before the Alerts launch cutoff', async () => {
+    const db = {
+      getRow: vi.fn(),
+      listRows: vi.fn(),
+      createRow: vi.fn(),
+    };
+    const result = await handleTaskCompletionEvent(
+      db,
+      {
+        $id: 'task_prelaunch',
+        user_id: 'user_a',
+        is_completed: true,
+        completed_at: '2026-10-07T16:03:59.000Z',
+        source: '',
+      },
+      'tablesdb.life_tracker.tables.tasks.rows.task_prelaunch.update',
+      vi.fn(),
+      vi.fn()
+    );
+    expect(result.body.ignored).toBe('prelaunch-completion');
+    expect(db.getRow).not.toHaveBeenCalled();
+    expect(db.listRows).not.toHaveBeenCalled();
+    expect(db.createRow).not.toHaveBeenCalled();
+  });
+
+  it('keeps post-launch completions eligible after a long offline delay', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-10-20T12:00:00.000Z'));
+    try {
+      const db = {
+        getRow: vi.fn(async ({ tableId }: { tableId: string }) => {
+          if (tableId === 'categories') {
+            return {
+              $id: 'cat_1',
+              user_id: 'user_a',
+              deleted: false,
+              visibility: 'followers',
+            };
+          }
+          throw Object.assign(new Error('not found'), { code: 404 });
+        }),
+        listRows: vi
+          .fn()
+          .mockResolvedValueOnce({
+            rows: [{
+              $id: 'fr_a_b',
+              user_id: 'user_a',
+              friend_id: 'user_b',
+              status: 'accepted',
+              deleted: false,
+            }],
+          })
+          .mockResolvedValueOnce({
+            rows: [{
+              $id: 'fr_b_a',
+              user_id: 'user_b',
+              friend_id: 'user_a',
+              status: 'accepted',
+              deleted: false,
+            }],
+          }),
+        createRow: vi.fn(async () => ({})),
+      };
+      const result = await handleTaskCompletionEvent(
+        db,
+        {
+          $id: 'task_offline',
+          user_id: 'user_a',
+          category_id: 'cat_1',
+          visibility: '',
+          is_completed: true,
+          completed_at: '2026-10-08T12:00:00.000Z',
+          deleted: false,
+          source: '',
+        },
+        'tablesdb.life_tracker.tables.tasks.rows.task_offline.update',
+        vi.fn(),
+        vi.fn()
+      );
+      expect(result.body.created).toBe(1);
+      expect(db.createRow).toHaveBeenCalledOnce();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('does not create alerts for TodoMate-imported completions', async () => {

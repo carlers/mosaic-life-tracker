@@ -11,6 +11,7 @@ interface SettingsRowProps {
   rightElement?: React.ReactNode;
   isToggle?: boolean;
   checked?: boolean;
+  disabled?: boolean;
 }
 
 export const SettingsRow: React.FC<SettingsRowProps> = ({
@@ -23,16 +24,18 @@ export const SettingsRow: React.FC<SettingsRowProps> = ({
   rightElement,
   isToggle = false,
   checked = false,
+  disabled = false,
 }) => {
   return (
     <button
       type="button"
       onClick={onClick}
       onPointerDown={(e) => e.stopPropagation()}
+      disabled={disabled}
       role={isToggle ? 'switch' : undefined}
       aria-label={isToggle ? label : undefined}
       aria-checked={isToggle ? checked : undefined}
-      className={`w-full flex items-center justify-between px-4 py-3 hover:bg-[#2A2A2A] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald-500/60 ${
+      className={`w-full flex items-center justify-between px-4 py-3 hover:bg-[#2A2A2A] transition-colors disabled:cursor-not-allowed disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald-500/60 ${
         isDestructive ? 'text-red-500' : 'text-white'
       }`}
     >
