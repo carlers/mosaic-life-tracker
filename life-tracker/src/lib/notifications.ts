@@ -9,6 +9,7 @@ export interface NotificationItem {
   actorUsername: string;
   actorAvatarFileId: string;
   occurredAt: string;
+  createdAt: string;
   readAt: string;
   categoryColor: string;
   task: TaskDocument;
@@ -57,7 +58,10 @@ export async function fetchNotifications(
   });
   const rawItems = Array.isArray(result.items) ? result.items : [];
   return {
-    items: rawItems.filter(isNotificationItem),
+    items: rawItems.filter(isNotificationItem).map((item) => ({
+      ...item,
+      createdAt: typeof item.createdAt === 'string' ? item.createdAt : item.occurredAt,
+    })),
     nextCursor:
       typeof result.nextCursor === 'string' ? result.nextCursor : '',
     fetchedAt:
@@ -67,11 +71,12 @@ export async function fetchNotifications(
   };
 }
 
-export async function markNotificationsRead(ids: string[]): Promise<void> {
+export async function markNotificationsRead(ids: string[]): Promise<string> {
   const uniqueIds = [...new Set(ids.filter(Boolean))];
-  if (uniqueIds.length === 0) return;
-  await sendAppAction({
+  if (uniqueIds.length === 0) return '';
+  const response = await sendAppAction({
     action: 'mark_notifications_read',
     ids: uniqueIds,
   });
+  return typeof response.readAt === 'string' ? response.readAt : new Date().toISOString();
 }

@@ -140,13 +140,14 @@ describe('message-action / scheduled tombstone GC', () => {
     ]);
     // One server-only read checks durable account-deletion jobs before the
     // six ordinary tombstone-GC table scans.
-    expect(mockDb.listRows).toHaveBeenCalledTimes(7);
+    expect(mockDb.listRows).toHaveBeenCalledTimes(8);
     expect(response.logs).toContain(
       'account-deletion: scheduled processed=0 failed=0'
     );
-    expect(response.logs.at(-1)).toBe(
+    expect(response.logs).toContain(
       'tombstone-gc: complete scanned=0 purged=0'
     );
+    expect(response.logs.at(-1)).toMatch(/^notifications-gc: purged=0/);
     expect(response.errors).toEqual([]);
   });
 
@@ -165,4 +166,28 @@ describe('message-action / scheduled tombstone GC', () => {
     expect(mockDb.listRows).not.toHaveBeenCalled();
     expect(mockDb.deleteRow).not.toHaveBeenCalled();
   });
+  it('purges expired notification receipts in bounded batches without cursoring deleted rows', async () => {
+    const oldRows = [{ $id: 'old1' }, { $id: 'old2' }];
+    const db = {
+      listRows: vi.fn().mockResolvedValueOnce({ rows: oldRows }),
+      deleteRow: vi.fn().mockResolvedValue(undefined),
+    };
+    const result = await tombstoneGc.purgeExpiredNotifications(
+      db, new Date('2026-10-08T12:00:00.000Z'), vi.fn()
+    );
+    expect(result).toEqual({
+      purged: 2,
+      cutoff: '2026-10-01T12:00:00.000Z',
+    });
+    expect(db.deleteRow).toHaveBeenCalledTimes(2);
+    expect(db.listRows.mock.calls[0][0].queries).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          op: 'lessThan', key: 'created_at',
+          value: '2026-10-01T12:00:00.000Z',
+        }),
+      ])
+    );
+  });
+
 });

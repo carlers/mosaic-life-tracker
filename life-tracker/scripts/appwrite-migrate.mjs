@@ -9,6 +9,7 @@ import { migrateAccountDeletionBackend } from './migrate-account-deletion.mjs';
 import { migrateDiaryCreatedAtBackend } from './migrate-diary-created-at.mjs';
 import { migrateTaskImagesBucketPermissions } from './migrate-task-images-bucket-permissions.mjs';
 import { migrateNotificationsBackend } from './migrate-notifications.mjs';
+import { migrateNotificationRetentionIndex } from './migrate-notification-retention.mjs';
 
 export const APPWRITE_MIGRATIONS = [
   {
@@ -34,6 +35,12 @@ export const APPWRITE_MIGRATIONS = [
     description: 'Notifications and Web Push subscription tables',
     run: ({ request, log }) =>
       migrateNotificationsBackend({ request, log }),
+  },
+  {
+    id: '005-notification-retention',
+    description: 'Index for bounded seven-day notification cleanup',
+    run: ({ request, log }) =>
+      migrateNotificationRetentionIndex({ request, log }),
   },
 ];
 

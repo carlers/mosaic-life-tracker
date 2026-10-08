@@ -315,7 +315,9 @@ export const SettingsPage: React.FC = () => {
           <SettingsRow
             icon={<Bell size={18} className="text-gray-400" aria-hidden="true" />}
             label="Notifications"
-            onClick={handleComingSoon}
+            onClick={() => navigate('/settings/notifications', {
+              state: makeRouteParentState('/settings'),
+            })}
           />
           <SettingsRow
             icon={<Megaphone size={18} className="text-gray-400" aria-hidden="true" />}

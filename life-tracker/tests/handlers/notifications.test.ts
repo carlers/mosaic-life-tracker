@@ -340,4 +340,29 @@ describe('notifications backend', () => {
       actorAvatarFileId: 'avatar_a',
     });
   });
+  it('does not regenerate task completions older than seven days', async () => {
+    const { handleTaskCompletionEvent } = require('../../appwrite-functions/message-action/notifications.js');
+    const db = { getRow: vi.fn(), listRows: vi.fn(), createRow: vi.fn() };
+    const result = await handleTaskCompletionEvent(db, {
+      $id: 'late', user_id: 'alice',
+      completed_at: new Date(Date.now() - 8 * 86400000).toISOString(),
+      is_completed: true,
+    }, 'tablesdb.life_tracker.tables.tasks.rows.late.update', vi.fn(), vi.fn());
+    expect(result.body.ignored).toBe('expired-completion');
+    expect(db.createRow).not.toHaveBeenCalled();
+  });
+
+  it('never resets the first-read timestamp on repeated marking', async () => {
+    const { handleMarkNotificationsRead } = require('../../appwrite-functions/message-action/notifications.js');
+    const db = {
+      getRow: vi.fn().mockResolvedValue({
+        $id: 'receipt1', recipient_id: 'alice', read_at: '2026-10-08T07:00:00.000Z',
+      }),
+      updateRow: vi.fn(),
+    };
+    const result = await handleMarkNotificationsRead(db, 'alice', { ids: ['receipt1'] }, vi.fn(), vi.fn());
+    expect(result.body.marked).toBe(0);
+    expect(db.updateRow).not.toHaveBeenCalled();
+  });
+
 });

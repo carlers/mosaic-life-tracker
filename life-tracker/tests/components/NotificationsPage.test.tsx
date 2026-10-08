@@ -13,8 +13,14 @@ const mocks = vi.hoisted(() => ({
   patchCachedNotificationTask: vi.fn().mockResolvedValue(undefined),
   reactToTaskOnRemote: vi.fn(),
   sendTaskReaction: vi.fn(),
+  navigate: vi.fn(),
+  markCachedNotificationsRead: vi.fn().mockResolvedValue(undefined),
 }));
 
+vi.mock('react-router-dom', () => ({
+  useNavigate: () => mocks.navigate,
+  useLocation: () => ({ key: 'default', state: null }),
+}));
 vi.mock('../../src/hooks/useAuth', () => ({
   useAuth: () => ({
     user: mocks.userId ? { $id: mocks.userId } : null,
@@ -44,6 +50,7 @@ vi.mock('../../src/lib/notificationCache', () => ({
   getCachedNotifications: mocks.getCachedNotifications,
   setCachedNotifications: mocks.setCachedNotifications,
   patchCachedNotificationTask: mocks.patchCachedNotificationTask,
+  markCachedNotificationsRead: mocks.markCachedNotificationsRead,
 }));
 
 vi.mock('../../src/lib/messageDelivery', () => ({
@@ -53,6 +60,18 @@ vi.mock('../../src/lib/messageDelivery', () => ({
 vi.mock('../../src/components/ui/DeferredAvatar', () => ({
   DeferredAvatar: ({ alt }: { alt?: string }) => (
     <span aria-label={alt || 'avatar'} />
+  ),
+}));
+
+vi.mock('../../src/components/friend/AlertFriendDaySheet', () => ({
+  AlertFriendDaySheet: ({ notification, onClose }: {
+    notification: NotificationItem;
+    onClose: () => void;
+  }) => (
+    <div role="dialog" aria-label="Friend day view">
+      <p>{notification.task.title}</p>
+      <button type="button" onClick={onClose}>Close friend day view</button>
+    </div>
   ),
 }));
 
@@ -97,6 +116,7 @@ function notification(
     actorUsername: 'alice',
     actorAvatarFileId: '',
     occurredAt: '2026-10-07T10:00:00.000Z',
+    createdAt: '2026-10-07T10:00:00.000Z',
     readAt: '',
     categoryColor: '#10B981',
     task: {
@@ -135,6 +155,8 @@ describe('NotificationsPage', () => {
     mocks.patchCachedNotificationTask.mockClear();
     mocks.reactToTaskOnRemote.mockReset();
     mocks.sendTaskReaction.mockReset();
+    mocks.navigate.mockReset();
+    mocks.markCachedNotificationsRead.mockClear();
   });
 
   it('keeps swipe-route previews cache-only and does not mark activity read', async () => {
@@ -268,68 +290,47 @@ describe('NotificationsPage', () => {
     await waitFor(() => expect(mocks.fetchNotifications).toHaveBeenCalledTimes(2));
   });
 
-  it('persists read state for newly loaded pagination rows', async () => {
-    const first = notification({
-      readAt: '2026-10-08T08:00:00.000Z',
+  it('does not mark unseen pages as read when loaded', async () => {
+    mocks.getCachedNotifications.mockResolvedValue({ items: [], nextCursor: '', fetchedAt: '' });
+    mocks.fetchNotifications.mockResolvedValueOnce({
+      items: [notification()], nextCursor: 'not_1', fetchedAt: '2026-10-08T08:00:01.000Z',
+    }).mockResolvedValueOnce({
+      items: [notification({id:'not_2', occurredAt:'2026-10-07T09:00:00.000Z'})],
+      nextCursor: '', fetchedAt: '2026-10-08T08:00:02.000Z',
     });
-    const second = notification({
-      id: 'not_2',
-      occurredAt: '2026-10-07T09:00:00.000Z',
-    });
-    mocks.getCachedNotifications.mockResolvedValue({
-      items: [],
-      nextCursor: '',
-      fetchedAt: '',
-    });
-    mocks.fetchNotifications
-      .mockResolvedValueOnce({
-        items: [first],
-        nextCursor: 'not_1',
-        fetchedAt: '2026-10-08T08:00:01.000Z',
-      })
-      .mockResolvedValueOnce({
-        items: [second],
-        nextCursor: '',
-        fetchedAt: '2026-10-08T08:00:02.000Z',
-      });
-    mocks.markNotificationsRead.mockResolvedValue(undefined);
-
     render(<NotificationsPage />);
-    expect(await screen.findByText('Ship alerts')).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Load more' }));
-
-    await waitFor(() =>
-      expect(mocks.markNotificationsRead).toHaveBeenCalledWith(['not_2'])
-    );
-    await waitFor(() => {
-      const lastFeed =
-        mocks.setCachedNotifications.mock.calls.at(-1)?.[1];
-      const loaded = lastFeed?.items?.find(
-        (item: NotificationItem) => item.id === 'not_2'
-      );
-      expect(loaded?.readAt).not.toBe('');
-    });
+    fireEvent.click(await screen.findByRole('button', {name:'Load more'}));
+    await waitFor(() => expect(mocks.fetchNotifications).toHaveBeenCalledTimes(2));
+    expect(mocks.markNotificationsRead).not.toHaveBeenCalled();
   });
 
-  it('refreshes the active feed online and marks new rows read', async () => {
-    const item = notification();
-    mocks.getCachedNotifications.mockResolvedValue({
-      items: [],
-      nextCursor: '',
-      fetchedAt: '',
-    });
+  it('marks loaded alerts only on explicit read intent without IntersectionObserver', async () => {
+    mocks.getCachedNotifications.mockResolvedValue({ items: [], nextCursor: '', fetchedAt: '' });
     mocks.fetchNotifications.mockResolvedValue({
-      items: [item],
-      nextCursor: '',
-      fetchedAt: '2026-10-07T10:00:02.000Z',
+      items: [notification()], nextCursor: '', fetchedAt: '2026-10-08T08:00:00.000Z',
     });
-    mocks.markNotificationsRead.mockResolvedValue(undefined);
-
+    mocks.markNotificationsRead.mockResolvedValue('2026-10-08T08:00:00.000Z');
     render(<NotificationsPage />);
-
-    expect(await screen.findByText('Ship alerts')).toBeInTheDocument();
-    await waitFor(() =>
-      expect(mocks.markNotificationsRead).toHaveBeenCalledWith(['not_1'])
+    fireEvent.click(await screen.findByRole('button', {name:'Mark loaded read'}));
+    await waitFor(() => expect(mocks.markNotificationsRead).toHaveBeenCalledWith(['not_1']));
+    expect(mocks.markCachedNotificationsRead).toHaveBeenCalledWith(
+      'user_b', ['not_1'], '2026-10-08T08:00:00.000Z'
     );
   });
+
+  it('offers an explicit friend-day task control', async () => {
+    mocks.getCachedNotifications.mockResolvedValue({ items: [], nextCursor: '', fetchedAt: '' });
+    mocks.fetchNotifications.mockResolvedValue({
+      items: [notification()], nextCursor: '', fetchedAt: '2026-10-08T08:00:00.000Z',
+    });
+    render(<NotificationsPage />);
+    const button = await screen.findByRole('button', {
+      name: 'View Ship alerts in friend day view',
+    });
+    fireEvent.click(button);
+    expect(await screen.findByRole('dialog', {name: 'Friend day view'})).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Close friend day view' }));
+    await waitFor(() => expect(screen.queryByRole('dialog', {name: 'Friend day view'})).not.toBeInTheDocument());
+  });
+
 });

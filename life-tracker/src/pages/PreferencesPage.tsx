@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import {
   ArrowUp,
   CalendarDays,
@@ -8,13 +8,11 @@ import {
   Globe2,
   ListFilter,
   ListPlus,
-  BellRing,
   Palette,
   Tag,
 } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAppearance } from '../hooks/useAppearance';
-import { useAuth } from '../hooks/useAuth';
 import { APPEARANCE_MODES, type AppearanceMode } from '../lib/appearance';
 import {
   CONTENT_WIDTH_MODES,
@@ -45,13 +43,6 @@ import {
 } from '../lib/holidays';
 import { useHolidayCountries } from '../hooks/useHolidays';
 import { hasExpectedRouteParent } from '../lib/primarySwipeNavigation';
-import {
-  disablePushNotifications,
-  enablePushNotifications,
-  getPushNotificationState,
-  type PushNotificationState,
-} from '../lib/pushNotifications';
-
 interface ChoiceCopy {
   label: string;
   description: string;
@@ -201,7 +192,6 @@ function ChoiceGroup<T extends string>({
 export const PreferencesPage: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { user } = useAuth();
   const {
     mode,
     setAppearanceMode,
@@ -215,54 +205,6 @@ export const PreferencesPage: React.FC = () => {
   const { getSetting, setSetting } = useSettings();
   const holidayCountries = useHolidayCountries();
   const [isAccentPickerOpen, setIsAccentPickerOpen] = useState(false);
-  const [pushState, setPushState] = useState<PushNotificationState>({
-    status: 'checking',
-    enabled: false,
-    label: 'Checking this device…',
-  });
-  const [isChangingPush, setIsChangingPush] = useState(false);
-
-  useEffect(() => {
-    let active = true;
-    void getPushNotificationState(user?.$id ?? '')
-      .then((next) => {
-        if (active) setPushState(next);
-      })
-      .catch((pushError) => {
-        console.warn('[PreferencesPage] push state check failed:', pushError);
-        if (active) {
-          setPushState({
-            status: 'available',
-            enabled: false,
-            label: 'Could not check push on this device',
-          });
-        }
-      });
-    return () => {
-      active = false;
-    };
-  }, [user?.$id]);
-
-  const pushUnavailable =
-    !pushState.enabled && pushState.status !== 'available';
-
-  const handleTogglePush = async () => {
-    const userId = user?.$id;
-    if (!userId || isChangingPush || pushUnavailable) return;
-    setIsChangingPush(true);
-    try {
-      const next = pushState.enabled
-        ? await disablePushNotifications(userId)
-        : await enablePushNotifications(userId);
-      setPushState(next);
-    } catch (error) {
-      console.error('[PreferencesPage] push toggle failed:', error);
-      setPushState(await getPushNotificationState(userId));
-    } finally {
-      setIsChangingPush(false);
-    }
-  };
-
   const continueAddingTasks =
     getSetting(CONTINUE_ADDING_TASKS_SETTING_KEY, false) === true;
   const addTasksToTop =
@@ -442,31 +384,6 @@ export const PreferencesPage: React.FC = () => {
               )
             }
           />
-        </section>
-        <section className="border-b border-[#333333] py-2">
-          <h2 className="px-4 pb-1 pt-3 text-sm font-semibold uppercase tracking-wide text-gray-400">
-            Notifications
-          </h2>
-          <SettingsRow
-            icon={
-              <BellRing
-                size={18}
-                className="text-gray-400"
-                aria-hidden="true"
-              />
-            }
-            label="Push friend completions"
-            value={isChangingPush ? 'Updating…' : pushState.label}
-            showChevron={false}
-            isToggle
-            checked={pushState.enabled}
-            disabled={isChangingPush || pushUnavailable}
-            onClick={() => void handleTogglePush()}
-          />
-          <p className="px-7 pb-3 text-xs leading-relaxed text-gray-500">
-            Permission is requested only when you turn this on. Alerts still
-            appear in Mosaic when push is unavailable or disabled.
-          </p>
         </section>
         <ChoiceGroup
           label="Appearance"

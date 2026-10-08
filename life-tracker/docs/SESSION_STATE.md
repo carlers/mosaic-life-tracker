@@ -1,41 +1,23 @@
 # Session checkpoint
 
 Updated: 2026-10-08
-Current task: Double-check and harden the Notifications/Alerts feature before promotion.
-Status: Audit fixes are implemented on the AI audit branch and need focused verification before they can replace the current stable Preview tree. The Appwrite notifications schema and the prior stable message-action deployment are already rolled out in production; Web Push delivery remains intentionally disabled because VAPID values are not configured.
-Next action: Run the audit branch focused gate. If green, squash into `feature/notifications-alerts`, wait for stable canonical/Vercel acceptance, then deploy and activate the accepted message-action SHA in scratch and production before any promotion to `dev`.
-Blockers: Real push delivery/device acceptance still requires VAPID configuration plus an installed Android/iOS PWA test. Do not enable VAPID until the push-endpoint egress boundary is reviewed.
+Current task: Alerts retention, truthful grouping, friend task navigation, and Notifications settings.
+Branch: `chatgpt/alerts-retention-final` based on `feature/notifications-alerts`. Do not promote to dev without explicit user instruction.
+Status: Implementation checkpoint for focused verification; stable Preview and backend rollout must follow repo workflow. Production Alerts Function remains the earlier accepted version until this feature passes CI.
 
-## Audit findings addressed
+## Implemented intent
 
-- Replaced the rolling 72-hour completion window with a fixed launch cutoff, so pre-feature history cannot backfill Alerts while legitimate post-launch completions can arrive after long offline periods.
-- Removed recipient-derived names from lock-screen push copy; push notifications use generic friend-completion text.
-- Moved the service-worker active-account marker to AuthProvider so logout, confirmed session loss, account deletion, and cross-account transitions clear/switch it even when AppLayout unmounts.
-- Bound push register/unregister requests to the account that initiated the browser flow so an auth switch during permission/subscription work fails closed.
-- Kept the notification permission request in the direct toggle gesture and disabled the toggle while push is unsupported, blocked, checking, or server-unconfigured.
-- Added active-page focus refresh and made pagination read marking update both live state and the account-scoped offline cache.
-- Added focused regressions for launch-cutoff/offline-delay behavior, push account binding, auth-marker logout, focus catch-up, pagination read persistence, and the unconfigured Preferences state.
+- Read alerts hide 24h after first server-owned read, unread ones 7 days after server arrival. Hidden read receipts persist until seven-day GC to prevent event replays; completions >7 days old do not create new alerts.
+- Account-local offline cache applies the same expiry predicate. Appwrite feed scans bounded pagination windows across expired or privacy-filtered rows.
+- Hourly bounded maintenance removes seven-day-old receipts with the new created_at index from additive migration 005. Preserve tombstone GC and account-erasure maintenance.
+- Live Alerts reads individual tasks after 1.5 seconds at 60% foreground visibility, or via explicit "Mark loaded read"; swipe previews and background/offscreen tasks never mark read.
+- Activity groups are fixed local 30-minute completion-time windows with exact per-task clock times.
+- Tapping a task loads the friend calendar and opens FriendDayViewSheet on its current scheduled date, highlighting it.
+- Push controls move from Preferences to Settings → Notifications. Alerts header links there. Web Push remains disabled pending separate security/device acceptance.
 
-## Existing rollout evidence
+## Required next steps
 
-- Server-owned `notifications` and `push_subscriptions` tables exist in scratch and production with the checked-in schema.
-- Scratch integration proof created one alert for a visible mutual-friend completion and an update event produced `created=0`, confirming deterministic event deduplication; probe rows were cleaned up.
-- Production currently runs the prior accepted Alerts message-action deployment with task create/update event triggers and the existing hourly maintenance schedule; subsequent scheduled executions have completed successfully.
-- The prior stable `feature/notifications-alerts` Vercel Preview reached READY after the service-worker verifier and reviewed bundle-size budget were fixed.
-
-## Working files
-
-- `appwrite-functions/message-action/notifications.js`
-- `appwrite-functions/message-action/function.config.json`
-- `src/hooks/AuthProvider.tsx`
-- `src/components/layout/AppLayout.tsx`
-- `src/lib/pushNotifications.ts`
-- `src/pages/NotificationsPage.tsx`
-- `src/pages/PreferencesPage.tsx`
-- `src/components/ui/SettingsRow.tsx`
-- `tests/handlers/notifications.test.ts`
-- `tests/react/AuthProvider.test.tsx`
-- `tests/components/NotificationsPage.test.tsx`
-- `tests/components/PreferencesPage.test.tsx`
-- `docs/PROJECT_REFERENCE.md`
-- `docs/SESSION_STATE.md`
+1. Focused tests, repair and diff review.
+2. Squash into `feature/notifications-alerts`; full canonical gate and Vercel Preview.
+3. Validate migration 005 on scratch, then production with explicit target; deploy and activate exact accepted Function SHA and verify scheduled cleanup.
+4. Manual browser acceptance of scroll visibility, sheet/Back stack, day swipes, offline behavior, light/wide modes. Android/iOS device push remains pending VAPID security review.

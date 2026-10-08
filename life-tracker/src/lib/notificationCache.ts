@@ -1,5 +1,6 @@
 import type { NotificationItem } from './notifications';
 import type { TaskDocument } from '../db/schema';
+import { activeNotifications } from './notificationRetention';
 
 const DB_NAME = 'mosaic_notifications_cache';
 const STORE_NAME = 'feeds';
@@ -42,7 +43,9 @@ export async function getCachedNotifications(
       const request = tx.objectStore(STORE_NAME).get(userId);
       request.onsuccess = () => {
         const entry = request.result as CacheEntry | undefined;
-        resolve(entry?.feed ?? null);
+        resolve(entry?.feed
+          ? { ...entry.feed, items: activeNotifications(entry.feed.items) }
+          : null);
       };
       request.onerror = () => reject(request.error);
     });
@@ -65,7 +68,7 @@ export async function setCachedNotifications(
         {
           feed: {
             ...feed,
-            items: feed.items.slice(0, MAX_CACHED_ITEMS),
+            items: activeNotifications(feed.items).slice(0, MAX_CACHED_ITEMS),
           },
           cachedAt: Date.now(),
         } satisfies CacheEntry,
@@ -92,6 +95,22 @@ export async function patchCachedNotificationTask(
       item.task.id === taskId
         ? { ...item, task: { ...item.task, ...updates } }
         : item
+    ),
+  });
+}
+
+export async function markCachedNotificationsRead(
+  userId: string,
+  ids: string[],
+  readAt: string
+): Promise<void> {
+  const cached = await getCachedNotifications(userId);
+  if (!cached) return;
+  const selected = new Set(ids);
+  await setCachedNotifications(userId, {
+    ...cached,
+    items: cached.items.map((item) =>
+      selected.has(item.id) && !item.readAt ? { ...item, readAt } : item
     ),
   });
 }

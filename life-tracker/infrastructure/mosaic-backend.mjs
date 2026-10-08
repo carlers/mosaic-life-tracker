@@ -189,6 +189,7 @@ export const MOSAIC_TABLES = [
         type: 'key',
         attributes: ['recipient_id', 'occurred_at'],
       },
+      { key: 'idx_notification_created', type: 'key', attributes: ['created_at'] },
     ],
   },
   {

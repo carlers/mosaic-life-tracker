@@ -114,6 +114,9 @@ Current ordered baseline reconciliations are:
   `push_subscriptions` tables from the portable backend manifest. Existing tables are
   accepted only when their managed columns, indexes, permissions, row-security flag, and
   enabled state match the manifest; incompatible pre-existing resources fail closed.
+- `005-notification-retention` — adds the `notifications.created_at` retention
+  index on existing backends. New installations already have the index in
+  the manifest. Apply before activating hourly Alerts cleanup.
 
 The runner is not a replay of every historical pre-foundation Console/script change. Fresh
 forks bootstrap the current manifest, and production was already at the current historical

@@ -10,17 +10,7 @@ const mocks = vi.hoisted(() => ({
   setSheetWidthMode: vi.fn().mockResolvedValue(undefined),
   getSetting: vi.fn(),
   setSetting: vi.fn().mockResolvedValue(undefined),
-  getPushNotificationState: vi.fn().mockResolvedValue({
-    status: 'available',
-    enabled: false,
-    label: 'Permission not requested',
-  }),
-  enablePushNotifications: vi.fn().mockResolvedValue({
-    status: 'enabled',
-    enabled: true,
-    label: 'Enabled on this device',
-  }),
-  disablePushNotifications: vi.fn(),
+
 }));
 
 beforeEach(() => {
@@ -29,32 +19,11 @@ beforeEach(() => {
   mocks.setContentWidthMode.mockClear();
   mocks.setSheetWidthMode.mockClear();
   mocks.setSetting.mockClear();
-  mocks.getPushNotificationState.mockReset().mockResolvedValue({
-    status: 'available',
-    enabled: false,
-    label: 'Permission not requested',
-  });
-  mocks.enablePushNotifications.mockReset().mockResolvedValue({
-    status: 'enabled',
-    enabled: true,
-    label: 'Enabled on this device',
-  });
-  mocks.disablePushNotifications.mockReset();
   mocks.getSetting.mockImplementation((key: string, defaultValue?: unknown) => {
     if (key === 'weekStartsOnSunday') return true;
     return defaultValue;
   });
 });
-
-vi.mock('../../src/hooks/useAuth', () => ({
-  useAuth: () => ({ user: { $id: 'user_a' } }),
-}));
-
-vi.mock('../../src/lib/pushNotifications', () => ({
-  getPushNotificationState: mocks.getPushNotificationState,
-  enablePushNotifications: mocks.enablePushNotifications,
-  disablePushNotifications: mocks.disablePushNotifications,
-}));
 
 vi.mock('../../src/hooks/useAppearance', () => ({
   useAppearance: () => ({
@@ -128,20 +97,12 @@ describe('PreferencesPage', () => {
     const holidays = screen.getByRole('switch', {
       name: 'Show holidays',
     });
-    expect(
-      await screen.findByText('Permission not requested')
-    ).toBeInTheDocument();
-    const push = screen.getByRole('switch', {
-      name: 'Push friend completions',
-    });
-
     expect(continuous).toHaveAttribute('aria-checked', 'false');
     expect(taskPosition).toHaveAttribute('aria-checked', 'false');
     expect(sunday).toHaveAttribute('aria-checked', 'true');
     expect(collapse).toHaveAttribute('aria-checked', 'false');
     expect(todayTag).toHaveAttribute('aria-checked', 'false');
     expect(holidays).toHaveAttribute('aria-checked', 'false');
-    expect(push).toHaveAttribute('aria-checked', 'false');
 
     fireEvent.click(continuous);
     fireEvent.click(taskPosition);
@@ -149,7 +110,6 @@ describe('PreferencesPage', () => {
     fireEvent.click(collapse);
     fireEvent.click(todayTag);
     fireEvent.click(holidays);
-    fireEvent.click(push);
     fireEvent.change(screen.getByRole('combobox', { name: 'Holiday region' }), {
       target: { value: 'PH' },
     });
@@ -165,31 +125,7 @@ describe('PreferencesPage', () => {
     expect(mocks.setSetting).toHaveBeenCalledWith('showHolidays', true);
     expect(mocks.setSetting).toHaveBeenCalledWith('holidayRegion', 'PH');
     expect(mocks.setSetting).toHaveBeenCalledWith('holidayTypes', 'public');
-    expect(mocks.enablePushNotifications).toHaveBeenCalledWith('user_a');
   });
 
-  it('does not offer a permission-triggering push toggle when delivery is unconfigured', async () => {
-    mocks.getPushNotificationState.mockResolvedValueOnce({
-      status: 'unconfigured',
-      enabled: false,
-      label: 'Push delivery is not configured',
-    });
 
-    render(
-      <MemoryRouter>
-        <PreferencesPage />
-      </MemoryRouter>
-    );
-
-    expect(
-      await screen.findByText('Push delivery is not configured')
-    ).toBeInTheDocument();
-    const push = screen.getByRole('switch', {
-      name: 'Push friend completions',
-    });
-    expect(push).toBeDisabled();
-
-    fireEvent.click(push);
-    expect(mocks.enablePushNotifications).not.toHaveBeenCalled();
-  });
 });
