@@ -1,6 +1,6 @@
 # Mosaic Roadmap
 
-This roadmap records durable workstreams and batch status. `SESSION_STATE.md` contains the current handoff; `../AGENTS.md` contains working rules.
+This roadmap records durable workstreams and batch status, not every engineering idea or bug. GitHub Issues records actionable work and approved issue-specific plans; see [issue workflow](ISSUE_WORKFLOW.md). `SESSION_STATE.md` contains the current handoff; `../AGENTS.md` contains working rules.
 
 ## Delivered foundation
 

@@ -1,13 +1,37 @@
 # Session checkpoint
 
-Updated: 2026-10-08. Current work: accepted `feature/notifications-alerts` v0.5.1 merged to `dev` by PR #387, merge commit `9b51987f`. GitHub promotion acceptance reused the identical stable Preview tree.
+Updated: 2026-10-09. Current work: implement the approved GitHub Issues intake
+and handoff workflow, tracked by issue #395, on `chatgpt/github-issues-workflow`
+for delivery to stable Preview `feature/github-issues-workflow`.
 
-## Dev delivery repair
+## Objective and boundaries
 
-- The new dev Vercel deployment initially failed only the `precacheUniqueBytes` guard by **416 bytes** (2,376,316 B vs 2,375,900 B). The larger Git merge subject/body was embedded in the `mosaic-build-info` HTML meta tag; app assets, PWA policy and GitHub CI passed.
-- Fix on `chatgpt/fix-dev-precache-metadata` based on stable `feature/notifications-alerts`: discount **only the variable build-info content attribute** from the precache code-size regression metric, preserve shipped bytes and full commit details, and add regression coverage. No ceiling is increased.
-- This is a build-only repair of the same 0.5.1 product, **not** another user-testable feature revision. Keep version 0.5.1 unchanged. Follow focused CI → squash into stable Preview → canonical CI and READY Vercel; then use exact-tree merge promotion to dev and verify READY dev deployment.
-- Backend unchanged: dev and Previews target Scratch Appwrite, main targets Production. No production Appwrite mutation permitted; before main activation, the production `006-push-details` migration is still required.
-- Manual device acceptance for latest account-synced Alerts retention remains outstanding.
+- Preserve ChatGPT as the primary developer interface: minimal public issue
+  capture, duplicate checks, issue-first planning and critique, issue/PR linkage,
+  cross-chat retrieval, and explicit release-state closure.
+- Changes limited to repo guidance and documentation; no app UI/runtime changes,
+  GitHub Projects requirement, automatic coding, production release, or version
+  bump. Follow the existing focused task -> stable Preview canonical gate.
 
-Next action: finish the build-budget normalization fix, verify the accepted stable Preview and promote unchanged source tree to dev. Do not modify main or create production tags.
+## Work and verification
+
+- Issue #395 created as an actual connector write; verify read and non-destructive
+  update separately. New `docs/ISSUE_WORKFLOW.md` explains capture through
+  release lifecycle and public-data constraints.
+- Working files: `AGENTS.md`, `docs/AI_WORKFLOW.md`,
+  `docs/DELIVERY.md`, `docs/README.md`, `docs/PLAN.md`,
+  `docs/ISSUE_WORKFLOW.md`, `docs/SESSION_STATE.md`.
+- CI and Preview verification belong to the pushed coherent task commit;
+  do not record unobserved checks as passed. GitHub-connected execution may
+  lack local npm runtime access; use focused CI and stable Preview checks.
+- Next action: review exact document diff and complete issue read/update,
+  focused validation, squash into stable Preview, and canonical deployment checks.
+  Leave `dev` and `main` untouched without explicit promotion approval.
+
+## Existing release caveats
+
+- Previous dev 0.5.1 precache metadata normalization reached `dev` at
+  `0fe98f7b`; this workflow change does not alter that product version.
+- Main production Appwrite `006-push-details` migration and manual device
+  acceptance of account-synced Alerts retention remain separate outstanding
+  work; this task does not authorize those changes.
