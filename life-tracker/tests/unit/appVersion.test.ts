@@ -8,13 +8,19 @@ import {
 
 // Regression: §24.13 (release version and package metadata stay aligned).
 describe('app version and build identity', () => {
-  it('publishes release 0.3.0 consistently', () => {
+  it('keeps the published release version consistent', () => {
     const packageJson = JSON.parse(
       readFileSync(new URL('../../package.json', import.meta.url), 'utf8')
     ) as { version: string };
 
-    expect(APP_VERSION).toBe('0.3.0');
+    const packageLock = JSON.parse(
+      readFileSync(new URL('../../package-lock.json', import.meta.url), 'utf8')
+    ) as { version: string; packages: { '': { version: string } } };
+
+    expect(packageJson.version).toMatch(/^[0-9]+[.][0-9]+[.][0-9]+$/);
     expect(packageJson.version).toBe(APP_VERSION);
+    expect(packageLock.version).toBe(APP_VERSION);
+    expect(packageLock.packages[''].version).toBe(APP_VERSION);
     expect(APP_BUILD_INFO.version).toBe(APP_VERSION);
   });
 

@@ -29,6 +29,7 @@ additional reading. Current code and Git override stale progress prose.
 - Update the checkpoint at meaningful milestones and handoffs. Keep objective, constraints,
   completed/remaining work, working files, checks, blockers, and next action concise.
   Do not copy prompts, Git status, or response boilerplate into it.
+- For user-visible tasks, propose version impact during planning; set a distinct version in each testable stable Preview, increment PATCH for each later successful Preview revision, and preserve that version through dev/main. Include meaningful merge subjects/bodies, never generic promotion-only messages. Follow [versioning](docs/VERSIONING.md); check active branches for collisions.
 - Report outcome, checks, commit, and deployment status briefly. Telemetry is opt-in.
   Connected-chat agents must also follow the read-once, repair-batching, CI-polling, and
   build-size preflight rules in [latency discipline](docs/AI_WORKFLOW.md#connected-chat-latency-discipline);

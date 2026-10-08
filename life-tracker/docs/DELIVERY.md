@@ -38,6 +38,12 @@ Do not ask for authorization already granted. Include commit SHA/subject, checks
 deployment status in the final result. No force push across divergence and no unrelated
 remote service changes.
 
+## Version and descriptive merge requirements
+
+A user-testable stable Preview must carry its proposed version in the same accepted tree: new capability -> MINOR, successive delivered refinement -> PATCH, no version for non-user-facing maintenance. Do not consume versions for internal commits or failed candidates. See [versioning](VERSIONING.md) for collision detection, hotfixes, and increasing-version validation. Focused and stable-Preview acceptance include the existing contracts job's version-consistency guard. Stable Preview -> dev -> main promotions preserve the accepted version without extra commits/CI cycles; a version conflict requires a newly accepted Preview tree.
+
+When squash-merging task PRs into stable Preview, use a descriptive subject and optional full body. For stable Preview -> dev and dev -> main, specify explicit GitHub `commit_title` / `commit_message`, explaining the actual product changes, not just "promote dev" or "merge approved PR". A release with multiple features summarizes the aggregate change since the previous production release. The complete commit message is surfaced through the expandable Settings disclosure when the deployment provider supplies it. Tags/Releases are post-production-acceptance work and must never be produced before the actual production deployment is confirmed READY.
+
 ## One CI workflow
 
 `.github/workflows/quality-gate.yml` selects:

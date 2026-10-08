@@ -13,6 +13,12 @@ checkpoint after CI turns green. Then follow [delivery](DELIVERY.md). No mandato
 model selection, response footers, verbatim prompt copies, or evidence ledger. [Telemetry](WORKFLOW_TELEMETRY.md)
 is optional. Batch independent reads and ask for missing files together.
 
+## Preview-version and merge-message discipline
+
+For shipped feature/UI work, include the proposed MINOR/PATCH/NONE and candidate version in the plan after checking main, dev, and active stable Preview branches. Before the first deliverable Preview, use `npm run version:bump -- minor` (or `version:set` for a collision) in the implementation task commit; batch the version change with the feature, tests, and checkpoint. Each later accepted user-facing Preview revision gets one PATCH bump, even when it is a refinement; failures and interim repair pushes do not each consume a number. Run `npm run version:check` and inspect the full file diff. All version edits must precede stable Preview canonical acceptance. Exact-tree promotions to dev and main **do not bump again**. Explicit user promotion approval stays mandatory.
+
+Name the stable-Preview squash commit after the delivered behavior. When preparing a merge to dev/main, override the generic GitHub commit title/body with a concise, informative release summary. Read the actual commit/diff range to avoid inaccurate release notes. Preserve PR provenance and accepted checks. Cross-branch collisions, out-of-order releases and emergency hotfixes follow [versioning](VERSIONING.md).
+
 ## Environment selection
 
 | Environment | Work and verification | Transfer |

@@ -833,7 +833,7 @@ browser quota pressure.
 
 Phase 3.5 replaced the plugin-injected registrar with `pwaLifecycle.ts`, which captures
 `beforeinstallprompt` and registers the worker exactly once through
-`virtual:pwa-register`. App-version updates are independent of RxDB/Appwrite data sync: `forceSync()` does not check the service worker. Settings exposes the app release version and deployment build identity plus the app-update control above the destructive data controls. The current release is **0.3.0**. Release-version and build-identity rules live in `docs/VERSIONING.md`.
+`virtual:pwa-register`. App-version updates are independent of RxDB/Appwrite data sync: `forceSync()` does not check the service worker. Settings exposes the app release version and deployment build identity plus the app-update control above the destructive data controls. The deployed release version is read from `src/lib/appVersion.ts` and must match the package manifests; Preview revisions follow `docs/VERSIONING.md`. Settings exposes the full Git commit message with a tap-to-expand/collapse disclosure, preserving its body and line breaks.
 
 Update acquisition is intentionally moved off the user's critical path. More than one minute after post-paint maintenance starts, Mosaic performs a quiet service-worker update check when the document is visible and the browser is online, then rate-limits subsequent background checks to at most hourly; returning online or foregrounding the app can trigger an overdue check. This pre-download must never gate auth, Home, RxDB readiness, or first interaction. A background check never activates an update: a replacement worker still waits for explicit approval.
 
