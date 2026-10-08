@@ -1,5 +1,5 @@
 import { readFileSync } from 'node:fs';
-import { buildWebChatPacket, estimateTokens } from '../../scripts/lib/create-handoff.mjs';
+import { buildWebChatPacket, estimateTokens, parseWorkingSet, validateSessionState } from '../../scripts/lib/create-handoff.mjs';
 import { resolve } from 'node:path';
 import { checkContracts, localMarkdownTargets } from '../../scripts/check-project-contracts.mjs';
 
@@ -14,6 +14,14 @@ describe('documentation entrypoints and links', () => {
       '/repo/file.md', '/repo/docs/a b.md', '/repo/docs/other.md',
     ]);
   });
+});
+
+// Regression: AI_WORKFLOW.md (current checkpoint and legacy handoff structures both work).
+it('validates the checked-in checkpoint and accepts missing optional working sets', () => {
+  const state = readFileSync(new URL('../../docs/SESSION_STATE.md', import.meta.url), 'utf8');
+  expect(() => validateSessionState(state)).not.toThrow();
+  expect(parseWorkingSet('# Session checkpoint\n## Working references\n- PR #419\n')).toEqual([]);
+  expect(() => validateSessionState('Updated: 2026-10-09\nCurrent task: missing action\n')).toThrow(/Next action/);
 });
 
 // Regression: AI_WORKFLOW.md (source-independent handoff context stays within its budget).

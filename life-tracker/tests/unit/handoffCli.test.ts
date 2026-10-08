@@ -50,6 +50,19 @@ describe('handoff command migration', () => {
     expect(run('chat-plan', '--transport', 'github').stderr).toContain('file packet');
     expect(run('chat-plan').status).toBe(0);
   });
+  it('accepts a compact current-style checkpoint without a Working set heading', () => {
+    const { root, run } = fixture();
+    writeFileSync(join(root, 'docs/SESSION_STATE.md'),
+      '# Session checkpoint\n\nUpdated: 2026-10-09. Current work: issue workflow review.\n' +
+      '## Intent and scope\n- Review workflow\n' +
+      '## Working references\n- PR #419\n' +
+      '## Next action and remaining checks\nVerify current branch before acting.\n');
+    const result = run('chat-plan');
+    expect(result.status, result.stderr).toBe(0);
+    expect(result.stdout).toContain('No implementation files are selected');
+    expect(result.stdout).toContain('Verify current branch before acting.');
+  });
+
   it('does not touch an existing ledger unless telemetry is explicitly requested', () => {
     const { root, run } = fixture();
     mkdirSync(join(root, '.mosaic/metrics'), { recursive: true });
