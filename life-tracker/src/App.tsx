@@ -15,6 +15,7 @@ import {
   loadHomePage,
   loadMessagesPage,
   loadPreferencesPage,
+  loadNotificationSettingsPage,
   loadProfilePage,
   loadSettingsPage,
 } from "./components/layout/routeModuleLoaders";
@@ -31,6 +32,11 @@ const SettingsPage = lazy(() =>
 const PreferencesPage = lazy(() =>
   loadPreferencesPage().then(({ PreferencesPage }) => ({
     default: PreferencesPage,
+  })),
+);
+const NotificationSettingsPage = lazy(() =>
+  loadNotificationSettingsPage().then(({ NotificationSettingsPage }) => ({
+    default: NotificationSettingsPage,
   })),
 );
 const ProfilePage = lazy(() =>
@@ -206,6 +212,14 @@ function App() {
             element={
               <RouteContent label="PreferencesPage">
                 <PreferencesPage />
+              </RouteContent>
+            }
+          />
+          <Route
+            path="/settings/notifications"
+            element={
+              <RouteContent label="NotificationSettingsPage">
+                <NotificationSettingsPage />
               </RouteContent>
             }
           />

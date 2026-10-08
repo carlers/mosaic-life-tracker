@@ -1,4 +1,4 @@
-import React, { lazy, Suspense, useCallback, useMemo, useState } from 'react';
+import React, { lazy, Suspense, useCallback, useMemo, useRef, useState } from 'react';
 import { format } from 'date-fns';
 import { motion } from 'framer-motion';
 import { Swiper, SwiperSlide } from 'swiper/react';
@@ -59,6 +59,7 @@ interface FriendDayViewSheetProps {
   onReactToTask?: (task: TaskDocument, emoji: string) => void;
   renderMode?: 'sheet' | 'inline';
   holidayConfig?: HolidayDisplayConfig;
+  focusTaskId?: string;
 }
 
 interface FriendDaySlideProps {
@@ -71,6 +72,7 @@ interface FriendDaySlideProps {
   onOpenReactions: (task: TaskDocument) => void;
   onViewImage?: (task: TaskDocument) => void;
   scrollMode?: 'page' | 'contained';
+  focusTaskId?: string;
 }
 
 const EMPTY_TASKS: TaskDocument[] = [];
@@ -127,7 +129,15 @@ const FriendDaySlide: React.FC<FriendDaySlideProps> = ({
   onOpenReactions,
   onViewImage,
   scrollMode = 'contained',
+  focusTaskId,
 }) => {
+  const scrolledToTaskRef = useRef('');
+  const focusRow = useCallback((node: HTMLDivElement | null) => {
+    if (!node || !focusTaskId || scrolledToTaskRef.current === focusTaskId) return;
+    scrolledToTaskRef.current = focusTaskId;
+    requestAnimationFrame(() => node.scrollIntoView({ block: 'center', behavior: 'smooth' }));
+  }, [focusTaskId]);
+
   const tasksByCategory = useMemo(() => {
     const map = new Map<string, TaskDocument[]>();
     for (const task of tasks) {
@@ -200,7 +210,8 @@ const FriendDaySlide: React.FC<FriendDaySlideProps> = ({
                   return (
                     <div
                       key={task.id}
-                      className={`flex items-start gap-3 px-3 py-2.5 ${
+                      ref={task.id === focusTaskId ? focusRow : undefined}
+                      className={`flex items-start gap-3 px-3 py-2.5 ${task.id === focusTaskId ? 'ring-1 ring-inset ring-emerald-500/70 rounded-lg ' : ''}${
                         idx > 0 ? 'border-t border-[#2A2A2A]' : ''
                       }`}
                     >
@@ -310,6 +321,7 @@ export const FriendDayViewSheet: React.FC<FriendDayViewSheetProps> = ({
   onReactToTask,
   renderMode = 'sheet',
   holidayConfig = DISABLED_HOLIDAY_CONFIG,
+  focusTaskId,
 }) => {
   const [reactionTask, setReactionTask] = useState<TaskDocument | null>(null);
   const [viewingTaskId, setViewingTaskId] = useState<string | null>(null);
@@ -480,6 +492,7 @@ export const FriendDayViewSheet: React.FC<FriendDayViewSheetProps> = ({
                   onOpenReactions={setReactionTask}
                   onViewImage={handleViewImage}
                   scrollMode={renderMode === 'sheet' ? 'contained' : 'page'}
+                  focusTaskId={focusTaskId}
                 />
               )}
             </div>

@@ -1,16 +1,20 @@
 import React, {
+  lazy,
+  Suspense,
   useCallback,
   useEffect,
   useRef,
   useState,
 } from 'react';
 import { format, formatDistanceToNow } from 'date-fns';
+import { useNavigate } from 'react-router-dom';
 import {
   Bell,
   Check,
   Heart,
   MessageSquare,
   RefreshCw,
+  Settings2,
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { DeferredAvatar } from '../components/ui/DeferredAvatar';
@@ -30,7 +34,11 @@ import {
   getCachedNotifications,
   patchCachedNotificationTask,
   setCachedNotifications,
+  markCachedNotificationsRead,
 } from '../lib/notificationCache';
+import { activeNotifications } from '../lib/notificationRetention';
+import { groupNotificationActivity } from '../lib/notificationGrouping';
+import { makeRouteParentState } from '../lib/primarySwipeNavigation';
 import { reactToTaskOnRemote } from '../lib/messageDelivery';
 import {
   applyReactionDelta,
@@ -40,55 +48,20 @@ import {
 } from '../lib/reactionUtils';
 import { getReadableTextColor } from '../constants/colors';
 
-interface ActivityGroup {
-  key: string;
-  actorId: string;
-  actorName: string;
-  actorAvatarFileId: string;
-  occurredAt: string;
-  items: NotificationItem[];
-}
+const AlertFriendDaySheet = lazy(() =>
+  import('../components/friend/AlertFriendDaySheet').then(({ AlertFriendDaySheet }) => ({
+    default: AlertFriendDaySheet,
+  }))
+);
 
 interface NotificationsPageProps {
   preview?: boolean;
 }
 
-function completionDay(occurredAt: string): string {
-  const parsed = new Date(occurredAt);
-  return Number.isNaN(parsed.getTime())
-    ? occurredAt.slice(0, 10)
-    : format(parsed, 'yyyy-MM-dd');
-}
-
-function groupActivity(items: NotificationItem[]): ActivityGroup[] {
-  const groups = new Map<string, ActivityGroup>();
-  for (const item of items) {
-    const key = `${item.actorId}::${completionDay(item.occurredAt)}`;
-    const existing = groups.get(key);
-    if (existing) {
-      existing.items.push(item);
-      if (item.occurredAt > existing.occurredAt) {
-        existing.occurredAt = item.occurredAt;
-      }
-      continue;
-    }
-    groups.set(key, {
-      key,
-      actorId: item.actorId,
-      actorName: item.actorName,
-      actorAvatarFileId: item.actorAvatarFileId,
-      occurredAt: item.occurredAt,
-      items: [item],
-    });
-  }
-  return [...groups.values()].sort((a, b) =>
-    b.occurredAt.localeCompare(a.occurredAt)
-  );
-}
-
 export const NotificationsPage: React.FC<NotificationsPageProps> = ({
   preview = false,
 }) => {
+  const navigate = useNavigate();
   const { user } = useAuth();
   const userId = user?.$id ?? '';
   const connectivity = useConnectivity();
@@ -104,6 +77,9 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({
     useState<NotificationItem | null>(null);
   const [replyTarget, setReplyTarget] =
     useState<NotificationItem | null>(null);
+  const [dayTarget, setDayTarget] = useState<NotificationItem | null>(null);
+  const [now, setNow] = useState(() => Date.now());
+  const markingRef = useRef(new Set<string>());
   const remoteGenerationRef = useRef(0);
 
   useEffect(() => {
@@ -155,6 +131,11 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({
 
   const feedIsCurrent = Boolean(userId) && loadedUserId === userId;
 
+  useEffect(() => {
+    const id = window.setInterval(() => setNow(Date.now()), 60_000);
+    return () => window.clearInterval(id);
+  }, []);
+
   const refresh = useCallback(async () => {
     if (
       preview ||
@@ -173,34 +154,10 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({
       const page = await fetchNotifications('', 30);
       if (generation !== remoteGenerationRef.current) return;
 
-      let nextItems = page.items;
-      setItems(nextItems);
+      setItems(page.items);
       setNextCursor(page.nextCursor);
       setFetchedAt(page.fetchedAt);
       await setCachedNotifications(userId, page);
-      if (generation !== remoteGenerationRef.current) return;
-
-      const unreadIds = nextItems
-        .filter((item) => !item.readAt)
-        .map((item) => item.id);
-      if (unreadIds.length > 0) {
-        try {
-          await markNotificationsRead(unreadIds);
-          if (generation !== remoteGenerationRef.current) return;
-          const readAt = new Date().toISOString();
-          const readSet = new Set(unreadIds);
-          nextItems = nextItems.map((item) =>
-            readSet.has(item.id) ? { ...item, readAt } : item
-          );
-          setItems(nextItems);
-          await setCachedNotifications(userId, {
-            ...page,
-            items: nextItems,
-          });
-        } catch (readError) {
-          console.warn('[NotificationsPage] mark read failed:', readError);
-        }
-      }
     } catch (cause) {
       if (generation !== remoteGenerationRef.current) return;
       console.error('[NotificationsPage] refresh failed:', cause);
@@ -248,7 +205,7 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({
     };
   }, [feedIsCurrent, preview, refresh]);
 
-  const visibleItems = feedIsCurrent ? items : [];
+  const visibleItems = feedIsCurrent ? activeNotifications(items, now) : [];
   const visibleNextCursor = feedIsCurrent ? nextCursor : '';
   const visibleFetchedAt = feedIsCurrent ? fetchedAt : '';
 
@@ -272,29 +229,13 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({
       const page = await fetchNotifications(visibleNextCursor, 30);
       if (generation !== remoteGenerationRef.current) return;
 
-      let merged = [
+      const merged = [
         ...visibleItems,
         ...page.items.filter(
           (candidate) =>
             !visibleItems.some((item) => item.id === candidate.id)
         ),
       ];
-      const unreadIds = page.items
-        .filter((item) => !item.readAt)
-        .map((item) => item.id);
-      if (unreadIds.length > 0) {
-        try {
-          await markNotificationsRead(unreadIds);
-          if (generation !== remoteGenerationRef.current) return;
-          const readAt = new Date().toISOString();
-          const readSet = new Set(unreadIds);
-          merged = merged.map((item) =>
-            readSet.has(item.id) ? { ...item, readAt } : item
-          );
-        } catch (readError) {
-          console.warn('[NotificationsPage] mark read failed:', readError);
-        }
-      }
       if (generation !== remoteGenerationRef.current) return;
       setItems(merged);
       setNextCursor(page.nextCursor);
@@ -314,6 +255,83 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({
       }
     }
   };
+
+  const markRead = useCallback(async (ids: string[]) => {
+    if (!feedIsCurrent || preview || connectivity.status !== 'online' || !userId) return;
+    const eligible = ids.filter((id) => !markingRef.current.has(id));
+    if (!eligible.length) return;
+    eligible.forEach((id) => markingRef.current.add(id));
+    const generation = remoteGenerationRef.current;
+    try {
+      const readAt = await markNotificationsRead(eligible);
+      if (generation !== remoteGenerationRef.current) return;
+      const stamp = readAt || new Date().toISOString();
+      const set = new Set(eligible);
+      setItems((current) => current.map((item) =>
+        set.has(item.id) && !item.readAt ? { ...item, readAt: stamp } : item
+      ));
+      await markCachedNotificationsRead(userId, eligible, stamp);
+    } catch (cause) {
+      console.warn('[NotificationsPage] mark read failed:', cause);
+    } finally {
+      eligible.forEach((id) => markingRef.current.delete(id));
+    }
+  }, [connectivity.status, feedIsCurrent, preview, userId]);
+
+  const visibleUnreadKey = visibleItems.map((item) => `${item.id}:${item.readAt}`).join('|');
+
+  // Read only when a task actually occupies the visible, active feed.
+  // A swipe preview, background tab, open modal, or offscreen row never starts
+  // its 24-hour retention clock.
+  useEffect(() => {
+    if (preview || !feedIsCurrent || connectivity.status !== 'online' ||
+        dayTarget || replyTarget || reactionTarget ||
+        typeof IntersectionObserver === 'undefined') return;
+    const timers = new Map<string, number>();
+    const canRead = () =>
+      document.visibilityState === 'visible' && document.hasFocus();
+    const observer = new IntersectionObserver((entries) => {
+      for (const entry of entries) {
+        const id = (entry.target as HTMLElement).dataset.alertId || '';
+        if (!id) continue;
+        const old = timers.get(id);
+        if (old !== undefined) {
+          window.clearTimeout(old);
+          timers.delete(id);
+        }
+        if (!entry.isIntersecting || entry.intersectionRatio < 0.6 || !canRead()) continue;
+        const timer = window.setTimeout(() => {
+          timers.delete(id);
+          if (canRead()) void markRead([id]);
+        }, 1500);
+        timers.set(id, timer);
+      }
+    }, { threshold: [0, 0.6, 1] });
+    const rows = document.querySelectorAll<HTMLElement>('[data-alert-id]');
+    rows.forEach((row) => observer.observe(row));
+    const clear = () => {
+      if (canRead()) return;
+      timers.forEach((timer) => window.clearTimeout(timer));
+      timers.clear();
+    };
+    const resume = () => {
+      if (!canRead()) return;
+      rows.forEach((row) => { observer.unobserve(row); observer.observe(row); });
+    };
+    document.addEventListener('visibilitychange', clear);
+    document.addEventListener('visibilitychange', resume);
+    window.addEventListener('blur', clear);
+    window.addEventListener('focus', resume);
+    return () => {
+      observer.disconnect();
+      timers.forEach((timer) => window.clearTimeout(timer));
+      document.removeEventListener('visibilitychange', clear);
+      document.removeEventListener('visibilitychange', resume);
+      window.removeEventListener('blur', clear);
+      window.removeEventListener('focus', resume);
+    };
+  }, [visibleUnreadKey,
+      feedIsCurrent, preview, connectivity.status, dayTarget, replyTarget, reactionTarget, markRead]);
 
   const patchTask = useCallback(
     (taskId: string, reactions: string) => {
@@ -399,9 +417,10 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({
     ]
   );
 
-  const groups = groupActivity(visibleItems);
+  const groups = groupNotificationActivity(visibleItems);
   const canInteract =
     !preview && feedIsCurrent && connectivity.status === 'online';
+  const unreadIds = visibleItems.filter((item) => !item.readAt).map((item) => item.id);
   const currentReactionTarget =
     feedIsCurrent &&
     reactionTarget &&
@@ -444,6 +463,21 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({
             </p>
           )}
         </div>
+        <div className="flex items-center gap-1">
+        {!preview && unreadIds.length > 0 && (
+          <button type="button" onClick={() => void markRead(unreadIds)}
+            disabled={!canInteract} className="px-2 py-1 text-xs text-gray-400 disabled:opacity-40">
+            Mark loaded read
+          </button>
+        )}
+        {!preview && (
+          <button type="button" onClick={() => navigate('/settings/notifications', {
+            state: { ...makeRouteParentState('/notifications'), fromAlerts: true },
+          })}
+            className="rounded-lg p-2 text-gray-400" aria-label="Notification settings">
+            <Settings2 size={18} />
+          </button>
+        )}
         <button
           type="button"
           onClick={() => void refresh()}
@@ -462,6 +496,7 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({
             aria-hidden="true"
           />
         </button>
+        </div>
       </header>
 
       {isInitialLoading ? (
@@ -526,7 +561,10 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({
                       {formatDistanceToNow(
                         new Date(group.occurredAt),
                         { addSuffix: true }
-                      )}
+                      )} · {format(new Date(group.earliestAt), 'h:mm a')}
+                      {group.earliestAt !== group.occurredAt
+                        ? `–${format(new Date(group.occurredAt), 'h:mm a')}`
+                        : ''}
                     </span>
                   </p>
                 </div>
@@ -538,7 +576,7 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({
                         item.task.reactions
                       );
                       return (
-                        <div key={item.id} className="py-3">
+                        <div key={item.id} data-alert-id={!item.readAt && canInteract ? item.id : undefined} className="py-3">
                           <div className="flex items-start gap-3">
                             <span
                               className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full"
@@ -557,8 +595,17 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({
                               />
                             </span>
                             <div className="min-w-0 flex-1">
-                              <p className="break-words text-[0.95rem] leading-snug text-gray-100">
+                              <button type="button"
+                                disabled={!canInteract}
+                                onClick={() => setDayTarget(item)}
+                                className="w-full break-words text-left text-[0.95rem] leading-snug text-gray-100 disabled:opacity-70 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
+                                aria-label={`View ${item.task.title} in friend day view`}>
                                 {item.task.title}
+                              </button>
+                              <p className="mt-1 text-xs text-gray-500">
+                                {format(new Date(item.task.completedAt || item.occurredAt), 'h:mm a')}
+                                {item.task.date !== format(new Date(item.task.completedAt || item.occurredAt), 'yyyy-MM-dd')
+                                  ? ` · Scheduled ${item.task.date}` : ''}
                               </p>
                               {reactions.length > 0 && (
                                 <div className="mt-2">
@@ -613,6 +660,13 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({
           </div>
           {loadMoreButton}
         </div>
+      )}
+
+      {feedIsCurrent && dayTarget && visibleItems.some((item) => item.id === dayTarget.id) && (
+        <Suspense fallback={null}>
+          <AlertFriendDaySheet key={`${userId}:${dayTarget.id}`}
+            notification={dayTarget} onClose={() => setDayTarget(null)} />
+        </Suspense>
       )}
 
       <EmojiPickerSheet

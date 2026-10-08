@@ -12,6 +12,8 @@ const TABLES = [
 const DEFAULT_RETENTION_DAYS = 90;
 const PAGE_SIZE = 100;
 const MAX_PAGES_PER_TABLE = 100;
+const NOTIFICATION_RETENTION_MS = 7 * 24 * 60 * 60 * 1000;
+const MAX_NOTIFICATION_GC_PAGES = 2;
 
 function retentionDays() {
   const raw = Number(
@@ -86,6 +88,38 @@ async function runGc(tablesDB, cutoff, log) {
   return results;
 }
 
+// Keep read receipts until seven days after arrival to prevent event replay.
+async function purgeExpiredNotifications(tablesDB, now = new Date(), log = () => {}) {
+  const cutoff = new Date(now.getTime() - NOTIFICATION_RETENTION_MS).toISOString();
+  let purged = 0;
+  for (let page = 0; page < MAX_NOTIFICATION_GC_PAGES; page += 1) {
+    const result = await tablesDB.listRows({
+      databaseId: DATABASE_ID,
+      tableId: 'notifications',
+      queries: [
+        Query.lessThan('created_at', cutoff),
+        Query.orderAsc('$id'),
+        Query.limit(PAGE_SIZE),
+      ],
+      total: false,
+    });
+    const rows = result.rows || [];
+    for (const row of rows) {
+      await tablesDB.deleteRow({
+        databaseId: DATABASE_ID,
+        tableId: 'notifications',
+        rowId: row.$id,
+      });
+      purged++;
+    }
+    if (rows.length < PAGE_SIZE) break;
+    if (page === MAX_NOTIFICATION_GC_PAGES - 1) {
+      log('notifications-gc: page cap reached; remaining rows will retry next hour');
+    }
+  }
+  return { purged, cutoff };
+}
+
 async function handleScheduledTombstoneGc({ req, res, log, error }) {
   try {
     const days = retentionDays();
@@ -116,12 +150,15 @@ async function handleScheduledTombstoneGc({ req, res, log, error }) {
     log(
       `tombstone-gc: complete scanned=${totals.scanned} purged=${totals.purged}`
     );
+    const notificationGc = await purgeExpiredNotifications(tablesDB, new Date(), log);
+    log(`notifications-gc: purged=${notificationGc.purged} cutoff=${notificationGc.cutoff}`);
     return res.json({
       ok: true,
       retentionDays: days,
       cutoff,
       results,
       totals,
+      notificationGc,
     });
   } catch (err) {
     error(`tombstone-gc failed: ${err.message}`);
@@ -130,6 +167,7 @@ async function handleScheduledTombstoneGc({ req, res, log, error }) {
 }
 
 module.exports = {
+  purgeExpiredNotifications,
   cutoffIso,
   handleScheduledTombstoneGc,
   purgeTable,

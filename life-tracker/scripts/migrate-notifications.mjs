@@ -68,7 +68,10 @@ function assertCompatibleTable(actual, expected) {
   const indexes = new Map(
     (actual.indexes || []).map((index) => [index.key, index])
   );
-  for (const expectedIndex of expected.indexes || []) {
+  // Index 005 is provisioned separately on existing installations.
+  for (const expectedIndex of (expected.indexes || []).filter(
+    (index) => index.key !== 'idx_notification_created'
+  )) {
     const current = indexes.get(expectedIndex.key);
     if (
       !current ||

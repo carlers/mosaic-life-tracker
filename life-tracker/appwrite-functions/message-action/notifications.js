@@ -10,6 +10,19 @@ const CATEGORIES_TABLE = 'categories';
 const PAGE_SIZE = 100;
 const MAX_PAGES = 100;
 const DEFAULT_NOTIFICATIONS_LAUNCH_AT = '2026-10-07T16:04:00.000Z';
+const UNREAD_RETENTION_MS = 7 * 24 * 60 * 60 * 1000;
+const READ_RETENTION_MS = 24 * 60 * 60 * 1000;
+
+function notificationExpiresAt(row) {
+  const arrived = Date.parse(row.created_at || row.occurred_at);
+  if (!Number.isFinite(arrived)) return 0;
+  const unreadExpires = arrived + UNREAD_RETENTION_MS;
+  const read = Date.parse(row.read_at || '');
+  return Number.isFinite(read)
+    ? Math.min(unreadExpires, read + READ_RETENTION_MS)
+    : unreadExpires;
+}
+
 
 function sha256Hex(input) {
   return crypto.createHash('sha256').update(input).digest('hex');
@@ -210,6 +223,12 @@ async function handleTaskCompletionEvent(tablesDB, task, eventName, log, error) 
   if (Date.parse(completedAt) < notificationsLaunchTime()) {
     return { status: 200, body: { ok: true, ignored: 'prelaunch-completion' } };
   }
+  // A deleted seven-day receipt must never reappear on a later task edit.
+  // Offline completions synced within seven days still receive a full
+  // seven-day arrival-based window.
+  if (Date.now() - Date.parse(completedAt) >= UNREAD_RETENTION_MS) {
+    return { status: 200, body: { ok: true, ignored: 'expired-completion' } };
+  }
 
   const category = await categoryForTask(tablesDB, task);
   const visibility = await effectiveTaskVisibility(tablesDB, task, category);
@@ -275,90 +294,108 @@ async function handleGetNotifications(tablesDB, callerId, payload, log, error) {
     Number.isInteger(requested) && requested > 0
       ? Math.min(requested, 50)
       : 30;
-  const cursor =
-    typeof payload?.cursor === 'string' && payload.cursor ? payload.cursor : '';
-
-  const queries = [
-    Query.equal('recipient_id', callerId),
-    Query.orderDesc('occurred_at'),
-    Query.limit(limit),
-  ];
-  if (cursor) queries.push(Query.cursorAfter(cursor));
-
-  const result = await tablesDB.listRows({
-    databaseId: DATABASE_ID,
-    tableId: NOTIFICATIONS_TABLE,
-    queries,
-    total: false,
-  });
-  const rows = result.rows || [];
-  const friends = await mutualFriendMap(tablesDB, callerId);
+  let cursor = typeof payload?.cursor === 'string' ? payload.cursor : '';
+  let friends = null;
   const items = [];
+  const now = Date.now();
+  let hasMore = false;
 
-  await mapLimit(rows, 6, async (row) => {
-    const friendship = friends.get(row.actor_id);
-    if (!friendship || row.type !== 'task_completed') return;
-
-    const task = await readRow(tablesDB, TASKS_TABLE, row.task_id);
-    if (
-      !task ||
-      task.deleted === true ||
-      task.user_id !== row.actor_id ||
-      task.is_completed !== true ||
-      task.completed_at !== row.completed_at
-    ) {
-      return;
-    }
-
-    const category = await categoryForTask(tablesDB, task);
-    const visibility = await effectiveTaskVisibility(tablesDB, task, category);
-    if (visibility === 'private') return;
-
-    items.push({
-      id: row.$id,
-      type: row.type,
-      actorId: row.actor_id,
-      actorName:
-        friendship.friend_display_name ||
-        friendship.friend_username ||
-        'Friend',
-      actorUsername: friendship.friend_username || '',
-      actorAvatarFileId: friendship.friend_avatar_file_id || '',
-      occurredAt: row.occurred_at,
-      readAt: row.read_at || '',
-      categoryColor: category?.color || '#6B7280',
-      task: {
-        id: task.$id,
-        title: task.title || '',
-        completed: true,
-        categoryId: task.category_id || '',
-        order: typeof task.order === 'number' ? task.order : 0,
-        tags: task.tags || '',
-        date: task.date || '',
-        memo: '',
-        image: '',
-        createdAt: task.created_at || '',
-        completedAt: task.completed_at || '',
-        updatedAt: task.updated_at || '',
-        source: task.source || '',
-        userId: task.user_id || '',
-        isDeleted: false,
-        routineId: task.routine_id || '',
-        reminderTime: task.reminder_time || '',
-        reactions: task.reactions || '',
-        visibility: task.visibility || '',
-      },
+  // Privacy filtering occurs after scanning server-owned rows; exhaust
+  // bounded raw pages rather than returning a misleading empty page.
+  for (let page = 0; page < 6 && items.length < limit; page += 1) {
+    const remaining = limit - items.length;
+    const queries = [
+      Query.equal('recipient_id', callerId),
+      Query.orderDesc('occurred_at'),
+      Query.limit(remaining),
+    ];
+    if (cursor) queries.push(Query.cursorAfter(cursor));
+    const result = await tablesDB.listRows({
+      databaseId: DATABASE_ID,
+      tableId: NOTIFICATIONS_TABLE,
+      queries,
+      total: false,
     });
-  });
+    const rows = result.rows || [];
+    if (rows.length === 0) {
+      hasMore = false;
+      break;
+    }
+    cursor = rows.at(-1).$id;
+    hasMore = rows.length === remaining;
+    // Don't query friendship graphs for an empty inbox; query them once
+    // only after a nonempty page is known to need privacy revalidation.
+    if (!friends) friends = await mutualFriendMap(tablesDB, callerId);
+    const visible = [];
 
-  items.sort((a, b) => b.occurredAt.localeCompare(a.occurredAt));
-  const nextCursor = rows.length === limit ? rows.at(-1)?.$id || '' : '';
-  log(
-    `get_notifications: caller=${callerId} visible=${items.length}/${rows.length}`
-  );
+    await mapLimit(rows, 6, async (row) => {
+      if (notificationExpiresAt(row) <= now) return;
+      const friendship = friends.get(row.actor_id);
+      if (!friendship || row.type !== 'task_completed') return;
+
+      const task = await readRow(tablesDB, TASKS_TABLE, row.task_id);
+      if (
+        !task ||
+        task.deleted === true ||
+        task.user_id !== row.actor_id ||
+        task.is_completed !== true ||
+        task.completed_at !== row.completed_at
+      ) return;
+
+      const category = await categoryForTask(tablesDB, task);
+      const visibility = await effectiveTaskVisibility(tablesDB, task, category);
+      if (visibility === 'private') return;
+
+      visible.push({
+        id: row.$id,
+        type: row.type,
+        actorId: row.actor_id,
+        actorName:
+          friendship.friend_display_name ||
+          friendship.friend_username ||
+          'Friend',
+        actorUsername: friendship.friend_username || '',
+        actorAvatarFileId: friendship.friend_avatar_file_id || '',
+        occurredAt: row.occurred_at,
+        createdAt: row.created_at || row.occurred_at,
+        readAt: row.read_at || '',
+        categoryColor: category?.color || '#6B7280',
+        task: {
+          id: task.$id,
+          title: task.title || '',
+          completed: true,
+          categoryId: task.category_id || '',
+          order: typeof task.order === 'number' ? task.order : 0,
+          tags: task.tags || '',
+          date: task.date || '',
+          memo: '',
+          image: '',
+          createdAt: task.created_at || '',
+          completedAt: task.completed_at || '',
+          updatedAt: task.updated_at || '',
+          source: task.source || '',
+          userId: task.user_id || '',
+          isDeleted: false,
+          routineId: task.routine_id || '',
+          reminderTime: task.reminder_time || '',
+          reactions: task.reactions || '',
+          visibility: task.visibility || '',
+        },
+      });
+    });
+    visible.sort((a, b) => b.occurredAt.localeCompare(a.occurredAt));
+    items.push(...visible);
+    if (!hasMore) break;
+  }
+
+  log(`get_notifications: caller=${callerId} visible=${items.length}`);
   return {
     status: 200,
-    body: { items, nextCursor, fetchedAt: new Date().toISOString() },
+    body: {
+      items: items.slice(0, limit),
+      nextCursor: hasMore ? cursor : '',
+      fetchedAt: new Date().toISOString(),
+    },
   };
 }
 
@@ -373,7 +410,7 @@ async function handleMarkNotificationsRead(tablesDB, callerId, payload, log, err
   let marked = 0;
   await mapLimit(ids, 8, async (id) => {
     const row = await readRow(tablesDB, NOTIFICATIONS_TABLE, id);
-    if (!row || row.recipient_id !== callerId || row.read_at) return;
+    if (!row || row.recipient_id !== callerId || row.read_at || notificationExpiresAt(row) <= Date.now()) return;
     await tablesDB.updateRow({
       databaseId: DATABASE_ID,
       tableId: NOTIFICATIONS_TABLE,
@@ -500,6 +537,9 @@ async function handleUnregisterPushSubscription(
 }
 
 module.exports = {
+  notificationExpiresAt,
+  UNREAD_RETENTION_MS,
+  READ_RETENTION_MS,
   handleGetNotifications,
   handleGetPushConfig,
   handleMarkNotificationsRead,

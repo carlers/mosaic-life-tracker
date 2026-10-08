@@ -15,6 +15,7 @@ export const loadHomePage = memoizeImport(() => import('../../pages/HomePage'));
 export const loadAccountPage = memoizeImport(() => import('../../pages/AccountPage'));
 export const loadSettingsPage = memoizeImport(() => import('../../pages/SettingsPage'));
 export const loadPreferencesPage = memoizeImport(() => import('../../pages/PreferencesPage'));
+export const loadNotificationSettingsPage = memoizeImport(() => import('../../pages/NotificationSettingsPage'));
 export const loadProfilePage = memoizeImport(() => import('../../pages/ProfilePage'));
 export const loadExplorePage = memoizeImport(() => import('../../pages/ExplorePage'));
 export const loadFriendCalendarPage = memoizeImport(() => import('../../pages/FriendCalendarPage'));
