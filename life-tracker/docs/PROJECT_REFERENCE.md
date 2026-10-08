@@ -893,6 +893,15 @@ the emitted module entry from `index.html`, follows Vite's **static** import gra
 initial app closure and the Home closure, totals every emitted JavaScript/CSS asset, and
 totals unique precache files from the generated worker.
 
+Production deployments embed a variable Git commit subject/body into the
+`mosaic-build-info` meta tag in `index.html`. The unique precache **size regression
+metric** discounts only that tag's variable `content` attribute bytes, so the same
+application code doesn't fail its guard when a merge has a descriptive longer
+commit message. All other index HTML, app assets and precached files remain
+counted. The actual built HTML, cached bytes and expanded Settings commit
+message are never truncated or excluded from the real deployment; the
+reviewed budget ceiling is not raised.
+
 The guarded metrics are:
 
 - entry raw bytes
