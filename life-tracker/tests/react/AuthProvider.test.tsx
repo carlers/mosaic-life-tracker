@@ -16,6 +16,7 @@ const createOrUpdateProfileMock = vi.hoisted(() => vi.fn());
 const writeCachedOwnProfileMock = vi.hoisted(() => vi.fn());
 const requestAccountDeletionMock = vi.hoisted(() => vi.fn());
 const clearDeletedAccountLocalDataMock = vi.hoisted(() => vi.fn());
+const setPushActiveUserMock = vi.hoisted(() => vi.fn());
 
 const accountRef = vi.hoisted(() => ({
   get: vi.fn(),
@@ -52,6 +53,9 @@ vi.mock("../../src/lib/accountDeletion", () => ({
 }));
 vi.mock("../../src/lib/accountDeletionLocal", () => ({
   clearDeletedAccountLocalData: clearDeletedAccountLocalDataMock,
+}));
+vi.mock("../../src/lib/pushNotifications", () => ({
+  setPushActiveUser: setPushActiveUserMock,
 }));
 
 import { AuthProvider } from "../../src/hooks/AuthProvider";
@@ -145,6 +149,7 @@ describe("AuthProvider offline auth gate", () => {
       deletionPending: true,
     });
     clearDeletedAccountLocalDataMock.mockReset().mockResolvedValue(undefined);
+    setPushActiveUserMock.mockReset().mockResolvedValue(undefined);
     Object.defineProperty(navigator, "onLine", {
       configurable: true,
       value: true,
@@ -847,6 +852,26 @@ describe("AuthProvider offline auth gate", () => {
     await waitFor(() => expect(result.current.user).toBeNull());
     expect(result.current.isOffline).toBe(false);
     expect(localStorage.getItem(LAST_KNOWN_USER_KEY)).toBeNull();
+  });
+
+  it("clears the service-worker push owner on explicit logout", async () => {
+    const cached = makeUser({ $id: "user_push_logout" });
+    localStorage.setItem(LAST_KNOWN_USER_KEY, JSON.stringify(cached));
+    accountRef.get.mockResolvedValueOnce(cached);
+    accountRef.deleteSession.mockResolvedValueOnce(undefined);
+
+    const { result } = renderHook(() => useAuth(), { wrapper });
+    await waitFor(() =>
+      expect(setPushActiveUserMock).toHaveBeenCalledWith("user_push_logout"),
+    );
+
+    await act(async () => {
+      expect(await result.current.logout()).toBe(true);
+    });
+
+    await waitFor(() =>
+      expect(setPushActiveUserMock).toHaveBeenLastCalledWith(null),
+    );
   });
 
   it("clears the cache on explicit logout()", async () => {

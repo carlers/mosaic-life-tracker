@@ -167,6 +167,7 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({
     }
 
     const generation = ++remoteGenerationRef.current;
+    setIsLoadingMore(false);
     setIsRefreshing(true);
     setError('');
     try {
@@ -219,12 +220,19 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({
 
   useEffect(() => {
     if (
-      !preview &&
-      feedIsCurrent &&
-      connectivity.status === 'online'
+      preview ||
+      !feedIsCurrent ||
+      connectivity.status !== 'online'
     ) {
-      void refresh();
+      return;
     }
+    let active = true;
+    queueMicrotask(() => {
+      if (active) void refresh();
+    });
+    return () => {
+      active = false;
+    };
   }, [
     connectivity.status,
     feedIsCurrent,
@@ -232,7 +240,23 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({
     refresh,
   ]);
 
-  const visibleItems = feedIsCurrent ? items : [];
+  useEffect(() => {
+    if (preview || !feedIsCurrent) return;
+    const handleFocus = () => {
+      if (connectivity.status === 'online') {
+        void refresh();
+      }
+    };
+    window.addEventListener('focus', handleFocus);
+    return () => {
+      window.removeEventListener('focus', handleFocus);
+    };
+  }, [connectivity.status, feedIsCurrent, preview, refresh]);
+
+  const visibleItems = useMemo(
+    () => (feedIsCurrent ? items : []),
+    [feedIsCurrent, items]
+  );
   const visibleNextCursor = feedIsCurrent ? nextCursor : '';
   const visibleFetchedAt = feedIsCurrent ? fetchedAt : '';
 
@@ -249,13 +273,14 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({
     }
 
     const generation = ++remoteGenerationRef.current;
+    setIsRefreshing(false);
     setIsLoadingMore(true);
     setError('');
     try {
       const page = await fetchNotifications(visibleNextCursor, 30);
       if (generation !== remoteGenerationRef.current) return;
 
-      const merged = [
+      let merged = [
         ...visibleItems,
         ...page.items.filter(
           (candidate) =>
@@ -278,6 +303,18 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({
       if (unreadIds.length > 0) {
         try {
           await markNotificationsRead(unreadIds);
+          if (generation !== remoteGenerationRef.current) return;
+          const readAt = new Date().toISOString();
+          const readSet = new Set(unreadIds);
+          merged = merged.map((item) =>
+            readSet.has(item.id) ? { ...item, readAt } : item
+          );
+          setItems(merged);
+          await setCachedNotifications(userId, {
+            items: merged,
+            nextCursor: page.nextCursor,
+            fetchedAt: page.fetchedAt,
+          });
         } catch (readError) {
           console.warn('[NotificationsPage] mark read failed:', readError);
         }

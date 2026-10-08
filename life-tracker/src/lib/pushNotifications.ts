@@ -144,10 +144,12 @@ function subscriptionPayload(subscription: PushSubscription) {
 }
 
 async function registerSubscription(
+  userId: string,
   subscription: PushSubscription
 ): Promise<void> {
   await sendAppAction({
     action: 'register_push_subscription',
+    expectedUserId: userId,
     ...subscriptionPayload(subscription),
   });
 }
@@ -164,7 +166,7 @@ export async function reconcileExistingPushSubscription(
   const config = await getPushConfig();
   if (!config.enabled || !config.publicKey) return false;
 
-  await registerSubscription(subscription);
+  await registerSubscription(userId, subscription);
   return true;
 }
 
@@ -185,7 +187,7 @@ export async function getPushNotificationState(
             'Push delivery is not configured'
           );
         }
-        await registerSubscription(subscription);
+        await registerSubscription(userId, subscription);
       } catch (error) {
         console.warn(
           '[pushNotifications] subscription reconciliation failed:',
@@ -239,17 +241,20 @@ export async function enablePushNotifications(
     return state('available', 'Connect to the internet to enable');
   }
 
-  const config = await getPushConfig();
-  if (!config.enabled || !config.publicKey) {
-    return state('unconfigured', 'Push delivery is not configured');
-  }
-
+  // Keep the browser permission request in the original click activation.
+  // In particular, iOS Home Screen web apps may reject a request that waits
+  // for a network round-trip before calling requestPermission().
   let permission = Notification.permission;
   if (permission === 'default') {
     permission = await Notification.requestPermission();
   }
   if (permission !== 'granted') {
     return state('blocked', 'Permission was not granted');
+  }
+
+  const config = await getPushConfig();
+  if (!config.enabled || !config.publicKey) {
+    return state('unconfigured', 'Push delivery is not configured');
   }
 
   const registration = await navigator.serviceWorker.ready;
@@ -261,7 +266,7 @@ export async function enablePushNotifications(
     });
   }
 
-  await registerSubscription(subscription);
+  await registerSubscription(userId, subscription);
   await setPushActiveUser(userId);
   return state('enabled', 'Enabled on this device', true);
 }
@@ -279,6 +284,7 @@ export async function disablePushNotifications(
     try {
       await sendAppAction({
         action: 'unregister_push_subscription',
+        expectedUserId: userId,
         endpoint: subscription.endpoint,
       });
     } catch (error) {

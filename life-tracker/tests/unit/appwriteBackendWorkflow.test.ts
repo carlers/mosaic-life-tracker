@@ -72,6 +72,9 @@ describe('Appwrite backend target safety', () => {
       'tablesdb.life_tracker.tables.tasks.rows.*.create',
       'tablesdb.life_tracker.tables.tasks.rows.*.update',
     ]);
+    expect(
+      definitions.functions['message-action'].config.optionalNonSecretVariables
+    ).toContain('NOTIFICATIONS_LAUNCH_AT');
   });
 
 
