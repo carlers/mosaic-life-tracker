@@ -91,7 +91,7 @@ vi.mock('../../src/lib/buildInfo', async (importOriginal) => {
     ...actual,
     APP_BUILD_INFO: {
       ...actual.APP_BUILD_INFO,
-      commitMessage: 'feat: add alerts\\n\\n- Send friend notifications\\n- Improve loading',
+      commitMessage: 'feat: add alerts\n\n- Send friend notifications\n- Improve loading',
     },
   };
 });
