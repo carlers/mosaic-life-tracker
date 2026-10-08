@@ -234,7 +234,7 @@ describe('Mosaic bootstrap operations', () => {
       name: 'Life Tracker',
       enabled: true,
     });
-    expect(services.tablesDB.createTable).toHaveBeenCalledTimes(8);
+    expect(services.tablesDB.createTable).toHaveBeenCalledTimes(10);
     expect(
       services.tablesDB.createTable.mock.calls.map(([input]) => input.tableId)
     ).toEqual([
@@ -245,6 +245,8 @@ describe('Mosaic bootstrap operations', () => {
       'friendships',
       'profiles',
       'messages',
+      'notifications',
+      'push_subscriptions',
       'account_deletions',
     ]);
     expect(services.storage.createBucket).toHaveBeenCalledWith(
