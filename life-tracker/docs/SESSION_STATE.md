@@ -12,8 +12,28 @@ Task branch: `chatgpt/notifications-foreground-setting` from stable `feature/not
 - Improve rich-details error text to distinguish unconfigured backend from a transient lookup problem.
 - Add unit and DOM regressions for visible vs hidden clients, WebKit fallback, account mismatch, failed persistence, and settings interaction.
 
-## Next steps / rollout
+## Verification and delivery
 
-1. Finish a single focused task verification commit, inspect and repair failures, then squash into stable `feature/notifications-alerts` Preview for canonical CI and Vercel readiness.
-2. For full rich-content acceptance, apply migration 006 and activate the checked-in `message-action` Function in disposable scratch using the Git-owned backend workflow, then validate with disposable accounts. Production schema/Function changes remain separate.
-3. Manual Samsung installed-PWA validation of visible/background/cold notifications and rich-details toggle after backend activation remains required. Device acceptance is not automated.
+- Foreground feature task `cd802d9a` passed focused CI, then PR #375
+  squash-merged to stable `feature/notifications-alerts` at `ffcbfe3d`.
+- Canonical GitHub unit/DOM/build/static/dependency checks passed at
+  `ffcbfe3d` (browser checks also running); Vercel build measured slightly
+  larger aggregate and precache assets than GitHub and rejected only the
+  tight size guard: Vercel raw 2,288,564 / 2,287,800 and precache
+  2,371,091 / 2,368,700. GitHub size guard passed.
+- Budget repair branch `chatgpt/notifications-foreground-size-budget`
+  documents the exact provider-matched growth and revises only aggregate
+  raw/gzip/precache ceilings. Entry, startup and Home ceilings are unchanged.
+  Run focused verification, squash the repair to stable Preview, then wait
+  for canonical success and Vercel READY.
+
+## Backend / manual acceptance remaining
+
+- Production and scratch Appwrite currently lack the
+  `push_subscriptions.include_task_details` column. Rich-detail toggle remains
+  disabled until 006 and a compatible message-action Function are explicitly
+  rolled out using the Git-owned scratch-first backend workflow; no backend
+  project has been mutated.
+- Manual Samsung PWA testing of foreground ON/OFF, background/cold delivery,
+  lock-screen details (after server rollout), and notification tap-through
+  remains outstanding. Do not claim device acceptance from browser CI.
