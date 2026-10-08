@@ -23,7 +23,7 @@ export const AlertFriendDaySheet: React.FC<{
   const userId = user?.$id ?? '';
   const friendId = notification.actorId;
   const taskId = notification.task.id;
-  const completedAt = notification.task.completedAt;
+  const completedAt = notification.task.completedAt || notification.occurredAt;
 
   // Validate the tapped task first: a large calendar fetch must never
   // delay the small trusted lookup. Start the full calendar in the background
