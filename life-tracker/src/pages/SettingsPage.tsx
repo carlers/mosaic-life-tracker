@@ -14,7 +14,6 @@ import {
   Database,
   Trash2,
   ChevronLeft,
-  ChevronDown,
   FileDown,
   RefreshCw,
   Import,
@@ -390,16 +389,9 @@ export const SettingsPage: React.FC = () => {
                 commit: {APP_BUILD_INFO.commitShort ?? APP_BUILD_INFO.buildId}
               </div>
               {APP_BUILD_INFO.commitMessage && (
-                <details className="group mt-0.5">
-                  <summary className="flex cursor-pointer list-none items-center gap-1 rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60">
-                    <span className="min-w-0 flex-1 truncate">
-                      message: {APP_BUILD_INFO.commitMessage.split(/\r?\n/, 1)[0]}
-                    </span>
-                    <ChevronDown
-                      size={13}
-                      aria-hidden="true"
-                      className="shrink-0 transition-transform group-open:rotate-180"
-                    />
+                <details className="mt-0.5">
+                  <summary className="cursor-pointer truncate rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60">
+                    message: {APP_BUILD_INFO.commitMessage.split(/\r?\n/, 1)[0]}
                   </summary>
                   <div className="mt-2 whitespace-pre-wrap break-words text-xs text-gray-400">
                     {APP_BUILD_INFO.commitMessage}
