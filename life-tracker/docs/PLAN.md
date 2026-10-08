@@ -59,9 +59,10 @@ This roadmap records durable workstreams and batch status. `SESSION_STATE.md` co
 - [x] Add explicit scratch-target, read-only-by-default readiness CLI,
   safe additive migration gate, synthetic fixture seed CLI, unit regressions,
   and agent/Preview handoff documentation.
-- [ ] Verify fixture seeding with real scratch project credentials, auth-policy
-  parity including disabled invites, and full browser login/TodoMate import
-  convergence on a disposable account. No cloud credential is committed.
+- [ ] Verify fixture seeding with real scratch project credentials and full
+  browser login/TodoMate import convergence on a disposable account. Auth method
+  parity including disabled invites was confirmed on 2026-10-08. No cloud
+  credential is committed.
 
 ## Disaster recovery and backend capacity
 

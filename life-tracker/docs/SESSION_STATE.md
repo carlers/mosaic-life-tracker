@@ -19,10 +19,11 @@ No promotion to dev/main and no production project mutation.
   `APPWRITE_TABLE_ACCOUNT_DELETIONS`, `DR_BACKUP_FUNCTION_ID`, and
   `DR_PRIVACY_DELETION_REQUIRED=false` (scratch deliberately has no DR
   restoration archive/scheduled backup).
-- Aligned scratch auth policies: disabled email-OTP, anonymous login, JWT,
-  and phone. Invites remain enabled: Appwrite's attempted update was
-  blocked by tool safety policy; explicitly re-check before auth parity
-  acceptance. Production currently has invites disabled.
+- Aligned scratch auth policies: disabled email-OTP, anonymous login,
+  invites, JWT and phone. A second confirmed-target operation disabled
+  invites after the first attempt was blocked; read-back from both
+  Appwrite projects confirms matching email-password/magic-url enabled,
+  all five remaining methods disabled.
 - No production user data or account hashes copied. Existing notification
   Function deployment `6ac77056dfae4233346e` remains active on scratch.
 
@@ -54,7 +55,7 @@ No promotion to dev/main and no production project mutation.
 - Seeding accounts requires a scratch-only test password and API key;
   synthetic fixture code can be verified in CI, but browser login and real
   TodoMate import/full Diary replication remain manual acceptance.
-- Invites auth policy mismatch remains until safe authorized config change
-  can be made using supported tools.
+- Auth method parity has been verified in Appwrite; functional login and
+  browser CORS checks still require actual disposable-account testing.
 - Manual Samsung Web Push behavior, lock-screen detail opt-in and deep-link
   opening remain a separate notifications acceptance gate.
