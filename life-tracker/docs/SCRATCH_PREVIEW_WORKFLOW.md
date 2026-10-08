@@ -113,6 +113,10 @@ automatic reset, and restoration from production is NOT an alternative.
 5. Pass focused CI → stable Preview canonical CI → READY Vercel, plus the
    requested phone/browser manual checks. Give the user the **stable alias**.
 
+## Shared Preview backend coordination
+
+One scratch project services all Preview branches and the `dev` Preview, so Appwrite schema and the active `message-action` Function are shared runtime state even when Git branches are isolated. Before changing them, inspect active Preview backend requirements and record the active scratch Function deployment/source SHA. Use additive/compatible rollout and fail closed on unexpected drift; batch compatible changes into the accepted branch before main. Revalidate existing critical Preview flows after an activation. No agent may silently replace another Preview's active Function, enable Scratch's cron, or reset scratch for a DR drill. Frontend-only work with unchanged backend code should simply reuse the verified scratch deployment after a read-only parity check where relevant.
+
 ## Shared project / disaster-recovery conflict
 
 The same Free-plan scratch project is the DR restore slot. A DR exercise

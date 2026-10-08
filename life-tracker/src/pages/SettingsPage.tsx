@@ -386,14 +386,20 @@ export const SettingsPage: React.FC = () => {
               data-testid="app-build-info"
               className="mt-1 text-xs text-gray-500"
             >
+              <div>appwrite: {APP_BUILD_INFO.appwrite}</div>
               <div>branch: {APP_BUILD_INFO.branch ?? 'local'}</div>
               <div>
                 commit: {APP_BUILD_INFO.commitShort ?? APP_BUILD_INFO.buildId}
               </div>
               {APP_BUILD_INFO.commitMessage && (
-                <div className="truncate">
-                  message: {APP_BUILD_INFO.commitMessage}
-                </div>
+                <details className="mt-0.5">
+                  <summary className="cursor-pointer truncate rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60">
+                    message: {APP_BUILD_INFO.commitMessage.split(/\r?\n/, 1)[0]}
+                  </summary>
+                  <div className="mt-2 whitespace-pre-wrap break-words text-xs text-gray-400">
+                    {APP_BUILD_INFO.commitMessage}
+                  </div>
+                </details>
               )}
             </div>
           </div>

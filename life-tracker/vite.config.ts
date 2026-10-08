@@ -2,7 +2,7 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
 import basicSsl from '@vitejs/plugin-basic-ssl';
-import { assertPreviewBackendIsolation } from './scripts/lib/preview-backend-isolation.ts';
+import { assertPreviewBackendIsolation, assertProductionBackendIsolation } from './scripts/lib/preview-backend-isolation.ts';
 
 const verifiedPreviewBackend = assertPreviewBackendIsolation(process.env);
 if (verifiedPreviewBackend) {
@@ -13,6 +13,13 @@ const isLocalBuild = !process.env.VERCEL_ENV;
 const isOfficialMosaicBuild =
   process.env.GITHUB_REPOSITORY === 'carlers/mosaic-life-tracker' ||
   process.env.VERCEL_PROJECT_ID === 'prj_jysOLDbuO9c5rP8x6Q145DVIw0fc';
+
+if (isOfficialMosaicBuild) {
+  const verifiedProductionBackend = assertProductionBackendIsolation(process.env);
+  if (verifiedProductionBackend) {
+    console.info('[Mosaic] Production backend: production Appwrite');
+  }
+}
 
 const buildCommit = process.env.VERCEL_GIT_COMMIT_SHA?.trim() || '';
 const buildMessage = process.env.VERCEL_GIT_COMMIT_MESSAGE?.trim() || '';
