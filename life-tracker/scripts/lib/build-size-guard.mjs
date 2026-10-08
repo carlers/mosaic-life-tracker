@@ -138,6 +138,21 @@ export function measureManifestStaticClosure(manifest, fileSizes, startKeys) {
   };
 }
 
+// Deployment-specific Git subjects/bodies live only in the index.html meta tag.
+// They are still shipped and precached; exclude only the attribute value from the
+// *regression budget* so a descriptive promotion commit cannot reject identical
+// application code with a longer title/body. The remaining HTML is measured.
+export function measureBuildInfoPayloadBytes(html) {
+  const tags = [...html.matchAll(/<meta\b[^>]*>/gi)]
+    .map(([tag]) => tag)
+    .filter(tag => /\bname=(["'])mosaic-build-info\1/i.test(tag));
+  if (tags.length === 0) return 0;
+  if (tags.length !== 1) throw new Error('Expected one mosaic-build-info meta tag');
+  const content = tags[0].match(/\bcontent=(["'])(.*?)\1/i);
+  if (!content) throw new Error('Missing mosaic-build-info content attribute');
+  return Buffer.byteLength(content[2], 'utf8');
+}
+
 export async function measureProductionBuild(directory) {
   const html = await readFile(join(directory, 'index.html'), 'utf8');
   const entryUrl = html.match(/<script\b[^>]*\btype=["']module["'][^>]*\bsrc=["']([^"']+)["']/i)?.[1]
@@ -182,7 +197,11 @@ export async function measureProductionBuild(directory) {
   );
   let precacheUniqueBytes = 0;
   for (const url of new Set(precacheUrls)) {
-    precacheUniqueBytes += (await readFile(emittedPath(directory, url))).length;
+    const path = emittedPath(directory, url);
+    precacheUniqueBytes += (await readFile(path)).length;
+    if (normalizedRelativePath(directory, path) === 'index.html') {
+      precacheUniqueBytes -= measureBuildInfoPayloadBytes(html);
+    }
   }
 
   return {
