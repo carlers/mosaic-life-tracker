@@ -1,6 +1,7 @@
 const PUSH_STATE_DB = 'mosaic_push_state';
 const PUSH_STATE_STORE = 'meta';
 const ACTIVE_USER_KEY = 'active-user';
+const FOREGROUND_PUSH_KEY = 'push-while-open';
 
 function readActiveUser() {
   return new Promise((resolve) => {
@@ -22,6 +23,30 @@ function readActiveUser() {
   });
 }
 
+// A missing preference retains today's behavior (show notifications).
+function readPushWhileOpen() {
+  return new Promise((resolve) => {
+    try {
+      const request = indexedDB.open(PUSH_STATE_DB, 1);
+      request.onupgradeneeded = () => {
+        if (!request.result.objectStoreNames.contains(PUSH_STATE_STORE)) {
+          request.result.createObjectStore(PUSH_STATE_STORE);
+        }
+      };
+      request.onerror = () => resolve(true);
+      request.onsuccess = () => {
+        const db = request.result;
+        const tx = db.transaction(PUSH_STATE_STORE, 'readonly');
+        const get = tx.objectStore(PUSH_STATE_STORE).get(FOREGROUND_PUSH_KEY);
+        get.onerror = () => resolve(true);
+        get.onsuccess = () => resolve(get.result !== false);
+      };
+    } catch {
+      resolve(true);
+    }
+  });
+}
+
 self.addEventListener('push', (event) => {
   event.waitUntil(
     (async () => {
@@ -34,6 +59,30 @@ self.addEventListener('push', (event) => {
       if (!payload || typeof payload.userId !== 'string') return;
       const activeUser = await readActiveUser();
       if (!activeUser || activeUser !== payload.userId) return;
+      // Chromium permits skipping a system push when this origin is visibly
+      // foregrounded. WebKit requires showNotification for every push or may
+      // revoke permission; never suppress delivery on Safari/iOS.
+      const agent = self.navigator?.userAgent || '';
+      const chromium = /Chrome|Chromium|Edg|SamsungBrowser/i.test(agent) &&
+        !/iPhone|iPad|iPod/i.test(agent);
+      if (chromium && !(await readPushWhileOpen())) {
+        try {
+          const windows = await self.clients.matchAll({
+            type: 'window', includeUncontrolled: true,
+          });
+          const isVisible = windows.some((client) => {
+            try {
+              return client.visibilityState === 'visible' &&
+                new URL(client.url).origin === self.location.origin;
+            } catch {
+              return false;
+            }
+          });
+          if (isVisible) return;
+        } catch {
+          // Unknown window state: keep the push rather than silently lose it.
+        }
+      }
 
       await self.registration.showNotification(
         typeof payload.title === 'string' ? payload.title : 'Mosaic',

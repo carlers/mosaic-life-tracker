@@ -39,6 +39,28 @@ open the installed icon; if it says "Blocked", re-enable notification access in
 OS/browser settings. Close and reopen Mosaic after installing a PWA update if
 it is still running an old service worker.
 
+## Foreground notifications
+
+**Notify while Mosaic is open** is a browser-profile setting on a subscribed
+Chromium device (including Android Chrome/Samsung browsers); it defaults to on.
+Turn it off to suppress a *system* completion notification while a Mosaic
+window on this same origin is visibly active. The service worker still displays
+background pushes and the server-owned Alerts history is unchanged. Other
+browser engines, including iOS Safari/WebKit, require Web Push to display a
+notification for every push event; their foreground switch is disabled rather
+than risking subscription revocation. This is not an in-app toast preference.
+See [Chromium's visible-tab exemption](https://chromium.googlesource.com/chromium/src/+/main/chrome/browser/push_messaging/push_messaging_notification_manager.cc)
+and [Apple's visibility requirement](https://developer.apple.com/documentation/usernotifications/sending-web-push-notifications-in-web-apps-and-browsers).
+An installed Android/Samsung PWA must be tested for actual OS notification
+behavior with the app visibly open, backgrounded, and fully closed.
+
+A grey **Show task details in notifications** switch accompanied by
+"Requires Appwrite notification backend update" means the optional
+`get_push_details` action and schema migration `006-push-details` have
+not been activated on the Appwrite project used by that deployment.
+The client does not silently enable rich lock-screen text. Keep the Function
+and schema rollout gated and validate in the scratch project first.
+
 ## Server setup / security
 
 The Function already declares **optional** configuration keys:

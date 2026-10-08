@@ -8,6 +8,9 @@ const mocks = vi.hoisted(() => ({
   enablePushNotifications: vi.fn(),
   disablePushNotifications: vi.fn(),
   setPushDetails: vi.fn(),
+  getPushWhileOpen: vi.fn(),
+  setPushWhileOpen: vi.fn(),
+  canDisableForegroundPush: vi.fn(),
 }));
 
 vi.mock('../../src/hooks/useAuth', () => ({
@@ -18,6 +21,9 @@ vi.mock('../../src/lib/pushNotifications', () => ({
   enablePushNotifications: mocks.enablePushNotifications,
   disablePushNotifications: mocks.disablePushNotifications,
   setPushDetails: mocks.setPushDetails,
+  getPushWhileOpen: mocks.getPushWhileOpen,
+  setPushWhileOpen: mocks.setPushWhileOpen,
+  canDisableForegroundPush: mocks.canDisableForegroundPush,
 }));
 
 import { NotificationSettingsPage } from '../../src/pages/NotificationSettingsPage';
@@ -30,6 +36,9 @@ describe('NotificationSettingsPage', () => {
     mocks.enablePushNotifications.mockReset();
     mocks.disablePushNotifications.mockReset();
     mocks.setPushDetails.mockReset();
+    mocks.getPushWhileOpen.mockReset().mockResolvedValue(true);
+    mocks.setPushWhileOpen.mockReset().mockResolvedValue(undefined);
+    mocks.canDisableForegroundPush.mockReset().mockReturnValue(true);
   });
   it('explains retention and does not request permission when push is unconfigured', async () => {
     render(<MemoryRouter><NotificationSettingsPage /></MemoryRouter>);
@@ -40,6 +49,56 @@ describe('NotificationSettingsPage', () => {
     fireEvent.click(switchControl);
     expect(mocks.enablePushNotifications).not.toHaveBeenCalled();
   });
+  it('saves an independent on-device foreground setting without changing push registration', async () => {
+    mocks.getPushNotificationState.mockResolvedValue({
+      status: 'enabled', enabled: true, detailsEnabled: false, label: 'Enabled on this device',
+    });
+    render(<MemoryRouter><NotificationSettingsPage /></MemoryRouter>);
+    const toggle = await screen.findByRole('switch', { name: 'Notify while Mosaic is open' });
+    await waitFor(() => expect(toggle).toBeEnabled());
+    expect(toggle).toBeChecked();
+    fireEvent.click(toggle);
+    await waitFor(() => expect(mocks.setPushWhileOpen).toHaveBeenCalledWith(false));
+    expect(toggle).not.toBeChecked();
+    expect(mocks.disablePushNotifications).not.toHaveBeenCalled();
+  });
+
+  it('preserves the foreground setting when persistence fails', async () => {
+    mocks.getPushNotificationState.mockResolvedValue({
+      status: 'enabled', enabled: true, detailsEnabled: false, label: 'Enabled on this device',
+    });
+    mocks.setPushWhileOpen.mockRejectedValue(new Error('IndexedDB quota'));
+    render(<MemoryRouter><NotificationSettingsPage /></MemoryRouter>);
+    const toggle = await screen.findByRole('switch', { name: 'Notify while Mosaic is open' });
+    await waitFor(() => expect(toggle).toBeEnabled());
+    fireEvent.click(toggle);
+    expect(await screen.findByRole('alert')).toHaveTextContent('Could not save this device preference.');
+    expect(toggle).toBeChecked();
+  });
+
+  it('disables foreground suppression on Safari/WebKit browsers', async () => {
+    mocks.canDisableForegroundPush.mockReturnValue(false);
+    mocks.getPushNotificationState.mockResolvedValue({
+      status: 'enabled', enabled: true, detailsEnabled: false, label: 'Enabled on this device',
+    });
+    render(<MemoryRouter><NotificationSettingsPage /></MemoryRouter>);
+    const toggle = await screen.findByRole('switch', { name: 'Notify while Mosaic is open' });
+    await waitFor(() => expect(toggle).toBeDisabled());
+    expect(screen.getByText(/Other browsers, including iOS Safari/)).toBeInTheDocument();
+    expect(mocks.setPushWhileOpen).not.toHaveBeenCalled();
+  });
+
+  it('shows a backend-update reason when detailed task notifications cannot be verified', async () => {
+    mocks.getPushNotificationState.mockResolvedValue({
+      status: 'enabled', enabled: true, detailsEnabled: null,
+      detailsError: 'Requires Appwrite notification backend update',
+      label: 'Enabled on this device',
+    });
+    render(<MemoryRouter><NotificationSettingsPage /></MemoryRouter>);
+    expect(await screen.findByText('Requires Appwrite notification backend update')).toBeInTheDocument();
+    expect(screen.getByRole('switch', { name: 'Show task details in notifications' })).toBeDisabled();
+  });
+
   it('keeps details hidden until an enabled device preference is verified', async () => {
     mocks.getPushNotificationState.mockResolvedValue({
       status: 'enabled', enabled: true, detailsEnabled: null, label: 'Enabled on this device',
