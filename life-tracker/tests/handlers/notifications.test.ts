@@ -106,6 +106,12 @@ describe('notifications backend', () => {
     try {
       const db = {
         getRow: vi.fn(async ({ tableId }: { tableId: string }) => {
+          if (tableId === 'tasks') return {
+            $id: 'task_offline', user_id: 'user_a', category_id: 'cat_1',
+            visibility: '', is_completed: true,
+            completed_at: '2026-10-08T12:00:00.000Z',
+            deleted: false, source: '',
+          };
           if (tableId === 'categories') {
             return {
               $id: 'cat_1',
@@ -197,6 +203,11 @@ describe('notifications backend', () => {
     const db = {
       getRow: vi.fn(async ({ tableId }: { tableId: string }) => {
         if (tableId === 'categories') return category;
+        if (tableId === 'tasks') return {
+          $id: 'task_1', user_id: 'user_a', category_id: 'cat_1',
+          visibility: '', is_completed: true, completed_at: completedAt,
+          deleted: false, source: '', title: 'Ship alerts',
+        };
         throw Object.assign(new Error('not found'), { code: 404 });
       }),
       listRows: vi
@@ -256,6 +267,61 @@ describe('notifications backend', () => {
       },
       permissions: [],
     });
+  });
+
+  it.each([
+    ['deleted', { deleted: true }],
+    ['uncompleted', { is_completed: false }],
+    ['completed-at-changed', { completed_at: '2026-10-08T12:00:00.000Z' }],
+    ['different owner', { user_id: 'unrelated-user' }],
+    ['imported live row', { source: 'todomate' }],
+    ['private task', { visibility: 'private' }],
+  ])('suppresses delayed completion events for a %s live task before any push or receipt', async (_reason, liveOverrides) => {
+    const completedAt = new Date().toISOString();
+    const live = {
+      $id: 'task_1', user_id: 'user_a',
+      is_completed: true, completed_at: completedAt,
+      deleted: false, visibility: 'followers',
+      category_id: '', source: '', title: 'Sensitive title',
+      ...liveOverrides,
+    };
+    const db = {
+      getRow: vi.fn(async () => live),
+      listRows: vi.fn().mockResolvedValue({ rows: [] }),
+      createRow: vi.fn(),
+    };
+    const result = await handleTaskCompletionEvent(
+      db, {
+        $id: 'task_1', user_id: 'user_a',
+        is_completed: true, completed_at: completedAt,
+        deleted: false, visibility: 'followers', source: '',
+      },
+      'tablesdb.life_tracker.tables.tasks.rows.task_1.update',
+      vi.fn(), vi.fn()
+    );
+    expect(result.body.ignored).toMatch(/^(stale-completion|private-task)$/);
+    expect(db.createRow).not.toHaveBeenCalled();
+    expect(db.listRows).not.toHaveBeenCalled();
+  });
+
+  it('suppresses missing live tasks instead of using a stale public event snapshot', async () => {
+    const db = {
+      getRow: vi.fn().mockRejectedValue(Object.assign(new Error('not found'), { code: 404 })),
+      listRows: vi.fn(),
+      createRow: vi.fn(),
+    };
+    const completedAt = new Date().toISOString();
+    const result = await handleTaskCompletionEvent(
+      db, {
+        $id: 'task_gone', user_id: 'user_a',
+        is_completed: true, completed_at: completedAt,
+        deleted: false, visibility: 'followers', source: '',
+      },
+      'tablesdb.life_tracker.tables.tasks.rows.task_gone.update', vi.fn(), vi.fn()
+    );
+    expect(result.body.ignored).toBe('stale-completion');
+    expect(db.createRow).not.toHaveBeenCalled();
+    expect(db.listRows).not.toHaveBeenCalled();
   });
 
   it('uses recipient-side friendship metadata for the actor in the feed', async () => {

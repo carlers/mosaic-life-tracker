@@ -20,6 +20,12 @@ describe('scratch reusable synthetic accounts', () => {
     expect(mock.tablesDB.createRow).toHaveBeenCalledWith(expect.objectContaining({
       tableId: 'diary', data: expect.objectContaining({ created_at: '2026-10-08T00:00:00Z' }),
     }));
+    expect(mock.tablesDB.createRow).toHaveBeenCalledWith(expect.objectContaining({
+      tableId: 'categories', data: expect.objectContaining({ visibility: 'followers' }),
+    }));
+    expect(mock.tablesDB.createRow).toHaveBeenCalledWith(expect.objectContaining({
+      tableId: 'tasks', data: expect.objectContaining({ visibility: 'followers' }),
+    }));
     expect(JSON.stringify(log.mock.calls)).not.toContain(password);
   });
   it('is idempotent and does not reset existing account passwords or overwrite rows', async () => {

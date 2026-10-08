@@ -243,9 +243,19 @@ async function handleTaskCompletionEvent(tablesDB, task, eventName, log, error) 
     return { status: 200, body: { ok: true, ignored: 'expired-completion' } };
   }
 
-  const category = await categoryForTask(tablesDB, task);
-  const visibility = await effectiveTaskVisibility(tablesDB, task, category);
-  if (visibility === 'private') {
+  // Appwrite task-event payloads are snapshots: a delayed event can arrive
+  // after the task was uncompleted, deleted, reassigned or made private.
+  // Validate the live task BEFORE creating any receipt or sending even a
+  // generic push, not just before including task-title details in a push.
+  const latestTask = await readRow(tablesDB, TASKS_TABLE, taskId);
+  if (!latestTask || latestTask.user_id !== actorId ||
+      latestTask.deleted === true || latestTask.is_completed !== true ||
+      latestTask.completed_at !== completedAt ||
+      latestTask.source === 'todomate') {
+    return { status: 200, body: { ok: true, ignored: 'stale-completion' } };
+  }
+  const currentCategory = await categoryForTask(tablesDB, latestTask);
+  if ((await effectiveTaskVisibility(tablesDB, latestTask, currentCategory)) === 'private') {
     return { status: 200, body: { ok: true, ignored: 'private-task' } };
   }
 
@@ -253,16 +263,6 @@ async function handleTaskCompletionEvent(tablesDB, task, eventName, log, error) 
   if (friends.size === 0) {
     return { status: 200, body: { ok: true, created: 0 } };
   }
-
-  // Event snapshots can be stale. Do not include task text unless the
-  // current row still permits the same completion to be shared.
-  const latestTask = await readRow(tablesDB, TASKS_TABLE, taskId);
-  const currentCategory = latestTask ? await categoryForTask(tablesDB, latestTask) : null;
-  const detailedTask = latestTask && latestTask.user_id === actorId &&
-    latestTask.deleted !== true && latestTask.is_completed === true &&
-    latestTask.completed_at === completedAt &&
-    (await effectiveTaskVisibility(tablesDB, latestTask, currentCategory)) !== 'private'
-      ? latestTask : null;
   const now = new Date().toISOString();
   let created = 0;
   await mapLimit([...friends.keys()], 6, async (recipientId) => {
@@ -290,11 +290,11 @@ async function handleTaskCompletionEvent(tablesDB, task, eventName, log, error) 
       throw createError;
     }
 
-    const details = detailedTask && typeof detailedTask.title === 'string' &&
-      detailedTask.title.trim()
+    const details = typeof latestTask.title === 'string' &&
+      latestTask.title.trim()
       ? {
           actorName: safePushText(friends.get(recipientId)?.recipientFacingName || 'Friend', 60),
-          taskTitle: safePushText(detailedTask.title, 100),
+          taskTitle: safePushText(latestTask.title, 100),
         } : null;
     await sendPushToUser(
       tablesDB,
