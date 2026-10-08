@@ -25,11 +25,11 @@ describe('Alerts retention', () => {
     expect(activeNotifications([row], Date.parse('2026-10-15T09:59:59.000Z'))).toHaveLength(1);
     expect(activeNotifications([row], Date.parse('2026-10-15T10:00:00.000Z'))).toHaveLength(0);
   });
-  it('hides read alerts after 24 hours but never extends the seven-day deadline', () => {
+  it('hides read alerts after 24 hours independently of the unread deadline', () => {
     const row = item('one', arrived, { readAt: '2026-10-09T10:00:00.000Z' });
     expect(notificationExpiresAt(row)).toBe(Date.parse('2026-10-10T10:00:00.000Z'));
     expect(notificationExpiresAt({ ...row, readAt: '2026-10-15T09:00:00.000Z' }))
-      .toBe(Date.parse('2026-10-15T10:00:00.000Z'));
+      .toBe(Date.parse('2026-10-16T09:00:00.000Z'));
   });
   it('allows read alerts to outlive the unread interval after first read', () => {
     const row = item('late', arrived, { readAt: '2026-10-15T09:00:00.000Z' });
