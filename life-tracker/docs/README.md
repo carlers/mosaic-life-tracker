@@ -11,6 +11,7 @@ behavior.
 | CI, branch delivery, Preview/device acceptance | [Delivery](DELIVERY.md) |
 | Focused tests and regression strategy | [Test workflow](TEST_WORKFLOW.md) |
 | Manual mobile task reorder acceptance | [Task reorder acceptance](MANUAL_TASK_REORDER_ACCEPTANCE.md) |
+| Mobile Android/iOS Web Push and VAPID setup | [Mobile Push setup](MOBILE_PUSH_SETUP.md) |
 | Product and architecture contracts | [Project reference](PROJECT_REFERENCE.md) |
 | Sync race/edge-case coverage | [Sync scenario matrix](SYNC_SCENARIO_MATRIX.md) |
 | Build-vs-reuse decisions and refactor candidates | [Build vs reuse audit](BUILD_VS_REUSE_AUDIT.md) |

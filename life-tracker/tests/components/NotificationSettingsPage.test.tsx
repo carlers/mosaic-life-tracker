@@ -66,4 +66,23 @@ describe('NotificationSettingsPage', () => {
     expect(await screen.findByText('Settings route')).toBeInTheDocument();
   });
 
+  it('explains iOS installation when the browser tab cannot subscribe', async () => {
+    mocks.getPushNotificationState.mockResolvedValue({
+      status: 'install-required', enabled: false,
+      label: 'Install Mosaic to your Home Screen first',
+    });
+    render(<MemoryRouter><NotificationSettingsPage /></MemoryRouter>);
+    expect(await screen.findByText(/open Mosaic in Safari/)).toBeInTheDocument();
+    expect(screen.getByRole('switch', { name: 'Push friend completions' })).toBeDisabled();
+  });
+
+  it('explains how to restore blocked notification permissions', async () => {
+    mocks.getPushNotificationState.mockResolvedValue({
+      status: 'blocked', enabled: false, label: 'Blocked in system or browser settings',
+    });
+    render(<MemoryRouter><NotificationSettingsPage /></MemoryRouter>);
+    expect(await screen.findByText(/Notifications are blocked/)).toBeInTheDocument();
+    expect(screen.getByRole('switch', { name: 'Push friend completions' })).toBeDisabled();
+  });
+
 });
