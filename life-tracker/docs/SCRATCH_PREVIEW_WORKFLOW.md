@@ -101,6 +101,8 @@ automatic reset, and restoration from production is NOT an alternative.
    (email-password and magic-url enabled; email-OTP, anonymous, invites, JWT,
    phone disabled); this is currently a **separate Console/project check**
    because the manifest checker owns backend resources, not auth settings.
+   All seven method states matched on 2026-10-08 in a read-back after
+   disabling the nonproduction methods on scratch.
 3. Run a **real scratch login and import/Diary sync** using a disposable
    account. A green Function smoke test is not full browser acceptance.
 4. Verify synthetic account ownership, required friend/completion flow, and
