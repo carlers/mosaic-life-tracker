@@ -1015,6 +1015,24 @@ matched values, aggregate raw/gzip/precache ceilings are revised to
 1,275 B of measured Vercel headroom. This is scoped reviewed product growth
 rather than general budget expansion.
 
+An eighth reviewed 2026-10-08 exception accepts the opt-in, device-local
+foreground push preference for Chromium/Samsung, including visible-window
+checks and a documented WebKit fallback that always displays delivered pushes.
+Provider-matched Vercel output for the preceding notifications Preview was
+2,286,639 B aggregate raw / 702,236 B aggregate gzip / 2,367,425 B
+unique precache; the completed foreground-toggle Preview measured
+2,288,564 B / 702,831 B / 2,371,091 B, respectively. These measured
+increases (+1,925 B raw, +595 B gzip, +3,666 B precache) represent
+the additional device preference UI, shared worker IndexedDB setting,
+visible-client policy and tests/docs. Independent GitHub output measured
+2,286,629 B raw / 701,801 B gzip / 2,368,563 B precache. Entry,
+initial startup closure and Home static closure all remained under
+their existing unchanged limits. After measuring both providers, the three
+aggregate ceilings are revised to 2,289,800 B raw / 703,900 B gzip /
+2,372,400 B precache, retaining 1,236 B / 1,069 B / 1,309 B of
+Vercel headroom. This is scoped feature growth rather than an
+unconditional size guard increase.
+
 The current baseline and limits live in
 `config/build-size-budget.json` and are pinned by unit coverage.
 
