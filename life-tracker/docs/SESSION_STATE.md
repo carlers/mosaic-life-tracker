@@ -14,7 +14,7 @@ Task branch: `chatgpt/notifications-mobile-deeplink` from current `feature/notif
 
 ## Verification and remaining steps
 
-1. Run focused verification and repair any failures. Squash task work to the existing stable `feature/notifications-alerts` Preview only after focused green; await canonical acceptance and Vercel READY.
+1. The mobile notifications implementation passed focused CI (task SHA `dc05b43`), then was squash-merged to stable Preview at `7891af0`. Canonical static, DOM, handlers, browser and dependency checks passed; build and Vercel failed only the documented app-asset/precache ceilings. The measured Vercel results justify a narrow budget acceptance repair under `chatgpt/notifications-mobile-size-budget`, using unchanged startup/Home limits. Run focused green, squash into stable Preview, then confirm the full canonical gate and Vercel READY.
 2. Run schema migration 006 and deploy/activate the matching `message-action` Function **only on the explicitly confirmed scratch Appwrite project**, then test with disposable accounts. Production Function and schema changes require separate user approval.
 3. Manual Samsung installed-PWA cold/background/foreground tap, task focus, lock-screen opt-in/off, and actual drag-down exit acceptance remain required. No manual device validation has been claimed.
 
