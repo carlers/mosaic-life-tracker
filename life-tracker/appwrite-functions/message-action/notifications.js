@@ -10,18 +10,16 @@ const CATEGORIES_TABLE = 'categories';
 const PAGE_SIZE = 100;
 const MAX_PAGES = 100;
 const DEFAULT_NOTIFICATIONS_LAUNCH_AT = '2026-10-07T16:04:00.000Z';
-const UNREAD_RETENTION_MS = 7 * 24 * 60 * 60 * 1000;
-const READ_RETENTION_MS = 24 * 60 * 60 * 1000;
-
-function notificationExpiresAt(row) {
-  const arrived = Date.parse(row.created_at || row.occurred_at);
-  if (!Number.isFinite(arrived)) return 0;
-  const unreadExpires = arrived + UNREAD_RETENTION_MS;
-  const read = Date.parse(row.read_at || '');
-  return Number.isFinite(read)
-    ? Math.min(unreadExpires, read + READ_RETENTION_MS)
-    : unreadExpires;
-}
+const {
+  DEFAULT_UNREAD_DAYS,
+  DEFAULT_READ_HOURS,
+  loadAlertRetention,
+  notificationExpiresAt,
+} = require('./alert-retention');
+// Keep the existing seven-day *event eligibility* window. User-selected
+// feed retention must not replay old/imported task completions as new alerts.
+const UNREAD_RETENTION_MS = DEFAULT_UNREAD_DAYS * 24 * 60 * 60 * 1000;
+const READ_RETENTION_MS = DEFAULT_READ_HOURS * 60 * 60 * 1000;
 
 
 function sha256Hex(input) {
@@ -329,6 +327,7 @@ async function handleGetNotifications(tablesDB, callerId, payload, log, error) {
   let friends = null;
   const items = [];
   const now = Date.now();
+  const retentionPolicy = await loadAlertRetention(tablesDB, callerId);
   let hasMore = false;
 
   // Privacy filtering occurs after scanning server-owned rows; exhaust
@@ -360,7 +359,7 @@ async function handleGetNotifications(tablesDB, callerId, payload, log, error) {
     const visible = [];
 
     await mapLimit(rows, 6, async (row) => {
-      if (notificationExpiresAt(row) <= now) return;
+      if (notificationExpiresAt(row, retentionPolicy) <= now) return;
       const friendship = friends.get(row.actor_id);
       if (!friendship || row.type !== 'task_completed') return;
 
@@ -436,8 +435,11 @@ async function handleGetNotification(tablesDB, callerId, payload) {
     return { status: 400, body: { error: 'Invalid alert ID' } };
   }
   const row = await readRow(tablesDB, NOTIFICATIONS_TABLE, id);
-  if (!row || row.recipient_id !== callerId || row.type !== 'task_completed' ||
-      notificationExpiresAt(row) <= Date.now()) {
+  if (!row || row.recipient_id !== callerId || row.type !== 'task_completed') {
+    return { status: 404, body: { error: 'Alert unavailable' } };
+  }
+  const retentionPolicy = await loadAlertRetention(tablesDB, callerId);
+  if (notificationExpiresAt(row, retentionPolicy) <= Date.now()) {
     return { status: 404, body: { error: 'Alert unavailable' } };
   }
   const friends = await mutualFriendMap(tablesDB, callerId);
@@ -485,10 +487,11 @@ async function handleMarkNotificationsRead(tablesDB, callerId, payload, log, err
     return { status: 200, body: { ok: true, marked: 0 } };
   }
   const now = new Date().toISOString();
+  const retentionPolicy = await loadAlertRetention(tablesDB, callerId);
   let marked = 0;
   await mapLimit(ids, 8, async (id) => {
     const row = await readRow(tablesDB, NOTIFICATIONS_TABLE, id);
-    if (!row || row.recipient_id !== callerId || row.read_at || notificationExpiresAt(row) <= Date.now()) return;
+    if (!row || row.recipient_id !== callerId || row.read_at || notificationExpiresAt(row, retentionPolicy) <= Date.now()) return;
     await tablesDB.updateRow({
       databaseId: DATABASE_ID,
       tableId: NOTIFICATIONS_TABLE,

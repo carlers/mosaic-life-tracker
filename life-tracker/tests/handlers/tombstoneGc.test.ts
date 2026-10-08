@@ -177,14 +177,14 @@ describe('message-action / scheduled tombstone GC', () => {
     );
     expect(result).toEqual({
       purged: 2,
-      cutoff: '2026-10-01T12:00:00.000Z',
+      cutoff: '2026-09-01T12:00:00.000Z',
     });
     expect(db.deleteRow).toHaveBeenCalledTimes(2);
     expect(db.listRows.mock.calls[0][0].queries).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
           op: 'lessThan', key: 'created_at',
-          value: '2026-10-01T12:00:00.000Z',
+          value: '2026-09-01T12:00:00.000Z',
         }),
       ])
     );

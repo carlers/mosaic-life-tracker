@@ -2,6 +2,12 @@ import React, { useEffect, useState } from 'react';
 import { BellRing, ChevronLeft } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { SettingsRow } from '../components/ui/SettingsRow';
+import { useSettings } from '../hooks/useSettings';
+import {
+  ALERTS_READ_RETENTION_SETTING_KEY, ALERTS_UNREAD_RETENTION_SETTING_KEY,
+  READ_RETENTION_HOURS, UNREAD_RETENTION_DAYS,
+  resolveReadRetentionHours, resolveUnreadRetentionDays,
+} from '../lib/notificationRetention';
 import { useAuth } from '../hooks/useAuth';
 import { hasExpectedRouteParent, resolveRouteParent } from '../lib/primarySwipeNavigation';
 import {
@@ -10,11 +16,53 @@ import {
   type PushNotificationState,
 } from '../lib/pushNotifications';
 
+interface RetentionChoiceProps {
+  id: string;
+  label: string;
+  hint: string;
+  value: number;
+  options: readonly number[];
+  format: (option: number) => string;
+  onChange: (value: number) => void;
+}
+
+function RetentionChoice({ id, label, hint, value, options, format, onChange }: RetentionChoiceProps) {
+  return (
+    <div className="flex items-center justify-between gap-3 px-4 py-3">
+      <div className="min-w-0">
+        <label htmlFor={id} className="text-sm font-medium">{label}</label>
+        <p className="text-xs text-gray-400">{hint}</p>
+      </div>
+      <select
+        id={id}
+        value={value}
+        onChange={(event) => onChange(Number(event.target.value))}
+        onPointerDown={(event) => event.stopPropagation()}
+        className="min-w-[7.5rem] shrink-0 rounded-lg border border-[#444444] bg-[#1E1E1E] px-2 py-2 text-sm text-gray-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
+      >
+        {options.map((option) => (
+          <option key={option} value={option}>{format(option)}</option>
+        ))}
+      </select>
+    </div>
+  );
+}
+
 export const NotificationSettingsPage: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { user } = useAuth();
   const userId = user?.$id || '';
+  const { getSetting, setSetting } = useSettings();
+  const unreadDays = resolveUnreadRetentionDays(getSetting(ALERTS_UNREAD_RETENTION_SETTING_KEY));
+  const readHours = resolveReadRetentionHours(getSetting(ALERTS_READ_RETENTION_SETTING_KEY));
+  const [retentionError, setRetentionError] = useState('');
+  const saveRetention = (key: string, value: number) => {
+    setRetentionError('');
+    void setSetting(key, value).catch(() => {
+      setRetentionError('Could not save Alerts history preference. Please retry.');
+    });
+  };
   const [pushState, setPushState] = useState<PushNotificationState>({
     status: 'checking', enabled: false, detailsEnabled: null, label: 'Checking this device…',
   });
@@ -113,15 +161,34 @@ export const NotificationSettingsPage: React.FC = () => {
           aria-label={backParent === '/notifications' ? 'Back to Alerts' : 'Back to Settings'}><ChevronLeft size={22}/></button>
         <h1 className="text-lg font-bold">Notifications</h1>
       </header>
-      <section className="border-b border-[#333333] px-4 py-5">
-        <h2 className="font-semibold">Activity history</h2>
-        <p className="mt-2 text-sm leading-relaxed text-gray-400">
-          Unread alerts stay for 7 days after arriving. Read alerts
-          disappear after 24 hours, or at 7 days if sooner.
+      <section className="border-b border-[#333333] py-4">
+        <h2 className="px-4 pb-2 font-semibold">Activity history</h2>
+        <RetentionChoice
+          id="alerts-unread-retention"
+          label="Unread alerts"
+          hint="Time after an alert arrives"
+          value={unreadDays}
+          options={UNREAD_RETENTION_DAYS}
+          format={(days) => `${days} ${days === 1 ? 'day' : 'days'}`}
+          onChange={(days) => saveRetention(ALERTS_UNREAD_RETENTION_SETTING_KEY, days)}
+        />
+        <RetentionChoice
+          id="alerts-read-retention"
+          label="Read alerts"
+          hint="Time after first being read"
+          value={readHours}
+          options={READ_RETENTION_HOURS}
+          format={(hours) => hours >= 72
+            ? `${hours / 24} days`
+            : `${hours} ${hours === 1 ? 'hour' : 'hours'}`}
+          onChange={(hours) => saveRetention(ALERTS_READ_RETENTION_SETTING_KEY, hours)}
+        />
+        <p className="px-4 pt-2 text-xs leading-relaxed text-gray-400">
+          These choices sync across your devices. Reading an alert starts its
+          own timer; receipts are permanently cleared after at most 37 days.
+          Alerts become read when viewed in the active feed.
         </p>
-        <p className="mt-2 text-xs text-gray-500">
-          An alert becomes read after you view it in Alerts.
-        </p>
+        {retentionError && <p className="px-4 pt-2 text-xs text-red-400" role="alert">{retentionError}</p>}
       </section>
       <section className="py-3">
         <h2 className="px-4 pb-2 pt-2 text-xs font-semibold uppercase tracking-wide text-gray-400">

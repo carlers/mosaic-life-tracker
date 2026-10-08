@@ -37,7 +37,11 @@ import {
   setCachedNotifications,
   markCachedNotificationsRead,
 } from '../lib/notificationCache';
-import { activeNotifications } from '../lib/notificationRetention';
+import {
+  activeNotifications, resolveReadRetentionHours, resolveUnreadRetentionDays,
+  ALERTS_READ_RETENTION_SETTING_KEY, ALERTS_UNREAD_RETENTION_SETTING_KEY,
+} from '../lib/notificationRetention';
+import { useSettings } from '../hooks/useSettings';
 import { groupNotificationActivity } from '../lib/notificationGrouping';
 import { makeRouteParentState } from '../lib/primarySwipeNavigation';
 import { reactToTaskOnRemote } from '../lib/messageDelivery';
@@ -66,6 +70,11 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({
   const navigate = useNavigate();
   const location = useLocation();
   const { user } = useAuth();
+  const { getSetting } = useSettings();
+  const retentionPolicy = {
+    unreadDays: resolveUnreadRetentionDays(getSetting(ALERTS_UNREAD_RETENTION_SETTING_KEY)),
+    readHours: resolveReadRetentionHours(getSetting(ALERTS_READ_RETENTION_SETTING_KEY)),
+  };
   const userId = user?.$id ?? '';
   const connectivity = useConnectivity();
   const { sendTaskReaction } = useTaskActivityActions();
@@ -234,7 +243,7 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({
     return () => { active = false; };
   }, [alertId, connectivity.status, feedIsCurrent, navigate, preview, userId]);
 
-  const visibleItems = feedIsCurrent ? activeNotifications(items, now) : [];
+  const visibleItems = feedIsCurrent ? activeNotifications(items, now, retentionPolicy) : [];
   const visibleNextCursor = feedIsCurrent ? nextCursor : '';
   const visibleFetchedAt = feedIsCurrent ? fetchedAt : '';
 
