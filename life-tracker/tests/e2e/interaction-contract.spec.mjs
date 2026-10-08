@@ -386,6 +386,69 @@ test('message send keeps composer focus without an intermediate blur', async ({ 
   await expect(page.getByTestId('composer-blur-count')).toHaveText('0');
 });
 
+
+test('Light appearance keeps selected tasks, selection toolbar, and Search readable', async ({ page }) => {
+  await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html?perf=heavy`);
+  await page.getByTestId('set-appearance-light').click();
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
+
+  // Compute foreground/surface contrast from browser-rendered CSS, not class names.
+  const panelHost = page.getByTestId('home-search-harness');
+  await panelHost.scrollIntoViewIfNeeded();
+  await panelHost.getByRole('button', { name: 'Search tasks' }).click();
+  const searchContrast = await panelHost.locator('.home-search-panel-enter > div').evaluate((panel) => {
+    const heading = [...panel.querySelectorAll('span')].find((node) => node.textContent?.trim() === 'Categories');
+    if (!heading) throw new Error('Missing search heading');
+    const parse = (css) => css.match(/[0-9.]+/g)?.slice(0, 3).map(Number) ?? [];
+    const lum = (css) => parse(css).reduce((sum, v, i) => {
+      const n = v / 255;
+      const c = n <= 0.04045 ? n / 12.92 : ((n + 0.055) / 1.055) ** 2.4;
+      return sum + c * [0.2126, 0.7152, 0.0722][i];
+    }, 0);
+    const [a, b] = [lum(getComputedStyle(heading).color), lum(getComputedStyle(panel).backgroundColor)].sort((x, y) => y - x);
+    return (a + 0.05) / (b + 0.05);
+  });
+  expect(searchContrast).toBeGreaterThanOrEqual(4.5);
+  await panelHost.getByRole('searchbox', { name: 'Search my tasks' }).press('Escape');
+
+  await page.getByTestId('open-day-view-sheet').click();
+  const dialog = page.getByRole('dialog', { name: 'Tuesday, September 15, 2026' });
+  await expect(dialog).toBeVisible();
+  await dialog.getByRole('button', { name: 'Select tasks' }).click();
+  await dialog.getByRole('button', { name: 'Task 1.1', exact: true }).click();
+
+  const selected = dialog.getByRole('checkbox', { name: 'Task 1.1, selected' });
+  await expect(selected).toHaveAttribute('aria-checked', 'true');
+  const contrastSamples = await dialog.evaluate((root) => {
+    const row = root.querySelector('[role="checkbox"][aria-checked="true"]');
+    const toolbar = root.querySelector('[role="toolbar"]');
+    const title = row?.querySelector('button[aria-label="Task 1.1"] span');
+    const label = toolbar?.querySelector('span');
+    if (!title || !toolbar || !label) throw new Error('Missing selection visual elements');
+    const luminance = (value) => {
+      const rgb = value.match(/[0-9.]+/g)?.slice(0, 3).map(Number);
+      if (!rgb || rgb.length !== 3) throw new Error('Invalid computed RGB color');
+      return rgb.reduce((sum, channel, i) => {
+        const c = channel / 255;
+        return sum + (c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4)
+          * [0.2126, 0.7152, 0.0722][i];
+      }, 0);
+    };
+    const ratio = (text, surface) => {
+      const [bright, dark] = [luminance(text), luminance(surface)].sort((x, y) => y - x);
+      return (bright + 0.05) / (dark + 0.05);
+    };
+    // Selected row has a translucent category tint over the Light canvas.
+    const canvas = getComputedStyle(document.body).backgroundColor;
+    const titleColor = getComputedStyle(title).color;
+    const toolbarBg = getComputedStyle(toolbar).backgroundColor;
+    const toolbarColor = getComputedStyle(label).color;
+    return { selectedText: ratio(titleColor, canvas), toolbarText: ratio(toolbarColor, toolbarBg) };
+  });
+  expect(contrastSamples.selectedText).toBeGreaterThanOrEqual(4.5);
+  expect(contrastSamples.toolbarText).toBeGreaterThanOrEqual(4.5);
+});
+
 // Regression: §2/§7 (Home search state survives nested Day View history).
 test('home task search survives result-sheet Back with state preserved', async ({ page }) => {
   await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html`);

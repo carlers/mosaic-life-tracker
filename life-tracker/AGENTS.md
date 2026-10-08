@@ -57,6 +57,8 @@ additional reading. Current code and Git override stale progress prose.
 - Preserve existing UI unless the task requests a visual change. Use shared BottomSheet,
   semantic controls, visible focus, accessible labels, and existing interaction patterns.
   Accessibility work must not silently redesign the interface. Dynamic colors use inline styles.
+  New or modified themed UI must use the semantic tokens and acceptance checklist in
+  [theming guide](docs/THEMING.md); preserve Dark/Black while fixing Light.
 - Read [project reference](docs/PROJECT_REFERENCE.md) sections for the affected domain
   before changing its contract. Section numbers remain stable regression references.
 

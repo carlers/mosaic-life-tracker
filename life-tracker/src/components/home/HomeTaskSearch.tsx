@@ -226,7 +226,7 @@ export const HomeTaskSearch: React.FC<HomeTaskSearchProps> = ({
           data-route-swipe-ignore="true"
           className="home-search-panel-enter absolute left-4 right-4 top-full z-50 pt-2"
         >
-          <div className="max-h-[min(72dvh,42rem)] overflow-y-auto overscroll-contain rounded-2xl border border-[#333333] bg-[#181818] shadow-2xl">
+          <div className="max-h-[min(72dvh,42rem)] overflow-y-auto overscroll-contain rounded-2xl border border-[#333333] bg-surface shadow-2xl">
             <div className="border-b border-[#2A2A2A] px-3 py-3">
               <div className="mb-2 flex items-center justify-between gap-3">
                 <span className="text-xs font-medium uppercase tracking-wide text-gray-500">
@@ -249,7 +249,7 @@ export const HomeTaskSearch: React.FC<HomeTaskSearchProps> = ({
                   onClick={clearCategories}
                   className={`shrink-0 rounded-full border px-3 py-1.5 text-xs transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 ${
                     selectedCategoryIds.size === 0
-                      ? 'border-white/30 bg-white/10 text-white'
+                      ? 'border-[#444444] bg-[#333333] text-white'
                       : 'border-[#333333] text-gray-400'
                   }`}
                 >
@@ -265,7 +265,7 @@ export const HomeTaskSearch: React.FC<HomeTaskSearchProps> = ({
                       onClick={() => toggleCategory(category.id)}
                       className={`flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 ${
                         selected
-                          ? 'border-white/30 bg-white/10 text-white'
+                          ? 'border-[#444444] bg-[#333333] text-white'
                           : 'border-[#333333] text-gray-400'
                       }`}
                     >
@@ -289,7 +289,7 @@ export const HomeTaskSearch: React.FC<HomeTaskSearchProps> = ({
                     onClick={() => setDateFilter(filter.value)}
                     className={`shrink-0 rounded-full border px-3 py-1.5 text-xs transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 ${
                       dateFilter === filter.value
-                        ? 'border-white/30 bg-white/10 text-white'
+                        ? 'border-[#444444] bg-[#333333] text-white'
                         : 'border-[#333333] text-gray-400'
                     }`}
                   >
@@ -365,7 +365,7 @@ export const HomeTaskSearch: React.FC<HomeTaskSearchProps> = ({
                           type="button"
                           onClick={() => onSelectTask(task)}
                           aria-label={`Open task ${task.title} on ${dateLabel}`}
-                          className="flex w-full items-start gap-3 rounded-xl px-3 py-3 text-left transition-colors hover:bg-white/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
+                          className="flex w-full items-start gap-3 rounded-xl px-3 py-3 text-left transition-colors hover:bg-[#333333] focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
                         >
                           <span
                             aria-hidden="true"

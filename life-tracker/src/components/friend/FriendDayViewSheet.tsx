@@ -21,7 +21,7 @@ import { useHorizontalArrowNavigation } from '../../hooks/useHorizontalArrowNavi
 import { useHolidaysByDate } from '../../hooks/useHolidays';
 import { parseReactions } from '../../lib/reactionUtils';
 import { visibilityIcon } from '../../lib/visibility';
-import { getCategoryLabelColor, getReadableTextColor } from '../../constants/colors';
+import { getCategoryLabelColor } from '../../constants/colors';
 import { Spinner } from '../ui/Spinner';
 import type { TaskDocument, CategoryDocument } from '../../db/schema';
 import {
@@ -252,7 +252,7 @@ const FriendDaySlide: React.FC<FriendDaySlideProps> = ({
                         {task.completed && (
                           <Check
                             size={9}
-                            style={{ color: getReadableTextColor(cat.color) }}
+                            style={{ color: "#fff" }}
                             strokeWidth={3.5}
                             aria-hidden="true"
                           />
