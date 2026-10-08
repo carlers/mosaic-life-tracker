@@ -409,7 +409,7 @@ test('Light appearance keeps selected tasks, selection toolbar, and Search reada
     return (a + 0.05) / (b + 0.05);
   });
   expect(searchContrast).toBeGreaterThanOrEqual(4.5);
-  await panelHost.getByRole('button', { name: 'Close task search' }).click();
+  await panelHost.getByRole('searchbox', { name: 'Search my tasks' }).press('Escape');
 
   await page.getByTestId('open-day-view-sheet').click();
   const dialog = page.getByRole('dialog', { name: 'Tuesday, September 15, 2026' });
