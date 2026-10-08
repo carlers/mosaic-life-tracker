@@ -242,12 +242,10 @@ function SheetPresenceSurface({
     <motion.div
       ref={sheetRef}
       {...outerProps}
-      initial={{ transform: 'translate3d(0, 100%, 0)' }}
-      animate={{
-        transform: isPresent
-          ? 'translate3d(0, 0, 0)'
-          : 'translate3d(0, 100%, 0)',
-      }}
+      // Shared y MotionValue for entrance, dismissal, and live touch drag.
+      // A full transform-string animation would mask Framer's drag offset.
+      initial={{ y: '100%' }}
+      animate={{ y: isPresent ? 0 : '100%' }}
       transition={{
         duration: 0.32,
         ease: [0.32, 0.72, 0, 1],

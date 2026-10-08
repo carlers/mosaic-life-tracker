@@ -935,6 +935,41 @@ test('sheet date row follows the finger horizontally and still supports vertical
   await expect(page.getByRole('dialog', { name: 'Responsive test sheet' })).toHaveCount(0);
 });
 
+// Regression: §13 — the surface must actually track the held finger,
+// not just dismiss after a release-only swipe.
+test('shared sheet drag header tracks held touch before dismissing', async ({ page }) => {
+  await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html`);
+  await page.getByTestId('open-full-sheet').click();
+  const dialog = page.getByRole('dialog', { name: 'Responsive test sheet' });
+  await waitForStableVerticalPosition(dialog);
+  const handle = page.getByTestId('sheet-live-drag-header');
+  const bounds = await handle.boundingBox();
+  const initial = await dialog.boundingBox();
+  if (!bounds || !initial) throw new Error('Missing sheet bounds');
+  const x = bounds.x + bounds.width / 2;
+  const y = bounds.y + bounds.height / 2;
+  const session = await page.context().newCDPSession(page);
+  await session.send('Input.dispatchTouchEvent', {
+    type: 'touchStart', touchPoints: [{ x, y }],
+  });
+  for (let step = 1; step <= 7; step++) {
+    await session.send('Input.dispatchTouchEvent', {
+      type: 'touchMove', touchPoints: [{ x, y: y + step * 13 }],
+    });
+  }
+  await expect.poll(async () => {
+    const current = await dialog.boundingBox();
+    return current?.y ?? initial.y;
+  }, { timeout: 1500 }).toBeGreaterThan(initial.y + 24);
+  await session.send('Input.dispatchTouchEvent', {
+    type: 'touchMove', touchPoints: [{ x, y: y + 190 }],
+  });
+  await session.send('Input.dispatchTouchEvent', {
+    type: 'touchEnd', touchPoints: [],
+  });
+  await expect(dialog).toHaveCount(0);
+});
+
 // Regression: §2 (blank Day View sheet space remains part of day navigation).
 test('blank lower sheet area swipes to the adjacent day', async ({ page }) => {
   await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html`);

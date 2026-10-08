@@ -92,9 +92,21 @@ export const NotificationSettingsPage: React.FC = () => {
           onClick={() => void toggle()}
         />
         <p className="px-5 pb-3 pt-2 text-xs text-gray-500">
-          Permission is requested only when enabled. In-app Alerts work
-          even when push delivery is unavailable. iOS requires the Home Screen app.
+          Push is enabled separately on each device. Permission is requested
+          only when you turn it on. In-app Alerts work without push.
         </p>
+        {pushState.status === 'install-required' && (
+          <p className="px-5 pb-3 text-xs text-gray-400">
+            On iPhone or iPad, open Mosaic in Safari, tap Share, choose
+            Add to Home Screen, then open Mosaic from its new icon.
+          </p>
+        )}
+        {pushState.status === 'blocked' && (
+          <p className="px-5 pb-3 text-xs text-gray-400">
+            Notifications are blocked. Allow notifications for Mosaic in
+            your device or browser settings, then return here.
+          </p>
+        )}
       </section>
     </div>
   );
