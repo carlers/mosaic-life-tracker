@@ -206,7 +206,7 @@ describe('diary RxDB replication pilot', () => {
     expect(awaitInSyncMock).toHaveBeenCalledTimes(1);
   });
 
-  it('fails closed when another tab owns RxDB leadership', async () => {
+  it('fails closed when local leadership is not established', async () => {
     await startDiaryReplicationPilot(
       'user_A',
       collectionFixture(false),
@@ -215,7 +215,7 @@ describe('diary RxDB replication pilot', () => {
 
     await expect(
       refreshDiaryReplicationPilot('user_A', 1_000)
-    ).rejects.toThrow('another Mosaic tab');
+    ).rejects.toThrow('local database leadership');
   });
 
   it('pulls with an owner-scoped updatedAt+id tuple checkpoint', async () => {

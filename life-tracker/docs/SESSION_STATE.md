@@ -1,5 +1,14 @@
 # Session checkpoint
 
+Updated: 2026-10-08 — follow-up fix: phone Preview manual Sync Now falsely reports another tab.
+Branch: `chatgpt/fix-mobile-sync-leadership-timeout` from `feature/notifications-alerts` at `4edcdb67`.
+Root cause: `replicationFreshness.ts` raced RxDB's local leader election against a hardcoded 1,000 ms timer and unconditionally blamed another tab on expiry. Browser leader election shares a local origin/device, not a remote laptop. The same sync source is byte-identical on main and Preview; Preview uses its own phone browser origin/state. Category is the first of six concurrently checked pilots, so its name does not indicate an Appwrite category schema defect.
+Change: allow a bounded 10-second grace within the existing 90-second freshness deadline, preserve fail-closed leader ownership, and report a local election timeout instead of asserting another tab exists. Add slow mobile-election/timeout tests and update category/diary regression assertions and sync documentation. No Appwrite mutations, no dev/main merge.
+Remaining: focused test/CI, squash onto stable feature Preview, canonical CI/Vercel READY, manual phone acceptance. If phone remains a genuine non-leader due another same-origin PWA instance, Sync Now will still fail closed; cross-tab leader delegation is a separate product change.
+
+---
+
+
 Updated: 2026-10-08
 Task: Scratch production-compatible baseline and repeatable backend-dependent
 Preview preparation. Work branch `chatgpt/preview-scratch-parity` based on
