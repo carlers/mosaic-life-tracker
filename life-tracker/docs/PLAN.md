@@ -51,6 +51,19 @@ This roadmap records durable workstreams and batch status. `SESSION_STATE.md` co
 - [x] Permanent account erasure — marker-backed irreversible pivot, fail-closed ambiguous clients, account-scoped local erasure, idempotent/retryable cleanup, stale peer-reference sanitization, DR key-rotation support, schema/erasure-policy checks, and large-account Function-budget hardening are accepted. Disposable-account live acceptance removed Auth, sessions, owned/cross-user rows, embedded references, deletion job, and all 37 owned files; the timeout retry completed in 15.6s after peer-scan prefiltering.
 - [ ] Phase 4 — final production acceptance and main release
 
+## Scratch Preview parity (2026-10-08)
+
+- [x] Reconcile scratch's missing Diary `created_at`, account-deletion
+  resource, message indexes, and required Function variable contracts without
+  copying production records.
+- [x] Add explicit scratch-target, read-only-by-default readiness CLI,
+  safe additive migration gate, synthetic fixture seed CLI, unit regressions,
+  and agent/Preview handoff documentation.
+- [ ] Verify fixture seeding with real scratch project credentials and full
+  browser login/TodoMate import convergence on a disposable account. Auth method
+  parity including disabled invites was confirmed on 2026-10-08. No cloud
+  credential is committed.
+
 ## Disaster recovery and backend capacity
 
 - [ ] Complete provider-independent disaster-backup rollout on `security/disaster-backups`: exporter/restore/health-check code, R2 secrets/key escrow, the first verified production `COMPLETED` snapshot, isolated restore/full verification, recovered Function deployment, manual application acceptance, and the accepted production backup schedule are complete; only default-branch delivery plus external watcher activation remain.
@@ -85,7 +98,8 @@ This roadmap records durable workstreams and batch status. `SESSION_STATE.md` co
 - [x] Todo List view: compact color-only calendar with a selected-day task list
 - [x] Optional regional holiday overlay: synced show/region/type preferences, cached read-only holiday data, Calendar/Todo/Day View presentation, and viewer-local friend-calendar overlay
 - [ ] Diary view: per-day text entries with `public`, `followers`, or `private` visibility
-- [ ] Notifications tab
+- [x] Notifications tab: account-scoped friend-completion Alerts feed with offline cache, reply/reaction actions, and optional Web Push
+- [x] Configurable account-synced Alerts retention: 1/3/7/14/30-day unread and 1/12/24/72/168-hour read choices (defaults 7 days/24 hours), recipient-authorized server policy, recoverable offline cache and 37-day physical receipts, without new schema
 - [ ] Routines and reminders
 - [ ] Optional external API integrations
 - [ ] Advanced social features, including selected-follower visibility if it enters scope

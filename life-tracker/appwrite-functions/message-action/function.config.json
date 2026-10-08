@@ -31,5 +31,17 @@
     "DR_BACKUP_FUNCTION_ID": "dr_backup",
     "DR_PRIVACY_DELETION_REQUIRED": "true"
   },
-  "requiredSecretVariables": []
+  "requiredSecretVariables": [],
+  "events": [
+    "tablesdb.life_tracker.tables.tasks.rows.*.create",
+    "tablesdb.life_tracker.tables.tasks.rows.*.update"
+  ],
+  "optionalNonSecretVariables": [
+    "NOTIFICATIONS_LAUNCH_AT",
+    "WEB_PUSH_VAPID_PUBLIC_KEY",
+    "WEB_PUSH_VAPID_SUBJECT"
+  ],
+  "optionalSecretVariables": [
+    "WEB_PUSH_VAPID_PRIVATE_KEY"
+  ]
 }

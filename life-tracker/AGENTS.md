@@ -29,6 +29,7 @@ additional reading. Current code and Git override stale progress prose.
 - Update the checkpoint at meaningful milestones and handoffs. Keep objective, constraints,
   completed/remaining work, working files, checks, blockers, and next action concise.
   Do not copy prompts, Git status, or response boilerplate into it.
+- For user-visible features, propose Preview version impact during planning, stamp each successfully delivered Preview candidate before acceptance, and preserve it through dev/main. Increment PATCH only on subsequent user-testable revisions, not internal fixes. Check active branches for collisions and use descriptive merge subject/body; follow [versioning](docs/VERSIONING.md).
 - Report outcome, checks, commit, and deployment status briefly. Telemetry is opt-in.
   Connected-chat agents must also follow the read-once, repair-batching, CI-polling, and
   build-size preflight rules in [latency discipline](docs/AI_WORKFLOW.md#connected-chat-latency-discipline);
@@ -42,6 +43,7 @@ additional reading. Current code and Git override stale progress prose.
   in `src/lib/sdk.ts` and `src/lib/appwrite.ts`; use guarded clients elsewhere.
 - Preserve account isolation, cached offline identity, provider ownership/order, race
   protection, bounded retries, and sync coordination. Confirmed 401 differs from offline.
+- Before handing off an Appwrite-dependent Preview, follow [scratch readiness](docs/SCRATCH_PREVIEW_WORKFLOW.md): confirm exact scratch target, reconcile approved additive migrations, review/activate the exact Function deployment, check Appwrite origin/auth policy, and prove Diary sync on disposable data. Never copy production accounts or silently substitute a production backend. Normal frontend-only work skips this cloud gate.
 - Schema changes require migrations, sync mappings, mirrored test schemas, and applicable
   remote rollout steps. Appwrite schema/Function changes also follow
   [backend workflow](docs/APPWRITE_BACKEND_WORKFLOW.md); never use Console edits or an implicit

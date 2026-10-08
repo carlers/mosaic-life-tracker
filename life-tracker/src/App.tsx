@@ -9,12 +9,13 @@ import { ResetPasswordPage } from "./pages/ResetPasswordPage";
 import {
   loadAccountPage,
   loadChatPage,
-  loadComingSoon,
+  loadNotificationsPage,
   loadExplorePage,
   loadFriendCalendarPage,
   loadHomePage,
   loadMessagesPage,
   loadPreferencesPage,
+  loadNotificationSettingsPage,
   loadProfilePage,
   loadSettingsPage,
 } from "./components/layout/routeModuleLoaders";
@@ -31,6 +32,11 @@ const SettingsPage = lazy(() =>
 const PreferencesPage = lazy(() =>
   loadPreferencesPage().then(({ PreferencesPage }) => ({
     default: PreferencesPage,
+  })),
+);
+const NotificationSettingsPage = lazy(() =>
+  loadNotificationSettingsPage().then(({ NotificationSettingsPage }) => ({
+    default: NotificationSettingsPage,
   })),
 );
 const ProfilePage = lazy(() =>
@@ -50,8 +56,10 @@ const MessagesPage = lazy(() =>
 const ChatPage = lazy(() =>
   loadChatPage().then(({ ChatPage }) => ({ default: ChatPage })),
 );
-const ComingSoon = lazy(() =>
-  loadComingSoon().then(({ ComingSoon }) => ({ default: ComingSoon })),
+const NotificationsPage = lazy(() =>
+  loadNotificationsPage().then(({ NotificationsPage }) => ({
+    default: NotificationsPage,
+  })),
 );
 
 function RouteShellFallback({ label }: { label: string }) {
@@ -162,8 +170,8 @@ function App() {
           <Route
             path="/notifications"
             element={
-              <RouteContent label="Notifications">
-                <ComingSoon />
+              <RouteContent label="NotificationsPage">
+                <NotificationsPage />
               </RouteContent>
             }
           />
@@ -204,6 +212,14 @@ function App() {
             element={
               <RouteContent label="PreferencesPage">
                 <PreferencesPage />
+              </RouteContent>
+            }
+          />
+          <Route
+            path="/settings/notifications"
+            element={
+              <RouteContent label="NotificationSettingsPage">
+                <NotificationSettingsPage />
               </RouteContent>
             }
           />

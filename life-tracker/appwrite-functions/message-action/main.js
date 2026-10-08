@@ -3,6 +3,17 @@ const { handleFriendship, deleteAccountFriendships } = require('./friendship');
 const { handleTodoMateTaskBatch } = require('./todomate-task-batch');
 const { handleOwnerWriteCas } = require('./owner-write-cas');
 const {
+  handleGetNotifications,
+  handleGetNotification,
+  handleGetPushConfig,
+  handleGetPushDetails,
+  handleSetPushDetails,
+  handleMarkNotificationsRead,
+  handleRegisterPushSubscription,
+  handleTaskCompletionEvent,
+  handleUnregisterPushSubscription,
+} = require('./notifications');
+const {
   Client,
   TablesDB,
   Storage,
@@ -973,6 +984,60 @@ async function handleReactToTask(tablesDB, callerId, payload, log, error) {
   );
   return { status: 200, body: { ok: true, reactions: nextStr } };
 }
+// Lightweight, privacy-checked alert tap-through. Unlike get_friend_calendar,
+// this requires at most a task and category row instead of a user's full history.
+async function handleGetFriendTask(tablesDB, callerId, payload, log, error) {
+  const friendUserId = payload?.friendUserId;
+  const taskId = payload?.taskId;
+  const completedAt = payload?.completedAt;
+  if (!isValidRowId(friendUserId) || !isValidRowId(taskId) ||
+      typeof completedAt !== 'string' || !completedAt || Number.isNaN(Date.parse(completedAt)) ||
+      callerId === friendUserId) {
+    return { status: 400, body: { error: 'Invalid friend task request' } };
+  }
+  if (!await verifyFriendship(tablesDB, callerId, friendUserId)) {
+    return { status: 403, body: { error: 'Not friends with this user' } };
+  }
+  let task;
+  try {
+    task = await tablesDB.getRow({
+      databaseId: DATABASE_ID, tableId: TASKS_TABLE, rowId: taskId,
+    });
+  } catch (cause) {
+    if (Number(cause?.code || cause?.status) !== 404) throw cause;
+    return { status: 404, body: { error: 'Task unavailable' } };
+  }
+  if (task.user_id !== friendUserId || task.deleted === true ||
+      task.is_completed !== true || task.completed_at !== completedAt) {
+    return { status: 404, body: { error: 'Task unavailable' } };
+  }
+  let category = null;
+  if (isValidRowId(task.category_id)) {
+    try {
+      const row = await tablesDB.getRow({
+        databaseId: DATABASE_ID, tableId: CATEGORIES_TABLE, rowId: task.category_id,
+      });
+      if (row.user_id === friendUserId && row.deleted !== true) category = row;
+    } catch (cause) {
+      if (Number(cause?.code || cause?.status) !== 404) throw cause;
+    }
+  }
+  const visibility = task.visibility || category?.visibility || 'private';
+  if (visibility === 'private') {
+    return { status: 404, body: { error: 'Task unavailable' } };
+  }
+  log(`get_friend_task: caller=${callerId} friend=${friendUserId}`);
+  return {
+    status: 200,
+    body: {
+      task,
+      // A task-level visibility override must not expose the parent
+      // category's private name, color, or metadata.
+      category: category?.visibility !== 'private' ? category : null,
+    },
+  };
+}
+
 async function handleGetFriendCalendar(tablesDB, callerId, payload, log, error) {
   const p = payload || {};
   if (!isValidRowId(p.friendUserId)) {
@@ -992,20 +1057,29 @@ async function handleGetFriendCalendar(tablesDB, callerId, payload, log, error) 
     return { status: 403, body: { error: 'Not friends with this user' } };
   }
   let categoryRows = [];
-  try {
-    categoryRows = await listAllRows(
-      tablesDB,
-      CATEGORIES_TABLE,
-      [
-        Query.equal('user_id', friendUserId),
-        Query.equal('deleted', false),
-      ],
-      log
-    );
-  } catch (err) {
-    error(`get_friend_calendar: categories fetch failed (${err.message})`);
+  let taskRows = [];
+  // These independent, owner-scoped queries used to run serially, doubling
+  // Function network latency for friends with large task histories.
+  const [categoryResult, taskResult] = await Promise.allSettled([
+    listAllRows(tablesDB, CATEGORIES_TABLE, [
+      Query.equal('user_id', friendUserId),
+      Query.equal('deleted', false),
+    ], log),
+    listAllRows(tablesDB, TASKS_TABLE, [
+      Query.equal('user_id', friendUserId),
+      Query.equal('deleted', false),
+    ], log),
+  ]);
+  if (categoryResult.status === 'rejected') {
+    error(`get_friend_calendar: categories fetch failed (${categoryResult.reason.message})`);
     return { status: 500, body: { error: 'Failed to fetch categories' } };
   }
+  if (taskResult.status === 'rejected') {
+    error(`get_friend_calendar: tasks fetch failed (${taskResult.reason.message})`);
+    return { status: 500, body: { error: 'Failed to fetch tasks' } };
+  }
+  categoryRows = categoryResult.value;
+  taskRows = taskResult.value;
   categoryRows.sort((a, b) => {
     const ao = typeof a.order === 'number' ? a.order : 0;
     const bo = typeof b.order === 'number' ? b.order : 0;
@@ -1015,21 +1089,6 @@ async function handleGetFriendCalendar(tablesDB, callerId, payload, log, error) 
   const categoryVisibility = new Map();
   for (const c of categoryRows) {
     categoryVisibility.set(c.$id, c.visibility || 'private');
-  }
-  let taskRows = [];
-  try {
-    taskRows = await listAllRows(
-      tablesDB,
-      TASKS_TABLE,
-      [
-        Query.equal('user_id', friendUserId),
-        Query.equal('deleted', false),
-      ],
-      log
-    );
-  } catch (err) {
-    error(`get_friend_calendar: tasks fetch failed (${err.message})`);
-    return { status: 500, body: { error: 'Failed to fetch tasks' } };
   }
   taskRows.sort((a, b) => {
     const ad = (a.date || '').localeCompare(b.date || '');
@@ -1080,6 +1139,29 @@ const handler = async ({ req, res, log, error }) => {
   const storage = new Storage(client);
   const users = new Users(client);
   const functions = new Functions(client);
+
+  if (req.headers['x-appwrite-trigger'] === 'event') {
+    const eventName = req.headers['x-appwrite-event'] || '';
+    if (
+      eventName.includes('.tables.tasks.rows.') &&
+      (eventName.endsWith('.create') || eventName.endsWith('.update'))
+    ) {
+      try {
+        const result = await handleTaskCompletionEvent(
+          tablesDB,
+          payload,
+          eventName,
+          log,
+          error
+        );
+        return res.json(result.body, result.status);
+      } catch (err) {
+        error(`Task completion event failed: ${err.message}`);
+        return res.json({ error: 'Task completion event failed' }, 500);
+      }
+    }
+    return res.json({ ok: true, ignored: true }, 200);
+  }
 
   if (req.headers['x-appwrite-trigger'] === 'schedule') {
     try {
@@ -1201,8 +1283,59 @@ const handler = async ({ req, res, log, error }) => {
       case 'bulk_create_todomate_tasks':
         result = await handleTodoMateTaskBatch(tablesDB, callerId, payload);
         break;
+      case 'get_friend_task':
+        result = await handleGetFriendTask(tablesDB, callerId, payload, log, error);
+        break;
       case 'get_friend_calendar':
         result = await handleGetFriendCalendar(
+          tablesDB,
+          callerId,
+          payload,
+          log,
+          error
+        );
+        break;
+      case 'get_notifications':
+        result = await handleGetNotifications(
+          tablesDB,
+          callerId,
+          payload,
+          log,
+          error
+        );
+        break;
+      case 'get_notification':
+        result = await handleGetNotification(tablesDB, callerId, payload);
+        break;
+      case 'mark_notifications_read':
+        result = await handleMarkNotificationsRead(
+          tablesDB,
+          callerId,
+          payload,
+          log,
+          error
+        );
+        break;
+      case 'get_push_config':
+        result = handleGetPushConfig();
+        break;
+      case 'register_push_subscription':
+        result = await handleRegisterPushSubscription(
+          tablesDB,
+          callerId,
+          payload,
+          log,
+          error
+        );
+        break;
+      case 'get_push_details':
+        result = await handleGetPushDetails(tablesDB, callerId, payload);
+        break;
+      case 'set_push_details':
+        result = await handleSetPushDetails(tablesDB, callerId, payload);
+        break;
+      case 'unregister_push_subscription':
+        result = await handleUnregisterPushSubscription(
           tablesDB,
           callerId,
           payload,

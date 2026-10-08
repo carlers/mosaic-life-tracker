@@ -18,6 +18,8 @@ interface BottomSheetProps {
   contentMode?: 'scroll' | 'fixed';
   onHorizontalSwipe?: (direction: 'left' | 'right') => void;
   onAnimationComplete?: () => void;
+  /** Called after the shared sheet finishes its closing transition. */
+  onExitComplete?: () => void;
   deferChildrenUntilPaint?: boolean;
   /** Consume Escape/Android Back without dismissing the sheet (for transient modes). */
   onTransientDismiss?: () => boolean;
@@ -242,12 +244,10 @@ function SheetPresenceSurface({
     <motion.div
       ref={sheetRef}
       {...outerProps}
-      initial={{ transform: 'translate3d(0, 100%, 0)' }}
-      animate={{
-        transform: isPresent
-          ? 'translate3d(0, 0, 0)'
-          : 'translate3d(0, 100%, 0)',
-      }}
+      // Shared y MotionValue for entrance, dismissal, and live touch drag.
+      // A full transform-string animation would mask Framer's drag offset.
+      initial={{ y: '100%' }}
+      animate={{ y: isPresent ? 0 : '100%' }}
       transition={{
         duration: 0.32,
         ease: [0.32, 0.72, 0, 1],
@@ -278,6 +278,7 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
   contentMode = 'scroll',
   onHorizontalSwipe,
   onAnimationComplete,
+  onExitComplete,
   deferChildrenUntilPaint = false,
   onTransientDismiss,
 }) => {
@@ -301,7 +302,7 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
     ? isOpen
       ? deferredContentOpen
       : childrenMounted
-    : isOpen;
+    : isOpen || childrenMounted;
 
   useLayoutEffect(() => {
     onCloseRef.current = onClose;
@@ -393,7 +394,10 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
           />
         )}
       </AnimatePresence>
-      <AnimatePresence>
+      <AnimatePresence onExitComplete={() => {
+        setChildrenMounted(false);
+        onExitComplete?.();
+      }}>
         {isOpen && (
           <SheetPresenceSurface
             key="sheet"

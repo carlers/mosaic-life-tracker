@@ -2,11 +2,24 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
 import basicSsl from '@vitejs/plugin-basic-ssl';
+import { assertPreviewBackendIsolation, assertProductionBackendIsolation } from './scripts/lib/preview-backend-isolation.ts';
+
+const verifiedPreviewBackend = assertPreviewBackendIsolation(process.env);
+if (verifiedPreviewBackend) {
+  console.info(`[Mosaic] Preview backend: scratch Appwrite ${verifiedPreviewBackend.projectId} (${verifiedPreviewBackend.endpoint})`);
+}
 
 const isLocalBuild = !process.env.VERCEL_ENV;
 const isOfficialMosaicBuild =
   process.env.GITHUB_REPOSITORY === 'carlers/mosaic-life-tracker' ||
   process.env.VERCEL_PROJECT_ID === 'prj_jysOLDbuO9c5rP8x6Q145DVIw0fc';
+
+if (isOfficialMosaicBuild) {
+  const verifiedProductionBackend = assertProductionBackendIsolation(process.env);
+  if (verifiedProductionBackend) {
+    console.info('[Mosaic] Production backend: production Appwrite');
+  }
+}
 
 const buildCommit = process.env.VERCEL_GIT_COMMIT_SHA?.trim() || '';
 const buildMessage = process.env.VERCEL_GIT_COMMIT_MESSAGE?.trim() || '';
@@ -141,6 +154,9 @@ export default defineConfig({
         // intent and guards against a future same-origin proxy (PWA-3).
         navigateFallback: 'index.html',
         navigateFallbackDenylist: [/^\/v1\//, /^\/api\//],
+        // Keep push handling additive so pwaLifecycle.ts remains the sole
+        // service-worker registrar and the tested update lifecycle is unchanged.
+        importScripts: ['/push-sw.js'],
         // Preserve the current worker while it still controls open clients.
         // See the registerType comment above (PWA-4).
         skipWaiting: false,

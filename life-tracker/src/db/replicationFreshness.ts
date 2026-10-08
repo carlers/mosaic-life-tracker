@@ -10,6 +10,11 @@ interface PilotCollection {
   };
 }
 
+// RxDB's cross-tab election may take more than one second, especially when
+// a mobile PWA is resuming. Leave time for a legitimate handoff while still
+// bounding the wait well inside the caller's full freshness deadline.
+const LOCAL_LEADERSHIP_GRACE_MS = 10_000;
+
 async function waitForPilotLeadership(
   label: string,
   collection: PilotCollection,
@@ -17,7 +22,7 @@ async function waitForPilotLeadership(
 ): Promise<void> {
   if (collection.database.isLeader()) return;
 
-  const electionWaitMs = Math.min(Math.max(1, timeoutMs), 1_000);
+  const electionWaitMs = Math.min(Math.max(1, timeoutMs), LOCAL_LEADERSHIP_GRACE_MS);
   let timer: ReturnType<typeof setTimeout> | null = null;
   try {
     await Promise.race([
@@ -26,7 +31,7 @@ async function waitForPilotLeadership(
         timer = globalThis.setTimeout(() => {
           reject(
             new Error(
-              `Fresh ${label} sync is owned by another Mosaic tab. Close other Mosaic tabs and retry this operation.`
+              `Fresh ${label} sync timed out waiting for local database leadership. A Mosaic tab or installed app on this device may still be active; retry after the handoff.`
             )
           );
         }, electionWaitMs);
@@ -38,7 +43,7 @@ async function waitForPilotLeadership(
 
   if (!collection.database.isLeader()) {
     throw new Error(
-      `Fresh ${label} sync is owned by another Mosaic tab. Close other Mosaic tabs and retry this operation.`
+      `Fresh ${label} sync could not confirm local database leadership. A different local Mosaic window may be active; retry after the handoff.`
     );
   }
 }

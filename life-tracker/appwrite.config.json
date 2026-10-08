@@ -26,7 +26,10 @@
         "files.write",
         "execution.write"
       ],
-      "events": [],
+      "events": [
+        "tablesdb.life_tracker.tables.tasks.rows.*.create",
+        "tablesdb.life_tracker.tables.tasks.rows.*.update"
+      ],
       "schedule": "0 * * * *",
       "timeout": 120,
       "entrypoint": "main.js",

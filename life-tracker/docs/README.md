@@ -11,6 +11,7 @@ behavior.
 | CI, branch delivery, Preview/device acceptance | [Delivery](DELIVERY.md) |
 | Focused tests and regression strategy | [Test workflow](TEST_WORKFLOW.md) |
 | Manual mobile task reorder acceptance | [Task reorder acceptance](MANUAL_TASK_REORDER_ACCEPTANCE.md) |
+| Mobile Android/iOS Web Push and VAPID setup | [Mobile Push setup](MOBILE_PUSH_SETUP.md) |
 | Product and architecture contracts | [Project reference](PROJECT_REFERENCE.md) |
 | Sync race/edge-case coverage | [Sync scenario matrix](SYNC_SCENARIO_MATRIX.md) |
 | Build-vs-reuse decisions and refactor candidates | [Build vs reuse audit](BUILD_VS_REUSE_AUDIT.md) |
@@ -23,6 +24,7 @@ behavior.
 | One-way TodoMate personal-data migration | [TodoMate import](TODOMATE_IMPORT.md) |
 | Forking, fresh Appwrite bootstrap, maintainer continuity | [Forking and recovery](FORKING.md) |
 | Appwrite schema/Function version control and scratch-project workflow | [Appwrite backend workflow](APPWRITE_BACKEND_WORKFLOW.md) |
+| Reusable scratch Preview backend parity, safe migrations and synthetic accounts | [Scratch Preview workflow](SCRATCH_PREVIEW_WORKFLOW.md) |
 | Administrator disaster recovery | [Disaster recovery](DISASTER_RECOVERY.md) |
 | Optional measurements/evidence ledger | [Telemetry](WORKFLOW_TELEMETRY.md) |
 

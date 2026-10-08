@@ -55,13 +55,14 @@ async function runFetch(
 }
 
 export function useFriendCalendar(
-  friendUserId: string | null
+  friendUserId: string | null,
+  forceRefreshOnMount = false
 ): UseFriendCalendarReturn {
   const { user } = useAuth();
   const currentUserId = user?.$id;
   const [tasks, setTasks] = useState<TaskDocument[]>([]);
   const [categories, setCategories] = useState<CategoryDocument[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(Boolean(friendUserId));
   const [error, setError] = useState<string | null>(null);
   const [errorKind, setErrorKind] = useState<
     'forbidden' | 'offline' | 'server' | null
@@ -106,7 +107,7 @@ export function useFriendCalendar(
     if (!friendUserId || !currentUserId) return;
     let effectIsActive = true;
     (async () => {
-      const outcome = await runFetch(currentUserId, friendUserId, false);
+      const outcome = await runFetch(currentUserId, friendUserId, forceRefreshOnMount);
       if (!effectIsActive) return;
       if (outcome.ok) {
         setTasks(outcome.bundle.tasks);
@@ -123,7 +124,7 @@ export function useFriendCalendar(
     return () => {
       effectIsActive = false;
     };
-  }, [currentUserId, friendUserId]);
+  }, [currentUserId, friendUserId, forceRefreshOnMount]);
 
   const reactToTask = useCallback(
     async (taskId: string, emoji: string): Promise<'add' | 'remove'> => {

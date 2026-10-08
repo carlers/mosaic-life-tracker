@@ -51,6 +51,63 @@ A disposable **account** isolates user data but does not isolate project-wide sc
 Functions, buckets, schedules, or provider configuration. Use the scratch **project** when
 those resources are under test.
 
+## Vercel Preview backend isolation (2026-10-08)
+
+All official **Vercel Preview** deployments, including stable `feature/*`,
+`fix/*`, `perf/*` and `dev`, use the disposable **My first project**
+Appwrite backend (`6a96e82d000d1310b3be`, `https://fra.cloud.appwrite.io/v1`).
+Only the production Vercel environment may use production Appwrite. A
+development branch is not an authorization to use production accounts/data.
+
+The three Preview-only Vercel variables are:
+`VITE_APPWRITE_PROJECT_ID`, `VITE_APPWRITE_ENDPOINT`, and
+`VITE_APPWRITE_MESSAGE_ACTION_FUNCTION_ID`. No Function API key, VAPID
+private key, or credentials belong in browser-facing `VITE_*` values.
+`vite.config.ts` calls `scripts/lib/preview-backend-isolation.ts` to fail
+the production build unless the Preview project ID and region endpoint match
+the configured scratch target. This check is build-time, and direct links
+to a prior deployment still contain the endpoint compiled at the time.
+
+The scratch project must explicitly register the stable Vercel Preview
+hostname under Appwrite Web platforms (no wildcard production host grant).
+Vercel's unique immutable deployment hostname changes on every build;
+Appwrite does **not** register it just because a branch alias is allowed.
+Use the stable branch alias from Vercel's deployment alias list for
+authenticated Preview links. If an immutable deployment hostname is needed,
+register that precise hostname separately on scratch. Before asserting login
+works, compare the Vercel Preview URL hostname with the live Appwrite
+project's Web-platform allowlist. An unregistered origin commonly surfaces
+as a generic browser "Failed to fetch" instead of an Appwrite login error.
+A web server returning HTTP 200 for `/login` only tests Vercel delivery;
+it does not validate cross-origin `/v1/account/sessions/email` requests.
+A final browser login still needs real-user/device acceptance; a read-only
+platform-list check cannot prove all network requests succeed.
+Keep synthetic/disposable data only, and revalidate the scratch project
+after DR restores/disposal. Preview creation does not automatically
+bootstrap a reset scratch project or migrate/deploy new Function code; tasks
+that modify Appwrite must perform the explicitly confirmed scratch migration
+and exact-SHA inactive Function deployment, activate it and verify live
+behavior before requesting dev/main promotion.
+
+For a different scratch project, update the Git-owned isolation guard and
+Vercel Preview vars together in a reviewed task, with matching project Web
+platforms; never silently fall back to production. Deployment environment
+changes only affect **newly built** Previews; redeploy/rebuild to apply them.
+
+## Scratch parity and Preview readiness gate
+
+The operational runbook is [Scratch Preview Workflow](SCRATCH_PREVIEW_WORKFLOW.md).
+`npm run appwrite:preview:prepare` is a scratch-ID/region-pinned,
+read-only-by-default managed-state gate. Its explicitly confirmed `--apply`
+option reconciles only reviewed additive migration gaps before checking
+managed schema, indexes, Function structure, variables and active deployment.
+It never clones production accounts or activates Function code on its own.
+Synthetic fixture seeding uses a separate guarded command,
+`npm run appwrite:preview:seed`. This gate is required before handing off
+backend-dependent Previews, not before ordinary frontend-only builds.
+Actual scratch CORS origins, auth-method configuration, login and Diary
+replication remain additional live acceptance requirements.
+
 ## Read-only drift/status check
 
 ```bash
@@ -110,6 +167,17 @@ Current ordered baseline reconciliations are:
   access when either bucket or file permission allows it, so bucket-wide read would otherwise
   bypass Mosaic's file-security boundary. The migration sends the full intended bucket
   configuration and fails closed on any bucket drift other than that one known legacy grant.
+- `004-notifications` — creates the server-only `notifications` and
+  `push_subscriptions` tables from the portable backend manifest. Existing tables are
+  accepted only when their managed columns, indexes, permissions, row-security flag, and
+  enabled state match the manifest; incompatible pre-existing resources fail closed.
+- `005-notification-retention` — adds the `notifications.created_at` retention
+  index on existing backends. New installations already have the index in
+  the manifest. Apply before activating hourly Alerts cleanup.
+- `006-push-details` — adds the optional default-false
+  `push_subscriptions.include_task_details` boolean. Apply on the explicit
+  target before activating the Function that writes rich per-device push
+  preferences; do not retrofit legacy subscriptions to opt in.
 
 The runner is not a replay of every historical pre-foundation Console/script change. Fresh
 forks bootstrap the current manifest, and production was already at the current historical
@@ -137,7 +205,19 @@ not an automatic destructive `down` migration.
 A Function edit does **not** require a new Function resource. Appwrite keeps multiple code
 deployments under the same Function.
 
-First run `appwrite:status` against the intended target. Then build an inactive deployment
+First run `appwrite:status` against the intended target. If the checked-in Function
+configuration changed (for example event triggers), reconcile that configuration explicitly
+before building code:
+
+```bash
+npm run appwrite:function:configure -- \
+  --function message-action \
+  --project <project-id> \
+  --confirm-project <project-id>
+```
+
+Configuration reconciliation preserves the target's live schedule so scratch/DR can keep
+schedules intentionally disabled. It does not activate code. Then build an inactive deployment
 from the exact checked-out commit:
 
 ```bash
@@ -186,11 +266,12 @@ For ordinary UI/client/refactor work, do nothing Appwrite-specific. For backend 
 4. Run `appwrite:status` against the intended target.
 5. If cloud integration proof is needed, use **My first project** as the explicit scratch
    target and synthetic/disposable accounts/data.
-6. For a Function rollout, build an inactive exact-SHA deployment, inspect the deployment ID
-   and build result, then activate explicitly.
+6. For a Function rollout whose structural config changed, run the confirmed-target
+   `appwrite:function:configure` step first. Then build an inactive exact-SHA deployment,
+   inspect the deployment ID and build result, and activate explicitly.
 7. For production schema changes, run the reviewed migration explicitly against the confirmed
    production project, then rerun `appwrite:status`.
-8. Record the deployment/migration result in the task handoff. Emergency Console changes must
+8. Record the configuration/deployment/migration result in the task handoff. Emergency Console changes must
    be reconciled back into Git before the task is considered complete.
 
 Do not enable native Appwrite Git auto-deploy for production by default. Mosaic's Git branch,

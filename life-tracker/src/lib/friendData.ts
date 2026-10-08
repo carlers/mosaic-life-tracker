@@ -154,3 +154,60 @@ export async function fetchFriendCalendar(
   }
   return bundle;
 }
+
+/**
+ * Minimal, live-authorized lookup for Alerts -> Friend Day View.
+ * Returns null only when the previously deployed Function lacks the action;
+ * a 403/404 is authoritative and must not fall back to cached private data.
+ */
+export async function fetchFriendAlertTask(
+  ownerUserId: string,
+  friendUserId: string,
+  taskId: string,
+  completedAt: string
+): Promise<{ task: TaskDocument; category: CategoryDocument | null } | null> {
+  if (!ownerUserId || !friendUserId || !taskId || !completedAt) {
+    throw new FriendAccessError('Invalid friend task request.', 'server');
+  }
+  if (getConnectivitySnapshot().status !== 'online') {
+    throw new FriendAccessError('The friend task cannot be checked offline.', 'offline');
+  }
+  const execution = await guardedFunctions.createExecution({
+    functionId: MESSAGE_ACTION_FUNCTION_ID,
+    body: JSON.stringify({
+      action: 'get_friend_task',
+      friendUserId, taskId, completedAt,
+    }),
+    async: false,
+    xpath: '/',
+    method: ExecutionMethod.POST,
+  });
+  if (execution.status !== 'completed') {
+    throw new FriendAccessError('The request did not complete.', 'server');
+  }
+  let parsed: {
+    task?: AppwriteRow;
+    category?: AppwriteRow | null;
+    error?: string;
+  };
+  try {
+    parsed = JSON.parse(execution.responseBody);
+  } catch {
+    throw new FriendAccessError('Unexpected server response.', 'server');
+  }
+  if (execution.responseStatusCode === 400 &&
+      parsed.error === 'Unknown action: get_friend_task') {
+    return null; // Deployment-safe compatibility until the new Function activates.
+  }
+  if (execution.responseStatusCode === 403 || execution.responseStatusCode === 404) {
+    throw new FriendAccessError('This task is no longer available to view.', 'forbidden');
+  }
+  if (execution.responseStatusCode >= 400 || !parsed.task ||
+      parsed.task.$id !== taskId || parsed.task.user_id !== friendUserId) {
+    throw new FriendAccessError('Could not load the friend task.', 'server');
+  }
+  return {
+    task: mapTaskRow(parsed.task),
+    category: parsed.category ? mapCategoryRow(parsed.category) : null,
+  };
+}

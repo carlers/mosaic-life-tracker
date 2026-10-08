@@ -489,6 +489,13 @@ export function InteractionHarness() {
           }
         }}
       >
+        <div
+          data-testid="sheet-live-drag-header"
+          data-bottom-sheet-drag-handle="true"
+          className="flex min-h-12 shrink-0 cursor-grab touch-none select-none items-center justify-center"
+        >
+          Pull this header to close
+        </div>
         <Swiper
           noSwiping
           touchStartPreventDefault={false}

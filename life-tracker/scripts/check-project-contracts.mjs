@@ -2,6 +2,7 @@
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { dirname, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { validateVersionFiles } from './lib/versioning.mjs';
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
 export const entrypoints = [
@@ -43,6 +44,14 @@ export function checkContracts(projectRoot = root) {
   const errors = [];
   for (const path of [...entrypoints, '../.github/workflows/quality-gate.yml']) {
     if (!existsSync(resolve(projectRoot, path))) errors.push(`Missing project entrypoint: ${path}`);
+  }
+  try {
+    const packageJson = JSON.parse(readFileSync(resolve(projectRoot, 'package.json'), 'utf8'));
+    const lockJson = JSON.parse(readFileSync(resolve(projectRoot, 'package-lock.json'), 'utf8'));
+    const appSource = readFileSync(resolve(projectRoot, 'src/lib/appVersion.ts'), 'utf8');
+    validateVersionFiles(packageJson, lockJson, appSource);
+  } catch (error) {
+    errors.push(`Version contract: ${error instanceof Error ? error.message : String(error)}`);
   }
   const docsRoot = resolve(projectRoot, 'docs');
   const files = new Set([
