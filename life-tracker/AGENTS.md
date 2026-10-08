@@ -42,6 +42,7 @@ additional reading. Current code and Git override stale progress prose.
   in `src/lib/sdk.ts` and `src/lib/appwrite.ts`; use guarded clients elsewhere.
 - Preserve account isolation, cached offline identity, provider ownership/order, race
   protection, bounded retries, and sync coordination. Confirmed 401 differs from offline.
+- Before handing off an Appwrite-dependent Preview, follow [scratch readiness](docs/SCRATCH_PREVIEW_WORKFLOW.md): confirm exact scratch target, reconcile approved additive migrations, review/activate the exact Function deployment, check Appwrite origin/auth policy, and prove Diary sync on disposable data. Never copy production accounts or silently substitute a production backend. Normal frontend-only work skips this cloud gate.
 - Schema changes require migrations, sync mappings, mirrored test schemas, and applicable
   remote rollout steps. Appwrite schema/Function changes also follow
   [backend workflow](docs/APPWRITE_BACKEND_WORKFLOW.md); never use Console edits or an implicit

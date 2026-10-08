@@ -177,6 +177,20 @@ and explicitly opted-in local builds retain source-map upload. If live Phase 3.7
 verification is desired, configure only the browser-facing Preview variables separately;
 do not commit secrets.
 
+## Backend-dependent Preview readiness
+
+Before sharing a backend-dependent stable Preview for user testing, execute
+the [scratch readiness workflow](SCRATCH_PREVIEW_WORKFLOW.md). It requires a
+scratch-only managed-state check, approved additive migration reconciliation,
+reviewed exact-commit Function activation, synthetic-data smoke checks, and
+verification that the exact stable Preview hostname is an Appwrite Web
+platform. The scratch CLI is read-only by default and refuses ambiguous
+targets; it does not copy real accounts/data. The new steps run only when
+the task depends on cloud/backend behavior; they do not add cloud work to
+normal UI-only iterations. CI and Vercel READY never substitute for this
+gate. Stop and report any unavailable API credentials/real-device acceptance
+instead of claiming a passing backend gate.
+
 ## Branch deployment review loop
 
 1. Finish the task on its AI task branch. Include the durable session/doc checkpoint in the

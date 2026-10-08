@@ -94,6 +94,20 @@ Vercel Preview vars together in a reviewed task, with matching project Web
 platforms; never silently fall back to production. Deployment environment
 changes only affect **newly built** Previews; redeploy/rebuild to apply them.
 
+## Scratch parity and Preview readiness gate
+
+The operational runbook is [Scratch Preview Workflow](SCRATCH_PREVIEW_WORKFLOW.md).
+`npm run appwrite:preview:prepare` is a scratch-ID/region-pinned,
+read-only-by-default managed-state gate. Its explicitly confirmed `--apply`
+option reconciles only reviewed additive migration gaps before checking
+managed schema, indexes, Function structure, variables and active deployment.
+It never clones production accounts or activates Function code on its own.
+Synthetic fixture seeding uses a separate guarded command,
+`npm run appwrite:preview:seed`. This gate is required before handing off
+backend-dependent Previews, not before ordinary frontend-only builds.
+Actual scratch CORS origins, auth-method configuration, login and Diary
+replication remain additional live acceptance requirements.
+
 ## Read-only drift/status check
 
 ```bash
