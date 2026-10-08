@@ -295,7 +295,7 @@ async function handleGetNotifications(tablesDB, callerId, payload, log, error) {
       ? Math.min(requested, 50)
       : 30;
   let cursor = typeof payload?.cursor === 'string' ? payload.cursor : '';
-  const friends = await mutualFriendMap(tablesDB, callerId);
+  let friends = null;
   const items = [];
   const now = Date.now();
   let hasMore = false;
@@ -323,6 +323,9 @@ async function handleGetNotifications(tablesDB, callerId, payload, log, error) {
     }
     cursor = rows.at(-1).$id;
     hasMore = rows.length === remaining;
+    // Don't query friendship graphs for an empty inbox; query them once
+    // only after a nonempty page is known to need privacy revalidation.
+    if (!friends) friends = await mutualFriendMap(tablesDB, callerId);
     const visible = [];
 
     await mapLimit(rows, 6, async (row) => {

@@ -100,9 +100,9 @@ describe('notifications backend', () => {
     expect(db.createRow).not.toHaveBeenCalled();
   });
 
-  it('keeps post-launch completions eligible after a long offline delay', async () => {
+  it('keeps post-launch completions eligible during a six-day offline delay', async () => {
     vi.useFakeTimers();
-    vi.setSystemTime(new Date('2026-10-20T12:00:00.000Z'));
+    vi.setSystemTime(new Date('2026-10-14T12:00:00.000Z'));
     try {
       const db = {
         getRow: vi.fn(async ({ tableId }: { tableId: string }) => {
@@ -342,14 +342,20 @@ describe('notifications backend', () => {
   });
   it('does not regenerate task completions older than seven days', async () => {
     const { handleTaskCompletionEvent } = require('../../appwrite-functions/message-action/notifications.js');
-    const db = { getRow: vi.fn(), listRows: vi.fn(), createRow: vi.fn() };
-    const result = await handleTaskCompletionEvent(db, {
-      $id: 'late', user_id: 'alice',
-      completed_at: new Date(Date.now() - 8 * 86400000).toISOString(),
-      is_completed: true,
-    }, 'tablesdb.life_tracker.tables.tasks.rows.late.update', vi.fn(), vi.fn());
-    expect(result.body.ignored).toBe('expired-completion');
-    expect(db.createRow).not.toHaveBeenCalled();
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-10-20T12:00:00.000Z'));
+    try {
+      const db = { getRow: vi.fn(), listRows: vi.fn(), createRow: vi.fn() };
+      const result = await handleTaskCompletionEvent(db, {
+        $id: 'late', user_id: 'alice',
+        completed_at: '2026-10-12T12:00:00.000Z',
+        is_completed: true,
+      }, 'tablesdb.life_tracker.tables.tasks.rows.late.update', vi.fn(), vi.fn());
+      expect(result.body.ignored).toBe('expired-completion');
+      expect(db.createRow).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('never resets the first-read timestamp on repeated marking', async () => {
