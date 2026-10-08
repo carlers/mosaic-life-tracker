@@ -69,7 +69,7 @@ Production Git tags use `vMAJOR.MINOR.PATCH` on the **actual accepted main merge
 
 ## Build identity and PWA
 
-Every hosted build embeds the Vercel SHA, branch, commit message (including body when provided), UTC timestamp and channel (`Preview` or `Production`). Local builds show `local`. Settings displays the product version alongside this metadata; tapping the message row reveals/collapses the full multiline commit message. Git identity separates builds even if no app-version bump is required. As before, service-worker install/update prompts are separate from semantic versions and offline data sync.
+Every hosted build embeds the Vercel SHA, branch, commit message (including body when provided), UTC timestamp and channel (`Preview` or `Production`). Local builds show `local`. Settings shows only the Version label and number by default; tapping Version expands the Appwrite backend identity, Git branch/commit and message metadata. The commit message has its own nested control to reveal/collapse the full multiline body. Git identity separates builds even if no app-version bump is required. As before, service-worker install/update prompts are separate from semantic versions and offline data sync.
 
 Deployment channels remain: `main` = Production; `dev` and stable `feature/*`, `fix/*`, `perf/*`, `security/*`, `refactor/*` = Preview. AI task branches `chatgpt/*` and `codex/*` do not deploy. The historical single `preview` branch is obsolete. See [delivery](DELIVERY.md).
 
