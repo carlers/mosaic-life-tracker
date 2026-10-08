@@ -220,8 +220,8 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
       >
         {visibility && visibilityIcon(visibility, 12, 'text-gray-400')}
         <span
-          className="mosaic-category-label text-[0.9375rem] font-bold"
-          style={{ "--mosaic-category-label-color": getCategoryLabelColor(categoryColor) } as React.CSSProperties}
+          className="text-[0.9375rem] font-bold"
+          style={{ color: getCategoryLabelColor(categoryColor) }}
         >
           {categoryName}
         </span>

@@ -1,31 +1,32 @@
 # Session checkpoint
 
-Updated: 2026-10-09. Active task: Light/Black/Dark theme contrast hardening
-on `chatgpt/audit-light-theme-contrast`, based on dev `0fe98f7b939ea495941bf9f8459395bf19f54fb0`.
+Updated: 2026-10-09. Active task: requested color-fidelity follow-up to the
+Light-theme Preview on `chatgpt/restore-task-check-and-category-colors`,
+starting from stable `fix/light-theme-contrast` SHA
+`9080256e62c68e3d9ab3e7900e14540277310b45` (v0.5.2, Vercel READY).
 
-## Scope and implementation
+## Objective and scope
 
-- Replace incomplete dark-hex remapping with targeted semantic tokens for floating
-  selection footer, Home search filters/results, and incoming/outgoing message
-  surfaces and attachments. Remove unsafe generic white-text override for arbitrary
-  inline colored backgrounds.
-- Preserve completed task category colors while choosing readable foregrounds;
-  restore selected task text, category pill label contrast, and active nav dot.
-- Document future theme conventions in `docs/THEMING.md`; add rendered contrast
-  browser coverage for selected task, toolbar, and Search in Light mode.
-- Planned candidate version: 0.5.2, subject to any active Preview collisions.
-  No Appwrite schema, Function, identity, or data modifications.
+- Restore white completed-task checkmarks for owner and friend Day Views;
+  keep task completion circles using their original category-color fill.
+- Remove newly introduced Light-mode category-label color-mix. Keep the
+  existing category color helper, and return friend category pills to the
+  original dark pill treatment for legible unchanged colors.
+- Preserve earlier selection/search/chat contrast fixes and task behavior.
+  No backend/schema/configuration changes.
+- Update `docs/THEMING.md` to reflect the intended white checkmarks and
+  category-color fidelity across themes. Preview revision candidate v0.5.3
+  because the previous v0.5.2 Preview was already publicly testable.
 
-## Acceptance and next action
+## Verification and delivery
 
-- The first stable Preview failed fixed size ceilings: raw assets +1,049 B,
-  precache +384 B. The first repair reduced these to raw +104 B, precache PASS.
-  The remaining redundant primary-text alias is removed in
-  `chatgpt/fix-light-theme-budget`, retaining contrast behavior. No budget is
-  raised and the candidate stays v0.5.2. Requires fresh Preview acceptance.
-- GitHub task-branch edits require focused CI; the stable Preview
-  `fix/light-theme-contrast` requires full canonical CI, size/PWA verification,
-  and READY Scratch-backed Vercel Preview.
-- Manual acceptance remains for real Light/Dark/Black/System, mobile selection/
-  Search/chat, accent/category combinations, and desktop reflow.
-- Do not promote to dev/main without explicit instruction.
+- Existing task semantics and category palette tests remain applicable.
+  Color restoration is visual; manual Light/Dark/Black/System and pale
+  category acceptance must remain separate from automated tests.
+- Run `version:check`, focused checks on task commit, then squash into
+  `fix/light-theme-contrast` for canonical CI and READY Scratch Preview.
+- v0.5.2 passed all seven Vercel build-size metrics but had only 51 B
+  appAssetsRaw headroom; do not increase budgets. Reverted CSS/classes are
+  expected to reduce shipped bytes; verify on the actual Preview.
+- GitHub Actions acceptance must be confirmed independently. Do not
+  promote to dev/main without explicit user instruction.

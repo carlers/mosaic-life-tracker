@@ -164,13 +164,6 @@ html[data-theme='light'] .mosaic-category-add-icon {
   background-color: #ffffff !important;
 }
 
-.mosaic-category-label {
-  color: var(--mosaic-category-label-color);
-}
-html[data-theme='light'] .mosaic-category-label {
-  color: color-mix(in srgb, var(--mosaic-category-label-color) 30%, #111827);
-}
-
 /* Keep white text on semantic/category-colored fills in Light mode. */
 html[data-theme='light']
   :is(
