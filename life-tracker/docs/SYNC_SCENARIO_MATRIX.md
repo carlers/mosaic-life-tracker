@@ -23,6 +23,7 @@ Status meanings:
 | Multi-tab | Web Lock API exists but acquisition fails | Fail closed; never run compatibility coordinator unlocked | **Covered** |
 | Multi-tab | Freshness request waits behind another tab too long | Abort at caller deadline and fail closed | **Covered** |
 | Leadership | Safety-sensitive refresh runs in non-leader tab | Reject rather than claiming fresh local state | **Covered** in pilot freshness tests |
+| Leadership | Phone/PWA local leader election takes longer than one second while no other browser tab is known | Allow up to a bounded 10-second local leadership handoff, then require the elected leader before proving freshness; failure wording must not claim another tab exists | **Covered** — delayed-election and timeout regression tests |
 | Account switch | Owner changes during startup | Old generation stops; old-owner pilots are torn down | **Covered** |
 | Account switch | Old-owner teardown runs after new owner schedules a backoff retry | Old owner must not cancel the new owner's wake timer | **Covered; fixed by this audit** |
 | Shared local DB | Active account's upstream scan sees cached rows belonging to another account | Ignore local foreign-owner rows without touching Appwrite | **Covered** across pilots |
