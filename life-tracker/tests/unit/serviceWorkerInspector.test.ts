@@ -16,7 +16,7 @@ describe('service worker inspector', () => {
         workbox.registerRoute(
           new workbox.NavigationRoute(
             workbox.createHandlerBoundToURL("index.html"),
-            { denylist: [/^\\/v1\\//, /^\\/api\\//] }
+            { denylist: [/^\/v1\//, /^\/api\//] }
           )
         );
       });
