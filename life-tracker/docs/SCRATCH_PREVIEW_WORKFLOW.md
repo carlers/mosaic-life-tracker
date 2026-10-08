@@ -81,7 +81,9 @@ npm run appwrite:preview:seed -- \
 
 This seeds two accounts, each with a profile, category, uncompleted
 friend-visible task, diary row containing `created_at`, and reciprocal
-accepted friendship. Repeated runs preserve existing records/passwords;
+accepted friendship. Both task and category use Mosaic's supported
+`followers` visibility (not `friends`), so an accepted friend can see the
+seeded uncompleted task. Repeated runs preserve existing records/passwords;
 they **never** clear or refresh existing data. To test notifications, subscribe
 the viewer device to push and complete the actor's fixture task through the
 app; a task that is already completed will not emit a new completion.

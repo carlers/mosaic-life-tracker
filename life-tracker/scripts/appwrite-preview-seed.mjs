@@ -58,9 +58,9 @@ export async function seedPreviewFixtures({ users, tablesDB, password, log = con
     const id = user.id;
     const rows = [
       ['profiles', id, { user_id: id, username: user.username, display_name: user.name, created_at: now, updated_at: now, deleted: false }],
-      ['categories', 'fixture_cat_' + id, { user_id: id, name: 'Synthetic Preview', color: '#059669', order: 0, visibility: 'friends', updated_at: now, deleted: false }],
+      ['categories', 'fixture_cat_' + id, { user_id: id, name: 'Synthetic Preview', color: '#059669', order: 0, visibility: 'followers', updated_at: now, deleted: false }],
       ['diary', 'fixture_diary_' + id, { user_id: id, date: now.slice(0, 10), content: 'Synthetic preview diary', visibility: 'private', created_at: now, updated_at: now, deleted: false }],
-      ['tasks', 'fixture_task_' + id, { user_id: id, title: 'Synthetic completion test', category_id: 'fixture_cat_' + id, date: now.slice(0, 10), created_at: now, updated_at: now, is_completed: false, visibility: 'friends', deleted: false }],
+      ['tasks', 'fixture_task_' + id, { user_id: id, title: 'Synthetic completion test', category_id: 'fixture_cat_' + id, date: now.slice(0, 10), created_at: now, updated_at: now, is_completed: false, visibility: 'followers', deleted: false }],
     ];
     for (const [table, rowId, data] of rows) {
       if (await ensureRow(tablesDB, table, rowId, data, id)) result.rows++;
