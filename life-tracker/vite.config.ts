@@ -2,6 +2,12 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
 import basicSsl from '@vitejs/plugin-basic-ssl';
+import { assertPreviewBackendIsolation } from './scripts/lib/preview-backend-isolation.mjs';
+
+const verifiedPreviewBackend = assertPreviewBackendIsolation(process.env);
+if (verifiedPreviewBackend) {
+  console.info(`[Mosaic] Preview backend: scratch Appwrite ${verifiedPreviewBackend.projectId} (${verifiedPreviewBackend.endpoint})`);
+}
 
 const isLocalBuild = !process.env.VERCEL_ENV;
 const isOfficialMosaicBuild =
