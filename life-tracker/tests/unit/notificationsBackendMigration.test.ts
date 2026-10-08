@@ -42,7 +42,7 @@ describe('notifications backend migration', () => {
     await expect(migrateNotificationRetentionIndex({ request })).resolves.toEqual({ created: true });
     expect(request).toHaveBeenCalledWith(
       'POST', '/tablesdb/life_tracker/tables/notifications/indexes',
-      { key: 'idx_notification_created', type: 'key', attributes: ['created_at'] }
+      { key: 'idx_notification_created', type: 'key', columns: ['created_at'] }
     );
   });
 

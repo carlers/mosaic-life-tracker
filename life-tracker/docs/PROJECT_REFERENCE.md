@@ -971,6 +971,19 @@ from 688,000 B to 695,800 B, and unique precache from 2,323,600 B to 2,348,000 B
 1,113 B, 1,089 B, and 1,046 B of measured Vercel headroom respectively. Entry and startup/Home
 ceilings remain unchanged. This is measured product growth, not a blanket threshold increase.
 
+A fifth reviewed 2026-10-08 exception covers the incremental Alerts retention and
+friend-task navigation upgrade. Provider-matched Vercel builds measured the previous
+accepted Alerts Preview at 2,269,259 B aggregate raw / 694,953 B aggregate gzip /
+2,347,812 B unique precache and the upgraded Alerts Preview at 2,280,215 B /
+700,313 B / 2,359,848 B. The increases (+10,956 B raw, +5,360 B gzip,
++12,036 B precache) come from the new lazy Notifications Settings route,
+lazy friend-task detail sheet, retention/grouping and read-visibility logic.
+Entry, startup and Home closure remain under the existing reviewed ceilings.
+After that provider-matched measurement, only aggregate raw/gzip and precache
+ceilings rise to 2,281,400 B / 701,400 B / 2,361,000 B, retaining 1,185 B,
+1,087 B and 1,152 B headroom. This is scoped product growth, not an
+unconditional size-budget reset.
+
 The current baseline and limits live in
 `config/build-size-budget.json` and are pinned by unit coverage.
 
