@@ -1,16 +1,13 @@
 # Session checkpoint
 
-Updated: 2026-10-08. Active task: user-requested Version disclosure refinement on `chatgpt/alerts-version-details-collapse`, based on accepted Alerts Preview `feature/notifications-alerts` commit `61b6791b`.
+Updated: 2026-10-08. Current work: accepted `feature/notifications-alerts` v0.5.1 merged to `dev` by PR #387, merge commit `9b51987f`. GitHub promotion acceptance reused the identical stable Preview tree.
 
-## Scope and current state
+## Dev delivery repair
 
-- The combined Alerts + semantic versioning stable Preview first shipped **0.5.0** with full canonical CI and READY Scratch Vercel. This subsequent **user-testable Preview refinement is 0.5.1**.
-- Settings keeps **Version** and its number visible by default, with all app/build diagnostics (effective Appwrite backend, branch, commit and message) hidden until the Version row is opened. The existing multiline commit message disclosure remains nested/independent.
-- Keep exact Appwrite isolation unchanged: Preview and dev use Scratch; main uses Production. Production `push_subscriptions.include_task_details` still needs approved `006-push-details` migration before a main backend activation. No backend changes are part of this task.
-- Keep the Preview `feature/notifications-alerts` as the accepted destination; PR #387 to dev remains draft until explicit user approval. No dev/main production merge is authorized by this request.
+- The new dev Vercel deployment initially failed only the `precacheUniqueBytes` guard by **416 bytes** (2,376,316 B vs 2,375,900 B). The larger Git merge subject/body was embedded in the `mosaic-build-info` HTML meta tag; app assets, PWA policy and GitHub CI passed.
+- Fix on `chatgpt/fix-dev-precache-metadata` based on stable `feature/notifications-alerts`: discount **only the variable build-info content attribute** from the precache code-size regression metric, preserve shipped bytes and full commit details, and add regression coverage. No ceiling is increased.
+- This is a build-only repair of the same 0.5.1 product, **not** another user-testable feature revision. Keep version 0.5.1 unchanged. Follow focused CI → squash into stable Preview → canonical CI and READY Vercel; then use exact-tree merge promotion to dev and verify READY dev deployment.
+- Backend unchanged: dev and Previews target Scratch Appwrite, main targets Production. No production Appwrite mutation permitted; before main activation, the production `006-push-details` migration is still required.
+- Manual device acceptance for latest account-synced Alerts retention remains outstanding.
 
-## Task delivery
-
-- Update Settings interaction and DOM regression, synchronized package/lock/app version 0.5.1, and affected UI/docs in the **same** coherent focused task commit.
-- Verify focused CI on task branch, squash to stable Alerts Preview, then full canonical CI, Vercel READY and size guard. Use the registered stable Alerts Preview alias.
-- Browser/device manual acceptance of the updated disclosure and Alerts retention cross-device syncing remains separate from CI.
+Next action: finish the build-budget normalization fix, verify the accepted stable Preview and promote unchanged source tree to dev. Do not modify main or create production tags.
