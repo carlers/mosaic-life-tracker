@@ -70,6 +70,18 @@ to a prior deployment still contain the endpoint compiled at the time.
 
 The scratch project must explicitly register the stable Vercel Preview
 hostname under Appwrite Web platforms (no wildcard production host grant).
+Vercel's unique immutable deployment hostname changes on every build;
+Appwrite does **not** register it just because a branch alias is allowed.
+Use the stable branch alias from Vercel's deployment alias list for
+authenticated Preview links. If an immutable deployment hostname is needed,
+register that precise hostname separately on scratch. Before asserting login
+works, compare the Vercel Preview URL hostname with the live Appwrite
+project's Web-platform allowlist. An unregistered origin commonly surfaces
+as a generic browser "Failed to fetch" instead of an Appwrite login error.
+A web server returning HTTP 200 for `/login` only tests Vercel delivery;
+it does not validate cross-origin `/v1/account/sessions/email` requests.
+A final browser login still needs real-user/device acceptance; a read-only
+platform-list check cannot prove all network requests succeed.
 Keep synthetic/disposable data only, and revalidate the scratch project
 after DR restores/disposal. Preview creation does not automatically
 bootstrap a reset scratch project or migrate/deploy new Function code; tasks

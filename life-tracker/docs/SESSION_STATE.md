@@ -42,6 +42,29 @@ Task branch: `chatgpt/scratch-preview-isolation`; no dev/main promotion.
 - Rebuild and verify the newest Preview targets scratch, not merely that
   Vercel deploys a static bundle. Production Appwrite remains untouched.
 
+## 2026-10-08 Preview login origin repair
+
+- Latest feature Preview `dc9baa40dbda578d6a4adae7f47648cc74bdd5a1`
+  passed full canonical GitHub CI and Vercel deployment READY. Its
+  registered stable branch alias resolves `/login` with HTTP 200.
+- User tested the immutable deployment URL
+  `mosaic-life-tracker-n73x4jbnd-carls-projects-72516fde.vercel.app`
+  and reported `Failed to fetch` on login. Scratch Appwrite Web
+  platforms contained *only* the stable alias, not that URL's hostname.
+  This is a browser-origin/CORS mismatch, not a missing database table.
+- Registered the exact immutable URL as scratch-only Appwrite Web
+  platform `mosaic_notifs_dc9baa`. Verified by re-reading the list:
+  stable alias and immutable URL are both present. The production
+  Appwrite project and Vercel production variables were not touched.
+- Share the stable branch alias for authenticated Preview access.
+  Updated delivery/backend/mobile-notification docs so agents check
+  the Appwrite Web-platform allowlist before handing off any new
+  immutable Vercel Preview URL. Browser login acceptance remains
+  unverified from an actual signed-in device: the provider connector
+  proves configuration, not browser CORS or credentials.
+- Only advance to dev/main on explicit user approval and after the
+  previously pending installed-PWA/device notification acceptance.
+
 ## Remaining execution gates
 
 1. Inspect scratch Function deployment build; if ready, activate only that
