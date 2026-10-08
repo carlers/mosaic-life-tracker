@@ -62,7 +62,7 @@ export function useFriendCalendar(
   const currentUserId = user?.$id;
   const [tasks, setTasks] = useState<TaskDocument[]>([]);
   const [categories, setCategories] = useState<CategoryDocument[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(Boolean(friendUserId));
   const [error, setError] = useState<string | null>(null);
   const [errorKind, setErrorKind] = useState<
     'forbidden' | 'offline' | 'server' | null

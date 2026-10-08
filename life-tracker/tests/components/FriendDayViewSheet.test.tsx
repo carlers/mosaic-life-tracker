@@ -151,4 +151,30 @@ describe('FriendDayViewSheet', () => {
       'blob:tmimg_photo_1'
     );
   });
+  it('keeps the draggable date outside native day-swiping content', () => {
+    render(
+      <FriendDayViewSheet
+        isOpen onClose={vi.fn()} date={new Date(2026, 8, 20)}
+        onDateChange={vi.fn()} tasks={[]} categories={[]}
+        friendName="Friend" currentUserId="user_1"
+      />
+    );
+    const header = screen.getByText('Sunday, September 20, 2026');
+    expect(header).toHaveAttribute('data-bottom-sheet-drag-handle', 'true');
+    expect(header.closest('[data-bottom-sheet-native-horizontal-swipe]')).toBeNull();
+  });
+
+  it('shows task-level shared items without exposing an inaccessible category', () => {
+    render(
+      <FriendDayViewSheet
+        isOpen onClose={vi.fn()} date={new Date(2026, 8, 20)}
+        onDateChange={vi.fn()} tasks={[taskWithImage]} categories={[]}
+        friendName="Friend" currentUserId="user_1"
+      />
+    );
+    expect(screen.getByText('Shared tasks')).toBeInTheDocument();
+    expect(screen.getByText('Photo task')).toBeInTheDocument();
+    expect(screen.queryByText('Work')).not.toBeInTheDocument();
+  });
+
 });

@@ -60,6 +60,7 @@ interface FriendDayViewSheetProps {
   renderMode?: 'sheet' | 'inline';
   holidayConfig?: HolidayDisplayConfig;
   focusTaskId?: string;
+  emptyMessage?: string;
 }
 
 interface FriendDaySlideProps {
@@ -73,6 +74,7 @@ interface FriendDaySlideProps {
   onViewImage?: (task: TaskDocument) => void;
   scrollMode?: 'page' | 'contained';
   focusTaskId?: string;
+  emptyMessage?: string;
 }
 
 const EMPTY_TASKS: TaskDocument[] = [];
@@ -130,6 +132,7 @@ const FriendDaySlide: React.FC<FriendDaySlideProps> = ({
   onViewImage,
   scrollMode = 'contained',
   focusTaskId,
+  emptyMessage,
 }) => {
   const scrolledToTaskRef = useRef('');
   const focusRow = useCallback((node: HTMLDivElement | null) => {
@@ -151,19 +154,39 @@ const FriendDaySlide: React.FC<FriendDaySlideProps> = ({
     return map;
   }, [tasks]);
 
-  const visibleCategories = useMemo(
-    () =>
-      categories.filter(
-        (category) => (tasksByCategory.get(category.id) ?? EMPTY_TASKS).length > 0
-      ),
-    [categories, tasksByCategory]
-  );
+  const visibleCategories = useMemo(() => {
+    const known = new Set(categories.map((category) => category.id));
+    const visible = categories.filter(
+      (category) => (tasksByCategory.get(category.id) ?? EMPTY_TASKS).length > 0
+    );
+    // The server intentionally hides private category metadata even when an
+    // individual task overrides its visibility. Never hide that shared task
+    // or reveal the private category's name.
+    for (const categoryId of tasksByCategory.keys()) {
+      if (!known.has(categoryId)) {
+        visible.push({
+          id: categoryId,
+          name: 'Shared tasks',
+          color: '#6B7280',
+          order: Number.MAX_SAFE_INTEGER,
+          visibility: 'followers',
+          userId: '',
+          isDeleted: false,
+        });
+      }
+    }
+    return visible;
+  }, [categories, tasksByCategory]);
 
   if (tasks.length === 0) {
     return (
       <div className="text-center py-10 px-4">
-        <p className="text-xs text-gray-400 mb-5">{friendName} · 0 tasks</p>
-        <p className="text-sm text-gray-400">Nothing shared on this day.</p>
+        {!emptyMessage && (
+          <p className="text-xs text-gray-400 mb-5">{friendName} · 0 tasks</p>
+        )}
+        <p className="text-sm text-gray-400" role={emptyMessage ? 'status' : undefined}>
+          {emptyMessage || 'Nothing shared on this day.'}
+        </p>
       </div>
     );
   }
@@ -322,6 +345,7 @@ export const FriendDayViewSheet: React.FC<FriendDayViewSheetProps> = ({
   renderMode = 'sheet',
   holidayConfig = DISABLED_HOLIDAY_CONFIG,
   focusTaskId,
+  emptyMessage,
 }) => {
   const [reactionTask, setReactionTask] = useState<TaskDocument | null>(null);
   const [viewingTaskId, setViewingTaskId] = useState<string | null>(null);
@@ -438,11 +462,8 @@ export const FriendDayViewSheet: React.FC<FriendDayViewSheetProps> = ({
                   : 'w-full min-w-0'
               }
             >
-              <div
+              {renderMode === 'inline' && <div
                 className="flex shrink-0 items-center justify-between gap-2 px-4 py-2"
-                data-bottom-sheet-directional-drag-handle={
-                  renderMode === 'sheet' ? 'true' : undefined
-                }
               >
                 <button
                   type="button"
@@ -468,7 +489,7 @@ export const FriendDayViewSheet: React.FC<FriendDayViewSheetProps> = ({
                 >
                   <ChevronRight size={20} />
                 </button>
-              </div>
+              </div>}
               {dayHolidays.length > 0 && (
                 <div className="-mt-1 flex shrink-0 flex-wrap justify-center gap-1 px-4 pb-1">
                   {dayHolidays.map((holiday) => (
@@ -493,6 +514,7 @@ export const FriendDayViewSheet: React.FC<FriendDayViewSheetProps> = ({
                   onViewImage={handleViewImage}
                   scrollMode={renderMode === 'sheet' ? 'contained' : 'page'}
                   focusTaskId={focusTaskId}
+                  emptyMessage={emptyMessage}
                 />
               )}
             </div>
@@ -521,7 +543,34 @@ export const FriendDayViewSheet: React.FC<FriendDayViewSheetProps> = ({
         contentMode="fixed"
         onHorizontalSwipe={handleSheetHorizontalSwipe}
       >
-        <div className="flex h-full min-h-0 flex-col">{content}</div>
+        <div className="flex h-full min-h-0 flex-col">
+          <div className="flex shrink-0 items-center gap-2 px-4 py-2">
+            <button
+              type="button"
+              onClick={handlePrevDay}
+              className="rounded-lg p-2 text-gray-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
+              aria-label="Previous day"
+            >
+              <ChevronLeft size={20} />
+            </button>
+            <h3
+              data-bottom-sheet-drag-handle="true"
+              className="flex min-h-10 flex-1 cursor-grab touch-none select-none items-center justify-center text-center text-base font-semibold text-white active:cursor-grabbing"
+              aria-live="polite"
+            >
+              {format(date, 'EEEE, MMMM d, yyyy')}
+            </h3>
+            <button
+              type="button"
+              onClick={handleNextDay}
+              className="rounded-lg p-2 text-gray-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
+              aria-label="Next day"
+            >
+              <ChevronRight size={20} />
+            </button>
+          </div>
+          {content}
+        </div>
       </BottomSheet>
     );
 

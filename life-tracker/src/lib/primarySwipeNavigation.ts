@@ -2,7 +2,7 @@ export type PrimarySwipeDirection = 'left' | 'right';
 
 export const ROUTE_PARENT_STATE_KEY = 'parentPath';
 
-export function resolveRouteParent(pathname: string): string | null {
+export function resolveRouteParent(pathname: string, state?: unknown): string | null {
   if (/^\/messages\/[^/]+$/.test(pathname)) {
     return '/messages';
   }
@@ -17,6 +17,13 @@ export function resolveRouteParent(pathname: string): string | null {
     case '/settings/preferences':
     case '/settings/screen':
       return '/settings';
+    case '/settings/notifications':
+      // The same page is opened from Settings and the Alerts gear. Always
+      // return to the actual entry route, not a fabricated history branch.
+      return state && typeof state === 'object' &&
+        ROUTE_PARENT_STATE_KEY in state &&
+        (state as Record<string, unknown>)[ROUTE_PARENT_STATE_KEY] === '/notifications'
+        ? '/notifications' : '/settings';
     default:
       return null;
   }
@@ -42,9 +49,10 @@ export function makeRouteParentState(parentPath: string) {
 
 export function resolvePrimarySwipeDestination(
   pathname: string,
-  direction: PrimarySwipeDirection
+  direction: PrimarySwipeDirection,
+  state?: unknown
 ): string | null {
-  const parent = resolveRouteParent(pathname);
+  const parent = resolveRouteParent(pathname, state);
   if (direction === 'right' && parent) return parent;
 
   switch (pathname) {

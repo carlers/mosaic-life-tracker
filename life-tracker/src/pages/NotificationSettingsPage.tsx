@@ -3,7 +3,7 @@ import { BellRing, ChevronLeft } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { SettingsRow } from '../components/ui/SettingsRow';
 import { useAuth } from '../hooks/useAuth';
-import { hasExpectedRouteParent } from '../lib/primarySwipeNavigation';
+import { hasExpectedRouteParent, resolveRouteParent } from '../lib/primarySwipeNavigation';
 import {
   disablePushNotifications, enablePushNotifications, getPushNotificationState,
   type PushNotificationState,
@@ -42,15 +42,19 @@ export const NotificationSettingsPage: React.FC = () => {
         : await enablePushNotifications(userId));
     } catch (cause) {
       console.warn('[NotificationSettings] push toggle failed:', cause);
-      setPushState(await getPushNotificationState(userId));
+      try {
+        setPushState(await getPushNotificationState(userId));
+      } catch {
+        setPushState({ status: 'unconfigured', enabled: false, label: 'Could not check push availability' });
+      }
     } finally {
       setPending(false);
     }
   };
 
+  const backParent = resolveRouteParent(location.pathname, location.state) || '/settings';
   const back = () => {
-    const parent = location.state && typeof location.state === 'object'
-      && 'fromAlerts' in location.state ? '/notifications' : '/settings';
+    const parent = backParent;
     if (hasExpectedRouteParent(location.key, location.state, parent)) navigate(-1);
     else navigate(parent, { replace: true });
   };
@@ -60,7 +64,7 @@ export const NotificationSettingsPage: React.FC = () => {
       <header className="flex items-center gap-3 border-b border-[#2A2A2A] px-4 py-3">
         <button type="button" onClick={back}
           className="rounded-lg p-1 text-gray-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
-          aria-label="Back to settings"><ChevronLeft size={22}/></button>
+          aria-label={backParent === '/notifications' ? 'Back to Alerts' : 'Back to Settings'}><ChevronLeft size={22}/></button>
         <h1 className="text-lg font-bold">Notifications</h1>
       </header>
       <section className="border-b border-[#333333] px-4 py-5">
