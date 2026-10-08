@@ -6,7 +6,6 @@ import { useTaskImage } from '../../../hooks/useTaskImage';
 import { useBubbleGestures } from '../../../hooks/useBubbleGestures';
 import { ReactionRow } from '../../messages/ReactionRow';
 import { parseReactions } from '../../../lib/reactionUtils';
-import { getReadableTextColor } from '../../../constants/colors';
 import type { TaskDocument } from '../../../db/schema';
 
 type MemoOpenMode = 'view' | 'edit';
@@ -227,7 +226,7 @@ export const TaskItem: React.FC<TaskItemProps> = ({
           <Check
             size={15}
             strokeWidth={4}
-            style={{ color: getReadableTextColor(categoryColor) }}
+            style={{ color: '#fff' }}
             className="drop-shadow-[0_1px_1px_rgba(0,0,0,0.4)]"
             aria-hidden="true"
           />

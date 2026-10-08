@@ -27,13 +27,16 @@ They cause light-on-light and dark-on-dark contrast bugs when new surfaces
 reuse those classes. Prefer an explicit surface/text pair in the component.
 
 **Inline category/task colors:** user-selected category color is data, not a
-theme color. Keep the stored hue unchanged. For text/checkmarks directly on
-a solid category fill, use `getReadableTextColor(categoryColor)` rather than
-hard-coded white. Category labels in owner/friend pills use
-`mosaic-category-label` with `--mosaic-category-label-color`; Light mode
-darkens the displayed label without mutating the stored category hue.
-Selection tint may derive from the category hue, but its text must use the
-normal theme foreground rather than assuming an opaque category fill.
+theme color. Keep the stored hue unchanged across all appearance modes. Owner
+and friend category pills render the existing `getCategoryLabelColor` result
+directly; do not darken or blend category labels in Light mode. Completed
+task checkmarks remain white on the original category-color fills, including
+on friend views; the existing owner-task shadow helps separate the white
+glyph from lighter colors. Text in completed Calendar task blocks may still
+use `getReadableTextColor(categoryColor)` for legibility without changing
+the fill. Selection tint may derive from the category hue, but its text
+must use the normal theme foreground rather than assuming an opaque category
+fill.
 
 **Accent/semantic colors:** brand-action styling uses the existing accent
 tokens and `src/lib/accentColor.ts`, including the contrast-aware accent

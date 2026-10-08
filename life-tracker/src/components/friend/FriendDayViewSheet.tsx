@@ -21,7 +21,7 @@ import { useHorizontalArrowNavigation } from '../../hooks/useHorizontalArrowNavi
 import { useHolidaysByDate } from '../../hooks/useHolidays';
 import { parseReactions } from '../../lib/reactionUtils';
 import { visibilityIcon } from '../../lib/visibility';
-import { getCategoryLabelColor, getReadableTextColor } from '../../constants/colors';
+import { getCategoryLabelColor } from '../../constants/colors';
 import { Spinner } from '../ui/Spinner';
 import type { TaskDocument, CategoryDocument } from '../../db/schema';
 import {
@@ -213,11 +213,11 @@ const FriendDaySlide: React.FC<FriendDaySlideProps> = ({
           return (
             <div key={cat.id}>
               <div className="flex items-center mb-2">
-                <div className="mosaic-category-pill inline-flex items-center gap-2 bg-black rounded-full pl-3.5 pr-4 py-2">
+                <div className="inline-flex items-center gap-2 bg-black rounded-full pl-3.5 pr-4 py-2">
                   {visibilityIcon(catVisibility, 12, 'text-gray-400')}
                   <span
-                    className="mosaic-category-label text-sm font-bold"
-                    style={{ "--mosaic-category-label-color": getCategoryLabelColor(cat.color) } as React.CSSProperties}
+                    className="text-sm font-bold"
+                    style={{ color: getCategoryLabelColor(cat.color) }}
                   >
                     {cat.name}
                   </span>
@@ -252,7 +252,7 @@ const FriendDaySlide: React.FC<FriendDaySlideProps> = ({
                         {task.completed && (
                           <Check
                             size={9}
-                            style={{ color: getReadableTextColor(cat.color) }}
+                            style={{ color: "#fff" }}
                             strokeWidth={3.5}
                             aria-hidden="true"
                           />
