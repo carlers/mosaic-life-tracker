@@ -213,11 +213,11 @@ const FriendDaySlide: React.FC<FriendDaySlideProps> = ({
           return (
             <div key={cat.id}>
               <div className="flex items-center mb-2">
-                <div className="inline-flex items-center gap-2 bg-black rounded-full pl-3.5 pr-4 py-2">
+                <div className="mosaic-category-pill inline-flex items-center gap-2 bg-black rounded-full pl-3.5 pr-4 py-2">
                   {visibilityIcon(catVisibility, 12, 'text-gray-400')}
                   <span
-                    className="text-sm font-bold"
-                    style={{ color: getCategoryLabelColor(cat.color) }}
+                    className="mosaic-category-label text-sm font-bold"
+                    style={{ "--mosaic-category-label-color": getCategoryLabelColor(cat.color) } as React.CSSProperties}
                   >
                     {cat.name}
                   </span>

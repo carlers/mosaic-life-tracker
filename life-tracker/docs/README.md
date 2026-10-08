@@ -13,6 +13,7 @@ behavior.
 | Manual mobile task reorder acceptance | [Task reorder acceptance](MANUAL_TASK_REORDER_ACCEPTANCE.md) |
 | Mobile Android/iOS Web Push and VAPID setup | [Mobile Push setup](MOBILE_PUSH_SETUP.md) |
 | Product and architecture contracts | [Project reference](PROJECT_REFERENCE.md) |
+| Theme tokens, light/dark/black states, contrast and new component guidance | [Theme guide](THEMING.md) |
 | Sync race/edge-case coverage | [Sync scenario matrix](SYNC_SCENARIO_MATRIX.md) |
 | Build-vs-reuse decisions and refactor candidates | [Build vs reuse audit](BUILD_VS_REUSE_AUDIT.md) |
 | Release versions and build identity | [Versioning protocol](VERSIONING.md) |
