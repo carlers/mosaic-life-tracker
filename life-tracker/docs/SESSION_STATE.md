@@ -1,21 +1,19 @@
 # Session checkpoint
 
 Updated: 2026-10-08
-Current task: Mobile friend-completion notification content, tap-to-task routing, and Alerts bottom-sheet dismissal.
-Task branch: `chatgpt/notifications-mobile-deeplink` from current `feature/notifications-alerts` (20b8cc2). Never promote to dev/main without user instruction.
+Current task: Foreground-only push notification toggle, and correct diagnosis of unavailable rich-detail toggle.
+Task branch: `chatgpt/notifications-foreground-setting` from stable `feature/notifications-alerts` at `02686f5d`. Do not promote to dev/main without user instruction.
 
-## Implemented for verification
+## Findings and changes
 
-- Web Push notification clicks open generic Alerts when the SW account marker is absent/mismatched, safely navigate or open/focus the installed app, and carry an account-bound exact receipt ID only when safe. Notification tags are per-receipt rather than per-friend.
-- `get_notification` returns only one live-authorized receipt, independent of feed pagination. Alerts handles the query, opens Friend Day View directly and removes the one-time query on success. AuthPage preserves only a validated Alerts deep link across sign-in.
-- Device-local `include_task_details` opt-in stored on the server subscription; generic by default. The delivery handler fetches current task visibility/completion and uses recipient-facing friend metadata. Subscription registration preserves preference and removes former-account endpoint ownership.
-- Alerts retains the Friend Day sheet while `isOpen=false` animates; BottomSheet owns a reusable `onExitComplete` contract.
-- Added regression coverage for notification lookup, detail preference, click navigation, sign-in handoff, sheet lifecycle, and schema migration. New ordered migration `006-push-details`.
+- The live production and scratch Appwrite `push_subscriptions` tables are missing `include_task_details` (006 migration). The frontend's `get_push_details` lookup is unavailable until that schema and Function activate, explaining the greyed-out preference. Do not modify production Appwrite without separate approval.
+- Add a device-local `push-while-open` preference (default true) in the existing service worker IndexedDB metadata store. Notification Settings controls it independently of server push-detail permissions. When false, Chromium only suppresses system notifications while Mosaic is visibly open on this origin; background delivery continues.
+- WebKit/Safari requires notification display for each push, so do not consume push events invisibly there; expose the browser restriction clearly in the UI instead.
+- Improve rich-details error text to distinguish unconfigured backend from a transient lookup problem.
+- Add unit and DOM regressions for visible vs hidden clients, WebKit fallback, account mismatch, failed persistence, and settings interaction.
 
-## Verification and remaining steps
+## Next steps / rollout
 
-1. The mobile notifications implementation passed focused CI (task SHA `dc05b43`), then was squash-merged to stable Preview at `7891af0`. Canonical static, DOM, handlers, browser and dependency checks passed; build and Vercel failed only the documented app-asset/precache ceilings. The measured Vercel results justify a narrow budget acceptance repair under `chatgpt/notifications-mobile-size-budget`, using unchanged startup/Home limits. Run focused green, squash into stable Preview, then confirm the full canonical gate and Vercel READY.
-2. Run schema migration 006 and deploy/activate the matching `message-action` Function **only on the explicitly confirmed scratch Appwrite project**, then test with disposable accounts. Production Function and schema changes require separate user approval.
-3. Manual Samsung installed-PWA cold/background/foreground tap, task focus, lock-screen opt-in/off, and actual drag-down exit acceptance remain required. No manual device validation has been claimed.
-
-Prior branch `chatgpt/alerts-live-sheet-mobile-push` has diverged from stable Preview; do not merge its history blindly. Its implementation already entered feature Preview separately.
+1. Finish a single focused task verification commit, inspect and repair failures, then squash into stable `feature/notifications-alerts` Preview for canonical CI and Vercel readiness.
+2. For full rich-content acceptance, apply migration 006 and activate the checked-in `message-action` Function in disposable scratch using the Git-owned backend workflow, then validate with disposable accounts. Production schema/Function changes remain separate.
+3. Manual Samsung installed-PWA validation of visible/background/cold notifications and rich-details toggle after backend activation remains required. Device acceptance is not automated.

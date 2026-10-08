@@ -6,6 +6,7 @@ import { useAuth } from '../hooks/useAuth';
 import { hasExpectedRouteParent, resolveRouteParent } from '../lib/primarySwipeNavigation';
 import {
   disablePushNotifications, enablePushNotifications, getPushNotificationState, setPushDetails,
+  getPushWhileOpen, setPushWhileOpen, canDisableForegroundPush,
   type PushNotificationState,
 } from '../lib/pushNotifications';
 
@@ -18,6 +19,10 @@ export const NotificationSettingsPage: React.FC = () => {
     status: 'checking', enabled: false, detailsEnabled: null, label: 'Checking this device…',
   });
   const [pending, setPending] = useState(false);
+  const [pushWhileOpen, setPushWhileOpenState] = useState<boolean | null>(null);
+  const [foregroundPending, setForegroundPending] = useState(false);
+  const [foregroundError, setForegroundError] = useState('');
+  const foregroundSupported = canDisableForegroundPush();
 
   useEffect(() => {
     let active = true;
@@ -31,6 +36,31 @@ export const NotificationSettingsPage: React.FC = () => {
     });
     return () => { active = false; };
   }, [userId]);
+
+  useEffect(() => {
+    let active = true;
+    void getPushWhileOpen().then((enabled) => {
+      if (active) setPushWhileOpenState(enabled);
+    }).catch(() => {
+      if (active) setForegroundError('Could not read this device preference.');
+    });
+    return () => { active = false; };
+  }, []);
+
+  const toggleForeground = async () => {
+    if (!pushState.enabled || !foregroundSupported || pushWhileOpen === null || foregroundPending) return;
+    setForegroundPending(true);
+    setForegroundError('');
+    try {
+      const next = !pushWhileOpen;
+      await setPushWhileOpen(next);
+      setPushWhileOpenState(next);
+    } catch {
+      setForegroundError('Could not save this device preference.');
+    } finally {
+      setForegroundPending(false);
+    }
+  };
 
   const unavailable = !pushState.enabled && pushState.status !== 'available';
   const toggle = async () => {
@@ -117,7 +147,7 @@ export const NotificationSettingsPage: React.FC = () => {
               icon={<BellRing size={18} className="text-gray-400" aria-hidden="true" />}
               label="Show task details in notifications"
               value={pushState.detailsEnabled === null
-                ? 'Connect to verify this device’s preference'
+                ? pushState.detailsError || 'Unable to verify device preference'
                 : pushState.detailsEnabled ? 'Friend names and task titles shown' : 'Generic notification text'}
               showChevron={false}
               isToggle
@@ -131,6 +161,28 @@ export const NotificationSettingsPage: React.FC = () => {
               already delivered.
             </p>
           </>
+        )}
+        <SettingsRow
+          icon={<BellRing size={18} className="text-gray-400" aria-hidden="true" />}
+          label="Notify while Mosaic is open"
+          value={!foregroundSupported ? 'Not supported in this browser' :
+            !pushState.enabled ? 'Enable push first' :
+            foregroundPending ? 'Saving…' : pushWhileOpen === null
+              ? 'Checking this device…' : pushWhileOpen ? 'On' : 'Off'}
+          showChevron={false}
+          isToggle
+          checked={pushWhileOpen === true}
+          disabled={!pushState.enabled || !foregroundSupported || pushWhileOpen === null || foregroundPending}
+          onClick={() => void toggleForeground()}
+        />
+        <p className="px-5 pb-3 pt-2 text-xs text-gray-500">
+          On supported Chromium browsers, turning this off hides system push alerts
+          while Mosaic is visible. Other browsers, including iOS Safari, require
+          visible push alerts and do not support this option. Background delivery
+          and the Alerts history are unaffected.
+        </p>
+        {foregroundError && (
+          <p role="alert" className="px-5 pb-3 text-xs text-red-400">{foregroundError}</p>
         )}
         {pushState.status === 'install-required' && (
           <p className="px-5 pb-3 text-xs text-gray-400">

@@ -4,10 +4,15 @@ import { describe, expect, it, vi } from 'vitest';
 
 // The script executes inside a service worker; exercise click routing without
 // spinning up a second browser or depending on Android-specific mocks.
-function harness(activeUser: string | null, navigateRejects = false) {
+function harness(
+  activeUser: string | null,
+  navigateRejects = false,
+  options: { visible?: boolean; pushWhileOpen?: boolean; userAgent?: string } = {}
+) {
   const handlers: Record<string, (event: any) => void> = {};
   const existing = {
     url: 'https://mosaic.example/home',
+    visibilityState: options.visible ? 'visible' : 'hidden',
     navigate: vi.fn(async (_url: string) => {
       if (navigateRejects) throw new Error('Installed-window navigate unavailable');
       return existing;
@@ -29,8 +34,12 @@ function harness(activeUser: string | null, navigateRejects = false) {
           objectStoreNames: { contains: () => true },
           transaction: () => ({
             objectStore: () => ({
-              get: () => {
-                const result: any = { result: activeUser };
+              get: (key: string) => {
+                const result: any = {
+                  result: key === 'active-user'
+                    ? activeUser
+                    : options.pushWhileOpen,
+                };
                 queueMicrotask(() => result.onsuccess?.());
                 return result;
               },
@@ -42,8 +51,11 @@ function harness(activeUser: string | null, navigateRejects = false) {
       return request;
     },
   };
+  const showNotification = vi.fn(async () => {});
   const self = {
     location: { origin: 'https://mosaic.example' },
+    navigator: { userAgent: options.userAgent ?? 'Mozilla/5.0 (Linux; Android 16) Chrome/130.0' },
+    registration: { showNotification },
     clients,
     addEventListener: (event: string, handler: (event: any) => void) => {
       handlers[event] = handler;
@@ -61,11 +73,55 @@ function harness(activeUser: string | null, navigateRejects = false) {
     });
     await completed;
   };
-  return { click, existing, opened, clients };
+  const push = async (userId: string) => {
+    let completed: Promise<unknown> | undefined;
+    handlers.push({
+      data: { json: () => ({
+        userId, title: 'Mosaic', body: 'Friend completed a task',
+        url: '/notifications',
+      }) },
+      waitUntil: (promise: Promise<unknown>) => { completed = promise; },
+    });
+    await completed;
+  };
+  return { click, push, showNotification, existing, opened, clients };
 }
 
 describe('push notification click routing', () => {
   const alert = 'not_' + 'a'.repeat(32);
+  it('keeps foreground notifications enabled by default on Android', async () => {
+    const h = harness('user_a', false, { visible: true });
+    await h.push('user_a');
+    expect(h.showNotification).toHaveBeenCalledTimes(1);
+  });
+
+  it('suppresses a push only when an Android Chromium app window is visible and opted out', async () => {
+    const h = harness('user_a', false, { visible: true, pushWhileOpen: false });
+    await h.push('user_a');
+    expect(h.showNotification).not.toHaveBeenCalled();
+  });
+
+  it('keeps background delivery when foreground notifications are disabled', async () => {
+    const h = harness('user_a', false, { visible: false, pushWhileOpen: false });
+    await h.push('user_a');
+    expect(h.showNotification).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not silently consume a WebKit push on a visible iOS Home Screen app', async () => {
+    const h = harness('user_a', false, {
+      visible: true, pushWhileOpen: false,
+      userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_5) AppleWebKit/605.1.15 Version/18.5 Mobile Safari/604.1',
+    });
+    await h.push('user_a');
+    expect(h.showNotification).toHaveBeenCalledTimes(1);
+  });
+
+  it('rejects pushes addressed to a different signed-in account', async () => {
+    const h = harness('user_b', false, { visible: false, pushWhileOpen: true });
+    await h.push('user_a');
+    expect(h.showNotification).not.toHaveBeenCalled();
+  });
+
   it('opens the specific notification in an existing app window', async () => {
     const h = harness('user_a');
     await h.click('user_a', '/notifications?alert=' + alert);

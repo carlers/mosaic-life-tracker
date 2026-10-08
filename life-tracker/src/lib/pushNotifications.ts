@@ -4,6 +4,7 @@ import { sendAppAction } from './appAction';
 const PUSH_STATE_DB = 'mosaic_push_state';
 const PUSH_STATE_STORE = 'meta';
 const ACTIVE_USER_KEY = 'active-user';
+const FOREGROUND_PUSH_KEY = 'push-while-open';
 
 export type PushNotificationStatus =
   | 'checking'
@@ -20,6 +21,7 @@ export interface PushNotificationState {
   label: string;
   /** null means the server preference has not been verified. */
   detailsEnabled: boolean | null;
+  detailsError?: string;
 }
 
 interface PushConfig {
@@ -59,6 +61,36 @@ async function writeActiveUser(userId: string | null): Promise<void> {
   }
 }
 
+/** Browser-profile preference shared with the push service worker. Defaults on. */
+export async function getPushWhileOpen(): Promise<boolean> {
+  const db = await openPushStateDB();
+  try {
+    return await new Promise<boolean>((resolve, reject) => {
+      const tx = db.transaction(PUSH_STATE_STORE, 'readonly');
+      const request = tx.objectStore(PUSH_STATE_STORE).get(FOREGROUND_PUSH_KEY);
+      request.onsuccess = () => resolve(request.result !== false);
+      request.onerror = () => reject(request.error);
+    });
+  } finally {
+    db.close();
+  }
+}
+
+export async function setPushWhileOpen(enabled: boolean): Promise<void> {
+  const db = await openPushStateDB();
+  try {
+    await new Promise<void>((resolve, reject) => {
+      const tx = db.transaction(PUSH_STATE_STORE, 'readwrite');
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+      tx.onabort = () => reject(tx.error);
+      tx.objectStore(PUSH_STATE_STORE).put(enabled, FOREGROUND_PUSH_KEY);
+    });
+  } finally {
+    db.close();
+  }
+}
+
 export function setPushActiveUser(userId: string | null): Promise<void> {
   markerWrite = markerWrite.then(() => writeActiveUser(userId));
   return markerWrite;
@@ -82,6 +114,14 @@ function isStandaloneDisplay(): boolean {
     window.matchMedia?.('(display-mode: standalone)').matches === true ||
     navigatorWithStandalone.standalone === true
   );
+}
+
+/** Chromium permits foreground-only Web Push suppression. Safari/WebKit does not. */
+export function canDisableForegroundPush(): boolean {
+  if (typeof navigator === 'undefined') return false;
+  const agent = navigator.userAgent || '';
+  return /Chrome|Chromium|Edg|SamsungBrowser/i.test(agent) &&
+    !/iPhone|iPad|iPod/i.test(agent);
 }
 
 function supportsWebPush(): boolean {
@@ -222,14 +262,22 @@ export async function getPushNotificationState(
       }
     }
     let detailsEnabled: boolean | null = null;
+    let detailsError: string | undefined;
     if (userId && getConnectivitySnapshot().status === 'online') {
       try {
         detailsEnabled = await readPushDetails(userId, subscription.endpoint);
       } catch (error) {
         console.warn('[pushNotifications] details check failed:', error);
+        const code = (error as { code?: number }).code;
+        detailsError = code === 400 || code === 500
+          ? 'Requires Appwrite notification backend update'
+          : 'Could not verify the preference. Try again later.';
       }
     }
-    return state('enabled', 'Enabled on this device', true, detailsEnabled);
+    return {
+      ...state('enabled', 'Enabled on this device', true, detailsEnabled),
+      ...(detailsError ? { detailsError } : {}),
+    };
   }
 
   if (getConnectivitySnapshot().status !== 'online') {
