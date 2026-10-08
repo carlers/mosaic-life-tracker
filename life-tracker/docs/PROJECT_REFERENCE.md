@@ -998,6 +998,23 @@ aggregate limits are revised to 2,284,500 B raw / 702,200 B gzip /
 2,364,000 B unique precache, leaving 1,217 B / 1,116 B / 1,162 B
 respectively. This is measured feature acceptance, not unbounded slack.
 
+A seventh reviewed 2026-10-08 exception accepts mobile notification tap-to-task routing,
+per-device opt-in detailed push copy, and the shared Alerts sheet exit lifecycle.
+Provider-matched Vercel output for the preceding accepted gesture/fast-task Preview
+was 2,283,283 B aggregate raw / 701,084 B aggregate gzip / 2,362,838 B
+unique precache; the complete notification-navigation Preview measured
+2,286,639 B / 702,236 B / 2,367,425 B: +3,356 B raw, +1,152 B gzip,
+and +4,587 B precache. Independent GitHub Actions measured 2,284,560 B raw /
+701,149 B gzip / 2,364,611 B precache for that same tree. The measured
+growth comes from the browser notification click path, authorized deep links,
+device push-detail preference, and sheet lifecycle; backend Function/schema
+source is not shipped in the frontend asset graph. Entry, startup and Home
+static closure limits are unchanged and all passed. Based on those provider-
+matched values, aggregate raw/gzip/precache ceilings are revised to
+2,287,800 B / 703,400 B / 2,368,700 B, leaving 1,161 B / 1,164 B /
+1,275 B of measured Vercel headroom. This is scoped reviewed product growth
+rather than general budget expansion.
+
 The current baseline and limits live in
 `config/build-size-budget.json` and are pinned by unit coverage.
 
