@@ -62,7 +62,7 @@ describe('handoff state', () => {
 
   it('rejects an incomplete state document', () => {
     expect(() => validateSessionState('# Session state\nUpdated: today\n')).toThrow(
-      /missing required fields/
+      /SESSION_STATE\.md is missing/
     );
   });
 });
