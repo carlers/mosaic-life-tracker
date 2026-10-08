@@ -6,6 +6,7 @@ import { useTaskImage } from '../../../hooks/useTaskImage';
 import { useBubbleGestures } from '../../../hooks/useBubbleGestures';
 import { ReactionRow } from '../../messages/ReactionRow';
 import { parseReactions } from '../../../lib/reactionUtils';
+import { getReadableTextColor } from '../../../constants/colors';
 import type { TaskDocument } from '../../../db/schema';
 
 type MemoOpenMode = 'view' | 'edit';
@@ -195,11 +196,11 @@ export const TaskItem: React.FC<TaskItemProps> = ({
           onToggleSelection?.();
         }
       } : undefined}
-      className="flex scroll-mt-16 items-start gap-3 rounded-lg pl-0 pr-2 py-2 transition-[background-color,box-shadow] duration-200 focus:outline-none data-[search-focused=true]:ring-1 data-[search-focused=true]:ring-emerald-400/60"
+      className="flex scroll-mt-16 items-start gap-3 rounded-lg pl-0 pr-2 py-2 transition-[background-color,box-shadow] duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 data-[search-focused=true]:ring-1 data-[search-focused=true]:ring-emerald-400/60"
       style={
         isDragOverlay
           ? {
-              backgroundColor: '#111111',
+              backgroundColor: 'var(--mosaic-bg)',
               boxShadow: '0 14px 36px rgba(0, 0, 0, 0.38)',
               pointerEvents: 'none',
             }
@@ -226,7 +227,7 @@ export const TaskItem: React.FC<TaskItemProps> = ({
           <Check
             size={15}
             strokeWidth={4}
-            style={{ color: '#fff' }}
+            style={{ color: getReadableTextColor(categoryColor) }}
             className="drop-shadow-[0_1px_1px_rgba(0,0,0,0.4)]"
             aria-hidden="true"
           />
