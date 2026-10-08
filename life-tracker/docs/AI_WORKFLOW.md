@@ -13,6 +13,18 @@ checkpoint after CI turns green. Then follow [delivery](DELIVERY.md). No mandato
 model selection, response footers, verbatim prompt copies, or evidence ledger. [Telemetry](WORKFLOW_TELEMETRY.md)
 is optional. Batch independent reads and ask for missing files together.
 
+## Issues as work intake
+
+For "add to backlog", "plan issue #N", "critique issue #N", and "implement #N",
+follow [GitHub Issues workflow](ISSUE_WORKFLOW.md). Explicit capture is a
+lightweight GitHub write, not a development task or permission to implement.
+Planning records the issue's intent and acceptance criteria without copying the
+whole roadmap into every issue. An approved issue is read alongside the current
+Git checkpoint, not substituted for repository contracts. Link the issue in task
+PRs and keep the issue open until the documented acceptance/release boundary.
+If GitHub issue tools are unavailable, return a copy-ready issue and state that
+nothing was saved; never fabricate issue numbers, links, or updates.
+
 ## Preview version and promotion subject
 
 New user-visible capabilities get a planned MINOR version; each later successfully delivered user-testable refinement gets one PATCH. A failed provider build consumes no new version. Reconcile reserved versions against main, dev and other active Preview branches; independent feature versions cannot collide. Apply the version in the **same task commit** as the deliverable changes, synchronize package.json, package-lock.json and src/lib/appVersion.ts with `npm run version:set -- X.Y.Z` or `version:bump`, and validate with `npm run version:check`. Never bump during an accepted stable Preview -> dev -> main promotion; changing the accepted tree mandates a fresh Preview acceptance. Follow [versioning](VERSIONING.md).
