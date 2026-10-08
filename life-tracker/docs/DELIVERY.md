@@ -2,6 +2,13 @@
 
 ## Authorized completion
 
+When work originates from a GitHub Issue, include a stable issue reference in the
+task PR and carry that context into the stable Preview handoff; see
+[issue workflow](ISSUE_WORKFLOW.md). Use `Refs #N` rather than auto-closing
+keywords before required main-release acceptance. GitHub Issue closure and Project
+boards never replace branch, CI, Appwrite, manual, or promotion gates.
+
+
 Commit only task paths (never blanket-stage unrelated edits) on a `chatgpt/**` or
 `codex/**` task branch. Batch remote edits and prefer one coherent verification push rather
 than pushing each small repair. GitHub-connected Chat must preflight Code Mode connector-call

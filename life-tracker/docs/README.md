@@ -6,7 +6,8 @@ behavior.
 | Concern | Source |
 |---|---|
 | Active task and next action | [Session checkpoint](SESSION_STATE.md) |
-| Delivered work and backlog | [Roadmap](PLAN.md) |
+| Delivered work and roadmap | [Roadmap](PLAN.md) |
+| Engineering issue capture, planning, and status | [GitHub Issues workflow](ISSUE_WORKFLOW.md) |
 | Local, cloud, connected chat, offline chat | [AI workflow](AI_WORKFLOW.md) |
 | CI, branch delivery, Preview/device acceptance | [Delivery](DELIVERY.md) |
 | Focused tests and regression strategy | [Test workflow](TEST_WORKFLOW.md) |
