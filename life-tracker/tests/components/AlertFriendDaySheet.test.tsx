@@ -58,7 +58,7 @@ vi.mock('../../src/components/friend/FriendDayViewSheet', () => ({
     }, []);
     return (
       <div role="dialog" aria-label="Friend day view">
-        <span>{emptyMessage ?? 'Ready'}</span>
+        <span role={emptyMessage ? 'status' : undefined}>{emptyMessage ?? 'Ready'}</span>
         <span>{tasks.map((task) => task.title).join(', ')}</span>
       </div>
     );

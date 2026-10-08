@@ -172,6 +172,7 @@ const FriendDaySlide: React.FC<FriendDaySlideProps> = ({
           visibility: 'followers',
           userId: '',
           isDeleted: false,
+          updatedAt: '',
         });
       }
     }
