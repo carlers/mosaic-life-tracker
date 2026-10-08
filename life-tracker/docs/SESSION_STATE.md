@@ -1,42 +1,47 @@
 # Session checkpoint
 
-Updated: 2026-10-09. Current work: integrate the ChatGPT-first GitHub Issues
-intake/plan/handoff workflow (#395) with current `dev` v0.5.3.
+Updated: 2026-10-09
+Current task: #415 — critique and strengthen the AI development workflow
+Status: implementation checkpoint prepared for focused CI
+Next action: run focused checks on `chatgpt/ai-workflow-critique`, squash into `refactor/ai-workflow-critique` for canonical CI/Preview, and request approval before promotion to `dev`.
+Blockers: no identified source blocker; remote CI/Preview checks not yet completed.
 
 ## Intent and scope
 
-- Record short Mosaic development ideas as GitHub issues without automatically
-  starting implementation; retrieve and expand them on explicit planning requests.
-- Preserve public-repo privacy limits, duplicate checks, planned acceptance, and
-  task/PR/Preview/dev/main linkage in `docs/ISSUE_WORKFLOW.md`.
-- Keep GitHub Projects optional. Existing Git/Appwrite/CI/Preview/release rules
-  stay in force; no runtime, backend, theme, or semantic-version change.
-- Authorized separately in chat: capture the 16 approved backlog items (issues
-  #402–#417), and promote this workflow guidance to `dev` after acceptance.
-  Do not promote `main` without a new instruction.
+- Ground workflow recommendations in recent PR/CI evidence, not anecdotal speed claims.
+- Repair the incompatibility between the concise session checkpoint and handoff CLI.
+- Clarify quick-capture, read-only audit, docs/tooling, frontend, and Appwrite-dependent paths.
+- Do not weaken exact-source acceptance, Scratch isolation, manual checks, or explicit promotions.
 
-## Working references
+## Working set
 
-- Earlier implementation PR #397 delivered issue guidance on
-  `feature/github-issues-workflow` at `9d75f12f` (full CI passed), but that
-  Preview diverged from newer `dev` and cannot be safely promoted as-is.
-- Current `dev` base `7dc3a891` already carries the accepted v0.5.3 light
-  theme and env-inlining fix. The workflow documentation is reconciled on
-  `chatgpt/github-issues-dev-ready` for stable Preview
-  `feature/github-issues-workflow-dev-ready`.
-- Changes are confined to `AGENTS.md` and `docs/{AI_WORKFLOW,DELIVERY,
-  ISSUE_WORKFLOW,PLAN,README,SESSION_STATE}.md`. Theme guidance and the
-  newer dev source are preserved. No production Appwrite modification.
-- Issue #395 and the associated PR/Actions/Vercel records are authoritative
-  for live verification and promotion state; do not claim manual or CI success
-  without those records.
+- `docs/AI_WORKFLOW.md`
+- `docs/SESSION_STATE.md`
+- `scripts/lib/create-handoff.mjs`
+- `tests/unit/handoffCli.test.ts`
+- `tests/unit/documentationContracts.test.ts`
 
-## Next action and remaining checks
+## Completed substeps
 
-Complete focused CI, reconcile/accept the stable Preview, verify canonical CI
-and Vercel READY, then merge its unchanged accepted source tree to `dev` per
-explicit user approval. Confirm the `dev` deployment. New-chat issue-handoff
-acceptance requires a separate actual conversation; it is not assumed.
+- Read current `dev` docs, task #415, Quality Gate, handoff scripts, and recent PRs.
+- Verified a browser-contract failure in run 37812228117, passing recheck in
+  37812926535, and exact-tree dev promotion reuse in run 37816839080.
+- Found current `SESSION_STATE.md` differs from the CLI's legacy required headings.
+- Kept delivery policy unchanged; prepared a compatibility fix and regression coverage.
 
-Previous outstanding production migration `006-push-details` and physical-device
-theme/Alerts checks remain out of scope.
+## Remaining substeps
+
+- Focused CI for task SHA; investigate and repair any failure.
+- Stable Preview canonical CI and Vercel verification, then issue #415 evidence update.
+- Optional human acceptance; separate explicit approval for Preview → `dev`.
+- #414 owns wider documentation restructuring and stale README cleanup.
+
+## Constraints
+
+- No changes to product behavior, visual design, Appwrite, release version, or CI gates.
+- Preserve old and compact handoff input formats, safe file-path handling, and public-repo privacy.
+
+## Verification
+
+- GitHub historical Actions reviewed; newly changed tree has not yet been tested.
+- Manual or physical-device verification is not applicable to this CLI/docs-only change.
