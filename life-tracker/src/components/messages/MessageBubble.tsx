@@ -63,7 +63,7 @@ const StatusRow: React.FC<StatusRowProps> = ({
   createdAt,
 }) => {
   return (
-    <div className="mt-1 flex items-center justify-end gap-1 text-[10px] text-mosaicMuted min-h-[14px]">
+    <div className="mt-1 flex items-center justify-end gap-1 text-[10px] text-gray-400 min-h-[14px]">
       {statusKind === 'read' ? (
         <>
           <CheckCheck size={12} />
@@ -94,7 +94,7 @@ const UnsentBubble: React.FC<UnsentBubbleProps> = ({ isOutgoing }) => {
   return (
     <div className={`flex ${isOutgoing ? 'justify-end' : 'justify-start'}`}>
       <div className="relative max-w-[75%]">
-        <div className="block w-full text-left rounded-2xl px-3 py-2 bg-mosaicChatOutgoing text-mosaicMuted">
+        <div className="block w-full text-left rounded-2xl px-3 py-2 bg-surfaceHighlight text-gray-400">
           <span className="italic text-gray-400 text-sm">Message deleted</span>
         </div>
         <div className="mt-1 flex items-center gap-1 text-[10px] text-gray-400 min-h-[14px]">
@@ -206,8 +206,8 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
           }}
           className={`select-none block w-full text-left rounded-2xl px-3 py-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 ${
             isOutgoing
-              ? 'bg-mosaicChatOutgoing text-mosaicText'
-              : 'bg-mosaicChatIncoming border border-mosaicBorderStrong text-mosaicText'
+              ? 'bg-surfaceHighlight text-mosaicText'
+              : 'bg-mosaicIncoming border border-[#444444] text-mosaicText'
           }`}
           aria-label={buildBubbleLabel(
             message,
@@ -221,7 +221,7 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
               onClick={() => onQuoteTap?.(message.replyToId)}
               onPointerDown={(e) => e.stopPropagation()}
               className={`w-full text-left mb-1.5 rounded-lg px-2 py-1 ${
-                isOutgoing ? 'bg-mosaicChatQuoteOutgoing' : 'bg-mosaicChatQuoteIncoming'
+                isOutgoing ? 'bg-surface' : 'bg-surfaceHighlight'
               }`}
             >
               <ReplyPreview

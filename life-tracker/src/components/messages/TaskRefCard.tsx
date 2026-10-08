@@ -18,7 +18,7 @@ export const TaskRefCard: React.FC<TaskRefCardProps> = ({
     ? format(new Date(`${date}T00:00:00`), 'MMM d, yyyy')
     : '';
   return (
-    <div className="flex items-start gap-2 bg-mosaicChatQuoteOutgoing border border-mosaicBorder rounded-lg p-2 mb-1.5 max-w-full">
+    <div className="flex items-start gap-2 bg-surface border border-[#333333] rounded-lg p-2 mb-1.5 max-w-full">
       <div
         className="w-1 flex-shrink-0 rounded-full self-stretch"
         style={{ backgroundColor: color || '#6B7280' }}
