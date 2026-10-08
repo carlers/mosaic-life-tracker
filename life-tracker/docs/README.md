@@ -24,6 +24,7 @@ behavior.
 | One-way TodoMate personal-data migration | [TodoMate import](TODOMATE_IMPORT.md) |
 | Forking, fresh Appwrite bootstrap, maintainer continuity | [Forking and recovery](FORKING.md) |
 | Appwrite schema/Function version control and scratch-project workflow | [Appwrite backend workflow](APPWRITE_BACKEND_WORKFLOW.md) |
+| Reusable scratch Preview backend parity, safe migrations and synthetic accounts | [Scratch Preview workflow](SCRATCH_PREVIEW_WORKFLOW.md) |
 | Administrator disaster recovery | [Disaster recovery](DISASTER_RECOVERY.md) |
 | Optional measurements/evidence ledger | [Telemetry](WORKFLOW_TELEMETRY.md) |
 

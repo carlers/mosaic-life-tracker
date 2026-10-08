@@ -51,6 +51,18 @@ This roadmap records durable workstreams and batch status. `SESSION_STATE.md` co
 - [x] Permanent account erasure — marker-backed irreversible pivot, fail-closed ambiguous clients, account-scoped local erasure, idempotent/retryable cleanup, stale peer-reference sanitization, DR key-rotation support, schema/erasure-policy checks, and large-account Function-budget hardening are accepted. Disposable-account live acceptance removed Auth, sessions, owned/cross-user rows, embedded references, deletion job, and all 37 owned files; the timeout retry completed in 15.6s after peer-scan prefiltering.
 - [ ] Phase 4 — final production acceptance and main release
 
+## Scratch Preview parity (2026-10-08)
+
+- [x] Reconcile scratch's missing Diary `created_at`, account-deletion
+  resource, message indexes, and required Function variable contracts without
+  copying production records.
+- [x] Add explicit scratch-target, read-only-by-default readiness CLI,
+  safe additive migration gate, synthetic fixture seed CLI, unit regressions,
+  and agent/Preview handoff documentation.
+- [ ] Verify fixture seeding with real scratch project credentials, auth-policy
+  parity including disabled invites, and full browser login/TodoMate import
+  convergence on a disposable account. No cloud credential is committed.
+
 ## Disaster recovery and backend capacity
 
 - [ ] Complete provider-independent disaster-backup rollout on `security/disaster-backups`: exporter/restore/health-check code, R2 secrets/key escrow, the first verified production `COMPLETED` snapshot, isolated restore/full verification, recovered Function deployment, manual application acceptance, and the accepted production backup schedule are complete; only default-branch delivery plus external watcher activation remain.
