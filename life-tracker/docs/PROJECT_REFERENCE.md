@@ -902,6 +902,14 @@ counted. The actual built HTML, cached bytes and expanded Settings commit
 message are never truncated or excluded from the real deployment; the
 reviewed budget ceiling is not raised.
 
+Avoid dynamic `import.meta.env[name]` lookups in shipped code. Vite must
+materialize an environment object for such access, including deployment-
+specific `VITE_*` metadata, which can change bundled JS bytes between the
+identical accepted Preview tree and its `dev` merge. Use explicit
+`import.meta.env.VITE_...` references for known Appwrite configuration keys,
+then retain the fork-safe fallback resolution. This reduces cross-branch
+bundle drift without discounting genuine app code from size budgets.
+
 The guarded metrics are:
 
 - entry raw bytes
