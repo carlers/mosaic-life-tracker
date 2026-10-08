@@ -8,6 +8,9 @@ additional reading. Current code and Git override stale progress prose.
 ## Work and delivery
 
 - Follow the requested scope. Preserve unrelated edits. Default to one agent.
+- Use [GitHub Issues workflow](docs/ISSUE_WORKFLOW.md) for explicitly requested idea capture,
+  issue-first planning, cross-chat recovery, and lifecycle tracking. An issue is not
+  implementation or promotion authorization; the repo's contracts remain authoritative.
 - Resolve routine choices and complete authorized work without repeated confirmation.
 - Use focused tests during edits; broaden for shared behavior or failures. Report actual
   results and unresolved limitations. Do not manufacture red evidence or add trivial tests.

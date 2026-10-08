@@ -1,37 +1,42 @@
 # Session checkpoint
 
-Updated: 2026-10-09. Current work: deployment-only size repair after
-the user-approved v0.5.3 Light-mode Preview promotion to `dev`.
+Updated: 2026-10-09. Current work: integrate the ChatGPT-first GitHub Issues
+intake/plan/handoff workflow (#395) with current `dev` v0.5.3.
 
-## Accepted application and promotion
+## Intent and scope
 
-- Preview `fix/light-theme-contrast` SHA `286256e825611d25a524cc3e6c187b34832f8ca7`
-  passed full Actions `37812926535` and Vercel READY. The app restores
-  Light-mode contrast, original category labels, and white task checkmarks.
-- PR #399 merged to `dev` SHA `653cd6223db2836c00d0725f0ff595819ee974f5`.
-  Promotion Actions `37813797860` succeeded by exact accepted-source-tree
-  reuse (tree `f145aefa8d630d9a37c93435c3719c81819642d7`).
-- No backend changes; `main` remains unchanged.
+- Record short Mosaic development ideas as GitHub issues without automatically
+  starting implementation; retrieve and expand them on explicit planning requests.
+- Preserve public-repo privacy limits, duplicate checks, planned acceptance, and
+  task/PR/Preview/dev/main linkage in `docs/ISSUE_WORKFLOW.md`.
+- Keep GitHub Projects optional. Existing Git/Appwrite/CI/Preview/release rules
+  stay in force; no runtime, backend, theme, or semantic-version change.
+- Authorized separately in chat: capture the 16 approved backlog items (issues
+  #402–#417), and promote this workflow guidance to `dev` after acceptance.
+  Do not promote `main` without a new instruction.
 
-## Dev deployment failure and targeted repair
+## Working references
 
-- The `dev` Vercel deployment `dpl_5uhRwhzehXmcjcHYG5uPurixtGUA`
-  completed TypeScript/Vite/PWA but exceeded `appAssetsRawBytes` by 184 B:
-  2,293,484 B versus a 2,293,300 B limit. Other six metrics passed.
-- Compared with identical-tree accepted Preview, exactly 512 extra raw
-  bytes appeared in the emitted entry JS and aggregate app assets.
-- `src/lib/appwriteConfig.ts` dynamically indexes `import.meta.env[name]`,
-  which forces Vite to emit an environment object including deployment-
-  specific VITE keys. Internal branch `chatgpt/fix-dev-bundle-env-inlining`
-  replaces these with explicit static `import.meta.env.VITE_APPWRITE_*`
-  references. All fork-safe resolution and fallback behavior is preserved.
-  Regression coverage prevents dynamic env indexing from returning.
-- This is internal build determinism/size hygiene: no budget increases,
-  UI or backend changes, or additional release version. Keep v0.5.3.
+- Earlier implementation PR #397 delivered issue guidance on
+  `feature/github-issues-workflow` at `9d75f12f` (full CI passed), but that
+  Preview diverged from newer `dev` and cannot be safely promoted as-is.
+- Current `dev` base `7dc3a891` already carries the accepted v0.5.3 light
+  theme and env-inlining fix. The workflow documentation is reconciled on
+  `chatgpt/github-issues-dev-ready` for stable Preview
+  `feature/github-issues-workflow-dev-ready`.
+- Changes are confined to `AGENTS.md` and `docs/{AI_WORKFLOW,DELIVERY,
+  ISSUE_WORKFLOW,PLAN,README,SESSION_STATE}.md`. Theme guidance and the
+  newer dev source are preserved. No production Appwrite modification.
+- Issue #395 and the associated PR/Actions/Vercel records are authoritative
+  for live verification and promotion state; do not claim manual or CI success
+  without those records.
 
-## Next actions
+## Next action and remaining checks
 
-Verify focused CI/diff; squash repair into `fix/light-theme-contrast`.
-After canonical CI and READY Vercel, merge that exact accepted source tree
-to `dev` via PR and confirm `dev` READY on Scratch Appwrite.
-Physical-device appearance checks remain manual; do not promote to main.
+Complete focused CI, reconcile/accept the stable Preview, verify canonical CI
+and Vercel READY, then merge its unchanged accepted source tree to `dev` per
+explicit user approval. Confirm the `dev` deployment. New-chat issue-handoff
+acceptance requires a separate actual conversation; it is not assumed.
+
+Previous outstanding production migration `006-push-details` and physical-device
+theme/Alerts checks remain out of scope.
