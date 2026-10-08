@@ -33,5 +33,11 @@ describe('resolvePrimarySwipeDestination', () => {
     expect(resolvePrimarySwipeDestination('/settings/preferences', 'right')).toBe('/settings');
     expect(resolvePrimarySwipeDestination('/profile', 'left')).toBeNull();
     expect(resolvePrimarySwipeDestination('/settings/preferences', 'left')).toBeNull();
+    expect(resolvePrimarySwipeDestination('/settings/notifications', 'right')).toBe('/settings');
+    expect(resolvePrimarySwipeDestination('/settings/notifications', 'left')).toBeNull();
+    const fromAlerts = { parentPath: '/notifications', fromAlerts: true };
+    expect(resolvePrimarySwipeDestination('/settings/notifications', 'right', fromAlerts)).toBe('/notifications');
+    expect(resolveRouteParent('/settings/notifications', fromAlerts)).toBe('/notifications');
+    expect(resolvePrimarySwipeDestination('/settings/notifications', 'right', { parentPath: '/evil' })).toBe('/settings');
   });
 });

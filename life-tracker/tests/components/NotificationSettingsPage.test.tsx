@@ -1,6 +1,6 @@
 import React from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
@@ -37,4 +37,33 @@ describe('NotificationSettingsPage', () => {
     fireEvent.click(switchControl);
     expect(mocks.enablePushNotifications).not.toHaveBeenCalled();
   });
+  it('returns to Alerts through browser history when opened from the Alerts gear', async () => {
+    render(
+      <MemoryRouter initialEntries={[
+        '/notifications',
+        { pathname: '/settings/notifications', state: { parentPath: '/notifications', fromAlerts: true } },
+      ]} initialIndex={1}>
+        <Routes>
+          <Route path="/notifications" element={<p>Alerts route</p>} />
+          <Route path="/settings/notifications" element={<NotificationSettingsPage />} />
+        </Routes>
+      </MemoryRouter>
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Back to Alerts' }));
+    expect(await screen.findByText('Alerts route')).toBeInTheDocument();
+  });
+
+  it('falls back to Settings on direct navigation without parent history', async () => {
+    render(
+      <MemoryRouter initialEntries={['/settings/notifications']}>
+        <Routes>
+          <Route path="/settings" element={<p>Settings route</p>} />
+          <Route path="/settings/notifications" element={<NotificationSettingsPage />} />
+        </Routes>
+      </MemoryRouter>
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Back to Settings' }));
+    expect(await screen.findByText('Settings route')).toBeInTheDocument();
+  });
+
 });

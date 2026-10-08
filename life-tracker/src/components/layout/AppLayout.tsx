@@ -102,8 +102,8 @@ export const AppLayout: React.FC = () => {
   const path = location.pathname;
   const isChatDetail = /^\/messages\/[^/]+$/.test(path);
   const isFriendCalendarDetail = /^\/friends\/[^/]+$/.test(path);
-  const leftSwipeDestination = resolvePrimarySwipeDestination(path, 'left');
-  const rightSwipeDestination = resolvePrimarySwipeDestination(path, 'right');
+  const leftSwipeDestination = resolvePrimarySwipeDestination(path, 'left', location.state);
+  const rightSwipeDestination = resolvePrimarySwipeDestination(path, 'right', location.state);
   const messagesIsAdjacent =
     leftSwipeDestination === '/messages' ||
     rightSwipeDestination === '/messages';
@@ -324,24 +324,20 @@ export const AppLayout: React.FC = () => {
   // network returns.
   let activeTab: TabId = 'home';
   if (path.includes('explore') || path.startsWith('/friends/')) activeTab = 'explore';
-  else if (path.includes('notifications')) activeTab = 'notifications';
-  else if (path.includes('messages')) activeTab = 'messages';
-  else if (
-    path.includes('account') ||
-    path.includes('settings') ||
-    path.includes('profile')
-  ) {
+  else if (path.includes('account') || path.startsWith('/settings') || path.includes('profile')) {
+    // A Settings child must not be mistaken for the Alerts primary tab.
     activeTab = 'account';
-  }
+  } else if (path === '/notifications') activeTab = 'notifications';
+  else if (path.includes('messages')) activeTab = 'messages';
 
   const handleTabChange = (tab: TabId) => {
     navigate(`/${tab}`);
   };
   const handleRouteSwipe = (direction: PrimarySwipeDirection) => {
-    const destination = resolvePrimarySwipeDestination(path, direction);
+    const destination = resolvePrimarySwipeDestination(path, direction, location.state);
     if (!destination) return;
 
-    const parent = resolveRouteParent(path);
+    const parent = resolveRouteParent(path, location.state);
     if (direction === 'right' && parent) {
       if (hasExpectedRouteParent(location.key, location.state, parent)) {
         navigate(-1);

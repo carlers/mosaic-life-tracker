@@ -1,23 +1,20 @@
 # Session checkpoint
 
 Updated: 2026-10-08
-Current task: Alerts retention, truthful grouping, friend task navigation, and Notifications settings.
-Branch: `chatgpt/alerts-retention-final` based on `feature/notifications-alerts`. Do not promote to dev without explicit user instruction.
-Status: Implementation checkpoint for focused verification; stable Preview and backend rollout must follow repo workflow. Production Alerts Function remains the earlier accepted version until this feature passes CI.
+Current task: Polish Alerts → Friend Day View and Notification Settings swipe, reduce friend-task loading latency.
+Branch: `chatgpt/alerts-ux-fast-friend-day` from the accepted `feature/notifications-alerts` tree `1c5471db`. No dev/main promotion without user instruction.
+Status: Implementation ready for focused verification and follow-up stable Preview canonical acceptance. Current production backend remains the previous accepted release until the exact new Function code has been tested and deployed through the Git-owned workflow.
 
-## Implemented intent
+## Scope and implementation
 
-- Read alerts hide 24h after first server-owned read, unread ones 7 days after server arrival. Hidden read receipts persist until seven-day GC to prevent event replays; completions >7 days old do not create new alerts.
-- Account-local offline cache applies the same expiry predicate. Appwrite feed scans bounded pagination windows across expired or privacy-filtered rows.
-- Hourly bounded maintenance removes seven-day-old receipts with the new created_at index from additive migration 005. Preserve tombstone GC and account-erasure maintenance.
-- Live Alerts reads individual tasks after 1.5 seconds at 60% foreground visibility, or via explicit "Mark loaded read"; swipe previews and background/offscreen tasks never mark read.
-- Activity groups are fixed local 30-minute completion-time windows with exact per-task clock times.
-- Tapping a task loads the friend calendar and opens FriendDayViewSheet on its current scheduled date, highlighting it.
-- Push controls move from Preferences to Settings → Notifications. Alerts header links there. Web Push remains disabled pending separate security/device acceptance.
+- Notification Settings now resolves the validated opener (/settings or /notifications) in the existing parent-route/swipe system, including deep-link fallback and consistent Back button. Settings child route is no longer incorrectly classified as the Alerts primary tab.
+- Friend Day View uses the draggable date heading outside the nested Swiper; adjacent day arrows and native horizontal task/day scrolling keep their own gesture ownership. A shared task under a hidden private category remains visible under a neutral "Shared tasks" label with no category-name leak.
+- Alerts pointer/focus intent preloads the lazy task sheet. `get_friend_task` is a lightweight server-side mutual-friend+completion+visibility authorized fetch; the full calendar is started only after it responds. This avoids blocking the initial sheet on all historical friend tasks; it falls back for staggered old backend or cached offline use. The sheet stays mounted during loading and shows a task-specific loading/unavailable state.
+- Existing `get_friend_calendar` category and task list queries now run concurrently. Tests cover auth/privacy, live-target fallback, drag isolation, hidden categories, and route parent resolution. No schema migration or new Function required.
 
-## Required next steps
+## Remaining delivery
 
-1. Focused tests, repair and diff review.
-2. Squash into `feature/notifications-alerts`; full canonical gate and Vercel Preview.
-3. Validate migration 005 on scratch, then production with explicit target; deploy and activate exact accepted Function SHA and verify scheduled cleanup.
-4. Manual browser acceptance of scroll visibility, sheet/Back stack, day swipes, offline behavior, light/wide modes. Android/iOS device push remains pending VAPID security review.
+1. Run focused CI and resolve all failures.
+2. Squash the task PR into `feature/notifications-alerts`; wait for full canonical gate and Vercel Preview acceptance, including reviewed bundle-size impact.
+3. Deploy the exact accepted `message-action` SHA inactive to scratch, smoke-test, then activate scratch/production using explicit project targets and preserve Function event/schedule configuration. Verify live task lookup with a disposable accepted-friend pair if available; otherwise report manual acceptance pending.
+4. Manual device acceptance: drag date header downward, horizontal friend days, iOS/Android Back stack, swipe right from both Notification Settings entry points, and fast tap-to-task. Web Push remains separately disabled pending VAPID/security acceptance.

@@ -48,8 +48,9 @@ import {
 } from '../lib/reactionUtils';
 import { getReadableTextColor } from '../constants/colors';
 
+const loadAlertFriendDaySheet = () => import('../components/friend/AlertFriendDaySheet');
 const AlertFriendDaySheet = lazy(() =>
-  import('../components/friend/AlertFriendDaySheet').then(({ AlertFriendDaySheet }) => ({
+  loadAlertFriendDaySheet().then(({ AlertFriendDaySheet }) => ({
     default: AlertFriendDaySheet,
   }))
 );
@@ -598,6 +599,9 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({
                               <button type="button"
                                 disabled={!canInteract}
                                 onClick={() => setDayTarget(item)}
+                                onPointerDown={() => { void loadAlertFriendDaySheet(); }}
+                                onMouseEnter={() => { void loadAlertFriendDaySheet(); }}
+                                onFocus={() => { void loadAlertFriendDaySheet(); }}
                                 className="w-full break-words text-left text-[0.95rem] leading-snug text-gray-100 disabled:opacity-70 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
                                 aria-label={`View ${item.task.title} in friend day view`}>
                                 {item.task.title}
