@@ -1,5 +1,5 @@
 import React from 'react';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { NotificationItem } from '../../src/lib/notifications';
 
@@ -261,7 +261,9 @@ describe('NotificationsPage', () => {
     render(<NotificationsPage />);
     await waitFor(() => expect(mocks.fetchNotifications).toHaveBeenCalledTimes(1));
 
-    window.dispatchEvent(new Event('focus'));
+    act(() => {
+      window.dispatchEvent(new Event('focus'));
+    });
 
     await waitFor(() => expect(mocks.fetchNotifications).toHaveBeenCalledTimes(2));
   });

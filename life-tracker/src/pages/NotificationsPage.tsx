@@ -1,7 +1,6 @@
 import React, {
   useCallback,
   useEffect,
-  useMemo,
   useRef,
   useState,
 } from 'react';
@@ -242,21 +241,14 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({
 
   useEffect(() => {
     if (preview || !feedIsCurrent) return;
-    const handleFocus = () => {
-      if (connectivity.status === 'online') {
-        void refresh();
-      }
-    };
+    const handleFocus = () => void refresh();
     window.addEventListener('focus', handleFocus);
     return () => {
       window.removeEventListener('focus', handleFocus);
     };
-  }, [connectivity.status, feedIsCurrent, preview, refresh]);
+  }, [feedIsCurrent, preview, refresh]);
 
-  const visibleItems = useMemo(
-    () => (feedIsCurrent ? items : []),
-    [feedIsCurrent, items]
-  );
+  const visibleItems = feedIsCurrent ? items : [];
   const visibleNextCursor = feedIsCurrent ? nextCursor : '';
   const visibleFetchedAt = feedIsCurrent ? fetchedAt : '';
 
@@ -287,16 +279,6 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({
             !visibleItems.some((item) => item.id === candidate.id)
         ),
       ];
-      setItems(merged);
-      setNextCursor(page.nextCursor);
-      setFetchedAt(page.fetchedAt);
-      await setCachedNotifications(userId, {
-        items: merged,
-        nextCursor: page.nextCursor,
-        fetchedAt: page.fetchedAt,
-      });
-      if (generation !== remoteGenerationRef.current) return;
-
       const unreadIds = page.items
         .filter((item) => !item.readAt)
         .map((item) => item.id);
@@ -309,16 +291,19 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({
           merged = merged.map((item) =>
             readSet.has(item.id) ? { ...item, readAt } : item
           );
-          setItems(merged);
-          await setCachedNotifications(userId, {
-            items: merged,
-            nextCursor: page.nextCursor,
-            fetchedAt: page.fetchedAt,
-          });
         } catch (readError) {
           console.warn('[NotificationsPage] mark read failed:', readError);
         }
       }
+      if (generation !== remoteGenerationRef.current) return;
+      setItems(merged);
+      setNextCursor(page.nextCursor);
+      setFetchedAt(page.fetchedAt);
+      await setCachedNotifications(userId, {
+        items: merged,
+        nextCursor: page.nextCursor,
+        fetchedAt: page.fetchedAt,
+      });
     } catch (cause) {
       if (generation !== remoteGenerationRef.current) return;
       console.error('[NotificationsPage] load more failed:', cause);
@@ -414,10 +399,7 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({
     ]
   );
 
-  const groups = useMemo(
-    () => groupActivity(visibleItems),
-    [visibleItems]
-  );
+  const groups = groupActivity(visibleItems);
   const canInteract =
     !preview && feedIsCurrent && connectivity.status === 'online';
   const currentReactionTarget =

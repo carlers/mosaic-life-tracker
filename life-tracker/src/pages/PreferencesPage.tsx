@@ -244,14 +244,7 @@ export const PreferencesPage: React.FC = () => {
   }, [user?.$id]);
 
   const pushUnavailable =
-    !pushState.enabled &&
-    [
-      'checking',
-      'unsupported',
-      'install-required',
-      'blocked',
-      'unconfigured',
-    ].includes(pushState.status);
+    !pushState.enabled && pushState.status !== 'available';
 
   const handleTogglePush = async () => {
     const userId = user?.$id;
