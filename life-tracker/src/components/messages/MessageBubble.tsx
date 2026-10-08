@@ -206,8 +206,8 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
           }}
           className={`select-none block w-full text-left rounded-2xl px-3 py-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 ${
             isOutgoing
-              ? 'bg-surfaceHighlight text-mosaicText'
-              : 'bg-mosaicIncoming border border-[#444444] text-mosaicText'
+              ? 'bg-surfaceHighlight text-white'
+              : 'bg-mosaicIncoming border border-[#444444] text-white'
           }`}
           aria-label={buildBubbleLabel(
             message,

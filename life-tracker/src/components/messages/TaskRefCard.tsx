@@ -25,7 +25,7 @@ export const TaskRefCard: React.FC<TaskRefCardProps> = ({
         aria-hidden="true"
       />
       <div className="flex-1 min-w-0">
-        <p className="text-xs font-medium text-mosaicText truncate">{title}</p>
+        <p className="text-xs font-medium text-white truncate">{title}</p>
         {dateLabel && (
           <p className="text-[10px] text-gray-400 flex items-center gap-1 mt-0.5">
             <Calendar size={9} aria-hidden="true" />
