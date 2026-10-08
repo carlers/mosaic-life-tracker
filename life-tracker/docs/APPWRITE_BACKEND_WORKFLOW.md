@@ -63,7 +63,7 @@ The three Preview-only Vercel variables are:
 `VITE_APPWRITE_PROJECT_ID`, `VITE_APPWRITE_ENDPOINT`, and
 `VITE_APPWRITE_MESSAGE_ACTION_FUNCTION_ID`. No Function API key, VAPID
 private key, or credentials belong in browser-facing `VITE_*` values.
-`vite.config.ts` calls `scripts/lib/preview-backend-isolation.mjs` to fail
+`vite.config.ts` calls `scripts/lib/preview-backend-isolation.ts` to fail
 the production build unless the Preview project ID and region endpoint match
 the configured scratch target. This check is build-time, and direct links
 to a prior deployment still contain the endpoint compiled at the time.
