@@ -38,6 +38,12 @@ Do not ask for authorization already granted. Include commit SHA/subject, checks
 deployment status in the final result. No force push across divergence and no unrelated
 remote service changes.
 
+## Versioned Preview and environment safety
+
+Before user-testable Preview acceptance, agents set the planned version in the feature tree: new capability = MINOR, each later successful user-testable refinement = PATCH; never consume numbers for internal fixes or failed builds. Use `npm run version:check` (also enforced by `contracts:check` in CI). Compare main/dev/other active Preview versions to prevent collisions; a conflict needs a newly versioned, newly accepted Preview. Stable Preview -> dev -> main retains the exact accepted version without promotion-only code changes. Follow [versioning](VERSIONING.md).
+
+Give all task squash merges and dev/main promotion merges an explicit descriptive subject and detailed body summarizing what actually changed (including aggregate work at production release); PR bodies retain mechanical acceptance/provenance. Preview and dev Vercel builds must use Scratch Appwrite, while official main uses Production. Build-time assertions enforce both targets and verify a Preview Function ID is explicit; Settings also exposes the runtime-effective Appwrite identity. In backend-dependent Preview handoffs, check the registered stable alias, scratch migrations/active Function, and disposable-user login; backend changes during a shared Preview can affect other branches before they merge. See [scratch runbook](SCRATCH_PREVIEW_WORKFLOW.md).
+
 ## One CI workflow
 
 `.github/workflows/quality-gate.yml` selects:

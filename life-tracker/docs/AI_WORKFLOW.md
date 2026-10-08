@@ -13,6 +13,14 @@ checkpoint after CI turns green. Then follow [delivery](DELIVERY.md). No mandato
 model selection, response footers, verbatim prompt copies, or evidence ledger. [Telemetry](WORKFLOW_TELEMETRY.md)
 is optional. Batch independent reads and ask for missing files together.
 
+## Preview version and promotion subject
+
+New user-visible capabilities get a planned MINOR version; each later successfully delivered user-testable refinement gets one PATCH. A failed provider build consumes no new version. Reconcile reserved versions against main, dev and other active Preview branches; independent feature versions cannot collide. Apply the version in the **same task commit** as the deliverable changes, synchronize package.json, package-lock.json and src/lib/appVersion.ts with `npm run version:set -- X.Y.Z` or `version:bump`, and validate with `npm run version:check`. Never bump during an accepted stable Preview -> dev -> main promotion; changing the accepted tree mandates a fresh Preview acceptance. Follow [versioning](VERSIONING.md).
+
+Every squash/promotion merge should have a descriptive `commit_title` and `commit_message` from the actual delivered diff, not a generic approval/branch description. Use a full body for the release changes and retain CI/provenance metadata in PR descriptions. The Settings commit display is expandable. No release tags before main CI and production deployment are green.
+
+**Environment invariant:** official Vercel Preview (including dev) uses only registered Scratch Appwrite; official main uses only Production. Browser-facing `appwrite:` Settings metadata comes from actual SDK project + endpoint, not the branch. Use stable registered Preview aliases, not unregistered immutable deployment URLs. Follow [scratch Preview readiness](SCRATCH_PREVIEW_WORKFLOW.md) only for backend-dependent work, never add Appwrite delays to frontend-only changes.
+
 ## Environment selection
 
 | Environment | Work and verification | Transfer |

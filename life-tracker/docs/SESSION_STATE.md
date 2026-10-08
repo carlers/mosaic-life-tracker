@@ -1,44 +1,20 @@
 # Session checkpoint
-Updated: 2026-10-08. Current work: notifications pre-dev-merge safety review,
-task branch `chatgpt/notifications-premerge-hardening` based on stable
-`feature/notifications-alerts` at `02f95e4c`. User requested audit and
-preparation, **not** merge to dev. Production Appwrite is read-only.
 
-## Review findings and changes
+Updated: 2026-10-08. Current work: integrate accepted `feature/semantic-versioning` into `feature/notifications-alerts` before dev promotion; task branch `chatgpt/alerts-versioning-integration` from accepted Alerts commit `54d292396c`.
 
-- Stable Preview is 26 commits ahead of dev with no reverse divergence;
-  exact-tree promotion is feasible. Prior canonical CI run `37786459130`
-  succeeded, Preview READY and scratch Function active.
-- Found an event-to-push privacy edge: stale Appwrite task snapshot could
-  still create a receipt and generic push after the live task became private,
-  deleted, uncompleted, imported or changed owner/completion timestamp.
-  Recheck live task **before** creating receipts or sending any push,
-  preserving the existing 7-day eligibility and deterministic dedupe.
-  Handler regressions include stale/removed/private live tasks.
-- Scratch synthetic fixture task/category visibility incorrectly used
-  `friends`, which is not a Mosaic visibility enum member. Set both to
-  `followers` and add fixture regression assertions; the CLI still
-  requires explicit scratch project confirmation and never copies users.
-- Production has notifications schema and `idx_notification_created`
-  but **does not yet have** `push_subscriptions.include_task_details`.
-  Before any main/production Function activation, explicitly apply
-  reviewed migration `006-push-details` to production and verify complete
-  schema; no production write authorized during this audit.
-- Scratch Function schedule is intentionally disabled, while production
-  has hourly GC; test 37-day GC in CI, do not silently enable scratch GC.
-- Retention defaults 7d unread/24h read; options sync per account,
-  37-day physical max, live friendship/task visibility revalidated.
-- No production/development branch writes. Required: focused CI for fixes,
-  squash into stable Preview, canonical CI and Vercel READY, Function
-  deployment of exact accepted commit on scratch, then draft PR into dev.
-  The actual dev merge awaits separate user approval.
+## Objective and invariants
 
-## Remaining acceptance
+- Deliver a single stable Alerts Preview at **0.5.0** (prior standalone versioning Preview was **0.4.0**), preserving the existing Alerts implementation, scratch isolation and native Settings multiline commit disclosure.
+- `dev` is an Appwrite Scratch Preview; only official `main` targets Production. Settings displays `appwrite:` from actual SDK project and endpoint, not from the Git branch.
+- Production Appwrite mutation is **not authorized** by this implementation task. Current production `push_subscriptions` lacks `include_task_details`; reviewed `006-push-details` migration is required before production Function activation.
+- Backend Scratch is shared with other Previews and is also a DR slot; no silent resets, scheduled GC or production-account copying.
+- Normal workflow: final focused task verification, squash into accepted stable Preview, full canonical CI and Vercel READY, then review PR #387. User acceptance on the combined UI and remaining real-device Alerts retention behavior is distinct from automated tests.
 
-- The user confirmed phone Sync Now and push worked in prior Preview.
-  Explicit acceptance of new per-account retention controls on **real
-  phone and laptop** is not recorded; automated tests alone do not prove
-  device sync.
-- Scratch synthetic seed operation needs admin API key/password; untested
-  against live scratch. Full disposable-account import/Diary sync still
-  requires manual acceptance as documented in SCRATCH_PREVIEW_WORKFLOW.md.
+## Implementation work
+
+- Port versioning scripts, contracts and regressions while preserving Alerts appwrite tooling; bump package/lock/UI version together to 0.5.0.
+- Bring the expandable commit message into Alerts Settings and add runtime-effective Appwrite identity.
+- Harden Preview and official Production Appwrite target guards and test mismatched project/region/Function combinations.
+- Reconcile agent workflow documentation and descriptive release merge requirements; keep the existing Notifications backend/function unchanged.
+
+Next action: finalize focused task commit and run focused CI; merge into the Alerts stable Preview on success, then validate full CI and READY Scratch Vercel deployment. Do not assume device acceptance or production migration has happened.
