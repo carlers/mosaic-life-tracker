@@ -984,6 +984,20 @@ ceilings rise to 2,281,400 B / 701,400 B / 2,361,000 B, retaining 1,185 B,
 1,087 B and 1,152 B headroom. This is scoped product growth, not an
 unconditional size-budget reset.
 
+A sixth reviewed 2026-10-08 exception covers the Alerts Friend Day View
+gesture and fast, live-authorized single-task lookup. Provider-matched Vercel
+builds measured the preceding accepted Preview at 2,280,215 B raw / 700,313 B
+gzip / 2,359,848 B unique precache and this upgrade at 2,283,283 B raw /
+701,084 B gzip / 2,362,838 B precache: +3,068 B raw, +771 B gzip and
++2,990 B precache. The growth is scoped to parent-aware route gestures,
+the lazy alert task sheet, the secure fast lookup client and focused
+interaction feedback; server Function source does not inflate the client
+bundle. Entry, initial static closure, and Home static closure remain below
+the previous unchanged ceilings. To preserve about 1 KB measured headroom,
+aggregate limits are revised to 2,284,500 B raw / 702,200 B gzip /
+2,364,000 B unique precache, leaving 1,217 B / 1,116 B / 1,162 B
+respectively. This is measured feature acceptance, not unbounded slack.
+
 The current baseline and limits live in
 `config/build-size-budget.json` and are pinned by unit coverage.
 
