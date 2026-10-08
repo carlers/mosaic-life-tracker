@@ -13,12 +13,12 @@ in `tailwind.config.js`, rather than introducing another hard-coded dark hex:
 
 | Role | Tailwind utilities |
 |---|---|
-| Main/app surfaces | `bg-background`, `bg-mosaicPanel`, `bg-mosaicRaised` |
-| Pressed/hover surfaces | `bg-mosaicPressed`, `hover:bg-mosaicPressed`, `hover:bg-mosaicHover` |
-| Borders | `border-mosaicBorder`, `border-mosaicBorderStrong` |
-| Foreground | `text-mosaicText`, `text-mosaicSecondary`, `text-mosaicMuted`, `text-mosaicFaint` |
-| Floating selection controls | `bg-mosaicFloating` |
-| Messages | `bg-mosaicChatIncoming`, `bg-mosaicChatOutgoing`, quoted equivalents |
+| Main/app surfaces | `bg-background`, `bg-surface`, `bg-surfaceHighlight` |
+| Pressed/hover surfaces | Existing mapped `bg-[#333333]` and `hover:bg-[#333333]` |
+| Borders | Existing mapped `border-[#333333]` and `border-[#444444]` |
+| Foreground | `text-mosaicText` for primary; existing `text-gray-300/400/500` for secondary/muted/faint |
+| Selection toolbar | `bg-surface`, which is readable in all palettes |
+| Messages | `bg-mosaicIncoming` for incoming, `bg-surfaceHighlight` for outgoing, nested `bg-surface` and `bg-surfaceHighlight` for quotes |
 
 Older exact dark-color class remaps remain only for migration compatibility.
 Do not expand global CSS selectors that infer semantics from unrelated class

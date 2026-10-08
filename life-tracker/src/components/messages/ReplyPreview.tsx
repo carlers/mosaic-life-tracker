@@ -19,7 +19,7 @@ export const ReplyPreview: React.FC<ReplyPreviewProps> = ({
   const isComposer = variant === 'composer';
   return (
     <div
-      className={`flex items-start gap-2 rounded-lg border-l-2 border-emerald-500 bg-mosaicChatQuoteOutgoing px-2 py-1.5 ${
+      className={`flex items-start gap-2 rounded-lg border-l-2 border-emerald-500 bg-surface px-2 py-1.5 ${
         isComposer ? 'mb-2' : 'mb-1.5'
       }`}
     >

@@ -18,6 +18,11 @@ on `chatgpt/audit-light-theme-contrast`, based on dev `0fe98f7b939ea495941bf9f84
 
 ## Acceptance and next action
 
+- The first stable Preview v0.5.2 build completed compilation/PWA policy but
+  failed fixed size ceilings: appAssetsRawBytes +1,049 B and precacheUniqueBytes
+  +384 B. No ceiling is raised. `chatgpt/fix-light-theme-size` removes redundant
+  utility aliases and reuses existing semantic palette classes before a fresh
+  task-focused check and accepted stable Preview build.
 - GitHub task-branch edits require focused CI; the stable Preview
   `fix/light-theme-contrast` requires full canonical CI, size/PWA verification,
   and READY Scratch-backed Vercel Preview.
