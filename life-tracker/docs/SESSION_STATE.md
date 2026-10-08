@@ -1,39 +1,44 @@
 # Session checkpoint
 
 Updated: 2026-10-08
-Current task: Foreground-only push notification toggle, and correct diagnosis of unavailable rich-detail toggle.
-Task branch: `chatgpt/notifications-foreground-setting` from stable `feature/notifications-alerts` at `02686f5d`. Do not promote to dev/main without user instruction.
+Task: Establish isolated scratch-backed Vercel Preview and activate/test
+notifications backend before dev/main promotion.
+Base: `feature/notifications-alerts` at `1d21ebe9906b932646463c5d45ce14ac28b68833`.
+Task branch: `chatgpt/scratch-preview-isolation`; no dev/main promotion.
 
-## Findings and changes
+## Confirmed cloud state and work performed
 
-- The live production and scratch Appwrite `push_subscriptions` tables are missing `include_task_details` (006 migration). The frontend's `get_push_details` lookup is unavailable until that schema and Function activate, explaining the greyed-out preference. Do not modify production Appwrite without separate approval.
-- Add a device-local `push-while-open` preference (default true) in the existing service worker IndexedDB metadata store. Notification Settings controls it independently of server push-detail permissions. When false, Chromium only suppresses system notifications while Mosaic is visibly open on this origin; background delivery continues.
-- WebKit/Safari requires notification display for each push, so do not consume push events invisibly there; expose the browser restriction clearly in the UI instead.
-- Improve rich-details error text to distinguish unconfigured backend from a transient lookup problem.
-- Add unit and DOM regressions for visible vs hidden clients, WebKit fallback, account mismatch, failed persistence, and settings interaction.
+- Production Appwrite project `6a9703c50016b37110ff` (sgp) and scratch
+  `6a96e82d000d1310b3be` (fra) are distinct. The old Vercel Preview
+  build used the official production fallback because no `VITE_APPWRITE_*`
+  Preview variables were previously configured.
+- Added Preview-only project ID, regional endpoint, and Function ID in the
+  existing Vercel project `mosaic-life-tracker`. Production env was untouched.
+  **Existing older Preview deployment URLs are not retargeted by env changes.**
+- Registered Appwrite scratch Web platform
+  `mosaic-life-tracker-git-feature-beac29-carls-projects-72516fde.vercel.app`.
+- Applied scratch-only `006-push-details`: `push_subscriptions.include_task_details`
+  is available with boolean type, optional and `false` default.
+- Uploaded the nine checked-in `appwrite-functions/message-action` files from
+  exact feature commit `1d21ebe9906b932646463c5d45ce14ac28b68833` to
+  scratch as inactive deployment `6ac77056dfae4233346e`. Existing active
+  deployment remains `6ac7147c94b176f3cac4` until activation.
+- Added an explicit build-time Preview backend guard in
+  `scripts/lib/preview-backend-isolation.mjs` and `vite.config.ts`, with
+  unit regression cases. The official scratch project ID and fra endpoint are
+  required for every Vercel Preview; production build remains unchanged.
 
-## Verification and delivery
+## Remaining execution gates
 
-- Foreground feature task `cd802d9a` passed focused CI, then PR #375
-  squash-merged to stable `feature/notifications-alerts` at `ffcbfe3d`.
-- Canonical GitHub unit/DOM/build/static/dependency checks passed at
-  `ffcbfe3d` (browser checks also running); Vercel build measured slightly
-  larger aggregate and precache assets than GitHub and rejected only the
-  tight size guard: Vercel raw 2,288,564 / 2,287,800 and precache
-  2,371,091 / 2,368,700. GitHub size guard passed.
-- Budget repair branch `chatgpt/notifications-foreground-size-budget`
-  documents the exact provider-matched growth and revises only aggregate
-  raw/gzip/precache ceilings. Entry, startup and Home ceilings are unchanged.
-  Run focused verification, squash the repair to stable Preview, then wait
-  for canonical success and Vercel READY.
-
-## Backend / manual acceptance remaining
-
-- Production and scratch Appwrite currently lack the
-  `push_subscriptions.include_task_details` column. Rich-detail toggle remains
-  disabled until 006 and a compatible message-action Function are explicitly
-  rolled out using the Git-owned scratch-first backend workflow; no backend
-  project has been mutated.
-- Manual Samsung PWA testing of foreground ON/OFF, background/cold delivery,
-  lock-screen details (after server rollout), and notification tap-through
-  remains outstanding. Do not claim device acceptance from browser CI.
+1. Inspect scratch Function deployment build; if ready, activate only that
+   deployment, verify active ID and smoke-test the Function. Diagnose/fix
+   failures before claim of backend acceptance.
+2. Run focused CI on the task branch; squash into stable
+   `feature/notifications-alerts` Preview and verify canonical CI +
+   a fresh Vercel READY deployment with the scratch target.
+3. Confirm the re-built Preview is linked to scratch (not merely Vercel READY),
+   and validate notification detail GET/SET plus safe task navigation using
+   disposable scratch accounts where possible.
+4. Manual Samsung installed-PWA push permission, actual foreground/background
+   delivery and lock-screen rich content require real device verification.
+   Production Appwrite remains untouched; no merge to dev or main.

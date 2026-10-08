@@ -51,6 +51,37 @@ A disposable **account** isolates user data but does not isolate project-wide sc
 Functions, buckets, schedules, or provider configuration. Use the scratch **project** when
 those resources are under test.
 
+## Vercel Preview backend isolation (2026-10-08)
+
+All official **Vercel Preview** deployments, including stable `feature/*`,
+`fix/*`, `perf/*` and `dev`, use the disposable **My first project**
+Appwrite backend (`6a96e82d000d1310b3be`, `https://fra.cloud.appwrite.io/v1`).
+Only the production Vercel environment may use production Appwrite. A
+development branch is not an authorization to use production accounts/data.
+
+The three Preview-only Vercel variables are:
+`VITE_APPWRITE_PROJECT_ID`, `VITE_APPWRITE_ENDPOINT`, and
+`VITE_APPWRITE_MESSAGE_ACTION_FUNCTION_ID`. No Function API key, VAPID
+private key, or credentials belong in browser-facing `VITE_*` values.
+`vite.config.ts` calls `scripts/lib/preview-backend-isolation.mjs` to fail
+the production build unless the Preview project ID and region endpoint match
+the configured scratch target. This check is build-time, and direct links
+to a prior deployment still contain the endpoint compiled at the time.
+
+The scratch project must explicitly register the stable Vercel Preview
+hostname under Appwrite Web platforms (no wildcard production host grant).
+Keep synthetic/disposable data only, and revalidate the scratch project
+after DR restores/disposal. Preview creation does not automatically
+bootstrap a reset scratch project or migrate/deploy new Function code; tasks
+that modify Appwrite must perform the explicitly confirmed scratch migration
+and exact-SHA inactive Function deployment, activate it and verify live
+behavior before requesting dev/main promotion.
+
+For a different scratch project, update the Git-owned isolation guard and
+Vercel Preview vars together in a reviewed task, with matching project Web
+platforms; never silently fall back to production. Deployment environment
+changes only affect **newly built** Previews; redeploy/rebuild to apply them.
+
 ## Read-only drift/status check
 
 ```bash
