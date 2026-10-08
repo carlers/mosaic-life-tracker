@@ -249,7 +249,7 @@ export const HomeTaskSearch: React.FC<HomeTaskSearchProps> = ({
                   onClick={clearCategories}
                   className={`shrink-0 rounded-full border px-3 py-1.5 text-xs transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 ${
                     selectedCategoryIds.size === 0
-                      ? 'border-[#444444] bg-[#333333] text-mosaicText'
+                      ? 'border-[#444444] bg-[#333333] text-white'
                       : 'border-[#333333] text-gray-400'
                   }`}
                 >
@@ -265,7 +265,7 @@ export const HomeTaskSearch: React.FC<HomeTaskSearchProps> = ({
                       onClick={() => toggleCategory(category.id)}
                       className={`flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 ${
                         selected
-                          ? 'border-[#444444] bg-[#333333] text-mosaicText'
+                          ? 'border-[#444444] bg-[#333333] text-white'
                           : 'border-[#333333] text-gray-400'
                       }`}
                     >
@@ -289,7 +289,7 @@ export const HomeTaskSearch: React.FC<HomeTaskSearchProps> = ({
                     onClick={() => setDateFilter(filter.value)}
                     className={`shrink-0 rounded-full border px-3 py-1.5 text-xs transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 ${
                       dateFilter === filter.value
-                        ? 'border-[#444444] bg-[#333333] text-mosaicText'
+                        ? 'border-[#444444] bg-[#333333] text-white'
                         : 'border-[#333333] text-gray-400'
                     }`}
                   >

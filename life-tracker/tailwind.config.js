@@ -11,7 +11,6 @@ export default {
         background: 'var(--mosaic-bg)',
         surface: 'var(--mosaic-surface)',
         surfaceHighlight: 'var(--mosaic-surface-elevated)',
-        mosaicText: 'var(--mosaic-text)',
         mosaicIncoming: 'var(--mosaic-chat-incoming)',
       },
       fontFamily: {

@@ -45,7 +45,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({
           style={{ transform: `translateX(${activeIndex * 100}%)` }}
           aria-hidden="true"
         >
-          <div className="w-1 h-1 bg-mosaicText rounded-full" />
+          <div className="w-1 h-1 bg-current rounded-full" />
         </div>
 
         {tabs.map((tab) => {

@@ -16,7 +16,7 @@ in `tailwind.config.js`, rather than introducing another hard-coded dark hex:
 | Main/app surfaces | `bg-background`, `bg-surface`, `bg-surfaceHighlight` |
 | Pressed/hover surfaces | Existing mapped `bg-[#333333]` and `hover:bg-[#333333]` |
 | Borders | Existing mapped `border-[#333333]` and `border-[#444444]` |
-| Foreground | `text-mosaicText` for primary; existing `text-gray-300/400/500` for secondary/muted/faint |
+| Foreground | Existing theme-remapped `text-white` for primary and `text-gray-300`, `text-gray-400`, `text-gray-500` for secondary/muted/faint |
 | Selection toolbar | `bg-surface`, which is readable in all palettes |
 | Messages | `bg-mosaicIncoming` for incoming, `bg-surfaceHighlight` for outgoing, nested `bg-surface` and `bg-surfaceHighlight` for quotes |
 
