@@ -26,15 +26,21 @@ User approved two account-synced retention dropdowns. No permission to change
 
 ## Verification and next actions
 
-- Initial full task-branch diagnostic at `9ca70d4e`: production build and
-  size guard passed (no budget increase), both DOM shards and first browser
-  shard passed. Unit job failed on a stale seven-day-cap assertion and this
-  checkpoint exceeding the 3,000-token handoff rule. Repair both together,
-  then run focused CI and squash to the stable feature Preview.
-- Deploy exact reviewed Function commit into disposable **scratch only**
-  (`6a96e82d000d1310b3be`, Frankfurt), activate after READY, confirm
-  backend retrieval/default/authorization and read-only drift check.
-  Production Appwrite must remain untouched.
+- Full task-branch diagnostic initially failed two obsolete/handoff unit
+  assertions; repaired at `0cedcaf8` with focused CI green. Squash commit
+  `a9f94cf5` passed all canonical CI and browser checks (run 37785073679).
+  Vercel independently failed its build-size guard: its actual 2,291,198
+  app raw bytes, 704,042 gzip and 2,374,031 precache exceeded the old
+  configured ceilings by 1,398 / 142 / 1,631 bytes respectively.
+  `chatgpt/alerts-retention-vercel-size-repair` makes a narrowly measured
+  3,500 / 1,200 / 3,500-byte budget allowance for this approved feature,
+  leaving other limits unchanged. Recheck Vercel READY and canonical CI.
+- Disposable scratch Function `message-action` was built from reviewed
+  commit `a9f94cf5` and activated after READY at deployment
+  `6ac79b55eeeee3f58603`. Read-back confirms activation. If the final
+  stable commit changes, repeat exact-commit deploy/activate after READY;
+  production Appwrite must remain untouched. Authenticated browser
+  retention and push acceptance still require manual phone testing.
 - Stable Preview canonical CI + READY Vercel required; share registered
   stable feature alias, not immutable deployment URL. Phone/laptop manual
   retention and push checks remain distinct from automation.
