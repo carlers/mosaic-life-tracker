@@ -10,6 +10,7 @@ export interface AppearanceContextValue {
   resolvedTheme: ResolvedAppearanceTheme;
   setAppearanceMode: (mode: AppearanceMode) => Promise<void>;
   reduceAnimations: boolean;
+  effectiveReducedMotion: boolean;
   setReduceAnimations: (enabled: boolean) => Promise<void>;
   accentColor: string;
   setAccentColor: (color: string) => Promise<void>;

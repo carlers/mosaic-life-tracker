@@ -38,6 +38,7 @@ function Consumer() {
     setAppearanceMode,
     setAccentColor,
     reduceAnimations,
+    effectiveReducedMotion,
     setReduceAnimations,
   } = useAppearance();
   return (
@@ -46,6 +47,7 @@ function Consumer() {
       <output data-testid="resolved-theme">{resolvedTheme}</output>
       <output data-testid="accent-color">{accentColor}</output>
       <output data-testid="reduce-animations">{String(reduceAnimations)}</output>
+      <output data-testid="effective-motion">{String(effectiveReducedMotion)}</output>
       <button type="button" onClick={() => void setAppearanceMode('light')}>
         Use light
       </button>
@@ -117,6 +119,27 @@ describe('AppearanceProvider', () => {
     expect(document.documentElement.dataset.reduceMotion).toBe('true');
     expect(localStorage.getItem('mosaic_reduce_animations_user_1')).toBe('true');
     expect(mocks.setSetting).toHaveBeenCalledWith('reduceAnimations', true);
+  });
+
+  it('reacts to live OS motion changes even with the app preference disabled', () => {
+    let reduced = false;
+    let listener: (() => void) | undefined;
+    vi.stubGlobal('matchMedia', vi.fn((query: string) => ({
+      media: query,
+      get matches() { return query === '(prefers-reduced-motion: reduce)' && reduced; },
+      addEventListener: (_: string, callback: () => void) => {
+        if (query === '(prefers-reduced-motion: reduce)') listener = callback;
+      },
+      removeEventListener: vi.fn(),
+    })));
+    render(<AppearanceProvider><Consumer /></AppearanceProvider>);
+    expect(screen.getByTestId('reduce-animations')).toHaveTextContent('false');
+    expect(screen.getByTestId('effective-motion')).toHaveTextContent('false');
+    reduced = true;
+    act(() => listener?.());
+    expect(screen.getByTestId('effective-motion')).toHaveTextContent('true');
+    expect(screen.getByTestId('reduce-animations')).toHaveTextContent('false');
+    expect(document.documentElement.dataset.reduceMotion).toBe('true');
   });
 
   // Regression: §2 (System appearance follows prefers-color-scheme live).

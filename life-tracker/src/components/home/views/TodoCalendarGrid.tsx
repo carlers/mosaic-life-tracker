@@ -296,7 +296,7 @@ export const TodoCalendarGrid: React.FC<TodoCalendarGridProps> = ({
   }, [tasks]);
 
   const appearance = React.useContext(AppearanceContext);
-  const reduceMotion = Boolean(appearance?.reduceAnimations || systemRequestsReducedMotion());
+  const reduceMotion = Boolean(appearance?.effectiveReducedMotion ?? systemRequestsReducedMotion());
   const [emblaRef, emblaApi] = useEmblaCarousel({
     loop: false,
     align: 'start',

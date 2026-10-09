@@ -43,7 +43,7 @@ export function useCalendarState(
   { weekStartsOn = 0 }: { weekStartsOn?: WeekStartsOn } = {}
 ): CalendarState {
   const appearance = useContext(AppearanceContext);
-  const reduceMotion = Boolean(appearance?.reduceAnimations || systemRequestsReducedMotion());
+  const reduceMotion = Boolean(appearance?.effectiveReducedMotion ?? systemRequestsReducedMotion());
   const [viewMode, setViewMode] = useState<CalendarViewMode>('month');
   const [focusDate, setFocusDate] = useState<Date>(() => new Date());
   const [baseDate, setBaseDate] = useState<Date>(() => new Date());

@@ -94,7 +94,7 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
   holidayConfig: holidayConfigOverride,
 }) => {
   const appearance = React.useContext(AppearanceContext);
-  const reducedMotion = Boolean(appearance?.reduceAnimations || systemRequestsReducedMotion());
+  const reducedMotion = Boolean(appearance?.effectiveReducedMotion ?? systemRequestsReducedMotion());
   const { user } = useAuth();
   const currentUserId = user?.$id ?? '';
 

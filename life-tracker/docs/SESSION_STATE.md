@@ -25,3 +25,10 @@ First full diagnostic 38005875755: lint, DOM shard 2, both Chromium browser shar
 
 - Full task run [38006100358](https://github.com/carlers/mosaic-life-tracker/actions/runs/38006100358): DOM shards and dependency tests passed; route transition TypeScript still failed because `alternateParents` exists on only some members of the discriminated protected-route union. The corrected implementation combines the `'alternateParents' in route` guard with an explicitly broad `readonly string[]` collection, covering both compiler errors without casts.
 - Next required proof: production TypeScript/build/size on exact task SHA, followed by complete stable-Preview acceptance. Do not adjust size caps without the emitted measurements.
+
+## Measured bundle review and OS setting hardening
+
+- [Full task diagnostic 38006217711](https://github.com/carlers/mosaic-life-tracker/actions/runs/38006217711) passed TypeScript, lint, DOM/unit/handler and browser contracts but the strict production build reported aggregate overages: raw app assets **2,310,102 B** vs 2,307,500 (+2,602 B), gzip **710,561 B** vs 710,000 (+561 B), unique PWA precache **2,392,809 B** vs 2,390,000 (+2,809 B). Entry/raw/gzip, initial closure and Home closure **passed**. New route-motion + synced motion setting is intentional shipped capability.
+- Review only +4,000 B raw, +1,200 B gzip and +4,000 B unique precache limits; preserve all startup and Home ceilings and corresponding regression guard. The small extra runtime changes below require a fresh measured build to accept these caps.
+- OS reduced-motion changes while the app is open should also update Swiper and Embla, not only Motion. Expose `effectiveReducedMotion` via existing AppearanceContext and subscribe those existing view consumers; add DOM live-media regression, without adding a settings/RxDB owner.
+- Task repair verification then canonical exact-SHA Preview needed. Device acceptance still unclaimed. dev/main unchanged.
