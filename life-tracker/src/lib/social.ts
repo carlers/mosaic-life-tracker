@@ -153,23 +153,27 @@ export async function fetchProfileByUserId(
   return fetchMyProfile(userId);
 }
 
-export async function updateProfileAvatar(userId: string, avatarFileId: string): Promise<void> {
+// The two owner settings use the same safe partial profile mutation.
+async function updateExistingProfileField(
+  userId: string,
+  field: 'avatar_file_id' | 'display_name',
+  value: string
+): Promise<void> {
   const current = await fetchMyProfile(userId);
-  if (!current) return;
-  await writeProfile({ databaseId: APPWRITE_CONFIG.databaseId, tableId: APPWRITE_CONFIG.tables.profiles, rowId: `profile_${userId}`, data: { avatar_file_id: avatarFileId, updated_at: new Date().toISOString() } });
-}
-
-/** Mirror the owner-synced displayName setting into their public profile. */
-export async function updateProfileDisplayName(userId: string, displayName: string): Promise<void> {
-  const current = await fetchMyProfile(userId);
-  if (!current || current.display_name === displayName) return;
+  if (!current || current[field] === value) return;
   await writeProfile({
     databaseId: APPWRITE_CONFIG.databaseId,
     tableId: APPWRITE_CONFIG.tables.profiles,
     rowId: `profile_${userId}`,
-    data: { display_name: displayName, updated_at: new Date().toISOString() },
+    data: { [field]: value, updated_at: new Date().toISOString() },
   });
 }
+
+export const updateProfileAvatar = (userId: string, avatarFileId: string): Promise<void> =>
+  updateExistingProfileField(userId, 'avatar_file_id', avatarFileId);
+
+export const updateProfileDisplayName = (userId: string, displayName: string): Promise<void> =>
+  updateExistingProfileField(userId, 'display_name', displayName);
 
 export async function createOrUpdateProfile(
   input: MyProfileInput,
