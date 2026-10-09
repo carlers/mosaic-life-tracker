@@ -8,13 +8,14 @@ import {
   loadSettingsPage,
 } from './routeModuleLoaders';
 
-type PreloadPath =
-  | '/home'
-  | '/explore'
-  | '/notifications'
-  | '/messages'
-  | '/account'
-  | '/settings';
+import type { PROTECTED_ROUTES } from '../../lib/protectedRoutes';
+
+// Keep preloading exhaustive for routes marked as preview-supported without
+// pulling their actual page modules into the bootstrap bundle eagerly.
+type PreloadPath = Extract<
+  (typeof PROTECTED_ROUTES)[number],
+  { readonly preview: 'supported' }
+>['path'];
 
 const PRELOADERS: Record<PreloadPath, () => Promise<unknown>> = {
   '/home': loadHomePage,

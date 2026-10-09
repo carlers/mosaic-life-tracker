@@ -33,9 +33,13 @@ vi.mock('../../src/components/ui/BottomSheet', () => ({
     onAnimationComplete?: () => void;
     deferChildrenUntilPaint?: boolean;
   }) => {
-    fixture.onAnimationComplete = onAnimationComplete ?? null;
-    fixture.onClose = onClose;
-    fixture.deferChildrenUntilPaint = deferChildrenUntilPaint ?? false;
+    // Track the outer animated day view, not now-persistently mounted
+    // (but closed) bulk child sheets sharing this mock.
+    if (onAnimationComplete) {
+      fixture.onAnimationComplete = onAnimationComplete;
+      fixture.onClose = onClose;
+      fixture.deferChildrenUntilPaint = deferChildrenUntilPaint ?? false;
+    }
     return isOpen ? <div>{children}</div> : null;
   },
 }));

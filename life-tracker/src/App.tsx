@@ -6,6 +6,7 @@ import { PwaPrompt } from "./components/ui/PwaPrompt";
 import { AppLayout } from "./components/layout/AppLayout";
 import { AuthPage } from "./pages/AuthPage";
 import { ResetPasswordPage } from "./pages/ResetPasswordPage";
+import { PROTECTED_ROUTES, type ProtectedPageId } from './lib/protectedRoutes';
 import {
   loadAccountPage,
   loadChatPage,
@@ -115,6 +116,20 @@ function HomeRouteFallback() {
   );
 }
 
+const protectedPageElements: Record<ProtectedPageId, ReactNode> = {
+  home: <RouteContent label="HomePage" fallback={<HomeRouteFallback />}><HomePage /></RouteContent>,
+  explore: <RouteContent label="ExplorePage"><ExplorePage /></RouteContent>,
+  friendCalendar: <RouteContent label="FriendCalendarPage"><FriendCalendarPage /></RouteContent>,
+  notifications: <RouteContent label="NotificationsPage"><NotificationsPage /></RouteContent>,
+  messages: <RouteContent label="MessagesPage"><MessagesPage /></RouteContent>,
+  chat: <RouteContent label="ChatPage"><ChatPage /></RouteContent>,
+  account: <RouteContent label="AccountPage"><AccountPage /></RouteContent>,
+  settings: <RouteContent label="SettingsPage"><SettingsPage /></RouteContent>,
+  preferences: <RouteContent label="PreferencesPage"><PreferencesPage /></RouteContent>,
+  notificationSettings: <RouteContent label="NotificationSettingsPage"><NotificationSettingsPage /></RouteContent>,
+  profile: <RouteContent label="ProfilePage"><ProfilePage /></RouteContent>,
+};
+
 function App() {
   return (
     <BrowserRouter>
@@ -143,98 +158,15 @@ function App() {
           }
         >
           <Route path="/" element={<Navigate to="/home" replace />} />
-          <Route
-            path="/home"
-            element={
-              <RouteContent label="HomePage" fallback={<HomeRouteFallback />}>
-                <HomePage />
-              </RouteContent>
-            }
-          />
-          <Route
-            path="/explore"
-            element={
-              <RouteContent label="ExplorePage">
-                <ExplorePage />
-              </RouteContent>
-            }
-          />
-          <Route
-            path="/friends/:friendId"
-            element={
-              <RouteContent label="FriendCalendarPage">
-                <FriendCalendarPage />
-              </RouteContent>
-            }
-          />
-          <Route
-            path="/notifications"
-            element={
-              <RouteContent label="NotificationsPage">
-                <NotificationsPage />
-              </RouteContent>
-            }
-          />
-          <Route
-            path="/messages"
-            element={
-              <RouteContent label="MessagesPage">
-                <MessagesPage />
-              </RouteContent>
-            }
-          />
-          <Route
-            path="/messages/:friendId"
-            element={
-              <RouteContent label="ChatPage">
-                <ChatPage />
-              </RouteContent>
-            }
-          />
-          <Route
-            path="/account"
-            element={
-              <RouteContent label="AccountPage">
-                <AccountPage />
-              </RouteContent>
-            }
-          />
-          <Route
-            path="/settings"
-            element={
-              <RouteContent label="SettingsPage">
-                <SettingsPage />
-              </RouteContent>
-            }
-          />
-          <Route
-            path="/settings/preferences"
-            element={
-              <RouteContent label="PreferencesPage">
-                <PreferencesPage />
-              </RouteContent>
-            }
-          />
-          <Route
-            path="/settings/notifications"
-            element={
-              <RouteContent label="NotificationSettingsPage">
-                <NotificationSettingsPage />
-              </RouteContent>
-            }
-          />
-          <Route
-            path="/settings/screen"
-            element={<Navigate to="/settings/preferences" replace />}
-          />
-          <Route
-            path="/profile"
-            element={
-              <RouteContent label="ProfilePage">
-                <ProfilePage />
-              </RouteContent>
-            }
-          />
+          {PROTECTED_ROUTES.map((route) => (
+            <Route
+              key={route.path}
+              path={route.path}
+              element={route.kind === 'redirect'
+                ? <Navigate to={route.redirectTo} replace />
+                : protectedPageElements[route.id]}
+            />
+          ))}
         </Route>
       </Routes>
     </BrowserRouter>

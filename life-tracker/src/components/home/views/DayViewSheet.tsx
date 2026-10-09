@@ -857,9 +857,8 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
         )}
       </AnimatePresence>
       <AnimatePresence>
-        {isBulkActionOpen && (
-          <BulkTaskActionSheet
-            isOpen
+        <BulkTaskActionSheet
+            isOpen={isBulkActionOpen}
             count={selectedTasks.length}
             isWorking={isBulkWorking}
             onClose={() => setIsBulkActionOpen(false)}
@@ -869,10 +868,9 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
             onDoTomorrow={() => runBulkUpdate({ date: format(addDays(new Date(), 1), 'yyyy-MM-dd') })}
             onVisibility={() => { setIsBulkActionOpen(false); setIsBulkVisibilityOpen(true); }}
           />
-        )}
-        {isBulkCategoryOpen && (
-          <BulkCategoryPickerSheet
-            isOpen
+
+        <BulkCategoryPickerSheet
+            isOpen={isBulkCategoryOpen}
             categories={categories.filter(
               (category) =>
                 category.userId === currentUserId && !category.isDeleted
@@ -881,13 +879,8 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
             onClose={() => setIsBulkCategoryOpen(false)}
             onSelect={handleBulkMoveCategory}
           />
-        )}
-        {isBulkDateOpen && (
-          <BulkDatePickerSheet isOpen count={selectedTasks.length} isWorking={isBulkWorking} onClose={() => setIsBulkDateOpen(false)} onSave={(date) => runBulkUpdate({ date })} />
-        )}
-        {isBulkVisibilityOpen && (
-          <BulkVisibilitySheet isOpen count={selectedTasks.length} isWorking={isBulkWorking} onClose={() => setIsBulkVisibilityOpen(false)} onSave={(visibility) => runBulkUpdate({ visibility })} />
-        )}
+        <BulkDatePickerSheet isOpen={isBulkDateOpen} count={selectedTasks.length} isWorking={isBulkWorking} onClose={() => setIsBulkDateOpen(false)} onSave={(date) => runBulkUpdate({ date })} />
+        <BulkVisibilitySheet isOpen={isBulkVisibilityOpen} count={selectedTasks.length} isWorking={isBulkWorking} onClose={() => setIsBulkVisibilityOpen(false)} onSave={(visibility) => runBulkUpdate({ visibility })} />
       </AnimatePresence>
       <TaskActionSheet
         isOpen={isActionSheetOpen && !!activeTask}
