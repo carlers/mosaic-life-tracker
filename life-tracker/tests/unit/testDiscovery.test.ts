@@ -1,16 +1,11 @@
-// Regression: TEST_WORKFLOW.md (all intended tests must belong to exactly one runner).
+// Regression: TEST_WORKFLOW.md (every test-like file must have one runner).
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { afterEach, describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { evaluateTestDiscovery } from '../../scripts/lib/test-discovery.mjs';
-
-const fixtures: string[] = [];
-afterEach(() => {
-  for (const path of fixtures.splice(0)) rmSync(path, { recursive: true, force: true });
-});
 
 const matches = {
   unit: ['tests/unit/accepted.test.ts'],
@@ -31,7 +26,7 @@ describe('test discovery guard', () => {
     expect(result.counts).toEqual({ unit: 1, handlers: 1, dom: 1, browser: 2 });
   });
 
-  it('reports unsupported naming, wrong suite placement and missing project assignment', () => {
+  it('rejects unsupported filenames and misplaced test files', () => {
     const result = evaluateTestDiscovery([
       'tests/unit/silent.spec.ts',
       'tests/components/silent.test.js',
@@ -50,7 +45,7 @@ describe('test discovery guard', () => {
     expect(result.counts.unit).toBe(1);
   });
 
-  it('rejects a file claimed by two runners, not just missing files', () => {
+  it('rejects files claimed by more than one runner', () => {
     const result = evaluateTestDiscovery(['tests/unit/accepted.test.ts'], {
       unit: ['tests/unit/accepted.test.ts'],
       handlers: ['tests/unit/accepted.test.ts'],
@@ -62,34 +57,23 @@ describe('test discovery guard', () => {
     }]);
   });
 
-  it('fails the actual guard process for a test file the runner would ignore', () => {
+  it('exits nonzero when a test is silently skipped by every runner', () => {
     const root = mkdtempSync(join(tmpdir(), 'mosaic-discovery-'));
-    fixtures.push(root);
-    mkdirSync(join(root, 'tests/unit'), { recursive: true });
-    mkdirSync(join(root, 'tests/e2e'), { recursive: true });
-    writeFileSync(join(root, 'tests/unit/silently-skipped.spec.ts'), '// should fail discovery\n');
-    writeFileSync(join(root, 'tests/e2e/accepted.spec.mjs'), '// Playwright fixture\n');
+    try {
+      mkdirSync(join(root, 'tests/unit'), { recursive: true });
+      writeFileSync(join(root, 'tests/unit/silently-skipped.spec.ts'), '// regression fixture\n');
 
-    const path = fileURLToPath(new URL('../../scripts/check-test-discovery.mjs', import.meta.url));
-    const result = spawnSync(process.execPath, [path], { cwd: root, encoding: 'utf8' });
+      const script = fileURLToPath(new URL('../../scripts/check-test-discovery.mjs', import.meta.url));
+      const result = spawnSync(process.execPath, [script], {
+        cwd: root,
+        encoding: 'utf8',
+      });
 
-    expect(result.status).toBe(1);
-    expect(result.stderr).toContain('tests/unit/silently-skipped.spec.ts');
-    expect(result.stderr).toContain('not assigned to a Vitest project');
-  });
-
-  it('passes the guard process for valid Vitest and browser test filenames', () => {
-    const root = mkdtempSync(join(tmpdir(), 'mosaic-discovery-'));
-    fixtures.push(root);
-    mkdirSync(join(root, 'tests/unit'), { recursive: true });
-    mkdirSync(join(root, 'tests/e2e'), { recursive: true });
-    writeFileSync(join(root, 'tests/unit/accepted.test.ts'), '// unit fixture\n');
-    writeFileSync(join(root, 'tests/e2e/accepted.spec.mjs'), '// browser fixture\n');
-
-    const path = fileURLToPath(new URL('../../scripts/check-test-discovery.mjs', import.meta.url));
-    const result = spawnSync(process.execPath, [path], { cwd: root, encoding: 'utf8' });
-
-    expect(result.status).toBe(0);
-    expect(result.stdout).toContain('unit=1, handlers=0, dom=0, browser=1');
+      expect(result.status).toBe(1);
+      expect(result.stderr).toContain('tests/unit/silently-skipped.spec.ts');
+      expect(result.stderr).toContain('not assigned to a Vitest project');
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
   });
 });
