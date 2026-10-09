@@ -3,11 +3,13 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import {
   User,
   Shield,
+  ShieldCheck,
+  CloudSync,
+  Sticker,
   Lock,
   SlidersHorizontal,
   Bell,
   Megaphone,
-  Smile,
   Info,
   HelpCircle,
   LogOut,
@@ -272,7 +274,8 @@ export const SettingsPage: React.FC = () => {
         <h1 className="text-lg font-bold text-white">Settings</h1>
       </div>
       <div className="flex-1 pb-24">
-        <div className="py-2">
+        <section aria-labelledby="settings-account-heading" className="py-2">
+          <h2 id="settings-account-heading" className="px-4 pb-1 pt-3 text-sm font-semibold uppercase tracking-wide text-gray-400">Account & preferences</h2>
           <SettingsRow
             icon={<User size={18} className="text-blue-500" aria-hidden="true" />}
             label="Profile"
@@ -283,16 +286,6 @@ export const SettingsPage: React.FC = () => {
             label="Account"
             value={user?.email}
             onClick={() => setIsAccountSettingsOpen(true)}
-          />
-          <SettingsRow
-            icon={<Lock size={18} className="text-gray-400" aria-hidden="true" />}
-            label="Privacy"
-            onClick={handleComingSoon}
-          />
-          <SettingsRow
-            icon={<Shield size={18} className="text-gray-400" aria-hidden="true" />}
-            label="App Permissions"
-            onClick={handleComingSoon}
           />
           <SettingsRow
             icon={<SlidersHorizontal size={18} className="text-gray-400" aria-hidden="true" />}
@@ -319,38 +312,51 @@ export const SettingsPage: React.FC = () => {
               state: makeRouteParentState('/settings'),
             })}
           />
+        </section>
+        <section aria-labelledby="settings-upcoming-heading" className="border-t border-[#333333] py-2">
+          <h2 id="settings-upcoming-heading" className="px-4 pb-1 pt-3 text-sm font-semibold uppercase tracking-wide text-gray-400">Coming soon</h2>
           <SettingsRow
-            icon={<Megaphone size={18} className="text-gray-400" aria-hidden="true" />}
-            label="Announcements"
-            rightElement={
-              <div
-                className="w-5 h-5 rounded-full bg-red-500 flex items-center justify-center text-[10px] font-bold text-white"
-                aria-hidden="true"
-              >
-                N
-              </div>
-            }
+            icon={<Lock size={18} className="text-gray-400" aria-hidden="true" />}
+            label="Privacy"
+            value="Coming soon"
             onClick={handleComingSoon}
           />
           <SettingsRow
-            icon={<Smile size={18} className="text-gray-400" aria-hidden="true" />}
+            icon={<ShieldCheck size={18} className="text-gray-400" aria-hidden="true" />}
+            label="App Permissions"
+            value="Coming soon"
+            onClick={handleComingSoon}
+          />
+          <SettingsRow
+            icon={<Megaphone size={18} className="text-gray-400" aria-hidden="true" />}
+            label="Announcements"
+            value="Coming soon"
+            onClick={handleComingSoon}
+          />
+          <SettingsRow
+            icon={<Sticker size={18} className="text-gray-400" aria-hidden="true" />}
             label="My stickers"
+            value="Coming soon"
             onClick={handleComingSoon}
           />
           <SettingsRow
             icon={<Info size={18} className="text-gray-400" aria-hidden="true" />}
             label="Information"
+            value="Coming soon"
             onClick={handleComingSoon}
           />
           <SettingsRow
             icon={<HelpCircle size={18} className="text-gray-400" aria-hidden="true" />}
             label="FAQs"
+            value="Coming soon"
             onClick={handleComingSoon}
           />
-        </div>
-        <div className="border-t border-[#333333] py-2">
+        </section>
+        <section aria-labelledby="settings-data-heading" className="border-t border-[#333333] py-2">
+          <h2 id="settings-data-heading" className="px-4 pb-1 pt-3 text-sm font-semibold uppercase tracking-wide text-gray-400">Data & sync</h2>
+
           <SettingsRow
-            icon={<RefreshCw size={18} className="text-blue-500" aria-hidden="true" />}
+            icon={<CloudSync size={18} className="text-blue-500" aria-hidden="true" />}
             label="Sync Status"
             onClick={() => setIsSyncStatusOpen(true)}
           />
@@ -358,11 +364,6 @@ export const SettingsPage: React.FC = () => {
             icon={<FileDown size={18} className="text-emerald-500" aria-hidden="true" />}
             label="Backup & Restore"
             onClick={() => setIsExportSheetOpen(true)}
-          />
-          <SettingsRow
-            icon={<Import size={18} className="text-violet-400" aria-hidden="true" />}
-            label="Import from TodoMate"
-            onClick={() => setIsTodoMateImportOpen(true)}
           />
           <div
             aria-label="Backup activity"
@@ -375,8 +376,15 @@ export const SettingsPage: React.FC = () => {
               Last restore: {formatActivityDate(backupActivity.lastRestoreAt)}
             </span>
           </div>
-        </div>
-        <div className="border-t border-[#333333] py-2">
+          <SettingsRow
+            icon={<Import size={18} className="text-violet-400" aria-hidden="true" />}
+            label="Import from TodoMate"
+            onClick={() => setIsTodoMateImportOpen(true)}
+          />
+        </section>
+        <section aria-labelledby="settings-about-heading" className="border-t border-[#333333] py-2">
+          <h2 id="settings-about-heading" className="px-4 pb-1 pt-3 text-sm font-semibold uppercase tracking-wide text-gray-400">About & updates</h2>
+
           <details className="group text-white" data-testid="app-version-details">
             <summary className="flex cursor-pointer list-none items-center justify-between rounded-sm px-4 py-3.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald-500/60 [&::-webkit-details-marker]:hidden">
               <span className="text-base font-medium">Version</span>
@@ -431,8 +439,10 @@ export const SettingsPage: React.FC = () => {
               </div>
             </div>
           )}
-        </div>
-        <div className="border-t border-[#333333] py-2">
+        </section>
+        <section aria-labelledby="settings-deletion-heading" className="border-t border-[#333333] py-2">
+          <h2 id="settings-deletion-heading" className="px-4 pb-1 pt-3 text-sm font-semibold uppercase tracking-wide text-gray-400">Data deletion</h2>
+
           <SettingsRow
             icon={<Trash2 size={18} className="text-red-500" aria-hidden="true" />}
             label="Delete Account"
@@ -447,7 +457,7 @@ export const SettingsPage: React.FC = () => {
             showChevron={false}
             onClick={() => setIsClearDataOpen(true)}
           />
-        </div>
+        </section>
         <div className="px-4 pt-4 pb-8">
           <button
             type="button"
