@@ -1200,6 +1200,34 @@ Vercel build, rather than disabling or generally loosening the guard.
 This is the approved feature's measured production cost, not arbitrary budget
 growth.
 
+A tenth reviewed 2026-10-09 exception accepts **profile/category save
+lifecycle safety (v0.6.2)**: single-flight saves, error feedback and retryable
+name, description, and category create/update/delete forms. The scoped shared
+save hook and propagated local category write errors are small additions to
+existing lazy routes; no new runtime package, backend Function, Appwrite schema,
+sync pipeline, or visual redesign is introduced. The existing Vite entry,
+initial static closure, and Home static closure all pass unchanged ceilings.
+
+Provider-matched Vercel builds measured the immediately preceding accepted
+v0.6.1 Preview `5f1d4c8e` at **2,293,734 B** aggregate app-asset raw /
+**704,926 B** aggregate gzip / **2,375,849 B** unique precache, and the
+complete v0.6.2 form-action Preview `d9df80ea` at **2,295,455 B** raw /
+**705,773 B** gzip / **2,377,890 B** precache. The measured increments are
+**+1,721 B raw / +847 B gzip / +2,041 B precache**, consistent with the
+independent GitHub production build deltas of +1,721 B / +846 B / +2,041 B
+respectively. The change primarily enlarges the lazy profile and category
+routes rather than the entry or Home closure. These values were collected
+from failed size-only CI and Vercel builds after TypeScript, Vite and the
+PWA policy had already passed; all other CI shards were green.
+
+The three aggregate limits alone are therefore revised to **2,296,600 B
+raw / 706,900 B gzip / 2,379,100 B precache**, leaving **1,145 B / 1,127 B /
+1,210 B** of measured Vercel headroom for this explicitly accepted, useful
+failure/retry behavior. The original reviewed baseline and the entry,
+startup and Home ceilings remain unchanged. The build-size guard is still
+mandatory; this is a bounded, measured product exception rather than
+general CI relaxation.
+
 The current baseline and limits live in
 `config/build-size-budget.json` and are pinned by unit coverage.
 
