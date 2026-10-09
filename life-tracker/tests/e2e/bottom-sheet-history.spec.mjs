@@ -58,7 +58,11 @@ test('closing the final sheet with Back restores focus to its opener', async ({ 
 
   await page.evaluate(() => window.history.back());
 
+  // The application must remain inert through exit, with opener focus
+  // restored only after its modal layer has fully departed.
+  await expect.poll(() => page.locator('#root').evaluate((node) => node.inert)).toBe(true);
   await expect(page.getByRole('dialog', { name: 'Parent sheet' })).toBeHidden();
+  await expect.poll(() => page.locator('#root').evaluate((node) => node.inert)).toBe(false);
   await expect(opener).toBeFocused();
 });
 

@@ -1,24 +1,20 @@
 # Session checkpoint
 
 Updated: 2026-10-09
-Current task: #409 — default-behavior architecture
-Status: phases A/B implemented on `chatgpt/ui-default-behavior`; focused verification required before stable Preview acceptance.
-Next action: run focused CI, investigate failures, squash passing task into `refactor/ui-behavior-standardization`, require canonical CI and Vercel READY, then seek explicit promotion approval.
-Blockers: no external blocker identified.
+Current task: #409 — default-behavior architecture, v0.6.0
+Status: implemented on stable Preview `refactor/ui-behavior-standardization` at `f0ea5e11`, full canonical browser-contract exposed a focus-return timing regression. Focus fix prepared on `chatgpt/ui-default-focus-fix`.
+Next action: focused verification for focus timing; squash into stable Preview, rerun full canonical CI + Vercel READY, then request explicit dev promotion approval.
+Blockers: none beyond failing browser gate currently being repaired.
 
-## Scope and approval
-- User approved implementation after reviewed #409 plan. Reuse prior accepted Preview `d89ba427`; dev `b321373e`.
-- Version impact: user-testable modal/navigation defaults; v0.6.0 (no collision with known main/dev/stable Previews).
-- No Appwrite, backend, schema, feature visual redesign, gesture threshold or theme changes.
+## Implementation
+- Shared BottomSheet owns drag, closing animation, modal layering, focus/background interaction locks, and history/Back.
+- Bulk child sheets retain controlled mount lifetimes until exit completes.
+- Protected routes generated from typed metadata; route swipe/back/chrome behavior and lazy preview/preload coverage derive from the same declarations.
+- v0.6.0 is the user-testable Preview candidate; no backend, schema or theme redesign.
 
-## Implemented
-- Sheet modal stack maintains inert lower layers and app-root lock while visible, retains focus/scroll lock through exit, and uses controlled bulk child mounts.
-- Route metadata defines primary/detail/redirect pages, parent fallback, nav tab, swipe mode, chrome and preview eligibility. Protected JSX routes are generated from the typed registry.
-- Regression tests for modal nesting/lock, former performance mock lifetime, route metadata coverage, and direct/settings paths.
-- Project reference updated in §§7/13 for future agents; optional non-sheet overlays remain explicitly managed.
-
-## Verification and remaining
-- First focused CI `37887134872` failed lint (ref updated during render); repaired in layout effect.
-- Second focused CI `37887305496` reached DOM regressions; tests initially assumed closed bulk child components unmounted immediately. Updated test fixture to target the actual outer sheet, and wait until exit hands control back.
-- Remaining: new focused run for complete candidate, repair any CI failures, canonical Preview quality gate and exact-SHA Vercel READY.
-- Physical Android/iOS testing, gesture touch validation and visual/theme review are manual and not yet performed.
+## Verification
+- Focused CI `37887783354` passed; task merge PR #426 produced Preview `f0ea5e11`.
+- Canonical run `37887889564` build/static/DOM passed and Vercel READY; one browser shard failed because the opener regained focus while `#root` was still inert after Back.
+- Repair queues opener-focus return and runs it after visible modal exit/lock release. Extend real browser test to assert root remains inert during exit and is released before focus returns.
+- Physical Android/iOS swipe, installed-PWA Back, and full theme acceptance are manual and have not been performed.
+- Dev remains `b321373e`; main unchanged. Promotion not authorized.
