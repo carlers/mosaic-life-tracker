@@ -1,5 +1,5 @@
 import React, { useId, useState } from 'react';
-import { Check, ChevronDown, Plus } from 'lucide-react';
+import { ChevronDown, Plus } from 'lucide-react';
 import { DraggableTaskItem } from './DraggableTaskItem';
 import { TaskItem } from './TaskItem';
 import {
@@ -283,11 +283,9 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
               event.stopPropagation();
             }}
             onClick={() => commitAdd(true)}
-            className="mt-0.5 h-6 w-6 shrink-0 rounded-full border-2 flex items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 disabled:opacity-70"
+            className="mt-0.5 h-6 w-6 shrink-0 rounded-full border-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
             style={{ borderColor: categoryColor }}
-          >
-            <Check size={14} strokeWidth={3} aria-hidden="true" />
-          </button>
+          />
           <div className="min-w-0 flex-1">
             <label htmlFor={inputId} className="sr-only">
               New task title

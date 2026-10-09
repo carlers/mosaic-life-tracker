@@ -18,4 +18,6 @@ Proposed Preview candidate: **0.11.0** (new completion-from-input capability).
 - Require exact stable Preview SHA canonical CI and Vercel READY; record manual input-focus, keyboard and mobile checks as not performed unless tested.
 - No Preview → dev or dev → main promotion without separate user authorization.
 
-Next action: Inspect focused CI at the task SHA, repair failures, squash to stable Preview, verify canonical CI/deployment, and hand off required device checks.
+Verification checkpoint: Focused task run 37963972298 passed at `7ae618e`. First stable Preview commit `83c32ee` failed build-size policy by 215 B raw assets and 278 B precache bytes; repair removes redundant rendering and consolidates identical public-profile update paths without raising limits.
+
+Next action: Verify this repair with focused CI, squash to the stable Preview, require exact SHA canonical/size and Vercel READY, then hand off device acceptance.
