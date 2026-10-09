@@ -1,4 +1,4 @@
-import React, { useContext, useDeferredValue, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import React, { useContext, useDeferredValue, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { motion, AnimatePresence, useDragControls, usePresence } from 'framer-motion';
 import ReactDOM from 'react-dom';
 import { useFocusTrap } from '../../hooks/useFocusTrap';
@@ -40,6 +40,36 @@ const pendingCleanupTimers = new Map<string, number>();
 const HISTORY_GUARD_KEY = '__mosaicBottomSheetGuard';
 let historyGuardSequence = 0;
 let historyBackHandlerInstalled = false;
+/** Visible portals outlive isOpen until Framer finishes the exit animation. */
+const visibleSheetIds: string[] = [];
+const sheetLayerListeners = new Set<() => void>();
+let previousAppInert = false;
+
+function subscribeSheetLayers(listener: () => void) {
+  sheetLayerListeners.add(listener);
+  return () => { sheetLayerListeners.delete(listener); };
+}
+
+function currentTopVisibleSheet(): string | null {
+  return visibleSheetIds[visibleSheetIds.length - 1] ?? null;
+}
+
+function updateVisibleSheet(sheetId: string, visible: boolean) {
+  const index = visibleSheetIds.indexOf(sheetId);
+  if ((index >= 0) === visible) return;
+  if (visible) visibleSheetIds.push(sheetId);
+  else visibleSheetIds.splice(index, 1);
+
+  // BottomSheet is portaled to body. Only the application tree (not other
+  // body-level overlays such as PhotoSwipe) becomes inert behind an open sheet.
+  const appRoot = document.getElementById('root');
+  if (visibleSheetIds.length === 1 && visible) {
+    previousAppInert = appRoot?.inert ?? false;
+  }
+  if (appRoot) appRoot.inert = visibleSheetIds.length > 0 || previousAppInert;
+  for (const listener of sheetLayerListeners) listener();
+}
+
 const HORIZONTAL_SWIPE_MIN_DISTANCE = 48;
 const HORIZONTAL_SWIPE_AXIS_RATIO = 1.2;
 const DIRECTIONAL_DRAG_MIN_DISTANCE = 8;
@@ -297,7 +327,7 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
   const deferredContentOpen = useDeferredValue(
     deferChildrenUntilPaint ? isOpen : true
   );
-  const [childrenMounted, setChildrenMounted] = useState(true);
+  const [childrenMounted, setChildrenMounted] = useState(isOpen);
   const shouldRenderChildren = deferChildrenUntilPaint
     ? isOpen
       ? deferredContentOpen
@@ -310,10 +340,29 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
     onTransientDismissRef.current = onTransientDismiss;
   }, [onClose, onTransientDismiss, preventDismiss]);
 
-  useFocusTrap(sheetRef, isOpen && !suspendInteraction);
+  const topVisibleSheetId = useSyncExternalStore(
+    subscribeSheetLayers,
+    currentTopVisibleSheet,
+    () => null
+  );
+  const isTopLayer = topVisibleSheetId === sheetId;
+  const isBlockedLayer = suspendInteraction || !isTopLayer;
+
+  useFocusTrap(
+    sheetRef,
+    isOpen && !isBlockedLayer,
+    () => !isOpen || isTopLayer
+  );
 
   useEffect(() => {
-    if (!isOpen) return;
+    updateVisibleSheet(sheetId, isOpen || childrenMounted);
+  }, [childrenMounted, isOpen, sheetId]);
+
+  // Covers a genuine parent unmount before Framer can signal exit completion.
+  useEffect(() => () => updateVisibleSheet(sheetId, false), [sheetId]);
+
+  useEffect(() => {
+    if (!isOpen && !childrenMounted) return;
     openSheetCount++;
     document.body.style.overflow = 'hidden';
     return () => {
@@ -322,7 +371,7 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
         document.body.style.overflow = 'unset';
       }
     };
-  }, [isOpen]);
+  }, [childrenMounted, isOpen]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -385,24 +434,27 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={
-              suspendInteraction || preventDismiss
+              isBlockedLayer || preventDismiss
                 ? undefined
                 : () => requestSheetClose(sheetId)
             }
             aria-hidden="true"
-            className={`fixed inset-0 z-[50] bg-black/60 ${backdropBlur ? 'backdrop-blur-sm' : ''} ${suspendInteraction ? 'pointer-events-none' : ''}`}
+            className={`fixed inset-0 z-[50] bg-black/60 ${backdropBlur ? 'backdrop-blur-sm' : ''} ${isBlockedLayer ? 'pointer-events-none' : ''}`}
           />
         )}
       </AnimatePresence>
       <AnimatePresence onExitComplete={() => {
-        setChildrenMounted(false);
-        onExitComplete?.();
+        if (!isOpen) {
+          setChildrenMounted(false);
+          onExitComplete?.();
+        }
       }}>
         {isOpen && (
           <SheetPresenceSurface
             key="sheet"
             sheetRef={sheetRef}
-            aria-hidden={suspendInteraction ? true : undefined}
+            aria-hidden={isBlockedLayer ? true : undefined}
+            inert={isBlockedLayer || !isOpen ? true : undefined}
             aria-labelledby={title ? titleId : undefined}
             aria-label={!title ? ariaLabel : undefined}
             onAnimationComplete={() => {
@@ -553,7 +605,7 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
               }
             }}
             style={SHEET_SURFACE_STYLE}
-            className={`fixed bottom-0 left-0 right-0 z-[60] bg-[#1E1E1E] text-white shadow-2xl flex flex-col overflow-hidden ${heightClass} ${widthClass} ${suspendInteraction ? 'pointer-events-none select-none' : ''}`}
+            className={`fixed bottom-0 left-0 right-0 z-[60] bg-[#1E1E1E] text-white shadow-2xl flex flex-col overflow-hidden ${heightClass} ${widthClass} ${isBlockedLayer ? 'pointer-events-none select-none' : ''}`}
           >
             <div
               className={`flex-shrink-0 pt-3 pb-2 px-4 flex flex-col items-center transition-all duration-300 ${

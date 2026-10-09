@@ -200,6 +200,62 @@ describe('BottomSheet', () => {
     expect(dialog).toHaveAttribute('aria-hidden', 'true');
   });
 
+  it('automatically makes underlying sheets inert and restores their interaction when the top closes', () => {
+    const { rerender } = render(
+      <>
+        <BottomSheet isOpen onClose={noop} title="Parent sheet">
+          <button>Parent action</button>
+        </BottomSheet>
+        <BottomSheet isOpen onClose={noop} title="Nested sheet">
+          <button>Nested action</button>
+        </BottomSheet>
+      </>
+    );
+
+    const layers = document.body.querySelectorAll('[role="dialog"]');
+    expect(layers).toHaveLength(2);
+    expect(layers[0]).toHaveAttribute('aria-hidden', 'true');
+    expect(layers[0]).toHaveAttribute('inert');
+    expect(layers[1]).not.toHaveAttribute('aria-hidden', 'true');
+    expect(layers[1]).not.toHaveAttribute('inert');
+
+    rerender(
+      <>
+        <BottomSheet isOpen onClose={noop} title="Parent sheet">
+          <button>Parent action</button>
+        </BottomSheet>
+        <BottomSheet isOpen={false} onClose={noop} title="Nested sheet">
+          <button>Nested action</button>
+        </BottomSheet>
+      </>
+    );
+    // The closing sheet still owns the modal layer until the exit finishes.
+    expect(layers[0]).toHaveAttribute('inert');
+  });
+
+  it('locks the app root by default and retains scroll lock through the sheet exit', () => {
+    const root = document.createElement('div');
+    root.id = 'root';
+    document.body.appendChild(root);
+    try {
+      const { rerender, unmount } = render(
+        <BottomSheet isOpen onClose={noop} title="Test">
+          Inner
+        </BottomSheet>
+      );
+      expect(root.inert).toBe(true);
+      expect(document.body.style.overflow).toBe('hidden');
+      rerender(<BottomSheet isOpen={false} onClose={noop} title="Test">Inner</BottomSheet>);
+      expect(root.inert).toBe(true);
+      expect(document.body.style.overflow).toBe('hidden');
+      unmount();
+      expect(root.inert).toBe(false);
+      expect(document.body.style.overflow).toBe('unset');
+    } finally {
+      root.remove();
+    }
+  });
+
   it('locks body scroll while open and restores on unmount', () => {
     const { unmount } = render(
       <BottomSheet isOpen onClose={noop}>

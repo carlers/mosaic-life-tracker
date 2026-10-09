@@ -84,3 +84,25 @@ test('Back cannot dismiss a locked sheet while work is in flight', async ({ page
   await page.getByRole('button', { name: 'Finish locked work' }).click();
   await expect(locked).toBeHidden();
 });
+
+test('nested sheets automatically prevent underlay interaction without caller suspension', async ({ page }) => {
+  await page.goto(`${BASE_URL}/tests/e2e/bottom-sheet-history.html`);
+  const root = page.locator('#root');
+  await page.getByRole('button', { name: 'Open parent sheet' }).click();
+  await expect.poll(() => root.evaluate((node) => node.inert)).toBe(true);
+
+  await page.getByRole('button', { name: 'Open nested sheet' }).click();
+  const parent = page.getByRole('dialog', { name: 'Parent sheet', includeHidden: true });
+  const nested = page.getByRole('dialog', { name: 'Nested sheet' });
+  await expect(parent).toHaveAttribute('inert', '');
+  await expect(nested).not.toHaveAttribute('inert');
+  await expect(page.getByRole('button', { name: 'Open parent sheet', includeHidden: true })).not.toBeFocused();
+
+  await page.evaluate(() => window.history.back());
+  await expect(nested).toBeHidden();
+  await expect(page.getByRole('dialog', { name: 'Parent sheet' })).toBeVisible();
+  await expect(parent).not.toHaveAttribute('inert');
+  await page.evaluate(() => window.history.back());
+  await expect(page.getByRole('dialog', { name: 'Parent sheet' })).toBeHidden();
+  await expect.poll(() => root.evaluate((node) => node.inert)).toBe(false);
+});

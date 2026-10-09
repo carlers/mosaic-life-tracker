@@ -1,50 +1,26 @@
 # Session checkpoint
 
 Updated: 2026-10-09
-Current task: #409 — audit and standardize reusable UI behavior
-Status: behavior-preserving initial batch prepared on `chatgpt/ui-behavior-standardization` for focused verification
-Next action: run focused CI, squash into `refactor/ui-behavior-standardization`, then verify full Preview CI and Vercel READY. Await separate approval before promotion to `dev`.
-Blockers: no identified blocker.
+Current task: #409 — default-behavior architecture implementation
+Status: Phase A sheet lifecycle/top-layer defaults prepared for focused verification; route registry is next.
+Next action: review Phase A focused CI, repair failures, then implement typed protected-route metadata, tests, version and final Preview acceptance.
+Blockers: none known.
 
-## Intent and scope
+## Scope and approval
+- User explicitly approved implementation after issue #409 plan hardening.
+- Base: accepted stable Preview `refactor/ui-behavior-standardization` at `d89ba427`; dev remains `b321373e`. Work only on `chatgpt/ui-default-behavior`.
+- Keep existing sheet appearance, animations, drag thresholds, Back history contracts and lazy routes. Changes to shipped behavior require a Preview version decision before final acceptance.
 
-- Audit interaction ownership before proposing abstraction.
-- Consolidate identical custom keyboard activation and partial bulk-task failure selection, with regressions.
-- Keep route, carousel, bubble, task drag, selection, sheet, and focus behaviors independent where their ownership differs.
-- No visual, theme, gesture-threshold, Appwrite, version, or product-behavior changes.
-
-## Working set
-
-- `src/components/home/views/DayViewSheet.tsx`
-- `src/components/home/views/bulkTaskActions.ts`
-- `src/components/home/views/TaskItem.tsx`
-- `src/components/messages/MessageBubble.tsx`
-- `src/lib/keyboardActivation.ts`
-- `docs/PROJECT_REFERENCE.md`
-- `docs/SESSION_STATE.md`
-- `tests/unit/bulkTaskActions.test.ts`
-- `tests/unit/keyboardActivation.test.ts`
-
-## Completed substeps
-
-- Verified prior #414 stable Preview promotion to dev: exact tree, canonical CI, Vercel READY.
-- Read issue #409, scoped UI/design/testing rules, gesture owners, TaskItem, ChatPage, BottomSheet and selection flows.
-- Identified existing shared primitives and intentional exceptions; avoided a universal gesture hook.
-- Found two identical keyboard activation handlers and duplicated allSettled/failed-ID selection in DayViewSheet.
-- Prepared a scoped, behavior-preserving reuse batch and a discoverable §7 ownership matrix.
-
-## Remaining substeps
-
-- Focused CI for task changes; repair any failure.
-- Stable Preview canonical acceptance and exact-SHA Vercel readiness.
-- Record issue evidence and manual theme/gesture test matrix for user review.
-
-## Constraints
-
-- Version impact NONE; any proposed user-visible gesture/feedback behavior change requires a separately approved versioned scope.
-- Preserve nested route/bubble/calendar priority, sheet stack/Back/focus behavior, selection/reorder isolation and accessibility.
+## Implementation
+- Phase A: automatic modal stack interaction/focus isolation, root inert and exit-phase scroll lock; controlled bulk child sheet mounts; focused DOM/browser regressions.
+- Phase B: typed route registry as navigation/layout source, preserve route preload and redirect, add contract tests.
+- Phase C: docs/guardrails and full canonical CI plus Vercel exact-SHA READY. Promotion to dev/main not authorized.
 
 ## Verification
+- Existing #409 first batch had focused/full CI green and Vercel READY at `d89ba427`.
+- Phase A tests not yet run; physical Android/iOS/device tests not done.
 
-- Source audit complete; new implementation has not yet passed CI.
-- No physical phone/desktop/device verification has been performed.
+## Remaining
+- Focused CI Phase A, review real-browser results.
+- Route registry + guardrails, version stamp, final focused and full Preview acceptance.
+- Report manual/device checks separately and request dev approval.
