@@ -1,10 +1,10 @@
 import React, { useRef, useEffect, useId, useState } from 'react';
 import { BottomSheet } from '../ui/BottomSheet';
-import { Input } from '../ui/Input';
 import { SheetErrorBanner } from '../ui/SheetErrorBanner';
 import { SheetSaveButton } from '../ui/SheetSaveButton';
 import { useSheetReset } from '../../hooks/useSheetReset';
 import { useMyProfile } from '../../hooks/useMyProfile';
+import { useProfile } from '../../hooks/useProfile';
 import { useAuth } from '../../hooks/useAuth';
 import { isOfflineError } from '../../lib/authEvents';
 import { useConnectivity } from '../../hooks/useConnectivity';
@@ -30,8 +30,8 @@ export const SetUsernameSheet: React.FC<SetUsernameSheetProps> = ({
   const { user } = useAuth();
   const connectivity = useConnectivity();
   const { profile, createProfile, checkUsername } = useMyProfile();
+  const { displayName } = useProfile();
   const [username, setUsername] = useState('');
-  const [displayName, setDisplayName] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -40,7 +40,6 @@ export const SetUsernameSheet: React.FC<SetUsernameSheetProps> = ({
 
   useSheetReset(isOpen, () => {
     setUsername(profile?.username || '');
-    setDisplayName(profile?.display_name || user?.name || '');
     setError(null);
     setIsSaving(false);
   });
@@ -56,10 +55,6 @@ export const SetUsernameSheet: React.FC<SetUsernameSheetProps> = ({
     const trimmed = normalizeUsername(username);
     if (!isValidUsername(trimmed)) {
       setError(USERNAME_REQUIREMENTS);
-      return;
-    }
-    if (!displayName.trim()) {
-      setError('Please enter a display name.');
       return;
     }
     setIsSaving(true);
@@ -80,7 +75,7 @@ export const SetUsernameSheet: React.FC<SetUsernameSheetProps> = ({
       }
       const created = await createProfile({
         username: trimmed,
-        displayName: displayName.trim(),
+        displayName: displayName.trim() || profile?.display_name || user?.name || trimmed,
         avatarFileId: profile?.avatar_file_id || '',
         bio: profile?.bio || '',
       });
@@ -111,7 +106,7 @@ export const SetUsernameSheet: React.FC<SetUsernameSheetProps> = ({
     <BottomSheet
       isOpen={isOpen}
       onClose={onClose}
-      title={isEditing ? 'Edit Profile' : 'Choose Username'}
+      title={isEditing ? 'Edit Username' : 'Choose Username'}
       height="auto"
     >
       <div className="pt-2 pb-8 px-4 space-y-4">
@@ -149,18 +144,11 @@ export const SetUsernameSheet: React.FC<SetUsernameSheetProps> = ({
             {USERNAME_REQUIREMENTS.replace('Username must be ', '')}
           </p>
         </div>
-        <Input
-          label="Display Name"
-          value={displayName}
-          onChange={(e) => setDisplayName(e.target.value)}
-          placeholder="Your Name"
-          maxLength={50}
-        />
         <SheetSaveButton
           onClick={handleSave}
-          disabled={!username.trim() || !displayName.trim()}
+          disabled={!username.trim()}
           isSaving={isSaving}
-          label={isEditing ? 'Save Profile' : 'Create Profile'}
+          label={isEditing ? 'Save Username' : 'Create Profile'}
         />
       </div>
     </BottomSheet>

@@ -24,6 +24,8 @@ export const ProfilePage: React.FC = () => {
     removeProfileImage,
   } = useProfile();
   const { profile } = useMyProfile();
+  // Settings owns edits; the public profile preserves legacy/signup names until edited.
+  const resolvedDisplayName = displayName || profile?.display_name || '';
   const [isEditingName, setIsEditingName] = useState(false);
   const [isEditingDescription, setIsEditingDescription] = useState(false);
   const [isEditingImage, setIsEditingImage] = useState(false);
@@ -42,7 +44,7 @@ export const ProfilePage: React.FC = () => {
     const result = await shareProfile(buildProfileShareData(
       window.location.origin,
       profile?.username,
-      displayName
+      resolvedDisplayName
     ));
     if (result === 'copied') setShareFeedback('Profile invitation copied');
     else if (result === 'unavailable') setShareFeedback('Sharing is not available on this device');
@@ -85,7 +87,7 @@ export const ProfilePage: React.FC = () => {
             <DeferredAvatar
               fileId={profileImageId || undefined}
               eager
-              alt={displayName || 'Profile'}
+              alt={resolvedDisplayName || 'Profile'}
               size="lg"
             />
             <div className="absolute inset-0 rounded-full bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
@@ -93,7 +95,7 @@ export const ProfilePage: React.FC = () => {
             </div>
           </button>
           <h2 className="text-xl font-bold text-white mt-4">
-            {displayName || 'Your Name'}
+            {resolvedDisplayName || 'Your Name'}
           </h2>
           {profile?.username && (
             <p className="text-sm text-gray-400 mt-1">@{profile.username}</p>
@@ -108,7 +110,7 @@ export const ProfilePage: React.FC = () => {
           >
             <span className="text-sm text-gray-400">Display Name</span>
             <div className="flex items-center gap-2">
-              <span className="text-sm text-white">{displayName || 'Not set'}</span>
+              <span className="text-sm text-white">{resolvedDisplayName || 'Not set'}</span>
               <ChevronRight size={16} className="text-gray-400" />
             </div>
           </button>
@@ -146,7 +148,7 @@ export const ProfilePage: React.FC = () => {
       <EditNameSheet
         isOpen={isEditingName}
         onClose={() => setIsEditingName(false)}
-        currentName={displayName}
+        currentName={resolvedDisplayName}
         onSave={updateDisplayName}
       />
       <EditDescriptionSheet
