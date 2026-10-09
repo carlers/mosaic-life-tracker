@@ -1,6 +1,6 @@
 # Mosaic Roadmap
 
-This roadmap records durable workstreams and batch status, not every engineering idea or bug. GitHub Issues records actionable work and approved issue-specific plans; see [issue workflow](ISSUE_WORKFLOW.md). `SESSION_STATE.md` contains the current handoff; `../AGENTS.md` contains working rules.
+This roadmap retains durable workstreams, recorded acceptance, and planned scope—not a live task queue or deployment report. [GitHub Issues](ISSUE_WORKFLOW.md) owns actionable work and issue-specific plans. Before acting on a pending item, check its issue/PR, the current branches and CI, and any backend rollout evidence. The dated [session checkpoint](SESSION_STATE.md) holds the most recent task handoff, not authoritative release status; [project instructions](../AGENTS.md) own working rules.
 
 ## Delivered foundation
 
@@ -113,6 +113,6 @@ This roadmap records durable workstreams and batch status, not every engineering
 - [x] Revisit cross-device last-write-wins and checkpoint-hidden drift — active multi-device use made both limitations material. Owner-write CAS plus a visible+online 120-second incremental catch-up watchdog remain the cheap steady-state path. A 2026-10-06 real-account reproduction proved that an already-divergent local RxDB can remain wrong when its durable checkpoint has advanced past the differing row, so explicit Sync Now now performs bounded full reconciliation after a freshness barrier and settles replication again. Automatic periodic full scans remain intentionally unnecessary.
 - [ ] Revisit >90-day stale-recovery client-clock tolerance only if recovery reports show legitimate offline edits being conservatively preserved or remote tombstones being ambiguous; steady-state RxDB pulls use server-authored tuple checkpoints and are unaffected.
 
-## Batch boundary
+## Interpreting progress
 
-Strategy B tombstone retention and its Appwrite rollout are complete. Garbage collection currently shares `message-action`; the backend-capacity plan now reserves that slot as the future general `app-api` and reserves the second Function slot for isolated disaster backups. Disaster recovery is the active next workstream on `security/disaster-backups`; current execution details live in SESSION_STATE.md.
+Checkboxes and branch names above preserve the recorded decision or milestone at the time it was written. A checked-off implementation is not, by itself, proof that its backend migration, Function activation, production promotion, or manual/device check has shipped. Likewise, a former "active" workstream may have advanced since this roadmap was updated. Use live GitHub Issues, PRs, Actions, Vercel, and the relevant [backend](APPWRITE_BACKEND_WORKFLOW.md) or [disaster recovery](DISASTER_RECOVERY.md) runbook to establish the current boundary. Keep this roadmap for durable scope; do not duplicate every issue or task checkpoint here.
