@@ -152,6 +152,12 @@ html:is([data-theme='light'], [data-theme='black']) [class~="hover:text-white"]:
   color: var(--mosaic-text) !important;
 }
 
+/* Dark and Black task previews: completed titles are white, while
+   incomplete titles retain the muted secondary foreground. Light is unchanged. */
+html:not([data-theme='light']) .mosaic-task-block[data-completed='true'] {
+  color: var(--mosaic-text) !important;
+}
+
 /* Light-mode calendar/day-view accents that should not retain dark fills. */
 html[data-theme='light'] .mosaic-holiday-label {
   background-color: #fee2e2 !important;
