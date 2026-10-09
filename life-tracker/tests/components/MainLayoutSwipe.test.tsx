@@ -210,4 +210,59 @@ describe('MainLayout primary route swipes', () => {
       await screen.findByText('Actual Me neighbor content')
     ).toBeInTheDocument();
   });
+
+  it('routes only an owned dominant horizontal trackpad burst, not scroll or nested carousels', () => {
+    vi.useFakeTimers();
+    const onRouteSwipe = vi.fn();
+    render(
+      <MainLayout activeTab="explore" onTabChange={() => {}}
+        canSwipeLeft canSwipeRight onRouteSwipe={onRouteSwipe}
+        leftPreview={<div>Next</div>}
+      >
+        <div data-testid="wheel-content">
+          <div className="swiper" data-testid="wheel-carousel">Nested carousel</div>
+        </div>
+      </MainLayout>
+    );
+    const wheel = (target: Element, deltaX: number, deltaY = 0) =>
+      target.dispatchEvent(new WheelEvent('wheel', {
+        bubbles: true, cancelable: true, deltaMode: 0,
+        clientX: 120, deltaX, deltaY,
+      }));
+
+    expect(wheel(screen.getByTestId('wheel-content'), 24, 100)).toBe(true);
+    expect(wheel(screen.getByTestId('wheel-carousel'), 160)).toBe(true);
+    act(() => vi.runAllTimers());
+    expect(onRouteSwipe).not.toHaveBeenCalled();
+
+    expect(wheel(screen.getByTestId('wheel-content'), 50)).toBe(false);
+    expect(wheel(screen.getByTestId('wheel-content'), 50)).toBe(false);
+    expect(wheel(screen.getByTestId('wheel-content'), 50)).toBe(false);
+    act(() => vi.runAllTimers());
+    expect(onRouteSwipe).toHaveBeenCalledTimes(1);
+    expect(onRouteSwipe).toHaveBeenCalledWith('left');
+  });
+
+  it('keeps trackpad back edge-only on detail pages', () => {
+    vi.useFakeTimers();
+    act(() => vi.advanceTimersByTime(800));
+    const onRouteSwipe = vi.fn();
+    render(
+      <MainLayout activeTab="messages" onTabChange={() => {}}
+        hideBottomNav canSwipeRight onRouteSwipe={onRouteSwipe}
+        rightPreview={<div>Parent</div>}
+      >
+        <div data-testid="wheel-detail">Chat detail</div>
+      </MainLayout>
+    );
+    const target = screen.getByTestId('wheel-detail');
+    const wheel = (clientX: number) => target.dispatchEvent(new WheelEvent('wheel', {
+      bubbles: true, cancelable: true, deltaMode: 0,
+      clientX, deltaX: -150, deltaY: 0,
+    }));
+    expect(wheel(120)).toBe(true);
+    expect(wheel(20)).toBe(false);
+    act(() => vi.runAllTimers());
+    expect(onRouteSwipe).toHaveBeenCalledWith('right');
+  });
 });

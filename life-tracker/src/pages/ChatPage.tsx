@@ -187,8 +187,10 @@ export const ChatPage: React.FC = () => {
       }
       if (e.key === 'Escape') {
         if (isSearching) {
+          e.preventDefault();
           closeSearch();
         } else if (replyTo) {
+          e.preventDefault();
           setReplyTo(null);
         }
       }
