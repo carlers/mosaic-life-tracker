@@ -20,13 +20,20 @@ export default defineConfig([
     },
     rules: {
       'no-empty': ['error', { allowEmptyCatch: true }],
+      // Namespace imports bypass named-service restrictions and can create an
+      // unguarded client from any feature module. Safe named value helpers
+      // (Query, ID, Permission, Role) remain legal outside the SDK owners.
+      'no-restricted-syntax': ['error', {
+        selector: "ImportDeclaration[source.value='appwrite'] > ImportNamespaceSpecifier",
+        message: 'Use safe named Appwrite value helpers or the guarded SDK instead of namespace imports.',
+      }],
       'no-restricted-imports': [
         'error',
         {
           paths: [
             {
               name: 'appwrite',
-              importNames: ['TablesDB', 'Storage', 'Functions', 'Account'],
+              importNames: ['Client', 'Databases', 'TablesDB', 'Storage', 'Functions', 'Account', 'Users'],
               message:
                 'Import the guarded SDK surface from src/lib/sdk.ts instead. Raw SDK service classes may only be constructed in src/lib/sdk.ts and src/lib/appwrite.ts.',
             },
@@ -39,6 +46,7 @@ export default defineConfig([
     files: ['src/lib/sdk.ts', 'src/lib/appwrite.ts'],
     rules: {
       'no-restricted-imports': 'off',
+      'no-restricted-syntax': 'off',
     },
   },
   {
