@@ -1,4 +1,4 @@
-import { useEffect, useRef, type RefObject } from 'react';
+import { useEffect, useLayoutEffect, useRef, type RefObject } from 'react';
 
 const FOCUSABLE_SELECTOR = [
   'a[href]',
@@ -28,7 +28,9 @@ export function useFocusTrap(
   shouldRestoreFocus?: () => boolean
 ): void {
   const shouldRestoreFocusRef = useRef(shouldRestoreFocus);
-  shouldRestoreFocusRef.current = shouldRestoreFocus;
+  useLayoutEffect(() => {
+    shouldRestoreFocusRef.current = shouldRestoreFocus;
+  }, [shouldRestoreFocus]);
   useEffect(() => {
     if (!isActive) return;
     const container = containerRef.current;
