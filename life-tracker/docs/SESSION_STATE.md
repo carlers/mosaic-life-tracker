@@ -1,25 +1,23 @@
 # Session checkpoint
 
 Updated: 2026-10-09
-Current task: #434 — default-first architecture / client SDK safety boundaries
-Branch: `chatgpt/default-first-boundaries`, from `dev` `d1b80db986d4b191bc7a8c857f3800cd63339146`
-Target stable Preview: `refactor/default-first-boundaries`
+Current task: #434 — second default-first safety batch (friend calendar and backend mapping)
+Branch: `chatgpt/default-first-ownership-contracts` from dev `e5e5ca65515c8e54712e2d35613e59b16f547fb5`
+Target stable Preview: `refactor/default-first-ownership-contracts`
 
-## Objective and scope
+## Objective and constraints
 
-- Finish an evidence-based audit of policy-vs-default gaps across client SDK, account async, backend configuration, CI and form actions (recorded in issue #434).
-- First implementation batch is non-user-visible: remove unused remote `guardedTablesDB.upsertRow`/`deleteRow` from browser API, broaden direct Appwrite unsafe-service/namespace lint guards, protect with meaningful regression tests.
-- Preserve local RxDB `upsert`, social outbox legacy action `kind: 'upsertRow'`, server Function hard deletes, and safe Appwrite Query/Role/Permission helpers.
-- Do not refactor sync/account lifecycle, migrate schema, change production Appwrite, UI behavior, theme, gesture or product version. Impact NONE; keep v0.6.1 unchanged.
+- Ensure a retained friend-calendar hook never reveals another viewer's previously loaded tasks, accepts old-owner or superseded fetch results, or rolls back another viewer's optimistic reactions.
+- Add a cheap, six-collection contract proving synced Appwrite serializer fields exist in the Git-owned backend manifest and declared remote columns do not trigger false unknown-field warnings. Preserve outgoing-message server-owned `read_at` omission.
+- Preserve current sync/account lifecycle, owner-keyed friend cache, backend and Function schemas, app styling, gestures, and CI/deployment architecture. No Appwrite cloud/production mutations.
+- Version impact **NONE**: scoped account-privacy/async guardrails and contract tests, not a separately user-testable product feature. Reassess if scope expands to visible feature behavior.
 
-## Verification and next action
+## Evidence
 
-- #409 accepted v0.6.1 Preview `3e1af34a` promoted by PR #433 to dev `d1b80db9`; promotion CI `37897274044` SUCCESS and exact dev Vercel READY.
-- Source audit: `sdk.ts` exports remote PUT and hard delete, despite documented restrictions, with no observed feature call sites. ESLint named-service restriction misses `Client`, `Databases`, `Users` and wildcard namespace imports. Existing `accountWorkScope`, backend manifest/readiness and dev provenance gates already provide strong defaults; defer speculative refactors.
-- Browser SDK restriction changes passed focused CI `37897836410` and Preview PR #435 was squash-merged at `faaae155`.
-- Canonical Preview run `37898026584`: production build, dependency audit, both DOM shards and both browser shards **passed**; general checks failed only because this checkpoint used `Current issue:` rather than the required literal `Current task:` (and placed Next action under a bullet). The SDK method and ESLint fixture regressions passed. Fix the checkpoint markers, not product code.
-Next action: verify the checkpoint-contract repair using focused CI; squash into stable Preview and rerun full canonical CI plus exact-SHA Vercel. Update #434 and request separate dev promotion approval.
+- Live starting `dev` `e5e5ca65` (v0.6.1); `main` `0159222c` unchanged; source verified before branch creation. Existing account generation, sync owner and delivery/outbox guards remain intact.
+- Test-first task commit `56d2eb0c` [verify:focused]: run `37904900971` demonstrated three **behavioral-red** friend-calendar failures: old viewer data on owner switch, stale reaction rollback, out-of-order same-owner refresh. One extra test assertion incorrectly passed an empty message (missing required `direction`) and was fixed in test fixture, not production serializer.
+- Implementation is hook-local (viewer+friend keyed presentation and request generations), plus six-collection serializer/manifest regressions; no sync/network/backend workflow changes.
 
-## Manual / backend boundaries
+## Verification and delivery boundary
 
-- No manual/device testing claimed; no Scratch/production Appwrite mutation, schema or Function deployment is required for this frontend-only API/lint change.
+Next action: verify coherent task SHA with focused CI, fix any failures; squash into stable Preview and require full canonical acceptance + exact-SHA Vercel READY. Update #434 with results and request separate user approval before stable Preview -> dev. Do not touch main. No device/manual or live Appwrite schema check is claimed for this frontend-only scope.
