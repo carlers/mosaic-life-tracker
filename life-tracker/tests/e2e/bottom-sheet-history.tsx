@@ -2,12 +2,34 @@ import React, { StrictMode, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import '../../src/index.css';
 import { BottomSheet } from '../../src/components/ui/BottomSheet';
+import { MemoSheet } from '../../src/components/home/views/MemoSheet';
+import { MessageActionSheet } from '../../src/components/messages/MessageActionSheet';
+import type { TaskDocument, MessageDocument } from '../../src/db/schema';
+
+
+// Feature wrappers intentionally clear their entity as soon as they close:
+// shared BottomSheet exit must still have enough data to animate.
+const memoTask = {
+  id: 'task_exit_regression',
+  title: 'Memo exit regression',
+  memo: 'Retained memo content',
+  date: '2026-10-09',
+  visibility: '',
+} as TaskDocument;
+const message = {
+  id: 'message_exit_regression',
+  content: 'Message exit regression',
+  taskRefTitle: '',
+  isUnsent: false,
+} as MessageDocument;
 
 export function Harness() {
   const [parentOpen, setParentOpen] = useState(false);
   const [nestedOpen, setNestedOpen] = useState(false);
   const [deepOpen, setDeepOpen] = useState(false);
   const [lockedOpen, setLockedOpen] = useState(false);
+  const [activeMemo, setActiveMemo] = useState<TaskDocument | null>(null);
+  const [activeMessage, setActiveMessage] = useState<MessageDocument | null>(null);
 
   return (
     <main className="min-h-screen bg-[#111111] text-white p-6">
@@ -16,6 +38,12 @@ export function Harness() {
       </button>
       <button type="button" onClick={() => setLockedOpen(true)}>
         Open locked sheet
+      </button>
+      <button type="button" onClick={() => setActiveMemo(memoTask)}>
+        Open data-clearing memo
+      </button>
+      <button type="button" onClick={() => setActiveMessage(message)}>
+        Open data-clearing message actions
       </button>
 
       <BottomSheet
@@ -61,6 +89,25 @@ export function Harness() {
           Open third sheet
         </button>
       </BottomSheet>
+
+      <MemoSheet
+        isOpen={!!activeMemo}
+        task={activeMemo}
+        onClose={() => setActiveMemo(null)}
+        onSave={() => setActiveMemo(null)}
+      />
+      <MessageActionSheet
+        isOpen={!!activeMessage}
+        message={activeMessage}
+        currentUserId="user_1"
+        isOwn
+        onClose={() => setActiveMessage(null)}
+        onReply={() => setActiveMessage(null)}
+        onCopy={() => setActiveMessage(null)}
+        onUnsend={() => setActiveMessage(null)}
+        onReact={() => setActiveMessage(null)}
+        onMoreEmoji={() => setActiveMessage(null)}
+      />
 
       <BottomSheet
         isOpen={deepOpen}

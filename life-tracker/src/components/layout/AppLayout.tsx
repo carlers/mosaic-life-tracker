@@ -11,6 +11,7 @@ import {
   preloadPrimaryRoute,
 } from './primaryRoutePreload';
 import type { TabId } from './BottomNav';
+import { matchProtectedRoute, protectedRouteSwipeMode, protectedRouteHidesBottomNav } from '../../lib/protectedRoutes';
 import {
   hasExpectedRouteParent,
   makeRouteParentState,
@@ -100,8 +101,6 @@ export const AppLayout: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const path = location.pathname;
-  const isChatDetail = /^\/messages\/[^/]+$/.test(path);
-  const isFriendCalendarDetail = /^\/friends\/[^/]+$/.test(path);
   const leftSwipeDestination = resolvePrimarySwipeDestination(path, 'left', location.state);
   const rightSwipeDestination = resolvePrimarySwipeDestination(path, 'right', location.state);
   const messagesIsAdjacent =
@@ -322,13 +321,7 @@ export const AppLayout: React.FC = () => {
   // app tree so local data is reachable; MainLayout shows the
   // OfflineBanner and the online handler refreshes the session when the
   // network returns.
-  let activeTab: TabId = 'home';
-  if (path.includes('explore') || path.startsWith('/friends/')) activeTab = 'explore';
-  else if (path.includes('account') || path.startsWith('/settings') || path.includes('profile')) {
-    // A Settings child must not be mistaken for the Alerts primary tab.
-    activeTab = 'account';
-  } else if (path === '/notifications') activeTab = 'notifications';
-  else if (path.includes('messages')) activeTab = 'messages';
+  const activeTab: TabId = matchProtectedRoute(path)?.tab ?? 'home';
 
   const handleTabChange = (tab: TabId) => {
     navigate(`/${tab}`);
@@ -381,9 +374,9 @@ export const AppLayout: React.FC = () => {
         }
         onRouteSwipe={handleRouteSwipe}
         routeSwipeActivationMode={
-          isChatDetail || isFriendCalendarDetail ? 'edge-back' : undefined
+          protectedRouteSwipeMode(path)
         }
-        hideBottomNav={isChatDetail}
+        hideBottomNav={protectedRouteHidesBottomNav(path)}
       >
         <Outlet />
       </LazyAppDataShell>

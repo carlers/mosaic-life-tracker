@@ -1,4 +1,5 @@
 import React from 'react';
+import { useRetainedSheetValue } from '../../../hooks/useRetainedSheetValue';
 import { BottomSheet } from '../../ui/BottomSheet';
 import { Check } from 'lucide-react';
 import {
@@ -43,10 +44,11 @@ const OVERRIDE_OPTIONS: {
 export const TaskVisibilitySheet: React.FC<TaskVisibilitySheetProps> = ({
   isOpen,
   onClose,
-  task,
+  task: incomingTask,
   category,
   onSave,
 }) => {
+  const { value: task, onExitComplete } = useRetainedSheetValue(incomingTask, isOpen);
   if (!task) return null;
 
   const inheriting = isInheriting(task.visibility);
@@ -62,7 +64,7 @@ export const TaskVisibilitySheet: React.FC<TaskVisibilitySheetProps> = ({
   };
 
   return (
-    <BottomSheet isOpen={isOpen} onClose={onClose} title="Visibility" height="auto">
+    <BottomSheet onExitComplete={onExitComplete} isOpen={isOpen} onClose={onClose} title="Visibility" height="auto">
       <div className="pt-2 pb-8 px-4">
         <p className="text-xs text-gray-400 text-center mb-5 leading-relaxed">
           Control who can see this task on your shared calendar.

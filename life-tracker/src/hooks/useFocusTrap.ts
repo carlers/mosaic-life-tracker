@@ -1,4 +1,4 @@
-import { useEffect, type RefObject } from 'react';
+import { useEffect, useLayoutEffect, useRef, type RefObject } from 'react';
 
 const FOCUSABLE_SELECTOR = [
   'a[href]',
@@ -24,8 +24,18 @@ const FOCUSABLE_SELECTOR = [
  */
 export function useFocusTrap(
   containerRef: RefObject<HTMLElement | null>,
-  isActive: boolean
+  isActive: boolean,
+  shouldRestoreFocus?: () => boolean,
+  onRestoreFocus?: (target: HTMLElement) => void
 ): void {
+  const shouldRestoreFocusRef = useRef(shouldRestoreFocus);
+  useLayoutEffect(() => {
+    shouldRestoreFocusRef.current = shouldRestoreFocus;
+  }, [shouldRestoreFocus]);
+  const onRestoreFocusRef = useRef(onRestoreFocus);
+  useLayoutEffect(() => {
+    onRestoreFocusRef.current = onRestoreFocus;
+  }, [onRestoreFocus]);
   useEffect(() => {
     if (!isActive) return;
     const container = containerRef.current;
@@ -79,8 +89,9 @@ export function useFocusTrap(
 
     return () => {
       document.removeEventListener('keydown', handleKeyDown);
-      if (previouslyFocused && document.contains(previouslyFocused)) {
-        previouslyFocused.focus({ preventScroll: true });
+      if (shouldRestoreFocusRef.current?.() !== false && previouslyFocused && document.contains(previouslyFocused)) {
+        if (onRestoreFocusRef.current) onRestoreFocusRef.current(previouslyFocused);
+        else previouslyFocused.focus({ preventScroll: true });
       }
     };
   }, [containerRef, isActive]);

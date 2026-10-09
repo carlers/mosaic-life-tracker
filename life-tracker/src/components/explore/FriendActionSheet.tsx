@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useRetainedSheetValue } from '../../hooks/useRetainedSheetValue';
 import { BottomSheet } from '../ui/BottomSheet';
 import { UserMinus, ShieldOff } from 'lucide-react';
 import { DeferredAvatar } from '../ui/DeferredAvatar';
@@ -15,10 +16,11 @@ interface FriendActionSheetProps {
 export const FriendActionSheet: React.FC<FriendActionSheetProps> = ({
   isOpen,
   onClose,
-  friendship,
+  friendship: incomingFriendship,
   onRemove,
   onBlock,
 }) => {
+  const { value: friendship, onExitComplete } = useRetainedSheetValue(incomingFriendship, isOpen);
   const [error, setError] = useState('');
   const [isWorking, setIsWorking] = useState(false);
 
@@ -38,7 +40,7 @@ export const FriendActionSheet: React.FC<FriendActionSheetProps> = ({
   };
 
   return (
-    <BottomSheet
+    <BottomSheet onExitComplete={onExitComplete}
       isOpen={isOpen}
       onClose={onClose}
       title={friendship.friendDisplayName || friendship.friendUsername}

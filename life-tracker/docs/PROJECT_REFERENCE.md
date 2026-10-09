@@ -221,6 +221,30 @@ See [offline implementation output](AI_WORKFLOW.md#offline-implementation-output
 - **`Parameters<T>` on SDK Methods Picks the Wrong Overload:** Appwrite's TablesDB/Storage/Functions methods are overloaded; TypeScript's built-in `Parameters<typeof method>` utility resolves to the **last** overload, which for these methods is a deprecated `(id: string, ...)` form. Never use `Parameters<>` to derive param types for these methods. Define the param shape explicitly in `src/lib/sdk.ts` and cast at the call boundary (`params as never`). See §15 for the guarded SDK surface.
 
 ## 7. UI/UX & Architectural Guardrails
+
+
+### UI behavior ownership (agent audit, issue #409)
+
+Behavior should be shared **only when the state/action contract is identical**;
+visual uniformity alone is not permission to change gesture priorities, thresholds,
+scroll ownership, keyboard focus, or existing styles.
+
+| Interaction surface | Existing behavior owner | Reuse decision and exception |
+|---|---|---|
+| Primary page and detail edge-back navigation | `protectedRoutes`, `PrimaryRouteSwipeSurface`, `primarySwipeNavigation` | **Metadata-driven default** for protected detail routes; existing edge gestures retain priority and legacy Settings paths preserve full-width swipes. Do not mix with bubble gestures. |
+| Chat-bubble reply and task title/memo taps | `useBubbleGestures` | **Reuse existing hook**, but preserve independent callbacks, directions, tap timing, and long-press ownership |
+| Day/month carousels | `useDayViewSwiper`, existing Swiper wiring | **Keep separate** from route and bubble gestures: carousel, sheet drag, and vertical scroll have different owners |
+| Task/category drag and task selection | Task reorder runtime and `DayViewSheet` | **Keep isolated**: selection disables reorder; reorder has dedicated pointer sensors and cancellation rules |
+| Sheet/dialog stack, native Back, and confirmations | `BottomSheet`, `ConfirmSheet`, `useFocusTrap` | **Automatic top-layer inertness, retained exit, root scroll/focus/Back ownership.** Feature sheets use controlled `isOpen`; exceptional non-sheet overlays explicitly opt out. See §13. |
+| Bulk task update/delete partial failure | `runBulkTaskActions` + `DayViewSheet` | **Reuse settled-failure selection** so one failed item does not lose other selections; preserve existing feedback and retry |
+| Custom keyboard-operable task selection and chat bubbles | `activateOnEnterOrSpace` | **Reuse identical Enter/Space activation** while retaining surface-specific actions; native input editing remains separate |
+| Timed notices and prop/sheet reset | `useFeedback`, `usePropSync`, `useSheetReset` | **Prefer existing helpers** for new identical cases; chat timestamp toggling and focus behavior are distinct state machines |
+
+Regression ownership: unit tests for pure policies and settled operations;
+DOM tests for selection, keyboard semantics, and sheet focus; browser contracts
+for real gesture arbitration, scrolling, history, and reduced-motion behavior.
+See [test workflow](TEST_WORKFLOW.md) and [theme guide](THEMING.md). A physical
+phone/desktop visual-and-touch check is **manual acceptance**, never implied by CI.
 - **Dynamic Colors:** Category colors MUST be applied via inline styles (`style={{ backgroundColor: cat.color }}`) — never dynamic Tailwind strings. The user-selected app accent is a separate appearance token applied through root CSS custom properties; do not reuse category colors as semantic state colors.
 - **Predefined Colors Only:** Category and app-accent pickers use the curated palettes in `src/constants/colors.ts`. No free-form hex inputs. Category palettes and accent palettes may share the `ColorPalettePicker` component while retaining separate allowed-color sets.
 - **Bottom Sheet Standardization:** All modals MUST use `<BottomSheet>` (see §13). It MUST use `ReactDOM.createPortal` into `document.body` to escape parent z-index/overflow traps and sit above `BottomNav`. Drag-to-close is restricted to the header handle via Framer Motion `useDragControls` + `dragListener={false}` on the main container — prevents accidental closes while scrolling. On Android/Samsung browser or installed-PWA Back, open sheets are modal history layers: Back dismisses only the top sheet, repeated Back dismisses nested sheets top-first, and route/browser navigation resumes only after the sheet stack is empty.
@@ -299,8 +323,13 @@ for the active task, and [test workflow](TEST_WORKFLOW.md) for verification comm
 - **Schema migrations:** adding an optional field to an existing RxDB collection requires (1) bump schema `version`, (2) add a `migrationStrategies` entry in `database.ts` backfilling `''` (or `false` for booleans), (3) update both `toAppwriteFormat` and `fromAppwriteFormat`, (4) update `KNOWN_FIELDS` (drift detection), (5) add the next numbered idempotent Appwrite migration through `scripts/appwrite-migrate.mjs` and the [Appwrite backend workflow](APPWRITE_BACKEND_WORKFLOW.md). `tests/helpers/testDb.ts` mirrors `database.ts`'s strategies and MUST be updated in lock-step — see §24.5. Any non-RxDB mapper constructing the same doc type (e.g. `friendData.mapCategoryRow`) MUST be updated in the same patch or the build fails on the missing required field.
 
 ## 13. Modal & Bottom Sheet Structure
+- **Default modal ownership (#409):** `BottomSheet` supplies drag handle, entrance and exit transitions, Escape/browser-history/Android Back, app-root inertness, focus trap, and ref-counted scroll lock through the exit. Its active portal is the sole keyboard/pointer owner; underlying open sheets are inert and aria-hidden automatically, with focus returning to the previous layer after dismissal. Keep these defaults centralized rather than reimplementing them in feature sheets.
+- **Controlled lifetime:** do not conditionally unmount a `BottomSheet` owner merely because `isOpen` changes to false: retain the owner and pass `isOpen={false}` until `onExitComplete` when the owning feature needs to drop its data. This is essential for portal exit animations; wrapping an immediately unmounted owner in another `AnimatePresence` does not guarantee exit.
+- **Reopening lifecycle:** a `BottomSheet` initially rendered closed must arm its retained-exit state on every open. Back, header drag and backdrop may close it, but the portal must survive until its downward animation completes. Regression-test the closed → open → close sequence, not only initially-open sheets.
+- **Data clearing on dismissal:** data-backed task, message and friend sheets use `useRetainedSheetValue` to keep the last entity displayed until `onExitComplete`. Caller owners stay mounted with `isOpen={false}`; conditional `{isOpen && <FeatureSheet />}` bypasses the shared animation.
+- **Route defaults:** protected pages are declared in `src/lib/protectedRoutes.ts`; `App.tsx` generates their `Route` entries. New detail pages specify a parent and owning tab once and inherit edge-back, history fallback, and layout settings. Existing Settings routes explicitly preserve the previously full-width swipe mode, and Notifications Settings accepts only Settings/Alerts origins.
 - **One sheet = one file.** Props `{ isOpen, onClose, <entity>, onSave/onConfirm }`. No context-based orchestration. Primitive rules: §7.
-- **Nested sheet choreography:** when one sheet opens another (TaskActionSheet → MemoSheet), parent passes `isLocked={isBackgroundLocked}` down. `isBackgroundLocked` is a single boolean OR of all child-sheet open states.
+- **Nested sheet choreography:** a new top `BottomSheet` automatically suspends underlying sheet focus/pointer access. Preserve domain-specific `isLocked` when underlying drag/reorder must also be disabled, and `suspendInteraction` for non-BottomSheet overlays (such as PhotoSwipe); do not hand-roll modal stack inertness.
 - **Sheet locking semantics:** `isLocked` disables drag/swipe interaction but preserves ordinary dismissal semantics. `preventDismiss` is the stronger in-flight guard: backdrop, Escape, and browser/Android Back must not dismiss the sheet while it is true. Use `preventDismiss` only while an operation must finish without the modal disappearing.
 - **Action sheets close themselves before opening a sibling:** `onClick={() => { onX(); onClose(); }}` — the action sheet must visually dismiss first.
 - **Sheet content padding:** `pt-2 pb-8 px-4` (or `px-1` for full-width lists). No extra wrappers.

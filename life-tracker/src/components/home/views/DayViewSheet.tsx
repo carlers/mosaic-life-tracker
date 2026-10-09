@@ -1,4 +1,5 @@
 import React, { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { runBulkTaskActions } from './bulkTaskActions';
 import { addDays, format, isToday } from 'date-fns';
 import { Swiper, SwiperSlide } from 'swiper/react';
 import { AnimatePresence, motion } from 'framer-motion';
@@ -378,8 +379,7 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
     const snapshot = selectedTasks;
     if (snapshot.length === 0 || isBulkWorking) return;
     setIsBulkWorking(true);
-    const results = await Promise.allSettled(snapshot.map((task) => updateTask(task.id, updates)));
-    const failedIds = new Set(snapshot.filter((_, index) => results[index]?.status === 'rejected').map((task) => task.id));
+    const failedIds = await runBulkTaskActions(snapshot, (task) => updateTask(task.id, updates));
     setIsBulkWorking(false);
     if (failedIds.size > 0) {
       setSelectedTaskIds(failedIds);
@@ -422,8 +422,7 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
     const snapshot = selectedTasks;
     if (snapshot.length === 0 || isBulkWorking) return;
     setIsBulkWorking(true);
-    const results = await Promise.allSettled(snapshot.map((task) => deleteTask(task.id)));
-    const failedIds = new Set(snapshot.filter((_, index) => results[index]?.status === 'rejected').map((task) => task.id));
+    const failedIds = await runBulkTaskActions(snapshot, (task) => deleteTask(task.id));
     setIsBulkWorking(false);
     if (failedIds.size > 0) {
       setSelectedTaskIds(failedIds);
@@ -858,9 +857,8 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
         )}
       </AnimatePresence>
       <AnimatePresence>
-        {isBulkActionOpen && (
-          <BulkTaskActionSheet
-            isOpen
+        <BulkTaskActionSheet
+            isOpen={isBulkActionOpen}
             count={selectedTasks.length}
             isWorking={isBulkWorking}
             onClose={() => setIsBulkActionOpen(false)}
@@ -870,10 +868,9 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
             onDoTomorrow={() => runBulkUpdate({ date: format(addDays(new Date(), 1), 'yyyy-MM-dd') })}
             onVisibility={() => { setIsBulkActionOpen(false); setIsBulkVisibilityOpen(true); }}
           />
-        )}
-        {isBulkCategoryOpen && (
-          <BulkCategoryPickerSheet
-            isOpen
+
+        <BulkCategoryPickerSheet
+            isOpen={isBulkCategoryOpen}
             categories={categories.filter(
               (category) =>
                 category.userId === currentUserId && !category.isDeleted
@@ -882,13 +879,8 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
             onClose={() => setIsBulkCategoryOpen(false)}
             onSelect={handleBulkMoveCategory}
           />
-        )}
-        {isBulkDateOpen && (
-          <BulkDatePickerSheet isOpen count={selectedTasks.length} isWorking={isBulkWorking} onClose={() => setIsBulkDateOpen(false)} onSave={(date) => runBulkUpdate({ date })} />
-        )}
-        {isBulkVisibilityOpen && (
-          <BulkVisibilitySheet isOpen count={selectedTasks.length} isWorking={isBulkWorking} onClose={() => setIsBulkVisibilityOpen(false)} onSave={(visibility) => runBulkUpdate({ visibility })} />
-        )}
+        <BulkDatePickerSheet isOpen={isBulkDateOpen} count={selectedTasks.length} isWorking={isBulkWorking} onClose={() => setIsBulkDateOpen(false)} onSave={(date) => runBulkUpdate({ date })} />
+        <BulkVisibilitySheet isOpen={isBulkVisibilityOpen} count={selectedTasks.length} isWorking={isBulkWorking} onClose={() => setIsBulkVisibilityOpen(false)} onSave={(visibility) => runBulkUpdate({ visibility })} />
       </AnimatePresence>
       <TaskActionSheet
         isOpen={isActionSheetOpen && !!activeTask}
@@ -912,34 +904,13 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
         onDeletePhoto={handleRequestDeletePhoto}
         onDoItTomorrowOrToday={handleDoItTomorrowOrToday}
       />
-      <AnimatePresence>
-        {isMemoOpen && activeTask && (
-          <MemoSheet
-            isOpen={isMemoOpen}
-            onClose={handleCloseMemo}
-            task={activeTask}
-            onSave={handleMemoSave}
-            initialMode={memoInitialMode}
-          />
-        )}
-        {isDatePickerOpen && activeTask && (
-          <DatePickerSheet
-            isOpen={isDatePickerOpen}
-            onClose={handleCloseDatePicker}
-            task={activeTask}
-            onDateChange={handleDateChange}
-          />
-        )}
-        {isVisibilityOpen && activeTask && (
-          <TaskVisibilitySheet
-            isOpen={isVisibilityOpen}
-            onClose={handleCloseVisibility}
-            task={activeTask}
-            category={activeTaskCategory}
-            onSave={handleVisibilitySave}
-          />
-        )}
-      </AnimatePresence>
+      <MemoSheet isOpen={isMemoOpen && !!activeTask} onClose={handleCloseMemo}
+        task={activeTask} onSave={handleMemoSave} initialMode={memoInitialMode} />
+      <DatePickerSheet isOpen={isDatePickerOpen && !!activeTask}
+        onClose={handleCloseDatePicker} task={activeTask} onDateChange={handleDateChange} />
+      <TaskVisibilitySheet isOpen={isVisibilityOpen && !!activeTask}
+        onClose={handleCloseVisibility} task={activeTask} category={activeTaskCategory}
+        onSave={handleVisibilitySave} />
       <ConfirmSheet
         isOpen={isDeleteConfirmOpen}
         onClose={() => {

@@ -1,4 +1,5 @@
 import React, { useId, useState } from 'react';
+import { useRetainedSheetValue } from '../../../hooks/useRetainedSheetValue';
 import { BottomSheet } from '../../ui/BottomSheet';
 import { Button } from '../../ui/Button';
 import { Calendar } from 'lucide-react';
@@ -15,9 +16,10 @@ interface DatePickerSheetProps {
 export const DatePickerSheet: React.FC<DatePickerSheetProps> = ({
   isOpen,
   onClose,
-  task,
+  task: incomingTask,
   onDateChange
 }) => {
+  const { value: task, onExitComplete } = useRetainedSheetValue(incomingTask, isOpen);
   const [editedDate, setEditedDate] = useState<string | null>(null);
   const dateInputId = useId();
   const taskId = task?.id ?? null;
@@ -35,7 +37,7 @@ export const DatePickerSheet: React.FC<DatePickerSheetProps> = ({
   if (!task) return null;
 
   return (
-    <BottomSheet isOpen={isOpen} onClose={onClose} title="Change Date" height="auto">
+    <BottomSheet onExitComplete={onExitComplete} isOpen={isOpen} onClose={onClose} title="Change Date" height="auto">
       <div className="pt-2 pb-8 px-4 space-y-4">
         <div>
           <label htmlFor={dateInputId} className="block text-xs text-gray-400 mb-2 ml-1">Select Date</label>

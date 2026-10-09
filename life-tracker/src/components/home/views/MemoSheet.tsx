@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { useRetainedSheetValue } from '../../../hooks/useRetainedSheetValue';
 import { BottomSheet } from '../../ui/BottomSheet';
 import { usePropSync } from '../../../hooks/usePropSync';
 import type { TaskDocument } from '../../../db/schema';
@@ -17,10 +18,11 @@ interface MemoSheetProps {
 export const MemoSheet: React.FC<MemoSheetProps> = ({
   isOpen,
   onClose,
-  task,
+  task: incomingTask,
   onSave,
   initialMode = 'edit',
 }) => {
+  const { value: task, onExitComplete } = useRetainedSheetValue(incomingTask, isOpen);
   const [editedMemo, setEditedMemo] = useState<string | null>(null);
   const [mode, setMode] = useState<MemoMode>(initialMode);
   const [privateOnlyOverride, setPrivateOnlyOverride] = useState<boolean | null>(null);
@@ -61,7 +63,7 @@ export const MemoSheet: React.FC<MemoSheetProps> = ({
   };
 
   return (
-    <BottomSheet isOpen={isOpen} onClose={onClose} title={task.title} height="auto">
+    <BottomSheet onExitComplete={onExitComplete} isOpen={isOpen} onClose={onClose} title={task.title} height="auto">
       <div className="px-4 pb-8 pt-2">
         {mode === 'view' ? (
           <button
