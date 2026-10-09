@@ -346,6 +346,12 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
     deferChildrenUntilPaint ? isOpen : true
   );
   const [childrenMounted, setChildrenMounted] = useState(isOpen);
+  // Most sheets mount closed. Arm presence synchronously when an open
+  // arrives, so a subsequent Back or drag can animate instead of returning null.
+  // Guarding on childrenMounted ensures at most one extra render per open.
+  if (isOpen && !childrenMounted) {
+    setChildrenMounted(true);
+  }
   const shouldRenderChildren = deferChildrenUntilPaint
     ? isOpen
       ? deferredContentOpen

@@ -61,6 +61,18 @@ describe('BottomSheet', () => {
     ).not.toBeNull();
   });
 
+  it('arms the exit on closed-to-open transitions before Back or drag can close it', () => {
+    const child = <div data-marker="reopened-sheet">content</div>;
+    const { rerender } = render(<BottomSheet isOpen={false} onClose={noop}>{child}</BottomSheet>);
+    expect(document.body.querySelector('[data-marker="reopened-sheet"]')).toBeNull();
+    rerender(<BottomSheet isOpen onClose={noop}>{child}</BottomSheet>);
+    expect(document.body.querySelector('[data-marker="reopened-sheet"]')).not.toBeNull();
+    rerender(<BottomSheet isOpen={false} onClose={noop}>{child}</BottomSheet>);
+    expect(document.body.querySelector('[data-marker="reopened-sheet"]')).not.toBeNull();
+    expect(document.body.querySelector('[role="dialog"]')).not.toBeNull();
+    expect(document.body.style.overflow).toBe('hidden');
+  });
+
   it('keeps deferred children mounted during the exit transition', () => {
     const { rerender } = render(
       <BottomSheet isOpen onClose={noop} deferChildrenUntilPaint>

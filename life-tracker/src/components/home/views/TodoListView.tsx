@@ -117,19 +117,11 @@ export const TodoListView: React.FC<TodoListViewProps> = ({
               onReactToTask={onReactToTask}
               holidayConfig={holidayConfig}
             />
-            {replyTask && (
-              <Suspense fallback={null}>
-                <ReplyComposerSheet
-                  isOpen
-                  onClose={closeReply}
-                  task={replyTask}
-                  categoryColor={replyColor}
-                  friendId={friendUserId}
-                  friendName={friendName}
-                  onSent={handleReplySent}
-                />
-              </Suspense>
-            )}
+            <Suspense fallback={null}>
+              <ReplyComposerSheet isOpen={!!replyTask} onClose={closeReply}
+                task={replyTask} categoryColor={replyColor}
+                friendId={friendUserId} friendName={friendName} onSent={handleReplySent} />
+            </Suspense>
             {feedback && (
               <div
                 role="status"
