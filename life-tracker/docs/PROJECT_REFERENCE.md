@@ -223,6 +223,9 @@ See [offline implementation output](AI_WORKFLOW.md#offline-implementation-output
 
 ## 7. UI/UX & Architectural Guardrails
 
+**Settings information hierarchy (issue #417):** Settings groups live account/preference actions, future-only destinations, data/sync transfers, version/update, and data deletion in named sections. Unavailable rows say Coming soon; backup timestamps sit next to Backup & Restore. Preserve collapsed Version/build info, nested commit disclosure, and account/data deletion confirmations. Keep shared theme semantics and SettingsRow; no extra Settings framework.
+
+
 
 ### UI behavior ownership (agent audit, issue #409)
 
