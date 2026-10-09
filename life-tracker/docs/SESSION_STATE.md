@@ -1,26 +1,24 @@
 # Session checkpoint
 
 Updated: 2026-10-09
-Current task: #409 — default-behavior architecture implementation
-Status: Phase A sheet lifecycle/top-layer defaults prepared for focused verification; route registry is next.
-Next action: review Phase A focused CI, repair failures, then implement typed protected-route metadata, tests, version and final Preview acceptance.
-Blockers: none known.
+Current task: #409 — default-behavior architecture
+Status: phases A/B implemented on `chatgpt/ui-default-behavior`; focused verification required before stable Preview acceptance.
+Next action: run focused CI, investigate failures, squash passing task into `refactor/ui-behavior-standardization`, require canonical CI and Vercel READY, then seek explicit promotion approval.
+Blockers: no external blocker identified.
 
 ## Scope and approval
-- User explicitly approved implementation after issue #409 plan hardening.
-- Base: accepted stable Preview `refactor/ui-behavior-standardization` at `d89ba427`; dev remains `b321373e`. Work only on `chatgpt/ui-default-behavior`.
-- Keep existing sheet appearance, animations, drag thresholds, Back history contracts and lazy routes. Changes to shipped behavior require a Preview version decision before final acceptance.
+- User approved implementation after reviewed #409 plan. Reuse prior accepted Preview `d89ba427`; dev `b321373e`.
+- Version impact: user-testable modal/navigation defaults; v0.6.0 (no collision with known main/dev/stable Previews).
+- No Appwrite, backend, schema, feature visual redesign, gesture threshold or theme changes.
 
-## Implementation
-- Phase A: automatic modal stack interaction/focus isolation, root inert and exit-phase scroll lock; controlled bulk child sheet mounts; focused DOM/browser regressions.
-- Phase B: typed route registry as navigation/layout source, preserve route preload and redirect, add contract tests.
-- Phase C: docs/guardrails and full canonical CI plus Vercel exact-SHA READY. Promotion to dev/main not authorized.
+## Implemented
+- Sheet modal stack maintains inert lower layers and app-root lock while visible, retains focus/scroll lock through exit, and uses controlled bulk child mounts.
+- Route metadata defines primary/detail/redirect pages, parent fallback, nav tab, swipe mode, chrome and preview eligibility. Protected JSX routes are generated from the typed registry.
+- Regression tests for modal nesting/lock, former performance mock lifetime, route metadata coverage, and direct/settings paths.
+- Project reference updated in §§7/13 for future agents; optional non-sheet overlays remain explicitly managed.
 
-## Verification
-- Existing #409 first batch had focused/full CI green and Vercel READY at `d89ba427`.
-- Phase A tests not yet run; physical Android/iOS/device tests not done.
-
-## Remaining
-- Focused CI Phase A, review real-browser results.
-- Route registry + guardrails, version stamp, final focused and full Preview acceptance.
-- Report manual/device checks separately and request dev approval.
+## Verification and remaining
+- First focused CI `37887134872` failed lint (ref updated during render); repaired in layout effect.
+- Second focused CI `37887305496` reached DOM regressions; tests initially assumed closed bulk child components unmounted immediately. Updated test fixture to target the actual outer sheet, and wait until exit hands control back.
+- Remaining: new focused run for complete candidate, repair any CI failures, canonical Preview quality gate and exact-SHA Vercel READY.
+- Physical Android/iOS testing, gesture touch validation and visual/theme review are manual and not yet performed.
