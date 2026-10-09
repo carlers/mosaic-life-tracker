@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
 
 /**
  * Keep the last opened entity alive until BottomSheet finishes its exit.
@@ -14,11 +14,11 @@ export function useRetainedSheetValue<T extends { id: string }>(
 ) {
   const [lastOpenValue, setLastOpenValue] = useState<T | null>(null);
 
-  useEffect(() => {
-    if (!isOpen || !value) return;
-    // Avoid render loops when a domain hook returns an equivalent new object.
-    setLastOpenValue((previous) => previous?.id === value.id ? previous : value);
-  }, [isOpen, value]);
+  // React's guarded render-time adjustment guarantees the last record is
+  // captured before any Back/drag dismissal, without a setState-in-effect loop.
+  if (isOpen && value && lastOpenValue?.id !== value.id) {
+    setLastOpenValue(value);
+  }
 
   const onExitComplete = useCallback(() => setLastOpenValue(null), []);
   return { value: value ?? lastOpenValue, onExitComplete };
