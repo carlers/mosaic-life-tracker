@@ -37,14 +37,20 @@ function Consumer() {
     accentColor,
     setAppearanceMode,
     setAccentColor,
+    reduceAnimations,
+    setReduceAnimations,
   } = useAppearance();
   return (
     <div>
       <output data-testid="appearance-mode">{mode}</output>
       <output data-testid="resolved-theme">{resolvedTheme}</output>
       <output data-testid="accent-color">{accentColor}</output>
+      <output data-testid="reduce-animations">{String(reduceAnimations)}</output>
       <button type="button" onClick={() => void setAppearanceMode('light')}>
         Use light
+      </button>
+      <button type="button" onClick={() => void setReduceAnimations(true)}>
+        Reduce app motion
       </button>
       <button type="button" onClick={() => void setAccentColor('#3B82F6')}>
         Use blue accent
@@ -99,18 +105,32 @@ describe('AppearanceProvider', () => {
     expect(mocks.setSetting).toHaveBeenCalledWith('accentColor', '#3B82F6');
   });
 
+  it('syncs Reduce animations and caches the choice for the current user', () => {
+    vi.stubGlobal('matchMedia', vi.fn((query: string) => ({
+      matches: false, media: query,
+      addEventListener: vi.fn(), removeEventListener: vi.fn(),
+    })));
+    render(<AppearanceProvider><Consumer /></AppearanceProvider>);
+    expect(screen.getByTestId('reduce-animations')).toHaveTextContent('false');
+    fireEvent.click(screen.getByRole('button', { name: 'Reduce app motion' }));
+    expect(screen.getByTestId('reduce-animations')).toHaveTextContent('true');
+    expect(document.documentElement.dataset.reduceMotion).toBe('true');
+    expect(localStorage.getItem('mosaic_reduce_animations_user_1')).toBe('true');
+    expect(mocks.setSetting).toHaveBeenCalledWith('reduceAnimations', true);
+  });
+
   // Regression: §2 (System appearance follows prefers-color-scheme live).
   it('updates the resolved theme when the system preference changes', () => {
     let listener: ((event: MediaQueryListEvent) => void) | null = null;
     let matches = false;
-    vi.stubGlobal('matchMedia', vi.fn(() => ({
+    vi.stubGlobal('matchMedia', vi.fn((query: string) => ({
       get matches() {
-        return matches;
+        return query === '(prefers-color-scheme: dark)' ? matches : false;
       },
-      media: '(prefers-color-scheme: dark)',
+      media: query,
       onchange: null,
       addEventListener: (_type: string, next: (event: MediaQueryListEvent) => void) => {
-        listener = next;
+        if (query === '(prefers-color-scheme: dark)') listener = next;
       },
       removeEventListener: vi.fn(),
       addListener: vi.fn(),

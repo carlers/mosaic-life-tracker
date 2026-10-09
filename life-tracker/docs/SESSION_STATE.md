@@ -19,4 +19,4 @@ Task branch: `chatgpt/unified-motion`; stable Preview target: `feature/navigatio
 - No Appwrite migrations/cloud, no production promotion.
 
 ## Next action
-Commit coherent task tree and run full task diagnostics, fix failures in task branch, squash onto stable navigation Preview and verify exact SHA. Update issue #471 with acceptance evidence.
+First full diagnostic 38005875755: lint, DOM shard 2, both Chromium browser shards and dependency audit green; build failed TypeScript overly narrow route-parent array; DOM shard 1 failed because its existing matchMedia mock reused one listener for two media queries. Repairs typed the parent array as readonly string[] and made the color-scheme test dispatch only its own listener, with added provider-level Reduce animations sync/cache coverage. Rerun full diagnostic to measure production size and verify fixes, then stable Preview.
