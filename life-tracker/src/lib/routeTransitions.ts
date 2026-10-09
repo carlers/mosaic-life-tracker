@@ -14,7 +14,7 @@ function isAncestor(parent: string, child: string): boolean {
   const seen = new Set<string>();
   while (route && route.kind === 'detail' && !seen.has(route.path)) {
     seen.add(route.path);
-    const parents: readonly string[] = [route.parent, ...(route.alternateParents ?? [])];
+    const parents: readonly string[] = [route.parent, ...('alternateParents' in route ? route.alternateParents ?? [] : [])];
     if (parents.includes(parent)) return true;
     route = matchProtectedRoute(route.parent);
   }

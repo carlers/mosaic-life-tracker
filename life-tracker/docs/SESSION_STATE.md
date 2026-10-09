@@ -20,3 +20,8 @@ Task branch: `chatgpt/unified-motion`; stable Preview target: `feature/navigatio
 
 ## Next action
 First full diagnostic 38005875755: lint, DOM shard 2, both Chromium browser shards and dependency audit green; build failed TypeScript overly narrow route-parent array; DOM shard 1 failed because its existing matchMedia mock reused one listener for two media queries. Repairs typed the parent array as readonly string[] and made the color-scheme test dispatch only its own listener, with added provider-level Reduce animations sync/cache coverage. Rerun full diagnostic to measure production size and verify fixes, then stable Preview.
+
+## Second diagnostic
+
+- Full task run [38006100358](https://github.com/carlers/mosaic-life-tracker/actions/runs/38006100358): DOM shards and dependency tests passed; route transition TypeScript still failed because `alternateParents` exists on only some members of the discriminated protected-route union. The corrected implementation combines the `'alternateParents' in route` guard with an explicitly broad `readonly string[]` collection, covering both compiler errors without casts.
+- Next required proof: production TypeScript/build/size on exact task SHA, followed by complete stable-Preview acceptance. Do not adjust size caps without the emitted measurements.
