@@ -19,3 +19,7 @@ Preview version: `0.6.3` (PATCH from dev `0.6.2`)
 - Focused CI on coherent task commit, then squash to stable Preview and require canonical full checks and Vercel READY.
 - Manual desktop/mobile visual check of completed/incomplete TaskBlocks in Dark, Black and Light remains human acceptance; no device check is claimed here.
 - Do not promote to `dev`/`main` without separate authorization.
+
+## Next action
+
+After focused verification of this documentation repair, squash into `fix/taskblock-dark-white`; require successful full canonical CI and exact-SHA Vercel Preview READY. Keep `dev`/`main` unchanged pending user approval.
