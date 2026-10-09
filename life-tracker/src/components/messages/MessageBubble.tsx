@@ -9,6 +9,7 @@ import {
   type SwipeDirection,
 } from '../../hooks/useBubbleGestures';
 import { parseReactions } from '../../lib/reactionUtils';
+import { activateOnEnterOrSpace } from '../../lib/keyboardActivation';
 import type { MessageDocument } from '../../db/schema';
 
 export type MessageStatusKind = 'pending' | 'delivered' | 'read';
@@ -196,9 +197,7 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
           onPointerCancel={onPointerCancel}
           onContextMenu={onContextMenu}
           onKeyDown={(event) => {
-            if (event.key !== 'Enter' && event.key !== ' ') return;
-            event.preventDefault();
-            setShowTimestampLocal((visible) => !visible);
+            activateOnEnterOrSpace(event, () => setShowTimestampLocal((visible) => !visible));
           }}
           style={{
             transform: `translateX(${swipeOffset}px)`,

@@ -221,6 +221,30 @@ See [offline implementation output](AI_WORKFLOW.md#offline-implementation-output
 - **`Parameters<T>` on SDK Methods Picks the Wrong Overload:** Appwrite's TablesDB/Storage/Functions methods are overloaded; TypeScript's built-in `Parameters<typeof method>` utility resolves to the **last** overload, which for these methods is a deprecated `(id: string, ...)` form. Never use `Parameters<>` to derive param types for these methods. Define the param shape explicitly in `src/lib/sdk.ts` and cast at the call boundary (`params as never`). See §15 for the guarded SDK surface.
 
 ## 7. UI/UX & Architectural Guardrails
+
+
+### UI behavior ownership (agent audit, issue #409)
+
+Behavior should be shared **only when the state/action contract is identical**;
+visual uniformity alone is not permission to change gesture priorities, thresholds,
+scroll ownership, keyboard focus, or existing styles.
+
+| Interaction surface | Existing behavior owner | Reuse decision and exception |
+|---|---|---|
+| Primary page and detail edge-back navigation | `PrimaryRouteSwipeSurface`, `routeSwipeMotion`, `primarySwipeNavigation` | **Keep separate** from bubble/task swipes: edge-back outranks bubble reply at the reserved edge; vertical and nested owners retain priority |
+| Chat-bubble reply and task title/memo taps | `useBubbleGestures` | **Reuse existing hook**, but preserve independent callbacks, directions, tap timing, and long-press ownership |
+| Day/month carousels | `useDayViewSwiper`, existing Swiper wiring | **Keep separate** from route and bubble gestures: carousel, sheet drag, and vertical scroll have different owners |
+| Task/category drag and task selection | Task reorder runtime and `DayViewSheet` | **Keep isolated**: selection disables reorder; reorder has dedicated pointer sensors and cancellation rules |
+| Sheet/dialog stack, native Back, and confirmations | `BottomSheet`, `ConfirmSheet`, `useFocusTrap` | **Reuse existing components** without globally modifying dismissal, focus return, or presentation |
+| Bulk task update/delete partial failure | `runBulkTaskActions` + `DayViewSheet` | **Reuse settled-failure selection** so one failed item does not lose other selections; preserve existing feedback and retry |
+| Custom keyboard-operable task selection and chat bubbles | `activateOnEnterOrSpace` | **Reuse identical Enter/Space activation** while retaining surface-specific actions; native input editing remains separate |
+| Timed notices and prop/sheet reset | `useFeedback`, `usePropSync`, `useSheetReset` | **Prefer existing helpers** for new identical cases; chat timestamp toggling and focus behavior are distinct state machines |
+
+Regression ownership: unit tests for pure policies and settled operations;
+DOM tests for selection, keyboard semantics, and sheet focus; browser contracts
+for real gesture arbitration, scrolling, history, and reduced-motion behavior.
+See [test workflow](TEST_WORKFLOW.md) and [theme guide](THEMING.md). A physical
+phone/desktop visual-and-touch check is **manual acceptance**, never implied by CI.
 - **Dynamic Colors:** Category colors MUST be applied via inline styles (`style={{ backgroundColor: cat.color }}`) — never dynamic Tailwind strings. The user-selected app accent is a separate appearance token applied through root CSS custom properties; do not reuse category colors as semantic state colors.
 - **Predefined Colors Only:** Category and app-accent pickers use the curated palettes in `src/constants/colors.ts`. No free-form hex inputs. Category palettes and accent palettes may share the `ColorPalettePicker` component while retaining separate allowed-color sets.
 - **Bottom Sheet Standardization:** All modals MUST use `<BottomSheet>` (see §13). It MUST use `ReactDOM.createPortal` into `document.body` to escape parent z-index/overflow traps and sit above `BottomNav`. Drag-to-close is restricted to the header handle via Framer Motion `useDragControls` + `dragListener={false}` on the main container — prevents accidental closes while scrolling. On Android/Samsung browser or installed-PWA Back, open sheets are modal history layers: Back dismisses only the top sheet, repeated Back dismisses nested sheets top-first, and route/browser navigation resumes only after the sheet stack is empty.
