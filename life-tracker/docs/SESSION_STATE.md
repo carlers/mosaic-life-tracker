@@ -1,33 +1,27 @@
 # Session checkpoint
 
 Updated: 2026-10-09
-Current task: completed/incomplete Calendar TaskBlock dark-theme contrast
-Task branch: `chatgpt/taskblock-dark-white-v071`, from `dev` `8db358216d6a9b5a519d96669b098dc98682fff9`
-Stable Preview target: `fix/taskblock-dark-white-v071`
-Candidate Preview version: `0.7.1` (PATCH after current `dev` v0.7.0)
+Current task: #412 automated test-suite audit — fail-closed discovery guard
+Baseline: `dev` `281a95dde841bc12c9b8a2ba8374f1bdb5687dc1` (v0.7.1)
+Task branch: `chatgpt/test-discovery-audit`
+Stable Preview target: `refactor/test-discovery-audit`
+Version impact: NONE; no app behavior, backend or UI changes.
 
-## Objective and scope
+## Objective and evidence
 
-- Completed Calendar TaskBlocks display white title text in Dark and Black themes.
-- Incomplete Calendar TaskBlocks retain muted gray/secondary title text in Dark and Black themes.
-- Preserve original category-colored backgrounds, Light theme text contrast, and all interactions.
-- Port the accepted isolated TaskBlock styling from `fix/taskblock-dark-white` without taking its earlier v0.6.3 version or replacing v0.7.0 interaction features.
-- Frontend-only. No data/backend/architecture changes; no incidental CSS-class test assertions.
+- v0.8.0 #410/#416 stays canonical-green on Preview `7d89b5f5` pending user hardware acceptance; do not promote it or depend on its code here.
+- Audit #412 found existing shared Vitest projects, independent Playwright shards, production build and PWA budgets, contract guard, related-test focused CI and explicit manual/device boundary. Preserve these.
+- Concrete test-discovery gap: guard globbed only `tests/**/*.test.ts[x]`; unsupported test-like names could be skipped by both runner and guard.
+- Added candidate enumeration of all test-like files with single-owner classification, accepting existing Vitest patterns or documented `tests/e2e/**/*.spec.mjs`. Reject unsupported/misplaced/overlapping files with actionable errors.
+- Added helper unit and subprocess regression tests; updated TEST_WORKFLOW.md.
+- Historical CI examples #410/#416 browser wheel fixture and size-budget test drift show test-specific failures distinct from application defects; do not call them generic flakiness.
 
 ## Verification and delivery
 
-- Original isolated Preview: `ba4c3e08`, GitHub canonical gate `37915013745` SUCCESS and Vercel READY.
-- New baseline: `dev` version 0.7.0, promoted as `8db35821`; isolated 0.6.3 Preview had diverged and must not be merged directly.
-- Apply single task commit with focused CI, then squash to fresh stable Preview and require full canonical CI and exact-SHA Vercel READY.
-- Manual mobile/desktop visual checks remain unverified; no Appwrite backend gate for frontend-only styling.
-
-## Size-budget repair
-
-- First v0.7.1 canonical Preview build (GitHub run `37915827380`, Vercel deployment `dpl_9TBdU2fE7Hpi84aiqeiK3reykEDm`) tripped the app raw-assets budget by 59 bytes (2,296,659 > 2,296,600); aggregate gzip and PWA precache passed.
-- Reuse the same task-specific class only for completed blocks instead of adding a redundant data attribute and always-present class. Inline the background assignment to trim emitted assets without changing UI behavior.
-- First repair Vercel build was just 2 B over raw budget (2,296,602 / 2,296,600). Shorten the scoped CSS class while preserving exact behavior and all budgets.
-- Keep all build/size budgets and version 0.7.1 unchanged; rerun focused and full Preview checks.
+- Task branch requires `[verify:focused]`, diff review and test discovery readback.
+- On focused green, squash to stable `refactor/test-discovery-audit` Preview for canonical CI and Vercel READY; no Scratch backend/schema readiness required for internal tooling.
+- Do not promote to dev/main without separate user approval. No manual acceptance needed for this non-UI change; no local/device checks claimed.
 
 ## Next action
 
-After repaired Preview succeeds, merge `fix/taskblock-dark-white-v071` into `dev` under the user's explicit 2026-10-09 promotion request; verify promotion CI and dev Vercel. Leave `main` unchanged.
+Commit coherent source + tests + docs/checkpoint as one task commit, inspect focused CI, repair any red; then canonical Preview acceptance and issue #412 milestone evidence.
