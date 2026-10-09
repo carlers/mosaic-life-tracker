@@ -1,4 +1,5 @@
 import React, { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { runBulkTaskActions } from './bulkTaskActions';
 import { addDays, format, isToday } from 'date-fns';
 import { Swiper, SwiperSlide } from 'swiper/react';
 import { AnimatePresence, motion } from 'framer-motion';
@@ -378,8 +379,7 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
     const snapshot = selectedTasks;
     if (snapshot.length === 0 || isBulkWorking) return;
     setIsBulkWorking(true);
-    const results = await Promise.allSettled(snapshot.map((task) => updateTask(task.id, updates)));
-    const failedIds = new Set(snapshot.filter((_, index) => results[index]?.status === 'rejected').map((task) => task.id));
+    const failedIds = await runBulkTaskActions(snapshot, (task) => updateTask(task.id, updates));
     setIsBulkWorking(false);
     if (failedIds.size > 0) {
       setSelectedTaskIds(failedIds);
@@ -422,8 +422,7 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
     const snapshot = selectedTasks;
     if (snapshot.length === 0 || isBulkWorking) return;
     setIsBulkWorking(true);
-    const results = await Promise.allSettled(snapshot.map((task) => deleteTask(task.id)));
-    const failedIds = new Set(snapshot.filter((_, index) => results[index]?.status === 'rejected').map((task) => task.id));
+    const failedIds = await runBulkTaskActions(snapshot, (task) => deleteTask(task.id));
     setIsBulkWorking(false);
     if (failedIds.size > 0) {
       setSelectedTaskIds(failedIds);
