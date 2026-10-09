@@ -1,34 +1,32 @@
 #!/usr/bin/env node
 import { globSync } from 'node:fs';
 import { TEST_PROJECTS } from './lib/test-projects.mjs';
+import { evaluateTestDiscovery } from './lib/test-discovery.mjs';
 
 const normalize = (value) => value.replaceAll('\\', '/');
-const allTests = [
-  ...globSync('tests/**/*.test.ts'),
-  ...globSync('tests/**/*.test.tsx'),
-].map(normalize).sort();
+const testLikeFiles = [
+  ...globSync('tests/**/*.test.*'),
+  ...globSync('tests/**/*.spec.*'),
+].map(normalize);
 
-const matchesByFile = new Map(allTests.map((file) => [file, []]));
-for (const project of TEST_PROJECTS) {
-  for (const pattern of project.include) {
-    for (const file of globSync(pattern).map(normalize)) {
-      const matches = matchesByFile.get(file);
-      if (matches) matches.push(project.name);
-    }
-  }
-}
+const projectFiles = Object.fromEntries(
+  TEST_PROJECTS.map((project) => [
+    project.name,
+    project.include.flatMap((pattern) => globSync(pattern).map(normalize)),
+  ])
+);
 
-const invalid = [...matchesByFile].filter(([, projects]) => projects.length !== 1);
+const { total, counts, invalid } = evaluateTestDiscovery(testLikeFiles, projectFiles);
 if (invalid.length > 0) {
-  for (const [file, projects] of invalid) {
-    const detail = projects.length === 0 ? 'not matched' : `matched by ${projects.join(', ')}`;
+  for (const { file, owners } of invalid) {
+    const detail = owners.length === 0
+      ? 'not assigned to a Vitest project or supported Playwright spec (*.spec.mjs in tests/e2e/)'
+      : `matched by ${owners.join(', ')}`;
     console.error(`${file}: ${detail}`);
   }
   process.exit(1);
 }
 
-const counts = TEST_PROJECTS.map((project) => {
-  const count = [...matchesByFile.values()].filter((matches) => matches[0] === project.name).length;
-  return `${project.name}=${count}`;
-});
-console.log(`Test discovery passed: ${allTests.length} files (${counts.join(', ')}).`);
+const summary = [...TEST_PROJECTS.map((project) => project.name), 'browser']
+  .map((name) => `${name}=${counts[name]}`).join(', ');
+console.log(`Test discovery passed: ${total} files (${summary}).`);
