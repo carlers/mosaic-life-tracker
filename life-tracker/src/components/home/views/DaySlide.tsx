@@ -12,7 +12,7 @@ const DaySlideComponent: React.FC<DaySlideProps> = ({
   reorderRuntimeActive = true,
   ...props
 }) => {
-  const { tasks, categories } = props;
+  const { tasks, categories, taskSortMode = 'manual' } = props;
 
   const materializedTasks = React.useMemo(
     () => tasks.map(materializeTaskDocument),
@@ -49,7 +49,7 @@ const DaySlideComponent: React.FC<DaySlideProps> = ({
         tasksByCategory={buildRenderedTasksByCategory(
           materializedTasks,
           sortTaskPlacementByCompletion(
-            livePlacement, materializedTasks, props.taskSortMode ?? 'manual'
+            livePlacement, materializedTasks, taskSortMode
           ),
           categoryIds
         )}
