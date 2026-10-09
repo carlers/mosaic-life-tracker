@@ -27,6 +27,7 @@ import { ACCENT_COLOR_PALETTES } from '../constants/colors';
 import { useSettings } from '../hooks/useSettings';
 import {
   ADD_TASKS_TO_TOP_SETTING_KEY,
+  ESCAPE_AS_BACK_SETTING_KEY,
   CONTINUE_ADDING_TASKS_SETTING_KEY,
   SHOW_CATEGORY_COLLAPSE_SETTING_KEY,
   HOLIDAY_REGION_SETTING_KEY,
@@ -205,6 +206,7 @@ export const PreferencesPage: React.FC = () => {
   const { getSetting, setSetting } = useSettings();
   const holidayCountries = useHolidayCountries();
   const [isAccentPickerOpen, setIsAccentPickerOpen] = useState(false);
+  const escapeAsBack = getSetting(ESCAPE_AS_BACK_SETTING_KEY, false) === true;
   const continueAddingTasks =
     getSetting(CONTINUE_ADDING_TASKS_SETTING_KEY, false) === true;
   const addTasksToTop =
@@ -383,6 +385,17 @@ export const PreferencesPage: React.FC = () => {
                 resolveHolidayTypesSetting(value)
               )
             }
+          />
+        </section>
+        <section className="border-b border-[#333333] py-2">
+          <h2 className="px-4 pb-1 pt-3 text-sm font-semibold uppercase tracking-wide text-gray-400">Navigation</h2>
+          <SettingsRow
+            icon={<ChevronLeft size={18} className="text-gray-400" aria-hidden="true" />}
+            label="Escape navigates back"
+            showChevron={false}
+            isToggle
+            checked={escapeAsBack}
+            onClick={() => void setSetting(ESCAPE_AS_BACK_SETTING_KEY, !escapeAsBack)}
           />
         </section>
         <ChoiceGroup

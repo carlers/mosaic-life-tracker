@@ -1,3 +1,4 @@
+export const ESCAPE_AS_BACK_SETTING_KEY = 'escapeAsBack';
 export const CONTINUE_ADDING_TASKS_SETTING_KEY = 'continueAddingTasks';
 export const ADD_TASKS_TO_TOP_SETTING_KEY = 'addTasksToTop';
 export const WEEK_STARTS_ON_SUNDAY_SETTING_KEY = 'weekStartsOnSunday';

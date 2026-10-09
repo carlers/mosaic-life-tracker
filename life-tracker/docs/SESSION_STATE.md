@@ -1,33 +1,32 @@
 # Session checkpoint
 
 Updated: 2026-10-09
-Current task: completed/incomplete Calendar TaskBlock dark-theme contrast
-Task branch: `chatgpt/taskblock-dark-white-v071`, from `dev` `8db358216d6a9b5a519d96669b098dc98682fff9`
-Stable Preview target: `fix/taskblock-dark-white-v071`
-Candidate Preview version: `0.7.1` (PATCH after current `dev` v0.7.0)
+Current task: #410 Escape-as-Back + #416 trackpad navigation
+Task branch: `chatgpt/desktop-navigation-inputs`, based on dev `281a95dde841bc12c9b8a2ba8374f1bdb5687dc1` (v0.7.1)
+Stable Preview target: `feature/desktop-navigation-inputs`
+Candidate Preview version: 0.8.0
 
 ## Objective and scope
 
-- Completed Calendar TaskBlocks display white title text in Dark and Black themes.
-- Incomplete Calendar TaskBlocks retain muted gray/secondary title text in Dark and Black themes.
-- Preserve original category-colored backgrounds, Light theme text contrast, and all interactions.
-- Port the accepted isolated TaskBlock styling from `fix/taskblock-dark-white` without taking its earlier v0.6.3 version or replacing v0.7.0 interaction features.
-- Frontend-only. No data/backend/architecture changes; no incidental CSS-class test assertions.
+- Add an opt-in, account-synced Escape navigates back preference, default OFF.
+- Preserve nested BottomSheet/browser Back priority, active editing, chat search/reply, Day View selection and photo overlays; never exit app at Home.
+- Add conservative pixel-mode horizontal trackpad gestures to the existing route swipe compositor, preserving scrollable/carousel ownership, edge restrictions and a post-navigation inertia cooldown.
+- Preserve visual design, data/backend contracts, v0.7.1 dark task-text fix and touch swipe behavior.
 
-## Verification and delivery
+## Work prepared
 
-- Original isolated Preview: `ba4c3e08`, GitHub canonical gate `37915013745` SUCCESS and Vercel READY.
-- New baseline: `dev` version 0.7.0, promoted as `8db35821`; isolated 0.6.3 Preview had diverged and must not be merged directly.
-- Apply single task commit with focused CI, then squash to fresh stable Preview and require full canonical CI and exact-SHA Vercel READY.
-- Manual mobile/desktop visual checks remain unverified; no Appwrite backend gate for frontend-only styling.
-
-## Size-budget repair
-
-- First v0.7.1 canonical Preview build (GitHub run `37915827380`, Vercel deployment `dpl_9TBdU2fE7Hpi84aiqeiK3reykEDm`) tripped the app raw-assets budget by 59 bytes (2,296,659 > 2,296,600); aggregate gzip and PWA precache passed.
-- Reuse the same task-specific class only for completed blocks instead of adding a redundant data attribute and always-present class. Inline the background assignment to trim emitted assets without changing UI behavior.
-- First repair Vercel build was just 2 B over raw budget (2,296,602 / 2,296,600). Shorten the scoped CSS class while preserving exact behavior and all budgets.
-- Keep all build/size budgets and version 0.7.1 unchanged; rerun focused and full Preview checks.
+- Shared keyboard handler rendered only inside authenticated data shell.
+- Existing chat transient modes now mark handled Escape.
+- Reused pointer compositor for trackpad settling; unit/DOM coverage for route history, overlays, editable controls and wheel ownership; browser-contract exercise for real Chromium wheel coordinates, vertical scroll and detail-edge gating.
+- Version 0.8.0 in all three required files.
 
 ## Next action
 
-After repaired Preview succeeds, merge `fix/taskblock-dark-white-v071` into `dev` under the user's explicit 2026-10-09 promotion request; verify promotion CI and dev Vercel. Leave `main` unchanged.
+Repair edge-trackpad regression and size-budget diagnostics, then push focused verification, squash to stable Preview after green and require canonical CI plus Vercel READY. Preserve v0.8.0 candidate; do not promote to dev/main without approval.
+
+## Verification and release boundary
+
+- Task branch focused checks must pass before squash merge to stable Preview.
+- Stable Preview requires canonical static/unit/DOM/browser/build/PWA/size checks and exact-SHA Vercel READY.
+- Full diagnostic build on task SHA a3272f6 measured raw app assets 2,299,578 B (+2,978 over prior limit), gzip 706,985 B (+85), precache 2,382,157 B (+3,057). Adjust only those three limits to 2,303,000 / 707,600 / 2,386,000 B to accommodate the approved navigation capability with bounded small headroom. Entry/home budgets stay unchanged.
+- Real laptop native-trackpad and Android Back/device acceptance are not performed. No dev/main promotion authorized.
