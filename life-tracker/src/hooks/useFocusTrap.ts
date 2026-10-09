@@ -25,12 +25,17 @@ const FOCUSABLE_SELECTOR = [
 export function useFocusTrap(
   containerRef: RefObject<HTMLElement | null>,
   isActive: boolean,
-  shouldRestoreFocus?: () => boolean
+  shouldRestoreFocus?: () => boolean,
+  onRestoreFocus?: (target: HTMLElement) => void
 ): void {
   const shouldRestoreFocusRef = useRef(shouldRestoreFocus);
   useLayoutEffect(() => {
     shouldRestoreFocusRef.current = shouldRestoreFocus;
   }, [shouldRestoreFocus]);
+  const onRestoreFocusRef = useRef(onRestoreFocus);
+  useLayoutEffect(() => {
+    onRestoreFocusRef.current = onRestoreFocus;
+  }, [onRestoreFocus]);
   useEffect(() => {
     if (!isActive) return;
     const container = containerRef.current;
@@ -85,7 +90,8 @@ export function useFocusTrap(
     return () => {
       document.removeEventListener('keydown', handleKeyDown);
       if (shouldRestoreFocusRef.current?.() !== false && previouslyFocused && document.contains(previouslyFocused)) {
-        previouslyFocused.focus({ preventScroll: true });
+        if (onRestoreFocusRef.current) onRestoreFocusRef.current(previouslyFocused);
+        else previouslyFocused.focus({ preventScroll: true });
       }
     };
   }, [containerRef, isActive]);
