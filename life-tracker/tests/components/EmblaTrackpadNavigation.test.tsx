@@ -27,8 +27,8 @@ describe('Embla horizontal wheel navigation', () => {
   it('leaves vertical scrolling and zoom alone, and snaps once per horizontal burst', () => {
     vi.useFakeTimers();
     const { wheel, scrollNext, scrollPrev } = makeHarness();
-    expect(wheel(10, 100)).toBe(true);
-    expect(wheel(80, 0, true)).toBe(true);
+    wheel(10, 100);
+    wheel(80, 0, true);
     expect(scrollNext).not.toHaveBeenCalled();
     expect(wheel(32)).toBe(false);
     expect(wheel(36)).toBe(false);

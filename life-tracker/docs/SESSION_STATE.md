@@ -24,3 +24,11 @@ Candidate v0.11.0. The older independent navigation v0.8.0 Preview is not promot
 
 ## Next action
 Commit the coherent task, run diagnostic CI, repair failure layers, then publish verified v0.11.0 stable Preview. Maintain main unchanged.
+
+## First full diagnostic and combined repair
+
+- Initial full diagnostic [37964346094](https://github.com/carlers/mosaic-life-tracker/actions/runs/37964346094) failed lint, DOM, chat browser geometry and aggregate bundle size.
+- Root causes: React Compiler disallows reading ref.current in AppLayout render; route animation wrapper missed chat's full-height viewport contract; module-global trackpad cooldown leaked across unmounted routes/tests; a unit Embla fixture omitted the real rootNode API; synthetic DOM WheelEvent cancelability differs from native browser guarantees.
+- Repair AppLayout with event-derived React state rather than ref reads; restore full-height/min-height route wrapper; scope cooldown to component instance and preserve scroll ownership; adjust test fixtures without removing browser coverage.
+- Full v0.11.0 measurement: raw app assets 2,304,899 B, gzip 708,759 B, unique precache 2,387,454 B, while entry/init/Home all pass. Permit only narrow aggregate ceilings 2,307,500/710,000/2,390,000; retain startup/Home limits and budget tests.
+- Re-run full diagnostic and only publish stable Preview after all checks pass.

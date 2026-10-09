@@ -22,7 +22,7 @@ const EDGE_BACK_ACTIVATION_PX = 32;
 // WheelEvent has no reliable finger-lift phase. Do not mistake a short
 // low-delta gap in a live trackpad gesture for release.
 const TRACKPAD_IDLE_MS = 280;
-let trackpadCooldownUntil = 0;
+
 
 export type RouteSwipeActivationMode = 'full' | 'home-zone' | 'edge-back';
 
@@ -63,6 +63,7 @@ export const PrimaryRouteSwipeSurface: React.FC<
   const currentPanelRef = useRef<HTMLDivElement | null>(null);
   const previewPanelRef = useRef<HTMLDivElement | null>(null);
   const gestureRef = useRef<GestureState | null>(null);
+  const wheelCooldownUntilRef = useRef(0);
   const wheelRef = useRef<{ direction: PrimarySwipeDirection; distance: number; timer: number } | null>(null);
   const frameRef = useRef<number | null>(null);
   const pendingXRef = useRef(0);
@@ -280,7 +281,7 @@ export const PrimaryRouteSwipeSurface: React.FC<
           : event.deltaX > 0 ? 'left' : 'right';
       if (!directionAllowed(direction)) return;
       event.preventDefault();
-      if (Date.now() < trackpadCooldownUntil) return;
+      if (Date.now() < wheelCooldownUntilRef.current) return;
 
       if (previous?.direction !== direction) {
         if (previous) {
@@ -301,7 +302,7 @@ export const PrimaryRouteSwipeSurface: React.FC<
         wheelRef.current = null;
         if (settleSwipe(direction, gesture.distance, 0)) {
           // Prevent inertia after a route change from skipping another page.
-          trackpadCooldownUntil = Date.now() + 750;
+          wheelCooldownUntilRef.current = Date.now() + 750;
         }
       }, TRACKPAD_IDLE_MS);
     };

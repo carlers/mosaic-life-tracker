@@ -11,7 +11,7 @@ const WHEEL_SNAP_THRESHOLD_PX = 64;
  */
 export function useEmblaTrackpadNavigation(api: EmblaCarouselType | undefined) {
   useEffect(() => {
-    if (!api) return;
+    if (!api || typeof api.rootNode !== 'function') return;
     const viewport = api.rootNode();
     let lastEvent = -Infinity;
     let distance = 0;

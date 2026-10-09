@@ -110,7 +110,9 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
               initial="enter"
               animate="center"
               exit="exit"
-              className="w-full"
+              className={activeTab === 'home' || hideBottomNav
+                ? 'h-full min-h-0 w-full'
+                : 'w-full min-h-full'}
             >
             <PrimaryRouteSwipeSurface
               key={routeKey}

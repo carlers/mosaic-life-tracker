@@ -1,4 +1,4 @@
-import React, { lazy, Suspense, useEffect, useRef, useState } from 'react';
+import React, { lazy, Suspense, useEffect, useState } from 'react';
 import { useOutlet, useLocation, useNavigate, useNavigationType, Navigate } from 'react-router-dom';
 import { WifiOff, UserX } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
@@ -103,20 +103,21 @@ export const AppLayout: React.FC = () => {
   const path = location.pathname;
   const outlet = useOutlet();
   const navigationType = useNavigationType();
-  const priorPathRef = useRef(path);
-  const routeSwipeCommittedRef = useRef(false);
-  const isNewRoute = priorPathRef.current !== path;
+  const [suppressNextBackAnimation, setSuppressNextBackAnimation] = useState(false);
   const backFromFallback = Boolean(location.state &&
     typeof location.state === 'object' &&
     'mosaicBackAnimation' in location.state &&
     (location.state as { mosaicBackAnimation?: unknown }).mosaicBackAnimation === true);
-  const animateRouteBack = isNewRoute && !routeSwipeCommittedRef.current &&
+  const animateRouteBack = !suppressNextBackAnimation &&
     (navigationType === 'POP' || backFromFallback);
 
   useEffect(() => {
-    priorPathRef.current = path;
-    routeSwipeCommittedRef.current = false;
-  }, [path]);
+    if (!suppressNextBackAnimation) return;
+    // The swipe compositor already animated this navigation. Defer clearing
+    // until its new route has mounted; never animate that same POP twice.
+    const timer = window.setTimeout(() => setSuppressNextBackAnimation(false), 420);
+    return () => window.clearTimeout(timer);
+  }, [suppressNextBackAnimation]);
   const leftSwipeDestination = resolvePrimarySwipeDestination(path, 'left', location.state);
   const rightSwipeDestination = resolvePrimarySwipeDestination(path, 'right', location.state);
   const messagesIsAdjacent =
@@ -347,7 +348,7 @@ export const AppLayout: React.FC = () => {
     if (!destination) return;
     // This route was already animated by PrimaryRouteSwipeSurface.
     // Do not repeat the slide when its navigation is a browser-history POP.
-    routeSwipeCommittedRef.current = true;
+    setSuppressNextBackAnimation(true);
 
     const parent = resolveRouteParent(path, location.state);
     if (direction === 'right' && parent) {
