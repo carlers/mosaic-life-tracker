@@ -34,6 +34,7 @@ vi.mock('../../src/lib/friendCache', () => ({
   patchCachedCalendarTask: mocks.patchCache,
 }));
 
+import { FriendAccessError } from '../../src/lib/friendData';
 import { useFriendCalendar } from '../../src/lib/useFriendCalendar';
 
 function deferred<T>() {
@@ -150,4 +151,23 @@ describe('friend-calendar async owner safety', () => {
     });
     expect(result.current.tasks[0]?.title).toBe('latest');
   });
+
+  it('clears old-owner data when the next viewer is denied access', async () => {
+    mocks.fetch
+      .mockResolvedValueOnce(calendar('A allowed view'))
+      .mockRejectedValueOnce(new FriendAccessError('No access', 'forbidden'));
+
+    const { result, rerender } = renderHook(() => useFriendCalendar('shared_friend'));
+    await waitFor(() => expect(result.current.tasks[0]?.title).toBe('A allowed view'));
+
+    mocks.userId = 'viewer_B';
+    rerender();
+    expect(result.current.tasks).toEqual([]);
+
+    await waitFor(() => expect(result.current.errorKind).toBe('forbidden'));
+    expect(result.current.isLoading).toBe(false);
+    expect(result.current.tasks).toEqual([]);
+    expect(result.current.categories).toEqual([]);
+  });
+
 });

@@ -85,6 +85,11 @@ export function useFriendCalendar(
       setError(null);
       setErrorKind(null);
     } else {
+      // In particular, a newly signed-in viewer denied access must not
+      // inherit the prior viewer's tasks from the retained hook instance.
+      setTasks([]);
+      setCategories([]);
+      setLastFetchedAt(null);
       setError(outcome.message);
       setErrorKind(outcome.kind);
     }
