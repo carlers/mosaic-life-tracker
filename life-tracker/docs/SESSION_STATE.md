@@ -1,27 +1,33 @@
 # Session checkpoint
 
 Updated: 2026-10-09
-Current task: #403 selected-task clipboard copy + #411 chat message right-click
-Task branch: `chatgpt/interaction-quick-wins`, based on dev `74aa8877ce742fb8cb6059ee65dfa505df6e29b1`
-Stable Preview target: `feature/interaction-quick-wins`
-Candidate Preview version: `0.7.0`
+Current task: completed/incomplete Calendar TaskBlock dark-theme contrast
+Task branch: `chatgpt/taskblock-dark-white-v071`, from `dev` `8db358216d6a9b5a519d96669b098dc98682fff9`
+Stable Preview target: `fix/taskblock-dark-white-v071`
+Candidate Preview version: `0.7.1` (PATCH after current `dev` v0.7.0)
 
-## Objective and constraints
+## Objective and scope
 
-- In Day View selection mode, copy selected titles as plain-text bullet points in the same visible category/task order as the day list; preserve selection and show clipboard failure/retry feedback.
-- On desktop, right-click an actionable message to open the existing long-press action sheet; leave native menu intact when the shared gesture hook has no custom handler; do not interfere with unsent bubbles or active overlays.
-- Reuse existing ordering, hooks, feedback, bottom sheets, and theme tokens. No Appwrite/database/schema changes.
-
-## Implemented in task candidate
-
-- Added a toolbar Copy action, deterministic clipboard formatter, guarded async clipboard feedback, and coverage for ordering, Unicode, empty/hidden groups, successful copy, rejection/retry and missing API.
-- Wired message contextmenu to the existing long-press action; corrected conditional native-menu suppression and disabled bubble gestures during message-related overlays.
-- Added DOM coverage for exact clicked message, native menu fallback, disabled/unsent messages and touch long-press.
-- Stamped version 0.7.0 in package manifest, lockfile and app version.
+- Completed Calendar TaskBlocks display white title text in Dark and Black themes.
+- Incomplete Calendar TaskBlocks retain muted gray/secondary title text in Dark and Black themes.
+- Preserve original category-colored backgrounds, Light theme text contrast, and all interactions.
+- Port the accepted isolated TaskBlock styling from `fix/taskblock-dark-white` without taking its earlier v0.6.3 version or replacing v0.7.0 interaction features.
+- Frontend-only. No data/backend/architecture changes; no incidental CSS-class test assertions.
 
 ## Verification and delivery
 
-- First focused run [37913029349](https://github.com/carlers/mosaic-life-tracker/actions/runs/37913029349): 1,278 passing tests and three failures in newly added clipboard tests only. Root cause: test fixture tried to assign inherited getter-only `navigator.clipboard`; subsequent task repair uses an own-property descriptor. No app-code failure identified by that run.
+- Original isolated Preview: `ba4c3e08`, GitHub canonical gate `37915013745` SUCCESS and Vercel READY.
+- New baseline: `dev` version 0.7.0, promoted as `8db35821`; isolated 0.6.3 Preview had diverged and must not be merged directly.
+- Apply single task commit with focused CI, then squash to fresh stable Preview and require full canonical CI and exact-SHA Vercel READY.
+- Manual mobile/desktop visual checks remain unverified; no Appwrite backend gate for frontend-only styling.
 
+## Size-budget repair
 
-Next action: publish one coherent task commit with `[verify:focused]`, investigate/fix any CI failures; open PR into stable Preview and squash-merge after focused green; require canonical full CI, build/size/browser checks and exact-SHA Vercel READY. Update issues #403 and #411 with milestone evidence. Do not promote to dev/main without explicit user authorization. No manual mouse/touch/browser-login acceptance is claimed.
+- First v0.7.1 canonical Preview build (GitHub run `37915827380`, Vercel deployment `dpl_9TBdU2fE7Hpi84aiqeiK3reykEDm`) tripped the app raw-assets budget by 59 bytes (2,296,659 > 2,296,600); aggregate gzip and PWA precache passed.
+- Reuse the same task-specific class only for completed blocks instead of adding a redundant data attribute and always-present class. Inline the background assignment to trim emitted assets without changing UI behavior.
+- First repair Vercel build was just 2 B over raw budget (2,296,602 / 2,296,600). Shorten the scoped CSS class while preserving exact behavior and all budgets.
+- Keep all build/size budgets and version 0.7.1 unchanged; rerun focused and full Preview checks.
+
+## Next action
+
+After repaired Preview succeeds, merge `fix/taskblock-dark-white-v071` into `dev` under the user's explicit 2026-10-09 promotion request; verify promotion CI and dev Vercel. Leave `main` unchanged.
