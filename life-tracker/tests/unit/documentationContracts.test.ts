@@ -1,20 +1,43 @@
-import { readFileSync, readdirSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
+import { dirname } from 'node:path';
 import { buildWebChatPacket, estimateTokens, parseWorkingSet, validateSessionState } from '../../scripts/lib/create-handoff.mjs';
 import { resolve } from 'node:path';
-import { checkContracts, localMarkdownTargets } from '../../scripts/check-project-contracts.mjs';
+import { checkContracts, localMarkdownTargets, markdownHeadingAnchors, missingLocalMarkdownFragments } from '../../scripts/check-project-contracts.mjs';
 
 describe('documentation entrypoints and links', () => {
   it('resolves the migrated documentation and root agent entrypoint', () => {
     expect(checkContracts().errors).toEqual([]);
   });
-  it('indexes every maintained docs Markdown file for agent discoverability', () => {
-    const docs = fileURLToPath(new URL('../../docs/', import.meta.url));
-    const index = readFileSync(resolve(docs, 'README.md'), 'utf8');
-    const unindexed = readdirSync(docs)
-      .filter((name) => name.endsWith('.md') && name !== 'README.md')
-      .filter((name) => !index.includes(`](${name})`));
-    expect(unindexed).toEqual([]);
+  it('validates local GitHub headings, duplicates, custom anchors and code-fence exclusions', () => {
+    const text = [
+      '## 23.8 Permanent Account Erasure',
+      '## Repeated Heading',
+      '## Repeated Heading',
+      '## Marked *Text*',
+      '<a name="old-stable-anchor"></a>',
+      '~~~md',
+      '## This Is Only An Example',
+      '~~~',
+    ].join('\n');
+    expect([...markdownHeadingAnchors(text)]).toEqual([
+      '238-permanent-account-erasure',
+      'repeated-heading',
+      'repeated-heading-1',
+      'marked-text',
+      'old-stable-anchor',
+    ]);
+  });
+
+  it('reports broken local heading fragments, but not valid § anchors or fenced examples', () => {
+    const source = fileURLToPath(new URL('../../docs/TOMBSTONE_RETENTION.md', import.meta.url));
+    const valid = '[erasure](PROJECT_REFERENCE.md#238-permanent-account-erasure)';
+    const broken = '[old anchor](PROJECT_REFERENCE.md#no-such-section)';
+    const fenced = '~~~md\n[example](PROJECT_REFERENCE.md#not-a-real-anchor)\n~~~';
+    expect(missingLocalMarkdownFragments(valid + '\n' + fenced, source)).toEqual([]);
+    expect(missingLocalMarkdownFragments(broken, source)).toEqual([
+      { target: resolve(dirname(source), 'PROJECT_REFERENCE.md'), fragment: 'no-such-section' },
+    ]);
   });
 
   it('ignores examples and external links while resolving encoded paths and IDE suffixes', () => {

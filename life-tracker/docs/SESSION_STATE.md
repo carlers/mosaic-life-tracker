@@ -1,46 +1,46 @@
 # Session checkpoint
 
 Updated: 2026-10-09
-Current task: #414 — reorganize and clean up repository documentation
-Status: scoped cleanup prepared on `chatgpt/docs-authority-cleanup`; focused CI pending
-Next action: verify the task branch, then squash into `refactor/docs-authority-cleanup` for canonical CI/Vercel Preview. Request separate user approval before promotion to `dev`.
+Current task: #414 — documentation hardening after the accepted first Preview
+Status: second-phase task changes prepared on `chatgpt/docs-anchor-routing-hardening`; focused verification pending
+Next action: run focused checks, squash the passing task into `refactor/docs-authority-cleanup`, verify full canonical CI and exact-SHA Vercel READY; then request separate approval before promoting to `dev`.
 Blockers: none identified.
 
 ## Intent and scope
 
-- Make documentation ownership and navigation explicit without moving stable reference anchors.
-- Correct the confirmed stale Alerts claim in the app README and outdated active-workstream guidance in the roadmap.
-- Preserve unique backend, privacy, disaster-recovery, versioning, testing, and manual-acceptance contracts.
-- Add regression coverage that keeps all maintained docs reachable from the index.
+- Address overlooked reference inconsistencies while keeping all existing numbered headings.
+- Add task-to-context doc routing without creating provider-specific or duplicated instructions.
+- Verify local Markdown heading fragments with the existing project-contract checker.
+- Make the dense Alerts §2 contract easier to inspect while preserving its contract text.
 
 ## Working set
 
-- `README.md`
 - `docs/README.md`
-- `docs/PLAN.md`
+- `docs/PROJECT_REFERENCE.md`
 - `docs/SESSION_STATE.md`
+- `scripts/check-project-contracts.mjs`
 - `tests/unit/documentationContracts.test.ts`
 
 ## Completed substeps
 
-- Reviewed all 29 tracked Markdown paths and their ownership; 25 reside in `docs/`.
-- Confirmed the existing index already links every other maintained `docs/*.md`.
-- Verified the `/notifications` page exists and the dedicated Diary view remains a planned item.
-- Retained historical audit/rollout evidence instead of silently deleting or reclassifying contracts.
-- Scoped the change to documentation and a documentation-index test; version impact NONE.
+- First Preview `e182c6a1` passed canonical CI and Vercel READY; `dev` remains `0231cb0f`.
+- Audited all indexed docs, reference ownership text, longest lines and current fragment usage.
+- Found and scoped the malformed §25 ending, stale Preview-category summary, and outdated PLAN completion ownership claim.
+- Prepared GitHub-style section-anchor check and regressions, retaining existing index enforcement.
+- Split only the Alerts bullet into readable topic paragraphs without changing its contract wording.
 
 ## Remaining substeps
 
-- Run focused regression/contract tests and inspect the Markdown diff.
-- Complete stable Preview canonical CI and Vercel READY verification.
-- Record measured inventory and acceptance on issue #414; await `dev` promotion approval.
+- Focused CI and diff review; repair any failing documentation checks.
+- Accepted stable Preview canonical CI and Vercel readiness with exact SHA.
+- Record follow-up acceptance in issue #414 and hold dev/main promotion for approval.
 
 ## Constraints
 
-- No application runtime, design, Appwrite, configuration, CI gate, or version changes.
-- Existing project-reference section numbers and runbook paths must remain stable.
+- No runtime/UI/theme/Appwrite/config/deployment-policy/version changes (version impact NONE).
+- Preserve the identity/numbering of original project-reference headings and external anchors.
 
 ## Verification
 
-- Repository source/route audit completed; newly edited tree awaits CI.
-- Physical-device/manual testing is not applicable to this documentation-only task.
+- Repository and GitHub heading-slug guidance reviewed; automated checks pending.
+- No device/manual test applies to this documentation and tooling change.

@@ -11,11 +11,11 @@ export const entrypoints = [
   'docs/DELIVERY.md', 'docs/PROJECT_REFERENCE.md', 'docs/TEST_WORKFLOW.md',
 ];
 
-export function localMarkdownTargets(markdown, sourcePath) {
-  // Examples are not links. Match fence length/type so embedded fences remain content.
+function markdownProse(markdown) {
+  // Fence contents may demonstrate intentionally invalid links or headings.
   let fence = null;
-  const prose = markdown.split('\n').filter((line) => {
-    const match = line.match(/^\s{0,3}(`{3,}|~{3,})(.*)$/);
+  return markdown.split('\n').filter((line) => {
+    const match = line.match(/^\s{0,3}((?:\x60){3,}|~{3,})(.*)$/);
     if (match) {
       if (!fence) fence = match[1];
       else if (match[1][0] === fence[0] && match[1].length >= fence.length && !match[2].trim()) fence = null;
@@ -23,14 +23,67 @@ export function localMarkdownTargets(markdown, sourcePath) {
     }
     return !fence;
   }).join('\n');
-  const targets = [];
-  for (const match of prose.matchAll(/\[[^\]]*\]\((<[^>]+>|[^)]+)\)/g)) {
+}
+
+export function localMarkdownLinks(markdown, sourcePath) {
+  const links = [];
+  for (const match of markdownProse(markdown).matchAll(/\[[^\]]*\]\((<[^>]+>|[^)]+)\)/g)) {
     const raw = match[1].trim().replace(/\s+["'][^"']*["']$/, '').replace(/^<|>$/g, '');
-    if (!raw || raw.startsWith('#') || /^[a-z][a-z0-9+.-]*:/i.test(raw)) continue;
-    const path = decodeURIComponent(raw.split('#')[0]).replace(/:\d+(?::\d+)?$/, '');
-    if (path) targets.push(resolve(dirname(sourcePath), path));
+    if (!raw || /^[a-z][a-z0-9+.-]*:/i.test(raw)) continue;
+    const hashIndex = raw.indexOf('#');
+    const pathText = hashIndex < 0 ? raw : raw.slice(0, hashIndex);
+    const fragmentText = hashIndex < 0 ? '' : raw.slice(hashIndex + 1);
+    const filePath = decodeURIComponent(pathText).replace(/:\d+(?::\d+)?$/, '');
+    links.push({
+      target: filePath ? resolve(dirname(sourcePath), filePath) : sourcePath,
+      hasPath: Boolean(filePath),
+      fragment: fragmentText ? decodeURIComponent(fragmentText) : null,
+    });
   }
-  return targets;
+  return links;
+}
+
+export function localMarkdownTargets(markdown, sourcePath) {
+  return localMarkdownLinks(markdown, sourcePath).filter((link) => link.hasPath).map((link) => link.target);
+}
+
+export function markdownHeadingAnchors(markdown) {
+  // GitHub heading slugs lowercase text, discard formatting/punctuation, and
+  // suffix repeated headings with -1, -2, etc. Preserve numbered § anchors.
+  const anchors = new Set();
+  const repeats = new Map();
+  for (const line of markdownProse(markdown).split('\n')) {
+    const match = line.match(/^ {0,3}#{1,6}[ \t]+(.+?)[ \t]*$/);
+    if (!match) continue;
+    const heading = match[1].replace(/[ \t]+#+[ \t]*$/, '')
+      .replace(/!?\[([^\]]+)\]\([^)]+\)/g, '$1')
+      .replace(/<[^>]*>/g, '')
+      .replace(/\x60/g, '')
+      .replace(/[*~]/g, '')
+      .replace(/(^|[^\w])_([^_]+)_(?=$|[^\w])/g, '$1$2');
+    const slug = heading.trim().toLowerCase().replace(/[^\p{L}\p{N}\p{M}_\- ]/gu, '').replace(/ /g, '-');
+    if (!slug) continue;
+    const count = repeats.get(slug) ?? 0;
+    anchors.add(count ? slug + '-' + count : slug);
+    repeats.set(slug, count + 1);
+  }
+  // GitHub also supports explicit <a name="..."></a> and id anchors.
+  for (const match of markdownProse(markdown).matchAll(/<a\s+[^>]*(?:name|id)=["']([^"']+)["'][^>]*>/gi)) {
+    anchors.add(match[1]);
+  }
+  return anchors;
+}
+
+export function missingLocalMarkdownFragments(markdown, sourcePath, anchorCache = new Map()) {
+  const errors = [];
+  for (const { target, fragment } of localMarkdownLinks(markdown, sourcePath)) {
+    if (!fragment || !target.endsWith('.md') || !existsSync(target)) continue;
+    if (!anchorCache.has(target)) {
+      anchorCache.set(target, markdownHeadingAnchors(readFileSync(target, 'utf8')));
+    }
+    if (!anchorCache.get(target).has(fragment)) errors.push({ target, fragment });
+  }
+  return errors;
 }
 
 function markdownFiles(directory) {
@@ -66,10 +119,15 @@ export function checkContracts(projectRoot = root) {
       if (!links.has(path)) errors.push(`Documentation index does not link ${relative(projectRoot, path)}`);
     }
   }
+  const anchorCache = new Map();
   for (const file of files) {
     if (!existsSync(file)) continue;
-    for (const target of localMarkdownTargets(readFileSync(file, 'utf8'), file)) {
-      if (!existsSync(target)) errors.push(`${relative(projectRoot, file)}: missing local link ${relative(projectRoot, target)}`);
+    const markdown = readFileSync(file, 'utf8');
+    for (const target of localMarkdownTargets(markdown, file)) {
+      if (!existsSync(target)) errors.push(relative(projectRoot, file) + ': missing local link ' + relative(projectRoot, target));
+    }
+    for (const { target, fragment } of missingLocalMarkdownFragments(markdown, file, anchorCache)) {
+      errors.push(relative(projectRoot, file) + ': missing heading #' + fragment + ' in ' + relative(projectRoot, target));
     }
   }
   for (const [source, target] of [['../AGENTS.md', 'AGENTS.md'], ['AGENTS.md', 'docs/SESSION_STATE.md'], ['README.md', 'docs/README.md']]) {

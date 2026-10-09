@@ -6,6 +6,25 @@ live Git branches, issues, PRs, Actions, and deployments establish current statu
 The dated [session checkpoint](SESSION_STATE.md) is a handoff snapshot and can lag
 behind a completed promotion.
 
+## Task-to-context shortcuts
+
+Read the [agent entrypoint](../AGENTS.md), then the **smallest relevant set** below.
+Check the current implementation/tests and live issue/PR evidence before treating
+historical prose or a checkpoint as the state of a feature.
+
+| Working on… | Read first | Verify against |
+|---|---|---|
+| Sync races, offline startup, owner isolation | [Sync scenario matrix](SYNC_SCENARIO_MATRIX.md), [project reference](PROJECT_REFERENCE.md) §§18, 19, 24.18 | `src/lib/` sync implementation, relevant unit/DOM regressions |
+| Appwrite schema, Functions, or scratch previews | [Backend workflow](APPWRITE_BACKEND_WORKFLOW.md), [Scratch readiness](SCRATCH_PREVIEW_WORKFLOW.md) | `infrastructure/`, `appwrite-functions/`, migrations and actual target project |
+| Alerts, notifications or push | [Project reference](PROJECT_REFERENCE.md) §2 (Alerts), [Mobile Push](MOBILE_PUSH_SETUP.md) | Alerts UI, Function authorization and browser contracts |
+| Theme, contrast or component styling | [Theme guide](THEMING.md) | `src/index.css`, `tailwind.config.js`, modified components and light/dark/black states |
+| Gestures, calendars, task reorder | [Project reference](PROJECT_REFERENCE.md) §§2, 13, 24; [manual reorder checklist](MANUAL_TASK_REORDER_ACCEPTANCE.md) when relevant | Gesture owners, interaction regressions and appropriate device acceptance |
+| Docs, workflows or CI | [AI workflow](AI_WORKFLOW.md), [Delivery](DELIVERY.md), [Test workflow](TEST_WORKFLOW.md) | `scripts/check-project-contracts.mjs`, workflow YAML and current Actions evidence |
+| Account deletion or disaster recovery | [Account erasure](ACCOUNT_ERASURE.md), [Disaster recovery](DISASTER_RECOVERY.md) | Managed backend contracts, migrations and explicit rollout evidence |
+
+These routes select **reading context**, not permission to skip required tests,
+authorization, Scratch checks, or release gates.
+
 ## Agent and delivery workflow
 
 | Question | Canonical owner |
