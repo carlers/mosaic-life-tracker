@@ -177,14 +177,28 @@ test('dragging the header closes a sheet that initially mounted closed', async (
   const dialog = page.getByRole('dialog', { name: 'Memo exit regression', includeHidden: true });
   await expect(dialog).toBeVisible();
   const handle = dialog.locator('.cursor-grab').first();
+  // Wait for entrance to settle before starting a real touch gesture.
+  // Clicking the opener makes the dialog visible before its animated header
+  // reaches the final position; dragging that moving target is unreliable.
+  await expect.poll(() => dialog.evaluate((node) => {
+    const transform = getComputedStyle(node).transform;
+    return Math.abs(new DOMMatrix(transform).m42);
+  })).toBeLessThan(2);
   const box = await handle.boundingBox();
   expect(box).not.toBeNull();
-  const centerX = box.x + box.width / 2;
-  const centerY = box.y + box.height / 2;
-  await page.mouse.move(centerX, centerY);
-  await page.mouse.down();
-  await page.mouse.move(centerX, centerY + 190, { steps: 12 });
-  await page.mouse.up();
+  const startX = box.x + box.width / 2;
+  const startY = box.y + Math.min(box.height * 0.35, 24);
+  const session = await page.context().newCDPSession(page);
+  await session.send('Input.dispatchTouchEvent', {
+    type: 'touchStart', touchPoints: [{ x: startX, y: startY }],
+  });
+  for (let step = 1; step <= 12; step += 1) {
+    await session.send('Input.dispatchTouchEvent', {
+      type: 'touchMove',
+      touchPoints: [{ x: startX, y: startY + (190 * step) / 12 }],
+    });
+  }
+  await session.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
   await expect(dialog).toHaveCount(0);
   await expect.poll(() => page.locator('#root').evaluate((node) => node.inert)).toBe(false);
 });
