@@ -1,4 +1,5 @@
 import React from 'react';
+import { useRetainedSheetValue } from '../../../hooks/useRetainedSheetValue';
 import { BottomSheet } from '../../ui/BottomSheet';
 import {
   Pencil,
@@ -41,7 +42,7 @@ interface TaskActionSheetProps {
 export const TaskActionSheet: React.FC<TaskActionSheetProps> = ({
   isOpen,
   onClose,
-  task,
+  task: incomingTask,
   category,
   onEdit,
   onDelete,
@@ -53,6 +54,7 @@ export const TaskActionSheet: React.FC<TaskActionSheetProps> = ({
   onDeletePhoto,
   onDoItTomorrowOrToday,
 }) => {
+  const { value: task, onExitComplete } = useRetainedSheetValue(incomingTask, isOpen);
   if (!task) return null;
 
   const isTaskToday = isToday(new Date(task.date));
@@ -84,7 +86,7 @@ export const TaskActionSheet: React.FC<TaskActionSheetProps> = ({
   };
 
   return (
-    <BottomSheet
+    <BottomSheet onExitComplete={onExitComplete}
       isOpen={isOpen}
       onClose={onClose}
       title={task.title}

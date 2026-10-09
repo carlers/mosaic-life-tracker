@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useRetainedSheetValue } from '../../hooks/useRetainedSheetValue';
 import { format } from 'date-fns';
 import { Send } from 'lucide-react';
 import { BottomSheet } from '../ui/BottomSheet';
@@ -19,12 +20,13 @@ interface ReplyComposerSheetProps {
 export const ReplyComposerSheet: React.FC<ReplyComposerSheetProps> = ({
   isOpen,
   onClose,
-  task,
+  task: incomingTask,
   categoryColor,
   friendId,
   friendName,
   onSent,
 }) => {
+  const { value: task, onExitComplete } = useRetainedSheetValue(incomingTask, isOpen);
   const { sendTaskReply } = useMessageActions(friendId);
   const [content, setContent] = useState('');
   const [isSending, setIsSending] = useState(false);
@@ -56,7 +58,7 @@ export const ReplyComposerSheet: React.FC<ReplyComposerSheetProps> = ({
   };
 
   return (
-    <BottomSheet
+    <BottomSheet onExitComplete={onExitComplete}
       isOpen={isOpen}
       onClose={onClose}
       title={`Reply to ${friendName}`}

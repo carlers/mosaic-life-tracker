@@ -346,6 +346,12 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
     deferChildrenUntilPaint ? isOpen : true
   );
   const [childrenMounted, setChildrenMounted] = useState(isOpen);
+  // Most feature sheets first mount closed. Opening must arm the retained
+  // portal lifetime before Back, drag or backdrop can request dismissal.
+  // Without this transition, the next isOpen=false returns null immediately.
+  useLayoutEffect(() => {
+    if (isOpen) setChildrenMounted(true);
+  }, [isOpen]);
   const shouldRenderChildren = deferChildrenUntilPaint
     ? isOpen
       ? deferredContentOpen

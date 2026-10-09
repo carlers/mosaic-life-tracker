@@ -904,34 +904,13 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
         onDeletePhoto={handleRequestDeletePhoto}
         onDoItTomorrowOrToday={handleDoItTomorrowOrToday}
       />
-      <AnimatePresence>
-        {isMemoOpen && activeTask && (
-          <MemoSheet
-            isOpen={isMemoOpen}
-            onClose={handleCloseMemo}
-            task={activeTask}
-            onSave={handleMemoSave}
-            initialMode={memoInitialMode}
-          />
-        )}
-        {isDatePickerOpen && activeTask && (
-          <DatePickerSheet
-            isOpen={isDatePickerOpen}
-            onClose={handleCloseDatePicker}
-            task={activeTask}
-            onDateChange={handleDateChange}
-          />
-        )}
-        {isVisibilityOpen && activeTask && (
-          <TaskVisibilitySheet
-            isOpen={isVisibilityOpen}
-            onClose={handleCloseVisibility}
-            task={activeTask}
-            category={activeTaskCategory}
-            onSave={handleVisibilitySave}
-          />
-        )}
-      </AnimatePresence>
+      <MemoSheet isOpen={isMemoOpen && !!activeTask} onClose={handleCloseMemo}
+        task={activeTask} onSave={handleMemoSave} initialMode={memoInitialMode} />
+      <DatePickerSheet isOpen={isDatePickerOpen && !!activeTask}
+        onClose={handleCloseDatePicker} task={activeTask} onDateChange={handleDateChange} />
+      <TaskVisibilitySheet isOpen={isVisibilityOpen && !!activeTask}
+        onClose={handleCloseVisibility} task={activeTask} category={activeTaskCategory}
+        onSave={handleVisibilitySave} />
       <ConfirmSheet
         isOpen={isDeleteConfirmOpen}
         onClose={() => {

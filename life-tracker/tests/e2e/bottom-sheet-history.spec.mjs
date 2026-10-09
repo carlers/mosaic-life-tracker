@@ -128,3 +128,63 @@ test('nested sheets automatically prevent underlay interaction without caller su
   await expect(page.getByRole('dialog', { name: 'Parent sheet' })).toBeHidden();
   await expect.poll(() => root.evaluate((node) => node.inert)).toBe(false);
 });
+
+async function armExitTiming(page, title) {
+  await page.evaluate((name) => {
+    const sheet = [...document.querySelectorAll('[role="dialog"]')]
+      .find((node) => node.querySelector('h3')?.textContent === name);
+    if (!sheet) throw new Error('Expected sheet not mounted: ' + name);
+    window.__sheetExitMs = null;
+    const started = performance.now();
+    const observer = new MutationObserver(() => {
+      if (!sheet.isConnected) {
+        window.__sheetExitMs = performance.now() - started;
+        observer.disconnect();
+      }
+    });
+    observer.observe(document.body, { childList: true, subtree: true });
+  }, title);
+}
+
+test('Android-style Back plays the full exit after clearing a memo entity', async ({ page }) => {
+  await page.goto(`${BASE_URL}/tests/e2e/bottom-sheet-history.html`);
+  await page.getByRole('button', { name: 'Open data-clearing memo' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Memo exit regression', includeHidden: true });
+  await expect(dialog).toBeVisible();
+  await armExitTiming(page, 'Memo exit regression');
+
+  await page.evaluate(() => window.history.back());
+  await expect(dialog).toHaveCount(0);
+  expect(await page.evaluate(() => window.__sheetExitMs)).toBeGreaterThan(180);
+  await expect.poll(() => page.locator('#root').evaluate((node) => node.inert)).toBe(false);
+});
+
+test('data-backed message actions retain their exit after Android-style Back', async ({ page }) => {
+  await page.goto(`${BASE_URL}/tests/e2e/bottom-sheet-history.html`);
+  await page.getByRole('button', { name: 'Open data-clearing message actions' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Message', includeHidden: true });
+  await expect(dialog).toBeVisible();
+  await armExitTiming(page, 'Message');
+
+  await page.evaluate(() => window.history.back());
+  await expect(dialog).toHaveCount(0);
+  expect(await page.evaluate(() => window.__sheetExitMs)).toBeGreaterThan(180);
+});
+
+test('dragging the header closes a sheet that initially mounted closed', async ({ page }) => {
+  await page.goto(`${BASE_URL}/tests/e2e/bottom-sheet-history.html`);
+  await page.getByRole('button', { name: 'Open data-clearing memo' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Memo exit regression', includeHidden: true });
+  await expect(dialog).toBeVisible();
+  const handle = dialog.locator('.cursor-grab').first();
+  const box = await handle.boundingBox();
+  expect(box).not.toBeNull();
+  const centerX = box.x + box.width / 2;
+  const centerY = box.y + box.height / 2;
+  await page.mouse.move(centerX, centerY);
+  await page.mouse.down();
+  await page.mouse.move(centerX, centerY + 190, { steps: 12 });
+  await page.mouse.up();
+  await expect(dialog).toHaveCount(0);
+  await expect.poll(() => page.locator('#root').evaluate((node) => node.inert)).toBe(false);
+});

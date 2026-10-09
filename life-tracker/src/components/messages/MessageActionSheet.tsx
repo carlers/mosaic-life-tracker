@@ -1,4 +1,5 @@
 import React from 'react';
+import { useRetainedSheetValue } from '../../hooks/useRetainedSheetValue';
 import { Copy, Reply, Trash2, Plus } from 'lucide-react';
 import { BottomSheet } from '../ui/BottomSheet';
 import type { MessageDocument } from '../../db/schema';
@@ -21,7 +22,7 @@ const QUICK_REACTIONS = ['👍', '❤️', '😂', '😮', '😢', '🙏'];
 export const MessageActionSheet: React.FC<MessageActionSheetProps> = ({
   isOpen,
   onClose,
-  message,
+  message: incomingMessage,
   isOwn,
   onReply,
   onCopy,
@@ -29,6 +30,7 @@ export const MessageActionSheet: React.FC<MessageActionSheetProps> = ({
   onReact,
   onMoreEmoji,
 }) => {
+  const { value: message, onExitComplete } = useRetainedSheetValue(incomingMessage, isOpen);
   if (!message) return null;
 
   const hasContent = message.content.trim().length > 0;
@@ -38,7 +40,7 @@ export const MessageActionSheet: React.FC<MessageActionSheetProps> = ({
 
   if (isUnsent) {
     return (
-      <BottomSheet
+      <BottomSheet onExitComplete={onExitComplete}
         isOpen={isOpen}
         onClose={onClose}
         title="Message"
@@ -54,7 +56,7 @@ export const MessageActionSheet: React.FC<MessageActionSheetProps> = ({
   }
 
   return (
-    <BottomSheet
+    <BottomSheet onExitComplete={onExitComplete}
       isOpen={isOpen}
       onClose={onClose}
       title="Message"
