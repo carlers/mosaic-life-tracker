@@ -79,6 +79,11 @@ describe('PreferencesPage', () => {
     fireEvent.click(screen.getByRole('radio', { name: 'Select color #3B82F6' }));
     expect(mocks.setAccentColor).toHaveBeenCalledWith('#3B82F6');
 
+    const escapeBack = screen.getByRole('switch', { name: 'Escape navigates back' });
+    expect(escapeBack).toHaveAttribute('aria-checked', 'false');
+    fireEvent.click(escapeBack);
+    expect(mocks.setSetting).toHaveBeenCalledWith('escapeAsBack', true);
+
     const continuous = screen.getByRole('switch', {
       name: 'Keep adding in same category',
     });

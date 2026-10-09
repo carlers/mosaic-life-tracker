@@ -18,6 +18,7 @@ const emblaFixture = vi.hoisted(() => {
       handlers.get(event)?.delete(handler);
       return api;
     }),
+    rootNode: vi.fn(() => document.createElement('div')),
     scrollProgress: vi.fn(() => progress),
     selectedScrollSnap: vi.fn(() => selectedIndex),
     scrollTo: vi.fn(),

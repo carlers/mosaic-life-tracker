@@ -1,5 +1,5 @@
 import React, { lazy, Suspense, useEffect, useState } from 'react';
-import { Outlet, useLocation, useNavigate, Navigate } from 'react-router-dom';
+import { useOutlet, useLocation, useNavigate, useNavigationType, Navigate } from 'react-router-dom';
 import { WifiOff, UserX } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { useConnectivity } from '../../hooks/useConnectivity';
@@ -101,6 +101,23 @@ export const AppLayout: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const path = location.pathname;
+  const outlet = useOutlet();
+  const navigationType = useNavigationType();
+  const [suppressNextBackAnimation, setSuppressNextBackAnimation] = useState(false);
+  const backFromFallback = Boolean(location.state &&
+    typeof location.state === 'object' &&
+    'mosaicBackAnimation' in location.state &&
+    (location.state as { mosaicBackAnimation?: unknown }).mosaicBackAnimation === true);
+  const animateRouteBack = !suppressNextBackAnimation &&
+    (navigationType === 'POP' || backFromFallback);
+
+  useEffect(() => {
+    if (!suppressNextBackAnimation) return;
+    // The swipe compositor already animated this navigation. Defer clearing
+    // until its new route has mounted; never animate that same POP twice.
+    const timer = window.setTimeout(() => setSuppressNextBackAnimation(false), 420);
+    return () => window.clearTimeout(timer);
+  }, [suppressNextBackAnimation]);
   const leftSwipeDestination = resolvePrimarySwipeDestination(path, 'left', location.state);
   const rightSwipeDestination = resolvePrimarySwipeDestination(path, 'right', location.state);
   const messagesIsAdjacent =
@@ -224,11 +241,11 @@ export const AppLayout: React.FC = () => {
     };
 
     if (typeof window.requestIdleCallback === 'function') {
-      const idleId = window.requestIdleCallback(preload, { timeout: 1800 });
+      const idleId = window.requestIdleCallback(preload, { timeout: 500 });
       return () => window.cancelIdleCallback(idleId);
     }
 
-    const timer = window.setTimeout(preload, 750);
+    const timer = window.setTimeout(preload, 180);
     return () => window.clearTimeout(timer);
   }, [messagesIsAdjacent, path, user?.$id]);
 
@@ -329,6 +346,9 @@ export const AppLayout: React.FC = () => {
   const handleRouteSwipe = (direction: PrimarySwipeDirection) => {
     const destination = resolvePrimarySwipeDestination(path, direction, location.state);
     if (!destination) return;
+    // This route was already animated by PrimaryRouteSwipeSurface.
+    // Do not repeat the slide when its navigation is a browser-history POP.
+    setSuppressNextBackAnimation(true);
 
     const parent = resolveRouteParent(path, location.state);
     if (direction === 'right' && parent) {
@@ -359,6 +379,7 @@ export const AppLayout: React.FC = () => {
         includeConversations={includeConversations}
         activeTab={activeTab}
         routeKey={path}
+        animateRouteBack={animateRouteBack}
         onTabChange={handleTabChange}
         canSwipeLeft={Boolean(leftSwipeDestination)}
         canSwipeRight={Boolean(rightSwipeDestination)}
@@ -378,7 +399,7 @@ export const AppLayout: React.FC = () => {
         }
         hideBottomNav={protectedRouteHidesBottomNav(path)}
       >
-        <Outlet />
+        {outlet}
       </LazyAppDataShell>
     </Suspense>
   );
