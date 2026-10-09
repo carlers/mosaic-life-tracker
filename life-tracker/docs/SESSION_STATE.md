@@ -1,40 +1,34 @@
 # Session checkpoint
 
 Updated: 2026-10-10
-Current task: #410 Escape/Android Back route animations and #416 trackpad/Calendar navigation.
-Baseline: dev d4a32acff711f36e0b6e3dd4e4c8ae216df8c9c9 v0.10.1 (contains approved #402 and #417), dev CI 37962915401 SUCCESS and Vercel READY.
-Task branch: chatgpt/navigation-polish
-Stable Preview: feature/navigation-polish
-Candidate v0.11.0. The older independent navigation v0.8.0 Preview is not promoted.
+Current task: issue #471, automatic route transitions plus Reduce animations.
+Baseline: accepted stable navigation Preview feature/navigation-polish `fb8b9b637574a635842fdbae7668c09bdbfdedd6`, v0.11.0. Full canonical CI 37965396049 SUCCESS, Vercel READY. dev remains v0.10.1; main unchanged.
+Task branch: `chatgpt/unified-motion`; stable Preview target: `feature/navigation-polish`; candidate version: **0.11.1** (PATCH revision of user-testable v0.11.0 navigation). Do not merge into dev/main without separate approval.
 
-## User-approved scope
-- Opt-in Escape-as-Back maintains modal, editor, selection and root route safeguards.
-- Browser-history POP/Android Back and Escape fallback should animate a rightward route exit while retaining browser-history semantics; avoid double animation following a completed swipe. Shared BottomSheet retains its own Framer exit.
-- Extend the short 130 ms route wheel idle cutoff to avoid early settling while fingers are still on a trackpad; leave vertical/nested scroll alone.
-- Calendar and Todo month use their installed Embla API for wheel-driven snaps and own these events rather than the primary route. Only a bounded wheel-to-Embla adapter is introduced; no new external dependency/lock change.
-- Preserve accepted #402 sorting, #417 Settings, scratch isolation, reduced-motion behavior, and no extra account data providers.
+## Approved contracts
+- Existing MainLayout compositor animates both tap-driven and gesture-driven protected routes. Direction derives from primary nav order, known parent/detail routes, and POP history indices (Back vs Forward); initial auth/redirect unchanged. Touch swipe completion is not double-animated.
+- Preserve sheet/modal history ownership and distinct vertical sheet animations. Keep chat fixed-height overflow contracts and never premount extra account/RxDB providers. Preserve reduced-motion gesture usability.
+- Add account-synced Reduce animations toggle (off by default), with per-account cache and device reduced-motion override. AppearanceProvider already owns settings: no additional useRxCollection subscriber.
+- Apply effective motion to MotionConfig, page, BottomSheet exit, Swiper/Embla snap and nonessential CSS transitions. Progress indicators, functional direct manipulation and focus remain available.
+- Explicit #404 large-screen layout redesign is out of scope.
 
-## Source and acceptance
-- Port prior #410/#416 components/tests from stable Preview 7d89b5f5 on top of dev v0.10.1; merge Preferences settings safely.
-- Update MainLayout/AppLayout POP transition and Escape fallback, tune route wheel recognizer, and add Calendar/Todo wheel integration with DOM and browser regressions.
-- Frontend-only; no Appwrite schema/Function or hosted environment mutation.
-- Run task full diagnostic for near-limit size budgets, repair actual failures, then stable Preview full canonical CI and exact-SHA Vercel READY.
-- Real Android hardware Back and laptop trackpad continuity/rapid gestures, route mount smoothness, and device/theme checks remain manual acceptance. Do not claim they ran.
-- No navigation dev/main promotion until explicit approval; #404 excluded.
+## Verification and remaining acceptance
+- Pure unit tests for route direction including POP Forward/Back, history indices and account caching; DOM checks for preference toggle and route motion presence; existing Playwright gestures, chat viewport and sheets remain required.
+- Build budgets near ceilings: run full task diagnostic, identify and fix any build, TS/lint, DOM or browser failure before publishing Preview. Exact-SHA Preview canonical CI and Vercel READY then verify.
+- Physical Android Back / BottomSheet and laptop trackpad smoothness, Light/Dark/Black and reduced motion remain separately human acceptance; authenticated scratch Preview login may be blocked by platform quota.
+- No Appwrite migrations/cloud, no production promotion.
 
 ## Next action
-Commit the coherent task, run diagnostic CI, repair failure layers, then publish verified v0.11.0 stable Preview. Maintain main unchanged.
-
-## First full diagnostic and combined repair
-
-- Initial full diagnostic [37964346094](https://github.com/carlers/mosaic-life-tracker/actions/runs/37964346094) failed lint, DOM, chat browser geometry and aggregate bundle size.
-- Root causes: React Compiler disallows reading ref.current in AppLayout render; route animation wrapper missed chat's full-height viewport contract; module-global trackpad cooldown leaked across unmounted routes/tests; a unit Embla fixture omitted the real rootNode API; synthetic DOM WheelEvent cancelability differs from native browser guarantees.
-- Repair AppLayout with event-derived React state rather than ref reads; restore full-height/min-height route wrapper; scope cooldown to component instance and preserve scroll ownership; adjust test fixtures without removing browser coverage.
-- Full v0.11.0 measurement: raw app assets 2,304,899 B, gzip 708,759 B, unique precache 2,387,454 B, while entry/init/Home all pass. Permit only narrow aggregate ceilings 2,307,500/710,000/2,390,000; retain startup/Home limits and budget tests.
-- Re-run full diagnostic and only publish stable Preview after all checks pass.
+First full diagnostic 38005875755: lint, DOM shard 2, both Chromium browser shards and dependency audit green; build failed TypeScript overly narrow route-parent array; DOM shard 1 failed because its existing matchMedia mock reused one listener for two media queries. Repairs typed the parent array as readonly string[] and made the color-scheme test dispatch only its own listener, with added provider-level Reduce animations sync/cache coverage. Rerun full diagnostic to measure production size and verify fixes, then stable Preview.
 
 ## Second diagnostic
 
-- [37964966820](https://github.com/carlers/mosaic-life-tracker/actions/runs/37964966820): static/lint, production build/PWA/size, dependency checks, DOM shard 1 and both real Chromium browser shards SUCCESS. Previously broken chat geometry and edge gestures now pass. Only DOM shard 2 failed: Happy DOM's synthetic WheelEvent did not expose Ctrl as real browsers do; the test now defines that modifier explicitly so zoom isolation is genuinely exercised.
-- While maintaining stable route component ownership, shorten idle neighbor-module preload fallback from 750 ms to 180 ms, and idle timeout from 1,800 ms to 500 ms, to reduce cold fast-swipe skeletons without mounting any extra RxDB-backed page trees. No new dependency or account subscription.
-- Task repair uses focused verification, followed by full stable Preview acceptance after squash; no user-device checks claimed.
+- Full task run [38006100358](https://github.com/carlers/mosaic-life-tracker/actions/runs/38006100358): DOM shards and dependency tests passed; route transition TypeScript still failed because `alternateParents` exists on only some members of the discriminated protected-route union. The corrected implementation combines the `'alternateParents' in route` guard with an explicitly broad `readonly string[]` collection, covering both compiler errors without casts.
+- Next required proof: production TypeScript/build/size on exact task SHA, followed by complete stable-Preview acceptance. Do not adjust size caps without the emitted measurements.
+
+## Measured bundle review and OS setting hardening
+
+- [Full task diagnostic 38006217711](https://github.com/carlers/mosaic-life-tracker/actions/runs/38006217711) passed TypeScript, lint, DOM/unit/handler and browser contracts but the strict production build reported aggregate overages: raw app assets **2,310,102 B** vs 2,307,500 (+2,602 B), gzip **710,561 B** vs 710,000 (+561 B), unique PWA precache **2,392,809 B** vs 2,390,000 (+2,809 B). Entry/raw/gzip, initial closure and Home closure **passed**. New route-motion + synced motion setting is intentional shipped capability.
+- Review only +4,000 B raw, +1,200 B gzip and +4,000 B unique precache limits; preserve all startup and Home ceilings and corresponding regression guard. The small extra runtime changes below require a fresh measured build to accept these caps.
+- OS reduced-motion changes while the app is open should also update Swiper and Embla, not only Motion. Expose `effectiveReducedMotion` via existing AppearanceContext and subscribe those existing view consumers; add DOM live-media regression, without adding a settings/RxDB owner.
+- Task repair verification then canonical exact-SHA Preview needed. Device acceptance still unclaimed. dev/main unchanged.

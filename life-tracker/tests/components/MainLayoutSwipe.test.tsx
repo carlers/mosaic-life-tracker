@@ -56,6 +56,29 @@ function drag(target: Element, fromX: number, toX: number) {
 
 // Regression: §2/§7 (primary-route swipe ownership and direct manipulation).
 describe('MainLayout primary route swipes', () => {
+  it('animates ordinary tapped routes in either direction without requiring a swipe', () => {
+    const common = { activeTab: 'explore' as const, onTabChange: () => {} };
+    const { rerender } = render(
+      <MainLayout {...common} routeKey="/home" routeTransitionDirection="none">
+        <div>Home content</div>
+      </MainLayout>
+    );
+    rerender(
+      <MainLayout {...common} routeKey="/explore" routeTransitionDirection="forward">
+        <div>Explore content</div>
+      </MainLayout>
+    );
+    expect(screen.getByText('Explore content')).toBeInTheDocument();
+    expect(document.querySelector('[data-route-transition-direction="forward"]')).not.toBeNull();
+    rerender(
+      <MainLayout {...common} routeKey="/home" routeTransitionDirection="backward">
+        <div>Home again</div>
+      </MainLayout>
+    );
+    expect(screen.getByText('Home again')).toBeInTheDocument();
+    expect(document.querySelector('[data-route-transition-direction="backward"]')).not.toBeNull();
+  });
+
   it('retains the outgoing route during an animated history Back', () => {
     const properties = {
       activeTab: 'messages' as const,

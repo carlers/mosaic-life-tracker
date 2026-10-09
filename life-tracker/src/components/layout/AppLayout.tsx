@@ -1,5 +1,6 @@
 import React, { lazy, Suspense, useEffect, useState } from 'react';
 import { useOutlet, useLocation, useNavigate, useNavigationType, Navigate } from 'react-router-dom';
+import { resolveRouteTransition, readRouterHistoryIndex } from '../../lib/routeTransitions';
 import { WifiOff, UserX } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { useConnectivity } from '../../hooks/useConnectivity';
@@ -103,21 +104,30 @@ export const AppLayout: React.FC = () => {
   const path = location.pathname;
   const outlet = useOutlet();
   const navigationType = useNavigationType();
-  const [suppressNextBackAnimation, setSuppressNextBackAnimation] = useState(false);
+  const [skipCompositorTo, setSkipCompositorTo] = useState<string | null>(null);
   const backFromFallback = Boolean(location.state &&
     typeof location.state === 'object' &&
     'mosaicBackAnimation' in location.state &&
     (location.state as { mosaicBackAnimation?: unknown }).mosaicBackAnimation === true);
-  const animateRouteBack = !suppressNextBackAnimation &&
-    (navigationType === 'POP' || backFromFallback);
-
+  const [routeTransition, setRouteTransition] = useState(() => ({
+    path, key: location.key, index: readRouterHistoryIndex(window.history.state),
+    direction: 'none' as import('../../lib/routeTransitions').RouteTransitionDirection,
+  }));
+  // React's guarded render-time adjustment keeps direction in lockstep with
+  // location, even when browser Back/Forward changes before an effect runs.
+  if (routeTransition.path !== path || routeTransition.key !== location.key) {
+    const index = readRouterHistoryIndex(window.history.state);
+    const historyDelta = index !== null && routeTransition.index !== null
+      ? index - routeTransition.index : null;
+    const direction = skipCompositorTo === path ? 'none' :
+      resolveRouteTransition(routeTransition.path, path, navigationType, historyDelta, backFromFallback);
+    setRouteTransition({ path, key: location.key, index, direction });
+  }
   useEffect(() => {
-    if (!suppressNextBackAnimation) return;
-    // The swipe compositor already animated this navigation. Defer clearing
-    // until its new route has mounted; never animate that same POP twice.
-    const timer = window.setTimeout(() => setSuppressNextBackAnimation(false), 420);
+    if (skipCompositorTo !== path) return;
+    const timer = window.setTimeout(() => setSkipCompositorTo(null), 0);
     return () => window.clearTimeout(timer);
-  }, [suppressNextBackAnimation]);
+  }, [path, skipCompositorTo]);
   const leftSwipeDestination = resolvePrimarySwipeDestination(path, 'left', location.state);
   const rightSwipeDestination = resolvePrimarySwipeDestination(path, 'right', location.state);
   const messagesIsAdjacent =
@@ -348,7 +358,7 @@ export const AppLayout: React.FC = () => {
     if (!destination) return;
     // This route was already animated by PrimaryRouteSwipeSurface.
     // Do not repeat the slide when its navigation is a browser-history POP.
-    setSuppressNextBackAnimation(true);
+    setSkipCompositorTo(destination);
 
     const parent = resolveRouteParent(path, location.state);
     if (direction === 'right' && parent) {
@@ -379,7 +389,7 @@ export const AppLayout: React.FC = () => {
         includeConversations={includeConversations}
         activeTab={activeTab}
         routeKey={path}
-        animateRouteBack={animateRouteBack}
+        routeTransitionDirection={routeTransition.direction}
         onTabChange={handleTabChange}
         canSwipeLeft={Boolean(leftSwipeDestination)}
         canSwipeRight={Boolean(rightSwipeDestination)}

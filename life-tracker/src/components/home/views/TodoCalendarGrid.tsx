@@ -16,6 +16,8 @@ import {
 } from 'date-fns';
 import useEmblaCarousel from 'embla-carousel-react';
 import { useEmblaTrackpadNavigation } from '../../../hooks/useEmblaTrackpadNavigation';
+import { AppearanceContext } from '../../../hooks/appearanceContext';
+import { systemRequestsReducedMotion } from '../../../lib/motionPreferences';
 import type { CategoryDocument, TaskDocument } from '../../../db/schema';
 import type { WeekStartsOn } from '../../../lib/preferences';
 import { useHolidaysByDate } from '../../../hooks/useHolidays';
@@ -293,11 +295,14 @@ export const TodoCalendarGrid: React.FC<TodoCalendarGridProps> = ({
     return grouped;
   }, [tasks]);
 
+  const appearance = React.useContext(AppearanceContext);
+  const reduceMotion = Boolean(appearance?.effectiveReducedMotion ?? systemRequestsReducedMotion());
   const [emblaRef, emblaApi] = useEmblaCarousel({
     loop: false,
     align: 'start',
     skipSnaps: false,
     startIndex: CENTER_INDEX,
+    duration: reduceMotion ? 0 : 22,
   });
 
   useEmblaTrackpadNavigation(emblaApi);

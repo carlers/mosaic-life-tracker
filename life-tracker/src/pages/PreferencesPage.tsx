@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Waves } from 'lucide-react';
 import {
   ArrowUp,
   CalendarDays,
@@ -198,6 +199,8 @@ export const PreferencesPage: React.FC = () => {
   const {
     mode,
     setAppearanceMode,
+    reduceAnimations,
+    setReduceAnimations,
     accentColor,
     setAccentColor,
     contentWidthMode,
@@ -425,6 +428,18 @@ export const PreferencesPage: React.FC = () => {
           copy={APPEARANCE_COPY}
           onChange={setAppearanceMode}
         />
+        <section className="border-b border-[#333333] py-2">
+          <h2 className="px-4 pb-1 pt-3 text-sm font-semibold uppercase tracking-wide text-gray-400">Motion</h2>
+          <SettingsRow
+            icon={<Waves size={18} className="text-gray-400" aria-hidden="true" />}
+            label="Reduce animations"
+            value="Minimize nonessential motion. Also respects your device setting."
+            showChevron={false}
+            isToggle
+            checked={reduceAnimations}
+            onClick={() => void setReduceAnimations(!reduceAnimations)}
+          />
+        </section>
         <section className="border-b border-[#333333] px-4 py-5">
           <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-gray-400">
             Accent color
