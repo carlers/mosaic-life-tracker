@@ -261,14 +261,24 @@ recognizers remain manual hosted-Preview evidence when a task changes those surf
 
 ## Discovery guard
 
-`npm run verify` runs `npm run test:discovery` before lint/test/build. The guard fails
-when any `tests/**/*.test.ts` or `tests/**/*.test.tsx` file belongs to zero or multiple
-Vitest projects. Playwright correctness contracts use `tests/e2e/**/*.spec.mjs` and are
-filtered by `test:browser-contract`; diagnostic performance cases carry the
-`@performance` tag and are selected by `test:performance`.
+`npm run verify` runs `npm run test:discovery` before lint/test/build, as do
+focused and canonical CI. The guard inventories **all test-like filenames** under
+`tests/` (`*.test.*` and `*.spec.*`), including unsupported extensions. It requires
+exactly one configured runner owner: one of the Vitest projects for their documented
+`*.test.ts[x]` patterns, or Playwright for `tests/e2e/**/*.spec.mjs`. Unmatched
+and multiply matched candidates fail with their paths and reasons, instead of
+silently passing because neither Vitest nor the earlier scanner found the file.
+If adding a test intentionally changes the naming conventions, update the runner
+and discovery policy together rather than renaming a test to make the guard green.
 
-The project patterns and Vitest configuration share `scripts/lib/test-projects.mjs` so
-the guard cannot silently drift from the runner.
+Playwright correctness contracts are filtered by `test:browser-contract`;
+diagnostic performance cases carry the `@performance` tag and are selected by
+`test:performance`. The guard checks their **discovery**, not which browser
+tests run, and does not itself increase browser CI time.
+
+The Vitest project patterns and Vitest configuration share
+`scripts/lib/test-projects.mjs`; the discovery guard consumes those exact
+patterns and independently checks documented Playwright filenames.
 
 ## Benchmark
 

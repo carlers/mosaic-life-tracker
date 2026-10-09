@@ -1,33 +1,26 @@
 # Session checkpoint
 
 Updated: 2026-10-09
-Current task: completed/incomplete Calendar TaskBlock dark-theme contrast
-Task branch: `chatgpt/taskblock-dark-white-v071`, from `dev` `8db358216d6a9b5a519d96669b098dc98682fff9`
-Stable Preview target: `fix/taskblock-dark-white-v071`
-Candidate Preview version: `0.7.1` (PATCH after current `dev` v0.7.0)
+Current task: issue #412 — lean regression coverage and test-quality review
+Base stable Preview: `refactor/test-discovery-audit` at `217c0e6266fca50e423283a065179c48296d4380`
+New task branch: `chatgpt/test-discovery-audit-polish`
+Stable Preview target: `refactor/test-discovery-audit`
+Version impact: NONE; `dev` v0.7.1 and `main` stay unchanged.
 
-## Objective and scope
+## Scope and review decisions
 
-- Completed Calendar TaskBlocks display white title text in Dark and Black themes.
-- Incomplete Calendar TaskBlocks retain muted gray/secondary title text in Dark and Black themes.
-- Preserve original category-colored backgrounds, Light theme text contrast, and all interactions.
-- Port the accepted isolated TaskBlock styling from `fix/taskblock-dark-white` without taking its earlier v0.6.3 version or replacing v0.7.0 interaction features.
-- Frontend-only. No data/backend/architecture changes; no incidental CSS-class test assertions.
+- Test discovery already rejects `*.test.*` / `*.spec.*` candidates missed by Vitest and Playwright runner naming. Prior focused CI `37919821550` and canonical Preview `37919937865` passed; the Preview deployment at `217c0e62` was READY.
+- Remove one redundant *passing subprocess* case from `tests/unit/testDiscovery.test.ts`: canonical and focused CI already run the real successful discovery script. Keep distinct unit cases for valid ownership, unsupported/misplaced filenames, and duplicate owners, plus one negative subprocess that proves the CLI fails on a silently ignored file.
+- Simplify the lone negative subprocess fixture lifecycle using local `try/finally` rather than a shared afterEach fixture registry.
+- Broader audit sample: workflow literal/YAML assertions protect delivery wiring but are brittle; retained because runtime classifier/provenance tests alone cannot prove actual Actions wiring. Hardcoded build size ceilings are intentional review fences; retain until accepted revision. Preferences has one long but behavioral integration case; no duplicated setup worth introducing. Browser interaction suite is a long file of distinct browser-only geometry, history, and gesture cases; retain unless a specific duplicate is demonstrated. BottomSheet DOM and Playwright contracts cover different failures.
+- Do not remove coverage just to reduce test count; this sample is not a full line-by-line audit of all 190 test files.
 
 ## Verification and delivery
 
-- Original isolated Preview: `ba4c3e08`, GitHub canonical gate `37915013745` SUCCESS and Vercel READY.
-- New baseline: `dev` version 0.7.0, promoted as `8db35821`; isolated 0.6.3 Preview had diverged and must not be merged directly.
-- Apply single task commit with focused CI, then squash to fresh stable Preview and require full canonical CI and exact-SHA Vercel READY.
-- Manual mobile/desktop visual checks remain unverified; no Appwrite backend gate for frontend-only styling.
-
-## Size-budget repair
-
-- First v0.7.1 canonical Preview build (GitHub run `37915827380`, Vercel deployment `dpl_9TBdU2fE7Hpi84aiqeiK3reykEDm`) tripped the app raw-assets budget by 59 bytes (2,296,659 > 2,296,600); aggregate gzip and PWA precache passed.
-- Reuse the same task-specific class only for completed blocks instead of adding a redundant data attribute and always-present class. Inline the background assignment to trim emitted assets without changing UI behavior.
-- First repair Vercel build was just 2 B over raw budget (2,296,602 / 2,296,600). Shorten the scoped CSS class while preserving exact behavior and all budgets.
-- Keep all build/size budgets and version 0.7.1 unchanged; rerun focused and full Preview checks.
+- Create one focused task commit with test and this checkpoint, `[verify:focused]`, then squash into the existing stable Preview and require a fresh exact-SHA canonical CI and Vercel READY. Update issue #412 with findings and evidence.
+- No production/feature/backend changes and no device verification needed. Issue stays open pending independently approved dev/main promotion.
+- #410/#416 v0.8.0 remains independently canonical-green on its Preview awaiting user keyboard/trackpad acceptance.
 
 ## Next action
 
-After repaired Preview succeeds, merge `fix/taskblock-dark-white-v071` into `dev` under the user's explicit 2026-10-09 promotion request; verify promotion CI and dev Vercel. Leave `main` unchanged.
+Run focused verification; repair any actual failure. Merge only to the existing stable #412 Preview, verify canonical CI/deployment and update the issue. Never merge to dev/main without user approval.
