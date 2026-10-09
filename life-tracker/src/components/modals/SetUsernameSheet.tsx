@@ -62,15 +62,11 @@ export const SetUsernameSheet: React.FC<SetUsernameSheetProps> = ({
     try {
       if (!profile || profile.username !== trimmed) {
         const available = await checkUsername(trimmed);
-        if (available === null) {
-          setError('Could not check. Try again.');
-          setIsSaving(false);
-          return;
-        }
-        if (available === false) {
-          setError('That username is already taken.');
-          setIsSaving(false);
-          return;
+        if (available !== true) {
+          setError(available === null
+            ? 'Could not check. Try again.'
+            : 'That username is already taken.');
+          return; // finally restores the save control for either outcome.
         }
       }
       const created = await createProfile({
