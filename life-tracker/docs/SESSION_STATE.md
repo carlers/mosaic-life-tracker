@@ -21,3 +21,10 @@ Candidate version: **0.9.0**. Pending v0.8.0 #410/#416 Preview is separate and m
 - Task branch focused CI, then squash merge to stable Preview and require exact-SHA canonical CI and Vercel READY. Appwidth changes are not included.
 - Physical phone drag/cross-category plus sorting acceptance is still required before dev promotion. Dev/main need separate user authorization.
 - Next action: verify coherent task branch changes; fix failures in task branch, publish stable Preview; then begin #417 on a separate branch.
+
+## First diagnostic findings / reviewed budget
+
+- First focused run 37955561300 failed React Compiler lint at DaySlide's manual memoization. Full diagnostic 37955760461 reproduced it and measured only aggregate budget breaches; both DOM shards, both browser shards and dependency audit passed.
+- Fix: move display sorting into a separate read-only presentation boundary rather than weakening memoization or disabling lint.
+- Measured 0.9.0 output: 2,298,489 B raw app assets, 706,946 B gzip, 2,381,052 B precache. Approved feature growth exceeded older ceilings by 1,889 B, 46 B and 1,952 B respectively; make a documented limited +4,000/+1,000/+4,000 B ceiling adjustment, preserving startup and Home closure limits and other measured guard checks. Update budget regression fixtures in lockstep; no broad budget relaxation.
+- Re-run targeted/focused and canonical gates on the amended task SHA; stable Preview still unmerged.
