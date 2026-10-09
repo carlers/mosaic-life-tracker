@@ -18,6 +18,7 @@ Target stable Preview: `fix/default-first-form-actions`
 - Prior #434 Preview promotion: PR #439 merged, dev SHA `39b7db1f`; promotion-check and canonical-acceptance SUCCESS, exact-SHA Vercel READY.
 - Test-first branch commit `16f9091c5ff7b9ffcd2aa28a5be8d1a4844ae040`: focused [run 37906490489](https://github.com/carlers/mosaic-life-tracker/actions/runs/37906490489) **RED** with two independently reproduced duplicate profile save calls when clicking twice in a single React batch.
 - Added tests cover name and description reject/error/preserve/retry/single-flight; stale completion after reopen; category create/update/delete reject/retry and rapid create; category data-layer propagation of insertion, deletion and unauthenticated failures.
+- Initial implementation focused [run 37907036060](https://github.com/carlers/mosaic-life-tracker/actions/runs/37907036060) passed **1,270/1,271 tests**; the sole failure was a **test-fixture issue** (initially-open name form had no draft, making Save correctly disabled). Corrected the fixture to type a draft before firing Save, with no product-code change.
 - Scope does not include profile username/password/email update flows (already have richer local handling), category reorder recovery, broader sync or Appwrite backend operations.
 
 ## Verification and delivery

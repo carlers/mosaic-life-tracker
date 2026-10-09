@@ -113,6 +113,9 @@ describe('profile save sheets', () => {
     const onClose = vi.fn();
     const props = { currentName: 'Previous', onClose, onSave };
     const view = render(<EditNameSheet isOpen {...props} />);
+    fireEvent.change(screen.getByRole('textbox', { name: 'Display Name' }), {
+      target: { value: 'Prior draft' },
+    });
 
     fireEvent.click(screen.getByRole('button', { name: 'Save Name' }));
     expect(onSave).toHaveBeenCalledOnce();
