@@ -257,10 +257,15 @@ describe('MainLayout primary route swipes', () => {
       </MainLayout>
     );
     const target = screen.getByTestId('wheel-detail');
-    const wheel = (clientX: number) => target.dispatchEvent(new WheelEvent('wheel', {
-      bubbles: true, cancelable: true, deltaMode: 0,
-      clientX, deltaX: -150, deltaY: 0,
-    }));
+    const wheel = (clientX: number) => {
+      // Happy DOM's WheelEvent lacks MouseEvent.clientX; real browsers supply it.
+      const event = new WheelEvent('wheel', {
+        bubbles: true, cancelable: true, deltaMode: 0,
+        deltaX: -150, deltaY: 0,
+      });
+      Object.defineProperty(event, 'clientX', { value: clientX });
+      return target.dispatchEvent(event);
+    };
     expect(wheel(120)).toBe(true);
     expect(wheel(20)).toBe(false);
     act(() => vi.runAllTimers());

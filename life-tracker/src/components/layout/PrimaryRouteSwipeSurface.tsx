@@ -250,12 +250,6 @@ export const PrimaryRouteSwipeSurface: React.FC<
     const track = trackRef.current;
     if (!track) return;
     const handleWheel = (event: WheelEvent) => {
-      if (event.deltaX === -150) console.log('WHEEL_DEBUG', {
-        clientX: event.clientX, cancelable: event.cancelable, mode: event.deltaMode,
-        inert: document.getElementById('root')?.inert, activePointer: gestureRef.current !== null,
-        isEligible: event.target instanceof Element && isEligibleStart(event.target, event.clientX, track.getBoundingClientRect().left),
-        left: track.getBoundingClientRect().left, canSwipeRight, eventTarget: (event.target as Element)?.tagName,
-      });
       if (!event.cancelable || event.defaultPrevented || gestureRef.current ||
         event.deltaMode !== 0 ||
         event.ctrlKey || event.metaKey || event.altKey || event.shiftKey ||
