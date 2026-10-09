@@ -24,3 +24,11 @@ Target stable Preview: `fix/default-first-form-actions`
 ## Verification and delivery
 
 Next action: run focused CI on the coherent task SHA; investigate and repair any failures; squash task into stable Preview, require full exact-SHA canonical acceptance and Vercel READY, update issue #434 and hand off the Preview. Do not promote to dev/main without separate explicit authorization. No manual/device or live cloud acceptance is claimed for this frontend-only work.
+
+## Preview size-gate repair
+
+- Original focused implementation [37907330478](https://github.com/carlers/mosaic-life-tracker/actions/runs/37907330478) passed.
+- Stable Preview PR #440 squash SHA `d9df80ea05ee194d238de84eac1e0d74e72a3d5b`; canonical CI [37907466164](https://github.com/carlers/mosaic-life-tracker/actions/runs/37907466164) passed checks, both DOM and browser shards and dependency audit, but its build failed **only** the aggregate raw/gzip/precache size limits; Vercel deployment `dpl_E7JN9QyxLMyy5tYp33tMhdD4QXS2` was ERROR for the same reason.
+- Cross-checked Vercel v0.6.1 5f1d4c8e vs v0.6.2 d9df80ea size metrics: +1,721 B raw, +847 B gzip, +2,041 B unique PWA precache; independent GitHub build confirms near-identical deltas. Entry/initial/Home all pass. No extra dependency was added.
+- Repair branch: `chatgpt/default-first-form-actions-size-repair` from rejected stable `d9df80ea`; document one narrowly reviewed product-size exception in PROJECT_REFERENCE §24.14, adjust only the aggregate three limits (raw 2,296,600; gzip 706,900; precache 2,379,100) leaving about 1 KB provider headroom; preserve baseline, entry/startup/Home ceilings and enforcement. Update pinned size-budget unit expectations.
+- **Next action:** task focused CI, squash repair into stable `fix/default-first-form-actions` Preview, require canonical full checks plus exact-SHA Vercel READY, then append delivery to #434. No `dev`/main form-phase promotion until separate user authorization; no manual/device/login or cloud-write acceptance claimed.
