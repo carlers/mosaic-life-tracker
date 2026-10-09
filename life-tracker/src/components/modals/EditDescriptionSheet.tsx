@@ -2,12 +2,14 @@ import React, { useRef, useEffect, useId, useState } from 'react';
 import { BottomSheet } from '../ui/BottomSheet';
 import { SheetSaveButton } from '../ui/SheetSaveButton';
 import { useSheetReset } from '../../hooks/useSheetReset';
+import { useSheetSaveAction } from '../../hooks/useSheetSaveAction';
+import { SheetErrorBanner } from '../ui/SheetErrorBanner';
 
 interface EditDescriptionSheetProps {
   isOpen: boolean;
   onClose: () => void;
   currentDescription: string;
-  onSave: (description: string) => void;
+  onSave: (description: string) => void | Promise<void>;
 }
 
 export const EditDescriptionSheet: React.FC<EditDescriptionSheetProps> = ({
@@ -17,13 +19,13 @@ export const EditDescriptionSheet: React.FC<EditDescriptionSheetProps> = ({
   onSave,
 }) => {
   const [description, setDescription] = useState('');
-  const [isSaving, setIsSaving] = useState(false);
+  const { save, reset, isSaving, error } = useSheetSaveAction();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const textareaId = useId();
 
   useSheetReset(isOpen, () => {
     setDescription(currentDescription);
-    setIsSaving(false);
+    reset();
   });
 
   useEffect(() => {
@@ -34,15 +36,13 @@ export const EditDescriptionSheet: React.FC<EditDescriptionSheetProps> = ({
   }, [isOpen]);
 
   const handleSave = async () => {
-    setIsSaving(true);
-    await onSave(description.trim());
-    setIsSaving(false);
-    onClose();
+    await save(() => onSave(description.trim()), onClose);
   };
 
   return (
-    <BottomSheet isOpen={isOpen} onClose={onClose} title="Edit Description" height="auto">
+    <BottomSheet isOpen={isOpen} onClose={onClose} preventDismiss={isSaving} title="Edit Description" height="auto">
       <div className="pt-2 pb-8 px-1 space-y-4">
+        <SheetErrorBanner message={error} />
         <div className="w-full">
           <label htmlFor={textareaId} className="block text-xs text-gray-400 mb-1.5 ml-1">Bio / Description</label>
           <textarea
