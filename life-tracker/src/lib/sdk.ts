@@ -39,28 +39,12 @@ type UpdateRowParams = {
   transactionId?: string;
 };
 
-type UpsertRowParams = {
-  databaseId: string;
-  tableId: string;
-  rowId: string;
-  data?: Record<string, unknown>;
-  permissions?: string[];
-  transactionId?: string;
-};
-
 type CreateRowParams = {
   databaseId: string;
   tableId: string;
   rowId: string;
   data: Record<string, unknown>;
   permissions?: string[];
-  transactionId?: string;
-};
-
-type DeleteRowParams = {
-  databaseId: string;
-  tableId: string;
-  rowId: string;
   transactionId?: string;
 };
 
@@ -125,9 +109,7 @@ type CreateExecutionParams = {
 type ListRowsResult = Awaited<ReturnType<typeof rawTablesDB.listRows>>;
 type GetRowResult = Awaited<ReturnType<typeof rawTablesDB.getRow>>;
 type UpdateRowResult = Awaited<ReturnType<typeof rawTablesDB.updateRow>>;
-type UpsertRowResult = Awaited<ReturnType<typeof rawTablesDB.upsertRow>>;
 type CreateRowResult = Awaited<ReturnType<typeof rawTablesDB.createRow>>;
-type DeleteRowResult = Awaited<ReturnType<typeof rawTablesDB.deleteRow>>;
 
 type CreateFileResult = Awaited<ReturnType<typeof rawStorage.createFile>>;
 type DeleteFileResult = Awaited<ReturnType<typeof rawStorage.deleteFile>>;
@@ -142,6 +124,12 @@ type CreateExecutionResult = Awaited<
 
 type AccountGetResult = Awaited<ReturnType<typeof rawAccount.get>>;
 
+/**
+ * Safe browser-only TablesDB surface: reads, PATCH existing rows and INSERT
+ * new rows. Deliberately excludes remote PUT/upsert (which resets omitted
+ * columns) and hard-delete (owned by server erasure/retention workers).
+ * Local RxDB upsert and the legacy social outbox action name are unrelated.
+ */
 export const guardedTablesDB = {
   listRows: (params: ListRowsParams): Promise<ListRowsResult> =>
     guardedCall(() => rawTablesDB.listRows(params as never)),
@@ -149,12 +137,8 @@ export const guardedTablesDB = {
     guardedCall(() => rawTablesDB.getRow(params as never)),
   updateRow: (params: UpdateRowParams): Promise<UpdateRowResult> =>
     guardedCall(() => rawTablesDB.updateRow(params as never)),
-  upsertRow: (params: UpsertRowParams): Promise<UpsertRowResult> =>
-    guardedCall(() => rawTablesDB.upsertRow(params as never)),
   createRow: (params: CreateRowParams): Promise<CreateRowResult> =>
     guardedCall(() => rawTablesDB.createRow(params as never)),
-  deleteRow: (params: DeleteRowParams): Promise<DeleteRowResult> =>
-    guardedCall(() => rawTablesDB.deleteRow(params as never)),
 };
 
 export const guardedStorage = {
