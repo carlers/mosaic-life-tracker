@@ -20,9 +20,13 @@ Candidate Preview version: 0.8.0
 - Reused pointer compositor for trackpad settling; unit/DOM coverage for route history, overlays, editable controls and wheel ownership.
 - Version 0.8.0 in all three required files.
 
+## Next action
+
+Repair edge-trackpad regression and size-budget diagnostics, then push focused verification, squash to stable Preview after green and require canonical CI plus Vercel READY. Preserve v0.8.0 candidate; do not promote to dev/main without approval.
+
 ## Verification and release boundary
 
 - Task branch focused checks must pass before squash merge to stable Preview.
 - Stable Preview requires canonical static/unit/DOM/browser/build/PWA/size checks and exact-SHA Vercel READY.
-- Raw app-size baseline at v0.7.1 was nearly exhausted; measure before any budget adjustment, and justify intentional capacity for the new feature.
+- Full diagnostic build on task SHA a3272f6 measured raw app assets 2,299,578 B (+2,978 over prior limit), gzip 706,985 B (+85), precache 2,382,157 B (+3,057). Adjust only those three limits to 2,303,000 / 707,600 / 2,386,000 B to accommodate the approved navigation capability with bounded small headroom. Entry/home budgets stay unchanged.
 - Real laptop native-trackpad and Android Back/device acceptance are not performed. No dev/main promotion authorized.

@@ -250,7 +250,8 @@ export const PrimaryRouteSwipeSurface: React.FC<
     const track = trackRef.current;
     if (!track) return;
     const handleWheel = (event: WheelEvent) => {
-      if (!event.cancelable || event.deltaMode !== 0 ||
+      if (!event.cancelable || event.defaultPrevented || gestureRef.current ||
+        event.deltaMode !== 0 ||
         event.ctrlKey || event.metaKey || event.altKey || event.shiftKey ||
         Math.abs(event.deltaX) < 1 ||
         Math.abs(event.deltaX) <= Math.abs(event.deltaY) * 1.35) return;

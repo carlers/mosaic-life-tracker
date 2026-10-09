@@ -245,7 +245,8 @@ describe('MainLayout primary route swipes', () => {
 
   it('keeps trackpad back edge-only on detail pages', () => {
     vi.useFakeTimers();
-    act(() => vi.advanceTimersByTime(800));
+    // The previous test committed a navigation; start outside its inertia window.
+    vi.setSystemTime(new Date('2026-10-15T00:00:00Z'));
     const onRouteSwipe = vi.fn();
     render(
       <MainLayout activeTab="messages" onTabChange={() => {}}
