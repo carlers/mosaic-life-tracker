@@ -223,6 +223,9 @@ See [offline implementation output](AI_WORKFLOW.md#offline-implementation-output
 
 ## 7. UI/UX & Architectural Guardrails
 
+**Navigation polish (#410/#416):** Opt-in synced Escape-as-Back honors modal, search, edit and focus ownership before safe route Back. Browser Back and Escape route transitions aim to reuse rightward swipe motion with reduced-motion support. Route wheel swipes must not steal native/nested vertical scroll, carousels or controls; Calendar/Todo Embla wheel input belongs to the calendar, not the primary route. Keep route data providers owned once and avoid duplicated subscriptions to render exit animations.
+
+
 **Settings information hierarchy (issue #417):** Settings groups live account/preference actions, future-only destinations, data/sync transfers, version/update, and data deletion in named sections. Unavailable rows say Coming soon; backup timestamps sit next to Backup & Restore. Preserve collapsed Version/build info, nested commit disclosure, and account/data deletion confirmations. Keep shared theme semantics and SettingsRow; no extra Settings framework.
 
 

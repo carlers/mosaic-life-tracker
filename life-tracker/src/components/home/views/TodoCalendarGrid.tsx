@@ -15,6 +15,7 @@ import {
   startOfWeek,
 } from 'date-fns';
 import useEmblaCarousel from 'embla-carousel-react';
+import { useEmblaTrackpadNavigation } from '../../../hooks/useEmblaTrackpadNavigation';
 import type { CategoryDocument, TaskDocument } from '../../../db/schema';
 import type { WeekStartsOn } from '../../../lib/preferences';
 import { useHolidaysByDate } from '../../../hooks/useHolidays';
@@ -299,6 +300,8 @@ export const TodoCalendarGrid: React.FC<TodoCalendarGridProps> = ({
     startIndex: CENTER_INDEX,
   });
 
+  useEmblaTrackpadNavigation(emblaApi);
+
   useEffect(() => {
     if (!emblaApi) return;
 
@@ -367,6 +370,7 @@ export const TodoCalendarGrid: React.FC<TodoCalendarGridProps> = ({
     <div
       ref={emblaRef}
       className="swiper-no-swiping w-full min-w-0 max-w-full shrink-0 overflow-hidden touch-pan-y"
+      data-route-swipe-horizontal-owner="true"
       data-testid="todo-calendar-grid"
     >
       <div className="flex will-change-transform">

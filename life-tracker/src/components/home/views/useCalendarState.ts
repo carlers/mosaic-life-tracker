@@ -10,6 +10,7 @@ import {
   differenceInCalendarWeeks,
 } from 'date-fns';
 import useEmblaCarousel from 'embla-carousel-react';
+import { useEmblaTrackpadNavigation } from '../../../hooks/useEmblaTrackpadNavigation';
 import type { WeekStartsOn } from '../../../lib/preferences';
 
 export type CalendarViewMode = 'month' | 'week';
@@ -65,6 +66,8 @@ export function useCalendarState(
     startIndex: CENTER_INDEX,
     duration: 22,
   });
+
+  useEmblaTrackpadNavigation(emblaApi);
 
   // Keep the active render window aligned to settled snaps. The active slide
   // already has both immediate neighbors mounted, so a one-step drag never

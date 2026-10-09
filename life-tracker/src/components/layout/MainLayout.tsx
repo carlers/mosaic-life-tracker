@@ -1,4 +1,5 @@
 import React, { lazy, Suspense, useContext } from 'react';
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { BottomNav, type TabId } from './BottomNav';
 import {
   PrimaryRouteSwipeSurface,
@@ -19,6 +20,7 @@ export interface MainLayoutProps {
   children: React.ReactNode;
   activeTab: TabId;
   routeKey?: string;
+  animateRouteBack?: boolean;
   onTabChange: (tab: TabId) => void;
   canSwipeLeft?: boolean;
   canSwipeRight?: boolean;
@@ -30,10 +32,33 @@ export interface MainLayoutProps {
   hideBottomNav?: boolean;
 }
 
+const BACK_ROUTE_TRANSITION_MS = 210;
+const backRouteVariants = {
+  enter: ({ back, reduced }: { back: boolean; reduced: boolean }) => ({
+    x: back && !reduced ? '-100%' : '0%',
+  }),
+  center: ({ back, reduced }: { back: boolean; reduced: boolean }) => ({
+    x: '0%',
+    transition: {
+      duration: back && !reduced ? BACK_ROUTE_TRANSITION_MS / 1000 : 0,
+      ease: [0.22, 1, 0.36, 1] as [number, number, number, number],
+    },
+  }),
+  exit: ({ back, reduced }: { back: boolean; reduced: boolean }) => ({
+    x: back && !reduced ? '100%' : '0%',
+    pointerEvents: 'none' as const,
+    transition: {
+      duration: back && !reduced ? BACK_ROUTE_TRANSITION_MS / 1000 : 0,
+      ease: [0.22, 1, 0.36, 1] as [number, number, number, number],
+    },
+  }),
+};
+
 export const MainLayout: React.FC<MainLayoutProps> = ({
   children,
   activeTab,
   routeKey = activeTab,
+  animateRouteBack = false,
   onTabChange,
   canSwipeLeft = false,
   canSwipeRight = false,
@@ -47,6 +72,8 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
   const appearance = useContext(AppearanceContext);
   const contentWidthMode = appearance?.contentWidthMode ?? 'full';
   const connectivity = useConnectivity();
+  const reducedMotion = useReducedMotion();
+  const routeMotion = { back: animateRouteBack, reduced: Boolean(reducedMotion) };
 
   const contentInsetClass = hideBottomNav
     ? ''
@@ -64,7 +91,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
         <div
           data-testid="primary-route-width-frame"
           data-content-width-mode={contentWidthMode}
-          className={`w-full ${
+          className={`relative w-full ${
             activeTab === 'home' || hideBottomNav ? 'h-full min-h-0' : 'min-h-full'
           } ${
             contentWidthMode === 'comfortable'
@@ -74,36 +101,49 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
                 : ''
           }`}
         >
-          <PrimaryRouteSwipeSurface
-            key={routeKey}
-            activationMode={
-              routeSwipeActivationMode ??
-              (hideBottomNav
-                ? 'edge-back'
-                : activeTab === 'home'
-                  ? 'home-zone'
-                  : 'full')
-            }
-            canSwipeLeft={canSwipeLeft}
-            canSwipeRight={canSwipeRight}
-            leftPreview={leftPreview}
-            rightPreview={rightPreview}
-            onSwipe={onRouteSwipe}
-            fullHeight={hideBottomNav}
-          >
-            <div
-              data-testid="primary-route-content"
-              className={
-                hideBottomNav
-                  ? 'h-full min-h-0 overflow-hidden'
-                  : activeTab === 'home'
-                    ? 'h-full min-h-0 ' + contentInsetClass
-                    : 'min-h-full ' + contentInsetClass
-              }
+          <AnimatePresence initial={false} mode="popLayout" custom={routeMotion}>
+            <motion.div
+              key={routeKey}
+              data-route-back-animation={animateRouteBack ? 'true' : undefined}
+              custom={routeMotion}
+              variants={backRouteVariants}
+              initial="enter"
+              animate="center"
+              exit="exit"
+              className="w-full"
             >
-              {children}
-            </div>
-          </PrimaryRouteSwipeSurface>
+            <PrimaryRouteSwipeSurface
+              key={routeKey}
+              activationMode={
+                routeSwipeActivationMode ??
+                (hideBottomNav
+                  ? 'edge-back'
+                  : activeTab === 'home'
+                    ? 'home-zone'
+                    : 'full')
+              }
+              canSwipeLeft={canSwipeLeft}
+              canSwipeRight={canSwipeRight}
+              leftPreview={leftPreview}
+              rightPreview={rightPreview}
+              onSwipe={onRouteSwipe}
+              fullHeight={hideBottomNav}
+            >
+              <div
+                data-testid="primary-route-content"
+                className={
+                  hideBottomNav
+                    ? 'h-full min-h-0 overflow-hidden'
+                    : activeTab === 'home'
+                      ? 'h-full min-h-0 ' + contentInsetClass
+                      : 'min-h-full ' + contentInsetClass
+                }
+              >
+                {children}
+              </div>
+            </PrimaryRouteSwipeSurface>
+            </motion.div>
+          </AnimatePresence>
         </div>
       </main>
 

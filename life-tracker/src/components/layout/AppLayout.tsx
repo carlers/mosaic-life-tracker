@@ -1,5 +1,5 @@
-import React, { lazy, Suspense, useEffect, useState } from 'react';
-import { Outlet, useLocation, useNavigate, Navigate } from 'react-router-dom';
+import React, { lazy, Suspense, useEffect, useRef, useState } from 'react';
+import { useOutlet, useLocation, useNavigate, useNavigationType, Navigate } from 'react-router-dom';
 import { WifiOff, UserX } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { useConnectivity } from '../../hooks/useConnectivity';
@@ -101,6 +101,22 @@ export const AppLayout: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const path = location.pathname;
+  const outlet = useOutlet();
+  const navigationType = useNavigationType();
+  const priorPathRef = useRef(path);
+  const routeSwipeCommittedRef = useRef(false);
+  const isNewRoute = priorPathRef.current !== path;
+  const backFromFallback = Boolean(location.state &&
+    typeof location.state === 'object' &&
+    'mosaicBackAnimation' in location.state &&
+    (location.state as { mosaicBackAnimation?: unknown }).mosaicBackAnimation === true);
+  const animateRouteBack = isNewRoute && !routeSwipeCommittedRef.current &&
+    (navigationType === 'POP' || backFromFallback);
+
+  useEffect(() => {
+    priorPathRef.current = path;
+    routeSwipeCommittedRef.current = false;
+  }, [path]);
   const leftSwipeDestination = resolvePrimarySwipeDestination(path, 'left', location.state);
   const rightSwipeDestination = resolvePrimarySwipeDestination(path, 'right', location.state);
   const messagesIsAdjacent =
@@ -329,6 +345,9 @@ export const AppLayout: React.FC = () => {
   const handleRouteSwipe = (direction: PrimarySwipeDirection) => {
     const destination = resolvePrimarySwipeDestination(path, direction, location.state);
     if (!destination) return;
+    // This route was already animated by PrimaryRouteSwipeSurface.
+    // Do not repeat the slide when its navigation is a browser-history POP.
+    routeSwipeCommittedRef.current = true;
 
     const parent = resolveRouteParent(path, location.state);
     if (direction === 'right' && parent) {
@@ -359,6 +378,7 @@ export const AppLayout: React.FC = () => {
         includeConversations={includeConversations}
         activeTab={activeTab}
         routeKey={path}
+        animateRouteBack={animateRouteBack}
         onTabChange={handleTabChange}
         canSwipeLeft={Boolean(leftSwipeDestination)}
         canSwipeRight={Boolean(rightSwipeDestination)}
@@ -378,7 +398,7 @@ export const AppLayout: React.FC = () => {
         }
         hideBottomNav={protectedRouteHidesBottomNav(path)}
       >
-        <Outlet />
+        {outlet}
       </LazyAppDataShell>
     </Suspense>
   );

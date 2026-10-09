@@ -56,6 +56,26 @@ function drag(target: Element, fromX: number, toX: number) {
 
 // Regression: §2/§7 (primary-route swipe ownership and direct manipulation).
 describe('MainLayout primary route swipes', () => {
+  it('retains the outgoing route during an animated history Back', () => {
+    const properties = {
+      activeTab: 'messages' as const,
+      onTabChange: () => {},
+      canSwipeRight: true,
+    };
+    const { rerender } = render(
+      <MainLayout {...properties} routeKey="/messages">
+        <div>Messages content</div>
+      </MainLayout>
+    );
+    rerender(
+      <MainLayout {...properties} routeKey="/home" animateRouteBack>
+        <div>Previous content</div>
+      </MainLayout>
+    );
+    expect(screen.getByText('Previous content')).toBeInTheDocument();
+    expect(document.querySelector('[data-route-back-animation="true"]')).not.toBeNull();
+  });
+
   it('keeps Home full-height, ignores body swipes, and accepts the hamburger-layer swipe', () => {
     vi.useFakeTimers();
     const onRouteSwipe = vi.fn();
@@ -209,5 +229,98 @@ describe('MainLayout primary route swipes', () => {
     expect(
       await screen.findByText('Actual Me neighbor content')
     ).toBeInTheDocument();
+  });
+
+  it('routes only an owned dominant horizontal trackpad burst, not scroll or nested carousels', () => {
+    vi.useFakeTimers();
+    const onRouteSwipe = vi.fn();
+    render(
+      <MainLayout activeTab="explore" onTabChange={() => {}}
+        canSwipeLeft canSwipeRight onRouteSwipe={onRouteSwipe}
+        leftPreview={<div>Next</div>}
+      >
+        <div data-testid="wheel-content">
+          <div className="swiper" data-testid="wheel-carousel">Nested carousel</div>
+        </div>
+      </MainLayout>
+    );
+    const wheel = (target: Element, deltaX: number, deltaY = 0) =>
+      target.dispatchEvent(new WheelEvent('wheel', {
+        bubbles: true, cancelable: true, deltaMode: 0,
+        clientX: 120, deltaX, deltaY,
+      }));
+
+    expect(wheel(screen.getByTestId('wheel-content'), 24, 100)).toBe(true);
+    expect(wheel(screen.getByTestId('wheel-carousel'), 160)).toBe(true);
+    act(() => vi.runAllTimers());
+    expect(onRouteSwipe).not.toHaveBeenCalled();
+
+    expect(wheel(screen.getByTestId('wheel-content'), 50)).toBe(false);
+    expect(wheel(screen.getByTestId('wheel-content'), 50)).toBe(false);
+    expect(wheel(screen.getByTestId('wheel-content'), 50)).toBe(false);
+    act(() => vi.runAllTimers());
+    expect(onRouteSwipe).toHaveBeenCalledTimes(1);
+    expect(onRouteSwipe).toHaveBeenCalledWith('left');
+  });
+
+  it('holds one continuous wheel gesture across short pauses and tiny trailing deltas', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-10-16T00:00:00Z'));
+    const onRouteSwipe = vi.fn();
+    render(
+      <MainLayout activeTab="explore" onTabChange={() => {}}
+        canSwipeLeft canSwipeRight onRouteSwipe={onRouteSwipe}
+        leftPreview={<div>Next</div>}
+      >
+        <div data-testid="wheel-pause">Trackpad area</div>
+      </MainLayout>
+    );
+    const target = screen.getByTestId('wheel-pause');
+    const wheel = (deltaX: number, deltaY = 0) =>
+      target.dispatchEvent(new WheelEvent('wheel', {
+        bubbles: true, cancelable: true, deltaMode: 0,
+        deltaX, deltaY, clientX: 120,
+      }));
+    expect(wheel(40)).toBe(false);
+    act(() => vi.advanceTimersByTime(160));
+    expect(wheel(0.4)).toBe(false);
+    act(() => vi.advanceTimersByTime(160));
+    expect(onRouteSwipe).not.toHaveBeenCalled();
+    expect(wheel(50)).toBe(false);
+    act(() => vi.advanceTimersByTime(160));
+    expect(onRouteSwipe).not.toHaveBeenCalled();
+    expect(wheel(40)).toBe(false);
+    act(() => vi.runAllTimers());
+    expect(onRouteSwipe).toHaveBeenCalledOnce();
+    expect(onRouteSwipe).toHaveBeenCalledWith('left');
+  });
+
+  it('keeps trackpad back edge-only on detail pages', () => {
+    vi.useFakeTimers();
+    // The previous test committed a navigation; start outside its inertia window.
+    vi.setSystemTime(new Date('2026-10-15T00:00:00Z'));
+    const onRouteSwipe = vi.fn();
+    render(
+      <MainLayout activeTab="messages" onTabChange={() => {}}
+        hideBottomNav canSwipeRight onRouteSwipe={onRouteSwipe}
+        rightPreview={<div>Parent</div>}
+      >
+        <div data-testid="wheel-detail">Chat detail</div>
+      </MainLayout>
+    );
+    const target = screen.getByTestId('wheel-detail');
+    const wheel = (clientX: number) => {
+      // Happy DOM's WheelEvent lacks MouseEvent.clientX; real browsers supply it.
+      const event = new WheelEvent('wheel', {
+        bubbles: true, cancelable: true, deltaMode: 0,
+        deltaX: -150, deltaY: 0,
+      });
+      Object.defineProperty(event, 'clientX', { value: clientX });
+      return target.dispatchEvent(event);
+    };
+    expect(wheel(120)).toBe(true);
+    expect(wheel(20)).toBe(false);
+    act(() => vi.runAllTimers());
+    expect(onRouteSwipe).toHaveBeenCalledWith('right');
   });
 });

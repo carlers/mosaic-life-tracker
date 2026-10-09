@@ -1,20 +1,26 @@
 # Session checkpoint
 
 Updated: 2026-10-10
-Current task: integrate user-approved #417 Settings cleanup with already promoted #402 sorting in dev.
-Baseline dev: `6e8a65d32a458734441d33df5b11bf06e0f8f6f1`, v0.9.0, [dev promotion 37962105759](https://github.com/carlers/mosaic-life-tracker/actions/runs/37962105759) SUCCESS.
-Task branch: `chatgpt/settings-clarity-integration`.
-Stable Preview target: `feature/settings-clarity-integrated`.
-Candidate version: **0.10.1** (existing separately accepted v0.10.0 Preview cannot be merged unchanged over already-promoted v0.9.0 because its independent tree lacks #402). Exact new combined tree requires new full canonical+Vercel acceptance.
+Current task: #410 Escape/Android Back route animations and #416 trackpad/Calendar navigation.
+Baseline: dev d4a32acff711f36e0b6e3dd4e4c8ae216df8c9c9 v0.10.1 (contains approved #402 and #417), dev CI 37962915401 SUCCESS and Vercel READY.
+Task branch: chatgpt/navigation-polish
+Stable Preview: feature/navigation-polish
+Candidate v0.11.0. The older independent navigation v0.8.0 Preview is not promoted.
 
-## Approved behavior
+## User-approved scope
+- Opt-in Escape-as-Back maintains modal, editor, selection and root route safeguards.
+- Browser-history POP/Android Back and Escape fallback should animate a rightward route exit while retaining browser-history semantics; avoid double animation following a completed swipe. Shared BottomSheet retains its own Framer exit.
+- Extend the short 130 ms route wheel idle cutoff to avoid early settling while fingers are still on a trackpad; leave vertical/nested scroll alone.
+- Calendar and Todo month use their installed Embla API for wheel-driven snaps and own these events rather than the primary route. Only a bounded wheel-to-Embla adapter is introduced; no new external dependency/lock change.
+- Preserve accepted #402 sorting, #417 Settings, scratch isolation, reduced-motion behavior, and no extra account data providers.
 
-- Keep #402 synced completion status sorting, unrestricted within/cross-category dragging, canonical/manual order safety and clipboard output unchanged.
-- Bring in #417 accepted SettingsPage and behavioral DOM regressions from Preview `5637241d33d91874460477d47801e8ae76913d9b`: clear account/upcoming/data/about/deletion headings, future-only labels, icons, backup activity placement, preserved app routes/actions/version disclosure/destructive confirmations.
-- Preserve higher #402 size budget ceilings (appAssetsRaw 2300600, gzip 707900, precacheUnique 2383100); do not replace with lower independent #417 budgets.
-- Merge both PROJECT_REFERENCE feature contract sections and include version in three files. Frontend-only, no new backend project, schema or Appwrite change.
-- The preexisting separate #410/#416 navigation/trackpad v0.8.0 Preview is **not** to enter dev yet. Following these promotions, investigate and polish animated browser Back/Escape/Android Back and trackpad gesture continuity and calendar integration in a newly versioned independent Preview.
+## Source and acceptance
+- Port prior #410/#416 components/tests from stable Preview 7d89b5f5 on top of dev v0.10.1; merge Preferences settings safely.
+- Update MainLayout/AppLayout POP transition and Escape fallback, tune route wheel recognizer, and add Calendar/Todo wheel integration with DOM and browser regressions.
+- Frontend-only; no Appwrite schema/Function or hosted environment mutation.
+- Run task full diagnostic for near-limit size budgets, repair actual failures, then stable Preview full canonical CI and exact-SHA Vercel READY.
+- Real Android hardware Back and laptop trackpad continuity/rapid gestures, route mount smoothness, and device/theme checks remain manual acceptance. Do not claim they ran.
+- No navigation dev/main promotion until explicit approval; #404 excluded.
 
 ## Next action
-
-Commit coherent combination on task branch with focused verification; squash into dedicated integration Preview after focused-green; verify exact Preview SHA canonical and Vercel READY, then promote this accepted combined Preview to dev under explicit approval. Main stays unchanged. Device checks are user-approved for #402/#417 (do not claim personally performed); navigation device acceptance remains required.
+Commit the coherent task, run diagnostic CI, repair failure layers, then publish verified v0.11.0 stable Preview. Maintain main unchanged.
