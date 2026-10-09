@@ -14,10 +14,15 @@ function makeHarness() {
     return <div>Calendar</div>;
   }
   render(<Harness />);
-  const wheel = (deltaX: number, deltaY = 0, ctrlKey = false) =>
-    viewport.dispatchEvent(new WheelEvent('wheel', {
+  const wheel = (deltaX: number, deltaY = 0, ctrlKey = false) => {
+    const event = new WheelEvent('wheel', {
       cancelable: true, bubbles: true, deltaMode: 0, deltaX, deltaY, ctrlKey,
-    }));
+    });
+    // Happy DOM's WheelEvent does not reliably expose the MouseEvent
+    // modifier value; real browsers do.
+    Object.defineProperty(event, 'ctrlKey', { value: ctrlKey });
+    return viewport.dispatchEvent(event);
+  };
   return { wheel, scrollNext, scrollPrev };
 }
 

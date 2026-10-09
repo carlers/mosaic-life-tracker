@@ -32,3 +32,9 @@ Commit the coherent task, run diagnostic CI, repair failure layers, then publish
 - Repair AppLayout with event-derived React state rather than ref reads; restore full-height/min-height route wrapper; scope cooldown to component instance and preserve scroll ownership; adjust test fixtures without removing browser coverage.
 - Full v0.11.0 measurement: raw app assets 2,304,899 B, gzip 708,759 B, unique precache 2,387,454 B, while entry/init/Home all pass. Permit only narrow aggregate ceilings 2,307,500/710,000/2,390,000; retain startup/Home limits and budget tests.
 - Re-run full diagnostic and only publish stable Preview after all checks pass.
+
+## Second diagnostic
+
+- [37964966820](https://github.com/carlers/mosaic-life-tracker/actions/runs/37964966820): static/lint, production build/PWA/size, dependency checks, DOM shard 1 and both real Chromium browser shards SUCCESS. Previously broken chat geometry and edge gestures now pass. Only DOM shard 2 failed: Happy DOM's synthetic WheelEvent did not expose Ctrl as real browsers do; the test now defines that modifier explicitly so zoom isolation is genuinely exercised.
+- While maintaining stable route component ownership, shorten idle neighbor-module preload fallback from 750 ms to 180 ms, and idle timeout from 1,800 ms to 500 ms, to reduce cold fast-swipe skeletons without mounting any extra RxDB-backed page trees. No new dependency or account subscription.
+- Task repair uses focused verification, followed by full stable Preview acceptance after squash; no user-device checks claimed.

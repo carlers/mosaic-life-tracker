@@ -241,11 +241,11 @@ export const AppLayout: React.FC = () => {
     };
 
     if (typeof window.requestIdleCallback === 'function') {
-      const idleId = window.requestIdleCallback(preload, { timeout: 1800 });
+      const idleId = window.requestIdleCallback(preload, { timeout: 500 });
       return () => window.cancelIdleCallback(idleId);
     }
 
-    const timer = window.setTimeout(preload, 750);
+    const timer = window.setTimeout(preload, 180);
     return () => window.clearTimeout(timer);
   }, [messagesIsAdjacent, path, user?.$id]);
 
