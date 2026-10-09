@@ -325,8 +325,8 @@ describe('completion grouping and drag translation', () => {
 
   it('exports selected tasks in their visible group order', () => {
     expect(formatSelectedTasksForClipboard(values, ['cat_a'], 'completed-first'))
-      .toBe('- c1\\n- c2\\n- u1\\n- u2');
+      .toBe('- c1\n- c2\n- u1\n- u2');
     expect(formatSelectedTasksForClipboard(values, ['cat_a'], 'completed-last'))
-      .toBe('- u1\\n- u2\\n- c1\\n- c2');
+      .toBe('- u1\n- u2\n- c1\n- c2');
   });
 });

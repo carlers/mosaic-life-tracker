@@ -1,7 +1,7 @@
 # Session checkpoint
 
 Updated: 2026-10-09
-Active task: #402 completion-status task grouping, implementation approved.
+Current task: #402 completion-status task grouping, implementation approved.
 Baseline: `dev` `15c7df12ac43e941b38018bee86efdc06097b567` (v0.7.1).
 Task branch: `chatgpt/task-completion-sorting`.
 Stable Preview target: `feature/task-completion-sorting`.
@@ -28,3 +28,7 @@ Candidate version: **0.9.0**. Pending v0.8.0 #410/#416 Preview is separate and m
 - Fix: move display sorting into a separate read-only presentation boundary rather than weakening memoization or disabling lint.
 - Measured 0.9.0 output: 2,298,489 B raw app assets, 706,946 B gzip, 2,381,052 B precache. Approved feature growth exceeded older ceilings by 1,889 B, 46 B and 1,952 B respectively; make a documented limited +4,000/+1,000/+4,000 B ceiling adjustment, preserving startup and Home closure limits and other measured guard checks. Update budget regression fixtures in lockstep; no broad budget relaxation.
 - Re-run targeted/focused and canonical gates on the amended task SHA; stable Preview still unmerged.
+
+## Next action
+
+On focused-green repair, squash to stable Preview, rerun exact-SHA canonical checks and verify Vercel. Do not promote to dev or main; then implement approved #417 independently.

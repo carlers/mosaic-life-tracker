@@ -51,6 +51,15 @@ export function canonicalPlacementAfterSortedDrop(
 
   const peers = projectedDisplay[destination]
     .filter((id) => byId.get(id)?.completed === dragged.completed);
+  if (source === destination) {
+    const originalPeers = canonical[source]
+      .filter((id) => byId.get(id)?.completed === dragged.completed);
+    if (originalPeers.length === peers.length &&
+        originalPeers.every((id, position) => id === peers[position])) {
+      // Crossing a different-status visual slot must not rewrite manual order.
+      return canonical;
+    }
+  }
   const index = peers.indexOf(taskId);
   if (index < 0) return null;
   const next: TaskPlacement = { ...canonical };
