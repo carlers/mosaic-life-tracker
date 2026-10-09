@@ -26,7 +26,11 @@ describe('synchronized Appwrite serialization contract', () => {
       expect(table, 'manifest table for ' + collection).toBeDefined();
 
       const columnNames = new Set(table!.columns.map((column) => column.key));
-      const outgoing = toAppwriteFormat({}, collection, 'viewer_A');
+      const outgoing = toAppwriteFormat(
+        collection === 'messages' ? { direction: 'outgoing' } : {},
+        collection,
+        'viewer_A'
+      );
       expect(Object.keys(outgoing).length).toBeGreaterThan(0);
       expect(Object.keys(outgoing).filter((key) => !columnNames.has(key))).toEqual([]);
 

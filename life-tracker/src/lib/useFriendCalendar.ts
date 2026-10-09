@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   fetchFriendCalendar,
   FriendAccessError,
@@ -60,79 +60,75 @@ export function useFriendCalendar(
 ): UseFriendCalendarReturn {
   const { user } = useAuth();
   const currentUserId = user?.$id;
+  const viewKey =
+    currentUserId && friendUserId
+      ? JSON.stringify([currentUserId, friendUserId])
+      : null;
+  const requestIdRef = useRef(0);
+  const [loadedViewKey, setLoadedViewKey] = useState<string | null>(null);
   const [tasks, setTasks] = useState<TaskDocument[]>([]);
   const [categories, setCategories] = useState<CategoryDocument[]>([]);
-  const [isLoading, setIsLoading] = useState(Boolean(friendUserId));
+  const [isLoading, setIsLoading] = useState(Boolean(viewKey));
   const [error, setError] = useState<string | null>(null);
   const [errorKind, setErrorKind] = useState<
     'forbidden' | 'offline' | 'server' | null
   >(null);
   const [lastFetchedAt, setLastFetchedAt] = useState<string | null>(null);
-  const [trackedFriendId, setTrackedFriendId] = useState<string | null>(
-    friendUserId
-  );
 
-  if (friendUserId !== trackedFriendId) {
-    setTrackedFriendId(friendUserId);
-    setTasks([]);
-    setCategories([]);
-    setError(null);
-    setErrorKind(null);
-    setLastFetchedAt(null);
-    setIsLoading(!!friendUserId);
-  }
+  // Keep the result associated with the viewing account and friend. A retained
+  // route must not render old-owner data even for one render after a switch.
+  const applyOutcome = useCallback((outcome: FetchOutcome, key: string) => {
+    if (outcome.ok) {
+      setTasks(outcome.bundle.tasks);
+      setCategories(outcome.bundle.categories);
+      setLastFetchedAt(outcome.bundle.fetchedAt);
+      setError(null);
+      setErrorKind(null);
+    } else {
+      setError(outcome.message);
+      setErrorKind(outcome.kind);
+    }
+    setLoadedViewKey(key);
+    setIsLoading(false);
+  }, []);
 
   const load = useCallback(
     async (force = false) => {
-      if (!friendUserId) return;
+      if (!currentUserId || !friendUserId || !viewKey) return;
+      const requestId = ++requestIdRef.current;
       setIsLoading(true);
       setError(null);
       setErrorKind(null);
-      if (!currentUserId) return;
       const outcome = await runFetch(currentUserId, friendUserId, force);
-      if (outcome.ok) {
-        setTasks(outcome.bundle.tasks);
-        setCategories(outcome.bundle.categories);
-        setLastFetchedAt(outcome.bundle.fetchedAt);
-      } else {
-        setError(outcome.message);
-        setErrorKind(outcome.kind);
-      }
-      setIsLoading(false);
+      if (requestIdRef.current !== requestId) return;
+      applyOutcome(outcome, viewKey);
     },
-    [currentUserId, friendUserId]
+    [applyOutcome, currentUserId, friendUserId, viewKey]
   );
 
   useEffect(() => {
-    if (!friendUserId || !currentUserId) return;
-    let effectIsActive = true;
-    (async () => {
-      const outcome = await runFetch(currentUserId, friendUserId, forceRefreshOnMount);
-      if (!effectIsActive) return;
-      if (outcome.ok) {
-        setTasks(outcome.bundle.tasks);
-        setCategories(outcome.bundle.categories);
-        setLastFetchedAt(outcome.bundle.fetchedAt);
-        setError(null);
-        setErrorKind(null);
-      } else {
-        setError(outcome.message);
-        setErrorKind(outcome.kind);
-      }
-      setIsLoading(false);
-    })();
+    if (!currentUserId || !friendUserId || !viewKey) return;
+    let active = true;
+    const requestId = ++requestIdRef.current;
+    void runFetch(currentUserId, friendUserId, forceRefreshOnMount).then((outcome) => {
+      if (!active || requestIdRef.current !== requestId) return;
+      applyOutcome(outcome, viewKey);
+    });
     return () => {
-      effectIsActive = false;
+      active = false;
+      // Also invalidates an imperative refetch started by this owner/view.
+      requestIdRef.current += 1;
     };
-  }, [currentUserId, friendUserId, forceRefreshOnMount]);
+  }, [applyOutcome, currentUserId, friendUserId, forceRefreshOnMount, viewKey]);
 
   const reactToTask = useCallback(
     async (taskId: string, emoji: string): Promise<'add' | 'remove'> => {
       const uid = currentUserId;
-      if (!uid || !friendUserId) {
-        throw new Error('Cannot react: not authenticated or no friend');
+      if (!uid || !friendUserId || loadedViewKey !== viewKey) {
+        throw new Error('Cannot react: calendar is not loaded for this account');
       }
 
+      const mutationRequestId = requestIdRef.current;
       const task = tasks.find((t) => t.id === taskId);
       if (!task) {
         throw new Error('Task not found');
@@ -157,31 +153,36 @@ export function useFriendCalendar(
           emoji,
           op
         );
-        patchCachedCalendarTask(uid, friendUserId, taskId, {
-          reactions: serverReactions || nextStr,
-        });
+        if (requestIdRef.current === mutationRequestId) {
+          void patchCachedCalendarTask(uid, friendUserId, taskId, {
+            reactions: serverReactions || nextStr,
+          });
+        }
         return op;
       } catch (err) {
-        setTasks((prev) =>
-          prev.map((t) =>
-            t.id === taskId ? { ...t, reactions: original } : t
-          )
-        );
+        if (requestIdRef.current === mutationRequestId) {
+          setTasks((prev) =>
+            prev.map((t) =>
+              t.id === taskId ? { ...t, reactions: original } : t
+            )
+          );
+        }
         console.error('[useFriendCalendar] reactToTask failed:', err);
         throw err;
       }
     },
-    [currentUserId, friendUserId, tasks]
+    [currentUserId, friendUserId, loadedViewKey, tasks, viewKey]
   );
 
+  const isCurrentView = viewKey !== null && loadedViewKey === viewKey;
   return {
-    tasks,
-    categories,
-    isLoading,
-    error,
-    errorKind,
+    tasks: isCurrentView ? tasks : [],
+    categories: isCurrentView ? categories : [],
+    isLoading: Boolean(viewKey) && (isLoading || !isCurrentView),
+    error: isCurrentView ? error : null,
+    errorKind: isCurrentView ? errorKind : null,
     refetch: load,
-    lastFetchedAt,
+    lastFetchedAt: isCurrentView ? lastFetchedAt : null,
     reactToTask,
   };
 }
