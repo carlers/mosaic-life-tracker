@@ -104,6 +104,11 @@ describe('PreferencesPage', () => {
     expect(todayTag).toHaveAttribute('aria-checked', 'false');
     expect(holidays).toHaveAttribute('aria-checked', 'false');
 
+    fireEvent.change(screen.getByRole('combobox', { name: 'Task completion order' }), {
+      target: { value: 'completed-last' },
+    });
+    expect(mocks.setSetting).toHaveBeenCalledWith('taskCompletionSort', 'completed-last');
+
     fireEvent.click(continuous);
     fireEvent.click(taskPosition);
     fireEvent.click(sunday);

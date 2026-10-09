@@ -1,6 +1,6 @@
 import React, { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { runBulkTaskActions } from './bulkTaskActions';
-import { formatSelectedTasksForClipboard } from '../../../lib/taskOrder';
+import { formatSelectedTasksForClipboard, resolveTaskCompletionSortMode } from '../../../lib/taskOrder';
 import { addDays, format, isToday } from 'date-fns';
 import { Swiper, SwiperSlide } from 'swiper/react';
 import { AnimatePresence, motion } from 'framer-motion';
@@ -32,6 +32,7 @@ import { useHorizontalArrowNavigation } from '../../../hooks/useHorizontalArrowN
 import { useSettings } from '../../../hooks/useSettings';
 import {
   ADD_TASKS_TO_TOP_SETTING_KEY,
+  TASK_COMPLETION_SORT_SETTING_KEY,
   CONTINUE_ADDING_TASKS_SETTING_KEY,
   HOLIDAY_REGION_SETTING_KEY,
   HOLIDAY_TYPES_SETTING_KEY,
@@ -111,6 +112,9 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
     getSetting(CONTINUE_ADDING_TASKS_SETTING_KEY, false) === true;
   const addTasksToTop =
     getSetting(ADD_TASKS_TO_TOP_SETTING_KEY, false) === true;
+  const taskSortMode = resolveTaskCompletionSortMode(
+    getSetting(TASK_COMPLETION_SORT_SETTING_KEY, 'manual')
+  );
   const showCategoryCollapseButton =
     getSetting(SHOW_CATEGORY_COLLAPSE_SETTING_KEY, false) === true;
   const showDayViewTodayTag =
@@ -382,7 +386,8 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
     if (copyPendingRef.current || isBulkWorking || selectedTasks.length === 0) return;
     const text = formatSelectedTasksForClipboard(
       selectedTasks,
-      categories.map((category) => category.id)
+      categories.map((category) => category.id),
+      taskSortMode
     );
     if (!text) {
       showFeedback('No selected tasks to copy');
@@ -400,7 +405,7 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
       copyPendingRef.current = false;
       setIsCopying(false);
     }
-  }, [categories, isBulkWorking, selectedTasks, showFeedback]);
+  }, [categories, isBulkWorking, selectedTasks, showFeedback, taskSortMode]);
 
   const runBulkUpdate = useCallback(async (updates: Partial<TaskDocument>) => {
     const snapshot = selectedTasks;
@@ -842,6 +847,7 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
                       disableTaskLayoutAnimation={renderMode === 'sheet'}
                       continueAddingTasks={continueAddingTasks}
                       showCategoryCollapseButton={showCategoryCollapseButton}
+                      taskSortMode={taskSortMode}
                       selectionMode={isSelectMode && i === activeIndex}
                       selectedTaskIds={selectedTaskIds}
                       onToggleTaskSelection={handleToggleTaskSelection}

@@ -4,6 +4,9 @@ import {
   buildBulkMoveTaskOrderGroups,
   buildTaskOrderAssignments,
   buildTaskPlacement,
+  canonicalPlacementAfterSortedDrop,
+  sortTaskPlacementByCompletion,
+  resolveTaskCompletionSortMode,
   formatSelectedTasksForClipboard,
   getNewTaskOrder,
   isTaskPlacementCompatible,
@@ -264,5 +267,66 @@ describe('selected task clipboard export', () => {
     expect(formatSelectedTasksForClipboard([], ['cat_a'])).toBe('');
     expect(formatSelectedTasksForClipboard([task('secret', 'cat_hidden', 0)], ['cat_a']))
       .toBe('');
+  });
+});
+
+describe('completion grouping and drag translation', () => {
+  const values = [
+    { ...task('u1', 'cat_a', 0), completed: false },
+    { ...task('c1', 'cat_a', 1), completed: true },
+    { ...task('u2', 'cat_a', 2), completed: false },
+    { ...task('c2', 'cat_a', 3), completed: true },
+    { ...task('b1', 'cat_b', 0), completed: false },
+  ];
+  const canonical = { cat_a: ['u1', 'c1', 'u2', 'c2'], cat_b: ['b1'] };
+
+  it('groups only within categories without changing saved order', () => {
+    expect(sortTaskPlacementByCompletion(canonical, values, 'manual')).toBe(canonical);
+    expect(sortTaskPlacementByCompletion(canonical, values, 'completed-first'))
+      .toEqual({ cat_a: ['c1', 'c2', 'u1', 'u2'], cat_b: ['b1'] });
+    expect(sortTaskPlacementByCompletion(canonical, values, 'completed-last'))
+      .toEqual({ cat_a: ['u1', 'u2', 'c1', 'c2'], cat_b: ['b1'] });
+    expect(canonical.cat_a).toEqual(['u1', 'c1', 'u2', 'c2']);
+    expect(resolveTaskCompletionSortMode('invalid')).toBe('manual');
+  });
+
+  it('keeps completion grouping after toggling a task with no canonical-order change', () => {
+    const toggled = values.map((value) =>
+      value.id === 'u1' ? { ...value, completed: true } : value
+    );
+    expect(sortTaskPlacementByCompletion(canonical, toggled, 'completed-first').cat_a)
+      .toEqual(['u1', 'c1', 'c2', 'u2']);
+    expect(canonical.cat_a).toEqual(['u1', 'c1', 'u2', 'c2']);
+  });
+
+  it('honors same-status drag order without rewriting opposite-status peers', () => {
+    const projected = { cat_a: ['c2', 'c1', 'u1', 'u2'], cat_b: ['b1'] };
+    expect(canonicalPlacementAfterSortedDrop(canonical, projected, 'c2', values))
+      .toEqual({ cat_a: ['u1', 'c2', 'c1', 'u2'], cat_b: ['b1'] });
+  });
+
+  it('accepts cross-status drop slots but re-groups on both sides of cross-category moves', () => {
+    const projected = { cat_a: ['c1', 'c2', 'u2'], cat_b: ['u1', 'b1'] };
+    const persisted = canonicalPlacementAfterSortedDrop(canonical, projected, 'u1', values);
+    expect(persisted).toEqual({ cat_a: ['c1', 'u2', 'c2'], cat_b: ['u1', 'b1'] });
+    expect(sortTaskPlacementByCompletion(persisted!, values, 'completed-last'))
+      .toEqual({ cat_a: ['u2', 'c1', 'c2'], cat_b: ['u1', 'b1'] });
+    expect(sortTaskPlacementByCompletion(persisted!, values, 'completed-first').cat_a)
+      .toEqual(['c1', 'c2', 'u2']);
+  });
+
+  it('ignores an ambiguous same-category opposite-status drop slot', () => {
+    const display = sortTaskPlacementByCompletion(canonical, values, 'completed-first');
+    expect(canonicalPlacementAfterSortedDrop(canonical, display, 'u1', values))
+      .toEqual(canonical);
+    expect(canonicalPlacementAfterSortedDrop(canonical, { cat_a: [], cat_b: [] }, 'u1', values))
+      .toBeNull();
+  });
+
+  it('exports selected tasks in their visible group order', () => {
+    expect(formatSelectedTasksForClipboard(values, ['cat_a'], 'completed-first'))
+      .toBe('- c1\\n- c2\\n- u1\\n- u2');
+    expect(formatSelectedTasksForClipboard(values, ['cat_a'], 'completed-last'))
+      .toBe('- u1\\n- u2\\n- c1\\n- c2');
   });
 });

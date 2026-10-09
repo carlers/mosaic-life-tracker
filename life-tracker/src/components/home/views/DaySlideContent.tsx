@@ -1,7 +1,7 @@
 import React from 'react';
 import { CategorySection } from './CategorySection';
 import type { CategoryDocument, TaskDocument } from '../../../db/schema';
-import type { TaskOrderGroup } from '../../../lib/taskOrder';
+import type { TaskOrderGroup, TaskCompletionSortMode } from '../../../lib/taskOrder';
 import {
   findTaskCategory,
   type ActiveTaskDrag,
@@ -35,6 +35,7 @@ export interface DaySlideProps {
   onToggleTaskSelection?: (taskId: string) => void;
   reorderEnabled?: boolean;
   reorderRuntimeActive?: boolean;
+  taskSortMode?: TaskCompletionSortMode;
   onReorderTasks?: (
     dateStr: string,
     groups: readonly TaskOrderGroup[]

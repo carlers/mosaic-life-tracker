@@ -4,6 +4,7 @@ import { TaskReorderRuntime } from './TaskReorderRuntime';
 import {
   buildTaskPlacement,
   materializeTaskDocument,
+  sortTaskPlacementByCompletion,
 } from '../../../lib/taskOrder';
 import { buildRenderedTasksByCategory } from './taskReorder';
 
@@ -47,7 +48,9 @@ const DaySlideComponent: React.FC<DaySlideProps> = ({
         reorderRuntimeActive={false}
         tasksByCategory={buildRenderedTasksByCategory(
           materializedTasks,
-          livePlacement,
+          sortTaskPlacementByCompletion(
+            livePlacement, materializedTasks, props.taskSortMode ?? 'manual'
+          ),
           categoryIds
         )}
         activeDrag={null}
