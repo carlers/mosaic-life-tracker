@@ -1,7 +1,7 @@
 # Session checkpoint
 
 Updated: 2026-10-09
-Current issue: #434 — default-first architecture / client SDK safety boundaries
+Current task: #434 — default-first architecture / client SDK safety boundaries
 Branch: `chatgpt/default-first-boundaries`, from `dev` `d1b80db986d4b191bc7a8c857f3800cd63339146`
 Target stable Preview: `refactor/default-first-boundaries`
 
@@ -16,8 +16,9 @@ Target stable Preview: `refactor/default-first-boundaries`
 
 - #409 accepted v0.6.1 Preview `3e1af34a` promoted by PR #433 to dev `d1b80db9`; promotion CI `37897274044` SUCCESS and exact dev Vercel READY.
 - Source audit: `sdk.ts` exports remote PUT and hard delete, despite documented restrictions, with no observed feature call sites. ESLint named-service restriction misses `Client`, `Databases`, `Users` and wildcard namespace imports. Existing `accountWorkScope`, backend manifest/readiness and dev provenance gates already provide strong defaults; defer speculative refactors.
-- Implementation and tests prepared; no verification run yet.
-- Next action: focused CI, fix failures if any, squash into stable Preview, require full canonical CI and exact-SHA Vercel READY, update #434; seek separate Preview → dev approval.
+- Browser SDK restriction changes passed focused CI `37897836410` and Preview PR #435 was squash-merged at `faaae155`.
+- Canonical Preview run `37898026584`: production build, dependency audit, both DOM shards and both browser shards **passed**; general checks failed only because this checkpoint used `Current issue:` rather than the required literal `Current task:` (and placed Next action under a bullet). The SDK method and ESLint fixture regressions passed. Fix the checkpoint markers, not product code.
+Next action: verify the checkpoint-contract repair using focused CI; squash into stable Preview and rerun full canonical CI plus exact-SHA Vercel. Update #434 and request separate dev promotion approval.
 
 ## Manual / backend boundaries
 
