@@ -56,14 +56,32 @@ test('closing the final sheet with Back restores focus to its opener', async ({ 
   await opener.click();
   await expect(page.getByRole('dialog', { name: 'Parent sheet' })).toBeVisible();
 
+  // Observe *ordering*, not a brittle poll of a 320ms animation phase.
+  // The app must never lose its inert lock while the outgoing dialog exists.
+  await page.evaluate(() => {
+    const root = document.querySelector('#root');
+    if (!root) throw new Error('Missing root');
+    window.__modalLockLeak = false;
+    window.__modalLockObserver = new MutationObserver(() => {
+      if (!root.inert && document.querySelector('[role="dialog"]')) {
+        window.__modalLockLeak = true;
+      }
+    });
+    window.__modalLockObserver.observe(root, {
+      attributes: true, attributeFilter: ['inert'],
+    });
+  });
+
   await page.evaluate(() => window.history.back());
 
-  // The application must remain inert through exit, with opener focus
-  // restored only after its modal layer has fully departed.
-  await expect.poll(() => page.locator('#root').evaluate((node) => node.inert)).toBe(true);
   await expect(page.getByRole('dialog', { name: 'Parent sheet' })).toBeHidden();
   await expect.poll(() => page.locator('#root').evaluate((node) => node.inert)).toBe(false);
   await expect(opener).toBeFocused();
+  const unlockedBeforeExit = await page.evaluate(() => {
+    window.__modalLockObserver.disconnect();
+    return window.__modalLockLeak;
+  });
+  expect(unlockedBeforeExit).toBe(false);
 });
 
 
