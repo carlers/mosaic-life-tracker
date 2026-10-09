@@ -147,17 +147,30 @@ export async function fetchMyProfile(
   }
 }
 
-export async function fetchProfileByUserId(
-  userId: string
-): Promise<ProfileCard | null> {
-  return fetchMyProfile(userId);
+// Both lookup entry points use the same account-scoped fetch implementation.
+export const fetchProfileByUserId = fetchMyProfile;
+
+// The two owner settings use the same safe partial profile mutation.
+async function updateExistingProfileField(
+  userId: string,
+  field: 'avatar_file_id' | 'display_name',
+  value: string
+): Promise<void> {
+  const current = await fetchMyProfile(userId);
+  if (!current || current[field] === value) return;
+  await writeProfile({
+    databaseId: APPWRITE_CONFIG.databaseId,
+    tableId: APPWRITE_CONFIG.tables.profiles,
+    rowId: `profile_${userId}`,
+    data: { [field]: value, updated_at: new Date().toISOString() },
+  });
 }
 
-export async function updateProfileAvatar(userId: string, avatarFileId: string): Promise<void> {
-  const current = await fetchMyProfile(userId);
-  if (!current) return;
-  await writeProfile({ databaseId: APPWRITE_CONFIG.databaseId, tableId: APPWRITE_CONFIG.tables.profiles, rowId: `profile_${userId}`, data: { avatar_file_id: avatarFileId, updated_at: new Date().toISOString() } });
-}
+export const updateProfileAvatar = (userId: string, avatarFileId: string): Promise<void> =>
+  updateExistingProfileField(userId, 'avatar_file_id', avatarFileId);
+
+export const updateProfileDisplayName = (userId: string, displayName: string): Promise<void> =>
+  updateExistingProfileField(userId, 'display_name', displayName);
 
 export async function createOrUpdateProfile(
   input: MyProfileInput,

@@ -31,7 +31,7 @@ import {
   deletePendingImage,
   isPendingImageId,
 } from '../lib/pendingImages';
-import { updateProfileAvatar } from '../lib/social';
+import { updateProfileAvatar, updateProfileDisplayName } from '../lib/social';
 import { awaitPilotReplicationFreshness } from './replicationFreshness';
 import { getReplicationIdentifier } from './replicationIds';
 import { trackReplicationFreshness } from './replicationLocalState';
@@ -192,19 +192,16 @@ async function prepareSettingForPush(
   };
 }
 
-async function mirrorProfileImageSetting(
+async function mirrorProfileSetting(
   document: ReplicatedSetting,
   userId: string
 ): Promise<void> {
-  if (
-    document.key !== 'profileImageId' ||
-    document.isDeleted ||
-    typeof document.value !== 'string' ||
-    !document.value
-  ) {
-    return;
+  if (document.isDeleted || typeof document.value !== 'string' || !document.value.trim()) return;
+  if (document.key === 'profileImageId') {
+    await updateProfileAvatar(userId, document.value);
+  } else if (document.key === 'displayName') {
+    await updateProfileDisplayName(userId, document.value);
   }
-  await updateProfileAvatar(userId, document.value);
 }
 
 async function cleanupPendingProfileImage(
@@ -233,7 +230,7 @@ async function finishSuccessfulPush(
   userId: string,
   pendingImageId: string | null
 ): Promise<void> {
-  await mirrorProfileImageSetting(document, userId);
+  await mirrorProfileSetting(document, userId);
   if (!pendingImageId) return;
   await cleanupPendingProfileImage(
     { ...document, value: pendingImageId },
@@ -299,7 +296,7 @@ async function pushSettings(
           userId
         );
         if (createConflict) {
-          await mirrorProfileImageSetting(createConflict, userId);
+          await mirrorProfileSetting(createConflict, userId);
           await cleanupPendingProfileImage(next, userId);
           conflicts.push(createConflict);
           continue;
@@ -316,17 +313,17 @@ async function pushSettings(
       }
 
       if (settingStateEquals(current, next)) {
-        await mirrorProfileImageSetting(current, userId);
+        await mirrorProfileSetting(current, userId);
         continue;
       }
       if (!isBootstrapLocalNewer(next.updatedAt, current.updatedAt)) {
-        await mirrorProfileImageSetting(current, userId);
+        await mirrorProfileSetting(current, userId);
         await cleanupPendingProfileImage(next, userId);
         conflicts.push(current);
         continue;
       }
     } else if (current && !settingStateEquals(current, assumed)) {
-      await mirrorProfileImageSetting(current, userId);
+      await mirrorProfileSetting(current, userId);
       await cleanupPendingProfileImage(next, userId);
       conflicts.push(current);
       continue;
@@ -340,7 +337,7 @@ async function pushSettings(
         userId
       );
       if (createConflict) {
-        await mirrorProfileImageSetting(createConflict, userId);
+        await mirrorProfileSetting(createConflict, userId);
         await cleanupPendingProfileImage(next, userId);
         conflicts.push(createConflict);
         continue;
@@ -374,7 +371,7 @@ async function pushSettings(
     );
     if (writeResult.status === 'conflict') {
       const latest = toReplicatedSetting(writeResult.row);
-      await mirrorProfileImageSetting(latest, userId);
+      await mirrorProfileSetting(latest, userId);
       await cleanupPendingProfileImage(next, userId);
       conflicts.push(latest);
       continue;
@@ -385,7 +382,7 @@ async function pushSettings(
         userId
       );
       if (createConflict) {
-        await mirrorProfileImageSetting(createConflict, userId);
+        await mirrorProfileSetting(createConflict, userId);
         await cleanupPendingProfileImage(next, userId);
         conflicts.push(createConflict);
         continue;

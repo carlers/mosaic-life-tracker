@@ -212,7 +212,11 @@ export const TaskItem: React.FC<TaskItemProps> = ({
           event.stopPropagation();
           onToggle(task.id);
         }}
-        onPointerDown={(e) => e.stopPropagation()}
+        onPointerDown={(e) => {
+          e.stopPropagation();
+          // Keep the title editor mounted until this checkbox's click runs.
+          if (isEditing) e.preventDefault();
+        }}
         className="mt-0.5 shrink-0 w-6 h-6 rounded-full border-2 flex items-center justify-center focus:outline-none"
         style={{
           borderColor: isCompleted ? categoryColor : '#4B5563',
