@@ -275,7 +275,7 @@ describe('DayViewSheet nested task actions', () => {
 
   it('copies selected task titles to the clipboard and keeps selection active', async () => {
     const writeText = vi.fn().mockResolvedValue(undefined);
-    vi.stubGlobal('navigator', Object.assign(Object.create(navigator), { clipboard: { writeText } }));
+    vi.stubGlobal('navigator', Object.create(navigator, { clipboard: { value: { writeText } } }));
     renderSheet();
     const activeSelect = screen.getAllByRole('button', { name: 'Select tasks' })
       .find((button) => button.getAttribute('tabindex') === '0');
@@ -293,7 +293,7 @@ describe('DayViewSheet nested task actions', () => {
 
   it('reports clipboard rejection, retains selection, and supports retry', async () => {
     const writeText = vi.fn().mockRejectedValueOnce(new Error('Denied')).mockResolvedValue(undefined);
-    vi.stubGlobal('navigator', Object.assign(Object.create(navigator), { clipboard: { writeText } }));
+    vi.stubGlobal('navigator', Object.create(navigator, { clipboard: { value: { writeText } } }));
     renderSheet();
     fireEvent.click(screen.getAllByRole('button', { name: 'Select tasks' })
       .find((button) => button.getAttribute('tabindex') === '0') as HTMLElement);
@@ -307,7 +307,7 @@ describe('DayViewSheet nested task actions', () => {
   });
 
   it('reports an unavailable clipboard without clearing selection', async () => {
-    vi.stubGlobal('navigator', Object.assign(Object.create(navigator), { clipboard: undefined }));
+    vi.stubGlobal('navigator', Object.create(navigator, { clipboard: { value: undefined } }));
     renderSheet();
     fireEvent.click(screen.getAllByRole('button', { name: 'Select tasks' })
       .find((button) => button.getAttribute('tabindex') === '0') as HTMLElement);
