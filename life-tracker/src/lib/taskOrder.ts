@@ -219,3 +219,18 @@ export function buildTaskOrderAssignments(
     return assignment;
   });
 }
+
+/** Export the selected Day View tasks in the same category/task order as DaySlide. */
+export function formatSelectedTasksForClipboard(
+  selectedTasks: readonly TaskDocument[],
+  categoryIds: readonly string[]
+): string {
+  const byId = new Map(selectedTasks.map((task) => [task.id, task]));
+  const placement = buildTaskPlacement(selectedTasks, categoryIds);
+  return categoryIds
+    .flatMap((categoryId) => placement[categoryId] ?? [])
+    .map((id) => byId.get(id))
+    .filter((task): task is TaskDocument => !!task)
+    .map((task) => `- ${task.title.replace(/\s*[\r\n]+\s*/g, ' ')}`)
+    .join('\n');
+}
