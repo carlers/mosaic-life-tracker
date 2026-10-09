@@ -21,6 +21,12 @@ Candidate Preview version: `0.7.1` (PATCH after current `dev` v0.7.0)
 - Apply single task commit with focused CI, then squash to fresh stable Preview and require full canonical CI and exact-SHA Vercel READY.
 - Manual mobile/desktop visual checks remain unverified; no Appwrite backend gate for frontend-only styling.
 
+## Size-budget repair
+
+- First v0.7.1 canonical Preview build (GitHub run `37915827380`, Vercel deployment `dpl_9TBdU2fE7Hpi84aiqeiK3reykEDm`) tripped the app raw-assets budget by 59 bytes (2,296,659 > 2,296,600); aggregate gzip and PWA precache passed.
+- Reuse the same task-specific class only for completed blocks instead of adding a redundant data attribute and always-present class. Inline the background assignment to trim emitted assets without changing UI behavior.
+- Keep all build/size budgets and version 0.7.1 unchanged; rerun focused and full Preview checks.
+
 ## Next action
 
-After new Preview succeeds, merge `fix/taskblock-dark-white-v071` into `dev` under the user's explicit 2026-10-09 promotion request; verify promotion CI and dev Vercel. Leave `main` unchanged.
+After repaired Preview succeeds, merge `fix/taskblock-dark-white-v071` into `dev` under the user's explicit 2026-10-09 promotion request; verify promotion CI and dev Vercel. Leave `main` unchanged.
