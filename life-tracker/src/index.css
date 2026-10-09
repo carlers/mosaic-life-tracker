@@ -16,6 +16,12 @@
   --mosaic-text-muted: #9ca3af;
   --mosaic-text-faint: #6b7280;
   --mosaic-task-incomplete-bg: #374151;
+  --mosaic-floating-surface: rgba(23, 23, 23, 0.95);
+  --mosaic-hover-wash: rgba(255, 255, 255, 0.05);
+  --mosaic-chat-incoming: #000000;
+  --mosaic-chat-outgoing: #2a2a2a;
+  --mosaic-chat-quote-incoming: #2a2a2a;
+  --mosaic-chat-quote-outgoing: #1a1a1a;
   --mosaic-accent: #10b981;
   --mosaic-accent-hover: #0e9f71;
   --mosaic-accent-soft: rgba(16, 185, 129, 0.15);
@@ -45,6 +51,9 @@ html[data-theme='black'] {
   --mosaic-text-muted: #a1a1aa;
   --mosaic-text-faint: #71717a;
   --mosaic-task-incomplete-bg: #374151;
+  --mosaic-chat-outgoing: var(--mosaic-surface-elevated);
+  --mosaic-chat-quote-incoming: var(--mosaic-surface-elevated);
+  --mosaic-chat-quote-outgoing: var(--mosaic-surface);
 }
 
 html[data-theme='light'] {
@@ -58,9 +67,15 @@ html[data-theme='light'] {
   --mosaic-border-strong: #9ca3af;
   --mosaic-text: #111827;
   --mosaic-text-secondary: #374151;
-  --mosaic-text-muted: #6b7280;
-  --mosaic-text-faint: #9ca3af;
+  --mosaic-text-muted: #4b5563;
+  --mosaic-text-faint: #596273;
   --mosaic-task-incomplete-bg: #e5e7eb;
+  --mosaic-floating-surface: rgba(255, 255, 255, 0.96);
+  --mosaic-hover-wash: rgba(17, 24, 39, 0.05);
+  --mosaic-chat-incoming: #ffffff;
+  --mosaic-chat-outgoing: #e5e7eb;
+  --mosaic-chat-quote-incoming: #f0f1f3;
+  --mosaic-chat-quote-outgoing: #f0f1f3;
   --mosaic-accent-text: var(--mosaic-accent-text-light);
   --mosaic-accent-ring: var(--mosaic-accent-ring-light);
   --mosaic-accent-border: var(--mosaic-accent-border-light);
@@ -160,8 +175,7 @@ html[data-theme='light']
     [class*="bg-pink-"],
     [class*="bg-orange-"],
     [class*="bg-amber-"],
-    [class~="bg-black"],
-    [style*="background-color"]
+    [class~="bg-black"]
   )[class~="text-white"],
 html[data-theme='light']
   :is(
@@ -173,8 +187,7 @@ html[data-theme='light']
     [class*="bg-pink-"],
     [class*="bg-orange-"],
     [class*="bg-amber-"],
-    [class~="bg-black"],
-    [style*="background-color"]
+    [class~="bg-black"]
   )
   [class~="text-white"] {
   color: #ffffff !important;

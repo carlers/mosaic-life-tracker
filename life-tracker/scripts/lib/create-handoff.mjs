@@ -47,38 +47,27 @@ export function promptForTarget(target) {
 }
 
 export function validateSessionState(content) {
-  const requiredLines = [
-    'Updated:',
-    'Current task:',
-    'Status:',
-    'Next action:',
-    'Blockers:',
-  ];
-  const requiredSections = [
-    'Working set',
-    'Completed substeps',
-    'Remaining substeps',
-    'Constraints',
-    'Verification',
-  ];
-  const missing = [
-    ...requiredLines.filter((label) =>
-      !new RegExp(`^${label.replace(':', '\\:')}\\s*\\S`, 'm').test(content)
-    ),
-    ...requiredSections
-      .filter((heading) => !content.includes(`## ${heading}`))
-      .map((heading) => `## ${heading}`),
-  ];
+  // Both the older structured handoff template and the current concise
+  // task checkpoint are valid. Do not require one exact heading layout.
+  const missing = [];
+  if (!/^Updated:\s*\S/m.test(content)) missing.push('Updated:');
+  if (!/(?:^|[ \t])(?:Current task|Current work):[ \t]*\S/m.test(content)) {
+    missing.push('Current task: or Current work:');
+  }
+  if (!/^Next action:\s*\S/m.test(content) &&
+      !/^## Next action(?:\s|$)/m.test(content)) {
+    missing.push('Next action: or ## Next action');
+  }
   if (missing.length > 0) {
-    throw new Error(`SESSION_STATE.md is missing required fields: ${missing.join(', ')}`);
+    throw new Error(`SESSION_STATE.md is missing checkpoint context: ${missing.join(', ')}`);
   }
 }
 
 export function parseWorkingSet(content) {
   const heading = content.match(/^## Working set\s*$/m);
-  if (!heading?.index && heading?.index !== 0) {
-    throw new Error('SESSION_STATE.md has no Working set section.');
-  }
+  // A compact checkpoint may identify work in prose. Require explicit
+  // file paths only when emitting an actual file packet.
+  if (!heading) return [];
   const rest = content.slice(heading.index + heading[0].length).replace(/^\r?\n/, '');
   const nextHeading = rest.search(/^## /m);
   const body = nextHeading === -1 ? rest : rest.slice(0, nextHeading);

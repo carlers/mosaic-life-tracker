@@ -2,6 +2,7 @@ import {
   evaluateBuildSizeBudget,
   formatBuildSizeResult,
   measureManifestStaticClosure,
+  measureBuildInfoPayloadBytes,
   validateBuildSizeBudget,
 } from '../../scripts/lib/build-size-guard.mjs';
 import { readFile } from 'node:fs/promises';
@@ -163,7 +164,7 @@ describe('build-size guard', () => {
   });
 
   // Regression: §24.14 (aggregate/precache ceilings include reviewed shipped
-  // product growth without widening startup/Home or aggregate raw limits).
+  // product growth without widening startup/Home limits).
   it('preserves the reviewed aggregate and precache ceilings', async () => {
     const configuredBudget = JSON.parse(await readFile(
       new URL('../../config/build-size-budget.json', import.meta.url),
@@ -171,10 +172,25 @@ describe('build-size guard', () => {
     ));
 
     expect(configuredBudget.limits).toMatchObject({
-      appAssetsRawBytes: 2254900,
-      appAssetsGzipBytes: 688000,
-      precacheUniqueBytes: 2323600,
+      appAssetsRawBytes: 2296600,
+      appAssetsGzipBytes: 706900,
+      precacheUniqueBytes: 2379100,
     });
+  });
+
+  // Regression: a longer release commit body must not consume PWA code-size
+  // headroom solely by changing the build-info meta attribute in index.html.
+  it('excludes only variable build-info bytes from the precache measurement', () => {
+    const short = '<meta name="mosaic-build-info" content="one">';
+    const long = '<meta name="mosaic-build-info" content="long &quot;description&quot; and Unicode 🧩">';
+    const shell = '<script type="module" src="/assets/index.js"></script>';
+    const normalizedBytes = html => Buffer.byteLength(html, 'utf8') - measureBuildInfoPayloadBytes(html);
+    expect(normalizedBytes(short + shell)).toBe(normalizedBytes(long + shell));
+    expect(measureBuildInfoPayloadBytes(short)).toBe(3);
+    expect(measureBuildInfoPayloadBytes(long)).toBe(Buffer.byteLength('long &quot;description&quot; and Unicode 🧩'));
+    expect(measureBuildInfoPayloadBytes(shell)).toBe(0);
+    expect(() => measureBuildInfoPayloadBytes('<meta name="mosaic-build-info">')).toThrow(/content/);
+    expect(() => measureBuildInfoPayloadBytes(short + short)).toThrow(/one mosaic-build-info/);
   });
 
   // Regression: §24.14 (deployment metadata must not perturb hashed JS size).

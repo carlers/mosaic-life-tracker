@@ -10,10 +10,11 @@ const PAGE_SIZE = 100;
 const MAX_PAGES = 1000;
 const DELETE_CONCURRENCY = 8;
 
-const OWNED_TABLES = ['tasks', 'categories', 'diary', 'settings'];
+const OWNED_TABLES = ['tasks', 'categories', 'diary', 'settings', 'push_subscriptions'];
 const CROSS_REFERENCE_QUERIES = {
   friendships: ['user_id', 'friend_id'],
   messages: ['user_id', 'sender_id', 'recipient_id'],
+  notifications: ['recipient_id', 'actor_id'],
 };
 
 function deletionJobId(userId) {

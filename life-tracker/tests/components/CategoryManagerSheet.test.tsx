@@ -1,5 +1,6 @@
 import type React from 'react';
 import {
+  act,
   fireEvent,
   render,
   screen,
@@ -93,6 +94,9 @@ import { CategoryManagerSheet } from '../../src/components/modals/CategoryManage
 describe('CategoryManagerSheet', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.addCategory.mockReset().mockResolvedValue(undefined);
+    mocks.updateCategory.mockReset().mockResolvedValue(undefined);
+    mocks.deleteCategory.mockReset().mockResolvedValue(undefined);
   });
 
   it('starts reordering only from the category grip button', () => {
@@ -240,6 +244,74 @@ describe('CategoryManagerSheet', () => {
     expect(
       within(visibility).getByRole('button', { name: /Public/ })
     ).toHaveAttribute('aria-pressed', 'true');
+  });
+
+
+  it('keeps an unsaved category visible after rejection, and serializes rapid create clicks', async () => {
+    let reject!: (error: Error) => void;
+    const pending = new Promise<void>((_resolve, no) => { reject = no; });
+    mocks.addCategory.mockReturnValueOnce(pending);
+
+    render(<CategoryManagerSheet isOpen onClose={vi.fn()} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Add Category' }));
+    fireEvent.change(screen.getByRole('textbox', { name: 'Name' }), {
+      target: { value: 'Keep me' },
+    });
+    const create = screen.getByRole('button', { name: 'Add Category' });
+    act(() => {
+      fireEvent.click(create);
+      fireEvent.click(create);
+    });
+    expect(mocks.addCategory).toHaveBeenCalledOnce();
+
+    await act(async () => {
+      reject(new Error('disk error'));
+      await pending.catch(() => undefined);
+    });
+
+    expect(screen.getByRole('alert')).toHaveTextContent(/could not add category/i);
+    expect(screen.getByRole('textbox', { name: 'Name' })).toHaveValue('Keep me');
+    expect(screen.getByRole('button', { name: 'Add Category' })).toBeEnabled();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add Category' }));
+    await waitFor(() => expect(mocks.addCategory).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(screen.queryByRole('textbox', { name: 'Name' })).toBeNull());
+  });
+
+  it('leaves edit details available for retry after update failure', async () => {
+    mocks.updateCategory.mockRejectedValueOnce(new Error('write failed'));
+    render(<CategoryManagerSheet isOpen onClose={vi.fn()} />);
+    fireEvent.click(screen.getAllByRole('button', { name: 'Edit category' })[0]);
+
+    fireEvent.change(screen.getByRole('textbox', { name: 'Name' }), {
+      target: { value: 'Renamed' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Save Changes' }));
+
+    await screen.findByRole('alert');
+    expect(screen.getByRole('alert')).toHaveTextContent(/could not update category/i);
+    expect(screen.getByRole('textbox', { name: 'Name' })).toHaveValue('Renamed');
+    expect(screen.getByRole('button', { name: 'Save Changes' })).toBeEnabled();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Save Changes' }));
+    await waitFor(() => expect(mocks.updateCategory).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(screen.queryByRole('button', { name: 'Save Changes' })).toBeNull());
+  });
+
+  it('retains the delete confirmation when deletion rejects and allows retry', async () => {
+    mocks.deleteCategory.mockRejectedValueOnce(new Error('write failed'));
+    render(<CategoryManagerSheet isOpen onClose={vi.fn()} />);
+    fireEvent.click(screen.getAllByRole('button', { name: 'Delete category' })[0]);
+    fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
+
+    await screen.findByRole('alert');
+    expect(screen.getByRole('alert')).toHaveTextContent(/could not delete category/i);
+    expect(screen.getByText('Delete this category?')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Delete' })).toBeEnabled();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
+    await waitFor(() => expect(mocks.deleteCategory).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(screen.queryByText('Delete this category?')).toBeNull());
   });
 
 });

@@ -1,7 +1,7 @@
 {
   "name": "life-tracker",
   "private": true,
-  "version": "0.3.0",
+  "version": "0.6.2",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -44,9 +44,15 @@
     "mosaic:migrate-account-deletion": "node scripts/appwrite-migrate.mjs --only 001-account-deletion",
     "mosaic:migrate-diary-created-at": "node scripts/appwrite-migrate.mjs --only 002-diary-created-at",
     "appwrite:status": "node scripts/appwrite-status.mjs",
+    "appwrite:preview:prepare": "node scripts/appwrite-preview-prepare.mjs",
+    "appwrite:preview:seed": "node scripts/appwrite-preview-seed.mjs",
     "appwrite:migrate": "node scripts/appwrite-migrate.mjs",
     "appwrite:function:deploy": "node scripts/appwrite-function.mjs deploy",
-    "appwrite:function:activate": "node scripts/appwrite-function.mjs activate"
+    "appwrite:function:activate": "node scripts/appwrite-function.mjs activate",
+    "appwrite:function:configure": "node scripts/appwrite-function.mjs configure",
+    "version:check": "node scripts/version.mjs check",
+    "version:bump": "node scripts/version.mjs bump",
+    "version:set": "node scripts/version.mjs set"
   },
   "dependencies": {
     "@dnd-kit/abstract": "^0.5.0",

@@ -2,6 +2,13 @@
 
 ## Authorized completion
 
+When work originates from a GitHub Issue, include a stable issue reference in the
+task PR and carry that context into the stable Preview handoff; see
+[issue workflow](ISSUE_WORKFLOW.md). Use `Refs #N` rather than auto-closing
+keywords before required main-release acceptance. GitHub Issue closure and Project
+boards never replace branch, CI, Appwrite, manual, or promotion gates.
+
+
 Commit only task paths (never blanket-stage unrelated edits) on a `chatgpt/**` or
 `codex/**` task branch. Batch remote edits and prefer one coherent verification push rather
 than pushing each small repair. GitHub-connected Chat must preflight Code Mode connector-call
@@ -37,6 +44,12 @@ If tools/network prevent a step, complete independent work and report the exact 
 Do not ask for authorization already granted. Include commit SHA/subject, checks, and
 deployment status in the final result. No force push across divergence and no unrelated
 remote service changes.
+
+## Versioned Preview and environment safety
+
+Before user-testable Preview acceptance, agents set the planned version in the feature tree: new capability = MINOR, each later successful user-testable refinement = PATCH; never consume numbers for internal fixes or failed builds. Use `npm run version:check` (also enforced by `contracts:check` in CI). Compare main/dev/other active Preview versions to prevent collisions; a conflict needs a newly versioned, newly accepted Preview. Stable Preview -> dev -> main retains the exact accepted version without promotion-only code changes. Follow [versioning](VERSIONING.md).
+
+Give all task squash merges and dev/main promotion merges an explicit descriptive subject and detailed body summarizing what actually changed (including aggregate work at production release); PR bodies retain mechanical acceptance/provenance. Preview and dev Vercel builds must use Scratch Appwrite, while official main uses Production. Build-time assertions enforce both targets and verify a Preview Function ID is explicit; Settings also exposes the runtime-effective Appwrite identity. In backend-dependent Preview handoffs, check the registered stable alias, scratch migrations/active Function, and disposable-user login; backend changes during a shared Preview can affect other branches before they merge. See [scratch runbook](SCRATCH_PREVIEW_WORKFLOW.md).
 
 ## One CI workflow
 
@@ -123,14 +136,44 @@ After the Vercel project is created, take its stable production hostname (for ex
 Until that Appwrite platform exists, the static app can load but authenticated Appwrite
 requests from the preview origin may be rejected by CORS.
 
+**Share the stable branch alias, not the deployment-specific immutable URL,**
+when giving users a Preview for login, signup, or other Appwrite-connected testing.
+Vercel assigns a different deployment URL on each push; its hostname is not
+automatically added to the scratch Appwrite Web-platform allowlist. The stable
+branch alias follows the latest READY deployment and requires one registered
+scratch Web platform. In the 2026-10-08 notification incident, the registered
+alias was `mosaic-life-tracker-git-feature-beac29-carls-projects-72516fde.vercel.app`,
+but the unregistered deployment host
+`mosaic-life-tracker-n73x4jbnd-carls-projects-72516fde.vercel.app`
+was shared and login failed with "Failed to fetch". Both hosts have since
+been explicitly registered on **scratch only**.
+
+Before handing off a browser-login Preview, list the deployment's actual
+aliases and the target scratch project's Web platforms and verify the
+**exact hostname** is registered. A Vercel READY status or a successful
+HTML response does not prove browser Appwrite CORS compatibility.
+For an immutable deployment URL that must be tested, register that one
+hostname explicitly on scratch; never use an Appwrite wildcard or switch
+the Preview to production as a shortcut. Include the registered, stable
+alias in the handoff.
+
 Vercel's per-branch preview URLs remain useful for static rendering checks, but they should
 not be treated as authenticated Mosaic test URLs unless their hostnames are also registered
 with Appwrite.
 
 ## Environment variables
 
-The official Mosaic GitHub/Vercel project may use the checked-in production Appwrite fallback,
-but that fallback is build-gated to this repository/project. A fork must provide its own
+The official Mosaic GitHub/Vercel project may use the checked-in production Appwrite fallback
+**only for the production environment**. The Vercel Preview environment is explicitly
+configured to the disposable scratch Appwrite project and the Vite build refuses
+Preview targets that are missing the scratch project ID or its matching regional
+endpoint; `dev` is a Vercel Preview target too. This prevents silent writes to
+production from a new feature Preview. The backend project is embedded at build
+time, so merely changing Vercel environment variables does not retarget an
+already deployed build; trigger and verify a new Preview deployment. Check the
+build log's `[Mosaic] Preview backend: scratch Appwrite` identity and Appwrite
+Web-platform hostname before claiming authenticated Preview testing.
+A fork must provide its own
 `VITE_APPWRITE_*` values, normally generated by `npm run mosaic:bootstrap`, in the hosting
 provider's build environment. An unconfigured fork resolves to a deliberately invalid Appwrite
 endpoint instead of the original Mosaic backend. Browser `VITE_*` values are configuration,
@@ -146,6 +189,20 @@ optional PostHog upload from breaking an otherwise valid Preview deployment. Pro
 and explicitly opted-in local builds retain source-map upload. If live Phase 3.7 staging
 verification is desired, configure only the browser-facing Preview variables separately;
 do not commit secrets.
+
+## Backend-dependent Preview readiness
+
+Before sharing a backend-dependent stable Preview for user testing, execute
+the [scratch readiness workflow](SCRATCH_PREVIEW_WORKFLOW.md). It requires a
+scratch-only managed-state check, approved additive migration reconciliation,
+reviewed exact-commit Function activation, synthetic-data smoke checks, and
+verification that the exact stable Preview hostname is an Appwrite Web
+platform. The scratch CLI is read-only by default and refuses ambiguous
+targets; it does not copy real accounts/data. The new steps run only when
+the task depends on cloud/backend behavior; they do not add cloud work to
+normal UI-only iterations. CI and Vercel READY never substitute for this
+gate. Stop and report any unavailable API credentials/real-device acceptance
+instead of claiming a passing backend gate.
 
 ## Branch deployment review loop
 

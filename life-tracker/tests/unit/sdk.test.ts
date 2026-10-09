@@ -14,7 +14,20 @@ vi.mock('../../src/lib/appwrite', () => ({
 }));
 
 import { AUTH_UNAUTHORIZED_EVENT } from '../../src/lib/authEvents';
-import { guardedFunctions } from '../../src/lib/sdk';
+import { guardedFunctions, guardedTablesDB } from '../../src/lib/sdk';
+
+describe('guarded browser TablesDB API', () => {
+  it('exposes only read, partial-update and insert operations', () => {
+    // Removing dangerous methods from the public object also removes them
+    // from its TypeScript surface: callers cannot accidentally use PUT or
+    // hard-delete by following the SDK's autocomplete.
+    expect(Object.keys(guardedTablesDB).sort()).toEqual([
+      'createRow', 'getRow', 'listRows', 'updateRow',
+    ]);
+    expect('upsertRow' in guardedTablesDB).toBe(false);
+    expect('deleteRow' in guardedTablesDB).toBe(false);
+  });
+});
 
 describe('guardedFunctions', () => {
   beforeEach(() => createExecutionMock.mockReset());

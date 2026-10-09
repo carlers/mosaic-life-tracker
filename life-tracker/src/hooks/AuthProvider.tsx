@@ -362,6 +362,23 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   }, [userId]);
 
   useEffect(() => {
+    let active = true;
+    void import("../lib/pushNotifications")
+      .then(({ setPushActiveUser }) => {
+        if (active) return setPushActiveUser(userId);
+      })
+      .catch((pushError) => {
+        console.warn(
+          "[AuthProvider] Push account marker failed:",
+          pushError,
+        );
+      });
+    return () => {
+      active = false;
+    };
+  }, [userId]);
+
+  useEffect(() => {
     scopeAccountWork(userId);
     if (!userId) return;
 

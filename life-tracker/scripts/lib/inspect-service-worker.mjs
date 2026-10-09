@@ -11,6 +11,7 @@ export async function inspectServiceWorker(source) {
   let precacheUrls;
   let navigationFallback;
   let navigationDenylist;
+  const importedScripts = [];
   const workbox = {
     clientsClaim() { claimCalls++; },
     precacheAndRoute(entries) { precacheUrls = entries.map(({ url }) => url); },
@@ -46,7 +47,19 @@ export async function inspectServiceWorker(source) {
       listeners.set(type, callbacks);
     },
   };
-  runInNewContext(source, { self, define }, { timeout: 1000 });
+  const importScripts = (...urls) => {
+    for (const url of urls) {
+      if (typeof url !== 'string') {
+        throw new Error('Unexpected non-string service-worker import.');
+      }
+      importedScripts.push(url);
+    }
+  };
+  runInNewContext(
+    source,
+    { self, define, importScripts },
+    { timeout: 1000 }
+  );
   if (definitions !== 1 || !precacheUrls?.length || !navigationFallback) {
     throw new Error('Missing generated SW module, precache entries, or navigation fallback.');
   }
@@ -73,5 +86,6 @@ export async function inspectServiceWorker(source) {
     precacheUrls: Array.from(precacheUrls),
     navigationFallback,
     navigationDenylist: Array.from(navigationDenylist),
+    importedScripts: Array.from(importedScripts),
   };
 }

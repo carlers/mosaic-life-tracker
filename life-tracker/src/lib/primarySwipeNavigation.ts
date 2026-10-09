@@ -1,25 +1,21 @@
-export type PrimarySwipeDirection = 'left' | 'right';
+import { matchProtectedRoute, PRIMARY_ROUTE_PATHS } from './protectedRoutes';
 
+export type PrimarySwipeDirection = 'left' | 'right';
 export const ROUTE_PARENT_STATE_KEY = 'parentPath';
 
-export function resolveRouteParent(pathname: string): string | null {
-  if (/^\/messages\/[^/]+$/.test(pathname)) {
-    return '/messages';
+export function resolveRouteParent(pathname: string, state?: unknown): string | null {
+  const route = matchProtectedRoute(pathname);
+  if (!route || !('parent' in route)) return null;
+  if ('alternateParents' in route && route.alternateParents) {
+    const origin = state && typeof state === 'object' &&
+      ROUTE_PARENT_STATE_KEY in state
+      ? (state as Record<string, unknown>)[ROUTE_PARENT_STATE_KEY]
+      : null;
+    if (route.alternateParents.some((allowed) => allowed === origin)) {
+      return origin as string;
+    }
   }
-  if (/^\/friends\/[^/]+$/.test(pathname)) {
-    return '/explore';
-  }
-
-  switch (pathname) {
-    case '/settings':
-      return '/account';
-    case '/profile':
-    case '/settings/preferences':
-    case '/settings/screen':
-      return '/settings';
-    default:
-      return null;
-  }
+  return route.parent;
 }
 
 export function hasExpectedRouteParent(
@@ -42,23 +38,16 @@ export function makeRouteParentState(parentPath: string) {
 
 export function resolvePrimarySwipeDestination(
   pathname: string,
-  direction: PrimarySwipeDirection
+  direction: PrimarySwipeDirection,
+  state?: unknown
 ): string | null {
-  const parent = resolveRouteParent(pathname);
+  const parent = resolveRouteParent(pathname, state);
   if (direction === 'right' && parent) return parent;
 
-  switch (pathname) {
-    case '/home':
-      return direction === 'left' ? '/explore' : null;
-    case '/explore':
-      return direction === 'left' ? '/notifications' : '/home';
-    case '/notifications':
-      return direction === 'left' ? '/messages' : '/explore';
-    case '/messages':
-      return direction === 'left' ? '/account' : '/notifications';
-    case '/account':
-      return direction === 'left' ? '/settings' : '/messages';
-    default:
-      return null;
-  }
+  const route = matchProtectedRoute(pathname);
+  if (!route || route.kind !== 'primary') return null;
+  const index = PRIMARY_ROUTE_PATHS.indexOf(route.path);
+  if (direction === 'right') return PRIMARY_ROUTE_PATHS[index - 1] ?? null;
+  return PRIMARY_ROUTE_PATHS[index + 1] ??
+    ('extraLeft' in route ? route.extraLeft : null) ?? null;
 }

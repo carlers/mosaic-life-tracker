@@ -1,20 +1,22 @@
 import React, { lazy, memo, Suspense } from 'react';
 import {
   loadAccountPage,
-  loadComingSoon,
+  loadNotificationsPage,
   loadExplorePage,
   loadHomePage,
   loadMessagesPage,
   loadSettingsPage,
 } from './routeModuleLoaders';
 
-type PreviewPath =
-  | '/home'
-  | '/explore'
-  | '/notifications'
-  | '/messages'
-  | '/account'
-  | '/settings';
+import type { PROTECTED_ROUTES } from '../../lib/protectedRoutes';
+
+// Every route advertising Preview support must supply a readable label and
+// lazily rendered component here; a new supported route fails type checking
+// until this mapping is updated.
+type PreviewPath = Extract<
+  (typeof PROTECTED_ROUTES)[number],
+  { readonly preview: 'supported' }
+>['path'];
 
 const HomePreview = lazy(() =>
   loadHomePage().then(({ HomePage }) => ({ default: HomePage }))
@@ -23,7 +25,9 @@ const ExplorePreview = lazy(() =>
   loadExplorePage().then(({ ExplorePage }) => ({ default: ExplorePage }))
 );
 const NotificationsPreview = lazy(() =>
-  loadComingSoon().then(({ ComingSoon }) => ({ default: ComingSoon }))
+  loadNotificationsPage().then(({ NotificationsPage }) => ({
+    default: NotificationsPage,
+  }))
 );
 const MessagesPreview = lazy(() =>
   loadMessagesPage().then(({ MessagesPage }) => ({ default: MessagesPage }))
@@ -73,7 +77,7 @@ const PrimaryRoutePreviewComponent: React.FC<{ pathname: string }> = ({ pathname
       content = <ExplorePreview />;
       break;
     case '/notifications':
-      content = <NotificationsPreview />;
+      content = <NotificationsPreview preview />;
       break;
     case '/messages':
       content = <MessagesPreview />;
@@ -84,6 +88,11 @@ const PrimaryRoutePreviewComponent: React.FC<{ pathname: string }> = ({ pathname
     case '/settings':
       content = <SettingsPreview />;
       break;
+    default: {
+      // Compile-time exhaustive check for a newly enabled Preview route.
+      const unreachable: never = pathname;
+      throw new Error('Unsupported route preview: ' + unreachable);
+    }
   }
 
   return <Suspense fallback={<Fallback pathname={pathname} />}>{content}</Suspense>;

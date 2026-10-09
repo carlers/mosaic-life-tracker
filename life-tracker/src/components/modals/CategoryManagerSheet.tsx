@@ -4,6 +4,8 @@ import { BottomSheet } from '../ui/BottomSheet';
 import { ColorPalettePicker } from '../ui/ColorPalettePicker';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
+import { SheetErrorBanner } from '../ui/SheetErrorBanner';
+import { useSheetSaveAction } from '../../hooks/useSheetSaveAction';
 import { Pencil, Plus, Trash2, GripVertical } from 'lucide-react';
 import { useCategories } from '../../hooks/useCategories';
 import { useTasks } from '../../hooks/useTasks';
@@ -59,6 +61,7 @@ interface CategoryRowProps {
   onEditStart: (cat: CategoryDocument) => void;
   onDeleteRequest: (id: string) => void;
   onReorderEnd: () => void;
+  disabled: boolean;
 }
 
 const CategoryRow: React.FC<CategoryRowProps> = ({
@@ -67,6 +70,7 @@ const CategoryRow: React.FC<CategoryRowProps> = ({
   onEditStart,
   onDeleteRequest,
   onReorderEnd,
+  disabled,
 }) => {
   const dragControls = useDragControls();
 
@@ -82,10 +86,11 @@ const CategoryRow: React.FC<CategoryRowProps> = ({
         type="button"
         onPointerDown={(e) => {
           e.stopPropagation();
-          dragControls.start(e);
+          if (!disabled) dragControls.start(e);
         }}
         className="p-1 -ml-1 text-gray-400 touch-none cursor-grab active:cursor-grabbing"
         aria-label="Drag to reorder"
+        disabled={disabled}
       >
         <GripVertical size={18} />
       </button>
@@ -107,6 +112,7 @@ const CategoryRow: React.FC<CategoryRowProps> = ({
       </div>
       <button
         onClick={() => onEditStart(cat)}
+        disabled={disabled}
         className="p-2 text-gray-400"
         aria-label="Edit category"
       >
@@ -114,6 +120,7 @@ const CategoryRow: React.FC<CategoryRowProps> = ({
       </button>
       <button
         onClick={() => onDeleteRequest(cat.id)}
+        disabled={disabled}
         className="p-2 text-gray-400"
         aria-label="Delete category"
       >
@@ -140,6 +147,7 @@ export const CategoryManagerSheet: React.FC<CategoryManagerSheetProps> = ({
     reorderCategories,
   } = useCategories();
   const { tasks = [] } = useTasks();
+  const { save, reset, isSaving, error } = useSheetSaveAction();
 
   const [isAdding, setIsAdding] = useState(false);
   const [newName, setNewName] = useState('');
@@ -167,7 +175,10 @@ export const CategoryManagerSheet: React.FC<CategoryManagerSheetProps> = ({
   const [syncedIsOpen, setSyncedIsOpen] = useState(isOpen);
   if (isOpen !== syncedIsOpen) {
     setSyncedIsOpen(isOpen);
-    if (isOpen) setOrderedIds(categories.map((cat) => cat.id));
+    if (isOpen) {
+      setOrderedIds(categories.map((cat) => cat.id));
+      reset();
+    }
     if (!isOpen) {
       setIsAdding(false);
       setNewName('');
@@ -192,17 +203,23 @@ export const CategoryManagerSheet: React.FC<CategoryManagerSheetProps> = ({
 
   const handleSaveNew = async () => {
     if (!newName.trim()) return;
-    await addCategory({
-      name: newName.trim(),
-      color: newColor,
-      visibility: newVisibility,
-      order: categories.length,
-      icon: '',
-    });
-    setIsAdding(false);
-    setNewName('');
-    setNewColor('#3B82F6');
-    setNewVisibility('private');
+    await save(
+      () =>
+        addCategory({
+          name: newName.trim(),
+          color: newColor,
+          visibility: newVisibility,
+          order: categories.length,
+          icon: '',
+        }),
+      () => {
+        setIsAdding(false);
+        setNewName('');
+        setNewColor('#3B82F6');
+        setNewVisibility('private');
+      },
+      'Could not add category. Try again.'
+    );
   };
 
   const handleUpdate = async (
@@ -210,14 +227,20 @@ export const CategoryManagerSheet: React.FC<CategoryManagerSheetProps> = ({
     name: string,
     visibility: Visibility
   ) => {
-    await updateCategory(id, { name, visibility });
-    setEditingId(null);
+    await save(
+      () => updateCategory(id, { name, visibility }),
+      () => setEditingId(null),
+      'Could not update category. Try again.'
+    );
   };
 
   const handleConfirmDelete = async () => {
     if (!deleteId) return;
-    await deleteCategory(deleteId);
-    setDeleteId(null);
+    await save(
+      () => deleteCategory(deleteId),
+      () => setDeleteId(null),
+      'Could not delete category. Try again.'
+    );
   };
 
   const handleCancelDelete = () => {
@@ -238,12 +261,14 @@ export const CategoryManagerSheet: React.FC<CategoryManagerSheetProps> = ({
   };
 
   return (
-    <BottomSheet isOpen={isOpen} onClose={onClose} title="Categories" height="full">
+    <BottomSheet isOpen={isOpen} onClose={onClose} title="Categories" height="full" preventDismiss={isSaving}>
       <div className="pt-2 pb-8 px-4">
+        <SheetErrorBanner message={error} />
         <Reorder.Group
           axis="y"
           values={orderedCategories}
           onReorder={(newOrder) => {
+            if (isSaving) return;
             pendingOrder.current = newOrder;
             setOrderedIds(newOrder.map((cat) => cat.id));
           }}
@@ -260,7 +285,10 @@ export const CategoryManagerSheet: React.FC<CategoryManagerSheetProps> = ({
                 setEditVisibility(c.visibility);
               }}
               onDeleteRequest={(id) => setDeleteId(id)}
-              onReorderEnd={() => reorderCategories(pendingOrder.current)}
+              onReorderEnd={() => {
+                if (!isSaving) void reorderCategories(pendingOrder.current);
+              }}
+              disabled={isSaving}
             />
           ))}
         </Reorder.Group>
@@ -278,11 +306,11 @@ export const CategoryManagerSheet: React.FC<CategoryManagerSheetProps> = ({
             />
             <Button
               onClick={() => handleUpdate(editingId, editName, editVisibility)}
-              disabled={!editName.trim()}
+              disabled={!editName.trim() || isSaving}
             >
               Save Changes
             </Button>
-            <Button variant="ghost" onClick={handleEditCancel}>
+            <Button variant="ghost" onClick={handleEditCancel} disabled={isSaving}>
               Cancel
             </Button>
           </div>
@@ -303,10 +331,10 @@ export const CategoryManagerSheet: React.FC<CategoryManagerSheetProps> = ({
               value={newVisibility}
               onChange={setNewVisibility}
             />
-            <Button onClick={handleSaveNew} disabled={!newName.trim()}>
+            <Button onClick={handleSaveNew} disabled={!newName.trim() || isSaving}>
               Add Category
             </Button>
-            <Button variant="ghost" onClick={resetForm}>
+            <Button variant="ghost" onClick={resetForm} disabled={isSaving}>
               Cancel
             </Button>
           </div>
@@ -314,6 +342,7 @@ export const CategoryManagerSheet: React.FC<CategoryManagerSheetProps> = ({
           <Button
             variant="ghost"
             onClick={() => setIsAdding(true)}
+            disabled={isSaving}
             className="mt-4 w-full"
           >
             <Plus size={16} />
@@ -328,10 +357,10 @@ export const CategoryManagerSheet: React.FC<CategoryManagerSheetProps> = ({
               Tasks in this category will be moved to the default category.
             </p>
             <div className="flex gap-2">
-              <Button variant="ghost" onClick={handleCancelDelete} className="flex-1">
+              <Button variant="ghost" onClick={handleCancelDelete} className="flex-1" disabled={isSaving}>
                 Cancel
               </Button>
-              <Button variant="danger" onClick={handleConfirmDelete} className="flex-1">
+              <Button variant="danger" onClick={handleConfirmDelete} className="flex-1" disabled={isSaving}>
                 Delete
               </Button>
             </div>

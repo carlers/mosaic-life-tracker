@@ -11,6 +11,7 @@ import {
   preloadPrimaryRoute,
 } from './primaryRoutePreload';
 import type { TabId } from './BottomNav';
+import { matchProtectedRoute, protectedRouteSwipeMode, protectedRouteHidesBottomNav } from '../../lib/protectedRoutes';
 import {
   hasExpectedRouteParent,
   makeRouteParentState,
@@ -100,16 +101,33 @@ export const AppLayout: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const path = location.pathname;
-  const isChatDetail = /^\/messages\/[^/]+$/.test(path);
-  const isFriendCalendarDetail = /^\/friends\/[^/]+$/.test(path);
-  const leftSwipeDestination = resolvePrimarySwipeDestination(path, 'left');
-  const rightSwipeDestination = resolvePrimarySwipeDestination(path, 'right');
+  const leftSwipeDestination = resolvePrimarySwipeDestination(path, 'left', location.state);
+  const rightSwipeDestination = resolvePrimarySwipeDestination(path, 'right', location.state);
   const messagesIsAdjacent =
     leftSwipeDestination === '/messages' ||
     rightSwipeDestination === '/messages';
   const [retryDisabled, setRetryDisabled] = useState(false);
   const connectivity = useConnectivity();
   const database = useDatabaseBootstrap();
+
+  useEffect(() => {
+    const userId = user?.$id;
+    if (!userId || connectivity.status !== 'online') return;
+
+    let active = true;
+    void import('../../lib/pushNotifications')
+      .then(({ reconcileExistingPushSubscription }) => {
+        if (active) {
+          return reconcileExistingPushSubscription(userId);
+        }
+      })
+      .catch((pushError) => {
+        console.warn('[AppLayout] push account reconciliation failed:', pushError);
+      });
+    return () => {
+      active = false;
+    };
+  }, [connectivity.status, user?.$id]);
 
   useEffect(() => {
     if (!user?.$id) return;
@@ -303,26 +321,16 @@ export const AppLayout: React.FC = () => {
   // app tree so local data is reachable; MainLayout shows the
   // OfflineBanner and the online handler refreshes the session when the
   // network returns.
-  let activeTab: TabId = 'home';
-  if (path.includes('explore') || path.startsWith('/friends/')) activeTab = 'explore';
-  else if (path.includes('notifications')) activeTab = 'notifications';
-  else if (path.includes('messages')) activeTab = 'messages';
-  else if (
-    path.includes('account') ||
-    path.includes('settings') ||
-    path.includes('profile')
-  ) {
-    activeTab = 'account';
-  }
+  const activeTab: TabId = matchProtectedRoute(path)?.tab ?? 'home';
 
   const handleTabChange = (tab: TabId) => {
     navigate(`/${tab}`);
   };
   const handleRouteSwipe = (direction: PrimarySwipeDirection) => {
-    const destination = resolvePrimarySwipeDestination(path, direction);
+    const destination = resolvePrimarySwipeDestination(path, direction, location.state);
     if (!destination) return;
 
-    const parent = resolveRouteParent(path);
+    const parent = resolveRouteParent(path, location.state);
     if (direction === 'right' && parent) {
       if (hasExpectedRouteParent(location.key, location.state, parent)) {
         navigate(-1);
@@ -366,9 +374,9 @@ export const AppLayout: React.FC = () => {
         }
         onRouteSwipe={handleRouteSwipe}
         routeSwipeActivationMode={
-          isChatDetail || isFriendCalendarDetail ? 'edge-back' : undefined
+          protectedRouteSwipeMode(path)
         }
-        hideBottomNav={isChatDetail}
+        hideBottomNav={protectedRouteHidesBottomNav(path)}
       >
         <Outlet />
       </LazyAppDataShell>

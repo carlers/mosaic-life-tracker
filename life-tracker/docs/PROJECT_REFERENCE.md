@@ -4,8 +4,10 @@ This document preserves Mosaic's detailed product contracts, architectural
 invariants, implementation rationale, and historical decisions. It is reference
 material, not an instruction file. `../AGENTS.md` contains the shared active rules.
 
-Sections 5 and 25 summarize workflow boundaries and history. The current deployment branch model is `main` for production, `dev` for staging, and `feature/*` for stable previews; `chatgpt/*`, `codex/*`, `temp/*`, and other branches do not auto-deploy. Active process belongs in
-[AI workflow](AI_WORKFLOW.md).
+Sections 5 and 25 retain workflow background and history; do not infer current
+branch or deployment policy from those historical descriptions. [Delivery](DELIVERY.md)
+owns the current `main`/`dev`/stable-Preview promotion contract, and
+[AI workflow](AI_WORKFLOW.md) owns agent execution.
 
 ## 0. Hard Rules
 
@@ -21,9 +23,11 @@ Sections 5 and 25 summarize workflow boundaries and history. The current deploym
 ### 0.1 Contract sources and enforcement
 
 Mosaic separates project truth by concern. `../AGENTS.md` owns active implementation rules;
-this reference owns durable product/architecture contracts; `PLAN.md` owns roadmap
-sequencing and verified completion; `SESSION_STATE.md` owns the current checkpoint and
-pending verification; the workflow/test/telemetry documents own their named processes.
+this reference owns durable product/architecture contracts; `PLAN.md` holds durable
+roadmap scope and recorded milestones, not live acceptance evidence; GitHub Issues,
+PRs, Actions, deployments, and applicable backend rollout records establish current
+status. `SESSION_STATE.md` is a dated handoff snapshot, not an independent source of
+verified completion. Workflow, test, and telemetry documents own their named processes.
 `docs/README.md` provides the contributor-facing contract index.
 
 `npm run contracts:check` is the structural guard for this documentation surface. It
@@ -42,7 +46,7 @@ semantically complete or that implementation behavior matches every contract.
 
 ## 2. Product Reference: The "Todo Mate" Clone (Phase 1)
 
-A dark-mode calendar clone of Todo Mate. Shipped: tasks, categories, month/week calendar, day sheet, person carousel, social calendar, 1:1 messaging, message + task reactions. Todo List view is implemented. Planned: Diary view and Notifications tab. Messaging/reactions are a Mosaic addition, not in the reference app (see §20).
+A dark-mode calendar clone of Todo Mate. Shipped: tasks, categories, month/week calendar, day sheet, person carousel, social calendar, 1:1 messaging, message + task reactions, Todo List, and the Alerts activity feed. Planned: Diary view. Messaging/reactions and Alerts are Mosaic additions, not in the reference app (see §20).
 
 **ARCHITECTURAL RULE:** every Category and Diary document carries a `visibility` field (`public`, `followers`, `private`). Appwrite RLS is avoided by server-mediated reads (`get_friend_calendar`) and server-mediated cross-user writes (`message-action`). See §6 and §20.
 
@@ -55,15 +59,118 @@ A dark-mode calendar clone of Todo Mate. Shipped: tasks, categories, month/week 
 - **Day View task reorder interaction:** a task title is the invisible drag handle. Holding it stationary for 500 ms (with a small finger-movement tolerance) activates dnd-kit's pointer sensor on a plain draggable task; movement before activation cancels reordering and remains available to native vertical scrolling/day gestures. On desktop, a quick mouse drag that begins on the task title or inline memo must reach the Day View Swiper even though those surfaces are semantic buttons; a stationary 500 ms hold on the title still activates task reorder. Dedicated controls such as the completion checkbox, image button, edit input, and reaction controls remain control-owned rather than swipe-through surfaces. Sheet-mode task drag runtime exists only while Day View is open on the active day; closing the sheet or leaving that day unmounts the dnd provider and its drag registry so reopening always starts from live task data. During a drag, dnd-kit owns sensors, collision detection, auto-scroll, and one official `DragOverlay`, while React remains the sole owner of real task DOM and ordering. The real `TaskItem` is never registered as dnd-kit's draggable element: each row exposes an invisible geometry proxy as the draggable source while the visible task title remains the activation handle. The official `DragOverlay` is registered as dnd-kit's feedback element, so Feedback does not create a placeholder or move the real task row; the visible source task stays mounted under its original category inside a collapsed React-owned slot. Each visible task row exposes high-priority top/bottom droppable halves for before/after insertion. The category header row is the only lower-priority category-level target and means insert-at-start; this deliberately matches the first task's upper-half destination so crossing the pill/first-row boundary cannot oscillate between unrelated placements. Empty and collapsed categories remain droppable through that header. The last task's lower half remains the append path. Projection is recalculated from the immutable drag-start snapshot using only valid dnd-kit drop targets and is represented by a lightweight React-owned insertion gap. That gap is itself a droppable for its exact insertion index, so when the gap opens under the finger it remains a valid, semantically identical target instead of causing collision feedback. Momentary true no-target gaps keep the last valid visual projection stable, but releasing outside a valid target commits nothing; task reordering does not use `useSortable` or the `OptimisticSortingPlugin`. Release promotes the final placement to a committed optimistic state until live RxDB catches up; candidate placement must contain exactly the live task IDs once each, matching live/category integrity, and stale/invalid placement is ignored and retired outside render. A failed older persistence generation also invalidates any newer optimistic placement derived from it. Cancellation commits nothing. The floating overlay uses Mosaic's normal background rather than category fill. No custom pointer coordinator, manual pointer geometry, `elementFromPoint` hit testing, or third-party reparenting of a real task node is part of this contract.
 - **Day View sheet interaction:** tapping the exposed backdrop closes a sheet. Phone full-height sheets leave a small backdrop strip so that dismissal target exists; tablet-and-larger full sheets may use the full dynamic viewport height. The entire exposed Day View sheet body is part of the horizontal day-swipe surface, including blank space below the final category/task; the native day Swiper must fill the sheet content height rather than ending at the last rendered category. Neighboring/inactive Day View slides must use the same category/header vertical geometry as the active slide, including empty categories; activation may add drag/drop behavior but must not change padding or category spacing as the swipe settles. The Day View date/navigation row is both part of that horizontal surface and an allowed vertical drag-to-close handle. Horizontal drags on the shared row are direct-manipulation Swiper gestures: the row visibly follows the finger before snapping. BottomSheet may claim the gesture only after movement is clearly vertical for drag-to-close; do not replace horizontal motion with a release-only sheet fallback. Unmodified ArrowLeft/ArrowRight mirror previous/next day unless focus is in an editable control. Opening a task photo from Day View uses the image's real intrinsic dimensions so PhotoSwipe preserves the source aspect ratio; portrait, square, and landscape images must never be forced into a fixed 16:9 frame or stretched horizontally/vertically. The photo viewer is a nested browser/Android Back layer above Day View: one Back press closes the viewer and clears its Day View state without closing Day View, while the next Back may dismiss Day View. PhotoSwipe's X and vertical-dismiss gesture consume that same viewer history layer so no stale modal entry or viewer state can resurrect on the next Day View open.
 - **Home task search:** the Home top bar places Search immediately beside the hamburger. Opening Search expands/focuses a Home-owned search field and keeps the user on Home; results appear in an overlay below the bar without reflowing the calendar. Search covers only the signed-in user's tasks and runs entirely over the existing local live task/category arrays—no Appwrite request, per-keystroke RxDB query, duplicate always-on task/category subscription, image fetch, or thumbnail decode is allowed. Title matching is case-insensitive; prefix matches rank before substring matches. Filters support multiple categories plus Any date, Today, This week, This month, and a custom start/end range. With no query or active filter the panel shows guidance instead of rendering all tasks; filters alone may return results. Future/today results sort chronologically before past results, which sort newest-first, and the rendered result list is bounded. Each result shows title, category/color, date, completion state, and lightweight memo/image presence icons. Selecting a result opens the existing owner Day View sheet at that date and focuses/highlights that task. Search query, filters, result scroll position, and expanded state remain mounted under Day View so browser/Android Back or downward Day View dismissal returns to the same search state; explicitly closing Search clears its state. Search/filter controls opt out of the Home→Explore gesture. Expansion/result motion must be transform/opacity/layout based, reduced-motion aware, and must not introduce per-frame React state.
+- **Alerts / friend-completion notifications:** the Alerts tab is a server-backed, account-scoped activity feed for completed friend tasks.
+
+  **Retention and server policy**
+
+  Unread task-completion receipts display for an account-synced configurable 1, 3, 7 (default), 14, or 30
+  days after server arrival; after the server-authored first read, a separate configurable 1, 12, 24
+  (default), 72, or 168-hour timer takes over without an additional unread cap. Valid read and unread
+  timers are capped at 37 days from arrival for physical retention. Read timestamps are server-owned and
+  never reset. The privileged Function resolves the authenticated recipient's two owner-scoped synced
+  settings rows by their deterministic hashed Appwrite-safe IDs, validates allowlisted durations, and
+  falls back to defaults if absent/invalid/deleted; it does not trust browser-provided policy values.
+  Fetch, exact notification tap and mark-read all enforce the same server policy and current
+  friendship/task visibility. The account-scoped offline cache keeps up to 100 still physically
+  recoverable receipts so user preference extension can redisplay them without reviving a physically
+  deleted receipt; the active feed filters them by the current synced policy. The existing hourly Function
+  purges receipts older than 37 days using the `idx_notification_created` index (migration 005); task
+  events older than seven days still cannot create retroactive receipts or recreate purged IDs.
+
+  **Read timing and feed grouping**
+
+  On active Alerts a row must be at least 60% visible in the focused foreground page for 1.5 seconds
+  before becoming read; previews, background/obscured tabs, and offscreen rows do not mark read. "Mark
+  loaded read" applies only to fetched rows. Activity groups use fixed local 30-minute completion-time
+  windows (not scheduled task dates) and show each task's actual completion clock time.
+
+  **Focused task navigation and access**
+
+  Clicking a task preloads the lazy Friend Day View code on interaction and opens the existing
+  `FriendDayViewSheet` over Alerts without remounting its BottomSheet history layer as data arrives. A
+  server-owned `get_friend_task` action authorizes the accepted reciprocal friendship and live task
+  completion/visibility and fetches only the tapped task and its public category metadata; this fast
+  lookup runs before the larger `get_friend_calendar` request, which populates the rest of the sheet
+  afterward. The chosen task opens on its current scheduled date and receives a focused scroll/highlight.
+  A backend without the new action falls back to the old full calendar, while a forbidden/private/deleted
+  task fails closed; a later full-calendar access revocation also hides the task. The date-navigation
+  header sits outside native Swiper so vertical pulling on its title can drag the sheet down to dismiss,
+  while arrow controls and horizontal day swiping remain separately owned. BottomSheet entrance/exit and
+  drag use a unified Framer Motion `y` transform; the actual sheet must move under a held touch before
+  release, not just close based on displacement after a static hold. The browser interaction contract
+  measures the moving sheet during the gesture. Shared task overrides inside private categories use a
+  neutral "Shared tasks" header rather than leaking private category metadata. Settings → Notifications
+  (also linked from the Alerts gear) owns account-synced unread/read history-retention dropdowns alongside
+  separate device-local push controls; push no longer lives under Preferences.
+
+  **Eligibility and delivery deduplication**
+
+  A task completion is eligible only when the task is currently non-deleted, effectively visible to
+  friends (task visibility overrides category visibility), and the actor/recipient relationship is
+  mutually accepted. TodoMate-imported completions and completion timestamps before the fixed Alerts
+  launch cutoff are ignored so migration/history sync cannot generate an alert storm; post-launch
+  completions remain eligible even when an offline device does not sync them for days. Each recipient
+  event uses a deterministic recipient+task+completion ID so repeated Appwrite task create/update events
+  are idempotent and do not resend push after the row already exists.
+
+  **Feed authorization and offline caching**
+
+  Feed reads revalidate the live friendship, current completed task state, completion timestamp, and
+  effective visibility before returning the task title; stale/private/unfriended rows remain server-only
+  and are not rendered. The browser keeps at most 100 cached feed items per account for offline display,
+  never exposes another account's cached feed during an account switch, and primary-route swipe previews
+  are cache-only: they must not refresh or mark alerts read before navigation completes. The active Alerts
+  page refreshes when its window regains focus so a push click or app return catches up without a manual
+  refresh. Reply and task-reaction actions reuse the existing social/message contracts and are disabled
+  offline.
+
+  **Web Push permissions and notification privacy**
+
+  Web Push is optional and device-local (device setup and VAPID security are documented in
+  `MOBILE_PUSH_SETUP.md`): Notification Settings exposes the permission-triggering toggle only after the
+  backend reports push as configured, and the permission request itself must remain in the direct user
+  gesture before any network wait. Unsupported/blocked/unconfigured devices still receive the in-app feed.
+  iOS requires the installed Home Screen PWA for Web Push. Push lock-screen copy is generic by default. A
+  separate, device-specific, explicitly enabled subscription setting `include_task_details` allows a
+  recipient's friend display name and the currently shared task title to appear in a notification; the
+  backend rechecks current completion/visibility before adding text, clamps names/titles, and never adds
+  memos/photos. Previously delivered lock-screen text cannot be revoked. Push destinations are
+  account-bound, same-origin links to an exact notification receipt. The service worker opens generic
+  Alerts even when its local active-account marker is absent or mismatched, but never deep-links into
+  another account's alert. Tapping an alert authorizes an exact server lookup independently of feed
+  pagination, preserves a safe link through login, and opens the focused Friend Day View;
+  expired/hidden/removed items fail closed. Different completions use different OS notification tags.
+
+  **Device foreground notification behavior**
+
+  The per-device `push-while-open` flag is stored in the same browser IndexedDB metadata store as the
+  account marker and defaults to on, independent of account sync or push detail permissions. When
+  disabled, supported Chromium browsers skip the system notification only while a same-origin Mosaic
+  window is visibly foregrounded; when no window is visible, normal delivery continues. Other engines such
+  as Safari/WebKit are not eligible for silent foreground Web Push, so the option is disabled in settings
+  there and their push handler still calls `showNotification`. No remote schema or Function heartbeat is
+  used for this preference; the durable Alerts feed remains unaffected. Notification Settings shows a
+  server-update explanation when the optional rich-detail actions are unavailable, rather than falsely
+  blaming connectivity.
+
+  **Subscription account isolation**
+
+  AuthProvider owns the service worker's active-account marker and clears it on logout/session loss; the
+  service worker shows a push only when the payload account matches that marker, so a shared browser
+  profile cannot surface another signed-in account's alert. Subscription register/unregister requests
+  carry the initiating account ID and the Function rejects the write if the authenticated account changed
+  while browser permission/subscription work was in flight. Existing browser subscriptions may be
+  re-registered to the current account when online, but that reconciliation must never overwrite the
+  active-account marker after an account switch.
 - **Account/data controls:** sign-out actions remain in normal page flow rather than being pinned below a nested scroller. The Me page does not render a decorative quotation/author block. Its social stats label accepted relationships as **Friends** and read the count from the shared FriendsProvider; do not hard-code the count or add a second friendship subscription. Settings keeps **Delete Account** distinct from **Clear Local Data**. Delete Account requires the exact typed confirmation `DELETE` and enters the server-authoritative permanent-erasure protocol in §23.8; it removes the Appwrite login account as well as Mosaic-owned live data and cross-user copies/references. Clear Local Data only signs out and removes this browser's offline state. Settings also exposes the one-way **Import from TodoMate** migration. That importer is read-only toward TodoMate, sends credentials directly from the browser to TodoMate's Firebase/Google login path, persists no TodoMate credential/token, previews the migration before Mosaic writes, and imports only through the existing Merge-restore engine. See [TodoMate import](TODOMATE_IMPORT.md) for mapping, privacy, limitations, and live acceptance.
 - **Bottom navigation inset:** the global content inset reserves only the fixed bottom-navigation height plus the device safe-area inset; it must not create an extra dark spacer above the nav or obscure the final page content.
-- **Primary page swipe navigation:** the five bottom-nav pages form a direct-manipulation horizontal route sequence Home → Explore → Alerts → Chat → Me. A valid horizontal swipe visibly drags the current route surface with the finger before completing navigation, and the destination page is visibly attached on the exposed side throughout the held drag; never reveal an empty shell/background between pages. Vertical scrolling remains native and nested horizontal owners keep priority. On Home, route navigation to Explore may begin only from the top hamburger/menu layer so the person/calendar carousels keep their existing horizontal gestures. Home's route-shell ancestry must preserve a definite full-height chain so the absolutely-sized friend/person swiper below the pill carousel cannot collapse. On every other primary page, MainLayout owns the vertical page scroll and the swipe owner covers the entire scrollable page content down to the bottom-navigation inset; primary page implementations must not add a nested full-page `overflow-y-auto` scroller that steals phone gestures. On Me, a leftward swipe opens Settings and a rightward swipe returns to Chat. Settings participates as the Me detail edge: a rightward swipe returns through browser history to Me when Settings was opened from Me, with a direct/deep-link fallback that replaces to Me, and a leftward swipe does nothing. Settings child pages use the same direct-manipulation surface as parent-aware details: Profile and Preferences (`/settings/preferences`) right-swipe back to Settings with the Settings page visibly attached under the drag, while left swipes do nothing. The legacy `/settings/screen` path redirects to Preferences. Their header Back controls use the same parent-history/fallback rule. Individual chat routes stay outside the five-page sequence but use the same compositor-owned route-drag primitive for a rightward **left-edge** Back gesture to Messages. Friend Calendar (`/friends/:friendId`) is likewise a parent-aware Explore detail: opening it records Explore as the route parent, its header Back uses history with an Explore replace fallback, Explore stays selected in the bottom nav, and its route swipe is edge-only so the nested calendar carousel keeps horizontal ownership away from the reserved edge. The activation edge is measured from the live route-swipe surface, not the browser viewport, so Full screen, Comfortable, and Wide content-width modes share the same 32px edge contract. A true edge start has route-back priority even over a message bubble; outside that reserved edge, message-bubble swipe-to-reply remains the owner. Chat records/uses Messages as its route parent, reveals the already-warm Messages surface under the finger, and falls back to replacing `/messages` for direct/deep links. The fixed bottom nav remains stationary while page content drags. Destination route chunks on both reachable sides are prefetched after first paint/idle. Do not mount hidden neighbor route trees during the initial critical render. Once a horizontal gesture locks to a direction, mount only that already-prefetched directional route inside the attached neighbor panel so the user sees real adjacent-page content under the finger; the lightweight route-specific shell remains the Suspense fallback if the chunk is not ready. The opposite neighbor stays unmounted. Route drag transforms remain compositor-owned and custom per-frame DOM writes are rAF-batched without React state updates on every move. Commit uses either the existing distance threshold or an intentional short flick with sufficient release velocity; successful settles shorten for faster releases, while `prefers-reduced-motion: reduce` snaps without transform animation. Navigation-time async states keep their route chrome stable and use static content placeholders rather than centered spinners for Explore profile resolution, Messages conversation hydration, Chat thread hydration, and Friend Calendar loading; action-specific progress indicators such as search, refresh, import, and sync may still spin.
+- **Primary page swipe navigation:** the five bottom-nav pages form a direct-manipulation horizontal route sequence Home → Explore → Alerts → Chat → Me. A valid horizontal swipe visibly drags the current route surface with the finger before completing navigation, and the destination page is visibly attached on the exposed side throughout the held drag; never reveal an empty shell/background between pages. Vertical scrolling remains native and nested horizontal owners keep priority. On Home, route navigation to Explore may begin only from the top hamburger/menu layer so the person/calendar carousels keep their existing horizontal gestures. Home's route-shell ancestry must preserve a definite full-height chain so the absolutely-sized friend/person swiper below the pill carousel cannot collapse. On every other primary page, MainLayout owns the vertical page scroll and the swipe owner covers the entire scrollable page content down to the bottom-navigation inset; primary page implementations must not add a nested full-page `overflow-y-auto` scroller that steals phone gestures. On Me, a leftward swipe opens Settings and a rightward swipe returns to Chat. Settings participates as the Me detail edge: a rightward swipe returns through browser history to Me when Settings was opened from Me, with a direct/deep-link fallback that replaces to Me, and a leftward swipe does nothing. Settings child pages use the same direct-manipulation surface as parent-aware details: Profile and Preferences (`/settings/preferences`) right-swipe back to Settings with the Settings page visibly attached under the drag. Notification Settings (`/settings/notifications`) similarly right-swipes to its actual opener—Settings or Alerts based on a validated route-parent state—and falls back to Settings on a direct link; left swipes do nothing. The legacy `/settings/screen` path redirects to Preferences. Their header Back controls use the same parent-history/fallback rule. Individual chat routes stay outside the five-page sequence but use the same compositor-owned route-drag primitive for a rightward **left-edge** Back gesture to Messages. Friend Calendar (`/friends/:friendId`) is likewise a parent-aware Explore detail: opening it records Explore as the route parent, its header Back uses history with an Explore replace fallback, Explore stays selected in the bottom nav, and its route swipe is edge-only so the nested calendar carousel keeps horizontal ownership away from the reserved edge. The activation edge is measured from the live route-swipe surface, not the browser viewport, so Full screen, Comfortable, and Wide content-width modes share the same 32px edge contract. A true edge start has route-back priority even over a message bubble; outside that reserved edge, message-bubble swipe-to-reply remains the owner. Chat records/uses Messages as its route parent, reveals the already-warm Messages surface under the finger, and falls back to replacing `/messages` for direct/deep links. The fixed bottom nav remains stationary while page content drags. Destination route chunks on both reachable sides are prefetched after first paint/idle. Do not mount hidden neighbor route trees during the initial critical render. Once a horizontal gesture locks to a direction, mount only that already-prefetched directional route inside the attached neighbor panel so the user sees real adjacent-page content under the finger; the lightweight route-specific shell remains the Suspense fallback if the chunk is not ready. The opposite neighbor stays unmounted. Route drag transforms remain compositor-owned and custom per-frame DOM writes are rAF-batched without React state updates on every move. Commit uses either the existing distance threshold or an intentional short flick with sufficient release velocity; successful settles shorten for faster releases, while `prefers-reduced-motion: reduce` snaps without transform animation. Navigation-time async states keep their route chrome stable and use static content placeholders rather than centered spinners for Explore profile resolution, Messages conversation hydration, Chat thread hydration, and Friend Calendar loading; action-specific progress indicators such as search, refresh, import, and sync may still spin.
 - **Appearance modes:** Settings → Preferences exposes System, Dark, Light, and Black appearance modes. System follows `prefers-color-scheme` live; Dark preserves Mosaic's existing charcoal palette; Black uses true-black primary surfaces for OLED; Light uses a light neutral surface/text palette while preserving semantic/category/accent colors. The selected mode is applied immediately, cached locally before React bootstrap to avoid a flash on reload, and persisted through the synced settings collection for the signed-in user. Theme changes are palette-only and must not alter layout, spacing, typography, gesture geometry, or task/category colors. Preferences also exposes a curated **Accent color** setting. Accent defaults to Mosaic emerald (`#10B981`), applies immediately through root CSS variables, caches per account for pre-React startup, and syncs through the existing settings collection. Accent controls interactive/brand emphasis such as primary actions, enabled switches, selection/highlight states, links, Today-style accents, unread/action badges, and focus rings. Semantic status colors remain independent: online/up-to-date/success stays green, warning/offline stays amber, destructive/error stays red, holidays/weekends keep their documented colors, and category/task colors are never rewritten by the accent preference.
 - **Large-screen layout preferences:** Settings → Preferences also owns Content width and Bottom sheets preferences. Content width offers Full screen, Comfortable, and Wide; Comfortable keeps phones full width and, from the tablet breakpoint upward, centers the entire primary route-swipe surface at `min(70vw, 960px)`, while Wide centers it at `85vw`, so the live current/destination drag geometry stays unified. Bottom sheets offer Full width and Compact; Compact keeps phones full width and centers the shared BottomSheet primitive at up to 540px on tablets and larger. Both preferences apply immediately, are cached before React bootstrap to avoid a stretched-width flash, and persist through the existing synced settings collection.
 - **Orientation:** Mosaic no longer globally forces portrait in the PWA manifest. Tablet/large-screen installed contexts may rotate between portrait and landscape; phone portrait locking is best-effort through the Screen Orientation API where supported, because the web manifest has no standard device-size-conditional orientation value.
 
 - **Diary view:** per-day free-text entry, keyed by `yyyy-MM-dd`. Visibility field per entry. Renders in the same view-switcher slot as Calendar.
-- **Notifications tab:** in-app notifications for message and reaction events. Renders a full `<ComingSoon />` page until wired.
+- **Alerts:** implemented friend-completion activity inbox; chat messages stay in Chat.
 - **Calendar behavior preferences:** Settings → Preferences owns the synced calendar behavior toggles. **Start week on Sunday** defaults on to preserve the shipped Sunday-first layout; turning it off makes Month, Week, and Todo calendars Monday-first and updates week-range calculations consistently. Calendar and Todo date titles are always accessible **Go to today** controls. Tapping the Calendar title resets calendar focus to the current date; tapping the Todo month title resets Todo focus to the month containing today. Diary keeps its existing non-date title behavior. Preference switches use the shared Settings switch geometry: the thumb is explicitly left-anchored when off, translates only within the track when on, and must never overflow its track.
 - **Holiday overlay:** Settings → Preferences owns a synced **Show holidays** toggle plus holiday country/region and holiday-type preferences. The overlay is viewer-local presentation, not a Task document and not friend-owned/shared data. Holiday data is fetched only when the feature is enabled, cached locally by country/year, rendered from cache offline, and refreshed in the background without gating Home, Calendar, Todo, Day View, or task editing. Calendar Month/Week renders holiday numerals and read-only holiday blocks in red before normal task blocks; Todo's compact grid keeps its title-free contract and uses only holiday numeral color, while its inline Day View renders the holiday label. Owner and friend Day Views render compact red holiday labels below the date header. In Light mode, Calendar holiday blocks and Day View holiday labels use a pale red surface with darker red text instead of the dark red treatment used by dark themes. Holiday occurrences never enter task completion, ordering, search, reactions, visibility, bulk actions, or sync. The provider boundary must stay replaceable for future calendar-source work; subdivision-only holidays are excluded until Mosaic exposes an explicit subdivision preference.
 - **Calendar layout alignment (permanent):** Month and Week views must be perfectly vertically aligned — same header spacing, `auto-rows-fr` on grids. Switching Month → Week jumps to the week containing the 1st of that month. Week header renders "Aug 30 - Sep 5, 2026" on a single line. Task blocks fill the full grid-cell width, use compact Todo Mate-style rounded corners and larger semibold labels, and keep `overflow-hidden whitespace-nowrap` hard clipping (NEVER truncate or `...`). Task image thumbnails inside Calendar task blocks span edge-to-edge across the block width without extra separation from the title area; title padding must not inset the image. Completed tasks show category color; uncompleted are `bg-[#374151]` / `text-gray-400`. Saturdays `text-blue-500`, Sundays `text-red-500`, today has a blue circle border.
@@ -101,10 +208,11 @@ See [offline implementation output](AI_WORKFLOW.md#offline-implementation-output
 
 ## 6. Appwrite 2.0 Strict Guardrails (CRITICAL)
 - **Regional Endpoint:** Must use the specific regional endpoint found in the project URL (e.g., `https://sgp.cloud.appwrite.io/v1`), NOT the generic `cloud.appwrite.io`
-- **Use TablesDB, NOT Databases:** All SDK calls must use the TablesDB service (e.g., `tablesDB.upsertRow`, `tablesDB.updateRow`), not the deprecated Databases service
+- **Use TablesDB, NOT Databases:** All SDK calls must use the TablesDB service (e.g., `tablesDB.createRow`, `tablesDB.updateRow`), not the deprecated Databases service
 - **Permission String Format:** Use the new format: `create("any")`, `read("any")`, `update("any")`, `delete("any")`. The old `"role:any"` formats are deprecated
 - **Row-Level vs Table-Level Permissions (VERIFIED):** `Permission.create()` **does NOT apply to rows**. Applying it to a row throws an error. Row-level permissions must only ever be `[read, update, delete]`. The **`create` permission belongs on the TABLE-level permissions** in the Appwrite Console (e.g., grant `create("users")` at the table level so authenticated users can insert new rows). If new-row sync fails with 401/403, the fix is in the Console, NOT in `buildRowPermissions`
 - **`updateRow` vs `upsertRow` (CRITICAL, §0 item 4):** `upsertRow` is a **full replace (PUT semantics)** in Appwrite 2.0 — any column omitted from `data` is reset to its column default. `updateRow` is a **PATCH** — omitted columns are left untouched. The sync engine **must** use `updateRow` for rows that already exist remotely, and `createRow` for brand-new rows. Failing to do this caused `read_at` on outgoing messages to be wiped on every sync cycle. **Do NOT use `upsertRow` as a fallback for a 404 on `updateRow`** — `createRow` is a strict insert with no PUT semantics and is the correct choice.
+- **Enforceable browser SDK boundary (#434):** `guardedTablesDB` intentionally exposes only `listRows`, `getRow`, `updateRow`, and `createRow`. No remote `upsertRow` (full replace) or `deleteRow` (bypasses tombstones) is available from feature modules; account-erasure/retention hard deletion remains server-owned. Local RxDB `collection.upsert` and the legacy social outbox action `kind: 'upsertRow'` are **not** remote TablesDB upsert calls. ESLint also rejects raw Appwrite SDK service constructors and namespace imports outside `src/lib/sdk.ts`/`src/lib/appwrite.ts`; safe `Query`/`Permission`/`Role` helpers remain allowed.
 - **Cross-User Writes Go Through Appwrite Functions (§0 item 7):** A user can only assign permissions they themselves hold. To write a row owned by another user (recipient's message copy, sender's task reaction, sender's read receipt), the write must be performed inside an Appwrite Function using its API key. Direct client writes to another user's row will 401/403 (see §20.3)
 - **REST Endpoints:** Base path for tables is `/v1/tablesdb/{databaseId}/tables/{tableId}`
 - **ID Mapping:** RxDB primary key `id` maps directly to Appwrite's `$id` column
@@ -114,6 +222,30 @@ See [offline implementation output](AI_WORKFLOW.md#offline-implementation-output
 - **`Parameters<T>` on SDK Methods Picks the Wrong Overload:** Appwrite's TablesDB/Storage/Functions methods are overloaded; TypeScript's built-in `Parameters<typeof method>` utility resolves to the **last** overload, which for these methods is a deprecated `(id: string, ...)` form. Never use `Parameters<>` to derive param types for these methods. Define the param shape explicitly in `src/lib/sdk.ts` and cast at the call boundary (`params as never`). See §15 for the guarded SDK surface.
 
 ## 7. UI/UX & Architectural Guardrails
+
+
+### UI behavior ownership (agent audit, issue #409)
+
+Behavior should be shared **only when the state/action contract is identical**;
+visual uniformity alone is not permission to change gesture priorities, thresholds,
+scroll ownership, keyboard focus, or existing styles.
+
+| Interaction surface | Existing behavior owner | Reuse decision and exception |
+|---|---|---|
+| Primary page and detail edge-back navigation | `protectedRoutes`, `PrimaryRouteSwipeSurface`, `primarySwipeNavigation` | **Metadata-driven default** for protected detail routes; existing edge gestures retain priority and legacy Settings paths preserve full-width swipes. Do not mix with bubble gestures. |
+| Chat-bubble reply and task title/memo taps | `useBubbleGestures` | **Reuse existing hook**, but preserve independent callbacks, directions, tap timing, and long-press ownership |
+| Day/month carousels | `useDayViewSwiper`, existing Swiper wiring | **Keep separate** from route and bubble gestures: carousel, sheet drag, and vertical scroll have different owners |
+| Task/category drag and task selection | Task reorder runtime and `DayViewSheet` | **Keep isolated**: selection disables reorder; reorder has dedicated pointer sensors and cancellation rules |
+| Sheet/dialog stack, native Back, and confirmations | `BottomSheet`, `ConfirmSheet`, `useFocusTrap` | **Automatic top-layer inertness, retained exit, root scroll/focus/Back ownership.** Feature sheets use controlled `isOpen`; exceptional non-sheet overlays explicitly opt out. See §13. |
+| Bulk task update/delete partial failure | `runBulkTaskActions` + `DayViewSheet` | **Reuse settled-failure selection** so one failed item does not lose other selections; preserve existing feedback and retry |
+| Custom keyboard-operable task selection and chat bubbles | `activateOnEnterOrSpace` | **Reuse identical Enter/Space activation** while retaining surface-specific actions; native input editing remains separate |
+| Timed notices and prop/sheet reset | `useFeedback`, `usePropSync`, `useSheetReset` | **Prefer existing helpers** for new identical cases; chat timestamp toggling and focus behavior are distinct state machines |
+
+Regression ownership: unit tests for pure policies and settled operations;
+DOM tests for selection, keyboard semantics, and sheet focus; browser contracts
+for real gesture arbitration, scrolling, history, and reduced-motion behavior.
+See [test workflow](TEST_WORKFLOW.md) and [theme guide](THEMING.md). A physical
+phone/desktop visual-and-touch check is **manual acceptance**, never implied by CI.
 - **Dynamic Colors:** Category colors MUST be applied via inline styles (`style={{ backgroundColor: cat.color }}`) — never dynamic Tailwind strings. The user-selected app accent is a separate appearance token applied through root CSS custom properties; do not reuse category colors as semantic state colors.
 - **Predefined Colors Only:** Category and app-accent pickers use the curated palettes in `src/constants/colors.ts`. No free-form hex inputs. Category palettes and accent palettes may share the `ColorPalettePicker` component while retaining separate allowed-color sets.
 - **Bottom Sheet Standardization:** All modals MUST use `<BottomSheet>` (see §13). It MUST use `ReactDOM.createPortal` into `document.body` to escape parent z-index/overflow traps and sit above `BottomNav`. Drag-to-close is restricted to the header handle via Framer Motion `useDragControls` + `dragListener={false}` on the main container — prevents accidental closes while scrolling. On Android/Samsung browser or installed-PWA Back, open sheets are modal history layers: Back dismisses only the top sheet, repeated Back dismisses nested sheets top-first, and route/browser navigation resumes only after the sheet stack is empty.
@@ -127,7 +259,7 @@ See [offline implementation output](AI_WORKFLOW.md#offline-implementation-output
 - **Soft Deletes:** Synchronized deletes are represented by `isDeleted: true` tombstones. Tombstones are retained for 90 days by default; clients with an older incremental cursor perform a full pull, and the privileged tombstone GC may permanently delete tombstones older than the retention window. See `docs/TOMBSTONE_RETENTION.md`.
 - **Strict ISO Dates:** All date fields MUST be ISO 8601 strings (`yyyy-MM-dd` for day keys, full `.toISOString()` for timestamps).
 - **iOS Storage:** Must call `navigator.storage.persist()` on launch to prevent WebKit from purging IndexedDB.
-- **Coming Soon:** Bottom nav has 5 tabs: Home, Explore, Notifications, Messages, Account. Notifications renders a full `<ComingSoon />` page.
+- **Bottom navigation:** Bottom nav has 5 tabs: Home, Explore, Alerts, Chat, Me. Alerts renders the account-scoped activity feed described in §2.
 
 ## 8. Current Progress & State
 
@@ -192,8 +324,13 @@ for the active task, and [test workflow](TEST_WORKFLOW.md) for verification comm
 - **Schema migrations:** adding an optional field to an existing RxDB collection requires (1) bump schema `version`, (2) add a `migrationStrategies` entry in `database.ts` backfilling `''` (or `false` for booleans), (3) update both `toAppwriteFormat` and `fromAppwriteFormat`, (4) update `KNOWN_FIELDS` (drift detection), (5) add the next numbered idempotent Appwrite migration through `scripts/appwrite-migrate.mjs` and the [Appwrite backend workflow](APPWRITE_BACKEND_WORKFLOW.md). `tests/helpers/testDb.ts` mirrors `database.ts`'s strategies and MUST be updated in lock-step — see §24.5. Any non-RxDB mapper constructing the same doc type (e.g. `friendData.mapCategoryRow`) MUST be updated in the same patch or the build fails on the missing required field.
 
 ## 13. Modal & Bottom Sheet Structure
+- **Default modal ownership (#409):** `BottomSheet` supplies drag handle, entrance and exit transitions, Escape/browser-history/Android Back, app-root inertness, focus trap, and ref-counted scroll lock through the exit. Its active portal is the sole keyboard/pointer owner; underlying open sheets are inert and aria-hidden automatically, with focus returning to the previous layer after dismissal. Keep these defaults centralized rather than reimplementing them in feature sheets.
+- **Controlled lifetime:** do not conditionally unmount a `BottomSheet` owner merely because `isOpen` changes to false: retain the owner and pass `isOpen={false}` until `onExitComplete` when the owning feature needs to drop its data. This is essential for portal exit animations; wrapping an immediately unmounted owner in another `AnimatePresence` does not guarantee exit.
+- **Reopening lifecycle:** a `BottomSheet` initially rendered closed must arm its retained-exit state on every open. Back, header drag and backdrop may close it, but the portal must survive until its downward animation completes. Regression-test the closed → open → close sequence, not only initially-open sheets.
+- **Data clearing on dismissal:** data-backed task, message and friend sheets use `useRetainedSheetValue` to keep the last entity displayed until `onExitComplete`. Caller owners stay mounted with `isOpen={false}`; conditional `{isOpen && <FeatureSheet />}` bypasses the shared animation.
+- **Route defaults:** protected pages are declared in `src/lib/protectedRoutes.ts`; `App.tsx` generates their `Route` entries. New detail pages specify a parent and owning tab once and inherit edge-back, history fallback, and layout settings. Existing Settings routes explicitly preserve the previously full-width swipe mode, and Notifications Settings accepts only Settings/Alerts origins.
 - **One sheet = one file.** Props `{ isOpen, onClose, <entity>, onSave/onConfirm }`. No context-based orchestration. Primitive rules: §7.
-- **Nested sheet choreography:** when one sheet opens another (TaskActionSheet → MemoSheet), parent passes `isLocked={isBackgroundLocked}` down. `isBackgroundLocked` is a single boolean OR of all child-sheet open states.
+- **Nested sheet choreography:** a new top `BottomSheet` automatically suspends underlying sheet focus/pointer access. Preserve domain-specific `isLocked` when underlying drag/reorder must also be disabled, and `suspendInteraction` for non-BottomSheet overlays (such as PhotoSwipe); do not hand-roll modal stack inertness.
 - **Sheet locking semantics:** `isLocked` disables drag/swipe interaction but preserves ordinary dismissal semantics. `preventDismiss` is the stronger in-flight guard: backdrop, Escape, and browser/Android Back must not dismiss the sheet while it is true. Use `preventDismiss` only while an operation must finish without the modal disappearing.
 - **Action sheets close themselves before opening a sibling:** `onClick={() => { onX(); onClose(); }}` — the action sheet must visually dismiss first.
 - **Sheet content padding:** `pt-2 pb-8 px-4` (or `px-1` for full-width lists). No extra wrappers.
@@ -322,7 +459,7 @@ for the active task, and [test workflow](TEST_WORKFLOW.md) for verification comm
 - **Re-entrancy guards:** the sync coordinator coalesces same-tab startup/resync requests, while message delivery coalesces only work for the same authenticated owner/generation. A request for a newer owner waits for the previous generation to retire and then runs for the current owner instead of being swallowed by the old loop.
 - **Bounded active-device catch-up:** focus, online, and visible transitions still request an immediate debounced `forceSync()`. `AppLayout` also runs a tiny 120-second watchdog while the authenticated app is visible, online, and DB-ready; each tick requests the same incremental six-pilot resync through the existing lazy sync import. This bounds a missed Appwrite Realtime reconnect gap without adding full scans or moving sync into the startup graph.
 - **RxDB owns normal restart/resume:** an inactive collection pilot starts directly with its stable versioned `replicationIdentifier`. If RxDB metadata already exists, its upstream/downstream checkpoints and pending writes resume automatically. Normal startup must not run a second browser writer over local cache rows.
-- **Fresh-sync barrier for safety-sensitive restore/import:** `initializeSync()` activates/resyncs the six pilots and may run read-only stale recovery when a local freshness proof is older than the tombstone horizon. Callers that must prove a fresh server snapshot use `refreshSync()`: it drains any in-flight coordinator work, requires every pilot to be active for the current owner, requests RxDB resync, and requires every pilot refresh to return `true` after `awaitInSync()`. The six independent pilot freshness proofs are launched together against the same remaining deadline; they must not be awaited sequentially, because a slow earlier collection would otherwise starve later collections of their freshness budget and create false collection-specific timeouts. Collection completion publishes coarse 0–100% sync progress. RxDB only runs live replication in its elected leader tab. Web Lock acquisition is part of the same caller deadline and is aborted at timeout; if the Web Locks API exists but lock acquisition fails, Mosaic fails closed rather than running unlocked. `lastSync` is stamped only after all six collections prove freshness. A freshness timeout does not stop live replication, so the status surface reports it as **sync still finishing** rather than persisting a red collection failure; callers that require proven freshness still receive the rejection and remain fail-closed.
+- **Fresh-sync barrier for safety-sensitive restore/import:** `initializeSync()` activates/resyncs the six pilots and may run read-only stale recovery when a local freshness proof is older than the tombstone horizon. Callers that must prove a fresh server snapshot use `refreshSync()`: it drains any in-flight coordinator work, requires every pilot to be active for the current owner, requests RxDB resync, and requires every pilot refresh to return `true` after `awaitInSync()`. The six independent pilot freshness proofs are launched together against the same remaining deadline; they must not be awaited sequentially, because a slow earlier collection would otherwise starve later collections of their freshness budget and create false collection-specific timeouts. Collection completion publishes coarse 0–100% sync progress. RxDB only runs live replication in its elected leader tab. Manual freshness requests wait up to 10 seconds (bounded by the remaining caller deadline) for a local browser/PWA leader election instead of prematurely assuming another tab after one second; a failed election reports a local-leadership timeout without asserting that a different physical device is blocking it. Separate laptop/phone IndexedDB origins and leader elections never coordinate through Appwrite. Web Lock acquisition is part of the same caller deadline and is aborted at timeout; if the Web Locks API exists but lock acquisition fails, Mosaic fails closed rather than running unlocked. `lastSync` is stamped only after all six collections prove freshness. A freshness timeout does not stop live replication, so the status surface reports it as **sync still finishing** rather than persisting a red collection failure; callers that require proven freshness still receive the rejection and remain fail-closed.
 - **Authenticated work generation:** `src/lib/accountWorkScope.ts` maintains the current authenticated owner + generation. AuthProvider invalidates it before login/signup/logout session mutation and establishes the new owner as soon as identity is known. Sync, message delivery, and generic retry flushing capture that generation and stop scheduling owner-specific work when it becomes stale. Sync status/backoff/retry side effects are likewise generation-guarded, and teardown clears a scheduled backoff wake only when that timer belongs to the owner being suspended, so delayed old-account cleanup cannot cancel a newer account's retry.
 - **Local replication freshness is DB-scoped:** `syncMeta` is a local-only RxDB collection keyed by account + synced collection. It stores the current replication identifier and the last settled in-sync timestamp. Because it lives in the same database, deleting/replacing IndexedDB also deletes the proof; it is never synced to Appwrite. The legacy account-scoped `lastSyncTimePerCollection` pull cursor is migration fallback only when no current freshness marker exists.
 - **Freshness is recorded only after proven convergence:** each pilot waits for RxDB's public initial-replication completion before recording its first freshness marker. For later activity, an `active → idle` transition is only a cue to await `awaitInSync()`; idle alone is not a freshness proof because a failed/retrying cycle can become inactive before it has converged. Pull handlers are never allowed to stamp freshness because returned rows/checkpoints may not yet be committed locally.
@@ -472,6 +609,13 @@ Single function, single ID, `action` field in the body. Actions:
 | `react_to_task` | friend of task owner | Patch the task owner's task row with a reaction delta |
 | `bulk_create_todomate_tasks` | authenticated owner | Migration-only fast path for a pristine TodoMate RxDB push batch (max 20): validate every row, force caller ownership/TodoMate source/non-deleted/no-reaction state, create rows concurrently with API-key server calls and owner-only permissions, and return same-owner 409 rows for normal client conflict resolution |
 | `get_friend_calendar` | friend of calendar owner | Read the owner's visible tasks and categories (filters by `visibility`; verifies friendship) |
+| `get_notifications` | authenticated recipient | Read the caller's friend-completion feed after live friendship/task/visibility revalidation |
+| `mark_notifications_read` | authenticated recipient | Mark only caller-owned notification rows read |
+| `get_push_config` | authenticated user | Return whether Web Push is configured and expose only the VAPID public key |
+| `register_push_subscription` | authenticated user | Register/update one HTTPS Web Push endpoint for the caller |
+| `unregister_push_subscription` | authenticated user | Remove the caller's matching Web Push endpoint |
+
+The same Function also receives Appwrite TablesDB `tasks` row create/update events. Eligible task-completion events fan out deterministic server-only `notifications` rows to mutual friends and optionally send Web Push; repeated events for the same recipient/task/completion are idempotent.
 
 Function ID is shared by `src/lib/appAction.ts` and the message layer; `src/lib/messageDelivery.ts` still exports `MESSAGE_ACTION_FUNCTION_ID` for compatibility. Actions dispatch from `appwrite-functions/message-action/main.js`, with larger action handlers split into sibling modules. Accepted friendship is verified before message/calendar writes; friendship lifecycle actions validate their own transition and caller authorization. (General cross-user-write rule: §6.)
 
@@ -833,7 +977,7 @@ browser quota pressure.
 
 Phase 3.5 replaced the plugin-injected registrar with `pwaLifecycle.ts`, which captures
 `beforeinstallprompt` and registers the worker exactly once through
-`virtual:pwa-register`. App-version updates are independent of RxDB/Appwrite data sync: `forceSync()` does not check the service worker. Settings exposes the app release version and deployment build identity plus the app-update control above the destructive data controls. The current release is **0.3.0**. Release-version and build-identity rules live in `docs/VERSIONING.md`.
+`virtual:pwa-register`. App-version updates are independent of RxDB/Appwrite data sync: `forceSync()` does not check the service worker. Settings exposes the app release version and deployment build identity plus the app-update control above the destructive data controls. The combined Alerts and versioning Preview began at **0.5.0**; its next user-testable Settings disclosure revision is **0.5.1**. Production remains on its independently verified version until an approved release. Settings shows only Version and its number by default; expanding Version reveals the effective Appwrite production/scratch backend (or custom/unknown), branch, commit, and separately expandable multiline commit message. Preview/dev builds must use Scratch while official production builds use Production; release-version and build-identity rules live in `docs/VERSIONING.md`.
 
 Update acquisition is intentionally moved off the user's critical path. More than one minute after post-paint maintenance starts, Mosaic performs a quiet service-worker update check when the document is visible and the browser is online, then rate-limits subsequent background checks to at most hourly; returning online or foregrounding the app can trigger an overdue check. This pre-download must never gate auth, Home, RxDB readiness, or first interaction. A background check never activates an update: a replacement worker still waits for explicit approval.
 
@@ -884,6 +1028,23 @@ measurement; Workbox explicitly excludes that metadata file from precache. The g
 the emitted module entry from `index.html`, follows Vite's **static** import graph for the
 initial app closure and the Home closure, totals every emitted JavaScript/CSS asset, and
 totals unique precache files from the generated worker.
+
+Production deployments embed a variable Git commit subject/body into the
+`mosaic-build-info` meta tag in `index.html`. The unique precache **size regression
+metric** discounts only that tag's variable `content` attribute bytes, so the same
+application code doesn't fail its guard when a merge has a descriptive longer
+commit message. All other index HTML, app assets and precached files remain
+counted. The actual built HTML, cached bytes and expanded Settings commit
+message are never truncated or excluded from the real deployment; the
+reviewed budget ceiling is not raised.
+
+Avoid dynamic `import.meta.env[name]` lookups in shipped code. Vite must
+materialize an environment object for such access, including deployment-
+specific `VITE_*` metadata, which can change bundled JS bytes between the
+identical accepted Preview tree and its `dev` merge. Use explicit
+`import.meta.env.VITE_...` references for known Appwrite configuration keys,
+then retain the fork-safe fallback resolution. This reduces cross-branch
+bundle drift without discounting genuine app code from size budgets.
 
 The guarded metrics are:
 
@@ -949,6 +1110,123 @@ ceiling from 2,320,800 B to 2,323,600 B, leaving 1,032 B and 1,000 B of measured
 headroom respectively. Entry, startup/Home closures, and aggregate raw remain unchanged. This
 records approved product growth after measured trimming and provider-matched verification, not
 a blanket threshold increase.
+
+A fourth reviewed 2026-10-07 exception accepts the Notifications/Alerts feature after the
+generated-worker verification fix exposed its complete production graph. Provider-matched
+Vercel builds measured the immediately preceding accepted `dev` at 2,247,422 B aggregate raw /
+686,912 B aggregate gzip / 2,322,431 B unique precache and the complete Alerts Preview at
+2,268,387 B / 694,711 B / 2,346,954 B: +20,965 B raw, +7,799 B gzip, and +24,523 B
+precache. The growth is attributable to the new lazy Alerts route plus its notification cache,
+push-registration client, shared action dependencies, and the checked-in push service-worker
+handler; entry, initial static closure, and Home closure remain inside their existing ceilings.
+The aggregate-raw ceiling is therefore revised from 2,254,900 B to 2,269,500 B, aggregate gzip
+from 688,000 B to 695,800 B, and unique precache from 2,323,600 B to 2,348,000 B, leaving
+1,113 B, 1,089 B, and 1,046 B of measured Vercel headroom respectively. Entry and startup/Home
+ceilings remain unchanged. This is measured product growth, not a blanket threshold increase.
+
+A fifth reviewed 2026-10-08 exception covers the incremental Alerts retention and
+friend-task navigation upgrade. Provider-matched Vercel builds measured the previous
+accepted Alerts Preview at 2,269,259 B aggregate raw / 694,953 B aggregate gzip /
+2,347,812 B unique precache and the upgraded Alerts Preview at 2,280,215 B /
+700,313 B / 2,359,848 B. The increases (+10,956 B raw, +5,360 B gzip,
++12,036 B precache) come from the new lazy Notifications Settings route,
+lazy friend-task detail sheet, retention/grouping and read-visibility logic.
+Entry, startup and Home closure remain under the existing reviewed ceilings.
+After that provider-matched measurement, only aggregate raw/gzip and precache
+ceilings rise to 2,281,400 B / 701,400 B / 2,361,000 B, retaining 1,185 B,
+1,087 B and 1,152 B headroom. This is scoped product growth, not an
+unconditional size-budget reset.
+
+A sixth reviewed 2026-10-08 exception covers the Alerts Friend Day View
+gesture and fast, live-authorized single-task lookup. Provider-matched Vercel
+builds measured the preceding accepted Preview at 2,280,215 B raw / 700,313 B
+gzip / 2,359,848 B unique precache and this upgrade at 2,283,283 B raw /
+701,084 B gzip / 2,362,838 B precache: +3,068 B raw, +771 B gzip and
++2,990 B precache. The growth is scoped to parent-aware route gestures,
+the lazy alert task sheet, the secure fast lookup client and focused
+interaction feedback; server Function source does not inflate the client
+bundle. Entry, initial static closure, and Home static closure remain below
+the previous unchanged ceilings. To preserve about 1 KB measured headroom,
+aggregate limits are revised to 2,284,500 B raw / 702,200 B gzip /
+2,364,000 B unique precache, leaving 1,217 B / 1,116 B / 1,162 B
+respectively. This is measured feature acceptance, not unbounded slack.
+
+A seventh reviewed 2026-10-08 exception accepts mobile notification tap-to-task routing,
+per-device opt-in detailed push copy, and the shared Alerts sheet exit lifecycle.
+Provider-matched Vercel output for the preceding accepted gesture/fast-task Preview
+was 2,283,283 B aggregate raw / 701,084 B aggregate gzip / 2,362,838 B
+unique precache; the complete notification-navigation Preview measured
+2,286,639 B / 702,236 B / 2,367,425 B: +3,356 B raw, +1,152 B gzip,
+and +4,587 B precache. Independent GitHub Actions measured 2,284,560 B raw /
+701,149 B gzip / 2,364,611 B precache for that same tree. The measured
+growth comes from the browser notification click path, authorized deep links,
+device push-detail preference, and sheet lifecycle; backend Function/schema
+source is not shipped in the frontend asset graph. Entry, startup and Home
+static closure limits are unchanged and all passed. Based on those provider-
+matched values, aggregate raw/gzip/precache ceilings are revised to
+2,287,800 B / 703,400 B / 2,368,700 B, leaving 1,161 B / 1,164 B /
+1,275 B of measured Vercel headroom. This is scoped reviewed product growth
+rather than general budget expansion.
+
+An eighth reviewed 2026-10-08 exception accepts the opt-in, device-local
+foreground push preference for Chromium/Samsung, including visible-window
+checks and a documented WebKit fallback that always displays delivered pushes.
+Provider-matched Vercel output for the preceding notifications Preview was
+2,286,639 B aggregate raw / 702,236 B aggregate gzip / 2,367,425 B
+unique precache; the completed foreground-toggle Preview measured
+2,288,564 B / 702,831 B / 2,371,091 B, respectively. These measured
+increases (+1,925 B raw, +595 B gzip, +3,666 B precache) represent
+the additional device preference UI, shared worker IndexedDB setting,
+visible-client policy and tests/docs. Independent GitHub output measured
+2,286,629 B raw / 701,801 B gzip / 2,368,563 B precache. Entry,
+initial startup closure and Home static closure all remained under
+their existing unchanged limits. After measuring both providers, the three
+aggregate ceilings are revised to 2,289,800 B raw / 703,900 B gzip /
+2,372,400 B precache, retaining 1,236 B / 1,069 B / 1,309 B of
+Vercel headroom. This is scoped feature growth rather than an
+unconditional size guard increase.
+
+A ninth reviewed 2026-10-08 exception accepts **account-synced, independently
+configurable Alerts history**. A comparable GitHub diagnostic build initially fit
+the previous ceilings, but the actual Vercel environment emitted 2,291,198 B
+aggregate raw / 704,042 B gzip / 2,374,031 B precache and exceeded the
+old ceilings by 1,398 B / 142 B / 1,631 B. The growth is from two
+Notification Settings controls, retention-policy logic and the recoverable
+offline feed cache; the Appwrite Function source is not shipped with the PWA.
+The unchanged entry/startup/Home limits still pass. The three aggregate caps
+are increased only to 2,293,300 B raw / 705,100 B gzip / 2,375,900 B
+precache, leaving 2,102 B / 1,058 B / 1,869 B against the measured
+Vercel build, rather than disabling or generally loosening the guard.
+This is the approved feature's measured production cost, not arbitrary budget
+growth.
+
+A tenth reviewed 2026-10-09 exception accepts **profile/category save
+lifecycle safety (v0.6.2)**: single-flight saves, error feedback and retryable
+name, description, and category create/update/delete forms. The scoped shared
+save hook and propagated local category write errors are small additions to
+existing lazy routes; no new runtime package, backend Function, Appwrite schema,
+sync pipeline, or visual redesign is introduced. The existing Vite entry,
+initial static closure, and Home static closure all pass unchanged ceilings.
+
+Provider-matched Vercel builds measured the immediately preceding accepted
+v0.6.1 Preview `5f1d4c8e` at **2,293,734 B** aggregate app-asset raw /
+**704,926 B** aggregate gzip / **2,375,849 B** unique precache, and the
+complete v0.6.2 form-action Preview `d9df80ea` at **2,295,455 B** raw /
+**705,773 B** gzip / **2,377,890 B** precache. The measured increments are
+**+1,721 B raw / +847 B gzip / +2,041 B precache**, consistent with the
+independent GitHub production build deltas of +1,721 B / +846 B / +2,041 B
+respectively. The change primarily enlarges the lazy profile and category
+routes rather than the entry or Home closure. These values were collected
+from failed size-only CI and Vercel builds after TypeScript, Vite and the
+PWA policy had already passed; all other CI shards were green.
+
+The three aggregate limits alone are therefore revised to **2,296,600 B
+raw / 706,900 B gzip / 2,379,100 B precache**, leaving **1,145 B / 1,127 B /
+1,210 B** of measured Vercel headroom for this explicitly accepted, useful
+failure/retry behavior. The original reviewed baseline and the entry,
+startup and Home ceilings remain unchanged. The build-size guard is still
+mandatory; this is a bounded, measured product exception rather than
+general CI relaxation.
 
 The current baseline and limits live in
 `config/build-size-budget.json` and are pinned by unit coverage.
@@ -1097,5 +1375,7 @@ The offline contract is split into **boot correctness** and **feature completene
 
 ## 25. Workflow Portability and History
 
-[AI workflow](AI_WORKFLOW.md) owns the current process. Historical decisions are in
-Git retains the historical project decisions and earlier instruction versions.
+[AI workflow](AI_WORKFLOW.md) owns the current agent process; [Delivery](DELIVERY.md)
+owns promotion and CI rules. Git history and completed issue/PR records preserve
+historical project decisions and earlier instruction versions. This reference
+preserves stable numbered contract sections for existing links and regressions.

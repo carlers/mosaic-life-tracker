@@ -43,7 +43,6 @@ import {
 } from '../lib/holidays';
 import { useHolidayCountries } from '../hooks/useHolidays';
 import { hasExpectedRouteParent } from '../lib/primarySwipeNavigation';
-
 interface ChoiceCopy {
   label: string;
   description: string;
@@ -206,7 +205,6 @@ export const PreferencesPage: React.FC = () => {
   const { getSetting, setSetting } = useSettings();
   const holidayCountries = useHolidayCountries();
   const [isAccentPickerOpen, setIsAccentPickerOpen] = useState(false);
-
   const continueAddingTasks =
     getSetting(CONTINUE_ADDING_TASKS_SETTING_KEY, false) === true;
   const addTasksToTop =

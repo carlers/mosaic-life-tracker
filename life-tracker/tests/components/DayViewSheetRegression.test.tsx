@@ -287,9 +287,13 @@ describe('DayViewSheet nested task actions', () => {
         'cat_2'
       )
     );
-    expect(screen.getAllByRole('button', { name: 'Select tasks' })
-      .find((button) => button.getAttribute('tabindex') === '0'))
-      .toHaveAttribute('aria-pressed', 'false');
+    // The bulk picker retains its inert exit layer until dismissal finishes.
+    // Users regain the Day View only after that shared animation settles.
+    await waitFor(() => {
+      expect(screen.getAllByRole('button', { name: 'Select tasks' })
+        .find((button) => button.getAttribute('tabindex') === '0'))
+        .toHaveAttribute('aria-pressed', 'false');
+    });
   });
 
   it('exits inline selection mode on Escape', () => {

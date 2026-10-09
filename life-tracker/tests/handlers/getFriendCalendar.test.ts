@@ -238,4 +238,74 @@ describe('message-action / get_friend_calendar', () => {
       secondPageQueries.some((q: { op?: string }) => q?.op === 'cursorAfter')
     ).toBe(true);
   });
+  describe('fast alert task lookup', () => {
+    const completedAt = '2026-10-08T09:30:00.000Z';
+    const request = {
+      action: 'get_friend_task',
+      friendUserId: FRIEND,
+      taskId: 'task_1',
+      completedAt,
+    };
+    const task = {
+      $id: 'task_1',
+      user_id: FRIEND,
+      category_id: 'cat_priv',
+      title: 'Visible task',
+      date: '2026-10-08',
+      is_completed: true,
+      completed_at: completedAt,
+      deleted: false,
+      visibility: 'followers',
+    };
+
+    it('denies non-friends before reading any task data', async () => {
+      const result = await invoke({ userId: CALLER, mockDb, body: request });
+      expect(result.status).toBe(403);
+      expect(mockDb.getRow).not.toHaveBeenCalled();
+    });
+
+    it('returns one task, redacting its private category metadata', async () => {
+      mockDb.listRows.mockResolvedValue({ rows: [friendshipRow()] });
+      mockDb.getRow.mockImplementation(async ({ tableId }: { tableId: string }) =>
+        tableId === 'tasks' ? task : {
+          $id: 'cat_priv', user_id: FRIEND, name: 'Secret category',
+          visibility: 'private', color: '#123456', deleted: false,
+        }
+      );
+      const result = await invoke({ userId: CALLER, mockDb, body: request });
+      expect(result.status).toBe(200);
+      expect(result.body.task).toMatchObject({ $id: 'task_1', title: 'Visible task' });
+      expect(result.body.category).toBeNull();
+      expect(mockDb.getRow).toHaveBeenCalledTimes(2);
+      expect(mockDb.listRows).toHaveBeenCalledTimes(2);
+    });
+
+    it('refuses stale completions and private or uncompleted tasks', async () => {
+      mockDb.listRows.mockResolvedValue({ rows: [friendshipRow()] });
+      mockDb.getRow.mockImplementation(async ({ tableId }: { tableId: string }) =>
+        tableId === 'tasks' ? task : {
+          $id: 'cat_priv', user_id: FRIEND, visibility: 'private', deleted: false,
+        }
+      );
+      expect((await invoke({
+        userId: CALLER, mockDb,
+        body: { ...request, completedAt: '2026-10-08T09:00:00.000Z' },
+      })).status).toBe(404);
+
+      mockDb.getRow.mockResolvedValue({ ...task, visibility: 'private' });
+      expect((await invoke({ userId: CALLER, mockDb, body: request })).status).toBe(404);
+      mockDb.getRow.mockResolvedValue({ ...task, is_completed: false });
+      expect((await invoke({ userId: CALLER, mockDb, body: request })).status).toBe(404);
+    });
+
+    it('rejects invalid and self-directed task lookups', async () => {
+      expect((await invoke({ userId: CALLER, mockDb,
+        body: { ...request, taskId: '../task' },
+      })).status).toBe(400);
+      expect((await invoke({ userId: FRIEND, mockDb,
+        body: request,
+      })).status).toBe(400);
+    });
+  });
+
 });

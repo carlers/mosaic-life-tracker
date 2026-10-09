@@ -9,6 +9,7 @@ import {
   type SwipeDirection,
 } from '../../hooks/useBubbleGestures';
 import { parseReactions } from '../../lib/reactionUtils';
+import { activateOnEnterOrSpace } from '../../lib/keyboardActivation';
 import type { MessageDocument } from '../../db/schema';
 
 export type MessageStatusKind = 'pending' | 'delivered' | 'read';
@@ -63,7 +64,7 @@ const StatusRow: React.FC<StatusRowProps> = ({
   createdAt,
 }) => {
   return (
-    <div className="mt-1 flex items-center justify-end gap-1 text-[10px] text-white/60 min-h-[14px]">
+    <div className="mt-1 flex items-center justify-end gap-1 text-[10px] text-gray-400 min-h-[14px]">
       {statusKind === 'read' ? (
         <>
           <CheckCheck size={12} />
@@ -94,7 +95,7 @@ const UnsentBubble: React.FC<UnsentBubbleProps> = ({ isOutgoing }) => {
   return (
     <div className={`flex ${isOutgoing ? 'justify-end' : 'justify-start'}`}>
       <div className="relative max-w-[75%]">
-        <div className="block w-full text-left rounded-2xl px-3 py-2 bg-[#2A2A2A] text-gray-400">
+        <div className="block w-full text-left rounded-2xl px-3 py-2 bg-surfaceHighlight text-gray-400">
           <span className="italic text-gray-400 text-sm">Message deleted</span>
         </div>
         <div className="mt-1 flex items-center gap-1 text-[10px] text-gray-400 min-h-[14px]">
@@ -196,9 +197,7 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
           onPointerCancel={onPointerCancel}
           onContextMenu={onContextMenu}
           onKeyDown={(event) => {
-            if (event.key !== 'Enter' && event.key !== ' ') return;
-            event.preventDefault();
-            setShowTimestampLocal((visible) => !visible);
+            activateOnEnterOrSpace(event, () => setShowTimestampLocal((visible) => !visible));
           }}
           style={{
             transform: `translateX(${swipeOffset}px)`,
@@ -206,8 +205,8 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
           }}
           className={`select-none block w-full text-left rounded-2xl px-3 py-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 ${
             isOutgoing
-              ? 'bg-[#2A2A2A] text-white'
-              : 'bg-black border border-[#3A3A3A] text-white'
+              ? 'bg-surfaceHighlight text-white'
+              : 'bg-mosaicIncoming border border-[#444444] text-white'
           }`}
           aria-label={buildBubbleLabel(
             message,
@@ -221,7 +220,7 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
               onClick={() => onQuoteTap?.(message.replyToId)}
               onPointerDown={(e) => e.stopPropagation()}
               className={`w-full text-left mb-1.5 rounded-lg px-2 py-1 ${
-                isOutgoing ? 'bg-[#1A1A1A]' : 'bg-[#2A2A2A]'
+                isOutgoing ? 'bg-surface' : 'bg-surfaceHighlight'
               }`}
             >
               <ReplyPreview

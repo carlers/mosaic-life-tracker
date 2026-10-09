@@ -85,6 +85,16 @@ vi.mock('../../src/components/modals/ExportDataSheet', () => ({
     ) : null,
 }));
 vi.mock('../../src/components/modals/SyncStatusSheet', () => ({ SyncStatusSheet: () => null }));
+vi.mock('../../src/lib/buildInfo', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../src/lib/buildInfo')>();
+  return {
+    ...actual,
+    APP_BUILD_INFO: {
+      ...actual.APP_BUILD_INFO,
+      commitMessage: 'feat: add alerts\n\n- Send friend notifications\n- Improve loading',
+    },
+  };
+});
 import { SettingsPage } from '../../src/pages/SettingsPage';
 import { APP_VERSION } from '../../src/lib/appVersion';
 
@@ -97,9 +107,23 @@ describe('SettingsPage navigation, updates, and data controls', () => {
       </MemoryRouter>
     );
 
+    const versionToggle = screen.getByText('Version').closest('summary');
+    expect(versionToggle).not.toBeNull();
     expect(screen.getByText(APP_VERSION)).toBeInTheDocument();
+    const versionDetails = screen.getByTestId('app-version-details');
+    expect(versionDetails).not.toHaveAttribute('open');
+    expect(screen.getByTestId('app-build-info')).not.toBeVisible();
+
+    fireEvent.click(versionToggle!);
+    expect(versionDetails).toHaveAttribute('open');
+    expect(screen.getByTestId('app-build-info')).toBeVisible();
+    expect(screen.getByTestId('app-build-info')).toHaveTextContent(/appwrite: production|appwrite: scratch|appwrite: custom|appwrite: unknown/);
     expect(screen.getByTestId('app-build-info')).toHaveTextContent(/branch: local/);
     expect(screen.getByTestId('app-build-info')).toHaveTextContent(/commit: local/);
+
+    fireEvent.click(versionToggle!);
+    expect(versionDetails).not.toHaveAttribute('open');
+    expect(screen.getByText(APP_VERSION)).toBeVisible();
     expect(
       screen.getByRole('button', { name: /Check for Updates/i })
     ).toBeInTheDocument();
@@ -109,6 +133,23 @@ describe('SettingsPage navigation, updates, and data controls', () => {
     expect(
       screen.getByRole('button', { name: 'Import from TodoMate' })
     ).toBeInTheDocument();
+  });
+
+  it('expands and collapses the full deployment commit message within Version details', () => {
+    render(<MemoryRouter><SettingsPage /></MemoryRouter>);
+    const versionDetails = screen.getByTestId('app-version-details');
+    fireEvent.click(screen.getByText('Version').closest('summary')!);
+    expect(versionDetails).toHaveAttribute('open');
+    const summary = screen.getByText('message: feat: add alerts').closest('summary');
+    expect(summary).not.toBeNull();
+    const details = summary!.closest('details');
+    expect(details).not.toHaveAttribute('open');
+    fireEvent.click(summary!);
+    expect(details).toHaveAttribute('open');
+    expect(details).toHaveTextContent('- Send friend notifications');
+    expect(details).toHaveTextContent('- Improve loading');
+    fireEvent.click(summary!);
+    expect(details).not.toHaveAttribute('open');
   });
 
   it('opens the TodoMate transfer surface from Settings', () => {

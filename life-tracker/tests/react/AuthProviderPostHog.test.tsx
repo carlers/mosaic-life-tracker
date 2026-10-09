@@ -18,6 +18,8 @@ const posthogRef = vi.hoisted(() => ({
 }));
 
 const initializeSyncMock = vi.hoisted(() => vi.fn());
+const suspendSyncOwnerMock = vi.hoisted(() => vi.fn());
+const setPushActiveUserMock = vi.hoisted(() => vi.fn());
 const waitForDatabaseReadyMock = vi.hoisted(() =>
   vi.fn().mockResolvedValue(undefined)
 );
@@ -35,6 +37,11 @@ vi.mock('../../src/lib/databaseBootstrap', () => ({
 
 vi.mock('../../src/db/sync', () => ({
   initializeSync: initializeSyncMock,
+  suspendSyncOwner: suspendSyncOwnerMock,
+}));
+
+vi.mock('../../src/lib/pushNotifications', () => ({
+  setPushActiveUser: setPushActiveUserMock,
 }));
 
 import { AuthProvider } from '../../src/hooks/AuthProvider';
@@ -69,6 +76,8 @@ describe('AuthProvider PostHog identity integration', () => {
     vi.clearAllMocks();
     waitForDatabaseReadyMock.mockResolvedValue(undefined);
     initializeSyncMock.mockResolvedValue(undefined);
+    suspendSyncOwnerMock.mockResolvedValue(undefined);
+    setPushActiveUserMock.mockResolvedValue(undefined);
     Object.defineProperty(navigator, 'onLine', {
       configurable: true,
       value: true,

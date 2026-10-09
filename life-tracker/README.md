@@ -2,7 +2,9 @@
 
 Offline-first life tracker built with React, TypeScript, Vite, RxDB, and Appwrite.
 Calendar and Todo views, task/category management, social calendars, messaging,
-account/settings, and PWA support are implemented. Diary and Notifications remain backlog.
+account/settings, the friend-completion **Alerts** feed, and PWA support are implemented.
+Optional Web Push and configurable Alerts history retention are available; a dedicated
+Diary view remains planned (Diary data and import support already exist).
 
 ## Run your own Mosaic
 

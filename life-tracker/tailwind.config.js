@@ -8,9 +8,10 @@ export default {
   theme: {
     extend: {
       colors: {
-        background: '#111111', // Deep dark background
-        surface: '#1E1E1E',    // Slightly lighter for cards/sheets
-        surfaceHighlight: '#2A2A2A',
+        background: 'var(--mosaic-bg)',
+        surface: 'var(--mosaic-surface)',
+        surfaceHighlight: 'var(--mosaic-surface-elevated)',
+        mosaicIncoming: 'var(--mosaic-chat-incoming)',
       },
       fontFamily: {
         sans: ['Inter', 'system-ui', 'sans-serif'],

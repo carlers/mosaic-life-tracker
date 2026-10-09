@@ -10,6 +10,7 @@ const mocks = vi.hoisted(() => ({
   setSheetWidthMode: vi.fn().mockResolvedValue(undefined),
   getSetting: vi.fn(),
   setSetting: vi.fn().mockResolvedValue(undefined),
+
 }));
 
 beforeEach(() => {
@@ -56,7 +57,7 @@ import { PreferencesPage } from '../../src/pages/PreferencesPage';
 
 describe('PreferencesPage', () => {
   // Regression: §2 (Preferences owns display/layout and synced behavior controls).
-  it('exposes existing screen choices and the requested behavior preferences', () => {
+  it('exposes existing screen choices and the requested behavior preferences', async () => {
     render(
       <MemoryRouter>
         <PreferencesPage />
@@ -96,7 +97,6 @@ describe('PreferencesPage', () => {
     const holidays = screen.getByRole('switch', {
       name: 'Show holidays',
     });
-
     expect(continuous).toHaveAttribute('aria-checked', 'false');
     expect(taskPosition).toHaveAttribute('aria-checked', 'false');
     expect(sunday).toHaveAttribute('aria-checked', 'true');
@@ -126,4 +126,6 @@ describe('PreferencesPage', () => {
     expect(mocks.setSetting).toHaveBeenCalledWith('holidayRegion', 'PH');
     expect(mocks.setSetting).toHaveBeenCalledWith('holidayTypes', 'public');
   });
+
+
 });

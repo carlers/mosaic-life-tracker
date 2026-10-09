@@ -13,6 +13,42 @@ checkpoint after CI turns green. Then follow [delivery](DELIVERY.md). No mandato
 model selection, response footers, verbatim prompt copies, or evidence ledger. [Telemetry](WORKFLOW_TELEMETRY.md)
 is optional. Batch independent reads and ask for missing files together.
 
+## Select the smallest correct work path
+
+| Request | Action | Verification and release boundary |
+|---|---|---|
+| Capture idea or critique an issue | Update the issue; do not create a task branch | GitHub readback; no app CI, deployment, or version bump |
+| Read-only audit or planning | Inspect exact `dev` and relevant issue/PR evidence; publish findings | No source change; label unknown checks as unverified |
+| Documentation / workflow / internal tooling change | Use the task branch and stable Preview path, with version impact **NONE** | Focused checks and the current canonical Preview gate; skip Appwrite cloud readiness unless the change actually depends on it |
+| User-visible frontend change | Use task → stable Preview → explicitly approved `dev` / `main` | Plan Preview version, focused tests, canonical acceptance, Vercel Preview and relevant manual/browser checks |
+| Appwrite-dependent change | Same branch/release path **plus** explicit Scratch readiness | Additive migration / Function / registered origin / synthetic-user evidence; Production changes need separate approval |
+
+Select once from the actual diff and dependencies, not the issue title. A read-only
+critique does not require a branch. Do not add an independent full gate to the task branch
+when the stable Preview gate already owns canonical acceptance; do not weaken existing
+checks by reclassifying a source/config change as prose. The executable Quality Gate in
+`../../.github/workflows/quality-gate.yml` remains authoritative for what CI actually runs.
+
+## Issues as work intake
+
+For "add to backlog", "plan issue #N", "critique issue #N", and "implement #N",
+follow [GitHub Issues workflow](ISSUE_WORKFLOW.md). Explicit capture is a
+lightweight GitHub write, not a development task or permission to implement.
+Planning records the issue's intent and acceptance criteria without copying the
+whole roadmap into every issue. An approved issue is read alongside the current
+Git checkpoint, not substituted for repository contracts. Link the issue in task
+PRs and keep the issue open until the documented acceptance/release boundary.
+If GitHub issue tools are unavailable, return a copy-ready issue and state that
+nothing was saved; never fabricate issue numbers, links, or updates.
+
+## Preview version and promotion subject
+
+New user-visible capabilities get a planned MINOR version; each later successfully delivered user-testable refinement gets one PATCH. A failed provider build consumes no new version. Reconcile reserved versions against main, dev and other active Preview branches; independent feature versions cannot collide. Apply the version in the **same task commit** as the deliverable changes, synchronize package.json, package-lock.json and src/lib/appVersion.ts with `npm run version:set -- X.Y.Z` or `version:bump`, and validate with `npm run version:check`. Never bump during an accepted stable Preview -> dev -> main promotion; changing the accepted tree mandates a fresh Preview acceptance. Follow [versioning](VERSIONING.md).
+
+Every squash/promotion merge should have a descriptive `commit_title` and `commit_message` from the actual delivered diff, not a generic approval/branch description. Use a full body for the release changes and retain CI/provenance metadata in PR descriptions. The Settings commit display is expandable. No release tags before main CI and production deployment are green.
+
+**Environment invariant:** official Vercel Preview (including dev) uses only registered Scratch Appwrite; official main uses only Production. Browser-facing `appwrite:` Settings metadata comes from actual SDK project + endpoint, not the branch. Use stable registered Preview aliases, not unregistered immutable deployment URLs. Follow [scratch Preview readiness](SCRATCH_PREVIEW_WORKFLOW.md) only for backend-dependent work, never add Appwrite delays to frontend-only changes.
+
 ## Environment selection
 
 | Environment | Work and verification | Transfer |
@@ -155,6 +191,20 @@ Checkpoint objective, constraints, completed/remaining work, working files, veri
 blockers, and next action at meaningful milestones or before switching. Keep files complete.
 Git supplies branch and worktree truth; avoid redundant status prose. A checkpoint describes
 recoverable work, not unpersisted reasoning. An expired cloud container cannot supply local-only files.
+
+**Checkpoint freshness:** `SESSION_STATE.md` is a dated task snapshot, not proof of
+current branch/issue/PR/CI/deployment state. After a Preview or dev promotion, its pending
+steps may already have completed; retrieve the current Git refs, issue, PR and Actions
+before resuming. Use the current task branch/SHA and linked issue for cross-chat recovery.
+Do **not** add a status-only post-green commit solely to refresh the checkpoint; the
+next substantive task updates it in its normal task commit.
+
+The handoff CLI accepts both older structured and concise checkpoint forms. It needs an
+Updated marker, an identified current task/work, and a Next action field or section.
+`## Working set` is optional for short checklists; when omitted the generated file packet
+contains no extra source files, so pass explicit paths to `npm run handoff -- <target> <path>...`
+or request files in the receiving chat. `--transport github` still requires a clean,
+exactly published SHA and never guesses missing code.
 A requested handoff means finish the atomic operation, checkpoint, produce transport, and stop.
 
 ## Handoff commands
