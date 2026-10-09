@@ -163,8 +163,8 @@ describe('build-size guard', () => {
     }
   });
 
-  // Regression: §24.14 (aggregate/precache ceilings include reviewed shipped
-  // product growth without widening startup/Home limits).
+  // Regression: §24.14 (reviewed v0.11.0 UI growth and Vercel Preview
+  // emitted-asset variance; startup/Home and gzip limits remain unchanged).
   it('preserves the reviewed aggregate and precache ceilings', async () => {
     const configuredBudget = JSON.parse(await readFile(
       new URL('../../config/build-size-budget.json', import.meta.url),
@@ -172,9 +172,9 @@ describe('build-size guard', () => {
     ));
 
     expect(configuredBudget.limits).toMatchObject({
-      appAssetsRawBytes: 2300600,
+      appAssetsRawBytes: 2301200,
       appAssetsGzipBytes: 707900,
-      precacheUniqueBytes: 2383100,
+      precacheUniqueBytes: 2383700,
     });
   });
 
